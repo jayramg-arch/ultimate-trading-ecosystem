@@ -1,0 +1,335 @@
+//@version=6
+indicator("Commander Screener Beta Edition", overlay=false)
+
+// ==========================================
+// 1. STRATEGY INPUTS (For Finetuning)
+// ==========================================
+groupStrat  = "Strategy Inputs"
+maLengthW   = input.int(30, title="Weinstein SMA Length (Weekly)", group=groupStrat)
+wmaSlopeLen = input.int(4, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
+slopeThresh = input.float(0.0005, title="30WMA Slope Threshold (Flat)", group=groupStrat)
+
+bench500    = input.symbol("NSE:CNX500", title="Benchmark (Nifty 500/Breadth)", group=groupStrat)
+
+rsLength    = input.int(26, title="Mansfield RS Length", group=groupStrat)
+rsSlopeLen  = input.int(8, title="RS Slope Lookback (Weeks)", group=groupStrat)
+
+groupMA     = "Daily MA Settings"
+dma50_len   = input.int(50, title="50 DMA Length", group=groupMA)
+dma150_len  = input.int(150, title="150 DMA Length", group=groupMA)
+dma200_len  = input.int(200, title="200 DMA Length", group=groupMA)
+dmaSlopeLen = input.int(21, title="50DMA Slope Lookback (Days)", group=groupMA)
+flatThresh  = input.float(0.0005, title="Slope Flat Threshold (Daily)", group=groupMA)
+
+groupTech   = "Technical Settings"
+atrLen      = input.int(14, title="ATR Length", group=groupTech)
+
+grp_edge = "Mathematical Edges (Backtested)"
+use_macro_edge = input.bool(true, title="[ENABLE] Macro Edge: Institutional Vol Bias", group=grp_edge)
+
+// ==========================================
+// 2. HELPER FUNCTIONS & SECTOR MAPPER
+// ==========================================
+f_calc_slope_val(series float src, int len) =>
+    ta.linreg(src, len, 0) - ta.linreg(src, len, 1)
+
+f_get_sector_ticker() =>
+    string s = str.lower(str.tostring(syminfo.sector))
+    string i = str.lower(str.tostring(syminfo.industry))
+    string t = "NSE:CNX500" // Default fallback
+    string n = "Nifty 500"
+    
+    if str.contains(i, "bank") or str.contains(s, "finance")
+        t := "NSE:BANKNIFTY"
+        n := "Bank Nifty"
+    else if str.contains(s, "technology") or str.contains(i, "software") or str.contains(i, "it")
+        t := "NSE:CNXIT"
+        n := "Nifty IT"
+    else if str.contains(s, "health") or str.contains(i, "pharma")
+        t := "NSE:CNXPHARMA"
+        n := "Pharma"
+    else if str.contains(i, "auto") or str.contains(s, "consumer durables")
+        t := "NSE:CNXAUTO"
+        n := "Nifty Auto"
+    else if str.contains(s, "consumer non") or str.contains(i, "food") or str.contains(i, "beverage")
+        t := "NSE:CNXFMCG"
+        n := "FMCG"
+    else if str.contains(s, "minerals") or str.contains(i, "steel") or str.contains(i, "metal")
+        t := "NSE:CNXMETAL"
+        n := "Metal"
+    else if str.contains(s, "energy") or str.contains(i, "oil") or str.contains(i, "gas")
+        t := "NSE:CNXENERGY"
+        n := "Energy"
+    else if str.contains(s, "real estate") or str.contains(i, "construction")
+        t := "NSE:CNXREALTY"
+        n := "Realty"
+    else if str.contains(s, "infrastructure")
+        t := "NSE:CNXINFRA"
+        n := "Infra"
+    [t, n]
+
+f_get_hybrid_sector() =>
+    [at, an] = f_get_sector_ticker()
+    at
+
+f_rsStateStr(float s, float v, float thresh) => 
+    string st = "Improving"
+    if s > thresh
+        st := "Leading"
+    else if s < -thresh
+        st := "Lagging"
+    else
+        if v > 0
+            st := "Weakening"
+        else
+            st := "Improving"
+    string slopeDir = "Flat"
+    if s > 0.001
+        slopeDir := "Rising"
+    else if s < -0.001
+        slopeDir := "Falling"
+    st := st + " (" + slopeDir + ")"
+    st
+
+f_calc_rs_logic(int rsl, int slen) =>
+    rp = close 
+    rpSMA = ta.sma(rp, rsl)
+    mrs = ((rp / rpSMA) - 1) * 10
+    slope = ta.linreg(mrs, slen, 0) - ta.linreg(mrs, slen, 1)
+    float pastSlope = slope[5] 
+    [slope, mrs, pastSlope]
+
+f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
+    float wCl = close
+    float wMA = ta.sma(close, maLen)
+    float slopeVal = ta.linreg(wMA, slopeLen, 0) - ta.linreg(wMA, slopeLen, 1)
+    float dynThresh = wMA * thresh
+    string s = "TRANSITION"
+    bool isRising = slopeVal > dynThresh
+    bool isFalling = slopeVal < -dynThresh
+    bool isFlat = not isRising and not isFalling
+    bool isAbove = wCl > wMA
+    
+    if isRising
+        if isAbove
+            s := "STAGE 2 (UP)"
+        else
+            s := "STAGE 2 (PULLBACK)"
+    else if isFalling
+        s := "STAGE 4 (DOWN)"
+    else 
+        if isAbove
+            s := "STAGE 1 (BASE)" 
+        else
+            s := "STAGE 3 (TOP)"
+    [s, wMA]
+
+f_calc_adx_bool() =>
+    [dp, dm, adx] = ta.dmi(14, 14)
+    adx > 25 and dp > dm
+
+// ==========================================
+// 3. MAIN SECURITY WRAPPERS
+// ==========================================
+
+// --- WEEKLY DATA BUNDLE (CALL 1) ---
+f_weekly_bundle() =>
+    [sId, wMA] = f_getStageAndTime(maLengthW, wmaSlopeLen, slopeThresh)
+    wTDir = close > ta.sma(close, 25) ? 1 : -1 
+    [sId, wMA, close, wTDir, ta.rsi(close, 14)]
+
+[_stageID_val, _wMAVal, wClose, wTrendDir, wRsiVal] = request.security(syminfo.tickerid, "W", f_weekly_bundle(), ignore_invalid_symbol=true)
+
+// --- DAILY DATA BUNDLE (CALL 2) ---
+// Hardcodes the exact required Daily structure universally, decoupled from screener selector.
+f_daily_bundle() =>
+    [close, high, low, open, volume, ta.sma(volume, 20), ta.sma(close, dma50_len), ta.sma(close, dma150_len), ta.sma(close, dma200_len), ta.ema(close, 20), ta.highest(high[1], 21), ta.rsi(close, 14), f_calc_adx_bool(), close[65], close[130], ta.atr(10), ta.atr(40), f_calc_slope_val(ta.sma(close, dma50_len), dmaSlopeLen)]
+
+[dClose, dHigh, dLow, dOpen, dVol, dVolAvg, dMA50, dMA150, dMA200, dEma20, recentHigh21, dailyRsi, d_adx_ok, c_65_ago, c_130_ago, d_atr10, d_atr40, d_slope50] = request.security(syminfo.tickerid, "D", f_daily_bundle(), ignore_invalid_symbol=true)
+
+// --- RS CALCS (CALLS 3 and 4) ---
+var string autoSectorTick = ""
+if barstate.isfirst
+    autoSectorTick := f_get_hybrid_sector()
+
+string cleanTicker = syminfo.prefix + ":" + syminfo.ticker
+string req500 = str.length(bench500) > 1 ? (cleanTicker + " / " + bench500) : ""
+[_slope500, _val500, _pastSlope500] = request.security(req500, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+
+string reqSec = str.length(autoSectorTick) > 1 ? (cleanTicker + " / " + autoSectorTick) : ""
+[_slopeSec, _valSec, _pastSlopeSec] = request.security(reqSec, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+
+rs500State = f_rsStateStr(_slope500, _val500, 0.02)
+rsSecState = f_rsStateStr(_slopeSec, _valSec, 0.02)
+
+// --- BENCHMARK DATA BUNDLE (CALL 5) ---
+f_bench_bundle() =>
+    [close, ta.sma(close, 50), ta.sma(close, 200), close[65], close[130]]
+
+[_b_c, _b_50, _b_200, b_c_65_ago, b_c_130_ago] = request.security(bench500, "D", f_bench_bundle(), ignore_invalid_symbol=true)
+
+
+// ==========================================
+// 4. SCORING & LOGIC
+// ==========================================
+
+dSmaAligned = (dMA50 > dMA150) and (dMA150 > dMA200)
+
+int score = 0
+if _stageID_val == "STAGE 2 (UP)"
+    score += 25
+else if _stageID_val == "STAGE 1 (BASE)"
+    score += 10
+if str.contains(rs500State, "Leading") 
+    score += 15
+if d_slope50 > (dMA50 * flatThresh) and dSmaAligned
+    score += 15
+else if d_slope50 > (dMA50 * flatThresh)
+    score += 5
+
+float p_q3 = na(c_65_ago) or c_65_ago == 0 ? 0.0 : ((dClose - c_65_ago) / c_65_ago) * 100
+float p_h1 = na(c_130_ago) or c_130_ago == 0 ? 0.0 : ((dClose - c_130_ago) / c_130_ago) * 100
+float b_q3 = b_c_65_ago == 0 ? 0.0 : ((_b_c - b_c_65_ago) / b_c_65_ago) * 100
+float b_h1 = b_c_130_ago == 0 ? 0.0 : ((_b_c - b_c_130_ago) / b_c_130_ago) * 100
+float alpha_q3 = p_q3 - b_q3
+float alpha_h1 = p_h1 - b_h1
+
+if alpha_q3 > 20.0 and alpha_h1 > 30.0
+    score += 20 
+else if alpha_q3 > 10.0 and alpha_h1 > 15.0
+    score += 10 
+else if alpha_q3 < 0.0 or alpha_h1 < 0.0
+    score -= 10 
+if score > 100
+    score := 100
+
+// Alpha Score Calculation
+f_calc_alpha_score() =>
+    float _score = 0.0
+    if not na(dClose)
+        if dClose > dEma20
+            _score += 15
+        if dClose > dMA50
+            _score += 15
+        if dailyRsi > 60
+            _score += 20
+        else if dailyRsi > 50
+            _score += 10
+        if d_adx_ok
+            _score += 10
+        if dClose > dOpen and dVol > (dVolAvg * 1.5)
+            _score += 20
+        else if dClose > dOpen and dVol > dVolAvg
+            _score += 10
+        float dist_ema = math.abs((dClose - dEma20) / dEma20) * 100
+        if dist_ema < 5.0
+            _score += 20
+        else if dist_ema < 10.0
+            _score += 10
+        if use_macro_edge
+            if dVol > dVolAvg 
+                _score += 10 
+            else
+                _score -= 20 
+    _score
+
+alphaScore = f_calc_alpha_score()
+
+// Breakout Logic (using highest high over 21 days for absolute reliability in screeners)
+float curRelVol = dVol / dVolAvg
+bool closeNearHigh = (dClose - dLow) > ((dHigh - dLow) * 0.75)
+bool volConfirm = curRelVol > 1.25 // 25% above average volume
+bool isBreakout = dClose > recentHigh21 and closeNearHigh and volConfirm
+
+// Pullback Logic (relaxed slightly for natural occurrences)
+float pb_dist_ema20 = ((dClose - dEma20) / dEma20) * 100
+bool is_ema_pb_zone = pb_dist_ema20 <= 6.0 and pb_dist_ema20 >= -2.0 // Just touching/breaching the 20EMA
+bool rsi_divorce = dailyRsi > 40 and wRsiVal > 55
+bool vol_vdu_ok = dVol < (dVolAvg * 1.1)
+bool hitPullback = is_ema_pb_zone and rsi_divorce and vol_vdu_ok
+
+// Trade Style
+bool pos_stage_ok = (_stageID_val == "STAGE 2 (UP)") or (_stageID_val == "STAGE 1 (BASE)")
+bool pos_trend_ok = dClose > dMA200 
+bool pos_rs_ok    = not str.contains(rsSecState, "Lagging")
+bool is_positional = pos_stage_ok and pos_trend_ok and pos_rs_ok
+
+bool sw_trend_ok  = dClose > dEma20 and dEma20 > dMA50
+bool sw_mom_ok    = dailyRsi > 55 or curRelVol > 1.5
+bool sw_pat_ok    = isBreakout or (d_atr10 < (d_atr40 * 0.75) and curRelVol < 0.8)
+bool sw_safe_ok   = pb_dist_ema20 < 15
+bool is_swing     = sw_trend_ok and (sw_mom_ok or sw_pat_ok) and sw_safe_ok
+
+// Persona 
+float adr_pct = (d_atr10 / dClose) * 100
+bool is_volatile = adr_pct > 5.0
+bool is_extended = (pb_dist_ema20 > 20.0) or (dailyRsi > 75)
+bool is_leader_cand = str.contains(rs500State, "Leading") and dClose > dMA200 and dClose > dMA50
+bool is_momentum_cand = (dailyRsi > 60 or str.contains(rs500State, "Leading") or str.contains(rs500State, "Improving")) and dClose > dEma20
+bool is_turnaround_cand = (str.contains(rs500State, "Improving") or str.contains(rs500State, "Weakening")) and dClose > dMA50 and dClose < dMA200
+bool is_laggard_cand = str.contains(rs500State, "Lagging") or (dClose < dMA200 and not is_turnaround_cand)
+
+int personaNum = 0
+if is_volatile
+    personaNum := 2
+else if is_extended
+    personaNum := 1
+else if is_leader_cand
+    personaNum := 5
+else if is_momentum_cand
+    personaNum := 4
+else if is_turnaround_cand
+    personaNum := 3
+else if is_laggard_cand
+    personaNum := 0
+
+float stageNum = 0.0
+if _stageID_val == "STAGE 2 (UP)"
+    stageNum := 2.1
+else if _stageID_val == "STAGE 2 (PULLBACK)"
+    stageNum := 2.0
+else if _stageID_val == "STAGE 1 (BASE)"
+    stageNum := 1.0
+else if _stageID_val == "STAGE 3 (TOP)"
+    stageNum := 3.0
+else if _stageID_val == "STAGE 4 (DOWN)"
+    stageNum := 4.0
+
+int conf_score = 0
+if dClose > dEma20 
+    conf_score += 1
+if dailyRsi > 50 
+    conf_score += 1
+if dClose > dOpen ? (dVol > dVolAvg) : (dVol < dVolAvg)
+    conf_score += 1
+if d_adx_ok
+    conf_score += 1
+if dClose > dOpen
+    conf_score += 1
+
+// ==========================================
+// 5. SCREENER COLUMN OUTPUTS
+// ==========================================
+
+plot(alphaScore, title="Alpha Score", color=color.new(color.blue, 0), display=display.data_window)
+plot(score, title="Dashboard Quality Score", color=color.new(color.orange, 0), display=display.data_window)
+plot(conf_score, title="Confluence (0-5 Stars)", color=color.new(color.fuchsia, 0), display=display.data_window)
+plot(stageNum, title="Stage (1=Base, 2.1=Up, 3=Top, 4=Down)", color=color.new(color.green, 0), display=display.data_window)
+
+plot(personaNum, title="Persona (5=Lead, 4=Mom, 3=Turn, 2=Volatile, 1=Ext, 0=Lag)", color=color.new(color.purple, 0), display=display.data_window)
+
+plot(is_positional ? 1 : 0, title="Style: Positional (1=Yes)", color=color.new(color.navy, 0), display=display.data_window)
+plot(is_swing ? 1 : 0, title="Style: Swing (1=Yes)", color=color.new(color.maroon, 0), display=display.data_window)
+
+plot(isBreakout ? 1 : 0, title="Signal: True Breakout", color=color.new(color.lime, 0), display=display.data_window)
+plot(hitPullback ? 1 : 0, title="Signal: Pullback Hit", color=color.new(color.aqua, 0), display=display.data_window)
+
+plot(_val500, title="RS Value (vs Nifty 500)", color=color.new(color.gray, 0), display=display.data_window)
+plot(_valSec, title="Sector RS Value", color=color.new(color.gray, 0), display=display.data_window)
+
+plot(dClose > dMA50 ? 1 : -1, title="Daily Trend (1=Up, -1=Dn, 0=Side)", color=color.new(color.teal, 0), display=display.data_window)
+plot(wTrendDir, title="Weekly Trend (1=Up, -1=Dn, 0=Side)", color=color.new(color.teal, 0), display=display.data_window)
+
+plot(dClose, title="Current Price", color=color.new(color.black, 0), display=display.data_window)
+plot(pb_dist_ema20, title="Distance to 20 EMA (%)", color=color.new(color.gray, 0), display=display.data_window)
+plot(curRelVol, title="Relative Volume (x-avg)", color=color.new(color.gray, 0), display=display.data_window)

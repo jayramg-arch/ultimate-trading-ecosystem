@@ -1,0 +1,1557 @@
+/*! dhan-tracker-js v1.0.0 | (c) 2026 DHAN */
+(function (global, factory) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+  typeof define === 'function' && define.amd ? define(factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.DhanTracker = factory());
+})(this, (function () { 'use strict';
+
+  const DEFAULTS = {
+    FLUSH_INTERVAL: 10000, // 10 seconds
+    MAX_BUFFER_SIZE: 1000,
+    MAX_RETRIES: 3,
+    RETRY_DELAY: 1000, // 1 second
+    BATCH_SIZE: 10,
+    SESSION_TIMEOUT: 5 * 60 * 1000, // 30 minutes
+    RAGE_CLICK_THRESHOLD: 2, // Number of clicks to trigger rage detection
+    RAGE_CLICK_WINDOW: 2000, // Time window in ms to detect rage clicks
+    RAGE_EVENT_THRESHOLD: 2, // Number of events to trigger rage detection
+    RAGE_EVENT_WINDOW: 1500,
+    API_ENDPOINT:"https://stream.dhan.co", 
+    // API_ENDPOINT:"http://localhost:4321", 
+    
+    LIBRARY: {
+      version: "1.3.1",
+    },
+    APP_INFO: {
+      version: "1.0.0",
+      build: "0001",
+    },
+  };
+
+  const PRIORITY = {
+    HIGH: 1,
+    NORMAL: 2};
+
+
+
+  // Utility function to get IST time with milliseconds
+  const getISTTime = () => {
+    const date = new Date();
+    return date.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).replace(/(\/)/g, '-').replace(', ', 'T') + '.' + date.getMilliseconds().toString().padStart(3, '0');
+  };
+
+  // Utility function to convert timestamp to IST with milliseconds
+  const toISTTime = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).replace(/(\/)/g, '-').replace(', ', 'T') + '.' + date.getMilliseconds().toString().padStart(3, '0');
+  };
+
+  // Plain text manager (no encryption)
+  class EncryptionManager {
+    constructor() {
+      // No encryption setup needed
+    }
+
+    async encrypt(plaintext) {
+      return plaintext;
+    }
+
+    async safeDecrypt(input) {
+      return input;
+    }
+
+    async decrypt(input) {
+      return input;
+    }
+  }
+
+  // Device and browser information utilities
+  function getDeviceInfo() {
+    let ua;
+    try {
+      ua = navigator.userAgent || '';
+    } catch (e) {
+      ua = '';
+    }
+    let deviceType = "desktop";
+    let manufacturer = "unknown";
+    let model = "unknown";
+
+    // Device type detection
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+      deviceType = "tablet";
+    } else if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+      deviceType = "mobile";
+    }
+
+    // Try modern API first
+      // Parse manufacturer and model from user agent
+      if (/iPhone/.test(ua)) {
+        manufacturer = "Apple";
+        model = ua.match(/iPhone OS ([\d_]+)/)?.[0] || "iPhone";
+      } else if (/iPad/.test(ua)) {
+        manufacturer = "Apple";
+        model = "iPad";
+      } else if (/Android/.test(ua)) {
+        manufacturer = "Android";
+        const modelMatch = ua.match(/Android[^;]*;\s*([^)]+)/);
+        model = modelMatch?.[1]?.trim() || "Android Device";
+      } else if (/Windows/.test(ua)) {
+        manufacturer = "Microsoft";
+        model = "Windows PC";
+      } else if (/Mac/.test(ua)) {
+        manufacturer = "Apple";
+        model = "Mac";
+      }
+    // }
+
+    let screenWidth = "unknown";
+    let screenHeight = "unknown";
+    
+    try {
+      if (window.screen) {
+        screenWidth = window.screen.width.toString();
+        screenHeight = window.screen.height.toString();
+      }
+    } catch (e) {
+      // Screen API not available
+    }
+
+    return {
+      type: deviceType,
+      manufacturer,
+      model,
+      screen: {
+        width: screenWidth,
+        height: screenHeight,
+      },
+      device_id: (() => {
+        try {
+          return getTabId();
+        } catch (e) {
+          return 'unknown';
+        }
+      })(),
+    };
+  }
+
+  function getBrowserInfo() {
+    let name = null;
+    let version = null;
+
+    if (!name) {
+      const ua = navigator.userAgent;
+      if (ua.includes("Chrome") && !ua.includes("Edg")) name = "Chrome";
+      else if (ua.includes("Edg")) name = "Edge";
+      else if (ua.includes("Safari") && !ua.includes("Chrome")) name = "Safari";
+      else if (ua.includes("Firefox")) name = "Firefox";
+      else if (ua.includes("MSIE") || ua.includes("Trident")) name = "IE";
+      else name = "Unknown";
+    }
+
+    if (!version) {
+      const match = navigator.userAgent.match(/(Chrome|Firefox|Safari|MSIE|Trident)\/([\d.]+)/);
+      version = match ? match[2] : null;
+    }
+
+    return {
+      name,
+      language: navigator.language || null,
+      version,
+      user_agent: navigator.userAgent,
+    };
+  }
+
+  function getOSInfo() {
+    const ua = navigator.userAgent;
+    let name = "unknown";
+    let version = "unknown";
+
+    // Try modern API first
+
+      // Fallback to user agent parsing
+      if (/Windows NT (\d+\.\d+)/.test(ua)) {
+        name = "Windows";
+        const match = ua.match(/Windows NT (\d+\.\d+)/);
+        const ntVersion = match[1];
+        const versionMap = {
+          "10.0": "10/11",
+          "6.3": "8.1",
+          "6.2": "8",
+          "6.1": "7"
+        };
+        version = versionMap[ntVersion] || ntVersion;
+      } else if (/Mac OS X ([\d_]+)/.test(ua)) {
+        name = "macOS";
+        const match = ua.match(/Mac OS X ([\d_]+)/);
+        version = match[1].replace(/_/g, ".");
+      } else if (/Android ([\d.]+)/.test(ua)) {
+        name = "Android";
+        version = ua.match(/Android ([\d.]+)/)[1];
+      } else if (/iPhone OS ([\d_]+)/.test(ua)) {
+        name = "iOS";
+        version = ua.match(/iPhone OS ([\d_]+)/)[1].replace(/_/g, ".");
+      } else if (/Linux/.test(ua)) {
+        name = "Linux";
+      }
+
+    return { name, version };
+  }
+
+  function getNetworkType() {
+    if (typeof navigator !== "undefined" && "connection" in navigator) {
+      const { connection } = navigator;
+      return connection?.type || connection?.effectiveType || 'unknown';
+    }
+    return 'unknown';
+  }
+
+  function getTabId() {
+    try {
+      if (!sessionStorage.getItem("tabId")) {
+        const tabId = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem("tabId", tabId);
+      }
+      return sessionStorage.getItem("tabId");
+    } catch (e) {
+      return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    }
+  }
+
+  // Rage detection utilities
+
+  class RageDetectionManager {
+    constructor() {
+      this.rageEventTracker = {
+        events: new Map(),
+        lastCleanup: Date.now(),
+        cleanupInterval: 3000,
+        pendingRageEvents: new Map(),
+        rageTimeouts: new Map(),
+      };
+      this.cleanupTimer = setInterval(() => this.cleanupRageEventTracker(), 30000);
+    }
+
+    configureRageDetection(config = {}) {
+      const defaults = {
+        rageClickThreshold: DEFAULTS.RAGE_CLICK_THRESHOLD,
+        rageClickWindow: DEFAULTS.RAGE_CLICK_WINDOW,
+        rageEventThreshold: DEFAULTS.RAGE_EVENT_THRESHOLD,
+        rageEventWindow: DEFAULTS.RAGE_EVENT_WINDOW,
+        enabled: true
+      };
+
+      const settings = { ...defaults, ...config };
+      
+      DEFAULTS.RAGE_CLICK_THRESHOLD = settings.rageClickThreshold;
+      DEFAULTS.RAGE_CLICK_WINDOW = settings.rageClickWindow;
+      DEFAULTS.RAGE_EVENT_THRESHOLD = settings.rageEventThreshold;
+      DEFAULTS.RAGE_EVENT_WINDOW = settings.rageEventWindow;
+    }
+
+    generateRageEventKey(eventType, properties = {}) {
+      const propertiesHash = JSON.stringify(properties);
+      return `${eventType}:${propertiesHash}`;
+    }
+
+    isRageEvent(eventType, properties = {}) {
+      const now = Date.now();
+      const key = this.generateRageEventKey(eventType, properties);
+      const eventTracker = this.rageEventTracker.events.get(key);
+      
+      if (!eventTracker) return false;
+
+      const isClickEvent = eventType === 'click' || eventType.includes('click');
+      const threshold = isClickEvent ? DEFAULTS.RAGE_CLICK_THRESHOLD : DEFAULTS.RAGE_EVENT_THRESHOLD;
+      const window = isClickEvent ? DEFAULTS.RAGE_CLICK_WINDOW : DEFAULTS.RAGE_EVENT_WINDOW;
+
+      const recentEvents = eventTracker.timestamps.filter(timestamp => 
+        now - timestamp <= window
+      );
+
+      return recentEvents.length >= threshold;
+    }
+
+    trackRageEvent(eventType, properties = {}) {
+      if (eventType === 'navigation') return;
+      
+      const now = Date.now();
+      const key = this.generateRageEventKey(eventType, properties);
+
+      if (!this.rageEventTracker.events.has(key)) {
+        this.rageEventTracker.events.set(key, {
+          eventType,
+          properties,
+          timestamps: [],
+          count: 0,
+          firstSeen: now,
+          lastSeen: now
+        });
+      }
+
+      const tracker = this.rageEventTracker.events.get(key);
+      tracker.timestamps.push(now);
+      tracker.count++;
+      tracker.lastSeen = now;
+
+      const maxWindow = Math.max(DEFAULTS.RAGE_CLICK_WINDOW, DEFAULTS.RAGE_EVENT_WINDOW);
+      tracker.timestamps = tracker.timestamps.filter(timestamp => 
+        now - timestamp <= maxWindow
+      );
+
+      if (this.isRageEvent(eventType, properties)) {
+        this.handleRageEvent(key, tracker);
+      }
+
+      if (now - this.rageEventTracker.lastCleanup > this.rageEventTracker.cleanupInterval) {
+        this.cleanupRageEventTracker();
+        this.rageEventTracker.lastCleanup = now;
+      }
+    }
+
+    handleRageEvent(key, tracker) {
+      const now = Date.now();
+      const eventType = tracker.eventType;
+      const isClickEvent = eventType === 'click' || eventType.includes('click');
+      const maxWaitTime = isClickEvent ? DEFAULTS.RAGE_CLICK_WINDOW : DEFAULTS.RAGE_EVENT_WINDOW;
+
+      const existingTimeout = this.rageEventTracker.rageTimeouts.get(eventType);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.rageEventTracker.rageTimeouts.delete(eventType);
+      }
+
+      const window = isClickEvent ? DEFAULTS.RAGE_CLICK_WINDOW : DEFAULTS.RAGE_EVENT_WINDOW;
+      const recentEvents = tracker.timestamps.filter(timestamp => 
+        now - timestamp <= window
+      );
+      
+      const existing = this.rageEventTracker.pendingRageEvents.get(eventType);
+      this.rageEventTracker.pendingRageEvents.set(eventType, {
+        ...tracker,
+        rageStarted: existing?.rageStarted || now,
+        count: recentEvents.length
+      });
+
+      const timeoutId = setTimeout(() => {
+        this.sendRageEvent(eventType);
+        this.rageEventTracker.rageTimeouts.delete(eventType);
+      }, maxWaitTime);
+
+      this.rageEventTracker.rageTimeouts.set(eventType, timeoutId);
+    }
+
+    sendRageEvent(eventType) {
+      const pendingEvent = this.rageEventTracker.pendingRageEvents.get(eventType);
+      if (!pendingEvent) return;
+
+      const now = new Date();
+      const currentPath = window.location.pathname;
+      const currentUrl = window.location.href;
+      const previousPath = document.referrer;
+
+      const rageEventProperties = {
+        ...pendingEvent.properties,
+        rage_count: pendingEvent.count,
+        first_rage_timestamp: toISTTime(pendingEvent.rageStarted),
+        last_rage_timestamp: getISTTime(),
+        total_events_in_rage: pendingEvent.count,
+        rage_duration_ms: now.getTime() - pendingEvent.rageStarted,
+        original_event_type: pendingEvent.eventType,
+        rage_threshold_met: true,
+        rage_window_ms: pendingEvent.eventType.includes('click') ? DEFAULTS.RAGE_CLICK_WINDOW : DEFAULTS.RAGE_EVENT_WINDOW
+      };
+
+      const rageEvent = {
+        event_id: "evt_" + now.getTime(),
+        event_type: `${pendingEvent.eventType}_rage`,
+        timestamp: getISTTime(),
+        context: {
+          page: {
+            path: currentPath,
+            referrer: previousPath,
+            title: document.title,
+            url: currentUrl,
+          },
+        },
+        properties: rageEventProperties,
+        metadata: {
+          client_sent_at: getISTTime(),
+          received_at: null,
+          processing_time_ms: null,
+          library: { name: "dhan-tracker-js", version: DEFAULTS.LIBRARY.version },
+          rage_event: true,
+        },
+      };
+
+      this.rageEventTracker.pendingRageEvents.delete(eventType);
+      this.rageEventTracker.rageTimeouts.delete(eventType);
+
+      // Call the callback if it exists
+      if (this.onRageEvent) {
+        this.onRageEvent(rageEvent);
+      }
+
+      return rageEvent;
+    }
+
+    cleanupRageEventTracker() {
+      const now = Date.now();
+      const maxWindow = Math.max(DEFAULTS.RAGE_CLICK_WINDOW, DEFAULTS.RAGE_EVENT_WINDOW) * 2;
+      
+      for (const [key, tracker] of this.rageEventTracker.events.entries()) {
+        if (now - tracker.lastSeen > maxWindow) {
+          if (this.rageEventTracker.pendingRageEvents.has(tracker.eventType)) {
+            this.sendRageEvent(tracker.eventType);
+          }
+          this.rageEventTracker.events.delete(key);
+        }
+      }
+      
+      // Clean up stale timeouts
+      for (const [eventType, timeoutId] of this.rageEventTracker.rageTimeouts.entries()) {
+        if (!this.rageEventTracker.pendingRageEvents.has(eventType)) {
+          clearTimeout(timeoutId);
+          this.rageEventTracker.rageTimeouts.delete(eventType);
+        }
+      }
+    }
+
+    getRageEventInfo(eventType, properties = {}) {
+      const key = this.generateRageEventKey(eventType, properties);
+      const tracker = this.rageEventTracker.events.get(key);
+      
+      if (!tracker) return null;
+
+      const isClickEvent = eventType === 'click' || eventType.includes('click');
+      const window = isClickEvent ? DEFAULTS.RAGE_CLICK_WINDOW : DEFAULTS.RAGE_EVENT_WINDOW;
+      const now = Date.now();
+      
+      const recentEvents = tracker.timestamps.filter(timestamp => 
+        now - timestamp <= window
+      );
+
+      return {
+        eventType: tracker.eventType,
+        properties: tracker.properties,
+        totalCount: tracker.count,
+        recentCount: recentEvents.length,
+        firstSeen: tracker.firstSeen,
+        lastSeen: tracker.lastSeen,
+        isRage: recentEvents.length >= (isClickEvent ? DEFAULTS.RAGE_CLICK_THRESHOLD : DEFAULTS.RAGE_EVENT_THRESHOLD)
+      };
+    }
+
+    getRageDetectionStats() {
+      const stats = {
+        totalTrackedEvents: 0,
+        rageEvents: 0,
+        eventTypes: new Map()
+      };
+
+      for (const [key, tracker] of this.rageEventTracker.events.entries()) {
+        stats.totalTrackedEvents += tracker.count;
+        
+        const rageInfo = this.getRageEventInfo(tracker.eventType, tracker.properties);
+        if (rageInfo && rageInfo.isRage) {
+          stats.rageEvents++;
+        }
+
+        if (!stats.eventTypes.has(tracker.eventType)) {
+          stats.eventTypes.set(tracker.eventType, 0);
+        }
+        stats.eventTypes.set(tracker.eventType, stats.eventTypes.get(tracker.eventType) + tracker.count);
+      }
+
+      return {
+        ...stats,
+        eventTypes: Object.fromEntries(stats.eventTypes),
+        activeTrackers: this.rageEventTracker.events.size
+      };
+    }
+
+    cleanup() {
+      if (this.cleanupTimer) {
+        clearInterval(this.cleanupTimer);
+        this.cleanupTimer = null;
+      }
+      
+      for (const eventType of this.rageEventTracker.pendingRageEvents.keys()) {
+        this.sendRageEvent(eventType);
+      }
+      
+      for (const timeoutId of this.rageEventTracker.rageTimeouts.values()) {
+        clearTimeout(timeoutId);
+      }
+      
+      if (this.rageEventTracker) {
+        this.rageEventTracker.events.clear();
+        this.rageEventTracker.pendingRageEvents.clear();
+        this.rageEventTracker.rageTimeouts.clear();
+      }
+    }
+  }
+
+  // Request queue utilities
+
+  class RequestQueue {
+    constructor() {
+      this.queue = [];
+      this.isProcessing = false;
+    }
+
+    add(request, priority = PRIORITY.NORMAL) {
+      this.queue.push({ request, priority });
+      this.queue.sort((a, b) => a.priority - b.priority);
+      this.process();
+    }
+
+    async process() {
+      if (this.isProcessing || this.queue.length === 0) return;
+      this.isProcessing = true;
+
+      try {
+        const { request } = this.queue.shift();
+        await request();
+      } catch (error) {
+        // console.error("Request failed:", error);
+      } finally {
+        this.isProcessing = false;
+        this.process();
+      }
+    }
+  }
+
+  // JWT utility functions
+  function decodeJWT(token) {
+    try {
+      if (!token) return null;
+      const base64Url = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64Url)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join(""),
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      // console.error("Error decoding JWT:", e);
+      return null;
+    }
+  }
+
+  // Authentication manager
+
+  class AuthManager {
+    constructor(config, encryptionManager, apiClient) {
+      this.config = config;
+      this.encryptionManager = encryptionManager;
+      this.apiClient = apiClient;
+      
+      this.authConfig = {
+        token: config.authToken || null,
+        refreshToken: config.refreshToken || null,
+        tokenExpiry: null,
+        isRefreshing: false,
+        refreshQueue: [],
+        autoRefresh: config.autoRefresh !== false,
+      };
+
+      this.authEndpoint = "/api/auth";
+      this.initFailCount = 0;
+      this.initFailTimestamp = null;
+      this.maxInitAttempts = 3;
+      this.initCooldownMs = 60000;
+    }
+
+    async getValidToken() {
+      if (this.isTokenValid()) {
+        return this.authConfig.token;
+      }
+
+      if (this.authConfig.refreshToken) {
+        try {
+          const newToken = await this.refreshToken();
+          if (newToken) return newToken;
+        } catch (error) {
+          // console.warn("Token refresh failed:", this.sanitizeForLogging(error));
+          // Only nullify refresh token on authentication errors, not network errors
+          if (this.isAuthenticationError(error)) {
+            this.authConfig.refreshToken = null;
+          }
+        }
+      }
+
+      try {
+        const token = await this.initializeToken();
+        if (!token) throw new Error("Failed to initialize token");
+        return token;
+      } catch (error) {
+        // console.error("Failed to get valid token:", this.sanitizeForLogging(error));
+        throw error;
+      }
+    }
+
+    isTokenValid() {
+      if (!this.authConfig.token || !this.authConfig.tokenExpiry) return false;
+      return Date.now() < this.authConfig.tokenExpiry;
+    }
+
+    sanitizeInput(input) {
+      if (typeof input !== 'string') return input;
+      return input.replace(/[<>"'&]/g, (match) => {
+        const entities = { '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;' };
+        return entities[match];
+      });
+    }
+
+    sanitizeForLogging(error) {
+      if (error && error.message) {
+        return { ...error, message: this.sanitizeInput(error.message) };
+      }
+      return typeof error === 'string' ? this.sanitizeInput(error) : error;
+    }
+
+    isAuthenticationError(error) {
+      // Check for authentication-specific errors (401, 403) vs network errors
+      return error && (error.status === 401 || error.status === 403 || 
+              (error.message && error.message.includes('unauthorized')));
+    }
+
+    async initializeToken() {
+      if (
+        this.initFailCount >= this.maxInitAttempts &&
+        Date.now() - (this.initFailTimestamp || 0) < this.initCooldownMs
+      ) {
+        throw new Error("Max initialization attempts reached. Please try again later.");
+      }
+    
+      if (this.authConfig.token && this.isTokenValid()) {
+        return this.authConfig.token;
+      }
+
+      if (this.authConfig.isRefreshing) {
+        return new Promise((resolve, reject) => {
+          this.authConfig.refreshQueue.push({ resolve, reject });
+        });
+      }
+
+      try {
+        this.authConfig.isRefreshing = true;
+
+        if (this.authConfig.refreshToken) {
+          const newToken = await this.refreshToken();
+          this.processRefreshQueue(null, newToken);
+          return newToken;
+        }
+
+        // Sanitize inputs to prevent XSS
+        const sanitizedAppId = this.sanitizeInput(this.config.appId);
+        const sanitizedAppKey = this.sanitizeInput(this.config.appKey);
+        
+        const payload = {
+          app_id: sanitizedAppId,
+          secret: sanitizedAppKey,
+        };
+
+        // const encryptedPayload = await this.encryptionManager.encrypt(payload);
+        const response = await this.apiClient.makeRequest(
+          `${this.authEndpoint}/initialize`,
+          "POST",
+          payload,
+          false,""
+        );
+
+        if (response.access_token) {
+          this.initFailCount = 0;
+          this.initFailTimestamp = null;
+          const accessToken = await this.encryptionManager.safeDecrypt(response.access_token);
+          const refreshToken = response.refresh_token
+            ? await this.encryptionManager.safeDecrypt(response.refresh_token)
+            : null;
+
+          await this.setToken(accessToken, refreshToken);
+          this.processRefreshQueue(null, accessToken);
+          return accessToken;
+        }
+
+        throw new Error("Invalid login response");
+      } catch (error) {
+        this.initFailCount++;
+        this.initFailTimestamp = Date.now();
+        // console.error("Authentication failed:", this.sanitizeForLogging(error));
+        this.processRefreshQueue(error);
+        throw error;
+      } finally {
+        this.authConfig.isRefreshing = false;
+      }
+    }
+
+    async setToken(token, refreshToken) {
+      if (!token) {
+        this.authConfig.token = null;
+        this.authConfig.tokenExpiry = null;
+        return;
+      }
+
+      this.authConfig.token = token;
+      this.authConfig.refreshToken = refreshToken || this.authConfig.refreshToken;
+
+      try {
+        const decryptedToken = await this.encryptionManager.safeDecrypt(token);
+        const decoded = decodeJWT(decryptedToken);
+
+        if (!decoded || !decoded.exp) {
+          throw new Error("Invalid token: missing expiration");
+        }
+
+        this.authConfig.tokenExpiry = decoded.exp * 1000;
+
+        if (this.authConfig.autoRefresh) {
+          const refreshThreshold = (this.config.refreshThreshold || 300) * 1000;
+          const refreshTime = decoded.exp * 1000 - Date.now() - refreshThreshold;
+          if (refreshTime > 0) {
+            if (this.tokenRefreshTimeout) {
+              clearTimeout(this.tokenRefreshTimeout);
+            }
+            this.tokenRefreshTimeout = setTimeout(
+              () => this.refreshToken().catch((err) => console.error("Auto-refresh failed:", this.sanitizeForLogging(err))),
+              refreshTime,
+            );
+          }
+        }
+      } catch (e) {
+        // console.error("Failed to set token:", this.sanitizeForLogging(e));
+        this.authConfig.token = null;
+        this.authConfig.tokenExpiry = null;
+        throw e;
+      }
+    }
+
+    async refreshToken() {
+      if (!this.authConfig.refreshToken) {
+        throw new Error("No refresh token available");
+      }
+
+      if (this.authConfig.isRefreshing) {
+        return new Promise((resolve, reject) => {
+          this.authConfig.refreshQueue.push({ resolve, reject });
+        });
+      }
+
+      try {
+        this.authConfig.isRefreshing = true;
+        // const refreshTokenToUse = await this.encryptionManager.encrypt(this.authConfig.refreshToken);
+        const response = await this.apiClient.makeRequest(
+          `${this.authEndpoint}/refresh`,
+          "POST",
+          { refresh_token: this.sanitizeInput(this.authConfig.refreshToken) },
+          false,
+        );
+
+        if (response && response.access_token) {
+          const accessToken = await this.encryptionManager.safeDecrypt(response.access_token);
+          const newRefreshToken = response.refresh_token
+            ? await this.encryptionManager.safeDecrypt(response.refresh_token)
+            : this.authConfig.refreshToken;
+
+          await this.setToken(accessToken, newRefreshToken);
+          this.processRefreshQueue(null, accessToken);
+          return accessToken;
+        }
+
+        throw new Error("Invalid refresh token response");
+      } catch (error) {
+        // console.error("Token refresh failed:", this.sanitizeForLogging(error));
+        this.cleanup(); // Clean up timeouts before clearing tokens
+        this.authConfig.token = null;
+        this.authConfig.tokenExpiry = null;
+        // Only nullify refresh token on authentication errors
+        if (this.isAuthenticationError(error)) {
+          this.authConfig.refreshToken = null;
+        }
+        this.processRefreshQueue(error);
+        throw error;
+      } finally {
+        this.authConfig.isRefreshing = false;
+      }
+    }
+
+    processRefreshQueue(error, token = null) {
+      while (this.authConfig.refreshQueue.length) {
+        const { resolve, reject } = this.authConfig.refreshQueue.shift();
+        if (error) {
+          reject(error);
+        } else {
+          resolve(token);
+        }
+      }
+    }
+
+    cleanup() {
+      if (this.tokenRefreshTimeout) {
+        clearTimeout(this.tokenRefreshTimeout);
+        this.tokenRefreshTimeout = null;
+      }
+    }
+  }
+
+  // Error handling utilities for network failures
+
+  class NetworkError extends Error {
+    constructor(message, code, originalError = null) {
+      super(message);
+      this.name = 'NetworkError';
+      this.code = code;
+      this.originalError = originalError;
+      this.timestamp = getISTTime();
+      this.isNetworkError = true;
+    }
+  }
+
+  class ErrorHandler {
+    constructor(options = {}) {
+      this.maxRetries = options.maxRetries || 3;
+      this.baseDelay = options.baseDelay || 1000;
+      this.maxDelay = options.maxDelay || 30000;
+      this.onError = options.onError || (() => {});
+      this.errorCounts = new Map();
+    }
+
+    async handleNetworkRequest(requestFn, context = '') {
+      let lastError;
+      
+      for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+        try {
+          return await requestFn();
+        } catch (error) {
+          lastError = this.classifyError(error, context);
+          
+          if (attempt === this.maxRetries || !this.isRetryableError(lastError)) {
+            this.recordError(lastError);
+            throw lastError;
+          }
+          
+          const delay = this.calculateBackoff(attempt);
+          await this.sleep(delay);
+        }
+      }
+      
+      throw lastError;
+    }
+
+    classifyError(error, context) {
+      // Network connectivity issues
+      if (!navigator.onLine) {
+        return new NetworkError('Device is offline', 'OFFLINE', error);
+      }
+      
+      // Fetch API errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return new NetworkError('Network request failed', 'FETCH_ERROR', error);
+      }
+      
+      // HTTP status errors
+      if (error.message && error.message.includes('HTTP error')) {
+        const statusMatch = error.message.match(/status: (\d+)/);
+        const status = statusMatch ? parseInt(statusMatch[1]) : 0;
+        
+        if (status >= 500) {
+          return new NetworkError(`Server error (${status})`, 'SERVER_ERROR', error);
+        }
+        if (status === 429) {
+          return new NetworkError('Rate limited', 'RATE_LIMITED', error);
+        }
+        if (status >= 400) {
+          return new NetworkError(`Client error (${status})`, 'CLIENT_ERROR', error);
+        }
+      }
+      
+      // Timeout errors
+      if (error.name === 'AbortError' || error.message.includes('timeout')) {
+        return new NetworkError('Request timeout', 'TIMEOUT', error);
+      }
+      
+      // DNS/Connection errors
+      if (error.message.includes('Failed to fetch') || 
+          error.message.includes('ERR_NETWORK') ||
+          error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+        return new NetworkError('Connection failed', 'CONNECTION_ERROR', error);
+      }
+      
+      // Default network error
+      const sanitizedContext = this.sanitizeContext(context);
+      return new NetworkError('Network error in ' + sanitizedContext, 'UNKNOWN_NETWORK_ERROR', error);
+    }
+
+    isRetryableError(error) {
+      const retryableCodes = [
+        'OFFLINE',
+        'FETCH_ERROR', 
+        'SERVER_ERROR',
+        'TIMEOUT',
+        'CONNECTION_ERROR',
+        'RATE_LIMITED'
+      ];
+      
+      return error.isNetworkError && retryableCodes.includes(error.code);
+    }
+
+    calculateBackoff(attempt) {
+      const exponentialDelay = this.baseDelay * Math.pow(2, attempt);
+      const jitter = Math.random() * 0.1 * exponentialDelay;
+      return Math.min(exponentialDelay + jitter, this.maxDelay);
+    }
+
+    recordError(error) {
+      const key = error.code || 'UNKNOWN';
+      this.errorCounts.set(key, (this.errorCounts.get(key) || 0) + 1);
+      this.onError(error);
+    }
+
+    sanitizeContext(context) {
+      if (typeof context !== 'string') return 'unknown';
+      return context.replace(/[<>"'&]/g, (match) => {
+        const entities = { '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;' };
+        return entities[match];
+      }).substring(0, 100);
+    }
+
+    getErrorStats() {
+      return {
+        errorCounts: Object.fromEntries(this.errorCounts),
+        totalErrors: Array.from(this.errorCounts.values()).reduce((a, b) => a + b, 0)
+      };
+    }
+
+    sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    reset() {
+      this.errorCounts.clear();
+    }
+  }
+
+  // DhanTracker.js - Main event tracking SDK
+
+  class DhanTracker {
+    constructor(config = {}) {
+      this.validateConfig(config);
+      this.initializeProperties(config);
+      this.setupManagers();
+      this.setupEventListeners();
+      this.startFlushInterval();
+    }
+
+    validateConfig(config) {
+      if (!config.clientId) {
+        throw new Error("clientId is required");
+      }
+      if (!config.apiEndpoint && false) ;
+    }
+
+    initializeProperties(config) {
+      const defaults = {
+        appKey: "",
+        appId: "",
+        appInfo: DEFAULTS.APP_INFO,
+        flushInterval: DEFAULTS.FLUSH_INTERVAL,
+        library: { name: "dhan-tracker-js", version: "1.3.1" },
+        env: "production",
+        source: "web",
+        maxRetries: DEFAULTS.MAX_RETRIES,
+        retryDelay: DEFAULTS.RETRY_DELAY,
+        batchSize: DEFAULTS.BATCH_SIZE,
+        autoRefresh: true,
+        autoTrackErrors: true, // Automatically capture JS errors and unhandled rejections
+        ignoredErrors: [], // List of error messages or patterns to ignore
+        rageDetection: {
+          enabled: true,
+          rageClickThreshold: DEFAULTS.RAGE_CLICK_THRESHOLD,
+          rageClickWindow: DEFAULTS.RAGE_CLICK_WINDOW,
+          rageEventThreshold: DEFAULTS.RAGE_EVENT_THRESHOLD,
+          rageEventWindow: DEFAULTS.RAGE_EVENT_WINDOW,
+        },
+        useWebSocket: false,  // Add a flag for WebSocket
+        webSocketEndpoint: "", // Add WebSocket endpoint
+      };
+
+      const settings = { ...defaults, ...config };
+
+      // Core properties
+      this.clientId = settings.clientId;
+      this.userId = settings.userId || settings.clientId;
+      this.sessionId = this.initializeSession();
+      this.appId = settings.appId;
+      this.appKey = settings.appKey;
+      this.app = { ...settings.appInfo, app_id: this.appId };
+      this.apiEndpoint = DEFAULTS.API_ENDPOINT;
+      this.library = settings.library;
+
+      // Configuration
+      this.flushInterval = settings.flushInterval;
+      this.env = settings.env;
+      this.source = settings.source;
+      this.maxRetries = settings.maxRetries;
+      this.retryDelay = settings.retryDelay;
+      this.batchSize = settings.batchSize;
+      this.autoTrackErrors = settings.autoTrackErrors;
+      this.ignoredErrors = settings.ignoredErrors;
+      this.sessionTimeout = DEFAULTS.SESSION_TIMEOUT;
+
+      // Device info
+      this.device = getDeviceInfo();
+      this.os = getOSInfo();
+      this.browser = getBrowserInfo();
+
+      // Runtime state
+      this.buffer = [];
+      this.globalMetadata = {};
+      this.lastFlushTime = Date.now();
+      this.sessionStart = Date.now();
+      this.retryCount = 0;
+      this.isOffline = false;
+
+      this.defaultHeaders = { "Content-Type": "application/json" };
+      this.rageDetectionConfig = settings.rageDetection;
+
+      if (settings.useWebSocket && settings.webSocketEndpoint != "") {
+        this.webSocket = new WebSocket(settings.webSocketEndpoint);
+        this.webSocket.onopen = () => console.log('WebSocket connection established');
+        this.webSocket.onerror = (error) => console.error('WebSocket error:', error);
+      }
+    }
+
+    setupManagers() {
+      this.encryptionManager = new EncryptionManager();
+      this.rageDetectionManager = new RageDetectionManager();
+      this.requestQueue = new RequestQueue();
+      
+      // Set up error handler
+      this.errorHandler = new ErrorHandler({
+        maxRetries: this.maxRetries,
+        baseDelay: this.retryDelay,
+        onError: (error) => this.handleError(error)
+      });
+      
+      // Set up rage detection manager with callback
+      this.rageDetectionManager.onRageEvent = (rageEvent) => {
+        this.buffer.push(rageEvent);
+        if (this.buffer.length >= this.batchSize) {
+          this.flush();
+        }
+      };
+      
+      // Create API client for auth manager
+      this.apiClient = {
+        makeRequest: this.makeRequest.bind(this)
+      };
+      
+      this.authManager = new AuthManager(this, this.encryptionManager, this.apiClient);
+
+      if (this.rageDetectionConfig) {
+        this.rageDetectionManager.configureRageDetection(this.rageDetectionConfig);
+      }
+    }
+  // Navigator beacon
+    setupEventListeners() {
+      window.addEventListener("beforeunload", () => {
+        sessionStorage.setItem('dhan_session_close_time', Date.now().toString());
+      });
+      
+      window.addEventListener("unload", () => {
+        this.flush({ isUnloading: true });
+        this.destroy();
+      });
+
+
+
+      document.addEventListener("click", (e) => {
+        let t = e.target;
+        while (t && t.nodeType === 1 && !t.hasAttribute("data-track")) {
+          t = t.parentElement;
+        }
+        if (!t || t.nodeType !== 1 || !t.hasAttribute("data-track")) return;
+        const name = t.getAttribute("data-track");
+        const onclickAttr = t.getAttribute("onClick");
+        this.trackEvent(name, null, onclickAttr);
+      }, true);
+
+      ["pushState", "replaceState"].forEach(m => {
+        const orig = history[m];
+        history[m] = function () {
+          const rv = orig.apply(this, arguments);
+          window.dispatchEvent(new Event("ma:navigation"));
+          return rv;
+        };
+      });
+      window.addEventListener("popstate", () => window.dispatchEvent(new Event("ma:navigation")));
+
+      window.addEventListener('offline', () => { this.isOffline = true; });
+      window.addEventListener('online', async () => {
+        this.isOffline = false;
+        try {
+          await this.authManager.initializeToken();
+        } catch (e) {
+          // Will try again on next event/flush
+        }
+        this.flush();
+      });
+
+      if (this.autoTrackErrors) {
+        this.setupGlobalErrorTracking();
+      }
+    }
+
+    setupGlobalErrorTracking() {
+      window.addEventListener("error", (event) => {
+        this.trackError("JS_ERROR", {
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          error: event.error ? {
+            name: event.error.name,
+            message: event.error.message,
+            stack: event.error.stack
+          } : null
+        });
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        this.trackError("UNHANDLED_PROMISE_REJECTION", {
+          reason: event.reason instanceof Error ? {
+            name: event.reason.name,
+            message: event.reason.message,
+            stack: event.reason.stack
+          } : event.reason
+        });
+      });
+    }
+
+    startFlushInterval() {
+      this.flushIntervalId = setInterval(() => this.flush(), this.flushInterval);
+    }
+
+    // Core event tracking
+    trackEvent(eventType, context = null, properties = {}, metadataOverrides = {}) {
+      if (!eventType) {
+        throw new Error("Event type is required");
+      }
+      
+      if (typeof this.referrer === "undefined") {
+        this.referrer = document.referrer;
+      }
+      
+      const currentPath = window.location.pathname;
+      const currentUrl = window.location.href;
+      const previousPath = this.referrer;
+      this.referrer = currentPath;
+
+      const sanitizedProperties = this.sanitizeProperties(properties);
+      const now = new Date();
+
+      // Track event for rage detection
+      this.rageDetectionManager.trackRageEvent(eventType, sanitizedProperties);
+
+      // Check if this is a rage event
+      const rageInfo = this.rageDetectionManager.getRageEventInfo(eventType, sanitizedProperties);
+      const isRage = rageInfo && rageInfo.isRage;
+
+      if (this.buffer.length >= DEFAULTS.MAX_BUFFER_SIZE) {
+        // console.warn("Event buffer is full, event will be dropped");
+        return false;
+      }
+
+      // Regular events are added to buffer
+      if (!isRage) {
+        this.buffer.push({
+          event_id: "evt_" + now.getTime(),
+          event_type: eventType,
+          timestamp: getISTTime(),
+          context: {
+            page: {
+              path: currentPath,
+              referrer: previousPath,
+              title: document.title,
+              url: currentUrl,
+            },
+          },
+          properties: sanitizedProperties,
+          metadata: {
+            client_sent_at: getISTTime(),
+            received_at: null,
+            processing_time_ms: null,
+            library: this.library,
+            ...this.globalMetadata,
+            ...metadataOverrides,
+          },
+        });
+
+        if (this.buffer.length >= this.batchSize) {
+          this.flush();
+        }
+
+        return true;
+      }
+    }
+
+  sanitizeProperties(properties) {
+    if (!properties || typeof properties !== 'object') return {};
+    
+    const sanitized = {};
+    const isError = properties instanceof Error || (properties && properties.stack && properties.message);
+    const keys = isError 
+      ? Object.getOwnPropertyNames(properties) 
+      : Object.keys(properties);
+    for (const key of keys) {
+      const value = properties[key];
+      if (typeof value === "string") {
+        sanitized[key] = value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      } else if (value && typeof value === "object") {
+        // Recursive sanitization for nested objects and errors
+        sanitized[key] = this.sanitizeProperties(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+
+    // Event flushing
+    async flush(options = {}) {
+      const { isUnloading = false } = options;
+      if (this.buffer.length === 0) return;
+
+      // Use the serial requestQueue to handle flushes.
+      // This ensures that only one flush operation is processed at a time and
+      // prevents duplicate events from being sent if flush is triggered multiple times.
+      this.requestQueue.add(async () => {
+        // Re-verify buffer state inside the queue
+        if (this.buffer.length === 0) return;
+
+        const maxBatchSize = this.batchSize;
+        const batch = [];
+        let currentBatchSize = 0;
+
+        // Prepare batch from current buffer state
+        for (const event of this.buffer) {
+          if (currentBatchSize >= maxBatchSize && batch.length > 0) {
+            break;
+          }
+          batch.push(event);
+          currentBatchSize += 1;
+        }
+
+        const eventsToSend = [...batch];
+        const now = new Date();
+
+        const payload = {
+          batch_id: "batch_" + now.getTime(),
+          client_id: this.clientId,
+          user_id: this.userId,
+          session_id: this.sessionId,
+          app_id: this.appId,
+          ip: "",
+          network_type: getNetworkType(),
+          events: eventsToSend,
+          metadata: {
+            library: this.library,
+            source: this.source,
+            env: this.env,
+            batch_created_at: getISTTime(),
+            sdk_version: this.library.version,
+          },
+          device: getDeviceInfo(),
+          os: getOSInfo(),
+          app: this.app,
+          browser: getBrowserInfo(),
+        };
+
+        if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
+          this.webSocket.send(JSON.stringify(payload));
+          this.buffer = this.buffer.slice(eventsToSend.length);
+        } else {
+          try {
+            await this.errorHandler.handleNetworkRequest(async () => {
+              const newToken = await this.authManager.getValidToken();
+              const headers = {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${newToken}`,
+              };
+
+              const fetchOptions = {
+                method: "POST",
+                headers,
+                body: JSON.stringify(payload),
+                keepalive: isUnloading
+              };
+
+              const response = await fetch(this.apiEndpoint + "/api/activity", fetchOptions);
+
+              if (response.status === 401 && this.authManager.authConfig.refreshToken) {
+                try {
+                  const newToken = await this.authManager.refreshToken();
+                  headers["Authorization"] = `Bearer ${newToken}`;
+                } catch (refreshError) {
+                  throw new Error(`Token refresh failed: ${refreshError.message}`);
+                }
+
+                const retryResponse = await fetch(
+                  this.apiEndpoint + "/api/activity",
+                  {
+                    ...fetchOptions,
+                    headers: {
+                      ...headers,
+                      Authorization: `Bearer ${newToken}`
+                    }
+                  },
+                );
+
+                if (!retryResponse.ok) {
+                  throw new Error(`HTTP error! status: ${retryResponse.status}`);
+                }
+              } else if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+            }, 'event_flush');
+
+            this.buffer = this.buffer.slice(eventsToSend.length);
+            this.retryCount = 0;
+          } catch (error) {
+            if (error.isNetworkError && error.code === 'OFFLINE') {
+              return; // Keep events for next flush when online
+            }
+            // Drop batch on persistent error
+            this.buffer = this.buffer.slice(eventsToSend.length);
+          }
+        }
+      }, isUnloading ? PRIORITY.HIGH : PRIORITY.NORMAL);
+    }
+
+    // API requests
+    async makeRequest(url, method = "GET", data = null, useAuth = true, header = {}) {
+      return await this.errorHandler.handleNetworkRequest(async () => {
+        const headers = { ...this.defaultHeaders, ...header };
+
+        if (useAuth) {
+          const token = await this.authManager.getValidToken();
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+        }
+
+        const config = {
+          method,
+          headers: {
+            ...headers,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': window.location.origin
+          },
+          body: data ? JSON.stringify(data) : undefined,
+          credentials: 'same-origin'
+        };
+
+        const response = await fetch(`${this.apiEndpoint}${url}`, config);
+
+        if (response.status === 401 && useAuth) {
+          try {
+            const newToken = await this.authManager.refreshToken();
+            headers["Authorization"] = `Bearer ${newToken}`;
+          } catch (refreshError) {
+            throw new Error(`Token refresh failed: ${refreshError.message}`);
+          }
+
+          const retryResponse = await fetch(`${this.apiEndpoint}${url}`, {
+            ...config,
+            headers: {
+              ...headers,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Origin': window.location.origin
+
+            },
+            credentials: 'same-origin'
+          });
+
+          if (!retryResponse.ok) {
+            throw new Error(`API request failed with status ${retryResponse.status}`);
+          }
+
+          return await retryResponse.json();
+        }
+
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+
+        return response.json();
+      }, `api_request_${method}_${url}`);
+    }
+
+    // Rage detection methods
+    configureRageDetection(config) {
+      this.rageDetectionManager.configureRageDetection(config);
+    }
+
+    getRageDetectionStats() {
+      return this.rageDetectionManager.getRageDetectionStats();
+    }
+
+    getRageEventInfo(eventType, properties) {
+      return this.rageDetectionManager.getRageEventInfo(eventType, properties);
+    }
+
+    // Error tracking
+    trackError(errorType, errorData, severity = 'error') {
+      const message = errorData.message || (errorData.reason && (errorData.reason.message || errorData.reason)) || "";
+      
+      // Check if error should be ignored
+      if (this.ignoredErrors && this.ignoredErrors.length > 0) {
+        const shouldIgnore = this.ignoredErrors.some(pattern => {
+          if (pattern instanceof RegExp) {
+            return pattern.test(message);
+          }
+          return message.includes(pattern);
+        });
+        
+        if (shouldIgnore) return;
+      }
+
+      const now = new Date();
+      const currentPath = window.location.pathname;
+      const currentUrl = window.location.href;
+
+      const errorEvent = {
+          event_id: "err_" + now.getTime(),
+          event_type: "sdk_error_report",
+          timestamp: getISTTime(),
+          context: {
+            page: {
+              path: currentPath,
+              title: document.title,
+              url: currentUrl,
+            },
+          },
+          properties: {
+            error_type: errorType,
+            severity: severity,
+            ...(errorData instanceof Error 
+              ? {
+                  message: errorData.message,
+                  stack: errorData.stack,
+                  name: errorData.name,
+                  ...this.sanitizeProperties(errorData)
+                }
+              : this.sanitizeProperties(errorData))
+          },
+          metadata: {
+            client_sent_at: getISTTime(),
+            library: this.library,
+            ...this.globalMetadata,
+            is_error_event: true
+          },
+      };
+
+      this.buffer.push(errorEvent);
+
+      if (this.buffer.length >= this.batchSize) {
+        this.flush();
+      }
+
+      // Also call internal error handler for logging/debugging if needed
+      this.handleError(errorData);
+    }
+
+    // Error handling
+    handleError(error) {
+      if (this.debug) ;
+      
+      // Emit error event for external handling
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('dhantracker:error', {
+          detail: {
+            error,
+            timestamp: getISTTime(),
+            context: 'network_failure'
+          }
+        }));
+      }
+    }
+
+    getErrorStats() {
+      return this.errorHandler.getErrorStats();
+    }
+
+    // Session management
+    initializeSession() {
+      try {
+        const closeTime = sessionStorage.getItem('dhan_session_close_time');
+        const storedSessionId = sessionStorage.getItem('dhan_session_id');
+        
+        // If no close time recorded, check for existing session
+        if (!closeTime && storedSessionId) {
+          return storedSessionId;
+        }
+        
+        // If tab was closed and reopened within 30 seconds, continue session
+        if (closeTime && storedSessionId && Date.now() - parseInt(closeTime) <= this.sessionTimeout) {
+          sessionStorage.removeItem('dhan_session_close_time');
+          return storedSessionId;
+        }
+        
+        // Create new session
+        const newSessionId = this.generateSessionId();
+        sessionStorage.setItem('dhan_session_id', newSessionId);
+        sessionStorage.removeItem('dhan_session_close_time');
+        return newSessionId;
+      } catch (error) {
+        // console.warn('Session storage access failed, generating fallback session:', error.message);
+        return this.generateSessionId();
+      }
+    }
+
+    // Utility methods
+    generateSessionId() {
+      return "sess_" + Date.now() + "_" + this.clientId;
+    }
+
+    destroy() {
+      this.authManager.cleanup();
+      clearInterval(this.flushIntervalId);
+      this.cleanup();
+      this.requestQueue = new RequestQueue();
+      window.removeEventListener("unload", this.cleanup);
+    }
+
+    cleanup() {
+      clearInterval(this.flushIntervalId);
+      this.rageDetectionManager.cleanup();
+      this.buffer = [];
+      this.globalMetadata = {};
+      sessionStorage.removeItem("tabId");
+    }
+  }
+
+  return DhanTracker;
+
+}));
+//# sourceMappingURL=dhan-tracker.umd.min.js.map

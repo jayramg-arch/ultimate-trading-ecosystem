@@ -1,0 +1,104 @@
+//@version=6
+indicator("Master Stage 2 System", overlay=true, precision=2)
+
+// =========================================================================
+// 1. INPUTS & VARIABLES
+// =========================================================================
+benchmark = input.symbol("NSE:NIFTY", title="MRS Benchmark Index")
+ema_length = input.int(20, title="EMA Length")
+mrs_length = input.int(52, title="Mansfield RS Length")
+rsi_length = input.int(14, title="RSI Length")
+vol_length = input.int(20, title="Volume SMA Length")
+atr_length = input.int(14, title="ATR Length")
+
+// Dynamic CE Variables (Automatically adjust based on chart timeframe)
+var int ce_length = 22
+var float ce_mult = 3.0
+
+switch timeframe.period
+    "75" => 
+        ce_length := 25
+        ce_mult := 2.5
+    "125" =>
+        ce_length := 15
+        ce_mult := 2.5
+    "D" =>
+        ce_length := 22
+        ce_mult := 3.0
+    "W" =>
+        ce_length := 13
+        ce_mult := 3.0
+    "M" =>
+        ce_length := 6
+        ce_mult := 3.0
+
+// =========================================================================
+// 2. STRUCTURAL LOGIC (MTF EMA 20)
+// =========================================================================
+// Determines if viewing Weekly/Monthly (HTF) vs Daily/Intraday (LTF)
+is_htf = timeframe.isweekly or timeframe.ismonthly
+
+// Fetch Standard EMA and Daily EMA securely
+chart_ema = ta.ema(close, ema_length)
+daily_ema = request.security(syminfo.tickerid, "D", ta.ema(close, ema_length), gaps = barmerge.gaps_on)
+
+// Assign the correct EMA to be the structural floor
+active_ema = is_htf ? chart_ema : daily_ema
+
+// =========================================================================
+// 3. TRADE MANAGEMENT LOGIC (CHANDELIER EXIT)
+// =========================================================================
+atr = ta.atr(atr_length)
+highest_high = ta.highest(high, ce_length)
+raw_long_stop = highest_high - (atr * ce_mult)
+
+is_stage_2 = close > active_ema
+var float trailing_stop = na
+
+if is_stage_2
+    if not is_stage_2[1]
+        trailing_stop := raw_long_stop
+    else
+        // Ratchet effect: Stop loss only moves UP
+        trailing_stop := math.max(raw_long_stop, nz(trailing_stop[1], raw_long_stop))
+else
+    // Invalidate setup if price drops below EMA 20
+    trailing_stop := na
+
+// =========================================================================
+// 4. ENTRY SCREENER LOGIC (CONFLUENCE)
+// =========================================================================
+// Condition A: Price is above the active EMA and within a 2% pullback zone
+is_near_ema = (close - active_ema) / active_ema <= 0.02
+
+// Condition B: RSI internal momentum is resting in the 40-60 pocket
+rsi_val = ta.rsi(close, rsi_length)
+is_rsi_pullback = rsi_val >= 40 and rsi_val <= 60
+
+// Condition C: Mansfield RS external strength vs Nifty 50 is positive
+bench_close = request.security(benchmark, timeframe.period, close)
+rs_ratio = close / bench_close
+mrs_val = ((rs_ratio / ta.sma(rs_ratio, mrs_length)) - 1) * 100
+is_mrs_bullish = mrs_val > 0
+
+// Condition D: Effort vs Result (Pullback volume is below the average)
+vol_sma = ta.sma(volume, vol_length)
+is_low_volume = volume < vol_sma
+
+// Master Trigger: All structural, momentum, strength, and volume conditions align
+setup_trigger = is_stage_2 and is_near_ema and is_rsi_pullback and is_mrs_bullish and is_low_volume
+
+// =========================================================================
+// 5. PLOTTING & ALERTS
+// =========================================================================
+// Plot the Structural Floor (Active EMA 20)
+plot(active_ema, color=color.new(color.blue, 0), title="Active EMA 20", linewidth=2)
+
+// Plot the Risk Management Line (Chandelier Exit)
+plot(trailing_stop, color=color.new(color.green, 0), style=plot.style_linebr, title="Stage 2 CE Stop", linewidth=2)
+
+// Paint the Entry Signal 
+plotshape(setup_trigger, title="Stage 2 Pullback", style=shape.triangleup, location=location.belowbar, color=color.new(color.green, 0), size=size.small, text="SETUP")
+
+// Alert Condition for Server-Side Scanning
+alertcondition(setup_trigger, title="Stage 2 Master Setup", message="Perfect Stage 2 Pullback detected on {{ticker}}. Verify Demand zone and execute 1% risk sizing.")

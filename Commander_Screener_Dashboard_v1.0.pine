@@ -1,0 +1,241 @@
+//@version=5
+indicator("Commander Screener Dashboard [Multi-Ticker Ranker] v1.0", overlay=true)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+grpSym = "Watchlist Symbols (Max 40)"
+s1  = input.symbol("NSE:RELIANCE", group=grpSym, inline="s1")
+s2  = input.symbol("NSE:TCS", group=grpSym, inline="s1")
+s3  = input.symbol("NSE:HDFCBANK", group=grpSym, inline="s2")
+s4  = input.symbol("NSE:INFY", group=grpSym, inline="s2")
+s5  = input.symbol("NSE:ICICIBANK", group=grpSym, inline="s3")
+s6  = input.symbol("NSE:BHARTIARTL", group=grpSym, inline="s3")
+s7  = input.symbol("NSE:LT", group=grpSym, inline="s4")
+s8  = input.symbol("NSE:ITC", group=grpSym, inline="s4")
+s9  = input.symbol("NSE:SBIN", group=grpSym, inline="s5")
+s10 = input.symbol("NSE:BAJFINANCE", group=grpSym, inline="s5")
+s11 = input.symbol("NSE:M&M", group=grpSym, inline="s6")
+s12 = input.symbol("NSE:TATAMOTORS", group=grpSym, inline="s6")
+s13 = input.symbol("NSE:SUNPHARMA", group=grpSym, inline="s7")
+s14 = input.symbol("NSE:MARUTI", group=grpSym, inline="s7")
+s15 = input.symbol("NSE:ULTRACEMCO", group=grpSym, inline="s8")
+s16 = input.symbol("NSE:ASIANPAINT", group=grpSym, inline="s8")
+s17 = input.symbol("NSE:HCLTECH", group=grpSym, inline="s9")
+s18 = input.symbol("NSE:AXISBANK", group=grpSym, inline="s9")
+s19 = input.symbol("NSE:ONGC", group=grpSym, inline="s10")
+s20 = input.symbol("NSE:KOTAKBANK", group=grpSym, inline="s10")
+s21 = input.symbol("NSE:POWERGRID", group=grpSym, inline="s11")
+s22 = input.symbol("NSE:NTPC", group=grpSym, inline="s11")
+s23 = input.symbol("NSE:TITAN", group=grpSym, inline="s12")
+s24 = input.symbol("NSE:COALINDIA", group=grpSym, inline="s12")
+s25 = input.symbol("NSE:BAJAJFINSV", group=grpSym, inline="s13")
+s26 = input.symbol("NSE:TATASTEEL", group=grpSym, inline="s13")
+s27 = input.symbol("NSE:HINDUNILVR", group=grpSym, inline="s14")
+s28 = input.symbol("NSE:ADANIENT", group=grpSym, inline="s14")
+s29 = input.symbol("NSE:DRREDDY", group=grpSym, inline="s15")
+s30 = input.symbol("NSE:GRASIM", group=grpSym, inline="s15")
+
+grpConfig = "Ranking & Table Config"
+sortBy = input.string("Trend Grade", title="Rank/Sort By", options=["Trend Grade", "Volume Thrust", "Proximity to 52-Wk High", "Proximity to 50-SMA"], group=grpConfig)
+sortDir = input.string("Descending (Best to Worst)", title="Sort Direction", options=["Descending (Best to Worst)", "Ascending (Worst to Best)"], group=grpConfig)
+tbPos = input.string(position.top_right, title="Table Position", options=[position.top_right, position.bottom_right, position.middle_right, position.middle_center], group=grpConfig)
+
+
+// ==========================================
+// 2. DATA STRUCTURE & FETCH LOGIC
+// ==========================================
+type StockData
+    string ticker
+    float price
+    string gradeStr
+    int gradeScore
+    float distFromHigh
+    float distFrom50
+    float volThrust
+    color bgCol
+
+// A tuple function to grab all Minervini/Weinstein indicators at exactly the same time,
+// avoiding the 40 limit of request.security() as much as possible.
+f_get_data() =>
+    [close, ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200), ta.highest(high, 250), volume, ta.sma(volume, 50), close - open]
+
+// This function processes the raw data into our structured StockData type
+f_process_stock(string sym, float c, float s50, float s150, float s200, float h250, float vol, float vSma, float closeMinusOpen) =>
+    score = 0
+    grade = "F"
+    bg = color.new(#ff5252, 70) // Red default
+    
+    if na(c) or c == 0
+        StockData.new(sym, 0, "N/A", 0, 0, 0, 0, color.gray)
+    else
+        // Minervini / Weinstein Trend Algorithm
+        if (c > s50) and (s50 > s150) and (s150 > s200) and (s200 > s200[10]) # Strict Stage 2
+            score := 5
+            grade := "A"
+            bg := color.new(#00e676, 50)
+        else if (c > s150) and (s150 > s200) # Recovering/Strong
+            score := 4
+            grade := "B"
+            bg := color.new(#00b0ff, 50)
+        else if (c > s200) and (s50 < s150) # Choppy but above 200
+            score := 3
+            grade := "C"
+            bg := color.new(#ffeb3b, 50)
+        else if (c < s200) and (s50 > s200) # Failing Stage 3
+            score := 2
+            grade := "D"
+            bg := color.new(#ff9800, 50)
+        else 
+            score := 1
+            grade := "F"
+            bg := color.new(#ff5252, 50)
+            
+        d52High = h250 > 0 ? ((c - h250) / h250) * 100 : 0
+        d50SMA = s50 > 0 ? ((c - s50) / s50) * 100 : 0
+        
+        // Vol Thrust (Only if it closed UP today)
+        vThrust = 0.0
+        if vSma > 0 and closeMinusOpen > 0
+            vThrust := (vol / vSma) * 100
+        
+        // Return structured data
+        StockData.new(sym, c, grade, score, d52High, d50SMA, vThrust, bg)
+
+
+// ==========================================
+// 3. FETCH THE DATA
+// ==========================================
+// We have to request individually
+t1 = syminfo.ticker
+[c1, s50_1, s150_1, s200_1, h250_1, v1, vSma_1, cmp1] = request.security(s1, timeframe.period, f_get_data())
+[c2, s50_2, s150_2, s200_2, h250_2, v2, vSma_2, cmp2] = request.security(s2, timeframe.period, f_get_data())
+[c3, s50_3, s150_3, s200_3, h250_3, v3, vSma_3, cmp3] = request.security(s3, timeframe.period, f_get_data())
+[c4, s50_4, s150_4, s200_4, h250_4, v4, vSma_4, cmp4] = request.security(s4, timeframe.period, f_get_data())
+[c5, s50_5, s150_5, s200_5, h250_5, v5, vSma_5, cmp5] = request.security(s5, timeframe.period, f_get_data())
+[c6, s50_6, s150_6, s200_6, h250_6, v6, vSma_6, cmp6] = request.security(s6, timeframe.period, f_get_data())
+[c7, s50_7, s150_7, s200_7, h250_7, v7, vSma_7, cmp7] = request.security(s7, timeframe.period, f_get_data())
+[c8, s50_8, s150_8, s200_8, h250_8, v8, vSma_8, cmp8] = request.security(s8, timeframe.period, f_get_data())
+[c9, s50_9, s150_9, s200_9, h250_9, v9, vSma_9, cmp9] = request.security(s9, timeframe.period, f_get_data())
+[c10, s50_10, s150_10, s200_10, h250_10, v10, vSma_10, cmp10] = request.security(s10, timeframe.period, f_get_data())
+[c11, s50_11, s150_11, s200_11, h250_11, v11, vSma_11, cmp11] = request.security(s11, timeframe.period, f_get_data())
+[c12, s50_12, s150_12, s200_12, h250_12, v12, vSma_12, cmp12] = request.security(s12, timeframe.period, f_get_data())
+[c13, s50_13, s150_13, s200_13, h250_13, v13, vSma_13, cmp13] = request.security(s13, timeframe.period, f_get_data())
+[c14, s50_14, s150_14, s200_14, h250_14, v14, vSma_14, cmp14] = request.security(s14, timeframe.period, f_get_data())
+[c15, s50_15, s150_15, s200_15, h250_15, v15, vSma_15, cmp15] = request.security(s15, timeframe.period, f_get_data())
+[c16, s50_16, s150_16, s200_16, h250_16, v16, vSma_16, cmp16] = request.security(s16, timeframe.period, f_get_data())
+[c17, s50_17, s150_17, s200_17, h250_17, v17, vSma_17, cmp17] = request.security(s17, timeframe.period, f_get_data())
+[c18, s50_18, s150_18, s200_18, h250_18, v18, vSma_18, cmp18] = request.security(s18, timeframe.period, f_get_data())
+[c19, s50_19, s150_19, s200_19, h250_19, v19, vSma_19, cmp19] = request.security(s19, timeframe.period, f_get_data())
+[c20, s50_20, s150_20, s200_20, h250_20, v20, vSma_20, cmp20] = request.security(s20, timeframe.period, f_get_data())
+[c21, s50_21, s150_21, s200_21, h250_21, v21, vSma_21, cmp21] = request.security(s21, timeframe.period, f_get_data())
+[c22, s50_22, s150_22, s200_22, h250_22, v22, vSma_22, cmp22] = request.security(s22, timeframe.period, f_get_data())
+[c23, s50_23, s150_23, s200_23, h250_23, v23, vSma_23, cmp23] = request.security(s23, timeframe.period, f_get_data())
+[c24, s50_24, s150_24, s200_24, h250_24, v24, vSma_24, cmp24] = request.security(s24, timeframe.period, f_get_data())
+[c25, s50_25, s150_25, s200_25, h250_25, v25, vSma_25, cmp25] = request.security(s25, timeframe.period, f_get_data())
+[c26, s50_26, s150_26, s200_26, h250_26, v26, vSma_26, cmp26] = request.security(s26, timeframe.period, f_get_data())
+[c27, s50_27, s150_27, s200_27, h250_27, v27, vSma_27, cmp27] = request.security(s27, timeframe.period, f_get_data())
+[c28, s50_28, s150_28, s200_28, h250_28, v28, vSma_28, cmp28] = request.security(s28, timeframe.period, f_get_data())
+[c29, s50_29, s150_29, s200_29, h250_29, v29, vSma_29, cmp29] = request.security(s29, timeframe.period, f_get_data())
+[c30, s50_30, s150_30, s200_30, h250_30, v30, vSma_30, cmp30] = request.security(s30, timeframe.period, f_get_data())
+
+
+// ==========================================
+// 4. DRAW TABLE, SORT, & RANK (Only on Last Bar)
+// ==========================================
+var table ui = table.new(tbPos, 8, 32, bgcolor=#1a1a24, border_color=#363c4e, border_width=1)
+
+if barstate.islast
+    // Load arrays
+    a_stocks = array.new<StockData>()
+    if s1 != ""  and not na(c1),  array.push(a_stocks, f_process_stock(s1, c1, s50_1, s150_1, s200_1, h250_1, v1, vSma_1, cmp1))
+    if s2 != ""  and not na(c2),  array.push(a_stocks, f_process_stock(s2, c2, s50_2, s150_2, s200_2, h250_2, v2, vSma_2, cmp2))
+    if s3 != ""  and not na(c3),  array.push(a_stocks, f_process_stock(s3, c3, s50_3, s150_3, s200_3, h250_3, v3, vSma_3, cmp3))
+    if s4 != ""  and not na(c4),  array.push(a_stocks, f_process_stock(s4, c4, s50_4, s150_4, s200_4, h250_4, v4, vSma_4, cmp4))
+    if s5 != ""  and not na(c5),  array.push(a_stocks, f_process_stock(s5, c5, s50_5, s150_5, s200_5, h250_5, v5, vSma_5, cmp5))
+    if s6 != ""  and not na(c6),  array.push(a_stocks, f_process_stock(s6, c6, s50_6, s150_6, s200_6, h250_6, v6, vSma_6, cmp6))
+    if s7 != ""  and not na(c7),  array.push(a_stocks, f_process_stock(s7, c7, s50_7, s150_7, s200_7, h250_7, v7, vSma_7, cmp7))
+    if s8 != ""  and not na(c8),  array.push(a_stocks, f_process_stock(s8, c8, s50_8, s150_8, s200_8, h250_8, v8, vSma_8, cmp8))
+    if s9 != ""  and not na(c9),  array.push(a_stocks, f_process_stock(s9, c9, s50_9, s150_9, s200_9, h250_9, v9, vSma_9, cmp9))
+    if s10 != "" and not na(c10), array.push(a_stocks, f_process_stock(s10, c10, s50_10, s150_10, s200_10, h250_10, v10, vSma_10, cmp10))
+    if s11 != "" and not na(c11), array.push(a_stocks, f_process_stock(s11, c11, s50_11, s150_11, s200_11, h250_11, v11, vSma_11, cmp11))
+    if s12 != "" and not na(c12), array.push(a_stocks, f_process_stock(s12, c12, s50_12, s150_12, s200_12, h250_12, v12, vSma_12, cmp12))
+    if s13 != "" and not na(c13), array.push(a_stocks, f_process_stock(s13, c13, s50_13, s150_13, s200_13, h250_13, v13, vSma_13, cmp13))
+    if s14 != "" and not na(c14), array.push(a_stocks, f_process_stock(s14, c14, s50_14, s150_14, s200_14, h250_14, v14, vSma_14, cmp14))
+    if s15 != "" and not na(c15), array.push(a_stocks, f_process_stock(s15, c15, s50_15, s150_15, s200_15, h250_15, v15, vSma_15, cmp15))
+    if s16 != "" and not na(c16), array.push(a_stocks, f_process_stock(s16, c16, s50_16, s150_16, s200_16, h250_16, v16, vSma_16, cmp16))
+    if s17 != "" and not na(c17), array.push(a_stocks, f_process_stock(s17, c17, s50_17, s150_17, s200_17, h250_17, v17, vSma_17, cmp17))
+    if s18 != "" and not na(c18), array.push(a_stocks, f_process_stock(s18, c18, s50_18, s150_18, s200_18, h250_18, v18, vSma_18, cmp18))
+    if s19 != "" and not na(c19), array.push(a_stocks, f_process_stock(s19, c19, s50_19, s150_19, s200_19, h250_19, v19, vSma_19, cmp19))
+    if s20 != "" and not na(c20), array.push(a_stocks, f_process_stock(s20, c20, s50_20, s150_20, s200_20, h250_20, v20, vSma_20, cmp20))
+    if s21 != "" and not na(c21), array.push(a_stocks, f_process_stock(s21, c21, s50_21, s150_21, s200_21, h250_21, v21, vSma_21, cmp21))
+    if s22 != "" and not na(c22), array.push(a_stocks, f_process_stock(s22, c22, s50_22, s150_22, s200_22, h250_22, v22, vSma_22, cmp22))
+    if s23 != "" and not na(c23), array.push(a_stocks, f_process_stock(s23, c23, s50_23, s150_23, s200_23, h250_23, v23, vSma_23, cmp23))
+    if s24 != "" and not na(c24), array.push(a_stocks, f_process_stock(s24, c24, s50_24, s150_24, s200_24, h250_24, v24, vSma_24, cmp24))
+    if s25 != "" and not na(c25), array.push(a_stocks, f_process_stock(s25, c25, s50_25, s150_25, s200_25, h250_25, v25, vSma_25, cmp25))
+    if s26 != "" and not na(c26), array.push(a_stocks, f_process_stock(s26, c26, s50_26, s150_26, s200_26, h250_26, v26, vSma_26, cmp26))
+    if s27 != "" and not na(c27), array.push(a_stocks, f_process_stock(s27, c27, s50_27, s150_27, s200_27, h250_27, v27, vSma_27, cmp27))
+    if s28 != "" and not na(c28), array.push(a_stocks, f_process_stock(s28, c28, s50_28, s150_28, s200_28, h250_28, v28, vSma_28, cmp28))
+    if s29 != "" and not na(c29), array.push(a_stocks, f_process_stock(s29, c29, s50_29, s150_29, s200_29, h250_29, v29, vSma_29, cmp29))
+    if s30 != "" and not na(c30), array.push(a_stocks, f_process_stock(s30, c30, s50_30, s150_30, s200_30, h250_30, v30, vSma_30, cmp30))
+    
+    // Sort Engine
+    a_sortVals = array.new_float()
+    for s in a_stocks
+        float v = 0.0
+        if sortBy == "Trend Grade"
+            v := s.gradeScore + (s.volThrust / 1000) // Tie-breaker
+        else if sortBy == "Volume Thrust"
+            v := s.volThrust
+        else if sortBy == "Proximity to 52-Wk High"
+            v := s.distFromHigh * -1 // Reverse it (we want closest to 0 at top when descending)
+        else
+            v := math.abs(s.distFrom50) * -1 // Reverse, want closest to 0
+        array.push(a_sortVals, v)
+        
+    int[] indices = array.sort_indices(a_sortVals)
+    
+    // Header
+    table.cell(ui, 0, 0, "RANK", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 1, 0, "TICKER", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 2, 0, "PRICE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 3, 0, "TREND GRADE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 4, 0, "% 52-HIGH", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 5, 0, "% 50-SMA", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 6, 0, "VOL THRUST%", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    
+    bool isDesc = sortDir == "Descending (Best to Worst)"
+    
+    if array.size(indices) > 0
+        for i = 0 to array.size(indices) - 1
+            // Fetch sorted index
+            idx = isDesc ? array.get(indices, (array.size(indices) - 1) - i) : array.get(indices, i)
+            s = array.get(a_stocks, idx)
+            
+            cleanTick = str.replace_all(s.ticker, "NSE:", "") // Clean look
+            
+            table.cell(ui, 0, i+1, str.tostring(i+1), bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 1, i+1, cleanTick, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 2, i+1, str.tostring(s.price, "#.##"), bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 3, i+1, "GRADE " + s.gradeStr, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            
+            // % from High
+            color hCol = color.white
+            if s.distFromHigh > -5 and s.distFromHigh <= 0
+                hCol := color.lime // Power setup
+            table.cell(ui, 4, i+1, str.tostring(s.distFromHigh, "#.#") + "%", bgcolor=s.bgCol, text_color=hCol, text_size=size.small)
+            
+            // SMA Dist
+            color dCol = color.white
+            if s.distFrom50 > 0 and s.distFrom50 < 4
+                dCol := color.lime // Nice tight VCP distance
+            else if s.distFrom50 > 15
+                dCol := color.red // Extended
+            table.cell(ui, 5, i+1, str.tostring(s.distFrom50, "#.#") + "%", bgcolor=s.bgCol, text_color=dCol, text_size=size.small)
+            
+            // Vol Thrust
+            color vCol = color.white
+            if s.volThrust > 150
+                vCol := color.yellow // High accumulation!
+            valStr = s.volThrust > 0 ? str.tostring(s.volThrust, "#.#") + "%" : "0%"
+            table.cell(ui, 6, i+1, valStr, bgcolor=s.bgCol, text_color=vCol, text_size=size.small)

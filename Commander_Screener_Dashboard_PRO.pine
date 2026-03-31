@@ -1,0 +1,317 @@
+//@version=6
+indicator("Commander Screener Dashboard [PRO Multi-Ticker] v2.0", overlay=true)
+
+// ==========================================
+// 1. INPUTS (Settings Menu)
+// ==========================================
+grpSym = "Watchlist Symbols (Max 30)"
+s1  = input.symbol("NSE:RELIANCE", group=grpSym)
+s2  = input.symbol("NSE:TCS", group=grpSym)
+s3  = input.symbol("NSE:HDFCBANK", group=grpSym)
+s4  = input.symbol("NSE:INFY", group=grpSym)
+s5  = input.symbol("NSE:ICICIBANK", group=grpSym)
+s6  = input.symbol("NSE:BHARTIARTL", group=grpSym)
+s7  = input.symbol("NSE:LT", group=grpSym)
+s8  = input.symbol("NSE:ITC", group=grpSym)
+s9  = input.symbol("NSE:SBIN", group=grpSym)
+s10 = input.symbol("NSE:BAJFINANCE", group=grpSym)
+s11 = input.symbol("NSE:M&M", group=grpSym)
+s12 = input.symbol("NSE:TATAMOTORS", group=grpSym)
+s13 = input.symbol("NSE:SUNPHARMA", group=grpSym)
+s14 = input.symbol("NSE:MARUTI", group=grpSym)
+s15 = input.symbol("NSE:ULTRACEMCO", group=grpSym)
+s16 = input.symbol("NSE:ASIANPAINT", group=grpSym)
+s17 = input.symbol("NSE:HCLTECH", group=grpSym)
+s18 = input.symbol("NSE:AXISBANK", group=grpSym)
+s19 = input.symbol("NSE:ONGC", group=grpSym)
+s20 = input.symbol("NSE:KOTAKBANK", group=grpSym)
+s21 = input.symbol("NSE:POWERGRID", group=grpSym)
+s22 = input.symbol("NSE:NTPC", group=grpSym)
+s23 = input.symbol("NSE:TITAN", group=grpSym)
+s24 = input.symbol("NSE:COALINDIA", group=grpSym)
+s25 = input.symbol("NSE:BAJAJFINSV", group=grpSym)
+s26 = input.symbol("NSE:TATASTEEL", group=grpSym)
+s27 = input.symbol("NSE:HINDUNILVR", group=grpSym)
+s28 = input.symbol("NSE:ADANIENT", group=grpSym)
+s29 = input.symbol("NSE:DRREDDY", group=grpSym)
+s30 = input.symbol("NSE:GRASIM", group=grpSym)
+
+grpConfig = "Ranking & Table Config"
+benchSym = input.symbol("NSE:NIFTY", title="Benchmark (For RS)", group=grpConfig)
+sortBy = input.string("Score/Grade", title="Rank/Sort By", options=["Score/Grade", "Volume Thrust", "Proximity to 52-Wk High", "Proximity to 20-EMA", "Relative Strength (Qtr)"], group=grpConfig)
+sortDir = input.string("Descending (Best to Worst)", title="Sort Direction", options=["Descending (Best to Worst)", "Ascending (Worst to Best)"], group=grpConfig)
+tbPos = input.string(position.top_right, title="Table Position", options=[position.top_right, position.bottom_right, position.middle_right, position.middle_center], group=grpConfig)
+
+
+// ==========================================
+// 2. DATA STRUCTURE & FETCH LOGIC
+// ==========================================
+type StockData
+    string ticker
+    float price
+    string stageStr
+    string gradeStr
+    int score
+    float distFromHigh
+    float distFromEMA20
+    float volThrust
+    string vcpStr
+    string rsStr
+    color bgCol
+    string recStr
+
+// Grab benchmark performance once
+b_qtr_roc = request.security(benchSym, timeframe.period, ta.roc(close, 65))
+
+// A tuple function to grab all 13 core indicators concurrently
+f_get_data() =>
+    [close, open, ta.ema(close, 20), ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200), ta.sma(close, 200)[10], ta.highest(high, 250), volume, ta.sma(volume, 50), ta.rsi(close, 14), ta.atr(10), ta.atr(40), ta.roc(close, 65)]
+
+f_process_stock(string sym, float c, float o, float e20, float s50, float s150, float s200, float s200_10, float h250, float vol, float vSma, float rsi, float atr10, float atr40, float roc65, float benchRoc) =>
+    if na(c) or c == 0
+        StockData.new(sym, 0, "N/A", "N/A", 0, 0, 0, 0, "N/A", "N/A", color.gray, "WAIT")
+    else
+        // 1. Structural Grade & Stage
+        score = 0
+        grade = "F"
+        stage = "STAGE 4"
+        bg = color.new(#ff5252, 70) 
+        
+        if (c > s150) and (s150 > s200) and (s200 > s200_10)
+            stage := "STAGE 2 (UP)"
+            if (c > s50) and (s50 > s150)
+                grade := "A"
+                score := 5
+                bg := color.new(#00e676, 50)
+            else
+                grade := "B"
+                score := 4
+                bg := color.new(#00e676, 70)
+        else if (c > s200)
+            stage := "STAGE 1 (BASE)"
+            grade := "C"
+            score := 3
+            bg := color.new(#ffeb3b, 50)
+        else if (s50 < s200)
+            stage := "STAGE 4"
+            grade := "D"
+            score := 1
+            bg := color.new(#ff9800, 50)
+
+        // 2. Relative Strength Proxy (vs Nifty 50 over 65 days/1 Quarter)
+        alpha = roc65 - benchRoc
+        rs_str = "Lagging"
+        if alpha > 15
+            score += 2
+            rs_str := "🔥 LEADING"
+        else if alpha > 5
+            score += 1
+            rs_str := "Improving"
+            
+        // 3. Volatility Compression (VCP)
+        vcp_str = "Normal"
+        if atr10 < (atr40 * 0.70)
+            vcp_str := "⚡ SQUEEZE"
+            score += 1
+        else if atr10 > (atr40 * 1.5)
+            vcp_str := "Expanded"
+
+        // 4. Volume Thrust
+        vThrust = 0.0
+        if vSma > 0 and (c > o)
+            vThrust := (vol / vSma) * 100
+            if vThrust > 150
+                score += 1
+                
+        // 5. Distance Metrics
+        d52High = h250 > 0 ? ((c - h250) / h250) * 100 : 0
+        dEMA20 = e20 > 0 ? ((c - e20) / e20) * 100 : 0
+        
+        // 6. Final Recommendation String
+        rec = "WAIT"
+        if stage == "STAGE 2 (UP)" and c > e20 and rsi > 50
+            if vcp_str == "⚡ SQUEEZE" and dEMA20 < 5.0
+                rec := "🎯 SWING SETUP"
+            else
+                rec := "BUY (Trend)"
+        else if stage == "STAGE 1 (BASE)" 
+            rec := "WATCH (Basing)"
+        else if stage == "STAGE 4"
+            rec := "AVOID"
+
+        StockData.new(sym, c, stage, grade, score, d52High, dEMA20, vThrust, vcp_str, rs_str, bg, rec)
+
+// ==========================================
+// 3. FETCH THE DATA
+// ==========================================
+[c1,o1,e1_1,s50_1,s150_1,s200_1,s200_10_1,h250_1,v1,vSma_1,rsi1,atr10_1,atr40_1,roc1] = request.security(s1, timeframe.period, f_get_data())
+[c2,o2,e1_2,s50_2,s150_2,s200_2,s200_10_2,h250_2,v2,vSma_2,rsi2,atr10_2,atr40_2,roc2] = request.security(s2, timeframe.period, f_get_data())
+[c3,o3,e1_3,s50_3,s150_3,s200_3,s200_10_3,h250_3,v3,vSma_3,rsi3,atr10_3,atr40_3,roc3] = request.security(s3, timeframe.period, f_get_data())
+[c4,o4,e1_4,s50_4,s150_4,s200_4,s200_10_4,h250_4,v4,vSma_4,rsi4,atr10_4,atr40_4,roc4] = request.security(s4, timeframe.period, f_get_data())
+[c5,o5,e1_5,s50_5,s150_5,s200_5,s200_10_5,h250_5,v5,vSma_5,rsi5,atr10_5,atr40_5,roc5] = request.security(s5, timeframe.period, f_get_data())
+[c6,o6,e1_6,s50_6,s150_6,s200_6,s200_10_6,h250_6,v6,vSma_6,rsi6,atr10_6,atr40_6,roc6] = request.security(s6, timeframe.period, f_get_data())
+[c7,o7,e1_7,s50_7,s150_7,s200_7,s200_10_7,h250_7,v7,vSma_7,rsi7,atr10_7,atr40_7,roc7] = request.security(s7, timeframe.period, f_get_data())
+[c8,o8,e1_8,s50_8,s150_8,s200_8,s200_10_8,h250_8,v8,vSma_8,rsi8,atr10_8,atr40_8,roc8] = request.security(s8, timeframe.period, f_get_data())
+[c9,o9,e1_9,s50_9,s150_9,s200_9,s200_10_9,h250_9,v9,vSma_9,rsi9,atr10_9,atr40_9,roc9] = request.security(s9, timeframe.period, f_get_data())
+[c10,o10,e1_10,s50_10,s150_10,s200_10,s200_10_10,h250_10,v10,vSma_10,rsi10,atr10_10,atr40_10,roc10] = request.security(s10, timeframe.period, f_get_data())
+[c11,o11,e1_11,s50_11,s150_11,s200_11,s200_10_11,h250_11,v11,vSma_11,rsi11,atr10_11,atr40_11,roc11] = request.security(s11, timeframe.period, f_get_data())
+[c12,o12,e1_12,s50_12,s150_12,s200_12,s200_10_12,h250_12,v12,vSma_12,rsi12,atr10_12,atr40_12,roc12] = request.security(s12, timeframe.period, f_get_data())
+[c13,o13,e1_13,s50_13,s150_13,s200_13,s200_10_13,h250_13,v13,vSma_13,rsi13,atr10_13,atr40_13,roc13] = request.security(s13, timeframe.period, f_get_data())
+[c14,o14,e1_14,s50_14,s150_14,s200_14,s200_10_14,h250_14,v14,vSma_14,rsi14,atr10_14,atr40_14,roc14] = request.security(s14, timeframe.period, f_get_data())
+[c15,o15,e1_15,s50_15,s150_15,s200_15,s200_10_15,h250_15,v15,vSma_15,rsi15,atr10_15,atr40_15,roc15] = request.security(s15, timeframe.period, f_get_data())
+[c16,o16,e1_16,s50_16,s150_16,s200_16,s200_10_16,h250_16,v16,vSma_16,rsi16,atr10_16,atr40_16,roc16] = request.security(s16, timeframe.period, f_get_data())
+[c17,o17,e1_17,s50_17,s150_17,s200_17,s200_10_17,h250_17,v17,vSma_17,rsi17,atr10_17,atr40_17,roc17] = request.security(s17, timeframe.period, f_get_data())
+[c18,o18,e1_18,s50_18,s150_18,s200_18,s200_10_18,h250_18,v18,vSma_18,rsi18,atr10_18,atr40_18,roc18] = request.security(s18, timeframe.period, f_get_data())
+[c19,o19,e1_19,s50_19,s150_19,s200_19,s200_10_19,h250_19,v19,vSma_19,rsi19,atr10_19,atr40_19,roc19] = request.security(s19, timeframe.period, f_get_data())
+[c20,o20,e1_20,s50_20,s150_20,s200_20,s200_10_20,h250_20,v20,vSma_20,rsi20,atr10_20,atr40_20,roc20] = request.security(s20, timeframe.period, f_get_data())
+[c21,o21,e1_21,s50_21,s150_21,s200_21,s200_10_21,h250_21,v21,vSma_21,rsi21,atr10_21,atr40_21,roc21] = request.security(s21, timeframe.period, f_get_data())
+[c22,o22,e1_22,s50_22,s150_22,s200_22,s200_10_22,h250_22,v22,vSma_22,rsi22,atr10_22,atr40_22,roc22] = request.security(s22, timeframe.period, f_get_data())
+[c23,o23,e1_23,s50_23,s150_23,s200_23,s200_10_23,h250_23,v23,vSma_23,rsi23,atr10_23,atr40_23,roc23] = request.security(s23, timeframe.period, f_get_data())
+[c24,o24,e1_24,s50_24,s150_24,s200_24,s200_10_24,h250_24,v24,vSma_24,rsi24,atr10_24,atr40_24,roc24] = request.security(s24, timeframe.period, f_get_data())
+[c25,o25,e1_25,s50_25,s150_25,s200_25,s200_10_25,h250_25,v25,vSma_25,rsi25,atr10_25,atr40_25,roc25] = request.security(s25, timeframe.period, f_get_data())
+[c26,o26,e1_26,s50_26,s150_26,s200_26,s200_10_26,h250_26,v26,vSma_26,rsi26,atr10_26,atr40_26,roc26] = request.security(s26, timeframe.period, f_get_data())
+[c27,o27,e1_27,s50_27,s150_27,s200_27,s200_10_27,h250_27,v27,vSma_27,rsi27,atr10_27,atr40_27,roc27] = request.security(s27, timeframe.period, f_get_data())
+[c28,o28,e1_28,s50_28,s150_28,s200_28,s200_10_28,h250_28,v28,vSma_28,rsi28,atr10_28,atr40_28,roc28] = request.security(s28, timeframe.period, f_get_data())
+[c29,o29,e1_29,s50_29,s150_29,s200_29,s200_10_29,h250_29,v29,vSma_29,rsi29,atr10_29,atr40_29,roc29] = request.security(s29, timeframe.period, f_get_data())
+[c30,o30,e1_30,s50_30,s150_30,s200_30,s200_10_30,h250_30,v30,vSma_30,rsi30,atr10_30,atr40_30,roc30] = request.security(s30, timeframe.period, f_get_data())
+
+
+// ==========================================
+// 4. DRAW TABLE, SORT, & RANK
+// ==========================================
+var table ui = table.new(tbPos, 11, 32, bgcolor=#1a1a24, border_color=#363c4e, border_width=1)
+
+if barstate.islast
+    a_stocks = array.new<StockData>()
+    if s1 != "" and not na(c1)
+        array.push(a_stocks, f_process_stock(s1, c1, o1, e1_1, s50_1, s150_1, s200_1, s200_10_1, h250_1, v1, vSma_1, rsi1, atr10_1, atr40_1, roc1, b_qtr_roc))
+    if s2 != "" and not na(c2)
+        array.push(a_stocks, f_process_stock(s2, c2, o2, e1_2, s50_2, s150_2, s200_2, s200_10_2, h250_2, v2, vSma_2, rsi2, atr10_2, atr40_2, roc2, b_qtr_roc))
+    if s3 != "" and not na(c3)
+        array.push(a_stocks, f_process_stock(s3, c3, o3, e1_3, s50_3, s150_3, s200_3, s200_10_3, h250_3, v3, vSma_3, rsi3, atr10_3, atr40_3, roc3, b_qtr_roc))
+    if s4 != "" and not na(c4)
+        array.push(a_stocks, f_process_stock(s4, c4, o4, e1_4, s50_4, s150_4, s200_4, s200_10_4, h250_4, v4, vSma_4, rsi4, atr10_4, atr40_4, roc4, b_qtr_roc))
+    if s5 != "" and not na(c5)
+        array.push(a_stocks, f_process_stock(s5, c5, o5, e1_5, s50_5, s150_5, s200_5, s200_10_5, h250_5, v5, vSma_5, rsi5, atr10_5, atr40_5, roc5, b_qtr_roc))
+    if s6 != "" and not na(c6)
+        array.push(a_stocks, f_process_stock(s6, c6, o6, e1_6, s50_6, s150_6, s200_6, s200_10_6, h250_6, v6, vSma_6, rsi6, atr10_6, atr40_6, roc6, b_qtr_roc))
+    if s7 != "" and not na(c7)
+        array.push(a_stocks, f_process_stock(s7, c7, o7, e1_7, s50_7, s150_7, s200_7, s200_10_7, h250_7, v7, vSma_7, rsi7, atr10_7, atr40_7, roc7, b_qtr_roc))
+    if s8 != "" and not na(c8)
+        array.push(a_stocks, f_process_stock(s8, c8, o8, e1_8, s50_8, s150_8, s200_8, s200_10_8, h250_8, v8, vSma_8, rsi8, atr10_8, atr40_8, roc8, b_qtr_roc))
+    if s9 != "" and not na(c9)
+        array.push(a_stocks, f_process_stock(s9, c9, o9, e1_9, s50_9, s150_9, s200_9, s200_10_9, h250_9, v9, vSma_9, rsi9, atr10_9, atr40_9, roc9, b_qtr_roc))
+    if s10 != "" and not na(c10)
+        array.push(a_stocks, f_process_stock(s10, c10, o10, e1_10, s50_10, s150_10, s200_10, s200_10_10, h250_10, v10, vSma_10, rsi10, atr10_10, atr40_10, roc10, b_qtr_roc))
+    if s11 != "" and not na(c11)
+        array.push(a_stocks, f_process_stock(s11, c11, o11, e1_11, s50_11, s150_11, s200_11, s200_10_11, h250_11, v11, vSma_11, rsi11, atr10_11, atr40_11, roc11, b_qtr_roc))
+    if s12 != "" and not na(c12)
+        array.push(a_stocks, f_process_stock(s12, c12, o12, e1_12, s50_12, s150_12, s200_12, s200_10_12, h250_12, v12, vSma_12, rsi12, atr10_12, atr40_12, roc12, b_qtr_roc))
+    if s13 != "" and not na(c13)
+        array.push(a_stocks, f_process_stock(s13, c13, o13, e1_13, s50_13, s150_13, s200_13, s200_10_13, h250_13, v13, vSma_13, rsi13, atr10_13, atr40_13, roc13, b_qtr_roc))
+    if s14 != "" and not na(c14)
+        array.push(a_stocks, f_process_stock(s14, c14, o14, e1_14, s50_14, s150_14, s200_14, s200_10_14, h250_14, v14, vSma_14, rsi14, atr10_14, atr40_14, roc14, b_qtr_roc))
+    if s15 != "" and not na(c15)
+        array.push(a_stocks, f_process_stock(s15, c15, o15, e1_15, s50_15, s150_15, s200_15, s200_10_15, h250_15, v15, vSma_15, rsi15, atr10_15, atr40_15, roc15, b_qtr_roc))
+    if s16 != "" and not na(c16)
+        array.push(a_stocks, f_process_stock(s16, c16, o16, e1_16, s50_16, s150_16, s200_16, s200_10_16, h250_16, v16, vSma_16, rsi16, atr10_16, atr40_16, roc16, b_qtr_roc))
+    if s17 != "" and not na(c17)
+        array.push(a_stocks, f_process_stock(s17, c17, o17, e1_17, s50_17, s150_17, s200_17, s200_10_17, h250_17, v17, vSma_17, rsi17, atr10_17, atr40_17, roc17, b_qtr_roc))
+    if s18 != "" and not na(c18)
+        array.push(a_stocks, f_process_stock(s18, c18, o18, e1_18, s50_18, s150_18, s200_18, s200_10_18, h250_18, v18, vSma_18, rsi18, atr10_18, atr40_18, roc18, b_qtr_roc))
+    if s19 != "" and not na(c19)
+        array.push(a_stocks, f_process_stock(s19, c19, o19, e1_19, s50_19, s150_19, s200_19, s200_10_19, h250_19, v19, vSma_19, rsi19, atr10_19, atr40_19, roc19, b_qtr_roc))
+    if s20 != "" and not na(c20)
+        array.push(a_stocks, f_process_stock(s20, c20, o20, e1_20, s50_20, s150_20, s200_20, s200_10_20, h250_20, v20, vSma_20, rsi20, atr10_20, atr40_20, roc20, b_qtr_roc))
+    if s21 != "" and not na(c21)
+        array.push(a_stocks, f_process_stock(s21, c21, o21, e1_21, s50_21, s150_21, s200_21, s200_10_21, h250_21, v21, vSma_21, rsi21, atr10_21, atr40_21, roc21, b_qtr_roc))
+    if s22 != "" and not na(c22)
+        array.push(a_stocks, f_process_stock(s22, c22, o22, e1_22, s50_22, s150_22, s200_22, s200_10_22, h250_22, v22, vSma_22, rsi22, atr10_22, atr40_22, roc22, b_qtr_roc))
+    if s23 != "" and not na(c23)
+        array.push(a_stocks, f_process_stock(s23, c23, o23, e1_23, s50_23, s150_23, s200_23, s200_10_23, h250_23, v23, vSma_23, rsi23, atr10_23, atr40_23, roc23, b_qtr_roc))
+    if s24 != "" and not na(c24)
+        array.push(a_stocks, f_process_stock(s24, c24, o24, e1_24, s50_24, s150_24, s200_24, s200_10_24, h250_24, v24, vSma_24, rsi24, atr10_24, atr40_24, roc24, b_qtr_roc))
+    if s25 != "" and not na(c25)
+        array.push(a_stocks, f_process_stock(s25, c25, o25, e1_25, s50_25, s150_25, s200_25, s200_10_25, h250_25, v25, vSma_25, rsi25, atr10_25, atr40_25, roc25, b_qtr_roc))
+    if s26 != "" and not na(c26)
+        array.push(a_stocks, f_process_stock(s26, c26, o26, e1_26, s50_26, s150_26, s200_26, s200_10_26, h250_26, v26, vSma_26, rsi26, atr10_26, atr40_26, roc26, b_qtr_roc))
+    if s27 != "" and not na(c27)
+        array.push(a_stocks, f_process_stock(s27, c27, o27, e1_27, s50_27, s150_27, s200_27, s200_10_27, h250_27, v27, vSma_27, rsi27, atr10_27, atr40_27, roc27, b_qtr_roc))
+    if s28 != "" and not na(c28)
+        array.push(a_stocks, f_process_stock(s28, c28, o28, e1_28, s50_28, s150_28, s200_28, s200_10_28, h250_28, v28, vSma_28, rsi28, atr10_28, atr40_28, roc28, b_qtr_roc))
+    if s29 != "" and not na(c29)
+        array.push(a_stocks, f_process_stock(s29, c29, o29, e1_29, s50_29, s150_29, s200_29, s200_10_29, h250_29, v29, vSma_29, rsi29, atr10_29, atr40_29, roc29, b_qtr_roc))
+    if s30 != "" and not na(c30)
+        array.push(a_stocks, f_process_stock(s30, c30, o30, e1_30, s50_30, s150_30, s200_30, s200_10_30, h250_30, v30, vSma_30, rsi30, atr10_30, atr40_30, roc30, b_qtr_roc))
+    
+    // Sort Engine
+    a_sortVals = array.new_float()
+    for s in a_stocks
+        float v = 0.0
+        if sortBy == "Score/Grade"
+            v := s.score + (s.volThrust / 1000) 
+        else if sortBy == "Volume Thrust"
+            v := s.volThrust
+        else if sortBy == "Proximity to 52-Wk High"
+            v := s.distFromHigh * -1 // Reverse
+        else if sortBy == "Relative Strength (Qtr)"
+            v := s.rsStr == "🔥 LEADING" ? 2 : (s.rsStr == "Improving" ? 1 : 0)
+        else
+            v := math.abs(s.distFromEMA20) * -1 // Tightest ema compression
+        array.push(a_sortVals, v)
+        
+    int[] indices = array.sort_indices(a_sortVals)
+    
+    // Headers
+    table.cell(ui, 0, 0, "RANK", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 1, 0, "TICKER", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 2, 0, "GRADE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 3, 0, "STAGE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 4, 0, "R. STRENGTH", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 5, 0, "VOLATILITY", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 6, 0, "VOL THRUST%", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 7, 0, "% FROM ATH", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 8, 0, "EMA DIST%", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 9, 0, "REC", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    
+    bool isDesc = sortDir == "Descending (Best to Worst)"
+    
+    if array.size(indices) > 0
+        for i = 0 to array.size(indices) - 1
+            idx = isDesc ? array.get(indices, (array.size(indices) - 1) - i) : array.get(indices, i)
+            s = array.get(a_stocks, idx)
+            
+            cleanTick = str.replace_all(s.ticker, "NSE:", "")
+            
+            table.cell(ui, 0, i+1, str.tostring(i+1), bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 1, i+1, cleanTick, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 2, i+1, s.gradeStr, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 3, i+1, s.stageStr, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            
+            // RS
+            color rsCol = str.contains(s.rsStr, "LEADING") ? color.lime : color.white
+            table.cell(ui, 4, i+1, s.rsStr, bgcolor=s.bgCol, text_color=rsCol, text_size=size.small)
+            
+            // VCP
+            color vcpCol = str.contains(s.vcpStr, "SQUEEZE") ? color.yellow : color.white
+            table.cell(ui, 5, i+1, s.vcpStr, bgcolor=s.bgCol, text_color=vcpCol, text_size=size.small)
+            
+            // Vol Thrust
+            color vCol = color.white
+            if s.volThrust > 150
+                vCol := color.yellow // Accumulation!
+            valStr = s.volThrust > 0 ? str.tostring(s.volThrust, "#.#") + "%" : "0%"
+            table.cell(ui, 6, i+1, valStr, bgcolor=s.bgCol, text_color=vCol, text_size=size.small)
+            
+            // ATH Dist
+            table.cell(ui, 7, i+1, str.tostring(s.distFromHigh, "#.#") + "%", bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            
+            // EMA Dist
+            color dCol = color.white
+            if math.abs(s.distFromEMA20) < 3.0
+                dCol := color.lime // Nice tight EMA compression
+            table.cell(ui, 8, i+1, str.tostring(s.distFromEMA20, "#.#") + "%", bgcolor=s.bgCol, text_color=dCol, text_size=size.small)
+
+            // Rec
+            color rCol = str.contains(s.recStr, "BUY") or str.contains(s.recStr, "SETUP") ? color.lime : color.white
+            table.cell(ui, 9, i+1, s.recStr, bgcolor=s.bgCol, text_color=rCol, text_size=size.small)

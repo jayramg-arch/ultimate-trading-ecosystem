@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "TV AI Sidecar Link",
+  "version": "1.0",
+  "description": "Broadcasts active TradingView ticker to local Python server for AI Analysis",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.tradingview.com/*",
+    "https://dext.dhan.co/*",
+    "http://localhost:8001/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://in.tradingview.com/chart/*", "https://www.tradingview.com/chart/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.dhan.co/*"],
+      "js": ["dext_receiver.js"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "world": "MAIN"
+    }
+  ]
+}

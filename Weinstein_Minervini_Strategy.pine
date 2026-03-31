@@ -1,0 +1,968 @@
+//@version=6
+strategy("Unified Strategy: Breakout & Pullback [v1.8]", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=10, currency=currency.USD, process_orders_on_close=true, calc_on_every_tick=true)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+
+// --- Master Settings ---
+grp_master = "Master Configuration"
+strat_mode = input.string("Hybrid (Both)", title="Strategy Mode", options=["Breakout Only", "Pullback Only", "Hybrid (Both)"], group=grp_master)
+asset_type = input.string("Stock", title="Asset Type", options=["ETF", "Stock"], group=grp_master)
+
+// --- Portfolio & Risk Management ---
+grp_port = "Portfolio & Risk"
+portfolio_capital = input.float(100000.0, title="Total Portfolio Capital", step=1000.0, group=grp_port)
+etf_risk_pct      = input.float(0.75, title="ETF Risk %", minval=0.01, step=0.01, group=grp_port)
+stock_risk_pct    = input.float(0.50, title="Stock Risk %", minval=0.01, step=0.01, group=grp_port)
+max_alloc         = input.float(25000.0, title="Max Allocation per Trade", step=1000.0, group=grp_port)
+time_stop_days    = input.int(10, title="Time Stop (Days Stagnant)", minval=3, group=grp_port)
+
+// --- Strategy A: Weinstein Breakout Settings ---
+grp_wein = "Strategy A: Weinstein Breakout"
+// Breakout Specifics
+bo_len      = input.int(20, title="Breakout Lookback (Days)", minval=5, group=grp_wein)
+max_stage2_bars = input.int(20, title="Max Stage 2 Duration (Weeks)", group=grp_wein)
+max_bo_ext  = input.float(5.0, title="Max Breakout/Gap Extension (%)", group=grp_wein) / 100
+sl_pct_bo   = input.float(8.0, title="Breakout Initial SL (%)", group=grp_wein) / 100
+bo_conf     = input.string("Daily Close", title="Breakout Confirmation", options=["High/Touch", "Daily Close"], group=grp_wein)
+
+// --- Advanced Filters (Institutional) ---
+grp_inst = "Institutional Filters (New)"
+use_cpr    = input.bool(false, title="Filter: Price > Daily CPR (TC)?", group=grp_inst)
+use_mvwap  = input.bool(false, title="Filter: Price > Monthly VWAP?", group=grp_inst)
+use_vol_shelf = input.bool(false, title="Filter: Vol Shelf (VWMA > SMA)?", group=grp_inst)
+use_mkt_health = input.bool(true, title="Filter: Market Health (Nifty > 200 SMA)?", group=grp_inst)
+mkt_bench      = input.symbol("NSE:CNX500", title="Market Health Benchmark", group=grp_inst)
+use_vol_accum  = input.bool(true, title="Filter: Volume Accumulation (Setup)?", group=grp_inst)
+vol_acc_days   = input.int(10, title="Accumulation Lookback (Days)", minval=5, group=grp_inst)
+vol_acc_min    = input.int(2, title="Min Accumulation Days", minval=1, group=grp_inst)
+vol_spike_mult = input.float(1.5, title="Volume Spike Mult (Breakout)", step=0.1, group=grp_inst)
+vol_avg_len    = input.int(50, title="Volume SMA Length", minval=10, group=grp_inst)
+use_vcp        = input.bool(true, title="Filter: VCP (Price Tightness)?", group=grp_inst)
+vcp_thresh     = input.float(1.5, title="VCP Tightness Thresh (x ATR)", step=0.1, group=grp_inst)
+min_dist_52L   = input.float(30.0, title="Min % Above 52W Low (Trend Template)", group=grp_inst) / 100
+max_dist_52H   = input.float(25.0, title="Max % Below 52W High (Trend Template)", group=grp_inst) / 100
+
+
+// --- Strategy B: Institutional Pullback Settings ---
+grp_pb = "Strategy B: Inst. Pullback"
+// Trend Filter
+rsi_d_th  = input.int(40, title="Daily RSI Bullish Min", group=grp_pb)
+rsi_w_th  = input.int(60, title="Weekly RSI Momentum Min", group=grp_pb)
+// Pullback Zone & Depth
+ema20_len = input.int(20, title="Daily EMA Length", group=grp_pb)
+ema_zone  = input.float(1.5, title="EMA Zone Tolerance (%)", step=0.1, group=grp_pb) / 100
+max_pb_depth= input.float(15.0, title="Max Pullback Depth (%)", step=1.0, group=grp_pb) / 100
+vdu_pct   = input.int(30, title="Volume Dry-Up % (<Avg)", group=grp_pb) / 100
+// Triggers
+use_eng   = input.bool(true, title="Trigger: Bullish Engulfing", group=grp_pb)
+use_ham   = input.bool(true, title="Trigger: Pin Bar/Hammer", group=grp_pb)
+use_morn  = input.bool(true, title="Trigger: Morning Star", group=grp_pb)
+// Pullback Risk
+rr_t1_pb    = input.float(2.0, title="Pullback Target 1 R:R", group=grp_pb)
+sl_pad_pb   = input.float(0.2, title="Pullback SL Padding %", step=0.1, group=grp_pb) / 100
+trail_buf_pb= input.float(1.0, title="Pullback Trail Buffer %", step=0.1, group=grp_pb) / 100
+
+// --- Shared Filters (Relative Strength etc) ---
+grp_shared = "Shared Filters"
+use_rs     = input.bool(true, title="Use Relative Strength Filter?", group=grp_shared)
+use_auto_sec = input.bool(true, title="Auto-Detect Sector?", group=grp_shared)
+manualSector = input.symbol("NSE:BANKNIFTY", title="Manual Sector Override", group=grp_shared)
+
+// --- Shared Core Mechanics (Dash Synced) ---
+grp_mech = "Core Mechanics (Dashboard Synced)"
+fibLookback = input.int(21, title="Est. Pullback Lookback (Days)", group=grp_mech)
+tslMult     = input.float(3.0, title="Trailing Stop ATR Multiplier (Base)", group=grp_mech)
+tsl_r_trig  = input.float(1.5, title="Adaptive TSL: Tighten Trigger (R)", tooltip="If Profit > 1.5R, tighten stop.", group=grp_mech)
+tsl_ratio   = input.float(0.75, title="Adaptive TSL: Tightening Ratio", tooltip="Multiply Base ATR by this factor when trigger hit (e.g. 0.75 = 25% tighter).", group=grp_mech)
+tsl_r_trig2 = input.float(3.0, title="Adaptive TSL: Super-Tight Trigger (R)", tooltip="If Profit > 3.0R, tighten further.", group=grp_mech)
+tsl_ratio2  = input.float(0.50, title="Adaptive TSL: Super-Tight Ratio", tooltip="Multiply Base ATR by this factor when Super trigger hit.", group=grp_mech)
+
+// --- Backtest Date Range ---
+grp_time = "Backtest Period"
+use_date   = input.bool(false, title="Filter Date Range?", group=grp_time)
+start_date = input.time(timestamp("1 Jan 2020"), title="Start Date", group=grp_time)
+end_date   = input.time(timestamp("1 Jan 2025"), title="End Date", group=grp_time)
+
+
+// --- Dashboard Settings ---
+grp_dash = "Dashboard Settings"
+dash_pos = input.string(position.top_right, title="Position", options=[position.top_right, position.top_center, position.top_left, position.middle_right, position.middle_center, position.middle_left, position.bottom_right, position.bottom_center, position.bottom_left], group=grp_dash)
+show_debug = input.bool(true, title="Show Debug Info?", group=grp_dash)
+
+// --- Risk Allocator (Manual) ---
+grp_alloc = "Risk Allocator (Manual)"
+show_alloc_table = input.bool(true, title="Show Allocator Table?", group=grp_alloc)
+entry_input      = input.float(0.0, title="Entry Price (Set from chart)", step=0.05, confirm=true, group=grp_alloc)
+stop_input       = input.float(0.0, title="Stop Price (Set from chart)", step=0.05, confirm=true, group=grp_alloc)
+multiplier       = input.int(1, title="Lot Multiplier (1 for Equity)", minval=1, group=grp_alloc)
+alloc_table_pos  = input.string(position.bottom_right, title="Table Position", options=[position.top_right, position.top_center, position.top_left, position.middle_right, position.middle_center, position.middle_left, position.bottom_right, position.bottom_center, position.bottom_left], group=grp_alloc)
+
+
+// ==========================================
+// 2. DATA CALCULATIONS (HARDCODED SYNCS)
+// ==========================================
+// The following parameters are implicitly enforced to sync precisely with Dashboard defaults
+var int maLengthW = 30
+var int wSlopeLen = 4
+var float slopeThresh = 0.0005
+var int len50 = 50
+var int len150 = 150
+var int len200 = 200
+var string bench500 = "NSE:CNX500"
+var int rsLength = 52
+var int piv_d_left = 2
+var int piv_d_right = 2
+var int piv_w_left = 5
+var int piv_w_right = 5
+var int atrLen = 14
+
+// --- Helper: Pivot Trend ---
+f_getStrictTrend(srcH, srcL, left, right) =>
+    float p_high = ta.pivothigh(srcH, left, right)
+    float p_low  = ta.pivotlow(srcL, left, right)
+    var int dir = 0
+    var float last_h = na
+    var float last_l = na
+    if not na(p_high)
+        if na(last_h) or p_high > last_h
+            dir := 1
+        else if p_high < last_h
+            dir := -1
+        last_h := p_high
+    if not na(p_low)
+        if na(last_l) or p_low > last_l
+            if dir == -1 
+                dir := 1 
+        else if p_low < last_l
+            dir := -1
+        last_l := p_low
+    dir
+
+// --- New: Smart Fib Logic (Ported from Dash) ---
+float hh_fib = ta.highest(high, fibLookback)
+float ll_fib = ta.lowest(low, fibLookback)
+float smart_fib = hh_fib - ((hh_fib - ll_fib) * 0.5) // Minimum 50% Retracement
+bool is_fib_pb_zone = low <= smart_fib and close >= ll_fib // Entered the Fib zone but didn't break the absolute lowend
+
+// --- Helper: Sector Lookup ---
+f_get_sector_ticker() =>
+    string s = syminfo.sector
+    string i = syminfo.industry
+    string t = "NSE:CNX500" // Default fallback
+    if str.contains(i, "Bank") or str.contains(s, "Finance")
+        t := "NSE:BANKNIFTY"
+    else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
+        t := "NSE:CNXIT"
+    else if str.contains(s, "Health") or str.contains(i, "Pharma")
+        t := "NSE:CNXPHARMA"
+    else if str.contains(i, "Auto") or str.contains(s, "Consumer Durables")
+        t := "NSE:CNXAUTO"
+    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage")
+        t := "NSE:CNXFMCG"
+    else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
+        t := "NSE:CNXMETAL"
+    else if str.contains(s, "Energy") or str.contains(i, "Oil") or str.contains(i, "Gas")
+        t := "NSE:CNXENERGY"
+    else if str.contains(s, "Real Estate") or str.contains(i, "Construction")
+        t := "NSE:CNXREALTY"
+    else if str.contains(s, "Infrastructure")
+        t := "NSE:CNXINFRA"
+    t
+
+// <DB_LOOKUP_START>
+// Auto-Generated Sector Map (v55.0 Refactor)
+var map<string, string> sectorMap = map.new<string, string>()
+
+if barstate.isfirst
+    sectorMap.put("AARTIIND", "NSE:CNXMETAL")
+    sectorMap.put("ABB", "NSE:CNXINFRA")
+    sectorMap.put("ABBOTINDIA", "NSE:CNXPHARMA")
+    sectorMap.put("ABCAPITAL", "NSE:BANKNIFTY")
+    sectorMap.put("ABFRL", "NSE:CNXAUTO")
+    sectorMap.put("ACC", "NSE:CNXMETAL")
+    sectorMap.put("ADANIENSOL", "NSE:CNXINFRA")
+    sectorMap.put("ADANIENT", "NSE:CNXENERGY")
+    sectorMap.put("ADANIGREEN", "NSE:CNXINFRA")
+    sectorMap.put("ADANIPORTS", "NSE:CNXINFRA")
+    sectorMap.put("AIAENG", "NSE:CNXINFRA")
+    sectorMap.put("ALKEM", "NSE:CNXPHARMA")
+    sectorMap.put("AMBER", "NSE:CNXAUTO")
+    sectorMap.put("AMBUJACEM", "NSE:CNXMETAL")
+    sectorMap.put("APLAPOLLO", "NSE:CNXMETAL")
+    sectorMap.put("APOLLOHOSP", "NSE:CNXPHARMA")
+    sectorMap.put("ASHOKLEY", "NSE:CNXINFRA")
+    sectorMap.put("ASIANPAINT", "NSE:CNXMETAL")
+    sectorMap.put("AUBANK", "NSE:BANKNIFTY")
+    sectorMap.put("AUROPHARMA", "NSE:CNXPHARMA")
+    sectorMap.put("AXISBANK", "NSE:BANKNIFTY")
+    sectorMap.put("BAJAJ-AUTO", "NSE:CNXAUTO")
+    sectorMap.put("BAJAJFINSV", "NSE:BANKNIFTY")
+    sectorMap.put("BAJAJHLDNG", "NSE:BANKNIFTY")
+    sectorMap.put("BAJFINANCE", "NSE:BANKNIFTY")
+    sectorMap.put("BALKRISIND", "NSE:CNXAUTO")
+    sectorMap.put("BALRAMCHIN", "NSE:CNXFMCG")
+    sectorMap.put("BANDHANBNK", "NSE:BANKNIFTY")
+    sectorMap.put("BANKBARODA", "NSE:BANKNIFTY")
+    sectorMap.put("BATAINDIA", "NSE:CNXAUTO")
+    sectorMap.put("BEL", "NSE:CNXINFRA")
+    sectorMap.put("BERGEPAINT", "NSE:CNXMETAL")
+    sectorMap.put("BHARATFORG", "NSE:CNXAUTO")
+    sectorMap.put("BHARTIARTL", "NSE:CNXINFRA")
+    sectorMap.put("BHEL", "NSE:CNXINFRA")
+    sectorMap.put("BOSCHLTD", "NSE:CNXAUTO")
+    sectorMap.put("BPCL", "NSE:CNXENERGY")
+    sectorMap.put("BRITANNIA", "NSE:CNXFMCG")
+    sectorMap.put("BSE", "NSE:BANKNIFTY")
+    sectorMap.put("BSOFT", "NSE:CNXIT")
+    sectorMap.put("CANBK", "NSE:BANKNIFTY")
+    sectorMap.put("CANFINHOME", "NSE:BANKNIFTY")
+    sectorMap.put("CASTROLIND", "NSE:CNXENERGY")
+    sectorMap.put("CDSL", "NSE:BANKNIFTY")
+    sectorMap.put("CHAMBLFERT", "NSE:CNXMETAL")
+    sectorMap.put("CHOLAFIN", "NSE:BANKNIFTY")
+    sectorMap.put("CIPLA", "NSE:CNXPHARMA")
+    sectorMap.put("COALINDIA", "NSE:CNXENERGY")
+    sectorMap.put("COCHINSHIP", "NSE:CNXINFRA")
+    sectorMap.put("COFORGE", "NSE:CNXIT")
+    sectorMap.put("COLPAL", "NSE:CNXFMCG")
+    sectorMap.put("CONCOR", "NSE:CNXINFRA")
+    sectorMap.put("COROMANDEL", "NSE:CNXMETAL")
+    sectorMap.put("CROMPTON", "NSE:CNXAUTO")
+    sectorMap.put("CUB", "NSE:BANKNIFTY")
+    sectorMap.put("CUMMINSIND", "NSE:CNXINFRA")
+    sectorMap.put("DABUR", "NSE:CNXFMCG")
+    sectorMap.put("DATAPATTNS", "NSE:CNXINFRA")
+    sectorMap.put("DEEPAKNTR", "NSE:CNXMETAL")
+    sectorMap.put("DELHIVERY", "NSE:CNXINFRA")
+    sectorMap.put("DIVISLAB", "NSE:CNXPHARMA")
+    sectorMap.put("DIXON", "NSE:CNXIT")
+    sectorMap.put("DLF", "NSE:CNXREALTY")
+    sectorMap.put("DMART", "NSE:CNXFMCG")
+    sectorMap.put("DRREDDY", "NSE:CNXPHARMA")
+    sectorMap.put("EICHERMOT", "NSE:CNXAUTO")
+    sectorMap.put("ESCORTS", "NSE:CNXINFRA")
+    sectorMap.put("EXIDEIND", "NSE:CNXAUTO")
+    sectorMap.put("FEDERALBNK", "NSE:BANKNIFTY")
+    sectorMap.put("GAIL", "NSE:CNXINFRA")
+    sectorMap.put("GLENMARK", "NSE:CNXPHARMA")
+    sectorMap.put("GNFC", "NSE:CNXMETAL")
+    sectorMap.put("GODREJCP", "NSE:CNXFMCG")
+    sectorMap.put("GODREJPROP", "NSE:CNXREALTY")
+    sectorMap.put("GRANULES", "NSE:CNXPHARMA")
+    sectorMap.put("GRASIM", "NSE:CNXMETAL")
+    sectorMap.put("GUJGASLTD", "NSE:CNXINFRA")
+    sectorMap.put("HAL", "NSE:CNXINFRA")
+    sectorMap.put("HAVELLS", "NSE:CNXINFRA")
+    sectorMap.put("HCLTECH", "NSE:CNXIT")
+    sectorMap.put("HDFCBANK", "NSE:BANKNIFTY")
+    sectorMap.put("HDFCLIFE", "NSE:BANKNIFTY")
+    sectorMap.put("HEROMOTOCO", "NSE:CNXAUTO")
+    sectorMap.put("HINDALCO", "NSE:CNXMETAL")
+    sectorMap.put("HINDCOPPER", "NSE:CNXMETAL")
+    sectorMap.put("HINDPETRO", "NSE:CNXENERGY")
+    sectorMap.put("HINDUNILVR", "NSE:CNXFMCG")
+    sectorMap.put("ICICIBANK", "NSE:BANKNIFTY")
+    sectorMap.put("ICICIGI", "NSE:BANKNIFTY")
+    sectorMap.put("ICICIPRULI", "NSE:BANKNIFTY")
+    sectorMap.put("IDFCFIRSTB", "NSE:BANKNIFTY")
+    sectorMap.put("IEX", "NSE:BANKNIFTY")
+    sectorMap.put("IGL", "NSE:CNXINFRA")
+    sectorMap.put("INDHOTEL", "NSE:CNXAUTO")
+    sectorMap.put("INDIAMART", "NSE:CNXMEDIA")
+    sectorMap.put("INDIGO", "NSE:CNXINFRA")
+    sectorMap.put("INDUSINDBK", "NSE:BANKNIFTY")
+    sectorMap.put("INDUSTOWER", "NSE:CNXMEDIA")
+    sectorMap.put("INFY", "NSE:CNXIT")
+    sectorMap.put("IOC", "NSE:CNXENERGY")
+    sectorMap.put("IPCALAB", "NSE:CNXPHARMA")
+    sectorMap.put("IRCTC", "NSE:CNXAUTO")
+    sectorMap.put("ITC", "NSE:CNXFMCG")
+    sectorMap.put("JINDALSTEL", "NSE:CNXMETAL")
+    sectorMap.put("JIOFIN", "NSE:BANKNIFTY")
+    sectorMap.put("JSL", "NSE:CNXMETAL")
+    sectorMap.put("JSWSTEEL", "NSE:CNXMETAL")
+    sectorMap.put("JWL", "NSE:CNXINFRA")
+    sectorMap.put("KALYANKJIL", "NSE:CNXAUTO")
+    sectorMap.put("KEI", "NSE:CNXINFRA")
+    sectorMap.put("KOTAKBANK", "NSE:BANKNIFTY")
+    sectorMap.put("KPITTECH", "NSE:CNXIT")
+    sectorMap.put("LALPATHLAB", "NSE:CNXPHARMA")
+    sectorMap.put("LICHSGFIN", "NSE:BANKNIFTY")
+    sectorMap.put("LICI", "NSE:BANKNIFTY")
+    sectorMap.put("LODHA", "NSE:CNXREALTY")
+    sectorMap.put("LT", "NSE:CNXINFRA")
+    sectorMap.put("LTIM", "NSE:CNXIT")
+    sectorMap.put("LUPIN", "NSE:CNXPHARMA")
+    sectorMap.put("M&M", "NSE:CNXAUTO")
+    sectorMap.put("MANAPPURAM", "NSE:BANKNIFTY")
+    sectorMap.put("MARICO", "NSE:CNXFMCG")
+    sectorMap.put("MARUTI", "NSE:CNXAUTO")
+    sectorMap.put("MAZDOCK", "NSE:CNXINFRA")
+    sectorMap.put("MCX", "NSE:BANKNIFTY")
+    sectorMap.put("METROPOLIS", "NSE:CNXPHARMA")
+    sectorMap.put("MFSL", "NSE:BANKNIFTY")
+    sectorMap.put("MGL", "NSE:CNXINFRA")
+    sectorMap.put("MOTHERSON", "NSE:CNXAUTO")
+    sectorMap.put("MPHASIS", "NSE:CNXIT")
+    sectorMap.put("MRF", "NSE:CNXAUTO")
+    sectorMap.put("MUTHOOTFIN", "NSE:BANKNIFTY")
+    sectorMap.put("NATCOPHARM", "NSE:CNXPHARMA")
+    sectorMap.put("NATIONALUM", "NSE:CNXMETAL")
+    sectorMap.put("NAUKRI", "NSE:CNXMEDIA")
+    sectorMap.put("NAVINFLUOR", "NSE:CNXMETAL")
+    sectorMap.put("NBCC", "NSE:CNXINFRA")
+    sectorMap.put("NESTLEIND", "NSE:CNXFMCG")
+    sectorMap.put("NHPC", "NSE:CNXINFRA")
+    sectorMap.put("NMDC", "NSE:CNXMETAL")
+    sectorMap.put("NTPC", "NSE:CNXINFRA")
+    sectorMap.put("OBEROIRLTY", "NSE:CNXREALTY")
+    sectorMap.put("OFSS", "NSE:CNXIT")
+    sectorMap.put("OIL", "NSE:CNXENERGY")
+    sectorMap.put("ONGC", "NSE:CNXENERGY")
+    sectorMap.put("PAGEIND", "NSE:CNXAUTO")
+    sectorMap.put("PERSISTENT", "NSE:CNXIT")
+    sectorMap.put("PETRONET", "NSE:CNXENERGY")
+    sectorMap.put("PFC", "NSE:BANKNIFTY")
+    sectorMap.put("PHOENIXLTD", "NSE:CNXREALTY")
+    sectorMap.put("PIDILITIND", "NSE:CNXMETAL")
+    sectorMap.put("PIIND", "NSE:CNXMETAL")
+    sectorMap.put("PNB", "NSE:BANKNIFTY")
+    sectorMap.put("POLYCAB", "NSE:CNXINFRA")
+    sectorMap.put("POONAWALLA", "NSE:BANKNIFTY")
+    sectorMap.put("POWERGRID", "NSE:CNXINFRA")
+    sectorMap.put("PRESTIGE", "NSE:CNXREALTY")
+    sectorMap.put("RAMCOCEM", "NSE:CNXMETAL")
+    sectorMap.put("RBLBANK", "NSE:BANKNIFTY")
+    sectorMap.put("RECLTD", "NSE:BANKNIFTY")
+    sectorMap.put("RELIANCE", "NSE:CNXINFRA")
+    sectorMap.put("RVNL", "NSE:CNXINFRA")
+    sectorMap.put("SAIL", "NSE:CNXMETAL")
+    sectorMap.put("SBICARD", "NSE:BANKNIFTY")
+    sectorMap.put("SBILIFE", "NSE:BANKNIFTY")
+    sectorMap.put("SBIN", "NSE:BANKNIFTY")
+    sectorMap.put("SHREECEM", "NSE:CNXMETAL")
+    sectorMap.put("SHRIRAMFIN", "NSE:BANKNIFTY")
+    sectorMap.put("SIEMENS", "NSE:CNXINFRA")
+    sectorMap.put("SOLARINDS", "NSE:CNXMETAL")
+    sectorMap.put("SRF", "NSE:CNXINFRA")
+    sectorMap.put("SUNPHARMA", "NSE:CNXPHARMA")
+    sectorMap.put("SYNGENE", "NSE:CNXPHARMA")
+    sectorMap.put("TATACOMM", "NSE:CNXMEDIA")
+    sectorMap.put("TATACONSUM", "NSE:CNXFMCG")
+    sectorMap.put("TATAELXSI", "NSE:CNXIT")
+    sectorMap.put("TATAMOTORS", "NSE:CNXAUTO")
+    sectorMap.put("TATAPOWER", "NSE:CNXINFRA")
+    sectorMap.put("TATASTEEL", "NSE:CNXMETAL")
+    sectorMap.put("TCS", "NSE:CNXIT")
+    sectorMap.put("TECHM", "NSE:CNXIT")
+    sectorMap.put("TITAGARH", "NSE:CNXINFRA")
+    sectorMap.put("TITAN", "NSE:CNXCONSUMPTION")
+    sectorMap.put("TORNTPHARM", "NSE:CNXPHARMA")
+    sectorMap.put("TORNTPOWER", "NSE:CNXINFRA")
+    sectorMap.put("TRENT", "NSE:CNXAUTO")
+    sectorMap.put("TVSMOTOR", "NSE:CNXAUTO")
+    sectorMap.put("UBL", "NSE:CNXFMCG")
+    sectorMap.put("ULTRACEMCO", "NSE:CNXMETAL")
+    sectorMap.put("UNITDSPR", "NSE:CNXFMCG")
+    sectorMap.put("UPL", "NSE:CNXMETAL")
+    sectorMap.put("VBL", "NSE:CNXFMCG")
+    sectorMap.put("VEDL", "NSE:CNXMETAL")
+    sectorMap.put("VOLTAS", "NSE:CNXAUTO")
+    sectorMap.put("WHIRLPOOL", "NSE:CNXAUTO")
+    sectorMap.put("WIPRO", "NSE:CNXIT")
+    sectorMap.put("YESBANK", "NSE:BANKNIFTY")
+    sectorMap.put("ZEEL", "NSE:CNXMEDIA")
+    sectorMap.put("ZYDUSLIFE", "NSE:CNXPHARMA")
+
+f_db_sector_lookup(string t) =>
+    sectorMap.get(t)
+// <DB_LOOKUP_END>
+
+f_resolve_sector() =>
+    string s = manualSector
+    if use_auto_sec
+        // 1. Try DB first
+        string dbSec = f_db_sector_lookup(str.replace_all(str.upper(syminfo.ticker), "NSE:", ""))
+        if dbSec != ""
+            s := dbSec
+        else
+            // 2. Fallback to generic auto mapper
+            s := f_get_sector_ticker()
+    s
+
+// --- Helper: Market Health ---
+f_get_market_health(bm) =>
+    m_close = request.security(bm, "D", close)
+    m_sma   = request.security(bm, "D", ta.sma(close, 200))
+    m_close > m_sma
+
+// --- Helper: Volume Accumulation ---
+f_get_vol_accum(lookback, min_days, avg_len) =>
+    vol_sma = ta.sma(volume, avg_len)
+    daily_range = high - low
+    closing_range = daily_range == 0 ? 0 : (close - low) / daily_range
+    // Accumulation: Price up AND Volume > SMA AND Closes in the top 40% of the daily range (CR > 0.6)
+    is_accum = (close > close[1]) and (volume > vol_sma) and (closing_range > 0.6)
+    accum_density = math.sum(is_accum ? 1 : 0, lookback)
+    accum_density >= min_days 
+
+// --- Helper: VCP Tightness ---
+f_is_vcp(mult) =>
+    atr = ta.atr(10)
+    avg_atr = ta.sma(atr, 50)
+    is_tight = atr < (avg_atr * mult) // Price is tighter than usual
+    is_dry = ta.vwma(volume, 5) < ta.sma(volume, 50) // Short term volume drying up
+    is_tight and is_dry
+
+var string sectorTicker = f_resolve_sector()
+
+// --- Helper: Mansfield RS ---
+f_mansfield_rs(bm) =>
+    int actual_len = timeframe.isdaily ? rsLength * 5 : (timeframe.isintraday ? int(rsLength * 5 * 6.5) : rsLength)
+    base = close
+    bench = request.security(bm, timeframe.period, close)
+    rp = base / bench
+    sma_rp = ta.sma(rp, actual_len)
+    ((rp / sma_rp) - 1) * 10
+
+// --- Helper: Weekly Bundle ---
+f_get_weekly_bundle(maLen, slopeLen, l, r) =>
+    c = close
+    ma = ta.sma(close, maLen)
+    slope = ta.linreg(ma, slopeLen, 0) - ta.linreg(ma, slopeLen, 1)
+    trend = f_getStrictTrend(high, low, l, r)
+    rsi = ta.rsi(close, 14)
+    [c, ma, slope, trend, rsi]
+
+[wClose, wMA30, wSlope, wTrend, wRSI] = request.security(syminfo.tickerid, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right))
+
+// --- Helper: Daily Data ---
+f_get_daily_pb() =>
+    [close, ta.sma(close, len50), ta.sma(close, len150), ta.sma(close, len200), ta.rsi(close, 14), volume, ta.sma(volume, 50)]
+
+[d_close_raw, d_50, d_150, d_200, d_rsi, d_vol, d_vma] = request.security(syminfo.tickerid, "D", f_get_daily_pb(), lookahead=barmerge.lookahead_off)
+float d_close = timeframe.isdaily ? close : d_close_raw
+
+// --- Pullback EMA 20 (Curve) ---
+// Changed: We now calculate this directly on the chart's current timeframe 
+// so it matches the user's native visual indicators exactly.
+float d_ema20 = ta.ema(close, ema20_len)
+
+// --- Helper: CPR (Daily) ---
+f_get_cpr() =>
+    p  = (high[1] + low[1] + close[1]) / 3
+    bc = (high[1] + low[1]) / 2
+    tc = (p - bc) + p
+    [p, bc, tc]
+
+[d_pivot, d_bc, d_tc] = request.security(syminfo.tickerid, "D", f_get_cpr(), lookahead=barmerge.lookahead_off)
+cpr_ok = not use_cpr or (close > d_tc)
+
+// --- Helper: Monthly VWAP ---
+f_get_mvwap() =>
+    var float pv_sum = 0.0
+    var float v_sum  = 0.0
+    if timeframe.change("M")
+        pv_sum := 0.0
+        v_sum  := 0.0
+    pv_sum := pv_sum + (close * volume)
+    v_sum  := v_sum + volume
+    pv_sum / v_sum
+
+m_vwap = request.security(syminfo.tickerid, "D", f_get_mvwap()) // Approx Daily M-VWAP
+mvwap_ok = not use_mvwap or (close > m_vwap)
+
+// --- Helper: Volume Shelf ---
+d_vwma_20 = ta.vwma(volume, 20)
+d_sma_20  = ta.sma(volume, 20)
+vol_shelf_ok = not use_vol_shelf or (d_vwma_20 > d_sma_20)
+
+// --- Global Calculation for New Filters ---
+// Extracting calls from conditional scope to global scope
+mkt_health_res = f_get_market_health(mkt_bench)
+mkt_ok         = not use_mkt_health or mkt_health_res
+vol_accum_res  = f_get_vol_accum(vol_acc_days, vol_acc_min, vol_avg_len)
+vol_acc_ok     = not use_vol_accum or vol_accum_res
+vcp_res        = f_is_vcp(vcp_thresh)
+vcp_ok         = not use_vcp or vcp_res
+
+// --- Global Indicators for Entry/Exit Logic ---
+atr_14 = ta.atr(14)
+is_new_trade = (strategy.position_size > 0 and strategy.position_size[1] == 0)
+atr_entry_snap = ta.valuewhen(is_new_trade, atr_14, 0)
+struct_low_snap = ta.valuewhen(is_new_trade, ta.lowest(low, 10), 0)
+entry_sl_pb_snap = ta.valuewhen(is_new_trade, ta.lowest(low, 5) * (1 - sl_pad_pb), 0)
+
+var bool is_breakeven = false
+// Reset breakeven when flat
+if strategy.position_size == 0
+    is_breakeven := false
+
+// ==========================================
+// 3. INDICATOR LOGIC
+// ==========================================
+
+// 1. Shared RS Logic & Minervini Trend Template (52W H/L)
+rsVal500 = f_mansfield_rs(bench500)
+rsValSec = f_mansfield_rs(sectorTicker)
+bool rs_ok = not use_rs or (rsVal500 > 0 and rsValSec > 0)
+
+high_52w = ta.highest(high, 250)
+low_52w  = ta.lowest(low, 250)
+trend_template_ok = (close > low_52w * (1 + min_dist_52L)) and (close >= high_52w * (1 - max_dist_52H))
+
+// 2. Breakout Logic (Weinstein)
+dTrend     = f_getStrictTrend(high, low, piv_d_left, piv_d_right)
+
+// --- Stage Analysis (State Machine) ---
+// 1. Identify MA Slope Condition
+is_ma_uptrend   = (wSlope > (wMA30 * slopeThresh)) 
+is_ma_downtrend = (wSlope < -(wMA30 * slopeThresh))
+is_ma_flat      = not is_ma_uptrend and not is_ma_downtrend
+
+// 2. Track Current Stage
+var int current_stage = 0 // 0=Uninitialized, 1=Base, 2=Advance, 3=Top, 4=Decline
+
+// 3. State Transitions (Weinstein Rules)
+if current_stage == 0
+    if is_ma_uptrend and close > wMA30
+        current_stage := 2
+    else if is_ma_downtrend and close < wMA30
+        current_stage := 4
+    else if close >= wMA30
+        current_stage := 1 
+    else
+        current_stage := 3 
+else if current_stage == 1
+    if is_ma_uptrend and close >= wMA30
+        current_stage := 2
+    else if is_ma_downtrend and close <= wMA30
+        current_stage := 4
+else if current_stage == 2
+    if is_ma_flat or (is_ma_downtrend and close >= wMA30)
+        current_stage := 3
+    else if is_ma_downtrend and close < wMA30
+        current_stage := 4
+else if current_stage == 3
+    if is_ma_downtrend and close <= wMA30
+        current_stage := 4
+    else if is_ma_uptrend and close >= wMA30
+        current_stage := 2
+else if current_stage == 4
+    if is_ma_flat or (is_ma_uptrend and close <= wMA30)
+        current_stage := 1
+    else if is_ma_uptrend and close > wMA30
+        current_stage := 2
+
+// 4. Expose Stage Variables
+stage1_base    = (current_stage == 1)
+stage2_uptrend = (current_stage == 2)
+stage3_top     = (current_stage == 3)
+stage4_dntrend = (current_stage == 4)
+
+trend_aligned  = (dTrend == 1) // Daily trend is key for timing
+breakout_level = ta.highest(high, bo_len)[1]
+is_breakout    = (bo_conf == "Daily Close") ? (close > breakout_level) : (high > breakout_level)
+// Filters
+vol_ma = ta.sma(volume, vol_avg_len)
+// Breakout: Volume Expansion required
+vol_expansion_ok = volume > vol_ma * vol_spike_mult
+// Breakout: Extension & Maturation
+bo_entry_ext     = (close - breakout_level) / breakout_level
+gap_ext_ok       = bo_entry_ext <= max_bo_ext
+weekly_stage_run = ta.barssince(not stage2_uptrend)
+stage2_fresh_ok  = weekly_stage_run <= max_stage2_bars // Must not be excessively extended in Stage 2
+
+// Pullback: Volume Contraction (VDU) required
+vol_contraction_ok = volume < (vol_ma * (1 - vdu_pct))
+
+pa_bullish = close > open and (close - low) > (high - close)
+
+// 3. Pullback Logic (Institutional)
+// Trend
+stage2_pb   = (d_close > d_150) and (d_close > d_200) and (d_150 > d_200) and (d_50 > d_150)
+mom_check   = (d_rsi > rsi_d_th) and (wRSI > rsi_w_th)
+trend_ok_pb = stage2_pb and mom_check
+// Zone & Depth
+upper_zone = d_ema20 * (1 + ema_zone)
+lower_zone = d_ema20 * (1 - ema_zone)
+in_zone    = (low <= upper_zone) and (high >= lower_zone)
+pb_swing_high = ta.highest(high, bo_len)
+pb_depth   = (pb_swing_high - low) / pb_swing_high
+depth_ok   = pb_depth <= max_pb_depth // Only buy pullbacks that haven't plunged too deeply
+// VDU
+vdu_ok = (d_close < d_close[1]) ? (d_vol < (d_vma * (1 - vdu_pct))) : true
+prev_day_vdu = (d_close[1] < d_close[2]) ? (d_vol[1] < (d_vma * (1 - vdu_pct))) : true 
+// Patterns
+is_hammer = (close > open) and ((open - low) > 2 * (close - open)) and ((high - close) < 0.2 * (close - open))
+is_engulf = (close > open) and (close > open[1]) and (close[1] < open[1]) and (open < close[1])
+is_morn   = (close[2] < open[2]) and (math.abs(close[1] - open[1]) < (high[1]-low[1])*0.5) and (close > open) and (close > (open[2] + close[2])/2)
+valid_pattern = (use_ham and is_hammer) or (use_eng and is_engulf) or (use_morn and is_morn)
+
+// --- Phase 1: Weinstein Positional Setup (Early Stage 2) ---
+// We want to catch the transition or early Stage 2. We do NOT require perfect daily MAs yet.
+weinstein_setup    = stage2_uptrend and trend_aligned and rs_ok and vol_acc_ok and stage2_fresh_ok
+weinstein_trigger  = is_breakout and vol_expansion_ok and pa_bullish and gap_ext_ok
+trigger_weinstein_pos = weinstein_setup and weinstein_trigger
+
+// --- Phase 2: Minervini Swing Setup (Mature Stage 2 Volatility Contraction) ---
+// 1. Strict Minervini Trend Template (Daily 50 > 150 > 200, Price near Highs)
+minervini_trend = (d_close > d_50) and (d_50 > d_150) and (d_150 > d_200) and trend_template_ok
+// 2. VCP Pivot Definition (Price tightens, volume dries up, then expands on breakout)
+// Pivot is defined as a recent high within the VCP contraction
+pivot_level     = ta.highest(high, 10)[1] // Tighter lookback for VCP pivot than general breakout
+is_pivot_break  = close > pivot_level
+// 3. Swing Filters (Needs to be healthy, respected, and tight)
+minervini_filters = minervini_trend and cpr_ok and mvwap_ok and vol_shelf_ok and mkt_ok and rs_ok and vcp_ok
+trigger_minervini_swing = minervini_filters and is_pivot_break and vol_expansion_ok
+
+// --- Global Calculations for Exits (Consistency) ---
+atr_global      = ta.atr(atrLen)
+highest_high_20 = ta.highest(high, 20)
+lowest_low_5    = ta.lowest(low, 5) // Added global calculation for Pullback SL
+lowest_low_10   = ta.lowest(low, 10) // Structural Breakout Base Low
+
+// ==========================================
+// 4. STRATEGY EXECUTION
+// ==========================================
+
+// Date Filter
+in_date = not use_date or (time >= start_date and time <= end_date)
+
+// Mode Checks
+allow_bo = (strat_mode != "Pullback Only")
+allow_pb = (strat_mode != "Breakout Only")
+
+// --- Position Sizing Engine ---
+// Logic promoted to global scope for dashboard access
+float selected_risk_pct = asset_type == "ETF" ? etf_risk_pct : stock_risk_pct
+
+f_get_qty(_sl_dist) =>
+    float risk_amt = portfolio_capital * (selected_risk_pct / 100.0)
+    float qty_risk = _sl_dist > 0 ? risk_amt / _sl_dist : 0
+    float qty_cap  = close > 0 ? max_alloc / close : 0
+    math.min(qty_risk, qty_cap)
+
+// --- A. Positional Entry (Weinstein) ---
+if allow_bo and trigger_weinstein_pos and strategy.position_size == 0 and in_date
+    // SL = Structural + ATR Pad (Deep base stop)
+    float struct_low = lowest_low_10
+    float sl_price = struct_low - (atr_14 * 0.2) // Structural support + small pad
+    if sl_price >= close
+        sl_price := close - (atr_14 * 1.5) // Fallback
+    float qty = f_get_qty(close - sl_price)
+    
+    // Entry Logic based on Confirmation
+    if bo_conf == "Daily Close"
+        strategy.entry("Long", strategy.long, qty=qty, comment="Positional")
+    else
+        strategy.entry("Long", strategy.long, qty=qty, comment="Positional", stop=breakout_level + syminfo.mintick)
+
+// --- B. Swing Entry (Minervini) ---
+if allow_pb and trigger_minervini_swing and strategy.position_size == 0 and in_date
+    // SL = Tight stop around the pivot or recent 5-day low
+    float sl_price = lowest_low_5 * (1 - sl_pad_pb)
+    if sl_price >= close
+        sl_price := close * 0.99
+    float qty = f_get_qty(close - sl_price)
+    strategy.entry("Long", strategy.long, qty=qty, comment="Swing", stop=pivot_level + syminfo.mintick)
+
+// --- C. Context-Aware Exits ---
+
+var float active_sl = na
+// Iterate trades to find the context
+// Note: In Pine 6, we check the latest open trade
+if strategy.position_size > 0
+    int bars_open = bar_index - strategy.opentrades.entry_bar_index(strategy.opentrades - 1)
+    
+    // Time Stop (Stagnation) Exit Check
+    bool time_stop_triggered = bars_open >= time_stop_days and not is_breakeven
+    if time_stop_triggered
+        strategy.close("Long", comment="Time Stop")
+        
+    // Identify Context
+    string entry_id = strategy.opentrades.entry_comment(0)
+    float entry_px  = strategy.opentrades.entry_price(0)
+    
+    // --- CONTEXT: Positional (Weinstein) ---
+    // Weinstein trades are managed loosely to ride multi-month trends. 
+    // They exit on Stage 3/4 transitions or structural breaks, NOT tight EMA trailing.
+    if entry_id == "Positional"
+        // Structural Ratchet Stop
+        var float bo_sl = na
+        if strategy.position_size[1] == 0 // New trade
+            bo_sl := struct_low_snap - (atr_entry_snap * 0.2)
+            if bo_sl >= entry_px
+                bo_sl := entry_px - (atr_entry_snap * 1.5)
+        else
+            // Positional trail uses a very loose anchor: The 30 Week MA, or 20 Day Low
+            float trail_anchor = math.max(wMA30, ta.lowest(low, 20))
+            bo_sl := math.max(bo_sl, trail_anchor)
+            
+        // Breakeven logic
+        if is_breakeven
+            bo_sl := math.max(bo_sl, entry_px)
+            
+        active_sl := bo_sl
+        
+        // Panic Exit: Trend Breakdown (Stage 4 Transition)
+        if stage4_dntrend
+            strategy.close("Long", comment="Stage 4 Exit")
+        else
+            strategy.exit("Exit", "Long", stop=bo_sl, comment="Structural SL")
+            
+    // --- CONTEXT: Swing (Minervini) ---
+    // Minervini trades are managed tightly. They sell half into strength (2-3R) and aggressively 
+    // trail the remainder using short-term moving averages (20 EMA).
+    else if entry_id == "Swing"
+        // Target 1 calculations handled below in partial profits section.
+        
+        // Trail: EMA 20 with Buffer
+        float trail_level = d_ema20 * (1 - trail_buf_pb)
+        
+        var float pb_sl = na
+        if strategy.position_size[1] == 0 // New trade
+            pb_sl := entry_sl_pb_snap
+            if pb_sl >= entry_px
+                pb_sl := entry_px * 0.99
+        else
+            pb_sl := math.max(pb_sl, trail_level)
+            
+        // Breakeven logic (triggered when Target 1 hits)
+        if is_breakeven
+            pb_sl := math.max(pb_sl, entry_px)
+            
+        active_sl := pb_sl
+        
+        // Hard Stop (Daily 50 MA Close) - Minervini rule of thumb
+        if d_close < d_50
+            strategy.close("Long", comment="50MA Fail Exit")
+        else
+            // Tight Trailing for Swing
+            strategy.exit("Exit", "Long", stop=pb_sl, comment="20EMA Trail")
+else
+    active_sl := na
+
+// --- D. Partial Profits & Dynamic Targets ---
+if strategy.opentrades > 0
+    entry_price = strategy.opentrades.entry_price(0)
+    string entry_id = strategy.opentrades.entry_comment(0)
+    
+    float target1 = na
+    if entry_id == "Positional"
+        // Weinstein Positional trades DO NOT take partial profits at arbitrary R-multiples.
+        // The goal is to ride the entire primary trend.
+        // We will leave target1 as 'na' so it never triggers a partial exit.
+        target1 := na
+    else if entry_id == "Swing"
+        // Minervini Swing trades DO take partial profits (sell into strength).
+        float init_sl = entry_sl_pb_snap
+        if init_sl >= entry_price
+            init_sl := entry_price * 0.99
+        float initial_risk = entry_price - init_sl
+        target1 := entry_price + (initial_risk * rr_t1_pb) // Exit at R-Multiple (e.g. 2R)
+        
+    // Exit half at Target 1 (Only applies to Swing)
+    if not na(target1) and high >= target1
+        is_breakeven := true // Activate breakeven for trailing remainder
+        strategy.exit("T1", "Long", qty_percent=50, limit=target1, comment="Target 1 Hit")
+
+
+// ==========================================
+// 5. PLOTTING & DASHBOARD
+// ==========================================
+// Plot MAs
+plot(allow_bo ? wMA30 : na, color=color.white, linewidth=2, title="30 WMA")
+// 20 EMA line removed per user request
+
+// Plot Stop Loss
+plot(strategy.position_size > 0 ? active_sl : na, color=color.red, style=plot.style_linebr, title="Active Stop Loss")
+
+// Highlight Stages (All)
+color bg_col = na
+if stage2_uptrend
+    bg_col := color.new(color.green, 85)
+else if stage4_dntrend
+    bg_col := color.new(color.red, 85)
+else if stage1_base
+    bg_col := color.new(color.yellow, 85)
+else if stage3_top
+    bg_col := color.new(color.orange, 85)
+
+// Apply background color to chart
+bgcolor(bg_col, title="Stage Background")
+
+// Plot Entry Signals
+bool showSignals = input.bool(true, title="Show Entry Signals on Chart?", group="Display")
+
+plotshape(showSignals and trigger_weinstein_pos, title="Positional Breakout (Weinstein)", style=shape.triangleup, location=location.belowbar, color=color.blue, text="★ W-POS", size=size.small, textcolor=color.white)
+plotshape(showSignals and trigger_minervini_swing, title="Swing VCP (Minervini)", style=shape.circle, location=location.belowbar, color=color.purple, text="▲ M-SWING", size=size.small, textcolor=color.white)
+
+// Dashboard (Force overwrite on every tick for stability)
+var table dash = table.new(dash_pos, 2, 25, bgcolor=color.new(color.black, 40), border_width=1, border_color=color.gray)
+if barstate.islast
+    // Header
+    table.cell(dash, 0, 0, "Unified Strategy", text_color=color.white, bgcolor=color.new(color.blue, 60))
+    table.cell(dash, 1, 0, strat_mode, bgcolor=color.new(color.blue, 60), text_color=color.white)
+    
+    // Signals
+    table.cell(dash, 0, 1, "Positional (Weinstein)", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 1, trigger_weinstein_pos ? "YES" : "NO", bgcolor=trigger_weinstein_pos ? color.blue : color.gray, text_size=size.small)
+    
+    table.cell(dash, 0, 2, "Swing (Minervini)", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 2, trigger_minervini_swing ? "YES" : "NO", bgcolor=trigger_minervini_swing ? color.purple : color.gray, text_size=size.small)
+    
+    table.cell(dash, 0, 3, "Minervini Template", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 3, minervini_trend ? "YES" : "NO", bgcolor=minervini_trend ? color.green : color.gray, text_color=color.white, text_size=size.small)
+    // --- Detailed Analysis (Optional) ---
+    if show_debug
+        // 1. Trend Analysis
+        table.cell(dash, 0, 5, "--- TREND & STAGE ---", text_color=color.yellow)
+        table.cell(dash, 1, 5, "", bgcolor=color.black)
+        
+        string stage_txt = "None"
+        color stage_col  = color.gray
+        if stage2_uptrend
+            stage_txt := "Stage 2"
+            stage_col := color.green
+        else if stage4_dntrend
+            stage_txt := "Stage 4"
+            stage_col := color.red
+        else if stage1_base
+            stage_txt := "Stage 1"
+            stage_col := color.yellow
+        else if stage3_top
+            stage_txt := "Stage 3"
+            stage_col := color.orange
+            
+        table.cell(dash, 0, 6, "Current Stage", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 6, stage_txt, bgcolor=stage_col, text_color=color.black, text_size=size.small)
+        
+        table.cell(dash, 0, 7, "Pivot Align (D)", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 7, trend_aligned ? "YES" : "NO", bgcolor=trend_aligned ? color.green : color.red, text_size=size.small)
+        
+        table.cell(dash, 0, 8, "Mkt Health (N500)", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 8, mkt_ok ? "HEALTHY" : "WEAK", bgcolor=mkt_ok ? color.green : color.red, text_size=size.small)
+
+        // 2. RS Analysis
+        table.cell(dash, 0, 9, "--- RELATIVE STRENGTH ---", text_color=color.yellow)
+        table.cell(dash, 1, 9, "", bgcolor=color.black)
+
+        table.cell(dash, 0, 10, "RS vs Broad Mkt", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 10, str.tostring(rsVal500, "#.##"), bgcolor=rsVal500 > 0 ? color.green : color.red, text_size=size.small)
+
+        string secNameDisplay = str.replace_all(sectorTicker, "NSE:", "")
+        table.cell(dash, 0, 11, "RS vs Sector", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 11, str.tostring(rsValSec, "#.##") + " (" + secNameDisplay + ")", bgcolor=rsValSec > 0 ? color.green : color.red, text_size=size.small)
+
+        // 3. Institutional & Filters
+        table.cell(dash, 0, 12, "--- INST. ACTIVITY & FILTERS ---", text_color=color.yellow)
+        table.cell(dash, 1, 12, "", bgcolor=color.black)
+
+        table.cell(dash, 0, 13, "Daily Close > CPR", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 13, cpr_ok ? "YES" : "FAIL", bgcolor=cpr_ok ? color.green : color.red, text_size=size.small)
+        
+        table.cell(dash, 0, 14, "Price > M-VWAP", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 14, mvwap_ok ? "YES" : "FAIL", bgcolor=mvwap_ok ? color.green : color.red, text_size=size.small)
+        
+        table.cell(dash, 0, 15, "Vol Shelf (VWMA)", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 15, vol_shelf_ok ? "YES" : "FAIL", bgcolor=vol_shelf_ok ? color.green : color.red, text_size=size.small)
+
+        table.cell(dash, 0, 16, "Vol Accum (Setup)", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 16, vol_acc_ok ? "PASS" : "WAIT", bgcolor=vol_acc_ok ? color.green : color.gray, text_size=size.small)
+
+        table.cell(dash, 0, 17, "VCP Tightness", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 17, vcp_ok ? "PASS" : "WAIT", bgcolor=vcp_ok ? color.green : color.orange, text_size=size.small)
+
+        table.cell(dash, 0, 18, "BO Vol (Expansion)", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 18, vol_expansion_ok ? "PASS" : "WAIT", bgcolor=vol_expansion_ok ? color.green : color.gray, text_size=size.small)
+
+        table.cell(dash, 0, 19, "PB Vol (Contraction)", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 19, vol_contraction_ok ? "PASS" : "WAIT", bgcolor=vol_contraction_ok ? color.green : color.gray, text_size=size.small)
+
+        table.cell(dash, 0, 20, "Breakout Trigger", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 20, is_breakout ? "HIT" : "WAIT", bgcolor=is_breakout ? color.green : color.gray, text_size=size.small)
+        
+        table.cell(dash, 0, 21, "Pullback Zone", text_color=color.white, text_size=size.small)
+        table.cell(dash, 1, 21, in_zone ? "IN" : "OUT", bgcolor=in_zone ? color.green : color.gray, text_size=size.small)
+
+    // Footer
+    table.cell(dash, 0, 24, "Asset: " + asset_type, text_color=color.gray, text_size=size.small)
+    table.cell(dash, 1, 24, str.tostring(selected_risk_pct) + "% Risk", text_color=color.gray, text_size=size.small)
+
+
+// ==========================================
+// 6. MANUAL RISK ALLOCATOR (RESTORED)
+// ==========================================
+if show_alloc_table and barstate.islast
+    // 1. Resolve Entry / Stop
+    float m_entry = entry_input > 0 ? entry_input : close
+    float m_stop  = stop_input > 0 ? stop_input : (m_entry * 0.95) // Default 5% stop
+    
+    // 2. Determine Risk
+    float m_risk_pct = asset_type == "ETF" ? etf_risk_pct : stock_risk_pct
+    float m_risk_amt = portfolio_capital * (m_risk_pct / 100.0)
+    
+    // 3. Calculate Qty
+    float m_dist = math.abs(m_entry - m_stop)
+    float qty_r = m_dist > 0 ? math.floor((m_risk_amt / m_dist) / multiplier) : 0
+    float qty_c = m_entry > 0 ? math.floor((max_alloc / m_entry) / multiplier) : 0
+    float m_final_qty = math.min(qty_r, qty_c)
+    
+    // 4. Targets (1:2 & 1:3)
+    bool m_long = m_entry > m_stop
+    float m_t1 = m_long ? m_entry + (m_dist * 2) : m_entry - (m_dist * 2)
+    float m_t2 = m_long ? m_entry + (m_dist * 3) : m_entry - (m_dist * 3)
+    
+    // 5. Metrics
+    float m_invested = m_final_qty * m_entry * multiplier
+    float m_act_risk = m_final_qty * m_dist * multiplier
+    
+    // 6. Draw Table
+    var table tbl_alloc = table.new(alloc_table_pos, 2, 8, bgcolor=color.new(color.black, 40), border_width=1)
+    
+    // Header
+    table.cell(tbl_alloc, 0, 0, "Risk Allocator", bgcolor=color.blue, text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 0, asset_type, bgcolor=color.blue, text_color=color.white, text_size=size.small)
+    
+    // Row 1: Prices
+    table.cell(tbl_alloc, 0, 1, "Entry", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 1, str.tostring(m_entry, "#.##"), text_color=color.white, text_size=size.small)
+    
+    table.cell(tbl_alloc, 0, 2, "Stop", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 2, str.tostring(m_stop, "#.##"), text_color=color.red, text_size=size.small)
+    
+    // Row 2: Output
+    table.cell(tbl_alloc, 0, 3, "Quantity", text_color=color.yellow, text_size=size.normal)
+    table.cell(tbl_alloc, 1, 3, str.tostring(m_final_qty), text_color=color.yellow, text_size=size.normal)
+    
+    table.cell(tbl_alloc, 0, 4, "Invested", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 4, str.tostring(m_invested, format.volume), text_color=color.white, text_size=size.small)
+    
+    table.cell(tbl_alloc, 0, 5, "Risk Amt", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 5, str.tostring(m_act_risk, format.volume) + " (" + str.tostring(m_risk_pct) + "%)", text_color=color.white, text_size=size.small)
+    
+    // Row 3: Targets
+    table.cell(tbl_alloc, 0, 6, "Target 1 (2R)", text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 6, str.tostring(m_t1, "#.##"), text_color=color.green, text_size=size.small)
+    
+    table.cell(tbl_alloc, 0, 7, "Target 2 (3R)", text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 7, str.tostring(m_t2, "#.##"), text_color=color.lime, text_size=size.small)
+    
+    // Optional Visuals: Draw lines only if user has manually engaged inputs
+    if entry_input > 0 and stop_input > 0
+        line.new(bar_index, m_entry, bar_index+5, m_entry, color=color.blue, style=line.style_dashed, width=1)
+        line.new(bar_index, m_stop, bar_index+5, m_stop, color=color.red, style=line.style_dashed, width=1)
+        line.new(bar_index, m_t1, bar_index+5, m_t1, color=color.green, style=line.style_dashed, width=1)
+        line.new(bar_index, m_t2, bar_index+5, m_t2, color=color.green, style=line.style_dashed, width=1)
+
+
+
+
+
+
+
+
+

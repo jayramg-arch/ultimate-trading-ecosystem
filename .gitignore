@@ -1,0 +1,23 @@
+# Environment & Secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+
+# Browser/Session Data
+browser_data/
+dhan_session/
+tv_user_data/
+tv_user_data_v2/
+tv_user_data_diagnostics/
+strike_user_data/
+strike_user_data_debug/
+
+# Claude internals
+.agent/

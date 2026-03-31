@@ -1,0 +1,63 @@
+import os
+import pandas as pd
+from dotenv import load_dotenv
+from dhanhq import dhanhq
+
+# 1. Connect
+load_dotenv()
+try:
+    client_id = os.getenv("DHAN_CLIENT_ID")
+    access_token = os.getenv("DHAN_ACCESS_TOKEN")
+    dhan = dhanhq(client_id, access_token)
+except:
+    print("❌ Check .env file")
+    exit()
+
+print("\n📡 Connecting to Dhan Portfolio...")
+
+# 2. Fetch Holdings
+response = dhan.get_holdings()
+
+if response['status'] == 'success' and 'data' in response:
+    data = response['data']
+    df = pd.DataFrame(data)
+
+    # 3. Rename Columns to Standard Names
+    # We map 'lastTradedPrice' -> 'CMP'
+    df.rename(columns={
+        'tradingSymbol': 'Symbol',
+        'totalQty': 'Qty',
+        'avgCostPrice': 'Buy_Price',
+        'lastTradedPrice': 'CMP'
+    }, inplace=True)
+
+    # 4. Perform The Math (Since API didn't send these)
+    # Convert columns to numbers just in case
+    df['Qty'] = pd.to_numeric(df['Qty'])
+    df['Buy_Price'] = pd.to_numeric(df['Buy_Price'])
+    df['CMP'] = pd.to_numeric(df['CMP'])
+
+    # Calculate Values
+    df['Current_Value'] = df['Qty'] * df['CMP']
+    df['Invested_Value'] = df['Qty'] * df['Buy_Price']
+    df['PnL'] = df['Current_Value'] - df['Invested_Value']
+    df['%_Change'] = ((df['CMP'] - df['Buy_Price']) / df['Buy_Price']) * 100
+    
+    # Rounding for cleanliness
+    df['%_Change'] = df['%_Change'].round(2)
+    df['PnL'] = df['PnL'].round(2)
+
+    # 5. Select Final Columns
+    final_df = df[['Symbol', 'Qty', 'Buy_Price', 'CMP', '%_Change', 'PnL', 'Current_Value']]
+    
+    # 6. Save to CSV
+    filename = "my_portfolio_live.csv"
+    final_df.to_csv(filename, index=False)
+    
+    print(f"✅ Success! Downloaded {len(final_df)} positions.")
+    print(f"📄 File saved as: {filename}")
+    print("-" * 50)
+    print(final_df.head())
+
+else:
+    print("❌ Failed to fetch holdings.")

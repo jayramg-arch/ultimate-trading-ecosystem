@@ -1,0 +1,39 @@
+Role: Senior Quantitative Analyst (Weinstein & Minervini Expert).
+Task: Analyze the following asset based on Stan Weinstein's Stage Analysis and Mark Minervini's VCP/SEPA principles.
+
+ASSET: LT (CNXINFRA)
+Price: 3932.3
+
+--- 1. MARKET & SECTOR CONTEXT ---
+Broad Market Health (Nifty 500): BEARISH
+Sector RS State: Weakening (Falling)
+Asset RS State (vs Nifty 500): Lagging (Falling)
+
+--- 2. TREND & MOMENTUM ---
+Stage Structure: ⚓ STAGE 2 (Dip Opportunity) (2w)
+Weekly Trend: UP
+Daily Trend: DOWN
+30-Week SMA: 3798.1833333333 (Slope: RISING)
+Price > 30WMA: YES
+50-Day SMA Slope: FLAT
+Price > 50DMA: NO
+Trend Template (50>150>200): ALIGNED (Bullish)
+
+--- 3. PRICE ACTION & KEY LEVELS ---
+Price vs EMA20 (Chart): SUPPORT (Bounced)
+Overhead Resistance (>Price): 5 Key Levels Found
+Weekly Health: Neutral
+Volume Status: NORMAL (1.1x)
+Volatility Squeeze: None
+Confluence Rating: ★★★★★ (Perfect) (Trend+Mom+Vol+VP+PA)
+RSI: 50.2899348328 (None)
+
+--- 4. SCORING ---
+DASHBOARD VERDICT: NO TRADE (Downtrend)
+Grade: C (Weak) (Score: 20/100)
+
+INSTRUCTIONS:
+1. First, analyze the Broad Market and Sector context (Is the tide rising?).
+2. Evaluate the Asset's Stage (Weinstein) and Volatility Contraction (Minervini).
+3. Check for specific overhead supply (Resistance) vs immediate support.
+4. Conclude with a clear Buy/Sell/Hold decision and potential trade setup (Entry/Stop/Target).

@@ -1,0 +1,237 @@
+{
+    "ca6f7a588a5e4138bb8628f2a5d40993": {
+        "timestamp": 1774373417.327803,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4 confirmed. Extended, oversold bounce on surge volume. Avoid until Stage 2.\", \"quant_grade\": \"C\", \"quant_score\": 40, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Extended (9.6%)\", \"RSI\": \"Weak (32)\", \"Volume\": \"Institutional Surge (1.9x)\", \"52W High\": \"Deep Correction (-40.8%)\"}}",
+        "original_key": "{\"symbol\": \"SILVERIETF\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "b5d46b0283f226d9e8bcca15a414ea2a": {
+        "timestamp": 1774373446.2623482,
+        "response": "P&L shit, risk allocation nonexistent. Stage 2 needs volume confirmation. Leading RS means jack if price-volume hygiene's busted.\n\nRisk Desk Verdict: Cut it. No conviction.",
+        "original_key": "{\"pnl_bucket\": -10, \"rs\": \"Leading\", \"sector\": null, \"stage\": \"Stage 2\", \"symbol\": \"BHARTIARTL\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "823d8a7796c0eb58d812b6d782f9f57a": {
+        "timestamp": 1774373419.7943892,
+        "response": "P&L negative, risk distribution too wide for Stage 2. Leading RS means jack if price-volume doesn't confirm the breakout.\n\nRisk Desk Verdict: Cut size. Let the market prove it.",
+        "original_key": "{\"pnl_bucket\": -6, \"rs\": \"Leading\", \"sector\": \"NSE:NIFTY\", \"stage\": \"Stage 2\", \"symbol\": \"HDFCNIFTY\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "072e482c18da982a6f56312ce6e1ed84": {
+        "timestamp": 1774373442.8630362,
+        "response": "Leading RS in Stage 2 with a negative P&L suggests mistimed entry or premature conviction. Risk distribution is unacceptably high given the drawdown; cut it or prove the volume supports continued upside. Risk Desk Verdict: Reduce exposure.",
+        "original_key": "{\"pnl_bucket\": -8, \"rs\": \"Leading\", \"sector\": null, \"stage\": \"Stage 2\", \"symbol\": \"ICICIBANK\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "4ae1c7304ba2525d9d502e84f423795a": {
+        "timestamp": 1774373422.0316372,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 4 confirmed. Broken stack and weak RSI offset above-average volume. Avoid.\", \"quant_grade\": \"D\", \"quant_score\": 32, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Moderate (3.9%)\", \"RSI\": \"Weak (34)\", \"Volume\": \"Above Average (1.5x)\", \"52W High\": \"Healthy (-14.8%)\"}}",
+        "original_key": "{\"symbol\": \"HDFCNIFTY\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "cfd8ab52aaf0919cbd4d9e8e99c4b8de": {
+        "timestamp": 1774373445.9464233,
+        "response": "P&L stinks. Risk Dist is non-existent; leading RS means jack if it can't hold. Stage 2 breakout failing; price-volume ain't confirming continuation.\n\nRisk Desk Verdict: Cut it. Now.",
+        "original_key": "{\"pnl_bucket\": -10, \"rs\": \"Leading\", \"sector\": null, \"stage\": \"Stage 2\", \"symbol\": \"LT\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "eac304921802fbbe0782b550eb071121": {
+        "timestamp": 1774373424.7514093,
+        "response": "P&L negative, RS leading, yet stuck in Stage 2? That 1.6% risk distance better hold. Price action needs to confirm the breakout NOW or it's a dead cat.\n\n**Risk Desk Verdict:** Momentum stalling. Cut bait if risk distance breached.",
+        "original_key": "{\"pnl_bucket\": -4, \"rs\": \"Leading\", \"sector\": \"NSE:CNXMIDCAP\", \"stage\": \"Stage 2\", \"symbol\": \"HDFCMID150\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "c4c5409f887ec66f2444ca5c9fffbabb": {
+        "timestamp": 1774373427.1431077,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 4 breakdown; weak RSI, dry volume, and broken SMA stack. Avoid.\", \"quant_grade\": \"D\", \"quant_score\": 25, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Moderate (3.8%)\", \"RSI\": \"Weak (38)\", \"Volume\": \"Dry (0.8x)\", \"52W High\": \"Healthy (-13.8%)\"}}",
+        "original_key": "{\"symbol\": \"HDFCMID150\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "531835da7f5f4a446495c84526896be5": {
+        "timestamp": 1774373429.9457855,
+        "response": "Losing double digits on BANKBEES with leading RS screams for a hard look. Stage 2 should be printing, not bleeding; check volume on this move - if it's drying up, momentum's dead. 8.8% risk dist better be reflecting tight stops, because right now, this stinks.\n\n**Risk Desk Verdict: Underperform. Reduce Size.**",
+        "original_key": "{\"pnl_bucket\": -10, \"rs\": \"Leading\", \"sector\": \"NSE:BANKNIFTY\", \"stage\": \"Stage 2\", \"symbol\": \"BANKBEES\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "f0be0709530db38777d5abc685882088": {
+        "timestamp": 1774373432.4373965,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4 forming. Weak RSI, correcting price. Stage change unconfirmed; Hold.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (5.7%)\", \"RSI\": \"Weak (27)\", \"Volume\": \"Above Average (1.2x)\", \"52W High\": \"Correcting (-15.0%)\"}}",
+        "original_key": "{\"symbol\": \"BANKBEES\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "93463cec694e0e4d34e6a54d26167230": {
+        "timestamp": 1774373434.9130287,
+        "response": "Stage 2 with a 21.9% bleed? Leading RS means jack if price-volume is shitting the bed. Risk distance is borderline; watch for confirmation of exhaustion.\nRisk Desk Verdict: Tighten stops or dump it. Stage 2 ain't worth bag holding.",
+        "original_key": "{\"pnl_bucket\": -22, \"rs\": \"Leading\", \"sector\": \"NSE:CNXIT\", \"stage\": \"Stage 2\", \"symbol\": \"ITBEES\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "b7390fa3bd2da12591886f533b730701": {
+        "timestamp": 1774373437.4740534,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 4 confirmed: Price below 200-SMA, RSI weak, heavy correction; avoid.\", \"quant_grade\": \"D\", \"quant_score\": 30, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Tight (1.7%)\", \"RSI\": \"Weak (42)\", \"Volume\": \"Above Average (1.1x)\", \"52W High\": \"Correcting (-26.0%)\"}}",
+        "original_key": "{\"symbol\": \"ITBEES\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "48bcf5ac981a690f63c49a2fabfcd649": {
+        "timestamp": 1774373439.988636,
+        "response": "Losing 1.6% on a 7.2% risk allocation? That's garbage. Leading RS in a Stage 2 name should print, not bleed. Price better confirm the breakout soon, or cut it.\n \n**Risk Desk Verdict:** Tighten stops. Price-volume hygiene is atrocious.",
+        "original_key": "{\"pnl_bucket\": -2, \"rs\": \"Leading\", \"sector\": \"NSE:CNXAUTO\", \"stage\": \"Stage 2\", \"symbol\": \"AUTOBEES\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "42df8818a88f859ddf9c8f7391c2f1be": {
+        "timestamp": 1774373442.6513402,
+        "response": "{\"rating\": \"1-Star\", \"reason\": \"Stage 4: Price below 200-SMA, weak momentum, correcting; avoid until Stage 2 breakout.\", \"quant_grade\": \"F\", \"quant_score\": 18, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Moderate (4.8%)\", \"RSI\": \"Weak (37)\", \"Volume\": \"Dry (0.9x)\", \"52W High\": \"Correcting (-15.9%)\"}}",
+        "original_key": "{\"symbol\": \"AUTOBEES\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "9fe7bdc5db57d8323b955ce9f7ceed0c": {
+        "timestamp": 1774400647.171714,
+        "response": "P/L decent, but risk distribution near double-digits in CNXENERGY is a flag. Stage 2 needs volume confirmation, not just relative strength \u2013 watch for price-volume divergence. Risk Desk Verdict: Tighten stops. Action isn't cheap.",
+        "original_key": "{\"pnl_bucket\": 4, \"rs\": \"Leading\", \"sector\": \"NSE:CNXENERGY\", \"stage\": \"Stage 2\", \"symbol\": \"RELIANCE\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "b1feb9b05ee32dae4fe6e9a154ded71d": {
+        "timestamp": 1774400649.2176254,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4 confirmed: Price below 200d SMA with dry volume. Avoid.\", \"quant_grade\": \"C\", \"quant_score\": 50, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Tight (0.5%)\", \"RSI\": \"Optimal (65)\", \"Volume\": \"Dry (1.0x)\", \"52W High\": \"Healthy (-12.4%)\"}}",
+        "original_key": "{\"symbol\": \"RELIANCE\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "ae213daea7af3458755c18682a860807": {
+        "timestamp": 1774400651.3123438,
+        "response": "P&L stinks. Risk distribution is tight, but Stage 2 better show follow-through or it's a busted breakout. Leading RS means nothing if price-volume hygiene deteriorates here.\n\n**Risk Desk Verdict: Watch for immediate confirmation. No confirmation, cut it. The risk distribution is too tight for a Stage 2 failure.**",
+        "original_key": "{\"pnl_bucket\": -10, \"rs\": \"Leading\", \"sector\": \"NSE:CNXINFRA\", \"stage\": \"Stage 2\", \"symbol\": \"LT\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "a592addc98f980ab9c799161126dec00": {
+        "timestamp": 1774400653.3410718,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4 correction; weak momentum and stack, proximity moderate. Avoid until Stage 2.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (5.5%)\", \"RSI\": \"Weak (37)\", \"Volume\": \"Above Average (1.3x)\", \"52W High\": \"Correcting (-20.8%)\"}}",
+        "original_key": "{\"symbol\": \"LT\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "3baf14b5c5af2cc6d2ec9b4c4842831a": {
+        "timestamp": 1774400655.7622116,
+        "response": "P&L sucks, but RS is holding. Check the tape: Stage 2 breakouts need volume confirmation, not just price extension. Risk Dist is tight, but if it's fading, you're giving back edge. \n\nRisk Desk Verdict: Monitor volume; any weakness, cut it.",
+        "original_key": "{\"pnl_bucket\": -4, \"rs\": \"Leading\", \"sector\": \"NSE:BANKNIFTY\", \"stage\": \"Stage 2\", \"symbol\": \"FEDERALBNK\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "b9c1432c057eac66ea40f7df08ea863d": {
+        "timestamp": 1774400657.780153,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 3 confirmed. Weak RSI, dry volume, SMA stack pulling back. Avoid.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (3.7%)\", \"RSI\": \"Weak (35)\", \"Volume\": \"Dry (0.7x)\", \"52W High\": \"Healthy (-13.1%)\"}}",
+        "original_key": "{\"symbol\": \"FEDERALBNK\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "d60749665f9ff91072861770643fa74b": {
+        "timestamp": 1774400659.8039927,
+        "response": "P&L sucks, but risk dist is manageable. Stage 2 breakout needs immediate price-volume validation; weak follow-through suggests exhaustion. Risk Desk Verdict: Tighten stops.",
+        "original_key": "{\"pnl_bucket\": -14, \"rs\": \"Leading\", \"sector\": \"NSE:CNXINFRA\", \"stage\": \"Stage 2\", \"symbol\": \"AIAENG\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "88c68c65529db75e713d0043b5153148": {
+        "timestamp": 1774400661.8489857,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 3 confirmed. Weak RSI, stack unstable, underperforming, moderate EMA proximity.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (7.4%)\", \"RSI\": \"Weak (38)\", \"Volume\": \"Above Average (1.3x)\", \"52W High\": \"Correcting (-19.7%)\"}}",
+        "original_key": "{\"symbol\": \"AIAENG\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "3918e5b8f2872de2630d718ac1c9bb30": {
+        "timestamp": 1774400664.0325184,
+        "response": "P&L stinks. Risk Dist stretched thin for a Stage 2. Leading RS means jack if price isn't holding. Momentum's fading.\n\n**Risk Desk Verdict: Cut it. Price-Volume Hygiene is a dumpster fire.**",
+        "original_key": "{\"pnl_bucket\": -8, \"rs\": \"Leading\", \"sector\": \"NSE:BANKNIFTY\", \"stage\": \"Stage 2\", \"symbol\": \"AXISBANK\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "d9f3a684e7d5856c030c31bdde2ae157": {
+        "timestamp": 1774400666.4274206,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4 setup; correcting hard, weak RSI, volume decent, below all moving averages.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (5.4%)\", \"RSI\": \"Weak (28)\", \"Volume\": \"Above Average (1.1x)\", \"52W High\": \"Correcting (-15.9%)\"}}",
+        "original_key": "{\"symbol\": \"AXISBANK\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "3b12522ab700a8d435f81bdf51625692": {
+        "timestamp": 1774400668.7016823,
+        "response": "Stage 2 with a double-digit drawdown is already a problem. Need to see volume confirming the breakout, not just price. Risk Distance is too tight given the drawdown.\n\n**Risk Desk Verdict: Reduce exposure immediately. Price-Volume Hygiene is absent. Risk profile unacceptable.**",
+        "original_key": "{\"pnl_bucket\": -10, \"rs\": \"Leading\", \"sector\": \"NSE:CNXINFRA\", \"stage\": \"Stage 2\", \"symbol\": \"BHARTIARTL\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "ea5be81aac1aa9b5aec6f6b1b6fc383e": {
+        "timestamp": 1774400670.6112175,
+        "response": "{\"rating\": \"1-Star\", \"reason\": \"Stage 4 confirmed; broken stack, weak RSI, dry volume. Avoid until Stage 2.\", \"quant_grade\": \"F\", \"quant_score\": 18, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Moderate (3.0%)\", \"RSI\": \"Weak (32)\", \"Volume\": \"Dry (0.7x)\", \"52W High\": \"Correcting (-17.1%)\"}}",
+        "original_key": "{\"symbol\": \"BHARTIARTL\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "a090630f816f0a129d8b43faa2c8661f": {
+        "timestamp": 1774400672.8601317,
+        "response": "BankNifty: Stage 2, P&L sucks. Leading RS is meaningless if price action isn't backing it. 5.7% risk dist is breathing room, but watch volume: fading momentum into this move is a red flag.\nRisk Desk Verdict: Tighten stops. Prove the breakout, or dump it.",
+        "original_key": "{\"pnl_bucket\": -14, \"rs\": \"Leading\", \"sector\": \"NSE:BANKNIFTY\", \"stage\": \"Stage 2\", \"symbol\": \"CUB\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "2fa0d632ff27f90c521a677e60b1e760": {
+        "timestamp": 1774400674.9267728,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4: Correcting hard off 52W High, weak momentum, below key moving averages.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (6.9%)\", \"RSI\": \"Weak (37)\", \"Volume\": \"Above Average (1.2x)\", \"52W High\": \"Correcting (-27.3%)\"}}",
+        "original_key": "{\"symbol\": \"CUB\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "1787c4f39af163a76bd10d533e71e4fc": {
+        "timestamp": 1774400677.198122,
+        "response": "HINDCOPPER: Down nearly 18%, risk dist at 4% is thin. Leading RS is meaningless if Stage 2 is failing; check volume signature for exhaustion.\n\nRISK DESK VERDICT: Exit.",
+        "original_key": "{\"pnl_bucket\": -18, \"rs\": \"Leading\", \"sector\": \"NSE:CNXMETAL\", \"stage\": \"Stage 2\", \"symbol\": \"HINDCOPPER\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "3de7ce27bec5ea515ffcf7620f09ef1d": {
+        "timestamp": 1774400679.0847228,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 4: Extended pullback, weak momentum, deep correction, and drying volume. Avoid.\", \"quant_grade\": \"D\", \"quant_score\": 28, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Extended (9.8%)\", \"RSI\": \"Weak (31)\", \"Volume\": \"Dry (1.0x)\", \"52W High\": \"Deep Correction (-38.9%)\"}}",
+        "original_key": "{\"symbol\": \"HINDCOPPER\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "33f7191c6e0dd0cc30afbae6ffe1bbd6": {
+        "timestamp": 1774400681.0831869,
+        "response": "Stage 2 with that drawdown and risk distance? RS leading means jack if price-volume ain't backing it. Momentum's suspect.\n\nRisk Desk Verdict: Cut it. Capital's better deployed elsewhere.",
+        "original_key": "{\"pnl_bucket\": -16, \"rs\": \"Leading\", \"sector\": \"NSE:CNXIT\", \"stage\": \"Stage 2\", \"symbol\": \"HCLTECH\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "779c346a17320f2603e59aeed3b5f232": {
+        "timestamp": 1774400683.1643803,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4: Price below 200SMA, significant 52W high drawdown, neutral momentum.\", \"quant_grade\": \"C\", \"quant_score\": 42, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Tight (0.1%)\", \"RSI\": \"Neutral (52)\", \"Volume\": \"Above Average (1.0x)\", \"52W High\": \"Correcting (-22.9%)\"}}",
+        "original_key": "{\"symbol\": \"HCLTECH\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "2e3c140e48692f59921bd7ee0ed88f82": {
+        "timestamp": 1774400685.4443278,
+        "response": "P&L's ugly. Stage 2 with that drawdown suggests entry was sloppy or breakout's failing. Risk Distance is thin given the chop in CNX500.\n\n**Risk Desk Verdict:** Cut it. Price-Volume hygiene is shot.",
+        "original_key": "{\"pnl_bucket\": -16, \"rs\": \"Leading\", \"sector\": \"NSE:CNX500\", \"stage\": \"Stage 2\", \"symbol\": \"GOLDIETF\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "09f3052b9048c4a87cb5658f26f0a588": {
+        "timestamp": 1774400687.5937521,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4: Weak RSI, price correction, and SMA stack invalidate volume surge.\", \"quant_grade\": \"C\", \"quant_score\": 50, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (7.9%)\", \"RSI\": \"Weak (25)\", \"Volume\": \"Institutional Surge (1.8x)\", \"52W High\": \"Correcting (-24.3%)\"}}",
+        "original_key": "{\"symbol\": \"GOLDIETF\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "7c8f63d879da4d8abdbdee0bf8839eab": {
+        "timestamp": 1774400689.6121602,
+        "response": "P&L -35% on a Stage 2 breakout? RS leading is irrelevant. Momentum's shit the bed. 0.7% risk dist is insufficient given the price action.\n\nRisk Desk Verdict: Cut it. Now.",
+        "original_key": "{\"pnl_bucket\": -36, \"rs\": \"Leading\", \"sector\": \"NSE:CNX500\", \"stage\": \"Stage 2\", \"symbol\": \"SILVERIETF\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "cda4daa967ce285c5a9ee40b9a228ecb": {
+        "timestamp": 1774400691.721041,
+        "response": "Stage 2, RS Leading, and you're bleeding 7.5%? Check your tape. Risk Dist at 10% on a laggard like this is atrocious. Price action screams exhaustion, not continuation. Dump it.",
+        "original_key": "{\"pnl_bucket\": -8, \"rs\": \"Leading\", \"sector\": \"NSE:BANKNIFTY\", \"stage\": \"Stage 2\", \"symbol\": \"ICICIBANK\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "ad2a90ab2392537116ae592cd5313be6": {
+        "timestamp": 1774400693.7527514,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 4 confirmed: Price below SMA, weak RSI, significant drawdown; Avoid.\", \"quant_grade\": \"D\", \"quant_score\": 25, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Moderate (3.6%)\", \"RSI\": \"Weak (31)\", \"Volume\": \"Above Average (1.1x)\", \"52W High\": \"Correcting (-15.9%)\"}}",
+        "original_key": "{\"symbol\": \"ICICIBANK\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "2a848e5db9fcbc2c44dd8b95cf485b59": {
+        "timestamp": 1774400695.8844225,
+        "response": "P&L at 0.6% against a 13.3% risk distribution on a CNXMETAL name in Stage 2 smells like front-running. Leading RS is irrelevant if it can't hold the breakout; volume needs to back the move.\n\n**Risk Desk Verdict:** Reduce size. Momentum is suspect.",
+        "original_key": "{\"pnl_bucket\": 0, \"rs\": \"Leading\", \"sector\": \"NSE:CNXMETAL\", \"stage\": \"Stage 2\", \"symbol\": \"NATIONALUM\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "a4f6f36b02775c35399d1ce260f26d06": {
+        "timestamp": 1774400698.0956876,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 3: Stack broken, weak RSI, correcting off 52W high, low volume. Avoid.\", \"quant_grade\": \"D\", \"quant_score\": 38, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (4.8%)\", \"RSI\": \"Weak (44)\", \"Volume\": \"Dry (0.6x)\", \"52W High\": \"Correcting (-16.8%)\"}}",
+        "original_key": "{\"symbol\": \"NATIONALUM\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "3e3a79bf054e11965dd19bd37f642d44": {
+        "timestamp": 1774400700.3685558,
+        "response": "Price action's got to prove it. Stage 2 means volume needs to confirm the breakout; otherwise, it's just noise. Risk distribution's too wide for this setup \u2013 tighten the leash or trim the position.\n\n**Risk Desk Verdict: Monitor. Volume profile is critical. Distance to danger suggests low conviction.**",
+        "original_key": "{\"pnl_bucket\": 2, \"rs\": \"Leading\", \"sector\": \"NSE:CNXENERGY\", \"stage\": \"Stage 2\", \"symbol\": \"COALINDIA\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "746143642857a8bddd06b3019dcc41cf": {
+        "timestamp": 1774400702.3457642,
+        "response": "{\"rating\": \"4-Star\", \"reason\": \"Stage 2 confirmed. Strong SMA stack, tight EMAs, above average volume, solid 52W.\", \"quant_grade\": \"B\", \"quant_score\": 79, \"breakdown\": {\"SMA Stack\": \"Perfect (C > 50 > 150 > 200)\", \"EMA Proximity\": \"Tight (1.2%)\", \"RSI\": \"Neutral (53)\", \"Volume\": \"Above Average (1.4x)\", \"52W High\": \"Healthy (-7.1%)\"}}",
+        "original_key": "{\"symbol\": \"COALINDIA\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "0eb3285e9f163828b53e3c440c17060e": {
+        "timestamp": 1774400704.4056664,
+        "response": "Price stalled despite \"Leading\" RS. 0.1% Risk Dist is insufficient buffer given potential whipsaw; Stage 2 is vulnerable to fail. Risk Desk Verdict: Reduce position.",
+        "original_key": "{\"pnl_bucket\": 0, \"rs\": \"Leading\", \"sector\": \"Metal\", \"stage\": \"Stage 2\", \"symbol\": \"METALIETF\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "96c642dd32fb54866b142b0b8ffac78e": {
+        "timestamp": 1774400706.284373,
+        "response": "{\"rating\": \"3-Star\", \"reason\": \"Stage 4 risk: weak RSI, dry volume, and price below key moving averages.\", \"quant_grade\": \"C\", \"quant_score\": 45, \"breakdown\": {\"SMA Stack\": \"Pullback (50 > 150 > 200, but C < 50)\", \"EMA Proximity\": \"Moderate (4.6%)\", \"RSI\": \"Weak (37)\", \"Volume\": \"Dry (0.6x)\", \"52W High\": \"Healthy (-13.0%)\"}}",
+        "original_key": "{\"symbol\": \"METALIETF\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "dc7d1effec9617747db0bdf2d93bd3a1": {
+        "timestamp": 1774400708.6947398,
+        "response": "P&L flat, but risk utilization at 8.8% on a SmallCap 250 name in Stage 2 screams inefficient capital deployment. Leading RS suggests relative outperformance, but need to see volume confirm the breakout; otherwise, it's a momentum trap.\n\n**Risk Desk Verdict: Trim size. Price-volume hygiene is suspect.**",
+        "original_key": "{\"pnl_bucket\": 0, \"rs\": \"Leading\", \"sector\": \"SmallCap 250\", \"stage\": \"Stage 2\", \"symbol\": \"HDFCSML250\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "95d4b802fc6345c1dab748d3cde8d875": {
+        "timestamp": 1774400710.7649033,
+        "response": "{\"rating\": \"2-Star\", \"reason\": \"Stage 4. Broken stack, weak RSI, correcting from 52W high. Avoid.\", \"quant_grade\": \"D\", \"quant_score\": 25, \"breakdown\": {\"SMA Stack\": \"Broken (C < 200)\", \"EMA Proximity\": \"Moderate (3.7%)\", \"RSI\": \"Weak (35)\", \"Volume\": \"Above Average (1.4x)\", \"52W High\": \"Correcting (-19.8%)\"}}",
+        "original_key": "{\"symbol\": \"HDFCSML250\", \"type\": \"weinstein_grade_v2\"}"
+    },
+    "3e59927b7511ab5ec8ac57b33f17c7e2": {
+        "timestamp": 1774402616.4216797,
+        "response": "Stage 2, Leading RS? Fine. P&L screams potential, but 0.1% risk dist is paper-thin. Price action needs to *prove* it's not a bull trap; momentum better be building, not fading.\n\n**Risk Desk Verdict: Tighten stops *now*.**",
+        "original_key": "{\"pnl_bucket\": 28, \"rs\": \"Leading\", \"sector\": \"Metal\", \"stage\": \"Stage 2\", \"symbol\": \"METALIETF\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    },
+    "9a1a4483a801336eb78d98c8dd1411de": {
+        "timestamp": 1774402618.7960699,
+        "response": "P&L stinks, risk distance borderline, considering Stage 2. Leading RS means jack if price/volume doesn't confirm. Dump it if it cracks below recent consolidation.\n\n**Risk Desk Verdict:** Watch list. Price action better start mirroring that RS pronto, or it's getting chopped.",
+        "original_key": "{\"pnl_bucket\": -8, \"rs\": \"Leading\", \"sector\": \"SmallCap 250\", \"stage\": \"Stage 2\", \"symbol\": \"HDFCSML250\", \"type\": \"institutional_analysis_v4\", \"vol\": \"Expanding\"}"
+    }
+}

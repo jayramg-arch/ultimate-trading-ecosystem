@@ -1,0 +1,537 @@
+//@version=6
+indicator("Commander Screener Dashboard [ULTIMATE] v3.0", overlay=true)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+grpSym = "Watchlist Symbols"
+list_tickers = input.text_area("NSE:RELIANCE, NSE:TCS, NSE:HDFCBANK, NSE:INFY, NSE:ICICIBANK", title="Comma-Separated Tickers (Max 30)", group=grpSym)
+
+// Parse comma-separated list
+a_syms = str.split(list_tickers, ",")
+f_get_t(int idx) => array.size(a_syms) > idx ? str.trim(array.get(a_syms, idx)) : ""
+
+s1  = f_get_t(0)
+s2  = f_get_t(1)
+s3  = f_get_t(2)
+s4  = f_get_t(3)
+s5  = f_get_t(4)
+s6  = f_get_t(5)
+s7  = f_get_t(6)
+s8  = f_get_t(7)
+s9  = f_get_t(8)
+s10 = f_get_t(9)
+s11 = f_get_t(10)
+s12 = f_get_t(11)
+s13 = f_get_t(12)
+s14 = f_get_t(13)
+s15 = f_get_t(14)
+s16 = f_get_t(15)
+s17 = f_get_t(16)
+s18 = f_get_t(17)
+s19 = f_get_t(18)
+s20 = f_get_t(19)
+s21 = f_get_t(20)
+s22 = f_get_t(21)
+s23 = f_get_t(22)
+s24 = f_get_t(23)
+s25 = f_get_t(24)
+s26 = f_get_t(25)
+s27 = f_get_t(26)
+s28 = f_get_t(27)
+s29 = f_get_t(28)
+s30 = f_get_t(29)
+
+grpConfig = "Ranking & Table Config"
+benchSym = input.symbol("NSE:NIFTY", title="Benchmark (For RS)", group=grpConfig)
+sortBy = input.string("Score/Grade", title="Rank/Sort By", options=["Score/Grade", "Volume Thrust", "Proximity to 52-Wk High", "Proximity to 50-SMA", "Relative Strength (Qtr)"], group=grpConfig)
+sortDir = input.string("Descending (Best to Worst)", title="Sort Direction", options=["Descending (Best to Worst)", "Ascending (Worst to Best)"], group=grpConfig)
+tbPos = input.string(position.bottom_center, title="Table Position", options=[position.top_center, position.bottom_center, position.middle_center, position.top_right], group=grpConfig)
+
+
+// ==========================================
+// 2. TYPES & DATA FETCHING ENGINE (Pine v6 UDT)
+// ==========================================
+// This object passes safely through request.security bypassing 40-tuple limits
+type RawMetrics
+    float c
+    float o
+    float e20
+    float s50
+    float s150
+    float s200
+    float s200_10
+    float h250
+    float v
+    float vSma
+    float rsi
+    float atr10
+    float atr40
+    float stageWks
+    float slope50
+    int catalystId
+    // Ported Weekly Mathematical Conversions
+    float w_slope
+    float rs_val
+    float rs_slope 
+
+type ProcessedStock
+    string ticker
+    float price
+    string stageStr
+    string gradeStr
+    int score
+    float distFromHigh
+    float distFrom50
+    float volThrust
+    string vcpStr
+    string rsStr
+    string slopeStr
+    string rsiStr
+    color bgCol
+    string recStr
+    string catStr
+    color catCol
+    int stageWeeks // Enhancement: Stage Duration
+
+// --- Market Health Data (Enhancement: Header Banner) ---
+b_close  = request.security(benchSym, "D", close)
+b_sma50  = request.security(benchSym, "D", ta.sma(close, 50))
+b_sma200 = request.security(benchSym, "D", ta.sma(close, 200))
+bool mkt_bullish = b_close > b_sma200 and b_sma50 > b_sma200
+bool mkt_correction = b_close < b_sma50 and b_sma50 > b_sma200 and b_close > b_sma200
+bool mkt_recovery = b_close > b_sma50 and b_sma50 < b_sma200
+string mkt_state = mkt_bullish ? "🟢 BULLISH (Confirmed)" : (mkt_correction ? "🟡 CORRECTION (In Uptrend)" : (mkt_recovery ? "🔵 RECOVERY (Weak)" : "🔴 BEARISH"))
+color mkt_color = mkt_bullish ? color.lime : (mkt_correction ? color.yellow : (mkt_recovery ? color.blue : color.red))
+
+// --- Benchmark data for True Mansfield RS (Enhancement: Fix 6) ---
+b_close_d = request.security(benchSym, "D", close)
+
+f_get_metrics() =>
+    float _c = close
+    float _o = open
+    float _v = volume
+    float _e20 = ta.ema(_c, 20)
+    float _s50 = ta.sma(_c, 50)
+    float _s150 = ta.sma(_c, 150)
+    float _s200 = ta.sma(_c, 200)
+    float _s200_10 = _s200[10]
+    float _h250 = ta.highest(high, 250)
+    float _vSma = ta.sma(_v, 50)
+    float _rsi = ta.rsi(_c, 14)
+    float _atr10 = ta.atr(10)
+    float _atr40 = ta.atr(40)
+    float _slope50 = ta.linreg(_s50, 5, 0) - ta.linreg(_s50, 5, 1)
+    
+    // Weekly Equivalent Computations (Mathematical Proxy to evade 40-call request.security limit)
+    float _w_slope = ta.linreg(_s150, 20, 0) - ta.linreg(_s150, 20, 1) // 30-Wk = 150-Day, 4-Wk = 20-Day Lookback
+    
+    // True Mansfield RS (Fix 6: Benchmark-Relative, not Self-Relative)
+    // 26 Weeks = 130 Daily bars (synced with Dashboard v60.0 rsLength=26)
+    float safe_b_close = not na(b_close_d) and b_close_d > 0 ? b_close_d : 1.0
+    float _rs_ratio = _c / safe_b_close
+    float _rs_ratio_sma = ta.sma(_rs_ratio, 130)
+    float _mansfield_rs = _rs_ratio_sma > 0 ? ((_rs_ratio / _rs_ratio_sma) - 1) * 10 : 0
+    float _rs_slope = ta.linreg(_mansfield_rs, 40, 0) - ta.linreg(_mansfield_rs, 40, 1) // 8-Week = 40-Day Lookback
+    
+    // Internal Catalyst Logic (Daily)
+    float _obv = ta.cum(math.sign(ta.change(_c)) * _v)
+    float _obv_h50_1 = ta.highest(_obv, 50)[1]
+    float _p_h50 = ta.highest(high, 50)
+    float _rsi70 = ta.rsi(_c, 70)
+    float _h10_1 = ta.highest(high, 10)[1]
+    float _rsi3 = ta.rsi(_c, 3)
+    float _h1 = high[1]
+    
+    float _catId = 0 
+    bool is_stage2 = (_c > _s150) and (_s150 > _s200) and (_s200 > _s200_10) 
+    bool is_stage1 = not is_stage2 and (_c > _s200)
+    bool vol_dry = _v < _vSma
+    bool vcp_tight = _atr10 < (_atr40 * 0.75)
+    bool d_flat = ((_p_h50 - _c) / _c) > 0.08 
+    
+    if (is_stage1 or is_stage2) and (_obv > _obv_h50_1) and d_flat and vcp_tight
+        _catId := 1 
+    else if is_stage2 and (_c > _h250 * 0.95) and (_v > _vSma * 1.5)
+        _catId := 2 
+    else if is_stage2 and (_o > _h1 * 1.02) and (_c > _o)
+        _catId := 6 
+    else if is_stage2 and vcp_tight and (_c > _h10_1) and (_v > _vSma * 1.2)
+        _catId := 4 
+    else if is_stage2 and (_c > _e20) and (((_c - _e20) / _e20) < 0.05) and vol_dry and (_rsi > 40) and (_rsi70 > 55)
+        _catId := 3 
+    else if is_stage2 and (_rsi3 < 20) and (((_e20 - _c) / _e20) > 0.05)
+        _catId := 5 
+
+    // Stage Duration Tracking (Enhancement 4)
+    float _dynThresh = _s150 * 0.0005
+    bool _isRising = _w_slope > _dynThresh
+    bool _isFalling = _w_slope < -_dynThresh
+    bool _isAbove = _c > _s150
+
+    int _stageNum = 0
+    if _isRising
+        _stageNum := _isAbove ? 2 : 20
+    else if _isFalling
+        _stageNum := 4
+    else 
+        _stageNum := _isAbove ? 1 : 3
+
+    int _stageDays = nz(ta.barssince(ta.change(_stageNum) != 0))
+    float _stageWks = math.floor(_stageDays / 5)
+
+    [_c, _o, _e20, _s50, _s150, _s200, _s200_10, _h250, _v, _vSma, _rsi, _atr10, _atr40, _stageWks, _slope50, _catId, _w_slope, _mansfield_rs, _rs_slope]
+
+f_fetch(string s) =>
+    string reqT = str.length(s) > 1 ? s : ""
+    [c, o, e20, s50, s150, s200, s200_10, h250, v, vSma, rsi, atr10, atr40, swks, slp, catId, ws, rsv, rslp] = request.security(reqT, "D", f_get_metrics(), ignore_invalid_symbol=true)
+    RawMetrics.new(c, o, e20, s50, s150, s200, s200_10, h250, v, vSma, rsi, atr10, atr40, swks, slp, int(catId), ws, rsv, rslp)
+
+f_process_stock(string sym, RawMetrics rm) =>
+    if na(rm) or na(rm.c) or rm.c == 0
+        ProcessedStock.new(sym, 0, "N/A", "N/A", 0, 0, 0, 0, "N/A", "N/A", "N/A", "0.0", color.gray, "WAIT", "NONE", color.gray, 0)
+    else
+        score = 0
+        grade = "F"
+        stage = "STAGE 4"
+        bg = color.new(#ff5252, 70) 
+        
+        // 1. Exact Stage Logic (Ported safely from Dashboard v60)
+        float dynThresh = rm.s150 * 0.0005
+        bool isRising = rm.w_slope > dynThresh
+        bool isFalling = rm.w_slope < -dynThresh
+        bool isAbove = rm.c > rm.s150
+        
+        if isRising
+            if isAbove
+                stage := "STAGE 2 (UP)"
+                score += 25
+                bg := color.new(#00e676, 50)
+                if (rm.c > rm.s50) and (rm.s50 > rm.s150)
+                    grade := "A"
+                else
+                    grade := "B"
+            else
+                stage := "STAGE 2 (PULLBACK)"
+                grade := "B"
+                score += 15
+                bg := color.new(#00e676, 70)
+        else if isFalling
+            stage := "STAGE 4 (DN)"
+            grade := "D"
+            score += 0
+            bg := color.new(#ff9800, 50)
+        else 
+            if isAbove
+                stage := "STAGE 1 (BASE)"
+                grade := "C"
+                score += 10
+                bg := color.new(#ffeb3b, 50)
+            else
+                stage := "STAGE 3 (TOP)"
+                grade := "C"
+                score += 0
+                bg := color.new(#ff9800, 50)
+
+        // 2. Weekly-Locked Relative Strength (Fix 6: True Mansfield RS)
+        // Calculated securely in the global data fetcher scope to prevent ta.sma nesting errors
+        float mansfield_rs = rm.rs_val
+        
+        rs_str = "Improving"
+        if rm.rs_slope > 0.02
+            rs_str := "🔥 LEADING"
+            score += 15
+        else if rm.rs_slope < -0.02
+            rs_str := "Lagging"
+        else
+            if mansfield_rs > 0
+                rs_str := "Weakening"
+            else
+                rs_str := "Improving"
+                score += 5
+
+        string m_dir = "Flat"
+        if rm.rs_slope > 0.001
+            m_dir := "Rising ↗"
+        else if rm.rs_slope < -0.001
+            m_dir := "Falling ↘"
+
+        rs_str := rs_str + " (" + m_dir + ")"
+            
+        // 3. 50 DMA Slope
+        slope_str = "Flat"
+        if rm.slope50 > (rm.s50 * 0.001) // threshold
+            slope_str := "Rising ↗"
+            score += 10
+        else if rm.slope50 < -(rm.s50 * 0.001)
+            slope_str := "Falling ↘"
+            
+        // 4. Volatility / VCP
+        vcp_str = "Normal"
+        if rm.atr10 < (rm.atr40 * 0.70)
+            vcp_str := "⚡ SQUEEZE"
+            score += 10
+        else if rm.atr10 > (rm.atr40 * 1.5)
+            vcp_str := "Expanded"
+
+        // 5. Volume Thrust
+        vThrust = 0.0
+        if rm.vSma > 0 and (rm.c > rm.o)
+            vThrust := (rm.v / rm.vSma) * 100
+            if vThrust > 150
+                score += 10
+
+        // 6. Extent & Distances
+        d52High = rm.h250 > 0 ? ((rm.c - rm.h250) / rm.h250) * 100 : 0
+        d50SMA = rm.s50 > 0 ? ((rm.c - rm.s50) / rm.s50) * 100 : 0
+        
+        // 7. RSI
+        if rm.rsi > 50 and rm.rsi < 70
+            score += 5
+        rsi_str = str.tostring(rm.rsi, "#.1")
+        if rm.rsi > 70
+            rsi_str += " (OB)"
+            
+        // 8. Catalyst Engine (v4.0 Hybrid mapped from ID)
+        string cat = "NONE"
+        color cat_col = color.gray
+        
+        if rm.catalystId == 1
+            cat := "POS-ACCUM"
+            cat_col := color.lime
+        else if rm.catalystId == 2
+            cat := "POS-BO"
+            cat_col := color.blue
+        else if rm.catalystId == 3
+            cat := "SWG-PB"
+            cat_col := color.orange
+        else if rm.catalystId == 4
+            cat := "SWG-BO"
+            cat_col := color.fuchsia
+        else if rm.catalystId == 5
+            cat := "SWG-REV"
+            cat_col := color.red
+        else if rm.catalystId == 6
+            cat := "SWG-GAP"
+            cat_col := color.aqua
+
+        // 9. Dynamic Recommendation
+        rec = "WAIT"
+        if stage == "STAGE 2 (UP)" and rm.c > rm.e20
+            if cat != "NONE"
+                rec := "🎯 " + cat
+            else if vcp_str == "⚡ SQUEEZE" and rm.v < rm.vSma // Volume Dry Up
+                rec := "SWING SETUP"
+            else if vThrust > 120
+                rec := "BUY (Momentum)"
+            else
+                rec := "HOLD (Trend)"
+        else if stage == "STAGE 1 (BASE)" 
+            rec := "WATCH (Basing)"
+        else if stage == "STAGE 4 (DN)" or grade == "D"
+            rec := "AVOID / SELL"
+
+        // Enhancement: Stage Duration (approximate weeks in current stage)
+        int stageWks = int(rm.stageWks)
+
+        ProcessedStock.new(sym, rm.c, stage, grade, score, d52High, d50SMA, vThrust, vcp_str, rs_str, slope_str, rsi_str, bg, rec, cat, cat_col, stageWks)
+
+// ==========================================
+// 3. REQUEST THE UDT METRICS
+// ==========================================
+m1 = f_fetch(s1)
+m2 = f_fetch(s2)
+m3 = f_fetch(s3)
+m4 = f_fetch(s4)
+m5 = f_fetch(s5)
+m6 = f_fetch(s6)
+m7 = f_fetch(s7)
+m8 = f_fetch(s8)
+m9 = f_fetch(s9)
+m10 = f_fetch(s10)
+m11 = f_fetch(s11)
+m12 = f_fetch(s12)
+m13 = f_fetch(s13)
+m14 = f_fetch(s14)
+m15 = f_fetch(s15)
+m16 = f_fetch(s16)
+m17 = f_fetch(s17)
+m18 = f_fetch(s18)
+m19 = f_fetch(s19)
+m20 = f_fetch(s20)
+m21 = f_fetch(s21)
+m22 = f_fetch(s22)
+m23 = f_fetch(s23)
+m24 = f_fetch(s24)
+m25 = f_fetch(s25)
+m26 = f_fetch(s26)
+m27 = f_fetch(s27)
+m28 = f_fetch(s28)
+m29 = f_fetch(s29)
+m30 = f_fetch(s30)
+
+// ==========================================
+// 4. DRAW 13-COLUMN TABLE
+// ==========================================
+var table ui = table.new(tbPos, 15, 33, bgcolor=#1a1a24, border_color=#363c4e, border_width=1)
+
+if barstate.islast
+    a_stocks = array.new<ProcessedStock>()
+    if s1 != ""
+        array.push(a_stocks, f_process_stock(s1, m1))
+    if s2 != ""
+        array.push(a_stocks, f_process_stock(s2, m2))
+    if s3 != ""
+        array.push(a_stocks, f_process_stock(s3, m3))
+    if s4 != ""
+        array.push(a_stocks, f_process_stock(s4, m4))
+    if s5 != ""
+        array.push(a_stocks, f_process_stock(s5, m5))
+    if s6 != ""
+        array.push(a_stocks, f_process_stock(s6, m6))
+    if s7 != ""
+        array.push(a_stocks, f_process_stock(s7, m7))
+    if s8 != ""
+        array.push(a_stocks, f_process_stock(s8, m8))
+    if s9 != ""
+        array.push(a_stocks, f_process_stock(s9, m9))
+    if s10 != ""
+        array.push(a_stocks, f_process_stock(s10, m10))
+    if s11 != ""
+        array.push(a_stocks, f_process_stock(s11, m11))
+    if s12 != ""
+        array.push(a_stocks, f_process_stock(s12, m12))
+    if s13 != ""
+        array.push(a_stocks, f_process_stock(s13, m13))
+    if s14 != ""
+        array.push(a_stocks, f_process_stock(s14, m14))
+    if s15 != ""
+        array.push(a_stocks, f_process_stock(s15, m15))
+    if s16 != ""
+        array.push(a_stocks, f_process_stock(s16, m16))
+    if s17 != ""
+        array.push(a_stocks, f_process_stock(s17, m17))
+    if s18 != ""
+        array.push(a_stocks, f_process_stock(s18, m18))
+    if s19 != ""
+        array.push(a_stocks, f_process_stock(s19, m19))
+    if s20 != ""
+        array.push(a_stocks, f_process_stock(s20, m20))
+    if s21 != ""
+        array.push(a_stocks, f_process_stock(s21, m21))
+    if s22 != ""
+        array.push(a_stocks, f_process_stock(s22, m22))
+    if s23 != ""
+        array.push(a_stocks, f_process_stock(s23, m23))
+    if s24 != ""
+        array.push(a_stocks, f_process_stock(s24, m24))
+    if s25 != ""
+        array.push(a_stocks, f_process_stock(s25, m25))
+    if s26 != ""
+        array.push(a_stocks, f_process_stock(s26, m26))
+    if s27 != ""
+        array.push(a_stocks, f_process_stock(s27, m27))
+    if s28 != ""
+        array.push(a_stocks, f_process_stock(s28, m28))
+    if s29 != ""
+        array.push(a_stocks, f_process_stock(s29, m29))
+    if s30 != ""
+        array.push(a_stocks, f_process_stock(s30, m30))
+    
+    // Sort Engine
+    a_sortVals = array.new_float()
+    for s in a_stocks
+        float v = 0.0
+        if sortBy == "Score/Grade"
+            v := s.score + (s.volThrust / 1000) 
+        else if sortBy == "Volume Thrust"
+            v := s.volThrust
+        else if sortBy == "Proximity to 52-Wk High"
+            v := s.distFromHigh * -1 
+        else if sortBy == "Relative Strength (Qtr)"
+            v := s.rsStr == "🔥 LEADING" ? 2 : (s.rsStr == "Improving" ? 1 : 0)
+        else
+            v := math.abs(s.distFrom50) * -1
+        array.push(a_sortVals, v)
+        
+    int[] indices = array.sort_indices(a_sortVals)
+    
+    // --- Market Health Banner (Enhancement 2) ---
+    table.merge_cells(ui, 0, 0, 14, 0)
+    table.cell(ui, 0, 0, "COMMANDER SCREENER  |  Market: " + mkt_state + "  |  " + benchSym, bgcolor=color.new(#0d47a1, 0), text_color=mkt_color, text_size=size.normal)
+
+    // Headers (15 Columns - Added STAGE WKS)
+    table.cell(ui, 0, 1, "RANK", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 1, 1, "TICKER", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 2, 1, "SCORE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 3, 1, "STAGE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 4, 1, "STG WKS", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 5, 1, "R. STRENGTH", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 6, 1, "50-DMA SLOPE", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 7, 1, "VOLATILITY", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 8, 1, "VOL THRUST%", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 9, 1, "% FROM ATH", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 10, 1, "50-SMA DIST%", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 11, 1, "RSI (14)", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 12, 1, "RECOMMENDATION", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    table.cell(ui, 13, 1, "CATALYST", bgcolor=#1A237E, text_color=color.white, text_size=size.small)
+    
+    bool isDesc = sortDir == "Descending (Best to Worst)"
+    
+    if array.size(indices) > 0
+        for i = 0 to array.size(indices) - 1
+            idx = isDesc ? array.get(indices, (array.size(indices) - 1) - i) : array.get(indices, i)
+            s = array.get(a_stocks, idx)
+            
+            cleanTick = str.replace_all(s.ticker, "NSE:", "")
+            
+            table.cell(ui, 0, i+2, str.tostring(i+1), bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 1, i+2, cleanTick, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 2, i+2, str.tostring(s.score) + "/100 (" + s.gradeStr + ")", bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            table.cell(ui, 3, i+2, s.stageStr, bgcolor=s.bgCol, text_color=color.white, text_size=size.small)
+            
+            // Stage Duration (Enhancement 4)
+            color stgWkCol = s.stageWeeks > 20 ? color.red : (s.stageWeeks > 10 ? color.orange : color.white)
+            string stgWkStr = str.tostring(s.stageWeeks) + "w"
+            table.cell(ui, 4, i+2, stgWkStr, bgcolor=i % 2 == 0 ? color.new(#131722, 0) : color.new(#1e222d, 0), text_color=stgWkCol, text_size=size.small)
+            
+            color rowBg = i % 2 == 0 ? color.new(#131722, 0) : color.new(#1e222d, 0)
+            
+            // RS
+            color rsCol = str.contains(s.rsStr, "LEADING") ? color.lime : color.white
+            table.cell(ui, 5, i+2, s.rsStr, bgcolor=rowBg, text_color=rsCol, text_size=size.small)
+            
+            // Slope
+            color slpCol = str.contains(s.slopeStr, "Rising") ? color.lime : (str.contains(s.slopeStr, "Falling") ? color.red : color.white)
+            table.cell(ui, 6, i+2, s.slopeStr, bgcolor=rowBg, text_color=slpCol, text_size=size.small)
+            
+            // VCP
+            color vcpCol = str.contains(s.vcpStr, "SQUEEZE") ? color.yellow : color.white
+            table.cell(ui, 7, i+2, s.vcpStr, bgcolor=rowBg, text_color=vcpCol, text_size=size.small)
+            
+            // Vol Thrust
+            color vCol = color.white
+            if s.volThrust > 150
+                vCol := color.yellow // Accumulation!
+            valStr = s.volThrust > 0 ? str.tostring(s.volThrust, "#.#") + "%" : "0%"
+            table.cell(ui, 8, i+2, valStr, bgcolor=rowBg, text_color=vCol, text_size=size.small)
+            
+            // ATH Dist
+            table.cell(ui, 9, i+2, str.tostring(s.distFromHigh, "#.#") + "%", bgcolor=rowBg, text_color=color.white, text_size=size.small)
+            
+            // SMA Dist
+            color dCol = color.white
+            if math.abs(s.distFrom50) < 5.0
+                dCol := color.lime // Nice tight EMA compression
+            table.cell(ui, 10, i+2, str.tostring(s.distFrom50, "#.#") + "%", bgcolor=rowBg, text_color=dCol, text_size=size.small)
+
+            // RSI
+            color cRsi = str.contains(s.rsiStr, "OB") ? color.red : color.white
+            table.cell(ui, 11, i+2, s.rsiStr, bgcolor=rowBg, text_color=cRsi, text_size=size.small)
+
+            // Rec
+            color rCol = str.contains(s.recStr, "BUY") or str.contains(s.recStr, "SETUP") or str.contains(s.recStr, "🎯") ? color.lime : color.white
+            table.cell(ui, 12, i+2, s.recStr, bgcolor=rowBg, text_color=rCol, text_size=size.small)
+            
+            // Catalyst
+            table.cell(ui, 13, i+2, s.catStr, bgcolor=rowBg, text_color=s.catCol, text_size=size.small)

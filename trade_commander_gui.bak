@@ -1,0 +1,143 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import sys
+import os
+from dotenv import load_dotenv
+from dhanhq import dhanhq
+
+# ==========================================
+# 1. THEME & CONFIG
+# ==========================================
+BG_COLOR = "#1e1e2e"       # Dark Blue-Grey
+BTN_COLOR = "#4a4a6a"      # Lighter Grey
+TEXT_COLOR = "#ffffff"     # White
+ACCENT_COLOR = "#00e676"   # Green for Status
+TAB_BG = "#2e2e3e"         # Slightly lighter for tabs
+
+# ==========================================
+# 2. LOGIC FUNCTIONS
+# ==========================================
+def get_script_path(filename):
+    """Finds the absolute path of a script relative to THIS gui file."""
+    base_folder = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_folder, filename)
+
+def get_base_folder():
+    """Returns the folder where this GUI is running."""
+    return os.path.dirname(os.path.abspath(__file__))
+
+def check_connection():
+    load_dotenv(get_script_path(".env"))
+    try:
+        dhan = dhanhq(os.getenv("DHAN_CLIENT_ID"), os.getenv("DHAN_ACCESS_TOKEN"))
+        resp = dhan.get_fund_limits()
+        if resp['status'] == 'success':
+            lbl_status.config(text="● SYSTEM ONLINE", fg=ACCENT_COLOR)
+        else:
+            lbl_status.config(text="● TOKEN EXPIRED", fg="red")
+    except:
+        lbl_status.config(text="● CONNECTION FAILED", fg="red")
+
+def launch_script(script_name):
+    """Launches the script in a NEW VISIBLE terminal window."""
+    full_path = get_script_path(script_name)
+    base_folder = get_base_folder()
+
+    if not os.path.exists(full_path):
+        messagebox.showerror("Error", f"File not found:\n{full_path}\n\nPlease check if the file exists.")
+        return
+
+    try:
+        # Launch and Close (/c) when done
+        cmd = f'start cmd /c "cd /d "{base_folder}" && "{sys.executable}" "{script_name}""'
+        os.system(cmd)
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to launch: {e}")
+
+# ==========================================
+# 3. GUI LAYOUT
+# ==========================================
+root = tk.Tk()
+root.title("Weinstein Commander v5.0 (Tabbed)")
+root.geometry("450x600")
+root.configure(bg=BG_COLOR)
+root.resizable(False, False)
+
+# --- Header ---
+lbl_title = tk.Label(root, text="WEINSTEIN\nCOMMANDER", font=("Segoe UI", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR)
+lbl_title.pack(pady=15)
+
+lbl_status = tk.Label(root, text="● CHECKING...", font=("Segoe UI", 10), bg=BG_COLOR, fg="yellow")
+lbl_status.pack(pady=5)
+
+# --- STYLE THE TABS ---
+style = ttk.Style()
+style.theme_use('clam')
+style.configure("TNotebook", background=BG_COLOR, borderwidth=0)
+style.configure("TNotebook.Tab", background=BTN_COLOR, foreground="white", padding=[15, 5], font=("Segoe UI", 10))
+style.map("TNotebook.Tab", background=[("selected", ACCENT_COLOR)], foreground=[("selected", "black")])
+
+# --- TABS CONTAINER ---
+notebook = ttk.Notebook(root)
+notebook.pack(pady=10, padx=20, fill="both", expand=True)
+
+# ------------------------------------
+# TAB 1: MARKET (Scanners)
+# ------------------------------------
+tab_market = tk.Frame(notebook, bg=TAB_BG)
+notebook.add(tab_market, text=" 🔍 Market ")
+
+lbl_m1 = tk.Label(tab_market, text="Identify Opportunities", bg=TAB_BG, fg="#aaaaaa", font=("Segoe UI", 9))
+lbl_m1.pack(pady=15)
+
+btn_scan = tk.Button(tab_market, text="Run Chartink Scanner\n(Hunter / Pullback / Leaders)", font=("Segoe UI", 11),
+                bg=BTN_COLOR, fg=TEXT_COLOR, relief="flat", height=3, width=30,
+                activebackground=ACCENT_COLOR,
+                command=lambda: launch_script("chartink_scanner_v9.py")) # <--- UPDATED LINK
+btn_scan.pack(pady=10)
+
+# ------------------------------------
+# TAB 2: PORTFOLIO (Audit & Protect)
+# ------------------------------------
+tab_portfolio = tk.Frame(notebook, bg=TAB_BG)
+notebook.add(tab_portfolio, text=" 🏥 Portfolio ")
+
+lbl_p1 = tk.Label(tab_portfolio, text="Manage Health & Risk", bg=TAB_BG, fg="#aaaaaa", font=("Segoe UI", 9))
+lbl_p1.pack(pady=15)
+
+# THIS IS THE BUTTON THAT WAS FAILING
+btn_audit = tk.Button(tab_portfolio, text="🏥 Run Health Check\n(Audit P&L)", font=("Segoe UI", 11),
+                bg=BTN_COLOR, fg=TEXT_COLOR, relief="flat", height=2, width=30,
+                activebackground=ACCENT_COLOR,
+                command=lambda: launch_script("portfolio_audit.py")) # <--- FIXED CONNECTION
+btn_audit.pack(pady=10)
+
+btn_sentinel = tk.Button(tab_portfolio, text="🛡️ Activate Sentinel\n(Apply OCO Protection)", font=("Segoe UI", 11),
+                bg=BTN_COLOR, fg=TEXT_COLOR, relief="flat", height=2, width=30,
+                activebackground=ACCENT_COLOR,
+                command=lambda: launch_script("gtt_portfolio_v2.py"))
+btn_sentinel.pack(pady=10)
+
+# ------------------------------------
+# TAB 3: EXECUTION (Sniper)
+# ------------------------------------
+tab_exec = tk.Frame(notebook, bg=TAB_BG)
+notebook.add(tab_exec, text=" 🎯 Trade ")
+
+lbl_e1 = tk.Label(tab_exec, text="Execute Orders", bg=TAB_BG, fg="#aaaaaa", font=("Segoe UI", 9))
+lbl_e1.pack(pady=15)
+
+btn_sniper = tk.Button(tab_exec, text="🎯 Sniper Entry\n(Calculate Risk + Fire)", font=("Segoe UI", 11),
+                bg=BTN_COLOR, fg=TEXT_COLOR, relief="flat", height=3, width=30,
+                activebackground=ACCENT_COLOR,
+                command=lambda: launch_script("sniper_trigger.py"))
+btn_sniper.pack(pady=10)
+
+
+# --- Footer ---
+lbl_footer = tk.Label(root, text="v5.0 | Tabbed Edition", font=("Segoe UI", 8), bg=BG_COLOR, fg="#666666")
+lbl_footer.pack(side="bottom", pady=10)
+
+root.after(100, check_connection)
+root.mainloop()

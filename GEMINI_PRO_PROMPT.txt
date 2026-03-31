@@ -1,0 +1,646 @@
+
+You are a Senior Quantitative Analyst at a top-tier Hedge Fund. 
+I am providing you with a JSON dataset of my current portfolio, including Technical Indicators (Stage Analysis, Relative Strength) and Fundamental Metrics.
+
+YOUR TASK:
+Perform a "Deep Research" analysis on this portfolio. 
+For EACH asset, provide a concise but high-depth assessment.
+
+DATASET:
+[
+  {
+    "Symbol": "RELIANCE",
+    "CMP": 1395.4,
+    "Position": {
+      "Qty": 146,
+      "AvgPrice": 1358.33,
+      "CurrentValue": 203728.4
+    },
+    "Technical": {
+      "Stage": "STAGE 4 (DOWN)",
+      "Support_SMA30": 1451.02,
+      "RS_Rating": -0.57,
+      "Vol_Status": "Distribution",
+      "Squeeze": false,
+      "Dist_High": 12.4
+    },
+    "Fundamental": {
+      "Sector": "ENERGY",
+      "Industry": "Oil & Gas Refining & Marketing",
+      "MarketCapCr": 1888321.17,
+      "PE": 22.674683,
+      "PEG": null,
+      "PB": 2.1529963,
+      "ROE": null,
+      "RevGrowth": 0.104,
+      "ProfitGrowth": 0.006,
+      "DebtToEq": 35.651,
+      "Beta": 0.307
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.57), indicating potential rotation into other sectors.",
+      "Context": "Valuations appear undervalued relative to growth (P/E: 22.7). ",
+      "Verdict": "SELL / AVOID",
+      "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+    }
+  },
+  {
+    "Symbol": "LT",
+    "CMP": 3932.3,
+    "Position": {
+      "Qty": 26,
+      "AvgPrice": 4001.75,
+      "CurrentValue": 102239.8
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 3809.44,
+      "RS_Rating": 0.04,
+      "Vol_Status": "Neutral",
+      "Squeeze": false,
+      "Dist_High": 5.6
+    },
+    "Fundamental": {
+      "Sector": "INFRA",
+      "Industry": "Engineering & Construction",
+      "MarketCapCr": 540931.73,
+      "PE": 30.76917,
+      "PEG": null,
+      "PB": 5.335629,
+      "ROE": null,
+      "RevGrowth": 0.111,
+      "ProfitGrowth": -0.043,
+      "DebtToEq": 111.847,
+      "Beta": 0.314
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. It exhibits positive Relative Strength (RS: 0.04), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 30.8). ",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (3809.44) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "BHARTIARTL",
+    "CMP": 1968.7,
+    "Position": {
+      "Qty": 60,
+      "AvgPrice": 2062.25,
+      "CurrentValue": 118122.0
+    },
+    "Technical": {
+      "Stage": "STAGE 4 (DOWN)",
+      "Support_SMA30": 1988.59,
+      "RS_Rating": -0.32,
+      "Vol_Status": "Neutral",
+      "Squeeze": false,
+      "Dist_High": 9.0
+    },
+    "Fundamental": {
+      "Sector": "INFRA",
+      "Industry": "Telecom Services",
+      "MarketCapCr": 1199228.06,
+      "PE": 30.674664,
+      "PEG": null,
+      "PB": 9.685005,
+      "ROE": 0.33018002,
+      "RevGrowth": 0.257,
+      "ProfitGrowth": 0.883,
+      "DebtToEq": 129.719,
+      "Beta": 0.061
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.32), indicating potential rotation into other sectors.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 30.7). Strong Earnings Momentum (88% Growth) supports the bullish thesis.",
+      "Verdict": "SELL / AVOID",
+      "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+    }
+  },
+  {
+    "Symbol": "CUB",
+    "CMP": 301.75,
+    "Position": {
+      "Qty": 462,
+      "AvgPrice": 270.21,
+      "CurrentValue": 139408.5
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 239.67,
+      "RS_Rating": 1.05,
+      "Vol_Status": "Accumulation",
+      "Squeeze": false,
+      "Dist_High": 0.0
+    },
+    "Fundamental": {
+      "Sector": "BANKNIFTY",
+      "Industry": "Banks - Regional",
+      "MarketCapCr": 22392.82,
+      "PE": 18.603577,
+      "PEG": null,
+      "PB": 2.2527735,
+      "ROE": 0.12852,
+      "RevGrowth": 0.176,
+      "ProfitGrowth": 0.154,
+      "DebtToEq": null,
+      "Beta": 0.315
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": [
+        ""
+      ]
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.05), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations appear undervalued relative to growth (P/E: 18.6). ",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (239.67) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "HINDCOPPER",
+    "CMP": 685.9,
+    "Position": {
+      "Qty": 230,
+      "AvgPrice": 541.0,
+      "CurrentValue": 157757.01
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 352.08,
+      "RS_Rating": 5.6,
+      "Vol_Status": "Accumulation",
+      "Squeeze": false,
+      "Dist_High": 9.8
+    },
+    "Fundamental": {
+      "Sector": "METAL",
+      "Industry": "Copper",
+      "MarketCapCr": 66353.78,
+      "PE": 116.25424,
+      "PEG": null,
+      "PB": 22.36825,
+      "ROE": 0.21079999,
+      "RevGrowth": 0.382,
+      "ProfitGrowth": 0.8,
+      "DebtToEq": 4.776,
+      "Beta": 1.68
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": [
+        ""
+      ]
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 5.6), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations are stretched (P/E: 116.3), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Strong Earnings Momentum (80% Growth) supports the bullish thesis.",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (352.08) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "HCLTECH",
+    "CMP": 1695.6,
+    "Position": {
+      "Qty": 76,
+      "AvgPrice": 1632.6,
+      "CurrentValue": 128865.6
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 1537.76,
+      "RS_Rating": 0.51,
+      "Vol_Status": "Neutral",
+      "Squeeze": false,
+      "Dist_High": 2.0
+    },
+    "Fundamental": {
+      "Sector": "IT",
+      "Industry": "Information Technology Services",
+      "MarketCapCr": 458770.4,
+      "PE": 27.980198,
+      "PEG": null,
+      "PB": 6.1449947,
+      "ROE": 0.23188,
+      "RevGrowth": 0.074,
+      "ProfitGrowth": -0.159,
+      "DebtToEq": 9.747,
+      "Beta": 0.201
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. It exhibits positive Relative Strength (RS: 0.51), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 28.0). ",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1537.76) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "METALIETF",
+    "CMP": 11.85,
+    "Position": {
+      "Qty": 8600,
+      "AvgPrice": 8.72,
+      "CurrentValue": 101910.0
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 10.25,
+      "RS_Rating": 1.09,
+      "Vol_Status": "Accumulation",
+      "Squeeze": false,
+      "Dist_High": 5.7
+    },
+    "Fundamental": {
+      "Sector": "METAL",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": 22.48837,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.09), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations appear undervalued relative to growth (P/E: 22.5). ",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (10.25) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "GOLDIETF",
+    "CMP": 139.62,
+    "Position": {
+      "Qty": 1760,
+      "AvgPrice": 142.65,
+      "CurrentValue": 245731.19
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 103.07,
+      "RS_Rating": 2.2,
+      "Vol_Status": "Accumulation",
+      "Squeeze": false,
+      "Dist_High": 8.9
+    },
+    "Fundamental": {
+      "Sector": "MCXGOLDEX",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": null,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 2.2), outperforming the Nifty 50 benchmark.",
+      "Context": "This is a passive tracking instrument for the MCXGOLDEX theme. It acts as a strategic hedge against currency depreciation and global inflation. Historically uncorrelated to equities.",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (103.07) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "SILVERIETF",
+    "CMP": 293.3,
+    "Position": {
+      "Qty": 737,
+      "AvgPrice": 340.15,
+      "CurrentValue": 216162.09
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 165.87,
+      "RS_Rating": 3.55,
+      "Vol_Status": "Accumulation",
+      "Squeeze": false,
+      "Dist_High": 20.1
+    },
+    "Fundamental": {
+      "Sector": "MCXSILVDEX",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": null,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 3.55), outperforming the Nifty 50 benchmark.",
+      "Context": "This is a passive tracking instrument for the MCXSILVDEX theme. It acts as a strategic hedge against currency depreciation and global inflation. Historically uncorrelated to equities.",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (165.87) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "HDFCNIFTY",
+    "CMP": 283.71,
+    "Position": {
+      "Qty": 1102,
+      "AvgPrice": 272.64,
+      "CurrentValue": 312648.41
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 283.64,
+      "RS_Rating": 0.01,
+      "Vol_Status": "Distribution",
+      "Squeeze": false,
+      "Dist_High": 3.6
+    },
+    "Fundamental": {
+      "Sector": "NIFTY",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": null,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. It exhibits positive Relative Strength (RS: 0.01), outperforming the Nifty 50 benchmark.",
+      "Context": "",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (283.64) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "HDFCSML250",
+    "CMP": 158.39,
+    "Position": {
+      "Qty": 2060,
+      "AvgPrice": 161.49,
+      "CurrentValue": 326283.4
+    },
+    "Technical": {
+      "Stage": "STAGE 4 (DOWN)",
+      "Support_SMA30": 169.2,
+      "RS_Rating": -0.2,
+      "Vol_Status": "Neutral",
+      "Squeeze": false,
+      "Dist_High": 12.7
+    },
+    "Fundamental": {
+      "Sector": "SMALLCAP",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": 26.410175,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.2), indicating potential rotation into other sectors.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 26.4). ",
+      "Verdict": "SELL / AVOID",
+      "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+    }
+  },
+  {
+    "Symbol": "HDFCMID150",
+    "CMP": 21.73,
+    "Position": {
+      "Qty": 24182,
+      "AvgPrice": 20.82,
+      "CurrentValue": 525474.85
+    },
+    "Technical": {
+      "Stage": "STAGE 4 (DOWN)",
+      "Support_SMA30": 21.94,
+      "RS_Rating": -0.03,
+      "Vol_Status": "Distribution",
+      "Squeeze": false,
+      "Dist_High": 4.7
+    },
+    "Fundamental": {
+      "Sector": "MIDCAP",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": 27.413504,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.03), indicating potential rotation into other sectors.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 27.4). ",
+      "Verdict": "SELL / AVOID",
+      "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+    }
+  },
+  {
+    "Symbol": "BANKBEES",
+    "CMP": 615.73,
+    "Position": {
+      "Qty": 575,
+      "AvgPrice": 607.53,
+      "CurrentValue": 354044.74
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 591.27,
+      "RS_Rating": 0.28,
+      "Vol_Status": "Accumulation",
+      "Squeeze": false,
+      "Dist_High": 0.7
+    },
+    "Fundamental": {
+      "Sector": "BANKNIFTY",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": 16.08911,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 0.28), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations appear undervalued relative to growth (P/E: 16.1). ",
+      "Verdict": "BUY / ACCUMULATE",
+      "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (591.27) is a low-risk entry opportunity."
+    }
+  },
+  {
+    "Symbol": "ITBEES",
+    "CMP": 41.94,
+    "Position": {
+      "Qty": 4176,
+      "AvgPrice": 41.92,
+      "CurrentValue": 175141.43
+    },
+    "Technical": {
+      "Stage": "STAGE 4 (TRAP)",
+      "Support_SMA30": 39.93,
+      "RS_Rating": 0.26,
+      "Vol_Status": "Neutral",
+      "Squeeze": true,
+      "Dist_High": 10.6
+    },
+    "Fundamental": {
+      "Sector": "IT",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": 26.577225,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 4 (TRAP) structure. Technical structure is weak, characterized by lower highs and distribution. CRITICAL: A Volatility Contraction Pattern (VCP) is detected, often preceding an explosive move. It exhibits positive Relative Strength (RS: 0.26), outperforming the Nifty 50 benchmark.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 26.6). ",
+      "Verdict": "SELL / AVOID",
+      "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+    }
+  },
+  {
+    "Symbol": "AUTOBEES",
+    "CMP": 274.15,
+    "Position": {
+      "Qty": 972,
+      "AvgPrice": 256.34,
+      "CurrentValue": 266473.79
+    },
+    "Technical": {
+      "Stage": "STAGE 2 (UP)",
+      "Support_SMA30": 271.26,
+      "RS_Rating": -0.13,
+      "Vol_Status": "Distribution",
+      "Squeeze": false,
+      "Dist_High": 7.7
+    },
+    "Fundamental": {
+      "Sector": "AUTO",
+      "Industry": "Exchange Traded Fund",
+      "MarketCapCr": 0,
+      "PE": 29.247562,
+      "PEG": null,
+      "PB": null,
+      "ROE": null,
+      "RevGrowth": null,
+      "ProfitGrowth": null,
+      "DebtToEq": null,
+      "Beta": null
+    },
+    "Sentiment": {
+      "Mood": "Neutral",
+      "Headlines": []
+    },
+    "Analysis": {
+      "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Relative Strength is lagging (-0.13), indicating potential rotation into other sectors.",
+      "Context": "Valuations appear moderate relative to growth (P/E: 29.2). ",
+      "Verdict": "HOLD",
+      "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 271.26. Wait for a renewed breakout to add."
+    }
+  }
+]
+
+REQUIRED OUTPUT FORMAT (Markdown):
+
+## Executive Summary
+(Brief Assessment of overall portfolio health, sector exposure, and risk).
+
+## Asset Analysis
+### [Symbol] - [Sector]
+**Thesis:** (2 sentences on technical structure and trend conviction)
+**Context:** (Valuations, Sector Tailwinds, or Macro factors. Identify ETFs correctly).
+**Verdict:** [BUY / ACCUMULATE / HOLD / SELL]
+**Action:** (Specific actionable advice based on the data provided).
+
+---
+(Repeat for all assets)

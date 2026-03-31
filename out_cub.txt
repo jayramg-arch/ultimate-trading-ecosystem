@@ -1,0 +1,227 @@
+2026-03-02 15:23:15.264 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.264 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.486 
+  Warning: to view this Streamlit app on a browser, run it with the following
+  command:
+
+    streamlit run test_cub.py [ARGUMENTS]
+2026-03-02 15:23:15.486 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.487 Session state does not function when running a script without `streamlit run`
+2026-03-02 15:23:15.488 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.488 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.488 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:15.488 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:15.492 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:15.494 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:15.494 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:15.495 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:15.495 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:17.036 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.037 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:17.313 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.315 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:17.315 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:17.315 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:17.315 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-03-02 15:23:17.315 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.316 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.316 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.316 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.318 No runtime found, using MemoryCacheStorageManager
+2026-03-02 15:23:17.319 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+Executing fetch_fundamentals('CUB')...
+HTML LENGTH: 195708
+PROFIT-LOSS IN HTML: True
+BSE NAME: City Union Bank Ltd
+DEBUG quarters: sec found? True
+DEBUG quarters: table found? True
+DEBUG quarters: tbody found? True
+DEBUG quarters: TRs found: 14
+
+--- RAW TR REVENUE ---
+<tr class="stripe">
+ <td class="text">
+  <button class="button-plain" onclick="Company.showSchedule('Revenue', 'quarters', this)">
+   Revenue
+   <span class="blue-icon">
+    +
+   </span>
+  </button>
+ </td>
+ <td class="highlight-cell">
+  1,206
+ </td>
+ <td class="">
+  1,228
+ </td>
+ <td class="">
+  1,266
+ </td>
+ <td class="">
+  1,304
+ </td>
+ <td class="highlight-cell">
+  1,326
+ </td>
+ <td class="">
+  1,374
+ </td>
+ <td class="">
+  1,389
+ </td>
+ <td class="">
+  1,434
+ </td>
+ <td class="highlight-cell">
+  1,479
+ </td>
+ <td class="">
+  1,533
+ </td>
+ <td class="">
+  1,605
+ </td>
+ <td class="">
+  1,653
+ </td>
+ <td class="highlight-cell">
+  1,756
+ </td>
+</tr>
+
+DEBUG quarters ROW: Revenue, vals len: 13
+DEBUG quarters ROW: Interest, vals len: 13
+DEBUG quarters ROW: Expenses, vals len: 13
+DEBUG quarters ROW: Financing Profit, vals len: 13
+DEBUG quarters ROW: Financing Margin %, vals len: 13
+DEBUG quarters ROW: Other Income, vals len: 13
+DEBUG quarters ROW: Depreciation, vals len: 13
+DEBUG quarters ROW: Profit before tax, vals len: 13
+DEBUG quarters ROW: Tax %, vals len: 13
+DEBUG quarters ROW: Net Profit, vals len: 13
+DEBUG quarters ROW: EPS in Rs, vals len: 13
+DEBUG quarters ROW: Gross NPA %, vals len: 13
+DEBUG quarters ROW: Net NPA %, vals len: 13
+DEBUG quarters ROW: Raw PDF, vals len: 13
+DEBUG profit-loss: sec found? True
+DEBUG profit-loss: table found? True
+DEBUG profit-loss: tbody found? True
+DEBUG profit-loss: TRs found: 12
+
+--- RAW TR REVENUE ---
+<tr class="stripe">
+ <td class="text">
+  <button class="button-plain" onclick="Company.showSchedule('Revenue', 'profit-loss', this)">
+   Revenue
+   <span class="blue-icon">
+    +
+   </span>
+  </button>
+ </td>
+ <td class="">
+  2,546
+ </td>
+ <td class="">
+  2,699
+ </td>
+ <td class="">
+  2,944
+ </td>
+ <td class="">
+  3,174
+ </td>
+ <td class="">
+  3,402
+ </td>
+ <td class="">
+  3,767
+ </td>
+ <td class="">
+  4,169
+ </td>
+ <td class="">
+  4,135
+ </td>
+ <td class="">
+  4,105
+ </td>
+ <td class="">
+  4,714
+ </td>
+ <td class="">
+  5,271
+ </td>
+ <td class="">
+  5,834
+ </td>
+ <td class="">
+  6,547
+ </td>
+</tr>
+
+DEBUG profit-loss ROW: Revenue, vals len: 13
+DEBUG profit-loss ROW: Interest, vals len: 13
+DEBUG profit-loss ROW: Expenses, vals len: 13
+DEBUG profit-loss ROW: Financing Profit, vals len: 13
+DEBUG profit-loss ROW: Financing Margin %, vals len: 13
+DEBUG profit-loss ROW: Other Income, vals len: 13
+DEBUG profit-loss ROW: Depreciation, vals len: 13
+DEBUG profit-loss ROW: Profit before tax, vals len: 13
+DEBUG profit-loss ROW: Tax %, vals len: 13
+DEBUG profit-loss ROW: Net Profit, vals len: 13
+DEBUG profit-loss ROW: EPS in Rs, vals len: 13
+DEBUG profit-loss ROW: Dividend Payout %, vals len: 13
+--- INTERNAL PL KEYS ---
+KEY: 'Revenue'
+KEY: 'Interest'
+KEY: 'Expenses'
+KEY: 'Financing Profit'
+KEY: 'Financing Margin %'
+KEY: 'Other Income'
+KEY: 'Depreciation'
+KEY: 'Profit before tax'
+KEY: 'Tax %'
+KEY: 'Net Profit'
+KEY: 'EPS in Rs'
+KEY: 'Dividend Payout %'
+DEBUG balance-sheet: sec found? True
+DEBUG balance-sheet: table found? True
+DEBUG balance-sheet: tbody found? True
+DEBUG balance-sheet: TRs found: 11
+DEBUG balance-sheet ROW: Equity Capital, vals len: 13
+DEBUG balance-sheet ROW: Reserves, vals len: 13
+DEBUG balance-sheet ROW: Deposits, vals len: 13
+DEBUG balance-sheet ROW: Borrowing, vals len: 13
+DEBUG balance-sheet ROW: Other Liabilities, vals len: 13
+DEBUG balance-sheet ROW: Total Liabilities, vals len: 13
+DEBUG balance-sheet ROW: Fixed Assets, vals len: 13
+DEBUG balance-sheet ROW: CWIP, vals len: 13
+DEBUG balance-sheet ROW: Investments, vals len: 13
+DEBUG balance-sheet ROW: Other Assets, vals len: 13
+DEBUG balance-sheet ROW: Total Assets, vals len: 13
+DEBUG shareholding: sec found? True
+DEBUG shareholding: table found? True
+DEBUG shareholding: tbody found? True
+DEBUG shareholding: TRs found: 4
+DEBUG shareholding ROW: FIIs, vals len: 12
+DEBUG shareholding ROW: DIIs, vals len: 12
+DEBUG shareholding ROW: Public, vals len: 12
+DEBUG shareholding ROW: No. of Shareholders, vals len: 12
+RevenueTTM: 6547.0
+OpMargin: 0.09
+PriceToBook: 2.082089552238806
+EpsTTM: 16.93

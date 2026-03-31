@@ -1,0 +1,57 @@
+﻿Sr #,Symbol,Sector,Type,Status,Qty,Buy Price,Entry Date,LTP,Ageing,Risk (ATR),Planned R:R,Pot. Profit,P&L,Stop Loss,Target,Quality,AI Analysis,Rationale,Lessons,Exit Price,Exit Date,Exit Reason,Chart
+1,AUTOBEES,NSE:CNXAUTO,Positional,🔴 Losing,972,256.33694,2024-10-04,252.19,536 days,🟠 1.9x ATR,1:2,43423.011360000055,-4030.825680000028,234,301.0108200000001,3-Star,"12.  5% P&L against 18.8% risk dist on a Stage 2 leading RS name? Momentum's gotta prove itself. Current price-volume hygiene needs a serious upgrade to justify the risk distance; could be a late entry or chasing. 
+    
+    Risk Desk Verdict: Tighten the leash or unwind. That risk distribution ain't defensible unless the tape starts screaming conviction.",,,,,,
+2,HDFCMID150,NSE:CNXMIDCAP,Positional,🔴 Losing,24182,20.81743,2024-10-04,20.17,536 days,🔴 0.4x ATR,1:2,15352.18452000008,-15656.152259999999,20.5,21.452290000000005,3-Star,"P&L's decent, but that risk distance is too damn tight for a Stage 2. Leading RS is irrelevant if price-volume isn't confirming the move. Dump it.
+
+**Risk Desk Verdict:** Eject. This isn't conviction-grade.",,,,,,
+3,HDFCNIFTY,NSE:NIFTY,Positional,🔴 Losing,1102,272.64377,2024-10-04,257.32,536 days,🟢 2.8x ATR,1:2,8499.130919999961,-16886.794540000028,276.5,280.35623,3-Star,"Stage 2, leading RS, that's the thesis. 5.6% P&L on 4.0% risk says it's working *now*, but question is *for how long*? Watch for volume tapering on upswings; breakdown below recent highs invalidates the breakout. 
+
+**Risk Desk Verdict: Monitor price-volume closely. Tighten stops if volume wanes. Any crack in RS or the stage, cut it.**",,,,,,
+4,RELIANCE,NSE:CNXENERGY,Positional,🟢 Winning,146,1358.325,2024-10-15,1411.8,525 days,🟢 3.7x ATR,1:2,21410.900000000012,7807.349999999987,1285,1504.9750000000001,3-Star,"Price action needs volume confirmation to sustain Stage 2. Current risk distance is fat relative to the P&L.
+
+**Risk Desk Verdict: Reduce exposure. Stage validation is weak; risk/reward is out of whack.**",,yyyyyyy,0,,,
+5,LT,NSE:CNXINFRA,Positional,🔴 Losing,40,3913.6726,2025-11-04,3516.8,140 days,🟢 2.2x ATR,1:2,16722.991321440022,-15874.903999999988,3836.751308482,4331.747383036,3-Star,"Stage 2 with decent P&L, but risk distance is too tight for a leading RS name. Momentum better confirm, or we're clipping profits.
+
+**Risk Desk Verdict:** Monitor volume. Pull if it cracks.",,,,,,
+6,BANKBEES,NSE:BANKNIFTY,Positional,🔴 Losing,575,607.5324,2025-12-10,543.04,104 days,🟢 3.4x ATR,1:2,19357.26000000001,-37083.13000000005,590.7,641.1972000000001,3-Star,"P&L decent, but Risk Dist is too wide for Stage 2. Leading RS ain't enough to justify the slop in price-volume.
+
+Risk Desk Verdict: Tighten the leash or dump it. Now.",,,,,,
+7,BHARTIARTL,NSE:CNXINFRA,Positional,🔴 Losing,74,2012.0865,2025-12-11,1802.1,103 days,🟢 4.3x ATR,1:2,15737.09900000001,-15539.000999999998,1981,2224.75,3-Star,"P&L negative, but risk distance acceptable. Leading RS supports Stage 2, *if* price-volume hygiene confirms the move. Price needs to prove breakout validity quickly, or it's a failed attempt at a confirmed uptrend. 
+
+Risk Desk Verdict: Monitor closely. Confirm uptrend, or cut losses.",,,,,,
+8,CUB,NSE:BANKNIFTY,Positional,🔴 Losing,694,276.8617,2025-12-11,235.55,103 days,🔴 1.1x ATR,1:2,38810.83959999997,-28670.319799999983,248.9,332.78509999999994,3-Star,"BANKNIFTY: Stage 2, but P&L negative, risk distribution high. Leading RS isn't enough; Price-volume needs to show conviction, not exhaustion at this stage.
+
+Risk Desk Verdict: Tighten stops. Validate breakout or dump it. Risk distribution doesn't justify negative P&L if momentum stalls.",,,,,,
+9,AXISBANK,NSE:BANKNIFTY,Positional,🔴 Losing,143,1308.3293,2025-12-16,1192.7,98 days,🟢 2.4x ATR,1:2,7270.909109263803,-16534.989900000008,1282.9065408767,1359.1748182466001,3-Star,"P&L decent, but risk distribution's too wide for a supposed Stage 2 leader. Price-volume needs to back this move now or we're chasing fumes into a trap; tighten the leash or cut it loose.
+
+Risk Desk Verdict: Momentum's questionable. Needs immediate hygiene.",,,,,,
+10,FEDERALBNK,NSE:BANKNIFTY,Positional,🔴 Losing,1160,275.7478,2025-12-24,262.5,90 days,🟠 2.0x ATR,1:2,73654.89599999996,-15367.447999999982,244,339.24339999999995,3-Star,"P&L decent, but risk distribution's a pig. ""Leading"" RS means jack if it's grinding sideways. Stage 2 better show conviction or dump it.
+
+Risk Desk Verdict: Monitor closely. Exhaustion signs require immediate reduction.",,,,,,
+11,ITBEES,NSE:CNXIT,Positional,🔴 Losing,4176,41.92,2025-12-29,32.76,85 days,🟢 4.5x ATR,1:2,31069.43999999999,-38252.16000000002,38.2,49.36,1-Star,"ITBEES: Stage 2 with that P&L and risk dist screams chasing. Leading RS is irrelevant if price-volume isn't confirming the breakout.
+
+Risk Desk Verdict: Dump it.",,,,,,
+12,HCLTECH,NSE:CNXIT,Positional,🔴 Losing,76,1632.6,2025-12-29,1373.3,85 days,🟢 4.6x ATR,1:2,12783.199999999986,-19706.799999999996,1548.5,1800.7999999999997,2-Star,"Price action's lagging P&L. 5.9% risk distance is fat for Stage 2. Momentum's fading.
+
+Risk Desk Verdict: Dump it.",,,,,,
+13,AIAENG,NSE:CNXINFRA,Positional,🔴 Losing,25,3973.552,2026-01-12,3378.3,71 days,🟢 2.3x ATR,1:2,12577.600000000019,-14881.3,3722,4476.656000000001,3-Star,"P&L stinks. CNXINFRA's ""Leading"" RS isn't defending the Stage 2 breakout; price-volume needs a serious look. Risk Dist is a joke relative to that kind of drawdown. 
+
+**Risk Desk Verdict:** Cut it.",,,,,,
+14,SILVERIETF,NSE:CNX500,Positional,🔴 Losing,737,340.1469,2026-01-20,221.01,63 days,🔴 0.1x ATR,1:2,177833.53060000006,-87803.89530000002,219.5,581.4407000000001,3-Star,"P&L down 30%, risk dist at 7.5% in a Stage 2 name. 'Leading' RS means jack if price-volume isn't confirming the breakout; check for distribution.
+**Risk Desk Verdict:** Momentum stalling. Tighten stops, or ditch the dead weight.",,,,,,
+15,HINDCOPPER,NSE:CNXMETAL,Positional,🔴 Losing,372,564.5712,2026-01-20,463.55,63 days,🔴 0.8x ATR,1:2,61284.17279999999,-37579.88639999999,482.2,729.3136,3-Star,"P&L decent, but 16.1% risk distance for a Stage 2 breakout is sloppy. Need to see volume confirming continuation, or it's just chasing.
+
+**Risk Desk Verdict: Monitor volume closely. Tighten stops or trim size if momentum stalls.**",,,,,,
+16,GOLDIETF,NSE:CNX500,Positional,🔴 Losing,1760,142.65227,2026-01-20,119.57,63 days,🔴 0.8x ATR,1:2,68823.99039999998,-40624.79519999999,123.1,181.75680999999997,1-Star,"Stage 2 with negative P&L? Leading RS is irrelevant. Price action needs to confirm breakout; otherwise, it's a failed move. 6.5% risk dist is wide given current return profile.
+
+**Risk Desk Verdict:** Price-volume hygiene poor. Position needs immediate review; either validate the move with volume or cut losses.",,,,,,
+17,NATIONALUM,NSE:CNXMETAL,Positional,🟢 Winning,354,352.4963,2026-02-06,354.65,46 days,🟢 2.4x ATR,1:2,31857.380400000013,762.4097999999851,307.5,442.48890000000006,3-Star,"Stage 2 with that P&L? RS Leading means jack if it's bleeding. Risk Dist is thin for a directional bet. Price-volume needs a serious look; exhaustion signals are a no-go.
+
+Risk Desk Verdict: Chop it. This trade's price action is suspect; not seeing the follow-through.",,,,,,
+18,ICICIBANK,NSE:BANKNIFTY,Positional,🔴 Losing,121,1352.3397,2026-02-09,1251.2,43 days,🟢 3.8x ATR,1:2,7400.396299999946,-12237.903699999993,1376.9,1413.4999999999995,3-Star,"P&L decent, but 2.5% risk dist on a leading RS name in Stage 2? Questionable. Need volume confirmation, or this looks like a crowded trade nearing exhaustion. Risk Desk Verdict: Reduce size. Now.",,,,,,
+19,COALINDIA,NSE:CNXENERGY,Positional,🟢 Winning,156,431.5,2026-02-09,442.1,43 days,🟢 2.0x ATR,1:2,6520.799999999993,1653.6000000000035,410.6,473.29999999999995,2-Star,"Stage 2 with negative P&L suggests early failure. Price needs to prove commitment to breakout or risk dist is too wide for comfort.
+
+**Risk Desk Verdict: Monitor closely. Cut if no immediate volume support.**",,,,,,
+20,HDFCSML250,,,🔴 Losing,2060,161.49272,2026-03-24,146.97,0 days,N/A,1:2,,-29916.803199999984,,,,,,,,,,
+21,METALIETF,,,🟢 Winning,8600,8.72,2026-03-24,11.09,0 days,N/A,1:2,,20381.999999999993,,,,,,,,,,

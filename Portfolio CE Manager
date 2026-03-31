@@ -1,0 +1,64 @@
+//@version=6
+indicator("Portfolio CE Manager - Alert Ready", overlay=true, precision=2)
+
+// =========================================================================
+// 1. INPUTS & DYNAMIC SETTINGS
+// =========================================================================
+ema_length = input.int(20, title="EMA Length")
+atr_length = input.int(14, title="ATR Length")
+
+var int ce_length = 22
+var float ce_mult = 3.0
+
+switch timeframe.period
+    "75" => 
+        ce_length := 25
+        ce_mult := 2.5
+    "125" =>
+        ce_length := 15
+        ce_mult := 2.5
+    "D" =>
+        ce_length := 22
+        ce_mult := 3.0
+    "W" =>
+        ce_length := 13
+        ce_mult := 3.0
+    "M" =>
+        ce_length := 6
+        ce_mult := 3.0
+
+// =========================================================================
+// 2. PURE CHANDELIER LOGIC (CONTINUOUS)
+// =========================================================================
+atr = ta.atr(atr_length)
+raw_long_stop = ta.highest(high, ce_length) - (atr * ce_mult)
+
+var float trailing_stop = na
+
+if na(trailing_stop[1])
+    trailing_stop := raw_long_stop
+else if close[1] > trailing_stop[1]
+    trailing_stop := math.max(raw_long_stop, trailing_stop[1])
+else
+    trailing_stop := raw_long_stop
+
+// =========================================================================
+// 3. VISUALS & PLOTTING
+// =========================================================================
+is_htf = timeframe.isweekly or timeframe.ismonthly
+chart_ema = ta.ema(close, ema_length)
+daily_ema = request.security(syminfo.tickerid, "D", ta.ema(close, ema_length))
+active_ema = is_htf ? chart_ema : daily_ema
+
+tsl_color = close > trailing_stop ? color.new(color.green, 0) : color.new(color.red, 0)
+
+plot(active_ema, color=color.new(color.blue, 60), title="EMA 20 Reference", linewidth=1)
+plot(trailing_stop, color=tsl_color, style=plot.style_stepline, title="Portfolio Hard Stop", linewidth=3)
+
+// =========================================================================
+// 4. SERVER-SIDE ALERTS
+// =========================================================================
+// Trigger the alert ONLY when the price officially crosses below the trailing stop line
+stop_breached = ta.crossunder(close, trailing_stop)
+
+alertcondition(stop_breached, title="TSL Breach Alert", message="SELL ALERT: {{ticker}} has closed below the Chandelier Trailing Stop at {{close}}. Portfolio position invalidated.")

@@ -1,0 +1,327 @@
+//@version=6
+indicator("Weinstein Swing Zigzag [Strict v5.2]", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// --- INPUTS ---
+grp_mtf = "MTF Pivot Settings (Left/Right)"
+piv_m = input.int(1, title="Monthly Pivot Length", minval=1, group=grp_mtf)
+piv_w = input.int(5, title="Weekly Pivot Length", minval=1, group=grp_mtf)
+piv_d = input.int(2, title="Daily Pivot Length", minval=1, group=grp_mtf)
+piv_intra = input.int(2, title="Intraday Pivot Length", minval=1, group=grp_mtf)
+
+
+
+grp_display = "Display Settings"
+show_panel = input.bool(true, title="Show Trend State Panel", group=grp_display)
+show_proj = input.bool(true, title="Show Projection Line", group=grp_display)
+panelPos = input.string(position.top_right, title="Panel Position", options=[position.top_right, position.top_left, position.bottom_right, position.bottom_left], group=grp_display)
+
+// --- LOGIC ---
+// Dynamically resolve the pivot length based on the current chart timeframe
+var int pivot_len = na
+if timeframe.ismonthly
+    pivot_len := piv_m
+else if timeframe.isweekly
+    pivot_len := piv_w
+else if timeframe.isdaily
+    pivot_len := piv_d
+else
+    pivot_len := piv_intra
+
+pivotLeft  = pivot_len
+pivotRight = pivot_len
+
+ph = ta.pivothigh(high, pivotLeft, pivotRight)
+pl = ta.pivotlow(low, pivotLeft, pivotRight)
+
+// --- STATE VARIABLES ---
+var line currentLine = na
+var label currentLabel = na
+var line projLine = na
+
+var int trendState = 0 
+var float activePivotPrice = na 
+var string activePivotType = na 
+var int activePivotIndex = na
+
+// History
+var float lockedHigh = na
+var float lockedLow  = na
+var string lastHighClass = na 
+var string lastLowClass  = na
+
+
+
+// Swing Counter
+var int swingCount = 0
+
+// BoS Detection State
+var bool bosUp = false
+var bool bosDn = false
+bosUp := false
+bosDn := false
+
+// EH/EL Proximity Threshold (0.1% of price)
+float eq_threshold = 0.001
+
+// --- HELPERS ---
+
+// Label color: Green for uptrend pivots, Red for downtrend, Gray for sideways/equal
+f_highLabelColor(string hClass) =>
+    hClass == "HH" ? color.green : (hClass == "LH" ? color.red : color.gray)
+
+f_lowLabelColor(string lClass) =>
+    lClass == "HL" ? color.green : (lClass == "LL" ? color.red : color.gray)
+
+f_getLabelText(string pType, string pClass, float startPrice) =>
+    float chg = 0.0
+    if not na(startPrice)
+        chg := ((pType == "H" ? high[pivotRight] : low[pivotRight]) - startPrice) / startPrice * 100
+    pClass + "\n(" + str.tostring(chg, "#.1") + "%)"
+
+// Classify a high pivot relative to the previous locked high
+f_classifyHigh(float newHigh, float prevHigh) =>
+    string result = "HH"
+    if not na(prevHigh) and prevHigh > 0
+        float diff = math.abs(newHigh - prevHigh) / prevHigh
+        if diff < eq_threshold
+            result := "EH"
+        else if newHigh < prevHigh
+            result := "LH"
+    result
+
+// Classify a low pivot relative to the previous locked low
+f_classifyLow(float newLow, float prevLow) =>
+    string result = "LL"
+    if not na(prevLow) and prevLow > 0
+        float diff = math.abs(newLow - prevLow) / prevLow
+        if diff < eq_threshold
+            result := "EL"
+        else if newLow > prevLow
+            result := "HL"
+    result
+
+// Trend State Logic:
+// UPTREND (+1):   Requires HH with prior HL/EL, OR HL with prior HH (continuation)
+// DOWNTREND (-1): Requires LL with prior LH/EH, OR LH with prior LL (continuation)
+// SIDEWAYS (0):   Everything else (broadening, equal, mixed)
+f_updateTrend(string pivotSide, string pivotClass) =>
+    int newTrend = 0
+    int newSwing = 0
+    if pivotSide == "H"
+        if pivotClass == "HH"
+            if lastLowClass == "HL" or lastLowClass == "EL"
+                newTrend := 1    // Classic uptrend: HH after HL
+                newSwing := swingCount + 1
+            else
+                newTrend := 0    // Broadening: HH after LL
+                newSwing := 0
+        else if pivotClass == "LH"
+            if lastLowClass == "LL" or lastLowClass == "EL"
+                newTrend := -1   // Downtrend continuation: LH after LL
+                newSwing := swingCount + 1
+            else
+                newTrend := 0    // Reversal attempt or sideways
+                newSwing := 0
+        else // EH
+            newTrend := trendState  // Equal highs = maintain current trend
+            newSwing := swingCount
+    else // "L"
+        if pivotClass == "LL"
+            if lastHighClass == "LH" or lastHighClass == "EH"
+                newTrend := -1   // Classic downtrend: LL after LH
+                newSwing := swingCount + 1
+            else
+                newTrend := 0    // Broadening: LL after HH
+                newSwing := 0
+        else if pivotClass == "HL"
+            if lastHighClass == "HH" or lastHighClass == "EH"
+                newTrend := 1    // Uptrend continuation: HL after HH
+                newSwing := swingCount + 1
+            else
+                newTrend := 0    // Reversal attempt or sideways
+                newSwing := 0
+        else // EL
+            newTrend := trendState  // Equal lows = maintain current trend
+            newSwing := swingCount
+    [newTrend, newSwing]
+
+
+// ============================================================
+// --- MAIN LOOP ---
+// ============================================================
+
+// 1. New Pivot High Found
+if not na(ph)
+    if activePivotType == "H" and ph > activePivotPrice
+        // EXTENDING existing high — just move the endpoint higher
+        line.set_xy2(currentLine, bar_index[pivotRight], ph)
+        activePivotPrice := ph
+        activePivotIndex := bar_index[pivotRight]
+        
+        // Re-classify against ORIGINAL lockedHigh (not the extending one)
+        string hClass = f_classifyHigh(ph, lockedHigh)
+        lastHighClass := hClass
+        
+        string labelTxt = f_getLabelText("H", hClass, lockedLow)
+        label.set_xy(currentLabel, bar_index[pivotRight], ph)
+        label.set_text(currentLabel, labelTxt)
+        label.set_textcolor(currentLabel, f_highLabelColor(hClass))
+
+    else if activePivotType == "L" or na(activePivotType)
+        // NEW direction change: Low → High. Lock the previous low.
+        if activePivotType == "L"
+            lockedLow := activePivotPrice 
+        
+        // Classify BEFORE updating lockedHigh (compare against old high)
+        string hClass = f_classifyHigh(ph, lockedHigh)
+        
+        // Determine trend state from structure
+        [newTrend, newSwing] = f_updateTrend("H", hClass)
+        trendState := newTrend
+        swingCount := newSwing
+            
+        // NOW update the locked high
+        lockedHigh := ph
+        lastHighClass := hClass
+        activePivotPrice := ph
+        activePivotIndex := bar_index[pivotRight]
+        activePivotType := "H"
+        
+        // Draw the zigzag line segment
+        color lineColor = trendState == 1 ? color.green : (trendState == -1 ? color.red : color.gray)
+        line.new(bar_index[pivotRight], ph, bar_index, ph, color=color.gray, style=line.style_dotted) 
+        currentLine := line.new(line.get_x2(currentLine), line.get_y2(currentLine), bar_index[pivotRight], ph, color=lineColor, width=2)
+        
+        // Label
+        string labelTxt = f_getLabelText("H", hClass, lockedLow)
+        currentLabel := label.new(bar_index[pivotRight], ph, labelTxt, style=label.style_label_down, color=color.new(color.black, 100), textcolor=f_highLabelColor(hClass), size=size.small)
+
+
+
+// 2. New Pivot Low Found
+if not na(pl)
+    if activePivotType == "L" and pl < activePivotPrice
+        // EXTENDING existing low — just move the endpoint lower
+        line.set_xy2(currentLine, bar_index[pivotRight], pl)
+        activePivotPrice := pl
+        activePivotIndex := bar_index[pivotRight]
+        
+        // Re-classify against ORIGINAL lockedLow (not the extending one)
+        string lClass = f_classifyLow(pl, lockedLow)
+        lastLowClass := lClass
+        
+        string labelTxt = f_getLabelText("L", lClass, lockedHigh)
+        label.set_xy(currentLabel, bar_index[pivotRight], pl)
+        label.set_text(currentLabel, labelTxt)
+        label.set_textcolor(currentLabel, f_lowLabelColor(lClass))
+
+    else if activePivotType == "H"
+        // NEW direction change: High → Low. Lock the previous high.
+        lockedHigh := activePivotPrice 
+        
+        // Classify BEFORE updating lockedLow (compare against old low)
+        string lClass = f_classifyLow(pl, lockedLow)
+
+        // Determine trend state from structure
+        [newTrend, newSwing] = f_updateTrend("L", lClass)
+        trendState := newTrend
+        swingCount := newSwing
+
+        // NOW update the locked low
+        lockedLow := pl
+        lastLowClass := lClass
+        activePivotPrice := pl
+        activePivotIndex := bar_index[pivotRight]
+        activePivotType := "L"
+        
+        // Draw the zigzag line segment
+        color lineColor = trendState == 1 ? color.green : (trendState == -1 ? color.red : color.gray)
+        line.new(bar_index[pivotRight], pl, bar_index, pl, color=color.gray, style=line.style_dotted)
+        currentLine := line.new(line.get_x2(currentLine), line.get_y2(currentLine), bar_index[pivotRight], pl, color=lineColor, width=2)
+        
+        // Label
+        string labelTxt = f_getLabelText("L", lClass, lockedHigh)
+        currentLabel := label.new(bar_index[pivotRight], pl, labelTxt, style=label.style_label_up, color=color.new(color.black, 100), textcolor=f_lowLabelColor(lClass), size=size.small)
+
+
+
+// ============================================================
+// --- 3. LIVE TREND SYNC (BoS) ---
+// ============================================================
+// Only trigger BoS if structure allows it (No Broadening overrides)
+if not na(lockedHigh) and close > lockedHigh
+    if lastLowClass == "HL" or lastLowClass == "EL" or na(lastLowClass)
+        if trendState != 1
+            bosUp := true
+        trendState := 1
+
+else if not na(lockedLow) and close < lockedLow
+    if lastHighClass == "LH" or lastHighClass == "EH" or na(lastHighClass)
+        if trendState != -1
+            bosDn := true
+        trendState := -1
+
+if not na(currentLine)
+    line.set_color(currentLine, trendState == 1 ? color.green : (trendState == -1 ? color.red : color.gray))
+
+// ============================================================
+// --- 4. PROJECTION LINE ---
+// ============================================================
+if show_proj
+    int _barsSince = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex)
+    int globalBarsSince = math.max(1, _barsSince)
+    float globalLowest  = ta.lowest(low, globalBarsSince)
+    float globalHighest = ta.highest(high, globalBarsSince)
+    
+    if not na(activePivotPrice)
+        line.delete(projLine)
+        color projColor = trendState == 1 ? color.new(color.green, 60) : (trendState == -1 ? color.new(color.red, 60) : color.new(color.gray, 50))
+        if activePivotType == "H"
+            projLine := line.new(activePivotIndex, activePivotPrice, bar_index, globalLowest, color=projColor, style=line.style_dashed)
+        else if activePivotType == "L"
+            projLine := line.new(activePivotIndex, activePivotPrice, bar_index, globalHighest, color=projColor, style=line.style_dashed)
+
+// ============================================================
+// --- 5. TREND STATE INFO PANEL ---
+// ============================================================
+if show_panel and barstate.islast
+    var table panel = table.new(panelPos, 2, 5, border_width=1, border_color=color.gray)
+    
+    string trendStr = trendState == 1 ? "🟢 UPTREND" : (trendState == -1 ? "🔴 DOWNTREND" : "⚪ SIDEWAYS")
+    color trendCol = trendState == 1 ? color.green : (trendState == -1 ? color.red : color.gray)
+    
+    string structStr = ""
+    if not na(lastHighClass) and not na(lastLowClass)
+        structStr := lastHighClass + " / " + lastLowClass
+    
+    string swingStr = str.tostring(swingCount) + " swing(s)"
+    
+    string ampStr = "N/A"
+    if not na(lockedHigh) and not na(lockedLow) and lockedLow > 0
+        float amp = ((lockedHigh - lockedLow) / lockedLow) * 100
+        ampStr := str.tostring(amp, "#.1") + "%"
+    
+    table.cell(panel, 0, 0, "TREND", bgcolor=color.new(#1A237E, 0), text_color=color.white, text_size=size.small)
+    table.cell(panel, 1, 0, trendStr, bgcolor=color.new(#131722, 0), text_color=trendCol, text_size=size.small)
+    
+    table.cell(panel, 0, 1, "STRUCTURE", bgcolor=color.new(#1A237E, 0), text_color=color.white, text_size=size.small)
+    table.cell(panel, 1, 1, structStr, bgcolor=color.new(#131722, 0), text_color=color.white, text_size=size.small)
+    
+    table.cell(panel, 0, 2, "SWING COUNT", bgcolor=color.new(#1A237E, 0), text_color=color.white, text_size=size.small)
+    table.cell(panel, 1, 2, swingStr, bgcolor=color.new(#131722, 0), text_color=swingCount >= 3 ? color.yellow : color.white, text_size=size.small)
+    
+    table.cell(panel, 0, 3, "AMPLITUDE", bgcolor=color.new(#1A237E, 0), text_color=color.white, text_size=size.small)
+    table.cell(panel, 1, 3, ampStr, bgcolor=color.new(#131722, 0), text_color=color.white, text_size=size.small)
+    
+    string pivStr = "Pivot: L=" + str.tostring(pivotLeft) + " R=" + str.tostring(pivotRight)
+    table.cell(panel, 0, 4, "CONFIG", bgcolor=color.new(#1A237E, 0), text_color=color.white, text_size=size.small)
+    table.cell(panel, 1, 4, pivStr, bgcolor=color.new(#131722, 0), text_color=color.gray, text_size=size.small)
+
+// --- 6. ALERT CONDITIONS ---
+alertcondition(bosUp, title="Bullish BoS (Break of Structure)", message="Weinstein Zigzag: Bullish Break of Structure on {{ticker}}! Price broke above locked high.")
+alertcondition(bosDn, title="Bearish BoS (Break of Structure)", message="Weinstein Zigzag: Bearish Breakdown on {{ticker}}! Price broke below locked low.")
+alertcondition(trendState == 1 and trendState[1] != 1, title="Uptrend Confirmed", message="Weinstein Zigzag: UPTREND confirmed on {{ticker}} (HH+HL).")
+alertcondition(trendState == -1 and trendState[1] != -1, title="Downtrend Confirmed", message="Weinstein Zigzag: DOWNTREND confirmed on {{ticker}} (LH+LL).")
+
+// --- 7. BACKGROUND HIGHLIGHT ---
+bgcolor(trendState == 1 ? color.new(color.green, 95) : (trendState == -1 ? color.new(color.red, 95) : na), title="Trend Background")

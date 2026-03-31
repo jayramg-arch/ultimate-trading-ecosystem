@@ -1,0 +1,71 @@
+{
+    "updated_at": "Wed Jan 28 23:36:28 2026",
+    "holdings": [
+        {
+            "Symbol": "FEDERALBNK",
+            "Qty": 100.0,
+            "AvgPrice": 240.5,
+            "Sector": "Banks"
+        },
+        {
+            "Symbol": "RELIANCE",
+            "Qty": 50.0,
+            "AvgPrice": 1300.0,
+            "Sector": "Energy"
+        },
+        {
+            "Symbol": "BHARTIARTL",
+            "Qty": 75.0,
+            "AvgPrice": 1850.0,
+            "Sector": "Telecom"
+        },
+        {
+            "Symbol": "DATAPATTNS",
+            "Qty": 25.0,
+            "AvgPrice": 2800.0,
+            "Sector": "Defense"
+        },
+        {
+            "Symbol": "AXISBANK",
+            "Qty": 40.0,
+            "AvgPrice": 1150.0,
+            "Sector": "Banks"
+        },
+        {
+            "Symbol": "ITBEES",
+            "Qty": 500.0,
+            "AvgPrice": 38.5,
+            "Sector": "Technology"
+        },
+        {
+            "Symbol": "GOLDIETF",
+            "Qty": 200.0,
+            "AvgPrice": 58.0,
+            "Sector": "Commodity"
+        },
+        {
+            "Symbol": "HINDCOPPER",
+            "Qty": 150.0,
+            "AvgPrice": 580.0,
+            "Sector": "Metals"
+        },
+        {
+            "Symbol": "LT",
+            "Qty": 30.0,
+            "AvgPrice": 3500.0,
+            "Sector": "Infra"
+        },
+        {
+            "Symbol": "CUB",
+            "Qty": 120.0,
+            "AvgPrice": 260.0,
+            "Sector": "Banks"
+        },
+        {
+            "Symbol": "SILVERIETF",
+            "Qty": 100.0,
+            "AvgPrice": 75.0,
+            "Sector": "Commodity"
+        }
+    ]
+}

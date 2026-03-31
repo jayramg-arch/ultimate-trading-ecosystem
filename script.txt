@@ -1,0 +1,32 @@
+from datetime import datetime
+
+def get_dynamic_volume_filter():
+    """
+    Returns the appropriate Chartink volume condition string 
+    based on the current day of the week.
+    """
+    # 0 = Monday, 1 = Tuesday, 2 = Wednesday, 3 = Thursday
+    # 4 = Friday, 5 = Saturday, 6 = Sunday
+    current_day = datetime.today().weekday()
+    
+    # Early to Mid-Week (Monday through Thursday)
+    if current_day <= 3:
+        # Use the completed footprint of the previous week
+        volume_condition = "1 week ago Weekly Volume Greater than 1 week ago Weekly Sma( Weekly Volume , 20 ) * Number 1"
+        print(f"Day {current_day} (Early-Week): Injecting '1 week ago' volume logic.")
+        
+    # Late-Week to Weekend (Friday, Saturday, Sunday)
+    else:
+        # The current week's volume is now mature enough to evaluate
+        volume_condition = "Weekly Volume Greater than Weekly Sma( Weekly Volume , 20 ) * Number 1"
+        print(f"Day {current_day} (Late-Week/Weekend): Injecting 'Latest' volume logic.")
+        
+    return volume_condition
+
+# Example of injecting this into your master Chartink query string:
+# Assuming 'base_hunter_conditions' contains rows 1-6 and 8-13
+dynamic_volume_rule = get_dynamic_volume_filter()
+
+master_chartink_query = f"{base_hunter_conditions} AND {dynamic_volume_rule}"
+
+# Pass 'master_chartink_query' into your requests.post() payload...

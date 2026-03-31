@@ -1,0 +1,886 @@
+import streamlit as st
+import pandas as pd
+import os, sys, sqlite3, base64
+from dotenv import load_dotenv
+from dhan_auth import ensure_valid_token
+from dhanhq import dhanhq
+from ai_risk_manager import get_market_health, get_noise_risk_stats, get_atr
+from ai_grading_engine import get_weinstein_score
+import plotly.express as px
+import yfinance as yf
+
+st.set_page_config(
+    page_title="Weinstein Commander Web",
+    page_icon="🦁",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+load_dotenv(override=True)
+
+@st.cache_resource(ttl=3600)
+def check_auth_cached():
+    try: return ensure_valid_token()
+    except: return None
+
+check_auth_cached()
+load_dotenv(override=True)
+
+CLIENT_ID    = os.getenv("DHAN_CLIENT_ID")
+ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
+DB_FILE      = "trade_journal_v6.db"
+
+JOURNAL_RENAME_MAP = {
+    'symbol':'Symbol','trade_type':'Type','stoploss':'StopLoss','target':'Target',
+    'rationale':'Rationale','timeframe':'Timeframe','entry_date':'EntryDate',
+    'quantity':'Quantity','buy_price':'BuyPrice','exit_date':'ExitDate',
+    'exit_price':'ExitPrice','exit_reason':'ExitReason','status':'Status',
+    'sector':'Sector','trade_quality':'Quality','compromises':'Compromises',
+    'lessons':'Lessons','screenshot_path':'Screenshot','planned_rr':'PlannedRR',
+    'ai_analysis':'AI Analysis'
+}
+
+# ── HELPERS ────────────────────────────────────────────────────────────
+def get_script_path(f): return os.path.join(os.getcwd(), f)
+def get_img_as_base64(file):
+    with open(file,"rb") as f: return base64.b64encode(f.read()).decode()
+
+def launch_script(script_name, args=None, is_streamlit=False):
+    try:
+        if not os.path.exists(get_script_path(script_name)):
+            st.error(f"❌ File not found: {script_name}"); return
+        cmd_str = f'streamlit run "{script_name}"' if is_streamlit else f'"{sys.executable}" "{script_name}"'
+        if args: cmd_str += f" {args}"
+        os.system(f'start cmd /k "cd /d "{os.getcwd()}" && {cmd_str}"')
+        st.toast(f"🚀 Launched: {script_name}")
+    except Exception as e:
+        st.error(f"Failed to launch: {e}")
+
+def get_dhan_balance():
+    try:
+        if not CLIENT_ID or not ACCESS_TOKEN: return 0.0, "AUTH MISSING"
+        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+        resp = dhan.get_fund_limits()
+        if isinstance(resp, dict) and resp.get('status') == 'success':
+            data = resp.get('data', {})
+            bal  = float(data.get('availabelBalance', data.get('availableBalance', 0.0)))
+            return bal, "SYSTEM ONLINE"
+        err = str(resp).lower()
+        if any(k in err for k in ["expired","access token","unauthorized"]): return 0.0, "AUTH EXPIRED"
+        return 0.0, "API OFFLINE"
+    except Exception as e:
+        return 0.0, f"OFFLINE ({type(e).__name__})"
+
+def load_journal_db():
+    conn = None
+    try:
+        if not os.path.exists(DB_FILE): return pd.DataFrame()
+        conn = sqlite3.connect(DB_FILE)
+        df = pd.read_sql("SELECT * FROM journal WHERE status='OPEN'", conn)
+        return df.rename(columns=JOURNAL_RENAME_MAP)
+    except: return pd.DataFrame()
+    finally:
+        if conn: conn.close()
+
+def load_closed_trades_db():
+    conn = None
+    try:
+        if not os.path.exists(DB_FILE): return pd.DataFrame()
+        conn = sqlite3.connect(DB_FILE)
+        df = pd.read_sql("SELECT * FROM journal WHERE status='CLOSED'", conn)
+        return df.rename(columns=JOURNAL_RENAME_MAP)
+    except: return pd.DataFrame()
+    finally:
+        if conn: conn.close()
+
+# ── DATA ───────────────────────────────────────────────────────────────
+balance, sys_status   = get_dhan_balance()
+is_healthy, mkt_ltp, mkt_sma = get_market_health("NSE:CNX500")
+df_active_global      = load_journal_db()
+if not df_active_global.empty:
+    noise_count_g, noise_syms_g = get_noise_risk_stats(df_active_global)
+    total_deployed_g = (df_active_global['Quantity'] * df_active_global['BuyPrice']).sum()
+else:
+    noise_count_g, noise_syms_g, total_deployed_g = 0, [], 0
+
+h_color      = "#3fb950" if is_healthy        else "#f85149"
+h_text       = "HEALTHY" if is_healthy        else "WEAK"
+w_color      = "#f85149" if noise_count_g > 0 else "#3fb950"
+w_text       = f"⚠  {noise_count_g} AT RISK"  if noise_count_g > 0 else "✔  SECURE"
+s_color      = "#3fb950" if sys_status == "SYSTEM ONLINE" else "#f85149"
+deployed_pct = round((1 - balance / 500000) * 100, 1) if balance < 500000 else 0.0
+open_pos     = len(df_active_global) if not df_active_global.empty else 0
+
+# ── SESSION STATE ──────────────────────────────────────────────────────
+for k, v in [('page','DASHBOARD'),('huntertab','SCANNERS'),
+             ('watchlisttab','GENERATION'),('commandtab','ACTIVEOPS'),
+             ('ailabtab','PREFLIGHT')]:
+    if k not in st.session_state: st.session_state[k] = v
+
+# ══════════════════════════════════════════════════════════════════════
+#  CSS  — Dark Theme Optimised
+# ══════════════════════════════════════════════════════════════════════
+bg_str = ""
+if os.path.exists("trading_bg_pro.png"):
+    bg_img = get_img_as_base64("trading_bg_pro.png")
+    bg_str = f', url("data:image/png;base64,{bg_img}")'
+
+st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+
+/* ════ TOKENS ═══════════════════════════════════════════════════════ */
+:root {{
+    --bg-base:     #0d1117;
+    --bg-surface:  #161b22;
+    --bg-elevated: #1c2128;
+    --bg-hover:    #21262d;
+    --border:      #30363d;
+    --border-muted:#21262d;
+    --accent:      #3fb950;
+    --accent-dim:  rgba(63,185,80,0.15);
+    --accent-glow: rgba(63,185,80,0.30);
+    --blue:        #58a6ff;
+    --blue-dim:    rgba(88,166,255,0.12);
+    --orange:      #e3b341;
+    --red:         #f85149;
+    --text-primary:#e6edf3;
+    --text-secondary:#8b949e;
+    --text-muted:  #484f58;
+    --text-bright: #ffffff;
+}}
+
+/* ════ RESET ════════════════════════════════════════════════════════ */
+*, *::before, *::after {{ box-sizing: border-box; margin: 0; }}
+
+.stApp {{
+    background: var(--bg-base){bg_str};
+    background-attachment: fixed; background-size: cover;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+}}
+.block-container {{ padding: 0 !important; max-width: 100% !important; }}
+header, footer, #MainMenu {{ visibility: hidden !important; }}
+
+/* ════ SIDEBAR ══════════════════════════════════════════════════════ */
+[data-testid="stSidebar"] {{
+    background: var(--bg-surface) !important;
+    border-right: 1px solid var(--border) !important;
+    width: 240px !important; min-width: 240px !important;
+}}
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebarContent"] {{ padding: 0 !important; }}
+
+/* Sidebar brand */
+.sb-brand {{
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-base);
+}}
+.sb-brand-title {{
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.25rem; font-weight: 700;
+    color: var(--text-bright); letter-spacing: 1.5px;
+}}
+.sb-brand-sub {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem; color: var(--text-muted);
+    letter-spacing: 3px; margin-top: 3px; text-transform: uppercase;
+}}
+
+/* Sidebar section label */
+.sb-section-lbl {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.60rem; color: var(--text-muted);
+    letter-spacing: 3px; text-transform: uppercase;
+    padding: 14px 16px 5px; border-top: 1px solid var(--border-muted);
+    margin-top: 2px;
+}}
+
+/* Sidebar nav buttons */
+[data-testid="stSidebar"] button {{
+    background: transparent !important;
+    border: none !important; border-radius: 0 !important;
+    border-left: 3px solid transparent !important;
+    padding: 10px 16px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.85rem !important; font-weight: 500 !important;
+    color: var(--text-secondary) !important;
+    letter-spacing: 0.3px !important; text-transform: none !important;
+    text-align: left !important; width: 100% !important;
+    min-height: 0 !important; line-height: 1.3 !important;
+    box-shadow: none !important; transition: all .12s ease !important;
+}}
+[data-testid="stSidebar"] button:hover {{
+    background: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+    border-left-color: var(--border) !important;
+    box-shadow: none !important;
+}}
+[data-testid="stSidebar"] button[kind="primary"] {{
+    background: var(--accent-dim) !important;
+    color: var(--accent) !important;
+    border-left-color: var(--accent) !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}}
+[data-testid="stSidebar"] button[kind="primary"]:hover {{
+    background: rgba(63,185,80,0.22) !important;
+    box-shadow: none !important;
+}}
+[data-testid="stSidebar"] button p {{
+    white-space: nowrap !important; text-align: left !important;
+    font-size: 0.85rem !important; color: inherit !important;
+}}
+
+/* Sidebar radio (sub-menus) */
+[data-testid="stRadio"] {{ margin: 2px 0 !important; }}
+[data-testid="stRadio"] label {{
+    background: transparent !important;
+    border: none !important; border-radius: 0 !important;
+    border-left: 3px solid transparent !important;
+    padding: 8px 14px 8px 28px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.82rem !important; font-weight: 400 !important;
+    color: var(--text-secondary) !important;
+    letter-spacing: 0.2px !important; text-transform: none !important;
+    cursor: pointer !important; transition: all .12s !important;
+    margin: 0 !important; display: block !important;
+}}
+[data-testid="stRadio"] label:hover {{
+    background: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+    border-left-color: var(--border) !important;
+}}
+[data-testid="stRadio"] label[data-checked="true"] {{
+    background: var(--accent-dim) !important;
+    color: var(--accent) !important;
+    border-left-color: var(--accent) !important;
+    font-weight: 600 !important;
+}}
+[role="radiogroup"] input {{ display: none !important; }}
+[role="radiogroup"] [data-testid="stMarkdownContainer"] p {{
+    margin: 0 !important;
+    font-size: 0.82rem !important;
+    color: inherit !important;
+}}
+
+/* Sidebar status footer */
+.sb-status {{
+    padding: 12px 16px 18px;
+    font-family: 'JetBrains Mono', monospace;
+}}
+.sb-status-lbl {{
+    font-size: 0.58rem; color: var(--text-muted);
+    letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px;
+}}
+.sb-status-val {{
+    font-size: 0.80rem; font-weight: 600; letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}}
+
+/* ════ TOP STATUS BAR ═══════════════════════════════════════════════ */
+.statusbar {{
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+}}
+.sb-cell {{
+    padding: 9px 18px;
+    border-right: 1px solid var(--border-muted);
+    display: flex; flex-direction: column; justify-content: center;
+}}
+.sb-cell:last-child {{ border-right: none; }}
+.sb-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem; color: var(--text-muted);
+    letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px;
+}}
+.sb-value {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem; font-weight: 600; letter-spacing: 0.5px;
+}}
+
+/* ════ PAGE TITLE ═══════════════════════════════════════════════════ */
+.page-title {{
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.55rem; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--text-bright);
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 14px; margin: 18px 0 3px;
+}}
+.page-desc {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; color: var(--text-muted);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin: 0 0 18px 17px;
+}}
+
+/* ════ SECTION HEADERS ══════════════════════════════════════════════ */
+/* Primary section divider */
+.section-hdr {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem; color: var(--text-muted);
+    letter-spacing: 3px; text-transform: uppercase;
+    margin: 18px 0 10px;
+    display: flex; align-items: center; gap: 10px;
+}}
+.section-hdr::after {{ content:''; flex:1; height:1px; background: var(--border); }}
+
+/* Sub-section label — LARGER & VISIBLE */
+.section-sub-lbl {{
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+    padding: 7px 12px;
+    background: var(--bg-elevated);
+    border-left: 3px solid var(--blue);
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 10px;
+}}
+
+/* ════ ACTION BUTTONS (card-style, tall) ════════════════════════════ */
+button[kind="secondary"] {{
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.82rem !important; font-weight: 400 !important;
+    letter-spacing: 0.1px !important; text-transform: none !important;
+    padding: 14px 16px !important; width: 100% !important;
+    text-align: left !important; line-height: 1.65 !important;
+    min-height: 80px !important;
+    transition: all .15s ease !important;
+}}
+button[kind="secondary"]:hover {{
+    background: var(--bg-elevated) !important;
+    border-color: var(--accent) !important;
+    color: var(--text-bright) !important;
+    box-shadow: inset 3px 0 0 var(--accent), 0 0 0 1px var(--accent-glow) !important;
+}}
+button[kind="secondary"] p {{
+    white-space: pre-line !important;
+    text-align: left !important;
+    margin: 0 !important;
+    color: var(--text-primary) !important;
+    font-size: 0.82rem !important;
+    line-height: 1.65 !important;
+}}
+
+button[kind="primary"] {{
+    background: var(--accent-dim) !important;
+    border: 1px solid var(--accent) !important;
+    border-radius: 6px !important;
+    color: var(--accent) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.82rem !important; font-weight: 400 !important;
+    letter-spacing: 0.1px !important; text-transform: none !important;
+    padding: 14px 16px !important; width: 100% !important;
+    text-align: left !important; line-height: 1.65 !important;
+    min-height: 80px !important;
+    box-shadow: 0 0 0 1px var(--accent-glow) !important;
+    transition: all .15s ease !important;
+}}
+button[kind="primary"]:hover {{
+    background: rgba(63,185,80,0.25) !important;
+    box-shadow: 0 0 16px var(--accent-glow), inset 3px 0 0 var(--accent) !important;
+    color: var(--text-bright) !important;
+}}
+button[kind="primary"] p {{
+    white-space: pre-line !important;
+    text-align: left !important;
+    margin: 0 !important;
+    color: inherit !important;
+    font-size: 0.82rem !important;
+    line-height: 1.65 !important;
+}}
+
+/* ════ METRICS ══════════════════════════════════════════════════════ */
+[data-testid="metric-container"] {{
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important; padding: 14px 18px !important;
+}}
+[data-testid="metric-container"] label {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.62rem !important; color: var(--text-muted) !important;
+    letter-spacing: 2px !important; text-transform: uppercase !important;
+}}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 1.3rem !important; font-weight: 600 !important;
+    color: var(--text-bright) !important;
+}}
+
+/* ════ INPUTS ═══════════════════════════════════════════════════════ */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input {{
+    background: var(--bg-base) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 5px !important;
+    color: var(--text-bright) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.82rem !important;
+}}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus {{
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-glow) !important;
+}}
+[data-testid="stTextInput"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stSelectbox"] label {{
+    color: var(--text-secondary) !important;
+    font-size: 0.75rem !important;
+    font-family: 'Inter', sans-serif !important;
+}}
+[data-testid="stSelectbox"] > div > div {{
+    background: var(--bg-base) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 5px !important;
+}}
+
+/* ════ DATAFRAME ════════════════════════════════════════════════════ */
+[data-testid="stDataFrame"] {{
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+}}
+iframe {{ border-radius: 6px !important; }}
+
+/* ════ MISC ═════════════════════════════════════════════════════════ */
+hr {{ border-color: var(--border) !important; margin: 12px 0 !important; }}
+[data-testid="stToast"] {{
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--accent) !important;
+    border-radius: 6px !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', sans-serif !important;
+}}
+[data-testid="stInfo"] {{
+    background: var(--blue-dim) !important;
+    border-color: var(--blue) !important;
+    color: var(--text-primary) !important;
+}}
+[data-testid="stSuccess"] {{
+    background: var(--accent-dim) !important;
+    border-color: var(--accent) !important;
+    color: var(--text-primary) !important;
+}}
+[data-testid="stWarning"] {{
+    background: rgba(227,179,65,0.12) !important;
+    border-color: var(--orange) !important;
+    color: var(--text-primary) !important;
+}}
+[data-testid="stError"] {{
+    background: rgba(248,81,73,0.12) !important;
+    border-color: var(--red) !important;
+    color: var(--text-primary) !important;
+}}
+
+/* Spinner */
+[data-testid="stSpinner"] {{ color: var(--accent) !important; }}
+
+/* Caption / small text */
+.stCaption, [data-testid="stCaptionContainer"] p {{
+    color: var(--text-secondary) !important;
+    font-size: 0.78rem !important;
+}}
+
+/* Streamlit default text overrides */
+p, li, span {{ color: var(--text-primary) !important; }}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  SIDEBAR
+# ══════════════════════════════════════════════════════════════════════
+with st.sidebar:
+    st.markdown("""
+    <div class="sb-brand">
+      <div class="sb-brand-title">🦁 WEINSTEIN</div>
+      <div class="sb-brand-sub">Commander Web &nbsp;·&nbsp; v11.0</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="sb-section-lbl">Navigation</div>', unsafe_allow_html=True)
+    for option in ['DASHBOARD','HUNTER','WATCHLIST','COMMAND','AI LAB','JOURNAL']:
+        btn_type = "primary" if st.session_state.page == option else "secondary"
+        if st.button(option, key=f"nav_{option}", use_container_width=True, type=btn_type):
+            if option == 'JOURNAL':
+                launch_script("dhan_journal_v6.py", is_streamlit=True)
+            else:
+                st.session_state.page = option
+                st.rerun()
+
+    page = st.session_state.page
+
+    # Context-sensitive sub-menus
+    if page == 'HUNTER':
+        st.markdown('<div class="sb-section-lbl">Targeting</div>', unsafe_allow_html=True)
+        hopts = ['SCANNERS','ENRICHMENT','SELECTION']
+        sel = st.radio("Hunter Nav", hopts,
+                       index=hopts.index(st.session_state.huntertab),
+                       label_visibility="collapsed")
+        st.session_state.huntertab = sel
+
+    elif page == 'WATCHLIST':
+        st.markdown('<div class="sb-section-lbl">Actions</div>', unsafe_allow_html=True)
+        wl_opts = ['GENERATE','SYNC CLOUD']
+        wl_map  = {'GENERATE':'GENERATION','SYNC CLOUD':'SYNC'}
+        wl_rev  = {v:k for k,v in wl_map.items()}
+        sel = st.radio("WL Nav", wl_opts,
+                       index=wl_opts.index(wl_rev.get(st.session_state.watchlisttab,'GENERATE')),
+                       label_visibility="collapsed")
+        st.session_state.watchlisttab = wl_map[sel]
+
+    elif page == 'COMMAND':
+        st.markdown('<div class="sb-section-lbl">Controls</div>', unsafe_allow_html=True)
+        cmd_opts = ['ACTIVE OPS','LEDGER']
+        cmd_map  = {'ACTIVE OPS':'ACTIVEOPS','LEDGER':'LEDGER'}
+        cmd_rev  = {v:k for k,v in cmd_map.items()}
+        sel = st.radio("Cmd Nav", cmd_opts,
+                       index=cmd_opts.index(cmd_rev.get(st.session_state.commandtab,'ACTIVE OPS')),
+                       label_visibility="collapsed")
+        st.session_state.commandtab = cmd_map[sel]
+
+    elif page == 'AI LAB':
+        st.markdown('<div class="sb-section-lbl">Lab Bench</div>', unsafe_allow_html=True)
+        ai_opts = ['PRE-FLIGHT','GENERATIVE','WORKFLOWS']
+        ai_map  = {'PRE-FLIGHT':'PREFLIGHT','GENERATIVE':'GENERATIVE','WORKFLOWS':'WORKFLOWS'}
+        ai_rev  = {v:k for k,v in ai_map.items()}
+        sel = st.radio("AI Nav", ai_opts,
+                       index=ai_opts.index(ai_rev.get(st.session_state.ailabtab,'PRE-FLIGHT')),
+                       label_visibility="collapsed")
+        st.session_state.ailabtab = ai_map[sel]
+
+    # Sidebar status footer
+    st.markdown('<div class="sb-section-lbl">System Status</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="sb-status">
+      <div class="sb-status-lbl">API Health</div>
+      <div class="sb-status-val" style="color:{s_color};">{sys_status}</div>
+      <div class="sb-status-lbl">Available Capital</div>
+      <div class="sb-status-val" style="color:#e6edf3;">₹{balance:,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if sys_status == "AUTH EXPIRED":
+        st.warning("⚠️ Token expired — re-run dhan_auth.py")
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  TOP STATUS BAR
+# ══════════════════════════════════════════════════════════════════════
+st.markdown(f"""
+<div class="statusbar">
+  <div class="sb-cell">
+    <div class="sb-label">Nifty 500</div>
+    <div class="sb-value" style="color:{h_color};">{h_text}</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-label">Risk Watchdog</div>
+    <div class="sb-value" style="color:{w_color};">{w_text}</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-label">Deployment</div>
+    <div class="sb-value" style="color:#58a6ff;">{deployed_pct}%</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-label">Open Positions</div>
+    <div class="sb-value" style="color:#e6edf3;">{open_pos}</div>
+  </div>
+  <div class="sb-cell">
+    <div class="sb-label">Total Deployed</div>
+    <div class="sb-value" style="color:#e3b341;">₹{total_deployed_g:,.0f}</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+page = st.session_state.page
+
+# ── UI helpers ─────────────────────────────────────────────────────
+def section(label):
+    st.markdown(f'<div class="section-hdr">{label}</div>', unsafe_allow_html=True)
+
+def sub_label(label):
+    st.markdown(f'<div class="section-sub-lbl">{label}</div>', unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════════════════════
+#  DASHBOARD
+# ════════════════════════════════════════════════════════════════════
+if page == 'DASHBOARD':
+    st.markdown('<div class="page-title">📊 Mission Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Real-Time Market Intelligence // Sector Radar // Risk Audit</div>', unsafe_allow_html=True)
+
+    df_active = df_active_global
+    live_map  = {}
+    if not df_active.empty:
+        for sym in df_active['Symbol'].unique():
+            try:
+                ticker = yf.Ticker(f"{sym}.NS")
+                live_map[sym] = {'LTP': ticker.history(period="1d")['Close'].iloc[-1]}
+            except:
+                live_map[sym] = {'LTP': 0.0}
+
+    section("Quick Launch")
+    c1, c2, c3 = st.columns(3, gap="small")
+    with c1:
+        if st.button(
+            "📝  Market Briefing\nDaily strategic analysis and sector rotation.\n→  Generate Report",
+            key="db_brief", use_container_width=True
+        ):
+            launch_script("workflow_strategic_briefing.py")
+    with c2:
+        if st.button(
+            "📡  Sector Radar\nRRG Relative Strength Analysis vs Index.\n→  Launch Radar",
+            key="db_radar", use_container_width=True
+        ):
+            launch_script("sector_radar.py")
+    with c3:
+        if st.button(
+            "💼  Portfolio Health\nRisk assessment and exposure audit.\n→  Launch Analytics",
+            key="db_analytics", use_container_width=True
+        ):
+            launch_script("portfolio_analytics.py", is_streamlit=True)
+
+    if not df_active.empty:
+        left_col, right_col = st.columns([3, 2], gap="medium")
+        with left_col:
+            section("Portfolio Heatmap — Capital Allocation")
+            hmap = df_active.copy()
+            hmap['Sector']     = hmap['Sector'].fillna("Unassigned").replace("","Unassigned")
+            hmap['Deployment'] = hmap['Quantity'] * hmap['BuyPrice']
+            hmap['PnLPct']     = [(live_map.get(s,{}).get('LTP',p)-p)/p*100 if p>0 else 0
+                                   for s,p in zip(hmap['Symbol'],hmap['BuyPrice'])]
+            fig = px.treemap(hmap, path=[px.Constant("Portfolio"),"Sector","Symbol"],
+                             values="Deployment", color="PnLPct",
+                             color_continuous_scale="RdYlGn", color_continuous_midpoint=0,
+                             hover_data=["Quantity","BuyPrice"])
+            fig.update_layout(margin=dict(t=10,l=0,r=0,b=0), height=340,
+                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                              font_color="#8b949e")
+            st.plotly_chart(fig, use_container_width=True)
+
+        with right_col:
+            section("Alpha Benchmarking vs Nifty 500")
+            df_closed = load_closed_trades_db()
+            if not df_closed.empty:
+                try:
+                    df_closed['ExitDate'] = pd.to_datetime(df_closed['ExitDate'])
+                    df_closed = df_closed.sort_values('ExitDate')
+                    df_closed['PnL'] = (
+                        pd.to_numeric(df_closed['ExitPrice'],errors='coerce').fillna(0) -
+                        pd.to_numeric(df_closed['BuyPrice'], errors='coerce').fillna(0)
+                    ) * pd.to_numeric(df_closed['Quantity'],errors='coerce').fillna(0)
+                    pc = df_closed.groupby('ExitDate')['PnL'].sum().cumsum().reset_index()
+                    pc.columns = ['Date','PortfolioProfit']
+                    nifty = yf.download("^NSEI", start=pc['Date'].min()-pd.Timedelta(days=7),
+                                        end=pc['Date'].max()+pd.Timedelta(days=1), progress=False)
+                    if not nifty.empty:
+                        nifty = nifty['Close'].reset_index()
+                        nifty.columns = ['Date','NiftyClose']
+                        nifty['Date'] = pd.to_datetime(nifty['Date']).dt.tz_localize(None)
+                        nifty['Benchmark'] = (nifty['NiftyClose']-nifty['NiftyClose'].iloc[0])/nifty['NiftyClose'].iloc[0]*100
+                        merged = pd.merge_asof(pc, nifty[['Date','Benchmark']], on='Date')
+                        fig2 = px.line(merged, x='Date', y=['PortfolioProfit','Benchmark'],
+                                       color_discrete_sequence=['#3fb950','#58a6ff'])
+                        fig2.update_layout(height=310, margin=dict(t=10,l=0,r=0,b=0),
+                                           paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                           font_color="#8b949e",
+                                           legend=dict(font=dict(size=11, color="#8b949e"),
+                                                       bgcolor="rgba(0,0,0,0)"))
+                        st.plotly_chart(fig2, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Chart error: {e}")
+            else:
+                st.info("No closed trades to benchmark yet.")
+    else:
+        st.info("No open positions found. Launch a scanner to populate your portfolio.")
+
+
+# ════════════════════════════════════════════════════════════════════
+#  HUNTER
+# ════════════════════════════════════════════════════════════════════
+elif page == 'HUNTER':
+    st.markdown('<div class="page-title">🎯 Hunter</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Stock Discovery Engine</div>', unsafe_allow_html=True)
+
+    hunter_tab = st.session_state.huntertab
+
+    if hunter_tab == 'SCANNERS':
+        section("Chartink Scanners")
+        left, right = st.columns(2, gap="medium")
+        with left:
+            sub_label("📌  Positional Strategies")
+            if st.button("Stage 2 Hunter\nLong-horizon stage-based breakout entries.\n→  Run Scanner", use_container_width=True, key="h_s2"):
+                launch_script("chartink_scanner_pro.py","1")
+            if st.button("Early Birds Accumulation\nEarly-stage accumulation zone detection.\n→  Run Scanner", use_container_width=True, key="h_eb"):
+                launch_script("chartink_scanner_pro.py","3")
+        with right:
+            sub_label("📈  Swing Strategies")
+            if st.button("Stage 2 Pullback\nShort-term pullback within an uptrend.\n→  Run Scanner", use_container_width=True, key="h_pb"):
+                launch_script("chartink_scanner_pro.py","2")
+            if st.button("Strong Leaders\nMomentum leaders with relative strength.\n→  Run Scanner", use_container_width=True, key="h_sl"):
+                launch_script("chartink_scanner_pro.py","4")
+
+    elif hunter_tab == 'ENRICHMENT':
+        section("Fundamental Data")
+        left, right = st.columns(2, gap="medium")
+        with left:
+            if st.button("🌐  Fetch Screener.in Data\nPull raw fundamental HTML from Screener.in.\n→  Fetch Now", use_container_width=True, key="e_fetch"):
+                launch_script("screener_fetcher.py")
+        with right:
+            if st.button("⚙️  Process HTML to CSV\nConvert raw HTML into structured CSV for analysis.\n→  Process Now", use_container_width=True, key="e_proc"):
+                launch_script("screener_processor.py")
+
+    elif hunter_tab == 'SELECTION':
+        section("Golden Matcher Engine")
+        if st.button("🏆  Run Golden Matcher\nCombines Technical Scans with Fundamental Filters to find 5-Star setups.\n→  Initiate Matching", type="primary", use_container_width=True, key="sel_run"):
+            launch_script("brute_force_match_pro.py")
+
+        section("AI Top Picks Preview")
+        preview_cat = st.selectbox("Select Strategy to Preview",
+                                   ["Stage 2 Hunter","Stage 2 Pullback","Early Birds","Strong Leaders"])
+        pmap = {"Stage 2 Hunter":"stage2_results.csv","Stage 2 Pullback":"pullback_results.csv",
+                "Early Birds":"earlybirds_results.csv","Strong Leaders":"leaders_results.csv"}
+        fname = pmap.get(preview_cat,"")
+        if os.path.exists(fname):
+            try:
+                df_res = pd.read_csv(fname)
+                ai_c = [c for c in ["Symbol","Conviction","AI Catalyst"] if c in df_res.columns]
+                ot_c = [c for c in df_res.columns if c not in ai_c]
+                st.dataframe(df_res[ai_c+ot_c].head(15), use_container_width=True, hide_index=True)
+            except Exception as e:
+                st.error(f"Error loading preview: {e}")
+        else:
+            st.info(f"No 5-Star matches found in the latest '{preview_cat}' scan.")
+
+
+# ════════════════════════════════════════════════════════════════════
+#  WATCHLIST
+# ════════════════════════════════════════════════════════════════════
+elif page == 'WATCHLIST':
+    st.markdown('<div class="page-title">📋 Watchlist Sync</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Synchronize your selected setups across all platforms.</div>', unsafe_allow_html=True)
+
+    wl_tab = st.session_state.watchlisttab
+
+    if wl_tab == 'GENERATION':
+        section("1. Local Generation")
+        if st.button("📁  Generate CSVs — Local\nGenerate clean CSVs for local analysis.\n→  Generate Now", use_container_width=True, key="wl_gen"):
+            import watchlist_manager
+            watchlist_manager.generate_tradingview_files()
+            st.success("Watchlists generated in WL folder")
+
+    elif wl_tab == 'SYNC':
+        section("2. External Cloud Sync")
+        c1, c2, c3 = st.columns(3, gap="small")
+        with c1:
+            if st.button("💸  Sync to Strike.Money\nPush watchlist to Strike.Money platform.\n→  Sync Now", use_container_width=True, key="wl_strike"):
+                launch_script("strike_automation.py","--mode watchlist")
+        with c2:
+            if st.button("📊  Sync to TradingView\nSync curated lists to TradingView.\n→  Sync Now", use_container_width=True, key="wl_tv"):
+                launch_script("tradingview_automation_v2.py")
+        with c3:
+            if st.button("🔁  Master Sync — All\nPush to all connected platforms simultaneously.\n→  Sync All", type="primary", use_container_width=True, key="wl_master"):
+                launch_script("master_portfolio_sync.py")
+
+
+# ════════════════════════════════════════════════════════════════════
+#  COMMAND
+# ════════════════════════════════════════════════════════════════════
+elif page == 'COMMAND':
+    st.markdown('<div class="page-title">⚡ Command Center</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Active trade management and execution protocols.</div>', unsafe_allow_html=True)
+
+    cmd_tab = st.session_state.commandtab
+
+    if cmd_tab == 'ACTIVEOPS':
+        section("Active Operations")
+        c1, c2, c3 = st.columns(3, gap="small")
+        with c1:
+            if st.button("🎯  Sniper Entry AI v2\nOrder execution with Institutional AI analysis.\n→  Launch", use_container_width=True, key="cmd_sniper"):
+                launch_script("sniper_trigger.py")
+        with c2:
+            if st.button("🛡️  GTT Auto-Shield\nAuto-protect holdings using Journal levels.\n→  Launch", use_container_width=True, key="cmd_gtt"):
+                launch_script("gtt_auto_shield.py")
+        with c3:
+            if st.button("📲  Telegram Sentinel\nActive market monitoring via Mobile.\n→  Launch", use_container_width=True, key="cmd_tg"):
+                launch_script("telegram_sentinel.py")
+
+        section("External Apps")
+        if st.button("📓  Open Full Journal App\nLaunch the complete trade journal interface.\n→  Open", use_container_width=True, key="cmd_journal"):
+            launch_script("dhan_journal_v6.py", is_streamlit=True)
+
+    elif cmd_tab == 'LEDGER':
+        section("Live Trade Ledger")
+        df_j = load_journal_db()
+        if not df_j.empty:
+            show = [c for c in ["Symbol","Type","BuyPrice","Quantity","Status",
+                                 "Sector","StopLoss","Target","PlannedRR","Timeframe"] if c in df_j.columns]
+            st.dataframe(df_j[show], use_container_width=True, height=500, hide_index=True)
+        else:
+            st.info("No open trades found in the system.")
+
+
+# ════════════════════════════════════════════════════════════════════
+#  AI LAB
+# ════════════════════════════════════════════════════════════════════
+elif page == 'AI LAB':
+    st.markdown('<div class="page-title">🧠 AI Laboratory</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Advanced Generative AI workflows and automation.</div>', unsafe_allow_html=True)
+
+    ai_tab = st.session_state.ailabtab
+
+    if ai_tab == 'PREFLIGHT':
+        section("AI-Trade Proposer — Pre-flight Check")
+        p1, p2, p3 = st.columns([2,1,1], gap="small")
+        with p1: prop_sym   = st.text_input("Ticker Symbol", key="prop_sym", placeholder="e.g. RELIANCE").upper()
+        with p2: prop_entry = st.number_input("Entry Price", min_value=0.0, step=0.1, key="prop_entry")
+        with p3: prop_risk  = st.number_input("Risk ₹", value=5000, step=500, key="prop_risk")
+        if st.button("🛫  Run Analysis\nScore and size a new trade before execution.\n→  Analyse Now", type="primary", use_container_width=True, key="btn_analysis"):
+            if not prop_sym:
+                st.error("Enter ticker.")
+            else:
+                with st.spinner(f"Analyzing {prop_sym}..."):
+                    try:
+                        rating_res   = get_weinstein_score(prop_sym)
+                        atr_val      = get_atr(prop_sym)
+                        suggested_sl = prop_entry - (2.0 * atr_val) if atr_val else 0
+                        qty = int(prop_risk / (prop_entry - suggested_sl)) if (prop_entry - suggested_sl) > 0 else 0
+                        r1, r2, r3 = st.columns(3)
+                        r1.metric("Weinstein Grade", rating_res.get('rating','N/A'))
+                        r2.metric("Suggested SL", f"{suggested_sl:.2f}")
+                        r3.metric("Rec. Quantity", f"{qty} shares")
+                        st.info(f"AI Rationale: {rating_res.get('reason','N/A')}")
+                    except Exception as e:
+                        st.error(f"Analysis error: {e}")
+
+    elif ai_tab == 'GENERATIVE':
+        section("Generative Analysis")
+        c1, c2 = st.columns(2, gap="medium")
+        with c1:
+            if st.button("🔬  AI Post-Trade Autopsy\nAI-driven post-trade performance review.\n→  Launch", use_container_width=True, key="ai_autopsy"):
+                launch_script("portfolio_analytics.py", is_streamlit=True)
+            if st.button("📋  Auto-Plan Journal\nAI-assisted journal planning and entry.\n→  Launch", use_container_width=True, key="ai_journal"):
+                launch_script("dhan_journal_v6.py", is_streamlit=True)
+        with c2:
+            if st.button("✍️  Standalone Prompt Gen\nStandalone AI prompt generation tools.\n→  Launch", use_container_width=True, key="ai_prompt"):
+                launch_script("generate_prompt_standalone.py")
+        section("Cache Management")
+        if st.button("🗑️  Clear AI Cache\nFetch fresh data on next run.\n→  Clear Now", use_container_width=True, key="ai_cache"):
+            if os.path.exists("ai_cache.json"):
+                os.remove("ai_cache.json")
+                st.success("AI Cache Cleared!")
+            else:
+                st.info("Cache is already empty.")
+
+    elif ai_tab == 'WORKFLOWS':
+        section("Workflow Automation")
+        if st.button("🤖  Run Full Auto-Pilot\nExecute full pipeline: Scanners → Fundamentals → Golden Matching → Watchlist Sync.\n→  Initiate", type="primary", use_container_width=True, key="wf_run"):
+            launch_script("run_pipeline.py")

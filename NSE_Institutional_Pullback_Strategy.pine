@@ -1,0 +1,197 @@
+//@version=6
+strategy("NSE Institutional Pullback System", overlay=true, process_orders_on_close=true)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+
+// --- Trend Filters (Daily/Weekly) ---
+grp_trend = "Trend Template (Daily/Weekly)"
+len50     = input.int(50, title="Daily 50 SMA", group=grp_trend)
+len150    = input.int(150, title="Daily 150 SMA", group=grp_trend)
+len200    = input.int(200, title="Daily 200 SMA", group=grp_trend)
+rsi_d_len = input.int(14, title="Daily RSI Length", group=grp_trend)
+rsi_d_th  = input.int(40, title="Daily RSI Bullish Min (Entry)", group=grp_trend)
+rsi_exit_th = input.int(30, title="Daily RSI Exit Threshold", group=grp_trend)
+rsi_w_th  = input.int(60, title="Weekly RSI Momentum Min", group=grp_trend)
+
+// --- Pullback Settings ---
+grp_pb    = "Pullback Criteria"
+ema20_len = input.int(20, title="Daily EMA Length", group=grp_pb)
+ema_zone  = input.float(1.5, title="EMA Zone Tolerance (%)", step=0.1, group=grp_pb) / 100
+vdu_pct   = input.int(30, title="Volume Dry-Up % (<Avg)", group=grp_pb) / 100
+
+// --- Entry Triggers ---
+grp_trig  = "Entry Triggers (LTF)"
+use_eng   = input.bool(true, title="Trigger: Bullish Engulfing", group=grp_trig)
+use_ham   = input.bool(true, title="Trigger: Pin Bar/Hammer", group=grp_trig)
+use_morn  = input.bool(true, title="Trigger: Morning Star", group=grp_trig)
+vol_spike = input.bool(true, title="Req. Trigger Volume Spike?", group=grp_trig)
+
+// --- Risk Management ---
+grp_risk  = "Risk & Trade Management"
+risk_pct  = input.float(1.0, title="Risk Per Trade (%)", group=grp_risk) / 100
+rr_t1     = input.float(2.0, title="Target 1 R:R", group=grp_risk)
+sl_mode   = input.string("Swing Low", title="Stop Loss Mode", options=["Swing Low", "Candle Low", "Fixed %"], group=grp_risk)
+sl_fix    = input.float(5.0, title="Fixed SL % (Backup)", group=grp_risk) / 100
+sl_pad    = input.float(0.2, title="SL Padding % (Below Swing)", step=0.1, group=grp_risk) / 100
+trail_buf = input.float(1.0, title="Trail Stop Buffer % (Below EMA20)", step=0.1, group=grp_risk) / 100
+
+// ==========================================
+// 2. DATA REQUESTS & HELPERS
+// ==========================================
+
+// --- Helper Functions ---
+
+// 1. Daily Data Fetcher
+f_get_daily_data() =>
+    [diplus, diminus, adx_val] = ta.dmi(14, 14) // Standard ADX 14
+    [close, ta.sma(close, len50), ta.sma(close, len150), ta.sma(close, len200), ta.rsi(close, rsi_d_len), volume, ta.sma(volume, 50), adx_val]
+
+// 2. Weekly Data Fetcher
+f_get_weekly_data() =>
+    ta.rsi(close, 14)
+
+// --- Requests ---
+// Use tuple unpacking for clean variables
+[d_close_raw, d_50, d_150, d_200, d_rsi, d_vol, d_vma, d_adx] = request.security(syminfo.tickerid, "D", f_get_daily_data(), lookahead=barmerge.lookahead_off, gaps=barmerge.gaps_off)
+w_rsi = request.security(syminfo.tickerid, "W", f_get_weekly_data(), lookahead=barmerge.lookahead_off, gaps=barmerge.gaps_off)
+
+// --- EMA 20 Logic (Visual Fix) ---
+// If on Daily chart, calculate directly.
+// If on Intraday, use Lookahead OFF to get the 'Developing' value (Curve).
+float d_ema20 = na
+if timeframe.isdaily
+    d_ema20 := ta.ema(close, ema20_len)
+else
+    // Lookahead OFF updates dynamically during the day, creating the curve you expect.
+    d_ema20 := request.security(syminfo.tickerid, "D", ta.ema(close, ema20_len), lookahead=barmerge.lookahead_off, gaps=barmerge.gaps_off)
+
+// Fix 'd_close' usage for consistency
+float d_close = timeframe.isdaily ? close : d_close_raw
+
+// --- JSON Alert Construction Helpers ---
+f_json_entry(_ticker, _action, _price, _sl, _tgt) =>
+    '{"action": "' + _action + '", "ticker": "' + _ticker + '", "price": "' + str.tostring(_price) + '", "sl": "' + str.tostring(_sl) + '", "target": "' + str.tostring(_tgt) + '"}'
+
+f_json_exit(_ticker, _action, _reason, _price) =>
+    '{"action": "' + _action + '", "ticker": "' + _ticker + '", "reason": "' + _reason + '", "price": "' + str.tostring(_price) + '"}'
+
+f_json_trail(_ticker, _price) =>
+    '{"action": "SELL_TRAIL", "ticker": "' + _ticker + '", "reason": "Trailing Stop", "price": "' + str.tostring(_price) + '"}'
+
+// ==========================================
+// 3. LOGIC & CALCULATIONS
+// ==========================================
+
+// Trend (Using Stable Daily MAs)
+bool stage2_trend = (d_close > d_150) and (d_close > d_200) and (d_150 > d_200) and (d_50 > d_150)
+bool mom_check = (d_rsi > rsi_d_th) and (w_rsi > rsi_w_th)
+bool trend_ok = stage2_trend and mom_check
+
+// Pullback Zone (Using Stable Daily EMA)
+float upper_zone = d_ema20 * (1 + ema_zone)
+float lower_zone = d_ema20 * (1 - ema_zone)
+bool in_zone = (low <= upper_zone) and (high >= lower_zone)
+
+// VDU (Volume Dry Up)
+bool vdu_ok = (d_close < d_close[1]) ? (d_vol < (d_vma * (1 - vdu_pct))) : true
+bool prev_day_vdu = (d_close[1] < d_close[2]) ? (d_vol[1] < (d_vma * (1 - vdu_pct))) : true 
+
+// Patterns
+bool is_hammer = (close > open) and ((open - low) > 2 * (close - open)) and ((high - close) < 0.2 * (close - open))
+bool is_engulf = (close > open) and (close > open[1]) and (close[1] < open[1]) and (open < close[1])
+bool is_morn   = (close[2] < open[2]) and (math.abs(close[1] - open[1]) < (high[1]-low[1])*0.5) and (close > open) and (close > (open[2] + close[2])/2)
+bool valid_pattern = (use_ham and is_hammer) or (use_eng and is_engulf) or (use_morn and is_morn)
+
+// Volume Spike
+ltf_vol_ma = ta.sma(volume, 20)
+bool trig_vol = vol_spike ? (volume > ltf_vol_ma * 1.5) : true
+
+// Final Setup Trigger
+bool setup_valid = trend_ok and in_zone and prev_day_vdu and valid_pattern and trig_vol
+
+// ==========================================
+// 4. EXECUTION
+// ==========================================
+
+// Stop Loss & Target Calculation
+float sl_price_calc = na
+if sl_mode == "Swing Low"
+    // Add Padding below the lowest point to avoid wick-outs
+    sl_price_calc := ta.lowest(low, 5) * (1 - sl_pad)
+else if sl_mode == "Candle Low"
+    sl_price_calc := low * (1 - sl_pad)
+else
+    sl_price_calc := close * (1 - sl_fix)
+
+if sl_price_calc >= close
+    sl_price_calc := close * 0.99
+
+float stop_dist = close - sl_price_calc
+float target1_calc = close + (stop_dist * rr_t1)
+
+// Position Sizing
+float risk_amt = strategy.equity * risk_pct
+float share_qty = risk_amt / stop_dist
+
+// Persistent Trade Variables
+var float trade_sl_initial = na
+var float trade_target1 = na
+var bool  trade_hit_t1 = false
+
+// --- ENTRY ---
+if setup_valid and strategy.position_size == 0
+    strategy.entry("Long", strategy.long, qty=share_qty, stop=high + syminfo.mintick, comment="Stage2 Buy", alert_message=f_json_entry(syminfo.ticker, "BUY", close, sl_price_calc, target1_calc))
+    
+    // Store Trade Params
+    trade_sl_initial := sl_price_calc
+    trade_target1    := target1_calc
+    trade_hit_t1     := false
+    
+    // Initialize Exits
+    strategy.exit("T1", "Long", qty_percent=50, limit=trade_target1, stop=trade_sl_initial, comment="Target 1", alert_message=f_json_exit(syminfo.ticker, "SELL_PARTIAL", "Target 1", target1_calc))
+    strategy.exit("SL_Full", "Long", stop=trade_sl_initial, comment="Initial SL", alert_message=f_json_exit(syminfo.ticker, "SELL_ALL", "Stop Loss", sl_price_calc))
+
+// --- MANAGEMENT ---
+if strategy.position_size > 0
+    // Check T1
+    if high >= trade_target1
+        trade_hit_t1 := true
+
+    // 1. Hard Stop (Daily EMA 50)
+    // CRITICAL FIX: Use Previous Day's confirmed Close. 
+    // Intraday dips (Live d_close) were causing premature exits.
+    if d_close[1] < d_50[1]
+        strategy.close("Long", comment="Hard Stop", alert_message=f_json_exit(syminfo.ticker, "SELL_ALL", "Hard/RSI Exit", close))
+    
+    // 2. RSI Exit (Using Exit Threshold instead of Hardcoded 60)
+    // CRITICAL SWING FIX: Use Previous Day's RSI (d_rsi[1]).
+    // Ignore intraday dips; only exit if Daily Momentum BREAKS on Closing Basis.
+    if d_rsi[1] < rsi_exit_th
+        strategy.close("Long", comment="RSI Weak", alert_message=f_json_exit(syminfo.ticker, "SELL_ALL", "Hard/RSI Exit", close))
+
+    // 3. Trailing Stop
+    // Dynamic calculation of Trail level with BUFFER
+    float active_sl = trade_sl_initial
+    if trade_hit_t1
+        // Move to B/E first
+        active_sl := math.max(active_sl, strategy.position_avg_price)
+        // Trail EMA 20 but keep a BUFFER relative to it (Don't touch the line exactly)
+        float trail_level = d_ema20 * (1 - trail_buf)
+        active_sl := math.max(active_sl, trail_level)
+        
+        // Trail
+        strategy.exit("Trail", "Long", stop=active_sl, comment="Trailing SL", alert_message=f_json_trail(syminfo.ticker, active_sl))
+    else
+        // Keep Initial SL
+        strategy.exit("SL_Full", "Long", stop=trade_sl_initial, comment="Initial SL", alert_message=f_json_exit(syminfo.ticker, "SELL_ALL", "Initial Stop Loss", trade_sl_initial))
+
+// ==========================================
+// 5. PLOTTING
+// ==========================================
+plot(d_ema20, color=color.yellow, linewidth=2, title="Daily EMA 20")
+plot(upper_zone, color=color.new(color.yellow, 80), title="Zone Top")
+plot(lower_zone, color=color.new(color.yellow, 80), title="Zone Bottom")
+bgcolor(setup_valid ? color.new(color.green, 80) : na, title="Entry Signal")
+

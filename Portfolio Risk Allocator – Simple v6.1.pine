@@ -1,0 +1,183 @@
+//@version=6
+indicator("Portfolio Risk Allocator – Simple v6.1", overlay=true)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+
+// Group: Portfolio Definitions
+group_port = "Portfolio Settings"
+portfolio_capital = input.float(3000000.0, title="Portfolio Capital (₹)", step=1000.0, group=group_port)
+asset_type        = input.string("ETF", title="Asset Type", options=["ETF", "Stock"], group=group_port)
+etf_risk_pct      = input.float(0.75, title="ETF Risk %", minval=0.01, step=0.01, group=group_port)
+stock_risk_pct    = input.float(0.50, title="Stock Risk %", minval=0.01, step=0.01, group=group_port)
+
+// Group: Trade Specifics
+group_trade = "Trade Settings"
+allocation_per_trade = input.float(125000.0, title="Max Allocation per Trade (₹)", step=1000.0, group=group_trade)
+entry_input          = input.float(0.0, title="Entry Price (Set from chart)", step=0.05, confirm=true, group=group_trade)
+stop_input           = input.float(0.0, title="Stop Price (Set from chart)", step=0.05, confirm=true, group=group_trade)
+multiplier           = input.int(1, title="Lot Multiplier (1 for Equity)", minval=1, group=group_trade)
+open_trades          = input.int(1, title="Simultaneous Similar Trades", minval=1, group=group_trade, tooltip="Used to calculate Portfolio Heat")
+
+// Group: Visuals
+group_vis = "Visual Settings"
+show_table         = input.bool(true, title="Show Summary Table", group=group_vis)
+table_anchor       = input.string("top_right", title="Table Position", options=["top_right", "top_left", "bottom_right", "bottom_left"], group=group_vis)
+label_bar_offset   = input.int(1, title="Label Bar Offset", group=group_vis)
+label_price_offset = input.float(0.0, title="Label Price Offset", step=0.05, group=group_vis)
+
+
+// ==========================================
+// 2. CALCULATIONS
+// ==========================================
+
+// Resolve Entry / Stop: if not set, fallback to current price defaults
+entry_price = entry_input <= 0.0 ? close : entry_input
+stop_price  = stop_input  <= 0.0 ? close * 0.98 : stop_input
+
+// Limit Price Calculation (1.005x Entry)
+limit_price = entry_price * 1.005
+
+// Determine Direction (Long or Short)
+is_long = entry_price > stop_price
+
+// Select Risk %
+risk_pct = asset_type == "ETF" ? etf_risk_pct : stock_risk_pct
+
+// Money risk per trade (₹)
+risk_amount = portfolio_capital * (risk_pct / 100.0)
+
+// Stop distance (Absolute)
+stop_distance = math.abs(entry_price - stop_price)
+
+// --- Target Calculations (RR 1:2 and 1:3) ---
+target1_price = is_long ? (entry_price + (stop_distance * 2)) : (entry_price - (stop_distance * 2))
+target2_price = is_long ? (entry_price + (stop_distance * 3)) : (entry_price - (stop_distance * 3))
+
+// Qty Calculation
+qty_by_risk    = stop_distance > 0.0 ? math.floor((risk_amount / stop_distance) / multiplier) : 0
+qty_by_capital = entry_price   > 0.0 ? math.floor((allocation_per_trade / entry_price) / multiplier) : 0
+
+// Final Qty = min(risk-based, allocation-based)
+final_qty = math.min(qty_by_risk, qty_by_capital)
+
+// Realised Metrics
+capital_used                = final_qty * entry_price * multiplier
+actual_risk_money           = final_qty * stop_distance * multiplier
+actual_risk_pct_portfolio   = portfolio_capital > 0.0 ? (actual_risk_money / portfolio_capital) * 100.0 : 0.0
+portfolio_heat_if_all       = (actual_risk_money * open_trades) / portfolio_capital * 100.0
+risk_reduced_due_to_capital = qty_by_capital < qty_by_risk
+
+
+// ==========================================
+// 3. PLOTTING & DATA WINDOW
+// ==========================================
+
+// Helper plots for Data Window (Hidden from main chart via display param)
+plot(entry_price,   title="Entry",    display=display.data_window, color=color.new(color.blue, 0))
+plot(limit_price,   title="Limit",    display=display.data_window, color=color.new(color.orange, 0))
+plot(stop_price,    title="Stop",     display=display.data_window, color=color.new(color.red, 0))
+plot(target1_price, title="Target 1", display=display.data_window, color=color.new(color.green, 0))
+plot(target2_price, title="Target 2", display=display.data_window, color=color.new(color.green, 0))
+
+
+// ==========================================
+// 4. DRAWING LINES
+// ==========================================
+
+var line entryLine = na
+var line stopLine  = na
+var line t1Line    = na
+var line t2Line    = na
+
+if barstate.islast
+    // Entry Line (Blue)
+    if na(entryLine)
+        entryLine := line.new(bar_index - 50, entry_price, bar_index + 10, entry_price, xloc=xloc.bar_index, extend=extend.right, color=color.blue, width=1)
+    else
+        line.set_xy1(entryLine, bar_index - 50, entry_price)
+        line.set_xy2(entryLine, bar_index + 10, entry_price)
+
+    // Stop Line (Red)
+    if na(stopLine)
+        stopLine := line.new(bar_index - 50, stop_price, bar_index + 10, stop_price, xloc=xloc.bar_index, extend=extend.right, color=color.red, width=1)
+    else
+        line.set_xy1(stopLine, bar_index - 50, stop_price)
+        line.set_xy2(stopLine, bar_index + 10, stop_price)
+
+    // Target 1 (Green Dashed)
+    if na(t1Line)
+        t1Line := line.new(bar_index - 50, target1_price, bar_index + 10, target1_price, xloc=xloc.bar_index, extend=extend.right, color=color.green, width=1, style=line.style_dashed)
+    else
+        line.set_xy1(t1Line, bar_index - 50, target1_price)
+        line.set_xy2(t1Line, bar_index + 10, target1_price)
+    
+    // Target 2 (Green Solid)
+    if na(t2Line)
+        t2Line := line.new(bar_index - 50, target2_price, bar_index + 10, target2_price, xloc=xloc.bar_index, extend=extend.right, color=color.green, width=1)
+    else
+        line.set_xy1(t2Line, bar_index - 50, target2_price)
+        line.set_xy2(t2Line, bar_index + 10, target2_price)
+
+
+// ==========================================
+// 5. ON-SCREEN LABELS & TABLE
+// ==========================================
+
+// Info Label (Floating near price)
+var label info = na
+label_x = bar_index + label_bar_offset
+label_y = (high + low) / 2.0 + label_price_offset
+
+if barstate.islast
+    if not na(info)
+        label.delete(info)
+
+    // Constructing Text Block
+    txt = "Type: " + asset_type + " | Risk: " + str.tostring(risk_pct, "#.##") + "%"
+    txt += "\nEntry: " + str.tostring(entry_price, "#.##") + " | Stop: " + str.tostring(stop_price, "#.##")
+    txt += "\nLimit (1.005x): " + str.tostring(limit_price, "#.##")
+    txt += "\nT1 (1:2): " + str.tostring(target1_price, "#.##") + " | T2 (1:3): " + str.tostring(target2_price, "#.##")
+    txt += "\nQty: " + str.tostring(final_qty)
+    txt += "\nCapital: ₹" + str.tostring(capital_used, "#,###")
+    txt += "\nRisk ₹: " + str.tostring(actual_risk_money, "#,###")
+
+    if risk_reduced_due_to_capital
+        txt += "\n⚠ CAPPED BY ALLOCATION"
+
+    // Create Label
+    info := label.new(x=label_x, y=label_y, text=txt, xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, textcolor=color.white, size=size.small, color=color.new(color.blue, 80))
+
+
+// Summary Table
+var table tbl = na
+
+if barstate.islast and show_table
+    // Determine Position
+    string pos_input = table_anchor
+    string table_pos = position.top_right
+    if pos_input == "top_left"
+        table_pos := position.top_left
+    else if pos_input == "bottom_right"
+        table_pos := position.bottom_right
+    else if pos_input == "bottom_left"
+        table_pos := position.bottom_left
+
+    if not na(tbl)
+        table.delete(tbl)
+
+    // Create Table (4 Rows)
+    tbl := table.new(table_pos, 1, 4)
+
+    // Row 0: Header / Capital
+    table.cell(tbl, 0, 0, "Cap: ₹" + str.tostring(portfolio_capital, "#,###") + " | Alloc: ₹" + str.tostring(allocation_per_trade, "#,###") + " | " + asset_type, bgcolor=color.black, text_color=color.white)
+    
+    // Row 1: Risk & Heat
+    table.cell(tbl, 0, 1, "Risk: " + str.tostring(risk_pct, "#.##") + "% (₹" + str.tostring(risk_amount, "#,###") + ") | Heat: " + str.tostring(portfolio_heat_if_all, "#.##") + "%", bgcolor=color.black, text_color=color.white)
+    
+    // Row 2: Entry, Limit, Stop
+    table.cell(tbl, 0, 2, "Ent: " + str.tostring(entry_price, "#.##") + " | Lim: " + str.tostring(limit_price, "#.##") + " | Stp: " + str.tostring(stop_price, "#.##"), bgcolor=color.black, text_color=color.white)
+    
+    // Row 3: Qty & Targets
+    table.cell(tbl, 0, 3, "Qty: " + str.tostring(final_qty) + " | T1: " + str.tostring(target1_price, "#.##") + " | T2: " + str.tostring(target2_price, "#.##"), bgcolor=color.black, text_color=color.yellow)

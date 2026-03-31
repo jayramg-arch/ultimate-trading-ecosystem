@@ -1,0 +1,894 @@
+//@version=6
+indicator("Weinstein & Swing Pro Dashboard [v20.0 Error Free]", overlay=true, max_bars_back=5000)
+
+// ==========================================
+// 1. PORTFOLIO MANAGER (PRE-FILLED)
+// ==========================================
+
+// --- GROUP 1: SLOTS 1-5 ---
+grpP1_5 = "1. Portfolio Slots 1-5"
+p1_tick = input.string("NSE:HDFCLOWVOL", title="Slot 1", group=grpP1_5, inline="p1")
+p1_ent  = input.float(20.66, title="Entry", group=grpP1_5, inline="p1")
+p1_sl   = input.float(19.6, title="SL", group=grpP1_5, inline="p1")
+
+p2_tick = input.string("NSE:HDFCNIFTY", title="Slot 2", group=grpP1_5, inline="p2")
+p2_ent  = input.float(272.64, title="Entry", group=grpP1_5, inline="p2")
+p2_sl   = input.float(259.0, title="SL", group=grpP1_5, inline="p2")
+
+p3_tick = input.string("NSE:HDFCMID150", title="Slot 3", group=grpP1_5, inline="p3")
+p3_ent  = input.float(20.82, title="Entry", group=grpP1_5, inline="p3")
+p3_sl   = input.float(19.8, title="SL", group=grpP1_5, inline="p3")
+
+p4_tick = input.string("NSE:HDFCNEXT50", title="Slot 4", group=grpP1_5, inline="p4")
+p4_ent  = input.float(71.83, title="Entry", group=grpP1_5, inline="p4")
+p4_sl   = input.float(68.2, title="SL", group=grpP1_5, inline="p4")
+
+p5_tick = input.string("NSE:HDFCSML250", title="Slot 5", group=grpP1_5, inline="p5")
+p5_ent  = input.float(168.31, title="Entry", group=grpP1_5, inline="p5")
+p5_sl   = input.float(159.9, title="SL", group=grpP1_5, inline="p5")
+
+// --- GROUP 2: SLOTS 6-10 ---
+grpP6_10 = "2. Portfolio Slots 6-10"
+p6_tick = input.string("NSE:CONSUMIETF", title="Slot 6", group=grpP6_10, inline="p6")
+p6_ent  = input.float(121.45, title="Entry", group=grpP6_10, inline="p6")
+p6_sl   = input.float(115.4, title="SL", group=grpP6_10, inline="p6")
+
+p7_tick = input.string("NSE:INFRAIETF", title="Slot 7", group=grpP6_10, inline="p7")
+p7_ent  = input.float(98.0, title="Entry", group=grpP6_10, inline="p7")
+p7_sl   = input.float(93.0, title="SL", group=grpP6_10, inline="p7")
+
+p8_tick = input.string("NSE:METALIETF", title="Slot 8", group=grpP6_10, inline="p8")
+p8_ent  = input.float(8.72, title="Entry", group=grpP6_10, inline="p8")
+p8_sl   = input.float(8.3, title="SL", group=grpP6_10, inline="p8")
+
+p9_tick = input.string("NSE:AUTOBEES", title="Slot 9", group=grpP6_10, inline="p9")
+p9_ent  = input.float(256.34, title="Entry", group=grpP6_10, inline="p9")
+p9_sl   = input.float(243.5, title="SL", group=grpP6_10, inline="p9")
+
+p10_tick = input.string("NSE:BANKBEES", title="Slot 10", group=grpP6_10, inline="p10")
+p10_ent  = input.float(607.53, title="Entry", group=grpP6_10, inline="p10")
+p10_sl   = input.float(577.0, title="SL", group=grpP6_10, inline="p10")
+
+// --- GROUP 3: SLOTS 11-15 ---
+grpP11_15 = "3. Portfolio Slots 11-15"
+p11_tick = input.string("NSE:ITBEES", title="Slot 11", group=grpP11_15, inline="p11")
+p11_ent  = input.float(41.92, title="Entry", group=grpP11_15, inline="p11")
+p11_sl   = input.float(39.8, title="SL", group=grpP11_15, inline="p11")
+
+p12_tick = input.string("NSE:AXISBANK", title="Slot 12", group=grpP11_15, inline="p12")
+p12_ent  = input.float(1244.4, title="Entry", group=grpP11_15, inline="p12")
+p12_sl   = input.float(1182.2, title="SL", group=grpP11_15, inline="p12")
+
+p13_tick = input.string("NSE:BHARTIARTL", title="Slot 13", group=grpP11_15, inline="p13")
+p13_ent  = input.float(2056.8, title="Entry", group=grpP11_15, inline="p13")
+p13_sl   = input.float(1954.0, title="SL", group=grpP11_15, inline="p13")
+
+p14_tick = input.string("NSE:CUB", title="Slot 14", group=grpP11_15, inline="p14")
+p14_ent  = input.float(262.03, title="Entry", group=grpP11_15, inline="p14")
+p14_sl   = input.float(248.9, title="SL", group=grpP11_15, inline="p14")
+
+p15_tick = input.string("NSE:DATAPATTNS", title="Slot 15", group=grpP11_15, inline="p15")
+p15_ent  = input.float(2919.0, title="Entry", group=grpP11_15, inline="p15")
+p15_sl   = input.float(2773.05, title="SL", group=grpP11_15, inline="p15")
+
+// --- GROUP 4: SLOTS 16-20 ---
+grpP16_20 = "4. Portfolio Slots 16-20"
+p16_tick = input.string("NSE:FEDERALBNK", title="Slot 16", group=grpP16_20, inline="p16")
+p16_ent  = input.float(264.41, title="Entry", group=grpP16_20, inline="p16")
+p16_sl   = input.float(251.2, title="SL", group=grpP16_20, inline="p16")
+
+p17_tick = input.string("NSE:HCLTECH", title="Slot 17", group=grpP16_20, inline="p17")
+p17_ent  = input.float(1632.6, title="Entry", group=grpP16_20, inline="p17")
+p17_sl   = input.float(1551.0, title="SL", group=grpP16_20, inline="p17")
+
+p18_tick = input.string("NSE:LT", title="Slot 18", group=grpP16_20, inline="p18")
+p18_ent  = input.float(4001.75, title="Entry", group=grpP16_20, inline="p18")
+p18_sl   = input.float(3801.6, title="SL", group=grpP16_20, inline="p18")
+
+p19_tick = input.string("NSE:RELIANCE", title="Slot 19", group=grpP16_20, inline="p19")
+p19_ent  = input.float(1358.33, title="Entry", group=grpP16_20, inline="p19")
+p19_sl   = input.float(1290.4, title="SL", group=grpP16_20, inline="p19")
+
+p20_tick = input.string("", title="Slot 20", group=grpP16_20, inline="p20")
+p20_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p20")
+p20_sl   = input.float(0.0, title="SL", group=grpP16_20, inline="p20")
+
+// Quick Check Override
+grpQuick = "Quick Check (Overrides Portfolio)"
+quick_ent = input.float(0.0, title="Temporary Entry Price", group=grpQuick)
+quick_sl  = input.float(0.0, title="Temporary Hard SL", group=grpQuick)
+
+tslMult     = input.float(3.0, title="Trailing Stop ATR Multiplier", group="Trade Settings")
+
+// ==========================================
+// 2. STRATEGY INPUTS
+// ==========================================
+groupStrat  = "Strategy Inputs"
+maLengthW   = input.int(30, title="Weinstein SMA Length (Weekly)", group=groupStrat)
+wmaSlopeLen = input.int(4, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
+
+bench50     = input.symbol("NSE:NIFTY", title="Benchmark 1 (Nifty 50)", group=groupStrat)
+bench500    = input.symbol("NSE:CNX500", title="Benchmark 2 (Nifty 500 - Breadth)", group=groupStrat)
+benchSector = input.symbol("NSE:BANKNIFTY", title="Benchmark 3 (Sector)", group=groupStrat)
+
+rsLength    = input.int(52, title="Mansfield RS Length", group=groupStrat)
+rsSlopeLen  = input.int(8, title="RS Slope Lookback (Weeks)", group=groupStrat)
+
+groupMA     = "Daily MA Settings"
+dma50_len   = input.int(50, title="50 DMA Length", group=groupMA)
+dma150_len  = input.int(150, title="150 DMA Length", group=groupMA)
+dma200_len  = input.int(200, title="200 DMA Length", group=groupMA)
+dmaSlopeLen = input.int(21, title="50DMA Slope Lookback (Days)", group=groupMA)
+flatThresh  = input.float(0.0005, title="Slope Flat Threshold", group=groupMA)
+
+groupTech   = "Technical Settings"
+pivotLeft   = input.int(2, title="Pivot Lookback Left (Daily)", group=groupTech)
+pivotRight  = input.int(2, title="Pivot Lookback Right (Daily)", group=groupTech)
+atrLen      = input.int(14, title="ATR Length", group=groupTech)
+
+groupAlert  = "Alerts & Visuals"
+showSignals = input.bool(true, title="Show Buy/Breakout Labels", group=groupAlert)
+showTrade   = input.bool(true, title="Show Trade Lines (Entry/Targets)", group=groupAlert)
+showDist    = input.bool(true, title="Show % Distance on Trade Lines", group=groupAlert)
+markFresh   = input.bool(true, title="Mark Fresh Signals (★)", group=groupAlert)
+
+// Styling
+groupStyle  = "Dashboard Style"
+tablePos    = input.string(position.bottom_left, title="Position", options=[position.top_right, position.bottom_right, position.top_left, position.bottom_left], group=groupStyle)
+textSize    = input.string(size.small, title="Data Size", options=[size.tiny, size.small, size.normal], group=groupStyle)
+c_bg        = input.color(color.white, title="Background Color", group=groupStyle)
+c_text      = input.color(color.new(#000000, 0), title="Label Text Color", group=groupStyle)
+c_val_text  = input.color(color.new(#000000, 0), title="Value Text Color", group=groupStyle)
+
+// ==========================================
+// CALCULATIONS (GLOBAL SCOPE)
+// ==========================================
+
+// --- Slope Logic with FLAT State ---
+f_getLinRegSlope(float src, int len, float thresh) =>
+    float slopeVal = ta.linreg(src, len, 0) - ta.linreg(src, len, 1)
+    float dynamicThresh = src * thresh 
+    string state = "FLAT"
+    if slopeVal > dynamicThresh
+        state := "RISING"
+    else if slopeVal < -dynamicThresh
+        state := "FALLING"
+    state
+
+// --- MARKET STRUCTURE (TIME-BASED FIX) ---
+f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
+    float wCl = close
+    float wMA = ta.sma(close, maLen)
+    float slopeVal = ta.linreg(wMA, slopeLen, 0) - ta.linreg(wMA, slopeLen, 1)
+    float dynThresh = wMA * thresh
+    
+    string s = "TRANSITION"
+    if wCl > wMA
+        if slopeVal > dynThresh
+            s := "STAGE 2 (UP)"
+        else if slopeVal < -dynThresh
+            s := "STAGE 3 (TOP)"
+        else
+            s := "STAGE 1 (BASE)"
+    else
+        if slopeVal < -dynThresh
+            s := "STAGE 4 (DOWN)"
+        else if slopeVal > dynThresh
+            s := "STAGE 1 (BASE)"
+        else
+            s := "STAGE 3 (TOP)" 
+    
+    var string lastS = ""
+    var int startTime = 0
+    
+    if bar_index == 0
+        lastS := s
+        startTime := time
+    
+    if s != lastS
+        startTime := time
+        lastS := s
+    
+    [s, startTime]
+
+// Get Stage Data from Weekly timeframe
+[stageID, stageStart] = request.security(syminfo.tickerid, "W", f_getStageAndTime(maLengthW, wmaSlopeLen, flatThresh))
+
+int msPerWeek = 604800000
+int timeDiff = timenow - stageStart
+if timeDiff < 0 
+    timeDiff := 0
+int stageWeeks = math.ceil(timeDiff / msPerWeek)
+if stageWeeks < 1 
+    stageWeeks := 1
+
+string stageDisplay = stageID + " (" + str.tostring(stageWeeks) + " Wks)"
+color stageCol = color.orange
+if stageID == "STAGE 2 (UP)"
+    stageCol := color.green
+else if stageID == "STAGE 4 (DOWN)"
+    stageCol := color.red
+else if stageID == "STAGE 1 (BASE)"
+    stageCol := color.blue
+
+// --- RS & BENCHMARKS ---
+cleanTicker = syminfo.prefix + ":" + syminfo.ticker
+f_calc_rs_spread(int rsl, int slen) =>
+    rp = close 
+    rpSMA = ta.sma(rp, rsl)
+    mrs = ((rp / rpSMA) - 1) * 10
+    slope = ta.linreg(mrs, slen, 0) - ta.linreg(mrs, slen, 1)
+    slope
+
+slope50  = request.security(cleanTicker + " / " + bench50,  "W", f_calc_rs_spread(rsLength, rsSlopeLen))
+slope500 = request.security(cleanTicker + " / " + bench500, "W", f_calc_rs_spread(rsLength, rsSlopeLen))
+slopeSec = request.security(cleanTicker + " / " + benchSector, "W", f_calc_rs_spread(rsLength, rsSlopeLen))
+
+f_slopeStr(float s) => 
+    string st = "FLAT"
+    if s > 0.02
+        st := "RISING"
+    else if s < -0.02
+        st := "FALLING"
+    st
+
+rs50State  = f_slopeStr(slope50)
+rs500State = f_slopeStr(slope500)
+rsSecState = f_slopeStr(slopeSec)
+
+// --- BENCHMARKS COLOR LOGIC (Global) ---
+[b500_Close, b500_50, b500_200] = request.security(bench500, "D", [close, ta.sma(close, 50), ta.sma(close, 200)])
+string mktState = "NEUTRAL / CHOPPY"
+color mktColor = color.gray
+if b500_Close > b500_50 and b500_50 > b500_200
+    mktState := "BULLISH (Confirmed)"
+    mktColor := color.lime
+else if b500_Close < b500_50 and b500_50 > b500_200 and b500_Close > b500_200
+    mktState := "CORRECTION (In Uptrend)"
+    mktColor := color.yellow 
+else if b500_Close > b500_50 and b500_50 < b500_200
+    mktState := "RECOVERY (Weak)"
+    mktColor := color.blue
+else if b500_Close < b500_50 and b500_50 < b500_200
+    mktState := "BEARISH"
+    mktColor := color.red
+
+// --- RESTORED GLOBAL VARIABLES FOR PLOTTING ---
+[wClose, wOpen, wHigh, wLow] = request.security(syminfo.tickerid, "W", [close, open, high, low])
+wMA30 = request.security(syminfo.tickerid, "W", ta.sma(close, maLengthW))
+wMASlopeState = f_getLinRegSlope(wMA30, wmaSlopeLen, flatThresh)
+
+// --- DAILY MA ---
+[dClose, dHigh, dLow, dVol] = request.security(syminfo.tickerid, "D", [close, high, low, volume])
+[dMA50, dMA150, dMA200] = request.security(syminfo.tickerid, "D", [ta.sma(close, dma50_len), ta.sma(close, dma150_len), ta.sma(close, dma200_len)])
+d50SlopeState = request.security(syminfo.tickerid, "D", f_getLinRegSlope(ta.sma(close, dma50_len), dmaSlopeLen, flatThresh))
+dSmaAligned = (dMA50 > dMA150) and (dMA150 > dMA200)
+
+// --- HIGHS (ATH LIMIT FIX) ---
+// Custom function to track ATH without hitting 15000 bar limit
+f_trackATH() =>
+    var float h = high
+    h := math.max(h, high)
+    h
+
+[dHighest52, dHighestATH] = request.security(syminfo.tickerid, "D", [ta.highest(high, 252), f_trackATH()])
+dev52 = ((close - dHighest52) / dHighest52) * 100
+devATH = ((close - dHighestATH) / dHighestATH) * 100
+
+// --- EMA 20 LOGIC ---
+float d_ema20 = request.security(syminfo.tickerid, "D", ta.ema(close, 20))
+float c_ema20 = ta.ema(close, 20)
+bool isIntra = timeframe.isintraday
+float use_ema20 = isIntra ? d_ema20 : c_ema20
+string ema_lbl  = isIntra ? "Price vs EMA20 (Daily)" : "Price vs EMA20 (Chart)"
+
+emaDist = 0.0
+absDist = 0.0
+emaState = "WAITING DATA..." 
+color emaColor = color.gray
+
+if not na(use_ema20)
+    emaDist := (close - use_ema20) / close * 100
+    absDist := math.abs(emaDist)
+    if high > use_ema20 and close < use_ema20
+        emaState := "RESISTANCE (Hit Head)"
+        emaColor := color.red
+    else if low < use_ema20 and close > use_ema20
+        emaState := "SUPPORT (Bounced)"
+        emaColor := color.green
+    else if absDist < 1.0
+        emaState := "NEAR (" + str.tostring(emaDist, "#.1") + "%)"
+        emaColor := color.blue
+    else if close > use_ema20
+        emaState := "PRICE ABOVE" 
+        emaColor := color.green
+    else
+        emaState := "PRICE BELOW"
+        emaColor := color.red
+
+// --- EARNINGS LOGIC ---
+earningsNext = earnings.future_time 
+string earnStr = "N/A"
+color earnColor = color.gray
+if not na(earningsNext)
+    earnStr := str.format_time(earningsNext, "dd-MMM")
+    float msPerDay = 1000 * 60 * 60 * 24
+    float daysToEarn = (earningsNext - timenow) / msPerDay
+    if daysToEarn > 0 and daysToEarn <= 5
+        earnStr := "⚠️ " + earnStr + " (<5 Days!)"
+        earnColor := color.red
+    else
+        earnColor := color.gray
+
+// --- OTHER TECHNICALS ---
+dVolAvg = request.security(syminfo.tickerid, "D", ta.sma(volume, 20))
+float relVol = dVol / dVolAvg
+string volStr = str.tostring(relVol, "#.1") + "x"
+volState = "NORMAL (" + volStr + ")"
+color volColor = color.gray
+if relVol > 1.5
+    if dClose > dClose[1]
+        volState := "ACCUMULATION (" + volStr + ")"
+        volColor := color.green
+    else
+        volState := "DISTRIBUTION (" + volStr + ")"
+        volColor := color.red
+else if relVol < 0.7
+    volState := "DRY UP (" + volStr + ")"
+    volColor := color.yellow
+
+atrVal = request.security(syminfo.tickerid, "D", ta.atr(atrLen))
+
+f_rsi_div(float src, int len, int left, int right) =>
+    float rsiVal = ta.rsi(src, len)
+    ph = ta.pivothigh(high, left, right)
+    pl = ta.pivotlow(low, left, right)
+    rsiPh = ta.pivothigh(rsiVal, left, right)
+    rsiPl = ta.pivotlow(rsiVal, left, right)
+    string div = "None"
+    var float lastPP_H = na 
+    var float lastRP_H = na 
+    var float lastPP_L = na 
+    var float lastRP_L = na 
+    if not na(ph)
+        if not na(lastPP_H) and ph > lastPP_H and not na(rsiPh) and rsiPh < lastRP_H
+            div := "BEARISH DIV"
+        lastPP_H := ph
+        lastRP_H := not na(rsiPh) ? rsiPh : lastRP_H
+    if not na(pl)
+        if not na(lastPP_L) and pl < lastPP_L and not na(rsiPl) and rsiPl > lastRP_L
+            div := "BULLISH DIV"
+        lastPP_L := pl
+        lastRP_L := not na(rsiPl) ? rsiPl : lastRP_L
+    [rsiVal, div]
+
+[currRsi, currRsiDiv] = f_rsi_div(close, 14, 5, 5)
+
+atr5 = ta.atr(5)
+atr20 = ta.atr(20)
+bool isSqueeze = atr5 < (atr20 * 0.60)
+if isSqueeze
+    volState := "VOLATILITY SQUEEZE (Ready)"
+    volColor := color.blue
+
+f_getStrictTrend(float h, float l, int left, int right) =>
+    var int trend = 0
+    ph = ta.pivothigh(h, left, right)
+    pl = ta.pivotlow(l, left, right)
+    var float lockedHigh = na
+    var float lockedLow  = na
+    var string lastLowType = na 
+    var string lastHighType = na 
+    if not na(ph)
+        string hClass = "HH"
+        if not na(lockedHigh)
+            if math.abs(ph - lockedHigh) / lockedHigh < 0.001
+                hClass := "EH"
+            else if ph < lockedHigh
+                hClass := "LH"
+            else 
+                hClass := "HH"
+        if hClass == "HH"
+            if lastLowType == "HL" or lastLowType == "EL"
+                trend := 1
+            else 
+                trend := 0 
+        else 
+            trend := 0
+        lockedHigh := ph
+        lastHighType := hClass
+    if not na(pl)
+        string lClass = "LL"
+        if not na(lockedLow)
+            if math.abs(pl - lockedLow) / lockedLow < 0.001
+                lClass := "EL"
+            else if pl > lockedLow
+                lClass := "HL"
+            else 
+                lClass := "LL"
+        if lClass == "LL"
+            if lastHighType == "LH" or lastHighType == "EH"
+                trend := -1
+            else 
+                trend := 0
+        else 
+            trend := 0
+        lockedLow := pl
+        lastLowType := lClass
+    if not na(lockedHigh) and close > lockedHigh
+        if lastLowType == "HL" or lastLowType == "EL" or na(lastLowType)
+            trend := 1
+    else if not na(lockedLow) and close < lockedLow
+        if lastHighType == "LH" or lastHighType == "EH" or na(lastHighType)
+            trend := -1
+    [trend, lockedHigh, lockedLow]
+
+[wTrendDir, wLockH, wLockL] = request.security(syminfo.tickerid, "W", f_getStrictTrend(high, low, 5, 5)) 
+[dTrendDir, dLockH, dLockL] = request.security(syminfo.tickerid, "D", f_getStrictTrend(high, low, pivotLeft, pivotRight))
+
+f_trendText(int t) => t == 1 ? "UP" : (t == -1 ? "DOWN" : "SIDEWAYS")
+f_trendColor(int t) => t == 1 ? color.green : (t == -1 ? color.red : color.orange)
+
+paState = "INSIDE RANGE"
+color paColor = color.gray
+bool isBreakout = false
+if not na(dLockH)
+    if dClose > dLockH
+        isBreakout := true
+        if relVol >= 1.5
+            paState := "BREAKOUT (Strong Vol)"
+            paColor := color.lime
+        else
+            paState := "BREAKOUT (Weak Vol)"
+            paColor := color.green
+    else if dClose > dLockH * 0.98 and dClose < dLockH * 1.05 and dClose < dHigh[1]
+        if relVol < 0.8
+            paState := "PULLBACK (Low Vol)" 
+            paColor := color.aqua
+        else
+            paState := "PULLBACK (High Vol)" 
+            paColor := color.orange
+else
+    if dTrendDir == 1
+        paState := "TRENDING UP"
+        paColor := color.green
+    else if dTrendDir == -1
+        paState := "TRENDING DOWN"
+        paColor := color.red
+
+f_countOverheadResist(float currentPrice) =>
+    var float[] pivotStack = array.new_float(0)
+    wPh = ta.pivothigh(high, 5, 5)
+    if not na(wPh)
+        array.unshift(pivotStack, wPh)
+        if array.size(pivotStack) > 50
+            array.pop(pivotStack)
+    int count = 0
+    if array.size(pivotStack) > 0
+        for i = 0 to array.size(pivotStack) - 1
+            if array.get(pivotStack, i) > currentPrice
+                count += 1
+    count
+resistCount = request.security(syminfo.tickerid, "W", f_countOverheadResist(close))
+
+// ==========================================
+// TRADE MANAGER (GLOBAL SCOPE)
+// ==========================================
+float finalEntry = 0.0
+float finalSL    = 0.0
+
+f_match(string t) => 
+    bool m = false
+    if t != ""
+        string upperT = str.upper(t)
+        string curT   = str.upper(syminfo.ticker)
+        string curID  = str.upper(syminfo.tickerid)
+        if curT == upperT or curID == upperT or curT == ("NSE:" + upperT) or curID == ("NSE:" + upperT)
+            m := true
+        string cleanUser = str.replace(upperT, "NSE:", "")
+        string cleanChart = str.replace(curT, "NSE:", "")
+        if cleanUser == cleanChart
+            m := true
+    m
+
+f_prepTick(string t) =>
+    string r = t
+    if t != ""
+        if not str.contains(t, ":")
+            r := "NSE:" + t
+    r
+
+if quick_ent > 0
+    finalEntry := quick_ent
+    finalSL    := quick_sl
+else if f_match(p1_tick)
+    finalEntry := p1_ent
+    finalSL := p1_sl
+else if f_match(p2_tick)
+    finalEntry := p2_ent
+    finalSL := p2_sl
+else if f_match(p3_tick)
+    finalEntry := p3_ent
+    finalSL := p3_sl
+else if f_match(p4_tick)
+    finalEntry := p4_ent
+    finalSL := p4_sl
+else if f_match(p5_tick)
+    finalEntry := p5_ent
+    finalSL := p5_sl
+else if f_match(p6_tick)
+    finalEntry := p6_ent
+    finalSL := p6_sl
+else if f_match(p7_tick)
+    finalEntry := p7_ent
+    finalSL := p7_sl
+else if f_match(p8_tick)
+    finalEntry := p8_ent
+    finalSL := p8_sl
+else if f_match(p9_tick)
+    finalEntry := p9_ent
+    finalSL := p9_sl
+else if f_match(p10_tick)
+    finalEntry := p10_ent
+    finalSL := p10_sl
+else if f_match(p11_tick)
+    finalEntry := p11_ent
+    finalSL := p11_sl
+else if f_match(p12_tick)
+    finalEntry := p12_ent
+    finalSL := p12_sl
+else if f_match(p13_tick)
+    finalEntry := p13_ent
+    finalSL := p13_sl
+else if f_match(p14_tick)
+    finalEntry := p14_ent
+    finalSL := p14_sl
+else if f_match(p15_tick)
+    finalEntry := p15_ent
+    finalSL := p15_sl
+else if f_match(p16_tick)
+    finalEntry := p16_ent
+    finalSL := p16_sl
+else if f_match(p17_tick)
+    finalEntry := p17_ent
+    finalSL := p17_sl
+else if f_match(p18_tick)
+    finalEntry := p18_ent
+    finalSL := p18_sl
+else if f_match(p19_tick)
+    finalEntry := p19_ent
+    finalSL := p19_sl
+else if f_match(p20_tick)
+    finalEntry := p20_ent
+    finalSL := p20_sl
+
+bool tradeActive = finalEntry > 0
+float tm_stop = 0.0
+float tm_tg1 = 0.0
+float tm_tg2 = 0.0
+float tm_tsl = 0.0
+float effectiveSL = 0.0
+string tradeStatus = "NO POSITION"
+string rrText = "N/A"
+color tradeColor = color.gray
+
+f_dist(float lvl) =>
+    float d = ((lvl - close) / close) * 100
+    string s = (d > 0 ? "+" : "") + str.tostring(d, "#.1") + "%"
+    s
+
+// GLOBAL HIGHEST CALL (Fixes consistency error)
+float highest20 = ta.highest(high, 20)
+
+if tradeActive
+    if finalSL > 0
+        float risk = finalEntry - finalSL
+        if risk > 0
+            tm_tg1 := finalEntry + (risk * 2)
+            tm_tg2 := finalEntry + (risk * 3)
+            rrText := "1 : 2.0"
+    
+    tm_tsl := highest20 - (atrVal * tslMult)
+    effectiveSL := math.max(finalSL, tm_tsl)
+    
+    float curPnL = ((close - finalEntry) / finalEntry) * 100
+    string pnlStr = (curPnL > 0 ? "+" : "") + str.tostring(curPnL, "#.2") + "%"
+    
+    if close < effectiveSL
+        tradeStatus := "⚠️ STOP HIT (" + pnlStr + ")"
+        tradeColor := color.red
+    else if tm_tg2 > 0 and close >= tm_tg2
+        tradeStatus := "✅ TARGET 2 HIT (" + pnlStr + ")"
+        tradeColor := color.lime
+    else if tm_tg1 > 0 and close >= tm_tg1
+        tradeStatus := "🎯 TARGET 1 HIT (" + pnlStr + ")"
+        tradeColor := color.green
+    else if curPnL > 0
+        tradeStatus := "PROFIT (" + pnlStr + ")"
+        tradeColor := color.green
+    else
+        tradeStatus := "HOLD (" + pnlStr + ")"
+        tradeColor := color.orange
+        
+    if showTrade
+        line.new(bar_index, finalEntry, bar_index+10, finalEntry, color=color.blue, style=line.style_dotted)
+        if finalSL > 0
+            line.new(bar_index, finalSL, bar_index+10, finalSL, color=color.red, style=line.style_solid, width=2)
+        if tm_tg1 > 0
+            line.new(bar_index, tm_tg1, bar_index+10, tm_tg1, color=color.green, style=line.style_dashed)
+            line.new(bar_index, tm_tg2, bar_index+10, tm_tg2, color=color.lime, style=line.style_dashed)
+            
+        if barstate.islast
+            label.new(bar_index+12, finalEntry, "Avg. Entry: " + str.tostring(finalEntry), style=label.style_none, textcolor=color.blue, size=size.small)
+            if finalSL > 0
+                string slDist = showDist ? " (" + f_dist(finalSL) + ")" : ""
+                label.new(bar_index+12, finalSL, "Hard SL" + slDist, style=label.style_none, textcolor=color.red, size=size.small)
+            if tm_tsl > finalSL
+                string tslDist = showDist ? " (" + f_dist(tm_tsl) + ")" : ""
+                label.new(bar_index+12, tm_tsl, "TSL" + tslDist, style=label.style_none, textcolor=color.yellow, size=size.small)
+            if tm_tg1 > 0
+                string t1Dist = showDist ? " (" + f_dist(tm_tg1) + ")" : ""
+                label.new(bar_index+12, tm_tg1, "Target 1" + t1Dist, style=label.style_none, textcolor=color.green, size=size.small)
+            if tm_tg2 > 0
+                string t2Dist = showDist ? " (" + f_dist(tm_tg2) + ")" : ""
+                label.new(bar_index+12, tm_tg2, "Target 2" + t2Dist, style=label.style_none, textcolor=color.lime, size=size.small)
+
+// ==========================================
+// PORTFOLIO HEALTH AGGREGATION
+// ==========================================
+f_calc_slot(string t, float e, float s) =>
+    int res = 0 
+    if t != "" and e > 0
+        string cleanT = f_prepTick(t)
+        float c = request.security(cleanT, "D", close, ignore_invalid_symbol=true)
+        if not na(c)
+            if c < s and s > 0
+                res := 3 // Stopped
+            else if c > e
+                res := 1 // Win
+            else
+                res := 2 // Loss
+    res
+
+s1 = f_calc_slot(p1_tick, p1_ent, p1_sl)
+s2 = f_calc_slot(p2_tick, p2_ent, p2_sl)
+s3 = f_calc_slot(p3_tick, p3_ent, p3_sl)
+s4 = f_calc_slot(p4_tick, p4_ent, p4_sl)
+s5 = f_calc_slot(p5_tick, p5_ent, p5_sl)
+s6 = f_calc_slot(p6_tick, p6_ent, p6_sl)
+s7 = f_calc_slot(p7_tick, p7_ent, p7_sl)
+s8 = f_calc_slot(p8_tick, p8_ent, p8_sl)
+s9 = f_calc_slot(p9_tick, p9_ent, p9_sl)
+s10 = f_calc_slot(p10_tick, p10_ent, p10_sl)
+s11 = f_calc_slot(p11_tick, p11_ent, p11_sl)
+s12 = f_calc_slot(p12_tick, p12_ent, p12_sl)
+s13 = f_calc_slot(p13_tick, p13_ent, p13_sl)
+s14 = f_calc_slot(p14_tick, p14_ent, p14_sl)
+s15 = f_calc_slot(p15_tick, p15_ent, p15_sl)
+s16 = f_calc_slot(p16_tick, p16_ent, p16_sl)
+s17 = f_calc_slot(p17_tick, p17_ent, p17_sl)
+s18 = f_calc_slot(p18_tick, p18_ent, p18_sl)
+s19 = f_calc_slot(p19_tick, p19_ent, p19_sl)
+s20 = f_calc_slot(p20_tick, p20_ent, p20_sl)
+
+int pf_total = 0
+int pf_win = 0
+int pf_loss = 0
+int pf_stop = 0
+
+if barstate.islast
+    int[] results = array.from(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20)
+    for i = 0 to array.size(results) - 1
+        int val = array.get(results, i)
+        if val == 1
+            pf_total += 1
+            pf_win += 1
+        else if val == 2
+            pf_total += 1
+            pf_loss += 1
+        else if val == 3
+            pf_total += 1
+            pf_stop += 1
+
+string pfStr = str.tostring(pf_total) + " Pos | " + str.tostring(pf_win) + " Green | " + str.tostring(pf_loss) + " Red | " + str.tostring(pf_stop) + " Stop"
+color pfCol = color.gray
+if pf_total > 0
+    if pf_win > (pf_loss + pf_stop)
+        pfCol := color.green
+    else
+        pfCol := color.orange
+
+// ==========================================
+// PULLBACK & FIB LOGIC (GLOBAL SCOPE)
+// ==========================================
+bool isExtended = emaDist > 3.0 or isBreakout
+var string pbText = "N/A"
+var color pbColor = color.gray
+float bestLvl = 0.0
+
+if dTrendDir == 1 and not na(dLockL)
+    float sLow  = dLockL
+    float sHigh = dHigh 
+    float sRange = sHigh - sLow
+    float fib50    = sLow + (sRange * 0.50)
+    float retest   = not na(dLockH) ? dLockH : 0.0
+    float emaLvl   = use_ema20
+    string bestType = ""
+    
+    if retest > 0 and retest < close * 0.995 
+        if retest > bestLvl
+            bestLvl := retest
+            bestType := "Retest"
+    if fib50 < close * 0.995
+        if fib50 > bestLvl
+            bestLvl := fib50
+            bestType := "Fib 50%"
+    if emaLvl < close * 0.995
+        if emaLvl > bestLvl
+            bestLvl := emaLvl
+            bestType := "EMA 20"
+
+    if bestLvl > 0
+        pbText := str.tostring(bestLvl, "#.##") + " (" + bestType + ")"
+        pbColor := color.blue
+    else
+        pbText := "WAITING"
+        pbColor := color.gray
+else
+    pbText := "-"
+    pbColor := color.gray
+
+recText = "WAIT / NEUTRAL"
+color recColor = color.gray
+bool isStage2 = (stageID == "STAGE 2 (UP)")
+bool isUptrend = (dTrendDir == 1)
+bool isRsStrong = (rs50State == "RISING")
+
+bool signalStrongBuy = false
+bool signalBuy = false
+
+if isStage2 and isUptrend and isRsStrong
+    recText := "STRONG BUY (Momentum)"
+    recColor := color.lime
+    signalStrongBuy := true
+else if isStage2 and isUptrend
+    recText := "BUY (Check RS)"
+    recColor := color.green
+    signalBuy := true
+else if isStage2 and dTrendDir == 0
+    recText := "HOLD (Consolidation)"
+    recColor := color.blue
+else if stageID == "STAGE 1 (BASE)"
+    recText := "WATCHLIST (Base Building)"
+    recColor := color.yellow
+else if stageID == "STAGE 4 (DOWN)"
+    recText := "AVOID (Stage 4)"
+    recColor := color.red
+else if currRsiDiv == "BEARISH DIV"
+    recText := "CAUTION (Divergence)"
+    recColor := color.orange
+else if dTrendDir == -1
+    recText := "NO TRADE (Downtrend)"
+    recColor := color.red
+
+bool newStrongBuy = signalStrongBuy and not signalStrongBuy[1]
+bool newBuy       = signalBuy and not signalBuy[1]
+bool newBreakout  = isBreakout and not isBreakout[1]
+bool hitPullback = (bestLvl > 0) and (low <= bestLvl) and (high >= bestLvl)
+
+plotshape(showSignals and newStrongBuy, title="Strong Buy Signal", style=shape.labelup, location=location.belowbar, color=color.lime, textcolor=color.black, text="★", size=size.small)
+plotshape(showSignals and newBuy,       title="Buy Signal",        style=shape.labelup, location=location.belowbar, color=color.green, textcolor=color.white, text="B", size=size.tiny)
+plotshape(showSignals and newBreakout,  title="Breakout Signal",   style=shape.triangleup, location=location.belowbar, color=color.blue, size=size.tiny)
+plotshape(showSignals and hitPullback, title="Pullback Hit", style=shape.circle, location=location.belowbar, color=color.new(color.purple, 20), size=size.small)
+
+bool showTSL = tradeActive and showTrade and (tm_tsl > finalSL)
+plotshape(showTSL ? tm_tsl : na, title="Trailing Stop", style=shape.circle, location=location.absolute, color=color.yellow, size=size.tiny)
+
+alertcondition(newStrongBuy, title="Strong Buy Alert", message="Strong Buy Detected")
+alertcondition(newBuy,       title="Buy Alert",        message="Buy Detected")
+alertcondition(newBreakout,  title="Breakout Alert",   message="Breakout Detected")
+alertcondition(hitPullback,  title="Pullback Level Hit", message="Price touched the estimated pullback level")
+
+string displayRec = recText
+if markFresh and (newStrongBuy or newBuy)
+    displayRec := "★ " + recText
+
+// ==========================================
+// DRAWING
+// ==========================================
+// Increased max rows to 45 to prevent Index Out of Bounds errors
+var table panel = table.new(tablePos, 2, 45, border_width=1, border_color=color.gray)
+
+drawRow(r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
+    table.cell(panel, 0, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
+    table.cell(panel, 1, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_center)
+
+if barstate.islast
+    // Updated Title: Shows WEINSTEIN DASHBOARD
+    table.cell(panel, 0, 0, "WEINSTEIN DASHBOARD", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, 0, syminfo.ticker, bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_center)
+    
+    // Sector Info (Row 1)
+    string secStr = syminfo.sector + " / " + syminfo.industry
+    drawRow(1, "Sector Info", secStr, color.gray, c_bg, c_text, c_val_text)
+    
+    // Initialize Start Row counter
+    int startRow = 2
+    
+    // PORTFOLIO HEALTH ROW (Row 2)
+    drawRow(startRow, "PORTFOLIO HEALTH", pfStr, pfCol, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    if tradeActive
+        drawRow(startRow, "MY TRADE", tradeStatus, tradeColor, c_bg, c_text, c_val_text)
+        startRow += 1
+        
+        if finalSL > 0
+            drawRow(startRow, "Planned R:R", rrText, color.gray, c_bg, c_text, c_val_text)
+            startRow += 1
+    
+    drawRow(startRow, "1. Market Health (Nifty 500)", mktState, mktColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "2. Market Structure", stageDisplay, stageCol, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "3. RS Slope (Nifty 50)", rs50State, rs50State == "RISING" ? color.green : (rs50State == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "4. RS Slope (Nifty 500)", rs500State, rs500State == "RISING" ? color.green : (rs500State == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "5. RS Slope (Sector)", rsSecState, rsSecState == "RISING" ? color.green : (rsSecState == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "6. 30W MA Slope (3M)", wMASlopeState, wMASlopeState == "RISING" ? color.green : (wMASlopeState == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    bool pAbove30 = wClose > wMA30
+    drawRow(startRow, "7. Price > 30W MA", pAbove30 ? "YES" : "NO", pAbove30 ? color.green : color.red, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "8. 50D MA Slope (3M)", d50SlopeState, d50SlopeState == "RISING" ? color.green : (d50SlopeState == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    bool pAbove50 = dClose > dMA50
+    drawRow(startRow, "9. Price > 50D MA", pAbove50 ? "YES" : "NO", pAbove50 ? color.green : color.red, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "10. SMA 50 > 150 > 200", dSmaAligned ? "YES" : "NO", dSmaAligned ? color.green : color.red, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    drawRow(startRow, "11. Price Action Status", paState, paColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "12. O/H Resistance (>Price)", str.tostring(resistCount) + " Level(s)", resistCount == 0 ? color.green : color.orange, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "13. " + ema_lbl, emaState, emaColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "14. Volume Trend / SQZ", volState, volColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    drawRow(startRow, "15. Next Earnings", earnStr, earnColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    string rsiStr = str.tostring(currRsi, "#.##") + " / " + currRsiDiv
+    drawRow(startRow, "16. RSI (Chart) & Div", rsiStr, currRsiDiv == "BULLISH DIV" ? color.green : (currRsiDiv == "BEARISH DIV" ? color.red : color.gray), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "17. ATR (Daily)", str.tostring(atrVal, "#.##"), color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    string athStr = na(devATH) ? "N/A" : str.tostring(devATH, "#.1") + "%"
+    drawRow(startRow, "18. Near 52W High", str.tostring(dev52, "#.1") + "%", dev52 > -15 ? color.green : color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "19. Near ATH", athStr, (not na(devATH) and devATH > -15) ? color.green : color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    table.cell(panel, 0, startRow, "--- TRENDS ---", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, startRow, "", bgcolor=c_bg, text_color=c_text, text_size=size.normal)
+    startRow += 1
+    
+    drawRow(startRow, "Weekly Trend", f_trendText(wTrendDir), f_trendColor(wTrendDir), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "Daily Trend", f_trendText(dTrendDir), f_trendColor(dTrendDir), c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    table.cell(panel, 0, startRow, "--- SUMMARY ---", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, startRow, "", bgcolor=c_bg, text_color=c_text, text_size=size.normal)
+    startRow += 1
+
+    drawRow(startRow, "Est. Pullback Lvl", pbText, pbColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(startRow, "RECOMMENDATION", displayRec, recColor, c_bg, c_text, c_val_text)
+
+plot(wMA30, "30W MA", color=wMASlopeState == "RISING" ? color.green : color.red, linewidth=2)

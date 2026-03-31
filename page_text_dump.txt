@@ -1,0 +1,513 @@
+11
+FEDERALBNK
+75m
+125m
+D
+W
+M
+Indicators
+1
+2
+3
+4
+5
+6
+0
+Alert
+Replay
+Jay Pos 2
+Save
+Trade
+Publish
+F
+Federal Bank Ltd. (India)
+1W
+NSE
+O
+279.00
+H
+286.45
+L
+279.00
+C
+284.45
++5.90 (+2.12%)
+Vol
+22.11 M
+284.45
+SELL
+0.00
+284.45
+BUY
+CG-GapFill
+Vol
+20
+22.11 M
+45.98 M
+SMA · 1D
+50
+close
+SMA · 1D
+150
+close
+SMA · 1D
+200
+close
+SMA · 1W
+30
+close
+SMA · 1W
+40
+close
+221.12
+EMA
+20
+close
+248.40
+BB
+20
+SMA
+close
+2
+Weinstein Swing Zigzag [Strict v4.0]
+2
+2
+Weinstein Swing Zigzag [Strict v4.0]
+1
+1
+EMA · 1D
+20
+close
+ATH/L & 52WH/L
+287.20
+0.44
+287.20
+171.62
+Weinstein & Swing Pro Dashboard [v53.0]
+NSE:RELIANCE
+1,358.33
+1,290.4
+CNXENERGY
+NSE:LT
+4,001.75
+3,801.6
+CNXINFRA
+NSE:DATAPATTNS
+2,919
+2,773.05
+CNX500
+NSE:FEDERALBNK
+259.47
+251.2
+BANKNIFTY
+NSE:AIAENG
+3,973.55
+0
+CNX500
+NSE:AXISBANK
+1,244.4
+1,182.2
+BANKNIFTY
+NSE:BHARTIARTL
+2,062.25
+1,954
+CNX500
+NSE:CUB
+270.21
+248.9
+BANKNIFTY
+NSE:HINDCOPPER
+541
+0
+CNX500
+NSE:HCLTECH
+1,632.6
+1,551
+CNXIT
+NSE:INFRAIETF
+98
+93
+CNXINFRA
+NSE:METALIETF
+8.72
+8.3
+CNXMETAL
+NSE:GOLDIETF
+126.51
+0
+CNX500
+NSE:CONSUMIETF
+121.45
+115.4
+CNXFMCG
+NSE:SILVERIETF
+304.81
+0
+CNX500
+NSE:HDFCNIFTY
+272.64
+259
+NIFTY
+NSE:HDFCSML250
+168.31
+159.9
+CNXSMALLCAP
+NSE:HDFCNEXT50
+71.83
+68.2
+JUNIORBEES
+NSE:HDFCMID150
+20.82
+19.8
+CNXMIDCAP
+NSE:HDFCLOWVOL
+20.66
+19.6
+CNX500
+NSE:BANKBEES
+607.53
+577
+BANKNIFTY
+NSE:ITBEES
+41.92
+39.8
+CNXIT
+NSE:AUTOBEES
+256.34
+243.5
+CNXAUTO
+0
+0
+CNX500
+0
+0
+CNX500
+0
+0
+3
+30
+4
+0.0005
+NIFTY
+CNX500
+BANKNIFTY
+52
+8
+50
+150
+200
+21
+0.0005
+21
+2
+2
+14
+100
+bottom_right
+small
+227.70
+221.12
+259.47
+251.20
+276.01
+284.28
+264.65
+INR
+A
+L
+ADX and DI for v4
+14
+20
+33.32
+8.13
+55.83
+A
+L
+1D
+5D
+1M
+3M
+6M
+YTD
+1Y
+5Y
+All
+09:17:46 PM UTC+5:30
+ADJ
+25
+99+
+My Open PT Portfolio
+M
+M
+P
+P
+Symbol
+Last
+Chg
+Chg%
+ETFS
+M
+METALIETF
+12.18
+0.29
+2.44%
+H
+HDFCLOWVOL
+20.97
+0.03
+0.14%
+H
+HDFCMID150
+21.70
+0.35
+1.64%
+I
+ITBEES
+42.65
+0.14
+0.33%
+H
+HDFCNEXT50
+69.47
+0.65
+0.94%
+I
+INFRAIETF
+93.34
+0.95
+1.03%
+C
+CONSUMIETF
+118.65
+0.21
+0.18%
+H
+HDFCSML250
+157.70
+3.02
+1.95%
+A
+AUTOBEES
+274.15
+1.32
+0.48%
+H
+HDFCNIFTY
+283.36
+0.98
+0.35%
+B
+BANKBEES
+614.14
+3.03
+0.50%
+STOCKS
+C
+CUB
+293.30
+9.05
+3.18%
+F
+FEDERALBNK
+284.45
+−0.50
+−0.18%
+A
+AXISBANK
+1,319.80
+4.00
+0.30%
+R
+RELIANCE
+1,396.70
+16.20
+1.17%
+H
+HCLTECH
+1,729.60
+9.40
+0.55%
+B
+BHARTIARTL
+1,957.70
+−15.70
+−0.80%
+D
+DATAPATTNS
+2,610.60
+313.20
+13.63%
+A
+AIAENG
+3,907.20
+65.10
+1.69%
+L
+LT
+3,794.00
+6.20
+0.16%
+INDICES
+N
+NIFTY_IND_DEFENCE
+8,167.95
+530.70
+6.95%
+C
+CNXINFRA
+9,083.75
+99.95
+1.11%
+C
+CNXMETAL
+12,106.45
+276.80
+2.34%
+C
+CNXCONSUMPTION
+11,457.95
+13.15
+0.11%
+N
+NIFTYSMLCAP250
+15,639.55
+294.05
+1.92%
+N
+NIFTY100LOWVOL30
+N
+NIFTYMIDCAP150
+21,460.95
+341.85
+1.62%
+N
+NIFTY
+25,342.75
+167.35
+0.66%
+C
+CNXAUTO
+26,737.60
+183.60
+0.69%
+B
+BANKNIFTY
+59,598.80
+393.35
+0.66%
+N
+NIFTYJR
+68,205.65
+1,509.10
+2.26%
+F
+FEDERALBNK
+Federal Bank Ltd. (India)
+NSE
+Finance
+Major Banks
+284.45
+INR
+−0.50
+−0.18%
+Market closed
+Last update at 15:51 GMT+5:30
+Siddhartha Khemka remains positive on banks, upgrades Bandhan Bank to buy
+09-Jan-26: 1. RRG=LA-I-LE-(W)-11W 2. Pre E-Season: M=P, R=P 3. Next E-Season: M=P, R=P 4. News:: Tgt#1: XXXX; Tgt#2: XXXX 5. Entry#1=264.41; SL#1=253.80; Qty#1= 236; Tgt#1=275.65; Tgt#2=283.55 6. Entry#2=; SL#2=; Qty#2= ; Tgt#1=; Tgt#2= 7. Notes:
+Earnings
+93
+Q4 '24
+Q1 '25
+Q2 '25
+Q3 '25
+Q4 '25
+‪0.00‬
+‪1.20‬
+‪2.40‬
+‪3.60‬
+‪4.80‬
+Actual
+Estimate
+More info
+Income statement
+Annual
+Quarterly
+‪10.0%‬
+‪10.9%‬
+‪11.8%‬
+‪12.7%‬
+‪13.6%‬
+Q3 '24
+Q4 '24
+Q1 '25
+Q2 '25
+Q3 '25
+‪0.00‬
+‪‪25.00 B‬‬
+‪‪50.00 B‬‬
+‪‪75.00 B‬‬
+‪‪100.00 B‬‬
+Total revenue
+Net income
+Net margin %
+More financials
+Performance
+4.92%
+1W
+8.76%
+1M
+21.04%
+3M
+40.34%
+6M
+6.28%
+YTD
+51.38%
+1Y
+Technicals
+Neutral
+Sell
+Buy
+Strong sell
+Strong buy
+Strong sell
+Sell
+Neutral
+Buy
+Strong buy
+More technicals
+Analyst rating
+Neutral
+Sell
+Buy
+Strong sell
+Strong buy
+Strong sell
+Sell
+Neutral
+Buy
+Strong buy
+1 year price target
+299.20
+(5.18%)
+See forecast
+ATM IV term structure
+1W
+2W
+1M
+2M
+3M
+‪3.5%‬
+‪9.5%‬
+‪15.5%‬
+‪21.5%‬
+‪27.5%‬
+Volatility curve (27 days)
+	
+	
+
+	
+	
+More on options
+Trading Panel
+Timezone

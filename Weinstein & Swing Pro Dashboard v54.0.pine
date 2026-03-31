@@ -1,0 +1,2402 @@
+//@version=6
+indicator("Weinstein & Swing Pro Dashboard [v54.0]", overlay=true, max_bars_back=5000, max_lines_count=500)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+// <PORTFOLIO_START>
+grpP1_5 = "1. Portfolio Slots 1-5"
+p1_tick = input.string("NSE:RELIANCE", title="Slot 1", group=grpP1_5, inline="p1", display=display.data_window)
+p1_ent  = input.float(1358.33, title="Entry", group=grpP1_5, inline="p1", display=display.data_window)
+p1_sl   = input.price(1285.0, title="SL", group=grpP1_5, inline="p1", display=display.data_window)
+p1_sec  = input.symbol("NSE:CNXENERGY", title="Sector", group=grpP1_5, inline="p1s", display=display.data_window)
+
+p2_tick = input.string("NSE:LT", title="Slot 2", group=grpP1_5, inline="p2", display=display.data_window)
+p2_ent  = input.float(4001.75, title="Entry", group=grpP1_5, inline="p2", display=display.data_window)
+p2_sl   = input.price(3836.751308482, title="SL", group=grpP1_5, inline="p2", display=display.data_window)
+p2_sec  = input.symbol("NSE:CNXINFRA", title="Sector", group=grpP1_5, inline="p2s", display=display.data_window)
+
+p3_tick = input.string("NSE:ICICIBANK", title="Slot 3", group=grpP1_5, inline="p3", display=display.data_window)
+p3_ent  = input.float(1389.1, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
+p3_sl   = input.price(1376.9, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
+p3_sec  = input.symbol("NSE:BANKNIFTY", title="Sector", group=grpP1_5, inline="p3s", display=display.data_window)
+
+p4_tick = input.string("NSE:NATIONALUM", title="Slot 4", group=grpP1_5, inline="p4", display=display.data_window)
+p4_ent  = input.float(352.5, title="Entry", group=grpP1_5, inline="p4", display=display.data_window)
+p4_sl   = input.price(307.5, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
+p4_sec  = input.symbol("NSE:CNXMETAL", title="Sector", group=grpP1_5, inline="p4s", display=display.data_window)
+
+p5_tick = input.string("NSE:FEDERALBNK", title="Slot 5", group=grpP1_5, inline="p5", display=display.data_window)
+p5_ent  = input.float(275.75, title="Entry", group=grpP1_5, inline="p5", display=display.data_window)
+p5_sl   = input.price(244.0, title="SL", group=grpP1_5, inline="p5", display=display.data_window)
+p5_sec  = input.symbol("NSE:BANKNIFTY", title="Sector", group=grpP1_5, inline="p5s", display=display.data_window)
+
+
+// --- GROUP 2: SLOTS 6-10 ---
+grpP6_10 = "2. Portfolio Slots 6-10"
+p6_tick = input.string("NSE:AIAENG", title="Slot 6", group=grpP6_10, inline="p6", display=display.data_window)
+p6_ent  = input.float(3973.55, title="Entry", group=grpP6_10, inline="p6", display=display.data_window)
+p6_sl   = input.price(3722.0, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
+p6_sec  = input.symbol("NSE:CNXINFRA", title="Sector", group=grpP6_10, inline="p6s", display=display.data_window)
+
+p7_tick = input.string("NSE:AXISBANK", title="Slot 7", group=grpP6_10, inline="p7", display=display.data_window)
+p7_ent  = input.float(1308.33, title="Entry", group=grpP6_10, inline="p7", display=display.data_window)
+p7_sl   = input.price(1282.9065408767, title="SL", group=grpP6_10, inline="p7", display=display.data_window)
+p7_sec  = input.symbol("NSE:BANKNIFTY", title="Sector", group=grpP6_10, inline="p7s", display=display.data_window)
+
+p8_tick = input.string("NSE:BHARTIARTL", title="Slot 8", group=grpP6_10, inline="p8", display=display.data_window)
+p8_ent  = input.float(2062.25, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
+p8_sl   = input.price(1981.0, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
+p8_sec  = input.symbol("NSE:CNXINFRA", title="Sector", group=grpP6_10, inline="p8s", display=display.data_window)
+
+p9_tick = input.string("NSE:CUB", title="Slot 9", group=grpP6_10, inline="p9", display=display.data_window)
+p9_ent  = input.float(276.86, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
+p9_sl   = input.price(248.9, title="SL", group=grpP6_10, inline="p9", display=display.data_window)
+p9_sec  = input.symbol("NSE:BANKNIFTY", title="Sector", group=grpP6_10, inline="p9s", display=display.data_window)
+
+p10_tick = input.string("NSE:COALINDIA", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
+p10_ent  = input.float(431.5, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
+p10_sl   = input.price(410.6, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
+p10_sec  = input.symbol("NSE:CNXENERGY", title="Sector", group=grpP6_10, inline="p10s", display=display.data_window)
+
+
+// --- GROUP 3: SLOTS 11-15 ---
+grpP11_15 = "3. Portfolio Slots 11-15"
+p11_tick = input.string("NSE:HINDCOPPER", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
+p11_ent  = input.float(564.57, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
+p11_sl   = input.price(482.2, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
+p11_sec  = input.symbol("NSE:CNXMETAL", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
+
+p12_tick = input.string("NSE:HCLTECH", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
+p12_ent  = input.float(1632.6, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sl   = input.price(1548.5, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sec  = input.symbol("NSE:CNXIT", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
+
+p13_tick = input.string("NSE:METALIETF", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
+p13_ent  = input.float(8.72, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
+p13_sl   = input.price(11.1, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
+p13_sec  = input.symbol("NSE:CNXMETAL", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
+
+p14_tick = input.string("NSE:GOLDIETF", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
+p14_ent  = input.float(142.65, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sl   = input.price(123.1, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
+
+p15_tick = input.string("NSE:SILVERIETF", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
+p15_ent  = input.float(340.15, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
+p15_sl   = input.price(219.5, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
+p15_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
+
+
+// --- GROUP 4: SLOTS 16-20 ---
+grpP16_20 = "4. Portfolio Slots 16-20"
+p16_tick = input.string("NSE:HDFCNIFTY", title="Slot 16", group=grpP16_20, inline="p16", display=display.data_window)
+p16_ent  = input.float(272.64, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
+p16_sl   = input.price(276.5, title="SL", group=grpP16_20, inline="p16", display=display.data_window)
+p16_sec  = input.symbol("NSE:NIFTY", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
+
+p17_tick = input.string("NSE:HDFCSML250", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
+p17_ent  = input.float(161.49, title="Entry", group=grpP16_20, inline="p17", display=display.data_window)
+p17_sl   = input.price(159.9, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
+p17_sec  = input.symbol("NSE:CNXSMALLCAP", title="Sector", group=grpP16_20, inline="p17s", display=display.data_window)
+
+p18_tick = input.string("NSE:HDFCMID150", title="Slot 18", group=grpP16_20, inline="p18", display=display.data_window)
+p18_ent  = input.float(20.82, title="Entry", group=grpP16_20, inline="p18", display=display.data_window)
+p18_sl   = input.price(20.5, title="SL", group=grpP16_20, inline="p18", display=display.data_window)
+p18_sec  = input.symbol("NSE:CNXMIDCAP", title="Sector", group=grpP16_20, inline="p18s", display=display.data_window)
+
+p19_tick = input.string("NSE:BANKBEES", title="Slot 19", group=grpP16_20, inline="p19", display=display.data_window)
+p19_ent  = input.float(607.53, title="Entry", group=grpP16_20, inline="p19", display=display.data_window)
+p19_sl   = input.price(590.7, title="SL", group=grpP16_20, inline="p19", display=display.data_window)
+p19_sec  = input.symbol("NSE:BANKNIFTY", title="Sector", group=grpP16_20, inline="p19s", display=display.data_window)
+
+p20_tick = input.string("NSE:ITBEES", title="Slot 20", group=grpP16_20, inline="p20", display=display.data_window)
+p20_ent  = input.float(41.92, title="Entry", group=grpP16_20, inline="p20", display=display.data_window)
+p20_sl   = input.price(38.2, title="SL", group=grpP16_20, inline="p20", display=display.data_window)
+p20_sec  = input.symbol("NSE:CNXIT", title="Sector", group=grpP16_20, inline="p20s", display=display.data_window)
+
+
+// --- GROUP 5: SLOTS 21-25 ---
+grpP21_25 = "5. Portfolio Slots 21-25"
+p21_tick = input.string("NSE:AUTOBEES", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
+p21_ent  = input.float(256.34, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
+p21_sl   = input.price(234.0, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
+p21_sec  = input.symbol("NSE:CNXAUTO", title="Sector", group=grpP21_25, inline="p21s", display=display.data_window)
+
+p22_tick = input.string("", title="Slot 22", group=grpP21_25, inline="p22", display=display.data_window)
+p22_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p22", display=display.data_window)
+p22_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p22", display=display.data_window)
+p22_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p22s", display=display.data_window)
+
+p23_tick = input.string("", title="Slot 23", group=grpP21_25, inline="p23", display=display.data_window)
+p23_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p23", display=display.data_window)
+p23_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p23", display=display.data_window)
+p23_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p23s", display=display.data_window)
+
+p24_tick = input.string("", title="Slot 24", group=grpP21_25, inline="p24", display=display.data_window)
+p24_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p24", display=display.data_window)
+p24_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p24", display=display.data_window)
+p24_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p24s", display=display.data_window)
+
+p25_tick = input.string("", title="Slot 25", group=grpP21_25, inline="p25", display=display.data_window)
+p25_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p25", display=display.data_window)
+p25_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p25", display=display.data_window)
+p25_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p25s", display=display.data_window)
+
+// <PORTFOLIO_END>
+
+// Quick Check
+grpQuick = "Quick Check (Overrides Portfolio)"
+quick_ent = input.float(0.0, title="Temporary Entry Price", group=grpQuick)
+quick_sl  = input.price(0.0, title="Temporary Hard SL", group=grpQuick)
+
+tslMult     = input.float(3.0, title="Trailing Stop ATR Multiplier (Base)", group="Trade Settings")
+tsl_r_trig  = input.float(1.5, title="Adaptive TSL: Tighten Trigger (R)", tooltip="If Profit > 1.5R, tighten stop.", group="Trade Settings")
+tsl_ratio   = input.float(0.75, title="Adaptive TSL: Tightening Ratio", tooltip="Multiply Base ATR by this factor when trigger hit (e.g. 0.75 = 25% tighter).", group="Trade Settings")
+tsl_r_trig2 = input.float(3.0, title="Adaptive TSL: Super-Tight Trigger (R)", tooltip="If Profit > 3.0R, tighten further.", group="Trade Settings")
+tsl_ratio2  = input.float(0.50, title="Adaptive TSL: Super-Tight Ratio", tooltip="Multiply Base ATR by this factor when Super trigger hit.", group="Trade Settings")
+
+// ==========================================
+// 2. STRATEGY INPUTS
+// ==========================================
+groupStrat  = "Strategy Inputs"
+maLengthW   = input.int(30, title="Weinstein SMA Length (Weekly)", group=groupStrat)
+wmaSlopeLen = input.int(4, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
+slopeThresh = input.float(0.0005, title="30WMA Slope Threshold (Flat)", group=groupStrat)
+
+bench50     = input.symbol("NSE:NIFTY", title="Benchmark 1 (Nifty 50)", group=groupStrat)
+bench500    = input.symbol("NSE:CNX500", title="Benchmark 2 (Nifty 500 - Breadth)", group=groupStrat)
+// benchSector removed (unused)
+
+rsLength    = input.int(52, title="Mansfield RS Length", group=groupStrat)
+rsSlopeLen  = input.int(8, title="RS Slope Lookback (Weeks)", group=groupStrat)
+
+groupMA     = "Daily MA Settings"
+dma50_len   = input.int(50, title="50 DMA Length", group=groupMA)
+dma150_len  = input.int(150, title="150 DMA Length", group=groupMA)
+dma200_len  = input.int(200, title="200 DMA Length", group=groupMA)
+dmaSlopeLen = input.int(21, title="50DMA Slope Lookback (Days)", group=groupMA)
+flatThresh  = input.float(0.0005, title="Slope Flat Threshold (Daily)", group=groupMA)
+
+groupTech   = "Technical Settings"
+// === Configurable Fib Lookback ===
+fibLookback = input.int(21, title="Est. Pullback Lookback (Days)", group=groupTech)
+// User Specific Pivot Settings
+pivotLeft   = input.int(2, title="Pivot Lookback Left (Daily)", group=groupTech)
+pivotRight  = input.int(2, title="Pivot Lookback Right (Daily)", group=groupTech)
+atrLen      = input.int(14, title="ATR Length", group=groupTech)
+
+// Volume Profile Settings (Basic POC Logic)
+vpLookback  = input.int(100, "VP Lookback Bars", group=groupTech)
+
+groupAlert  = "Alerts & Visuals"
+showSignals = input.bool(true, title="Show Buy/Breakout Labels", group=groupAlert)
+showTrade   = input.bool(true, title="Show Trade Lines (Entry/Targets)", group=groupAlert)
+showDist    = input.bool(true, title="Show % Distance on Trade Lines", group=groupAlert)
+markFresh   = input.bool(true, title="Mark Fresh Signals (★)", group=groupAlert)
+
+// Styling
+groupStyle  = "Dashboard Style"
+tablePos    = input.string(position.bottom_right, title="Position", options=[position.top_right, position.bottom_right, position.top_left, position.bottom_left], group=groupStyle)
+textSize    = input.string(size.small, title="Data Size", options=[size.tiny, size.small, size.normal], group=groupStyle)
+c_bg        = input.color(color.white, title="Background Color", group=groupStyle)
+c_text      = input.color(color.new(#000000, 0), title="Label Text Color", group=groupStyle)
+c_val_text  = input.color(color.new(#000000, 0), title="Value Text Color", group=groupStyle)
+
+// ==========================================
+// 3. GLOBAL VARIABLE INITIALIZATION
+// ==========================================
+// Portfolio Slots
+var int s1 = 0
+var int s2 = 0
+var int s3 = 0
+var int s4 = 0
+var int s5 = 0
+var int s6 = 0
+var int s7 = 0
+var int s8 = 0
+var int s9 = 0
+var int s10 = 0
+var int s11 = 0
+var int s12 = 0
+var int s13 = 0
+var int s14 = 0
+var int s15 = 0
+var int s16 = 0
+var int s17 = 0
+var int s18 = 0
+var int s19 = 0
+var int s20 = 0
+
+// Portfolio Summary
+var int pf_total = 0
+var int pf_win = 0
+var int pf_loss = 0
+var int pf_stop = 0
+
+// Core States
+var string mktState = "N/A"
+var color mktColor = color.gray
+var string cleanTicker = syminfo.prefix + ":" + syminfo.ticker
+var float finalEntry = 0.0
+var float finalSL = 0.0
+var string pbText = "N/A"
+var color pbColor = color.gray
+var string recText = "WAIT / NEUTRAL"
+var color recColor = color.gray
+var float bestLvl = 0.0
+var string scoreStr = ""
+var color gradeCol = color.gray
+var string patStr = "None"
+var string srState = "NO NEAR LEVEL"
+var color srColor = color.gray
+var string stageDisplay = ""
+var color stageCol = color.orange
+var string rs50State = ""
+var string rs500State = ""
+var string rsSecState = ""
+var string d50SlopeState = ""
+var string wMASlopeState = ""
+var string volState = ""
+var color volColor = color.gray
+var string emaState = ""
+var color emaColor = color.gray
+var int score = 0
+var string grade = "C"
+var string wkHealthStr = "N/A"
+var color wkHealthCol = color.gray
+var int wTrendDir = 0
+var int dTrendDir = 0
+var float dLockH = na
+var float dLockL = na
+var float wMA30 = na
+var float wMA40 = na
+var string paState = "INSIDE RANGE"
+var color paColor = color.gray
+var bool isBreakout = false
+var float tm_tsl = 0.0
+var float effectiveSL = 0.0
+var string rrText = "N/A"
+var string tradeStatus = "NO POSITION"
+var color tradeColor = color.gray
+var string displayRec = "WAIT"
+var string pfStr = "Calculating..."
+var color pfCol = color.gray
+var bool newStrongBuy = false
+var bool newBuy = false
+
+// EMA Variables
+var float d_ema20 = 0.0
+var bool isIntra = false
+var float use_ema20 = 0.0
+var string ema_lbl = ""
+
+// Data Variables (Global)
+var float dClose = 0.0
+var float dHigh = 0.0
+var float dLow = 0.0
+var float wClose = 0.0
+var float dMA50 = 0.0
+var float dMA200 = 0.0
+var string stageID = "" 
+var int resistCount = 0
+var float slope50 = 0.0
+var float val50 = 0.0
+var float slope500 = 0.0
+var float val500 = 0.0
+var float slopeSec = 0.0
+var float valSec = 0.0
+var float currRsi = 0.0
+var string currRsiDiv = "None"
+var float dev52 = 0.0
+var float devATH = 0.0
+var float atrVal = 0.0
+var float emaDist = 0.0
+var float absDist = 0.0
+var string earnStr = "N/A"
+var color earnColor = color.gray
+var float dailyRsi = 0.0
+var float d_atr10_val = 0.0
+var float d_atr40_val = 0.0
+var float d_ema20_val = 0.0
+var float d_vol = 0.0
+var float d_vol_avg = 0.0
+// AUTO SECTOR MAPPER
+// ==========================================
+// 4. FUNCTIONS
+// ==========================================
+
+f_calc_slope_val(float src, int len) =>
+    ta.linreg(src, len, 0) - ta.linreg(src, len, 1)
+
+f_rrg_color(string s) =>
+    str.contains(s, "Leading") ? #00e676 : (str.contains(s, "Weakening") ? #ffd600 : (str.contains(s, "Lagging") ? #ff5252 : #d500f9))
+
+f_rrg_icon(string s) =>
+    str.contains(s, "Leading") ? "↗" : (str.contains(s, "Weakening") ? "↘" : (str.contains(s, "Lagging") ? "↙" : "↖"))
+
+f_match(string t) => 
+    bool m = false
+    if t != ""
+        // robust matching: remove prefix from input if present
+        string cleanInput = str.replace_all(str.upper(str.trim(t)), "NSE:", "")
+        cleanInput := str.replace_all(cleanInput, "BSE:", "")
+        string curT = str.upper(syminfo.ticker)
+        if cleanInput == curT
+            m := true
+    m
+
+f_prepTick(string t) =>
+    string r = t
+    if t != ""
+        if not str.contains(t, ":")
+            r := "NSE:" + t
+    r
+
+// AUTO SECTOR MAPPER
+f_get_sector_ticker() =>
+    string s = syminfo.sector
+    string i = syminfo.industry
+    string t = "NSE:CNX500" // Default fallback
+    string n = "Nifty 500"
+    
+    // Prioritize by Industry keywords first (more specific)
+    if str.contains(i, "Bank") or str.contains(s, "Finance")
+        t := "NSE:BANKNIFTY"
+        n := "Bank Nifty"
+    else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
+        t := "NSE:CNXIT"
+        n := "Nifty IT"
+    else if str.contains(s, "Health") or str.contains(i, "Pharma")
+        t := "NSE:CNXPHARMA"
+        n := "Pharma"
+    else if str.contains(i, "Auto") or str.contains(s, "Consumer Durables")
+        t := "NSE:CNXAUTO"
+        n := "Nifty Auto"
+    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage")
+        t := "NSE:CNXFMCG"
+        n := "FMCG"
+    else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
+        t := "NSE:CNXMETAL"
+        n := "Metal"
+    else if str.contains(s, "Energy") or str.contains(i, "Oil") or str.contains(i, "Gas")
+        t := "NSE:CNXENERGY"
+        n := "Energy"
+    else if str.contains(s, "Real Estate") or str.contains(i, "Construction")
+        t := "NSE:CNXREALTY"
+        n := "Realty"
+    else if str.contains(s, "Infrastructure")
+        t := "NSE:CNXINFRA"
+        n := "Infra"
+    
+    // Return Tuple
+    [t, n]
+
+// <DB_LOOKUP_START>
+// This function is AUTO-GENERATED by sector_manager.py
+f_db_sector_lookup(string t) =>
+    string s = ""
+    // Ticker format in text is usually just the name (e.g. RELIANCE)
+    // We match against the DB keys which are NSE:RELIANCE
+    switch t
+        "AARTIIND" => "NSE:CNXMETAL"
+        "ABB" => "NSE:CNXINFRA"
+        "ABBOTINDIA" => "NSE:CNXPHARMA"
+        "ABCAPITAL" => "NSE:BANKNIFTY"
+        "ABFRL" => "NSE:CNXAUTO"
+        "ACC" => "NSE:CNXMETAL"
+        "ADANIENSOL" => "NSE:CNXINFRA"
+        "ADANIENT" => "NSE:CNXENERGY"
+        "ADANIGREEN" => "NSE:CNXINFRA"
+        "ADANIPORTS" => "NSE:CNXINFRA"
+        "AIAENG" => "NSE:CNXINFRA"
+        "ALKEM" => "NSE:CNXPHARMA"
+        "AMBER" => "NSE:CNXAUTO"
+        "AMBUJACEM" => "NSE:CNXMETAL"
+        "APLAPOLLO" => "NSE:CNXMETAL"
+        "APOLLOHOSP" => "NSE:CNXPHARMA"
+        "ASHOKLEY" => "NSE:CNXINFRA"
+        "ASIANPAINT" => "NSE:CNXMETAL"
+        "AUBANK" => "NSE:BANKNIFTY"
+        "AUROPHARMA" => "NSE:CNXPHARMA"
+        "AXISBANK" => "NSE:BANKNIFTY"
+        "BAJAJ-AUTO" => "NSE:CNXAUTO"
+        "BAJAJFINSV" => "NSE:BANKNIFTY"
+        "BAJAJHLDNG" => "NSE:BANKNIFTY"
+        "BAJFINANCE" => "NSE:BANKNIFTY"
+        "BALKRISIND" => "NSE:CNXAUTO"
+        "BALRAMCHIN" => "NSE:CNXFMCG"
+        "BANDHANBNK" => "NSE:BANKNIFTY"
+        "BANKBARODA" => "NSE:BANKNIFTY"
+        "BATAINDIA" => "NSE:CNXAUTO"
+        "BEL" => "NSE:CNXINFRA"
+        "BERGEPAINT" => "NSE:CNXMETAL"
+        "BHARATFORG" => "NSE:CNXAUTO"
+        "BHARTIARTL" => "NSE:CNXINFRA"
+        "BHEL" => "NSE:CNXINFRA"
+        "BOSCHLTD" => "NSE:CNXAUTO"
+        "BPCL" => "NSE:CNXENERGY"
+        "BRITANNIA" => "NSE:CNXFMCG"
+        "BSE" => "NSE:BANKNIFTY"
+        "BSOFT" => "NSE:CNXIT"
+        "CANBK" => "NSE:BANKNIFTY"
+        "CANFINHOME" => "NSE:BANKNIFTY"
+        "CASTROLIND" => "NSE:CNXENERGY"
+        "CDSL" => "NSE:BANKNIFTY"
+        "CHAMBLFERT" => "NSE:CNXMETAL"
+        "CHOLAFIN" => "NSE:BANKNIFTY"
+        "CIPLA" => "NSE:CNXPHARMA"
+        "COALINDIA" => "NSE:CNXENERGY"
+        "COCHINSHIP" => "NSE:CNXINFRA"
+        "COFORGE" => "NSE:CNXIT"
+        "COLPAL" => "NSE:CNXFMCG"
+        "CONCOR" => "NSE:CNXINFRA"
+        "COROMANDEL" => "NSE:CNXMETAL"
+        "CROMPTON" => "NSE:CNXAUTO"
+        "CUB" => "NSE:BANKNIFTY"
+        "CUMMINSIND" => "NSE:CNXINFRA"
+        "DABUR" => "NSE:CNXFMCG"
+        "DATAPATTNS" => "NSE:CNXINFRA"
+        "DEEPAKNTR" => "NSE:CNXMETAL"
+        "DELHIVERY" => "NSE:CNXINFRA"
+        "DIVISLAB" => "NSE:CNXPHARMA"
+        "DIXON" => "NSE:CNXIT"
+        "DLF" => "NSE:CNXREALTY"
+        "DMART" => "NSE:CNXFMCG"
+        "DRREDDY" => "NSE:CNXPHARMA"
+        "EICHERMOT" => "NSE:CNXAUTO"
+        "ESCORTS" => "NSE:CNXINFRA"
+        "EXIDEIND" => "NSE:CNXAUTO"
+        "FEDERALBNK" => "NSE:BANKNIFTY"
+        "GAIL" => "NSE:CNXINFRA"
+        "GLENMARK" => "NSE:CNXPHARMA"
+        "GNFC" => "NSE:CNXMETAL"
+        "GODREJCP" => "NSE:CNXFMCG"
+        "GODREJPROP" => "NSE:CNXREALTY"
+        "GRANULES" => "NSE:CNXPHARMA"
+        "GRASIM" => "NSE:CNXMETAL"
+        "GUJGASLTD" => "NSE:CNXINFRA"
+        "HAL" => "NSE:CNXINFRA"
+        "HAVELLS" => "NSE:CNXINFRA"
+        "HCLTECH" => "NSE:CNXIT"
+        "HDFCBANK" => "NSE:BANKNIFTY"
+        "HDFCLIFE" => "NSE:BANKNIFTY"
+        "HEROMOTOCO" => "NSE:CNXAUTO"
+        "HINDALCO" => "NSE:CNXMETAL"
+        "HINDCOPPER" => "NSE:CNXMETAL"
+        "HINDPETRO" => "NSE:CNXENERGY"
+        "HINDUNILVR" => "NSE:CNXFMCG"
+        "ICICIBANK" => "NSE:BANKNIFTY"
+        "ICICIGI" => "NSE:BANKNIFTY"
+        "ICICIPRULI" => "NSE:BANKNIFTY"
+        "IDFCFIRSTB" => "NSE:BANKNIFTY"
+        "IEX" => "NSE:BANKNIFTY"
+        "IGL" => "NSE:CNXINFRA"
+        "INDHOTEL" => "NSE:CNXAUTO"
+        "INDIAMART" => "NSE:CNXMEDIA"
+        "INDIGO" => "NSE:CNXINFRA"
+        "INDUSINDBK" => "NSE:BANKNIFTY"
+        "INDUSTOWER" => "NSE:CNXMEDIA"
+        "INFY" => "NSE:CNXIT"
+        "IOC" => "NSE:CNXENERGY"
+        "IPCALAB" => "NSE:CNXPHARMA"
+        "IRCTC" => "NSE:CNXAUTO"
+        "ITC" => "NSE:CNXFMCG"
+        "JINDALSTEL" => "NSE:CNXMETAL"
+        "JIOFIN" => "NSE:BANKNIFTY"
+        "JSL" => "NSE:CNXMETAL"
+        "JSWSTEEL" => "NSE:CNXMETAL"
+        "JWL" => "NSE:CNXINFRA"
+        "KALYANKJIL" => "NSE:CNXAUTO"
+        "KEI" => "NSE:CNXINFRA"
+        "KOTAKBANK" => "NSE:BANKNIFTY"
+        "KPITTECH" => "NSE:CNXIT"
+        "LALPATHLAB" => "NSE:CNXPHARMA"
+        "LICHSGFIN" => "NSE:BANKNIFTY"
+        "LICI" => "NSE:BANKNIFTY"
+        "LODHA" => "NSE:CNXREALTY"
+        "LT" => "NSE:CNXINFRA"
+        "LTIM" => "NSE:CNXIT"
+        "LUPIN" => "NSE:CNXPHARMA"
+        "M&M" => "NSE:CNXAUTO"
+        "MANAPPURAM" => "NSE:BANKNIFTY"
+        "MARICO" => "NSE:CNXFMCG"
+        "MARUTI" => "NSE:CNXAUTO"
+        "MAZDOCK" => "NSE:CNXINFRA"
+        "MCX" => "NSE:BANKNIFTY"
+        "METROPOLIS" => "NSE:CNXPHARMA"
+        "MFSL" => "NSE:BANKNIFTY"
+        "MGL" => "NSE:CNXINFRA"
+        "MOTHERSON" => "NSE:CNXAUTO"
+        "MPHASIS" => "NSE:CNXIT"
+        "MRF" => "NSE:CNXAUTO"
+        "MUTHOOTFIN" => "NSE:BANKNIFTY"
+        "NATCOPHARM" => "NSE:CNXPHARMA"
+        "NATIONALUM" => "NSE:CNXMETAL"
+        "NAUKRI" => "NSE:CNXMEDIA"
+        "NAVINFLUOR" => "NSE:CNXMETAL"
+        "NBCC" => "NSE:CNXINFRA"
+        "NESTLEIND" => "NSE:CNXFMCG"
+        "NHPC" => "NSE:CNXINFRA"
+        "NMDC" => "NSE:CNXMETAL"
+        "NTPC" => "NSE:CNXINFRA"
+        "OBEROIRLTY" => "NSE:CNXREALTY"
+        "OFSS" => "NSE:CNXIT"
+        "OIL" => "NSE:CNXENERGY"
+        "ONGC" => "NSE:CNXENERGY"
+        "PAGEIND" => "NSE:CNXAUTO"
+        "PERSISTENT" => "NSE:CNXIT"
+        "PETRONET" => "NSE:CNXENERGY"
+        "PFC" => "NSE:BANKNIFTY"
+        "PHOENIXLTD" => "NSE:CNXREALTY"
+        "PIDILITIND" => "NSE:CNXMETAL"
+        "PIIND" => "NSE:CNXMETAL"
+        "PNB" => "NSE:BANKNIFTY"
+        "POLYCAB" => "NSE:CNXINFRA"
+        "POONAWALLA" => "NSE:BANKNIFTY"
+        "POWERGRID" => "NSE:CNXINFRA"
+        "PRESTIGE" => "NSE:CNXREALTY"
+        "RAMCOCEM" => "NSE:CNXMETAL"
+        "RBLBANK" => "NSE:BANKNIFTY"
+        "RECLTD" => "NSE:BANKNIFTY"
+        "RELIANCE" => "NSE:CNXINFRA"
+        "RVNL" => "NSE:CNXINFRA"
+        "SAIL" => "NSE:CNXMETAL"
+        "SBICARD" => "NSE:BANKNIFTY"
+        "SBILIFE" => "NSE:BANKNIFTY"
+        "SBIN" => "NSE:BANKNIFTY"
+        "SHREECEM" => "NSE:CNXMETAL"
+        "SHRIRAMFIN" => "NSE:BANKNIFTY"
+        "SIEMENS" => "NSE:CNXINFRA"
+        "SOLARINDS" => "NSE:CNXMETAL"
+        "SRF" => "NSE:CNXINFRA"
+        "SUNPHARMA" => "NSE:CNXPHARMA"
+        "SYNGENE" => "NSE:CNXPHARMA"
+        "TATACOMM" => "NSE:CNXMEDIA"
+        "TATACONSUM" => "NSE:CNXFMCG"
+        "TATAELXSI" => "NSE:CNXIT"
+        "TATAMOTORS" => "NSE:CNXAUTO"
+        "TATAPOWER" => "NSE:CNXINFRA"
+        "TATASTEEL" => "NSE:CNXMETAL"
+        "TCS" => "NSE:CNXIT"
+        "TECHM" => "NSE:CNXIT"
+        "TITAGARH" => "NSE:CNXINFRA"
+        "TITAN" => "NSE:CNXCONSUMPTION"
+        "TORNTPHARM" => "NSE:CNXPHARMA"
+        "TORNTPOWER" => "NSE:CNXINFRA"
+        "TRENT" => "NSE:CNXAUTO"
+        "TVSMOTOR" => "NSE:CNXAUTO"
+        "UBL" => "NSE:CNXFMCG"
+        "ULTRACEMCO" => "NSE:CNXMETAL"
+        "UNITDSPR" => "NSE:CNXFMCG"
+        "UPL" => "NSE:CNXMETAL"
+        "VBL" => "NSE:CNXFMCG"
+        "VEDL" => "NSE:CNXMETAL"
+        "VOLTAS" => "NSE:CNXAUTO"
+        "WHIRLPOOL" => "NSE:CNXAUTO"
+        "WIPRO" => "NSE:CNXIT"
+        "YESBANK" => "NSE:BANKNIFTY"
+        "ZEEL" => "NSE:CNXMEDIA"
+        "ZYDUSLIFE" => "NSE:CNXPHARMA"
+        => ""
+    s
+// <DB_LOOKUP_END>
+
+// HYBRID SECTOR LOOKUP
+f_get_hybrid_sector() =>
+    string t = ""
+    string n = ""
+    
+    // Check against Manual Slots
+    if f_match(p1_tick)
+        t := p1_sec
+        n := str.replace_all(p1_sec, "NSE:", "")
+    else if f_match(p2_tick)
+        t := p2_sec
+        n := str.replace_all(p2_sec, "NSE:", "")
+    else if f_match(p3_tick)
+        t := p3_sec
+        n := str.replace_all(p3_sec, "NSE:", "")
+    else if f_match(p4_tick)
+        t := p4_sec
+        n := str.replace_all(p4_sec, "NSE:", "")
+    else if f_match(p5_tick)
+        t := p5_sec
+        n := str.replace_all(p5_sec, "NSE:", "")
+    else if f_match(p6_tick)
+        t := p6_sec
+        n := str.replace_all(p6_sec, "NSE:", "")
+    else if f_match(p7_tick)
+        t := p7_sec
+        n := str.replace_all(p7_sec, "NSE:", "")
+    else if f_match(p8_tick)
+        t := p8_sec
+        n := str.replace_all(p8_sec, "NSE:", "")
+    else if f_match(p9_tick)
+        t := p9_sec
+        n := str.replace_all(p9_sec, "NSE:", "")
+    else if f_match(p10_tick)
+        t := p10_sec
+        n := str.replace_all(p10_sec, "NSE:", "")
+    else if f_match(p11_tick)
+        t := p11_sec
+        n := str.replace_all(p11_sec, "NSE:", "")
+    else if f_match(p12_tick)
+        t := p12_sec
+        n := str.replace_all(p12_sec, "NSE:", "")
+    else if f_match(p13_tick)
+        t := p13_sec
+        n := str.replace_all(p13_sec, "NSE:", "")
+    else if f_match(p14_tick)
+        t := p14_sec
+        n := str.replace_all(p14_sec, "NSE:", "")
+    else if f_match(p15_tick)
+        t := p15_sec
+        n := str.replace_all(p15_sec, "NSE:", "")
+    else if f_match(p16_tick)
+        t := p16_sec
+        n := str.replace_all(p16_sec, "NSE:", "")
+    else if f_match(p17_tick)
+        t := p17_sec
+        n := str.replace_all(p17_sec, "NSE:", "")
+    else if f_match(p18_tick)
+        t := p18_sec
+        n := str.replace_all(p18_sec, "NSE:", "")
+    else if f_match(p19_tick)
+        t := p19_sec
+        n := str.replace_all(p19_sec, "NSE:", "")
+    else if f_match(p20_tick)
+        t := p20_sec
+        n := str.replace_all(p20_sec, "NSE:", "")
+    else if f_match(p21_tick)
+        t := p21_sec
+        n := str.replace_all(p21_sec, "NSE:", "")
+    else if f_match(p22_tick)
+        t := p22_sec
+        n := str.replace_all(p22_sec, "NSE:", "")
+    else if f_match(p23_tick)
+        t := p23_sec
+        n := str.replace_all(p23_sec, "NSE:", "")
+    else if f_match(p24_tick)
+        t := p24_sec
+        n := str.replace_all(p24_sec, "NSE:", "")
+    else if f_match(p25_tick)
+        t := p25_sec
+        n := str.replace_all(p25_sec, "NSE:", "")
+    
+    // Fallback to Auto if no match
+    if t == ""
+        
+        // 1. Try External DB Lookup first (Highest Accuracy)
+        string dbSec = f_db_sector_lookup(str.replace_all(str.upper(syminfo.ticker), "NSE:", ""))
+        if dbSec != ""
+            t := dbSec
+            n := str.replace_all(t, "NSE:", "")
+        else 
+            // 2. Try Generic Auto-Mapper (Keyword based)
+            [at, an] = f_get_sector_ticker()
+            t := at
+            n := an
+        
+    [t, n]
+// Slope > 0.02 = Leading (Stage 2)
+// Slope < -0.02 = Lagging (Stage 4)
+// Slope ~ 0 = Stabilizing (Stage 1) or Weakening (Stage 3) depending on context
+f_rsStateStr(float s, float v, float thresh) => 
+    string st = "Improving"
+    if s > thresh
+        st := "Leading"
+    else if s < -thresh
+        st := "Lagging"
+    else
+        // Flat Slope: Context needed, but default return:
+        if v > 0
+            st := "Weakening" // Flat but positive value usually Stage 3 top
+        else
+            st := "Improving" // Flat and negative usually Stage 1 base
+    string slopeDir = "Flat"
+    if s > 0.001
+        slopeDir := "Rising"
+    else if s < -0.001
+        slopeDir := "Falling"
+        
+    st := st + " (" + slopeDir + ")"
+    st
+
+f_calc_rs_logic(int rsl, int slen) =>
+    rp = close 
+    rpSMA = ta.sma(rp, rsl)
+    mrs = ((rp / rpSMA) - 1) * 10
+    slope = ta.linreg(mrs, slen, 0) - ta.linreg(mrs, slen, 1)
+    [slope, mrs]
+
+f_weeklyHealth(float riseThresh) =>
+    float volAvgW = ta.sma(volume, 20)
+    float atrW = ta.atr(14)
+    int phIndex = -1
+    float highestP = 0.0
+    for i = 1 to 10
+        if high[i] > highestP
+            highestP := high[i]
+            phIndex := i
+    string hStr = "N/A"
+    color hCol = color.gray
+    if phIndex > 0
+        int badBars = 0
+        for j = 0 to phIndex - 1
+            bool isDown = close[j] < open[j]
+            bool highVol = volume[j] > volAvgW[j] * 1.2
+            bool wideRange = (high[j]-low[j]) > (atrW[j] * 1.5)
+            if isDown and (highVol or (wideRange and close[j] < low[j] + (high[j]-low[j])*0.25))
+                badBars += 1
+        if badBars == 0
+            hStr := "HEALTHY (Low Vol)"
+            hCol := color.green
+        else if badBars <= 1
+            hStr := "NORMAL"
+            hCol := color.blue
+        else
+            hStr := "WEAK (Selling)"
+            hCol := color.orange
+    [hStr, hCol]
+
+f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
+    float wCl = close
+    float wMA = ta.sma(close, maLen)
+    float slopeVal = ta.linreg(wMA, slopeLen, 0) - ta.linreg(wMA, slopeLen, 1)
+    float dynThresh = wMA * thresh
+    
+    // Default
+    string s = "TRANSITION"
+    
+    // Logic Matrix matching your Document:
+    bool isRising = slopeVal > dynThresh
+    bool isFalling = slopeVal < -dynThresh
+    bool isFlat = not isRising and not isFalling
+    bool isAbove = wCl > wMA
+    
+    if isRising
+        if isAbove
+            s := "STAGE 2 (UP)"
+        else
+            s := "STAGE 2 (PULLBACK)"
+    else if isFalling
+        s := "STAGE 4 (DOWN)"
+    else // Flat Slope
+        if isAbove
+            s := "STAGE 1 (BASE)" 
+        else
+            s := "STAGE 3 (TOP)"
+            
+    var string lastS = ""
+    var int startTime = 0
+    if bar_index == 0
+        lastS := s
+        startTime := time
+    if s != lastS
+        startTime := time
+        lastS := s
+    [s, startTime, slopeVal, wMA]
+
+
+
+f_trackATH() =>
+    var float h = high
+    h := math.max(h, high)
+    h
+
+f_getStrictTrend(float h, float l, int left, int right) =>
+    var int trend = 0
+    ph = ta.pivothigh(h, left, right)
+    pl = ta.pivotlow(l, left, right)
+    var float lockedHigh = na
+    var float lockedLow  = na
+    if not na(ph)
+        lockedHigh := ph
+    if not na(pl)
+        lockedLow := pl
+    if not na(lockedHigh) and close > lockedHigh
+        trend := 1
+    else if not na(lockedLow) and close < lockedLow
+        trend := -1
+    [trend, lockedHigh, lockedLow]
+
+f_trendText(int t) => t == 1 ? "UP" : (t == -1 ? "DOWN" : "SIDEWAYS")
+f_trendColor(int t) => t == 1 ? color.green : (t == -1 ? color.red : color.orange)
+
+f_countOverheadResist(float currentPrice) =>
+    var float[] pivotStack = array.new_float(0)
+    wPh = ta.pivothigh(high, 5, 5)
+    if not na(wPh)
+        array.unshift(pivotStack, wPh)
+        if array.size(pivotStack) > 50
+            array.pop(pivotStack)
+    int count = 0
+    if array.size(pivotStack) > 0
+        for i = 0 to array.size(pivotStack) - 1
+            if array.get(pivotStack, i) > currentPrice
+                count += 1
+    count
+
+
+
+f_calc_adx_bool() =>
+    [dp, dm, adx] = ta.dmi(14, 14)
+    adx > 25 and dp > dm
+
+f_get_screener_data(string t) =>
+    // GUARD: Bulletproof Check
+    // 1. Trim whitespace (handles " " inputs)
+    // 2. Check for empty or too short strings
+    string cln = str.trim(t)
+    bool good = str.length(cln) > 1
+    
+    // Customize: Use empty string fallback to keep 'request.security' unconditional (Satisfies Compiler)
+    // 'ignore_invalid_symbol=true' ensures this returns NAs instantly without error or heavy calc
+    string reqT = good ? cln : ""
+    [c, c1, e, e1, r, v, va, adx_ok] = request.security(reqT, "D", [close, close[1], ta.ema(close, 20), ta.ema(close, 20)[1], ta.rsi(close, 14), volume, ta.sma(volume, 20), f_calc_adx_bool()], ignore_invalid_symbol=true)
+    
+    [c, c1, e, e1, r, v, va, adx_ok]
+
+f_rsi_div(float src, int len, int left, int right) =>
+    float rsiVal = ta.rsi(src, len)
+    ph = ta.pivothigh(high, left, right)
+    pl = ta.pivotlow(low, left, right)
+    rsiPh = ta.pivothigh(rsiVal, left, right)
+    rsiPl = ta.pivotlow(rsiVal, left, right)
+    string div = "None"
+    var float lastPP_H = na 
+    var float lastRP_H = na 
+    var float lastPP_L = na 
+    var float lastRP_L = na 
+    if not na(ph)
+        if not na(lastPP_H) and ph > lastPP_H and not na(rsiPh) and rsiPh < lastRP_H
+            div := "BEARISH DIV"
+        lastPP_H := ph
+        lastRP_H := not na(rsiPh) ? rsiPh : lastRP_H
+    if not na(pl)
+        if not na(lastPP_L) and pl < lastPP_L and not na(rsiPl) and rsiPl > lastRP_L
+            div := "BULLISH DIV"
+        lastPP_L := pl
+        lastRP_L := not na(rsiPl) ? rsiPl : lastRP_L
+    [rsiVal, div]
+
+// ==========================================
+// 5. MAIN CALCULATIONS (OPTIMIZED)
+// ==========================================
+
+// Global Indicators
+var float g_atr5 = 0.0
+var float g_atr20 = 0.0
+g_atr5 := ta.atr(5)
+g_atr20 := ta.atr(20)
+
+// 1. WEEKLY SUPER BUNDLE (Includes Stage Logic Check)
+[_stageID_val, _stageStart_val, _wSlopeVal, _wMAVal] = request.security(syminfo.tickerid, "W", f_getStageAndTime(maLengthW, wmaSlopeLen, slopeThresh), ignore_invalid_symbol=true)
+
+stageID := _stageID_val
+wMA30 := _wMAVal
+wMA40 := request.security(syminfo.tickerid, "W", ta.sma(close, 40), ignore_invalid_symbol=true)
+wClose := request.security(syminfo.tickerid, "W", close, ignore_invalid_symbol=true)
+
+bool panicExit = close < wMA40
+
+// Set Weekly Slope State Text
+wMASlopeState := "FLAT"
+if _wSlopeVal > (wMA30 * slopeThresh)
+    wMASlopeState := "RISING"
+else if _wSlopeVal < -(wMA30 * slopeThresh)
+    wMASlopeState := "FALLING"
+
+int msPerWeek = 604800000
+int timeDiff = timenow - _stageStart_val
+if timeDiff < 0 
+    timeDiff := 0
+int stageWeeks = math.ceil(timeDiff / msPerWeek)
+if stageWeeks < 1 
+    stageWeeks := 1
+
+// 3. WEEKLY HEALTH PIVOT (1 Call)
+// Replaced simple pivot check with Advanced f_weeklyHealth
+[wh_str, wh_col] = request.security(syminfo.tickerid, "W", f_weeklyHealth(0.0), ignore_invalid_symbol=true)
+wkHealthStr := wh_str
+wkHealthCol := wh_col
+
+// 4. DAILY SUPER BUNDLE
+[d_c, d_h, d_l, d_o, d_v, d_vavg, d_sma50, d_sma150, d_sma200, d_slope50, d_ema20val, d_atr14, d_atr10, d_atr40, d_h20, d_l20, d_h52, d_hATH, d_rsiVal, d_h_fib, d_l_fib, d_adx_ok] = request.security(syminfo.tickerid, "D", 
+     [close, high, low, open, volume, ta.sma(volume, 20),
+      ta.sma(close, dma50_len), ta.sma(close, dma150_len), ta.sma(close, dma200_len),
+      f_calc_slope_val(ta.sma(close, dma50_len), dmaSlopeLen),
+      ta.ema(close, 20),
+      ta.atr(14), ta.atr(10), ta.atr(40),
+      ta.highest(high, 20), ta.lowest(low, 20),
+      ta.highest(high, 252), ta.highest(high, 1250),
+      ta.rsi(close, 14),
+      ta.highest(high, fibLookback), ta.lowest(low, fibLookback), f_calc_adx_bool()], ignore_invalid_symbol=true)
+
+dClose := d_c
+dHigh := d_h
+dLow := d_l
+dMA50 := d_sma50
+dMA200 := d_sma200
+dailyRsi := d_rsiVal 
+d_atr10_val := d_atr10
+d_atr40_val := d_atr40
+d_ema20_val := d_ema20val
+d_vol := d_v
+d_vol_avg := d_vavg
+atrVal := d_atr14
+
+// 5. RS BUNDLES (3 Calls) - CALCULATING RS STATE EARLY FOR USE IN STAGE LOGIC
+// Auto-detect Sector (Overrides manual input if needed, or we can use manual as fallback)
+// We will use the AUTO scanner as primary
+var string autoSectorTick = ""
+var string autoSectorName = ""
+if barstate.isfirst
+    [t, n] = f_get_hybrid_sector()
+    autoSectorTick := t
+    autoSectorName := n
+
+// string autoSectorTick = bench500
+// string autoSectorName = "DEBUG (Hybrid Disabled)"
+
+[_slope50, _val50] = request.security(syminfo.tickerid, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true) 
+[_slope500, _val500] = request.security(syminfo.tickerid, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+[_slopeSec, _valSec] = request.security(syminfo.tickerid, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+
+// Fallback to Nifty 500 if no sector found
+if autoSectorTick == ""
+    autoSectorTick := bench500
+    autoSectorName := "Nifty 500 (Default)"
+
+// Safety Checks for Spreads
+bool valid_b50 = str.length(bench50) > 1
+bool valid_b500 = str.length(bench500) > 1
+bool valid_sec = str.length(autoSectorTick) > 1
+
+// Unconditional Security Calls (Compiler Warning Fix)
+string req50 = valid_b50 ? (cleanTicker + " / " + bench50) : ""
+[_s50, _v50] = request.security(req50, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+_slope50 := na(_s50) ? 0.0 : _s50
+_val50   := na(_v50) ? 0.0 : _v50
+
+string req500 = valid_b500 ? (cleanTicker + " / " + bench500) : ""
+[_s500, _v500] = request.security(req500, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+_slope500 := na(_s500) ? 0.0 : _s500
+_val500   := na(_v500) ? 0.0 : _v500
+
+string reqSec = valid_sec ? (cleanTicker + " / " + autoSectorTick) : ""
+[_sSec, _vSec] = request.security(reqSec, "W", f_calc_rs_logic(rsLength, rsSlopeLen), ignore_invalid_symbol=true)
+_slopeSec := na(_sSec) ? 0.0 : _sSec
+_valSec   := na(_vSec) ? 0.0 : _vSec
+
+slope50 := _slope50
+val50 := _val50
+slope500 := _slope500
+val500 := _val500
+slopeSec := _slopeSec
+valSec := _valSec
+
+// Use Revised Naming: Leading / Stabilizing / Weakening / Lagging
+rs50State  := f_rsStateStr(slope50, val50, 0.02)
+rs500State := f_rsStateStr(slope500, val500, 0.02)
+rsSecState := f_rsStateStr(slopeSec, valSec, 0.02)
+
+// ==========================================
+// 5.5 REFINED MARKET STRUCTURE (ACTIONABLE CONTEXT)
+// ==========================================
+// Focus: Describes the "Character" of the trend, not just the Definition.
+
+bool d_bullish_200 = dClose > dMA200
+bool rs_is_leading = rs50State == "Leading"
+
+// Base Logic from Weekly Stage Calc
+if stageID == "STAGE 2 (UP)"
+    if d_bullish_200
+        if rs_is_leading
+            stageDisplay := "🚀 STAGE 2 (Full Confluence)" // Price, MA, and RS all Green
+            stageCol := color.lime
+        else
+            stageDisplay := "⚠️ STAGE 2 (Weak Leadership)" // Price Up, but RS Lagging
+            stageCol := color.orange
+    else
+        stageDisplay := "⚓ STAGE 2 (Value Zone)" // Weekly Up, Daily Cheap (Below 200)
+        stageCol := color.aqua 
+else if stageID == "STAGE 2 (PULLBACK)"
+    stageDisplay := "⚓ STAGE 2 (Dip Opportunity)" // Rising MA, price dipped slightly
+    stageCol := color.aqua
+else if stageID == "STAGE 1 (BASE)"
+    if d_bullish_200
+        stageDisplay := "👀 STAGE 1 (Constructive)" // Base is maturing, reclaimed 200SMA
+        stageCol := color.yellow
+    else
+        stageDisplay := "😴 STAGE 1 (Dormant)" // Below 200SMA, snoozing
+        stageCol := color.gray
+else if stageID == "STAGE 3 (TOP)"
+    stageDisplay := "🛑 STAGE 3 (Volatile Churn)" // High Volatility, No Progress
+    stageCol := color.orange
+else if stageID == "STAGE 4 (DOWN)"
+    stageDisplay := "🔻 STAGE 4 (Liquidate)" // Clear Downtrend
+    stageCol := color.red
+else
+    stageDisplay := stageID // Fallback
+    stageCol := color.gray
+
+stageDisplay := stageDisplay + " (" + str.tostring(stageWeeks) + "w)"
+
+
+// 6. TREND BUNDLES (2 Calls)
+[_t_dTrendDir, _t_dLockH, _t_dLockL] = request.security(syminfo.tickerid, "D", f_getStrictTrend(high, low, pivotLeft, pivotRight), ignore_invalid_symbol=true)
+dTrendDir := _t_dTrendDir
+dLockH := _t_dLockH
+dLockL := _t_dLockL
+
+[_t_wTrendDir, _t_wLockH, _t_wLockL] = request.security(syminfo.tickerid, "W", f_getStrictTrend(high, low, 5, 5), ignore_invalid_symbol=true)
+wTrendDir := _t_wTrendDir
+
+_resistCount = request.security(syminfo.tickerid, "W", f_countOverheadResist(close), ignore_invalid_symbol=true)
+resistCount := _resistCount
+
+// 7. BENCHMARK BUNDLE (1 Call)
+// Guard against empty bench500
+if str.length(bench500) > 1
+    [_b_c, _b_50, _b_200] = request.security(bench500, "D", [close, ta.sma(close, 50), ta.sma(close, 200)], ignore_invalid_symbol=true)
+    if _b_c > _b_50 and _b_50 > _b_200
+        mktState := "BULLISH (Confirmed)"
+        mktColor := color.lime
+    else if _b_c < _b_50 and _b_50 > _b_200 and _b_c > _b_200
+        mktState := "CORRECTION (In Uptrend)"
+        mktColor := color.yellow 
+    else if _b_c > _b_50 and _b_50 < _b_200
+        mktState := "RECOVERY (Weak)"
+        mktColor := color.blue
+    else
+        mktState := "BEARISH"
+        mktColor := color.red
+else
+    mktState := "N/A (No Bench)"
+    mktColor := color.gray
+
+// --- LOCAL LOGIC (ZERO CALLS) ---
+
+d50SlopeState := "FLAT"
+if d_slope50 > (d_sma50 * flatThresh)
+    d50SlopeState := "RISING"
+else if d_slope50 < -(d_sma50 * flatThresh)
+    d50SlopeState := "FALLING"
+
+bool dSmaAligned = (d_sma50 > d_sma150) and (d_sma150 > d_sma200)
+
+// S/R Proximity
+float distToRes = math.abs(close - d_h20) / close * 100
+float distToSup = math.abs(close - d_l20) / close * 100
+
+if distToRes < 2.0
+    srState := "⚠️ NEAR RESISTANCE"
+    srColor := color.orange
+else if distToSup < 2.0
+    srState := "✅ NEAR SUPPORT"
+    srColor := color.green
+else
+    srState := "MID-RANGE"
+    srColor := color.gray
+
+// Price Action
+if not na(dLockH) 
+    if close > dLockH
+        isBreakout := true
+        paState := "BREAKOUT (Impulsive)"
+        paColor := color.lime
+    else if close < dLockH and close > (dLockH * 0.95)
+        paState := "CONSOLIDATION (Tight)"
+        paColor := color.blue
+    else if close > open and (close - low) > (high - close) * 3
+        paState := "POWER PLAY (Strong Close)"
+        paColor := color.green
+    else if close < open and (high - close) > (close - low) * 3
+        paState := "SELLING TAIL (Rejection)"
+        paColor := color.orange
+    else if (high - low) < (atrVal * 0.5)
+        paState := "NR7 (Coiling)"
+        paColor := color.yellow
+    else
+        paState := "NORMAL"
+        paColor := color.gray
+
+// --- POWER PLAY (High Tight Flag) ---
+// Logic: Stock > 100% in 8 weeks, consolidates < 3 weeks, tight price action
+float low8w = ta.lowest(low, 40)
+bool bigMove = (close - low8w) / low8w > 1.0 // 100% move
+bool consolidation = (ta.highest(high, 15) - ta.lowest(low, 15)) / ta.lowest(low, 15) < 0.20 // 20% range
+bool htf = bigMove and consolidation and dClose > dMA50
+if htf
+    paState := "★ POWER PLAY (HTF)"
+    paColor := color.fuchsia
+
+// Volume
+float curRelVol = d_v / d_vavg
+string curVolStr = str.tostring(curRelVol, "#.1") + "x"
+volState := "NORMAL (" + curVolStr + ")"
+if curRelVol > 1.5
+    if d_c > d_c[1]
+        volState := "ACCUMULATION (" + curVolStr + ")"
+        volColor := color.green
+    else
+        volState := "DISTRIBUTION (" + curVolStr + ")"
+        volColor := color.red
+else if curRelVol < 0.7
+    volState := "DRY UP (" + curVolStr + ")"
+    volColor := color.yellow
+
+// Volatility
+bool isContraction = d_atr10_val < (d_atr40_val * 0.75) 
+bool isExpansion = d_atr10_val > (d_atr40_val * 1.25)
+patStr := "Normal Volatility"
+if isContraction
+    patStr := "VCP (Contraction)"
+else if isExpansion
+    patStr := "Vol Expansion"
+
+// Highs
+// Highs (Space to Run)
+float distTo52 = ((close - d_h52) / d_h52) * 100
+float distToATH = ((close - d_hATH) / d_hATH) * 100
+// If below high, show distance TO it (Positive Space). If above, show deviation FROM it.
+dev52 := distTo52 < 0 ? math.abs(distTo52) : distTo52
+devATH := distToATH < 0 ? math.abs(distToATH) : distToATH
+// Format strings for display
+string s_dev52 = (distTo52 < 0 ? "Run: " : "Abv: ") + str.tostring(math.abs(distTo52), "#.1") + "%"
+string s_devATH = (distToATH < 0 ? "Run: " : "Abv: ") + str.tostring(math.abs(distToATH), "#.1") + "%"
+
+// EMA Logic
+d_ema20 := d_ema20val
+isIntra := timeframe.isintraday
+use_ema20 := isIntra ? d_ema20 : ta.ema(close, 20)
+ema_lbl := isIntra ? "Price vs EMA20 (Daily)" : "Price vs EMA20 (Chart)"
+
+if not na(use_ema20)
+    emaDist := (close - use_ema20) / close * 100
+    absDist := math.abs(emaDist)
+    if high > use_ema20 and close < use_ema20
+        emaState := "RESISTANCE (Hit Head)"
+        emaColor := color.red
+    else if low < use_ema20 and close > use_ema20
+        emaState := "SUPPORT (Bounced)"
+        emaColor := color.green
+    else if absDist < 1.0
+        emaState := "NEAR (" + str.tostring(emaDist, "#.1") + "%)"
+        emaColor := color.blue
+    else if close > use_ema20
+        emaState := "PRICE ABOVE" 
+        emaColor := color.green
+    else
+        emaState := "PRICE BELOW"
+        emaColor := color.red
+
+// Earnings
+earningsNext = earnings.future_time 
+if not na(earningsNext)
+    earnStr := str.format_time(earningsNext, "dd-MMM")
+    float msPerDay = 1000 * 60 * 60 * 24
+    float daysToEarn = (earningsNext - timenow) / msPerDay
+    if daysToEarn > 0 and daysToEarn <= 5
+        earnStr := "⚠️ " + earnStr + " (<5 Days!)"
+        earnColor := color.red
+    else
+        earnColor := color.gray
+
+[_currRsi, _currRsiDiv] = f_rsi_div(close, 14, 5, 5)
+currRsi := _currRsi
+currRsiDiv := _currRsiDiv
+
+bool isSqueeze = g_atr5 < (g_atr20 * 0.60)
+if isSqueeze
+    volState := "VOLATILITY SQUEEZE (Ready)"
+    volColor := color.blue
+
+// Score
+score := 0
+if stageID == "STAGE 2 (UP)"
+    score += 30
+else if stageID == "STAGE 1 (BASE)"
+    score += 10
+if rs50State == "Leading"
+    score += 20
+if d50SlopeState == "RISING" and dSmaAligned
+    score += 20
+else if d50SlopeState == "RISING"
+    score += 10
+if str.contains(volState, "ACCUM") or isSqueeze
+    score += 15
+if dailyRsi > 50 and dailyRsi < 70
+    score += 5
+float distToDailyEma = math.abs((close - d_ema20_val) / close * 100)
+if distToDailyEma < 2.0 
+    score += 15 
+
+if score >= 80
+    grade := "A+ (Excellent)"
+    gradeCol := color.lime
+else if score >= 60
+    grade := "B (Good)"
+    gradeCol := color.yellow
+else
+    grade := "C (Weak)"
+    gradeCol := color.orange
+    grade := "C (Weak)"
+    gradeCol := color.orange
+scoreStr := str.tostring(score) + "/100 [" + grade + "]"
+
+// Use New Naming
+string assetQuality = scoreStr
+
+// RECOMMENDATION
+recText := "WAIT / NEUTRAL"
+recColor := color.gray
+
+bool isStage2 = (stageID == "STAGE 2 (UP)")
+bool isUptrend = (dTrendDir == 1)
+bool isRsStrong = str.contains(rs50State, "Leading") or (str.contains(rs50State, "Rising") and not str.contains(rs50State, "Falling"))
+
+if isStage2 and isUptrend and isRsStrong
+    if str.contains(mktState, "BEARISH")
+        recText := "WAIT (Mkt Bearish)"
+        recColor := color.orange
+    else
+        recText := "STRONG BUY (Momentum)"
+        recColor := color.lime
+else if isStage2 and isUptrend
+    if str.contains(mktState, "BEARISH")
+        recText := "WAIT (Mkt Bearish)"
+        recColor := color.orange
+    else
+        recText := "BUY (Check RS)"
+        recColor := color.green
+else if isStage2 and dTrendDir == 0
+    recText := "HOLD (Consolidation)"
+    recColor := color.blue
+else if stageID == "STAGE 1 (BASE)"
+    recText := "WATCHLIST (Base Building)"
+    recColor := color.yellow
+else if stageID == "STAGE 4 (DOWN)"
+    recText := "AVOID (Stage 4)"
+    recColor := color.red
+else if currRsiDiv == "BEARISH DIV"
+    recText := "CAUTION (Divergence)"
+    recColor := color.orange
+else if dTrendDir == -1
+    recText := "NO TRADE (Downtrend)"
+    recColor := color.red
+
+
+// Logic for New Signal Detection
+bool signalStrongBuy = (stageID == "STAGE 2 (UP)" and dTrendDir == 1 and str.contains(rs50State, "Leading"))
+bool signalBuy       = (stageID == "STAGE 2 (UP)" and dTrendDir == 1)
+
+newStrongBuy := signalStrongBuy and not signalStrongBuy[1]
+newBuy       := signalBuy and not signalBuy[1] and not signalStrongBuy // Avoid double labeling
+bool newBreakout  = isBreakout and not isBreakout[1]
+
+// Pullback Logic (Restored)
+// Extracting highest/lowest to global scope for consistency
+float h20 = ta.highest(high, 20)
+float l20 = ta.lowest(low, 20)
+float hFib = ta.highest(high, fibLookback)
+float lFib = ta.lowest(low, fibLookback)
+
+bool hitPullback = false
+if (d_l_fib > 0)
+    // d_l_fib is serving as our generic 'level' holder in this scope, or we use Smart Fib
+    // Let's use the 'smart_fib' calculated below if possible, but we need it here.
+    // Re-calculating simple Pullback Trigger based on recent High:
+    float _est_pb = h20 - ((h20 - l20) * 0.5)
+    if low <= _est_pb and high >= _est_pb
+        hitPullback := true
+
+if markFresh and (newStrongBuy or newBuy)
+    displayRec := "★ " + recText
+else
+    displayRec := recText
+
+// PLOTTING SIGNALS
+plotshape(showSignals and newStrongBuy, title="Strong Buy Signal", style=shape.labelup, location=location.belowbar, color=color.lime, textcolor=color.black, text="★", size=size.small)
+plotshape(showSignals and newBuy,       title="Buy Signal",        style=shape.labelup, location=location.belowbar, color=color.green, textcolor=color.white, text="B", size=size.tiny)
+plotshape(showSignals and newBreakout,  title="Breakout Signal",   style=shape.triangleup, location=location.belowbar, color=color.blue, size=size.tiny)
+plotshape(showSignals and hitPullback,  title="Pullback Hit",      style=shape.circle, location=location.belowbar, color=color.new(color.purple, 20), size=size.small)
+
+
+if panicExit
+    displayRec := "EXIT NOW (40WMA Break)"
+    recColor := color.red
+
+// ==========================================
+// FIX: DYNAMIC FIB LOOKBACK (21 Bars)
+// ==========================================
+float smart_fib = na
+float smart_ema_pb = na
+
+// Use user-defined 'fibLookback' (Default 21)
+if timeframe.isintraday
+    // Intraday: Daily High/Low (Fetched in Bundle)
+    smart_fib := d_h_fib - ((d_h_fib - d_l_fib) * 0.5)
+    smart_ema_pb := d_ema20val
+else
+    // Chart: High/Low of last 'fibLookback' bars
+    smart_fib := hFib - ((hFib - lFib) * 0.5)
+    smart_ema_pb := ta.ema(close, 20)
+
+pbText := "EMA20: " + str.tostring(smart_ema_pb, "#.##")
+if smart_fib > 0
+    pbText := pbText + " | Fib: " + str.tostring(smart_fib, "#.##")
+pbColor := color.blue
+
+// Define highest20 for Trade Manager
+float highest20 = h20
+
+// Trade Manager
+if quick_ent > 0
+    finalEntry := quick_ent
+    finalSL    := quick_sl
+else if f_match(p1_tick)
+    finalEntry := p1_ent
+    finalSL := p1_sl
+else if f_match(p2_tick)
+    finalEntry := p2_ent
+    finalSL := p2_sl
+else if f_match(p3_tick)
+    finalEntry := p3_ent
+    finalSL := p3_sl
+else if f_match(p4_tick)
+    finalEntry := p4_ent
+    finalSL := p4_sl
+else if f_match(p5_tick)
+    finalEntry := p5_ent
+    finalSL := p5_sl
+else if f_match(p6_tick)
+    finalEntry := p6_ent
+    finalSL := p6_sl
+else if f_match(p7_tick)
+    finalEntry := p7_ent
+    finalSL := p7_sl
+else if f_match(p8_tick)
+    finalEntry := p8_ent
+    finalSL := p8_sl
+else if f_match(p9_tick)
+    finalEntry := p9_ent
+    finalSL := p9_sl
+else if f_match(p10_tick)
+    finalEntry := p10_ent
+    finalSL := p10_sl
+else if f_match(p11_tick)
+    finalEntry := p11_ent
+    finalSL := p11_sl
+else if f_match(p12_tick)
+    finalEntry := p12_ent
+    finalSL := p12_sl
+else if f_match(p13_tick)
+    finalEntry := p13_ent
+    finalSL := p13_sl
+else if f_match(p14_tick)
+    finalEntry := p14_ent
+    finalSL := p14_sl
+else if f_match(p15_tick)
+    finalEntry := p15_ent
+    finalSL := p15_sl
+else if f_match(p16_tick)
+    finalEntry := p16_ent
+    finalSL := p16_sl
+else if f_match(p17_tick)
+    finalEntry := p17_ent
+    finalSL := p17_sl
+else if f_match(p18_tick)
+    finalEntry := p18_ent
+    finalSL := p18_sl
+else if f_match(p19_tick)
+    finalEntry := p19_ent
+    finalSL := p19_sl
+else if f_match(p20_tick)
+    finalEntry := p20_ent
+    finalSL := p20_sl
+else if f_match(p21_tick)
+    finalEntry := p21_ent
+    finalSL := p21_sl
+else if f_match(p22_tick)
+    finalEntry := p22_ent
+    finalSL := p22_sl
+else if f_match(p23_tick)
+    finalEntry := p23_ent
+    finalSL := p23_sl
+else if f_match(p24_tick)
+    finalEntry := p24_ent
+    finalSL := p24_sl
+else if f_match(p25_tick)
+    finalEntry := p25_ent
+    finalSL := p25_sl
+
+tradeActive = finalEntry > 0
+
+if tradeActive
+    // --- ADAPTIVE TSL LOGIC ---
+    float riskPerShare = finalEntry - finalSL
+    float currentProfitPerShare = close - finalEntry
+    float currentR = 0.0
+    
+    // Calculate current R-Multiple
+    if riskPerShare > 0
+        currentR := currentProfitPerShare / riskPerShare
+        rrText := "1 : " + str.tostring(math.abs(riskPerShare*2)/riskPerShare, "#.1") // Keep original RR display logic or simplfy
+    
+    // Determine Dynamic Multiplier
+    float dynamicMult = tslMult
+    
+    // 2-Stage Ratchet
+    if currentR >= tsl_r_trig2
+        dynamicMult := tslMult * tsl_ratio2 // Stage 2: Super Tight
+    else if currentR >= tsl_r_trig
+        dynamicMult := tslMult * tsl_ratio // Stage 1: Tight
+        
+    // Calculate TSL with Dynamic Multiplier
+    float _calc_tsl = highest20 - (atrVal * dynamicMult)
+    
+    // RATCHET LOGIC: Ensure TSL never drops (Standard Trailing Stop behavior)
+    // Protection: Handle NA values (early bars) to prevent poisoning the ratchet
+    if bar_index == 0 or not tradeActive[1] or na(tm_tsl)
+        tm_tsl := _calc_tsl
+    else if not na(_calc_tsl)
+        tm_tsl := math.max(tm_tsl, _calc_tsl)
+    
+    // Effective SL (Hard SL vs Trailing SL)
+    float safe_tsl = nz(tm_tsl, 0.0) // Use 0.0 if TSL is still na
+    effectiveSL := math.max(finalSL, safe_tsl)
+    // ---------------------------
+    
+    float curPnL = ((close - finalEntry) / finalEntry) * 100
+    string pnlStr = (curPnL > 0 ? "+" : "") + str.tostring(curPnL, "#.2") + "%"
+    
+    if close < effectiveSL
+        tradeStatus := "⚠️ STOP HIT (" + pnlStr + ")"
+        tradeColor := color.red
+    else if curPnL > 0
+        // SCALE IN / TRIM LOGIC
+        bool cond_add = dTrendDir == 1 and dailyRsi < 70 and close > use_ema20 and not isSqueeze // Don't add inside a squeeze, wait for pop
+        bool cond_trim = dailyRsi > 75 or absDist > 15.0 or (not na(earningsNext) and (earningsNext - timenow) / 86400000 < 3)
+        
+        if cond_trim
+            tradeStatus := "TRIM (" + pnlStr + ")"
+            tradeColor := color.fuchsia
+        else if cond_add
+            tradeStatus := "SCALE IN (" + pnlStr + ")"
+            tradeColor := color.blue
+        else
+            tradeStatus := "HOLD (" + pnlStr + ")"
+            tradeColor := color.green
+    else
+        tradeStatus := "HOLD (" + pnlStr + ")"
+        tradeColor := color.orange
+        
+    // Old line.new logic removed in favor of plot() calls at the end of script for better persistence
+
+// ==========================================
+// Gemini Prompt Logic moved to end of script
+
+// ==========================================
+// NEW: PRICE ACTION CONFLUENCE (5-STAR)
+// ==========================================
+// 1. Trend: Above EMA 20
+bool c_trend = close > d_ema20_val
+// 2. Momentum: RSI > 50 (Bullish)
+bool c_mom = dailyRsi > 50
+// 3. Volume Action: 
+// Breakout -> Needs Vol Expansion (Vol > Avg)
+// Pullback -> Needs Vol Contraction (Vol < Avg)
+bool c_vol = false
+if close > open
+    c_vol := d_vol > d_vol_avg // Demand coming in
+else
+    c_vol := d_vol < d_vol_avg // Supply drying up
+
+// 4. ADX Check
+bool c_adx = d_adx_ok
+
+// 4. Volume Profile (Basic POC Estimate)
+// Using highest volume bar in last 'vpLookback' as a proxy for POC
+int poc_idx = 0
+float max_v = 0.0
+for i = 0 to vpLookback - 1
+    if volume[i] > max_v
+        max_v := volume[i]
+        poc_idx := i
+float poc_level = high[poc_idx] // Approximate Value Area High of that bar
+bool c_vp = close > poc_level
+
+// 5. Price Action: Bullish Candle
+bool c_pa = close > open
+
+int conf_score = 0
+if c_trend 
+    conf_score += 1
+if c_mom 
+    conf_score += 1
+if c_vol 
+    conf_score += 1
+if c_vp 
+    conf_score += 1
+if c_pa 
+    conf_score += 1
+if c_adx
+    conf_score += 1
+
+    conf_score += 1
+if c_adx
+    conf_score += 1
+
+string actionSignal = ""
+if conf_score == 5
+    actionSignal := "★★★★★ (Perfect)"
+else if conf_score == 4
+    actionSignal := "★★★★ (Strong)"
+else if conf_score == 3
+    actionSignal := "★★★ (Moderate)"
+else
+    actionSignal := "★ (Weak)"
+
+color conf_col = conf_score >= 4 ? color.lime : (conf_score == 3 ? color.yellow : color.gray)
+
+// ==========================================
+// WATCHLIST SCANNER (Top Picks + Alerts)
+// ==========================================
+string alert_msg = ""
+string top_picks_msg = ""
+
+// --- POSITION STYLE LOGIC (New v54.0) ---
+// Criteria for Positional (Stage 2 Hunter)
+// Must be in Stage 2 (Above 30WMA + WMA Rising) and Outperforming (RS > 0)
+// Using val50 (RS vs Nifty 50) as proxy for "rsMansfield"
+// --- SMART TRADE STYLE LOGIC (v54.1 Advanced) ---
+
+// 1. POSITIONAL (The Hunter)
+// Core: Structural Strength & Long-Term Trend
+bool pos_stage_ok = (stageID == "STAGE 2 (UP)") or (stageID == "STAGE 1 (BASE)") // Early entry allowed
+bool pos_trend_ok = close > dMA200 and wMASlopeState != "FALLING" // Must be above 200 SMA & Weekly MA not crashing
+bool pos_rs_ok    = not str.contains(rsSecState, "Lagging") // Sector shouldn't be dead
+bool is_positional = pos_stage_ok and pos_trend_ok and pos_rs_ok
+
+// 2. SWING (The Sniper)
+// Core: Momentum, Pattern & Short-Term Thrust
+bool sw_trend_ok  = close > d_ema20_val and d_ema20_val > dMA50 // Quick trend defined
+bool sw_mom_ok    = dailyRsi > 55 or str.contains(volState, "ACCUM") // RSI or Volume support
+bool sw_pat_ok    = str.contains(paState, "VCP") or str.contains(paState, "NR7") or str.contains(paState, "CONSOLIDATION") or str.contains(paState, "BREAKOUT")
+float dist_ema20  = ((close - d_ema20_val) / d_ema20_val) * 100
+bool sw_safe_ok   = dist_ema20 < 15 // Not extended
+bool is_swing     = sw_trend_ok and (sw_mom_ok or sw_pat_ok) and sw_safe_ok
+
+string style_txt = "WAIT"
+color style_col = color.gray
+
+if is_positional and is_swing
+    style_txt := "🚀 BOTH"
+    style_col := color.new(#FFD700, 0) // Gold
+else if is_positional
+    style_txt := "🦁 POSITIONAL"
+    style_col := color.new(color.blue, 0)
+else if is_swing
+    style_txt := "⚡ SWING"
+    style_col := color.new(color.fuchsia, 0)
+
+// --- STOCK PERSONALITY LOGIC (v54.3 Enhanced) ---
+string persona_txt = "⚠️ MIXED"
+color persona_col = color.gray
+
+// 1. Calculate Conditions
+// Volatility Check (ADR%)
+float adr_pct = (d_atr10_val / close) * 100
+bool is_volatile = adr_pct > 5.0
+
+// Extension Check
+float dist_ema20_pct = ((close - d_ema20_val) / d_ema20_val) * 100
+bool is_extended = (dist_ema20_pct > 20.0) or (dailyRsi > 75) // Price > 20% above EMA20 OR RSI Overbought
+
+// Leader Criteria (Prime)
+bool is_leader_cand = str.contains(rs50State, "Leading") and close > dMA200 and close > dMA50 and dev52 < 15
+
+// Momentum Criteria (Swing)
+bool is_momentum_cand = (dailyRsi > 60 or str.contains(rs50State, "Leading") or str.contains(rs50State, "Improving")) and close > d_ema20_val
+
+// Turnaround Criteria (Value)
+bool is_turnaround_cand = (str.contains(rs50State, "Improving") or str.contains(rs50State, "Weakening")) and close > dMA50 and close < dMA200
+
+// Laggard Criteria (Avoid)
+bool is_laggard_cand = str.contains(rs50State, "Lagging") or (close < dMA200 and not is_turnaround_cand)
+
+// 2. Logic (Hierarchy: Danger > Quality > Median > Bad)
+if is_volatile
+    persona_txt := "� VOLATILE"
+    persona_col := color.new(color.red, 0) // Explicit Red
+else if is_extended
+    persona_txt := "⚠️ EXTENDED"
+    persona_col := color.orange
+else if is_leader_cand
+    persona_txt := "� LEADER"
+    persona_col := color.lime
+else if is_momentum_cand
+    persona_txt := "🐂 MOMENTUM"
+    persona_col := color.fuchsia
+else if is_turnaround_cand
+    persona_txt := "⚓ TURNAROUND"
+    persona_col := color.aqua
+else if is_laggard_cand
+    persona_txt := "💤 LAGGARD"
+    persona_col := color.new(color.red, 30) // Darker Red
+
+
+
+// ... (Existing Signal Logic) ...
+
+// Helper to check Confluence (4 or 5 stars)
+f_check_conf(float c, float o, float ema, float rsi, float v, float va, bool adx_ok) =>
+    int _score = 0
+    if not na(c)
+        if c > ema 
+            _score += 1
+        if rsi > 50 
+            _score += 1
+        if (c > o and v > va) or (c < o and v < va)
+            _score += 1
+        // Simplified VP check for scanner (Price > EMA is strong proxy for value)
+        if c > ema 
+            _score += 1
+        if c > o 
+            _score += 1
+        if adx_ok
+            _score += 1
+    _score >= 4 // Returns true if 4+ stars
+
+// Helper to calc health (1=profit, 2=hold, 3=stop) from raw data
+f_calc_h(float c, float e, float s) =>
+    int r = 0
+    if not na(c) and e > 0 // Only count if Entry Price is set
+        // Fix: Implied 10% Stop if SL is 0.0
+        float effective_stop = s > 0 ? s : (e * 0.90)
+        
+        if c < effective_stop
+            r := 3
+        else if c > e
+            r := 1
+        else
+            r := 2
+    r
+
+// Helper to check cross from raw data
+f_check_x(float c, float c1, float e, float e1) =>
+    bool x = false
+    if not na(c) and not na(e)
+        x := c > e and c1 <= e1
+    x
+
+// Helper to process slot
+f_process_slot(string t, float ent, float sl) =>
+    string a_msg = ""
+    string tp_msg = ""
+    int h_val = 0
+    
+    // Get Data
+    [c, cp, e, ep, r, v, va, adx_ok] = f_get_screener_data(t)
+    
+    // Health
+    h_val := f_calc_h(c, ent, sl)
+    
+    // Alert Cross
+    if f_check_x(c, cp, e, ep)
+        a_msg := t + ", "
+        
+    // Top Pick Confluence
+    if f_check_conf(c, cp, e, r, v, va, adx_ok)
+        tp_msg := str.replace(t, "NSE:", "") + " "
+        
+    [h_val, a_msg, tp_msg]
+
+
+
+// Fetch and Process
+// Fetch and Process Refactored
+[ts1, a1, t1] = f_process_slot(p1_tick, p1_ent, p1_sl)
+s1 := ts1
+alert_msg := alert_msg + a1
+top_picks_msg := top_picks_msg + t1
+
+[ts2, a2, t2] = f_process_slot(p2_tick, p2_ent, p2_sl)
+s2 := ts2
+alert_msg := alert_msg + a2
+top_picks_msg := top_picks_msg + t2
+
+[ts3, a3, t3] = f_process_slot(p3_tick, p3_ent, p3_sl)
+s3 := ts3
+alert_msg := alert_msg + a3
+top_picks_msg := top_picks_msg + t3
+
+[ts4, a4, t4] = f_process_slot(p4_tick, p4_ent, p4_sl)
+s4 := ts4
+alert_msg := alert_msg + a4
+top_picks_msg := top_picks_msg + t4
+
+[ts5, a5, t5] = f_process_slot(p5_tick, p5_ent, p5_sl)
+s5 := ts5
+alert_msg := alert_msg + a5
+top_picks_msg := top_picks_msg + t5
+
+[ts6, a6, t6] = f_process_slot(p6_tick, p6_ent, p6_sl)
+s6 := ts6
+alert_msg := alert_msg + a6
+top_picks_msg := top_picks_msg + t6
+
+[ts7, a7, t7] = f_process_slot(p7_tick, p7_ent, p7_sl)
+s7 := ts7
+alert_msg := alert_msg + a7
+top_picks_msg := top_picks_msg + t7
+
+[ts8, a8, t8] = f_process_slot(p8_tick, p8_ent, p8_sl)
+s8 := ts8
+alert_msg := alert_msg + a8
+top_picks_msg := top_picks_msg + t8
+
+[ts9, a9, t9] = f_process_slot(p9_tick, p9_ent, p9_sl)
+s9 := ts9
+alert_msg := alert_msg + a9
+top_picks_msg := top_picks_msg + t9
+
+[ts10, a10, t10] = f_process_slot(p10_tick, p10_ent, p10_sl)
+s10 := ts10
+alert_msg := alert_msg + a10
+top_picks_msg := top_picks_msg + t10
+
+[ts11, a11, t11] = f_process_slot(p11_tick, p11_ent, p11_sl)
+s11 := ts11
+alert_msg := alert_msg + a11
+top_picks_msg := top_picks_msg + t11
+
+[ts12, a12, t12] = f_process_slot(p12_tick, p12_ent, p12_sl)
+s12 := ts12
+alert_msg := alert_msg + a12
+top_picks_msg := top_picks_msg + t12
+
+[ts13, a13, t13] = f_process_slot(p13_tick, p13_ent, p13_sl)
+s13 := ts13
+alert_msg := alert_msg + a13
+top_picks_msg := top_picks_msg + t13
+
+[ts14, a14, t14] = f_process_slot(p14_tick, p14_ent, p14_sl)
+s14 := ts14
+alert_msg := alert_msg + a14
+top_picks_msg := top_picks_msg + t14
+
+[ts15, a15, t15] = f_process_slot(p15_tick, p15_ent, p15_sl)
+s15 := ts15
+alert_msg := alert_msg + a15
+top_picks_msg := top_picks_msg + t15
+
+[ts16, a16, t16] = f_process_slot(p16_tick, p16_ent, p16_sl)
+s16 := ts16
+alert_msg := alert_msg + a16
+top_picks_msg := top_picks_msg + t16
+
+[ts17, a17, t17] = f_process_slot(p17_tick, p17_ent, p17_sl)
+s17 := ts17
+alert_msg := alert_msg + a17
+top_picks_msg := top_picks_msg + t17
+
+[ts18, a18, t18] = f_process_slot(p18_tick, p18_ent, p18_sl)
+s18 := ts18
+alert_msg := alert_msg + a18
+top_picks_msg := top_picks_msg + t18
+
+[ts19, a19, t19] = f_process_slot(p19_tick, p19_ent, p19_sl)
+s19 := ts19
+alert_msg := alert_msg + a19
+top_picks_msg := top_picks_msg + t19
+
+[ts20, a20, t20] = f_process_slot(p20_tick, p20_ent, p20_sl)
+s20 := ts20
+alert_msg := alert_msg + a20
+top_picks_msg := top_picks_msg + t20
+
+[ts21, a21, t21] = f_process_slot(p21_tick, p21_ent, p21_sl)
+int s21 = ts21
+alert_msg := alert_msg + a21
+top_picks_msg := top_picks_msg + t21
+
+[ts22, a22, t22] = f_process_slot(p22_tick, p22_ent, p22_sl)
+int s22 = ts22
+alert_msg := alert_msg + a22
+top_picks_msg := top_picks_msg + t22
+
+[ts23, a23, t23] = f_process_slot(p23_tick, p23_ent, p23_sl)
+int s23 = ts23
+alert_msg := alert_msg + a23
+top_picks_msg := top_picks_msg + t23
+
+[ts24, a24, t24] = f_process_slot(p24_tick, p24_ent, p24_sl)
+int s24 = ts24
+alert_msg := alert_msg + a24
+top_picks_msg := top_picks_msg + t24
+
+[ts25, a25, t25] = f_process_slot(p25_tick, p25_ent, p25_sl)
+int s25 = ts25
+alert_msg := alert_msg + a25
+top_picks_msg := top_picks_msg + t25
+
+// Trigger the Watchlist Alert
+if alert_msg != ""
+    alert("Weinstein Watchlist Scan: EMA 20 Crossover detected on: " + alert_msg, alert.freq_once_per_bar_close)
+
+// ==========================================
+// AGGREGATE PORTFOLIO HEALTH (Unrolled)
+// ==========================================
+pf_total := 0
+pf_win := 0
+pf_loss := 0
+pf_stop := 0
+
+// Slot 1
+if s1 > 0
+    pf_total += 1
+    if s1 == 1
+        pf_win += 1
+    else if s1 == 2
+        pf_loss += 1
+    else if s1 == 3
+        pf_stop += 1
+
+// Slot 2
+if s2 > 0
+    pf_total += 1
+    if s2 == 1
+        pf_win += 1
+    else if s2 == 2
+        pf_loss += 1
+    else if s2 == 3
+        pf_stop += 1
+
+// Slot 3
+if s3 > 0
+    pf_total += 1
+    if s3 == 1
+        pf_win += 1
+    else if s3 == 2
+        pf_loss += 1
+    else if s3 == 3
+        pf_stop += 1
+
+// Slot 4
+if s4 > 0
+    pf_total += 1
+    if s4 == 1
+        pf_win += 1
+    else if s4 == 2
+        pf_loss += 1
+    else if s4 == 3
+        pf_stop += 1
+
+// Slot 5
+if s5 > 0
+    pf_total += 1
+    if s5 == 1
+        pf_win += 1
+    else if s5 == 2
+        pf_loss += 1
+    else if s5 == 3
+        pf_stop += 1
+
+// Slot 6
+if s6 > 0
+    pf_total += 1
+    if s6 == 1
+        pf_win += 1
+    else if s6 == 2
+        pf_loss += 1
+    else if s6 == 3
+        pf_stop += 1
+
+// Slot 7
+if s7 > 0
+    pf_total += 1
+    if s7 == 1
+        pf_win += 1
+    else if s7 == 2
+        pf_loss += 1
+    else if s7 == 3
+        pf_stop += 1
+
+// Slot 8
+if s8 > 0
+    pf_total += 1
+    if s8 == 1
+        pf_win += 1
+    else if s8 == 2
+        pf_loss += 1
+    else if s8 == 3
+        pf_stop += 1
+
+// Slot 9
+if s9 > 0
+    pf_total += 1
+    if s9 == 1
+        pf_win += 1
+    else if s9 == 2
+        pf_loss += 1
+    else if s9 == 3
+        pf_stop += 1
+
+// Slot 10
+if s10 > 0
+    pf_total += 1
+    if s10 == 1
+        pf_win += 1
+    else if s10 == 2
+        pf_loss += 1
+    else if s10 == 3
+        pf_stop += 1
+
+// Slot 11
+if s11 > 0
+    pf_total += 1
+    if s11 == 1
+        pf_win += 1
+    else if s11 == 2
+        pf_loss += 1
+    else if s11 == 3
+        pf_stop += 1
+
+// Slot 12
+if s12 > 0
+    pf_total += 1
+    if s12 == 1
+        pf_win += 1
+    else if s12 == 2
+        pf_loss += 1
+    else if s12 == 3
+        pf_stop += 1
+
+// Slot 13
+if s13 > 0
+    pf_total += 1
+    if s13 == 1
+        pf_win += 1
+    else if s13 == 2
+        pf_loss += 1
+    else if s13 == 3
+        pf_stop += 1
+
+// Slot 14
+if s14 > 0
+    pf_total += 1
+    if s14 == 1
+        pf_win += 1
+    else if s14 == 2
+        pf_loss += 1
+    else if s14 == 3
+        pf_stop += 1
+
+// Slot 15
+if s15 > 0
+    pf_total += 1
+    if s15 == 1
+        pf_win += 1
+    else if s15 == 2
+        pf_loss += 1
+    else if s15 == 3
+        pf_stop += 1
+
+// Slot 16
+if s16 > 0
+    pf_total += 1
+    if s16 == 1
+        pf_win += 1
+    else if s16 == 2
+        pf_loss += 1
+    else if s16 == 3
+        pf_stop += 1
+
+// Slot 17
+if s17 > 0
+    pf_total += 1
+    if s17 == 1
+        pf_win += 1
+    else if s17 == 2
+        pf_loss += 1
+    else if s17 == 3
+        pf_stop += 1
+
+// Slot 18
+if s18 > 0
+    pf_total += 1
+    if s18 == 1
+        pf_win += 1
+    else if s18 == 2
+        pf_loss += 1
+    else if s18 == 3
+        pf_stop += 1
+
+// Slot 19
+if s19 > 0
+    pf_total += 1
+    if s19 == 1
+        pf_win += 1
+    else if s19 == 2
+        pf_loss += 1
+    else if s19 == 3
+        pf_stop += 1
+
+// Slot 20
+if s20 > 0
+    pf_total += 1
+    if s20 == 1
+        pf_win += 1
+    else if s20 == 2
+        pf_loss += 1
+    else if s20 == 3
+        pf_stop += 1
+
+// Slot 21
+if s21 > 0
+    pf_total += 1
+    if s21 == 1
+        pf_win += 1
+    else if s21 == 2
+        pf_loss += 1
+    else if s21 == 3
+        pf_stop += 1
+
+// Slot 22
+if s22 > 0
+    pf_total += 1
+    if s22 == 1
+        pf_win += 1
+    else if s22 == 2
+        pf_loss += 1
+    else if s22 == 3
+        pf_stop += 1
+
+// Slot 23
+if s23 > 0
+    pf_total += 1
+    if s23 == 1
+        pf_win += 1
+    else if s23 == 2
+        pf_loss += 1
+    else if s23 == 3
+        pf_stop += 1
+
+// Slot 24
+if s24 > 0
+    pf_total += 1
+    if s24 == 1
+        pf_win += 1
+    else if s24 == 2
+        pf_loss += 1
+    else if s24 == 3
+        pf_stop += 1
+
+// Slot 25
+if s25 > 0
+    pf_total += 1
+    if s25 == 1
+        pf_win += 1
+    else if s25 == 2
+        pf_loss += 1
+    else if s25 == 3
+        pf_stop += 1
+
+pfStr := str.tostring(pf_total) + " Pos | " + str.tostring(pf_win) + " Green | " + str.tostring(pf_loss) + " Red | " + str.tostring(pf_stop) + " Stop"
+if pf_total > 0
+    if pf_win > (pf_loss + pf_stop)
+        pfCol := color.green
+    else
+        pfCol := color.orange
+
+// ==========================================
+// ALERT CONDITIONS
+// ==========================================
+alertcondition(newStrongBuy, title="★ Strong Buy Signal", message="Weinstein Pro: STRONG BUY Signal Detected on {{ticker}}!")
+alertcondition(close > use_ema20 and close[1] < use_ema20, title="EMA 20 Crossover", message="Weinstein Pro: Price Crossed Above EMA 20 on {{ticker}}.")
+alertcondition(mktState == "BEARISH", title="Market Health Alert", message="Weinstein Pro: Nifty 500 has flipped to BEARISH.")
+
+// ==========================================
+// DRAWING
+// ==========================================
+var table panel = table.new(tablePos, 2, 50, border_width=1, border_color=color.gray)
+
+drawRow(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
+    table.cell(tbl, 0, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
+    table.cell(tbl, 1, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_center)
+
+if barstate.islast
+    table.cell(panel, 0, 0, "WEINSTEIN DASHBOARD", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, 0, syminfo.ticker, bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_center)
+    
+    int startRow = 1
+    
+    if panicExit
+        drawRow(panel, startRow, "⚠️ CRITICAL ALERT", "PRICE < 40WMA", color.red, c_bg, c_text, color.white)
+        startRow += 1
+
+    // --- GROUP 1: THE VERDICT ---
+    drawRow(panel, startRow, "RECOMMENDATION", displayRec, recColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "ASSET QUALITY", assetQuality, gradeCol, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "ACTION SIGNAL", actionSignal, conf_col, c_bg, c_text, color.black)
+    startRow += 1
+    drawRow(panel, startRow, "TRADE STYLE", style_txt, style_col, c_bg, c_text, color.black)
+    startRow += 1
+    drawRow(panel, startRow, "PERSONA", persona_txt, persona_col, c_bg, c_text, color.black)
+    startRow += 1
+    
+    drawRow(panel, startRow, "PORTFOLIO HEALTH", pfStr, pfCol, c_bg, c_text, c_val_text)
+    startRow += 1
+    if tradeActive
+        drawRow(panel, startRow, "MY TRADE", tradeStatus, tradeColor, c_bg, c_text, c_val_text)
+        startRow += 1
+        if finalSL > 0
+            drawRow(panel, startRow, "Planned R:R", rrText, color.gray, c_bg, c_text, c_val_text)
+            startRow += 1
+
+    table.cell(panel, 0, startRow, "--- THE TIDE (CONTEXT) ---", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, startRow, "", bgcolor=c_bg, text_color=c_text, text_size=size.normal)
+    startRow += 1
+
+    // --- GROUP 2: THE TIDE ---
+    drawRow(panel, startRow, "1. Market Health (Nifty 500)", mktState, mktColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    string secStr = syminfo.sector + " / " + syminfo.industry
+    drawRow(panel, startRow, "2. Sector Info", secStr, color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+
+    table.cell(panel, 0, startRow, "--- THE VEHICLE (WEEKLY) ---", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, startRow, "", bgcolor=c_bg, text_color=c_text, text_size=size.normal)
+    startRow += 1
+
+    // --- GROUP 3: THE VEHICLE (WEEKLY) ---
+    drawRow(panel, startRow, "4. Market Structure", stageDisplay, stageCol, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "5. Weekly Trend", f_trendText(wTrendDir), f_trendColor(wTrendDir), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "6. 30W MA Slope", wMASlopeState, wMASlopeState == "RISING" ? color.green : (wMASlopeState == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+    startRow += 1
+    bool pAbove30 = wClose > wMA30
+    drawRow(panel, startRow, "7. Price > 30W MA", pAbove30 ? "YES" : "NO", pAbove30 ? color.green : color.red, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "8. O/H Resistance", str.tostring(resistCount) + " Level(s)", resistCount == 0 ? color.green : color.orange, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "9. Weekly Pullback Health", wkHealthStr, wkHealthCol, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    // MOVED RS FIELDS (WEEKLY)
+    drawRow(panel, startRow, "10. RS State (vs Nifty 50)", f_rrg_icon(rs50State) + " " + rs50State, f_rrg_color(rs50State), c_bg, c_text, color.black)
+    startRow += 1
+    drawRow(panel, startRow, "11. RS State (vs N500)", f_rrg_icon(rs500State) + " " + rs500State, f_rrg_color(rs500State), c_bg, c_text, color.black)
+    startRow += 1
+    drawRow(panel, startRow, "12. RS State (" + autoSectorName + ")", f_rrg_icon(rsSecState) + " " + rsSecState, f_rrg_color(rsSecState), c_bg, c_text, color.black)
+    startRow += 1
+
+    table.cell(panel, 0, startRow, "--- THE SETUP (DAILY) ---", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, startRow, "", bgcolor=c_bg, text_color=c_text, text_size=size.normal)
+    startRow += 1
+
+    // --- GROUP 4: THE SETUP (DAILY) ---
+    drawRow(panel, startRow, "13. Trend Template (50>150>200)", dSmaAligned ? "ALIGNED" : "MISALIGNED", dSmaAligned ? color.green : color.red, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    // RESTORED 50DMA FIELDS
+    bool pAbove50 = dClose > dMA50
+    drawRow(panel, startRow, "14. Price > 50 DMA", pAbove50 ? "YES" : "NO", pAbove50 ? color.green : color.red, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "15. 50 DMA Slope", d50SlopeState, d50SlopeState == "RISING" ? color.green : (d50SlopeState == "FALLING" ? color.red : color.gray), c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    drawRow(panel, startRow, "16. Daily Trend", f_trendText(dTrendDir), f_trendColor(dTrendDir), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "17. Price Action Status", paState, paColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "18. Volatility State", patStr, color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "19. Volume Trend", volState, volColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    // RESTORED RS FIELDS REMOVED FROM HERE
+
+
+    table.cell(panel, 0, startRow, "--- EXECUTION & RISK ---", bgcolor=c_bg, text_color=c_text, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, startRow, "", bgcolor=c_bg, text_color=c_text, text_size=size.normal)
+    startRow += 1
+
+    // --- GROUP 5: EXECUTION (TRIGGER) ---
+    drawRow(panel, startRow, "17. " + ema_lbl, emaState, emaColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "18. S/R Proximity", srState, srColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    string rsiStr = str.tostring(currRsi, "#.##") + " / " + currRsiDiv
+    drawRow(panel, startRow, "19. RSI & Div", rsiStr, currRsiDiv == "BULLISH DIV" ? color.green : (currRsiDiv == "BEARISH DIV" ? color.red : color.gray), c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "20. 52W High Space", s_dev52, dev52 > -15 ? color.green : color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "21. ATH Space", s_devATH, (not na(devATH) and devATH > -15) ? color.green : color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "22. Next Earnings", earnStr, earnColor, c_bg, c_text, c_val_text)
+    startRow += 1
+    drawRow(panel, startRow, "23. ATR (Daily)", str.tostring(atrVal, "#.##"), color.gray, c_bg, c_text, c_val_text)
+    startRow += 1
+    
+    // Portfolio Top Picks Removed as per user request
+
+plot(wMA30, "30W MA", color=wMASlopeState == "RISING" ? color.green : color.red, linewidth=2)
+plot(wMA40, "40W MA", color=color.black, linewidth=1)
+
+// ==========================================
+// TRADE LINES & LABELS (v20.0 Logic Ported)
+// ==========================================
+
+// Helper for Distance %
+f_dist(float lvl) =>
+    float d = ((lvl - close) / close) * 100
+    string s = (d > 0 ? "+" : "") + str.tostring(d, "#.1") + "%"
+    s
+
+// Target Logic (2R and 3R as per v20.0)
+float risk_per_share = math.abs(finalEntry - finalSL)
+float t1_val = finalEntry + (risk_per_share * 2)
+float t2_val = finalEntry + (risk_per_share * 3)
+
+// PLOTS (Continuous Lines for History)
+plot(showTrade and tradeActive ? finalEntry : na, "Entry Price", color=color.new(color.blue, 0), style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 ? finalSL : na, "Hard SL", color=color.new(color.red, 0), style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 ? t1_val : na, "Target 1 (2R)", color=color.new(color.green, 30), style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 ? t2_val : na, "Target 2 (3R)", color=color.new(color.green, 50), style=plot.style_linebr, linewidth=1)
+
+// DOTS for Trailing SL
+plot(showTrade and tradeActive and tm_tsl > finalSL ? tm_tsl : na, "Trailing SL", color=color.yellow, style=plot.style_circles, linewidth=2)
+
+// LABELS (Last Bar Only - v20.0 Style)
+if barstate.islast and showTrade and tradeActive
+    // Entry Label
+    label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(finalEntry), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
+    
+    // SL & Targets Labels with Distance
+    // SL & Targets Labels with Distance
+    if finalSL > 0
+        string slDist = showDist ? ", " + f_dist(finalSL) : ""
+        label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(finalSL) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
+        
+        string t1Dist = showDist ? ", " + f_dist(t1_val) : ""
+        label.new(bar_index + 3, t1_val, "Target 1: " + str.tostring(t1_val) + t1Dist, color=color.green, style=label.style_none, textcolor=color.green, size=size.small)
+        
+        string t2Dist = showDist ? ", " + f_dist(t2_val) : ""
+        label.new(bar_index + 3, t2_val, "Target 2: " + str.tostring(t2_val) + t2Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
+    
+    // Trailing SL Label
+    if tm_tsl > finalSL
+        string tslDist = showDist ? ", " + f_dist(tm_tsl) : ""
+        label.new(bar_index + 3, tm_tsl, "TSL: " + str.tostring(tm_tsl) + tslDist, color=color.yellow, style=label.style_none, textcolor=color.yellow, size=size.small)
+
+// ==========================================
+// 10. GEMINI PROMPT GENERATION (User Request)
+// ==========================================
+show_prompt = input.bool(false, title="Generate Gemini Context Prompt (Check Logs)", group="AI Analysis Tools", tooltip="Enable this, then check 'Pine Logs' tab to copy the text prompt for Gemini.")
+
+// Debounce logic to prevent log flooding on live bars
+varip int last_log_time = 0
+int current_time = timenow
+bool time_ok = (current_time - last_log_time) > 5000 // 5 seconds debounce
+
+if show_prompt and barstate.islast and time_ok
+    last_log_time := current_time
+    
+    // Fix: Unpack Tuple first
+    [secTicker, secName] = f_get_hybrid_sector()
+
+    // Construct the Prompt String
+    string p_str = "Role: Senior Quantitative Analyst (Weinstein & Minervini Expert).\n" +
+                 "Task: Analyze the following asset based on Stan Weinstein's Stage Analysis and Mark Minervini's VCP/SEPA principles.\n\n" +
+                 "ASSET: " + syminfo.ticker + " (" + secName + ")\n" +
+                 "Current Market Price: " + str.tostring(close) + "\n\n" +
+                 
+                 "--- 1. MARKET & SECTOR CONTEXT ---\n" +
+                 "Broad Market Health (Nifty 500): " + mktState + "\n" +
+                 "Sector Relative Strength State: " + rsSecState + "\n" +
+                 "Asset Relative Strength State (vs Nifty 500): " + rs500State + "\n\n" +
+                 
+                 "--- 2. TREND & MOMENTUM ---\n" +
+                 "Stage Structure: " + stageDisplay + "\n" +
+                 "Weekly Trend: " + (wTrendDir == 1 ? "UP" : (wTrendDir == -1 ? "DOWN" : "SIDEWAYS")) + "\n" +
+                 "Daily Trend: " + (dTrendDir == 1 ? "UP" : (dTrendDir == -1 ? "DOWN" : "SIDEWAYS")) + "\n" +
+                 "30-Week Simple Moving Average: " + str.tostring(wMA30) + " (Slope: " + wMASlopeState + ")\n" +
+                 "Price > 30-Week SMA: " + (close > wMA30 ? "YES" : "NO") + "\n" +
+                 "50-Day SMA Slope: " + d50SlopeState + "\n" +
+                 "Price > 50-Day SMA: " + (close > dMA50 ? "YES" : "NO") + "\n" +
+                 "Trend Template (50 > 150 > 200 SMA): " + (dSmaAligned ? "ALIGNED (Bullish)" : "MISALIGNED") + "\n\n" +
+                 
+                 "--- 3. PRICE ACTION & KEY LEVELS ---\n" +
+                 "Price vs EMA 20 (Chart): " + emaState + "\n" +
+                 "Overhead Resistance (Above Price): " + str.tostring(resistCount) + " Key Levels Found\n" +
+                 "Weekly Pullback Health: " + wkHealthStr + "\n" +
+                 "Volume Status: " + volState + "\n" +
+                 "Volatility Squeeze: " + (volState == "SQUEEZE" ? "ACTIVE" : "None") + "\n" +
+                 "Action Signal: " + actionSignal + " (Trend + Momentum + Volume + Volume Profile + Price Action)\n" +
+                 "Relative Strength Index (RSI): " + str.tostring(currRsi) + " (" + currRsiDiv + ")\n\n" +
+                 
+                 "--- 4. SCORING ---\n" +
+                 "DASHBOARD VERDICT: " + recText + "\n" + 
+                 "Asset Quality Score: " + assetQuality + "\n\n" +
+                 
+                 "INSTRUCTIONS:\n" +
+                 "1. First, analyze the Broad Market and Sector context (Is the tide rising?).\n" +
+                 "2. Perform a brief Fundamental Check (Earnings growth, Valuation, etc.) and Sentiment Analysis (Recent News/Hype).\n" +
+                 "3. Evaluate the Asset's Stage (Weinstein) and Volatility Contraction (Minervini).\n" +
+                 "4. Check for specific overhead supply (Resistance) vs immediate support.\n" +
+                 "5. Conclude with a clear Buy/Sell/Hold decision and potential trade setup (Entry/Stop/Target)."
+                 
+    log.info("\n⬇️ COPY GEMINI PROMPT BELOW ⬇️\n\n" + p_str + "\n\n⬆️ COPY GEMINI PROMPT ABOVE ⬆️")
+    alert("Gemini Prompt Generated for " + syminfo.ticker + ". Check Pine Logs.", alert.freq_once_per_bar_close)
+
+// ==========================================
+// 11. EXPORT PORTFOLIO TO CSV (User Request)
+// ==========================================
+show_csv = input.bool(false, title="Export Portfolio to CSV Log", group="Data Tools", tooltip="Enable this, then check 'Pine Logs' tab to copy your portfolio data (Ticker, Entry, SL, Sector) in CSV format.")
+
+// Helper to format row
+f_row(t, e, s, sec) =>
+    if t != ""
+        t + "," + str.tostring(e) + "," + str.tostring(s) + "," + str.tostring(sec) + "\\n"
+    else
+        ""
+
+if show_csv and barstate.islast and time_ok
+    string csv_out = "Ticker,Entry,SL,Sector\\n"
+
+    csv_out := csv_out + f_row(p1_tick, p1_ent, p1_sl, p1_sec)
+    csv_out := csv_out + f_row(p2_tick, p2_ent, p2_sl, p2_sec)
+    csv_out := csv_out + f_row(p3_tick, p3_ent, p3_sl, p3_sec)
+    csv_out := csv_out + f_row(p4_tick, p4_ent, p4_sl, p4_sec)
+    csv_out := csv_out + f_row(p5_tick, p5_ent, p5_sl, p5_sec)
+    csv_out := csv_out + f_row(p6_tick, p6_ent, p6_sl, p6_sec)
+    csv_out := csv_out + f_row(p7_tick, p7_ent, p7_sl, p7_sec)
+    csv_out := csv_out + f_row(p8_tick, p8_ent, p8_sl, p8_sec)
+    csv_out := csv_out + f_row(p9_tick, p9_ent, p9_sl, p9_sec)
+    csv_out := csv_out + f_row(p10_tick, p10_ent, p10_sl, p10_sec)
+    csv_out := csv_out + f_row(p11_tick, p11_ent, p11_sl, p11_sec)
+    csv_out := csv_out + f_row(p12_tick, p12_ent, p12_sl, p12_sec)
+    csv_out := csv_out + f_row(p13_tick, p13_ent, p13_sl, p13_sec)
+    csv_out := csv_out + f_row(p14_tick, p14_ent, p14_sl, p14_sec)
+    csv_out := csv_out + f_row(p15_tick, p15_ent, p15_sl, p15_sec)
+    csv_out := csv_out + f_row(p16_tick, p16_ent, p16_sl, p16_sec)
+    csv_out := csv_out + f_row(p17_tick, p17_ent, p17_sl, p17_sec)
+    csv_out := csv_out + f_row(p18_tick, p18_ent, p18_sl, p18_sec)
+    csv_out := csv_out + f_row(p19_tick, p19_ent, p19_sl, p19_sec)
+    csv_out := csv_out + f_row(p20_tick, p20_ent, p20_sl, p20_sec)
+    csv_out := csv_out + f_row(p21_tick, p21_ent, p21_sl, p21_sec)
+    csv_out := csv_out + f_row(p22_tick, p22_ent, p22_sl, p22_sec)
+    csv_out := csv_out + f_row(p23_tick, p23_ent, p23_sl, p23_sec)
+    csv_out := csv_out + f_row(p24_tick, p24_ent, p24_sl, p24_sec)
+    csv_out := csv_out + f_row(p25_tick, p25_ent, p25_sl, p25_sec)
+
+    log.info("\n⬇️ COPY PORTFOLIO CSV BELOW ⬇️\n\n" + csv_out + "\n⬆️ COPY PORTFOLIO CSV ABOVE ⬆️")
+    alert("Portfolio CSV Data Generated. Check Pine Logs.", alert.freq_once_per_bar_close)
