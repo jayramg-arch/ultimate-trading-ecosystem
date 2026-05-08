@@ -39,48 +39,56 @@ Institutional footprints — volume shelf, order blocks, FVGs, liquidity sweeps,
 
 ---
 
-## SECTION 2 — System Architecture
+## SECTION 2 — System Architecture & Daily Workflow
 
-The complete workflow runs in four stages (S1 → S4):
+The complete end-to-end workflow runs in five distinct phases across the Commander Web application and TradingView:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│  S1 — DISCOVERY (Python, overnight)                                  │
-│  Commander Web v4.0                                                   │
-│  ├── Sector Dashboard → leading/lagging sectors                      │
-│  ├── Bull Screener → top Alpha Score candidates (NSE universe)       │
-│  ├── Recovery Screener → REV-CB / REV-RS / REV-EARLY candidates     │
-│  └── Portfolio Sync → live positions injected into Dashboard Pine    │
+│  PHASE 1: PRE-MARKET INTELLIGENCE (8:30 AM - 9:00 AM)                │
+│  Commander Web v4.0                                                  │
+│  ├── Macro+ Overview → Global markets, India VIX, FII/DII data       │
+│  ├── Breadth Engine → McClellan Oscillator, Sector Breadth           │
+│  └── AI Pre-Market Brief → Gemini-generated daily strategy           │
+└──────────────────────────┬───────────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  PHASE 2: DISCOVERY & SCREENING (Python, pre-open or overnight)      │
+│  Commander Web v4.0 (Scanners Tab)                                   │
+│  ├── Sector Dashboard → Identify leading/lagging sectors             │
+│  ├── Bull Screener → Top Alpha Score candidates (NSE universe)       │
+│  └── Recovery Screener → Capitulation setups (REV-CB/RS/EARLY)       │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │  Shortlist exported as CSV
                            ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  S2 — RE-SCREENING (Pine, live market)                               │
-│  Commander Screener Beta Edition v2.6 (Bull candidates)                      │
+│  PHASE 3: RE-SCREENING & VALIDATION (TradingView)                    │
+│  Commander Screener Beta Edition v2.6 (Bull candidates)              │
 │  Commander Capitulation Screener v1.5 (Recovery candidates)          │
-│  ├── Real-time candle data (not EOD)                                 │
-│  ├── Alpha Score, Catalyst, RS confirmation                          │
-│  └── Shortlist reduced to 5–10 high-conviction setups               │
-└──────────────────────────┬───────────────────────────────────────────┘
-                           │  Confirmed candidates
-                           ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  S3 — VALIDATION (Dashboard, per chart)                              │
 │  Weinstein & Swing Pro Dashboard v67.0                               │
-│  ├── Macro + Sector gate                                             │
-│  ├── Stage / RS / Alpha / RFF gate                                   │
-│  ├── Recommendation (STRONG BUY / BUY / BUY* / WAIT)                │
-│  └── Entry, SL, T1, T2, R:R confirmed                               │
+│  ├── Macro + Sector gate (Dashboard)                                 │
+│  ├── Stage / RS / Alpha / RFF gate (Dashboard)                       │
+│  └── Final Recommendation (STRONG BUY / BUY / BUY* / WAIT)           │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │  Trade blueprints
                            ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  S4 — EXECUTION (Unified Ecosystem, live chart)                      │
-│  Weinstein_Unified_Ecosystem_v2.2.pine — 9 edges in one script           │
-│  ├── 6 Bull edges: POS-BO, POS-AC, SWG-PB, SWG-BO, SWG-REV, GAP-GO│
-│  ├── 3 Recovery edges: REV-CB, REV-RS, REV-EARLY                    │
-│  ├── Chandelier Exit trail (POS / REV) + EMA20 ratchet (SWG)        │
-│  └── T1/T2 partials with automatic breakeven lock                   │
+│  PHASE 4: EXECUTION (Unified Ecosystem, live chart)                  │
+│  Weinstein_Unified_Ecosystem_v2.2.pine & Context Layers v1.0         │
+│  ├── Context Overlay → CONTEXT SCORE, Wyckoff, VP, SMC               │
+│  ├── 6 Bull edges: POS-BO, POS-AC, SWG-PB, SWG-BO, SWG-REV, GAP-GO   │
+│  ├── 3 Recovery edges: REV-CB, REV-RS, REV-EARLY                     │
+│  └── Trade Execution → Wait for signal hold window, then enter       │
+└──────────────────────────┬───────────────────────────────────────────┘
+                           │  Live Positions
+                           ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  PHASE 5: POST-MARKET & PORTFOLIO MANAGEMENT (4:00 PM onwards)       │
+│  Commander Web v4.0 & TradingView                                    │
+│  ├── Commander Web → Portfolio Sync, Autopsy, Post-Market Summary    │
+│  ├── TradingView → Chandelier Exit trail, T1/T2 automatic locking    │
+│  └── Journaling → AI Trade Autopsy & Risk Desk review                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
