@@ -506,8 +506,10 @@ def apply_pa_cascade(df: pd.DataFrame) -> pd.DataFrame:
             st, t, col_ = "UNDERCUT_50SMA", 2, "green_bright"
         elif pocket[i]:
             st, t, col_ = "POCKET_PIVOT", 2, "teal"
-        elif outside_bull[i]:
-            st, t, col_ = "OUTSIDE_BAR_BULL", 2, "teal"
+        # v67.4.10: OUTSIDE_BAR_BULL demoted from Tier +2 to Tier +1 — moved
+        # below the Tier +2 group. N500 measured +0.46% pred alpha, weakest
+        # of all Tier +2 detectors and beaten by HAMMER_REVERSAL (+0.70%) at
+        # Tier +1. Same change as dashboard v67.4.10.
         elif liq_sweep[i]:
             st, t, col_ = "LIQ_SWEEP_RECLAIM", 2, "aqua"
         elif bull_engulf[i]:
@@ -530,6 +532,11 @@ def apply_pa_cascade(df: pd.DataFrame) -> pd.DataFrame:
             st, t, col_ = "TRUE_NR7", 1, "orange"
         elif inside[i]:
             st, t, col_ = "INSIDE_BAR", 1, "orange"
+        elif outside_bull[i]:
+            # v67.4.10: demoted from Tier +2 (was between POCKET_PIVOT and
+            # LIQ_SWEEP_RECLAIM). Still flagged with star-equivalent in
+            # dashboard display, but no longer earns Tier +2 score weight.
+            st, t, col_ = "OUTSIDE_BAR_BULL", 1, "teal"
         elif hammer_200[i]:
             st, t, col_ = "HAMMER_AT_200SMA", 2, "green_bright"
         elif hammer_50[i]:

@@ -68,6 +68,18 @@ DETECTORS: dict[str, str] = {
 
 BENCHMARK_SYMBOL = "^CRSLDX"  # Nifty 500 — per project convention
 
+# Bearish/warning states predict UNDERperformance. For these, the win
+# condition is stock_ret < bench_ret, and the meaningful "predictive alpha"
+# is sign-flipped: predictive_alpha = bench_ret - stock_ret.
+# See memory/bull_market_base_rate_warning.md — bearish detectors otherwise
+# look spuriously profitable in bull markets via the universe-wide base rate.
+BEARISH_STATES: set[str] = {
+    "FAILED_BREAKOUT",
+    "DISTRIBUTION_DAY",
+    "SHOOTING_STAR_RESIST",
+    "BEAR_ENGULF",
+}
+
 
 def load_universe(name: str) -> list[str]:
     """Load symbol list for the named universe."""
@@ -112,7 +124,9 @@ class TradeRecord:
     exit_price: float
     stock_ret_pct: float
     bench_ret_pct: float
-    alpha_pct: float
+    alpha_pct: float            # raw stock_ret - bench_ret
+    predictive_alpha_pct: float # sign-flipped for bearish states (the metric to rank on)
+    direction: str              # 'bullish' or 'bearish'
 
 
 def process_symbol(
@@ -172,6 +186,9 @@ def process_symbol(
                     continue
                 bench_ret = (b_exit - b_entry) / b_entry * 100.0
                 alpha = stock_ret - bench_ret
+                is_bearish = state_name in BEARISH_STATES
+                predictive_alpha = -alpha if is_bearish else alpha
+                direction = "bearish" if is_bearish else "bullish"
 
                 records.append(TradeRecord(
                     symbol=symbol,
@@ -185,6 +202,8 @@ def process_symbol(
                     stock_ret_pct=stock_ret,
                     bench_ret_pct=bench_ret,
                     alpha_pct=alpha,
+                    predictive_alpha_pct=predictive_alpha,
+                    direction=direction,
                 ))
             except Exception:
                 continue
@@ -215,31 +234,36 @@ def aggregate(records: list[TradeRecord], bootstrap_n: int) -> pd.DataFrame:
         return pd.DataFrame()
     df = pd.DataFrame([{
         "state": r.state,
+        "direction": r.direction,
         "horizon": r.horizon,
         "alpha": r.alpha_pct,
+        "pred_alpha": r.predictive_alpha_pct,
         "stock_ret": r.stock_ret_pct,
         "bench_ret": r.bench_ret_pct,
     } for r in records])
 
     out = []
     for state, grp in df.groupby("state"):
-        alphas = grp["alpha"].to_numpy()
+        pred_alphas = grp["pred_alpha"].to_numpy()  # the metric to rank on
+        raw_alphas = grp["alpha"].to_numpy()
         rets = grp["stock_ret"].to_numpy()
-        n = len(alphas)
-        lo, hi, prob_pos = bootstrap_ci(alphas, n=bootstrap_n)
+        n = len(pred_alphas)
+        lo, hi, prob_pos = bootstrap_ci(pred_alphas, n=bootstrap_n)
         out.append({
             "state": state,
+            "direction": grp["direction"].iloc[0],
             "horizon_d": int(grp["horizon"].iloc[0]),
             "n_trades": n,
-            "mean_alpha_pct": float(alphas.mean()),
-            "median_alpha_pct": float(np.median(alphas)),
-            "win_rate_pct": float((alphas > 0).mean() * 100.0),
+            "pred_alpha_pct": float(pred_alphas.mean()),
+            "pred_alpha_median_pct": float(np.median(pred_alphas)),
+            "win_rate_pct": float((pred_alphas > 0).mean() * 100.0),
+            "raw_alpha_pct": float(raw_alphas.mean()),
             "mean_ret_pct": float(rets.mean()),
             "alpha_ci95_lo": lo,
             "alpha_ci95_hi": hi,
             "prob_alpha_pos_pct": prob_pos,
         })
-    return pd.DataFrame(out).sort_values("mean_alpha_pct", ascending=False)
+    return pd.DataFrame(out).sort_values("pred_alpha_pct", ascending=False)
 
 
 def write_report(
@@ -269,21 +293,28 @@ def write_report(
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## Per-State Effectiveness (sorted by mean alpha)")
+    lines.append("## Per-State Predictive Effectiveness (sorted by predictive alpha)")
+    lines.append("")
+    lines.append("**Predictive alpha** is sign-aware: for bullish detectors, it's stock_ret − bench_ret. "
+                 "For bearish detectors (predicting underperformance), it's bench_ret − stock_ret. "
+                 "A positive predictive alpha means the detector's directional thesis paid off. "
+                 "See memory/bull_market_base_rate_warning.md for why raw alpha alone misleads in bull markets.")
     lines.append("")
 
     if agg.empty:
         lines.append("**No trades generated.** Check universe and detector outputs.")
     else:
-        lines.append("| State | Horizon (d) | N Trades | Mean Alpha % | Median Alpha % | Win Rate % | Alpha CI95 (lo, hi) | P(α > 0) % |")
-        lines.append("|---|---:|---:|---:|---:|---:|:---:|---:|")
+        lines.append("| State | Dir | Horizon (d) | N Trades | Pred Alpha % | Median % | Win Rate % | CI95 (lo, hi) | P>0 % | Raw α % |")
+        lines.append("|---|:---:|---:|---:|---:|---:|---:|:---:|---:|---:|")
         for _, r in agg.iterrows():
+            dir_icon = "🐻" if r['direction'] == 'bearish' else "🐂"
             lines.append(
-                f"| **{r['state']}** | {r['horizon_d']} | {r['n_trades']:,} | "
-                f"{r['mean_alpha_pct']:+.2f} | {r['median_alpha_pct']:+.2f} | "
+                f"| **{r['state']}** | {dir_icon} | {r['horizon_d']} | {r['n_trades']:,} | "
+                f"{r['pred_alpha_pct']:+.2f} | {r['pred_alpha_median_pct']:+.2f} | "
                 f"{r['win_rate_pct']:.1f} | "
                 f"({r['alpha_ci95_lo']:+.2f}, {r['alpha_ci95_hi']:+.2f}) | "
-                f"{r['prob_alpha_pos_pct']:.0f} |"
+                f"{r['prob_alpha_pos_pct']:.0f} | "
+                f"{r['raw_alpha_pct']:+.2f} |"
             )
 
     lines.append("")
@@ -363,6 +394,7 @@ def main() -> int:
         df_trades = pd.DataFrame([{
             "symbol": r.symbol,
             "state": r.state,
+            "direction": r.direction,
             "horizon_d": r.horizon,
             "entry_date": r.entry_date.date(),
             "exit_date": r.exit_date.date(),
@@ -371,6 +403,7 @@ def main() -> int:
             "stock_ret_pct": r.stock_ret_pct,
             "bench_ret_pct": r.bench_ret_pct,
             "alpha_pct": r.alpha_pct,
+            "predictive_alpha_pct": r.predictive_alpha_pct,
         } for r in all_records])
         df_trades.to_csv(csv_path, index=False)
 
