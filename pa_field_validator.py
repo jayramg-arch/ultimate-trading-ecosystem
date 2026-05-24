@@ -494,16 +494,12 @@ def apply_pa_cascade(df: pd.DataFrame) -> pd.DataFrame:
             and c_arr[i] < d_lock_h[i] and c_arr[i] > (d_lock_h[i] * 0.95)
         )
 
-        # ── Cascade (priority order EXACTLY matches Pine 3025-3158) ──────
-        if failed_bo[i]:
-            st, t, col_ = "FAILED_BO", -2, "red"
-        elif distrib[i]:
-            st, t, col_ = "DISTRIBUTION_DAY", -2, "red"
-        elif bear_engulf[i] and not np.isnan(dma50[i]) and c_arr[i] < dma50[i]:
-            st, t, col_ = "BEAR_ENGULF", -2, "red"
-        elif shooting_star[i]:
-            st, t, col_ = "SHOOTING_STAR_RESIST", -2, "red"
-        elif spring[i]:
+        # ── Cascade (priority order matches Pine v67.4.12) ────────────────
+        # v67.4.12: 4 bearish detectors (FAILED_BO, DISTRIBUTION_DAY,
+        # BEAR_ENGULF, SHOOTING_STAR) moved from Tier -2 (top of cascade)
+        # to Tier 0 "(Watch)" labels (near bottom). Co-firing bullish
+        # states now win priority. See dashboard v67.4.12 changelog.
+        if spring[i]:
             st, t, col_ = "SPRING", 3, "green_bright"
         elif gap_up_bo[i]:
             st, t, col_ = "GAP_UP_BO", 3, "green_bright"
@@ -556,6 +552,16 @@ def apply_pa_cascade(df: pd.DataFrame) -> pd.DataFrame:
             st, t, col_ = "HAMMER_REVERSAL", 1, "teal"
         elif selling_tail[i]:
             st, t, col_ = "SELLING_TAIL", -1, "orange"
+        # v67.4.12: Bearish (Watch) detectors — neutralized to Tier 0.
+        # Visible labels for human pattern recognition; no score penalty.
+        elif failed_bo[i]:
+            st, t, col_ = "FAILED_BREAKOUT", 0, "orange"
+        elif distrib[i]:
+            st, t, col_ = "DISTRIBUTION_DAY", 0, "orange"
+        elif bear_engulf[i] and not np.isnan(dma50[i]) and c_arr[i] < dma50[i]:
+            st, t, col_ = "BEAR_ENGULF", 0, "orange"
+        elif shooting_star[i]:
+            st, t, col_ = "SHOOTING_STAR_RESIST", 0, "orange"
         else:
             st, t, col_ = "NORMAL", 0, "gray"
 

@@ -1,6 +1,41 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.11]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.12]", overlay=true, max_bars_back=5000, max_lines_count=500)
 
+// ==========================================
+// CHANGELOG v67.4.12 (2026-05-24) — Bearish detectors neutralized to Tier 0
+// ==========================================
+// N500 × 5y regime-split validation (PA_FIELD_VALIDATION_v3) measured the
+// four bearish "warning" detectors as ALL predicting the wrong direction
+// in BOTH regimes (predictive alpha = bench_ret - stock_ret):
+//
+//   Detector              Bull α    Bear α    n         P(α>0)
+//   DISTRIBUTION_DAY      -1.67%    -1.56%    51,881    0%
+//   SHOOTING_STAR_RESIST  -2.38%    -0.78%    3,732     0%
+//   FAILED_BREAKOUT       -2.30%    -1.36%    748       0%
+//   BEAR_ENGULF           (not in validator's DETECTORS — same family)
+//
+// These patterns do NOT predict underperformance — they're regime-
+// independent anti-signals over 5 years of N500 data. The traditional-
+// TA Tier -2 assignment was convention, never validated; the cascade was
+// actively penalizing the Action Signal score on bars that didn't deserve
+// the penalty.
+//
+// CHANGE — all four moved from Tier -2 to Tier 0:
+//   * Tier value: -2 -> 0  (no Action Signal score impact)
+//   * Label: append " (Watch)" — still visually flagged for human pattern
+//     recognition, but no longer scored as warnings
+//   * Color: red -> orange/grey
+//   * Cascade position: moved from TOP of cascade (positions 1-4) to
+//     just before NORMAL default catch-all. This means co-firing bullish
+//     states now WIN priority (previously bearish state would override).
+//
+// REVERSAL CRITERION (documented for future regime check):
+// If CRSLDX (Nifty 500 benchmark) trades below its 200-day SMA for 90+
+// consecutive days (sustained bear regime), re-run validation and
+// reconsider re-activating Tier -2. The current dataset is dominated
+// by bull regime; bearish predictive power may emerge in true bear
+// markets that we haven't measured.
+//
 // ==========================================
 // PRICE ACTION FIELD — TIMEFRAME GUIDANCE (added 2026-05-24)
 // ==========================================
@@ -3142,27 +3177,12 @@ else if not na(baseTrackHigh)
 string _baseTag = baseCount > 0 ? " [B" + str.tostring(baseCount) + "]" : ""
 
 // ==========================================
-// PRICE-ACTION CASCADE (priority: warnings > A+ > A > B > 0 > C)
-// Sets paState, paColor, paTier. v67.2 FIX #3: no longer gated by na(dLockH).
+// PRICE-ACTION CASCADE (priority: A+ > A > B > Tier 0 watch > C)
+// Sets paState, paColor, paTier.
+// v67.4.12: 4 bearish detectors moved to Tier 0 watch states near bottom
+// of cascade (no longer override bullish states). See header changelog.
 // ==========================================
-if pa_failed_bo
-    paState := "⚠️ FAILED BREAKOUT"
-    paColor := color.red
-    paTier  := -2
-else if pa_distrib
-    paState := "DISTRIBUTION DAY"
-    paColor := color.new(color.red, 30)
-    paTier  := -2
-else if pa_bear_engulf and close < dMA50
-    paState := "BEARISH ENGULFING"
-    paColor := color.red
-    paTier  := -2
-// v67.4.6: SHOOTING STAR at resistance — bearish reversal in uptrend, extended price.
-else if pa_shooting_star
-    paState := "⚠️ SHOOTING STAR (Resist)"
-    paColor := color.red
-    paTier  := -2
-else if pa_spring
+if pa_spring
     paState := "★ SPRING (Failed Breakdown)"
     paColor := color.new(#00c853, 0)
     paTier  := 3
@@ -3278,6 +3298,25 @@ else if close < open and (high - close) > (close - low) * 3
     paState := "SELLING TAIL (Rejection)"
     paColor := color.orange
     paTier  := -1
+// v67.4.12: Bearish "(Watch)" detectors — neutralized to Tier 0 per N500 data.
+// Still visible as labels for human pattern recognition; no score penalty.
+// Co-firing bullish states above this point win the cascade.
+else if pa_failed_bo
+    paState := "FAILED BREAKOUT (Watch)"
+    paColor := color.new(color.orange, 30)
+    paTier  := 0
+else if pa_distrib
+    paState := "DISTRIBUTION DAY (Watch)"
+    paColor := color.new(color.orange, 30)
+    paTier  := 0
+else if pa_bear_engulf and close < dMA50
+    paState := "BEARISH ENGULFING (Watch)"
+    paColor := color.new(color.orange, 30)
+    paTier  := 0
+else if pa_shooting_star
+    paState := "SHOOTING STAR (Watch)"
+    paColor := color.new(color.orange, 30)
+    paTier  := 0
 else
     paState := "NORMAL"
     paColor := color.gray
