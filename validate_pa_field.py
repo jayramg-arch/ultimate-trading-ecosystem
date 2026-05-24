@@ -127,12 +127,14 @@ class TradeRecord:
     alpha_pct: float            # raw stock_ret - bench_ret
     predictive_alpha_pct: float # sign-flipped for bearish states (the metric to rank on)
     direction: str              # 'bullish' or 'bearish'
+    regime: str                 # 'bull' or 'bear' — benchmark above/below 200d SMA at entry
 
 
 def process_symbol(
     symbol: str,
     period: str,
     benchmark: pd.DataFrame,
+    bench_sma200: pd.Series,
 ) -> list[TradeRecord]:
     """Compute detector firings for one symbol, return one TradeRecord per firing."""
     try:
@@ -190,6 +192,16 @@ def process_symbol(
                 predictive_alpha = -alpha if is_bearish else alpha
                 direction = "bearish" if is_bearish else "bullish"
 
+                # Regime classification: benchmark above/below its 200d SMA at entry
+                try:
+                    bsma = bench_sma200.asof(entry_date)
+                except Exception:
+                    bsma = float("nan")
+                if pd.isna(bsma) or bsma <= 0 or pd.isna(b_entry):
+                    regime = "unknown"
+                else:
+                    regime = "bull" if b_entry > bsma else "bear"
+
                 records.append(TradeRecord(
                     symbol=symbol,
                     detector=det_col,
@@ -204,6 +216,7 @@ def process_symbol(
                     alpha_pct=alpha,
                     predictive_alpha_pct=predictive_alpha,
                     direction=direction,
+                    regime=regime,
                 ))
             except Exception:
                 continue
@@ -226,6 +239,40 @@ def bootstrap_ci(values: np.ndarray, n: int = 5000, ci: float = 0.95,
     hi = float(np.percentile(means, (1 + ci) / 2 * 100))
     prob_pos = float((means > 0).mean()) * 100.0
     return lo, hi, prob_pos
+
+
+def aggregate_by_regime(records: list[TradeRecord], bootstrap_n: int) -> pd.DataFrame:
+    """Per-(state, regime) aggregate. Returns long-format DataFrame."""
+    if not records:
+        return pd.DataFrame()
+    df = pd.DataFrame([{
+        "state": r.state,
+        "direction": r.direction,
+        "regime": r.regime,
+        "horizon": r.horizon,
+        "pred_alpha": r.predictive_alpha_pct,
+    } for r in records])
+
+    out = []
+    for (state, regime), grp in df.groupby(["state", "regime"]):
+        pred_alphas = grp["pred_alpha"].to_numpy()
+        n = len(pred_alphas)
+        if n < 5:
+            continue  # too few to report
+        lo, hi, prob_pos = bootstrap_ci(pred_alphas, n=bootstrap_n)
+        out.append({
+            "state": state,
+            "direction": grp["direction"].iloc[0],
+            "regime": regime,
+            "horizon_d": int(grp["horizon"].iloc[0]),
+            "n_trades": n,
+            "pred_alpha_pct": float(pred_alphas.mean()),
+            "win_rate_pct": float((pred_alphas > 0).mean() * 100.0),
+            "alpha_ci95_lo": lo,
+            "alpha_ci95_hi": hi,
+            "prob_alpha_pos_pct": prob_pos,
+        })
+    return pd.DataFrame(out)
 
 
 def aggregate(records: list[TradeRecord], bootstrap_n: int) -> pd.DataFrame:
@@ -275,6 +322,7 @@ def write_report(
     elapsed_s: float,
     bootstrap_n: int,
     output_path: str,
+    regime_agg: Optional[pd.DataFrame] = None,
 ) -> None:
     """Write the markdown report mirroring BACKTEST_RESULTS_v2.docx style."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -318,6 +366,73 @@ def write_report(
             )
 
     lines.append("")
+    # Regime split section
+    if regime_agg is not None and not regime_agg.empty:
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("## Regime-Conditional Predictive Alpha")
+        lines.append("")
+        lines.append("Regime = benchmark close vs its 200-day SMA at entry date. "
+                     "Bull = bench above 200d SMA; Bear = below. "
+                     "Reveals whether detector edges hold across both regimes "
+                     "or were artifacts of one regime only.")
+        lines.append("")
+        # Pivot to side-by-side bull / bear columns
+        pivot = regime_agg.pivot_table(
+            index=["state", "direction"], columns="regime",
+            values=["n_trades", "pred_alpha_pct", "win_rate_pct"],
+            aggfunc="first",
+        )
+        lines.append("| State | Dir | Bull N | Bull α % | Bull WR % | Bear N | Bear α % | Bear WR % |")
+        lines.append("|---|:---:|---:|---:|---:|---:|---:|---:|")
+        # Sort by mean of bull+bear pred alpha
+        sort_key = []
+        for idx in pivot.index:
+            try:
+                b_a = pivot.loc[idx, ("pred_alpha_pct", "bull")]
+            except KeyError:
+                b_a = float("nan")
+            try:
+                e_a = pivot.loc[idx, ("pred_alpha_pct", "bear")]
+            except KeyError:
+                e_a = float("nan")
+            sort_key.append((idx, np.nanmean([b_a, e_a])))
+        sort_key.sort(key=lambda x: -x[1] if not pd.isna(x[1]) else 999)
+        for idx, _ in sort_key:
+            state, direction = idx
+            dir_icon = "🐻" if direction == "bearish" else "🐂"
+
+            def get(col, regime):
+                try:
+                    v = pivot.loc[idx, (col, regime)]
+                    return v if not pd.isna(v) else None
+                except KeyError:
+                    return None
+
+            bull_n = get("n_trades", "bull")
+            bull_a = get("pred_alpha_pct", "bull")
+            bull_w = get("win_rate_pct", "bull")
+            bear_n = get("n_trades", "bear")
+            bear_a = get("pred_alpha_pct", "bear")
+            bear_w = get("win_rate_pct", "bear")
+
+            def fmt_n(x): return f"{int(x):,}" if x is not None else "—"
+            def fmt_p(x): return f"{x:+.2f}" if x is not None else "—"
+            def fmt_w(x): return f"{x:.1f}" if x is not None else "—"
+
+            lines.append(
+                f"| **{state}** | {dir_icon} | "
+                f"{fmt_n(bull_n)} | {fmt_p(bull_a)} | {fmt_w(bull_w)} | "
+                f"{fmt_n(bear_n)} | {fmt_p(bear_a)} | {fmt_w(bear_w)} |"
+            )
+        lines.append("")
+        lines.append("**Reading:** if a detector's alpha is positive in BOTH regimes "
+                     "(and CI doesn't straddle zero), it has regime-independent edge — "
+                     "the strongest result. If alpha is positive in one regime and "
+                     "negative or zero in the other, the edge is regime-conditional.")
+        lines.append("")
+
     lines.append("## Interpretation Guide")
     lines.append("")
     lines.append("- **Mean Alpha:** stock return − benchmark return over horizon, averaged across all firings.")
@@ -362,12 +477,15 @@ def main() -> int:
     print(f"[validator] Universe: {args.universe} — {len(symbols)} symbols")
 
     bench = fetch_benchmark(args.period)
+    bench_close = bench["Close"]
+    bench_sma200 = bench_close.rolling(200).mean()
+    print(f"[validator] Benchmark 200d SMA computed for regime classification.")
 
     all_records: list[TradeRecord] = []
     n_ok = 0
     n_fail = 0
     for i, sym in enumerate(symbols, 1):
-        recs = process_symbol(sym, args.period, bench)
+        recs = process_symbol(sym, args.period, bench, bench_sma200)
         if recs:
             n_ok += 1
             all_records.extend(recs)
@@ -380,6 +498,7 @@ def main() -> int:
 
     print(f"\n[validator] Aggregating {len(all_records):,} trades...")
     agg = aggregate(all_records, bootstrap_n=args.bootstrap)
+    regime_agg = aggregate_by_regime(all_records, bootstrap_n=args.bootstrap)
     elapsed = time.time() - t0
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -387,7 +506,7 @@ def main() -> int:
     csv_path = f"{args.output_prefix}_{args.universe}_{ts}.csv"
 
     write_report(agg, args.universe, args.period, n_ok, len(symbols),
-                 elapsed, args.bootstrap, md_path)
+                 elapsed, args.bootstrap, md_path, regime_agg=regime_agg)
 
     # Per-trade detail CSV
     if all_records:
@@ -404,6 +523,7 @@ def main() -> int:
             "bench_ret_pct": r.bench_ret_pct,
             "alpha_pct": r.alpha_pct,
             "predictive_alpha_pct": r.predictive_alpha_pct,
+            "regime": r.regime,
         } for r in all_records])
         df_trades.to_csv(csv_path, index=False)
 
