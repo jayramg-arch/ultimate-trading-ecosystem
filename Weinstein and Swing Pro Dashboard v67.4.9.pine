@@ -1,6 +1,29 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.8]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.9]", overlay=true, max_bars_back=5000, max_lines_count=500)
 
+// ==========================================
+// CHANGELOG v67.4.9 (2026-05-24) — TWO DETECTOR DESIGN-BUG FIXES
+// ==========================================
+// Universe survey (10 N100 symbols × 5y data, via pa_field_validator.py)
+// revealed two detectors firing ZERO times in BOTH Pine and Python:
+//
+//   FIX #1: pa_vcp_bo — vcp_ok required CURRENT-bar contraction, but the
+//     breakout bar IS the expansion bar (close>10dHigh, wide range, vol
+//     spike). atr10 spikes on that bar, making atr10<atr40*0.75 false on
+//     the same bar where breakout conditions become true. Mathematically
+//     antithetical. Fix: vcp_ok now checks PRIOR contraction window
+//     (any of the previous 5 bars had atr10 < atr40 * 0.75). The breakout
+//     bar itself is the expansion; we want EVIDENCE of contraction BEFORE.
+//
+//   FIX #2: pa_failed_bo — required close[1] > dLockH, but dLockH = rolling
+//     max over last N bars INCLUDING close[1]. So close[1] can EQUAL dLockH
+//     (when it WAS the new high) but never strictly exceed it. Impossible
+//     condition. Fix: use dLockH[1] (yesterday's locked high, before today
+//     could have updated the rolling max).
+//
+// Both bugs were carried into Weinstein_PA_Field_Strategy_v1.0.pine and
+// pa_field_validator.py — fixed in lockstep across all three files.
+//
 // ==========================================
 // CHANGELOG v67.4.8 (2026-05-24) — Hammer-at-MA + 50SMA Undercut & Rally
 // ==========================================
@@ -2908,8 +2931,13 @@ bool pa_spring = not na(_l50_spring) and low < _l50_spring[1] and close > _l50_s
 // Failed Breakout — yesterday closed above dLockH (with meaningful overshoot),
 // today closes back below. v67.4.5 FIX #1: added 0.5×ATR overshoot threshold +
 // relVol gate. Previously fired on any 0.01% wick above dLockH.
+// v67.4.9 FIX #2: use dLockH[1] (yesterday's locked-high) as the breakout
+// reference. dLockH today INCLUDES today's high in its rolling max, so
+// close[1] > dLockH was structurally impossible (close[1] can only EQUAL
+// the max it contributed to, never strictly exceed it).
 float _bo_buf = atrVal * 0.5
-bool pa_failed_bo = not na(dLockH) and close < dLockH and close[1] > (dLockH + _bo_buf) and high[1] > (dLockH + _bo_buf) and curRelVol > 1.0
+float _dLockH_ref = dLockH[1]
+bool pa_failed_bo = not na(_dLockH_ref) and close < _dLockH_ref and close[1] > (_dLockH_ref + _bo_buf) and high[1] > (_dLockH_ref + _bo_buf) and curRelVol > 1.0
 
 // 3-Bar Bullish Reversal — 3 lower lows then close > max of last 3 highs
 bool pa_3bar_rev = low[1] < low[2] and low[2] < low[3] and close > math.max(high[1], math.max(high[2], high[3]))
@@ -2945,8 +2973,14 @@ bool c_liq_sweep = _raw_liq_sweep and barsSinceLiqSweep > liq_sweep_lockout
 barsSinceLiqSweep := c_liq_sweep ? 0 : (barsSinceLiqSweep + 1)
 
 // Tight VCP Breakout — vcp_ok + close > 10d high + relVol > 1.2 + intra-pos ≥ 0.60
+// v67.4.9 FIX #1: vcp_ok is checked on PRIOR bar (vcp_ok[1]). The breakout bar
+// itself is by definition an expansion — wide range, vol spike — so atr_10
+// and vwma(vol,5) both spike on it, making vcp_ok false on the very bar
+// pa_vcp_bo wants to fire. The fix: require contraction in the bar BEFORE
+// the breakout. This is the Minervini sequence (tight → break) the detector
+// was always trying to express.
 float _pa_10d_high_1 = ta.highest(high, 10)[1]
-bool pa_vcp_bo = vcp_ok and close > _pa_10d_high_1 and curRelVol > 1.2 and (close - low) > ((high - low) * 0.60)
+bool pa_vcp_bo = vcp_ok[1] and close > _pa_10d_high_1 and curRelVol > 1.2 and (close - low) > ((high - low) * 0.60)
 
 // v56.0 Anti-Algo Breakout Filter
 bool closeNearHigh  = (close - low) > ((high - low) * 0.75)

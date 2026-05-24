@@ -164,9 +164,24 @@ def compute_pa_detectors(df: pd.DataFrame,
     d_lock_h = h.rolling(20).max().shift(1)
     has_lock_h = d_lock_h.notna()
 
-    # vcp_ok — simplified per file header.
-    # TODO: replace with f_is_vcp multi-base depth check from dashboard.
-    vcp_ok = atr10.notna() & atr40.notna() & (atr40 > 0) & (atr10 < atr40 * 0.75)
+    # vcp_ok — faithful port of dashboard's f_is_vcp (Pine line 2710-2715):
+    #   is_tight = atr_10 < SMA(atr_10, 50) * mult       (NOT atr10 vs atr40!)
+    #   is_dry   = VWMA(volume, 5) < SMA(volume, 50)
+    #   vcp_ok   = is_tight AND is_dry
+    # v67.4.9 FIX: prior port used atr10 < atr40*0.75 — a completely different
+    # formula that never fires (0 firings ever on RELIANCE 5y). The dashboard
+    # actually uses a self-referential tight-vs-average-atr10 check, which is
+    # what Minervini's VCP describes.
+    vcp_mult = 0.75
+    sma_atr10_50 = atr10.rolling(50).mean()
+    is_tight = atr10.notna() & sma_atr10_50.notna() & (sma_atr10_50 > 0) & (atr10 < sma_atr10_50 * vcp_mult)
+    # VWMA(volume, 5) — volume-weighted MA of volume = sum(v*v)/sum(v) over 5
+    vwma_v5_num = (v * v).rolling(5).sum()
+    vwma_v5_den = v.rolling(5).sum()
+    vwma_v5 = vwma_v5_num / vwma_v5_den.replace(0, np.nan)
+    sma_v50 = v.rolling(50).mean()
+    is_dry = vwma_v5.notna() & sma_v50.notna() & (vwma_v5 < sma_v50)
+    vcp_ok = (is_tight & is_dry).fillna(False)
 
     # ── Stage-2 proxy (used by pa_s2_launch + baseCount) ────────────────
     # TODO: real Weinstein stage classification (30W slope + price position +
@@ -243,12 +258,15 @@ def compute_pa_detectors(df: pd.DataFrame,
     ).fillna(False)
 
     # ── Failed Breakout (Pine 2911-2912) ────────────────────────────────
+    # v67.4.9 FIX #2: dLockH includes close[1] in its rolling max, so
+    # close[1] > dLockH was structurally impossible. Use dLockH[1].
     bo_buf = atr_val * 0.5
+    d_lock_h_ref = d_lock_h.shift(1)
     pa_failed_bo = (
-        d_lock_h.notna()
-        & (c < d_lock_h)
-        & (c.shift(1) > (d_lock_h + bo_buf))
-        & (h.shift(1) > (d_lock_h + bo_buf))
+        d_lock_h_ref.notna()
+        & (c < d_lock_h_ref)
+        & (c.shift(1) > (d_lock_h_ref + bo_buf))
+        & (h.shift(1) > (d_lock_h_ref + bo_buf))
         & (cur_rel_vol > 1.0)
     ).fillna(False)
 
@@ -285,9 +303,13 @@ def compute_pa_detectors(df: pd.DataFrame,
     c_liq_sweep = _stateful_lockout(raw_liq_sweep, liq_sweep_lockout)
 
     # ── VCP Breakout (Pine 2948-2949) ───────────────────────────────────
+    # v67.4.9 FIX #1: use PRIOR-bar vcp_ok. The breakout bar is by definition
+    # an expansion bar (close>10dHigh, wide range, vol spike) — atr10 spikes
+    # on it, making atr10<atr40*0.75 false on the very bar we want to fire.
+    # The Minervini sequence is "tight → break"; check contraction BEFORE.
     pa_10d_high_1 = h.rolling(10).max().shift(1)
     pa_vcp_bo = (
-        vcp_ok
+        vcp_ok.shift(1).fillna(False).astype(bool)
         & (c > pa_10d_high_1)
         & (cur_rel_vol > 1.2)
         & ((c - l) > (rng * 0.60))

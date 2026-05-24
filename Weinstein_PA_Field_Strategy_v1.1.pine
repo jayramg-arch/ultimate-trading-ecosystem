@@ -1,5 +1,10 @@
 //@version=6
-strategy("Weinstein PA Field Strategy [v1.0]",
+// v1.1 (2026-05-24): Detector design-bug fixes mirrored from dashboard v67.4.9.
+//   FIX #1: vcp_ok evaluated on PRIOR bar — breakout bar is expansion, can't
+//           simultaneously satisfy contraction gate.
+//   FIX #2: pa_failed_bo now uses dLockH[1] — was structurally impossible
+//           because dLockH includes close[1] in its rolling max.
+strategy("Weinstein PA Field Strategy [v1.1]",
      overlay=true,
      initial_capital=1000000,
      default_qty_type=strategy.percent_of_equity,
@@ -117,8 +122,16 @@ float d_h52       = ta.highest(high, 252)
 float dLockH      = ta.highest(high, 20)[1]
 bool  hasLockH    = not na(dLockH)
 
-// vcp_ok approximation (callout #3)
-bool  vcp_ok      = not na(atr10) and not na(atr40) and atr40 > 0 and atr10 < (atr40 * 0.75)
+// v1.1 FIX: vcp_ok now faithful to dashboard f_is_vcp (line 2710-2715).
+// Prior version used atr10<atr40*0.75 — entirely different formula that
+// never fired. Real formula: atr10 vs SMA(atr10, 50) self-referential
+// tightness AND VWMA(vol,5) < SMA(vol,50) volume-dryup gate.
+float _sma_atr10_50 = ta.sma(atr10, 50)
+float _vwma_v5      = ta.vwma(volume, 5)
+float _sma_v50      = ta.sma(volume, 50)
+bool  _is_tight     = not na(atr10) and not na(_sma_atr10_50) and _sma_atr10_50 > 0 and atr10 < _sma_atr10_50 * 0.75
+bool  _is_dry       = not na(_vwma_v5) and not na(_sma_v50) and _vwma_v5 < _sma_v50
+bool  vcp_ok        = _is_tight and _is_dry
 
 // Weekly 30WMA cross (callout #2 — no Stage-2 filter)
 bool  w_s2_cross  = request.security(syminfo.tickerid, "W", ta.crossover(close, ta.sma(close, 30)), ignore_invalid_symbol=true)
@@ -127,9 +140,10 @@ bool  w_s2_cross  = request.security(syminfo.tickerid, "W", ta.crossover(close, 
 // DETECTORS (verbatim from Dashboard v67.4.8, lines 2734-2960)
 // ==========================================
 
-// VCP Breakout — vcp_ok + close > 10d high + relVol > 1.2 + intra-pos ≥ 0.60
+// VCP Breakout — vcp_ok[1] (PRIOR bar) + close > 10d high + relVol > 1.2 + intra-pos ≥ 0.60
+// v1.1 FIX #1: prior-bar contraction. See changelog at top.
 float _pa_10d_high_1 = ta.highest(high, 10)[1]
-bool pa_vcp_bo = vcp_ok and close > _pa_10d_high_1 and curRelVol > 1.2 and (close - low) > ((high - low) * 0.60)
+bool pa_vcp_bo = vcp_ok[1] and close > _pa_10d_high_1 and curRelVol > 1.2 and (close - low) > ((high - low) * 0.60)
 
 // Gap-Up Breakout — open > prior high, close > dLockH with vol, hold gap
 bool volConfirm    = curRelVol > 1.25
