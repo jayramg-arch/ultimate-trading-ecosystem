@@ -1,6 +1,38 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.10]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.11]", overlay=true, max_bars_back=5000, max_lines_count=500)
 
+// ==========================================
+// CHANGELOG v67.4.11 (2026-05-24) — BULL_ENGULF quality gate (B6)
+// ==========================================
+// N500 × 5y regime-split validation showed pa_bull_engulf delivered
+// excellent alpha in BEAR regime (+2.93%, n=283, CI95=(+1.6, +4.4)) but
+// near-zero in BULL regime (-0.21%, n=354, CI95=(-1.0, +0.7)). The
+// detector was too permissive — capturing normal pullbacks in uptrends
+// rather than genuine capitulation reversals.
+//
+// Multi-variant tightening test (verify_bull_engulf_tightening.py) found
+// the WINNING combination = stronger volume + oversold context:
+//
+//   Variant       Bull α    Bear α    Verdict
+//   B1 (pullback) -0.40%    +3.33%    rejected (worse in bull)
+//   B2 (vol>2x)   +0.63%    +6.48%    good
+//   B3 (deep trd) -0.07%    +3.21%    marginal
+//   B4 (RSI<40)   -0.06%    +3.12%    marginal
+//   B5 (B2 cap B3) +0.85%   +6.48%    better
+//   B6 (B2 cap B4) +1.35%   +6.92%    WINNER
+//
+// B6 raises both regimes to positive alpha (P(alpha>0) = 91% bull / 100%
+// bear) while keeping Tier +2 status. Filter drops ~87% of firings,
+// leaving the top 13% highest-conviction setups. Matches classic TA:
+// engulfing AT oversold WITH institutional volume = capitulation reversal.
+//
+// CHANGE:
+//   v67.4.10:  pa_bull_engulf = _raw_bull_engulf AND _inDowntrendCtx
+//                              AND curRelVol > 1.2
+//   v67.4.11:  pa_bull_engulf = _raw_bull_engulf AND _inDowntrendCtx
+//                              AND curRelVol > 2.0
+//                              AND ta.rsi(close, 14)[1] < 40
+//
 // ==========================================
 // CHANGELOG v67.4.10 (2026-05-24) — Data-driven OUTSIDE_BAR_BULL demotion
 // ==========================================
@@ -2928,9 +2960,14 @@ bool _pp_closeUpperHalf = (close - low) >= ((high - low) * 0.5)
 bool pa_pocket = close > close[1] and close > open and _maxDownVol > 0 and volume > _maxDownVol and not na(dMA50) and close > dMA50 and _pp_closeUpperHalf
 
 // Bullish / Bearish Engulfing (body engulfs prior body).
-// v67.4.5 FIX #7: bullish engulfing now requires downtrend context + volume confirmation.
+// v67.4.5 FIX #7: bullish engulfing required downtrend context + relVol > 1.2.
+// v67.4.11 B6 GATE: tighten to relVol > 2.0 AND prior-bar oversold (RSI(14)[1] < 40).
+// N500 verified: lifts bull-regime alpha from -0.21% to +1.35% (P=91%),
+// bear-regime alpha from +2.93% to +6.92% (P=100%). Captures only the
+// classic-TA "engulf at oversold with institutional volume" setup.
+float _bullengulf_rsi = ta.rsi(close, 14)
 bool _raw_bull_engulf = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
-bool pa_bull_engulf = _raw_bull_engulf and _inDowntrendCtx and curRelVol > 1.2
+bool pa_bull_engulf = _raw_bull_engulf and _inDowntrendCtx and curRelVol > 2.0 and not na(_bullengulf_rsi[1]) and _bullengulf_rsi[1] < 40
 bool pa_bear_engulf = close[1] > open[1] and close < open and open >= close[1] and close <= open[1]
 
 // Hammer — small body in upper third, lower wick > 2× body

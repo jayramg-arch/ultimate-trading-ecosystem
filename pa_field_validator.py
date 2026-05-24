@@ -224,13 +224,24 @@ def compute_pa_detectors(df: pd.DataFrame,
     ).fillna(False)
 
     # ── Engulfing (Pine 2887-2889) ──────────────────────────────────────
+    # v67.4.11 B6 GATE: tightened from relvol>1.2 to relvol>2.0 AND prior-bar
+    # RSI(14)<40. Empirically verified to raise bull-regime alpha from -0.21%
+    # to +1.35% and bear-regime from +2.93% to +6.92%. See dashboard v67.4.11
+    # changelog for the multi-variant comparison.
     raw_bull_engulf = (
         (c.shift(1) < o.shift(1))
         & (c > o)
         & (o <= c.shift(1))
         & (c >= o.shift(1))
     )
-    pa_bull_engulf = (raw_bull_engulf & in_downtrend_ctx & (cur_rel_vol > 1.2)).fillna(False)
+    # Wilder RSI(14)
+    _delta = c.diff()
+    _gain = _delta.where(_delta > 0, 0.0).ewm(alpha=1.0 / 14, adjust=False).mean()
+    _loss = (-_delta.where(_delta < 0, 0.0)).ewm(alpha=1.0 / 14, adjust=False).mean()
+    _rs = _gain / _loss.replace(0, np.nan)
+    _rsi14 = 100 - (100 / (1 + _rs))
+    _rsi_prev_oversold = _rsi14.shift(1) < 40
+    pa_bull_engulf = (raw_bull_engulf & in_downtrend_ctx & (cur_rel_vol > 2.0) & _rsi_prev_oversold).fillna(False)
     pa_bear_engulf = (
         (c.shift(1) > o.shift(1))
         & (c < o)
