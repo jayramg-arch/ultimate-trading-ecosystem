@@ -2,6 +2,36 @@
 indicator("Weinstein & Swing Pro Dashboard [v67.4.11]", overlay=true, max_bars_back=5000, max_lines_count=500)
 
 // ==========================================
+// PRICE ACTION FIELD — TIMEFRAME GUIDANCE (added 2026-05-24)
+// ==========================================
+// The PA cascade is VALIDATED ON DAILY TIMEFRAME ONLY. All Tier values,
+// alpha numbers, and detector tunings (v67.4.5 -> v67.4.11) come from
+// N500 × 5y backtests on DAILY bars. See:
+//   PA_FIELD_VALIDATION_v4_nifty500_20260524_133146.md
+//
+// MTF behavior on intraday charts (75-min / 125-min):
+//   * Daily/weekly anchored references (dMA50, dMA200, dLockH, stageID,
+//     wMA30, wRSI) STILL render correctly via request.security — these are
+//     fetched from their native TF regardless of chart TF
+//   * Candle-pattern detectors (pa_hammer, pa_nr7, pa_bull_engulf,
+//     pa_vcp_bo, pa_outside_bull, pa_3bar_rev, etc.) fire on CHART-TF bars.
+//     On 75-min chart, "pa_hammer" = 75-min hammer, not daily hammer.
+//   * Validated daily alpha numbers DO NOT TRANSFER to intraday firings.
+//   * No free data source provides 5y of native 75/125-min NSE data:
+//       yfinance: no native 75/125, max 730d for 60m
+//       Dhan API: 5 days only on intraday
+//       TradingView: ~3 months only on 75-min for typical NSE stocks
+//     True MTF intraday validation requires paid data vendor or live
+//     forward accumulation. Parked as future work.
+//
+// RECOMMENDED WORKFLOW:
+//   * Use DAILY chart for setup discovery — Action Signal score reflects
+//     validated tier values, alpha rankings are trustworthy
+//   * Use 75-min / 125-min for ENTRY TIMING — read raw price action
+//     against the daily structure shown by dMA50, dLockH, stageID, etc.
+//     Don't rely on intraday PA state's tier value for the score.
+//
+// ==========================================
 // CHANGELOG v67.4.11 (2026-05-24) — BULL_ENGULF quality gate (B6)
 // ==========================================
 // N500 × 5y regime-split validation showed pa_bull_engulf delivered
