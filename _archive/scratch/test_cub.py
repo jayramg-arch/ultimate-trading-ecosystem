@@ -1,5 +1,6 @@
 import sys
-sys.path.append('e:\\Gemini\\VS Code')
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from fundamental_xray import fetch_fundamentals
 
 print("Executing fetch_fundamentals('CUB')...")
