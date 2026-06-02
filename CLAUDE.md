@@ -803,8 +803,19 @@ Pulled the live Dhan book (token working) and ran the Stage audit across all hol
 ### Attribution wired into Web Commander
 `performance_attribution.run_attribution()` now renders as a **5th "📐 Attribution" tab** in the AUTOPSY page (`weinstein_commander_web_v4.0.py`) — headline metrics + data-quality/honesty line (cash-park, quarantine, snapshot coverage) + per-dimension tables led by the entry-signal drivers (setup/stage/alpha/RS/conviction). Self-contained (reads the journal DB, no network).
 
+### Journal↔Dhan daily sync — SHIPPED + SCHEDULED
+`journal_sync.py` (NEW) reconciles the journal's OPEN positions to the live Dhan book every run:
+- **ADD** live holdings missing from the journal (+ one as-of-today `backfill` snapshot).
+- **UPDATE** qty/avg where they drift from Dhan.
+- **CLOSE** journal OPENs no longer held — but ONLY with a completing SELL in the Dhan trade history (authoritative exit price/date); otherwise FLAG, never force.
+- **Safety:** aborts entirely if the holdings fetch fails OR returns an empty book (an API hiccup must never read as "all sold"). Cash-park `LIQUID*` ignored both sides. `--dry-run` / `--no-close` flags.
+
+First apply (2 Jun): ADD GESHIP/NESTLEIND/NAM-INDIA, UPDATE ANANDRATHI/SAILIFE/LAURUSLABS quantities, **CLOSE DMART @ ₹4,137.20 (2026-05-20** — recovered from trade history; it had been sold in May, stale-OPEN in the journal). Journal OPEN now = live book exactly (8 positions). Backup: `…backup_20260602_presync.db`.
+
+**Scheduled daily:** Windows Task Scheduler task **`TradingJournal_DhanSync`** runs `run_journal_sync.bat` (→ `.venv` python → `journal_sync.py`) **daily at 6:30 PM IST** (post-settlement), `StartWhenAvailable` to catch up if the machine was off. Every run logs to `logs/journal_sync.log`. Verified end-to-end (idempotent: 8 live = 8 OPEN, 0 changes on re-run).
+
 ### Next Priority Work
-(a) **Journal↔broker sync routine** — reconcile the journal's OPEN positions to the live Dhan holdings (fix stale DMART, add missing names, correct quantities). (b) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation. (c) Keep accumulating true `recompute` entry snapshots on new trades so the signal dimensions populate.
+(a) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation into the 8.5-conviction Golden Picks. (b) Keep accumulating true `recompute` entry snapshots on new trades so the signal dimensions populate. (c) Phase 2 (Backtest Rigor): connect the May validation harness to the now-honest −₹4.99L baseline.
 
 ---
 
