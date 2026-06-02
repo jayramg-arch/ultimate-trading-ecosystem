@@ -37,10 +37,11 @@ check_auth_cached()
 load_dotenv(override=True)
 
 API_KEY = os.getenv("DHAN_ACCESS_TOKEN")
+_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
-DB_FILE = "trade_journal_v6.db"
-DEFAULT_SECTOR = "NSE:CNX500" 
-SCREENSHOT_DIR = "trade_screenshots"
+DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
+DEFAULT_SECTOR = "NSE:CNX500"
+SCREENSHOT_DIR = os.path.join(_DIR, "trade_screenshots")
 
 # Force Install xlsxwriter
 try:
@@ -72,7 +73,7 @@ def format_inr(number):
         s, *d = str("{:.2f}".format(val)).partition(".")
         r = ",".join([s[x-2:x] for x in range(-3, -len(s), -2)][::-1] + [s[-3:]])
         return "".join([r] + d)
-    except:
+    except (ValueError, TypeError, AttributeError):
         return str(number)
 
 def to_excel(df):
@@ -126,10 +127,22 @@ def get_sector(symbol):
     for key, sector in etf_map.items():
         if key in sym_upper: return sector
     if 'ETF' in sym_upper or 'BEES' in sym_upper: return 'ETF (Unknown)'
+    # Phase-2A: prefer the unified sector DB (curated, 536 symbols) before
+    # falling through to a yfinance.info call. The DB has Pine v67 mappings
+    # plus aliases — handles M_M, BAJAJ-AUTO, NSE:TCS-EQ etc. cleanly.
+    try:
+        import sector_lookup as _sl
+        rec = _sl.get_sector(cleaned)
+        if rec:
+            return rec.get("display_name") or rec.get("sector_name") or "Unknown"
+    except Exception:
+        pass
+    # Last-resort yfinance lookup (the .info endpoint is the only one that
+    # surfaces the Yahoo sector label — data_provider doesn't cache .info).
     try:
         ticker = yf.Ticker(f"{cleaned}.NS")
         return ticker.info.get('sector', 'Unknown')
-    except:
+    except Exception:
         return 'Unknown'
 
 def calculate_ageing(entry_str, exit_str=None):
@@ -137,7 +150,7 @@ def calculate_ageing(entry_str, exit_str=None):
         start = datetime.strptime(str(entry_str)[:10], '%Y-%m-%d')
         end = datetime.strptime(str(exit_str)[:10], '%Y-%m-%d') if exit_str else datetime.now()
         return (end - start).days
-    except: return 0
+    except (ValueError, TypeError): return 0
 
 def get_fy(date_val):
     """Returns the Financial Year string (e.g., FY 2024-25) for a given date."""
@@ -147,7 +160,7 @@ def get_fy(date_val):
             return f"{dt.year}-{str(dt.year+1)[2:]}"
         else:
             return f"{dt.year-1}-{str(dt.year)[2:]}"
-    except: return "N/A"
+    except (ValueError, TypeError): return "N/A"
 
 # - 2.5 SYMBOL CLEANER -
 
@@ -189,6 +202,12 @@ def init_db():
             screenshot_path TEXT,
             ai_analysis TEXT,
             planned_rr TEXT,
+            setup TEXT,
+            entry_stage INTEGER,
+            entry_alpha INTEGER,
+            entry_rs REAL,
+            entry_conviction REAL,
+            snapshot_meta TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -209,7 +228,10 @@ def load_db():
         'exit_reason': 'ExitReason', 'status': 'Status', 'sector': 'Sector',
         'trade_quality': 'Quality', 'compromises': 'Compromises', 
         'lessons': 'Lessons', 'screenshot_path': 'Screenshot',
-        'planned_rr': 'PlannedRR', 'ai_analysis': 'AI Analysis'
+        'planned_rr': 'PlannedRR', 'ai_analysis': 'AI Analysis',
+        'setup': 'Setup', 'entry_stage': 'EntryStage',
+        'entry_alpha': 'EntryAlpha', 'entry_rs': 'EntryRS',
+        'entry_conviction': 'EntryConviction', 'snapshot_meta': 'SnapshotMeta'
     }
     return df.rename(columns=rename_map)
 
@@ -243,6 +265,7 @@ def upsert_trade(entry):
 
     keys = [k for k in clean_entry.keys() if k != 'id']
     
+    new_id = None
     if target_id:
         # UPDATE
         update_str = ", ".join([f"{k} = ?" for k in keys])
@@ -252,9 +275,28 @@ def upsert_trade(entry):
         # INSERT
         placeholders = ", ".join(["?"] * len(keys))
         c.execute(f"INSERT INTO journal ({', '.join(keys)}) VALUES ({placeholders})", [clean_entry[k] for k in keys])
-        
+        new_id = c.lastrowid
+
     conn.commit()
     conn.close()
+
+    # True entry-time signal snapshot — only for brand-new OPEN trades. Runs
+    # AFTER the DB is committed/closed so the slow network fetch never holds a
+    # lock, and is fully guarded so a fetch failure can never block the save.
+    if new_id is not None:
+        status = str(clean_entry.get('status', 'OPEN') or 'OPEN').upper()
+        symbol = clean_entry.get('symbol')
+        if status == 'OPEN' and symbol:
+            try:
+                import journal_enrichment as je
+                je.ensure_schema(DB_FILE)
+                snap = je.snapshot_symbol(symbol, source="recompute")
+                if snap:
+                    je.write_snapshot(new_id, snap, DB_FILE)
+            except Exception as _e:
+                print(f"[journal] entry snapshot skipped for {symbol}: {_e}")
+
+    return new_id
 
 def parse_rr(rr_str):
     # Parse "1:2" -> 2.0
@@ -264,7 +306,7 @@ def parse_rr(rr_str):
         if len(parts) == 2:
             return float(parts[1])
         return float(rr_str)
-    except: return 0.0
+    except (ValueError, TypeError): return 0.0
 
 def migrate_db():
     if not os.path.exists(DB_FILE): return
@@ -309,6 +351,12 @@ def migrate_db():
             c.execute("ALTER TABLE journal ADD COLUMN planned_rr TEXT")
         if 'ai_analysis' not in cols:
             c.execute("ALTER TABLE journal ADD COLUMN ai_analysis TEXT")
+        # Lean entry-signal snapshot columns (see journal_enrichment.py).
+        for _col, _type in (('setup','TEXT'), ('entry_stage','INTEGER'),
+                            ('entry_alpha','INTEGER'), ('entry_rs','REAL'),
+                            ('entry_conviction','REAL'), ('snapshot_meta','TEXT')):
+            if _col not in cols:
+                c.execute(f"ALTER TABLE journal ADD COLUMN {_col} {_type}")
             
     except Exception as e: 
         print(f"Migration error: {e}")
@@ -340,7 +388,7 @@ def fetch_live_data():
         if f['status'] == 'success':
             data = f['data']
             funds = float(data.get('availabelBalance', data.get('availableBalance', 0.0)))
-    except: funds = 0.0
+    except Exception: funds = 0.0
 
     def process(data):
         for item in data:
@@ -359,12 +407,12 @@ def fetch_live_data():
     try:
         h = dhan.get_holdings()
         if h['status'] == 'success': process(h['data'])
-    except: pass
-    
+    except Exception: pass
+
     try:
         p = dhan.get_positions()
         if p['status'] == 'success': process(p['data'])
-    except: pass
+    except Exception: pass
     
     return active_symbols, live_data, funds, id_map
 
@@ -542,8 +590,8 @@ with st.spinner('Syncing Portfolio & Funds...'):
 # 1. Load Portfolio CSV (Master Source for SL & Sector)
 portfolio_data = {}
 try:
-    if os.path.exists("portfolio.csv"):
-        p_df = pd.read_csv("portfolio.csv")
+    if os.path.exists(os.path.join(_DIR, "portfolio.csv")):
+        p_df = pd.read_csv(os.path.join(_DIR, "portfolio.csv"))
         p_df.columns = p_df.columns.str.strip()
         for _, r in p_df.iterrows():
             # Normalize Ticker: "NSE:RELIANCE-EQ" -> "RELIANCE"
@@ -832,8 +880,9 @@ if st.sidebar.button("⚠️ Force Resync SL/Targets"):
                     t_clean = clean_symbol(r.get('Ticker', ''))
                     if t_clean:
                         p_data[t_clean] = {'SL': float(r.get('SL', 0.0)), 'Sector': str(r.get('Sector', ''))}
-        except: pass
-        
+        except (OSError, pd.errors.ParserError, KeyError):
+            pass
+
         upd_cnt = 0
         for sym in active_symbols:
             s_clean = clean_symbol(sym)

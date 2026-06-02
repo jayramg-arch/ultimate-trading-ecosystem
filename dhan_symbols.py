@@ -31,7 +31,31 @@ def get_nse_id_map():
         print(f"❌ Error fetching Symbols: {e}")
         return {}
 
+_SECID_SYMBOL_CACHE = {}
+
+def get_nse_secid_to_symbol():
+    """Reverse map: {securityId(str) -> tradingSymbol} for ALL NSE instruments
+    (equities AND ETFs — no EQ-series filter), since the Dhan trade-history API
+    returns only securityId + customSymbol (full company name), never the ticker.
+    Cached for the process lifetime.
+    """
+    if _SECID_SYMBOL_CACHE:
+        return _SECID_SYMBOL_CACHE
+    try:
+        url = "https://images.dhan.co/api-data/api-scrip-master.csv"
+        df = pd.read_csv(BytesIO(requests.get(url).content), low_memory=False)
+        nse = df[df['SEM_EXM_EXCH_ID'] == 'NSE'].copy()
+        nse['SEM_TRADING_SYMBOL'] = nse['SEM_TRADING_SYMBOL'].astype(str).str.strip()
+        for _, r in nse.iterrows():
+            _SECID_SYMBOL_CACHE[str(r['SEM_SMST_SECURITY_ID'])] = r['SEM_TRADING_SYMBOL']
+    except Exception as e:
+        print(f"❌ Error building securityId->symbol map: {e}")
+    return _SECID_SYMBOL_CACHE
+
+
 if __name__ == "__main__":
     # Test it
     mapping = get_nse_id_map()
     print("Test Lookup for 'CRAFTSMAN':", mapping.get('CRAFTSMAN', 'Not Found'))
+    rev = get_nse_secid_to_symbol()
+    print("Reverse lookup secId 11439:", rev.get('11439', 'Not Found'))

@@ -84,7 +84,16 @@ def normalize_symbol(symbol):
     return s
 
 def get_symbol_sector(ticker):
-    """Helper to get sector from local DB."""
+    """Helper to get sector from local DB.
+    Phase-2A: prefer unified sectors.db; fall back to legacy sector_db.json.
+    """
+    try:
+        import sector_lookup as _sl
+        rec = _sl.get_sector(ticker)
+        if rec:
+            return rec.get("display_name") or rec.get("sector_name") or "Other"
+    except Exception:
+        pass
     try:
         t = str(ticker).strip().upper()
         if not t.startswith("NSE:"): t = "NSE:" + t
@@ -92,13 +101,16 @@ def get_symbol_sector(ticker):
         with open("sector_db.json", "r") as f:
             db = json.load(f)
         return db.get(t, "Other").replace("NSE:", "").replace("CNX", "")
-    except: return "Other"
+    except Exception:
+        return "Other"
 
 def fetch_trade_history():
-    tok = ensure_valid_token()
-    cid = os.getenv("DHAN_CLIENT_ID")
-    if not tok or not cid: return pd.DataFrame()
+    # NOTE: token call is INSIDE the try — a stale/expired token must degrade to
+    # an empty frame (so local-log reconcile still runs), never crash the caller.
     try:
+        tok = ensure_valid_token()
+        cid = os.getenv("DHAN_CLIENT_ID")
+        if not tok or not cid: return pd.DataFrame()
         dhan = dhanhq(client_id=cid, access_token=tok)
         from_date = '2023-01-01'
         to_date = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -112,10 +124,21 @@ def fetch_trade_history():
             else: break
         if not all_trades: return pd.DataFrame()
         df = pd.DataFrame(all_trades)
-        df['Symbol'] = df['tradingSymbol'].fillna(df['customSymbol']).fillna(df['symbol'])
+        # The trade-history API returns only securityId + customSymbol (full
+        # company name) — NO ticker column. Resolve securityId -> tradingSymbol
+        # via the Dhan scrip master so symbols match the journal's tickers.
+        from dhan_symbols import get_nse_secid_to_symbol
+        id2sym = get_nse_secid_to_symbol()
+        df['Symbol'] = df['securityId'].astype(str).map(id2sym)
+        # Fallback to customSymbol only where the scrip master had no match.
+        if 'customSymbol' in df.columns:
+            df['Symbol'] = df['Symbol'].fillna(df['customSymbol'])
+        df = df[df['Symbol'].notna()].copy()
         df['exchangeTime'] = pd.to_datetime(df['exchangeTime'])
         return df.sort_values('exchangeTime')
-    except: return pd.DataFrame()
+    except Exception as e:
+        print(f"[reconcile] fetch_trade_history degraded to empty: {e}")
+        return pd.DataFrame()
 
 def parse_html_trades():
     # Support both .html and .mhtml
