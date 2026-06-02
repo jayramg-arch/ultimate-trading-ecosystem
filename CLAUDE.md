@@ -835,8 +835,21 @@ The May campaign already had the realistic execution sim (commission+slippage 0.
 
 **Implication:** Phase 3 (fitted weights) is **premature** — fitting weights to a no-edge signal fits noise. The roadmap's hard gate did its job: STOP and diagnose the edge before weight-fitting.
 
-### Next Priority Work (revised by the Phase-2 verdict)
-(a) **Diagnose WHY no edge** before any Phase 3 work — partition the 117 trades **by catalyst family** (POS vs SWG vs REV — the May work showed they behave very differently; pooling may mask a real edge in one family) and **by market direction/regime** (per `bull_market_base_rate_warning`). (b) Investigate the **Jan–Jun 2025 zero-pick drought** — are the Hunter/POS gates too tight in non-trending regimes? (c) Execute the RELIANCE Stage-4 exit. (d) Defer Phase 3 until a partition shows a persistent OOS edge.
+### Phase 2 diagnostic — `catalyst_regime_partition.py` (NEW): the "no edge" is misleading
+Partitioned the 117 matched-alpha trades by catalyst family / market direction / exit reason. Three findings that REDIRECT the work (this is NOT "re-architect everything"):
+
+1. **Only SWG (swing) was tested.** The 24mo nifty500 run emitted ZERO POS/WYC/REV picks — so the NO-EDGE verdict applies only to **swing breakouts**. Your **core positional/Weinstein thesis was never exercised** in this run. Must investigate why the screener emitted no POS picks (gate calibration / universe / anchor spacing) before concluding the system has no edge.
+
+2. **The SL is the smoking gun — premature stop-outs destroy the edge.** By exit reason:
+   - **SL hit: 79 trades (68% of all), 16.5% win, −5.12% alpha, PF 0.08, avg 8 days.** ← all the bleeding.
+   - **Time expiry: 27 trades, 77.8% win, +8.88% alpha, PF 11.32, 30 days.**
+   - **Trail SL: 9 trades, 66.7% win, +4.47% alpha.**
+   The 36 trades that AREN'T stopped out are hugely profitable; the 79 knocked out at ~8 days bleed it all away. The **SWG stop (1.5×ATR) is too tight** — same failure mode the May campaign fixed for POS (100% SL hit at ~5d). **Widening the SWG SL is the #1 experiment.**
+
+3. **Alpha is concentrated in DOWN-tape windows** (per matched-horizon benchmark): DOWN tape 44 trades, 50% win, **+2.54% alpha, PF 3.46**; UP tape 73 trades, 27% win, **−3.05% alpha, PF 0.49**. The breakouts behave defensively (relative strength when the market falls, lag when it rallies) — exactly `bull_market_base_rate_warning` made concrete.
+
+### Next Priority Work (revised by the partition)
+(a) **Widen the SWG stop** (test 2.5–3×ATR vs the current 1.5×) and re-run the walk-forward + gate — the partition predicts this flips swing alpha positive by cutting the 68% premature stop-outs. (b) **Diagnose the zero POS picks** — why did the positional screener emit nothing over 24mo nifty500? (c) Investigate the Jan–Jun 2025 zero-pick drought. (d) Execute the RELIANCE Stage-4 exit. (e) Phase 3 stays deferred until a re-run shows persistent OOS edge.
 
 ---
 
