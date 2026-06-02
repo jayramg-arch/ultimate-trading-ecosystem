@@ -814,8 +814,20 @@ First apply (2 Jun): ADD GESHIP/NESTLEIND/NAM-INDIA, UPDATE ANANDRATHI/SAILIFE/L
 
 **Scheduled daily:** Windows Task Scheduler task **`TradingJournal_DhanSync`** runs `run_journal_sync.bat` (→ `.venv` python → `journal_sync.py`) **daily at 4:30 PM IST** (post-close), `StartWhenAvailable` to catch up if the machine was off. Every run logs to `logs/journal_sync.log`. Verified end-to-end (idempotent: 8 live = 8 OPEN, 0 changes on re-run).
 
+### Phase 2 (Backtest Rigor) — IS/OOS overfit HARD GATE shipped
+The May campaign already had the realistic execution sim (commission+slippage 0.10%/leg), catalyst-aware forward windows, walk-forward monthly anchors, Sharpe/Sortino/Calmar, and bootstrap CI. The one missing Phase-2 deliverable — the roadmap's **hard gate** — is now built:
+
+**`walkforward_oos.py` (NEW)** consumes a validation `*_summary.csv` (default LAST_RUN), splits anchors chronologically into in-sample (earlier 60%) and out-of-sample (later 40%), treats each anchor's `alpha_pct` as a period return, and applies the gate **OOS Sharpe ≥ 60% of IS** (with NO-EDGE / PASS / STOP verdicts; no-pick anchors dropped & reported, never zero-filled).
+
+**First verdict (on LAST_RUN `20260521_213721`, confirmed catalyst-aware: POS-ACCUM 180d / POS-BO 120d / swing 30d — NOT a window-mismatch artifact):**
+- IN-SAMPLE (2024-10 → 2025-08, 5 anchors): mean α **+2.56%**, Sharpe **+0.67**, hit 80%.
+- OUT-SAMPLE (2025-09 → 2025-11, 3 anchors): mean α **−1.87%**, Sharpe **−0.59**, hit 33%.
+- **VERDICT: 🔴 STOP** — edge flips negative OOS. Per the roadmap's post-Phase-2 gate, do NOT proceed to Phase 3 (fitted weights) until the edge demonstrably persists OOS.
+
+**Caveat (important):** only 8 anchors had picks (5 IS / 3 OOS); the OOS window is a 3-month slice (Sep–Nov 2025) that may be a single regime (cf. `bull_market_base_rate_warning`). The STOP is a **directional red flag, not a statistically final condemnation** — the right next move is to widen the walk-forward (more months / more anchors with picks) and re-run the gate before acting on it.
+
 ### Next Priority Work
-(a) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation into the 8.5-conviction Golden Picks. (b) Keep accumulating true `recompute` entry snapshots on new trades so the signal dimensions populate. (c) Phase 2 (Backtest Rigor): connect the May validation harness to the now-honest −₹4.99L baseline.
+(a) **Widen the walk-forward** (e.g. `validation.py --months 24 --catalyst_windows`) to get a larger OOS sample, then re-run `walkforward_oos.py` for an authoritative gate verdict. (b) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation. (c) Keep accumulating true `recompute` entry snapshots on new trades.
 
 ---
 
