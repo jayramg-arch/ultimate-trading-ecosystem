@@ -783,6 +783,14 @@ This is the critique's "silent fallbacks bias every signal upward" made concrete
 - 2 symbols (METALIETF, HDFCSML250) had existing exits overwritten with the authoritative live-API value (more correct).
 - **Known reconcile quirk (pre-existing, not introduced):** the UPDATE writes the latest exit to *all* same-symbol CLOSED rows — a symbol traded in multiple distinct lots collapses to one exit price. Harden if same-name repeat trading becomes common.
 - **Cash-park exclusion:** liquid ETFs (KOTAKNIFTYLIQUIDETF / any `LIQUID*`) used to park funds when regime score = 0 are now excluded from attribution (risk-off carry, not alpha). Alpha-only baseline tightens to **36 trades / 25% win / −₹4,76,159** (the lone liquid-ETF trade was the only thing holding win-rate at 27%).
+
+### Buy-side reconcile + tranche reconstruction (complete dataset)
+Recovered the 3 remaining missing-**buy**-price rows from the authoritative Dhan raw fills:
+- **DATAPATTNS (id 3):** buy ₹2,919.00 @ 2025-11-13 (qty 17) — single clean round-trip.
+- **METALIETF & HDFCSML250 were sold in TRANCHES** (Jay's note) — so ids 41/42 were NOT phantom duplicates (an early read), they are the 2nd exit tranches. Raw fills confirm: METALIETF bought 17,200 @ ₹8.72 → 8,600 @ ₹10.84 (Dec) + 8,600 @ ₹12.80 (Apr); HDFCSML250 bought 4,120 (wtd-avg ₹168.31) → 2,060 @ ₹156.80 (Jan) + 2,060 @ ₹144.19 (Mar). Mapped each symbol's 2 journal rows to its 2 tranches via UPDATEs (no deletes), which also corrected the exits the symbol-wide reconcile had overwritten.
+- **A DELETE of ids 41/42 was attempted then correctly blocked** by the safety classifier before the tranche fact was known — reinforces: never delete journal rows on inference.
+- **Final fully-reconciled baseline: 40 closed / 0 missing / 39 attributable → −₹4,99,283 realized / 25.6% win / 0.24 PF.** (Loss grew vs −₹4.76L because HDFCSML250's full 2-tranche −₹73,405 is now captured + DATAPATTNS −₹3,602.)
+- Backups: `…backup_20260602_buyrecon.db` (pre buy-side). Journal DB is data (not git-tracked); preserved via the dated backups.
 - Corrected baseline saved: `reports/performance_attribution_20260602_183447.csv`.
 
 ### Next Priority Work
