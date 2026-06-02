@@ -812,7 +812,7 @@ Pulled the live Dhan book (token working) and ran the Stage audit across all hol
 
 First apply (2 Jun): ADD GESHIP/NESTLEIND/NAM-INDIA, UPDATE ANANDRATHI/SAILIFE/LAURUSLABS quantities, **CLOSE DMART @ ₹4,137.20 (2026-05-20** — recovered from trade history; it had been sold in May, stale-OPEN in the journal). Journal OPEN now = live book exactly (8 positions). Backup: `…backup_20260602_presync.db`.
 
-**Scheduled daily:** Windows Task Scheduler task **`TradingJournal_DhanSync`** runs `run_journal_sync.bat` (→ `.venv` python → `journal_sync.py`) **daily at 6:30 PM IST** (post-settlement), `StartWhenAvailable` to catch up if the machine was off. Every run logs to `logs/journal_sync.log`. Verified end-to-end (idempotent: 8 live = 8 OPEN, 0 changes on re-run).
+**Scheduled daily:** Windows Task Scheduler task **`TradingJournal_DhanSync`** runs `run_journal_sync.bat` (→ `.venv` python → `journal_sync.py`) **daily at 4:30 PM IST** (post-close), `StartWhenAvailable` to catch up if the machine was off. Every run logs to `logs/journal_sync.log`. Verified end-to-end (idempotent: 8 live = 8 OPEN, 0 changes on re-run).
 
 ### Next Priority Work
 (a) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation into the 8.5-conviction Golden Picks. (b) Keep accumulating true `recompute` entry snapshots on new trades so the signal dimensions populate. (c) Phase 2 (Backtest Rigor): connect the May validation harness to the now-honest −₹4.99L baseline.
