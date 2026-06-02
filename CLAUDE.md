@@ -824,10 +824,19 @@ The May campaign already had the realistic execution sim (commission+slippage 0.
 - OUT-SAMPLE (2025-09 → 2025-11, 3 anchors): mean α **−1.87%**, Sharpe **−0.59**, hit 33%.
 - **VERDICT: 🔴 STOP** — edge flips negative OOS. Per the roadmap's post-Phase-2 gate, do NOT proceed to Phase 3 (fitted weights) until the edge demonstrably persists OOS.
 
-**Caveat (important):** only 8 anchors had picks (5 IS / 3 OOS); the OOS window is a 3-month slice (Sep–Nov 2025) that may be a single regime (cf. `bull_market_base_rate_warning`). The STOP is a **directional red flag, not a statistically final condemnation** — the right next move is to widen the walk-forward (more months / more anchors with picks) and re-run the gate before acting on it.
+**Caveat (important):** only 8 anchors had picks (5 IS / 3 OOS); the OOS window is a 3-month slice — directional, not final. So the gate was re-run on a wider sample (below), which SUPERSEDES this preliminary STOP.
 
-### Next Priority Work
-(a) **Widen the walk-forward** (e.g. `validation.py --months 24 --catalyst_windows`) to get a larger OOS sample, then re-run `walkforward_oos.py` for an authoritative gate verdict. (b) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation. (c) Keep accumulating true `recompute` entry snapshots on new trades.
+**AUTHORITATIVE re-run — `validation.py --months 24 --universe nifty500 --catalyst_windows --bootstrap_n 10000` (run `20260602_200514`, 19 anchors, 12 with picks, 117 trades):**
+- IN-SAMPLE (2024-06 → 2024-12, 7 anchors): mean α **−0.51%**, Sharpe −0.11, hit 28.6%.
+- OUT-SAMPLE (2025-07 → 2025-11, 5 anchors): mean α **−2.95%**, Sharpe −0.95, hit 20.0%.
+- Pooled: mean α **−1.53%**, win 21.7%, only **3/12 anchors positive-alpha**.
+- **VERDICT: ⚪ NO-EDGE** — in-sample alpha is already ≤ 0, so there's nothing to overfit. The smaller run's +2.56% IS was small-sample noise. **The honest conclusion: the locked v2 config does not demonstrate a positive matched-horizon edge on a 24-month nifty500 walk-forward.** Consistent with the −₹4.99L realized journal baseline and the May campaign's Sharpe −1.90.
+- **Two data flags:** (1) 7 of 19 anchors produced ZERO picks — a 6-month drought (Jan–Jun 2025) suggests the screener gates are mis-calibrated for some regimes (or a threshold/data issue). (2) Many anchors have 1–2 picks → noisy per-anchor alpha.
+
+**Implication:** Phase 3 (fitted weights) is **premature** — fitting weights to a no-edge signal fits noise. The roadmap's hard gate did its job: STOP and diagnose the edge before weight-fitting.
+
+### Next Priority Work (revised by the Phase-2 verdict)
+(a) **Diagnose WHY no edge** before any Phase 3 work — partition the 117 trades **by catalyst family** (POS vs SWG vs REV — the May work showed they behave very differently; pooling may mask a real edge in one family) and **by market direction/regime** (per `bull_market_base_rate_warning`). (b) Investigate the **Jan–Jun 2025 zero-pick drought** — are the Hunter/POS gates too tight in non-trending regimes? (c) Execute the RELIANCE Stage-4 exit. (d) Defer Phase 3 until a partition shows a persistent OOS edge.
 
 ---
 
