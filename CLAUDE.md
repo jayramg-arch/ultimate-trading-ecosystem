@@ -793,8 +793,18 @@ Recovered the 3 remaining missing-**buy**-price rows from the authoritative Dhan
 - Backups: `…backup_20260602_buyrecon.db` (pre buy-side). Journal DB is data (not git-tracked); preserved via the dated backups.
 - Corrected baseline saved: `reports/performance_attribution_20260602_183447.csv`.
 
+### Full-book live Stage audit (Dhan holdings, authoritative)
+Pulled the live Dhan book (token working) and ran the Stage audit across all holdings — NOT just the journal's 6 OPEN. Findings:
+- **Live book = 8 equity/ETF holdings + LIQUID1 (cash park):** RELIANCE, GESHIP, NESTLEIND, NAM-INDIA, ANANDRATHI, COALINDIA, SAILIFE, LAURUSLABS.
+- **Only RELIANCE violates "no Stage 3/4 holds"** — Stage 4, Alpha 20, RS 97.5 (lagging), −7.7% vs 30-WMA. Freed capital ~₹1,91,900 → rotate into 8.5-conviction Stage-2-Pullback Golden Picks (NAVINFLUOR, ACUTAAS, NEULANDLAB, POWERINDIA, NYKAA). Exit plan: hard stop ₹1,300 (20d swing low), sell into any bounce toward 30-WMA ₹1,431.
+- **DMART already exited** (not in live book) — earlier journal-based DMART rec was moot; underscores trusting the broker over the journal.
+- **⚠️ Journal is out of sync with the broker** (data-integrity item): live holds GESHIP/NESTLEIND/NAM-INDIA absent from journal; DMART stale-OPEN; quantities wrong (SAILIFE live 47 vs journal 163). A journal↔holdings sync routine is the next Phase-1 cleanup.
+
+### Attribution wired into Web Commander
+`performance_attribution.run_attribution()` now renders as a **5th "📐 Attribution" tab** in the AUTOPSY page (`weinstein_commander_web_v4.0.py`) — headline metrics + data-quality/honesty line (cash-park, quarantine, snapshot coverage) + per-dimension tables led by the entry-signal drivers (setup/stage/alpha/RS/conviction). Self-contained (reads the journal DB, no network).
+
 ### Next Priority Work
-Continue Phase 1: (a) recover the 3 missing **buy-price** rows (same reconcile path, BUY side); (b) execute the RELIANCE/DMART Stage-violation exits per Sell-to-Buy matrix; (c) start accumulating true `recompute` entry snapshots on new trades so the signal dimensions (setup/stage/alpha/RS) populate.
+(a) **Journal↔broker sync routine** — reconcile the journal's OPEN positions to the live Dhan holdings (fix stale DMART, add missing names, correct quantities). (b) Execute the RELIANCE Stage-4 exit + Sell-to-Buy rotation. (c) Keep accumulating true `recompute` entry snapshots on new trades so the signal dimensions populate.
 
 ---
 
