@@ -782,6 +782,7 @@ This is the critique's "silent fallbacks bias every signal upward" made concrete
 - **Backups preserved:** `trade_journal_v6.backup_20260602.db`, `…_prereconcile.db`. OPEN positions untouched (6).
 - 2 symbols (METALIETF, HDFCSML250) had existing exits overwritten with the authoritative live-API value (more correct).
 - **Known reconcile quirk (pre-existing, not introduced):** the UPDATE writes the latest exit to *all* same-symbol CLOSED rows — a symbol traded in multiple distinct lots collapses to one exit price. Harden if same-name repeat trading becomes common.
+- **Cash-park exclusion:** liquid ETFs (KOTAKNIFTYLIQUIDETF / any `LIQUID*`) used to park funds when regime score = 0 are now excluded from attribution (risk-off carry, not alpha). Alpha-only baseline tightens to **36 trades / 25% win / −₹4,76,159** (the lone liquid-ETF trade was the only thing holding win-rate at 27%).
 - Corrected baseline saved: `reports/performance_attribution_20260602_183447.csv`.
 
 ### Next Priority Work

@@ -61,6 +61,20 @@ DB_FILE      = os.path.join(_DIR, "trade_journal_v6.db")
 ETF_TRADES_CSV = os.path.join(_DIR, "ETF_Closed_Trades.csv")
 REPORTS_DIR  = os.path.join(_DIR, "reports")
 
+# Cash-parking instruments (liquid / overnight ETFs). When the regime score is
+# 0 (risk-off), idle funds get parked here — these are NOT alpha trades, so
+# their carry must NOT pollute win-rate / P&L attribution. Matched by exact
+# ticker OR any symbol containing "LIQUID". Excluded and reported, not hidden.
+CASH_EQUIVALENT_SYMBOLS = {
+    "KOTAKNIFTYLIQUIDETF", "LIQUID1", "LIQUIDBEES", "LIQUID", "LIQUIDCASE",
+    "LIQUIDETF", "AONELIQUID", "HDFCLIQUID", "ABSLLIQUID", "NIFTY1D",
+}
+
+def _is_cash_equivalent(sym):
+    s = str(sym).upper().strip()
+    return s in CASH_EQUIVALENT_SYMBOLS or "LIQUID" in s
+
+
 # Hold-period buckets (calendar days, entry -> exit). Aligned to the trade
 # styles in CLAUDE.md: Swing 8-12wk, Positional 6-8mo.
 HOLD_BUCKETS = [
@@ -177,6 +191,15 @@ def _prepare(df):
         return df, quality
 
     df = df.copy()
+
+    # Exclude cash-parking instruments (liquid ETFs) — risk-off carry, not alpha.
+    if "symbol" in df.columns:
+        is_cash = df["symbol"].apply(_is_cash_equivalent)
+        quality["cash_excluded"] = int(is_cash.sum())
+        quality["cash_excluded_symbols"] = sorted(df.loc[is_cash, "symbol"].astype(str).unique().tolist())
+        df = df[~is_cash].copy()
+        quality["tradeable_closed"] = int(len(df))
+
     for col in ("buy_price", "exit_price", "quantity"):
         df[col] = pd.to_numeric(df.get(col), errors="coerce")
 
@@ -373,6 +396,9 @@ def _print_report(result):
     print(f"    ETF closed trades   : {q['etf_trades_closed']}"
           f"{'' if q['etf_log_present'] else '   (no ETF log — ETF_Closed_Trades.csv absent)'}")
     print(f"    Total CLOSED rows   : {q['total_closed']}")
+    if q.get("cash_excluded"):
+        print(f"    Cash-park excluded  : {q['cash_excluded']} "
+              f"({', '.join(q.get('cash_excluded_symbols', []))}) — liquid ETF carry, not alpha")
     print(f"    Attributable        : {q['attributable']}")
     dropped = {k: v for k, v in q.get("dropped", {}).items() if v}
     if dropped:
