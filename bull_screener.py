@@ -326,7 +326,8 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
         return {"stage": 0, "mansfield": 0.0, "wrsi": 0.0,
                 "mansfield_4w": 0.0, "rrg_quadrant": "n/a",
                 "rrg_trajectory": "n/a", "rrg_next": "n/a",
-                "rrg_score": 0, "rrg_arrow": "•", "rrg_tradeable": False}
+                "rrg_score": 0, "rrg_arrow": "•", "rrg_tradeable": False,
+                "w_mom": False}
     c = df["Close"]
     sma30 = c.rolling(30).mean()
     slope = sma30 - sma30.shift(4)
@@ -413,11 +414,14 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
             rs_ratio, rs_mom, rrg, trail_len
         )
 
+    # PRICE-ACTION weekly momentum (replaces weekly-RSI gate in POS-BO):
+    # weekly close above its 5-week-ago close = positive 5-week momentum.
+    w_mom = bool(float(c.iloc[-1]) > float(c.iloc[-6])) if len(c) > 6 else False
     return {"stage": stage, "mansfield": mansfield, "wrsi": wrsi,
             "mansfield_4w": mansfield_4w, "rrg_quadrant": rrg,
             "rrg_trajectory": rrg_traj, "rrg_next": rrg_next,
             "rrg_score": rrg_score, "rrg_arrow": rrg_arrow,
-            "rrg_tradeable": rrg_tradeable}
+            "rrg_tradeable": rrg_tradeable, "w_mom": w_mom}
 
 
 # v1.7 (2026-05-20): Re-calibrated after switch to Strike-matched 1-pass formula.
@@ -759,8 +763,16 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
             and not np.isnan(vol_vwma5.iloc[-1]) and not np.isnan(_vol_ma_now)):
         is_vcp_tight = (atr10.iloc[-1] < atr10_sma50.iloc[-1] * 1.0 and
                         vol_vwma5.iloc[-1] < _vol_ma_now)
+        # POS-ACCUM gets a looser VCP (1.5x) so accumulation isn't starved (was 2 fires).
+        is_vcp_accum = (atr10.iloc[-1] < atr10_sma50.iloc[-1] * 1.5 and
+                        vol_vwma5.iloc[-1] < _vol_ma_now)
     else:
         is_vcp_tight = False
+        is_vcp_accum = False
+    # PART (a): PRICE-ACTION anti-chase (replaces POS-ACCUM daily RSI<=50).
+    # Accumulation entry should not chase a sharp run-up: close not more than 5%
+    # above its 5-day-ago close (momentum hasn't already extended).
+    pa_not_extended = (c_now <= float(c.iloc[-6]) * 1.05) if len(c) >= 6 else True
     # base_confirmed (Pine 1633) = (weinstein_setup or mature_trend_ok) and mpa_pass.
     # mature_trend_ok needs weeks-in-stage (wStageWks) the Python weekly pipeline
     # doesn't track — approximated by stage-2 + LEADING RRG + above EMA20/SMA200.
@@ -798,8 +810,8 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["POSBO_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok and base_confirmed) else 0
     FUNNEL["POSBO_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20) else 0
     FUNNEL["POSBO_pass_vol"]       += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol) else 0
-    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60) else 0
-    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60 and _pb_dir_ok) else 0
+    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False)) else 0
+    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False) and _pb_dir_ok) else 0
 
     # POS-ACCUM funnel
     _pa_break = c_now > float(h.iloc[-31:-1].max()) * 0.9
@@ -808,9 +820,9 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["POSAC_pass_alpha"]     += 1 if (mkt_bull and alpha_ok_for_bo) else 0
     FUNNEL["POSAC_pass_obv"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up) else 0
     FUNNEL["POSAC_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed) else 0
-    FUNNEL["POSAC_pass_vcp"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_tight) else 0
-    FUNNEL["POSAC_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_tight and _pa_break) else 0
-    FUNNEL["POSAC_pass_rsi50"]     += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_tight and _pa_break and rsi14_now <= 50) else 0
+    FUNNEL["POSAC_pass_vcp"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum) else 0
+    FUNNEL["POSAC_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break) else 0
+    FUNNEL["POSAC_pass_rsi50"]     += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break and pa_not_extended) else 0
 
     # SWG-PB funnel (Pine-parity gate chain)
     FUNNEL["SWGPB_eligible"]    += 1
@@ -840,15 +852,16 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     #    (Weinstein_Unified_Ecosystem_v3.4), but lagging indicators are replaced
     #    with PRICE ACTION per Jay's design (ADX→dir-bars, RSI-pocket→retrace,
     #    RSI<35→pa_oversold). Pine to be synced to these PA gates (see AUDIT_FINDINGS).
-    # POS-BO: base_confirmed + alpha + 20-bar breakout + vol>1.25x + wRSI>=60
-    #   + price-action directional strength (_pb_dir_ok, replaces ADX>=25)
+    # POS-BO: base_confirmed + alpha + 20-bar breakout + vol>1.25x
+    #   + PA weekly momentum (w_mom, replaces weekly RSI>=60 — part a)
+    #   + PA directional strength (_pb_dir_ok, replaces ADX>=25)
     if (mkt_bull and base_confirmed and alpha_ok and c_now > _bo20 and _pb_vol and
-            weekly["wrsi"] >= 60 and _pb_dir_ok):
+            weekly.get("w_mom", False) and _pb_dir_ok):
         cat_id = 2; cat_label = "POS-BO"
-    # POS-ACCUM: base_confirmed + alpha + obv + is_vcp_tight + 30-bar breakout
-    #   + daily-RSI<=50 (v2 LOCK anti-chase gate — kept; flagged for PA review)
-    elif (mkt_bull and base_confirmed and alpha_ok and obv_trending_up and is_vcp_tight and
-            _pa_break and rsi14_now <= 50):
+    # POS-ACCUM: base_confirmed + alpha + obv + looser VCP (is_vcp_accum) +
+    #   30-bar breakout + PA anti-chase (pa_not_extended, replaces RSI<=50 — part a)
+    elif (mkt_bull and base_confirmed and alpha_ok and obv_trending_up and is_vcp_accum and
+            _pa_break and pa_not_extended):
         cat_id = 1; cat_label = "POS-ACCUM"
     # SWG-GAP: gap_up + gap>=4% + close in top 40% of gap bar + vol>3x (pure PA)
     elif (mkt_bull and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and
