@@ -1081,8 +1081,14 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
         atr_mult = 3.5   # Wyckoff base: between positional and swing
     elif _label.startswith("REV"):
         atr_mult = 2.5   # recovery / mean-reversion: 90d holds
+    elif _label == "SWG-PB":
+        # Pullback entry: buying a dip that tagged EMA20 — the dip often extends
+        # a little FURTHER before reversing. A 1.5x stop at entry got knocked out
+        # of 88% of SWG-PB trades at ~7d while they ran +4.83% (survivors: 80%
+        # win, +7.13%). 2.5x gives the pullback room to complete.
+        atr_mult = 2.5
     else:
-        atr_mult = 1.5   # swing (SWG-*): unchanged
+        atr_mult = 1.5   # other swing (SWG-BO / SWG-GAP / SWG-REV): unchanged
     sl = c - atr * atr_mult
     risk = c - sl
     # v1.9 (2026-05-21): Catalyst-differentiated T1/T2 — respect trade timeframe.
