@@ -49,7 +49,7 @@ weinstein_setup, bull_pullback, breakout structure, volume dry-up.
 | Remaining indicator gates | B (PA todo) | ⏳ FLAG | POS-BO weekly `wRSI>=60`, POS-ACCUM daily `RSI<=50` — locked Hunter/v2 params; convert to PA "wherever possible" (needs PA-momentum design). |
 | `mature_trend_ok` in base_confirmed | A (minor) | ⚠️ APPROX | Pine uses weeks-in-stage; Python lacks it → approximated. |
 | `ma_sqz_ok`/`bb_sqz_ok` now dead code | cleanup | TODO | No longer used after weinstein fix; verify + remove. |
-| **Pine sync to PA gates** | parity | ⏳ TODO | Produce Pine edits so Weinstein_Unified_Ecosystem matches the PA Python (catalysts + alpha score). |
+| **Pine sync to PA gates** | parity | 🟡 PARTIAL | Weinstein_Unified_Ecosystem_v3.4 DONE (alpha score + POS-BO/SWG-PB/SWG-REV → PA). NOT compile-verified (TV off). TODO: Commander_Bull_Screener_v3.2, v67 dashboard; macro-edge alpha term (Pine-only). |
 
 ## recovery_screener.py — PENDING
 REV-CB / REV-RS / REV-EARLY gates vs `Commander_Recovery_Screener_v2.0.pine`.
