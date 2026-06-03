@@ -765,21 +765,27 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
                        str(weekly.get("rrg_quadrant", "")).upper() == "LEADING" and
                        c_now > ema20_now and c_now > _sma200_now)
     base_confirmed = (weinstein_setup or mature_trend_ok) and mpa_pass
-    adx_ok = adx_now >= 25  # numeric ADX (hunter_daily_adx_min), not a bar-direction proxy
-    _bo20 = float(h.iloc[-21:-1].max()) if len(h) >= 21 else float(h.max())  # bo_len=20: highest(high,20)[1]
-    # SWG-PB (Pine 1749-1753)
+    # PRICE-ACTION directional strength (Jay's preference: replaces ADX). >=7 of
+    # last 14 bars are up-closes making higher highs — a clean uptrend structure.
+    _pb_dir_ok = (sum(1 for i in range(1, 15)
+                      if float(c.iloc[-i]) > float(ind["open"].iloc[-i]) and
+                         float(h.iloc[-i]) > float(h.iloc[-(i + 1)])) >= 7) if len(c) > 14 else False
+    _bo20 = float(h.iloc[-21:-1].max()) if len(h) >= 21 else float(h.max())  # 20-bar breakout: highest(high,20)[1]
+    # SWG-PB — bull_pullback (price action: tag EMA20 low, close above, up day)
     bull_pullback = (c_now > _sma50_now and l_now <= ema20_now and
                      c_now > ema20_now and c_now > o_now)
     pb_ma_stack   = _sma150_now > _sma200_now
-    pb_rsi_ok     = 30 < rsi14_now < 70
+    # PRICE-ACTION pullback pocket (replaces RSI 30-70): retrace 38-62% of the
+    # 20-bar range off the swing high — a measured pullback, not extreme.
+    pb_pocket_pa  = rsi_pb_pocket
     pb_vol_dry    = (float(v.iloc[-4:-1].mean()) < _vol_ma_now) if len(v) >= 4 else False
-    # SWG-GAP (Pine 1768): gap_intra_pos = (close-open)/(high-open)
+    # SWG-GAP: gap_intra_pos = (close-open)/(high-open)
     gap_up        = o_now > float(h.iloc[-2]) and c_now > o_now
     gap_pct       = (o_now - float(h.iloc[-2])) / float(h.iloc[-2]) if float(h.iloc[-2]) > 0 else 0.0
     gap_intra_pos = (c_now - o_now) / (h_now - o_now) if h_now > o_now else 0.0
-    # SWG-REV (Pine 1761): rev_struct + oversold + bullish reversal confirm
+    # SWG-REV: rev_struct + PRICE-ACTION oversold (pa_oversold, replaces RSI<35)
+    #          + bullish reversal confirm (close>open and close>prior high)
     rev_struct    = c_now > _sma200_now and c_now < ema20_now
-    oversold_rsi  = rsi14_now < 35
     not_stage4    = weekly["stage"] != 4
 
     FUNNEL["POSBO_eligible"]       += 1
@@ -789,7 +795,7 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["POSBO_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20) else 0
     FUNNEL["POSBO_pass_vol"]       += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol) else 0
     FUNNEL["POSBO_pass_wrsi60"]    += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60) else 0
-    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60 and adx_ok) else 0
+    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60 and _pb_dir_ok) else 0
 
     # POS-ACCUM funnel
     _pa_break = c_now > float(h.iloc[-31:-1].max()) * 0.9
@@ -808,8 +814,8 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["SWGPB_pass_pullback"]  += 1 if (mkt_bull and bull_pullback) else 0
     FUNNEL["SWGPB_pass_vcp"]    += 1 if (mkt_bull and bull_pullback and is_vcp_tight) else 0
     FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack) else 0
-    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_rsi_ok) else 0
-    FUNNEL["SWGPB_pass_voldry"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_rsi_ok and pb_vol_dry) else 0
+    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa) else 0
+    FUNNEL["SWGPB_pass_voldry"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry) else 0
 
     # Sub-funnel: weinstein_setup composition
     FUNNEL["WEIN_stage_ok"]        += 1 if stage_ok else 0
@@ -826,35 +832,35 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
                                             stage2_fresh_ok and trend_template_ok) else 0
     FUNNEL["WEIN_all_pass"]        += 1 if weinstein_setup else 0
 
-    # ── Catalyst priority cascade — mirrors canonical Pine triggers exactly
-    #    (Weinstein_Unified_Ecosystem_v3.4). Zero-drift restoration 2026-06-03.
-    # POS-BO (Pine 1723): mkt_bull and base_confirmed and alpha_ok and
-    #   close>bo_level(20) and vol>1.25x and wRSI>=60 and adx>=25
+    # ── Catalyst priority cascade — structure/firing mirrors Pine
+    #    (Weinstein_Unified_Ecosystem_v3.4), but lagging indicators are replaced
+    #    with PRICE ACTION per Jay's design (ADX→dir-bars, RSI-pocket→retrace,
+    #    RSI<35→pa_oversold). Pine to be synced to these PA gates (see AUDIT_FINDINGS).
+    # POS-BO: base_confirmed + alpha + 20-bar breakout + vol>1.25x + wRSI>=60
+    #   + price-action directional strength (_pb_dir_ok, replaces ADX>=25)
     if (mkt_bull and base_confirmed and alpha_ok and c_now > _bo20 and _pb_vol and
-            weekly["wrsi"] >= 60 and adx_ok):
+            weekly["wrsi"] >= 60 and _pb_dir_ok):
         cat_id = 2; cat_label = "POS-BO"
-    # POS-ACCUM (Pine 1736): mkt_bull and base_confirmed and alpha_ok and obv and
-    #   is_vcp_tight and close>bo_level_30*0.9 and d_rsi<=pos_accum_rsi_max(50)
+    # POS-ACCUM: base_confirmed + alpha + obv + is_vcp_tight + 30-bar breakout
+    #   + daily-RSI<=50 (v2 LOCK anti-chase gate — kept; flagged for PA review)
     elif (mkt_bull and base_confirmed and alpha_ok and obv_trending_up and is_vcp_tight and
             _pa_break and rsi14_now <= 50):
         cat_id = 1; cat_label = "POS-ACCUM"
-    # SWG-GAP (Pine 1768): mkt_bull and gap_up and gap_pct>=0.04 and
-    #   gap_intra_pos>=0.60 and vol>3x  (NO weinstein_setup gate)
+    # SWG-GAP: gap_up + gap>=4% + close in top 40% of gap bar + vol>3x (pure PA)
     elif (mkt_bull and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and
             rv_now >= 3.0):
         cat_id = 6; cat_label = "SWG-GAP"
-    # SWG-BO (Pine 1755): mkt_bull and is_vcp_tight and close>bo_level(20) and vol>1.5x
-    #   (NO alpha / minervini / intraday_pos gates)
+    # SWG-BO: is_vcp_tight + 20-bar breakout + vol>1.5x (price/volume structure)
     elif (mkt_bull and is_vcp_tight and c_now > _bo20 and rv_now > 1.5):
         cat_id = 4; cat_label = "SWG-BO"
-    # SWG-PB (Pine 1753): mkt_bull and bull_pullback and is_vcp_tight and
-    #   pb_ma_stack and pb_rsi_ok and pb_vol_dry
+    # SWG-PB: bull_pullback + is_vcp_tight + MA stack + price-action pullback
+    #   pocket (pb_pocket_pa retrace, replaces RSI 30-70) + volume dry-up
     elif (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and
-            pb_rsi_ok and pb_vol_dry):
+            pb_pocket_pa and pb_vol_dry):
         cat_id = 3; cat_label = "SWG-PB"
-    # SWG-REV (Pine 1761): not stage4 and rev_struct and rsi<35 and
-    #   close>open and close>high[1]
-    elif (not_stage4 and rev_struct and oversold_rsi and c_now > o_now and
+    # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
+    #   replaces RSI<35) + bullish reversal confirm (close>open and close>prior high)
+    elif (not_stage4 and rev_struct and pa_oversold and c_now > o_now and
             c_now > float(h.iloc[-2])):
         cat_id = 5; cat_label = "SWG-REV"
 
