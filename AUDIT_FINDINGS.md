@@ -51,15 +51,23 @@ weinstein_setup, bull_pullback, breakout structure, volume dry-up.
 | `ma_sqz_ok`/`bb_sqz_ok` now dead code | cleanup | TODO | No longer used after weinstein fix; verify + remove. |
 | **Pine sync to PA gates** | parity | 🟡 PARTIAL | Weinstein_Unified_Ecosystem_v3.4 DONE (alpha score + POS-BO/SWG-PB/SWG-REV → PA). NOT compile-verified (TV off). TODO: Commander_Bull_Screener_v3.2, v67 dashboard; macro-edge alpha term (Pine-only). |
 
-## recovery_screener.py — PENDING
-REV-CB / REV-RS / REV-EARLY gates vs `Commander_Recovery_Screener_v2.0.pine`.
-Header shows the same v1.2/v1.3 "alignment" rewrites — VERIFY they actually match
-Pine (bull's did not). Currently firing (78 rows) so less urgent than bull, but
-same risk class.
+## recovery_screener.py — AUDITED ✅ CLEAN
+REV-CB / REV-RS / REV-EARLY gates are **already pure price action** (drawdown %,
+red-bar counts, widest-range, higher-low, strict-trend pivot zigzag, trendline
+reclaim). `rsi14`/`rsi3` are computed but used ONLY as display columns
+(RSI14/RSI3 output), NOT in any gate. Firing (78 rows). The v1.2/v1.3 PA redesign
+was done CORRECTLY here (unlike bull). Low priority; a full line-by-line Pine
+trace could still find subtle drift but there is no indicator-in-gate or
+blackout problem.
 
-## chartink_replay.py — PENDING
-Hunter / EarlyBird / Pullback / Leader scan ports. These drive live picks.
-`FINAL_Hunter_Picks.csv` empty — check Hunter qualifier logic.
+## chartink_replay.py — AUDITED ⚠️ DECISION
+Hunter scan uses `weekly_rsi_min=60` + `daily_adx_min=25` (RSI + ADX). BUT these
+are faithful ports of the actual **Chartink.com scans**, which ARE indicator-based.
+Converting to PA would make them DIVERGE from Chartink (the source of truth for
+these specific scans). DECISION for Jay: keep Chartink ports faithful (indicator)
+OR convert to PA (diverge from Chartink). `FINAL_Hunter_Picks.csv` empty is most
+likely the (now-fixed) bull_screener POS-BO blackout, not chartink — re-run the
+pipeline to confirm Hunter picks return.
 
 ## matcher_replay.py — PENDING
 Conviction filter (min_conviction=6.0). Verify weighting.
