@@ -60,14 +60,34 @@ was done CORRECTLY here (unlike bull). Low priority; a full line-by-line Pine
 trace could still find subtle drift but there is no indicator-in-gate or
 blackout problem.
 
-## chartink_replay.py — AUDITED ⚠️ DECISION
-Hunter scan uses `weekly_rsi_min=60` + `daily_adx_min=25` (RSI + ADX). BUT these
-are faithful ports of the actual **Chartink.com scans**, which ARE indicator-based.
-Converting to PA would make them DIVERGE from Chartink (the source of truth for
-these specific scans). DECISION for Jay: keep Chartink ports faithful (indicator)
-OR convert to PA (diverge from Chartink). `FINAL_Hunter_Picks.csv` empty is most
-likely the (now-fixed) bull_screener POS-BO blackout, not chartink — re-run the
-pipeline to confirm Hunter picks return.
+## chartink_replay.py — AUDITED ✅ KEEP FAITHFUL (Jay's decision)
+Hunter scan uses `weekly_rsi_min=60` + `daily_adx_min=25` (RSI + ADX) — but these
+are faithful ports of the actual **Chartink.com scans** (indicator-based by
+nature). **Jay's decision (3 Jun): keep them faithful to Chartink** — do NOT
+convert to PA (they must mirror the external Chartink source). No change.
+`FINAL_Hunter_Picks.csv` empty was the (now-fixed) bull_screener POS-BO blackout.
+
+## matcher_replay.py — AUDITED ✅ CLEAN
+Conviction filter (min_conviction=6.0). No RSI/ADX/MACD anywhere. Score/conviction
+based. NOTE: this + Top-N are the cleanest FUNNEL-RELAXATION dials if the daily
+list is ever too thin (lower min_conviction ~5 / raise Top-N) — preferred over
+loosening screener gates.
+
+## etf_screener.py — AUDITED ✅ CLEAN
+4-axis scoring (Liquidity / Trend / RS / Rotation). No RSI/ADX/MACD in gates.
+
+## data_provider.py — AUDITED ✅ CLEAN (data layer, no gates)
+Date-pinning OHLCV provider; no signal logic. (Pinning correctness was implicitly
+validated by the historical-anchor funnel runs returning the full ~440-symbol
+universe with correct as-of bars.)
+
+## AUDIT CONCLUSION
+The indicator-in-gate / PA-drift problem was **ISOLATED to bull_screener.py**
+(now fixed + Pine-synced). recovery_screener was already PA-clean; matcher/etf/
+data_provider don't use these indicators in gates; chartink is intentionally
+indicator-faithful to Chartink. The systemic fear ("drift everywhere") did not
+materialize beyond bull_screener — but the bull layer feeds everything, which is
+why its breakage cascaded to empty CSVs.
 
 ## matcher_replay.py — PENDING
 Conviction filter (min_conviction=6.0). Verify weighting.
