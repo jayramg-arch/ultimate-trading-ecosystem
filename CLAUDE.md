@@ -848,8 +848,30 @@ Partitioned the 117 matched-alpha trades by catalyst family / market direction /
 
 3. **Alpha is concentrated in DOWN-tape windows** (per matched-horizon benchmark): DOWN tape 44 trades, 50% win, **+2.54% alpha, PF 3.46**; UP tape 73 trades, 27% win, **−3.05% alpha, PF 0.49**. The breakouts behave defensively (relative strength when the market falls, lag when it rallies) — exactly `bull_market_base_rate_warning` made concrete.
 
-### Next Priority Work (revised by the partition)
-(a) **Widen the SWG stop** (test 2.5–3×ATR vs the current 1.5×) and re-run the walk-forward + gate — the partition predicts this flips swing alpha positive by cutting the 68% premature stop-outs. (b) **Diagnose the zero POS picks** — why did the positional screener emit nothing over 24mo nifty500? (c) Investigate the Jan–Jun 2025 zero-pick drought. (d) Execute the RELIANCE Stage-4 exit. (e) Phase 3 stays deferred until a re-run shows persistent OOS edge.
+### CRITICAL BUG FOUND & FIXED — squeeze gates killed the entire positional book
+Jay challenged the "zero POS picks in 24 months" claim (POS-BO is the CORE positional strategy). He was right — it was a **signal-drift bug**, not market reality.
+
+**Root cause:** `bull_screener.weinstein_setup` (the base gate for POS-BO AND POS-ACCUM) AND-ed in `ma_sqz_ok` + `bb_sqz_ok` — a tight 10% coil + NR7 contraction. The canonical Pine (`Weinstein_Unified_Ecosystem_v3.4` line 1622) does **NOT** include these (they're display/VCP flags only). A squeeze is mutually exclusive with the POS-BO breakout requirement (breakout = wide-range bar = opposite of NR7), so it nullified the positional book entirely.
+**Proof:** nifty500 @ 2024-08-15, `weinstein_setup` 0/440 WITH squeeze vs **25/440** without. The funnel diagnostic had been *hiding* `ma_sqz`/`bb_sqz` (now exposed).
+**Fix:** removed `ma_sqz_ok and bb_sqz_ok` from `weinstein_setup` to match Pine (commit on branch). Diagnostic counters added.
+
+**This was a RECENT regression (post-May-21), NOT present during the v2-LOCK campaign** — the May runs had POS-BO firing 8–12 picks/run (verified across all `validation_20260521_*` details). So the v2 FINAL baseline stands; the bug crept in between 21 May and 2 Jun (untracked `bull_screener.py` edits — "R5/R6" squeeze rewrite). The "POS-BO rarely fires on N500" code comment described POS being the *minority* catalyst (~8%), not zero.
+
+**Post-fix re-run (`20260603_190808`, 24mo nifty500 catalyst-aware) — POS-BO has a STRONG edge:**
+| Catalyst | n | win% | mean matched α | PF | avg days |
+|---|---:|---:|---:|---:|---:|
+| **POS-BO (core)** | 14 | **78.6%** | **+7.67%** | **3.14** | 52 |
+| POS family | 17 | 70.6% | +6.09% | 2.72 | 49 |
+| SWG-BO | 101 | 36.6% | −1.31% | 0.71 | 14 |
+| SWG-REV | 14 | 21.4% | −4.70% | 0.19 | 17 |
+
+**The pooled "NO-EDGE" verdict was a composition artifact** — 17 POS winners drowned by 115 bleeding swing trades (78 SL-hits at ~8d, 15% win). Per-family is the correct lens: **POS-BO is your real edge; the swing book (esp. SWG-BO/REV with the too-tight 1.5×ATR stop) is the drag.** The OOS gate must be run PER FAMILY, not pooled (POS n=17 still too small for its own gate — needs more anchors).
+
+### Second regression still open
+SWG-PB (Stage-2 Pullback) was the DOMINANT catalyst in May (56–66 picks/run) but is **0** in the June runs — a separate, undiagnosed regression (SWG-PB doesn't use `weinstein_setup`, so the squeeze fix doesn't touch it). Must trace its gate chain (`cpr_ok`/`mvwap_ok`/`rsi_pb_pocket`/`vol_drying`) vs Pine.
+
+### Next Priority Work
+(a) **Diagnose the SWG-PB regression** (dominant catalyst, now zero). (b) **Widen the SWG-BO/REV stop** (1.5×→2.5-3×ATR) — 78 SL-hits at 8d/15% win are the swing drag. (c) Re-run + gate PER FAMILY once SWG-PB is restored. (d) POS-BO edge (+7.67%, PF 3.14) is real but n=14 — accumulate more anchors before Phase 3. (e) RELIANCE Stage-4 exit.
 
 ---
 

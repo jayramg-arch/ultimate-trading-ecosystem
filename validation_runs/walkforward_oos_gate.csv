@@ -1,2 +1,2 @@
 source,is_anchors,oos_anchors,is_mean_alpha,oos_mean_alpha,is_sharpe,oos_sharpe,oos_to_is_sharpe,verdict
-validation_20260602_200514_summary.csv,7,5,-0.514,-2.948,-0.108,-0.953,,NO-EDGE
+validation_20260603_190808_summary.csv,8,5,-1.111,-3.092,-0.148,-0.9,,NO-EDGE
