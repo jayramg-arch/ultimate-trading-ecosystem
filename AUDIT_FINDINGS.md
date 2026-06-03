@@ -85,6 +85,20 @@ empty while `_N500_` populated — output-file routing.
 
 ---
 
+## CALIBRATION PRINCIPLE (Jay, 3 Jun)
+Do NOT make individual gates too strict. The pipeline has MULTIPLE levels of
+checks (screener catalyst gates → matcher conviction ≥6 → Top-N → Golden Picks),
+so over-tight individual gates COMPOUND and starve the funnel → too few/zero
+candidates. When a gate fires ~0 (e.g. SWG-REV on strict 3-bar+20% PA oversold),
+RELAX it (→ 2-bar+25%) rather than leave it dead. Keep quality, but ensure a
+workable candidate set flows through. Applies to all future gate changes + the
+part-(a) RSI→PA conversions.
+
+Relaxation watch-list:
+- SWG-REV pa_oversold: 3-bar+20% → **2-bar+25%** ✅ done (Python+Pine).
+- POS-ACCUM (only ~2 fires): is_vcp_tight@1.0 is tight + the daily-RSI≤50 gate
+  (part a). Relax holistically when converting its RSI gate to PA.
+
 ## Methodology (the fix for the audit gap)
 For each signal module: (1) extract every Pine trigger/gate + its helpers,
 (2) map to the Python gate line-by-line, (3) instrument a per-gate FUNNEL,
