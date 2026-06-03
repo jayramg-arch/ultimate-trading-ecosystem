@@ -718,15 +718,16 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     else:
         rsi_pb_pocket = False
         
-    # ----- R3: down-structure replaces RSI(3) for SWG-REV -----
-    # Relaxed 2026-06-03 (Jay: avoid over-tight gates that starve the multi-level
-    # funnel): 2 consecutive lower closes (was 3) + close in bottom 25% of the
-    # 10-bar range (was 20%). A measured oversold dip, not a rare washout.
-    if len(c) >= 3 and len(h) >= 10:
-        _2bar_down = float(c.iloc[-1]) < float(c.iloc[-2]) and float(c.iloc[-2]) < float(c.iloc[-3])
-        _range_10 = float(h.iloc[-10:].max()) - float(l.iloc[-10:].min())
-        _pos_10 = (c_now - float(l.iloc[-10:].min())) / _range_10 if _range_10 > 0 else 0.5
-        pa_oversold = _2bar_down and _pos_10 < 0.25
+    # ----- R3: PRIOR down-structure replaces RSI(3) for SWG-REV -----
+    # FIX 2026-06-03: measure weakness in the bars ENDING YESTERDAY (not today),
+    # so it is compatible with the reversal-bar confirm (today close>open AND
+    # close>high[1]). Earlier version included today's down close, which
+    # contradicted close>high[1] → the gate could never fire (0 picks).
+    # Price fell over the 3 days ending yesterday: close[1]<close[2]<close[3]
+    # (Python: c[-2]<c[-3]<c[-4]).
+    if len(c) >= 4:
+        pa_oversold = (float(c.iloc[-2]) < float(c.iloc[-3]) and
+                       float(c.iloc[-3]) < float(c.iloc[-4]))
     else:
         pa_oversold = False
 
