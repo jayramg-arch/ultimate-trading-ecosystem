@@ -1440,7 +1440,7 @@ float _sw_lo_20 = ta.lowest(dLow, 20)
 float _sw_range = _sw_hi_20 - _sw_lo_20
 float _retrace_pct = _sw_range > 0 ? (_sw_hi_20 - dClose) / _sw_range : 0.0
 bool rsi_pb_pocket   = _retrace_pct >= 0.38 and _retrace_pct <= 0.62
-bool rsi_w_strong    = wRsiVal > 60
+bool rsi_w_strong    = pa_wk_mom   // v3.3: wRsiVal>60 -> PA weekly momentum (wClose>wClose[5])
 // FIX v2.0: VDU gate — require price declining AND volume drying up (<70% avg).
 bool vol_vdu_ok      = dVol < (dVolAvg * 0.7) and dClose < dClose[1]
 bool hitPullback     = is_ema_pb_zone and rsi_pb_pocket and rsi_w_strong and vol_vdu_ok and minervini_trend and alpha_ok and cpr_ok and mvwap_ok
@@ -1607,7 +1607,7 @@ bool pos_rs_ok    = not str.contains(rsSecState, "Lagging")
 bool is_positional = pos_stage_ok and pos_trend_ok and pos_rs_ok
 
 bool sw_trend_ok = minervini_trend and dClose > dEma20
-bool sw_mom_ok   = dailyRsi > 55 or curRelVol > 1.5 or hitPullback
+bool sw_mom_ok   = (dClose > dClose[5]) or curRelVol > 1.5 or hitPullback  // v3.3: dailyRsi>55 -> PA 5-day momentum
 bool sw_safe_ok  = pb_dist_ema20 < 15.0
 bool is_swing    = sw_trend_ok and sw_mom_ok and sw_safe_ok
 
@@ -1625,7 +1625,7 @@ else if is_swing
 // ==========================================
 float adr_pct = (d_atr10 / dClose) * 100
 bool is_volatile = adr_pct > 5.0
-bool is_extended = (pb_dist_ema20 > 20.0) or (dailyRsi > 75)
+bool is_extended = (pb_dist_ema20 > 20.0) or (dClose > dClose[5] * 1.12)  // v3.3: dailyRsi>75 -> PA parabolic (up >12% in 5 days)
 bool is_leader_cand = str.contains(rs500State, "Leading") and dClose > dMA200 and dClose > dMA50
 bool is_momentum_cand = (dailyRsi > 60 or str.contains(rs500State, "Leading") or str.contains(rs500State, "Improving")) and dClose > dEma20
 bool is_turnaround_cand = (str.contains(rs500State, "Improving") or str.contains(rs500State, "Weakening")) and dClose > dMA50 and dClose < dMA200
@@ -1661,7 +1661,7 @@ else if _stageID_val == "STAGE 4 (DOWN)"
 int conf_score = 0
 if dClose > dEma20 
     conf_score += 1
-if dailyRsi > 50 
+if dClose > dClose[5]   // v3.3: dailyRsi>50 -> PA 5-day momentum
     conf_score += 1
 if dClose > dOpen ? (dVol > dVolAvg) : (dVol < dVolAvg)
     conf_score += 1

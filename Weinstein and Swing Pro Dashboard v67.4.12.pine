@@ -3482,7 +3482,8 @@ else if d50SlopeState == "RISING"
     score += 5
 if str.contains(volState, "ACCUM") or isSqueeze
     score += 10
-if dailyRsi > 50 and dailyRsi < 70
+// v67.5: PA momentum (replaces RSI 50-70): positive 5-day momentum, not parabolic.
+if close > close[5] and close <= close[5] * 1.10
     score += 5
 float distToDailyEma = close != 0 ? math.abs((close - d_ema20_val) / close * 100) : 0.0
 if distToDailyEma < 2.0 
@@ -3716,7 +3717,7 @@ float _bs_sw_lo_20 = ta.lowest(d_l, 20)
 float _bs_sw_range = _bs_sw_hi_20 - _bs_sw_lo_20
 float _bs_retrace_pct = _bs_sw_range > 0 ? (_bs_sw_hi_20 - d_c) / _bs_sw_range : 0.0
 bool  bs_rsi_pb_pocket  = _bs_retrace_pct >= 0.38 and _bs_retrace_pct <= 0.62
-bool  bs_rsi_w_strong   = wRsiVal > 60
+bool  bs_rsi_w_strong   = bs_pa_wk_mom   // v67.5: wRsiVal>60 -> PA weekly momentum (wClose>wClose[5])
 bool  bs_vol_vdu_ok     = d_v < (d_vavg * 0.7) and d_c < d_c[1]
 bool  bs_hitPullback    = bs_is_ema_pb_zone and bs_rsi_pb_pocket and bs_rsi_w_strong and bs_vol_vdu_ok and minervini_trend and alpha_ok and bs_cpr_ok and bs_mvwap_ok
 
@@ -4060,9 +4061,11 @@ if tradeActive
         tradeStatus := "⚠️ STOP HIT (" + pnlStr + ")"
         tradeColor := color.red
     else if curPnL > 0
-        // SCALE IN / TRIM LOGIC
-        bool cond_add = dTrendDir == 1 and dailyRsi < 70 and close > use_ema20 and not isSqueeze // Don't add inside a squeeze, wait for pop
-        bool cond_trim = dailyRsi > 75 or absDist > 15.0 or (not na(earningsNext) and (earningsNext - timenow) / 86400000 < 3)
+        // SCALE IN / TRIM LOGIC — v67.5: RSI -> PA (5-day momentum / extension)
+        // cond_add: not overbought = not up >10% in 5 days (replaces dailyRsi<70)
+        bool cond_add = dTrendDir == 1 and close <= close[5] * 1.10 and close > use_ema20 and not isSqueeze // Don't add inside a squeeze, wait for pop
+        // cond_trim: overbought = parabolic >12% in 5 days (replaces dailyRsi>75)
+        bool cond_trim = close > close[5] * 1.12 or absDist > 15.0 or (not na(earningsNext) and (earningsNext - timenow) / 86400000 < 3)
         
         if cond_trim
             tradeStatus := "TRIM (" + pnlStr + ")"
@@ -4094,8 +4097,8 @@ if tradeActive
 // ==========================================
 // 1. Trend: Above EMA 20
 bool c_trend = close > d_ema20_val
-// 2. Momentum: RSI > 50 (Bullish)
-bool c_mom = dailyRsi > 50
+// 2. Momentum — PRICE ACTION (v67.5: replaces RSI>50): positive 5-day momentum.
+bool c_mom = close > close[5]
 // 3. Volume Action: 
 // Breakout -> Needs Vol Expansion (Vol > Avg)
 // Pullback -> Needs Vol Contraction (Vol < Avg)
@@ -4219,7 +4222,8 @@ bool is_volatile = adr_pct > 5.0
 
 // Extension Check
 float dist_ema20_pct = ((close - d_ema20_val) / d_ema20_val) * 100
-bool is_extended = (dist_ema20_pct > 20.0) or (dailyRsi > 75) // Price > 20% above EMA20 OR RSI Overbought
+// v67.5: RSI>75 -> PA parabolic (up >12% in 5 days). Price > 20% above EMA20 OR fast run-up.
+bool is_extended = (dist_ema20_pct > 20.0) or (close > close[5] * 1.12)
 
 // Leader Criteria (Prime)
 bool is_leader_cand = str.contains(rs50State, "(Positive)") and close > dMA200 and close > dMA50 and dev52 < 15

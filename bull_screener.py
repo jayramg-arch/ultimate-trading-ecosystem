@@ -551,7 +551,12 @@ def calculate_alpha_score(ind: dict) -> int:
     dist_ema20 = abs(c - ema20) / ema20 * 100
     if dist_ema20 < 5: score += 20
     elif dist_ema20 < 10: score += 10
-    
+
+    # Macro edge (parity with Pine use_macro_edge, default on). Volume regime,
+    # PA-compatible: above-average participation (+10) vs thin/distribution (-20).
+    if rv > 1.0: score += 10
+    else: score -= 20
+
     return score
 
 def check_conditions(ind: dict, weekly: dict, alpha: int,
