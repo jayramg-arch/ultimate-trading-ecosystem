@@ -646,10 +646,18 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     else:
         bb_sqz_ok = False
 
+    # ZERO-DRIFT FIX (2026-06-02): align to canonical Pine weinstein_setup
+    # (Weinstein_Unified_Ecosystem_v3.4.pine line 1622), which is:
+    #   (stage2_uptrend or stage1_base) and close>d_sma200 and rs_quadrant!="LAGGING"
+    #   and vol_acc_ok and stage2_fresh_ok and trend_template_ok
+    # ma_sqz_ok / bb_sqz_ok are computed in Pine but used only as display/VCP
+    # flags — they are NOT in the positional gate. Python had wrongly AND-ed
+    # them in (a tight-coil/NR7 squeeze), which is mutually exclusive with the
+    # POS-BO breakout requirement and nullified the ENTIRE positional book
+    # (0 POS picks across 24 months; 25/440 qualify once the squeeze is removed).
     weinstein_setup = (
         stage_ok and trend_aligned and rs_ok and sector_stage_ok and
         vol_acc_ok and stage2_fresh_ok and
-        ma_sqz_ok and bb_sqz_ok and
         trend_template_ok
     )
 
