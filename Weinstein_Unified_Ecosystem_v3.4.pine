@@ -1743,12 +1743,13 @@ float pa_sw_hi20 = ta.highest(high, 20)
 float pa_sw_lo20 = ta.lowest(low, 20)
 float pa_retrace = (pa_sw_hi20 - pa_sw_lo20) > 0 ? (pa_sw_hi20 - close) / (pa_sw_hi20 - pa_sw_lo20) : 0.0
 bool  pb_pocket_pa = pa_retrace >= 0.38 and pa_retrace <= 0.62
-// PA oversold (replaces RSI<35): 3 lower closes + close in bottom 20% of 10-bar range.
-bool  pa_3bar_down = close < close[1] and close[1] < close[2] and close[2] < close[3]
+// PA oversold (replaces RSI<35): relaxed to 2 lower closes + close in bottom
+// 25% of 10-bar range (2026-06-03 — avoid over-tight gates starving the funnel).
+bool  pa_2bar_down = close < close[1] and close[1] < close[2]
 float pa_lo10 = ta.lowest(low, 10)
 float pa_hi10 = ta.highest(high, 10)
 float pa_pos10 = (pa_hi10 - pa_lo10) > 0 ? (close - pa_lo10) / (pa_hi10 - pa_lo10) : 0.5
-bool  pa_oversold_pa = pa_3bar_down and pa_pos10 < 0.20
+bool  pa_oversold_pa = pa_2bar_down and pa_pos10 < 0.25
 
 // v3.5 (2026-06-03): ADX (hunter_adx_ok) -> pa_dir_ok per pure-PA design.
 //   (wRSI >= hunter_weekly_rsi_min retained — weekly-RSI->PA is a separate step.)
