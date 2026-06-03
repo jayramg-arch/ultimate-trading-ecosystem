@@ -1,0 +1,2860 @@
+//@version=6
+// ==========================================
+// CHANGELOG v3.4 (2026-05-21) — Ecosystem sync: POS-ACCUM out, Wyckoff in
+// ==========================================
+// Audit found Pine Strategy was still running pre-Wyckoff stack while Python +
+// Pine Recovery Screener had moved on. This release fixes:
+//   • POS-ACCUM entries DISABLED (was: -10.04% mean alpha, 0/5 wins in 12-anchor
+//     backtest). Trigger still computed for funnel diagnostics, but not routed.
+//   • REV-CB / REV-RS / REV-EARLY entries DISABLED (was: -5.25% cum alpha).
+//     Logic kept for backward-compat trackers; no longer feeds active_catalyst.
+//   • WYCKOFF Spring/SOS/JAC catalysts ADDED as primary recovery edges (+6.39%
+//     cum alpha in same backtest). Ported from Pine Recovery Screener v2.0.
+//   • Wyckoff SL = base low − 0.3 ATR (structural).
+//   • Wyckoff T1 = 5R, T2 = max(10R, 52w high). T1 partial = 25%.
+//   • Wyckoff trail = Chandelier ratchet (same as POS — let winners run).
+//   • Wyckoff time-stop = positional (pos_time_stop_weeks × 5 bars).
+//
+// Now in sync with: Python bull_screener.py v1.9, recovery_screener.py v3.0,
+// Pine Bull Screener v3.2, Pine Recovery Screener v2.0, Dashboard v67.4.4.
+//
+// ==========================================
+// CHANGELOG v3.3 (2026-05-21) — Catalyst-differentiated T1/T2 targets
+// ==========================================
+// v3.1/v3.2 used 5R/10R for ALL non-mean-rev catalysts. Honest reflection:
+// swing trades (SWG-BO/PB, 1-4 week holds) cannot realistically reach 10R
+// targets. Setting wide targets they never hit just leaves the targets unused
+// and the trade exits via trail. Positional trades CAN reach 10R because
+// they hold for months. Recognizing this:
+//
+//   POS-BO/POS-ACCUM  : T1=5R, T2=10R  ← positional (2-12mo)
+//   SWG-BO/SWG-PB     : T1=3R, T2=5R   ← swing (1-4 weeks)
+//   SWG-GAP           : T1=2R, T2=4R   ← gap fades fast
+//   SWG-REV           : T1=2R, T2=2R   ← mean-rev quick exit (kept)
+//   WYC-* (recovery)  : T1=5R, T2=10R  ← post-accumulation runs
+//
+// T1 partial-take sizes also adjusted: SWG-BO/PB now 33% (was 25%) since
+// shorter trades need to lock more profit on first target.
+//
+// ==========================================
+// CHANGELOG v3.2 (2026-05-21) — Widened trails to match 5R/10R targets
+// ==========================================
+// v3.1 moved T1 from 2.5R → 5R and T2 from 3.5R → 10R, but trails stayed at
+// EMA20 + Chandelier 3 ATR. Result: trades stopped on routine pullbacks
+// before reaching the wider targets — defeated the purpose of "let winners run".
+//
+// FIXES:
+//   • Chandelier ATR multiplier: 3.0 → 4.5 (allows ~30% pullback from peak
+//     on a 10R runner instead of ~15%).
+//   • SWG trail: EMA20 → SMA50 (~3× wider band, ~15-25% pullback tolerance
+//     vs ~5-10% for EMA20). Trade comment renamed "EMA20 Trail" → "SMA50 Trail".
+//   • 50MA Fail hard-close kept as fast structural exit (fires at EXACT SMA50
+//     close vs trail's SMA50*0.99 stop — slight overlap, complementary).
+//
+// REV-CB / REV-RS / REV-EARLY trails UNCHANGED — those are tactical recovery
+// trades by design; their post-T1 trail at EMA20 / Chandelier is appropriate.
+//
+// ==========================================
+// CHANGELOG v3.1 (2026-05-20) — Let Winners Run
+// ==========================================
+// PROBLEM IDENTIFIED:
+//   Backtest on 4 symbols (LAURUSLABS/RELIANCE/TCS/BAJFINANCE) showed the
+//   v2.8.3 strategy made <0.3% net profit over 20+ years vs Buy & Hold of
+//   3,691× on BAJFINANCE, 56× on RELIANCE. Three structural leaks:
+//     1. `strategy.position_size == 0` guard rejected 90%+ of catalyst signals
+//        despite max_open_positions=6 input being available.
+//     2. T1 partial profit at 2-2.5R closed winners on first weekly pullback.
+//     3. T2 at 3-3.5R locked in tiny gains; trail stop trimmed runners.
+//   Profit factors were strong (1.89-14.13) — the strategy just wasn't
+//   *in trades* long enough or often enough.
+//
+// FIXES:
+//   • Removed `strategy.position_size == 0` guard. Now uses max_open_positions
+//     (default 6) as the actual cap. Strategy can pyramid into running winners.
+//   • T1 targets: POS 2.5R → 5R, SWG 2-2.5R → 5R, REV-* 2.5R → 5R
+//     (SWG-REV kept at 2R — mean-reversion needs tight exits)
+//   • T1 partial-take size: 30-50% → 25% (keep more runner)
+//   • T2 targets: SWG 3-3.5R → 10R; POS now gets T2 (was none); REV-CB
+//     upgraded from SMA200 reclaim to 52W high
+//   • T2 partial size: 50% → 25%
+//
+// EXPECTED IMPACT:
+//   Lower profit factor (more time in trade = more whipsaw exposure) but
+//   dramatically larger absolute returns by capturing trends to completion.
+//
+// ==========================================
+// CHANGELOG v2.9 (2026-05-19) — JdK RRG migration + validated score
+// ==========================================
+//   FORMULA: f_rs_math() switched from single-pass Mansfield to JdK 2-pass
+//     RS-Ratio / RS-Momentum (StockCharts default, length=10). Now matches
+//     Dashboard v67.4 and Bull Screener Python v1.6 — three components agree.
+//
+//   SCORING: RRG block at L1385-1391 (LEADING +5 / WEAKENING -10 / LAGGING -5)
+//     replaced with validated +5/-5 binary on RS-Ratio side. Backed by n=5,460
+//     universe-wide backtest (Nifty 500 × 12 anchors): only signal that survived
+//     larger sample. Old matrix had cells inverted at higher n.
+//
+//   NEW: f_rrg_info() helper returns [arrow, traj, cur, nxt, score, tradeable].
+//     `rs_tradeable` is now available downstream as an entry-timing gate
+//     (separate from the ranking score). Cliff-edge LEADING -> WEAKENING and
+//     all LAGGING positions evaluate to tradeable=false.
+//
+//   INPUTS ADDED: jdkLength (10), rrgTrailLen (4). Legacy rsLength/rs_slope_weeks
+//     retained for the slope arrow direction.
+//
+// ==========================================
+// CHANGELOG v2.5 (Enhancement pass over v2.4 — 2026-05-17)
+//   ENHANCEMENTS
+//   • E1  Catalyst Diagnostic Panel — toggleable floating table showing
+//         per-catalyst gate pass/fail and the FIRST blocking gate. Removes
+//         the "why isn't it firing" mystery on any chart in 5 seconds.
+//   • E2  Hunter v1 FINAL gate wiring — DELIVERED in v2.4 as B1a + B1b
+//         (the original v2.3 changelog promised them; v2.4 actually wired
+//         them in). Explicitly noted here for traceability — see v2.4
+//         changelog block below for details.
+//   • E3  stage2_fresh_max is now an input (default 26, range 4–104).
+//         Lets you widen the freshness gate for mature trends without
+//         editing source. Replaces hardcoded 26 in stage2_fresh_ok.
+//   • E4  trend_template_low_mult and trend_template_high_pct inputs.
+//         Defaults preserve v2.4 behavior (1.30 / 0.75); surface for tuning.
+//   • E5  Mature Trend Exemption — `mature_trend_ok` bypass path that
+//         allows established Stage 2 leaders (LEADING RS, beyond freshness
+//         window, holding above EMA20) to satisfy base_confirmed.
+//         Toggle via use_mature_trend_exempt input. Default ON.
+//   • E6  Per-catalyst hit counters plotted to Data Window. Lets you
+//         see firing-frequency funnel across backtest range.
+//   • E7  Sector lookup diagnostics — resolved sector ticker + path
+//         (DB vs keyword fallback) shown in diagnostic panel.
+//   • E8  cb_vol_mult default range surfaced; tooltip clarifies 1.8–3.0
+//         is typical. (Existing input now better documented.)
+//   • E9  RFF FY → FQ fallback. When use_rff_fq_fallback is on, missing
+//         FY fields are backfilled with the latest FQ value. Improves
+//         coverage on small/midcap NSE listings with sparse FY data.
+//   • E10 calc_on_every_tick — REVERTED to true (compile pass v2.5.1):
+//         Pine v6 warns when barstate.islast is used without calc_on_every_tick.
+//         Both the existing dashboard panel (line ~1746) and the new diag panel
+//         depend on barstate.islast firing on realtime bars. Performance gain
+//         not worth the operational friction. Accept the per-tick recalc cost.
+//   • E11 Optional WCL Context Layers gate — input.source for WCL setup
+//         priority plot. When use_wcl_gate is on, catalysts require
+//         wcl_score_source >= wcl_score_min before firing. Bring in
+//         Context Layers cross-confirmation without re-implementing it.
+//   • E12 alert() per catalyst (9 alerts) + composite alerts for trigger_bull
+//         and trigger_rec. Compile pass v2.5.1: switched from alertcondition()
+//         (no effect in strategies — Pine v6 warning) to alert() runtime calls
+//         with freq_once_per_bar_close. Configure ONE TradingView alert on the
+//         strategy with frequency "Any alert function call" and all 11 routes
+//         will fire through it with their distinct messages.
+//
+//   PRIOR v2.4 BUG FIXES PRESERVED (see commit log for full list)
+// ==========================================
+// CHANGELOG v2.4 (Bug-fix pass over v2.3 — 2026-05-17)
+//   FIXES
+//   • B1a Hunter v1 FINAL gates ACTUALLY wired into pos_bo_trigger
+//         (v2.3 declared them in changelog but never applied them).
+//         Now: wRSI >= hunter_weekly_rsi_min AND hunter_adx_ok.
+//   • B1b v2 LOCK gate ACTUALLY wired into pos_ac_trigger — same compliance
+//         break as B1a. v2.3 declared d_rsi <= pos_accum_rsi_max but the
+//         expression never referenced it. POS-ACCUM was therefore firing on
+//         late-stage high-RSI chase setups (HCLTECH-style failure mode).
+//   • B2  REV-CB climax_bar tautology fixed — bar_range_max_cb now uses
+//         [1] offset so current bar is compared against PRIOR N bars,
+//         not itself. v2.3 condition (bar_range >= max-incl-self) was
+//         tautological and silently blocked most REV-CB firings.
+//   • B3  vol_acc_ok comment reconciled with code (threshold = 3, not 6).
+//         Code behavior unchanged; comment now matches actual logic.
+//   • B4  mkt_bull gate added to pos_bo_trigger and pos_ac_trigger for
+//         consistency with all other Bull catalysts (POS edges had been
+//         silently fire-able in Stage 4 regimes).
+//   • B5  swing_rev_trg now requires NOT stage4_dntrend (was firing on
+//         broken stocks where close > SMA200 but underlying trend was
+//         already structurally down).
+//   • B6  stage2_fresh_ok now uses nz(wStageWks, 999) so na case
+//         explicitly disqualifies instead of silently propagating na.
+//   • B13 Mansfield RS symbol concat now strips any pre-existing "NSE:"
+//         prefix from syminfo.ticker before re-prefixing. Prevents
+//         double-prefix "NSE:NSE:RELIANCE" silent failures.
+//
+//   PRIOR (v2.3) CHANGES PRESERVED
+//   • v2 LOCK on pos_ac_trigger: d_rsi <= pos_accum_rsi_max (default 50)
+//   • Hunter v1 FINAL inputs surfaced under "Bull: v1+v2 Locked Filters"
+//   • Source: BACKTEST_RESULTS_v2.docx §7.1 + §2.4 + v2.4 bug-fix audit.
+// ==========================================
+// ============================================================================
+//  CROSS-TOOL ARCHITECTURE — v2.6 (Decision-Mode Compression Pass)
+// ============================================================================
+//  The Dashboard (Weinstein & Swing Pro Dashboard v67.3.0+) is now the canonical
+//  source for: RS engine · Stage anchors · Strict trend · Price Action Structure
+//  · Portfolio · Persona / Style · Volume Trend · Momentum.
+//
+//  This Strategy stays canonical for: Cross-engine verdict aggregation · RFF
+//  Lite fundamental gate · Strategy-level position sizing / pyramiding rules.
+//
+//  Bull setup detail → see Commander Bull Screener v3.0.
+//  Recovery setup detail → see Commander Recovery Screener v1.6.
+// ============================================================================
+
+// ==========================================
+// CHANGELOG v2.6 — DECISION-MODE COMPRESSION + RS ENGINE MIRROR
+// ==========================================
+// ARCHITECTURAL: Dashboard is the canonical source for the RS / Mansfield
+//   engine. f_rs_math() ported to Dashboard's dual-SMA spec.
+//
+// CHANGE: f_rs_math — was 26w-SMA-only level + price-ratio slope (Δ rp/rp[4w]).
+//   Now: dual-SMA (26w slope-Mansfield + 52w level-Mansfield), Δ Mansfield
+//   slope, 4-bar momentum, 130-bar warm-up. Tuple expanded:
+//     OLD: [mansfield, slope, rs_mom]    (3-tuple, slope = Δ price ratio)
+//     NEW: [mansfield, slope, rs_mom]    (3-tuple, slope = Δ Mansfield — canonical)
+//   Signature unchanged; only the internal math is now Dashboard-canonical.
+//   rsLength stays at 26w (slope SMA); new internal const for 52w level SMA.
+//
+// REMOVED display rows (Dashboard owns):
+//   STAGE row · RS N500 row · RS Momentum row · all per-engine duplicates
+//   that mirrored Dashboard / Bull Screener / Recovery Screener.
+//
+// REORGANIZED — table now exposes only the Unified-unique value:
+//   COMPOSITE VERDICT · BULL ENGINE summary · RECOVERY ENGINE summary ·
+//   STRATEGY ALIGNMENT · RFF LITE · FINAL DECISION
+// ==========================================
+
+// ==========================================
+// CHANGELOG v2.8.3 — FOOTER LABEL/VALUE SPLIT
+// ==========================================
+// REFINEMENT to v2.8.2's footer fix. v2.8.2 packed label + description into
+// one merged cell (cols 0-3); that worked but lost the panel's standard
+// label-left / value-right rhythm. v2.8.3 splits them:
+//   col 0          = "→ See Other Tools:"  (label)
+//   cols 1-3 merged = "Dashboard (...) · Bull Screener (...) · Recovery (...)"  (value)
+// Matches every other row's visual structure.
+// ==========================================
+// CHANGELOG v2.8.2 — FOOTER RENDER FIX
+// ==========================================
+// FIX: v2.8.1's footer label rendered but the description ("Dashboard (RS/Stage/PA)
+// · Bull (Gates/Levels) · Recovery (Pillars/RFF)") was blank. Cause: Pine v6
+// table.merge_cells subsumes columns into the FIRST cell's content; the
+// follow-up write to column 1 (where the description was) targeted a sub-cell
+// that no longer existed after the merge, so the description silently dropped.
+// v2.8.2: label + description packed into ONE string, written to col 0, then
+// merged across cols 0-3. Footer now renders the full text.
+// ==========================================
+// CHANGELOG v2.8.1 — FOOTER PLACEMENT
+// ==========================================
+// "See Other Tools:" cross-reference footer moved from the end of the BULL +
+// RECOVERY main panel down to the very bottom of the CATALYST DIAG panel.
+// Spans all 4 columns. Renders as the last row of the table so the cross-tool
+// pointer is the last thing the eye lands on after the full diagnostics.
+// ==========================================
+// CHANGELOG v2.8 — 4-COLUMN STACKED DIAG LAYOUT
+// ==========================================
+// FOLLOW-UP to v2.7: the CATALYST DIAG panel was rendering on the right side
+// (columns 2-3) parallel to the main strategy panel (columns 0-1). This left
+// the right side ending earlier than the left, producing the uneven table the
+// user flagged.
+//
+// CHANGE: CATALYST DIAG now renders BELOW the main strategy panel, distributed
+//   across all 4 columns (2 catalysts per row). The table is now visually
+//   even — every row uses all 4 columns.
+//
+// LAYOUT:
+//   ── 🌿 BULL MARKET STRATEGY ── (full-width header)
+//   BULL SETUP                                          (label, value)
+//   Positional Signals                                  (label, value)
+//   Swing Signals                                       (label, value)
+//   ── 🔄 RECOVERY MARKET STRATEGY ── (full-width header)
+//   REC STATE                                           (label, value)
+//   Recovery Signals                                    (label, value)
+//   → See Other Tools:                                  (label, value)
+//   ── ◈ CATALYST DIAG ── (full-width header, stacked below)
+//   ── 🌿 BULL ──                       (full-width subheader)
+//   POS-BO       | status  | POS-ACCUM | status         (paired)
+//   SWG-PB       | status  | SWG-BO    | status         (paired)
+//   SWG-REV      | status  | SWG-GAP   | status         (paired)
+//   ── 🔄 RECOVERY ──                   (full-width subheader)
+//   REV-CB       | status  | REV-RS    | status         (paired)
+//   REV-EARLY    | status  |           |                (solo)
+//   ── 🛈 META ──                       (full-width subheader)
+//   Sector Ticker| value   | WCL Gate  | value          (paired)
+//   Base Confirm Path | value |        |                (solo)
+//
+// IMPL: New global `main_panel_end_row` exposes main-panel row count to the
+//   diag block. Diag's `dr` starts at `main_panel_end_row` when show_panel is
+//   on, else 0. Section headers use `table.merge_cells` to span all 4 columns.
+// ==========================================
+// CHANGELOG v2.7 — COMPOSITE-MERGE PASS
+// ==========================================
+// FOLLOW-UP to v2.6: v2.6 removed duplicate rows but didn't merge the remaining
+// rows. v2.7 applies Dashboard-style composite merging:
+//
+// MERGED:
+//   BULL section (was 2 separate rows: Base Confirmed + Py Score)
+//      → 1 compound BULL SETUP row:
+//          "✓ BASE · Py 75/100"
+//   RECOVERY section (was 2 separate rows: Recovery Regime + RFF Filter)
+//      → 1 compound REC STATE row:
+//          "Regime: MKT-CORR · RFF: 4/6✓"
+//   FOOTER (was 3 separate cross-ref rows)
+//      → 1 compound row:
+//          "Dashboard (RS/Stage/PA) · Bull (Gates/Levels) · Recovery (Pillars/RFF)"
+//
+// Net: ~5 rows removed from the main strategy panel.
+// LOGIC UNCHANGED — display-layer-only compression.
+// ==========================================
+
+strategy("Weinstein Unified Ecosystem [v3.4]", overlay=true,
+         initial_capital=100000,
+         default_qty_type=strategy.percent_of_equity,
+         default_qty_value=10,
+         currency=currency.INR,
+         process_orders_on_close=true,
+         calc_on_every_tick=true,     // E10 reverted: needed so barstate.islast fires on realtime bars (panel + diag update)
+         pyramiding=6)
+
+
+// ==========================================
+// 1. MASTER TOGGLES
+// ==========================================
+grp_master = "Master Toggles"
+use_bull_mode = input.bool(true, title="Enable Bull Market Strategy?", group=grp_master, tooltip="Enables Positional and Swing setups.")
+use_rec_mode  = input.bool(true, title="Enable Recovery Market Strategy?", group=grp_master, tooltip="Enables Climax Bottom, RS Survivor, and Early Bird setups.")
+
+// ==========================================
+// 2. INPUTS: BULL MARKET STRATEGIES
+// ==========================================
+grp_bull_pos = "Bull: Positional"
+use_pos_bo    = input.bool(true, title="[EDGE] Positional Breakout", group=grp_bull_pos)
+use_pos_accum = input.bool(true, title="[EDGE] Positional Accumulation", group=grp_bull_pos)
+bo_conf       = input.string("Daily Close", title="Breakout Confirmation", options=["Daily Close", "Intraday Penetration"], group=grp_bull_pos)
+bo_len        = input.int(20, title="Breakout Lookback (Bars)", minval=10, group=grp_bull_pos)
+pos_time_stop_weeks = input.int(6, title="Positional Time Stop (Weeks)", minval=2, group=grp_bull_pos)
+
+// v1 + v2 LOCKED filters — must mirror Python chartink_replay.SCAN_PARAMS
+// and v2_fixes.V2_PARAMS to enforce zero signal drift across surfaces.
+grp_v1v2 = "Bull: v1+v2 Locked Filters (Backtest-Verified)"
+hunter_weekly_rsi_min = input.int(60, title="Hunter Weekly RSI Min (POS-BO)",   group=grp_v1v2, minval=40, maxval=80, tooltip="v1 FINAL: 60 (was 55). Mirrors chartink_replay.SCAN_PARAMS[hunter][weekly_rsi_min].")
+hunter_daily_adx_min  = input.int(25, title="Hunter Daily ADX Min (POS-BO)",    group=grp_v1v2, minval=10, maxval=50, tooltip="v1 FINAL: 25 (was 20). Mirrors chartink_replay.SCAN_PARAMS[hunter][daily_adx_min].")
+pos_accum_rsi_max     = input.int(50, title="POS-ACCUM Daily RSI Max",          group=grp_v1v2, minval=30, maxval=70, tooltip="v2 LOCKED: POS-ACCUM trigger suppressed when d_rsi > this value. Mirrors v2_fixes.V2_PARAMS[pos_accum_rsi_threshold]. Reason: late-stage POS-ACCUM at high RSI is a chase trap (HCLTECH-style failure, BACKTEST_RESULTS_v2.docx §7.1).")
+
+// E3/E4/E5: Base-confirmation tuning surface
+grp_base = "Bull: Base Confirmation Tuning (v2.5)"
+stage2_fresh_max         = input.int(26,    title="E3 — Stage 2 Freshness Cap (Weeks)",   minval=4,   maxval=104, group=grp_base, tooltip="Stocks in Stage 2 longer than this fail stage2_fresh_ok. Default 26 (~6 months) per Weinstein. Widen to 52+ for positional mode that includes mature leaders.")
+trend_template_low_mult  = input.float(1.30, title="E4 — Min Distance Above 52w Low (×)",  minval=1.0, maxval=2.5, step=0.05, group=grp_base, tooltip="close must be ≥ this multiple × 52w low. Default 1.30 (Minervini). Lower to 1.15 for recovery candidates.")
+trend_template_high_pct  = input.float(0.75, title="E4 — Min % of 52w High",               minval=0.50, maxval=0.95, step=0.05, group=grp_base, tooltip="close must be ≥ this fraction × 52w high. Default 0.75 (Minervini). Lower to 0.60 for early-base setups.")
+use_mature_trend_exempt  = input.bool(true,  title="E5 — Enable Mature Trend Exemption", group=grp_base, tooltip="Allows established Stage 2 leaders (LEADING RS, beyond freshness window, above EMA20, above SMA200) to satisfy base_confirmed WITHOUT the strict Weinstein gate. Default ON. Turn off for pure-Weinstein backtests.")
+
+// E1 + E7: Diagnostic panel
+grp_diag = "Diagnostics (v2.5)"
+use_diag_panel = input.bool(true,  title="E1 — Show Catalyst Diagnostic Panel", group=grp_diag, tooltip="Floating table showing pass/fail per catalyst gate and first blocking gate. Removes the 'why isn't it firing' mystery.")
+diag_pos       = input.string("Bottom Right", title="Diagnostic Panel Position",   options=["Top Left","Top Right","Middle Right","Bottom Left","Bottom Right"], group=grp_diag)
+diag_sz        = input.string("Small",        title="Diagnostic Panel Text Size",  options=["Tiny","Small","Normal"], group=grp_diag)
+
+// E9: RFF FY → FQ fallback
+grp_rff_fb = "Recovery: RFF FY→FQ Fallback (v2.5)"
+use_rff_fq_fallback = input.bool(true, title="E9 — Backfill RFF FY gaps with FQ", group=grp_rff_fb, tooltip="Improves RFF coverage on small/midcap NSE listings where FY data is sparse. When a FY field is na, falls back to the latest FQ value.")
+
+// E11: WCL Context Layers integration (external source)
+grp_wcl = "WCL Context Layers Gate (v2.5)"
+use_wcl_gate    = input.bool(false, title="E11 — Require WCL setup ≥ threshold", group=grp_wcl, tooltip="When ON, every catalyst must additionally satisfy wcl_score_source >= wcl_score_min. Wire this to a plot from Weinstein_Context_Layers_v1.1.pine (add `plot(_setup_pri, 'WCL_Setup_Pri', display=display.data_window)` to the WCL script and select that plot here).")
+wcl_score_source = input.source(close, title="WCL Setup Source",            group=grp_wcl, tooltip="Source from Context Layers indicator (typically _setup_pri 0–5). Defaults to close so this gate is inert until you wire a real source.")
+wcl_score_min    = input.int(3,     title="WCL Setup Min Priority",         minval=0, maxval=5, group=grp_wcl, tooltip="Default 3 = require S1/S3/S7 level. Set to 5 for S2 (Spring/LPS Reversal) only.")
+
+grp_bull_swg = "Bull: Hybrid Swing"
+use_swing_pb  = input.bool(true, title="[EDGE] Swing Pullback", group=grp_bull_swg)
+use_swing_bo  = input.bool(true, title="[EDGE] Swing Breakout (VCP)", group=grp_bull_swg)
+use_swing_rev = input.bool(true, title="[EDGE] Swing Reversion", group=grp_bull_swg)
+use_swing_gap = input.bool(true, title="[EDGE] Gap & Go", group=grp_bull_swg)
+swg_time_stop_days = input.int(10, title="Swing Time Stop (Days)", minval=3, group=grp_bull_swg)
+use_dyn_rr    = input.bool(true, title="Dynamic T1 RR (Market Aware)", group=grp_bull_swg)
+rr_t1_pb      = input.float(2.0, title="Fixed T1 R-Multiple", step=0.1, group=grp_bull_swg)
+
+grp_bull_filters = "Bull: Filters & Edge Gates"
+use_macro_edge = input.bool(true, title="Require Macro Edge (Trend+Vol)", group=grp_bull_filters)
+use_micro_edge = input.bool(true, title="Require Micro Edge (CPR/VWAP)", group=grp_bull_filters)
+min_alpha      = input.int(50, title="Min Alpha Score", minval=0, maxval=100, step=5, group=grp_bull_filters)
+bull_hold_days = input.int(3,  title="Bull Signal Hold Window (bars)", minval=1, maxval=50, group=grp_bull_filters, tooltip="Number of bars a Bull signal stays in HOLD state after firing. Mirrors recovery hold window.")
+use_rs         = input.bool(true, title="Require Positive RS?", group=grp_bull_filters)
+use_smc_sweep  = input.bool(true, title="Detect SMC Liquidity Sweeps?", group=grp_bull_filters)
+
+// ==========================================
+// 3. INPUTS: RECOVERY MARKET STRATEGIES
+// ==========================================
+grp_rec_edges = "Recovery: Edges"
+use_rev_cb    = input.bool(true, title="[EDGE] REV-CB: Climax Bottom", group=grp_rec_edges)
+use_rev_rs    = input.bool(true, title="[EDGE] REV-RS: RS Survivor", group=grp_rec_edges)
+use_rev_early = input.bool(true, title="[EDGE] REV-EARLY: Early Bird", group=grp_rec_edges)
+
+grp_rec_regime = "Recovery: Regime Gate"
+use_regime_gate = input.bool(true, title="Require Recovery Market Regime?", group=grp_rec_regime)
+min_correction_pct = input.float(10.0, title="Min Correction from 52W High (%)", minval=5.0, step=1.0, group=grp_rec_regime) / 100
+max_correction_pct = input.float(40.0, title="Max Correction from 52W High (%)", minval=15.0, step=5.0, group=grp_rec_regime) / 100
+
+grp_rec_cb = "Recovery: Climax Bottom Config"
+cb_vol_mult         = input.float(2.0, title="Min Climax Volume Mult", minval=1.5, step=0.1, group=grp_rec_cb)
+cb_climax_window    = input.int(10, title="Climax Detection Window", minval=2, group=grp_rec_cb)
+cb_lookback_high    = input.int(60, title="Drawdown Lookback (Bars)", minval=20, group=grp_rec_cb)
+cb_drawdown_pct     = input.float(15.0, title="Min Drawdown From Lookback High (%)", minval=5.0, step=1.0, group=grp_rec_cb) / 100
+cb_washout_window   = input.int(7, title="Washout Red-Bar Window", minval=3, group=grp_rec_cb)
+cb_washout_red      = input.int(5, title="Min Red Bars in Washout", minval=2, group=grp_rec_cb)
+cb_range_lookback   = input.int(20, title="Climax Range Lookback", minval=10, group=grp_rec_cb)
+
+grp_rec_early = "Recovery: Early Bird Config"
+rs_bo_len        = input.int(20, title="RS Breakout Lookback", minval=5, group=grp_rec_early)
+rs_hl_recent     = input.int(5, title="Higher-Low Recent Window", minval=3, group=grp_rec_early)
+rs_hl_prior      = input.int(10, title="Higher-Low Prior Window", minval=5, group=grp_rec_early)
+rs_slope_weeks   = input.int(4, title="RS-Line Slope Window (Weeks)", minval=2, group=grp_rec_early)
+early_tl_recent  = input.int(10, title="Trendline: Skip Recent Bars", minval=5, group=grp_rec_early)
+early_tl_window  = input.int(10, title="Trendline: Swing-High Window", minval=5, group=grp_rec_early)
+early_nr7_len    = input.int(7, title="NR7 Length", minval=3, group=grp_rec_early)
+early_inside_lb  = input.int(10, title="Inside-Bar Lookback", minval=5, group=grp_rec_early)
+early_inside_min = input.int(3, title="Min Inside Bars", minval=2, group=grp_rec_early)
+
+grp_fund = "Recovery: Fundamental Filter (RFF)"
+rff_min_score = input.int(3, title="Minimum RFF Score (0=Off, 6=Max)", minval=0, maxval=6, group=grp_fund)
+
+// ==========================================
+// 4. SHARED PORTFOLIO & RISK SETTINGS
+// ==========================================
+grp_port = "Shared: Portfolio & Risk"
+portfolio_capital = input.float(100000.0, title="Total Capital (INR)", step=10000.0, group=grp_port)
+stock_risk_pct    = input.float(0.75, title="Risk per Trade (%) - Bull", minval=0.1, step=0.05, group=grp_port)
+rec_risk_pct      = input.float(0.50, title="Risk per Trade (%) - Recovery", minval=0.1, step=0.05, group=grp_port)
+max_alloc         = input.float(25000.0, title="Max Allocation per Trade", step=5000.0, group=grp_port)
+max_open_positions = input.int(6, title="Max Open Positions", minval=1, group=grp_port)
+use_kelly         = input.bool(true, title="Use Kelly Fraction Sizing?", group=grp_port)
+
+grp_shared = "Shared: Indicators & General"
+use_auto_sec  = input.bool(true, title="Auto-Detect Sector?", group=grp_shared)
+manualSector  = input.symbol("NSE:CNXIT", title="Manual Sector Override", group=grp_shared)
+ema20_len     = input.int(20, title="EMA Length (Trail/T1)", group=grp_shared)
+atr_length    = input.int(14, title="ATR Length", group=grp_shared)
+sl_pad_pb     = input.float(0.2, title="SL Padding %", step=0.1, group=grp_shared) / 100
+trail_buf_pb  = input.float(1.0, title="EMA Trail Buffer %", step=0.1, group=grp_shared) / 100
+ce_length     = input.int(22, title="Chandelier Exit Length (POS/REC Trail)", minval=5, group=grp_shared)
+ce_mult       = input.float(4.5, title="Chandelier Exit ATR Mult (Bull)", minval=1.0, step=0.1, group=grp_shared, tooltip="v3.2 widened 3.0 → 4.5 to match T1@5R/T2@10R targets. Old 3.0 stopped winners on normal pullbacks before reaching wider targets. 4.5 allows ~30% drawdown from peak on a 10R runner.")
+use_fixed_sl  = input.bool(false, title="Use Fixed SL %?", group=grp_shared)
+fixed_sl_pct  = input.float(10.0, title="Fixed SL %", group=grp_shared)
+enable_trail  = input.bool(true, title="Enable Trailing SL?", group=grp_shared)
+show_signals  = input.bool(true, title="Show Strategy Signals?", group=grp_shared)
+show_ma       = input.bool(true, title="Show Moving Averages?", group=grp_shared)
+fast_bt       = input.bool(false, title="Fast Backtest Mode", group=grp_shared)
+piv_d_right   = input.int(2, title="Pivot Right Bars (Trend Lag)", minval=1, maxval=5, group=grp_shared)
+
+// ==========================================
+// 5. DASHBOARD & PANEL TABLE
+// ==========================================
+grp_panel = "Unified Panel Table"
+show_panel      = input.bool(true, title="Show Unified Panel Table?", group=grp_panel)
+panel_position  = input.string(position.bottom_right, title="Table Position",
+     options=[position.top_right, position.top_center, position.top_left,
+              position.middle_right, position.middle_center, position.middle_left,
+              position.bottom_right, position.bottom_center, position.bottom_left], group=grp_panel)
+show_bull_panel = input.bool(true, title="Show Bull Metrics?", group=grp_panel)
+show_rec_panel  = input.bool(true, title="Show Recovery Metrics?", group=grp_panel)
+
+// Backtest Range
+grp_time = "Backtest Period"
+use_date   = input.bool(false, title="Filter Date Range?", group=grp_time)
+start_date = input.time(timestamp("1 Jan 2020"), title="Start Date", group=grp_time)
+end_date   = input.time(timestamp("1 Jan 2030"), title="End Date", group=grp_time)
+
+// ==========================================
+// CONSTANTS
+// ==========================================
+var int   maLengthW   = 30
+var int   wSlopeLen   = 4
+var float slopeThresh = 0.0005
+var int   piv_w_left  = 5
+var int   piv_w_right = 5
+var int   piv_d_left  = 2
+var int   rsLength    = 26
+var int   jdkLength   = 12            // v3.0: Strike-matched 1-pass length (was 10 / 2-pass)
+var int   rrgTrailLen = 4             // v2.9: RRG trajectory tail (weeks) — standard
+var string bench500   = "NSE:CNX500"
+var int   vol_avg_len = 50
+
+// ==========================================
+// 6. HELPER FUNCTIONS
+// ==========================================
+
+f_classifyHigh(float newHigh, float prevHigh) =>
+    string result = "HH"
+    if not na(prevHigh) and prevHigh > 0
+        float diff = math.abs(newHigh - prevHigh) / prevHigh
+        if diff < 0.001
+            result := "EH"
+        else if newHigh < prevHigh
+            result := "LH"
+    result
+
+f_classifyLow(float newLow, float prevLow) =>
+    string result = "LL"
+    if not na(prevLow) and prevLow > 0
+        float diff = math.abs(newLow - prevLow) / prevLow
+        if diff < 0.001
+            result := "EL"
+        else if newLow > prevLow
+            result := "HL"
+    result
+
+f_getStrictTrend(float h, float l, int left, int right) =>
+    var int trendState      = 0
+    var float lockedHigh    = na
+    var float lockedLow     = na
+    var string lastHighClass    = na
+    var string lastLowClass     = na
+    var string activePivotType  = na
+    var float activePivotPrice  = na
+    var int activePivotIndex    = na
+
+    ph = ta.pivothigh(h, left, right)
+    pl = ta.pivotlow(l,  left, right)
+
+    if not na(ph)
+        if activePivotType == "H" and ph > activePivotPrice
+            activePivotPrice := ph
+            activePivotIndex := bar_index[right]
+            lastHighClass    := f_classifyHigh(ph, lockedHigh)
+        else if activePivotType == "L" or na(activePivotType)
+            if activePivotType == "L"
+                lockedLow := activePivotPrice
+            string hClass = f_classifyHigh(ph, lockedHigh)
+            int newTrend = 0
+            if hClass == "HH"
+                newTrend := (lastLowClass == "HL" or lastLowClass == "EL") ? 1 : 0
+            else if hClass == "LH"
+                newTrend := (lastLowClass == "LL" or lastLowClass == "EL") ? -1 : 0
+            trendState       := newTrend
+            lockedHigh       := ph
+            lastHighClass    := hClass
+            activePivotPrice := ph
+            activePivotIndex := bar_index[right]
+            activePivotType  := "H"
+
+    if not na(pl)
+        if activePivotType == "L" and pl < activePivotPrice
+            activePivotPrice := pl
+            activePivotIndex := bar_index[right]
+            lastLowClass     := f_classifyLow(pl, lockedLow)
+        else if activePivotType == "H"
+            lockedHigh := activePivotPrice
+            string lClass = f_classifyLow(pl, lockedLow)
+            int newTrend = 0
+            if lClass == "LL"
+                newTrend := (lastHighClass == "LH" or lastHighClass == "EH") ? -1 : 0
+            else if lClass == "HL"
+                newTrend := (lastHighClass == "HH" or lastHighClass == "EH") ? 1 : 0
+            trendState       := newTrend
+            lockedLow        := pl
+            lastLowClass     := lClass
+            activePivotPrice := pl
+            activePivotIndex := bar_index[right]
+            activePivotType  := "L"
+
+    int _sb = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex)
+    int syncBars = math.max(1, _sb)
+    float projLow  = ta.lowest(l,  syncBars)
+    float projHigh = ta.highest(h, syncBars)
+
+    if not na(lockedHigh) and f_classifyHigh(projHigh, lockedHigh) == "HH"
+        string dLC = not na(lockedLow) ? f_classifyLow(projLow, lockedLow) : "HL"
+        trendState := dLC == "HL" ? 1 : 0
+    else if not na(lockedLow) and f_classifyLow(projLow, lockedLow) == "LL"
+        string dHC = not na(lockedHigh) ? f_classifyHigh(projHigh, lockedHigh) : "LH"
+        trendState := dHC == "LH" ? -1 : 0
+    [trendState, lockedHigh, lockedLow]
+
+f_get_daily_indicators(int ema_len, int atr_len) =>
+    [ta.ema(close, ema_len), ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200), ta.atr(atr_len)]
+
+f_get_cpr() =>
+    float p = (high[1] + low[1] + close[1]) / 3
+    float bc = (high[1] + low[1]) / 2
+    float tc = (p - bc) + p
+    [p, math.min(bc, tc), math.max(bc, tc)]
+
+f_get_mvwap() =>
+    var float sumSrcVol = 0.0
+    var float sumVol    = 0.0
+    bool isNewMonth = timeframe.change("M")
+    if isNewMonth
+        sumSrcVol := 0.0
+        sumVol    := 0.0
+    sumSrcVol += hlc3 * volume
+    sumVol    += volume
+    sumVol > 0 ? sumSrcVol / sumVol : na
+
+f_is_vcp(mult) =>
+    vcp_atr = ta.atr(10)
+    avg_atr = ta.sma(vcp_atr, 50)
+    is_tight = vcp_atr < (avg_atr * mult)
+    is_dry = ta.vwma(volume, 5) < ta.sma(volume, 50) 
+    is_tight and is_dry
+
+f_is_bb_sqz(len) =>
+    basis = ta.sma(close, len)
+    dev = 2.0 * ta.stdev(close, len)
+    bbw = ((basis + dev) - (basis - dev)) / basis
+    avg_bbw = ta.sma(bbw, 30)
+    bbw < avg_bbw
+
+f_calc_alpha_score(float c, float o, float ema20, float sma50, float v, float va) =>
+    float _score = 0.0
+    if not na(c)
+        if c > ema20
+            _score += 15
+        if c > sma50
+            _score += 15
+        // PRICE ACTION momentum (replaces RSI>60/50 — mirrors Python R1):
+        // close above its 10-bar-ago and 5-bar-ago values.
+        bool _m10 = c > close[10]
+        bool _m5  = c > close[5]
+        if _m10 and _m5
+            _score += 20
+        else if _m10
+            _score += 10
+        // PRICE ACTION directional strength (replaces ADX — mirrors Python R4):
+        // >=7 of the last 14 bars are up-closes making higher highs.
+        int _dir = 0
+        for _i = 1 to 14
+            if close[_i] > open[_i] and high[_i] > high[_i + 1]
+                _dir += 1
+        if _dir >= 7
+            _score += 10
+        if c > o and v > (va * 1.5)
+            _score += 20
+        else if c > o and v > va
+            _score += 10
+        float dist_ema = math.abs((c - ema20) / ema20) * 100
+        if dist_ema < 5.0
+            _score += 20
+        else if dist_ema < 10.0
+            _score += 10
+        if use_macro_edge
+            if v > va
+                _score += 10
+            else
+                _score -= 20
+    _score
+
+f_rs_math() =>
+    // v3.0 (2026-05-19): Strike.Money-matched JdK formula.
+    // Replaces 2-pass StockCharts default. Calibration vs Strike's 15 published
+    // symbols showed quadrant agreement jumped from 66.7% (2-pass) to 93.8%
+    // (1-pass + 5-bar smooth). Strike uses single normalization, NOT double.
+    // Default length raised 10 → 12. Returns CENTERED values so legacy >0
+    // checks (mansfield > 0, rs_mom > 0) continue to work unchanged.
+    rs           = close
+    rs_sma       = ta.sma(rs, jdkLength)
+    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    rs_ratio     = ta.sma(rs_ratio_raw, 5)                 // 5-bar smooth — Strike-match
+    rs_mom       = ta.sma(100.0 * (rs_ratio / rs_ratio[1]), jdkLength)
+    float val   = rs_ratio - 100.0
+    float mom_c = rs_mom   - 100.0
+    float slope = val - nz(val[rs_slope_weeks], val)
+    float val_trail = nz(val[rrgTrailLen],   val)
+    float mom_trail = nz(mom_c[rrgTrailLen], mom_c)
+    bool _warmed = bar_index >= math.max(jdkLength * 3 + 10, 60) and not na(rs) and rs > 0
+    [_warmed ? val : na, _warmed ? slope : na, _warmed ? mom_c : na, _warmed ? val_trail : na, _warmed ? mom_trail : na]
+
+// v2.9: Combined RRG trajectory + score + tradeable (parity with Dashboard f_rrg_info
+// and bull_screener.py _rrg_trajectory). Inputs centered on 0.
+// Returns [arrow, traj, cur, nxt, score, tradeable].
+f_rrg_info(float v, float m, float vt, float mt) =>
+    float dv = v - vt
+    float dm = m - mt
+    string cur = v >= 0 and m >= 0 ? "LEADING" : v >= 0 ? "WEAKENING" : v < 0 and m < 0 ? "LAGGING" : "IMPROVING"
+    string nxt = cur
+    if cur == "LEADING"
+        nxt := dm < -0.3 ? "WEAKENING" : (dv < -0.3 and dm < 0.3 ? "IMPROVING" : cur)
+    else if cur == "WEAKENING"
+        nxt := dv < -0.3 ? "LAGGING"   : (dm >  0.3 and dv > -0.3 ? "LEADING"   : cur)
+    else if cur == "LAGGING"
+        nxt := dm >  0.3 ? "IMPROVING" : (dv >  0.3 and dm > -0.3 ? "WEAKENING" : cur)
+    else
+        nxt := dv >  0.3 ? "LEADING"   : (dm < -0.3 and dv <  0.3 ? "LAGGING"   : cur)
+    string arrow = dv > 0.3 ? (dm > 0.3 ? "↗" : dm < -0.3 ? "↘" : "→") : dv < -0.3 ? (dm > 0.3 ? "↖" : dm < -0.3 ? "↙" : "←") : dm > 0.3 ? "↑" : dm < -0.3 ? "↓" : "•"
+    string traj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
+    // v3.0.1: recalibrated on n=5,020 new-formula backtest (parity with bull_screener v1.7).
+    // Score: only LEADING earns bonus (+2). Tradeable: cell-level positive-alpha cells only.
+    int sc = cur == "LEADING" ? 2 : 0
+    bool tr = (cur == "LEADING"   and (nxt == "LEADING"   or nxt == "IMPROVING")) or
+              (cur == "IMPROVING" and  nxt == "LEADING")  or
+              (cur == "LAGGING"   and  nxt == "IMPROVING") or
+              (cur == "WEAKENING" and  nxt == "LEADING")
+    [arrow, traj, cur, nxt, sc, tr]
+
+f_get_weekly_bundle(maLen, slopeLen, l, r, thresh) =>
+    c = close
+    ma = ta.sma(close, maLen)
+    float old_ma = ma[slopeLen]
+    slope = (ma - nz(old_ma, ma)) / math.max(1, slopeLen)
+    [trend, _, _] = f_getStrictTrend(high, low, l, r)
+    rsi = ta.rsi(close, 14)
+    float dynThresh = ma * thresh
+    bool is_ma_uptrend   = slope > dynThresh 
+    bool is_ma_downtrend = slope < -dynThresh
+    bool is_above_ma     = c > ma
+
+    var int current_stage_htf = 4
+    if current_stage_htf == 1
+        if is_ma_uptrend and is_above_ma
+            current_stage_htf := 2
+        else if is_ma_downtrend and not is_above_ma and trend != 1
+            current_stage_htf := 4
+    else if current_stage_htf == 2
+        if is_ma_downtrend and not is_above_ma and trend != 1
+            current_stage_htf := 4
+        else if (not is_ma_uptrend and not is_above_ma) or (trend == -1 and not is_above_ma)
+            current_stage_htf := 3
+    else if current_stage_htf == 3
+        if is_ma_downtrend and not is_above_ma and trend != 1
+            current_stage_htf := 4
+        else if is_ma_uptrend and is_above_ma
+            current_stage_htf := 2
+    else if current_stage_htf == 4
+        if is_ma_uptrend and is_above_ma
+            current_stage_htf := 2
+        else if not is_ma_downtrend and is_above_ma
+            current_stage_htf := 1
+
+    if trend == 1 and current_stage_htf == 4
+        current_stage_htf := 1
+    if trend == -1 and current_stage_htf == 2
+        current_stage_htf := 3
+
+    // --- Weeks-in-Stage Counter (Sync with Beta v2.6) ---
+    var int _prev_stage_htf = 4
+    var int _stage_start_time = time
+    if current_stage_htf != _prev_stage_htf
+        _stage_start_time := time
+        _prev_stage_htf := current_stage_htf
+    float stage_wks = (time - _stage_start_time) / (7.0 * 86400000.0)
+
+    float wMA10 = ta.sma(close, 10)
+    bool early_stage2 = current_stage_htf == 1 and wMA10 > wMA10[1] and c > wMA10 and c > ma
+
+    [c, ma, slope, trend, rsi, current_stage_htf, early_stage2, stage_wks]
+
+f_get_mkt_bundle() =>
+    [close, ta.sma(close, 50), ta.sma(close, 200), ta.highest(high, 250), ta.lowest(low, 10), ta.lowest(low, 10)[10]]
+
+f_get_sector_ticker() =>
+    string s = syminfo.sector
+    string i = syminfo.industry
+    string t = "NSE:CNX500" // Default fallback
+    string n = "Nifty 500"
+    
+    // Prioritize by Industry keywords first (more specific)
+    if str.contains(i, "Bank") or str.contains(s, "Finance")
+        t := "NSE:BANKNIFTY"
+        n := "Bank Nifty"
+    else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
+        t := "NSE:CNXIT"
+        n := "Nifty IT"
+    else if str.contains(s, "Health") or str.contains(i, "Pharma")
+        t := "NSE:CNXPHARMA"
+        n := "Pharma"
+    else if str.contains(i, "Auto") or str.contains(s, "Consumer Durables")
+        t := "NSE:CNXAUTO"
+        n := "Nifty Auto"
+    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage")
+        t := "NSE:CNXFMCG"
+        n := "FMCG"
+    else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
+        t := "NSE:CNXMETAL"
+        n := "Metal"
+    else if str.contains(s, "Energy") or str.contains(i, "Oil") or str.contains(i, "Gas")
+        t := "NSE:CNXENERGY"
+        n := "Energy"
+    else if str.contains(s, "Real Estate") or str.contains(i, "Construction")
+        t := "NSE:CNXREALTY"
+        n := "Realty"
+    else if str.contains(s, "Infrastructure")
+        t := "NSE:CNXINFRA"
+        n := "Infra"
+    
+    // Return Tuple
+    [t, n]
+
+// // <DB_LOOKUP_START>
+// This function is AUTO-GENERATED by sector_manager.py
+f_db_sector_lookup(string t) =>
+    string s = ""
+    // Ticker format in text is usually just the name (e.g. RELIANCE)
+    // We match against the DB keys which are NSE:RELIANCE
+    s := switch t
+        "360ONE" => "NSE:CNXFINANCE"
+        "3MINDIA" => "NSE:CNXSERVICE"
+        "AADHARHFC" => "NSE:CNXFINANCE"
+        "AARTIDRUGS" => "NSE:CNXPHARMA"
+        "AARTIIND" => "NSE:CNXMETAL"
+        "AAVAS" => "NSE:CNXFINANCE"
+        "ABB" => "BSE:CG"
+        "ABBOTINDIA" => "NSE:CNXPHARMA"
+        "ABCAPITAL" => "NSE:BANKNIFTY"
+        "ABDL" => "NSE:CNXFMCG"
+        "ABFRL" => "NSE:CNXFMCG"
+        "ABLBL" => "NSE:CNXCONSUM"
+        "ABREL" => "NSE:CNXREALTY"
+        "ABSLAMC" => "NSE:CNXFINANCE"
+        "ACC" => "NSE:CNXINFRA"
+        "ACE" => "BSE:CG"
+        "ACKO" => "NSE:CNXFINANCE"
+        "ACMESOLAR" => "NSE:CNXENERGY"
+        "ACUTAAS" => "NSE:CNXCOMMODITIES"
+        "ADANIENSOL" => "NSE:CNXINFRA"
+        "ADANIENT" => "NSE:CNXINFRA"
+        "ADANIGREEN" => "NSE:CNXENERGY"
+        "ADANIPORTS" => "NSE:CNXINFRA"
+        "ADANIPOWER" => "NSE:CNXENERGY"
+        "ADANITOTAL" => "NSE:NIFTY_OIL_AND_GAS"
+        "ADANIWILL" => "NSE:CNXFMCG"
+        "ADVENZYMES" => "NSE:CNXPHARMA"
+        "AEGISCHEM" => "NSE:NIFTY_OIL_AND_GAS"
+        "AEGISLOG" => "NSE:CNXENERGY"
+        "AEGISVOPAK" => "NSE:CNXENERGY"
+        "AETHER" => "NSE:CNXMETAL"
+        "AFCONS" => "NSE:CNXINFRA"
+        "AFFLE" => "NSE:CNXIT"
+        "AHLUCONT" => "NSE:CNXINFRA"
+        "AIAENG" => "BSE:CG"
+        "AIIL" => "NSE:CNXFINANCE"
+        "AJANTPHARM" => "NSE:CNXPHARMA"
+        "AKUMS" => "NSE:CNXPHARMA"
+        "ALKEM" => "NSE:CNXPHARMA"
+        "ALKYLAMINE" => "NSE:CNXMETAL"
+        "ALLCARGO" => "NSE:CNXSERVICE"
+        "ALOKINDS" => "NSE:CNXFMCG"
+        "AMARAJABAT" => "NSE:CNXAUTO"
+        "AMBER" => "BSE:CG"
+        "AMBUJACEM" => "NSE:CNXINFRA"
+        "ANANDRATHI" => "NSE:CNXFINANCE"
+        "ANANTRAJ" => "NSE:CNXREALTY"
+        "ANGELONE" => "NSE:CNXFINANCE"
+        "ANTHEM" => "NSE:CNXPHARMA"
+        "ANURAS" => "NSE:CNXMETAL"
+        "APARINDS" => "BSE:CG"
+        "APLAPOLLO" => "NSE:CNXMETAL"
+        "APOLLOHOSP" => "NSE:CNXPHARMA"
+        "APOLLOTYRE" => "NSE:CNXAUTO"
+        "APTUS" => "NSE:CNXFINANCE"
+        "ARE_M" => "NSE:CNXINFRA"
+        "ARE_M" => "NSE:CNXAUTO"
+        "ARVIND" => "NSE:CNXFMCG"
+        "ASAHIINDIA" => "NSE:CNXAUTO"
+        "ASHOKLEY" => "NSE:CNXAUTO"
+        "ASIANPAINT" => "NSE:CNXINFRA"
+        "ASKASIAN" => "NSE:CNXFINANCE"
+        "ASTERDM" => "NSE:CNXPHARMA"
+        "ASTRAL" => "NSE:CNXINFRA"
+        "ASTRAZEN" => "NSE:CNXPHARMA"
+        "ATGL" => "NSE:CNXENERGY"
+        "ATHERENERG" => "NSE:CNXAUTO"
+        "ATUL" => "NSE:CNXMETAL"
+        "AUBANK" => "NSE:BANKNIFTY"
+        "AUROPHARMA" => "NSE:CNXPHARMA"
+        "AVANTIFEED" => "NSE:CNXFMCG"
+        "AWL" => "NSE:CNXFMCG"
+        "AXISBANK" => "NSE:BANKNIFTY"
+        "BAJAJ-AUTO" => "NSE:CNXAUTO"
+        "BAJAJCON" => "NSE:CNXFMCG"
+        "BAJAJELEC" => "BSE:CG"
+        "BAJAJFINSV" => "NSE:CNXFINANCE"
+        "BAJAJHFL" => "NSE:CNXFINANCE"
+        "BAJAJHLDNG" => "NSE:BANKNIFTY"
+        "BAJFINANCE" => "NSE:CNXFINANCE"
+        "BALAMINES" => "NSE:CNXMETAL"
+        "BALKRISIND" => "NSE:CNXAUTO"
+        "BALRAMCHIN" => "NSE:CNXFMCG"
+        "BANDHANBNK" => "NSE:BANKNIFTY"
+        "BANKBARODA" => "NSE:BANKNIFTY"
+        "BANKINDIA" => "NSE:BANKNIFTY"
+        "BASF" => "NSE:CNXMETAL"
+        "BATAINDIA" => "NSE:CNXFMCG"
+        "BAYERCROP" => "NSE:CNXMETAL"
+        "BBTC" => "NSE:CNXFMCG"
+        "BDL" => "NSE:CNXINFRA"
+        "BEL" => "BSE:CG"
+        "BELRISE" => "BSE:CG"
+        "BEML" => "BSE:CG"
+        "BERGEPAINT" => "NSE:CNXINFRA"
+        "BHARATFORG" => "NSE:CNXAUTO"
+        "BHARATRAS" => "NSE:CNXMETAL"
+        "BHARTIARTL" => "NSE:CNXIT"
+        "BHARTIHEXA" => "NSE:CNXINFRA"
+        "BHEL" => "BSE:CG"
+        "BIKAJI" => "NSE:CNXFMCG"
+        "BIOCON" => "NSE:CNXPHARMA"
+        "BIRLACORPN" => "NSE:CNXINFRA"
+        "BIRLASOFT" => "NSE:CNXIT"
+        "BLS" => "NSE:CNXSERVICE"
+        "BLUEDART" => "NSE:CNXINFRA"
+        "BLUEJET" => "NSE:CNXPHARMA"
+        "BLUESTARCO" => "BSE:CG"
+        "BOMDYEING" => "NSE:CNXFMCG"
+        "BOSCHLTD" => "NSE:CNXAUTO"
+        "BPCL" => "NSE:CNXENERGY"
+        "BRIGADE" => "NSE:CNXREALTY"
+        "BRITANNIA" => "NSE:CNXFMCG"
+        "BSE" => "NSE:CNXFINANCE"
+        "BSOFT" => "NSE:CNXIT"
+        "CAMPUS" => "NSE:CNXFMCG"
+        "CAMS" => "NSE:CNXIT"
+        "CANBK" => "NSE:BANKNIFTY"
+        "CANFINHOME" => "NSE:CNXFINANCE"
+        "CANHLIFE" => "NSE:CNXFINANCE"
+        "CAPLIPOINT" => "NSE:CNXPHARMA"
+        "CARBORUNIV" => "BSE:CG"
+        "CARTRADE" => "NSE:CNXSERVICE"
+        "CARYSIL" => "BSE:CG"
+        "CASTROLIND" => "NSE:NIFTY_OIL_AND_GAS"
+        "CCL" => "NSE:CNXFMCG"
+        "CDSL" => "NSE:CNXFINANCE"
+        "CEATLTD" => "NSE:CNXAUTO"
+        "CEMPRO" => "NSE:CNXINFRA"
+        "CENTRALBK" => "NSE:BANKNIFTY"
+        "CENTURYPLY" => "NSE:CNXINFRA"
+        "CENTURYTEX" => "NSE:CNXFMCG"
+        "CERA" => "NSE:CNXINFRA"
+        "CESC" => "NSE:CNXENERGY"
+        "CGCL" => "NSE:CNXFINANCE"
+        "CGPOWER" => "BSE:CG"
+        "CHALET" => "NSE:CNXSERVICE"
+        "CHAMBLFERT" => "NSE:CNXMETAL"
+        "CHENNPETRO" => "NSE:CNXENERGY"
+        "CHOICEIN" => "NSE:CNXFINANCE"
+        "CHOLAFIN" => "NSE:CNXFINANCE"
+        "CHOLAHLD" => "NSE:CNXFINANCE"
+        "CHOLAHLDNG" => "NSE:CNXFINANCE"
+        "CIEINDIA" => "NSE:CNXAUTO"
+        "CIPLA" => "NSE:CNXPHARMA"
+        "CLEAN" => "NSE:CNXMETAL"
+        "COALINDIA" => "NSE:CNXENERGY"
+        "COCHINSHIP" => "BSE:CG"
+        "COFORGE" => "NSE:CNXIT"
+        "COHANCE" => "NSE:CNXPHARMA"
+        "COLPAL" => "NSE:CNXFMCG"
+        "CONCOR" => "NSE:CNXSERVICE"
+        "CONCORDBIO" => "NSE:CNXPHARMA"
+        "COROMANDEL" => "NSE:CNXMETAL"
+        "CPPLUS" => "NSE:CNXINFRA"
+        "CRAFTSMAN" => "NSE:CNXAUTO"
+        "CREDITACC" => "NSE:CNXFINANCE"
+        "CRISIL" => "NSE:CNXFINANCE"
+        "CROMPTON" => "NSE:CNXFMCG"
+        "CUB" => "NSE:BANKNIFTY"
+        "CUMMINSIND" => "BSE:CG"
+        "CYIENT" => "NSE:CNXIT"
+        "DABUR" => "NSE:CNXFMCG"
+        "DALBHARAT" => "NSE:CNXINFRA"
+        "DATAPATTNS" => "BSE:CG"
+        "DCMSHRIRAM" => "NSE:CNXMETAL"
+        "DEEPAKFERT" => "NSE:CNXCOMMODITIES"
+        "DEEPAKNTR" => "NSE:CNXMETAL"
+        "DELHIVERY" => "NSE:CNXSERVICE"
+        "DELTACORP" => "NSE:CNXSERVICE"
+        "DEVYANI" => "NSE:CNXSERVICE"
+        "DIVISLAB" => "NSE:CNXPHARMA"
+        "DIXON" => "BSE:CG"
+        "DLF" => "NSE:CNXREALTY"
+        "DMART" => "NSE:CNXFMCG"
+        "DOMS" => "NSE:CNXFMCG"
+        "DREAMFOLKS" => "NSE:CNXSERVICE"
+        "DRREDDY" => "NSE:CNXPHARMA"
+        "EASEMYTRIP" => "NSE:CNXSERVICE"
+        "ECLERX" => "NSE:CNXIT"
+        "EDELWEISS" => "NSE:CNXFINANCE"
+        "EICHERMOT" => "NSE:CNXAUTO"
+        "EIDPARRY" => "NSE:CNXFMCG"
+        "EIHOTEL" => "NSE:CNXSERVICE"
+        "ELECON" => "NSE:CNXINFRA"
+        "ELGIEQUIP" => "BSE:CG"
+        "EMAMILTD" => "NSE:CNXFMCG"
+        "EMCURE" => "NSE:CNXPHARMA"
+        "EMMVEE" => "BSE:CG"
+        "ENDURANCE" => "NSE:CNXAUTO"
+        "ENGINERSIN" => "NSE:CNXINFRA"
+        "ENRIN" => "NSE:CNXENERGY"
+        "EPL" => "NSE:CNXMETAL"
+        "EQUITASBNK" => "NSE:BANKNIFTY"
+        "ERIS" => "NSE:CNXPHARMA"
+        "ESCORTS" => "NSE:CNXAUTO"
+        "ETERNAL" => "NSE:CNXCONSUM"
+        "ETHOSLTD" => "NSE:CNXSERVICE"
+        "EVEREADY" => "BSE:CG"
+        "EXIDEIND" => "NSE:CNXAUTO"
+        "FACT" => "NSE:CNXMETAL"
+        "FALCONTYRE" => "NSE:CNXAUTO"
+        "FDC" => "NSE:CNXPHARMA"
+        "FEDERALBNK" => "NSE:BANKNIFTY"
+        "FERV" => "BSE:CG"
+        "FINCABLES" => "BSE:CG"
+        "FINEORG" => "NSE:CNXMETAL"
+        "FINPIPE" => "NSE:CNXINFRA"
+        "FIRSTCRY" => "NSE:CNXCONSUM"
+        "FIVESTAR" => "NSE:CNXFINANCE"
+        "FLUOROCHEM" => "NSE:CNXCOMMODITIES"
+        "FORCEMOT" => "NSE:CNXAUTO"
+        "FORTIS" => "NSE:CNXPHARMA"
+        "FSL" => "NSE:CNXIT"
+        "GABRIEL" => "NSE:CNXAUTO"
+        "GAIL" => "NSE:CNXENERGY"
+        "GALAXYSURF" => "NSE:CNXMETAL"
+        "GALLANTT" => "NSE:CNXMETAL"
+        "GANESHHOUC" => "NSE:CNXREALTY"
+        "GARDENREACH" => "BSE:CG"
+        "GARFIBRES" => "NSE:CNXFMCG"
+        "GATEWAY" => "NSE:CNXSERVICE"
+        "GENUSPOWER" => "BSE:CG"
+        "GESHIP" => "NSE:CNXSERVICE"
+        "GET_D" => "BSE:CG"
+        "GICRE" => "NSE:CNXFINANCE"
+        "GILLETTE" => "NSE:CNXFMCG"
+        "GLAND" => "NSE:CNXPHARMA"
+        "GLAXO" => "NSE:CNXPHARMA"
+        "GLENMARK" => "NSE:CNXPHARMA"
+        "GMDCLTD" => "NSE:CNXMETAL"
+        "GMMPFAUDLR" => "BSE:CG"
+        "GMRAIRPORT" => "NSE:CNXINFRA"
+        "GMRINFRA" => "NSE:CNXINFRA"
+        "GNFC" => "NSE:CNXMETAL"
+        "GOCOLORS" => "NSE:CNXFMCG"
+        "GODFRYPHLP" => "NSE:CNXFMCG"
+        "GODIGIT" => "NSE:CNXFINANCE"
+        "GODREJAGRO" => "NSE:CNXFMCG"
+        "GODREJCP" => "NSE:CNXFMCG"
+        "GODREJIND" => "NSE:CNXFMCG"
+        "GODREJPROP" => "NSE:CNXREALTY"
+        "GOKEX" => "NSE:CNXFMCG"
+        "GPIL" => "NSE:CNXMETAL"
+        "GPPL" => "NSE:CNXSERVICE"
+        "GRANULES" => "NSE:CNXPHARMA"
+        "GRAPHITE" => "NSE:CNXMETAL"
+        "GRASIM" => "NSE:CNXINFRA"
+        "GRAVITA" => "NSE:CNXMETAL"
+        "GREAVESCOT" => "BSE:CG"
+        "GRINDWELL" => "BSE:CG"
+        "GROWW" => "NSE:CNXFINANCE"
+        "GRSE" => "BSE:CG"
+        "GSFC" => "NSE:CNXMETAL"
+        "GSPL" => "NSE:NIFTY_OIL_AND_GAS"
+        "GUJGASLTD" => "NSE:NIFTY_OIL_AND_GAS"
+        "GULFOILLUB" => "NSE:NIFTY_OIL_AND_GAS"
+        "GVT_D" => "NSE:CNXINFRA"
+        "HAL" => "BSE:CG"
+        "HAPPSTMNDS" => "NSE:CNXIT"
+        "HATHWAY" => "NSE:CNXMEDIA"
+        "HAVELLS" => "BSE:CG"
+        "HBLENGINE" => "NSE:CNXINFRA"
+        "HCLTECH" => "NSE:CNXIT"
+        "HDBFS" => "NSE:CNXFINANCE"
+        "HDFCAMC" => "NSE:CNXFINANCE"
+        "HDFCBANK" => "NSE:BANKNIFTY"
+        "HDFCLIFE" => "NSE:CNXFINANCE"
+        "HEG" => "NSE:CNXMETAL"
+        "HEIDELBERG" => "NSE:CNXINFRA"
+        "HEROMOTOCO" => "NSE:CNXAUTO"
+        "HEXT" => "NSE:CNXIT"
+        "HFCL" => "NSE:CNXIT"
+        "HIKAL" => "NSE:CNXPHARMA"
+        "HINDALCO" => "NSE:CNXMETAL"
+        "HINDCOPPER" => "NSE:CNXMETAL"
+        "HINDPETRO" => "NSE:CNXENERGY"
+        "HINDUNILVR" => "NSE:CNXFMCG"
+        "HINDZINC" => "NSE:CNXMETAL"
+        "HOMEFIRST" => "NSE:CNXFINANCE"
+        "HONASA" => "NSE:CNXFMCG"
+        "HONAUT" => "BSE:CG"
+        "HSCL" => "NSE:CNXMETAL"
+        "HUDCO" => "NSE:CNXFINANCE"
+        "HYUNDAI" => "NSE:CNXAUTO"
+        "ICICIAMC" => "NSE:CNXFINANCE"
+        "ICICIBANK" => "NSE:BANKNIFTY"
+        "ICICIGI" => "NSE:CNXFINANCE"
+        "ICICIPRULI" => "NSE:CNXFINANCE"
+        "IDBI" => "NSE:BANKNIFTY"
+        "IDEA" => "NSE:CNXINFRA"
+        "IDFC" => "NSE:CNXFINANCE"
+        "IDFCFIRSTB" => "NSE:BANKNIFTY"
+        "IEX" => "NSE:CNXFINANCE"
+        "IFCI" => "NSE:CNXFINANCE"
+        "IGIL" => "NSE:CNXMETAL"
+        "IGL" => "NSE:NIFTY_OIL_AND_GAS"
+        "IIFL" => "NSE:CNXFINANCE"
+        "IIFLSEC" => "NSE:CNXFINANCE"
+        "IKS" => "NSE:CNXPHARMA"
+        "IMAGICAA" => "NSE:CNXSERVICE"
+        "INDGN" => "NSE:CNXPHARMA"
+        "INDHOTEL" => "NSE:CNXSERVICE"
+        "INDIACEM" => "NSE:CNXINFRA"
+        "INDIAMART" => "NSE:CNXIT"
+        "INDIANB" => "NSE:BANKNIFTY"
+        "INDIGO" => "NSE:CNXSERVICE"
+        "INDIGOPNTS" => "NSE:CNXINFRA"
+        "INDUSINDBK" => "NSE:BANKNIFTY"
+        "INDUSTOWER" => "NSE:CNXIT"
+        "INFY" => "NSE:CNXIT"
+        "INOXWIND" => "BSE:CG"
+        "INTELLECT" => "NSE:CNXIT"
+        "IOB" => "NSE:BANKNIFTY"
+        "IOC" => "NSE:CNXENERGY"
+        "IPCALAB" => "NSE:CNXPHARMA"
+        "IRB" => "NSE:CNXINFRA"
+        "IRCON" => "NSE:CNXINFRA"
+        "IRCTC" => "NSE:CNXSERVICE"
+        "IREDA" => "NSE:CNXFINANCE"
+        "IRFC" => "NSE:CNXFINANCE"
+        "ITC" => "NSE:CNXFMCG"
+        "ITCHOTELS" => "NSE:CNXCONSUM"
+        "ITI" => "NSE:CNXIT"
+        "J_KBANK" => "NSE:BANKNIFTY"
+        "JAINREC" => "NSE:CNXMETAL"
+        "JBCHEPHARM" => "NSE:CNXPHARMA"
+        "JBMA" => "NSE:CNXAUTO"
+        "JINDALSAW" => "NSE:CNXMETAL"
+        "JINDALSTEL" => "NSE:CNXMETAL"
+        "JIOFIN" => "NSE:CNXFINANCE"
+        "JKCEMENT" => "NSE:CNXINFRA"
+        "JKPAPER" => "NSE:CNXMETAL"
+        "JKTYRE" => "NSE:CNXAUTO"
+        "JMFINANCIL" => "NSE:CNXFINANCE"
+        "JPPOWER" => "NSE:CNXENERGY"
+        "JSL" => "NSE:CNXMETAL"
+        "JSWCEMENT" => "NSE:CNXINFRA"
+        "JSWDULUX" => "NSE:CNXFMCG"
+        "JSWENERGY" => "NSE:CNXENERGY"
+        "JSWINFRA" => "NSE:CNXINFRA"
+        "JSWSTEEL" => "NSE:CNXMETAL"
+        "JUBLFOOD" => "NSE:CNXSERVICE"
+        "JUBLINGREA" => "NSE:CNXMETAL"
+        "JUBLPHARMA" => "NSE:CNXPHARMA"
+        "JUSTDIAL" => "NSE:CNXIT"
+        "JWL" => "NSE:CNXINFRA"
+        "JYOTHYLAB" => "NSE:CNXFMCG"
+        "JYOTICNC" => "NSE:CNXINFRA"
+        "JYOTISTRUC" => "BSE:CG"
+        "KAJARIACER" => "NSE:CNXINFRA"
+        "KALYANKJIL" => "NSE:CNXFMCG"
+        "KANSAINER" => "NSE:CNXINFRA"
+        "KARURVYSYA" => "NSE:BANKNIFTY"
+        "KAYNES" => "NSE:CNXIT"
+        "KEC" => "BSE:CG"
+        "KEI" => "BSE:CG"
+        "KFINTECH" => "NSE:CNXIT"
+        "KIMS" => "NSE:CNXPHARMA"
+        "KIRLOSENG" => "NSE:CNXINFRA"
+        "KNRCON" => "NSE:CNXINFRA"
+        "KOTAKAMC" => "NSE:CNXFINANCE"
+        "KOTAKBANK" => "NSE:BANKNIFTY"
+        "KPIL" => "BSE:CG"
+        "KPITTECH" => "NSE:CNXIT"
+        "KPRMILL" => "NSE:CNXCONSUM"
+        "KRBL" => "NSE:CNXFMCG"
+        "KSB" => "BSE:CG"
+        "KSL" => "NSE:CNXMETAL"
+        "LALPATHLAB" => "NSE:CNXPHARMA"
+        "LATENTVIEW" => "NSE:CNXIT"
+        "LAURUSLABS" => "NSE:CNXPHARMA"
+        "LAXMACH" => "BSE:CG"
+        "LEMONTREE" => "NSE:CNXCONSUM"
+        "LENSKART" => "NSE:CNXPHARMA"
+        "LGEINDIA" => "NSE:CNXIT"
+        "LICHSGFIN" => "NSE:CNXFINANCE"
+        "LICI" => "NSE:CNXFINANCE"
+        "LINDEINDIA" => "NSE:CNXMETAL"
+        "LLOYDSME" => "NSE:CNXMETAL"
+        "LMSYMBOL" => "NSE:CNXIT"
+        "LODHA" => "NSE:CNXREALTY"
+        "LT" => "NSE:CNXINFRA"
+        "LTF" => "NSE:CNXFINANCE"
+        "LTFOODS" => "NSE:CNXFMCG"
+        "LTIM" => "NSE:CNXIT"
+        "LTM" => "NSE:CNXIT"
+        "LTTS" => "NSE:CNXIT"
+        "LUMAXTECH" => "NSE:CNXAUTO"
+        "LUPIN" => "NSE:CNXPHARMA"
+        "LXCHEM" => "NSE:CNXMETAL"
+        "L_T" => "BSE:CG"
+        "L_TFH" => "NSE:CNXFINANCE"
+        "M_M" => "NSE:CNXAUTO"
+        "M_MFIN" => "NSE:CNXFINANCE"
+        "MAHABANK" => "NSE:BANKNIFTY"
+        "MAHLIFE" => "NSE:CNXREALTY"
+        "MAHLOG" => "NSE:CNXSERVICE"
+        "MAHSEAMLES" => "NSE:CNXMETAL"
+        "MANAPPURAM" => "NSE:CNXFINANCE"
+        "MANKIND" => "NSE:CNXPHARMA"
+        "MAPMYINDIA" => "NSE:CNXIT"
+        "MARICO" => "NSE:CNXFMCG"
+        "MARUTI" => "NSE:CNXAUTO"
+        "MASTEK" => "NSE:CNXIT"
+        "MAXHEALTH" => "NSE:CNXPHARMA"
+        "MAZDOCK" => "BSE:CG"
+        "MCX" => "NSE:CNXFINANCE"
+        "MEDANTA" => "NSE:CNXPHARMA"
+        "MEESHO" => "NSE:CNXCONSUM"
+        "METROPOLIS" => "NSE:CNXPHARMA"
+        "MFSL" => "NSE:BANKNIFTY"
+        "MGL" => "NSE:NIFTY_OIL_AND_GAS"
+        "MHRIL" => "NSE:CNXSERVICE"
+        "MINDACORP" => "NSE:CNXAUTO"
+        "MINDTREE" => "NSE:CNXIT"
+        "MIRZAINT" => "NSE:CNXFMCG"
+        "MMTC" => "NSE:CNXINFRA"
+        "MOTHERSON" => "NSE:CNXAUTO"
+        "MOTILALOFS" => "NSE:CNXFINANCE"
+        "MPHASIS" => "NSE:CNXIT"
+        "MRF" => "NSE:CNXAUTO"
+        "MRPL" => "NSE:CNXENERGY"
+        "MSTCLTD" => "NSE:CNXSERVICE"
+        "MSUMI" => "NSE:CNXAUTO"
+        "MTARTECH" => "BSE:CG"
+        "MUTHOOTFIN" => "NSE:CNXFINANCE"
+        "NAM-INDIA" => "NSE:CNXFINANCE"
+        "NATCOPHARM" => "NSE:CNXPHARMA"
+        "NATIONALUM" => "NSE:CNXMETAL"
+        "NAUKRI" => "NSE:CNXSERVICE"
+        "NAVA" => "NSE:CNXINFRA"
+        "NAVINFLUOR" => "NSE:CNXMETAL"
+        "NAZARA" => "NSE:CNXMEDIA"
+        "NBCC" => "NSE:CNXINFRA"
+        "NCC" => "NSE:CNXINFRA"
+        "NESTLEIND" => "NSE:CNXFMCG"
+        "NETWEB" => "NSE:CNXIT"
+        "NETWORK18" => "NSE:CNXMEDIA"
+        "NEULANDLAB" => "NSE:CNXPHARMA"
+        "NEWGEN" => "NSE:CNXIT"
+        "NH" => "NSE:CNXPHARMA"
+        "NHPC" => "NSE:CNXENERGY"
+        "NIACL" => "NSE:CNXFINANCE"
+        "NIITLTD" => "NSE:CNXIT"
+        "NIVABUPA" => "NSE:CNXFINANCE"
+        "NLCINDIA" => "NSE:CNXENERGY"
+        "NMDC" => "NSE:CNXMETAL"
+        "NSLNISP" => "NSE:CNXMETAL"
+        "NTPC" => "NSE:CNXENERGY"
+        "NTPCGREEN" => "NSE:CNXENERGY"
+        "NUVAMA" => "NSE:CNXFINANCE"
+        "NUVOCO" => "NSE:CNXINFRA"
+        "NYKAA" => "NSE:CNXSERVICE"
+        "OBEROIRLTY" => "NSE:CNXREALTY"
+        "OFSS" => "NSE:CNXIT"
+        "OIL" => "NSE:CNXENERGY"
+        "OLAEC" => "NSE:CNXAUTO"
+        "OLAELEC" => "NSE:CNXAUTO"
+        "OLECTRA" => "NSE:CNXAUTO"
+        "OMAXE" => "NSE:CNXREALTY"
+        "ONESOURCE" => "NSE:CNXPHARMA"
+        "ONGC" => "NSE:CNXENERGY"
+        "ORIENTELEC" => "BSE:CG"
+        "PAGEIND" => "NSE:CNXFMCG"
+        "PARADEEP" => "NSE:CNXCOMMODITIES"
+        "PATANJALI" => "NSE:CNXFMCG"
+        "PAYTM" => "NSE:CNXSERVICE"
+        "PCBL" => "NSE:CNXCOMMODITIES"
+        "PEL" => "NSE:CNXFINANCE"
+        "PERSISTENT" => "NSE:CNXIT"
+        "PETRONET" => "NSE:NIFTY_OIL_AND_GAS"
+        "PFC" => "NSE:CNXFINANCE"
+        "PFIZER" => "NSE:CNXPHARMA"
+        "PGEL" => "NSE:CNXIT"
+        "PGHH" => "NSE:CNXFMCG"
+        "PHOENIXLTD" => "NSE:CNXREALTY"
+        "PIDILITIND" => "NSE:CNXINFRA"
+        "PIIND" => "NSE:CNXMETAL"
+        "PINELABS" => "NSE:CNXIT"
+        "PIRAMALFIN" => "NSE:CNXFINANCE"
+        "PNB" => "NSE:BANKNIFTY"
+        "PNBHOUSING" => "NSE:CNXFINANCE"
+        "PNCINFRA" => "NSE:CNXINFRA"
+        "POLICYBZR" => "NSE:CNXSERVICE"
+        "POLYCAB" => "BSE:CG"
+        "POLYMED" => "NSE:CNXPHARMA"
+        "POONAWALLA" => "NSE:CNXFINANCE"
+        "POWERGRID" => "NSE:CNXENERGY"
+        "POWERINDIA" => "NSE:CNXINFRA"
+        "PPLPHARMA" => "NSE:CNXPHARMA"
+        "PRAJIND" => "BSE:CG"
+        "PREMIERENE" => "BSE:CG"
+        "PRESTIGE" => "NSE:CNXREALTY"
+        "PRICOL" => "NSE:CNXAUTO"
+        "PRINCEPIPE" => "NSE:CNXINFRA"
+        "PRSMJOHNSN" => "NSE:CNXINFRA"
+        "PTCIL" => "NSE:CNXINFRA"
+        "PUNJABALK" => "NSE:CNXMETAL"
+        "PVRINOX" => "NSE:CNXMEDIA"
+        "PWL" => "NSE:CNXCONSUM"
+        "QUESS" => "NSE:CNXSERVICE"
+        "RADICO" => "NSE:CNXFMCG"
+        "RAILTEL" => "NSE:CNXINFRA"
+        "RAIN" => "NSE:CNXMETAL"
+        "RAINBOW" => "NSE:CNXPHARMA"
+        "RAJESHEXPO" => "NSE:CNXFMCG"
+        "RALLIS" => "NSE:CNXMETAL"
+        "RAMCOCEM" => "NSE:CNXINFRA"
+        "RATNAMANI" => "NSE:CNXMETAL"
+        "RAYMOND" => "NSE:CNXFMCG"
+        "RBLBANK" => "NSE:BANKNIFTY"
+        "RECLTD" => "NSE:CNXFINANCE"
+        "REDINGTON" => "NSE:CNXSERVICE"
+        "RELAXO" => "NSE:CNXFMCG"
+        "RELIANCE" => "NSE:CNXENERGY"
+        "RHIM" => "NSE:CNXMETAL"
+        "RITES" => "NSE:CNXINFRA"
+        "RKFORGE" => "NSE:CNXINFRA"
+        "ROLEXRINGS" => "NSE:CNXAUTO"
+        "ROSSARI" => "NSE:CNXMETAL"
+        "ROUTE" => "NSE:CNXIT"
+        "RPOWER" => "NSE:CNXENERGY"
+        "RRKABEL" => "NSE:CNXINFRA"
+        "RTNINDIA" => "NSE:CNXENERGY"
+        "RVNL" => "BSE:CG"
+        "SAFEWELL" => "BSE:CG"
+        "SAGILITY" => "NSE:CNXPHARMA"
+        "SAIL" => "NSE:CNXMETAL"
+        "SAILIFE" => "NSE:CNXPHARMA"
+        "SAMMAANCAP" => "NSE:CNXFINANCE"
+        "SANSERA" => "NSE:CNXAUTO"
+        "SAPPHIRE" => "NSE:CNXSERVICE"
+        "SARDAEN" => "NSE:CNXMETAL"
+        "SAREGAMA" => "NSE:CNXMEDIA"
+        "SAREHGAMA" => "NSE:CNXMEDIA"
+        "SBFC" => "NSE:CNXFINANCE"
+        "SBICARD" => "NSE:CNXFINANCE"
+        "SBIGLI" => "NSE:CNXFINANCE"
+        "SBILIFE" => "NSE:CNXFINANCE"
+        "SBIN" => "NSE:BANKNIFTY"
+        "SCHAEFFLER" => "BSE:CG"
+        "SCHNEIDER" => "BSE:CG"
+        "SCI" => "NSE:CNXINFRA"
+        "SDBL" => "NSE:CNXFMCG"
+        "SEAMECLTD" => "NSE:CNXSERVICE"
+        "SFL" => "NSE:CNXFMCG"
+        "SHARDACROP" => "NSE:CNXMETAL"
+        "SHOPERSTOP" => "NSE:CNXSERVICE"
+        "SHREECEM" => "NSE:CNXINFRA"
+        "SHRIRAMFIN" => "NSE:CNXFINANCE"
+        "SHYAMMETL" => "NSE:CNXMETAL"
+        "SIEMENS" => "BSE:CG"
+        "SIGNATURE" => "NSE:CNXREALTY"
+        "SIS" => "NSE:CNXSERVICE"
+        "SJVN" => "NSE:CNXENERGY"
+        "SKFINDIA" => "BSE:CG"
+        "SOBHA" => "NSE:CNXREALTY"
+        "SOLARINDS" => "NSE:CNXMETAL"
+        "SONACOMS" => "NSE:CNXAUTO"
+        "SONATSOFTW" => "NSE:CNXIT"
+        "SPARC" => "NSE:CNXPHARMA"
+        "SPLPETRO" => "NSE:CNXCOMMODITIES"
+        "SRF" => "NSE:CNXINFRA"
+        "STARHEALTH" => "NSE:CNXFINANCE"
+        "STLTECH" => "NSE:CNXIT"
+        "SUDARSCHEM" => "NSE:CNXMETAL"
+        "SUMICHEM" => "NSE:CNXMETAL"
+        "SUNDARMFIN" => "NSE:CNXFINANCE"
+        "SUNPHARMA" => "NSE:CNXPHARMA"
+        "SUNTECK" => "NSE:CNXREALTY"
+        "SUNTV" => "NSE:CNXMEDIA"
+        "SUPRAJIT" => "NSE:CNXAUTO"
+        "SUPREMEIND" => "NSE:CNXINFRA"
+        "SURYAROSNI" => "NSE:CNXMETAL"
+        "SUVENPHAR" => "NSE:CNXPHARMA"
+        "SUZLON" => "BSE:CG"
+        "SWANCORP" => "NSE:CNXINFRA"
+        "SWIGGY" => "NSE:CNXSERVICE"
+        "SYNGENE" => "NSE:CNXPHARMA"
+        "SYRMA" => "NSE:CNXIT"
+        "TANLA" => "NSE:CNXIT"
+        "TARIL" => "NSE:CNXINFRA"
+        "TATACAP" => "NSE:CNXFINANCE"
+        "TATACHEM" => "NSE:CNXMETAL"
+        "TATACOMM" => "NSE:CNXIT"
+        "TATACONSUM" => "NSE:CNXFMCG"
+        "TATAELXSI" => "NSE:CNXIT"
+        "TATAINVEST" => "NSE:CNXFINANCE"
+        "TATAMOTORS" => "NSE:CNXAUTO"
+        "TATAPOWER" => "NSE:CNXENERGY"
+        "TATASTEEL" => "NSE:CNXMETAL"
+        "TATATECH" => "NSE:CNXIT"
+        "TBOTEK" => "NSE:CNXCONSUM"
+        "TCI" => "NSE:CNXSERVICE"
+        "TCIEXP" => "NSE:CNXSERVICE"
+        "TCS" => "NSE:CNXIT"
+        "TEAMLEASE" => "NSE:CNXSERVICE"
+        "TECHM" => "NSE:CNXIT"
+        "TECHNOE" => "BSE:CG"
+        "TEGA" => "BSE:CG"
+        "TEJASNET" => "NSE:CNXIT"
+        "TENNIND" => "NSE:CNXAUTO"
+        "THELEELA" => "NSE:CNXCONSUM"
+        "THERMAX" => "BSE:CG"
+        "THYROCARE" => "NSE:CNXPHARMA"
+        "TIINDIA" => "NSE:CNXAUTO"
+        "TIMKEN" => "BSE:CG"
+        "TIPSMUSIC" => "NSE:CNXMEDIA"
+        "TITAGARH" => "BSE:CG"
+        "TITAN" => "NSE:CNXFMCG"
+        "TMCV" => "NSE:CNXAUTO"
+        "TMPV" => "NSE:CNXAUTO"
+        "TORNTPHARM" => "NSE:CNXPHARMA"
+        "TORNTPOWER" => "NSE:CNXENERGY"
+        "TRAVELFOOD" => "NSE:CNXCONSUM"
+        "TRENT" => "NSE:CNXFMCG"
+        "TRIDENT" => "NSE:CNXFMCG"
+        "TRITURBINE" => "BSE:CG"
+        "TRIVENI" => "NSE:CNXFMCG"
+        "TTML" => "NSE:CNXIT"
+        "TVSMOTOR" => "NSE:CNXAUTO"
+        "TVSSRICHAK" => "NSE:CNXAUTO"
+        "UBL" => "NSE:CNXFMCG"
+        "UCOBANK" => "NSE:BANKNIFTY"
+        "UFLEX" => "NSE:CNXMETAL"
+        "ULTRACEMCO" => "NSE:CNXINFRA"
+        "UNIONBANK" => "NSE:BANKNIFTY"
+        "UNITDSPR" => "NSE:CNXFMCG"
+        "UNOMINDA" => "NSE:CNXAUTO"
+        "UPL" => "NSE:CNXMETAL"
+        "URBANCO" => "NSE:CNXIT"
+        "USHAMART" => "NSE:CNXMETAL"
+        "UTIAMC" => "NSE:CNXFINANCE"
+        "VAIBHAVGBL" => "NSE:CNXFMCG"
+        "VAKRANGEE" => "NSE:CNXIT"
+        "VALIANTORG" => "NSE:CNXMETAL"
+        "VARDHACRLC" => "NSE:CNXFMCG"
+        "VBL" => "NSE:CNXFMCG"
+        "VEDL" => "NSE:CNXMETAL"
+        "VENKEYS" => "NSE:CNXFMCG"
+        "VIJAYA" => "NSE:CNXPHARMA"
+        "VINATIORGA" => "NSE:CNXMETAL"
+        "VIPIND" => "NSE:CNXFMCG"
+        "VISHNU" => "NSE:CNXMETAL"
+        "VMM" => "NSE:CNXCONSUM"
+        "VOLTAS" => "BSE:CG"
+        "VTL" => "NSE:CNXFMCG"
+        "WAAREEENER" => "BSE:CG"
+        "WELCORP" => "NSE:CNXMETAL"
+        "WELENT" => "NSE:CNXINFRA"
+        "WELSPUNLIV" => "NSE:CNXFMCG"
+        "WESTLIFE" => "NSE:CNXSERVICE"
+        "WHIRLPOOL" => "BSE:CG"
+        "WIPRO" => "NSE:CNXIT"
+        "WOCKPHARMA" => "NSE:CNXPHARMA"
+        "YESBANK" => "NSE:BANKNIFTY"
+        "ZEEL" => "NSE:CNXMEDIA"
+        "ZENSARTECH" => "NSE:CNXIT"
+        "ZENTEC" => "NSE:CNXINFRA"
+        "ZFCVINDIA" => "NSE:CNXAUTO"
+        "ZOMATO" => "NSE:CNXSERVICE"
+        "ZYDUSLIFE" => "NSE:CNXPHARMA"
+        "ZYDUSWELL" => "NSE:CNXFMCG"
+        => ""
+    s
+// <DB_LOOKUP_END>
+
+// HYBRID SECTOR LOOKUP (DB first, keyword auto-mapper fallback)
+f_get_hybrid_sector() =>
+    string __clean_t = str.replace_all(str.upper(str.trim(syminfo.ticker)), "NSE:", "")
+    __clean_t := str.replace_all(__clean_t, "BSE:", "")
+    string dbSec = f_db_sector_lookup(__clean_t)
+    string t = ""
+    if dbSec != ""
+        t := dbSec
+    else
+        [_at, _] = f_get_sector_ticker()  // tuple [ticker, name] — only need ticker
+        t := _at
+    t
+
+
+// ==========================================
+// 7. DATA CALCULATIONS (SECURITY CALLS)
+// ==========================================
+// Market Health
+[_mkt_close, _mkt_sma50, _mkt_sma200, _mkt_52w, _mkt_recent_low, _mkt_prior_low] = request.security("NSE:CNX500", "D", f_get_mkt_bundle(), lookahead=barmerge.lookahead_off)
+bool mkt_bull = not na(_mkt_close) and not na(_mkt_sma200) and (_mkt_close > _mkt_sma200) and (_mkt_sma50 > _mkt_sma200)
+float mkt_corr_depth = not na(_mkt_52w) and _mkt_52w > 0 ? (_mkt_52w - _mkt_close) / _mkt_52w : 0.0
+bool  mkt_idx_corrected = mkt_corr_depth >= 0.07
+bool  mkt_reclaim       = not na(_mkt_recent_low) and not na(_mkt_prior_low) and _mkt_recent_low > _mkt_prior_low
+bool mkt_in_recovery = mkt_idx_corrected and mkt_reclaim
+
+// Stock Weekly Stage
+[wClose, wMA30, wSlope, wTrend, wRSI, current_stage, wEarlyStage2, wStageWks] = request.security(syminfo.tickerid, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right, slopeThresh), lookahead=barmerge.lookahead_off)
+
+// Sector Weekly Stage — resolved via full Nifty-500 DB + keyword fallback
+var string sectorTicker = use_auto_sec ? f_get_hybrid_sector() : manualSector
+[_sc, _sm, _ss, _st, _sr, _sec_stage_raw, _, _secStageWks] = request.security(sectorTicker, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right, slopeThresh), lookahead=barmerge.lookahead_off)
+int _sec_stage = _sec_stage_raw
+bool sector_stage_ok = (_sec_stage == 1 or _sec_stage == 2)
+
+// v2.9: JdK RS engine (parity with Dashboard + Bull Screener). 5-tuple now.
+// B13: strip pre-existing "NSE:" prefix to avoid double-prefix on ratio symbol.
+string _rs_ticker_clean = str.replace_all(str.upper(syminfo.ticker), "NSE:", "")
+[rsVal500, rsSlope500, rs_momentum, _rsValTrail500, _rsMomTrail500] = request.security("NSE:" + _rs_ticker_clean + " / " + bench500, "W", f_rs_math(), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+[_rrg_arrow, _rrg_traj, rs_quadrant, _rrg_next, rs_rrg_score, rs_tradeable] = f_rrg_info(rsVal500, rs_momentum, _rsValTrail500, _rsMomTrail500)
+bool rs_positive = rsSlope500 > 0
+
+// Daily Indicators (MTF Safety)
+[req_ema20, req_sma50, req_sma150, req_sma200, req_atr14] = request.security(syminfo.tickerid, "D", f_get_daily_indicators(ema20_len, atr_length), lookahead=barmerge.lookahead_off)
+
+// CPR & VWAP
+[d_pivot, d_bc, d_tc] = request.security(syminfo.tickerid, "D", f_get_cpr(), lookahead=barmerge.lookahead_off)
+m_vwap = request.security(syminfo.tickerid, "D", f_get_mvwap(), lookahead=barmerge.lookahead_off)
+
+// RFF Data — FY (annual) primary; E9 adds optional FQ fallback for sparse listings
+float rff_ni_fy       = request.financial(syminfo.tickerid, "NET_INCOME",                    "FY", ignore_invalid_symbol=true)
+float rff_ocf_fy      = request.financial(syminfo.tickerid, "CASH_F_OPERATING_ACTIVITIES",   "FY", ignore_invalid_symbol=true)
+float rff_capex_fy    = request.financial(syminfo.tickerid, "CAPITAL_EXPENDITURES",           "FY", ignore_invalid_symbol=true)
+float rff_ebitda_fy   = request.financial(syminfo.tickerid, "EBITDA",                         "FY", ignore_invalid_symbol=true)
+float rff_interest_fy = request.financial(syminfo.tickerid, "INTEREST_EXPENSE",               "FY", ignore_invalid_symbol=true)
+float rff_debt_fy     = request.financial(syminfo.tickerid, "TOTAL_DEBT",                     "FY", ignore_invalid_symbol=true)
+float rff_equity_fy   = request.financial(syminfo.tickerid, "TOTAL_EQUITY",                   "FY", ignore_invalid_symbol=true)
+float rff_ca_fy       = request.financial(syminfo.tickerid, "CURRENT_ASSETS",                 "FY", ignore_invalid_symbol=true)
+float rff_cl_fy       = request.financial(syminfo.tickerid, "CURRENT_LIABILITIES",            "FY", ignore_invalid_symbol=true)
+float rff_ta_fy       = request.financial(syminfo.tickerid, "TOTAL_ASSETS",                   "FY", ignore_invalid_symbol=true)
+
+// E9: FQ fallback queries (only used when use_rff_fq_fallback is ON and the FY value is na)
+float rff_ni_fq       = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "NET_INCOME",                    "FQ", ignore_invalid_symbol=true) : na
+float rff_ocf_fq      = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "CASH_F_OPERATING_ACTIVITIES",   "FQ", ignore_invalid_symbol=true) : na
+float rff_capex_fq    = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "CAPITAL_EXPENDITURES",           "FQ", ignore_invalid_symbol=true) : na
+float rff_ebitda_fq   = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "EBITDA",                         "FQ", ignore_invalid_symbol=true) : na
+float rff_interest_fq = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "INTEREST_EXPENSE",               "FQ", ignore_invalid_symbol=true) : na
+float rff_debt_fq     = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "TOTAL_DEBT",                     "FQ", ignore_invalid_symbol=true) : na
+float rff_equity_fq   = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "TOTAL_EQUITY",                   "FQ", ignore_invalid_symbol=true) : na
+float rff_ca_fq       = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "CURRENT_ASSETS",                 "FQ", ignore_invalid_symbol=true) : na
+float rff_cl_fq       = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "CURRENT_LIABILITIES",            "FQ", ignore_invalid_symbol=true) : na
+float rff_ta_fq       = use_rff_fq_fallback ? request.financial(syminfo.tickerid, "TOTAL_ASSETS",                   "FQ", ignore_invalid_symbol=true) : na
+
+float rff_ni       = na(rff_ni_fy)       ? rff_ni_fq       : rff_ni_fy
+float rff_ocf      = na(rff_ocf_fy)      ? rff_ocf_fq      : rff_ocf_fy
+float rff_capex    = na(rff_capex_fy)    ? rff_capex_fq    : rff_capex_fy
+float rff_ebitda   = na(rff_ebitda_fy)   ? rff_ebitda_fq   : rff_ebitda_fy
+float rff_interest = na(rff_interest_fy) ? rff_interest_fq : rff_interest_fy
+float rff_debt     = na(rff_debt_fy)     ? rff_debt_fq     : rff_debt_fy
+float rff_equity   = na(rff_equity_fy)   ? rff_equity_fq   : rff_equity_fy
+float rff_ca       = na(rff_ca_fy)       ? rff_ca_fq       : rff_ca_fy
+float rff_cl       = na(rff_cl_fy)       ? rff_cl_fq       : rff_cl_fy
+float rff_ta       = na(rff_ta_fy)       ? rff_ta_fq       : rff_ta_fy
+// Count how many raw fields have data (guard against all-na situation)
+int rff_data_fields = (na(rff_ni) ? 0 : 1) + (na(rff_ocf) ? 0 : 1) + (na(rff_ebitda) ? 0 : 1) + (na(rff_debt) ? 0 : 1) + (na(rff_ca) ? 0 : 1) + (na(rff_ta) ? 0 : 1)
+bool rff_has_data = rff_data_fields >= 3
+
+int rff_score = 0
+if not na(rff_ni) and rff_ni > 0
+    rff_score += 1
+float rff_fcf = nz(rff_ocf, 0.0) - math.abs(nz(rff_capex, 0.0))
+if not na(rff_ocf) and rff_fcf > 0
+    rff_score += 1
+float rff_icr_val = (not na(rff_ebitda) and not na(rff_interest) and rff_interest > 0) ? (rff_ebitda / rff_interest) : na
+if not na(rff_icr_val) and rff_icr_val > 3.5
+    rff_score += 1
+float rff_de_val = (not na(rff_debt) and not na(rff_equity) and rff_equity > 0) ? (rff_debt / rff_equity) : na
+if not na(rff_de_val) and rff_de_val < 2.0
+    rff_score += 1
+float rff_cr_val = (not na(rff_ca) and not na(rff_cl) and rff_cl > 0) ? (rff_ca / rff_cl) : na
+if not na(rff_cr_val) and rff_cr_val > 1.0
+    rff_score += 1
+float rff_roa_val = (not na(rff_ni) and not na(rff_ta) and rff_ta > 0) ? (rff_ni / rff_ta * 100.0) : na
+if not na(rff_roa_val) and rff_roa_val > 5.0
+    rff_score += 1
+
+bool rff_ok = rff_min_score == 0 or rff_score >= rff_min_score
+// ==========================================
+// 8. INDICATORS & GLOBALS
+// ==========================================
+float d_ema20  = timeframe.isintraday ? req_ema20  : ta.ema(close, ema20_len)
+float d_sma50  = timeframe.isintraday ? req_sma50  : ta.sma(close, 50)
+float d_sma150 = timeframe.isintraday ? req_sma150 : ta.sma(close, 150)
+float d_sma200 = timeframe.isintraday ? req_sma200 : ta.sma(close, 200)
+float atr14    = timeframe.isintraday ? req_atr14  : ta.atr(atr_length)
+float d_rsi    = ta.rsi(close, 14)
+float vol_ma   = ta.sma(volume, vol_avg_len)
+float vol_sma50_g = ta.sma(volume, 50)
+
+float lowest_low_5  = ta.lowest(low, 5)
+float lowest_low_10 = ta.lowest(low, 10)
+float high52w       = ta.highest(high, 250)
+float low52w        = ta.lowest(low, 250)
+float bar_range     = high - low
+
+bool stage1_base    = (current_stage == 1)
+bool stage2_uptrend = (current_stage == 2)
+bool stage3_top     = (current_stage == 3)
+bool stage4_dntrend = (current_stage == 4)
+
+[dTrend, _, _] = f_getStrictTrend(high, low, piv_d_left, piv_d_right)
+bool trend_up  = dTrend == 1
+bool in_date   = not use_date or (time >= start_date and time <= end_date)
+
+// ==========================================
+// 9. BULL MARKET STRATEGY LOGIC
+// ==========================================
+bool mpa_pass = close > d_sma150 and d_sma150 > d_sma200
+bool micro_ok = not use_micro_edge or (close > d_pivot and close > m_vwap)
+bool rs_ok    = not use_rs or rs_quadrant == "LEADING" or rs_quadrant == "IMPROVING"
+
+// Calculate Alpha Score
+bool adx_strong = ta.rma(math.max(ta.change(high), 0), 14) > ta.rma(math.max(-ta.change(low), 0), 14)
+// v2.3: numeric ADX for v1 FINAL Hunter gate (adx_strong remains for alpha_score).
+[_dp14, _dm14, adx_val] = ta.dmi(14, 14)
+bool hunter_adx_ok = adx_val >= hunter_daily_adx_min
+float alpha_score = f_calc_alpha_score(close, open, d_ema20, d_sma50, volume, vol_ma)
+bool alpha_ok = alpha_score >= min_alpha
+
+// Gap 5 restored: VWMA volume shelf (20-bar VWMA > 50-bar VWMA = sustained volume interest, not a spike)
+bool vol_shelf_ok   = ta.vwma(volume, 20) > ta.vwma(volume, 50)
+
+// --- Weinstein Setup Gates (Sync with Beta v2.6) ---
+// vol_acc_ok: institutional-accumulation density — ≥3 of last 20 bars must be green-close
+// in upper-60% of range with above-avg volume. v2.4: comment now matches code (was "≥6").
+// VERIFY against Commander_Screener_Beta_Edition_v2.9.pine canonical threshold.
+float _v_dr   = high - low
+float _v_cr   = _v_dr == 0 ? 0 : (close - low) / _v_dr
+bool  _v_one  = (close > close[1]) and (volume > vol_ma) and (_v_cr > 0.6)
+float _v_sum  = math.sum(_v_one ? 1 : 0, 20)
+bool  vol_acc_ok = _v_sum >= 3
+
+// fresh_stage2: stock entered Stage 2 within last `stage2_fresh_max` weeks.
+// B6: wrap with nz() so na (Stage 3/4 transitions) explicitly disqualifies.
+// E3: stage2_fresh_max is now an input (was hardcoded 26).
+bool stage2_fresh_ok = nz(wStageWks, 999) <= stage2_fresh_max
+
+// ma_sqz_ok: SMA20 / SMA50 squeezed within 5%
+float ma_dist   = math.abs(d_ema20 - d_sma50) / d_sma50
+bool  ma_sqz_ok = ma_dist <= 0.05
+
+// bb_sqz_ok: current BB width tighter than its 30-bar SMA
+float _bb_basis = ta.sma(close, 20)
+float _bb_dev   = 2.0 * ta.stdev(close, 20)
+float _bb_w     = ((_bb_basis + _bb_dev) - (_bb_basis - _bb_dev)) / _bb_basis
+bool  bb_sqz_ok = _bb_w < ta.sma(_bb_w, 30)
+
+// Combined Weinstein Setup Gate
+// E4: low_mult and high_pct thresholds now inputs (default 1.30 / 0.75 preserved)
+bool trend_template_ok = close > (low52w * trend_template_low_mult) and close >= (high52w * trend_template_high_pct)
+bool weinstein_setup = (stage2_uptrend or stage1_base) and close > d_sma200 and rs_quadrant != "LAGGING" and vol_acc_ok and stage2_fresh_ok and trend_template_ok
+
+// E5: Mature Trend Exemption — established Stage 2 leaders can satisfy base_confirmed
+//     WITHOUT the strict freshness / template gate, provided they have:
+//     • Stage 2 active
+//     • Mansfield RS = LEADING (top quadrant — best of best)
+//     • Beyond standard freshness window (stage2_fresh_max weeks)
+//     • Holding above EMA20 and SMA200 (trend intact)
+bool mature_trend_ok = use_mature_trend_exempt and stage2_uptrend and rs_quadrant == "LEADING" and nz(wStageWks, 0) > stage2_fresh_max and close > d_ema20 and close > d_sma200
+
+// Positional Edges
+bool base_confirmed = (weinstein_setup or mature_trend_ok) and mpa_pass
+
+// ==========================================
+// ML PROBABILITY SCORER
+// ==========================================
+float ml_pb_depth = high52w > 0 ? (high52w - close) / high52w : 0.0
+float ml_vcp_val  = f_is_vcp(1.5) ? 1.0 : 0.0
+float ml_atr_pct  = atr14 > 0 and close > 0 ? (atr14 / close) * 100 : 3.0
+
+float ml_score = -0.510474 + (0.023048 * d_rsi) + (0.113267 * ml_atr_pct) + (-0.848810 * _bb_w) + (0.002488 * rsVal500) + (-0.013312 * alpha_score) + (-1.137420 * ml_pb_depth) + (0.072967 * ml_vcp_val) + (-1.658263 * ma_dist)
+float ml_win_prob = (1.0 / (1.0 + math.exp(-ml_score))) * 100
+
+// RSI "Dead Zone" Filter (ML Insight)
+bool ml_rsi_dead_zone = d_rsi >= 47.0 and d_rsi <= 54.0
+
+// ==========================================
+// PY SCORE (Python-Aligned Conviction Rank)
+// Mirrors Commander_Screener_Beta_Edition_v2.9.pine::pyScore
+// and bull_screener.calculate_score() — same components, same weights.
+// Ref: BACKTEST_RESULTS_v2.docx §7. No catalyst_id in strategy scope;
+// setup-tier proxy: base_confirmed+TT=30, base_confirmed=20, partial=10.
+// ==========================================
+float py_rel_vol    = vol_ma > 0 ? volume / vol_ma : 0.0
+int   py_score      = 0
+
+// Catalyst tier proxy (max 30)
+if base_confirmed and trend_template_ok
+    py_score += 30   // Tier-1: full Weinstein + Trend Template
+else if base_confirmed
+    py_score += 20   // Tier-2: setup without Trend Template
+else if (stage2_uptrend or stage1_base) and close > d_sma200
+    py_score += 10   // Tier-3: partial/early base
+
+// Stage 2 confirmation (10)
+if stage2_uptrend
+    py_score += 10
+
+// Mansfield RS — cumulative tiers (10 + 10)
+if not na(rsVal500)
+    if rsVal500 > 0
+        py_score += 10
+    if rsVal500 >= 10
+        py_score += 10
+
+// Mansfield 4-bar RS momentum (5)
+if not na(rs_momentum) and rs_momentum > 0
+    py_score += 5
+
+// v2.9 RRG scoring — replaced n=33 calibration with universe-wide validation
+// (n=5,460 Nifty 500 × 12 anchors). Only signal that survived: RS-Ratio side.
+//   RS-Ratio >= 100 (LEADING + WEAKENING): +2.07% mean 30d alpha
+//   RS-Ratio <  100 (IMPROVING + LAGGING): -0.64% mean 30d alpha
+// Single binary signal, +5 / -5. Trajectory now drives `rs_tradeable` (entry gate).
+py_score += rs_rrg_score
+
+// Volume confirmation (5 / 10 / 15)
+if py_rel_vol >= 2.0
+    py_score += 15
+else if py_rel_vol >= 1.5
+    py_score += 10
+else if py_rel_vol >= 1.0
+    py_score += 5
+
+// Sector stage (+5 / -5)
+if _sec_stage == 2
+    py_score += 5
+else if _sec_stage == 4
+    py_score -= 5
+
+// Trend Template (10)
+if trend_template_ok
+    py_score += 10
+
+// Distance off 52W High (3 / 5 / 7 / 10)
+if high52w > 0
+    float _dist_high = (high52w - close) / high52w * 100
+    if _dist_high <= 5
+        py_score += 10
+    else if _dist_high <= 10
+        py_score += 7
+    else if _dist_high <= 15
+        py_score += 5
+    else if _dist_high <= 25
+        py_score += 3
+
+// Clamp [0, 100]
+py_score := math.max(0, math.min(py_score, 100))
+
+float bo_level      = ta.highest(high, bo_len)[1]
+
+// ── PRICE-ACTION catalyst gates (Jay's design — replace lagging indicators,
+//    synced to bull_screener.py 2026-06-03). ───────────────────────────────
+// PA directional strength (replaces ADX>=25): >=7 of last 14 bars up + higher high.
+int  pa_dir_cnt = 0
+for _j = 1 to 14
+    if close[_j] > open[_j] and high[_j] > high[_j + 1]
+        pa_dir_cnt += 1
+bool pa_dir_ok = pa_dir_cnt >= 7
+// PA pullback pocket (replaces RSI 30-70): 38-62% retrace of 20-bar range.
+float pa_sw_hi20 = ta.highest(high, 20)
+float pa_sw_lo20 = ta.lowest(low, 20)
+float pa_retrace = (pa_sw_hi20 - pa_sw_lo20) > 0 ? (pa_sw_hi20 - close) / (pa_sw_hi20 - pa_sw_lo20) : 0.0
+bool  pb_pocket_pa = pa_retrace >= 0.38 and pa_retrace <= 0.62
+// PA oversold (replaces RSI<35): 3 lower closes + close in bottom 20% of 10-bar range.
+bool  pa_3bar_down = close < close[1] and close[1] < close[2] and close[2] < close[3]
+float pa_lo10 = ta.lowest(low, 10)
+float pa_hi10 = ta.highest(high, 10)
+float pa_pos10 = (pa_hi10 - pa_lo10) > 0 ? (close - pa_lo10) / (pa_hi10 - pa_lo10) : 0.5
+bool  pa_oversold_pa = pa_3bar_down and pa_pos10 < 0.20
+
+// v3.5 (2026-06-03): ADX (hunter_adx_ok) -> pa_dir_ok per pure-PA design.
+//   (wRSI >= hunter_weekly_rsi_min retained — weekly-RSI->PA is a separate step.)
+bool pos_bo_trigger = use_bull_mode and use_pos_bo and mkt_bull and base_confirmed and alpha_ok and
+                      (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and
+                      volume > (vol_ma * 1.25) and
+                      wRSI >= hunter_weekly_rsi_min and pa_dir_ok
+
+float pos_accum_sl  = lowest_low_10
+float bo_level_30   = ta.highest(high, 30)[1]
+
+// Gap 2 restored & aligned with Python: OBV linreg slope rising (smart money accumulation)
+float obv_val       = ta.obv
+float obv_slope_now = ta.linreg(obv_val, 13, 0)
+float obv_slope_then= ta.linreg(obv_val, 13, 13)
+bool  obv_trending_up = obv_slope_now > obv_slope_then
+
+bool is_vcp_tight   = f_is_vcp(1.0)
+
+// v2.4: B1 + B4 fix — v2 LOCK gate (pos_accum_rsi_max) actually wired in;
+//       mkt_bull regime gate added. v2.3 declared the RSI cap but never applied it.
+bool pos_ac_trigger = use_bull_mode and use_pos_accum and mkt_bull and base_confirmed and alpha_ok and
+                      obv_trending_up and is_vcp_tight and close > (bo_level_30 * 0.9) and
+                      d_rsi <= pos_accum_rsi_max
+
+// Swing Edges
+bool is_sqz       = f_is_bb_sqz(20)
+// Gap 3 restored: MA stack + RSI pocket + vol dry-up for SWG-PB quality filter
+bool pb_ma_stack  = d_sma150 > d_sma200                          // Minervini 150>200 stack
+bool pb_rsi_ok    = d_rsi > 30 and d_rsi < 70                    // RSI pocket (not extreme OB/OS)
+bool pb_vol_dry   = ta.sma(volume, 3)[1] < vol_ma                // prior consolidation on thin volume
+bool bull_pullback= close > d_sma50 and low <= d_ema20 and close > d_ema20 and close > open
+// v3.5: pb_rsi_ok (RSI 30-70) -> pb_pocket_pa (38-62% retrace) per pure-PA design.
+bool swing_pb_trg = use_bull_mode and use_swing_pb and mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry
+
+bool swing_bo_trg = use_bull_mode and use_swing_bo and mkt_bull and is_vcp_tight and (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and volume > (vol_ma * 1.5)
+
+bool oversold_rsi = d_rsi < 35
+bool rev_struct   = close > d_sma200 and close < d_ema20
+// B5: exclude Stage 4 (structural downtrend) — was firing on broken stocks
+//     that happen to be above SMA200 mid-decline.
+// v3.5: oversold_rsi (RSI<35) -> pa_oversold_pa (3 lower closes + low-in-range).
+bool swing_rev_trg= use_bull_mode and use_swing_rev and not stage4_dntrend and rev_struct and pa_oversold_pa and close > open and close > high[1]
+
+// Gap 4 restored: min 4% gap, intraday close in top 40% of bar, 3x volume
+bool gap_up         = open > high[1] and close > open
+float gap_pct       = high[1] > 0 ? (open - high[1]) / high[1] : 0.0         // gap size as % of prev high
+float gap_bar_range = high - open                                               // range from open to high of gap bar
+float gap_intra_pos = gap_bar_range > 0.0001 ? (close - open) / gap_bar_range : 0.0  // close position in gap bar
+bool gap_go_trg     = use_bull_mode and use_swing_gap and mkt_bull and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and volume > (vol_ma * 3.0)
+
+// ── Bull signal hold-window trackers (var: persist across bars) ──────────────
+var int last_pos_bo_bar  = -999
+var int last_pos_ac_bar  = -999
+var int last_swg_pb_bar  = -999
+var int last_swg_bo_bar  = -999
+var int last_swg_rev_bar = -999
+var int last_gap_go_bar  = -999
+if pos_bo_trigger
+    last_pos_bo_bar  := bar_index
+if pos_ac_trigger
+    last_pos_ac_bar  := bar_index
+if swing_pb_trg
+    last_swg_pb_bar  := bar_index
+if swing_bo_trg
+    last_swg_bo_bar  := bar_index
+if swing_rev_trg
+    last_swg_rev_bar := bar_index
+if gap_go_trg
+    last_gap_go_bar  := bar_index
+
+// ── Recovery signal hold-window trackers ───────────────────────────────
+var int last_rev_cb_bar  = -999
+var int last_rev_rs_bar  = -999
+var int last_rev_ear_bar = -999
+// (updates happen after recovery triggers are defined â€” see below section 10+)
+float correction_depth = high52w > 0 ? (high52w - close) / high52w : 0.0
+bool stock_corrected   = correction_depth >= min_correction_pct and correction_depth <= max_correction_pct
+bool regime_ok = not use_regime_gate or mkt_idx_corrected or mkt_reclaim or stock_corrected
+
+// REV-CB Edge
+float cb_lookback_high_val = ta.highest(high, cb_lookback_high)
+float cb_drawdown_pct_cur  = cb_lookback_high_val > 0 ? (cb_lookback_high_val - close) / cb_lookback_high_val : 0.0
+bool is_stretched = cb_drawdown_pct_cur >= cb_drawdown_pct
+
+float red_flag       = close < open ? 1.0 : 0.0
+float red_count_f    = math.sum(red_flag, cb_washout_window)
+float range10_high   = ta.highest(high, 10)
+float range10_width  = range10_high - lowest_low_10
+float pos_in_range10 = range10_width > 0 ? (close - lowest_low_10) / range10_width : 1.0
+bool is_oversold = red_count_f >= cb_washout_red and pos_in_range10 <= 0.25
+
+// B2: bar_range_max_cb now uses [1] offset — compare current bar to PRIOR N
+//     bars, not itself. v2.3's "bar_range >= max-incl-self" reduced to
+//     "bar_range == max" (tautology) and silently blocked most REV-CB firings.
+float bar_range_max_cb = ta.highest(bar_range, cb_range_lookback)[1]
+float rel_vol   = vol_ma > 0 ? volume / vol_ma : 0.0
+bool climax_bar = rel_vol >= cb_vol_mult and close < open and bar_range > bar_range_max_cb
+
+var int last_climax_bar = 0
+if is_stretched and is_oversold and climax_bar
+    last_climax_bar := bar_index
+
+bool recent_climax = last_climax_bar > 0 and (bar_index - last_climax_bar) <= cb_climax_window
+
+var float climax_low_snap = na
+if recent_climax
+    climax_low_snap := lowest_low_5
+
+bool is_turn = close > open and close > (low + (high - low) * 0.60) and close > high[1]
+float cb_sl_raw = not na(climax_low_snap) ? (climax_low_snap - atr14 * 0.5) : na
+bool trigger_rev_cb = use_rec_mode and use_rev_cb and recent_climax and is_turn and rff_ok and regime_ok and not na(cb_sl_raw)
+
+// REV-RS Edge
+float hl_recent = ta.lowest(low, rs_hl_recent)
+float hl_prior  = ta.lowest(low, rs_hl_prior)[rs_hl_recent]
+bool  higher_low_ok = not na(hl_recent) and not na(hl_prior) and hl_recent > hl_prior
+bool rs_recovery_state = higher_low_ok and trend_up
+float rs_bo_level_val = ta.highest(high, rs_bo_len)[1]
+bool rs_breakout  = close > rs_bo_level_val and volume > vol_ma * 1.5
+bool trigger_rev_rs = use_rec_mode and use_rev_rs and rs_positive and rs_recovery_state and stock_corrected and rs_breakout and sector_stage_ok and rff_ok and regime_ok
+
+// REV-EARLY Edge
+float early_trendline_high = ta.highest(high, early_tl_window)[early_tl_recent]
+bool  trendline_reclaim    = not na(early_trendline_high) and close > early_trendline_high
+float bar_range_min_nr7   = ta.lowest(bar_range, early_nr7_len)
+float early_lowest_low    = ta.lowest(low, early_nr7_len)  // hoisted: used as SL for REV-EARLY entries
+bool  is_nr7              = bar_range <= bar_range_min_nr7
+float inside_flag         = (high < high[1] and low > low[1]) ? 1.0 : 0.0
+float inside_count_f      = math.sum(inside_flag, early_inside_lb)
+bool  base_compressed     = is_nr7 or inside_count_f >= early_inside_min
+
+float early_pivot = ta.highest(high, 15)[1]
+bool early_break  = close > early_pivot and volume > vol_ma * 1.5
+bool trigger_rev_early = use_rec_mode and use_rev_early and trendline_reclaim and rs_recovery_state and base_compressed and early_break and rs_positive and sector_stage_ok and rff_ok and regime_ok
+
+// ==========================================
+// 10b. WYCKOFF RECOVERY (v3.4 — ported from Pine Recovery Screener v2.0)
+// ==========================================
+// Pure price + volume (no oscillators). Backtest-validated +6.39% cum alpha
+// on Nifty 500 12-anchor vs legacy REV-* edges -5.25%. See Python
+// recovery_screener.py v3.0 for the reference implementation.
+float wyc_vol_avg50  = ta.sma(volume, 50)
+float wyc_spread_avg = ta.sma(high - low, 20)
+
+// Phase B: accumulation base — 60-bar sideways range max 25%, prior decline >=20%
+int   wyc_base_lk    = 60
+float wyc_pct_max    = 25.0
+float wyc_min_dec    = 20.0
+int   wyc_prior_lk   = 120
+float wyc_base_high  = ta.highest(high, wyc_base_lk)
+float wyc_base_low   = ta.lowest(low,  wyc_base_lk)
+float wyc_pct_range  = wyc_base_low > 0 ? (wyc_base_high - wyc_base_low) / wyc_base_low * 100.0 : 999.0
+float wyc_prior_high = ta.highest(high, wyc_prior_lk)[wyc_base_lk]
+float wyc_decline    = wyc_prior_high > 0 ? (wyc_prior_high - wyc_base_low) / wyc_prior_high * 100.0 : 0.0
+bool  wyc_in_base    = wyc_pct_range <= wyc_pct_max and wyc_decline >= wyc_min_dec
+
+// Phase C: Spring — false breakdown on weak volume, recovery within 3 bars
+int   wyc_spr_lk         = 10
+float wyc_spr_max_below  = 3.0
+float wyc_spr_max_vol    = 1.0
+int   wyc_spr_recov_bars = 3
+var int wyc_spring_bar = na
+if wyc_in_base
+    float _thr = wyc_base_low * (1.0 - wyc_spr_max_below / 100.0)
+    for i = 0 to wyc_spr_lk - 1
+        if not na(low[i]) and low[i] < wyc_base_low and low[i] >= _thr and not na(wyc_vol_avg50[i]) and volume[i] <= wyc_vol_avg50[i] * wyc_spr_max_vol
+            bool _rec = false
+            int _limit = math.max(0, i - wyc_spr_recov_bars)
+            for j = _limit to i
+                if not na(close[j]) and close[j] > wyc_base_low
+                    _rec := true
+                    break
+            if _rec
+                wyc_spring_bar := bar_index - i
+                break
+bool wyc_has_spring = not na(wyc_spring_bar) and (bar_index - wyc_spring_bar) <= wyc_spr_lk
+
+// Phase D: SOS — wide-range up bar on heavy volume, closes upper third, above base mid
+int   wyc_sos_lk        = 5
+float wyc_sos_spread_x  = 1.5
+float wyc_sos_upper     = 0.66
+float wyc_sos_vol_x     = 1.5
+var int wyc_sos_bar = na
+if wyc_in_base
+    float _mid = (wyc_base_high + wyc_base_low) / 2.0
+    for i = 0 to wyc_sos_lk - 1
+        float _r = high[i] - low[i]
+        if _r > 0 and not na(wyc_spread_avg[i]) and not na(wyc_vol_avg50[i])
+            float _cp = (close[i] - low[i]) / _r
+            bool _wide  = (high[i] - low[i]) >= wyc_spread_avg[i] * wyc_sos_spread_x
+            bool _upper = _cp >= wyc_sos_upper
+            bool _heavy = volume[i] >= wyc_vol_avg50[i] * wyc_sos_vol_x
+            bool _amid  = close[i] >= _mid
+            if _wide and _upper and _heavy and _amid
+                wyc_sos_bar := bar_index - i
+                break
+bool wyc_has_sos = not na(wyc_sos_bar) and (bar_index - wyc_sos_bar) <= wyc_sos_lk
+
+// Phase D: JAC — close above base high on volume >= 2x avg
+float wyc_jac_vol_x = 2.0
+bool wyc_has_jac = wyc_in_base and close > wyc_base_high and close[1] <= wyc_base_high and not na(wyc_vol_avg50) and volume >= wyc_vol_avg50 * wyc_jac_vol_x
+
+// Wyckoff triggers — priority: SPRING+SOS > JAC > SOS > SPRING
+bool trigger_wyc_spring_sos = use_rec_mode and wyc_has_spring and wyc_has_sos and regime_ok
+bool trigger_wyc_jac        = use_rec_mode and wyc_has_jac and regime_ok
+bool trigger_wyc_sos        = use_rec_mode and wyc_has_sos and not wyc_has_spring and not wyc_has_jac and regime_ok
+bool trigger_wyc_spring     = use_rec_mode and wyc_has_spring and not wyc_has_sos and not wyc_has_jac and regime_ok
+
+// ==========================================
+// 11. SIGNAL ROUTING
+// ==========================================
+// E11: WCL Context Layers gate — applied at routing layer (per-catalyst booleans
+//      stay pure for diag panel attribution; WCL only blocks final entry).
+bool wcl_ok = not use_wcl_gate or wcl_score_source >= wcl_score_min
+// v3.4 (2026-05-21) sync fixes — Pine Strategy now mirrors Python+Pine Screener:
+// v3.5 (2026-05-21): POS-ACCUM and REV-* RE-ENABLED. The v3.4 removals were
+// based on a 30-day forward-window backtest, which is the wrong horizon for
+// Stage 1->2 accumulation / recovery setups (designed for multi-month holds
+// per CLAUDE.md). Roll-back pending re-validation with a catalyst-aware
+// forward window. Wyckoff catalysts remain ADDITIVE alongside REV-*.
+bool trigger_bull_raw = pos_bo_trigger or pos_ac_trigger or swing_pb_trg or swing_bo_trg or swing_rev_trg or gap_go_trg
+bool trigger_rec_raw  = trigger_wyc_spring_sos or trigger_wyc_jac or trigger_wyc_sos or trigger_wyc_spring or trigger_rev_cb or trigger_rev_rs or trigger_rev_early
+bool trigger_bull = trigger_bull_raw and wcl_ok
+bool trigger_rec  = trigger_rec_raw  and wcl_ok
+// ── Recovery tracker updates ──
+if trigger_rev_cb
+    last_rev_cb_bar  := bar_index
+if trigger_rev_rs
+    last_rev_rs_bar  := bar_index
+if trigger_rev_early
+    last_rev_ear_bar := bar_index
+bool trigger_any  = trigger_bull or trigger_rec
+
+var string active_catalyst = na
+// Wyckoff catalysts have priority — backtest-validated as the only working recovery
+if trigger_wyc_spring_sos
+    active_catalyst := "WYC-SPRING+SOS"
+else if trigger_wyc_jac
+    active_catalyst := "WYC-JAC"
+else if trigger_wyc_sos
+    active_catalyst := "WYC-SOS"
+else if trigger_wyc_spring
+    active_catalyst := "WYC-SPRING"
+else if pos_bo_trigger
+    active_catalyst := "POS-BO"
+else if swing_bo_trg
+    active_catalyst := "SWG-BO"
+else if swing_pb_trg
+    active_catalyst := "SWG-PB"
+else if swing_rev_trg
+    active_catalyst := "SWG-REV"
+else if gap_go_trg
+    active_catalyst := "SWG-GAP"
+else
+    active_catalyst := na
+// ==========================================
+// 12. EXECUTION BLOCK
+// ==========================================
+
+// ── Chandelier Exit (CE) — must be at global scope (stateful ta.* calls) ────
+float active_ce_mult  = mkt_bull ? ce_mult : (ce_mult + 0.5)
+float ce_trailing_stop = ta.highest(close, ce_length) - (ta.atr(ce_length) * active_ce_mult)
+
+// ── Event snaps: populated once at trade open (var = persist across bars) ───
+var float atr_entry_snap   = na
+var float struct_low_snap  = na   // 10-bar structural low at open
+var float entry_sl_pb_snap = na   // 5-bar swing low × (1-sl_pad_pb) at open
+var float init_risk_snap   = na   // initial risk (entry − initial SL)
+var bool  is_breakeven     = false
+var bool  is_t2_hit        = false
+
+bool is_new_trade = strategy.position_size > 0 and strategy.position_size[1] == 0
+if is_new_trade
+    atr_entry_snap   := atr14
+    struct_low_snap  := lowest_low_10
+    entry_sl_pb_snap := lowest_low_5 * (1.0 - sl_pad_pb)
+    is_breakeven     := false
+    is_t2_hit        := false
+    // Compute initial risk for T1/T2 calculations
+    // v3.6 (2026-05-21): catalyst-aware fallback ATR multipliers when the
+    // structural SL anchor is above close. POS/WYC need wider room (multi-
+    // month holds); SWG keeps 1.5x; REV uses 2.5x for its 90d horizon.
+    string _nc = active_catalyst
+    if str.startswith(_nc, "POS")
+        float _s = struct_low_snap - (atr_entry_snap * 0.2)
+        if _s >= close
+            _s := close - (atr_entry_snap * 4.0)   // positional: wide fallback
+        init_risk_snap := math.max(close - _s, close * 0.01)
+    else if _nc == "REV-RS" or _nc == "REV-EARLY"
+        float _s = struct_low_snap - (atr_entry_snap * 0.2)
+        if _s >= close
+            _s := close - (atr_entry_snap * 2.5)   // recovery: 90d hold
+        init_risk_snap := math.max(close - _s, close * 0.01)
+    else if str.startswith(_nc, "SWG")
+        float _s = entry_sl_pb_snap
+        if _s >= close
+            _s := close * 0.99
+        init_risk_snap := math.max(close - _s, close * 0.01)
+    else if _nc == "REV-CB"
+        init_risk_snap := math.max(close - nz(cb_sl_raw, close * 0.92), close * 0.01)
+
+if strategy.position_size == 0
+    is_breakeven := false
+    is_t2_hit    := false
+
+// ── Position Sizing ──────────────────────────────────────────────────────────
+// Bull trades use stock_risk_pct with Kelly + vol discount
+// Recovery trades use rec_risk_pct (more conservative — regime is uncertain)
+bool _is_rec_entry = trigger_rec and not trigger_bull
+float base_risk  = _is_rec_entry ? rec_risk_pct : stock_risk_pct
+float regime_risk = mkt_bull ? base_risk : math.max(base_risk - 0.25, 0.25)
+float atr_pct_sz  = atr14 > 0 and close > 0 ? (atr14 / close) * 100 : 3.0
+float vol_disc    = math.min(3.0 / math.max(atr_pct_sz, 0.1), 1.0)
+bool  _is2_k      = stage2_uptrend
+bool  _rs_k       = rs_ok
+bool  _vol_k      = volume > (vol_sma50_g * 1.1)
+int   _kelly_pts  = (_is2_k ? 1 : 0) + (_rs_k ? 1 : 0) + (_vol_k ? 1 : 0)
+float kelly_mult  = use_kelly and not _is_rec_entry ? (_kelly_pts >= 3 ? 1.25 : (_kelly_pts == 2 ? 1.0 : 0.75)) : 1.0
+float active_risk_pct = math.max(regime_risk * math.max(vol_disc * kelly_mult, 0.75), 0.25)
+
+f_get_qty_eco(_sl_dist) =>
+    float risk_amt = portfolio_capital * (active_risk_pct / 100.0)
+    float qty_risk = _sl_dist > 0 ? risk_amt / _sl_dist : 0.0
+    float qty_cap  = close > 0 ? max_alloc / close : 0.0
+    math.min(qty_risk, qty_cap)
+
+// ── SL calculation for position sizing on entry bar ──────────────────────────
+float current_sl = na
+if pos_bo_trigger or pos_ac_trigger
+    float _s = lowest_low_10 - (atr14 * 0.2)
+    // v3.6 (2026-05-21): positional fallback widened 1.5x → 4.0x ATR
+    current_sl := _s >= close ? close - (atr14 * 4.0) : _s
+else if swing_pb_trg or swing_bo_trg or swing_rev_trg
+    float _s = lowest_low_5 * (1.0 - sl_pad_pb)
+    current_sl := _s >= close ? close * 0.99 : _s
+else if gap_go_trg
+    float _s = low * (1.0 - sl_pad_pb)   // Gap-bar low is the structural SL
+    current_sl := _s >= close ? close * 0.99 : _s
+else if trigger_rev_cb
+    current_sl := nz(cb_sl_raw, close * 0.92)
+else if trigger_rev_rs
+    float _s = hl_recent * (1.0 - sl_pad_pb)
+    current_sl := _s >= close ? close * 0.99 : _s
+else if trigger_rev_early
+    float _s = early_lowest_low * (1.0 - sl_pad_pb)
+    current_sl := _s >= close ? close * 0.99 : _s
+else if trigger_wyc_spring_sos or trigger_wyc_jac or trigger_wyc_sos or trigger_wyc_spring
+    // Wyckoff SL: just below the accumulation base low (or spring low if active)
+    float _wyc_sl_anchor = wyc_has_spring ? wyc_base_low * 0.98 : wyc_base_low - (atr14 * 0.3)
+    // v3.6 (2026-05-21): Wyckoff fallback widened 1.5x → 3.5x ATR (120d hold)
+    current_sl := _wyc_sl_anchor >= close ? close - (atr14 * 3.5) : _wyc_sl_anchor
+
+// ── Entry ────────────────────────────────────────────────────────────────────
+// v3.1 FIX (2026-05-20): Removed `strategy.position_size == 0` guard.
+// Backtest (LAURUSLABS/RELIANCE/TCS/BAJFINANCE) showed strategy made <1% over
+// 20+ years vs Buy&Hold 3,691× on BAJFINANCE because single-position rule
+// rejected 90%+ of catalyst signals. Now allows up to max_open_positions=6
+// concurrent trades, letting the strategy pyramid into running winners.
+if trigger_any and in_date and strategy.opentrades < max_open_positions
+    float _sl_dist = math.max(close - nz(current_sl, close * 0.97), close * 0.005)
+    float qty = f_get_qty_eco(_sl_dist)
+    if (pos_bo_trigger or swing_bo_trg) and bo_conf != "Daily Close"
+        strategy.entry("Long", strategy.long, qty=qty, comment=active_catalyst, stop=bo_level + syminfo.mintick)
+    else
+        strategy.entry("Long", strategy.long, qty=qty, comment=active_catalyst)
+
+// ── Exit Engine ──────────────────────────────────────────────────────────────
+var float bo_sl      = na   // POS-* CE ratchet SL
+var float pb_sl      = na   // SWG-* EMA20 trail SL
+var float cb_sl_live = na   // REV-CB trailing SL
+var float rec_sl     = na   // REV-RS / REV-EARLY CE ratchet SL
+
+if strategy.position_size > 0
+    string entry_cmt = strategy.opentrades.entry_comment(strategy.opentrades - 1)
+    float  entry_px  = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    int    bars_open = bar_index - strategy.opentrades.entry_bar_index(strategy.opentrades - 1)
+    float  snap_risk = nz(init_risk_snap, entry_px * 0.02)
+
+    // ── T1 (partial profit — activates breakeven protection) ─────────────────
+    // v3.3 (2026-05-21): Catalyst-differentiated R-multiples respecting trade
+    // timeframe. Swing trades (1-4 week holds) can't realistically reach 5R/10R;
+    // setting wider targets just leaves the targets unused. Positional trades
+    // (multi-month holds) can. Wyckoff recovery (1-3mo holds) also can.
+    //   POS-BO/POS-ACCUM (positional): T1 5R, T2 10R
+    //   SWG-BO/SWG-PB    (swing):      T1 3R, T2 5R    ← realistic for 1-4wk
+    //   SWG-GAP          (gap-and-go): T1 2R, T2 4R    ← gaps fade fast
+    //   SWG-REV          (mean rev):   T1 2R, T2 2R    ← quick exit
+    //   REV-CB/RS/EARLY  (recovery):   T1 5R, T2 high52w (kept from v3.1)
+    float t1_target  = na
+    int   t1_qty_pct = 25     // default — keep more runner
+    if str.startswith(entry_cmt, "POS")
+        t1_target  := entry_px + (snap_risk * 5.0)    // positional 5R
+    else if entry_cmt == "SWG-REV"
+        t1_target  := entry_px + (snap_risk * 2.0)    // mean-rev 2R
+        t1_qty_pct := 50
+    else if entry_cmt == "SWG-GAP"
+        t1_target  := entry_px + (snap_risk * 2.0)    // gap fade 2R
+        t1_qty_pct := 50
+    else if str.startswith(entry_cmt, "SWG")          // SWG-BO, SWG-PB
+        t1_target  := entry_px + (snap_risk * 3.0)    // swing 3R
+        t1_qty_pct := 33
+    else if str.startswith(entry_cmt, "WYC")          // WYC-SPRING/SOS/JAC/SPRING+SOS
+        t1_target  := entry_px + (snap_risk * 5.0)    // Wyckoff post-accumulation
+    else if entry_cmt == "REV-CB"                     // legacy fallback
+        t1_target  := entry_px + (snap_risk * 5.0)
+    else if entry_cmt == "REV-RS" or entry_cmt == "REV-EARLY"
+        t1_target  := entry_px + (snap_risk * 5.0)
+
+    if not na(t1_target) and high >= t1_target and not is_breakeven
+        is_breakeven := true
+        strategy.exit("T1", "Long", qty_percent=t1_qty_pct, limit=t1_target, comment="T1 Hit")
+
+    // ── T2 (runner exit — partial of remaining post-T1 position) ─────────────
+    // v3.3 (2026-05-21): Catalyst-differentiated. Swing T2 dropped from 10R
+    // back to 5R (realistic for 1-4wk holds). Positional + Wyckoff keep 10R.
+    if not is_t2_hit
+        float t2_target = na
+        if entry_cmt == "SWG-REV"
+            t2_target := entry_px + (snap_risk * 2.0)     // mean-rev quick
+        else if entry_cmt == "SWG-GAP"
+            t2_target := entry_px + (snap_risk * 4.0)     // gap fade
+        else if str.startswith(entry_cmt, "SWG")          // SWG-BO/PB
+            t2_target := entry_px + (snap_risk * 5.0)     // swing 5R
+        else if str.startswith(entry_cmt, "POS")
+            t2_target := entry_px + (snap_risk * 10.0)    // positional 10R
+        else if str.startswith(entry_cmt, "WYC")
+            t2_target := math.max(entry_px + (snap_risk * 10.0), high52w)  // 10R or 52wH, whichever larger
+        else if entry_cmt == "REV-CB"
+            t2_target := high52w
+        else if entry_cmt == "REV-RS" or entry_cmt == "REV-EARLY"
+            t2_target := high52w
+        if not na(t2_target) and high >= t2_target
+            is_t2_hit := true
+            strategy.exit("T2", "Long", qty_percent=25, limit=t2_target, comment="T2 Hit")
+
+    // ── POSITION A: POS-BO / POS-ACCUM — CE Ratchet trailing stop ────────────
+    if str.startswith(entry_cmt, "POS")
+        if strategy.position_size[1] == 0   // Snap SL at trade open
+            float _s = struct_low_snap - (atr_entry_snap * 0.2)
+            // v3.6 (2026-05-21): positional fallback widened 1.5x → 4.0x ATR
+            bo_sl := _s >= entry_px ? entry_px - (atr_entry_snap * 4.0) : _s
+        else
+            bo_sl := math.max(nz(bo_sl, entry_px * 0.95), ce_trailing_stop)  // ratchet — only rises
+        if is_breakeven
+            bo_sl := math.max(bo_sl, entry_px)
+        if stage4_dntrend
+            strategy.close("Long", comment="Stage 4 Exit")
+        else
+            strategy.exit("SL-POS", "Long", stop=bo_sl, comment="CE Structural SL")
+
+    // POSITION B: SWG-* -- EMA20 ratchet trail
+    else if str.startswith(entry_cmt, "SWG")
+        // v3.2 widened from d_ema20 to d_sma50 — matches T1@5R targets.
+        // EMA20 was getting tagged on routine pullbacks (~5-10% on weekly).
+        // SMA50 gives ~3x wider band (~15-25% pullback tolerance) so winners
+        // can ride through normal consolidations to reach 5R/10R targets.
+        float trail_level = d_sma50 * (1.0 - trail_buf_pb)
+        if strategy.position_size[1] == 0
+            pb_sl := nz(entry_sl_pb_snap, entry_px * 0.97)
+            if pb_sl >= entry_px
+                pb_sl := entry_px * 0.99
+        else
+            pb_sl := math.max(nz(pb_sl, entry_px * 0.97), trail_level)   // ratchet up
+        if is_breakeven
+            pb_sl := math.max(pb_sl, entry_px)
+        // SWG contextual exits (trump the trail)
+        if d_sma50 > 0 and close < d_sma50
+            strategy.close("Long", comment="50MA Fail")
+        else if entry_cmt == "SWG-REV" and bars_open >= 5
+            strategy.close("Long", comment="Mean Rev 5D Stop")
+        else
+            strategy.exit("SL-SWG", "Long", stop=pb_sl, comment="SMA50 Trail")
+
+    // POSITION C: REV-CB -- EMA20 trail after T1
+    else if entry_cmt == "REV-CB"
+        if strategy.position_size[1] == 0
+            cb_sl_live := nz(cb_sl_raw, entry_px * 0.92)
+        else if is_breakeven
+            float cb_trail = d_ema20 * (1.0 - trail_buf_pb)
+            cb_sl_live := math.max(nz(cb_sl_live, entry_px * 0.92), cb_trail, entry_px)
+        strategy.exit("SL-CB", "Long", stop=nz(cb_sl_live, entry_px * 0.90), comment="REV-CB SL")
+
+    // POSITION D: REV-RS / REV-EARLY -- CE Ratchet trail
+    else if entry_cmt == "REV-RS" or entry_cmt == "REV-EARLY"
+        if strategy.position_size[1] == 0
+            float _s = hl_recent * (1.0 - sl_pad_pb)
+            rec_sl := _s >= entry_px ? entry_px * 0.97 : _s
+        else
+            rec_sl := math.max(nz(rec_sl, entry_px * 0.97), ce_trailing_stop)  // ratchet
+        if is_breakeven
+            rec_sl := math.max(rec_sl, entry_px)
+        strategy.exit("SL-REC", "Long", stop=nz(rec_sl, entry_px * 0.95), comment="REV CE Trail")
+
+    // POSITION E: WYC-SPRING/SOS/JAC -- CE Ratchet trail (same as POS — base breakouts run)
+    else if str.startswith(entry_cmt, "WYC")
+        if strategy.position_size[1] == 0
+            // SL = below spring low / base low, whichever applicable
+            float _s_wyc = wyc_base_low - atr_entry_snap * 0.3
+            rec_sl := _s_wyc >= entry_px ? entry_px - atr_entry_snap * 1.5 : _s_wyc
+        else
+            rec_sl := math.max(nz(rec_sl, entry_px * 0.95), ce_trailing_stop)
+        if is_breakeven
+            rec_sl := math.max(rec_sl, entry_px)
+        strategy.exit("SL-WYC", "Long", stop=nz(rec_sl, entry_px * 0.92), comment="WYC CE Trail")
+
+    // Time-Decay Exit: POS=6W, SWG=10D, REV=15D
+    // Fires only when unrealised gain < 0.5R AND not yet breakeven
+    int time_stop_bars = str.startswith(entry_cmt, "POS")  ? (pos_time_stop_weeks * 5) :
+                         str.startswith(entry_cmt, "WYC")  ? (pos_time_stop_weeks * 5) :  // Wyckoff = positional timeframe
+                         str.startswith(entry_cmt, "REV") ? 15 : swg_time_stop_days
+    float unrealized_r = snap_risk > 0 ? (close - entry_px) / snap_risk : 0.0
+    if bars_open >= time_stop_bars and unrealized_r < 0.5 and not is_breakeven
+        strategy.close("Long", comment="Time-Decay (<0.5R)")
+
+else
+    // Reset ratchet SLs when flat (stale values must not carry into next trade)
+    bo_sl      := na
+    pb_sl      := na
+    cb_sl_live := na
+    rec_sl     := na
+
+// ==========================================
+// 13. PLOTTING & ALERTS
+color bg_col = na
+if stage2_uptrend
+    bg_col := color.new(color.green, 85)
+else if stage4_dntrend
+    bg_col := color.new(color.red, 85)
+else if stage1_base
+    bg_col := color.new(color.yellow, 85)
+else if stage3_top
+    bg_col := color.new(color.orange, 85)
+
+bgcolor(bg_col, title="Stage Background")
+// ==========================================
+plot(show_ma ? d_ema20 : na,  "EMA 20",  color=color.rgb(255, 235, 59, 31), linewidth=2)
+plot(show_ma ? d_sma50 : na,  "SMA 50",  color=color.rgb(255, 82, 82, 32),  linewidth=2)
+plot(show_ma ? d_sma150 : na, "SMA 150", color=color.blue, linewidth=2)
+plot(show_ma ? d_sma200 : na, "SMA 200", color=color.white, linewidth=2)
+
+// CE Trailing Stop -- fuchsia step-line, always visible as a real-time TSL guide
+plot(enable_trail ? ce_trailing_stop : na, "CE Trailing Stop", color=color.new(color.fuchsia, 30), linewidth=1, style=plot.style_stepline)
+
+// Active Stop Loss -- only visible when in a position; aggregates the live ratchet SL
+float active_sl_plot = strategy.position_size > 0 ? nz(bo_sl, nz(pb_sl, nz(cb_sl_live, rec_sl))) : na
+plot(active_sl_plot, "Active Stop Loss", color=color.new(color.red, 20), style=plot.style_linebr, linewidth=2)
+
+// Pre-Stage-2 early warning dot
+plotshape(show_signals and wEarlyStage2, "Pre-S2 Warning", style=shape.circle, location=location.abovebar, color=color.new(color.yellow, 20), size=size.tiny, text="PRE-S2", textcolor=color.yellow)
+
+plotshape(show_signals and pos_bo_trigger,  "POS-BO",   style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0), size=size.small, text="BO")
+plotshape(show_signals and pos_ac_trigger,  "POS-AC",   style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0), size=size.small, text="AC")
+plotshape(show_signals and swing_pb_trg,    "SWG-PB",   style=shape.triangleup, location=location.belowbar, color=color.new(color.yellow, 0), size=size.small, text="PB")
+plotshape(show_signals and swing_bo_trg,    "SWG-BO",   style=shape.triangleup, location=location.belowbar, color=color.new(color.orange, 0), size=size.small, text="S-BO")
+plotshape(show_signals and swing_rev_trg,   "SWG-REV",  style=shape.triangleup, location=location.belowbar, color=color.new(color.fuchsia, 0), size=size.small, text="REV")
+plotshape(show_signals and gap_go_trg,      "GAP-GO",   style=shape.triangleup, location=location.belowbar, color=color.new(color.aqua, 0), size=size.small, text="GAP")
+plotshape(show_signals and trigger_rev_cb,  "REV-CB",   style=shape.triangleup, location=location.belowbar, color=color.new(color.red, 0), size=size.small, text="CB")
+plotshape(show_signals and trigger_rev_rs,  "REV-RS",   style=shape.triangleup, location=location.belowbar, color=color.new(color.purple, 0), size=size.small, text="RS")
+plotshape(show_signals and trigger_rev_early,"REV-EAR", style=shape.triangleup, location=location.belowbar, color=color.new(color.blue, 0), size=size.small, text="EAR")
+
+// alert() replaces alertcondition() â€” the latter has no effect inside strategy scripts.
+if trigger_bull
+    alert("Bullish Setup Triggered", alert.freq_once_per_bar)
+if trigger_rec
+    alert("Recovery Setup Triggered", alert.freq_once_per_bar)
+
+// ==========================================
+// 14. UNIFIED PANEL TABLE
+// ==========================================
+// Layout: 2 cols Ã— 36 rows
+//   Rows  0-16 â†’ Bull Market section
+//   Rows 17-35 â†’ Recovery section
+// Each section opens with a coloured section-header spanning both columns.
+// --- Global-scope calls (Pine CW10003: must run every bar, not inside `if` scope) ---
+bool vcp_ok = f_is_vcp(1.5)
+bool sqz_ok = f_is_bb_sqz(20)
+var table dash = table.new(panel_position, 4, 36, border_width=1, border_color=color.new(color.gray, 40))
+
+// v2.7 panel-stacking offset: tracks how many rows the main strategy panel used,
+// so the CATALYST DIAG panel can start rendering immediately below it (rather
+// than to the right). Updated at end of main-panel render block.
+var int main_panel_end_row = 0
+
+// ── Shared helpers ─────────────────────────────────────────────────────────
+f_row(tbl, r, lbl, val, dynBgCol, lblBg, valTxtCol, lblTxtCol) =>
+    table.cell(tbl, 0, r, lbl, bgcolor=lblBg,  text_color=lblTxtCol, text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl, 1, r, val, bgcolor=dynBgCol,  text_color=valTxtCol,    text_size=size.small, text_halign=text.align_center)
+
+f_hdr(tbl, r, txt, bg) =>
+    table.cell(tbl, 0, r, txt, bgcolor=bg, text_color=color.white, text_size=size.normal,
+               text_halign=text.align_left)
+    table.cell(tbl, 1, r, "",  bgcolor=bg, text_color=color.white, text_size=size.normal)
+
+// Icon helper for signal hold-window display: 🟢 FIRE | 🟡 HOLD | 🔵 ACTIVE TRADE | ⚫ WAIT
+f_bull_icon(int last_bar, int hold_days, string sig_name, string open_cat) =>
+    int bars_ago = bar_index - last_bar
+    bool is_active_trade = (open_cat == sig_name)
+    bars_ago == 0 ? "🟢" : (bars_ago <= hold_days ? "🟡" : (is_active_trade ? "🔵" : "⚫"))
+
+if barstate.islast and show_panel
+    // v1.3 aesthetic update matching Beta Edition
+    color c_lbl       = color.new(#ffffff, 0)    // pure white label bg
+    color c_lbl_txt   = color.new(#000000, 0)    // black label text
+    color c_val_txt   = color.new(#000000, 0)    // black value text
+    color c_sig_on    = color.new(#26a69a, 0)    // teal (active / pass)
+    color c_sig_warn  = color.new(#ff9800, 0)    // orange (hold / warn)
+    color c_sig_off   = color.new(#f5f5f5, 0)    // neutral grey
+    color c_sig_red   = color.new(#ef5350, 0)    // red (danger / fail)
+    color c_head      = color.new(#1e222d, 0)    // dark header
+
+    // ── Shared context ──
+    string stage_txt  = "Stage " + str.tostring(current_stage)
+    color  stage_col  = current_stage == 2 ? c_sig_on : current_stage == 1 ? c_sig_warn : current_stage == 4 ? c_sig_red : color.orange
+
+    // ──────────────────────────────────────
+    //  SECTION A: 🌿 BULL MARKET
+    // ──────────────────────────────────────
+    int r = 0
+    f_hdr(dash, r, "🌿  BULL MARKET STRATEGY", c_head)
+    r += 1
+
+    // v2.6: REMOVED duplicate rows (Dashboard / Bull Screener own them):
+    //   Weinstein Stage (W) → Dashboard "Market Structure" + "Stage 2 Age"
+    //   Alpha Score → Dashboard "Asset Quality"
+    //   Stage 2 Freshness → Dashboard "Stage 2 Age" (richer: leg + macro + tag)
+    //   Trend Coiling (MA) → Bull Screener G8 "MA Squeeze"
+    //   Volatility Squeeze → Bull Screener G9 "BB Squeeze"
+    // Unified-unique rows kept: Base Confirmed, Py Score, Pos/Swing signal grids.
+
+    // v2.7: Setup Quality merged into 1 compound row (was 2)
+    color  py_col      = py_score >= 70 ? c_sig_on : (py_score >= 45 ? c_sig_warn : c_sig_red)
+    string _bull_setup_str = (base_confirmed ? "✓ BASE" : "✗ NO BASE") + " · Py " + str.tostring(py_score) + "/100"
+    color  _bull_setup_col = base_confirmed and py_score >= 70 ? c_sig_on : (base_confirmed or py_score >= 45) ? c_sig_warn : c_sig_off
+    f_row(dash, r, "BULL SETUP", _bull_setup_str, _bull_setup_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+
+    string _ml_prob_str = str.tostring(ml_win_prob, "#.#") + "%" + (ml_rsi_dead_zone ? " (DeadZone)" : "")
+    color  _ml_prob_col = ml_win_prob >= 40.0 and not ml_rsi_dead_zone ? c_sig_on : (ml_win_prob >= 35.0 ? c_sig_warn : c_sig_red)
+    f_row(dash, r, "ML WIN PROB", _ml_prob_str, _ml_prob_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+
+    string current_open_cat = ""
+    if strategy.position_size > 0
+        current_open_cat := strategy.opentrades.entry_comment(strategy.opentrades - 1)
+
+    color c_sig_active = color.new(#2962ff, 30)  // Blue for active trade state
+
+    // Dominant color for the row: lime if any FIRE, yellow if any HOLD, blue if ACTIVE, gray if all WAIT
+    bool any_pos_fire = pos_bo_trigger or pos_ac_trigger
+    bool any_pos_hold = (not any_pos_fire) and ((bar_index - last_pos_bo_bar) <= bull_hold_days or (bar_index - last_pos_ac_bar) <= bull_hold_days)
+    bool any_pos_active = (not any_pos_fire and not any_pos_hold) and (current_open_cat == "POS-BO" or current_open_cat == "POS-ACCUM")
+
+    bool any_swg_fire = swing_pb_trg or swing_bo_trg or swing_rev_trg or gap_go_trg
+    bool any_swg_hold = (not any_swg_fire) and ((bar_index - last_swg_pb_bar) <= bull_hold_days or (bar_index - last_swg_bo_bar) <= bull_hold_days or (bar_index - last_swg_rev_bar) <= bull_hold_days or (bar_index - last_gap_go_bar) <= bull_hold_days)
+    bool any_swg_active = (not any_swg_fire and not any_swg_hold) and (current_open_cat == "SWG-PB" or current_open_cat == "SWG-BO" or current_open_cat == "SWG-REV" or current_open_cat == "SWG-GAP")
+
+    color pos_row_col = any_pos_fire ? c_sig_on : (any_pos_hold ? c_sig_warn : (any_pos_active ? c_sig_active : c_sig_off))
+    color swg_row_col = any_swg_fire ? c_sig_on : (any_swg_hold ? c_sig_warn : (any_swg_active ? c_sig_active : c_sig_off))
+
+    // Inline text: "SIGNAL_NAME icon" pairs separated by spaces
+    string pos_str = "POS-BO " + f_bull_icon(last_pos_bo_bar, bull_hold_days, "POS-BO", current_open_cat) + "  POS-AC " + f_bull_icon(last_pos_ac_bar, bull_hold_days, "POS-ACCUM", current_open_cat)
+    string swg_str = "SWG-PB " + f_bull_icon(last_swg_pb_bar, bull_hold_days, "SWG-PB", current_open_cat) + "  SWG-BO " + f_bull_icon(last_swg_bo_bar, bull_hold_days, "SWG-BO", current_open_cat) + "  SWG-REV " + f_bull_icon(last_swg_rev_bar, bull_hold_days, "SWG-REV", current_open_cat) + "  GAP " + f_bull_icon(last_gap_go_bar, bull_hold_days, "SWG-GAP", current_open_cat)
+
+    f_row(dash, r, "Positional Signals", pos_str, pos_row_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+    f_row(dash, r, "Swing Signals",      swg_str, swg_row_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+
+    // ──────────────────────────────────────
+    //  SECTION B: 🔄 RECOVERY MARKET
+    // ──────────────────────────────────────
+    f_hdr(dash, r, "🔄  RECOVERY MARKET STRATEGY", c_head)
+    r += 1
+
+    // v2.6: REMOVED duplicate rows (Recovery Screener owns them):
+    //   52W Correction (%) → Recovery Screener "CORRECTION" row
+    //   CB Pillars         → Recovery Screener "4-pillar" panel
+    //   Active Recovery Edge → Recovery Screener "SIGNAL" row
+    //   Recovery Score     → Recovery Screener "SCORE / GRADE" row
+    // Unified-unique rows kept: Recovery Regime Gate (cross-state aggregator),
+    // Recovery Signals (multi-edge hold-window view), RFF.
+    //
+    // Internal computations preserved (n_pillars, rec_edge_txt, rec_score_val
+    // still needed downstream for the catalyst-diag panel and alerts).
+
+    // v2.7: Recovery Regime + RFF Filter merged into 1 compound row (was 2)
+    string rec_regime_txt = mkt_idx_corrected ? "MKT-CORR" : mkt_reclaim ? "RECLAIM" : stock_corrected ? "STOCK-CORR" : "OFF"
+    string rff_txt_short  = not rff_has_data ? "DATA N/A" : str.tostring(rff_score) + "/6" + (rff_ok ? "✓" : "✗")
+    string _rec_state_str = "Regime: " + rec_regime_txt + " · RFF: " + rff_txt_short
+    color  _rec_state_col = regime_ok and rff_ok ? c_sig_on : (regime_ok or rff_ok) ? c_sig_warn : c_sig_off
+    f_row(dash, r, "REC STATE", _rec_state_str, _rec_state_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+
+    // --- Internal computations (kept; used by catalyst-diag panel below and rec_score_val/rec_edge_col references downstream) ---
+    int   n_pillars   = (is_stretched ? 1 : 0) + (is_oversold ? 1 : 0) + (climax_bar ? 1 : 0) + (is_turn ? 1 : 0)
+    string rec_edge_txt = trigger_rev_early ? "REV-EARLY" : trigger_rev_rs ? "REV-RS" : trigger_rev_cb ? "REV-CB" : "NONE"
+    color  rec_edge_col = (trigger_rev_early or trigger_rev_rs or trigger_rev_cb) ? c_sig_on : c_sig_off
+    int   rec_score_val = trigger_rev_cb ? n_pillars : trigger_rev_rs ? 4 : trigger_rev_early ? 3 : n_pillars
+
+    // --- Recovery Signals compact row (FIRE / HOLD / ACTIVE / WAIT per signal) ---
+    bool any_rec_fire = trigger_rev_cb or trigger_rev_rs or trigger_rev_early
+    bool any_rec_hold = (not any_rec_fire) and ((bar_index - last_rev_cb_bar) <= bull_hold_days or (bar_index - last_rev_rs_bar) <= bull_hold_days or (bar_index - last_rev_ear_bar) <= bull_hold_days)
+    bool any_rec_active = (not any_rec_fire and not any_rec_hold) and (current_open_cat == "REV-CB" or current_open_cat == "REV-RS" or current_open_cat == "REV-EARLY")
+
+    color rec_sig_row_col = any_rec_fire ? c_sig_on : (any_rec_hold ? c_sig_warn : (any_rec_active ? c_sig_active : c_sig_off))
+    string rec_str = "REV-CB " + f_bull_icon(last_rev_cb_bar, bull_hold_days, "REV-CB", current_open_cat) + "  REV-RS " + f_bull_icon(last_rev_rs_bar, bull_hold_days, "REV-RS", current_open_cat) + "  REV-EAR " + f_bull_icon(last_rev_ear_bar, bull_hold_days, "REV-EARLY", current_open_cat)
+    f_row(dash, r, "Recovery Signals", rec_str, rec_sig_row_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+
+    // v2.8.1: "See Other Tools" footer moved to bottom of CATALYST DIAG panel
+    //   (rendered there as the very last row, full-width).
+    // v2.7: expose main panel end row so the catalyst-diag panel below can stack.
+    main_panel_end_row := r
+
+// ==========================================
+// 16. v2.5 ENHANCEMENTS — Hit Counters, Alerts, Diagnostic Panel
+// ==========================================
+
+// ── E6: Per-catalyst hit counters (plotted to Data Window) ──────────────────
+var int hits_pos_bo  = 0
+var int hits_pos_ac  = 0
+var int hits_swg_pb  = 0
+var int hits_swg_bo  = 0
+var int hits_swg_rev = 0
+var int hits_gap_go  = 0
+var int hits_rev_cb  = 0
+var int hits_rev_rs  = 0
+var int hits_rev_ear = 0
+if pos_bo_trigger
+    hits_pos_bo  += 1
+if pos_ac_trigger
+    hits_pos_ac  += 1
+if swing_pb_trg
+    hits_swg_pb  += 1
+if swing_bo_trg
+    hits_swg_bo  += 1
+if swing_rev_trg
+    hits_swg_rev += 1
+if gap_go_trg
+    hits_gap_go  += 1
+if trigger_rev_cb
+    hits_rev_cb  += 1
+if trigger_rev_rs
+    hits_rev_rs  += 1
+if trigger_rev_early
+    hits_rev_ear += 1
+plot(hits_pos_bo,  "Hits POS-BO",    display=display.data_window)
+plot(hits_pos_ac,  "Hits POS-ACCUM", display=display.data_window)
+plot(hits_swg_pb,  "Hits SWG-PB",    display=display.data_window)
+plot(hits_swg_bo,  "Hits SWG-BO",    display=display.data_window)
+plot(hits_swg_rev, "Hits SWG-REV",   display=display.data_window)
+plot(hits_gap_go,  "Hits SWG-GAP",   display=display.data_window)
+plot(hits_rev_cb,  "Hits REV-CB",    display=display.data_window)
+plot(hits_rev_rs,  "Hits REV-RS",    display=display.data_window)
+plot(hits_rev_ear, "Hits REV-EARLY", display=display.data_window)
+
+// ── E12: Alerts per catalyst + composites (Pine v6: alert() in strategies) ──
+// alertcondition() has no effect inside strategies — must use alert() runtime call.
+// Configure a single TradingView alert on the strategy with frequency "Any alert
+// function call" — every alert() below will route through it with its message.
+if pos_bo_trigger
+    alert("WCL v2.5: POS-BO catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if pos_ac_trigger
+    alert("WCL v2.5: POS-ACCUM catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if swing_pb_trg
+    alert("WCL v2.5: SWG-PB (Pullback) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if swing_bo_trg
+    alert("WCL v2.5: SWG-BO (Breakout) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if swing_rev_trg
+    alert("WCL v2.5: SWG-REV (Reversion) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if gap_go_trg
+    alert("WCL v2.5: SWG-GAP (Gap & Go) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if trigger_rev_cb
+    alert("WCL v2.5: REV-CB (Climax Bottom) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if trigger_rev_rs
+    alert("WCL v2.5: REV-RS (RS Survivor) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if trigger_rev_early
+    alert("WCL v2.5: REV-EARLY (Early Bird) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if trigger_bull
+    alert("WCL v2.5: A Bull catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+if trigger_rec
+    alert("WCL v2.5: A Recovery catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+
+// ── E1: Diagnostic Panel — per-catalyst first-blocking-gate attribution ─────
+if use_diag_panel and barstate.islast
+
+    _diag_position = position.bottom_right
+    if diag_pos == "Top Left"
+        _diag_position := position.top_left
+    else if diag_pos == "Top Right"
+        _diag_position := position.top_right
+    else if diag_pos == "Middle Right"
+        _diag_position := position.middle_right
+    else if diag_pos == "Bottom Left"
+        _diag_position := position.bottom_left
+    _diag_size = diag_sz == "Tiny" ? size.tiny : diag_sz == "Normal" ? size.normal : size.small
+
+    color D_BG       = color.new(#ffffff, 0)
+    color D_HDR      = color.new(#1e222d, 0)
+    color D_HDR_TXT  = color.new(#ffffff, 0)
+    color D_LBL_BG   = color.new(#f7f9fc, 0)
+    color D_VAL_TXT  = color.new(#000000, 0)
+    color D_FIRE     = color.new(#1de9b6, 0)
+    color D_PASS     = color.new(#26a69a, 0)
+    color D_BLOCK    = color.new(#ef5350, 0)
+    color D_NEUT     = color.new(#f5f5f5, 0)
+
+    // POS-BO
+    string diag_pos_bo = "✓ FIRE"
+    color  diag_pos_bo_c = D_FIRE
+    if not pos_bo_trigger
+        diag_pos_bo_c := D_BLOCK
+        if not use_bull_mode
+            diag_pos_bo := "✗ bull mode off"
+        else if not use_pos_bo
+            diag_pos_bo := "✗ edge off"
+        else if not mkt_bull
+            diag_pos_bo := "✗ mkt_bull (regime)"
+        else if not base_confirmed
+            diag_pos_bo := "✗ base_confirmed"
+        else if not alpha_ok
+            diag_pos_bo := "✗ alpha (" + str.tostring(alpha_score, "#") + "<" + str.tostring(min_alpha) + ")"
+        else if not (bo_conf == "Daily Close" ? close > bo_level : high > bo_level)
+            diag_pos_bo := "✗ breakout (px<level)"
+        else if not (volume > vol_ma * 1.25)
+            diag_pos_bo := "✗ vol<1.25×"
+        else if not (wRSI >= hunter_weekly_rsi_min)
+            diag_pos_bo := "✗ wRSI (" + str.tostring(wRSI, "#") + "<" + str.tostring(hunter_weekly_rsi_min) + ")"
+        else if not hunter_adx_ok
+            diag_pos_bo := "✗ ADX (" + str.tostring(adx_val, "#") + "<" + str.tostring(hunter_daily_adx_min) + ")"
+
+    // POS-ACCUM
+    string diag_pos_ac = "✓ FIRE"
+    color  diag_pos_ac_c = D_FIRE
+    if not pos_ac_trigger
+        diag_pos_ac_c := D_BLOCK
+        if not use_bull_mode
+            diag_pos_ac := "✗ bull mode off"
+        else if not use_pos_accum
+            diag_pos_ac := "✗ edge off"
+        else if not mkt_bull
+            diag_pos_ac := "✗ mkt_bull"
+        else if not base_confirmed
+            diag_pos_ac := "✗ base_confirmed"
+        else if not alpha_ok
+            diag_pos_ac := "✗ alpha (" + str.tostring(alpha_score, "#") + "<" + str.tostring(min_alpha) + ")"
+        else if not obv_trending_up
+            diag_pos_ac := "✗ OBV slope"
+        else if not is_vcp_tight
+            diag_pos_ac := "✗ VCP not tight"
+        else if not (close > bo_level_30 * 0.9)
+            diag_pos_ac := "✗ price<0.9×30dHi"
+        else if not (d_rsi <= pos_accum_rsi_max)
+            diag_pos_ac := "✗ RSI (" + str.tostring(d_rsi, "#") + ">" + str.tostring(pos_accum_rsi_max) + ")"
+
+    // SWG-PB
+    string diag_swg_pb = "✓ FIRE"
+    color  diag_swg_pb_c = D_FIRE
+    if not swing_pb_trg
+        diag_swg_pb_c := D_BLOCK
+        if not use_bull_mode
+            diag_swg_pb := "✗ bull mode off"
+        else if not use_swing_pb
+            diag_swg_pb := "✗ edge off"
+        else if not mkt_bull
+            diag_swg_pb := "✗ mkt_bull"
+        else if not bull_pullback
+            diag_swg_pb := "✗ pullback shape"
+        else if not is_vcp_tight
+            diag_swg_pb := "✗ VCP not tight"
+        else if not pb_ma_stack
+            diag_swg_pb := "✗ MA stack (150>200)"
+        else if not pb_rsi_ok
+            diag_swg_pb := "✗ RSI pocket (" + str.tostring(d_rsi, "#") + ")"
+        else if not pb_vol_dry
+            diag_swg_pb := "✗ vol not dry"
+
+    // SWG-BO
+    string diag_swg_bo = "✓ FIRE"
+    color  diag_swg_bo_c = D_FIRE
+    if not swing_bo_trg
+        diag_swg_bo_c := D_BLOCK
+        if not use_bull_mode
+            diag_swg_bo := "✗ bull mode off"
+        else if not use_swing_bo
+            diag_swg_bo := "✗ edge off"
+        else if not mkt_bull
+            diag_swg_bo := "✗ mkt_bull"
+        else if not is_vcp_tight
+            diag_swg_bo := "✗ VCP not tight"
+        else if not (bo_conf == "Daily Close" ? close > bo_level : high > bo_level)
+            diag_swg_bo := "✗ breakout"
+        else if not (volume > vol_ma * 1.5)
+            diag_swg_bo := "✗ vol<1.5×"
+
+    // SWG-REV
+    string diag_swg_rev = "✓ FIRE"
+    color  diag_swg_rev_c = D_FIRE
+    if not swing_rev_trg
+        diag_swg_rev_c := D_BLOCK
+        if not use_bull_mode
+            diag_swg_rev := "✗ bull mode off"
+        else if not use_swing_rev
+            diag_swg_rev := "✗ edge off"
+        else if stage4_dntrend
+            diag_swg_rev := "✗ stage 4"
+        else if not rev_struct
+            diag_swg_rev := "✗ rev struct"
+        else if not oversold_rsi
+            diag_swg_rev := "✗ RSI not <35 (" + str.tostring(d_rsi, "#") + ")"
+        else if not (close > open)
+            diag_swg_rev := "✗ not green bar"
+        else if not (close > high[1])
+            diag_swg_rev := "✗ close not > prev hi"
+
+    // SWG-GAP
+    string diag_swg_gap = "✓ FIRE"
+    color  diag_swg_gap_c = D_FIRE
+    if not gap_go_trg
+        diag_swg_gap_c := D_BLOCK
+        if not use_bull_mode
+            diag_swg_gap := "✗ bull mode off"
+        else if not use_swing_gap
+            diag_swg_gap := "✗ edge off"
+        else if not mkt_bull
+            diag_swg_gap := "✗ mkt_bull"
+        else if not gap_up
+            diag_swg_gap := "✗ no gap up"
+        else if not (gap_pct >= 0.04)
+            diag_swg_gap := "✗ gap<4% (" + str.tostring(gap_pct * 100, "#.#") + "%)"
+        else if not (gap_intra_pos >= 0.60)
+            diag_swg_gap := "✗ intra pos<60%"
+        else if not (volume > vol_ma * 3.0)
+            diag_swg_gap := "✗ vol<3×"
+
+    // REV-CB
+    string diag_rev_cb = "✓ FIRE"
+    color  diag_rev_cb_c = D_FIRE
+    if not trigger_rev_cb
+        diag_rev_cb_c := D_BLOCK
+        if not use_rec_mode
+            diag_rev_cb := "✗ rec mode off"
+        else if not use_rev_cb
+            diag_rev_cb := "✗ edge off"
+        else if not recent_climax
+            diag_rev_cb := "✗ no climax (last " + str.tostring(cb_climax_window) + "b)"
+        else if not is_turn
+            diag_rev_cb := "✗ no turn bar"
+        else if not rff_ok
+            diag_rev_cb := "✗ RFF (" + str.tostring(rff_score) + ")"
+        else if not regime_ok
+            diag_rev_cb := "✗ regime"
+        else if na(cb_sl_raw)
+            diag_rev_cb := "✗ no SL anchor"
+
+    // REV-RS
+    string diag_rev_rs = "✓ FIRE"
+    color  diag_rev_rs_c = D_FIRE
+    if not trigger_rev_rs
+        diag_rev_rs_c := D_BLOCK
+        if not use_rec_mode
+            diag_rev_rs := "✗ rec mode off"
+        else if not use_rev_rs
+            diag_rev_rs := "✗ edge off"
+        else if not rs_positive
+            diag_rev_rs := "✗ RS slope ≤0"
+        else if not rs_recovery_state
+            diag_rev_rs := "✗ no HL+trend up"
+        else if not stock_corrected
+            diag_rev_rs := "✗ not corrected (" + str.tostring(correction_depth * 100, "#.#") + "%)"
+        else if not rs_breakout
+            diag_rev_rs := "✗ no RS breakout"
+        else if not sector_stage_ok
+            diag_rev_rs := "✗ sector not S1/S2"
+        else if not rff_ok
+            diag_rev_rs := "✗ RFF (" + str.tostring(rff_score) + ")"
+        else if not regime_ok
+            diag_rev_rs := "✗ regime"
+
+    // REV-EARLY
+    string diag_rev_ear = "✓ FIRE"
+    color  diag_rev_ear_c = D_FIRE
+    if not trigger_rev_early
+        diag_rev_ear_c := D_BLOCK
+        if not use_rec_mode
+            diag_rev_ear := "✗ rec mode off"
+        else if not use_rev_early
+            diag_rev_ear := "✗ edge off"
+        else if not trendline_reclaim
+            diag_rev_ear := "✗ no TL reclaim"
+        else if not rs_recovery_state
+            diag_rev_ear := "✗ no HL+trend up"
+        else if not base_compressed
+            diag_rev_ear := "✗ no NR7/inside"
+        else if not early_break
+            diag_rev_ear := "✗ no early break"
+        else if not rs_positive
+            diag_rev_ear := "✗ RS slope ≤0"
+        else if not sector_stage_ok
+            diag_rev_ear := "✗ sector not S1/S2"
+        else if not rff_ok
+            diag_rev_ear := "✗ RFF (" + str.tostring(rff_score) + ")"
+        else if not regime_ok
+            diag_rev_ear := "✗ regime"
+
+    // ============================================================================
+    // v2.7 LAYOUT: CATALYST DIAG now renders BELOW the main strategy panel,
+    // distributed across all 4 columns (2 catalysts per row). Evens out the
+    // table — no more right-side panel ending earlier than the main one.
+    // Starts at row `main_panel_end_row` when show_panel is on; else row 0.
+    // ============================================================================
+    int dr = show_panel ? main_panel_end_row : 0
+
+    // ── Main DIAG header (full width, merged cols 0-3) ──────────────────────
+    table.cell(dash, 0, dr, "◈ CATALYST DIAG  (catalyst · ✓ FIRE / ✗ first-blocking-gate [hits])", text_color=D_HDR_TXT, text_size=_diag_size, bgcolor=D_HDR, text_halign=text.align_left)
+    table.merge_cells(dash, 0, dr, 3, dr)
+    dr += 1
+
+    // ── BULL CATALYSTS section header (full width) ──────────────────────────
+    table.cell(dash, 0, dr, "── 🌿 BULL ──", text_color=D_HDR_TXT, text_size=_diag_size, bgcolor=D_HDR, text_halign=text.align_center)
+    table.merge_cells(dash, 0, dr, 3, dr)
+    dr += 1
+
+    // ── BULL: 6 catalysts → 3 paired rows (cols 0-1 = A, cols 2-3 = B) ──────
+    table.cell(dash, 0, dr, "POS-BO",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_pos_bo + " [" + str.tostring(hits_pos_bo) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_pos_bo_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "POS-ACCUM", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, diag_pos_ac + " [" + str.tostring(hits_pos_ac) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_pos_ac_c, text_halign=text.align_left)
+    dr += 1
+
+    table.cell(dash, 0, dr, "SWG-PB",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_swg_pb + " [" + str.tostring(hits_swg_pb) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_swg_pb_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "SWG-BO",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, diag_swg_bo + " [" + str.tostring(hits_swg_bo) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_swg_bo_c, text_halign=text.align_left)
+    dr += 1
+
+    table.cell(dash, 0, dr, "SWG-REV",   text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_swg_rev + " [" + str.tostring(hits_swg_rev) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_swg_rev_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "SWG-GAP",   text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, diag_swg_gap + " [" + str.tostring(hits_gap_go) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_swg_gap_c, text_halign=text.align_left)
+    dr += 1
+
+    // ── RECOVERY section header (full width) ────────────────────────────────
+    table.cell(dash, 0, dr, "── 🔄 RECOVERY ──", text_color=D_HDR_TXT, text_size=_diag_size, bgcolor=D_HDR, text_halign=text.align_center)
+    table.merge_cells(dash, 0, dr, 3, dr)
+    dr += 1
+
+    // ── RECOVERY: 3 catalysts → 1 paired row + 1 solo (right side empty) ────
+    table.cell(dash, 0, dr, "REV-CB",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_rev_cb + " [" + str.tostring(hits_rev_cb) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_rev_cb_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "REV-RS",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, diag_rev_rs + " [" + str.tostring(hits_rev_rs) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_rev_rs_c, text_halign=text.align_left)
+    dr += 1
+
+    table.cell(dash, 0, dr, "REV-EARLY", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_rev_ear + " [" + str.tostring(hits_rev_ear) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_rev_ear_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "",          bgcolor=color.new(#1a1d28, 0))
+    table.cell(dash, 3, dr, "",          bgcolor=color.new(#1a1d28, 0))
+    dr += 1
+
+    // ── v2.9 RRG section header (full width) ────────────────────────────────
+    table.cell(dash, 0, dr, "── ◇ RRG (vs N500) ──", text_color=D_HDR_TXT, text_size=_diag_size, bgcolor=D_HDR, text_halign=text.align_center)
+    table.merge_cells(dash, 0, dr, 3, dr)
+    dr += 1
+
+    // ── RRG row: quadrant + arrow + score + tradeable. Full-width merged. ───
+    // Color: tradeable=true → green, tradeable=false → red (cliff-edge LEADING etc.)
+    string _rrg_score_sign = rs_rrg_score > 0 ? "+" : ""
+    string _rrg_tr_tag     = rs_tradeable ? "✓ BUY OK" : "✗ WAIT"
+    string _rrg_row_txt    = rs_quadrant + " " + _rrg_arrow + "  " + _rrg_score_sign + str.tostring(rs_rrg_score) + "  ·  " + _rrg_traj + "  ·  " + _rrg_tr_tag + "  (RS-Ratio " + str.tostring(rsVal500 + 100, "#.#") + ")"
+    color _rrg_row_bg      = rs_tradeable ? color.new(#26a69a, 70) : color.new(#ef5350, 50)
+    table.cell(dash, 0, dr, _rrg_row_txt, text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=_rrg_row_bg, text_halign=text.align_left)
+    table.merge_cells(dash, 0, dr, 3, dr)
+    dr += 1
+
+    // ── META section header (full width) ────────────────────────────────────
+    table.cell(dash, 0, dr, "── 🛈 META ──", text_color=D_HDR_TXT, text_size=_diag_size, bgcolor=D_HDR, text_halign=text.align_center)
+    table.merge_cells(dash, 0, dr, 3, dr)
+    dr += 1
+
+    // ── META: Sector Ticker + WCL Gate paired on 1 row ──────────────────────
+    string sec_path = use_auto_sec ? "AUTO" : "MANUAL"
+    string sec_val  = sectorTicker + " [" + sec_path + "] (S" + str.tostring(_sec_stage) + ")"
+    string wcl_state = not use_wcl_gate ? "OFF" : (wcl_ok ? "✓ PASS (" + str.tostring(wcl_score_source, "#") + ")" : "✗ FAIL (" + str.tostring(wcl_score_source, "#") + "<" + str.tostring(wcl_score_min) + ")")
+    color  wcl_col   = not use_wcl_gate ? D_NEUT : (wcl_ok ? D_FIRE : D_BLOCK)
+    table.cell(dash, 0, dr, "Sector Ticker", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, sec_val,         text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=sector_stage_ok ? D_FIRE : D_BLOCK, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "WCL Gate",      text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, wcl_state,       text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=wcl_col, text_halign=text.align_left)
+    dr += 1
+
+    // Base Confirm Path — solo row (right side empty)
+    string bc_path = base_confirmed ? (mature_trend_ok ? "MATURE EXEMPT" : "WEINSTEIN") : "BLOCKED"
+    color  bc_col  = base_confirmed ? (mature_trend_ok ? D_PASS : D_FIRE) : D_BLOCK
+    table.cell(dash, 0, dr, "Base Confirm Path", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, bc_path + " (WStg:" + str.tostring(nz(wStageWks, 0)) + "w)", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=bc_col, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "", bgcolor=color.new(#1a1d28, 0))
+    table.cell(dash, 3, dr, "", bgcolor=color.new(#1a1d28, 0))
+    dr += 1
+
+    // ── v2.8.3: "See Other Tools" footer — label in col 0, description merged across cols 1-3 ─
+    //   Matches the rest of the panel's label/value pattern (label left, value right).
+    //   Merge spans only cols 1-3, leaving col 0 free for the label. Writes
+    //   must happen BEFORE the merge call (Pine v6 drops post-merge writes).
+    table.cell(dash, 0, dr, "→ See Other Tools:", text_color=color.new(color.silver, 0), bgcolor=color.new(#0f2235, 0), text_size=_diag_size, text_halign=text.align_left)
+    table.cell(dash, 1, dr, "Dashboard (RS/Stage/PA)  ·  Bull Screener (Gates/Levels)  ·  Recovery Screener (Pillars/RFF)", text_color=color.new(color.silver, 0), bgcolor=color.new(#0f2235, 0), text_size=_diag_size, text_halign=text.align_left)
+    table.merge_cells(dash, 1, dr, 3, dr)
+    dr += 1
