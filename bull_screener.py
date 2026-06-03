@@ -834,8 +834,8 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["SWGPB_pass_mkt"]    += 1 if mkt_bull else 0
     FUNNEL["SWGPB_pass_pullback"]  += 1 if (mkt_bull and bull_pullback) else 0
     FUNNEL["SWGPB_pass_vcp"]    += 1 if (mkt_bull and bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack) else 0
-    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa) else 0
+    FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and alpha_ok and minervini and bull_pullback and is_vcp_tight) else 0
+    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and alpha_ok and minervini and bull_pullback and is_vcp_tight and pb_pocket_pa) else 0
     FUNNEL["SWGPB_pass_voldry"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry) else 0
 
     # Sub-funnel: weinstein_setup composition
@@ -875,9 +875,13 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     # SWG-BO: is_vcp_tight + 20-bar breakout + vol>1.5x (price/volume structure)
     elif (mkt_bull and is_vcp_tight and c_now > _bo20 and rv_now > 1.5):
         cat_id = 4; cat_label = "SWG-BO"
-    # SWG-PB: bull_pullback + is_vcp_tight + MA stack + price-action pullback
-    #   pocket (pb_pocket_pa retrace, replaces RSI 30-70) + volume dry-up
-    elif (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and
+    # SWG-PB: QUALITY pullback in a strong leader. Restored the quality gates the
+    #   Pine-sync had stripped (alpha_ok leadership + full minervini stack
+    #   close>50>150>200, vs the looser sma150>200) — without them SWG-PB fired on
+    #   weak/rolling-over stocks that bounce then fail (-5% alpha, 88% SL-hit).
+    #   PA throughout: bull_pullback (tag EMA20, close above, up day) + is_vcp_tight
+    #   + price-action pocket (retrace) + volume dry-up.
+    elif (mkt_bull and alpha_ok and minervini and bull_pullback and is_vcp_tight and
             pb_pocket_pa and pb_vol_dry):
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
@@ -1081,14 +1085,8 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
         atr_mult = 3.5   # Wyckoff base: between positional and swing
     elif _label.startswith("REV"):
         atr_mult = 2.5   # recovery / mean-reversion: 90d holds
-    elif _label == "SWG-PB":
-        # Pullback entry: buying a dip that tagged EMA20 — the dip often extends
-        # a little FURTHER before reversing. A 1.5x stop at entry got knocked out
-        # of 88% of SWG-PB trades at ~7d while they ran +4.83% (survivors: 80%
-        # win, +7.13%). 2.5x gives the pullback room to complete.
-        atr_mult = 2.5
     else:
-        atr_mult = 1.5   # other swing (SWG-BO / SWG-GAP / SWG-REV): unchanged
+        atr_mult = 1.5   # swing (SWG-*)
     sl = c - atr * atr_mult
     risk = c - sl
     # v1.9 (2026-05-21): Catalyst-differentiated T1/T2 — respect trade timeframe.
