@@ -834,8 +834,8 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["SWGPB_pass_mkt"]    += 1 if mkt_bull else 0
     FUNNEL["SWGPB_pass_pullback"]  += 1 if (mkt_bull and bull_pullback) else 0
     FUNNEL["SWGPB_pass_vcp"]    += 1 if (mkt_bull and bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and alpha_ok and minervini and bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and alpha_ok and minervini and bull_pullback and is_vcp_tight and pb_pocket_pa) else 0
+    FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and minervini and bull_pullback and is_vcp_tight) else 0
+    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and minervini and bull_pullback and is_vcp_tight and pb_pocket_pa) else 0
     FUNNEL["SWGPB_pass_voldry"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry) else 0
 
     # Sub-funnel: weinstein_setup composition
@@ -881,7 +881,7 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     #   weak/rolling-over stocks that bounce then fail (-5% alpha, 88% SL-hit).
     #   PA throughout: bull_pullback (tag EMA20, close above, up day) + is_vcp_tight
     #   + price-action pocket (retrace) + volume dry-up.
-    elif (mkt_bull and alpha_ok and minervini and bull_pullback and is_vcp_tight and
+    elif (mkt_bull and minervini and bull_pullback and is_vcp_tight and
             pb_pocket_pa and pb_vol_dry):
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
