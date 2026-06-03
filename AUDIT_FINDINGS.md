@@ -115,9 +115,15 @@ workable candidate set flows through. Applies to all future gate changes + the
 part-(a) RSI→PA conversions.
 
 Relaxation watch-list:
-- SWG-REV pa_oversold: 3-bar+20% → **2-bar+25%** ✅ done (Python+Pine).
+- SWG-REV: was a LOGIC CONTRADICTION (today-down-close AND close>high[1]) → 0
+  fires. FIXED — pa_oversold now measures PRIOR weakness (close[1]<close[2]<
+  close[3]). ✅ Python+Pine. Now fires 73/231 (run 20260604_003640).
 - POS-ACCUM (only ~2 fires): is_vcp_tight@1.0 is tight + the daily-RSI≤50 gate
   (part a). Relax holistically when converting its RSI gate to PA.
+
+## Healthy candidate set (run 20260604_003640, 24mo nifty500, all PA gates)
+231 trades: SWG-PB 83 / SWG-REV 73 / SWG-BO 40 / POS-BO 33 / POS-ACCUM 2.
+All catalysts firing on pure price action; only POS-ACCUM thin (part a).
 
 ## Methodology (the fix for the audit gap)
 For each signal module: (1) extract every Pine trigger/gate + its helpers,
