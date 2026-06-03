@@ -742,26 +742,74 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     # POS-BO funnel (E5: uses weinstein_setup for the base gate)
     _pb_break = c_now > float(h.iloc[-22:-1].max())
     _pb_vol   = rv_now > 1.25
+
+    # ── Pine-parity catalyst helpers (Weinstein_Unified_Ecosystem_v3.4) ──────
+    # Zero-drift restoration: the undocumented "R-series" rewrite diverged the
+    # Python catalyst gates from the canonical Pine triggers. These mirror them.
+    _sma50_now  = float(sma50.iloc[-1])  if not np.isnan(sma50.iloc[-1])  else c_now
+    _sma150_now = float(sma150.iloc[-1]) if not np.isnan(sma150.iloc[-1]) else c_now
+    _sma200_now = float(sma200.iloc[-1]) if not np.isnan(sma200.iloc[-1]) else c_now
+    _vol_ma_now = float(ind["vol_ma"].iloc[-1])
+    # is_vcp_tight = f_is_vcp(1.0): atr10 < sma(atr10,50)*1.0 AND vwma(vol,5) < sma(vol,50)
+    if (not np.isnan(atr10.iloc[-1]) and not np.isnan(atr10_sma50.iloc[-1])
+            and not np.isnan(vol_vwma5.iloc[-1]) and not np.isnan(_vol_ma_now)):
+        is_vcp_tight = (atr10.iloc[-1] < atr10_sma50.iloc[-1] * 1.0 and
+                        vol_vwma5.iloc[-1] < _vol_ma_now)
+    else:
+        is_vcp_tight = False
+    # base_confirmed (Pine 1633) = (weinstein_setup or mature_trend_ok) and mpa_pass.
+    # mature_trend_ok needs weeks-in-stage (wStageWks) the Python weekly pipeline
+    # doesn't track — approximated by stage-2 + LEADING RRG + above EMA20/SMA200.
+    mpa_pass = c_now > _sma150_now and _sma150_now > _sma200_now
+    mature_trend_ok = (weekly["stage"] == 2 and
+                       str(weekly.get("rrg_quadrant", "")).upper() == "LEADING" and
+                       c_now > ema20_now and c_now > _sma200_now)
+    base_confirmed = (weinstein_setup or mature_trend_ok) and mpa_pass
+    adx_ok = adx_now >= 25  # numeric ADX (hunter_daily_adx_min), not a bar-direction proxy
+    _bo20 = float(h.iloc[-21:-1].max()) if len(h) >= 21 else float(h.max())  # bo_len=20: highest(high,20)[1]
+    # SWG-PB (Pine 1749-1753)
+    bull_pullback = (c_now > _sma50_now and l_now <= ema20_now and
+                     c_now > ema20_now and c_now > o_now)
+    pb_ma_stack   = _sma150_now > _sma200_now
+    pb_rsi_ok     = 30 < rsi14_now < 70
+    pb_vol_dry    = (float(v.iloc[-4:-1].mean()) < _vol_ma_now) if len(v) >= 4 else False
+    # SWG-GAP (Pine 1768): gap_intra_pos = (close-open)/(high-open)
+    gap_up        = o_now > float(h.iloc[-2]) and c_now > o_now
+    gap_pct       = (o_now - float(h.iloc[-2])) / float(h.iloc[-2]) if float(h.iloc[-2]) > 0 else 0.0
+    gap_intra_pos = (c_now - o_now) / (h_now - o_now) if h_now > o_now else 0.0
+    # SWG-REV (Pine 1761): rev_struct + oversold + bullish reversal confirm
+    rev_struct    = c_now > _sma200_now and c_now < ema20_now
+    oversold_rsi  = rsi14_now < 35
+    not_stage4    = weekly["stage"] != 4
+
     FUNNEL["POSBO_eligible"]       += 1
     FUNNEL["POSBO_pass_mkt_bull"]  += 1 if mkt_bull else 0
     FUNNEL["POSBO_pass_alpha"]     += 1 if (mkt_bull and alpha_ok_for_bo) else 0
-    FUNNEL["POSBO_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok_for_bo and weinstein_setup) else 0
-    FUNNEL["POSBO_pass_breakout"]  += 1 if (mkt_bull and alpha_ok_for_bo and weinstein_setup and _pb_break) else 0
-    FUNNEL["POSBO_pass_vol"]       += 1 if (mkt_bull and alpha_ok_for_bo and weinstein_setup and _pb_break and _pb_vol) else 0
-    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (mkt_bull and alpha_ok_for_bo and weinstein_setup and _pb_break and _pb_vol and weekly["wrsi"] >= 60) else 0
-    _pb_dir_ok = sum(1 for i in range(1, 15) if float(c.iloc[-i]) > float(ind["open"].iloc[-i]) and float(h.iloc[-i]) > float(h.iloc[-(i+1)])) >= 7 if len(c) > 14 else False
-    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok_for_bo and weinstein_setup and _pb_break and _pb_vol and weekly["wrsi"] >= 60 and _pb_dir_ok) else 0
+    FUNNEL["POSBO_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok and base_confirmed) else 0
+    FUNNEL["POSBO_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20) else 0
+    FUNNEL["POSBO_pass_vol"]       += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol) else 0
+    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60) else 0
+    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly["wrsi"] >= 60 and adx_ok) else 0
 
     # POS-ACCUM funnel
     _pa_break = c_now > float(h.iloc[-31:-1].max()) * 0.9
     FUNNEL["POSAC_eligible"]       += 1
     FUNNEL["POSAC_pass_mkt_bull"]  += 1 if mkt_bull else 0
     FUNNEL["POSAC_pass_alpha"]     += 1 if (mkt_bull and alpha_ok_for_bo) else 0
-    FUNNEL["POSAC_pass_obv"]       += 1 if (mkt_bull and alpha_ok_for_bo and obv_trending_up) else 0
-    FUNNEL["POSAC_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok_for_bo and obv_trending_up and weinstein_setup) else 0
-    FUNNEL["POSAC_pass_vcp"]       += 1 if (mkt_bull and alpha_ok_for_bo and obv_trending_up and weinstein_setup and vcp_tight_bo) else 0
-    FUNNEL["POSAC_pass_breakout"]  += 1 if (mkt_bull and alpha_ok_for_bo and obv_trending_up and weinstein_setup and vcp_tight_bo and _pa_break) else 0
-    FUNNEL["POSAC_pass_rsi50"]     += 1 if (mkt_bull and alpha_ok_for_bo and obv_trending_up and weinstein_setup and vcp_tight_bo and _pa_break and rsi14_now <= 50) else 0
+    FUNNEL["POSAC_pass_obv"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up) else 0
+    FUNNEL["POSAC_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed) else 0
+    FUNNEL["POSAC_pass_vcp"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_tight) else 0
+    FUNNEL["POSAC_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_tight and _pa_break) else 0
+    FUNNEL["POSAC_pass_rsi50"]     += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_tight and _pa_break and rsi14_now <= 50) else 0
+
+    # SWG-PB funnel (Pine-parity gate chain)
+    FUNNEL["SWGPB_eligible"]    += 1
+    FUNNEL["SWGPB_pass_mkt"]    += 1 if mkt_bull else 0
+    FUNNEL["SWGPB_pass_pullback"]  += 1 if (mkt_bull and bull_pullback) else 0
+    FUNNEL["SWGPB_pass_vcp"]    += 1 if (mkt_bull and bull_pullback and is_vcp_tight) else 0
+    FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack) else 0
+    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_rsi_ok) else 0
+    FUNNEL["SWGPB_pass_voldry"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_rsi_ok and pb_vol_dry) else 0
 
     # Sub-funnel: weinstein_setup composition
     FUNNEL["WEIN_stage_ok"]        += 1 if stage_ok else 0
@@ -778,36 +826,36 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
                                             stage2_fresh_ok and trend_template_ok) else 0
     FUNNEL["WEIN_all_pass"]        += 1 if weinstein_setup else 0
 
-    # Catalyst priority cascade (Pine v4.52 order)
-    if (mkt_bull and alpha_ok_for_bo and weinstein_setup and _pb_break and _pb_vol and
-            weekly["wrsi"] >= 60 and _pb_dir_ok):
+    # ── Catalyst priority cascade — mirrors canonical Pine triggers exactly
+    #    (Weinstein_Unified_Ecosystem_v3.4). Zero-drift restoration 2026-06-03.
+    # POS-BO (Pine 1723): mkt_bull and base_confirmed and alpha_ok and
+    #   close>bo_level(20) and vol>1.25x and wRSI>=60 and adx>=25
+    if (mkt_bull and base_confirmed and alpha_ok and c_now > _bo20 and _pb_vol and
+            weekly["wrsi"] >= 60 and adx_ok):
         cat_id = 2; cat_label = "POS-BO"
-    # v1.10 (2026-05-21): POS-ACCUM RE-ENABLED.
-    elif (mkt_bull and alpha_ok_for_bo and obv_trending_up and weinstein_setup and vcp_tight_bo and
+    # POS-ACCUM (Pine 1736): mkt_bull and base_confirmed and alpha_ok and obv and
+    #   is_vcp_tight and close>bo_level_30*0.9 and d_rsi<=pos_accum_rsi_max(50)
+    elif (mkt_bull and base_confirmed and alpha_ok and obv_trending_up and is_vcp_tight and
             _pa_break and rsi14_now <= 50):
         cat_id = 1; cat_label = "POS-ACCUM"
-    # SWG-GAP  (gap-and-go, no alpha gate — pure price action)
-    # v1.1: mkt_bull required (Pine v2.3 line 1022)
-    elif (mkt_bull and
-            (o_now - h.iloc[-2]) / h.iloc[-2] > 0.04 and rv_now >= 3.0 and
-            c_now > o_now and intraday_pos > 0.60 and weinstein_setup):
+    # SWG-GAP (Pine 1768): mkt_bull and gap_up and gap_pct>=0.04 and
+    #   gap_intra_pos>=0.60 and vol>3x  (NO weinstein_setup gate)
+    elif (mkt_bull and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and
+            rv_now >= 3.0):
         cat_id = 6; cat_label = "SWG-GAP"
-    # SWG-BO  (VCP momentum breakout, alpha gate decoupled, strict VCP)
-    # v1.1: mkt_bull required (Pine v2.3 line 1022)
-    elif (mkt_bull and alpha_ok_for_bo and minervini and vcp_tight_swg and
-            c_now > float(h.iloc[-16:-1].max()) and rv_now > 1.25 and
-            intraday_pos > 0.60):
+    # SWG-BO (Pine 1755): mkt_bull and is_vcp_tight and close>bo_level(20) and vol>1.5x
+    #   (NO alpha / minervini / intraday_pos gates)
+    elif (mkt_bull and is_vcp_tight and c_now > _bo20 and rv_now > 1.5):
         cat_id = 4; cat_label = "SWG-BO"
-    # SWG-PB  (Minervini pullback to EMA20, alpha gate, CPR/VWAP required)
-    # v1.1: mkt_bull required (Pine v2.3 line 1022)
-    elif (mkt_bull and alpha_ok and minervini and dist_ema20 <= 1.5 and
-            rsi_pb_pocket and weekly["wrsi"] > 60 and vol_drying and
-            cpr_ok and mvwap_ok):
+    # SWG-PB (Pine 1753): mkt_bull and bull_pullback and is_vcp_tight and
+    #   pb_ma_stack and pb_rsi_ok and pb_vol_dry
+    elif (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and
+            pb_rsi_ok and pb_vol_dry):
         cat_id = 3; cat_label = "SWG-PB"
-    # SWG-REV  (mean reversion, no alpha gate)
-    # v1.1: mkt_bull required (Pine v2.3 line 1022)
-    elif (mkt_bull and pa_oversold and rv_now > 1.5 and c_now < ema20_now and
-            weekly["stage"] in (1, 2) and weekly["wrsi"] > 40):
+    # SWG-REV (Pine 1761): not stage4 and rev_struct and rsi<35 and
+    #   close>open and close>high[1]
+    elif (not_stage4 and rev_struct and oversold_rsi and c_now > o_now and
+            c_now > float(h.iloc[-2])):
         cat_id = 5; cat_label = "SWG-REV"
 
     score = compute_score(cat_label, weekly, alpha, rv_now, trend_template_ok,
@@ -1312,6 +1360,15 @@ def run_bull_screener(progress_callback=None, symbols=None,
             pct = (n / pa_e * 100) if pa_e else 0
             label = "[" + k.replace("POSAC_pass_", "+ ") + "]"
             _flog(f"    {label:<26} {n:>5} / {pa_e}  ({pct:5.1f}%)")
+    sp_e = FUNNEL.get("SWGPB_eligible", 0)
+    if sp_e:
+        _flog(f"  SWG-PB ({sp_e} eligible)")
+        for k in ["SWGPB_pass_mkt", "SWGPB_pass_pullback", "SWGPB_pass_vcp",
+                  "SWGPB_pass_mastack", "SWGPB_pass_rsipocket", "SWGPB_pass_voldry"]:
+            n = FUNNEL.get(k, 0)
+            pct = (n / sp_e * 100) if sp_e else 0
+            label = "[" + k.replace("SWGPB_pass_", "+ ") + "]"
+            _flog(f"    {label:<26} {n:>5} / {sp_e}  ({pct:5.1f}%)")
     we = pb_e
     if we:
         _flog(f"  WEINSTEIN_SETUP composition ({we} eligible)")
