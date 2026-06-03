@@ -82,6 +82,23 @@ Date-pinning OHLCV provider; no signal logic. (Pinning correctness was implicitl
 validated by the historical-anchor funnel runs returning the full ~440-symbol
 universe with correct as-of bars.)
 
+## FINAL STATE (4 Jun 2026) — pure price action, end to end
+- **All bull catalyst/signal gates** across Python + 3 Pine files are now pure
+  price action. Zero RSI/MACD/BB/ADX in any gate. Final sweep clean.
+- **Macro-edge alpha term** added to Python for parity (rv>1.0 +10 else −20).
+  Side-effect: POS-ACCUM 84→30 (the volume penalty hits low-volume accumulation
+  setups — inherent to their quiet nature; Pine always did this, Python now
+  matches). Still healthy. If more POS-ACCUM wanted, exempt it from the macro-edge
+  penalty (but that would re-diverge from Pine) — left as an option, not done.
+- **Final candidate set:** 265 trades/24mo — SWG-PB 83 / SWG-REV 73 / POS-BO 40 /
+  SWG-BO 39 / POS-ACCUM 30. All firing.
+- **Residual RSI (NOT gates, intentionally left):** ml_score (fitted ML feature —
+  converting invalidates coefficients), data fetches for display, unused inputs,
+  tooltips. Dead defs (adx_strong, hunter_adx_ok, oversold_rsi) harmless.
+- **RECOMPILE in TradingView (not compile-verified here):**
+  Weinstein_Unified_Ecosystem_v3.4, Commander_Bull_Screener_v3.2,
+  Weinstein and Swing Pro Dashboard v67.4.12.
+
 ## AUDIT CONCLUSION
 The indicator-in-gate / PA-drift problem was **ISOLATED to bull_screener.py**
 (now fixed + Pine-synced). recovery_screener was already PA-clean; matcher/etf/
