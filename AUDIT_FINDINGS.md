@@ -49,7 +49,8 @@ weinstein_setup, bull_pullback, breakout structure, volume dry-up.
 | Remaining indicator gates | B (PA todo) | ⏳ FLAG | POS-BO weekly `wRSI>=60`, POS-ACCUM daily `RSI<=50` — locked Hunter/v2 params; convert to PA "wherever possible" (needs PA-momentum design). |
 | `mature_trend_ok` in base_confirmed | A (minor) | ⚠️ APPROX | Pine uses weeks-in-stage; Python lacks it → approximated. |
 | `ma_sqz_ok`/`bb_sqz_ok` now dead code | cleanup | TODO | No longer used after weinstein fix; verify + remove. |
-| **Pine sync to PA gates** | parity | 🟡 PARTIAL | Weinstein_Unified_Ecosystem_v3.4 DONE (alpha score + POS-BO/SWG-PB/SWG-REV → PA). NOT compile-verified (TV off). TODO: Commander_Bull_Screener_v3.2, v67 dashboard; macro-edge alpha term (Pine-only). |
+| Residual RSI gates → PA (part a) | B done | ✅ DONE | POS-BO weekly RSI→`w_mom` (weekly close>5wk-ago); POS-ACCUM daily RSI→`pa_not_extended` + looser VCP(1.5x). POS-ACCUM 2→84 fires, total 319 trades. Python+all 3 Pine. |
+| **Pine sync to PA gates** | parity | ✅ DONE (compile-check pending) | All 3 files synced: Weinstein_Unified_Ecosystem_v3.4 (alpha+all catalysts+part-a), Commander_Bull_Screener_v3.2 (catalysts; alpha was already PA), v67 dashboard (alpha+catalysts). NOT compile-verified (TV off) — RECOMPILE all 3. Residual v67 RSI in display/exit (lines ~3485/4051/4084: trim/momentum-confirm) — minor, not catalysts. macro-edge alpha term still Pine-only (volume, PA-compatible) — optional parity add to Python. |
 
 ## recovery_screener.py — AUDITED ✅ CLEAN
 REV-CB / REV-RS / REV-EARLY gates are **already pure price action** (drawdown %,

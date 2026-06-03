@@ -1,6 +1,28 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.12]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.13]", overlay=true, max_bars_back=5000, max_lines_count=500)
 
+// ==========================================
+// CHANGELOG v67.4.13 (2026-06-01) — Decision-Mode prospective Gate-3 R:R preview
+// ==========================================
+// Display-only: the compact "LEVELS / ROOM" row now appends a prospective R:R
+// estimate (setupRRStr) for setups with NO entry profile set (finalEntry == 0),
+// where the active-trade "Current R:R" row never fires. Estimate uses
+// entry = close, SL = close − 2.5 × ATR(14) (14-day ATR stop methodology),
+// reward = distance to nearest overhead level (ovhPrice); "~" prefix marks it
+// as an estimate, "open ▲" when no overhead level (blue-sky). Pure display —
+// does NOT create/modify any entry/SL profile and does NOT touch RRG logic.
+//
+// Also: direction arrows in WEEKLY / DAILY / 50DMA / RRG / ATH rows switched
+// from thin text glyphs (↗ ↘ ↔ → ↑ ↓) to emoji-variation arrows
+// (↗️ ↘️ ↔️ ➡️ ⬆️ ⬇️) so they render as the clearly-visible blue-square icons
+// already used by the RS (vs N500/Sec) row. GLYPH-ONLY — no threshold or RRG
+// calculation logic changed; only the rendered character differs.
+//
+// Also: "Data Size" input default raised size.small → size.normal (data text +
+// icons render larger for readability); size.large added as an option. Section
+// sub-headers (ACT NOW / STRUCTURE / CONTEXT / PORTFOLIO and the title) stay
+// fixed at size.normal — deliberately NOT enlarged, per request.
+//
 // ==========================================
 // CHANGELOG v67.4.12 (2026-05-24) — Bearish detectors neutralized to Tier 0
 // ==========================================
@@ -992,8 +1014,9 @@ showAVWAP   = input.bool(true, title="Show Auto-Anchored VWAP (Stage 2 Start)", 
 // Styling
 groupStyle  = "Dashboard Style"
 show_detailed_view = input.bool(false, title="Show Detailed View (debug — expand all rows)", group=groupStyle, tooltip="v67.3.0: by default the Dashboard renders ~18 composite rows (Decision Mode). Toggle ON to expand back to the full ~60-row breakdown — useful for debugging or tuning, but slower to scan. All logic is unchanged either way; this only affects display density.")
+showStageBg = input.bool(true, title="Show Stage Background Colors", group=groupStyle, tooltip="Fills the chart background with Stage 1/2/3/4 colors.")
 tablePos    = input.string(position.bottom_right, title="Position", options=[position.top_right, position.bottom_right, position.top_left, position.bottom_left], group=groupStyle)
-textSize    = input.string(size.small, title="Data Size", options=[size.tiny, size.small, size.normal], group=groupStyle)
+textSize    = input.string(size.normal, title="Data Size", options=[size.tiny, size.small, size.normal, size.large], group=groupStyle, tooltip="v67.4.13: default raised small→normal for readability (data text + icons). Section sub-headers (ACT NOW, STRUCTURE, …) are fixed at size.normal and unaffected. Flip to Large if you want data bigger still.")
 c_bg        = input.color(color.white, title="Background Color", group=groupStyle)
 c_text      = input.color(color.new(#000000, 0), title="Label Text Color", group=groupStyle)
 c_val_text  = input.color(color.new(#000000, 0), title="Value Text Color", group=groupStyle)
@@ -2749,7 +2772,7 @@ else
 // stageDisplay now carries only the structural label so a glance at Market Structure
 // gives regime; a glance at Stage 2 Age gives timing.
 if wEarlyStage2
-    stageDisplay := stageDisplay + " ↑PRE-S2"
+    stageDisplay := stageDisplay + " ⬆️PRE-S2"
 
 
 // Trend variables provided by Daily Super Bundle v60.4
@@ -3650,7 +3673,19 @@ for i = 0 to 19
 bool  bs_is_obv_trending_up = _bs_acc_bars >= 8
 bool  bs_is_price_lagging = d_c < (bs_price_h50 * 0.90)
 bool  bs_is_flat_base = ta.stdev(d_c, 50) < (ta.sma(d_c, 50) * 0.10)
-bool  is_pos_accum = bs_is_obv_bo and bs_is_obv_trending_up and bs_is_price_lagging and bs_is_flat_base and weinstein_setup and vcp_ok_bo and dailyRsi <= pos_accum_rsi_max
+
+// ── PRICE-ACTION catalyst gates (v67.5 2026-06-03 — replace lagging indicators,
+//    synced to bull_screener.py). ──────────────────────────────────────────
+int bs_pa_dir_cnt = 0
+for _kk = 0 to 13
+    if not na(d_c[_kk]) and not na(d_o[_kk]) and not na(d_h[_kk + 1])
+        if d_c[_kk] > d_o[_kk] and d_h[_kk] > d_h[_kk + 1]
+            bs_pa_dir_cnt += 1
+bool bs_pa_dir_ok = bs_pa_dir_cnt >= 7                       // replaces hunter_adx_ok
+bool bs_pa_wk_mom = not na(wClose[5]) and wClose > wClose[5] // replaces wRsiVal >= min
+bool bs_pa_not_extended = na(d_c[5]) or d_c <= d_c[5] * 1.05 // replaces dailyRsi <= max
+
+bool  is_pos_accum = bs_is_obv_bo and bs_is_obv_trending_up and bs_is_price_lagging and bs_is_flat_base and weinstein_setup and vcp_ok_bo and bs_pa_not_extended
 
 // --- Daily CPR (Central Pivot Range) — close > Top Central Pivot ---
 // Ported from Commander Bull Screener v3.1 lines 998-1002
@@ -3703,7 +3738,8 @@ float _bs_range_10 = ta.highest(d_h, 10) - _bs_lo_10
 float _bs_pos_10 = _bs_range_10 > 0 ? (d_c - _bs_lo_10) / _bs_range_10 : 0.5
 bool  _bs_pa_oversold = _bs_3bar_down and _bs_pos_10 < 0.20
 bool  bs_stage1_or_2 = (stageID == "STAGE 1 (BASE)") or (stageID == "STAGE 2 (UP)")
-bool  is_mean_rev = _bs_pa_oversold and d_v > d_vavg * 1.5 and d_c < d_ema20_val and bs_stage1_or_2 and wRsiVal > 40
+// v67.5: dropped wRsiVal>40 (redundant with bs_stage1_or_2 — pure PA).
+bool  is_mean_rev = _bs_pa_oversold and d_v > d_vavg * 1.5 and d_c < d_ema20_val and bs_stage1_or_2
 
 // --- CATALYST RESOLUTION — Bull Screener priority order (verbatim mirror) ---
 int catalyst_id = 0
@@ -3711,7 +3747,8 @@ if is_pos_accum
     catalyst_id := 1
     chartCat := "POS-ACCUM"
     chartCatCol := color.new(#26a69a, 0)
-else if weinstein_setup and bs_isBreakout and wRsiVal >= hunter_weekly_rsi_min and hunter_adx_ok
+// v67.5: wRsiVal>=min + hunter_adx_ok -> bs_pa_wk_mom + bs_pa_dir_ok (pure PA).
+else if weinstein_setup and bs_isBreakout and bs_pa_wk_mom and bs_pa_dir_ok
     catalyst_id := 2
     chartCat := "POS-BO"
     chartCatCol := color.blue
@@ -4265,7 +4302,7 @@ f_check_x(float c, float c1, float e, float e1) =>
 
 // Alpha Score Calculator (0 to 100)
 // Evaluates: Trend Structure (30), Momentum (30), Volume (20), Safety (20)
-f_calc_alpha_score(float c, float o, float ema20, float sma50, float rsi, float v, float va, bool adx) =>
+f_calc_alpha_score(float c, float o, float ema20, float sma50, float v, float va) =>
     float _score = 0.0
     if not na(c)
         // 1. Trend Structure (Max 30)
@@ -4273,13 +4310,21 @@ f_calc_alpha_score(float c, float o, float ema20, float sma50, float rsi, float 
             _score += 15
         if c > sma50
             _score += 15
-            
-        // 2. Momentum (Max 30)
-        if rsi > 60
+
+        // 2. Momentum (Max 30) — PRICE ACTION (v67.5 2026-06-03: replaces RSI/ADX)
+        // PA momentum (replaces RSI>60/50): close above its 10- and 5-bar-ago values.
+        bool _m10 = c > close[10]
+        bool _m5  = c > close[5]
+        if _m10 and _m5
             _score += 20
-        else if rsi > 50
+        else if _m10
             _score += 10
-        if adx
+        // PA directional strength (replaces ADX): >=7 of last 14 bars up + higher high.
+        int _dir = 0
+        for _i = 1 to 14
+            if close[_i] > open[_i] and high[_i] > high[_i + 1]
+                _dir += 1
+        if _dir >= 7
             _score += 10
             
         // 3. Volume Thrust (Max 20)
@@ -4370,6 +4415,23 @@ else
         roomStr := str.tostring(distToOvh, "#.1") + "% (vs " + str.tostring(math.round_to_mintick(ovhPrice)) + ")"
         roomCol := distToOvh < 5.0 ? color.new(#ff9800, 0) : color.new(#26a69a, 0)
 
+// v67.4.13: prospective Gate-3 R:R preview for setups with NO entry profile set
+// (finalEntry == 0, so the active-trade "Current R:R" row never fires). Estimates
+// entry = close, SL = close − 2.5 × ATR(14) (consistent with the 14-day ATR stop
+// methodology), reward = distance to nearest overhead level (ovhPrice). It is an
+// ESTIMATE only ("~" prefix) and is appended to the LEVELS / ROOM compact row —
+// it does NOT create/modify any entry/SL profile and does NOT touch RRG logic.
+string setupRRStr = ""
+if finalEntry == 0 and atrVal > 0 and close > 0
+    float _estEntry = close
+    float _estRisk  = atrVal * 2.5
+    if _estRisk > 0
+        if resistCount == 0 or na(ovhPrice)
+            setupRRStr := " · ~R:R open ▲"
+        else if ovhPrice > _estEntry
+            float _estRR = (ovhPrice - _estEntry) / _estRisk
+            setupRRStr := " · ~R:R " + str.tostring(_estRR, "#.1") + "R"
+
 // --- RRG helpers (v67.4.1: compressed — JdK centered, RRG plane projection).
 // Inputs centered on 0 (RS_Ratio-100 / RS_Momentum-100). Same >0 semantics
 // as legacy Mansfield. See changelog for backtest rationale (n=5,460).
@@ -4393,7 +4455,7 @@ f_rrg_info(float v, float m, float vt, float mt) =>
         nxt := dm >  0.3 ? "IMPROVING" : (dv >  0.3 and dm > -0.3 ? "WEAKENING" : cur)
     else
         nxt := dv >  0.3 ? "LEADING"   : (dm < -0.3 and dv <  0.3 ? "LAGGING"   : cur)
-    string arrow = dv > 0.3 ? (dm > 0.3 ? "↗" : dm < -0.3 ? "↘" : "→") : dv < -0.3 ? (dm > 0.3 ? "↖" : dm < -0.3 ? "↙" : "←") : dm > 0.3 ? "↑" : dm < -0.3 ? "↓" : "•"
+    string arrow = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : dm < -0.3 ? "↙️" : "⬅️") : dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "•"
     string traj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
     // v67.4.3: recalibrated on n=5,020 new-formula backtest.
     // Score: only LEADING earns bonus (+2). Other quadrants flat in new data.
@@ -4456,14 +4518,14 @@ string compCatStr = chartCat + " · POS-BO: " + str.tostring(bs_gates_passing) +
 color  compCatCol = catalyst_id > 0 and bs_gates_passing == 9 ? color.new(#26a69a, 0) : catalyst_id > 0 ? chartCatCol : (bs_gates_passing >= 6 ? color.new(#ff9800, 0) : color.gray)
 
 // 4. WEEKLY STRUCTURE (one row, was 5-6)
-string _w_arrow = wTrendDir == 1 ? "↗" : wTrendDir == -1 ? "↘" : "↔"
+string _w_arrow = wTrendDir == 1 ? "↗️" : wTrendDir == -1 ? "↘️" : "↔️"
 string _pb_suffix = wHealthStr == "N/A" or wHealthStr == "" ? "" : (" · PB " + (wHealthStr == "HEALTHY (Low Vol)" ? "Healthy" : str.contains(wHealthStr, "NORMAL") ? "Normal" : "Weak"))
 string compWeeklyStr = stageDisplay + (isStage2Family ? " · " + str.tostring(stageWeeks) + "w leg/" + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "") + " · W" + _w_arrow + _pb_suffix
 color  compWeeklyCol = stageCol
 
 // 5. DAILY STRUCTURE (one row, was 5)
-string _d_arrow = dTrendDir == 1 ? "↗" : dTrendDir == -1 ? "↘" : "↔"
-string _50dma_arrow = d50SlopeState == "RISING" ? "↗" : d50SlopeState == "FALLING" ? "↘" : "↔"
+string _d_arrow = dTrendDir == 1 ? "↗️" : dTrendDir == -1 ? "↘️" : "↔️"
+string _50dma_arrow = d50SlopeState == "RISING" ? "↗️" : d50SlopeState == "FALLING" ? "↘️" : "↔️"
 string _engine_short = trend_engine_canonical ? "Engine v6.2 L" + str.tostring(pivotLeft) + "/R" + str.tostring(pivotRight) + " ✓" : "Engine ⚠ Sync Zigzag"
 string compDailyStr = "D" + _d_arrow + " · 50DMA" + _50dma_arrow + " " + (dSmaAligned ? "Aligned" : "Misaligned") + " · " + _engine_short
 color  compDailyCol = dTrendDir == 1 and dSmaAligned ? color.new(#26a69a, 0) : dTrendDir == -1 ? color.new(#ef5350, 0) : color.new(#ff9800, 30)
@@ -4485,8 +4547,8 @@ string compMomStr = "RSI " + str.tostring(currRsi, "#.#") + _div_suffix + " · "
 color  compMomCol = currRsiDiv == "BEARISH DIV" ? color.new(#ef5350, 0) : currRsiDiv == "BULLISH DIV" ? color.new(#26a69a, 0) : str.contains(volState, "ACCUMULATION") ? color.new(#26a69a, 30) : color.new(#f5f5f5, 0)
 
 // 8. LEVELS / ROOM (one row, was 4-5)
-string _ath_short = devATH < 0 or na(devATH) ? "ATH " + str.tostring(math.abs(devATH), "#.#") + "%" : "ATH↑"
-string compLvlStr = str.tostring(resistCount) + " Resist · " + roomStr + " · 52W: " + s_dev52 + " · " + _ath_short + (keyLvlState == "MID-RANGE (No Near Level)" ? "" : " · " + keyLvlState)
+string _ath_short = devATH < 0 or na(devATH) ? "ATH " + str.tostring(math.abs(devATH), "#.#") + "%" : "ATH⬆️"
+string compLvlStr = str.tostring(resistCount) + " Resist · " + roomStr + " · 52W: " + s_dev52 + " · " + _ath_short + (keyLvlState == "MID-RANGE (No Near Level)" ? "" : " · " + keyLvlState) + setupRRStr
 color  compLvlCol = str.contains(roomStr, "NO ROOM") ? color.new(#ff9800, 0) : str.contains(roomStr, "BLUE SKY") ? color.new(#26a69a, 0) : color.new(#f5f5f5, 0)
 
 // 9. STYLE / PERSONA (one row, was 2)
@@ -5080,6 +5142,22 @@ if show_csv and barstate.islast and time_ok
     log.info("\n⬇️ COPY PORTFOLIO CSV BELOW ⬇️\n\n" + csv_out + "\n⬆️ COPY PORTFOLIO CSV ABOVE ⬆️")
 
     alert("Portfolio CSV Data Generated. Check Pine Logs.", alert.freq_once_per_bar_close)
+
+// ==========================================
+// STAGE BACKGROUND COLORS
+// ==========================================
+color bg_col = na
+if showStageBg
+    if stageID == "STAGE 2 (UP)" or stageID == "STAGE 2 (PULLBACK)"
+        bg_col := color.new(color.green, 85)
+    else if stageID == "STAGE 4 (DOWN)"
+        bg_col := color.new(color.red, 85)
+    else if stageID == "STAGE 1 (BASE)"
+        bg_col := color.new(color.yellow, 85)
+    else if stageID == "STAGE 3 (TOP)"
+        bg_col := color.new(color.orange, 85)
+
+bgcolor(bg_col, title="Stage Background")
 
 
 

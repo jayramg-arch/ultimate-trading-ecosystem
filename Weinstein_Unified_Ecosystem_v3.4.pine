@@ -1749,12 +1749,13 @@ bool  pb_pocket_pa = pa_retrace >= 0.38 and pa_retrace <= 0.62
 // today's down close, contradicting close>high[1] → gate never fired.
 bool  pa_oversold_pa = close[1] < close[2] and close[2] < close[3]
 
-// v3.5 (2026-06-03): ADX (hunter_adx_ok) -> pa_dir_ok per pure-PA design.
-//   (wRSI >= hunter_weekly_rsi_min retained — weekly-RSI->PA is a separate step.)
+// v3.6 (2026-06-03, part a): ADX -> pa_dir_ok AND weekly RSI -> PA weekly
+//   momentum (wClose > wClose[5], weekly close above its 5-week-ago value).
+bool pa_wk_mom = wClose > wClose[5]
 bool pos_bo_trigger = use_bull_mode and use_pos_bo and mkt_bull and base_confirmed and alpha_ok and
                       (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and
                       volume > (vol_ma * 1.25) and
-                      wRSI >= hunter_weekly_rsi_min and pa_dir_ok
+                      pa_wk_mom and pa_dir_ok
 
 float pos_accum_sl  = lowest_low_10
 float bo_level_30   = ta.highest(high, 30)[1]
@@ -1766,12 +1767,15 @@ float obv_slope_then= ta.linreg(obv_val, 13, 13)
 bool  obv_trending_up = obv_slope_now > obv_slope_then
 
 bool is_vcp_tight   = f_is_vcp(1.0)
+bool is_vcp_accum   = f_is_vcp(1.5)   // looser VCP for POS-ACCUM (un-starve)
 
-// v2.4: B1 + B4 fix — v2 LOCK gate (pos_accum_rsi_max) actually wired in;
-//       mkt_bull regime gate added. v2.3 declared the RSI cap but never applied it.
+// v3.6 (2026-06-03, part a): daily RSI<=pos_accum_rsi_max -> PA anti-chase
+//   (close <= close[5]*1.05 — accumulation entry must not chase a sharp run-up);
+//   is_vcp_tight -> is_vcp_accum (1.5x) so accumulation isn't starved.
+bool pa_not_extended = close <= close[5] * 1.05
 bool pos_ac_trigger = use_bull_mode and use_pos_accum and mkt_bull and base_confirmed and alpha_ok and
-                      obv_trending_up and is_vcp_tight and close > (bo_level_30 * 0.9) and
-                      d_rsi <= pos_accum_rsi_max
+                      obv_trending_up and is_vcp_accum and close > (bo_level_30 * 0.9) and
+                      pa_not_extended
 
 // Swing Edges
 bool is_sqz       = f_is_bb_sqz(20)
