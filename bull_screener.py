@@ -1089,8 +1089,17 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
     elif _label.startswith("REV"):
         atr_mult = 2.5   # recovery / mean-reversion: 90d holds
     else:
-        atr_mult = 1.5   # swing (SWG-*)
-    sl = c - atr * atr_mult
+        atr_mult = 1.5   # swing (SWG-BO / SWG-GAP / SWG-REV)
+    # SWG-PB STRUCTURAL stop (Jay's rule: EMA20 is the hard floor). A pullback
+    # entry bounces off EMA20; the stop belongs just BELOW that floor, not a
+    # fixed 1.5x ATR above it (which got whipsawed → 90% SL-hit at ~7d). 2%
+    # below EMA20, floored at >= 1x ATR of room so very low-vol names aren't
+    # given a hair-trigger stop.
+    if _label == "SWG-PB":
+        _ema20_now = float(ind["ema20"].iloc[-1])
+        sl = min(_ema20_now * 0.98, c - atr * 1.0)
+    else:
+        sl = c - atr * atr_mult
     risk = c - sl
     # v1.9 (2026-05-21): Catalyst-differentiated T1/T2 — respect trade timeframe.
     # POS (positional, 2-12mo holds): 5R/10R — let winners run
