@@ -882,7 +882,10 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     #   PA throughout: bull_pullback (tag EMA20, close above, up day) + is_vcp_tight
     #   + price-action pocket (retrace) + volume dry-up.
     elif (mkt_bull and minervini and bull_pullback and is_vcp_tight and
-            pb_pocket_pa and pb_vol_dry):
+            pb_pocket_pa and pb_vol_dry and c_now > float(h.iloc[-2])):
+        # CONFIRMATION (Jay): enter on RESUMPTION, not into the falling dip —
+        # close above the prior day's high = the bounce off support is real.
+        # Filters the dead-cat bounces that were rolling over (-3.24% alpha).
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
     #   replaces RSI<35) + bullish reversal confirm (close>open and close>prior high)
