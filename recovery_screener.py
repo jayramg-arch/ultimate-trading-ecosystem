@@ -160,7 +160,7 @@ CONFIG = {
 
     # -- REV-RS ---------------------------------------------------------------
     "rs_bo_len"                : 20,    # breakout: close > highest high of last N days
-    "vol_confirm_mult"         : 1.5,   # breakout volume >= 1.5 50D average
+    "vol_confirm_mult"         : 1.25,  # breakout volume >= 1.25x 50D avg. v1.5 (2026-06-04): 1.5 was the dominant REV-EARLY/REV-RS killer (cut chain to ~2%); early-recovery breakouts often fire on moderate volume. 1.25 = still a real volume increase, not the strict VCP-pop demand.
     "rs_hl_recent"             : 5,     # v1.2: higher-low check — recent low window (bars)
     "rs_hl_prior"              : 10,    # v1.2: higher-low check — prior low window (bars before recent)
     "rs_slope_weeks"           : 4,     # v1.2: RS-line slope weeks — DEMOTED v1.3 to secondary score column (gate now on Mansfield)
@@ -793,9 +793,13 @@ def compute_rff(row: dict) -> tuple:
 # -----------------------------------------------------------------------------
 # REV-CB pillar funnel diagnostic (reset per run via reset_cb_funnel()).
 _CB_FUNNEL = {"eligible": 0, "p1": 0, "p1_p2": 0, "p1_p3": 0, "p1_p2_p3": 0, "p3_alone": 0}
+# REV-EARLY gate funnel diagnostic.
+_EARLY_FUNNEL = {"eligible": 0, "higher_low": 0, "strict_trend_up": 0,
+                 "bk_break": 0, "bk_compress": 0, "bk_voldry": 0, "breakout_chain": 0}
 
 def reset_cb_funnel():
     for k in _CB_FUNNEL: _CB_FUNNEL[k] = 0
+    for k in _EARLY_FUNNEL: _EARLY_FUNNEL[k] = 0
 
 
 def check_rev_cb(ind: dict) -> dict:
@@ -1070,11 +1074,15 @@ def check_rev_early(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
     # Today's higher-low structure (price-action replacement for near-GC + MA stack)
     if n < hl_r + hl_p + 1:
         return {"signal": 0, "signal_date": None, "details": "Insufficient history for HL check"}
+    try: _EARLY_FUNNEL["eligible"] += 1
+    except Exception: pass
     recent_low = float(l_s.iloc[-hl_r:].min())
     prior_low  = float(l_s.iloc[-(hl_r + hl_p) : -hl_r].min())
     if not (recent_low > prior_low):
         return {"signal": 0, "signal_date": None,
                 "details": f"No higher-low structure (recent {recent_low:.2f} <= prior {prior_low:.2f})"}
+    try: _EARLY_FUNNEL["higher_low"] += 1
+    except Exception: pass
 
     # v1.4 Fix #3: Strict-trend pivot gate for REV-EARLY (Pine v2.3 line 1219).
     # Pine requires rs_recovery_state = higher_low_ok AND trend_up for BOTH
@@ -1086,12 +1094,15 @@ def check_rev_early(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
     if dtrend_now != 1:
         return {"signal": 0, "signal_date": None,
                 "details": f"Strict-trend not confirmed UP (dtrend={dtrend_now})"}
+    try: _EARLY_FUNNEL["strict_trend_up"] += 1
+    except Exception: pass
 
     # Pre-compute inside-bar flags (needed per-bar inside the loop)
     inside_full = (h_s < h_s.shift(1)) & (l_s > l_s.shift(1))
 
     found_date = None
     days_ago   = None
+    _f_break = _f_compress = _f_voldry = False   # diagnostic depth flags
     for i in range(hold, 0, -1):
         pos = n - i
         if pos < max(piv_len, tl_rec + tl_win, in_lb, nr7_len) + 6:
@@ -1111,13 +1122,14 @@ def check_rev_early(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
         if tl_slice.empty:
             continue
         tl_high = tl_slice.max()
-        if not (c_i > tl_high):
-            continue
-
         # Pivot breakout (15-day high)
         piv_high = h_s.iloc[pos - piv_len: pos].max()
-        if not (c_i > piv_high):
+        # v1.5 (2026-06-04): trendline reclaim OR 15-day-high breakout (was AND).
+        # Both mean "new local high" — requiring BOTH was redundant and collapsed
+        # the early-bird breakout to ~1%. EITHER break = the downtrend is broken.
+        if not (c_i > tl_high or c_i > piv_high):
             continue
+        _f_break = True
 
         # Base compression: NR7 OR ≥N inside bars in last 10
         bar_range_i = h_s.iloc[pos] - l_s.iloc[pos]
@@ -1127,18 +1139,30 @@ def check_rev_early(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
         inside_count = int(inside_full.iloc[pos - in_lb : pos].sum())
         if not (is_nr7 or inside_count >= in_min):
             continue
+        _f_compress = True
 
-        # VCP dry-up: 5D vol average BEFORE this bar (kept — structural & correct)
+        # VCP dry-up: 5D vol average BEFORE this bar. v1.5 (2026-06-04): DEMOTED
+        # from a hard gate to a quality flag. Requiring a quiet base AND a 1.5x
+        # volume pop was the VCP-perfect signature — too strict for an EARLY
+        # recovery turn (collapsed the chain 6.2% -> 2.1%). Volume EXPANSION on
+        # the breakout is kept as the confirmation; the quiet base is optional.
         vol5_pre = vol_s.iloc[pos - 5: pos].mean()
-        if not (vol5_pre < vm_i):
-            continue
+        if vol5_pre < vm_i:
+            _f_voldry = True
 
-        # Volume expansion on breakout
+        # Volume expansion on breakout (the breakout confirmation we keep)
         if not ((vol_i / vm_i) >= vm):
             continue
 
         found_date = c_s.index[pos]
         days_ago   = i - 1
+    # diagnostic: how far did the deepest qualifying bar get? (once per stock)
+    try:
+        if _f_break:    _EARLY_FUNNEL["bk_break"] += 1
+        if _f_compress: _EARLY_FUNNEL["bk_compress"] += 1
+        if _f_voldry:   _EARLY_FUNNEL["bk_voldry"] += 1
+        if found_date is not None: _EARLY_FUNNEL["breakout_chain"] += 1
+    except Exception: pass
 
     if found_date is None:
         return {"signal": 0, "signal_date": None,
