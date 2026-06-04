@@ -1084,17 +1084,19 @@ def check_rev_early(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
     try: _EARLY_FUNNEL["higher_low"] += 1
     except Exception: pass
 
-    # v1.4 Fix #3: Strict-trend pivot gate for REV-EARLY (Pine v2.3 line 1219).
-    # Pine requires rs_recovery_state = higher_low_ok AND trend_up for BOTH
-    # REV-RS and REV-EARLY. v1.3 only applied this to REV-RS.
+    # v1.5 (2026-06-04, Jay): EARLY-BIRD — strict-trend DROPPED as a hard gate.
+    # The pivot strict-trend is effectively binary (a bottoming stock reads -1
+    # until a new HH+HL confirms +1), so requiring it = "confirmed uptrend" =
+    # LATE. The early signal is a higher-low PRINTING while pivots still read
+    # downtrend, then a breakout. So the BREAKOUT itself (below) is the turn
+    # confirmation — earlier than the lagging strict-trend. False positives are
+    # held down by: rs_positive + higher_low + breakout above resistance +
+    # compressed base + volume expansion. dtrend kept only as a quality flag.
     dtrend = compute_strict_trend(h_s, l_s,
                                    piv_left=CONFIG.get("piv_d_left", 2),
                                    piv_right=CONFIG.get("piv_d_right", 2))
     dtrend_now = int(dtrend.iloc[-1]) if not dtrend.empty and not pd.isna(dtrend.iloc[-1]) else 0
-    if dtrend_now != 1:
-        return {"signal": 0, "signal_date": None,
-                "details": f"Strict-trend not confirmed UP (dtrend={dtrend_now})"}
-    try: _EARLY_FUNNEL["strict_trend_up"] += 1
+    try: _EARLY_FUNNEL["strict_trend_up"] += 1   # (no longer gates; tracked for funnel)
     except Exception: pass
 
     # Pre-compute inside-bar flags (needed per-bar inside the loop)
