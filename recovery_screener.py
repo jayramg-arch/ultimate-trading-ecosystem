@@ -151,7 +151,8 @@ CONFIG = {
     # -- REV-CB (v1.2: pure price action) -------------------------------------
     "cb_vol_mult"              : 2.0,   # Pillar 3: climax volume >= 2.0× 50D average
     "cb_lookback_high_days"    : 60,    # Pillar 1: drawdown lookback window (bars)
-    "cb_drawdown_pct"          : 15.0,  # Pillar 1: ≥N% drawdown from 60D high. RESTORED 25→15 (2026-06-04): 25% caught only 2% of stocks (extreme crashes only); 15% = ~20% (realistic beaten-down universe for catching quality on sale). Climax still gated by P2 washout + P3 panic-vol.
+    "cb_drawdown_pct"          : 15.0,  # Pillar 1 LOWER bound: ≥N% drawdown from 60D high (beaten-down enough to matter).
+    "cb_drawdown_max_pct"      : 35.0,  # Pillar 1 UPPER bound (Jay 2026-06-04): ≤N% drawdown. The 15-35% BAND = quality on sale; >35% = falling knife / deeper trouble the market sees, skip even if trailing fundamentals look strong.
     "cb_washout_window"        : 10,    # Pillar 2: red-bar count window (v1.3: 7 → 10, aligns with Pine cb_range_lookback unification)
     "cb_washout_red_count"     : 5,     # Pillar 2: ≥N of last cb_washout_window bars red (was RSI14<30)
     "cb_range_lookback"        : 10,    # Pillar 3: "widest range in N bars" (v1.3: 20 → 10, aligns with Capitulation Screener v1.3)
@@ -826,7 +827,8 @@ def check_rev_cb(ind: dict) -> dict:
     hold  = CONFIG["signal_hold_days"]
     cwin  = CONFIG["cb_climax_window"]
     vm    = CONFIG["cb_vol_mult"]
-    dd    = CONFIG["cb_drawdown_pct"] / 100
+    dd     = CONFIG["cb_drawdown_pct"] / 100
+    dd_max = CONFIG["cb_drawdown_max_pct"] / 100
     lb_h  = CONFIG["cb_lookback_high_days"]
     w_win = CONFIG["cb_washout_window"]
     w_red = CONFIG["cb_washout_red_count"]
@@ -838,10 +840,11 @@ def check_rev_cb(ind: dict) -> dict:
     c_full = ind["close"]; h_full = ind["high"]; l_full = ind["low"]
     o_full = ind["open"];  v_full = ind["volume"]; vm_full = ind["vol_ma"]
 
-    # Pillar 1: drawdown from rolling 60-bar high
+    # Pillar 1: drawdown from rolling 60-bar high — must be in the 15-35% BAND
+    # (Jay: quality on sale, not a falling knife). Above dd_max is excluded.
     lookback_high = h_full.rolling(lb_h).max()
     drawdown      = (lookback_high - c_full) / lookback_high.replace(0, np.nan)
-    p1_full       = drawdown >= dd
+    p1_full       = (drawdown >= dd) & (drawdown <= dd_max)
 
     # Pillar 2: red-bar count + range position (pure price)
     red           = (c_full < o_full).astype(int)
