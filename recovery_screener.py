@@ -1220,11 +1220,16 @@ def compute_exit_levels(ind: dict, signal: int, climax_low: float = np.nan) -> d
     s200  = ind["sma200"].iloc[-1]
     h52w  = ind["high52w"].iloc[-1]
     low10 = ind["low"].iloc[-10:].min()
+    low20 = ind["low"].iloc[-20:].min()
 
     if signal == 2 and not np.isnan(climax_low):
         sl = climax_low - atr * 0.5
     else:
-        sl = low10 - atr * 0.2
+        # v1.6 (2026-06-04): REV-RS/EARLY SL widened low10-0.2ATR -> low20-0.5ATR.
+        # The tight 10-day-low stop was hit by routine pullbacks on the 90-day
+        # hold (62% SL-hit) BEFORE trades reached their +9.84% avg runup. A
+        # 20-day-low structural stop survives normal consolidation.
+        sl = low20 - atr * 0.5
 
     if sl >= c:                             # safety floor: SL must be below close
         # v1.6 (2026-05-21): widened fallback from 1.5x to 2.5x daily ATR.
