@@ -4,6 +4,14 @@
 
 ---
 
+## ⚡ June 2026 — Additions (Phase 0/1)
+
+- **AUTOPSY page → 📐 Attribution tab (NEW):** renders `performance_attribution.run_attribution()` — headline realized-P&L metrics + a data-quality/honesty line (cash-park excluded, quarantined rows, snapshot coverage) + per-dimension tables led by the entry-signal drivers (setup / stage / alpha / RS / conviction). Reads the journal DB directly, no network. See **Journal & Attribution guide (19)**.
+- **Journal ↔ Dhan daily sync** runs *outside* the web app as a scheduled Windows task (`TradingJournal_DhanSync`, 4:30 PM IST) — the web journal page reads the already-synced DB.
+- The screeners launched here (`bull_screener.py`, `recovery_screener.py`) are now **pure price action** (bull) and **RFF-fundamentally-gated** (recovery) — see guides 11 and 09.
+
+---
+
 ## 1. Architecture Overview
 
 `weinstein_commander_web_v4.0.py` is a **Flask web server** that runs locally (typically on `http://localhost:5000`) and exposes a multi-tab browser interface. The app coordinates several Python modules:

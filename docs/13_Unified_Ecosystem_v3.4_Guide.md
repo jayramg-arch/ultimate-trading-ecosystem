@@ -7,6 +7,25 @@
 
 ---
 
+## ⚡ June 2026 — PURE PRICE-ACTION SYNC (read this first; supersedes the catalyst/alpha sections below)
+
+This file was synced to the canonical price-action `bull_screener.py`. **The bull catalyst triggers and the Alpha Score no longer use RSI / ADX** — they were converted to pure price action and must stay matched to Python. **Recompile in TradingView after pulling.** What changed in this `.pine`:
+
+| Gate | Was (lagging indicator) | Now (pure price action) |
+|---|---|---|
+| `f_calc_alpha_score` momentum | `rsi > 60 / > 50` | `close > close[10]` **and** `close > close[5]` (N-bar momentum) |
+| `f_calc_alpha_score` strength | `adx_strong` | `≥ 7 of last 14 bars` up + higher high (`pa_dir`) |
+| `pos_bo_trigger` directional | `hunter_adx_ok` (ADX≥25) | `pa_dir_ok` (same 7/14 structure) |
+| `pos_bo_trigger` weekly | `wRSI ≥ hunter_weekly_rsi_min` | `pa_wk_mom` = `wClose > wClose[5]` |
+| `pos_ac_trigger` anti-chase | `d_rsi ≤ pos_accum_rsi_max` | `pa_not_extended` = `close ≤ close[5]×1.05`; VCP loosened to `f_is_vcp(1.5)` (un-starve) |
+| `swing_pb_trg` pocket | `pb_rsi_ok` (RSI 30-70) | `pb_pocket_pa` (38-62% retrace) |
+| `swing_rev_trg` oversold | `oversold_rsi` (RSI<35) | `pa_oversold_pa` (prior 2-3 lower closes; reversal bar) |
+| Alpha macro-edge | — | volume regime ±10/−20 (added for Python parity) |
+
+**Also fixed structurally:** the `weinstein_setup` base gate no longer AND-s in the squeeze (`ma_sqz`/`bb_sqz`) — that bug nullified the entire positional book for 24 months. `d_rsi`/`wRsiVal` remain only as *display/ML-feature* values, never in a gate. The Python (`bull_screener.py`) is the source of truth; this `.pine` mirrors it. See **Bull Screener guide §0** for the full rosetta and the validated per-catalyst edge.
+
+---
+
 ## What's New in v3.4 — ML Integration, Wyckoff & DB Sync
 
 v3.4 represents a major evolution of the Unified Ecosystem, introducing machine learning probability scoring, physical database syncing, and Wyckoff accumulation logic.

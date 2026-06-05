@@ -23,17 +23,12 @@
 >    a prerequisite. **What discretion never overrides:** the macro/sector/score/structure HARD FLOORS
 >    (Steps 1–7) and the sizing/SL discipline (Step 9). You may use judgement on *entry timing*; never on
 >    regime, conviction, or risk.
-> 2. **POS-ACCUM is ENABLED everywhere — ignore the stale "disabled" comment.** It fires identically across
->    all three surfaces: **Pine Bull Screener** (in-file **v3.3**, line ~1466 `if is_pos_accum → catalyst_id := 1`),
->    **`bull_screener.py` v1.10** (`cat_id = 1; cat_label = "POS-ACCUM"`), and the **Unified Ecosystem v3.6**
->    (`pos_ac_trigger`). All three gate it the same way: **`dailyRsi / d_rsi ≤ 50`** (`pos_accum_rsi_max = 50`)
->    to avoid the late-stage chase trap. **Trap to know:** the `Commander_Bull_Screener_v3.2.pine` *file
->    header CHANGELOG* still says "POS-ACCUM DISABLED … `false and is_pos_accum`" — that comment is **stale**;
->    the live code one screen down does **not** have the `false and` guard. It was disabled for ~1 day (v3.2,
->    20 May) then rolled back (v3.3, 21 May) because the −10.04% backtest that justified the removal used a
->    **30-day window** — invalid for a 6–8-month Stage 1→2 accumulation setup. Python also keeps a
->    `pos_accum_rsi_nullout` score hook, but it's effectively moot since the catalyst already requires RSI ≤ 50
->    to fire. **Trust the code, not the file header.** See [[validation-window-mismatch-warning]].
+> 2. **POS-ACCUM is ENABLED everywhere — and is now PURE PRICE ACTION (June 2026).** It fires identically across
+>    `bull_screener.py`, the Pine Bull Screener v3.3, and the Unified Ecosystem. The anti-chase gate is no longer
+>    an RSI cap: **`dailyRsi ≤ 50` was replaced by `pa_not_extended` = `close ≤ close[5] × 1.05`** (don't enter an
+>    already-extended accumulation), and its VCP was loosened to `f_is_vcp(1.5)` so quiet accumulation isn't
+>    starved. In the 24-month nifty500 validation POS-ACCUM is the **strongest catalyst (+3.20% matched alpha)**.
+>    Any older note describing "POS-ACCUM gated `d_rsi ≤ 50`" is superseded — the gate is now price action.
 > 3. **Exit-table doc lag.** Both Bible §8 and the Unified Ecosystem guide §3 *say* v3.6 widened trails
 >    (POS-BO Chandelier 3.0×→4.5×, swing trail EMA20→SMA50, swing targets 5R/10R→3R/5R @33%), but their
 >    detailed body tables still show the legacy 3.0×/2.5R/3.5R/EMA20 values. **Trust the input defaults in

@@ -4,6 +4,20 @@
 
 ---
 
+## ⚡ June 2026 — PURE PRICE-ACTION SYNC (read first; supersedes the Alpha-Score / catalyst gates below)
+
+The Dashboard's **Alpha Score (`f_calc_alpha_score`) and its catalyst gates were converted to pure price action** to match `bull_screener.py` and the Unified Ecosystem. **Recompile in TradingView.** Same conversions as the Unified Ecosystem (see that guide §⚡ or Bull Screener §0):
+- Alpha Score: RSI→`close>close[10]&[5]` momentum; ADX→`≥7/14 up-bars` (`_dir`).
+- `is_pos_accum`: `dailyRsi≤max` → `bs_pa_not_extended` (`close≤close[5]×1.05`).
+- POS-BO leg: `wRsiVal≥min + hunter_adx_ok` → `bs_pa_wk_mom + bs_pa_dir_ok`.
+- `is_mean_rev`: dropped `wRsiVal>40` (redundant with stage-1/2).
+- `bs_rsi_w_strong` (SWG-PB gate): `wRsiVal>60` → `bs_pa_wk_mom`.
+- Display/exit RSI uses (scale-in/trim `>75`, `c_mom>50`, `is_extended>75`, the +5 momentum bonus) → 5-day price-change PA equivalents.
+
+`dailyRsi`/`wRsiVal`/`d_rsi` remain **display-only / ML-feature** values — not in any gate. `f_calc_alpha_score` in this file was also dead code in one path; the live alpha path is now PA. Everything below describing RSI/ADX in *gates* is superseded by this section.
+
+---
+
 ## What's New in v67.4.5 → v67.4.12 — Price Action Field Overhaul (24 May 2026)
 
 The PA field underwent a complete audit, design-bug elimination, and data-driven re-tuning campaign — the largest single revision since v67.0. All changes are backed by N500 × 5-year validation runs (~180,000 trades) using a horizon-matched alpha measurement framework (`pa_field_validator.py` + `validate_pa_field.py`). **Six commits across the campaign; full per-version changelogs preserved inside the Pine file.**
