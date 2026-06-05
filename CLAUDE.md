@@ -875,4 +875,53 @@ SWG-PB (Stage-2 Pullback) was the DOMINANT catalyst in May (56–66 picks/run) b
 
 ---
 
+## 4–5 June 2026 — MEGA SESSION: PA Conversion + Recovery Strengthening + Docs (HANDOFF)
+
+> This was an enormous multi-thread session. Everything below is the authoritative state. Branch **`phase0-1-attribution-journal-snapshot`** (~50 commits, all PUSHED to origin, **NOT merged to main**).
+
+### A. Phase 0/1 SHIPPED (journal/attribution)
+- `performance_attribution.py` — realized-P&L decomposition across 11 dims incl. entry-signal drivers; quarantines incomplete rows (no NaN→0); signed-share-of-gross contribution. Wired into AUTOPSY page (5th "📐 Attribution" tab in `weinstein_commander_web_v4.0.py`).
+- `journal_enrichment.py` — lean 6-col entry snapshot (setup/entry_stage/entry_alpha/entry_rs/entry_conviction/snapshot_meta) via `bull_screener.screen_symbol()`. Auto-captures on new OPEN trades (hook in `dhan_journal_v7.upsert_trade`).
+- **Journal exit reconcile** — recovered 17 missing exits via Dhan API; fixed 2 silent bugs in `ai_reconcile_engine.fetch_trade_history` (token-outside-try; securityId→ticker via new `dhan_symbols.get_nse_secid_to_symbol`). True baseline: **−₹4,99,283 / 25.6% win / 0.24 PF** (was flattered to −₹39k by missing data). METALIETF/HDFCSML250 tranche reconstruction. Cash-park (LIQUID*) excluded.
+- `journal_sync.py` — daily journal↔Dhan holdings reconcile (ADD/UPDATE/CLOSE-with-verified-exit; aborts if book empty). **Scheduled: Windows Task `TradingJournal_DhanSync`, daily 4:30 PM IST**, logs `logs/journal_sync.log`. Journal OPEN now = live book (8 positions; DMART closed @4137.20).
+- **RELIANCE = Stage 4 violation, still OPEN** — Jay's trade to exit (~₹1.92L → rotate to Golden Picks). DMART already exited.
+
+### B. THE BIG ONE — Bull catalyst blackout + Pure Price-Action conversion
+- **Root cause of "catalysts disappeared":** `bull_screener.weinstein_setup` AND-ed `ma_sqz+bb_sqz` (squeeze) into the POS base gate — mutually exclusive with breakout → **0 POS picks for 24 months** (recent regression vs Pine line 1622). Also SWG-PB stripped of quality gates; SWG-REV had a logic contradiction.
+- **Jay's directive (CANONICAL):** replace lagging indicators (RSI/MACD/BB/ADX) with **pure price action wherever possible**; don't break logic; don't over-tighten (multi-level funnel compounds).
+- **Direction reconciled:** Python price-action is CANONICAL; Pine synced UP to it (not the reverse). I initially mis-synced (imported Pine's ADX/RSI) and reverted to PA.
+- **Indicator→PA map:** RSI>60/50 → close>close[10]&[5]; ADX → ≥7/14 up-bars w/ higher highs; weekly RSI → wClose>wClose[5]; POS-ACCUM RSI≤50 → close≤close[5]×1.05; SWG-PB RSI-pocket → 38-62% retrace; SWG-REV RSI<35 → prior 3-bar-down + reversal bar.
+- **Synced across:** `bull_screener.py` + `Weinstein_Unified_Ecosystem_v3.4.pine` + `Commander_Bull_Screener_v3.2.pine` + `Weinstein and Swing Pro Dashboard v67.4.12.pine`. **Pine files were INCONSISTENT with each other** (Commander alpha was already PA; Unified+v67 weren't) — now harmonized. **Jay confirmed he recompiled all 3 in TradingView — they compiled clean.**
+- Macro-edge volume term added to Python alpha for parity. Catalyst FUNNEL diagnostics added (bull + recovery) — the tool that found every blackout.
+- **Validated edge (24mo nifty500, matched windows, per-family):** POS-ACCUM +3.20%, SWG-BO +1.80%, SWG-REV +0.95%, POS-BO +0.60%. Pooled looks weak only due to composition (SWG-PB drag). Edge concentrated in DOWN tapes (defensive profile).
+
+### C. SWG-PB — PARKED (Jay's favourite, but regime-mismatched)
+Diagnosed exhaustively: signal finds upside (+9.84% runup) but 90% stopped early; tried wider stop (worse), quality gates (alpha_ok over-restricts pullbacks), confirmation bar, 60d window, EMA20-structural-floor stop. **Robustly negative — it's a momentum-continuation setup in a corrective regime (wrong tool now).** Current gates: minervini + bull_pullback + is_vcp_tight + pb_pocket_pa(38-62%) + pb_vol_dry + close>prior-high; stop = EMA20 floor; window 60d. Needs regime-conditioning (only fire in confirmed up-trends) — future work.
+
+### D. Recovery STRENGTHENED (Jay: "only fundamentally strong beaten-down stocks")
+- **RFF hard gate 1→4/6** (`rff_min_score`) — only fundamentally strong; INSUFFICIENT blocked. RFF Tier-A 6 checks + Tier-B bonus. (recovery_screener.py)
+- **REV-CB drawdown 25% → 15–35% BAND** (`cb_drawdown_pct`=15, `cb_drawdown_max_pct`=35) — quality on sale not falling knives. Climax detect 0.5%→5.2%.
+- **REV-EARLY un-blackouted (0→firing):** breakout AND→OR, vol-dry-up demoted to optional, `vol_confirm_mult` 1.5→1.25, and **strict-trend-UP gate DROPPED** (binary → made it "late"; breakout is now the early turn-confirm).
+- **REV-RS stop widened** low10-0.2ATR → low20-0.5ATR (62% SL-hit on 90d hold before +9.84% runup). Shares SL with REV-EARLY.
+- **Edge validated (90d windows): positive in DOWN/recovering tapes** — REV-CB +1.72%, REV-EARLY +0.68%, REV-RS -1.07% (weak link). Negative in up-tapes (correct — don't run recovery in a bull market). **Live screen: 7 signals, all RFF≥4.**
+- **Pine = intentional RFF-Lite** (TradingView 5-call ceiling). Trade recovery off PYTHON, not Pine.
+
+### E. Infra: `data_provider.py` hard download timeout
+`yf.download` wrapped in daemon thread + `join(timeout)` (30s/60s) — a stalled yfinance connection froze a run ~15h. Now aborts → fallback. Protects all runs + the daily journal sync. **New params: `YF_DOWNLOAD_TIMEOUT_S`.**
+
+### F. ⏳ DETACHED RUN IN FLIGHT
+`nohup python validation.py --months 24 --universe nifty500 --screener recovery --catalyst_windows` (PID 2205) → **log: `validation_runs/_rev_rs_rerun.log`**. Confirms the REV-RS stop fix (alpha by tape + SL-hit% drop). Recovery runs take ~2-3h (per-anchor fundamental fetches). **Next session: read that log, run `catalyst_regime_partition.py` on the new LAST_RUN.**
+
+### G. Docs (in progress — Jay: "rewrite all guides by reading modules")
+- ✅ DONE (rewritten from code): `docs/11_Bull_Screener_v3_3_Guide.md` (new, removed v3_2), `docs/09_Recovery_Screener_v2_1_Guide.md` (new, removed v2_0), `docs/16_Validation_Framework_Guide.md` (rewritten in place), `docs/00_INDEX.md` (updated). `01_Swing_Zigzag` was already done by Jay.
+- ⏳ REMAINING: `13_Unified_Ecosystem` (~1040L) + `08_Dashboard_v67` (~1030L) — agreed plan: **targeted PA-sync** of catalyst/alpha sections (not full rewrite — most content still valid). `07_Commander_Web_v4` (add Attribution tab). `19` NEW Journal/Attribution guide. `18_Trade_Checklist` (stale POS-ACCUM RSI refs → PA). Verify unchanged: 02/03/04/10/12/15 (didn't change this session).
+
+### H. THE RECURRING LESSON (saved to memory)
+Across POS-BO, SWG-PB, REV-RS: **the signals find edge; tight stops on long holds give it back.** Signal generation > exit calibration. Always read backtest verdicts PER-FAMILY × DIRECTION, never pooled. Never judge a positional/recovery setup on a 30-day window. Price-action is canonical; sync Pine UP to Python.
+
+### Next Priority Work
+(a) Read `_rev_rs_rerun.log`, confirm REV-RS, partition. (b) Finish docs (13/08 targeted PA-sync, 07, new 19, 18). (c) RELIANCE Stage-4 exit. (d) REV-RS weak-link + SWG-PB regime-conditioning. (e) Merge branch → main. (f) Optional: strip diagnostic funnels; per-family OOS gate before Phase 3.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
