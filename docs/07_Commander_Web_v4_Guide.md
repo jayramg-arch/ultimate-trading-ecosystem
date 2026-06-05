@@ -25,13 +25,13 @@ weinstein_commander_web_v4.0.py  ← Main Flask app / UI router
 
 ### Tab 1: Portfolio Sync
 
-**Purpose:** Fetches your live Dhan portfolio holdings and automatically injects them into the Dashboard v67.0 Pine script.
+**Purpose:** Fetches your live Dhan portfolio holdings and automatically injects them into the Dashboard v67.4.12 Pine script.
 
 **What it does:**
 1. Authenticates with Dhan API using credentials from environment variables
 2. Fetches all open positions (`/positions` API endpoint)
 3. Maps each holding to: ticker symbol (NSE format), average entry price, current stop-loss, sector index (via `sector_manager.py`), and entry date
-4. Writes these values directly into the `Weinstein and Swing Pro Dashboard v67.0.pine` file's input section — between the `<PORTFOLIO_START>` and `<PORTFOLIO_END>` markers
+4. Writes these values directly into the `Weinstein and Swing Pro Dashboard v67.4.12.pine` file's input section — between the `<PORTFOLIO_START>` and `<PORTFOLIO_END>` markers
 5. Fills portfolio slots 1–30 in order of position size (largest first)
 
 **How to use:**
@@ -106,7 +106,7 @@ weinstein_commander_web_v4.0.py  ← Main Flask app / UI router
 
 ### Tab 4: Bull Screener
 
-**Purpose:** Runs the `bull_screener.py` logic — a port of the Beta Screener's 6 Minervini/Weinstein catalysts — across the NSE universe.
+**Purpose:** Runs the `bull_screener.py` logic — a port of the Bull Screener v3.2's 6 Minervini/Weinstein catalysts — across the NSE universe.
 
 **What it screens for:**
 | Catalyst | Code | Description |
@@ -137,7 +137,7 @@ weinstein_commander_web_v4.0.py  ← Main Flask app / UI router
 
 ### Tab 4.5: 🤖 Run Full Auto-Pilot — The Daily Watchlist Pipeline
 
-**Purpose:** A single-click pipeline that chains every Python scanner, runs the conviction matcher, and writes dated watchlist files to `Generated_Watchlists/`. This is the canonical way to produce your daily Bull and Recovery watchlists; do **not** confuse the watchlist files this produces with the open-portfolio slots in Dashboard v67.0 (those are exclusively for live positions — see `08_Dashboard_v67_Guide.md`).
+**Purpose:** A single-click pipeline that chains every Python scanner, runs the conviction matcher, and writes dated watchlist files to `Generated_Watchlists/`. This is the canonical way to produce your daily Bull and Recovery watchlists; do **not** confuse the watchlist files this produces with the open-portfolio slots in Dashboard v67.4.12 (those are exclusively for live positions — see `08_Dashboard_v67_Guide.md`).
 
 **What it does, step by step:**
 
@@ -180,7 +180,7 @@ weinstein_commander_web_v4.0.py  ← Main Flask app / UI router
 5. Open TradingView; the watchlists are now ready for the Beta Edition v2.9 screener pass (Phase 3 of the daily workflow)
 
 **Important — what these watchlists are NOT:**
-- They are **not portfolio slots**. Do not paste these into Dashboard v67.0's portfolio slots 1–30 — those are reserved for OPEN positions tracked from Dhan.
+- They are **not portfolio slots**. Do not paste these into Dashboard v67.4.12's portfolio slots 1–30 — those are reserved for OPEN positions tracked from Dhan.
 - They are **not auto-traded**. The pipeline only generates and ranks; entry decisions go through the full Phase 3 (Pine re-screening) + Phase 4 (Unified Ecosystem signal-fire) workflow.
 
 ---
@@ -226,12 +226,12 @@ weinstein_commander_web_v4.0.py  ← Main Flask app / UI router
 
 ### `recovery_screener.py`
 - Implements the REV-CB, REV-RS, and REV-EARLY detection logic in Python using `pandas` + `yfinance` (or Dhan's historical data API)
-- Matches the logic in `Commander_Capitulation_Screener_v1.5.pine` precisely
+- Matches the logic in `Commander_Recovery_Screener_v2.0.pine` precisely
 - Outputs a `pd.DataFrame` sorted by Recovery Score
 - **Performance:** Scans 500 stocks in approximately 3–5 minutes with caching enabled
 
 ### `bull_screener.py`
-- Implements all 6 Minervini/Weinstein catalysts from `Commander_Screener_Beta_Edition_v2.6.pine`
+- Implements all 6 Minervini/Weinstein catalysts from `Commander_Bull_Screener_v3.2.pine`
 - Uses the same Alpha Score formula (0–100) as the Pine script
 - Outputs a `pd.DataFrame` with all 30 screener columns mirrored from the Pine script
 
@@ -254,7 +254,7 @@ pip install flask pandas yfinance requests python-dotenv
 ```
 DHAN_CLIENT_ID=your_client_id
 DHAN_ACCESS_TOKEN=your_access_token
-PINE_SCRIPT_PATH=C:\Users\jayra\Documents\GeminiVSCode\Weinstein and Swing Pro Dashboard v67.0.pine
+PINE_SCRIPT_PATH=C:\Users\jayra\Documents\GeminiVSCode\Weinstein and Swing Pro Dashboard v67.4.12.pine
 PORT=5000
 ```
 

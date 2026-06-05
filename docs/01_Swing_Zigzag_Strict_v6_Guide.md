@@ -29,8 +29,9 @@
 | **Volume Confirmation** | Most recent BoS bar's volume vs 50-SMA, ✅/❌ flagged against a tunable multiplier (default 1.5×) — Weinstein's volume-confirmation rule made visible |
 | **MTF Trend Confluence** | Higher-timeframe trend state surfaced on the panel — auto-resolves (intraday→D, D→W, W→M, M→12M) or manual override |
 | **Fibonacci levels** | 50% / 61.8% retracements (pullback support) and 1.272 / 1.618 extensions (long profit targets) — auto-dimmed in confirmed downtrends with no break above lockedHigh |
-| **Panel rows** | 11 rows: TIMEFRAME, TREND, MTF, STRUCTURE, SWING COUNT, SWING RANGE, CHOPPINESS, INVALIDATION, BOS LEVEL, VOL CONFIRM, BAR AGE |
+| **Panel rows** | 19 rows completely un-clubbed into a colour-coded heat-map: TIMEFRAME, TREND, EMA20 DIST, MTF, MTF2, ALIGNMENT, STRUCTURE, I:C RATIO, SWING COUNT, SWING RANGE, CHOPPINESS, INVALIDATION, BOS LEVEL, BOS VOL THRUST, VOL CONFIRM, BAR AGE, VELOCITY, REGIME, ATR % |
 | **Sideways colour** | Sideways trend is now **amber** (🟡 `#FFBF00`), not white — matches Structure colour |
+| **Heat-map Design** | All panel rows dynamically shade their cell backgrounds Green, Red, Amber, or Gray depending on the health of the metric based on Weinstein/Minervini rules. Emojis replaced with clean white text arrows (↑, ↓, →) for maximum readability |
 
 ---
 
@@ -161,110 +162,123 @@ isMajor = |pivotPrice − oppositePivot| / oppositePivot × 100 ≥ majorThresh
 
 ---
 
-## 4. The Information Panel — Row by Row (11 rows)
+## 4. The Information Panel — Row by Row (19 rows)
+
+The panel was fully expanded and redesigned into a 19-row "heat-map" to allow instant visual assessment of setup quality. All fields use white text on dynamically coloured backgrounds (Green/Red/Amber/Gray).
 
 ### Row 0 — TIMEFRAME
-
-Human-readable label for the current chart resolution: `Monthly` / `Weekly` / `Daily` / `75 min` / `125 min` etc.
+Displays the current chart resolution (e.g., "75", "D", "W").
+- **Background:** Static Dark Blue.
+- **Interpretation:** A quick visual check to ensure you are analyzing the intended primary timeframe.
 
 ### Row 1 — TREND
+Displays the current directional Trend State (`UPTREND ↑`, `DOWNTREND ↓`, or `SIDEWAYS →`) based on the most recent confirmed high/low pair.
+- **Green:** Confirmed Uptrend (+1)
+- **Red:** Confirmed Downtrend (-1)
+- **Amber:** Sideways / Broadening (0)
+- **Interpretation:** The foundational directional bias. Always trade with the primary trend (Green for longs).
 
-| Value | When |
-|---|---|
-| 🟢 UPTREND | trendState = +1 (confirmed or developing) |
-| 🔴 DOWNTREND | trendState = −1 |
-| 🟡 SIDEWAYS | trendState = 0 |
+### Row 2 — EMA20 DIST
+Measures the distance of the current price from the 20-period Exponential Moving Average, normalized into Average True Range (ATR) units. This field anchors to the Daily EMA on intraday charts (if enabled).
+- **Green:** ≤ 1.5 ATR. Ideal, healthy pullback distance indicating low-risk entry potential near the mean.
+- **Gray:** 1.5 – 3.0 ATR. Normal trend extension.
+- **Amber:** 3.0 – 5.0 ATR. Warning—price is getting stretched. Entering here carries elevated mean-reversion risk.
+- **Red:** > 5.0 ATR. Climax territory. Severe overextension; highly prone to snapback corrections.
 
-Colour mirrors the trend.
+### Row 3 & Row 4 — MTF (TF1) / MTF (TF2)
+Displays the Trend State of the two higher timeframes (e.g., Daily and Weekly).
+- **Green/Red/Amber:** Same color mapping as Row 1 (Trend).
+- **Interpretation:** Used for multiple timeframe confluence checking. If your current trend is Uptrend but MTF is Downtrend, you are trading a counter-trend bounce.
 
-### Row 2 — MTF (xx)
+### Row 5 — ALIGNMENT
+Evaluates the combined trend state across all three monitored timeframes (Current, MTF 1, and MTF 2).
+- **Green (ALIGNED ↑):** All three timeframes are in a confirmed Uptrend.
+- **Red (ALIGNED ↓):** All three timeframes are in a confirmed Downtrend.
+- **Dark Red (CONFLICT):** Direct directional fight (e.g., Daily is Uptrend, but Weekly is Downtrend). Highly dangerous chop environment.
+- **Amber (MIXED):** No direct conflict, but imperfect alignment (e.g., Daily Uptrend, Weekly Sideways). Indicates consolidation or a maturing trend.
 
-Trend state of the higher timeframe (label shows which TF, e.g. `MTF (W)` on a daily chart). Uses `request.security()` to evaluate this same indicator's `trendState` on the parent TF.
+### Row 6 — STRUCTURE
+Displays the specific pivot pair governing the current trend (e.g., `HH / HL`, `LH / LL`, `EH / EL`).
+- **Text Color:** Matches the trend state (Green for Uptrend, Red for Downtrend, Amber for Sideways).
+- **Interpretation:** Provides the structural "why" behind the trend state.
 
-**Use:** confluence check. UPTREND on current TF + UPTREND on MTF = aligned. Conflict = countertrend setup, lower probability.
+### Row 7 — MOMENTUM EXP.
+Measures the momentum thrust of the current developing leg relative to the previous completed leg of the SAME direction. (e.g., Current Pullback vs Previous Pullback).
+- **Impulse (With-Trend) Leg:**
+  - **Green:** ≥ 1.0x. Momentum is expanding/healthy (current rally is bigger than the last).
+  - **Red:** < 1.0x. Momentum is shrinking (failure to expand).
+- **Correction (Counter-Trend) Leg:**
+  - **Green:** < 1.0x. Pullback is shallower than the previous pullback (bullish sign).
+  - **Amber:** 1.0x – 1.5x. Deep pullback.
+  - **Red:** ≥ 1.5x. Dangerous momentum expansion against the trend; bears/bulls are hitting back much harder than last time.
 
-### Row 3 — STRUCTURE
+### Row 8 — SWING COUNT
+Tracks how many consecutive pivots have occurred in the current trend state without breaking structure.
+- **Green:** 1 or 2 swings. Fresh, young trend with high probability of continuation.
+- **Amber:** 3 swings. Maturing trend.
+- **Red:** > 3 swings. Late stage / Exhaustion risk. Trend is highly mature and prone to reversal.
 
-Format: `<high class> / <low class>` — e.g. `HH / HL`, `LH / LL`, `EH / EL`. Reflects developing values where applicable.
+### Row 9 — SWING RANGE
+Measures the percentage (%) distance of the current developing swing leg. The background color alerts you if a swing is getting dangerously over-extended by comparing it to a dynamic `majorThreshold`.
+*   **The Math:** By default (Auto mode), `majorThreshold` is **8.0%** for standard stocks and **4.0%** for ETFs. 
+*   **Gray:** `< 1x Threshold` (e.g., `<8%`). Minor swing, hasn't covered enough ground to be considered a major structural move.
+*   **Green:** `1x to 2x Threshold` (e.g., `8% - 16%`). Healthy, well-developed major swing.
+*   **Amber:** `> 2x Threshold` (e.g., `>16%`). Extended/Loose swing. If a single leg travels this far without a pullback, entering carries a highly elevated risk of an impending mean-reversion snapback.
 
-Colour mirrors Trend.
+### Row 10 — CHOPPINESS
+Calculates the number of bars per structural flip (direction change) over the lookback window. Indicates if the asset respects trends or thrashes around.
+- **Green:** Clean / Trending. Price moves smoothly between pivots (requires ≥ 20 bars/flip for standard stocks).
+- **Amber:** Moderate choppiness.
+- **Red:** Choppy. Price whipsaws frequently (requires < 10 bars/flip for standard stocks). Avoid trading these assets.
 
-### Row 4 — SWING COUNT
+### Row 11 — INVALIDATION
+Displays the exact price level of the structural stop (e.g., the Swing Low for longs), alongside its pivot type label (e.g., `HL`).
+- **Text Color:** Matches Trend State.
+- **Interpretation:** If price crosses this line, the current trend structure is formally broken/invalidated. (This forms the denominator in your Risk:Reward math: `Risk = Entry - Invalidation`).
 
-`N swing(s)` — consecutive pivots in the **same trend state**. Counts up by 1 for each confirmed (or projected developing) pivot that maintains the state. Resets to 1 on state change (CHoCH).
+### Row 12 — BOS LEVEL
+Displays the exact price of the entry trigger / Break of Structure level (e.g., the previous Swing High to break for an uptrend).
+- **Text Color:** Matches Trend State.
+- **Interpretation:** The price that must be breached to confirm trend continuation. (If you enter here, this is your Entry Price in your Risk:Reward math).
 
-≥ 3 turns yellow — extended trend, statistically more likely to pause.
+### Row 13 — BOS VOL THRUST
+Measures the quality of the volume leading into and during the most recent Break of Structure. Format: `[Pass/Fail] [Lead-in Direction]`.
+- **Icon (`✅` or `❌`):** Did the breakout bar itself pass the volume multiplier threshold?
+- **Arrow (`↑` or `↓` or `→`):** Did volume build up (expand) into the breakout (`↑`), dry up (`↓`), or stay flat (`→`)?
+- **Green Background:** `✅ ↑` (Passed threshold AND had expanding lead-in volume). A Grade-A breakout.
+- **Amber Background:** Failed the volume test OR had shrinking lead-in volume.
 
-### Row 5 — SWING RANGE
+### Row 14 — VOL CONFIRM
+Displays the exact volume multiplier on the most recent Break of Structure bar compared to the 50-SMA volume.
+- **Green Background:** `✅` (Volume exceeded the required multiplier, e.g., > 1.5x).
+- **Red Background:** `❌` (Volume failed the required multiplier).
 
-% distance of the **currently developing** swing:
+### Row 15 — BAR AGE
+Tracks the number of bars elapsed since the active pivot was formed.
+- **Green:** ≤ 5 bars. Fresh, immediate breakout or structural move.
+- **Amber:** 6 to 15 bars. Maturing move; momentum may be slowing.
+- **Gray:** > 15 bars. Stale, consolidating, or aging move.
 
-```
-(projSyncHigh − projSyncLow) / projSyncLow × 100
-```
+### Row 16 — VELOCITY
+Measures the speed of the current developing leg as a percentage moved per bar (`%/bar`), compared to the previous leg.
+- **Green (`↑`):** Accelerating. The current leg is moving at least 10% faster per bar than the previous leg.
+- **Amber (`↓`):** Decelerating. The current leg is moving at least 10% slower per bar than the previous leg.
+- **Gray (`→`):** Steady. Speed is roughly unchanged.
 
-One end always equals `activePivotPrice` (by construction of the projSync window), the other is the developing extreme on the opposite side.
+### Row 17 — REGIME
+Dynamically categorizes the volatility personality of the asset based on its Average True Range (ATR), and displays the adaptively adjusted Choppiness thresholds (e.g., `15/8 b/flip`).
+- **HIGH-VOL (Amber):** ATR > standard threshold (e.g., >3.0% Daily). Fast-moving, wild stock. Lowers choppiness requirements.
+- **STD (Green):** Standard volatility stock. Normal choppiness requirements (20/10).
+- **ETF (Aqua):** Detected index fund (low volatility). Raises choppiness strictness.
+- **Interpretation:** Ensures the script judges clean trends differently for wild biotech stocks versus stable index funds.
 
-Colour bands tied to `majorThresh`:
-- **Gray** — `< majorThresh` (minor)
-- **Green** — `1× to 2× majorThresh` (healthy major swing)
-- **Yellow** — `> 2× majorThresh` (extended)
-
-### Row 6 — CHOPPINESS
-
-`N flips / KW` — count of confirmed direction flips (H↔L) in a rolling lookback window (configurable, default 52 weeks → auto-converted to bars per TF).
-
-**+1 added live** when a developing pivot is in progress (the in-flight flip pre-registers).
-
-Colour bands:
-- **Green** ≤ 4 flips — clean / trending
-- **Yellow** 5–8 — moderate
-- **Red** > 8 — choppy
-
-### Row 7 — INVALIDATION
-
-**Longs-Only Mode (default):** Latest swing **low** — your structural stop for a long.
-- `active=="L"` → `activePivotPrice` (the deepest extending low)
-- `active=="H"` → `lockedLow` (most recent confirmed low)
-
-**Legacy mode:** active pivot price (could be a high).
-
-Format: `<price> (<class>)`, e.g. `3479.00 (LL)`. Colour matches Trend.
-
-### Row 8 — BOS LEVEL
-
-**Longs-Only Mode:** Latest swing **high** (`lockedHigh`) — the price above which a bullish BoS triggers.
-
-We keep showing the prior locked high **even after** price breaks above it (developing HH) — the broken level remains the actionable retest zone until a new HH formally locks (option-a behaviour).
-
-Format: `<price> (<class>)`, e.g. `3595.00 (LH)`.
-
-**Class label tells you BoS type:**
-- `(LH)` → CHoCH (trend change, high conviction)
-- `(HH)` → continuation BoS (add to existing trend)
-- `(EH)` → range breakout (context-dependent)
-
-**Legacy mode:** shows `—`.
-
-### Row 9 — VOL CONFIRM
-
-Volume on the **most recent BoS bar**, expressed as ratio of the 50-bar volume SMA. Captured once on the BoS trigger bar, persists until the next BoS overwrites it.
-
-In Longs-Only Mode, only **bullish** BoS (`bosUp`) is captured — bearish breakdowns are ignored.
-
-Format: `✅ ↑ 1.85×` (passes) or `❌ ↑ 0.92×` (fails). Threshold = `volConfirmMult` input (default 1.5×).
-
-| Ratio | Interpretation |
-|---|---|
-| < 1.0× | Below average — usually fakeout |
-| 1.0–1.5× | Average — ❌ no conviction |
-| 1.5–2.5× | ✅ Weinstein-grade minimum |
-| 2.5–5.0× | ✅ Strong, institutional |
-| > 5.0× | 🔥 Exceptional accumulation/distribution event |
-
-### Row 10 — BAR AGE
-
-`bar_index − activePivotIndex` → bars elapsed since the active pivot formed. A swing-maturity gauge — pairs with Swing Count to read time + structure together.
+### Row 18 — ATR %
+Displays the asset's current 14-period Average True Range as a percentage, followed by the absolute monetary value in parentheses (e.g., `5.9% (114.05)`).
+*   **The Math:** `(Absolute ATR / Current Price) * 100`. E.g. A stock moving $114 per week on a $1933 price has a 5.9% Weekly ATR.
+*   **Background Colors (Dynamic by Timeframe):** The script sets a `volCut` threshold that changes based on your chart resolution (Daily = 3.0%, Weekly = 8.0%, Monthly = 15.0%). 
+    *   **Green:** `≤ volCut` threshold. Normal, stable volatility for that specific timeframe (e.g. 5.9% is Green on a Weekly chart because it is under 8.0%).
+    *   **Amber:** `1.0x – 1.5x volCut`. Elevated volatility.
+    *   **Red:** `> 1.5x volCut`. Extreme volatility / wide swings.
 
 ---
 
@@ -401,11 +415,11 @@ The Weinstein Dashboard's "Strict Trend" field reads directly from this logic. D
 
 | Connected Module | How It Uses This Module |
 |---|---|
-| **Weinstein and Swing Pro Dashboard v67.0** | Displays the current trend state derived from this identical logic |
-| **Weinstein Minervini Strategy v4.53** | `f_getStrictTrend()` is a direct port of this pivot-based classification; gates every entry |
-| **Recovery Strategy v1.4** | Uses `f_getStrictTrend(leftBars, piv_d_right)` to validate the REV-RS pillar |
-| **Capitulation Screener v1.5** | Ports the same `f_getStrictTrend` helper to gate the `dTrend == 1` requirement for REV-RS signals |
-| **Beta Screener v2.6** | Uses the pivot-based trend state to qualify POS-BO and SWG-BO setups |
+| **Weinstein and Swing Pro Dashboard v67.4.12** | Displays the current trend state derived from this identical logic |
+| **Weinstein Unified Ecosystem v3.4** | `f_getStrictTrend()` is a direct port of this pivot-based classification; gates every entry |
+| **Weinstein Unified Ecosystem v3.4 (Recovery)** | Uses `f_getStrictTrend(leftBars, piv_d_right)` to validate the REV-RS pillar |
+| **Commander Recovery Screener v2.0** | Ports the same `f_getStrictTrend` helper to gate the `dTrend == 1` requirement for REV-RS signals |
+| **Commander Bull Screener v3.2** | Uses the pivot-based trend state to qualify POS-BO and SWG-BO setups |
 | **Weinstein Context Layers v1.2** | The SMC module's CHoCH and BoS detection logic mirrors Section 3 of this indicator |
 
 > **Important:** Keep your **Pivot Length** consistent across all modules. If you use Daily `2` here, set the same value in the Recovery Strategy and Capitulation Screener inputs for structural alignment.
@@ -431,4 +445,4 @@ The Weinstein Dashboard's "Strict Trend" field reads directly from this logic. D
 
 ---
 
-*Last updated: 2026-05-22. v6.2 is the canonical Swing Zigzag reference. v6.0 / v6.1 guides are deprecated.*
+*Last updated: 2026-06-04. v6.2 is the canonical Swing Zigzag reference. v6.0 / v6.1 guides are deprecated.*

@@ -80,9 +80,9 @@ Sorted by predictive alpha (sign-aware: stock_ret − bench_ret for bullish, ben
 
 ---
 
-## What's New in v67.4.4 — Physical DB Sync & RRG Parity
+## What's New in v67.4.12 — Physical DB Sync & RRG Parity
 
-v67.4.4 brings the Dashboard into 100% parity with the Python Screener ecosystem and introduces a physical database mapping.
+v67.4.12 brings the Dashboard into 100% parity with the Python Screener ecosystem and introduces a physical database mapping.
 
 - **664-Symbol Physical Database Port:** All sector-matching hacks have been removed. The Dashboard now features a physically ported SQLite mapping block (`<DB_LOOKUP_START>`) guaranteeing 100% offline consistency between the Python screeners and Pine indicators for all 664 NSE stocks tracked in `sectors.db`.
 - **JdK 1-Pass RRG Formula & Strike Parity:** The Mansfield slope RS calculation has been replaced with the JdK RS-Ratio/Momentum model, matched to Strike.Money. The scoring system assigns `+2` for the LEADING quadrant only.

@@ -761,10 +761,10 @@ To change any of the above, edit the Pine source directly and re-publish as a pr
 
 | Component | v1.2 Integration |
 |---|---|
-| **Dashboard v67.0** | Same as v1.1 — provides Stage + Alpha + Recommendation. Cross-check FINAL SCORE before acting. |
+| **Dashboard v67.4.12** | Same as v1.1 — provides Stage + Alpha + Recommendation. Cross-check FINAL SCORE before acting. |
 | **Unified Ecosystem v2.5** | `wcl_setup_pri_export` plot preserved. E11 gate now responds to setups that ALSO contribute to the bonus — alignment is tighter. |
 | **Risk Allocator v1.0** | Use FINAL SCORE (not BASE SCORE) for position sizing. S2 with +2 bonus = full Kelly trigger. |
-| **Beta Screener v2.6** | Screener output → load in WCL v1.2 → check FINAL SCORE + SETUP BONUS for entry timing. |
+| **Bull Screener v3.2** | Screener output → load in WCL v1.2 → check FINAL SCORE + SETUP BONUS for entry timing. |
 
 ---
 
