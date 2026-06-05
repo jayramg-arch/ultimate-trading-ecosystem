@@ -2,6 +2,13 @@
 ## The Complete End-to-End Operational Trading Guide
 ### Version 6.0 — Cross-Tool Architecture + ML + Catalyst-Aware Backtest (22 May 2026)
 
+> ## ⚡ JUNE 2026 SUPERSESSION — PURE PRICE ACTION (read before anything below)
+> The signal engine was converted to **pure price action** after this Bible was written. **Wherever this document describes a catalyst or Alpha-Score gate using RSI / ADX / MACD / BB, that gate is now price-action** — the indicator references below are stale in mechanism (the *intent* and the catalyst names are unchanged). The canonical source is `bull_screener.py` (Python), with all three bull Pine files synced to it (Unified Ecosystem, Commander Bull Screener, Dashboard v67) — **recompiled clean in TradingView.**
+>
+> **Indicator → price-action map:** RSI>60/50 → `close>close[10]&[5]` · ADX → `≥7/14 up-bars w/ higher highs` · weekly RSI≥60 → `wClose>wClose[5]` · POS-ACCUM `d_rsi≤50` → `pa_not_extended` (`close≤close[5]×1.05`) · SWG-PB RSI-pocket → 38-62% retrace · SWG-REV RSI<35 → prior down-structure + reversal bar.
+>
+> **Other June-2026 changes:** the `weinstein_setup` squeeze-gate bug (killed the positional book for 24 months) is fixed; **Recovery now has a fundamental hard gate (RFF ≥ 4) + a 15-35% drawdown band**, and REV-EARLY is un-blackouted; new `walkforward_oos.py` / `catalyst_regime_partition.py` / Phase-0/1 journal modules; `data_provider` download timeout. **Validated edge is per-family and regime-dependent** (bull breakouts + recovery are defensive — positive in down/recovering tapes). True closed-trade baseline: **−₹4.99L / 25.6% win**. **Current versions:** Bull Screener **v3.3 (PA)**, Recovery Screener **v2.1 (RFF-gated)**. See `docs/11`, `docs/09`, `docs/16`, `docs/19`, and the CLAUDE.md "4–5 June 2026" handoff for full detail.
+
 > **THIS IS THE SINGLE SOURCE OF TRUTH** for end-to-end swing and positional trading using the Weinstein Commander ecosystem. Everything you need — Python pipeline, watchlist generation, Pine validation, Dashboard reading, Unified Ecosystem execution, position sizing, exits, post-market — is in this document, in the order you'll perform it during a trading day.
 >
 > **What this document is:** A step-by-step operational guide for every decision in the trading workflow. It assumes you are running the production code (`chartink_replay.py` `SCAN_PARAMS_VERSION = "v2_FINAL_20260510"`, Bull Screener v3.2 (Py v1.11), Recovery Screener v2.0 (Py v1.6), Dashboard v67.4.12, Unified Ecosystem v3.4, Context Layers v1.2, Zigzag v6.2, Validation Framework v2.8).
