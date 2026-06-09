@@ -1,17 +1,21 @@
-# Commander Risk Allocator v1.0 — User Guide
+# Commander Risk Allocator v1.1 — User Guide
 
-> [!WARNING]
-> **LEGACY REFERENCE MANUAL - ARCHIVAL USE ONLY**
-> This document covers the standalone Risk Allocator v1.0. It has been superseded by the **Unified Ecosystem v2.2** integrated risk management framework.
-> For the current canonical guide, please refer to:
-> - [10_Risk_Allocator_v1_Guide.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/10_Risk_Allocator_v1_Guide.md)
-> - [00_INDEX.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/00_INDEX.md)
+> **File:** `Commander_Risk_Allocator_v1.0.pine` (indicator title `v1.1`). Standalone discretionary sizing tool — complements, does not replace, the Unified Ecosystem's automated risk engine.
+
+## 🆕 v1.1 (June 2026) — Catalyst + Regime aware targets & trail
+
+The auto-targets and trail were synced to the post-backtest **Unified Ecosystem v3.4** config (they previously carried the legacy v4.52 hard-coded `3R bull / 3.5R bear` T2 and a flat `3.0/2.5×` Chandelier, which pre-dated the entire backtesting campaign).
+
+- **New "Catalyst" selector** drives canonical R-multiple targets and the trail width (full table in the Panel Reference below).
+- **T1 click is now an OPTIONAL override** — leave it at 0 to auto-derive T1 from the catalyst; click only to impose a discretionary target (e.g. a visible supply zone).
+- **T2 is always catalyst + regime based** (POS/WYC 10R, SWG 5R, GAP 4R, SWG-REV 2R, recovery REV = 52-week high; WYC = max(10R, 52wH)).
+- **Trail (Chandelier ATR mult) is catalyst-based + regime-adjusted:** POS 4.5 · WYC 3.5 · REV 2.5 · SWG 1.5 in a bull tape, **+0.5 each in a bear tape** — mirroring the strategy's `active_ce_mult = mkt_bull ? base : base + 0.5`.
 
 ---
 
 ## Overview
 
-Commander Risk Allocator v1.0 is a standalone TradingView indicator that calculates precise position sizes for any trade setup you mark on the chart. You click three price levels — Entry, Stop Loss, and Target — and the panel instantly tells you how many shares to buy, how much capital is deployed, and how much you risk, all adjusted dynamically for market regime, stock volatility, and setup probability.
+Commander Risk Allocator v1.1 is a standalone TradingView indicator that calculates precise position sizes for any trade setup you mark on the chart. You pick the **Catalyst** (which sets the canonical targets + trail), click your Entry and Stop Loss (and, optionally, override T1), and the panel instantly tells you how many shares to buy, how much capital is deployed, and how much you risk — all adjusted dynamically for market regime, stock volatility, and setup probability.
 
 It is extracted from the Weinstein_Minervini_Strategy v4.52 Risk Allocator panel and enhanced with chart-click price placement (the same UX as the built-in Long Position drawing tool).
 
@@ -38,11 +42,12 @@ Every time you add the indicator (or delete and re-add it), TradingView runs the
 
 | Step | Prompt | What to do |
 |------|--------|------------|
+| 0 | **Catalyst** (setting, not a click) | Pick the setup type — this sets your T1/T2 R-multiples and trail width before you click anything |
 | 1 | **Entry Price** | Click the price level where you plan to enter the trade |
 | 2 | **Stop Loss Price** | Click the price level where you will exit if wrong |
-| 3 | **Target Price (T1)** | Click your primary profit target |
+| 3 | **Target Price (T1)** — optional | Leave at 0 to auto-derive T1 from the catalyst, **or** click to override with your own target |
 
-After the third click the panel and chart lines appear immediately.
+After the clicks the panel and chart lines appear immediately. (If you leave T1 at 0, only Entry + Stop need clicking.)
 
 **To re-plan a trade on a different stock:**
 Delete the indicator from the chart (right-click indicator status line → Remove), then re-add via your Indicator Template. The three-click sequence re-runs automatically.
@@ -71,10 +76,11 @@ Delete the indicator from the chart (right-click indicator status line → Remov
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| **Catalyst (sets T1/T2 + trail)** | POS-BO / POS-ACCUM | The setup family you are trading. Drives the canonical R-multiple targets and the Chandelier trail width, mirroring Unified Ecosystem v3.4. Options: `POS-BO / POS-ACCUM`, `WYC (Wyckoff)`, `SWG-BO / SWG-PB`, `SWG-GAP`, `SWG-REV`, `REV-CB / RS / EARLY`. See the target/trail matrix below. |
 | Entry Price | (chart click) | The price you intend to enter the trade. |
 | Stop Loss Price | (chart click) | Your structural stop. Click below the key support level, demand zone, or swing low you are using as your risk reference. |
-| Target Price (T1) | (chart click) | Your primary target. This becomes the T1 exit level. T2 is computed automatically. |
-| Price Tick Size | 0.10 | All three clicked prices are rounded to the nearest multiple of this value. NSE stocks typically trade in ₹0.05 or ₹0.10 ticks. Change to 0.05 if your broker uses 5-paise ticks. Set to 0 to disable rounding. |
+| Target Price (T1) — OPTIONAL override | (chart click, or 0) | **Leave at 0** to auto-derive T1 from the selected catalyst's R-multiple. **Click** only if you want a discretionary T1 (e.g. a visible supply zone or measured move). T2 is always catalyst+regime based regardless. |
+| Price Tick Size | 0.10 | All clicked prices are rounded to the nearest multiple of this value. NSE stocks typically trade in ₹0.05 or ₹0.10 ticks. Change to 0.05 if your broker uses 5-paise ticks. Set to 0 to disable rounding. |
 
 ### Risk Adjustment
 
@@ -103,17 +109,31 @@ The panel has 12 rows. Here is what each row means:
 
 | Row | Label | Colour | Meaning |
 |-----|-------|--------|---------|
-| 0 | Risk Allocator / Stock or ETF | Blue header | Title + detected asset class |
+| 0 | Risk Allocator / `Stock · POS` | Blue header | Title + detected asset class + active catalyst family |
 | 1 | Entry | White | Your clicked entry price, rounded to tick |
 | 2 | Stop | Red | Your clicked stop price, rounded to tick |
 | 3 | Adjusted Risk % | Orange | The final risk % after all adjustments, with the raw base % shown in brackets. E.g. `0.38% (Base: 0.75%)` means the base is 0.75% but after regime + vol + kelly adjustments the effective risk is 0.38%. |
 | 4 | Quantity | Yellow (large) | **Shares to buy.** This is the primary output of the indicator. |
 | 5 | Invested | White | Total capital deployed = Quantity × Entry Price |
 | 6 | Risk Amt | White | Maximum loss if SL is hit = Quantity × (Entry − Stop) |
-| 7 | T1 50% (xR) | Green | Your clicked target price. The xR shows how many multiples of your stop distance T1 is from entry. At T1, the convention is to exit 50% of the position. |
-| 8 | T2 25% (xR) [AUTO] | Lime | Auto-computed second target. In a bull market (CNX500 healthy) T2 = Entry + 3R. In a bear market T2 = Entry + 3.5R. Exit 25% of the position here. |
+| 7 | T1 `n`% (xR) **[AUTO]** or **[MANUAL]** | Green | First target. The `n`% is the catalyst's partial-exit size (POS/WYC/REV 25%, SWG 33%, GAP/SWG-REV 50%). `[AUTO]` = derived from the catalyst's T1 R-multiple; `[MANUAL]` = you clicked an override. The xR shows how many stop-distances T1 sits from entry. |
+| 8 | T2 25% (xR) **[AUTO]** / **[52wH]** / **[≥10R/52wH]** | Lime | Second target, catalyst+regime based. Exit 25% here. Tag shows the rule used: plain `[AUTO]` = R-multiple (POS/WYC 10R, SWG 5R, GAP 4R, SWG-REV 2R); `[52wH]` = recovery REV targets the 52-week high; `[≥10R/52wH]` = Wyckoff targets the *larger* of 10R or the 52-week high. |
 | 9 | Trade Validation | Orange / Green | `✅ Clear Room to T1` means no major overhead resistance between entry and T1. `⚠️ T1 > Overhead Res (price)` means T1 sits above either the 52-week high or the 200-day SMA — a significant resistance that may cap the move. |
-| 10 | CE Mode | Green / Red | Shows whether the Chandelier Exit is running in Bull mode (tighter stop, ×3.0 ATR) or Bear mode (looser stop, ×3.5 ATR). This mirrors the same regime calculation used in the strategy. |
+| 10 | Trail (`Chandelier` / `EMA20 (≈ATR)`) | Green / Red | The trailing-stop method + width for this catalyst, regime-adjusted. Shows `Bull ×N.N ATR` or `Bear ×N.N ATR`. POS/WYC/REV trail via Chandelier; SWG live-trails EMA20 (the ATR width shown is the equivalent stop-distance reference). Bull base widths: POS 4.5 · WYC 3.5 · REV 2.5 · SWG 1.5; bear adds +0.5. |
+
+### Catalyst → Target / Trail matrix (the v1.1 core)
+This is the canonical mapping, mirrored byte-for-byte from `Weinstein_Unified_Ecosystem_v3.4.pine` §7 (targets) and the shared Chandelier block (trail):
+
+| Catalyst (selector) | T1 | T1 partial | T2 | Trail — Bull / Bear |
+|---|---|---|---|---|
+| **POS-BO / POS-ACCUM** | 5R | 25% | 10R | Chandelier 4.5× / 5.0× |
+| **WYC (Wyckoff)** | 5R | 25% | max(10R, 52W-High) | Chandelier 3.5× / 4.0× |
+| **SWG-BO / SWG-PB** | 3R | 33% | 5R | EMA20 ≈ 1.5× / 2.0× |
+| **SWG-GAP** | 2R | 50% | 4R | EMA20 ≈ 1.5× / 2.0× |
+| **SWG-REV** | 2R | 50% | 2R | EMA20 ≈ 1.5× / 2.0× |
+| **REV-CB / RS / EARLY** | 5R | 25% | 52W-High | Chandelier (CE-REC) 2.5× / 3.0× |
+
+> **Regime** = CNX500 above its 200-day SMA **and** 50-day above 200-day → "Bull". It widens the trail by +0.5× ATR in a bear tape (whipsaw protection) and also triggers the −0.25% bear risk discount (if enabled). Targets themselves are catalyst-driven, not regime-shifted — matching the post-backtest strategy.
 | 11 | RRG Quadrant | Quad colour | Mansfield RS vs CNX500 (`M value`) and its 4-week rate of change (`mom value`). Quadrant: **LEADING** (lime) = strong and improving, **IMPROVING** (aqua) = recovering, **WEAKENING** (yellow) = strong but fading, **LAGGING** (red) = weak and deteriorating. |
 
 ---
@@ -202,20 +222,15 @@ The indicator holds the last three clicked prices until you reset it. To start f
 Or, faster: right-click the indicator status line → **Remove** → re-add from your Indicator Template. Clean slate every time.
 
 
-# Commander Risk Allocator v1.0 — Trading Guide
+# Commander Risk Allocator v1.1 — Trading Guide
 
-> [!WARNING]
-> **LEGACY REFERENCE MANUAL - ARCHIVAL USE ONLY**
-> This document covers the standalone Risk Allocator v1.0. It has been superseded by the **Unified Ecosystem v2.2** integrated risk management framework.
-> For the current canonical guide, please refer to:
-> - [10_Risk_Allocator_v1_Guide.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/10_Risk_Allocator_v1_Guide.md)
-> - [00_INDEX.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/00_INDEX.md)
+> The Risk Allocator is the **discretionary, chart-click** sizing companion to the automated Unified Ecosystem engine. Use it when you are placing a manual trade and want catalyst-correct targets, a regime-correct trail, and a risk-first share count.
 
 ---
 
 ## Purpose
 
-This guide explains how to interpret the Risk Allocator panel to make better trade decisions — not just how many shares to buy, but when to trust the number, when to override it, and how to read the market context rows (RRG, CE Mode, Trade Validation) before placing an order.
+This guide explains how to interpret the Risk Allocator panel to make better trade decisions — not just how many shares to buy, but when to trust the number, when to override it, and how to read the market context rows (RRG, Trail, Trade Validation) before placing an order. In v1.1 the **Catalyst** you select drives the targets and trail, so the panel's exits now match exactly what the strategy would do for that setup family.
 
 ---
 
@@ -232,15 +247,16 @@ Most retail traders start with a share quantity and then calculate the money at 
 ### 1. Identify the Setup First, Then Add the Indicator
 
 Do your analysis independently. Identify:
+- **Catalyst**: Which setup family is this? POS-BO/ACCUM (positional breakout/accumulation), WYC (Wyckoff accumulation), SWG-BO/PB (swing breakout/pullback), SWG-GAP, SWG-REV, or REV (recovery). This is your first decision — it sets the R-targets and trail.
 - **Entry**: The exact price where you will place your buy order — typically the breakout level, VWAP reclaim, or your pullback zone trigger.
 - **Stop Loss**: The price that invalidates the setup — below the demand zone, below the key swing low, or below the structure low with a small buffer.
-- **Target (T1)**: The first logical resistance — the next supply zone, prior high, measured move, or round-number confluence.
+- **Target (T1)**: *Optional.* By default the catalyst auto-derives T1 (e.g. 5R for positional). Only override by clicking if you see a hard structural target first — the next supply zone, prior high, or measured move — that comes *before* the catalyst's R-target.
 
-Only after you have decided these three levels independently should you add the Risk Allocator and click them. Never let the indicator choose your levels — it sizes your position based on what you tell it, so bad levels produce a correctly sized bad trade.
+Only after you have decided the catalyst and levels independently should you add the Risk Allocator. Never let the indicator choose your *entry/stop* — it sizes your position based on what you tell it, so bad levels produce a correctly sized bad trade.
 
-### 2. Click in Sequence: Entry → Stop → Target
+### 2. Select Catalyst, then Click Entry → Stop (→ optional Target)
 
-TradingView prompts you in order. Be precise. Use the crosshair and zoom in if needed. The indicator rounds to the nearest ₹0.10 tick automatically, so minor cursor imprecision is forgiven.
+First set the **Catalyst** dropdown. Then TradingView prompts you for Entry and Stop in order. Leave the Target (T1) prompt at 0 to accept the catalyst's auto T1, or click your override. Be precise — use the crosshair and zoom in if needed. The indicator rounds to the nearest ₹0.10 tick automatically, so minor cursor imprecision is forgiven.
 
 ### 3. Read the Panel Top to Bottom
 
@@ -251,9 +267,9 @@ Entry / Stop          → Confirm the numbers match your plan
 Adjusted Risk %       → Understand what the market conditions are doing to your risk budget
 Quantity              → The only number you need to place the order
 Invested / Risk Amt   → Sanity check against your account balance
-T1 / T2               → Know your exit levels before you enter
+T1 / T2               → Catalyst-correct exit levels (auto unless you overrode T1)
 Trade Validation      → Is T1 structurally clear?
-CE Mode               → What type of trailing stop will you use?
+Trail                 → Catalyst+regime trailing-stop method & width
 RRG Quadrant          → Is this stock leading the market?
 ```
 
@@ -336,18 +352,22 @@ The resistance price is shown in brackets, e.g., `⚠️ T1 > Overhead Res (1065
 
 ---
 
-## CE Mode Row — Choosing Your Trailing Stop Method
+## Trail Row — Catalyst + Regime Trailing Stop (v1.1)
 
-| Display | Colour | Meaning |
-|---------|--------|---------|
-| Bull ×3.0 | Green | Market is in a bull regime. Use a tight Chandelier Exit (ATR × 3.0) to trail your stop once in profit. This captures more of the trend. |
-| Bear ×3.5 | Red | Market is in a bear regime. Use a looser Chandelier Exit (ATR × 3.5) to avoid whipsaws on the wider bear-market candles. |
+The Trail row shows the method (`Chandelier` for POS/WYC/REV, `EMA20 (≈ATR)` for swing) plus a regime-adjusted ATR width. The width is set by **catalyst** and widened **+0.5× in a bear tape**:
+
+| Catalyst | Bull width | Bear width | Method |
+|---|---|---|---|
+| POS-BO / POS-ACCUM | ×4.5 ATR | ×5.0 ATR | Chandelier |
+| WYC (Wyckoff) | ×3.5 ATR | ×4.0 ATR | Chandelier / CE-REC |
+| REV-CB / RS / EARLY | ×2.5 ATR | ×3.0 ATR | Chandelier / CE-REC |
+| SWG-BO / PB / GAP / REV | ×1.5 ATR | ×2.0 ATR | EMA20 (live); ATR width = equivalent reference |
 
 **How to use it practically:**
-- Once your trade is profitable, set a trailing stop in your broker using an ATR-based formula.
-- Bull mode: trail at (Highest High over last 22 bars) − (ATR(22) × 3.0).
-- Bear mode: trail at (Highest High over last 22 bars) − (ATR(22) × 3.5).
-- These numbers match exactly what the Weinstein_Minervini_Strategy uses for its Chandelier Exit.
+- Once your trade is profitable, set a trailing stop in your broker.
+- **POS / WYC / REV:** trail at (Highest Close over last 22 bars) − (ATR(22) × the width above). Wide multiples (4.5×) are deliberate — they let a 10R positional runner breathe through ~30% pullbacks without stopping out.
+- **Swing:** trail under the rising EMA-20 (the ATR width shown is just the equivalent stop distance for sizing intuition).
+- These widths match exactly what `Weinstein_Unified_Ecosystem_v3.4.pine` applies per catalyst (`active_ce_mult = mkt_bull ? base : base + 0.5`).
 
 ---
 
@@ -372,26 +392,34 @@ The RRG (Relative Rotation Graph) row shows two numbers: **M** (Mansfield RS × 
 
 ---
 
-## T1 and T2 — The Exit Framework
+## T1 and T2 — The Exit Framework (catalyst-driven in v1.1)
 
-### T1 — Your Tactical Exit (50%)
-T1 is the price you clicked. The `50%` label means at T1, the convention is to exit half your position. This:
-- Locks in a guaranteed profit on the trade
-- Reduces your position size going into the uncertain second half
-- Means your remaining 25% runs with a stop now at or above breakeven
+### T1 — Your Tactical Exit
+T1 is now **auto-derived from the catalyst** (or your `[MANUAL]` override). The partial-exit size shown next to it is catalyst-specific:
 
-**When T1 is hit:** Sell 50% of your Quantity. Move your stop to entry price (breakeven stop).
+| Catalyst | T1 | Partial exit at T1 |
+|---|---|---|
+| POS / WYC / REV | 5R | 25% (keep a big runner — these are positional/recovery) |
+| SWG-BO / PB | 3R | 33% |
+| SWG-GAP / SWG-REV | 2R | 50% (quick setups — take more off early) |
 
-### T2 — The Runner Target (25%) [AUTO]
-T2 is automatically calculated:
-- **Bull market (CE Mode: Bull):** Entry + 3× stop distance (3R)
-- **Bear market (CE Mode: Bear):** Entry + 3.5× stop distance (3.5R)
+**When T1 is hit:** Sell the partial % shown. Move your stop to entry price (breakeven stop) — the remaining position can no longer lose.
 
-The 3.5R in bear markets is deliberately higher because in bearish conditions, the trades that do work tend to be stronger trend moves — and you want to let them run further before exiting.
+### T2 — The Runner Target (25%)
+T2 is automatically calculated from the catalyst, not the regime:
 
-The `[AUTO]` label means this level is not your click — it is computed. You do not need to do anything to set T2.
+| Catalyst | T2 | Tag |
+|---|---|---|
+| POS-BO / POS-ACCUM | 10R | `[AUTO]` |
+| WYC (Wyckoff) | max(10R, 52-Week High) | `[≥10R/52wH]` |
+| SWG-BO / PB | 5R | `[AUTO]` |
+| SWG-GAP | 4R | `[AUTO]` |
+| SWG-REV | 2R | `[AUTO]` |
+| REV-CB / RS / EARLY | 52-Week High | `[52wH]` |
 
-**When T2 is hit:** Sell another 25% of original position (the final runner lot). The remaining 25% can be trailed with the CE stop to let it run.
+The wide positional/Wyckoff T2 (10R) is the post-backtest "let winners run" target — the old flat 3R/3.5R was clipping trend runners far too early. T2 is not your click; you do not need to set it.
+
+**When T2 is hit:** Sell another 25% (the runner lot). Trail the final 25% with the catalyst's Trail-row stop to let it run.
 
 ### Summary Exit Plan
 

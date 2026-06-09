@@ -1,0 +1,297 @@
+//@version=6
+// ============================================================================
+// Commander Risk Allocator v1.1  (Standalone)
+// Extracted from Weinstein_Minervini_Strategy v4.52 — Risk Allocator panel,
+// now SYNCED to the post-backtest Unified Ecosystem v3.4.x target/trail config.
+// Replaces the strategy's auto-derived entry/stop/target with chart-click
+// placement (input.price + confirm=true), matching the UX of
+// Commander_Long_Position_Allocator.
+// ----------------------------------------------------------------------------
+// v1.1 (2026-06-09) — Catalyst + Regime aware targets & trail (zero-drift mirror
+// of Weinstein_Unified_Ecosystem_v3.4.pine §7 T1/T2 + §shared Chandelier):
+//   • New "Catalyst" selector drives canonical T1/T2 R-multiples:
+//       POS-BO/ACCUM  T1 5R  T2 10R          (positional)
+//       WYC (Wyckoff) T1 5R  T2 max(10R,52wH)
+//       SWG-BO/PB     T1 3R  T2 5R           (swing 1-4wk)
+//       SWG-GAP       T1 2R  T2 4R           (gaps fade fast)
+//       SWG-REV       T1 2R  T2 2R           (quick mean-rev)
+//       REV-CB/RS/EAR T1 5R  T2 52W-High     (recovery)
+//   • Trail (Chandelier ATR mult) is now catalyst-based + regime-adjusted:
+//       POS 4.5 · WYC 3.5 · REV 2.5 · SWG 1.5  (bull);  +0.5 each in a bear tape
+//       (matches Unified `active_ce_mult = mkt_bull ? ce_mult : ce_mult+0.5`).
+//   • T1 click is now an OPTIONAL manual override; if left at 0 the catalyst's
+//     canonical T1 is auto-derived from the Entry↔SL distance.
+//   • Regime = CNX500 > 200SMA & 50>200 (bull) → drives trail width + risk disc.
+// Was v1.0: T2 hard-coded 3R bull / 3.5R bear (legacy v4.52), trail flat 3.0/2.5.
+// ============================================================================
+indicator("Commander Risk Allocator v1.1", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+
+// ============================================================================
+// 1. INPUTS
+// ============================================================================
+grp_master = "Master Configuration"
+asset_type = input.string("Auto", "Asset Type", options=["Auto", "ETF", "Stock"], group=grp_master)
+resolved_asset = asset_type == "Auto" ? (syminfo.type == "fund" ? "ETF" : "Stock") : asset_type
+
+grp_port = "Portfolio & Risk"
+portfolio_capital = input.float(4000000.0, "Total Portfolio Capital (Reference)", step=1000.0, group=grp_port)
+etf_capital       = input.float(1200000.0, "ETF Portfolio Capital", step=1000.0, group=grp_port)
+stock_capital     = input.float(2800000.0, "Stock Portfolio Capital", step=1000.0, group=grp_port)
+etf_risk_pct      = input.float(1.0,  "ETF Risk %",   minval=0.01, step=0.01, group=grp_port)
+stock_risk_pct    = input.float(0.75, "Stock Risk %", minval=0.01, step=0.01, group=grp_port)
+etf_max_alloc     = input.float(240000.0, "Max Alloc per ETF Trade", step=1000.0, group=grp_port)
+stock_max_alloc   = input.float(280000.0, "Max Alloc per Stock Trade", step=1000.0, group=grp_port)
+multiplier        = input.int(1, "Lot Multiplier (1 for Equity)", minval=1, group=grp_port)
+
+grp_trade = "Interactive Trade Setup"
+catalyst    = input.string("POS-BO / POS-ACCUM", "Catalyst (sets T1/T2 + trail)", options=["POS-BO / POS-ACCUM", "WYC (Wyckoff)", "SWG-BO / SWG-PB", "SWG-GAP", "SWG-REV", "REV-CB / RS / EARLY"], group=grp_trade, tooltip="Drives canonical R-multiple targets and the Chandelier trail width, mirroring Unified Ecosystem v3.4. POS/WYC=5R/10R positional; SWG=3R/5R; GAP/REV-swing=2R; recovery REV=5R/52wH. Regime (bull/bear) widens the trail.")
+entry_p_raw = input.price(0.00, "Entry Price", confirm=true, group=grp_trade, tooltip="Click chart to place Entry")
+sl_p_raw    = input.price(0.00, "Stop Loss Price", confirm=true, group=grp_trade, tooltip="Click chart to place Stop")
+tp_p_raw    = input.price(0.00, "Target Price (T1) — OPTIONAL override", confirm=true, group=grp_trade, tooltip="OPTIONAL. Leave at 0 to auto-derive T1 from the selected Catalyst's R-multiple. Click the chart only if you want to override with a discretionary T1 (e.g. a visible supply zone). T2 is always catalyst+regime based.")
+tick_size   = input.float(0.10, "Price Tick Size", step=0.05, group=grp_trade, tooltip="Rounds Entry/SL/Target to nearest tick. NSE typically uses 0.05 or 0.10.")
+
+// Catalyst family code (drives targets + trail). Mirrors Unified Ecosystem v3.4.
+string cat_fam = str.startswith(catalyst, "POS") ? "POS" : str.startswith(catalyst, "WYC") ? "WYC" : str.startswith(catalyst, "REV") ? "REV" : catalyst == "SWG-GAP" ? "SWG-GAP" : catalyst == "SWG-REV" ? "SWG-REV" : "SWG"
+
+// Round click-placed prices to nearest tick
+float entry_p = tick_size > 0 ? math.round(entry_p_raw / tick_size) * tick_size : entry_p_raw
+float sl_p    = tick_size > 0 ? math.round(sl_p_raw    / tick_size) * tick_size : sl_p_raw
+float tp_p    = tick_size > 0 ? math.round(tp_p_raw    / tick_size) * tick_size : tp_p_raw
+
+grp_kelly = "Risk Adjustment"
+use_kelly      = input.bool(true, "Enable Kelly Probability Sizing", group=grp_kelly, tooltip="Scales risk 0.75×–1.25× based on Stage 2 + RS + Volume conditions.")
+use_vol_scale  = input.bool(true, "Reduce Risk if ATR > 3%", group=grp_kelly)
+use_regime_disc = input.bool(true, "Bear-Market Risk Discount (−0.25%)", group=grp_kelly)
+
+grp_notes = "Telegram / Notes"
+fire_notes_alert  = input.bool(false, "🔔 SEND TO TELEGRAM — check, click OK, then uncheck", group=grp_notes, tooltip="Fires the trade plan to Telegram (if Chat ID is set) and to the Pine Log. Uncheck immediately after.")
+telegram_chat_id  = input.string("", "Telegram Chat ID", group=grp_notes, tooltip="Your numeric Telegram user ID. Get it by messaging @userinfobot on Telegram.")
+
+grp_viz = "Visuals"
+show_alloc_table = input.bool(true, "Show Allocator Table", group=grp_viz)
+alloc_table_pos  = input.string("Bottom Right", "Table Position", options=["Bottom Right", "Top Right", "Bottom Left", "Top Left", "Middle Right", "Middle Center"], group=grp_viz)
+show_lines       = input.bool(true, "Show Entry/Stop/Target Lines", group=grp_viz)
+line_extension   = input.int(8, "Line Extension (Bars)", minval=2, group=grp_viz)
+
+// Position string converter
+string pos_str = alloc_table_pos == "Bottom Right" ? position.bottom_right : alloc_table_pos == "Top Right" ? position.top_right : alloc_table_pos == "Bottom Left" ? position.bottom_left : alloc_table_pos == "Top Left" ? position.top_left : alloc_table_pos == "Middle Right" ? position.middle_right : position.middle_center
+
+// ============================================================================
+// 2. MARKET HEALTH (CNX500 above 200 SMA + Golden Cross)
+// ============================================================================
+var string bench500 = "NSE:CNX500"
+
+f_get_market_health(bm) =>
+    [m_close, m_sma50, m_sma200] = request.security(bm, "D", [close, ta.sma(close, 50), ta.sma(close, 200)], lookahead=barmerge.lookahead_off)
+    not na(m_close) and not na(m_sma200) and m_close > m_sma200 and m_sma50 > m_sma200
+
+bool mkt_health_res = f_get_market_health(bench500)
+
+// ============================================================================
+// 3. MANSFIELD RS / RRG QUADRANT
+// ============================================================================
+f_rs_math() =>
+    int jdkLen = 12
+    rs           = close
+    rs_sma       = ta.sma(rs, jdkLen)
+    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    rs_ratio     = ta.sma(rs_ratio_raw, 5)
+    rm1          = 100.0 * (rs_ratio / nz(rs_ratio[1], rs_ratio))
+    rs_mom_raw   = ta.sma(rm1, jdkLen)
+    float rs_val = rs_ratio - 100.0
+    float rs_mom = rs_mom_raw - 100.0
+    [rs_val, rs_mom]
+
+f_mansfield_rs(string bm) =>
+    string req = syminfo.prefix + ":" + syminfo.ticker + " / " + bm
+    request.security(req, "W", f_rs_math(), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+
+[rsVal500, rs_momentum] = f_mansfield_rs(bench500)
+
+string rs_quadrant = rsVal500 > 0 and rs_momentum > 0 ? "LEADING" : rsVal500 > 0 and rs_momentum <= 0 ? "WEAKENING" : rsVal500 <= 0 and rs_momentum <= 0 ? "LAGGING" : "IMPROVING"
+
+// ============================================================================
+// 4. TRAIL MODE — Catalyst base + Regime adjustment
+//    Mirrors Unified Ecosystem v3.4: active_ce_mult = mkt_bull ? base : base+0.5
+//    Catalyst bull-base widths: POS 4.5 · WYC 3.5 · REV 2.5 · SWG 1.5
+//    (POS/WYC/REV trail via Chandelier/CE-REC; SWG live-trails EMA20 in the
+//     strategy — the ATR width here is the equivalent stop-distance reference.)
+// ============================================================================
+bool _ce_bull_mkt = mkt_health_res
+float trail_base = cat_fam == "POS" ? 4.5 : cat_fam == "WYC" ? 3.5 : cat_fam == "REV" ? 2.5 : 1.5
+float ce_mult    = _ce_bull_mkt ? trail_base : trail_base + 0.5
+string trail_kind = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? "Chandelier" : "EMA20 (≈ATR)"
+
+// ============================================================================
+// 5. STAGE 2 & VOLUME (for Kelly sizing)
+// ============================================================================
+[d_50, d_150, d_200] = request.security(syminfo.tickerid, "D", [ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200)], lookahead=barmerge.lookahead_off)
+bool stage2_uptrend = not na(d_200) and (close > d_50) and (d_50 > d_150) and (d_150 > d_200)
+bool rs_ok = rsVal500 > 0
+float vol_sma50 = ta.sma(volume, 50)
+
+// ============================================================================
+// 6. ADJUSTED RISK % (regime + volatility + kelly)
+// ============================================================================
+float base_risk_pct = resolved_asset == "ETF" ? etf_risk_pct : stock_risk_pct
+float regime_risk   = (use_regime_disc and not mkt_health_res) ? math.max(base_risk_pct - 0.25, 0.25) : base_risk_pct
+
+float atr_14 = ta.atr(14)
+float atr_pct = close > 0 ? (atr_14 / close) * 100 : 0
+float vol_discount = (use_vol_scale and atr_pct > 0) ? math.min(3.0 / atr_pct, 1.0) : 1.0
+
+float kelly_mult = 1.0
+if use_kelly
+    bool is_vol = volume > (vol_sma50 * 1.1)
+    int kelly_pts = (stage2_uptrend ? 1 : 0) + (rs_ok ? 1 : 0) + (is_vol ? 1 : 0)
+    kelly_mult := kelly_pts >= 3 ? 1.25 : kelly_pts == 2 ? 1.0 : 0.75
+
+float vol_kelly = math.max(vol_discount * kelly_mult, 0.75)
+float active_risk_pct = math.max(regime_risk * vol_kelly, 0.25)
+
+// ============================================================================
+// 7. POSITION SIZE & TARGETS  (catalyst + regime based — Unified v3.4 §7 mirror)
+// ============================================================================
+float m_entry = entry_p
+float m_stop  = sl_p
+float m_dist  = math.abs(m_entry - m_stop)
+float high_52w = ta.highest(high, 250)   // also used by the overhead-resistance check (§8)
+
+// Canonical R-multiples per catalyst family (from Unified Ecosystem v3.4):
+//   POS/WYC/REV → T1 5R ; SWG-BO/PB → 3R ; SWG-GAP/SWG-REV → 2R
+float t1_r_canon = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 5.0 : cat_fam == "SWG" ? 3.0 : 2.0
+//   POS/WYC → 10R ; SWG-BO/PB → 5R ; SWG-GAP → 4R ; SWG-REV → 2R ; REV → 52wH (handled below)
+float t2_r_canon = (cat_fam == "POS" or cat_fam == "WYC") ? 10.0 : cat_fam == "SWG" ? 5.0 : cat_fam == "SWG-GAP" ? 4.0 : 2.0
+// T1 partial size per catalyst (mirrors strategy t1_qty_pct)
+int t1_qty_pct = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 25 : cat_fam == "SWG" ? 33 : 50
+
+// T1: optional manual override (clicked tp_p > 0) else auto-derive from catalyst.
+bool  t1_manual = tp_p > 0
+float m_t1 = t1_manual ? tp_p : m_entry + (m_dist * t1_r_canon)
+float t1_r = m_dist > 0 ? (m_t1 - m_entry) / m_dist : 0
+
+// T2: always catalyst+regime based. WYC = max(10R, 52wH); REV = 52wH; else R-mult.
+float m_t2 = cat_fam == "REV" ? high_52w : cat_fam == "WYC" ? math.max(m_entry + (m_dist * 10.0), high_52w) : m_entry + (m_dist * t2_r_canon)
+float t2_r = m_dist > 0 ? (m_t2 - m_entry) / m_dist : 0
+
+float active_capital   = resolved_asset == "ETF" ? etf_capital : stock_capital
+float active_max_alloc = resolved_asset == "ETF" ? etf_max_alloc : stock_max_alloc
+
+float m_risk_amt   = active_capital * (active_risk_pct / 100.0)
+float qty_r        = m_dist > 0 ? math.floor((m_risk_amt / m_dist) / multiplier) : 0
+float qty_c        = m_entry > 0 ? math.floor((active_max_alloc / m_entry) / multiplier) : 0
+float m_final_qty  = math.min(qty_r, qty_c)
+float m_invested   = m_final_qty * m_entry * multiplier
+float m_act_risk   = m_final_qty * m_dist * multiplier
+
+// ============================================================================
+// 8. OVERHEAD RESISTANCE CHECK
+// ============================================================================
+float m_overhead_res = math.min(high_52w, close < d_200 ? d_200 : high_52w)
+bool  is_t1_blocked  = m_t1 > m_overhead_res
+
+// ============================================================================
+// 9. ALLOCATOR TABLE
+// ============================================================================
+if barstate.islast and show_alloc_table and m_entry > 0
+    var table tbl_alloc = table.new(pos_str, 2, 12, bgcolor=color.new(color.black, 40), border_width=1)
+
+    // Header (shows asset + active catalyst family)
+    table.cell(tbl_alloc, 0, 0, "Risk Allocator", bgcolor=color.blue, text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 0, resolved_asset + " · " + cat_fam, bgcolor=color.blue, text_color=color.white, text_size=size.small)
+
+    // Entry / Stop
+    table.cell(tbl_alloc, 0, 1, "Entry", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 1, str.tostring(m_entry, "0.00"), text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 0, 2, "Stop", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 2, str.tostring(m_stop, "0.00"), text_color=color.red, text_size=size.small)
+
+    // Adjusted Risk %
+    table.cell(tbl_alloc, 0, 3, "Adjusted Risk %", text_color=color.orange, text_size=size.small)
+    table.cell(tbl_alloc, 1, 3, str.tostring(active_risk_pct, "0.00") + "% (Base: " + str.tostring(base_risk_pct, "0.00") + "%)", text_color=color.orange, text_size=size.small)
+
+    // Quantity (large yellow)
+    table.cell(tbl_alloc, 0, 4, "Quantity", text_color=color.yellow, text_size=size.normal)
+    table.cell(tbl_alloc, 1, 4, str.tostring(m_final_qty), text_color=color.yellow, text_size=size.normal)
+
+    // Invested / Risk Amt
+    table.cell(tbl_alloc, 0, 5, "Invested", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 5, str.tostring(m_invested, format.volume), text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 0, 6, "Risk Amt", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 6, str.tostring(m_act_risk, format.volume), text_color=color.white, text_size=size.small)
+
+    // T1 (catalyst-auto, or MANUAL override) / T2 (catalyst+regime based)
+    table.cell(tbl_alloc, 0, 7, "T1 " + str.tostring(t1_qty_pct) + "% (" + str.tostring(t1_r, "#.#") + "R)" + (t1_manual ? " [MANUAL]" : " [AUTO]"), text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 7, str.tostring(m_t1, "0.00"), text_color=color.green, text_size=size.small)
+    string _t2_tag = cat_fam == "REV" ? " [52wH]" : cat_fam == "WYC" ? " [≥10R/52wH]" : " [AUTO]"
+    table.cell(tbl_alloc, 0, 8, "T2 25% (" + str.tostring(t2_r, "#.#") + "R)" + _t2_tag, text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 8, str.tostring(m_t2, "0.00"), text_color=color.lime, text_size=size.small)
+
+    // Trade Validation
+    table.cell(tbl_alloc, 0, 9, "Trade Validation", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 9, is_t1_blocked ? "⚠️ T1 > Overhead Res (" + str.tostring(m_overhead_res, "0.00") + ")" : "✅ Clear Room to T1", text_color=is_t1_blocked ? color.orange : color.green, text_size=size.small)
+
+    // Trail (catalyst base + regime-adjusted ATR mult)
+    table.cell(tbl_alloc, 0, 10, "Trail (" + trail_kind + ")", text_color=color.gray, text_size=size.small)
+    table.cell(tbl_alloc, 1, 10, (_ce_bull_mkt ? "Bull" : "Bear") + " ×" + str.tostring(ce_mult, "#.#") + " ATR", text_color=_ce_bull_mkt ? color.green : color.red, text_size=size.small)
+
+    // RRG Quadrant
+    color quad_col = rs_quadrant == "LEADING" ? color.lime : rs_quadrant == "IMPROVING" ? color.aqua : rs_quadrant == "WEAKENING" ? color.yellow : color.red
+    table.cell(tbl_alloc, 0, 11, "RRG " + rs_quadrant, text_color=quad_col, text_size=size.small)
+    table.cell(tbl_alloc, 1, 11, "RS " + str.tostring(rsVal500, "0.00") + " / mom " + str.tostring(rs_momentum, "0.00"), text_color=quad_col, text_size=size.small)
+
+// ============================================================================
+// 10. CHART LINES & LABELS (Entry / SL / T1 / T2)
+// ============================================================================
+// var-pinned line/label objects so we redraw cleanly each bar instead of stacking
+var line  l_entry  = na
+var line  l_stop   = na
+var line  l_t1     = na
+var line  l_t2     = na
+var label lbl_entry = na
+var label lbl_stop  = na
+var label lbl_t1    = na
+var label lbl_t2    = na
+
+if barstate.islast and show_lines and m_entry > 0 and m_stop > 0 and m_t1 > 0
+    line.delete(l_entry)
+    line.delete(l_stop)
+    line.delete(l_t1)
+    line.delete(l_t2)
+    label.delete(lbl_entry)
+    label.delete(lbl_stop)
+    label.delete(lbl_t1)
+    label.delete(lbl_t2)
+
+    int lx1 = bar_index
+    int lx2 = bar_index + line_extension
+
+    l_entry := line.new(lx1, m_entry, lx2, m_entry, color=color.blue,  style=line.style_dashed, width=1)
+    l_stop  := line.new(lx1, m_stop,  lx2, m_stop,  color=color.red,   style=line.style_dashed, width=2)
+    l_t1    := line.new(lx1, m_t1,    lx2, m_t1,    color=color.green, style=line.style_dashed, width=1)
+    l_t2    := line.new(lx1, m_t2,    lx2, m_t2,    color=color.lime,  style=line.style_dashed, width=1)
+
+    lbl_entry := label.new(lx2, m_entry, "Entry: " + str.tostring(m_entry, "0.00"),                         xloc=xloc.bar_index, color=color.new(color.blue,  70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_stop  := label.new(lx2, m_stop,  "SL: "    + str.tostring(m_stop,  "0.00"),                         xloc=xloc.bar_index, color=color.new(color.red,   70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_t1    := label.new(lx2, m_t1,    "T1 ("    + str.tostring(t1_r, "#.#") + "R): " + str.tostring(m_t1, "0.00"), xloc=xloc.bar_index, color=color.new(color.green, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_t2    := label.new(lx2, m_t2,    "T2 ("    + str.tostring(t2_r, "#.#") + "R): " + str.tostring(m_t2, "0.00"), xloc=xloc.bar_index, color=color.new(color.lime,  70), textcolor=color.white, style=label.style_label_left, size=size.small)
+
+// ============================================================================
+// 11. TELEGRAM / NOTES ALERT
+// ============================================================================
+if fire_notes_alert and barstate.islast and m_entry > 0
+    string val_txt = is_t1_blocked ? "! T1 > Res " + str.tostring(m_overhead_res, "0.00") : "Clear"
+    string rrg_txt = rs_quadrant + " RS:" + str.tostring(rsVal500, "0.00") + " mom:" + str.tostring(rs_momentum, "0.00")
+    string ce_txt  = trail_kind + " " + (_ce_bull_mkt ? "Bull" : "Bear") + " x" + str.tostring(ce_mult, "#.#")
+    string cat_txt = cat_fam + (t1_manual ? " (T1 manual)" : "")
+
+    // Plain text with real newlines — for Pine Log
+    string plain_note = syminfo.ticker + " | " + str.tostring(timeframe.period) + " | " + cat_txt + "\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + "  T1: " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.##") + "R)  T2: " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R)\n" + "Qty: " + str.tostring(m_final_qty) + "  Invest: " + str.tostring(m_invested, format.volume) + "  Risk: " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "% / " + str.tostring(base_risk_pct, "0.00") + "% base)\n" + "RRG: " + rrg_txt + "  CE: " + ce_txt + "\n" + "Valid: " + val_txt
+    log.info(plain_note)
+
+    // Telegram JSON payload — \\n produces literal \n in the string (valid JSON newline escape)
+    if str.length(telegram_chat_id) > 0
+        string tg_text = syminfo.ticker + " | " + str.tostring(timeframe.period) + " | " + cat_txt + "\\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + "  T1: " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.##") + "R)  T2: " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R)\\n" + "Qty: " + str.tostring(m_final_qty) + "  Invest: " + str.tostring(m_invested, format.volume) + "  Risk: " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "% / " + str.tostring(base_risk_pct, "0.00") + "% base)\\n" + "RRG: " + rrg_txt + "  CE: " + ce_txt + "\\n" + "Valid: " + val_txt
+        alert('{"chat_id":"' + telegram_chat_id + '","text":"' + tg_text + '"}', alert.freq_all)
+    else
+        alert(plain_note, alert.freq_all)
