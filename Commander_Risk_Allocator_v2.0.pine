@@ -1,0 +1,383 @@
+//@version=6
+// ============================================================================
+// Commander Risk Allocator v2.0  (Standalone)
+// Catalyst + Regime aware discretionary position sizer & trade planner.
+// Zero-drift mirror of Weinstein_Unified_Ecosystem_v3.4.pine target/trail/SL.
+// ----------------------------------------------------------------------------
+// v2.0 (2026-06-09) — four new capabilities on top of v1.1:
+//   (1) AUTO-DETECT CATALYST + CONTEXT — reads Weekly Stage (30-WMA), Mansfield
+//       RS/RRG and price-action to PRE-SELECT the catalyst family. Manual
+//       selector remains as override (toggle auto-detect off, or it falls back
+//       to manual when no setup is detected). NOTE: the Bull/Recovery screeners
+//       and the Unified strategy remain the CANONICAL signal source — this
+//       on-chart detector is a faithful *suggestion* layer for discretionary
+//       sizing, not a replacement for the screeners.
+//   (2) AUTO-SUGGEST STRUCTURAL SL — proposes the stop from the catalyst-aware
+//       rule (POS: 10-bar low−0.2ATR · WYC: base low×0.98 · REV: 20-bar low−
+//       0.5ATR · SWG: min(EMA20, 5-bar low)). Clicked SL overrides. Fallback to
+//       catalyst ATR multiple (POS 4.0 · WYC 3.5 · REV 2.5 · SWG 1.5) if the
+//       structural anchor is invalid (>= entry).
+//   (3) 3-LEG SCALE-OUT (T1/T2/T3) + RUNNER — per-leg share quantities, all
+//       three target lines/labels on the chart. T1/T2 are the canonical strategy
+//       targets; T3 is an allocator "stretch runner" beyond the strategy's open
+//       CE trail (clearly labelled).
+//   (4) DHAN GTT / BROKER EXPORT — emits a structured JSON payload (entry, SL,
+//       3 target legs w/ qty, trail) for the GTT_Auto_Shield workflow, plus the
+//       existing Telegram + Pine-Log notes.
+// ----------------------------------------------------------------------------
+// Canonical targets (Unified v3.4 §7):
+//   POS-BO/ACCUM  T1 5R  T2 10R            (25% partial)
+//   WYC (Wyckoff) T1 5R  T2 max(10R,52wH)  (25%)
+//   SWG-BO/PB     T1 3R  T2 5R             (33%)
+//   SWG-GAP       T1 2R  T2 4R             (50%)
+//   SWG-REV       T1 2R  T2 2R             (50%)
+//   REV-CB/RS/EAR T1 5R  T2 52W-High       (25%)
+// Trail (regime-adjusted): POS 4.5 · WYC 3.5 · REV 2.5 · SWG 1.5 (bull); +0.5 bear.
+// ============================================================================
+indicator("Commander Risk Allocator v2.0", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+
+// ============================================================================
+// 1. INPUTS
+// ============================================================================
+grp_master = "Master Configuration"
+asset_type = input.string("Auto", "Asset Type", options=["Auto", "ETF", "Stock"], group=grp_master)
+resolved_asset = asset_type == "Auto" ? (syminfo.type == "fund" ? "ETF" : "Stock") : asset_type
+
+grp_port = "Portfolio & Risk"
+portfolio_capital = input.float(4000000.0, "Total Portfolio Capital (Reference)", step=1000.0, group=grp_port)
+etf_capital       = input.float(1200000.0, "ETF Portfolio Capital", step=1000.0, group=grp_port)
+stock_capital     = input.float(2800000.0, "Stock Portfolio Capital", step=1000.0, group=grp_port)
+etf_risk_pct      = input.float(1.0,  "ETF Risk %",   minval=0.01, step=0.01, group=grp_port)
+stock_risk_pct    = input.float(0.75, "Stock Risk %", minval=0.01, step=0.01, group=grp_port)
+etf_max_alloc     = input.float(240000.0, "Max Alloc per ETF Trade", step=1000.0, group=grp_port)
+stock_max_alloc   = input.float(280000.0, "Max Alloc per Stock Trade", step=1000.0, group=grp_port)
+multiplier        = input.int(1, "Lot Multiplier (1 for Equity)", minval=1, group=grp_port)
+
+grp_auto = "v2.0 Automation"
+auto_detect_catalyst = input.bool(true,  "Auto-detect Catalyst (manual = override)", group=grp_auto, tooltip="Reads Weekly Stage + Mansfield RS + price-action to suggest the catalyst family. Falls back to the manual selector when no setup is detected, or when this is OFF. The screeners remain canonical — this is a sizing convenience.")
+auto_sl              = input.bool(true,  "Auto-suggest Structural SL (click = override)", group=grp_auto, tooltip="Proposes the stop from the catalyst-aware structural rule. Click a Stop on the chart to override.")
+
+grp_trade = "Interactive Trade Setup"
+catalyst    = input.string("POS-BO / POS-ACCUM", "Catalyst (manual / override)", options=["POS-BO / POS-ACCUM", "WYC (Wyckoff)", "SWG-BO / SWG-PB", "SWG-GAP", "SWG-REV", "REV-CB / RS / EARLY"], group=grp_trade, tooltip="Used when Auto-detect is OFF or finds no setup. Drives canonical R-multiple targets and the trail width (Unified v3.4).")
+entry_p_raw = input.price(0.00, "Entry Price", confirm=true, group=grp_trade, tooltip="Click chart to place Entry. If left at 0, the current close is used for SL/target previews.")
+sl_p_raw    = input.price(0.00, "Stop Loss Price — OPTIONAL override", confirm=true, group=grp_trade, tooltip="OPTIONAL. Leave at 0 to auto-suggest the structural SL from the catalyst. Click to override.")
+tp_p_raw    = input.price(0.00, "Target Price (T1) — OPTIONAL override", confirm=true, group=grp_trade, tooltip="OPTIONAL. Leave at 0 to auto-derive T1 from the catalyst R-multiple. Click to override. T2/T3 are always catalyst based.")
+tick_size   = input.float(0.10, "Price Tick Size", step=0.05, group=grp_trade, tooltip="Rounds all prices to nearest tick. NSE typically uses 0.05 or 0.10.")
+
+grp_legs = "v2.0 Scale-Out (3-leg)"
+t2_exit_pct = input.int(25, "T2 exit %", minval=0, maxval=100, group=grp_legs, tooltip="Share % to exit at T2. T1% is catalyst-driven (POS/WYC/REV 25, SWG 33, GAP/SWG-REV 50). Runner = 100 − T1 − T2 − T3.")
+t3_exit_pct = input.int(25, "T3 exit %", minval=0, maxval=100, group=grp_legs, tooltip="Share % to exit at T3 (the stretch runner target).")
+
+// Round click-placed prices to nearest tick
+float entry_p = tick_size > 0 ? math.round(entry_p_raw / tick_size) * tick_size : entry_p_raw
+float sl_click = tick_size > 0 ? math.round(sl_p_raw    / tick_size) * tick_size : sl_p_raw
+float tp_p     = tick_size > 0 ? math.round(tp_p_raw    / tick_size) * tick_size : tp_p_raw
+
+grp_kelly = "Risk Adjustment"
+use_kelly      = input.bool(true, "Enable Kelly Probability Sizing", group=grp_kelly, tooltip="Scales risk 0.75×–1.25× based on Stage 2 + RS + Volume conditions.")
+use_vol_scale  = input.bool(true, "Reduce Risk if ATR > 3%", group=grp_kelly)
+use_regime_disc = input.bool(true, "Bear-Market Risk Discount (−0.25%)", group=grp_kelly)
+
+grp_notes = "Alerts / Export"
+fire_notes_alert  = input.bool(false, "🔔 SEND TO TELEGRAM — check, OK, then uncheck", group=grp_notes, tooltip="Fires the trade plan to Telegram (if Chat ID set) and the Pine Log. Uncheck immediately after.")
+fire_gtt_alert    = input.bool(false, "📤 EXPORT DHAN GTT JSON — check, OK, then uncheck", group=grp_notes, tooltip="Emits a structured GTT JSON payload (entry, SL, 3 target legs + qty, trail) to the alert + Pine Log for the GTT_Auto_Shield workflow.")
+telegram_chat_id  = input.string("", "Telegram Chat ID", group=grp_notes, tooltip="Your numeric Telegram user ID. Get it by messaging @userinfobot on Telegram.")
+
+grp_viz = "Visuals"
+show_alloc_table = input.bool(true, "Show Allocator Table", group=grp_viz)
+alloc_table_pos  = input.string("Bottom Right", "Table Position", options=["Bottom Right", "Top Right", "Bottom Left", "Top Left", "Middle Right", "Middle Center"], group=grp_viz)
+show_lines       = input.bool(true, "Show Entry/Stop/Target Lines", group=grp_viz)
+line_extension   = input.int(8, "Line Extension (Bars)", minval=2, group=grp_viz)
+
+// Position string converter
+string pos_str = alloc_table_pos == "Bottom Right" ? position.bottom_right : alloc_table_pos == "Top Right" ? position.top_right : alloc_table_pos == "Bottom Left" ? position.bottom_left : alloc_table_pos == "Top Left" ? position.top_left : alloc_table_pos == "Middle Right" ? position.middle_right : position.middle_center
+
+// ============================================================================
+// 2. MARKET HEALTH (CNX500 above 200 SMA + Golden Cross) — regime
+// ============================================================================
+var string bench500 = "NSE:CNX500"
+
+f_get_market_health(bm) =>
+    [m_close, m_sma50, m_sma200] = request.security(bm, "D", [close, ta.sma(close, 50), ta.sma(close, 200)], lookahead=barmerge.lookahead_off)
+    not na(m_close) and not na(m_sma200) and m_close > m_sma200 and m_sma50 > m_sma200
+
+bool mkt_health_res = f_get_market_health(bench500)
+
+// ============================================================================
+// 3. MANSFIELD RS / RRG QUADRANT
+// ============================================================================
+f_rs_math() =>
+    int jdkLen = 12
+    rs           = close
+    rs_sma       = ta.sma(rs, jdkLen)
+    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    rs_ratio     = ta.sma(rs_ratio_raw, 5)
+    rm1          = 100.0 * (rs_ratio / nz(rs_ratio[1], rs_ratio))
+    rs_mom_raw   = ta.sma(rm1, jdkLen)
+    float rs_val = rs_ratio - 100.0
+    float rs_mom = rs_mom_raw - 100.0
+    [rs_val, rs_mom]
+
+f_mansfield_rs(string bm) =>
+    string req = syminfo.prefix + ":" + syminfo.ticker + " / " + bm
+    request.security(req, "W", f_rs_math(), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+
+[rsVal500, rs_momentum] = f_mansfield_rs(bench500)
+string rs_quadrant = rsVal500 > 0 and rs_momentum > 0 ? "LEADING" : rsVal500 > 0 and rs_momentum <= 0 ? "WEAKENING" : rsVal500 <= 0 and rs_momentum <= 0 ? "LAGGING" : "IMPROVING"
+
+// ============================================================================
+// 4. DAILY STRUCTURE PACK (single security call — used by SL, targets, detect)
+// ============================================================================
+[d_50, d_150, d_200, d_ema20, d_high52, d_high40c, d_low10, d_low20, d_low40, d_atr14] = request.security(syminfo.tickerid, "D", [ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200), ta.ema(close, 20), ta.highest(high, 250), ta.highest(close, 40), ta.lowest(low, 10), ta.lowest(low, 20), ta.lowest(low, 40), ta.atr(14)], lookahead=barmerge.lookahead_off)
+
+bool stage2_uptrend = not na(d_200) and (close > d_50) and (d_50 > d_150) and (d_150 > d_200)
+bool rs_ok = rsVal500 > 0
+float vol_sma50 = ta.sma(volume, 50)
+
+// Weekly Weinstein Stage (30-WMA anchor)
+[wma30, wma30_p] = request.security(syminfo.tickerid, "W", [ta.sma(close, 30), ta.sma(close, 30)[1]], lookahead=barmerge.lookahead_off)
+int stage = na(wma30) ? 0 : (close > wma30 and wma30 >= wma30_p ? 2 : close > wma30 ? 3 : wma30 < wma30_p ? 4 : 1)
+
+// ============================================================================
+// 5. AUTO-DETECT CATALYST  (suggestion layer — screeners remain canonical)
+// ============================================================================
+float dd_from_high = d_high52 > 0 ? (d_high52 - close) / d_high52 : 0.0
+float base_range40 = d_low40 > 0 ? (d_high40c - d_low40) / d_low40 : 1.0   // daily-consistent base width
+
+bool det_gap      = (open > close[1] * 1.04) and close > open                                   // gap-up & hold
+bool det_breakout = stage2_uptrend and not na(d_high40c) and close >= d_high40c * 0.999          // Stage-2 new 40d high
+bool det_pullback = stage2_uptrend and not na(d_ema20) and (math.abs(close - d_ema20) / d_ema20 <= 0.03) and close > open
+bool det_oversold = close[3] > close[2] and close[2] > close[1] and close > close[1]              // 3 lower closes then up
+bool det_recovery = dd_from_high >= 0.15 and close > close[5] and rs_momentum > 0                // beaten-down + turning + RS improving
+bool det_wyc      = dd_from_high >= 0.15 and base_range40 <= 0.25 and close > close[5]            // tight base after decline + turn
+
+// Priority: gap → (downtrend context: WYC/REV) → (uptrend: breakout/pullback) → oversold → none
+string auto_cat = det_gap ? "SWG-GAP" : (dd_from_high >= 0.15 ? (det_wyc ? "WYC" : (det_recovery ? "REV" : "NONE")) : (det_breakout ? "POS" : (det_pullback ? "SWG" : (det_oversold ? "SWG-REV" : "NONE"))))
+
+// Manual family (from the selector) — fallback / override authority
+string manual_fam = str.startswith(catalyst, "POS") ? "POS" : str.startswith(catalyst, "WYC") ? "WYC" : str.startswith(catalyst, "REV") ? "REV" : catalyst == "SWG-GAP" ? "SWG-GAP" : catalyst == "SWG-REV" ? "SWG-REV" : "SWG"
+
+bool   use_auto = auto_detect_catalyst and auto_cat != "NONE"
+string cat_fam  = use_auto ? auto_cat : manual_fam
+string cat_src  = use_auto ? "AUTO" : "MAN"
+
+// ============================================================================
+// 6. TRAIL MODE — Catalyst base + Regime adjustment (Unified active_ce_mult)
+// ============================================================================
+bool _ce_bull_mkt = mkt_health_res
+float trail_base = cat_fam == "POS" ? 4.5 : cat_fam == "WYC" ? 3.5 : cat_fam == "REV" ? 2.5 : 1.5
+float ce_mult    = _ce_bull_mkt ? trail_base : trail_base + 0.5
+string trail_kind = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? "Chandelier" : "EMA20 (≈ATR)"
+
+// ============================================================================
+// 7. STOP LOSS — clicked override else catalyst-aware structural auto-suggest
+// ============================================================================
+float m_entry = entry_p
+float ref_px  = m_entry > 0 ? m_entry : close   // entry reference for SL/target previews
+
+// Catalyst-aware structural anchor (mirrors Unified §SL fallback discipline)
+float sl_struct = cat_fam == "POS" ? d_low10 - d_atr14 * 0.2 : cat_fam == "WYC" ? d_low40 * 0.98 : cat_fam == "REV" ? d_low20 - d_atr14 * 0.5 : math.min(d_ema20, d_low10) - d_atr14 * 0.1
+float sl_fb_mult = cat_fam == "POS" ? 4.0 : cat_fam == "WYC" ? 3.5 : cat_fam == "REV" ? 2.5 : 1.5
+float sl_auto_raw = (na(sl_struct) or sl_struct >= ref_px) ? ref_px - d_atr14 * sl_fb_mult : sl_struct
+float sl_auto = tick_size > 0 ? math.round(sl_auto_raw / tick_size) * tick_size : sl_auto_raw
+
+bool  sl_manual = sl_click > 0
+float m_stop = sl_manual ? sl_click : (auto_sl ? sl_auto : 0.0)
+
+float m_dist = (m_entry > 0 and m_stop > 0) ? math.abs(m_entry - m_stop) : 0.0
+
+// ============================================================================
+// 8. TARGETS — catalyst + regime based (T1/T2 canonical; T3 stretch runner)
+// ============================================================================
+// Canonical R-multiples (Unified v3.4 §7)
+float t1_r_canon = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 5.0 : cat_fam == "SWG" ? 3.0 : 2.0
+float t2_r_canon = (cat_fam == "POS" or cat_fam == "WYC") ? 10.0 : cat_fam == "SWG" ? 5.0 : cat_fam == "SWG-GAP" ? 4.0 : 2.0
+// T3 stretch runner (allocator-specific — beyond the strategy's open CE trail)
+float t3_r_canon = (cat_fam == "POS" or cat_fam == "WYC") ? 15.0 : cat_fam == "SWG" ? 8.0 : cat_fam == "SWG-GAP" ? 6.0 : cat_fam == "SWG-REV" ? 3.0 : 10.0
+int t1_qty_pct = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 25 : cat_fam == "SWG" ? 33 : 50
+
+// T1: optional manual override
+bool  t1_manual = tp_p > 0
+float m_t1_raw = t1_manual ? tp_p : ref_px + (m_dist * t1_r_canon)
+// T2: catalyst based — WYC max(10R,52wH); REV 52wH; else R-mult
+float m_t2_raw = cat_fam == "REV" ? d_high52 : cat_fam == "WYC" ? math.max(ref_px + (m_dist * 10.0), d_high52) : ref_px + (m_dist * t2_r_canon)
+// T3: stretch — REV/WYC use 52wH-extension where relevant
+float m_t3_raw = cat_fam == "REV" ? math.max(d_high52 * 1.05, ref_px + (m_dist * 10.0)) : cat_fam == "WYC" ? math.max(ref_px + (m_dist * 15.0), d_high52) : ref_px + (m_dist * t3_r_canon)
+
+float m_t1 = tick_size > 0 ? math.round(m_t1_raw / tick_size) * tick_size : m_t1_raw
+float m_t2 = tick_size > 0 ? math.round(m_t2_raw / tick_size) * tick_size : m_t2_raw
+float m_t3 = tick_size > 0 ? math.round(m_t3_raw / tick_size) * tick_size : m_t3_raw
+
+float t1_r = m_dist > 0 ? (m_t1 - ref_px) / m_dist : 0.0
+float t2_r = m_dist > 0 ? (m_t2 - ref_px) / m_dist : 0.0
+float t3_r = m_dist > 0 ? (m_t3 - ref_px) / m_dist : 0.0
+
+// ============================================================================
+// 9. POSITION SIZE & PER-LEG QUANTITIES
+// ============================================================================
+float base_risk_pct = resolved_asset == "ETF" ? etf_risk_pct : stock_risk_pct
+float regime_risk   = (use_regime_disc and not mkt_health_res) ? math.max(base_risk_pct - 0.25, 0.25) : base_risk_pct
+
+float atr_pct = close > 0 ? (d_atr14 / close) * 100 : 0
+float vol_discount = (use_vol_scale and atr_pct > 0) ? math.min(3.0 / atr_pct, 1.0) : 1.0
+
+float kelly_mult = 1.0
+if use_kelly
+    bool is_vol = volume > (vol_sma50 * 1.1)
+    int kelly_pts = (stage2_uptrend ? 1 : 0) + (rs_ok ? 1 : 0) + (is_vol ? 1 : 0)
+    kelly_mult := kelly_pts >= 3 ? 1.25 : kelly_pts == 2 ? 1.0 : 0.75
+
+float vol_kelly = math.max(vol_discount * kelly_mult, 0.75)
+float active_risk_pct = math.max(regime_risk * vol_kelly, 0.25)
+
+float active_capital   = resolved_asset == "ETF" ? etf_capital : stock_capital
+float active_max_alloc = resolved_asset == "ETF" ? etf_max_alloc : stock_max_alloc
+
+float m_risk_amt   = active_capital * (active_risk_pct / 100.0)
+float qty_r        = m_dist > 0 ? math.floor((m_risk_amt / m_dist) / multiplier) : 0
+float qty_c        = m_entry > 0 ? math.floor((active_max_alloc / m_entry) / multiplier) : 0
+float m_final_qty  = math.min(qty_r, qty_c)
+float m_invested   = m_final_qty * m_entry * multiplier
+float m_act_risk   = m_final_qty * m_dist * multiplier
+
+// Per-leg share split (T1 catalyst-driven; T2/T3 user; runner = remainder)
+int run_pct = math.max(0, 100 - t1_qty_pct - t2_exit_pct - t3_exit_pct)
+float q_t1  = math.floor(m_final_qty * t1_qty_pct / 100.0)
+float q_t2  = math.floor(m_final_qty * t2_exit_pct / 100.0)
+float q_t3  = math.floor(m_final_qty * t3_exit_pct / 100.0)
+float q_run = math.max(0, m_final_qty - q_t1 - q_t2 - q_t3)
+
+// ============================================================================
+// 10. OVERHEAD RESISTANCE CHECK
+// ============================================================================
+float m_overhead_res = math.min(d_high52, close < d_200 ? d_200 : d_high52)
+bool  is_t1_blocked  = m_t1 > m_overhead_res
+
+// ============================================================================
+// 11. ALLOCATOR TABLE
+// ============================================================================
+if barstate.islast and show_alloc_table and m_entry > 0
+    var table tbl_alloc = table.new(pos_str, 2, 16, bgcolor=color.new(color.black, 40), border_width=1)
+
+    // Header
+    table.cell(tbl_alloc, 0, 0, "Risk Allocator v2", bgcolor=color.blue, text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 0, resolved_asset + " · " + cat_src + " " + cat_fam, bgcolor=color.blue, text_color=color.white, text_size=size.small)
+
+    // Context: Stage + RRG
+    string _stage_txt = stage == 2 ? "Stage 2 ✓" : stage == 1 ? "Stage 1" : stage == 3 ? "Stage 3 ⚠" : stage == 4 ? "Stage 4 ✗" : "Stage ?"
+    color  _stage_col = stage == 2 ? color.lime : stage == 1 ? color.yellow : stage == 3 ? color.orange : stage == 4 ? color.red : color.gray
+    table.cell(tbl_alloc, 0, 1, "Context", text_color=color.gray, text_size=size.small)
+    table.cell(tbl_alloc, 1, 1, _stage_txt + " · " + rs_quadrant, text_color=_stage_col, text_size=size.small)
+
+    // Entry / Stop (with AUTO/MANUAL tag)
+    table.cell(tbl_alloc, 0, 2, "Entry", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 2, str.tostring(m_entry, "0.00"), text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 0, 3, "Stop" + (sl_manual ? " [MANUAL]" : " [AUTO]"), text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 3, m_stop > 0 ? str.tostring(m_stop, "0.00") + " (" + str.tostring((ref_px - m_stop) / ref_px * 100, "0.0") + "%)" : "— set SL", text_color=color.red, text_size=size.small)
+
+    // Adjusted Risk %
+    table.cell(tbl_alloc, 0, 4, "Adjusted Risk %", text_color=color.orange, text_size=size.small)
+    table.cell(tbl_alloc, 1, 4, str.tostring(active_risk_pct, "0.00") + "% (Base: " + str.tostring(base_risk_pct, "0.00") + "%)", text_color=color.orange, text_size=size.small)
+
+    // Quantity (large yellow)
+    table.cell(tbl_alloc, 0, 5, "Quantity", text_color=color.yellow, text_size=size.normal)
+    table.cell(tbl_alloc, 1, 5, str.tostring(m_final_qty), text_color=color.yellow, text_size=size.normal)
+
+    // Invested / Risk Amt
+    table.cell(tbl_alloc, 0, 6, "Invested", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 6, str.tostring(m_invested, format.volume), text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 0, 7, "Risk Amt", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 7, str.tostring(m_act_risk, format.volume), text_color=color.white, text_size=size.small)
+
+    // 3-leg scale-out: T1 / T2 / T3 / Runner (price + per-leg qty)
+    table.cell(tbl_alloc, 0, 8, "T1 " + str.tostring(t1_qty_pct) + "% (" + str.tostring(t1_r, "#.#") + "R)" + (t1_manual ? " [MAN]" : ""), text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 8, str.tostring(m_t1, "0.00") + "  ×" + str.tostring(q_t1), text_color=color.green, text_size=size.small)
+    string _t2_tag = cat_fam == "REV" ? " [52wH]" : cat_fam == "WYC" ? " [≥10R/52wH]" : ""
+    table.cell(tbl_alloc, 0, 9, "T2 " + str.tostring(t2_exit_pct) + "% (" + str.tostring(t2_r, "#.#") + "R)" + _t2_tag, text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 9, str.tostring(m_t2, "0.00") + "  ×" + str.tostring(q_t2), text_color=color.lime, text_size=size.small)
+    table.cell(tbl_alloc, 0, 10, "T3 " + str.tostring(t3_exit_pct) + "% (" + str.tostring(t3_r, "#.#") + "R)", text_color=color.green, text_size=size.small)
+    table.cell(tbl_alloc, 1, 10, str.tostring(m_t3, "0.00") + "  ×" + str.tostring(q_t3), text_color=color.lime, text_size=size.small)
+    table.cell(tbl_alloc, 0, 11, "Runner " + str.tostring(run_pct) + "%", text_color=color.gray, text_size=size.small)
+    table.cell(tbl_alloc, 1, 11, "trail  ×" + str.tostring(q_run), text_color=color.gray, text_size=size.small)
+
+    // Trade Validation
+    table.cell(tbl_alloc, 0, 12, "Trade Validation", text_color=color.white, text_size=size.small)
+    table.cell(tbl_alloc, 1, 12, is_t1_blocked ? "⚠️ T1 > Overhead Res (" + str.tostring(m_overhead_res, "0.00") + ")" : "✅ Clear Room to T1", text_color=is_t1_blocked ? color.orange : color.green, text_size=size.small)
+
+    // Trail (catalyst base + regime-adjusted ATR mult)
+    table.cell(tbl_alloc, 0, 13, "Trail (" + trail_kind + ")", text_color=color.gray, text_size=size.small)
+    table.cell(tbl_alloc, 1, 13, (_ce_bull_mkt ? "Bull" : "Bear") + " ×" + str.tostring(ce_mult, "#.#") + " ATR", text_color=_ce_bull_mkt ? color.green : color.red, text_size=size.small)
+
+    // RRG detail
+    color quad_col = rs_quadrant == "LEADING" ? color.lime : rs_quadrant == "IMPROVING" ? color.aqua : rs_quadrant == "WEAKENING" ? color.yellow : color.red
+    table.cell(tbl_alloc, 0, 14, "RRG " + rs_quadrant, text_color=quad_col, text_size=size.small)
+    table.cell(tbl_alloc, 1, 14, "RS " + str.tostring(rsVal500, "0.00") + " / mom " + str.tostring(rs_momentum, "0.00"), text_color=quad_col, text_size=size.small)
+
+    // Detection source
+    table.cell(tbl_alloc, 0, 15, "Catalyst src", text_color=color.gray, text_size=size.small)
+    table.cell(tbl_alloc, 1, 15, use_auto ? "AUTO-detected" : (auto_detect_catalyst ? "AUTO→none, using MANUAL" : "MANUAL (auto off)"), text_color=use_auto ? color.aqua : color.gray, text_size=size.small)
+
+// ============================================================================
+// 12. CHART LINES & LABELS (Entry / SL / T1 / T2 / T3)
+// ============================================================================
+var line  l_entry  = na
+var line  l_stop   = na
+var line  l_t1     = na
+var line  l_t2     = na
+var line  l_t3     = na
+var label lbl_entry = na
+var label lbl_stop  = na
+var label lbl_t1    = na
+var label lbl_t2    = na
+var label lbl_t3    = na
+
+if barstate.islast and show_lines and m_entry > 0 and m_stop > 0
+    line.delete(l_entry)
+    line.delete(l_stop)
+    line.delete(l_t1)
+    line.delete(l_t2)
+    line.delete(l_t3)
+    label.delete(lbl_entry)
+    label.delete(lbl_stop)
+    label.delete(lbl_t1)
+    label.delete(lbl_t2)
+    label.delete(lbl_t3)
+
+    int lx1 = bar_index
+    int lx2 = bar_index + line_extension
+
+    l_entry := line.new(lx1, m_entry, lx2, m_entry, color=color.blue,  style=line.style_dashed, width=1)
+    l_stop  := line.new(lx1, m_stop,  lx2, m_stop,  color=color.red,   style=line.style_dashed, width=2)
+    l_t1    := line.new(lx1, m_t1,    lx2, m_t1,    color=color.green, style=line.style_dashed, width=1)
+    l_t2    := line.new(lx1, m_t2,    lx2, m_t2,    color=color.lime,  style=line.style_dashed, width=1)
+    l_t3    := line.new(lx1, m_t3,    lx2, m_t3,    color=color.aqua,  style=line.style_dotted, width=1)
+
+    lbl_entry := label.new(lx2, m_entry, "Entry: " + str.tostring(m_entry, "0.00"),                                          xloc=xloc.bar_index, color=color.new(color.blue,  70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_stop  := label.new(lx2, m_stop,  "SL: "    + str.tostring(m_stop,  "0.00") + (sl_manual ? " [MAN]" : " [AUTO]"),     xloc=xloc.bar_index, color=color.new(color.red,   70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_t1    := label.new(lx2, m_t1,    "T1 (" + str.tostring(t1_r, "#.#") + "R) ×" + str.tostring(q_t1) + ": " + str.tostring(m_t1, "0.00"), xloc=xloc.bar_index, color=color.new(color.green, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_t2    := label.new(lx2, m_t2,    "T2 (" + str.tostring(t2_r, "#.#") + "R) ×" + str.tostring(q_t2) + ": " + str.tostring(m_t2, "0.00"), xloc=xloc.bar_index, color=color.new(color.lime,  70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_t3    := label.new(lx2, m_t3,    "T3 (" + str.tostring(t3_r, "#.#") + "R) ×" + str.tostring(q_t3) + ": " + str.tostring(m_t3, "0.00"), xloc=xloc.bar_index, color=color.new(color.aqua,  70), textcolor=color.white, style=label.style_label_left, size=size.small)
+
+// ============================================================================
+// 13. ALERTS — Telegram / Notes + Dhan GTT export
+// ============================================================================
+string val_txt = is_t1_blocked ? "! T1 > Res " + str.tostring(m_overhead_res, "0.00") : "Clear"
+string rrg_txt = rs_quadrant + " RS:" + str.tostring(rsVal500, "0.00") + " mom:" + str.tostring(rs_momentum, "0.00")
+string ce_txt  = trail_kind + " " + (_ce_bull_mkt ? "Bull" : "Bear") + " x" + str.tostring(ce_mult, "#.#")
+string cat_txt = cat_src + " " + cat_fam + " | St" + str.tostring(stage)
+
+// --- Telegram / Pine-Log trade note ---
+if fire_notes_alert and barstate.islast and m_entry > 0 and m_stop > 0
+    string plain_note = syminfo.ticker + " | " + str.tostring(timeframe.period) + " | " + cat_txt + "\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + "\n" + "T1: " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.#") + "R ×" + str.tostring(q_t1) + ")  T2: " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R ×" + str.tostring(q_t2) + ")  T3: " + str.tostring(m_t3, "0.00") + " (" + str.tostring(t3_r, "#.#") + "R ×" + str.tostring(q_t3) + ")\n" + "Qty: " + str.tostring(m_final_qty) + " (run ×" + str.tostring(q_run) + ")  Invest: " + str.tostring(m_invested, format.volume) + "  Risk: " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "%)\n" + "RRG: " + rrg_txt + "  Trail: " + ce_txt + "\n" + "Valid: " + val_txt
+    log.info(plain_note)
+    if str.length(telegram_chat_id) > 0
+        string tg_text = syminfo.ticker + " | " + str.tostring(timeframe.period) + " | " + cat_txt + "\\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + "\\n" + "T1: " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.#") + "R x" + str.tostring(q_t1) + ")  T2: " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R x" + str.tostring(q_t2) + ")  T3: " + str.tostring(m_t3, "0.00") + " (" + str.tostring(t3_r, "#.#") + "R x" + str.tostring(q_t3) + ")\\n" + "Qty: " + str.tostring(m_final_qty) + "  Risk: " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "%)\\n" + "Trail: " + ce_txt + "  Valid: " + val_txt
+        alert('{"chat_id":"' + telegram_chat_id + '","text":"' + tg_text + '"}', alert.freq_all)
+    else
+        alert(plain_note, alert.freq_all)
+
+// --- Dhan GTT / broker export (structured JSON for GTT_Auto_Shield) ---
+if fire_gtt_alert and barstate.islast and m_entry > 0 and m_stop > 0
+    string gtt_json = '{"source":"RiskAllocator_v2","symbol":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix + '","instrument":"' + resolved_asset + '","side":"BUY","catalyst":"' + cat_fam + '","catalyst_src":"' + cat_src + '","stage":' + str.tostring(stage) + ',"qty":' + str.tostring(m_final_qty) + ',"entry":' + str.tostring(m_entry, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + ',"risk_pct":' + str.tostring(active_risk_pct, "0.00") + ',"risk_amt":' + str.tostring(m_act_risk, "0.00") + ',"legs":[{"tag":"T1","price":' + str.tostring(m_t1, "0.00") + ',"qty":' + str.tostring(q_t1) + ',"r":' + str.tostring(t1_r, "0.0") + '},{"tag":"T2","price":' + str.tostring(m_t2, "0.00") + ',"qty":' + str.tostring(q_t2) + ',"r":' + str.tostring(t2_r, "0.0") + '},{"tag":"T3","price":' + str.tostring(m_t3, "0.00") + ',"qty":' + str.tostring(q_t3) + ',"r":' + str.tostring(t3_r, "0.0") + '}],"runner_qty":' + str.tostring(q_run) + ',"trail":{"kind":"' + trail_kind + '","atr_mult":' + str.tostring(ce_mult, "#.#") + ',"regime":"' + (_ce_bull_mkt ? "bull" : "bear") + '"}}'
+    log.info(gtt_json)
+    alert(gtt_json, alert.freq_all)
