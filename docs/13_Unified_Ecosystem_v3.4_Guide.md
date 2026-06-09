@@ -1,9 +1,26 @@
-# Weinstein Unified Ecosystem [v3.4] — User Guide
+# Weinstein Unified Ecosystem [v3.4.2] — User Guide
 
-**Script:** `Weinstein_Unified_Ecosystem_v3.4.pine`
+**Script:** `Weinstein_Unified_Ecosystem_v3.4.pine` (indicator title `[v3.4.2]`)
 **Type:** Strategy (Overlay)
 **Market:** NSE/BSE — Nifty 500 Universe
 **Timeframe:** Daily (primary)
+
+---
+
+## 🆕 June 2026 — v3.4.2: Wyckoff catalysts now visible on the panel (display-only)
+
+The v3.4 port **added** the four Wyckoff triggers (`WYC-SPRING+SOS`, `WYC-JAC`, `WYC-SOS`, `WYC-SPRING`) and actually *took* those trades — entries, stops and targets — but it never surfaced them on the dashboard. The "Recovery Signals" panel row and the CATALYST DIAG sub-panel only listed the legacy `REV-CB / REV-RS / REV-EARLY` edges. The result: **a live Wyckoff position read `⚫ Wait` across every recovery row**, hiding your real exposure.
+
+v3.4.2 is a **pure display fix — zero change to any signal, entry, stop, or target logic**:
+
+| Change | Where | What you now see |
+|---|---|---|
+| New **"Wyckoff Signals"** row | Main panel, Recovery section (above "Recovery Signals") | 🟢/🟡/🔵/⚫ per Wyckoff edge: `SPR+SOS · JAC · SOS · SPRING` |
+| New **WYCKOFF block** | CATALYST DIAG grid (rendered first in the Recovery section) | `✓ FIRE` or the first-blocking-gate (`✗ no Wyckoff base`, `✗ no Spring (C)`, `✗ no SOS (D)`, `✗ no JAC`, `✗ regime`) + `[hit count]` |
+| Wyckoff bar-trackers + hit counters | internal | drives the 🟡 HOLD window and the `[X]` history count |
+| `dash` table 36 → 40 rows | internal | room for the new rows |
+
+See **§5 Part A / Part B** below for every field and value, and **Trading Guide §4.4** for how to act on them.
 
 ---
 
@@ -38,7 +55,7 @@ v3.4 represents a major evolution of the Unified Ecosystem, introducing machine 
 - **664-Symbol Hardcoded Database:** The ecosystem now contains a physically ported SQLite mapping block (`<DB_LOOKUP_START>`), moving away from string-matching hacks. This guarantees 100% offline consistency between the Python screeners and Pine indicators for all 664 NSE stocks tracked in `sectors.db`.
 
 ### 3. Wyckoff Phases & Adjusted Targets
-- **Wyckoff Catalysts:** The ecosystem now natively detects Wyckoff Accumulation phases (Spring, SOS, JAC) alongside the traditional Weinstein & Minervini setups.
+- **Wyckoff Catalysts:** The ecosystem now natively detects Wyckoff Accumulation phases (Spring, SOS, JAC) *alongside* the traditional REV-CB, REV-RS, and REV-EARLY setups.
 - **Target Realignment:** Swing trades now target 3R/5R (was 5R/10R) with a 33% partial take-profit, better reflecting the 1-4 week hold times. Positional targets remain 5R/10R.
 - **Widened Trails:** Swing trades now use a wider SMA50 trail (was EMA20), and POS-BO uses a 4.5x ATR Chandelier (was 3.0x), to prevent premature exits and let winners run.
 
@@ -339,39 +356,96 @@ Go to **Settings → Shared: Indicators & General**:
 
 ---
 
-## 5. The Unified Dashboard Panel
+## 5. The Compact Catalyst Diagnostic Panel (v3.4+)
 
-### Bull Market Strategy Section
-| Row | Signal Colors |
+The Unified Ecosystem strategy no longer duplicates Stage, RS, Trend, or Price Action data on the chart (use the **Commander Dashboard** for those). Instead, the unified panel is a dense, cross-referenced diagnostic tool broken into a top Summary section and a bottom Diagnostic section.
+
+### Part A: Top Summary Panels
+These rows provide a rapid state-check of your active edges and regime gates.
+
+#### 🌿 BULL MARKET STRATEGY
+| Row | Diagnostic Detail |
 |---|---|
-| Market Health | Green=BULL, Red=BEAR, Amber=CORRECTION |
-| Weinstein Stage (W) | Green=Stage2, Amber=Stage1, Red=Stage4 |
-| RS Quadrant | Green=LEADING/IMPROVING, Red=LAGGING |
-| Sector Stage | Green=Stage1or2, White=Other |
-| Base Confirmed | Green=YES, White=NO |
-| Alpha Score | Green=Pass, Amber=Near, Red=Fail |
-| VCP / Tight Base | Green=TIGHT, White=LOOSE |
-| BB Squeeze | Green=SQUEEZE, White=OPEN |
-| CPR / MVWAP | Green=ABOVE, White=BELOW |
-| Positional Signals | 🟢Fire / 🟡Hold / ⚫Wait per edge |
-| Swing Signals | 🟢Fire / 🟡Hold / ⚫Wait per edge |
+| **BULL SETUP** | **Base Status:** Either `✓ BASE` (valid accumulation structure detected) or `✗ NO BASE` (structure invalid).<br>**Alpha Score:** e.g., `Py 92/100`. This is the quantitative Py-Score representing trend and momentum alignment out of 100. |
+| **ML WIN PROB** | A machine learning-derived historical win probability for the current setup cluster (e.g., `65.4%`). Can also display `(DeadZone)` if the ML RSI indicates a low-probability, choppy environment. |
+| **Positional Signals** | High-level status of positional edges (`POS-BO`, `POS-AC`).<br>🟢 = **Fire** (Setup is active)<br>🟡 = **Hold** (In active trade / partial conditions met)<br>⚫ = **Wait** (Setup is blocked). |
+| **Swing Signals** | High-level status of swing edges (`SWG-PB`, `SWG-BO`, `SWG-REV`, `GAP`).<br>🟢 = **Fire**<br>🟡 = **Hold**<br>⚫ = **Wait**. |
 
-### Recovery Strategy Section
-| Row | Notes |
+#### 🔄 RECOVERY MARKET STRATEGY
+| Row | Diagnostic Detail |
 |---|---|
-| Recovery Regime Gate | RECLAIM / CORRECTION / OPEN |
-| 52W Correction (%) | Must be 10%–40% for recovery edges |
-| CB Pillars | P1–P4 checklist (N/4) |
-| Active Recovery Edge | Currently triggering edge name |
-| Recovery Score | N/4 composite score |
-| Recovery Signals | 🟢Fire / 🟡Hold / ⚫Wait per edge |
-| RFF Fundamental Filter | N/6 + pass/warn/fail |
+| **REC STATE** | **Regime:** The current recovery phase (`RECLAIM`, `CORRECTION`, or `OPEN`).<br>**Fundamental Score:** e.g., `RFF: 4/6✓`. The number of Recovery Fundamental Filters passed (out of 6 max). |
+| **Wyckoff Signals** *(v3.4.2 — NEW)* | High-level status of the four Wyckoff accumulation edges, in priority order: `SPR+SOS` (Spring + Sign-of-Strength), `JAC` (Jump Across the Creek), `SOS` (Sign-of-Strength alone), `SPRING` (Spring alone).<br>🟢 = **Fire** (Wyckoff trigger fired *this* bar)<br>🟡 = **Hold** (fired within the last `bull_hold_days` bars — still inside the entry window)<br>🔵 = **Active Trade** (a Wyckoff position is currently open for this edge)<br>⚫ = **Wait** (not triggered).<br>**These are the backtest-validated *priority* recovery edge** — see §4.4 of the Trading Guide. Before v3.4.2 the v3.4 port fired these triggers and took the trades, but never showed them on the panel, so a live Wyckoff trade misleadingly read `⚫ Wait` across every REV-* row. |
+| **Recovery Signals** | High-level status of the *legacy* recovery edges (`REV-CB`, `REV-RS`, `REV-EAR`).<br>🟢 = **Fire**<br>🟡 = **Hold**<br>🔵 = **Active Trade**<br>⚫ = **Wait**. |
 
-**CB Pillars:**
-- **P1** — Stock stretched ≥15% from 60-bar high
-- **P2** — Oversold: ≥5 red bars in 7-bar window, price in bottom 25% of 10-bar range
-- **P3** — Climax bar: volume ≥2× average on widest-range down day
-- **P4** — Turn bar: bullish close above prior high, close in top 40% of bar
+> **Icon legend (applies to every signal row — Positional, Swing, Wyckoff, Recovery):**
+> | Icon | State | What it means for you |
+> |---|---|---|
+> | 🟢 | **FIRE** | Trigger fired on the *current* bar. This is a fresh actionable signal — check the LEVELS / trade plan now. |
+> | 🟡 | **HOLD** | Fired within the last `bull_hold_days` bars (default ~10). The entry window is still open if you missed the fire bar; entries here are later but valid. |
+> | 🔵 | **ACTIVE TRADE** | The strategy currently holds an open position opened by *this* edge. Manage the existing trade; do not pyramid blindly. |
+> | ⚫ | **WAIT** | No trigger, no hold window, no open trade. Consult the CATALYST DIAG grid (§Part B) to see the first-blocking-gate. |
+
+---
+
+### Part B: The 4-Quadrant Diagnostic Grid
+If a signal row above shows `⚫ Wait` or a setup isn't firing, consult this diagnostic grid. It tells you exactly *why* a setup is blocked by showing the exact name of the first-blocking-gate.
+
+> [!IMPORTANT]
+> **Understanding the Hit Count `[X]`:**
+> When you look at a cell like `✗ mkt_bull (regime) [8]`, the `[8]` does **not** mean 8 criteria have passed. It represents the **Historical Hit Count**—the total number of times this specific edge has fully fired on this chart's historical data. 
+
+#### 1. 🌿 BULL Catalysts
+| Cell Label | Description | Signal Color |
+|---|---|---|
+| **POS-BO** | Positional Breakout status | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **POS-ACCUM** | Positional Accumulation status | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **SWG-PB** | Swing Pullback status | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **SWG-BO** | Swing Breakout status | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **SWG-REV** | Swing Reversal status | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **SWG-GAP** | Gap & Go Breakout status | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+
+*Note: Each cell displays the catalyst name, whether it is firing (e.g. `✓ FIRE`), or if it is blocked, the exact name of the first-blocking-gate (e.g. `✗ mkt_bull`, `✗ base_confirmed`, `✗ edge off`, `✗ alpha`).*
+
+#### 2. 🔄 RECOVERY Catalysts
+The Recovery section of the diagnostic grid is rendered as **two sub-blocks**: the **WYCKOFF** block (priority edge, listed first) and the legacy **REV-*** block.
+
+**WYCKOFF block** *(v3.4.2 — NEW; previously absent from the diagnostic grid)*
+
+| Cell Label | Description | First-blocking-gate values you may see |
+|---|---|---|
+| **WYC-SPR+SOS** | Spring (Phase C shakeout) **followed by** a Sign-of-Strength push (Phase D). The highest-conviction Wyckoff combo. | `✗ rec mode off` (Recovery mode toggle is off) · `✗ no Wyckoff base` (price not inside a qualifying accumulation range — too wide or not enough prior decline) · `✗ no Spring (C)` (no recent spring/shakeout below base low) · `✗ no SOS (D)` (no recent sign-of-strength breakout above base) · `✗ regime` (market-regime gate not met) |
+| **WYC-JAC** | Jump Across the Creek — a decisive close above the base's resistance ("the creek") on expanding volume. | `✗ rec mode off` · `✗ no Wyckoff base` · `✗ no JAC (cross creek)` (no volume-backed close above `base_high`) · `✗ regime` |
+| **WYC-SOS** | Sign-of-Strength **alone** (no qualifying spring or JAC also present this bar). | `✗ rec mode off` · `✗ no SOS (D)` · `✗ shown as SPR+SOS/JAC` (a higher-priority Wyckoff edge is firing, so this one is intentionally suppressed to avoid double-labelling) · `✗ regime` |
+| **WYC-SPRING** | Spring **alone** (no qualifying SOS or JAC also present this bar). | `✗ rec mode off` · `✗ no Spring (C)` · `✗ shown as SPR+SOS/JAC` (a higher-priority Wyckoff edge is firing) · `✗ regime` |
+
+> **Priority / de-duplication logic:** When a Spring and an SOS coincide, the panel reports **WYC-SPR+SOS** and the standalone **WYC-SOS** / **WYC-SPRING** cells read `✗ shown as SPR+SOS/JAC`. This is *not* a block — it means the signal was promoted to the higher-conviction combo cell. Always read the four Wyckoff cells together.
+
+**Legacy REV-* block**
+
+| Cell Label | Description | Signal Color |
+|---|---|---|
+| **REV-CB** | Climax Bounce capitulation | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **REV-RS** | Relative Strength survivor | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+| **REV-EARLY** | Early Stage 2 warning | 🟢 Fire / 🟡 Hold / 🔴 [Blocking Gate] / ⚫ Wait |
+
+*The `[X]` hit-count convention applies to the Wyckoff cells too: `WYC-SPR+SOS ✓ FIRE [3]` means this edge has fully fired 3 times across the chart's history.*
+
+#### 3. ◇ RRG (vs N500)
+Displays the current Relative Rotation Graph (RRG) phase of the stock compared to the Nifty 500.
+* **Colors:** Green = LEADING/IMPROVING, Red = LAGGING/WEAKENING.
+
+### 4. 🛈 META 
+| Row | Diagnostic Detail |
+|---|---|
+| **Sector Ticker** | Displays the Sector Ticker. Green if the sector passes the Stage 1/2 gate, Red if the sector is lagging/weak. |
+| **WCL Gate** | Weinstein Context Layer state. Possible values: `PASSED` (green) or `BLOCKED` (red). |
+| **Base Confirm Path** | Base confirmation mechanism. Possible values: `WEINSTEIN` (standard logic), `MATURE EXEMPT` (exempted due to mature trend), or `BLOCKED` (failed checks). |
+
+**Cross-Tool Navigation:** The bottom row reminds you where to look for deeper context: 
+* `Dashboard (RS/Stage/PA)`
+* `Bull Screener (Gates/Levels)`
+* `Recovery Screener (Pillars/RFF)`
 
 ---
 
@@ -500,10 +574,11 @@ BULL MARKET STRATEGY (6 Edges)
     ├── SWG-REV  — Swing Reversion (SMA200 mean-reversion)
     └── GAP-GO   — Gap & Go (institutional gap held into close)
 
-RECOVERY MARKET STRATEGY (3 Edges)
+RECOVERY MARKET STRATEGY (4 Edges)
 ├── REV-CB    — Climax Bottom (panic washout reversal)
 ├── REV-RS    — RS Survivor (corrected market, RS-positive breakout)
-└── REV-EARLY — Early Bird (trendline reclaim + compressed base)
+├── REV-EARLY — Early Bird (trendline reclaim + compressed base)
+└── WYCKOFF   — Wyckoff Accumulation (Phase C Spring / Phase D SOS)
 ```
 
 ---
@@ -766,6 +841,48 @@ Before any edge fires, a **hierarchy of filters** must pass from top to bottom.
 **T2:** 52-Week High
 
 ---
+
+---
+
+### 4.4 WYCKOFF — Accumulation Base
+
+**Concept:** Pure price + volume detection (no oscillators) of a Wyckoff accumulation structure. It detects Phase B (base building), Phase C (Spring), and Phase D (SOS/JAC).
+
+**Entry Conditions:**
+1. **Phase B (Base):** 60-bar sideways range with max 25% volatility. Must follow a prior decline of ≥20%.
+2. **Phase C (Spring):** False breakdown below the base low (max 3% below) on weak volume (< 1.0× average), followed by an immediate recovery back into the base within 3 bars.
+3. **Phase D (SOS/JAC):** Breakout above the minor 15-bar resistance inside the base, supported by high volume (≥ 1.5× average).
+
+**Stop Loss:** Base low − 0.3× ATR14.
+
+**Trail:** Chandelier Exit ratchet (CE-REC).
+
+**T1:** Entry + 5.0R
+**T2:** max(10.0R, 52-Week High)
+
+**Time Stop:** Positional holding rules (max 30 days if gain < 0.5R)
+
+---
+
+#### How to leverage the Wyckoff panel (v3.4.2)
+
+The four Wyckoff edges are now first-class citizens on the dashboard. Read them in **priority order, top-to-bottom**, because higher-conviction combos absorb the standalone signals:
+
+| Panel reads | Conviction | What it means & how to act |
+|---|---|---|
+| **`SPR+SOS 🟢`** | **Highest** | A Spring (Phase C shakeout) *and* a Sign-of-Strength (Phase D push) on the same structure. This is the textbook Wyckoff long. Take the full position at the SL/target shown; this is the one to size up to your normal positional risk. |
+| **`JAC 🟢`** | **High** | Jump Across the Creek — decisive, volume-backed close above base resistance. Strong continuation entry even without a prior visible spring. |
+| **`SOS 🟢`** | **Medium** | Sign-of-Strength alone (no spring this bar). Valid, but you missed the lower-risk spring entry — expect a slightly worse R:R. Confirm the base is genuine before committing. |
+| **`SPRING 🟢`** | **Medium / early** | Spring alone (no SOS confirmation yet). This is the *earliest, lowest-price* entry but also the least confirmed — Phase D has not printed. Half-size and add on the subsequent SOS/JAC. |
+
+**Workflow:**
+1. **🟢 FIRE** on any Wyckoff row → open the **CATALYST DIAG → WYCKOFF block** to confirm the entry isn't a near-miss, then read the **LEVELS** (entry / SL / T1 / T2) and place the trade. Wyckoff is a *positional* edge — use the 5R/10R targets and the 30-day time stop, not swing targets.
+2. **🟡 HOLD** → you can still enter; the spring/SOS fired within the last ~10 bars and the structure is intact. Tighten your stop to the most recent higher-low.
+3. **🔵 ACTIVE TRADE** → you already hold this Wyckoff position. Manage it with the CE-REC trail; don't re-enter.
+4. **⚫ WAIT** with `✗ no Wyckoff base` → the stock has *no* qualifying accumulation structure. Don't force a Wyckoff thesis onto a chart that hasn't based — move on.
+5. **`✗ shown as SPR+SOS/JAC`** on a standalone SOS/SPRING cell is **not a rejection** — the signal was promoted to the higher-conviction combo above it. Trade the combo.
+
+> **Why it matters:** because v3.4 took these trades silently, you could have had real Wyckoff exposure that the panel never acknowledged. Now `🔵 ACTIVE TRADE` on a Wyckoff row tells you exactly which recovery edge owns the open position — critical for the Sell-to-Buy rotation and Stage-violation audits.
 
 ## 5. Exit Engine — Complete Rules
 
@@ -1054,3 +1171,26 @@ After updating from v3.4 (or earlier) to v3.6, you must:
 - **POS-BO / POS-ACCUM trades will have wider initial SL** (~6-12% rather than ~3%) when the fallback path triggers. Position sizing at 1% risk automatically halves the share count — this is correct discipline.
 - **Wyckoff trades fire alongside REV-***; you may see WYC and REV signals on the same chart, with WYC taking precedence in the priority cascade.
 - **No catalyst is suppressed**. If a setup qualifies, it fires.
+
+---
+
+
+- **Does REV-EARLY depend on a lagging Golden Cross?** No. A common misconception is that the `rs_recovery_state` relies on a lagging moving average crossover. In v3.4, the recovery state runs on `f_getStrictTrend()`, which calculates structural trend shifts using ZigZag pivots (pure price action). It responds immediately to structural higher-lows and trendline reclaims, making it non-lagging and completely aligned with the pure PA sync.
+
+## 8. Catalyst to Watchlist Mapping
+
+The 10 Edge Catalysts natively route their outputs to specific Screener Watchlists for daily execution:
+
+| Catalyst | Ecosystem Group | Target Watchlist / Screener Output |
+|---|---|---|
+| **POS-BO** | Positional | `Leader Picks` (Confirmed Stage 2 breakouts) |
+| **POS-ACCUM** | Positional | `Hunter Picks` (Accumulating inside the base) |
+| **SWG-BO** | Swing | `Early Bird Picks` (Volatility contraction breakouts) |
+| **SWG-PB** | Swing | `Pullback Picks` (Trend continuations on EMA20) |
+| **SWG-REV** | Swing | `Recovery Climax` (Mean-reversion off SMA200) |
+| **GAP-GO** | Swing | `Leader Picks` (Institutional gap strength) |
+| **REV-CB** | Recovery | `Recovery Climax` (Panic washout) |
+| **REV-RS** | Recovery | `Recovery RS Leaders` (Relative strength survivors) |
+| **REV-EARLY** | Recovery | `Recovery Early Birds` (Trendline reclaim) |
+| **WYCKOFF** | Recovery | `Recovery Early Birds` (Phase C Spring / Phase D SOS) |
+
