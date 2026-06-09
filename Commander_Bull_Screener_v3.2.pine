@@ -1106,9 +1106,9 @@ f_weekly_bundle() =>
     [sId, wMA, wStageWks] = f_getStageAndTime(maLengthW, wmaSlopeLen, slopeThresh)
     // FIX v2.3: was ta.sma(close, 25) — must use maLengthW (30) for canonical Weinstein 30-week MA
     wTDir = close > ta.sma(close, maLengthW) ? 1 : -1
-    [sId, wMA, wStageWks, close, wTDir, ta.rsi(close, 14)]
+    [sId, wMA, wStageWks, close, wTDir, ta.rsi(close, 14), close[5]]
 
-[_stageID_val, _wMAVal, wStageWks, wClose, wTrendDir, wRsiVal] = request.security(syminfo.tickerid, "W", f_weekly_bundle(), ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
+[_stageID_val, _wMAVal, wStageWks, wClose, wTrendDir, wRsiVal, wClose_5_ago] = request.security(syminfo.tickerid, "W", f_weekly_bundle(), ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
 
 // --- DAILY DATA BUNDLE (MTF DRIFT SAFE) ---
 f_daily_bundle() =>
@@ -1168,7 +1168,9 @@ f_daily_bundle() =>
     float d_packed = float((d_vcp_tight_bo ? 1 : 0) + (d_vcp_tight_swg ? 2 : 0) + (d_cpr_ok ? 4 : 0) + (d_mvwap_ok ? 8 : 0))
     [d_close, d_high, d_low, d_open, d_volume, d_vol_avg, d_ma50, d_ma150, d_ma200, d_ema20, d_recent_high_21, d_daily_rsi, d_adx_ok_local, d_adx_val_local, d_hunter_adx_ok, d_c_65_ago, d_c_130_ago, d_atr10, d_atr40, d_slope50, d_prev_high, d_low5, d_low10, d_high52w, d_low52w, d_vwma20, d_vwma50, d_vsma50, d_vol_shelf_ok, d_packed]
 
-[req_dClose, req_dHigh, req_dLow, req_dOpen, req_dVol, req_dVolAvg, req_dMA50, req_dMA150, req_dMA200, req_dEma20, req_recentHigh21, req_dailyRsi, req_d_adx_ok, req_d_adx_val, req_hunter_adx_ok, req_c_65_ago, req_c_130_ago, req_d_atr10, req_d_atr40, req_d_slope50, req_dPrevHigh, req_dLow5, req_dLow10, req_dHigh52w, req_dLow52w, req_d_vwma20, req_d_vwma50, req_d_vsma50, req_vol_shelf_ok, req_packed] = request.security(syminfo.tickerid, "D", f_daily_bundle(), ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
+// Daily bundle request removed to stay under Pine Screener 5-call limit.
+// The screener must be run on a Daily chart or Daily screener timeframe.
+[req_dClose, req_dHigh, req_dLow, req_dOpen, req_dVol, req_dVolAvg, req_dMA50, req_dMA150, req_dMA200, req_dEma20, req_recentHigh21, req_dailyRsi, req_d_adx_ok, req_d_adx_val, req_hunter_adx_ok, req_c_65_ago, req_c_130_ago, req_d_atr10, req_d_atr40, req_d_slope50, req_dPrevHigh, req_dLow5, req_dLow10, req_dHigh52w, req_dLow52w, req_d_vwma20, req_d_vwma50, req_d_vsma50, req_vol_shelf_ok, req_packed] = f_daily_bundle()
 
 dClose        = timeframe.isintraday ? req_dClose : close
 dHigh         = timeframe.isintraday ? req_dHigh : high
@@ -1238,7 +1240,11 @@ string req500 = str.length(bench500) > 1 ? (cleanTicker + " / " + bench500) : ""
 [_slope500, _val500, _pastSlope500, _rsMom500] = request.security(req500, "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
 
 string reqSec = str.length(autoSectorTick) > 1 ? (cleanTicker + " / " + autoSectorTick) : ""
-[_slopeSec, _valSec, _pastSlopeSec, _rsMomSec] = request.security(reqSec, "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
+// Sector RS request removed to stay under Pine Screener 5-call limit.
+float _slopeSec = na
+float _valSec = na
+float _pastSlopeSec = na
+float _rsMomSec = na
 
 // v3.0: f_rsStateStr now takes (slope, level, momentum, thresh) — RRG-canonical
 rs500State = f_rsStateStr(_slope500, _val500, _rsMom500, 0.2)
@@ -1253,7 +1259,7 @@ float rrg_quad_num = na(_val500) or na(_rsMom500) ? 0 : _val500 > 0 and _rsMom50
 // Synced with Strategy v4.42 sector_stage_ok and Dashboard v63.3 Gap 1 sector stage display.
 string _secStageTick = str.length(autoSectorTick) > 1 ? autoSectorTick : ""
 int secStageNum = request.security(_secStageTick, "W", f_sector_stage_lite(), ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
-bool sector_stage_ok = (secStageNum == 2 or secStageNum == 1)
+bool sector_stage_ok = na(secStageNum) ? true : (secStageNum == 2 or secStageNum == 1)
 
 // --- BENCHMARK DATA BUNDLE (CALL 5) ---
 f_bench_bundle() =>
@@ -1358,7 +1364,7 @@ for _k = 0 to 13
             pa_dir_cnt += 1
 bool pa_dir_ok = pa_dir_cnt >= 7
 // PA weekly momentum (replaces wRsiVal >= hunter_weekly_rsi_min): weekly close > 5-week-ago.
-bool pa_wk_mom = not na(wClose[5]) and wClose > wClose[5]
+bool pa_wk_mom = not na(wClose_5_ago) and wClose > wClose_5_ago
 // PA anti-chase (replaces POS-ACCUM dailyRsi <= pos_accum_rsi_max): not extended > 5% in 5 days.
 bool pa_not_extended = na(dClose[5]) or dClose <= dClose[5] * 1.05
 
@@ -1403,9 +1409,9 @@ bool  ma_sqz_ok = (_coil_range / dClose) <= 0.10
 // Pure price action: detects volatility compression from raw bar ranges.
 float _cur_range = dHigh - dLow
 float _min_range_7 = ta.lowest(dHigh - dLow, 7)
-bool  bb_sqz_ok = _cur_range <= _min_range_7 * 1.1  // within 10% of 7-bar tightest
+bool  bb_sqz_ok = _cur_range[1] <= _min_range_7 * 1.1 or _cur_range[2] <= _min_range_7 * 1.1  // within 10% of 7-bar tightest in prior 1-2 bars
 
-bool weinstein_setup = ((_stageID_val == "STAGE 2 (UP)") or (_stageID_val == "STAGE 1 (BASE)")) and dClose > dMA200 and not str.contains(rsSecState, "Lagging") and sector_stage_ok and trend_template_ok and vol_acc_ok and stage2_fresh_ok and ma_sqz_ok and bb_sqz_ok
+bool weinstein_setup = ((_stageID_val == "STAGE 2 (UP)") or (_stageID_val == "STAGE 1 (BASE)")) and dClose > dMA200 and not str.contains(rs500State, "Lagging") and sector_stage_ok and trend_template_ok and vol_acc_ok and stage2_fresh_ok
 
 // OBV Smart Money Accumulation (POS-ACCUM)
 float obv = ta.cum(math.sign(ta.change(dClose)) * dVol)
@@ -1432,7 +1438,7 @@ bool minervini_trend = dClose > dMA50 and dMA50 > dMA150 and dMA150 > dMA200
 
 // Pullback Pocket: RSI 40-60 range + Weekly RSI > 60 (Synced with v4.0 L625)
 float pb_dist_ema20 = ((dClose - dEma20) / dEma20) * 100
-bool is_ema_pb_zone  = pb_dist_ema20 <= 1.5 and pb_dist_ema20 >= -1.5  // FIX v2.5: tightened ±2.0 -> ±1.5% to exactly match Pine Strategy v4.52 input default (was approximated in v2.4)
+bool is_ema_pb_zone  = pb_dist_ema20 <= 2.5 and pb_dist_ema20 >= -2.5  // FIX v2.6: relaxed to ±2.5% to allow normal swing pullbacks
 // R2: Pullback depth replaces RSI(14) pocket — Fibonacci 38-62% retracement zone.
 // Pure price action: measures how far price has pulled back from the 20-bar swing.
 float _sw_hi_20 = ta.highest(dHigh, 20)
@@ -1442,7 +1448,7 @@ float _retrace_pct = _sw_range > 0 ? (_sw_hi_20 - dClose) / _sw_range : 0.0
 bool rsi_pb_pocket   = _retrace_pct >= 0.38 and _retrace_pct <= 0.62
 bool rsi_w_strong    = pa_wk_mom   // v3.3: wRsiVal>60 -> PA weekly momentum (wClose>wClose[5])
 // FIX v2.0: VDU gate — require price declining AND volume drying up (<70% avg).
-bool vol_vdu_ok      = dVol < (dVolAvg * 0.7) and dClose < dClose[1]
+bool vol_vdu_ok      = dVol < (dVolAvg * 0.85) and dClose < dClose[1]
 bool hitPullback     = is_ema_pb_zone and rsi_pb_pocket and rsi_w_strong and vol_vdu_ok and minervini_trend and alpha_ok and cpr_ok and mvwap_ok
 
 // VCP Momentum Breakout (Synced with Strategy v4.4 / Dashboard v61.0 / ULTIMATE v3.7)
@@ -1753,22 +1759,20 @@ string _styl_s = style_num == 3 ? "Both" : style_num == 2 ? "Swing" : style_num 
 string _rec_s  = catalyst_id == 0 ? "WAIT" : alphaScore >= 80 and vol_shelf_ok ? "STRONG BUY" : alphaScore >= 70 ? "BUY" : hitPullback ? "PULLBACK" : alphaScore >= 60 ? "WATCH" : "WAIT"
 string _rrg_s  = rrg_quad_num == 1 ? "Leading" : rrg_quad_num == 2 ? "Weakening" : rrg_quad_num == 3 ? "Lagging" : "Improving"
 
-// --- 9 Gate booleans (mirrors weinstein_setup components exactly) ---
+// --- 7 Gate booleans (mirrors weinstein_setup components exactly) ---
 bool _g1 = (_stageID_val == "STAGE 2 (UP)") or (_stageID_val == "STAGE 1 (BASE)")
 bool _g2 = dClose > dMA200
-bool _g3 = not str.contains(rsSecState, "Lagging")
+bool _g3 = not str.contains(rs500State, "Lagging")  // v3.2.1: was rsSecState (sector) — trigger uses rs500State (N500), and the label says "N500 RRG". Sector is already covered by G4.
 bool _g4 = sector_stage_ok
 bool _g5 = trend_template_ok
 bool _g6 = vol_acc_ok
 bool _g7 = stage2_fresh_ok
-bool _g8 = ma_sqz_ok
-bool _g9 = bb_sqz_ok
-int  _gp = (_g1?1:0)+(_g2?1:0)+(_g3?1:0)+(_g4?1:0)+(_g5?1:0)+(_g6?1:0)+(_g7?1:0)+(_g8?1:0)+(_g9?1:0)
+int  _gp = (_g1?1:0)+(_g2?1:0)+(_g3?1:0)+(_g4?1:0)+(_g5?1:0)+(_g6?1:0)+(_g7?1:0)
 
 // --- Catalyst-specific trading guidance strings ---
 string _g_entry   = "No signal — monitor only"
 string _g_size    = "—"
-string _g_confirm = str.tostring(9 - _gp) + " gate(s) blocking POS-BO"
+string _g_confirm = str.tostring(7 - _gp) + " gate(s) blocking POS-BO"
 string _g_manage  = "Set alert at pivot or EMA20"
 string _g_risk    = "Stage must hold: " + _stageID_val
 string _g_level   = "EMA20: " + str.tostring(dEma20,"#.00")
@@ -1817,7 +1821,12 @@ else if catalyst_id == 6  // SWG-GAP
     _g_level   := "Gap: " + str.tostring(gap_pct,"#.0") + "%  RelVol: " + str.tostring(curRelVol,"#.0") + "×"
 
 if catalyst_id > 0
-    _g_size := alphaScore >= 70.0 ? "15%" : "5%"
+    // mkt_bull OVERLAY (2026-06-08): catalysts already fire regardless of index regime
+    // (no mkt_bull veto on the triggers — matches Python + Unified). The regime only
+    // HALVES the size + flags a counter-trend entry. mkt_bull from the already-fetched
+    // CNX500 bundle (_b_c/_b_50/_b_200) — no extra security call.
+    bool _mkt_bull_bs = not na(_b_c) and not na(_b_200) and _b_c > _b_200 and _b_50 > _b_200
+    _g_size := _mkt_bull_bs ? (alphaScore >= 70.0 ? "15%" : "5%") : (alphaScore >= 70.0 ? "7% ½⚠ ctr-trend" : "2% ½⚠ ctr-trend")
 
 // Map input string to Pine position constant
 string _tbl_pos = position.top_right
@@ -1910,31 +1919,28 @@ if barstate.islast
 
     // Compound verdict: catalyst · signal · alpha · confluence · blockers
     color _rc = _rec_s == "STRONG BUY" ? color.new(#00ff88,0) : _rec_s == "BUY" ? _CP : _rec_s == "PULLBACK" ? color.yellow : _rec_s == "WATCH" ? _CW : _CN
-    string _verdict_str = _cat_s + " · " + _rec_s + " · A" + (alphaScore >= 80 ? "+" : alphaScore >= 70 ? "" : alphaScore >= 60 ? "-" : "✗") + " (" + str.tostring(alphaScore, "#") + "/100) · Conf " + str.tostring(conf_score) + "/6" + (_gp < 9 ? " · " + str.tostring(9 - _gp) + " gate(s) blocking" : "")
+    string _verdict_str = _cat_s + " · " + _rec_s + " · A" + (alphaScore >= 80 ? "+" : alphaScore >= 70 ? "" : alphaScore >= 60 ? "-" : "✗") + " (" + str.tostring(alphaScore, "#") + "/100) · Conf " + str.tostring(conf_score) + "/6" + (_gp < 7 ? " · " + str.tostring(7 - _gp) + " gate(s) blocking" : "")
     drawRowC(_tbl, row, "VERDICT", _verdict_str, catalyst_id > 0 ? _CP : (alphaScore >= 60 ? _CW : _CN))
     row += 1
 
-    // ── ⚙️ POS-BO GATES (paired 2-per-row, 5 rows for 9 gates) ──────────────────
-    color _cGP = _gp >= 7 ? _CP : _gp >= 5 ? _CW : _CF
-    table.cell(_tbl, 0, row, "── ⚙️ POS-BO GATES " + str.tostring(_gp) + "/9 ──", text_color=color.white, bgcolor=_CH, text_size=size.small, text_halign=text.align_left)
+    // ── ⚙️ POS-BO GATES (paired 2-per-row, 4 rows for 7 gates) ──────────────────
+    color _cGP = _gp >= 6 ? _CP : _gp >= 4 ? _CW : _CF
+    table.cell(_tbl, 0, row, "── ⚙️ POS-BO GATES " + str.tostring(_gp) + "/7 ──", text_color=color.white, bgcolor=_CH, text_size=size.small, text_halign=text.align_left)
     table.cell(_tbl, 1, row, "", bgcolor=_CH)
     table.cell(_tbl, 2, row, "STATUS", text_color=color.white, bgcolor=_CH, text_size=size.small, text_halign=text.align_right)
-    table.cell(_tbl, 3, row, _gp >= 7 ? "PRIME" : _gp >= 5 ? "WATCH" : "WEAK", text_color=_CV, bgcolor=_cGP, text_size=size.small, text_halign=text.align_center)
+    table.cell(_tbl, 3, row, _gp >= 6 ? "PRIME" : _gp >= 4 ? "WATCH" : "WEAK", text_color=_CV, bgcolor=_cGP, text_size=size.small, text_halign=text.align_center)
     row += 1
 
     drawGatePair(_tbl, row, "G1 Stage 2/1",     _g1, "G2 Price > 200MA", _g2, _CP, _CF)
     row += 1
-    drawGatePair(_tbl, row, "G3 Sector RS",     _g3, "G4 Sector S1/2",   _g4, _CP, _CF)
+    drawGatePair(_tbl, row, "G3 N500 RRG",      _g3, "G4 Sector S1/2",   _g4, _CP, _CF)
     row += 1
     drawGatePair(_tbl, row, "G5 Trend Tpl",     _g5, "G6 Vol Accum",     _g6, _CP, _CF)
     row += 1
-    // G7 carries the macro-week count inline (e.g. "G7 Fresh (40w)")
+    // G7 solo — fill right columns with empty cells
     string _g7_lbl = "G7 Fresh ≤26w" + (not _g7 ? " (" + str.tostring(int(nz(wStageWks,0))) + "w)" : "")
-    drawGatePair(_tbl, row, _g7_lbl,            _g7, "G8 MA Squeeze",    _g8, _CP, _CF)
-    row += 1
-    // G9 solo — fill right columns with empty cells
-    table.cell(_tbl, 0, row, "G9 BB Squeeze", bgcolor=color.white, text_color=color.black, text_size=size.small, text_halign=text.align_left)
-    table.cell(_tbl, 1, row, _g9 ? "✓" : "✗", bgcolor=_g9 ? _CP : _CF, text_color=color.black, text_size=size.small, text_halign=text.align_center)
+    table.cell(_tbl, 0, row, _g7_lbl, bgcolor=color.white, text_color=color.black, text_size=size.small, text_halign=text.align_left)
+    table.cell(_tbl, 1, row, _g7 ? "✓" : "✗", bgcolor=_g7 ? _CP : _CF, text_color=color.black, text_size=size.small, text_halign=text.align_center)
     table.cell(_tbl, 2, row, "", bgcolor=color.new(#1a1d28, 0))
     table.cell(_tbl, 3, row, "", bgcolor=color.new(#1a1d28, 0))
     row += 1
@@ -1951,10 +1957,13 @@ if barstate.islast
     row += 1
 
     // Compound levels: Price · SL · T1 · T2 · Signal Today
+    // v3.3.1 (2026-06-09): when NO catalyst is active the SL/T1/T2 are just the
+    // generic dClose×0.95 / 2R / 3R placeholder (not a real plan) — show a clear
+    // "no setup" line instead of a misleading round-number trade plan.
     string _sig = (isBreakout ? "BREAKOUT " : "") + (hitPullback ? "PULLBACK" : "")
     string _sig_str = str.length(_sig) > 0 ? _sig : "—"
     string _t1_warn = is_t1_blocked ? " ⚠RESIST" : ""
-    string _levels_str = "P " + str.tostring(dClose,"#.00") + " · SL " + str.tostring(rec_sl,"#.00") + " (" + str.tostring(sl_dist_pct,"#.0") + "%) · T1 " + str.tostring(rec_t1,"#.00") + " (2R)" + _t1_warn + " · T2 " + str.tostring(rec_t2,"#.00") + " (3R) · Sig " + _sig_str
+    string _levels_str = catalyst_id > 0 ? ("P " + str.tostring(dClose,"#.00") + " · SL " + str.tostring(rec_sl,"#.00") + " (" + str.tostring(sl_dist_pct,"#.0") + "%) · T1 " + str.tostring(rec_t1,"#.00") + " (2R)" + _t1_warn + " · T2 " + str.tostring(rec_t2,"#.00") + " (3R) · Sig " + _sig_str) : ("P " + str.tostring(dClose,"#.00") + " · SL/T1/T2 — (no active setup) · Sig " + _sig_str)
     drawRowC(_tbl, row, "LEVELS", _levels_str, catalyst_id > 0 ? _CP : _CN)
     row += 1
 
@@ -1965,10 +1974,10 @@ if barstate.islast
     table.cell(_tbl, 0, row, _guide_hdr, text_color=color.white, bgcolor=_CG, text_size=size.small, text_halign=text.align_left)
     table.cell(_tbl, 1, row, "", bgcolor=_CG)
     table.cell(_tbl, 2, row, "STATUS", text_color=color.white, bgcolor=_CG, text_size=size.small, text_halign=text.align_right)
-    table.cell(_tbl, 3, row, catalyst_id > 0 ? _styl_s : str.tostring(9-_gp) + " blocking", text_color=color.white, bgcolor=_CG, text_size=size.small, text_halign=text.align_center)
+    table.cell(_tbl, 3, row, catalyst_id > 0 ? _styl_s : str.tostring(7-_gp) + " blocking", text_color=color.white, bgcolor=_CG, text_size=size.small, text_halign=text.align_center)
     row += 1
 
-    color _cSize = str.contains(_g_size,"WAIT") ? _CF : (str.contains(_g_size,"Half") or _g_size == "5%") ? _CW : catalyst_id > 0 ? _CP : _CN
+    color _cSize = str.contains(_g_size,"WAIT") ? _CF : (str.contains(_g_size,"Half") or str.contains(_g_size,"ctr-trend") or _g_size == "5%") ? _CW : catalyst_id > 0 ? _CP : _CN
     drawRowL(_tbl, row, "ENTRY",   _g_entry,   _CGV, _CR, _CI, _CV)
     drawRowR(_tbl, row, "SIZE",    _g_size,    _cSize, _CR, _CI, _CV)
     row += 1

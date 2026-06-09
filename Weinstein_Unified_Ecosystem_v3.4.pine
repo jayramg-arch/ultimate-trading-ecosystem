@@ -1,5 +1,17 @@
 //@version=6
 // ==========================================
+// CHANGELOG v3.4.2 (2026-06-09) — Panel: surface Wyckoff catalysts (display-only)
+// ==========================================
+// The v3.4 port ADDED the WYC-SPRING/SOS/JAC triggers, entries, SL and targets
+// but never surfaced them on the dashboard — the "Recovery Signals" row + the
+// CATALYST DIAG sub-panel only listed REV-CB/REV-RS/REV-EARLY, so a live Wyckoff
+// trade read as "WAIT" across the legacy edges. Pure display fix (zero signal/
+// entry-logic change):
+//   • New "Wyckoff Signals" row on the main panel (FIRE/HOLD/ACTIVE per WYC edge).
+//   • Wyckoff hold-window bar trackers + hit counters.
+//   • New WYCKOFF block in CATALYST DIAG (first-blocking-gate per WYC edge).
+//   • dash table 36→40 rows to fit the new rows.
+//
 // CHANGELOG v3.4 (2026-05-21) — Ecosystem sync: POS-ACCUM out, Wyckoff in
 // ==========================================
 // Audit found Pine Strategy was still running pre-Wyckoff stack while Python +
@@ -300,7 +312,7 @@
 // LOGIC UNCHANGED — display-layer-only compression.
 // ==========================================
 
-strategy("Weinstein Unified Ecosystem [v3.4]", overlay=true,
+strategy("Weinstein Unified Ecosystem [v3.4.2]", overlay=true,
          initial_capital=100000,
          default_qty_type=strategy.percent_of_equity,
          default_qty_value=10,
@@ -1489,7 +1501,12 @@ bool sector_stage_ok = (_sec_stage == 1 or _sec_stage == 2)
 string _rs_ticker_clean = str.replace_all(str.upper(syminfo.ticker), "NSE:", "")
 [rsVal500, rsSlope500, rs_momentum, _rsValTrail500, _rsMomTrail500] = request.security("NSE:" + _rs_ticker_clean + " / " + bench500, "W", f_rs_math(), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
 [_rrg_arrow, _rrg_traj, rs_quadrant, _rrg_next, rs_rrg_score, rs_tradeable] = f_rrg_info(rsVal500, rs_momentum, _rsValTrail500, _rsMomTrail500)
-bool rs_positive = rsSlope500 > 0
+// v3.4.1 (2026-06-08): align REV-RS / REV-EARLY RS gate to the Pine Screeners +
+// Python canonical. Both gate on RS-Ratio LEVEL (Mansfield>0 / rs_val>0), NOT the
+// legacy 4-week slope. rsVal500 = JdK RS-Ratio centered to 0 (right half of RRG =
+// LEADING/WEAKENING). Was rsSlope500>0 (momentum, top half) — that drift made the
+// chart block names the screeners fired (e.g. WEAKENING-quadrant leaders).
+bool rs_positive = rsVal500 > 0
 
 // Daily Indicators (MTF Safety)
 [req_ema20, req_sma50, req_sma150, req_sma200, req_atr14] = request.security(syminfo.tickerid, "D", f_get_daily_indicators(ema20_len, atr_length), lookahead=barmerge.lookahead_off)
@@ -1637,7 +1654,11 @@ bool weinstein_setup = (stage2_uptrend or stage1_base) and close > d_sma200 and 
 //     • Mansfield RS = LEADING (top quadrant — best of best)
 //     • Beyond standard freshness window (stage2_fresh_max weeks)
 //     • Holding above EMA20 and SMA200 (trend intact)
-bool mature_trend_ok = use_mature_trend_exempt and stage2_uptrend and rs_quadrant == "LEADING" and nz(wStageWks, 0) > stage2_fresh_max and close > d_ema20 and close > d_sma200
+// EXEMPTION REMOVED (2026-06-08, Jay): match the Bull Screener — no mature-trend
+// bypass. base_confirmed is now weinstein_setup AND mpa_pass (strict Weinstein freshness
+// applies to ALL POS catalysts). Hard-coded false so it takes effect regardless of the
+// saved E5 input value. The `use_mature_trend_exempt` input (line 342) is now inert.
+bool mature_trend_ok = false
 
 // Positional Edges
 bool base_confirmed = (weinstein_setup or mature_trend_ok) and mpa_pass
@@ -1752,7 +1773,10 @@ bool  pa_oversold_pa = close[1] < close[2] and close[2] < close[3]
 // v3.6 (2026-06-03, part a): ADX -> pa_dir_ok AND weekly RSI -> PA weekly
 //   momentum (wClose > wClose[5], weekly close above its 5-week-ago value).
 bool pa_wk_mom = wClose > wClose[5]
-bool pos_bo_trigger = use_bull_mode and use_pos_bo and mkt_bull and base_confirmed and alpha_ok and
+// mkt_bull DEMOTED to overlay (2026-06-08): no longer vetoes the trigger — a Stage-2
+// leader fires even in a bear tape. regime_risk (sizing) + active_ce_mult (trail) already
+// modulate by mkt_bull; counter_trend is flagged in the panel. Matches Python + Bull Screener.
+bool pos_bo_trigger = use_bull_mode and use_pos_bo and base_confirmed and alpha_ok and
                       (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and
                       volume > (vol_ma * 1.25) and
                       pa_wk_mom and pa_dir_ok
@@ -1773,7 +1797,7 @@ bool is_vcp_accum   = f_is_vcp(1.5)   // looser VCP for POS-ACCUM (un-starve)
 //   (close <= close[5]*1.05 — accumulation entry must not chase a sharp run-up);
 //   is_vcp_tight -> is_vcp_accum (1.5x) so accumulation isn't starved.
 bool pa_not_extended = close <= close[5] * 1.05
-bool pos_ac_trigger = use_bull_mode and use_pos_accum and mkt_bull and base_confirmed and alpha_ok and
+bool pos_ac_trigger = use_bull_mode and use_pos_accum and base_confirmed and alpha_ok and
                       obv_trending_up and is_vcp_accum and close > (bo_level_30 * 0.9) and
                       pa_not_extended
 
@@ -1782,12 +1806,14 @@ bool is_sqz       = f_is_bb_sqz(20)
 // Gap 3 restored: MA stack + RSI pocket + vol dry-up for SWG-PB quality filter
 bool pb_ma_stack  = d_sma150 > d_sma200                          // Minervini 150>200 stack
 bool pb_rsi_ok    = d_rsi > 30 and d_rsi < 70                    // RSI pocket (not extreme OB/OS)
-bool pb_vol_dry   = ta.sma(volume, 3)[1] < vol_ma                // prior consolidation on thin volume
-bool bull_pullback= close > d_sma50 and low <= d_ema20 and close > d_ema20 and close > open
+// Relaxed volume and pullback conditions to match Screener/Python
+bool vol_vdu_ok   = volume < (vol_ma * 0.85) and close < close[1]
+float pb_dist_ema20 = math.abs((close - d_ema20) / d_ema20) * 100
+bool is_ema_pb_zone = pb_dist_ema20 <= 2.5
 // v3.5: pb_rsi_ok (RSI 30-70) -> pb_pocket_pa (38-62% retrace) per pure-PA design.
-bool swing_pb_trg = use_bull_mode and use_swing_pb and mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry
+bool swing_pb_trg = use_bull_mode and use_swing_pb and is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok
 
-bool swing_bo_trg = use_bull_mode and use_swing_bo and mkt_bull and is_vcp_tight and (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and volume > (vol_ma * 1.5)
+bool swing_bo_trg = use_bull_mode and use_swing_bo and is_vcp_tight and (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and volume > (vol_ma * 1.5)
 
 bool oversold_rsi = d_rsi < 35
 bool rev_struct   = close > d_sma200 and close < d_ema20
@@ -1801,7 +1827,7 @@ bool gap_up         = open > high[1] and close > open
 float gap_pct       = high[1] > 0 ? (open - high[1]) / high[1] : 0.0         // gap size as % of prev high
 float gap_bar_range = high - open                                               // range from open to high of gap bar
 float gap_intra_pos = gap_bar_range > 0.0001 ? (close - open) / gap_bar_range : 0.0  // close position in gap bar
-bool gap_go_trg     = use_bull_mode and use_swing_gap and mkt_bull and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and volume > (vol_ma * 3.0)
+bool gap_go_trg     = use_bull_mode and use_swing_gap and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and volume > (vol_ma * 3.0)
 
 // ── Bull signal hold-window trackers (var: persist across bars) ──────────────
 var int last_pos_bo_bar  = -999
@@ -1827,6 +1853,12 @@ if gap_go_trg
 var int last_rev_cb_bar  = -999
 var int last_rev_rs_bar  = -999
 var int last_rev_ear_bar = -999
+// v3.4.2 (2026-06-09): Wyckoff hold-window trackers — the v3.4 port added WYC
+// triggers + entries but never surfaced them on the Recovery Signals panel row.
+var int last_wyc_ssos_bar = -999  // WYC-SPRING+SOS
+var int last_wyc_jac_bar  = -999  // WYC-JAC
+var int last_wyc_sos_bar  = -999  // WYC-SOS
+var int last_wyc_spr_bar  = -999  // WYC-SPRING
 // (updates happen after recovery triggers are defined â€” see below section 10+)
 float correction_depth = high52w > 0 ? (high52w - close) / high52w : 0.0
 bool stock_corrected   = correction_depth >= min_correction_pct and correction_depth <= max_correction_pct
@@ -1871,7 +1903,16 @@ float hl_prior  = ta.lowest(low, rs_hl_prior)[rs_hl_recent]
 bool  higher_low_ok = not na(hl_recent) and not na(hl_prior) and hl_recent > hl_prior
 bool rs_recovery_state = higher_low_ok and trend_up
 float rs_bo_level_val = ta.highest(high, rs_bo_len)[1]
-bool rs_breakout  = close > rs_bo_level_val and volume > vol_ma * 1.5
+// v3.4.1 (2026-06-08): LATCHED hold-window RS breakout — match Recovery Screener
+// (line 1192) + Python canonical ("any of the last hold bars"). Was instantaneous
+// (current bar only), which blocked names whose RS breakout fired a few bars ago but
+// is still valid within the hold window (e.g. ZENTEC). vol threshold 1.5→1.25 to match
+// the screener's vol_confirm_mult. Hold window = bull_hold_days (mirrors the rec hold).
+var int _last_rs_break_bar = 0
+bool _rs_fires_now = trend_up and higher_low_ok and close > rs_bo_level_val and volume >= vol_ma * 1.25 and rs_positive
+if _rs_fires_now
+    _last_rs_break_bar := bar_index
+bool rs_breakout = _last_rs_break_bar > 0 and (bar_index - _last_rs_break_bar) <= bull_hold_days and trend_up
 bool trigger_rev_rs = use_rec_mode and use_rev_rs and rs_positive and rs_recovery_state and stock_corrected and rs_breakout and sector_stage_ok and rff_ok and regime_ok
 
 // REV-EARLY Edge
@@ -1984,6 +2025,15 @@ if trigger_rev_rs
     last_rev_rs_bar  := bar_index
 if trigger_rev_early
     last_rev_ear_bar := bar_index
+// v3.4.2: Wyckoff trackers (priority recovery edge)
+if trigger_wyc_spring_sos
+    last_wyc_ssos_bar := bar_index
+if trigger_wyc_jac
+    last_wyc_jac_bar  := bar_index
+if trigger_wyc_sos
+    last_wyc_sos_bar  := bar_index
+if trigger_wyc_spring
+    last_wyc_spr_bar  := bar_index
 bool trigger_any  = trigger_bull or trigger_rec
 
 var string active_catalyst = na
@@ -2329,7 +2379,7 @@ if trigger_rec
 // --- Global-scope calls (Pine CW10003: must run every bar, not inside `if` scope) ---
 bool vcp_ok = f_is_vcp(1.5)
 bool sqz_ok = f_is_bb_sqz(20)
-var table dash = table.new(panel_position, 4, 36, border_width=1, border_color=color.new(color.gray, 40))
+var table dash = table.new(panel_position, 4, 40, border_width=1, border_color=color.new(color.gray, 40))  // v3.4.2: 36→40 for Wyckoff signal + diag rows
 
 // v2.7 panel-stacking offset: tracks how many rows the main strategy panel used,
 // so the CATALYST DIAG panel can start rendering immediately below it (rather
@@ -2452,6 +2502,15 @@ if barstate.islast and show_panel
     color  rec_edge_col = (trigger_rev_early or trigger_rev_rs or trigger_rev_cb) ? c_sig_on : c_sig_off
     int   rec_score_val = trigger_rev_cb ? n_pillars : trigger_rev_rs ? 4 : trigger_rev_early ? 3 : n_pillars
 
+    // --- Wyckoff Signals compact row (v3.4.2 — priority recovery edge; was missing) ---
+    bool any_wyc_fire = trigger_wyc_spring_sos or trigger_wyc_jac or trigger_wyc_sos or trigger_wyc_spring
+    bool any_wyc_hold = (not any_wyc_fire) and ((bar_index - last_wyc_ssos_bar) <= bull_hold_days or (bar_index - last_wyc_jac_bar) <= bull_hold_days or (bar_index - last_wyc_sos_bar) <= bull_hold_days or (bar_index - last_wyc_spr_bar) <= bull_hold_days)
+    bool any_wyc_active = (not any_wyc_fire and not any_wyc_hold) and (current_open_cat == "WYC-SPRING+SOS" or current_open_cat == "WYC-JAC" or current_open_cat == "WYC-SOS" or current_open_cat == "WYC-SPRING")
+    color wyc_sig_row_col = any_wyc_fire ? c_sig_on : (any_wyc_hold ? c_sig_warn : (any_wyc_active ? c_sig_active : c_sig_off))
+    string wyc_str = "SPR+SOS " + f_bull_icon(last_wyc_ssos_bar, bull_hold_days, "WYC-SPRING+SOS", current_open_cat) + "  JAC " + f_bull_icon(last_wyc_jac_bar, bull_hold_days, "WYC-JAC", current_open_cat) + "  SOS " + f_bull_icon(last_wyc_sos_bar, bull_hold_days, "WYC-SOS", current_open_cat) + "  SPRING " + f_bull_icon(last_wyc_spr_bar, bull_hold_days, "WYC-SPRING", current_open_cat)
+    f_row(dash, r, "Wyckoff Signals", wyc_str, wyc_sig_row_col, c_lbl, c_val_txt, c_lbl_txt)
+    r += 1
+
     // --- Recovery Signals compact row (FIRE / HOLD / ACTIVE / WAIT per signal) ---
     bool any_rec_fire = trigger_rev_cb or trigger_rev_rs or trigger_rev_early
     bool any_rec_hold = (not any_rec_fire) and ((bar_index - last_rev_cb_bar) <= bull_hold_days or (bar_index - last_rev_rs_bar) <= bull_hold_days or (bar_index - last_rev_ear_bar) <= bull_hold_days)
@@ -2481,6 +2540,10 @@ var int hits_gap_go  = 0
 var int hits_rev_cb  = 0
 var int hits_rev_rs  = 0
 var int hits_rev_ear = 0
+var int hits_wyc_ssos = 0  // v3.4.2
+var int hits_wyc_jac  = 0
+var int hits_wyc_sos  = 0
+var int hits_wyc_spr  = 0
 if pos_bo_trigger
     hits_pos_bo  += 1
 if pos_ac_trigger
@@ -2499,6 +2562,14 @@ if trigger_rev_rs
     hits_rev_rs  += 1
 if trigger_rev_early
     hits_rev_ear += 1
+if trigger_wyc_spring_sos
+    hits_wyc_ssos += 1
+if trigger_wyc_jac
+    hits_wyc_jac  += 1
+if trigger_wyc_sos
+    hits_wyc_sos  += 1
+if trigger_wyc_spring
+    hits_wyc_spr  += 1
 plot(hits_pos_bo,  "Hits POS-BO",    display=display.data_window)
 plot(hits_pos_ac,  "Hits POS-ACCUM", display=display.data_window)
 plot(hits_swg_pb,  "Hits SWG-PB",    display=display.data_window)
@@ -2561,7 +2632,7 @@ if use_diag_panel and barstate.islast
     color D_NEUT     = color.new(#f5f5f5, 0)
 
     // POS-BO
-    string diag_pos_bo = "✓ FIRE"
+    string diag_pos_bo = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
     color  diag_pos_bo_c = D_FIRE
     if not pos_bo_trigger
         diag_pos_bo_c := D_BLOCK
@@ -2569,8 +2640,6 @@ if use_diag_panel and barstate.islast
             diag_pos_bo := "✗ bull mode off"
         else if not use_pos_bo
             diag_pos_bo := "✗ edge off"
-        else if not mkt_bull
-            diag_pos_bo := "✗ mkt_bull (regime)"
         else if not base_confirmed
             diag_pos_bo := "✗ base_confirmed"
         else if not alpha_ok
@@ -2579,13 +2648,17 @@ if use_diag_panel and barstate.islast
             diag_pos_bo := "✗ breakout (px<level)"
         else if not (volume > vol_ma * 1.25)
             diag_pos_bo := "✗ vol<1.25×"
-        else if not (wRSI >= hunter_weekly_rsi_min)
-            diag_pos_bo := "✗ wRSI (" + str.tostring(wRSI, "#") + "<" + str.tostring(hunter_weekly_rsi_min) + ")"
-        else if not hunter_adx_ok
-            diag_pos_bo := "✗ ADX (" + str.tostring(adx_val, "#") + "<" + str.tostring(hunter_daily_adx_min) + ")"
+        // v3.4.1 (2026-06-08): diag matched to the ACTUAL PA trigger. POS-BO no longer
+        // gates on weekly-RSI or ADX — it uses pa_wk_mom (wClose>wClose[5]) + pa_dir_ok
+        // (>=7/14 up-bars). The stale wRSI/ADX reasons were reporting blocks that aren't
+        // in the trigger (the diag-vs-trigger drift Jay caught correlating the guides).
+        else if not pa_wk_mom
+            diag_pos_bo := "✗ wk-momentum (wClose≤wClose[5])"
+        else if not pa_dir_ok
+            diag_pos_bo := "✗ PA dir (<7/14 up-bars)"
 
     // POS-ACCUM
-    string diag_pos_ac = "✓ FIRE"
+    string diag_pos_ac = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
     color  diag_pos_ac_c = D_FIRE
     if not pos_ac_trigger
         diag_pos_ac_c := D_BLOCK
@@ -2593,23 +2666,21 @@ if use_diag_panel and barstate.islast
             diag_pos_ac := "✗ bull mode off"
         else if not use_pos_accum
             diag_pos_ac := "✗ edge off"
-        else if not mkt_bull
-            diag_pos_ac := "✗ mkt_bull"
         else if not base_confirmed
             diag_pos_ac := "✗ base_confirmed"
         else if not alpha_ok
             diag_pos_ac := "✗ alpha (" + str.tostring(alpha_score, "#") + "<" + str.tostring(min_alpha) + ")"
         else if not obv_trending_up
             diag_pos_ac := "✗ OBV slope"
-        else if not is_vcp_tight
-            diag_pos_ac := "✗ VCP not tight"
+        else if not is_vcp_accum
+            diag_pos_ac := "✗ VCP-accum (loose) fail"
         else if not (close > bo_level_30 * 0.9)
             diag_pos_ac := "✗ price<0.9×30dHi"
-        else if not (d_rsi <= pos_accum_rsi_max)
-            diag_pos_ac := "✗ RSI (" + str.tostring(d_rsi, "#") + ">" + str.tostring(pos_accum_rsi_max) + ")"
+        else if not pa_not_extended
+            diag_pos_ac := "✗ extended (close>close[5]×1.05)"
 
     // SWG-PB
-    string diag_swg_pb = "✓ FIRE"
+    string diag_swg_pb = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
     color  diag_swg_pb_c = D_FIRE
     if not swing_pb_trg
         diag_swg_pb_c := D_BLOCK
@@ -2617,21 +2688,19 @@ if use_diag_panel and barstate.islast
             diag_swg_pb := "✗ bull mode off"
         else if not use_swing_pb
             diag_swg_pb := "✗ edge off"
-        else if not mkt_bull
-            diag_swg_pb := "✗ mkt_bull"
-        else if not bull_pullback
-            diag_swg_pb := "✗ pullback shape"
+        else if not is_ema_pb_zone
+            diag_swg_pb := "✗ ema pullback zone"
         else if not is_vcp_tight
             diag_swg_pb := "✗ VCP not tight"
         else if not pb_ma_stack
             diag_swg_pb := "✗ MA stack (150>200)"
-        else if not pb_rsi_ok
-            diag_swg_pb := "✗ RSI pocket (" + str.tostring(d_rsi, "#") + ")"
-        else if not pb_vol_dry
+        else if not pb_pocket_pa
+            diag_swg_pb := "✗ pullback PA pocket"
+        else if not vol_vdu_ok
             diag_swg_pb := "✗ vol not dry"
 
     // SWG-BO
-    string diag_swg_bo = "✓ FIRE"
+    string diag_swg_bo = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
     color  diag_swg_bo_c = D_FIRE
     if not swing_bo_trg
         diag_swg_bo_c := D_BLOCK
@@ -2639,8 +2708,6 @@ if use_diag_panel and barstate.islast
             diag_swg_bo := "✗ bull mode off"
         else if not use_swing_bo
             diag_swg_bo := "✗ edge off"
-        else if not mkt_bull
-            diag_swg_bo := "✗ mkt_bull"
         else if not is_vcp_tight
             diag_swg_bo := "✗ VCP not tight"
         else if not (bo_conf == "Daily Close" ? close > bo_level : high > bo_level)
@@ -2661,15 +2728,15 @@ if use_diag_panel and barstate.islast
             diag_swg_rev := "✗ stage 4"
         else if not rev_struct
             diag_swg_rev := "✗ rev struct"
-        else if not oversold_rsi
-            diag_swg_rev := "✗ RSI not <35 (" + str.tostring(d_rsi, "#") + ")"
+        else if not pa_oversold_pa
+            diag_swg_rev := "✗ not 3 lower closes (PA oversold)"
         else if not (close > open)
             diag_swg_rev := "✗ not green bar"
         else if not (close > high[1])
             diag_swg_rev := "✗ close not > prev hi"
 
     // SWG-GAP
-    string diag_swg_gap = "✓ FIRE"
+    string diag_swg_gap = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
     color  diag_swg_gap_c = D_FIRE
     if not gap_go_trg
         diag_swg_gap_c := D_BLOCK
@@ -2677,8 +2744,6 @@ if use_diag_panel and barstate.islast
             diag_swg_gap := "✗ bull mode off"
         else if not use_swing_gap
             diag_swg_gap := "✗ edge off"
-        else if not mkt_bull
-            diag_swg_gap := "✗ mkt_bull"
         else if not gap_up
             diag_swg_gap := "✗ no gap up"
         else if not (gap_pct >= 0.04)
@@ -2758,6 +2823,34 @@ if use_diag_panel and barstate.islast
         else if not regime_ok
             diag_rev_ear := "✗ regime"
 
+    // WYC-SPRING+SOS (v3.4.2 — was missing from diag panel)
+    string diag_wyc_ssos = "✓ FIRE"
+    color  diag_wyc_ssos_c = D_FIRE
+    if not trigger_wyc_spring_sos
+        diag_wyc_ssos_c := D_BLOCK
+        diag_wyc_ssos := not use_rec_mode ? "✗ rec mode off" : not wyc_in_base ? "✗ no Wyckoff base" : not wyc_has_spring ? "✗ no Spring (C)" : not wyc_has_sos ? "✗ no SOS (D)" : not regime_ok ? "✗ regime" : "✗"
+
+    // WYC-JAC
+    string diag_wyc_jac = "✓ FIRE"
+    color  diag_wyc_jac_c = D_FIRE
+    if not trigger_wyc_jac
+        diag_wyc_jac_c := D_BLOCK
+        diag_wyc_jac := not use_rec_mode ? "✗ rec mode off" : not wyc_in_base ? "✗ no Wyckoff base" : not wyc_has_jac ? "✗ no JAC (cross creek)" : not regime_ok ? "✗ regime" : "✗"
+
+    // WYC-SOS (alone — not also Spring/JAC)
+    string diag_wyc_sos = "✓ FIRE"
+    color  diag_wyc_sos_c = D_FIRE
+    if not trigger_wyc_sos
+        diag_wyc_sos_c := D_BLOCK
+        diag_wyc_sos := not use_rec_mode ? "✗ rec mode off" : not wyc_has_sos ? "✗ no SOS (D)" : (wyc_has_spring or wyc_has_jac) ? "✗ shown as SPR+SOS/JAC" : not regime_ok ? "✗ regime" : "✗"
+
+    // WYC-SPRING (alone — not also SOS/JAC)
+    string diag_wyc_spr = "✓ FIRE"
+    color  diag_wyc_spr_c = D_FIRE
+    if not trigger_wyc_spring
+        diag_wyc_spr_c := D_BLOCK
+        diag_wyc_spr := not use_rec_mode ? "✗ rec mode off" : not wyc_has_spring ? "✗ no Spring (C)" : (wyc_has_sos or wyc_has_jac) ? "✗ shown as SPR+SOS/JAC" : not regime_ok ? "✗ regime" : "✗"
+
     // ============================================================================
     // v2.7 LAYOUT: CATALYST DIAG now renders BELOW the main strategy panel,
     // distributed across all 4 columns (2 catalysts per row). Evens out the
@@ -2800,7 +2893,20 @@ if use_diag_panel and barstate.islast
     table.merge_cells(dash, 0, dr, 3, dr)
     dr += 1
 
-    // ── RECOVERY: 3 catalysts → 1 paired row + 1 solo (right side empty) ────
+    // ── WYCKOFF (priority recovery edge): 4 catalysts → 2 paired rows ───────
+    table.cell(dash, 0, dr, "WYC-SPR+SOS", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_wyc_ssos + " [" + str.tostring(hits_wyc_ssos) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_wyc_ssos_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "WYC-JAC",     text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, diag_wyc_jac + " [" + str.tostring(hits_wyc_jac) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_wyc_jac_c, text_halign=text.align_left)
+    dr += 1
+
+    table.cell(dash, 0, dr, "WYC-SOS",     text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 1, dr, diag_wyc_sos + " [" + str.tostring(hits_wyc_sos) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_wyc_sos_c, text_halign=text.align_left)
+    table.cell(dash, 2, dr, "WYC-SPRING",  text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
+    table.cell(dash, 3, dr, diag_wyc_spr + " [" + str.tostring(hits_wyc_spr) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_wyc_spr_c, text_halign=text.align_left)
+    dr += 1
+
+    // ── RECOVERY (legacy REV-* edges): 3 catalysts → 1 paired row + 1 solo ──
     table.cell(dash, 0, dr, "REV-CB",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
     table.cell(dash, 1, dr, diag_rev_cb + " [" + str.tostring(hits_rev_cb) + "]", text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=diag_rev_cb_c, text_halign=text.align_left)
     table.cell(dash, 2, dr, "REV-RS",    text_color=D_VAL_TXT, text_size=_diag_size, bgcolor=D_LBL_BG, text_halign=text.align_left)
