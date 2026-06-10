@@ -1,0 +1,461 @@
+//@version=6
+// ============================================================================
+// Commander Chart Markup v1.0 — Auto Stage-Pattern Annotator
+// ----------------------------------------------------------------------------
+// Automates the manual chart-reading workflow (HONAUT / RELIANCE / NAVINFLUOR /
+// ACUTAAS markups) into a single, timeframe-agnostic indicator you can drop on
+// ANY symbol or use in the TV screener.
+//
+// PIPELINE (per the 4-stage method):
+//   1. DETECT   — swing pivots (ta.pivothigh/low), breakaway gaps, 52W levels.
+//   2. CLASSIFY — Weinstein Stage (weekly 30-WMA), Mansfield RS vs Nifty 500.
+//   3. ANNOTATE — best-fit trendlines through pivots WITH touch-count validation
+//                 (>=3 = VALID solid; 2 = PROVISIONAL dashed) + geometry
+//                 (rising/falling channel · falling wedge · sym. triangle) + apex.
+//   4. VERDICT  — Stage + RS + setup (Stage 2 / SWG-PB / Stage 4 EXIT / reversal)
+//                 + suggested entry / stop / target in a panel.
+//
+// DESIGN: touch-count validation encodes the "no 2-touch lines" discipline.
+// Heavy pivot-pair fitting runs only on the last bar. RS/Stage reuse the same
+// math as the Mansfield RS pane and the Unified Ecosystem (zero drift intent).
+// ----------------------------------------------------------------------------
+// v1.1 (Batch 1) — CLASSICAL PATTERNS added (reliable/geometric tier):
+//   • Horizontal Support/Resistance ZONES (pivot clustering, touch-counted).
+//   • FLAGS (impulse leg + tight consolidation box) — bull & bear.
+//   • DOUBLE / TRIPLE TOP & BOTTOM (equal pivots + neckline, break-confirmed).
+//   Detected patterns are listed in the panel. Head&Shoulders + Cup&Handle
+//   (the heuristic, false-positive-prone tier) come in Batch 2 as "candidates".
+// ============================================================================
+indicator("Commander Chart Markup v1.1", overlay=true, max_lines_count=80, max_labels_count=100, max_boxes_count=30)
+
+// ============================================================================
+// 1. INPUTS
+// ============================================================================
+grpD = "Detection"
+piv_lb    = input.int(8, "Pivot strength (left=right bars)", minval=2, group=grpD, tooltip="Higher = fewer, more significant swings. Scale up on intraday, down on weekly.")
+maxPiv    = input.int(12, "Pivots tracked per side", minval=4, maxval=20, group=grpD)
+trend_piv = input.int(5, "Trendline: fit only last N pivots", minval=3, maxval=12, group=grpD, tooltip="Keeps the trendline anchored near current price. Lower = hugs CMP tighter; higher = longer base.")
+min_touch = input.int(3, "Min touches for a VALID trendline", minval=2, group=grpD)
+tol_atr   = input.float(0.7, "Touch tolerance (× ATR14)", minval=0.1, step=0.1, group=grpD)
+gap_pct   = input.float(4.0, "Breakaway gap % min", minval=0.5, step=0.5, group=grpD)
+gap_volx  = input.float(2.0, "Gap volume × avg min", minval=1.0, step=0.5, group=grpD)
+
+grpC = "Context"
+benchSym = input.symbol("NSE:CNX500", "RS Benchmark (Nifty 500)", group=grpC)
+rsLen    = input.int(52, "Mansfield RS MA length (bars)", minval=10, group=grpC)
+nearHi_pct = input.float(3.0, "‘At highs’ threshold (% from 52WH)", step=0.5, group=grpC)
+pb_atr   = input.float(1.5, "‘Pullback to MA’ band (× ATR)", step=0.5, group=grpC)
+
+grpV = "Visuals"
+show_tl     = input.bool(true, "Auto trendlines + geometry", group=grpV)
+show_apex   = input.bool(true, "Apex marker (converging lines)", group=grpV)
+show_levels = input.bool(true, "52W High / Low levels", group=grpV)
+show_gaps   = input.bool(true, "Breakaway-gap markers", group=grpV)
+show_ma     = input.bool(true, "Stage MAs (50/150/200)", group=grpV)
+show_panel  = input.bool(true, "Verdict panel", group=grpV)
+panel_posS  = input.string("Top Right", "Panel position", options=["Top Right","Top Left","Bottom Right","Bottom Left","Middle Right"], group=grpV)
+
+panel_pos = panel_posS == "Top Right" ? position.top_right : panel_posS == "Top Left" ? position.top_left : panel_posS == "Bottom Right" ? position.bottom_right : panel_posS == "Bottom Left" ? position.bottom_left : position.middle_right
+
+grpP = "Classical Patterns (v1.1)"
+show_sr     = input.bool(true,  "Support/Resistance zones", group=grpP)
+sr_tol_atr  = input.float(0.6, "S/R cluster tolerance (× ATR)", minval=0.1, step=0.1, group=grpP)
+show_flags  = input.bool(true,  "Flags (impulse + tight consolidation)", group=grpP)
+flag_cons   = input.int(6, "Flag consolidation bars", minval=3, group=grpP)
+flag_imp    = input.int(10, "Flag impulse lookback bars", minval=4, group=grpP)
+flag_impA   = input.float(4.0, "Flag impulse size (× ATR)", minval=1.0, step=0.5, group=grpP)
+flag_rngA   = input.float(2.5, "Flag consolidation max (× ATR)", minval=0.5, step=0.5, group=grpP)
+show_dt     = input.bool(true,  "Double / Triple Top & Bottom", group=grpP)
+dt_tol_atr  = input.float(0.5, "Equal-pivot tolerance (× ATR)", minval=0.1, step=0.1, group=grpP)
+
+// ============================================================================
+// 2. CONTEXT — ATR, MAs, Weinstein Stage, Mansfield RS
+// ============================================================================
+float atr14 = ta.atr(14)
+float sma50  = ta.sma(close, 50)
+float sma150 = ta.sma(close, 150)
+float sma200 = ta.sma(close, 200)
+bool minervini_up = not na(sma200) and close > sma50 and sma50 > sma150 and sma150 > sma200
+
+// Weekly 30-WMA Weinstein anchor (works on any chart TF)
+[wma30, wma30p] = request.security(syminfo.tickerid, "W", [ta.sma(close, 30), ta.sma(close, 30)[1]], lookahead=barmerge.lookahead_off)
+int stage = na(wma30) ? 0 : (close > wma30 and wma30 >= wma30p ? 2 : close > wma30 ? 3 : wma30 < wma30p ? 4 : 1)
+// reversal flag: was below the 30-WMA within the last 25 bars, now reclaimed
+float lowest25 = ta.lowest(close, 25)
+bool reclaim_30w = close > wma30 and lowest25 < wma30
+
+// Mansfield RS vs benchmark (TF-aware; same formula as the RS pane)
+float benchClose = request.security(benchSym, timeframe.period, close, lookahead=barmerge.lookahead_off)
+float rsRatio = benchClose > 0 ? close / benchClose : na
+float rsMa = ta.sma(rsRatio, rsLen)
+float mansfield = na(rsMa) or rsMa == 0 ? na : (rsRatio / rsMa - 1.0) * 100.0
+bool rs_pos = not na(mansfield) and mansfield > 0
+
+// 52-week extremes (rolling)
+int look52 = 252
+float hh52 = ta.highest(high, look52)
+float ll52 = ta.lowest(low, look52)
+
+// Hoisted ta.* (must evaluate every bar — used inside conditional blocks below)
+float volSma50  = ta.sma(volume, 50)
+float flagConsHi = ta.highest(high, flag_cons)
+float flagConsLo = ta.lowest(low, flag_cons)
+
+// ============================================================================
+// 3. PIVOT COLLECTION
+// ============================================================================
+var array<int>   phx = array.new<int>()
+var array<float> phy = array.new<float>()
+var array<int>   plx = array.new<int>()
+var array<float> ply = array.new<float>()
+
+float ph = ta.pivothigh(piv_lb, piv_lb)
+float pl = ta.pivotlow(piv_lb, piv_lb)
+if not na(ph)
+    array.push(phx, bar_index - piv_lb)
+    array.push(phy, ph)
+    if array.size(phx) > maxPiv
+        array.shift(phx)
+        array.shift(phy)
+if not na(pl)
+    array.push(plx, bar_index - piv_lb)
+    array.push(ply, pl)
+    if array.size(plx) > maxPiv
+        array.shift(plx)
+        array.shift(ply)
+
+// ============================================================================
+// 4. BEST-FIT TRENDLINE (max touches within tolerance through pivot pairs)
+//    Returns [x1,y1,x2,y2,touches]. Direction-agnostic so it naturally yields
+//    rising channels (Stage 2) or descending resistance (Stage 4).
+// ============================================================================
+// upper=true → line must be a true RESISTANCE (no pivot pierces meaningfully ABOVE);
+// upper=false → true SUPPORT (no pivot pierces BELOW). Among valid (non-pierced)
+// lines, pick the one with the most touches. This keeps geometry trend-consistent.
+f_fit(array<int> xs, array<float> ys, float tol, bool upper, int recentK) =>
+    int n = array.size(xs)
+    int s = math.max(0, n - recentK)   // consider only the last recentK pivots → anchors near CMP
+    float bx1 = na
+    float by1 = na
+    float bx2 = na
+    float by2 = na
+    int best = 0
+    if n - s >= 2
+        for i = s to n - 2
+            for j = i + 1 to n - 1
+                int xi = array.get(xs, i)
+                float yi = array.get(ys, i)
+                int xj = array.get(xs, j)
+                float yj = array.get(ys, j)
+                if xj != xi
+                    float slope = (yj - yi) / (xj - xi)
+                    int t = 0
+                    int pierce = 0
+                    for k = s to n - 1
+                        float diff = array.get(ys, k) - (yi + slope * (array.get(xs, k) - xi))
+                        if math.abs(diff) <= tol
+                            t := t + 1
+                        else if upper and diff > tol
+                            pierce := pierce + 1
+                        else if not upper and diff < -tol
+                            pierce := pierce + 1
+                    if pierce == 0 and t > best
+                        best := t
+                        bx1 := xi
+                        by1 := yi
+                        bx2 := xj
+                        by2 := yj
+    [bx1, by1, bx2, by2, best]
+
+// Strongest horizontal cluster in a pivot array, within price band [lo,hi]
+// (band filters out stale pivots off the current 52W range) → [level, count]
+f_cluster(array<float> ys, float tol, float lo, float hi) =>
+    int n = array.size(ys)
+    float bestLvl = na
+    int bestCnt = 0
+    if n >= 2
+        for i = 0 to n - 1
+            float yi = array.get(ys, i)
+            if yi >= lo and yi <= hi
+                int c = 0
+                float sum = 0.0
+                for k = 0 to n - 1
+                    float yk = array.get(ys, k)
+                    if yk >= lo and yk <= hi and math.abs(yk - yi) <= tol
+                        c := c + 1
+                        sum := sum + yk
+                if c > bestCnt
+                    bestCnt := c
+                    bestLvl := sum / c
+    [bestLvl, bestCnt]
+
+// Lowest pivot-low strictly between bar indices a and b (na if none) — neckline for tops
+f_troughBetween(array<int> lxs, array<float> lys, int a, int b) =>
+    float lo = na
+    if array.size(lxs) > 0
+        for m = 0 to array.size(lxs) - 1
+            int lx = array.get(lxs, m)
+            if lx > a and lx < b
+                float ly = array.get(lys, m)
+                lo := na(lo) ? ly : math.min(lo, ly)
+    lo
+
+// Highest pivot-high strictly between bar indices a and b (na if none) — neckline for bottoms
+f_peakBetween(array<int> hxs, array<float> hys, int a, int b) =>
+    float hi = na
+    if array.size(hxs) > 0
+        for m = 0 to array.size(hxs) - 1
+            int hx = array.get(hxs, m)
+            if hx > a and hx < b
+                float hy = array.get(hys, m)
+                hi := na(hi) ? hy : math.max(hi, hy)
+    hi
+
+// ============================================================================
+// 5. RENDER (last bar only) — trendlines, geometry, apex, levels, panel
+// ============================================================================
+var line  lnUp   = na
+var line  lnLo   = na
+var line  lnHH   = na
+var line  lnLL   = na
+var line  lnApex = na
+var label lbUp   = na
+var label lbLo   = na
+var label lbApex = na
+var table panel  = na
+// v1.1 classical-pattern handles
+var line  lnR    = na
+var line  lnS    = na
+var label lbR    = na
+var label lbS    = na
+var box   bxFlag = na
+var label lbFlag = na
+var line  lnNeck = na
+var label lbDT   = na
+
+// gap markers (per-bar, self-managing)
+bool gapUp = show_gaps and not na(close[1]) and open > close[1] * (1.0 + gap_pct / 100.0) and volume > volSma50 * gap_volx and close > open
+bool gapDn = show_gaps and not na(close[1]) and open < close[1] * (1.0 - gap_pct / 100.0) and volume > volSma50 * gap_volx and close < open
+plotshape(gapUp, "Breakaway gap up", style=shape.triangleup, location=location.belowbar, color=color.new(#26a69a, 0), size=size.small)
+plotshape(gapDn, "Breakaway gap dn", style=shape.triangledown, location=location.abovebar, color=color.new(#ef5350, 0), size=size.small)
+
+// MAs for stage context
+plot(show_ma ? sma50 : na, "SMA50", color=color.new(color.orange, 0), linewidth=1)
+plot(show_ma ? sma150 : na, "SMA150", color=color.new(color.blue, 40), linewidth=1)
+plot(show_ma ? sma200 : na, "SMA200", color=color.new(color.gray, 0), linewidth=1)
+
+// geometry holders (string for panel)
+var string geom = "—"
+var string apexTxt = "—"
+var string setup = "—"
+var string verdict = "—"
+var string pats = "none"
+
+if barstate.islast
+    float tol = tol_atr * atr14
+
+    // --- fit upper resistance (highs) & lower support (lows), recent pivots only ---
+    [ux1, uy1, ux2, uy2, ut] = f_fit(phx, phy, tol, true, trend_piv)
+    [vx1, vy1, vx2, vy2, vt] = f_fit(plx, ply, tol, false, trend_piv)
+
+    float slopeU = na
+    float slopeL = na
+    if show_tl and not na(ux1) and ux2 != ux1
+        slopeU := (uy2 - uy1) / (ux2 - ux1)
+        line.delete(lnUp)
+        label.delete(lbUp)
+        bool validU = ut >= min_touch
+        color cU = slopeU < 0 ? color.new(#ef5350, 0) : color.new(#26a69a, 0)
+        lnUp := line.new(int(ux1), uy1, int(ux2), uy2, xloc=xloc.bar_index, extend=extend.right, color=cU, width=2, style=(validU ? line.style_solid : line.style_dashed))
+        float uy_now = uy1 + slopeU * (bar_index - ux1)
+        lbUp := label.new(bar_index, uy_now, (slopeU < 0 ? "Resistance" : "Upper") + " " + (validU ? "VALID " : "prov. ") + str.tostring(ut) + "×", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(cU, 80), textcolor=cU, size=size.small)
+
+    if show_tl and not na(vx1) and vx2 != vx1
+        slopeL := (vy2 - vy1) / (vx2 - vx1)
+        line.delete(lnLo)
+        label.delete(lbLo)
+        bool validL = vt >= min_touch
+        color cL = slopeL > 0 ? color.new(#26a69a, 0) : color.new(#ef9a9a, 0)
+        lnLo := line.new(int(vx1), vy1, int(vx2), vy2, xloc=xloc.bar_index, extend=extend.right, color=cL, width=2, style=(validL ? line.style_solid : line.style_dashed))
+        float vy_now = vy1 + slopeL * (bar_index - vx1)
+        lbLo := label.new(bar_index, vy_now, (slopeL > 0 ? "Support" : "Lower") + " " + (validL ? "VALID " : "prov. ") + str.tostring(vt) + "×", xloc=xloc.bar_index, style=label.style_label_up, color=color.new(cL, 80), textcolor=cL, size=size.small)
+
+    // --- geometry classification ---
+    if not na(slopeU) and not na(slopeL)
+        float avgMag = (math.abs(slopeU) + math.abs(slopeL)) / 2.0
+        float conv = slopeU - slopeL          // <0 converging, >0 diverging
+        bool sameDir = (slopeU > 0) == (slopeL > 0)
+        bool parallelish = avgMag > 0 and math.abs(conv) <= 0.25 * avgMag and sameDir
+        if parallelish
+            geom := slopeU > 0 ? "Rising channel" : "Falling channel"
+        else if conv < 0   // narrowing
+            geom := (slopeU < 0 and slopeL < 0) ? "Falling wedge" : (slopeU > 0 and slopeL > 0) ? "Rising wedge" : "Triangle (converging)"
+        else               // widening
+            geom := (slopeU > 0 and slopeL > 0) ? "Uptrend (rising support/resist, not parallel)" : (slopeU < 0 and slopeL < 0) ? "Downtrend (falling, not parallel)" : "Broadening"
+
+        // --- apex (where upper & lower cross) ---
+        float denom = slopeU - slopeL
+        apexTxt := "—"
+        line.delete(lnApex)
+        label.delete(lbApex)
+        if math.abs(denom) > 1e-9
+            // uy1 + slopeU*(x-ux1) = vy1 + slopeL*(x-vx1)
+            float xApex = (vy1 - uy1 - slopeL * vx1 + slopeU * ux1) / denom
+            float yApex = uy1 + slopeU * (xApex - ux1)
+            int barsAhead = int(xApex) - bar_index
+            if show_apex and barsAhead > 0 and barsAhead < 300
+                lnApex := line.new(int(xApex), yApex, int(xApex), yApex + atr14, xloc=xloc.bar_index, extend=extend.both, color=color.new(#b0bec5, 30), width=1, style=line.style_dotted)
+                lbApex := label.new(int(xApex), yApex, "◆ apex ~" + str.tostring(yApex, format.mintick) + " · " + str.tostring(barsAhead) + " bars", xloc=xloc.bar_index, style=label.style_label_down, color=color.new(#b0bec5, 70), textcolor=#b0bec5, size=size.small)
+                apexTxt := str.tostring(yApex, format.mintick) + " in " + str.tostring(barsAhead) + " bars"
+
+    // --- 52W high / low levels ---
+    if show_levels
+        line.delete(lnHH)
+        line.delete(lnLL)
+        lnHH := line.new(bar_index - look52, hh52, bar_index + 10, hh52, xloc=xloc.bar_index, color=color.new(#ce93d8, 0), width=1, style=line.style_dotted)
+        lnLL := line.new(bar_index - look52, ll52, bar_index + 10, ll52, xloc=xloc.bar_index, color=color.new(#90a4ae, 0), width=1, style=line.style_dotted)
+
+    // --- setup + verdict ---
+    float distHi = hh52 > 0 ? (hh52 - close) / hh52 * 100.0 : na
+    bool nearMA = not na(sma50) and math.abs(close - sma50) <= pb_atr * atr14
+    if stage == 4 and not rs_pos
+        setup := "STAGE 4 decline"
+        verdict := "EXIT / avoid — no new longs"
+    else if reclaim_30w and (stage == 1 or stage == 2) and rs_pos
+        setup := "Stage 4→2 reversal (30-WMA reclaim)"
+        verdict := "Emerging long — confirm RS rising"
+    else if stage == 2 and minervini_up and rs_pos
+        if nearMA
+            setup := "SWG-PB (pullback to rising MA)"
+            verdict := "Buy-the-dip — entry on MA reclaim, stop < MA"
+        else if not na(distHi) and distHi <= nearHi_pct
+            setup := "Stage 2 at highs"
+            verdict := "Breakout/continuation — buy strength, watch extension"
+        else
+            setup := "Stage 2 uptrend"
+            verdict := "Hold / add on pullback to MA"
+    else if stage == 1
+        setup := "Stage 1 base"
+        verdict := "Watch — needs breakout + RS > 0"
+    else
+        setup := "Neutral / mixed"
+        verdict := "No edge — wait"
+
+    // ========================================================================
+    // 5b. CLASSICAL PATTERNS (v1.1 Batch 1)
+    // ========================================================================
+    pats := ""
+
+    // --- horizontal Support / Resistance zones (pivot clustering) ---
+    if show_sr
+        float srTol = sr_tol_atr * atr14
+        [rLvl, rCnt] = f_cluster(phy, srTol, ll52, hh52)
+        [sLvl, sCnt] = f_cluster(ply, srTol, ll52, hh52)
+        line.delete(lnR)
+        label.delete(lbR)
+        line.delete(lnS)
+        label.delete(lbS)
+        if not na(rLvl) and rCnt >= 2
+            lnR := line.new(bar_index - 200, rLvl, bar_index + 10, rLvl, xloc=xloc.bar_index, color=color.new(#ef5350, 20), width=1)
+            lbR := label.new(bar_index + 10, rLvl, "R " + str.tostring(rCnt) + "×", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ef5350, 80), textcolor=#ef5350, size=size.small)
+        if not na(sLvl) and sCnt >= 2
+            lnS := line.new(bar_index - 200, sLvl, bar_index + 10, sLvl, xloc=xloc.bar_index, color=color.new(#26a69a, 20), width=1)
+            lbS := label.new(bar_index + 10, sLvl, "S " + str.tostring(sCnt) + "×", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#26a69a, 80), textcolor=#26a69a, size=size.small)
+
+    // --- flags (impulse leg + tight consolidation) ---
+    if show_flags
+        float consHi = flagConsHi
+        float consLo = flagConsLo
+        float consRange = consHi - consLo
+        float priorMove = close[flag_cons] - close[flag_cons + flag_imp]
+        bool tight = consRange < flag_rngA * atr14
+        bool bullFlag = tight and priorMove > flag_impA * atr14
+        bool bearFlag = tight and priorMove < -flag_impA * atr14
+        box.delete(bxFlag)
+        label.delete(lbFlag)
+        if bullFlag or bearFlag
+            color fc = bullFlag ? #26a69a : #ef5350
+            bxFlag := box.new(bar_index - flag_cons + 1, consHi, bar_index, consLo, border_color=fc, bgcolor=color.new(fc, 88), border_width=1)
+            lbFlag := label.new(bar_index - flag_cons + 1, consHi, (bullFlag ? "Bull" : "Bear") + " flag", xloc=xloc.bar_index, style=label.style_label_down, color=color.new(fc, 70), textcolor=fc, size=size.small)
+            pats := (bullFlag ? "Bull flag" : "Bear flag")
+
+    // --- double / triple top & bottom (equal pivots + neckline) ---
+    if show_dt
+        float dtTol = dt_tol_atr * atr14
+        line.delete(lnNeck)
+        label.delete(lbDT)
+        bool drewDT = false
+        // TOPS (pivot highs)
+        int nH = array.size(phy)
+        if nH >= 2 and not drewDT
+            float h1 = array.get(phy, nH - 1)
+            float h2 = array.get(phy, nH - 2)
+            int hx1 = array.get(phx, nH - 1)
+            int hx2 = array.get(phx, nH - 2)
+            bool trip = false
+            if nH >= 3
+                float h3 = array.get(phy, nH - 3)
+                trip := math.abs(h3 - h1) <= dtTol and math.abs(h3 - h2) <= dtTol
+            if math.abs(h1 - h2) <= dtTol
+                float neck = f_troughBetween(plx, ply, hx2, hx1)
+                if not na(neck)
+                    string nm = (trip ? "Triple" : "Double") + " Top" + (close < neck ? " ✓break" : "")
+                    lnNeck := line.new(hx2, neck, bar_index + 10, neck, xloc=xloc.bar_index, color=color.new(#ef5350, 0), width=1, style=line.style_dashed)
+                    lbDT := label.new(hx1, math.max(h1, h2), nm, xloc=xloc.bar_index, style=label.style_label_down, color=color.new(#ef5350, 70), textcolor=#ef5350, size=size.small)
+                    pats := str.length(pats) == 0 ? nm : pats + " · " + nm
+                    drewDT := true
+        // BOTTOMS (pivot lows)
+        int nL = array.size(ply)
+        if nL >= 2 and not drewDT
+            float l1 = array.get(ply, nL - 1)
+            float l2 = array.get(ply, nL - 2)
+            int lx1 = array.get(plx, nL - 1)
+            int lx2 = array.get(plx, nL - 2)
+            bool trip2 = false
+            if nL >= 3
+                float l3 = array.get(ply, nL - 3)
+                trip2 := math.abs(l3 - l1) <= dtTol and math.abs(l3 - l2) <= dtTol
+            if math.abs(l1 - l2) <= dtTol
+                float neck2 = f_peakBetween(phx, phy, lx2, lx1)
+                if not na(neck2)
+                    string nm2 = (trip2 ? "Triple" : "Double") + " Bottom" + (close > neck2 ? " ✓break" : "")
+                    lnNeck := line.new(lx2, neck2, bar_index + 10, neck2, xloc=xloc.bar_index, color=color.new(#26a69a, 0), width=1, style=line.style_dashed)
+                    lbDT := label.new(lx1, math.min(l1, l2), nm2, xloc=xloc.bar_index, style=label.style_label_up, color=color.new(#26a69a, 70), textcolor=#26a69a, size=size.small)
+                    pats := str.length(pats) == 0 ? nm2 : pats + " · " + nm2
+
+    if str.length(pats) == 0
+        pats := "none"
+
+    // --- verdict panel ---
+    if show_panel
+        if na(panel)
+            panel := table.new(panel_pos, 2, 11, bgcolor=color.new(color.black, 25), border_width=1, border_color=color.new(color.gray, 50))
+        string stg_txt = stage == 2 ? "Stage 2 ✓" : stage == 1 ? "Stage 1" : stage == 3 ? "Stage 3 ⚠" : stage == 4 ? "Stage 4 ✗" : "—"
+        color  stg_col = stage == 2 ? color.lime : stage == 1 ? color.yellow : stage == 3 ? color.orange : stage == 4 ? color.red : color.gray
+        color  rs_col  = rs_pos ? color.lime : color.red
+        color  vd_col  = str.contains(verdict, "EXIT") ? color.red : str.contains(verdict, "Buy") or str.contains(verdict, "long") or str.contains(verdict, "Breakout") ? color.lime : color.silver
+
+        table.cell(panel, 0, 0, "◧ CHART MARKUP", text_color=color.white, text_size=size.small, bgcolor=color.new(color.blue, 0))
+        table.cell(panel, 1, 0, syminfo.ticker + " · " + timeframe.period, text_color=color.white, text_size=size.small, bgcolor=color.new(color.blue, 0))
+        table.cell(panel, 0, 1, "Stage", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 1, stg_txt, text_color=stg_col, text_size=size.small)
+        table.cell(panel, 0, 2, "Mansfield RS", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 2, (na(mansfield) ? "n/a" : str.tostring(mansfield, "0.0")) + (rs_pos ? " (leads)" : " (lags)"), text_color=rs_col, text_size=size.small)
+        table.cell(panel, 0, 3, "Setup", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 3, setup, text_color=color.white, text_size=size.small)
+        table.cell(panel, 0, 4, "Geometry", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 4, geom, text_color=color.silver, text_size=size.small)
+        table.cell(panel, 0, 5, "Apex", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 5, apexTxt, text_color=color.silver, text_size=size.small)
+        table.cell(panel, 0, 6, "52W High", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 6, str.tostring(hh52, format.mintick) + (na(distHi) ? "" : "  (−" + str.tostring(distHi, "0.0") + "%)"), text_color=color.new(#ce93d8, 0), text_size=size.small)
+        table.cell(panel, 0, 7, "52W Low", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 7, str.tostring(ll52, format.mintick), text_color=color.new(#90a4ae, 0), text_size=size.small)
+        table.cell(panel, 0, 8, "Patterns", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 8, pats, text_color=color.new(#4dd0e1, 0), text_size=size.small)
+        table.cell(panel, 0, 9, "VERDICT", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 60))
+        table.cell(panel, 1, 9, verdict, text_color=vd_col, text_size=size.small, bgcolor=color.new(color.gray, 60))
+
+// data-window plots for screener columns
+plot(stage, "Stage", display=display.data_window)
+plot(mansfield, "Mansfield RS", display=display.data_window)
