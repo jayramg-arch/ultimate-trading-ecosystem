@@ -23,10 +23,32 @@
 //   • Horizontal Support/Resistance ZONES (pivot clustering, touch-counted).
 //   • FLAGS (impulse leg + tight consolidation box) — bull & bear.
 //   • DOUBLE / TRIPLE TOP & BOTTOM (equal pivots + neckline, break-confirmed).
-//   Detected patterns are listed in the panel. Head&Shoulders + Cup&Handle
-//   (the heuristic, false-positive-prone tier) come in Batch 2 as "candidates".
+//   Detected patterns are listed in the panel.
+// v1.2 (Batch 2) — HEURISTIC tier added (labelled "candidate", eyeball-only):
+//   • HEAD & SHOULDERS + inverse (3-pivot, neckline, ✓break when neckline gives).
+//   • CUP & HANDLE (two rims ~level + rounded low + shallow handle near rim).
+//   These are false-positive-prone by nature — confirm visually before acting.
+//   Recent-pivot trendlines + conservative geometry (channel only when parallel).
+// v1.3 — KEY-LEVEL layers folded in (self-contained, no MCP needed):
+//   • ANCHORED VWAP — ported from Dashboard v67.4.12 (anchor = Stage-2 start,
+//     hlc3×vol cumulative). The true evolving curve, + manual-date override.
+//   • FIBONACCI — ported from Zigzag v6.2 (retrace 50%/61.8% = high−r×range;
+//     ext 1.272/1.618 = low+r×range), on the dominant lookback swing.
+//   • S/R now has a tunable min-touch; AVWAP added to the verdict panel.
+//   Trendlines stay auto (non-draggable) — snapshot & hand-redraw to stress-test.
+// v1.4 — ANNOTATIONS optimized into a decision brief (the headline value):
+//   • CONVICTION score 0–7 (Stage2 + RS>0 + RS-rising + >50MA + >AVWAP + >200MA
+//     + vol-rising) → STRONG / MODERATE / WEAK at a glance.
+//   • RS now shows trend arrow (↑/↓) + leads/lags; Stage shows bars-in-stage.
+//   • Auto NEAREST support & resistance (from AVWAP/MA/Fib/52W) with % distance.
+//   • Computed PLAN: Entry / Stop (risk%) / Target (R:R) for bullish setups.
+//   • Panel reorganised into STATE · LEVELS · PLAN · VERDICT sections.
+// v1.5 — DESCRIPTIVE annotations (MCP-style full-sentence notes at key levels):
+//   • Sentence notes at Resistance / Support / AVWAP (what each level MEANS,
+//     not just its price). Toggle: "Descriptive annotations".
+//   • Headline summary OMITTED on purpose — that read lives in the panel.
 // ============================================================================
-indicator("Commander Chart Markup v1.1", overlay=true, max_lines_count=80, max_labels_count=100, max_boxes_count=30)
+indicator("Commander Chart Markup v1.5", overlay=true, max_lines_count=80, max_labels_count=100, max_boxes_count=30)
 
 // ============================================================================
 // 1. INPUTS
@@ -53,6 +75,7 @@ show_levels = input.bool(true, "52W High / Low levels", group=grpV)
 show_gaps   = input.bool(true, "Breakaway-gap markers", group=grpV)
 show_ma     = input.bool(true, "Stage MAs (50/150/200)", group=grpV)
 show_panel  = input.bool(true, "Verdict panel", group=grpV)
+show_notes  = input.bool(true, "Descriptive annotations (MCP-style notes)", group=grpV, tooltip="Full-sentence labels: a headline read + narrative notes at Resistance / Support / AVWAP. Turn off if the chart feels busy.")
 panel_posS  = input.string("Top Right", "Panel position", options=["Top Right","Top Left","Bottom Right","Bottom Left","Middle Right"], group=grpV)
 
 panel_pos = panel_posS == "Top Right" ? position.top_right : panel_posS == "Top Left" ? position.top_left : panel_posS == "Bottom Right" ? position.bottom_right : panel_posS == "Bottom Left" ? position.bottom_left : position.middle_right
@@ -60,6 +83,7 @@ panel_pos = panel_posS == "Top Right" ? position.top_right : panel_posS == "Top 
 grpP = "Classical Patterns (v1.1)"
 show_sr     = input.bool(true,  "Support/Resistance zones", group=grpP)
 sr_tol_atr  = input.float(0.6, "S/R cluster tolerance (× ATR)", minval=0.1, step=0.1, group=grpP)
+sr_min_t    = input.int(2, "S/R min touches", minval=2, group=grpP, tooltip="A zone must be touched by at least this many pivots to be drawn.")
 show_flags  = input.bool(true,  "Flags (impulse + tight consolidation)", group=grpP)
 flag_cons   = input.int(6, "Flag consolidation bars", minval=3, group=grpP)
 flag_imp    = input.int(10, "Flag impulse lookback bars", minval=4, group=grpP)
@@ -67,6 +91,23 @@ flag_impA   = input.float(4.0, "Flag impulse size (× ATR)", minval=1.0, step=0.
 flag_rngA   = input.float(2.5, "Flag consolidation max (× ATR)", minval=0.5, step=0.5, group=grpP)
 show_dt     = input.bool(true,  "Double / Triple Top & Bottom", group=grpP)
 dt_tol_atr  = input.float(0.5, "Equal-pivot tolerance (× ATR)", minval=0.1, step=0.1, group=grpP)
+// Batch 2 — heuristic / false-positive-prone tier (labelled "candidate")
+show_hs     = input.bool(true,  "Head & Shoulders (+ inverse) — CANDIDATE", group=grpP, tooltip="Heuristic — eyeball candidate, not a confirmed signal.")
+hs_tol_atr  = input.float(0.9, "H&S shoulder symmetry tol (× ATR)", minval=0.1, step=0.1, group=grpP)
+show_cup    = input.bool(true,  "Cup & Handle — CANDIDATE", group=grpP, tooltip="Heuristic — loose detection; verify by eye.")
+cup_dmin    = input.float(12.0, "Cup depth min %", minval=3, step=1, group=grpP)
+cup_dmax    = input.float(50.0, "Cup depth max %", minval=10, step=1, group=grpP)
+
+grpAV = "Anchored VWAP (ported from Dashboard v67.4.12)"
+show_avwap   = input.bool(true,  "Anchored VWAP (curve)", group=grpAV, tooltip="Auto-anchored at the current Stage-2 start (hlc3×vol cumulative), exactly like the Dashboard. Toggle manual anchor below to override.")
+avwap_manual = input.bool(false, "Use manual anchor date instead", group=grpAV)
+avwap_date   = input.time(timestamp("01 Jan 2026 00:00 +0530"), "Manual anchor", group=grpAV)
+
+grpF = "Fibonacci (ported from Zigzag v6.2)"
+show_fib     = input.bool(true,  "Fib retrace 50% & 61.8%", group=grpF)
+show_fib_ext = input.bool(true,  "Fib ext 1.272 & 1.618 (targets)", group=grpF)
+fibLook      = input.int(120, "Fib swing lookback (bars)", minval=20, group=grpF, tooltip="Dominant swing = highest-high & lowest-low over this lookback. Retrace = high − r×range; ext = low + r×range (Zigzag v6.2 formulas).")
+fib_ext_bars = input.int(15, "Fib line extend (bars right)", minval=2, maxval=100, group=grpF)
 
 // ============================================================================
 // 2. CONTEXT — ATR, MAs, Weinstein Stage, Mansfield RS
@@ -100,6 +141,44 @@ float ll52 = ta.lowest(low, look52)
 float volSma50  = ta.sma(volume, 50)
 float flagConsHi = ta.highest(high, flag_cons)
 float flagConsLo = ta.lowest(low, flag_cons)
+
+// --- Anchored VWAP (port of Dashboard v67.4.12: anchor = Stage-2 start; hlc3×vol) ---
+var float av_cumV  = 0.0
+var float av_cumPV = 0.0
+var int   av_last  = 1
+int av_anchor = avwap_manual ? avwap_date : ((stage == 2 and (na(stage[1]) or stage[1] != 2)) ? time : na)
+var int av_hold = 1
+if not na(av_anchor)
+    av_hold := av_anchor
+if av_hold > 1 and av_hold != av_last
+    av_cumV  := 0.0
+    av_cumPV := 0.0
+    av_last  := av_hold
+if av_last > 1 and time >= av_last
+    av_cumV  += volume
+    av_cumPV += hlc3 * volume
+float avwap = av_cumV > 0 ? av_cumPV / av_cumV : na
+
+// --- Fib dominant swing (Zigzag v6.2 formulas on a lookback-range swing) ---
+float fibHi = ta.highest(high, fibLook)
+float fibLo = ta.lowest(low, fibLook)
+float fibRange = fibHi - fibLo
+float fib_50  = fibHi - 0.500 * fibRange
+float fib_618 = fibHi - 0.618 * fibRange
+float fib_e1  = fibLo + 1.272 * fibRange
+float fib_e2  = fibLo + 1.618 * fibRange
+
+// --- annotation metrics (every-bar) ---
+var int stageStartBar = 0
+if ta.change(stage) != 0
+    stageStartBar := bar_index
+bool rsRising  = not na(mansfield) and not na(mansfield[5]) and mansfield > mansfield[5]
+bool volRising = ta.sma(volume, 10) > volSma50
+float volRel   = volSma50 > 0 ? volume / volSma50 : na
+
+// pick nearest support (highest level below price) / resistance (lowest above)
+f_maxBelow(float acc, float cur, float px) => (not na(px) and px < cur) ? (na(acc) ? px : math.max(acc, px)) : acc
+f_minAbove(float acc, float cur, float px) => (not na(px) and px > cur) ? (na(acc) ? px : math.min(acc, px)) : acc
 
 // ============================================================================
 // 3. PIVOT COLLECTION
@@ -232,6 +311,23 @@ var box   bxFlag = na
 var label lbFlag = na
 var line  lnNeck = na
 var label lbDT   = na
+// Batch 2 handles
+var line  lnHS   = na
+var label lbHS   = na
+var label lbCup  = na
+// v1.3 Fib handles
+var line  fib50L  = na
+var line  fib618L = na
+var line  fibE1L  = na
+var line  fibE2L  = na
+var label fib50Lb = na
+var label fib618Lb = na
+var label fibE1Lb = na
+var label fibE2Lb = na
+// v1.4 descriptive-note handles
+var label lbSupN = na
+var label lbResN = na
+var label lbAvwN = na
 
 // gap markers (per-bar, self-managing)
 bool gapUp = show_gaps and not na(close[1]) and open > close[1] * (1.0 + gap_pct / 100.0) and volume > volSma50 * gap_volx and close > open
@@ -355,10 +451,10 @@ if barstate.islast
         label.delete(lbR)
         line.delete(lnS)
         label.delete(lbS)
-        if not na(rLvl) and rCnt >= 2
+        if not na(rLvl) and rCnt >= sr_min_t
             lnR := line.new(bar_index - 200, rLvl, bar_index + 10, rLvl, xloc=xloc.bar_index, color=color.new(#ef5350, 20), width=1)
             lbR := label.new(bar_index + 10, rLvl, "R " + str.tostring(rCnt) + "×", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ef5350, 80), textcolor=#ef5350, size=size.small)
-        if not na(sLvl) and sCnt >= 2
+        if not na(sLvl) and sCnt >= sr_min_t
             lnS := line.new(bar_index - 200, sLvl, bar_index + 10, sLvl, xloc=xloc.bar_index, color=color.new(#26a69a, 20), width=1)
             lbS := label.new(bar_index + 10, sLvl, "S " + str.tostring(sCnt) + "×", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#26a69a, 80), textcolor=#26a69a, size=size.small)
 
@@ -423,39 +519,185 @@ if barstate.islast
                     lbDT := label.new(lx1, math.min(l1, l2), nm2, xloc=xloc.bar_index, style=label.style_label_up, color=color.new(#26a69a, 70), textcolor=#26a69a, size=size.small)
                     pats := str.length(pats) == 0 ? nm2 : pats + " · " + nm2
 
+    // --- Head & Shoulders (+ inverse) — CANDIDATE (heuristic, last 3 pivots) ---
+    if show_hs
+        float hsTol = hs_tol_atr * atr14
+        line.delete(lnHS)
+        label.delete(lbHS)
+        bool drewHS = false
+        // regular H&S — 3 pivot highs, head highest, shoulders ~equal
+        int nHh = array.size(phy)
+        if nHh >= 3
+            float lsh = array.get(phy, nHh - 3)
+            float hdh = array.get(phy, nHh - 2)
+            float rsh = array.get(phy, nHh - 1)
+            int xlsh = array.get(phx, nHh - 3)
+            int xhdh = array.get(phx, nHh - 2)
+            int xrsh = array.get(phx, nHh - 1)
+            if hdh > lsh and hdh > rsh and math.abs(lsh - rsh) <= hsTol and (hdh - math.max(lsh, rsh)) > hsTol
+                float t1h = f_troughBetween(plx, ply, xlsh, xhdh)
+                float t2h = f_troughBetween(plx, ply, xhdh, xrsh)
+                if not na(t1h) and not na(t2h)
+                    float neckH = (t1h + t2h) / 2.0
+                    string nmh = "H&S" + (close < neckH ? " ✓break" : " (cand)")
+                    lnHS := line.new(xlsh, neckH, bar_index + 10, neckH, xloc=xloc.bar_index, color=color.new(#ef5350, 0), width=1, style=line.style_dotted)
+                    lbHS := label.new(xhdh, hdh, nmh, xloc=xloc.bar_index, style=label.style_label_down, color=color.new(#ef5350, 75), textcolor=#ef5350, size=size.small)
+                    pats := str.length(pats) == 0 ? nmh : pats + " · " + nmh
+                    drewHS := true
+        // inverse H&S — 3 pivot lows, head lowest
+        int nLh = array.size(ply)
+        if nLh >= 3 and not drewHS
+            float lsl = array.get(ply, nLh - 3)
+            float hdl = array.get(ply, nLh - 2)
+            float rsl = array.get(ply, nLh - 1)
+            int xlsl = array.get(plx, nLh - 3)
+            int xhdl = array.get(plx, nLh - 2)
+            int xrsl = array.get(plx, nLh - 1)
+            if hdl < lsl and hdl < rsl and math.abs(lsl - rsl) <= hsTol and (math.min(lsl, rsl) - hdl) > hsTol
+                float t1l = f_peakBetween(phx, phy, xlsl, xhdl)
+                float t2l = f_peakBetween(phx, phy, xhdl, xrsl)
+                if not na(t1l) and not na(t2l)
+                    float neckL = (t1l + t2l) / 2.0
+                    string nml = "Inv H&S" + (close > neckL ? " ✓break" : " (cand)")
+                    lnHS := line.new(xlsl, neckL, bar_index + 10, neckL, xloc=xloc.bar_index, color=color.new(#26a69a, 0), width=1, style=line.style_dotted)
+                    lbHS := label.new(xhdl, hdl, nml, xloc=xloc.bar_index, style=label.style_label_up, color=color.new(#26a69a, 75), textcolor=#26a69a, size=size.small)
+                    pats := str.length(pats) == 0 ? nml : pats + " · " + nml
+
+    // --- Cup & Handle — CANDIDATE (loose: two rims ~level, rounded low, handle) ---
+    if show_cup
+        label.delete(lbCup)
+        int nHc = array.size(phy)
+        if nHc >= 2
+            float rightRim = array.get(phy, nHc - 1)
+            int xRight = array.get(phx, nHc - 1)
+            float leftRim = na
+            int xLeft = na
+            for m = nHc - 2 to 0
+                float hm = array.get(phy, m)
+                if na(leftRim) and math.abs(hm - rightRim) <= 0.05 * rightRim
+                    leftRim := hm
+                    xLeft := array.get(phx, m)
+            if not na(leftRim) and not na(xLeft)
+                float cupLow = f_troughBetween(plx, ply, xLeft, xRight)
+                if not na(cupLow)
+                    float depth = (rightRim - cupLow) / rightRim * 100.0
+                    bool handle = close < rightRim and close > rightRim * 0.88
+                    if depth >= cup_dmin and depth <= cup_dmax and handle
+                        lbCup := label.new(xRight, rightRim, "Cup&Handle? (cand)", xloc=xloc.bar_index, style=label.style_label_down, color=color.new(#26a69a, 75), textcolor=#26a69a, size=size.small)
+                        pats := str.length(pats) == 0 ? "Cup&Handle? (cand)" : pats + " · Cup&Handle? (cand)"
+
     if str.length(pats) == 0
         pats := "none"
 
-    // --- verdict panel ---
+    // --- Fibonacci (Zigzag v6.2 port) — retrace high−r×range; ext low+r×range ---
+    line.delete(fib50L)
+    line.delete(fib618L)
+    line.delete(fibE1L)
+    line.delete(fibE2L)
+    label.delete(fib50Lb)
+    label.delete(fib618Lb)
+    label.delete(fibE1Lb)
+    label.delete(fibE2Lb)
+    if (show_fib or show_fib_ext) and not na(fibHi) and not na(fibLo) and fibHi > fibLo
+        int fS = bar_index - fibLook
+        int fE = bar_index + fib_ext_bars
+        if show_fib
+            fib50L   := line.new(fS, fib_50,  fE, fib_50,  xloc=xloc.bar_index, color=color.new(#A020F0, 0), width=1)
+            fib618L  := line.new(fS, fib_618, fE, fib_618, xloc=xloc.bar_index, color=color.new(color.orange, 0), width=1)
+            fib50Lb  := label.new(fE, fib_50,  "50% "   + str.tostring(fib_50,  format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#A020F0, size=size.small)
+            fib618Lb := label.new(fE, fib_618, "61.8% " + str.tostring(fib_618, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=color.orange, size=size.small)
+        if show_fib_ext
+            fibE1L   := line.new(fS, fib_e1, fE, fib_e1, xloc=xloc.bar_index, color=color.new(#00BFA5, 0), width=1)
+            fibE2L   := line.new(fS, fib_e2, fE, fib_e2, xloc=xloc.bar_index, color=color.new(#76FF03, 0), width=1)
+            fibE1Lb  := label.new(fE, fib_e1, "1.272 " + str.tostring(fib_e1, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#00BFA5, size=size.small)
+            fibE2Lb  := label.new(fE, fib_e2, "1.618 " + str.tostring(fib_e2, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(color.black, 100), textcolor=#76FF03, size=size.small)
+
+    // === shared metrics (used by both the descriptive notes and the panel) ===
+    int barsInStage = bar_index - stageStartBar
+    string rsArrow = na(mansfield) ? "" : (rsRising ? " ↑" : " ↓")
+    int conv = (stage == 2 ? 1 : 0) + (rs_pos ? 1 : 0) + (rsRising ? 1 : 0) + ((not na(sma50) and close > sma50) ? 1 : 0) + ((not na(avwap) and close > avwap) ? 1 : 0) + ((not na(sma200) and close > sma200) ? 1 : 0) + (volRising ? 1 : 0)
+    string convTxt = conv >= 6 ? "STRONG" : conv >= 4 ? "MODERATE" : "WEAK"
+    color  convCol = conv >= 6 ? color.lime : conv >= 4 ? color.yellow : color.red
+    float supN = na
+    supN := f_maxBelow(supN, close, avwap)
+    supN := f_maxBelow(supN, close, sma50)
+    supN := f_maxBelow(supN, close, fib_50)
+    supN := f_maxBelow(supN, close, fib_618)
+    supN := f_maxBelow(supN, close, ll52)
+    float resN = na
+    resN := f_minAbove(resN, close, hh52)
+    resN := f_minAbove(resN, close, fib_e1)
+    resN := f_minAbove(resN, close, fib_e2)
+    float supPct = (not na(supN) and close > 0) ? (close - supN) / close * 100 : na
+    float resPct = (not na(resN) and close > 0) ? (resN - close) / close * 100 : na
+    bool   bullish  = stage == 2 or str.contains(setup, "reversal")
+    float  pEntry   = close
+    float  pStop    = na(supN) ? close - 2.0 * atr14 : supN * 0.995
+    float  pT1      = na(resN) ? hh52 : resN
+    float  pRR      = (pEntry - pStop) > 0 and not na(pT1) ? (pT1 - pEntry) / (pEntry - pStop) : na
+    float  pRiskPct = pEntry > 0 ? (pEntry - pStop) / pEntry * 100 : na
+    string stg_txt = stage == 2 ? "Stage 2 ✓" : stage == 1 ? "Stage 1" : stage == 3 ? "Stage 3 ⚠" : stage == 4 ? "Stage 4 ✗" : "—"
+    color  stg_col = stage == 2 ? color.lime : stage == 1 ? color.yellow : stage == 3 ? color.orange : stage == 4 ? color.red : color.gray
+    color  rs_col  = rs_pos ? color.lime : color.red
+    color  vd_col  = str.contains(verdict, "EXIT") ? color.red : (str.contains(verdict, "Buy") or str.contains(verdict, "long") or str.contains(verdict, "Breakout")) ? color.lime : color.silver
+
+    // === descriptive annotations (MCP-style full-sentence notes at key levels) ===
+    // (Headline summary intentionally omitted — that read lives in the panel.)
+    if show_notes
+        label.delete(lbResN)
+        label.delete(lbSupN)
+        label.delete(lbAvwN)
+        if not na(resN)
+            lbResN := label.new(bar_index + 2, resN, "Resistance " + str.tostring(resN, format.mintick) + " (+" + str.tostring(resPct, "0.0") + "%) — overhead supply / first target; a clean break = continuation", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ce93d8, 82), textcolor=#ce93d8, size=size.small)
+        if not na(supN)
+            lbSupN := label.new(bar_index + 2, supN, "Support " + str.tostring(supN, format.mintick) + " (−" + str.tostring(supPct, "0.0") + "%) — nearest floor (AVWAP/MA/Fib); stop reference / buy-the-dip", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#26a69a, 82), textcolor=#26a69a, size=size.small)
+        if not na(avwap)
+            lbAvwN := label.new(bar_index + 2, avwap, "AVWAP " + str.tostring(avwap, format.mintick) + (close > avwap ? " — price ABOVE: Stage-2 cost basis holding as support" : " — price BELOW: cost basis flipped to resistance (caution)"), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ffa726, 82), textcolor=#ffa726, size=size.small)
+
+    // --- compact panel ---
     if show_panel
         if na(panel)
-            panel := table.new(panel_pos, 2, 11, bgcolor=color.new(color.black, 25), border_width=1, border_color=color.new(color.gray, 50))
-        string stg_txt = stage == 2 ? "Stage 2 ✓" : stage == 1 ? "Stage 1" : stage == 3 ? "Stage 3 ⚠" : stage == 4 ? "Stage 4 ✗" : "—"
-        color  stg_col = stage == 2 ? color.lime : stage == 1 ? color.yellow : stage == 3 ? color.orange : stage == 4 ? color.red : color.gray
-        color  rs_col  = rs_pos ? color.lime : color.red
-        color  vd_col  = str.contains(verdict, "EXIT") ? color.red : str.contains(verdict, "Buy") or str.contains(verdict, "long") or str.contains(verdict, "Breakout") ? color.lime : color.silver
+            panel := table.new(panel_pos, 2, 17, bgcolor=color.new(color.black, 18), border_width=1, border_color=color.new(color.gray, 50))
+        color  hdrbg   = color.new(color.blue, 0)
+        color  sepbg   = color.new(color.gray, 65)
 
-        table.cell(panel, 0, 0, "◧ CHART MARKUP", text_color=color.white, text_size=size.small, bgcolor=color.new(color.blue, 0))
-        table.cell(panel, 1, 0, syminfo.ticker + " · " + timeframe.period, text_color=color.white, text_size=size.small, bgcolor=color.new(color.blue, 0))
+        table.cell(panel, 0, 0, "◧ MARKUP", text_color=color.white, text_size=size.small, bgcolor=hdrbg)
+        table.cell(panel, 1, 0, syminfo.ticker + " · " + timeframe.period, text_color=color.white, text_size=size.small, bgcolor=hdrbg)
         table.cell(panel, 0, 1, "Stage", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 1, stg_txt, text_color=stg_col, text_size=size.small)
-        table.cell(panel, 0, 2, "Mansfield RS", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 2, (na(mansfield) ? "n/a" : str.tostring(mansfield, "0.0")) + (rs_pos ? " (leads)" : " (lags)"), text_color=rs_col, text_size=size.small)
+        table.cell(panel, 1, 1, stg_txt + " · " + str.tostring(barsInStage) + "b", text_color=stg_col, text_size=size.small)
+        table.cell(panel, 0, 2, "RS (Mansfield)", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 2, (na(mansfield) ? "n/a" : str.tostring(mansfield, "0.0")) + rsArrow + (rs_pos ? " leads" : " lags"), text_color=rs_col, text_size=size.small)
         table.cell(panel, 0, 3, "Setup", text_color=color.gray, text_size=size.small)
         table.cell(panel, 1, 3, setup, text_color=color.white, text_size=size.small)
-        table.cell(panel, 0, 4, "Geometry", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 4, geom, text_color=color.silver, text_size=size.small)
-        table.cell(panel, 0, 5, "Apex", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 5, apexTxt, text_color=color.silver, text_size=size.small)
-        table.cell(panel, 0, 6, "52W High", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 6, str.tostring(hh52, format.mintick) + (na(distHi) ? "" : "  (−" + str.tostring(distHi, "0.0") + "%)"), text_color=color.new(#ce93d8, 0), text_size=size.small)
-        table.cell(panel, 0, 7, "52W Low", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 7, str.tostring(ll52, format.mintick), text_color=color.new(#90a4ae, 0), text_size=size.small)
-        table.cell(panel, 0, 8, "Patterns", text_color=color.gray, text_size=size.small)
-        table.cell(panel, 1, 8, pats, text_color=color.new(#4dd0e1, 0), text_size=size.small)
-        table.cell(panel, 0, 9, "VERDICT", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 60))
-        table.cell(panel, 1, 9, verdict, text_color=vd_col, text_size=size.small, bgcolor=color.new(color.gray, 60))
+        table.cell(panel, 0, 4, "Trend", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 4, geom + (apexTxt == "—" ? "" : " · apex " + apexTxt), text_color=color.silver, text_size=size.small)
+        table.cell(panel, 0, 5, "Conviction", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 5, convTxt + " (" + str.tostring(conv) + "/7)", text_color=convCol, text_size=size.small)
+        table.cell(panel, 0, 6, "── LEVELS ──", text_color=color.silver, text_size=size.tiny, bgcolor=sepbg)
+        table.cell(panel, 1, 6, "", bgcolor=sepbg)
+        table.cell(panel, 0, 7, "Resistance", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 7, na(resN) ? "—" : str.tostring(resN, format.mintick) + (na(resPct) ? "" : "  +" + str.tostring(resPct, "0.0") + "%"), text_color=color.new(#ce93d8, 0), text_size=size.small)
+        table.cell(panel, 0, 8, "Support", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 8, na(supN) ? "—" : str.tostring(supN, format.mintick) + (na(supPct) ? "" : "  −" + str.tostring(supPct, "0.0") + "%"), text_color=color.new(#26a69a, 0), text_size=size.small)
+        table.cell(panel, 0, 9, "AVWAP", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 9, na(avwap) ? "n/a" : str.tostring(avwap, format.mintick) + (close > avwap ? " ✓" : " ✗"), text_color=color.new(#ffa726, 0), text_size=size.small)
+        table.cell(panel, 0, 10, "Patterns", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 10, pats, text_color=color.new(#4dd0e1, 0), text_size=size.small)
+        table.cell(panel, 0, 11, "── PLAN ──", text_color=color.silver, text_size=size.tiny, bgcolor=sepbg)
+        table.cell(panel, 1, 11, "", bgcolor=sepbg)
+        table.cell(panel, 0, 12, "Entry", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 12, bullish ? str.tostring(pEntry, format.mintick) : "—", text_color=color.white, text_size=size.small)
+        table.cell(panel, 0, 13, "Stop", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 13, bullish ? str.tostring(pStop, format.mintick) + (na(pRiskPct) ? "" : "  (−" + str.tostring(pRiskPct, "0.0") + "%)") : "—", text_color=color.new(#ef5350, 0), text_size=size.small)
+        table.cell(panel, 0, 14, "Target · R:R", text_color=color.gray, text_size=size.small)
+        table.cell(panel, 1, 14, (bullish and not na(pT1)) ? str.tostring(pT1, format.mintick) + (na(pRR) ? "" : "  (" + str.tostring(pRR, "0.0") + "R)") : "—", text_color=color.new(#26a69a, 0), text_size=size.small)
+        table.cell(panel, 0, 15, "VERDICT", text_color=color.white, text_size=size.small, bgcolor=color.new(color.gray, 55))
+        table.cell(panel, 1, 15, verdict, text_color=vd_col, text_size=size.small, bgcolor=color.new(color.gray, 55))
+
+// Anchored VWAP — the true evolving curve (overlay)
+plot(show_avwap ? avwap : na, "Anchored VWAP", color=color.new(#ffa726, 0), linewidth=2)
 
 // data-window plots for screener columns
 plot(stage, "Stage", display=display.data_window)
 plot(mansfield, "Mansfield RS", display=display.data_window)
+plot(avwap, "AVWAP", display=display.data_window)
