@@ -1,8 +1,8 @@
-# Commander Chart Markup v1.5 — User & Trading Guide
+# Commander Chart Markup v1.8 — User & Trading Guide
 
 > **Module Role:** A self-contained, **timeframe-agnostic chart-reading engine**. Drop it on any NSE symbol (or any timeframe, or use it in the TV screener) and it auto-detects the structure — Weinstein Stage, Mansfield RS, trendlines, channels/wedges, support/resistance, gaps, classical patterns, anchored VWAP, Fibonacci — and renders a **decision-brief panel + descriptive annotations**. It is the *breadth scanner* of the markup workflow; you hand-draw the one tradeable trendline (see §Trading Guide).
 >
-> **File:** `Commander_Chart_Markup_v1.5.pine` · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE/BSE (any), benchmark `NSE:CNX500`.
+> **File:** `Commander_Chart_Markup_v1.8.pine` · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE/BSE (any), benchmark `NSE:CNX500`.
 >
 > **Design contract:** RS and Stage reuse the same maths as the Mansfield RS pane and the Unified Ecosystem; AVWAP is ported from **Dashboard v67.4.12**; Fib from **Zigzag [Strict v6.2]** — zero-drift by intent, the other tools untouched.
 
@@ -17,6 +17,9 @@
 | **v1.3** | **Anchored VWAP** (Dashboard port) + **Fibonacci** retrace/extension (Zigzag port); S/R min-touch input |
 | **v1.4** | Panel reorganised into a **decision brief**: conviction score, RS trend arrow, bars-in-stage, auto nearest support/resistance, computed Entry/Stop/Target |
 | **v1.5** | **Descriptive annotations** — full-sentence notes at Resistance / Support / AVWAP (the MCP narrative voice, native). Headline omitted (that read lives in the panel) |
+| **v1.6** | **Selectable colors** (new "Colors" input group for every drawn element); auto **trendlines no longer extend rightwards** (drawn only to the current bar) |
+| **v1.7** | **Timeframe-adaptive pivot length** — ported from Zigzag [Strict v6.2] (Monthly 1 · Weekly 5 · Daily 2 · Intraday 2), replacing the flat "8". Four tunable inputs |
+| **v1.8** | **Trendline close-respect rule** — a line is accepted only if no candle *closed* beyond it (above resistance / below support) within tolerance. Toggle "reject if a candle closes through it" |
 
 ---
 
@@ -38,11 +41,12 @@
 ### 3.1 Detection
 | Input | Default | Meaning / values |
 |---|---|---|
-| **Pivot strength (left=right bars)** | 8 | Bars each side that define a swing pivot. Higher = fewer, more significant swings. ↑ on intraday, ↓ on weekly. |
+| **Monthly / Weekly / Daily / Intraday pivot length** (v1.7) | 1 / 5 / 2 / 2 | Bars each side that define a swing pivot, **resolved by the chart's timeframe** — ported from Zigzag [Strict v6.2] so pivots stay in sync with the swing engine. Lower = more/finer pivots; raise *Daily* (4–6) for cleaner markup trendlines. |
 | **Pivots tracked per side** | 12 | How many recent pivot highs/lows are held in memory for fitting. |
-| **Trendline: fit only last N pivots** | 5 | The trendline searches **only the last N pivots** so it hugs current price (not a year-old anchor). Lower (3–4) = tighter to CMP; higher = longer base. |
+| **Trendline: fit only last N pivots** | 5 | The trendline searches **only the last N pivots** so it hugs current price (not a year-old anchor). Lower (3–4) = tighter to CMP / steeper recent leg; higher = longer, shallower base. **This is your "drag substitute"** — tune N to slide the line's anchor along the swing structure (every result is still touch-validated + unbroken). |
 | **Min touches for a VALID trendline** | 3 | ≥ this many touches → solid "VALID" line; exactly 2 → dashed "prov." (provisional). |
-| **Touch tolerance (× ATR14)** | 0.7 | How close a pivot must be to the line to count as a touch. |
+| **Touch tolerance (× ATR14)** | 0.7 | How close a pivot must be to the line to count as a touch. Also the allowance for the close-respect rule. |
+| **Trendline: reject if a candle CLOSES through it** (v1.8) | ✓ | Classical valid-trendline test — only accept a line if **no candle in its span closed beyond it** (above resistance / below support) within the touch tolerance. Off = pivots-only validation. |
 | **Breakaway gap % min** | 4.0 | Minimum overnight gap to flag a breakaway. |
 | **Gap volume × avg min** | 2.0 | Gap must come on ≥ this × the 50-bar average volume. |
 
