@@ -1,8 +1,8 @@
-# Commander Chart Markup v1.8 — User & Trading Guide
+# Commander Chart Markup v2.0 — User & Trading Guide
 
 > **Module Role:** A self-contained, **timeframe-agnostic chart-reading engine**. Drop it on any NSE symbol (or any timeframe, or use it in the TV screener) and it auto-detects the structure — Weinstein Stage, Mansfield RS, trendlines, channels/wedges, support/resistance, gaps, classical patterns, anchored VWAP, Fibonacci — and renders a **decision-brief panel + descriptive annotations**. It is the *breadth scanner* of the markup workflow; you hand-draw the one tradeable trendline (see §Trading Guide).
 >
-> **File:** `Commander_Chart_Markup_v1.8.pine` · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE/BSE (any), benchmark `NSE:CNX500`.
+> **File:** `Commander_Chart_Markup_v2.0.pine` · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE/BSE (any), benchmark `NSE:CNX500`.
 >
 > **Design contract:** RS and Stage reuse the same maths as the Mansfield RS pane and the Unified Ecosystem; AVWAP is ported from **Dashboard v67.4.12**; Fib from **Zigzag [Strict v6.2]** — zero-drift by intent, the other tools untouched.
 
@@ -20,6 +20,8 @@
 | **v1.6** | **Selectable colors** (new "Colors" input group for every drawn element); auto **trendlines no longer extend rightwards** (drawn only to the current bar) |
 | **v1.7** | **Timeframe-adaptive pivot length** — ported from Zigzag [Strict v6.2] (Monthly 1 · Weekly 5 · Daily 2 · Intraday 2), replacing the flat "8". Four tunable inputs |
 | **v1.8** | **Trendline close-respect rule** — a line is accepted only if no candle *closed* beyond it (above resistance / below support) within tolerance. Toggle "reject if a candle closes through it" |
+| **v1.9** | **Trendline recency bias** — selection scores touches + a bonus for how recent the anchor is, so it prefers lines connecting recent pivots over long lines reaching far back. Tunable (0 = most-touched) |
+| **v2.0** | **EMA20 confluence + ideal-angle biases** in line selection; **EMA20 plotted & timeframe-aware** (Monthly→M · Weekly→W · Daily & intraday 125/75-min→D, per the DNA spec). EMA20 confluence = line touches the EMA20 near CMP (break together) + parallel travel |
 
 ---
 
@@ -47,6 +49,9 @@
 | **Min touches for a VALID trendline** | 3 | ≥ this many touches → solid "VALID" line; exactly 2 → dashed "prov." (provisional). |
 | **Touch tolerance (× ATR14)** | 0.7 | How close a pivot must be to the line to count as a touch. Also the allowance for the close-respect rule. |
 | **Trendline: reject if a candle CLOSES through it** (v1.8) | ✓ | Classical valid-trendline test — only accept a line if **no candle in its span closed beyond it** (above resistance / below support) within the touch tolerance. Off = pivots-only validation. |
+| **Trendline recency bias** (v1.9) | 1.0 | Prefers lines anchored on **recent** pivots over long lines reaching far back. 0 = pick the most-touched line regardless of age; higher = each pivot of recency outweighs that many touches. |
+| **Trendline EMA20-confluence bias** (v2.0) | 1.0 | Rewards lines that **touch the EMA20 near CMP** (so a break of the line coincides with a break of the EMA20) **and** travel parallel with it (70% proximity-at-CMP + 30% slope-match). 0 = off. |
+| **Trendline ideal-angle bias / target slope** (v2.0) | — | Nudges the line toward a balanced ~45°-feel slope (an `ideal slope ≈ K × ATR` per bar) — avoids near-flat or near-vertical fits. 0 = off. |
 | **Breakaway gap % min** | 4.0 | Minimum overnight gap to flag a breakaway. |
 | **Gap volume × avg min** | 2.0 | Gap must come on ≥ this × the 50-bar average volume. |
 
@@ -66,6 +71,7 @@
 | 52W High / Low levels | ✓ | purple (high) / gray (low) dotted lines |
 | Breakaway-gap markers | ✓ | green ▲ below / red ▼ above the gap bar |
 | Stage MAs (50/150/200) | ✓ | orange / blue / gray MAs |
+| **EMA20 (TF-aware)** (v2.0) | ✓ | the EMA20 the confluence bias rides — Monthly→M · Weekly→W · Daily & intraday 125/75-min→**Daily** EMA20 (via `request.security`, per the DNA spec). On intraday it renders as a stepped daily line |
 | Verdict panel | ✓ | the decision-brief table |
 | **Descriptive annotations** | ✓ | the full-sentence notes at Resistance / Support / AVWAP |
 | Panel position | Top Right | 5 positions |

@@ -59,8 +59,22 @@
 //   its span CLOSED beyond it (above resistance / below support) within the
 //   touch tolerance. The classical valid-trendline test, on by default
 //   ("reject if a candle closes through it"); turn off to revert to pivots-only.
+// v1.9 — TRENDLINE RECENCY BIAS: line selection now scores touches + a bonus for
+//   how recent the anchor is, so it prefers lines connecting RECENT pivots over
+//   longer lines reaching far back. Tunable "recency bias" input (0 = old
+//   most-touched behaviour).
+// v2.0 — two more trendline-quality biases in the selection score:
+//   • EMA20 CONFLUENCE — rewards lines that TOUCH the EMA20 near CMP (so they
+//     break/breakdown together) AND travel roughly parallel (70% proximity-
+//     at-current-bar + 30% slope-match). The EMA20 is now PLOTTED and is
+//     timeframe-aware via request.security (Monthly→M · Weekly→W · Daily &
+//     intraday 125/75-min→D), per the DNA unified-indicator spec.
+//   • 45°/IDEAL ANGLE — rewards lines near the Gann 1×1 angle, defined in
+//     volatility terms (ideal slope = k × ATR/bar, chart-scale-independent).
+//   Both tunable (0 = off). Selection is now: touches + recency + EMA-align +
+//   ideal-angle, all among non-pierced, close-respecting candidates.
 // ============================================================================
-indicator("Commander Chart Markup v1.8", overlay=true, max_lines_count=80, max_labels_count=100, max_boxes_count=30)
+indicator("Commander Chart Markup v2.0", overlay=true, max_lines_count=80, max_labels_count=100, max_boxes_count=30)
 max_bars_back(close, 600)  // history buffer for the "no candle closes through the trendline" check
 
 // ============================================================================
@@ -80,6 +94,10 @@ trend_piv = input.int(5, "Trendline: fit only last N pivots", minval=3, maxval=1
 min_touch = input.int(3, "Min touches for a VALID trendline", minval=2, group=grpD)
 tol_atr   = input.float(0.7, "Touch tolerance (× ATR14)", minval=0.1, step=0.1, group=grpD)
 tl_nobreak = input.bool(true, "Trendline: reject if a candle CLOSES through it", group=grpD, tooltip="Classical valid-trendline rule — the line is only accepted if no candle in its span closed beyond it (above resistance / below support), within the touch tolerance.")
+tl_recency = input.float(1.0, "Trendline recency bias (0 = most touches)", minval=0.0, step=0.5, group=grpD, tooltip="Prefers lines anchored on RECENT pivots over longer lines reaching far back. 0 = pick the most-touched line regardless of age; higher = each pivot of recency outweighs that many touches.")
+tl_ema_w   = input.float(1.0, "Trendline EMA20-confluence bias", minval=0.0, step=0.5, group=grpD, tooltip="Rewards lines that TOUCH the EMA20 near current price (so a break of the line coincides with a break of the EMA20) AND travel roughly parallel with it. 70% proximity-at-CMP + 30% slope-match. 0 = off.")
+tl_angle_w = input.float(1.0, "Trendline 45°/ideal-angle bias", minval=0.0, step=0.5, group=grpD, tooltip="Rewards lines near the 'ideal' (Gann 1×1 / 45°) angle — not too steep (parabolic) nor too flat. 0 = off.")
+tl_ideal   = input.float(0.5, "Ideal slope (× ATR per bar = '45°')", minval=0.05, step=0.05, group=grpD, tooltip="Defines the ideal angle in volatility terms (chart-scale-independent). 0.5 = the line rises/falls ~0.5 ATR per bar. Tune to match what looks like 45° on your typical chart.")
 gap_pct   = input.float(4.0, "Breakaway gap % min", minval=0.5, step=0.5, group=grpD)
 gap_volx  = input.float(2.0, "Gap volume × avg min", minval=1.0, step=0.5, group=grpD)
 
@@ -95,6 +113,7 @@ show_apex   = input.bool(true, "Apex marker (converging lines)", group=grpV)
 show_levels = input.bool(true, "52W High / Low levels", group=grpV)
 show_gaps   = input.bool(true, "Breakaway-gap markers", group=grpV)
 show_ma     = input.bool(true, "Stage MAs (50/150/200)", group=grpV)
+show_ema20  = input.bool(true, "EMA20 (TF-aware: M/W/D, Daily on intraday)", group=grpV)
 show_panel  = input.bool(true, "Verdict panel", group=grpV)
 show_notes  = input.bool(true, "Descriptive annotations (MCP-style notes)", group=grpV, tooltip="Full-sentence labels: a headline read + narrative notes at Resistance / Support / AVWAP. Turn off if the chart feels busy.")
 panel_posS  = input.string("Top Right", "Panel position", options=["Top Right","Top Left","Bottom Right","Bottom Left","Middle Right"], group=grpV)
@@ -141,6 +160,7 @@ c_52h    = input.color(#ce93d8, "52W High", group=grpClr)
 c_52l    = input.color(#90a4ae, "52W Low", group=grpClr)
 c_apex   = input.color(#b0bec5, "Apex", group=grpClr)
 c_pat    = input.color(#4dd0e1, "Pattern text (panel)", group=grpClr)
+c_ema20  = input.color(#42a5f5, "EMA20", group=grpClr)
 c_ma50   = input.color(color.orange, "MA 50", group=grpClr)
 c_ma150  = input.color(color.blue, "MA 150", group=grpClr)
 c_ma200  = input.color(color.gray, "MA 200", group=grpClr)
@@ -152,6 +172,13 @@ float atr14 = ta.atr(14)
 float sma50  = ta.sma(close, 50)
 float sma150 = ta.sma(close, 150)
 float sma200 = ta.sma(close, 200)
+// EMA20 on the right reference timeframe (Monthly→M · Weekly→W · Daily & all
+// intraday (125/75-min)→D), matching the DNA "EMA20(Daily) overlaid on 125/75-min".
+// Used for the trendline EMA20-confluence bias AND plotted on the chart.
+string ema_tf = timeframe.isintraday ? "D" : timeframe.period
+[ema20, ema20_pN] = request.security(syminfo.tickerid, ema_tf, [ta.ema(close, 20), ta.ema(close, 20)[5]], lookahead=barmerge.lookahead_off)
+float bars_ratio = timeframe.in_seconds(ema_tf) / math.max(1.0, timeframe.in_seconds())
+float ema_slope = bars_ratio > 0 ? (ema20 - ema20_pN) / (5.0 * bars_ratio) : 0.0   // price per CHART bar
 bool minervini_up = not na(sma200) and close > sma50 and sma50 > sma150 and sma150 > sma200
 
 // Weekly 30-WMA Weinstein anchor (works on any chart TF)
@@ -247,7 +274,7 @@ if not na(pl)
 // upper=true → line must be a true RESISTANCE (no pivot pierces meaningfully ABOVE);
 // upper=false → true SUPPORT (no pivot pierces BELOW). Among valid (non-pierced)
 // lines, pick the one with the most touches. This keeps geometry trend-consistent.
-f_fit(array<int> xs, array<float> ys, float tol, bool upper, int recentK, bool noBreak) =>
+f_fit(array<int> xs, array<float> ys, float tol, bool upper, int recentK, bool noBreak, float recencyW, float emaSlope, float emaCur, float atrRef, float emaW, float angleW, float idealK) =>
     int n = array.size(xs)
     int s = math.max(0, n - recentK)   // consider only the last recentK pivots → anchors near CMP
     float bx1 = na
@@ -255,6 +282,7 @@ f_fit(array<int> xs, array<float> ys, float tol, bool upper, int recentK, bool n
     float bx2 = na
     float by2 = na
     int best = 0
+    float bestScore = -1.0
     if n - s >= 2
         for i = s to n - 2
             for j = i + 1 to n - 1
@@ -283,7 +311,18 @@ f_fit(array<int> xs, array<float> ys, float tol, bool upper, int recentK, bool n
                             float cb = close[bar_index - b]
                             if (upper and cb > lineYb + tol) or (not upper and cb < lineYb - tol)
                                 brk := true
-                    if pierce == 0 and not brk and t > best
+                    // quality score: touches + recency + EMA20-confluence + ideal-angle.
+                    // EMA20 confluence = line TOUCHES the EMA20 near CMP (so they break
+                    // together) AND travels roughly parallel with it.
+                    float lineYnow  = yi + slope * (bar_index - xi)
+                    float proxScore = atrRef > 0 ? math.max(0.0, 1.0 - math.abs(lineYnow - emaCur) / atrRef) : 0.0
+                    float parScore  = atrRef > 0 ? math.max(0.0, 1.0 - math.abs(slope - emaSlope) / atrRef) : 0.0
+                    float emaAlign  = 0.7 * proxScore + 0.3 * parScore
+                    float idealMag = idealK * atrRef
+                    float angleScore = idealMag > 0 ? math.max(0.0, 1.0 - math.abs(math.abs(slope) - idealMag) / idealMag) : 0.0
+                    float score = float(t) + recencyW * float(i - s) + emaW * emaAlign + angleW * angleScore
+                    if pierce == 0 and not brk and score > bestScore
+                        bestScore := score
                         best := t
                         bx1 := xi
                         by1 := yi
@@ -381,6 +420,7 @@ plotshape(gapUp, "Breakaway gap up", style=shape.triangleup, location=location.b
 plotshape(gapDn, "Breakaway gap dn", style=shape.triangledown, location=location.abovebar, color=color.new(c_dn, 0), size=size.small)
 
 // MAs for stage context
+plot(show_ema20 ? ema20 : na, "EMA20", color=color.new(c_ema20, 0), linewidth=2)
 plot(show_ma ? sma50 : na, "SMA50", color=color.new(c_ma50, 0), linewidth=1)
 plot(show_ma ? sma150 : na, "SMA150", color=color.new(c_ma150, 40), linewidth=1)
 plot(show_ma ? sma200 : na, "SMA200", color=color.new(c_ma200, 0), linewidth=1)
@@ -396,8 +436,8 @@ if barstate.islast
     float tol = tol_atr * atr14
 
     // --- fit upper resistance (highs) & lower support (lows), recent pivots only ---
-    [ux1, uy1, ux2, uy2, ut] = f_fit(phx, phy, tol, true, trend_piv, tl_nobreak)
-    [vx1, vy1, vx2, vy2, vt] = f_fit(plx, ply, tol, false, trend_piv, tl_nobreak)
+    [ux1, uy1, ux2, uy2, ut] = f_fit(phx, phy, tol, true, trend_piv, tl_nobreak, tl_recency, ema_slope, ema20, atr14, tl_ema_w, tl_angle_w, tl_ideal)
+    [vx1, vy1, vx2, vy2, vt] = f_fit(plx, ply, tol, false, trend_piv, tl_nobreak, tl_recency, ema_slope, ema20, atr14, tl_ema_w, tl_angle_w, tl_ideal)
 
     float slopeU = na
     float slopeL = na
