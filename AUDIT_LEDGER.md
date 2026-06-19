@@ -68,9 +68,25 @@ Root cause was deeper than "wrong source": MASTER carries RAW Screener names (`R
 ## H/G FINDINGS (screeners + output files)
 
 - **`FINAL_*_RRG.csv` are 5 months stale (2026-01-30) — orphaned, LOW severity.** Written by `strike_automation.run_rrg_scan()` (a separate Strike RRG mode), which the auto-pilot does NOT invoke. Grep confirms **nothing reads them downstream** → no live data leak, but misleading clutter. Recommend: delete the stale files, or wire `run_rrg_scan` into the flow if RRG_Quadrant is wanted. (Not a ranking bug.)
-- **XRay (`weinstein_xray_screener`) — output CLEAN/fresh.** `FINAL_XRay_Picks.csv` regenerated today (25 syms from FINAL_WATCHLIST), Minervini/Piotroski/ROE/PE/DE populated. (Deeper logic check of the M:/P: checklist math still pending.)
+- **XRay (`weinstein_xray_screener`) — CLEAN (logic verified).** Minervini (0-8), Piotroski (0-9), Overall (0-17) math is sound. The suspicious `roa_ttm > (roa_ly*100)` / `gross_margin > (gm_ly*100)` in Piotroski F3/F8 are CORRECT unit reconciliation — current-year ratios are percent (×100 at lines 179/181), prior-year are fractions (lines 172/175), so the ×100 aligns them. F5/F6/F9 use consistent fraction-vs-fraction. Data-source note: XRay uses yfinance `.info`+financials for fundamentals (not Screener.in) — works, but could be Screener-overlaid later (enhancement, not a bug).
 - **Bull regime gate — CLEAN logic.** "NOT BULL" was correct: requires `close>SMA200 AND SMA50>SMA200`; SMA50<SMA200 currently → bull POS catalysts intentionally suppressed. Conservative-by-design, not inverted.
 - **P0 enrichment — CONFIRMED in output.** `FINAL_Hunter_Picks.csv` etc. now fully enriched + sorted by Combined_Score; file counts consistent across the pipeline (Hunter 2 / Pullback 6 / EB 1 / Leader 5 / RS 9 / RecEB 18 / Combined 29 / Watchlist 25 / XRay 25).
+
+## I — WEB COMMANDER INTERCONNECTIVITY — CLEAN (structural)
+
+- **All 21 `launch_script()` targets exist** (chartink_scanner_pro, screener_fetcher/processor, brute_force_match_pro, bull/recovery_screener, xray_screener_job, watchlist_manager, strike_automation, tradingview_automation_v2, master_portfolio_sync, gmail_dispatcher, sector_manager, run_pipeline, dhan_journal_v7, pages/*). No dangling references.
+- **All 38 local-module imports resolve** (ai_grading_engine … xray_screener_job). The only "unresolved" token was `concurrent` = `concurrent.futures` (stdlib). No wrong refs.
+- **Compiles clean** — web commander + all 4 `pages/*.py` + xray_screener_job.
+- **`run_pipeline.py` (auto-pilot) orchestration correct & consistent:** Phase 4 `perform_match` (P0/B2 fixes), Phase 4.5 `recovery_screener.main()` (**B6 fix lands here** → auto-pilot now Combined_Score-ranked), Phase 4.6 `run_bull_screener`, two-pass watchlist gen (5 then 5.6 so X-Ray picks are included), Phase 6 `strike_automation --mode=watchlist` (**A1 fix**), Phase 7 `tradingview_automation_v2 --pipeline`.
+- **Caveat:** this is structural (imports/refs/orchestration + compile). The ~7,500-line per-page handler logic was NOT line-by-line audited; no evidence of dead refs, but a full UI-logic review is a separate effort if you want it.
+
+## B7 — XRay Piotroski F9 column always 0 (copy-paste bug) — `xray_screener_job.py` — FIXED ✅
+Line 112 read `p_details.get("Piotroski_Details", {}).get("F9 Asset Turnover Increasing", 0)` — but `p_details` IS already the Piotroski_Details dict, so the inner lookup returned `{}` and the **"P: F9 Asset Turnover Increasing" column was hard-wired to 0** regardless of the real check. The stored `Piotroski_Score` (correct) was therefore +1 vs the sum of the displayed P: flags whenever F9 actually passed.
+- **Caught by `score_authenticity_check.py` on its first run** (Piotroski_Score == sum(P:) failed 6/25; all 6 were exactly +1).
+- **Fix:** `p_details.get("F9 Asset Turnover Increasing", 0)`. The on-disk `FINAL_XRay_Picks.csv` still shows the bug until the next XRay run regenerates it (validator will then PASS).
+
+## NEW TOOL — `score_authenticity_check.py` (confidence guarantee)
+Read-only validator (~2s; wired as auto-pilot Phase 11, non-fatal). For each output CSV it RE-COMPUTES the stored score from the row's own visible columns using the canonical pipeline functions (zero drift) and confirms they match, plus per-column fill rates (distinguishing real gaps from semantic blanks). First-run results: FINAL_WATCHLIST 25/25, FINAL_COMBINED 29/29, Bull blend 3/3, **Recovery Score 78/78 reproducible**, XRay Minervini 25/25 — and it caught B7. This turns "do I trust this CSV?" into a per-run PASS/FAIL stamp.
 
 ## MODULES AUDITED — VERDICTS
 
