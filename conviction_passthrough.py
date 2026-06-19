@@ -126,6 +126,60 @@ def _calc_combined_score(conviction, tech_score) -> float:
     return 0.0
 
 
+def _extend_recovery_conviction(df, symbol_col, sym_to_conv, conv_fn) -> int:
+    """Q1 FIX (19 Jun 2026): the Stage-2 MASTER only carries value-style
+    fundamentals (ROE/ROCE/mcap/promoter/div/growth) for the ~16/78 recovery
+    names that overlap it; the recovery Screener.in source has RFF fields
+    instead. For the rest, fetch per-symbol via fundamental_hub (Screener.in
+    primary, yfinance fallback) and compute the SAME recovery conviction, so the
+    full recovery set gets a conviction value rather than tech-only.
+
+    Cached by fundamental_hub (ttl); failures degrade to no-entry (tech-only) —
+    never raises, no regression. Returns count of names newly resolved.
+    """
+    try:
+        import fundamental_hub as _fh
+    except Exception as e:
+        logger.warning("fundamental_hub unavailable (%s) — recovery conviction stays partial", e)
+        return 0
+
+    missing, seen = [], set()
+    for raw in df[symbol_col].dropna().astype(str):
+        key = raw.upper().strip().replace("NSE:", "").replace("BSE:", "").replace(".NS", "")
+        if key and key not in sym_to_conv and key not in seen:
+            seen.add(key); missing.append(key)
+    if not missing:
+        return 0
+
+    logger.info("Recovery conviction: fetching fundamentals for %d names not in "
+                "Stage-2 master (Q1 coverage extension)", len(missing))
+    resolved = 0
+    for key in missing:
+        try:
+            fh = _fh.fetch_stock_fundamentals(f"{key}.NS") or {}
+            if not fh:
+                continue
+            # Map fundamental_hub keys/units -> the golden column names the
+            # recovery conviction scorer expects (roe/roce/div/growth = %,
+            # debt_equity = ratio, market_cap = Cr — all already aligned).
+            row = {
+                "Debt to equity":     fh.get("debt_equity"),
+                "ROCE %":             fh.get("roce"),
+                "ROE %":              fh.get("roe"),
+                "Promoter holding %": fh.get("promoter_holding"),
+                "Div Yld %":          fh.get("dividend_yield"),
+                "Qtr Profit Var %":   fh.get("earnings_growth"),
+                "Mar Cap Rs.Cr.":     fh.get("market_cap"),
+            }
+            if any(v is not None for v in row.values()):
+                sym_to_conv[key] = conv_fn(row)
+                resolved += 1
+        except Exception as e:
+            logger.debug("recovery conviction fetch failed for %s: %s", key, e)
+    logger.info("Recovery conviction: resolved %d/%d additional names", resolved, len(missing))
+    return resolved
+
+
 def add_conviction_and_combined_score(
     df: pd.DataFrame,
     mode: str = "bull",
@@ -165,6 +219,11 @@ def add_conviction_and_combined_score(
         key = master_row.get("MATCH_KEY", "")
         if key:
             sym_to_conv[key] = conv_fn(master_row)
+
+    # Q1 coverage extension: for recovery names absent from the Stage-2 master,
+    # fetch value-style fundamentals per-symbol so the whole set gets conviction.
+    if mode == "recovery":
+        _extend_recovery_conviction(df, symbol_col, sym_to_conv, conv_fn)
 
     # Normalize Score: bull = already 0-100; recovery = 0-22 (compute_score max)
     # → ×4.545. (Was 100/12 which saturated every pick scoring >=12 to 100.)
