@@ -186,9 +186,14 @@ def calculate_recovery_conviction_score(row):
     # aborts the whole scorer.
     score = 5.0
     # ── Debt/Equity (in dedicated Recovery Screener.in CSVs)
-    de = _safe_num(row, 'Debt to equity', 'Debt / Equity')
-    if de < 0.5:   score += 2.0
-    elif de > 2.0: score -= 1.0
+    # Q4 FIX (19 Jun 2026): require D/E to be PRESENT before awarding the
+    # "strong balance sheet" bonus. Previously a missing D/E parsed to 0.0 and
+    # 0 < 0.5 handed out +2.0 for absent data — rewarding the unknown. Now a
+    # missing D/E (None) scores neither the +2.0 bonus nor the -1.0 penalty.
+    de = _safe_num(row, 'Debt to equity', 'Debt / Equity', default=None)
+    if de is not None:
+        if de < 0.5:   score += 2.0
+        elif de > 2.0: score -= 1.0
 
     # ── ROCE as capital efficiency proxy
     roce = _safe_num(row, 'ROCE %', 'ROCE')

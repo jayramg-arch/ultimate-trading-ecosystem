@@ -141,6 +141,28 @@ def _calc_stage(close: pd.Series) -> Optional[int]:
     return 1
 
 
+def _weekly_stage(symbol: str, daily_close: pd.Series) -> Optional[int]:
+    """Canonical Weinstein stage = WEEKLY 30-WMA state machine, reusing
+    bull_screener.compute_weekly_stage_and_wks for ZERO drift with the Bull
+    Screener (and Pine, which anchors stage on the weekly 30-WMA even on a daily
+    chart). Q2 FIX (19 Jun 2026): technical_enrichment used to classify stage
+    from DAILY SMA200/50, so the same stock could show a different Stage in
+    FINAL_WATCHLIST vs Bull_Screener_Results. Falls back to the daily proxy only
+    when weekly data is unavailable."""
+    try:
+        import bull_screener as _bs  # lazy import avoids any circular-import risk
+        if _DP_OK and _dp is not None:
+            df_w = _flatten_cols(_dp.fetch_ohlcv(symbol, period="3y", interval="1wk"))
+            if (df_w is not None and not df_w.empty and len(df_w) >= 35
+                    and {"Close", "High", "Low"}.issubset(df_w.columns)):
+                stages, _ = _bs.compute_weekly_stage_and_wks(df_w)
+                if len(stages):
+                    return int(stages.iloc[-1])
+    except Exception as e:
+        logger.debug("weekly stage for %s failed (%s) — daily-proxy fallback", symbol, e)
+    return _calc_stage(daily_close)
+
+
 def _calc_mansfield_rs(close: pd.Series, bench_close: pd.Series,
                          lookback: int = 52) -> Optional[float]:
     """Mansfield RS ×100 = ((stock/bench) / SMA(stock/bench, lookback) - 1) × 100.
@@ -199,7 +221,7 @@ def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
         close = _safe_close(df)
         if close is None or len(close) < 210:
             return out
-        out["Stage"]         = _calc_stage(close)
+        out["Stage"]         = _weekly_stage(symbol, close)
         out["Daily_RSI"]     = _calc_rsi(close, 14)
         out["Daily_ADX"]     = _calc_adx(df, 14)
         out["EMA_Stack"]     = _calc_ema_stack(close)

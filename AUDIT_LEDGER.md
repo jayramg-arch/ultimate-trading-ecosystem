@@ -105,7 +105,14 @@ Read-only validator (~2s; wired as auto-pilot Phase 11, non-fatal). For each out
 - `fillna(0)` audit: the matcher's only fillna(0) is a throwaway `_Sort_Num` sort key (blank scores sink to bottom; real Combined_Score untouched). No STORED ranking score is faked via fillna(0) anywhere.
 - **Cross-domain caveat (NOT watchlist):** journal P&L display uses `BuyPrice.fillna(0)` (pages/1_home.py, dhan_journal_v7) — a missing buy price would inflate displayed P&L. Separate domain (journal, already reconciled earlier); flagged for awareness.
 
-### E — Structural indicator math — CLEAN, 1 spec-deviation flagged
+### FOLLOW-UP FIXES (user Q&A, 19 Jun 2026)
+- **Q2 → B8 FIXED — watchlist Stage now uses the canonical WEEKLY 30-WMA (zero drift).** `technical_enrichment.enrich_symbol` now calls `bull_screener.compute_weekly_stage_and_wks` (lazy import) for Stage, with the daily proxy only as a fallback. Verified enrichment == bull_screener for NETWEB/RELIANCE/COALINDIA/TCS. **COALINDIA was Stage 3 (daily proxy) vs Stage 2 (canonical weekly)** — a +20 Tech_Score correction. The daily SMA200/50 stage was drift, not a requirement: bull_screener (and Pine's weekly-anchored stage) use the 30-WMA. Re-run the pipeline to propagate.
+- **Q4 → FIXED — recovery conviction no longer rewards MISSING Debt/Equity.** `_safe_num(..., default=None)`; the +2.0 "strong balance sheet" bonus (and -1.0 penalty) now require D/E to be present. Verified: missing D/E 10.0→8.5; present D/E still scores.
+- **Q1 answered (by design, not a bug):** recovery conviction resolves for only ~16/78 because the value-style columns (ROE/ROCE/mcap/promoter/growth) exist ONLY in the Stage-2 MASTER; the recovery Screener.in source carries RFF fields (NI/OCF/ICR/D-E/CR/ROA) instead. The other ~62 still have full RFF + Score; they just lack the supplementary conviction overlay. Full coverage needs per-symbol fundamental_hub enrichment of the recovery set.
+- **Q3 (stale FINAL_*_RRG.csv):** user will handle — left as-is.
+- **Q5 (journal BuyPrice.fillna(0)):** flagged as MUST-FIX whenever the journal P&L module (pages/1_home.py, dhan_journal_v7.py) is next touched — a missing buy price currently inflates displayed P&L.
+
+### E — Structural indicator math — CLEAN, weekly-stage drift FIXED (B8 above)
 - RSI (Wilder ewm), ADX (Wilder DI/DX), Mansfield RS ((ratio/SMA−1)×100), EMA-stack (50>150>200), Above_200DMA, Dist_52WH, ATR, Vol_RelAvg — all mathematically correct. No Stage 1↔3 swap (that prior bug was in watchlist_ranker, a different module).
 - **SPEC DEVIATION (flagged, not changed):** `technical_enrichment._calc_stage` classifies Weinstein stage from **daily SMA200/SMA50** ("Simplified" per its docstring), but the DNA spec anchors Stage on the **weekly 30-WMA** (and `bull_screener` uses a weekly stage). So the `Stage` column in the watchlist (→ ±15 in Tech_Score) is a daily proxy that can disagree with the canonical weekly stage. Changing it alters scoring semantics → deferred for your decision.
 
