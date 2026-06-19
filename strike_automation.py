@@ -1,3 +1,7 @@
+import sys
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 import asyncio
 from playwright.async_api import async_playwright
 import pandas as pd
@@ -9,27 +13,60 @@ import sys
 import argparse
 from datetime import datetime
 
+
+def _is_file_from_today(path):
+    """True if `path` was last modified today — used to reject STALE LATEST_
+    watchlist files so a prior run's picks are never uploaded as if fresh."""
+    try:
+        return datetime.fromtimestamp(os.path.getmtime(path)).date() == datetime.now().date()
+    except Exception:
+        return False
+
+
 # ==========================================
 # CONFIGURATION
 # ==========================================
+# BUG-FIX: Use script-directory-relative path (not CWD which changes under Streamlit)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Source of truth: Generated_Watchlists TXT files (same as TradingView)
+# This ensures Strike.Money and TradingView ALWAYS get identical watchlists.
+WATCHLIST_DIR = os.path.join(_SCRIPT_DIR, "Generated_Watchlists")
+
+STRIKE_URL = "https://web.strike.money/"
+RRG_URL = "https://web.strike.money/rrg"
+WATCHLIST_URL = "https://web.strike.money/watchlist"
+# BUG-FIX: Use _SCRIPT_DIR instead of os.getcwd()
+USER_DATA_DIR = os.path.join(_SCRIPT_DIR, "strike_user_data")
+
+# Watchlist Name Mapping (Base Names) — maps TXT base names to Strike watchlist names
+# The TXT filename in Generated_Watchlists will be: {base_name}-{DDMMMYY}.txt
+# These MUST match the base names used by watchlist_manager.py WATCHLIST_MAP values.
+WATCHLIST_BASE_NAMES = [
+    "Bull_EarlyBird",
+    "Bull_Hunter",
+    "Bull_Pullback",
+    "Bull_StrongLeader",
+    "Bull_Picks_All",
+    "Rec_Climax_Bounce",
+    "Rec_Early_Bird",
+    "Rec_RS_Survivor",
+    "Recovery_Picks_All",
+    "Golden_Matcher_Picks",
+    "XRay_Picks",
+    "Portfolio"
+]
+
+# Legacy: kept for RRG scan compatibility (not used in watchlist upload)
 INPUT_FILES = [
     "FINAL_Hunter_Picks.csv",
     "FINAL_Pullback_Picks.csv",
     "FINAL_EarlyBird_Picks.csv",
-    "FINAL_Leader_Picks.csv"
+    "FINAL_Leader_Picks.csv",
+    "FINAL_Recovery_RSLeaders.csv",
+    "FINAL_Recovery_ClimaxBounce.csv",
+    "FINAL_Recovery_EarlyBirds.csv"
 ]
-STRIKE_URL = "https://web.strike.money/"
-RRG_URL = "https://web.strike.money/rrg"
-WATCHLIST_URL = "https://web.strike.money/watchlist"
-USER_DATA_DIR = os.path.join(os.getcwd(), "strike_user_data")
-
-# Watchlist Name Mapping (Base Names)
-WATCHLIST_BASE_MAP = {
-    "FINAL_Hunter_Picks.csv": "Hunter",
-    "FINAL_Pullback_Picks.csv": "Pullback",
-    "FINAL_EarlyBird_Picks.csv": "EarlyBird",
-    "FINAL_Leader_Picks.csv": "Leader"
-}
 
 def get_dated_name(base_name):
     """Returns 'Name-DDMMMYY', e.g., 'Hunter-09FEB26'"""
@@ -50,39 +87,71 @@ async def delete_watchlist(page, wl_name):
             await page.wait_for_timeout(1000)
             
             # 2. Check if WL exists in list
-            wl_item = page.locator(f"text='{wl_name}'").first
+            import re
+            # Strike appends " (N)" symbol counts. Match the name with or without the count suffix safely.
+            wl_item = page.locator("div[role='option'], a[role='option'], .rs-picker-select-menu-item, li").filter(
+                has_text=re.compile(rf"^\s*{re.escape(wl_name)}(?:\s*\(\d+\))?\s*$", re.IGNORECASE)
+            ).first
+            
             if await wl_item.is_visible():
                 print(f"      [DEBUG] Watchlist '{wl_name}' found. Selecting to delete...")
                 await wl_item.click()
                 await page.wait_for_timeout(2000) # Wait for load
                 
                 # 3. Look for Delete Mechanism
-                delete_btn = page.locator("button:has-text('Delete'), .rs-icon-trash, [aria-label='Delete']").first
+                # First, ensure any dropdown is closed by hitting Escape
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(500)
                 
-                # If not found, maybe under a "More" menu?
-                if not await delete_btn.is_visible():
-                     more_btn = page.locator(".rs-dropdown-toggle, [aria-label='More options']").first
-                     if await more_btn.is_visible():
-                         await more_btn.click()
-                         await page.wait_for_timeout(500)
-                         delete_btn = page.locator("text='Delete'").first
+                print("      [DEBUG] Looking for 'More' options (three dots)...")
+                more_btn = page.locator("[class*='marketOverviewContainer_moreBtn']")
+                if await more_btn.count() > 0:
+                    await more_btn.first.click(force=True)
+                    await page.wait_for_timeout(1000)
+                else:
+                    print("      [DEBUG] 'More options' button not found. Assuming direct Delete button.")
                 
-                if await delete_btn.is_visible():
+                # Broad selector for the delete button
+                delete_btn = page.locator("text='Delete Watchlist', text='Delete WatchList', text='Delete'").last
+                
+                if await delete_btn.count() > 0:
                     print("      [DEBUG] Found Delete button. Clicking...")
-                    await delete_btn.click()
+                    await delete_btn.click(force=True)
                     await page.wait_for_timeout(1000)
                     
                     # Confirm Delete Modal
                     confirm_btn = page.locator("button:has-text('Delete'), button:has-text('Confirm'), button:has-text('Yes')").last
-                    if await confirm_btn.is_visible():
-                        await confirm_btn.click()
+                    if await confirm_btn.count() > 0:
+                        await confirm_btn.click(force=True)
                         print(f"      [SUCCESS] Deleted watchlist: {wl_name}")
-                        await page.wait_for_timeout(2000)
+                        
+                        # Wait for the Delete Watchlist modal to close
+                        try:
+                            await page.locator(".rs-modal-wrapper").first.wait_for(state="hidden", timeout=5000)
+                        except Exception:
+                            print("      [!] WARNING: Delete modal may still be open. Forcing close...")
+                            await page.keyboard.press("Escape")
+                            await page.wait_for_timeout(1000)
+                            # Ultimate fallback: Nuke from DOM
+                            await page.evaluate("""
+                                document.querySelectorAll('.rs-modal-wrapper, .rs-modal-backdrop').forEach(el => el.remove());
+                            """)
+                            
+                        await page.wait_for_timeout(1000)
                     else:
                         print("      [!] Delete confirmation not found. Cancelling.")
                         await page.keyboard.press("Escape")
+                        await page.evaluate("""
+                            document.querySelectorAll('.rs-modal-wrapper, .rs-modal-backdrop').forEach(el => el.remove());
+                        """)
                 else:
-                    print("      [!] Could not find Delete button for active watchlist.")
+                    print("      [!] Could not find Delete button for active watchlist. Dumping HTML for debug...")
+                    try:
+                        with open(os.path.join(_SCRIPT_DIR, f"debug_strike_delete_fail.html"), "w", encoding="utf-8") as f:
+                            f.write(await page.content())
+                        await page.screenshot(path=os.path.join(_SCRIPT_DIR, f"debug_strike_delete_fail.png"))
+                    except:
+                        pass
             else:
                 # Watchlist not in list, nothing to do
                 # Close dropdown
@@ -101,8 +170,8 @@ async def cleanup_old_watchlists(page, base_name):
     print(f"      [DEBUG] Cleaning up old dated watchlists for {base_name}...")
     current_today_upper = get_dated_name(base_name).upper()
     
-    # Regex for "BaseName-DDMMMYY" (Case Insensitive)
-    pattern = re.compile(rf"^{re.escape(base_name)}-\d{{2}}[A-Z]{{3}}\d{{2}}$", re.IGNORECASE)
+    # Relaxed pattern for "BaseName-DDMMMYY" anywhere in the string
+    pattern = re.compile(rf"{re.escape(base_name)}-\d{{2}}[A-Z]{{3}}\d{{2}}", re.IGNORECASE)
     
     try:
         # 1. Open Dropdown
@@ -121,12 +190,12 @@ async def cleanup_old_watchlists(page, base_name):
         to_delete = []
         for i in range(count):
             item_text = await menu_items.nth(i).inner_text()
-            item_text = item_text.strip()
+            item_text = re.sub(r'\s+', ' ', item_text).strip()
             
             # If it matches pattern and is NOT today and is NOT the [Auto] legacy
-            if pattern.match(item_text) and item_text.upper() != current_today_upper:
+            if pattern.search(item_text) and current_today_upper not in item_text.upper():
                 to_delete.append(item_text)
-            elif item_text.upper() == f"{base_name} [Auto]".upper():
+            elif f"{base_name} [Auto]".upper() in item_text.upper():
                 to_delete.append(item_text)
                 
         # Close dropdown first (since delete_watchlist will open it again per item)
@@ -282,47 +351,78 @@ async def extract_rrg_status(page, symbol):
         print(f"      [!] Error extracting RRG for {symbol}: {e}")
         return "Error"
 
-async def create_clean_csv(original_file, clean_file):
+async def create_strike_csv_from_txt(txt_file, base_csv_path, chunk_size=49):
     """
-    Creates a temporary CSV with only the 'Symbol' column,
-    stripped of 'NSE:'/'BSE:' prefixes, for Strike Import.
+    BUG-FIX: Read symbols from the Generated_Watchlists TXT file (same source as TradingView).
+    TXT format: comma-separated NSE:SYMBOL entries (e.g. NSE:RELIANCE,NSE:TCS,...)
+    Strike import needs plain symbols without the NSE: prefix, one per row with a 'Symbol' header.
+    Automatically splits into multiple CSVs if symbol count exceeds chunk_size.
+    Returns list of tuples: [(csv_path, sym_count, suffix), ...]
     """
     try:
-        symbols = []
-        with open(original_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                s = row.get("Symbol", "").replace("NSE:", "").replace("BSE:", "").strip()
-                if s: symbols.append(s)
-        
-        if not symbols:
-            return False
+        with open(txt_file, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
 
-        # Write to clean file with header 'Symbol'
-        with open(clean_file, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(["Symbol"]) # Header usually required
-            for s in symbols:
-                writer.writerow([s])
-        
-        return True
+        if not content:
+            print(f"      [!] TXT file is empty: {txt_file}")
+            return []
+
+        # Parse comma-separated NSE:SYMBOL list
+        raw_symbols = [s.strip() for s in content.split(',') if s.strip()]
+        clean_symbols = [
+            s.replace('NSE:', '').replace('BSE:', '').strip()
+            for s in raw_symbols
+            if s.replace('NSE:', '').replace('BSE:', '').strip()
+        ]
+
+        if not clean_symbols:
+            print(f"      [!] No valid symbols parsed from: {txt_file}")
+            return []
+
+        chunks = [clean_symbols[i:i + chunk_size] for i in range(0, len(clean_symbols), chunk_size)]
+        results = []
+
+        for idx, chunk in enumerate(chunks):
+            suffix = f"-{idx+1}" if len(chunks) > 1 else ""
+            csv_path = base_csv_path.replace(".csv", f"{suffix}.csv")
+
+            # Write temp CSV with 'Symbol' header for Strike import
+            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Symbol"])
+                for s in chunk:
+                    writer.writerow([s])
+
+            results.append((csv_path, len(chunk), suffix))
+
+        return results
+
     except Exception as e:
-        print(f"      [!] Error creating clean CSV: {e}")
-        return False
+        print(f"      [!] Error reading TXT file {txt_file}: {e}")
+        return []
+
 
 async def upload_watchlists(page):
     """
-    Auto-upload CSV symbols to Strike Watchlists using the Import feature.
+    Auto-upload watchlists to Strike.Money.
+    BUG-FIX: Now reads from Generated_Watchlists/*.txt (SAME source as TradingView)
+    so both platforms always receive identical watchlists.
     """
-    print("\n   [upload_watchlists] Starting Watchlist Sync (Import Mode)...")
-    
+    print("\n   [upload_watchlists] Starting Watchlist Sync (TXT Source Mode)...")
+    print(f"      [INFO] Reading from: {WATCHLIST_DIR}")
+
+    if not os.path.exists(WATCHLIST_DIR):
+        print(f"      [!] Generated_Watchlists directory not found: {WATCHLIST_DIR}")
+        print("      [!] Run 'Generate Watchlists' (Phase 5) before syncing to Strike.")
+        return
+
     # 1. Ensure we are on the Watchlist Page
     if "watch-list" not in page.url and "dashboard" not in page.url:
         print("      [DEBUG] Navigating to Watchlist URL...")
         await page.goto(WATCHLIST_URL, wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
-    
-    # 2. Click Watchlist Tab if needed (ensure we are in Watchlist view)
+
+    # 2. Click Watchlist Tab if needed
     try:
         watchlist_tab = page.locator("div.rs-nav-item:has-text('Watchlist')")
         if await watchlist_tab.is_visible():
@@ -334,185 +434,244 @@ async def upload_watchlists(page):
     except Exception as e:
         print(f"      [!] Error checking tabs: {e}")
 
-    for csv_file, base_name in WATCHLIST_BASE_MAP.items():
-        # Generate Dynamic Names
-        wl_name = get_dated_name(base_name)
-        old_auto_name = f"{base_name} [Auto]"
-        
-        print(f"\n   >> Processing: {wl_name} from {csv_file}")
-        
-        if not os.path.exists(csv_file):
-            print(f"      [!] File not found: {csv_file}. Skipping.")
-            continue
+    date_suffix = datetime.now().strftime("%d%b%y").upper()
 
-        clean_csv_path = os.path.abspath(f"temp_upload_{csv_file}")
-        has_symbols = await create_clean_csv(csv_file, clean_csv_path)
-        
-        if not has_symbols:
-            print("      [!] No symbols found to upload. Skipping.")
-            continue
-            
-        # 0. CLEANUP STALE WATCHLISTS (Pattern Match)
-        # Delete any previous dated lists (e.g., Hunter-10FEB26)
+    for base_name in WATCHLIST_BASE_NAMES:
+        # --- DELETION IS NOW HERE TO ALWAYS PURGE STALE LISTS, EVEN IF NO NEW PICKS ---
         await cleanup_old_watchlists(page, base_name)
         
-        # Also ensure today's list is clean if we are re-running
-        await delete_watchlist(page, wl_name)
-        
-        await page.wait_for_timeout(1000)
+        # Locate the dated TXT file (e.g. Hunter-22APR26.txt)
+        txt_filename = f"{base_name}-{date_suffix}.txt"
+        txt_path = os.path.join(WATCHLIST_DIR, txt_filename)
 
-        try:
-            # 3. Open Watchlist Dropdown & Check/Create
-            # Structure: .rs-watchListDropdown .rs-picker-toggle
-            dropdown_toggle = page.locator(".rs-watchListDropdown .rs-picker-toggle, .rs-picker-toggle").first
-            
-            if await dropdown_toggle.is_visible():
-                print("      [DEBUG] Opening Watchlist Dropdown...")
-                await dropdown_toggle.click()
-                await page.wait_for_timeout(1000)
-                
-                # Check if watchlist already exists in the list
-                existing_wl = page.locator(f"text='{wl_name}'").first
-                if await existing_wl.is_visible():
-                    print(f"      [DEBUG] Watchlist '{wl_name}' found. Selecting it...")
-                    await existing_wl.click()
-                    await page.wait_for_timeout(2000)
-                else:
-                    print(f"      [DEBUG] Watchlist '{wl_name}' not found. Creating new...")
-                    
-                    # Scroll to bottom to find "+ Create Watchlist"
-                    menu = page.locator(".rs-picker-menu, .rs-dropdown-menu").last
-                    if await menu.is_visible():
-                        await menu.evaluate("el => el.scrollTop = el.scrollHeight")
-                        await page.wait_for_timeout(500)
-
-                    # Find Create button
-                    create_item = page.locator("text='+Create Watchlist'").first
-                    if not await create_item.is_visible():
-                        create_item = page.locator("text='Create new watchlist'").first
-                    if not await create_item.is_visible():
-                         create_item = page.locator("text='+ Create Watchlist'").first 
-                    
-                    if await create_item.is_visible():
-                        print("      [DEBUG] Clicking '+Create Watchlist'...")
-                        await create_item.click()
-                        await page.wait_for_timeout(1000)
-                        
-                        # Fill Name
-                        name_input = page.locator("input[placeholder='Enter text here...']").first
-                        if await name_input.is_visible():
-                            await name_input.fill(wl_name)
-                            
-                            create_confirm = page.locator("button:has-text('Create Watchlist')").last
-                            if not await create_confirm.is_visible():
-                                 create_confirm = page.locator("button:has-text('Create')").last
-                            
-                            await create_confirm.click()
-                            print(f"      [DEBUG] Clicked Create for: {wl_name}")
-                            await page.wait_for_timeout(2000) 
-                            
-                            # Handle "Watchlist already exists" error
-                            error_msg = page.locator("text='Watchlist already exists'")
-                            if await error_msg.is_visible():
-                                print("      [!] Watchlist already exists (Modal). Closing modal...")
-                                cancel_btn = page.locator("button:has-text('Cancel')").first
-                                await cancel_btn.click()
-                                await page.wait_for_timeout(1000)
-                                # Try to select it from dropdown again since we failed to find it before?
-                                # This is a fallback
-                                await dropdown_toggle.click()
-                                await page.wait_for_timeout(1000)
-                                await page.locator(f"text='{wl_name}'").first.click()
-                                await page.wait_for_timeout(2000)
-                        else:
-                            print("      [!] Name input not found in Create Modal.")
-                    else:
-                        print("      [!] '+Create Watchlist' item not found in dropdown.")
+        # Fallback: LATEST_ static file if dated file missing — but ONLY if it
+        # is FRESH (written today). STALE-WATCHLIST BUG FIX (19 Jun 2026): when
+        # today's scan produced 0 picks the generator writes no dated/LATEST
+        # file, so a stale LATEST_ from a prior run would otherwise be uploaded
+        # under today's date — resurrecting last week's picks (e.g.
+        # Rec_Climax_Bounce showed 3 symbols from 12 Jun). Never upload stale.
+        if not os.path.exists(txt_path):
+            fallback = os.path.join(WATCHLIST_DIR, f"LATEST_{base_name}.txt")
+            if os.path.exists(fallback) and _is_file_from_today(fallback):
+                print(f"      [WARN] Dated file not found ({txt_filename}), using FRESH LATEST fallback.")
+                txt_path = fallback
+            elif os.path.exists(fallback):
+                _age_days = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(fallback))).days
+                print(f"      [!] LATEST_{base_name}.txt is STALE ({_age_days}d old) — "
+                      f"today's scan produced no picks. SKIPPING (will not upload "
+                      f"prior-run symbols under today's date). The cleanup above "
+                      f"already purged the old list.")
+                continue
             else:
-                print("      [!] Watchlist dropdown toggle not found.")
-            
-            # 5. Click Import
-            # "Import" button next to "Add"
-            import_found = False
-            for selector in [
-                "div:has-text('Import')",
-                ".marketOverviewContainer_importBtn__tSpvR",
-                "button:has-text('Import')"
-            ]:
-                import_btn = page.locator(selector).nth(0) # First one found
-                if await import_btn.is_visible():
-                    print(f"      [DEBUG] Clicking Import using selector: {selector}")
-                    try:
-                        # Setup file chooser listener just in case it opens directly
-                        # But mostly we expect a modal first.
-                        await import_btn.click() # Standard click first
+                print(f"      [!] No TXT file found for {base_name} (tried {txt_filename} and LATEST_{base_name}.txt). Skipping.")
+                continue
+        print(f"\n   >> Checking file: {os.path.basename(txt_path)}")
+
+        # Build temp CSV from TXT
+        base_csv_path = os.path.join(_SCRIPT_DIR, f"temp_strike_{base_name}.csv")
+        chunks_info = await create_strike_csv_from_txt(txt_path, base_csv_path, chunk_size=49)
+
+        if not chunks_info:
+            print(f"      [!] No symbols to upload for {base_name}. Skipping.")
+            continue
+
+        for clean_csv_path, sym_count, suffix in chunks_info:
+            wl_name = get_dated_name(base_name) + suffix
+            print(f"\n   >> Processing: {wl_name} ({sym_count} symbols)")
+
+            # We can delete any specifically conflicting watchlist, though cleanup_old_watchlists already ran
+            await delete_watchlist(page, wl_name)
+
+            await page.wait_for_timeout(1000)
+
+            try:
+                # 3. Open Watchlist Dropdown & Check/Create
+                dropdown_toggle = page.locator(".rs-watchListDropdown .rs-picker-toggle, .rs-picker-toggle").first
+
+                if await dropdown_toggle.is_visible():
+                    print("      [DEBUG] Opening Watchlist Dropdown...")
+                    await dropdown_toggle.click()
+                    await page.wait_for_timeout(1000)
+
+                    # Check if watchlist already exists
+                    existing_wl = page.locator(f"text='{wl_name}'").first
+                    if await existing_wl.is_visible():
+                        print(f"      [DEBUG] Watchlist '{wl_name}' found. Selecting it...")
+                        await existing_wl.click()
                         await page.wait_for_timeout(2000)
-                        
-                        # Check if modal opened?
-                        # Look for "Upload File" or "Drag and Drop"
-                        upload_btn = page.locator("button:has-text('Upload File'), div:has-text('Upload File')").first
-                        if await upload_btn.is_visible():
-                            import_found = True
-                            print("      [DEBUG] Import Modal Opened!")
-                            break
+                    else:
+                        print(f"      [DEBUG] Watchlist '{wl_name}' not found. Creating new...")
+
+                        # Scroll to bottom to find "+ Create Watchlist"
+                        menu = page.locator(".rs-picker-menu, .rs-dropdown-menu").last
+                        if await menu.is_visible():
+                            await menu.evaluate("el => el.scrollTop = el.scrollHeight")
+                            await page.wait_for_timeout(500)
+
+                        # Find Create button
+                        create_item = page.locator("text='+Create Watchlist'").first
+                        if not await create_item.is_visible():
+                            create_item = page.locator("text='Create new watchlist'").first
+                        if not await create_item.is_visible():
+                            create_item = page.locator("text='+ Create Watchlist'").first
+
+                        if await create_item.is_visible():
+                            print("      [DEBUG] Clicking '+Create Watchlist'...")
+                            await create_item.click()
+                            await page.wait_for_timeout(1000)
+
+                            name_input = page.locator("input[placeholder='Enter text here...']").first
+                            if await name_input.is_visible():
+                                await name_input.fill(wl_name)
+
+                                create_confirm = page.locator("button:has-text('Create Watchlist')").last
+                                if not await create_confirm.is_visible():
+                                    create_confirm = page.locator("button:has-text('Create')").last
+
+                                await create_confirm.click()
+                                print(f"      [DEBUG] Clicked Create for: {wl_name}")
+                                await page.wait_for_timeout(1500)
+                                
+                                # Check for "Watchlist already exists" error before waiting
+                                error_msg = page.locator("text='Watchlist already exists'")
+                                if await error_msg.is_visible():
+                                    print("      [!] Watchlist already exists (Modal). Closing modal...")
+                                    cancel_btn = page.locator("button:has-text('Cancel')").first
+                                    if await cancel_btn.is_visible():
+                                        await cancel_btn.click()
+                                    else:
+                                        await page.keyboard.press("Escape")
+                                    await page.wait_for_timeout(1000)
+                                    await dropdown_toggle.click()
+                                    await page.wait_for_timeout(1000)
+                                    await page.locator(f"text='{wl_name}'").first.click()
+                                    await page.wait_for_timeout(2000)
+                                else:
+                                    # Wait for the Create Watchlist modal to close normally
+                                    try:
+                                        await page.locator(".rs-modal-wrapper").first.wait_for(state="hidden", timeout=3000)
+                                    except Exception:
+                                        print("      [!] WARNING: Create modal may still be open. Forcing close...")
+                                        cancel_btn = page.locator(".rs-modal-wrapper button:has-text('Cancel')").first
+                                        if await cancel_btn.is_visible():
+                                            await cancel_btn.click()
+                                        else:
+                                            # RSuite close icon
+                                            x_btn = page.locator(".rs-modal-header-close").first
+                                            if await x_btn.is_visible():
+                                                await x_btn.click()
+                                            else:
+                                                await page.keyboard.press("Escape")
+                                        await page.wait_for_timeout(1000)
+                                        # Ultimate fallback: Nuke from DOM
+                                        await page.evaluate("""
+                                            document.querySelectorAll('.rs-modal-wrapper, .rs-modal-backdrop').forEach(el => el.remove());
+                                        """)
+                            else:
+                                print("      [!] Name input not found in Create Modal. Dumping debug info...")
+                                await page.screenshot(path="debug_create_modal.png")
+                                with open("debug_create_modal.html", "w", encoding="utf-8") as f:
+                                    f.write(await page.content())
                         else:
-                            print("      [DEBUG] Modal not detected. Retrying click with force=True...")
-                            await import_btn.click(force=True) # Force click
+                            print("      [!] '+Create Watchlist' item not found in dropdown.")
+                else:
+                    print("      [!] Watchlist dropdown toggle not found.")
+
+                # 5. Click Import
+                import_found = False
+                for selector in [
+                    "div:has-text('Import')",
+                    ".marketOverviewContainer_importBtn__tSpvR",
+                    "button:has-text('Import')"
+                ]:
+                    import_btn = page.locator(selector).nth(0)
+                    if await import_btn.is_visible():
+                        print(f"      [DEBUG] Clicking Import using selector: {selector}")
+                        try:
+                            await import_btn.click()
                             await page.wait_for_timeout(2000)
-                            
-                            # Check again
+
+                            upload_btn = page.locator("button:has-text('Upload File'), div:has-text('Upload File')").first
                             if await upload_btn.is_visible():
                                 import_found = True
-                                print("      [DEBUG] Import Modal Opened (after force click)!")
+                                print("      [DEBUG] Import Modal Opened!")
                                 break
-                    except Exception as e:
-                         print(f"      [!] Click failed for {selector}: {e}")
-            
-            if import_found:
-                # 6. Click Upload File inside Modal
-                upload_btn = page.locator("button:has-text('Upload File')").first
-                if not await upload_btn.is_visible():
-                     upload_btn = page.locator("div:has-text('Upload File')").first
-                
-                if await upload_btn.is_visible():
-                    print("      [DEBUG] Found 'Upload File' button...")
-                    async with page.expect_file_chooser() as fc_info:
-                        await upload_btn.click()
-                    
-                    file_chooser = await fc_info.value
-                    await file_chooser.set_files(clean_csv_path)
-                    print(f"      [SUCCESS] Uploaded {clean_csv_path} to {wl_name}")
-                    
-                    await page.wait_for_timeout(4000)
-                    
-                    # Close Modal
-                    close_btn = page.locator("button:has-text('Done')").first
-                    if await close_btn.is_visible():
-                        await close_btn.click()
+                            else:
+                                print("      [DEBUG] Modal not detected. Retrying with force=True...")
+                                await import_btn.click(force=True)
+                                await page.wait_for_timeout(2000)
+                                if await upload_btn.is_visible():
+                                    import_found = True
+                                    print("      [DEBUG] Import Modal Opened (after force click)!")
+                                    break
+                        except Exception as e:
+                            print(f"      [!] Click failed for {selector}: {e}")
+
+                if import_found:
+                    # 6. Click Upload File inside Modal
+                    upload_btn = page.locator("button:has-text('Upload File')").first
+                    if not await upload_btn.is_visible():
+                        upload_btn = page.locator("div:has-text('Upload File')").first
+
+                    if await upload_btn.is_visible():
+                        print("      [DEBUG] Found 'Upload File' button...")
+                        async with page.expect_file_chooser() as fc_info:
+                            await upload_btn.click()
+
+                        file_chooser = await fc_info.value
+                        await file_chooser.set_files(clean_csv_path)
+                        print(f"      [SUCCESS] Uploaded {sym_count} symbols to '{wl_name}'")
+
+                        await page.wait_for_timeout(4000)
+
+                        # Close Modal
+                        close_btn = page.locator("button:has-text('Done')").first
+                        if await close_btn.is_visible():
+                            await close_btn.click()
+                        else:
+                            # Try standard RSuite close button
+                            x_btn = page.locator(".rs-modal-header-close").first
+                            if await x_btn.is_visible():
+                                await x_btn.click()
+                            else:
+                                await page.keyboard.press("Escape")
+                                await page.wait_for_timeout(500)
+                                await page.keyboard.press("Escape")
+                                
+                        # Wait for modal to actually close so it doesn't intercept the next loop
+                        try:
+                            await page.locator(".rs-modal-wrapper").first.wait_for(state="hidden", timeout=5000)
+                        except:
+                            print("      [!] WARNING: Modal may still be open, attempting force close...")
+                            await page.keyboard.press("Escape")
+                            await page.wait_for_timeout(1000)
+                            # Ultimate fallback: Nuke from DOM
+                            await page.evaluate("""
+                                document.querySelectorAll('.rs-modal-wrapper, .rs-modal-backdrop').forEach(el => el.remove());
+                            """)
                     else:
-                        # Try generic close icon or Esc
-                        await page.keyboard.press("Escape")
+                        print("      [!] 'Upload File' button not found in Import modal.")
+                        with open(os.path.join(_SCRIPT_DIR, f"debug_import_modal_{wl_name}.html"), "w", encoding="utf-8") as f:
+                            f.write(await page.content())
                 else:
-                    print("      [!] 'Upload File' button not found in Import modal.")
-                    # Dump HTML for debugging
-                    with open(f"debug_import_modal_{wl_name}.html", "w", encoding="utf-8") as f:
-                        f.write(await page.content())
-            else:
-                print("      [!] 'Import' button not found or did not open modal.")
-                if not os.path.exists(f"debug_import_fail_{wl_name}.html"):
-                    with open(f"debug_import_fail_{wl_name}.html", "w", encoding="utf-8") as f:
-                        f.write(await page.content())
-        
-        except Exception as e:
-            print(f"      [!] Error: {e}")
-            await page.screenshot(path=f"debug_error_{wl_name}.png")
-        
-        # Cleanup temp file
-        if os.path.exists(clean_csv_path):
-            try:
-                os.remove(clean_csv_path)
+                    print("      [!] 'Import' button not found or did not open modal.")
+                    debug_path = os.path.join(_SCRIPT_DIR, f"debug_import_fail_{wl_name}.html")
+                    if not os.path.exists(debug_path):
+                        with open(debug_path, "w", encoding="utf-8") as f:
+                            f.write(await page.content())
+
             except Exception as e:
-                print(f"      [!] Could not remove temp file {clean_csv_path} (harmless): {e}")
+                print(f"      [!] Error: {e}")
+                await page.screenshot(path=os.path.join(_SCRIPT_DIR, f"debug_error_{wl_name}.png"))
+
+            # Cleanup temp CSV
+            if os.path.exists(clean_csv_path):
+                try:
+                    os.remove(clean_csv_path)
+                except Exception as e:
+                    print(f"      [!] Could not remove temp file (harmless): {e}")
+
+
 
 async def run_rrg_scan(page):
     print("\n   [run_rrg_scan] Starting RRG Quadrant Check...")
@@ -535,7 +694,10 @@ async def run_rrg_scan(page):
         "FINAL_Hunter_Picks.csv": "FINAL_Hunter_Picks_RRG.csv",
         "FINAL_Leader_Picks.csv": "FINAL_Leader_Picks_RRG.csv",
         "FINAL_EarlyBird_Picks.csv": "FINAL_EarlyBird_Picks_RRG.csv",
-        "FINAL_Pullback_Picks.csv": "FINAL_Pullback_Picks_RRG.csv"
+        "FINAL_Pullback_Picks.csv": "FINAL_Pullback_Picks_RRG.csv",
+        "FINAL_Recovery_RSLeaders.csv": "FINAL_Recovery_RSLeaders_RRG.csv",
+        "FINAL_Recovery_ClimaxBounce.csv": "FINAL_Recovery_ClimaxBounce_RRG.csv",
+        "FINAL_Recovery_EarlyBirds.csv": "FINAL_Recovery_EarlyBirds_RRG.csv"
     }
 
     for input_file, output_file in files_to_process.items():
@@ -639,15 +801,37 @@ async def run_pipeline():
         print("!"*60 + "\n")
         
         try:
-            # Wait for the "Watchlist" or "Dashboard" nav item to appear
-            # This confirms we are logged in and the UI is ready
-            print(">> Waiting for Dashboard/Watchlist navigation item...")
-            await page.wait_for_selector("div.rs-nav-item:has-text('Watchlist')", timeout=60000)
-            print(">> LOGIN SUCCESSFUL! Dashboard detected.")
-            await page.wait_for_timeout(2000) # Small buffer
+            # Wait for the Login button to DISAPPEAR
+            # This confirms the user is actually authenticated
+            print(">> Waiting for user to authenticate...")
+            
+            # Wait up to 5 minutes for user to login manually
+            import time
+            start_time = time.time()
+            logged_in = False
+            print(">> Checking authentication state...")
+            while time.time() - start_time < 300: # 5 minutes timeout
+                login_btn_count = await page.locator("a:has-text('Login'), button:has-text('Login')").count()
+                if login_btn_count > 0:
+                    print(">> Please manually log in via the browser window... (Waiting)")
+                    await page.wait_for_timeout(5000) # wait 5 secs before checking again
+                else:
+                    # Double check if we see user-specific elements like a profile icon or just no Login
+                    print(">> LOGIN SUCCESSFUL! User is authenticated.")
+                    logged_in = True
+                    break
+            
+            if not logged_in:
+                print(">> ABORTING: Login timed out after 5 minutes.")
+                await browser.close()
+                return
+            await page.wait_for_timeout(4000) # Buffer after login redirect
         except Exception as e:
-            print(f">> WARNING: Login detection timed out or failed: {e}")
-            print(">> Proceeding anyway (might fail)...")
+            print(f">> ERROR: Login detection timed out or failed: {e}")
+            print(">> ABORTING: Strike.money requires you to be logged in to create watchlists.")
+            print(">> Please run the script again and manually log in when the browser opens.")
+            await browser.close()
+            return
 
         print(">> Proceeding with Automation...\n")
 

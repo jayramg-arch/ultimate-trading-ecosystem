@@ -1814,6 +1814,30 @@ def load_fundamentals(max_age_days: int = 35) -> dict:
 # -----------------------------------------------------------------------------
 # PROGRAMMATIC ENTRY POINT (called from weinstein_commander_web)
 # -----------------------------------------------------------------------------
+def _apply_combined_ranking(df_out: pd.DataFrame) -> pd.DataFrame:
+    """Add Conviction + Combined_Score and re-rank by Combined_Score (Signal as
+    tiebreak). SHARED by run_recovery_screener() AND main() so the CLI path (used
+    by the auto-pilot) and the Web Commander programmatic path produce IDENTICAL
+    recovery rankings. B6 FIX (19 Jun 2026): main() previously skipped this, so
+    Recovery_Screener_Results.csv was ranked Signal+Score only — inconsistent
+    with the Web Commander, which ranked by Combined_Score.
+    """
+    if df_out is None or df_out.empty:
+        return df_out
+    try:
+        import conviction_passthrough as _cp
+        df_out = _cp.add_conviction_and_combined_score(
+            df_out, mode="recovery", score_col="Score"
+        )
+        if "Combined_Score" in df_out.columns:
+            df_out = df_out.sort_values(
+                ["Combined_Score", "Signal"], ascending=[False, False]
+            ).reset_index(drop=True)
+    except Exception as _cpe:
+        logger.debug("Conviction passthrough skipped: %s", _cpe)
+    return df_out
+
+
 def run_recovery_screener(progress_callback=None, symbols=None,
                           out_file: str = OUTPUT_FILE,
                           strict: bool = False) -> pd.DataFrame:
@@ -1908,25 +1932,7 @@ def run_recovery_screener(progress_callback=None, symbols=None,
     if not df_out.empty:
         df_out.sort_values(["Signal", "Score"], ascending=[False, False], inplace=True)
         df_out.reset_index(drop=True, inplace=True)
-
-        # 10 May 2026 — Conviction passthrough: look up each symbol's
-        # Recovery-mode conviction (rewards balance sheet + value, same logic
-        # the Golden Matcher uses for recovery targets) and compute a unified
-        # Combined_Score so Recovery Screener's ranking is consistent with
-        # FINAL_COMBINED_RECOVERY_PICKS.csv.
-        try:
-            import conviction_passthrough as _cp
-            df_out = _cp.add_conviction_and_combined_score(
-                df_out, mode="recovery", score_col="Score"
-            )
-            # Re-rank: Combined_Score primary, then Signal as tiebreak (so
-            # actively-firing signals still float above WATCH/HOLD ties)
-            if "Combined_Score" in df_out.columns:
-                df_out = df_out.sort_values(
-                    ["Combined_Score", "Signal"], ascending=[False, False]
-                ).reset_index(drop=True)
-        except Exception as _cpe:
-            logger.debug("Conviction passthrough skipped: %s", _cpe)
+        df_out = _apply_combined_ranking(df_out)
 
     df_out.to_csv(os.path.join(DATA_DIR, out_file), index=False)
 
@@ -2072,6 +2078,9 @@ def main():
     if not df_out.empty:
         df_out.sort_values(["Signal", "Score"], ascending=[False, False], inplace=True)
         df_out.reset_index(drop=True, inplace=True)
+        # B6 FIX: apply the same Combined_Score ranking the programmatic path
+        # uses, so the CLI (auto-pilot) and Web Commander agree.
+        df_out = _apply_combined_ranking(df_out)
     out_path = os.path.join(DATA_DIR, OUTPUT_FILE)
     df_out.to_csv(out_path, index=False)
 

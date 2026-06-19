@@ -104,31 +104,53 @@ TARGETS = [
 # CONVICTION LOGIC — STAGE 2 (Normal Market)
 # Rewards high earnings growth, sales growth, ROE, and small/mid-cap bias.
 # ==========================================
+def _safe_num(row, *keys, default=0.0):
+    """Parse the first present, parseable value among `keys` from a row.
+
+    RANKING-INTEGRITY FIX (19 Jun 2026): the conviction scorers previously
+    wrapped their ENTIRE body in `try/except: pass`, so a single unparseable
+    cell ('N/A', '-', None) raised on the first field and aborted ALL remaining
+    additions — silently collapsing conviction toward the 5.0 base and skewing
+    Combined_Score. This helper isolates each field: one bad cell yields 0 for
+    THAT field only, never aborting the rest.
+    """
+    for k in keys:
+        if k not in row:
+            continue
+        v = row.get(k)
+        if v is None:
+            continue
+        s = str(v).replace(',', '').strip()
+        if s.lower() in ('', 'nan', 'n/a', 'na', '-', '--', 'none'):
+            continue
+        try:
+            return float(s)
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
 def calculate_conviction_score(row):
     """Stage 2 conviction. Uses actual MASTER_scan_results.csv column names.
     NOTE: Quarterly variants used because annual growth cols not in current master.
     To get annual Profit growth / Sales growth, enrich via screener_fetcher.py."""
-    # BUG-H3: column headers normalized — use clean names (no embedded \n)
     score = 5.0
-    try:
-        # Quarterly profit growth (proxy for annual until enriched)
-        pg = float(str(row.get('Qtr Profit Var %', row.get('Qtr Profit Var', 0))).replace(',', '') or 0)
-        if pg > 50: score += 2.5
-        elif pg > 20: score += 1.5
+    # Quarterly profit growth (proxy for annual until enriched)
+    pg = _safe_num(row, 'Qtr Profit Var %', 'Qtr Profit Var')
+    if pg > 50: score += 2.5
+    elif pg > 20: score += 1.5
 
-        # Quarterly sales growth (proxy)
-        sg = float(str(row.get('Qtr Sales Var %', row.get('Qtr Sales Var', 0))).replace(',', '') or 0)
-        if sg > 20: score += 1.0
+    # Quarterly sales growth (proxy)
+    sg = _safe_num(row, 'Qtr Sales Var %', 'Qtr Sales Var')
+    if sg > 20: score += 1.0
 
-        # ROE
-        roe = float(str(row.get('ROE %', row.get('ROE', 0))).replace(',', '') or 0)
-        if roe > 20: score += 1.0
+    # ROE
+    roe = _safe_num(row, 'ROE %', 'ROE')
+    if roe > 20: score += 1.0
 
-        # Market cap bias
-        mcap = float(str(row.get('Mar Cap Rs.Cr.', row.get('Mar Cap', 0))).replace(',', '') or 0)
-        if 1000 < mcap < 20000: score += 0.5
-    except:
-        pass
+    # Market cap bias
+    mcap = _safe_num(row, 'Mar Cap Rs.Cr.', 'Mar Cap')
+    if 1000 < mcap < 20000: score += 0.5
     return round(min(10.0, score), 1)
 
 
@@ -160,43 +182,40 @@ def calculate_recovery_conviction_score(row):
       Debt to equity     → CRITICAL: run screener_fetcher with balance sheet tab
       Promoter holding   → run screener_fetcher with shareholder tab
     """
-    # BUG-H3: column headers are now normalized by screener_processor._normalize_cols()
-    # Keys below use clean names (no embedded \n or extra spaces)
+    # Per-field safe parsing (see _safe_num): one unparseable cell no longer
+    # aborts the whole scorer.
     score = 5.0
-    try:
-        # ── Debt/Equity (in dedicated Recovery Screener.in CSVs)
-        de = float(str(row.get('Debt to equity', row.get('Debt / Equity', 0))).replace(',', '') or 0)
-        if de < 0.5:   score += 2.0
-        elif de > 2.0: score -= 1.0
+    # ── Debt/Equity (in dedicated Recovery Screener.in CSVs)
+    de = _safe_num(row, 'Debt to equity', 'Debt / Equity')
+    if de < 0.5:   score += 2.0
+    elif de > 2.0: score -= 1.0
 
-        # ── ROCE as capital efficiency proxy
-        roce = float(str(row.get('ROCE %', row.get('ROCE', 0))).replace(',', '') or 0)
-        if roce > 20: score += 1.5
-        elif roce > 12: score += 0.75
+    # ── ROCE as capital efficiency proxy
+    roce = _safe_num(row, 'ROCE %', 'ROCE')
+    if roce > 20: score += 1.5
+    elif roce > 12: score += 0.75
 
-        # ── ROE supplement
-        roe = float(str(row.get('ROE %', row.get('ROE', 0))).replace(',', '') or 0)
-        if roe > 15: score += 0.5
+    # ── ROE supplement
+    roe = _safe_num(row, 'ROE %', 'ROE')
+    if roe > 15: score += 0.5
 
-        # ── Promoter holding
-        prom = float(str(row.get('Promoter holding %', row.get('Promoter holding', 0))).replace(',', '') or 0)
-        if prom > 40: score += 1.0
+    # ── Promoter holding
+    prom = _safe_num(row, 'Promoter holding %', 'Promoter holding')
+    if prom > 40: score += 1.0
 
-        # ── Dividend yield
-        div = float(str(row.get('Div Yld %', row.get('Div Yld', 0))).replace(',', '') or 0)
-        if div > 1.5: score += 1.0
-        elif div > 0.5: score += 0.5
+    # ── Dividend yield
+    div = _safe_num(row, 'Div Yld %', 'Div Yld')
+    if div > 1.5: score += 1.0
+    elif div > 0.5: score += 0.5
 
-        # ── Quarterly profit growth
-        qpg = float(str(row.get('Qtr Profit Var %', row.get('Qtr Profit Var', 0))).replace(',', '') or 0)
-        if qpg > 15: score += 0.5
+    # ── Quarterly profit growth
+    qpg = _safe_num(row, 'Qtr Profit Var %', 'Qtr Profit Var')
+    if qpg > 15: score += 0.5
 
-        # ── Market cap sizing
-        mcap = float(str(row.get('Mar Cap Rs.Cr.', row.get('Mar Cap', 0))).replace(',', '') or 0)
-        if mcap > 20000:          score += 0.5
-        elif 1000 < mcap < 20000: score += 0.5
-    except:
-        pass
+    # ── Market cap sizing
+    mcap = _safe_num(row, 'Mar Cap Rs.Cr.', 'Mar Cap')
+    if mcap > 20000:          score += 0.5
+    elif 1000 < mcap < 20000: score += 0.5
     return round(min(10.0, score), 1)
 
 
