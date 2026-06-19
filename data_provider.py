@@ -41,6 +41,15 @@ from typing import Optional
 import pandas as pd
 import yfinance as yf
 
+try:
+    import dhan_ohlcv as _dhan
+    DHAN_OK = True
+except Exception as _de:
+    _dhan = None
+    DHAN_OK = False
+    logging.getLogger(__name__).debug("dhan_ohlcv import failed: %s", _de)
+
+
 # Secondary provider — nselib hits NSE directly. Currently the working
 # India-data fallback (nsepython 2.97 fails to parse NSE's current response
 # shape — KeyError 'data' on equity_history). We try nselib first, then
@@ -87,6 +96,60 @@ except Exception:
 _CACHE_FORMAT = "parquet" if _PARQUET_OK else "csv"
 
 _DHAN_SUFFIXES = ("-EQ", "-BE", "-SM", "-ST", "-BZ")
+
+# ── FEED VISIBILITY (19 Jun 2026) ──────────────────────────────────────────
+# Policy: keep the yfinance/nselib fallback but make it LOUD. Every fetch is
+# tagged with the source it actually used, the active feed is announced once at
+# startup, and a missing paid feed (Dhan OFF) is surfaced — never silent.
+_LAST_SOURCE: dict = {}     # clean_symbol -> "dhan"|"cache"|"yfinance"|"nselib"|"nsepython"|"none"
+_SOURCE_COUNTS: dict = {}   # source -> count for this process
+_BANNER_SHOWN = False
+
+
+def _record_source(symbol: str, source: str) -> None:
+    try:
+        _LAST_SOURCE[clean_symbol(symbol)] = source
+    except Exception:
+        _LAST_SOURCE[str(symbol)] = source
+    _SOURCE_COUNTS[source] = _SOURCE_COUNTS.get(source, 0) + 1
+
+
+def get_last_source(symbol: str) -> str:
+    """Data source used for the most recent fetch of `symbol` (visibility)."""
+    try:
+        return _LAST_SOURCE.get(clean_symbol(symbol), "unknown")
+    except Exception:
+        return _LAST_SOURCE.get(str(symbol), "unknown")
+
+
+def get_source_counts() -> dict:
+    """Per-source fetch counts for this process (diagnostics / Data_Source stamps)."""
+    return dict(_SOURCE_COUNTS)
+
+
+def feed_status_banner() -> str:
+    """One-line summary of which feeds are wired in this process."""
+    return (f"Dhan={'ON' if DHAN_OK else 'OFF'} | "
+            f"nselib={'ON' if NSELIB_OK else 'OFF'} | "
+            f"nsepython={'ON' if NSEPY_OK else 'OFF'} | "
+            f"cache={_CACHE_FORMAT}")
+
+
+def _show_banner_once() -> None:
+    global _BANNER_SHOWN
+    if _BANNER_SHOWN:
+        return
+    _BANNER_SHOWN = True
+    msg = "[data_provider] FEED: " + feed_status_banner()
+    logger.info(msg)
+    if not DHAN_OK:
+        warn = ("[data_provider] [!] Dhan API NOT available -- running on "
+                "yfinance/nselib FALLBACK data. The PAID feed is OFF; results "
+                "may differ from live trading data.")
+        logger.warning(warn)
+        print(warn)
+    else:
+        print(msg)
 
 # ── E10: PINNED DATE (replay / as-of mode) ────────────────────────────────────
 # When set, every fetch_ohlcv result is sliced to bars on/before this date so
@@ -485,6 +548,7 @@ def fetch_ohlcv(symbol: str,
     if effective_pin is not None:
         period = "10y"
 
+    _show_banner_once()
     ticker = _to_yf_ticker(symbol)
     if not ticker:
         return pd.DataFrame()
@@ -493,6 +557,7 @@ def fetch_ohlcv(symbol: str,
     if use_cache:
         cached = _read_cache(key)
         if _is_cache_valid_for_pin(key, cached, pinned_date):
+            _record_source(symbol, "cache")
             return _apply_pin(cached, pinned_date)
         # Fallback cache check: if key is missed (e.g. forced "10y" in pinned mode) or invalid for pin,
         # check other deep period cache keys since the TV loader caches deep data under them.
@@ -503,7 +568,34 @@ def fetch_ohlcv(symbol: str,
             cached = _read_cache(fallback_key)
             if _is_cache_valid_for_pin(fallback_key, cached, pinned_date):
                 _write_cache(key, cached, period, interval, auto_adjust)
+                _record_source(symbol, "cache")
                 return _apply_pin(cached, pinned_date)
+
+
+    # ── Try Dhan API (Primary Provider for Equities) ──────────────────────
+    if DHAN_OK and _dhan is not None and not symbol.startswith("^"):
+        try:
+            clean = clean_symbol(symbol)
+            if _dhan.get_security_meta(clean) is not None:
+                years_val = 10 if period == "10y" else 5
+                if interval == "1wk":
+                    df_dhan = _dhan.fetch_weekly(clean, years=years_val)
+                elif interval == "1d":
+                    df_dhan = _dhan.fetch_daily(clean, years=years_val)
+                else:
+                    df_dhan = pd.DataFrame()
+                
+                if not df_dhan.empty:
+                    if use_cache:
+                        _write_cache(key, df_dhan, period, interval, auto_adjust)
+                    _record_source(symbol, "dhan")
+                    return _apply_pin(df_dhan, pinned_date)
+            else:
+                logger.info("Dhan: no security_meta for %s — falling back to yfinance "
+                            "(stale scrip master or unlisted symbol?)", symbol)
+        except Exception as _dhan_err:
+            logger.info("Dhan API fetch failed for %s: %s — falling back to yfinance",
+                        symbol, _dhan_err)
 
     _rate_limit()
     try:
@@ -517,6 +609,12 @@ def fetch_ohlcv(symbol: str,
             if not data.empty:
                 if use_cache:
                     _write_cache(key, data, period, interval, auto_adjust)
+                # Loud: paid feed was bypassed for an equity (index ^ symbols
+                # legitimately use yfinance and aren't flagged).
+                if DHAN_OK and not symbol.startswith("^"):
+                    logger.info("fetch_ohlcv: %s served by yfinance FALLBACK "
+                                "(Dhan had no data)", symbol)
+                _record_source(symbol, "yfinance")
                 return _apply_pin(data, pinned_date)
     except Exception as e:
         logger.warning("fetch_ohlcv yfinance failed for %s: %s", symbol, e)
@@ -530,6 +628,7 @@ def fetch_ohlcv(symbol: str,
                          len(nse_data), symbol)
             if use_cache:
                 _write_cache(key, nse_data, period, interval, auto_adjust)
+            _record_source(symbol, "nselib")
             return _apply_pin(nse_data, pinned_date)
     except Exception as e:
         logger.debug("fetch_ohlcv nselib fallback failed for %s: %s", symbol, e)
@@ -542,10 +641,15 @@ def fetch_ohlcv(symbol: str,
                          len(nse_data), symbol)
             if use_cache:
                 _write_cache(key, nse_data, period, interval, auto_adjust)
+            _record_source(symbol, "nsepython")
             return _apply_pin(nse_data, pinned_date)
     except Exception as e:
         logger.debug("fetch_ohlcv nsepython fallback failed for %s: %s", symbol, e)
 
+    # Every provider returned empty — surface it (no silent NaN→0 downstream).
+    logger.warning("fetch_ohlcv: NO data for %s from any provider "
+                   "(Dhan/yfinance/nselib/nsepython)", symbol)
+    _record_source(symbol, "none")
     return pd.DataFrame()
 
 
@@ -598,6 +702,32 @@ def fetch_batch_ohlcv(symbols, period: str = "6mo", interval: str = "1d",
                     missing.append(yf_t)
     else:
         missing = list(sym_map.keys())
+
+    # Try resolving missing via Dhan API
+    still_missing = []
+    if DHAN_OK and _dhan is not None:
+        for yf_t in missing:
+            clean = sym_map[yf_t]
+            if not clean.startswith("^") and _dhan.get_security_meta(clean) is not None:
+                try:
+                    years_val = 10 if period == "10y" else 5
+                    if interval == "1wk":
+                        df_dhan = _dhan.fetch_weekly(clean, years=years_val)
+                    elif interval == "1d":
+                        df_dhan = _dhan.fetch_daily(clean, years=years_val)
+                    else:
+                        df_dhan = pd.DataFrame()
+                    
+                    if not df_dhan.empty:
+                        key = _cache_key(yf_t, period, interval, auto_adjust)
+                        if use_cache:
+                            _write_cache(key, df_dhan, period, interval, auto_adjust)
+                        cached_hits[clean] = _apply_pin(df_dhan, pinned_date)
+                        continue
+                except Exception as _dhan_err:
+                    logger.debug("Dhan API batch fetch failed for %s: %s", clean, _dhan_err)
+            still_missing.append(yf_t)
+        missing = still_missing
 
     if not missing:
         return cached_hits

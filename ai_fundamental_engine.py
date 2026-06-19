@@ -71,6 +71,29 @@ def fetch_fundamental_data(ticker_symbol):
         target_mean = info.get('targetMeanPrice', 'N/A')
         num_analysts = info.get('numberOfAnalystOpinions', 'N/A')
 
+        # ── Reliability overlay (19 Jun 2026) ──────────────────────────────
+        # yfinance Indian fundamentals are unreliable, so override the
+        # accuracy-critical fields with Screener.in PREMIUM values via
+        # fundamental_hub when available. Unit-match this module's convention:
+        # Screener roe/promoter/growth are PERCENTS -> convert to fractions;
+        # pe_ratio & debt_equity are already absolute. yfinance stays the base
+        # for fields Screener doesn't supply (op_margin, inst_hold, analyst).
+        fund_source = "yfinance"
+        try:
+            import fundamental_hub as _fh
+            _sc = _fh.fetch_stock_fundamentals(clean_ticker) or {}
+            if _sc.get("pe_ratio") is not None:          pe_ratio = _sc["pe_ratio"]
+            if _sc.get("roe") is not None:               roe = _sc["roe"] / 100.0
+            if _sc.get("debt_equity") is not None:       debt_to_equity = _sc["debt_equity"]
+            if _sc.get("promoter_holding") is not None:  promoter_hold = _sc["promoter_holding"] / 100.0
+            if _sc.get("earnings_growth") is not None:   eps_growth = _sc["earnings_growth"] / 100.0
+            if _sc.get("revenue_growth") is not None:    rev_growth = _sc["revenue_growth"] / 100.0
+            if _sc.get("market_cap"):                    info["marketCap"] = _sc["market_cap"]
+            if any(_sc.get(k) is not None for k in ("pe_ratio", "roe", "debt_equity", "promoter_holding")):
+                fund_source = "Screener.in+yfinance"
+        except Exception:
+            pass  # never let the overlay break the base yfinance result
+
         data = {
             "Symbol": ticker_symbol.replace("NSE:", ""),
             "Sector": sector,
@@ -86,9 +109,10 @@ def fetch_fundamental_data(ticker_symbol):
             "Promoter_Holding": format_percentage(promoter_hold),
             "Market_Cap": info.get('marketCap', "N/A"),
             "Analyst_Sentiment": f"{analyst_sentiment} (based on {num_analysts} analysts)" if num_analysts != 'N/A' else analyst_sentiment,
-            "Target_Mean_Price": target_mean
+            "Target_Mean_Price": target_mean,
+            "Data_Source": fund_source
         }
-        
+
         return data
 
     except Exception as e:

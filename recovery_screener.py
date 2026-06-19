@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
 """
-recovery_screener.py :  Commander Recovery Screener (Python Edition) v1.5
+recovery_screener.py :  Commander Recovery Screener (Python Edition) v1.6
 Aligned with: Weinstein Recovery Strategy v1.4 / Commander Capitulation Screener v1.3 /
-              Chartink Recovery Scanners v2.0 / Unified Ecosystem v2.3
+              Chartink Recovery Scanners v2.0 / Unified Ecosystem v2.3 /
+              Commander_Recovery_Screener v2.0 (Pine, Wyckoff cascade)
+
+v1.6 (2026-06-08) — WYCKOFF CASCADE MERGED IN. The Wyckoff Spring/SOS/JAC
+catalysts (previously only in recovery_screener_v3_wyckoff.py and the Pine
+v2.0 screener) are now emitted by THIS module as signal codes 8/7/6/5, sitting
+ABOVE the legacy REV-* edges in the priority cascade — mirroring Pine
+Commander_Recovery_Screener v2.0. This restores Python<->Pine signal-code parity
+(both now emit 0-8) and means `Run Auto-Pilot` (run_pipeline.py Phase 4.5 ->
+recovery_screener.main) produces Wyckoff signals with NO separate run.
+  - Detection math is IMPORTED from recovery_screener_v3_wyckoff (single source
+    of truth — see detect_wyckoff()), not duplicated.
+  - WYC-* share the REV-* gates (rff_ok + regime_ok): only fundamentally-strong,
+    regime-appropriate, beaten-down names. This is intentionally STRICTER than the
+    Pine RFF-Lite, per the "only fundamentally strong" directive. The standalone
+    recovery_screener_v3_wyckoff.py remains pure-price/ungated for those who want it.
+  - Exits/score reuse the existing recovery math (compute_exit_levels else-branch:
+    20-day-low structural stop, 2.5R T1, 52W-high T2). NOT the standalone module's
+    5R/10R ATR targets — kept consistent with the recovery book's 90-day holds.
 
 v1.5 (2026-05-21) — RE-INSTATED. The v1.4 "RETIRED" verdict was based on a
 30-day forward-window backtest, which is the wrong horizon for recovery /
 mean-reversion catalysts (designed for multi-month base-building per the
 Weinstein Stage 1->2 transition). Roll-back pending re-validation with a
 catalyst-aware forward window.
-
-The Wyckoff variant (recovery_screener v3.0) lives alongside in
-`recovery_screener_v3_wyckoff.py` for use when explicit Wyckoff
-Spring/SOS/JAC detection is desired. Both are valid; choose by trade thesis.
 
 
 CHANGELOG v1.4 (May-2026) — Align with Pine Unified Ecosystem v2.3 (3 fixes)
@@ -210,7 +224,8 @@ SCREENER_FILES = {
     "REV-EARLY": "SCREENER_Recovery_EarlyBirds.csv",
 }
 
-SIGNAL_LABELS = {4: "REV-EARLY", 3: "REV-RS", 2: "REV-CB", 1: "CB-Watch", 0: "None"}
+SIGNAL_LABELS = {8: "WYC-SPRING+SOS", 7: "WYC-JAC", 6: "WYC-SOS", 5: "WYC-SPRING",
+                 4: "REV-EARLY", 3: "REV-RS", 2: "REV-CB", 1: "CB-Watch", 0: "None"}
 
 
 # -----------------------------------------------------------------------------
@@ -339,22 +354,33 @@ def compute_rs_slope_w(df_stock_w: pd.DataFrame, df_cnx500_w: pd.DataFrame,
     return float((rs_line.iloc[-1] / ref - 1) * 100)
 
 
+def classify_high(new_high: float, prev_high: float) -> str:
+    if pd.isna(prev_high) or prev_high <= 0:
+        return "HH"
+    diff = abs(new_high - prev_high) / prev_high
+    if diff < 0.001:
+        return "EH"
+    elif new_high < prev_high:
+        return "LH"
+    return "HH"
+
+
+def classify_low(new_low: float, prev_low: float) -> str:
+    if pd.isna(prev_low) or prev_low <= 0:
+        return "LL"
+    diff = abs(new_low - prev_low) / prev_low
+    if diff < 0.001:
+        return "EL"
+    elif new_low > prev_low:
+        return "HL"
+    return "LL"
+
+
 def compute_strict_trend(high: pd.Series, low: pd.Series,
                          piv_left: int = 2, piv_right: int = 2) -> pd.Series:
     """
-    v1.3: pivot-zigzag strict trend (port of Pine f_getStrictTrend).
-
-    A pivot high at bar i is a high greater than the previous `piv_left` highs
-    AND the next `piv_right` highs. A pivot low is the mirror.
-
-    Trend states (ported from Pine — all returned aligned to the input index):
-       1 = uptrend (current PH > prior PH AND current PL > prior PL → HH+HL)
-      -1 = downtrend (LH+LL)
-       0 = neither / unconfirmed
-
-    NOTE: Because pivot confirmation requires `piv_right` future bars, the trend
-    state at any bar i is only known after `piv_right` more bars have closed.
-    This is the intended 2-bar confirmation lag of the canonical Pine version.
+    v1.4: pivot-zigzag strict trend (port of Pine f_getStrictTrend).
+    HH+HL pivot zigzag with projection.
     """
     n = len(high)
     out = pd.Series(0, index=high.index, dtype=int)
@@ -364,63 +390,174 @@ def compute_strict_trend(high: pd.Series, low: pd.Series,
     h_arr = high.to_numpy()
     l_arr = low.to_numpy()
 
-    # Detect pivots (placed at the pivot bar — i.e. piv_right bars BEFORE confirmation).
-    # We track confirmed pivots and their bar index, then carry trend state forward.
-    last_ph = np.nan
-    prev_ph = np.nan
-    last_pl = np.nan
-    prev_pl = np.nan
-    state = 0
+    # Track states
+    trend_state = 0
+    locked_high = np.nan
+    locked_low = np.nan
+    last_high_class = "na"
+    last_low_class = "na"
+    active_pivot_type = "na"
+    active_pivot_price = np.nan
+    active_pivot_index = -1
 
-    # Walk bars; a pivot at bar (i - piv_right) is confirmable at bar i.
     for i in range(piv_left + piv_right, n):
-        piv_idx = i - piv_right                  # candidate pivot bar
+        piv_idx = i - piv_right
+        
         # Pivot high check
         win_h = h_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
-        if h_arr[piv_idx] == win_h.max() and (win_h == h_arr[piv_idx]).sum() == 1:
-            prev_ph, last_ph = last_ph, h_arr[piv_idx]
+        is_ph = (h_arr[piv_idx] == win_h.max()) and ((win_h == h_arr[piv_idx]).sum() == 1)
+        ph_val = h_arr[piv_idx] if is_ph else np.nan
+
         # Pivot low check
         win_l = l_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
-        if l_arr[piv_idx] == win_l.min() and (win_l == l_arr[piv_idx]).sum() == 1:
-            prev_pl, last_pl = last_pl, l_arr[piv_idx]
+        is_pl = (l_arr[piv_idx] == win_l.min()) and ((win_l == l_arr[piv_idx]).sum() == 1)
+        pl_val = l_arr[piv_idx] if is_pl else np.nan
 
-        # Classify HH/HL = uptrend, LH/LL = downtrend
-        if not (np.isnan(last_ph) or np.isnan(prev_ph) or
-                np.isnan(last_pl) or np.isnan(prev_pl)):
-            if last_ph > prev_ph and last_pl > prev_pl:
-                state = 1
-            elif last_ph < prev_ph and last_pl < prev_pl:
-                state = -1
-            # else: leave state unchanged (mixed signal preserves prior trend)
-        out.iloc[i] = state
+        if not np.isnan(ph_val):
+            if active_pivot_type == "H" and ph_val > active_pivot_price:
+                active_pivot_price = ph_val
+                active_pivot_index = piv_idx
+                last_high_class = classify_high(ph_val, locked_high)
+            elif active_pivot_type == "L" or active_pivot_type == "na":
+                if active_pivot_type == "L":
+                    locked_low = active_pivot_price
+                h_class = classify_high(ph_val, locked_high)
+                new_trend = 0
+                if h_class == "HH":
+                    new_trend = 1 if (last_low_class in ("HL", "EL")) else 0
+                elif h_class == "LH":
+                    new_trend = -1 if (last_low_class in ("LL", "EL")) else 0
+                trend_state = new_trend
+                locked_high = ph_val
+                last_high_class = h_class
+                active_pivot_price = ph_val
+                active_pivot_index = piv_idx
+                active_pivot_type = "H"
+
+        if not np.isnan(pl_val):
+            if active_pivot_type == "L" and pl_val < active_pivot_price:
+                active_pivot_price = pl_val
+                active_pivot_index = piv_idx
+                last_low_class = classify_low(pl_val, locked_low)
+            elif active_pivot_type == "H":
+                locked_high = active_pivot_price
+                l_class = classify_low(pl_val, locked_low)
+                new_trend = 0
+                if l_class == "LL":
+                    new_trend = -1 if (last_high_class in ("LH", "EH")) else 0
+                elif l_class == "HL":
+                    new_trend = 1 if (last_high_class in ("HH", "EH")) else 0
+                trend_state = new_trend
+                locked_low = pl_val
+                last_low_class = l_class
+                active_pivot_price = pl_val
+                active_pivot_index = piv_idx
+                active_pivot_type = "L"
+
+        # Projection block
+        if active_pivot_index == -1:
+            sync_bars = 1
+        else:
+            sync_bars = max(1, i - active_pivot_index)
+
+        proj_low = l_arr[i - sync_bars + 1 : i + 1].min()
+        proj_high = h_arr[i - sync_bars + 1 : i + 1].max()
+
+        if not np.isnan(locked_high) and classify_high(proj_high, locked_high) == "HH":
+            d_lc = classify_low(proj_low, locked_low) if not np.isnan(locked_low) else "HL"
+            trend_state = 1 if d_lc == "HL" else 0
+        elif not np.isnan(locked_low) and classify_low(proj_low, locked_low) == "LL":
+            d_hc = classify_high(proj_high, locked_high) if not np.isnan(locked_high) else "LH"
+            trend_state = -1 if d_hc == "LH" else 0
+
+        out.iloc[i] = trend_state
 
     return out
 
 
+def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int = 5,
+                                 slope_len: int = 6, thresh_mult: float = 0.0012) -> tuple:
+    n = len(df_w)
+    stages = pd.Series(4, index=df_w.index, dtype=int)
+    stage_wks = pd.Series(0.0, index=df_w.index, dtype=float)
+    if n < 35:
+        return stages, stage_wks
+
+    c = df_w["Close"]
+    h = df_w["High"]
+    l = df_w["Low"]
+
+    ma = c.rolling(30).mean()
+    old_ma = ma.shift(slope_len)
+    slope = (ma - old_ma.fillna(ma)) / max(1, slope_len)
+
+    trend_series = compute_strict_trend(h, l, piv_left=left, piv_right=right)
+
+    current_stage_htf = 4
+    prev_stage_htf = 4
+    wks = 0.0
+
+    for idx in range(n):
+        val_c = c.iloc[idx]
+        val_ma = ma.iloc[idx]
+        val_slope = slope.iloc[idx]
+        val_trend = trend_series.iloc[idx]
+        val_thresh = val_ma * thresh_mult
+
+        if pd.isna(val_ma) or pd.isna(val_slope):
+            stages.iloc[idx] = current_stage_htf
+            stage_wks.iloc[idx] = wks
+            continue
+
+        is_ma_uptrend = val_slope > val_thresh
+        is_ma_downtrend = val_slope < -val_thresh
+        is_above_ma = val_c > val_ma
+
+        # State machine transitions
+        if current_stage_htf == 1:
+            if is_ma_uptrend and is_above_ma:
+                current_stage_htf = 2
+            elif is_ma_downtrend and not is_above_ma and val_trend != 1:
+                current_stage_htf = 4
+        elif current_stage_htf == 2:
+            if is_ma_downtrend and not is_above_ma and val_trend != 1:
+                current_stage_htf = 4
+            elif (not is_ma_uptrend and not is_above_ma) or (val_trend == -1 and not is_above_ma):
+                current_stage_htf = 3
+        elif current_stage_htf == 3:
+            if is_ma_downtrend and not is_above_ma and val_trend != 1:
+                current_stage_htf = 4
+            elif is_ma_uptrend and is_above_ma:
+                current_stage_htf = 2
+        elif current_stage_htf == 4:
+            if is_ma_uptrend and is_above_ma:
+                current_stage_htf = 2
+            elif not is_ma_downtrend and is_above_ma:
+                current_stage_htf = 1
+
+        # Strict trend overrides
+        if val_trend == 1 and current_stage_htf == 4:
+            current_stage_htf = 1
+        if val_trend == -1 and current_stage_htf == 2:
+            current_stage_htf = 3
+
+        # Weeks-in-stage counter
+        if current_stage_htf != prev_stage_htf:
+            wks = 0.0
+            prev_stage_htf = current_stage_htf
+        else:
+            wks += 1.0
+
+        stages.iloc[idx] = current_stage_htf
+        stage_wks.iloc[idx] = wks
+
+    return stages, stage_wks
+
+
 def compute_weinstein_stage(df_w: pd.DataFrame) -> int:
-    """
-    Weinstein stage from the CURRENT week's 30W SMA slope and price position.
-    Avoids state-machine convergence issues by classifying from current indicators.
-    Stage 2 = rising SMA30, price above SMA30.
-    Stage 4 = falling SMA30, price below SMA30.
-    Stage 1 = flattening/rising SMA30, price above SMA30.
-    Stage 3 = flattening/falling SMA30, price above SMA30 (topping).
-    """
-    if len(df_w) < 35:
-        return 0
-    c    = df_w["Close"]
-    sma  = c.rolling(30).mean()
-    slope = sma - sma.shift(4)
-    thresh = sma * 0.0005
-    above = bool(c.iloc[-1] > sma.iloc[-1])
-    sl    = float(slope.iloc[-1])
-    th    = float(thresh.iloc[-1])
-    up = sl > th
-    dn = sl < -th
-    if up and above:       return 2
-    if dn and not above:   return 4
-    if not dn and above:   return 1   # SMA flattening/rising, price above = Stage 1 base
-    return 3                           # SMA weakening, price above = Stage 3 top
+    stages, _ = compute_weekly_stage_and_wks(df_w, left=5, right=5, slope_len=6, thresh_mult=0.0012)
+    return int(stages.iloc[-1]) if not stages.empty else 4
+
 
 
 # -----------------------------------------------------------------------------
@@ -1253,6 +1390,56 @@ def compute_exit_levels(ind: dict, signal: int, climax_low: float = np.nan) -> d
 
 
 # -----------------------------------------------------------------------------
+# WYCKOFF ACCUMULATION CASCADE (signal codes 5-8)
+# -----------------------------------------------------------------------------
+def detect_wyckoff(df_d: pd.DataFrame):
+    """Run the Wyckoff Spring/SOS/JAC accumulation cascade on a daily OHLCV frame.
+
+    The detection math is IMPORTED from recovery_screener_v3_wyckoff (single
+    source of truth — no duplicated Wyckoff logic). Returns the highest-priority
+    catalyst as {"code", "label", "details"}, or None if no Wyckoff setup.
+
+    Priority mirrors Pine Commander_Recovery_Screener v2.0:
+        WYC-SPRING+SOS (8) > WYC-JAC (7) > WYC-SOS (6) > WYC-SPRING (5)
+
+    Note: detection is pure price/volume. The caller gates this with rff_ok +
+    regime_ok so the MAIN screener stays "fundamentally-strong, regime-appropriate,
+    beaten-down" — the standalone module remains ungated for pure-price Wyckoff.
+    Returns None on any error so the screener always degrades to the REV-* cascade.
+    """
+    try:
+        import recovery_screener_v3_wyckoff as _wyc
+    except Exception:
+        return None
+    try:
+        f = _wyc._compute_features(df_d)          # needs >= base_decline_lookback bars
+        if not f:
+            return None
+        f["open"] = df_d["Open"].astype(float)    # SOS needs the open
+        base = _wyc._detect_accumulation_base(f)
+        if not base:
+            return None
+        spring = _wyc._detect_spring(f, base["base_low"])
+        sos    = _wyc._detect_sos(f, base["base_high"], base["base_low"])
+        jac    = _wyc._detect_jac(f, base["base_high"])
+        label, reason = _wyc._select_catalyst(base, spring, sos, jac)
+        code = {"WYC-SPRING+SOS": 8, "WYC-JAC": 7,
+                "WYC-SOS": 6, "WYC-SPRING": 5}.get(label, 0)
+        if code == 0:
+            return None
+        return {
+            "code":    code,
+            "label":   label,
+            "details": (f"{label}: {reason} "
+                        f"[base {base['base_pct_range']}% range over "
+                        f"{_wyc.CONFIG['base_lookback_bars']} bars, prior decline "
+                        f"{base['decline_pct']}%]"),
+        }
+    except Exception:
+        return None
+
+
+# -----------------------------------------------------------------------------
 # SINGLE-SYMBOL SCREENER
 # -----------------------------------------------------------------------------
 def screen_symbol(symbol: str, edge_hint: str, regime: dict,
@@ -1406,11 +1593,22 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
     rs_res    = check_rev_rs(ind, rs_pos, regime_ok, stock_corrected=stock_corr)
     early_res = check_rev_early(ind, rs_pos, regime_ok)
 
-    # Priority: EARLY 4 > RS 3 > CB-Buy 2 > CB-Watch 1 > None 0
+    # Priority: WYC 8/7/6/5 > EARLY 4 > RS 3 > CB-Buy 2 > CB-Watch 1 > None 0
+    # Wyckoff accumulation catalysts (Spring/SOS/JAC) sit ABOVE the legacy REV-*
+    # edges, mirroring Pine Commander_Recovery_Screener v2.0. They share the SAME
+    # rff_ok + regime_ok gates as REV-* so the merged screener keeps its identity:
+    # only fundamentally-strong (RFF>=min), regime-appropriate, beaten-down names.
+    # (Run recovery_screener_v3_wyckoff.py standalone for ungated pure-price Wyckoff.)
     # v1.4 Fix #1: REV-CB now gated on regime_ok (Pine v2.3 line 1196).
     sig = 0; sig_date = None; sig_label = "None"; details = ""; climax_low = np.nan
 
-    if early_res["signal"] == 4 and rff_ok:
+    wyc_res = detect_wyckoff(df_d) if (rff_ok and regime_ok) else None
+
+    if wyc_res is not None:
+        sig, sig_label = wyc_res["code"], wyc_res["label"]
+        sig_date = df_d.index[-1]
+        details  = wyc_res["details"]
+    elif early_res["signal"] == 4 and rff_ok:
         sig, sig_date, sig_label = 4, early_res["signal_date"], "REV-EARLY"
         details = early_res["details"]
     elif rs_res["signal"] == 3 and rff_ok:
@@ -1463,6 +1661,7 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
         RFF_Bonus    = rff_bonus,             # 0-4, recovery-specific top-up
         RFF_Total    = rff_total,             # 0-10, used for ranking
         RFF_Quality  = rff_quality,           # FULL / PARTIAL / INSUFFICIENT
+        Fund_Source  = fund_source,           # Screener.in / yfinance / unavailable (data-integrity visibility)
         Chartink_Confirmed = chartink_confirmed,
         RFF_Detail   = str({k: v for k, v in rff_checks.items()
                              if not str(k).startswith("_") and v}) if rff_checks else "",
@@ -1577,14 +1776,24 @@ def load_screener_symbols() -> set:
     return si_syms
 
 
-def load_fundamentals() -> dict:
-    """Load Screener.in fundamental CSVs  {symbol: row_dict}."""
+def load_fundamentals(max_age_days: int = 35) -> dict:
+    """Load Screener.in fundamental CSVs  {symbol: row_dict}.
+
+    Warns loudly when a premium CSV is older than `max_age_days` — stale
+    fundamentals get scored as "FULL" quality and silently bias RFF ranks.
+    """
+    import time as _time
     fund = {}
     for edge, fname in SCREENER_FILES.items():
         fpath = os.path.join(DATA_DIR, fname)
         if not os.path.exists(fpath):
             continue
         try:
+            age_days = (_time.time() - os.path.getmtime(fpath)) / 86400.0
+            if age_days > max_age_days:
+                print(f"  [!] Screener.in CSV '{fname}' is {age_days:.0f} days old "
+                      f"(> {max_age_days}d) -- RFF fundamentals may be STALE. "
+                      f"Re-run screener_fetcher.py + screener_processor.py.")
             df = pd.read_csv(fpath)
             # Screener.in exports column headers with embedded \n + spaces
             # e.g. "ROCE\n                    %" → normalise to "ROCE %"
@@ -1720,6 +1929,37 @@ def run_recovery_screener(progress_callback=None, symbols=None,
             logger.debug("Conviction passthrough skipped: %s", _cpe)
 
     df_out.to_csv(os.path.join(DATA_DIR, out_file), index=False)
+
+    # ── Fundamental-source coverage summary (19 Jun 2026) ──────────────────
+    # Surfaces how much of the recovery universe actually had Screener.in
+    # premium fundamentals vs. fell back to yfinance vs. had none — so RFF
+    # gating bias from data coverage is visible, not silent.
+    try:
+        if not df_out.empty and "Fund_Source" in df_out.columns:
+            vc = df_out["Fund_Source"].value_counts(dropna=False).to_dict()
+            n = len(df_out)
+            scr = vc.get("Screener.in", 0)
+            print(f"   [i] RFF fundamental coverage ({n} rows): "
+                  f"Screener.in={scr} ({scr/n*100:.0f}%), "
+                  f"yfinance={vc.get('yfinance', 0)}, "
+                  f"unavailable={vc.get('unavailable', 0)}")
+            if "RFF_Quality" in df_out.columns:
+                qc = df_out["RFF_Quality"].value_counts(dropna=False).to_dict()
+                print(f"      RFF quality: FULL={qc.get('FULL', 0)}, "
+                      f"PARTIAL={qc.get('PARTIAL', 0)}, "
+                      f"INSUFFICIENT={qc.get('INSUFFICIENT', 0)}")
+            # Loud flag: actionable signals (Signal>=2) resting on weak fundamentals.
+            if "Signal" in df_out.columns:
+                weak = df_out[(df_out["Signal"] >= 2) &
+                              ((df_out["Fund_Source"] != "Screener.in") |
+                               (df_out.get("RFF_Quality") == "INSUFFICIENT"))]
+                if not weak.empty:
+                    print(f"   [!] {len(weak)} actionable recovery signal(s) NOT backed by "
+                          f"Screener.in premium fundamentals -- review before trading: "
+                          f"{', '.join(weak['Symbol'].astype(str).head(8).tolist())}")
+    except Exception as _cov_e:
+        logger.debug("coverage summary failed: %s", _cov_e)
+
     # Auto-log live picks to pick_log.db (replay-safe).
     try:
         import pick_log as _pl

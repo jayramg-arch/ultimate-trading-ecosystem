@@ -73,9 +73,11 @@ warnings.filterwarnings("ignore")
 try:
     import data_provider as _dp
     USE_DATA_PROVIDER = True
-except Exception:
+except Exception as _dp_err:
     _dp = None
     USE_DATA_PROVIDER = False
+    print(f"[!] bull_screener: data_provider unavailable ({_dp_err}) -- using DIRECT "
+          f"yfinance (Dhan paid feed BYPASSED for this run).")
 
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_FILE = "FINAL_COMBINED_BULL_PICKS.csv"
@@ -311,6 +313,206 @@ def compute_indicators(df: pd.DataFrame) -> dict:
         bb_width=bb_width
     )
 
+def classify_high(new_high: float, prev_high: float) -> str:
+    if pd.isna(prev_high) or prev_high <= 0:
+        return "HH"
+    diff = abs(new_high - prev_high) / prev_high
+    if diff < 0.001:
+        return "EH"
+    elif new_high < prev_high:
+        return "LH"
+    return "HH"
+
+
+def classify_low(new_low: float, prev_low: float) -> str:
+    if pd.isna(prev_low) or prev_low <= 0:
+        return "LL"
+    diff = abs(new_low - prev_low) / prev_low
+    if diff < 0.001:
+        return "EL"
+    elif new_low > prev_low:
+        return "HL"
+    return "LL"
+
+
+def compute_strict_trend(high: pd.Series, low: pd.Series,
+                         piv_left: int = 2, piv_right: int = 2) -> pd.Series:
+    """
+    v1.4: pivot-zigzag strict trend (port of Pine f_getStrictTrend).
+    HH+HL pivot zigzag with projection.
+    """
+    n = len(high)
+    out = pd.Series(0, index=high.index, dtype=int)
+    if n < (piv_left + piv_right + 1):
+        return out
+
+    h_arr = high.to_numpy()
+    l_arr = low.to_numpy()
+
+    # Track states
+    trend_state = 0
+    locked_high = np.nan
+    locked_low = np.nan
+    last_high_class = "na"
+    last_low_class = "na"
+    active_pivot_type = "na"
+    active_pivot_price = np.nan
+    active_pivot_index = -1
+
+    for i in range(piv_left + piv_right, n):
+        piv_idx = i - piv_right
+        
+        # Pivot high check
+        win_h = h_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
+        is_ph = (h_arr[piv_idx] == win_h.max()) and ((win_h == h_arr[piv_idx]).sum() == 1)
+        ph_val = h_arr[piv_idx] if is_ph else np.nan
+
+        # Pivot low check
+        win_l = l_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
+        is_pl = (l_arr[piv_idx] == win_l.min()) and ((win_l == l_arr[piv_idx]).sum() == 1)
+        pl_val = l_arr[piv_idx] if is_pl else np.nan
+
+        if not np.isnan(ph_val):
+            if active_pivot_type == "H" and ph_val > active_pivot_price:
+                active_pivot_price = ph_val
+                active_pivot_index = piv_idx
+                last_high_class = classify_high(ph_val, locked_high)
+            elif active_pivot_type == "L" or active_pivot_type == "na":
+                if active_pivot_type == "L":
+                    locked_low = active_pivot_price
+                h_class = classify_high(ph_val, locked_high)
+                new_trend = 0
+                if h_class == "HH":
+                    new_trend = 1 if (last_low_class in ("HL", "EL")) else 0
+                elif h_class == "LH":
+                    new_trend = -1 if (last_low_class in ("LL", "EL")) else 0
+                trend_state = new_trend
+                locked_high = ph_val
+                last_high_class = h_class
+                active_pivot_price = ph_val
+                active_pivot_index = piv_idx
+                active_pivot_type = "H"
+
+        if not np.isnan(pl_val):
+            if active_pivot_type == "L" and pl_val < active_pivot_price:
+                active_pivot_price = pl_val
+                active_pivot_index = piv_idx
+                last_low_class = classify_low(pl_val, locked_low)
+            elif active_pivot_type == "H":
+                locked_high = active_pivot_price
+                l_class = classify_low(pl_val, locked_low)
+                new_trend = 0
+                if l_class == "LL":
+                    new_trend = -1 if (last_high_class in ("LH", "EH")) else 0
+                elif l_class == "HL":
+                    new_trend = 1 if (last_high_class in ("HH", "EH")) else 0
+                trend_state = new_trend
+                locked_low = pl_val
+                last_low_class = l_class
+                active_pivot_price = pl_val
+                active_pivot_index = piv_idx
+                active_pivot_type = "L"
+
+        # Projection block
+        if active_pivot_index == -1:
+            sync_bars = 1
+        else:
+            sync_bars = max(1, i - active_pivot_index)
+
+        proj_low = l_arr[i - sync_bars + 1 : i + 1].min()
+        proj_high = h_arr[i - sync_bars + 1 : i + 1].max()
+
+        if not np.isnan(locked_high) and classify_high(proj_high, locked_high) == "HH":
+            d_lc = classify_low(proj_low, locked_low) if not np.isnan(locked_low) else "HL"
+            trend_state = 1 if d_lc == "HL" else 0
+        elif not np.isnan(locked_low) and classify_low(proj_low, locked_low) == "LL":
+            d_hc = classify_high(proj_high, locked_high) if not np.isnan(locked_high) else "LH"
+            trend_state = -1 if d_hc == "LH" else 0
+
+        out.iloc[i] = trend_state
+
+    return out
+
+
+def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int = 5,
+                                 slope_len: int = 6, thresh_mult: float = 0.0012) -> tuple:
+    n = len(df_w)
+    stages = pd.Series(4, index=df_w.index, dtype=int)
+    stage_wks = pd.Series(0.0, index=df_w.index, dtype=float)
+    if n < 35:
+        return stages, stage_wks
+
+    c = df_w["Close"]
+    h = df_w["High"]
+    l = df_w["Low"]
+
+    ma = c.rolling(30).mean()
+    old_ma = ma.shift(slope_len)
+    slope = (ma - old_ma.fillna(ma)) / max(1, slope_len)
+
+    trend_series = compute_strict_trend(h, l, piv_left=left, piv_right=right)
+
+    current_stage_htf = 4
+    prev_stage_htf = 4
+    wks = 0.0
+
+    for idx in range(n):
+        val_c = c.iloc[idx]
+        val_ma = ma.iloc[idx]
+        val_slope = slope.iloc[idx]
+        val_trend = trend_series.iloc[idx]
+        val_thresh = val_ma * thresh_mult
+
+        if pd.isna(val_ma) or pd.isna(val_slope):
+            stages.iloc[idx] = current_stage_htf
+            stage_wks.iloc[idx] = wks
+            continue
+
+        is_ma_uptrend = val_slope > val_thresh
+        is_ma_downtrend = val_slope < -val_thresh
+        is_above_ma = val_c > val_ma
+
+        # State machine transitions
+        if current_stage_htf == 1:
+            if is_ma_uptrend and is_above_ma:
+                current_stage_htf = 2
+            elif is_ma_downtrend and not is_above_ma and val_trend != 1:
+                current_stage_htf = 4
+        elif current_stage_htf == 2:
+            if is_ma_downtrend and not is_above_ma and val_trend != 1:
+                current_stage_htf = 4
+            elif (not is_ma_uptrend and not is_above_ma) or (val_trend == -1 and not is_above_ma):
+                current_stage_htf = 3
+        elif current_stage_htf == 3:
+            if is_ma_downtrend and not is_above_ma and val_trend != 1:
+                current_stage_htf = 4
+            elif is_ma_uptrend and is_above_ma:
+                current_stage_htf = 2
+        elif current_stage_htf == 4:
+            if is_ma_uptrend and is_above_ma:
+                current_stage_htf = 2
+            elif not is_ma_downtrend and is_above_ma:
+                current_stage_htf = 1
+
+        # Strict trend overrides
+        if val_trend == 1 and current_stage_htf == 4:
+            current_stage_htf = 1
+        if val_trend == -1 and current_stage_htf == 2:
+            current_stage_htf = 3
+
+        # Weeks-in-stage counter
+        if current_stage_htf != prev_stage_htf:
+            wks = 0.0
+            prev_stage_htf = current_stage_htf
+        else:
+            wks += 1.0
+
+        stages.iloc[idx] = current_stage_htf
+        stage_wks.iloc[idx] = wks
+
+    return stages, stage_wks
+
+
 def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     """Weekly Weinstein stage + JdK RS-Ratio / RS-Momentum (Strike.Money parity).
 
@@ -323,26 +525,15 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     semantic meaning. Quadrant labels now match Strike.Money's RRG view.
     """
     if len(df) < 35:
-        return {"stage": 0, "mansfield": 0.0, "wrsi": 0.0,
+        return {"stage": 0, "stage_wks": 999.0, "mansfield": 0.0, "wrsi": 0.0,
                 "mansfield_4w": 0.0, "rrg_quadrant": "n/a",
                 "rrg_trajectory": "n/a", "rrg_next": "n/a",
                 "rrg_score": 0, "rrg_arrow": "•", "rrg_tradeable": False,
                 "w_mom": False}
     c = df["Close"]
-    sma30 = c.rolling(30).mean()
-    slope = sma30 - sma30.shift(4)
-    thresh = sma30 * 0.0005
-    above = c.iloc[-1] > sma30.iloc[-1]
-    sl = slope.iloc[-1]
-    th = thresh.iloc[-1]
-    up = sl > th
-    dn = sl < -th
-
-    stage = 0
-    if up and above: stage = 2
-    elif dn and not above: stage = 4
-    elif not dn and above: stage = 1
-    else: stage = 3
+    stages, stage_wks = compute_weekly_stage_and_wks(df, left=5, right=5, slope_len=6, thresh_mult=0.0012)
+    stage = int(stages.iloc[-1]) if not stages.empty else 4
+    stage_wks_val = float(stage_wks.iloc[-1]) if not stage_wks.empty else 999.0
 
     # WRSI
     def _rsi(series, n):
@@ -417,7 +608,7 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     # PRICE-ACTION weekly momentum (replaces weekly-RSI gate in POS-BO):
     # weekly close above its 5-week-ago close = positive 5-week momentum.
     w_mom = bool(float(c.iloc[-1]) > float(c.iloc[-6])) if len(c) > 6 else False
-    return {"stage": stage, "mansfield": mansfield, "wrsi": wrsi,
+    return {"stage": stage, "stage_wks": stage_wks_val, "mansfield": mansfield, "wrsi": wrsi,
             "mansfield_4w": mansfield_4w, "rrg_quadrant": rrg,
             "rrg_trajectory": rrg_traj, "rrg_next": rrg_next,
             "rrg_score": rrg_score, "rrg_arrow": rrg_arrow,
@@ -633,13 +824,8 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     _cr = (c - l) / _dr.replace(0, np.nan)
     _v_one = (c > c.shift(1)) & (v > ind["vol_ma"]) & (_cr > 0.6)
     vol_acc_ok = bool(_v_one.iloc[-20:].sum() >= 3)
-    # stage2_fresh_ok: stock didn't have SMA50>SMA150 for ALL last 130 bars
-    # → means it has freshly transitioned within the last ~26 weeks
-    if len(sma50) >= 130 and len(sma150) >= 130:
-        _stack = (sma50.iloc[-130:] > sma150.iloc[-130:])
-        stage2_fresh_ok = bool(_stack.sum() < 130)
-    else:
-        stage2_fresh_ok = True  # not enough history → don't gate it out
+    # stage2_fresh_ok: stock entered Stage 2 (or Stage 1) within the last 26 weeks
+    stage2_fresh_ok = bool(weekly.get("stage_wks", 999.0) <= 26.0)
     # R6: Price coil (20-bar range < 10% of close) replaces ma_sqz_ok
     if len(h) >= 20:
         coil_range = float(h.iloc[-20:].max()) - float(l.iloc[-20:].min())
@@ -649,9 +835,9 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
         
     # R5: NR7 range contraction replaces bb_sqz_ok
     if len(h) >= 7:
-        cur_range = h_now - l_now
+        cur_range_prev = float(h.iloc[-2]) - float(l.iloc[-2])
         min_range_7 = float((h.iloc[-7:] - l.iloc[-7:]).min())
-        bb_sqz_ok = float(cur_range) <= min_range_7 * 1.1
+        bb_sqz_ok = cur_range_prev <= min_range_7 * 1.1
     else:
         bb_sqz_ok = False
 
@@ -671,12 +857,13 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     )
 
     intraday_pos = (c_now - l_now) / (h_now - l_now) if h_now > l_now else 0
-    # VDU gate — Pine v3.1 line 1275: single-bar vol < 70% avg AND declining close
+    # VDU gate — Pine v3.1 line 1275: single-bar vol < 85% avg AND declining close
     vol_drying = (
-        float(v.iloc[-1]) < float(ind["vol_ma"].iloc[-1]) * 0.7 and
+        float(v.iloc[-1]) < float(ind["vol_ma"].iloc[-1]) * 0.85 and
         c_now < float(c.iloc[-2])
     )
     dist_ema20 = abs(c_now - ema20_now) / ema20_now * 100
+    is_ema_pb_zone = dist_ema20 <= 2.5
 
     # ----- VCP per Pine v4.52 line 672-677 / Beta v2.4 line 238 — Fix #2 -----
     if (not np.isnan(atr10.iloc[-1]) and not np.isnan(atr10_sma50.iloc[-1])
@@ -782,10 +969,12 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     # mature_trend_ok needs weeks-in-stage (wStageWks) the Python weekly pipeline
     # doesn't track — approximated by stage-2 + LEADING RRG + above EMA20/SMA200.
     mpa_pass = c_now > _sma150_now and _sma150_now > _sma200_now
-    mature_trend_ok = (weekly["stage"] == 2 and
-                       str(weekly.get("rrg_quadrant", "")).upper() == "LEADING" and
-                       c_now > ema20_now and c_now > _sma200_now)
-    base_confirmed = (weinstein_setup or mature_trend_ok) and mpa_pass
+    # EXEMPTION REMOVED (2026-06-08, Jay): match the Bull Screener — no mature-trend
+    # bypass. base_confirmed = weinstein_setup AND mpa_pass on ALL surfaces, so a mature
+    # Stage-2 leader past the freshness window no longer fires POS-* on the screener
+    # while the charts block it. Kept as a named var (=False) for back-compat.
+    mature_trend_ok = False
+    base_confirmed = weinstein_setup and mpa_pass
     # PRICE-ACTION directional strength (Jay's preference: replaces ADX). >=7 of
     # last 14 bars are up-closes making higher highs — a clean uptrend structure.
     _pb_dir_ok = (sum(1 for i in range(1, 15)
@@ -809,34 +998,37 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     rev_struct    = c_now > _sma200_now and c_now < ema20_now
     not_stage4    = weekly["stage"] != 4
 
+    # mkt_bull DEMOTED to overlay (2026-06-08): no longer in the AND-chain. The
+    # _pass_mkt_bull counters are kept as REGIME CONTEXT only (how many eligible
+    # names are in a bull regime) — they do not gate the catalyst anymore.
     FUNNEL["POSBO_eligible"]       += 1
-    FUNNEL["POSBO_pass_mkt_bull"]  += 1 if mkt_bull else 0
-    FUNNEL["POSBO_pass_alpha"]     += 1 if (mkt_bull and alpha_ok_for_bo) else 0
-    FUNNEL["POSBO_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok and base_confirmed) else 0
-    FUNNEL["POSBO_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20) else 0
-    FUNNEL["POSBO_pass_vol"]       += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol) else 0
-    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False)) else 0
-    FUNNEL["POSBO_pass_adx25"]     += 1 if (mkt_bull and alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False) and _pb_dir_ok) else 0
+    FUNNEL["POSBO_pass_mkt_bull"]  += 1 if mkt_bull else 0   # context only
+    FUNNEL["POSBO_pass_alpha"]     += 1 if alpha_ok_for_bo else 0
+    FUNNEL["POSBO_pass_weinstein"]      += 1 if (alpha_ok and base_confirmed) else 0
+    FUNNEL["POSBO_pass_breakout"]  += 1 if (alpha_ok and base_confirmed and c_now > _bo20) else 0
+    FUNNEL["POSBO_pass_vol"]       += 1 if (alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol) else 0
+    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False)) else 0
+    FUNNEL["POSBO_pass_adx25"]     += 1 if (alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False) and _pb_dir_ok) else 0
 
     # POS-ACCUM funnel
     _pa_break = c_now > float(h.iloc[-31:-1].max()) * 0.9
     FUNNEL["POSAC_eligible"]       += 1
-    FUNNEL["POSAC_pass_mkt_bull"]  += 1 if mkt_bull else 0
-    FUNNEL["POSAC_pass_alpha"]     += 1 if (mkt_bull and alpha_ok_for_bo) else 0
-    FUNNEL["POSAC_pass_obv"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up) else 0
-    FUNNEL["POSAC_pass_weinstein"]      += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed) else 0
-    FUNNEL["POSAC_pass_vcp"]       += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum) else 0
-    FUNNEL["POSAC_pass_breakout"]  += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break) else 0
-    FUNNEL["POSAC_pass_rsi50"]     += 1 if (mkt_bull and alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break and pa_not_extended) else 0
+    FUNNEL["POSAC_pass_mkt_bull"]  += 1 if mkt_bull else 0   # context only
+    FUNNEL["POSAC_pass_alpha"]     += 1 if alpha_ok_for_bo else 0
+    FUNNEL["POSAC_pass_obv"]       += 1 if (alpha_ok and obv_trending_up) else 0
+    FUNNEL["POSAC_pass_weinstein"]      += 1 if (alpha_ok and obv_trending_up and base_confirmed) else 0
+    FUNNEL["POSAC_pass_vcp"]       += 1 if (alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum) else 0
+    FUNNEL["POSAC_pass_breakout"]  += 1 if (alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break) else 0
+    FUNNEL["POSAC_pass_rsi50"]     += 1 if (alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break and pa_not_extended) else 0
 
     # SWG-PB funnel (Pine-parity gate chain)
     FUNNEL["SWGPB_eligible"]    += 1
-    FUNNEL["SWGPB_pass_mkt"]    += 1 if mkt_bull else 0
-    FUNNEL["SWGPB_pass_pullback"]  += 1 if (mkt_bull and bull_pullback) else 0
-    FUNNEL["SWGPB_pass_vcp"]    += 1 if (mkt_bull and bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_mastack"] += 1 if (mkt_bull and minervini and bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (mkt_bull and minervini and bull_pullback and is_vcp_tight and pb_pocket_pa) else 0
-    FUNNEL["SWGPB_pass_voldry"] += 1 if (mkt_bull and bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry) else 0
+    FUNNEL["SWGPB_pass_mkt"]    += 1 if mkt_bull else 0   # context only
+    FUNNEL["SWGPB_pass_pullback"]  += 1 if bull_pullback else 0
+    FUNNEL["SWGPB_pass_vcp"]    += 1 if (bull_pullback and is_vcp_tight) else 0
+    FUNNEL["SWGPB_pass_mastack"] += 1 if (minervini and bull_pullback and is_vcp_tight) else 0
+    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (minervini and bull_pullback and is_vcp_tight and pb_pocket_pa) else 0
+    FUNNEL["SWGPB_pass_voldry"] += 1 if (bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry) else 0
 
     # Sub-funnel: weinstein_setup composition
     FUNNEL["WEIN_stage_ok"]        += 1 if stage_ok else 0
@@ -857,35 +1049,35 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     #    (Weinstein_Unified_Ecosystem_v3.4), but lagging indicators are replaced
     #    with PRICE ACTION per Jay's design (ADX→dir-bars, RSI-pocket→retrace,
     #    RSI<35→pa_oversold). Pine to be synced to these PA gates (see AUDIT_FINDINGS).
+    # ── mkt_bull DEMOTED from hard gate → regime OVERLAY (2026-06-08) ──────────
+    # Rationale: a Stage-2 RS leader can break out while the index is below its
+    # 200-DMA (the EarlyBird / Minervini premise). A hard `mkt_bull` AND-veto
+    # killed exactly those leaders. The stock-level gates below (base_confirmed +
+    # alpha + breakout-on-volume + RS-leading) already prove the STOCK is strong;
+    # the index regime now only modulates SIZE (½) + a Counter_Trend flag in the
+    # output record — it no longer decides whether the catalyst exists.
+    # NOTE: keep these conditions identical to the Pine surfaces (Unified + Bull
+    # Screener) so chart and scanner fire the SAME signals.
     # POS-BO: base_confirmed + alpha + 20-bar breakout + vol>1.25x
     #   + PA weekly momentum (w_mom, replaces weekly RSI>=60 — part a)
     #   + PA directional strength (_pb_dir_ok, replaces ADX>=25)
-    if (mkt_bull and base_confirmed and alpha_ok and c_now > _bo20 and _pb_vol and
+    if (base_confirmed and alpha_ok and c_now > _bo20 and _pb_vol and
             weekly.get("w_mom", False) and _pb_dir_ok):
         cat_id = 2; cat_label = "POS-BO"
     # POS-ACCUM: base_confirmed + alpha + obv + looser VCP (is_vcp_accum) +
     #   30-bar breakout + PA anti-chase (pa_not_extended, replaces RSI<=50 — part a)
-    elif (mkt_bull and base_confirmed and alpha_ok and obv_trending_up and is_vcp_accum and
+    elif (base_confirmed and alpha_ok and obv_trending_up and is_vcp_accum and
             _pa_break and pa_not_extended):
         cat_id = 1; cat_label = "POS-ACCUM"
     # SWG-GAP: gap_up + gap>=4% + close in top 40% of gap bar + vol>3x (pure PA)
-    elif (mkt_bull and gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and
+    elif (gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and
             rv_now >= 3.0):
         cat_id = 6; cat_label = "SWG-GAP"
     # SWG-BO: is_vcp_tight + 20-bar breakout + vol>1.5x (price/volume structure)
-    elif (mkt_bull and is_vcp_tight and c_now > _bo20 and rv_now > 1.5):
+    elif (is_vcp_tight and c_now > _bo20 and rv_now > 1.5):
         cat_id = 4; cat_label = "SWG-BO"
-    # SWG-PB: QUALITY pullback in a strong leader. Restored the quality gates the
-    #   Pine-sync had stripped (alpha_ok leadership + full minervini stack
-    #   close>50>150>200, vs the looser sma150>200) — without them SWG-PB fired on
-    #   weak/rolling-over stocks that bounce then fail (-5% alpha, 88% SL-hit).
-    #   PA throughout: bull_pullback (tag EMA20, close above, up day) + is_vcp_tight
-    #   + price-action pocket (retrace) + volume dry-up.
-    elif (mkt_bull and minervini and bull_pullback and is_vcp_tight and
-            pb_pocket_pa and pb_vol_dry and c_now > float(h.iloc[-2])):
-        # CONFIRMATION (Jay): enter on RESUMPTION, not into the falling dip —
-        # close above the prior day's high = the bounce off support is real.
-        # Filters the dead-cat bounces that were rolling over (-3.24% alpha).
+    # SWG-PB: swing_pb_trg in Pine (is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok)
+    elif (is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_drying):
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
     #   replaces RSI<35) + bullish reversal confirm (close>open and close>prior high)
@@ -1200,7 +1392,15 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
         "T2_pct": round((t2 - c) / c * 100, 2),
         "T1_R": t1_r,
         "T2_R": t2_r,
-        "Suggested_Size": "15%" if alpha >= 70 else "5%",
+        # mkt_bull OVERLAY: the catalyst fires on stock strength regardless of the
+        # index regime. A counter-trend entry (catalyst fired while the index is NOT
+        # in a bull regime) is HALVED and flagged — take the EarlyBird leader, but
+        # smaller, per the lower base rate of breakouts in a correction.
+        "Regime":         "BULL" if mkt_bull else "BEAR",
+        "Counter_Trend":  bool(cond["id"] != 0 and not mkt_bull),
+        "Suggested_Size": (("7%" if alpha >= 70 else "2%")
+                            if (cond["id"] != 0 and not mkt_bull)
+                            else ("15%" if alpha >= 70 else "5%")),
         # B11: Pine-parity swing momentum (mirrors Wesinstein Swing Zigzag v6.2 panel)
         "Swing_Pct_Current":  _swm.get("swing_pct_current"),
         "Swing_Pct_Prev":     _swm.get("swing_pct_prev"),
