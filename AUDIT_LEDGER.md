@@ -88,6 +88,27 @@ Line 112 read `p_details.get("Piotroski_Details", {}).get("F9 Asset Turnover Inc
 ## NEW TOOL — `score_authenticity_check.py` (confidence guarantee)
 Read-only validator (~2s; wired as auto-pilot Phase 11, non-fatal). For each output CSV it RE-COMPUTES the stored score from the row's own visible columns using the canonical pipeline functions (zero drift) and confirms they match, plus per-column fill rates (distinguishing real gaps from semantic blanks). First-run results: FINAL_WATCHLIST 25/25, FINAL_COMBINED 29/29, Bull blend 3/3, **Recovery Score 78/78 reproducible**, XRay Minervini 25/25 — and it caught B7. This turns "do I trust this CSV?" into a per-run PASS/FAIL stamp.
 
+## J / C / D / E — RESULTS (19 Jun 2026)
+
+### J — Strike/TV porting — CLEAN (post A1 fix)
+- `create_strike_csv_from_txt`: reads all symbols, strips NSE:/BSE:, chunks at 49 (correct ceil-division), one Symbol-headed CSV per chunk, no dropping. (No dedup, but source txt is from already-deduped FINAL CSVs.)
+- TradingView sync (`tradingview_automation_v2`): dated files only, skips missing (line 391) + empty (395), deletes same-name lists before re-upload (dup-safe). No stale fallback (correct — the contrast to the Strike A1 bug, now fixed).
+- Both syncs consume the same `Generated_Watchlists` source → consistent symbol sets.
+
+### C — Joins/merges & column integrity — 1 LATENT BUG FIXED
+- **C1 FIXED — `technical_enrichment.enrich_dataframe` index misalignment.** It dropped NaN symbols (`syms = ...dropna()`) but assigned enriched rows to `out.index[:n]` (first n labels). A blank symbol anywhere but the tail misaligned EVERY metric to the wrong stock (proven with a 3-row repro: BBB's value landed on the blank row). Doesn't trigger in today's Golden Matcher path (symbols are the non-null merge key) but is a silent-misalignment landmine. Fixed to align on the real non-null index (`_sym_index`).
+- All other merges CLEAN: the `pd.merge(..., left_index/right_index, how="inner")` in bull/recovery and `concat(join="inner")` in enrichment are **date-index RS/Mansfield alignments** (correct — RS only computable on common dates); the matcher `MATCH_KEY` join is an intentional intersection with consistent `upper().strip()` keys; combined dedup keeps first occurrence (metrics identical per symbol).
+
+### D — Silent-fallback / NaN→0 / empty-as-success — RANKING PIPELINE CLEAN
+- The dangerous patterns were already remediated this audit: conviction abort (B2), Dhan silent→yfinance (now loud), recovery passthrough swallow (B6).
+- Remaining `except` blocks are benign: indicator guards (return None → **visible blank**, the honest behavior you want), temp-file cleanup, optional-feature imports.
+- `fillna(0)` audit: the matcher's only fillna(0) is a throwaway `_Sort_Num` sort key (blank scores sink to bottom; real Combined_Score untouched). No STORED ranking score is faked via fillna(0) anywhere.
+- **Cross-domain caveat (NOT watchlist):** journal P&L display uses `BuyPrice.fillna(0)` (pages/1_home.py, dhan_journal_v7) — a missing buy price would inflate displayed P&L. Separate domain (journal, already reconciled earlier); flagged for awareness.
+
+### E — Structural indicator math — CLEAN, 1 spec-deviation flagged
+- RSI (Wilder ewm), ADX (Wilder DI/DX), Mansfield RS ((ratio/SMA−1)×100), EMA-stack (50>150>200), Above_200DMA, Dist_52WH, ATR, Vol_RelAvg — all mathematically correct. No Stage 1↔3 swap (that prior bug was in watchlist_ranker, a different module).
+- **SPEC DEVIATION (flagged, not changed):** `technical_enrichment._calc_stage` classifies Weinstein stage from **daily SMA200/SMA50** ("Simplified" per its docstring), but the DNA spec anchors Stage on the **weekly 30-WMA** (and `bull_screener` uses a weekly stage). So the `Stage` column in the watchlist (→ ±15 in Tech_Score) is a daily proxy that can disagree with the canonical weekly stage. Changing it alters scoring semantics → deferred for your decision.
+
 ## MODULES AUDITED — VERDICTS
 
 | Module / function | Role | Verdict |

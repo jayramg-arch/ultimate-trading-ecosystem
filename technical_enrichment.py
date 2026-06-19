@@ -258,7 +258,14 @@ def enrich_dataframe(df: pd.DataFrame,
         return df
 
     out = df.copy()
-    syms = out[symbol_col].dropna().astype(str).tolist()
+    # C-FIX (19 Jun 2026): keep the INDEX of the non-null symbol rows, not just a
+    # count. The enriched rows must be aligned back to the exact rows they came
+    # from. The old `index=out.index[:n]` took the first n labels, so a blank
+    # symbol anywhere but the tail (or a gappy index) misaligned every metric to
+    # the wrong stock. Proven with a 3-row repro.
+    _nonnull = out[symbol_col].dropna()
+    syms = _nonnull.astype(str).tolist()
+    _sym_index = _nonnull.index
     n = len(syms)
 
     # Fetch benchmark ONCE
@@ -278,8 +285,8 @@ def enrich_dataframe(df: pd.DataFrame,
             except Exception: pass
         enriched_rows.append(enrich_symbol(sym, bench_close))
 
-    # Add columns (preserving row order)
-    enrich_df = pd.DataFrame(enriched_rows, index=out.index[:n])
+    # Add columns — align to the exact non-null source rows (see C-FIX above)
+    enrich_df = pd.DataFrame(enriched_rows, index=_sym_index)
     for col in ["Stage", "Mansfield_RS", "Daily_RSI", "Daily_ADX",
                 "Above_200DMA", "Dist_52WH_pct", "Vol_RelAvg", "EMA_Stack"]:
         out[col] = enrich_df[col].reindex(out.index)
