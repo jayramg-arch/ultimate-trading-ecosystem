@@ -340,6 +340,60 @@ def fetch_weekly(symbol: str, years: int = 5) -> pd.DataFrame:
     return df_w
 
 
+def fetch_ltp(symbols) -> dict:
+    """Live last-traded-price for one or many symbols via Dhan's ohlc_data
+    (BATCHED — a single API call covers all symbols). Returns
+    {CLEAN_SYMBOL_UPPER: ltp_float} for whatever resolved. Never raises; returns
+    {} (or partial) on auth/throttle/parse failure so callers fall back to EOD.
+
+    Note: outside market hours Dhan still returns the last traded price
+    (= previous close), so callers should gate on market hours if they need a
+    truly *live* tick vs EOD.
+    """
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    if _AUTH_FAILED:
+        return {}
+    seg_ids = {}              # exchange_segment -> [security_id int]
+    id_to_sym = {}            # (segment, sid) -> clean upper symbol
+    for s in symbols:
+        meta = get_security_meta(s)
+        if not meta:
+            continue
+        seg = meta["exchange_segment"]
+        try:
+            sid = int(meta["security_id"])
+        except Exception:
+            continue
+        seg_ids.setdefault(seg, []).append(sid)
+        id_to_sym[(seg, sid)] = (str(s).strip().upper()
+                                 .replace("NSE:", "").replace("BSE:", "").replace(".NS", ""))
+    if not seg_ids:
+        return {}
+
+    out = {}
+    try:
+        cli = _get_client()
+        _throttle_dhan()
+        resp = cli.ohlc_data(securities=seg_ids)
+        if not isinstance(resp, dict) or resp.get("status") != "success":
+            _note_dhan_failure("ohlc_data(LTP)", resp)
+            return out
+        data = ((resp.get("data") or {}).get("data")) or {}
+        for seg, by_id in data.items():
+            for sid_str, rec in (by_id or {}).items():
+                try:
+                    lp = (rec or {}).get("last_price")
+                    sym = id_to_sym.get((seg, int(sid_str)))
+                    if sym and lp is not None and float(lp) > 0:
+                        out[sym] = float(lp)
+                except Exception:
+                    continue
+    except Exception as e:
+        logger.warning("Dhan fetch_ltp failed: %s", e)
+    return out
+
+
 if __name__ == "__main__":
     # Smoke test
     for sym in ["RELIANCE", "TCS", "GESHIP", "^CRSLDX"]:

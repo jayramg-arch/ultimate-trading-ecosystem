@@ -40,6 +40,7 @@ from typing import Optional
 
 import pandas as pd
 import yfinance as yf
+from net_utils import is_internet_available
 
 try:
     import dhan_ohlcv as _dhan
@@ -288,7 +289,7 @@ def _data_paths(key: str) -> tuple[str, str, str]:
     )
 
 
-def _read_cache(key: str) -> Optional[pd.DataFrame]:
+def _read_cache(key: str, ignore_ttl: bool = False) -> Optional[pd.DataFrame]:
     """Return cached DataFrame if fresh; else None. Reads either format."""
     _ensure_cache_dir()
     parquet_p, csv_p, meta_p = _data_paths(key)
@@ -299,8 +300,11 @@ def _read_cache(key: str) -> Optional[pd.DataFrame]:
             meta = json.load(f)
         cached_at = datetime.fromisoformat(meta.get("cached_at", "2000-01-01"))
         ttl = int(meta.get("ttl", CACHE_TTL_DAILY))
-        if (datetime.now() - cached_at).total_seconds() > ttl:
-            return None
+        if not ignore_ttl and (datetime.now() - cached_at).total_seconds() > ttl:
+            if not is_internet_available():
+                logger.warning("[data_provider] Offline: serving EXPIRED cache for %s (TTL was %ds)", key, ttl)
+            else:
+                return None
     except Exception as e:
         logger.debug("cache meta read failed for %s: %s", key, e)
         return None
@@ -573,82 +577,93 @@ def fetch_ohlcv(symbol: str,
 
 
     # ── Try Dhan API (Primary Provider for Equities) ──────────────────────
-    if DHAN_OK and _dhan is not None and not symbol.startswith("^"):
-        try:
-            clean = clean_symbol(symbol)
-            if _dhan.get_security_meta(clean) is not None:
-                years_val = 10 if period == "10y" else 5
-                if interval == "1wk":
-                    df_dhan = _dhan.fetch_weekly(clean, years=years_val)
-                elif interval == "1d":
-                    df_dhan = _dhan.fetch_daily(clean, years=years_val)
+    if is_internet_available():
+        if DHAN_OK and _dhan is not None and not symbol.startswith("^"):
+            try:
+                clean = clean_symbol(symbol)
+                if _dhan.get_security_meta(clean) is not None:
+                    years_val = 10 if period == "10y" else 5
+                    if interval == "1wk":
+                        df_dhan = _dhan.fetch_weekly(clean, years=years_val)
+                    elif interval == "1d":
+                        df_dhan = _dhan.fetch_daily(clean, years=years_val)
+                    else:
+                        df_dhan = pd.DataFrame()
+                    
+                    if not df_dhan.empty:
+                        if use_cache:
+                            _write_cache(key, df_dhan, period, interval, auto_adjust)
+                        _record_source(symbol, "dhan")
+                        return _apply_pin(df_dhan, pinned_date)
                 else:
-                    df_dhan = pd.DataFrame()
-                
-                if not df_dhan.empty:
+                    logger.info("Dhan: no security_meta for %s — falling back to yfinance "
+                                "(stale scrip master or unlisted symbol?)", symbol)
+            except Exception as _dhan_err:
+                logger.info("Dhan API fetch failed for %s: %s — falling back to yfinance",
+                            symbol, _dhan_err)
+
+        _rate_limit()
+        try:
+            data = _yf_download_timeout(ticker, period=period, interval=interval,
+                                auto_adjust=auto_adjust, progress=False)
+            if data is not None and not data.empty:
+                if isinstance(data.columns, pd.MultiIndex):
+                    data.columns = data.columns.get_level_values(0)
+                if "Close" in data.columns:
+                    data = data.dropna(subset=["Close"])
+                if not data.empty:
                     if use_cache:
-                        _write_cache(key, df_dhan, period, interval, auto_adjust)
-                    _record_source(symbol, "dhan")
-                    return _apply_pin(df_dhan, pinned_date)
-            else:
-                logger.info("Dhan: no security_meta for %s — falling back to yfinance "
-                            "(stale scrip master or unlisted symbol?)", symbol)
-        except Exception as _dhan_err:
-            logger.info("Dhan API fetch failed for %s: %s — falling back to yfinance",
-                        symbol, _dhan_err)
+                        _write_cache(key, data, period, interval, auto_adjust)
+                    # Loud: paid feed was bypassed for an equity (index ^ symbols
+                    # legitimately use yfinance and aren't flagged).
+                    if DHAN_OK and not symbol.startswith("^"):
+                        logger.info("fetch_ohlcv: %s served by yfinance FALLBACK "
+                                    "(Dhan had no data)", symbol)
+                    _record_source(symbol, "yfinance")
+                    return _apply_pin(data, pinned_date)
+        except Exception as e:
+            logger.warning("fetch_ohlcv yfinance failed for %s: %s", symbol, e)
 
-    _rate_limit()
-    try:
-        data = _yf_download_timeout(ticker, period=period, interval=interval,
-                            auto_adjust=auto_adjust, progress=False)
-        if data is not None and not data.empty:
-            if isinstance(data.columns, pd.MultiIndex):
-                data.columns = data.columns.get_level_values(0)
-            if "Close" in data.columns:
-                data = data.dropna(subset=["Close"])
-            if not data.empty:
+        # Secondary provider — nselib (NSE direct). Hits only when yfinance gave
+        # us nothing AND it's a daily NSE-equity request.
+        try:
+            nse_data = _fetch_via_nselib(symbol, period, interval)
+            if not nse_data.empty:
+                logger.info("fetch_ohlcv: nselib recovered %d rows for %s",
+                             len(nse_data), symbol)
                 if use_cache:
-                    _write_cache(key, data, period, interval, auto_adjust)
-                # Loud: paid feed was bypassed for an equity (index ^ symbols
-                # legitimately use yfinance and aren't flagged).
-                if DHAN_OK and not symbol.startswith("^"):
-                    logger.info("fetch_ohlcv: %s served by yfinance FALLBACK "
-                                "(Dhan had no data)", symbol)
-                _record_source(symbol, "yfinance")
-                return _apply_pin(data, pinned_date)
-    except Exception as e:
-        logger.warning("fetch_ohlcv yfinance failed for %s: %s", symbol, e)
+                    _write_cache(key, nse_data, period, interval, auto_adjust)
+                _record_source(symbol, "nselib")
+                return _apply_pin(nse_data, pinned_date)
+        except Exception as e:
+            logger.debug("fetch_ohlcv nselib fallback failed for %s: %s", symbol, e)
 
-    # Secondary provider — nselib (NSE direct). Hits only when yfinance gave
-    # us nothing AND it's a daily NSE-equity request.
+        # Tertiary — nsepython. Currently broken for most symbols but cheap to try.
+        try:
+            nse_data = _fetch_via_nsepython(symbol, period, interval)
+            if not nse_data.empty:
+                logger.info("fetch_ohlcv: nsepython recovered %d rows for %s",
+                             len(nse_data), symbol)
+                if use_cache:
+                    _write_cache(key, nse_data, period, interval, auto_adjust)
+                _record_source(symbol, "nsepython")
+                return _apply_pin(nse_data, pinned_date)
+        except Exception as e:
+            logger.debug("fetch_ohlcv nsepython fallback failed for %s: %s", symbol, e)
+    else:
+        logger.warning("[data_provider] Offline: skipping all network queries for %s", symbol)
+
+    # Every provider returned empty (or offline) — attempt last-resort cache recovery
     try:
-        nse_data = _fetch_via_nselib(symbol, period, interval)
-        if not nse_data.empty:
-            logger.info("fetch_ohlcv: nselib recovered %d rows for %s",
-                         len(nse_data), symbol)
-            if use_cache:
-                _write_cache(key, nse_data, period, interval, auto_adjust)
-            _record_source(symbol, "nselib")
-            return _apply_pin(nse_data, pinned_date)
-    except Exception as e:
-        logger.debug("fetch_ohlcv nselib fallback failed for %s: %s", symbol, e)
+        expired_cached = _read_cache(key, ignore_ttl=True)
+        if expired_cached is not None and not expired_cached.empty:
+            logger.warning("[data_provider] fetch_ohlcv: Using expired cache for %s as last resort", symbol)
+            _record_source(symbol, "cache")
+            return _apply_pin(expired_cached, pinned_date)
+    except Exception as _re:
+        logger.debug("Last-resort cache read failed: %s", _re)
 
-    # Tertiary — nsepython. Currently broken for most symbols but cheap to try.
-    try:
-        nse_data = _fetch_via_nsepython(symbol, period, interval)
-        if not nse_data.empty:
-            logger.info("fetch_ohlcv: nsepython recovered %d rows for %s",
-                         len(nse_data), symbol)
-            if use_cache:
-                _write_cache(key, nse_data, period, interval, auto_adjust)
-            _record_source(symbol, "nsepython")
-            return _apply_pin(nse_data, pinned_date)
-    except Exception as e:
-        logger.debug("fetch_ohlcv nsepython fallback failed for %s: %s", symbol, e)
-
-    # Every provider returned empty — surface it (no silent NaN→0 downstream).
-    logger.warning("fetch_ohlcv: NO data for %s from any provider "
-                   "(Dhan/yfinance/nselib/nsepython)", symbol)
+    logger.warning("fetch_ohlcv: NO data for %s from any provider or cache", symbol)
     _record_source(symbol, "none")
     return pd.DataFrame()
 
@@ -705,72 +720,84 @@ def fetch_batch_ohlcv(symbols, period: str = "6mo", interval: str = "1d",
 
     # Try resolving missing via Dhan API
     still_missing = []
-    if DHAN_OK and _dhan is not None:
-        for yf_t in missing:
-            clean = sym_map[yf_t]
-            if not clean.startswith("^") and _dhan.get_security_meta(clean) is not None:
-                try:
-                    years_val = 10 if period == "10y" else 5
-                    if interval == "1wk":
-                        df_dhan = _dhan.fetch_weekly(clean, years=years_val)
-                    elif interval == "1d":
-                        df_dhan = _dhan.fetch_daily(clean, years=years_val)
-                    else:
-                        df_dhan = pd.DataFrame()
-                    
-                    if not df_dhan.empty:
-                        key = _cache_key(yf_t, period, interval, auto_adjust)
+    if is_internet_available():
+        if DHAN_OK and _dhan is not None:
+            for yf_t in missing:
+                clean = sym_map[yf_t]
+                if not clean.startswith("^") and _dhan.get_security_meta(clean) is not None:
+                    try:
+                        years_val = 10 if period == "10y" else 5
+                        if interval == "1wk":
+                            df_dhan = _dhan.fetch_weekly(clean, years=years_val)
+                        elif interval == "1d":
+                            df_dhan = _dhan.fetch_daily(clean, years=years_val)
+                        else:
+                            df_dhan = pd.DataFrame()
+                        
+                        if not df_dhan.empty:
+                            key = _cache_key(yf_t, period, interval, auto_adjust)
+                            if use_cache:
+                                _write_cache(key, df_dhan, period, interval, auto_adjust)
+                            cached_hits[clean] = _apply_pin(df_dhan, pinned_date)
+                            continue
+                    except Exception as _dhan_err:
+                        logger.debug("Dhan API batch fetch failed for %s: %s", clean, _dhan_err)
+                still_missing.append(yf_t)
+            missing = still_missing
+
+        if missing:
+            _rate_limit()
+            try:
+                data = _yf_download_timeout(
+                    missing, period=period, interval=interval,
+                    auto_adjust=auto_adjust, group_by="ticker",
+                    progress=False, ignore_tz=True, threads=True,
+                    _timeout=max(YF_DOWNLOAD_TIMEOUT_S, 60),   # batch: allow more time
+                )
+            except Exception as e:
+                logger.warning("batch fetch failed: %s", e)
+                data = None
+
+            if data is not None and not data.empty:
+                is_multi = len(missing) > 1
+                for yf_t in missing:
+                    try:
+                        if isinstance(data.columns, pd.MultiIndex) and yf_t in data.columns.get_level_values(0):
+                            df = data[yf_t].copy()
+                        else:
+                            df = data.copy()
+                        if isinstance(df.columns, pd.MultiIndex):
+                            # if somehow still multi-index, take level 0 (likely Price)
+                            df.columns = df.columns.get_level_values(0)
+                        df = df.dropna(how="all")
+                        if "Close" in df.columns:
+                            df = df.dropna(subset=["Close"])
+                        if df.empty:
+                            continue
+                        clean = sym_map[yf_t]
                         if use_cache:
-                            _write_cache(key, df_dhan, period, interval, auto_adjust)
-                        cached_hits[clean] = _apply_pin(df_dhan, pinned_date)
+                            _write_cache(_cache_key(yf_t, period, interval, auto_adjust),
+                                          df, period, interval, auto_adjust)
+                        # Apply pin AFTER caching so the cache stores the full frame
+                        cached_hits[clean] = _apply_pin(df, pinned_date)
+                    except Exception as e:
+                        logger.debug("batch slice failed for %s: %s", yf_t, e)
                         continue
-                except Exception as _dhan_err:
-                    logger.debug("Dhan API batch fetch failed for %s: %s", clean, _dhan_err)
-            still_missing.append(yf_t)
-        missing = still_missing
+    else:
+        logger.warning("[data_provider] Offline: skipping all batch network queries")
 
-    if not missing:
-        return cached_hits
-
-    _rate_limit()
-    try:
-        data = _yf_download_timeout(
-            missing, period=period, interval=interval,
-            auto_adjust=auto_adjust, group_by="ticker",
-            progress=False, ignore_tz=True, threads=True,
-            _timeout=max(YF_DOWNLOAD_TIMEOUT_S, 60),   # batch: allow more time
-        )
-    except Exception as e:
-        logger.warning("batch fetch failed: %s", e)
-        return cached_hits
-
-    if data is None or data.empty:
-        return cached_hits
-
-    is_multi = len(missing) > 1
+    # Attempt last-resort cache recovery for any still missing symbols
     for yf_t in missing:
-        try:
-            if isinstance(data.columns, pd.MultiIndex) and yf_t in data.columns.get_level_values(0):
-                df = data[yf_t].copy()
-            else:
-                df = data.copy()
-            if isinstance(df.columns, pd.MultiIndex):
-                # if somehow still multi-index, take level 0 (likely Price)
-                df.columns = df.columns.get_level_values(0)
-            df = df.dropna(how="all")
-            if "Close" in df.columns:
-                df = df.dropna(subset=["Close"])
-            if df.empty:
-                continue
-            clean = sym_map[yf_t]
-            if use_cache:
-                _write_cache(_cache_key(yf_t, period, interval, auto_adjust),
-                              df, period, interval, auto_adjust)
-            # Apply pin AFTER caching so the cache stores the full frame
-            cached_hits[clean] = _apply_pin(df, pinned_date)
-        except Exception as e:
-            logger.debug("batch slice failed for %s: %s", yf_t, e)
-            continue
+        clean = sym_map[yf_t]
+        if clean not in cached_hits:
+            try:
+                key = _cache_key(yf_t, period, interval, auto_adjust)
+                expired_cached = _read_cache(key, ignore_ttl=True)
+                if expired_cached is not None and not expired_cached.empty:
+                    logger.warning("[data_provider] fetch_batch_ohlcv: Using expired cache for %s as fallback", clean)
+                    cached_hits[clean] = _apply_pin(expired_cached, pinned_date)
+            except Exception:
+                pass
 
     return cached_hits
 
@@ -786,10 +813,77 @@ def latest_close(symbol: str) -> float:
         return 0.0
 
 
-# Back-compat alias kept so existing imports (e.g. `from data_provider import get_ltp`)
-# don't break.
+# ── LIVE LTP (T3.6, 20 Jun 2026) ────────────────────────────────────────────
+# get_ltp now returns a LIVE Dhan last-traded-price during NSE market hours and
+# the EOD close otherwise — instead of always the stale 5-day close. Cached ~45s
+# so Streamlit reruns / alert loops don't hammer the quote endpoint. Falls back
+# to latest_close on any failure (so behaviour never regresses).
+import datetime as _dtmod
+_LTP_CACHE: dict = {}                                   # clean_symbol -> (ltp, ts)
+_LTP_TTL = float(os.getenv("LTP_CACHE_TTL_S", "45"))
+
+
+def nse_market_open(now: Optional[datetime] = None) -> bool:
+    """True during NSE trading hours (Mon-Fri 09:15-15:30 IST). Assumes the
+    system clock is IST (the user trades NSE from India)."""
+    now = now or datetime.now()
+    if now.weekday() >= 5:           # Sat/Sun
+        return False
+    t = now.time()
+    return _dtmod.time(9, 15) <= t <= _dtmod.time(15, 30)
+
+
 def get_ltp(symbol: str) -> float:
-    return latest_close(symbol)
+    """Live LTP during NSE hours (Dhan quote), else latest EOD close. Cached ~45s.
+    Never raises; falls back to latest_close on any failure."""
+    key = clean_symbol(symbol)
+    now = time.time()
+    c = _LTP_CACHE.get(key)
+    if c and (now - c[1]) < _LTP_TTL:
+        return c[0]
+    px = 0.0
+    if DHAN_OK and _dhan is not None and not str(symbol).startswith("^") and nse_market_open():
+        try:
+            d = _dhan.fetch_ltp([symbol]) or {}
+            px = float(d.get(key, 0.0) or 0.0)
+            if px > 0:
+                _record_source(symbol, "dhan-ltp")
+        except Exception as e:
+            logger.debug("get_ltp: Dhan LTP failed for %s: %s", symbol, e)
+    if px <= 0:
+        px = latest_close(symbol)    # EOD fallback (own source tagging via fetch_ohlcv)
+    _LTP_CACHE[key] = (px, now)
+    return px
+
+
+def get_ltp_batch(symbols) -> dict:
+    """Batch LTP — one Dhan quote call for all symbols during market hours, EOD
+    fallback per symbol otherwise. Returns {clean_symbol: ltp}. Cached ~45s."""
+    out, need = {}, []
+    now = time.time()
+    for s in symbols:
+        k = clean_symbol(s)
+        c = _LTP_CACHE.get(k)
+        if c and (now - c[1]) < _LTP_TTL:
+            out[k] = c[0]
+        else:
+            need.append(s)
+    live = {}
+    if need and DHAN_OK and _dhan is not None and nse_market_open():
+        try:
+            live = _dhan.fetch_ltp([s for s in need if not str(s).startswith("^")]) or {}
+        except Exception as e:
+            logger.debug("get_ltp_batch: Dhan LTP failed: %s", e)
+    for s in need:
+        k = clean_symbol(s)
+        px = float(live.get(k, 0.0) or 0.0)
+        if px > 0:
+            _record_source(s, "dhan-ltp")
+        else:
+            px = latest_close(s)
+        out[k] = px
+        _LTP_CACHE[k] = (px, now)
+    return out
 
 
 # ── CACHE MAINTENANCE ────────────────────────────────────────────────────────
