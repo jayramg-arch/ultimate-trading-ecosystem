@@ -1163,6 +1163,7 @@ if _HUB_OK:
 # benchmark was below 200DMA with a death cross. The breadth-only label is
 # still surfaced (correctly named) in the EOD "Breadth Regime" panel.
 _regime_txt, _regime_col = "–", "#5a8a9f"
+_regime_age_html = ""   # freshness sub-line for the Market Regime tile (filled below)
 try:
     import json as _json, os as _os
     from datetime import datetime as _dt, timedelta as _td
@@ -1191,6 +1192,20 @@ try:
                 # If calculated today and less than 12 hours ago, it is fresh
                 if _dt.now() - _comp_dt < _td(hours=12) and _comp_dt.date() == _dt.now().date():
                     _stale = False
+                # Freshness sub-line: "as of HH:MM · Xh ago" (+ amber STALE flag).
+                _mins = int((_dt.now() - _comp_dt).total_seconds() // 60)
+                if _mins < 60:
+                    _age = f"{_mins}m ago"
+                elif _mins < 1440:
+                    _age = f"{_mins // 60}h ago"
+                else:
+                    _age = f"{_mins // 1440}d ago"
+                _age_col = "#e3b341" if _stale else "#5a8a9f"
+                _flag = " · <b>STALE</b>" if _stale else ""
+                _regime_age_html = (
+                    f'<div style="font-family:JetBrains Mono,monospace;font-size:0.5rem;'
+                    f'color:{_age_col};margin-top:1px;">as of {_comp_dt:%H:%M} · {_age}{_flag}</div>'
+                )
             except Exception:
                 pass
     if _stale:
@@ -1241,7 +1256,7 @@ if _regime_txt == "–" and _BREADTH_OK:
 st.markdown(f"""
 <div class="statusbar">
   <div class="sb-cell"><div class="sb-label">Nifty 500</div><div class="sb-value" style="color:{h_color};">{h_text}</div></div>
-  <div class="sb-cell"><div class="sb-label">Market Regime</div><div class="sb-value" style="color:{_regime_col};font-size:0.75rem;">{_regime_txt}</div></div>
+  <div class="sb-cell"><div class="sb-label">Market Regime</div><div class="sb-value" style="color:{_regime_col};font-size:0.75rem;">{_regime_txt}</div>{_regime_age_html}</div>
   <div class="sb-cell"><div class="sb-label">India VIX</div><div class="sb-value" style="color:{_vix_col};">{_vix_txt}</div></div>
   <div class="sb-cell"><div class="sb-label">FII / DII (prev)</div><div class="sb-value" style="font-size:0.74rem;">{_fii_txt}</div></div>
   <div class="sb-cell"><div class="sb-label">Risk Watchdog</div><div class="sb-value" style="color:{w_color};">{w_text}</div></div>
