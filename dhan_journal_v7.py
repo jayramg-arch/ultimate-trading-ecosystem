@@ -185,7 +185,8 @@ def init_db():
             symbol TEXT,
             trade_type TEXT,
             stoploss REAL,
-            target REAL,
+            target1 REAL,
+            target2 REAL,
             rationale TEXT,
             timeframe TEXT,
             entry_date TEXT,
@@ -222,7 +223,7 @@ def load_db():
     
     rename_map = {
         'symbol': 'Symbol', 'trade_type': 'Type', 'stoploss': 'StopLoss',
-        'target': 'Target', 'rationale': 'Rationale', 'timeframe': 'Timeframe',
+        'target1': 'Target1', 'target2': 'Target2', 'rationale': 'Rationale', 'timeframe': 'Timeframe',
         'entry_date': 'EntryDate', 'quantity': 'Quantity', 'buy_price': 'BuyPrice',
         'exit_date': 'ExitDate', 'exit_price': 'ExitPrice',
         'exit_reason': 'ExitReason', 'status': 'Status', 'sector': 'Sector',
@@ -242,7 +243,7 @@ def upsert_trade(entry):
     db_map = {
         'id': 'id',
         'Symbol': 'symbol', 'Type': 'trade_type', 'StopLoss': 'stoploss',
-        'Target': 'target', 'Rationale': 'rationale', 'Timeframe': 'timeframe',
+        'Target1': 'target1', 'Target2': 'target2', 'Rationale': 'rationale', 'Timeframe': 'timeframe',
         'EntryDate': 'entry_date', 'Quantity': 'quantity', 'BuyPrice': 'buy_price',
         'ExitDate': 'exit_date', 'ExitPrice': 'exit_price',
         'ExitReason': 'exit_reason', 'Status': 'status', 'Sector': 'sector',
@@ -416,6 +417,46 @@ def fetch_live_data():
     
     return active_symbols, live_data, funds, id_map
 
+@st.cache_data(ttl=60)
+def fetch_active_orders():
+    if dhan is None: return {}
+    live_orders = {}
+    
+    def process_orders(data):
+        for item in data:
+            if item.get('transactionType') != 'SELL' or item.get('orderStatus') != 'PENDING':
+                continue
+            
+            sym = item.get('tradingSymbol')
+            if not sym: continue
+            
+            clean_sym = clean_symbol(sym)
+            if clean_sym not in live_orders:
+                live_orders[clean_sym] = []
+            
+            leg = item.get('legName')
+            otype = item.get('orderType', '')
+            price = float(item.get('price') or 0.0)
+            trigger = float(item.get('triggerPrice') or 0.0)
+            
+            live_orders[clean_sym].append({
+                'leg': leg, 'otype': otype, 'price': price, 'trigger': trigger
+            })
+
+    try:
+        ord_res = dhan.get_order_list()
+        if ord_res.get('status') == 'success' and ord_res.get('data'):
+            process_orders(ord_res['data'])
+    except Exception: pass
+    
+    try:
+        gtt_res = dhan.get_forever()
+        if gtt_res.get('status') == 'success' and gtt_res.get('data'):
+            process_orders(gtt_res['data'])
+    except Exception: pass
+    
+    return live_orders
+
 def sync_history_data(days=90, id_map=None):
     if dhan is None or not id_map: return {}
     
@@ -585,6 +626,7 @@ div[data-testid='column-header-content'] { font-weight:bold!important; }
 # - GLOBAL SYNC (FIXED SECTOR SYNC) -
 with st.spinner('Syncing Portfolio & Funds...'):
     active_symbols, live_map, live_funds, sec_id_map = fetch_live_data()
+    live_orders_data = fetch_active_orders()
     db_df = load_db()
 
 # 1. Load Portfolio CSV (Master Source for SL & Sector)
@@ -610,16 +652,67 @@ for sym in active_symbols:
     live_qty = live_map[sym]['Quantity']
     live_buy = live_map[sym]['BuyPrice']
     
-    # Check Master Portfolio for SL/Sector
-    master_sl = 0.0
-    master_sec = None
-    
     # Robust Normalization for Lookup
     lookup_sym = clean_symbol(sym)
     
+    # 1. Fetch from live API orders
+    live_sl = 0.0
+    live_target1 = 0.0
+    live_target2 = 0.0
+    if lookup_sym in live_orders_data:
+        ref_price = live_buy if live_buy > 0 else live_map[sym]['LTP']
+        live_targets = set()
+        
+        for o in live_orders_data[lookup_sym]:
+            val = o['trigger'] if o['trigger'] > 0 else o['price']
+            val_limit = o['price'] if o['price'] > 0 else o['trigger']
+            
+            if o['leg'] == 'TARGET_LEG':
+                live_targets.add(val_limit)
+            elif o['leg'] == 'STOP_LOSS_LEG' and o['otype'] == 'OCO':
+                if val > live_sl: live_sl = val
+            elif o['otype'] in ['SL', 'SL-M', 'STOP_LOSS']:
+                if val > live_sl: live_sl = val
+            else:
+                # Inference based on price for SINGLE/GTT orders
+                if val > ref_price:
+                    live_targets.add(val_limit)
+                elif val < ref_price and val > 0:
+                    if val > live_sl: live_sl = val
+                    
+        sorted_targets = sorted(list(live_targets))
+        live_target1 = sorted_targets[0] if len(sorted_targets) > 0 else 0.0
+        live_target2 = sorted_targets[1] if len(sorted_targets) > 1 else 0.0
+    
+    # 2. Fetch from Master Portfolio (fallback for SL, primary for Sector)
+    master_sl = 0.0
+    master_sec = None
     if lookup_sym in portfolio_data:
         master_sl = portfolio_data[lookup_sym]['SL']
         master_sec = portfolio_data[lookup_sym]['Sector']
+
+    # 3. Determine final SL and Target to use
+    final_sl = live_sl if live_sl > 0 else master_sl
+    final_target1 = live_target1
+    final_target2 = live_target2
+    
+    final_calc_target = final_target2 if final_target2 > 0 else final_target1
+    
+    # Auto-Calculate PlannedRR if possible
+    def calc_rr(buy, sl, tgt):
+        if buy > 0 and sl > 0 and tgt > 0 and buy > sl and tgt > buy:
+            risk = buy - sl
+            reward = tgt - buy
+            return f"1:{round(reward/risk, 1)}"
+        return "0.0"
+
+    final_rr = "1:2"
+    if final_calc_target == 0.0 and final_sl > 0:
+        # Default 1:2 calculation
+        risk = live_buy - final_sl
+        if risk > 0: final_target1 = live_buy + (risk * 2)
+    elif final_calc_target > 0 and final_sl > 0:
+        final_rr = calc_rr(live_buy, final_sl, final_calc_target)
 
     existing_row = db_df[db_df['Symbol'] == sym]
     
@@ -627,21 +720,16 @@ for sym in active_symbols:
         # New Trade: Use Master/Auto Sector
         if not master_sec: master_sec = get_sector(sym)
         
-        # Auto-Calc Target for New Trade if SL exists
-        new_target = 0.0
-        if master_sl > 0:
-            risk = live_buy - master_sl
-            if risk > 0: new_target = live_buy + (risk * 2) # Default 1:2
-        
         upsert_trade({
             'Symbol': sym, 
             'Quantity': live_qty, 
             'BuyPrice': live_buy, 
             'Status': 'OPEN', 
             'Sector': master_sec,
-            'StopLoss': master_sl,
-            'Target': new_target,
-            'PlannedRR': "1:2"
+            'StopLoss': final_sl,
+            'Target1': final_target1,
+            'Target2': final_target2,
+            'PlannedRR': final_rr
         })
     else:
         # Existing Trade: Sync Delta
@@ -652,20 +740,31 @@ for sym in active_symbols:
         if row['Quantity'] != live_qty: updates['Quantity'] = live_qty
         if row['BuyPrice'] != live_buy: updates['BuyPrice'] = live_buy
         
-        # SL Sync: If DB SL is 0 or different from Master, update
-        current_sl = float(row.get('StopLoss') or 0.0)
-        current_target = float(row.get('Target') or 0.0)
+        current_sl = row.get('StopLoss')
+        current_sl = 0.0 if pd.isna(current_sl) else float(current_sl)
         
-        # Update if Master has a value and it differs
-        if master_sl > 0 and abs(master_sl - current_sl) > 0.05:
-            updates['StopLoss'] = master_sl
+        current_target1 = row.get('Target1')
+        current_target1 = 0.0 if pd.isna(current_target1) else float(current_target1)
+        
+        current_target2 = row.get('Target2')
+        current_target2 = 0.0 if pd.isna(current_target2) else float(current_target2)
+        
+        current_rr = row.get('PlannedRR')
+        current_rr = '' if pd.isna(current_rr) else str(current_rr)
+        
+        # SL Sync
+        if final_sl > 0 and abs(final_sl - current_sl) > 0.05:
+            updates['StopLoss'] = final_sl
             
-            # If we updated SL, and Target is 0, Auto-Calc Target
-            if current_target == 0:
-                risk = live_buy - master_sl
-                if risk > 0: 
-                    updates['Target'] = live_buy + (risk * 2) # Default 1:2
-                    updates['PlannedRR'] = "1:2"
+        # Target Sync
+        if final_target1 > 0 and abs(final_target1 - current_target1) > 0.05:
+            updates['Target1'] = final_target1
+        if final_target2 > 0 and abs(final_target2 - current_target2) > 0.05:
+            updates['Target2'] = final_target2
+            
+        # RR Sync
+        if final_rr != current_rr and final_rr != "0.0":
+            updates['PlannedRR'] = final_rr
             
         # Sector Sync
         current_sec = row.get('Sector')
@@ -707,7 +806,12 @@ active_loss = 0
 if not active_trades.empty:
     active_trades['Quantity'] = pd.to_numeric(active_trades['Quantity'], errors='coerce').fillna(0)
     active_trades['BuyPrice'] = pd.to_numeric(active_trades['BuyPrice'], errors='coerce').fillna(0)
-    
+    # Q5 FIX (20 Jun 2026): exclude rows with no valid cost basis (BuyPrice<=0) or
+    # qty<=0. A missing buy price (->0) faked unrealized P&L — (ltp-0)*qty counted
+    # the full position value as profit — and understated deployed capital.
+    active_trades = active_trades[(active_trades['Quantity'] > 0)
+                                  & (active_trades['BuyPrice'] > 0)].copy()
+
     current_val_sum = 0.0
     for _, row in active_trades.iterrows():
         sym = row['Symbol']
@@ -937,7 +1041,19 @@ st.sidebar.divider()
 
 # - PAGE 1: ACTIVE LEDGER -
 if page == "Ledger (Active)":
-    st.title("📘 Active Trade Journal")
+    col_t1, col_t2 = st.columns([0.8, 0.2])
+    with col_t1:
+        st.title("📘 Active Trade Journal")
+    with col_t2:
+        st.write("") # Spacer
+        if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", use_container_width=True):
+            with st.spinner("Syncing..."):
+                try:
+                    import subprocess
+                    subprocess.run(["python", "db_portfolio_sync.py"], capture_output=True, text=True, check=True)
+                    st.success("✅ Synced! Copy code from `Weinstein and Swing Pro Dashboard v67.4.12.pine`")
+                except Exception as e:
+                    st.error(f"❌ Sync failed: {e}")
 
     # AI Market Brief Section
     with st.container(border=True):
@@ -988,10 +1104,19 @@ if page == "Ledger (Active)":
             ltp = data['LTP']
             qty = data['Quantity'] 
             sl = float(je.get('StopLoss') or 0.0)
-            tgt = float(je.get('Target') or 0.0)
+            tgt1 = float(je.get('Target1') or 0.0)
+            tgt2 = float(je.get('Target2') or 0.0)
             
-            pot_profit = (tgt - buy_price) * qty
+            final_tgt = tgt2 if tgt2 > 0 else tgt1
+            pot_profit = (final_tgt - buy_price) * qty if final_tgt > 0 else None
             actual_pnl = (ltp - buy_price) * qty
+            
+            def format_inr(v):
+                if v is None: return None
+                return f"-₹{abs(v):.2f}" if v < 0 else f"₹{v:.2f}"
+            
+            pot_profit_vis = format_inr(pot_profit)
+            pnl_vis = format_inr(actual_pnl)
             
             status_vis = "🟢 Winning" if actual_pnl > 0 else "🔴 Losing"
             
@@ -999,7 +1124,7 @@ if page == "Ledger (Active)":
             db_rr = je.get('PlannedRR')
             
             risk = buy_price - sl
-            reward = tgt - buy_price
+            reward = final_tgt - buy_price
             
             # Use DB value logic: If DB has value, use it. Else calc. 
             # Actually, always show DB value if present.
@@ -1027,8 +1152,8 @@ if page == "Ledger (Active)":
                 'Type': je.get('Type', 'Positional'), 'Sector': sector, 
                 'Qty': qty, 'Buy Price': buy_price, 'Entry Date': entry_date, 
                 'LTP': ltp, 'Ageing': f"{ageing} days", 'Risk (ATR)': risk_atr_vis,
-                'Planned R:R': rr_vis, 'Pot. Profit': pot_profit, 'P&L': actual_pnl,
-                'Stop Loss': sl, 'Target': tgt, 
+                'Planned R:R': rr_vis, 'Pot. Profit': pot_profit_vis, 'P&L': pnl_vis,
+                'Stop Loss': sl, 'Target 1': tgt1, 'Target 2': tgt2, 
                 'Quality': je.get('Quality', ''), 
                 'AI Analysis': je.get('AI Analysis', ''),
                 'Rationale': je.get('Rationale', ''), 
@@ -1050,7 +1175,7 @@ if page == "Ledger (Active)":
         # Define Column Sequence
         column_order = [
             'Sr #', 'Symbol', 'Sector', 'Type', 'Status', 'Qty', 'Buy Price', 'Entry Date', 
-            'LTP', 'Ageing', 'Risk (ATR)', 'Planned R:R', 'Pot. Profit', 'P&L', 'Stop Loss', 'Target', 
+            'LTP', 'Ageing', 'Risk (ATR)', 'Planned R:R', 'Pot. Profit', 'P&L', 'Stop Loss', 'Target 1', 'Target 2', 
             'Quality', 'AI Analysis', 'Rationale', 'Lessons', 'Exit Price', 'Exit Date', 
             'Exit Reason', 'Chart'
         ]
@@ -1081,10 +1206,10 @@ if page == "Ledger (Active)":
                             new_analysis = generate_tactical_analysis(
                                 symbol=symbol, 
                                 sector=row['Sector'],
-                                buy_price=row['BuyPrice'],
+                                buy_price=row.get('BuyPrice', row.get('Buy Price', 0)),
                                 ltp=ltp_p,
-                                sl=row['StopLoss'],
-                                target=row['Target'],
+                                sl=row.get('Stop Loss', 0),
+                                target=row.get('Target 2') if row.get('Target 2', 0) > 0 else row.get('Target 1', 0),
                                 force_refresh=False
                             )
                         except Exception as e:
@@ -1167,10 +1292,11 @@ if page == "Ledger (Active)":
                 "Ageing": st.column_config.TextColumn("Ageing", disabled=True),
                 "Risk (ATR)": st.column_config.TextColumn("Risk (ATR)", disabled=True, help="Distance to SL. Red if < 1.5x ATR (Noise Risk)"),
                 "Planned R:R": st.column_config.TextColumn("Planned R:R", width="small", help="Default is 1:2"),
-                "Pot. Profit": st.column_config.NumberColumn("Pot. Profit", format="₹%.2f", disabled=True),
-                "P&L": st.column_config.NumberColumn("P&L", format="₹%.2f", disabled=True),
+                "Pot. Profit": st.column_config.TextColumn("Pot. Profit", disabled=True),
+                "P&L": st.column_config.TextColumn("P&L", disabled=True),
                 "Stop Loss": st.column_config.NumberColumn("Stop Loss", format="₹%.2f", disabled=True),
-                "Target": st.column_config.NumberColumn("Target", format="₹%.2f", disabled=True),
+                "Target 1": st.column_config.NumberColumn("Target 1", format="₹%.2f", disabled=True),
+                "Target 2": st.column_config.NumberColumn("Target 2", format="₹%.2f", disabled=True),
                 "Quality": st.column_config.SelectboxColumn("Quality", options=["5-Star", "4-Star", "3-Star", "2-Star", "1-Star", "Avoid"]),
                 "AI Analysis": st.column_config.TextColumn("AI Analysis", width="large", disabled=True),
                 "Rationale": st.column_config.TextColumn("Rationale", width="large"),
@@ -1201,7 +1327,7 @@ if page == "Ledger (Active)":
                 # Only include changed fields
                 update_dict = {'Symbol': sym}
                 
-                # Check for R:R Change -> Auto-Calc Target
+                # Check for R:R Change -> Auto-Calc Target2
                 if 'Planned R:R' in changes:
                     new_rr_str = changes['Planned R:R']
                     update_dict['PlannedRR'] = new_rr_str
@@ -1213,20 +1339,21 @@ if page == "Ledger (Active)":
                     buy_p = df_view.iloc[idx]['Buy Price']
                     sl_p = float(changes.get('Stop Loss', df_view.iloc[idx]['Stop Loss']))
                     
-                    risk = buy_p - sl_p
-                    if risk > 0 and multiplier > 0:
+                    if buy_p > 0 and sl_p > 0 and buy_p > sl_p:
+                        risk = buy_p - sl_p
                         new_target = buy_p + (risk * multiplier)
-                        update_dict['Target'] = new_target
+                        update_dict['Target2'] = new_target # Update final target
                         
-                # Add other standard changes
-                field_map = {
-                    'Type': 'Type', 'Quality': 'Quality', 'Rationale': 'Rationale',
-                    'Lessons': 'Lessons', 'Exit Reason': 'ExitReason', 'Planned R:R': 'PlannedRR',
-                    'Stop Loss': 'StopLoss', 'Target': 'Target'
+                # Map standard changes
+                col_to_db = {
+                    'Type': 'Type', 'Rationale': 'Rationale', 'Lessons': 'Lessons',
+                    'Exit Reason': 'ExitReason', 'Exit Price': 'ExitPrice', 'Exit Date': 'ExitDate',
+                    'Quality': 'Quality', 'Planned R:R': 'PlannedRR',
+                    'Stop Loss': 'StopLoss', 'Target 1': 'Target1', 'Target 2': 'Target2'
                 }
                 for k, v in changes.items():
-                    if k in field_map:
-                        update_dict[field_map[k]] = v
+                    if k in col_to_db:
+                        update_dict[col_to_db[k]] = v
                     else:
                         # Fallback for keys that match DB exactly or aren't mapped
                         update_dict[k] = v

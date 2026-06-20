@@ -1661,6 +1661,30 @@ def run_bull_screener(progress_callback=None, symbols=None,
             _pl.log_picks("bull", df_out)
         except Exception:
             pass
+
+        # ── BULL CATALYST SUMMARY (20 Jun 2026) — mirror the Recovery
+        # RESULTS SUMMARY so the Bull run also prints a clean catalyst rollup.
+        try:
+            if "Catalyst" in df_out.columns:
+                print("\n" + "=" * 68)
+                print("  BULL CATALYST SUMMARY")
+                print("=" * 68)
+                _vc = df_out["Catalyst"].fillna("NONE").replace("", "NONE").value_counts()
+                _order = ["POS-BO", "POS-ACCUM", "SWG-BO", "SWG-GAP",
+                          "SWG-REV", "SWG-PB", "NONE"]
+                _shown = set()
+                for _cat in _order + [c for c in _vc.index if c not in _order]:
+                    if _cat in _vc.index and _cat not in _shown:
+                        _shown.add(_cat)
+                        _n = int(_vc[_cat])
+                        print(f"  {_cat:<12} {_n:3d}  {'#' * min(_n, 50)}")
+                _fired = int((df_out["Catalyst"].fillna("NONE").replace("", "NONE")
+                              != "NONE").sum())
+                print("-" * 68)
+                print(f"  Catalyst fired: {_fired} / {len(df_out)}")
+                print("=" * 68)
+        except Exception as _se:
+            logger.debug("bull catalyst summary failed: %s", _se)
         return df_out
 
     # Zero-signals case (10 May 2026 fix): still write a header-only CSV so

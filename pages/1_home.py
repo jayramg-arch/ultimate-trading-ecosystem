@@ -98,7 +98,9 @@ def load_journal_db():
         if 'Quantity' in df.columns and 'BuyPrice' in df.columns:
             df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce').fillna(0)
             df['BuyPrice'] = pd.to_numeric(df['BuyPrice'], errors='coerce').fillna(0)
-            df = df[df['Quantity'] > 0].copy() # Filter ghosts/errors
+            # Q5 FIX: also drop rows with no valid buy price — a 0 cost basis is a
+            # data error and would fake unrealized P&L / understate deployed capital.
+            df = df[(df['Quantity'] > 0) & (df['BuyPrice'] > 0)].copy() # Filter ghosts/errors
         return df
     except: return pd.DataFrame()
     finally:
@@ -531,15 +533,20 @@ if page == 'DASHBOARD':
                     df_closed = df_closed.sort_values('ExitDate')
                     
                     # 1. Calculate PnL and Deployed Capital per trade
-                    df_closed['PnL'] = (
-                        pd.to_numeric(df_closed['ExitPrice'],errors='coerce').fillna(0) -
-                        pd.to_numeric(df_closed['BuyPrice'], errors='coerce').fillna(0)
-                    ) * pd.to_numeric(df_closed['Quantity'],errors='coerce').fillna(0)
-                    
-                    df_closed['CapitalDeployed'] = (
-                        pd.to_numeric(df_closed['BuyPrice'], errors='coerce').fillna(0) * 
-                        pd.to_numeric(df_closed['Quantity'],errors='coerce').fillna(0)
-                    )
+                    # Q5 FIX (20 Jun 2026): EXCLUDE rows with a missing/invalid
+                    # buy price, exit price, or quantity — do NOT fillna(0). A
+                    # missing BuyPrice previously defaulted to 0, turning the full
+                    # exit value into fake profit AND zeroing deployed capital
+                    # (inflating the % return / alpha). Now such rows are dropped.
+                    _bp  = pd.to_numeric(df_closed['BuyPrice'],  errors='coerce')
+                    _ep  = pd.to_numeric(df_closed['ExitPrice'], errors='coerce')
+                    _qty = pd.to_numeric(df_closed['Quantity'],  errors='coerce')
+                    _valid = _bp.gt(0) & _ep.gt(0) & _qty.gt(0)
+                    if not _valid.all():
+                        df_closed = df_closed[_valid].copy()
+                        _bp, _ep, _qty = _bp[_valid], _ep[_valid], _qty[_valid]
+                    df_closed['PnL'] = (_ep - _bp) * _qty
+                    df_closed['CapitalDeployed'] = _bp * _qty
                     
                     # 2. Group by date to get cumulative PnL
                     pc = df_closed.groupby('ExitDate').agg({'PnL':'sum'}).reset_index()

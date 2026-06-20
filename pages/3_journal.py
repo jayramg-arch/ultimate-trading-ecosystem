@@ -651,7 +651,12 @@ active_loss = 0
 if not active_trades.empty:
     active_trades['Quantity'] = pd.to_numeric(active_trades['Quantity'], errors='coerce').fillna(0)
     active_trades['BuyPrice'] = pd.to_numeric(active_trades['BuyPrice'], errors='coerce').fillna(0)
-    
+    # Q5 FIX (20 Jun 2026): exclude rows with no valid cost basis (BuyPrice<=0) or
+    # qty<=0 — a missing buy price (->0) faked unrealized P&L and understated
+    # deployed capital.
+    active_trades = active_trades[(active_trades['Quantity'] > 0)
+                                  & (active_trades['BuyPrice'] > 0)].copy()
+
     current_val_sum = 0.0
     for _, row in active_trades.iterrows():
         sym = row['Symbol']
