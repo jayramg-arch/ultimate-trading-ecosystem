@@ -44,6 +44,22 @@ def main():
     # E9: pipeline status tracker — writes pipeline_status.json after every phase
     run = PipelineRun(label="Auto-Pilot Pipeline")
 
+    # 0. PRE-FLIGHT CLEANUP — clear leftover Playwright browsers / profile locks
+    # / temp files / duplicate pick_log rows from a prior hung run, so running
+    # the auto-pilot multiple times in a short span starts clean each time.
+    # Non-fatal: cleanup problems never block the run.
+    print("\n[PHASE 0] PRE-FLIGHT CLEANUP...")
+    with run.phase("Phase 0 — Pre-flight Cleanup") as p:
+        try:
+            import pipeline_cleanup
+            _cl = pipeline_cleanup.preflight_cleanup(verbose=True)
+            p.message = (f"browsers={_cl['browsers_killed']} locks={_cl['locks_removed']} "
+                         f"temp={_cl['temp_removed']} pick_log_dupes={_cl['pick_log_deduped']}")
+        except Exception as e:
+            print(f"⚠️  Pre-flight cleanup skipped: {e}")
+            p.status = "SKIP"
+            p.message = f"skipped: {e}"
+
     # 1. RUN ALL CHARTINK SCANS
     print("\n[PHASE 1] RUNNING TECHNICAL SCANNERS...")
     with run.phase("Phase 1 — Chartink Scanners") as p:
