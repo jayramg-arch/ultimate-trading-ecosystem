@@ -239,12 +239,19 @@ def get_script_path(f): return os.path.join(_SCRIPT_DIR, f)
 def get_img_as_base64(file):
     with open(file, "rb") as f: return base64.b64encode(f.read()).decode()
 
+# Check for local virtual environment Python first
+_VENV_PY = os.path.join(_SCRIPT_DIR, ".venv", "Scripts", "python.exe")
+if not os.path.exists(_VENV_PY):
+    _VENV_PY = os.path.join(_SCRIPT_DIR, ".venv", "bin", "python")
+_PYTHON_EXE = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
+
 def launch_script(script_name, args=None, is_streamlit=False):
     try:
         full_path = get_script_path(script_name)
         if not os.path.exists(full_path):
             st.error(f"❌ File not found: {script_name}"); return
-        cmd = f'streamlit run "{full_path}"' if is_streamlit else f'"{sys.executable}" "{full_path}"'
+        env_setup = "set PYTHONIOENCODING=utf-8&&set PYTHONUTF8=1&&"
+        cmd = f'{env_setup}streamlit run "{full_path}"' if is_streamlit else f'{env_setup}"{_PYTHON_EXE}" "{full_path}"'
         if args: cmd += f" {args}"
         os.system(f'start cmd /k "cd /d "{os.getcwd()}" && {cmd}"')
         st.toast(f"🚀 Launched: {script_name}")
@@ -287,6 +294,9 @@ def get_dhan_balance():
         "netAvailableMargin",  # margin variant
     )
     try:
+        from net_utils import is_internet_available
+        if not is_internet_available():
+            return 0.0, "SYSTEM OFFLINE"
         cid, tok = _get_dhan_client()
         if not cid or not tok:
             return 0.0, "AUTH MISSING"
@@ -333,6 +343,9 @@ def get_dhan_balance():
 
 def get_live_holdings_stats():
     try:
+        from net_utils import is_internet_available
+        if not is_internet_available():
+            return 0, 0.0, pd.DataFrame()
         cid, tok = _get_dhan_client()
         if not cid or not tok: return 0, 0.0, pd.DataFrame()
         dhan = dhanhq(cid, tok)
@@ -1102,16 +1115,22 @@ with st.sidebar:
 # C1 sweep: VIX hits on every page render — route through data_provider so a
 # single 15-min cache window covers all reruns.
 try:
-    try:
-        import data_provider as _dp_vix
-        _vix_bar = _dp_vix.fetch_ohlcv("^INDIAVIX", period="5d", interval="1d")
-    except Exception:
-        _vix_bar = yf.download("^INDIAVIX", period="2d", interval="1d",
-                                progress=False, auto_adjust=True)
-    if isinstance(_vix_bar.columns, pd.MultiIndex): _vix_bar.columns = _vix_bar.columns.get_level_values(0)
-    _vix_val = float(_vix_bar["Close"].iloc[-1]) if not _vix_bar.empty else 0
-    _vix_col = "#ff4b4b" if _vix_val > 20 else "#e3b341" if _vix_val > 15 else "#00f260"
-    _vix_txt = f"{_vix_val:.1f}"
+    from net_utils import is_internet_available
+    _vix_bar = pd.DataFrame()
+    if is_internet_available():
+        try:
+            import data_provider as _dp_vix
+            _vix_bar = _dp_vix.fetch_ohlcv("^INDIAVIX", period="5d", interval="1d")
+        except Exception:
+            _vix_bar = yf.download("^INDIAVIX", period="2d", interval="1d",
+                                    progress=False, auto_adjust=True)
+    if not _vix_bar.empty:
+        if isinstance(_vix_bar.columns, pd.MultiIndex): _vix_bar.columns = _vix_bar.columns.get_level_values(0)
+        _vix_val = float(_vix_bar["Close"].iloc[-1])
+        _vix_col = "#ff4b4b" if _vix_val > 20 else "#e3b341" if _vix_val > 15 else "#00f260"
+        _vix_txt = f"{_vix_val:.1f}"
+    else:
+        _vix_val, _vix_col, _vix_txt = 0, "#5a8a9f", "N/A"
 except Exception:
     _vix_val, _vix_col, _vix_txt = 0, "#5a8a9f", "N/A"
 
@@ -1146,14 +1165,17 @@ if _HUB_OK:
 _regime_txt, _regime_col = "–", "#5a8a9f"
 try:
     import json as _json, os as _os
+    from datetime import datetime as _dt, timedelta as _td
     _rs_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
                               "regime_state.json")
+    _stale = True
     if _os.path.exists(_rs_path):
         with open(_rs_path, "r", encoding="utf-8") as _f:
             _rs = _json.load(_f) or {}
         _last = (_rs.get("last") or {})
         _v = (_last.get("verdict") or "").strip()
         _s = _last.get("score")
+        _comp_str = _last.get("computed_at")
         if _v:
             _regime_txt = f"{_v} ({_s}/10)" if _s is not None else _v
             _vu = _v.upper()
@@ -1163,6 +1185,46 @@ try:
                 _regime_col = "#ff4b4b"
             else:
                 _regime_col = "#e3b341"
+        if _comp_str:
+            try:
+                _comp_dt = _dt.fromisoformat(_comp_str)
+                # If calculated today and less than 12 hours ago, it is fresh
+                if _dt.now() - _comp_dt < _td(hours=12) and _comp_dt.date() == _dt.now().date():
+                    _stale = False
+            except Exception:
+                pass
+    if _stale:
+        from net_utils import is_internet_available
+        if is_internet_available():
+            import threading as _threading
+            import market_regime as _mr
+            # PC-HANG FIX (20 Jun 2026): acquire the process-wide lock in the MAIN
+            # thread BEFORE spawning. Streamlit reruns the script sequentially, so
+            # this check is race-free; the lock stays held for the thread's whole
+            # lifetime, so reruns that happen while an update is in-flight do NOT
+            # spawn another thread. (Old code spawned a thread per rerun and made
+            # the lock lazily inside the thread -> thread/socket storm -> freeze.)
+            _lk = getattr(_mr, "_regime_update_lock", None)
+            if _lk is not None and _lk.acquire(blocking=False):
+                def _silent_regime_update():
+                    try:
+                        _bm = None
+                        _ad = None
+                        try:
+                            import breadth_engine as _be
+                            _bm = _be.calculate_breadth_metrics()
+                            _ad = _be.load_or_bootstrap_ad_history(min_rows=40)
+                        except Exception:
+                            pass
+                        _mr.compute_regime(_bm, _ad, persist=True)
+                    except Exception:
+                        pass
+                    finally:
+                        try:
+                            _mr._regime_update_lock.release()
+                        except Exception:
+                            pass
+                _threading.Thread(target=_silent_regime_update, daemon=True).start()
 except Exception:
     pass
 
@@ -1862,9 +1924,9 @@ if page == 'DASHBOARD':
                     pc['Portfolio_%'] = (pc['CumulativePnL'] / starting_equity) * 100
                     pc = pc.rename(columns={'ExitDate': 'Date'})
 
-                    nifty = yf.download("^NSEI",
-                        start=pc['Date'].min() - pd.Timedelta(days=7),
-                        end=pc['Date'].max()   + pd.Timedelta(days=1), progress=False)
+                    import data_provider as _dp_bench
+                    nifty_raw = _dp_bench.fetch_ohlcv("^NSEI", period="max", interval="1d")
+                    nifty = nifty_raw.loc[pc['Date'].min() - pd.Timedelta(days=7) : pc['Date'].max() + pd.Timedelta(days=1)]
                     if not nifty.empty:
                         nifty = nifty['Close'].reset_index()
                         nifty.columns = ['Date', 'NiftyClose']
@@ -2505,7 +2567,7 @@ elif page == 'HUNTER':
         )
 
         _xray_custom_syms = None
-        _xray_out_file    = "XRay_Screener_Results.csv"
+        _xray_out_file    = "FINAL_XRay_Picks.csv"
 
         if _xray_src.startswith("⬆️"):
             _xray_upload = st.file_uploader(
@@ -3269,7 +3331,7 @@ elif page == 'WATCHLIST':
         ("🐂 Standalone Live Screeners (run from HUNTER tabs)", [
             ("Bull_Screener_Results.csv",     "bull_screener.py",     None, "HUNTER → 🐂 Bull Screener"),
             ("Recovery_Screener_Results.csv", "recovery_screener.py", None, "HUNTER → 🔄 Recovery Screener"),
-            ("XRay_Screener_Results.csv",     "xray_screener_job.py", None, "HUNTER → 🧬 X-Ray Screener"),
+            ("FINAL_XRay_Picks.csv",     "xray_screener_job.py", None, "HUNTER → 🧬 X-Ray Screener"),
         ]),
     ]
 
@@ -4180,7 +4242,7 @@ elif page == 'COMMAND':
 
     with _cm1:
         section("Active Operations")
-        c1, c2, c3 = st.columns(3, gap="small")
+        c1, c2, c3, c4, c5 = st.columns(5, gap="small")
         with c1:
             if st.button("🎯  Sniper Entry AI v2\nOrder execution with Institutional AI analysis.\n→  Launch", use_container_width=True, key="cmd_sniper"):
                 launch_script("sniper_trigger.py")
@@ -4190,6 +4252,12 @@ elif page == 'COMMAND':
         with c3:
             if st.button("📲  Telegram Sentinel\nActive market monitoring via Mobile.\n→  Launch", use_container_width=True, key="cmd_tg"):
                 launch_script("telegram_sentinel.py")
+        with c4:
+            if st.button("🤖  Market Monitor Agent\nLive intraday scans and Telegram alerts.\n→  Launch", use_container_width=True, key="cmd_monitor"):
+                launch_script("market_monitor_agent.py")
+        with c5:
+            if st.button("🔌  Dhan Webhook Gateway\nExpose port 8000 via ngrok for TV alerts.\n→  Launch", use_container_width=True, key="cmd_webhook"):
+                launch_script("dhan_tv_webhook.py")
 
         # ── MISS-1: EXIT SIGNAL ENGINE ───────────────────────────────────────
         st.markdown("---")
@@ -4393,7 +4461,20 @@ elif page == 'COMMAND':
             launch_script("dhan_journal_v7.py", is_streamlit=True)
 
     with _cm2:
-        section("Live Trade Ledger")
+        col1, col2 = st.columns([0.7, 0.3])
+        with col1:
+            section("Live Trade Ledger")
+        with col2:
+            st.write("") # Spacer
+            if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", use_container_width=True):
+                with st.spinner("Syncing..."):
+                    try:
+                        import subprocess
+                        subprocess.run([_PYTHON_EXE, "db_portfolio_sync.py"], capture_output=True, text=True, check=True)
+                        st.success("✅ Synced! Copy code from `Weinstein and Swing Pro Dashboard v67.4.12.pine`")
+                    except Exception as e:
+                        st.error(f"❌ Sync failed: {e}")
+                        
         df_j = load_journal_db()
         if not df_j.empty:
             show = [c for c in ["Symbol","Type","BuyPrice","Quantity","Status",
@@ -4829,7 +4910,7 @@ elif page == 'AI LAB':
                     if module_name == "_subprocess":
                         # Run platform-sync scripts the same way run_pipeline.py does
                         parts = func_name.split()
-                        _sp.run([sys.executable, parts[0]] + parts[1:],
+                        _sp.run([_PYTHON_EXE, parts[0]] + parts[1:],
                                 check=True, cwd=_script_dir, timeout=180)
                     else:
                         # BUG-M4: importlib.reload() can silently execute stale byte-code.
