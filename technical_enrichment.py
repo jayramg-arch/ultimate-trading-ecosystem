@@ -50,6 +50,39 @@ except Exception:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Within-run enrichment cache (Tier-1 #2, 20 Jun 2026)
+# ─────────────────────────────────────────────────────────────────────
+# enrich_symbol() is called repeatedly for the SAME symbol inside one process
+# — e.g. the matcher enriches Hunter/EarlyBird/Leader/Pullback + combined, and
+# overlapping names get recomputed each time (re-fetch OHLCV + re-derive
+# Stage/Mansfield/RSI/ADX/...). This memoises the per-symbol result so repeats
+# are free. The key embeds the data-provider's pinned date (or today's date),
+# so the cache auto-invalidates each day and stays correct under replay pinning
+# — no manual "clear per run" needed. Only successful computations are cached
+# (transient fetch failures are never memoised, so they retry next phase).
+import datetime as _dt
+
+_ENRICH_CACHE: Dict[tuple, Dict] = {}
+
+
+def _cache_token() -> str:
+    """Date stamp that scopes the cache: pinned date under replay, else today."""
+    if _DP_OK and _dp is not None:
+        try:
+            p = _dp.get_pinned_date()
+            if p:
+                return str(p)
+        except Exception:
+            pass
+    return _dt.date.today().isoformat()
+
+
+def clear_enrich_cache() -> None:
+    """Drop all memoised enrichment results (e.g. to force a fresh recompute)."""
+    _ENRICH_CACHE.clear()
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Per-stock metric helpers
 # ─────────────────────────────────────────────────────────────────────
 
@@ -214,6 +247,15 @@ def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
     }
     if not _DP_OK or _dp is None:
         return out
+
+    # Within-run memoisation: return a COPY of a prior successful compute for
+    # this (symbol, date, bench-present) so repeats across watchlists/phases are
+    # free. bench-present is in the key because Mansfield_RS is None without it.
+    _ck = (symbol, _cache_token(), bench_close is not None)
+    _hit = _ENRICH_CACHE.get(_ck)
+    if _hit is not None:
+        return dict(_hit)
+
     try:
         df = _flatten_cols(_dp.fetch_ohlcv(symbol, period="2y", interval="1d"))
         if df is None or df.empty:
@@ -250,6 +292,9 @@ def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
         # Mansfield RS vs benchmark
         if bench_close is not None:
             out["Mansfield_RS"] = _calc_mansfield_rs(close, bench_close)
+
+        # Memoise only on a successful compute (never cache transient failures).
+        _ENRICH_CACHE[_ck] = dict(out)
     except Exception as e:
         logger.debug("enrich_symbol(%s) failed: %s", symbol, e)
     return out
@@ -259,10 +304,24 @@ def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
 # DataFrame-level enrichment + scoring
 # ─────────────────────────────────────────────────────────────────────
 
+def fetch_benchmark_close(bench: str = "^CRSLDX") -> Optional[pd.Series]:
+    """Fetch the benchmark daily close once, so a caller running several
+    enrich passes (e.g. the matcher's 5 watchlists) can fetch it a single time
+    and thread it into each enrich_dataframe(..., bench_close=...) call."""
+    if not _DP_OK or _dp is None:
+        return None
+    try:
+        return _safe_close(_flatten_cols(_dp.fetch_ohlcv(bench, period="2y", interval="1d")))
+    except Exception as e:
+        logger.warning("benchmark %s fetch failed: %s", bench, e)
+        return None
+
+
 def enrich_dataframe(df: pd.DataFrame,
                        symbol_col: str = "Symbol",
                        bench: str = "^CRSLDX",
                        progress_cb: Optional[Callable[[int, int, str], None]] = None,
+                       bench_close: Optional[pd.Series] = None,
                        ) -> pd.DataFrame:
     """Add Stage, Mansfield_RS, Daily_RSI, Daily_ADX, EMA_Stack, etc.,
        Tech_Score, and Combined_Score columns to df.
@@ -290,9 +349,10 @@ def enrich_dataframe(df: pd.DataFrame,
     _sym_index = _nonnull.index
     n = len(syms)
 
-    # Fetch benchmark ONCE
-    bench_close = None
-    if _DP_OK and _dp is not None:
+    # Fetch benchmark ONCE — unless the caller already supplied it (Tier-1 #1,
+    # 20 Jun 2026: the matcher fetches the benchmark once and threads it through
+    # all 5 watchlist enrich passes instead of re-fetching per call).
+    if bench_close is None and _DP_OK and _dp is not None:
         try:
             bdf = _flatten_cols(_dp.fetch_ohlcv(bench, period="2y", interval="1d"))
             bench_close = _safe_close(bdf)

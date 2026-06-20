@@ -313,6 +313,11 @@ def perform_match(return_raw=False):
               f"will lack Tech_Score/Combined_Score (rankings degraded)")
         _ENRICH_OK = False
 
+    # Tier-1 #1 (20 Jun 2026): fetch the benchmark ONCE and reuse it across all
+    # watchlist enrich passes (Hunter/EarlyBird/Leader/Pullback + combined),
+    # instead of re-fetching it inside each enrich_dataframe call.
+    _bench_close = _te.fetch_benchmark_close() if _ENRICH_OK else None
+
     def _is_enriched(df) -> bool:
         """True when df already carries populated Combined_Score (avoid re-fetch)."""
         return (df is not None and not df.empty
@@ -333,7 +338,7 @@ def perform_match(return_raw=False):
             def _prog(i, total, sym):
                 if i == 1 or i == total or i % 5 == 0:
                     print(f"      [{i:3d}/{total}] {sym}")
-            df = _te.enrich_dataframe(df, progress_cb=_prog)
+            df = _te.enrich_dataframe(df, progress_cb=_prog, bench_close=_bench_close)
         if 'Combined_Score' in df.columns:
             df = df.sort_values('Combined_Score', ascending=False)
         return df
