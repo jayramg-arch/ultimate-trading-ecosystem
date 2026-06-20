@@ -151,12 +151,29 @@ def _extend_recovery_conviction(df, symbol_col, sym_to_conv, conv_fn) -> int:
     if not missing:
         return 0
 
+    # T1.2 (20 Jun 2026): parallelize the per-symbol fundamentals fetch — it was
+    # a serial loop (~6 min cold for ~62 names). fetch_stock_fundamentals is I/O
+    # bound (HTTP to Screener.in/yfinance), so a small thread pool cuts it to
+    # ~30-60s. Workers kept conservative (env DHAN/SCREENER-safe) so we don't
+    # trip Screener.in rate limits. fundamental_hub already caches; no ranking
+    # change (same values, just fetched concurrently).
+    import os as _os
+    from concurrent.futures import ThreadPoolExecutor
+    _workers = max(1, int(_os.getenv("RECOVERY_FUND_WORKERS", "6")))
     logger.info("Recovery conviction: fetching fundamentals for %d names not in "
-                "Stage-2 master (Q1 coverage extension)", len(missing))
-    resolved = 0
-    for key in missing:
+                "Stage-2 master (Q1 coverage extension, %d workers)",
+                len(missing), _workers)
+
+    def _fetch_one(key):
         try:
-            fh = _fh.fetch_stock_fundamentals(f"{key}.NS") or {}
+            return key, (_fh.fetch_stock_fundamentals(f"{key}.NS") or {})
+        except Exception as e:
+            logger.debug("recovery conviction fetch failed for %s: %s", key, e)
+            return key, {}
+
+    resolved = 0
+    with ThreadPoolExecutor(max_workers=_workers) as _ex:
+        for key, fh in _ex.map(_fetch_one, missing):
             if not fh:
                 continue
             # Map fundamental_hub keys/units -> the golden column names the
@@ -174,8 +191,6 @@ def _extend_recovery_conviction(df, symbol_col, sym_to_conv, conv_fn) -> int:
             if any(v is not None for v in row.values()):
                 sym_to_conv[key] = conv_fn(row)
                 resolved += 1
-        except Exception as e:
-            logger.debug("recovery conviction fetch failed for %s: %s", key, e)
     logger.info("Recovery conviction: resolved %d/%d additional names", resolved, len(missing))
     return resolved
 
