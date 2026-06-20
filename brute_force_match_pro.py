@@ -130,10 +130,58 @@ def _safe_num(row, *keys, default=0.0):
     return default
 
 
+# T2.4 (20 Jun 2026): the v1 bull conviction below uses ONLY growth + ROE + mcap.
+# Now that Screener.in premium reliably supplies D/E, ROCE, promoter holding and
+# dividend yield, the v2 scorer (_calc_conviction_v2) also rewards balance-sheet
+# quality and founder backing — while keeping growth dominant (Minervini profile).
+# It is GATED behind BULL_CONVICTION_V2 (default OFF) and must clear a validation.py
+# backtest before becoming the default (per the "validate before changing signals"
+# rule). Flip with: set BULL_CONVICTION_V2=1.
+_BULL_CONV_V2 = os.getenv("BULL_CONVICTION_V2", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _calc_conviction_v2(row):
+    """Bull conviction v2 — growth-primary + now-reliable quality signals.
+    Max caps at 10, but reaching the top now requires BOTH strong growth AND
+    quality (v1 could hit 10 on growth alone), making the rank more discerning."""
+    score = 5.0
+    # Growth (primary — Minervini bull)
+    pg = _safe_num(row, 'Qtr Profit Var %', 'Qtr Profit Var')
+    if pg > 50: score += 1.75
+    elif pg > 20: score += 1.0
+    sg = _safe_num(row, 'Qtr Sales Var %', 'Qtr Sales Var')
+    if sg > 20: score += 0.75
+    # Profitability
+    roe = _safe_num(row, 'ROE %', 'ROE')
+    if roe > 20: score += 0.75
+    elif roe > 15: score += 0.4
+    roce = _safe_num(row, 'ROCE %', 'ROCE')
+    if roce > 20: score += 0.75
+    elif roce > 15: score += 0.4
+    # Balance sheet (present-guarded — never reward MISSING data)
+    de = _safe_num(row, 'Debt to equity', 'Debt / Equity', default=None)
+    if de is not None:
+        if de < 0.5: score += 0.75
+        elif de > 2.0: score -= 0.75
+    # Founder backing
+    prom = _safe_num(row, 'Promoter holding %', 'Promoter holding')
+    if prom > 50: score += 0.5
+    elif prom > 40: score += 0.25
+    # Income quality
+    div = _safe_num(row, 'Div Yld %', 'Div Yld')
+    if div > 1.0: score += 0.25
+    # Size
+    mcap = _safe_num(row, 'Mar Cap Rs.Cr.', 'Mar Cap')
+    if 1000 < mcap < 20000: score += 0.25
+    return round(min(10.0, score), 1)
+
+
 def calculate_conviction_score(row):
     """Stage 2 conviction. Uses actual MASTER_scan_results.csv column names.
     NOTE: Quarterly variants used because annual growth cols not in current master.
     To get annual Profit growth / Sales growth, enrich via screener_fetcher.py."""
+    if _BULL_CONV_V2:
+        return _calc_conviction_v2(row)
     score = 5.0
     # Quarterly profit growth (proxy for annual until enriched)
     pg = _safe_num(row, 'Qtr Profit Var %', 'Qtr Profit Var')
