@@ -124,20 +124,40 @@ def _dedupe_pick_log() -> int:
         return 0
 
 
+def _prune_old_logs(keep: int = 15) -> int:
+    """Keep only the newest `keep` auto_pilot_*.log files in the project root so
+    they don't accumulate. The current run's log is the newest, so it is never
+    pruned (Phase 0 runs after the log is opened)."""
+    try:
+        logs = sorted(glob.glob(os.path.join(_DIR, "auto_pilot_*.log")),
+                      key=os.path.getmtime, reverse=True)
+        removed = 0
+        for p in logs[keep:]:
+            try:
+                os.remove(p); removed += 1
+            except Exception:
+                pass
+        return removed
+    except Exception:
+        return 0
+
+
 def preflight_cleanup(verbose: bool = True) -> dict:
-    """Clear leftover browsers/locks/temp/pick-log-dupes from a prior run.
-    Never raises; each step degrades independently."""
+    """Clear leftover browsers/locks/temp/pick-log-dupes/old-logs from a prior
+    run. Never raises; each step degrades independently."""
     res = {
         "browsers_killed":  _kill_stale_browsers(),
         "locks_removed":    _clear_profile_locks(),
         "temp_removed":     _clear_temp_files(),
         "pick_log_deduped": _dedupe_pick_log(),
+        "old_logs_pruned":  _prune_old_logs(),
     }
     if verbose:
         print(f"[cleanup] stale browsers killed={res['browsers_killed']} | "
               f"profile locks={res['locks_removed']} | "
               f"temp files={res['temp_removed']} | "
-              f"pick_log dupes={res['pick_log_deduped']}")
+              f"pick_log dupes={res['pick_log_deduped']} | "
+              f"old logs pruned={res['old_logs_pruned']}")
     return res
 
 

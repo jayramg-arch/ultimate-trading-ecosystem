@@ -20,7 +20,62 @@ except ImportError as e:
     input("Press Enter to exit...")
     sys.exit(1)
 
+_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+class _Tee:
+    """Mirror every write to several streams (console + log file)."""
+    def __init__(self, *streams):
+        self._streams = streams
+
+    def write(self, data):
+        for s in self._streams:
+            try:
+                s.write(data)
+                s.flush()
+            except Exception:
+                pass
+
+    def flush(self):
+        for s in self._streams:
+            try:
+                s.flush()
+            except Exception:
+                pass
+
+
+def _run_logged(cmd):
+    """Run a subprocess, streaming its combined stdout+stderr LIVE to the current
+    sys.stdout (which is Tee'd to console + log file). Raises CalledProcessError
+    on non-zero exit, matching the previous subprocess.run(check=True) behaviour
+    — but now the Strike/TradingView browser-automation output is captured in the
+    log file too, not just the console."""
+    import subprocess
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, encoding="utf-8", errors="replace", bufsize=1)
+    for line in proc.stdout:
+        sys.stdout.write(line)
+    proc.wait()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, cmd)
+
 def main():
+    # ── Console log capture ────────────────────────────────────────────────
+    # Mirror the ENTIRE auto-pilot console output to a timestamped log file in
+    # the project folder (line-buffered + flush-per-write, so the log stays
+    # complete even if a run hangs/crashes). subprocess phases are captured via
+    # _run_logged below.
+    import datetime as _dt
+    _log_path = os.path.join(_DIR, f"auto_pilot_{_dt.datetime.now():%Y%m%d_%H%M%S}.log")
+    try:
+        _log_fh = open(_log_path, "w", encoding="utf-8", buffering=1)
+        sys.stdout = _Tee(sys.__stdout__, _log_fh)
+        sys.stderr = _Tee(sys.__stderr__, _log_fh)
+        print(f"[log] Auto-Pilot console log -> {_log_path}")
+    except Exception as _le:
+        _log_fh = None
+        print(f"⚠️ Could not open log file ({_le}); continuing without file log.")
+
     # Clear any stale automated Chrome processes before starting the pipeline
     try:
         kill_automation_chrome()
@@ -208,7 +263,7 @@ def main():
     with run.phase("Phase 5.7 — Stale Watchlists Cleanup") as p:
         try:
             import subprocess
-            subprocess.run([sys.executable, "nuclear_cleanup.py"], check=True)
+            _run_logged([sys.executable, "nuclear_cleanup.py"])
             p.message = "Cleanup complete"
         except Exception as e:
             print(f"❌ Error in Nuclear Cleanup: {e}")
@@ -221,7 +276,7 @@ def main():
             # Use subprocess for cleaner execution, waiting for it to finish
             # We use sys.executable to ensure we use the same python runner
             import subprocess
-            subprocess.run([sys.executable, "strike_automation.py", "--mode=watchlist"], check=True)
+            _run_logged([sys.executable, "strike_automation.py", "--mode=watchlist"])
             p.message = "Strike sync OK"
         except Exception as e:
             print(f"❌ Error in Strike Sync: {e}")
@@ -232,7 +287,7 @@ def main():
     with run.phase("Phase 7 — TradingView Sync") as p:
         try:
             import subprocess
-            subprocess.run([sys.executable, "tradingview_automation_v2.py", "--pipeline"], check=True)
+            _run_logged([sys.executable, "tradingview_automation_v2.py", "--pipeline"])
             p.message = "TV sync OK"
         except Exception as e:
             print(f"❌ Error in TradingView Sync: {e}")
@@ -315,6 +370,17 @@ def main():
     print("\n" + "="*60)
     print("✅ WORKFLOW COMPLETE")
     print("="*60)
+    if _log_fh is not None:
+        print(f"[log] Full console log saved -> {_log_path}")
+
+    # Restore real stdio and close the log file.
+    try:
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+        if _log_fh is not None:
+            _log_fh.close()
+    except Exception:
+        pass
 
     if "--batch" not in sys.argv:
         input("Press Enter to close window...")
