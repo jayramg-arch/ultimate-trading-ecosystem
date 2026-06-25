@@ -1033,6 +1033,7 @@ with st.sidebar:
         ]),
         ("⚡  EXECUTION", [
             ("⚡ COMMAND",     "COMMAND"),
+            ("🛡️ ENTRY SHIELD", "ENTRY SHIELD"),
             ("📐 OPTIONS",     "OPTIONS"),
             ("📺 TV SIDECAR",  "TV SIDECAR"),
         ]),
@@ -9460,3 +9461,505 @@ elif page == 'TV SIDECAR':
             _ws_c4.metric("SMA200 Slope",    f"{_ws_sma200slp:+.2f}%",
                           delta="Rising" if _ws_sma200slp > 0 else "Falling",
                           delta_color="normal" if _ws_sma200slp > 0 else "inverse")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  ENTRY SHIELD — Active Exit Monitoring & Pullback Entry Tracking
+    # ══════════════════════════════════════════════════════════════════════════
+    elif page == 'ENTRY SHIELD':
+        st.markdown('<div class="page-title">🛡️ Entry Shield — Exit & Entry Monitor</div>', unsafe_allow_html=True)
+        st.markdown('<div class="page-desc">Live monitoring of OCO exits, pullback entries, and unprotected holdings from Dhan GTT orders.</div>', unsafe_allow_html=True)
+
+        # --- AI review helper (uses fast model for batch) ---
+        def get_stock_context_and_ai_review(symbol, order_type, **kwargs):
+            from ai_provider_manager import ask_llm_fast
+            if order_type == "OCO_EXIT_COMBINED":
+                orders_list = kwargs.get("orders", [])
+                ltp = kwargs.get("ltp", 0)
+                r_mult = kwargs.get("r_mult", "N/A")
+                risk = kwargs.get("risk", 0)
+                orders_desc = []
+                for o_idx, o in enumerate(orders_list):
+                    sl = o["sl_trigger"]; target = o["target_trigger"]
+                    sl_qty = o.get("sl_qty") or o.get("qty") or 0
+                    tgt_qty = o.get("target_qty") or o.get("qty") or 0
+                    sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl else 0.0
+                    tgt_dist = ((target - ltp) / ltp * 100) if ltp and target else 0.0
+                    orders_desc.append(f"  Leg {o_idx+1}: SL ₹{sl:,.0f} ({sl_dist:+.1f}%) | Tgt ₹{target:,.0f} (+{tgt_dist:.1f}%)")
+                prompt = f"{symbol} | LTP ₹{ltp:,.2f} | R: {r_mult} | Risk ₹{risk:,.0f}\n" + "\n".join(orders_desc) + "\nAction? (hold/trail SL/partial profit/exit). 1 sentence."
+                return ask_llm_fast(prompt, fallback_text="Monitor position. SL and targets active.")
+            elif order_type == "GTT_ENTRY":
+                trigger = kwargs.get("trigger", 0); price = kwargs.get("price", 0)
+                ltp = kwargs.get("ltp", 0); dist = kwargs.get("dist", 0)
+                prompt = f"{symbol} | LTP ₹{ltp:,.2f} | Buy trigger ₹{trigger:,.2f} ({dist:+.1f}% away) | Limit ₹{price:,.2f}\nIs pullback valid? Keep/cancel/adjust? 1 sentence."
+                return ask_llm_fast(prompt, fallback_text="Pullback entry active. Monitor support levels.")
+            elif order_type == "UNPROTECTED_HOLDING":
+                buy_price = kwargs.get("buy_price", 0); ltp = kwargs.get("ltp", 0)
+                pnl_pct = ((ltp - buy_price) / buy_price * 100) if buy_price else 0.0
+                prompt = f"{symbol} | LTP ₹{ltp:,.2f} | Cost ₹{buy_price:,.2f} | P&L {pnl_pct:+.1f}% | NO STOP LOSS\nWhere to place SL? 1 sentence with price level."
+                return ask_llm_fast(prompt, fallback_text="Place a stop loss immediately.")
+            elif order_type == "SINGLE_EXIT":
+                trigger = kwargs.get("trigger", 0); ltp = kwargs.get("ltp", 0)
+                dist = kwargs.get("dist", 0); label = kwargs.get("label", "Stop Loss")
+                prompt = f"{symbol} | LTP ₹{ltp:,.2f} | {label}: ₹{trigger:,.2f} ({dist:+.1f}% away)\nAction? 1 sentence."
+                return ask_llm_fast(prompt, fallback_text=f"{label} trigger active. Monitor.")
+            return "N/A"
+
+        # Controls row
+        ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([8, 2, 2])
+        with ctrl_col3:
+            if st.button("🔄 Refresh", key="es_refresh", type="primary", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+        with ctrl_col2:
+            if st.button("🧹 Clear AI", key="es_clear_ai", type="secondary", use_container_width=True):
+                for k in list(st.session_state.keys()):
+                    if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_"]):
+                        del st.session_state[k]
+                st.rerun()
+
+        if not _BROKER_OK:
+            st.error("❌ Dhan broker API module not available.")
+        else:
+            try:
+                _ts = dhan_token_status()
+                _tk_valid = _ts.get("valid", False)
+            except Exception:
+                _tk_valid = False
+
+            if sys_status == "AUTH EXPIRED" or not _tk_valid:
+                st.error("🔑 Dhan token expired. Paste a fresh access token in the sidebar.")
+            else:
+                with st.spinner("Fetching active orders from Dhan..."):
+                    try:
+                        cid, tok = _get_dhan_client()
+                        dhan = dhanhq(cid, tok)
+                        resp = dhan.get_forever()
+                    except Exception as e:
+                        resp = None
+                        st.error(f"Failed to fetch orders: {e}")
+
+                if resp and isinstance(resp, dict) and resp.get("status") == "success":
+                    data = resp.get("data", [])
+
+                    # --- Parse and group orders ---
+                    buy_gtts = []; sell_gtts = {}; single_sells = []; symbols_to_fetch = set()
+
+                    for g in data:
+                        if g.get("orderStatus", "") != "PENDING": continue
+                        symbol = clean_symbol(g.get("tradingSymbol", ""))
+                        if not symbol: continue
+                        symbols_to_fetch.add(symbol)
+                        txn = g.get("transactionType", ""); ot = g.get("orderType", "")
+                        order_id = g.get("orderId", ""); qty = int(g.get("quantity", 0))
+                        trigger = float(g.get("triggerPrice", 0)); price = float(g.get("price", 0))
+                        leg = g.get("legName", "")
+
+                        if txn == "BUY":
+                            buy_gtts.append({"symbol": symbol, "qty": qty, "trigger": trigger, "price": price, "order_id": order_id})
+                        elif txn == "SELL":
+                            if ot == "STOP_LOSS" or leg in ("STOP_LOSS_LEG", "ENTRY_LEG"):
+                                parent_id = g.get("correlationId", "") or order_id
+                                if parent_id not in sell_gtts:
+                                    sell_gtts[parent_id] = {"symbol": symbol, "sl_trigger": None, "sl_qty": None,
+                                                           "target_trigger": None, "target_qty": None, "order_id": parent_id, "qty": qty}
+                                if leg == "STOP_LOSS_LEG" or trigger < price:
+                                    sell_gtts[parent_id]["sl_trigger"] = trigger
+                                    sell_gtts[parent_id]["sl_qty"] = qty
+                                else:
+                                    sell_gtts[parent_id]["target_trigger"] = trigger
+                                    sell_gtts[parent_id]["target_qty"] = qty
+                            elif ot in ("LIMIT", "MARKET", "STOP_LOSS_MARKET"):
+                                single_sells.append({"symbol": symbol, "qty": qty, "trigger": trigger, "price": price, "order_id": order_id})
+                            else:
+                                parent_id = g.get("correlationId", "") or order_id
+                                if parent_id not in sell_gtts:
+                                    sell_gtts[parent_id] = {"symbol": symbol, "sl_trigger": None, "sl_qty": None,
+                                                           "target_trigger": None, "target_qty": None, "order_id": parent_id, "qty": qty}
+                                if trigger < price or leg == "STOP_LOSS_LEG":
+                                    sell_gtts[parent_id]["sl_trigger"] = trigger
+                                    sell_gtts[parent_id]["sl_qty"] = qty
+                                else:
+                                    sell_gtts[parent_id]["target_trigger"] = trigger
+                                    sell_gtts[parent_id]["target_qty"] = qty
+
+                    # Fetch LTPs
+                    if symbols_to_fetch:
+                        ltps = get_batch_ltps(tuple(sorted(symbols_to_fetch)))
+                    else:
+                        ltps = {}
+
+                    # Fetch holdings for entry price & unprotected detection
+                    _, _, df_holdings = get_live_holdings_stats()
+                    holdings_map = {}
+                    if not df_holdings.empty:
+                        for _, h in df_holdings.iterrows():
+                            csym = clean_symbol(h.get("Symbol", h.get("tradingSymbol", "")))
+                            if csym:
+                                holdings_map[csym] = {
+                                    "buy_price": float(h.get("BuyPrice", h.get("avgCostPrice", 0))),
+                                    "qty": int(float(h.get("Quantity", h.get("totalQty", 0)))),
+                                    "ltp": float(h.get("LTP", h.get("lastTradedPrice", 0)))
+                                }
+
+                    # Detect unprotected holdings
+                    all_protected_syms = set()
+                    for oid, oco in sell_gtts.items():
+                        if oco["sl_trigger"] is not None:
+                            all_protected_syms.add(oco["symbol"])
+                    for s in single_sells:
+                        ltp_s = ltps.get(s["symbol"]) or s["price"] or 0
+                        if s["trigger"] < ltp_s:
+                            all_protected_syms.add(s["symbol"])
+
+                    unprotected_holdings = []
+                    for csym, h in holdings_map.items():
+                        if csym not in all_protected_syms and h["qty"] > 0:
+                            unprotected_holdings.append({"symbol": csym, "buy_price": h["buy_price"], "qty": h["qty"], "ltp": h["ltp"]})
+
+                    # Group sell_gtts by symbol
+                    sell_gtts_by_symbol = {}
+                    for oid, oco in sell_gtts.items():
+                        sym = oco["symbol"]
+                        if sym not in sell_gtts_by_symbol:
+                            sell_gtts_by_symbol[sym] = []
+                        sell_gtts_by_symbol[sym].append(oco)
+                    for sym, orders in sell_gtts_by_symbol.items():
+                        orders.sort(key=lambda x: x["target_trigger"] if x["target_trigger"] is not None else 9999999)
+
+                    # --- Metrics ---
+                    total_protected = 0.0; total_risk = 0.0
+                    active_exits_count = len(sell_gtts_by_symbol)
+                    pending_entries_count = len(buy_gtts)
+                    for sym, orders in sell_gtts_by_symbol.items():
+                        ltp = ltps.get(sym) or 0
+                        for oco in orders:
+                            sl = oco["sl_trigger"]; sl_qty = oco.get("sl_qty") or oco.get("qty") or 0
+                            if sl: total_protected += sl_qty * sl
+                            if ltp and sl:
+                                risk = sl_qty * (ltp - sl)
+                                if risk > 0: total_risk += risk
+                    for s in single_sells:
+                        trigger = s["trigger"]; qty = s["qty"]; sym = s["symbol"]
+                        ltp = ltps.get(sym) or s["price"] or 0
+                        if trigger:
+                            total_protected += qty * trigger
+                            if ltp > trigger: total_risk += qty * (ltp - trigger)
+
+                    unprotected_count = len(unprotected_holdings)
+                    unprotected_color = "#ff4b4b" if unprotected_count > 0 else "#00f260"
+                    unprotected_label = f"{unprotected_count} Positions" if unprotected_count > 0 else "All Protected ✅"
+
+                    metrics_html = (
+                        f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px;">'
+                        f'<div class="metric-card" style="padding:14px;border-top:4px solid #00f260;text-align:left;">'
+                        f'<div class="metric-label">Capital Protected</div>'
+                        f'<div class="metric-value" style="color:#00f260;font-size:1.5rem;">₹{format_inr_int(total_protected)}</div>'
+                        f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Active Stop Loss value</div></div>'
+                        f'<div class="metric-card" style="padding:14px;border-top:4px solid #ff4b4b;text-align:left;">'
+                        f'<div class="metric-label">Capital at Risk</div>'
+                        f'<div class="metric-value" style="color:#ff4b4b;font-size:1.5rem;">₹{format_inr_int(total_risk)}</div>'
+                        f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Loss to SL from current LTPs</div></div>'
+                        f'<div class="metric-card" style="padding:14px;border-top:4px solid #58a6ff;text-align:left;">'
+                        f'<div class="metric-label">Active Exits</div>'
+                        f'<div class="metric-value" style="color:#58a6ff;font-size:1.5rem;">{active_exits_count} Stocks</div>'
+                        f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
+                        f'<div class="metric-card" style="padding:14px;border-top:4px solid #e3b341;text-align:left;">'
+                        f'<div class="metric-label">Pullback Entries</div>'
+                        f'<div class="metric-value" style="color:#e3b341;font-size:1.5rem;">{pending_entries_count} Orders</div>'
+                        f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Active GTT buy limits</div></div>'
+                        f'<div class="metric-card" style="padding:14px;border-top:4px solid {unprotected_color};text-align:left;">'
+                        f'<div class="metric-label">Unprotected</div>'
+                        f'<div class="metric-value" style="color:{unprotected_color};font-size:1.5rem;">{unprotected_label}</div>'
+                        f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Holdings with no SL</div></div>'
+                        f'</div>'
+                    )
+                    st.markdown(metrics_html, unsafe_allow_html=True)
+
+                    # --- Batch AI reviews in parallel BEFORE rendering ---
+                    _ai_tasks = []
+                    for _sym, _orders in sell_gtts_by_symbol.items():
+                        _ai_k = f"ai_exit_review_{_sym}"
+                        if _ai_k not in st.session_state:
+                            _ltp = ltps.get(_sym) or 0
+                            _tq = sum(o.get("sl_qty") or o.get("qty") or 0 for o in _orders)
+                            _re = sum((o.get("sl_qty") or o.get("qty") or 0) * (_ltp - o["sl_trigger"]) for o in _orders if _ltp and o["sl_trigger"] is not None)
+                            _h = holdings_map.get(_sym)
+                            if _h:
+                                _bp = _h["buy_price"]
+                                _tri = sum((o.get("sl_qty") or o.get("qty") or 0) * (_bp - o["sl_trigger"]) for o in _orders if o["sl_trigger"] is not None)
+                                _rm = f"{(_ltp - _bp) * _tq / _tri:+.2f}R" if _tri > 0 else "N/A"
+                            else:
+                                _rm = "N/A"
+                            _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re}))
+                    for _b in buy_gtts:
+                        _sym = _b["symbol"]; _ai_k = f"ai_entry_review_{_sym}_{_b['order_id']}"
+                        if _ai_k not in st.session_state:
+                            _ltp = ltps.get(_sym) or 0
+                            _dist = (_ltp - _b["trigger"]) / _ltp * 100 if _ltp else 0.0
+                            _ai_tasks.append((_ai_k, _sym, "GTT_ENTRY", {"trigger": _b["trigger"], "price": _b["price"], "ltp": _ltp, "dist": _dist}))
+                    for _h in unprotected_holdings:
+                        _sym = _h["symbol"]; _ai_k = f"ai_unprotected_review_{_sym}"
+                        if _ai_k not in st.session_state:
+                            _ltp = ltps.get(_sym) or _h["ltp"] or 0
+                            _ai_tasks.append((_ai_k, _sym, "UNPROTECTED_HOLDING", {"buy_price": _h["buy_price"], "qty": _h["qty"], "ltp": _ltp}))
+                    for _s in single_sells:
+                        _sym = _s["symbol"]; _ai_k = f"ai_single_review_{_sym}_{_s['order_id']}"
+                        if _ai_k not in st.session_state:
+                            _ltp = ltps.get(_sym) or _s["price"] or 0
+                            _dist = (_ltp - _s["trigger"]) / _ltp * 100 if _ltp else 0.0
+                            _label = "Stop Loss" if _s["trigger"] < _ltp else "Target Limit"
+                            _ai_tasks.append((_ai_k, _sym, "SINGLE_EXIT", {"trigger": _s["trigger"], "ltp": _ltp, "dist": _dist, "label": _label}))
+
+                    if _ai_tasks:
+                        with st.spinner(f"⚡ Loading AI analysis for {len(_ai_tasks)} positions..."):
+                            def _run_ai(task):
+                                key, sym, otype, kw = task
+                                try: return key, get_stock_context_and_ai_review(sym, otype, **kw)
+                                except Exception: return key, "AI review unavailable."
+                            from concurrent.futures import ThreadPoolExecutor
+                            with ThreadPoolExecutor(max_workers=8) as executor:
+                                for key, res in executor.map(_run_ai, _ai_tasks):
+                                    st.session_state[key] = res
+
+                    # --- TABS ---
+                    entry_tab1, entry_tab2, entry_tab3 = st.tabs([
+                        "🎯 Active Exits (OCO)",
+                        "🛒 Pullback Entries (GTT)",
+                        "📊 Risk Profile & Analytics"
+                    ])
+
+                    # ── Tab 1: Active Exits (OCO) ──
+                    with entry_tab1:
+                        st.markdown('<div class="section-sub-lbl">🎯 Paired OCO Exits</div>', unsafe_allow_html=True)
+                        if not sell_gtts_by_symbol:
+                            st.info("No active OCO paired exits found.")
+                        else:
+                            oco_symbols = list(sell_gtts_by_symbol.keys())
+                            for idx in range(0, len(oco_symbols), 3):
+                                row_items = oco_symbols[idx:idx+3]
+                                cols = st.columns(3)
+                                for col, sym in zip(cols, row_items):
+                                    with col:
+                                        orders = sell_gtts_by_symbol[sym]
+                                        ltp = ltps.get(sym) or 0
+                                        holding = holdings_map.get(sym)
+                                        buy_price = holding["buy_price"] if holding else 0
+
+                                        # Compute aggregates
+                                        total_qty = sum(o.get("sl_qty") or o.get("qty") or 0 for o in orders)
+                                        risk_exposure = sum((o.get("sl_qty") or o.get("qty") or 0) * (ltp - o["sl_trigger"]) for o in orders if ltp and o["sl_trigger"] is not None)
+
+                                        # R-Multiple
+                                        if holding and buy_price:
+                                            total_risk_at_entry = sum((o.get("sl_qty") or o.get("qty") or 0) * (buy_price - o["sl_trigger"]) for o in orders if o["sl_trigger"] is not None)
+                                            r_multiple = (ltp - buy_price) * total_qty / total_risk_at_entry if total_risk_at_entry > 0 else 0.0
+                                            r_multiple_str = f"{r_multiple:+.2f}R"
+                                        else:
+                                            r_multiple = 0.0; r_multiple_str = "N/A"
+                                        r_color = "#00f260" if r_multiple > 0 else "#ff4b4b" if r_multiple < 0 else "#8b949e"
+
+                                        # SL/Target distances
+                                        sl_vals = [o["sl_trigger"] for o in orders if o["sl_trigger"] is not None]
+                                        tgt_vals = [o["target_trigger"] for o in orders if o["target_trigger"] is not None]
+                                        min_sl = min(sl_vals) if sl_vals else None
+                                        min_sl_dist = ((ltp - min_sl) / ltp * 100) if ltp and min_sl else None
+
+                                        # Two-line layout: Entry line + LTP line
+                                        sl_parts_e = []; tgt_parts_e = []; sl_parts_l = []; tgt_parts_l = []
+                                        for o_idx, o in enumerate(orders):
+                                            sl = o["sl_trigger"]; tgt = o["target_trigger"]
+                                            if sl is not None:
+                                                if buy_price:
+                                                    sl_d_e = (buy_price - sl) / buy_price * 100
+                                                    sl_parts_e.append(f"<span style='color:#ff4b4b'>₹{sl:,.0f}</span> <span style='color:#5a8a9f'>({sl_d_e:+.1f}%)</span>")
+                                                if ltp:
+                                                    sl_d_l = (ltp - sl) / ltp * 100
+                                                    sl_parts_l.append(f"<span style='color:#ff4b4b'>₹{sl:,.0f}</span> <span style='color:#5a8a9f'>({sl_d_l:+.1f}%)</span>")
+                                            if tgt is not None:
+                                                label = f"T{o_idx+1}"
+                                                if buy_price:
+                                                    tgt_d_e = (tgt - buy_price) / buy_price * 100
+                                                    tgt_parts_e.append(f"<span style='color:#00f260'>₹{tgt:,.0f}</span> <span style='color:#5a8a9f'>(+{tgt_d_e:.1f}%)</span>")
+                                                if ltp:
+                                                    tgt_d_l = (tgt - ltp) / ltp * 100
+                                                    tgt_parts_l.append(f"<span style='color:#00f260'>₹{tgt:,.0f}</span> <span style='color:#5a8a9f'>(+{tgt_d_l:.1f}%)</span>")
+
+                                        entry_line = f"<b style='color:#8b949e;'>Entry ₹{buy_price:,.2f}</b>: SL {', '.join(sl_parts_e) if sl_parts_e else 'N/A'} | {', '.join(tgt_parts_e) if tgt_parts_e else 'N/A'}" if buy_price else "<span style='color:#5a8a9f;'>Entry price not available</span>"
+                                        ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b>: SL {', '.join(sl_parts_l) if sl_parts_l else 'N/A'} | {', '.join(tgt_parts_l) if tgt_parts_l else 'N/A'}" if ltp else "<span style='color:#5a8a9f;'>LTP not available</span>"
+
+                                        # Qty string
+                                        qty_parts = []
+                                        for o_idx, o in enumerate(orders):
+                                            sl_q = o.get("sl_qty") or o.get("qty") or 0
+                                            tgt_q = o.get("target_qty") or o.get("qty") or 0
+                                            qty_parts.append(f"SL:{int(sl_q)} Tgt:{int(tgt_q)}")
+                                        qty_str = " · ".join(qty_parts)
+
+                                        # Progress bar
+                                        progress_bar_html = ""
+                                        if ltp and sl_vals and tgt_vals and buy_price:
+                                            bar_min = min(min(sl_vals), buy_price) * 0.98
+                                            bar_max = max(max(tgt_vals), ltp) * 1.02
+                                            bar_range = bar_max - bar_min
+                                            if bar_range > 0:
+                                                markers_html = ""
+                                                for sv in sl_vals:
+                                                    pos = (sv - bar_min) / bar_range * 100
+                                                    markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-4px;width:2px;height:16px;background:#ff4b4b;" title="SL ₹{sv:,.0f}"></div>'
+                                                entry_pos = (buy_price - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-4px;width:2px;height:16px;background:#8b949e;" title="Entry ₹{buy_price:,.0f}"></div>'
+                                                ltp_pos = (ltp - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-6px;width:3px;height:20px;background:#58a6ff;border-radius:1px;" title="LTP ₹{ltp:,.0f}"></div>'
+                                                for tv in tgt_vals:
+                                                    pos = (tv - bar_min) / bar_range * 100
+                                                    markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-4px;width:2px;height:16px;background:#00f260;" title="Tgt ₹{tv:,.0f}"></div>'
+                                                progress_bar_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+
+                                        # Trail SL recommendation
+                                        reco_parts = []
+                                        for o_idx, o in enumerate(orders):
+                                            tgt = o["target_trigger"]
+                                            if tgt and ltp and ltp >= tgt:
+                                                reco_parts.append(f"⚠️ LTP crossed T{o_idx+1} (₹{tgt:,.0f}) — consider trailing SL to entry ₹{buy_price:,.0f}")
+                                        if min_sl_dist is not None and min_sl_dist <= 3.0:
+                                            reco_parts.append(f"🔴 SL only {min_sl_dist:.1f}% away — high risk zone")
+                                        elif min_sl_dist is not None and min_sl_dist <= 5.0:
+                                            reco_parts.append(f"🟡 SL {min_sl_dist:.1f}% away — watch closely")
+                                        reco_str = " · ".join(reco_parts) if reco_parts else "✅ Position in range"
+
+                                        status_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
+                                        reco_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
+
+                                        card_html = (
+                                            f'<div class="metric-card" style="padding:16px;margin-bottom:12px;border-left:4px solid {status_color};text-align:left;">'
+                                            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                                            f'<div><span style="font-size:1.2rem;font-weight:700;color:#58a6ff;">{sym}</span>'
+                                            f'<span style="font-size:0.8rem;color:#8b949e;margin-left:8px;">{qty_str}</span></div>'
+                                            f'<div style="text-align:right;"><div style="font-size:0.75rem;color:#8b949e;">'
+                                            f'R-Mult: <span style="font-family:JetBrains Mono;color:{r_color};font-weight:bold;">{r_multiple_str}</span>'
+                                            f' · Risk: <span style="font-family:JetBrains Mono;color:#ff4b4b;font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
+                                            f'{progress_bar_html}'
+                                            f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">'
+                                            f'<div>{entry_line}</div><div style="margin-top:4px;">{ltp_line}</div></div>'
+                                            f'<div style="margin-top:8px;font-size:0.78rem;line-height:1.35;color:{reco_color};font-weight:600;">{reco_str}</div></div>'
+                                        )
+                                        st.markdown(card_html, unsafe_allow_html=True)
+
+                                        # AI Review (already pre-computed)
+                                        ai_key = f"ai_exit_review_{sym}"
+                                        if ai_key in st.session_state:
+                                            st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:10px;border-radius:4px;margin-bottom:12px;font-size:0.8rem;color:#e6edf3;line-height:1.4;">🤖 <b>AI:</b> {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+
+                        # Standalone Exits
+                        if single_sells:
+                            st.markdown("---")
+                            st.markdown('<div class="section-sub-lbl">🛑 Standalone Exits</div>', unsafe_allow_html=True)
+                            for idx in range(0, len(single_sells), 3):
+                                row = single_sells[idx:idx+3]
+                                cols = st.columns(3)
+                                for col, s in zip(cols, row):
+                                    with col:
+                                        sym = s["symbol"]; trigger = s["trigger"]
+                                        ltp = ltps.get(sym) or s["price"] or 0
+                                        dist = (ltp - trigger) / ltp * 100 if ltp else 0.0
+                                        label = "Stop Loss" if trigger < ltp else "Target"
+                                        color = "#ff4b4b" if trigger < ltp else "#00f260"
+                                        st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;"><span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br><span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span></div>', unsafe_allow_html=True)
+                                        ai_key = f"ai_single_review_{sym}_{s['order_id']}"
+                                        if ai_key in st.session_state:
+                                            st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+
+                        # Unprotected Holdings
+                        if unprotected_holdings:
+                            st.markdown("---")
+                            st.markdown('<div class="section-sub-lbl">⚠️ Unprotected Holdings (No Stop Loss)</div>', unsafe_allow_html=True)
+                            for idx in range(0, len(unprotected_holdings), 3):
+                                row = unprotected_holdings[idx:idx+3]
+                                cols = st.columns(3)
+                                for col, h in zip(cols, row):
+                                    with col:
+                                        sym = h["symbol"]; bp = h["buy_price"]; qty = h["qty"]
+                                        ltp = ltps.get(sym) or h["ltp"] or 0
+                                        pnl_pct = ((ltp - bp) / bp * 100) if bp else 0.0
+                                        pnl_color = "#00f260" if pnl_pct >= 0 else "#ff4b4b"
+                                        st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #ff4b4b;text-align:left;"><span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#ff4b4b;">⚠️ NO SL</span><br><span style="font-size:0.8rem;color:#c9d1d9;">Cost ₹{bp:,.2f} → LTP ₹{ltp:,.2f} <span style="color:{pnl_color}">({pnl_pct:+.1f}%)</span> · Qty: {qty}</span></div>', unsafe_allow_html=True)
+                                        ai_key = f"ai_unprotected_review_{sym}"
+                                        if ai_key in st.session_state:
+                                            st.markdown(f'<div style="background:#0e2035;border-left:3px solid #ff4b4b;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+
+                    # ── Tab 2: Pullback Entries (GTT) ──
+                    with entry_tab2:
+                        st.markdown('<div class="section-sub-lbl">🛒 Pending Pullback Buy Entries (GTT)</div>', unsafe_allow_html=True)
+                        if not buy_gtts:
+                            st.info("No pending pullback GTT buy orders found.")
+                        else:
+                            for idx in range(0, len(buy_gtts), 3):
+                                row = buy_gtts[idx:idx+3]
+                                cols = st.columns(3)
+                                for col, b in zip(cols, row):
+                                    with col:
+                                        sym = b["symbol"]; trigger = b["trigger"]; price = b["price"]
+                                        ltp = ltps.get(sym) or 0
+                                        dist_pct = (ltp - trigger) / ltp * 100 if ltp else 0.0
+                                        dist_color = "#00f260" if dist_pct > 5 else "#ffb000" if dist_pct > 2 else "#ff4b4b"
+
+                                        entry_line = f"<b style='color:#e3b341;'>Entry ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
+                                        ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{dist_pct:+.1f}%</span> away" if ltp else "LTP: N/A"
+
+                                        card = (
+                                            f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #e3b341;text-align:left;">'
+                                            f'<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span>'
+                                            f' <span style="font-size:0.8rem;color:#8b949e;">Qty: {b["qty"]}</span>'
+                                            f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:6px;line-height:1.6;">'
+                                            f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div></div></div>'
+                                        )
+                                        st.markdown(card, unsafe_allow_html=True)
+
+                                        ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
+                                        if ai_key in st.session_state:
+                                            st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+
+                    # ── Tab 3: Risk Profile ──
+                    with entry_tab3:
+                        st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
+                        portfolio_risk_pct = (total_risk / max(balance, 1)) * 100 if balance > 0 else 0.0
+                        if portfolio_risk_pct <= 1.0:
+                            risk_grade = "A+ (Excellent)"
+                            risk_grade_color = "#00f260"
+                        elif portfolio_risk_pct <= 2.0:
+                            risk_grade = "A (Good)"
+                            risk_grade_color = "#00f260"
+                        elif portfolio_risk_pct <= 5.0:
+                            risk_grade = "B (Moderate)"
+                            risk_grade_color = "#e3b341"
+                        else:
+                            risk_grade = "C (High Risk)"
+                            risk_grade_color = "#ff4b4b"
+
+                        st.markdown(
+                            f'<div class="metric-card" style="padding:20px;text-align:center;margin-bottom:15px;border-top:3px solid {risk_grade_color};">'
+                            f'<div class="metric-label">Portfolio Risk Grade</div>'
+                            f'<div class="metric-value" style="color:{risk_grade_color};font-size:2rem;">{risk_grade}</div>'
+                            f'<div style="font-size:0.8rem;color:#5a8a9f;margin-top:4px;">'
+                            f'Total capital at risk from current LTP to Stop Loss is <b>₹{format_inr_int(total_risk)}</b> '
+                            f'on total portfolio equity of <b>₹{format_inr_int(max(balance, 1))}</b>.'
+                            f'</div></div>', unsafe_allow_html=True
+                        )
+
+                        # Per-stock risk breakdown
+                        st.markdown('<div class="section-sub-lbl">Per-Stock Risk Breakdown</div>', unsafe_allow_html=True)
+                        risk_rows = []
+                        for sym, orders in sell_gtts_by_symbol.items():
+                            ltp = ltps.get(sym) or 0
+                            for o in orders:
+                                sl = o["sl_trigger"]; sl_qty = o.get("sl_qty") or o.get("qty") or 0
+                                if ltp and sl:
+                                    current_risk = sl_qty * (ltp - sl)
+                                    if current_risk > 0:
+                                        portfolio_pct = (current_risk / max(balance, 1)) * 100 if max(balance, 1) > 0 else 0.0
+                                        risk_rows.append({"Symbol": sym, "LTP": f"₹{ltp:,.2f}", "SL": f"₹{sl:,.2f}",
+                                                          "Risk ₹": f"₹{current_risk:,.0f}", "% of Portfolio": f"{portfolio_pct:.2f}%"})
+                        if risk_rows:
+                            st.dataframe(pd.DataFrame(risk_rows), use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No measurable risk from current positions (all stops are above LTP or no positions).")
