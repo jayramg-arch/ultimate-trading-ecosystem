@@ -105,7 +105,7 @@ def fetch_catalyst_news(ticker_symbol: str):
 def generate_hedge_fund_brief(ticker_symbol: str) -> str:
     """
     Generates an advanced, institutional-grade analysis for the given ticker.
-    Uses yfinance fundamental data and Gemini 2.0.
+    Uses yfinance fundamental data and Gemini 2.5.
     """
     print(f"🕵️ Fetching data for {ticker_symbol}...")
     
@@ -123,7 +123,7 @@ def generate_hedge_fund_brief(ticker_symbol: str) -> str:
         "Qualitative_Catalysts": news_data
     }
 
-    # 2. System Instruction for Gemini 2.0
+    # 2. System Instruction for Gemini 2.5
     system_instruction = """
     You are an elite Quantitative & Fundamental Hedge Fund Analyst at an institutional tier-1 desk.
     Your job is to provide devastatingly clear, objective, and high-conviction trade analysis.

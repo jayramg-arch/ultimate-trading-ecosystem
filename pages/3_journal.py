@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 from dhanhq import dhanhq
+try:
+    from dhanhq import DhanContext
+except ImportError:
+    DhanContext = None
 import sqlite3
 import os
 from datetime import datetime, date, timedelta
@@ -25,10 +29,10 @@ load_dotenv(override=True)
 @st.cache_resource(ttl=3600)
 def check_auth_cached():
     try:
-        print("⏳ Checking Dhan API Token...")
+        print("[Auth] Checking Dhan API Token...")
         return ensure_valid_token()
     except Exception as e:
-        print(f"⚠️ Warning: Auto-token refresh failed: {e}")
+        print(f"[Auth] Warning: Auto-token refresh failed: {e}")
         return None
 
 check_auth_cached()
@@ -55,7 +59,7 @@ if not os.path.exists(SCREENSHOT_DIR):
 # Initialize Dhan
 try:
     if CLIENT_ID and API_KEY:
-        dhan = dhanhq(client_id=CLIENT_ID, access_token=API_KEY)
+        dhan = dhanhq(DhanContext(CLIENT_ID, API_KEY)) if DhanContext else dhanhq(CLIENT_ID, API_KEY)
     else:
         st.error("❌ Credentials Missing in .env file!")
         dhan = None
@@ -233,8 +237,8 @@ def upsert_trade(entry):
     # Logic: If ID exists, update. If Status is OPEN and Symbol exists, update. Else Insert.
     target_id = clean_entry.get('id')
     
-    if not target_id and clean_entry.get('status') == 'OPEN':
-        # Find if this symbol has an open trade already
+    if not target_id and clean_entry.get('symbol'):
+        # ALWAYS check for existing OPEN row by symbol before inserting
         c.execute("SELECT id FROM journal WHERE symbol = ? AND status = 'OPEN' LIMIT 1", (clean_entry.get('symbol'),))
         row = c.fetchone()
         if row: target_id = row[0]
@@ -755,7 +759,7 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
 </style>""", unsafe_allow_html=True)
 
 for opt in nav_options:
-    if st.sidebar.button(opt, key=f"journal_nav_{opt}", use_container_width=True):
+    if st.sidebar.button(opt, key=f"journal_nav_{opt}", width="stretch"):
         st.session_state.journal_page = opt
         st.rerun()
 
@@ -1008,7 +1012,7 @@ if page == "Ledger (Active)":
         
         ai_col1, ai_col2, ai_col3 = st.columns([1.5, 1.5, 3])
         with ai_col1:
-            if st.button("🤖 AI AUTO-ANALYSIS", use_container_width=True, help="Automatically generate latest tactical analysis for all open trades."):
+            if st.button("🤖 AI AUTO-ANALYSIS", width="stretch", help="Automatically generate latest tactical analysis for all open trades."):
                 with st.spinner("AI is crafting tactical reports..."):
                     from ai_journaler_helper import generate_tactical_analysis
                     # We need active_trades from the outer scope
@@ -1048,7 +1052,7 @@ if page == "Ledger (Active)":
                     st.rerun()
         
         with ai_col2:
-            if st.button("⚓ RECONCILE EXITS", use_container_width=True, help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
+            if st.button("⚓ RECONCILE EXITS", width="stretch", help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
                 with st.spinner("⚓ Reconciling with Dhan Logs..."):
                     from ai_reconcile_engine import reconcile_journal_exit_prices
                     count = reconcile_journal_exit_prices()
@@ -1083,7 +1087,7 @@ if page == "Ledger (Active)":
         edited_df = st.data_editor(
             df_view,
             key="journal_editor",
-            use_container_width=True,
+            width="stretch",
             num_rows="fixed",
             hide_index=True,
             column_config={
@@ -1261,7 +1265,7 @@ elif page == "Closed Trades":
         st.dataframe(
             fy_summary[['FY', 'Total_PnL_Str', 'Win_Rate', 'Trades', 'Wins', 'Losses']],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "FY": st.column_config.TextColumn("Financial Year", width="medium"),
                 "Total_PnL_Str": st.column_config.TextColumn("Net P&L", width="medium"),
@@ -1281,7 +1285,7 @@ elif page == "Closed Trades":
         
         r_col1, r_col2 = st.columns([1, 4])
         with r_col1:
-            if st.button("⚓ RECONCILE EXITS", key="recon_btn_closed", use_container_width=True, help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
+            if st.button("⚓ RECONCILE EXITS", key="recon_btn_closed", width="stretch", help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
                 with st.spinner("⚓ Reconciling with Dhan Logs..."):
                     from ai_reconcile_engine import reconcile_journal_exit_prices, discover_missing_trades
                     count = reconcile_journal_exit_prices()
@@ -1301,7 +1305,7 @@ elif page == "Closed Trades":
                 disc_df = pd.DataFrame(st.session_state.discovered_trades)
                 st.dataframe(disc_df[['Symbol', 'Name', 'ExitPrice', 'Pnl']], hide_index=True)
                 
-                if st.button("➕ BACKFILL DISCOVERED TRADES", use_container_width=True):
+                if st.button("➕ BACKFILL DISCOVERED TRADES", width="stretch"):
                     from ai_reconcile_engine import backfill_trades
                     b_count = backfill_trades(st.session_state.discovered_trades)
                     if b_count > 0:
@@ -1378,7 +1382,7 @@ elif page == "Visual Analytics":
         fig_sec = px.pie(active_trades, names='Sector', title='Current Exposure', hole=0.4, 
                          color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_sec.update_layout(showlegend=True, margin=dict(t=50, b=50, l=0, r=0))
-        st.plotly_chart(fig_sec, use_container_width=True)
+        st.plotly_chart(fig_sec, width="stretch")
     else: st.info("No active exposure.")
     
     st.divider()
@@ -1397,7 +1401,7 @@ elif page == "Visual Analytics":
                 fig_eq = px.line(equity_df, x='ExitDate', y='Cumulative_PnL', markers=True, title="Account Growth Curve")
                 fig_eq.update_traces(line_color='#00f260', line_width=3)
                 fig_eq.add_hline(y=0, line_dash="dash", line_color="gray")
-                st.plotly_chart(fig_eq, use_container_width=True)
+                st.plotly_chart(fig_eq, width="stretch")
 
         with c2:
             daily_pnl = equity_df.groupby('ExitDate')['Realized_PnL'].sum().reset_index()
@@ -1405,7 +1409,7 @@ elif page == "Visual Analytics":
                 daily_pnl['Color'] = daily_pnl['Realized_PnL'].apply(lambda x: 'Profit' if x > 0 else 'Loss')
                 fig_cal = px.bar(daily_pnl, x='ExitDate', y='Realized_PnL', color='Color',
                                  color_discrete_map={'Profit': '#00f260', 'Loss': '#ff4b4b'}, title="Daily Net P&L")
-                st.plotly_chart(fig_cal, use_container_width=True)
+                st.plotly_chart(fig_cal, width="stretch")
 
         st.divider()
         
@@ -1420,7 +1424,7 @@ elif page == "Visual Analytics":
                                  hover_name='Symbol', title="P&L vs Holding Period (Ageing)",
                                  labels={'Ageing': 'Holding Period (Days)', 'Realized_PnL': 'Realized P&L (₹)'},
                                  color_discrete_sequence=px.colors.qualitative.Vivid)
-            st.plotly_chart(fig_age, use_container_width=True)
+            st.plotly_chart(fig_age, width="stretch")
             
         with b2:
             # Trade Quality Distribution
@@ -1430,4 +1434,4 @@ elif page == "Visual Analytics":
                 fig_qual = px.bar(quality_stats, x='Quality', y='Total P&L', color='Quality',
                                   text='Number of Trades', title="P&L Distribution by Trade Quality",
                                   category_orders={"Quality": ["5-Star", "4-Star", "3-Star", "2-Star", "1-Star", "Avoid", ""]})
-                st.plotly_chart(fig_qual, use_container_width=True)
+                st.plotly_chart(fig_qual, width="stretch")

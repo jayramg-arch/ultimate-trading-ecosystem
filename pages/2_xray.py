@@ -144,7 +144,10 @@ from ai_risk_manager import get_market_health
 @st.cache_data(ttl=3600)
 def fetch_market_health():
     try:
-        df_cnx = yf.download('^CRSLDX', period='6mo', progress=False)
+        import data_provider as dp
+        df_cnx = dp.fetch_ohlcv('^CRSLDX', period='6mo', interval='1d', use_cache=True, auto_adjust=True)
+        if df_cnx is None or df_cnx.empty:
+            return "Unknown"
         is_bullish, ma50, ma200 = get_market_health(df_cnx)
         return "BULLISH" if is_bullish else "BEARISH"
     except:

@@ -5,6 +5,10 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from dhanhq import dhanhq
+try:
+    from dhanhq import DhanContext
+except ImportError:
+    DhanContext = None
 from dotenv import load_dotenv
 import os
 import sqlite3
@@ -16,6 +20,11 @@ from bs4 import BeautifulSoup
 # Page config removed (handled by router)
 
 # Load Env
+from dhan_auth import ensure_valid_token
+try:
+    ensure_valid_token()
+except Exception:
+    pass
 load_dotenv(override=True)
 API_KEY = os.getenv("DHAN_ACCESS_TOKEN")
 CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
@@ -170,7 +179,7 @@ def fetch_portfolio_data():
     dhan = None
     if API_KEY and CLIENT_ID:
         try:
-            dhan = dhanhq(client_id=CLIENT_ID, access_token=API_KEY)
+            dhan = dhanhq(DhanContext(CLIENT_ID, API_KEY)) if DhanContext else dhanhq(CLIENT_ID, API_KEY)
         except: pass
     
     holdings_df = pd.DataFrame()
@@ -394,7 +403,7 @@ def fetch_trade_history():
     dhan = None
     if API_KEY and CLIENT_ID:
         try:
-            dhan = dhanhq(client_id=CLIENT_ID, access_token=API_KEY)
+            dhan = dhanhq(DhanContext(CLIENT_ID, API_KEY)) if DhanContext else dhanhq(CLIENT_ID, API_KEY)
         except: return pd.DataFrame()
     
     if not dhan: return pd.DataFrame()
@@ -878,13 +887,13 @@ def main():
                 m_col1, m_col2 = st.columns([1, 4])
                 with m_col1:
                     st.markdown("### 🧠 AI MENTOR")
-                    if st.button("📓 POST-TRADE AUTOPSY", use_container_width=True, type="primary"):
+                    if st.button("📓 POST-TRADE AUTOPSY", width="stretch", type="primary"):
                         with st.spinner("Commander Mentor is analyzing your trade behavioral patterns..."):
                             import ai_mentor_engine
                             report = ai_mentor_engine.get_mentor_report(force_refresh=False)
                             st.session_state.mentor_report = report
                     
-                    if st.button("🔄 FORCE NEW ANALYSIS", use_container_width=True, help="Bypasses cache for a tactical, detailed autopsy."):
+                    if st.button("🔄 FORCE NEW ANALYSIS", width="stretch", help="Bypasses cache for a tactical, detailed autopsy."):
                         with st.spinner("Executing detailed surgical audit..."):
                             import ai_mentor_engine
                             report = ai_mentor_engine.get_mentor_report(force_refresh=True)

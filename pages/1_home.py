@@ -4,6 +4,10 @@ import os, sys, sqlite3, base64
 from dotenv import load_dotenv
 from dhan_auth import ensure_valid_token
 from dhanhq import dhanhq
+try:
+    from dhanhq import DhanContext
+except ImportError:
+    DhanContext = None
 from ai_risk_manager import get_market_health, get_noise_risk_stats, get_atr
 from ai_grading_engine import get_weinstein_score
 import plotly.express as px
@@ -61,7 +65,7 @@ def launch_script(script_name, args=None, is_streamlit=False):
 def get_dhan_balance():
     try:
         if not CLIENT_ID or not ACCESS_TOKEN: return 0.0, "AUTH MISSING"
-        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+        dhan = dhanhq(DhanContext(CLIENT_ID, ACCESS_TOKEN)) if DhanContext else dhanhq(CLIENT_ID, ACCESS_TOKEN)
         resp = dhan.get_fund_limits()
         if isinstance(resp, dict) and resp.get('status') == 'success':
             data = resp.get('data', {})
@@ -76,7 +80,7 @@ def get_dhan_balance():
 def get_live_holdings_stats():
     try:
         if not CLIENT_ID or not ACCESS_TOKEN: return 0, 0.0
-        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+        dhan = dhanhq(DhanContext(CLIENT_ID, ACCESS_TOKEN)) if DhanContext else dhanhq(CLIENT_ID, ACCESS_TOKEN)
         resp = dhan.get_holdings()
         if isinstance(resp, dict) and resp.get('status') == 'success':
             data = resp.get('data', [])
@@ -394,7 +398,7 @@ with st.sidebar:
     st.markdown('<div class="sb-section-lbl">App Modules (Hub)</div>', unsafe_allow_html=True)
     for option in ['DASHBOARD','HUNTER','WATCHLIST','COMMAND','AI LAB']:
         btn_type = "primary" if st.session_state.page == option else "secondary"
-        if st.button(option, key=f"nav_{option}", use_container_width=True, type=btn_type):
+        if st.button(option, key=f"nav_{option}", width="stretch", type=btn_type):
             st.session_state.page = option
             st.rerun()
 
@@ -495,15 +499,15 @@ if page == 'DASHBOARD':
     c1, c2, c3 = st.columns(3, gap="small")
     with c1:
         if st.button("📝  Market Briefing\nDaily strategic analysis and sector rotation.\n→  Generate Report",
-                     key="db_brief", use_container_width=True):
+                     key="db_brief", width="stretch"):
             launch_script("workflow_strategic_briefing.py")
     with c2:
         if st.button("📡  Sector Radar\nRRG Relative Strength Analysis vs Index.\n→  Launch Radar",
-                     key="db_radar", use_container_width=True):
+                     key="db_radar", width="stretch"):
             launch_script("sector_radar.py")
     with c3:
         if st.button("🤖  Complete Workflow\nScanners → Fundamentals → Matching → Sync.\n→  Launch Auto-Pilot",
-                     key="db_pipeline", use_container_width=True, type="primary"):
+                     key="db_pipeline", width="stretch", type="primary"):
             launch_script("run_pipeline.py")
     
     st.markdown("---")
@@ -523,7 +527,7 @@ if page == 'DASHBOARD':
                              hover_data=["Quantity","BuyPrice"])
             fig.update_layout(margin=dict(t=10,l=0,r=0,b=0), height=320,
                               paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with right_col:
             section("Alpha Benchmarking vs Nifty 500")
             df_closed = load_closed_trades_db()
@@ -562,8 +566,17 @@ if page == 'DASHBOARD':
                     pc = pc.rename(columns={'ExitDate': 'Date'})
 
                     # 4. Fetch Nifty Data
-                    nifty = yf.download("^NSEI", start=pc['Date'].min()-pd.Timedelta(days=7),
-                                        end=pc['Date'].max()+pd.Timedelta(days=1), progress=False)
+                    import data_provider as dp
+                    nifty_full = dp.fetch_ohlcv("^NSEI", period="5y", interval="1d", use_cache=True, auto_adjust=True)
+                    start_date = pd.to_datetime(pc['Date'].min() - pd.Timedelta(days=7)).tz_localize(None)
+                    end_date = pd.to_datetime(pc['Date'].max() + pd.Timedelta(days=1)).tz_localize(None)
+                    
+                    if nifty_full is not None and not nifty_full.empty:
+                        nifty_full.index = pd.to_datetime(nifty_full.index).tz_localize(None)
+                        nifty = nifty_full.loc[start_date:end_date].copy()
+                    else:
+                        nifty = pd.DataFrame()
+
                     if not nifty.empty:
                         nifty = nifty['Close'].reset_index()
                         nifty.columns = ['Date','NiftyClose']
@@ -584,7 +597,7 @@ if page == 'DASHBOARD':
                                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                            legend=dict(font=dict(size=10), bgcolor="rgba(0,0,0,0)"),
                                            yaxis_title="% Return")
-                        st.plotly_chart(fig2, use_container_width=True)
+                        st.plotly_chart(fig2, width="stretch")
                 except Exception as e:
                     st.error(f"Chart error: {e}")
             else:
@@ -607,30 +620,30 @@ elif page == 'HUNTER':
         left, right = st.columns(2, gap="medium")
         with left:
             sub_label("📌  Positional Strategies")
-            if st.button("Stage 2 Hunter\nLong-horizon stage-based breakout entries.\n→  Run Scanner", use_container_width=True, key="h_s2"):
+            if st.button("Stage 2 Hunter\nLong-horizon stage-based breakout entries.\n→  Run Scanner", width="stretch", key="h_s2"):
                 launch_script("chartink_scanner_pro.py","1")
-            if st.button("Early Birds Accumulation\nEarly-stage accumulation zone detection.\n→  Run Scanner", use_container_width=True, key="h_eb"):
+            if st.button("Early Birds Accumulation\nEarly-stage accumulation zone detection.\n→  Run Scanner", width="stretch", key="h_eb"):
                 launch_script("chartink_scanner_pro.py","3")
         with right:
             sub_label("📈  Swing Strategies")
-            if st.button("Stage 2 Pullback\nShort-term pullback within an uptrend.\n→  Run Scanner", use_container_width=True, key="h_pb"):
+            if st.button("Stage 2 Pullback\nShort-term pullback within an uptrend.\n→  Run Scanner", width="stretch", key="h_pb"):
                 launch_script("chartink_scanner_pro.py","2")
-            if st.button("Strong Leaders\nMomentum leaders with relative strength.\n→  Run Scanner", use_container_width=True, key="h_sl"):
+            if st.button("Strong Leaders\nMomentum leaders with relative strength.\n→  Run Scanner", width="stretch", key="h_sl"):
                 launch_script("chartink_scanner_pro.py","4")
 
     elif hunter_tab == 'ENRICHMENT':
         section("Fundamental Data")
         left, right = st.columns(2, gap="medium")
         with left:
-            if st.button("🌐  Fetch Screener.in Data\nPull raw fundamental HTML from Screener.in.\n→  Fetch Now", use_container_width=True, key="e_fetch"):
+            if st.button("🌐  Fetch Screener.in Data\nPull raw fundamental HTML from Screener.in.\n→  Fetch Now", width="stretch", key="e_fetch"):
                 launch_script("screener_fetcher.py")
         with right:
-            if st.button("⚙️  Process HTML to CSV\nConvert raw HTML into structured CSV for analysis.\n→  Process Now", use_container_width=True, key="e_proc"):
+            if st.button("⚙️  Process HTML to CSV\nConvert raw HTML into structured CSV for analysis.\n→  Process Now", width="stretch", key="e_proc"):
                 launch_script("screener_processor.py")
 
     elif hunter_tab == 'SELECTION':
         section("Golden Matcher Engine")
-        if st.button("🏆  Run Golden Matcher\nCombines Technical Scans with Fundamental Filters to find 5-Star setups.\n→  Initiate Matching", type="primary", use_container_width=True, key="sel_run"):
+        if st.button("🏆  Run Golden Matcher\nCombines Technical Scans with Fundamental Filters to find 5-Star setups.\n→  Initiate Matching", type="primary", width="stretch", key="sel_run"):
             launch_script("brute_force_match_pro.py")
         section("AI Top Picks Preview")
         preview_cat = st.selectbox("Select Strategy to Preview",
@@ -643,7 +656,7 @@ elif page == 'HUNTER':
                 df_res = pd.read_csv(fname)
                 ai_c = [c for c in ["Symbol","Conviction","AI Catalyst"] if c in df_res.columns]
                 ot_c = [c for c in df_res.columns if c not in ai_c]
-                st.dataframe(df_res[ai_c+ot_c].head(15), use_container_width=True, hide_index=True)
+                st.dataframe(df_res[ai_c+ot_c].head(15), width="stretch", hide_index=True)
             except Exception as e:
                 st.error(f"Error loading preview: {e}")
         else:
@@ -661,29 +674,29 @@ elif page == 'WATCHLIST':
 
     if wl_tab == 'GENERATION':
         section("1. Local Generation")
-        if st.button("📁  Generate CSVs — Local\nGenerate clean CSVs for local analysis.\n→  Generate Now", use_container_width=True, key="wl_gen"):
+        if st.button("📁  Generate CSVs — Local\nGenerate clean CSVs for local analysis.\n→  Generate Now", width="stretch", key="wl_gen"):
             launch_script("watchlist_manager.py")
 
     elif wl_tab == 'SYNC':
         section("2. External Cloud Sync")
         c1, c2, c3 = st.columns(3, gap="small")
         with c1:
-            if st.button("💸  Sync to Strike.Money\nPush watchlist to Strike.Money platform.\n→  Sync Now", use_container_width=True, key="wl_strike"):
+            if st.button("💸  Sync to Strike.Money\nPush watchlist to Strike.Money platform.\n→  Sync Now", width="stretch", key="wl_strike"):
                 launch_script("strike_automation.py","--mode watchlist")
         with c2:
-            if st.button("📊  Sync to TradingView\nSync curated lists to TradingView.\n→  Sync Now", use_container_width=True, key="wl_tv"):
+            if st.button("📊  Sync to TradingView\nSync curated lists to TradingView.\n→  Sync Now", width="stretch", key="wl_tv"):
                 launch_script("tradingview_automation_v2.py")
         with c3:
-            if st.button("🔁  Master Sync — All\nPush to all connected platforms simultaneously.\n→  Sync All", type="primary", use_container_width=True, key="wl_master"):
+            if st.button("🔁  Master Sync — All\nPush to all connected platforms simultaneously.\n→  Sync All", type="primary", width="stretch", key="wl_master"):
                 launch_script("master_portfolio_sync.py")
 
         section("3. Email Dispatches")
         c4, c5 = st.columns(2, gap="small")
         with c4:
-            if st.button("📧  Send Test Email\nVerify SMTP Connection.\n→  Send Now", use_container_width=True, key="wl_em_test"):
+            if st.button("📧  Send Test Email\nVerify SMTP Connection.\n→  Send Now", width="stretch", key="wl_em_test"):
                 launch_script("gmail_dispatcher.py", "--mode test")
         with c5:
-            if st.button("🏆  Email Golden Matches\nSend latest AI 5-Star picks to your inbox.\n→  Send Now", use_container_width=True, key="wl_em_match"):
+            if st.button("🏆  Email Golden Matches\nSend latest AI 5-Star picks to your inbox.\n→  Send Now", width="stretch", key="wl_em_match"):
                 launch_script("gmail_dispatcher.py", "--mode matches")
 
 
@@ -700,16 +713,16 @@ elif page == 'COMMAND':
         section("Active Operations")
         c1, c2, c3 = st.columns(3, gap="small")
         with c1:
-            if st.button("🎯  Sniper Entry AI v2\nOrder execution with Institutional AI analysis.\n→  Launch", use_container_width=True, key="cmd_sniper"):
+            if st.button("🎯  Sniper Entry AI v2\nOrder execution with Institutional AI analysis.\n→  Launch", width="stretch", key="cmd_sniper"):
                 launch_script("sniper_trigger.py")
         with c2:
-            if st.button("🛡️  GTT Auto-Shield\nAuto-protect holdings using Journal levels.\n→  Launch", use_container_width=True, key="cmd_gtt"):
+            if st.button("🛡️  GTT Auto-Shield\nAuto-protect holdings using Journal levels.\n→  Launch", width="stretch", key="cmd_gtt"):
                 launch_script("gtt_auto_shield.py")
         with c3:
-            if st.button("📲  Telegram Sentinel\nActive market monitoring via Mobile.\n→  Launch", use_container_width=True, key="cmd_tg"):
+            if st.button("📲  Telegram Sentinel\nActive market monitoring via Mobile.\n→  Launch", width="stretch", key="cmd_tg"):
                 launch_script("telegram_sentinel.py")
         section("External Apps")
-        if st.button("📓  Open Full Journal App\nLaunch the complete trade journal interface.\n→  Open", use_container_width=True, key="cmd_journal"):
+        if st.button("📓  Open Full Journal App\nLaunch the complete trade journal interface.\n→  Open", width="stretch", key="cmd_journal"):
             launch_script("dhan_journal_v7.py", is_streamlit=True)
 
     elif cmd_tab == 'LEDGER':
@@ -718,7 +731,7 @@ elif page == 'COMMAND':
         if not df_j.empty:
             show = [c for c in ["Symbol","Type","BuyPrice","Quantity","Status",
                                  "Sector","StopLoss","Target","PlannedRR","Timeframe"] if c in df_j.columns]
-            st.dataframe(df_j[show], use_container_width=True, height=500, hide_index=True)
+            st.dataframe(df_j[show], width="stretch", height=500, hide_index=True)
         else:
             st.info("No open trades found in the system.")
 
@@ -738,7 +751,7 @@ elif page == 'AI LAB':
         with p1: prop_sym   = st.text_input("Ticker Symbol", key="prop_sym", placeholder="e.g. RELIANCE").upper()
         with p2: prop_entry = st.number_input("Entry Price", min_value=0.0, step=0.1, key="prop_entry")
         with p3: prop_risk  = st.number_input("Risk ₹", value=5000, step=500, key="prop_risk")
-        if st.button("🛫  Run Analysis\nScore and size a new trade before execution.\n→  Analyse Now", type="primary", use_container_width=True, key="btn_analysis"):
+        if st.button("🛫  Run Analysis\nScore and size a new trade before execution.\n→  Analyse Now", type="primary", width="stretch", key="btn_analysis"):
             if not prop_sym:
                 st.error("Enter ticker.")
             else:
@@ -785,15 +798,15 @@ elif page == 'AI LAB':
         section("Generative Analysis")
         c1, c2 = st.columns(2, gap="medium")
         with c1:
-            if st.button("🔬  AI Post-Trade Autopsy\nAI-driven post-trade performance review.\n→  Launch", use_container_width=True, key="ai_autopsy"):
+            if st.button("🔬  AI Post-Trade Autopsy\nAI-driven post-trade performance review.\n→  Launch", width="stretch", key="ai_autopsy"):
                 launch_script("portfolio_analytics.py", is_streamlit=True)
-            if st.button("📋  Auto-Plan Journal\nAI-assisted journal planning and entry.\n→  Launch", use_container_width=True, key="ai_journal"):
+            if st.button("📋  Auto-Plan Journal\nAI-assisted journal planning and entry.\n→  Launch", width="stretch", key="ai_journal"):
                 launch_script("dhan_journal_v7.py", is_streamlit=True)
         with c2:
-            if st.button("✍️  Standalone Prompt Gen\nStandalone AI prompt generation tools.\n→  Launch", use_container_width=True, key="ai_prompt"):
+            if st.button("✍️  Standalone Prompt Gen\nStandalone AI prompt generation tools.\n→  Launch", width="stretch", key="ai_prompt"):
                 launch_script("generate_prompt_standalone.py")
         section("Cache Management")
-        if st.button("🗑️  Clear AI Cache\nFetch fresh data on next run.\n→  Clear Now", use_container_width=True, key="ai_cache"):
+        if st.button("🗑️  Clear AI Cache\nFetch fresh data on next run.\n→  Clear Now", width="stretch", key="ai_cache"):
             if os.path.exists("ai_cache.json"):
                 os.remove("ai_cache.json")
                 st.success("AI Cache Cleared!")
@@ -802,5 +815,5 @@ elif page == 'AI LAB':
 
     elif ai_tab == 'WORKFLOWS':
         section("Workflow Automation")
-        if st.button("🤖  Run Full Auto-Pilot\nExecute full pipeline: Scanners → Fundamentals → Golden Matching → Watchlist Sync.\n→  Initiate", type="primary", use_container_width=True, key="wf_run"):
+        if st.button("🤖  Run Full Auto-Pilot\nExecute full pipeline: Scanners → Fundamentals → Golden Matching → Watchlist Sync.\n→  Initiate", type="primary", width="stretch", key="wf_run"):
             launch_script("run_pipeline.py")

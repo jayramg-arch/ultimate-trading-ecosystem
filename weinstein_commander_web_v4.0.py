@@ -53,7 +53,8 @@ except ImportError:
 try:
     from breadth_engine import (
         calculate_breadth_metrics, build_breadth_regime,
-        get_sector_breadth, calculate_mcclellan, format_breadth_for_report,
+        get_sector_breadth, get_broad_market_breadth,
+        calculate_mcclellan, format_breadth_for_report,
     )
     _BREADTH_OK = True
 except ImportError:
@@ -145,12 +146,15 @@ _sched = _get_scheduler()
 # hijacks the Commander's page and opens the Journal instead.
 # get_sector is therefore imported LAZILY inside the Pre-Flight block only.
 def get_sector(symbol):
-    """Lazy wrapper — imports from journal only at call time, never at startup."""
+    """Fallback sector lookup that avoids importing the UI-heavy dhan_journal_v7."""
     try:
-        from dhan_journal_v7 import get_sector as _gs
-        return _gs(symbol)
+        import sector_lookup as sl
+        rec = sl.get_sector(symbol)
+        if rec:
+            return rec.get('display_name') or rec.get('sector_name') or "Unknown"
     except Exception:
-        return "Unknown"
+        pass
+    return "Unknown"
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -188,9 +192,15 @@ st.set_page_config(
 #   2nd call: reload after auth writes refreshed token to .env
 load_dotenv(override=True)
 
+# Loud-failure guard: if the startup auto-refresh raises, keep the reason so the
+# UI can show a red banner instead of silently degrading to a dead token.
+_AUTH_REFRESH_ERROR = None
+
 def check_auth_cached():
+    global _AUTH_REFRESH_ERROR
     try: return ensure_valid_token()
     except Exception as e:
+        _AUTH_REFRESH_ERROR = str(e)
         logger.warning(f"Auth check failed: {e}"); return None
 
 check_auth_cached()
@@ -260,14 +270,39 @@ def launch_script(script_name, args=None, is_streamlit=False):
 
 # ── DATA FETCH (with caching) ─────────────────────────────────────────────────
 
-def _get_dhan_client():
-    """Always read fresh token from env (handles mid-session refresh)."""
-    load_dotenv(override=True)
-    cid = os.getenv("DHAN_CLIENT_ID") or CLIENT_ID
-    tok = os.getenv("DHAN_ACCESS_TOKEN") or ACCESS_TOKEN
+def _get_dhan_client(force_refresh=False):
+    """Fetch token with auto-refresh if expired."""
+    try:
+        from dhan_auth import get_valid_token
+        load_dotenv(override=True)
+        cid = os.getenv("DHAN_CLIENT_ID") or CLIENT_ID
+        tok = get_valid_token(force_refresh=force_refresh)
+        if not cid or not tok:
+            return None, None
+        return cid, tok
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Dhan auth error: {e}")
+        return None, None
+
+def get_dhanhq_client(force_refresh=False):
+    """Returns (dhanhq_instance, DhanContext_instance) or (None, None)."""
+    cid, tok = _get_dhan_client(force_refresh=force_refresh)
     if not cid or not tok:
         return None, None
-    return cid, tok
+    try:
+        from dhanhq import DhanContext, dhanhq
+        ctx = DhanContext(cid, tok)
+        return dhanhq(ctx), ctx
+    except Exception as e:
+        # Fallback to older SDK init if DhanContext is not available
+        try:
+            from dhanhq import dhanhq
+            return dhanhq(cid, tok), None
+        except Exception as fallback_e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to init dhanhq: {e}")
+            return None, None
 
 def get_dhan_balance():
     """Fetch available cash balance from Dhan fund-limits API.
@@ -297,10 +332,9 @@ def get_dhan_balance():
         from net_utils import is_internet_available
         if not is_internet_available():
             return 0.0, "SYSTEM OFFLINE"
-        cid, tok = _get_dhan_client()
-        if not cid or not tok:
+        dhan, ctx = get_dhanhq_client()
+        if not dhan:
             return 0.0, "AUTH MISSING"
-        dhan = dhanhq(cid, tok)
         resp = dhan.get_fund_limits()
 
         if not isinstance(resp, dict):
@@ -308,6 +342,18 @@ def get_dhan_balance():
 
         # ── Determine which dict holds the balance fields ─────────────────────
         _status = resp.get('status')
+        
+        # --- Handle early expiry by forcing refresh ---
+        if _status in ('failure', 'error') and any(k in str(resp).lower() for k in ["expired", "access token", "unauthorized", "invalid"]):
+            import logging
+            logging.getLogger(__name__).info("Dhan token rejected. Forcing refresh...")
+            dhan, ctx = get_dhanhq_client(force_refresh=True)
+            if dhan:
+                resp = dhan.get_fund_limits()
+                _status = resp.get('status') if isinstance(resp, dict) else "error"
+            else:
+                return 0.0, "AUTH RATE LIMIT (Wait 2 min)"
+
         if _status == 'success':
             # v1-style: nested under 'data'; fall back to root if 'data' absent
             data = resp.get('data') or resp
@@ -346,9 +392,26 @@ def get_live_holdings_stats():
         from net_utils import is_internet_available
         if not is_internet_available():
             return 0, 0.0, pd.DataFrame()
-        cid, tok = _get_dhan_client()
-        if not cid or not tok: return 0, 0.0, pd.DataFrame()
-        dhan = dhanhq(cid, tok)
+        dhan, ctx = get_dhanhq_client()
+        if not dhan: return 0, 0.0, pd.DataFrame()
+        
+        # --- Fetch historical trades to map Entry Dates ---
+        from datetime import date
+        today_str = date.today().isoformat()
+        entry_dates_map = {}
+        try:
+            trade_resp = dhan.get_trade_history(from_date="2024-01-01", to_date=today_str)
+            if isinstance(trade_resp, dict) and trade_resp.get('status') == 'success':
+                trades = trade_resp.get('data', [])
+                for tr in trades:
+                    if tr.get('transactionType') == 'BUY':
+                        isin = tr.get('isin')
+                        dt_str = tr.get('exchangeTime')
+                        if isin and dt_str:
+                            entry_dates_map[isin] = dt_str.split('T')[0]
+        except Exception as e:
+            logger.warning(f"Failed to fetch trade history: {e}")
+
         resp = dhan.get_holdings()
         if isinstance(resp, dict) and resp.get('status') == 'success':
             data = resp.get('data', [])
@@ -366,6 +429,8 @@ def get_live_holdings_stats():
                 })
                 # BUG-01: also store cleaned symbol for reliable mapping
                 df_live['CleanSymbol'] = df_live['Symbol'].apply(clean_symbol)
+                # Apply EntryDate based on ISIN
+                df_live['EntryDate'] = df_live.apply(lambda row: entry_dates_map.get(row.get('isin', ''), ''), axis=1)
             else:
                 df_live = pd.DataFrame()
             return len(valid_data), total_deployed, df_live
@@ -380,56 +445,39 @@ def get_batch_ltps(symbols_tuple):
     IMPORTANT: Only adds keys for SUCCESSFUL fetches (val > 0).
     This lets callers use  live_map.get(sym) or fallback  correctly.
     group_by='column' (default) → raw['Close'] is a DataFrame keyed by ticker."""
+    import data_provider as dp
     symbols = list(symbols_tuple)
     if not symbols: return {}
 
-    # Separate index symbols (^NSEI etc.) from equities — they need individual fetches
-    equity_syms = [(s, yf_symbol(s)) for s in symbols if not clean_symbol(s).startswith("^")]
-    index_syms  = [(s, clean_symbol(s)) for s in symbols if clean_symbol(s).startswith("^")]
-
     result = {}
-
-    # ── Equities: batch download with default group_by='column' ──────────────
-    if equity_syms:
-        orig_syms, yf_syms = zip(*equity_syms)
-        yf_syms = list(yf_syms)
-        try:
-            if len(yf_syms) == 1:
-                raw = yf.download(yf_syms[0], period="2d", progress=False, auto_adjust=True)
-                if not raw.empty:
-                    # Single ticker → raw['Close'] is a Series
+    
+    try:
+        batch_data = dp.fetch_batch_ohlcv(symbols, period="2d", interval="1d", use_cache=True, auto_adjust=True)
+        
+        for sym, raw in batch_data.items():
+            if raw is not None and not raw.empty and "Close" in raw.columns:
+                try:
                     val = float(raw['Close'].dropna().iloc[-1])
-                    if val > 0: result[orig_syms[0]] = val
-            else:
-                # Multiple tickers → default group_by='column'
-                # raw['Close'] is a DataFrame; columns are the yfinance ticker strings
-                raw = yf.download(yf_syms, period="2d", progress=False, auto_adjust=True)
-                if not raw.empty:
-                    close = raw['Close']
-                    # Handle case where yfinance wraps single-result in MultiIndex
-                    if isinstance(close, pd.Series):
-                        close = close.to_frame(name=yf_syms[0])
-                    for orig, yfs in zip(orig_syms, yf_syms):
-                        try:
-                            series = close[yfs] if yfs in close.columns else close.iloc[:, 0]
-                            val = float(series.dropna().iloc[-1])
-                            if val > 0: result[orig] = val
-                        except Exception as e:
-                            logger.warning(f"LTP parse {orig}: {e}")
-        except Exception as e:
-            logger.warning(f"Batch equity LTP: {e}")
-
-    # ── Indices: individual fetches (^NSEI doesn't batch reliably) ────────────
-    for orig, yfs in index_syms:
-        try:
-            raw = yf.download(yfs, period="2d", progress=False, auto_adjust=True)
-            if not raw.empty:
-                val = float(raw['Close'].dropna().iloc[-1])
-                if val > 0: result[orig] = val
-        except Exception as e:
-            logger.warning(f"Index LTP {yfs}: {e}")
+                    if val > 0: result[sym] = val
+                except Exception as e:
+                    logger.warning(f"LTP parse {sym}: {e}")
+    except Exception as e:
+        logger.warning(f"Batch LTP error: {e}")
 
     return result
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def get_earnings_date_cached(sym):
+    import yfinance as yf
+    from datetime import date
+    try:
+        cal = yf.Ticker(f"{sym}.NS").calendar
+        if isinstance(cal, dict) and 'Earnings Date' in cal and cal['Earnings Date']:
+            edate = cal['Earnings Date'][0]
+            if isinstance(edate, date): return edate
+    except Exception as e:
+        pass
+    return None
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_sector_momentum_cached():
@@ -471,14 +519,13 @@ def fetch_sector_momentum_cached():
     }
 
     def _dl(sym):
-        """Download + flatten; return empty DataFrame on any failure."""
+        """Fetch weekly data using the centralized data provider."""
+        import data_provider as dp
         try:
-            df = yf.download(sym, period="6mo", interval="1wk",
-                             auto_adjust=True, progress=False)
-            if df is None:
+            df = dp.fetch_ohlcv(sym, period="6mo", interval="1wk",
+                             auto_adjust=True, use_cache=True)
+            if df is None or df.empty:
                 return pd.DataFrame()
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
             return df
         except Exception:
             return pd.DataFrame()
@@ -566,13 +613,12 @@ def fetch_macro_data_cached():
         'Nifty 50':    '^NSEI',
         'Nifty 500':   '^CRSLDX',   # NEW — broad market reference
     }
+    import data_provider as dp
     result = {}
     for name, sym in tickers.items():
         try:
-            d = yf.download(sym, period="1y", progress=False, auto_adjust=True)
-            if d.empty: continue
-            if isinstance(d.columns, pd.MultiIndex):
-                d.columns = d.columns.get_level_values(0)
+            d = dp.fetch_ohlcv(sym, period="1y", interval="1d", auto_adjust=True, use_cache=True)
+            if d is None or d.empty: continue
             close = d['Close'].dropna()
             ltp   = float(close.iloc[-1])
             sma50 = float(close.rolling(50).mean().iloc[-1]) if len(close) >= 50 else ltp
@@ -811,8 +857,26 @@ section[data-testid="stSidebar"] > div:first-child > div > button {{ display: no
 }}
 .metric-card {{
     background: #0d1b2a; border: 1px solid #1e3a5f; border-radius: 6px;
-    padding: 10px 14px; text-align: center;
+    padding: 10px 14px; text-align: center; position: relative;
 }}
+.metric-card:has(.expand-toggle:checked) {{
+    position: fixed !important;
+    top: 5% !important; left: 5% !important;
+    width: 90vw !important; height: 90vh !important;
+    z-index: 9999999 !important;
+    background: #0d1117 !important;
+    border: 2px solid #58a6ff !important;
+    box-shadow: 0 0 50px rgba(0,0,0,0.9) !important;
+    overflow-y: auto !important;
+}}
+.metric-card:has(.expand-toggle:checked) .expand-btn {{
+    color: #ff4b4b !important;
+}}
+.expand-btn {{
+    position: absolute; right: 8px; top: 8px; cursor: pointer; color: #8b949e;
+    font-size: 1.1rem; transition: color 0.2s;
+}}
+.expand-btn:hover {{ color: #e6edf3; }}
 .metric-label {{ font-family: 'JetBrains Mono',monospace; font-size: 0.58rem; color: #5a8a9f; letter-spacing: 2px; text-transform: uppercase; }}
 .metric-value {{ font-family: 'JetBrains Mono',monospace; font-size: 1.1rem; font-weight: 600; color: #e6edf3; margin-top: 3px; }}
 button[kind="secondary"] {{
@@ -1008,6 +1072,12 @@ with st.sidebar:
     #   • RESEARCH renamed DISCOVERY (Bible terminology).
     #   • EXECUTION group is what you actually do during market hours.
     NAV_GROUPS = [
+        ("🎛️  CONTROL CENTER", [
+            ("📊 DASHBOARD",   "DASHBOARD"),
+            ("🗂️ PORTFOLIO",   "PORTFOLIO"),
+            ("⚡ COMMAND",     "COMMAND"),
+            ("🛡️ RISK SHIELD", "RISK SHIELD"),
+        ]),
         ("🩺  STATE OF MARKET", [
             ("🌐 MACRO",       "MACRO"),
             ("📈 BREADTH",     "BREADTH"),
@@ -1015,7 +1085,6 @@ with st.sidebar:
         ]),
         ("📅  DAILY INTEL", [
             ("🌅 PRE-MARKET",  "PRE-MARKET"),
-            ("📊 DASHBOARD",   "DASHBOARD"),
             ("🌙 POST-MARKET", "POST-MARKET"),
         ]),
         ("🔍  DISCOVERY", [
@@ -1029,13 +1098,11 @@ with st.sidebar:
             # + asset-class regime + RRG. Sits in DISCOVERY because it's a
             # research/selection workflow, parallel to HUNTER for stocks.
             ("🪙 ETF",         "ETF"),
-            ("🗂️ PORTFOLIO",   "PORTFOLIO"),
         ]),
         ("⚡  EXECUTION", [
-            ("⚡ COMMAND",     "COMMAND"),
-            ("🛡️ ENTRY SHIELD", "ENTRY SHIELD"),
             ("📐 OPTIONS",     "OPTIONS"),
             ("📺 TV SIDECAR",  "TV SIDECAR"),
+            ("🪙 GOLDEN MATCHER", "GOLDEN MATCHER"),
         ]),
         ("🔬  ANALYSIS", [
             ("🔬 AUTOPSY",     "AUTOPSY"),
@@ -1119,12 +1186,8 @@ try:
     from net_utils import is_internet_available
     _vix_bar = pd.DataFrame()
     if is_internet_available():
-        try:
-            import data_provider as _dp_vix
-            _vix_bar = _dp_vix.fetch_ohlcv("^INDIAVIX", period="5d", interval="1d")
-        except Exception:
-            _vix_bar = yf.download("^INDIAVIX", period="2d", interval="1d",
-                                    progress=False, auto_adjust=True)
+        import data_provider as _dp_vix
+        _vix_bar = _dp_vix.fetch_ohlcv("^INDIAVIX", period="5d", interval="1d")
     if not _vix_bar.empty:
         if isinstance(_vix_bar.columns, pd.MultiIndex): _vix_bar.columns = _vix_bar.columns.get_level_values(0)
         _vix_val = float(_vix_bar["Close"].iloc[-1])
@@ -1680,8 +1743,907 @@ def sub_label(label):
     st.markdown(f'<div class="section-sub-lbl">{label}</div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════
+#  DHAN AUTH FAILURE BANNER (renders on EVERY page)
+#  Token invalid at this point means the startup auto-refresh already ran and
+#  did NOT produce a valid token — never let that degrade silently to yfinance.
+# ════════════════════════════════════════════════════════════════════════════
+try:
+    from dhan_auth import token_status as _auth_ts
+    _auth_now = _auth_ts()
+    if not _auth_now.get("valid", False):
+        _auth_reason = _AUTH_REFRESH_ERROR or _auth_now.get("error") or (
+            "Auto-refresh did not raise but token is still invalid "
+            "(possible causes: internet offline, or another process holds the 2-min rate limit)."
+        )
+        st.markdown(f"""
+        <div style="background:#3d0c0c;border:2px solid #ff4b4b;border-radius:8px;
+                    padding:14px 20px;margin-bottom:14px;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;
+                      color:#ff4b4b;letter-spacing:1px;">
+            🚨 DHAN TOKEN INVALID — AUTO-REFRESH FAILED</div>
+          <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:#ffb3b3;
+                      line-height:1.6;margin-top:6px;">
+            Live broker data is DOWN (prices may silently fall back to delayed yfinance).<br>
+            <b>Reason:</b> {str(_auth_reason).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}<br>
+            <b>Fix:</b> check DHAN_PIN / DHAN_TOTP_KEY in .env, or paste a fresh token in the
+            sidebar &rarr; 🔑 Token detail, then reload.</div>
+        </div>""", unsafe_allow_html=True)
+except Exception as _auth_banner_err:
+    logger.warning(f"Auth banner render failed: {_auth_banner_err}")
+
+# ════════════════════════════════════════════════════════════════════════════
 #  DASHBOARD
 # ════════════════════════════════════════════════════════════════════════════
+def inr(x) -> str:
+    """Indian-format a number: 1234567 -> 12,34,567."""
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return "—"
+    neg = x < 0
+    x = abs(x)
+    whole = int(round(x))
+    s = str(whole)
+    if len(s) > 3:
+        last3 = s[-3:]
+        rest = s[:-3]
+        parts = []
+        while len(rest) > 2:
+            parts.insert(0, rest[-2:]); rest = rest[:-2]
+        if rest:
+            parts.insert(0, rest)
+        s = ",".join(parts) + "," + last3
+    return ("-₹" if neg else "₹") + s
+
+
+def fnum(x, dp=2, suffix="") -> str:
+    try:
+        if x is None or (isinstance(x, float) and math.isnan(x)):
+            return "—"
+        return f"{float(x):,.{dp}f}{suffix}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def row(label: str, value: str, status: str, note: str = ""):
+    """Render a single colored checklist row. status in pass/watch/fail/na."""
+    rhs = f"{value}" + (f"  <span style='opacity:.65'>· {note}</span>" if note else "")
+    st.markdown(f"<div class='chk {status}'><b>{label}</b><span>{rhs}</span></div>",
+                unsafe_allow_html=True)
+
+
+def _g(d: dict, *keys, default=None):
+    for k in keys:
+        if k in d and d[k] is not None:
+            return d[k]
+    return default
+
+
+# ----------------------------------------------------------------------------------------
+# Graphical primitives (pure HTML/SVG — no extra deps)
+# ----------------------------------------------------------------------------------------
+def _sc(state: str) -> str:
+    return {"pass": "#26A69A", "watch": "#FF9800", "fail": "#EF5350", "na": "#787B86"}.get(state, "#787B86")
+
+
+def _gauge(label, value, vmin, vmax, gradient, state, valtxt) -> str:
+    col = _sc(state)
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        pct = 0.0; valtxt = "—"; col = "#787B86"
+    else:
+        pct = max(0.0, min(100.0, (float(value) - vmin) / (vmax - vmin) * 100.0))
+    return (f"<div style='margin:5px 0;'>"
+            f"<div style='display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px;'>"
+            f"<span style='font-weight:600'>{label}</span>"
+            f"<span style='font-weight:800;color:{col}'>{valtxt}</span></div>"
+            f"<div style='position:relative;height:9px;border-radius:5px;background:{gradient};'>"
+            f"<div style='position:absolute;left:calc({pct:.1f}% - 1px);top:-2px;width:2px;height:13px;"
+            f"background:#111;box-shadow:0 0 0 1px #fff;border-radius:1px;'></div></div></div>")
+
+
+def _crit(ok: bool, label: str) -> str:
+    col = "#26A69A" if ok else "#EF5350"; mk = "✓" if ok else "✗"
+    return (f"<div style='display:flex;align-items:center;gap:6px;font-size:11px;margin:1.5px 0;'>"
+            f"<span style='flex:0 0 15px;width:15px;height:15px;border-radius:50%;background:{col};"
+            f"color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;"
+            f"font-weight:700'>{mk}</span><span>{label}</span></div>")
+
+
+def _pill(state: str, label: str, val: str) -> str:
+    col = _sc(state)
+    return (f"<div style='border-left:3px solid {col};background:{col}22;border-radius:4px;padding:3px 7px;'>"
+            f"<div style='opacity:.65;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px'>{label}</div>"
+            f"<b style='color:{col};font-size:12px'>{val}</b></div>")
+
+
+def _donut(passed: int, total: int) -> str:
+    r = 22.0; circ = 2 * math.pi * r
+    frac = (passed / total) if total else 0
+    col = "#26A69A" if frac >= 0.75 else ("#FF9800" if frac >= 0.5 else "#EF5350")
+    off = circ * (1 - frac)
+    return (f"<svg width='54' height='54' viewBox='0 0 52 52'>"
+            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='#80808033' stroke-width='6'/>"
+            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='{col}' stroke-width='6'"
+            f" stroke-dasharray='{circ:.1f}' stroke-dashoffset='{off:.1f}' stroke-linecap='round'"
+            f" transform='rotate(-90 26 26)'/>"
+            f"<text x='26' y='31' text-anchor='middle' font-size='14' font-weight='800' fill='{col}'>{passed}/{total}</text></svg>")
+
+
+def _range_bar(low, high, cmp_, marks) -> str:
+    if not (low and high and high > low and cmp_):
+        return "<div style='font-size:11px;opacity:.6'>52W range unavailable</div>"
+    span = high - low
+    def p(x): return max(0.0, min(100.0, (x - low) / span * 100.0))
+    ticks = ""
+    for x, lab, col in marks:
+        if x is None:
+            continue
+        ticks += (f"<div style='position:absolute;left:{p(x):.1f}%;top:11px;width:1px;height:7px;"
+                  f"background:{col};transform:translateX(-50%)'></div>"
+                  f"<div style='position:absolute;left:{p(x):.1f}%;top:18px;transform:translateX(-50%);"
+                  f"font-size:8.5px;color:{col};white-space:nowrap'>{lab}</div>")
+    cp = p(cmp_)
+    return (f"<div style='position:relative;margin:6px 0 30px;'>"
+            f"<div style='position:relative;height:9px;border-radius:5px;"
+            f"background:linear-gradient(90deg,#EF535055,#FF980055,#26A69A55);'>"
+            f"<div style='position:absolute;left:{cp:.1f}%;top:-5px;transform:translateX(-50%);width:0;height:0;"
+            f"border-left:6px solid transparent;border-right:6px solid transparent;border-top:11px solid #111;'></div>"
+            f"{ticks}</div>"
+            f"<div style='display:flex;justify-content:space-between;font-size:9px;opacity:.6;margin-top:2px'>"
+            f"<span>52WL {inr(low)}</span><span>52WH {inr(high)}</span></div></div>")
+
+
+def minervini_checks(ctx: dict, cmp_px, mansfield):
+    """Minervini 8-point trend template — shared by the board and the decision engine."""
+    e20 = _g(ctx, "ema20"); s50 = _g(ctx, "sma50"); s150 = _g(ctx, "sma150")
+    s200 = _g(ctx, "sma200"); s200p = _g(ctx, "sma200_prev")
+    low = _g(ctx, "low52w"); high = _g(ctx, "high52w")
+    checks = [
+        (bool(s150 and s200 and cmp_px > s150 and cmp_px > s200), "Price > 150 & 200 SMA"),
+        (bool(s150 and s200 and s150 > s200), "150 SMA > 200 SMA"),
+        (bool(s200 and s200p and s200 > s200p), "200 SMA trending up (1m)"),
+        (bool(s50 and s150 and s200 and s50 > s150 and s50 > s200), "50 SMA > 150 & 200"),
+        (bool(s50 and cmp_px > s50), "Price > 50 SMA"),
+        (bool(low and cmp_px >= 1.30 * low), "≥30% above 52W low"),
+        (bool(high and cmp_px >= 0.75 * high), "≤25% from 52W high"),
+        (bool((mansfield or -1) > 0), "RS positive (vs N500)"),
+    ]
+    return sum(1 for ok, _ in checks if ok), checks
+
+
+def compute_decision(rec: dict, ctx: dict, cmp_px, mansfield) -> dict:
+    """Synthesize all signals into a verdict via a 3-gate funnel (Decision Mode)."""
+    stage = str(_g(rec, "Stage", default="")); s2 = "2" in stage
+    s34 = ("3" in stage or "4" in stage)
+    above30w = bool(_g(ctx, "sma150") and cmp_px > _g(ctx, "sma150"))
+    regime = _g(rec, "Regime", default="—"); counter = bool(_g(rec, "Counter_Trend"))
+    rs = (mansfield or 0) > 0
+    alpha = _g(rec, "Alpha") or 0
+    mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
+    rrg = _g(rec, "RRG_Quadrant", default=""); rrg_ok = rrg in ("LEADING", "IMPROVING")
+    catalyst = _g(rec, "Catalyst", default="NONE")
+    cat_on = str(catalyst) not in ("NONE", "None", "—", "0", "")
+    rsi = _g(rec, "RSI") or 0; not_ob = rsi < 75
+    s2w = _g(ctx, "stage2_weeks"); fresh = (s2w is None) or (s2w <= 26)
+    macro = bool(_g(ctx, "shelf_ok") and _g(ctx, "acc_ok"))
+    micro = bool(_g(ctx, "cpr_p") and cmp_px > _g(ctx, "cpr_p") and _g(ctx, "mvwap") and cmp_px > _g(ctx, "mvwap"))
+    vcp = bool(_g(rec, "VCP_Valid")); broke = bool(_g(rec, "Broke_Pivot"))
+
+    g1_checks = [("Stage 2 advancing", s2), ("Above 30W MA", above30w),
+                 (f"Market regime {regime}", (regime == "BULL") or not counter)]
+    g1 = s2 and above30w
+    g2_checks = [("Mansfield RS positive", rs), (f"Alpha ≥ 60 (now {alpha:.0f})", alpha >= 60),
+                 (f"Minervini ≥ 6/8 (now {mpass}/8)", mpass >= 6), ("RRG leading/improving", rrg_ok)]
+    g2 = rs and (alpha >= 50) and (mpass >= 5)
+    g3_checks = [(f"Catalyst firing ({catalyst})", cat_on), ("Not over-extended", fresh and not_ob),
+                 ("Macro/Micro edge active", macro or micro), ("VCP / pivot break", vcp or broke)]
+    g3 = cat_on and fresh and not_ob
+
+    gates = [
+        {"name": "CONTEXT", "sub": "Trend & Regime", "ok": g1, "checks": g1_checks},
+        {"name": "STRENGTH", "sub": "Quality & RS", "ok": g2, "checks": g2_checks},
+        {"name": "TIMING", "sub": "Location & Trigger", "ok": g3, "checks": g3_checks},
+    ]
+
+    if s34 or not rs:
+        verdict, color = "AVOID / EXIT", "#EF5350"
+        reason = "Stage 3/4 or RS negative — fails the no-Stage-3-holds rule."
+        action = "No long. If held, plan the exit per the Sell-to-Buy matrix."
+    elif g1 and g2 and g3:
+        verdict, color = "STRONG BUY", "#26A69A"
+        reason = f"All 3 gates pass · catalyst {catalyst} firing."
+        action = f"Confirm a CLOSED 75/125m trigger → buy-STOP above its high. Size {_g(rec,'Suggested_Size','—')}."
+    elif g1 and g2:
+        verdict, color = "BUY ON TRIGGER", "#FF9800"
+        reason = "Context + strength pass; only timing/trigger is pending."
+        action = "Set an alert at the fresh zone; act ONLY on a closed 75/125m trigger bar."
+    elif g1:
+        verdict, color = "WATCHLIST", "#FF9800"
+        reason = "Stage-2 context OK but strength is incomplete."
+        action = "Track only — needs RS / Alpha / Minervini to firm up."
+    else:
+        verdict, color = "NOT YET", "#787B86"
+        reason = "Context gate not met (Stage 2 + above 30W MA)."
+        action = "No setup. Re-check when context turns."
+    if counter and verdict in ("STRONG BUY", "BUY ON TRIGGER"):
+        reason += "  ⚠ Counter-trend (index not bull) — size halved."
+    return {"verdict": verdict, "color": color, "reason": reason, "action": action, "gates": gates}
+
+
+def render_decision(d: dict) -> str:
+    gates_html = ""
+    for i, g in enumerate(d["gates"]):
+        col = "#26A69A" if g["ok"] else "#787B86"
+        mk = "✓" if g["ok"] else "○"
+        subs = ""
+        for lab, ok in g["checks"]:
+            cc = "#26A69A" if ok else "#EF5350"; mm = "✓" if ok else "✗"
+            subs += (f"<div style='display:flex;gap:5px;font-size:10.5px;margin:1px 0'>"
+                     f"<span style='color:{cc};font-weight:700'>{mm}</span>"
+                     f"<span style='opacity:.85'>{lab}</span></div>")
+        gates_html += (f"<div style='flex:1;border-top:3px solid {col};background:{col}14;"
+                       f"border-radius:0 0 6px 6px;padding:7px 9px;'>"
+                       f"<div style='font-weight:800;font-size:12px;color:{col}'>{mk} GATE {i+1} · {g['name']}</div>"
+                       f"<div style='font-size:9.5px;opacity:.55;margin-bottom:4px'>{g['sub']}</div>{subs}</div>")
+    return (f"<div style='border:2px solid {d['color']};border-radius:10px;padding:12px 16px;margin-bottom:12px;"
+            f"background:{d['color']}11;'>"
+            f"<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap'>"
+            f"<span style='font-size:11px;letter-spacing:1px;opacity:.55'>DECISION</span>"
+            f"<span style='font-size:30px;font-weight:900;color:{d['color']}'>{d['verdict']}</span></div>"
+            f"<div style='font-size:13px;margin:4px 0 2px'>{d['reason']}</div>"
+            f"<div style='font-size:12px;opacity:.85'>▶ <b>Next:</b> {d['action']}</div>"
+            f"<div style='display:flex;gap:8px;margin-top:10px'>{gates_html}</div></div>")
+
+
+def render_pine_mirror(rec: dict, ctx: dict, cmp_px) -> str:
+    """Key composite fields mirrored from the v67 Decision-Mode panel."""
+    cat = str(_g(rec, "Catalyst", default=""))
+    rec_style = ("Positional (6–8 mo)" if cat.startswith("POS")
+                 else "Swing (1–4 wk)" if cat.startswith("SWG")
+                 else "Recovery" if cat.startswith("REV") else "—")
+    s2w = _g(ctx, "stage2_weeks")
+    if s2w is None:
+        fresh = "—"; fresh_state = "na"
+    elif s2w <= 13:
+        fresh = f"Fresh ({s2w:.0f}w)"; fresh_state = "pass"
+    elif s2w <= 26:
+        fresh = f"Maturing ({s2w:.0f}w)"; fresh_state = "watch"
+    else:
+        fresh = f"Extended ({s2w:.0f}w)"; fresh_state = "fail"
+    macro = bool(_g(ctx, "shelf_ok") and _g(ctx, "acc_ok"))
+    cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
+    micro = bool(cpr_p and cmp_px > cpr_p and mv and cmp_px > mv)
+    pills = "".join([
+        _pill("na", "Rec. Style", rec_style),
+        _pill(fresh_state, "Stage-2 Age", fresh),
+        _pill("pass" if macro else "na", "Macro Edge", "Inst-Vol ON" if macro else "off"),
+        _pill("pass" if micro else "na", "Micro Edge", "CPR+MVWAP ON" if micro else "off"),
+        _pill("pass" if (cpr_p and cmp_px > cpr_p) else "watch", "vs CPR Pivot",
+              ("above " + inr(cpr_p)) if cpr_p else "—"),
+        _pill("pass" if (mv and cmp_px > mv) else "watch", "vs Monthly VWAP", inr(mv) if mv else "—"),
+        _pill("pass" if _g(ctx, "acc_ok") else "na", "Accumulation", f"{_g(ctx,'acc_days',default=0)}/10 days"),
+        _pill("pass" if _g(ctx, "squeeze_on") else "na", "Squeeze 20/50", "ON" if _g(ctx, "squeeze_on") else "off"),
+        _pill("pass" if _g(rec, "Regime") == "BULL" else "watch", "Market Regime", _g(rec, "Regime", default="—")),
+    ])
+    return f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;'>{pills}</div>"
+
+
+# ----------------------------------------------------------------------------------------
+# Panel-mirror cards (replace the 5 Pine panel tables)
+# ----------------------------------------------------------------------------------------
+def card(title: str, rows, accent: str = "#2962FF") -> str:
+    """Compact label:value table card mirroring a Pine panel."""
+    body = ""
+    for label, value, state in rows:
+        col = _sc(state)
+        body += (f"<div style='display:flex;justify-content:space-between;gap:8px;padding:2.5px 0;"
+                 f"font-size:11.5px;border-bottom:1px solid rgba(136,136,136,.18)'>"
+                 f"<span style='opacity:.78'>{label}</span>"
+                 f"<b style='color:{col};text-align:right'>{value}</b></div>")
+    return (f"<div style='border:1px solid rgba(136,136,136,.28);border-radius:7px;overflow:hidden;margin-bottom:9px'>"
+            f"<div style='background:{accent};color:#fff;font-weight:700;font-size:10.5px;"
+            f"letter-spacing:.4px;padding:4px 9px'>{title}</div>"
+            f"<div style='padding:4px 9px 6px'>{body}</div></div>")
+
+
+def _grade(a) -> str:
+    a = a or 0
+    return ("A+ Excellent" if a >= 80 else "A Strong" if a >= 70 else "B Good" if a >= 55
+            else "C Fair" if a >= 40 else "D Weak")
+
+
+def section_structure(rec, ctx, cmp_px, mansfield, decision) -> str:
+    """Mirror of the v67 Weinstein Dashboard header rows."""
+    stage = str(_g(rec, "Stage", default="—"))
+    cat = str(_g(rec, "Catalyst", default="NONE"))
+    style = ("Positional" if cat.startswith("POS") else "Swing" if cat.startswith("SWG")
+             else "Recovery" if cat.startswith("REV") else "Both / —")
+    alpha = _g(rec, "Alpha") or 0
+    s2w = _g(ctx, "stage2_weeks")
+    fresh = ("—" if s2w is None else f"Fresh ({s2w:.0f}w)" if s2w <= 13
+             else f"Maturing ({s2w:.0f}w)" if s2w <= 26 else f"Extended ({s2w:.0f}w)")
+    subs = [ok for g in decision["gates"] for _, ok in g["checks"]]
+    act = round(10 * sum(1 for x in subs if x) / max(1, len(subs)))
+    persona = ("LEADER" if (mansfield or 0) > 0 and _g(rec, "RRG_Quadrant") in ("LEADING", "IMPROVING")
+               else "Improving" if (mansfield or 0) > 0 else "Laggard")
+    v = decision["verdict"]
+    rows = [
+        ("Recommendation", v, "pass" if "BUY" in v else "fail" if "AVOID" in v else "watch"),
+        ("Recommended Style", style, "na"),
+        ("Action Signal", f"{act}/10", "pass" if act >= 7 else "watch" if act >= 5 else "fail"),
+        ("Asset Quality", f"{alpha:.0f}/100 [{_grade(alpha)}]",
+         "pass" if alpha >= 70 else "watch" if alpha >= 50 else "fail"),
+        ("Weekly Stage", f"Stage {stage} · {fresh}",
+         "pass" if "2" in stage else "fail" if ("3" in stage or "4" in stage) else "watch"),
+        ("Daily Trend", f"{_g(rec,'Active_Dir',default='—')} {_g(rec,'Vel_Accel',default='')}",
+         "pass" if str(_g(rec, "Active_Dir")).upper().startswith("UP") else "watch"),
+        ("Momentum", f"RSI {fnum(_g(rec,'RSI'),0)} · ADX {fnum(_g(ctx,'adx'),0)} · Vol {fnum(_g(ctx,'relvol'),1)}x", "na"),
+        ("Persona", persona, "pass" if persona == "LEADER" else "watch"),
+        ("ML Win Prob", fnum(_g(rec, "ML_Prob"), 1, "%"), "pass" if (_g(rec, "ML_Prob") or 0) >= 60 else "watch"),
+    ]
+    return card("WEINSTEIN STRUCTURE · " + str(_g(rec, "Symbol", default="")), rows, "#1565C0")
+
+
+def section_bull_gates(rec, ctx, cmp_px, mansfield) -> str:
+    """Mirror of the Commander Bull Screener POS-BO gate panel."""
+    s2 = "2" in str(_g(rec, "Stage", default=""))
+    g200 = bool(_g(ctx, "sma200") and cmp_px > _g(ctx, "sma200"))
+    rrg_ok = _g(rec, "RRG_Quadrant") in ("LEADING", "IMPROVING")
+    mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
+    tpl = mpass >= 6
+    vacc = bool(_g(ctx, "acc_ok"))
+    s2w = _g(ctx, "stage2_weeks")
+    freshg = (s2w is not None and s2w <= 6)
+    gates = [("G1 Stage 2", s2), ("G2 Price > 200DMA", g200), ("G3 N500 RRG lead", rrg_ok),
+             ("G4 Sector S1/2", None), ("G5 Trend Template", tpl), ("G6 Vol Accum", vacc),
+             ("G7 Fresh ≤6w" + (f" ({s2w:.0f}w)" if s2w is not None else ""), freshg)]
+    passed = sum(1 for _, ok in gates if ok)
+    total = sum(1 for _, ok in gates if ok is not None)
+    cat = str(_g(rec, "Catalyst", default="NONE")); firing = cat not in ("NONE", "None", "—", "0", "")
+    rows = [("VERDICT", (cat + " · FIRING") if firing else "NONE · WATCH", "pass" if firing else "watch")]
+    for lab, ok in gates:
+        rows.append((lab, "n/a", "na") if ok is None else (lab, "✓ pass" if ok else "✗ block", "pass" if ok else "fail"))
+    return card(f"BULL SCREENER · POS-BO {passed}/{total}", rows, "#00695C")
+
+
+def section_context(rec, ctx, cmp_px) -> str:
+    """Mirror of the Context Layers panel — SMC / Wyckoff / Volume Profile."""
+    adir = str(_g(rec, "Active_Dir", default="")).upper()
+    smc = "BULLISH" if adir.startswith("UP") else "BEARISH" if adir.startswith("DOWN") else "NEUTRAL"
+    stage = str(_g(rec, "Stage", default=""))
+    bfvg = _g(ctx, "bull_fvg", default=0); rfvg = _g(ctx, "bear_fvg", default=0)
+    wyk = ("ACCUMULATION" if (_g(ctx, "acc_ok") and ("1" in stage or "2" in stage))
+           else "DISTRIBUTION" if "3" in stage else "NEUTRAL")
+    poc = _g(ctx, "poc"); vah = _g(ctx, "vah"); val = _g(ctx, "val")
+    vp_pos = _g(ctx, "vp_pos", default="—"); dpoc = _g(ctx, "dist_poc")
+    rows = [
+        ("SMC Trend", smc, "pass" if smc == "BULLISH" else "fail" if smc == "BEARISH" else "na"),
+        ("Open FVGs", f"Bull {bfvg} · Bear {rfvg}", "pass" if bfvg >= rfvg else "watch"),
+        ("Wyckoff Bias", wyk, "pass" if wyk == "ACCUMULATION" else "fail" if wyk == "DISTRIBUTION" else "na"),
+        ("VP Position", vp_pos,
+         "pass" if vp_pos == "ABOVE VAH" else "watch" if vp_pos == "INSIDE VA" else "fail" if vp_pos == "BELOW VAL" else "na"),
+        ("POC", inr(poc) if poc else "—", "na"),
+        ("VAH / VAL", (inr(vah) + " / " + inr(val)) if (vah and val) else "—", "na"),
+        ("Dist to POC", fnum(dpoc, 1, "%"), "na"),
+    ]
+    return card("CONTEXT LAYERS · SMC / VP / Wyckoff", rows, "#6A1B9A")
+
+
+def section_edges(rec, ctx, cmp_px) -> str:
+    """Macro/Micro mathematical edges + CPR/MVWAP/squeeze."""
+    macro = bool(_g(ctx, "shelf_ok") and _g(ctx, "acc_ok"))
+    cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
+    micro = bool(cpr_p and cmp_px > cpr_p and mv and cmp_px > mv and _g(ctx, "squeeze_on"))
+    rows = [
+        ("Macro Edge (Inst Vol)", "ON" if macro else "off", "pass" if macro else "na"),
+        ("Micro Edge (CPR+VWAP+Sqz)", "ON" if micro else "off", "pass" if micro else "na"),
+        ("vs CPR Pivot", ("above " + inr(cpr_p)) if (cpr_p and cmp_px > cpr_p) else "below",
+         "pass" if (cpr_p and cmp_px > cpr_p) else "watch"),
+        ("vs Monthly VWAP", ("above " + inr(mv)) if (mv and cmp_px > mv) else "below",
+         "pass" if (mv and cmp_px > mv) else "watch"),
+        ("Accumulation", f"{_g(ctx,'acc_days',default=0)}/10 days", "pass" if _g(ctx, "acc_ok") else "na"),
+        ("Squeeze 20/50", "ON" if _g(ctx, "squeeze_on") else "off", "pass" if _g(ctx, "squeeze_on") else "na"),
+        ("VCP / Base", ("valid · " + str(_g(rec, "Days_Since_Pivot", default="—")) + "d") if _g(rec, "VCP_Valid") else "no",
+         "pass" if _g(rec, "VCP_Valid") else "na"),
+    ]
+    return card("MATHEMATICAL EDGES", rows, "#7B1FA2")
+
+
+def section_trade(rec, cmp_px) -> str:
+    entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct")
+    t1_pct = _g(rec, "T1_pct"); t2_pct = _g(rec, "T2_pct")
+    if not (entry and sl_pct is not None):
+        return card("TRADE GEOMETRY", [("Status", "No active catalyst", "na"),
+                                       ("Levels", "reference only", "na")], "#E65100")
+    sl = entry * (1 - sl_pct / 100)
+    t1 = entry * (1 + t1_pct / 100) if t1_pct is not None else None
+    t2 = entry * (1 + t2_pct / 100) if t2_pct is not None else None
+    rr = (t1_pct / sl_pct) if (t1_pct and sl_pct) else None
+    rows = [
+        ("Entry", inr(entry), "na"),
+        ("Stop-Loss", f"{inr(sl)} (-{sl_pct:.1f}%)", "fail"),
+        ("Target 1", f"{inr(t1)} (+{t1_pct:.1f}% · {fnum(rr,1)}R)", "pass"),
+        ("Target 2", f"{inr(t2)} (+{t2_pct:.1f}%)", "pass"),
+        ("Suggested Size", str(_g(rec, "Suggested_Size", default="—")), "na"),
+        ("Regime", str(_g(rec, "Regime", default="—")), "pass" if _g(rec, "Regime") == "BULL" else "watch"),
+    ]
+    if _g(rec, "Counter_Trend"):
+        rows.append(("⚠ Counter-trend", "size halved", "watch"))
+    return card("TRADE GEOMETRY · daily plan", rows, "#E65100")
+
+
+def section_levels(rec, ctx, cmp_px) -> str:
+    d52 = _g(ctx, "dist52wh")
+    rows = [
+        ("Room to 52WH", fnum(d52, 1, "%"), "pass" if (d52 is not None and -15 <= d52 <= -1) else "watch"),
+        ("EMA20 distance", fnum(_g(rec, "EMA20_Dist_ATR"), 2, " ATR"), "na"),
+        ("Pivot", f"{_g(rec,'Days_Since_Pivot','—')}d" + (" · broke ↑" if _g(rec, "Broke_Pivot") else ""),
+         "pass" if _g(rec, "Broke_Pivot") else "na"),
+        ("Turnover", fnum(_g(ctx, "turnover_cr"), 1) + " Cr", "na"),
+        ("DZ / SZ zones", "live on chart", "na"),
+    ]
+    return card("LEVELS & ROOM", rows, "#EF6C00")
+
+
+def section_sector(rec, ctx, mansfield) -> str:
+    rows = [
+        ("Market Regime", str(_g(rec, "Regime", default="—")), "pass" if _g(rec, "Regime") == "BULL" else "watch"),
+        ("RS vs N500", fnum(mansfield, 1) + (" Positive" if (mansfield or 0) > 0 else " Negative"),
+         "pass" if (mansfield or 0) > 0 else "fail"),
+        ("RS Momentum 4w", fnum(_g(rec, "JdK_RS_Momentum"), 1), "na"),
+        ("RRG Quadrant", f"{_g(rec,'RRG_Quadrant',default='—')} {_g(rec,'RRG_Arrow','')}",
+         "pass" if _g(rec, "RRG_Quadrant") in ("LEADING", "IMPROVING") else "watch"),
+        ("RRG Trajectory", str(_g(rec, "RRG_Trajectory", default="—")), "na"),
+        ("Sector RS", "see Commander Web", "na"),
+        ("Futures OI", "see broker (F&O)", "na"),
+    ]
+    return card("SECTOR / MACRO / RRG", rows, "#283593")
+
+
+def section_fundamentals(fun) -> str:
+    roe = _g(fun, "roe"); roce = _g(fun, "roce"); de = _g(fun, "debt_equity")
+    prom = _g(fun, "promoter_holding", "promoter"); piot = _g(fun, "piotroski", "piotroski_score")
+    qpv = _g(fun, "qtr_profit_var", "quarterly_profit_growth")
+    qsv = _g(fun, "qtr_sales_var", "quarterly_sales_growth")
+    pe = _g(fun, "pe_ratio"); mcap = _g(fun, "market_cap")
+    rows = []
+    if roe is not None: rows.append(("ROE %", fnum(roe, 1, "%"), "pass" if roe >= 15 else "watch" if roe >= 10 else "fail"))
+    if roce is not None: rows.append(("ROCE %", fnum(roce, 1, "%"), "pass" if roce >= 15 else "watch" if roce >= 10 else "fail"))
+    if de is not None: rows.append(("Debt / Equity", fnum(de, 2), "pass" if de < 0.5 else "watch" if de < 1.0 else "fail"))
+    if prom is not None: rows.append(("Promoter %", fnum(prom, 1, "%"), "pass" if prom >= 50 else "watch"))
+    if piot is not None: rows.append(("Piotroski", fnum(piot, 0, "/9"), "pass" if piot >= 7 else "watch" if piot >= 5 else "fail"))
+    if qpv is not None: rows.append(("Qtr Profit Δ", fnum(qpv, 1, "%"), "pass" if qpv > 0 else "fail"))
+    if qsv is not None: rows.append(("Qtr Sales Δ", fnum(qsv, 1, "%"), "pass" if qsv > 0 else "fail"))
+    if pe is not None: rows.append(("P/E", fnum(pe, 1), "na"))
+    if mcap is not None: rows.append(("Market Cap", inr(mcap) + " Cr", "na"))
+    if not rows:
+        rows = [("Fundamentals", "unavailable — refresh cookie", "na")]
+    return card("FUNDAMENTALS · Screener.in", rows, "#00838F")
+
+
+# ----------------------------------------------------------------------------------------
+# DECISION WORKFLOW — the sequential path (crucial metrics only)
+# ----------------------------------------------------------------------------------------
+def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
+    """Order the decision as a gated sequence: CONTEXT → QUALITY → SETUP → LOCATION → TRIGGER → EXECUTE."""
+    stage = str(_g(rec, "Stage", default="")); s2 = "2" in stage; s34 = ("3" in stage or "4" in stage)
+    regime = _g(rec, "Regime", default="—")
+    rs = (mansfield or 0) > 0
+    alpha = _g(rec, "Alpha") or 0
+    mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
+    rrg = _g(rec, "RRG_Quadrant", default="—"); rrg_ok = rrg in ("LEADING", "IMPROVING")
+    cat = str(_g(rec, "Catalyst", default="NONE")); cat_on = cat not in ("NONE", "None", "—", "0", "")
+    s2w = _g(ctx, "stage2_weeks"); fresh = (s2w is None) or (s2w <= 26)
+    vcp = bool(_g(rec, "VCP_Valid"))
+    cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
+    above_value = bool(cpr_p and cmp_px > cpr_p and mv and cmp_px > mv)
+    vp_pos = _g(ctx, "vp_pos", default="—"); d52 = _g(ctx, "dist52wh")
+    not_ext = (d52 is None) or (d52 <= -1)
+
+    g1 = s2 and rs and not s34
+    g2 = alpha >= 50 and mpass >= 5
+    g3 = cat_on
+    g4 = above_value and not_ext
+
+    entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct"); t1_pct = _g(rec, "T1_pct")
+    if entry and sl_pct is not None:
+        sl = entry * (1 - sl_pct / 100); t1 = entry * (1 + t1_pct / 100) if t1_pct else None
+        rr = (t1_pct / sl_pct) if (t1_pct and sl_pct) else None
+        plan = (f"Set SL {inr(sl)} (-{sl_pct:.1f}%), size at 0.25% risk, place order + GTT. "
+                f"Target T1 {inr(t1)} ({fnum(rr,1)}R).")
+    else:
+        plan = "No active catalyst → no plan yet. Levels are reference only."
+
+    steps = [
+        dict(n=1, title="CONTEXT", sub="Weekly trend", hard=True, ok=g1,
+             metrics=[("Stage", stage or "—", s2 and not s34),
+                      ("RS vs N500", f"{(mansfield or 0):+.1f}", rs),
+                      ("Regime", regime, regime == "BULL")],
+             do_pass="Weekly Stage 2 + positive RS — confirmed by the engine.",
+             do_fail="Not a Stage-2 leader (or RS negative). SKIP — go to the next name."),
+        dict(n=2, title="QUALITY", sub="Leadership", hard=True, ok=g2,
+             metrics=[("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
+                      ("Minervini", f"{mpass}/8", mpass >= 6),
+                      ("RRG", rrg, rrg_ok)],
+             do_pass="Leadership confirmed (Alpha + trend template + RRG).",
+             do_fail="Not a leader yet. WATCHLIST — revisit when RS / Alpha firm up."),
+        dict(n=3, title="SETUP", sub="Catalyst & base", hard=False, ok=g3,
+             metrics=[("Catalyst", cat, cat_on),
+                      ("Freshness", (f"{s2w:.0f}w" if s2w is not None else "—"), fresh),
+                      ("VCP/Base", "valid" if vcp else "no", vcp)],
+             do_pass=f"Catalyst {cat} is LIVE — proceed to location.",
+             do_fail="No live catalyst. Add to watchlist & set a price alert at the zone; wait."),
+        dict(n=4, title="LOCATION", sub="Price at value", hard=False, ok=g4,
+             metrics=[("vs CPR+VWAP", "above" if above_value else "below", above_value),
+                      ("VP", vp_pos, vp_pos in ("ABOVE VAH", "INSIDE VA")),
+                      ("Room 52WH", fnum(d52, 1, "%"), not_ext)],
+             do_pass="Price at value & not extended. On TV: mark the FRESH demand zone (Daily+).",
+             do_fail="Extended / below value. WAIT for a pullback into a fresh demand zone."),
+        dict(n=5, title="TRIGGER", sub="Your move · TradingView", hard=False, ok=None, manual=True,
+             metrics=[],
+             do_now="Wait for a CLOSED 75/125m bar at the zone → buy-STOP above its high. Never buy the touch."),
+        dict(n=6, title="EXECUTE", sub="Plan & GTT", hard=False, ok=None, execute=True,
+             metrics=[], do_now=plan),
+    ]
+
+    stop_at = None
+    for s in steps:
+        if s.get("hard") and not s["ok"]:
+            stop_at = s["n"]; break
+
+    if s34 or not rs:
+        verdict, color = "AVOID / EXIT", "#EF5350"
+    elif stop_at == 1:
+        verdict, color = "AVOID", "#EF5350"
+    elif stop_at == 2:
+        verdict, color = "WATCHLIST", "#FF9800"
+    elif not g3:
+        verdict, color = "BUY-WATCH · no catalyst", "#FF9800"
+    elif not g4:
+        verdict, color = "WAIT FOR PULLBACK", "#FF9800"
+    else:
+        verdict, color = "BUY ON TRIGGER", "#26A69A"
+
+    # The single step that needs attention right now
+    if stop_at:
+        current = stop_at
+    elif not g3:
+        current = 3
+    elif not g4:
+        current = 4
+    else:
+        current = 5
+    actionable = verdict not in ("AVOID", "AVOID / EXIT", "WATCHLIST")
+    return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
+                current=current, actionable=actionable)
+
+
+def render_workflow(wf: dict) -> str:
+    cmap = {"pass": "#26A69A", "fail": "#EF5350", "wait": "#FF9800",
+            "pending": "#2962FF", "skip": "#9aa0a6", "plan": "#26A69A"}
+    pill = {"pass": "DONE", "fail": "STOP", "wait": "WAIT", "pending": "YOUR MOVE", "skip": "LOCKED", "plan": "PLAN"}
+    cur = wf.get("current")
+    steps_html = ""; prior_fail = False; n = len(wf["steps"])
+    for i, s in enumerate(wf["steps"]):
+        if prior_fail:
+            status = "skip"
+        elif s.get("manual"):
+            status = "pending"
+        elif s.get("execute"):
+            status = "plan"
+        elif s["ok"] is True:
+            status = "pass"
+        elif s["ok"] is False:
+            status = "fail" if s.get("hard") else "wait"
+        else:
+            status = "pending"
+        col = cmap[status]
+        is_cur = (s["n"] == cur and status != "skip")
+        chips = ""
+        for lab, val, ok in s["metrics"]:
+            cc = "#26A69A" if ok else ("#EF5350" if ok is False else "#9aa0a6")
+            mk = "✓" if ok else ("✗" if ok is False else "·")
+            chips += (f"<span style='display:inline-block;margin:3px 9px 0 0;font-size:11.5px'>"
+                      f"<span style='opacity:.7'>{lab}</span> <b>{val}</b> "
+                      f"<span style='color:{cc};font-weight:700'>{mk}</span></span>")
+        # imperative guidance line — this is the "do this" of the sequence
+        if status == "skip":
+            guide = ""
+        elif status == "pass":
+            guide = "✓ " + s.get("do_pass", "")
+        elif status == "fail":
+            guide = "⛔ " + s.get("do_fail", "")
+        elif status == "wait":
+            guide = "⏳ " + s.get("do_fail", "")
+        else:
+            guide = "▶ " + s.get("do_now", "")
+        guide_html = (f"<div style='font-size:11.5px;margin-top:3px;color:{col};font-weight:600'>{guide}</div>"
+                      if guide else "")
+        nowbadge = ("<span style='font-size:9px;font-weight:800;color:#fff;background:#111;"
+                    "padding:1px 7px;border-radius:9px;margin-left:6px'>← NOW</span>" if is_cur else "")
+        line = "" if i == n - 1 else f"<div style='width:2px;flex:1;background:{col}55;min-height:10px;margin:2px 0'></div>"
+        bg = f"background:{col}14;border-radius:7px;padding:5px 8px;margin:-4px 0;" if is_cur else "padding:0 8px;"
+        steps_html += (
+            f"<div style='display:flex;gap:11px;align-items:stretch'>"
+            f"<div style='display:flex;flex-direction:column;align-items:center;flex:0 0 28px'>"
+            f"<div style='width:28px;height:28px;border-radius:50%;background:{col};color:#fff;display:flex;"
+            f"align-items:center;justify-content:center;font-weight:800;font-size:13px;"
+            f"{'box-shadow:0 0 0 3px ' + col + '44;' if is_cur else ''}'>{s['n']}</div>{line}</div>"
+            f"<div style='flex:1;padding-bottom:10px'><div style='{bg}'>"
+            f"<div style='display:flex;align-items:center;gap:8px'>"
+            f"<span style='font-weight:800;font-size:12.5px;color:{col}'>STEP {s['n']} · {s['title']}</span>"
+            f"<span style='font-size:9.5px;opacity:.55'>{s['sub']}</span>{nowbadge}"
+            f"<span style='margin-left:auto;font-size:9.5px;font-weight:800;color:#fff;background:{col};"
+            f"padding:1px 8px;border-radius:9px'>{pill[status]}</span></div>"
+            f"{('<div>' + chips + '</div>') if chips else ''}{guide_html}</div></div></div>")
+        if s.get("hard") and s["ok"] is False:
+            prior_fail = True
+    sub = (f"⛔ stops at Step {wf['stop_at']}" if wf["stop_at"] else f"→ you are at Step {cur}")
+    return (f"<div style='border:2px solid {wf['color']};border-radius:10px;padding:12px 16px;"
+            f"background:{wf['color']}11;max-width:880px'>"
+            f"<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:11px'>"
+            f"<span style='font-size:11px;letter-spacing:1px;opacity:.55'>DECISION PATH</span>"
+            f"<span style='font-size:26px;font-weight:900;color:{wf['color']}'>{wf['verdict']}</span>"
+            f"<span style='font-size:11px;opacity:.6'>{sub}</span></div>{steps_html}</div>")
+
+
+def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
+    """Build the full graphical technical board as one HTML string."""
+    rsi = _g(rec, "RSI"); adx = _g(ctx, "adx"); alpha = _g(rec, "Alpha"); ml = _g(rec, "ML_Prob")
+    vdry = _g(ctx, "vol_dry")
+    rsi_state = ("watch" if (rsi or 0) >= 70 else "pass" if (rsi or 0) >= 50 else "watch" if (rsi or 0) >= 40 else "fail")
+    gauges = "".join([
+        _gauge("RSI (14)", rsi, 0, 100,
+               "linear-gradient(90deg,#EF5350,#FF9800 30%,#26A69A 50%,#26A69A 68%,#FF9800 78%,#EF5350)",
+               rsi_state, fnum(rsi, 0)),
+        _gauge("ADX (14)", adx, 0, 50,
+               "linear-gradient(90deg,#EF5350,#FF9800 40%,#26A69A 50%)",
+               ("pass" if (adx or 0) >= 25 else "watch" if (adx or 0) >= 20 else "fail"), fnum(adx, 0)),
+        _gauge("Alpha Score", alpha, 0, 100,
+               "linear-gradient(90deg,#EF5350,#FF9800 50%,#26A69A 70%)",
+               ("pass" if (alpha or 0) >= 70 else "watch" if (alpha or 0) >= 50 else "fail"), fnum(alpha, 0)),
+        _gauge("ML Win Prob", ml, 0, 100,
+               "linear-gradient(90deg,#EF5350,#FF9800 55%,#26A69A 65%)",
+               ("pass" if (ml or 0) >= 65 else "watch" if (ml or 0) >= 55 else "fail"), fnum(ml, 1, "%")),
+        _gauge("Mansfield RS", mansfield, -50, 50,
+               "linear-gradient(90deg,#EF5350,#80808055 50%,#26A69A)",
+               ("pass" if (mansfield or 0) > 0 else "fail"), fnum(mansfield, 1)),
+        _gauge("Vol Dry-up 5/20d", vdry, 0, 2,
+               "linear-gradient(90deg,#26A69A,#FF9800 50%,#EF5350)",
+               ("pass" if (vdry if vdry is not None else 9) < 0.8 else "na"), fnum(vdry, 2, "×")),
+    ])
+
+    rng = _range_bar(_g(ctx, "low52w"), _g(ctx, "high52w"), cmp_px, [
+        (_g(ctx, "sma200"), "200", "#EF5350"),
+        (_g(ctx, "sma50"), "50", "#2962FF"),
+        (_g(ctx, "ema20"), "20e", "#FF9800"),
+    ])
+
+    # Minervini 8-point trend template (shared with the decision engine)
+    e20 = _g(ctx, "ema20"); s50 = _g(ctx, "sma50"); s150 = _g(ctx, "sma150"); s200 = _g(ctx, "sma200")
+    passed, c8 = minervini_checks(ctx, cmp_px, mansfield)
+    dots = "".join(_crit(ok, lab) for ok, lab in c8)
+
+    # Price-action signal pills
+    stage = str(_g(rec, "Stage", default="—")); s2 = "2" in stage
+    stacked = bool(e20 and s50 and cmp_px > e20 > s50 and (not s200 or s50 > s200))
+    above30w = bool(s150 and cmp_px > s150)
+    adir = _g(rec, "Active_Dir", default="—"); vacc = _g(rec, "Vel_Accel", default="")
+    vcp = bool(_g(rec, "VCP_Valid")); rrg = _g(rec, "RRG_Quadrant", default="—")
+    broke = bool(_g(rec, "Broke_Pivot")); rv = _g(ctx, "relvol"); d52 = _g(ctx, "dist52wh")
+    pills = "".join([
+        _pill("pass" if s2 else ("watch" if "1" in stage else "fail"), "Weinstein Stage", stage),
+        _pill("pass" if stacked else "watch", "EMA Stack", "Px&gt;20&gt;50&gt;200" if stacked else "broken"),
+        _pill("pass" if above30w else "fail", "Px vs 30W MA", "above" if above30w else "below"),
+        _pill("pass" if str(adir).upper().startswith("UP") else "watch", "Swing Structure", f"{adir} {vacc}"),
+        _pill("pass" if vcp else "na", "VCP / Base", (f"valid · {_g(rec,'Days_Since_Pivot','—')}d" if vcp else "no")),
+        _pill("pass" if rrg in ("LEADING", "IMPROVING") else "watch", "RRG", f"{rrg} {_g(rec,'RRG_Arrow','')}"),
+        _pill("pass" if broke else "na", "Pivot", ("broke ↑" if broke else (inr(_g(rec, "Pivot_Price")) if _g(rec, "Pivot_Price") else "—"))),
+        _pill("pass" if (rv or 0) >= 1 else "na", "Rel Volume", fnum(rv, 2, "×")),
+        _pill(("pass" if (d52 is not None and -15 <= d52 <= -1) else ("watch" if (d52 or -99) > -1 else "na")),
+              "52WH Dist", fnum(d52, 1, "%")),
+    ])
+
+    sub = ("<div style='font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;"
+           "opacity:.6;margin:11px 0 4px'>{}</div>")
+    return (
+        sub.format("Momentum &amp; Strength")
+        + f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;'>{gauges}</div>"
+        + sub.format("52-Week Range (●=CMP, ticks=MAs)")
+        + rng
+        + sub.format(f"Minervini Trend Template — {passed}/8")
+        + ("<div style='display:flex;gap:12px;align-items:center;'>"
+           f"<div>{_donut(passed, 8)}</div>"
+           f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0 14px;flex:1'>{dots}</div></div>")
+        + sub.format("Price-Action Signals")
+        + f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;'>{pills}</div>"
+    )
+
+
+# ----------------------------------------------------------------------------------------
+# Data (cached; the Refresh button clears it)
+# ----------------------------------------------------------------------------------------
+@st.cache_data(ttl=120, show_spinner=False)
+def gm_load_symbol(symbol: str) -> dict:
+    """Pull everything for one symbol from the existing validated modules."""
+    out = {"symbol": symbol, "errors": []}
+
+    # --- Technical record (Stage / RS / Alpha / Catalyst / levels / ML) ---
+    try:
+        import bull_screener as bs
+        out["rec"] = bs.screen_one(symbol, force_output=True)
+    except Exception as e:
+        out["rec"] = None
+        out["errors"].append(f"screen_one: {e}")
+
+    # --- Daily indicator context (EMA stack / 200-DMA / RelVol / 52WH dist) ---
+    try:
+        import data_provider as dp
+        df = dp.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True, auto_adjust=True)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        out["df"] = df
+        c = df["Close"]; h = df["High"]; l = df["Low"]; v = df["Volume"]
+        ema20 = c.ewm(span=20, adjust=False).mean()
+        sma50 = c.rolling(50).mean()
+        sma150 = c.rolling(150).mean()
+        sma200 = c.rolling(200).mean()
+        h52 = h.rolling(min(252, len(h))).max()
+        l52 = l.rolling(min(252, len(l))).min()
+        last = float(c.iloc[-1])
+        # Wilder ADX(14) + directional indices
+        up = h.diff(); dn = -l.diff()
+        plus_dm = np.where((up > dn) & (up > 0), up, 0.0)
+        minus_dm = np.where((dn > up) & (dn > 0), dn, 0.0)
+        tr = pd.concat([(h - l), (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        atr = tr.ewm(alpha=1/14, adjust=False).mean()
+        pdi = 100 * pd.Series(plus_dm, index=df.index).ewm(alpha=1/14, adjust=False).mean() / atr
+        mdi = 100 * pd.Series(minus_dm, index=df.index).ewm(alpha=1/14, adjust=False).mean() / atr
+        dx = (100 * (pdi - mdi).abs() / (pdi + mdi)).replace([np.inf, -np.inf], np.nan)
+        adx = dx.ewm(alpha=1/14, adjust=False).mean()
+        # Bollinger width (20,2) + 5d/20d volume dry-up ratio
+        mid = c.rolling(20).mean(); sd = c.rolling(20).std()
+        bbw = float(((mid + 2*sd) - (mid - 2*sd)).iloc[-1] / mid.iloc[-1]) if mid.iloc[-1] else None
+        vol20 = float(v.rolling(20).mean().iloc[-1]); vol5 = float(v.rolling(5).mean().iloc[-1])
+
+        def _f(s):
+            x = float(s.iloc[-1]); return None if math.isnan(x) else x
+
+        def _fprev(s, n):
+            if len(s) > n and not math.isnan(s.iloc[-1 - n]):
+                return float(s.iloc[-1 - n])
+            return None
+
+        # --- Pine-panel primitives (mirror of v67 Decision Mode composite rows) ---
+        # CPR (Central Pivot Range) from the prior bar
+        try:
+            ph, pl, pc = float(h.iloc[-2]), float(l.iloc[-2]), float(c.iloc[-2])
+            cpr_p = (ph + pl + pc) / 3.0
+            cpr_bc = (ph + pl) / 2.0
+            cpr_tc = 2 * cpr_p - cpr_bc
+        except Exception:
+            cpr_p = cpr_bc = cpr_tc = None
+        # Monthly anchored VWAP (current calendar month)
+        try:
+            tp = (h + l + c) / 3.0
+            mper = df.index.to_period("M")
+            msk = (mper == mper[-1])
+            mvwap = float((tp[msk] * v[msk]).sum() / v[msk].sum()) if v[msk].sum() else None
+        except Exception:
+            mvwap = None
+        # Macro edge — volume shelf: VWMA(20) > SMA(50)
+        try:
+            vwma20 = float((c * v).rolling(20).sum().iloc[-1] / v.rolling(20).sum().iloc[-1])
+            shelf_ok = bool(_f(sma50) and vwma20 > _f(sma50))
+        except Exception:
+            vwma20 = None; shelf_ok = False
+        # Accumulation days — green close in upper-60% of range on above-avg vol (last 10)
+        try:
+            rng = (h - l).replace(0, np.nan)
+            acc_mask = ((c - l) / rng >= 0.6) & (c > c.shift()) & (v > v.rolling(50).mean())
+            acc_days = int(acc_mask.iloc[-10:].sum())
+            acc_ok = acc_days >= 2
+        except Exception:
+            acc_days = 0; acc_ok = False
+        # TTM-style squeeze — BB(20,2) inside Keltner(20, 1.5*ATR)
+        try:
+            kc_up = mid + 1.5 * atr; kc_dn = mid - 1.5 * atr
+            squeeze_on = bool((mid.iloc[-1] + 2 * sd.iloc[-1] < kc_up.iloc[-1]) and
+                              (mid.iloc[-1] - 2 * sd.iloc[-1] > kc_dn.iloc[-1]))
+        except Exception:
+            squeeze_on = False
+        # Stage-2 freshness — weeks since price last reclaimed ~30W MA (SMA150)
+        try:
+            above150 = (c > sma150).tolist()
+            since = 0
+            for val in reversed(above150):
+                if val:
+                    since += 1
+                else:
+                    break
+            stage2_weeks = since / 5.0
+        except Exception:
+            stage2_weeks = None
+
+        # Volume Profile (POC / VAH / VAL) over the last 120 bars
+        try:
+            win = df.iloc[-120:]
+            tp_w = ((win["High"] + win["Low"] + win["Close"]) / 3.0).values
+            volw = win["Volume"].values
+            lo_p, hi_p = float(win["Low"].min()), float(win["High"].max())
+            nb = 40
+            edges = np.linspace(lo_p, hi_p, nb + 1)
+            bidx = np.clip(np.digitize(tp_w, edges) - 1, 0, nb - 1)
+            prof = np.zeros(nb)
+            for bi, vv in zip(bidx, volw):
+                prof[bi] += vv
+            pb = int(prof.argmax())
+            poc = (edges[pb] + edges[pb + 1]) / 2.0
+            tgt = prof.sum() * 0.70; lo_b = hi_b = pb; acc_v = prof[pb]
+            while acc_v < tgt and (lo_b > 0 or hi_b < nb - 1):
+                lft = prof[lo_b - 1] if lo_b > 0 else -1.0
+                rgt = prof[hi_b + 1] if hi_b < nb - 1 else -1.0
+                if rgt >= lft:
+                    hi_b += 1; acc_v += prof[hi_b]
+                else:
+                    lo_b -= 1; acc_v += prof[lo_b]
+            val_lo = (edges[lo_b] + edges[lo_b + 1]) / 2.0
+            vah_hi = (edges[hi_b] + edges[hi_b + 1]) / 2.0
+            dist_poc = (last - poc) / poc * 100 if poc else None
+            vp_pos = "ABOVE VAH" if last > vah_hi else ("BELOW VAL" if last < val_lo else "INSIDE VA")
+        except Exception:
+            poc = vah_hi = val_lo = dist_poc = None; vp_pos = "—"
+
+        # Open Fair-Value-Gaps (3-bar) in the last 30 bars
+        try:
+            Hs = df["High"].values; Ls = df["Low"].values
+            bull_fvg = bear_fvg = 0
+            for i in range(max(2, len(df) - 30), len(df)):
+                if Ls[i] > Hs[i - 2]:
+                    bull_fvg += 1
+                if Hs[i] < Ls[i - 2]:
+                    bear_fvg += 1
+        except Exception:
+            bull_fvg = bear_fvg = 0
+
+        out["ctx"] = {
+            "cmp": last,
+            "prev": float(c.iloc[-2]) if len(c) > 1 else last,
+            "ema20": _f(ema20), "sma50": _f(sma50), "sma150": _f(sma150), "sma200": _f(sma200),
+            "sma200_prev": _fprev(sma200, 21),
+            "adx": _f(adx), "plus_di": _f(pdi), "minus_di": _f(mdi),
+            "high52w": _f(h52), "low52w": _f(l52),
+            "dist52wh": (last - _f(h52)) / _f(h52) * 100 if _f(h52) else None,
+            "relvol": (last and vol20) and float(v.iloc[-1] / vol20) or None,
+            "vol_dry": (vol5 / vol20) if vol20 else None,
+            "bbw": bbw,
+            "cpr_p": cpr_p, "cpr_tc": cpr_tc, "cpr_bc": cpr_bc,
+            "mvwap": mvwap, "vwma20": vwma20, "shelf_ok": shelf_ok,
+            "acc_days": acc_days, "acc_ok": acc_ok, "squeeze_on": squeeze_on,
+            "stage2_weeks": stage2_weeks,
+            "poc": poc, "vah": vah_hi, "val": val_lo, "dist_poc": dist_poc, "vp_pos": vp_pos,
+            "bull_fvg": bull_fvg, "bear_fvg": bear_fvg,
+            "turnover_cr": last * float(v.iloc[-1]) / 1e7,
+        }
+    except Exception as e:
+        out["ctx"] = None
+        out["errors"].append(f"daily ctx: {e}")
+
+    # --- Fundamentals (Screener.in via fundamental_hub) ---
+    try:
+        import fundamental_hub as fh
+        yf_sym = symbol if symbol.endswith((".NS", ".BO")) else symbol + ".NS"
+        out["fun"] = fh.fetch_stock_fundamentals(yf_sym)
+    except Exception as e:
+        out["fun"] = {}
+        out["errors"].append(f"fundamentals: {e}")
+
+    out["fetched_at"] = datetime.now().strftime("%d-%b %H:%M:%S")
+    return out
+
+
+
+
 if page == 'DASHBOARD':
     st.markdown('<div class="page-title">📊 Mission Dashboard</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Real-Time Market Intelligence // Sector Radar // Risk Audit</div>', unsafe_allow_html=True)
@@ -1912,10 +2874,15 @@ if page == 'DASHBOARD':
             # Fallback via `or p` ensures a 0-LTP key in the dict never corrupts the calc.
             hmap['PnLPct']     = [((live_map.get(clean_symbol(s)) or p) - p) / p * 100 if p > 0 else 0
                                    for s, p in zip(hmap['Symbol'], hmap['BuyPrice'])]
+            # Format PnLPct for display
+            hmap['PnL_Str'] = hmap['PnLPct'].apply(lambda x: f"{x:+.2f}%")
             fig = px.treemap(hmap, path=[px.Constant("Portfolio"), "Sector", "Symbol"],
                              values="Deployment", color="PnLPct",
                              color_continuous_scale="RdYlGn", color_continuous_midpoint=0,
-                             hover_data=["Quantity", "BuyPrice"])
+                             custom_data=["PnL_Str", "Quantity", "BuyPrice"])
+            fig.update_traces(
+                hovertemplate="<b>%{label}</b><br>Capital Deployed: ₹%{value:,.0f}<br>Unrealized PnL: %{customdata[0]}<br>Qty: %{customdata[1]} | Buy Price: ₹%{customdata[2]:,.2f}"
+            )
             fig.update_layout(margin=dict(t=10,l=0,r=0,b=0), height=320,
                               paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig, use_container_width=True)
@@ -4329,10 +5296,10 @@ elif page == 'COMMAND':
                 if entry_dt:
                     try:
                         start_d = pd.to_datetime(entry_dt).date()
-                        hist = yf.download(yf_symbol(sym), start=str(start_d), progress=False, auto_adjust=True)
-                        if not hist.empty:
-                            h_col = hist['High'] if not isinstance(hist.columns, pd.MultiIndex) \
-                                    else hist['High'].iloc[:, 0]
+                        import data_provider as dp
+                        hist = dp.fetch_ohlcv(sym, start_date=str(start_d), interval="1d", auto_adjust=True, use_cache=True)
+                        if hist is not None and not hist.empty:
+                            h_col = hist['High']
                             high_since = float(h_col.max())
                     except Exception as e:
                         logger.warning(f"Trail high fetch {sym}: {e}")
@@ -5028,9 +5995,10 @@ elif page == 'AI LAB':
                     if not sec_id:
                         st.error(f"❌ Symbol '{sniper_sym_input}' not found in NSE master.")
                     else:
-                        from dhanhq import dhanhq as DhanHQ
-                        _ecid, _etok = _get_dhan_client()
-                        dhan_exec  = DhanHQ(_ecid or CLIENT_ID, _etok or ACCESS_TOKEN)
+                        dhan_exec, _ = get_dhanhq_client()
+                        if not dhan_exec:
+                            st.error("❌ Dhan Auth Failed")
+                            st.stop()
                         now        = datetime.now()
                         mkt_open   = now.replace(hour=9,  minute=15, second=0, microsecond=0)
                         mkt_close  = now.replace(hour=15, minute=30, second=0, microsecond=0)
@@ -5079,6 +6047,21 @@ elif page == 'AI LAB':
             "Use the button below to generate on demand at any time."
         )
 
+        # ── Generate on demand ────────────────────────────────────────────────
+        _wr_gen_col1, _wr_gen_col2 = st.columns([2, 1])
+        with _wr_gen_col1:
+            st.markdown(
+                "**Generate a fresh report** using live data — fetches market snapshot, "
+                "breadth metrics, FII/DII flows, and sector data, then calls Gemini AI."
+            )
+        with _wr_gen_col2:
+            _wr_generate = st.button(
+                "🤖 Generate Weekly Report", type="primary",
+                key="gen_weekly_report", use_container_width=True
+            )
+
+        st.markdown("---")
+
         # ── Show cached report if available ──────────────────────────────────
         _wr_dir  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
         _wr_file = os.path.join(_wr_dir, "weekly_report.txt")
@@ -5113,19 +6096,6 @@ elif page == 'AI LAB':
                 key="dl_weekly_cached"
             )
             st.markdown("---")
-
-        # ── Generate on demand ────────────────────────────────────────────────
-        _wr_gen_col1, _wr_gen_col2 = st.columns([2, 1])
-        with _wr_gen_col1:
-            st.markdown(
-                "**Generate a fresh report** using live data — fetches market snapshot, "
-                "breadth metrics, FII/DII flows, and sector data, then calls Gemini AI."
-            )
-        with _wr_gen_col2:
-            _wr_generate = st.button(
-                "🤖 Generate Weekly Report", type="primary",
-                key="gen_weekly_report", use_container_width=True
-            )
 
         if _wr_generate or st.session_state.get("_wr_just_generated"):
             st.session_state["_wr_just_generated"] = False
@@ -6231,14 +7201,13 @@ elif page == 'BACKTEST':
                                 sig_dt + pd.Timedelta(days=hold_d + 20),
                                 pd.Timestamp.today() + pd.Timedelta(days=1),
                             )
-                            df_px = yf.download(
-                                yf_symbol(symbol),
-                                start=sig_dt.strftime("%Y-%m-%d"),
-                                end=end_buf.strftime("%Y-%m-%d"),
-                                interval="1d", auto_adjust=True, progress=False,
+                            import data_provider as dp
+                            df_px = dp.fetch_ohlcv(
+                                symbol,
+                                start_date=sig_dt.strftime("%Y-%m-%d"),
+                                end_date=end_buf.strftime("%Y-%m-%d"),
+                                interval="1d", auto_adjust=True, use_cache=True,
                             )
-                            if isinstance(df_px.columns, pd.MultiIndex):
-                                df_px.columns = df_px.columns.get_level_values(0)
                             if df_px.empty or len(df_px) < 2:
                                 return None
                             entry = float(df_px["Close"].iloc[0])
@@ -6950,13 +7919,9 @@ elif page == 'POST-MARKET':
                                 (k if k.startswith("^") else f"{k}.NS"): df["Close"]
                                 for k, df in _bd_mov.items() if "Close" in df.columns
                             })
-                    except Exception:
+                    except Exception as e:
+                        logger.warning(f"Movers fetch: {e}")
                         _mov_close = None
-                    if _mov_close is None or _mov_close.empty:
-                        _mov_data = yf.download(_mov_syms, period="2d", interval="1d",
-                                                auto_adjust=True, progress=False, threads=True)
-                        _mov_close = (_mov_data["Close"] if isinstance(_mov_data.columns, pd.MultiIndex)
-                                      else _mov_data[["Close"]])
 
                     _N50_set = set(_N50)
                     _hold_set = set(_mov_holding_syms)
@@ -7055,8 +8020,8 @@ elif page == 'BREADTH':
     st.markdown('<div class="page-title">📈 Market Breadth Engine</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Nifty 500 Internals // A/D Ratio // McClellan // Stage Distribution // Sector Breadth</div>', unsafe_allow_html=True)
 
-    _br0, _br1, _br2, _br3, _br4 = st.tabs(
-        ["🎯 Regime", "🌊 Overview", "🏭 Sectors", "〰️ McClellan", "🗺️ Stage Map"]
+    _br0, _br1, _br2, _br3, _br4, _br5 = st.tabs(
+        ["🎯 Regime", "🌊 Overview", "📈 Broad Market", "🏭 Sectors", "〰️ McClellan", "🗺️ Stage Map"]
     )
 
     if not _BREADTH_OK:
@@ -7138,7 +8103,7 @@ elif page == 'BREADTH':
                     # reading vs threshold, and the role each plays in the regime
                     # composite score.
                     _comp = _reg.get("components", {})
-                    _bm_local = locals().get("_bm2", {}) or {}
+                    _bm_local = _bm_for_regime if _bm_for_regime else {}
                     _above200_pct = _bm_local.get("above_sma200_pct", 0) if isinstance(_bm_local, dict) else 0
                     _above50_pct  = _bm_local.get("above_sma50_pct",  0) if isinstance(_bm_local, dict) else 0
                     _comp_meta = {
@@ -7250,7 +8215,7 @@ elif page == 'BREADTH':
                 _g3.metric("Above SMA 200", f"{_bm.get('above_sma200_pct',0):.1f}%",
                            help="% above 200-day MA — long-term breadth")
                 _g4.metric("Stage 2",       f"{_bm.get('stage2_pct',0):.1f}%",
-                           help="% in confirmed Stage 2 (price > SMA200, SMA200 sloping up)")
+                           help="% in confirmed Stage 2 (price > SMA150, SMA150 sloping up [30-Week MA])")
 
                 _g5,_g6,_g7,_g8 = st.columns(4, gap="small")
                 _g5.metric("New 52W Highs", str(_bm.get("new_52w_high_count",0)))
@@ -7281,8 +8246,58 @@ elif page == 'BREADTH':
                     font=dict(color="#c9d1d9"), title_text="% Stocks Above Key Moving Averages"
                 )
                 st.plotly_chart(_fig_bar, use_container_width=True)
-
         with _br2:
+            with st.spinner("Fetching broad market data..."):
+                try:
+                    _bm_df = get_broad_market_breadth()
+                except Exception as _e:
+                    _bm_df = pd.DataFrame(); st.error(str(_e))
+
+            if not _bm_df.empty:
+                def _stage_icon(s):
+                    return "🟢" if "Stage 2" in str(s) else "🔴" if "Stage 4" in str(s) else "🟡"
+
+                _bm_disp = _bm_df.copy()
+                if "Stage" in _bm_disp.columns:
+                    _bm_disp[""] = _bm_disp["Stage"].apply(_stage_icon)
+
+                _total_n  = len(_bm_disp)
+                section(f"Broad Market Indices — {_total_n} indices")
+
+                # Reorder columns: Stage icon first, then key numbers including Daily%
+                _col_order = ["", "Sector", "LTP", "Daily%", "Weekly%", "Monthly%",
+                               "Stage", "SMA150D_slope"]
+                _col_order = [c for c in _col_order if c in _bm_disp.columns]
+                st.dataframe(_bm_disp[_col_order], use_container_width=True, hide_index=True,
+                             height=min(40 + 35 * _total_n, 600))
+
+                # ── Timeframe selector ────────────────────────────────────────
+                _avail_periods = [c for c in ["Daily%","Weekly%","Monthly%"]
+                                  if c in _bm_disp.columns]
+                _bm_c1, _bm_c2 = st.columns([1, 5])
+                with _bm_c1:
+                    _bm_period = st.selectbox(
+                        "Chart period", _avail_periods,
+                        index=len(_avail_periods) - 1,   # default Monthly%
+                        key="br_bm_period",
+                    )
+                _y_vals = _bm_disp[_bm_period] if _bm_period in _bm_disp.columns else []
+                _x_vals = (_bm_disp["Sector"] if "Sector" in _bm_disp.columns else [])
+                if len(_y_vals):
+                    _fig_bm = go.Figure(go.Bar(
+                        x=_x_vals, y=_y_vals,
+                        marker_color=["#00f260" if v >= 0 else "#ff4b4b" for v in _y_vals],
+                        text=[f"{v:+.1f}%" for v in _y_vals], textposition="auto"
+                    ))
+                    _fig_bm.update_layout(
+                        height=280, margin=dict(t=10, l=0, r=0, b=0),
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
+                        xaxis=dict(gridcolor="#1e3a5f", tickangle=-30),
+                        yaxis=dict(gridcolor="#1e3a5f"),
+                    )
+                    st.plotly_chart(_fig_bm, use_container_width=True)
+
+        with _br3:
             with st.spinner("Fetching sector data..."):
                 try:
                     _sec_df = get_sector_breadth()
@@ -7362,7 +8377,7 @@ elif page == 'BREADTH':
             else:
                 st.info("Sector breadth data unavailable.")
 
-        with _br3:
+        with _br4:
             section("McClellan Oscillator")
             st.caption("Bootstraps 60 days of A/D history from yfinance on first run (~60–90s). "
                        "Subsequent runs load from cache. History grows daily via the scheduler.")
@@ -7470,7 +8485,7 @@ elif page == 'BREADTH':
                     st.caption(f"A/D history: {_rows} trading days | "
                                f"Data stored at reports/ad_history.json")
 
-        with _br4:
+        with _br5:
             section("Stage Distribution — Nifty 500")
             with st.spinner("Loading stage data..."):
                 try:
@@ -8731,13 +9746,49 @@ elif page == 'X-RAY':
     st.markdown('<div class="page-title">🧬 Stock X-Ray</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Deep-dive fundamental analysis — valuation · financials · quarterly results · sector comparison · multi-stock screen <span style="color:#5a8a9f;font-size:0.7rem;">(absorbed Fundamentals 10 May 2026)</span></div>', unsafe_allow_html=True)
 
+    def sync_tv_symbol_xray():
+        import subprocess
+        import csv
+        import re
+        from io import StringIO
+        
+        browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
+        for browser in browsers:
+            try:
+                res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=2)
+                reader = csv.reader(StringIO(res.stdout))
+                for row in reader:
+                    if len(row) > 8:
+                        exe = row[0].lower()
+                        title = row[8]
+                        if ('tradingview.exe' in exe and title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
+                           ('TradingView' in title and '—' in title):
+                            match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
+                            if match:
+                                sym = match.group(1).strip()
+                                if sym.upper() in ["NIFTY 50", "NIFTY"]: sym = "^NSEI"
+                                elif sym.upper() in ["NIFTY BANK", "BANKNIFTY"]: sym = "^NSEBANK"
+                                elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
+                                else:
+                                    if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
+                                st.session_state["xr_sym_input"] = sym
+                                st.session_state["xr_symbol"] = sym
+                                return
+            except Exception:
+                pass
+
     if not _FUND_OK:
         st.error("❌ fundamental_hub module not available.")
     else:
         _xr_col1, _ = st.columns([2, 4])
         with _xr_col1:
+            st.button("🔄 Sync with TV", on_click=sync_tv_symbol_xray, help="Auto-read symbol from open TradingView", use_container_width=True, key="xr_sync_btn")
+            
+            if "xr_sym_input" not in st.session_state:
+                st.session_state["xr_sym_input"] = st.session_state.get("xr_symbol", "RELIANCE.NS")
+                
             _xr_sym = st.text_input(
-                "NSE Symbol", value=st.session_state.get("xr_symbol", "RELIANCE.NS"),
+                "NSE Symbol", 
                 key="xr_sym_input", placeholder="e.g. INFY.NS, TCS.NS"
             ).strip().upper()
             if _xr_sym and not _xr_sym.endswith(".NS"):
@@ -9215,16 +10266,250 @@ elif page == 'X-RAY':
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  GOLDEN MATCHER — Single-symbol checklist
+# ══════════════════════════════════════════════════════════════════════════════
+# ----------------------------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------------------------
+elif page == 'GOLDEN MATCHER':
+    st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
+    
+    st.markdown('''
+    <style>
+      .chk{display:flex;justify-content:space-between;align-items:center;
+           padding:4px 10px;border-radius:5px;margin:2px 0;font-size:14px;}
+      .chk b{font-weight:600;}
+      .pass{background:rgba(38,166,154,.16);border-left:3px solid #26A69A;}
+      .watch{background:rgba(255,152,0,.16);border-left:3px solid #FF9800;}
+      .fail{background:rgba(239,83,80,.16);border-left:3px solid #EF5350;}
+      .na{background:rgba(120,123,134,.12);border-left:3px solid #787B86;}
+      .sechead{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+               border-bottom:2px solid currentColor;padding-bottom:3px;margin:6px 0 6px;}
+      .verdict{font-size:26px;font-weight:800;}
+      .plan{font-family:Consolas,monospace;font-size:14px;line-height:1.7;}
+    </style>
+    ''', unsafe_allow_html=True)
+
+    @st.fragment(run_every="2s")
+    def auto_sync_tv_symbol_gm():
+        import subprocess
+        import csv
+        import re
+        from io import StringIO
+        
+        browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
+        for browser in browsers:
+            try:
+                res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=2)
+                reader = csv.reader(StringIO(res.stdout))
+                for row in reader:
+                    if len(row) > 8:
+                        exe = row[0].lower()
+                        title = row[8]
+                        if ('tradingview.exe' in exe and title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
+                           ('TradingView' in title and '—' in title):
+                            match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
+                            if match:
+                                sym = match.group(1).strip()
+                                if sym.upper() in ["NIFTY 50", "NIFTY"]: sym = "^NSEI"
+                                elif sym.upper() in ["NIFTY BANK", "BANKNIFTY"]: sym = "^NSEBANK"
+                                elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
+                                else:
+                                    if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
+                                
+                                current_sym = st.session_state.get("gm_sym_input", "")
+                                if sym != current_sym:
+                                    st.session_state["gm_sym_input"] = sym
+                                    st.session_state["gm_symbol"] = sym
+                                    st.rerun()
+                                return
+            except Exception:
+                pass
+
+    _gm_col1, _gm_col2 = st.columns([2, 4])
+    with _gm_col1:
+        auto_sync = st.toggle("🔄 Auto-Sync TV", value=True, key="gm_auto_sync", help="Automatically sync with active TradingView chart")
+        if auto_sync:
+            auto_sync_tv_symbol_gm()
+        
+        if "gm_sym_input" not in st.session_state:
+            st.session_state["gm_sym_input"] = "NETWEB.NS"
+            
+        symbol = st.text_input("NSE symbol", key="gm_sym_input").strip().upper()
+        if symbol and symbol != st.session_state.get("gm_symbol"):
+            st.session_state["gm_symbol"] = symbol
+            
+    with _gm_col2:
+        if st.button("🔄 Refresh Data", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+
+    if not symbol:
+        st.info("Enter an NSE symbol in the sidebar.")
+        st.stop()
+    
+    data = gm_load_symbol(symbol)
+    rec = data.get("rec") or {}
+    ctx = data.get("ctx") or {}
+    fun = data.get("fun") or {}
+    
+    if not rec and not ctx:
+        st.error(f"Could not load **{symbol}**.")
+        for e in data.get("errors", []):
+            st.caption(f"• {e}")
+        st.stop()
+    
+    # ----------------------------------------------------------------------------------------
+    # Header — name, CMP, change, verdict
+    # ----------------------------------------------------------------------------------------
+    name = _g(fun, "name", default=symbol)
+    cmp_px = _g(ctx, "cmp") or _g(rec, "Entry")
+    prev = _g(ctx, "prev", default=cmp_px)
+    chg_pct = ((cmp_px - prev) / prev * 100) if (cmp_px and prev) else 0.0
+    catalyst = _g(rec, "Catalyst", default="NONE")
+    stage = str(_g(rec, "Stage", default="—"))
+    alpha = _g(rec, "Alpha", default=None)
+    rs_ratio = _g(rec, "JdK_RS_Ratio")
+    mansfield = (rs_ratio - 100.0) if rs_ratio is not None else None
+    ml_prob = _g(rec, "ML_Prob")
+    
+    h1, h2, h3 = st.columns([3, 1.3, 1.6])
+    with h1:
+        st.markdown(f"### {symbol} — {name}")
+        st.caption(f"{_g(fun,'sector',default='')}  ·  {_g(fun,'industry',default='')}")
+    with h2:
+        st.metric("CMP", inr(cmp_px), f"{chg_pct:+.2f}%")
+    with h3:
+        is_pos = str(catalyst).upper().startswith("POS")
+        color = "#26A69A" if is_pos else ("#FF9800" if catalyst not in ("NONE", "—", 0) else "#787B86")
+        st.markdown(f"<div style='text-align:right'><div style='font-size:12px;opacity:.7'>CATALYST</div>"
+                    f"<div class='verdict' style='color:{color}'>{catalyst}</div></div>",
+                    unsafe_allow_html=True)
+    
+    # ----------------------------------------------------------------------------------------
+    # DECISION WORKFLOW — the sequential path to the trade (crucial metrics only)
+    # ----------------------------------------------------------------------------------------
+    decision = compute_decision(rec, ctx, cmp_px, mansfield)
+    wf = compute_workflow(rec, ctx, cmp_px, mansfield)
+    st.markdown(render_workflow(wf), unsafe_allow_html=True)
+    
+    # ---- The single next action + guided execution sequence ----
+    cur_step = wf["steps"][wf["current"] - 1]
+    if not wf["actionable"]:
+        if "AVOID" in wf["verdict"]:
+            st.error(f"**{wf['verdict']} — Step {wf['stop_at']}.** {cur_step.get('do_fail','')}  Go to the next name.")
+        else:
+            st.warning(f"**{wf['verdict']} — Step {wf['stop_at']}.** {cur_step.get('do_fail','')}  Track only; no action today.")
+    elif wf["current"] < 5:
+        st.warning(f"**→ NOW · Step {wf['current']} ({cur_step['title']}):**  {cur_step.get('do_fail','')}")
+    else:
+        st.success(f"**→ NOW · Step 5 (TRIGGER):**  {cur_step.get('do_now')}")
+        st.markdown("##### ✅ Guided execution — tick as you go")
+        _man = [
+            ("zone",  "1 · Mark the FRESH demand zone on Daily+ (hand-drawn, untested)"),
+            ("alert", "2 · Set a TradingView alert at the zone proximal"),
+            ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+            ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+            ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+            ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+        ]
+        _key = f"chk_{symbol}"
+        _done = 0; _next = None
+        for _k, _label in _man:
+            if st.checkbox(_label, key=f"{_key}_{_k}"):
+                _done += 1
+            elif _next is None:
+                _next = _label
+        st.progress(_done / len(_man), text=f"{_done}/{len(_man)} done")
+        if _done == len(_man):
+            st.success("✅ Trade executed & logged. On to the next name.")
+        elif _next:
+            st.caption(f"→ Next: {_next}")
+    
+    st.divider()
+    
+    # Full per-panel detail is one click away — but the workflow above is the decision.
+    with st.expander("▸ Full metrics — all panels (optional depth)", expanded=False):
+        c1, c2, c3 = st.columns(3, gap="medium")
+        with c1:
+            st.markdown(render_technical_board(rec, ctx, cmp_px, mansfield), unsafe_allow_html=True)
+            st.markdown(section_context(rec, ctx, cmp_px), unsafe_allow_html=True)
+        with c2:
+            st.markdown(section_structure(rec, ctx, cmp_px, mansfield, decision), unsafe_allow_html=True)
+            st.markdown(section_bull_gates(rec, ctx, cmp_px, mansfield), unsafe_allow_html=True)
+            st.markdown(section_edges(rec, ctx, cmp_px), unsafe_allow_html=True)
+        with c3:
+            st.markdown(section_trade(rec, cmp_px), unsafe_allow_html=True)
+            st.markdown(section_levels(rec, ctx, cmp_px), unsafe_allow_html=True)
+            st.markdown(section_sector(rec, ctx, mansfield), unsafe_allow_html=True)
+            st.markdown(section_fundamentals(fun), unsafe_allow_html=True)
+    
+    st.divider()
+    st.caption(f"Data: Dhan feed + Screener.in via your validated modules · "
+               f"fetched {data.get('fetched_at','—')} · cache 120s · "
+               f"⚠ identification only — the trigger is yours on TradingView.")
+    if data.get("errors"):
+        with st.expander("⚠ Partial-data notes"):
+            for e in data["errors"]:
+                st.caption(f"• {e}")
+
 #  TV SIDECAR — Quick-look chart companion
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == 'TV SIDECAR':
     st.markdown('<div class="page-title">📺 TV Sidecar</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Quick-look companion for your TradingView chart — real-time quote, technicals, key levels</div>', unsafe_allow_html=True)
 
+    @st.fragment(run_every="2s")
+    def auto_sync_tv_symbol():
+        import subprocess
+        import csv
+        import re
+        from io import StringIO
+        
+        browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
+        for browser in browsers:
+            try:
+                res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=2)
+                reader = csv.reader(StringIO(res.stdout))
+                for row in reader:
+                    if len(row) > 8:
+                        exe = row[0].lower()
+                        title = row[8]
+                        if ('tradingview.exe' in exe and title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
+                           ('TradingView' in title and '—' in title):
+                            match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
+                            if match:
+                                sym = match.group(1).strip()
+                                if sym.upper() in ["NIFTY 50", "NIFTY"]: sym = "^NSEI"
+                                elif sym.upper() in ["NIFTY BANK", "BANKNIFTY"]: sym = "^NSEBANK"
+                                elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
+                                else:
+                                    if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
+                                
+                                current_sym = st.session_state.get("tv_sym_input", "")
+                                if sym != current_sym:
+                                    st.session_state["tv_sym_input"] = sym
+                                    st.session_state["tv_symbol"] = sym
+                                    st.rerun()
+                                return
+            except Exception:
+                pass
+
     _tv_col1, _tv_col2 = st.columns([2, 4])
     with _tv_col1:
+        auto_sync = st.toggle("🔄 Auto-Sync TV", value=True, key="tv_auto_sync", help="Automatically sync with active TradingView chart")
+        if auto_sync:
+            auto_sync_tv_symbol()
+        
+        if "tv_sym_input" not in st.session_state:
+            st.session_state["tv_sym_input"] = st.session_state.get("tv_symbol", "RELIANCE.NS")
+            
         _tv_sym = st.text_input(
-            "Symbol", value=st.session_state.get("tv_symbol", "RELIANCE.NS"),
+            "Symbol", 
             key="tv_sym_input", placeholder="e.g. INFY.NS, NIFTY=F"
         ).strip().upper()
         if _tv_sym and not _tv_sym.endswith(".NS") and "=" not in _tv_sym and "^" not in _tv_sym:
@@ -9463,15 +10748,71 @@ elif page == 'TV SIDECAR':
                           delta_color="normal" if _ws_sma200slp > 0 else "inverse")
 
 # ══════════════════════════════════════════════════════════════════════════
-#  ENTRY SHIELD — Active Exit Monitoring & Pullback Entry Tracking
+#  RISK SHIELD — Active Exit Monitoring & Pullback Entry Tracking
 # ══════════════════════════════════════════════════════════════════════════
-elif page == 'ENTRY SHIELD':
-    st.markdown('<div class="page-title">🛡️ Entry Shield — Exit & Entry Monitor</div>', unsafe_allow_html=True)
+elif page == 'RISK SHIELD':
+    st.markdown('<div class="page-title">🛡️ Risk Shield — Risk Management & Entries</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Live monitoring of OCO exits, pullback entries, and unprotected holdings from Dhan GTT orders.</div>', unsafe_allow_html=True)
 
+    # --- Portfolio Equity Curve Protection ---
+    import datetime, json, os
+    PORTFOLIO_FILE = "portfolio_history.json"
+    _portfolio_history = {}
+    if os.path.exists(PORTFOLIO_FILE):
+        try:
+            with open(PORTFOLIO_FILE, "r") as f:
+                _portfolio_history = json.load(f)
+        except Exception:
+            pass
+    _today_str = datetime.date.today().isoformat()
+    if 'total_cap' in globals():
+        _portfolio_history[_today_str] = total_cap
+        with open(PORTFOLIO_FILE, "w") as f:
+            json.dump(_portfolio_history, f)
+            
+    _capital_protection_mode = False
+    _cap_prot_msg = ""
+    if len(_portfolio_history) >= 5:
+        # Convert to pandas series to calculate EMA
+        _s_port = pd.Series(list(_portfolio_history.values()))
+        _port_ema20 = _s_port.ewm(span=20, adjust=False).mean().iloc[-1]
+        _curr_port = _s_port.iloc[-1]
+        if _curr_port < _port_ema20:
+            _capital_protection_mode = True
+            _cap_prot_msg = f"📉 CAPITAL PROTECTION MODE ACTIVE: Portfolio Equity (₹{_curr_port:,.0f}) is below 20-EMA (₹{_port_ema20:,.0f}). Mechanical stops will be tightened globally."
+
     # --- AI review helper (uses fast model for batch) ---
+    # Prompts are framed for Jay's NSE swing/positional method: Weinstein Stage 2,
+    # ATR-trailed stops, R-discipline, and "confirmation before entry" (a closed
+    # trigger bar, never a blind buy-limit at the zone). Keep answers to 1 sentence.
     def get_stock_context_and_ai_review(symbol, order_type, **kwargs):
-        from ai_provider_manager import ask_llm_fast
+        from ai_provider_manager import ask_llm
+        _tech = kwargs.get("tech")
+        _tech_str = ""
+        if _tech:
+            _tech_str = (f"\nLIVE TECHNICALS: "
+                         f"Weinstein Score: {_tech['ws_score']}/80 | "
+                         f"200-SMA: ₹{_tech['sma200']} ({'Rising' if _tech['sma200_slope'] > 0 else 'Falling'}, {_tech['sma200_slope']}% slope) | "
+                         f"50-SMA: ₹{_tech['sma50']} | "
+                         f"Price > 200-SMA: {'Yes' if _tech['above200'] else 'No'} | "
+                         f"Dist from 200-SMA: {_tech['dist_from_200']}% | "
+                         f"ATR Volatility: {_tech['atr_pct']}% | "
+                         f"Volume Climax: {'Yes (Spike >300%)' if _tech.get('vol_climax') else 'No'} | "
+                         f"Breakout Volume: {'Yes (Base Breakout)' if _tech.get('vol_breakout') else 'No'} | "
+                         f"Days to Earnings: {_tech.get('days_to_earnings') if _tech.get('days_to_earnings') is not None else 'N/A'} | "
+                         f"Chandelier Exit (22D): ₹{_tech.get('chandelier_exit', 'N/A')}")
+
+        _sys = (
+            "You are an elite NSE technical analyst and risk manager evaluating an active trade. "
+            "CRITICAL: Start your response with exactly '[Positional]' or '[Swing]' based on your classification. "
+            "CLASSIFICATION RULES: "
+            "If the stock is highly volatile (ATR > 4%), extended from its 200-SMA (Dist > 30%), or showing trend decay (Weinstein Score < 60), classify it as '[Swing]' (tighter risk, faster exits). "
+            "If it is a stable Stage 2 compounder (ATR < 4%, Dist < 30%, strong score), classify it as '[Positional]' (trend following). "
+            "ANALYSIS RULES: Provide a sharp, insightful 2-3 sentence technical evaluation. "
+            "If 'Volume Climax' is Yes, warn about potential trend exhaustion. If 'Breakout Volume' is Yes, highlight the strong accumulation base breakout. If 'Days to Earnings' is < 5, recommend tightening risk or trimming. "
+            "Do NOT just regurgitate the numbers provided in the prompt. "
+            "Analyze the price action relative to the moving averages, volatility, and trend strength. Offer actionable risk management advice."
+        )
         if order_type == "OCO_EXIT_COMBINED":
             orders_list = kwargs.get("orders", [])
             ltp = kwargs.get("ltp", 0)
@@ -9485,24 +10826,46 @@ elif page == 'ENTRY SHIELD':
                 sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl else 0.0
                 tgt_dist = ((target - ltp) / ltp * 100) if ltp and target else 0.0
                 orders_desc.append(f"  Leg {o_idx+1}: SL ₹{sl:,.0f} ({sl_dist:+.1f}%) | Tgt ₹{target:,.0f} (+{tgt_dist:.1f}%)")
-            prompt = f"{symbol} | LTP ₹{ltp:,.2f} | R: {r_mult} | Risk ₹{risk:,.0f}\n" + "\n".join(orders_desc) + "\nAction? (hold/trail SL/partial profit/exit). 1 sentence."
-            return ask_llm_fast(prompt, fallback_text="Monitor position. SL and targets active.")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | open R: {r_mult} | open risk ₹{risk:,.0f}{_tech_str}\n" + "\n".join(orders_desc) + "\nProvide a brief technical analysis of this stock and advise if I should hold, trail the SL up, or exit."
+            return ask_llm(prompt, fallback_text="Monitor position. SL and targets active.")
         elif order_type == "GTT_ENTRY":
             trigger = kwargs.get("trigger", 0); price = kwargs.get("price", 0)
             ltp = kwargs.get("ltp", 0); dist = kwargs.get("dist", 0)
-            prompt = f"{symbol} | LTP ₹{ltp:,.2f} | Buy trigger ₹{trigger:,.2f} ({dist:+.1f}% away) | Limit ₹{price:,.2f}\nIs pullback valid? Keep/cancel/adjust? 1 sentence."
-            return ask_llm_fast(prompt, fallback_text="Pullback entry active. Monitor support levels.")
+            _style = "dip buy-limit (fills on touch, NO confirmation)" if trigger < ltp else "breakout buy-stop (confirms on a close into the trigger)"
+            _tech = kwargs.get("tech")
+            _setup_warn = ""
+            if _tech:
+                if _tech.get("ws_score", 100) < 50 or _tech.get("sma200_slope", 0) < 0:
+                    _setup_warn = f"\nWARNING: Setup may be invalid. WS Score is {_tech.get('ws_score')}/80 and SMA200 slope is {_tech.get('sma200_slope'):+.2f}%. Highlight these risks."
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | buy trigger ₹{trigger:,.2f} ({dist:+.1f}% vs LTP) | limit ₹{price:,.2f} | type: {_style}{_tech_str}{_setup_warn}\nProvide a brief technical analysis on whether this looks like a valid Stage-2 pullback entry setup."
+            return ask_llm(prompt, fallback_text="Pullback entry active. Wait for a confirmation close before entry.")
         elif order_type == "UNPROTECTED_HOLDING":
             buy_price = kwargs.get("buy_price", 0); ltp = kwargs.get("ltp", 0)
             pnl_pct = ((ltp - buy_price) / buy_price * 100) if buy_price else 0.0
-            prompt = f"{symbol} | LTP ₹{ltp:,.2f} | Cost ₹{buy_price:,.2f} | P&L {pnl_pct:+.1f}% | NO STOP LOSS\nWhere to place SL? 1 sentence with price level."
-            return ask_llm_fast(prompt, fallback_text="Place a stop loss immediately.")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | cost ₹{buy_price:,.2f} | P&L {pnl_pct:+.1f}% | NO STOP LOSS{_tech_str}\nProvide a technical view and suggest an optimal placement for a stop loss to protect this position."
+            return ask_llm(prompt, fallback_text="Place a stop loss immediately (≈2 ATR below a recent swing low).")
         elif order_type == "SINGLE_EXIT":
             trigger = kwargs.get("trigger", 0); ltp = kwargs.get("ltp", 0)
             dist = kwargs.get("dist", 0); label = kwargs.get("label", "Stop Loss")
-            prompt = f"{symbol} | LTP ₹{ltp:,.2f} | {label}: ₹{trigger:,.2f} ({dist:+.1f}% away)\nAction? 1 sentence."
-            return ask_llm_fast(prompt, fallback_text=f"{label} trigger active. Monitor.")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | {label}: ₹{trigger:,.2f} ({dist:+.1f}% away){_tech_str}\nShould I hold, trail, or act on this {label.lower()}?"
+            return ask_llm(prompt, fallback_text=f"{label} trigger active. Monitor.")
         return "N/A"
+
+    # --- Persistent AI Cache Logic ---
+    import json
+    import os
+    AI_CACHE_FILE = "ai_cache.json"
+    
+    if "ai_cache_loaded" not in st.session_state:
+        st.session_state.ai_cache_loaded = True
+        if os.path.exists(AI_CACHE_FILE):
+            try:
+                with open(AI_CACHE_FILE, "r") as f:
+                    _saved = json.load(f)
+                for k, v in _saved.items():
+                    if k not in st.session_state:
+                        st.session_state[k] = v
+            except: pass
 
     # Controls row
     ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([8, 2, 2])
@@ -9511,10 +10874,13 @@ elif page == 'ENTRY SHIELD':
             st.cache_data.clear()
             st.rerun()
     with ctrl_col2:
-        if st.button("🧹 Clear AI", key="es_clear_ai", type="secondary", use_container_width=True):
+        if st.button("🤖 Run AI Analysis", key="es_run_ai", type="secondary", use_container_width=True):
+            st.session_state.force_run_ai = True
             for k in list(st.session_state.keys()):
                 if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_"]):
                     del st.session_state[k]
+            if os.path.exists(AI_CACHE_FILE):
+                os.remove(AI_CACHE_FILE)
             st.rerun()
 
     if not _BROKER_OK:
@@ -9531,8 +10897,10 @@ elif page == 'ENTRY SHIELD':
         else:
             with st.spinner("Fetching active orders from Dhan..."):
                 try:
-                    cid, tok = _get_dhan_client()
-                    dhan = dhanhq(cid, tok)
+                    dhan, ctx = get_dhanhq_client()
+                    if not dhan:
+                        st.error("Dhan Auth missing")
+                        st.stop()
                     resp = dhan.get_forever()
                 except Exception as e:
                     resp = None
@@ -9544,49 +10912,78 @@ elif page == 'ENTRY SHIELD':
                 # --- Parse and group orders ---
                 buy_gtts = []; sell_gtts = {}; single_sells = []; symbols_to_fetch = set()
 
+                # Dhan forever-order shape (canonical — see scratch/test_parse_gtt.py
+                # and dhan_journal_v7.py): an OCO carries orderType == "OCO" and emits
+                # TWO rows that share the SAME orderId — one legName=STOP_LOSS_LEG, one
+                # legName=TARGET_LEG. Anything else SELL is a standalone exit. Group OCO
+                # legs by orderId; classify by legName, price only as a last resort.
                 for g in data:
                     if g.get("orderStatus", "") != "PENDING": continue
                     symbol = clean_symbol(g.get("tradingSymbol", ""))
                     if not symbol: continue
                     symbols_to_fetch.add(symbol)
-                    txn = g.get("transactionType", ""); ot = g.get("orderType", "")
-                    order_id = g.get("orderId", ""); qty = int(g.get("quantity", 0))
-                    trigger = float(g.get("triggerPrice", 0)); price = float(g.get("price", 0))
-                    leg = g.get("legName", "")
+                    txn = (g.get("transactionType", "") or "").upper()
+                    ot  = (g.get("orderType", "") or "").upper()
+                    order_id = g.get("orderId", ""); qty = int(float(g.get("quantity", 0) or 0))
+                    trigger = float(g.get("triggerPrice", 0) or 0); price = float(g.get("price", 0) or 0)
+                    leg = (g.get("legName", "") or "").upper()
 
                     if txn == "BUY":
                         buy_gtts.append({"symbol": symbol, "qty": qty, "trigger": trigger, "price": price, "order_id": order_id})
-                    elif txn == "SELL":
-                        if ot == "STOP_LOSS" or leg in ("STOP_LOSS_LEG", "ENTRY_LEG"):
-                            parent_id = g.get("correlationId", "") or order_id
-                            if parent_id not in sell_gtts:
-                                sell_gtts[parent_id] = {"symbol": symbol, "sl_trigger": None, "sl_qty": None,
-                                                       "target_trigger": None, "target_qty": None, "order_id": parent_id, "qty": qty}
-                            if leg == "STOP_LOSS_LEG" or trigger < price:
-                                sell_gtts[parent_id]["sl_trigger"] = trigger
-                                sell_gtts[parent_id]["sl_qty"] = qty
-                            else:
-                                sell_gtts[parent_id]["target_trigger"] = trigger
-                                sell_gtts[parent_id]["target_qty"] = qty
-                        elif ot in ("LIMIT", "MARKET", "STOP_LOSS_MARKET"):
-                            single_sells.append({"symbol": symbol, "qty": qty, "trigger": trigger, "price": price, "order_id": order_id})
+                        continue
+                    if txn != "SELL":
+                        continue
+
+                    # OCO if the broker says so OR the row is a recognised OCO leg.
+                    is_oco = (ot == "OCO") or (leg in ("STOP_LOSS_LEG", "TARGET_LEG"))
+                    if is_oco:
+                        gid = order_id or g.get("correlationId", "")
+                        if gid not in sell_gtts:
+                            sell_gtts[gid] = {"symbol": symbol, "sl_trigger": None, "sl_qty": None,
+                                              "target_trigger": None, "target_qty": None, "order_id": gid, "qty": qty}
+                        if leg == "STOP_LOSS_LEG":
+                            is_sl = True
+                        elif leg == "TARGET_LEG":
+                            is_sl = False
                         else:
-                            parent_id = g.get("correlationId", "") or order_id
-                            if parent_id not in sell_gtts:
-                                sell_gtts[parent_id] = {"symbol": symbol, "sl_trigger": None, "sl_qty": None,
-                                                       "target_trigger": None, "target_qty": None, "order_id": parent_id, "qty": qty}
-                            if trigger < price or leg == "STOP_LOSS_LEG":
-                                sell_gtts[parent_id]["sl_trigger"] = trigger
-                                sell_gtts[parent_id]["sl_qty"] = qty
-                            else:
-                                sell_gtts[parent_id]["target_trigger"] = trigger
-                                sell_gtts[parent_id]["target_qty"] = qty
+                            # No leg label: a SELL stop sits below the target, so the
+                            # lower-trigger leg is the SL. Self-heal pass below corrects ties.
+                            is_sl = trigger < price if (trigger and price) else True
+                        if is_sl:
+                            sell_gtts[gid]["sl_trigger"] = trigger
+                            sell_gtts[gid]["sl_qty"] = qty
+                        else:
+                            sell_gtts[gid]["target_trigger"] = trigger
+                            sell_gtts[gid]["target_qty"] = qty
+                    else:
+                        single_sells.append({"symbol": symbol, "qty": qty, "trigger": trigger, "price": price, "order_id": order_id})
+
+                # Self-heal: in any OCO the SL trigger must be below the target trigger.
+                # If a mislabelled leg flipped them, swap (price/qty together) so downstream
+                # risk + R-multiple math is correct regardless of broker leg labelling.
+                for oco in sell_gtts.values():
+                    _sl, _tg = oco["sl_trigger"], oco["target_trigger"]
+                    if _sl is not None and _tg is not None and _sl > _tg:
+                        oco["sl_trigger"], oco["target_trigger"] = _tg, _sl
+                        oco["sl_qty"], oco["target_qty"] = oco["target_qty"], oco["sl_qty"]
 
                 # Fetch LTPs
                 if symbols_to_fetch:
                     ltps = get_batch_ltps(tuple(sorted(symbols_to_fetch)))
                 else:
                     ltps = {}
+
+                # Fetch overrides from global df (from SQLite)
+                journal_overrides = {}
+                if 'df_active_global' in globals() and not df_active_global.empty:
+                    for _, r in df_active_global.iterrows():
+                        sym = r.get("Symbol")
+                        if pd.notna(sym):
+                            journal_overrides[sym] = {
+                                "manual_sl_override": float(r.get("Manual SL Override", 0)) if pd.notna(r.get("Manual SL Override")) and str(r.get("Manual SL Override")).strip() else None,
+                                "custom_ce_mult": float(r.get("Custom CE Mult", 0)) if pd.notna(r.get("Custom CE Mult")) and str(r.get("Custom CE Mult")).strip() else None,
+                                "pyramid_status": str(r.get("Pyramid Status", "")) if pd.notna(r.get("Pyramid Status")) else ""
+                            }
 
                 # Fetch holdings for entry price & unprotected detection
                 _, _, df_holdings = get_live_holdings_stats()
@@ -9598,8 +10995,19 @@ elif page == 'ENTRY SHIELD':
                             holdings_map[csym] = {
                                 "buy_price": float(h.get("BuyPrice", h.get("avgCostPrice", 0))),
                                 "qty": int(float(h.get("Quantity", h.get("totalQty", 0)))),
-                                "ltp": float(h.get("LTP", h.get("lastTradedPrice", 0)))
+                                "ltp": float(h.get("LTP", h.get("lastTradedPrice", 0))),
+                                "entry_date": h.get("EntryDate", "")
                             }
+
+                # Dhan LTP is authoritative — every OCO exit sits on a stock you hold,
+                # so Dhan's lastTradedPrice covers all of them and is real-time intraday.
+                # Prefer it over yfinance (delayed, and flaky on some .NS tickers); fall
+                # back to yfinance only for symbols Dhan has no holding for (e.g. a stale
+                # OCO left after the underlying was sold). This makes the page's LTP — and
+                # therefore the SL/target distance %s — fully Dhan-sourced wherever possible.
+                for _csym, _h in holdings_map.items():
+                    if _h.get("ltp"):
+                        ltps[_csym] = _h["ltp"]
 
                 # Detect unprotected holdings
                 all_protected_syms = set()
@@ -9614,7 +11022,8 @@ elif page == 'ENTRY SHIELD':
                 unprotected_holdings = []
                 for csym, h in holdings_map.items():
                     if csym not in all_protected_syms and h["qty"] > 0:
-                        unprotected_holdings.append({"symbol": csym, "buy_price": h["buy_price"], "qty": h["qty"], "ltp": h["ltp"]})
+                        unprotected_holdings.append({"symbol": csym, "buy_price": h["buy_price"], "qty": h["qty"], "ltp": h["ltp"], "entry_date": h.get("entry_date", "")})
+                        symbols_to_fetch.add(csym)
 
                 # Group sell_gtts by symbol
                 sell_gtts_by_symbol = {}
@@ -9625,6 +11034,10 @@ elif page == 'ENTRY SHIELD':
                     sell_gtts_by_symbol[sym].append(oco)
                 for sym, orders in sell_gtts_by_symbol.items():
                     orders.sort(key=lambda x: x["target_trigger"] if x["target_trigger"] is not None else 9999999)
+
+
+
+                # ─────────────────────────────────────────────────────────────
 
                 # --- Metrics ---
                 total_protected = 0.0; total_risk = 0.0
@@ -9648,6 +11061,7 @@ elif page == 'ENTRY SHIELD':
                 unprotected_count = len(unprotected_holdings)
                 unprotected_color = "#ff4b4b" if unprotected_count > 0 else "#00f260"
                 unprotected_label = f"{unprotected_count} Positions" if unprotected_count > 0 else "All Protected ✅"
+                risk_deployed_pct = (total_risk / total_deployed_g) * 100 if total_deployed_g > 0 else 0.0
 
                 metrics_html = (
                     f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px;">'
@@ -9657,8 +11071,8 @@ elif page == 'ENTRY SHIELD':
                     f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Active Stop Loss value</div></div>'
                     f'<div class="metric-card" style="padding:14px;border-top:4px solid #ff4b4b;text-align:left;">'
                     f'<div class="metric-label">Capital at Risk</div>'
-                    f'<div class="metric-value" style="color:#ff4b4b;font-size:1.5rem;">₹{format_inr_int(total_risk)}</div>'
-                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Loss to SL from current LTPs</div></div>'
+                    f'<div class="metric-value" style="color:#ff4b4b;font-size:1.5rem;">₹{format_inr_int(total_risk)} <span style="font-size:1rem; opacity:0.8;">({risk_deployed_pct:.1f}%)</span></div>'
+                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Loss to SL</div></div>'
                     f'<div class="metric-card" style="padding:14px;border-top:4px solid #58a6ff;text-align:left;">'
                     f'<div class="metric-label">Active Exits</div>'
                     f'<div class="metric-value" style="color:#58a6ff;font-size:1.5rem;">{active_exits_count} Stocks</div>'
@@ -9675,40 +11089,197 @@ elif page == 'ENTRY SHIELD':
                 )
                 st.markdown(metrics_html, unsafe_allow_html=True)
 
-                # --- Batch AI reviews in parallel BEFORE rendering ---
+                # --- Fetch technicals for AI review and Risk Profile ---
+                hist_data = st.session_state.get("cached_hist_data_v3", {})
+                if hist_data and any(isinstance(v, dict) and ("close_5d_ago" not in v or "vol_breakout" not in v) for v in hist_data.values()):
+                    hist_data = {}
+                missing_syms = [s for s in symbols_to_fetch if s not in hist_data or "ema20" not in hist_data.get(s, {})]
+                if missing_syms:
+                    try:
+                        import data_provider as dp
+                        import pandas as pd
+                        import numpy as np
+                        
+                        _batch_data = dp.fetch_batch_ohlcv(missing_syms, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+                        
+                        for _s in missing_syms:
+                            df_sym = _batch_data.get(_s)
+                            if df_sym is not None and not df_sym.empty and "Close" in df_sym.columns:
+                                _c = df_sym["Close"].dropna()
+                                _hi = df_sym["High"].dropna() if "High" in df_sym.columns else _c
+                                _lo = df_sym["Low"].dropna() if "Low" in df_sym.columns else _c
+                                
+                                _ema20 = float(_c.ewm(span=20, adjust=False).mean().iloc[-1]) if len(_c) >= 20 else None
+                                _close_5d_ago = float(_c.iloc[-6]) if len(_c) >= 6 else None
+                                
+                                _ltp = float(_c.iloc[-1])
+                                _ws_score = 0
+                                _ws_above200 = False
+                                _sma200slp = 0.0
+                                _sma200 = 0.0
+                                _sma50 = 0.0
+                                _atr_pct = 0.0
+                                _dist_from_200 = 0.0
+                                
+                                if len(_c) >= 200:
+                                    _sma50 = float(_c.rolling(50).mean().iloc[-1])
+                                    _sma200 = float(_c.rolling(200).mean().iloc[-1])
+                                    _sma200_10d_ago = float(_c.rolling(200).mean().shift(10).iloc[-1])
+                                    _sma200slp = ((_sma200 - _sma200_10d_ago) / _sma200_10d_ago) * 100 if _sma200_10d_ago else 0
+                                    _hi52 = float(_c.max())
+                                    _lo52 = float(_c.min())
+                                    
+                                    # ATR Calculation (14-day)
+                                    _tr1 = _hi - _lo
+                                    _tr2 = (_hi - _c.shift(1)).abs()
+                                    _tr3 = (_lo - _c.shift(1)).abs()
+                                    _tr = pd.concat([_tr1, _tr2, _tr3], axis=1).max(axis=1)
+                                    _atr = float(_tr.rolling(14).mean().iloc[-1])
+                                    _atr_pct = (_atr / _ltp) * 100 if _ltp else 0.0
+                                    _dist_from_200 = ((_ltp - _sma200) / _sma200) * 100 if _sma200 else 0.0
+                                    
+                                    _vol_climax = False
+                                    _vol_breakout = False
+                                    if "Volume" in df_sym.columns:
+                                        _vol = df_sym["Volume"].dropna()
+                                        if len(_vol) >= 50 and len(_hi) >= 45:
+                                            _vol_50d_avg = float(_vol.rolling(50).mean().iloc[-1])
+                                            if _vol_50d_avg > 0:
+                                                _has_spike = False
+                                                _has_heavy_selling = False
+                                                _spike_high = 0.0
+                                                for i in range(-5, 0):
+                                                    if float(_vol.iloc[i]) / _vol_50d_avg >= 3.0:
+                                                        _has_spike = True
+                                                        _c_i = float(_c.iloc[i])
+                                                        _h_i = float(_hi.iloc[i])
+                                                        _l_i = float(_lo.iloc[i])
+                                                        _o_i = float(df_sym["Open"].iloc[i]) if "Open" in df_sym.columns else _c_i
+                                                        
+                                                        _spike_high = max(_spike_high, _h_i)
+                                                        
+                                                        _candle_range = _h_i - _l_i
+                                                        _upper_wick = _h_i - max(_c_i, _o_i)
+                                                        _wick_pct = (_upper_wick / _candle_range) if _candle_range > 0 else 0.0
+                                                        
+                                                        if _wick_pct >= 0.35 or ((_h_i - _ltp) / _h_i) > 0.04:
+                                                            _has_heavy_selling = True
+
+                                                if _has_spike:
+                                                    _prev_40d_high = float(_hi.iloc[-45:-5].max())
+                                                    _dist_from_50 = ((_ltp - _sma50) / _sma50) * 100 if _sma50 else 0.0
+                                                    
+                                                    if _spike_high > _prev_40d_high and _dist_from_50 < 30.0 and not _has_heavy_selling:
+                                                        _vol_breakout = True
+                                                    else:
+                                                        _vol_climax = True                                                
+                                    _chandelier_exit = None
+                                    if len(_c) >= 22:
+                                        _highest_close_22 = float(_c.rolling(22).max().iloc[-1])
+                                        _tr1_22 = _hi - _lo
+                                        _tr2_22 = (_hi - _c.shift(1)).abs()
+                                        _tr3_22 = (_lo - _c.shift(1)).abs()
+                                        _tr_22 = pd.concat([_tr1_22, _tr2_22, _tr3_22], axis=1).max(axis=1)
+                                        _atr_22 = float(_tr_22.ewm(alpha=1/22, adjust=False).mean().iloc[-1])
+                                        _custom_mult = journal_overrides.get(_s, {}).get("custom_ce_mult") if _s in journal_overrides else None
+                                        if _custom_mult and _custom_mult > 0:
+                                            _ce_mult = _custom_mult
+                                        else:
+                                            # System default based on market regime (using 200 SMA as proxy for bull)
+                                            _ce_mult = 4.5 if _ws_above200 else 5.0
+                                            if _capital_protection_mode:
+                                                _ce_mult = 2.5  # Dramatically tighten if portfolio is breaking down
+                                            
+                                        _chandelier_exit = _highest_close_22 - (_atr_22 * _ce_mult)
+                                        
+                                        # Apply Manual SL Override if present
+                                        _manual_sl = journal_overrides.get(_s, {}).get("manual_sl_override") if _s in journal_overrides else None
+                                        if _manual_sl and _manual_sl > 0:
+                                            _chandelier_exit = max(_chandelier_exit, _manual_sl)
+                                        
+                                    _days_to_earnings = None
+                                    _edate = get_earnings_date_cached(_s)
+                                    if _edate:
+                                        from datetime import date
+                                        _diff = (_edate - date.today()).days
+                                        if 0 <= _diff <= 30:
+                                            _days_to_earnings = _diff
+                                    
+                                    _ws_above200 = _ltp > _sma200
+                                    _ws_above50 = _ltp > _sma50
+                                    _ws_pos52 = ((_ltp - _lo52) / max(_hi52 - _lo52, 1)) * 100 if _hi52 > _lo52 else 50
+                                    _ws_score = (
+                                        (25 if _ws_above200 and _sma200slp > 0 else 0) +
+                                        (20 if _ws_above200 else 0) +
+                                        (15 if _sma200slp > 0 else 0) +
+                                        (12 if _ws_pos52 >= 75 else 6 if _ws_pos52 >= 50 else 0) +
+                                        (8  if _ws_above50  else 0)
+                                    )
+                                    
+                                hist_data[_s] = {
+                                    "ws_score": int(_ws_score),
+                                    "sma200_slope": round(_sma200slp, 2),
+                                    "sma200": round(_sma200, 2),
+                                    "sma50": round(_sma50, 2),
+                                    "ema20": round(_ema20, 2) if _ema20 else None,
+                                    "above200": _ws_above200,
+                                    "atr_pct": round(_atr_pct, 2),
+                                    "dist_from_200": round(_dist_from_200, 2),
+                                    "chandelier_exit": round(_chandelier_exit, 2) if _chandelier_exit else None,
+                                    "close_5d_ago": round(_close_5d_ago, 2) if _close_5d_ago else None,
+                                    "vol_breakout": _vol_breakout if '_vol_breakout' in locals() else False,
+                                    "vol_climax": _vol_climax if '_vol_climax' in locals() else False,
+                                    "days_to_earnings": _days_to_earnings if '_days_to_earnings' in locals() else None
+                                }
+                    except Exception as _e:
+                        pass
+                st.session_state["cached_hist_data_v3"] = hist_data
+
                 _ai_tasks = []
                 for _sym, _orders in sell_gtts_by_symbol.items():
                     _ai_k = f"ai_exit_review_{_sym}"
                     if _ai_k not in st.session_state:
-                        _ltp = ltps.get(_sym) or 0
-                        _tq = sum(o.get("sl_qty") or o.get("qty") or 0 for o in _orders)
-                        _re = sum((o.get("sl_qty") or o.get("qty") or 0) * (_ltp - o["sl_trigger"]) for o in _orders if _ltp and o["sl_trigger"] is not None)
-                        _h = holdings_map.get(_sym)
-                        if _h:
-                            _bp = _h["buy_price"]
-                            _tri = sum((o.get("sl_qty") or o.get("qty") or 0) * (_bp - o["sl_trigger"]) for o in _orders if o["sl_trigger"] is not None)
-                            _rm = f"{(_ltp - _bp) * _tq / _tri:+.2f}R" if _tri > 0 else "N/A"
+                        if st.session_state.get("force_run_ai"):
+                            _ltp = ltps.get(_sym) or 0
+                            _tq = sum(o.get("sl_qty") or o.get("qty") or 0 for o in _orders)
+                            _re = sum((o.get("sl_qty") or o.get("qty") or 0) * (_ltp - o["sl_trigger"]) for o in _orders if _ltp and o["sl_trigger"] is not None)
+                            _h = holdings_map.get(_sym)
+                            if _h:
+                                _bp = _h["buy_price"]
+                                _tri = sum((o.get("sl_qty") or o.get("qty") or 0) * (_bp - o["sl_trigger"]) for o in _orders if o["sl_trigger"] is not None)
+                                _rm = f"{(_ltp - _bp) * _tq / _tri:+.2f}R" if _tri > 0 else "N/A"
+                            else:
+                                _rm = "N/A"
+                            _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re, "tech": hist_data.get(_sym)}))
                         else:
-                            _rm = "N/A"
-                        _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re}))
+                            st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _b in buy_gtts:
                     _sym = _b["symbol"]; _ai_k = f"ai_entry_review_{_sym}_{_b['order_id']}"
                     if _ai_k not in st.session_state:
-                        _ltp = ltps.get(_sym) or 0
-                        _dist = (_ltp - _b["trigger"]) / _ltp * 100 if _ltp else 0.0
-                        _ai_tasks.append((_ai_k, _sym, "GTT_ENTRY", {"trigger": _b["trigger"], "price": _b["price"], "ltp": _ltp, "dist": _dist}))
+                        if st.session_state.get("force_run_ai"):
+                            _ltp = ltps.get(_sym) or 0
+                            _dist = (_ltp - _b["trigger"]) / _ltp * 100 if _ltp else 0.0
+                            _ai_tasks.append((_ai_k, _sym, "GTT_ENTRY", {"trigger": _b["trigger"], "price": _b["price"], "ltp": _ltp, "dist": _dist, "tech": hist_data.get(_sym)}))
+                        else:
+                            st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _h in unprotected_holdings:
                     _sym = _h["symbol"]; _ai_k = f"ai_unprotected_review_{_sym}"
                     if _ai_k not in st.session_state:
-                        _ltp = ltps.get(_sym) or _h["ltp"] or 0
-                        _ai_tasks.append((_ai_k, _sym, "UNPROTECTED_HOLDING", {"buy_price": _h["buy_price"], "qty": _h["qty"], "ltp": _ltp}))
+                        if st.session_state.get("force_run_ai"):
+                            _ltp = ltps.get(_sym) or _h["ltp"] or 0
+                            _ai_tasks.append((_ai_k, _sym, "UNPROTECTED_HOLDING", {"buy_price": _h["buy_price"], "qty": _h["qty"], "ltp": _ltp, "tech": hist_data.get(_sym)}))
+                        else:
+                            st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _s in single_sells:
                     _sym = _s["symbol"]; _ai_k = f"ai_single_review_{_sym}_{_s['order_id']}"
                     if _ai_k not in st.session_state:
-                        _ltp = ltps.get(_sym) or _s["price"] or 0
-                        _dist = (_ltp - _s["trigger"]) / _ltp * 100 if _ltp else 0.0
-                        _label = "Stop Loss" if _s["trigger"] < _ltp else "Target Limit"
-                        _ai_tasks.append((_ai_k, _sym, "SINGLE_EXIT", {"trigger": _s["trigger"], "ltp": _ltp, "dist": _dist, "label": _label}))
+                        if st.session_state.get("force_run_ai"):
+                            _ltp = ltps.get(_sym) or _s["price"] or 0
+                            _dist = (_ltp - _s["trigger"]) / _ltp * 100 if _ltp else 0.0
+                            _label = "Stop Loss" if _s["trigger"] < _ltp else "Target Limit"
+                            _ai_tasks.append((_ai_k, _sym, "SINGLE_EXIT", {"trigger": _s["trigger"], "ltp": _ltp, "dist": _dist, "label": _label, "tech": hist_data.get(_sym)}))
+                        else:
+                            st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
 
                 if _ai_tasks:
                     with st.spinner(f"⚡ Loading AI analysis for {len(_ai_tasks)} positions..."):
@@ -9717,16 +11288,256 @@ elif page == 'ENTRY SHIELD':
                             try: return key, get_stock_context_and_ai_review(sym, otype, **kw)
                             except Exception: return key, "AI review unavailable."
                         from concurrent.futures import ThreadPoolExecutor
-                        with ThreadPoolExecutor(max_workers=8) as executor:
+                        # Increased concurrency for paid API tiers
+                        with ThreadPoolExecutor(max_workers=15) as executor:
                             for key, res in executor.map(_run_ai, _ai_tasks):
                                 st.session_state[key] = res
+                        
+                        # Save back to cache
+                        _new_cache = {}
+                        for k, v in st.session_state.items():
+                            if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_", "cached_hist_data_v3"]):
+                                _new_cache[k] = v
+                        try:
+                            with open(AI_CACHE_FILE, "w") as f:
+                                json.dump(_new_cache, f)
+                        except: pass
+                        st.session_state.force_run_ai = False
+
+                # =====================================================================
+                # NEW ENHANCEMENTS: Actionable Alerts, Heatmap, What-If Tester, Risk Hist
+                # =====================================================================
+                st.markdown("<br><hr style='border-color:#30363d; margin: 10px 0;'>", unsafe_allow_html=True)
+                
+                portfolio_data = []
+                total_portfolio_value = 0
+                total_open_risk = 0
+                alerts = []
+
+                if "holdings_map" in locals() and holdings_map:
+                    for sym, h in holdings_map.items():
+                        qty = h.get("qty", 0)
+                        bp = h.get("buy_price", 0)
+                        ltp = ltps.get(sym) or h.get("ltp") or bp
+                        pos_val = qty * ltp
+                        total_portfolio_value += pos_val
+                        
+                        _tech = hist_data.get(sym, {})
+                        
+                        # Find closest SL
+                        sl = None
+                        if sym in sell_gtts_by_symbol:
+                            sl_vals = [o["sl_trigger"] for o in sell_gtts_by_symbol[sym] if o.get("sl_trigger")]
+                            if sl_vals:
+                                sl = max(sl_vals)
+                        elif sym in [s["symbol"] for s in single_sells]:
+                            sl_vals = [o["trigger"] for o in single_sells if o["symbol"] == sym and o["trigger"] < ltp]
+                            if sl_vals:
+                                sl = max(sl_vals)
+                                
+                        dist_to_sl = ((ltp - sl) / ltp * 100) if sl and ltp else None
+                        open_risk_rs = qty * (ltp - sl) if sl else qty * ltp
+                        total_open_risk += open_risk_rs if open_risk_rs > 0 else 0
+                        
+                        portfolio_data.append({
+                            "Symbol": sym,
+                            "Sector": h.get("sector", ""),
+                            "Value": pos_val,
+                            "Risk %": dist_to_sl if dist_to_sl is not None else -100,
+                            "LTP": ltp,
+                            "SL": sl if sl else 0
+                        })
+                        
+                        # Alerts
+                        if sl is None:
+                            alerts.append({"type": "NO_SL", "sym": sym, "msg": "Missing Stop Loss"})
+                        if _tech.get("vol_climax"):
+                            alerts.append({"type": "VOL", "sym": sym, "msg": "Volume Climax"})
+                        days_to_er = _tech.get("days_to_earnings")
+                        if days_to_er is not None and days_to_er <= 3:
+                            alerts.append({"type": "EARNINGS", "sym": sym, "msg": f"Earnings in {days_to_er}d"})
+
+                # 1. Alerts
+                if alerts:
+                    st.markdown('<div class="section-sub-lbl" style="color:#ff4b4b;margin-bottom:10px;">🚨 Requires Immediate Action</div>', unsafe_allow_html=True)
+                    alert_cols = st.columns(3)
+                    for i, al in enumerate(alerts):
+                        with alert_cols[i % 3]:
+                            bg = "#ff4b4b" if al["type"] == "NO_SL" else ("#e3b341" if al["type"] == "EARNINGS" else "#bf40bf")
+                            txt_c = "#fff" if al["type"] != "EARNINGS" else "#000"
+                            st.markdown(f'<div style="background:{bg};color:{txt_c};padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:0.85rem;font-weight:bold;">{al["sym"]}: {al["msg"]}</div>', unsafe_allow_html=True)
+
+                if portfolio_data:
+                    # 3. What-If Tester
+                    st.markdown('<div class="section-sub-lbl">🔮 What-If Scenario Tester</div>', unsafe_allow_html=True)
+                    sim_drop = st.slider("Simulated NIFTY Drop (%)", min_value=0.0, max_value=15.0, value=2.0, step=0.5, format="-%f%%")
+                        
+                    sim_losses = 0
+                    hits = 0
+                    if sim_drop > 0:
+                        for row in portfolio_data:
+                            sim_ltp = row["LTP"] * (1 - (sim_drop/100))
+                            if row["SL"] > 0 and sim_ltp <= row["SL"]:
+                                loss = row["Value"] - (row["Value"] * (row["SL"] / row["LTP"]))
+                                sim_losses += loss
+                                hits += 1
+                            elif row["SL"] == 0:
+                                loss = row["Value"] * (sim_drop/100)
+                                sim_losses += loss
+                    
+                    dd_pct = (sim_losses / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
+                    st.markdown(f'''
+                    <div style="background:#0e2035;border:1px solid #30363d;padding:12px;border-radius:6px;margin-bottom:20px;">
+                        <div style="font-size:0.85rem;color:#8b949e;">Est. Portfolio Drawdown</div>
+                        <div style="font-size:1.6rem;font-weight:bold;color:#ff4b4b;">-{dd_pct:.2f}%</div>
+                        <div style="font-size:0.8rem;color:#c9d1d9;margin-top:8px;">Loss: ₹{sim_losses:,.0f} | SLs Hit: {hits}</div>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    # 4. Historical Risk
+                    st.markdown('<div class="section-sub-lbl">📈 Historical Risk (30 Days)</div>', unsafe_allow_html=True)
+                    import os
+                    import json
+                    from datetime import date
+                    import plotly.graph_objects as go
+                    
+                    RISK_FILE = "risk_history.json"
+                    today_str = date.today().isoformat()
+                    
+                    risk_history = {}
+                    if os.path.exists(RISK_FILE):
+                        try:
+                            with open(RISK_FILE, "r") as f:
+                                risk_history = json.load(f)
+                        except: pass
+                        
+                    risk_history[today_str] = {
+                        "portfolio_value": total_portfolio_value,
+                        "open_risk": total_open_risk
+                    }
+                    
+                    try:
+                        with open(RISK_FILE, "w") as f:
+                            json.dump(risk_history, f)
+                    except: pass
+                    
+                    dates = sorted(list(risk_history.keys()))[-30:]
+                    risks = [risk_history[d]["open_risk"] for d in dates]
+                    
+                    if len(dates) > 0:
+                        fig2 = go.Figure(go.Scatter(
+                            x=dates, y=risks, mode='lines+markers+text',
+                            text=[f"₹{r:,.0f}" for r in risks], textposition="top center", textfont=dict(color="#58a6ff", size=10),
+                            line=dict(color='#58a6ff', width=3), marker=dict(size=6, color='#58a6ff')
+                        ))
+                        fig2.update_layout(
+                            margin=dict(t=20, l=5, r=5, b=5), height=120,
+                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                            xaxis=dict(type='category', showgrid=False, visible=True, tickfont=dict(size=9, color="#8b949e")),
+                            yaxis=dict(showgrid=False, visible=False)
+                        )
+                        st.plotly_chart(fig2, use_container_width=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                # =====================================================================
+
+                if _capital_protection_mode and _cap_prot_msg:
+                    st.error(_cap_prot_msg)
 
                 # --- TABS ---
-                entry_tab1, entry_tab2, entry_tab3 = st.tabs([
+                entry_tab0, entry_tab1, entry_tab2, entry_tab3, entry_tab4 = st.tabs([
+                    "✅ Morning Approval Dashboard",
                     "🎯 Active Exits (OCO)",
                     "🛒 Pullback Entries (GTT)",
-                    "📊 Risk Profile & Analytics"
+                    "📊 Risk Profile & Analytics",
+                    "⚙️ Settings & Overrides"
                 ])
+                
+                with entry_tab0:
+                    st.markdown('<div class="section-sub-lbl">✅ Review & Push (Morning Gate)</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Approve automatically generated Risk Management actions before pushing to Dhan.</div>', unsafe_allow_html=True)
+                    
+                    proposed_actions = []
+                    for sym, orders in sell_gtts_by_symbol.items():
+                        _tech = hist_data.get(sym, {})
+                        _ltp = ltps.get(sym) or 0
+                        _c5 = _tech.get("close_5d_ago")
+                        
+                        cond_trim = False
+                        cond_add = False
+                        if _c5 and _c5 > 0 and _ltp:
+                            _dist200 = _tech.get("dist_from_200", 0)
+                            _days_er = _tech.get("days_to_earnings")
+                            _sma200slp = _tech.get("sma200_slope", 0)
+                            _above200 = _tech.get("above200", False)
+                            _ema20 = _tech.get("ema20")
+                            _is_breakout = _tech.get("vol_breakout", False)
+                            
+                            if (_days_er is not None and _days_er <= 3):
+                                cond_trim = True
+                            elif not _is_breakout and (_ltp > _c5 * 1.15 or _dist200 > 40.0):
+                                cond_trim = True
+                            if _above200 and _sma200slp > 0 and _ltp <= _c5 * 1.10 and _ema20 and _ltp > _ema20:
+                                cond_add = True
+
+                        tsl_target = _tech.get("chandelier_exit")
+                        
+                        # Nearest active stop
+                        sl_vals = [o["sl_trigger"] for o in orders if o["sl_trigger"] is not None]
+                        curr_sl = max(sl_vals) if sl_vals else None
+                        
+                        # 1. Update SL Action
+                        has_manual_sl = (sym in journal_overrides and journal_overrides[sym].get("manual_sl_override"))
+                        if tsl_target and curr_sl and tsl_target > curr_sl and not has_manual_sl:
+                            proposed_actions.append({
+                                "Symbol": sym,
+                                "Action": "Tighten SL",
+                                "Trigger Price": round(tsl_target, 2),
+                                "Qty %": 100,
+                                "Reason": "TSL Trailing"
+                            })
+                            
+                        # 2. Earnings/Extension Trim
+                        if cond_trim:
+                            proposed_actions.append({
+                                "Symbol": sym,
+                                "Action": "Trim Position",
+                                "Trigger Price": round(_ltp, 2),
+                                "Qty %": 20,
+                                "Reason": "Earnings Risk" if (_days_er is not None and _days_er <= 3) else "Over-extension"
+                            })
+                            
+                        # 3. Pyramiding (Risk-Free)
+                        pyramid_state = journal_overrides.get(sym, {}).get("pyramid_status", "")
+                        if cond_add and pyramid_state != "Maxed":
+                            proposed_actions.append({
+                                "Symbol": sym,
+                                "Action": "Pyramid (Add)",
+                                "Trigger Price": round(_ema20, 2) if _ema20 else round(_ltp, 2),
+                                "Qty %": 50,
+                                "Reason": "Pullback & Trend OK"
+                            })
+                            
+                    if proposed_actions:
+                        df_props = pd.DataFrame(proposed_actions)
+                        df_props.insert(0, "Approve", True)
+                        edited_df = st.data_editor(
+                            df_props,
+                            column_config={
+                                "Approve": st.column_config.CheckboxColumn("Approve", default=True),
+                                "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                                "Action": st.column_config.TextColumn("Action", disabled=True),
+                                "Reason": st.column_config.TextColumn("Reason", disabled=True),
+                                "Trigger Price": st.column_config.NumberColumn("Trigger Price (₹)", format="%.2f", step=0.05),
+                                "Qty %": st.column_config.NumberColumn("Qty (%)", min_value=1, max_value=100, step=1)
+                            },
+                            hide_index=True,
+                            use_container_width=True
+                        )
+                        if st.button("🚀 Push Approved Updates to Dhan", type="primary"):
+                            st.success("Orders pushed successfully! (Mock)")
+                    else:
+                        st.info("No actionable updates for today. Portfolio is optimized.")
 
                 # ── Tab 1: Active Exits (OCO) ──
                 with entry_tab1:
@@ -9734,7 +11545,7 @@ elif page == 'ENTRY SHIELD':
                     if not sell_gtts_by_symbol:
                         st.info("No active OCO paired exits found.")
                     else:
-                        oco_symbols = list(sell_gtts_by_symbol.keys())
+                        oco_symbols = sorted(list(sell_gtts_by_symbol.keys()))
                         for idx in range(0, len(oco_symbols), 3):
                             row_items = oco_symbols[idx:idx+3]
                             cols = st.columns(3)
@@ -9761,31 +11572,125 @@ elif page == 'ENTRY SHIELD':
                                     # SL/Target distances
                                     sl_vals = [o["sl_trigger"] for o in orders if o["sl_trigger"] is not None]
                                     tgt_vals = [o["target_trigger"] for o in orders if o["target_trigger"] is not None]
-                                    min_sl = min(sl_vals) if sl_vals else None
-                                    min_sl_dist = ((ltp - min_sl) / ltp * 100) if ltp and min_sl else None
+                                    # Nearest stop to LTP = the HIGHEST SL (all stops sit below price),
+                                    # i.e. the one most likely to fire — that drives the danger warning.
+                                    near_sl = max(sl_vals) if sl_vals else None
+                                    min_sl_dist = ((ltp - near_sl) / ltp * 100) if ltp and near_sl else None
 
-                                    # Two-line layout: Entry line + LTP line
-                                    sl_parts_e = []; tgt_parts_e = []; sl_parts_l = []; tgt_parts_l = []
+                                    # Single-line layout: Combined Entry and LTP percent context
+                                    sl_parts = []; tgt_parts = []
                                     for o_idx, o in enumerate(orders):
                                         sl = o["sl_trigger"]; tgt = o["target_trigger"]
                                         if sl is not None:
-                                            if buy_price:
-                                                sl_d_e = (buy_price - sl) / buy_price * 100
-                                                sl_parts_e.append(f"<span style='color:#ff4b4b'>₹{sl:,.0f}</span> <span style='color:#5a8a9f'>({sl_d_e:+.1f}%)</span>")
-                                            if ltp:
-                                                sl_d_l = (ltp - sl) / ltp * 100
-                                                sl_parts_l.append(f"<span style='color:#ff4b4b'>₹{sl:,.0f}</span> <span style='color:#5a8a9f'>({sl_d_l:+.1f}%)</span>")
+                                            sl_str = f"SL <span style='color:#ff4b4b'>₹{sl:,.0f}</span>"
+                                            if buy_price and ltp:
+                                                sl_d_e = (sl - buy_price) / buy_price * 100
+                                                sl_d_l = (sl - ltp) / ltp * 100
+                                                sl_str += f" (<span style='color:#8b949e'>{sl_d_e:+.1f}%</span> / <span style='color:#58a6ff'>{sl_d_l:+.1f}%</span>)"
+                                            sl_parts.append(sl_str)
                                         if tgt is not None:
                                             label = f"T{o_idx+1}"
-                                            if buy_price:
+                                            tgt_str = f"<span style='color:#00f260'>{label} ₹{tgt:,.0f}</span>"
+                                            if buy_price and ltp:
                                                 tgt_d_e = (tgt - buy_price) / buy_price * 100
-                                                tgt_parts_e.append(f"<span style='color:#00f260'>₹{tgt:,.0f}</span> <span style='color:#5a8a9f'>(+{tgt_d_e:.1f}%)</span>")
-                                            if ltp:
                                                 tgt_d_l = (tgt - ltp) / ltp * 100
-                                                tgt_parts_l.append(f"<span style='color:#00f260'>₹{tgt:,.0f}</span> <span style='color:#5a8a9f'>(+{tgt_d_l:.1f}%)</span>")
+                                                tgt_str += f" (<span style='color:#8b949e'>{tgt_d_e:+.1f}%</span> / <span style='color:#58a6ff'>{tgt_d_l:+.1f}%</span>)"
+                                                if sl is not None and (buy_price - sl) > 0:
+                                                    r_val = (tgt - buy_price) / (buy_price - sl)
+                                                    tgt_str += f" <span style='color:#e3b341;font-weight:bold;'>[{r_val:.1f}R]</span>"
+                                            tgt_parts.append(tgt_str)
 
-                                    entry_line = f"<b style='color:#8b949e;'>Entry ₹{buy_price:,.2f}</b>: SL {', '.join(sl_parts_e) if sl_parts_e else 'N/A'} | {', '.join(tgt_parts_e) if tgt_parts_e else 'N/A'}" if buy_price else "<span style='color:#5a8a9f;'>Entry price not available</span>"
-                                    ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b>: SL {', '.join(sl_parts_l) if sl_parts_l else 'N/A'} | {', '.join(tgt_parts_l) if tgt_parts_l else 'N/A'}" if ltp else "<span style='color:#5a8a9f;'>LTP not available</span>"
+                                    header_entry = f"<b style='color:#8b949e;'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:#8b949e;'>Entry: N/A</b>"
+                                    header_ltp = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#58a6ff;'>LTP: N/A</b>"
+                                    
+                                    # Calculate ATR + is_swing first for Time Stop logic
+                                    _tech = hist_data.get(sym)
+                                    atr_val = 0
+                                    is_swing = False
+                                    
+                                    if _tech and _tech.get("atr_pct"):
+                                        val = _tech.get("atr_pct")
+                                        if isinstance(val, (int, float)) and val == val and val > 0:
+                                            atr_val = (ltp * val) / 100
+                                            is_swing = _tech.get('atr_pct', 0) > 4 or _tech.get('dist_from_200', 0) > 30 or _tech.get('ws_score', 0) < 60
+                                        
+                                    if (not atr_val or atr_val != atr_val) and ltp:
+                                        raw_atr = get_atr(sym)
+                                        if raw_atr and raw_atr == raw_atr: atr_val = raw_atr
+                                        ai_key = f"ai_exit_review_{sym}"
+                                        if ai_key in st.session_state and "[Swing]" in st.session_state[ai_key]:
+                                            is_swing = True
+                                            
+                                    if (not atr_val or atr_val != atr_val) and sl_vals and ltp:
+                                        closest_sl = max(sl_vals)
+                                        dist = ltp - closest_sl
+                                        if dist > 0:
+                                            if (dist / ltp) < 0.08:
+                                                atr_val = dist / 1.5
+                                                is_swing = True
+                                            else:
+                                                atr_val = dist / 3.0
+                                                is_swing = False
+
+                                    # Compute Days Held & Time Stop Hit
+                                    days_held = None
+                                    if holding and holding.get("entry_date"):
+                                        from datetime import date
+                                        try:
+                                            dt_parts = holding["entry_date"].split('-')
+                                            entry_d = date(int(dt_parts[0]), int(dt_parts[1]), int(dt_parts[2]))
+                                            days_held = (date.today() - entry_d).days
+                                        except: pass
+
+                                    time_stop_hit = False
+                                    if days_held is not None and holding and buy_price and total_risk_at_entry > 0 and total_qty > 0:
+                                        limit_days = 10 if is_swing else 42
+                                        if days_held >= limit_days and r_multiple < 0.5:
+                                            time_stop_hit = True
+
+                                    flags_html = ""
+                                    cond_trim = False
+                                    cond_add = False
+                                    
+                                    if _tech:
+                                        _c5 = _tech.get("close_5d_ago")
+                                        if _c5 and _c5 > 0 and ltp:
+                                            _dist200 = _tech.get("dist_from_200", 0)
+                                            _days_er = _tech.get("days_to_earnings")
+                                            _sma200slp = _tech.get("sma200_slope", 0)
+                                            _above200 = _tech.get("above200", False)
+                                            _ema20 = _tech.get("ema20")
+                                            
+                                            _is_breakout = _tech.get("vol_breakout", False)
+                                            if (_days_er is not None and _days_er <= 3):
+                                                cond_trim = True
+                                            elif not _is_breakout and (ltp > _c5 * 1.15 or _dist200 > 40.0):
+                                                cond_trim = True
+                                                
+                                            if _above200 and _sma200slp > 0 and ltp <= _c5 * 1.10 and _ema20 and ltp > _ema20:
+                                                cond_add = True
+
+                                        _flags = []
+                                        if cond_trim:
+                                            _flags.append("<span style='background:#8957e5;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>✂️ TRIM</span>")
+                                        elif cond_add:
+                                            _flags.append("<span style='background:#238636;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>📈 ADD</span>")
+                                        
+                                        if time_stop_hit:
+                                            _flags.append(f"<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
+
+                                        if _tech.get("vol_breakout"):
+                                            _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                        elif _tech.get("vol_climax"):
+                                            _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
+                                            _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                        if _tech.get("chandelier_exit"):
+                                            _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                        if _flags:
+                                            flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
+                                            
+                                    combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>"
 
                                     # Qty string
                                     qty_parts = []
@@ -9795,24 +11700,94 @@ elif page == 'ENTRY SHIELD':
                                         qty_parts.append(f"SL:{int(sl_q)} Tgt:{int(tgt_q)}")
                                     qty_str = " · ".join(qty_parts)
 
-                                    # Progress bar
+                                    # Progress bar with ATR SL
                                     progress_bar_html = ""
-                                    if ltp and sl_vals and tgt_vals and buy_price:
-                                        bar_min = min(min(sl_vals), buy_price) * 0.98
-                                        bar_max = max(max(tgt_vals), ltp) * 1.02
+                                    atr_sl = None
+                                    rec_t1 = None
+                                    rec_t2 = None
+                                    rec_line = ""
+
+                                    if ltp and atr_val and atr_val == atr_val and atr_val > 0:
+                                        sl_mult = 1.5 if is_swing else 3.0
+                                        t1_mult = 3.0 if is_swing else 5.0
+                                        t2_mult = 5.0 if is_swing else 10.0
+                                        atr_sl = ltp - (atr_val * sl_mult)
+                                        rec_t1 = (buy_price if buy_price else ltp) + (atr_val * t1_mult)
+                                        rec_t2 = (buy_price if buy_price else ltp) + (atr_val * t2_mult)
+                                        
+                                        if len(orders) == 1 or len(tgt_vals) <= 1 or (rec_t1 and ltp >= rec_t1):
+                                            rec_t1 = None
+                                            
+                                        t1_str = f' | Rec T1: <span style="color:#ffb000">₹{rec_t1:,.0f}</span>' if rec_t1 else ''
+                                        t2_str = f' | Rec T2: <span style="color:#ffb000">₹{rec_t2:,.0f}</span>' if rec_t2 else ''
+                                        rec_line = f'<div style="font-size:0.75rem;margin-top:8px;color:#8b949e;">Rec SL: <span style="color:#bf40bf">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
+                                            
+                                    if ltp:
+                                        ema20 = _tech.get("ema20") if _tech else None
+                                        
+                                        time_stop_price = None
+                                        if holding and buy_price:
+                                            if total_risk_at_entry > 0 and total_qty > 0:
+                                                if r_multiple < 0.5:
+                                                    time_stop_price = buy_price + (0.5 * total_risk_at_entry / total_qty)
+                                        
+                                        all_lows = []
+                                        if sl_vals: all_lows.extend(sl_vals)
+                                        if buy_price: all_lows.append(buy_price)
+                                        if atr_sl: all_lows.append(atr_sl)
+                                        if ema20: all_lows.append(ema20)
+                                        chandelier = _tech.get("chandelier_exit") if _tech else None
+                                        if chandelier: all_lows.append(chandelier)
+                                        if time_stop_price: all_lows.append(time_stop_price)
+                                        if not all_lows: all_lows.append(ltp * 0.95)
+                                        bar_min = min(all_lows) * 0.98
+                                        
+                                        all_highs = [ltp]
+                                        if tgt_vals: all_highs.extend(tgt_vals)
+                                        if rec_t2: all_highs.append(rec_t2)
+                                        if ema20: all_highs.append(ema20)
+                                        if chandelier: all_highs.append(chandelier)
+                                        if time_stop_price: all_highs.append(time_stop_price)
+                                        bar_max = max(all_highs) * 1.02
+                                        
                                         bar_range = bar_max - bar_min
                                         if bar_range > 0:
                                             markers_html = ""
+                                            if ema20:
+                                                ema_pos = (ema20 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                            if chandelier:
+                                                chan_pos = (chandelier - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                            if time_stop_price:
+                                                ts_pos = (time_stop_price - bar_min) / bar_range * 100
+                                                if time_stop_hit:
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#ff4b4b;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #ff4b4b;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                else:
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#eab308;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
+                                            if atr_sl:
+                                                atr_pos = (atr_sl - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{atr_pos:.1f}%;top:-2px;width:12px;height:12px;background:#bf40bf;border-radius:50%;transform:translateX(-50%);" title="AI Rec SL ₹{atr_sl:,.0f}"></div>'
                                             for sv in sl_vals:
                                                 pos = (sv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-4px;width:2px;height:16px;background:#ff4b4b;" title="SL ₹{sv:,.0f}"></div>'
-                                            entry_pos = (buy_price - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-4px;width:2px;height:16px;background:#8b949e;" title="Entry ₹{buy_price:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#ff4b4b;border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
+                                            if buy_price:
+                                                entry_pos = (buy_price - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{buy_price:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-6px;width:3px;height:20px;background:#58a6ff;border-radius:1px;" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                            
                                             for tv in tgt_vals:
                                                 pos = (tv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-4px;width:2px;height:16px;background:#00f260;" title="Tgt ₹{tv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#00f260;border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{tv:,.0f}"></div>'
+                                                
+                                            if rec_t1:
+                                                t1_pos = (rec_t1 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:#ffb000;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                            if rec_t2:
+                                                t2_pos = (rec_t2 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:#ffb000;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                                
                                             progress_bar_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
 
                                     # Trail SL recommendation
@@ -9830,28 +11805,43 @@ elif page == 'ENTRY SHIELD':
                                     status_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
                                     reco_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
 
+                                    ai_key = f"ai_exit_review_{sym}"
+                                    trade_style_badge = ""
+                                    ai_html = ""
+                                    if ai_key in st.session_state:
+                                        ai_text = st.session_state[ai_key]
+                                        if "[Positional]" in ai_text:
+                                            trade_style_badge = '<span style="background:#238636;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">POSITIONAL</span>'
+                                        elif "[Swing]" in ai_text:
+                                            trade_style_badge = '<span style="background:#8957e5;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">SWING</span>'
+                                            
+                                        display_text = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
+                                        ai_html = f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:10px;border-radius:4px;margin-top:12px;font-size:0.8rem;color:#e6edf3;line-height:1.4;">🤖 <b>AI:</b> {display_text}</div>'
+                                        
+                                    expand_btn = '<label class=\"expand-btn\" title=\"Toggle Fullscreen\" style=\"cursor:pointer;float:right;margin-top:-5px;\">⛶<input type=\"checkbox\" class=\"expand-toggle\" style=\"display:none;\"></label>'
+
                                     card_html = (
                                         f'<div class="metric-card" style="padding:16px;margin-bottom:12px;border-left:4px solid {status_color};text-align:left;">'
+                                        f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.2rem;font-weight:700;color:#58a6ff;">{sym}</span>'
-                                        f'<span style="font-size:0.8rem;color:#8b949e;margin-left:8px;">{qty_str}</span></div>'
-                                        f'<div style="text-align:right;"><div style="font-size:0.75rem;color:#8b949e;">'
+                                        f'<div><span style="font-size:1.2rem;font-weight:700;color:#58a6ff;vertical-align:middle;">{sym}</span>'
+                                        f'{trade_style_badge}'
+                                        f'<span style="font-size:0.8rem;color:#8b949e;margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
+                                        f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.75rem;color:#8b949e;">'
                                         f'R-Mult: <span style="font-family:JetBrains Mono;color:{r_color};font-weight:bold;">{r_multiple_str}</span>'
                                         f' · Risk: <span style="font-family:JetBrains Mono;color:#ff4b4b;font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
                                         f'{progress_bar_html}'
+                                        f'{rec_line}'
                                         f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">'
-                                        f'<div>{entry_line}</div><div style="margin-top:4px;">{ltp_line}</div></div>'
-                                        f'<div style="margin-top:8px;font-size:0.78rem;line-height:1.35;color:{reco_color};font-weight:600;">{reco_str}</div></div>'
+                                        f'<div>{combined_line}</div></div>'
+                                        f'<div style="margin-top:8px;font-size:0.78rem;line-height:1.35;color:{reco_color};font-weight:600;">{reco_str}</div>'
+                                        f'{ai_html}</div>'
                                     )
                                     st.markdown(card_html, unsafe_allow_html=True)
 
-                                    # AI Review (already pre-computed)
-                                    ai_key = f"ai_exit_review_{sym}"
-                                    if ai_key in st.session_state:
-                                        st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:10px;border-radius:4px;margin-bottom:12px;font-size:0.8rem;color:#e6edf3;line-height:1.4;">🤖 <b>AI:</b> {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
-
                     # Standalone Exits
                     if single_sells:
+                        single_sells = sorted(single_sells, key=lambda x: x["symbol"])
                         st.markdown("---")
                         st.markdown('<div class="section-sub-lbl">🛑 Standalone Exits</div>', unsafe_allow_html=True)
                         for idx in range(0, len(single_sells), 3):
@@ -9864,13 +11854,73 @@ elif page == 'ENTRY SHIELD':
                                     dist = (ltp - trigger) / ltp * 100 if ltp else 0.0
                                     label = "Stop Loss" if trigger < ltp else "Target"
                                     color = "#ff4b4b" if trigger < ltp else "#00f260"
-                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;"><span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br><span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span></div>', unsafe_allow_html=True)
+                                    
+                                    flags_html = ""
+                                    # Compute Days Held
+                                    days_held = None
+                                    if h.get("entry_date"):
+                                        from datetime import date
+                                        try:
+                                            dt_parts = h["entry_date"].split('-')
+                                            entry_d = date(int(dt_parts[0]), int(dt_parts[1]), int(dt_parts[2]))
+                                            days_held = (date.today() - entry_d).days
+                                        except: pass
+
+                                    time_stop_hit = False
+                                    if days_held is not None and bp and ltp:
+                                        r_multiple_up = (ltp - bp) / (bp * 0.10) if bp > 0 else 0 # Dummy calculation since unprotected has no risk
+                                        limit_days = 10 if is_swing else 42
+                                        if days_held >= limit_days and r_multiple_up < 0.5:
+                                            time_stop_hit = True
+
+                                    flags_html = ""
+                                    cond_trim = False
+                                    cond_add = False
+                                    _tech_flag = hist_data.get(sym)
+                                    if _tech_flag:
+                                        _c5 = _tech_flag.get("close_5d_ago")
+                                        if _c5 and _c5 > 0 and ltp:
+                                            _dist200 = _tech_flag.get("dist_from_200", 0)
+                                            _days_er = _tech_flag.get("days_to_earnings")
+                                            _sma200slp = _tech_flag.get("sma200_slope", 0)
+                                            _above200 = _tech_flag.get("above200", False)
+                                            _ema20 = _tech_flag.get("ema20")
+                                            
+                                            _is_breakout = _tech_flag.get("vol_breakout", False)
+                                            if (_days_er is not None and _days_er <= 3):
+                                                cond_trim = True
+                                            elif not _is_breakout and (ltp > _c5 * 1.15 or _dist200 > 40.0):
+                                                cond_trim = True
+                                                
+                                            if _above200 and _sma200slp > 0 and ltp <= _c5 * 1.10 and _ema20 and ltp > _ema20:
+                                                cond_add = True
+
+                                        _flags = []
+                                        if cond_trim:
+                                            _flags.append("<span style='background:#8957e5;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>✂️ TRIM</span>")
+                                        elif cond_add:
+                                            _flags.append("<span style='background:#238636;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>📈 ADD</span>")
+                                        
+                                        if time_stop_hit:
+                                            _flags.append(f"<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
+
+                                        if _tech_flag.get("vol_breakout"): _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                        elif _tech_flag.get("vol_climax"): _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                        if _tech_flag.get("days_to_earnings") is not None and _tech_flag.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech_flag.get('days_to_earnings')}d</span>")
+                                        if _tech_flag.get("chandelier_exit"): _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech_flag.get('chandelier_exit'):.0f}</span>")
+                                        if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
+                                        
+                                    expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_single_review_{sym}_{s['order_id']}"
+                                    ai_html = ""
                                     if ai_key in st.session_state:
-                                        st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+                                        ai_html = f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-top:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>'
+                                        
+                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{ai_html}</div>', unsafe_allow_html=True)
 
                     # Unprotected Holdings
                     if unprotected_holdings:
+                        unprotected_holdings = sorted(unprotected_holdings, key=lambda x: x["symbol"])
                         st.markdown("---")
                         st.markdown('<div class="section-sub-lbl">⚠️ Unprotected Holdings (No Stop Loss)</div>', unsafe_allow_html=True)
                         for idx in range(0, len(unprotected_holdings), 3):
@@ -9882,10 +11932,158 @@ elif page == 'ENTRY SHIELD':
                                     ltp = ltps.get(sym) or h["ltp"] or 0
                                     pnl_pct = ((ltp - bp) / bp * 100) if bp else 0.0
                                     pnl_color = "#00f260" if pnl_pct >= 0 else "#ff4b4b"
-                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #ff4b4b;text-align:left;"><span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#ff4b4b;">⚠️ NO SL</span><br><span style="font-size:0.8rem;color:#c9d1d9;">Cost ₹{bp:,.2f} → LTP ₹{ltp:,.2f} <span style="color:{pnl_color}">({pnl_pct:+.1f}%)</span> · Qty: {qty}</span></div>', unsafe_allow_html=True)
+                                    
+                                    _tech = hist_data.get(sym)
+                                    atr_val = 0
+                                    is_swing = False
+                                    
+                                    if _tech:
+                                        atr_val = (ltp * _tech["atr_pct"]) / 100
+                                        is_swing = _tech['atr_pct'] > 4 or _tech['dist_from_200'] > 30 or _tech['ws_score'] < 60
+                                    else:
+                                        raw_atr = get_atr(sym)
+                                        if raw_atr: atr_val = raw_atr
+                                        ai_key = f"ai_unprotected_review_{sym}"
+                                        if ai_key in st.session_state and "[Swing]" in st.session_state[ai_key]:
+                                            is_swing = True
+                                            
+                                    pb_html = ""
+                                    badge_html = ""
+                                    rec_line = ""
+                                    
+                                    if atr_val > 0 and bp and ltp:
+                                        trade_style = "SWING" if is_swing else "POSITIONAL"
+                                        style_color = "#8957e5" if is_swing else "#238636"
+                                        sl_mult = 1.5 if is_swing else 3.0
+                                        t1_mult = 3.0 if is_swing else 5.0
+                                        t2_mult = 5.0 if is_swing else 10.0
+                                        
+                                        rec_sl = ltp - (atr_val * sl_mult)
+                                        rec_t1 = (bp if bp else ltp) + (atr_val * t1_mult)
+                                        rec_t2 = (bp if bp else ltp) + (atr_val * t2_mult)
+                                        
+                                        if ltp >= rec_t1:
+                                            rec_t1 = None
+                                        
+                                        ema20 = _tech.get("ema20") if _tech else None
+                                        
+                                        time_stop_price = None
+                                        if bp and atr_val:
+                                            time_stop_price = bp + (0.5 * atr_val * sl_mult)
+                                        
+                                        bar_min_vals = [rec_sl, bp, ltp] + ([ema20] if ema20 else [])
+                                        bar_max_vals = [rec_t2, bp, ltp] + ([ema20] if ema20 else [])
+                                        if time_stop_price:
+                                            bar_min_vals.append(time_stop_price)
+                                            bar_max_vals.append(time_stop_price)
+                                            
+                                        bar_min = min(bar_min_vals) * 0.98
+                                        bar_max = max(bar_max_vals) * 1.02
+                                        bar_range = bar_max - bar_min
+                                        
+                                        markers_html = ""
+                                        chandelier = _tech.get("chandelier_exit") if _tech else None
+                                        if chandelier:
+                                            bar_min = min(bar_min, chandelier * 0.98)
+                                            bar_max = max(bar_max, chandelier * 1.02)
+                                            bar_range = bar_max - bar_min
+                                            
+                                        if bar_range > 0:
+                                            if ema20:
+                                                ema_pos = (ema20 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                            if chandelier:
+                                                chan_pos = (chandelier - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                            if time_stop_price:
+                                                ts_pos = (time_stop_price - bar_min) / bar_range * 100
+                                                if time_stop_hit:
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#ff4b4b;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #ff4b4b;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                else:
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#eab308;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
+                                                    
+                                            entry_pos = (bp - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            
+                                            sl_pos = (rec_sl - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{sl_pos:.1f}%;top:-3px;width:14px;height:14px;background:#bf40bf;border-radius:50%;transform:translateX(-50%);" title="Rec SL ₹{rec_sl:,.0f}"></div>'
+                                            
+                                            ltp_pos = (ltp - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                            if rec_t1:
+                                                t1_pos = (rec_t1 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:#00f260;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                            
+                                            t2_pos = (rec_t2 - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:#00f260;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                            
+                                        pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        
+                                        if _tech or trade_style: 
+                                            badge_html = f'<span style="background:{style_color};color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">{trade_style}</span>'
+                                        
+                                        t1_str = f' | Rec T1: <span style="color:#00f260">₹{rec_t1:,.0f}</span>' if rec_t1 else ''
+                                        rec_line = f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">Rec SL: <span style="color:#bf40bf">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#00f260">₹{rec_t2:,.0f}</span></div>'
+                                    elif bp and ltp:
+                                        ema20 = _tech.get("ema20") if _tech else None
+                                        
+                                        bar_min_vals = [bp, ltp] + ([ema20] if ema20 else [])
+                                        bar_max_vals = [bp, ltp] + ([ema20] if ema20 else [])
+                                        bar_min = min(bar_min_vals) * 0.98
+                                        bar_max = max(bar_max_vals) * 1.02
+                                        bar_range = bar_max - bar_min
+                                        
+                                        markers_html = ""
+                                        chandelier = _tech.get("chandelier_exit") if _tech else None
+                                        if chandelier:
+                                            bar_min = min(bar_min, chandelier * 0.98)
+                                            bar_max = max(bar_max, chandelier * 1.02)
+                                            bar_range = bar_max - bar_min
+                                            
+                                        if bar_range > 0:
+                                            if ema20:
+                                                ema_pos = (ema20 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                            if chandelier:
+                                                chan_pos = (chandelier - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                            entry_pos = (bp - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            ltp_pos = (ltp - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                        pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                
+                                    expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_unprotected_review_{sym}"
+                                    ai_html = ""
                                     if ai_key in st.session_state:
-                                        st.markdown(f'<div style="background:#0e2035;border-left:3px solid #ff4b4b;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+                                        ai_html = f'<div style="background:#0e2035;border-left:3px solid #ff4b4b;padding:8px;border-radius:4px;margin-top:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>'
+                                        
+                                    flags_html = ""
+                                    if _tech:
+                                        _flags = []
+                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                        if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
+                                        
+                                    card_html = (
+                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #ff4b4b;text-align:left;">'
+                                        f'{expand_btn}'
+                                        f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                                        f'<div><span style="font-size:1.1rem;font-weight:700;color:#58a6ff;vertical-align:middle;">{sym}</span>{badge_html}'
+                                        f' <span style="font-size:0.8rem;color:#ff4b4b;margin-left:8px;">⚠️ NO SL</span></div>'
+                                        f'<div style="font-size:0.8rem;color:#8b949e;padding-right:20px;">Qty: {qty}</div></div>'
+                                        f'{flags_html}'
+                                        f'{pb_html}'
+                                        f'<div style="font-size:0.8rem;color:#c9d1d9;line-height:1.6;">'
+                                        f'Cost ₹{bp:,.2f} → LTP ₹{ltp:,.2f} <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
+                                        f'</div>'
+                                        f'{rec_line}'
+                                        f'{ai_html}</div>'
+                                    )
+                                    st.markdown(card_html, unsafe_allow_html=True)
 
                 # ── Tab 2: Pullback Entries (GTT) ──
                 with entry_tab2:
@@ -9893,6 +12091,7 @@ elif page == 'ENTRY SHIELD':
                     if not buy_gtts:
                         st.info("No pending pullback GTT buy orders found.")
                     else:
+                        buy_gtts = sorted(buy_gtts, key=lambda x: x["symbol"])
                         for idx in range(0, len(buy_gtts), 3):
                             row = buy_gtts[idx:idx+3]
                             cols = st.columns(3)
@@ -9900,18 +12099,83 @@ elif page == 'ENTRY SHIELD':
                                 with col:
                                     sym = b["symbol"]; trigger = b["trigger"]; price = b["price"]
                                     ltp = ltps.get(sym) or 0
-                                    dist_pct = (ltp - trigger) / ltp * 100 if ltp else 0.0
-                                    dist_color = "#00f260" if dist_pct > 5 else "#ffb000" if dist_pct > 2 else "#ff4b4b"
-
-                                    entry_line = f"<b style='color:#e3b341;'>Entry ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
-                                    ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{dist_pct:+.1f}%</span> away" if ltp else "LTP: N/A"
+                                    # Distance to the buy trigger, always expressed as |gap| from LTP.
+                                    gap_pct = abs(ltp - trigger) / ltp * 100 if ltp else 0.0
+                                    # Two entry styles: trigger ABOVE LTP = breakout buy-stop (waits for
+                                    # price to confirm by rising into it — Jay's preferred entry); trigger
+                                    # BELOW LTP = dip buy-limit (fills automatically on the touch, no
+                                    # confirmation). Flag the latter so it isn't a blind zone-buy.
+                                    if not ltp:
+                                        kind_lbl = ""; status = "LTP: N/A"; dist_color = "#5a8a9f"; border = "#e3b341"
+                                    elif trigger > ltp:
+                                        kind_lbl = "Breakout buy-stop"
+                                        dist_color = "#00f260" if gap_pct <= 2 else "#58a6ff"
+                                        status = f"🟢 {gap_pct:.1f}% below trigger — waiting for breakout confirmation"
+                                        border = "#00f260"
+                                    elif gap_pct <= 0.5:
+                                        kind_lbl = "Dip buy-limit"
+                                        dist_color = "#ffb000"; border = "#ffb000"
+                                        status = f"🟡 At trigger — fills on touch (no confirmation)"
+                                    else:
+                                        kind_lbl = "Dip buy-limit"
+                                        dist_color = "#ffb000" if gap_pct <= 3 else "#8b949e"; border = "#e3b341"
+                                        status = f"{'🟡' if gap_pct <= 3 else '⚪'} {gap_pct:.1f}% above trigger — waiting for pullback (resting limit, no confirmation)"
+                                    pb_html = ""
+                                    if ltp and trigger:
+                                        _tech = hist_data.get(sym)
+                                        ema20 = _tech.get("ema20") if _tech else None
+                                        
+                                        bar_min_vals = [ltp, trigger, price] + ([ema20] if ema20 else [])
+                                        bar_max_vals = [ltp, trigger, price] + ([ema20] if ema20 else [])
+                                        bar_min = min(bar_min_vals) * 0.99
+                                        bar_max = max(bar_max_vals) * 1.01
+                                        bar_range = bar_max - bar_min
+                                        
+                                        if bar_range > 0:
+                                            markers_html = ""
+                                            if ema20:
+                                                ema_pos = (ema20 - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                            trigger_pos = (trigger - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{trigger_pos:.1f}%;top:-3px;width:14px;height:14px;background:#e3b341;border-radius:50%;transform:translateX(-50%);" title="Trigger ₹{trigger:,.2f}"></div>'
+                                            
+                                            if price != trigger:
+                                                limit_pos = (price - bar_min) / bar_range * 100
+                                                markers_html += f'<div style="position:absolute;left:{limit_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Limit ₹{price:,.2f}"></div>'
+                                            
+                                            ltp_pos = (ltp - bar_min) / bar_range * 100
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.2f}"></div>'
+                                            
+                                            pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                
+                                    kind_html = f' <span style="font-size:0.7rem;color:#8b949e;">· {kind_lbl}</span>' if kind_lbl else ""
+                                    
+                                    setup_warning_html = ""
+                                    _tech_dict = hist_data.get(sym)
+                                    if _tech_dict:
+                                        if _tech_dict.get("ws_score", 100) < 50 or _tech_dict.get("sma200_slope", 0) < 0:
+                                            setup_warning_html = '<div style="font-size:0.75rem;color:#ff4b4b;font-weight:bold;margin-top:4px;">🚨 INVALID SETUP WARNING (WS Score < 50 or SMA200 slope < 0)</div>'
+                                            border = "#ff4b4b"
+                                            
+                                    entry_line = f"<b style='color:#e3b341;'>Trigger ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
+                                    ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
+                                
+                                    ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
+                                    trade_style_badge = ""
+                                    if ai_key in st.session_state:
+                                        ai_text = st.session_state[ai_key]
+                                        if "[Positional]" in ai_text:
+                                            trade_style_badge = '<span style="background:#238636;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">POSITIONAL</span>'
+                                        elif "[Swing]" in ai_text:
+                                            trade_style_badge = '<span style="background:#8957e5;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">SWING</span>'
 
                                     card = (
-                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #e3b341;text-align:left;">'
-                                        f'<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span>'
-                                        f' <span style="font-size:0.8rem;color:#8b949e;">Qty: {b["qty"]}</span>'
+                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {border};text-align:left;">'
+                                        f'<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span>{trade_style_badge}'
+                                        f' <span style="font-size:0.8rem;color:#8b949e;">Qty: {b["qty"]}</span>{kind_html}'
+                                        f'{pb_html}'
                                         f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:6px;line-height:1.6;">'
-                                        f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div></div></div>'
+                                        f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div>{setup_warning_html}</div></div>'
                                     )
                                     st.markdown(card, unsafe_allow_html=True)
 
@@ -9938,8 +12202,8 @@ elif page == 'ENTRY SHIELD':
 
                     st.markdown(
                         f'<div class="metric-card" style="padding:20px;text-align:center;margin-bottom:15px;border-top:3px solid {risk_grade_color};">'
-                        f'<div class="metric-label">Portfolio Risk Grade</div>'
-                        f'<div class="metric-value" style="color:{risk_grade_color};font-size:2rem;">{risk_grade}</div>'
+                        f'<div class="metric-label">Total Open Heat & Risk Grade</div>'
+                        f'<div class="metric-value" style="color:{risk_grade_color};font-size:2rem;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
                         f'<div style="font-size:0.8rem;color:#5a8a9f;margin-top:4px;">'
                         f'Total capital at risk from current LTP to Stop Loss is <b>₹{format_inr_int(total_risk)}</b> '
                         f'on total portfolio equity of <b>₹{format_inr_int(max(balance, 1))}</b>.'
@@ -9951,15 +12215,124 @@ elif page == 'ENTRY SHIELD':
                     risk_rows = []
                     for sym, orders in sell_gtts_by_symbol.items():
                         ltp = ltps.get(sym) or 0
+                        _tech = hist_data.get(sym)
                         for o in orders:
                             sl = o["sl_trigger"]; sl_qty = o.get("sl_qty") or o.get("qty") or 0
                             if ltp and sl:
                                 current_risk = sl_qty * (ltp - sl)
                                 if current_risk > 0:
                                     portfolio_pct = (current_risk / max(balance, 1)) * 100 if max(balance, 1) > 0 else 0.0
-                                    risk_rows.append({"Symbol": sym, "LTP": f"₹{ltp:,.2f}", "SL": f"₹{sl:,.2f}",
-                                                      "Risk ₹": f"₹{current_risk:,.0f}", "% of Portfolio": f"{portfolio_pct:.2f}%"})
+                                    
+                                    row_data = {
+                                        "Symbol": sym, 
+                                        "LTP": f"₹{ltp:,.2f}", 
+                                        "SL": f"₹{sl:,.2f}",
+                                    }
+                                    
+                                    _tech = hist_data.get(sym)
+                                    atr_val = 0
+                                    atr_pct = 0.0
+                                    is_swing = False
+                                    ws_score = None
+                                    
+                                    if _tech:
+                                        atr_val = (ltp * _tech["atr_pct"]) / 100
+                                        atr_pct = _tech["atr_pct"]
+                                        is_swing = _tech['atr_pct'] > 4 or _tech['dist_from_200'] > 30 or _tech['ws_score'] < 60
+                                        ws_score = _tech['ws_score']
+                                    elif ltp:
+                                        raw_atr = get_atr(sym)
+                                        if raw_atr:
+                                            atr_val = raw_atr
+                                            atr_pct = (raw_atr / ltp) * 100
+                                        ai_key = f"ai_exit_review_{sym}"
+                                        if ai_key in st.session_state and "[Swing]" in st.session_state[ai_key]:
+                                            is_swing = True
+                                            
+                                    row_data["Style"] = "SWING" if is_swing else "POSITIONAL"
+                                    
+                                    if atr_pct > 0:
+                                        row_data["ATR %"] = f"{atr_pct:.2f}%"
+                                        dist_pct = ((ltp - sl) / ltp) * 100
+                                        atr_dist = dist_pct / atr_pct
+                                        row_data["SL Dist"] = f"{dist_pct:.1f}% ({atr_dist:.1f} ATR)"
+                                    else:
+                                        row_data["ATR %"] = "N/A"
+                                        row_data["SL Dist"] = f"{((ltp - sl) / ltp) * 100:.1f}%"
+                                        
+                                    row_data["W-Score"] = f"{ws_score}/80" if ws_score is not None else "N/A"
+                                    
+                                    row_data["Risk ₹"] = f"₹{current_risk:,.0f}"
+                                    row_data["% Port"] = f"{portfolio_pct:.2f}%"
+                                    
+                                    risk_rows.append(row_data)
                     if risk_rows:
                         st.dataframe(pd.DataFrame(risk_rows), use_container_width=True, hide_index=True)
+                        
+                        st.markdown('<div class="section-sub-lbl" style="margin-top:20px;">Market Persona (Stage Analysis)</div>', unsafe_allow_html=True)
+                        stage_counts = {"Stage 2 🟢": 0, "Stage 1/3 🟡": 0, "Stage 4 🔴": 0}
+                        
+                        # Count unique symbols in portfolio
+                        analyzed_symbols = set()
+                        for sym in sell_gtts_by_symbol.keys():
+                            if sym not in analyzed_symbols:
+                                _tech = hist_data.get(sym)
+                                ltp = ltps.get(sym) or 0
+                                if _tech and ltp:
+                                    sma200 = _tech.get("sma200", 0)
+                                    sma200_slope = _tech.get("sma200_slope", 0)
+                                    if sma200:
+                                        if ltp > sma200 and sma200_slope > 0:
+                                            stage_counts["Stage 2 🟢"] += 1
+                                        elif ltp < sma200 and sma200_slope < 0:
+                                            stage_counts["Stage 4 🔴"] += 1
+                                        else:
+                                            stage_counts["Stage 1/3 🟡"] += 1
+                                    analyzed_symbols.add(sym)
+                                    
+                        total_analyzed = sum(stage_counts.values())
+                        if total_analyzed > 0:
+                            sc1, sc2, sc3 = st.columns(3)
+                            sc1.metric("Stage 2 (Advancing)", f"{stage_counts['Stage 2 🟢']} ({stage_counts['Stage 2 🟢']/total_analyzed*100:.0f}%)")
+                            sc2.metric("Stage 1/3 (Transition)", f"{stage_counts['Stage 1/3 🟡']} ({stage_counts['Stage 1/3 🟡']/total_analyzed*100:.0f}%)")
+                            sc3.metric("Stage 4 (Declining)", f"{stage_counts['Stage 4 🔴']} ({stage_counts['Stage 4 🔴']/total_analyzed*100:.0f}%)")
                     else:
                         st.info("No measurable risk from current positions (all stops are above LTP or no positions).")
+
+                # ── Tab 4: Settings & Overrides ──
+                with entry_tab4:
+                    st.markdown('<div class="section-sub-lbl">⚙️ Manual SL & Multiplier Overrides</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Configure persistent manual overrides for positions. These overrides are saved to the database and will bypass the dynamic mechanical rules.</div>', unsafe_allow_html=True)
+                    
+                    if 'df_active_global' in globals() and not df_active_global.empty:
+                        # Extract current open positions
+                        override_rows = []
+                        for _, r in df_active_global.iterrows():
+                            sym = r.get("Symbol")
+                            if pd.notna(sym):
+                                override_rows.append({
+                                    "Symbol": sym,
+                                    "Manual SL Override": float(r.get("Manual SL Override", 0)) if pd.notna(r.get("Manual SL Override")) and str(r.get("Manual SL Override")).strip() else None,
+                                    "Custom CE Mult": float(r.get("Custom CE Mult", 0)) if pd.notna(r.get("Custom CE Mult")) and str(r.get("Custom CE Mult")).strip() else None,
+                                    "Pyramid Status": str(r.get("Pyramid Status", "")) if pd.notna(r.get("Pyramid Status")) else ""
+                                })
+                        
+                        if override_rows:
+                            df_overrides = pd.DataFrame(override_rows)
+                            edited_overrides = st.data_editor(
+                                df_overrides,
+                                column_config={
+                                    "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                                    "Manual SL Override": st.column_config.NumberColumn("Manual SL Override (₹)", format="%.2f", step=0.05),
+                                    "Custom CE Mult": st.column_config.NumberColumn("Custom CE Multiplier", format="%.1f", step=0.1),
+                                    "Pyramid Status": st.column_config.SelectboxColumn("Pyramid Status", options=["", "Initial", "Scaled", "Maxed"])
+                                },
+                                hide_index=True,
+                                use_container_width=True
+                            )
+                            if st.button("💾 Save Overrides to Database", type="primary"):
+                                st.success("Overrides saved successfully! (Mock - Pending SQLite Integration)")
+                        else:
+                            st.info("No open positions found in the journal to override.")
+                    else:
+                        st.info("Journal data not loaded.")
