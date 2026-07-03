@@ -2031,8 +2031,19 @@ def render_pine_mirror(rec: dict, ctx: dict, cmp_px) -> str:
 # ----------------------------------------------------------------------------------------
 # Panel-mirror cards (replace the 5 Pine panel tables)
 # ----------------------------------------------------------------------------------------
+# Per-section scores collected by card() on each render pass — feeds the
+# score strip at the top of the Full Metrics expander (v2, 2026-07-03: every
+# panel-mirror card now carries a pass-count score like the WCL FINAL SCORE).
+SECTION_SCORES: dict = {}
+
+
 def card(title: str, rows, accent: str = "#2962FF") -> str:
-    """Compact label:value table card mirroring a Pine panel."""
+    """Compact label:value table card mirroring a Pine panel.
+
+    v2: computes a section score from its own rows — passes / evaluated
+    (state 'na' rows excluded) — shown as a chip in the header and registered
+    in SECTION_SCORES for the summary strip. Zero per-section score logic.
+    """
     body = ""
     for label, value, state in rows:
         col = _sc(state)
@@ -2040,10 +2051,35 @@ def card(title: str, rows, accent: str = "#2962FF") -> str:
                  f"font-size:11.5px;border-bottom:1px solid rgba(136,136,136,.18)'>"
                  f"<span style='opacity:.78'>{label}</span>"
                  f"<b style='color:{col};text-align:right'>{value}</b></div>")
+    evaluated = [s for _, _, s in rows if s in ("pass", "watch", "fail")]
+    passed = sum(1 for s in evaluated if s == "pass")
+    total = len(evaluated)
+    chip = ""
+    if total:
+        frac = passed / total
+        scol = "#26A69A" if frac >= 0.7 else ("#FF9800" if frac >= 0.4 else "#EF5350")
+        short = title.split("·")[0].strip().title()
+        SECTION_SCORES[short] = (passed, total, scol)
+        chip = (f"<span style='float:right;background:rgba(255,255,255,.25);padding:0 8px;"
+                f"border-radius:9px;font-weight:800'>{passed}/{total}</span>")
     return (f"<div style='border:1px solid rgba(136,136,136,.28);border-radius:7px;overflow:hidden;margin-bottom:9px'>"
             f"<div style='background:{accent};color:#fff;font-weight:700;font-size:10.5px;"
-            f"letter-spacing:.4px;padding:4px 9px'>{title}</div>"
+            f"letter-spacing:.4px;padding:4px 9px'>{title}{chip}</div>"
             f"<div style='padding:4px 9px 6px'>{body}</div></div>")
+
+
+def render_score_strip(mpass: int = None) -> str:
+    """One-glance chips of every section score (populated by card() calls)."""
+    chips = ""
+    if mpass is not None:
+        mc = "#26A69A" if mpass >= 6 else ("#FF9800" if mpass >= 4 else "#EF5350")
+        chips += (f"<span style='border:1.5px solid {mc};color:{mc};border-radius:9px;"
+                  f"padding:2px 10px;font-size:11.5px;font-weight:800'>Minervini {mpass}/8</span>")
+    for name, (p, t, col) in SECTION_SCORES.items():
+        chips += (f"<span style='border:1.5px solid {col};color:{col};border-radius:9px;"
+                  f"padding:2px 10px;font-size:11.5px;font-weight:800'>{name} {p}/{t}</span>")
+    return (f"<div style='display:flex;gap:7px;flex-wrap:wrap;align-items:center;"
+            f"margin:2px 0 10px'>{chips}</div>")
 
 
 def _grade(a) -> str:
@@ -10451,19 +10487,34 @@ elif page == 'GOLDEN MATCHER':
     
     # Full per-panel detail is one click away — but the workflow above is the decision.
     with st.expander("▸ Full metrics — all panels (optional depth)", expanded=False):
+        # v2 (2026-07-03): pre-render every card so SECTION_SCORES fills, then show
+        # the one-glance score strip ABOVE the panels — read the strip, open a card
+        # only when its score surprises you.
+        SECTION_SCORES.clear()
+        _h_board  = render_technical_board(rec, ctx, cmp_px, mansfield)
+        _h_ctx    = section_context(rec, ctx, cmp_px)
+        _h_struct = section_structure(rec, ctx, cmp_px, mansfield, decision)
+        _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)
+        _h_edges  = section_edges(rec, ctx, cmp_px)
+        _h_trade  = section_trade(rec, cmp_px)
+        _h_levels = section_levels(rec, ctx, cmp_px)
+        _h_sector = section_sector(rec, ctx, mansfield)
+        _h_funda  = section_fundamentals(fun)
+        _mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
+        st.markdown(render_score_strip(_mpass), unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3, gap="medium")
         with c1:
-            st.markdown(render_technical_board(rec, ctx, cmp_px, mansfield), unsafe_allow_html=True)
-            st.markdown(section_context(rec, ctx, cmp_px), unsafe_allow_html=True)
+            st.markdown(_h_board, unsafe_allow_html=True)
+            st.markdown(_h_ctx, unsafe_allow_html=True)
         with c2:
-            st.markdown(section_structure(rec, ctx, cmp_px, mansfield, decision), unsafe_allow_html=True)
-            st.markdown(section_bull_gates(rec, ctx, cmp_px, mansfield), unsafe_allow_html=True)
-            st.markdown(section_edges(rec, ctx, cmp_px), unsafe_allow_html=True)
+            st.markdown(_h_struct, unsafe_allow_html=True)
+            st.markdown(_h_gates, unsafe_allow_html=True)
+            st.markdown(_h_edges, unsafe_allow_html=True)
         with c3:
-            st.markdown(section_trade(rec, cmp_px), unsafe_allow_html=True)
-            st.markdown(section_levels(rec, ctx, cmp_px), unsafe_allow_html=True)
-            st.markdown(section_sector(rec, ctx, mansfield), unsafe_allow_html=True)
-            st.markdown(section_fundamentals(fun), unsafe_allow_html=True)
+            st.markdown(_h_trade, unsafe_allow_html=True)
+            st.markdown(_h_levels, unsafe_allow_html=True)
+            st.markdown(_h_sector, unsafe_allow_html=True)
+            st.markdown(_h_funda, unsafe_allow_html=True)
     
     st.divider()
     st.caption(f"Data: Dhan feed + Screener.in via your validated modules · "
