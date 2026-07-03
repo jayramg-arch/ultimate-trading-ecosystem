@@ -84,7 +84,7 @@ logging.getLogger("nselib.capital_market.get_func").setLevel(logging.CRITICAL)
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "data", "market_cache")
 CACHE_TTL_INTRADAY = 900       # 15 minutes
-CACHE_TTL_DAILY    = 3600      # 1 hour
+CACHE_TTL_DAILY    = 900       # 15 minutes (reduced from 1 hour to support intraday stitching)
 CACHE_TTL_WEEKLY   = 86400     # 24 hours
 MAX_CALLS_PER_SECOND = 4
 
@@ -128,9 +128,36 @@ def get_source_counts() -> dict:
     return dict(_SOURCE_COUNTS)
 
 
+def dhan_feed_live() -> bool:
+    """True only if Dhan is importable AND its auth has not failed this process.
+
+    `DHAN_OK` alone reflects *import* success, not *feed* health — an expired
+    token leaves DHAN_OK True while every fetch silently falls to yfinance. This
+    consults dhan_ohlcv's process-level `_AUTH_FAILED` flag so callers can report
+    the truth.
+    """
+    if not DHAN_OK or _dhan is None:
+        return False
+    try:
+        return not getattr(_dhan, "_AUTH_FAILED", False)
+    except Exception:
+        return True
+
+
 def feed_status_banner() -> str:
-    """One-line summary of which feeds are wired in this process."""
-    return (f"Dhan={'ON' if DHAN_OK else 'OFF'} | "
+    """One-line summary of which feeds are wired in this process.
+
+    Dhan is reported as AUTH-FAILED (not ON) once its token/auth has failed this
+    process — `DHAN_OK` only means the module imported, not that the paid feed is
+    actually serving data.
+    """
+    if not DHAN_OK:
+        dhan_state = "OFF"
+    elif not dhan_feed_live():
+        dhan_state = "AUTH-FAILED"
+    else:
+        dhan_state = "ON"
+    return (f"Dhan={dhan_state} | "
             f"nselib={'ON' if NSELIB_OK else 'OFF'} | "
             f"nsepython={'ON' if NSEPY_OK else 'OFF'} | "
             f"cache={_CACHE_FORMAT}")
@@ -280,6 +307,31 @@ def _ttl_for(period: str, interval: str) -> int:
     return CACHE_TTL_DAILY
 
 
+def _content_stale_for_live(df: Optional[pd.DataFrame], interval: str,
+                            pinned_date: Optional[str]) -> bool:
+    """True when a cached frame's CONTENT is too old to serve in live mode.
+
+    Cache-poisoning guard (2026-07-03): freshness must be judged by the data's
+    last bar, not the file's timestamp — a stale frame can carry a fresh
+    cached_at (see the fallback-copy bug). Live mode only: pinned/replay runs
+    legitimately read old frames and are exempt.
+    """
+    if pinned_date is not None or _PINNED_DATE is not None:
+        return False
+    if df is None or getattr(df, "empty", True):
+        return False
+    if interval not in ("1d", "1wk"):
+        return False
+    try:
+        last = pd.Timestamp(df.index[-1])
+        if last.tzinfo is not None:
+            last = last.tz_localize(None)
+        age_days = (pd.Timestamp.now().normalize() - last.normalize()).days
+    except Exception:
+        return False
+    return age_days > (5 if interval == "1d" else 12)
+
+
 def _data_paths(key: str) -> tuple[str, str, str]:
     """Returns (parquet_path, csv_path, meta_path) regardless of which exists."""
     return (
@@ -365,6 +417,7 @@ def clean_symbol(symbol: str) -> str:
         s = s[4:]
     if s == "NIFTY": return "^NSEI"
     if s in ("BANKNIFTY", "NIFTYBANK"): return "^NSEBANK"
+    if s == "NAM": return "NAM-INDIA"
     if s.endswith(".NS") or s.endswith(".BO"):
         s = s[:-3]
     for suf in _DHAN_SUFFIXES:
@@ -379,7 +432,7 @@ def _to_yf_ticker(symbol: str) -> str:
     s = clean_symbol(symbol)
     if not s:
         return ""
-    if s.startswith("^"):
+    if s.startswith("^") or s.endswith("=X") or s.endswith("=F"):
         return s
     return f"{s}.NS"
 
@@ -560,7 +613,8 @@ def fetch_ohlcv(symbol: str,
 
     if use_cache:
         cached = _read_cache(key)
-        if _is_cache_valid_for_pin(key, cached, pinned_date):
+        if (_is_cache_valid_for_pin(key, cached, pinned_date)
+                and not _content_stale_for_live(cached, interval, pinned_date)):
             _record_source(symbol, "cache")
             return _apply_pin(cached, pinned_date)
         # Fallback cache check: if key is missed (e.g. forced "10y" in pinned mode) or invalid for pin,
@@ -570,15 +624,21 @@ def fetch_ohlcv(symbol: str,
                 continue
             fallback_key = _cache_key(ticker, fallback_period, interval, auto_adjust)
             cached = _read_cache(fallback_key)
-            if _is_cache_valid_for_pin(fallback_key, cached, pinned_date):
-                _write_cache(key, cached, period, interval, auto_adjust)
+            if (_is_cache_valid_for_pin(fallback_key, cached, pinned_date)
+                    and not _content_stale_for_live(cached, interval, pinned_date)):
+                # CACHE-POISONING FIX (2026-07-03): serve the fallback frame but do
+                # NOT re-write it under the requested key — the old `_write_cache`
+                # here re-timestamped WEEKS-old data as fresh, so the stale frame
+                # self-renewed on every TTL expiry and the network was never
+                # consulted again (portfolio + golden-pick symbols were stuck on
+                # 2026-06-24 bars for 9 days).
                 _record_source(symbol, "cache")
                 return _apply_pin(cached, pinned_date)
 
 
     # ── Try Dhan API (Primary Provider for Equities) ──────────────────────
     if is_internet_available():
-        if DHAN_OK and _dhan is not None and not symbol.startswith("^"):
+        if DHAN_OK and _dhan is not None:
             try:
                 clean = clean_symbol(symbol)
                 if _dhan.get_security_meta(clean) is not None:
@@ -616,7 +676,7 @@ def fetch_ohlcv(symbol: str,
                         _write_cache(key, data, period, interval, auto_adjust)
                     # Loud: paid feed was bypassed for an equity (index ^ symbols
                     # legitimately use yfinance and aren't flagged).
-                    if DHAN_OK and not symbol.startswith("^"):
+                    if DHAN_OK:
                         logger.info("fetch_ohlcv: %s served by yfinance FALLBACK "
                                     "(Dhan had no data)", symbol)
                     _record_source(symbol, "yfinance")
@@ -724,7 +784,7 @@ def fetch_batch_ohlcv(symbols, period: str = "6mo", interval: str = "1d",
         if DHAN_OK and _dhan is not None:
             for yf_t in missing:
                 clean = sym_map[yf_t]
-                if not clean.startswith("^") and _dhan.get_security_meta(clean) is not None:
+                if _dhan.get_security_meta(clean) is not None:
                     try:
                         years_val = 10 if period == "10y" else 5
                         if interval == "1wk":
@@ -834,10 +894,23 @@ def nse_market_open(now: Optional[datetime] = None) -> bool:
 
 
 def get_ltp(symbol: str) -> float:
-    """Live LTP during NSE hours (Dhan quote), else latest EOD close. Cached ~45s.
+    """Live LTP during NSE hours (Dhan quote/websocket), else latest EOD close. Cached ~45s.
     Never raises; falls back to latest_close on any failure."""
     key = clean_symbol(symbol)
     now = time.time()
+    
+    try:
+        import dhan_marketfeed
+        ws_px = dhan_marketfeed.get_live_price(symbol)
+        if ws_px > 0:
+            _record_source(symbol, "dhan-ws")
+            _LTP_CACHE[key] = (ws_px, now)
+            return ws_px
+        # Not in WS yet, subscribe for next time
+        dhan_marketfeed.subscribe_symbols([symbol])
+    except Exception as e:
+        logger.debug(f"dhan_marketfeed error: {e}")
+
     c = _LTP_CACHE.get(key)
     if c and (now - c[1]) < _LTP_TTL:
         return c[0]
@@ -857,12 +930,33 @@ def get_ltp(symbol: str) -> float:
 
 
 def get_ltp_batch(symbols) -> dict:
-    """Batch LTP — one Dhan quote call for all symbols during market hours, EOD
+    """Batch LTP — one Dhan quote call/websocket for all symbols during market hours, EOD
     fallback per symbol otherwise. Returns {clean_symbol: ltp}. Cached ~45s."""
     out, need = {}, []
     now = time.time()
+    
+    try:
+        import dhan_marketfeed
+        ws_missing = []
+        for s in symbols:
+            ws_px = dhan_marketfeed.get_live_price(s)
+            if ws_px > 0:
+                k = clean_symbol(s)
+                out[k] = ws_px
+                _record_source(s, "dhan-ws")
+                _LTP_CACHE[k] = (ws_px, now)
+            else:
+                ws_missing.append(s)
+        if ws_missing:
+            dhan_marketfeed.subscribe_symbols(ws_missing)
+            symbols = ws_missing
+    except Exception as e:
+        logger.debug(f"dhan_marketfeed error in batch: {e}")
+
     for s in symbols:
         k = clean_symbol(s)
+        # Skip if already found via WS
+        if k in out: continue
         c = _LTP_CACHE.get(k)
         if c and (now - c[1]) < _LTP_TTL:
             out[k] = c[0]
