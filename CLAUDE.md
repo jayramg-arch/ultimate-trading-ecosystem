@@ -924,4 +924,69 @@ Across POS-BO, SWG-PB, REV-RS: **the signals find edge; tight stops on long hold
 
 ---
 
+## 14 June 2026 — Swing Zigzag [Strict] audit → v6.3
+
+Deep audit of `Wesinstein Swing Zigzag [Strict v6.2].pine` (standalone discretionary visual
+indicator — NOT a zero-drift parity surface; its `trendState` is local to the script). Shipped
+**v6.3** (file renamed v6.2 → v6.3 per convention; **compiled clean in TradingView, Jay-confirmed**).
+Untracked file — no git history.
+
+**Real bug fixed (A) — asymmetric bootstrap.** Section 1 (pivot-high) handled the first-ever
+pivot via `na(activePivotType)`, but Section 2 (pivot-low) did not. Consequence: on any chart
+opening in a **downtrend, the first swing low was silently dropped** (not locked/labelled) until
+a high formed. Fix: added the `na` seed branch to Section 2, with the high-locking work guarded
+by `if activePivotType == "H"` so the seed only establishes state — mirrors Section 1 exactly.
+Same-bar ph+pl is safe (Section 1 runs first, seeds "H", Section 2 then takes the normal H→L path).
+Behaviour-neutral everywhere except the intended early-history low.
+
+**Perf (C):** `flipBars` array now trimmed to the choppiness window each bar (`while`+`array.shift`;
+lookback hoisted to one `chopBarsBack` const reused by the panel) — was unbounded. Daily anchor
+securities (`ema20_daily`/`atr14_daily`) gated behind `_isIntradayTF` (na on D/W/M). MTF2 reuses
+`mtfTrendState` when there's no 2nd HTF (no duplicate `request.security` on Monthly).
+
+**Enhancements:** (6) Hidden `plot()` outputs — `trendState`, `confirmedTrend`, `bosUp`, `bosDn`
+(`display=display.none`) — so a screener/another script can consume this engine via
+`request.security` (no visual change). (7) New input **"Confirmed-bar projection (non-repainting)"**
+(default OFF = live behaviour); ON gates Section 3's developing-BoS + projection behind
+`barstate.isconfirmed` for a calm/non-repainting alert path.
+
+**Doc/cleanup:** BoS alert messages note the live-projection repaint nature ("Once Per Bar Close").
+`pivot_len` de-`var`'d; panel colour literals `#1A237E`/`#131722` → consts `C_PANEL_HDR`/`C_PANEL_BG`.
+
+Plan file: `~/.claude/plans/please-validate-and-deep-functional-sifakis.md`.
+
+---
+
+## 2–3 July 2026 — Reliability Campaign: Catalyst Gates + Data Integrity + Pine Parity (CLOSED)
+
+### A. Catalyst gate review (all 6 bull catalysts) — philosophy: structure fires, quality is STATUS
+- **POS-BO 2→8**: stage2_fresh removed from gate (eyeball), 3-session breakout+vol window (was single-bar), pa_dir relaxed to ≥5/14 up-closes (dropped higher-highs clause), **alpha demoted from veto to status** (biggest lever).
+- **POS-ACCUM 2→12**: alpha demoted + new `accum_base` (Stage 1/2 + >200DMA + RS + vol-accum) replacing base_confirmed whose near-52wH trend_template CONTRADICTED accumulation. Python had demanded near-52wH while Pine demanded price-lagging — opposites; all 4 surfaces now share one definition (coil near 30-bar high).
+- **SWG-BO 4→1 (intended)**: the validated drag (37% win) — Python synced UP to Pine quality (minervini + VCP1.5 + 15-bar pivot + vol>1.25 + anti-algo). Unified had the weak version; upgraded.
+- **SWG-PB 12→0 in NOT-BULL (intended)**: hard mkt_bull regime gate (momentum-continuation fails in corrections). Synced to Unified only (Commander/v67 lack a regime var — accepted drift).
+- **SWG-GAP / SWG-REV**: left as-is (rare / validated drag).
+- Current NOT-BULL profile: POS-BO 8 · POS-ACCUM 12 · SWG-BO 1 · rest 0 — correct defensive shape.
+
+### B. Data integrity — cache-poisoning ROOT CAUSE fixed (data_provider.py)
+Deep-period fallback copied old frames into the requested key with a FRESH timestamp → stale data self-renewed forever; 15 portfolio/golden symbols stuck on Jun-24 bars for 9 days (VIJAYA "fired" POS-ACCUM on a dead bar). Fixed: `_content_stale_for_live()` (freshness judged by the DATA'S LAST BAR, live mode only; replay/pinned exempt) + fallback no longer re-timestamps. Defense-in-depth in bull_screener: RUN_FRESHNESS tracking → `As_Of`+`Stale_Data` result columns → DATA FRESHNESS AUDIT printed per run → STALE-DATA RETRY self-heal pass → stale picks excluded from sentinel counts.
+
+### C. NEW `catalyst_sentinel.py` — blackout detector
+Per-family counts logged every run (`logs/catalyst_counts_history.csv`); ⛔ BLACKOUT when a family that fired ≥30% of trailing 20 runs goes zero for 5+ runs; SWG-PB zero excused in NOT-BULL. Wired into run_bull_screener at both exits (guarded — can never break a run).
+
+### D. Pine parity — EMPIRICALLY CLOSED (method: TV replay to Python's As_Of bar + read Unified CATALYST DIAG table)
+3 real Pine bugs found by bar-aligned OUTPUT comparison (code inspection had missed all 3):
+1. **MTF bug (Unified + v67)**: `wClose[5]` on the daily chart = weekly close 5 trading DAYS ago, not 5 weeks → weekly-momentum gate tested the wrong bar. Fixed via `wClose5wAgo` returned from inside the weekly security bundle. (Commander was already correct.)
+2. **Unified OBV drift**: linreg-slope vs the canonical acc-bars (≥8/20 up-close on rising vol) used by Python/Commander/v67 → fixed.
+3. **Unified pa_dir off-by-one**: loop `1..14` excluded the current bar vs `0..13` everywhere else → fixed.
+Final verify: GRANULES fires `POS-BO ✓ FIRE ½⚠ ctr-trend ·mature` on the aligned bar = exact Python match (incl. counter-trend + mature status tags). Remaining Pine↔Python gaps are FEED DATA only (TV vs Dhan volume on marginal vwma5<sma50 tests, e.g. AXISBANK VCP-accum; formulas verified identical). All 3 Pine surfaces recompiled clean by Jay.
+
+### E. NEW second-screen tools
+- `golden_matcher_dashboard.py` (+ `LAUNCH_GOLDEN_DASHBOARD.bat`, port 8510, uses `python -m streamlit` — the venv's streamlit.exe shim is broken): single-symbol Golden Matcher command center — 6-step guided DECISION PATH (CONTEXT→QUALITY→SETUP→LOCATION→TRIGGER→EXECUTE) with hard gates, "← NOW" highlight, tick-as-you-go execution checklist; graphical technical board; Pine-panel mirror cards; fundamentals; full panels in an expander. Reuses `bull_screener.screen_one()` (NEW additive single-symbol entry that mirrors run_bull_screener's benchmark+regime plumbing).
+- One-pagers: `Chart_Annotation_SOP_OnePager.html` (level-marking SOP), `Daily_Operating_Cadence_OnePager.html` (scanner→scope→sniper funnel).
+
+### Pending (also in memory: catalyst_gate_philosophy, cache_poisoning_fix)
+Commit branch changes · re-baseline validation with the new gates · RELIANCE Stage-4 exit (Jay) · optional: recovery-side sentinel, fuller parity sweep, sector-gate wiring in golden dashboard, docs refresh (11/13/08).
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
