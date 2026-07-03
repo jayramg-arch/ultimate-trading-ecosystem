@@ -2055,15 +2055,19 @@ def card(title: str, rows, accent: str = "#2962FF") -> str:
     passed = sum(1 for s in evaluated if s == "pass")
     total = len(evaluated)
     chip = ""
+    hdr = accent  # neutral fallback when a card has nothing to evaluate
     if total:
         frac = passed / total
+        # RAG header (2026-07-03, Jay): the header band IS the status —
+        # green >=70% pass, amber >=40%, red below.
+        hdr = "#1B7A6E" if frac >= 0.7 else ("#C77700" if frac >= 0.4 else "#C62828")
         scol = "#26A69A" if frac >= 0.7 else ("#FF9800" if frac >= 0.4 else "#EF5350")
         short = title.split("·")[0].strip().title()
         SECTION_SCORES[short] = (passed, total, scol)
         chip = (f"<span style='float:right;background:rgba(255,255,255,.25);padding:0 8px;"
                 f"border-radius:9px;font-weight:800'>{passed}/{total}</span>")
     return (f"<div style='border:1px solid rgba(136,136,136,.28);border-radius:7px;overflow:hidden;margin-bottom:9px'>"
-            f"<div style='background:{accent};color:#fff;font-weight:700;font-size:10.5px;"
+            f"<div style='background:{hdr};color:#fff;font-weight:700;font-size:10.5px;"
             f"letter-spacing:.4px;padding:4px 9px'>{title}{chip}</div>"
             f"<div style='padding:4px 9px 6px'>{body}</div></div>")
 
