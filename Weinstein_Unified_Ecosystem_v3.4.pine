@@ -398,6 +398,7 @@ grp_rec_regime = "Recovery: Regime Gate"
 use_regime_gate = input.bool(true, title="Require Recovery Market Regime?", group=grp_rec_regime)
 min_correction_pct = input.float(10.0, title="Min Correction from 52W High (%)", minval=5.0, step=1.0, group=grp_rec_regime) / 100
 max_correction_pct = input.float(40.0, title="Max Correction from 52W High (%)", minval=15.0, step=5.0, group=grp_rec_regime) / 100
+use_sector_filter = input.bool(false, title="Require Sector Stage 1 or 2?", group=grp_rec_regime, tooltip="If ON, stock's sector index must be in Stage 1 or 2 to fire Recovery signals. Default OFF.")
 
 grp_rec_cb = "Recovery: Climax Bottom Config"
 cb_vol_mult         = input.float(2.0, title="Min Climax Volume Mult", minval=1.5, step=0.1, group=grp_rec_cb)
@@ -420,7 +421,7 @@ early_inside_lb  = input.int(10, title="Inside-Bar Lookback", minval=5, group=gr
 early_inside_min = input.int(3, title="Min Inside Bars", minval=2, group=grp_rec_early)
 
 grp_fund = "Recovery: Fundamental Filter (RFF)"
-rff_min_score = input.int(3, title="Minimum RFF Score (0=Off, 6=Max)", minval=0, maxval=6, group=grp_fund)
+rff_min_score = input.int(0, title="Minimum RFF Score (0=Off, 6=Max)", minval=0, maxval=6, group=grp_fund)
 
 // ==========================================
 // 4. SHARED PORTFOLIO & RISK SETTINGS
@@ -468,12 +469,16 @@ use_date   = input.bool(false, title="Filter Date Range?", group=grp_time)
 start_date = input.time(timestamp("1 Jan 2020"), title="Start Date", group=grp_time)
 end_date   = input.time(timestamp("1 Jan 2030"), title="End Date", group=grp_time)
 
+// Webhook Alerts Group
+grp_alert = "Webhook Alerts"
+use_webhook_json = input.bool(false, title="Send JSON Webhook Alerts (Ngrok + Webhook)", group=grp_alert, tooltip="If enabled, alerts will be formatted as JSON for the webhook server.")
+
 // ==========================================
 // CONSTANTS
 // ==========================================
 var int   maLengthW   = 30
-var int   wSlopeLen   = 4
-var float slopeThresh = 0.0005
+var int   wSlopeLen   = 6
+var float slopeThresh = 0.0012
 var int   piv_w_left  = 5
 var int   piv_w_right = 5
 var int   piv_d_left  = 2
@@ -491,7 +496,7 @@ f_classifyHigh(float newHigh, float prevHigh) =>
     string result = "HH"
     if not na(prevHigh) and prevHigh > 0
         float diff = math.abs(newHigh - prevHigh) / prevHigh
-        if diff < 0.001
+        if diff < 0.002
             result := "EH"
         else if newHigh < prevHigh
             result := "LH"
@@ -501,77 +506,138 @@ f_classifyLow(float newLow, float prevLow) =>
     string result = "LL"
     if not na(prevLow) and prevLow > 0
         float diff = math.abs(newLow - prevLow) / prevLow
-        if diff < 0.001
+        if diff < 0.002
             result := "EL"
         else if newLow > prevLow
             result := "HL"
     result
 
 f_getStrictTrend(float h, float l, int left, int right) =>
-    var int trendState      = 0
-    var float lockedHigh    = na
-    var float lockedLow     = na
-    var string lastHighClass    = na
-    var string lastLowClass     = na
-    var string activePivotType  = na
-    var float activePivotPrice  = na
-    var int activePivotIndex    = na
+    var int trendState     = 0
+    var int confirmedTrend = 0
+    var float lockedHigh   = na
+    var float lockedLow    = na
+    var string lastHighClass   = na
+    var string lastLowClass    = na
+    var string activePivotType = na
+    var float activePivotPrice = na
+    var int activePivotIndex   = na
+    // v6.2: previous structural references for correct extension-path classification
+    var float prevLockedHigh   = na
+    var float prevLockedLow    = na
 
     ph = ta.pivothigh(h, left, right)
-    pl = ta.pivotlow(l,  left, right)
+    pl = ta.pivotlow(l, left, right)
 
+    // 1. New Pivot High Found
     if not na(ph)
         if activePivotType == "H" and ph > activePivotPrice
+            // EXTENDING existing high — re-classify against PREVIOUS structural high
+            // (prevLockedHigh), NOT lockedHigh (which equals THIS direction's initial price).
             activePivotPrice := ph
             activePivotIndex := bar_index[right]
-            lastHighClass    := f_classifyHigh(ph, lockedHigh)
+            string hClass = f_classifyHigh(ph, prevLockedHigh)  // v6.2: was lockedHigh
+            lastHighClass := hClass
         else if activePivotType == "L" or na(activePivotType)
+            // NEW direction change: Low → High. Lock the previous low.
             if activePivotType == "L"
                 lockedLow := activePivotPrice
+
             string hClass = f_classifyHigh(ph, lockedHigh)
+
+            // v6.2 strict f_updateTrend: EL on the low side does NOT confirm uptrend.
+            // Only strict HL (after HH) or LL (after LH) confirms.
             int newTrend = 0
             if hClass == "HH"
-                newTrend := (lastLowClass == "HL" or lastLowClass == "EL") ? 1 : 0
+                if lastLowClass == "HL"     // v6.2: removed EL from gate
+                    newTrend := 1
+                else
+                    newTrend := 0
             else if hClass == "LH"
-                newTrend := (lastLowClass == "LL" or lastLowClass == "EL") ? -1 : 0
-            trendState       := newTrend
-            lockedHigh       := ph
-            lastHighClass    := hClass
+                if lastLowClass == "LL"     // v6.2: removed EL from gate
+                    newTrend := -1
+                else
+                    newTrend := 0
+            else  // EH → SIDEWAYS
+                newTrend := 0
+
+            trendState     := newTrend
+            confirmedTrend := newTrend
+            prevLockedHigh := lockedHigh   // v6.2: save structural previous high
+            lockedHigh     := ph
+            lastHighClass  := hClass
             activePivotPrice := ph
             activePivotIndex := bar_index[right]
             activePivotType  := "H"
 
+    // 2. New Pivot Low Found
     if not na(pl)
         if activePivotType == "L" and pl < activePivotPrice
+            // EXTENDING existing low — re-classify against PREVIOUS structural low
+            // (prevLockedLow), NOT lockedLow (which equals THIS direction's initial price).
             activePivotPrice := pl
             activePivotIndex := bar_index[right]
-            lastLowClass     := f_classifyLow(pl, lockedLow)
-        else if activePivotType == "H"
-            lockedHigh := activePivotPrice
+            string lClass = f_classifyLow(pl, prevLockedLow)  // v6.2: was lockedLow
+            lastLowClass := lClass
+        else if activePivotType == "H" or na(activePivotType)
+            // NEW direction change: High → Low. Lock the previous high.
+            if activePivotType == "H"
+                lockedHigh := activePivotPrice
+
             string lClass = f_classifyLow(pl, lockedLow)
+
             int newTrend = 0
             if lClass == "LL"
-                newTrend := (lastHighClass == "LH" or lastHighClass == "EH") ? -1 : 0
+                if lastHighClass == "LH"
+                    newTrend := -1
+                else
+                    newTrend := 0
             else if lClass == "HL"
-                newTrend := (lastHighClass == "HH" or lastHighClass == "EH") ? 1 : 0
-            trendState       := newTrend
-            lockedLow        := pl
-            lastLowClass     := lClass
+                if lastHighClass == "HH"
+                    newTrend := 1
+                else
+                    newTrend := 0
+            else  // EL → SIDEWAYS
+                newTrend := 0
+
+            trendState     := newTrend
+            confirmedTrend := newTrend
+            prevLockedLow  := lockedLow
+            lockedLow      := pl
+            lastLowClass   := lClass
             activePivotPrice := pl
             activePivotIndex := bar_index[right]
             activePivotType  := "L"
 
-    int _sb = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex)
-    int syncBars = math.max(1, _sb)
-    float projLow  = ta.lowest(l,  syncBars)
-    float projHigh = ta.highest(h, syncBars)
+    // 3. LIVE TREND SYNC (Projection BoS) — v6.2 fully synced
+    // syncBars includes the pivot bar itself (+1) so projSync extremes capture the pivot.
+    int _syncBars = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex + 1)
+    int syncBars  = math.max(1, _syncBars)
+    float projSyncLow  = ta.lowest(l, syncBars)
+    float projSyncHigh = ta.highest(h, syncBars)
 
-    if not na(lockedHigh) and f_classifyHigh(projHigh, lockedHigh) == "HH"
-        string dLC = not na(lockedLow) ? f_classifyLow(projLow, lockedLow) : "HL"
-        trendState := dLC == "HL" ? 1 : 0
-    else if not na(lockedLow) and f_classifyLow(projLow, lockedLow) == "LL"
-        string dHC = not na(lockedHigh) ? f_classifyHigh(projHigh, lockedHigh) : "LH"
-        trendState := dHC == "LH" ? -1 : 0
+    // Pre-compute classifications unconditionally
+    string _projHighClass = f_classifyHigh(projSyncHigh, lockedHigh)
+    string _projLowClass  = f_classifyLow(projSyncLow,  lockedLow)
+
+    // GATED by activePivotType: only evaluate the DEVELOPING side.
+    // activePivotType == "L" → developing upward → check HH BoS only.
+    //   Opposite-side class uses CONFIRMED lastLowClass (v6.2 fix: no re-classification).
+    // activePivotType == "H" → developing downward → check LL BoS only.
+    //   Opposite-side class uses CONFIRMED lastHighClass (v6.2 fix).
+    if activePivotType == "L" and _projHighClass == "HH"
+        string _devLowClass = na(lastLowClass) ? "HL" : lastLowClass  // confirmed, not re-classified
+        if _devLowClass == "HL"
+            trendState := 1
+        else
+            trendState := 0
+    else if activePivotType == "H" and _projLowClass == "LL"
+        string _devHighClass = na(lastHighClass) ? "LH" : lastHighClass  // confirmed, not re-classified
+        if _devHighClass == "LH"
+            trendState := -1
+        else
+            trendState := 0
+
     [trendState, lockedHigh, lockedLow]
 
 f_get_daily_indicators(int ema_len, int atr_len) =>
@@ -744,7 +810,11 @@ f_get_weekly_bundle(maLen, slopeLen, l, r, thresh) =>
     float wMA10 = ta.sma(close, 10)
     bool early_stage2 = current_stage_htf == 1 and wMA10 > wMA10[1] and c > wMA10 and c > ma
 
-    [c, ma, slope, trend, rsi, current_stage_htf, early_stage2, stage_wks]
+    // MTF FIX (2026-07-03): 5-weeks-ago close must be computed INSIDE the weekly
+    // context. The old `wClose[5]` at the call site indexed the ffilled series on
+    // the DAILY chart = weekly close 5 trading DAYS ago (~1 week), not 5 weeks —
+    // the POS-BO weekly-momentum gate was testing the wrong bar entirely.
+    [c, ma, slope, trend, rsi, current_stage_htf, early_stage2, stage_wks, close[5]]
 
 f_get_mkt_bundle() =>
     [close, ta.sma(close, 50), ta.sma(close, 200), ta.highest(high, 250), ta.lowest(low, 10), ta.lowest(low, 10)[10]]
@@ -1221,7 +1291,7 @@ f_db_sector_lookup(string t) =>
         "MSUMI" => "NSE:CNXAUTO"
         "MTARTECH" => "BSE:CG"
         "MUTHOOTFIN" => "NSE:CNXFINANCE"
-        "NAM-INDIA" => "NSE:CNXFINANCE"
+        "NAM_INDIA" => "NSE:CNXFINANCE"
         "NATCOPHARM" => "NSE:CNXPHARMA"
         "NATIONALUM" => "NSE:CNXMETAL"
         "NAUKRI" => "NSE:CNXSERVICE"
@@ -1481,20 +1551,20 @@ f_get_hybrid_sector() =>
 // ==========================================
 // Market Health
 [_mkt_close, _mkt_sma50, _mkt_sma200, _mkt_52w, _mkt_recent_low, _mkt_prior_low] = request.security("NSE:CNX500", "D", f_get_mkt_bundle(), lookahead=barmerge.lookahead_off)
-bool mkt_bull = not na(_mkt_close) and not na(_mkt_sma200) and (_mkt_close > _mkt_sma200) and (_mkt_sma50 > _mkt_sma200)
+bool mkt_bull = not na(_mkt_close) and not na(_mkt_sma200) and (_mkt_close > _mkt_sma50) and (_mkt_sma50 > _mkt_sma200)
 float mkt_corr_depth = not na(_mkt_52w) and _mkt_52w > 0 ? (_mkt_52w - _mkt_close) / _mkt_52w : 0.0
 bool  mkt_idx_corrected = mkt_corr_depth >= 0.07
 bool  mkt_reclaim       = not na(_mkt_recent_low) and not na(_mkt_prior_low) and _mkt_recent_low > _mkt_prior_low
 bool mkt_in_recovery = mkt_idx_corrected and mkt_reclaim
 
 // Stock Weekly Stage
-[wClose, wMA30, wSlope, wTrend, wRSI, current_stage, wEarlyStage2, wStageWks] = request.security(syminfo.tickerid, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right, slopeThresh), lookahead=barmerge.lookahead_off)
+[wClose, wMA30, wSlope, wTrend, wRSI, current_stage, wEarlyStage2, wStageWks, wClose5wAgo] = request.security(syminfo.tickerid, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right, slopeThresh), lookahead=barmerge.lookahead_off)
 
 // Sector Weekly Stage — resolved via full Nifty-500 DB + keyword fallback
 var string sectorTicker = use_auto_sec ? f_get_hybrid_sector() : manualSector
-[_sc, _sm, _ss, _st, _sr, _sec_stage_raw, _, _secStageWks] = request.security(sectorTicker, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right, slopeThresh), lookahead=barmerge.lookahead_off)
+[_sc, _sm, _ss, _st, _sr, _sec_stage_raw, _, _secStageWks, _] = request.security(sectorTicker, "W", f_get_weekly_bundle(maLengthW, wSlopeLen, piv_w_left, piv_w_right, slopeThresh), lookahead=barmerge.lookahead_off)
 int _sec_stage = _sec_stage_raw
-bool sector_stage_ok = (_sec_stage == 1 or _sec_stage == 2)
+bool sector_stage_ok = not use_sector_filter or (_sec_stage == 1 or _sec_stage == 2)
 
 // v2.9: JdK RS engine (parity with Dashboard + Bull Screener). 5-tuple now.
 // B13: strip pre-existing "NSE:" prefix to avoid double-prefix on ratio symbol.
@@ -1646,7 +1716,10 @@ bool  bb_sqz_ok = _bb_w < ta.sma(_bb_w, 30)
 // Combined Weinstein Setup Gate
 // E4: low_mult and high_pct thresholds now inputs (default 1.30 / 0.75 preserved)
 bool trend_template_ok = close > (low52w * trend_template_low_mult) and close >= (high52w * trend_template_high_pct)
-bool weinstein_setup = (stage2_uptrend or stage1_base) and close > d_sma200 and rs_quadrant != "LAGGING" and vol_acc_ok and stage2_fresh_ok and trend_template_ok
+// stage2_fresh_ok REMOVED from the gate (2026-07-02, sync to bull_screener.py):
+// maturity is eyeballed on the weekly chart, not hard-gated. The boolean stays
+// defined and is surfaced as a "·mature" status tag on the POS-BO diagnostic.
+bool weinstein_setup = (stage2_uptrend or stage1_base) and close > d_sma200 and rs_quadrant != "LAGGING" and vol_acc_ok and trend_template_ok
 
 // E5: Mature Trend Exemption — established Stage 2 leaders can satisfy base_confirmed
 //     WITHOUT the strict freshness / template gate, provided they have:
@@ -1750,15 +1823,25 @@ if high52w > 0
 py_score := math.max(0, math.min(py_score, 100))
 
 float bo_level      = ta.highest(high, bo_len)[1]
+// Breakout WINDOW (2026-07-02, sync to bull_screener.py): base ceiling = highest
+// high of bo_len bars ending 3 bars ago; POS-BO fires if any of the last 3 closes
+// cleared it AND price still holds above it — ~3-session window, not just today.
+float bo_ceiling_w  = ta.highest(high, bo_len)[3]
+bool  bo_window_ok  = math.max(close, math.max(close[1], close[2])) > bo_ceiling_w and close > bo_ceiling_w
 
 // ── PRICE-ACTION catalyst gates (Jay's design — replace lagging indicators,
 //    synced to bull_screener.py 2026-06-03). ───────────────────────────────
-// PA directional strength (replaces ADX>=25): >=7 of last 14 bars up + higher high.
+// PA directional strength (replaces ADX>=25). RELAXED 2026-07-02 (sync to
+// bull_screener.py): >=5 of last 14 bars are up-close. The old ">=7 up AND higher
+// high" clause rejected breakouts from a flat base (coiling = no higher highs).
+// OFF-BY-ONE FIX (2026-07-03, parity sweep): window must INCLUDE the current bar
+// (0..13) to match Python / Commander / v67 — the old 1..14 range excluded today
+// and flipped marginal 4-vs-5 counts (GRANULES blocked here while Python fired).
 int  pa_dir_cnt = 0
-for _j = 1 to 14
-    if close[_j] > open[_j] and high[_j] > high[_j + 1]
+for _j = 0 to 13
+    if close[_j] > open[_j]
         pa_dir_cnt += 1
-bool pa_dir_ok = pa_dir_cnt >= 7
+bool pa_dir_ok = pa_dir_cnt >= 5
 // PA pullback pocket (replaces RSI 30-70): 38-62% retrace of 20-bar range.
 float pa_sw_hi20 = ta.highest(high, 20)
 float pa_sw_lo20 = ta.lowest(low, 20)
@@ -1771,24 +1854,33 @@ bool  pb_pocket_pa = pa_retrace >= 0.38 and pa_retrace <= 0.62
 bool  pa_oversold_pa = close[1] < close[2] and close[2] < close[3]
 
 // v3.6 (2026-06-03, part a): ADX -> pa_dir_ok AND weekly RSI -> PA weekly
-//   momentum (wClose > wClose[5], weekly close above its 5-week-ago value).
-bool pa_wk_mom = wClose > wClose[5]
+//   momentum (weekly close above its TRUE 5-week-ago value — wClose5wAgo comes
+//   from inside the weekly security context; MTF FIX 2026-07-03).
+bool pa_wk_mom = not na(wClose5wAgo) and wClose > wClose5wAgo
 // mkt_bull DEMOTED to overlay (2026-06-08): no longer vetoes the trigger — a Stage-2
 // leader fires even in a bear tape. regime_risk (sizing) + active_ce_mult (trail) already
 // modulate by mkt_bull; counter_trend is flagged in the panel. Matches Python + Bull Screener.
-bool pos_bo_trigger = use_bull_mode and use_pos_bo and base_confirmed and alpha_ok and
-                      (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and
-                      volume > (vol_ma * 1.25) and
+// alpha DEMOTED to status (2026-07-02, sync to bull_screener.py): alpha no longer
+// vetoes POS-BO; it rides along as Asset-Quality context. Breakout + volume are now
+// 3-session windows so a scan a day late still catches the breakout.
+bool pos_bo_trigger = use_bull_mode and use_pos_bo and base_confirmed and
+                      (bo_conf == "Daily Close" ? bo_window_ok : high > bo_level) and
+                      (volume > vol_ma * 1.25 or volume[1] > vol_ma[1] * 1.25 or volume[2] > vol_ma[2] * 1.25) and
                       pa_wk_mom and pa_dir_ok
 
 float pos_accum_sl  = lowest_low_10
 float bo_level_30   = ta.highest(high, 30)[1]
 
-// Gap 2 restored & aligned with Python: OBV linreg slope rising (smart money accumulation)
-float obv_val       = ta.obv
-float obv_slope_now = ta.linreg(obv_val, 13, 0)
-float obv_slope_then= ta.linreg(obv_val, 13, 13)
-bool  obv_trending_up = obv_slope_now > obv_slope_then
+// OBV DRIFT FIX (2026-07-03): the linreg-slope version diverged from Python /
+// Commander / v67, which all use accumulation-bar density: >=8 of the last 20
+// bars close up on rising volume. Parity sweep caught AXISBANK blocked here
+// while the other three surfaces fired POS-ACCUM.
+int _obv_acc_bars = 0
+for _oi = 0 to 19
+    if not na(close[_oi]) and not na(open[_oi]) and not na(volume[_oi + 1])
+        if close[_oi] > open[_oi] and volume[_oi] > volume[_oi + 1]
+            _obv_acc_bars += 1
+bool  obv_trending_up = _obv_acc_bars >= 8
 
 bool is_vcp_tight   = f_is_vcp(1.0)
 bool is_vcp_accum   = f_is_vcp(1.5)   // looser VCP for POS-ACCUM (un-starve)
@@ -1797,7 +1889,11 @@ bool is_vcp_accum   = f_is_vcp(1.5)   // looser VCP for POS-ACCUM (un-starve)
 //   (close <= close[5]*1.05 — accumulation entry must not chase a sharp run-up);
 //   is_vcp_tight -> is_vcp_accum (1.5x) so accumulation isn't starved.
 bool pa_not_extended = close <= close[5] * 1.05
-bool pos_ac_trigger = use_bull_mode and use_pos_accum and base_confirmed and alpha_ok and
+// POS-ACCUM base (2026-07-02, sync to bull_screener.py): accumulation-appropriate —
+// drops the near-52wH trend_template + full stack that base_confirmed requires (both
+// contradict basing). alpha DEMOTED to status (same as POS-BO).
+bool accum_base = (stage2_uptrend or stage1_base) and close > d_sma200 and rs_quadrant != "LAGGING" and vol_acc_ok
+bool pos_ac_trigger = use_bull_mode and use_pos_accum and accum_base and
                       obv_trending_up and is_vcp_accum and close > (bo_level_30 * 0.9) and
                       pa_not_extended
 
@@ -1811,9 +1907,20 @@ bool vol_vdu_ok   = volume < (vol_ma * 0.85) and close < close[1]
 float pb_dist_ema20 = math.abs((close - d_ema20) / d_ema20) * 100
 bool is_ema_pb_zone = pb_dist_ema20 <= 2.5
 // v3.5: pb_rsi_ok (RSI 30-70) -> pb_pocket_pa (38-62% retrace) per pure-PA design.
-bool swing_pb_trg = use_bull_mode and use_swing_pb and is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok
+// REGIME-CONDITIONED (2026-07-02, Jay): + mkt_bull. SWG-PB is momentum-continuation
+// that is robustly negative in corrective regimes — only fire it in a confirmed bull
+// tape. (mkt_bull stays an overlay for the positional catalysts; hard gate here.)
+bool swing_pb_trg = use_bull_mode and use_swing_pb and mkt_bull and is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok
 
-bool swing_bo_trg = use_bull_mode and use_swing_bo and is_vcp_tight and (bo_conf == "Daily Close" ? close > bo_level : high > bo_level) and volume > (vol_ma * 1.5)
+// SWG-BO SYNCED UP to Pine is_swing_bo / bull_screener.py (2026-07-02, Jay): Minervini
+// uptrend + VCP(1.5x) + 15-bar pivot breakout + vol>1.25x + anti-algo (close in upper
+// 60% of the bar AND up-close). Was is_vcp_tight(1.0) + bo_level + vol>1.5 with NO trend
+// and NO anti-algo gate — the low-quality swing drag. Now Unified matches Commander + v67.
+bool bo_minervini = close > d_sma50 and d_sma50 > d_sma150 and d_sma150 > d_sma200
+bool bo_pivot15   = close > ta.highest(high, 15)[1]
+bool bo_anti_algo = (high > low ? (close - low) / (high - low) : 0.5) >= 0.60 and close > open
+bool is_vcp_swg   = f_is_vcp(1.5)
+bool swing_bo_trg = use_bull_mode and use_swing_bo and bo_minervini and is_vcp_swg and bo_pivot15 and volume > (vol_ma * 1.25) and bo_anti_algo
 
 bool oversold_rsi = d_rsi < 35
 bool rev_struct   = close > d_sma200 and close < d_ema20
@@ -2064,7 +2171,8 @@ else
 
 // ── Chandelier Exit (CE) — must be at global scope (stateful ta.* calls) ────
 float active_ce_mult  = mkt_bull ? ce_mult : (ce_mult + 0.5)
-float ce_trailing_stop = ta.highest(close, ce_length) - (ta.atr(ce_length) * active_ce_mult)
+[ce_h_d, ce_atr_d] = request.security(syminfo.tickerid, "D", [ta.highest(close, ce_length), ta.atr(ce_length)], lookahead=barmerge.lookahead_off)
+float ce_trailing_stop = ce_h_d - (ce_atr_d * active_ce_mult)
 
 // ── Event snaps: populated once at trade open (var = persist across bars) ───
 var float atr_entry_snap   = na
@@ -2155,6 +2263,24 @@ else if trigger_wyc_spring_sos or trigger_wyc_jac or trigger_wyc_sos or trigger_
     // v3.6 (2026-05-21): Wyckoff fallback widened 1.5x → 3.5x ATR (120d hold)
     current_sl := _wyc_sl_anchor >= close ? close - (atr14 * 3.5) : _wyc_sl_anchor
 
+// ── Webhook levels & qty pre-calculation ──────────────────────────────────────
+float qty = na
+float tp_price = na
+if trigger_any
+    float _sl_dist = math.max(close - nz(current_sl, close * 0.97), close * 0.005)
+    qty := f_get_qty_eco(_sl_dist)
+    float _init_risk = math.max(close - nz(current_sl, close * 0.97), close * 0.01)
+    if pos_bo_trigger or pos_ac_trigger
+        tp_price := close + (_init_risk * 5.0)
+    else if swing_rev_trg
+        tp_price := close + (_init_risk * 2.0)
+    else if gap_go_trg
+        tp_price := close + (_init_risk * 2.0)
+    else if swing_pb_trg or swing_bo_trg
+        tp_price := close + (_init_risk * 3.0)
+    else if trigger_wyc_spring_sos or trigger_wyc_jac or trigger_wyc_sos or trigger_wyc_spring
+        tp_price := close + (_init_risk * 5.0)
+
 // ── Entry ────────────────────────────────────────────────────────────────────
 // v3.1 FIX (2026-05-20): Removed `strategy.position_size == 0` guard.
 // Backtest (LAURUSLABS/RELIANCE/TCS/BAJFINANCE) showed strategy made <1% over
@@ -2162,8 +2288,6 @@ else if trigger_wyc_spring_sos or trigger_wyc_jac or trigger_wyc_sos or trigger_
 // rejected 90%+ of catalyst signals. Now allows up to max_open_positions=6
 // concurrent trades, letting the strategy pyramid into running winners.
 if trigger_any and in_date and strategy.opentrades < max_open_positions
-    float _sl_dist = math.max(close - nz(current_sl, close * 0.97), close * 0.005)
-    float qty = f_get_qty_eco(_sl_dist)
     if (pos_bo_trigger or swing_bo_trg) and bo_conf != "Daily Close"
         strategy.entry("Long", strategy.long, qty=qty, comment=active_catalyst, stop=bo_level + syminfo.mintick)
     else
@@ -2584,28 +2708,42 @@ plot(hits_rev_ear, "Hits REV-EARLY", display=display.data_window)
 // alertcondition() has no effect inside strategies — must use alert() runtime call.
 // Configure a single TradingView alert on the strategy with frequency "Any alert
 // function call" — every alert() below will route through it with its message.
+f_send_alert(string txt_msg, float entry_px, float sl_px, float tp_px, float qty_val) =>
+    string alert_msg = txt_msg
+    if use_webhook_json
+        alert_msg := '{"ticker":"' + syminfo.prefix + ':' + syminfo.ticker + '", "action":"BUY", "entry":' + str.tostring(nz(entry_px, close), "#.##") + ', "sl":' + str.tostring(nz(sl_px, close * 0.95), "#.##") + ', "tp":' + str.tostring(nz(tp_px, close * 1.10), "#.##") + ', "qty":' + str.tostring(math.max(1, math.round(nz(qty_val, 1.0))), "#") + '}'
+    alert(alert_msg, alert.freq_once_per_bar_close)
+
 if pos_bo_trigger
-    alert("WCL v2.5: POS-BO catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: POS-BO catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if pos_ac_trigger
-    alert("WCL v2.5: POS-ACCUM catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: POS-ACCUM catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if swing_pb_trg
-    alert("WCL v2.5: SWG-PB (Pullback) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: SWG-PB (Pullback) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if swing_bo_trg
-    alert("WCL v2.5: SWG-BO (Breakout) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: SWG-BO (Breakout) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if swing_rev_trg
-    alert("WCL v2.5: SWG-REV (Reversion) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: SWG-REV (Reversion) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if gap_go_trg
-    alert("WCL v2.5: SWG-GAP (Gap & Go) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: SWG-GAP (Gap & Go) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if trigger_rev_cb
-    alert("WCL v2.5: REV-CB (Climax Bottom) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: REV-CB (Climax Bottom) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if trigger_rev_rs
-    alert("WCL v2.5: REV-RS (RS Survivor) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: REV-RS (RS Survivor) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if trigger_rev_early
-    alert("WCL v2.5: REV-EARLY (Early Bird) catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: REV-EARLY (Early Bird) catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
+if trigger_wyc_spring_sos
+    f_send_alert("WCL v3.4: WYC-SPRING+SOS catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
+if trigger_wyc_jac
+    f_send_alert("WCL v3.4: WYC-JAC catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
+if trigger_wyc_sos
+    f_send_alert("WCL v3.4: WYC-SOS catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
+if trigger_wyc_spring
+    f_send_alert("WCL v3.4: WYC-SPRING catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if trigger_bull
-    alert("WCL v2.5: A Bull catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: A Bull catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 if trigger_rec
-    alert("WCL v2.5: A Recovery catalyst fired on " + syminfo.ticker, alert.freq_once_per_bar_close)
+    f_send_alert("WCL v2.5: A Recovery catalyst fired on " + syminfo.ticker, close, current_sl, tp_price, qty)
 
 // ── E1: Diagnostic Panel — per-catalyst first-blocking-gate attribution ─────
 if use_diag_panel and barstate.islast
@@ -2632,7 +2770,8 @@ if use_diag_panel and barstate.islast
     color D_NEUT     = color.new(#f5f5f5, 0)
 
     // POS-BO
-    string diag_pos_bo = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
+    // ·mature = Stage-2 freshness is a STATUS tag now (eyeball), not a block (2026-07-02).
+    string diag_pos_bo = (mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend") + (stage2_fresh_ok ? "" : " ·mature")
     color  diag_pos_bo_c = D_FIRE
     if not pos_bo_trigger
         diag_pos_bo_c := D_BLOCK
@@ -2642,20 +2781,19 @@ if use_diag_panel and barstate.islast
             diag_pos_bo := "✗ edge off"
         else if not base_confirmed
             diag_pos_bo := "✗ base_confirmed"
-        else if not alpha_ok
-            diag_pos_bo := "✗ alpha (" + str.tostring(alpha_score, "#") + "<" + str.tostring(min_alpha) + ")"
-        else if not (bo_conf == "Daily Close" ? close > bo_level : high > bo_level)
-            diag_pos_bo := "✗ breakout (px<level)"
-        else if not (volume > vol_ma * 1.25)
-            diag_pos_bo := "✗ vol<1.25×"
+        // alpha DEMOTED (2026-07-02): no longer a POS-BO block reason — alpha is status.
+        else if not (bo_conf == "Daily Close" ? bo_window_ok : high > bo_level)
+            diag_pos_bo := "✗ breakout (no 3-bar close>ceiling)"
+        else if not (volume > vol_ma * 1.25 or volume[1] > vol_ma[1] * 1.25 or volume[2] > vol_ma[2] * 1.25)
+            diag_pos_bo := "✗ vol<1.25× (last 3 bars)"
         // v3.4.1 (2026-06-08): diag matched to the ACTUAL PA trigger. POS-BO no longer
         // gates on weekly-RSI or ADX — it uses pa_wk_mom (wClose>wClose[5]) + pa_dir_ok
         // (>=7/14 up-bars). The stale wRSI/ADX reasons were reporting blocks that aren't
         // in the trigger (the diag-vs-trigger drift Jay caught correlating the guides).
         else if not pa_wk_mom
-            diag_pos_bo := "✗ wk-momentum (wClose≤wClose[5])"
+            diag_pos_bo := "✗ wk-momentum (wClose≤5w-ago close)"
         else if not pa_dir_ok
-            diag_pos_bo := "✗ PA dir (<7/14 up-bars)"
+            diag_pos_bo := "✗ PA dir (<5/14 up-bars)"
 
     // POS-ACCUM
     string diag_pos_ac = mkt_bull ? "✓ FIRE" : "✓ FIRE ½⚠ ctr-trend"
@@ -2666,10 +2804,9 @@ if use_diag_panel and barstate.islast
             diag_pos_ac := "✗ bull mode off"
         else if not use_pos_accum
             diag_pos_ac := "✗ edge off"
-        else if not base_confirmed
-            diag_pos_ac := "✗ base_confirmed"
-        else if not alpha_ok
-            diag_pos_ac := "✗ alpha (" + str.tostring(alpha_score, "#") + "<" + str.tostring(min_alpha) + ")"
+        else if not accum_base
+            diag_pos_ac := "✗ accum_base (stage/200/RS/vol)"
+        // alpha DEMOTED (2026-07-02): no longer a POS-ACCUM block reason — alpha is status.
         else if not obv_trending_up
             diag_pos_ac := "✗ OBV slope"
         else if not is_vcp_accum
@@ -2708,12 +2845,16 @@ if use_diag_panel and barstate.islast
             diag_swg_bo := "✗ bull mode off"
         else if not use_swing_bo
             diag_swg_bo := "✗ edge off"
-        else if not is_vcp_tight
-            diag_swg_bo := "✗ VCP not tight"
-        else if not (bo_conf == "Daily Close" ? close > bo_level : high > bo_level)
-            diag_swg_bo := "✗ breakout"
-        else if not (volume > vol_ma * 1.5)
-            diag_swg_bo := "✗ vol<1.5×"
+        else if not bo_minervini
+            diag_swg_bo := "✗ trend (need close>50>150>200)"
+        else if not is_vcp_swg
+            diag_swg_bo := "✗ VCP not tight (1.5×)"
+        else if not bo_pivot15
+            diag_swg_bo := "✗ breakout (px<15-bar pivot)"
+        else if not (volume > vol_ma * 1.25)
+            diag_swg_bo := "✗ vol<1.25×"
+        else if not bo_anti_algo
+            diag_swg_bo := "✗ anti-algo (weak close)"
 
     // SWG-REV
     string diag_swg_rev = "✓ FIRE"

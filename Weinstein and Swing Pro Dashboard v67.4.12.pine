@@ -1,6 +1,15 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.13]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.14]", overlay=true, max_bars_back=5000, max_lines_count=500)
 
+// ==========================================
+// CHANGELOG v67.4.14 (2026-06-22) — Futures OI Build-up Integration
+// ==========================================
+// Integrates Futures Open Interest (OI) State natively:
+//   - Fetches continuous futures open interest and daily price change.
+//   - Classifies build-up: Long Build-up, Short Build-up, Short Covering, Long Unwinding.
+//   - Renders a new row "Futures OI State" (under Context) in both Detailed and Compressed views.
+//   - Handles non-F&O cash-only symbols neutrally (renders "N/A (Cash Only)").
+//
 // ==========================================
 // CHANGELOG v67.4.13 (2026-06-01) — Decision-Mode prospective Gate-3 R:R preview
 // ==========================================
@@ -699,114 +708,144 @@ indicator("Weinstein & Swing Pro Dashboard [v67.4.13]", overlay=true, max_bars_b
 // <PORTFOLIO_START>
 grpP1_5 = "1. Portfolio Slots 1-5"
 p1_tick = input.string("NSE:RELIANCE", title="Slot 1", group=grpP1_5, inline="p1", display=display.data_window)
-p1_ent  = input.float(1358.33, title="Entry", group=grpP1_5, inline="p1", display=display.data_window)
-p1_sl   = input.price(1286.30, title="SL", group=grpP1_5, inline="p1", display=display.data_window)
+p1_ent  = input.float(1358.325, title="Entry", group=grpP1_5, inline="p1", display=display.data_window)
+p1_sl   = input.price(1253.1, title="SL", group=grpP1_5, inline="p1", display=display.data_window)
 p1_tsl  = input.price(0.0, title="Trail SL", group=grpP1_5, inline="p1", display=display.data_window)
-p1_sec  = input.symbol("NSE:NIFTY_OIL_AND_GAS", title="Sector", group=grpP1_5, inline="p1s", display=display.data_window)
+p1_t1   = input.price(1333.2, title="T1", group=grpP1_5, inline="p1t", display=display.data_window)
+p1_t2   = input.price(1674.2, title="T2", group=grpP1_5, inline="p1t", display=display.data_window)
+p1_sec  = input.string("NSE:CNXENERGY", title="Sector", group=grpP1_5, inline="p1s", display=display.data_window)
 p1_date = input.time(timestamp("2024-10-15"), title="Date", group=grpP1_5, inline="p1d", display=display.data_window)
 
-p2_tick = input.string("NSE:DMART", title="Slot 2", group=grpP1_5, inline="p2", display=display.data_window)
-p2_ent  = input.float(4426.5, title="Entry", group=grpP1_5, inline="p2", display=display.data_window)
-p2_sl   = input.price(4138.50, title="SL", group=grpP1_5, inline="p2", display=display.data_window)
+p2_tick = input.string("NSE:COALINDIA", title="Slot 2", group=grpP1_5, inline="p2", display=display.data_window)
+p2_ent  = input.float(444.23422, title="Entry", group=grpP1_5, inline="p2", display=display.data_window)
+p2_sl   = input.price(415.5, title="SL", group=grpP1_5, inline="p2", display=display.data_window)
 p2_tsl  = input.price(0.0, title="Trail SL", group=grpP1_5, inline="p2", display=display.data_window)
-p2_sec  = input.symbol("NSE:CNXFMCG", title="Sector", group=grpP1_5, inline="p2s", display=display.data_window)
-p2_date = input.time(timestamp("2026-04-24"), title="Date", group=grpP1_5, inline="p2d", display=display.data_window)
+p2_t1   = input.price(460.2, title="T1", group=grpP1_5, inline="p2t", display=display.data_window)
+p2_t2   = input.price(482.8, title="T2", group=grpP1_5, inline="p2t", display=display.data_window)
+p2_sec  = input.string("NSE:CNXENERGY", title="Sector", group=grpP1_5, inline="p2s", display=display.data_window)
+p2_date = input.time(timestamp("2026-02-09"), title="Date", group=grpP1_5, inline="p2d", display=display.data_window)
 
-p3_tick = input.string("NSE:COALINDIA", title="Slot 3", group=grpP1_5, inline="p3", display=display.data_window)
-p3_ent  = input.float(431.5, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
-p3_sl   = input.price(402.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
-p3_tsl  = input.price(0.0, title="Trail SL", group=grpP1_5, inline="p3", display=display.data_window)
-p3_sec  = input.symbol("NSE:CNXENERGY", title="Sector", group=grpP1_5, inline="p3s", display=display.data_window)
-p3_date = input.time(timestamp("2026-02-09"), title="Date", group=grpP1_5, inline="p3d", display=display.data_window)
+p3_tick = input.string("NSE:SAILIFE", title="Slot 3", group=grpP1_5, inline="p3", display=display.data_window)
+p3_ent  = input.float(1049.15, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
+p3_sl   = input.price(1132.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
+p3_tsl  = input.price(966.2, title="Trail SL", group=grpP1_5, inline="p3", display=display.data_window)
+p3_t1   = input.price(1407.2, title="T1", group=grpP1_5, inline="p3t", display=display.data_window)
+p3_t2   = input.price(1407.2, title="T2", group=grpP1_5, inline="p3t", display=display.data_window)
+p3_sec  = input.string("NSE:CNXPHARMA", title="Sector", group=grpP1_5, inline="p3s", display=display.data_window)
+p3_date = input.time(timestamp("2026-04-16"), title="Date", group=grpP1_5, inline="p3d", display=display.data_window)
 
-p4_tick = input.string("NSE:SAILIFE", title="Slot 4", group=grpP1_5, inline="p4", display=display.data_window)
-p4_ent  = input.float(966.2, title="Entry", group=grpP1_5, inline="p4", display=display.data_window)
-p4_sl   = input.price(916.50, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
-p4_tsl  = input.price(966.2, title="Trail SL", group=grpP1_5, inline="p4", display=display.data_window)
-p4_sec  = input.symbol("NSE:CNXPHARMA", title="Sector", group=grpP1_5, inline="p4s", display=display.data_window)
-p4_date = input.time(timestamp("2026-04-16"), title="Date", group=grpP1_5, inline="p4d", display=display.data_window)
+p4_tick = input.string("NSE:ANANDRATHI", title="Slot 4", group=grpP1_5, inline="p4", display=display.data_window)
+p4_ent  = input.float(1787.7797, title="Entry", group=grpP1_5, inline="p4", display=display.data_window)
+p4_sl   = input.price(1787.8, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
+p4_tsl  = input.price(0.0, title="Trail SL", group=grpP1_5, inline="p4", display=display.data_window)
+p4_t1   = input.price(2336.2, title="T1", group=grpP1_5, inline="p4t", display=display.data_window)
+p4_t2   = input.price(2471.1, title="T2", group=grpP1_5, inline="p4t", display=display.data_window)
+p4_sec  = input.string("Financial Services", title="Sector", group=grpP1_5, inline="p4s", display=display.data_window)
+p4_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP1_5, inline="p4d", display=display.data_window)
 
-p5_tick = input.string("LAURUSLABS", title="Slot 5", group=grpP1_5, inline="p5", display=display.data_window)
-p5_ent  = input.float(1107.85, title="Entry", group=grpP1_5, inline="p5", display=display.data_window)
-p5_sl   = input.price(986.90, title="SL", group=grpP1_5, inline="p5", display=display.data_window)
+p5_tick = input.string("NSE:GESHIP", title="Slot 5", group=grpP1_5, inline="p5", display=display.data_window)
+p5_ent  = input.float(1596.7227, title="Entry", group=grpP1_5, inline="p5", display=display.data_window)
+p5_sl   = input.price(1297.1, title="SL", group=grpP1_5, inline="p5", display=display.data_window)
 p5_tsl  = input.price(0.0, title="Trail SL", group=grpP1_5, inline="p5", display=display.data_window)
-p5_sec  = input.symbol("NSE:CNXPHARMA", title="Sector", group=grpP1_5, inline="p5s", display=display.data_window)
-p5_date = input.time(timestamp("2026-04-28"), title="Date", group=grpP1_5, inline="p5d", display=display.data_window)
+p5_t1   = input.price(1641.5, title="T1", group=grpP1_5, inline="p5t", display=display.data_window)
+p5_t2   = input.price(2172.8, title="T2", group=grpP1_5, inline="p5t", display=display.data_window)
+p5_sec  = input.string("Services", title="Sector", group=grpP1_5, inline="p5s", display=display.data_window)
+p5_date = input.time(timestamp("2026-06-02"), title="Date", group=grpP1_5, inline="p5d", display=display.data_window)
 
 
 // --- GROUP 2: SLOTS 6-10 ---
 grpP6_10 = "2. Portfolio Slots 6-10"
-p6_tick = input.string("ANANDRATHI", title="Slot 6", group=grpP6_10, inline="p6", display=display.data_window)
-p6_ent  = input.float(3579.50, title="Entry", group=grpP6_10, inline="p6", display=display.data_window)
-p6_sl   = input.price(3315.20, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
+p6_tick = input.string("NSE:NESTLEIND", title="Slot 6", group=grpP6_10, inline="p6", display=display.data_window)
+p6_ent  = input.float(1438.3652, title="Entry", group=grpP6_10, inline="p6", display=display.data_window)
+p6_sl   = input.price(1333.7, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
 p6_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p6", display=display.data_window)
-p6_sec  = input.symbol("NSE:CNXFINANCE", title="Sector", group=grpP6_10, inline="p6s", display=display.data_window)
-p6_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP6_10, inline="p6d", display=display.data_window)
+p6_t1   = input.price(1650.5, title="T1", group=grpP6_10, inline="p6t", display=display.data_window)
+p6_t2   = input.price(1805.0, title="T2", group=grpP6_10, inline="p6t", display=display.data_window)
+p6_sec  = input.string("FMCG", title="Sector", group=grpP6_10, inline="p6s", display=display.data_window)
+p6_date = input.time(timestamp("2026-06-02"), title="Date", group=grpP6_10, inline="p6d", display=display.data_window)
 
-p7_tick = input.string("", title="Slot 7", group=grpP6_10, inline="p7", display=display.data_window)
-p7_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p7", display=display.data_window)
-p7_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p7", display=display.data_window)
+p7_tick = input.string("NSE:NAM_INDIA", title="Slot 7", group=grpP6_10, inline="p7", display=display.data_window)
+p7_ent  = input.float(1068.1042, title="Entry", group=grpP6_10, inline="p7", display=display.data_window)
+p7_sl   = input.price(1068.1, title="SL", group=grpP6_10, inline="p7", display=display.data_window)
 p7_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p7", display=display.data_window)
-p7_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p7s", display=display.data_window)
-p7_date = input.time(0, title="Date", group=grpP6_10, inline="p7d", display=display.data_window)
+p7_t1   = input.price(1269.0, title="T1", group=grpP6_10, inline="p7t", display=display.data_window)
+p7_t2   = input.price(1403.0, title="T2", group=grpP6_10, inline="p7t", display=display.data_window)
+p7_sec  = input.string("Financial Services", title="Sector", group=grpP6_10, inline="p7s", display=display.data_window)
+p7_date = input.time(timestamp("2026-06-02"), title="Date", group=grpP6_10, inline="p7d", display=display.data_window)
 
-p8_tick = input.string("", title="Slot 8", group=grpP6_10, inline="p8", display=display.data_window)
-p8_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
-p8_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
+p8_tick = input.string("NSE:NETWEB", title="Slot 8", group=grpP6_10, inline="p8", display=display.data_window)
+p8_ent  = input.float(4471.6123, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
+p8_sl   = input.price(3912.9, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
 p8_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p8", display=display.data_window)
-p8_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p8s", display=display.data_window)
-p8_date = input.time(0, title="Date", group=grpP6_10, inline="p8d", display=display.data_window)
+p8_t1   = input.price(5619.8, title="T1", group=grpP6_10, inline="p8t", display=display.data_window)
+p8_t2   = input.price(6460.5, title="T2", group=grpP6_10, inline="p8t", display=display.data_window)
+p8_sec  = input.string("Nifty IT", title="Sector", group=grpP6_10, inline="p8s", display=display.data_window)
+p8_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p8d", display=display.data_window)
 
-p9_tick = input.string("", title="Slot 9", group=grpP6_10, inline="p9", display=display.data_window)
-p9_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
-p9_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p9", display=display.data_window)
+p9_tick = input.string("NSE:CAPLIPOINT", title="Slot 9", group=grpP6_10, inline="p9", display=display.data_window)
+p9_ent  = input.float(2549.2, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
+p9_sl   = input.price(2327.7, title="SL", group=grpP6_10, inline="p9", display=display.data_window)
 p9_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p9", display=display.data_window)
-p9_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p9s", display=display.data_window)
-p9_date = input.time(0, title="Date", group=grpP6_10, inline="p9d", display=display.data_window)
+p9_t1   = input.price(2998.5, title="T1", group=grpP6_10, inline="p9t", display=display.data_window)
+p9_t2   = input.price(2998.5, title="T2", group=grpP6_10, inline="p9t", display=display.data_window)
+p9_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p9s", display=display.data_window)
+p9_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p9d", display=display.data_window)
 
-p10_tick = input.string("", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
-p10_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
-p10_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
+p10_tick = input.string("NSE:VIJAYA", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
+p10_ent  = input.float(1275.1935, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
+p10_sl   = input.price(1158.8, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
 p10_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p10", display=display.data_window)
-p10_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p10s", display=display.data_window)
-p10_date = input.time(0, title="Date", group=grpP6_10, inline="p10d", display=display.data_window)
+p10_t1   = input.price(1516.8, title="T1", group=grpP6_10, inline="p10t", display=display.data_window)
+p10_t2   = input.price(1628.8, title="T2", group=grpP6_10, inline="p10t", display=display.data_window)
+p10_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p10s", display=display.data_window)
+p10_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP6_10, inline="p10d", display=display.data_window)
 
 
 // --- GROUP 3: SLOTS 11-15 ---
 grpP11_15 = "3. Portfolio Slots 11-15"
-p11_tick = input.string("", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
-p11_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
-p11_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
+p11_tick = input.string("NSE:TRITURBINE", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
+p11_ent  = input.float(661.935, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
+p11_sl   = input.price(596.8, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
 p11_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p11", display=display.data_window)
-p11_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
-p11_date = input.time(0, title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
+p11_t1   = input.price(777.8, title="T1", group=grpP11_15, inline="p11t", display=display.data_window)
+p11_t2   = input.price(859.8, title="T2", group=grpP11_15, inline="p11t", display=display.data_window)
+p11_sec  = input.string("Capital Goods (BSE)", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
+p11_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
 
-p12_tick = input.string("", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
-p12_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
-p12_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+p12_tick = input.string("NSE:ACUTAAS", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
+p12_ent  = input.float(3062.1, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sl   = input.price(3065.8, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p12", display=display.data_window)
-p12_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
+p12_t1   = input.price(3927.2, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
+p12_t2   = input.price(4114.5, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
+p12_sec  = input.string("Nifty Commodities", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
 p12_date = input.time(0, title="Date", group=grpP11_15, inline="p12d", display=display.data_window)
 
-p13_tick = input.string("", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
-p13_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
-p13_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
+p13_tick = input.string("NSE:LAURUSLABS", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
+p13_ent  = input.float(1377.1534, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
+p13_sl   = input.price(1345.6, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
 p13_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p13", display=display.data_window)
-p13_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
+p13_t1   = input.price(1571.0, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_t2   = input.price(1701.0, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_sec  = input.string("NSE:CNX500", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
 p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
 
-p14_tick = input.string("", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
+p14_tick = input.string("NSE:GVT&D", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
 p14_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
-p14_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sl   = input.price(4443.0, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p14", display=display.data_window)
-p14_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
-p14_date = input.time(0, title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
+p14_t1   = input.price(5959.0, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
+p14_t2   = input.price(6460.0, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
+p14_sec  = input.string("Infra", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
+p14_date = input.time(timestamp("2026-06-25"), title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
 
 p15_tick = input.string("", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
 p15_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
 p15_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
 p15_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p15", display=display.data_window)
-p15_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
+p15_t1   = input.price(0.0, title="T1", group=grpP11_15, inline="p15t", display=display.data_window)
+p15_t2   = input.price(0.0, title="T2", group=grpP11_15, inline="p15t", display=display.data_window)
+p15_sec  = input.string("NSE:CNX500", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
 p15_date = input.time(0, title="Date", group=grpP11_15, inline="p15d", display=display.data_window)
 
 
@@ -816,113 +855,46 @@ p16_tick = input.string("", title="Slot 16", group=grpP16_20, inline="p16", disp
 p16_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
 p16_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p16", display=display.data_window)
 p16_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p16", display=display.data_window)
-p16_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
+p16_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p16t", display=display.data_window)
+p16_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p16t", display=display.data_window)
+p16_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
 p16_date = input.time(0, title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
 
 p17_tick = input.string("", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
 p17_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p17", display=display.data_window)
 p17_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
 p17_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p17", display=display.data_window)
-p17_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p17s", display=display.data_window)
+p17_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p17t", display=display.data_window)
+p17_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p17t", display=display.data_window)
+p17_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p17s", display=display.data_window)
 p17_date = input.time(0, title="Date", group=grpP16_20, inline="p17d", display=display.data_window)
 
 p18_tick = input.string("", title="Slot 18", group=grpP16_20, inline="p18", display=display.data_window)
 p18_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p18", display=display.data_window)
 p18_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p18", display=display.data_window)
 p18_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p18", display=display.data_window)
-p18_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p18s", display=display.data_window)
+p18_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p18t", display=display.data_window)
+p18_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p18t", display=display.data_window)
+p18_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p18s", display=display.data_window)
 p18_date = input.time(0, title="Date", group=grpP16_20, inline="p18d", display=display.data_window)
 
 p19_tick = input.string("", title="Slot 19", group=grpP16_20, inline="p19", display=display.data_window)
 p19_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p19", display=display.data_window)
 p19_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p19", display=display.data_window)
 p19_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p19", display=display.data_window)
-p19_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p19s", display=display.data_window)
+p19_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p19t", display=display.data_window)
+p19_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p19t", display=display.data_window)
+p19_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p19s", display=display.data_window)
 p19_date = input.time(0, title="Date", group=grpP16_20, inline="p19d", display=display.data_window)
 
 p20_tick = input.string("", title="Slot 20", group=grpP16_20, inline="p20", display=display.data_window)
 p20_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p20", display=display.data_window)
 p20_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p20", display=display.data_window)
 p20_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p20", display=display.data_window)
-p20_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p20s", display=display.data_window)
+p20_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p20t", display=display.data_window)
+p20_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p20t", display=display.data_window)
+p20_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p20s", display=display.data_window)
 p20_date = input.time(0, title="Date", group=grpP16_20, inline="p20d", display=display.data_window)
-
-
-// --- GROUP 5: SLOTS 21-25 ---
-grpP21_25 = "5. Portfolio Slots 21-25"
-p21_tick = input.string("", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
-p21_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
-p21_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
-p21_tsl  = input.price(0.0, title="Trail SL", group=grpP21_25, inline="p21", display=display.data_window)
-p21_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p21s", display=display.data_window)
-p21_date = input.time(0, title="Date", group=grpP21_25, inline="p21d", display=display.data_window)
-
-p22_tick = input.string("", title="Slot 22", group=grpP21_25, inline="p22", display=display.data_window)
-p22_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p22", display=display.data_window)
-p22_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p22", display=display.data_window)
-p22_tsl  = input.price(0.0, title="Trail SL", group=grpP21_25, inline="p22", display=display.data_window)
-p22_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p22s", display=display.data_window)
-p22_date = input.time(0, title="Date", group=grpP21_25, inline="p22d", display=display.data_window)
-
-p23_tick = input.string("", title="Slot 23", group=grpP21_25, inline="p23", display=display.data_window)
-p23_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p23", display=display.data_window)
-p23_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p23", display=display.data_window)
-p23_tsl  = input.price(0.0, title="Trail SL", group=grpP21_25, inline="p23", display=display.data_window)
-p23_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p23s", display=display.data_window)
-p23_date = input.time(0, title="Date", group=grpP21_25, inline="p23d", display=display.data_window)
-
-p24_tick = input.string("", title="Slot 24", group=grpP21_25, inline="p24", display=display.data_window)
-p24_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p24", display=display.data_window)
-p24_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p24", display=display.data_window)
-p24_tsl  = input.price(0.0, title="Trail SL", group=grpP21_25, inline="p24", display=display.data_window)
-p24_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p24s", display=display.data_window)
-p24_date = input.time(0, title="Date", group=grpP21_25, inline="p24d", display=display.data_window)
-
-p25_tick = input.string("", title="Slot 25", group=grpP21_25, inline="p25", display=display.data_window)
-p25_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p25", display=display.data_window)
-p25_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p25", display=display.data_window)
-p25_tsl  = input.price(0.0, title="Trail SL", group=grpP21_25, inline="p25", display=display.data_window)
-p25_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p25s", display=display.data_window)
-p25_date = input.time(0, title="Date", group=grpP21_25, inline="p25d", display=display.data_window)
-
-
-// --- GROUP 6: SLOTS 26-30 ---
-grpP26_30 = "6. Portfolio Slots 26-30"
-p26_tick = input.string("", title="Slot 26", group=grpP26_30, inline="p26", display=display.data_window)
-p26_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p26", display=display.data_window)
-p26_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p26", display=display.data_window)
-p26_tsl  = input.price(0.0, title="Trail SL", group=grpP26_30, inline="p26", display=display.data_window)
-p26_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p26s", display=display.data_window)
-p26_date = input.time(0, title="Date", group=grpP26_30, inline="p26d", display=display.data_window)
-
-p27_tick = input.string("", title="Slot 27", group=grpP26_30, inline="p27", display=display.data_window)
-p27_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p27", display=display.data_window)
-p27_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p27", display=display.data_window)
-p27_tsl  = input.price(0.0, title="Trail SL", group=grpP26_30, inline="p27", display=display.data_window)
-p27_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p27s", display=display.data_window)
-p27_date = input.time(0, title="Date", group=grpP26_30, inline="p27d", display=display.data_window)
-
-p28_tick = input.string("", title="Slot 28", group=grpP26_30, inline="p28", display=display.data_window)
-p28_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p28", display=display.data_window)
-p28_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p28", display=display.data_window)
-p28_tsl  = input.price(0.0, title="Trail SL", group=grpP26_30, inline="p28", display=display.data_window)
-p28_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p28s", display=display.data_window)
-p28_date = input.time(0, title="Date", group=grpP26_30, inline="p28d", display=display.data_window)
-
-p29_tick = input.string("", title="Slot 29", group=grpP26_30, inline="p29", display=display.data_window)
-p29_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p29", display=display.data_window)
-p29_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p29", display=display.data_window)
-p29_tsl  = input.price(0.0, title="Trail SL", group=grpP26_30, inline="p29", display=display.data_window)
-p29_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p29s", display=display.data_window)
-p29_date = input.time(0, title="Date", group=grpP26_30, inline="p29d", display=display.data_window)
-
-p30_tick = input.string("", title="Slot 30", group=grpP26_30, inline="p30", display=display.data_window)
-p30_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p30", display=display.data_window)
-p30_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p30", display=display.data_window)
-p30_tsl  = input.price(0.0, title="Trail SL", group=grpP26_30, inline="p30", display=display.data_window)
-p30_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p30s", display=display.data_window)
-p30_date = input.time(0, title="Date", group=grpP26_30, inline="p30d", display=display.data_window)
-
 // <PORTFOLIO_END>
 
 
@@ -938,8 +910,8 @@ quick_sl  = input.price(0.0, title="Temporary Hard SL", group=grpQuick)
 // ==========================================
 groupStrat  = "Strategy Inputs"
 maLengthW   = input.int(30, title="Weinstein SMA Length (Weekly)", group=groupStrat)
-wmaSlopeLen = input.int(4, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
-slopeThresh = input.float(0.0005, title="30WMA Slope Threshold (Flat)", group=groupStrat)
+wmaSlopeLen = input.int(6, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
+slopeThresh = input.float(0.0012, title="30WMA Slope Threshold (Flat)", group=groupStrat)
 
 bench50     = input.symbol("NSE:NIFTY", title="Benchmark 1 (Nifty 50)", group=groupStrat)
 bench500    = input.symbol("NSE:CNX500", title="Benchmark 2 (Nifty 500 - Breadth)", group=groupStrat)
@@ -989,7 +961,7 @@ vol_acc_min     = input.int(2,     title="Vol Accum Min Days",              grou
 vol_avg_len     = input.int(50,    title="Volume SMA Length (bars)",        group=grpAdv, minval=20, maxval=200)
 vcp_thresh      = input.float(1.5, title="VCP Tightness Multiplier",        group=grpAdv, minval=0.5, maxval=3.0, step=0.1, tooltip="ATR10 < ATR50 × this multiplier to qualify as a VCP. Default 1.5; lower = stricter.")
 vdu_pct         = input.float(0.30,title="VDU % Below Vol Avg",             group=grpAdv, minval=0.1, maxval=0.6, step=0.05, tooltip="Volume Dry-Up: vol < vol_avg × (1 - this). Default 0.30 = vol must be ≤ 70% of avg.")
-eq_threshold_dash = input.float(0.005, title="Zigzag EH/EL Threshold (frac)", group=grpAdv, minval=0.001, maxval=0.02, step=0.001, tooltip="Equal-high / equal-low tolerance for the strict-trend pivot classifier. 0.005 = 0.5%, matches Zigzag v6.2 default.")
+eq_threshold_dash = input.float(0.002, title="Zigzag EH/EL Threshold (frac)", group=grpAdv, minval=0.001, maxval=0.02, step=0.001, tooltip="Equal-high / equal-low tolerance for the strict-trend pivot classifier. 0.002 = 0.2%, matches Zigzag v6.3 default.")
 prox_thresh     = input.float(2.5, title="Key-Level Proximity % Threshold", group=grpAdv, minval=0.5, maxval=10.0, step=0.5, tooltip="A key level (DZ/SZ/TL/pivot/EMA/ATH) is flagged 'near' when distance is within this %.")
 pb_dist_max     = input.float(5.0, title="Pullback EMA-Distance Max %",     group=grpAdv, minval=2.0, maxval=15.0, step=0.5, tooltip="Daily pullback zone: |close - EMA20| / EMA20 must be ≤ this %.")
 liq_sweep_lockout = input.int(10,  title="Liquidity Sweep Lockout (bars)",  group=grpAdv, minval=3,  maxval=30, tooltip="v67.2 FIX #7: after a Liq Sweep Reclaim fires, suppress further detections for this many bars.")
@@ -1067,6 +1039,8 @@ var string cleanTicker = syminfo.prefix + ":" + syminfo.ticker
 var float finalEntry = 0.0
 var float finalSL = 0.0
 var float finalTSL = 0.0
+var float finalT1 = 0.0
+var float finalT2 = 0.0
 var int finalDate = 0
 var string entryDateStr = "N/A"
 var int daysHeld = 0
@@ -1667,7 +1641,7 @@ f_db_sector_lookup(string t) =>
         "MSUMI" => "NSE:CNXAUTO"
         "MTARTECH" => "BSE:CG"
         "MUTHOOTFIN" => "NSE:CNXFINANCE"
-        "NAM-INDIA" => "NSE:CNXFINANCE"
+        "NAM_INDIA" => "NSE:CNXFINANCE"
         "NATCOPHARM" => "NSE:CNXPHARMA"
         "NATIONALUM" => "NSE:CNXMETAL"
         "NAUKRI" => "NSE:CNXSERVICE"
@@ -1983,36 +1957,6 @@ f_get_hybrid_sector() =>
         else if f_match(p20_tick)
             t := p20_sec
             n := str.replace_all(p20_sec, "NSE:", "")
-        else if f_match(p21_tick)
-            t := p21_sec
-            n := str.replace_all(p21_sec, "NSE:", "")
-        else if f_match(p22_tick)
-            t := p22_sec
-            n := str.replace_all(p22_sec, "NSE:", "")
-        else if f_match(p23_tick)
-            t := p23_sec
-            n := str.replace_all(p23_sec, "NSE:", "")
-        else if f_match(p24_tick)
-            t := p24_sec
-            n := str.replace_all(p24_sec, "NSE:", "")
-        else if f_match(p25_tick)
-            t := p25_sec
-            n := str.replace_all(p25_sec, "NSE:", "")
-        else if f_match(p26_tick)
-            t := p26_sec
-            n := str.replace_all(p26_sec, "NSE:", "")
-        else if f_match(p27_tick)
-            t := p27_sec
-            n := str.replace_all(p27_sec, "NSE:", "")
-        else if f_match(p28_tick)
-            t := p28_sec
-            n := str.replace_all(p28_sec, "NSE:", "")
-        else if f_match(p29_tick)
-            t := p29_sec
-            n := str.replace_all(p29_sec, "NSE:", "")
-        else if f_match(p30_tick)
-            t := p30_sec
-            n := str.replace_all(p30_sec, "NSE:", "")
 
     // 3. Fall back to Auto-Mapper (keyword-based, for off-list tickers)
     if t == ""
@@ -2224,9 +2168,10 @@ f_getStrictTrend(float h, float l, int left, int right) =>
             activePivotIndex := bar_index[right]
             string lClass = f_classifyLow(pl, prevLockedLow)  // v6.2: was lockedLow
             lastLowClass := lClass
-        else if activePivotType == "H"
+        else if activePivotType == "H" or na(activePivotType)
             // NEW direction change: High → Low. Lock the previous high.
-            lockedHigh := activePivotPrice
+            if activePivotType == "H"
+                lockedHigh := activePivotPrice
 
             string lClass = f_classifyLow(pl, lockedLow)
 
@@ -2573,11 +2518,14 @@ f_weekly_super_bundle_internal(float dCl, int maLen, int slopeLen, float thresh)
     // Pre-Stage 2 early warning: Stage 1 stock with 10W MA turning up, price above 10W MA and 30W MA
     float wMA10 = ta.sma(close, 10)
     bool early_stage2 = sID == "STAGE 1 (BASE)" and wMA10 > wMA10[1] and close > wMA10 and close > sMA
-    [sID, sTime, sMacroTime, sSlope, sMA, ma40, cl, hStr, hCol, tDir, tH, tL, ovh_val, w_rsi, ovh_price, early_stage2]
+    // MTF FIX (2026-07-03): 5-weeks-ago close computed INSIDE the weekly context.
+    // The old call-site `wClose[5]` indexed the ffilled series on the DAILY chart
+    // = weekly close 5 trading DAYS ago (~1 week), not 5 weeks.
+    [sID, sTime, sMacroTime, sSlope, sMA, ma40, cl, hStr, hCol, tDir, tH, tL, ovh_val, w_rsi, ovh_price, early_stage2, close[5]]
 
 // Consolidated Weekly Security Call (Optimized to stay under 40-call request.security limit)
 // v67.2.2: added stageMacroStart (macro Stage-2 anchor, doesn't reset on UP↔PULLBACK).
-[stageID, stageStart, stageMacroStart, wSlopeVal, wMA30, wMA40, wClose, wHealthStr, wHealthCol, wTrendDir, wLockH, wLockL, ovh, wRsiVal, ovhPrice, wEarlyStage2] = request.security(syminfo.tickerid, "W", f_weekly_super_bundle_internal(close, maLengthW, wmaSlopeLen, slopeThresh), ignore_invalid_symbol=true)
+[stageID, stageStart, stageMacroStart, wSlopeVal, wMA30, wMA40, wClose, wHealthStr, wHealthCol, wTrendDir, wLockH, wLockL, ovh, wRsiVal, ovhPrice, wEarlyStage2, wClose5wAgo] = request.security(syminfo.tickerid, "W", f_weekly_super_bundle_internal(close, maLengthW, wmaSlopeLen, slopeThresh), ignore_invalid_symbol=true)
 
 resistCount := ovh
 
@@ -2626,7 +2574,7 @@ string stage2AgeStr = isStage2Family ? str.tostring(stageWeeks) + "w leg / " + s
 // the on-chart Zigzag [Strict]. Green when ALL three match the canonical
 // defaults (engine v6.2, pivot 2/2, eq_threshold 0.5%); orange on any drift.
 string trend_engine_str = "v6.2 · L" + str.tostring(pivotLeft) + "/R" + str.tostring(pivotRight) + " · " + str.tostring(eq_threshold_dash * 100, "#.##") + "%"
-bool trend_engine_canonical = (pivotLeft == 2) and (pivotRight == 2) and (math.abs(eq_threshold_dash - 0.005) < 1e-9)
+bool trend_engine_canonical = (pivotLeft == 2) and (pivotRight == 2) and (math.abs(eq_threshold_dash - 0.002) < 1e-9)
 color trend_engine_col = trend_engine_canonical ? color.new(#26a69a, 0) : color.new(#ff9800, 0)
 if not trend_engine_canonical
     trend_engine_str := trend_engine_str + " ⚠ Sync Zigzag"
@@ -2644,21 +2592,26 @@ f_get_mvwap() =>
 // Internal function to return a flat tuple for daily data (avoids nested tuple error in request.security)
 f_daily_super_bundle_internal(int dma50_len, int dma150_len, int dma200_len, int dmaSlopeLen, int fibLookback, int pLeft, int pRight) =>
     [tDir, tH, tL] = f_getStrictTrend(high, low, pLeft, pRight)
+    [d_ovh, d_ovhPrice] = f_getOverheadResist(close)
     [close, high, low, open, volume, ta.sma(volume, 50),
       ta.sma(close, dma50_len), ta.sma(close, dma150_len), ta.sma(close, dma200_len),
       f_calc_slope_val(ta.sma(close, dma50_len), dmaSlopeLen),
       ta.ema(close, 20),
       ta.atr(14), ta.atr(10), ta.atr(40),
       ta.highest(high, 20), ta.lowest(low, 20),
-      ta.highest(high, 252), ta.highest(high, 1250), ta.lowest(low, 252),  // v67.2.5: d_l52 for Bull Screener trend-template gate
+      ta.highest(high, 252), ta.highest(high, bar_index > 0 ? math.min(1250, bar_index + 1) : 1), ta.lowest(low, 252),  // v67.2.5: d_l52 for Bull Screener trend-template gate
       ta.rsi(close, 14),
       ta.highest(high, fibLookback), ta.lowest(low, fibLookback), f_calc_adx_bool(), close[65], close[130], tDir, tH, tL,
       (high[1] + low[1] + close[1]) / 3, (high[1] + low[1]) / 2, ((high[1] + low[1] + close[1]) / 3 - (high[1] + low[1]) / 2) + (high[1] + low[1] + close[1]) / 3,
-      f_get_mvwap()]
+      f_get_mvwap(), d_ovh, d_ovhPrice]
 
 // 4. DAILY SUPER BUNDLE
-[d_c, d_h, d_l, d_o, d_v, d_vavg, d_sma50, d_sma150, d_sma200, d_slope50, d_ema20val, d_atr14, d_atr10, d_atr40, d_h20, d_l20, d_h52, d_hATH, d_l52, d_rsiVal, d_h_fib, d_l_fib, d_adx_ok, c_65_ago, c_130_ago, dTrendDir, dLockH, dLockL, d_pivot, d_bc, d_tc, m_vwap] = request.security(syminfo.tickerid, "D", f_daily_super_bundle_internal(dma50_len, dma150_len, dma200_len, dmaSlopeLen, fibLookback, pivotLeft, pivotRight), ignore_invalid_symbol=true)
+[d_c, d_h, d_l, d_o, d_v, d_vavg, d_sma50, d_sma150, d_sma200, d_slope50, d_ema20val, d_atr14, d_atr10, d_atr40, d_h20, d_l20, d_h52, d_hATH, d_l52, d_rsiVal, d_h_fib, d_l_fib, d_adx_ok, c_65_ago, c_130_ago, dTrendDir, dLockH, dLockL, d_pivot, d_bc, d_tc, m_vwap, d_ovh, d_ovhPrice] = request.security(syminfo.tickerid, "D", f_daily_super_bundle_internal(dma50_len, dma150_len, dma200_len, dmaSlopeLen, fibLookback, pivotLeft, pivotRight), ignore_invalid_symbol=true)
 
+// Dynamically assign overhead resistance based on active timeframe
+bool useDailyOvh = timeframe.isdaily or timeframe.isintraday
+resistCount := useDailyOvh ? d_ovh : ovh
+ovhPrice    := useDailyOvh ? d_ovhPrice : ovhPrice
 
 dClose := d_c
 dHigh := d_h
@@ -2814,6 +2767,51 @@ if str.length(bench500) > 1
 else
     mktState := "N/A (No Bench)"
     mktColor := color.gray
+
+// 8. FUTURES OPEN INTEREST BUNDLE (2 Calls)
+// Fetch continuous futures open interest (using _OI suffix) and futures close price
+var string fut_oi_ticker = cleanTicker + "1!_OI"
+var string fut_price_ticker = cleanTicker + "1!"
+float fut_oi = na
+float fut_oi_prev = na
+float fut_close = na
+float fut_close_prev = na
+
+[d_oi, d_oi_prev] = request.security(fut_oi_ticker, "D", [close, close[1]], ignore_invalid_symbol=true)
+[d_close, d_close_prev] = request.security(fut_price_ticker, "D", [close, close[1]], ignore_invalid_symbol=true)
+
+fut_oi := d_oi
+fut_oi_prev := d_oi_prev
+fut_close := d_close
+fut_close_prev := d_close_prev
+
+// Calculate daily change %
+float fut_oi_chg_pct = (not na(fut_oi) and not na(fut_oi_prev) and fut_oi_prev != 0.0) ? ((fut_oi - fut_oi_prev) / fut_oi_prev) * 100.0 : na
+float fut_close_chg_pct = (not na(fut_close) and not na(fut_close_prev) and fut_close_prev != 0.0) ? ((fut_close - fut_close_prev) / fut_close_prev) * 100.0 : na
+
+// Classify build-up state
+string fut_state = "N/A (Cash Only)"
+color fut_state_color = color.gray
+
+if not na(fut_oi_chg_pct)
+    string _chg_sign = fut_oi_chg_pct > 0.0 ? "+" : ""
+    if fut_oi_chg_pct > 0.0
+        if fut_close_chg_pct >= 0.0
+            fut_state := "Long Build-up (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state_color := color.new(#26a69a, 0)
+        else
+            fut_state := "Short Build-up (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state_color := color.new(#ef5350, 0)
+    else if fut_oi_chg_pct < 0.0
+        if fut_close_chg_pct >= 0.0
+            fut_state := "Short Covering (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state_color := color.new(#26a69a, 0)
+        else
+            fut_state := "Long Unwinding (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state_color := color.new(#ef5350, 0)
+    else
+        fut_state := "No Change (0.00%)"
+        fut_state_color := color.gray
 
 // v67.0: Recovery Edges and RFF Lite calculation block removed.
 // All recovery detection logic migrated to Weinstein Unified Ecosystem.
@@ -3631,7 +3629,13 @@ bool alpha_ok = score >= 60
 float bs_recentHigh21  = ta.highest(high[1], 21)
 bool  bs_closeNearHigh = (d_c - d_l) > ((d_h - d_l) * 0.75)
 bool  bs_volConfirm    = curRelVol > 1.25
-bool  bs_isBreakout    = d_c > bs_recentHigh21 and bs_closeNearHigh and bs_volConfirm
+// Breakout WINDOW (2026-07-02, sync to bull_screener.py): base ceiling = highest
+// high of the 20 bars ending 3 bars ago; fire if any of the last 3 closes cleared
+// it AND price still holds above it, with 1.25x volume on any of those 3 bars.
+float bs_bo_ceiling    = ta.highest(d_h, 20)[3]
+bool  bs_bo_window     = math.max(d_c, math.max(d_c[1], d_c[2])) > bs_bo_ceiling
+bool  bs_bo_vol        = bs_volConfirm or curRelVol[1] > 1.25 or curRelVol[2] > 1.25
+bool  bs_isBreakout    = bs_bo_window and d_c > bs_bo_ceiling and bs_bo_vol
 
 // --- 9-Gate weinstein_setup (Bull Screener mirror; same booleans the Screener panel exposes) ---
 bool g1_stage     = (stageID == "STAGE 2 (UP)") or (stageID == "STAGE 1 (BASE)")                          // G1
@@ -3654,7 +3658,11 @@ float _bs_cur_range = d_h - d_l
 float _bs_min_range_7 = ta.lowest(d_h - d_l, 7)
 bool g9_bbSqz     = _bs_cur_range <= _bs_min_range_7 * 1.1                                                  // G9
 
-bool weinstein_setup = g1_stage and g2_above200 and g3_secRS and g4_secStage and g5_trendTpl and g6_volAcc and g7_fresh and g8_maSqz and g9_bbSqz
+// g7_fresh / g8_maSqz / g9_bbSqz REMOVED from the gate (2026-07-02, sync to
+// bull_screener.py): freshness is eyeballed, and the two squeeze gates are mutually
+// exclusive with a breakout (they had been nullifying POS-BO on this surface). Kept
+// as G7/G8/G9 STATUS rows + the bs_gates_passing count; they no longer block.
+bool weinstein_setup = g1_stage and g2_above200 and g3_secRS and g4_secStage and g5_trendTpl and g6_volAcc
 int  bs_gates_passing = (g1_stage ? 1:0) + (g2_above200 ? 1:0) + (g3_secRS ? 1:0) + (g4_secStage ? 1:0) + (g5_trendTpl ? 1:0) + (g6_volAcc ? 1:0) + (g7_fresh ? 1:0) + (g8_maSqz ? 1:0) + (g9_bbSqz ? 1:0)
 
 // --- Minervini Trend Template (50 > 150 > 200) ---
@@ -3679,14 +3687,19 @@ bool  bs_is_flat_base = ta.stdev(d_c, 50) < (ta.sma(d_c, 50) * 0.10)
 //    synced to bull_screener.py). ──────────────────────────────────────────
 int bs_pa_dir_cnt = 0
 for _kk = 0 to 13
-    if not na(d_c[_kk]) and not na(d_o[_kk]) and not na(d_h[_kk + 1])
-        if d_c[_kk] > d_o[_kk] and d_h[_kk] > d_h[_kk + 1]
+    if not na(d_c[_kk]) and not na(d_o[_kk])
+        if d_c[_kk] > d_o[_kk]
             bs_pa_dir_cnt += 1
-bool bs_pa_dir_ok = bs_pa_dir_cnt >= 7                       // replaces hunter_adx_ok
-bool bs_pa_wk_mom = not na(wClose[5]) and wClose > wClose[5] // replaces wRsiVal >= min
+bool bs_pa_dir_ok = bs_pa_dir_cnt >= 5                       // RELAXED 2026-07-02: >=5 up-close, dropped higher-high (sync bull_screener.py)
+bool bs_pa_wk_mom = not na(wClose5wAgo) and wClose > wClose5wAgo // MTF FIX 2026-07-03: true 5-weeks-ago close (was wClose[5] = 5 DAYS ago)
 bool bs_pa_not_extended = na(d_c[5]) or d_c <= d_c[5] * 1.05 // replaces dailyRsi <= max
 
-bool  is_pos_accum = bs_is_obv_bo and bs_is_obv_trending_up and bs_is_price_lagging and bs_is_flat_base and weinstein_setup and vcp_ok_bo and bs_pa_not_extended
+// POS-ACCUM sync to bull_screener.py / Unified (2026-07-02): accum base (Stage 1/2 +
+// above 200 + secRS + secStage + volAcc, drops near-52wH trendTpl) + near-30-bar-high
+// coil, replacing the contradictory is_price_lagging/is_flat_base (kept for reference).
+bool  bs_accum_base = g1_stage and g2_above200 and g3_secRS and g4_secStage and g6_volAcc
+bool  bs_pa_accum_break = d_c > ta.highest(d_h, 30)[1] * 0.9
+bool  is_pos_accum = bs_accum_base and bs_is_obv_trending_up and vcp_ok_bo and bs_pa_accum_break and bs_pa_not_extended
 
 // --- Daily CPR (Central Pivot Range) — close > Top Central Pivot ---
 // Ported from Commander Bull Screener v3.1 lines 998-1002
@@ -3822,10 +3835,16 @@ bool rsi_divorce = dailyRsi > 40 and wRsiVal > 60 // rsi_d_th = 40, rsi_w_th = 6
 // Institutional Footprint (Volume Drying Up - VDU)
 bool vol_vdu_ok = d_vol < d_vol_avg
 
+bool has_pb_reversal = pa_pocket or pa_hammer or pa_bull_engulf or pa_outside_bull or pa_3bar_rev or pa_spring or pa_50sma_undercut or (close > open and close > close[1] and (close - low) >= (high - low) * 0.5)
+
 bool hitPullback = is_ema_pb_zone and rsi_divorce and vol_vdu_ok
 if hitPullback
-    dayHealthStr := "Inst. Pullback Zone"
-    dayHealthCol := color.orange
+    if has_pb_reversal
+        dayHealthStr := "PB Zone (Confirmed ⚡)"
+        dayHealthCol := color.new(#26a69a, 0)
+    else
+        dayHealthStr := "PB Zone (Awaiting Trigger)"
+        dayHealthCol := color.orange
 else
     dayHealthStr := "No Setup"
     dayHealthCol := color.gray
@@ -3840,6 +3859,8 @@ float highest20 = h20
 finalEntry := 0.0
 finalSL := 0.0
 finalTSL := 0.0
+finalT1 := 0.0
+finalT2 := 0.0
 finalDate := 0
 
 // Trade Manager
@@ -3847,156 +3868,148 @@ if quick_ent > 0
     finalEntry := quick_ent
     finalSL    := quick_sl
     finalTSL   := 0.0
+    finalT1   := 0.0
+    finalT2   := 0.0
 else if f_match(p1_tick)
     finalEntry := p1_ent
     finalSL := p1_sl
     finalTSL := p1_tsl
+    finalT1 := p1_t1
+    finalT2 := p1_t2
     finalDate := p1_date
 else if f_match(p2_tick)
     finalEntry := p2_ent
     finalSL := p2_sl
     finalTSL := p2_tsl
+    finalT1 := p2_t1
+    finalT2 := p2_t2
     finalDate := p2_date
 else if f_match(p3_tick)
     finalEntry := p3_ent
     finalSL := p3_sl
     finalTSL := p3_tsl
+    finalT1 := p3_t1
+    finalT2 := p3_t2
     finalDate := p3_date
 else if f_match(p4_tick)
     finalEntry := p4_ent
     finalSL := p4_sl
     finalTSL := p4_tsl
+    finalT1 := p4_t1
+    finalT2 := p4_t2
     finalDate := p4_date
 else if f_match(p5_tick)
     finalEntry := p5_ent
     finalSL := p5_sl
     finalTSL := p5_tsl
+    finalT1 := p5_t1
+    finalT2 := p5_t2
     finalDate := p5_date
 else if f_match(p6_tick)
     finalEntry := p6_ent
     finalSL := p6_sl
     finalTSL := p6_tsl
+    finalT1 := p6_t1
+    finalT2 := p6_t2
     finalDate := p6_date
 else if f_match(p7_tick)
     finalEntry := p7_ent
     finalSL := p7_sl
     finalTSL := p7_tsl
+    finalT1 := p7_t1
+    finalT2 := p7_t2
     finalDate := p7_date
 else if f_match(p8_tick)
     finalEntry := p8_ent
     finalSL := p8_sl
     finalTSL := p8_tsl
+    finalT1 := p8_t1
+    finalT2 := p8_t2
     finalDate := p8_date
 else if f_match(p9_tick)
     finalEntry := p9_ent
     finalSL := p9_sl
     finalTSL := p9_tsl
+    finalT1 := p9_t1
+    finalT2 := p9_t2
     finalDate := p9_date
 else if f_match(p10_tick)
     finalEntry := p10_ent
     finalSL := p10_sl
     finalTSL := p10_tsl
+    finalT1 := p10_t1
+    finalT2 := p10_t2
     finalDate := p10_date
 else if f_match(p11_tick)
     finalEntry := p11_ent
     finalSL := p11_sl
     finalTSL := p11_tsl
+    finalT1 := p11_t1
+    finalT2 := p11_t2
     finalDate := p11_date
 else if f_match(p12_tick)
     finalEntry := p12_ent
     finalSL := p12_sl
     finalTSL := p12_tsl
+    finalT1 := p12_t1
+    finalT2 := p12_t2
     finalDate := p12_date
 else if f_match(p13_tick)
     finalEntry := p13_ent
     finalSL := p13_sl
     finalTSL := p13_tsl
+    finalT1 := p13_t1
+    finalT2 := p13_t2
     finalDate := p13_date
 else if f_match(p14_tick)
     finalEntry := p14_ent
     finalSL := p14_sl
     finalTSL := p14_tsl
+    finalT1 := p14_t1
+    finalT2 := p14_t2
     finalDate := p14_date
 else if f_match(p15_tick)
     finalEntry := p15_ent
     finalSL := p15_sl
     finalTSL := p15_tsl
+    finalT1 := p15_t1
+    finalT2 := p15_t2
     finalDate := p15_date
 else if f_match(p16_tick)
     finalEntry := p16_ent
     finalSL := p16_sl
     finalTSL := p16_tsl
+    finalT1 := p16_t1
+    finalT2 := p16_t2
     finalDate := p16_date
 else if f_match(p17_tick)
     finalEntry := p17_ent
     finalSL := p17_sl
     finalTSL := p17_tsl
+    finalT1 := p17_t1
+    finalT2 := p17_t2
     finalDate := p17_date
 else if f_match(p18_tick)
     finalEntry := p18_ent
     finalSL := p18_sl
     finalTSL := p18_tsl
+    finalT1 := p18_t1
+    finalT2 := p18_t2
     finalDate := p18_date
 else if f_match(p19_tick)
     finalEntry := p19_ent
     finalSL := p19_sl
     finalTSL := p19_tsl
+    finalT1 := p19_t1
+    finalT2 := p19_t2
     finalDate := p19_date
 else if f_match(p20_tick)
     finalEntry := p20_ent
     finalSL := p20_sl
     finalTSL := p20_tsl
+    finalT1 := p20_t1
+    finalT2 := p20_t2
     finalDate := p20_date
-else if f_match(p21_tick)
-    finalEntry := p21_ent
-    finalSL := p21_sl
-    finalTSL := p21_tsl
-    finalDate := p21_date
-else if f_match(p22_tick)
-    finalEntry := p22_ent
-    finalSL := p22_sl
-    finalTSL := p22_tsl
-    finalDate := p22_date
-else if f_match(p23_tick)
-    finalEntry := p23_ent
-    finalSL := p23_sl
-    finalTSL := p23_tsl
-    finalDate := p23_date
-else if f_match(p24_tick)
-    finalEntry := p24_ent
-    finalSL := p24_sl
-    finalTSL := p24_tsl
-    finalDate := p24_date
-else if f_match(p25_tick)
-    finalEntry := p25_ent
-    finalSL := p25_sl
-    finalTSL := p25_tsl
-    finalDate := p25_date
-else if f_match(p26_tick)
-    finalEntry := p26_ent
-    finalSL := p26_sl
-    finalTSL := p26_tsl
-    finalDate := p26_date
-else if f_match(p27_tick)
-    finalEntry := p27_ent
-    finalSL := p27_sl
-    finalTSL := p27_tsl
-    finalDate := p27_date
-else if f_match(p28_tick)
-    finalEntry := p28_ent
-    finalSL := p28_sl
-    finalTSL := p28_tsl
-    finalDate := p28_date
-else if f_match(p29_tick)
-    finalEntry := p29_ent
-    finalSL := p29_sl
-    finalTSL := p29_tsl
-    finalDate := p29_date
-else if f_match(p30_tick)
-    finalEntry := p30_ent
-    finalSL := p30_sl
-    finalTSL := p30_tsl
-    finalDate := p30_date
 
 tradeActive = finalEntry > 0
 
@@ -4514,6 +4527,9 @@ string compRrgStr = _rrg500_cur + " " + _rrg500_arrow + "  " + (_rrg500_score > 
 // Color: tradeable=false (cliff-edge LEADING etc.) → RED. Else quadrant color.
 color  compRrgCol = not _rrg500_tradeable ? color.new(#ef5350, 0) : _rrg500_cur == "LEADING" ? color.new(#26a69a, 0) : _rrg500_cur == "WEAKENING" ? color.new(#ff9800, 0) : _rrg500_cur == "IMPROVING" ? color.new(#3b82f6, 0) : color.new(#ef5350, 0)
 
+string compOiStr = fut_state
+color  compOiCol = fut_state_color
+
 // 3. CATALYST + GATES (one row, was 2)
 string _failing_gates = ""
 _failing_gates := (g1_stage    ? "" : " G1") + (g2_above200 ? "" : " G2") + (g3_secRS    ? "" : " G3") + (g4_secStage ? "" : " G4") + (g5_trendTpl ? "" : " G5") + (g6_volAcc   ? "" : " G6") + (g7_fresh    ? "" : " G7") + (g8_maSqz    ? "" : " G8") + (g9_bbSqz    ? "" : " G9")
@@ -4523,8 +4539,9 @@ color  compCatCol = catalyst_id > 0 and bs_gates_passing == 9 ? color.new(#26a69
 
 // 4. WEEKLY STRUCTURE (one row, was 5-6)
 string _w_arrow = wTrendDir == 1 ? "↗️" : wTrendDir == -1 ? "↘️" : "↔️"
+string _30wma_arrow = wMASlopeState == "RISING" ? "↗️" : wMASlopeState == "FALLING" ? "↘️" : "↔️"
 string _pb_suffix = wHealthStr == "N/A" or wHealthStr == "" ? "" : (" · PB " + (wHealthStr == "HEALTHY (Low Vol)" ? "Healthy" : str.contains(wHealthStr, "NORMAL") ? "Normal" : "Weak"))
-string compWeeklyStr = stageDisplay + (isStage2Family ? " · " + str.tostring(stageWeeks) + "w leg/" + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "") + " · W" + _w_arrow + _pb_suffix
+string compWeeklyStr = stageDisplay + (isStage2Family ? " · " + str.tostring(stageWeeks) + "w leg/" + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "") + " · W" + _w_arrow + " · 30WMA" + _30wma_arrow + _pb_suffix
 color  compWeeklyCol = stageCol
 
 // 5. DAILY STRUCTURE (one row, was 5)
@@ -4546,12 +4563,12 @@ string _vol_short  = str.contains(volState, "ACCUMULATION") ? "Accum " + str.tos
                    : str.contains(volState, "SQUEEZE")     ? "Squeeze"
                    : "Vol " + str.tostring(curRelVol, "#.1") + "x"
 string _adr_short  = str.contains(patStr, "True Dry Up") ? "VCP True" : str.contains(patStr, "Actionable") ? "VCP Act" : str.contains(patStr, "Expansion") ? "Expansion" : "ADR Norm"
-string _pb_zone_suffix = hitPullback ? " · PB:Zone" : ""
+string _pb_zone_suffix = hitPullback ? (has_pb_reversal ? " · PB:Confirmed ⚡" : " · PB:Awaiting") : ""
 string compMomStr = "RSI " + str.tostring(currRsi, "#.#") + _div_suffix + " · " + _vol_short + " · " + _adr_short + " · EMA20 " + (emaDist >= 0 ? "+" : "") + str.tostring(emaDist, "#.#") + "%" + _pb_zone_suffix
 color  compMomCol = currRsiDiv == "BEARISH DIV" ? color.new(#ef5350, 0) : currRsiDiv == "BULLISH DIV" ? color.new(#26a69a, 0) : str.contains(volState, "ACCUMULATION") ? color.new(#26a69a, 30) : color.new(#f5f5f5, 0)
 
 // 8. LEVELS / ROOM (one row, was 4-5)
-string _ath_short = devATH < 0 or na(devATH) ? "ATH " + str.tostring(math.abs(devATH), "#.#") + "%" : "ATH⬆️"
+string _ath_short = na(distToATH) ? "ATH: N/A" : (distToATH < 0 ? "ATH: Run: " + str.tostring(math.abs(distToATH), "#.1") + "%" : "ATH: ⬆️")
 string compLvlStr = str.tostring(resistCount) + " Resist · " + roomStr + " · 52W: " + s_dev52 + " · " + _ath_short + (keyLvlState == "MID-RANGE (No Near Level)" ? "" : " · " + keyLvlState) + setupRRStr
 color  compLvlCol = str.contains(roomStr, "NO ROOM") ? color.new(#ff9800, 0) : str.contains(roomStr, "BLUE SKY") ? color.new(#26a69a, 0) : color.new(#f5f5f5, 0)
 
@@ -4614,6 +4631,13 @@ if barstate.islast and show_detailed_view
     rowL += 1
     rowR += 1
 
+    // Trade Style Prominent Banner
+    table.cell(panel, 0, rowL, "RECOMMENDED STYLE", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, rowL, style_txt, bgcolor=style_col, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+    table.merge_cells(panel, 1, rowL, 3, rowL)
+    rowL += 1
+    rowR += 1
+
     if panicExit
         drawRowL(panel, rowL, "⚠️ CRITICAL ALERT", "PRICE < 40WMA", C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
         rowL += 1
@@ -4646,6 +4670,8 @@ if barstate.islast and show_detailed_view
     string _rrgL_txt = _rrg500_cur + " " + _rrg500_arrow + "  " + (_rrg500_score > 0 ? "+" : "") + str.tostring(_rrg500_score) + "  ·  " + _rrg500_traj + "  ·  " + (_rrg500_tradeable ? "✓ BUY OK" : "✗ WAIT") + "  (RS-Ratio " + str.tostring(val500 + 100, "#.#") + ")"
     color  _rrgL_col = _rrg500_tradeable ? color.new(#26a69a, 0) : color.new(#ef5350, 0)
     drawRowL(panel, rowL, "RRG (vs N500)", _rrgL_txt, _rrgL_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
+    rowL += 1
+    drawRowL(panel, rowL, "Futures OI State", compOiStr, compOiCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
     rowL += 1
     drawRowL(panel, rowL, "Next Earnings", earnStr, earnColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
     rowL += 1
@@ -4689,7 +4715,7 @@ if barstate.islast and show_detailed_view
     rowL += 1
     drawRowL(panel, rowL, "ACTION SIGNAL", actionSignal, conf_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
     rowL += 1
-    drawRowL(panel, rowL, "TRADE STYLE", style_txt, style_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
+    // drawRowL(panel, rowL, "TRADE STYLE", style_txt, style_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
     rowL += 1
     drawRowL(panel, rowL, "PERSONA", persona_txt, persona_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
     rowL += 1
@@ -4811,6 +4837,12 @@ if barstate.islast and not show_detailed_view
     table.cell(panel, 3, row, str.tostring(year(timenow)) + "-" + str.tostring(month(timenow)) + "-" + str.tostring(dayofmonth(timenow)), bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
     row += 1
 
+    // Trade Style Prominent Banner
+    table.cell(panel, 0, row, "RECOMMENDED STYLE", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, row, style_txt, bgcolor=style_col, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+    table.merge_cells(panel, 1, row, 3, row)
+    row += 1
+
     // CRITICAL ALERT (only when active)
     if panicExit
         drawRowC(panel, row, "⚠️ CRITICAL ALERT", "PRICE < 40WMA — EXIT NOW", C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
@@ -4846,7 +4878,7 @@ if barstate.islast and not show_detailed_view
     drawRowC(panel, row, "LEVELS / ROOM",     compLvlStr,        compLvlCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
     row += 1
 
-    // === 🌐 CONTEXT (3 rows) ===
+    // === 🌐 CONTEXT (4 rows) ===
     table.cell(panel, 0, row, "── 🌐 CONTEXT ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
     table.merge_cells(panel, 0, row, 3, row)
     row += 1
@@ -4857,7 +4889,9 @@ if barstate.islast and not show_detailed_view
     row += 1
     drawRowC(panel, row, "RRG (vs N500)",     compRrgStr,        compRrgCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
     row += 1
-    drawRowC(panel, row, "STYLE / PERSONA",   compStyleStr,      compStyleCol,     C_LBL, C_LBL_TXT, C_VAL_TXT)
+    drawRowC(panel, row, "FUTURES OI STATE",  compOiStr,         compOiCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
+    row += 1
+    drawRowC(panel, row, "PERSONA",           persona_txt,       persona_col,      C_LBL, C_LBL_TXT, C_VAL_TXT)
     row += 1
 
     // === 📦 PORTFOLIO ===
@@ -4917,9 +4951,8 @@ f_dist(float lvl) =>
 // Target Logic (2R and 3R as per v20.0)
 visualSL := finalTSL > 0 ? finalTSL : finalSL
 float risk_per_share = math.abs(finalEntry - finalSL)
-float t1_val = finalEntry + (risk_per_share * dyn_T1_R)
-float t2_val = finalEntry + (risk_per_share * dyn_T2_R)
-float t3_val = finalEntry + (risk_per_share * dyn_T3_R)
+float t1_val = finalT1 > 0 ? finalT1 : finalEntry + (risk_per_share * dyn_T1_R)
+float t2_val = finalT2 > 0 ? finalT2 : finalEntry + (risk_per_share * dyn_T2_R)
 
 // PLOTS (Continuous Lines for History)
 // Fix: Simplified condition to 'tradeActive' to restore draggability (TV requires plot series to be linked to inputs consistently)
@@ -4927,15 +4960,18 @@ color entryColor = tradeActive and (finalDate == 0 or time >= finalDate) ? color
 color slColor    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.red, 0) : color.new(color.red, 100)
 color t1Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 30) : color.new(color.green, 100)
 color t2Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 50) : color.new(color.green, 100)
-color t3Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 70) : color.new(color.green, 100)
 
 plot(showTrade and finalEntry > 0 ? finalEntry : na, "Entry Price", color=entryColor, style=plot.style_linebr, linewidth=1)
 plot(showTrade and tradeActive ? visualSL : na, "Hard SL (Trail)", color=slColor, style=plot.style_linebr, linewidth=1)
-plot(showTrade and tradeActive and finalSL > 0 and visualSL < finalEntry ? t1_val : na, "Target 1 (Dynamic)", color=t1Color, style=plot.style_linebr, linewidth=1)
-plot(showTrade and tradeActive and finalSL > 0 and visualSL < t2_val ? t2_val : na, "Target 2 (Dynamic)", color=t2Color, style=plot.style_linebr, linewidth=1)
-plot(showTrade and tradeActive and finalSL > 0 and visualSL >= finalEntry ? t3_val : na, "Target 3 (Dynamic)", color=t3Color, style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 and finalT1 > 0 ? t1_val : na, "Target 1", color=t1Color, style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "Target 2", color=t2Color, style=plot.style_linebr, linewidth=1)
 
-// Trailing SL Logic Removed in favor of Native Chandelier Exit
+// --- Native Chandelier Exit (Restored) ---
+float active_ce_mult  = isBullMarket ? 4.5 : 5.0
+[ce_h_d, ce_atr_d] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.atr(22)], ignore_invalid_symbol=true)
+float ce_trailing_stop = ce_h_d - (ce_atr_d * active_ce_mult)
+plot(showTrade and tradeActive ? ce_trailing_stop : na, "Chandelier TSL (22, 4.5)", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
+// -----------------------------------------
 
 // LABELS (Last Bar Only - v20.0 Style)
 if barstate.islast and showTrade and tradeActive
@@ -4955,16 +4991,13 @@ if barstate.islast and showTrade and tradeActive
             string slDist = showDist ? ", " + f_dist(finalSL) : ""
             label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
         
-    if finalSL > 0 and visualSL < finalEntry
+    if finalSL > 0 and finalT1 > 0
         string t1Dist = showDist ? ", " + f_dist(t1_val) : ""
         label.new(bar_index + 3, t1_val, "Target 1: " + str.tostring(math.round_to_mintick(t1_val)) + t1Dist, color=color.green, style=label.style_none, textcolor=color.green, size=size.small)
         
-    if finalSL > 0 and visualSL < t2_val
+    if finalSL > 0 and finalT2 > 0
         string t2Dist = showDist ? ", " + f_dist(t2_val) : ""
         label.new(bar_index + 3, t2_val, "Target 2: " + str.tostring(math.round_to_mintick(t2_val)) + t2Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
-    if finalSL > 0 and visualSL >= finalEntry
-        string t3Dist = showDist ? ", " + f_dist(t3_val) : ""
-        label.new(bar_index + 3, t3_val, "Target 3: " + str.tostring(math.round_to_mintick(t3_val)) + t3Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
     
 
 
@@ -5132,16 +5165,6 @@ if show_csv and barstate.islast and time_ok
     csv_out := csv_out + f_row(p18_tick, p18_ent, p18_sl, p18_date, p18_sec)
     csv_out := csv_out + f_row(p19_tick, p19_ent, p19_sl, p19_date, p19_sec)
     csv_out := csv_out + f_row(p20_tick, p20_ent, p20_sl, p20_date, p20_sec)
-    csv_out := csv_out + f_row(p21_tick, p21_ent, p21_sl, p21_date, p21_sec)
-    csv_out := csv_out + f_row(p22_tick, p22_ent, p22_sl, p22_date, p22_sec)
-    csv_out := csv_out + f_row(p23_tick, p23_ent, p23_sl, p23_date, p23_sec)
-    csv_out := csv_out + f_row(p24_tick, p24_ent, p24_sl, p24_date, p24_sec)
-    csv_out := csv_out + f_row(p25_tick, p25_ent, p25_sl, p25_date, p25_sec)
-    csv_out := csv_out + f_row(p26_tick, p26_ent, p26_sl, p26_date, p26_sec)
-    csv_out := csv_out + f_row(p27_tick, p27_ent, p27_sl, p27_date, p27_sec)
-    csv_out := csv_out + f_row(p28_tick, p28_ent, p28_sl, p28_date, p28_sec)
-    csv_out := csv_out + f_row(p29_tick, p29_ent, p29_sl, p29_date, p29_sec)
-    csv_out := csv_out + f_row(p30_tick, p30_ent, p30_sl, p30_date, p30_sec)
 
     log.info("\n⬇️ COPY PORTFOLIO CSV BELOW ⬇️\n\n" + csv_out + "\n⬆️ COPY PORTFOLIO CSV ABOVE ⬆️")
 
