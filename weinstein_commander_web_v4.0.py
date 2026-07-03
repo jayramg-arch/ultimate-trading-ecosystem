@@ -10322,9 +10322,26 @@ elif page == 'GOLDEN MATCHER':
                                 
                                 current_sym = st.session_state.get("gm_sym_input", "")
                                 if sym != current_sym:
-                                    st.session_state["gm_sym_input"] = sym
-                                    st.session_state["gm_symbol"] = sym
-                                    st.rerun()
+                                    # DEBOUNCE (2026-07-03): commit the new symbol only after it has
+                                    # been STABLE for 2 consecutive polls (~4s). Without this, fast
+                                    # watchlist scrolling on TV fired a full screen_one fetch chain
+                                    # (daily+weekly+fundamentals) per name — a burst that trips the
+                                    # Dhan throttle (the same failure mode behind the cache-poisoning
+                                    # symptom). Mid-scroll names now never trigger fetches.
+                                    if sym == st.session_state.get("gm_pend_sym"):
+                                        st.session_state["gm_pend_count"] = st.session_state.get("gm_pend_count", 0) + 1
+                                    else:
+                                        st.session_state["gm_pend_sym"] = sym
+                                        st.session_state["gm_pend_count"] = 1
+                                    if st.session_state["gm_pend_count"] >= 2:
+                                        st.session_state["gm_pend_sym"] = None
+                                        st.session_state["gm_pend_count"] = 0
+                                        st.session_state["gm_sym_input"] = sym
+                                        st.session_state["gm_symbol"] = sym
+                                        st.rerun()
+                                else:
+                                    st.session_state["gm_pend_sym"] = None
+                                    st.session_state["gm_pend_count"] = 0
                                 return
             except Exception:
                 pass
@@ -10492,9 +10509,23 @@ elif page == 'TV SIDECAR':
                                 
                                 current_sym = st.session_state.get("tv_sym_input", "")
                                 if sym != current_sym:
-                                    st.session_state["tv_sym_input"] = sym
-                                    st.session_state["tv_symbol"] = sym
-                                    st.rerun()
+                                    # DEBOUNCE (2026-07-03): same 2-poll stability rule as the
+                                    # Golden Matcher pane — no fetch bursts while scrolling the
+                                    # TV watchlist.
+                                    if sym == st.session_state.get("tv_pend_sym"):
+                                        st.session_state["tv_pend_count"] = st.session_state.get("tv_pend_count", 0) + 1
+                                    else:
+                                        st.session_state["tv_pend_sym"] = sym
+                                        st.session_state["tv_pend_count"] = 1
+                                    if st.session_state["tv_pend_count"] >= 2:
+                                        st.session_state["tv_pend_sym"] = None
+                                        st.session_state["tv_pend_count"] = 0
+                                        st.session_state["tv_sym_input"] = sym
+                                        st.session_state["tv_symbol"] = sym
+                                        st.rerun()
+                                else:
+                                    st.session_state["tv_pend_sym"] = None
+                                    st.session_state["tv_pend_count"] = 0
                                 return
             except Exception:
                 pass
