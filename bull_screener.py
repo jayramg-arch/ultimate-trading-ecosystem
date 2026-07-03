@@ -63,9 +63,20 @@ import yfinance as yf
 # Reset at start of each run; printed after the screening loop completes.
 # Tells you exactly where the catalyst funnel collapses.
 FUNNEL = Counter()
+# Data-freshness audit (2026-07-03, reliability layer): symbol -> last bar date
+# recorded on every screen. data_provider silently serves EXPIRED cache when all
+# feeds fail (throttle etc.), so a run can silently mix as-of dates across the
+# universe. run_bull_screener reports the distribution and flags stale picks.
+RUN_FRESHNESS: dict = {}
 
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 warnings.filterwarnings("ignore")
+
+# Module logger. Previously undefined: the two `logger.debug(...)` calls inside
+# except handlers (conviction passthrough + catalyst summary) would raise
+# NameError and crash the whole run if their try-block ever failed. Defining it
+# here makes those handlers degrade to a logged warning as intended.
+logger = logging.getLogger(__name__)
 
 # C1: route OHLCV through the unified data_provider when available.
 # Set USE_DATA_PROVIDER=False (or remove the import) to fall back to direct
@@ -850,9 +861,12 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     # them in (a tight-coil/NR7 squeeze), which is mutually exclusive with the
     # POS-BO breakout requirement and nullified the ENTIRE positional book
     # (0 POS picks across 24 months; 25/440 qualify once the squeeze is removed).
+    # stage2_fresh_ok REMOVED from the gate (2026-07-02, Jay): maturity is eyeballed
+    # on the weekly chart, not hard-gated. Variable still computed for the funnel /
+    # dashboard "Stage-2 Age" display. Pine surfaces need the same removal to stay in sync.
     weinstein_setup = (
         stage_ok and trend_aligned and rs_ok and sector_stage_ok and
-        vol_acc_ok and stage2_fresh_ok and
+        vol_acc_ok and
         trend_template_ok
     )
 
@@ -941,7 +955,9 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
 
     # POS-BO funnel (E5: uses weinstein_setup for the base gate)
     _pb_break = c_now > float(h.iloc[-22:-1].max())
-    _pb_vol   = rv_now > 1.25
+    # Vol WINDOW (2026-07-02, Jay tuning): accept the 1.25x breakout-volume bar on
+    # any of the last 3 sessions, not only today — matches the breakout window below.
+    _pb_vol   = bool((rv.iloc[-3:] > 1.25).any())
 
     # ── Pine-parity catalyst helpers (Weinstein_Unified_Ecosystem_v3.4) ──────
     # Zero-drift restoration: the undocumented "R-series" rewrite diverged the
@@ -975,12 +991,31 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     # while the charts block it. Kept as a named var (=False) for back-compat.
     mature_trend_ok = False
     base_confirmed = weinstein_setup and mpa_pass
+    # POS-ACCUM base (2026-07-02, Jay): accumulation-appropriate. Drops the near-52wH
+    # trend_template (a basing stock is often >25% below its high) and the full
+    # Minervini stack (MAs coil in a base) that base_confirmed requires — both
+    # contradict the "accumulate BEFORE the move" premise and diverged from the Pine
+    # POS-ACCUM surfaces (is_price_lagging). Requires: Stage 1/2 + above 200-DMA +
+    # RS not lagging + volume accumulation.
+    accum_base = stage_ok and (c_now > _sma200_now) and rs_ok and vol_acc_ok
     # PRICE-ACTION directional strength (Jay's preference: replaces ADX). >=7 of
     # last 14 bars are up-closes making higher highs — a clean uptrend structure.
+    # dir_ok RELAXED (2026-07-02, Jay tuning): was >=7 of 14 up-close bars ALSO making
+    # higher highs — that momentum-continuation clause rejected breakouts from a flat
+    # base (coiling = no higher highs). Now just >=5 of 14 up-close bars: a directional
+    # bias, without demanding a pre-existing rally on top of the breakout trigger.
     _pb_dir_ok = (sum(1 for i in range(1, 15)
-                      if float(c.iloc[-i]) > float(ind["open"].iloc[-i]) and
-                         float(h.iloc[-i]) > float(h.iloc[-(i + 1)])) >= 7) if len(c) > 14 else False
-    _bo20 = float(h.iloc[-21:-1].max()) if len(h) >= 21 else float(h.max())  # 20-bar breakout: highest(high,20)[1]
+                      if float(c.iloc[-i]) > float(ind["open"].iloc[-i])) >= 5) if len(c) > 14 else False
+    # Breakout WINDOW (2026-07-02, Jay tuning): base ceiling = highest high of the
+    # 20 bars ending 3 bars ago; POS-BO fires if any of the last 3 closes cleared it
+    # AND price is still holding above it — catches the breakout for ~3 sessions
+    # instead of only the single breakout bar (was: new 20-bar high TODAY only).
+    if len(h) >= 24:
+        _base_ceiling = float(h.iloc[-23:-3].max())
+        _bo_ok = (max(float(c.iloc[-1]), float(c.iloc[-2]), float(c.iloc[-3])) > _base_ceiling
+                  and c_now > _base_ceiling)
+    else:
+        _bo_ok = c_now > (float(h.iloc[-21:-1].max()) if len(h) >= 21 else float(h.max()))
     # SWG-PB — bull_pullback (price action: tag EMA20 low, close above, up day)
     bull_pullback = (c_now > _sma50_now and l_now <= ema20_now and
                      c_now > ema20_now and c_now > o_now)
@@ -1004,22 +1039,22 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     FUNNEL["POSBO_eligible"]       += 1
     FUNNEL["POSBO_pass_mkt_bull"]  += 1 if mkt_bull else 0   # context only
     FUNNEL["POSBO_pass_alpha"]     += 1 if alpha_ok_for_bo else 0
-    FUNNEL["POSBO_pass_weinstein"]      += 1 if (alpha_ok and base_confirmed) else 0
-    FUNNEL["POSBO_pass_breakout"]  += 1 if (alpha_ok and base_confirmed and c_now > _bo20) else 0
-    FUNNEL["POSBO_pass_vol"]       += 1 if (alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol) else 0
-    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False)) else 0
-    FUNNEL["POSBO_pass_adx25"]     += 1 if (alpha_ok and base_confirmed and c_now > _bo20 and _pb_vol and weekly.get("w_mom", False) and _pb_dir_ok) else 0
+    FUNNEL["POSBO_pass_weinstein"]      += 1 if (base_confirmed) else 0
+    FUNNEL["POSBO_pass_breakout"]  += 1 if (base_confirmed and _bo_ok) else 0
+    FUNNEL["POSBO_pass_vol"]       += 1 if (base_confirmed and _bo_ok and _pb_vol) else 0
+    FUNNEL["POSBO_pass_wrsi60"]    += 1 if (base_confirmed and _bo_ok and _pb_vol and weekly.get("w_mom", False)) else 0
+    FUNNEL["POSBO_pass_adx25"]     += 1 if (base_confirmed and _bo_ok and _pb_vol and weekly.get("w_mom", False) and _pb_dir_ok) else 0
 
     # POS-ACCUM funnel
     _pa_break = c_now > float(h.iloc[-31:-1].max()) * 0.9
     FUNNEL["POSAC_eligible"]       += 1
     FUNNEL["POSAC_pass_mkt_bull"]  += 1 if mkt_bull else 0   # context only
     FUNNEL["POSAC_pass_alpha"]     += 1 if alpha_ok_for_bo else 0
-    FUNNEL["POSAC_pass_obv"]       += 1 if (alpha_ok and obv_trending_up) else 0
-    FUNNEL["POSAC_pass_weinstein"]      += 1 if (alpha_ok and obv_trending_up and base_confirmed) else 0
-    FUNNEL["POSAC_pass_vcp"]       += 1 if (alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum) else 0
-    FUNNEL["POSAC_pass_breakout"]  += 1 if (alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break) else 0
-    FUNNEL["POSAC_pass_rsi50"]     += 1 if (alpha_ok and obv_trending_up and base_confirmed and is_vcp_accum and _pa_break and pa_not_extended) else 0
+    FUNNEL["POSAC_pass_obv"]       += 1 if (obv_trending_up) else 0
+    FUNNEL["POSAC_pass_weinstein"]      += 1 if (obv_trending_up and accum_base) else 0
+    FUNNEL["POSAC_pass_vcp"]       += 1 if (obv_trending_up and accum_base and is_vcp_accum) else 0
+    FUNNEL["POSAC_pass_breakout"]  += 1 if (obv_trending_up and accum_base and is_vcp_accum and _pa_break) else 0
+    FUNNEL["POSAC_pass_rsi50"]     += 1 if (obv_trending_up and accum_base and is_vcp_accum and _pa_break and pa_not_extended) else 0
 
     # SWG-PB funnel (Pine-parity gate chain)
     FUNNEL["SWGPB_eligible"]    += 1
@@ -1061,23 +1096,39 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
     # POS-BO: base_confirmed + alpha + 20-bar breakout + vol>1.25x
     #   + PA weekly momentum (w_mom, replaces weekly RSI>=60 — part a)
     #   + PA directional strength (_pb_dir_ok, replaces ADX>=25)
-    if (base_confirmed and alpha_ok and c_now > _bo20 and _pb_vol and
+    # alpha DEMOTED to status (2026-07-02, Jay): alpha (Asset Quality) is shown in
+    # the output record + dashboard Step-2, but no longer VETOES POS-BO. The catalyst
+    # fires on structure (Stage-2 leader + breakout window + volume + weekly momentum
+    # + directional bias); alpha is context to eyeball, not a hard gate.
+    if (base_confirmed and _bo_ok and _pb_vol and
             weekly.get("w_mom", False) and _pb_dir_ok):
         cat_id = 2; cat_label = "POS-BO"
-    # POS-ACCUM: base_confirmed + alpha + obv + looser VCP (is_vcp_accum) +
-    #   30-bar breakout + PA anti-chase (pa_not_extended, replaces RSI<=50 — part a)
-    elif (base_confirmed and alpha_ok and obv_trending_up and is_vcp_accum and
+    # POS-ACCUM: base_confirmed + obv + looser VCP (is_vcp_accum) + 30-bar breakout
+    #   + PA anti-chase (pa_not_extended, replaces RSI<=50 — part a)
+    # alpha DEMOTED to status (2026-07-02, Jay): same as POS-BO — alpha rides in the
+    # record + dashboard but no longer vetoes the catalyst.
+    elif (accum_base and obv_trending_up and is_vcp_accum and
             _pa_break and pa_not_extended):
         cat_id = 1; cat_label = "POS-ACCUM"
     # SWG-GAP: gap_up + gap>=4% + close in top 40% of gap bar + vol>3x (pure PA)
     elif (gap_up and gap_pct >= 0.04 and gap_intra_pos >= 0.60 and
             rv_now >= 3.0):
         cat_id = 6; cat_label = "SWG-GAP"
-    # SWG-BO: is_vcp_tight + 20-bar breakout + vol>1.5x (price/volume structure)
-    elif (is_vcp_tight and c_now > _bo20 and rv_now > 1.5):
+    # SWG-BO: SYNCED UP to Pine is_swing_bo (2026-07-02, Jay): Minervini uptrend +
+    # VCP(1.5x) + 15-bar pivot breakout + vol>1.25x + anti-algo (close in upper 60% of
+    # bar AND up-close). Was is_vcp_tight(1.0) + _bo_ok + vol>1.5 with NO trend and NO
+    # anti-algo gate — it fired low-quality breakouts (the validated swing drag:
+    # 37% win, -1.31% alpha). Fewer, higher-quality names now.
+    elif (minervini and vcp_tight_swg and c_now > float(h.iloc[-16:-1].max()) and
+            rv_now > 1.25 and intraday_pos >= 0.60 and c_now > o_now):
         cat_id = 4; cat_label = "SWG-BO"
-    # SWG-PB: swing_pb_trg in Pine (is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok)
-    elif (is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_drying):
+    # SWG-PB: swing_pb_trg (is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok)
+    # REGIME-CONDITIONED (2026-07-02, Jay): + mkt_bull. SWG-PB is a momentum-CONTINUATION
+    # setup that is robustly negative in corrective regimes (validation campaign). Gating
+    # on mkt_bull suppresses it when the index is not in a confirmed uptrend — it only
+    # fires when the market wind is at its back. (mkt_bull stays an OVERLAY for the
+    # positional catalysts; here it is a hard gate because SWG-PB depends on the regime.)
+    elif (mkt_bull and is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_drying):
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
     #   replaces RSI<35) + bullish reversal confirm (close>open and close>prior high)
@@ -1244,14 +1295,11 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
                   mkt_bull: bool = True) -> dict:
     yf_sym = to_yf(symbol)
     try:
-        if USE_DATA_PROVIDER and _dp is not None:
-            df_d = _flatten_cols(_dp.fetch_ohlcv(symbol, period="2y", interval="1d"))
-            if df_d.empty or len(df_d) < 60: return None
-            df_w = _flatten_cols(_dp.fetch_ohlcv(symbol, period="3y", interval="1wk"))
-        else:
-            df_d = _flatten_cols(yf.download(yf_sym, period="2y", interval="1d", auto_adjust=True, progress=False))
-            if df_d.empty or len(df_d) < 60: return None
-            df_w = _flatten_cols(yf.download(yf_sym, period="3y", interval="1wk", auto_adjust=True, progress=False))
+        import data_provider as _dp
+        df_d = _flatten_cols(_dp.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True, auto_adjust=True))
+        if df_d is None or df_d.empty or len(df_d) < 60: return None
+        RUN_FRESHNESS[symbol] = df_d.index[-1]
+        df_w = _flatten_cols(_dp.fetch_ohlcv(symbol, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
     except Exception:
         return None
 
@@ -1364,6 +1412,7 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
 
     record = {
         "Symbol": symbol,
+        "As_Of": str(ind["close"].index[-1].date()),
         "Catalyst": cond["label"],
         "Score": _final_score,                                 # E3: includes VCP boost
         "Catalyst_Score": cond["score"],                       # E3: original catalyst-only score
@@ -1421,6 +1470,53 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
         pass
     return record
 
+def screen_one(symbol: str, force_output: bool = True) -> dict:
+    """Single-symbol convenience entry for dashboards / ad-hoc lookups.
+
+    Builds the ^CRSLDX benchmark frame (same fetch + live-week resample as
+    run_bull_screener) and the market-regime flag, then delegates to
+    screen_symbol().  ``force_output`` defaults True so a name that is not
+    currently triggering still returns its full technical record
+    (Stage/RS/Alpha/levels) for display — the catalyst just reads its raw id.
+
+    Returns the same dict as screen_symbol(), or None if data is unavailable.
+    Additive wrapper — does not alter run_bull_screener's existing path.
+    """
+    import data_provider as _dp
+    df_bench   = _flatten_cols(_dp.fetch_ohlcv(BENCHMARK_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
+    df_bench_d = _flatten_cols(_dp.fetch_ohlcv(BENCHMARK_YF, period="2y", interval="1d",  use_cache=True, auto_adjust=True))
+    # Append the live week to the weekly benchmark (yfinance lags) so
+    # RRG/Mansfield use the freshest week — mirrors run_bull_screener.
+    if not df_bench_d.empty and len(df_bench_d) >= 20:
+        try:
+            _rs = df_bench_d.resample("W-MON", closed="left", label="left").agg(
+                {"Open": "first", "High": "max", "Low": "min", "Close": "last", "Volume": "sum"}
+            ).dropna(subset=["Close"])
+            if not _rs.empty:
+                if df_bench.empty:
+                    df_bench = _rs
+                else:
+                    _new = _rs[_rs.index > df_bench.index[-1]]
+                    if not _new.empty:
+                        df_bench = pd.concat([df_bench, _new])
+        except Exception:
+            pass
+    # Market regime — same gate as run_bull_screener (CNX500 close>SMA200 & SMA50>SMA200)
+    mkt_bull = False
+    if not df_bench_d.empty and len(df_bench_d) >= 200:
+        _bc   = df_bench_d["Close"]
+        _s50  = float(_bc.rolling(50).mean().iloc[-1])
+        _s200 = float(_bc.rolling(200).mean().iloc[-1])
+        _c    = float(_bc.iloc[-1])
+        mkt_bull = bool(not np.isnan(_s50) and not np.isnan(_s200) and _c > _s200 and _s50 > _s200)
+    _override = os.environ.get("MKT_BULL_OVERRIDE", "").strip().upper()
+    if _override in ("1", "TRUE", "BULL"):
+        mkt_bull = True
+    elif _override in ("0", "FALSE", "NOT"):
+        mkt_bull = False
+    return screen_symbol(symbol, df_bench, force_output=force_output, mkt_bull=mkt_bull)
+
+
 def run_bull_screener(progress_callback=None, symbols=None,
                       out_file: str = OUTPUT_FILE,
                       strict: bool = False) -> pd.DataFrame:
@@ -1462,18 +1558,9 @@ def run_bull_screener(progress_callback=None, symbols=None,
 
     # C1: shared cache for the benchmark too — a single screener run reuses
     # the same ^CRSLDX weekly slice across hundreds of symbols.
-    if USE_DATA_PROVIDER and _dp is not None:
-        df_bench = _flatten_cols(_dp.fetch_ohlcv(BENCHMARK_YF, period="3y", interval="1wk"))
-        df_bench_d = _flatten_cols(_dp.fetch_ohlcv(BENCHMARK_YF, period="2y", interval="1d"))
-    else:
-        df_bench = _flatten_cols(
-            yf.download(BENCHMARK_YF, period="3y", interval="1wk",
-                        auto_adjust=True, progress=False)
-        )
-        df_bench_d = _flatten_cols(
-            yf.download(BENCHMARK_YF, period="2y", interval="1d",
-                        auto_adjust=True, progress=False)
-        )
+    import data_provider as _dp
+    df_bench = _flatten_cols(_dp.fetch_ohlcv(BENCHMARK_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
+    df_bench_d = _flatten_cols(_dp.fetch_ohlcv(BENCHMARK_YF, period="2y", interval="1d", use_cache=True, auto_adjust=True))
 
     # v1.5: yfinance's weekly bars for ^CRSLDX often lag the current week,
     # while individual stocks include it. Inner-merge then drops the live week
@@ -1549,6 +1636,7 @@ def run_bull_screener(progress_callback=None, symbols=None,
 
     # v2.4 sync diagnostic: reset funnel counters at start of run
     FUNNEL.clear()
+    RUN_FRESHNESS.clear()
 
     results = []
     total   = len(symbols)
@@ -1575,6 +1663,39 @@ def run_bull_screener(progress_callback=None, symbols=None,
         except Exception:
             pass
         time.sleep(CONFIG["download_delay_sec"])
+
+    # ── STALE-DATA SELF-HEAL (2026-07-03, reliability layer) ────────────────
+    # Transient feed failures (throttle) make data_provider silently serve
+    # EXPIRED cache for some symbols — a forced refetch immediately succeeds
+    # (verified). Retry each stale symbol ONCE with a cache-busting fetch, then
+    # re-screen it so the run is date-consistent. Guarded: retry failures leave
+    # the original (stale-flagged) record in place. NOTE: retried symbols
+    # increment FUNNEL counters twice (minor diagnostic skew, ≤ a few names).
+    try:
+        if RUN_FRESHNESS:
+            _dts = pd.Series({s: pd.Timestamp(d).normalize() for s, d in RUN_FRESHNESS.items()})
+            _cut = _dts.max() - pd.tseries.offsets.BDay(2)
+            _retry = sorted(_dts[_dts < _cut].index)
+            if _retry:
+                print(f"\n  ---- STALE-DATA RETRY ({len(_retry)} symbols) ----")
+                for _s in _retry:
+                    try:
+                        # cache-busting fetch rewrites the cache; re-screen reads it fresh
+                        _dp.fetch_ohlcv(_s, period="2y", interval="1d", use_cache=False, auto_adjust=True)
+                        _dp.fetch_ohlcv(_s, period="3y", interval="1wk", use_cache=False, auto_adjust=True)
+                        _res2 = screen_symbol(_s, df_bench, force_output=force_tracker_mode,
+                                              mkt_bull=mkt_bull)
+                        if _res2:
+                            results = [r for r in results if r.get("Symbol") != _s]
+                            results.append(_res2)
+                            print(f"    {_s:<12} refetched -> as of {_res2.get('As_Of','?')}")
+                        else:
+                            print(f"    {_s:<12} refetched but no record (kept original)")
+                    except Exception as _rexc:
+                        print(f"    {_s:<12} retry failed ({_rexc}) — kept stale record")
+                    time.sleep(CONFIG["download_delay_sec"])
+    except Exception as _she:
+        logger.debug("stale-data self-heal failed: %s", _she)
 
     # v2.4 sync diagnostic — print per-gate funnel for POS-BO and POS-ACCUM
     # AND mirror it to a file (Bull_Screener_Funnel.log in DATA_DIR) so you can
@@ -1685,6 +1806,47 @@ def run_bull_screener(progress_callback=None, symbols=None,
                 print("=" * 68)
         except Exception as _se:
             logger.debug("bull catalyst summary failed: %s", _se)
+
+        # ── DATA FRESHNESS AUDIT (2026-07-03, reliability layer) ────────────
+        # data_provider silently serves EXPIRED cache when all feeds fail, so a
+        # run can mix as-of dates across the universe. Report the distribution,
+        # flag picks >2 sessions behind the universe max, and keep stale picks
+        # OUT of the sentinel counts (a catalyst on 9-day-old data is not a signal).
+        _stale_syms: set = set()
+        try:
+            if RUN_FRESHNESS:
+                _dates = pd.Series({s: pd.Timestamp(d).normalize()
+                                    for s, d in RUN_FRESHNESS.items()})
+                _max_d = _dates.max()
+                _cutoff = _max_d - pd.tseries.offsets.BDay(2)
+                _stale_syms = set(_dates[_dates < _cutoff].index)
+                print("\n  ---- DATA FRESHNESS AUDIT ----")
+                for _d, _n in _dates.value_counts().sort_index(ascending=False).items():
+                    print(f"    {_d.date()}  {_n:4d} symbols"
+                          + ("   <-- STALE (>2 sessions behind)" if _d < _cutoff else ""))
+                if _stale_syms:
+                    _stale_fired = df_out[df_out["Symbol"].isin(_stale_syms) &
+                                          df_out["Catalyst"].fillna("None").ne("None")]["Symbol"].tolist()
+                    print(f"    ⚠ {len(_stale_syms)} symbols on stale data"
+                          + (f" — FIRED picks on stale data: {_stale_fired}" if _stale_fired else ""))
+                else:
+                    print("    ✅ universe date-consistent")
+                if "Symbol" in df_out.columns:
+                    df_out["Stale_Data"] = df_out["Symbol"].isin(_stale_syms)
+                    df_out.to_csv(os.path.join(DATA_DIR, out_file), index=False)
+        except Exception as _fe:
+            logger.debug("freshness audit failed: %s", _fe)
+
+        # ── CATALYST SENTINEL (2026-07-02, reliability layer) — record per-family
+        # counts + blackout check after every run. Guarded: a sentinel failure
+        # must never break the screener. Stale-data picks excluded from counts.
+        try:
+            import catalyst_sentinel as _cs
+            _df_fresh = df_out[~df_out["Symbol"].isin(_stale_syms)] if _stale_syms else df_out
+            print(_cs.record_and_check(_df_fresh, regime_bull=mkt_bull,
+                                       universe_size=len(symbols)))
+        except Exception as _cse:
+            logger.debug("catalyst sentinel failed: %s", _cse)
         return df_out
 
     # Zero-signals case (10 May 2026 fix): still write a header-only CSV so
@@ -1701,6 +1863,15 @@ def run_bull_screener(progress_callback=None, symbols=None,
     pd.DataFrame(columns=_empty_cols).to_csv(
         os.path.join(DATA_DIR, out_file), index=False
     )
+    # ── CATALYST SENTINEL — the zero-results run is the blackout-relevant
+    # datapoint; record it too (guarded).
+    try:
+        import catalyst_sentinel as _cs
+        print(_cs.record_and_check(pd.DataFrame(columns=_empty_cols),
+                                   regime_bull=mkt_bull,
+                                   universe_size=len(symbols)))
+    except Exception as _cse:
+        logger.debug("catalyst sentinel failed: %s", _cse)
     return pd.DataFrame(columns=_empty_cols)
 
 def main():
