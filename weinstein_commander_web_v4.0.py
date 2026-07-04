@@ -2539,6 +2539,9 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
     # Trend qualifiers (Jay): Weekly accel from the 30W-MA-proxy slope change
     # (recent 21d slope vs the prior 21d slope, direction-aware); Daily from the
     # swing engine's Vel_Accel.
+    # Qualifier vocabulary names the IMPLICATION, not the mechanics (Jay:
+    # "Down (Decelerating)" read wrong): Strengthening / Losing Steam for
+    # uptrends, Deepening / Easing for downtrends, Steady when unchanged.
     s150p2 = _g(ctx, "sma150_prev2")
     w_q = ""
     if s150 and s150p and s150p2:
@@ -2546,11 +2549,14 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
         _eps = s150 * 0.0005
         _diff = _sl1 - _sl2
         if wk_up:
-            w_q = "Accelerating" if _diff > _eps else ("Decelerating" if _diff < -_eps else "Flat")
+            w_q = "Strengthening" if _diff > _eps else ("Losing Steam" if _diff < -_eps else "Steady")
         else:
-            w_q = "Accelerating" if _diff < -_eps else ("Decelerating" if _diff > _eps else "Flat")
-    d_q = {"UP": "Accelerating", "DOWN": "Decelerating", "FLAT": "Flat"}.get(
-        str(vacc).upper(), "")
+            w_q = "Deepening" if _diff < -_eps else ("Easing" if _diff > _eps else "Steady")
+    _va = str(vacc).upper()
+    if d_up:
+        d_q = {"UP": "Strengthening", "DOWN": "Losing Steam", "FLAT": "Steady"}.get(_va, "")
+    else:
+        d_q = {"UP": "Deepening", "DOWN": "Easing", "FLAT": "Steady"}.get(_va, "")
     _wtxt = ("Up" if wk_up else "Down") + (f" ({w_q})" if w_q else "")
     _dtxt = ("Up" if d_up else "Down") + (f" ({d_q})" if d_q else "")
     pills = "".join([
