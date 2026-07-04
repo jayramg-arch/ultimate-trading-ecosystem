@@ -11126,6 +11126,18 @@ elif page == 'RISK SHIELD':
     # --- Portfolio Equity Curve Protection ---
     import datetime, json, os
     PORTFOLIO_FILE = "portfolio_history.json"
+
+    # A8 FIX (2026-07-04 audit): atomic JSON writes (temp + os.replace) so a
+    # crash or a second session mid-write can never truncate the history files.
+    def _rs_atomic_json_write(path, obj):
+        try:
+            _tmp = path + ".tmp"
+            with open(_tmp, "w") as f:
+                json.dump(obj, f)
+            os.replace(_tmp, path)
+        except Exception:
+            pass
+
     _portfolio_history = {}
     if os.path.exists(PORTFOLIO_FILE):
         try:
@@ -11136,14 +11148,14 @@ elif page == 'RISK SHIELD':
     _today_str = datetime.date.today().isoformat()
     if 'total_cap' in globals():
         _portfolio_history[_today_str] = total_cap
-        with open(PORTFOLIO_FILE, "w") as f:
-            json.dump(_portfolio_history, f)
-            
+        _rs_atomic_json_write(PORTFOLIO_FILE, _portfolio_history)
+
     _capital_protection_mode = False
     _cap_prot_msg = ""
     if len(_portfolio_history) >= 5:
-        # Convert to pandas series to calculate EMA
-        _s_port = pd.Series(list(_portfolio_history.values()))
+        # Convert to pandas series to calculate EMA — SORTED by date key (a
+        # json file with out-of-order keys would otherwise scramble the EMA).
+        _s_port = pd.Series([v for _, v in sorted(_portfolio_history.items())])
         _port_ema20 = _s_port.ewm(span=20, adjust=False).mean().iloc[-1]
         _curr_port = _s_port.iloc[-1]
         if _curr_port < _port_ema20:
@@ -11379,20 +11391,35 @@ elif page == 'RISK SHIELD':
                         ltps[_csym] = _h["ltp"]
 
                 # Detect unprotected holdings
+                # A1 SAFETY FIX (2026-07-04 audit): a single sell order is only proof of
+                # SL protection when a REAL LTP exists to compare against. The old
+                # fallback to the order's own price made a TARGET-only order classify
+                # the position as protected. No LTP -> protection state UNKNOWN,
+                # surfaced loudly, never silently protected.
                 all_protected_syms = set()
+                protection_unknown = set()
                 for oid, oco in sell_gtts.items():
                     if oco["sl_trigger"] is not None:
                         all_protected_syms.add(oco["symbol"])
                 for s in single_sells:
-                    ltp_s = ltps.get(s["symbol"]) or s["price"] or 0
-                    if s["trigger"] < ltp_s:
-                        all_protected_syms.add(s["symbol"])
+                    _ss_ltp = ltps.get(s["symbol"])
+                    if _ss_ltp and _ss_ltp > 0:
+                        if s["trigger"] < _ss_ltp:
+                            all_protected_syms.add(s["symbol"])
+                    elif s["symbol"] in holdings_map and s["symbol"] not in all_protected_syms:
+                        protection_unknown.add(s["symbol"])
 
                 unprotected_holdings = []
                 for csym, h in holdings_map.items():
+                    if csym in protection_unknown:
+                        continue  # rendered as UNKNOWN below, not as protected/unprotected
                     if csym not in all_protected_syms and h["qty"] > 0:
                         unprotected_holdings.append({"symbol": csym, "buy_price": h["buy_price"], "qty": h["qty"], "ltp": h["ltp"], "entry_date": h.get("entry_date", "")})
                         symbols_to_fetch.add(csym)
+                if protection_unknown:
+                    st.warning(f"⚠️ LTP unavailable — protection state UNKNOWN for: "
+                               f"{', '.join(sorted(protection_unknown))}. Verify their stop "
+                               f"orders manually on Dhan before trusting this page.")
 
                 # Group sell_gtts by symbol
                 sell_gtts_by_symbol = {}
@@ -11409,11 +11436,17 @@ elif page == 'RISK SHIELD':
                 # ─────────────────────────────────────────────────────────────
 
                 # --- Metrics ---
+                # A6 FIX (2026-07-04 audit): rows without a REAL LTP are excluded from
+                # the risk sums and COUNTED — headline metrics must never be quietly
+                # understated by missing prices.
                 total_protected = 0.0; total_risk = 0.0
+                _no_ltp_rows = set()
                 active_exits_count = len(sell_gtts_by_symbol)
                 pending_entries_count = len(buy_gtts)
                 for sym, orders in sell_gtts_by_symbol.items():
                     ltp = ltps.get(sym) or 0
+                    if not ltp:
+                        _no_ltp_rows.add(sym)
                     for oco in orders:
                         sl = oco["sl_trigger"]; sl_qty = oco.get("sl_qty") or oco.get("qty") or 0
                         if sl: total_protected += sl_qty * sl
@@ -11422,10 +11455,12 @@ elif page == 'RISK SHIELD':
                             if risk > 0: total_risk += risk
                 for s in single_sells:
                     trigger = s["trigger"]; qty = s["qty"]; sym = s["symbol"]
-                    ltp = ltps.get(sym) or s["price"] or 0
+                    ltp = ltps.get(sym) or 0
+                    if not ltp:
+                        _no_ltp_rows.add(sym)
                     if trigger:
                         total_protected += qty * trigger
-                        if ltp > trigger: total_risk += qty * (ltp - trigger)
+                        if ltp and ltp > trigger: total_risk += qty * (ltp - trigger)
 
                 unprotected_count = len(unprotected_holdings)
                 unprotected_color = "#ff4b4b" if unprotected_count > 0 else "#00f260"
@@ -11457,20 +11492,34 @@ elif page == 'RISK SHIELD':
                     f'</div>'
                 )
                 st.markdown(metrics_html, unsafe_allow_html=True)
+                if _no_ltp_rows:
+                    st.caption(f"⚠️ {len(_no_ltp_rows)} position(s) excluded from Capital-at-Risk "
+                               f"(no live LTP): {', '.join(sorted(_no_ltp_rows))}")
 
                 # --- Fetch technicals for AI review and Risk Profile ---
                 hist_data = st.session_state.get("cached_hist_data_v3", {})
                 if hist_data and any(isinstance(v, dict) and ("close_5d_ago" not in v or "vol_breakout" not in v) for v in hist_data.values()):
                     hist_data = {}
                 missing_syms = [s for s in symbols_to_fetch if s not in hist_data or "ema20" not in hist_data.get(s, {})]
+                _tech_failed_syms = []   # A5 FIX: track symbols whose technicals could not be computed
                 if missing_syms:
                     try:
                         import data_provider as dp
                         import pandas as pd
                         import numpy as np
-                        
+
                         _batch_data = dp.fetch_batch_ohlcv(missing_syms, period="1y", interval="1d", use_cache=True, auto_adjust=True)
-                        
+                        _tech_failed_syms = [s for s in missing_syms
+                                             if _batch_data.get(s) is None or getattr(_batch_data.get(s), "empty", True)]
+                        # A9: capture the technicals' as-of date for the freshness strip
+                        try:
+                            _asof_candidates = [df.index[-1] for df in _batch_data.values()
+                                                if df is not None and not df.empty]
+                            if _asof_candidates:
+                                st.session_state["rs_tech_asof"] = str(max(_asof_candidates).date())
+                        except Exception:
+                            pass
+
                         for _s in missing_syms:
                             df_sym = _batch_data.get(_s)
                             if df_sym is not None and not df_sym.empty and "Close" in df_sym.columns:
@@ -11551,20 +11600,32 @@ elif page == 'RISK SHIELD':
                                         _tr_22 = pd.concat([_tr1_22, _tr2_22, _tr3_22], axis=1).max(axis=1)
                                         _atr_22 = float(_tr_22.ewm(alpha=1/22, adjust=False).mean().iloc[-1])
                                         _custom_mult = journal_overrides.get(_s, {}).get("custom_ce_mult") if _s in journal_overrides else None
-                                        if _custom_mult and _custom_mult > 0:
-                                            _ce_mult = _custom_mult
+                                        # A4 FIX (2026-07-04 audit): 0/negative custom mult is INVALID,
+                                        # not "silently use system default" — flag it on the row.
+                                        _invalid_ce_override = (_custom_mult is not None
+                                                                and not (isinstance(_custom_mult, (int, float)) and _custom_mult > 0))
+                                        if _custom_mult is not None and not _invalid_ce_override:
+                                            _ce_mult = float(_custom_mult)
+                                            _ce_mult_src = "custom"
                                         else:
                                             # System default based on market regime (using 200 SMA as proxy for bull)
                                             _ce_mult = 4.5 if _ws_above200 else 5.0
+                                            _ce_mult_src = "bull" if _ws_above200 else "bear"
                                             if _capital_protection_mode:
                                                 _ce_mult = 2.5  # Dramatically tighten if portfolio is breaking down
-                                            
+                                                _ce_mult_src = "cap-protect"
+
                                         _chandelier_exit = _highest_close_22 - (_atr_22 * _ce_mult)
-                                        
-                                        # Apply Manual SL Override if present
+
+                                        # Apply Manual SL Override if present.
+                                        # A7 FIX: override MODE — 'Floor' (default, can only tighten)
+                                        # or 'Exact' (use the manual value verbatim, both directions).
                                         _manual_sl = journal_overrides.get(_s, {}).get("manual_sl_override") if _s in journal_overrides else None
                                         if _manual_sl and _manual_sl > 0:
-                                            _chandelier_exit = max(_chandelier_exit, _manual_sl)
+                                            if st.session_state.get("rs_sl_override_mode", "Floor") == "Exact":
+                                                _chandelier_exit = _manual_sl
+                                            else:
+                                                _chandelier_exit = max(_chandelier_exit, _manual_sl)
                                         
                                     _days_to_earnings = None
                                     _edate = get_earnings_date_cached(_s)
@@ -11598,11 +11659,36 @@ elif page == 'RISK SHIELD':
                                     "close_5d_ago": round(_close_5d_ago, 2) if _close_5d_ago else None,
                                     "vol_breakout": _vol_breakout if '_vol_breakout' in locals() else False,
                                     "vol_climax": _vol_climax if '_vol_climax' in locals() else False,
-                                    "days_to_earnings": _days_to_earnings if '_days_to_earnings' in locals() else None
+                                    "days_to_earnings": _days_to_earnings if '_days_to_earnings' in locals() else None,
+                                    "ce_mult": _ce_mult if '_ce_mult' in locals() else None,
+                                    "ce_mult_src": _ce_mult_src if '_ce_mult_src' in locals() else None,
+                                    "invalid_ce_override": _invalid_ce_override if '_invalid_ce_override' in locals() else False,
                                 }
                     except Exception as _e:
-                        pass
+                        # A5 FIX (2026-07-04 audit): a batch-level failure means NONE of
+                        # the missing symbols got technicals — say so instead of silence.
+                        _tech_failed_syms = list(missing_syms)
+                        st.warning(f"⚠️ Technicals fetch failed this run ({_e}) — Chandelier/"
+                                   f"flags not computed for {len(missing_syms)} symbol(s).")
+                if _tech_failed_syms:
+                    st.warning(f"⚠️ Technicals unavailable for: {', '.join(sorted(_tech_failed_syms))} "
+                               f"— Chandelier exits, WS scores and volume flags for these are "
+                               f"NOT current this run.")
                 st.session_state["cached_hist_data_v3"] = hist_data
+
+                # A9: DATA FRESHNESS STRIP — where prices came from + technicals as-of.
+                try:
+                    import data_provider as _dp9
+                    _src_counts = {}
+                    for _fs in list(symbols_to_fetch)[:100]:
+                        _sname = str(_dp9.get_last_source(_fs) or "holdings")
+                        _src_counts[_sname] = _src_counts.get(_sname, 0) + 1
+                    _src_str = " · ".join(f"{k}:{v}" for k, v in sorted(_src_counts.items()))
+                    _asof9 = st.session_state.get("rs_tech_asof", "—")
+                    st.caption(f"🩺 Data: LTP sources [{_src_str}] · technicals as-of {_asof9} "
+                               f"· hist cache {len(hist_data)} syms")
+                except Exception:
+                    pass
 
                 _ai_tasks = []
                 for _sym, _orders in sell_gtts_by_symbol.items():
@@ -11785,10 +11871,7 @@ elif page == 'RISK SHIELD':
                         "open_risk": total_open_risk
                     }
                     
-                    try:
-                        with open(RISK_FILE, "w") as f:
-                            json.dump(risk_history, f)
-                    except: pass
+                    _rs_atomic_json_write(RISK_FILE, risk_history)  # A8: atomic
                     
                     dates = sorted(list(risk_history.keys()))[-30:]
                     risks = [risk_history[d]["open_risk"] for d in dates]
@@ -12235,11 +12318,21 @@ elif page == 'RISK SHIELD':
                                             days_held = (date.today() - entry_d).days
                                         except: pass
 
+                                    # A2 SAFETY FIX (2026-07-04 audit): the old dummy denominator
+                                    # (10% of cost) fired time-stops on fabricated math. R is now
+                                    # anchored to the ATR-based initial risk this page itself
+                                    # recommends (1.5x ATR swing / 3.0x positional). No ATR ->
+                                    # no time-stop verdict (n/a), never a fake one.
                                     time_stop_hit = False
+                                    r_multiple_up = None
                                     if days_held is not None and bp and ltp:
-                                        r_multiple_up = (ltp - bp) / (bp * 0.10) if bp > 0 else 0 # Dummy calculation since unprotected has no risk
+                                        _atr_pct_ts = (hist_data.get(sym) or {}).get("atr_pct") or 0
+                                        if _atr_pct_ts > 0:
+                                            _risk_ps = (ltp * _atr_pct_ts / 100.0) * (1.5 if is_swing else 3.0)
+                                            if _risk_ps > 0:
+                                                r_multiple_up = (ltp - bp) / _risk_ps
                                         limit_days = 10 if is_swing else 42
-                                        if days_held >= limit_days and r_multiple_up < 0.5:
+                                        if r_multiple_up is not None and days_held >= limit_days and r_multiple_up < 0.5:
                                             time_stop_hit = True
 
                                     flags_html = ""
@@ -12620,7 +12713,12 @@ elif page == 'RISK SHIELD':
                                             
                                     row_data["Style"] = "SWING" if is_swing else "POSITIONAL"
                                     
-                                    if atr_pct > 0:
+                                    # A3 FIX (2026-07-04 audit): guard the ltp division — missing
+                                    # LTP rows must show "—", not crash or fake a distance.
+                                    if not ltp or ltp <= 0:
+                                        row_data["ATR %"] = f"{atr_pct:.2f}%" if atr_pct > 0 else "N/A"
+                                        row_data["SL Dist"] = "— (no LTP)"
+                                    elif atr_pct > 0:
                                         row_data["ATR %"] = f"{atr_pct:.2f}%"
                                         dist_pct = ((ltp - sl) / ltp) * 100
                                         atr_dist = dist_pct / atr_pct
@@ -12672,7 +12770,12 @@ elif page == 'RISK SHIELD':
                 with entry_tab4:
                     st.markdown('<div class="section-sub-lbl">⚙️ Manual SL & Multiplier Overrides</div>', unsafe_allow_html=True)
                     st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Configure persistent manual overrides for positions. These overrides are saved to the database and will bypass the dynamic mechanical rules.</div>', unsafe_allow_html=True)
-                    
+
+                    # A7: manual-SL override semantics (applies to all manual overrides)
+                    st.radio("Manual SL mode", ["Floor", "Exact"], horizontal=True, key="rs_sl_override_mode",
+                             help="Floor (default): the Chandelier can only be TIGHTENED to your manual SL, never loosened. "
+                                  "Exact: your manual SL is used verbatim, even if it sits below the computed Chandelier.")
+
                     if 'df_active_global' in globals() and not df_active_global.empty:
                         # Extract current open positions
                         override_rows = []
@@ -12692,15 +12795,40 @@ elif page == 'RISK SHIELD':
                                 df_overrides,
                                 column_config={
                                     "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
-                                    "Manual SL Override": st.column_config.NumberColumn("Manual SL Override (₹)", format="%.2f", step=0.05),
-                                    "Custom CE Mult": st.column_config.NumberColumn("Custom CE Multiplier", format="%.1f", step=0.1),
+                                    "Manual SL Override": st.column_config.NumberColumn("Manual SL Override (₹)", format="%.2f", step=0.05, min_value=0.0),
+                                    # A4: 0/negative multipliers are invalid — enforce at input
+                                    "Custom CE Mult": st.column_config.NumberColumn("Custom CE Multiplier", format="%.1f", step=0.1, min_value=0.5, max_value=8.0,
+                                                                                     help="0.5–8.0. Leave blank to use the system/catalyst multiplier."),
                                     "Pyramid Status": st.column_config.SelectboxColumn("Pyramid Status", options=["", "Initial", "Scaled", "Maxed"])
                                 },
                                 hide_index=True,
                                 use_container_width=True
                             )
+                            # A10 FIX (2026-07-04 audit): the save button was a MOCK —
+                            # edits were silently discarded. Now persists to the journal DB
+                            # (same columns the read path at journal_overrides consumes).
                             if st.button("💾 Save Overrides to Database", type="primary"):
-                                st.success("Overrides saved successfully! (Mock - Pending SQLite Integration)")
+                                try:
+                                    import sqlite3 as _sq3
+                                    import dhan_journal_v7 as _djm
+                                    _conn_ov = _sq3.connect(_djm.DB_FILE)
+                                    _cur_ov = _conn_ov.cursor()
+                                    _nsaved = 0
+                                    for _, _orow in edited_overrides.iterrows():
+                                        _cur_ov.execute(
+                                            "UPDATE journal SET manual_sl_override=?, custom_ce_mult=?, "
+                                            "pyramid_status=? WHERE symbol=? AND status='OPEN'",
+                                            (float(_orow["Manual SL Override"]) if pd.notna(_orow["Manual SL Override"]) else None,
+                                             float(_orow["Custom CE Mult"]) if pd.notna(_orow["Custom CE Mult"]) else None,
+                                             str(_orow["Pyramid Status"]) if pd.notna(_orow["Pyramid Status"]) else "",
+                                             str(_orow["Symbol"])))
+                                        _nsaved += _cur_ov.rowcount
+                                    _conn_ov.commit(); _conn_ov.close()
+                                    st.session_state.pop("cached_hist_data_v3", None)  # recompute Chandeliers
+                                    st.success(f"✅ Overrides saved — {_nsaved} journal row(s) updated. "
+                                               f"Chandeliers will recompute on next refresh.")
+                                except Exception as _ove:
+                                    st.error(f"❌ Override save FAILED — nothing written: {_ove}")
                         else:
                             st.info("No open positions found in the journal to override.")
                     else:
