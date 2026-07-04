@@ -408,10 +408,6 @@ def section_structure(rec, ctx, cmp_px, mansfield, decision) -> str:
          "pass" if alpha >= 70 else "watch" if alpha >= 50 else "fail"),
         ("Weekly Stage", f"Stage {stage} · {fresh}",
          "pass" if "2" in stage else "fail" if ("3" in stage or "4" in stage) else "watch"),
-        ("Daily Trend", f"{_g(rec,'Active_Dir',default='—')}"
-         + {"UP": " · accelerating", "DOWN": " · decelerating", "FLAT": " · flat"}.get(
-               str(_g(rec, "Vel_Accel", default="")).upper(), ""),
-         "pass" if str(_g(rec, "Active_Dir")).upper().startswith("UP") else "watch"),
         ("Momentum", f"RSI {fnum(_g(rec,'RSI'),0)} · ADX {fnum(_g(ctx,'adx'),0)} · Vol {fnum(_g(ctx,'relvol'),1)}x", "na"),
         ("Persona", persona, "pass" if persona == "LEADER" else "watch"),
         ("ML Win Prob", fnum(_g(rec, "ML_Prob"), 1, "%"), "pass" if (_g(rec, "ML_Prob") or 0) >= 60 else "watch"),
@@ -821,12 +817,29 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
     d_up = str(adir).upper().startswith("UP")
     above_e20 = bool(e20 and cmp_px > e20)
     dath = _g(ctx, "dist_ath")
+    # Trend qualifiers (Jay): Weekly accel from the 30W-MA-proxy slope change
+    # (recent 21d slope vs the prior 21d slope, direction-aware); Daily from the
+    # swing engine's Vel_Accel.
+    s150p2 = _g(ctx, "sma150_prev2")
+    w_q = ""
+    if s150 and s150p and s150p2:
+        _sl1, _sl2 = s150 - s150p, s150p - s150p2
+        _eps = s150 * 0.0005
+        _diff = _sl1 - _sl2
+        if wk_up:
+            w_q = "Accelerating" if _diff > _eps else ("Decelerating" if _diff < -_eps else "Flat")
+        else:
+            w_q = "Accelerating" if _diff < -_eps else ("Decelerating" if _diff > _eps else "Flat")
+    d_q = {"UP": "Accelerating", "DOWN": "Decelerating", "FLAT": "Flat"}.get(
+        str(vacc).upper(), "")
+    _wtxt = ("Up" if wk_up else "Down") + (f" ({w_q})" if w_q else "")
+    _dtxt = ("Up" if d_up else "Down") + (f" ({d_q})" if d_q else "")
     pills = "".join([
         _pill("pass" if s2 else ("watch" if "1" in stage else "fail"), "Weinstein Stage", stage),
         _pill("pass" if stacked else "watch", "EMA Stack", "Px&gt;20&gt;50&gt;200" if stacked else "broken"),
         _pill("pass" if above_e20 else "watch", "Px vs EMA20", "above" if above_e20 else "below"),
         _pill("pass" if (wk_up and d_up) else ("watch" if (wk_up or d_up) else "fail"),
-              "Trend W / D", f"{'UP' if wk_up else 'DN'} / {'UP' if d_up else 'DN'}"),
+              "Trend W / D", f"{_wtxt} / {_dtxt}"),
         _pill("pass" if vcp else "na", "VCP / Base", (f"valid · {_g(rec,'Days_Since_Pivot','—')}d" if vcp else "no")),
         _pill("pass" if rrg in ("LEADING", "IMPROVING") else "watch", "RRG", f"{rrg} {_g(rec,'RRG_Arrow','')}"),
         _pill("pass" if broke else "na", "Pivot", ("broke ↑" if broke else (inr(_g(rec, "Pivot_Price")) if _g(rec, "Pivot_Price") else "—"))),
@@ -1139,6 +1152,7 @@ def load_symbol(symbol: str) -> dict:
             "prev": float(c.iloc[-2]) if len(c) > 1 else last,
             "ema20": _f(ema20), "sma50": _f(sma50), "sma150": _f(sma150), "sma200": _f(sma200),
             "sma200_prev": _fprev(sma200, 21), "sma150_prev": _fprev(sma150, 21),
+            "sma150_prev2": _fprev(sma150, 42),
             "ath2y": float(h.max()) if len(h) else None,
             "dist_ath": (last - float(h.max())) / float(h.max()) * 100 if len(h) and float(h.max()) else None,
             "adx": _f(adx), "plus_di": _f(pdi), "minus_di": _f(mdi),
