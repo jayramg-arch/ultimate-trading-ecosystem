@@ -11363,8 +11363,32 @@ elif page == 'RISK SHIELD':
                             journal_overrides[sym] = {
                                 "manual_sl_override": float(r.get("Manual SL Override", 0)) if pd.notna(r.get("Manual SL Override")) and str(r.get("Manual SL Override")).strip() else None,
                                 "custom_ce_mult": float(r.get("Custom CE Mult", 0)) if pd.notna(r.get("Custom CE Mult")) and str(r.get("Custom CE Mult")).strip() else None,
-                                "pyramid_status": str(r.get("Pyramid Status", "")) if pd.notna(r.get("Pyramid Status")) else ""
+                                "pyramid_status": str(r.get("Pyramid Status", "")) if pd.notna(r.get("Pyramid Status")) else "",
+                                # B1: the trade's catalyst (journal 'setup' snapshot) drives
+                                # the validated trail multiplier set.
+                                "setup": str(r.get("Setup", "")).strip().upper() if pd.notna(r.get("Setup")) else "",
                             }
+
+                # B2: market regime (0-10 scorer) — degrades to per-symbol SMA200 check on failure
+                _rs_regime_bear = None
+                _rs_regime_chip = ""
+                try:
+                    from market_regime import compute_regime as _rs_creg
+                    _rs_reg = _rs_creg(persist=False)
+                    _rs_score9 = _rs_reg.get("score")
+                    if _rs_score9 is not None:
+                        _rs_regime_bear = _rs_score9 <= 5
+                        _rs_regime_chip = f"{_rs_reg.get('verdict','?')} ({_rs_score9}/10)"
+                except Exception:
+                    pass
+
+                # B1: catalyst-aware trail multipliers — the validated Risk Allocator v2.0
+                # set (POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5, +0.5 in bear regime).
+                def _trail_mult_for(_setup, _bear):
+                    for _pfx, _m in (("POS", 4.5), ("WYC", 3.5), ("REV", 2.5), ("SWG", 1.5)):
+                        if _setup.startswith(_pfx):
+                            return (_m + (0.5 if _bear else 0.0)), f"{_pfx}"
+                    return None, None
 
                 # Fetch holdings for entry price & unprotected detection
                 _, _, df_holdings = get_live_holdings_stats()
@@ -11496,6 +11520,34 @@ elif page == 'RISK SHIELD':
                     st.caption(f"⚠️ {len(_no_ltp_rows)} position(s) excluded from Capital-at-Risk "
                                f"(no live LTP): {', '.join(sorted(_no_ltp_rows))}")
 
+                # B3: PORTFOLIO HEAT vs the capital risk budget (risk% x capital x open
+                # positions). Connects Risk Shield to the capital-based risk rule —
+                # 0.25% per trade during the execution freeze (1.0% standard).
+                try:
+                    _rb_pct = float(st.session_state.get("rs_risk_budget_pct", 0.25))
+                    _cash_b = 0.0
+                    try:
+                        _cash_b = float(get_dhan_balance() or 0.0)
+                    except Exception:
+                        pass
+                    _cap_base = float(total_deployed_g or 0.0) + _cash_b
+                    _n_open_h = active_exits_count + len(unprotected_holdings)
+                    _heat_budget = _cap_base * (_rb_pct / 100.0) * max(_n_open_h, 1)
+                    if _cap_base > 0:
+                        _heat_ok = total_risk <= _heat_budget
+                        _hcol = "#00f260" if _heat_ok else "#ff4b4b"
+                        _chip = (f" · 🌡️ Regime: <b>{_rs_regime_chip}</b>" if _rs_regime_chip else "")
+                        st.markdown(
+                            f"<div style='border:1.5px solid {_hcol};border-radius:8px;padding:8px 14px;"
+                            f"margin:4px 0 10px;font-size:0.9rem;'>"
+                            f"🔥 <b>Portfolio Heat:</b> ₹{format_inr_int(total_risk)} open risk vs budget "
+                            f"₹{format_inr_int(_heat_budget)} ({_rb_pct}% × {_n_open_h} positions × "
+                            f"₹{format_inr_int(_cap_base)} capital) — "
+                            f"<b style='color:{_hcol}'>{'WITHIN BUDGET' if _heat_ok else 'OVER BUDGET'}</b>"
+                            f"{_chip}</div>", unsafe_allow_html=True)
+                except Exception:
+                    pass
+
                 # --- Fetch technicals for AI review and Risk Profile ---
                 hist_data = st.session_state.get("cached_hist_data_v3", {})
                 if hist_data and any(isinstance(v, dict) and ("close_5d_ago" not in v or "vol_breakout" not in v) for v in hist_data.values()):
@@ -11608,9 +11660,18 @@ elif page == 'RISK SHIELD':
                                             _ce_mult = float(_custom_mult)
                                             _ce_mult_src = "custom"
                                         else:
-                                            # System default based on market regime (using 200 SMA as proxy for bull)
-                                            _ce_mult = 4.5 if _ws_above200 else 5.0
-                                            _ce_mult_src = "bull" if _ws_above200 else "bear"
+                                            # B1: catalyst-aware trail from the journal's setup
+                                            # (validated Risk Allocator set), regime-adjusted (B2).
+                                            _setup_s = journal_overrides.get(_s, {}).get("setup", "")
+                                            _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
+                                            _cat_mult, _cat_fam = _trail_mult_for(_setup_s, _bear_s)
+                                            if _cat_mult is not None:
+                                                _ce_mult = _cat_mult
+                                                _ce_mult_src = f"{_setup_s or _cat_fam}"
+                                            else:
+                                                # Fallback: original heuristic (SMA200 bull/bear)
+                                                _ce_mult = 4.5 if _ws_above200 else 5.0
+                                                _ce_mult_src = "heuristic-bull" if _ws_above200 else "heuristic-bear"
                                             if _capital_protection_mode:
                                                 _ce_mult = 2.5  # Dramatically tighten if portfolio is breaking down
                                                 _ce_mult_src = "cap-protect"
@@ -12138,7 +12199,11 @@ elif page == 'RISK SHIELD':
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
                                             _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
-                                            _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                            # B1: show which path chose the trail multiplier
+                                            _ce_lbl = f"{_tech.get('ce_mult'):.1f}×·{_tech.get('ce_mult_src')}" if _tech.get("ce_mult") else "22D"
+                                            _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                        if _tech.get("invalid_ce_override"):
+                                            _flags.append(f"<span style='background:#5a1e1e;color:#ffb3b3;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠ invalid CE override ignored</span>")
                                         if _flags:
                                             flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                             
@@ -12772,9 +12837,17 @@ elif page == 'RISK SHIELD':
                     st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Configure persistent manual overrides for positions. These overrides are saved to the database and will bypass the dynamic mechanical rules.</div>', unsafe_allow_html=True)
 
                     # A7: manual-SL override semantics (applies to all manual overrides)
-                    st.radio("Manual SL mode", ["Floor", "Exact"], horizontal=True, key="rs_sl_override_mode",
-                             help="Floor (default): the Chandelier can only be TIGHTENED to your manual SL, never loosened. "
-                                  "Exact: your manual SL is used verbatim, even if it sits below the computed Chandelier.")
+                    _rs_c1, _rs_c2 = st.columns(2)
+                    with _rs_c1:
+                        st.radio("Manual SL mode", ["Floor", "Exact"], horizontal=True, key="rs_sl_override_mode",
+                                 help="Floor (default): the Chandelier can only be TIGHTENED to your manual SL, never loosened. "
+                                      "Exact: your manual SL is used verbatim, even if it sits below the computed Chandelier.")
+                    with _rs_c2:
+                        # B3: capital risk budget per trade (0.25% = execution freeze; 1.0% = standard)
+                        st.number_input("Risk budget % per trade", min_value=0.05, max_value=2.0, step=0.05,
+                                        key="rs_risk_budget_pct", value=st.session_state.get("rs_risk_budget_pct", 0.25),
+                                        help="Drives the Portfolio Heat card: budget = capital × this % × open positions. "
+                                             "0.25% during the execution freeze; 1.0% is the standard rule.")
 
                     if 'df_active_global' in globals() and not df_active_global.empty:
                         # Extract current open positions
