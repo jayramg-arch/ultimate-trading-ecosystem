@@ -45,6 +45,13 @@ FAMILIES = ["POS-BO", "POS-ACCUM", "SWG-BO", "SWG-GAP", "SWG-PB", "SWG-REV"]
 # (SWG-PB is hard-gated on mkt_bull as of 2026-07-02).
 REGIME_GATED = {"SWG-PB"}
 
+# Recovery side (2026-07-04): same blackout discipline for the recovery
+# screener. Counted from the results' Signal_Label column; history kept in a
+# separate CSV. WYC-SPRING / WYC-JAC excluded — they are rare single-bar
+# events whose zero-count is the norm (a blackout alarm would always be noise).
+REC_FAMILIES = ["REV-CB", "REV-RS", "REV-EARLY", "WYC-SOS"]
+REC_HISTORY_CSV = os.path.join(LOG_DIR, "recovery_counts_history.csv")
+
 # A family is in BLACKOUT when it fired in >= base_rate of the trailing window
 # but has been zero for the last `blackout_runs` consecutive runs.
 DEFAULTS = dict(window=20, base_rate=0.30, blackout_runs=5)
@@ -95,11 +102,53 @@ def record_and_check(df_results: pd.DataFrame, regime_bull: bool,
     return verdict
 
 
+def record_and_check_recovery(df_results: pd.DataFrame, regime_open: bool,
+                              universe_size: int | None = None,
+                              window: int = DEFAULTS["window"],
+                              base_rate: float = DEFAULTS["base_rate"],
+                              blackout_runs: int = DEFAULTS["blackout_runs"]) -> str:
+    """Recovery-side sentinel: counts Signal_Label per REC_FAMILIES, appends to
+    the recovery history CSV, runs the same blackout check. No regime excusal:
+    REV-* can always fire via the stock-correction-band path, so a zero streak
+    on a previously-active family is a real signal even when the market path
+    is closed (regime recorded as context)."""
+    os.makedirs(LOG_DIR, exist_ok=True)
+    counts = {f: 0 for f in REC_FAMILIES}
+    if df_results is not None and len(df_results) and "Signal_Label" in df_results.columns:
+        vc = df_results["Signal_Label"].fillna("None").replace("", "None").value_counts()
+        for f in REC_FAMILIES:
+            counts[f] = int(vc.get(f, 0))
+    row = {"ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+           "regime": "OPEN" if regime_open else "CLOSED",
+           "universe": universe_size if universe_size is not None else
+                       (len(df_results) if df_results is not None else 0)}
+    row.update(counts)
+    hist = _load_history(REC_HISTORY_CSV, REC_FAMILIES)
+    hist = pd.concat([hist, pd.DataFrame([row])], ignore_index=True)
+    hist.to_csv(REC_HISTORY_CSV, index=False)
+    verdict = check(hist, window=window, base_rate=base_rate,
+                    blackout_runs=blackout_runs, families=REC_FAMILIES,
+                    regime_gated=set())
+    try:
+        with open(SENTINEL_LOG, "a", encoding="utf-8") as fh:
+            fh.write(f"\n[{row['ts']}] RECOVERY regime={row['regime']} "
+                     f"counts={counts}\n{verdict}\n")
+    except OSError:
+        pass
+    return verdict
+
+
 def check(hist: pd.DataFrame | None = None,
           window: int = DEFAULTS["window"],
           base_rate: float = DEFAULTS["base_rate"],
-          blackout_runs: int = DEFAULTS["blackout_runs"]) -> str:
+          blackout_runs: int = DEFAULTS["blackout_runs"],
+          families: list | None = None,
+          regime_gated: set | None = None) -> str:
     """Evaluate the trailing history and return a verdict string."""
+    if families is None:
+        families = FAMILIES
+    if regime_gated is None:
+        regime_gated = REGIME_GATED
     if hist is None:
         hist = _load_history()
     if hist.empty:
@@ -108,7 +157,7 @@ def check(hist: pd.DataFrame | None = None,
     lines = []
     latest_regime = str(hist.iloc[-1].get("regime", "NOT_BULL"))
     n = len(hist)
-    for f in FAMILIES:
+    for f in families:
         if f not in hist.columns:
             continue
         series = pd.to_numeric(hist[f], errors="coerce").fillna(0)
@@ -117,7 +166,7 @@ def check(hist: pd.DataFrame | None = None,
         recent = series.iloc[-blackout_runs:]
         zero_streak = int((recent == 0).all()) if len(recent) >= blackout_runs else 0
 
-        if f in REGIME_GATED and latest_regime != "BULL" and series.iloc[-1] == 0:
+        if f in regime_gated and latest_regime != "BULL" and series.iloc[-1] == 0:
             lines.append(f"  {f:<10} 0 — regime-gated (NOT BULL): expected, no alarm")
         elif zero_streak and fired_rate >= base_rate:
             lines.append(f"  {f:<10} ⛔ BLACKOUT — zero for {blackout_runs}+ runs "
@@ -136,18 +185,20 @@ def check(hist: pd.DataFrame | None = None,
     return "\n".join([hdr] + lines + [tail])
 
 
-def _load_history() -> pd.DataFrame:
-    if os.path.exists(HISTORY_CSV):
+def _load_history(path: str = HISTORY_CSV, families: list | None = None) -> pd.DataFrame:
+    if families is None:
+        families = FAMILIES
+    if os.path.exists(path):
         try:
-            return pd.read_csv(HISTORY_CSV)
+            return pd.read_csv(path)
         except Exception:
             # Never let a corrupt history kill the screener — start fresh but
             # preserve the corrupt file for inspection.
             try:
-                os.replace(HISTORY_CSV, HISTORY_CSV + ".corrupt")
+                os.replace(path, path + ".corrupt")
             except OSError:
                 pass
-    return pd.DataFrame(columns=["ts", "regime", "universe"] + FAMILIES)
+    return pd.DataFrame(columns=["ts", "regime", "universe"] + families)
 
 
 if __name__ == "__main__":

@@ -1467,19 +1467,14 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
 
     yf_sym = to_yf(symbol)
 
-    # -- 1. Download daily OHLCV (C1: cached via data_provider when available)
+    # -- 1. Download daily OHLCV (C1: cached via data_provider)
     try:
-        if USE_DATA_PROVIDER and _dp is not None:
-            df_d = _flatten_cols(
-                _dp.fetch_ohlcv(symbol,
-                                  period=f"{CONFIG['data_lookback_days']}d",
-                                  interval="1d")
-            )
-        else:
-            df_d = _flatten_cols(
-                yf.download(yf_sym, period=f"{CONFIG['data_lookback_days']}d",
-                            interval="1d", auto_adjust=True, progress=False)
-            )
+        import data_provider as dp
+        df_d = _flatten_cols(
+            dp.fetch_ohlcv(symbol,
+                              period=f"{CONFIG['data_lookback_days']}d",
+                              interval="1d", use_cache=True, auto_adjust=True)
+        )
         if df_d.empty or len(df_d) < 60:
             blank["Details"] = "Insufficient daily data"
             return blank
@@ -1489,13 +1484,8 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
 
     # -- 2. Download weekly OHLCV (covers both Mansfield RS and Weinstein Stage)
     try:
-        if USE_DATA_PROVIDER and _dp is not None:
-            df_w = _flatten_cols(_dp.fetch_ohlcv(symbol, period="3y", interval="1wk"))
-        else:
-            df_w = _flatten_cols(
-                yf.download(yf_sym, period="3y", interval="1wk",
-                            auto_adjust=True, progress=False)
-            )
+        import data_provider as dp
+        df_w = _flatten_cols(dp.fetch_ohlcv(symbol, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
     except Exception:
         df_w = pd.DataFrame()
 
@@ -1899,14 +1889,9 @@ def run_recovery_screener(progress_callback=None, symbols=None,
     fund_map      = load_fundamentals()
 
     print("  Downloading CNX500...")
-    if USE_DATA_PROVIDER and _dp is not None:
-        df_cnx_d = _flatten_cols(_dp.fetch_ohlcv(CNX500_YF, period="2y", interval="1d"))
-        df_cnx_w = _flatten_cols(_dp.fetch_ohlcv(CNX500_YF, period="3y", interval="1wk"))
-    else:
-        df_cnx_d = _flatten_cols(yf.download(CNX500_YF, period="2y", interval="1d",
-                                              auto_adjust=True, progress=False))
-        df_cnx_w = _flatten_cols(yf.download(CNX500_YF, period="3y", interval="1wk",
-                                              auto_adjust=True, progress=False))
+    import data_provider as dp
+    df_cnx_d = _flatten_cols(dp.fetch_ohlcv(CNX500_YF, period="2y", interval="1d", use_cache=True, auto_adjust=True))
+    df_cnx_w = _flatten_cols(dp.fetch_ohlcv(CNX500_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
     regime   = check_regime(df_cnx_d)
 
     total, results = len(candidates), []
@@ -1972,6 +1957,18 @@ def run_recovery_screener(progress_callback=None, symbols=None,
         _pl.log_picks("recovery", df_out)
     except Exception:
         pass
+
+    # ── RECOVERY SENTINEL (2026-07-04, reliability layer) — per-family counts
+    # + blackout check after every run (mirrors the bull screener's sentinel).
+    # Guarded: a sentinel failure must never break the screener.
+    try:
+        import catalyst_sentinel as _cs
+        _regime_open = bool(regime.get("mkt_corrected", False) or
+                            regime.get("mkt_reclaim", False))
+        print(_cs.record_and_check_recovery(df_out, regime_open=_regime_open,
+                                            universe_size=len(candidates)))
+    except Exception as _cse:
+        logger.debug("recovery sentinel failed: %s", _cse)
     return df_out
 
 
@@ -2022,18 +2019,9 @@ def main():
     # 3 -- CNX500 market data (regime gate + Mansfield RS denominator)
     print("\n  Downloading CNX500 market data...")
     try:
-        if USE_DATA_PROVIDER and _dp is not None:
-            df_cnx_d = _flatten_cols(_dp.fetch_ohlcv(CNX500_YF, period="2y", interval="1d"))
-            df_cnx_w = _flatten_cols(_dp.fetch_ohlcv(CNX500_YF, period="3y", interval="1wk"))
-        else:
-            df_cnx_d = _flatten_cols(
-                yf.download(CNX500_YF, period="2y", interval="1d",
-                            auto_adjust=True, progress=False)
-            )
-            df_cnx_w = _flatten_cols(
-                yf.download(CNX500_YF, period="3y", interval="1wk",
-                            auto_adjust=True, progress=False)
-            )
+        import data_provider as dp
+        df_cnx_d = _flatten_cols(dp.fetch_ohlcv(CNX500_YF, period="2y", interval="1d", use_cache=True, auto_adjust=True))
+        df_cnx_w = _flatten_cols(dp.fetch_ohlcv(CNX500_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
         regime = check_regime(df_cnx_d)
         print(f"    CNX500 close : {regime['mkt_close']}")
         print(f"    SMA50/SMA200 : {regime['mkt_sma50']} / {regime['mkt_sma200']}  "
