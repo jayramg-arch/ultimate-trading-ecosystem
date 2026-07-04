@@ -11873,6 +11873,39 @@ elif page == 'RISK SHIELD':
                         if days_to_er is not None and days_to_er <= 3:
                             alerts.append({"type": "EARNINGS", "sym": sym, "msg": f"Earnings in {days_to_er}d"})
 
+                # B5: sector over-concentration + shadow-pair correlation alerts —
+                # reuses ai_risk_manager (existing modules), refreshed at most every 15 min.
+                try:
+                    import time as _t5
+                    _sc_cache = st.session_state.get("rs_sector_corr")
+                    if not _sc_cache or (_t5.time() - _sc_cache.get("ts", 0)) > 900:
+                        _sc_alerts = []
+                        try:
+                            from ai_risk_manager import analyze_sector_concentration as _asc
+                            _scres = _asc(df_holdings) or {}
+                            for _a in _scres.get("alerts", []):
+                                _sc_alerts.append({"type": "SECTOR", "sym": str(_a.get("Sector", "?")),
+                                                   "msg": f"Sector {_a.get('Exposure', '?')} of book (>25%)"})
+                        except Exception:
+                            pass
+                        try:
+                            from ai_risk_manager import get_portfolio_correlation_matrix as _gpc
+                            _corr_df5, _shadow5, _div5 = _gpc(list(holdings_map.keys()))
+                            for _pair in (_shadow5 or [])[:6]:
+                                if isinstance(_pair, dict):
+                                    _sc_alerts.append({"type": "CORR", "sym": str(_pair.get("Pair", "?")),
+                                                       "msg": f"Shadow pair r={_pair.get('Correlation', '?')} "
+                                                              f"({_pair.get('Risk', '')}) — effectively one position"})
+                                else:
+                                    _sc_alerts.append({"type": "CORR", "sym": "PAIR", "msg": str(_pair)[:90]})
+                        except Exception:
+                            pass
+                        _sc_cache = {"ts": _t5.time(), "alerts": _sc_alerts}
+                        st.session_state["rs_sector_corr"] = _sc_cache
+                    alerts.extend(_sc_cache.get("alerts", []))
+                except Exception:
+                    pass
+
                 # 1. Alerts
                 if alerts:
                     st.markdown('<div class="section-sub-lbl" style="color:#ff4b4b;margin-bottom:10px;">🚨 Requires Immediate Action</div>', unsafe_allow_html=True)
@@ -12047,8 +12080,71 @@ elif page == 'RISK SHIELD':
                             hide_index=True,
                             use_container_width=True
                         )
-                        if st.button("🚀 Push Approved Updates to Dhan", type="primary"):
-                            st.success("Orders pushed successfully! (Mock)")
+                        # B4 (2026-07-04, Jay: review -> modify -> execute): the old button was
+                        # a MOCK ("Orders pushed successfully!") — approvals went NOWHERE.
+                        # Now executes TIGHTEN-SL rows for real via dhan.modify_forever, gated
+                        # by an explicit arm switch. Trim/Pyramid stay propose-only this pass
+                        # (position-size changes have a bigger blast radius).
+                        _rs_arm = st.checkbox("⚠️ I confirm LIVE modification of GTT stop orders on Dhan",
+                                              key="rs_arm_execute")
+                        if st.button("🚀 Execute Approved SL Updates on Dhan", type="primary",
+                                     disabled=not _rs_arm):
+                            _exec_results = []
+                            for _, _pr in edited_df.iterrows():
+                                if not _pr.get("Approve") or _pr.get("Action") != "Tighten SL":
+                                    continue
+                                _psym = str(_pr["Symbol"]); _new_sl = float(_pr["Trigger Price"])
+                                try:
+                                    _ocos = [o for o in sell_gtts_by_symbol.get(_psym, [])
+                                             if o.get("sl_trigger") is not None]
+                                    if not _ocos:
+                                        _exec_results.append((_psym, False, "no OCO with SL leg found"))
+                                        continue
+                                    _oco0 = _ocos[0]
+                                    _old_sl = _oco0["sl_trigger"]
+                                    _q = int(_oco0.get("sl_qty") or _oco0.get("qty") or 0)
+                                    _resp = dhan.modify_forever(
+                                        order_id=str(_oco0["order_id"]),
+                                        order_flag="OCO",
+                                        order_type=dhan.LIMIT,
+                                        leg_name="STOP_LOSS_LEG",
+                                        quantity=_q,
+                                        price=round(_new_sl * 0.995, 2),   # limit buffer, same convention as gtt_auto_shield
+                                        trigger_price=round(_new_sl, 2),
+                                        disclosed_quantity=0,
+                                        validity="DAY")
+                                    _ok = isinstance(_resp, dict) and _resp.get("status") == "success"
+                                    _exec_results.append((_psym, _ok, str(_resp.get("remarks") or _resp.get("data") or _resp)[:160]))
+                                    if _ok:
+                                        # persist to journal + audit trail
+                                        try:
+                                            import sqlite3 as _sq4
+                                            import dhan_journal_v7 as _djm4
+                                            _cn4 = _sq4.connect(_djm4.DB_FILE)
+                                            _cn4.execute("UPDATE journal SET manual_sl_override=? "
+                                                         "WHERE symbol=? AND status='OPEN'", (_new_sl, _psym))
+                                            _cn4.commit(); _cn4.close()
+                                        except Exception:
+                                            pass
+                                        try:
+                                            os.makedirs("logs", exist_ok=True)
+                                            with open(os.path.join("logs", "risk_shield_actions.log"), "a", encoding="utf-8") as _alf:
+                                                _alf.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} "
+                                                           f"TIGHTEN_SL {_psym} {_old_sl} -> {_new_sl} "
+                                                           f"order={_oco0['order_id']} resp={_resp}\n")
+                                        except Exception:
+                                            pass
+                                except Exception as _pex:
+                                    _exec_results.append((_psym, False, f"EXCEPTION: {_pex}"))
+                            for _psym, _ok, _msg in _exec_results:
+                                (st.success if _ok else st.error)(f"{'✅' if _ok else '❌'} {_psym}: {_msg}")
+                            if not _exec_results:
+                                st.info("No approved 'Tighten SL' rows to execute. "
+                                        "(Trim / Pyramid actions are propose-only — execute those manually.)")
+                            else:
+                                st.session_state.pop("cached_hist_data_v3", None)
+                        st.caption("Only 'Tighten SL' rows execute. Trim / Pyramid remain manual. "
+                                   "Every execution is appended to logs/risk_shield_actions.log.")
                     else:
                         st.info("No actionable updates for today. Portfolio is optimized.")
 
