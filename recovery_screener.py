@@ -1554,11 +1554,31 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
     stage = compute_weinstein_stage(df_w) if not df_w.empty else 0
 
     # -- 8. RFF (full 6-check) ------------------------------------------------
+    # SOURCE PRIORITY (2026-07-04, Jay: "Screener.in primary, yfinance fallback
+    # — this is important"): pool row (Screener.in export)  >  live Screener.in
+    # company-page fetch  >  yfinance. The live path merges FIELD-LEVEL: yfinance
+    # fills only the gaps Screener.in's public page cannot provide (ICR, Current
+    # ratio) — Screener.in wins every field it has (far more accurate for NSE).
     fund_source = "Screener.in"
     if screener_row is None:
-        # Screener.in has no row for this stock — fall back to yfinance .info
+        scr_live = None
+        try:
+            from fundamental_hub import fetch_screener_rff_row
+            scr_live = fetch_screener_rff_row(symbol)
+        except Exception:
+            scr_live = None
         yf_fund = fetch_yf_fundamentals(yf_sym)
-        if yf_fund:
+        if scr_live:
+            merged = dict(yf_fund or {})
+            # UNIT SAFETY: Screener OCF is ₹ Cr, yfinance CapEx is absolute ₹ —
+            # never mix them in the FCF calc. When Screener's OCF wins, drop
+            # yfinance's CapEx (FCF degrades to OCF, flagged by compute_rff).
+            if "Cash from operating activity" in scr_live:
+                merged.pop("CapEx", None)
+            merged.update({k: v for k, v in scr_live.items() if v is not None})
+            screener_row = merged
+            fund_source  = "Screener.in-live" + ("+yf" if yf_fund else "")
+        elif yf_fund:
             screener_row = yf_fund
             fund_source  = "yfinance"
         else:
@@ -1929,10 +1949,11 @@ def run_recovery_screener(progress_callback=None, symbols=None,
         if not df_out.empty and "Fund_Source" in df_out.columns:
             vc = df_out["Fund_Source"].value_counts(dropna=False).to_dict()
             n = len(df_out)
-            scr = vc.get("Screener.in", 0)
+            scr = sum(v for k, v in vc.items() if str(k).startswith("Screener.in"))
             print(f"   [i] RFF fundamental coverage ({n} rows): "
-                  f"Screener.in={scr} ({scr/n*100:.0f}%), "
-                  f"yfinance={vc.get('yfinance', 0)}, "
+                  f"Screener.in={scr} ({scr/n*100:.0f}%) "
+                  f"[pool={vc.get('Screener.in', 0)}, live={sum(v for k, v in vc.items() if 'live' in str(k))}], "
+                  f"yfinance-only={vc.get('yfinance', 0)}, "
                   f"unavailable={vc.get('unavailable', 0)}")
             if "RFF_Quality" in df_out.columns:
                 qc = df_out["RFF_Quality"].value_counts(dropna=False).to_dict()
@@ -1942,7 +1963,7 @@ def run_recovery_screener(progress_callback=None, symbols=None,
             # Loud flag: actionable signals (Signal>=2) resting on weak fundamentals.
             if "Signal" in df_out.columns:
                 weak = df_out[(df_out["Signal"] >= 2) &
-                              ((df_out["Fund_Source"] != "Screener.in") |
+                              ((~df_out["Fund_Source"].astype(str).str.startswith("Screener.in")) |
                                (df_out.get("RFF_Quality") == "INSUFFICIENT"))]
                 if not weak.empty:
                     print(f"   [!] {len(weak)} actionable recovery signal(s) NOT backed by "
