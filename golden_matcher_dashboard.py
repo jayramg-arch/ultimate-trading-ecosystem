@@ -318,12 +318,15 @@ def render_pine_mirror(rec: dict, ctx: dict, cmp_px) -> str:
 SECTION_SCORES: dict = {}
 
 
-def card(title: str, rows, accent: str = "#2962FF") -> str:
+def card(title: str, rows, accent: str = "#2962FF", chip_text: str = None,
+         chip_color: str = None) -> str:
     """Compact label:value table card mirroring a Pine panel.
 
     v2: computes a section score from its own rows — passes / evaluated
     (state 'na' rows excluded) — shown as a chip in the header and registered
     in SECTION_SCORES for the summary strip. Zero per-section score logic.
+    chip_text/chip_color override the auto-score for sections where a
+    pass-count is the wrong benchmark (e.g. PA patterns: bonus tier, not x/N).
     """
     body = ""
     for label, value, state in rows:
@@ -332,6 +335,14 @@ def card(title: str, rows, accent: str = "#2962FF") -> str:
                  f"font-size:11.5px;border-bottom:1px solid rgba(136,136,136,.18)'>"
                  f"<span style='opacity:.78'>{label}</span>"
                  f"<b style='color:{col};text-align:right'>{value}</b></div>")
+    if chip_text is not None:
+        hdr = chip_color or accent
+        chip = (f"<span style='float:right;background:rgba(255,255,255,.25);padding:0 8px;"
+                f"border-radius:9px;font-weight:800'>{chip_text}</span>")
+        return (f"<div style='border:1px solid rgba(136,136,136,.28);border-radius:7px;overflow:hidden;margin-bottom:9px'>"
+                f"<div style='background:{hdr};color:#fff;font-weight:700;font-size:10.5px;"
+                f"letter-spacing:.4px;padding:4px 9px'>{title}{chip}</div>"
+                f"<div style='padding:4px 9px 6px'>{body}</div></div>")
     evaluated = [s for _, _, s in rows if s in ("pass", "watch", "fail")]
     passed = sum(1 for s in evaluated if s == "pass")
     total = len(evaluated)
@@ -361,8 +372,9 @@ def render_score_strip(mpass: int = None) -> str:
         chips += (f"<span style='border:1.5px solid {mc};color:{mc};border-radius:9px;"
                   f"padding:2px 10px;font-size:11.5px;font-weight:800'>Minervini {mpass}/8</span>")
     for name, (p, t, col) in SECTION_SCORES.items():
+        disp = f"{p}/{t}" if t else str(p)  # t=None -> custom display string (e.g. 'Σ +3')
         chips += (f"<span style='border:1.5px solid {col};color:{col};border-radius:9px;"
-                  f"padding:2px 10px;font-size:11.5px;font-weight:800'>{name} {p}/{t}</span>")
+                  f"padding:2px 10px;font-size:11.5px;font-weight:800'>{name} {disp}</span>")
     return (f"<div style='display:flex;gap:7px;flex-wrap:wrap;align-items:center;"
             f"margin:2px 0 10px'>{chips}</div>")
 
@@ -953,12 +965,14 @@ def section_pa_patterns(ctx) -> str:
     rows = [(f"{name}  (+{tier})", ("FIRED — " + note) if fired else "quiet",
              "pass" if fired else "na") for name, fired, tier, note in pats]
     tier_sum = sum(t for _, f, t, _ in pats if f)
-    fired_n = sum(1 for _, f, _, _ in pats if f)
-    # Manual score registration: fired count out of battery size, colored by
-    # tier weight (0 fired = neutral grey — absence of a pattern is normal).
-    scol = "#26A69A" if tier_sum >= 3 else ("#FF9800" if tier_sum >= 1 else "#787B86")
-    SECTION_SCORES["Pa Patterns"] = (fired_n, len(pats), scol)
-    return card(f"PA PATTERNS · v67 mirror · Σ tier +{tier_sum}", rows, "#455A64")
+    # Tier-weighted score, NO denominator (Jay: 11/11 is not the benchmark —
+    # patterns are bonuses). Purple = Power-Play-grade Σ, grey = quiet (normal).
+    scol = ("#7B1FA2" if tier_sum >= 4 else "#26A69A" if tier_sum >= 2
+            else "#FF9800" if tier_sum >= 1 else "#787B86")
+    SECTION_SCORES["Pa Patterns"] = (f"Σ +{tier_sum}", None, scol)
+    hdr_col = scol if tier_sum >= 1 else "#455A64"
+    return card("PA PATTERNS · v67 mirror", rows, "#455A64",
+                chip_text=f"Σ +{tier_sum}", chip_color=hdr_col)
 
 
 def render_pa_banner(ctx) -> str:
