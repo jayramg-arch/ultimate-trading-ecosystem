@@ -12820,7 +12820,12 @@ elif page == 'RISK SHIELD':
                 # ── Tab 3: Risk Profile ──
                 with entry_tab3:
                     st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
-                    portfolio_risk_pct = (total_risk / max(balance, 1)) * 100 if balance > 0 else 0.0
+                    # BUG FIX (2026-07-05, Jay): `balance` is available CASH, not equity —
+                    # dividing open risk by idle cash produced absurd percentages (289%)
+                    # and mislabeled cash as "portfolio equity". True equity = holdings
+                    # market value + cash.
+                    _equity_rp = float(total_portfolio_value or 0.0) + float(balance or 0.0)
+                    portfolio_risk_pct = (total_risk / _equity_rp) * 100 if _equity_rp > 0 else 0.0
                     if portfolio_risk_pct <= 1.0:
                         risk_grade = "A+ (Excellent)"
                         risk_grade_color = "#00f260"
@@ -12840,7 +12845,8 @@ elif page == 'RISK SHIELD':
                         f'<div class="metric-value" style="color:{risk_grade_color};font-size:2rem;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
                         f'<div style="font-size:0.8rem;color:#5a8a9f;margin-top:4px;">'
                         f'Total capital at risk from current LTP to Stop Loss is <b>₹{format_inr_int(total_risk)}</b> '
-                        f'on total portfolio equity of <b>₹{format_inr_int(max(balance, 1))}</b>.'
+                        f'on total portfolio equity of <b>₹{format_inr_int(_equity_rp)}</b> '
+                        f'(holdings ₹{format_inr_int(total_portfolio_value)} + cash ₹{format_inr_int(balance)}).'
                         f'</div></div>', unsafe_allow_html=True
                     )
 
