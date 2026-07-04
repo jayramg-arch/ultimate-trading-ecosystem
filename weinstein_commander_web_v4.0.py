@@ -2134,8 +2134,13 @@ def section_bull_gates(rec, ctx, cmp_px, mansfield) -> str:
     vacc = bool(_g(ctx, "acc_ok"))
     s2w = _g(ctx, "stage2_weeks")
     freshg = (s2w is not None and s2w <= 6)
+    # v3: G4 now real — sector_score (>0 = sector outperforming) from
+    # sector_strength, the same module the screener's score uses.
+    _g4ss = _g(ctx, "sector_score")
+    g4 = (None if _g4ss is None else _g4ss > 0)
     gates = [("G1 Stage 2", s2), ("G2 Price > 200DMA", g200), ("G3 N500 RRG lead", rrg_ok),
-             ("G4 Sector S1/2", None), ("G5 Trend Template", tpl), ("G6 Vol Accum", vacc),
+             ("G4 Sector strength" + (f" ({_g4ss:+d})" if _g4ss is not None else ""), g4),
+             ("G5 Trend Template", tpl), ("G6 Vol Accum", vacc),
              ("G7 Fresh ≤6w" + (f" ({s2w:.0f}w)" if s2w is not None else ""), freshg)]
     passed = sum(1 for _, ok in gates if ok)
     total = sum(1 for _, ok in gates if ok is not None)
@@ -2156,7 +2161,27 @@ def section_context(rec, ctx, cmp_px) -> str:
            else "DISTRIBUTION" if "3" in stage else "NEUTRAL")
     poc = _g(ctx, "poc"); vah = _g(ctx, "vah"); val = _g(ctx, "val")
     vp_pos = _g(ctx, "vp_pos", default="—"); dpoc = _g(ctx, "dist_poc")
+    # WCL-mirror weighted score (replicates Weinstein_Context_Layers v1.2 FINAL
+    # SCORE composition: Wyk(-4..+4) + VP(+3/+1/-1/-3) + SMC(±2) + OB(±2) + Stage).
+    # Wyckoff here is the accumulation-bias proxy (no event decay); OB (order
+    # blocks) not computed on this surface -> 0, shown as '—'.
+    wyk_s = 3 if wyk == "ACCUMULATION" else (-3 if wyk == "DISTRIBUTION" else 0)
+    if vp_pos == "ABOVE VAH":
+        vp_s = 3
+    elif vp_pos == "INSIDE VA":
+        vp_s = 1 if (dpoc or 0) >= 0 else -1
+    elif vp_pos == "BELOW VAL":
+        vp_s = -3
+    else:
+        vp_s = 0
+    smc_s = 2 if smc == "BULLISH" else (-2 if smc == "BEARISH" else 0)
+    stg_s = 3 if "2" in stage else (1 if "1" in stage else (-1 if "3" in stage else -3))
+    wcl_total = wyk_s + vp_s + smc_s + stg_s
+    wcl_band = "BULL" if wcl_total >= 6 else ("NEUTRAL" if wcl_total >= 0 else "BEAR")
     rows = [
+        ("WCL Score (mirror)", f"{wcl_total:+d} → {wcl_band}",
+         "pass" if wcl_band == "BULL" else ("watch" if wcl_band == "NEUTRAL" else "fail")),
+        ("· components", f"Wyk:{wyk_s:+d} VP:{vp_s:+d} SMC:{smc_s:+d} Stg:{stg_s:+d} OB:—", "na"),
         ("SMC Trend", smc, "pass" if smc == "BULLISH" else "fail" if smc == "BEARISH" else "na"),
         ("Open FVGs", f"Bull {bfvg} · Bear {rfvg}", "pass" if bfvg >= rfvg else "watch"),
         ("Wyckoff Bias", wyk, "pass" if wyk == "ACCUMULATION" else "fail" if wyk == "DISTRIBUTION" else "na"),
@@ -2175,8 +2200,8 @@ def section_edges(rec, ctx, cmp_px) -> str:
     cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
     micro = bool(cpr_p and cmp_px > cpr_p and mv and cmp_px > mv and _g(ctx, "squeeze_on"))
     rows = [
-        ("Macro Edge (Inst Vol)", "ON" if macro else "off", "pass" if macro else "na"),
-        ("Micro Edge (CPR+VWAP+Sqz)", "ON" if micro else "off", "pass" if micro else "na"),
+        ("Macro Edge (Inst Vol)", "ACTIVE" if macro else "inactive today", "pass" if macro else "na"),
+        ("Micro Edge (CPR+VWAP+Sqz)", "ACTIVE" if micro else "inactive today", "pass" if micro else "na"),
         ("vs CPR Pivot", ("above " + inr(cpr_p)) if (cpr_p and cmp_px > cpr_p) else "below",
          "pass" if (cpr_p and cmp_px > cpr_p) else "watch"),
         ("vs Monthly VWAP", ("above " + inr(mv)) if (mv and cmp_px > mv) else "below",
@@ -2217,7 +2242,7 @@ def section_levels(rec, ctx, cmp_px) -> str:
     rows = [
         ("Room to 52WH", fnum(d52, 1, "%"), "pass" if (d52 is not None and -15 <= d52 <= -1) else "watch"),
         ("EMA20 distance", fnum(_g(rec, "EMA20_Dist_ATR"), 2, " ATR"), "na"),
-        ("Pivot", f"{_g(rec,'Days_Since_Pivot','—')}d" + (" · broke ↑" if _g(rec, "Broke_Pivot") else ""),
+        ("VCP Pivot age", f"formed {_g(rec,'Days_Since_Pivot','—')}d ago" + (" · broke ↑" if _g(rec, "Broke_Pivot") else " · not broken"),
          "pass" if _g(rec, "Broke_Pivot") else "na"),
         ("Turnover", fnum(_g(ctx, "turnover_cr"), 1) + " Cr", "na"),
         ("DZ / SZ zones", "live on chart", "na"),
@@ -2234,9 +2259,22 @@ def section_sector(rec, ctx, mansfield) -> str:
         ("RRG Quadrant", f"{_g(rec,'RRG_Quadrant',default='—')} {_g(rec,'RRG_Arrow','')}",
          "pass" if _g(rec, "RRG_Quadrant") in ("LEADING", "IMPROVING") else "watch"),
         ("RRG Trajectory", str(_g(rec, "RRG_Trajectory", default="—")), "na"),
-        ("Sector RS", "see Commander Web", "na"),
-        ("Futures OI", "see broker (F&O)", "na"),
     ]
+    # v3: real sector + futures-OI values (loader wires sector_lookup /
+    # sector_strength + the matcher CSV's Futures_OI_Chg_Pct).
+    _si = _g(ctx, "sector_idx"); _sw = _g(ctx, "sector_w_pct"); _sm2 = _g(ctx, "sector_m_pct")
+    _ss = _g(ctx, "sector_score"); _oi = _g(ctx, "fut_oi")
+    if _si:
+        rows.append(("Sector Index", str(_si).replace("NSE:", ""), "na"))
+        rows.append(("Sector Move W / M", f"{fnum(_sw,1,'%')} / {fnum(_sm2,1,'%')}",
+                     "pass" if (_sw or 0) > 0 else ("watch" if (_sm2 or 0) > 0 else "fail")))
+        if _ss is not None:
+            rows.append(("Sector Score", f"{_ss:+d} / 5",
+                         "pass" if _ss > 0 else ("watch" if _ss == 0 else "fail")))
+    else:
+        rows.append(("Sector", "unmapped (sector_lookup)", "na"))
+    rows.append(("Futures OI Δ", fnum(_oi, 1, "%") if _oi is not None else "not in F&O / matcher run",
+                 ("pass" if _oi > 0 else "watch") if _oi is not None else "na"))
     return card("SECTOR / MACRO / RRG", rows, "#283593")
 
 
@@ -2270,9 +2308,15 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     regime = _g(rec, "Regime", default="—")
     rs = (mansfield or 0) > 0
     alpha = _g(rec, "Alpha") or 0
+    ml = _g(rec, "ML_Prob")
+    # Weekly trend (price-action): above the 30W-MA proxy AND the MA rising
+    _s150 = _g(ctx, "sma150"); _s150p = _g(ctx, "sma150_prev")
+    wk_up = bool(_s150 and cmp_px > _s150 and (_s150p is None or _s150 > _s150p))
     mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
     rrg = _g(rec, "RRG_Quadrant", default="—"); rrg_ok = rrg in ("LEADING", "IMPROVING")
     cat = str(_g(rec, "Catalyst", default="NONE")); cat_on = cat not in ("NONE", "None", "—", "0", "")
+    # PA pattern tier sum (v67-mirror battery) — status metric in SETUP
+    _pa_tier = sum(t for _, f, t, _ in (_g(ctx, "pa_patterns", default=[]) or []) if f)
     s2w = _g(ctx, "stage2_weeks"); fresh = (s2w is None) or (s2w <= 26)
     vcp = bool(_g(rec, "VCP_Valid"))
     cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
@@ -2297,6 +2341,7 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     steps = [
         dict(n=1, title="CONTEXT", sub="Weekly trend", hard=True, ok=g1,
              metrics=[("Stage", stage or "—", s2 and not s34),
+                      ("Weekly Trend", "UP" if wk_up else "DOWN", wk_up),
                       ("RS vs N500", f"{(mansfield or 0):+.1f}", rs),
                       ("Regime", regime, regime == "BULL")],
              do_pass="Weekly Stage 2 + positive RS — confirmed by the engine.",
@@ -2304,13 +2349,15 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         dict(n=2, title="QUALITY", sub="Leadership", hard=True, ok=g2,
              metrics=[("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
                       ("Minervini", f"{mpass}/8", mpass >= 6),
-                      ("RRG", rrg, rrg_ok)],
+                      ("RRG", rrg, rrg_ok),
+                      ("ML Prob", fnum(ml, 0, "%"), (ml or 0) >= 60)],
              do_pass="Leadership confirmed (Alpha + trend template + RRG).",
              do_fail="Not a leader yet. WATCHLIST — revisit when RS / Alpha firm up."),
         dict(n=3, title="SETUP", sub="Catalyst & base", hard=False, ok=g3,
              metrics=[("Catalyst", cat, cat_on),
                       ("Freshness", (f"{s2w:.0f}w" if s2w is not None else "—"), fresh),
-                      ("VCP/Base", "valid" if vcp else "no", vcp)],
+                      ("VCP/Base", "valid" if vcp else "no", vcp),
+                      ("PA Patterns", (f"+{_pa_tier}" if _pa_tier else "none"), _pa_tier >= 2)],
              do_pass=f"Catalyst {cat} is LIVE — proceed to location.",
              do_fail="No live catalyst. Add to watchlist & set a price alert at the zone; wait."),
         dict(n=4, title="LOCATION", sub="Price at value", hard=False, ok=g4,
@@ -2471,17 +2518,26 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
     adir = _g(rec, "Active_Dir", default="—"); vacc = _g(rec, "Vel_Accel", default="")
     vcp = bool(_g(rec, "VCP_Valid")); rrg = _g(rec, "RRG_Quadrant", default="—")
     broke = bool(_g(rec, "Broke_Pivot")); rv = _g(ctx, "relvol"); d52 = _g(ctx, "dist52wh")
+    # v3 (Jay's dissection): Trend W/D replaces "Swing Structure" (weekly PA trend /
+    # daily Zigzag swing dir); Px vs EMA20 replaces Px vs 30W-MA (Stage 2 already
+    # implies above 30WMA); 52WH dist paired with 2y-high dist.
+    s150p = _g(ctx, "sma150_prev")
+    wk_up = bool(s150 and cmp_px > s150 and (s150p is None or s150 > s150p))
+    d_up = str(adir).upper().startswith("UP")
+    above_e20 = bool(e20 and cmp_px > e20)
+    dath = _g(ctx, "dist_ath")
     pills = "".join([
         _pill("pass" if s2 else ("watch" if "1" in stage else "fail"), "Weinstein Stage", stage),
         _pill("pass" if stacked else "watch", "EMA Stack", "Px&gt;20&gt;50&gt;200" if stacked else "broken"),
-        _pill("pass" if above30w else "fail", "Px vs 30W MA", "above" if above30w else "below"),
-        _pill("pass" if str(adir).upper().startswith("UP") else "watch", "Swing Structure", f"{adir} {vacc}"),
+        _pill("pass" if above_e20 else "watch", "Px vs EMA20", "above" if above_e20 else "below"),
+        _pill("pass" if (wk_up and d_up) else ("watch" if (wk_up or d_up) else "fail"),
+              "Trend W / D", f"{'UP' if wk_up else 'DN'} / {'UP' if d_up else 'DN'} {vacc}"),
         _pill("pass" if vcp else "na", "VCP / Base", (f"valid · {_g(rec,'Days_Since_Pivot','—')}d" if vcp else "no")),
         _pill("pass" if rrg in ("LEADING", "IMPROVING") else "watch", "RRG", f"{rrg} {_g(rec,'RRG_Arrow','')}"),
         _pill("pass" if broke else "na", "Pivot", ("broke ↑" if broke else (inr(_g(rec, "Pivot_Price")) if _g(rec, "Pivot_Price") else "—"))),
         _pill("pass" if (rv or 0) >= 1 else "na", "Rel Volume", fnum(rv, 2, "×")),
         _pill(("pass" if (d52 is not None and -15 <= d52 <= -1) else ("watch" if (d52 or -99) > -1 else "na")),
-              "52WH Dist", fnum(d52, 1, "%")),
+              "52WH / ATH Dist", f"{fnum(d52, 1, '%')} / {fnum(dath, 1, '%')}"),
     ])
 
     sub = ("<div style='font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;"
@@ -2503,6 +2559,141 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
 # ----------------------------------------------------------------------------------------
 # Data (cached; the Refresh button clears it)
 # ----------------------------------------------------------------------------------------
+def _detect_pa_patterns(df: pd.DataFrame, stage: str = "") -> list:
+    """Mirror of Dashboard v67's PA pattern battery, evaluated on the LAST bar.
+
+    Formulas ported 1:1 from 'Weinstein and Swing Pro Dashboard v67.4.12.pine'
+    (incl. the v67.4.x fixes: strict NR7, prior-bar VCP contraction, RSI/vol-
+    gated engulfing, 50-SMA-gated pocket pivot). Jay's spec: these are strong
+    PA patterns he can't reliably spot by eye — surface them loudly.
+
+    Returns [(name, fired: bool, tier: int, note: str), ...]
+    """
+    pats = []
+    try:
+        c, o, h, l, v = df["Close"], df["Open"], df["High"], df["Low"], df["Volume"]
+        if len(c) < 60:
+            return pats
+        cN, oN = float(c.iloc[-1]), float(o.iloc[-1])
+        hN, lN, vN = float(h.iloc[-1]), float(l.iloc[-1]), float(v.iloc[-1])
+        rng = hN - lN
+        vol50 = v.rolling(50).mean()
+        rv = vN / float(vol50.iloc[-1]) if float(vol50.iloc[-1]) else 0.0
+        sma50 = float(c.rolling(50).mean().iloc[-1])
+        ema10 = float(c.ewm(span=10, adjust=False).mean().iloc[-1])
+        ema20 = float(c.ewm(span=20, adjust=False).mean().iloc[-1])
+        intrapos = (cN - lN) / rng if rng > 0 else 0.0
+
+        # ★★ Power Play (High Tight Flag) — 100% move in 8w + tight 15-bar flag
+        low8w = float(l.iloc[-40:].min())
+        l15 = float(l.iloc[-15:].min())
+        htf = (low8w > 0 and (cN - low8w) / low8w > 1.0 and l15 > 0 and
+               (float(h.iloc[-15:].max()) - l15) / l15 < 0.20 and cN > sma50)
+        pats.append(("★★ Power Play (HTF)", htf, 4, "100% in 8w + tight flag"))
+
+        # Power Play (Strong Close) — bullish marubozu-ish close on volume
+        sc = cN > oN and (cN - lN) > (hN - cN) * 3 and rv > 1.0
+        pats.append(("Power Play (Strong Close)", sc, 2, "top-quartile close on vol"))
+
+        # VCP Breakout — contraction on the PRIOR bar, then 10d-high break on vol
+        tr = pd.concat([(h - l), (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        atr10 = tr.ewm(alpha=1 / 10, adjust=False).mean()
+        atr10_s50 = atr10.rolling(50).mean()
+        vwma5 = (c * v).rolling(5).sum() / v.rolling(5).sum()
+        vcp_prior = (not math.isnan(float(atr10_s50.iloc[-2])) and
+                     float(atr10.iloc[-2]) < float(atr10_s50.iloc[-2]) * 1.5 and
+                     float(vwma5.iloc[-2]) < float(vol50.iloc[-2]))
+        vcp_bo = vcp_prior and cN > float(h.iloc[-11:-1].max()) and rv > 1.2 and intrapos >= 0.60
+        pats.append(("VCP Breakout", vcp_bo, 3, "tight prior bar → 10d-high break"))
+
+        # Pocket Pivot — up close, vol > any down-day vol in last 10, above 50-SMA
+        mdv = 0.0
+        for j in range(1, 11):
+            if float(c.iloc[-1 - j]) < float(c.iloc[-2 - j]) and float(v.iloc[-1 - j]) > mdv:
+                mdv = float(v.iloc[-1 - j])
+        pocket = (cN > float(c.iloc[-2]) and cN > oN and mdv > 0 and vN > mdv and
+                  cN > sma50 and (cN - lN) >= rng * 0.5)
+        pats.append(("Pocket Pivot", pocket, 2, "vol > every down-day vol (10d)"))
+
+        # Bullish Engulfing — v67.4.11 gate: downtrend ctx + relVol>2 + RSI[1]<40
+        delta = c.diff()
+        up = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+        dn = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+        rsi = 100 - 100 / (1 + up / dn.replace(0, np.nan))
+        c1, o1 = float(c.iloc[-2]), float(o.iloc[-2])
+        raw_eng = c1 < o1 and cN > oN and oN <= c1 and cN >= o1
+        engulf = (raw_eng and cN < ema10 < ema20 and rv > 2.0 and
+                  not math.isnan(float(rsi.iloc[-2])) and float(rsi.iloc[-2]) < 40)
+        pats.append(("Bullish Engulfing (gated)", engulf, 2, "engulf at oversold on 2× vol"))
+
+        # Liquidity Sweep Reclaim — swept below 50-SMA in last 5 bars, reclaimed on 1.5× vol
+        liq = (float(l.iloc[-5:].min()) < sma50 and cN > sma50 and
+               vN > float(vol50.iloc[-1]) * 1.5)
+        pats.append(("Liq Sweep Reclaim", liq, 2, "sweep < 50SMA → reclaim on vol"))
+
+        # 3-Bar Bull Reversal — 3 lower lows, close > max of those 3 highs
+        rev3 = (float(l.iloc[-2]) < float(l.iloc[-3]) and float(l.iloc[-3]) < float(l.iloc[-4])
+                and cN > float(h.iloc[-4:-1].max()))
+        pats.append(("3-Bar Bull Reversal", rev3, 2, "3 lower lows → reclaim"))
+
+        # Stage-2 Launch — TRUE weekly crossover of close over 30-WMA + volume
+        wk = c.resample("W-FRI").last().dropna()
+        launch = False
+        if len(wk) >= 32:
+            wma30 = wk.rolling(30).mean()
+            launch = (("2" in str(stage)) and rv > 1.25 and
+                      float(wk.iloc[-1]) > float(wma30.iloc[-1]) and
+                      float(wk.iloc[-2]) <= float(wma30.iloc[-2]))
+        pats.append(("Stage-2 Launch", launch, 3, "weekly close × over 30-WMA"))
+
+        # Inside-3 (Coil) — three nested inside bars
+        def _inside(k):
+            return (float(h.iloc[-k]) < float(h.iloc[-k - 1]) and
+                    float(l.iloc[-k]) > float(l.iloc[-k - 1]))
+        inside = _inside(1)
+        inside3 = inside and _inside(2) and _inside(3)
+        pats.append(("Inside-3 (Coil)", inside3, 2, "3 nested inside bars"))
+
+        # True NR7 — current range STRICTLY smallest of last 7
+        nr7 = all((float(h.iloc[-i]) - float(l.iloc[-i])) >= rng for i in range(2, 8)) and rng > 0
+        pats.append(("True NR7", nr7, 1, "tightest range of 7 bars"))
+        if inside and nr7:
+            pats.append(("★ IB-NR7 Coil", True, 2, "inside bar + NR7 — Crabel coil"))
+    except Exception:
+        pass
+    return pats
+
+
+def section_pa_patterns(ctx) -> str:
+    """PA pattern battery card — fired patterns highlighted, quiet ones dim."""
+    pats = _g(ctx, "pa_patterns", default=[]) or []
+    if not pats:
+        return card("PA PATTERNS · v67 mirror", [("Patterns", "unavailable", "na")], "#455A64")
+    rows = [(f"{name}  (+{tier})", ("FIRED — " + note) if fired else "quiet",
+             "pass" if fired else "na") for name, fired, tier, note in pats]
+    tier_sum = sum(t for _, f, t, _ in pats if f)
+    fired_n = sum(1 for _, f, _, _ in pats if f)
+    # Manual score registration: fired count out of battery size, colored by
+    # tier weight (0 fired = neutral grey — absence of a pattern is normal).
+    scol = "#26A69A" if tier_sum >= 3 else ("#FF9800" if tier_sum >= 1 else "#787B86")
+    SECTION_SCORES["Pa Patterns"] = (fired_n, len(pats), scol)
+    return card(f"PA PATTERNS · v67 mirror · Σ tier +{tier_sum}", rows, "#455A64")
+
+
+def render_pa_banner(ctx) -> str:
+    """High-visibility banner when strong PA patterns are live — Jay can't
+    spot these on the chart; the dashboard must shout them."""
+    pats = [(n, t) for n, f, t, _ in (_g(ctx, "pa_patterns", default=[]) or []) if f]
+    if not pats:
+        return ""
+    tier_sum = sum(t for _, t in pats)
+    chips = " · ".join(f"{n} (+{t})" for n, t in sorted(pats, key=lambda x: -x[1]))
+    col = "#7B1FA2" if tier_sum >= 4 else "#26A69A"
+    return (f"<div style='border:2px solid {col};background:{col}18;border-radius:9px;"
+            f"padding:8px 14px;margin:8px 0;font-size:14px'>"
+            f"<b style='color:{col}'>🔥 PA PATTERNS LIVE (Σ +{tier_sum}):</b> {chips}</div>")
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def gm_load_symbol(symbol: str) -> dict:
     """Pull everything for one symbol from the existing validated modules."""
@@ -2650,7 +2841,9 @@ def gm_load_symbol(symbol: str) -> dict:
             "cmp": last,
             "prev": float(c.iloc[-2]) if len(c) > 1 else last,
             "ema20": _f(ema20), "sma50": _f(sma50), "sma150": _f(sma150), "sma200": _f(sma200),
-            "sma200_prev": _fprev(sma200, 21),
+            "sma200_prev": _fprev(sma200, 21), "sma150_prev": _fprev(sma150, 21),
+            "ath2y": float(h.max()) if len(h) else None,
+            "dist_ath": (last - float(h.max())) / float(h.max()) * 100 if len(h) and float(h.max()) else None,
             "adx": _f(adx), "plus_di": _f(pdi), "minus_di": _f(mdi),
             "high52w": _f(h52), "low52w": _f(l52),
             "dist52wh": (last - _f(h52)) / _f(h52) * 100 if _f(h52) else None,
@@ -2677,6 +2870,55 @@ def gm_load_symbol(symbol: str) -> dict:
     except Exception as e:
         out["fun"] = {}
         out["errors"].append(f"fundamentals: {e}")
+
+    # --- Sector strength (sector_lookup + sector_strength, same modules the
+    #     bull screener's score uses) + Futures OI from the latest matcher CSV ---
+    _bare = symbol.replace(".NS", "").replace(".BO", "").upper()
+    if isinstance(out.get("ctx"), dict):
+        # True ATH via 10y weekly (Dhan-native, cached 24h) — replaces the 2y proxy
+        try:
+            import data_provider as _dp2
+            _w10 = _dp2.fetch_ohlcv(symbol, period="10y", interval="1wk", use_cache=True, auto_adjust=True)
+            if _w10 is not None and len(_w10):
+                _athv = max(float(_w10["High"].max()), float(out["ctx"].get("high52w") or 0))
+                if _athv > 0:
+                    out["ctx"]["ath"] = _athv
+                    out["ctx"]["dist_ath"] = (out["ctx"]["cmp"] - _athv) / _athv * 100
+        except Exception:
+            pass
+        # v67-mirror PA pattern battery (Jay: can't spot these by eye — detect them)
+        try:
+            if out.get("df") is not None:
+                _stage0 = str((out.get("rec") or {}).get("Stage", ""))
+                out["ctx"]["pa_patterns"] = _detect_pa_patterns(out["df"], _stage0)
+        except Exception:
+            pass
+        try:
+            from sector_lookup import get_sector_index
+            from sector_strength import get_sector_status, get_sector_score
+            _si = get_sector_index(_bare)
+            if _si:
+                _st = get_sector_status(_si) or {}
+                out["ctx"].update({
+                    "sector_idx":   _si,
+                    "sector_w_pct": _st.get("weekly_pct"),
+                    "sector_m_pct": _st.get("monthly_pct"),
+                    "sector_score": get_sector_score(_si),
+                })
+        except Exception as e:
+            out["errors"].append(f"sector: {e}")
+        try:
+            for _p in (os.path.join("Screener CSVs", "Golden_Matcher_Results.csv"),
+                       "FINAL_WATCHLIST.csv"):
+                if os.path.exists(_p):
+                    _m = pd.read_csv(_p)
+                    if "Futures_OI_Chg_Pct" in _m.columns and "Symbol" in _m.columns:
+                        _r = _m[_m["Symbol"].astype(str).str.upper() == _bare]
+                        if len(_r) and pd.notna(_r.iloc[0]["Futures_OI_Chg_Pct"]):
+                            out["ctx"]["fut_oi"] = float(_r.iloc[0]["Futures_OI_Chg_Pct"])
+                            break
+        except Exception:
+            pass
 
     out["fetched_at"] = datetime.now().strftime("%d-%b %H:%M:%S")
     return out
@@ -10453,6 +10695,9 @@ elif page == 'GOLDEN MATCHER':
     decision = compute_decision(rec, ctx, cmp_px, mansfield)
     wf = compute_workflow(rec, ctx, cmp_px, mansfield)
     st.markdown(render_workflow(wf), unsafe_allow_html=True)
+    _pa_html = render_pa_banner(ctx)
+    if _pa_html:
+        st.markdown(_pa_html, unsafe_allow_html=True)
     
     # ---- The single next action + guided execution sequence ----
     cur_step = wf["steps"][wf["current"] - 1]
@@ -10496,6 +10741,7 @@ elif page == 'GOLDEN MATCHER':
         # only when its score surprises you.
         SECTION_SCORES.clear()
         _h_board  = render_technical_board(rec, ctx, cmp_px, mansfield)
+        _h_pa     = section_pa_patterns(ctx)
         _h_ctx    = section_context(rec, ctx, cmp_px)
         _h_struct = section_structure(rec, ctx, cmp_px, mansfield, decision)
         _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)
@@ -10509,6 +10755,7 @@ elif page == 'GOLDEN MATCHER':
         c1, c2, c3 = st.columns(3, gap="medium")
         with c1:
             st.markdown(_h_board, unsafe_allow_html=True)
+            st.markdown(_h_pa, unsafe_allow_html=True)
             st.markdown(_h_ctx, unsafe_allow_html=True)
         with c2:
             st.markdown(_h_struct, unsafe_allow_html=True)
