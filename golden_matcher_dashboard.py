@@ -408,7 +408,9 @@ def section_structure(rec, ctx, cmp_px, mansfield, decision) -> str:
          "pass" if alpha >= 70 else "watch" if alpha >= 50 else "fail"),
         ("Weekly Stage", f"Stage {stage} · {fresh}",
          "pass" if "2" in stage else "fail" if ("3" in stage or "4" in stage) else "watch"),
-        ("Daily Trend", f"{_g(rec,'Active_Dir',default='—')} {_g(rec,'Vel_Accel',default='')}",
+        ("Daily Trend", f"{_g(rec,'Active_Dir',default='—')}"
+         + {"UP": " · accelerating", "DOWN": " · decelerating", "FLAT": " · flat"}.get(
+               str(_g(rec, "Vel_Accel", default="")).upper(), ""),
          "pass" if str(_g(rec, "Active_Dir")).upper().startswith("UP") else "watch"),
         ("Momentum", f"RSI {fnum(_g(rec,'RSI'),0)} · ADX {fnum(_g(ctx,'adx'),0)} · Vol {fnum(_g(ctx,'relvol'),1)}x", "na"),
         ("Persona", persona, "pass" if persona == "LEADER" else "watch"),
@@ -824,7 +826,7 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
         _pill("pass" if stacked else "watch", "EMA Stack", "Px&gt;20&gt;50&gt;200" if stacked else "broken"),
         _pill("pass" if above_e20 else "watch", "Px vs EMA20", "above" if above_e20 else "below"),
         _pill("pass" if (wk_up and d_up) else ("watch" if (wk_up or d_up) else "fail"),
-              "Trend W / D", f"{'UP' if wk_up else 'DN'} / {'UP' if d_up else 'DN'} {vacc}"),
+              "Trend W / D", f"{'UP' if wk_up else 'DN'} / {'UP' if d_up else 'DN'}"),
         _pill("pass" if vcp else "na", "VCP / Base", (f"valid · {_g(rec,'Days_Since_Pivot','—')}d" if vcp else "no")),
         _pill("pass" if rrg in ("LEADING", "IMPROVING") else "watch", "RRG", f"{rrg} {_g(rec,'RRG_Arrow','')}"),
         _pill("pass" if broke else "na", "Pivot", ("broke ↑" if broke else (inr(_g(rec, "Pivot_Price")) if _g(rec, "Pivot_Price") else "—"))),
