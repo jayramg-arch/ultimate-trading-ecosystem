@@ -11563,12 +11563,16 @@ elif page == 'RISK SHIELD':
                         _batch_data = dp.fetch_batch_ohlcv(missing_syms, period="1y", interval="1d", use_cache=True, auto_adjust=True)
                         _tech_failed_syms = [s for s in missing_syms
                                              if _batch_data.get(s) is None or getattr(_batch_data.get(s), "empty", True)]
-                        # A9: capture the technicals' as-of date for the freshness strip
+                        # A9: capture the technicals' as-of date for the freshness strip.
+                        # Stored BOTH in session_state and inside the hist cache itself, so
+                        # cache-hit runs (no batch fetch) still show the real date, not "—".
                         try:
                             _asof_candidates = [df.index[-1] for df in _batch_data.values()
                                                 if df is not None and not df.empty]
                             if _asof_candidates:
-                                st.session_state["rs_tech_asof"] = str(max(_asof_candidates).date())
+                                _asof_s = str(max(_asof_candidates).date())
+                                st.session_state["rs_tech_asof"] = _asof_s
+                                hist_data["_asof"] = _asof_s
                         except Exception:
                             pass
 
@@ -11745,9 +11749,10 @@ elif page == 'RISK SHIELD':
                         _sname = str(_dp9.get_last_source(_fs) or "holdings")
                         _src_counts[_sname] = _src_counts.get(_sname, 0) + 1
                     _src_str = " · ".join(f"{k}:{v}" for k, v in sorted(_src_counts.items()))
-                    _asof9 = st.session_state.get("rs_tech_asof", "—")
+                    _asof9 = st.session_state.get("rs_tech_asof") or hist_data.get("_asof") or "—"
+                    _nsyms9 = sum(1 for _v9 in hist_data.values() if isinstance(_v9, dict))
                     st.caption(f"🩺 Data: LTP sources [{_src_str}] · technicals as-of {_asof9} "
-                               f"· hist cache {len(hist_data)} syms")
+                               f"· hist cache {_nsyms9} syms")
                 except Exception:
                     pass
 
