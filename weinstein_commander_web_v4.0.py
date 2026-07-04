@@ -11751,8 +11751,14 @@ elif page == 'RISK SHIELD':
                     _src_str = " · ".join(f"{k}:{v}" for k, v in sorted(_src_counts.items()))
                     _asof9 = st.session_state.get("rs_tech_asof") or hist_data.get("_asof") or "—"
                     _nsyms9 = sum(1 for _v9 in hist_data.values() if isinstance(_v9, dict))
+                    # Split holdings vs order-only symbols (pending GTT entries / stale
+                    # OCOs on sold stocks) so the count never reads as a mismatch vs
+                    # the portfolio size.
+                    _order_only9 = sorted(set(symbols_to_fetch) - set(holdings_map.keys()))
+                    _split9 = (f" ({len(holdings_map)} holdings + {len(_order_only9)} order-only: "
+                               f"{', '.join(_order_only9)})" if _order_only9 else f" ({len(holdings_map)} holdings)")
                     st.caption(f"🩺 Data: LTP sources [{_src_str}] · technicals as-of {_asof9} "
-                               f"· hist cache {_nsyms9} syms")
+                               f"· hist cache {_nsyms9} syms{_split9}")
                 except Exception:
                     pass
 
