@@ -1058,7 +1058,7 @@ with st.sidebar:
 
     # ── v4.0 Grouped Navigation ─────────────────────────────────────────────
     EXTERNAL_PAGES = {'JOURNAL': 'dhan_journal_v7.py'}
-    # X-RAY and TV SIDECAR are inline pages (no external script needed)
+    # X-RAY, TV SIDECAR and PYRAMID are inline pages (no external script needed)
 
     # NAV reorg (10 May 2026):
     #   • New STATE OF MARKET group at the top (MACRO + BREADTH + NEWS) — these
@@ -1077,6 +1077,7 @@ with st.sidebar:
             ("🗂️ PORTFOLIO",   "PORTFOLIO"),
             ("⚡ COMMAND",     "COMMAND"),
             ("🛡️ RISK SHIELD", "RISK SHIELD"),
+            ("⚖️ PYRAMID / TRIM", "PYRAMID"),
         ]),
         ("🩺  STATE OF MARKET", [
             ("🌐 MACRO",       "MACRO"),
@@ -1780,6 +1781,8 @@ def inr(x) -> str:
         x = float(x)
     except (TypeError, ValueError):
         return "—"
+    if math.isnan(x) or math.isinf(x):   # NaN/inf (e.g. a missing T2) → dash, never crash
+        return "—"
     neg = x < 0
     x = abs(x)
     whole = int(round(x))
@@ -1817,6 +1820,100 @@ def _g(d: dict, *keys, default=None):
         if k in d and d[k] is not None:
             return d[k]
     return default
+
+
+def _cat_on(cat) -> bool:
+    """True when a bull catalyst value means 'firing'. One definition for the
+    header, compute_decision and compute_workflow — a Catalyst of None/NaN/
+    ''/'None'/'NONE'/'—'/0 (any type) must read as NOT firing everywhere."""
+    if cat is None or (isinstance(cat, float) and math.isnan(cat)):
+        return False
+    return str(cat).strip() not in ("NONE", "None", "none", "—", "-", "0", "")
+
+
+def _stg_digit(stage_val):
+    """Extract the Weinstein stage digit as a string ('1'..'4') from any
+    representation — int 1, float 1.0 (batch CSV), 'Stage 2', '2A'. Returns
+    '' when no digit is present (missing / NaN)."""
+    s = str(stage_val)
+    return next((d for d in "1234" if d in s), "")
+
+
+def _canon_sym(sym: str) -> str:
+    """Normalize a TradingView-style symbol (underscore separators) to the
+    canonical NSE ticker the loaders expect. TV emits 'BAJAJ_AUTO.NS' /
+    'NAM_INDIA.NS'; Dhan + yfinance want 'BAJAJ-AUTO' / 'NAM-INDIA' (and a few
+    names use '&'). Resolves via the Dhan scrip master (separator-insensitive),
+    preserving the '.NS' suffix and passing indices ('^...') through. Falls
+    back to the input unchanged on any error."""
+    if not sym:
+        return sym
+    s = str(sym).strip().upper()
+    if s.startswith("^") or s.endswith(("=X", "=F")):
+        return s
+    had_ns = s.endswith(".NS")
+    try:
+        import dhan_ohlcv as _dohlcv
+        canon = _dohlcv.canonical_nse_symbol(s)   # bare canonical ticker
+        if canon and not canon.startswith("^"):
+            return f"{canon}.NS" if had_ns else canon
+        return canon or s
+    except Exception:
+        # Minimal safety net if dhan_ohlcv is unavailable: TV underscore→hyphen.
+        return s.replace("_", "-") if "_" in s else s
+
+
+def _rec_cfg():
+    """(beaten_down_floor_pct, rff_min_score) from recovery_screener.CONFIG —
+    single source of truth so the web never drifts from the engine."""
+    try:
+        import recovery_screener as _rsm
+        return (float(_rsm.CONFIG.get("min_stock_correction_pct", 10.0)),
+                int(_rsm.CONFIG.get("rff_min_score", 4)))
+    except Exception:
+        return (10.0, 4)
+
+
+def _expected_last_session():
+    """Date of the most-recently COMPLETED NSE session as of now (IST clock).
+
+    The freshness target must be SESSION-AWARE, not just 'yesterday': while
+    today's session is still live (or pre-open) the last completed session is
+    the previous trading day, but AFTER today's 15:30 IST close the freshest bar
+    should be TODAY. Using a flat `today-1` made the tool sit happily on
+    yesterday's bar all evening (false-green, one session behind). Weekends are
+    handled; NSE holidays are not modelled (a holiday briefly shows a benign
+    amber — it errs loud, never silently stale)."""
+    now = datetime.now()
+    d = now.date()
+    market_closed_today = (d.weekday() < 5) and (now.hour * 60 + now.minute) >= (15 * 60 + 30)
+    if market_closed_today:
+        return d
+    d = d - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+# Golden Matcher user settings (capital / risk%) — persisted across restarts.
+_GM_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_settings.json")
+
+
+def _gm_settings() -> dict:
+    try:
+        with open(_GM_SETTINGS_FILE, encoding="utf-8") as _f:
+            return json.load(_f) or {}
+    except Exception:
+        return {}
+
+
+def _gm_settings_save(**kw):
+    d = _gm_settings(); d.update(kw)
+    try:
+        with open(_GM_SETTINGS_FILE, "w", encoding="utf-8") as _f:
+            json.dump(d, _f, indent=2)
+    except Exception:
+        pass
 
 
 # ----------------------------------------------------------------------------------------
@@ -1922,21 +2019,32 @@ def compute_decision(rec: dict, ctx: dict, cmp_px, mansfield) -> dict:
     mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
     rrg = _g(rec, "RRG_Quadrant", default=""); rrg_ok = rrg in ("LEADING", "IMPROVING")
     catalyst = _g(rec, "Catalyst", default="NONE")
-    cat_on = str(catalyst) not in ("NONE", "None", "—", "0", "")
+    cat_on = _cat_on(catalyst)
     rsi = _g(rec, "RSI") or 0; not_ob = rsi < 75
     s2w = _g(ctx, "stage2_weeks"); fresh = (s2w is None) or (s2w <= 26)
     macro = bool(_g(ctx, "shelf_ok") and _g(ctx, "acc_ok"))
     micro = bool(_g(ctx, "cpr_p") and cmp_px > _g(ctx, "cpr_p") and _g(ctx, "mvwap") and cmp_px > _g(ctx, "mvwap"))
     vcp = bool(_g(rec, "VCP_Valid")); broke = bool(_g(rec, "Broke_Pivot"))
+    # Daily PA battery (v67-mirror, 17) — same source as the Step-5 workflow trigger,
+    # so both views speak one "trigger" language.
+    _pa_pats = _g(ctx, "pa_patterns", default=[]) or []
+    _pa_tier = sum(t for _, f, t, _ in _pa_pats if f)
+    _pa_fired = sorted([(nm, t) for nm, f, t, _ in _pa_pats if f], key=lambda x: -x[1])
+    pa_fired = len(_pa_fired) > 0
+    _pa_names = ", ".join(nm for nm, _ in _pa_fired[:3])
 
+    # D1 fix (9-Jul-2026): every displayed check now states the threshold the
+    # gate ACTUALLY enforces; rows that inform but do not gate say "(info)" —
+    # a gate must never show ✓ while its listed criteria show ✗ (or vice versa).
     g1_checks = [("Stage 2 advancing", s2), ("Above 30W MA", above30w),
-                 (f"Market regime {regime}", (regime == "BULL") or not counter)]
+                 (f"Market regime {regime} (info)", (regime == "BULL") or not counter)]
     g1 = s2 and above30w
-    g2_checks = [("Mansfield RS positive", rs), (f"Alpha ≥ 60 (now {alpha:.0f})", alpha >= 60),
-                 (f"Minervini ≥ 6/8 (now {mpass}/8)", mpass >= 6), ("RRG leading/improving", rrg_ok)]
+    g2_checks = [("Mansfield RS positive", rs), (f"Alpha ≥ 50 (now {alpha:.0f})", alpha >= 50),
+                 (f"Minervini ≥ 5/8 (now {mpass}/8)", mpass >= 5), ("RRG leading/improving (info)", rrg_ok)]
     g2 = rs and (alpha >= 50) and (mpass >= 5)
     g3_checks = [(f"Catalyst firing ({catalyst})", cat_on), ("Not over-extended", fresh and not_ob),
-                 ("Macro/Micro edge active", macro or micro), ("VCP / pivot break", vcp or broke)]
+                 ("Macro/Micro edge active (info)", macro or micro), ("VCP / pivot break (info)", vcp or broke),
+                 (f"PA trigger fired{(' · ' + _pa_names) if pa_fired else ''} (info)", pa_fired)]
     g3 = cat_on and fresh and not_ob
 
     gates = [
@@ -1949,13 +2057,17 @@ def compute_decision(rec: dict, ctx: dict, cmp_px, mansfield) -> dict:
         verdict, color = "AVOID / EXIT", "#EF5350"
         reason = "Stage 3/4 or RS negative — fails the no-Stage-3-holds rule."
         action = "No long. If held, plan the exit per the Sell-to-Buy matrix."
-    elif g1 and g2 and g3:
-        verdict, color = "STRONG BUY", "#26A69A"
-        reason = f"All 3 gates pass · catalyst {catalyst} firing."
+    elif g1 and g2 and g3 and pa_fired:
+        verdict, color = "STRONG BUY · TRIGGER LIVE", "#26A69A"
+        reason = f"All 3 gates pass · PA trigger LIVE ({_pa_names} · Σ+{_pa_tier})."
         action = f"Confirm a CLOSED 75/125m trigger → buy-STOP above its high. Size {_g(rec,'Suggested_Size','—')}."
+    elif g1 and g2 and g3:
+        verdict, color = "READY · AWAIT TRIGGER", "#FF9800"
+        reason = f"All 3 gates pass · catalyst {catalyst} firing; no daily PA trigger printed yet."
+        action = "Set an alert at the fresh zone; act ONLY on a fired PA pattern + closed 75/125m trigger bar."
     elif g1 and g2:
         verdict, color = "BUY ON TRIGGER", "#FF9800"
-        reason = "Context + strength pass; only timing/trigger is pending."
+        reason = "Context + strength pass; timing/location gate still pending."
         action = "Set an alert at the fresh zone; act ONLY on a closed 75/125m trigger bar."
     elif g1:
         verdict, color = "WATCHLIST", "#FF9800"
@@ -1965,67 +2077,13 @@ def compute_decision(rec: dict, ctx: dict, cmp_px, mansfield) -> dict:
         verdict, color = "NOT YET", "#787B86"
         reason = "Context gate not met (Stage 2 + above 30W MA)."
         action = "No setup. Re-check when context turns."
-    if counter and verdict in ("STRONG BUY", "BUY ON TRIGGER"):
+    if counter and verdict not in ("AVOID / EXIT", "WATCHLIST", "NOT YET"):
         reason += "  ⚠ Counter-trend (index not bull) — size halved."
     return {"verdict": verdict, "color": color, "reason": reason, "action": action, "gates": gates}
 
 
-def render_decision(d: dict) -> str:
-    gates_html = ""
-    for i, g in enumerate(d["gates"]):
-        col = "#26A69A" if g["ok"] else "#787B86"
-        mk = "✓" if g["ok"] else "○"
-        subs = ""
-        for lab, ok in g["checks"]:
-            cc = "#26A69A" if ok else "#EF5350"; mm = "✓" if ok else "✗"
-            subs += (f"<div style='display:flex;gap:5px;font-size:10.5px;margin:1px 0'>"
-                     f"<span style='color:{cc};font-weight:700'>{mm}</span>"
-                     f"<span style='opacity:.85'>{lab}</span></div>")
-        gates_html += (f"<div style='flex:1;border-top:3px solid {col};background:{col}14;"
-                       f"border-radius:0 0 6px 6px;padding:7px 9px;'>"
-                       f"<div style='font-weight:800;font-size:12px;color:{col}'>{mk} GATE {i+1} · {g['name']}</div>"
-                       f"<div style='font-size:9.5px;opacity:.55;margin-bottom:4px'>{g['sub']}</div>{subs}</div>")
-    return (f"<div style='border:2px solid {d['color']};border-radius:10px;padding:12px 16px;margin-bottom:12px;"
-            f"background:{d['color']}11;'>"
-            f"<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap'>"
-            f"<span style='font-size:11px;letter-spacing:1px;opacity:.55'>DECISION</span>"
-            f"<span style='font-size:30px;font-weight:900;color:{d['color']}'>{d['verdict']}</span></div>"
-            f"<div style='font-size:13px;margin:4px 0 2px'>{d['reason']}</div>"
-            f"<div style='font-size:12px;opacity:.85'>▶ <b>Next:</b> {d['action']}</div>"
-            f"<div style='display:flex;gap:8px;margin-top:10px'>{gates_html}</div></div>")
-
-
-def render_pine_mirror(rec: dict, ctx: dict, cmp_px) -> str:
-    """Key composite fields mirrored from the v67 Decision-Mode panel."""
-    cat = str(_g(rec, "Catalyst", default=""))
-    rec_style = ("Positional (6–8 mo)" if cat.startswith("POS")
-                 else "Swing (1–4 wk)" if cat.startswith("SWG")
-                 else "Recovery" if cat.startswith("REV") else "—")
-    s2w = _g(ctx, "stage2_weeks")
-    if s2w is None:
-        fresh = "—"; fresh_state = "na"
-    elif s2w <= 13:
-        fresh = f"Fresh ({s2w:.0f}w)"; fresh_state = "pass"
-    elif s2w <= 26:
-        fresh = f"Maturing ({s2w:.0f}w)"; fresh_state = "watch"
-    else:
-        fresh = f"Extended ({s2w:.0f}w)"; fresh_state = "fail"
-    macro = bool(_g(ctx, "shelf_ok") and _g(ctx, "acc_ok"))
-    cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
-    micro = bool(cpr_p and cmp_px > cpr_p and mv and cmp_px > mv)
-    pills = "".join([
-        _pill("na", "Rec. Style", rec_style),
-        _pill(fresh_state, "Stage-2 Age", fresh),
-        _pill("pass" if macro else "na", "Macro Edge", "Inst-Vol ON" if macro else "off"),
-        _pill("pass" if micro else "na", "Micro Edge", "CPR+MVWAP ON" if micro else "off"),
-        _pill("pass" if (cpr_p and cmp_px > cpr_p) else "watch", "vs CPR Pivot",
-              ("above " + inr(cpr_p)) if cpr_p else "—"),
-        _pill("pass" if (mv and cmp_px > mv) else "watch", "vs Monthly VWAP", inr(mv) if mv else "—"),
-        _pill("pass" if _g(ctx, "acc_ok") else "na", "Accumulation", f"{_g(ctx,'acc_days',default=0)}/10 days"),
-        _pill("pass" if _g(ctx, "squeeze_on") else "na", "Squeeze 20/50", "ON" if _g(ctx, "squeeze_on") else "off"),
-        _pill("pass" if _g(rec, "Regime") == "BULL" else "watch", "Market Regime", _g(rec, "Regime", default="—")),
-    ])
-    return f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;'>{pills}</div>"
+# (render_decision / render_pine_mirror removed 9-Jul-2026 — dead code, never
+#  invoked; compute_decision remains live as the STRUCTURE card's gate source.)
 
 
 # ----------------------------------------------------------------------------------------
@@ -2154,11 +2212,18 @@ def section_bull_gates(rec, ctx, cmp_px, mansfield) -> str:
              ("G7 Fresh ≤6w" + (f" ({s2w:.0f}w)" if s2w is not None else ""), freshg)]
     passed = sum(1 for _, ok in gates if ok)
     total = sum(1 for _, ok in gates if ok is not None)
-    cat = str(_g(rec, "Catalyst", default="NONE")); firing = cat not in ("NONE", "None", "—", "0", "")
+    cat = str(_g(rec, "Catalyst", default="NONE")); firing = _cat_on(cat)
     rows = [("VERDICT", (cat + " · FIRING") if firing else "NONE · WATCH", "pass" if firing else "watch")]
     for lab, ok in gates:
         rows.append((lab, "n/a", "na") if ok is None else (lab, "✓ pass" if ok else "✗ block", "pass" if ok else "fail"))
-    return card(f"BULL SCREENER · POS-BO {passed}/{total}", rows, "#00695C")
+    # Explicit chip (D3 fix 9-Jul-2026): the auto-chip also counted the VERDICT
+    # row, so header said e.g. 4/6 while the chip said 5/8. Gates only, once.
+    _frac = (passed / total) if total else 0
+    _scol = "#26A69A" if _frac >= 0.7 else ("#FF9800" if _frac >= 0.4 else "#EF5350")
+    _hdr = "#1B7A6E" if _frac >= 0.7 else ("#C77700" if _frac >= 0.4 else "#C62828")
+    SECTION_SCORES["Bull Screener"] = (passed, total, _scol)
+    return card(f"BULL SCREENER · POS-BO gates", rows, "#00695C",
+                chip_text=f"{passed}/{total}", chip_color=_hdr)
 
 
 def section_context(rec, ctx, cmp_px) -> str:
@@ -2224,6 +2289,89 @@ def section_edges(rec, ctx, cmp_px) -> str:
     return card("MATHEMATICAL EDGES", rows, "#7B1FA2")
 
 
+def section_recovery(rec_r, cmp_px) -> str:
+    """Recovery engine read (REV-CB/RS/EARLY + WYC-*), parallel to the bull side.
+
+    The bull screener above only sees the 6 bull catalysts; recovery setups
+    (fundamentally strong, beaten-down, turning up) come from a separate
+    engine. This card surfaces its signal, the RFF fundamental HARD GATE
+    (≥4/6 — the whole point of the recovery thesis), Stage/RS context, and the
+    daily plan when a signal actually fires. When nothing fires it reports WHY
+    (RFF vs setup) rather than going silent.
+    """
+    if not rec_r:
+        return card("RECOVERY ENGINE · REV / WYC",
+                    [("Status", "not evaluated (engine error)", "na")], "#00838F")
+    _dd_floor, _rff_min = _rec_cfg()
+    sig    = int(_g(rec_r, "Signal", default=0) or 0)
+    label  = str(_g(rec_r, "Signal_Label", default="None"))
+    rff_b  = _g(rec_r, "RFF_Base", default=0)
+    if isinstance(rff_b, float) and math.isnan(rff_b):
+        rff_b = 0
+    rff_q  = str(_g(rec_r, "RFF_Quality", default="INSUFFICIENT"))
+    if rff_q.lower() in ("nan", "none", ""):
+        rff_q = "INSUFFICIENT"
+    rff_ok = (rff_q != "INSUFFICIENT") and (rff_b or 0) >= _rff_min
+    corr   = _g(rec_r, "Correction_52W_pct")
+    if isinstance(corr, float) and math.isnan(corr):
+        corr = None
+    reg_ok = bool(_g(rec_r, "Regime_OK", default=False))
+    actionable = sig >= 2          # 2=REV-CB 3=REV-RS 4=REV-EARLY 5-8=WYC-*
+    watch      = sig == 1          # CB-Watch — climax seen, no turn yet
+    # A "recovery" only makes sense if the STOCK is genuinely beaten down. The
+    # engine can fire REV/WYC via the market-recovery path even at ATH — flag
+    # that as NOT a real recovery (engine's own configured floor).
+    beaten_down = (corr is not None) and (corr >= _dd_floor)
+
+    if actionable and beaten_down:
+        sig_state, sig_txt = "pass", label
+    elif actionable and not beaten_down:
+        sig_state, sig_txt = "watch", f"{label} (market-path only — stock near highs, not a recovery)"
+    elif watch:
+        sig_state, sig_txt = "watch", label
+    else:
+        sig_state, sig_txt = "na", "No recovery setup"
+    rows = [
+        ("Signal", sig_txt, sig_state),
+        (f"Beaten down (≥{_dd_floor:.0f}% off 52WH)", fnum(corr, 1, "%") if corr is not None else "—",
+         "pass" if beaten_down else "fail"),
+        (f"RFF gate (≥{_rff_min}/6)", f"{rff_b}/6 · {rff_q}", "pass" if rff_ok else "fail"),
+        ("Stage (weekly)", f"Stage {_stg_digit(_g(rec_r, 'Weinstein_Stage', default='')) or '—'}", "na"),
+        ("In recovery band (15-35%)", fnum(corr, 1, "%") if corr is not None else "—",
+         "pass" if (corr is not None and 15 <= corr <= 35) else "watch"),
+        ("RS vs N500", fnum(_g(rec_r, "Mansfield_RS_x100"), 1), "na"),
+        ("RRG", str(_g(rec_r, "RRG_Quadrant", default="—")),
+         "pass" if _g(rec_r, "RRG_Quadrant") in ("LEADING", "IMPROVING") else "watch"),
+        ("Recovery regime", "OPEN" if reg_ok else "closed",
+         "pass" if reg_ok else "watch"),
+    ]
+    # Daily plan only when a GENUINE beaten-down recovery fired (levels are
+    # meaningful then; a market-path artifact at highs gets no recovery plan).
+    entry = _g(rec_r, "Entry"); sl = _g(rec_r, "SL")
+    t1 = _g(rec_r, "T1"); t2 = _g(rec_r, "T2"); rr = _g(rec_r, "RR_T1"); slp = _g(rec_r, "SL_pct")
+    # NaN → None (batch CSV rows carry float NaN for missing levels; NaN is truthy).
+    entry, sl, t1, t2, rr, slp = [
+        (None if (v is None or (isinstance(v, float) and math.isnan(v))) else v)
+        for v in (entry, sl, t1, t2, rr, slp)]
+    if actionable and beaten_down and entry and sl:
+        rows.append(("Entry", inr(entry), "na"))
+        rows.append(("Stop-Loss", inr(sl) + (f" (-{slp:.1f}%)" if slp is not None else ""), "fail"))
+        if t1:
+            rows.append(("Target 1", inr(t1) + (f" ({fnum(rr,1)}R)" if rr is not None else ""), "pass"))
+        if t2:
+            rows.append(("Target 2", inr(t2), "pass"))
+    _src = _g(rec_r, "_source")
+    if _src:
+        _fage = _g(rec_r, "_as_of")
+        _adays = _g(rec_r, "_age_days")
+        _src_txt = f"{_src} · {_fage}" if _fage else str(_src)
+        _src_state = "watch" if (_adays is not None and _adays > 5) else "na"
+        if _src_state == "watch":
+            _src_txt += f" (⚠ {_adays}d old — re-run the recovery scan)"
+        rows.append(("Read from", _src_txt, _src_state))
+    return card("RECOVERY ENGINE · REV / WYC", rows, "#00838F")
+
+
 def section_trade(rec, cmp_px) -> str:
     entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct")
     t1_pct = _g(rec, "T1_pct"); t2_pct = _g(rec, "T2_pct")
@@ -2255,8 +2403,31 @@ def section_levels(rec, ctx, cmp_px) -> str:
         ("VCP Pivot age", f"formed {_g(rec,'Days_Since_Pivot','—')}d ago" + (" · broke ↑" if _g(rec, "Broke_Pivot") else " · not broken"),
          "pass" if _g(rec, "Broke_Pivot") else "na"),
         ("Turnover", fnum(_g(ctx, "turnover_cr"), 1) + " Cr", "na"),
-        ("DZ / SZ zones", "live on chart", "na"),
     ]
+    # Auto support zones (OB / FVG / pivot-low) on Daily AND Weekly — twin of
+    # the S4 Pine v2.1. Trading TF is 125/75m; zones come from D+W structure.
+    _sup = _g(ctx, "support", default={}) or {}
+    for _tf_key, _tf_lbl in (("daily", "D"), ("weekly", "W")):
+        _z = _sup.get(_tf_key) or {}
+        _ot, _ob = _z.get("ob_top"), _z.get("ob_bot")
+        _ft, _fb = _z.get("fvg_top"), _z.get("fvg_bot")
+        _pv = _z.get("pivot")
+        _obt = bool(_z.get("ob_tested")); _fvt = bool(_z.get("fvg_tested"))
+        # Tested zones show greyed ('na') + a TESTED tag — they're excluded from
+        # the trigger; fresh zones show green ('pass').
+        rows.append((f"{_tf_lbl} · Order Block",
+                     (f"{inr(_ob)}–{inr(_ot)}" + (" · TESTED" if _obt else " · fresh")) if _ot else "none active",
+                     "na" if (not _ot or _obt) else "pass"))
+        rows.append((f"{_tf_lbl} · FVG",
+                     (f"{inr(_fb)}–{inr(_ft)}" + (" · TESTED" if _fvt else " · fresh")) if _ft else "none active",
+                     "na" if (not _ft or _fvt) else "pass"))
+        rows.append((f"{_tf_lbl} · Pivot support", inr(_pv) if _pv else "none active",
+                     "pass" if _pv else "na"))
+        _pvr = _z.get("pivot_res")
+        if _pvr:
+            rows.append((f"{_tf_lbl} · Pivot S→R (resist)", inr(_pvr) + " · overhead", "watch"))
+    rows.append(("Price at fresh support (D/W)", _sup.get("zone", "—"),
+                 "pass" if _sup.get("at_support") else "watch"))
     return card("LEVELS & ROOM", rows, "#EF6C00")
 
 
@@ -2288,7 +2459,7 @@ def section_sector(rec, ctx, mansfield) -> str:
     return card("SECTOR / MACRO / RRG", rows, "#283593")
 
 
-def section_fundamentals(fun) -> str:
+def section_fundamentals(fun, bff=None) -> str:
     roe = _g(fun, "roe"); roce = _g(fun, "roce"); de = _g(fun, "debt_equity")
     prom = _g(fun, "promoter_holding", "promoter"); piot = _g(fun, "piotroski", "piotroski_score")
     qpv = _g(fun, "qtr_profit_var", "quarterly_profit_growth")
@@ -2304,6 +2475,14 @@ def section_fundamentals(fun) -> str:
     if qsv is not None: rows.append(("Qtr Sales Δ", fnum(qsv, 1, "%"), "pass" if qsv > 0 else "fail"))
     if pe is not None: rows.append(("P/E", fnum(pe, 1), "na"))
     if mcap is not None: rows.append(("Market Cap", inr(mcap) + " Cr", "na"))
+    # BFF (Bull Fundamental Filter) — Minervini growth-leg summary, leading the
+    # card. Display-only; the driver string shows the components behind the badge.
+    if bff and bff.get("source") == "screener.in":
+        _q = str(bff.get("quality", "—")); _sc = bff.get("score")
+        _drv = " · ".join(bff.get("drivers", [])[:4])
+        _val = (f"{_q} {_sc}/5" if _sc is not None else _q) + (f"   ·   {_drv}" if _drv else "")
+        _st = "pass" if _q == "STRONG" else "watch" if _q in ("OK", "INSUFFICIENT") else "fail"
+        rows.insert(0, ("BFF · Bull growth", _val, _st))
     if not rows:
         rows = [("Fundamentals", "unavailable — refresh cookie", "na")]
     return card("FUNDAMENTALS · Screener.in", rows, "#00838F")
@@ -2324,9 +2503,13 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     wk_up = bool(_s150 and cmp_px > _s150 and (_s150p is None or _s150 > _s150p))
     mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
     rrg = _g(rec, "RRG_Quadrant", default="—"); rrg_ok = rrg in ("LEADING", "IMPROVING")
-    cat = str(_g(rec, "Catalyst", default="NONE")); cat_on = cat not in ("NONE", "None", "—", "0", "")
-    # PA pattern tier sum (v67-mirror battery) — status metric in SETUP
-    _pa_tier = sum(t for _, f, t, _ in (_g(ctx, "pa_patterns", default=[]) or []) if f)
+    cat = str(_g(rec, "Catalyst", default="NONE")); cat_on = _cat_on(cat)
+    # PA pattern battery (v67-mirror, 17 conditions) — status in SETUP, TRIGGER in Step 5
+    _pa_pats = _g(ctx, "pa_patterns", default=[]) or []
+    _pa_tier = sum(t for _, f, t, _ in _pa_pats if f)
+    _pa_fired_list = sorted([(nm, t) for nm, f, t, _ in _pa_pats if f], key=lambda x: -x[1])
+    pa_fired = len(_pa_fired_list) > 0
+    _pa_names = ", ".join(nm for nm, _ in _pa_fired_list[:4])
     s2w = _g(ctx, "stage2_weeks"); fresh = (s2w is None) or (s2w <= 26)
     vcp = bool(_g(rec, "VCP_Valid"))
     cpr_p = _g(ctx, "cpr_p"); mv = _g(ctx, "mvwap")
@@ -2334,35 +2517,89 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     vp_pos = _g(ctx, "vp_pos", default="—"); d52 = _g(ctx, "dist52wh")
     not_ext = (d52 is None) or (d52 <= -1)
 
-    g1 = s2 and rs and not s34
-    g2 = alpha >= 50 and mpass >= 5
+    # POS-ACCUM is the ACCUMULATION catalyst — buy the base BEFORE the Stage-2
+    # breakout (bull_screener accum_base: Stage 1/2 + above 200-DMA + RS not
+    # lagging + volume accumulation). Applying the Stage-2 breakout template to
+    # it (require Stage 2 + weekly-up) wrongly fails it at Step 1. So Steps 1-2
+    # switch to the accumulation playbook for POS-ACCUM.
+    is_accum = cat == "POS-ACCUM"
+    _s200 = _g(ctx, "sma200")
+    above200 = bool(_s200 and cmp_px and cmp_px > _s200)
+    stage1or2 = ("1" in stage or "2" in stage) and not s34
+    acc_ok = bool(_g(ctx, "acc_ok"))
+    if is_accum:
+        g1 = stage1or2 and rs and above200                 # accumulation base context
+        g2 = (alpha >= 40) and (rrg_ok or acc_ok)          # accumulation quality (RS turning / vol accum)
+    else:
+        g1 = s2 and rs and not s34                         # Stage-2 breakout context
+        g2 = alpha >= 50 and mpass >= 5                     # Stage-2 leadership
     g3 = cat_on
     g4 = above_value and not_ext
 
     entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct"); t1_pct = _g(rec, "T1_pct")
+    # NaN → None so `if x` guards behave and formats never print "nan".
+    entry, sl_pct, t1_pct = [
+        (None if (v is None or (isinstance(v, float) and math.isnan(v))) else v)
+        for v in (entry, sl_pct, t1_pct)]
     if entry and sl_pct is not None:
         sl = entry * (1 - sl_pct / 100); t1 = entry * (1 + t1_pct / 100) if t1_pct else None
         rr = (t1_pct / sl_pct) if (t1_pct and sl_pct) else None
         plan = (f"Set SL {inr(sl)} (-{sl_pct:.1f}%), size at 0.25% risk, place order + GTT. "
                 f"Target T1 {inr(t1)} ({fnum(rr,1)}R).")
     else:
+        sl = t1 = None
         plan = "No active catalyst → no plan yet. Levels are reference only."
 
+    # Auto support zones (OB / FVG / pivot-low) — twin of the S4 Pine v2.0.
+    _sup = _g(ctx, "support", default={}) or {}
+    _at_support = bool(_sup.get("at_support"))
+    _sup_zone = str(_sup.get("zone", "outside"))
+    # Trigger TF (75m/125m/Daily) — the PA battery ran on this TF, so the Step-5
+    # wording must name it (was hardcoded "fired on the daily").
+    _tf_lbl = str(_g(ctx, "_trigger_tf", default="Daily"))
+    _is_intra = _tf_lbl in ("75m", "125m")
+    _fired_on = _tf_lbl if _is_intra else "daily"
+    _confirm_lbl = f"{_tf_lbl} close" if _is_intra else "75/125m close"
+
+    # Bull Fundamental Filter (BFF) — Minervini growth leg (screener.in). DISPLAY-
+    # ONLY status shown at QUALITY, parallel to Recovery's RFF; it NEVER gates g2
+    # (structure fires, quality is status Jay eyeballs). INSUFFICIENT/WEAK show
+    # amber/red but never block a technically-valid leader.
+    _bff = _g(ctx, "bff") or {}
+    _bff_q = str(_bff.get("quality", "—"))
+    _bff_sc = _bff.get("score")
+    _bff_val = (f"{_bff_q} {_bff_sc}/5" if _bff_sc is not None else _bff_q)
+    _bff_ok = _bff_q in ("STRONG", "OK")
+
     steps = [
-        dict(n=1, title="CONTEXT", sub="Weekly trend", hard=True, ok=g1,
-             metrics=[("Stage", stage or "—", s2 and not s34),
-                      ("Weekly Trend", "UP" if wk_up else "DOWN", wk_up),
-                      ("RS vs N500", f"{(mansfield or 0):+.1f}", rs),
-                      ("Regime", regime, regime == "BULL")],
-             do_pass="Weekly Stage 2 + positive RS — confirmed by the engine.",
-             do_fail="Not a Stage-2 leader (or RS negative). SKIP — go to the next name."),
-        dict(n=2, title="QUALITY", sub="Leadership", hard=True, ok=g2,
-             metrics=[("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
-                      ("Minervini", f"{mpass}/8", mpass >= 6),
-                      ("RRG", rrg, rrg_ok),
-                      ("ML Prob", fnum(ml, 0, "%"), (ml or 0) >= 60)],
-             do_pass="Leadership confirmed (Alpha + trend template + RRG).",
-             do_fail="Not a leader yet. WATCHLIST — revisit when RS / Alpha firm up."),
+        dict(n=1, title="CONTEXT", sub="Accumulation base" if is_accum else "Weekly trend", hard=True, ok=g1,
+             metrics=([("Stage", stage or "—", stage1or2),
+                       ("Above 200-DMA", "yes" if above200 else "no", above200),
+                       ("RS vs N500", f"{(mansfield or 0):+.1f}", rs),
+                       ("Regime", regime, regime == "BULL")] if is_accum else
+                      [("Stage", stage or "—", s2 and not s34),
+                       ("Weekly Trend", "UP" if wk_up else "DOWN", wk_up),
+                       ("RS vs N500", f"{(mansfield or 0):+.1f}", rs),
+                       ("Regime", regime, regime == "BULL")]),
+             do_pass=("Stage 1/2 accumulation base above 200-DMA with positive RS — accumulate before the breakout."
+                      if is_accum else "Weekly Stage 2 + positive RS — confirmed by the engine."),
+             do_fail=("Not a valid accumulation base (Stage 3/4, below 200-DMA, or RS negative). SKIP."
+                      if is_accum else "Not a Stage-2 leader (or RS negative). SKIP — go to the next name.")),
+        dict(n=2, title="QUALITY", sub="Accumulation" if is_accum else "Leadership", hard=True, ok=g2,
+             metrics=([("Asset Qual", f"{alpha:.0f}/100", alpha >= 60),
+                       ("Accum days", f"{_g(ctx,'acc_days',default=0)}/10", acc_ok),
+                       ("RRG", rrg, rrg_ok),
+                       ("BFF (funda)", _bff_val, _bff_ok),
+                       ("ML Prob", fnum(ml, 0, "%"), (ml or 0) >= 60)] if is_accum else
+                      [("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
+                       ("Minervini", f"{mpass}/8", mpass >= 6),
+                       ("RRG", rrg, rrg_ok),
+                       ("BFF (funda)", _bff_val, _bff_ok),
+                       ("ML Prob", fnum(ml, 0, "%"), (ml or 0) >= 60)]),
+             do_pass=("Accumulation confirmed (RS turning up / volume accumulation)." if is_accum else
+                      "Leadership confirmed (Alpha + trend template + RRG)."),
+             do_fail=("Accumulation not confirmed yet (RS lagging & no volume accumulation). WATCHLIST." if is_accum else
+                      "Not a leader yet. WATCHLIST — revisit when RS / Alpha firm up.")),
         dict(n=3, title="SETUP", sub="Catalyst & base", hard=False, ok=g3,
              metrics=[("Catalyst", cat, cat_on),
                       ("Freshness", (f"{s2w:.0f}w" if s2w is not None else "—"), fresh),
@@ -2373,12 +2610,23 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         dict(n=4, title="LOCATION", sub="Price at value", hard=False, ok=g4,
              metrics=[("vs CPR+VWAP", "above" if above_value else "below", above_value),
                       ("VP", vp_pos, vp_pos in ("ABOVE VAH", "INSIDE VA")),
-                      ("Room 52WH", fnum(d52, 1, "%"), not_ext)],
-             do_pass="Price at value & not extended. On TV: mark the FRESH demand zone (Daily+).",
+                      ("Room 52WH", fnum(d52, 1, "%"), not_ext),
+                      ("Support (auto)", _sup_zone, _at_support)],
+             do_pass=("Price at value & not extended"
+                      + (f" — auto-zone: {_sup_zone}." if _at_support else ". No auto demand-zone under price yet (mark one on TV).")),
              do_fail="Extended / below value. WAIT for a pullback into a fresh demand zone."),
-        dict(n=5, title="TRIGGER", sub="Your move · TradingView", hard=False, ok=None, manual=True,
-             metrics=[],
-             do_now="Wait for a CLOSED 75/125m bar at the zone → buy-STOP above its high. Never buy the touch."),
+        dict(n=5, title="TRIGGER", sub=(f"{_tf_lbl} PA battery" if _is_intra else "Daily PA battery + intraday confirm"),
+             hard=False, ok=None, manual=True,
+             metrics=[("PA trigger", (_pa_names if pa_fired else "none yet"), pa_fired),
+                      ("Σ tier", (f"+{_pa_tier}" if _pa_tier else "0"), _pa_tier >= 2),
+                      ("Confirm on", _confirm_lbl, None)],
+             do_now=((f"TRIGGER LIVE — {_pa_names} (Σ+{_pa_tier}) fired on the {_fired_on}"
+                      + (f" bar at the zone → buy-STOP above that {_tf_lbl} bar's high. Never buy the touch."
+                         if _is_intra else
+                         ". Drop to 75/125m, confirm a CLOSED bar at the zone → buy-STOP above its high. Never buy the touch."))
+                     if pa_fired else
+                     (f"No {_fired_on} PA trigger yet. Wait for a closed-bar pattern (VCP-BO / Pocket / 3-Bar / "
+                      f"Undercut / Spring / IB-NR7 …) at the zone on the {_tf_lbl} chart, then buy-STOP above the trigger bar high."))),
         dict(n=6, title="EXECUTE", sub="Plan & GTT", hard=False, ok=None, execute=True,
              metrics=[], do_now=plan),
     ]
@@ -2398,8 +2646,10 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         verdict, color = "BUY-WATCH · no catalyst", "#FF9800"
     elif not g4:
         verdict, color = "WAIT FOR PULLBACK", "#FF9800"
+    elif pa_fired:
+        verdict, color = "BUY — TRIGGER LIVE", "#26A69A"
     else:
-        verdict, color = "BUY ON TRIGGER", "#26A69A"
+        verdict, color = "ARMED · AWAIT TRIGGER", "#FF9800"
 
     # The single step that needs attention right now
     if stop_at:
@@ -2412,7 +2662,172 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         current = 5
     actionable = verdict not in ("AVOID", "AVOID / EXIT", "WATCHLIST")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
-                current=current, actionable=actionable)
+                current=current, actionable=actionable,
+                # numeric plan levels for the page's position sizer / journal form
+                plan_entry=(entry if sl is not None else None),
+                plan_sl=sl, plan_t1=t1)
+
+
+def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
+    """Recovery-specific decision path — used when the primary signal is a
+    RECOVERY catalyst (REV-CB/RS/EARLY + WYC-*). The bull compute_workflow()
+    hard-requires Stage 2 at Step 1, which every beaten-down recovery name
+    fails by definition. Recovery gates are different:
+      1. CONTEXT  — beaten down (≥10% off 52WH) in an open recovery regime
+      2. QUALITY  — fundamentally strong (RFF ≥ 4/6) — the recovery thesis
+      3. SETUP    — a recovery catalyst actually fired (Signal ≥ 2)
+      4. LOCATION — not chased far above the engine's recovery entry
+      5. TRIGGER  — closed-bar confirmation (manual)
+      6. EXECUTE  — the recovery engine's Entry/SL/T1/T2 plan
+    Returns the SAME dict shape as compute_workflow() so render_workflow()
+    renders it unchanged.
+    """
+    _dd_floor, _rff_min = _rec_cfg()
+    sig    = int(_g(rec_r, "Signal", default=0) or 0)
+    label  = str(_g(rec_r, "Signal_Label", default="None"))
+    rff_b  = _g(rec_r, "RFF_Base", default=0) or 0
+    if isinstance(rff_b, float) and math.isnan(rff_b):
+        rff_b = 0
+    rff_q  = str(_g(rec_r, "RFF_Quality", default="INSUFFICIENT"))
+    if rff_q.lower() in ("nan", "none", ""):
+        rff_q = "INSUFFICIENT"
+    rff_ok = (rff_q != "INSUFFICIENT") and rff_b >= _rff_min
+    # Batch-CSV rows carry Weinstein_Stage as a float (1.0) — normalize to the
+    # bare digit so display reads "Stage 1" and the chip test works.
+    stage_num = _stg_digit(_g(rec_r, "Weinstein_Stage", default="")) or "—"
+    corr   = _g(rec_r, "Correction_52W_pct")
+    if isinstance(corr, float) and math.isnan(corr):
+        corr = None
+    reg_ok = bool(_g(rec_r, "Regime_OK", default=False))
+    rrg    = str(_g(rec_r, "RRG_Quadrant", default="—")); rrg_ok = rrg in ("LEADING", "IMPROVING")
+    rs_val = _g(rec_r, "Mansfield_RS_x100")
+    beaten = (corr is not None) and (corr >= _dd_floor)
+    # RS turning up (Mansfield survivor read) — Step-2 quality confirmation. IMPROVING =
+    # RS-momentum turning up from a lagging base; LEADING = already outperforming.
+    rs_up = rrg in ("LEADING", "IMPROVING")
+    # Recovery PA battery (10) — the Step-5 trigger, mirror of S4 Recovery mode.
+    _rpa = _g(ctx, "recovery_pa_patterns", default=[]) or []
+    _rpa_tier = sum(t for _, f, t, _ in _rpa if f)
+    _rpa_fired = sorted([(nm, t) for nm, f, t, _ in _rpa if f], key=lambda x: -x[1])
+    rpa_fired = len(_rpa_fired) > 0
+    _rpa_names = ", ".join(nm for nm, _ in _rpa_fired[:4])
+    # Trigger TF (75m/125m/Daily) so Step-5 wording names the actual TF the
+    # recovery battery ran on (was hardcoded "fired on the daily").
+    _tf_lbl = str(_g(ctx, "_trigger_tf", default="Daily"))
+    _is_intra = _tf_lbl in ("75m", "125m")
+    _fired_on = _tf_lbl if _is_intra else "daily"
+    _confirm_lbl = f"{_tf_lbl} close" if _is_intra else "75/125m close"
+
+    entry = _g(rec_r, "Entry"); sl = _g(rec_r, "SL")
+    t1 = _g(rec_r, "T1"); t2 = _g(rec_r, "T2"); rr = _g(rec_r, "RR_T1"); sl_pct = _g(rec_r, "SL_pct")
+    # NaN → None. A batch CSV row (rec_r from Recovery_Screener_Results.csv)
+    # yields float NaN for a missing level (e.g. ANTHEM had T2=NaN); NaN is
+    # truthy in Python, so it would slip past `if x` guards and reach inr()/format.
+    entry, sl, t1, t2, rr, sl_pct = [
+        (None if (v is None or (isinstance(v, float) and math.isnan(v))) else v)
+        for v in (entry, sl, t1, t2, rr, sl_pct)]
+
+    # LIVE timing gate (the real recovery funnel). The recovery ENGINE already
+    # enforced beaten-down + RFF + regime + RS-positive before firing, so those
+    # gates are tautologically true for every fired name (all pass). The
+    # decision-stage discriminator is TIMING: has the turn actually confirmed
+    # (price reclaimed the 20-EMA) and is it not already extended (bounce not
+    # chased)? Uses LIVE ctx (same daily data the bull path uses), so a recovery
+    # still below its 20-EMA (turn unconfirmed) or already run up is held at
+    # WAIT — only genuinely-timed entries reach the trigger step.
+    _ema20 = _g(ctx, "ema20")
+    turn_ok = bool(_ema20) and cmp_px is not None and cmp_px >= _ema20    # reclaimed 20-EMA
+    ext_ema = ((cmp_px - _ema20) / _ema20 * 100) if (_ema20 and cmp_px) else None
+    not_chased = (ext_ema is None) or (ext_ema <= 8.0)                    # ≤8% above 20-EMA
+    loc_ok = turn_ok and not_chased
+
+    g1 = beaten and reg_ok
+    g2 = rff_ok
+    g3 = sig >= 2
+
+    if entry and sl:
+        plan = (f"Set SL {inr(sl)}" + (f" (-{sl_pct:.1f}%)" if sl_pct is not None else "") +
+                f", size at 0.25% risk, place order + GTT. "
+                f"Target T1 {inr(t1)}" + (f" ({fnum(rr,1)}R)" if rr is not None else "") +
+                (f", T2 {inr(t2)}" if t2 else "") + ".")
+    else:
+        plan = "No recovery levels available."
+
+    steps = [
+        dict(n=1, title="CONTEXT", sub="Beaten-down + regime", hard=True, ok=g1,
+             metrics=[("Off 52W high", fnum(corr, 1, "%") if corr is not None else "—", beaten),
+                      ("Recovery regime", "OPEN" if reg_ok else "closed", reg_ok),
+                      ("Stage", f"Stage {stage_num}", stage_num in ("1", "2")),
+                      ("RS vs N500", fnum(rs_val, 1), rrg_ok)],
+             do_pass="Beaten-down in an open recovery regime — the recovery context.",
+             do_fail="Not beaten-down / regime closed — not a recovery setup. SKIP."),
+        dict(n=2, title="QUALITY", sub="Fundamentals (RFF) + RS", hard=True, ok=g2,
+             metrics=[("RFF gate", f"{rff_b}/6 (min {_rff_min})", rff_ok),
+                      ("RFF quality", rff_q, rff_q == "FULL"),
+                      ("RS turning up", ("yes · " + rrg) if rs_up else ("no · " + rrg), rs_up),
+                      ("Mansfield RS", fnum(rs_val, 1), (rs_val or 0) > 0)],
+             do_pass="Fundamentally strong (RFF ≥ 4/6) with RS turning up — a survivor, quality on sale.",
+             do_fail="Fundamentals insufficient (RFF < 4). SKIP — recovery needs strong fundamentals."),
+        dict(n=3, title="SETUP", sub="Recovery catalyst", hard=True, ok=g3,
+             metrics=[("Signal", label, sig >= 2),
+                      ("Type", ("Wyckoff" if sig >= 5 else "REV"), sig >= 2),
+                      ("PA Patterns", (f"+{_rpa_tier}" if _rpa_tier else "none"), _rpa_tier >= 2)],
+             do_pass=f"Recovery catalyst {label} is LIVE — proceed to location.",
+             do_fail="No recovery catalyst fired."),
+        dict(n=4, title="LOCATION", sub="Turn confirmed & not chased", hard=False, ok=loc_ok,
+             metrics=[("Turn (≥20-EMA)", "confirmed" if turn_ok else "below 20-EMA", turn_ok),
+                      ("Ext vs 20-EMA", fnum(ext_ema, 1, "%") if ext_ema is not None else "—", not_chased),
+                      ("Entry (engine)", inr(entry) if entry else "—", True),
+                      ("Support (auto)", str((_g(ctx, "support", default={}) or {}).get("zone", "outside")),
+                       bool((_g(ctx, "support", default={}) or {}).get("at_support")))],
+             do_pass="Turn confirmed (reclaimed 20-EMA) & not extended — mark the FRESH demand zone on Daily+.",
+             do_fail=("Below 20-EMA — turn not yet confirmed; WAIT for the base to reclaim it."
+                      if not turn_ok else
+                      "Bounce already extended > 8% above 20-EMA — WAIT for a pullback into the zone.")),
+        dict(n=5, title="TRIGGER", sub=(f"Recovery PA battery · {_tf_lbl}" if _is_intra else "Recovery PA battery + intraday confirm"),
+             hard=False, ok=None, manual=True,
+             metrics=[("PA trigger", (_rpa_names if rpa_fired else "none yet"), rpa_fired),
+                      ("Σ tier", (f"+{_rpa_tier}" if _rpa_tier else "0"), _rpa_tier >= 2),
+                      ("Confirm on", _confirm_lbl, None)],
+             do_now=((f"TRIGGER LIVE — {_rpa_names} (Σ+{_rpa_tier}) fired on the {_fired_on}"
+                      + (f" bar at the zone → buy-STOP above that {_tf_lbl} bar's high. Never buy the touch."
+                         if _is_intra else
+                         ". Drop to 75/125m, confirm a CLOSED bar at the zone → buy-STOP above its high. Never buy the touch."))
+                     if rpa_fired else
+                     (f"No {_fired_on} recovery PA trigger yet. Wait for a closed-bar reversal (Climax reclaim / Spring / "
+                      f"Higher-Low-2B / Base-Breakout / Engulf / Hammer …) at the base on the {_tf_lbl} chart."))),
+        dict(n=6, title="EXECUTE", sub="Recovery plan & GTT", hard=False, ok=None, execute=True,
+             metrics=[], do_now=plan),
+    ]
+
+    stop_at = None
+    for s in steps:
+        if s.get("hard") and not s["ok"]:
+            stop_at = s["n"]; break
+
+    if stop_at == 1:
+        verdict, color = "NOT A RECOVERY CONTEXT", "#EF5350"
+    elif stop_at == 2:
+        verdict, color = "SKIP · weak fundamentals", "#EF5350"
+    elif stop_at == 3:
+        verdict, color = "NO RECOVERY CATALYST", "#FF9800"
+    elif not loc_ok:
+        verdict, color = "WAIT FOR PULLBACK", "#FF9800"
+    elif rpa_fired:
+        verdict, color = "BUY — TRIGGER LIVE · Recovery", "#26A69A"
+    else:
+        verdict, color = "ARMED · AWAIT TRIGGER · Recovery", "#FF9800"
+
+    if stop_at:
+        current = stop_at
+    elif not loc_ok:
+        current = 4
+    else:
+        current = 5
+    actionable = verdict.startswith("BUY") or verdict.startswith("ARMED") or verdict.startswith("WAIT")
+    return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
+                current=current, actionable=actionable, recovery=True,
+                plan_entry=entry, plan_sl=sl, plan_t1=t1)
 
 
 def render_workflow(wf: dict) -> str:
@@ -2592,109 +3007,13 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
 # ----------------------------------------------------------------------------------------
 # Data (cached; the Refresh button clears it)
 # ----------------------------------------------------------------------------------------
-def _detect_pa_patterns(df: pd.DataFrame, stage: str = "") -> list:
-    """Mirror of Dashboard v67's PA pattern battery, evaluated on the LAST bar.
-
-    Formulas ported 1:1 from 'Weinstein and Swing Pro Dashboard v67.4.12.pine'
-    (incl. the v67.4.x fixes: strict NR7, prior-bar VCP contraction, RSI/vol-
-    gated engulfing, 50-SMA-gated pocket pivot). Jay's spec: these are strong
-    PA patterns he can't reliably spot by eye — surface them loudly.
-
-    Returns [(name, fired: bool, tier: int, note: str), ...]
-    """
-    pats = []
-    try:
-        c, o, h, l, v = df["Close"], df["Open"], df["High"], df["Low"], df["Volume"]
-        if len(c) < 60:
-            return pats
-        cN, oN = float(c.iloc[-1]), float(o.iloc[-1])
-        hN, lN, vN = float(h.iloc[-1]), float(l.iloc[-1]), float(v.iloc[-1])
-        rng = hN - lN
-        vol50 = v.rolling(50).mean()
-        rv = vN / float(vol50.iloc[-1]) if float(vol50.iloc[-1]) else 0.0
-        sma50 = float(c.rolling(50).mean().iloc[-1])
-        ema10 = float(c.ewm(span=10, adjust=False).mean().iloc[-1])
-        ema20 = float(c.ewm(span=20, adjust=False).mean().iloc[-1])
-        intrapos = (cN - lN) / rng if rng > 0 else 0.0
-
-        # ★★ Power Play (High Tight Flag) — 100% move in 8w + tight 15-bar flag
-        low8w = float(l.iloc[-40:].min())
-        l15 = float(l.iloc[-15:].min())
-        htf = (low8w > 0 and (cN - low8w) / low8w > 1.0 and l15 > 0 and
-               (float(h.iloc[-15:].max()) - l15) / l15 < 0.20 and cN > sma50)
-        pats.append(("★★ Power Play (HTF)", htf, 4, "100% in 8w + tight flag"))
-
-        # Power Play (Strong Close) — bullish marubozu-ish close on volume
-        sc = cN > oN and (cN - lN) > (hN - cN) * 3 and rv > 1.0
-        pats.append(("Power Play (Strong Close)", sc, 2, "top-quartile close on vol"))
-
-        # VCP Breakout — contraction on the PRIOR bar, then 10d-high break on vol
-        tr = pd.concat([(h - l), (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
-        atr10 = tr.ewm(alpha=1 / 10, adjust=False).mean()
-        atr10_s50 = atr10.rolling(50).mean()
-        vwma5 = (c * v).rolling(5).sum() / v.rolling(5).sum()
-        vcp_prior = (not math.isnan(float(atr10_s50.iloc[-2])) and
-                     float(atr10.iloc[-2]) < float(atr10_s50.iloc[-2]) * 1.5 and
-                     float(vwma5.iloc[-2]) < float(vol50.iloc[-2]))
-        vcp_bo = vcp_prior and cN > float(h.iloc[-11:-1].max()) and rv > 1.2 and intrapos >= 0.60
-        pats.append(("VCP Breakout", vcp_bo, 3, "tight prior bar → 10d-high break"))
-
-        # Pocket Pivot — up close, vol > any down-day vol in last 10, above 50-SMA
-        mdv = 0.0
-        for j in range(1, 11):
-            if float(c.iloc[-1 - j]) < float(c.iloc[-2 - j]) and float(v.iloc[-1 - j]) > mdv:
-                mdv = float(v.iloc[-1 - j])
-        pocket = (cN > float(c.iloc[-2]) and cN > oN and mdv > 0 and vN > mdv and
-                  cN > sma50 and (cN - lN) >= rng * 0.5)
-        pats.append(("Pocket Pivot", pocket, 2, "vol > every down-day vol (10d)"))
-
-        # Bullish Engulfing — v67.4.11 gate: downtrend ctx + relVol>2 + RSI[1]<40
-        delta = c.diff()
-        up = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
-        dn = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
-        rsi = 100 - 100 / (1 + up / dn.replace(0, np.nan))
-        c1, o1 = float(c.iloc[-2]), float(o.iloc[-2])
-        raw_eng = c1 < o1 and cN > oN and oN <= c1 and cN >= o1
-        engulf = (raw_eng and cN < ema10 < ema20 and rv > 2.0 and
-                  not math.isnan(float(rsi.iloc[-2])) and float(rsi.iloc[-2]) < 40)
-        pats.append(("Bullish Engulfing (gated)", engulf, 2, "engulf at oversold on 2× vol"))
-
-        # Liquidity Sweep Reclaim — swept below 50-SMA in last 5 bars, reclaimed on 1.5× vol
-        liq = (float(l.iloc[-5:].min()) < sma50 and cN > sma50 and
-               vN > float(vol50.iloc[-1]) * 1.5)
-        pats.append(("Liq Sweep Reclaim", liq, 2, "sweep < 50SMA → reclaim on vol"))
-
-        # 3-Bar Bull Reversal — 3 lower lows, close > max of those 3 highs
-        rev3 = (float(l.iloc[-2]) < float(l.iloc[-3]) and float(l.iloc[-3]) < float(l.iloc[-4])
-                and cN > float(h.iloc[-4:-1].max()))
-        pats.append(("3-Bar Bull Reversal", rev3, 2, "3 lower lows → reclaim"))
-
-        # Stage-2 Launch — TRUE weekly crossover of close over 30-WMA + volume
-        wk = c.resample("W-FRI").last().dropna()
-        launch = False
-        if len(wk) >= 32:
-            wma30 = wk.rolling(30).mean()
-            launch = (("2" in str(stage)) and rv > 1.25 and
-                      float(wk.iloc[-1]) > float(wma30.iloc[-1]) and
-                      float(wk.iloc[-2]) <= float(wma30.iloc[-2]))
-        pats.append(("Stage-2 Launch", launch, 3, "weekly close × over 30-WMA"))
-
-        # Inside-3 (Coil) — three nested inside bars
-        def _inside(k):
-            return (float(h.iloc[-k]) < float(h.iloc[-k - 1]) and
-                    float(l.iloc[-k]) > float(l.iloc[-k - 1]))
-        inside = _inside(1)
-        inside3 = inside and _inside(2) and _inside(3)
-        pats.append(("Inside-3 (Coil)", inside3, 2, "3 nested inside bars"))
-
-        # True NR7 — current range STRICTLY smallest of last 7
-        nr7 = all((float(h.iloc[-i]) - float(l.iloc[-i])) >= rng for i in range(2, 8)) and rng > 0
-        pats.append(("True NR7", nr7, 1, "tightest range of 7 bars"))
-        if inside and nr7:
-            pats.append(("★ IB-NR7 Coil", True, 2, "inside bar + NR7 — Crabel coil"))
-    except Exception:
-        pass
-    return pats
+# PA batteries moved to the shared pa_patterns.py module (E5, 9-Jul-2026) —
+# single source of truth for every Python surface; the local names are kept
+# as thin aliases so all existing call sites are untouched.
+from pa_patterns import (
+    detect_bull_patterns as _detect_pa_patterns,
+    detect_recovery_patterns as _detect_recovery_pa_patterns,
+)
 
 
 def section_pa_patterns(ctx) -> str:
@@ -2741,6 +3060,9 @@ def gm_load_symbol(symbol: str) -> dict:
     except Exception as e:
         out["rec"] = None
         out["errors"].append(f"screen_one: {e}")
+    # NOTE: the Recovery engine is loaded SEPARATELY via gm_load_recovery() so a
+    # slow/blocking live fundamental fetch can never stall this hot path (which
+    # the 2s TV auto-sync depends on staying fast). See gm_load_recovery below.
 
     # --- Daily indicator context (EMA stack / 200-DMA / RelVol / 52WH dist) ---
     try:
@@ -2883,7 +3205,8 @@ def gm_load_symbol(symbol: str) -> dict:
             "adx": _f(adx), "plus_di": _f(pdi), "minus_di": _f(mdi),
             "high52w": _f(h52), "low52w": _f(l52),
             "dist52wh": (last - _f(h52)) / _f(h52) * 100 if _f(h52) else None,
-            "relvol": (last and vol20) and float(v.iloc[-1] / vol20) or None,
+            "relvol": (float(v.iloc[-1] / vol20)
+                       if (vol20 and not math.isnan(vol20)) else None),
             "vol_dry": (vol5 / vol20) if vol20 else None,
             "bbw": bbw,
             "cpr_p": cpr_p, "cpr_tc": cpr_tc, "cpr_bc": cpr_bc,
@@ -2907,6 +3230,17 @@ def gm_load_symbol(symbol: str) -> dict:
         out["fun"] = {}
         out["errors"].append(f"fundamentals: {e}")
 
+    # --- Bull Fundamental Filter (BFF) — Minervini growth leg (screener.in),
+    #     DISPLAY-ONLY status for the Bull QUALITY step (never gates). Computed
+    #     once per symbol load (cached with this result + 24h in the module), so
+    #     no inline fetch on rerun. Guarded: a failure can't break the load. ---
+    try:
+        from bull_fundamental_filter import compute_bff
+        out["bff"] = compute_bff(symbol)
+    except Exception as e:
+        out["bff"] = None
+        out["errors"].append(f"bff: {e}")
+
     # --- Sector strength (sector_lookup + sector_strength, same modules the
     #     bull screener's score uses) + Futures OI from the latest matcher CSV ---
     _bare = symbol.replace(".NS", "").replace(".BO", "").upper()
@@ -2927,8 +3261,18 @@ def gm_load_symbol(symbol: str) -> dict:
             if out.get("df") is not None:
                 _stage0 = str((out.get("rec") or {}).get("Stage", ""))
                 out["ctx"]["pa_patterns"] = _detect_pa_patterns(out["df"], _stage0)
+                out["ctx"]["recovery_pa_patterns"] = _detect_recovery_pa_patterns(out["df"], _stage0)
         except Exception:
             pass
+        # Auto support zones (OB / FVG / pivot-low) on BOTH Daily AND Weekly —
+        # the Python twin of the S4 Pine v2.1 trackers (trading TF is 125/75m,
+        # but the demand zones come from D+W structure). Automates Steps 1-2.
+        try:
+            import pa_patterns as _pap
+            if out.get("df") is not None:
+                out["ctx"]["support"] = _pap.detect_support_zones_dw(out["df"])
+        except Exception:
+            out["ctx"]["support"] = {}
         try:
             from sector_lookup import get_sector_index
             from sector_strength import get_sector_status, get_sector_score
@@ -2960,6 +3304,124 @@ def gm_load_symbol(symbol: str) -> dict:
     return out
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def gm_load_recovery(symbol: str, deep: bool = False) -> dict:
+    """Recovery engine read (REV-CB/RS/EARLY + WYC-*), loaded SEPARATELY from
+    gm_load_symbol so it never stalls the 2s TV auto-sync.
+
+    Resolution order (fast → authoritative):
+      1. AUTHORITATIVE BATCH RESULT — if the symbol is in the last pipeline's
+         Recovery_Screener_Results.csv, return that row. It was computed with
+         FULL RFF (live fundamentals), so a genuine recovery signal shows on
+         Golden Matcher even when the name's fundamentals aren't in the local
+         cache — keeping GM consistent with the file (fixes "file shows 16,
+         GM shows 3"). Instant (CSV read, no network).
+      2. LIVE RECOMPUTE — for a symbol NOT in that scan (e.g. an ad-hoc name
+         you typed/scrolled that was never a recovery candidate). ``deep=False``
+         = cache-only (no blocking fetch); ``deep=True`` (on-demand button) =
+         full live Screener.in/yfinance RFF for this one symbol.
+    """
+    try:
+        import recovery_screener as rs
+        sym = str(symbol).strip().upper().replace("NSE:", "").replace("BSE:", "").replace(".NS", "").replace(".BO", "")
+        # 1. Authoritative batch result (skip only when a deep re-fetch is forced).
+        if not deep:
+            try:
+                _p = os.path.join(rs.DATA_DIR, rs.OUTPUT_FILE)  # Recovery_Screener_Results.csv
+                if os.path.exists(_p):
+                    _rdf = pd.read_csv(_p)
+                    _hit = _rdf[_rdf["Symbol"].astype(str).str.upper() == sym]
+                    if len(_hit):
+                        d = _hit.iloc[0].to_dict()
+                        d["_source"] = "batch scan"
+                        # Freshness disclosure (G2, 9-Jul-2026): a batch row is
+                        # only as current as the CSV — carry the file date so
+                        # the card can show/flag it instead of serving a
+                        # weeks-old Signal/Entry/SL as if it were live.
+                        try:
+                            d["_as_of"] = datetime.fromtimestamp(os.path.getmtime(_p)).strftime("%d-%b")
+                            d["_age_days"] = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(_p))).days
+                        except Exception:
+                            pass
+                        return d
+            except Exception:
+                pass
+        # 2. Live recompute (symbol not scanned in the batch, or deep forced).
+        r = rs.screen_one(symbol, allow_live_fundamentals=deep) or {}
+        if isinstance(r, dict):
+            r["_source"] = "live (deep)" if deep else "live (cache-only)"
+        return r
+    except Exception as e:
+        return {"_error": str(e)}
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def gm_load_intraday(symbol: str, minutes: int) -> dict:
+    """Intraday (75/125-min) trigger data for the Golden Matcher's Step-5 battery
+    + momentum board. Fetches Dhan 25-min bars (90d), session-anchor resamples to
+    `minutes`, then recomputes the PA batteries (intraday=True → weekly patterns
+    suppressed) and the momentum metrics (RSI/ADX/RelVol/Vol-dry) on that TF.
+
+    Cached (ttl 180s) so the 2s TV auto-sync never re-hits Dhan. Returns
+    {ok, pa, rpa, rsi, adx, relvol, vol_dry, last_ts, bars} — ok=False + reason
+    when intraday is unavailable (page then falls back to the daily read).
+    """
+    try:
+        import dhan_ohlcv as _dh, pa_patterns as _pap, numpy as _np
+        df25 = _dh.fetch_intraday(symbol,
+                                  from_date=(datetime.now().date() - timedelta(days=90)).isoformat(),
+                                  to_date=datetime.now().date().isoformat(), interval=25)
+        if df25 is None or df25.empty:
+            return {"ok": False, "reason": "no intraday data from Dhan"}
+        df = _pap.resample_intraday(df25, minutes, base_minutes=25)
+        if df is None or len(df) < 60:
+            return {"ok": False, "reason": f"only {0 if df is None else len(df)} {minutes}m bars (<60)"}
+        # DNA rule: EMA20 is a DAILY anchor — on an intraday TF the engulfing
+        # trend-context must use the DAILY EMA20/EMA10 overlaid on the 75/125m
+        # bars, not a fresh intraday EMA. Pull the (cached) daily close for them.
+        _d_e10 = _d_e20 = None
+        try:
+            import data_provider as _dpi
+            _dfd = _dpi.fetch_ohlcv(symbol, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+            if isinstance(_dfd.columns, pd.MultiIndex):
+                _dfd.columns = _dfd.columns.get_level_values(0)
+            if _dfd is not None and len(_dfd) >= 20:
+                _dc = _dfd["Close"]
+                _d_e10 = float(_dc.ewm(span=10, adjust=False).mean().iloc[-1])
+                _d_e20 = float(_dc.ewm(span=20, adjust=False).mean().iloc[-1])
+        except Exception:
+            pass
+        c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
+        # RSI(14)
+        _d = c.diff()
+        _up = _d.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
+        _dn = (-_d.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
+        _rsi = 100 - 100 / (1 + _up / _dn.replace(0, _np.nan))
+        # ADX(14) (Wilder)
+        _upm = h.diff(); _dnm = -l.diff()
+        _pdm = _np.where((_upm > _dnm) & (_upm > 0), _upm, 0.0)
+        _mdm = _np.where((_dnm > _upm) & (_dnm > 0), _dnm, 0.0)
+        _tr = pd.concat([(h - l), (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        _atr = _tr.ewm(alpha=1/14, adjust=False).mean()
+        _pdi = 100 * pd.Series(_pdm, index=df.index).ewm(alpha=1/14, adjust=False).mean() / _atr
+        _mdi = 100 * pd.Series(_mdm, index=df.index).ewm(alpha=1/14, adjust=False).mean() / _atr
+        _dx = (100 * (_pdi - _mdi).abs() / (_pdi + _mdi)).replace([_np.inf, -_np.inf], _np.nan)
+        _adx = _dx.ewm(alpha=1/14, adjust=False).mean()
+        _vol20 = float(v.rolling(20).mean().iloc[-1]); _vol5 = float(v.rolling(5).mean().iloc[-1])
+
+        def _f(s):
+            x = float(s.iloc[-1]); return None if math.isnan(x) else x
+        return {
+            "ok": True, "bars": len(df),
+            "pa":  _pap.detect_bull_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10),
+            "rpa": _pap.detect_recovery_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10),
+            "rsi": _f(_rsi), "adx": _f(_adx),
+            "relvol": (float(v.iloc[-1] / _vol20) if (_vol20 and not math.isnan(_vol20)) else None),
+            "vol_dry": (_vol5 / _vol20) if _vol20 else None,
+            "last_ts": df.index[-1].strftime("%d-%b %H:%M"),
+        }
+    except Exception as e:
+        return {"ok": False, "reason": str(e)}
 
 
 if page == 'DASHBOARD':
@@ -10618,6 +11080,11 @@ elif page == 'GOLDEN MATCHER':
         import re
         from io import StringIO
         
+        # REVERTED 9-Jul-2026: an attempted "one unfiltered tasklist call"
+        # optimization broke the sync — unfiltered `tasklist /v` enumerates
+        # window titles for EVERY process (~3.6 s, over any sane timeout),
+        # while the per-image `/fi` filtered call is ~0.12 s. The original
+        # per-browser filtered loop below is the fast, proven path.
         browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
         for browser in browsers:
             try:
@@ -10637,7 +11104,13 @@ elif page == 'GOLDEN MATCHER':
                                 elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
                                 else:
                                     if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
-                                
+
+                                # TradingView uses '_' where NSE/yfinance use '-'/'&'
+                                # (BAJAJ_AUTO→BAJAJ-AUTO, NAM_INDIA→NAM-INDIA, M_M→M&M).
+                                # Canonicalize via the scrip master so the box AND the
+                                # loaders get the resolvable ticker.
+                                sym = _canon_sym(sym)
+
                                 current_sym = st.session_state.get("gm_sym_input", "")
                                 if sym != current_sym:
                                     # DEBOUNCE (2026-07-03): commit the new symbol only after it has
@@ -10674,24 +11147,143 @@ elif page == 'GOLDEN MATCHER':
             st.session_state["gm_sym_input"] = "NETWEB.NS"
             
         symbol = st.text_input("NSE symbol", key="gm_sym_input").strip().upper()
+        # Canonicalize underscore/hyphen/ampersand variants (esp. TradingView's
+        # BAJAJ_AUTO / NAM_INDIA) to the ticker the loaders can resolve. Covers
+        # manual entry / paste; the TV auto-sync path canonicalizes at commit.
+        symbol = _canon_sym(symbol)
         if symbol and symbol != st.session_state.get("gm_symbol"):
             st.session_state["gm_symbol"] = symbol
             
     with _gm_col2:
-        if st.button("🔄 Refresh Data", use_container_width=True):
-            st.cache_data.clear()
+        if st.button("🔄 Refresh Data", use_container_width=True,
+                     help="Force a fresh fetch for THIS symbol — busts the on-disk data cache "
+                          "(beats the 24h daily TTL) then reloads. Other pages' caches stay warm."):
+            # 9-Jul-2026: clearing the Streamlit loaders alone did NOT refresh —
+            # data_provider.fetch_ohlcv(use_cache=True) re-served the same
+            # on-disk frame (a 2y/1d request carries the 24h weekly TTL, and the
+            # content-staleness gate only rejects bars >5 days old). Bust the
+            # on-disk cache for this symbol FIRST so the reload hits the network.
+            _sym_now = st.session_state.get("gm_symbol") or st.session_state.get("gm_sym_input", "")
+            try:
+                import data_provider as _dpref
+                if _sym_now:
+                    _dpref.invalidate_symbol(_sym_now)
+            except Exception:
+                pass
+            try:
+                gm_load_symbol.clear()
+                gm_load_recovery.clear()
+            except Exception:
+                st.cache_data.clear()
             st.rerun()
 
+    # ---- Position-sizing settings (E2) — persisted to gm_settings.json ----
+    _gmset = _gm_settings()
+    _szc1, _szc2, _szc3 = st.columns([1.6, 1, 3.4])
+    with _szc1:
+        _gm_capital = st.number_input("Capital (₹)", min_value=0.0, step=50000.0,
+                                      value=float(_gmset.get("capital", 0.0)),
+                                      format="%.0f", key="gm_capital",
+                                      help="Trading capital used for the 0.25%-risk position sizer on Step 6.")
+    with _szc2:
+        _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
+                                      value=float(_gmset.get("risk_pct", 0.25)),
+                                      key="gm_riskpct")
+    with _szc3:
+        _tf_opts = ["75m", "125m", "Daily"]
+        _tf_default = str(_gmset.get("trigger_tf", "75m"))
+        _gm_trig_tf = st.radio(
+            "Trigger TF (Step-5 PA battery + momentum board)", _tf_opts, horizontal=True,
+            index=_tf_opts.index(_tf_default) if _tf_default in _tf_opts else 0,
+            key="gm_trig_tf",
+            help="The Step-5 PA trigger battery and the Technical-Board momentum gauges "
+                 "(RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. Context/Quality "
+                 "(Stage · RS · Alpha · catalyst · demand-zones) stay Daily/Weekly — they're positional.")
+    if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
+            or (_gm_trig_tf != _gmset.get("trigger_tf")):
+        _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct, trigger_tf=_gm_trig_tf)
 
     if not symbol:
         st.info("Enter an NSE symbol in the sidebar.")
         st.stop()
     
     data = gm_load_symbol(symbol)
-    rec = data.get("rec") or {}
-    ctx = data.get("ctx") or {}
+
+    # ---- Auto-heal a stale served frame (9-Jul-2026) --------------------------
+    # A 2y/1d request carries the 24h weekly TTL, so a daily frame written after
+    # yesterday's close is re-served all of today even though a newer session has
+    # closed. If the served last bar is older than the last completed trading
+    # session, bust this symbol's on-disk cache ONCE and reload — the network
+    # then supplies the fresh bar. Guarded per (symbol, target-session) so it can
+    # never loop when the provider genuinely hasn't published the new bar yet
+    # (then the STALE banner shows and manual Refresh remains available).
+    try:
+        _df_h = data.get("df")
+        if _df_h is not None and len(_df_h):
+            _lb = _df_h.index[-1].date()
+            _target = _expected_last_session()   # session-aware: today after 15:30 IST close
+            if _lb < _target:
+                _heal_key = f"{symbol}|{_target.isoformat()}"
+                if st.session_state.get("gm_autoheal") != _heal_key:
+                    st.session_state["gm_autoheal"] = _heal_key
+                    import data_provider as _dph
+                    _dph.invalidate_symbol(symbol)
+                    gm_load_symbol.clear()
+                    gm_load_recovery.clear()
+                    st.rerun()
+    except Exception:
+        pass
+
+    # Shallow-copy rec/ctx before any patching so the intraday overrides below
+    # never mutate (poison) the cached gm_load_symbol result.
+    rec = dict(data.get("rec") or {})
+    ctx = dict(data.get("ctx") or {})
     fun = data.get("fun") or {}
-    
+    ctx["bff"] = data.get("bff")           # Bull Fundamental Filter status (display-only)
+
+    # ---- Intraday trigger TF (Step-5 PA battery + momentum board) ----
+    # Context/Quality/Setup/Location stay Daily/Weekly (positional); only the
+    # TRIGGER battery + momentum gauges recompute on the selected trading TF.
+    _intra_ok = False; _intra_label = ""
+    _trig_tf = st.session_state.get("gm_trig_tf", "75m")
+    if _trig_tf in ("75m", "125m"):
+        _mins = 75 if _trig_tf == "75m" else 125
+        _intra = gm_load_intraday(symbol, _mins)
+        if _intra.get("ok"):
+            _intra_ok = True
+            ctx["_trigger_tf"] = _trig_tf          # so the workflow text says "fired on the 75m", not "daily"
+            ctx["pa_patterns"] = _intra["pa"]
+            ctx["recovery_pa_patterns"] = _intra["rpa"]
+            if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
+            if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
+            if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
+            if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
+            _intra_label = f"⏱ Trigger TF **{_trig_tf}** · bar {_intra['last_ts']} · {_intra['bars']} bars"
+        else:
+            _intra_label = f"⏱ Trigger TF {_trig_tf} — intraday unavailable ({_intra.get('reason','?')}); showing Daily PA"
+
+    # Recovery engine — loaded separately so it never stalls TV auto-sync.
+    # Fast (cache-only) by default; a per-symbol "deep" toggle does the live
+    # RFF fundamental fetch on demand.
+    _deep_rec = bool(st.session_state.get(f"gm_deeprec_{symbol}", False))
+    rec_r = gm_load_recovery(symbol, deep=_deep_rec) or {}
+    # Recovery signal state (parallel to the bull catalyst above).
+    rec_sig   = int(_g(rec_r, "Signal", default=0) or 0)
+    rec_label = str(_g(rec_r, "Signal_Label", default="None"))
+    rec_fired = rec_sig >= 2   # 2=REV-CB 3=REV-RS 4=REV-EARLY 5-8=WYC-*
+    # SEMANTIC GUARD: the recovery engine's regime gate opens for ANY non-
+    # distressed stock when the *market* is in recovery/reclaim — so REV-EARLY/
+    # REV-RS can fire on a stock at its OWN highs (market-recovery play, not a
+    # beaten-down recovery). On this single-symbol tool the "RECOVERY" label is
+    # read literally, so only treat it as a genuine recovery when the STOCK
+    # itself is meaningfully off its 52W high (engine's own min_stock_correction
+    # floor, 10%). Otherwise it's a bull setup, not a recovery — don't mislabel.
+    _rec_dd_floor, _ = _rec_cfg()
+    _rec_corr = _g(rec_r, "Correction_52W_pct")
+    rec_beaten_down = (_rec_corr is not None) and (_rec_corr >= _rec_dd_floor)
+    rec_fired_real  = rec_fired and rec_beaten_down   # genuine beaten-down recovery
+    rec_fired_mktpath = rec_fired and not rec_beaten_down  # market-path artifact at/near highs
+
     if not rec and not ctx:
         st.error(f"Could not load **{symbol}**.")
         for e in data.get("errors", []):
@@ -10718,23 +11310,149 @@ elif page == 'GOLDEN MATCHER':
         st.caption(f"{_g(fun,'sector',default='')}  ·  {_g(fun,'industry',default='')}")
     with h2:
         st.metric("CMP", inr(cmp_px), f"{chg_pct:+.2f}%")
+        # Data freshness (G1, 9-Jul-2026): show the LAST BAR DATE, not just the
+        # fetch time — a stale feed (cache-poisoning / Dhan date-shift class)
+        # must be visible at a glance. The expected bar is SESSION-AWARE: after
+        # today's 15:30 IST close it should be TODAY, otherwise the last completed
+        # trading day (see _expected_last_session). A flat 'yesterday' target used
+        # to sit green on the prior day all evening — one session behind.
+        _lastbar = None
+        try:
+            _dfh = data.get("df")
+            if _dfh is not None and len(_dfh):
+                _lastbar = _dfh.index[-1].date()
+        except Exception:
+            pass
+        _asof = _g(rec, "As_Of") or (_lastbar.strftime("%Y-%m-%d") if _lastbar else None)
+        if _lastbar or _asof:
+            _exp_sess = _expected_last_session()
+            _stale = bool(_lastbar and _lastbar < _exp_sess)
+            _fresh_txt = f"bar {_lastbar.strftime('%d-%b') if _lastbar else _asof}"
+            if _asof and _lastbar and _asof != _lastbar.strftime("%Y-%m-%d"):
+                _fresh_txt += f" · engine as-of {_asof}"
+            if _stale:
+                st.caption(f"⚠️ **STALE — {_fresh_txt}** (last completed session "
+                           f"{_exp_sess.strftime('%d-%b')}). Refresh; if it stays behind, the "
+                           f"broker feed hasn't published today's EOD bar yet.")
+            else:
+                st.caption(f"🟢 {_fresh_txt}")
     with h3:
+        bull_active = _cat_on(catalyst)
         is_pos = str(catalyst).upper().startswith("POS")
-        color = "#26A69A" if is_pos else ("#FF9800" if catalyst not in ("NONE", "—", 0) else "#787B86")
-        st.markdown(f"<div style='text-align:right'><div style='font-size:12px;opacity:.7'>CATALYST</div>"
-                    f"<div class='verdict' style='color:{color}'>{catalyst}</div></div>",
+        # Primary verdict = bull catalyst if one fires; otherwise the recovery
+        # signal if it fires; otherwise NONE. Recovery is teal to stay visually
+        # distinct from the bull green/amber.
+        if bull_active:
+            head_label, head_color, head_tag = catalyst, ("#26A69A" if is_pos else "#FF9800"), "CATALYST"
+        elif rec_fired_real:
+            head_label, head_color, head_tag = rec_label, "#00838F", "RECOVERY"
+        else:
+            head_label, head_color, head_tag = "NONE", "#787B86", "CATALYST"
+        st.markdown(f"<div style='text-align:right'><div style='font-size:12px;opacity:.7'>{head_tag}</div>"
+                    f"<div class='verdict' style='color:{head_color}'>{head_label}</div></div>",
                     unsafe_allow_html=True)
+        # If BOTH sides fire (and the recovery is a GENUINE beaten-down one),
+        # note it under the bull verdict so neither is hidden.
+        if bull_active and rec_fired_real:
+            st.markdown(f"<div style='text-align:right;font-size:12px;color:#00838F'>"
+                        f"＋ Recovery: {rec_label}</div>", unsafe_allow_html=True)
     
     # ----------------------------------------------------------------------------------------
-    # DECISION WORKFLOW — the sequential path to the trade (crucial metrics only)
+    # DECISION WORKFLOWS — Bull (left) · Recovery (right), side by side.
+    # Recovery names are Stage 1/4 by nature and fail the bull Stage-2 gate at
+    # Step 1, so a single bull path mislabels them AVOID. Showing BOTH paths
+    # lets the trader read the correct verdict for whichever engine applies.
     # ----------------------------------------------------------------------------------------
     decision = compute_decision(rec, ctx, cmp_px, mansfield)
-    wf = compute_workflow(rec, ctx, cmp_px, mansfield)
-    st.markdown(render_workflow(wf), unsafe_allow_html=True)
+    _bull_active = _cat_on(catalyst)
+    wf_bull = compute_workflow(rec, ctx, cmp_px, mansfield)
+    wf_rec = compute_recovery_workflow(rec_r, ctx, cmp_px) if rec_r else None
+
+    # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
+    # the trading TF while Steps 1-4 remain Daily/Weekly positional context.
+    if _intra_label:
+        _il_col = "#00838F" if _intra_ok else "#FF9800"
+        st.markdown(f"<div style='border-left:3px solid {_il_col};background:{_il_col}14;"
+                    f"border-radius:4px;padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
+                    f"{_intra_label} &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
+                    f"</div>", unsafe_allow_html=True)
+
+    _wcol1, _wcol2 = st.columns(2)
+    with _wcol1:
+        st.markdown("##### 🐂 Bull path  ·  Stage-2 leadership")
+        st.markdown(render_workflow(wf_bull), unsafe_allow_html=True)
+    with _wcol2:
+        st.markdown("##### 🔄 Recovery path  ·  beaten-down + RFF")
+        # Render the full recovery path ONLY for a GENUINE recovery (signal fired
+        # AND stock beaten-down ≥10%). A market-path artifact (signal fired at/near
+        # highs) or no signal both get a concise note — so two "no real recovery"
+        # names never render differently (one full red path, one one-liner).
+        if wf_rec is not None and rec_fired_real:
+            st.markdown(render_workflow(wf_rec), unsafe_allow_html=True)
+        elif rec_fired_mktpath:
+            st.info(f"Recovery engine notes **{rec_label}** only via the market-recovery regime — "
+                    f"but **{symbol}** is just {fnum(_rec_corr, 1, '%')} off its 52W high "
+                    f"(< {_rec_dd_floor:.0f}% floor), so it is **not** a beaten-down recovery. "
+                    f"Trade the bull path.")
+        else:
+            st.info("No recovery catalyst on this name — the recovery path does not apply.")
+
+    # ---- Fresh Stage-transition note (reconciles a lagging chart background) ----
+    # Stage is a STATEFUL weekly state machine; at a Stage 4→1 reclaim the exact
+    # flip bar is knife-edge (30-WMA slope crossing the flat band), so Python
+    # (Dhan feed) and a TradingView background (TV feed + its own weekly bars)
+    # can differ by one stage for a week or two. When price has RECLAIMED the
+    # 30-week MA but the stage still reads 1 (base), that's a fresh turn Python
+    # catches first — flag it so a chart still painting Stage 4 isn't confusing.
+    _ma30 = _g(ctx, "sma150")   # daily 150-SMA ≈ 30-week MA (the stage anchor)
+    _stg = None
+    for _sv in (str(_g(rec, "Stage", default="")), str(_g(rec_r, "Weinstein_Stage", default=""))):
+        _hit = next((d for d in "1234" if d in _sv), None)
+        if _hit:
+            _stg = int(_hit); break
+    if _ma30 and cmp_px and _stg == 1 and cmp_px > _ma30:
+        _d30 = (cmp_px / _ma30 - 1) * 100
+        st.caption(f"🟡 **Stage 1 · fresh reclaim** — price is **{_d30:+.1f}% above the 30-week MA** "
+                   f"({inr(_ma30)}), i.e. the stock has reclaimed its Weinstein anchor. If a "
+                   f"TradingView stage-background still shows **Stage 4**, it is *lagging this turn* "
+                   f"on its own data feed (the 4→1 flip is a knife-edge slope crossing) — Python "
+                   f"registered the reclaim first. Trust the price-vs-30WMA read: this is an early base, not a decline.")
+
+    # The PRIMARY path drives the single next-action + guided execution below.
+    # Some names fire BOTH a bull catalyst AND a genuine recovery signal — and
+    # the two have DIFFERENT entries/stops/targets — so let the trader choose
+    # which setup to execute rather than silently defaulting. Otherwise the one
+    # applicable path leads automatically.
+    _both_fire = _bull_active and rec_fired_real and wf_rec is not None
+    if _both_fire:
+        _pick = st.radio(
+            "⚡ This name fires BOTH a bull and a recovery setup — trade which?",
+            ["🐂 Bull", "🔄 Recovery"], horizontal=True, key=f"gm_path_{symbol}")
+        wf = wf_rec if _pick.startswith("🔄") else wf_bull
+    elif rec_fired_real and not _bull_active and wf_rec is not None:
+        wf = wf_rec
+    else:
+        wf = wf_bull
     _pa_html = render_pa_banner(ctx)
     if _pa_html:
         st.markdown(_pa_html, unsafe_allow_html=True)
-    
+
+    # ---- Session shortlist capture (E3, 9-Jul-2026) — a TV scroll session
+    # leaves an artifact: every actionable name (BUY / ARMED / WAIT-class) is
+    # recorded in session state; a name that degrades to AVOID/WATCHLIST on a
+    # later look is removed. Rendered as a table further down.
+    _slk = "recovery_pa_patterns" if wf.get("recovery") else "pa_patterns"
+    _sl_tier = sum(t for _, f, t, _ in (_g(ctx, _slk, default=[]) or []) if f)
+    _sl_store = st.session_state.setdefault("gm_shortlist", {})
+    _sl_sym = symbol.replace(".NS", "").replace(".BO", "").upper()
+    if wf["actionable"]:
+        _sl_store[_sl_sym] = {"Symbol": _sl_sym, "Verdict": wf["verdict"],
+                              "Path": "Recovery" if wf.get("recovery") else "Bull",
+                              "Σ tier": _sl_tier, "Signal": str(head_label),
+                              "Seen": datetime.now().strftime("%H:%M")}
+    else:
+        _sl_store.pop(_sl_sym, None)
+
     # ---- The single next action + guided execution sequence ----
     cur_step = wf["steps"][wf["current"] - 1]
     if not wf["actionable"]:
@@ -10746,15 +11464,75 @@ elif page == 'GOLDEN MATCHER':
         st.warning(f"**→ NOW · Step {wf['current']} ({cur_step['title']}):**  {cur_step.get('do_fail','')}")
     else:
         st.success(f"**→ NOW · Step 5 (TRIGGER):**  {cur_step.get('do_now')}")
+
+        # ---- Position sizer (E2, 9-Jul-2026) — risk% of capital made concrete ----
+        _pe = wf.get("plan_entry"); _psl = wf.get("plan_sl"); _pt1 = wf.get("plan_t1")
+        _qty_sized = 0
+        if _pe and _psl and _pe > _psl:
+            if _gm_capital > 0:
+                _risk_amt = _gm_capital * _gm_riskpct / 100.0
+                _qty_sized = int(_risk_amt // (_pe - _psl))
+                _ct_half = bool(_g(rec, "Counter_Trend")) and not wf.get("recovery")
+                if _ct_half and _qty_sized > 1:
+                    _qty_sized //= 2
+                _pos_val = _qty_sized * _pe
+                st.markdown(
+                    f"**📏 Size @ {_gm_riskpct:.2f}% risk:** {inr(_risk_amt)} ÷ "
+                    f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · "
+                    f"position {inr(_pos_val)}"
+                    + (f" ({_pos_val / _gm_capital * 100:.1f}% of capital)" if _gm_capital else "")
+                    + (" · ⚠ counter-trend — size halved" if _ct_half else ""))
+            else:
+                st.caption("📏 Set your capital above to get an auto position size at the configured risk.")
+
         st.markdown("##### ✅ Guided execution — tick as you go")
-        _man = [
-            ("zone",  "1 · Mark the FRESH demand zone on Daily+ (hand-drawn, untested)"),
-            ("alert", "2 · Set a TradingView alert at the zone proximal"),
-            ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-            ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
-            ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
-            ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
-        ]
+        # Auto support zone (OB/FVG/pivot on Daily AND Weekly) — the S4 Pine twin.
+        # When a demand zone is under price, Steps 1-2 are pre-computed (the zone
+        # + proximal alert level), so you verify rather than hand-draw. Prefer the
+        # tightest active zone: DAILY first (precise entry), else WEEKLY (bigger
+        # structural demand). No zone → fall back to the manual wording.
+        _supz = _g(ctx, "support", default={}) or {}
+
+        def _pick_zone(_z, _tf):
+            """(label, lo, hi, proximal) for the tightest FRESH active zone under
+            price in one TF, or None. Keys off the exact tradeable zone labels —
+            'OB/FVG tested' never match, so a mitigated zone is never auto-picked."""
+            if not _z:
+                return None
+            _lbl = str(_z.get("zone", "outside"))
+            if _lbl in ("OB inside", "OB near"):
+                return (f"{_tf} {_lbl}", _z.get("ob_bot"), _z.get("ob_top"), _z.get("ob_top"))
+            if _lbl in ("FVG inside", "FVG near"):
+                return (f"{_tf} {_lbl}", _z.get("fvg_bot"), _z.get("fvg_top"), _z.get("fvg_top"))
+            if _lbl == "Pivot near":
+                return (f"{_tf} Pivot near", _z.get("pivot"), _z.get("pivot"), _z.get("pivot"))
+            return None
+
+        _pick = _pick_zone(_supz.get("daily"), "Daily") or _pick_zone(_supz.get("weekly"), "Weekly")
+        if _pick:
+            _z_lbl, _z_lo, _z_hi, _z_prox = _pick
+            _span_txt = inr(_z_lo) if _z_lo == _z_hi else f"{inr(_z_lo)}–{inr(_z_hi)}"
+            _zsummary = str(_supz.get("zone", ""))
+            st.caption(f"🟩 **Auto demand-zone:** {_z_lbl} at **{_span_txt}** "
+                       f"· alert proximal **{inr(_z_prox)}**  ·  _{_zsummary}_ — Steps 1-2 auto-marked; verify on the chart.")
+            _man = [
+                ("zone",  f"1 · Auto zone confirmed: {_z_lbl} at {_span_txt} (verify it's fresh/untested)"),
+                ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
+                ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+                ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+            ]
+        else:
+            st.caption("⬜ No auto demand-zone (OB/FVG/pivot on Daily or Weekly) under price yet — hand-draw the fresh zone.")
+            _man = [
+                ("zone",  "1 · Mark the FRESH demand zone on Daily/Weekly (hand-drawn, untested)"),
+                ("alert", "2 · Set a TradingView alert at the zone proximal"),
+                ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+                ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+            ]
         _key = f"chk_{symbol}"
         _done = 0; _next = None
         for _k, _label in _man:
@@ -10764,12 +11542,109 @@ elif page == 'GOLDEN MATCHER':
                 _next = _label
         st.progress(_done / len(_man), text=f"{_done}/{len(_man)} done")
         if _done == len(_man):
-            st.success("✅ Trade executed & logged. On to the next name.")
+            # ---- E1 (9-Jul-2026): actually log the trade. upsert_trade()
+            # auto-captures the true-entry signal snapshot on new OPEN inserts
+            # (the Phase-0 hook) — so a GM-executed trade lands in the journal
+            # AND the attribution pipeline with its setup label.
+            st.success("✅ All steps done — log the trade to the journal below.")
+            _path_lbl = "Recovery" if wf.get("recovery") else "Bull"
+            _pa_key = "recovery_pa_patterns" if wf.get("recovery") else "pa_patterns"
+            _sig_tier = sum(t for _, f, t, _ in (_g(ctx, _pa_key, default=[]) or []) if f)
+            _rat_default = f"GM {wf['verdict']} · {_path_lbl} · {head_label} · Σ+{_sig_tier}"
+            with st.expander("📓 Log to journal", expanded=True):
+                with st.form(f"gm_journal_{symbol}"):
+                    _jc1, _jc2, _jc3 = st.columns(3)
+                    with _jc1:
+                        _j_buy = st.number_input("Buy price", min_value=0.0, format="%.2f",
+                                                 value=float(_pe or cmp_px or 0.0))
+                        _j_qty = st.number_input("Quantity", min_value=0, step=1,
+                                                 value=int(_qty_sized))
+                    with _jc2:
+                        _j_sl = st.number_input("Stop-loss", min_value=0.0, format="%.2f",
+                                                value=float(_psl or 0.0))
+                        _j_t1 = st.number_input("Target 1", min_value=0.0, format="%.2f",
+                                                value=float(_pt1 or 0.0))
+                    with _jc3:
+                        _j_tf = st.selectbox("Timeframe", ["Positional", "Swing"],
+                                             index=0 if str(head_label).upper().startswith(("POS", "REV", "WYC")) else 1)
+                        _j_rat = st.text_input("Rationale", value=_rat_default)
+                    if st.form_submit_button("📓 Log OPEN trade", type="primary"):
+                        try:
+                            import dhan_journal_v7 as _dj
+                            _bare_j = symbol.replace(".NS", "").replace(".BO", "").upper()
+                            _dj.upsert_trade({
+                                "Symbol": _bare_j, "Type": "LONG", "Status": "OPEN",
+                                "BuyPrice": float(_j_buy), "Quantity": float(_j_qty),
+                                "StopLoss": float(_j_sl) or None,
+                                "Target1": float(_j_t1) or None,
+                                "EntryDate": datetime.now().strftime("%Y-%m-%d"),
+                                "Timeframe": _j_tf, "Rationale": _j_rat,
+                                "Sector": str(_g(fun, "sector", default="") or ""),
+                            })
+                            st.success(f"📓 {_bare_j} logged OPEN — entry snapshot captured. On to the next name.")
+                        except Exception as _je:
+                            st.error(f"Journal write failed (trade NOT logged): {_je}")
         elif _next:
             st.caption(f"→ Next: {_next}")
-    
+
+    # ---- Recovery engine callout ------------------------------------------------
+    # The decision workflow above is bull-oriented; a recovery setup would
+    # otherwise be buried under a bull "no action" verdict. Surface it here so
+    # a REV/WYC signal on a fundamentally-strong beaten-down name is never missed.
+    if rec_fired_real:
+        _rev_entry = _g(rec_r, "Entry"); _rev_sl = _g(rec_r, "SL"); _rev_t1 = _g(rec_r, "T1")
+        _plan = ""
+        if _rev_entry and _rev_sl:
+            _plan = f"  ·  Entry {inr(_rev_entry)} · SL {inr(_rev_sl)}" + (f" · T1 {inr(_rev_t1)}" if _rev_t1 else "")
+        st.success(f"**🔄 RECOVERY SIGNAL — {rec_label}** (RFF {_g(rec_r,'RFF_Base',default=0)}/6, "
+                   f"{_g(rec_r,'RFF_Quality',default='—')} · {fnum(_rec_corr,1,'%')} off 52WH).{_plan}  "
+                   f"Fundamentally-strong beaten-down setup — validate on the chart, then trade the recovery playbook.")
+    elif rec_fired_mktpath:
+        # The engine fired REV/WYC via the MARKET-recovery path, but the stock
+        # itself is at/near its highs — not a beaten-down recovery. Say so
+        # plainly rather than mislabelling it "recovery".
+        st.caption(f"ℹ️ Recovery engine notes *{rec_label}* only via the market-recovery regime — "
+                   f"but **{symbol}** is just {fnum(_rec_corr,1,'%')} off its 52W high "
+                   f"(< {_rec_dd_floor:.0f}% floor), so this is **not** a beaten-down recovery. "
+                   f"Trade the bull catalyst above, not a recovery playbook.")
+    elif rec_sig == 1 and rec_beaten_down:
+        st.info(f"**🔄 Recovery: CB-Watch** — climax detected on **{symbol}**, no turn yet. "
+                f"On watch; no recovery entry until the bounce confirms.")
+
+    # On-demand LIVE fundamentals: the fast path skips the blocking Screener.in
+    # scrape (so TV auto-sync stays responsive). If RFF read INSUFFICIENT only
+    # because fundamentals weren't cached, let the trader pull them for THIS name.
+    if not _deep_rec and str(_g(rec_r, "RFF_Quality", default="")) == "INSUFFICIENT":
+        if st.button("🔬 Fetch live fundamentals for recovery RFF (this symbol)",
+                     key=f"deeprec_btn_{symbol}",
+                     help="Skipped during fast scrolling to keep TV auto-sync responsive. "
+                          "Pulls Screener.in/yfinance fundamentals for this symbol only."):
+            st.session_state[f"gm_deeprec_{symbol}"] = True
+            st.rerun()
+
     st.divider()
-    
+
+    # ---- Session shortlist (E3) — the ranked artifact of this scroll session ----
+    _sl_all = st.session_state.get("gm_shortlist", {})
+    with st.expander(f"📋 Session shortlist ({len(_sl_all)})", expanded=False):
+        if _sl_all:
+            _sl_df = pd.DataFrame(list(_sl_all.values()))
+            _sl_df = _sl_df.sort_values(["Σ tier", "Symbol"], ascending=[False, True])
+            st.dataframe(_sl_df, use_container_width=True, hide_index=True)
+            _slc1, _slc2 = st.columns(2)
+            with _slc1:
+                st.download_button(
+                    "⬇ TV watchlist (.txt)",
+                    "###GM_SHORTLIST\n" + "\n".join(f"NSE:{s}" for s in _sl_df["Symbol"]),
+                    file_name=f"GM_Shortlist-{datetime.now().strftime('%d%b%y').upper()}.txt",
+                    use_container_width=True)
+            with _slc2:
+                if st.button("🗑 Clear shortlist", use_container_width=True):
+                    st.session_state["gm_shortlist"] = {}
+                    st.rerun()
+        else:
+            st.caption("Empty — actionable names (BUY / ARMED / WAIT) collect here as you scroll TV.")
+
     # Full per-panel detail is one click away — but the workflow above is the decision.
     with st.expander("▸ Full metrics — all panels (optional depth)", expanded=False):
         # v2 (2026-07-03): pre-render every card so SECTION_SCORES fills, then show
@@ -10785,7 +11660,8 @@ elif page == 'GOLDEN MATCHER':
         _h_trade  = section_trade(rec, cmp_px)
         _h_levels = section_levels(rec, ctx, cmp_px)
         _h_sector = section_sector(rec, ctx, mansfield)
-        _h_funda  = section_fundamentals(fun)
+        _h_funda  = section_fundamentals(fun, bff=ctx.get("bff"))
+        _h_recov  = section_recovery(rec_r, cmp_px)
         _mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
         st.markdown(render_score_strip(_mpass), unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3, gap="medium")
@@ -10797,6 +11673,7 @@ elif page == 'GOLDEN MATCHER':
             st.markdown(_h_struct, unsafe_allow_html=True)
             st.markdown(_h_gates, unsafe_allow_html=True)
             st.markdown(_h_edges, unsafe_allow_html=True)
+            st.markdown(_h_recov, unsafe_allow_html=True)
         with c3:
             st.markdown(_h_trade, unsafe_allow_html=True)
             st.markdown(_h_levels, unsafe_allow_html=True)
@@ -11117,6 +11994,20 @@ elif page == 'TV SIDECAR':
                           delta_color="normal" if _ws_sma200slp > 0 else "inverse")
 
 # ══════════════════════════════════════════════════════════════════════════
+#  PYRAMID / TRIM — open-position ADD/TRIM/REDUCE/HOLD (inline)
+# ══════════════════════════════════════════════════════════════════════════
+elif page == 'PYRAMID':
+    # Shared logic with pages/5_pyramid.py (pyramid_logic.render_pyramid_trim),
+    # rendered INLINE in the main content area (no separate Streamlit process).
+    try:
+        from pyramid_logic import render_pyramid_trim
+        render_pyramid_trim()
+    except Exception as _pe:
+        st.error(f"Pyramid / Trim Manager failed to load: {_pe}")
+        import traceback as _tb
+        st.code(_tb.format_exc())
+
+# ══════════════════════════════════════════════════════════════════════════
 #  RISK SHIELD — Active Exit Monitoring & Pullback Entry Tracking
 # ══════════════════════════════════════════════════════════════════════════
 elif page == 'RISK SHIELD':
@@ -11382,13 +12273,8 @@ elif page == 'RISK SHIELD':
                 except Exception:
                     pass
 
-                # B1: catalyst-aware trail multipliers — the validated Risk Allocator v2.0
-                # set (POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5, +0.5 in bear regime).
-                def _trail_mult_for(_setup, _bear):
-                    for _pfx, _m in (("POS", 4.5), ("WYC", 3.5), ("REV", 2.5), ("SWG", 1.5)):
-                        if _setup.startswith(_pfx):
-                            return (_m + (0.5 if _bear else 0.0)), f"{_pfx}"
-                    return None, None
+                # Catalyst-aware trail multipliers now live in risk_common.chandelier_exit
+                # (shared single source of truth with the Pyramid/Trim page).
 
                 # Fetch holdings for entry price & unprotected detection
                 _, _, df_holdings = get_live_holdings_stats()
@@ -11647,40 +12533,24 @@ elif page == 'RISK SHIELD':
                                                         _vol_breakout = True
                                                     else:
                                                         _vol_climax = True                                                
+                                    # Chandelier trail via the SHARED risk_common helper — single
+                                    # source of truth, kept in sync with the Pyramid/Trim page.
                                     _chandelier_exit = None
+                                    _ce_mult = None
+                                    _ce_mult_src = None
+                                    _custom_mult = journal_overrides.get(_s, {}).get("custom_ce_mult") if _s in journal_overrides else None
+                                    # A4 FIX (2026-07-04 audit): 0/negative custom mult is INVALID,
+                                    # not "silently use system default" — flag it on the row.
+                                    _invalid_ce_override = (_custom_mult is not None
+                                                            and not (isinstance(_custom_mult, (int, float)) and _custom_mult > 0))
                                     if len(_c) >= 22:
-                                        _highest_close_22 = float(_c.rolling(22).max().iloc[-1])
-                                        _tr1_22 = _hi - _lo
-                                        _tr2_22 = (_hi - _c.shift(1)).abs()
-                                        _tr3_22 = (_lo - _c.shift(1)).abs()
-                                        _tr_22 = pd.concat([_tr1_22, _tr2_22, _tr3_22], axis=1).max(axis=1)
-                                        _atr_22 = float(_tr_22.ewm(alpha=1/22, adjust=False).mean().iloc[-1])
-                                        _custom_mult = journal_overrides.get(_s, {}).get("custom_ce_mult") if _s in journal_overrides else None
-                                        # A4 FIX (2026-07-04 audit): 0/negative custom mult is INVALID,
-                                        # not "silently use system default" — flag it on the row.
-                                        _invalid_ce_override = (_custom_mult is not None
-                                                                and not (isinstance(_custom_mult, (int, float)) and _custom_mult > 0))
-                                        if _custom_mult is not None and not _invalid_ce_override:
-                                            _ce_mult = float(_custom_mult)
-                                            _ce_mult_src = "custom"
-                                        else:
-                                            # B1: catalyst-aware trail from the journal's setup
-                                            # (validated Risk Allocator set), regime-adjusted (B2).
-                                            _setup_s = journal_overrides.get(_s, {}).get("setup", "")
-                                            _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
-                                            _cat_mult, _cat_fam = _trail_mult_for(_setup_s, _bear_s)
-                                            if _cat_mult is not None:
-                                                _ce_mult = _cat_mult
-                                                _ce_mult_src = f"{_setup_s or _cat_fam}"
-                                            else:
-                                                # Fallback: original heuristic (SMA200 bull/bear)
-                                                _ce_mult = 4.5 if _ws_above200 else 5.0
-                                                _ce_mult_src = "heuristic-bull" if _ws_above200 else "heuristic-bear"
-                                            if _capital_protection_mode:
-                                                _ce_mult = 2.5  # Dramatically tighten if portfolio is breaking down
-                                                _ce_mult_src = "cap-protect"
-
-                                        _chandelier_exit = _highest_close_22 - (_atr_22 * _ce_mult)
+                                        import risk_common as _rc
+                                        _setup_s = journal_overrides.get(_s, {}).get("setup", "")
+                                        _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
+                                        _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
+                                            _hi, _lo, _c, setup=_setup_s, bear=_bear_s,
+                                            cap_protect=_capital_protection_mode,
+                                            custom_mult=_custom_mult, above200=_ws_above200)
 
                                         # Apply Manual SL Override if present.
                                         # A7 FIX: override MODE — 'Floor' (default, can only tighten)

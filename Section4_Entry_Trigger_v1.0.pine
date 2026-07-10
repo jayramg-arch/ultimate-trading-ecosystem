@@ -1,0 +1,918 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Jayram G
+//
+// ============================================================================
+// SECTION 4 — ENTRY TRIGGER & PRICE MEMORY  v2.9.1
+// ============================================================================
+// v2.9.1 (10 Jul 2026): FORMAT-STRING BUG FIX (pre-existing). The panel used
+//   str.tostring(x, "#.1") / "#.2" — but "1"/"2" are NOT valid Pine format digits
+//   (only "#" and "0" are), so Pine rounded the value to a WHOLE number and
+//   appended a LITERAL ".1"/".2". Result: RV 0.94 rendered as "1.2", nearest-
+//   support 0.23% as "0.1%", off52 as "N.1" — a fake constant decimal on every
+//   field. This is what made "RV 1.2 / floor 1.2 but V· (no volume)" look insane
+//   (the true RV was 0.94, correctly below the floor). Fixed: "#.2"->"0.00",
+//   "#.1"->"0.0" so the panel shows the real number. (The "#.0" fields were fine —
+//   "0" IS a valid format digit.) Verified against live 75m data: SUMICHEM bar
+//   vol 736,443 / 50-SMA ~780,411 = RV ~0.94.
+// v2.9 (10 Jul 2026): ON-CANDLE "GO" NOW MATCHES THE PANEL. Previously the teal
+//   "GO" candle marker fired on the INTRADAY leg alone (10-EMA reclaim + squeeze),
+//   so it could print while the panel TRIGGER correctly said "no volume" / "no
+//   support" — the marker and the panel disagreed. Fixed: the "GO" marker now
+//   fires ONLY on the combined gate `go` (= panel TRIGGER = GO: a leg fired AND
+//   volume AND support). A chart "GO" now always means TAKE THE TRADE. The
+//   intraday momentum LEG, when it fires but the gate is NOT met, shows as a small
+//   cyan triangle (no text) so it can never be mistaken for a tradeable GO.
+//   Also in v2.9:
+//   - STATUS row restored (bottom of panel) — a verbatim one-line summary of every
+//     gate (E/V/I/Sup), the RV vs floor, mode + Σ, and the blocking reason in words.
+//   - RV row + the volume gate now BOTH use the TRADING-TIMEFRAME RV (chart_rv, e.g.
+//     the live 75/125m bar), labelled with the TF — was yesterday's confirmed daily
+//     RV in the display vs a different RV in the gate. Panel RV == the RV that gates.
+//   - New input `auto_require_below_200` (default ON) to relax the Auto→Recovery
+//     200-DMA requirement. Pine can't read the Golden Matcher's live path, so for
+//     names where GM disagrees, set Mode = Bull/Recovery MANUALLY (authoritative).
+// v2.8 (10 Jul 2026): `use_chart_tf` now defaults ON, so the Pine PA battery
+//   runs on the chart TF (75/125m) out of the box — MATCHING the Golden Matcher,
+//   whose Trigger TF also defaults to 75m. (On a Daily chart the toggle is a
+//   no-op: chart TF = daily. The Auto path / Stage-2 Launch / 30-WMA Reclaim /
+//   support zones remain Daily/Weekly regardless — verified.)
+// v2.7 (10 Jul 2026): REVIEW of Gemini's v2.5/v2.6 + 2 parity fixes so the Pine
+//   chart-TF battery matches the Golden Matcher Python exactly:
+//   - v2.5 (responsive triggers) & v2.6 (`use_chart_tf`) KEPT — sound. The Auto
+//     path (auto_rec), Stage-2 Launch (kLAU) and 30-WMA Reclaim (kRECLAIM) all
+//     correctly stay Daily/Weekly regardless of use_chart_tf, and the OB/FVG/
+//     pivot support ZONES stay Daily/Weekly (structural). TF-aware volume + the
+//     relaxed squeeze window are the right responsiveness fixes.
+//   - FIX 1: HTF (Power Play, "100% in 8 weeks") is positional → now SUPPRESSED
+//     in chart-TF mode (it was the one positional pattern leaking to 75/125m;
+//     matches the GM Python's intraday=True).
+//   - FIX 2: the chart-TF engulf now uses the DAILY EMA20/EMA10 (passed into
+//     f_daily_pa) — honours the DNA "EMA20 is a daily anchor" rule and matches
+//     the GM Python's ema20_ref, instead of a fresh intraday EMA20.
+// v2.6 (10 Jul 2026): TIMEFRAME-AWARE PA PATTERNS:
+//   - Added `use_chart_tf` toggle. When ON, the 17 PA patterns and recovery
+//     extras (such as VDU, Climax, Spring) are calculated on the active chart
+//     timeframe (e.g. 75m/125m) instead of daily. This matches the Golden Matcher's
+//     behavior when its Trigger TF is set to 75m/125m.
+// v2.5 (10 Jul 2026): RESPONSIVE INTRADAY TRIGGERS (fix for restrictive signals):
+//   - Added `require_squeeze` toggle (default ON). When OFF, a high-volume 10-EMA
+//     reclaim on the intraday chart can fire the GO signal immediately.
+//   - Relaxed Squeeze Trigger Window: allows entry while momentum is actively
+//     rising out of the squeeze (rather than only the single fire candle).
+//   - Timeframe-Aware Volume: uses real-time 75m/125m relative volume instead of
+//     daily relative volume. Prevents morning breakouts from being blocked by
+//     incomplete daily volume bars.
+// v2.4 (10 Jul 2026): Zones now START AT THEIR FORMATION CANDLE. f_zones()
+//   captures the origin bar time of each OB (the down-candle), FVG (the 3-bar
+//   gap's middle candle) and pivot (the pivot-low bar), and the boxes/lines are
+//   drawn from that time and extend right — so a zone begins at the candles that
+//   made it (not the fixed 180/540-day lookback of v2.1, which started "from
+//   nowhere"). The fixed window survives only as a fallback if a formation time
+//   is missing. Flipped pivots keep their original pivot's origin time.
+// ============================================================================
+// v2.3 (9 Jul 2026): AUTO PATH ↔ GOLDEN MATCHER PARITY. Auto now mirrors the
+//   GM's structural Bull-vs-Recovery split by adding the 200-DMA discriminant:
+//   a name ABOVE its 200-DMA resolves Bull (matches GM's Bull-by-default /
+//   accumulation-above-200DMA), and only a genuinely beaten-down turn (>= floor
+//   off 52wk high AND 30-WMA not repaired AND BELOW the 200-DMA) flips to
+//   Recovery. Stops a shallow bull PULLBACK (10-15% off highs, still above the
+//   200-DMA) from mis-resolving Recovery while GM stays Bull. Auto-basis panel
+//   row shows the 200-DMA state; manual Mode override unchanged. Residual gap
+//   (documented): Pine can't see RFF, so an early recovery that already reclaimed
+//   the 200-DMA resolves Bull here vs Recovery on GM — override manually.
+//   (NB: REJECTED Gemini's "double-shift" fix — its timeframe.isdaily gate
+//   reintroduces the intraday repaint; the [1] offset is TF-independent.)
+// v2.2 (9 Jul 2026): FULL ZONE LIFECYCLE — FRESH → TESTED → VIOLATED.
+//   FRESH: formed, not revisited — tradeable (the first tap is the setup).
+//   TESTED: price ENTERED then LEFT (one mitigation) → greys out + EXCLUDED from
+//     require_support / the GO trigger (only fresh zones qualify). The current
+//     first tap still reads fresh; it greys once price leaves.
+//   VIOLATED: a bar CLOSES below the zone's distal (bottom) → DELETED immediately
+//     (stops drawing + counting). A wick below that closes back inside is a
+//     spring, NOT a violation — the zone survives. Weekly zones are violated only
+//     on a WEEKLY close below (f_zones runs per-TF), Daily on a daily close.
+//   Pivot lines are NEVER deleted (structural): tested → stay as support;
+//   VIOLATED (close below) → FLIP to resistance (maroon "Pivot S→R", previous-
+//   support-now-resistance) and stay, cleared only when price reclaims (close
+//   above). Mirrored 1:1 into the GM Python (ob_tested/fvg_tested; pivot/pivot_res).
+// v2.1 (9 Jul 2026): SUPPORT ZONES ON DAILY *AND* WEEKLY, drawn as PERSISTENT
+//   horizontal bands. The OB/FVG/pivot trackers were extracted into f_zones()
+//   and are now requested on BOTH "D" and "W" (the trading TF is 75/125-min, but
+//   demand zones come from Daily + Weekly structure). Zones are drawn with
+//   xloc.bar_time + extend.right, so each renders as a FULL-WIDTH band at its
+//   price on ANY chart timeframe (not a bar_index box that shrinks on intraday).
+//   Weekly = solid/thick (bigger structural demand), Daily = dashed/thin.
+//   `require_support` now passes on a Daily OR Weekly OR AVWAP zone; the Support
+//   Zone panel row shows "D:.. W:.." and the GO alert names the timeframe. Also
+//   fixed the weekly Stage-2-Launch offset (a `timeframe.isweekly` gate had made
+//   75/125-min charts repaint the weekly crossover — now TF-independent). New
+//   `show_zones` toggle. Mirrored 1:1 into the GM Python (`detect_support_zones_dw`).
+// v2.0 (9 Jul 2026): AUTOMATED SUPPORT ZONES — Steps 1 & 2 of the Golden Matcher
+//   Guided Execution (mark the demand zone / set the alert) are now drawn for you:
+//     • Daily Order Block  — last down-candle before a volume displacement up.
+//     • Daily FVG          — 3-bar bullish fair-value gap (high[2] < low).
+//     • Pivot Support      — confirmed ta.pivotlow(5,5), invalidated on close-below.
+//   Each is stateful (invalidates on a close below the zone), drawn as a box/line
+//   near the last bar, and shown in a new "Support Zone" panel row. New input
+//   `require_support` (default ON) gates GO on price being inside/near a support
+//   level — automating "is price at a real demand zone?". Two fixes over the
+//   initial cut: (a) the confirmed-daily offset is timeframe-independent again
+//   (a `timeframe.isdaily` gate had made 75/125-min charts repaint the battery
+//   through the session); (b) an AVWAP support now counts toward `support_pass`,
+//   so an AVWAP bounce isn't suppressed for lacking an OB/FVG. GO alert names the
+//   zone. Mirrored 1:1 into the Golden Matcher Python (`_detect_support_zones`).
+// v1.9 (9 Jul 2026): GM-parity + alert upgrades (audit follow-up):
+//   - Higher-Low/2B gains the base-proximity ceiling (recent low <= prior base
+//     low * 1.10) — without it the pattern fired on almost every green day of
+//     an uptrend (same fix applied to pa_patterns.py the same day; zero drift).
+//   - Stage-2 Launch now requires the Stage-2 proxy (close above a RISING
+//     30-WMA proxy) — mirrors Python's `"2" in stage` gate; previously LAU
+//     could fire on a Stage-4 dead-cat bounce crossing the 30-WMA.
+//   - Auto-mode 10% off-52WH floor is now an input (auto_dd_floor) — keep it
+//     in sync with GM recovery CONFIG min_stock_correction_pct.
+//   - New "Auto basis" panel row: shows off52% + 30-WMA state so the Auto
+//     Bull/Recovery resolution is explainable at a glance.
+//   - Self-describing GO alert(): names mode + which leg fired (AVWAP/intraday)
+//     + RV on the GO rising edge. New Σ-strengthening alert when ANOTHER
+//     pattern joins while one is already live (pa_fire only caught the first).
+// v1.8 (9 Jul 2026): AUTO rule fixed — v1.7's "off52>=15 AND below SMA150" was
+//   self-defeating (recovery names at Step 5 have confirmed the turn and often
+//   reclaimed SMA150 -> the best recoveries resolved Bull, e.g. CIPLA). Now:
+//   Recovery when off52 >= 10 (the GM recovery CONTEXT gate) AND trend-not-repaired
+//   (below the 30-WMA proxy OR its 10-day slope falling). Fully repaired = Bull.
+// v1.7 (8 Jul 2026): Mode gains AUTO (new default) — infers the path from price
+//   structure: >=15% off the 52-week high AND below the 30-WMA proxy (SMA150) ->
+//   Recovery battery, else Bull. Mirrors the Golden Matcher's recovery CONTEXT gate.
+//   Panel header shows what Auto resolved to: "PA · RECOVERY (auto·EOD)" etc.
+//   Manual Bull/Recovery still available as overrides.
+// v1.6 (8 Jul 2026): UNIFIED Bull/Recovery. New "Mode" input swaps the PA battery:
+//   Bull = the 17 continuation/breakout conditions; Recovery = 10 capitulation-reversal
+//   + Wyckoff-accumulation (Climax Reversal, Wyckoff Spring, Higher-Low/2B, Base-Breakout
+//   SOS/JAC, Bull Engulf, Hammer-at-support, 3-Bar Rev, Pocket, Volume-Dry-Up, 30-WMA
+//   reclaim). Shared plumbing (AVWAP price memory, RV, intraday trigger, TRIGGER gate)
+//   is identical; only the battery + panel grid change. Mirrors the Golden Matcher's
+//   Bull compute_workflow (17) and Recovery compute_recovery_workflow (10) — zero drift.
+// v1.5 (8 Jul 2026): TRIGGER row is now the COMBINED gate — Event(E) + Volume(V) +
+//   Intraday(I), each shown ✓/·, colour-coded. GO = a trigger fired (E or I) AND
+//   volume (V) — NOT all three at once (avoids a rarely-gettable "Holy Grail").
+//   Volume floor is a tunable input (rv_floor, default RV 1.0). RV is now its own
+//   colour-coded field. Plan prints only when TRIGGER = GO.
+// v1.4 (8 Jul 2026): PA battery expanded 11 → 17 — added the strong v67-cascade
+//   triggers the curated 11 omitted: Wyckoff Spring(+3), Gap-Up BO(+3), 50-SMA
+//   Undercut(+2), Hammer@50(+2), Hammer@200(+2), Breakout-Confirmed(+2). Panel now
+//   shows ALL 17 as a compact grid with per-condition fired(✓)/quiet(·) — no
+//   aggregation hides a quiet condition. (Golden Matcher _detect_pa_patterns
+//   expanded to the same 17 for zero drift.)
+// v1.3 (8 Jul 2026): "Confirmed daily only" toggle (default ON) — the daily PA
+//   battery reads the LAST CLOSED daily bar, so patterns no longer repaint on the
+//   forming intraday bar. OFF = live developing-bar view. Matches the GM EOD read.
+//   Consolidated TRIGGER row + Plan gated to actionable triggers only. Dark theme.
+//
+// Precision ENTRY layer applied AFTER the Golden Matcher filters a name to Step 5.
+//
+//   A. DAILY PA PATTERN BATTERY — the SAME conditions surfaced in the Golden
+//      Matcher "Full Metric" panel (weinstein_commander_web_v4.0._detect_pa_patterns /
+//      _detect_recovery_pa_patterns, 1:1 port of Dashboard v67.4.12). Zero-drift: when a
+//      name reaches Step 5, this Pine panel shows the identical patterns firing.
+//        Power Play : ★★ HTF(+4) · Strong Close(+2)
+//        Momentum   : VCP-BO(+3) · Stage-2 Launch(+3) · Pocket(+2) · Liq Sweep(+2)
+//        Reversal   : Bull Engulf-gated(+2) · 3-Bar Rev(+2)
+//        Coil       : Inside-3(+2) · True NR7(+1) · ★ IB-NR7(+2)
+//      Σ tier shown (Jay's rule: patterns are BONUSES, 11/11 is not the benchmark).
+//      NOTE: VCP dry-up uses ta.vwma(VOLUME,5) < sma(volume,50) — the CORRECT
+//      canonical formula (pa_field_validator.py). The dashboard .py mirror has a
+//      latent (c*v) bug that makes its dry leg a no-op; Pine here is correct.
+//   B. Anchored-VWAP PINCH (Low/BO/Gap) + bounce / R2G trigger.
+//   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
+// ============================================================================
+//@version=6
+indicator("Section 4 Entry Trigger and Price Memory v2.9.1", shorttitle="S4 Entry", overlay=true, max_boxes_count=20, max_lines_count=20, max_labels_count=20)
+
+grpAV = "Anchored VWAPs"
+show_low  = input.bool(true, "AVWAP · Stage-1 Low",  group=grpAV, inline="l")
+show_bo   = input.bool(true, "AVWAP · Breakout",     group=grpAV, inline="b")
+show_gap  = input.bool(true, "AVWAP · Gap-up",       group=grpAV, inline="g")
+low_look  = input.int(252, "Low-anchor lookback (days)", minval=40, group=grpAV)
+bo_look   = input.int(40,  "Breakout-anchor lookback (days)", minval=10, group=grpAV)
+gap_pct   = input.float(3.0, "Gap-up min %", minval=0.5, step=0.5, group=grpAV)
+gap_volx  = input.float(1.5, "Gap-up vol x 50d avg", minval=1.0, step=0.25, group=grpAV)
+
+grpPA = "Daily PA battery (Golden Matcher)"
+mode      = input.string("Auto", "Mode", options=["Auto", "Bull", "Recovery"], group=grpPA,
+     tooltip="Auto = infer the path from price structure (>=15% off the 52-week high AND below the 30-WMA proxy -> Recovery, else Bull) — mirrors the Golden Matcher's recovery CONTEXT gate; the panel header shows which battery Auto resolved to. Bull = force the 17 continuation/breakout conditions. Recovery = force the 10 capitulation-reversal + Wyckoff-accumulation conditions. Everything else (AVWAP price memory, RV, intraday trigger) is shared.")
+show_pa   = input.bool(true, "Detect the PA patterns", group=grpPA)
+use_chart_tf = input.bool(true, "Use chart timeframe for PA patterns", group=grpPA,
+     tooltip="ON (default v2.8) = the PA battery is calculated on the current chart timeframe (75/125m) to MATCH the Golden Matcher, whose Trigger TF also defaults to 75m. HTF stays suppressed and the engulf keeps its daily EMA20 anchor. OFF = always Daily (EOD). On a Daily chart this toggle is a no-op (chart TF = daily).")
+confirm_daily = input.bool(true, "Confirmed daily only (no intraday repaint)", group=grpPA,
+     tooltip="ON = read the LAST CLOSED daily bar (matches the Golden Matcher's EOD read; no forming-bar flicker). OFF = live developing daily bar (repaints intraday). Applies only when 'Use chart timeframe' is OFF.")
+rv_floor  = input.float(1.0, "Volume floor (RV) for a valid trigger", minval=0.0, step=0.25, group=grpPA,
+     tooltip="A trigger only counts as GO if relative volume >= this. 1.0 = average day. A real breakout usually has RV > 1.25. Lower it (e.g. 0.8) if you find it too strict; raise it to demand stronger participation.")
+auto_dd_floor = input.float(10.0, "Auto: min % off 52W high for Recovery", minval=0.0, step=1.0, group=grpPA,
+     tooltip="Auto mode resolves to the RECOVERY battery when the stock is at least this % off its 52-week high (and the 30-WMA proxy is not repaired). Keep in sync with the Golden Matcher recovery CONFIG min_stock_correction_pct (10).")
+auto_require_below_200 = input.bool(true, "Auto: also require price BELOW 200-DMA for Recovery", group=grpPA,
+     tooltip="v2.9. ON (default) = Auto only flips to Recovery when price is BELOW its 200-DMA (stops a shallow bull PULLBACK, still above the 200-DMA, from mis-resolving Recovery — this is why Auto stays on the Bull path for most names). Turn OFF if you want early recoveries that have ALREADY reclaimed the 200-DMA to resolve Recovery. NOTE: Pine cannot see the Golden Matcher's live Bull/Recovery decision — for names where GM disagrees with Auto, set Mode = Bull or Recovery MANUALLY when you create the alert (that override is authoritative).")
+
+grpPZ = "Pinch & entry zone"
+pinch_pct = input.float(2.5, "Pinch tolerance (% spread across AVWAPs)", minval=0.5, step=0.5, group=grpPZ)
+tol_pct   = input.float(1.0, "Support-touch tolerance (% around AVWAP)", minval=0.25, step=0.25, group=grpPZ)
+require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)", group=grpPZ, tooltip="If ON, the GO entry trigger will only fire if the close is inside or within 1.5% of an active Order Block, Fair Value Gap, Pivot Support (Daily OR Weekly) or AVWAP. This automates Steps 1 & 2 of the Guided Execution checklist.")
+show_zones = input.bool(true, "Draw OB / FVG / Pivot zones (Daily + Weekly)", group=grpPZ, tooltip="Draws the auto support zones: Daily = dashed thin, Weekly = solid thick (bigger structural demand). Trading TF stays 75/125-min.")
+
+grpIN = "Intraday trigger (apply on 75/125-min)"
+show_intraday = input.bool(true, "Show intraday 10-EMA + TTM-squeeze trigger", group=grpIN)
+require_squeeze = input.bool(true, "Require TTM Squeeze to fire", group=grpIN, tooltip="If ON, the intraday trigger requires a TTM squeeze release. If OFF, a high-volume 10-EMA reclaim alone can trigger the entry on the 75/125m chart.")
+ema_len   = input.int(10, "Intraday EMA length", minval=3, group=grpIN)
+bb_mult   = input.float(2.0, "BB mult", step=0.5, group=grpIN)
+kc_mult   = input.float(1.5, "KC mult", step=0.5, group=grpIN)
+sqz_len   = input.int(20, "Squeeze length", minval=5, group=grpIN)
+
+grpV = "Display"
+show_panel = input.bool(true, "Entry panel", group=grpV)
+panel_pos  = input.string("top_right", "Panel position", options=["top_right","top_left","bottom_right","bottom_left"], group=grpV)
+c_low  = input.color(#42a5f5, "Low",  group=grpV, inline="c")
+c_bo   = input.color(#ab47bc, "BO",   group=grpV, inline="c")
+c_gap  = input.color(#ff9800, "Gap",  group=grpV, inline="c")
+
+// ==========================================
+// A1. ANCHOR DATES (daily structure → AVWAP anchors)
+// ==========================================
+f_anchors() =>
+    bool is_low    = low <= ta.lowest(low, low_look)
+    float a_low_f  = ta.valuewhen(is_low, time, 0)
+    bool bo_cross  = ta.crossover(close, ta.highest(high, bo_look)[1])
+    float a_bo_f   = ta.valuewhen(bo_cross, time, 0)
+    float _volsma  = ta.sma(volume, 50)
+    bool gap_cond  = open > close[1] * (1.0 + gap_pct / 100.0) and volume > _volsma * gap_volx
+    float a_gap_f  = ta.valuewhen(gap_cond, time, 0)
+    [a_low_f, a_bo_f, a_gap_f]
+
+[anc_low_f, anc_bo_f, anc_gap_f] = request.security(syminfo.tickerid, "D", f_anchors(), barmerge.gaps_off, barmerge.lookahead_off)
+int anc_low = na(anc_low_f) ? na : int(anc_low_f)
+int anc_bo  = na(anc_bo_f)  ? na : int(anc_bo_f)
+int anc_gap = na(anc_gap_f) ? na : int(anc_gap_f)
+
+// ==========================================
+// A2. DAILY PA BATTERY — 17 bull + recovery extras (v67.4.12 / pa_patterns.py port)
+// ==========================================
+f_daily_pa(float ema10_ref, float ema20_ref) =>
+    float rng     = high - low
+    float vol50   = ta.sma(volume, 50)
+    float rv      = vol50 > 0 ? volume / vol50 : 0.0
+    float sma50   = ta.sma(close, 50)
+    float ema10   = ta.ema(close, 10)
+    float ema20   = ta.ema(close, 20)
+    // EMA20/EMA10 are DAILY anchors (DNA). The daily security call passes na
+    // (use this context's own daily EMAs); the chart-TF `loc_*` call passes the
+    // DAILY EMAs so the engulf trend-context stays daily even on 75/125m.
+    float _e10    = na(ema10_ref) ? ema10 : ema10_ref
+    float _e20    = na(ema20_ref) ? ema20 : ema20_ref
+    float intrap  = rng > 0 ? (close - low) / rng : 0.0
+    float atr10   = ta.atr(10)
+    float atr10s  = ta.sma(atr10, 50)
+    float vwmaV5  = ta.vwma(volume, 5)               // CORRECT dry-up: vwma of VOLUME
+    float rsi14   = ta.rsi(close, 14)
+    float hh10    = ta.highest(high, 10)             // hoisted (runs every bar)
+    float hh3     = ta.highest(high, 3)
+    float ll5     = ta.lowest(low, 5)
+    float sma200  = ta.sma(close, 200)
+    float body    = math.abs(close - open)
+    float uwick   = high - math.max(open, close)
+    float lwick   = math.min(open, close) - low
+    bool  hammer  = rng > 0 and lwick > body * 2.0 and uwick < body and math.max(open, close) >= low + rng * 0.66
+    float l50_1   = ta.lowest(low, 50)[1]            // prior 50-bar low (for Spring)
+    float dlockH  = ta.highest(high, 20)[1]          // 20-bar locked resistance (Gap-BO / Breakout-Confirmed)
+    // 1. ★★ Power Play (HTF) +4
+    float low8w = ta.lowest(low, 40)
+    float hi15  = ta.highest(high, 15)
+    float lo15  = ta.lowest(low, 15)
+    bool p_htf = low8w > 0 and lo15 > 0 and (close - low8w) / low8w > 1.0 and (hi15 - lo15) / lo15 < 0.20 and close > sma50
+    // 2. Power Play (Strong Close) +2
+    bool p_sc = close > open and (close - low) > (high - close) * 3 and rv > 1.0
+    // 3. VCP Breakout +3 (contraction on PRIOR bar → 10d-high break on vol)
+    bool vcp_prior = not na(atr10s[1]) and atr10[1] < atr10s[1] * 1.5 and vwmaV5[1] < vol50[1]
+    bool p_vcp = vcp_prior and close > hh10[1] and rv > 1.2 and intrap >= 0.60
+    // 4. Pocket Pivot +2
+    float mdv = 0.0
+    for j = 1 to 10
+        if close[j] < close[j + 1] and volume[j] > mdv
+            mdv := volume[j]
+    bool p_pp = close > close[1] and close > open and mdv > 0 and volume > mdv and close > sma50 and (close - low) >= rng * 0.5
+    // 5. Bullish Engulfing (gated) +2
+    bool raw_eng = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
+    bool p_eng = raw_eng and close < _e10 and _e10 < _e20 and rv > 2.0 and not na(rsi14[1]) and rsi14[1] < 40
+    // 6. Liquidity Sweep Reclaim +2
+    bool p_liq = ll5 < sma50 and close > sma50 and volume > vol50 * 1.5
+    // 7. 3-Bar Bull Reversal +2
+    bool p_3b = low[1] < low[2] and low[2] < low[3] and close > hh3[1]
+    // 9. Inside-3 (Coil) +2
+    bool ins1 = high < high[1] and low > low[1]
+    bool ins2 = high[1] < high[2] and low[1] > low[2]
+    bool ins3 = high[2] < high[3] and low[2] > low[3]
+    bool p_in3 = ins1 and ins2 and ins3
+    // 10. True NR7 +1 (current range <= each of prior 6)
+    bool p_nr7 = rng > 0 and (high[1]-low[1]) >= rng and (high[2]-low[2]) >= rng and (high[3]-low[3]) >= rng and (high[4]-low[4]) >= rng and (high[5]-low[5]) >= rng and (high[6]-low[6]) >= rng
+    // 11. ★ IB-NR7 Coil +2
+    bool p_ibnr7 = ins1 and p_nr7
+    // 12. Wyckoff Spring +3 — undercut prior 50-bar low, reclaim green, on LOW volume
+    bool p_spr  = not na(l50_1) and low < l50_1 and close > l50_1 and close > open and volume < vol50
+    // 13. Gap-Up Breakout +3 — gap over prior high, clears 20-bar locked resistance on vol
+    bool p_gap  = not na(dlockH) and open > high[1] and close > dlockH and close > open and rv > 1.25
+    // 14. 50-SMA Undercut & Reclaim +2
+    bool p_u50  = not na(sma50) and low < sma50 and close > sma50 and close > open and rv > 1.25
+    // 15. Hammer at 50-SMA +2 (hammer within 1.5% of the 50-SMA, closes above, on vol)
+    bool near50 = not na(sma50) and math.abs(low - sma50) / sma50 <= 0.015
+    bool p_h50  = hammer and near50 and close > sma50 and rv > 1.0
+    // 16. Hammer at 200-SMA +2 (within 2% of the 200-SMA)
+    bool near200 = not na(sma200) and math.abs(low - sma200) / sma200 <= 0.020
+    bool p_h200 = hammer and near200 and close > sma200 and rv > 1.0
+    // 17. Breakout Confirmed +2 — anti-algo: close > 20-bar lock, top-quartile close, on vol
+    bool p_bc   = not na(dlockH) and close > dlockH and (close - low) > rng * 0.75 and rv > 1.25
+    // --- RECOVERY-mode extras (5 new; Spring/Engulf/3-Bar/Pocket/30-WMA are reused) ---
+    float atr14 = ta.atr(14)
+    float lo_recent = ta.lowest(low, 10)
+    float lo_prior  = ta.lowest(low, 30)[10]         // 30-bar base low ending 10 bars ago
+    // R1. Climax Reversal (SC+AR) +3 — a climax down-bar in last 10, midpoint reclaimed
+    int climax_j = 0
+    for cj = 1 to 10
+        if climax_j == 0 and close[cj] < open[cj] and volume[cj] > vol50 * 2.5 and (high[cj]-low[cj]) > atr14 * 2
+            climax_j := cj
+    bool p_climax = false
+    if climax_j > 0
+        float cmid = (high[climax_j] + low[climax_j]) / 2.0
+        p_climax := close > cmid and close > open
+    // R2. Higher-Low / Double-Bottom +3 — recent low RETESTS the prior base low
+    // (holds >= 1% undercut, stays within 10% above it) and turns up. The
+    // proximity ceiling (v1.9, mirrors pa_patterns.py fix 9-Jul-2026) stops the
+    // pattern firing on every green day of an uptrend, where the 10-bar low is
+    // trivially above the 30-bar base low.
+    bool p_2b = lo_prior > 0 and lo_recent >= lo_prior * 0.99 and lo_recent <= lo_prior * 1.10 and close > open and close > close[1]
+    // R3. Base Breakout (SOS/JAC) +3 — wide up-bar over 20-bar base resistance on vol
+    float base_res = ta.highest(high, 20)[1]
+    bool p_sos = close > base_res and rng > atr14 * 1.3 and rv > 1.5 and close > open
+    // R4. Hammer at support +2 — hammer at the 200-SMA or the base low
+    bool near_base = lo_prior > 0 and math.abs(low - lo_prior) / lo_prior <= 0.03
+    bool p_hsup = hammer and (near200 or near_base) and close > open and rv > 1.0
+    // R5. Volume Dry-Up +1 — supply exhausted at the base
+    bool p_vdu = rv < 0.5 and rng < atr14 * 0.8
+    // AUTO-mode path inference (v1.8): >=10% off the 52-week high (the GM recovery
+    // CONTEXT gate) AND the long-term trend not yet repaired — below the 30-WMA proxy
+    // (SMA150) OR the proxy still falling. v1.7's "below SMA150" AND-leg was self-
+    // defeating: recovery names at Step 5 have confirmed the turn and often reclaimed
+    // SMA150, so the best recoveries resolved Bull. Slope catches them: even after a
+    // reclaim, a recovering name's SMA150 is flat/falling; a bull leader's is rising.
+    float h52    = ta.highest(high, 252)
+    float sma150 = ta.sma(close, 150)
+    float off52  = h52 > 0 ? (h52 - close) / h52 * 100.0 : 0.0
+    bool  bel30w = close < sma150
+    bool  s150dn = sma150 <= sma150[10]
+    // v2.3 — 200-DMA position: the GM's Bull-vs-Recovery split hinges on it
+    // (Bull/accumulation lives ABOVE the 200-DMA; a beaten-down recovery is
+    // BELOW it). Used to align Auto with the Golden Matcher's structural path.
+    bool  bel200 = not na(sma200) and close < sma200
+
+    // NOTE (v2.1): the OB / FVG / pivot support trackers moved to f_zones()
+    // below, so they can be requested on BOTH "D" and "W" (the trading TF is
+    // 125/75-min, but demand zones come from Daily + Weekly structure).
+
+    // return as floats (na(series bool) is illegal; guard the float with nz()>0.5).
+    // _o = 1 when "Confirmed daily only" is on → return each pattern evaluated on the
+    // LAST CLOSED daily bar (no forming-bar repaint); _o = 0 = live developing bar.
+    // NOTE (v2.0): the [_o] offset is applied INSIDE the daily-context function, so it
+    // is measured in DAILY bars and is timeframe-INDEPENDENT — `expr[1]` is yesterday's
+    // confirmed daily value whether the chart is Daily or 75/125-min. A prior edit gated
+    // this on `timeframe.isdaily`, which made intraday charts read the DEVELOPING daily
+    // bar → the battery repainted through the session (the exact flicker confirm_daily
+    // exists to stop). Reverted: for a live developing-daily view, turn confirm_daily OFF.
+    int _o = confirm_daily ? 1 : 0
+    [(p_htf?1.0:0.0)[_o], (p_sc?1.0:0.0)[_o], (p_vcp?1.0:0.0)[_o], (p_pp?1.0:0.0)[_o], (p_eng?1.0:0.0)[_o], (p_liq?1.0:0.0)[_o], (p_3b?1.0:0.0)[_o], (p_in3?1.0:0.0)[_o], (p_nr7?1.0:0.0)[_o], (p_ibnr7?1.0:0.0)[_o], (p_spr?1.0:0.0)[_o], (p_gap?1.0:0.0)[_o], (p_u50?1.0:0.0)[_o], (p_h50?1.0:0.0)[_o], (p_h200?1.0:0.0)[_o], (p_bc?1.0:0.0)[_o], (p_climax?1.0:0.0)[_o], (p_2b?1.0:0.0)[_o], (p_sos?1.0:0.0)[_o], (p_hsup?1.0:0.0)[_o], (p_vdu?1.0:0.0)[_o], off52[_o], (bel30w?1.0:0.0)[_o], (s150dn?1.0:0.0)[_o], rv[_o], (bel200?1.0:0.0)[_o]]
+
+[d_htf, d_sc, d_vcp, d_pp, d_eng, d_liq, d_3b, d_in3, d_nr7, d_ibnr7, d_spr, d_gap, d_u50, d_h50, d_h200, d_bc, d_climax, d_2b, d_sos, d_hsup, d_vdu, d_off52, d_bel30, d_s150dn, d_rv, d_bel200] = request.security(syminfo.tickerid, "D", f_daily_pa(na, na), barmerge.gaps_off, barmerge.lookahead_off)
+
+// 8. Stage-2 Launch +3 — TRUE weekly close crossover of 30-WMA (+ vol gate)
+f_weekly() =>
+    float wma30 = ta.sma(close, 30)
+    bool wcross = close > wma30 and close[1] <= wma30[1]
+    // v2.1: TF-independent — the [_ow] offset is in WEEKLY bars inside the weekly
+    // context, so `[1]` = last CLOSED week on ANY chart TF. (A prior `timeframe
+    // .isweekly` gate made 75/125-min charts read the DEVELOPING week → repaint.)
+    int _ow = confirm_daily ? 1 : 0
+    (wcross ? 1.0 : 0.0)[_ow]
+w_cross = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
+
+// ==========================================
+// A2b. SUPPORT ZONES (OB / FVG / pivot-low) — requested on BOTH "D" and "W"
+// One stateful function, two timeframe calls → zero drift with the Golden
+// Matcher's pa_patterns.detect_support_zones_dw. Each zone invalidates on a
+// close below it. The [_oz] offset is in the requested TF's bar units, so it is
+// non-repainting on the 75/125-min trading chart.
+// ==========================================
+f_zones() =>
+    // Order Block — last down-candle before a volume displacement up.
+    // ob_tested flips true once price ENTERED the OB and then LEFT (a completed
+    // mitigation) — the current first tap still reads fresh; a re-tap is spent.
+    var float ob_top = na
+    var float ob_bot = na
+    var float ob_time = na                 // formation candle time (box left anchor)
+    var bool  ob_tested = false
+    var bool  ob_in = false
+    if not na(ob_top)
+        bool _obin = low <= ob_top and high >= ob_bot
+        if ob_in and not _obin
+            ob_tested := true              // entered then left = TESTED (grey/excluded)
+        ob_in := _obin
+        if close < ob_bot                  // VIOLATED (close < distal) → delete
+            ob_top := na
+            ob_bot := na
+            ob_time := na
+            ob_tested := false
+            ob_in := false
+    int red_off = -1
+    for k = 1 to 5
+        if close[k] < open[k]
+            red_off := k
+            break
+    float hi5_prev = ta.highest(high, 5)[1]
+    float vol_sma50 = ta.sma(volume, 50)
+    bool  is_disp = close > hi5_prev and volume > vol_sma50
+    if is_disp and red_off != -1
+        ob_top := high[red_off]
+        ob_bot := low[red_off]
+        ob_time := float(time[red_off])      // the OB candle itself = the zone's origin
+        ob_tested := false
+        ob_in := false                       // impulse bar leaves the zone; not a test
+    // FVG — 3-bar bullish gap (fvg_tested = price traded back into the gap then left)
+    var float fvg_top = na
+    var float fvg_bot = na
+    var float fvg_time = na                // formation (middle candle) time
+    var bool  fvg_tested = false
+    var bool  fvg_in = false
+    if not na(fvg_top)
+        bool _fin = low <= fvg_top and high >= fvg_bot
+        if fvg_in and not _fin
+            fvg_tested := true             // entered then left = TESTED (grey/excluded)
+        fvg_in := _fin
+        if close < fvg_bot                 // VIOLATED (close < distal) → delete
+            fvg_top := na
+            fvg_bot := na
+            fvg_time := na
+            fvg_tested := false
+            fvg_in := false
+    if high[2] < low
+        fvg_top := low
+        fvg_bot := high[2]
+        fvg_time := float(time[1])           // the 3-bar gap's middle candle = origin
+        fvg_tested := false
+        fvg_in := false                      // price sits above the gap at formation
+    // Pivot support — pivotlow(5,5). A STRUCTURAL level, NEVER deleted (unlike
+    // OB/FVG): a tested pivot stays as support; a VIOLATED pivot (close below)
+    // FLIPS to resistance (previous-support-now-resistance) and stays — cleared
+    // only when price reclaims it (close above). piv = support (price above),
+    // piv_res = flipped resistance (price below).
+    float p_low = ta.pivotlow(low, 5, 5)
+    var float piv = na
+    var float piv_res = na
+    var float piv_time = na                 // pivot-low candle time (line left anchor)
+    var float piv_res_time = na
+    if not na(p_low)
+        piv := p_low
+        piv_time := float(time[5])          // the pivot low is 5 bars back
+    if not na(piv) and close < piv        // support violated → flip to resistance (keep)
+        piv_res := piv
+        piv_res_time := piv_time
+        piv := na
+    if not na(piv_res) and close > piv_res  // resistance reclaimed → clear
+        piv_res := na
+        piv_res_time := na
+    int _oz = confirm_daily ? 1 : 0
+    [ob_top[_oz], ob_bot[_oz], fvg_top[_oz], fvg_bot[_oz], piv[_oz], (ob_tested?1.0:0.0)[_oz], (fvg_tested?1.0:0.0)[_oz], piv_res[_oz], ob_time[_oz], fvg_time[_oz], piv_time[_oz], piv_res_time[_oz]]
+
+[d_ob_top, d_ob_bot, d_fvg_top, d_fvg_bot, d_pivot, d_ob_tested, d_fvg_tested, d_piv_res, d_ob_time, d_fvg_time, d_piv_time, d_piv_res_time] = request.security(syminfo.tickerid, "D", f_zones(), barmerge.gaps_off, barmerge.lookahead_off)
+[w_ob_top, w_ob_bot, w_fvg_top, w_fvg_bot, w_pivot, w_ob_tested, w_fvg_tested, w_piv_res, w_ob_time, w_fvg_time, w_piv_time, w_piv_res_time] = request.security(syminfo.tickerid, "W", f_zones(), barmerge.gaps_off, barmerge.lookahead_off)
+
+// ==========================================
+// B. ANCHORED VWAPs (accumulated on chart TF from each anchor date)
+// ==========================================
+f_avwap(int anchor_t) =>
+    var float cumV  = 0.0
+    var float cumPV = 0.0
+    var int   last  = 0                 // sentinel 0, NOT na: `x != na` returns na (falsy) → never sets
+    if not na(anchor_t) and anchor_t != last
+        cumV  := 0.0
+        cumPV := 0.0
+        last  := anchor_t
+    if last > 0 and time >= last
+        cumV  += volume
+        cumPV += hlc3 * volume
+    cumV > 0 ? cumPV / cumV : na
+
+float avwap_low = show_low ? f_avwap(anc_low) : na
+float avwap_bo  = show_bo  ? f_avwap(anc_bo)  : na
+float avwap_gap = show_gap ? f_avwap(anc_gap) : na
+
+avs = array.new_float()
+if not na(avwap_low)
+    array.push(avs, avwap_low)
+if not na(avwap_bo)
+    array.push(avs, avwap_bo)
+if not na(avwap_gap)
+    array.push(avs, avwap_gap)
+
+float av_hi = array.size(avs) > 0 ? array.max(avs) : na
+float av_lo = array.size(avs) > 0 ? array.min(avs) : na
+float pinch_spread = (not na(av_hi) and close > 0) ? (av_hi - av_lo) / close * 100.0 : na
+bool  pinched = array.size(avs) >= 2 and not na(pinch_spread) and pinch_spread <= pinch_pct
+
+float nearest_sup = na
+if array.size(avs) > 0
+    for i = 0 to array.size(avs) - 1
+        float a = array.get(avs, i)
+        if a <= close and (na(nearest_sup) or a > nearest_sup)
+            nearest_sup := a
+float sup_dist = (not na(nearest_sup) and close > 0) ? (close - nearest_sup) / close * 100.0 : na
+
+float _tol = tol_pct / 100.0
+bool b_low = not na(avwap_low) and low <= avwap_low * (1.0 + _tol) and close > avwap_low and close > open
+bool b_bo  = not na(avwap_bo)  and low <= avwap_bo  * (1.0 + _tol) and close > avwap_bo  and close > open
+bool b_gap = not na(avwap_gap) and low <= avwap_gap * (1.0 + _tol) and close > avwap_gap and close > open
+bool _r2g_x = ta.crossover(close, avwap_bo)
+bool _r2g  = not na(avwap_bo) and _r2g_x
+bool avwap_trig = b_low or b_bo or b_gap or _r2g
+
+// ==========================================
+// C. INTRADAY TRIGGER (chart TF — best on 75/125-min)
+// ==========================================
+float ema10c = ta.ema(close, ema_len)
+bool  ema_reclaim = close > ema10c and ema10c > ema10c[1]
+float basis  = ta.sma(close, sqz_len)
+float dev    = bb_mult * ta.stdev(close, sqz_len)
+float kc_rng = ta.atr(sqz_len)
+bool  sqz_on   = (basis + dev) < (basis + kc_mult * kc_rng) and (basis - dev) > (basis - kc_mult * kc_rng)
+bool  sqz_fire = not sqz_on and sqz_on[1]
+float sqz_mom  = ta.linreg(close - math.avg(math.avg(ta.highest(high, sqz_len), ta.lowest(low, sqz_len)), ta.sma(close, sqz_len)), sqz_len, 0)
+bool  sqz_fire_up = sqz_fire and sqz_mom > 0
+// v2.5: Relaxed Squeeze Trigger Window — allows entry while momentum is actively rising out of the squeeze
+bool  sqz_releasing = (not sqz_on) and sqz_mom > 0 and (sqz_fire or sqz_mom >= nz(sqz_mom[1]))
+bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
+
+// Daily EMA10/EMA20 (DNA anchors) to overlay on the chart-TF battery's engulf.
+f_daily_ema(int len) =>
+    float e = ta.ema(close, len)
+    int _oe = confirm_daily ? 1 : 0
+    e[_oe]
+float daily_ema10 = request.security(syminfo.tickerid, "D", f_daily_ema(10), barmerge.gaps_off, barmerge.lookahead_off)
+float daily_ema20 = request.security(syminfo.tickerid, "D", f_daily_ema(20), barmerge.gaps_off, barmerge.lookahead_off)
+
+// Calculate PA patterns locally on the chart's timeframe (if toggled). Pass the
+// DAILY EMAs so the engulf keeps its EMA20 anchor daily even on 75/125m.
+[loc_htf, loc_sc, loc_vcp, loc_pp, loc_eng, loc_liq, loc_3b, loc_in3, loc_nr7, loc_ibnr7, loc_spr, loc_gap, loc_u50, loc_h50, loc_h200, loc_bc, loc_climax, loc_2b, loc_sos, loc_hsup, loc_vdu, loc_off52, loc_bel30, loc_s150dn, loc_rv, loc_bel200] = f_daily_pa(daily_ema10, daily_ema20)
+
+// ==========================================
+// A3. Clean bools (na→false) + tier sum + names + family strings
+// ==========================================
+float active_htf    = use_chart_tf ? loc_htf     : nz(d_htf, 0.0)
+float active_sc     = use_chart_tf ? loc_sc      : nz(d_sc, 0.0)
+float active_vcp    = use_chart_tf ? loc_vcp     : nz(d_vcp, 0.0)
+float active_pp     = use_chart_tf ? loc_pp      : nz(d_pp, 0.0)
+float active_eng    = use_chart_tf ? loc_eng     : nz(d_eng, 0.0)
+float active_liq    = use_chart_tf ? loc_liq     : nz(d_liq, 0.0)
+float active_3b     = use_chart_tf ? loc_3b      : nz(d_3b, 0.0)
+float active_in3    = use_chart_tf ? loc_in3     : nz(d_in3, 0.0)
+float active_nr7    = use_chart_tf ? loc_nr7     : nz(d_nr7, 0.0)
+float active_ibnr7  = use_chart_tf ? loc_ibnr7   : nz(d_ibnr7, 0.0)
+float active_spr    = use_chart_tf ? loc_spr     : nz(d_spr, 0.0)
+float active_gap    = use_chart_tf ? loc_gap     : nz(d_gap, 0.0)
+float active_u50    = use_chart_tf ? loc_u50     : nz(d_u50, 0.0)
+float active_h50    = use_chart_tf ? loc_h50     : nz(d_h50, 0.0)
+float active_h200   = use_chart_tf ? loc_h200    : nz(d_h200, 0.0)
+float active_bc     = use_chart_tf ? loc_bc      : nz(d_bc, 0.0)
+float active_climax = use_chart_tf ? loc_climax  : nz(d_climax, 0.0)
+float active_2b     = use_chart_tf ? loc_2b      : nz(d_2b, 0.0)
+float active_sos    = use_chart_tf ? loc_sos     : nz(d_sos, 0.0)
+float active_hsup   = use_chart_tf ? loc_hsup    : nz(d_hsup, 0.0)
+float active_vdu    = use_chart_tf ? loc_vdu     : nz(d_vdu, 0.0)
+
+// HTF is positional ("100% move in 8 weeks + tight flag") — meaningless on an
+// intraday TF, so suppress it in chart-TF mode (matches the GM Python's
+// intraday=True, which forces HTF off). LAU / 30-WMA-reclaim already stay
+// weekly (w_cross), so HTF is the only positional pattern that would leak.
+bool kHTF   = show_pa and active_htf > 0.5 and not use_chart_tf
+bool kSC    = show_pa and active_sc > 0.5
+bool kVCP   = show_pa and active_vcp > 0.5
+bool kPP    = show_pa and active_pp > 0.5
+bool kENG   = show_pa and active_eng > 0.5
+bool kLIQ   = show_pa and active_liq > 0.5
+bool k3B    = show_pa and active_3b > 0.5
+// v1.9: Stage-2 proxy gate added — Python's Stage-2 Launch requires the name to
+// BE Stage 2 ("2" in stage); the Pine proxy is close above a RISING 30-WMA proxy
+// (not d_bel30, not d_s150dn). Without it LAU fired on Stage-4 dead-cat bounces.
+bool s2_proxy = nz(d_bel30, 1.0) < 0.5 and nz(d_s150dn, 1.0) < 0.5
+bool kLAU   = show_pa and nz(w_cross, 0.0) > 0.5 and nz(d_rv, 0.0) > 1.25 and s2_proxy
+bool kIN3   = show_pa and active_in3 > 0.5
+bool kNR7   = show_pa and active_nr7 > 0.5
+bool kIBNR7 = show_pa and active_ibnr7 > 0.5
+bool kSPR   = show_pa and active_spr > 0.5
+bool kGAP   = show_pa and active_gap > 0.5
+bool kU50   = show_pa and active_u50 > 0.5
+bool kH50   = show_pa and active_h50 > 0.5
+bool kH200  = show_pa and active_h200 > 0.5
+bool kBC    = show_pa and active_bc > 0.5
+// recovery-mode flags (5 new + reused Spring/Engulf/3-Bar/Pocket + weekly 30-WMA reclaim)
+bool kCLIMAX  = show_pa and active_climax > 0.5
+bool k2B      = show_pa and active_2b > 0.5
+bool kSOS     = show_pa and active_sos > 0.5
+bool kHSUP    = show_pa and active_hsup > 0.5
+bool kVDU     = show_pa and active_vdu > 0.5
+bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5      // weekly 30-WMA reclaim (Stage 1→2)
+// Mode resolution — aligned to the Golden Matcher's STRUCTURAL Bull-vs-Recovery
+// split (v2.3). GM puts Bull/accumulation ABOVE the 200-DMA and a beaten-down
+// recovery BELOW it, so Auto flips to Recovery only when ALL hold:
+//   (1) >= auto_dd_floor% off the 52wk high (GM recovery CONTEXT gate),
+//   (2) trend not repaired — below the 30-WMA proxy OR its slope still falling,
+//   (3) BELOW the 200-DMA — the discriminant that stops a shallow bull PULLBACK
+//       (10-15% off highs, still above the 200-DMA) from mis-resolving Recovery.
+// A name above its 200-DMA is Bull (matches GM's Bull-by-default). Residual gap:
+// Pine can't see RFF, so an early recovery that already reclaimed the 200-DMA
+// resolves Bull here while GM (recovery engine) shows Recovery — use the manual
+// Mode override for that rare case.
+bool auto_rec = nz(d_off52, 0.0) >= auto_dd_floor and (nz(d_bel30, 0.0) > 0.5 or nz(d_s150dn, 0.0) > 0.5) and (not auto_require_below_200 or nz(d_bel200, 0.0) > 0.5)
+bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
+
+int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
+bool any_pa = is_rec ? (kCLIMAX or kSPR or k2B or kSOS or kENG or kHSUP or k3B or kPP or kVDU or kRECLAIM) : (kHTF or kSC or kVCP or kPP or kENG or kLIQ or k3B or kLAU or kIN3 or kNR7 or kIBNR7 or kSPR or kGAP or kU50 or kH50 or kH200 or kBC)
+bool pa_fire = any_pa and not any_pa[1]
+string pa_names = is_rec ? ((kCLIMAX?"Climax, ":"")+(kSPR?"Spring, ":"")+(k2B?"HigherLow-2B, ":"")+(kSOS?"BaseBO-SOS, ":"")+(kENG?"Engulf, ":"")+(kHSUP?"Hammer-sup, ":"")+(k3B?"3BarRev, ":"")+(kPP?"Pocket, ":"")+(kVDU?"VDU, ":"")+(kRECLAIM?"30WMA-reclaim, ":"")) : ((kHTF?"HTF, ":"") + (kSC?"StrongClose, ":"") + (kVCP?"VCP-BO, ":"") + (kLAU?"Stage2-Launch, ":"") + (kGAP?"Gap-BO, ":"") + (kBC?"Breakout-Confirmed, ":"") + (kPP?"Pocket, ":"") + (kU50?"Undercut50, ":"") + (kLIQ?"LiqSweep, ":"") + (kSPR?"Spring, ":"") + (kENG?"Engulf, ":"") + (k3B?"3BarRev, ":"") + (kH50?"Hammer50, ":"") + (kH200?"Hammer200, ":"") + (kIN3?"Inside3, ":"") + (kNR7?"NR7, ":"") + (kIBNR7?"IB-NR7, ":""))
+color  pa_col = tsum >= 4 ? color.new(#7b1fa2,0) : tsum >= 2 ? color.new(#26a69a,0) : tsum >= 1 ? color.new(#ff9800,0) : color.gray
+
+// --- TRIGGER = the COMBINED entry gate: Event + Volume + Intraday ---
+// Event    = a price-action trigger on the chart (AVWAP bounce / R2G>BO).
+// Volume   = relative volume >= rv_floor (participation behind the move).
+// Intraday = the 10-EMA reclaim + TTM squeeze fired up (momentum confirmation).
+// GO (green) = a trigger fired (Event OR Intraday) AND volume is there — NOT all three at
+//   once (that would be a rarely-gettable Holy Grail). Intraday is the premium confirmation.
+// Close is inside/near a support level — checked on BOTH Daily and Weekly (v2.1).
+// f_inzone: is `close` inside [bot,top] or within 1.5% above `top`? f_nearpiv:
+// within 1.5% above a pivot line?
+f_inzone(float top, float bot) => not na(top) and ((close >= bot and close <= top) or (close > top and (close - top) / top <= 0.015))
+f_nearpiv(float p) => not na(p) and close >= p and (close - p) / p <= 0.015
+// Daily zones — only FRESH (untested) OB/FVG count for the trigger; a tested
+// (mitigated) zone is greyed and excluded (nz(..)<0.5 = not tested).
+bool in_d_ob  = f_inzone(d_ob_top, d_ob_bot) and nz(d_ob_tested, 0.0) < 0.5
+bool in_d_fvg = f_inzone(d_fvg_top, d_fvg_bot) and nz(d_fvg_tested, 0.0) < 0.5
+bool in_d_piv = f_nearpiv(d_pivot)
+// Weekly zones (bigger structural demand)
+bool in_w_ob  = f_inzone(w_ob_top, w_ob_bot) and nz(w_ob_tested, 0.0) < 0.5
+bool in_w_fvg = f_inzone(w_fvg_top, w_fvg_bot) and nz(w_fvg_tested, 0.0) < 0.5
+bool in_w_piv = f_nearpiv(w_pivot)
+// v2.0: an AVWAP support is ALSO an automated demand level — an AVWAP bounce (ev_ok)
+// happens AT one by definition, so counting it here stops require_support from
+// suppressing a valid AVWAP entry that isn't also sitting on an OB/FVG/pivot.
+bool near_avwap = not na(nearest_sup) and close >= nearest_sup and (close - nearest_sup) / close <= 0.015
+
+bool in_daily_zone  = in_d_ob or in_d_fvg or in_d_piv
+bool in_weekly_zone = in_w_ob or in_w_fvg or in_w_piv
+bool inside_support_zone = in_daily_zone or in_weekly_zone or near_avwap
+bool support_pass = (not require_support) or inside_support_zone
+
+float vol_sma_50 = ta.sma(volume, 50)
+float chart_rv = vol_sma_50 > 0 ? volume / vol_sma_50 : 0.0
+// v2.9: the volume gate uses the TRADING-TIMEFRAME RV (chart_rv) — the exact number
+// now shown in the panel RV row — so the gate and the display can NEVER disagree.
+// (Was a mix of yesterday's confirmed daily RV and chart RV, which let the panel
+// show one RV while the gate tested another.)
+bool vol_ok = chart_rv >= rv_floor
+
+bool ev_ok    = avwap_trig
+bool intra_ok = intraday_trig
+bool go       = (ev_ok or intra_ok) and vol_ok and support_pass
+string trig_txt = (go ? "GO" : (ev_ok or intra_ok) and not support_pass ? "no support" : (ev_ok or intra_ok) ? "no volume" : "WAIT") + "   E" + (ev_ok?"✓":"·") + "  V" + (vol_ok?"✓":"·") + "  I" + (intra_ok?"✓":"·")
+color trig_col = go ? color.new(#26a69a,0) : (ev_ok or intra_ok) ? color.new(#ff9800,0) : color.new(#787b86,0)
+// RV field colour (trading-TF RV): green >=1.25 (strong), amber >=1.0 (average), red <1.0 (thin/dead)
+color rv_col = chart_rv >= 1.25 ? color.new(#26a69a,0) : chart_rv >= 1.0 ? color.new(#ff9800,0) : color.new(#ef5350,0)
+
+// ==========================================
+// PLOTS
+// ==========================================
+plot(avwap_low, "AVWAP Low",  color=c_low, linewidth=2)
+plot(avwap_bo,  "AVWAP BO",   color=c_bo,  linewidth=2)
+plot(avwap_gap, "AVWAP Gap",  color=c_gap, linewidth=2)
+bgcolor(pinched ? color.new(color.teal, 88) : na, title="Pinch zone")
+plotshape(avwap_trig,    title="AVWAP trigger",    style=shape.triangleup, location=location.belowbar, color=color.new(#26a69a, 0), size=size.small, text="S4")
+// v2.9: the on-candle "GO" fires ONLY on the combined gate `go` (= panel TRIGGER
+// = GO: a leg fired AND volume >= floor AND price at a fresh support zone) — so a
+// chart "GO" ALWAYS means take the trade and can never disagree with the panel.
+plotshape(go, title="S4 GO (combined gate)", style=shape.labelup, location=location.belowbar, color=color.new(#26a69a, 0), textcolor=color.white, size=size.small, text="GO")
+// Intraday momentum LEG that fired but the gate is NOT yet met (thin volume / no
+// support) — small cyan triangle, NO "GO" text, so it's clearly not a trade.
+plotshape(show_intraday and intraday_trig and not go, title="Intraday leg (gate not met)", style=shape.triangleup, location=location.belowbar, color=color.new(#00838f, 0), size=size.tiny)
+plotshape(show_pa and pa_fire, title="Daily PA trigger", style=shape.diamond, location=location.abovebar, color=color.new(#7e57c2, 0), size=size.tiny, text="PA")
+
+// Draw the support zones (v2.4): the LEFT edge is the zone's FORMATION candle
+// time (the OB/gap/pivot bar) — so a box begins at the candles that created it,
+// not a fixed lookback — and extends RIGHT via extend.right (persists as a
+// full-width band on any chart TF). Falls back to a fixed window only if the
+// formation time is missing. Daily = dashed/thin, Weekly = solid/thick.
+var box d_ob_box = na
+var box d_fvg_box = na
+var line d_piv_ln = na
+var label d_piv_lbl = na
+var line d_pres_ln = na
+var label d_pres_lbl = na
+var box w_ob_box = na
+var box w_fvg_box = na
+var line w_piv_ln = na
+var label w_piv_lbl = na
+var line w_pres_ln = na
+var label w_pres_lbl = na
+int _ms_day = 86400000
+int _d_left = time - 180 * _ms_day     // fallback window if a formation time is missing
+int _w_left = time - 540 * _ms_day
+// Left edge = the zone's FORMATION candle time (falls back to the window if na).
+int _d_ob_L   = na(d_ob_time)      ? _d_left : int(d_ob_time)
+int _d_fvg_L  = na(d_fvg_time)     ? _d_left : int(d_fvg_time)
+int _d_piv_L  = na(d_piv_time)     ? _d_left : int(d_piv_time)
+int _d_pres_L = na(d_piv_res_time) ? _d_left : int(d_piv_res_time)
+int _w_ob_L   = na(w_ob_time)      ? _w_left : int(w_ob_time)
+int _w_fvg_L  = na(w_fvg_time)     ? _w_left : int(w_fvg_time)
+int _w_piv_L  = na(w_piv_time)     ? _w_left : int(w_piv_time)
+int _w_pres_L = na(w_piv_res_time) ? _w_left : int(w_piv_res_time)
+
+// Tested zones grey out (excluded from the trigger); fresh keep their colour.
+bool d_ob_t  = nz(d_ob_tested, 0.0) > 0.5
+bool d_fvg_t = nz(d_fvg_tested, 0.0) > 0.5
+bool w_ob_t  = nz(w_ob_tested, 0.0) > 0.5
+bool w_fvg_t = nz(w_fvg_tested, 0.0) > 0.5
+color _grey = color.new(color.gray, 88)
+color _greyb = color.new(color.gray, 55)
+
+if show_zones and barstate.islast
+    // --- Daily (dashed, thin) ---
+    if not na(d_ob_box)
+        box.delete(d_ob_box)
+    if not na(d_ob_top) and not na(d_ob_bot)
+        d_ob_box := box.new(_d_ob_L, d_ob_top, time, d_ob_bot, xloc=xloc.bar_time, extend=extend.right,
+             bgcolor=d_ob_t ? _grey : color.new(color.green, 92), border_color=d_ob_t ? _greyb : color.new(color.green, 45),
+             border_style=line.style_dashed, text=d_ob_t ? "Daily OB (tested)" : "Daily OB",
+             text_color=d_ob_t ? color.new(color.gray, 20) : color.new(color.green, 15),
+             text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+    if not na(d_fvg_box)
+        box.delete(d_fvg_box)
+    if not na(d_fvg_top) and not na(d_fvg_bot)
+        d_fvg_box := box.new(_d_fvg_L, d_fvg_top, time, d_fvg_bot, xloc=xloc.bar_time, extend=extend.right,
+             bgcolor=d_fvg_t ? _grey : color.new(color.orange, 92), border_color=d_fvg_t ? _greyb : color.new(color.orange, 45),
+             border_style=line.style_dashed, text=d_fvg_t ? "Daily FVG (tested)" : "Daily FVG",
+             text_color=d_fvg_t ? color.new(color.gray, 20) : color.new(color.orange, 15),
+             text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+    if not na(d_piv_ln)
+        line.delete(d_piv_ln)
+    if not na(d_piv_lbl)
+        label.delete(d_piv_lbl)
+    if not na(d_pivot)
+        d_piv_ln := line.new(_d_piv_L, d_pivot, time, d_pivot, xloc=xloc.bar_time, extend=extend.right,
+             color=color.new(color.blue, 30), style=line.style_dashed, width=1)
+        d_piv_lbl := label.new(time, d_pivot, "Daily Pivot", xloc=xloc.bar_time,
+             color=color.new(color.blue, 100), textcolor=color.new(color.blue, 10),
+             style=label.style_label_left, size=size.small)
+    // Daily flipped pivot — previous support, now RESISTANCE (maroon)
+    if not na(d_pres_ln)
+        line.delete(d_pres_ln)
+    if not na(d_pres_lbl)
+        label.delete(d_pres_lbl)
+    if not na(d_piv_res)
+        d_pres_ln := line.new(_d_pres_L, d_piv_res, time, d_piv_res, xloc=xloc.bar_time, extend=extend.right,
+             color=color.new(color.maroon, 20), style=line.style_dashed, width=1)
+        d_pres_lbl := label.new(time, d_piv_res, "Daily Pivot S→R", xloc=xloc.bar_time,
+             color=color.new(color.maroon, 100), textcolor=color.new(color.maroon, 0),
+             style=label.style_label_left, size=size.small)
+    // --- Weekly (solid, thick — bigger structural demand) ---
+    if not na(w_ob_box)
+        box.delete(w_ob_box)
+    if not na(w_ob_top) and not na(w_ob_bot)
+        w_ob_box := box.new(_w_ob_L, w_ob_top, time, w_ob_bot, xloc=xloc.bar_time, extend=extend.right,
+             bgcolor=w_ob_t ? _grey : color.new(color.green, 84), border_color=w_ob_t ? _greyb : color.new(color.green, 5),
+             border_width=2, text=w_ob_t ? "Weekly OB (tested)" : "Weekly OB",
+             text_color=w_ob_t ? color.new(color.gray, 0) : color.new(color.green, 0),
+             text_size=size.small, text_halign=text.align_right, text_valign=text.align_bottom)
+    if not na(w_fvg_box)
+        box.delete(w_fvg_box)
+    if not na(w_fvg_top) and not na(w_fvg_bot)
+        w_fvg_box := box.new(_w_fvg_L, w_fvg_top, time, w_fvg_bot, xloc=xloc.bar_time, extend=extend.right,
+             bgcolor=w_fvg_t ? _grey : color.new(color.orange, 84), border_color=w_fvg_t ? _greyb : color.new(color.orange, 5),
+             border_width=2, text=w_fvg_t ? "Weekly FVG (tested)" : "Weekly FVG",
+             text_color=w_fvg_t ? color.new(color.gray, 0) : color.new(color.orange, 0),
+             text_size=size.small, text_halign=text.align_right, text_valign=text.align_bottom)
+    if not na(w_piv_ln)
+        line.delete(w_piv_ln)
+    if not na(w_piv_lbl)
+        label.delete(w_piv_lbl)
+    if not na(w_pivot)
+        w_piv_ln := line.new(_w_piv_L, w_pivot, time, w_pivot, xloc=xloc.bar_time, extend=extend.right,
+             color=color.new(color.blue, 0), style=line.style_solid, width=2)
+        w_piv_lbl := label.new(time, w_pivot, "Weekly Pivot", xloc=xloc.bar_time,
+             color=color.new(color.blue, 100), textcolor=color.new(color.blue, 0),
+             style=label.style_label_left, size=size.small)
+    // Weekly flipped pivot — previous support, now RESISTANCE (maroon, solid/thick)
+    if not na(w_pres_ln)
+        line.delete(w_pres_ln)
+    if not na(w_pres_lbl)
+        label.delete(w_pres_lbl)
+    if not na(w_piv_res)
+        w_pres_ln := line.new(_w_pres_L, w_piv_res, time, w_piv_res, xloc=xloc.bar_time, extend=extend.right,
+             color=color.new(color.maroon, 0), style=line.style_solid, width=2)
+        w_pres_lbl := label.new(time, w_piv_res, "Weekly Pivot S→R", xloc=xloc.bar_time,
+             color=color.new(color.maroon, 100), textcolor=color.new(color.maroon, 0),
+             style=label.style_label_left, size=size.small)
+
+// ==========================================
+// ENTRY PANEL
+// ==========================================
+f_pos(string p) => p == "top_left" ? position.top_left : p == "bottom_right" ? position.bottom_right : p == "bottom_left" ? position.bottom_left : position.top_right
+// Dark-theme panel: solid dark bg + TV grid frame so it reads cleanly on dark charts. Updated to 17 rows.
+var table pnl = table.new(f_pos(panel_pos), 2, 18, bgcolor=color.new(#131722, 0), frame_color=color.new(#2a2e39, 0), frame_width=1, border_color=color.new(#2a2e39, 0), border_width=1)
+f_row(int r, string k, string vv, color vc) =>
+    table.cell(pnl, 0, r, k, text_size=size.small, text_color=color.new(#b2b5be, 0), text_halign=text.align_left)
+    table.cell(pnl, 1, r, vv, text_size=size.small, text_color=vc, text_halign=text.align_right)
+// one PA-condition token for the compact grid: name + fired(✓) / quiet(·)
+f_it(string nm, bool fired) => nm + (fired ? " ✓  " : " ·  ")
+
+if show_panel and barstate.islast
+    table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=size.small, text_color=color.white, bgcolor=color.new(#00838f, 0))
+    table.cell(pnl, 1, 0, syminfo.ticker, text_size=size.small, text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_right)
+    f_row(1, "AVWAP Low", na(avwap_low) ? "-" : str.tostring(avwap_low, format.mintick), close >= nz(avwap_low, close) ? color.new(#26a69a,0) : color.new(#ef5350,0))
+    f_row(2, "AVWAP BO",  na(avwap_bo)  ? "-" : str.tostring(avwap_bo,  format.mintick), close >= nz(avwap_bo,  close) ? color.new(#26a69a,0) : color.new(#ef5350,0))
+    f_row(3, "AVWAP Gap", na(avwap_gap) ? "-" : str.tostring(avwap_gap, format.mintick), close >= nz(avwap_gap, close) ? color.new(#26a69a,0) : color.new(#ef5350,0))
+    f_row(4, "Pinch", pinched ? "YES " + str.tostring(pinch_spread, "#.0") + "%" : (na(pinch_spread) ? "-" : "no " + str.tostring(pinch_spread, "#.0") + "%"), pinched ? color.new(#26a69a,0) : color.gray)
+    f_row(5, "Nearest support", na(nearest_sup) ? "-" : str.tostring(nearest_sup, format.mintick) + " (" + str.tostring(sup_dist, "0.0") + "%)", na(nearest_sup) ? color.gray : color.new(#42a5f5,0))
+    f_row(6, "AVWAP trigger", avwap_trig ? ("FIRED" + (_r2g ? " R2G>BO" : " bounce")) : "waiting", avwap_trig ? color.new(#26a69a,0) : color.new(#787b86,0))
+    string intra_status = not show_intraday ? "off" : (intraday_trig ? (require_squeeze ? "GO 10EMA+sqz" : "GO 10EMA") : (ema_reclaim ? "10EMA ok" : (sqz_on ? "sqz ON, wait EMA" : "wait")))
+    f_row(7, "Intraday " + timeframe.period, intra_status, intraday_trig ? color.new(#00838f,0) : color.new(#787b86,0))
+    
+    // Support Zone row (Step 1 & 2 automation) — Daily + Weekly summarised.
+    // Fresh zones show plain (OB/FVG/Piv); a tested zone under price shows with a
+    // 't' suffix (OBt/FVGt) = present but EXCLUDED from the trigger.
+    string d_zt = in_d_ob ? "OB" : in_d_fvg ? "FVG" : in_d_piv ? "Piv" : (f_inzone(d_ob_top, d_ob_bot) and d_ob_t) ? "OBt" : (f_inzone(d_fvg_top, d_fvg_bot) and d_fvg_t) ? "FVGt" : "-"
+    string w_zt = in_w_ob ? "OB" : in_w_fvg ? "FVG" : in_w_piv ? "Piv" : (f_inzone(w_ob_top, w_ob_bot) and w_ob_t) ? "OBt" : (f_inzone(w_fvg_top, w_fvg_bot) and w_fvg_t) ? "FVGt" : "-"
+    string zone_txt = "D:" + d_zt + " W:" + w_zt + (near_avwap and d_zt == "-" and w_zt == "-" ? " (AVWAP)" : "")
+    color zone_col = inside_support_zone ? color.new(#26a69a,0) : color.gray
+    f_row(8, "Support Zone", zone_txt, zone_col)
+    
+    // --- RV (volume): its own colour-coded field ---
+    f_row(9, "RV (rel vol · " + timeframe.period + ")", str.tostring(chart_rv, "0.00") + (chart_rv >= 1.25 ? "  strong" : chart_rv >= 1.0 ? "  ok" : "  thin"), rv_col)
+    // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
+    table.cell(pnl, 0, 10, "TRIGGER", text_size=size.small, text_color=color.white, bgcolor=color.new(trig_col, 65), text_halign=text.align_left)
+    table.cell(pnl, 1, 10, trig_txt, text_size=size.small, text_color=trig_col, bgcolor=color.new(trig_col, 84), text_halign=text.align_right)
+    // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
+    string _plan = na
+    if go and not na(nearest_sup)
+        _plan := "Buy-stop > bar high, SL < " + str.tostring(nearest_sup * (1.0 - _tol), format.mintick)
+    f_row(11, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
+    // --- PA CONDITIONS: compact grid, every condition shown fired(✓)/quiet(·); mode-aware ---
+    string tf_suffix = use_chart_tf ? timeframe.period : "EOD"
+    string _hdr = (is_rec ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)"))
+    table.cell(pnl, 0, 12, _hdr, text_size=size.small, text_color=color.white, bgcolor=color.new(#455a64, 0), text_halign=text.align_left)
+    table.cell(pnl, 1, 12, not show_pa ? "off" : ("Sum +" + str.tostring(tsum)), text_size=size.small, text_color=color.white, bgcolor=pa_col, text_halign=text.align_right)
+    color _gc = color.new(#d1d4dc, 0)
+    string _g0 = is_rec ? f_it("CLIMAX",kCLIMAX)+f_it("SPR",kSPR)+f_it("2B",k2B)    : f_it("HTF",kHTF)+f_it("SC",kSC)+f_it("VCP",kVCP)
+    string _g1 = is_rec ? f_it("SOS",kSOS)+f_it("ENG",kENG)+f_it("HSUP",kHSUP)      : f_it("LAU",kLAU)+f_it("GAP",kGAP)+f_it("BC",kBC)
+    string _g2 = is_rec ? f_it("3BR",k3B)+f_it("PP",kPP)+f_it("VDU",kVDU)           : f_it("PP",kPP)+f_it("U50",kU50)+f_it("LIQ",kLIQ)
+    string _g3 = is_rec ? f_it("30WMA",kRECLAIM)                                    : f_it("SPR",kSPR)+f_it("ENG",kENG)+f_it("3BR",k3B)
+    string _g4 = is_rec ? "" : f_it("H50",kH50)+f_it("H200",kH200)+f_it("IN3",kIN3)
+    table.cell(pnl, 0, 13, _g0, text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    table.cell(pnl, 1, 13, _g1, text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    table.cell(pnl, 0, 14, _g2, text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    table.cell(pnl, 1, 14, _g3, text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    table.cell(pnl, 0, 15, _g4, text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    table.cell(pnl, 1, 15, is_rec ? "" : f_it("NR7",kNR7)+f_it("IBN",kIBNR7), text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    // v1.9: Auto-basis row — WHY Auto resolved Bull/Recovery (off52% + 30-WMA state).
+    if mode == "Auto"
+        string _wma_st = nz(d_bel30, 0.0) > 0.5 ? "below 30WMA" : nz(d_s150dn, 0.0) > 0.5 ? "30WMA falling" : "30WMA repaired"
+        string _200_st = nz(d_bel200, 0.0) > 0.5 ? "<200DMA" : ">200DMA"
+        f_row(16, "Auto basis", str.tostring(nz(d_off52, 0.0), "0.0") + "% off52 · " + _wma_st + " · " + _200_st, is_rec ? color.new(#00838f, 0) : color.new(#26a69a, 0))
+    // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
+    // so the panel states IN WORDS exactly why it is GO or still waiting.
+    string _verdict = go ? "GO — take the trade" : ((ev_ok or intra_ok) and not support_pass) ? "NO SUPPORT" : (ev_ok or intra_ok) ? "NO VOLUME" : "WAIT"
+    string _status  = _verdict + " · E" + (ev_ok?"✓":"·") + " V" + (vol_ok?"✓":"·") + " I" + (intra_ok?"✓":"·") + " Sup" + (support_pass?"✓":"·") + " · RV " + str.tostring(chart_rv, "0.00") + "/" + str.tostring(rv_floor, "0.00") + " · " + (is_rec?"Rec":"Bull") + " Σ+" + str.tostring(tsum)
+    color _status_col = go ? color.new(#26a69a,0) : (ev_ok or intra_ok) ? color.new(#ff9800,0) : color.new(#787b86,0)
+    table.cell(pnl, 0, 17, "STATUS", text_size=size.small, text_color=color.white, bgcolor=color.new(_status_col, 55), text_halign=text.align_left)
+    table.cell(pnl, 1, 17, _status, text_size=size.small, text_color=_status_col, bgcolor=color.new(_status_col, 88), text_halign=text.align_right)
+
+// ==========================================
+// ALERTS
+// ==========================================
+alertcondition(go,            title="S4 GO (Event+Vol+Intraday)", message="{{ticker}} S4 GO - a trigger fired WITH volume (RV>=floor). Confirm the closed bar → buy-STOP above its high.")
+alertcondition(avwap_trig,    title="S4 AVWAP trigger",       message="{{ticker}} S4 AVWAP trigger - bounce / R2G>BO")
+alertcondition(intraday_trig, title="S4 Intraday trigger",    message="{{ticker}} S4 INTRADAY trigger - reclaimed rising 10-EMA + TTM squeeze fired up")
+alertcondition(pinched,       title="S4 AVWAP pinch",         message="{{ticker}} S4 AVWAPs pinched - high-conviction entry zone")
+alertcondition(pa_fire,       title="S4 ANY daily PA pattern", message="{{ticker}} S4 daily PA pattern fired - check panel for which + tier")
+// Dynamic runtime alert naming exactly which battery conditions fired + tier sum:
+if show_pa and pa_fire
+    alert("S4 PA on " + syminfo.ticker + " (Sum+" + str.tostring(tsum) + "): " + str.substring(pa_names, 0, math.max(0, str.length(pa_names) - 2)), alert.freq_once_per_bar_close)
+// v1.9: Σ-strengthening — ANOTHER pattern joined while one was already live
+// (pa_fire only catches the FIRST edge into any-pattern-live).
+if show_pa and any_pa and any_pa[1] and tsum > nz(tsum[1])
+    alert("S4 PA strengthened on " + syminfo.ticker + " (Sum+" + str.tostring(nz(tsum[1])) + " -> +" + str.tostring(tsum) + "): " + str.substring(pa_names, 0, math.max(0, str.length(pa_names) - 2)), alert.freq_once_per_bar_close)
+// v1.9: self-describing GO — mode + which leg fired + RV, so the ping alone
+// tells you what to do without opening the chart.
+if go and not go[1]
+    string _leg = ev_ok and intra_ok ? "AVWAP+intraday" : ev_ok ? (_r2g ? "AVWAP R2G>BO" : "AVWAP bounce") : "intraday 10EMA+sqz"
+    string _zone = in_d_ob ? "at Daily OB" : in_d_fvg ? "at Daily FVG" : in_d_piv ? "at Daily pivot" : in_w_ob ? "at Weekly OB" : in_w_fvg ? "at Weekly FVG" : in_w_piv ? "at Weekly pivot" : near_avwap ? "at AVWAP" : "no zone"
+    alert("S4 GO on " + syminfo.ticker + " (" + (is_rec ? "Recovery" : "Bull") + ") via " + _leg + " @ " + _zone + " · RV " + str.tostring(nz(chart_rv, 0.0), "0.00") + " · Sum+" + str.tostring(tsum) + ". Confirm the closed 75/125m bar -> buy-STOP above its high.", alert.freq_once_per_bar_close)

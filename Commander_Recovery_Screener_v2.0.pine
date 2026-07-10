@@ -147,7 +147,7 @@ signal_hold_days = input.int(5,
      title="Signal Hold Window (Trading Days)",
      minval=1, maxval=20, group=grp_master,
      tooltip="Days the signal stays visible after firing. Set 1 for same-bar-only mode.")
-rff_min_score = input.int(1,
+rff_min_score = input.int(0,
      title="Min Fundamental Score — RFF Lite (0=Off, 1=NI>0, 2=NI+OCF>0)",
      minval=0, maxval=2, group=grp_master)
 
@@ -189,6 +189,13 @@ grp_vcp = "VCP Settings (REV-EARLY)"
 vol_avg_len = input.int(50,
      title="Volume Average Length",
      minval=10, group=grp_vcp)
+
+// Webhook Alerts Group
+grp_alert = "Webhook Alerts"
+use_webhook_json = input.bool(false, title="Send JSON Webhook Alerts (Ngrok + Webhook)", group=grp_alert, tooltip="If enabled, alerts will be formatted as JSON for the webhook server.")
+portfolio_capital = input.float(100000.0, title="Total Capital (INR)", step=10000.0, group=grp_alert)
+risk_per_trade_pct = input.float(0.50, title="Risk per Trade (%)", minval=0.1, step=0.05, group=grp_alert) // Note: recovery defaults to 0.50% risk per trade
+max_alloc = input.float(25000.0, title="Max Allocation per Trade", step=5000.0, group=grp_alert)
 
 grp_disp = "Display"
 tbl_pos_input = input.string("Top Right", title="Table Position",
@@ -248,7 +255,7 @@ f_db_sector_lookup(string t) =>
         "AAVAS" => "NSE:CNXFINANCE"
         "ABB" => "BSE:CG"
         "ABBOTINDIA" => "NSE:CNXPHARMA"
-        "ABCAPITAL" => "NSE:BANKNIFTY"
+        "ABCAPITAL" => "NSE:CNXFINANCE"
         "ABDL" => "NSE:CNXFMCG"
         "ABFRL" => "NSE:CNXFMCG"
         "ABLBL" => "NSE:CNXCONSUM"
@@ -295,7 +302,6 @@ f_db_sector_lookup(string t) =>
         "APOLLOHOSP" => "NSE:CNXPHARMA"
         "APOLLOTYRE" => "NSE:CNXAUTO"
         "APTUS" => "NSE:CNXFINANCE"
-        "ARE_M" => "NSE:CNXINFRA"
         "ARE_M" => "NSE:CNXAUTO"
         "ARVIND" => "NSE:CNXFMCG"
         "ASAHIINDIA" => "NSE:CNXAUTO"
@@ -318,7 +324,7 @@ f_db_sector_lookup(string t) =>
         "BAJAJELEC" => "BSE:CG"
         "BAJAJFINSV" => "NSE:CNXFINANCE"
         "BAJAJHFL" => "NSE:CNXFINANCE"
-        "BAJAJHLDNG" => "NSE:BANKNIFTY"
+        "BAJAJHLDNG" => "NSE:CNXFINANCE"
         "BAJFINANCE" => "NSE:CNXFINANCE"
         "BALAMINES" => "NSE:CNXMETAL"
         "BALKRISIND" => "NSE:CNXAUTO"
@@ -330,14 +336,14 @@ f_db_sector_lookup(string t) =>
         "BATAINDIA" => "NSE:CNXFMCG"
         "BAYERCROP" => "NSE:CNXMETAL"
         "BBTC" => "NSE:CNXFMCG"
-        "BDL" => "NSE:CNXINFRA"
+        "BDL" => "BSE:CG"
         "BEL" => "BSE:CG"
         "BELRISE" => "BSE:CG"
         "BEML" => "BSE:CG"
         "BERGEPAINT" => "NSE:CNXINFRA"
         "BHARATFORG" => "NSE:CNXAUTO"
         "BHARATRAS" => "NSE:CNXMETAL"
-        "BHARTIARTL" => "NSE:CNXIT"
+        "BHARTIARTL" => "NSE:CNXINFRA"
         "BHARTIHEXA" => "NSE:CNXINFRA"
         "BHEL" => "BSE:CG"
         "BIKAJI" => "NSE:CNXFMCG"
@@ -356,7 +362,7 @@ f_db_sector_lookup(string t) =>
         "BSE" => "NSE:CNXFINANCE"
         "BSOFT" => "NSE:CNXIT"
         "CAMPUS" => "NSE:CNXFMCG"
-        "CAMS" => "NSE:CNXIT"
+        "CAMS" => "NSE:CNXFINANCE"
         "CANBK" => "NSE:BANKNIFTY"
         "CANFINHOME" => "NSE:CNXFINANCE"
         "CANHLIFE" => "NSE:CNXFINANCE"
@@ -512,7 +518,7 @@ f_db_sector_lookup(string t) =>
         "HEIDELBERG" => "NSE:CNXINFRA"
         "HEROMOTOCO" => "NSE:CNXAUTO"
         "HEXT" => "NSE:CNXIT"
-        "HFCL" => "NSE:CNXIT"
+        "HFCL" => "NSE:CNXINFRA"
         "HIKAL" => "NSE:CNXPHARMA"
         "HINDALCO" => "NSE:CNXMETAL"
         "HINDCOPPER" => "NSE:CNXMETAL"
@@ -549,7 +555,7 @@ f_db_sector_lookup(string t) =>
         "INDIGO" => "NSE:CNXSERVICE"
         "INDIGOPNTS" => "NSE:CNXINFRA"
         "INDUSINDBK" => "NSE:BANKNIFTY"
-        "INDUSTOWER" => "NSE:CNXIT"
+        "INDUSTOWER" => "NSE:CNXINFRA"
         "INFY" => "NSE:CNXIT"
         "INOXWIND" => "BSE:CG"
         "INTELLECT" => "NSE:CNXIT"
@@ -563,7 +569,7 @@ f_db_sector_lookup(string t) =>
         "IRFC" => "NSE:CNXFINANCE"
         "ITC" => "NSE:CNXFMCG"
         "ITCHOTELS" => "NSE:CNXCONSUM"
-        "ITI" => "NSE:CNXIT"
+        "ITI" => "NSE:CNXINFRA"
         "J_KBANK" => "NSE:BANKNIFTY"
         "JAINREC" => "NSE:CNXMETAL"
         "JBCHEPHARM" => "NSE:CNXPHARMA"
@@ -594,10 +600,10 @@ f_db_sector_lookup(string t) =>
         "KALYANKJIL" => "NSE:CNXFMCG"
         "KANSAINER" => "NSE:CNXINFRA"
         "KARURVYSYA" => "NSE:BANKNIFTY"
-        "KAYNES" => "NSE:CNXIT"
+        "KAYNES" => "BSE:CG"
         "KEC" => "BSE:CG"
         "KEI" => "BSE:CG"
-        "KFINTECH" => "NSE:CNXIT"
+        "KFINTECH" => "NSE:CNXFINANCE"
         "KIMS" => "NSE:CNXPHARMA"
         "KIRLOSENG" => "NSE:CNXINFRA"
         "KNRCON" => "NSE:CNXINFRA"
@@ -614,8 +620,8 @@ f_db_sector_lookup(string t) =>
         "LAURUSLABS" => "NSE:CNXPHARMA"
         "LAXMACH" => "BSE:CG"
         "LEMONTREE" => "NSE:CNXCONSUM"
-        "LENSKART" => "NSE:CNXPHARMA"
-        "LGEINDIA" => "NSE:CNXIT"
+        "LENSKART" => "NSE:CNXCONSUM"
+        "LGEINDIA" => "NSE:CNXCONSUM"
         "LICHSGFIN" => "NSE:CNXFINANCE"
         "LICI" => "NSE:CNXFINANCE"
         "LINDEINDIA" => "NSE:CNXMETAL"
@@ -651,7 +657,7 @@ f_db_sector_lookup(string t) =>
         "MEDANTA" => "NSE:CNXPHARMA"
         "MEESHO" => "NSE:CNXCONSUM"
         "METROPOLIS" => "NSE:CNXPHARMA"
-        "MFSL" => "NSE:BANKNIFTY"
+        "MFSL" => "NSE:CNXFINANCE"
         "MGL" => "NSE:NIFTY_OIL_AND_GAS"
         "MHRIL" => "NSE:CNXSERVICE"
         "MINDACORP" => "NSE:CNXAUTO"
@@ -667,7 +673,7 @@ f_db_sector_lookup(string t) =>
         "MSUMI" => "NSE:CNXAUTO"
         "MTARTECH" => "BSE:CG"
         "MUTHOOTFIN" => "NSE:CNXFINANCE"
-        "NAM-INDIA" => "NSE:CNXFINANCE"
+        "NAM_INDIA" => "NSE:CNXFINANCE"
         "NATCOPHARM" => "NSE:CNXPHARMA"
         "NATIONALUM" => "NSE:CNXMETAL"
         "NAUKRI" => "NSE:CNXSERVICE"
@@ -714,7 +720,7 @@ f_db_sector_lookup(string t) =>
         "PETRONET" => "NSE:NIFTY_OIL_AND_GAS"
         "PFC" => "NSE:CNXFINANCE"
         "PFIZER" => "NSE:CNXPHARMA"
-        "PGEL" => "NSE:CNXIT"
+        "PGEL" => "BSE:CG"
         "PGHH" => "NSE:CNXFMCG"
         "PHOENIXLTD" => "NSE:CNXREALTY"
         "PIDILITIND" => "NSE:CNXINFRA"
@@ -805,7 +811,7 @@ f_db_sector_lookup(string t) =>
         "SPLPETRO" => "NSE:CNXCOMMODITIES"
         "SRF" => "NSE:CNXINFRA"
         "STARHEALTH" => "NSE:CNXFINANCE"
-        "STLTECH" => "NSE:CNXIT"
+        "STLTECH" => "NSE:CNXINFRA"
         "SUDARSCHEM" => "NSE:CNXMETAL"
         "SUMICHEM" => "NSE:CNXMETAL"
         "SUNDARMFIN" => "NSE:CNXFINANCE"
@@ -820,12 +826,12 @@ f_db_sector_lookup(string t) =>
         "SWANCORP" => "NSE:CNXINFRA"
         "SWIGGY" => "NSE:CNXSERVICE"
         "SYNGENE" => "NSE:CNXPHARMA"
-        "SYRMA" => "NSE:CNXIT"
+        "SYRMA" => "BSE:CG"
         "TANLA" => "NSE:CNXIT"
         "TARIL" => "NSE:CNXINFRA"
         "TATACAP" => "NSE:CNXFINANCE"
         "TATACHEM" => "NSE:CNXMETAL"
-        "TATACOMM" => "NSE:CNXIT"
+        "TATACOMM" => "NSE:CNXINFRA"
         "TATACONSUM" => "NSE:CNXFMCG"
         "TATAELXSI" => "NSE:CNXIT"
         "TATAINVEST" => "NSE:CNXFINANCE"
@@ -841,7 +847,7 @@ f_db_sector_lookup(string t) =>
         "TECHM" => "NSE:CNXIT"
         "TECHNOE" => "BSE:CG"
         "TEGA" => "BSE:CG"
-        "TEJASNET" => "NSE:CNXIT"
+        "TEJASNET" => "NSE:CNXINFRA"
         "TENNIND" => "NSE:CNXAUTO"
         "THELEELA" => "NSE:CNXCONSUM"
         "THERMAX" => "BSE:CG"
@@ -860,7 +866,7 @@ f_db_sector_lookup(string t) =>
         "TRIDENT" => "NSE:CNXFMCG"
         "TRITURBINE" => "BSE:CG"
         "TRIVENI" => "NSE:CNXFMCG"
-        "TTML" => "NSE:CNXIT"
+        "TTML" => "NSE:CNXINFRA"
         "TVSMOTOR" => "NSE:CNXAUTO"
         "TVSSRICHAK" => "NSE:CNXAUTO"
         "UBL" => "NSE:CNXFMCG"
@@ -899,7 +905,7 @@ f_db_sector_lookup(string t) =>
         "YESBANK" => "NSE:BANKNIFTY"
         "ZEEL" => "NSE:CNXMEDIA"
         "ZENSARTECH" => "NSE:CNXIT"
-        "ZENTEC" => "NSE:CNXINFRA"
+        "ZENTEC" => "BSE:CG"
         "ZFCVINDIA" => "NSE:CNXAUTO"
         "ZOMATO" => "NSE:CNXSERVICE"
         "ZYDUSLIFE" => "NSE:CNXPHARMA"
@@ -1021,8 +1027,8 @@ bool  mkt_reclaim       = not na(_mkt_sma50) and not na(_mkt_close) and
 // ── Call 2: Weinstein Weekly Stage ───────────────────────────────────────────
 f_weekly_stage() =>
     wma30  = ta.sma(close, 30)
-    slope  = (wma30 - nz(wma30[4], wma30)) / 4.0
-    thresh = wma30 * 0.0005
+    slope  = (wma30 - nz(wma30[6], wma30)) / 6.0
+    thresh = wma30 * 0.0012
     above  = close > wma30
     is_up  = slope >  thresh
     is_dn  = slope < -thresh
@@ -1426,7 +1432,19 @@ float rr_to_t1      = act_risk > 0 ? (t1_price - close) / act_risk : na
 float t1_upside_pct = close > 0 ? (t1_price - close) / close * 100.0 : na
 float sl_dist_pct   = close > 0 ? (close - sl_price)  / close * 100.0 : na
 
+// --- Webhook quantity and alert logic ---
+float _sl_dist = math.max(close - sl_price, close * 0.005)
+float qty_risk = _sl_dist > 0 ? (portfolio_capital * (risk_per_trade_pct / 100.0)) / _sl_dist : 0.0
+float qty_cap  = close > 0 ? max_alloc / close : 0.0
+float qty = math.min(qty_risk, qty_cap)
 
+string _sig_s = signal_val == 8 ? "WYC-SPRING+SOS" : signal_val == 7 ? "WYC-JAC" : signal_val == 6 ? "WYC-SOS" : signal_val == 5 ? "WYC-SPRING" : signal_val == 4 ? "REV-EARLY" : signal_val == 3 ? "REV-RS" : signal_val == 2 ? "REV-CB" : signal_val == 1 ? "WATCH (Climax)" : "NONE"
+
+if signal_val >= 2
+    string alert_msg = "Recovery Screener: " + _sig_s + " setup fired on " + syminfo.ticker
+    if use_webhook_json
+        alert_msg := '{"ticker":"' + syminfo.prefix + ':' + syminfo.ticker + '", "action":"BUY", "entry":' + str.tostring(close, "#.##") + ', "sl":' + str.tostring(sl_price, "#.##") + ', "tp":' + str.tostring(t1_price, "#.##") + ', "qty":' + str.tostring(math.max(1, math.round(qty)), "#") + '}'
+    alert(alert_msg, alert.freq_once_per_bar_close)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION 10: SCREENER COLUMN PLOTS
@@ -1493,7 +1511,7 @@ plot(score,
 // ─────────────────────────────────────────────────────────────────────────────
 
 // --- Signal name string ---
-string _sig_s = signal_val == 8 ? "WYC-SPRING+SOS" : signal_val == 7 ? "WYC-JAC" : signal_val == 6 ? "WYC-SOS" : signal_val == 5 ? "WYC-SPRING" : signal_val == 4 ? "REV-EARLY" : signal_val == 3 ? "REV-RS" : signal_val == 2 ? "REV-CB" : signal_val == 1 ? "WATCH (Climax)" : "NONE"
+// Already defined upstream
 
 // --- Score grade ---
 string _grade = score >= 9 ? "A" : score >= 6 ? "B" : score >= 3 ? "C" : "D"
@@ -1667,7 +1685,7 @@ if barstate.islast
 
     // Compound: Signal · Score/Grade · Regime · RFF · Correction
     string _rff_str = str.tostring(rff_score) + "/2" + (rff_c1 ? " NI✓" : " NI✗") + (rff_c2 ? " OCF✓" : " OCF✗")
-    string _verdict_str = _sig_s + " · Score " + str.tostring(score) + "/12 [" + _grade + "] · " + (regime_ok ? "✓" : "✗") + " " + _mkt_s + " · RFF " + _rff_str + " · DD " + str.tostring(correction_depth * 100, "#.1") + "%"
+    string _verdict_str = _sig_s + " · Score " + str.tostring(score) + "/12 [" + _grade + "] · " + (regime_ok ? "✓" : "✗") + " " + _mkt_s + " · RFF " + _rff_str + " · DD " + str.tostring(correction_depth * 100, "0.0") + "%"
     drawRowC(_tbl, row, "VERDICT", _verdict_str, _sc)
     row += 1
 
@@ -1709,12 +1727,12 @@ if barstate.islast
     // generic 10-day-low structural anchor and T1/T2 fall back to EMA20/52WH —
     // not a real plan. Show a clear "no setup" line instead of misleading levels.
     color _cRR = nz(rr_to_t1,0) >= 2.0 ? _CP : nz(rr_to_t1,0) >= 1.0 ? _CW : _CF
-    string _levels_str = signal_val > 0 ? ("P " + str.tostring(close,"#.00") + " · SL " + str.tostring(sl_price,"#.00") + " (" + str.tostring(sl_dist_pct,"#.1") + "%) · T1 " + str.tostring(nz(t1_price,0),"#.00") + " (" + str.tostring(nz(t1_upside_pct,0),"#.1") + "%) · T2 " + str.tostring(nz(t2_price,0),"#.00") + " · R:R " + str.tostring(nz(rr_to_t1,0),"#.1") + ":1") : ("P " + str.tostring(close,"#.00") + " · SL/T1/T2 — (no active setup)")
+    string _levels_str = signal_val > 0 ? ("P " + str.tostring(close,"#.00") + " · SL " + str.tostring(sl_price,"#.00") + " (" + str.tostring(sl_dist_pct,"0.0") + "%) · T1 " + str.tostring(nz(t1_price,0),"#.00") + " (" + str.tostring(nz(t1_upside_pct,0),"0.0") + "%) · T2 " + str.tostring(nz(t2_price,0),"#.00") + " · R:R " + str.tostring(nz(rr_to_t1,0),"0.0") + ":1") : ("P " + str.tostring(close,"#.00") + " · SL/T1/T2 — (no active setup)")
     drawRowC(_tbl, row, "LEVELS", _levels_str, signal_val > 0 ? _CP : _CN)
     row += 1
 
     // Capitulation context (Recovery-unique): RSI(3) FEAR · 60-bar DD
-    string _cap_str = "RSI(3) FEAR " + str.tostring(rsi3,"#.0") + " · 60-bar DD " + str.tostring(pillar1_drawdown,"#.1") + "%"
+    string _cap_str = "RSI(3) FEAR " + str.tostring(rsi3,"#.0") + " · 60-bar DD " + str.tostring(pillar1_drawdown,"0.0") + "%"
     color _cap_col = rsi3 < 10 ? _CP : rsi3 < 20 ? _CW : _CN
     drawRowC(_tbl, row, "CAPITULATION", _cap_str, _cap_col)
     row += 1
