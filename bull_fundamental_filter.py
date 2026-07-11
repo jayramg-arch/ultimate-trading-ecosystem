@@ -214,16 +214,44 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
     if not sym:
         return result
 
-    # ONE cached screener.in page parse (self-contained; RFF untouched).
+    # Data-provider rule: fundamentals = screener.in PRIMARY, yfinance FALLBACK.
+    # Primary: the compounded-growth-table page parse.
     try:
         row = _fetch_screener_bff_row(sym, ttl=ttl)
     except Exception as exc:                       # network / cookie
         logger.warning("BFF: screener fetch failed for %s: %s", sym, exc)
         row = None
 
-    if not row:
+    # Fallback: when the primary parse yields nothing (or no growth fields — the
+    # cause of the blank bull rows), fetch_stock_fundamentals gives screener.in-
+    # first / yfinance-merged growth + return fields so BFF still reads.
+    fb = None
+    if (not row) or (row.get("profit_growth") is None and row.get("sales_growth") is None):
+        try:
+            from fundamental_hub import fetch_stock_fundamentals
+            fb = fetch_stock_fundamentals(sym)
+        except Exception as exc:
+            logger.warning("BFF: fundamentals fallback failed for %s: %s", sym, exc)
+            fb = None
+
+    if not row and not fb:
         return result
-    result["source"] = "screener.in"
+    row = dict(row or {})
+    result["source"] = "screener.in" if row.get("profit_growth") is not None else "screener/yf"
+    if fb:
+        # merge fallback ONLY where the primary row lacks the field (screener wins)
+        if row.get("profit_growth") is None and fb.get("earnings_growth") is not None:
+            row["profit_growth"] = fb["earnings_growth"]
+        if row.get("sales_growth") is None and fb.get("revenue_growth") is not None:
+            row["sales_growth"] = fb["revenue_growth"]
+        if row.get("ROCE") is None and fb.get("roce") is not None:
+            row["ROCE"] = fb["roce"]
+        if row.get("ROE") is None and fb.get("roe") is not None:
+            row["ROE"] = fb["roe"]
+        if row.get("Net profit") is None and fb.get("net_income_ttm") is not None:
+            row["Net profit"] = fb["net_income_ttm"]
+        # OPM expansion needs two periods → not derivable from the info snapshot;
+        # margin_expansion stays None in the fallback path (honestly blank).
 
     profit_g = _num(row.get("profit_growth"))
     sales_g  = _num(row.get("sales_growth"))

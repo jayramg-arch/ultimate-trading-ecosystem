@@ -11072,15 +11072,34 @@ elif page == 'GOLDEN MATCHER':
         with _bc1:
             _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
                                type="primary", use_container_width=True, key="gm_board_build")
+            _use_xray = st.checkbox("🔬 Enrich with X-Ray (Piotroski · grade · P/E)",
+                                    key="gm_board_xray",
+                                    help="Adds the X-Ray fundamental screener fields and folds Piotroski "
+                                         "into the Overall score. Pulls full financial statements per name "
+                                         "— noticeably slower. Cached 24h after the first fetch.")
         with _bc2:
             _stamp = st.session_state.get("gm_board_stamp")
             st.caption(f"Last built: **{_stamp}**  ·  edits to RRG persist across rebuilds" if _stamp
                        else "Not built yet — click **Build / Refresh**. A full run recomputes the GM "
                             "decision per name (~2–5 min); cached after, so filtering/editing is instant.")
         if _build:
+            # One bulk NSE bhavcopy fetch → Delivery_Pct per symbol (guarded).
+            _nse_metrics = {}
+            try:
+                import nse_archive_fetcher as _naf
+                _nse_metrics = _naf.get_nse_metrics() or {}
+            except Exception:
+                _nse_metrics = {}
+            _xray_fn = None
+            if _use_xray:
+                try:
+                    from weinstein_xray_screener import get_xray_scorecard as _xray_fn
+                except Exception:
+                    _xray_fn = None
             _loaders = dict(load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
                             bull_wf=compute_workflow, rec_wf=compute_recovery_workflow,
-                            minervini=minervini_checks)
+                            minervini=minervini_checks, nse_metrics=_nse_metrics,
+                            xray=_xray_fn, use_xray=bool(_use_xray))
             _rows = []
             _items = list(_uni.items())
             _prog = st.progress(0.0, "Building board…")
@@ -11093,7 +11112,10 @@ elif page == 'GOLDEN MATCHER':
                     pass
                 _prog.progress((_i + 1) / max(1, len(_items)), f"{_sym}  ({_i + 1}/{len(_items)})")
             _prog.empty()
-            st.session_state["gm_board_df"] = pd.DataFrame(_rows)
+            _bdf_new = pd.DataFrame(_rows)
+            if not _bdf_new.empty and "Overall" in _bdf_new.columns:
+                _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
+            st.session_state["gm_board_df"] = _bdf_new
             st.session_state["gm_board_stamp"] = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
 
         _bdf = st.session_state.get("gm_board_df")
@@ -11128,6 +11150,10 @@ elif page == 'GOLDEN MATCHER':
                 "RRG": st.column_config.SelectboxColumn(
                     "RRG Flag", options=_gtb.RRG_QUADRANTS, width="small",
                     help="Set from Strike.Money — persists per symbol."),
+                "Overall": st.column_config.ProgressColumn(
+                    "Overall", min_value=0, max_value=100, format="%.0f",
+                    help="0-100 opportunity score — Combined/Conviction/Alpha/Fundamentals/R:R/RS, "
+                         "reweighted for missing inputs. Independent of category & path."),
             },
             disabled=[c for c in _view.columns if c != "RRG"],
         )
