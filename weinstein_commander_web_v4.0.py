@@ -11056,6 +11056,90 @@ elif page == 'X-RAY':
 elif page == 'GOLDEN MATCHER':
     st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
+
+    # ── View switch: single-symbol checklist  vs  batch Trigger Board ──────────
+    _gm_view = st.radio("View", ["🎯 Single Symbol", "📋 Trigger Board"],
+                        horizontal=True, key="gm_view", label_visibility="collapsed")
+
+    if _gm_view == "📋 Trigger Board":
+        # Batch board — every watchlist name run through the SAME GM engine
+        # (compute_workflow / compute_recovery_workflow) → zero-drift categories.
+        import gm_trigger_board as _gtb
+        import datetime as _gtb_dt
+        st.markdown("#### 📋 Trigger Board — watchlists × the Golden Matcher engine")
+        _uni = _gtb.load_watchlist_union()
+        _bc1, _bc2 = st.columns([1.1, 3])
+        with _bc1:
+            _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
+                               type="primary", use_container_width=True, key="gm_board_build")
+        with _bc2:
+            _stamp = st.session_state.get("gm_board_stamp")
+            st.caption(f"Last built: **{_stamp}**  ·  edits to RRG persist across rebuilds" if _stamp
+                       else "Not built yet — click **Build / Refresh**. A full run recomputes the GM "
+                            "decision per name (~2–5 min); cached after, so filtering/editing is instant.")
+        if _build:
+            _loaders = dict(load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
+                            bull_wf=compute_workflow, rec_wf=compute_recovery_workflow,
+                            minervini=minervini_checks)
+            _rows = []
+            _items = list(_uni.items())
+            _prog = st.progress(0.0, "Building board…")
+            for _i, (_sym, _info) in enumerate(_items):
+                try:
+                    _r = _gtb.build_row(_sym, _info, _loaders, _g)
+                    if _r:
+                        _rows.append(_r)
+                except Exception:
+                    pass
+                _prog.progress((_i + 1) / max(1, len(_items)), f"{_sym}  ({_i + 1}/{len(_items)})")
+            _prog.empty()
+            st.session_state["gm_board_df"] = pd.DataFrame(_rows)
+            st.session_state["gm_board_stamp"] = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
+
+        _bdf = st.session_state.get("gm_board_df")
+        if _bdf is None or _bdf.empty:
+            st.info("Click **Build / Refresh** to populate the board.")
+            st.stop()
+
+        # Overlay the persisted RRG flags (keyed by symbol; survive rebuilds).
+        _rrg = _gtb.rrg_load()
+        _bdf = _bdf.copy()
+        _bdf["RRG"] = _bdf["Symbol"].map(lambda s: _rrg.get(s, "—"))
+
+        # Filters
+        _f1, _f2, _f3, _f4 = st.columns(4)
+        _cats = sorted(_bdf["Category"].dropna().unique())
+        _def_cat = [c for c in _cats if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
+        _fcat = _f1.multiselect("Category", _cats, default=_def_cat)
+        _frrg = _f2.multiselect("RRG Flag", _gtb.RRG_QUADRANTS, default=[])
+        _ftier = _f3.multiselect("Tier", ["Rigorous", "Discovery"], default=[])
+        _fpath = _f4.multiselect("Path", ["Bull", "Recovery"], default=[])
+        _view = _bdf
+        if _fcat:  _view = _view[_view["Category"].isin(_fcat)]
+        if _frrg:  _view = _view[_view["RRG"].isin(_frrg)]
+        if _ftier: _view = _view[_view["Tier"].isin(_ftier)]
+        if _fpath: _view = _view[_view["Path"].isin(_fpath)]
+        st.caption(f"Showing **{len(_view)}** of {len(_bdf)} names")
+
+        # Editable RRG dropdown; everything else read-only.
+        _edited = st.data_editor(
+            _view, use_container_width=True, hide_index=True, key="gm_board_editor",
+            column_config={
+                "RRG": st.column_config.SelectboxColumn(
+                    "RRG Flag", options=_gtb.RRG_QUADRANTS, width="small",
+                    help="Set from Strike.Money — persists per symbol."),
+            },
+            disabled=[c for c in _view.columns if c != "RRG"],
+        )
+        # Persist any RRG edits (keyed by symbol, independent of the active filter).
+        _changed = False
+        for _, _row in _edited.iterrows():
+            _s = _row["Symbol"]; _v = _row["RRG"]
+            if _rrg.get(_s, "—") != _v:
+                _rrg[_s] = _v; _changed = True
+        if _changed:
+            _gtb.rrg_save(_rrg)
+        st.stop()
     
     st.markdown('''
     <style>

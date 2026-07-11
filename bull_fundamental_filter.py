@@ -53,6 +53,11 @@ CONFIG = {
     "roce_min_pct":          15.0,   # return quality (ROCE from screener top-ratios)
     # margin_expansion: OPM_Now > OPM_Prev  (operating leverage) — no numeric knob
     # profitable:       Net profit > 0
+    # --- financials (banks/NBFCs): OPM doesn't exist & ROCE>=15 is the wrong bar
+    #     (lenders run low ROCE/ROA). Mirrors recovery_screener.get_rff's fin-adj:
+    #     drop margin_expansion, use a lender-appropriate return threshold. ---
+    "fin_roce_min_pct":      10.0,   # lender ROCE bar (RFF uses ROCE>10)
+    "fin_roe_min_pct":       12.0,   # lender ROE bar (screener shows ROE for banks)
     "min_fields":            3,       # data-sufficiency floor (else INSUFFICIENT)
     "strong_min":            4,       # score >= -> STRONG
     "ok_min":                2,       # score >= -> OK   (else WEAK)
@@ -228,49 +233,74 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
     roe      = _num(row.get("ROE"))
     ni       = _num(row.get("Net profit"))
 
+    # Sector-aware branch — mirrors recovery_screener.get_rff's financials
+    # re-score (SAME sector detection → zero drift). Banks/NBFCs: OPM doesn't
+    # exist and the industrial ROCE>=15 bar is wrong, so drop margin_expansion
+    # and use a lender-appropriate return check (ROCE>10 OR ROE>12).
+    is_fin = False
+    try:
+        import sector_lookup as _sl
+        _sidx = (_sl.get_sector_index(sym) or "").upper()
+        is_fin = ("BANKNIFTY" in _sidx) or ("FINANCE" in _sidx) or ("FINSERV" in _sidx)
+    except Exception:
+        is_fin = False
+    result["is_financial"] = is_fin
+
     checks: dict = {}
     drivers: list = []
 
-    # 1. Profit growth (EPS acceleration proxy)
+    # 1. Profit growth (both sectors) — EPS acceleration proxy
     if profit_g is None:
         checks["profit_growth"] = None
     else:
-        ok = profit_g >= CONFIG["profit_growth_min_pct"]
-        checks["profit_growth"] = ok
+        checks["profit_growth"] = profit_g >= CONFIG["profit_growth_min_pct"]
         drivers.append(f"Profit {profit_g:+.0f}%")
 
-    # 2. Sales growth (top-line backing the move)
+    # 2. Sales growth (both sectors) — top-line backing the move
     if sales_g is None:
         checks["sales_growth"] = None
     else:
-        ok = sales_g >= CONFIG["sales_growth_min_pct"]
-        checks["sales_growth"] = ok
+        checks["sales_growth"] = sales_g >= CONFIG["sales_growth_min_pct"]
         drivers.append(f"Sales {sales_g:+.0f}%")
 
-    # 3. Margin expansion (operating leverage) — needs BOTH OPM columns
-    if opm_now is None or opm_prev is None:
-        checks["margin_expansion"] = None
+    if is_fin:
+        # 3f. Lender-appropriate return: ROCE>10 OR ROE>12 (margin_expansion is
+        #     NOT scored for lenders — no OPM line on a bank/NBFC P&L).
+        if roce is None and roe is None:
+            checks["return_quality"] = None
+        else:
+            checks["return_quality"] = (
+                (roce is not None and roce > CONFIG["fin_roce_min_pct"]) or
+                (roe is not None and roe > CONFIG["fin_roe_min_pct"]))
+            drivers.append(f"ROCE {roce:.0f}%" if roce is not None else f"ROE {roe:.0f}%")
+        # 4f. Profitable
+        if ni is None:
+            checks["profitable"] = None
+        else:
+            checks["profitable"] = ni > 0
+            drivers.append("NP+" if ni > 0 else "NP<0")
+        _defined = 4                         # profit, sales, return, profitable
     else:
-        ok = opm_now > opm_prev
-        checks["margin_expansion"] = ok
-        drivers.append(f"OPM {opm_prev:.0f}->{opm_now:.0f}%")
-
-    # 4. Return quality (ROCE preferred; ROE fallback)
-    rq = roce if roce is not None else roe
-    if rq is None:
-        checks["return_quality"] = None
-    else:
-        ok = rq >= CONFIG["roce_min_pct"]
-        checks["return_quality"] = ok
-        drivers.append((f"ROCE {rq:.0f}%" if roce is not None else f"ROE {rq:.0f}%"))
-
-    # 5. Profitable (a real leader should be earning)
-    if ni is None:
-        checks["profitable"] = None
-    else:
-        ok = ni > 0
-        checks["profitable"] = ok
-        drivers.append("NP+" if ok else "NP<0")
+        # 3. Margin expansion (industrial operating leverage) — needs both OPM cols
+        if opm_now is None or opm_prev is None:
+            checks["margin_expansion"] = None
+        else:
+            checks["margin_expansion"] = opm_now > opm_prev
+            drivers.append(f"OPM {opm_prev:.0f}->{opm_now:.0f}%")
+        # 4. Return quality (ROCE>=15; ROE fallback)
+        rq = roce if roce is not None else roe
+        if rq is None:
+            checks["return_quality"] = None
+        else:
+            checks["return_quality"] = rq >= CONFIG["roce_min_pct"]
+            drivers.append(f"ROCE {rq:.0f}%" if roce is not None else f"ROE {rq:.0f}%")
+        # 5. Profitable (a real leader should be earning)
+        if ni is None:
+            checks["profitable"] = None
+        else:
+            checks["profitable"] = ni > 0
+            drivers.append("NP+" if ni > 0 else "NP<0")
+        _defined = 5                         # + margin_expansion
 
     result["checks"] = checks
 
@@ -283,7 +313,9 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
         result["drivers"] = drivers
         return result
 
-    score = sum(1 for v in checks.values() if v is True)
+    passed = sum(1 for v in checks.values() if v is True)
+    # scale to the 0-5 display range (financials have 4 defined checks, not 5).
+    score = int(round(5 * passed / _defined))
     result["score"] = score
     result["drivers"] = drivers
     if score >= CONFIG["strong_min"]:
@@ -293,7 +325,6 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
     else:
         result["quality"] = "WEAK"
 
-    # carry the fetch freshness if the hub exposed it (RFF row doesn't, so best-effort)
     result["as_of"] = row.get("as_of") or row.get("As_Of")
     return result
 
