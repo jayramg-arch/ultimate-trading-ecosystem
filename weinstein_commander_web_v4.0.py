@@ -3418,6 +3418,7 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             "rsi": _f(_rsi), "adx": _f(_adx),
             "relvol": (float(v.iloc[-1] / _vol20) if (_vol20 and not math.isnan(_vol20)) else None),
             "vol_dry": (_vol5 / _vol20) if _vol20 else None,
+            "cmp": (float(df["Close"].iloc[-1]) if len(df) else None),   # live intraday last price
             "last_ts": df.index[-1].strftime("%d-%b %H:%M"),
         }
     except Exception as e:
@@ -11065,31 +11066,67 @@ elif page == 'GOLDEN MATCHER':
         # Batch board — every watchlist name run through the SAME GM engine
         # (compute_workflow / compute_recovery_workflow) → zero-drift categories.
         import gm_trigger_board as _gtb
-        import datetime as _gtb_dt
+        import datetime as _gtb_dt, time as _gtb_time
         st.markdown("#### 📋 Trigger Board — watchlists × the Golden Matcher engine")
         _uni = _gtb.load_watchlist_union()
-        _bc1, _bc2 = st.columns([1.1, 3])
+        # Instant-on: if this browser session has no board yet, load the last
+        # persisted build from disk (survives Web Commander restarts / reloads) so
+        # it doesn't force a full rebuild every time.
+        if st.session_state.get("gm_board_df") is None:
+            _cdf, _cmeta = _gtb.load_board_cache()
+            if _cdf is not None:
+                st.session_state["gm_board_df"] = _cdf
+                st.session_state["gm_board_stamp"] = (_cmeta or {}).get("stamp") or "from cache"
+                st.session_state["gm_board_tech_stamp"] = (_cmeta or {}).get("tech_stamp")
+        _bc1, _bc2, _bc3 = st.columns([1.2, 1.0, 2.2])
         with _bc1:
             _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
                                type="primary", use_container_width=True, key="gm_board_build")
-            _use_xray = st.checkbox("🔬 Enrich with X-Ray (Piotroski · grade · P/E)",
-                                    key="gm_board_xray",
+            _use_xray = st.checkbox("🔬 X-Ray (Piotroski · grade · P/E)", key="gm_board_xray",
                                     help="Adds the X-Ray fundamental screener fields and folds Piotroski "
-                                         "into the Overall score. Pulls full financial statements per name "
-                                         "— noticeably slower. Cached 24h after the first fetch.")
+                                         "into the Overall score. Heavier (statements per name), cached 24h.")
         with _bc2:
+            _trig_tf = st.selectbox("⏱ Trigger TF", ["75m", "125m", "Daily"], key="gm_board_tf",
+                                    help="The board's technical + PA columns (Category/Step/trigger/CMP) "
+                                         "are computed on THIS timeframe. 75/125m use INTRADAY bars — which "
+                                         "move through the session, so live refresh actually updates. Daily "
+                                         "uses the closed daily bar (won't change intraday).")
+            _live = st.selectbox("🟢 Live refresh", ["Off", "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"],
+                                 key="gm_board_live",
+                                 help="While the board is open, re-computes ONLY the technical + PA columns "
+                                      "(Category/Step/plan/CMP/RS/Alpha…) on this cadence. Fundamentals "
+                                      "(BFF/RFF/Piotroski/Conviction/Sector/Delivery) stay cached — they "
+                                      "change daily/quarterly, not intraday. The true floor is how long a "
+                                      "~50-name technical rebuild takes; if a tick can't finish in the "
+                                      "interval it just runs back-to-back. Full Build refreshes everything.")
+        with _bc3:
             _stamp = st.session_state.get("gm_board_stamp")
-            st.caption(f"Last built: **{_stamp}**  ·  edits to RRG persist across rebuilds" if _stamp
-                       else "Not built yet — click **Build / Refresh**. A full run recomputes the GM "
-                            "decision per name (~2–5 min); cached after, so filtering/editing is instant.")
-        if _build:
-            # One bulk NSE bhavcopy fetch → Delivery_Pct per symbol (guarded).
-            _nse_metrics = {}
-            try:
-                import nse_archive_fetcher as _naf
-                _nse_metrics = _naf.get_nse_metrics() or {}
-            except Exception:
+            _tstamp = st.session_state.get("gm_board_tech_stamp")
+            st.caption((f"Full build **{_stamp}**" + (f" · live tech **{_tstamp}**" if _tstamp else "")
+                        + " · RRG persists") if _stamp
+                       else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
+
+        # --- build (full = fundamentals+technical; force_technical = technical/PA only;
+        #     quiet = no progress bar, used on live ticks so the layout never jumps) ---
+        def _board_build(force_technical=False, quiet=False):
+            if force_technical:
+                # Live refresh: recompute ONLY technicals + PA. Clear the technical
+                # caches; the fundamental caches (BFF/RFF/X-Ray, 24h TTL) stay warm,
+                # so fundamentals are REUSED, not re-fetched. Delivery% is an EOD
+                # bhavcopy value → reuse the cached NSE metrics too.
+                try:
+                    gm_load_symbol.clear(); gm_load_intraday.clear()
+                except Exception:
+                    pass
+                _nse_metrics = st.session_state.get("gm_board_nse") or {}
+            else:
                 _nse_metrics = {}
+                try:
+                    import nse_archive_fetcher as _naf
+                    _nse_metrics = _naf.get_nse_metrics() or {}
+                except Exception:
+                    _nse_metrics = {}
+                st.session_state["gm_board_nse"] = _nse_metrics
             _xray_fn = None
             if _use_xray:
                 try:
@@ -11099,10 +11136,12 @@ elif page == 'GOLDEN MATCHER':
             _loaders = dict(load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
                             bull_wf=compute_workflow, rec_wf=compute_recovery_workflow,
                             minervini=minervini_checks, nse_metrics=_nse_metrics,
-                            xray=_xray_fn, use_xray=bool(_use_xray))
+                            xray=_xray_fn, use_xray=bool(_use_xray),
+                            load_intraday=gm_load_intraday,
+                            trigger_tf=(_trig_tf if _trig_tf in ("75m", "125m") else None))
             _rows = []
             _items = list(_uni.items())
-            _prog = st.progress(0.0, "Building board…")
+            _prog = None if quiet else st.progress(0.0, "Building board…")
             for _i, (_sym, _info) in enumerate(_items):
                 try:
                     _r = _gtb.build_row(_sym, _info, _loaders, _g)
@@ -11110,61 +11149,146 @@ elif page == 'GOLDEN MATCHER':
                         _rows.append(_r)
                 except Exception:
                     pass
-                _prog.progress((_i + 1) / max(1, len(_items)), f"{_sym}  ({_i + 1}/{len(_items)})")
-            _prog.empty()
+                if _prog is not None:
+                    _prog.progress((_i + 1) / max(1, len(_items)), f"{_sym}  ({_i + 1}/{len(_items)})")
+            if _prog is not None:
+                _prog.empty()
             _bdf_new = pd.DataFrame(_rows)
             if not _bdf_new.empty and "Overall" in _bdf_new.columns:
                 _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
             st.session_state["gm_board_df"] = _bdf_new
-            st.session_state["gm_board_stamp"] = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
+            _now_s = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
+            st.session_state["gm_board_tech_stamp"] = _now_s
+            st.session_state["gm_board_tech_ts"] = _gtb_time.time()
+            if not force_technical:
+                st.session_state["gm_board_stamp"] = _now_s
+            # Persist to disk so the board survives a restart / reload (instant-on).
+            _gtb.save_board_cache(_bdf_new, stamp=st.session_state.get("gm_board_stamp"),
+                                  tech_stamp=_now_s)
 
-        _bdf = st.session_state.get("gm_board_df")
-        if _bdf is None or _bdf.empty:
-            st.info("Click **Build / Refresh** to populate the board.")
-            st.stop()
+        # --- render (RRG overlay + filters + editable table); keyed widgets so
+        #     filter/edit state survives the live-refresh fragment reruns ---
+        def _board_render():
+            _bdf = st.session_state.get("gm_board_df")
+            if _bdf is None or _bdf.empty:
+                st.info("Click **Build / Refresh** to populate the board (fundamentals + technical).")
+                return
+            _rrg = _gtb.rrg_load()
+            _bdf = _bdf.copy()
+            _bdf["RRG"] = _bdf["Symbol"].map(lambda s: _rrg.get(s, "—"))
+            _f1, _f2, _f3, _f4 = st.columns(4)
+            _cats = sorted(_bdf["Category"].dropna().unique())
+            _def_cat = [c for c in _cats if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
+            _fcat = _f1.multiselect("Category", _cats, default=_def_cat, key="gm_bf_cat")
+            _frrg = _f2.multiselect("RRG Flag", _gtb.RRG_QUADRANTS, default=[], key="gm_bf_rrg")
+            _ftier = _f3.multiselect("Tier", ["Rigorous", "Discovery"], default=[], key="gm_bf_tier")
+            _fpath = _f4.multiselect("Path", ["Bull", "Recovery"], default=[], key="gm_bf_path")
+            _view = _bdf
+            if _fcat:  _view = _view[_view["Category"].isin(_fcat)]
+            if _frrg:  _view = _view[_view["RRG"].isin(_frrg)]
+            if _ftier: _view = _view[_view["Tier"].isin(_ftier)]
+            if _fpath: _view = _view[_view["Path"].isin(_fpath)]
+            st.caption(f"Showing **{len(_view)}** of {len(_bdf)} names")
+            _edited = st.data_editor(
+                _view, use_container_width=True, hide_index=True, key="gm_board_editor",
+                column_config={
+                    "RRG": st.column_config.SelectboxColumn(
+                        "RRG Flag", options=_gtb.RRG_QUADRANTS, width="small",
+                        help="Set from Strike.Money — persists per symbol."),
+                    "Overall": st.column_config.ProgressColumn(
+                        "Overall", min_value=0, max_value=100, format="%.0f",
+                        help="0-100 opportunity score — Combined/Conviction/Alpha/Fundamentals/R:R/RS/"
+                             "Piotroski, reweighted for missing inputs. Independent of category & path."),
+                },
+                disabled=[c for c in _view.columns if c != "RRG"],
+            )
+            _changed = False
+            for _, _row in _edited.iterrows():
+                _s = _row["Symbol"]; _v = _row["RRG"]
+                if _rrg.get(_s, "—") != _v:
+                    _rrg[_s] = _v; _changed = True
+            if _changed:
+                _gtb.rrg_save(_rrg)
 
-        # Overlay the persisted RRG flags (keyed by symbol; survive rebuilds).
-        _rrg = _gtb.rrg_load()
-        _bdf = _bdf.copy()
-        _bdf["RRG"] = _bdf["Symbol"].map(lambda s: _rrg.get(s, "—"))
+        # --- LIVE header: pulsing dot + last technical refresh time ---
+        def _gm_live_header(live_label):
+            _ts = st.session_state.get("gm_board_tech_stamp", "—")
+            st.markdown(
+                f'''<div style="display:flex;align-items:center;gap:8px;margin:2px 0;">
+                <span style="display:inline-block;width:9px;height:9px;border-radius:50%;
+                background:#26a69a;animation:gmpulse 1.4s infinite;"></span>
+                <span style="color:#26a69a;font-weight:700;font-size:13px;letter-spacing:.5px;">LIVE</span>
+                <span style="color:#787b86;font-size:12px;">· technicals refresh every {live_label}
+                · last {_ts}</span></div>
+                <style>@keyframes gmpulse{{0%{{opacity:1;}}50%{{opacity:.25;}}100%{{opacity:1;}}}}</style>''',
+                unsafe_allow_html=True)
 
-        # Filters
-        _f1, _f2, _f3, _f4 = st.columns(4)
-        _cats = sorted(_bdf["Category"].dropna().unique())
-        _def_cat = [c for c in _cats if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
-        _fcat = _f1.multiselect("Category", _cats, default=_def_cat)
-        _frrg = _f2.multiselect("RRG Flag", _gtb.RRG_QUADRANTS, default=[])
-        _ftier = _f3.multiselect("Tier", ["Rigorous", "Discovery"], default=[])
-        _fpath = _f4.multiselect("Path", ["Bull", "Recovery"], default=[])
-        _view = _bdf
-        if _fcat:  _view = _view[_view["Category"].isin(_fcat)]
-        if _frrg:  _view = _view[_view["RRG"].isin(_frrg)]
-        if _ftier: _view = _view[_view["Tier"].isin(_ftier)]
-        if _fpath: _view = _view[_view["Path"].isin(_fpath)]
-        st.caption(f"Showing **{len(_view)}** of {len(_bdf)} names")
+        # --- Flashing 'Changed this tick' strip (green=improved / red=worse). The
+        #     data-tick attr varies each REBUILD so the CSS animation replays on a
+        #     real refresh but not on mere filter interactions. ---
+        def _gm_change_strip(changes):
+            if not changes:
+                st.caption("· no changes on the last refresh")
+                return
+            _tok = st.session_state.get("gm_board_tech_ts", 0)
+            _chips = []
+            for _c in changes[:24]:
+                _sym = _c.get("symbol", "")
+                if "cat_to" in _c:
+                    _up = _c.get("cat_dir", 1) > 0
+                    _lbl = f"{_sym}: {str(_c['cat_from']).split(' · ')[0]}→{str(_c['cat_to']).split(' · ')[0]}"
+                elif "overall_to" in _c:
+                    _up = _c.get("overall_dir", 1) > 0
+                    _lbl = f"{_sym}: Overall {_c['overall_from']:.0f}→{_c['overall_to']:.0f}"
+                elif "cmp_to" in _c:
+                    _up = _c.get("cmp_dir", 1) > 0
+                    _lbl = f"{_sym} {'▲' if _up else '▼'} {_c['cmp_to']:.1f}"
+                else:
+                    continue
+                _chips.append(f'<span class="gmchip {"gmup" if _up else "gmdn"}">{_lbl}</span>')
+            st.markdown(
+                f'''<div class="gmstrip" data-tick="{_tok}">{"".join(_chips)}</div>
+                <style>
+                .gmstrip{{margin:2px 0 8px;white-space:nowrap;overflow-x:auto;padding-bottom:4px;}}
+                .gmchip{{display:inline-block;padding:3px 9px;margin:2px;border-radius:4px;
+                  font-size:12px;color:#e6edf3;border:1px solid #2a2e39;}}
+                .gmup{{animation:gmflashup 2.6s ease-out;}}
+                .gmdn{{animation:gmflashdn 2.6s ease-out;}}
+                @keyframes gmflashup{{0%{{background:#1f7a6d;}}12%{{background:#26a69a;}}100%{{background:rgba(38,166,154,.10);}}}}
+                @keyframes gmflashdn{{0%{{background:#a13732;}}12%{{background:#ef5350;}}100%{{background:rgba(239,83,80,.10);}}}}
+                </style>''',
+                unsafe_allow_html=True)
 
-        # Editable RRG dropdown; everything else read-only.
-        _edited = st.data_editor(
-            _view, use_container_width=True, hide_index=True, key="gm_board_editor",
-            column_config={
-                "RRG": st.column_config.SelectboxColumn(
-                    "RRG Flag", options=_gtb.RRG_QUADRANTS, width="small",
-                    help="Set from Strike.Money — persists per symbol."),
-                "Overall": st.column_config.ProgressColumn(
-                    "Overall", min_value=0, max_value=100, format="%.0f",
-                    help="0-100 opportunity score — Combined/Conviction/Alpha/Fundamentals/R:R/RS, "
-                         "reweighted for missing inputs. Independent of category & path."),
-            },
-            disabled=[c for c in _view.columns if c != "RRG"],
-        )
-        # Persist any RRG edits (keyed by symbol, independent of the active filter).
-        _changed = False
-        for _, _row in _edited.iterrows():
-            _s = _row["Symbol"]; _v = _row["RRG"]
-            if _rrg.get(_s, "—") != _v:
-                _rrg[_s] = _v; _changed = True
-        if _changed:
-            _gtb.rrg_save(_rrg)
+        if _build:
+            _board_build(force_technical=False)          # full: fundamentals + technical
+
+        if _live == "Off":
+            _board_render()
+        else:
+            _iv = {"1 min": (60, "60s"), "2 min": (120, "120s"), "3 min": (180, "180s"),
+                   "5 min": (300, "300s"), "10 min": (600, "600s"), "15 min": (900, "900s")}[_live]
+
+            # SMALL isolated live area: ONLY the LIVE dot + flashing change strip
+            # re-render each tick (does the quiet technical rebuild + diff + toasts).
+            # The heavy grid renders OUTSIDE this fragment, so it never shakes.
+            @st.fragment(run_every=_iv[1])
+            def _gm_live_ticker():
+                _now = _gtb_time.time()
+                _last = st.session_state.get("gm_board_tech_ts", 0)
+                if st.session_state.get("gm_board_df") is not None and (_now - _last) >= _iv[0]:
+                    _prev = st.session_state.get("gm_board_df")
+                    _prev = _prev.copy() if _prev is not None else None
+                    _board_build(force_technical=True, quiet=True)
+                    _chg = _gtb.diff_boards(_prev, st.session_state.get("gm_board_df"))
+                    st.session_state["gm_board_changes"] = _chg
+                    for _c in _chg:
+                        if _c.get("to_go"):
+                            st.toast(f"🟢 **{_c['symbol']}** → Buy Trigger Live", icon="🟢")
+                _gm_live_header(_live)
+                _gm_change_strip(st.session_state.get("gm_board_changes"))
+
+            _gm_live_ticker()
+            _board_render()          # grid OUTSIDE the fragment → no per-tick re-render / no shake
         st.stop()
     
     st.markdown('''

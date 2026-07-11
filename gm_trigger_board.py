@@ -21,6 +21,8 @@ import json
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _RRG_PATH = os.path.join(_ROOT, "gm_rrg_flags.json")
+_BOARD_CACHE = os.path.join(_ROOT, "gm_board_cache.csv")     # persisted board (survives restarts)
+_BOARD_META = os.path.join(_ROOT, "gm_board_cache.json")     # stamps sidecar
 
 # RRG quadrants — the dropdown options (manually set from Strike.Money). "—" = unset.
 RRG_QUADRANTS = ["—", "Leading", "Improving", "Weakening", "Lagging"]
@@ -158,6 +160,44 @@ def rrg_save(d: dict) -> None:
         pass
 
 
+def save_board_cache(df, stamp=None, tech_stamp=None) -> None:
+    """Persist the built board to disk so it survives a Web Commander restart /
+    browser reload (session_state is in-memory only). CSV (no pyarrow dep)."""
+    try:
+        if df is None or getattr(df, "empty", True):
+            return
+        df.to_csv(_BOARD_CACHE, index=False, encoding="utf-8")
+        import datetime
+        with open(_BOARD_META, "w", encoding="utf-8") as f:
+            json.dump({"stamp": stamp, "tech_stamp": tech_stamp,
+                       "saved": datetime.datetime.now().isoformat()}, f)
+    except Exception:
+        pass
+
+
+def load_board_cache(max_age_hours: float = 24.0):
+    """Load the persisted board (df, meta) if present and not older than
+    max_age_hours. Returns (None, None) when absent/stale/unreadable. Used for
+    instant-on after a restart — and by Auto-pilot to pre-populate the board."""
+    try:
+        import time as _t
+        if not os.path.exists(_BOARD_CACHE):
+            return None, None
+        if (_t.time() - os.path.getmtime(_BOARD_CACHE)) / 3600.0 > max_age_hours:
+            return None, None
+        import pandas as pd
+        df = pd.read_csv(_BOARD_CACHE, encoding="utf-8")
+        meta = {}
+        try:
+            with open(_BOARD_META, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {}
+        return (df if not df.empty else None), meta
+    except Exception:
+        return None, None
+
+
 def trigger_category(verdict: str, path: str) -> str:
     """Map a GM workflow verdict → the user's trigger category. Zero-drift: the
     verdict strings are exactly those compute_workflow/compute_recovery_workflow
@@ -185,7 +225,51 @@ _CAT_RANK = {"Buy Trigger Live": 5, "Armed Wait": 4, "Wait for Pullback": 3,
 
 
 def _cat_rank(cat: str) -> int:
-    return _CAT_RANK.get(cat.split(" · ")[0], 0)
+    return _CAT_RANK.get(str(cat).split(" · ")[0], 0)
+
+
+def diff_boards(prev_df, new_df) -> list:
+    """Per-symbol changes between two board snapshots (for the live 'Changed'
+    strip). Returns a list of dicts, most-significant first:
+        {symbol, path, cat_from, cat_to, cat_dir(+1/-1), to_go(bool),
+         overall_from, overall_to, overall_dir, cmp_dir, cmp_from, cmp_to}
+    Only the fields that actually changed are populated. `to_go` = entered
+    'Buy Trigger Live' this tick (the toast-worthy event)."""
+    if prev_df is None or new_df is None or getattr(prev_df, "empty", True) or getattr(new_df, "empty", True):
+        return []
+    try:
+        p = prev_df.set_index("Symbol")
+    except Exception:
+        return []
+    changes = []
+    for _, r in new_df.iterrows():
+        sym = r.get("Symbol")
+        if sym is None or sym not in p.index:
+            continue
+        pr = p.loc[sym]
+        ch = {"symbol": sym, "path": r.get("Path"), "score": 0}
+        hit = False
+        cf, ct = str(pr.get("Category", "")), str(r.get("Category", ""))
+        if cf != ct:
+            hit = True
+            rf, rt = _cat_rank(cf), _cat_rank(ct)
+            ch.update(cat_from=cf, cat_to=ct, cat_dir=(1 if rt > rf else -1),
+                      to_go=(rt == 5 and rf < 5))
+            ch["score"] += 100 + (50 if ch["to_go"] else 0)     # category flips rank highest
+        of, ot = _to_num(pr.get("Overall")), _to_num(r.get("Overall"))
+        if of is not None and ot is not None and abs(ot - of) >= 0.1:
+            hit = True
+            ch.update(overall_from=of, overall_to=ot, overall_dir=(1 if ot > of else -1))
+            ch["score"] += min(50, abs(ot - of))
+        cmf, cmt = _to_num(pr.get("CMP")), _to_num(r.get("CMP"))
+        if cmf is not None and cmt is not None and cmf != cmt:
+            hit = True
+            ch.update(cmp_from=cmf, cmp_to=cmt, cmp_dir=(1 if cmt > cmf else -1))
+            ch["score"] += 1
+        if hit:
+            changes.append(ch)
+    changes.sort(key=lambda c: c["score"], reverse=True)
+    return changes
 
 
 def _r1(x):
@@ -193,6 +277,43 @@ def _r1(x):
         return round(float(x), 1)
     except (TypeError, ValueError):
         return None
+
+
+def compute_conviction(symbol, tech_score, path):
+    """Compute Conviction (0-10) + Combined (0-100) the SAME way the matcher does
+    — `conviction_passthrough` → `brute_force_match_pro.calculate_conviction_score`
+    fed by screener.in-primary fundamentals (`fundamental_hub`) — so it's zero-drift
+    with FINAL_WATCHLIST. Used to FILL names whose source list lacked a Conviction
+    (an absent conviction would otherwise distort the Overall score). Returns
+    (None, None) on any failure. fundamental_hub caches, so this is cheap on rebuild.
+    """
+    try:
+        import conviction_passthrough as cp
+        conv_fn = cp._get_conviction_fn("recovery" if path == "recovery" else "bull")
+        if conv_fn is None:
+            return None, None
+        from fundamental_hub import fetch_stock_fundamentals
+        fh = fetch_stock_fundamentals(f"{symbol}.NS") or {}
+        row = {                                    # golden keys the conv_fn expects
+            "Debt to equity":     fh.get("debt_equity"),
+            "ROCE %":             fh.get("roce"),
+            "ROE %":              fh.get("roe"),
+            "Promoter holding %": fh.get("promoter_holding"),
+            "Div Yld %":          fh.get("dividend_yield"),
+            "Qtr Profit Var %":   fh.get("earnings_growth"),
+            "Mar Cap Rs.Cr.":     fh.get("market_cap"),
+        }
+        if not any(v is not None for v in row.values()):
+            return None, None
+        conv = conv_fn(row)
+        # tech normalization mirrors add_conviction_and_combined_score:
+        # bull Score is already 0-100; recovery Score is 0-22 → ×100/22.
+        tech = _to_num(tech_score)
+        if tech is not None and path == "recovery":
+            tech = tech / 22.0 * 100.0
+        return conv, cp._calc_combined_score(conv, tech)
+    except Exception:
+        return None, None
 
 
 def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
@@ -214,6 +335,26 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     cmp_px = g(ctx, "cmp") or g(rec, "Entry")
     rs_ratio = g(rec, "JdK_RS_Ratio")
     mansfield = (rs_ratio - 100.0) if rs_ratio is not None else None
+
+    # Intraday trigger TF (75/125m) — overlay the intraday PA battery + momentum
+    # (+ live CMP) so the technicals/category MOVE through the session; the daily
+    # bar is closed-only and won't change intraday. Mirrors the single-symbol view.
+    _tf = loaders.get("trigger_tf")
+    _load_intra = loaders.get("load_intraday")
+    if _tf in ("75m", "125m") and _load_intra:
+        try:
+            _intra = _load_intra(sym, 75 if _tf == "75m" else 125) or {}
+            if _intra.get("ok"):
+                ctx["_trigger_tf"] = _tf
+                if _intra.get("pa") is not None:      ctx["pa_patterns"] = _intra["pa"]
+                if _intra.get("rpa") is not None:     ctx["recovery_pa_patterns"] = _intra["rpa"]
+                if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
+                if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
+                if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
+                if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
+                if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # live price
+        except Exception:
+            pass
 
     sides = info["sides"]
     run_bull = ("bull" in sides) or ("both" in sides)
@@ -327,9 +468,19 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         except Exception:
             pass
 
+    # --- Conviction / Combined — CSV value (matcher-authoritative) preferred;
+    #     COMPUTE the ones the source list lacked, the same way the matcher does,
+    #     so an absent conviction can't distort the Overall score. ---
+    conv = info.get("conviction")
+    comb = info.get("combined")
+    if conv is None:
+        conv, _comb_c = compute_conviction(sym, g(rec, "Score"), path)
+        if comb is None:
+            comb = _comb_c
+
     # --- Overall opportunity score (0-100, path/category-independent) ---
     _rff_for_score = (g(rec_r, "RFF_Base") if rec_r else g(rec, "RFF_Base"))
-    overall = overall_score(combined=info.get("combined"), conviction=info.get("conviction"),
+    overall = overall_score(combined=comb, conviction=conv,
                             alpha=g(rec, "Alpha"), bff=data.get("bff"),
                             rff_base=_rff_for_score, rr=rr, rs=mansfield, piotroski=pio)
 
@@ -340,8 +491,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Path":       "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller
         "Step":       wf.get("current"),
-        "Conviction": _r1(info.get("conviction")),
-        "Combined":   _r1(info.get("combined")),
+        "Conviction": _r1(conv),
+        "Combined":   _r1(comb),
         "Alpha":      _r1(g(rec, "Alpha")),
         "RS":         _r1(mansfield),
         "Stage":      str(g(rec, "Stage", default="—")),
