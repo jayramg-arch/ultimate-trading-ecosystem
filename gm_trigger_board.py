@@ -507,6 +507,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "XRay":       xray_grade,
         "Sector":     str(g(fun, "sector", default="") or g(rec, "Sector", default="") or ""),
         "CMP":        _r1(cmp_px),
+        "PrevClose":  _r1(prev),                 # hidden; lets the live tick recompute Chg% from streaming LTP
         "Chg%":       _r1(chg_pct),
         "52WH%":      _r1(d52),
         "P/E":        _r1(pe_val),

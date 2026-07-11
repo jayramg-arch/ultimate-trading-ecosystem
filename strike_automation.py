@@ -52,7 +52,18 @@ WATCHLIST_BASE_NAMES = [
     "Rec_Early_Bird",
     "Rec_RS_Survivor",
     "Recovery_Picks_All",
+    # Catalyst watchlists: bull broad catalyst-first scan (FINAL_CATALYST_
+    # WATCHLIST.csv, Phase 4.7, RFF-gated) + recovery catalyst companion
+    # (FINAL_RECOVERY_CATALYST_WATCHLIST.csv, Phase 4.75 — FIRING REV/WYC only).
+    # Replaced raw "Rec_Screener" log (6 Jul 2026) — that pushed ~76 non-firing
+    # candidates; the companion carries only the ~16 validated firing signals.
+    "Catalyst_Watchlist",
+    "Recovery_Catalyst_Watchlist",
     "Golden_Matcher_Picks",
+    # Consolidated Trigger-Board union (run_pipeline Phase 4.8) — the single list
+    # of every name the Golden Matcher Trigger Board evaluates. create_strike_csv_
+    # from_txt(chunk_size=49) auto-splits it into Golden_Matcher_Board-1/-2 on Strike.
+    "Golden_Matcher_Board",
     "XRay_Picks",
     "Portfolio"
 ]
@@ -104,15 +115,15 @@ async def delete_watchlist(page, wl_name):
                 await page.wait_for_timeout(500)
                 
                 print("      [DEBUG] Looking for 'More' options (three dots)...")
-                more_btn = page.locator("[class*='marketOverviewContainer_moreBtn']")
+                more_btn = page.locator("[class*='marketOverviewContainer_moreBtn'], [class*='moreBtn']").first
                 if await more_btn.count() > 0:
-                    await more_btn.first.click(force=True)
+                    await more_btn.click(force=True)
                     await page.wait_for_timeout(1000)
                 else:
                     print("      [DEBUG] 'More options' button not found. Assuming direct Delete button.")
                 
-                # Broad selector for the delete button
-                delete_btn = page.locator("text='Delete Watchlist', text='Delete WatchList', text='Delete'").last
+                # Broad selector for the delete button, targeting the specific class/element seen in HTML
+                delete_btn = page.locator("li:has-text('Delete Watchlist'), li:has-text('Delete WatchList'), li:has-text('Delete'), li[class*='deleteWatchlist']").last
                 
                 if await delete_btn.count() > 0:
                     print("      [DEBUG] Found Delete button. Clicking...")
@@ -184,7 +195,7 @@ async def cleanup_old_watchlists(page, base_name):
         
         # 2. Get all menu items
         # Options are usually inside the picker-menu
-        menu_items = page.locator(".rs-picker-select-menu-item, .rs-dropdown-item")
+        menu_items = page.locator("div[role='option'], a[role='option'], .rs-picker-select-menu-item, li")
         count = await menu_items.count()
         
         to_delete = []
@@ -748,17 +759,24 @@ async def run_rrg_scan(page):
         except Exception as e:
             print(f"❌ ERROR processing {input_file}: {e}")
 
-async def run_pipeline():
+async def run_pipeline(mode_param=None):
     # Parse Arguments
     parser = argparse.ArgumentParser(description='Strike Automation')
     parser.add_argument('--mode', type=str, default='rrg', help='Mode: rrg or watchlist')
     args, unknown = parser.parse_known_args()
     
-    mode = args.mode.lower()
+    mode = mode_param if mode_param is not None else args.mode.lower()
 
     print("="*60)
     print(f"🚀 STRIKE.MONEY AUTOMATION COMPANION (Mode: {mode.upper()})")
     print("="*60)
+
+    # Clear any stale automated Chrome processes before starting
+    try:
+        from kill_chrome import kill_automation_chrome
+        kill_automation_chrome()
+    except Exception as ce:
+        print(f"⚠️ Warning: Pre-run Chrome cleanup returned: {ce}")
 
     # Create a local user data directory to save login session
     if not os.path.exists(USER_DATA_DIR):
@@ -768,39 +786,50 @@ async def run_pipeline():
         # Launch Persistent Context (Saves cookies/login)
         print(f">> Launching Chrome (User Data: {USER_DATA_DIR})...")
         
+        browser = None
         try:
-            browser = await p.chromium.launch_persistent_context(
-                USER_DATA_DIR,
-                headless=False,
-                channel="chrome", # Try to use installed Chrome
-                args=["--disable-blink-features=AutomationControlled", "--start-maximized"],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport=None # adaptive viewport
-            )
-        except Exception as e:
-            print(f"Error launching Chrome: {e}")
-            print("Falling back to standard Chromium...")
-            browser = await p.chromium.launch_persistent_context(
-                USER_DATA_DIR,
-                headless=False,
-                args=["--disable-blink-features=AutomationControlled", "--start-maximized"],
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport={"width": 1280, "height": 800}
-            )
+            try:
+                browser = await p.chromium.launch_persistent_context(
+                    USER_DATA_DIR,
+                    headless=False,
+                    channel="chrome", # Try to use installed Chrome
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--start-maximized",
+                        "--disable-gpu",
+                        "--disable-software-rasterizer"
+                    ],
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    viewport=None # adaptive viewport
+                )
+            except Exception as e:
+                print(f"Error launching Chrome: {e}")
+                print("Falling back to standard Chromium...")
+                browser = await p.chromium.launch_persistent_context(
+                    USER_DATA_DIR,
+                    headless=False,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--start-maximized",
+                        "--disable-gpu",
+                        "--disable-software-rasterizer"
+                    ],
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    viewport={"width": 1280, "height": 800}
+                )
 
-        page = browser.pages[0] if browser.pages else await browser.new_page()
+            page = browser.pages[0] if browser.pages else await browser.new_page()
 
-        # 1. LOGIN PHASE (Common)
-        print(f"\n>> Navigating to {STRIKE_URL}")
-        await page.goto(STRIKE_URL)
-        
-        print("\n" + "!"*60)
-        print("WAITING FOR LOGIN (Auto-Detect)")
-        print("Please log in to Strike.money in the browser window if not already logged in.")
-        print("Script will proceed automatically once Dashboard is detected...")
-        print("!"*60 + "\n")
-        
-        try:
+            # 1. LOGIN PHASE (Common)
+            print(f"\n>> Navigating to {STRIKE_URL}")
+            await page.goto(STRIKE_URL)
+            
+            print("\n" + "!"*60)
+            print("WAITING FOR LOGIN (Auto-Detect)")
+            print("Please log in to Strike.money in the browser window if not already logged in.")
+            print("Script will proceed automatically once Dashboard is detected...")
+            print("!"*60 + "\n")
+            
             # Wait for the Login button to DISAPPEAR
             # This confirms the user is actually authenticated
             print(">> Waiting for user to authenticate...")
@@ -823,28 +852,25 @@ async def run_pipeline():
             
             if not logged_in:
                 print(">> ABORTING: Login timed out after 5 minutes.")
-                await browser.close()
                 return
             await page.wait_for_timeout(4000) # Buffer after login redirect
+
+            print(">> Proceeding with Automation...\n")
+
+            # 2. DISPATCH MODE
+            if mode == "watchlist":
+                await upload_watchlists(page)
+            else:
+                await run_rrg_scan(page)
+
+            print("\n>> All tasks completed.")
+            print(">> Closing browser in 5 seconds...")
+            await asyncio.sleep(5)
         except Exception as e:
-            print(f">> ERROR: Login detection timed out or failed: {e}")
-            print(">> ABORTING: Strike.money requires you to be logged in to create watchlists.")
-            print(">> Please run the script again and manually log in when the browser opens.")
-            await browser.close()
-            return
-
-        print(">> Proceeding with Automation...\n")
-
-        # 2. DISPATCH MODE
-        if mode == "watchlist":
-            await upload_watchlists(page)
-        else:
-            await run_rrg_scan(page)
-
-        print("\n>> All tasks completed.")
-        print(">> Closing browser in 5 seconds...")
-        await asyncio.sleep(5)
-        await browser.close()
+            print(f">> ERROR: Automation run encountered a critical error: {e}")
+        finally:
+            if browser:
+                await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())

@@ -11265,30 +11265,86 @@ elif page == 'GOLDEN MATCHER':
         if _live == "Off":
             _board_render()
         else:
-            _iv = {"1 min": (60, "60s"), "2 min": (120, "120s"), "3 min": (180, "180s"),
-                   "5 min": (300, "300s"), "10 min": (600, "600s"), "15 min": (900, "900s")}[_live]
+            # ── Streaming AG-Grid (Option B): live PRICE via Dhan MarketFeed +
+            #    AG-Grid native cell-flash; heavy DECISIONS recompute on cadence. ──
+            _iv_sec = {"1 min": 60, "2 min": 120, "3 min": 180, "5 min": 300,
+                       "10 min": 600, "15 min": 900}[_live]
+            _stream_ok = True
+            try:
+                from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
+                import dhan_marketfeed as _dmf
+                _dmf.subscribe_symbols(list(_uni.keys()))          # start/extend the live feed
+            except Exception as _age:
+                _stream_ok = False
+                st.warning(f"Streaming grid unavailable ({_age}) — falling back to the static grid.")
+                _board_render()
 
-            # SMALL isolated live area: ONLY the LIVE dot + flashing change strip
-            # re-render each tick (does the quiet technical rebuild + diff + toasts).
-            # The heavy grid renders OUTSIDE this fragment, so it never shakes.
-            @st.fragment(run_every=_iv[1])
-            def _gm_live_ticker():
-                _now = _gtb_time.time()
-                _last = st.session_state.get("gm_board_tech_ts", 0)
-                if st.session_state.get("gm_board_df") is not None and (_now - _last) >= _iv[0]:
-                    _prev = st.session_state.get("gm_board_df")
-                    _prev = _prev.copy() if _prev is not None else None
-                    _board_build(force_technical=True, quiet=True)
-                    _chg = _gtb.diff_boards(_prev, st.session_state.get("gm_board_df"))
-                    st.session_state["gm_board_changes"] = _chg
-                    for _c in _chg:
-                        if _c.get("to_go"):
-                            st.toast(f"🟢 **{_c['symbol']}** → Buy Trigger Live", icon="🟢")
-                _gm_live_header(_live)
-                _gm_change_strip(st.session_state.get("gm_board_changes"))
+            if _stream_ok:
+                @st.fragment(run_every="3s")
+                def _gm_stream():
+                    # (1) periodic HEAVY decision refresh (category/scores) + toasts
+                    _now = _gtb_time.time()
+                    _last = st.session_state.get("gm_board_tech_ts", 0)
+                    if st.session_state.get("gm_board_df") is not None and (_now - _last) >= _iv_sec:
+                        _prev = st.session_state.get("gm_board_df")
+                        _prev = _prev.copy() if _prev is not None else None
+                        _board_build(force_technical=True, quiet=True)
+                        _chg = _gtb.diff_boards(_prev, st.session_state.get("gm_board_df"))
+                        st.session_state["gm_board_changes"] = _chg
+                        for _c in _chg:
+                            if _c.get("to_go"):
+                                st.toast(f"🟢 **{_c['symbol']}** → Buy Trigger Live", icon="🟢")
+                    _gm_live_header(_live)
+                    _gm_change_strip(st.session_state.get("gm_board_changes"))
+                    _bdf = st.session_state.get("gm_board_df")
+                    if _bdf is None or _bdf.empty:
+                        st.info("Click **Build / Refresh** to populate the board.")
+                        return
+                    # (2) FAST live-price overlay every 3s from the streaming feed
+                    _rrg = _gtb.rrg_load()
+                    _v = _bdf.copy()
+                    _v["RRG"] = _v["Symbol"].map(lambda s: _rrg.get(s, "—"))
+                    def _ltp(s):
+                        p = _dmf.get_live_price(s)
+                        return p if (p and p > 0) else None
+                    _v["CMP"] = _v["Symbol"].map(_ltp).fillna(_v["CMP"])
+                    if "PrevClose" in _v.columns:
+                        _pc = pd.to_numeric(_v["PrevClose"], errors="coerce")
+                        _cm = pd.to_numeric(_v["CMP"], errors="coerce")
+                        _v["Chg%"] = (((_cm - _pc) / _pc) * 100).where(_pc > 0).round(2)
+                    # (3) AG-Grid with native cell-change flash on the live columns
+                    _gb = GridOptionsBuilder.from_dataframe(_v)
+                    _gb.configure_default_column(sortable=True, filter=True, resizable=True)
+                    _gb.configure_column("RRG", editable=True, cellEditor="agSelectCellEditor",
+                                         cellEditorParams={"values": _gtb.RRG_QUADRANTS})
+                    if "PrevClose" in _v.columns:
+                        _gb.configure_column("PrevClose", hide=True)
+                    for _cc in ("CMP", "Chg%", "Overall", "R:R"):
+                        if _cc in _v.columns:
+                            _gb.configure_column(_cc, enableCellChangeFlash=True)
+                    if "Category" in _v.columns:
+                        _gb.configure_column("Category", cellStyle=JsCode(
+                            "function(p){var v=String(p.value||'');"
+                            "if(v.indexOf('Buy Trigger Live')>=0)return{'color':'#26a69a','fontWeight':'700'};"
+                            "if(v.indexOf('Armed')>=0)return{'color':'#ff9800'};"
+                            "if(v.indexOf('Wait for Pullback')>=0)return{'color':'#ffb74d'};"
+                            "return{};}"))
+                    _resp = AgGrid(_v, gridOptions=_gb.build(), height=560, theme="streamlit",
+                                   allow_unsafe_jscode=True, reload_data=False,
+                                   update_mode=GridUpdateMode.VALUE_CHANGED, key="gm_aggrid")
+                    # persist RRG edits made in the grid
+                    try:
+                        _ch = False
+                        for _, _rr in _resp["data"].iterrows():
+                            _s = _rr["Symbol"]; _vv = _rr.get("RRG", "—")
+                            if _rrg.get(_s, "—") != _vv:
+                                _rrg[_s] = _vv; _ch = True
+                        if _ch:
+                            _gtb.rrg_save(_rrg)
+                    except Exception:
+                        pass
 
-            _gm_live_ticker()
-            _board_render()          # grid OUTSIDE the fragment → no per-tick re-render / no shake
+                _gm_stream()
         st.stop()
     
     st.markdown('''
