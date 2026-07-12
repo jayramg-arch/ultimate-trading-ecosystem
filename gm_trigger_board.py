@@ -109,16 +109,94 @@ def _vol_fmt(v):
     return f"{v:.0f}"
 
 
-def overall_score(combined=None, conviction=None, alpha=None, bff=None,
-                  rff_base=None, rr=None, rs=None, piotroski=None):
-    """A single 0-100 opportunity score, INDEPENDENT of category/path so every
-    name on the board is comparable. Weighted blend of the objective drivers,
-    RE-WEIGHTED over whatever is present (missing inputs drop out — no zero-fill):
-        Combined_Score 0.40 · Conviction 0.15 · Alpha 0.15 ·
-        Fundamentals 0.15 (BFF 0-5 preferred, else RFF 0-6) · R:R 0.10 · RS 0.05 ·
-        Piotroski 0.10 (X-Ray, only when the X-Ray enrichment is on).
-    """
-    parts = []                                   # (value_0_100, weight)
+# ── Overall score — 4-DIMENSION model (de-duplicated; each raw signal used ONCE) ──
+# Maps to the GM funnel: Leadership (technical quality) · Fundamentals · Setup/
+# Trigger · Risk-Reward. Dimension weights are tunable here; sub-weights blend the
+# raw signals inside each dimension. Presets skew the mix by intent.
+OVERALL_WEIGHTS = {
+    "leadership":   0.35,   # Alpha + Minervini trend template (RS already in Alpha)
+    "fundamentals": 0.25,   # Conviction / BFF-or-RFF / Piotroski (counted once)
+    "setup":        0.25,   # ΣPA + live catalyst + VCP
+    "risk":         0.15,   # R:R
+    # sub-weights (constant across presets)
+    "lead_alpha": 0.6, "lead_min": 0.4,
+    "setup_pa": 0.5, "setup_cat": 0.3, "setup_vcp": 0.2,
+}
+OVERALL_PRESETS = {          # only the 4 dimension weights change per mode
+    "Balanced":  {"leadership": 0.35, "fundamentals": 0.25, "setup": 0.25, "risk": 0.15},
+    "Hunting":   {"leadership": 0.20, "fundamentals": 0.15, "setup": 0.40, "risk": 0.25},   # find live triggers
+    "Watchlist": {"leadership": 0.45, "fundamentals": 0.35, "setup": 0.12, "risk": 0.08},   # rank by quality
+}
+USE_LEGACY_OVERALL = False   # flip True to fall back to the old flat formula
+
+
+def _blend(parts):
+    """Weighted mean over the (value_0_100, weight) pairs that are present — None
+    values drop out and the weights renormalize (no zero-fill). None if all missing."""
+    p = [(v, w) for v, w in parts if v is not None and w]
+    if not p:
+        return None
+    return sum(v * w for v, w in p) / sum(w for _, w in p)
+
+
+def overall_score(alpha=None, minervini=None, conviction=None, bff=None, rff_base=None,
+                  piotroski=None, sigma_pa=None, catalyst_live=None, vcp=None,
+                  rr=None, rs=None, weights=None):
+    """4-DIMENSION opportunity score (0-100), category/path-independent, each raw
+    signal used ONCE, re-weighted for missing inputs. `weights` overrides the
+    dimension weights (e.g. an OVERALL_PRESETS entry). `minervini` = mpass/8 (0-1)."""
+    W = dict(OVERALL_WEIGHTS)
+    if weights:
+        W.update(weights)
+
+    # 1. LEADERSHIP — Alpha + Minervini trend template (RS lives inside Alpha)
+    lead = _blend([
+        (_clamp(alpha, 0, 100) if alpha is not None else None, W["lead_alpha"]),
+        (_clamp(minervini * 100, 0, 100) if minervini is not None else None, W["lead_min"]),
+    ])
+    if lead is None and rs is not None:          # fallback: momentum tilt if Alpha absent
+        lead = _clamp(50 + rs, 0, 100)
+
+    # 2. FUNDAMENTALS — Conviction / BFF-or-RFF / Piotroski, counted ONCE (equal blend)
+    _fp = []
+    if conviction is not None:
+        _fp.append((_clamp(conviction * 10, 0, 100), 1.0))
+    _fnd = None
+    if bff and bff.get("score") is not None:
+        _fnd = bff["score"] / 5.0 * 100
+    elif rff_base is not None:
+        _fnd = rff_base / 6.0 * 100
+    if _fnd is not None:
+        _fp.append((_clamp(_fnd, 0, 100), 1.0))
+    if piotroski is not None:
+        _fp.append((_clamp(piotroski / 9.0 * 100, 0, 100), 1.0))
+    fund = _blend(_fp)
+
+    # 3. SETUP / TRIGGER — ΣPA (8+ = strong) + live catalyst + VCP base
+    setup = _blend([
+        (_clamp(min(sigma_pa / 8.0, 1.0) * 100, 0, 100) if sigma_pa is not None else None, W["setup_pa"]),
+        ((100.0 if catalyst_live else 0.0) if catalyst_live is not None else None, W["setup_cat"]),
+        ((100.0 if vcp else 0.0) if vcp is not None else None, W["setup_vcp"]),
+    ])
+
+    # 4. RISK / REWARD — R:R (3R = full). Location is already gated at GM Step 4.
+    risk = _clamp(min(rr / 3.0, 1.0) * 100, 0, 100) if rr is not None else None
+
+    overall = _blend([
+        (lead, W["leadership"]),
+        (fund, W["fundamentals"]),
+        (setup, W["setup"]),
+        (risk, W["risk"]),
+    ])
+    return None if overall is None else round(overall, 1)
+
+
+def overall_score_legacy(combined=None, conviction=None, alpha=None, bff=None,
+                         rff_base=None, rr=None, rs=None, piotroski=None):
+    """OLD flat formula (kept for comparison; Combined double-counts Conviction).
+    Combined 0.40 · Conviction 0.15 · Alpha 0.15 · Fundamentals 0.15 · R:R 0.10 ·
+    RS 0.05 · Piotroski 0.10, reweighted for missing."""
+    parts = []
     if combined is not None:
         parts.append((_clamp(combined, 0, 100), 0.40))
     if conviction is not None:
@@ -133,15 +211,14 @@ def overall_score(combined=None, conviction=None, alpha=None, bff=None,
     if fnd is not None:
         parts.append((_clamp(fnd, 0, 100), 0.15))
     if rr is not None:
-        parts.append((_clamp(rr / 3.0 * 100, 0, 100), 0.10))    # 3R = full marks
+        parts.append((_clamp(rr / 3.0 * 100, 0, 100), 0.10))
     if rs is not None:
-        parts.append((_clamp(50 + rs, 0, 100), 0.05))           # RS 0 → 50
+        parts.append((_clamp(50 + rs, 0, 100), 0.05))
     if piotroski is not None:
-        parts.append((_clamp(piotroski / 9.0 * 100, 0, 100), 0.10))   # F-Score quality
+        parts.append((_clamp(piotroski / 9.0 * 100, 0, 100), 0.10))
     if not parts:
         return None
-    wsum = sum(w for _, w in parts)
-    return round(sum(v * w for v, w in parts) / wsum, 1)
+    return round(sum(v * w for v, w in parts) / sum(w for _, w in parts), 1)
 
 
 def rrg_load() -> dict:
@@ -380,6 +457,12 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
 
     cands.sort(key=lambda c: _cat_rank(c[0]), reverse=True)   # most-actionable wins
     cat, path, wf = cands[0]
+    # Step-4 location caveat (e.g. "extended / thin R:R") — surfaced in its own Loc
+    # column so it annotates a live trigger WITHOUT fragmenting the Category filter.
+    # Location never blocks the trigger; ⚠ only shows when the trigger fired at a
+    # weak location.
+    _loc = wf.get("loc_note") or ""
+    _loc_col = (f"⚠ {_loc}" if (_loc and cat.startswith("Buy Trigger Live")) else _loc)
 
     # Path-appropriate fundamentals: BFF (growth) on Bull rows, RFF (recovery
     # fundamentals) on Recovery rows. Both are computed broadly, but showing only
@@ -480,14 +563,26 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
 
     # --- Overall opportunity score (0-100, path/category-independent) ---
     _rff_for_score = (g(rec_r, "RFF_Base") if rec_r else g(rec, "RFF_Base"))
-    overall = overall_score(combined=comb, conviction=conv,
-                            alpha=g(rec, "Alpha"), bff=data.get("bff"),
-                            rff_base=_rff_for_score, rr=rr, rs=mansfield, piotroski=pio)
+    _cat_up = str(g(rec, "Catalyst", default="")).upper()
+    _cat_live = _cat_up not in ("", "NONE", "—", "NAN", "NA")
+    _vcp_flag = True if _vcp_raw else (False if _vcp_raw is not None else None)
+    if USE_LEGACY_OVERALL:
+        overall = overall_score_legacy(combined=comb, conviction=conv, alpha=g(rec, "Alpha"),
+                                       bff=data.get("bff"), rff_base=_rff_for_score,
+                                       rr=rr, rs=mansfield, piotroski=pio)
+    else:
+        overall = overall_score(
+            alpha=g(rec, "Alpha"),
+            minervini=(mpass / 8.0 if mpass is not None else None),
+            conviction=conv, bff=data.get("bff"), rff_base=_rff_for_score, piotroski=pio,
+            sigma_pa=sigma_pa, catalyst_live=_cat_live, vcp=_vcp_flag,
+            rr=rr, rs=mansfield, weights=loaders.get("overall_weights"))
 
     return {
         "Symbol":     sym,
         "Overall":    overall,
         "Category":   cat,
+        "Loc":        _loc_col,                  # Step-4 location caveat (blank when fine)
         "Path":       "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller
         "Step":       wf.get("current"),

@@ -994,6 +994,36 @@ hr {{ border-color: #1e3a5f !important; margin: 8px 0 !important; }}
 [data-testid="stTextInput"] input:focus, [data-testid="stNumberInput"] input:focus {{ border-color: #238636 !important; box-shadow: 0 0 0 2px rgba(35,134,54,.2) !important; }}
 label {{ color: #8b949e !important; font-size: 0.75rem !important; }}
 [data-testid="stSelectbox"] > div > div {{ background: #0a1628 !important; border-color: #1e3a5f !important; color: #e6edf3 !important; border-radius: 4px !important; }}
+
+/* 🤖 Run Auto-Pilot Sidebar Button: Center align vertically and horizontally */
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) {{
+    margin: 0 !important;
+    padding: 10px 0 !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button {{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 12px 16px !important;
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: 42px !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button > div,
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button > div > div,
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button [data-testid="stMarkdownContainer"] {{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button p {{
+    text-align: center !important;
+    width: 100% !important;
+    margin: 0 !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -2488,6 +2518,16 @@ def section_fundamentals(fun, bff=None) -> str:
     return card("FUNDAMENTALS · Screener.in", rows, "#00838F")
 
 
+# Step-4 LOCATION thresholds ("room" rule) — tunable. R:R is the real room; EMA20
+# extension is the "not-chasing" gate. EMA20 is a DAILY anchor and acts as SUPPORT
+# when price is above it, RESISTANCE when below. LOCATION is STATUS — it NEVER
+# vetoes a fired Step-5 trigger; it only decides ARMED vs WAIT-FOR-PULLBACK when
+# there is no trigger yet.
+RR_MIN_LOCATION = 2.0          # min reward:risk for "good location"
+EMA20_EXT_ATR_MAX = 3.5        # bull: not extended more than this many ATR above EMA20
+EMA20_RECLAIM_BAND_PCT = 6.0   # recovery: price within this % of EMA20 = near/reclaiming
+
+
 # ----------------------------------------------------------------------------------------
 # DECISION WORKFLOW — the sequential path (crucial metrics only)
 # ----------------------------------------------------------------------------------------
@@ -2534,13 +2574,14 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         g1 = s2 and rs and not s34                         # Stage-2 breakout context
         g2 = alpha >= 50 and mpass >= 5                     # Stage-2 leadership
     g3 = cat_on
-    g4 = above_value and not_ext
+    # g4 (LOCATION) computed below — after R:R — in the "room rule" block.
 
     entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct"); t1_pct = _g(rec, "T1_pct")
     # NaN → None so `if x` guards behave and formats never print "nan".
     entry, sl_pct, t1_pct = [
         (None if (v is None or (isinstance(v, float) and math.isnan(v))) else v)
         for v in (entry, sl_pct, t1_pct)]
+    rr = None
     if entry and sl_pct is not None:
         sl = entry * (1 - sl_pct / 100); t1 = entry * (1 + t1_pct / 100) if t1_pct else None
         rr = (t1_pct / sl_pct) if (t1_pct and sl_pct) else None
@@ -2549,6 +2590,21 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     else:
         sl = t1 = None
         plan = "No active catalyst → no plan yet. Levels are reference only."
+
+    # ── Step-4 "room" rule: R:R (the real reward-room off the disciplined stop) +
+    # EMA20 extension/direction. EMA20 (daily) = support above / resistance below.
+    _ema20 = _g(ctx, "ema20"); _atr = _g(ctx, "atr")
+    ema20_dist_atr = ((cmp_px - _ema20) / _atr) if (_ema20 and _atr and _atr > 0) else None
+    above_ema20 = bool(_ema20 and cmp_px >= _ema20)
+    rr_ok = (rr is not None and rr >= RR_MIN_LOCATION)
+    # Bull "at value": above EMA20 (support) AND not chasing (≤ N ATR above it).
+    ema20_ok = bool(above_ema20 and (ema20_dist_atr is None or ema20_dist_atr <= EMA20_EXT_ATR_MAX))
+    g4 = above_value and rr_ok and ema20_ok
+    _loc_fail = []
+    if not rr_ok:       _loc_fail.append("thin R:R" if rr is not None else "no R:R")
+    if not ema20_ok:    _loc_fail.append("extended" if above_ema20 else "below EMA20")
+    if not above_value: _loc_fail.append("below value")
+    loc_note = " / ".join(_loc_fail)
 
     # Auto support zones (OB / FVG / pivot-low) — twin of the S4 Pine v2.0.
     _sup = _g(ctx, "support", default={}) or {}
@@ -2607,14 +2663,16 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                       ("PA Patterns", (f"+{_pa_tier}" if _pa_tier else "none"), _pa_tier >= 2)],
              do_pass=f"Catalyst {cat} is LIVE — proceed to location.",
              do_fail="No live catalyst. Add to watchlist & set a price alert at the zone; wait."),
-        dict(n=4, title="LOCATION", sub="Price at value", hard=False, ok=g4,
-             metrics=[("vs CPR+VWAP", "above" if above_value else "below", above_value),
-                      ("VP", vp_pos, vp_pos in ("ABOVE VAH", "INSIDE VA")),
-                      ("Room 52WH", fnum(d52, 1, "%"), not_ext),
+        dict(n=4, title="LOCATION", sub="Room: R:R + EMA20", hard=False, ok=g4,
+             metrics=[("R:R", (f"{rr:.1f}:1" if rr is not None else "—"), rr_ok),
+                      ("vs EMA20", (f"{ema20_dist_atr:+.1f}ATR {'sup' if above_ema20 else 'res'}"
+                                    if ema20_dist_atr is not None else ("above" if above_ema20 else "below")), ema20_ok),
+                      ("vs CPR+VWAP", "above" if above_value else "below", above_value),
+                      ("Room 52WH", fnum(d52, 1, "%"), None),      # context only — NOT a gate
                       ("Support (auto)", _sup_zone, _at_support)],
-             do_pass=("Price at value & not extended"
-                      + (f" — auto-zone: {_sup_zone}." if _at_support else ". No auto demand-zone under price yet (mark one on TV).")),
-             do_fail="Extended / below value. WAIT for a pullback into a fresh demand zone."),
+             do_pass="Good location — adequate R:R and not extended above EMA20 (support below).",
+             do_fail=("Location weak (" + (loc_note or "thin R:R / extended") + ") — a fired TRIGGER still buys "
+                      "(shown with the caveat); otherwise WAIT for a pullback toward EMA20 / a fresh zone.")),
         dict(n=5, title="TRIGGER", sub=(f"{_tf_lbl} PA battery" if _is_intra else "Daily PA battery + intraday confirm"),
              hard=False, ok=None, manual=True,
              metrics=[("PA trigger", (_pa_names if pa_fired else "none yet"), pa_fired),
@@ -2644,10 +2702,13 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         verdict, color = "WATCHLIST", "#FF9800"
     elif not g3:
         verdict, color = "BUY-WATCH · no catalyst", "#FF9800"
+    elif pa_fired:
+        # TRIGGER WINS — a live Step-5 trigger is NEVER vetoed by Step-4 location;
+        # weak location is surfaced as a caveat so the trader decides with eyes open.
+        verdict = "BUY — TRIGGER LIVE" + (f" · {loc_note}" if loc_note else "")
+        color = "#26A69A"
     elif not g4:
         verdict, color = "WAIT FOR PULLBACK", "#FF9800"
-    elif pa_fired:
-        verdict, color = "BUY — TRIGGER LIVE", "#26A69A"
     else:
         verdict, color = "ARMED · AWAIT TRIGGER", "#FF9800"
 
@@ -2656,13 +2717,15 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         current = stop_at
     elif not g3:
         current = 3
+    elif pa_fired:
+        current = 5
     elif not g4:
         current = 4
     else:
         current = 5
     actionable = verdict not in ("AVOID", "AVOID / EXIT", "WATCHLIST")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
-                current=current, actionable=actionable,
+                current=current, actionable=actionable, loc_note=loc_note,
                 # numeric plan levels for the page's position sizer / journal form
                 plan_entry=(entry if sl is not None else None),
                 plan_sl=sl, plan_t1=t1)
@@ -2739,7 +2802,15 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     turn_ok = bool(_ema20) and cmp_px is not None and cmp_px >= _ema20    # reclaimed 20-EMA
     ext_ema = ((cmp_px - _ema20) / _ema20 * 100) if (_ema20 and cmp_px) else None
     not_chased = (ext_ema is None) or (ext_ema <= 8.0)                    # ≤8% above 20-EMA
-    loc_ok = turn_ok and not_chased
+    # R:R is the real "room" here too. EMA20 for recovery is RESISTANCE being
+    # reclaimed (the mirror of the bull rule): turn_ok = price reclaimed it.
+    rr_ok = (rr is not None and rr >= RR_MIN_LOCATION)
+    loc_ok = turn_ok and not_chased and rr_ok
+    _loc_fail = []
+    if not turn_ok:        _loc_fail.append("below EMA20 (turn unconfirmed)")
+    elif not not_chased:   _loc_fail.append("extended")
+    if not rr_ok:          _loc_fail.append("thin R:R" if rr is not None else "no R:R")
+    loc_note = " / ".join(_loc_fail)
 
     g1 = beaten and reg_ok
     g2 = rff_ok
@@ -2774,16 +2845,15 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                       ("PA Patterns", (f"+{_rpa_tier}" if _rpa_tier else "none"), _rpa_tier >= 2)],
              do_pass=f"Recovery catalyst {label} is LIVE — proceed to location.",
              do_fail="No recovery catalyst fired."),
-        dict(n=4, title="LOCATION", sub="Turn confirmed & not chased", hard=False, ok=loc_ok,
-             metrics=[("Turn (≥20-EMA)", "confirmed" if turn_ok else "below 20-EMA", turn_ok),
+        dict(n=4, title="LOCATION", sub="Room: R:R + EMA20 reclaim", hard=False, ok=loc_ok,
+             metrics=[("R:R", (f"{rr:.1f}:1" if rr is not None else "—"), rr_ok),
+                      ("Turn (≥20-EMA)", "reclaimed" if turn_ok else "below 20-EMA (res)", turn_ok),
                       ("Ext vs 20-EMA", fnum(ext_ema, 1, "%") if ext_ema is not None else "—", not_chased),
-                      ("Entry (engine)", inr(entry) if entry else "—", True),
                       ("Support (auto)", str((_g(ctx, "support", default={}) or {}).get("zone", "outside")),
                        bool((_g(ctx, "support", default={}) or {}).get("at_support")))],
-             do_pass="Turn confirmed (reclaimed 20-EMA) & not extended — mark the FRESH demand zone on Daily+.",
-             do_fail=("Below 20-EMA — turn not yet confirmed; WAIT for the base to reclaim it."
-                      if not turn_ok else
-                      "Bounce already extended > 8% above 20-EMA — WAIT for a pullback into the zone.")),
+             do_pass="Turn confirmed (reclaimed 20-EMA), not extended, adequate R:R — mark the FRESH demand zone.",
+             do_fail=("Location weak (" + (loc_note or "turn unconfirmed") + ") — a fired TRIGGER still buys "
+                      "(with the caveat); otherwise WAIT for the reclaim / a pullback into the zone.")),
         dict(n=5, title="TRIGGER", sub=(f"Recovery PA battery · {_tf_lbl}" if _is_intra else "Recovery PA battery + intraday confirm"),
              hard=False, ok=None, manual=True,
              metrics=[("PA trigger", (_rpa_names if rpa_fired else "none yet"), rpa_fired),
@@ -2811,22 +2881,27 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         verdict, color = "SKIP · weak fundamentals", "#EF5350"
     elif stop_at == 3:
         verdict, color = "NO RECOVERY CATALYST", "#FF9800"
+    elif rpa_fired:
+        # TRIGGER WINS — location never vetoes a live recovery trigger; weak location
+        # is surfaced as a caveat.
+        verdict = "BUY — TRIGGER LIVE · Recovery" + (f" · {loc_note}" if loc_note else "")
+        color = "#26A69A"
     elif not loc_ok:
         verdict, color = "WAIT FOR PULLBACK", "#FF9800"
-    elif rpa_fired:
-        verdict, color = "BUY — TRIGGER LIVE · Recovery", "#26A69A"
     else:
         verdict, color = "ARMED · AWAIT TRIGGER · Recovery", "#FF9800"
 
     if stop_at:
         current = stop_at
+    elif rpa_fired:
+        current = 5
     elif not loc_ok:
         current = 4
     else:
         current = 5
     actionable = verdict.startswith("BUY") or verdict.startswith("ARMED") or verdict.startswith("WAIT")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
-                current=current, actionable=actionable, recovery=True,
+                current=current, actionable=actionable, recovery=True, loc_note=loc_note,
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)
 
 
@@ -3197,7 +3272,7 @@ def gm_load_symbol(symbol: str) -> dict:
         out["ctx"] = {
             "cmp": last,
             "prev": float(c.iloc[-2]) if len(c) > 1 else last,
-            "ema20": _f(ema20), "sma50": _f(sma50), "sma150": _f(sma150), "sma200": _f(sma200),
+            "ema20": _f(ema20), "atr": _f(atr), "sma50": _f(sma50), "sma150": _f(sma150), "sma200": _f(sma200),
             "sma200_prev": _fprev(sma200, 21), "sma150_prev": _fprev(sma150, 21),
             "sma150_prev2": _fprev(sma150, 42),
             "ath2y": float(h.max()) if len(h) else None,
@@ -11099,6 +11174,12 @@ elif page == 'GOLDEN MATCHER':
                                       "change daily/quarterly, not intraday. The true floor is how long a "
                                       "~50-name technical rebuild takes; if a tick can't finish in the "
                                       "interval it just runs back-to-back. Full Build refreshes everything.")
+            _score_mode = st.selectbox("⚖️ Score mode", ["Balanced", "Hunting", "Watchlist"],
+                                       key="gm_score_mode",
+                                       help="Overall-score weighting (4-dimension model). Balanced = all-round. "
+                                            "Hunting = skew to Setup/Trigger + Risk (find live entries). "
+                                            "Watchlist = skew to Leadership + Fundamentals (rank by quality). "
+                                            "Rebuild to apply.")
         with _bc3:
             _stamp = st.session_state.get("gm_board_stamp")
             _tstamp = st.session_state.get("gm_board_tech_stamp")
@@ -11138,7 +11219,8 @@ elif page == 'GOLDEN MATCHER':
                             minervini=minervini_checks, nse_metrics=_nse_metrics,
                             xray=_xray_fn, use_xray=bool(_use_xray),
                             load_intraday=gm_load_intraday,
-                            trigger_tf=(_trig_tf if _trig_tf in ("75m", "125m") else None))
+                            trigger_tf=(_trig_tf if _trig_tf in ("75m", "125m") else None),
+                            overall_weights=_gtb.OVERALL_PRESETS.get(_score_mode))
             _rows = []
             _items = list(_uni.items())
             _prog = None if quiet else st.progress(0.0, "Building board…")
