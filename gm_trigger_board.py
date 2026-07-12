@@ -52,6 +52,22 @@ BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst"}
 RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Recovery-Catalyst"}
 
 
+def _canon_key(s: str) -> str:
+    """Normalize a symbol to the union-KEY form: upper, no NSE:/BSE: prefix, no
+    .NS/.BO suffix. The Single Symbol page passes 'APOLLOHOSP.NS' (TV/yfinance
+    style) while the watchlist union keys are bare 'APOLLOHOSP' — without stripping
+    the suffix the lookup misses and inheritance silently fails (board vs single
+    disagreement). One helper so union keys and lookups can never drift."""
+    s = str(s or "").strip().upper()
+    for p in ("NSE:", "BSE:"):
+        if s.startswith(p):
+            s = s[len(p):]
+    for suf in (".NS", ".BO"):
+        if s.endswith(suf):
+            s = s[:-len(suf)]
+    return s.strip()
+
+
 def load_watchlist_union() -> dict:
     """Union of the per-strategy watchlists, deduped by symbol. Returns
     {SYMBOL: {'sources':[labels], 'archetypes':[…], 'tier':…, 'sides':set,
@@ -77,7 +93,7 @@ def load_watchlist_union() -> dict:
         has_conv = "Conviction" in df.columns
         has_comb = "Combined_Score" in df.columns
         for _, r in df.iterrows():
-            s = str(r[col]).strip().upper().replace("NSE:", "").replace("BSE:", "")
+            s = _canon_key(r[col])
             if not s or s == "NAN":
                 continue
             e = uni.setdefault(s, {"sources": [], "archetypes": [], "tier": "Discovery",
@@ -106,7 +122,7 @@ def load_watchlist_union() -> dict:
         has_conv = "Conviction" in star.columns
         has_comb = "Combined_Score" in star.columns
         for _, r in star.iterrows():
-            s = str(r[col]).strip().upper().replace("NSE:", "").replace("BSE:", "")
+            s = _canon_key(r[col])
             if not s or s == "NAN":
                 continue
             e = uni.get(s)
@@ -133,7 +149,7 @@ def load_watchlist_union() -> dict:
 def resolve_archetypes(symbol: str, uni: dict = None) -> dict:
     """Look up a symbol's inherited setup (for the Single Symbol page to stay in
     sync with the board). Returns {'archetypes':[…], 'sides':set, 'star':bool} or {}."""
-    s = str(symbol or "").strip().upper().replace("NSE:", "").replace("BSE:", "")
+    s = _canon_key(symbol)
     if not s:
         return {}
     if uni is None:
@@ -635,6 +651,9 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
 
     # Inherited archetype(s) for the WINNING path (show-all) + ★ top-conviction badge.
     _win_arche = _inh_rec if path == "recovery" else _inh_bull
+    # Fallback to the union's full archetype list when the winning path inherited
+    # nothing (e.g. a ★-only name, or a symbol that didn't resolve). Never crash.
+    _arche = list(info.get("archetypes") or [])
     arche_txt = ", ".join(_win_arche) if _win_arche else ", ".join(_arche)
 
     return {

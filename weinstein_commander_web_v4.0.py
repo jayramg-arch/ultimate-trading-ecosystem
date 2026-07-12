@@ -11933,27 +11933,6 @@ elif page == 'GOLDEN MATCHER':
                     f"&nbsp;·&nbsp; TF {_trig_tf} — this matches the board's Category column exactly."
                     f"</div>", unsafe_allow_html=True)
 
-    # --- P1 DIAGNOSTIC (temporary) — proves whether inheritance ran on THIS page ---
-    with st.expander("🔧 P1 inheritance diagnostic (temporary — for debugging board vs single)", expanded=True):
-        _dbg = {"symbol_passed": symbol, "trigger_tf": _trig_tf,
-                "INHERIT_QUALIFICATION": INHERIT_QUALIFICATION,
-                "gm_evaluate.inherited_bull": _ib_ss, "gm_evaluate.inherited_rec": _ir_ss,
-                "wf_bull.inherited": wf_bull.get("inherited"),
-                "wf_bull.verdict": wf_bull.get("verdict"),
-                "wf_rec.verdict": (wf_rec.get("verdict") if wf_rec else None)}
-        try:
-            import gm_trigger_board as _gdbg
-            _dbg["resolve_archetypes(symbol)"] = _gdbg.resolve_archetypes(symbol)
-            _brow_dbg = _gdbg.build_row(symbol, (_gdbg.load_watchlist_union().get(symbol) or
-                        {"sources": [], "archetypes": [], "tier": "Discovery", "sides": set(),
-                         "conviction": None, "combined": None, "star": False}),
-                        dict(evaluate=gm_evaluate, minervini=minervini_checks, nse_metrics={},
-                             xray=None, use_xray=False, trigger_tf=_trig_tf, overall_weights=None), _g)
-            _dbg["build_row.Category (board path)"] = (_brow_dbg or {}).get("Category")
-        except Exception as _e:
-            _dbg["build_row error"] = repr(_e)
-        st.json(_dbg)
-
     _wcol1, _wcol2 = st.columns(2)
     with _wcol1:
         st.markdown("##### 🐂 Bull path  ·  Stage-2 leadership")
