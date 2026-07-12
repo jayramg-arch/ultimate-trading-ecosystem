@@ -2605,6 +2605,11 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     if not ema20_ok:    _loc_fail.append("extended" if above_ema20 else "below EMA20")
     if not above_value: _loc_fail.append("below value")
     loc_note = " / ".join(_loc_fail)
+    # No live bull_screener catalyst — but the name is pre-qualified by its source
+    # watchlist (Chartink+Screener setup), so it still TRADES on its own trigger;
+    # "no catalyst" is a caveat, not a block. Surfaced in the board Loc column.
+    if not g3:
+        loc_note = ("no catalyst / " + loc_note) if loc_note else "no catalyst"
 
     # Auto support zones (OB / FVG / pivot-low) — twin of the S4 Pine v2.0.
     _sup = _g(ctx, "support", default={}) or {}
@@ -2662,7 +2667,8 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                       ("VCP/Base", "valid" if vcp else "no", vcp),
                       ("PA Patterns", (f"+{_pa_tier}" if _pa_tier else "none"), _pa_tier >= 2)],
              do_pass=f"Catalyst {cat} is LIVE — proceed to location.",
-             do_fail="No live catalyst. Add to watchlist & set a price alert at the zone; wait."),
+             do_fail="No live bull_screener catalyst — but this is a pre-qualified setup (source watchlist); "
+                     "a fired Step-5 trigger still BUYS. Else set a price alert at the zone and wait."),
         dict(n=4, title="LOCATION", sub="Room: R:R + EMA20", hard=False, ok=g4,
              metrics=[("R:R", (f"{rr:.1f}:1" if rr is not None else "—"), rr_ok),
                       ("vs EMA20", (f"{ema20_dist_atr:+.1f}ATR {'sup' if above_ema20 else 'res'}"
@@ -2700,13 +2706,15 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         verdict, color = "AVOID", "#EF5350"
     elif stop_at == 2:
         verdict, color = "WATCHLIST", "#FF9800"
-    elif not g3:
-        verdict, color = "BUY-WATCH · no catalyst", "#FF9800"
     elif pa_fired:
-        # TRIGGER WINS — a live Step-5 trigger is NEVER vetoed by Step-4 location;
-        # weak location is surfaced as a caveat so the trader decides with eyes open.
+        # TRIGGER WINS — a live Step-5 trigger is NEVER vetoed by Step-3 (catalyst)
+        # or Step-4 (location). The name is already pre-qualified by its source
+        # watchlist (hard Context + Quality still passed), so a fired pattern is
+        # actionable on its OWN setup; missing catalyst / weak location = caveat.
         verdict = "BUY — TRIGGER LIVE" + (f" · {loc_note}" if loc_note else "")
         color = "#26A69A"
+    elif not g3:
+        verdict, color = "BUY-WATCH · no catalyst", "#FF9800"
     elif not g4:
         verdict, color = "WAIT FOR PULLBACK", "#FF9800"
     else:
@@ -2715,10 +2723,10 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     # The single step that needs attention right now
     if stop_at:
         current = stop_at
-    elif not g3:
-        current = 3
     elif pa_fired:
         current = 5
+    elif not g3:
+        current = 3
     elif not g4:
         current = 4
     else:
