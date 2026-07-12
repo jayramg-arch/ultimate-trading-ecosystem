@@ -989,4 +989,142 @@ Commit branch changes · re-baseline validation with the new gates · RELIANCE S
 
 ---
 
+## 7 July 2026 — Pyramid/Trim 5-rung ladder + Section 4 Entry-Trigger Pine
+
+### A. Pyramid/Trim Manager reworked → full ADD→HOLD→REDUCE→TRIM→EXIT ladder
+- **`pyramid_logic.py`** (shared brain, single source of truth for inline Web Commander page AND `pages/5_pyramid.py`) — 5-rung `classify()`, priority order EXIT→TRIM→REDUCE→ADD→HOLD, **best-of-each** across the three engines:
+  - **EXIT (full):** at-SL `(ltp−stop)≤1.5×ATR & pnl≤0` · underwater ≤−8% · Stage 4 · price-structure (positional `ltp<30-WMA`, swing `ltp<swing_low`) · Chandelier stop-out · time-stop (60d swing / 180d positional & R<0.5).
+  - **TRIM (partial, winners only):** R≥3→book ½+trail, R≥2→book ⅓+lock 0.5R · target hit · over-extended `(ltp−EMA20)/ATR≥4.0` · earnings ≤3d (guarded).
+  - **REDUCE (soft):** RRG LAGGING · `ltp<50-DMA` (positional) · score≤25.
+  - **ADD (pyramid):** leader AND pullback-location (above rising 200-DMA, `ltp≤close_5d×1.10`, `ltp>EMA20`) — both required.
+  - Constants: `EXT_ATR_MULT=4.0`, `SWING_DAYS=60`, `POS_DAYS=180`, `TIME_STOP_R=0.5`, `MIN_RISK_FRAC=0.005` (guards garbage-R when stop≈buy).
+- **`risk_common.py`** (NEW) — `trail_mult_for(setup,bear)` + `chandelier_exit(...)`, catalyst-aware Chandelier (POS 4.5·WYC 3.5·REV 2.5·SWG 1.5, +0.5 bear, cap-protect 2.5; level = 22-bar max close − ATR(22, EWM α=1/22)×mult). **Verified byte-identical to old Risk Shield formula.** Risk Shield page refactored to call it → zero drift.
+- **Web Commander:** inline `elif page=='PYRAMID'` page (NOT a new screen), NAV button ⚖️ PYRAMID / TRIM under CONTROL CENTER. Verified on live 14-position book (EXIT 4 / TRIM 2 / ADD 2 / HOLD 6). `inr()` NaN/inf-safe.
+- Bugs fixed: journal status casing (`UPPER(status)='OPEN'`), NaN target (`pd.to_numeric coerce`), garbage-R guard, time-stop realigned 10/42→60/180d per DNA.
+- **DEFERRED (Jay):** making Risk Shield + `exit_signal_engine.py` also call the shared `classify()` brain (3-engine full reconciliation) — they still use own logic for now.
+- **STANDING ACTION:** restart Web Commander for all Python changes (pyramid_logic, risk_common, recovery wiring, catalyst gates, nav) to take effect.
+
+### B. Golden-Matcher §4 decision-tree gap → NEW Pine indicator
+Reviewed `modern_trading_plan.md` §4 (Entry Trigger & Price Memory). Decision (Jay): don't compute AVWAPs for all stocks — build a **Pine indicator** applied on TradingView to names filtered to Step 5 on the Golden Matcher.
+- **`Section4_Entry_Trigger_v1.0.pine` (NEW, SHIPPED, compiles clean, verified live on CAPLIPOINT 125-min):**
+  - 3 anchored VWAPs — Low (52wk/Stage-1 bottom), BO (last N-bar-high breakout day), Gap (last high-vol gap-up). Anchor DATES from **daily** structure via `request.security`; VWAP accumulates on chart TF.
+  - Pinch detection (bg shade + panel), nearest-support, AVWAP trigger (bounce off support OR R2G reclaim > AVWAP-BO), intraday trigger (rising-10-EMA reclaim + TTM squeeze fires up on 75/125-min), entry panel with buy-stop/SL plan line, 3 alertconditions.
+  - **KEY PINE BUG (memory-worthy):** AVWAP accumulator sentinel seeded to `na` → `anchor_t != na` returns `na` (falsy) → anchor never latched, all AVWAPs `na`. Fix: seed sentinel to `0`, guard `last>0`. (Chart Markup AVWAP used `1` for this exact reason.) Also: dynamic historical indexing `time[math.abs(ta.lowestbars(...))]` unreliable inside `request.security` → use `ta.valuewhen(cond, time, 0)` for all anchors.
+  - Untracked .pine (no git history). In-file header documents it. Doc `docs/22_...` NOT yet written (offered).
+
+### Next Priority Work
+Docs for Section 4 (optional) · commit branch `phase0-1-attribution-journal-snapshot` · restart Web Commander · deferred 3-engine reconciliation · RELIANCE Stage-4 exit.
+
+---
+
+## 8–9 July 2026 — S4 Entry Trigger ecosystem + Golden Matcher trigger wiring + Dhan date fix
+
+### A. Section 4 Entry Trigger Pine — v1.2 → v1.8 (Jay compiles each rev; title bumped per rev to avoid stale-table reuse)
+`Section4_Entry_Trigger_v1.0.pine` (filename unchanged; in-file title = version). Evolution:
+- **v1.2** PA battery re-based to the canonical Golden-Matcher 11 (v67.4.12 mirror) with Σ-tier; correct `ta.vwma(volume,5)` dry-up.
+- **v1.3** "Confirmed daily only" toggle (default ON) — daily PA reads the LAST CLOSED daily bar. `request.security(D)` on ANY intraday TF returns the FORMING daily bar → NR7/coils repaint early-session (RV~0.1 = the tell); only real at daily close. Consolidated TRIGGER row; Plan gated; dark-theme panel (#131722 bg, #2a2e39 grid, brighter labels).
+- **v1.4** battery 11→17: + Wyckoff Spring, Gap-Up BO, 50SMA Undercut, Hammer@50, Hammer@200, Breakout-Confirmed. Compact grid shows ALL conditions ✓/· (nothing aggregated away).
+- **v1.5** TRIGGER = COMBINED gate `E✓V✓I·` — **GO = (Event OR Intraday) AND Volume** (NOT all 3 — anti-Holy-Grail, per Jay). `rv_floor` input (default 1.0). RV its own colour-coded field (≥1.25 green / ≥1.0 amber / <1 red). Plan prints ONLY on GO. New "S4 GO" alert.
+- **v1.6** UNIFIED Bull/Recovery — `Mode` input swaps battery (Bull 17 ↔ Recovery 10); shared AVWAP/RV/intraday plumbing; mode-aware grid + header (`PA · BULL` / `PA · RECOVERY`).
+- **v1.7→v1.8** `Mode: Auto` (default) infers path from price structure. v1.7 rule (`off52≥15 AND below SMA150`) was **self-defeating** — Step-5 recoveries have confirmed the turn/reclaimed SMA150 → resolved Bull (CIPLA). **v1.8 fix: `off52 ≥ 10 AND (below SMA150 OR SMA150 10-day slope falling)`** — slope catches reclaimed-but-unrepaired recoveries; fully repaired (rising 30WMA, <10% off) = genuinely Bull. Jay confirmed flipping correctly; accepts the Pine-can't-see-RFF approximation (header shows resolution; manual override remains).
+
+### B. Golden Matcher — CANONICAL SURFACE = Web Commander page (memory: golden_matcher_canonical_surface)
+**Mistake caught by Jay:** I'd been editing the standalone `golden_matcher_dashboard.py` which he NEVER uses. All logic ported to `weinstein_commander_web_v4.0.py` (Execution → 🎯 Golden Matcher, Auto-Sync TV, Bull + Recovery paths); **standalone + LAUNCH_GOLDEN_DASHBOARD.bat archived to `_archive/legacy/`**.
+- **Bull path:** `_detect_pa_patterns` 11→17 + VCP dry-up bug fixed (`(c*v)`→`(v*v)` — old leg was a no-op firing ~96% of bars; fix halves VCP-BO fires, verified GRANULES 57→15, RELIANCE 53→13). Step-5 wired to the battery (metrics: PA trigger names + Σ + confirm-on) with verdict split **BUY — TRIGGER LIVE / ARMED · AWAIT TRIGGER**; 3-gate banner aligned (STRONG BUY · TRIGGER LIVE / READY · AWAIT TRIGGER); counter-trend warning widened.
+- **Recovery path (new):** `_detect_recovery_pa_patterns` — **10 conditions**: Climax Reversal(SC+AR)+3 · Wyckoff Spring+3 · Higher-Low/2B+3 · Base Breakout(SOS/JAC)+3 · Bull Engulf+2 · Hammer-at-support+2 · 3-Bar Rev+2 · Pocket+2 · VDU+1 · 30-WMA Reclaim+3. Wired into recovery Step-5 (same verdict split, "· Recovery" suffix) + **PA Σ chip added to recovery Step-3** (Jay caught the asymmetry). **RS-turning-up (Mansfield/RRG IMPROVING-LEADING) added to recovery Step-2 QUALITY** — Jay trusts Mansfield RS; deliberately in Quality, NOT the PA battery.
+- **Path symmetry doctrine (agreed):** symmetric in FORM (6-step skeleton, TRIGGER LIVE/ARMED language, PA chips at Steps 3+5), deliberately asymmetric in SUBSTANCE (bull=technical leadership vs recovery=RFF fundamentals; bull SETUP soft vs recovery SETUP hard; bull location=at-value/not-extended vs recovery=turn-confirmed/not-chased). PA in both Step 3 (context chip, non-gating) and Step 5 (decision) is intentional; coil-vs-trigger split offered, declined per build-freeze.
+
+### C. Dhan daily date-shift bug — FIXED (memory: dhan_daily_date_shift)
+`dhan_ohlcv.py:396` read IST-midnight epochs as UTC → **every Dhan daily bar dated 1 day early** (Monday sessions showed as impossible "Sunday" — the tell). Surfaced as GM "stuck 2 days stale" / GM-vs-S4 NR7 mismatch on RADICO. Fixed with UTC→IST convert before normalize; cache backed up (`data/market_cache.backup_20260708`, 7,614 files) and cleared; verified Dhan Jul-7 == yfinance Jul-7 exactly. NOTE: pre-fix validation/replay artifacts were built on −1-shifted dates (re-baseline when next touching validation).
+
+### D. Trading discipline established this session (RADICO + VIJAYA walk-throughs)
+- GM Step-5 first, THEN S4 — S4 times entries, never qualifies names. Even at Step 5: **GO = one trigger (AVWAP event OR intraday 10EMA+squeeze) WITH volume (RV≥floor)**; a coil (NR7/IB-NR7) is compression, NOT a trigger; dead-volume reclaims (VIJAYA RV 0.2 fade-bounce) are skips. Chart-read retains VETO power (can talk you OUT, never INTO). TV alert per Step-5 name: "S4 GO" / any-alert()-call, Once Per Bar Close → act on the ping, never the touch.
+- PA conditions are Bull/Recovery-specific by design; recovery qualification = RFF+drawdown (fundamentals), PA batteries are entry-timing only.
+
+### E. Docs
+- **`docs/22_Section4_Entry_Trigger_Guide.md`** (NEW) — full user+trading guide, updated through v1.8.
+- **`docs/23_Golden_Matcher_Guide.md`** (NEW) — user+trading guide; repointed to the Web Commander page after the standalone was archived.
+- `docs/00_INDEX.md` rows 22+23 added/updated.
+
+### Open items
+- TV alert bulk-creation for Step-5 shortlist (offered, not requested yet).
+- Two formal verifications blocked by a classifier outage (web-commander parse after the one-line Step-3 chip edit; v1.8 auto-rule synthetic check) — both functionally confirmed by Jay's live usage.
+- Coil-vs-trigger split of the PA chip roles (declined for now, revisit if the duplication nags).
+- Unchanged: commit branch `phase0-1-attribution-journal-snapshot` · RELIANCE Stage-4 exit (Jay) · deferred 3-engine reconciliation · re-baseline validation post date-fix.
+
+---
+
+## 9–10 July 2026 — Golden Matcher audit + S4 Entry Trigger v1.9→v2.8 + Dhan freshness/intraday
+
+Big multi-thread session. Branch still **`phase0-1-attribution-journal-snapshot`** (uncommitted). Two surfaces evolved in lockstep: the **Golden Matcher page** (`weinstein_commander_web_v4.0.py`) and the **Section 4 Entry Trigger Pine** (`Section4_Entry_Trigger_v1.0.pine`), with the shared **`pa_patterns.py`** (NEW module) as their zero-drift battery source.
+
+### A. Golden Matcher audit + enhancements
+- **Correctness fixes:** batch-CSV recovery Stage/RFF float→digit normalization (`_stg_digit`); confirmed-week guard on the two weekly-crossover PA patterns; **Higher-Low/2B base-proximity ceiling** (was firing every green day); one `_cat_on()` catalyst-normaliser; `compute_decision` displayed-thresholds aligned to enforced; dead `render_decision`/`render_pine_mirror` removed; `relvol` NaN guard; `_rec_cfg()` reads floor/RFF from `recovery_screener.CONFIG`.
+- **Enhancements:** **E1** guided-checklist → `dhan_journal_v7.upsert_trade` (logs OPEN + auto entry-snapshot); **E2** position sizer (Capital/Risk% → shares, persisted to `gm_settings.json`); **E3** session shortlist + TV-watchlist export; **E4** Refresh clears only GM caches; **E5** batteries extracted to shared `pa_patterns.py` (`detect_bull_patterns`/`detect_recovery_patterns`).
+
+### B. pa_patterns.py (NEW, canonical Python battery)
+`detect_bull_patterns` (17) · `detect_recovery_patterns` (10) · `detect_support_zones` + `detect_support_zones_dw` (OB/FVG/pivot on Daily+Weekly) · `resample_intraday` (session-anchored 25m→75/125m). Flags: `intraday=True` suppresses weekly-anchored patterns (HTF, Stage-2 Launch, 30-WMA Reclaim); `ema20_ref/ema10_ref` = **EMA20 is a DAILY anchor** overlaid on intraday (DNA rule).
+
+### C. Support-zone lifecycle (GM Python + S4 Pine, mirrored)
+FRESH → **TESTED** (entered+left = grey, excluded from trigger) → **VIOLATED** (close below distal = deleted). **Pivot lines never deleted** — a violated pivot **flips to resistance** (`pivot_res`, "Pivot S→R"), cleared on reclaim. Zones drawn on **Daily + Weekly**, and (v2.4) each box **starts at its FORMATION candle** (OB down-candle / FVG 3-bar gap / pivot-low bar) + extends right.
+
+### D. Dhan feed fixes (`dhan_ohlcv.py`, `data_provider.py`) — memory: [[dhan_daily_date_shift]]
+- **`fetch_intraday` wrong response key** (`start_Time`→`timestamp`) — intraday was silently empty; now works (90-day window, 25m=~900 bars). *Don't trust "intraday unavailable" — check `resp["data"].keys()`.*
+- **Dhan daily endpoint publishes a session NEXT-DAY** → `fetch_daily` now back-fills the just-closed session from intraday (`_append_completed_session_from_intraday`, session-aware, no-op during market hours).
+- **`data_provider.invalidate_symbol()`** (NEW) — Refresh + GM auto-heal force a real re-fetch (beats the 24h daily-TTL). GM freshness banner + auto-heal now **session-aware** (after 15:30 IST expects today's bar). Fixed the "one day behind after close" + "Refresh does nothing".
+- **Symbol canonicalization** — `dhan_ohlcv.canonical_nse_symbol` (scrip-master, separator-insensitive: `BAJAJ_AUTO`→`BAJAJ-AUTO`, `M_M`→`M&M`) + GM `_canon_sym` at both TV-sync commit and manual box.
+
+### E. GM intraday Trigger-TF + S4 chart-TF (75/125m)
+- **GM:** Trigger-TF selector (**75m default** / 125m / Daily) recomputes the Step-5 PA battery **+ momentum board** (RSI/ADX/RelVol/Vol-dry) on the intraday TF; **context/quality/setup/location (Stage/RS/Alpha/catalyst/zones) stay Daily/Weekly**. Step-5 text is TF-aware ("fired on the 75m"). `gm_load_intraday` cached (180s).
+- **S4:** Gemini added v2.5 (`require_squeeze` toggle, relaxed squeeze window, TF-aware volume) + v2.6 (`use_chart_tf`). I reviewed → **v2.7** parity fixes (HTF suppressed on chart-TF; engulf keeps **daily EMA20** via `f_daily_pa(ema10_ref,ema20_ref)`) → **v2.8** `use_chart_tf` defaults **ON** to match the GM. S4 is now v2.8.
+
+### F. Gemini second-opinion audit (report reviewed)
+- **REJECTED** its "double-shift lag" fix (the `timeframe.isdaily` gate reintroduces the intraday repaint; the `[1]` offset is TF-independent).
+- **FIXED** `bull_screener.py:278` VCP dry-up `(v*c)`→`(v*v)` (dry leg was a no-op → VCP-BO fired without contraction; **re-baseline validation**).
+- **FLAGGED, not fixed:** `technical_enrichment._calc_mansfield_rs` computes a 52-**day** SMA on daily closes while its docstring claims weekly — RS/RRG-adjacent, shifts matcher rankings; Jay's separate call.
+- **S4 v2.3:** Auto path ↔ GM Bull/Recovery parity via the **200-DMA discriminant** (Bull above 200-DMA; Recovery = beaten-down below it).
+
+### G. Workflow decisions & memory
+- **90-day build freeze LIFTED** by Jay (do not push back on builds citing it). [[build-as-avoidance-execution-gap]] updated.
+- **GM "TRIGGER LIVE" (early/armed) vs S4 "GO" (strict execution gate) is INTENTIONAL — do NOT align them.** [[gm_early_s4_execute_twostage]]. GM arms → focus → wait for the S4 GO.
+- **Jay's standing feedback:** great from-scratch builds, but I miss adjacent "key aspects" → he burns time validating. Run a **second-order review before done** (DNA rules, consistency/defaults/twin-surface parity, edge cases, verify end-to-end, flag unknowns). [[second-order-review-before-done]].
+- **S4 alerts bind to the compiled version at creation** — after recompiling, DELETE & RE-CREATE the "S4 GO" alerts (this was why SOBHA's GO alert stayed silent).
+
+### Docs updated
+`docs/22_Section4_Entry_Trigger_Guide.md` (→ v2.8), `docs/23_Golden_Matcher_Guide.md`, `docs/00_INDEX.md`.
+
+### Next Priority Work
+(a) **Recompile S4 v2.8 in TradingView** + delete/recreate the GO alerts (75m & 125m). (b) **Re-baseline validation** after the bull_screener VCP fix. (c) Decide on the **Mansfield daily-vs-weekly** flag (technical_enrichment). (d) The "DZ/Resistance" zones on Jay's chart come from OTHER indicators (Institutional Zone Engine / Chart Markup) — apply formation-anchored drawing there if wanted. (e) Commit branch `phase0-1-attribution-journal-snapshot` → main (many uncommitted changes). (f) RELIANCE Stage-4 exit (Jay).
+
+---
+
+---
+
+## 12 July 2026 — Trigger Board redesign: Bull Step-3 fix + P1 Inherited Qualification
+
+Branch **`phase0-1-attribution-journal-snapshot`**, both commits PUSHED **and ff-merged to `main`** (main = `e1096f8`).
+
+### The flaw addressed
+The Golden Matcher **Trigger Board** re-qualified (hard Context+Quality via the screeners) what each source watchlist already qualified. Consequence: only the Nifty-500 **catalyst** scan produced actionable output; the **rigorous** Chartink+Screener watchlists (Bull Hunter/EarlyBird/Pullback/Leader + Recovery RS/Climax/Early) dead-ended at "no catalyst" (bull) or "SKIP · weak fundamentals" (recovery, because fast-mode RFF=INSUFFICIENT). Universe is **all Nifty 500** — all 7 Chartink scans share group `{57960}` = Nifty 500 (Jay confirmed the 4 Bull scripts; Recovery has no saved Chartink scan, the Python submits the clause via API on the same group). So the rigorous lists add value not by out-of-universe reach but by **arm-before-trigger** (they're the armed setup universe; the catalyst scan is the trigger-instant snapshot).
+
+### A. Interim working fix — Bull Step-3 "trigger wins" (`c1561f8`)
+Mirror of the Step-4 fix: in `compute_workflow`, a fired Step-5 PA trigger is no longer vetoed by a missing catalyst (Step-3) or weak location (Step-4). Context+Quality stay hard. Pre-qualified Bull names now reach `BUY — TRIGGER LIVE · no catalyst`. Zero-drift (shared workflow).
+
+### B. P1 — INHERITED QUALIFICATION (`e1096f8`) — the structural fix Jay approved
+Doctrine: **watchlists QUALIFY; the board TIMES** — stop re-qualifying. Behind `INHERIT_QUALIFICATION=True` (A/B flag at `weinstein_commander_web_v4.0.py:2529`).
+- **`gm_trigger_board.py`**: sources → the **per-strategy lists** so every name inherits its **archetype(s)** (show-all). `FINAL_WATCHLIST` demoted to a **★ Top-Conviction badge** (top-25 by Combined_Score). New `load_watchlist_union` (returns `archetypes`/`star`), `resolve_archetypes()`, `BULL_ARCHETYPES`/`RECOVERY_ARCHETYPES` sets, `Archetype`+`★` columns, INVALIDATED category. Empty-sides ★-only name → runs both paths (never dropped).
+- **`compute_workflow` (bull) + `compute_recovery_workflow` (recovery)**: when a source archetype is present, Context/Quality stop being hard vetoes → **still-valid break-down guard** (bull: Stage 3/4 or below 30WMA → `INVALIDATED`; recovery: Stage 4 or collapsed >50% off-high). **Fundamentals → ranking overlay, never a block** (this unblocks Recovery's RFF dead-end). Setup = inherited archetype (no live catalyst needed). Category = pure timing state (`INVALIDATED`/`WAIT`/`ARMED`/`Buy Trigger Live`). Honesty rule: missing `sma150` never flips a name to INVALIDATED (only observed break-down does).
+- **Zero-drift**: the Single Symbol page calls `resolve_archetypes(symbol)` and times identically, with **separate ctx copies per path** so a bull archetype can't spoof the recovery inherited-branch.
+- Verified pure layer (standalone, no Streamlit): 50 names, 100% archetype coverage, 23 stars, multi-archetype (NYKAA=Breakout+Catalyst), INVALIDATED mapping correct. Both modules `py_compile` clean.
+
+### Target architecture (agreed, migrate slowly) — `docs/Trigger_Board_Redesign_Proposal.md`
+Jay's call: keep Chartink + Screener.in as the **qualifiers** (paid, rich; Dhan may not replace Chartink scans). Long-term target = **one unified Python engine, two cadences**: QUALIFY (daily/on-demand, heavy — chartink_replay technicals + screener.in fundamentals, narrow-then-fetch) → TIME (live board). Eliminates Chartink/Screener browser automation + CSV handoff + batch/live divergence. `chartink_replay.py` already ports the Bull scans (validation gate before trusting it live). **Not now** — P1 is the first real step; migrate over time.
+
+### STANDING ACTIONS for next session
+1. **RESTART Web Commander** (all Python changes) + click **Build** on the Trigger Board (old `gm_board_cache.csv` predates the `★`/`Archetype` cols).
+2. Watch P1 live a few sessions; if timing states behave, drop the `INHERIT_QUALIFICATION` flag to permanent and start **P2** (archetype-aware Location/Trigger for Breakout/Pullback/Recovery).
+3. Still open (unchanged): RELIANCE Stage-4 exit (Jay's trade); recompile S4 v2.8 + recreate GO alerts; re-baseline validation after the bull_screener VCP `(v*v)` fix + Dhan date-shift fix; Mansfield daily-vs-weekly flag decision.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
