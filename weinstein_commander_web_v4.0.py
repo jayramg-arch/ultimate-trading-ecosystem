@@ -2868,13 +2868,24 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     if sl is None and entry and sl_pct is not None:
         sl = entry * (1 - sl_pct / 100.0)
     if sl is None and entry:
-        _atr_r = _g(ctx, "atr")
-        if _atr_r:
-            sl = entry - 2.5 * _atr_r            # recovery catalyst-aware fallback (2.5×ATR)
+        # LOCATION FALLBACK (Jay's rule, mirror of the bull path): the engine gave no
+        # SL. Prefer EMA20 as DYNAMIC support when there's no nearby demand zone/OB/FVG
+        # and price has reclaimed it (turn confirmed) — the natural stop for a recovery
+        # turn. Only fall to 2.5×ATR when EMA20 doesn't apply (price below it).
+        _sup0 = _g(ctx, "support", default={}) or {}
+        _ema20_0 = _g(ctx, "ema20")
+        if (not _sup0.get("at_support")) and _ema20_0 and cmp_px and cmp_px > _ema20_0:
+            sl = _ema20_0                        # EMA20 dynamic support (no zone nearby)
+        else:
+            _atr_r = _g(ctx, "atr")
+            if _atr_r:
+                sl = entry - 2.5 * _atr_r        # recovery catalyst-aware fallback (2.5×ATR)
     if rr is None and entry and sl and t1 and (entry - sl):
         rr = (t1 - entry) / (entry - sl)
     if t1 is None and entry and sl:
         t1 = entry + (rr if rr else 2.5) * (entry - sl)   # engine R:R, else 2.5R default
+    if rr is None and entry and sl and t1 and (entry - sl) > 0:
+        rr = (t1 - entry) / (entry - sl)                  # final R:R once all levels resolved
 
     # LIVE timing gate (the real recovery funnel). The recovery ENGINE already
     # enforced beaten-down + RFF + regime + RS-positive before firing, so those
@@ -11340,11 +11351,22 @@ elif page == 'GOLDEN MATCHER':
                                     help="Adds the X-Ray fundamental screener fields and folds Piotroski "
                                          "into the Overall score. Heavier (statements per name), cached 24h.")
         with _bc2:
-            _trig_tf = st.selectbox("⏱ Trigger TF", ["75m", "125m", "Daily"], key="gm_board_tf",
-                                    help="The board's technical + PA columns (Category/Step/trigger/CMP) "
-                                         "are computed on THIS timeframe. 75/125m use INTRADAY bars — which "
-                                         "move through the session, so live refresh actually updates. Daily "
-                                         "uses the closed daily bar (won't change intraday).")
+            # Trigger TF — UNIFIED with the Single Symbol page. Both widgets use the
+            # session key "gm_trig_tf" (the two views never render in the same run —
+            # the view switch is mutually exclusive) and persist to gm_settings, so
+            # changing the TF on either surface carries to the other and survives a
+            # restart. Seed from the persisted setting on first load only.
+            _tf_opts_b = ["75m", "125m", "Daily"]
+            if "gm_trig_tf" not in st.session_state:
+                _tf0 = str(_gm_settings().get("trigger_tf", "75m"))
+                st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts_b else "75m"
+            _trig_tf = st.selectbox("⏱ Trigger TF", _tf_opts_b, key="gm_trig_tf",
+                                    help="Shared with the Single Symbol page (one setting). The board's "
+                                         "technical + PA columns (Category/Step/trigger/CMP) compute on THIS "
+                                         "timeframe. 75/125m use INTRADAY bars (move through the session); "
+                                         "Daily uses the closed daily bar.")
+            if _trig_tf != _gm_settings().get("trigger_tf"):
+                _gm_settings_save(trigger_tf=_trig_tf)
             _live = st.selectbox("🟢 Live refresh", ["Off", "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"],
                                  key="gm_board_live",
                                  help="While the board is open, re-computes ONLY the technical + PA columns "
@@ -11754,15 +11776,19 @@ elif page == 'GOLDEN MATCHER':
                                       value=float(_gmset.get("risk_pct", 0.25)),
                                       key="gm_riskpct")
     with _szc3:
+        # Trigger TF — UNIFIED with the Trigger Board (shared session key "gm_trig_tf"
+        # + gm_settings). Seed from the persisted setting on first load; no index=
+        # (that would clash with the session-state value the board may have set).
         _tf_opts = ["75m", "125m", "Daily"]
-        _tf_default = str(_gmset.get("trigger_tf", "75m"))
+        if "gm_trig_tf" not in st.session_state:
+            _tf0 = str(_gmset.get("trigger_tf", "75m"))
+            st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts else "75m"
         _gm_trig_tf = st.radio(
             "Trigger TF (Step-5 PA battery + momentum board)", _tf_opts, horizontal=True,
-            index=_tf_opts.index(_tf_default) if _tf_default in _tf_opts else 0,
             key="gm_trig_tf",
-            help="The Step-5 PA trigger battery and the Technical-Board momentum gauges "
-                 "(RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. Context/Quality "
-                 "(Stage · RS · Alpha · catalyst · demand-zones) stay Daily/Weekly — they're positional.")
+            help="Shared with the Trigger Board (one setting). The Step-5 PA trigger battery "
+                 "and momentum gauges (RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. "
+                 "Context/Quality (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly.")
     if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
             or (_gm_trig_tf != _gmset.get("trigger_tf")):
         _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct, trigger_tf=_gm_trig_tf)
