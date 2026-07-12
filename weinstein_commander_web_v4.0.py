@@ -2790,6 +2790,25 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         (None if (v is None or (isinstance(v, float) and math.isnan(v))) else v)
         for v in (entry, sl, t1, t2, rr, sl_pct)]
 
+    # ROBUST LEVELS (mirror the bull path). The recovery engine row can lack
+    # absolute Entry/SL/T1 (a Wyckoff WYC-* signal, or an ad-hoc name not in the
+    # batch scan) — which left the guided-execution sizer EMPTY on a live recovery
+    # trigger, unlike the bull path (which defaults Entry to CMP + derives SL/T1
+    # from %). Default Entry to CMP and derive SL/T1 from % / R / ATR so an
+    # actionable recovery trigger ALWAYS populates the plan.
+    if entry is None:
+        entry = cmp_px
+    if sl is None and entry and sl_pct is not None:
+        sl = entry * (1 - sl_pct / 100.0)
+    if sl is None and entry:
+        _atr_r = _g(ctx, "atr")
+        if _atr_r:
+            sl = entry - 2.5 * _atr_r            # recovery catalyst-aware fallback (2.5×ATR)
+    if rr is None and entry and sl and t1 and (entry - sl):
+        rr = (t1 - entry) / (entry - sl)
+    if t1 is None and entry and sl:
+        t1 = entry + (rr if rr else 2.5) * (entry - sl)   # engine R:R, else 2.5R default
+
     # LIVE timing gate (the real recovery funnel). The recovery ENGINE already
     # enforced beaten-down + RFF + regime + RS-positive before firing, so those
     # gates are tautologically true for every fired name (all pass). The
