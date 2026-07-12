@@ -11836,6 +11836,7 @@ elif page == 'GOLDEN MATCHER':
     # like the board (zero-drift). Separate ctx copies per path so a bull archetype
     # can't make the recovery workflow think it's inherited, and vice-versa.
     _cb_ss = dict(ctx); _cr_ss = dict(ctx)
+    _ib_ss = []; _ir_ss = []
     try:
         import gm_trigger_board as _gtb_inh
         _inh_ss = _gtb_inh.resolve_archetypes(symbol)
@@ -11848,6 +11849,22 @@ elif page == 'GOLDEN MATCHER':
         pass
     wf_bull = compute_workflow(rec, _cb_ss, cmp_px, mansfield)
     wf_rec = compute_recovery_workflow(rec_r, _cr_ss, cmp_px) if rec_r else None
+    _inh_bull_on = bool(wf_bull.get("inherited"))
+    _inh_rec_on = bool(wf_rec.get("inherited")) if wf_rec else False
+
+    # P1 — INHERITED banner: make it explicit when this name is timed off its SOURCE
+    # WATCHLIST archetype (Context/Quality trusted, not re-screened live). Same model
+    # the board uses (zero-drift). Absent = a name with no source → legacy re-qualify.
+    if _inh_bull_on or _inh_rec_on:
+        _arche_lbl = ", ".join(dict.fromkeys(
+            (_ib_ss if _inh_bull_on else []) + (_ir_ss if _inh_rec_on else []))) or "watchlist"
+        st.markdown(
+            f"<div style='border-left:3px solid #7E57C2;background:#7E57C214;border-radius:4px;"
+            f"padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
+            f"🧬 <b>Inherited setup — {_arche_lbl}</b> (qualified by its source watchlist). "
+            f"Context &amp; Quality are trusted; this name is <b>timed</b> (still-valid guard → "
+            f"Location → Trigger), not re-screened. A break-down (Stage 3/4 · lost 30WMA) shows "
+            f"<b>INVALIDATED</b>.</div>", unsafe_allow_html=True)
 
     # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
     # the trading TF while Steps 1-4 remain Daily/Weekly positional context.
@@ -11868,7 +11885,7 @@ elif page == 'GOLDEN MATCHER':
         # AND stock beaten-down ≥10%). A market-path artifact (signal fired at/near
         # highs) or no signal both get a concise note — so two "no real recovery"
         # names never render differently (one full red path, one one-liner).
-        if wf_rec is not None and rec_fired_real:
+        if wf_rec is not None and (rec_fired_real or _inh_rec_on):
             st.markdown(render_workflow(wf_rec), unsafe_allow_html=True)
         elif rec_fired_mktpath:
             st.info(f"Recovery engine notes **{rec_label}** only via the market-recovery regime — "
@@ -11904,13 +11921,16 @@ elif page == 'GOLDEN MATCHER':
     # the two have DIFFERENT entries/stops/targets — so let the trader choose
     # which setup to execute rather than silently defaulting. Otherwise the one
     # applicable path leads automatically.
-    _both_fire = _bull_active and rec_fired_real and wf_rec is not None
+    # A path is "in play" if it fires live OR it's inherited from a source watchlist.
+    _bull_play = _bull_active or _inh_bull_on
+    _rec_play = (rec_fired_real or _inh_rec_on) and wf_rec is not None
+    _both_fire = _bull_play and _rec_play
     if _both_fire:
         _pick = st.radio(
             "⚡ This name fires BOTH a bull and a recovery setup — trade which?",
             ["🐂 Bull", "🔄 Recovery"], horizontal=True, key=f"gm_path_{symbol}")
         wf = wf_rec if _pick.startswith("🔄") else wf_bull
-    elif rec_fired_real and not _bull_active and wf_rec is not None:
+    elif _rec_play and not _bull_play:
         wf = wf_rec
     else:
         wf = wf_bull
