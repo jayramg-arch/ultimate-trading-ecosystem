@@ -474,76 +474,39 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     g       = the web app's `_g` getter helper.
     Returns a row dict, or None if the name can't be loaded.
     """
-    data = loaders["load_symbol"](sym) or {}
-    rec = dict(data.get("rec") or {})
-    ctx = dict(data.get("ctx") or {})
-    fun = data.get("fun") or {}
-    ctx["bff"] = data.get("bff")
+    # SINGLE SOURCE OF TRUTH — the board evaluates a name via the EXACT same
+    # gm_evaluate() the Single Symbol page uses (injected as loaders["evaluate"]).
+    # This is what guarantees the two surfaces can never disagree: identical
+    # cmp_px, intraday overlay, inherited setup, and workflows. build_row only
+    # SELECTS which path is primary (per the name's sides) and formats the row.
+    _tf = loaders.get("trigger_tf") or "75m"
+    ev = loaders["evaluate"](sym, _tf) or {}
+    data = ev.get("data") or {}
+    rec = ev.get("rec") or {}
+    ctx = ev.get("ctx") or {}
+    fun = ev.get("fun") or {}
     if not rec and not ctx:
         return None
-
-    cmp_px = g(ctx, "cmp") or g(rec, "Entry")
-    rs_ratio = g(rec, "JdK_RS_Ratio")
-    mansfield = (rs_ratio - 100.0) if rs_ratio is not None else None
-
-    # Intraday trigger TF (75/125m) — overlay the intraday PA battery + momentum
-    # (+ live CMP) so the technicals/category MOVE through the session; the daily
-    # bar is closed-only and won't change intraday. Mirrors the single-symbol view.
-    _tf = loaders.get("trigger_tf")
-    _load_intra = loaders.get("load_intraday")
-    if _tf in ("75m", "125m") and _load_intra:
-        try:
-            _intra = _load_intra(sym, 75 if _tf == "75m" else 125) or {}
-            if _intra.get("ok"):
-                ctx["_trigger_tf"] = _tf
-                if _intra.get("pa") is not None:      ctx["pa_patterns"] = _intra["pa"]
-                if _intra.get("rpa") is not None:     ctx["recovery_pa_patterns"] = _intra["rpa"]
-                if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
-                if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
-                if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
-                if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
-                if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # live price
-        except Exception:
-            pass
+    cmp_px = ev.get("cmp_px")
+    mansfield = ev.get("mansfield")
+    rec_r = ev.get("rec_r") or {}
+    _wfb = ev.get("wf_bull")
+    _wfr = ev.get("wf_rec")
+    _inh_bull = ev.get("inherited_bull") or []
+    _inh_rec = ev.get("inherited_rec") or []
 
     sides = info["sides"]
     # Empty sides = a ★-only Golden Matcher name not resolvable to a per-strategy
-    # list — time it on BOTH paths (no archetype to inherit → it re-qualifies the
-    # legacy way), so it's never silently dropped.
+    # list — time it on BOTH paths, so it's never silently dropped.
     _no_side = not sides
     run_bull = ("bull" in sides) or ("both" in sides) or _no_side
     run_rec = ("recovery" in sides) or ("both" in sides) or _no_side
 
-    # P1 — INHERITED QUALIFICATION: this name was already qualified by its source
-    # watchlist (Chartink+Screener), so pass its archetype(s) into the workflow. The
-    # workflow then trusts Context/Quality (running only a still-valid guard) and
-    # TIMES the name instead of re-screening it. Path-split so each engine only sees
-    # its own archetypes.
-    _arche = list(info.get("archetypes") or [])
-    _inh_bull = [a for a in _arche if a in BULL_ARCHETYPES]
-    _inh_rec = [a for a in _arche if a in RECOVERY_ARCHETYPES]
-
     cands = []          # (category, path, wf)
-    rec_r = None
-    if run_bull:
-        try:
-            _cb = dict(ctx)
-            if _inh_bull:
-                _cb["inherited_setup"] = _inh_bull
-            wf = loaders["bull_wf"](rec, _cb, cmp_px, mansfield)
-            cands.append((trigger_category(wf.get("verdict"), "bull"), "bull", wf))
-        except Exception:
-            pass
-    if run_rec:
-        try:
-            rec_r = loaders["load_recovery"](sym) or {}
-            _cr = dict(ctx)
-            if _inh_rec:
-                _cr["inherited_setup"] = _inh_rec
-            wf = loaders["rec_wf"](rec_r, _cr, cmp_px)
-            cands.append((trigger_category(wf.get("verdict"), "recovery"), "recovery", wf))
-        except Exception:
-            pass
+    if run_bull and _wfb is not None:
+        cands.append((trigger_category(_wfb.get("verdict"), "bull"), "bull", _wfb))
+    if run_rec and _wfr is not None:
+        cands.append((trigger_category(_wfr.get("verdict"), "recovery"), "recovery", _wfr))
     if not cands:
         return None
 

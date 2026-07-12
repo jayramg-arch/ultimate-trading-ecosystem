@@ -3000,6 +3000,70 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)
 
 
+def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) -> dict:
+    """SINGLE SOURCE OF TRUTH for one symbol's GM decision. Both the Single Symbol
+    page AND the Trigger Board (via loaders["evaluate"]) call THIS — so they can
+    never diverge on assembly (cmp_px, intraday overlay, inherited setup) or on the
+    workflow result. Assembles rec/ctx/cmp_px/mansfield + the same intraday overlay,
+    inherits the source archetype, and runs BOTH workflows. The caller decides what
+    to render / which path is primary; the computation is shared."""
+    data = gm_load_symbol(symbol) or {}
+    rec = dict(data.get("rec") or {})
+    ctx = dict(data.get("ctx") or {})
+    fun = data.get("fun") or {}
+    bff = data.get("bff")
+    ctx["bff"] = bff
+    cmp_px = _g(ctx, "cmp") or _g(rec, "Entry")
+    rs_ratio = _g(rec, "JdK_RS_Ratio")
+    mansfield = (rs_ratio - 100.0) if rs_ratio is not None else None
+
+    # Intraday trigger-TF overlay (Step-5 battery + momentum + LIVE cmp). Identical
+    # to what the board used to inline — now the ONE place it lives.
+    intra_ok = False; intra_label = ""
+    if trigger_tf in ("75m", "125m"):
+        _mins = 75 if trigger_tf == "75m" else 125
+        _intra = gm_load_intraday(symbol, _mins) or {}
+        if _intra.get("ok"):
+            intra_ok = True
+            ctx["_trigger_tf"] = trigger_tf
+            ctx["pa_patterns"] = _intra.get("pa")
+            ctx["recovery_pa_patterns"] = _intra.get("rpa")
+            if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
+            if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
+            if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
+            if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
+            if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # LIVE intraday price
+            intra_label = f"⏱ Trigger TF **{trigger_tf}** · bar {_intra.get('last_ts','?')} · {_intra.get('bars','?')} bars"
+        else:
+            intra_label = f"⏱ Trigger TF {trigger_tf} — intraday unavailable ({_intra.get('reason','?')}); showing Daily PA"
+
+    rec_r = gm_load_recovery(symbol, deep=deep_rec) or {}
+
+    # Inherited source archetype (one resolver, shared) → per-path ctx copies so a
+    # bull archetype can't spoof the recovery inherited-branch and vice-versa.
+    ib, ir = [], []
+    try:
+        import gm_trigger_board as _gtb
+        if hasattr(_gtb, "resolve_archetypes"):
+            _inh = _gtb.resolve_archetypes(symbol)
+            _arche = _inh.get("archetypes") or []
+            ib = [a for a in _arche if a in _gtb.BULL_ARCHETYPES]
+            ir = [a for a in _arche if a in _gtb.RECOVERY_ARCHETYPES]
+    except Exception:
+        pass
+    _cb = dict(ctx); _cr = dict(ctx)
+    if ib: _cb["inherited_setup"] = ib
+    if ir: _cr["inherited_setup"] = ir
+
+    wf_bull = compute_workflow(rec, _cb, cmp_px, mansfield)
+    wf_rec = compute_recovery_workflow(rec_r, _cr, cmp_px) if rec_r else None
+    return dict(data=data, rec=rec, ctx=ctx, fun=fun, bff=bff,
+                cmp_px=cmp_px, mansfield=mansfield, rec_r=rec_r,
+                wf_bull=wf_bull, wf_rec=wf_rec,
+                inherited_bull=ib, inherited_rec=ir,
+                intra_ok=intra_ok, intra_label=intra_label)
+
+
 def render_workflow(wf: dict) -> str:
     cmap = {"pass": "#26A69A", "fail": "#EF5350", "wait": "#FF9800",
             "pending": "#2962FF", "skip": "#9aa0a6", "plan": "#26A69A"}
@@ -11309,12 +11373,13 @@ elif page == 'GOLDEN MATCHER':
                     from weinstein_xray_screener import get_xray_scorecard as _xray_fn
                 except Exception:
                     _xray_fn = None
-            _loaders = dict(load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
+            _loaders = dict(evaluate=gm_evaluate,          # SINGLE source of truth (shared with Single Symbol)
+                            load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
                             bull_wf=compute_workflow, rec_wf=compute_recovery_workflow,
                             minervini=minervini_checks, nse_metrics=_nse_metrics,
                             xray=_xray_fn, use_xray=bool(_use_xray),
                             load_intraday=gm_load_intraday,
-                            trigger_tf=(_trig_tf if _trig_tf in ("75m", "125m") else None),
+                            trigger_tf=_trig_tf,           # "75m"/"125m"/"Daily" — gm_evaluate honours Daily
                             overall_weights=_gtb.OVERALL_PRESETS.get(_score_mode))
             _rows = []
             _items = list(_uni.items())
@@ -11701,39 +11766,38 @@ elif page == 'GOLDEN MATCHER':
     except Exception:
         pass
 
-    # Shallow-copy rec/ctx before any patching so the intraday overrides below
-    # never mutate (poison) the cached gm_load_symbol result.
-    rec = dict(data.get("rec") or {})
-    ctx = dict(data.get("ctx") or {})
-    fun = data.get("fun") or {}
-    ctx["bff"] = data.get("bff")           # Bull Fundamental Filter status (display-only)
-
-    # ---- Intraday trigger TF (Step-5 PA battery + momentum board) ----
-    # Context/Quality/Setup/Location stay Daily/Weekly (positional); only the
-    # TRIGGER battery + momentum gauges recompute on the selected trading TF.
-    _intra_ok = False; _intra_label = ""
-    _trig_tf = st.session_state.get("gm_trig_tf", "75m")
-    if _trig_tf in ("75m", "125m"):
-        _mins = 75 if _trig_tf == "75m" else 125
-        _intra = gm_load_intraday(symbol, _mins)
-        if _intra.get("ok"):
-            _intra_ok = True
-            ctx["_trigger_tf"] = _trig_tf          # so the workflow text says "fired on the 75m", not "daily"
-            ctx["pa_patterns"] = _intra["pa"]
-            ctx["recovery_pa_patterns"] = _intra["rpa"]
-            if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
-            if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
-            if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
-            if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
-            _intra_label = f"⏱ Trigger TF **{_trig_tf}** · bar {_intra['last_ts']} · {_intra['bars']} bars"
-        else:
-            _intra_label = f"⏱ Trigger TF {_trig_tf} — intraday unavailable ({_intra.get('reason','?')}); showing Daily PA"
-
-    # Recovery engine — loaded separately so it never stalls TV auto-sync.
-    # Fast (cache-only) by default; a per-symbol "deep" toggle does the live
-    # RFF fundamental fetch on demand.
+    # ---- SINGLE SOURCE OF TRUTH ------------------------------------------------
+    # Evaluate EXACTLY like the Trigger Board: gm_evaluate() is the one function
+    # both surfaces call, so cmp_px / intraday overlay / inherited setup / the two
+    # workflows are byte-identical here and on the board. No more duplicated
+    # assembly = no more category disagreement.
     _deep_rec = bool(st.session_state.get(f"gm_deeprec_{symbol}", False))
-    rec_r = gm_load_recovery(symbol, deep=_deep_rec) or {}
+    _trig_tf = st.session_state.get("gm_trig_tf", "75m")
+    _ev = gm_evaluate(symbol, trigger_tf=_trig_tf, deep_rec=_deep_rec)
+    data = _ev["data"]
+    rec = _ev["rec"]; ctx = _ev["ctx"]; fun = _ev["fun"]
+    rec_r = _ev["rec_r"]
+    wf_bull = _ev["wf_bull"]; wf_rec = _ev["wf_rec"]
+    _intra_ok = _ev["intra_ok"]; _intra_label = _ev["intra_label"]
+    _ib_ss = _ev["inherited_bull"]; _ir_ss = _ev["inherited_rec"]
+    _inh_bull_on = bool(wf_bull.get("inherited"))
+    _inh_rec_on = bool(wf_rec.get("inherited")) if wf_rec else False
+    # Trigger-Board-IDENTICAL category — same wfs (shared gm_evaluate) + the same
+    # most-actionable selection the board uses. Shown as the headline so this page
+    # and the board can be reconciled at a glance (they now agree by construction).
+    _board_cat = None
+    try:
+        import gm_trigger_board as _gtbx
+        _bside = bool(_ib_ss); _rside = bool(_ir_ss); _noside = not (_bside or _rside)
+        _bc = []
+        if _bside or _noside:
+            _bc.append(_gtbx.trigger_category(wf_bull.get("verdict"), "bull"))
+        if wf_rec is not None and (_rside or _noside):
+            _bc.append(_gtbx.trigger_category(wf_rec.get("verdict"), "recovery"))
+        if _bc:
+            _board_cat = max(_bc, key=lambda c: _gtbx._cat_rank(c))
+    except Exception:
+        _board_cat = None
     # Recovery signal state (parallel to the bull catalyst above).
     rec_sig   = int(_g(rec_r, "Signal", default=0) or 0)
     rec_label = str(_g(rec_r, "Signal_Label", default="None"))
@@ -11761,14 +11825,14 @@ elif page == 'GOLDEN MATCHER':
     # Header — name, CMP, change, verdict
     # ----------------------------------------------------------------------------------------
     name = _g(fun, "name", default=symbol)
-    cmp_px = _g(ctx, "cmp") or _g(rec, "Entry")
+    # cmp_px / mansfield already set by gm_evaluate (intraday-aware) — do NOT
+    # recompute cmp_px from the daily ctx here (that was the board-vs-single drift).
+    cmp_px = _ev["cmp_px"]; mansfield = _ev["mansfield"]
     prev = _g(ctx, "prev", default=cmp_px)
     chg_pct = ((cmp_px - prev) / prev * 100) if (cmp_px and prev) else 0.0
     catalyst = _g(rec, "Catalyst", default="NONE")
     stage = str(_g(rec, "Stage", default="—"))
     alpha = _g(rec, "Alpha", default=None)
-    rs_ratio = _g(rec, "JdK_RS_Ratio")
-    mansfield = (rs_ratio - 100.0) if rs_ratio is not None else None
     ml_prob = _g(rec, "ML_Prob")
     
     h1, h2, h3 = st.columns([3, 1.3, 1.6])
@@ -11832,25 +11896,8 @@ elif page == 'GOLDEN MATCHER':
     # ----------------------------------------------------------------------------------------
     decision = compute_decision(rec, ctx, cmp_px, mansfield)
     _bull_active = _cat_on(catalyst)
-    # P1 — inherit the source-watchlist archetype so this page TIMES the name exactly
-    # like the board (zero-drift). Separate ctx copies per path so a bull archetype
-    # can't make the recovery workflow think it's inherited, and vice-versa.
-    _cb_ss = dict(ctx); _cr_ss = dict(ctx)
-    _ib_ss = []; _ir_ss = []
-    try:
-        import gm_trigger_board as _gtb_inh
-        _inh_ss = _gtb_inh.resolve_archetypes(symbol)
-        _arche_ss = _inh_ss.get("archetypes") or []
-        _ib_ss = [a for a in _arche_ss if a in _gtb_inh.BULL_ARCHETYPES]
-        _ir_ss = [a for a in _arche_ss if a in _gtb_inh.RECOVERY_ARCHETYPES]
-        if _ib_ss: _cb_ss["inherited_setup"] = _ib_ss
-        if _ir_ss: _cr_ss["inherited_setup"] = _ir_ss
-    except Exception:
-        pass
-    wf_bull = compute_workflow(rec, _cb_ss, cmp_px, mansfield)
-    wf_rec = compute_recovery_workflow(rec_r, _cr_ss, cmp_px) if rec_r else None
-    _inh_bull_on = bool(wf_bull.get("inherited"))
-    _inh_rec_on = bool(wf_rec.get("inherited")) if wf_rec else False
+    # wf_bull / wf_rec / inheritance already computed by gm_evaluate() above — the
+    # SAME call the Trigger Board uses, so the two surfaces can't disagree.
 
     # P1 — INHERITED banner: make it explicit when this name is timed off its SOURCE
     # WATCHLIST archetype (Context/Quality trusted, not re-screened live). Same model
@@ -11873,6 +11920,17 @@ elif page == 'GOLDEN MATCHER':
         st.markdown(f"<div style='border-left:3px solid {_il_col};background:{_il_col}14;"
                     f"border-radius:4px;padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
                     f"{_intra_label} &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
+                    f"</div>", unsafe_allow_html=True)
+
+    # Trigger-Board-identical category headline — the exact value you'd see in the
+    # board's Category column for this symbol (same gm_evaluate, same selection).
+    if _board_cat:
+        _bc_actionable = _board_cat.split(" · ")[0] in ("Buy Trigger Live", "Armed Wait", "Wait for Pullback")
+        _bc_col = "#26A69A" if _board_cat.startswith("Buy Trigger") else ("#FF9800" if _bc_actionable else "#787B86")
+        st.markdown(f"<div style='border-left:3px solid {_bc_col};background:{_bc_col}14;"
+                    f"border-radius:4px;padding:6px 10px;margin:2px 0 8px;font-size:13px'>"
+                    f"📋 <b>Trigger-Board category:</b> <b style='color:{_bc_col}'>{_board_cat}</b> "
+                    f"&nbsp;·&nbsp; TF {_trig_tf} — this matches the board's Category column exactly."
                     f"</div>", unsafe_allow_html=True)
 
     _wcol1, _wcol2 = st.columns(2)
