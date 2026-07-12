@@ -2615,9 +2615,29 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         sl = t1 = None
         plan = "No active catalyst → no plan yet. Levels are reference only."
 
+    # ── LOCATION FALLBACK (Jay's rule): when the catalyst plan gives NO levels and
+    # there's no nearby demand zone / OB / FVG, use EMA20 as the DYNAMIC support so a
+    # location / R:R is ALWAYS computed. For a long above EMA20: risk = cmp − EMA20;
+    # target = the 52W high (natural overhead), else a 2R default. If price is below
+    # EMA20, EMA20 is resistance (not a long stop) → no fallback, location stays weak.
+    _ema20 = _g(ctx, "ema20"); _atr = _g(ctx, "atr")
+    _sup0 = _g(ctx, "support", default={}) or {}
+    _near_zone = bool(_sup0.get("at_support"))          # a real demand zone/OB/FVG is nearby
+    if rr is None and not _near_zone and _ema20 and cmp_px and cmp_px > _ema20:
+        _risk = cmp_px - _ema20
+        if _risk > 0:
+            _d52 = _g(ctx, "dist52wh")                  # % below 52WH (negative)
+            _tgt = cmp_px * (1 + abs(_d52) / 100.0) if (_d52 is not None and _d52 < 0) else None
+            if not _tgt or _tgt <= cmp_px:
+                _tgt = cmp_px + 2.0 * _risk             # 2R default when no overhead level
+            entry, sl, t1 = cmp_px, _ema20, _tgt
+            sl_pct = _risk / cmp_px * 100.0
+            rr = (_tgt - cmp_px) / _risk
+            plan = (f"No catalyst plan — EMA20 as dynamic support: buy-STOP above the trigger "
+                    f"bar, SL {inr(sl)} (EMA20, −{sl_pct:.1f}%), target {inr(t1)} ({fnum(rr,1)}R).")
+
     # ── Step-4 "room" rule: R:R (the real reward-room off the disciplined stop) +
     # EMA20 extension/direction. EMA20 (daily) = support above / resistance below.
-    _ema20 = _g(ctx, "ema20"); _atr = _g(ctx, "atr")
     ema20_dist_atr = ((cmp_px - _ema20) / _atr) if (_ema20 and _atr and _atr > 0) else None
     above_ema20 = bool(_ema20 and cmp_px >= _ema20)
     rr_ok = (rr is not None and rr >= RR_MIN_LOCATION)
@@ -11434,13 +11454,19 @@ elif page == 'GOLDEN MATCHER':
             _edited = st.data_editor(
                 _view, use_container_width=True, hide_index=True, key="gm_board_editor",
                 column_config={
+                    "★": st.column_config.TextColumn(
+                        "★", width="small",
+                        help="Top-Conviction badge — the name is in FINAL_WATCHLIST.csv, i.e. the "
+                             "top-25 by Combined_Score across all bull+recovery picks (the Golden "
+                             "Matcher shortlist). A quality flag layered on top of the archetype."),
                     "RRG": st.column_config.SelectboxColumn(
                         "RRG Flag", options=_gtb.RRG_QUADRANTS, width="small",
                         help="Set from Strike.Money — persists per symbol."),
                     "Overall": st.column_config.ProgressColumn(
                         "Overall", min_value=0, max_value=100, format="%.0f",
-                        help="0-100 opportunity score — Combined/Conviction/Alpha/Fundamentals/R:R/RS/"
-                             "Piotroski, reweighted for missing inputs. Independent of category & path."),
+                        help="0-100 opportunity score — Leadership(Alpha+Minervini)/Fundamentals(Conviction/"
+                             "BFF-or-RFF/Piotroski)/Setup(ΣPA+catalyst+VCP)/Risk(R:R), reweighted for missing "
+                             "inputs. Independent of category & path."),
                 },
                 disabled=[c for c in _view.columns if c != "RRG"],
             )
@@ -11557,6 +11583,12 @@ elif page == 'GOLDEN MATCHER':
                     # (3) AG-Grid with native cell-change flash on the live columns
                     _gb = GridOptionsBuilder.from_dataframe(_v)
                     _gb.configure_default_column(sortable=True, filter=True, resizable=True)
+                    # Pin the decision columns to the left so Overall/Category are ALWAYS
+                    # visible (the grid has ~39 cols; Overall was scrolling off-screen).
+                    for _pc, _pw in (("Symbol", 96), ("★", 42), ("Overall", 90),
+                                     ("Category", 150), ("Archetype", 120), ("Loc", 120)):
+                        if _pc in _v.columns:
+                            _gb.configure_column(_pc, pinned="left", width=_pw)
                     _gb.configure_column("RRG", editable=True, cellEditor="agSelectCellEditor",
                                          cellEditorParams={"values": _gtb.RRG_QUADRANTS})
                     if "PrevClose" in _v.columns:
@@ -11979,17 +12011,22 @@ elif page == 'GOLDEN MATCHER':
     # the two have DIFFERENT entries/stops/targets — so let the trader choose
     # which setup to execute rather than silently defaulting. Otherwise the one
     # applicable path leads automatically.
-    # A path is "in play" if it fires live OR it's inherited from a source watchlist.
-    _bull_play = _bull_active or _inh_bull_on
-    _rec_play = (rec_fired_real or _inh_rec_on) and wf_rec is not None
-    _both_fire = _bull_play and _rec_play
-    if _both_fire:
+    # The recovery path is SHOWN whenever it's a genuine/inherited recovery (the bull
+    # path always renders). Whenever BOTH are shown, offer the radio so the trader
+    # picks which to EXECUTE — and DEFAULT to the MORE-ACTIONABLE path. (The bug: the
+    # radio used to default to Bull, so DLF showed Bull·Avoid in Guided Execution even
+    # though Recovery·Buy-Trigger-Live was the valid setup.)
+    import gm_trigger_board as _gtbp
+    _rec_shown = (wf_rec is not None) and (rec_fired_real or _inh_rec_on)
+    if _rec_shown:
+        _br = _gtbp._cat_rank(_gtbp.trigger_category(wf_bull.get("verdict"), "bull"))
+        _rr = _gtbp._cat_rank(_gtbp.trigger_category(wf_rec.get("verdict"), "recovery"))
+        _default_idx = 1 if _rr > _br else 0        # default to the more-actionable path
         _pick = st.radio(
-            "⚡ This name fires BOTH a bull and a recovery setup — trade which?",
-            ["🐂 Bull", "🔄 Recovery"], horizontal=True, key=f"gm_path_{symbol}")
+            "⚡ This name is valid on BOTH paths — execute which? (defaulting to the more-actionable)",
+            ["🐂 Bull", "🔄 Recovery"], horizontal=True, index=_default_idx,
+            key=f"gm_path_{symbol}")
         wf = wf_rec if _pick.startswith("🔄") else wf_bull
-    elif _rec_play and not _bull_play:
-        wf = wf_rec
     else:
         wf = wf_bull
     _pa_html = render_pa_banner(ctx)
