@@ -27,29 +27,51 @@ _BOARD_META = os.path.join(_ROOT, "gm_board_cache.json")     # stamps sidecar
 # RRG quadrants — the dropdown options (manually set from Strike.Money). "—" = unset.
 RRG_QUADRANTS = ["—", "Leading", "Improving", "Weakening", "Lagging"]
 
-# (file, label, tier, side)  side: 'bull' | 'recovery' | 'both'
+# P1 (12 Jul 2026) — PER-STRATEGY sources so every name inherits its SETUP ARCHETYPE
+# (the watchlist qualified it; the board only times it). A name in >1 list carries
+# ALL its archetypes (show-all). FINAL_WATCHLIST is NOT an archetype source — it is
+# the top-25-by-Combined_Score union, so its names already live in the per-strategy
+# lists; membership is surfaced only as a ★ Top-Conviction badge.
+# (file, label, tier, side, archetype)  side: 'bull' | 'recovery'
 WATCHLISTS = [
-    ("FINAL_WATCHLIST.csv",                    "Golden Matcher",    "Rigorous",  "both"),
-    ("FINAL_COMBINED_BULL_PICKS.csv",          "Bull ALL",          "Rigorous",  "bull"),
-    ("FINAL_COMBINED_RECOVERY_PICKS.csv",      "Recovery ALL",      "Rigorous",  "recovery"),
-    ("FINAL_CATALYST_WATCHLIST.csv",           "Bull Catalyst",     "Discovery", "bull"),
-    ("FINAL_RECOVERY_CATALYST_WATCHLIST.csv",  "Recovery Catalyst", "Discovery", "recovery"),
+    ("FINAL_Hunter_Picks.csv",                 "Hunter",     "Rigorous",  "bull",     "Breakout"),
+    ("FINAL_EarlyBird_Picks.csv",              "EarlyBird",  "Rigorous",  "bull",     "Accumulation"),
+    ("FINAL_Pullback_Picks.csv",               "Pullback",   "Rigorous",  "bull",     "Pullback"),
+    ("FINAL_Leader_Picks.csv",                 "Leader",     "Rigorous",  "bull",     "Leader"),
+    ("FINAL_CATALYST_WATCHLIST.csv",           "Bull Catalyst",     "Discovery", "bull",     "Catalyst"),
+    ("FINAL_Recovery_RSLeaders.csv",           "Rec RS",     "Rigorous",  "recovery", "Recovery-RS"),
+    ("FINAL_Recovery_ClimaxBounce.csv",        "Rec Climax", "Rigorous",  "recovery", "Recovery-Climax"),
+    ("FINAL_Recovery_EarlyBirds.csv",          "Rec Early",  "Rigorous",  "recovery", "Recovery-Early"),
+    ("FINAL_RECOVERY_CATALYST_WATCHLIST.csv",  "Recovery Catalyst", "Discovery", "recovery", "Recovery-Catalyst"),
 ]
+# Top-conviction union (top-25 by Combined_Score) — ★ badge + conviction/combined source.
+STAR_SOURCE = "FINAL_WATCHLIST.csv"
+
+# Which archetypes belong to which path (drives the still-valid guard + inherited setup).
+BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst"}
+RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Recovery-Catalyst"}
 
 
 def load_watchlist_union() -> dict:
-    """Union of the watchlists, deduped by symbol. Returns
-    {SYMBOL: {'sources': [labels], 'tier': 'Rigorous'|'Discovery', 'sides': set}}.
-    Rigorous membership upgrades the tier tag (a name in both is Rigorous)."""
+    """Union of the per-strategy watchlists, deduped by symbol. Returns
+    {SYMBOL: {'sources':[labels], 'archetypes':[…], 'tier':…, 'sides':set,
+              'conviction':…, 'combined':…, 'star':bool}}.
+    Each name INHERITS every archetype whose list it appears in (show-all)."""
     import pandas as pd
     uni: dict = {}
-    for fname, label, tier, side in WATCHLISTS:
+
+    def _read(fname):
         p = os.path.join(_ROOT, fname)
         if not os.path.exists(p):
-            continue
+            return None
         try:
-            df = pd.read_csv(p)
+            return pd.read_csv(p)
         except Exception:
+            return None
+
+    for fname, label, tier, side, archetype in WATCHLISTS:
+        df = _read(fname)
+        if df is None:
             continue
         col = "Symbol" if "Symbol" in df.columns else df.columns[0]
         has_conv = "Conviction" in df.columns
@@ -58,15 +80,45 @@ def load_watchlist_union() -> dict:
             s = str(r[col]).strip().upper().replace("NSE:", "").replace("BSE:", "")
             if not s or s == "NAN":
                 continue
-            e = uni.setdefault(s, {"sources": [], "tier": "Discovery", "sides": set(),
-                                   "conviction": None, "combined": None})
+            e = uni.setdefault(s, {"sources": [], "archetypes": [], "tier": "Discovery",
+                                   "sides": set(), "conviction": None, "combined": None,
+                                   "star": False})
             if label not in e["sources"]:
                 e["sources"].append(label)
+            if archetype not in e["archetypes"]:
+                e["archetypes"].append(archetype)
             e["sides"].add(side)
             if tier == "Rigorous":
                 e["tier"] = "Rigorous"
-            # Conviction / Combined_Score live in the watchlist CSVs (matcher output),
-            # NOT the live single-symbol engine — carry the best value seen per symbol.
+            if has_conv:
+                cv = _to_num(r["Conviction"])
+                if cv is not None and (e["conviction"] is None or cv > e["conviction"]):
+                    e["conviction"] = cv
+            if has_comb:
+                cb = _to_num(r["Combined_Score"])
+                if cb is not None and (e["combined"] is None or cb > e["combined"]):
+                    e["combined"] = cb
+
+    # ★ Top-Conviction badge (+ conviction/combined for names present ONLY here).
+    star = _read(STAR_SOURCE)
+    if star is not None:
+        col = "Symbol" if "Symbol" in star.columns else star.columns[0]
+        has_conv = "Conviction" in star.columns
+        has_comb = "Combined_Score" in star.columns
+        for _, r in star.iterrows():
+            s = str(r[col]).strip().upper().replace("NSE:", "").replace("BSE:", "")
+            if not s or s == "NAN":
+                continue
+            e = uni.get(s)
+            if e is None:
+                # In the top-25 union but not resolvable to a per-strategy list —
+                # keep it (Golden Matcher pick) with no archetype, timed generically.
+                e = uni.setdefault(s, {"sources": [], "archetypes": [], "tier": "Rigorous",
+                                       "sides": set(), "conviction": None, "combined": None,
+                                       "star": False})
+                if "Golden Matcher" not in e["sources"]:
+                    e["sources"].append("Golden Matcher")
+            e["star"] = True
             if has_conv:
                 cv = _to_num(r["Conviction"])
                 if cv is not None and (e["conviction"] is None or cv > e["conviction"]):
@@ -76,6 +128,25 @@ def load_watchlist_union() -> dict:
                 if cb is not None and (e["combined"] is None or cb > e["combined"]):
                     e["combined"] = cb
     return uni
+
+
+def resolve_archetypes(symbol: str, uni: dict = None) -> dict:
+    """Look up a symbol's inherited setup (for the Single Symbol page to stay in
+    sync with the board). Returns {'archetypes':[…], 'sides':set, 'star':bool} or {}."""
+    s = str(symbol or "").strip().upper().replace("NSE:", "").replace("BSE:", "")
+    if not s:
+        return {}
+    if uni is None:
+        try:
+            uni = load_watchlist_union()
+        except Exception:
+            return {}
+    e = uni.get(s)
+    if not e:
+        return {}
+    return {"archetypes": list(e.get("archetypes") or []),
+            "sides": set(e.get("sides") or set()),
+            "star": bool(e.get("star"))}
 
 
 def _to_num(v):
@@ -289,6 +360,8 @@ def trigger_category(verdict: str, path: str) -> str:
         return f"Wait for Pullback · {p}"
     if "NO CATALYST" in v or "NO RECOVERY CATALYST" in v or v.startswith("BUY-WATCH"):
         return f"No Catalyst · {p}"
+    if v.startswith("INVALIDATED"):
+        return f"Invalidated · {p}"
     if v.startswith("WATCHLIST"):
         return f"Watchlist · {p}"
     if "AVOID" in v or "EXIT" in v:
@@ -298,7 +371,7 @@ def trigger_category(verdict: str, path: str) -> str:
 
 # category rank for picking the primary path when a name qualifies on both sides
 _CAT_RANK = {"Buy Trigger Live": 5, "Armed Wait": 4, "Wait for Pullback": 3,
-             "No Catalyst": 2, "Watchlist": 1, "Avoid": 0, "Other": 0}
+             "No Catalyst": 2, "Watchlist": 1, "Invalidated": 0, "Avoid": 0, "Other": 0}
 
 
 def _cat_rank(cat: str) -> int:
@@ -434,21 +507,40 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             pass
 
     sides = info["sides"]
-    run_bull = ("bull" in sides) or ("both" in sides)
-    run_rec = ("recovery" in sides) or ("both" in sides)
+    # Empty sides = a ★-only Golden Matcher name not resolvable to a per-strategy
+    # list — time it on BOTH paths (no archetype to inherit → it re-qualifies the
+    # legacy way), so it's never silently dropped.
+    _no_side = not sides
+    run_bull = ("bull" in sides) or ("both" in sides) or _no_side
+    run_rec = ("recovery" in sides) or ("both" in sides) or _no_side
+
+    # P1 — INHERITED QUALIFICATION: this name was already qualified by its source
+    # watchlist (Chartink+Screener), so pass its archetype(s) into the workflow. The
+    # workflow then trusts Context/Quality (running only a still-valid guard) and
+    # TIMES the name instead of re-screening it. Path-split so each engine only sees
+    # its own archetypes.
+    _arche = list(info.get("archetypes") or [])
+    _inh_bull = [a for a in _arche if a in BULL_ARCHETYPES]
+    _inh_rec = [a for a in _arche if a in RECOVERY_ARCHETYPES]
 
     cands = []          # (category, path, wf)
     rec_r = None
     if run_bull:
         try:
-            wf = loaders["bull_wf"](rec, ctx, cmp_px, mansfield)
+            _cb = dict(ctx)
+            if _inh_bull:
+                _cb["inherited_setup"] = _inh_bull
+            wf = loaders["bull_wf"](rec, _cb, cmp_px, mansfield)
             cands.append((trigger_category(wf.get("verdict"), "bull"), "bull", wf))
         except Exception:
             pass
     if run_rec:
         try:
             rec_r = loaders["load_recovery"](sym) or {}
-            wf = loaders["rec_wf"](rec_r, ctx, cmp_px)
+            _cr = dict(ctx)
+            if _inh_rec:
+                _cr["inherited_setup"] = _inh_rec
+            wf = loaders["rec_wf"](rec_r, _cr, cmp_px)
             cands.append((trigger_category(wf.get("verdict"), "recovery"), "recovery", wf))
         except Exception:
             pass
@@ -578,10 +670,16 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             sigma_pa=sigma_pa, catalyst_live=_cat_live, vcp=_vcp_flag,
             rr=rr, rs=mansfield, weights=loaders.get("overall_weights"))
 
+    # Inherited archetype(s) for the WINNING path (show-all) + ★ top-conviction badge.
+    _win_arche = _inh_rec if path == "recovery" else _inh_bull
+    arche_txt = ", ".join(_win_arche) if _win_arche else ", ".join(_arche)
+
     return {
         "Symbol":     sym,
+        "★":          ("★" if info.get("star") else ""),
         "Overall":    overall,
         "Category":   cat,
+        "Archetype":  arche_txt,                 # inherited setup thesis (Hunter=Breakout, …)
         "Loc":        _loc_col,                  # Step-4 location caveat (blank when fine)
         "Path":       "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller

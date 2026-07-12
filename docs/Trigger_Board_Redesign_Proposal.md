@@ -131,9 +131,28 @@ still the gate — just setup-appropriate.
 ---
 
 ## 8. Migration path (phased, low-risk — each phase shippable)
-1. **P1 — Source→archetype + still-valid guard.** Add the mapping + break-down
-   guard; as an interim, make the catalyst a *status* (the band-aid) so nothing
-   regresses. Add an `Archetype` column to the board.
+1. **P1 — Source→archetype + still-valid guard. ✅ SHIPPED 12 Jul 2026.**
+   - Board sources switched to the **per-strategy lists** (Hunter/EarlyBird/Pullback/
+     Leader + Rec RS/Climax/Early + the two catalyst lists) → every name inherits its
+     **archetype(s)** (show-all). `FINAL_WATCHLIST` demoted to a **★ Top-Conviction**
+     badge (`gm_trigger_board.WATCHLISTS`, `load_watchlist_union`, `resolve_archetypes`).
+   - **Inherited-qualification gate model** in BOTH `compute_workflow` (bull) and
+     `compute_recovery_workflow` (recovery), behind `INHERIT_QUALIFICATION=True`
+     (A/B flag): when a name carries a source archetype, **Context/Quality are no
+     longer re-derived as hard vetoes** — they become a lightweight **still-valid
+     guard** (bull: Stage 3/4 or price below the 30WMA proxy → `INVALIDATED`;
+     recovery: Stage 4 or collapsed >50% off-high). **Fundamentals (Alpha/Minervini/
+     RFF/BFF) → ranking overlay, never a block** — this is what unblocks Recovery,
+     whose fast-mode RFF was `INSUFFICIENT` and dead-ended names at "SKIP · weak
+     fundamentals". Setup = the inherited archetype (no live catalyst required).
+   - Category becomes the pure **timing state**: `INVALIDATED` / `WAIT` / `ARMED` /
+     `Buy Trigger Live`. New `Archetype` + `★` columns on the board.
+   - **Zero-drift:** the Single Symbol page resolves the same archetype
+     (`resolve_archetypes`) and times identically. Missing `sma150` never flips a
+     name to INVALIDATED (honesty rule).
+   - *Interim caveat retained:* the non-inherited path (arbitrary typed symbols with
+     no source) still uses the legacy re-qualification + the Step-3 "trigger-wins"
+     band-aid — correct, since there's no thesis to inherit.
 2. **P2 — Archetype-aware Location/Trigger** for the big three first: Breakout,
    Pullback, Recovery.
 3. **P3 — Timing-state Category** replaces the catalyst-gated verdict; retire the

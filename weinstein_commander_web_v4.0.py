@@ -2526,6 +2526,11 @@ def section_fundamentals(fun, bff=None) -> str:
 RR_MIN_LOCATION = 2.0          # min reward:risk for "good location"
 EMA20_EXT_ATR_MAX = 3.5        # bull: not extended more than this many ATR above EMA20
 EMA20_RECLAIM_BAND_PCT = 6.0   # recovery: price within this % of EMA20 = near/reclaiming
+# P1 (12 Jul 2026) — INHERITED QUALIFICATION: when a name carries a source archetype
+# (Chartink+Screener already qualified it), trust Context+Quality, run only a
+# still-valid break-down guard, and TIME it (don't re-screen). Flag lets us A/B
+# against the legacy re-qualification funnel. ON = the redesign; OFF = old behaviour.
+INHERIT_QUALIFICATION = True
 
 
 # ----------------------------------------------------------------------------------------
@@ -2574,6 +2579,25 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         g1 = s2 and rs and not s34                         # Stage-2 breakout context
         g2 = alpha >= 50 and mpass >= 5                     # Stage-2 leadership
     g3 = cat_on
+
+    # ── P1 INHERITED QUALIFICATION ──────────────────────────────────────────────
+    # When the name arrives WITH a source archetype (Chartink+Screener already
+    # qualified it), the board must NOT re-screen it. Trust Context+Quality and run
+    # only a lightweight "still-valid" break-down guard; fundamentals become a
+    # ranking overlay (never a veto); the inherited archetype IS the setup. This is
+    # what makes the rigorous watchlists — Bull AND Recovery — actionable on their
+    # own trigger instead of dead-ending on a live catalyst. Flag-gated for A/B.
+    inherited_setup = _g(ctx, "inherited_setup")
+    inherited = bool(INHERIT_QUALIFICATION and inherited_setup)
+    # Break-down guard — invalidate ONLY on positively-observed break-down (Stage 3/4
+    # OR price seen below the 30WMA proxy). Missing sma150 must NOT flip a name to
+    # INVALIDATED (honesty rule: no NaN→veto). Benefit of the doubt when unseen.
+    _below_30wma = bool(_s150 and cmp_px and cmp_px < _s150)
+    still_valid = (not s34) and (not _below_30wma)
+    if inherited:
+        g1 = still_valid          # CONTEXT → still-valid guard (not Stage-4, holds 30WMA)
+        g2 = True                 # QUALITY → overlay (Alpha/Minervini rank, never block)
+        g3 = True                 # SETUP → inherited archetype (no live catalyst required)
     # g4 (LOCATION) computed below — after R:R — in the "room rule" block.
 
     entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct"); t1_pct = _g(rec, "T1_pct")
@@ -2700,7 +2724,19 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         if s.get("hard") and not s["ok"]:
             stop_at = s["n"]; break
 
-    if s34 or not rs:
+    if inherited:
+        # INHERITED path: qualification is trusted; the ONLY veto is the break-down
+        # guard. Everything else is pure timing (arm → trigger).
+        if not still_valid:
+            verdict, color = "INVALIDATED · broke down", "#EF5350"
+        elif pa_fired:
+            verdict = "BUY — TRIGGER LIVE" + (f" · {loc_note}" if loc_note else "")
+            color = "#26A69A"
+        elif not g4:
+            verdict, color = "WAIT FOR PULLBACK", "#FF9800"
+        else:
+            verdict, color = "ARMED · AWAIT TRIGGER", "#FF9800"
+    elif s34 or not rs:
         verdict, color = "AVOID / EXIT", "#EF5350"
     elif stop_at == 1:
         verdict, color = "AVOID", "#EF5350"
@@ -2721,7 +2757,9 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         verdict, color = "ARMED · AWAIT TRIGGER", "#FF9800"
 
     # The single step that needs attention right now
-    if stop_at:
+    if inherited and not still_valid:
+        current = 1
+    elif stop_at:
         current = stop_at
     elif pa_fired:
         current = 5
@@ -2731,9 +2769,10 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         current = 4
     else:
         current = 5
-    actionable = verdict not in ("AVOID", "AVOID / EXIT", "WATCHLIST")
+    actionable = not verdict.startswith(("AVOID", "WATCHLIST", "INVALIDATED"))
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
                 current=current, actionable=actionable, loc_note=loc_note,
+                inherited=inherited, still_valid=still_valid,
                 # numeric plan levels for the page's position sizer / journal form
                 plan_entry=(entry if sl is not None else None),
                 plan_sl=sl, plan_t1=t1)
@@ -2843,6 +2882,21 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     g2 = rff_ok
     g3 = sig >= 2
 
+    # ── P1 INHERITED QUALIFICATION (recovery) ───────────────────────────────────
+    # A name from a rigorous Recovery list (Rec RS / Climax / Early) was ALREADY
+    # vetted beaten-down + fundamentally by the Chartink+Screener recovery scan. The
+    # board runs in fast/cache mode where RFF is often INSUFFICIENT (no deep fetch),
+    # which was dead-ending these names at "SKIP · weak fundamentals" — the exact
+    # blocker P1 removes. Trust the source qualification; run only a break-down guard
+    # (still declining: Stage 4, or collapsed well past the recovery band) and TIME it.
+    inherited_setup = _g(ctx, "inherited_setup")
+    inherited = bool(INHERIT_QUALIFICATION and inherited_setup)
+    still_valid = (stage_num != "4") and (corr is None or corr <= 50.0)
+    if inherited:
+        g1 = still_valid       # CONTEXT → still-valid (not Stage-4, not collapsed >50%)
+        g2 = True              # QUALITY → RFF overlay (recovery scan already vetted funda)
+        g3 = True              # SETUP → inherited recovery archetype
+
     if entry and sl:
         plan = (f"Set SL {inr(sl)}" + (f" (-{sl_pct:.1f}%)" if sl_pct is not None else "") +
                 f", size at 0.25% risk, place order + GTT. "
@@ -2902,7 +2956,18 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         if s.get("hard") and not s["ok"]:
             stop_at = s["n"]; break
 
-    if stop_at == 1:
+    if inherited:
+        # INHERITED path: qualification is trusted; only the break-down guard vetoes.
+        if not still_valid:
+            verdict, color = "INVALIDATED · still declining", "#EF5350"
+        elif rpa_fired:
+            verdict = "BUY — TRIGGER LIVE · Recovery" + (f" · {loc_note}" if loc_note else "")
+            color = "#26A69A"
+        elif not loc_ok:
+            verdict, color = "WAIT FOR PULLBACK", "#FF9800"
+        else:
+            verdict, color = "ARMED · AWAIT TRIGGER · Recovery", "#FF9800"
+    elif stop_at == 1:
         verdict, color = "NOT A RECOVERY CONTEXT", "#EF5350"
     elif stop_at == 2:
         verdict, color = "SKIP · weak fundamentals", "#EF5350"
@@ -2918,7 +2983,9 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     else:
         verdict, color = "ARMED · AWAIT TRIGGER · Recovery", "#FF9800"
 
-    if stop_at:
+    if inherited and not still_valid:
+        current = 1
+    elif stop_at:
         current = stop_at
     elif rpa_fired:
         current = 5
@@ -2929,6 +2996,7 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     actionable = verdict.startswith("BUY") or verdict.startswith("ARMED") or verdict.startswith("WAIT")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
                 current=current, actionable=actionable, recovery=True, loc_note=loc_note,
+                inherited=inherited, still_valid=still_valid,
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)
 
 
@@ -11764,8 +11832,22 @@ elif page == 'GOLDEN MATCHER':
     # ----------------------------------------------------------------------------------------
     decision = compute_decision(rec, ctx, cmp_px, mansfield)
     _bull_active = _cat_on(catalyst)
-    wf_bull = compute_workflow(rec, ctx, cmp_px, mansfield)
-    wf_rec = compute_recovery_workflow(rec_r, ctx, cmp_px) if rec_r else None
+    # P1 — inherit the source-watchlist archetype so this page TIMES the name exactly
+    # like the board (zero-drift). Separate ctx copies per path so a bull archetype
+    # can't make the recovery workflow think it's inherited, and vice-versa.
+    _cb_ss = dict(ctx); _cr_ss = dict(ctx)
+    try:
+        import gm_trigger_board as _gtb_inh
+        _inh_ss = _gtb_inh.resolve_archetypes(symbol)
+        _arche_ss = _inh_ss.get("archetypes") or []
+        _ib_ss = [a for a in _arche_ss if a in _gtb_inh.BULL_ARCHETYPES]
+        _ir_ss = [a for a in _arche_ss if a in _gtb_inh.RECOVERY_ARCHETYPES]
+        if _ib_ss: _cb_ss["inherited_setup"] = _ib_ss
+        if _ir_ss: _cr_ss["inherited_setup"] = _ir_ss
+    except Exception:
+        pass
+    wf_bull = compute_workflow(rec, _cb_ss, cmp_px, mansfield)
+    wf_rec = compute_recovery_workflow(rec_r, _cr_ss, cmp_px) if rec_r else None
 
     # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
     # the trading TF while Steps 1-4 remain Daily/Weekly positional context.
