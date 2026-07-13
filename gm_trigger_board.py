@@ -38,18 +38,21 @@ WATCHLISTS = [
     ("FINAL_EarlyBird_Picks.csv",              "EarlyBird",  "Rigorous",  "bull",     "Accumulation"),
     ("FINAL_Pullback_Picks.csv",               "Pullback",   "Rigorous",  "bull",     "Pullback"),
     ("FINAL_Leader_Picks.csv",                 "Leader",     "Rigorous",  "bull",     "Leader"),
-    ("FINAL_CATALYST_WATCHLIST.csv",           "Bull Catalyst",     "Discovery", "bull",     "Catalyst"),
+    ("FINAL_CATALYST_WATCHLIST.csv",           "Bull Catalyst",     "Discovery", "bull",     "Catalyst-Scan"),
     ("FINAL_Recovery_RSLeaders.csv",           "Rec RS",     "Rigorous",  "recovery", "Recovery-RS"),
     ("FINAL_Recovery_ClimaxBounce.csv",        "Rec Climax", "Rigorous",  "recovery", "Recovery-Climax"),
     ("FINAL_Recovery_EarlyBirds.csv",          "Rec Early",  "Rigorous",  "recovery", "Recovery-Early"),
-    ("FINAL_RECOVERY_CATALYST_WATCHLIST.csv",  "Recovery Catalyst", "Discovery", "recovery", "Recovery-Catalyst"),
+    ("FINAL_RECOVERY_CATALYST_WATCHLIST.csv",  "Recovery Catalyst", "Discovery", "recovery", "Rec-Catalyst-Scan"),
 ]
 # Top-conviction union (top-25 by Combined_Score) — ★ badge + conviction/combined source.
 STAR_SOURCE = "FINAL_WATCHLIST.csv"
 
 # Which archetypes belong to which path (drives the still-valid guard + inherited setup).
-BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst"}
-RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Recovery-Catalyst"}
+# "Catalyst-Scan"/"Rec-Catalyst-Scan" = the discovery SOURCE (Nifty-500 catalyst-first
+# scan), NOT the live catalyst field — renamed so the SETUP row no longer reads
+# "Archetype Catalyst ✓ / Catalyst None ✗" (a confusing self-collision).
+BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst-Scan"}
+RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Rec-Catalyst-Scan"}
 
 
 def _canon_key(s: str) -> str:
