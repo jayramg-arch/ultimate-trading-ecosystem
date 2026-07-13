@@ -2739,6 +2739,39 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
              metrics=[], do_now=plan),
     ]
 
+    # ── INHERITED-MODEL DISPLAY: when the name is pre-qualified by a source
+    # watchlist, the tree must SAY what the engine does — Steps 1-3 stop being
+    # "re-screen & maybe SKIP" and become "confirm it hasn't broken down → then
+    # time it", with quality/setup demoted to status. (The gating g1/g2/g3 was
+    # already switched to this model above; here we relabel the DISPLAY to match.)
+    if inherited:
+        _arche_lbl = ", ".join(inherited_setup) if isinstance(inherited_setup, (list, tuple)) else str(inherited_setup)
+        steps[0] = dict(n=1, title="STILL VALID?", sub="Break-down guard", hard=True, ok=g1,
+             metrics=[("Stage", stage or "—", not s34),
+                      ("Holds 30WMA", ("yes" if not _below_30wma else "no"), not _below_30wma),
+                      ("RS vs N500", f"{(mansfield or 0):+.1f}", rs),
+                      ("Regime", regime, regime == "BULL")],
+             do_pass=f"Still valid — not Stage 3/4 and holding the 30WMA. Qualified by its "
+                     f"{_arche_lbl} watchlist; the board is TIMING it, not re-screening.",
+             do_fail="Broke down since it was watchlisted (Stage 3/4 or lost the 30WMA) → "
+                     "INVALIDATED. Drop it — don't trade the setup.")
+        steps[1] = dict(n=2, title="QUALITY", sub="Overlay · status only", hard=False, ok=True,
+             metrics=[("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
+                      ("Minervini", f"{mpass}/8", mpass >= 6),
+                      ("RRG", rrg, rrg_ok),
+                      ("BFF (funda)", _bff_val, _bff_ok)],
+             do_pass="Quality is an OVERLAY here — Chartink + Screener.in already vetted leadership. "
+                     "Strong reads rank it higher; weak reads NEVER block the trade.",
+             do_fail="")
+        steps[2] = dict(n=3, title="SETUP", sub="Inherited archetype", hard=False, ok=True,
+             metrics=[("Archetype", _arche_lbl, True),
+                      ("Catalyst", cat, cat_on),
+                      ("VCP/Base", ("valid" if vcp else "no"), vcp),
+                      ("PA Patterns", (f"+{_pa_tier}" if _pa_tier else "none"), _pa_tier >= 2)],
+             do_pass=f"Setup = the inherited {_arche_lbl} thesis. No live catalyst required — "
+                     f"go straight to location & trigger.",
+             do_fail="")
+
     stop_at = None
     for s in steps:
         if s.get("hard") and not s["ok"]:
@@ -2981,6 +3014,37 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         dict(n=6, title="EXECUTE", sub="Recovery plan & GTT", hard=False, ok=None, execute=True,
              metrics=[], do_now=plan),
     ]
+
+    # ── INHERITED-MODEL DISPLAY (recovery) — same doctrine as the bull path: for a
+    # name pre-qualified by a Recovery scan, Steps 1-3 become "confirm it hasn't
+    # broken down → time it", with RFF/RS demoted to status (the scan already
+    # RFF-gated it). Relabels the DISPLAY to match the gating switched above.
+    if inherited:
+        _arche_lbl = ", ".join(inherited_setup) if isinstance(inherited_setup, (list, tuple)) else str(inherited_setup)
+        steps[0] = dict(n=1, title="STILL VALID?", sub="Break-down guard", hard=True, ok=g1,
+             metrics=[("Stage", f"Stage {stage_num}", stage_num != "4"),
+                      ("Off 52W high", fnum(corr, 1, "%") if corr is not None else "—",
+                       (corr is None or corr <= 50)),
+                      ("Recovery regime", "OPEN" if reg_ok else "closed", reg_ok),
+                      ("RS turning", ("yes · " + rrg) if rs_up else ("no · " + rrg), rs_up)],
+             do_pass=f"Still valid — not Stage 4 and not collapsed past the recovery band. Qualified "
+                     f"by its {_arche_lbl} scan; the board is TIMING it, not re-screening.",
+             do_fail="Broke down (Stage 4 or collapsed >50% off-high) → INVALIDATED. The recovery "
+                     "thesis failed — drop it.")
+        steps[1] = dict(n=2, title="QUALITY", sub="Overlay · status only", hard=False, ok=True,
+             metrics=[("RFF gate", f"{rff_b}/6 (min {_rff_min})", rff_ok),
+                      ("RFF quality", rff_q, rff_q == "FULL"),
+                      ("Mansfield RS", fnum(rs_val, 1), (rs_val or 0) > 0)],
+             do_pass="Quality is an OVERLAY here — the Recovery scan already RFF-gated it "
+                     "(fundamentally strong on sale). Shown as status; never blocks.",
+             do_fail="")
+        steps[2] = dict(n=3, title="SETUP", sub="Inherited archetype", hard=False, ok=True,
+             metrics=[("Archetype", _arche_lbl, True),
+                      ("Signal", label, sig >= 2),
+                      ("PA Patterns", (f"+{_rpa_tier}" if _rpa_tier else "none"), _rpa_tier >= 2)],
+             do_pass=f"Setup = the inherited {_arche_lbl} recovery thesis. No live signal required — "
+                     f"go straight to location & trigger.",
+             do_fail="")
 
     stop_at = None
     for s in steps:
