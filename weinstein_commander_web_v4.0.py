@@ -11492,8 +11492,10 @@ elif page == 'GOLDEN MATCHER':
             _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
                                type="primary", use_container_width=True, key="gm_board_build")
             _use_xray = st.checkbox("🔬 X-Ray (Piotroski · grade · P/E)", key="gm_board_xray",
+                                    value=True,
                                     help="Adds the X-Ray fundamental screener fields and folds Piotroski "
-                                         "into the Overall score. Heavier (statements per name), cached 24h.")
+                                         "into the Overall score. Heavier (statements per name), cached 24h. "
+                                         "On by default; uncheck for a faster fundamentals-light build.")
             _refresh_all = st.button("🔄 Refresh Data (fresh · both surfaces)",
                                      use_container_width=True, key="gm_board_refresh_all",
                                      help="Re-fetch FRESH data for the whole universe, then rebuild — the "
