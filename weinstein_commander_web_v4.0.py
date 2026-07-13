@@ -1107,7 +1107,6 @@ with st.sidebar:
             ("🗂️ PORTFOLIO",   "PORTFOLIO"),
             ("⚡ COMMAND",     "COMMAND"),
             ("🛡️ RISK SHIELD", "RISK SHIELD"),
-            ("⚖️ PYRAMID / TRIM", "PYRAMID"),
         ]),
         ("🩺  STATE OF MARKET", [
             ("🌐 MACRO",       "MACRO"),
@@ -11446,6 +11445,28 @@ elif page == 'GOLDEN MATCHER':
     st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
 
+    def _gm_reload_market_data():
+        """ONE refresh for BOTH surfaces (Jay). Re-fetches fresh market data for the
+        WHOLE board universe so the Trigger Board snapshot and the Single Symbol view
+        read IDENTICAL data — no more board-vs-single drift from a per-symbol refresh.
+        Busts the on-disk cache + clears the Streamlit loaders + flags the board to
+        rebuild. Same call is wired to the button on BOTH views."""
+        try:
+            import gm_trigger_board as _gtb0, data_provider as _dp0
+            for _s in list(_gtb0.load_watchlist_union().keys()):
+                try:
+                    _dp0.invalidate_symbol(_s)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        for _c in (gm_load_symbol, gm_load_recovery, gm_load_intraday):
+            try:
+                _c.clear()
+            except Exception:
+                pass
+        st.session_state["gm_force_rebuild"] = True
+
     # ── View switch: single-symbol checklist  vs  batch Trigger Board ──────────
     _gm_view = st.radio("View", ["🎯 Single Symbol", "📋 Trigger Board"],
                         horizontal=True, key="gm_view", label_visibility="collapsed")
@@ -11473,6 +11494,11 @@ elif page == 'GOLDEN MATCHER':
             _use_xray = st.checkbox("🔬 X-Ray (Piotroski · grade · P/E)", key="gm_board_xray",
                                     help="Adds the X-Ray fundamental screener fields and folds Piotroski "
                                          "into the Overall score. Heavier (statements per name), cached 24h.")
+            _refresh_all = st.button("🔄 Refresh Data (fresh · both surfaces)",
+                                     use_container_width=True, key="gm_board_refresh_all",
+                                     help="Re-fetch FRESH data for the whole universe, then rebuild — the "
+                                          "SAME button is on the Single Symbol page, so both surfaces read "
+                                          "identical data (fixes board-vs-single drift). Slower: ~50 fresh fetches.")
         with _bc2:
             # Trigger TF — UNIFIED with the Single Symbol page. Both widgets use the
             # session key "gm_trig_tf" (the two views never render in the same run —
@@ -11683,7 +11709,11 @@ elif page == 'GOLDEN MATCHER':
                 </style>''',
                 unsafe_allow_html=True)
 
-        if _build:
+        if _refresh_all:
+            _gm_reload_market_data()                      # bust disk cache + clear loaders (sets the flag)
+        # Build on: the Build button, the shared Refresh, OR a refresh flagged from the
+        # Single Symbol view (so both surfaces re-sync to the same fresh data).
+        if _build or st.session_state.pop("gm_force_rebuild", False):
             _board_build(force_technical=False)          # full: fundamentals + technical
 
         if _live == "Off":
@@ -11875,26 +11905,15 @@ elif page == 'GOLDEN MATCHER':
             st.session_state["gm_symbol"] = symbol
             
     with _gm_col2:
-        if st.button("🔄 Refresh Data", use_container_width=True,
-                     help="Force a fresh fetch for THIS symbol — busts the on-disk data cache "
-                          "(beats the 24h daily TTL) then reloads. Other pages' caches stay warm."):
-            # 9-Jul-2026: clearing the Streamlit loaders alone did NOT refresh —
-            # data_provider.fetch_ohlcv(use_cache=True) re-served the same
-            # on-disk frame (a 2y/1d request carries the 24h weekly TTL, and the
-            # content-staleness gate only rejects bars >5 days old). Bust the
-            # on-disk cache for this symbol FIRST so the reload hits the network.
-            _sym_now = st.session_state.get("gm_symbol") or st.session_state.get("gm_sym_input", "")
-            try:
-                import data_provider as _dpref
-                if _sym_now:
-                    _dpref.invalidate_symbol(_sym_now)
-            except Exception:
-                pass
-            try:
-                gm_load_symbol.clear()
-                gm_load_recovery.clear()
-            except Exception:
-                st.cache_data.clear()
+        # SHARED refresh (Jay): the SAME button is on the Trigger Board. It re-fetches
+        # fresh data for the WHOLE board universe (not just this symbol) and flags the
+        # board to rebuild — so this page and the board always read IDENTICAL data. The
+        # old per-symbol refresh made Single Symbol fresher than the board → drift.
+        if st.button("🔄 Refresh Data (fresh · both surfaces)", use_container_width=True,
+                     help="Re-fetch FRESH data for the whole Golden Matcher universe, then rebuild the "
+                          "board — the SAME button is on the Trigger Board, so both surfaces read "
+                          "identical data (no more board-vs-single drift). Slower: ~50 fresh fetches."):
+            _gm_reload_market_data()
             st.rerun()
 
     # ---- Position-sizing settings (E2) — persisted to gm_settings.json ----
@@ -12753,19 +12772,6 @@ elif page == 'TV SIDECAR':
                           delta="Rising" if _ws_sma200slp > 0 else "Falling",
                           delta_color="normal" if _ws_sma200slp > 0 else "inverse")
 
-# ══════════════════════════════════════════════════════════════════════════
-#  PYRAMID / TRIM — open-position ADD/TRIM/REDUCE/HOLD (inline)
-# ══════════════════════════════════════════════════════════════════════════
-elif page == 'PYRAMID':
-    # Shared logic with pages/5_pyramid.py (pyramid_logic.render_pyramid_trim),
-    # rendered INLINE in the main content area (no separate Streamlit process).
-    try:
-        from pyramid_logic import render_pyramid_trim
-        render_pyramid_trim()
-    except Exception as _pe:
-        st.error(f"Pyramid / Trim Manager failed to load: {_pe}")
-        import traceback as _tb
-        st.code(_tb.format_exc())
 
 # ══════════════════════════════════════════════════════════════════════════
 #  RISK SHIELD — Active Exit Monitoring & Pullback Entry Tracking
@@ -12773,6 +12779,27 @@ elif page == 'PYRAMID':
 elif page == 'RISK SHIELD':
     st.markdown('<div class="page-title">🛡️ Risk Shield — Risk Management & Entries</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Live monitoring of OCO exits, pullback entries, and unprotected holdings from Dhan GTT orders.</div>', unsafe_allow_html=True)
+
+    # --- Precompute Pyramid/Trim classifications ---
+    import pyramid_logic as pl
+    if "pyramid_classifications" not in st.session_state:
+        with st.spinner("Precomputing Pyramid/Trim classifications..."):
+            try:
+                st.session_state.pyramid_classifications = pl.get_precomputed_classifications()
+            except Exception as _pe:
+                st.session_state.pyramid_classifications = pd.DataFrame()
+                st.warning(f"Failed to precompute classifications: {_pe}")
+
+    pyramid_df = st.session_state.pyramid_classifications
+    pyramid_class_dict = {}
+    if pyramid_df is not None and not pyramid_df.empty:
+        for _, row in pyramid_df.iterrows():
+            sym = row.get("symbol")
+            if sym:
+                pyramid_class_dict[sym] = {
+                    "classification": row.get("classification", "HOLD"),
+                    "trigger": row.get("trigger", "")
+                }
 
     # --- Portfolio Equity Curve Protection ---
     import datetime, json, os
@@ -12904,10 +12931,12 @@ elif page == 'RISK SHIELD':
     with ctrl_col3:
         if st.button("🔄 Refresh", key="es_refresh", type="primary", use_container_width=True):
             st.cache_data.clear()
+            st.session_state.pop("pyramid_classifications", None)
             st.rerun()
     with ctrl_col2:
         if st.button("🤖 Run AI Analysis", key="es_run_ai", type="secondary", use_container_width=True):
             st.session_state.force_run_ai = True
+            st.session_state.pop("pyramid_classifications", None)
             for k in list(st.session_state.keys()):
                 if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_"]):
                     del st.session_state[k]
@@ -13439,6 +13468,10 @@ elif page == 'RISK SHIELD':
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
 
                 if _ai_tasks:
+                    st.session_state.pop("cached_hist_data_v3", None)
+                    st.session_state.pop("pyramid_classifications", None)
+                    st.caption("Only 'Tighten SL' rows execute. Trim / Pyramid remain manual. "
+                               "Every execution is appended to logs/risk_shield_actions.log.")
                     with st.spinner(f"⚡ Loading AI analysis for {len(_ai_tasks)} positions..."):
                         def _run_ai(task):
                             key, sym, otype, kw = task
@@ -13632,9 +13665,10 @@ elif page == 'RISK SHIELD':
                     st.error(_cap_prot_msg)
 
                 # --- TABS ---
-                entry_tab0, entry_tab1, entry_tab2, entry_tab3, entry_tab4 = st.tabs([
+                entry_tab0, entry_tab1, entry_tab2, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
                     "✅ Morning Approval Dashboard",
                     "🎯 Active Exits (OCO)",
+                    "⚖️ Pyramid / Trim",
                     "🛒 Pullback Entries (GTT)",
                     "📊 Risk Profile & Analytics",
                     "⚙️ Settings & Overrides"
@@ -13921,10 +13955,21 @@ elif page == 'RISK SHIELD':
                                                 cond_add = True
 
                                         _flags = []
-                                        if cond_trim:
-                                            _flags.append("<span style='background:#8957e5;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>✂️ TRIM</span>")
-                                        elif cond_add:
-                                            _flags.append("<span style='background:#238636;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>📈 ADD</span>")
+                                        # Get classification from cache
+                                        _pyr_rec = pyramid_class_dict.get(sym, {})
+                                        _class = _pyr_rec.get("classification", "HOLD")
+                                        _pyr_reason = _pyr_rec.get("trigger", "")
+                                        
+                                        if _class == "EXIT":
+                                            _flags.append("<span style='background:#4a1d1d;color:#f87171;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #ff4b4b;'>⬇ EXIT</span>")
+                                        elif _class == "TRIM":
+                                            _flags.append("<span style='background:#43290f;color:#fb923c;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #fb923c;'>✂️ TRIM</span>")
+                                        elif _class == "REDUCE":
+                                            _flags.append("<span style='background:#10314f;color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                        elif _class == "ADD":
+                                            _flags.append("<span style='background:#1e4620;color:#4ade80;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                        else:  # HOLD
+                                            _flags.append("<span style='background:#2d2d2d;color:#d1d5db;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
                                             _flags.append(f"<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
@@ -14054,6 +14099,8 @@ elif page == 'RISK SHIELD':
                                         reco_parts.append(f"🔴 SL only {min_sl_dist:.1f}% away — high risk zone")
                                     elif min_sl_dist is not None and min_sl_dist <= 5.0:
                                         reco_parts.append(f"🟡 SL {min_sl_dist:.1f}% away — watch closely")
+                                    if _pyr_reason:
+                                        reco_parts.append(f"⚖️ Pyramid/Trim: {_pyr_reason}")
                                     reco_str = " · ".join(reco_parts) if reco_parts else "✅ Position in range"
 
                                     status_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
@@ -14160,10 +14207,21 @@ elif page == 'RISK SHIELD':
                                                 cond_add = True
 
                                         _flags = []
-                                        if cond_trim:
-                                            _flags.append("<span style='background:#8957e5;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>✂️ TRIM</span>")
-                                        elif cond_add:
-                                            _flags.append("<span style='background:#238636;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>📈 ADD</span>")
+                                        # Get classification from cache
+                                        _pyr_rec = pyramid_class_dict.get(sym, {})
+                                        _class = _pyr_rec.get("classification", "HOLD")
+                                        _pyr_reason = _pyr_rec.get("trigger", "")
+                                        
+                                        if _class == "EXIT":
+                                            _flags.append("<span style='background:#4a1d1d;color:#f87171;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #ff4b4b;'>⬇ EXIT</span>")
+                                        elif _class == "TRIM":
+                                            _flags.append("<span style='background:#43290f;color:#fb923c;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #fb923c;'>✂️ TRIM</span>")
+                                        elif _class == "REDUCE":
+                                            _flags.append("<span style='background:#10314f;color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                        elif _class == "ADD":
+                                            _flags.append("<span style='background:#1e4620;color:#4ade80;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                        else:  # HOLD
+                                            _flags.append("<span style='background:#2d2d2d;color:#d1d5db;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
                                             _flags.append(f"<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
@@ -14179,8 +14237,8 @@ elif page == 'RISK SHIELD':
                                     ai_html = ""
                                     if ai_key in st.session_state:
                                         ai_html = f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-top:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>'
-                                        
-                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{ai_html}</div>', unsafe_allow_html=True)
+                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#fb923c;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
+                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{reason_line}{ai_html}</div>', unsafe_allow_html=True)
 
                     # Unprotected Holdings
                     if unprotected_holdings:
@@ -14324,14 +14382,31 @@ elif page == 'RISK SHIELD':
                                         ai_html = f'<div style="background:#0e2035;border-left:3px solid #ff4b4b;padding:8px;border-radius:4px;margin-top:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>'
                                         
                                     flags_html = ""
+                                    # Get classification from cache
+                                    _pyr_rec = pyramid_class_dict.get(sym, {})
+                                    _class = _pyr_rec.get("classification", "HOLD")
+                                    _pyr_reason = _pyr_rec.get("trigger", "")
+                                    
+                                    _flags = []
+                                    if _class == "EXIT":
+                                        _flags.append("<span style='background:#4a1d1d;color:#f87171;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #ff4b4b;'>⬇ EXIT</span>")
+                                    elif _class == "TRIM":
+                                        _flags.append("<span style='background:#43290f;color:#fb923c;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #fb923c;'>✂️ TRIM</span>")
+                                    elif _class == "REDUCE":
+                                        _flags.append("<span style='background:#10314f;color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                    elif _class == "ADD":
+                                        _flags.append("<span style='background:#1e4620;color:#4ade80;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                    else:  # HOLD
+                                        _flags.append("<span style='background:#2d2d2d;color:#d1d5db;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
+                                    
                                     if _tech:
-                                        _flags = []
                                         if _tech.get("vol_breakout"): _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
                                         elif _tech.get("vol_climax"): _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
-                                        if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
+                                    if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                         
+                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#fb923c;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
                                     card_html = (
                                         f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #ff4b4b;text-align:left;">'
                                         f'{expand_btn}'
@@ -14345,12 +14420,21 @@ elif page == 'RISK SHIELD':
                                         f'Cost ₹{bp:,.2f} → LTP ₹{ltp:,.2f} <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
                                         f'</div>'
                                         f'{rec_line}'
+                                        f'{reason_line}'
                                         f'{ai_html}</div>'
                                     )
                                     st.markdown(card_html, unsafe_allow_html=True)
 
-                # ── Tab 2: Pullback Entries (GTT) ──
+                # ── Tab 2: Pyramid/Trim ──
                 with entry_tab2:
+                    try:
+                        import pyramid_logic as pl
+                        pl.render_pyramid_trim(st.session_state.pyramid_classifications)
+                    except Exception as _pe:
+                        st.error(f"Pyramid / Trim Manager failed to load: {_pe}")
+
+                # ── Tab 3: Pullback Entries (GTT) ──
+                with entry_tab3:
                     st.markdown('<div class="section-sub-lbl">🛒 Pending Pullback Buy Entries (GTT)</div>', unsafe_allow_html=True)
                     if not buy_gtts:
                         st.info("No pending pullback GTT buy orders found.")
@@ -14447,8 +14531,8 @@ elif page == 'RISK SHIELD':
                                     if ai_key in st.session_state:
                                         st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
 
-                # ── Tab 3: Risk Profile ──
-                with entry_tab3:
+                # ── Tab 4: Risk Profile ──
+                with entry_tab4:
                     st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
                     # BUG FIX (2026-07-05, Jay): `balance` is available CASH, not equity —
                     # dividing open risk by idle cash produced absurd percentages (289%)
@@ -14574,8 +14658,8 @@ elif page == 'RISK SHIELD':
                     else:
                         st.info("No measurable risk from current positions (all stops are above LTP or no positions).")
 
-                # ── Tab 4: Settings & Overrides ──
-                with entry_tab4:
+                # ── Tab 5: Settings & Overrides ──
+                with entry_tab5:
                     st.markdown('<div class="section-sub-lbl">⚙️ Manual SL & Multiplier Overrides</div>', unsafe_allow_html=True)
                     st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Configure persistent manual overrides for positions. These overrides are saved to the database and will bypass the dynamic mechanical rules.</div>', unsafe_allow_html=True)
 
@@ -14641,6 +14725,7 @@ elif page == 'RISK SHIELD':
                                         _nsaved += _cur_ov.rowcount
                                     _conn_ov.commit(); _conn_ov.close()
                                     st.session_state.pop("cached_hist_data_v3", None)  # recompute Chandeliers
+                                    st.session_state.pop("pyramid_classifications", None)
                                     st.success(f"✅ Overrides saved — {_nsaved} journal row(s) updated. "
                                                f"Chandeliers will recompute on next refresh.")
                                 except Exception as _ove:
