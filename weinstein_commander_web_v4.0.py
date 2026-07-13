@@ -2777,11 +2777,20 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         if s.get("hard") and not s["ok"]:
             stop_at = s["n"]; break
 
+    # Catalyst-Scan names have NO structural setup — the catalyst WAS their thesis (a
+    # time-localized event), unlike Hunter/Pullback (a structure that persists). So a
+    # catalyst-scan-ONLY inherited name must still have a LIVE catalyst OR a fired PA
+    # trigger to stay actionable; otherwise it's a stale scan hit → WATCHLIST.
+    _structural_bull = any(a in ("Breakout", "Accumulation", "Pullback", "Leader")
+                           for a in (inherited_setup or []))
+    _catalyst_only = inherited and not _structural_bull
     if inherited:
         # INHERITED path: qualification is trusted; the ONLY veto is the break-down
         # guard. Everything else is pure timing (arm → trigger).
         if not still_valid:
             verdict, color = "INVALIDATED · broke down", "#EF5350"
+        elif _catalyst_only and not (cat_on or pa_fired):
+            verdict, color = "WATCHLIST · catalyst expired", "#FF9800"
         elif pa_fired:
             verdict = "BUY — TRIGGER LIVE" + (f" · {loc_note}" if loc_note else "")
             color = "#26A69A"
@@ -2812,6 +2821,8 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     # The single step that needs attention right now
     if inherited and not still_valid:
         current = 1
+    elif inherited and _catalyst_only and not (cat_on or pa_fired):
+        current = 3                      # its thesis (the catalyst) is gone
     elif stop_at:
         current = stop_at
     elif pa_fired:
@@ -2825,7 +2836,7 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     actionable = not verdict.startswith(("AVOID", "WATCHLIST", "INVALIDATED"))
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
                 current=current, actionable=actionable, loc_note=loc_note,
-                inherited=inherited, still_valid=still_valid,
+                inherited=inherited, still_valid=still_valid, location_ok=bool(g4),
                 # numeric plan levels for the page's position sizer / journal form
                 plan_entry=(entry if sl is not None else None),
                 plan_sl=sl, plan_t1=t1)
@@ -3051,10 +3062,18 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         if s.get("hard") and not s["ok"]:
             stop_at = s["n"]; break
 
+    # Rec-Catalyst-Scan names have no persistent structural thesis — the recovery
+    # SIGNAL was their reason. So a catalyst-scan-ONLY inherited recovery name must
+    # have a live signal (sig ≥ 2) OR a fired recovery PA trigger to stay actionable.
+    _rec_structural = any(a in ("Recovery-RS", "Recovery-Climax", "Recovery-Early")
+                          for a in (inherited_setup or []))
+    _rec_catalyst_only = inherited and not _rec_structural
     if inherited:
         # INHERITED path: qualification is trusted; only the break-down guard vetoes.
         if not still_valid:
             verdict, color = "INVALIDATED · still declining", "#EF5350"
+        elif _rec_catalyst_only and not (sig >= 2 or rpa_fired):
+            verdict, color = "WATCHLIST · signal expired", "#FF9800"
         elif rpa_fired:
             verdict = "BUY — TRIGGER LIVE · Recovery" + (f" · {loc_note}" if loc_note else "")
             color = "#26A69A"
@@ -3080,6 +3099,8 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
 
     if inherited and not still_valid:
         current = 1
+    elif inherited and _rec_catalyst_only and not (sig >= 2 or rpa_fired):
+        current = 3                      # the recovery signal (its thesis) is gone
     elif stop_at:
         current = stop_at
     elif rpa_fired:
@@ -3091,7 +3112,7 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     actionable = verdict.startswith("BUY") or verdict.startswith("ARMED") or verdict.startswith("WAIT")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
                 current=current, actionable=actionable, recovery=True, loc_note=loc_note,
-                inherited=inherited, still_valid=still_valid,
+                inherited=inherited, still_valid=still_valid, location_ok=bool(loc_ok),
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)
 
 
@@ -3356,21 +3377,49 @@ from pa_patterns import (
 
 
 def section_pa_patterns(ctx) -> str:
-    """PA pattern battery card — fired patterns highlighted, quiet ones dim."""
-    pats = _g(ctx, "pa_patterns", default=[]) or []
-    if not pats:
+    """PA pattern batteries — split into COMMON (in both), BULL-only and RECOVERY-only
+    sub-cards so the two batteries (17 bull / 10 recovery, some shared) read clearly."""
+    bull = _g(ctx, "pa_patterns", default=[]) or []
+    rec = _g(ctx, "recovery_pa_patterns", default=[]) or []
+    if not bull and not rec:
         return card("PA PATTERNS · v67 mirror", [("Patterns", "unavailable", "na")], "#455A64")
-    rows = [(f"{name}  (+{tier})", ("FIRED — " + note) if fired else "quiet",
-             "pass" if fired else "na") for name, fired, tier, note in pats]
-    tier_sum = sum(t for _, f, t, _ in pats if f)
-    # Tier-weighted score, NO denominator (Jay: 11/11 is not the benchmark —
-    # patterns are bonuses). Purple = Power-Play-grade Σ, grey = quiet (normal).
-    scol = ("#7B1FA2" if tier_sum >= 4 else "#26A69A" if tier_sum >= 2
-            else "#FF9800" if tier_sum >= 1 else "#787B86")
-    SECTION_SCORES["Pa Patterns"] = (f"Σ +{tier_sum}", None, scol)
-    hdr_col = scol if tier_sum >= 1 else "#455A64"
-    return card("PA PATTERNS · v67 mirror", rows, "#455A64",
-                chip_text=f"Σ +{tier_sum}", chip_color=hdr_col)
+    _bn = {n for n, _, _, _ in bull}
+    _rn = {n for n, _, _, _ in rec}
+    _common = _bn & _rn                                   # exact-name matches (Wyckoff Spring, Pocket Pivot, 3-Bar…)
+
+    def _rows(pats):
+        return [(f"{name}  (+{tier})", ("FIRED — " + note) if fired else "quiet",
+                 "pass" if fired else "na") for name, fired, tier, note in pats]
+
+    def _sum(pats):
+        return sum(t for _, f, t, _ in pats if f)
+
+    def _scol(ts):
+        return ("#7B1FA2" if ts >= 4 else "#26A69A" if ts >= 2
+                else "#FF9800" if ts >= 1 else "#787B86")
+
+    common_pats = [p for p in bull if p[0] in _common]    # identical calc in both → take bull's
+    bull_only = [p for p in bull if p[0] not in _common]
+    rec_only = [p for p in rec if p[0] not in _common]
+
+    # Summary chip = the ACTIVE decision-path battery's Σ (bull is the default path).
+    tier_sum = _sum(bull if bull else rec)
+    SECTION_SCORES["Pa Patterns"] = (f"Σ +{tier_sum}", None, _scol(tier_sum))
+
+    out = ""
+    if common_pats:
+        _ts = _sum(common_pats)
+        out += card("PA PATTERNS · COMMON (bull ∩ recovery)", _rows(common_pats), "#455A64",
+                    chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
+    if bull_only:
+        _ts = _sum(bull_only)
+        out += card("PA PATTERNS · BULL", _rows(bull_only), "#455A64",
+                    chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
+    if rec_only:
+        _ts = _sum(rec_only)
+        out += card("PA PATTERNS · RECOVERY", _rows(rec_only), "#455A64",
+                    chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
+    return out
 
 
 def render_pa_banner(ctx) -> str:
@@ -12192,12 +12241,12 @@ elif page == 'GOLDEN MATCHER':
             else:
                 st.caption("📏 Set your capital above to get an auto position size at the configured risk.")
 
-        st.markdown("##### ✅ Guided execution — tick as you go")
-        # Auto support zone (OB/FVG/pivot on Daily AND Weekly) — the S4 Pine twin.
-        # When a demand zone is under price, Steps 1-2 are pre-computed (the zone
-        # + proximal alert level), so you verify rather than hand-draw. Prefer the
-        # tightest active zone: DAILY first (precise entry), else WEEKLY (bigger
-        # structural demand). No zone → fall back to the manual wording.
+        # ---- Guided execution — COLLAPSES when there's no location (Jay) ----------
+        # Expand automatically when there IS a location (a demand zone under price OR
+        # the Step-4 location gate passed); otherwise stay collapsed so it doesn't
+        # clutter with generic "hand-draw" steps you can't action yet. The checklist
+        # lives in the expander; the journal form stays OUTSIDE it (Streamlit forbids
+        # nested expanders — the journal has its own).
         _supz = _g(ctx, "support", default={}) or {}
 
         def _pick_zone(_z, _tf):
@@ -12216,39 +12265,43 @@ elif page == 'GOLDEN MATCHER':
             return None
 
         _pick = _pick_zone(_supz.get("daily"), "Daily") or _pick_zone(_supz.get("weekly"), "Weekly")
-        if _pick:
-            _z_lbl, _z_lo, _z_hi, _z_prox = _pick
-            _span_txt = inr(_z_lo) if _z_lo == _z_hi else f"{inr(_z_lo)}–{inr(_z_hi)}"
-            _zsummary = str(_supz.get("zone", ""))
-            st.caption(f"🟩 **Auto demand-zone:** {_z_lbl} at **{_span_txt}** "
-                       f"· alert proximal **{inr(_z_prox)}**  ·  _{_zsummary}_ — Steps 1-2 auto-marked; verify on the chart.")
-            _man = [
-                ("zone",  f"1 · Auto zone confirmed: {_z_lbl} at {_span_txt} (verify it's fresh/untested)"),
-                ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
-                ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-                ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
-                ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
-                ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
-            ]
-        else:
-            st.caption("⬜ No auto demand-zone (OB/FVG/pivot on Daily or Weekly) under price yet — hand-draw the fresh zone.")
-            _man = [
-                ("zone",  "1 · Mark the FRESH demand zone on Daily/Weekly (hand-drawn, untested)"),
-                ("alert", "2 · Set a TradingView alert at the zone proximal"),
-                ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-                ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
-                ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
-                ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
-            ]
-        _key = f"chk_{symbol}"
-        _done = 0; _next = None
-        for _k, _label in _man:
-            if st.checkbox(_label, key=f"{_key}_{_k}"):
-                _done += 1
-            elif _next is None:
-                _next = _label
-        st.progress(_done / len(_man), text=f"{_done}/{len(_man)} done")
-        if _done == len(_man):
+        # Expand when there's a location (zone under price OR Step-4 passed) OR a live
+        # trigger fired (a BUY is immediately actionable regardless of location).
+        _has_loc = bool(_pick) or bool(wf.get("location_ok")) or str(wf.get("verdict", "")).startswith("BUY")
+        _done = 0; _next = None; _man = []
+        with st.expander("✅ Guided execution — tick as you go", expanded=_has_loc):
+            if _pick:
+                _z_lbl, _z_lo, _z_hi, _z_prox = _pick
+                _span_txt = inr(_z_lo) if _z_lo == _z_hi else f"{inr(_z_lo)}–{inr(_z_hi)}"
+                _zsummary = str(_supz.get("zone", ""))
+                st.caption(f"🟩 **Auto demand-zone:** {_z_lbl} at **{_span_txt}** "
+                           f"· alert proximal **{inr(_z_prox)}**  ·  _{_zsummary}_ — Steps 1-2 auto-marked; verify on the chart.")
+                _man = [
+                    ("zone",  f"1 · Auto zone confirmed: {_z_lbl} at {_span_txt} (verify it's fresh/untested)"),
+                    ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
+                    ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+                    ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                    ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                    ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+                ]
+            else:
+                st.caption("⬜ No auto demand-zone (OB/FVG/pivot on Daily or Weekly) under price yet — hand-draw the fresh zone.")
+                _man = [
+                    ("zone",  "1 · Mark the FRESH demand zone on Daily/Weekly (hand-drawn, untested)"),
+                    ("alert", "2 · Set a TradingView alert at the zone proximal"),
+                    ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+                    ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                    ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                    ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+                ]
+            _key = f"chk_{symbol}"
+            for _k, _label in _man:
+                if st.checkbox(_label, key=f"{_key}_{_k}"):
+                    _done += 1
+                elif _next is None:
+                    _next = _label
+            st.progress(_done / len(_man), text=f"{_done}/{len(_man)} done")
+        if _man and _done == len(_man):
             # ---- E1 (9-Jul-2026): actually log the trade. upsert_trade()
             # auto-captures the true-entry signal snapshot on new OPEN inserts
             # (the Phase-0 hook) — so a GM-executed trade lands in the journal
