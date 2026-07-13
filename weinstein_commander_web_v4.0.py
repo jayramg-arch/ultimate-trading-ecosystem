@@ -11441,6 +11441,7 @@ elif page == 'GOLDEN MATCHER':
             if not _bdf_new.empty and "Overall" in _bdf_new.columns:
                 _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
             st.session_state["gm_board_df"] = _bdf_new
+            st.session_state["gm_board_built_tf"] = _trig_tf        # TF this snapshot was computed at
             _now_s = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
             st.session_state["gm_board_tech_stamp"] = _now_s
             st.session_state["gm_board_tech_ts"] = _gtb_time.time()
@@ -11457,6 +11458,16 @@ elif page == 'GOLDEN MATCHER':
             if _bdf is None or _bdf.empty:
                 st.info("Click **Build / Refresh** to populate the board (fundamentals + technical).")
                 return
+            # STALENESS GUARD — the board is a SNAPSHOT; the Single Symbol page is LIVE.
+            # If the TF selector no longer matches the TF the snapshot was built at, the
+            # categories WILL disagree with Single Symbol until a Rebuild. Say so loudly
+            # (this is the #1 cause of "categories don't match" — snapshot vs live).
+            _built_tf = st.session_state.get("gm_board_built_tf")
+            if _built_tf and _built_tf != _trig_tf:
+                st.warning(f"⚠️ This board was built at **{_built_tf}**, but the Trigger-TF selector is "
+                           f"now **{_trig_tf}**. The categories below are a stale snapshot — click "
+                           f"**Build / Refresh** to recompute at {_trig_tf} so they match the Single "
+                           f"Symbol page.")
             _rrg = _gtb.rrg_load()
             _bdf = _bdf.copy()
             _bdf["RRG"] = _bdf["Symbol"].map(lambda s: _rrg.get(s, "—"))
