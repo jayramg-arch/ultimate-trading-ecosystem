@@ -3038,6 +3038,16 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     workflow result. Assembles rec/ctx/cmp_px/mansfield + the same intraday overlay,
     inherits the source archetype, and runs BOTH workflows. The caller decides what
     to render / which path is primary; the computation is shared."""
+    # CANONICALIZE to the bare union-key ticker (strip NSE:/BSE: + .NS/.BO) so BOTH
+    # surfaces feed EVERY loader (gm_load_symbol/intraday/recovery) AND the resolver
+    # the IDENTICAL symbol. Single Symbol passes 'ACUTAAS.NS' (TV style); the board
+    # passes bare 'ACUTAAS'. gm_load_intraday resolves those differently (Dhan needs
+    # bare) → different 75m PA/cmp → different trigger → categories disagree. One key.
+    try:
+        import gm_trigger_board as _gtb0
+        symbol = _gtb0._canon_key(symbol) or symbol
+    except Exception:
+        pass
     data = gm_load_symbol(symbol) or {}
     rec = dict(data.get("rec") or {})
     ctx = dict(data.get("ctx") or {})
