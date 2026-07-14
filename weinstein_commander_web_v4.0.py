@@ -12125,7 +12125,15 @@ elif page == 'GOLDEN MATCHER':
 
                 _gm_stream()
         st.stop()
-    
+
+    # HARD VIEW-GUARD (14-Jul-2026): the board branch above ends in st.stop(), but a
+    # `run_every` fragment (the streaming grid) can leave that st.stop() ineffective —
+    # letting the ~600-line Single Symbol section below bleed in under the board (seen
+    # once Live defaulted to bar-close → streaming). This guard runs in NORMAL script
+    # flow (not immediately after the fragment call), so it halts reliably.
+    if _gm_view == "📋 Trigger Board":
+        st.stop()
+
     st.markdown('''
     <style>
       .chk{display:flex;justify-content:space-between;align-items:center;
