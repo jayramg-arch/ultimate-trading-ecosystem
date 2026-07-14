@@ -782,6 +782,27 @@ open_pos         = live_pos
 total_cap    = balance + total_deployed_g if (balance + total_deployed_g) > 0 else 5_000_000
 deployed_pct = round((total_deployed_g / total_cap) * 100, 1) if total_cap > 0 else 0.0
 
+# Check query parameters for maximized view
+is_maximized_board = (st.query_params.get("view") == "gm_board_maximized")
+if is_maximized_board:
+    st.session_state["page"] = "GOLDEN MATCHER"
+    st.session_state["gm_view"] = "📋 Trigger Board"
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        display: none !important;
+        width: 0px !important;
+        min-width: 0px !important;
+    }
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+    .statusbar {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 for k, v in [
     ('page','DASHBOARD'), ('huntertab','SCANNERS'), ('watchlisttab','GENERATION'),
     ('commandtab','ACTIVEOPS'), ('ailabtab','PREFLIGHT'),
@@ -1952,8 +1973,9 @@ def _gm_settings_save(**kw):
     try:
         with open(_GM_SETTINGS_FILE, "w", encoding="utf-8") as _f:
             json.dump(d, _f, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        # P1: a lost save silently forgets capital/risk/TF across restarts.
+        _gm_logger.warning(f"gm_settings save failed (capital/risk/TF not persisted): {e}")
 
 
 # ----------------------------------------------------------------------------------------
@@ -2551,6 +2573,9 @@ INHERIT_QUALIFICATION = True
 # gm_trigger_board is import-light (os/json) and already a hard GM dependency.
 from gm_trigger_board import (STRUCTURAL_BULL_ARCHETYPES,
                               STRUCTURAL_RECOVERY_ARCHETYPES)
+# P1 (14-Jul-2026): shared GM logger — every previously-swallowed exception in the
+# GM region now lands in logs/gm_errors.log (same safe fallbacks, but RECORDED).
+from gm_log import gm_log as _gm_logger
 
 
 # ----------------------------------------------------------------------------------------
@@ -2745,7 +2770,8 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                       "(shown with the caveat); otherwise WAIT for a pullback toward EMA20 / a fresh zone.")),
         dict(n=5, title="TRIGGER", sub=(f"{_tf_lbl} PA battery" if _is_intra else "Daily PA battery + intraday confirm"),
              hard=False, ok=None, manual=True,
-             metrics=[("PA trigger", (_pa_names if pa_fired else "none yet"), pa_fired),
+             metrics=[("PA trigger", (_pa_names if pa_fired else
+                       ("⚠ DETECTION ERROR" if _g(ctx, "pa_error") else "none yet")), pa_fired),
                       ("Σ tier", (f"+{_pa_tier}" if _pa_tier else "0"), _pa_tier >= 2),
                       ("Confirm on", _confirm_lbl, None)],
              do_now=((f"TRIGGER LIVE — {_pa_names} (Σ+{_pa_tier}) fired on the {_fired_on}"
@@ -3032,7 +3058,8 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                       "(with the caveat); otherwise WAIT for the reclaim / a pullback into the zone.")),
         dict(n=5, title="TRIGGER", sub=(f"Recovery PA battery · {_tf_lbl}" if _is_intra else "Recovery PA battery + intraday confirm"),
              hard=False, ok=None, manual=True,
-             metrics=[("PA trigger", (_rpa_names if rpa_fired else "none yet"), rpa_fired),
+             metrics=[("PA trigger", (_rpa_names if rpa_fired else
+                       ("⚠ DETECTION ERROR" if _g(ctx, "pa_error") else "none yet")), rpa_fired),
                       ("Σ tier", (f"+{_rpa_tier}" if _rpa_tier else "0"), _rpa_tier >= 2),
                       ("Confirm on", _confirm_lbl, None)],
              do_now=((f"TRIGGER LIVE — {_rpa_names} (Σ+{_rpa_tier}) fired on the {_fired_on}"
@@ -3151,8 +3178,10 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     try:
         import gm_trigger_board as _gtb0
         symbol = _gtb0._canon_key(symbol) or symbol
-    except Exception:
-        pass
+    except Exception as e:
+        # P1: a canonicalization failure reintroduces the exact board-vs-single
+        # symbol-key divergence this function exists to prevent — record it.
+        _gm_logger.warning(f"{symbol}: gm_evaluate canonicalization failed: {e}")
     data = gm_load_symbol(symbol) or {}
     rec = dict(data.get("rec") or {})
     ctx = dict(data.get("ctx") or {})
@@ -3192,6 +3221,7 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     # Inherited source archetype (one resolver, shared) → per-path ctx copies so a
     # bull archetype can't spoof the recovery inherited-branch and vice-versa.
     ib, ir = [], []
+    inherit_error = None
     try:
         import gm_trigger_board as _gtb
         if hasattr(_gtb, "resolve_archetypes"):
@@ -3199,8 +3229,12 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             _arche = _inh.get("archetypes") or []
             ib = [a for a in _arche if a in _gtb.BULL_ARCHETYPES]
             ir = [a for a in _arche if a in _gtb.RECOVERY_ARCHETYPES]
-    except Exception:
-        pass
+    except Exception as e:
+        # P1: a resolver failure silently DISABLED the entire inherited-
+        # qualification model (name fell to legacy re-qualify with no signal to
+        # the user — verdicts change). Log + surface a badge.
+        inherit_error = f"{type(e).__name__}: {e}"
+        _gm_logger.warning(f"{symbol}: resolve_archetypes failed — inheritance OFF: {e}")
     _cb = dict(ctx); _cr = dict(ctx)
     if ib: _cb["inherited_setup"] = ib
     if ir: _cr["inherited_setup"] = ir
@@ -3216,7 +3250,7 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     return dict(data=data, rec=rec, ctx=ctx, fun=fun, bff=bff,
                 cmp_px=cmp_px, mansfield=mansfield, rec_r=rec_r,
                 wf_bull=wf_bull, wf_rec=wf_rec, rec_error=rec_error,
-                inherited_bull=ib, inherited_rec=ir,
+                inherited_bull=ib, inherited_rec=ir, inherit_error=inherit_error,
                 intra_ok=intra_ok, intra_label=intra_label)
 
 
@@ -3672,16 +3706,19 @@ def gm_load_symbol(symbol: str) -> dict:
                 if _athv > 0:
                     out["ctx"]["ath"] = _athv
                     out["ctx"]["dist_ath"] = (out["ctx"]["cmp"] - _athv) / _athv * 100
-        except Exception:
-            pass
+        except Exception as e:
+            _gm_logger.warning(f"{symbol}: 10y ATH fetch failed (52w proxy stays): {e}")
         # v67-mirror PA pattern battery (Jay: can't spot these by eye — detect them)
         try:
             if out.get("df") is not None:
                 _stage0 = str((out.get("rec") or {}).get("Stage", ""))
                 out["ctx"]["pa_patterns"] = _detect_pa_patterns(out["df"], _stage0)
                 out["ctx"]["recovery_pa_patterns"] = _detect_recovery_pa_patterns(out["df"], _stage0)
-        except Exception:
-            pass
+        except Exception as e:
+            # P1: a detection CRASH must not read as "no trigger" — they are
+            # decision-different states. Flag it; Step-5 renders the error.
+            out["ctx"]["pa_error"] = f"{type(e).__name__}: {e}"
+            _gm_logger.warning(f"{symbol}: PA battery detection failed: {e}")
         # Auto support zones (OB / FVG / pivot-low) on BOTH Daily AND Weekly —
         # the Python twin of the S4 Pine v2.1 trackers (trading TF is 125/75m,
         # but the demand zones come from D+W structure). Automates Steps 1-2.
@@ -3689,8 +3726,9 @@ def gm_load_symbol(symbol: str) -> dict:
             import pa_patterns as _pap
             if out.get("df") is not None:
                 out["ctx"]["support"] = _pap.detect_support_zones_dw(out["df"])
-        except Exception:
+        except Exception as e:
             out["ctx"]["support"] = {}
+            _gm_logger.warning(f"{symbol}: support-zone detection failed: {e}")
         try:
             from sector_lookup import get_sector_index
             from sector_strength import get_sector_status, get_sector_score
@@ -3715,8 +3753,8 @@ def gm_load_symbol(symbol: str) -> dict:
                         if len(_r) and pd.notna(_r.iloc[0]["Futures_OI_Chg_Pct"]):
                             out["ctx"]["fut_oi"] = float(_r.iloc[0]["Futures_OI_Chg_Pct"])
                             break
-        except Exception:
-            pass
+        except Exception as e:
+            _gm_logger.warning(f"{symbol}: Futures-OI CSV read failed: {e}")
 
     out["fetched_at"] = datetime.now().strftime("%d-%b %H:%M:%S")
     return out
@@ -3759,11 +3797,15 @@ def gm_load_recovery(symbol: str, deep: bool = False) -> dict:
                         try:
                             d["_as_of"] = datetime.fromtimestamp(os.path.getmtime(_p)).strftime("%d-%b")
                             d["_age_days"] = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(_p))).days
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            _gm_logger.warning(f"{symbol}: recovery batch mtime read failed: {e}")
                         return d
-            except Exception:
-                pass
+            except Exception as e:
+                # P1: the AUTHORITATIVE batch row (full-RFF) failed to read —
+                # falling to live cache-only recompute, which can differ (RFF
+                # often INSUFFICIENT there). Decision-relevant; record it.
+                _gm_logger.warning(f"{symbol}: recovery batch CSV read failed — "
+                                   f"falling to live recompute: {e}")
         # 2. Live recompute (symbol not scanned in the batch, or deep forced).
         r = rs.screen_one(symbol, allow_live_fundamentals=deep) or {}
         if isinstance(r, dict):
@@ -3807,8 +3849,10 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
                 _dc = _dfd["Close"]
                 _d_e10 = float(_dc.ewm(span=10, adjust=False).mean().iloc[-1])
                 _d_e20 = float(_dc.ewm(span=20, adjust=False).mean().iloc[-1])
-        except Exception:
-            pass
+        except Exception as e:
+            # P1: without the daily EMA anchors the intraday battery loses its
+            # trend context (engulfing gates degrade) — record the degradation.
+            _gm_logger.warning(f"{symbol}: daily EMA anchors for intraday PA failed: {e}")
         c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
         # RSI(14)
         _d = c.diff()
@@ -11473,8 +11517,13 @@ elif page == 'X-RAY':
 # Helpers
 # ----------------------------------------------------------------------------------------
 elif page == 'GOLDEN MATCHER':
-    st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
+    is_max_board = (st.query_params.get("view") == "gm_board_maximized")
+    if is_max_board:
+        st.markdown('<div class="page-title">📋 Golden Matcher — Trigger Board (Maximized)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="page-desc">Maximized batch Trigger Board view</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
+        st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
 
     def _gm_reload_market_data():
         """ONE refresh for BOTH surfaces (Jay). Re-fetches fresh market data for the
@@ -11487,20 +11536,23 @@ elif page == 'GOLDEN MATCHER':
             for _s in list(_gtb0.load_watchlist_union().keys()):
                 try:
                     _dp0.invalidate_symbol(_s)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    _gm_logger.warning(f"refresh: invalidate {_s} failed (stays cached): {e}")
+        except Exception as e:
+            _gm_logger.warning(f"refresh: universe invalidation failed — data may stay stale: {e}")
         for _c in (gm_load_symbol, gm_load_recovery, gm_load_intraday):
             try:
                 _c.clear()
-            except Exception:
-                pass
+            except Exception as e:
+                _gm_logger.warning(f"refresh: loader cache clear failed: {e}")
         st.session_state["gm_force_rebuild"] = True
 
     # ── View switch: single-symbol checklist  vs  batch Trigger Board ──────────
-    _gm_view = st.radio("View", ["🎯 Single Symbol", "📋 Trigger Board"],
-                        horizontal=True, key="gm_view", label_visibility="collapsed")
+    if is_max_board:
+        _gm_view = "📋 Trigger Board"
+    else:
+        _gm_view = st.radio("View", ["🎯 Single Symbol", "📋 Trigger Board"],
+                            horizontal=True, key="gm_view", label_visibility="collapsed")
 
     if _gm_view == "📋 Trigger Board":
         # Batch board — every watchlist name run through the SAME GM engine
@@ -11509,6 +11561,10 @@ elif page == 'GOLDEN MATCHER':
         import datetime as _gtb_dt, time as _gtb_time
         st.markdown("#### 📋 Trigger Board — watchlists × the Golden Matcher engine")
         _uni = _gtb.load_watchlist_union()
+        # P1: an unreadable/empty source CSV silently shrank the universe — say so.
+        _uissues = list(getattr(_gtb, "LAST_UNION_ISSUES", []) or [])
+        if _uissues:
+            st.warning("⚠️ Watchlist source issues: " + " · ".join(_uissues))
         # Instant-on: if this browser session has no board yet, load the last
         # persisted build from disk (survives Web Commander restarts / reloads) so
         # it doesn't force a full rebuild every time.
@@ -11584,23 +11640,27 @@ elif page == 'GOLDEN MATCHER':
                 # bhavcopy value → reuse the cached NSE metrics too.
                 try:
                     gm_load_symbol.clear(); gm_load_intraday.clear()
-                except Exception:
-                    pass
+                except Exception as e:
+                    _gm_logger.warning(f"live tick: technical cache clear failed (stale tick): {e}")
                 _nse_metrics = st.session_state.get("gm_board_nse") or {}
             else:
                 _nse_metrics = {}
                 try:
                     import nse_archive_fetcher as _naf
                     _nse_metrics = _naf.get_nse_metrics() or {}
-                except Exception:
+                except Exception as e:
                     _nse_metrics = {}
+                    _gm_logger.warning(f"board build: NSE delivery bulk fetch failed "
+                                       f"(Deliv% falls to volume): {e}")
                 st.session_state["gm_board_nse"] = _nse_metrics
             _xray_fn = None
             if _use_xray:
                 try:
                     from weinstein_xray_screener import get_xray_scorecard as _xray_fn
-                except Exception:
+                except Exception as e:
                     _xray_fn = None
+                    _gm_logger.warning(f"board build: X-Ray import failed (X-Ray cols blank "
+                                       f"despite checkbox ON): {e}")
             _loaders = dict(evaluate=gm_evaluate,          # SINGLE source of truth (shared with Single Symbol)
                             load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
                             bull_wf=compute_workflow, rec_wf=compute_recovery_workflow,
@@ -11610,6 +11670,7 @@ elif page == 'GOLDEN MATCHER':
                             trigger_tf=_trig_tf,           # "75m"/"125m"/"Daily" — gm_evaluate honours Daily
                             overall_weights=_gtb.OVERALL_PRESETS.get(_score_mode))
             _rows = []
+            _failed = []                 # P1: a failed name must be VISIBLE, never vanish
             _items = list(_uni.items())
             _prog = None if quiet else st.progress(0.0, "Building board…")
             for _i, (_sym, _info) in enumerate(_items):
@@ -11617,8 +11678,12 @@ elif page == 'GOLDEN MATCHER':
                     _r = _gtb.build_row(_sym, _info, _loaders, _g)
                     if _r:
                         _rows.append(_r)
-                except Exception:
-                    pass
+                    else:
+                        _failed.append(_sym)
+                        _gm_logger.warning(f"board build: {_sym}: build_row returned None (no data/candidates)")
+                except Exception as _be:
+                    _failed.append(_sym)
+                    _gm_logger.warning(f"board build: {_sym}: {type(_be).__name__}: {_be}")
                 if _prog is not None:
                     _prog.progress((_i + 1) / max(1, len(_items)), f"{_sym}  ({_i + 1}/{len(_items)})")
             if _prog is not None:
@@ -11628,6 +11693,7 @@ elif page == 'GOLDEN MATCHER':
                 _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
             st.session_state["gm_board_df"] = _bdf_new
             st.session_state["gm_board_built_tf"] = _trig_tf        # TF this snapshot was computed at
+            st.session_state["gm_board_failed"] = _failed           # P1: visible failure list
             _now_s = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
             st.session_state["gm_board_tech_stamp"] = _now_s
             st.session_state["gm_board_tech_ts"] = _gtb_time.time()
@@ -11644,6 +11710,14 @@ elif page == 'GOLDEN MATCHER':
             if _bdf is None or _bdf.empty:
                 st.info("Click **Build / Refresh** to populate the board (fundamentals + technical).")
                 return
+            # P1: failed names are VISIBLE, never vanish — an error must be
+            # distinguishable from "no trigger".
+            _bfail = st.session_state.get("gm_board_failed") or []
+            if _bfail:
+                st.warning(f"⚠️ Built {len(_bdf)}/{len(_bdf) + len(_bfail)} — "
+                           f"**{len(_bfail)} failed:** {', '.join(_bfail[:10])}"
+                           + (" …" if len(_bfail) > 10 else "")
+                           + "  ·  details in `logs/gm_errors.log`")
 
             # Apply pending edits from session_state before rendering to prevent vanishing
             _editor_state = st.session_state.get("gm_board_editor")
@@ -11679,8 +11753,8 @@ elif page == 'GOLDEN MATCHER':
                                 if _rrg.get(_sym, "—") != _new_val:
                                     _rrg[_sym] = _new_val
                                     _changed_top = True
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _gm_logger.warning(f"board: pending RRG edit apply failed: {e}")
                 if _changed_top:
                     _gtb.rrg_save(_rrg)
 
@@ -11796,6 +11870,25 @@ elif page == 'GOLDEN MATCHER':
         if _build or st.session_state.pop("gm_force_rebuild", False):
             _board_build(force_technical=False)          # full: fundamentals + technical
 
+        # Render a Maximize button above the table area (only when the board has data)
+        _bdf_check = st.session_state.get("gm_board_df")
+        if _bdf_check is not None and not _bdf_check.empty:
+            is_max_board = (st.query_params.get("view") == "gm_board_maximized")
+            if not is_max_board:
+                st.markdown(
+                    '''<div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                    <a href="/?view=gm_board_maximized" target="_blank" style="text-decoration: none;">
+                        <span style="display: inline-block; padding: 6px 14px; border: 1px solid #1e3a5f; 
+                        background: #0d1b2a; color: #58a6ff; border-radius: 4px; font-size: 13px; 
+                        font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer; 
+                        transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                            ↗️ MAXIMIZE BOARD (NEW WINDOW)
+                        </span>
+                    </a>
+                    </div>''',
+                    unsafe_allow_html=True
+                )
+
         if _live == "Off":
             _board_render()
         else:
@@ -11834,10 +11927,26 @@ elif page == 'GOLDEN MATCHER':
                     if _bdf is None or _bdf.empty:
                         st.info("Click **Build / Refresh** to populate the board.")
                         return
+                    
+                    # Apply multiselect filters (Jay)
+                    _cats_temp = sorted(_bdf["Category"].dropna().unique())
+                    _def_cat_temp = [c for c in _cats_temp if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
+                    _fcat_t = st.session_state.get("gm_bf_cat", _def_cat_temp)
+                    _frrg_t = st.session_state.get("gm_bf_rrg", [])
+                    _ftier_t = st.session_state.get("gm_bf_tier", [])
+                    _fpath_t = st.session_state.get("gm_bf_path", [])
+
                     # (2) FAST live-price overlay every 3s from the streaming feed
                     _rrg = _gtb.rrg_load()
                     _v = _bdf.copy()
                     _v["RRG"] = _v["Symbol"].map(lambda s: _rrg.get(s, "—"))
+                    
+                    if _fcat_t:  _v = _v[_v["Category"].isin(_fcat_t)]
+                    if _frrg_t:  _v = _v[_v["RRG"].isin(_frrg_t)]
+                    if _ftier_t: _v = _v[_v["Tier"].isin(_ftier_t)]
+                    if _fpath_t: _v = _v[_v["Path"].isin(_fpath_t)]
+                    if not _v.empty:
+                        _v = _v.sort_values("Symbol").reset_index(drop=True)
                     def _ltp(s):
                         p = _dmf.get_live_price(s)
                         return p if (p and p > 0) else None
@@ -11881,8 +11990,8 @@ elif page == 'GOLDEN MATCHER':
                                 _rrg[_s] = _vv; _ch = True
                         if _ch:
                             _gtb.rrg_save(_rrg)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _gm_logger.warning(f"stream grid: RRG edit persist failed: {e}")
 
                 _gm_stream()
         st.stop()
@@ -11964,8 +12073,10 @@ elif page == 'GOLDEN MATCHER':
                                     st.session_state["gm_pend_sym"] = None
                                     st.session_state["gm_pend_count"] = 0
                                 return
-            except Exception:
-                pass
+            except Exception as e:
+                # 2s polling loop — failure = "no sync this tick" (self-evident on
+                # screen). DEBUG level only, or a closed TV would flood the log.
+                _gm_logger.debug(f"TV auto-sync tick failed: {e}")
 
     _gm_col1, _gm_col2 = st.columns([2, 4])
     with _gm_col1:
@@ -12054,8 +12165,10 @@ elif page == 'GOLDEN MATCHER':
                     gm_load_symbol.clear()
                     gm_load_recovery.clear()
                     st.rerun()
-    except Exception:
-        pass
+    except Exception as e:
+        # (st.rerun's RerunException inherits BaseException, not Exception — it
+        # passes through this handler untouched; verified on streamlit 1.53.1.)
+        _gm_logger.warning(f"{symbol}: stale-frame auto-heal failed (STALE banner remains): {e}")
 
     # ---- SINGLE SOURCE OF TRUTH ------------------------------------------------
     # Evaluate EXACTLY like the Trigger Board: gm_evaluate() is the one function
@@ -12203,6 +12316,12 @@ elif page == 'GOLDEN MATCHER':
             f"Context &amp; Quality are trusted; this name is <b>timed</b> (still-valid guard → "
             f"Location → Trigger), not re-screened. A break-down (Stage 3/4 · lost 30WMA) shows "
             f"<b>INVALIDATED</b>.</div>", unsafe_allow_html=True)
+    elif _ev.get("inherit_error"):
+        # P1: the archetype resolver failed — inheritance is OFF and this name fell
+        # to the legacy re-qualification funnel. That changes verdicts; say so.
+        st.warning(f"⚠️ Inherited-qualification unavailable (archetype resolver failed) — "
+                   f"showing the LEGACY re-qualification verdict. {_ev['inherit_error']} "
+                   f"· logs/gm_errors.log")
 
     # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
     # the trading TF while Steps 1-4 remain Daily/Weekly positional context.

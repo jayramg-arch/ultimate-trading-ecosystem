@@ -19,6 +19,14 @@ from __future__ import annotations
 import os
 import json
 
+# P1 (14-Jul-2026): shared GM logger — previously-swallowed errors now recorded.
+# Fallback to a null logger so headless imports (run_pipeline) can never break.
+try:
+    from gm_log import gm_log as _log
+except Exception:
+    import logging as _logging
+    _log = _logging.getLogger("golden_matcher_null")
+
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _RRG_PATH = os.path.join(_ROOT, "gm_rrg_flags.json")
 _BOARD_CACHE = os.path.join(_ROOT, "gm_board_cache.csv")     # persisted board (survives restarts)
@@ -81,21 +89,34 @@ def _canon_key(s: str) -> str:
     return s.strip()
 
 
+# P1 (14-Jul-2026): per-call record of watchlist source problems — an unreadable
+# CSV used to be SILENTLY skipped, shrinking the board universe with no signal.
+# Kept OUT of the returned union dict (run_pipeline Phase 4.8 iterates its keys).
+LAST_UNION_ISSUES: list = []
+
+
 def load_watchlist_union() -> dict:
     """Union of the per-strategy watchlists, deduped by symbol. Returns
     {SYMBOL: {'sources':[labels], 'archetypes':[…], 'tier':…, 'sides':set,
               'conviction':…, 'combined':…, 'star':bool}}.
-    Each name INHERITS every archetype whose list it appears in (show-all)."""
+    Each name INHERITS every archetype whose list it appears in (show-all).
+    Source problems (unreadable / empty CSVs) are recorded in LAST_UNION_ISSUES."""
     import pandas as pd
     uni: dict = {}
+    LAST_UNION_ISSUES.clear()
 
     def _read(fname):
         p = os.path.join(_ROOT, fname)
         if not os.path.exists(p):
-            return None
+            return None                      # absent = normal (list not generated)
         try:
-            return pd.read_csv(p)
-        except Exception:
+            df = pd.read_csv(p)
+            if df.empty:
+                LAST_UNION_ISSUES.append(f"{fname}: empty (header-only)")
+            return df
+        except Exception as e:
+            LAST_UNION_ISSUES.append(f"{fname}: unreadable ({type(e).__name__})")
+            _log.warning(f"watchlist union: {fname} unreadable: {e}")
             return None
 
     for fname, label, tier, side, archetype in WATCHLISTS:
@@ -325,7 +346,12 @@ def rrg_load() -> dict:
     try:
         with open(_RRG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        # P1: a corrupt flags file used to read as {} and the next save WIPED all
+        # RRG flags silently. Log it loudly — the flags are hand-curated state.
+        _log.warning(f"rrg_load: {_RRG_PATH} unreadable (flags may be lost on next save): {e}")
         return {}
 
 
@@ -333,8 +359,8 @@ def rrg_save(d: dict) -> None:
     try:
         with open(_RRG_PATH, "w", encoding="utf-8") as f:
             json.dump(d, f, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning(f"rrg_save failed (RRG flags not persisted): {e}")
 
 
 def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None) -> None:
@@ -351,8 +377,8 @@ def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None) -> None:
         with open(_BOARD_META, "w", encoding="utf-8") as f:
             json.dump({"stamp": stamp, "tech_stamp": tech_stamp, "built_tf": built_tf,
                        "saved": datetime.datetime.now().isoformat()}, f)
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning(f"save_board_cache failed (board won't survive restart): {e}")
 
 
 def load_board_cache(max_age_hours: float = 24.0):
@@ -371,10 +397,13 @@ def load_board_cache(max_age_hours: float = 24.0):
         try:
             with open(_BOARD_META, "r", encoding="utf-8") as f:
                 meta = json.load(f)
-        except Exception:
+        except Exception as e:
+            _log.warning(f"load_board_cache: meta sidecar unreadable (stamps/TF lost): {e}")
             meta = {}
         return (df if not df.empty else None), meta
-    except Exception:
+    except Exception as e:
+        # P1: a truncated/corrupt cache used to read as "no board" silently.
+        _log.warning(f"load_board_cache: {_BOARD_CACHE} unreadable — board starts empty: {e}")
         return None, None
 
 
@@ -421,7 +450,8 @@ def diff_boards(prev_df, new_df) -> list:
         return []
     try:
         p = prev_df.set_index("Symbol")
-    except Exception:
+    except Exception as e:
+        _log.warning(f"diff_boards: prev snapshot unusable (change strip empty): {e}")
         return []
     changes = []
     for _, r in new_df.iterrows():
@@ -494,7 +524,10 @@ def compute_conviction(symbol, tech_score, path):
         if tech is not None and path == "recovery":
             tech = tech / 22.0 * 100.0
         return conv, cp._calc_combined_score(conv, tech)
-    except Exception:
+    except Exception as e:
+        # P1: a missing Conviction distorts the Overall score (reweighted) — log why.
+        _log.warning(f"compute_conviction({symbol}): failed — Overall loses the "
+                     f"conviction input: {e}")
         return None, None
 
 
@@ -591,14 +624,16 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     if loaders.get("minervini"):
         try:
             mpass = loaders["minervini"](ctx, cmp_px, mansfield)[0]
-        except Exception:
+        except Exception as e:
             mpass = None
+            _log.warning(f"{sym}: minervini_checks failed (Minervini col blank): {e}")
     _bat = "recovery_pa_patterns" if path == "recovery" else "pa_patterns"
     _pp = g(ctx, _bat, default=[]) or []
     try:
         sigma_pa = sum(t for _n, _f, t, _x in _pp if _f)
-    except Exception:
+    except Exception as e:
         sigma_pa = None
+        _log.warning(f"{sym}: ΣPA aggregation failed (Setup dimension degrades): {e}")
 
     _stale = g(rec, "Stale_Data")
 
@@ -642,8 +677,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
                 xray_grade = str(_xr.get("Overall_Grade", "") or "")
                 _pe = str((_xr.get("Raw_Metrics") or {}).get("P/E Ratio", "") or "")
                 pe_val = _to_num(_pe) if _pe and _pe != "N/A" else None
-        except Exception:
-            pass
+        except Exception as e:
+            _log.warning(f"{sym}: X-Ray enrichment failed (Piotroski/grade/P-E blank): {e}")
 
     # --- Conviction / Combined — CSV value (matcher-authoritative) preferred;
     #     COMPUTE the ones the source list lacked, the same way the matcher does,
