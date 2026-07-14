@@ -782,11 +782,20 @@ open_pos         = live_pos
 total_cap    = balance + total_deployed_g if (balance + total_deployed_g) > 0 else 5_000_000
 deployed_pct = round((total_deployed_g / total_cap) * 100, 1) if total_cap > 0 else 0.0
 
-# Check query parameters for maximized view
-is_maximized_board = (st.query_params.get("view") == "gm_board_maximized")
-if is_maximized_board:
+# Check query parameters for pop-out views (open in a new browser window/tab):
+#   ?view=gm_board_maximized → GM Trigger Board only (view locked)
+#   ?view=gm_window          → full Golden Matcher (Single Symbol ↔ Board switch)
+# Both hide the sidebar so the pop-out is a clean dedicated window while the main
+# Web Commander window is used for other pages. Auto-refresh works in the pop-out
+# because it's a fresh session (Live-refresh seeds to the 75m bar-close default).
+_qview = st.query_params.get("view")
+is_maximized_board = (_qview == "gm_board_maximized")
+is_gm_window = (_qview == "gm_window")
+if is_maximized_board or is_gm_window:
     st.session_state["page"] = "GOLDEN MATCHER"
-    st.session_state["gm_view"] = "📋 Trigger Board"
+    if is_maximized_board:
+        st.session_state["gm_view"] = "📋 Trigger Board"   # board only; view locked
+    # (gm_window leaves gm_view free so the Single Symbol ↔ Board switch works.)
     st.markdown("""
     <style>
     [data-testid="stSidebar"] {
@@ -11547,8 +11556,23 @@ elif page == 'GOLDEN MATCHER':
         st.markdown('<div class="page-title">📋 Golden Matcher — Trigger Board (Maximized)</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-desc">Maximized batch Trigger Board view</div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
-        st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
+        _gm_titlecol, _gm_popcol = st.columns([4, 1.3])
+        with _gm_titlecol:
+            st.markdown('<div class="page-title">🪙 Golden Matcher</div>', unsafe_allow_html=True)
+            st.markdown('<div class="page-desc">Single-symbol checklist presentation layer</div>', unsafe_allow_html=True)
+        with _gm_popcol:
+            # Pop the WHOLE Golden Matcher (Single Symbol ↔ Board switch works) into a
+            # new window so it stays open while the main window is used for other
+            # pages. Auto-refresh runs in the pop-out (fresh session → bar-close mode).
+            if not is_gm_window:
+                st.markdown(
+                    '''<div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                    <a href="/?view=gm_window" target="_blank" style="text-decoration:none;">
+                        <span style="display:inline-block;padding:6px 12px;border:1px solid #1e3a5f;
+                        background:#0d1b2a;color:#58a6ff;border-radius:4px;font-size:12px;
+                        font-family:'JetBrains Mono',monospace;font-weight:600;">
+                        ↗️ OPEN IN NEW WINDOW</span></a></div>''',
+                    unsafe_allow_html=True)
 
     def _gm_reload_market_data():
         """ONE refresh for BOTH surfaces (Jay). Re-fetches fresh market data for the
@@ -11803,38 +11827,16 @@ elif page == 'GOLDEN MATCHER':
             if _bdf is None or _bdf.empty:
                 st.info("Click **Build / Refresh** to populate the board (fundamentals + technical).")
                 return
-            # P1: failed names are VISIBLE, never vanish — an error must be
-            # distinguishable from "no trigger".
-            _bfail = st.session_state.get("gm_board_failed") or []
-            if _bfail:
-                st.warning(f"⚠️ Built {len(_bdf)}/{len(_bdf) + len(_bfail)} — "
-                           f"**{len(_bfail)} failed:** {', '.join(_bfail[:10])}"
-                           + (" …" if len(_bfail) > 10 else "")
-                           + "  ·  details in `logs/gm_errors.log`")
+            # (Failure counts, staleness guard, filters + CSV download now render in
+            # the SHARED header above — visible in every mode. This path only draws
+            # the editable table for the filtered view.)
 
             # Apply pending edits from session_state before rendering to prevent vanishing
             _editor_state = st.session_state.get("gm_board_editor")
             if _editor_state and _editor_state.get("edited_rows"):
                 _rrg = _gtb.rrg_load()
-                _bdf_temp = _bdf.copy()
-                _bdf_temp["RRG"] = _bdf_temp["Symbol"].map(lambda s: _rrg.get(s, "—"))
-                
-                _cats_temp = sorted(_bdf_temp["Category"].dropna().unique())
-                _def_cat_temp = [c for c in _cats_temp if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
-                
-                _fcat_t = st.session_state.get("gm_bf_cat", _def_cat_temp)
-                _frrg_t = st.session_state.get("gm_bf_rrg", [])
-                _ftier_t = st.session_state.get("gm_bf_tier", [])
-                _fpath_t = st.session_state.get("gm_bf_path", [])
-                
-                _view_temp = _bdf_temp
-                if _fcat_t:  _view_temp = _view_temp[_view_temp["Category"].isin(_fcat_t)]
-                if _frrg_t:  _view_temp = _view_temp[_view_temp["RRG"].isin(_frrg_t)]
-                if _ftier_t: _view_temp = _view_temp[_view_temp["Tier"].isin(_ftier_t)]
-                if _fpath_t: _view_temp = _view_temp[_view_temp["Path"].isin(_fpath_t)]
-                if not _view_temp.empty:
-                    _view_temp = _view_temp.sort_values("Symbol").reset_index(drop=True)
-                
+                # Same SHARED filter as the editor below → edited-row indices align.
+                _view_temp = _board_apply_filters(_bdf)
                 _changed_top = False
                 for _idx_str, _edit_dict in _editor_state["edited_rows"].items():
                     try:
@@ -11851,34 +11853,8 @@ elif page == 'GOLDEN MATCHER':
                 if _changed_top:
                     _gtb.rrg_save(_rrg)
 
-            # STALENESS GUARD — the board is a SNAPSHOT; the Single Symbol page is LIVE.
-            # If the TF selector no longer matches the TF the snapshot was built at, the
-            # categories WILL disagree with Single Symbol until a Rebuild. Say so loudly
-            # (this is the #1 cause of "categories don't match" — snapshot vs live).
-            _built_tf = st.session_state.get("gm_board_built_tf")
-            if _built_tf and _built_tf != _trig_tf:
-                st.warning(f"⚠️ This board was built at **{_built_tf}**, but the Trigger-TF selector is "
-                           f"now **{_trig_tf}**. The categories below are a stale snapshot — click "
-                           f"**Build / Refresh** to recompute at {_trig_tf} so they match the Single "
-                           f"Symbol page.")
             _rrg = _gtb.rrg_load()
-            _bdf = _bdf.copy()
-            _bdf["RRG"] = _bdf["Symbol"].map(lambda s: _rrg.get(s, "—"))
-            _f1, _f2, _f3, _f4 = st.columns(4)
-            _cats = sorted(_bdf["Category"].dropna().unique())
-            _def_cat = [c for c in _cats if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
-            _fcat = _f1.multiselect("Category", _cats, default=_def_cat, key="gm_bf_cat")
-            _frrg = _f2.multiselect("RRG Flag", _gtb.RRG_QUADRANTS, default=[], key="gm_bf_rrg")
-            _ftier = _f3.multiselect("Tier", ["Rigorous", "Discovery"], default=[], key="gm_bf_tier")
-            _fpath = _f4.multiselect("Path", ["Bull", "Recovery"], default=[], key="gm_bf_path")
-            _view = _bdf
-            if _fcat:  _view = _view[_view["Category"].isin(_fcat)]
-            if _frrg:  _view = _view[_view["RRG"].isin(_frrg)]
-            if _ftier: _view = _view[_view["Tier"].isin(_ftier)]
-            if _fpath: _view = _view[_view["Path"].isin(_fpath)]
-            if not _view.empty:
-                _view = _view.sort_values("Symbol").reset_index(drop=True)
-            st.caption(f"Showing **{len(_view)}** of {len(_bdf)} names")
+            _view = _board_apply_filters(_bdf)      # SHARED filter (see header block)
             _edited = st.data_editor(
                 _view, use_container_width=True, hide_index=True, key="gm_board_editor",
                 column_config={
@@ -11982,6 +11958,61 @@ elif page == 'GOLDEN MATCHER':
                     unsafe_allow_html=True
                 )
 
+        # ── SHARED header — warnings + filters + CSV download rendered ONCE for
+        #    BOTH render paths (static editor AND streaming grid) so filters are
+        #    user-adjustable in every mode and the download can't regress. ──
+        def _board_apply_filters(bdf):
+            """RRG overlay + the 4 session_state filters + sort — the ONE filter
+            definition the static editor, the streaming grid AND the CSV download
+            all share, so they can never disagree."""
+            _rrgf = _gtb.rrg_load()
+            v = bdf.copy()
+            v["RRG"] = v["Symbol"].map(lambda s: _rrgf.get(s, "—"))
+            for _key, _col in (("gm_bf_cat", "Category"), ("gm_bf_rrg", "RRG"),
+                               ("gm_bf_tier", "Tier"), ("gm_bf_path", "Path")):
+                _sel = st.session_state.get(_key) or []
+                if _sel and _col in v.columns:
+                    v = v[v[_col].isin(_sel)]
+            if not v.empty:
+                v = v.sort_values("Symbol").reset_index(drop=True)
+            return v
+
+        _bdf_hdr = st.session_state.get("gm_board_df")
+        if _bdf_hdr is not None and not _bdf_hdr.empty:
+            # P1 failure counts + TF-staleness guard — now visible in EVERY mode.
+            _bfail = st.session_state.get("gm_board_failed") or []
+            if _bfail:
+                st.warning(f"⚠️ Built {len(_bdf_hdr)}/{len(_bdf_hdr) + len(_bfail)} — "
+                           f"**{len(_bfail)} failed:** {', '.join(_bfail[:10])}"
+                           + (" …" if len(_bfail) > 10 else "") + "  ·  `logs/gm_errors.log`")
+            _built_tf = st.session_state.get("gm_board_built_tf")
+            if _built_tf and _built_tf != _trig_tf:
+                st.warning(f"⚠️ Board built at **{_built_tf}** but Trigger-TF is now **{_trig_tf}** — "
+                           f"stale snapshot; **Build / Refresh** to recompute at {_trig_tf}.")
+            # Filters — adjustable in ALL modes (streaming reads these keys).
+            _rrg_h = _gtb.rrg_load()
+            _bdf_rrg = _bdf_hdr.copy()
+            _bdf_rrg["RRG"] = _bdf_rrg["Symbol"].map(lambda s: _rrg_h.get(s, "—"))
+            _cats_h = sorted(_bdf_rrg["Category"].dropna().unique())
+            _def_cat_h = [c for c in _cats_h if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
+            _fc1, _fc2, _fc3, _fc4, _fc5 = st.columns([2, 1.6, 1.6, 1.6, 1.2])
+            _fc1.multiselect("Category", _cats_h, default=_def_cat_h, key="gm_bf_cat")
+            _fc2.multiselect("RRG Flag", _gtb.RRG_QUADRANTS, default=[], key="gm_bf_rrg")
+            _fc3.multiselect("Tier", ["Rigorous", "Discovery"], default=[], key="gm_bf_tier")
+            _fc4.multiselect("Path", ["Bull", "Recovery"], default=[], key="gm_bf_path")
+            # CSV download (FILTERED view) — works in every mode (fixes the regression
+            # where defaulting to the streaming grid removed the data_editor toolbar).
+            _dl_view = _board_apply_filters(_bdf_hdr)
+            with _fc5:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                st.download_button(
+                    "⬇️ CSV", _dl_view.to_csv(index=False).encode("utf-8"),
+                    file_name=f"gm_board_{datetime.now():%Y%m%d_%H%M}.csv",
+                    mime="text/csv", use_container_width=True, key="gm_board_dl",
+                    help="Download the CURRENTLY-FILTERED board as CSV. Works in every "
+                         "Live-refresh mode.")
+            st.caption(f"Showing **{len(_dl_view)}** of {len(_bdf_hdr)} names")
+
         if _live == "Off":
             _board_render()
         else:
@@ -12041,26 +12072,11 @@ elif page == 'GOLDEN MATCHER':
                     if _bdf is None or _bdf.empty:
                         st.info("Click **Build / Refresh** to populate the board.")
                         return
-                    
-                    # Apply multiselect filters (Jay)
-                    _cats_temp = sorted(_bdf["Category"].dropna().unique())
-                    _def_cat_temp = [c for c in _cats_temp if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
-                    _fcat_t = st.session_state.get("gm_bf_cat", _def_cat_temp)
-                    _frrg_t = st.session_state.get("gm_bf_rrg", [])
-                    _ftier_t = st.session_state.get("gm_bf_tier", [])
-                    _fpath_t = st.session_state.get("gm_bf_path", [])
-
-                    # (2) FAST live-price overlay every 3s from the streaming feed
+                    # SHARED filter — identical to the static editor + CSV download,
+                    # and now user-adjustable via the header multiselects in this mode.
                     _rrg = _gtb.rrg_load()
-                    _v = _bdf.copy()
-                    _v["RRG"] = _v["Symbol"].map(lambda s: _rrg.get(s, "—"))
-                    
-                    if _fcat_t:  _v = _v[_v["Category"].isin(_fcat_t)]
-                    if _frrg_t:  _v = _v[_v["RRG"].isin(_frrg_t)]
-                    if _ftier_t: _v = _v[_v["Tier"].isin(_ftier_t)]
-                    if _fpath_t: _v = _v[_v["Path"].isin(_fpath_t)]
-                    if not _v.empty:
-                        _v = _v.sort_values("Symbol").reset_index(drop=True)
+                    _v = _board_apply_filters(_bdf)
+                    # (2) FAST live-price overlay every 3s from the streaming feed
                     def _ltp(s):
                         p = _dmf.get_live_price(s)
                         return p if (p and p > 0) else None
