@@ -2545,6 +2545,12 @@ EMA20_RECLAIM_BAND_PCT = 8.0
 # still-valid break-down guard, and TIME it (don't re-screen). Flag lets us A/B
 # against the legacy re-qualification funnel. ON = the redesign; OFF = old behaviour.
 INHERIT_QUALIFICATION = True
+# Structural-vs-catalyst-scan archetype sets — SINGLE SOURCE in gm_trigger_board
+# (next to the archetype names), deliberately NO fallback literal: a silent local
+# copy is exactly the rename-drift bug this import removes (P0, 14-Jul-2026).
+# gm_trigger_board is import-light (os/json) and already a hard GM dependency.
+from gm_trigger_board import (STRUCTURAL_BULL_ARCHETYPES,
+                              STRUCTURAL_RECOVERY_ARCHETYPES)
 
 
 # ----------------------------------------------------------------------------------------
@@ -2795,7 +2801,7 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     # time-localized event), unlike Hunter/Pullback (a structure that persists). So a
     # catalyst-scan-ONLY inherited name must still have a LIVE catalyst OR a fired PA
     # trigger to stay actionable; otherwise it's a stale scan hit → WATCHLIST.
-    _structural_bull = any(a in ("Breakout", "Accumulation", "Pullback", "Leader")
+    _structural_bull = any(a in STRUCTURAL_BULL_ARCHETYPES
                            for a in (inherited_setup or []))
     _catalyst_only = inherited and not _structural_bull
     if inherited:
@@ -3079,7 +3085,7 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     # Rec-Catalyst-Scan names have no persistent structural thesis — the recovery
     # SIGNAL was their reason. So a catalyst-scan-ONLY inherited recovery name must
     # have a live signal (sig ≥ 2) OR a fired recovery PA trigger to stay actionable.
-    _rec_structural = any(a in ("Recovery-RS", "Recovery-Climax", "Recovery-Early")
+    _rec_structural = any(a in STRUCTURAL_RECOVERY_ARCHETYPES
                           for a in (inherited_setup or []))
     _rec_catalyst_only = inherited and not _rec_structural
     if inherited:
@@ -11512,6 +11518,10 @@ elif page == 'GOLDEN MATCHER':
                 st.session_state["gm_board_df"] = _cdf
                 st.session_state["gm_board_stamp"] = (_cmeta or {}).get("stamp") or "from cache"
                 st.session_state["gm_board_tech_stamp"] = (_cmeta or {}).get("tech_stamp")
+                # P0 fix: restore the snapshot's TF so the staleness guard survives
+                # a restart (a 75m snapshot shown against a Daily selector must warn).
+                if (_cmeta or {}).get("built_tf"):
+                    st.session_state["gm_board_built_tf"] = _cmeta["built_tf"]
         _bc1, _bc2, _bc3 = st.columns([1.2, 1.0, 2.2])
         with _bc1:
             _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
@@ -11625,7 +11635,7 @@ elif page == 'GOLDEN MATCHER':
                 st.session_state["gm_board_stamp"] = _now_s
             # Persist to disk so the board survives a restart / reload (instant-on).
             _gtb.save_board_cache(_bdf_new, stamp=st.session_state.get("gm_board_stamp"),
-                                  tech_stamp=_now_s)
+                                  tech_stamp=_now_s, built_tf=_trig_tf)
 
         # --- render (RRG overlay + filters + editable table); keyed widgets so
         #     filter/edit state survives the live-refresh fragment reruns ---

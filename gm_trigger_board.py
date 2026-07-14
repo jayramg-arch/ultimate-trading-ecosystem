@@ -54,6 +54,16 @@ STAR_SOURCE = "FINAL_WATCHLIST.csv"
 BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst-Scan"}
 RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Rec-Catalyst-Scan"}
 
+# STRUCTURAL archetypes = a setup that PERSISTS (a base/pullback/leadership structure)
+# vs the catalyst-scan archetypes whose thesis was a time-localized event. The
+# workflows use these to decide whether a name is "catalyst-scan-ONLY" (must have a
+# live catalyst / fired PA to stay actionable). Defined HERE, next to the archetype
+# names, so a rename can never silently drift the two hardcoded tuples the workflows
+# used to carry (P0 fix, 14-Jul-2026). If you rename an archetype above, update it
+# here in the same edit.
+STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader"}
+STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early"}
+
 
 def _canon_key(s: str) -> str:
     """Normalize a symbol to the union-KEY form: upper, no NSE:/BSE: prefix, no
@@ -327,16 +337,19 @@ def rrg_save(d: dict) -> None:
         pass
 
 
-def save_board_cache(df, stamp=None, tech_stamp=None) -> None:
+def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None) -> None:
     """Persist the built board to disk so it survives a Web Commander restart /
-    browser reload (session_state is in-memory only). CSV (no pyarrow dep)."""
+    browser reload (session_state is in-memory only). CSV (no pyarrow dep).
+    built_tf (P0 fix, 14-Jul-2026): the Trigger-TF the snapshot was computed at —
+    without it the TF-staleness guard couldn't fire after a restart, silently
+    showing a 75m snapshot against a Daily selector."""
     try:
         if df is None or getattr(df, "empty", True):
             return
         df.to_csv(_BOARD_CACHE, index=False, encoding="utf-8")
         import datetime
         with open(_BOARD_META, "w", encoding="utf-8") as f:
-            json.dump({"stamp": stamp, "tech_stamp": tech_stamp,
+            json.dump({"stamp": stamp, "tech_stamp": tech_stamp, "built_tf": built_tf,
                        "saved": datetime.datetime.now().isoformat()}, f)
     except Exception:
         pass
@@ -590,8 +603,15 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     _stale = g(rec, "Stale_Data")
 
     # --- Delivery % (NSE bhavcopy, one bulk fetch) — fallback to total volume ---
+    # P0 fix (14-Jul-2026): the bhavcopy dict is keyed by the RAW exchange Symbol;
+    # canonicalize BOTH sides of the join so separator-variant names don't silently
+    # blank to the volume fallback.
     nse = loaders.get("nse_metrics") or {}
-    _dp = (nse.get(sym) or {}).get("Delivery_Pct")
+    _k = _canon_key(sym)
+    _nse_row = nse.get(sym) or nse.get(_k) or {}
+    if not _nse_row:
+        _nse_row = next((v for kk, v in nse.items() if _canon_key(kk) == _k), {})
+    _dp = _nse_row.get("Delivery_Pct")
     vol_txt = ""
     if _dp is not None:
         try:

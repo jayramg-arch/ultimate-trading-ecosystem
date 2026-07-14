@@ -20,6 +20,10 @@ import pandas as pd
 import requests
 
 from dhanhq import dhanhq
+try:
+    from dhanhq import DhanContext
+except ImportError:
+    DhanContext = None
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -160,18 +164,90 @@ def _build_symbol_map():
 
 
 def get_security_meta(symbol: str) -> Optional[dict]:
-    """Return Dhan meta {security_id, exchange_segment, instrument_type}."""
+    """Return Dhan meta {security_id, exchange_segment, instrument_type}.
+
+    P0 fix (14-Jul-2026): this is the gate that decides Dhan-vs-yfinance, but it
+    only did a direct map lookup — a separator-variant symbol (BAJAJ_AUTO vs
+    BAJAJ-AUTO, M_M vs M&M) missed and SILENTLY fell to yfinance, splitting the
+    data source between surfaces. Now falls back to the separator-insensitive
+    canonical_nse_symbol resolver before giving up. Fast path (direct hit) first.
+    """
     m = _build_symbol_map()
     s = symbol.strip().upper()
     for suffix in (".NS", ".BO", ".NSE", "-EQ"):
         if s.endswith(suffix):
             s = s[:-len(suffix)]
-    return m.get(s)
+    meta = m.get(s)
+    if meta is None:
+        canon = canonical_nse_symbol(s)
+        if canon != s:
+            meta = m.get(canon)
+    return meta
 
 
 def get_security_id(symbol: str) -> Optional[str]:
     meta = get_security_meta(symbol)
     return meta["security_id"] if meta else None
+
+
+# Separator-insensitive alias index (built lazily from the scrip master).
+_norm_alias_map: Optional[dict] = None
+
+
+def _norm_symbol_key(s) -> str:
+    """Strip every separator TradingView / NSE / yfinance disagree on so that
+    'BAJAJ_AUTO', 'BAJAJ-AUTO' and 'BAJAJAUTO' collapse to one key; likewise
+    'M_M' and 'M&M' -> 'MM'."""
+    out = []
+    for ch in str(s).upper():
+        if ch.isalnum():
+            out.append(ch)
+    return "".join(out)
+
+
+def canonical_nse_symbol(symbol: str) -> str:
+    """Resolve any separator variant to the exchange's canonical NSE trading
+    symbol via the Dhan scrip master.
+
+    TradingView reports 'BAJAJ_AUTO' / 'NAM_INDIA' (underscores) while the
+    scrip master + yfinance use 'BAJAJ-AUTO' / 'NAM-INDIA' (hyphens), and a few
+    names use '&' ('M&M' <-> TV 'M_M') — so a blind '_'->'-' swap is wrong. This
+    matches on a separator-stripped key against the authoritative master.
+
+    Returns the canonical bare trading symbol (no exchange prefix / .NS suffix),
+    or the cleaned input unchanged if it can't be resolved (never raises).
+    Indices ('^...') and non-NSE inputs pass through untouched.
+    """
+    global _norm_alias_map
+    s = str(symbol or "").strip().upper()
+    for pre in ("NSE:", "BSE:"):
+        if s.startswith(pre):
+            s = s[len(pre):]
+    for suf in (".NS", ".BO", ".NSE", "-EQ"):
+        if s.endswith(suf):
+            s = s[:-len(suf)]
+            break
+    if not s or s.startswith("^") or s.endswith(("=X", "=F")):
+        return s
+    try:
+        m = _build_symbol_map()
+        if s in m:                       # already canonical
+            return s
+        if _norm_alias_map is None:
+            _norm_alias_map = {}
+            for k in m:
+                _norm_alias_map.setdefault(_norm_symbol_key(k), k)
+        hit = _norm_alias_map.get(_norm_symbol_key(s))
+        if hit:
+            return hit
+    except Exception as e:
+        logger.debug("canonical_nse_symbol: master lookup failed for %s: %s", symbol, e)
+    # Last-resort when the master is unavailable: TV underscore -> NSE hyphen
+    # (fixes the common reported names; ampersand names are rare and the master
+    # is almost always present).
+    if "_" in s:
+        return s.replace("_", "-")
+    return s
 
 
 # ── Dhan client ───────────────────────────────────────────────────────────
@@ -235,7 +311,10 @@ def _get_client():
         tok = os.getenv("DHAN_ACCESS_TOKEN", "").strip("'\"")
     if not cid or not tok:
         raise RuntimeError("DHAN_CLIENT_ID / DHAN_ACCESS_TOKEN missing from env")
-    _client = dhanhq(cid, tok)
+    if DhanContext:
+        _client = dhanhq(DhanContext(cid, tok))
+    else:
+        _client = dhanhq(cid, tok)
     # Root cause #2 of the dead data feed: the Dhan v2 /charts/historical
     # endpoint requires BOTH 'access-token' AND 'client-id' headers, but the
     # dhanhq SDK only sets 'access-token' -> every historical call returned
@@ -248,7 +327,135 @@ def _get_client():
     return _client
 
 
+# ── Freshness: fill the just-closed session from intraday ───────────────────
+def _last_completed_session_date():
+    """Date of the most-recently COMPLETED NSE session (IST clock). Today only
+    after the 15:30 close; otherwise the previous trading day. Weekend-aware;
+    NSE holidays not modelled (errs to the last weekday)."""
+    now = datetime.now()
+    d = now.date()
+    if d.weekday() < 5 and (now.hour * 60 + now.minute) >= (15 * 60 + 30):
+        return d
+    d -= timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def _append_completed_session_from_intraday(symbol: str, meta: dict, df_daily):
+    """If the Dhan daily frame is behind the last COMPLETED session (their daily
+    endpoint lags a day), aggregate the missing session(s) from the intraday
+    feed and append them. Only appends CLOSED sessions (never today's forming
+    bar). No-op / early-return when the daily is already current. Never raises."""
+    if df_daily is None or getattr(df_daily, "empty", True):
+        return df_daily
+    target = _last_completed_session_date()
+    last = df_daily.index[-1].date()
+    if last >= target:
+        return df_daily                       # daily already current — the common path
+    # Daily lags: pull recent intraday and aggregate per-day into daily bars.
+    dfi = fetch_intraday(symbol,
+                         from_date=(target - timedelta(days=6)).isoformat(),
+                         to_date=target.isoformat(), interval=15)
+    if dfi is None or dfi.empty:
+        return df_daily
+    agg = dfi.resample("D").agg({"Open": "first", "High": "max", "Low": "min",
+                                 "Close": "last", "Volume": "sum"}).dropna(subset=["Close"])
+    agg.index = agg.index.normalize()
+    # Keep only fully-CLOSED sessions after the daily's last bar and on/before
+    # the target (target itself is completed by construction).
+    import pandas as _pd
+    add = agg[(agg.index > _pd.Timestamp(last)) & (agg.index <= _pd.Timestamp(target))]
+    if add.empty:
+        return df_daily
+    out = _pd.concat([df_daily, add[["Open", "High", "Low", "Close", "Volume"]]])
+    out = out[~out.index.duplicated(keep="last")].sort_index()
+    out.index.name = df_daily.index.name
+    logger.info("intraday session-fill: %s appended %d bar(s) up to %s (daily lagged at %s)",
+                symbol, len(add), target, last)
+    return out
+
+
 # ── Public fetcher ────────────────────────────────────────────────────────
+def fetch_intraday(symbol: str,
+                   from_date: Optional[str] = None,
+                   to_date: Optional[str] = None,
+                   interval: int = 1) -> pd.DataFrame:
+    """Fetch intraday minute OHLCV from Dhan API. Returns DataFrame.
+
+    Window limits (verified empirically 8-Jul-2026): Dhan serves up to ~90 days
+    for coarser intervals (25-min requests return ~900 bars over 90d — the GM
+    trigger-TF path relies on this); the old "max 5 days" note applies to
+    interval=1 (per-minute) only, which is why the default from_date stays at
+    today-4d. Callers wanting 75/125m resamples should request 25-min bars over
+    up to 90 days."""
+    meta = get_security_meta(symbol)
+    if meta is None or _AUTH_FAILED:
+        return pd.DataFrame()
+
+    if to_date is None:
+        to_date = date.today().isoformat()
+    if from_date is None:
+        from_date = (date.today() - timedelta(days=4)).isoformat()
+
+    cli = _get_client()
+
+    def _call():
+        _throttle_dhan()
+        return cli.intraday_minute_data(
+            security_id=meta["security_id"],
+            exchange_segment=meta["exchange_segment"],
+            instrument_type=meta["instrument_type"],
+            from_date=from_date,
+            to_date=to_date,
+            interval=interval
+        )
+
+    try:
+        resp = _call()
+        attempts = 0
+        while (attempts < _DHAN_MAX_RETRIES
+               and isinstance(resp, dict)
+               and resp.get("status") != "success"
+               and _is_transient_failure(resp)):
+            attempts += 1
+            time.sleep(_DHAN_RETRY_SLEEP_S * attempts)
+            resp = _call()
+    except Exception as e:
+        logger.warning(f"Dhan intraday fetch failed for {symbol}: {e}")
+        return pd.DataFrame()
+
+    if not isinstance(resp, dict) or resp.get("status") != "success":
+        _note_dhan_failure(symbol, resp)
+        return pd.DataFrame()
+    data = resp.get("data", {})
+    # FIX 10-Jul-2026: Dhan's intraday response returns the time key as
+    # `timestamp` (epoch seconds) — same as the daily endpoint — NOT `start_Time`.
+    # The old `start_Time` key made this guard bail out as empty on EVERY intraday
+    # response (data was present all along: open/high/low/close/volume/timestamp).
+    if not data or not data.get("timestamp"):
+        return pd.DataFrame()
+
+    df = pd.DataFrame({
+        "Open":   data.get("open", []),
+        "High":   data.get("high", []),
+        "Low":    data.get("low", []),
+        "Close":  data.get("close", []),
+        "Volume": data.get("volume", []),
+    })
+    # Epoch seconds → IST datetime (UTC→IST convert, no normalize — keep the
+    # intra-day time), mirroring the daily endpoint's tz handling.
+    try:
+        df.index = (pd.to_datetime(data["timestamp"], unit="s", utc=True)
+                      .tz_convert("Asia/Kolkata").tz_localize(None))
+        df.index.name = "Datetime"
+        df = df.sort_index()
+        df = df[~df.index.duplicated(keep="last")]
+    except Exception as e:
+        logger.warning("Dhan intraday timestamp parse failed for %s: %s", symbol, e)
+        return pd.DataFrame()
+    return df
+
 def fetch_daily(symbol: str,
                   from_date: Optional[str] = None,
                   to_date: Optional[str] = None,
@@ -320,11 +527,23 @@ def fetch_daily(symbol: str,
         "Close":  data.get("close", []),
         "Volume": data.get("volume", []),
     })
-    # Timestamps are epoch seconds
-    df.index = pd.to_datetime(data["timestamp"], unit="s").normalize()
+    # Timestamps are epoch seconds stamped at IST-midnight of the session date.
+    # FIX 8-Jul-2026: reading them as UTC then normalize() shifted every daily
+    # bar back ONE calendar day (a Monday session showed as "Sunday"). Convert
+    # UTC->IST before normalize so bars carry their true NSE session date.
+    df.index = (pd.to_datetime(data["timestamp"], unit="s", utc=True)
+                  .tz_convert("Asia/Kolkata").tz_localize(None).normalize())
     df.index.name = "Date"
     df = df.sort_index()
     df = df[~df.index.duplicated(keep="last")]
+    # Dhan's daily endpoint publishes a session's bar the NEXT day, so after
+    # today's close the just-completed session is missing. Fill it from the
+    # (same-day-available) intraday feed so EOD analysis isn't a session behind.
+    # No-op early-return whenever the daily is already current (the common case).
+    try:
+        df = _append_completed_session_from_intraday(symbol, meta, df)
+    except Exception as e:
+        logger.debug("intraday session-fill skipped for %s: %s", symbol, e)
     return df
 
 
