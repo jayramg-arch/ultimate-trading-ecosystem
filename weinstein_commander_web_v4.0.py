@@ -1845,9 +1845,20 @@ def row(label: str, value: str, status: str, note: str = ""):
 
 
 def _g(d: dict, *keys, default=None):
+    """dict getter that treats None AND float NaN as missing (P0 fix, 14-Jul-2026).
+    NaN is not None, so the old version let NaN sail into comparisons (NaN compares
+    False everywhere) and into inr()/format strings — every call site needed a manual
+    scrub and any missed one was a latent bug. Non-scalars (str/list/dict) pass
+    through untouched; only a genuine float NaN is treated as absent."""
     for k in keys:
         if k in d and d[k] is not None:
-            return d[k]
+            v = d[k]
+            try:
+                if isinstance(v, float) and math.isnan(v):
+                    continue                    # NaN == missing → next key / default
+            except Exception:
+                pass                            # non-numeric oddball → return as-is
+            return v
     return default
 
 
@@ -2524,7 +2535,11 @@ def section_fundamentals(fun, bff=None) -> str:
 # there is no trigger yet.
 RR_MIN_LOCATION = 2.0          # min reward:risk for "good location"
 EMA20_EXT_ATR_MAX = 3.5        # bull: not extended more than this many ATR above EMA20
-EMA20_RECLAIM_BAND_PCT = 6.0   # recovery: price within this % of EMA20 = near/reclaiming
+# Recovery "not chased" ceiling: max % above EMA20 before the bounce counts as
+# extended. P0 fix (14-Jul-2026): this constant was DEAD — the live gate hardcoded
+# 8.0 inline while this documented 6.0. Jay's call: keep 8% (the behavior he has
+# actually been trading); the gate + its display metric now read THIS constant.
+EMA20_RECLAIM_BAND_PCT = 8.0
 # P1 (12 Jul 2026) — INHERITED QUALIFICATION: when a name carries a source archetype
 # (Chartink+Screener already qualified it), trust Context+Quality, run only a
 # still-valid break-down guard, and TIME it (don't re-screen). Flag lets us A/B
@@ -2941,7 +2956,7 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     _ema20 = _g(ctx, "ema20")
     turn_ok = bool(_ema20) and cmp_px is not None and cmp_px >= _ema20    # reclaimed 20-EMA
     ext_ema = ((cmp_px - _ema20) / _ema20 * 100) if (_ema20 and cmp_px) else None
-    not_chased = (ext_ema is None) or (ext_ema <= 8.0)                    # ≤8% above 20-EMA
+    not_chased = (ext_ema is None) or (ext_ema <= EMA20_RECLAIM_BAND_PCT)  # ≤ band % above 20-EMA
     # R:R is the real "room" here too. EMA20 for recovery is RESISTANCE being
     # reclaimed (the mirror of the bull rule): turn_ok = price reclaimed it.
     rr_ok = (rr is not None and rr >= RR_MIN_LOCATION)
@@ -3138,7 +3153,11 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     fun = data.get("fun") or {}
     bff = data.get("bff")
     ctx["bff"] = bff
-    cmp_px = _g(ctx, "cmp") or _g(rec, "Entry")
+    # Explicit is-None fallback (P0 fix): `or` treated a falsy-but-present cmp
+    # (0.0) as missing and silently substituted the engine Entry.
+    cmp_px = _g(ctx, "cmp")
+    if cmp_px is None:
+        cmp_px = _g(rec, "Entry")
     rs_ratio = _g(rec, "JdK_RS_Ratio")
     mansfield = (rs_ratio - 100.0) if rs_ratio is not None else None
 
@@ -3181,10 +3200,16 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     if ir: _cr["inherited_setup"] = ir
 
     wf_bull = compute_workflow(rec, _cb, cmp_px, mansfield)
-    wf_rec = compute_recovery_workflow(rec_r, _cr, cmp_px) if rec_r else None
+    # P0 fix (14-Jul-2026): gm_load_recovery returns {"_error": …} on total failure —
+    # a TRUTHY dict. The old `if rec_r` ran the recovery workflow on the error dict,
+    # producing a confident-but-wrong "NOT A RECOVERY CONTEXT" verdict. An eval
+    # failure and a real no-context are decision-different — surface the error.
+    rec_error = (rec_r or {}).get("_error")
+    wf_rec = (compute_recovery_workflow(rec_r, _cr, cmp_px)
+              if (rec_r and not rec_error) else None)
     return dict(data=data, rec=rec, ctx=ctx, fun=fun, bff=bff,
                 cmp_px=cmp_px, mansfield=mansfield, rec_r=rec_r,
-                wf_bull=wf_bull, wf_rec=wf_rec,
+                wf_bull=wf_bull, wf_rec=wf_rec, rec_error=rec_error,
                 inherited_bull=ib, inherited_rec=ir,
                 intra_ok=intra_ok, intra_label=intra_label)
 
@@ -11609,6 +11634,46 @@ elif page == 'GOLDEN MATCHER':
             if _bdf is None or _bdf.empty:
                 st.info("Click **Build / Refresh** to populate the board (fundamentals + technical).")
                 return
+
+            # Apply pending edits from session_state before rendering to prevent vanishing
+            _editor_state = st.session_state.get("gm_board_editor")
+            if _editor_state and _editor_state.get("edited_rows"):
+                _rrg = _gtb.rrg_load()
+                _bdf_temp = _bdf.copy()
+                _bdf_temp["RRG"] = _bdf_temp["Symbol"].map(lambda s: _rrg.get(s, "—"))
+                
+                _cats_temp = sorted(_bdf_temp["Category"].dropna().unique())
+                _def_cat_temp = [c for c in _cats_temp if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
+                
+                _fcat_t = st.session_state.get("gm_bf_cat", _def_cat_temp)
+                _frrg_t = st.session_state.get("gm_bf_rrg", [])
+                _ftier_t = st.session_state.get("gm_bf_tier", [])
+                _fpath_t = st.session_state.get("gm_bf_path", [])
+                
+                _view_temp = _bdf_temp
+                if _fcat_t:  _view_temp = _view_temp[_view_temp["Category"].isin(_fcat_t)]
+                if _frrg_t:  _view_temp = _view_temp[_view_temp["RRG"].isin(_frrg_t)]
+                if _ftier_t: _view_temp = _view_temp[_view_temp["Tier"].isin(_ftier_t)]
+                if _fpath_t: _view_temp = _view_temp[_view_temp["Path"].isin(_fpath_t)]
+                if not _view_temp.empty:
+                    _view_temp = _view_temp.sort_values("Symbol").reset_index(drop=True)
+                
+                _changed_top = False
+                for _idx_str, _edit_dict in _editor_state["edited_rows"].items():
+                    try:
+                        _idx = int(_idx_str)
+                        if 0 <= _idx < len(_view_temp):
+                            _sym = _view_temp.iloc[_idx]["Symbol"]
+                            if "RRG" in _edit_dict:
+                                _new_val = _edit_dict["RRG"]
+                                if _rrg.get(_sym, "—") != _new_val:
+                                    _rrg[_sym] = _new_val
+                                    _changed_top = True
+                    except Exception:
+                        pass
+                if _changed_top:
+                    _gtb.rrg_save(_rrg)
+
             # STALENESS GUARD — the board is a SNAPSHOT; the Single Symbol page is LIVE.
             # If the TF selector no longer matches the TF the snapshot was built at, the
             # categories WILL disagree with Single Symbol until a Rebuild. Say so loudly
@@ -11634,6 +11699,8 @@ elif page == 'GOLDEN MATCHER':
             if _frrg:  _view = _view[_view["RRG"].isin(_frrg)]
             if _ftier: _view = _view[_view["Tier"].isin(_ftier)]
             if _fpath: _view = _view[_view["Path"].isin(_fpath)]
+            if not _view.empty:
+                _view = _view.sort_values("Symbol").reset_index(drop=True)
             st.caption(f"Showing **{len(_view)}** of {len(_bdf)} names")
             _edited = st.data_editor(
                 _view, use_container_width=True, hide_index=True, key="gm_board_editor",
@@ -11661,6 +11728,7 @@ elif page == 'GOLDEN MATCHER':
                     _rrg[_s] = _v; _changed = True
             if _changed:
                 _gtb.rrg_save(_rrg)
+                st.rerun()
 
         # --- LIVE header: pulsing dot + last technical refresh time ---
         def _gm_live_header(live_label):
@@ -12158,6 +12226,11 @@ elif page == 'GOLDEN MATCHER':
         # names never render differently (one full red path, one one-liner).
         if wf_rec is not None and (rec_fired_real or _inh_rec_on):
             st.markdown(render_workflow(wf_rec), unsafe_allow_html=True)
+        elif _ev.get("rec_error"):
+            # P0 fix: an eval FAILURE is decision-different from "no recovery context"
+            # — never render a confident verdict off an error dict.
+            st.error(f"⚠️ Recovery evaluation FAILED — verdict unavailable (not 'no context'). "
+                     f"{_ev['rec_error']}")
         elif rec_fired_mktpath:
             st.info(f"Recovery engine notes **{rec_label}** only via the market-recovery regime — "
                     f"but **{symbol}** is just {fnum(_rec_corr, 1, '%')} off its 52W high "
