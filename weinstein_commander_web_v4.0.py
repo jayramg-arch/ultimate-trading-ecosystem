@@ -11608,7 +11608,8 @@ elif page == 'GOLDEN MATCHER':
         # (compute_workflow / compute_recovery_workflow) → zero-drift categories.
         import gm_trigger_board as _gtb
         import datetime as _gtb_dt, time as _gtb_time
-        st.markdown("#### 📋 Trigger Board — watchlists × the Golden Matcher engine")
+        if not is_max_board:
+            st.markdown("#### 📋 Trigger Board — watchlists × the Golden Matcher engine")
         _uni = _gtb.load_watchlist_union()
         # P1: an unreadable/empty source CSV silently shrank the universe — say so.
         _uissues = list(getattr(_gtb, "LAST_UNION_ISSUES", []) or [])
@@ -11667,80 +11668,98 @@ elif page == 'GOLDEN MATCHER':
             except Exception as e:
                 _gm_logger.warning(f"board age-guard failed: {e}")
 
-        _bc1, _bc2, _bc3 = st.columns([1.2, 1.0, 2.2])
-        with _bc1:
-            _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
-                               type="primary", use_container_width=True, key="gm_board_build")
-            _use_xray = st.checkbox("🔬 X-Ray (Piotroski · grade · P/E)", key="gm_board_xray",
-                                    value=True,
-                                    help="Adds the X-Ray fundamental screener fields and folds Piotroski "
-                                         "into the Overall score. Heavier (statements per name), cached 24h. "
-                                         "On by default; uncheck for a faster fundamentals-light build.")
-            _refresh_all = st.button("🔄 Refresh Data (fresh · both surfaces)",
-                                     use_container_width=True, key="gm_board_refresh_all",
-                                     help="Re-fetch FRESH data for the whole universe, then rebuild — the "
-                                          "SAME button is on the Single Symbol page, so both surfaces read "
-                                          "identical data (fixes board-vs-single drift). Slower: ~50 fresh fetches.")
-        with _bc2:
-            # Trigger TF — UNIFIED with the Single Symbol page. Both widgets use the
-            # session key "gm_trig_tf" (the two views never render in the same run —
-            # the view switch is mutually exclusive) and persist to gm_settings, so
-            # changing the TF on either surface carries to the other and survives a
-            # restart. Seed from the persisted setting on first load only.
-            _tf_opts_b = ["75m", "125m", "Daily"]
-            if "gm_trig_tf" not in st.session_state:
-                _tf0 = str(_gm_settings().get("trigger_tf", "75m"))
-                st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts_b else "75m"
-            _trig_tf = st.selectbox("⏱ Trigger TF", _tf_opts_b, key="gm_trig_tf",
-                                    help="Shared with the Single Symbol page (one setting). The board's "
-                                         "technical + PA columns (Category/Step/trigger/CMP) compute on THIS "
-                                         "timeframe. 75/125m use INTRADAY bars (move through the session); "
-                                         "Daily uses the closed daily bar.")
-            if _trig_tf != _gm_settings().get("trigger_tf"):
-                _gm_settings_save(trigger_tf=_trig_tf)
-            # 75m/125m "bar-close" modes rebuild the board ONCE per session bar
-            # (aligned to NSE bar closes + ~75s settle) so the snapshot always reads
-            # a CLOSED bar — the definitive fix for the forming-bar fade that made
-            # board vs Single Symbol disagree (Jay trades the 75m TF). Default to
-            # the bar-close mode matching the selected Trigger-TF.
-            _live_opts = ["Off", "75m bar-close", "125m bar-close",
-                          "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"]
-            if "gm_board_live" not in st.session_state:
-                st.session_state["gm_board_live"] = (
-                    "125m bar-close" if _trig_tf == "125m" else "75m bar-close")
-            _live = st.selectbox("🟢 Live refresh", _live_opts,
-                                 key="gm_board_live",
-                                 help="Rebuilds the technical + PA columns while the board is open. "
-                                      "**75m/125m bar-close** = rebuild ONCE per session bar (10:30·11:45·"
-                                      "13:00·14:15·15:30 for 75m) so the board reads CLOSED bars and matches "
-                                      "the live Single Symbol page — recommended for a 75m trader. The "
-                                      "N-min options are fixed-interval. Fundamentals stay cached (change "
-                                      "daily/quarterly). Full Build refreshes everything.")
-            _score_mode = st.selectbox("⚖️ Score mode", ["Balanced", "Hunting", "Watchlist"],
-                                       key="gm_score_mode",
-                                       help="Overall-score weighting (4-dimension model). Balanced = all-round. "
-                                            "Hunting = skew to Setup/Trigger + Risk (find live entries). "
-                                            "Watchlist = skew to Leadership + Fundamentals (rank by quality). "
-                                            "Rebuild to apply.")
-        with _bc3:
-            _stamp = st.session_state.get("gm_board_stamp")
-            _tstamp = st.session_state.get("gm_board_tech_stamp")
-            # P1 provenance: built TF + which feeds served this process's fetches —
-            # staleness/source-splits become visible even where not yet fixed.
-            _btf = st.session_state.get("gm_board_built_tf")
-            _srcmix = ""
-            try:
-                import data_provider as _dpsrc2
-                _cnt = _dpsrc2.get_source_counts() or {}
-                if _cnt:
-                    _srcmix = " · src " + "/".join(f"{k}:{v}" for k, v in
-                                                   sorted(_cnt.items(), key=lambda x: -x[1]))
-            except Exception:
-                pass
-            st.caption((f"Full build **{_stamp}**" + (f" · live tech **{_tstamp}**" if _tstamp else "")
-                        + (f" · TF **{_btf}**" if _btf else "") + _srcmix
-                        + " · RRG persists") if _stamp
-                       else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
+        if not is_max_board:
+            _bc1, _bc2, _bc3 = st.columns([1.2, 1.0, 2.2])
+            with _bc1:
+                _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
+                                   type="primary", use_container_width=True, key="gm_board_build")
+                _use_xray = st.checkbox("🔬 X-Ray (Piotroski · grade · P/E)", key="gm_board_xray",
+                                        value=True,
+                                        help="Adds the X-Ray fundamental screener fields and folds Piotroski "
+                                             "into the Overall score. Heavier (statements per name), cached 24h. "
+                                             "On by default; uncheck for a faster fundamentals-light build.")
+                _refresh_all = st.button("🔄 Refresh Data (fresh · both surfaces)",
+                                         use_container_width=True, key="gm_board_refresh_all",
+                                         help="Re-fetch FRESH data for the whole universe, then rebuild — the "
+                                              "SAME button is on the Single Symbol page, so both surfaces read "
+                                              "identical data (fixes board-vs-single drift). Slower: ~50 fresh fetches.")
+            with _bc2:
+                # Trigger TF — UNIFIED with the Single Symbol page. Both widgets use the
+                # session key "gm_trig_tf" (the two views never render in the same run —
+                # the view switch is mutually exclusive) and persist to gm_settings, so
+                # changing the TF on either surface carries to the other and survives a
+                # restart. Seed from the persisted setting on first load only.
+                _tf_opts_b = ["75m", "125m", "Daily"]
+                if "gm_trig_tf" not in st.session_state:
+                    _tf0 = str(_gm_settings().get("trigger_tf", "75m"))
+                    st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts_b else "75m"
+                _trig_tf = st.selectbox("⏱ Trigger TF", _tf_opts_b, key="gm_trig_tf",
+                                        help="Shared with the Single Symbol page (one setting). The board's "
+                                             "technical + PA columns (Category/Step/trigger/CMP) compute on THIS "
+                                             "timeframe. 75/125m use INTRADAY bars (move through the session); "
+                                             "Daily uses the closed daily bar.")
+                if _trig_tf != _gm_settings().get("trigger_tf"):
+                    _gm_settings_save(trigger_tf=_trig_tf)
+                # 75m/125m "bar-close" modes rebuild the board ONCE per session bar
+                # (aligned to NSE bar closes + ~75s settle) so the snapshot always reads
+                # a CLOSED bar — the definitive fix for the forming-bar fade that made
+                # board vs Single Symbol disagree (Jay trades the 75m TF). Default to
+                # the bar-close mode matching the selected Trigger-TF.
+                _live_opts = ["Off", "75m bar-close", "125m bar-close",
+                              "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"]
+                if "gm_board_live" not in st.session_state:
+                    st.session_state["gm_board_live"] = (
+                        "125m bar-close" if _trig_tf == "125m" else "75m bar-close")
+                _live = st.selectbox("🟢 Live refresh", _live_opts,
+                                     key="gm_board_live",
+                                     help="Rebuilds the technical + PA columns while the board is open. "
+                                          "**75m/125m bar-close** = rebuild ONCE per session bar (10:30·11:45·"
+                                          "13:00·14:15·15:30 for 75m) so the board reads CLOSED bars and matches "
+                                          "the live Single Symbol page — recommended for a 75m trader. The "
+                                          "N-min options are fixed-interval. Fundamentals stay cached (change "
+                                          "daily/quarterly). Full Build refreshes everything.")
+                _score_mode = st.selectbox("⚖️ Score mode", ["Balanced", "Hunting", "Watchlist"],
+                                           key="gm_score_mode",
+                                           help="Overall-score weighting (4-dimension model). Balanced = all-round. "
+                                                "Hunting = skew to Setup/Trigger + Risk (find live entries). "
+                                                "Watchlist = skew to Leadership + Fundamentals (rank by quality). "
+                                                "Rebuild to apply.")
+            with _bc3:
+                _stamp = st.session_state.get("gm_board_stamp")
+                _tstamp = st.session_state.get("gm_board_tech_stamp")
+                # P1 provenance: built TF + which feeds served this process's fetches —
+                # staleness/source-splits become visible even where not yet fixed.
+                _btf = st.session_state.get("gm_board_built_tf")
+                _srcmix = ""
+                try:
+                    import data_provider as _dpsrc2
+                    _cnt = _dpsrc2.get_source_counts() or {}
+                    if _cnt:
+                        _srcmix = " · src " + "/".join(f"{k}:{v}" for k, v in
+                                                       sorted(_cnt.items(), key=lambda x: -x[1]))
+                except Exception:
+                    pass
+                st.caption((f"Full build **{_stamp}**" + (f" · live tech **{_tstamp}**" if _tstamp else "")
+                            + (f" · TF **{_btf}**" if _btf else "") + _srcmix
+                            + " · RRG persists") if _stamp
+                           else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
+        else:
+            # MAXIMIZED table-only pop-out (Jay): no heavy controls — a slim Rebuild
+            # button + auto-refresh only. TF / Live / Score / X-Ray come from the
+            # persisted settings so the table matches the main window.
+            _gmset_mx = _gm_settings()
+            _trig_tf = str(_gmset_mx.get("trigger_tf", "75m"))
+            if _trig_tf not in ("75m", "125m", "Daily"):
+                _trig_tf = "75m"
+            _live = st.session_state.get("gm_board_live",
+                     "125m bar-close" if _trig_tf == "125m" else "75m bar-close")
+            st.session_state["gm_board_live"] = _live
+            _use_xray = True
+            _score_mode = "Balanced"
+            _refresh_all = False
+            _mxc1, _mxc2 = st.columns([1, 5])
+            _build = _mxc1.button("🔄 Rebuild", use_container_width=True, key="gm_board_build_mx")
+            _mxc2.caption(f"Maximized table · TF {_trig_tf} · {_live} · auto-refresh on bar close · src {st.session_state.get('gm_board_built_tf','—')}")
 
         # --- build (full = fundamentals+technical; force_technical = technical/PA only;
         #     quiet = no progress bar, used on live ticks so the layout never jumps) ---
@@ -12108,7 +12127,8 @@ elif page == 'GOLDEN MATCHER':
                             "if(v.indexOf('Armed')>=0)return{'color':'#ff9800'};"
                             "if(v.indexOf('Wait for Pullback')>=0)return{'color':'#ffb74d'};"
                             "return{};}"))
-                    _resp = AgGrid(_v, gridOptions=_gb.build(), height=560, theme="streamlit",
+                    _resp = AgGrid(_v, gridOptions=_gb.build(),
+                                   height=(880 if is_max_board else 560), theme="streamlit",
                                    allow_unsafe_jscode=True, reload_data=False,
                                    update_mode=GridUpdateMode.VALUE_CHANGED, key="gm_aggrid")
                     # persist RRG edits made in the grid
