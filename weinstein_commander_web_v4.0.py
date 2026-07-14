@@ -11578,6 +11578,46 @@ elif page == 'GOLDEN MATCHER':
                 # a restart (a 75m snapshot shown against a Daily selector must warn).
                 if (_cmeta or {}).get("built_tf"):
                     st.session_state["gm_board_built_tf"] = _cmeta["built_tf"]
+                if (_cmeta or {}).get("saved"):
+                    st.session_state["gm_board_saved_iso"] = _cmeta["saved"]
+
+        # ── AGE staleness guard (14-Jul-2026) — the recurring "board says BUY,
+        # single says WATCHLIST" class: a MID-SESSION snapshot holds PA fired on a
+        # then-FORMING 75m bar; by close the pattern fades and the live Single
+        # Symbol page correctly disagrees (proven on ANANDRATHI: ΣPA=1 at the 13:51
+        # build → 0 on the closed bars). The TF guard can't catch this — warn on AGE:
+        # a snapshot built BEFORE the last session close is intraday state, not the
+        # final read. Shown here (header) so BOTH render paths get it.
+        _saved_iso = st.session_state.get("gm_board_saved_iso")
+        if _saved_iso and st.session_state.get("gm_board_df") is not None:
+            try:
+                _saved_dt = datetime.fromisoformat(_saved_iso)
+                _now_dt = datetime.now()
+                _sess_d = _expected_last_session()          # last COMPLETED session (date)
+                _sess_close = datetime(_sess_d.year, _sess_d.month, _sess_d.day, 15, 30)
+                _mkt_open = (_now_dt.weekday() < 5 and
+                             _now_dt.replace(hour=9, minute=15) <= _now_dt
+                             <= _now_dt.replace(hour=15, minute=30))
+                _age_min = int((_now_dt - _saved_dt).total_seconds() // 60)
+                if _mkt_open and _age_min >= 15:
+                    # During the session, PA fires on the FORMING 75/125m bar and can
+                    # fade within minutes — any non-fresh snapshot may legitimately
+                    # disagree with the live Single Symbol page.
+                    st.warning(f"⚠️ **Live market · snapshot is {_age_min} min old** (built "
+                               f"{_saved_dt.strftime('%H:%M')}). Intraday PA triggers fire on the "
+                               f"FORMING bar and can fade — the live Single Symbol page may "
+                               f"legitimately disagree on trigger-edge names. **Rebuild** (or use "
+                               f"Live refresh) before acting on a category.")
+                elif (not _mkt_open) and _saved_dt < _sess_close:
+                    st.warning(f"⚠️ **Mid-session snapshot** — this board was built "
+                               f"**{_saved_dt.strftime('%d-%b %H:%M')}**, before the "
+                               f"{_sess_d.strftime('%d-%b')} 15:30 close. PA triggers that fired on "
+                               f"forming bars may have FADED on the closed bars — the live Single "
+                               f"Symbol page will disagree on those names. Click **Build / Refresh** "
+                               f"for the final read.")
+            except Exception as e:
+                _gm_logger.warning(f"board age-guard failed: {e}")
+
         _bc1, _bc2, _bc3 = st.columns([1.2, 1.0, 2.2])
         with _bc1:
             _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
@@ -11712,6 +11752,7 @@ elif page == 'GOLDEN MATCHER':
             st.session_state["gm_board_tech_ts"] = _gtb_time.time()
             if not force_technical:
                 st.session_state["gm_board_stamp"] = _now_s
+            st.session_state["gm_board_saved_iso"] = _gtb_dt.datetime.now().isoformat()
             # Persist to disk so the board survives a restart / reload (instant-on).
             _gtb.save_board_cache(_bdf_new, stamp=st.session_state.get("gm_board_stamp"),
                                   tech_stamp=_now_s, built_tf=_trig_tf)
