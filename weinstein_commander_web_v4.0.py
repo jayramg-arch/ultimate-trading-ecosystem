@@ -12104,9 +12104,28 @@ elif page == 'GOLDEN MATCHER':
                         _pc = pd.to_numeric(_v["PrevClose"], errors="coerce")
                         _cm = pd.to_numeric(_v["CMP"], errors="coerce")
                         _v["Chg%"] = (((_cm - _pc) / _pc) * 100).where(_pc > 0).round(2)
-                    # (3) AG-Grid with native cell-change flash on the live columns
+                    # Coerce the decision numbers to numeric dtype so AG-Grid sorts them
+                    # numerically (not lexicographically) and the number filter works —
+                    # a CSV round-trip (disk cache reload) can leave them as object.
+                    for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
+                                "Piotroski", "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%",
+                                "Entry", "SL", "T1", "P/E"):
+                        if _nc in _v.columns:
+                            _v[_nc] = pd.to_numeric(_v[_nc], errors="coerce")
+                    # (3) AG-Grid with native cell-change flash on the live columns.
+                    # Per-column SORT (click header) + FILTER with an always-visible
+                    # FLOATING FILTER row so it's discoverable, not a hover menu (Jay).
                     _gb = GridOptionsBuilder.from_dataframe(_v)
-                    _gb.configure_default_column(sortable=True, filter=True, resizable=True)
+                    _gb.configure_default_column(sortable=True, filter=True, resizable=True,
+                                                 floatingFilter=True)
+                    # Numeric columns get a NUMBER filter (>, <, range) + numeric sort;
+                    # AG-Grid otherwise treats them as text (lexicographic) when the
+                    # pandas dtype is object. Explicit for the key decision numbers.
+                    for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
+                                "Piotroski", "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%"):
+                        if _nc in _v.columns:
+                            _gb.configure_column(_nc, type=["numericColumn"],
+                                                 filter="agNumberColumnFilter")
                     # Pin the decision columns to the left so Overall/Category are ALWAYS
                     # visible (the grid has ~39 cols; Overall was scrolling off-screen).
                     for _pc, _pw in (("Symbol", 96), ("★", 42), ("Overall", 90),
