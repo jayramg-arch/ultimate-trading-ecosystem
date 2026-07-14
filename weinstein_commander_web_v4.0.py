@@ -1956,6 +1956,31 @@ def _expected_last_session():
     return d
 
 
+def _gm_bar_close_times(tf: str):
+    """NSE 9:15–15:30 session bar-CLOSE clock times (h, m) for a trading TF. The
+    375-min session tiles EXACTLY: 5×75m and 3×125m, so both land on 15:30."""
+    if tf == "125m":
+        return [(11, 20), (13, 25), (15, 30)]
+    return [(10, 30), (11, 45), (13, 0), (14, 15), (15, 30)]   # 75m (default)
+
+
+def _gm_last_passed_boundary(tf: str, settle_s: int = 75, now=None):
+    """Most-recent 75/125m bar-CLOSE that has passed today (+settle so the broker
+    has published the closed bar), as a datetime — or None (weekend / pre-first-
+    close / after the last close already handled). Bar-aligned auto-refresh key:
+    rebuild the board once per bar so it always reads a CLOSED 75m bar and can't
+    disagree with the live Single Symbol page on a faded forming-bar trigger."""
+    now = now or datetime.now()
+    if now.weekday() >= 5:                      # Sat/Sun — no session
+        return None
+    passed = None
+    for hh, mm in _gm_bar_close_times(tf):
+        b = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if now >= b + timedelta(seconds=settle_s):
+            passed = b                          # keep the latest one that's passed
+    return passed
+
+
 # Golden Matcher user settings (capital / risk%) — persisted across restarts.
 _GM_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_settings.json")
 
@@ -11649,14 +11674,24 @@ elif page == 'GOLDEN MATCHER':
                                          "Daily uses the closed daily bar.")
             if _trig_tf != _gm_settings().get("trigger_tf"):
                 _gm_settings_save(trigger_tf=_trig_tf)
-            _live = st.selectbox("🟢 Live refresh", ["Off", "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"],
+            # 75m/125m "bar-close" modes rebuild the board ONCE per session bar
+            # (aligned to NSE bar closes + ~75s settle) so the snapshot always reads
+            # a CLOSED bar — the definitive fix for the forming-bar fade that made
+            # board vs Single Symbol disagree (Jay trades the 75m TF). Default to
+            # the bar-close mode matching the selected Trigger-TF.
+            _live_opts = ["Off", "75m bar-close", "125m bar-close",
+                          "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"]
+            if "gm_board_live" not in st.session_state:
+                st.session_state["gm_board_live"] = (
+                    "125m bar-close" if _trig_tf == "125m" else "75m bar-close")
+            _live = st.selectbox("🟢 Live refresh", _live_opts,
                                  key="gm_board_live",
-                                 help="While the board is open, re-computes ONLY the technical + PA columns "
-                                      "(Category/Step/plan/CMP/RS/Alpha…) on this cadence. Fundamentals "
-                                      "(BFF/RFF/Piotroski/Conviction/Sector/Delivery) stay cached — they "
-                                      "change daily/quarterly, not intraday. The true floor is how long a "
-                                      "~50-name technical rebuild takes; if a tick can't finish in the "
-                                      "interval it just runs back-to-back. Full Build refreshes everything.")
+                                 help="Rebuilds the technical + PA columns while the board is open. "
+                                      "**75m/125m bar-close** = rebuild ONCE per session bar (10:30·11:45·"
+                                      "13:00·14:15·15:30 for 75m) so the board reads CLOSED bars and matches "
+                                      "the live Single Symbol page — recommended for a 75m trader. The "
+                                      "N-min options are fixed-interval. Fundamentals stay cached (change "
+                                      "daily/quarterly). Full Build refreshes everything.")
             _score_mode = st.selectbox("⚖️ Score mode", ["Balanced", "Hunting", "Watchlist"],
                                        key="gm_score_mode",
                                        help="Overall-score weighting (4-dimension model). Balanced = all-round. "
@@ -11746,6 +11781,10 @@ elif page == 'GOLDEN MATCHER':
                 _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
             st.session_state["gm_board_df"] = _bdf_new
             st.session_state["gm_board_built_tf"] = _trig_tf        # TF this snapshot was computed at
+            # Stamp the current session bar so bar-close auto-refresh doesn't
+            # redundantly rebuild right after a manual/interval build.
+            _bnd0 = _gm_last_passed_boundary(_trig_tf if _trig_tf in ("75m", "125m") else "75m")
+            st.session_state["gm_board_last_boundary"] = _bnd0.isoformat() if _bnd0 else None
             st.session_state["gm_board_failed"] = _failed           # P1: visible failure list
             _now_s = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
             st.session_state["gm_board_tech_stamp"] = _now_s
@@ -11948,8 +11987,10 @@ elif page == 'GOLDEN MATCHER':
         else:
             # ── Streaming AG-Grid (Option B): live PRICE via Dhan MarketFeed +
             #    AG-Grid native cell-flash; heavy DECISIONS recompute on cadence. ──
+            _bar_mode = _live.endswith("bar-close")             # 75m/125m aligned
+            _bar_tf = "125m" if _live.startswith("125") else "75m"
             _iv_sec = {"1 min": 60, "2 min": 120, "3 min": 180, "5 min": 300,
-                       "10 min": 600, "15 min": 900}[_live]
+                       "10 min": 600, "15 min": 900}.get(_live, 0)
             _stream_ok = True
             try:
                 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
@@ -11963,19 +12004,38 @@ elif page == 'GOLDEN MATCHER':
             if _stream_ok:
                 @st.fragment(run_every="3s")
                 def _gm_stream():
-                    # (1) periodic HEAVY decision refresh (category/scores) + toasts
+                    # (1) HEAVY decision refresh (category/scores) + toasts. Two
+                    # cadences: BAR-CLOSE (rebuild once per 75/125m session bar so
+                    # the board reads CLOSED bars) or fixed N-min interval.
                     _now = _gtb_time.time()
                     _last = st.session_state.get("gm_board_tech_ts", 0)
-                    if st.session_state.get("gm_board_df") is not None and (_now - _last) >= _iv_sec:
+                    if _bar_mode:
+                        _bnd = _gm_last_passed_boundary(_bar_tf)
+                        _need = (_bnd is not None and
+                                 st.session_state.get("gm_board_last_boundary") != _bnd.isoformat())
+                    else:
+                        _need = (_iv_sec > 0) and ((_now - _last) >= _iv_sec)
+                    if st.session_state.get("gm_board_df") is not None and _need:
                         _prev = st.session_state.get("gm_board_df")
                         _prev = _prev.copy() if _prev is not None else None
                         _board_build(force_technical=True, quiet=True)
+                        if _bar_mode and _bnd is not None:
+                            st.session_state["gm_board_last_boundary"] = _bnd.isoformat()
                         _chg = _gtb.diff_boards(_prev, st.session_state.get("gm_board_df"))
                         st.session_state["gm_board_changes"] = _chg
                         for _c in _chg:
                             if _c.get("to_go"):
                                 st.toast(f"🟢 **{_c['symbol']}** → Buy Trigger Live", icon="🟢")
-                    _gm_live_header(_live)
+                    # Header label: for bar-close mode show the NEXT session close.
+                    _hdr_lbl = _live
+                    if _bar_mode:
+                        _closes = _gm_bar_close_times(_bar_tf)
+                        _nowdt = datetime.now()
+                        _nxt = next((f"{h:02d}:{m:02d}" for h, m in _closes
+                                     if _nowdt.replace(hour=h, minute=m, second=0, microsecond=0) > _nowdt), None)
+                        _hdr_lbl = (f"{_bar_tf} bar-close · next {_nxt}" if _nxt
+                                    else f"{_bar_tf} bar-close · session done")
+                    _gm_live_header(_hdr_lbl)
                     _gm_change_strip(st.session_state.get("gm_board_changes"))
                     _bdf = st.session_state.get("gm_board_df")
                     if _bdf is None or _bdf.empty:
