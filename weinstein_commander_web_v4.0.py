@@ -1971,8 +1971,8 @@ def _gm_settings() -> dict:
 def _gm_settings_save(**kw):
     d = _gm_settings(); d.update(kw)
     try:
-        with open(_GM_SETTINGS_FILE, "w", encoding="utf-8") as _f:
-            json.dump(d, _f, indent=2)
+        from gm_trigger_board import atomic_write_text
+        atomic_write_text(_GM_SETTINGS_FILE, json.dumps(d, indent=2))
     except Exception as e:
         # P1: a lost save silently forgets capital/risk/TF across restarts.
         _gm_logger.warning(f"gm_settings save failed (capital/risk/TF not persisted): {e}")
@@ -11626,7 +11626,20 @@ elif page == 'GOLDEN MATCHER':
         with _bc3:
             _stamp = st.session_state.get("gm_board_stamp")
             _tstamp = st.session_state.get("gm_board_tech_stamp")
+            # P1 provenance: built TF + which feeds served this process's fetches —
+            # staleness/source-splits become visible even where not yet fixed.
+            _btf = st.session_state.get("gm_board_built_tf")
+            _srcmix = ""
+            try:
+                import data_provider as _dpsrc2
+                _cnt = _dpsrc2.get_source_counts() or {}
+                if _cnt:
+                    _srcmix = " · src " + "/".join(f"{k}:{v}" for k, v in
+                                                   sorted(_cnt.items(), key=lambda x: -x[1]))
+            except Exception:
+                pass
             st.caption((f"Full build **{_stamp}**" + (f" · live tech **{_tstamp}**" if _tstamp else "")
+                        + (f" · TF **{_btf}**" if _btf else "") + _srcmix
                         + " · RRG persists") if _stamp
                        else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
 
@@ -12265,6 +12278,15 @@ elif page == 'GOLDEN MATCHER':
             _fresh_txt = f"bar {_lastbar.strftime('%d-%b') if _lastbar else _asof}"
             if _asof and _lastbar and _asof != _lastbar.strftime("%Y-%m-%d"):
                 _fresh_txt += f" · engine as-of {_asof}"
+            # P1 provenance: WHICH feed served this frame (dhan / yfinance / cache…)
+            # — the silent Dhan→yfinance defection class becomes visible at a glance.
+            try:
+                import data_provider as _dpsrc
+                _src = _dpsrc.get_last_source(symbol)
+                if _src and _src not in ("none", "?"):
+                    _fresh_txt += f" · src {_src}"
+            except Exception:
+                pass
             if _stale:
                 st.caption(f"⚠️ **STALE — {_fresh_txt}** (last completed session "
                            f"{_exp_sess.strftime('%d-%b')}). Refresh; if it stays behind, the "

@@ -28,6 +28,19 @@ except Exception:
     _log = _logging.getLogger("golden_matcher_null")
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+def atomic_write_text(path: str, text: str) -> None:
+    """Write-tmp-then-os.replace so a kill mid-write can never leave a truncated
+    file (P1, 14-Jul-2026: a half-written board cache / RRG flags / settings file
+    used to silently read back as EMPTY — hand-curated state lost). os.replace is
+    atomic on the same volume on Windows + POSIX."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
 _RRG_PATH = os.path.join(_ROOT, "gm_rrg_flags.json")
 _BOARD_CACHE = os.path.join(_ROOT, "gm_board_cache.csv")     # persisted board (survives restarts)
 _BOARD_META = os.path.join(_ROOT, "gm_board_cache.json")     # stamps sidecar
@@ -357,8 +370,7 @@ def rrg_load() -> dict:
 
 def rrg_save(d: dict) -> None:
     try:
-        with open(_RRG_PATH, "w", encoding="utf-8") as f:
-            json.dump(d, f, indent=2)
+        atomic_write_text(_RRG_PATH, json.dumps(d, indent=2))
     except Exception as e:
         _log.warning(f"rrg_save failed (RRG flags not persisted): {e}")
 
@@ -372,11 +384,11 @@ def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None) -> None:
     try:
         if df is None or getattr(df, "empty", True):
             return
-        df.to_csv(_BOARD_CACHE, index=False, encoding="utf-8")
         import datetime
-        with open(_BOARD_META, "w", encoding="utf-8") as f:
-            json.dump({"stamp": stamp, "tech_stamp": tech_stamp, "built_tf": built_tf,
-                       "saved": datetime.datetime.now().isoformat()}, f)
+        atomic_write_text(_BOARD_CACHE, df.to_csv(index=False))
+        atomic_write_text(_BOARD_META, json.dumps(
+            {"stamp": stamp, "tech_stamp": tech_stamp, "built_tf": built_tf,
+             "saved": datetime.datetime.now().isoformat()}))
     except Exception as e:
         _log.warning(f"save_board_cache failed (board won't survive restart): {e}")
 
