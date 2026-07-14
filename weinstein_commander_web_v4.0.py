@@ -12126,698 +12126,694 @@ elif page == 'GOLDEN MATCHER':
                 _gm_stream()
         st.stop()
 
-    # HARD VIEW-GUARD (14-Jul-2026): the board branch above ends in st.stop(), but a
-    # `run_every` fragment (the streaming grid) can leave that st.stop() ineffective —
-    # letting the ~600-line Single Symbol section below bleed in under the board (seen
-    # once Live defaulted to bar-close → streaming). This guard runs in NORMAL script
-    # flow (not immediately after the fragment call), so it halts reliably.
-    if _gm_view == "📋 Trigger Board":
-        st.stop()
+    # SINGLE SYMBOL view — real conditional (14-Jul-2026). st.stop() after the
+    # board's streaming AgGrid custom component is unreliable, so it let this
+    # section bleed in under the board. A plain `if` is bulletproof.
+    if _gm_view != "📋 Trigger Board":
+        st.markdown('''
+        <style>
+          .chk{display:flex;justify-content:space-between;align-items:center;
+               padding:4px 10px;border-radius:5px;margin:2px 0;font-size:14px;}
+          .chk b{font-weight:600;}
+          .pass{background:rgba(38,166,154,.16);border-left:3px solid #26A69A;}
+          .watch{background:rgba(255,152,0,.16);border-left:3px solid #FF9800;}
+          .fail{background:rgba(239,83,80,.16);border-left:3px solid #EF5350;}
+          .na{background:rgba(120,123,134,.12);border-left:3px solid #787B86;}
+          .sechead{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+                   border-bottom:2px solid currentColor;padding-bottom:3px;margin:6px 0 6px;}
+          .verdict{font-size:26px;font-weight:800;}
+          .plan{font-family:Consolas,monospace;font-size:14px;line-height:1.7;}
+        </style>
+        ''', unsafe_allow_html=True)
 
-    st.markdown('''
-    <style>
-      .chk{display:flex;justify-content:space-between;align-items:center;
-           padding:4px 10px;border-radius:5px;margin:2px 0;font-size:14px;}
-      .chk b{font-weight:600;}
-      .pass{background:rgba(38,166,154,.16);border-left:3px solid #26A69A;}
-      .watch{background:rgba(255,152,0,.16);border-left:3px solid #FF9800;}
-      .fail{background:rgba(239,83,80,.16);border-left:3px solid #EF5350;}
-      .na{background:rgba(120,123,134,.12);border-left:3px solid #787B86;}
-      .sechead{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
-               border-bottom:2px solid currentColor;padding-bottom:3px;margin:6px 0 6px;}
-      .verdict{font-size:26px;font-weight:800;}
-      .plan{font-family:Consolas,monospace;font-size:14px;line-height:1.7;}
-    </style>
-    ''', unsafe_allow_html=True)
-
-    @st.fragment(run_every="2s")
-    def auto_sync_tv_symbol_gm():
-        import subprocess
-        import csv
-        import re
-        from io import StringIO
+        @st.fragment(run_every="2s")
+        def auto_sync_tv_symbol_gm():
+            import subprocess
+            import csv
+            import re
+            from io import StringIO
         
-        # REVERTED 9-Jul-2026: an attempted "one unfiltered tasklist call"
-        # optimization broke the sync — unfiltered `tasklist /v` enumerates
-        # window titles for EVERY process (~3.6 s, over any sane timeout),
-        # while the per-image `/fi` filtered call is ~0.12 s. The original
-        # per-browser filtered loop below is the fast, proven path.
-        browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
-        for browser in browsers:
-            try:
-                res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=2)
-                reader = csv.reader(StringIO(res.stdout))
-                for row in reader:
-                    if len(row) > 8:
-                        exe = row[0].lower()
-                        title = row[8]
-                        if ('tradingview.exe' in exe and title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
-                           ('TradingView' in title and '—' in title):
-                            match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
-                            if match:
-                                sym = match.group(1).strip()
-                                if sym.upper() in ["NIFTY 50", "NIFTY"]: sym = "^NSEI"
-                                elif sym.upper() in ["NIFTY BANK", "BANKNIFTY"]: sym = "^NSEBANK"
-                                elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
-                                else:
-                                    if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
-
-                                # TradingView uses '_' where NSE/yfinance use '-'/'&'
-                                # (BAJAJ_AUTO→BAJAJ-AUTO, NAM_INDIA→NAM-INDIA, M_M→M&M).
-                                # Canonicalize via the scrip master so the box AND the
-                                # loaders get the resolvable ticker.
-                                sym = _canon_sym(sym)
-
-                                current_sym = st.session_state.get("gm_sym_input", "")
-                                if sym != current_sym:
-                                    # DEBOUNCE (2026-07-03): commit the new symbol only after it has
-                                    # been STABLE for 2 consecutive polls (~4s). Without this, fast
-                                    # watchlist scrolling on TV fired a full screen_one fetch chain
-                                    # (daily+weekly+fundamentals) per name — a burst that trips the
-                                    # Dhan throttle (the same failure mode behind the cache-poisoning
-                                    # symptom). Mid-scroll names now never trigger fetches.
-                                    if sym == st.session_state.get("gm_pend_sym"):
-                                        st.session_state["gm_pend_count"] = st.session_state.get("gm_pend_count", 0) + 1
+            # REVERTED 9-Jul-2026: an attempted "one unfiltered tasklist call"
+            # optimization broke the sync — unfiltered `tasklist /v` enumerates
+            # window titles for EVERY process (~3.6 s, over any sane timeout),
+            # while the per-image `/fi` filtered call is ~0.12 s. The original
+            # per-browser filtered loop below is the fast, proven path.
+            browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
+            for browser in browsers:
+                try:
+                    res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=2)
+                    reader = csv.reader(StringIO(res.stdout))
+                    for row in reader:
+                        if len(row) > 8:
+                            exe = row[0].lower()
+                            title = row[8]
+                            if ('tradingview.exe' in exe and title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
+                               ('TradingView' in title and '—' in title):
+                                match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
+                                if match:
+                                    sym = match.group(1).strip()
+                                    if sym.upper() in ["NIFTY 50", "NIFTY"]: sym = "^NSEI"
+                                    elif sym.upper() in ["NIFTY BANK", "BANKNIFTY"]: sym = "^NSEBANK"
+                                    elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
                                     else:
-                                        st.session_state["gm_pend_sym"] = sym
-                                        st.session_state["gm_pend_count"] = 1
-                                    if st.session_state["gm_pend_count"] >= 2:
+                                        if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
+
+                                    # TradingView uses '_' where NSE/yfinance use '-'/'&'
+                                    # (BAJAJ_AUTO→BAJAJ-AUTO, NAM_INDIA→NAM-INDIA, M_M→M&M).
+                                    # Canonicalize via the scrip master so the box AND the
+                                    # loaders get the resolvable ticker.
+                                    sym = _canon_sym(sym)
+
+                                    current_sym = st.session_state.get("gm_sym_input", "")
+                                    if sym != current_sym:
+                                        # DEBOUNCE (2026-07-03): commit the new symbol only after it has
+                                        # been STABLE for 2 consecutive polls (~4s). Without this, fast
+                                        # watchlist scrolling on TV fired a full screen_one fetch chain
+                                        # (daily+weekly+fundamentals) per name — a burst that trips the
+                                        # Dhan throttle (the same failure mode behind the cache-poisoning
+                                        # symptom). Mid-scroll names now never trigger fetches.
+                                        if sym == st.session_state.get("gm_pend_sym"):
+                                            st.session_state["gm_pend_count"] = st.session_state.get("gm_pend_count", 0) + 1
+                                        else:
+                                            st.session_state["gm_pend_sym"] = sym
+                                            st.session_state["gm_pend_count"] = 1
+                                        if st.session_state["gm_pend_count"] >= 2:
+                                            st.session_state["gm_pend_sym"] = None
+                                            st.session_state["gm_pend_count"] = 0
+                                            st.session_state["gm_sym_input"] = sym
+                                            st.session_state["gm_symbol"] = sym
+                                            st.rerun()
+                                    else:
                                         st.session_state["gm_pend_sym"] = None
                                         st.session_state["gm_pend_count"] = 0
-                                        st.session_state["gm_sym_input"] = sym
-                                        st.session_state["gm_symbol"] = sym
-                                        st.rerun()
-                                else:
-                                    st.session_state["gm_pend_sym"] = None
-                                    st.session_state["gm_pend_count"] = 0
-                                return
-            except Exception as e:
-                # 2s polling loop — failure = "no sync this tick" (self-evident on
-                # screen). DEBUG level only, or a closed TV would flood the log.
-                _gm_logger.debug(f"TV auto-sync tick failed: {e}")
+                                    return
+                except Exception as e:
+                    # 2s polling loop — failure = "no sync this tick" (self-evident on
+                    # screen). DEBUG level only, or a closed TV would flood the log.
+                    _gm_logger.debug(f"TV auto-sync tick failed: {e}")
 
-    _gm_col1, _gm_col2 = st.columns([2, 4])
-    with _gm_col1:
-        auto_sync = st.toggle("🔄 Auto-Sync TV", value=True, key="gm_auto_sync", help="Automatically sync with active TradingView chart")
-        if auto_sync:
-            auto_sync_tv_symbol_gm()
+        _gm_col1, _gm_col2 = st.columns([2, 4])
+        with _gm_col1:
+            auto_sync = st.toggle("🔄 Auto-Sync TV", value=True, key="gm_auto_sync", help="Automatically sync with active TradingView chart")
+            if auto_sync:
+                auto_sync_tv_symbol_gm()
         
-        if "gm_sym_input" not in st.session_state:
-            st.session_state["gm_sym_input"] = "NETWEB.NS"
+            if "gm_sym_input" not in st.session_state:
+                st.session_state["gm_sym_input"] = "NETWEB.NS"
             
-        symbol = st.text_input("NSE symbol", key="gm_sym_input").strip().upper()
-        # Canonicalize underscore/hyphen/ampersand variants (esp. TradingView's
-        # BAJAJ_AUTO / NAM_INDIA) to the ticker the loaders can resolve. Covers
-        # manual entry / paste; the TV auto-sync path canonicalizes at commit.
-        symbol = _canon_sym(symbol)
-        if symbol and symbol != st.session_state.get("gm_symbol"):
-            st.session_state["gm_symbol"] = symbol
+            symbol = st.text_input("NSE symbol", key="gm_sym_input").strip().upper()
+            # Canonicalize underscore/hyphen/ampersand variants (esp. TradingView's
+            # BAJAJ_AUTO / NAM_INDIA) to the ticker the loaders can resolve. Covers
+            # manual entry / paste; the TV auto-sync path canonicalizes at commit.
+            symbol = _canon_sym(symbol)
+            if symbol and symbol != st.session_state.get("gm_symbol"):
+                st.session_state["gm_symbol"] = symbol
             
-    with _gm_col2:
-        # SHARED refresh (Jay): the SAME button is on the Trigger Board. It re-fetches
-        # fresh data for the WHOLE board universe (not just this symbol) and flags the
-        # board to rebuild — so this page and the board always read IDENTICAL data. The
-        # old per-symbol refresh made Single Symbol fresher than the board → drift.
-        if st.button("🔄 Refresh Data (fresh · both surfaces)", use_container_width=True,
-                     help="Re-fetch FRESH data for the whole Golden Matcher universe, then rebuild the "
-                          "board — the SAME button is on the Trigger Board, so both surfaces read "
-                          "identical data (no more board-vs-single drift). Slower: ~50 fresh fetches."):
-            _gm_reload_market_data()
-            st.rerun()
+        with _gm_col2:
+            # SHARED refresh (Jay): the SAME button is on the Trigger Board. It re-fetches
+            # fresh data for the WHOLE board universe (not just this symbol) and flags the
+            # board to rebuild — so this page and the board always read IDENTICAL data. The
+            # old per-symbol refresh made Single Symbol fresher than the board → drift.
+            if st.button("🔄 Refresh Data (fresh · both surfaces)", use_container_width=True,
+                         help="Re-fetch FRESH data for the whole Golden Matcher universe, then rebuild the "
+                              "board — the SAME button is on the Trigger Board, so both surfaces read "
+                              "identical data (no more board-vs-single drift). Slower: ~50 fresh fetches."):
+                _gm_reload_market_data()
+                st.rerun()
 
-    # ---- Position-sizing settings (E2) — persisted to gm_settings.json ----
-    _gmset = _gm_settings()
-    _szc1, _szc2, _szc3 = st.columns([1.6, 1, 3.4])
-    with _szc1:
-        _gm_capital = st.number_input("Capital (₹)", min_value=0.0, step=50000.0,
-                                      value=float(_gmset.get("capital", 0.0)),
-                                      format="%.0f", key="gm_capital",
-                                      help="Trading capital used for the 0.25%-risk position sizer on Step 6.")
-    with _szc2:
-        _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
-                                      value=float(_gmset.get("risk_pct", 0.25)),
-                                      key="gm_riskpct")
-    with _szc3:
-        # Trigger TF — UNIFIED with the Trigger Board (shared session key "gm_trig_tf"
-        # + gm_settings). Seed from the persisted setting on first load; no index=
-        # (that would clash with the session-state value the board may have set).
-        _tf_opts = ["75m", "125m", "Daily"]
-        if "gm_trig_tf" not in st.session_state:
-            _tf0 = str(_gmset.get("trigger_tf", "75m"))
-            st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts else "75m"
-        _gm_trig_tf = st.radio(
-            "Trigger TF (Step-5 PA battery + momentum board)", _tf_opts, horizontal=True,
-            key="gm_trig_tf",
-            help="Shared with the Trigger Board (one setting). The Step-5 PA trigger battery "
-                 "and momentum gauges (RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. "
-                 "Context/Quality (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly.")
-    if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
-            or (_gm_trig_tf != _gmset.get("trigger_tf")):
-        _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct, trigger_tf=_gm_trig_tf)
+        # ---- Position-sizing settings (E2) — persisted to gm_settings.json ----
+        _gmset = _gm_settings()
+        _szc1, _szc2, _szc3 = st.columns([1.6, 1, 3.4])
+        with _szc1:
+            _gm_capital = st.number_input("Capital (₹)", min_value=0.0, step=50000.0,
+                                          value=float(_gmset.get("capital", 0.0)),
+                                          format="%.0f", key="gm_capital",
+                                          help="Trading capital used for the 0.25%-risk position sizer on Step 6.")
+        with _szc2:
+            _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
+                                          value=float(_gmset.get("risk_pct", 0.25)),
+                                          key="gm_riskpct")
+        with _szc3:
+            # Trigger TF — UNIFIED with the Trigger Board (shared session key "gm_trig_tf"
+            # + gm_settings). Seed from the persisted setting on first load; no index=
+            # (that would clash with the session-state value the board may have set).
+            _tf_opts = ["75m", "125m", "Daily"]
+            if "gm_trig_tf" not in st.session_state:
+                _tf0 = str(_gmset.get("trigger_tf", "75m"))
+                st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts else "75m"
+            _gm_trig_tf = st.radio(
+                "Trigger TF (Step-5 PA battery + momentum board)", _tf_opts, horizontal=True,
+                key="gm_trig_tf",
+                help="Shared with the Trigger Board (one setting). The Step-5 PA trigger battery "
+                     "and momentum gauges (RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. "
+                     "Context/Quality (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly.")
+        if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
+                or (_gm_trig_tf != _gmset.get("trigger_tf")):
+            _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct, trigger_tf=_gm_trig_tf)
 
-    if not symbol:
-        st.info("Enter an NSE symbol in the sidebar.")
-        st.stop()
+        if not symbol:
+            st.info("Enter an NSE symbol in the sidebar.")
+            st.stop()
     
-    data = gm_load_symbol(symbol)
+        data = gm_load_symbol(symbol)
 
-    # ---- Auto-heal a stale served frame (9-Jul-2026) --------------------------
-    # A 2y/1d request carries the 24h weekly TTL, so a daily frame written after
-    # yesterday's close is re-served all of today even though a newer session has
-    # closed. If the served last bar is older than the last completed trading
-    # session, bust this symbol's on-disk cache ONCE and reload — the network
-    # then supplies the fresh bar. Guarded per (symbol, target-session) so it can
-    # never loop when the provider genuinely hasn't published the new bar yet
-    # (then the STALE banner shows and manual Refresh remains available).
-    try:
-        _df_h = data.get("df")
-        if _df_h is not None and len(_df_h):
-            _lb = _df_h.index[-1].date()
-            _target = _expected_last_session()   # session-aware: today after 15:30 IST close
-            if _lb < _target:
-                _heal_key = f"{symbol}|{_target.isoformat()}"
-                if st.session_state.get("gm_autoheal") != _heal_key:
-                    st.session_state["gm_autoheal"] = _heal_key
-                    import data_provider as _dph
-                    _dph.invalidate_symbol(symbol)
-                    gm_load_symbol.clear()
-                    gm_load_recovery.clear()
-                    st.rerun()
-    except Exception as e:
-        # (st.rerun's RerunException inherits BaseException, not Exception — it
-        # passes through this handler untouched; verified on streamlit 1.53.1.)
-        _gm_logger.warning(f"{symbol}: stale-frame auto-heal failed (STALE banner remains): {e}")
-
-    # ---- SINGLE SOURCE OF TRUTH ------------------------------------------------
-    # Evaluate EXACTLY like the Trigger Board: gm_evaluate() is the one function
-    # both surfaces call, so cmp_px / intraday overlay / inherited setup / the two
-    # workflows are byte-identical here and on the board. No more duplicated
-    # assembly = no more category disagreement.
-    _deep_rec = bool(st.session_state.get(f"gm_deeprec_{symbol}", False))
-    _trig_tf = st.session_state.get("gm_trig_tf", "75m")
-    _ev = gm_evaluate(symbol, trigger_tf=_trig_tf, deep_rec=_deep_rec)
-    data = _ev["data"]
-    rec = _ev["rec"]; ctx = _ev["ctx"]; fun = _ev["fun"]
-    rec_r = _ev["rec_r"]
-    wf_bull = _ev["wf_bull"]; wf_rec = _ev["wf_rec"]
-    _intra_ok = _ev["intra_ok"]; _intra_label = _ev["intra_label"]
-    _ib_ss = _ev["inherited_bull"]; _ir_ss = _ev["inherited_rec"]
-    _inh_bull_on = bool(wf_bull.get("inherited"))
-    _inh_rec_on = bool(wf_rec.get("inherited")) if wf_rec else False
-    # Trigger-Board-IDENTICAL category — same wfs (shared gm_evaluate) + the same
-    # most-actionable selection the board uses. Shown as the headline so this page
-    # and the board can be reconciled at a glance (they now agree by construction).
-    _board_cat = None
-    try:
-        import gm_trigger_board as _gtbx
-        _bside = bool(_ib_ss); _rside = bool(_ir_ss); _noside = not (_bside or _rside)
-        _bc = []
-        if _bside or _noside:
-            _bc.append(_gtbx.trigger_category(wf_bull.get("verdict"), "bull"))
-        if wf_rec is not None and (_rside or _noside):
-            _bc.append(_gtbx.trigger_category(wf_rec.get("verdict"), "recovery"))
-        if _bc:
-            _board_cat = max(_bc, key=lambda c: _gtbx._cat_rank(c))
-    except Exception:
-        _board_cat = None
-    # Recovery signal state (parallel to the bull catalyst above).
-    rec_sig   = int(_g(rec_r, "Signal", default=0) or 0)
-    rec_label = str(_g(rec_r, "Signal_Label", default="None"))
-    rec_fired = rec_sig >= 2   # 2=REV-CB 3=REV-RS 4=REV-EARLY 5-8=WYC-*
-    # SEMANTIC GUARD: the recovery engine's regime gate opens for ANY non-
-    # distressed stock when the *market* is in recovery/reclaim — so REV-EARLY/
-    # REV-RS can fire on a stock at its OWN highs (market-recovery play, not a
-    # beaten-down recovery). On this single-symbol tool the "RECOVERY" label is
-    # read literally, so only treat it as a genuine recovery when the STOCK
-    # itself is meaningfully off its 52W high (engine's own min_stock_correction
-    # floor, 10%). Otherwise it's a bull setup, not a recovery — don't mislabel.
-    _rec_dd_floor, _ = _rec_cfg()
-    _rec_corr = _g(rec_r, "Correction_52W_pct")
-    rec_beaten_down = (_rec_corr is not None) and (_rec_corr >= _rec_dd_floor)
-    rec_fired_real  = rec_fired and rec_beaten_down   # genuine beaten-down recovery
-    rec_fired_mktpath = rec_fired and not rec_beaten_down  # market-path artifact at/near highs
-
-    if not rec and not ctx:
-        st.error(f"Could not load **{symbol}**.")
-        for e in data.get("errors", []):
-            st.caption(f"• {e}")
-        st.stop()
-    
-    # ----------------------------------------------------------------------------------------
-    # Header — name, CMP, change, verdict
-    # ----------------------------------------------------------------------------------------
-    name = _g(fun, "name", default=symbol)
-    # cmp_px / mansfield already set by gm_evaluate (intraday-aware) — do NOT
-    # recompute cmp_px from the daily ctx here (that was the board-vs-single drift).
-    cmp_px = _ev["cmp_px"]; mansfield = _ev["mansfield"]
-    prev = _g(ctx, "prev", default=cmp_px)
-    chg_pct = ((cmp_px - prev) / prev * 100) if (cmp_px and prev) else 0.0
-    catalyst = _g(rec, "Catalyst", default="NONE")
-    stage = str(_g(rec, "Stage", default="—"))
-    alpha = _g(rec, "Alpha", default=None)
-    ml_prob = _g(rec, "ML_Prob")
-    
-    h1, h2, h3 = st.columns([3, 1.3, 1.6])
-    with h1:
-        st.markdown(f"### {symbol} — {name}")
-        st.caption(f"{_g(fun,'sector',default='')}  ·  {_g(fun,'industry',default='')}")
-    with h2:
-        st.metric("CMP", inr(cmp_px), f"{chg_pct:+.2f}%")
-        # Data freshness (G1, 9-Jul-2026): show the LAST BAR DATE, not just the
-        # fetch time — a stale feed (cache-poisoning / Dhan date-shift class)
-        # must be visible at a glance. The expected bar is SESSION-AWARE: after
-        # today's 15:30 IST close it should be TODAY, otherwise the last completed
-        # trading day (see _expected_last_session). A flat 'yesterday' target used
-        # to sit green on the prior day all evening — one session behind.
-        _lastbar = None
+        # ---- Auto-heal a stale served frame (9-Jul-2026) --------------------------
+        # A 2y/1d request carries the 24h weekly TTL, so a daily frame written after
+        # yesterday's close is re-served all of today even though a newer session has
+        # closed. If the served last bar is older than the last completed trading
+        # session, bust this symbol's on-disk cache ONCE and reload — the network
+        # then supplies the fresh bar. Guarded per (symbol, target-session) so it can
+        # never loop when the provider genuinely hasn't published the new bar yet
+        # (then the STALE banner shows and manual Refresh remains available).
         try:
-            _dfh = data.get("df")
-            if _dfh is not None and len(_dfh):
-                _lastbar = _dfh.index[-1].date()
+            _df_h = data.get("df")
+            if _df_h is not None and len(_df_h):
+                _lb = _df_h.index[-1].date()
+                _target = _expected_last_session()   # session-aware: today after 15:30 IST close
+                if _lb < _target:
+                    _heal_key = f"{symbol}|{_target.isoformat()}"
+                    if st.session_state.get("gm_autoheal") != _heal_key:
+                        st.session_state["gm_autoheal"] = _heal_key
+                        import data_provider as _dph
+                        _dph.invalidate_symbol(symbol)
+                        gm_load_symbol.clear()
+                        gm_load_recovery.clear()
+                        st.rerun()
+        except Exception as e:
+            # (st.rerun's RerunException inherits BaseException, not Exception — it
+            # passes through this handler untouched; verified on streamlit 1.53.1.)
+            _gm_logger.warning(f"{symbol}: stale-frame auto-heal failed (STALE banner remains): {e}")
+
+        # ---- SINGLE SOURCE OF TRUTH ------------------------------------------------
+        # Evaluate EXACTLY like the Trigger Board: gm_evaluate() is the one function
+        # both surfaces call, so cmp_px / intraday overlay / inherited setup / the two
+        # workflows are byte-identical here and on the board. No more duplicated
+        # assembly = no more category disagreement.
+        _deep_rec = bool(st.session_state.get(f"gm_deeprec_{symbol}", False))
+        _trig_tf = st.session_state.get("gm_trig_tf", "75m")
+        _ev = gm_evaluate(symbol, trigger_tf=_trig_tf, deep_rec=_deep_rec)
+        data = _ev["data"]
+        rec = _ev["rec"]; ctx = _ev["ctx"]; fun = _ev["fun"]
+        rec_r = _ev["rec_r"]
+        wf_bull = _ev["wf_bull"]; wf_rec = _ev["wf_rec"]
+        _intra_ok = _ev["intra_ok"]; _intra_label = _ev["intra_label"]
+        _ib_ss = _ev["inherited_bull"]; _ir_ss = _ev["inherited_rec"]
+        _inh_bull_on = bool(wf_bull.get("inherited"))
+        _inh_rec_on = bool(wf_rec.get("inherited")) if wf_rec else False
+        # Trigger-Board-IDENTICAL category — same wfs (shared gm_evaluate) + the same
+        # most-actionable selection the board uses. Shown as the headline so this page
+        # and the board can be reconciled at a glance (they now agree by construction).
+        _board_cat = None
+        try:
+            import gm_trigger_board as _gtbx
+            _bside = bool(_ib_ss); _rside = bool(_ir_ss); _noside = not (_bside or _rside)
+            _bc = []
+            if _bside or _noside:
+                _bc.append(_gtbx.trigger_category(wf_bull.get("verdict"), "bull"))
+            if wf_rec is not None and (_rside or _noside):
+                _bc.append(_gtbx.trigger_category(wf_rec.get("verdict"), "recovery"))
+            if _bc:
+                _board_cat = max(_bc, key=lambda c: _gtbx._cat_rank(c))
         except Exception:
-            pass
-        _asof = _g(rec, "As_Of") or (_lastbar.strftime("%Y-%m-%d") if _lastbar else None)
-        if _lastbar or _asof:
-            _exp_sess = _expected_last_session()
-            _stale = bool(_lastbar and _lastbar < _exp_sess)
-            _fresh_txt = f"bar {_lastbar.strftime('%d-%b') if _lastbar else _asof}"
-            if _asof and _lastbar and _asof != _lastbar.strftime("%Y-%m-%d"):
-                _fresh_txt += f" · engine as-of {_asof}"
-            # P1 provenance: WHICH feed served this frame (dhan / yfinance / cache…)
-            # — the silent Dhan→yfinance defection class becomes visible at a glance.
+            _board_cat = None
+        # Recovery signal state (parallel to the bull catalyst above).
+        rec_sig   = int(_g(rec_r, "Signal", default=0) or 0)
+        rec_label = str(_g(rec_r, "Signal_Label", default="None"))
+        rec_fired = rec_sig >= 2   # 2=REV-CB 3=REV-RS 4=REV-EARLY 5-8=WYC-*
+        # SEMANTIC GUARD: the recovery engine's regime gate opens for ANY non-
+        # distressed stock when the *market* is in recovery/reclaim — so REV-EARLY/
+        # REV-RS can fire on a stock at its OWN highs (market-recovery play, not a
+        # beaten-down recovery). On this single-symbol tool the "RECOVERY" label is
+        # read literally, so only treat it as a genuine recovery when the STOCK
+        # itself is meaningfully off its 52W high (engine's own min_stock_correction
+        # floor, 10%). Otherwise it's a bull setup, not a recovery — don't mislabel.
+        _rec_dd_floor, _ = _rec_cfg()
+        _rec_corr = _g(rec_r, "Correction_52W_pct")
+        rec_beaten_down = (_rec_corr is not None) and (_rec_corr >= _rec_dd_floor)
+        rec_fired_real  = rec_fired and rec_beaten_down   # genuine beaten-down recovery
+        rec_fired_mktpath = rec_fired and not rec_beaten_down  # market-path artifact at/near highs
+
+        if not rec and not ctx:
+            st.error(f"Could not load **{symbol}**.")
+            for e in data.get("errors", []):
+                st.caption(f"• {e}")
+            st.stop()
+    
+        # ----------------------------------------------------------------------------------------
+        # Header — name, CMP, change, verdict
+        # ----------------------------------------------------------------------------------------
+        name = _g(fun, "name", default=symbol)
+        # cmp_px / mansfield already set by gm_evaluate (intraday-aware) — do NOT
+        # recompute cmp_px from the daily ctx here (that was the board-vs-single drift).
+        cmp_px = _ev["cmp_px"]; mansfield = _ev["mansfield"]
+        prev = _g(ctx, "prev", default=cmp_px)
+        chg_pct = ((cmp_px - prev) / prev * 100) if (cmp_px and prev) else 0.0
+        catalyst = _g(rec, "Catalyst", default="NONE")
+        stage = str(_g(rec, "Stage", default="—"))
+        alpha = _g(rec, "Alpha", default=None)
+        ml_prob = _g(rec, "ML_Prob")
+    
+        h1, h2, h3 = st.columns([3, 1.3, 1.6])
+        with h1:
+            st.markdown(f"### {symbol} — {name}")
+            st.caption(f"{_g(fun,'sector',default='')}  ·  {_g(fun,'industry',default='')}")
+        with h2:
+            st.metric("CMP", inr(cmp_px), f"{chg_pct:+.2f}%")
+            # Data freshness (G1, 9-Jul-2026): show the LAST BAR DATE, not just the
+            # fetch time — a stale feed (cache-poisoning / Dhan date-shift class)
+            # must be visible at a glance. The expected bar is SESSION-AWARE: after
+            # today's 15:30 IST close it should be TODAY, otherwise the last completed
+            # trading day (see _expected_last_session). A flat 'yesterday' target used
+            # to sit green on the prior day all evening — one session behind.
+            _lastbar = None
             try:
-                import data_provider as _dpsrc
-                _src = _dpsrc.get_last_source(symbol)
-                if _src and _src not in ("none", "?"):
-                    _fresh_txt += f" · src {_src}"
+                _dfh = data.get("df")
+                if _dfh is not None and len(_dfh):
+                    _lastbar = _dfh.index[-1].date()
             except Exception:
                 pass
-            if _stale:
-                st.caption(f"⚠️ **STALE — {_fresh_txt}** (last completed session "
-                           f"{_exp_sess.strftime('%d-%b')}). Refresh; if it stays behind, the "
-                           f"broker feed hasn't published today's EOD bar yet.")
+            _asof = _g(rec, "As_Of") or (_lastbar.strftime("%Y-%m-%d") if _lastbar else None)
+            if _lastbar or _asof:
+                _exp_sess = _expected_last_session()
+                _stale = bool(_lastbar and _lastbar < _exp_sess)
+                _fresh_txt = f"bar {_lastbar.strftime('%d-%b') if _lastbar else _asof}"
+                if _asof and _lastbar and _asof != _lastbar.strftime("%Y-%m-%d"):
+                    _fresh_txt += f" · engine as-of {_asof}"
+                # P1 provenance: WHICH feed served this frame (dhan / yfinance / cache…)
+                # — the silent Dhan→yfinance defection class becomes visible at a glance.
+                try:
+                    import data_provider as _dpsrc
+                    _src = _dpsrc.get_last_source(symbol)
+                    if _src and _src not in ("none", "?"):
+                        _fresh_txt += f" · src {_src}"
+                except Exception:
+                    pass
+                if _stale:
+                    st.caption(f"⚠️ **STALE — {_fresh_txt}** (last completed session "
+                               f"{_exp_sess.strftime('%d-%b')}). Refresh; if it stays behind, the "
+                               f"broker feed hasn't published today's EOD bar yet.")
+                else:
+                    st.caption(f"🟢 {_fresh_txt}")
+        with h3:
+            bull_active = _cat_on(catalyst)
+            is_pos = str(catalyst).upper().startswith("POS")
+            # Primary verdict = bull catalyst if one fires; otherwise the recovery
+            # signal if it fires; otherwise NONE. Recovery is teal to stay visually
+            # distinct from the bull green/amber.
+            if bull_active:
+                head_label, head_color, head_tag = catalyst, ("#26A69A" if is_pos else "#FF9800"), "CATALYST"
+            elif rec_fired_real:
+                head_label, head_color, head_tag = rec_label, "#00838F", "RECOVERY"
             else:
-                st.caption(f"🟢 {_fresh_txt}")
-    with h3:
-        bull_active = _cat_on(catalyst)
-        is_pos = str(catalyst).upper().startswith("POS")
-        # Primary verdict = bull catalyst if one fires; otherwise the recovery
-        # signal if it fires; otherwise NONE. Recovery is teal to stay visually
-        # distinct from the bull green/amber.
-        if bull_active:
-            head_label, head_color, head_tag = catalyst, ("#26A69A" if is_pos else "#FF9800"), "CATALYST"
-        elif rec_fired_real:
-            head_label, head_color, head_tag = rec_label, "#00838F", "RECOVERY"
-        else:
-            head_label, head_color, head_tag = "NONE", "#787B86", "CATALYST"
-        st.markdown(f"<div style='text-align:right'><div style='font-size:12px;opacity:.7'>{head_tag}</div>"
-                    f"<div class='verdict' style='color:{head_color}'>{head_label}</div></div>",
-                    unsafe_allow_html=True)
-        # If BOTH sides fire (and the recovery is a GENUINE beaten-down one),
-        # note it under the bull verdict so neither is hidden.
-        if bull_active and rec_fired_real:
-            st.markdown(f"<div style='text-align:right;font-size:12px;color:#00838F'>"
-                        f"＋ Recovery: {rec_label}</div>", unsafe_allow_html=True)
+                head_label, head_color, head_tag = "NONE", "#787B86", "CATALYST"
+            st.markdown(f"<div style='text-align:right'><div style='font-size:12px;opacity:.7'>{head_tag}</div>"
+                        f"<div class='verdict' style='color:{head_color}'>{head_label}</div></div>",
+                        unsafe_allow_html=True)
+            # If BOTH sides fire (and the recovery is a GENUINE beaten-down one),
+            # note it under the bull verdict so neither is hidden.
+            if bull_active and rec_fired_real:
+                st.markdown(f"<div style='text-align:right;font-size:12px;color:#00838F'>"
+                            f"＋ Recovery: {rec_label}</div>", unsafe_allow_html=True)
     
-    # ----------------------------------------------------------------------------------------
-    # DECISION WORKFLOWS — Bull (left) · Recovery (right), side by side.
-    # Recovery names are Stage 1/4 by nature and fail the bull Stage-2 gate at
-    # Step 1, so a single bull path mislabels them AVOID. Showing BOTH paths
-    # lets the trader read the correct verdict for whichever engine applies.
-    # ----------------------------------------------------------------------------------------
-    decision = compute_decision(rec, ctx, cmp_px, mansfield)
-    _bull_active = _cat_on(catalyst)
-    # wf_bull / wf_rec / inheritance already computed by gm_evaluate() above — the
-    # SAME call the Trigger Board uses, so the two surfaces can't disagree.
+        # ----------------------------------------------------------------------------------------
+        # DECISION WORKFLOWS — Bull (left) · Recovery (right), side by side.
+        # Recovery names are Stage 1/4 by nature and fail the bull Stage-2 gate at
+        # Step 1, so a single bull path mislabels them AVOID. Showing BOTH paths
+        # lets the trader read the correct verdict for whichever engine applies.
+        # ----------------------------------------------------------------------------------------
+        decision = compute_decision(rec, ctx, cmp_px, mansfield)
+        _bull_active = _cat_on(catalyst)
+        # wf_bull / wf_rec / inheritance already computed by gm_evaluate() above — the
+        # SAME call the Trigger Board uses, so the two surfaces can't disagree.
 
-    # P1 — INHERITED banner: make it explicit when this name is timed off its SOURCE
-    # WATCHLIST archetype (Context/Quality trusted, not re-screened live). Same model
-    # the board uses (zero-drift). Absent = a name with no source → legacy re-qualify.
-    if _inh_bull_on or _inh_rec_on:
-        _arche_lbl = ", ".join(dict.fromkeys(
-            (_ib_ss if _inh_bull_on else []) + (_ir_ss if _inh_rec_on else []))) or "watchlist"
-        st.markdown(
-            f"<div style='border-left:3px solid #7E57C2;background:#7E57C214;border-radius:4px;"
-            f"padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
-            f"🧬 <b>Inherited setup — {_arche_lbl}</b> (qualified by its source watchlist). "
-            f"Context &amp; Quality are trusted; this name is <b>timed</b> (still-valid guard → "
-            f"Location → Trigger), not re-screened. A break-down (Stage 3/4 · lost 30WMA) shows "
-            f"<b>INVALIDATED</b>.</div>", unsafe_allow_html=True)
-    elif _ev.get("inherit_error"):
-        # P1: the archetype resolver failed — inheritance is OFF and this name fell
-        # to the legacy re-qualification funnel. That changes verdicts; say so.
-        st.warning(f"⚠️ Inherited-qualification unavailable (archetype resolver failed) — "
-                   f"showing the LEGACY re-qualification verdict. {_ev['inherit_error']} "
-                   f"· logs/gm_errors.log")
+        # P1 — INHERITED banner: make it explicit when this name is timed off its SOURCE
+        # WATCHLIST archetype (Context/Quality trusted, not re-screened live). Same model
+        # the board uses (zero-drift). Absent = a name with no source → legacy re-qualify.
+        if _inh_bull_on or _inh_rec_on:
+            _arche_lbl = ", ".join(dict.fromkeys(
+                (_ib_ss if _inh_bull_on else []) + (_ir_ss if _inh_rec_on else []))) or "watchlist"
+            st.markdown(
+                f"<div style='border-left:3px solid #7E57C2;background:#7E57C214;border-radius:4px;"
+                f"padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
+                f"🧬 <b>Inherited setup — {_arche_lbl}</b> (qualified by its source watchlist). "
+                f"Context &amp; Quality are trusted; this name is <b>timed</b> (still-valid guard → "
+                f"Location → Trigger), not re-screened. A break-down (Stage 3/4 · lost 30WMA) shows "
+                f"<b>INVALIDATED</b>.</div>", unsafe_allow_html=True)
+        elif _ev.get("inherit_error"):
+            # P1: the archetype resolver failed — inheritance is OFF and this name fell
+            # to the legacy re-qualification funnel. That changes verdicts; say so.
+            st.warning(f"⚠️ Inherited-qualification unavailable (archetype resolver failed) — "
+                       f"showing the LEGACY re-qualification verdict. {_ev['inherit_error']} "
+                       f"· logs/gm_errors.log")
 
-    # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
-    # the trading TF while Steps 1-4 remain Daily/Weekly positional context.
-    if _intra_label:
-        _il_col = "#00838F" if _intra_ok else "#FF9800"
-        st.markdown(f"<div style='border-left:3px solid {_il_col};background:{_il_col}14;"
-                    f"border-radius:4px;padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
-                    f"{_intra_label} &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
-                    f"</div>", unsafe_allow_html=True)
+        # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
+        # the trading TF while Steps 1-4 remain Daily/Weekly positional context.
+        if _intra_label:
+            _il_col = "#00838F" if _intra_ok else "#FF9800"
+            st.markdown(f"<div style='border-left:3px solid {_il_col};background:{_il_col}14;"
+                        f"border-radius:4px;padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
+                        f"{_intra_label} &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
+                        f"</div>", unsafe_allow_html=True)
 
-    # Trigger-Board-identical category headline — the exact value you'd see in the
-    # board's Category column for this symbol (same gm_evaluate, same selection).
-    if _board_cat:
-        _bc_actionable = _board_cat.split(" · ")[0] in ("Buy Trigger Live", "Armed Wait", "Wait for Pullback")
-        _bc_col = "#26A69A" if _board_cat.startswith("Buy Trigger") else ("#FF9800" if _bc_actionable else "#787B86")
-        st.markdown(f"<div style='border-left:3px solid {_bc_col};background:{_bc_col}14;"
-                    f"border-radius:4px;padding:6px 10px;margin:2px 0 8px;font-size:13px'>"
-                    f"📋 <b>Trigger-Board category:</b> <b style='color:{_bc_col}'>{_board_cat}</b> "
-                    f"&nbsp;·&nbsp; TF {_trig_tf} — this matches the board's Category column exactly."
-                    f"</div>", unsafe_allow_html=True)
+        # Trigger-Board-identical category headline — the exact value you'd see in the
+        # board's Category column for this symbol (same gm_evaluate, same selection).
+        if _board_cat:
+            _bc_actionable = _board_cat.split(" · ")[0] in ("Buy Trigger Live", "Armed Wait", "Wait for Pullback")
+            _bc_col = "#26A69A" if _board_cat.startswith("Buy Trigger") else ("#FF9800" if _bc_actionable else "#787B86")
+            st.markdown(f"<div style='border-left:3px solid {_bc_col};background:{_bc_col}14;"
+                        f"border-radius:4px;padding:6px 10px;margin:2px 0 8px;font-size:13px'>"
+                        f"📋 <b>Trigger-Board category:</b> <b style='color:{_bc_col}'>{_board_cat}</b> "
+                        f"&nbsp;·&nbsp; TF {_trig_tf} — this matches the board's Category column exactly."
+                        f"</div>", unsafe_allow_html=True)
 
-    _wcol1, _wcol2 = st.columns(2)
-    with _wcol1:
-        st.markdown("##### 🐂 Bull path  ·  Stage-2 leadership")
-        st.markdown(render_workflow(wf_bull), unsafe_allow_html=True)
-    with _wcol2:
-        st.markdown("##### 🔄 Recovery path  ·  beaten-down + RFF")
-        # Render the full recovery path ONLY for a GENUINE recovery (signal fired
-        # AND stock beaten-down ≥10%). A market-path artifact (signal fired at/near
-        # highs) or no signal both get a concise note — so two "no real recovery"
-        # names never render differently (one full red path, one one-liner).
-        if wf_rec is not None and (rec_fired_real or _inh_rec_on):
-            st.markdown(render_workflow(wf_rec), unsafe_allow_html=True)
-        elif _ev.get("rec_error"):
-            # P0 fix: an eval FAILURE is decision-different from "no recovery context"
-            # — never render a confident verdict off an error dict.
-            st.error(f"⚠️ Recovery evaluation FAILED — verdict unavailable (not 'no context'). "
-                     f"{_ev['rec_error']}")
-        elif rec_fired_mktpath:
-            st.info(f"Recovery engine notes **{rec_label}** only via the market-recovery regime — "
-                    f"but **{symbol}** is just {fnum(_rec_corr, 1, '%')} off its 52W high "
-                    f"(< {_rec_dd_floor:.0f}% floor), so it is **not** a beaten-down recovery. "
-                    f"Trade the bull path.")
-        else:
-            st.info("No recovery catalyst on this name — the recovery path does not apply.")
-
-    # ---- Fresh Stage-transition note (reconciles a lagging chart background) ----
-    # Stage is a STATEFUL weekly state machine; at a Stage 4→1 reclaim the exact
-    # flip bar is knife-edge (30-WMA slope crossing the flat band), so Python
-    # (Dhan feed) and a TradingView background (TV feed + its own weekly bars)
-    # can differ by one stage for a week or two. When price has RECLAIMED the
-    # 30-week MA but the stage still reads 1 (base), that's a fresh turn Python
-    # catches first — flag it so a chart still painting Stage 4 isn't confusing.
-    _ma30 = _g(ctx, "sma150")   # daily 150-SMA ≈ 30-week MA (the stage anchor)
-    _stg = None
-    for _sv in (str(_g(rec, "Stage", default="")), str(_g(rec_r, "Weinstein_Stage", default=""))):
-        _hit = next((d for d in "1234" if d in _sv), None)
-        if _hit:
-            _stg = int(_hit); break
-    if _ma30 and cmp_px and _stg == 1 and cmp_px > _ma30:
-        _d30 = (cmp_px / _ma30 - 1) * 100
-        st.caption(f"🟡 **Stage 1 · fresh reclaim** — price is **{_d30:+.1f}% above the 30-week MA** "
-                   f"({inr(_ma30)}), i.e. the stock has reclaimed its Weinstein anchor. If a "
-                   f"TradingView stage-background still shows **Stage 4**, it is *lagging this turn* "
-                   f"on its own data feed (the 4→1 flip is a knife-edge slope crossing) — Python "
-                   f"registered the reclaim first. Trust the price-vs-30WMA read: this is an early base, not a decline.")
-
-    # The PRIMARY path drives the single next-action + guided execution below.
-    # Some names fire BOTH a bull catalyst AND a genuine recovery signal — and
-    # the two have DIFFERENT entries/stops/targets — so let the trader choose
-    # which setup to execute rather than silently defaulting. Otherwise the one
-    # applicable path leads automatically.
-    # The recovery path is SHOWN whenever it's a genuine/inherited recovery (the bull
-    # path always renders). Whenever BOTH are shown, offer the radio so the trader
-    # picks which to EXECUTE — and DEFAULT to the MORE-ACTIONABLE path. (The bug: the
-    # radio used to default to Bull, so DLF showed Bull·Avoid in Guided Execution even
-    # though Recovery·Buy-Trigger-Live was the valid setup.)
-    import gm_trigger_board as _gtbp
-    _rec_shown = (wf_rec is not None) and (rec_fired_real or _inh_rec_on)
-    if _rec_shown:
-        _br = _gtbp._cat_rank(_gtbp.trigger_category(wf_bull.get("verdict"), "bull"))
-        _rr = _gtbp._cat_rank(_gtbp.trigger_category(wf_rec.get("verdict"), "recovery"))
-        _default_idx = 1 if _rr > _br else 0        # default to the more-actionable path
-        _pick = st.radio(
-            "⚡ This name is valid on BOTH paths — execute which? (defaulting to the more-actionable)",
-            ["🐂 Bull", "🔄 Recovery"], horizontal=True, index=_default_idx,
-            key=f"gm_path_{symbol}")
-        wf = wf_rec if _pick.startswith("🔄") else wf_bull
-    else:
-        wf = wf_bull
-    _pa_html = render_pa_banner(ctx)
-    if _pa_html:
-        st.markdown(_pa_html, unsafe_allow_html=True)
-
-    # ---- Session shortlist capture (E3, 9-Jul-2026) — a TV scroll session
-    # leaves an artifact: every actionable name (BUY / ARMED / WAIT-class) is
-    # recorded in session state; a name that degrades to AVOID/WATCHLIST on a
-    # later look is removed. Rendered as a table further down.
-    _slk = "recovery_pa_patterns" if wf.get("recovery") else "pa_patterns"
-    _sl_tier = sum(t for _, f, t, _ in (_g(ctx, _slk, default=[]) or []) if f)
-    _sl_store = st.session_state.setdefault("gm_shortlist", {})
-    _sl_sym = symbol.replace(".NS", "").replace(".BO", "").upper()
-    if wf["actionable"]:
-        _sl_store[_sl_sym] = {"Symbol": _sl_sym, "Verdict": wf["verdict"],
-                              "Path": "Recovery" if wf.get("recovery") else "Bull",
-                              "Σ tier": _sl_tier, "Signal": str(head_label),
-                              "Seen": datetime.now().strftime("%H:%M")}
-    else:
-        _sl_store.pop(_sl_sym, None)
-
-    # ---- The single next action + guided execution sequence ----
-    cur_step = wf["steps"][wf["current"] - 1]
-    if not wf["actionable"]:
-        if "AVOID" in wf["verdict"]:
-            st.error(f"**{wf['verdict']} — Step {wf['stop_at']}.** {cur_step.get('do_fail','')}  Go to the next name.")
-        else:
-            st.warning(f"**{wf['verdict']} — Step {wf['stop_at']}.** {cur_step.get('do_fail','')}  Track only; no action today.")
-    elif wf["current"] < 5:
-        st.warning(f"**→ NOW · Step {wf['current']} ({cur_step['title']}):**  {cur_step.get('do_fail','')}")
-    else:
-        st.success(f"**→ NOW · Step 5 (TRIGGER):**  {cur_step.get('do_now')}")
-
-        # ---- Position sizer (E2, 9-Jul-2026) — risk% of capital made concrete ----
-        _pe = wf.get("plan_entry"); _psl = wf.get("plan_sl"); _pt1 = wf.get("plan_t1")
-        _qty_sized = 0
-        if _pe and _psl and _pe > _psl:
-            if _gm_capital > 0:
-                _risk_amt = _gm_capital * _gm_riskpct / 100.0
-                _qty_sized = int(_risk_amt // (_pe - _psl))
-                _ct_half = bool(_g(rec, "Counter_Trend")) and not wf.get("recovery")
-                if _ct_half and _qty_sized > 1:
-                    _qty_sized //= 2
-                _pos_val = _qty_sized * _pe
-                st.markdown(
-                    f"**📏 Size @ {_gm_riskpct:.2f}% risk:** {inr(_risk_amt)} ÷ "
-                    f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · "
-                    f"position {inr(_pos_val)}"
-                    + (f" ({_pos_val / _gm_capital * 100:.1f}% of capital)" if _gm_capital else "")
-                    + (" · ⚠ counter-trend — size halved" if _ct_half else ""))
+        _wcol1, _wcol2 = st.columns(2)
+        with _wcol1:
+            st.markdown("##### 🐂 Bull path  ·  Stage-2 leadership")
+            st.markdown(render_workflow(wf_bull), unsafe_allow_html=True)
+        with _wcol2:
+            st.markdown("##### 🔄 Recovery path  ·  beaten-down + RFF")
+            # Render the full recovery path ONLY for a GENUINE recovery (signal fired
+            # AND stock beaten-down ≥10%). A market-path artifact (signal fired at/near
+            # highs) or no signal both get a concise note — so two "no real recovery"
+            # names never render differently (one full red path, one one-liner).
+            if wf_rec is not None and (rec_fired_real or _inh_rec_on):
+                st.markdown(render_workflow(wf_rec), unsafe_allow_html=True)
+            elif _ev.get("rec_error"):
+                # P0 fix: an eval FAILURE is decision-different from "no recovery context"
+                # — never render a confident verdict off an error dict.
+                st.error(f"⚠️ Recovery evaluation FAILED — verdict unavailable (not 'no context'). "
+                         f"{_ev['rec_error']}")
+            elif rec_fired_mktpath:
+                st.info(f"Recovery engine notes **{rec_label}** only via the market-recovery regime — "
+                        f"but **{symbol}** is just {fnum(_rec_corr, 1, '%')} off its 52W high "
+                        f"(< {_rec_dd_floor:.0f}% floor), so it is **not** a beaten-down recovery. "
+                        f"Trade the bull path.")
             else:
-                st.caption("📏 Set your capital above to get an auto position size at the configured risk.")
+                st.info("No recovery catalyst on this name — the recovery path does not apply.")
 
-        # ---- Guided execution — COLLAPSES when there's no location (Jay) ----------
-        # Expand automatically when there IS a location (a demand zone under price OR
-        # the Step-4 location gate passed); otherwise stay collapsed so it doesn't
-        # clutter with generic "hand-draw" steps you can't action yet. The checklist
-        # lives in the expander; the journal form stays OUTSIDE it (Streamlit forbids
-        # nested expanders — the journal has its own).
-        _supz = _g(ctx, "support", default={}) or {}
+        # ---- Fresh Stage-transition note (reconciles a lagging chart background) ----
+        # Stage is a STATEFUL weekly state machine; at a Stage 4→1 reclaim the exact
+        # flip bar is knife-edge (30-WMA slope crossing the flat band), so Python
+        # (Dhan feed) and a TradingView background (TV feed + its own weekly bars)
+        # can differ by one stage for a week or two. When price has RECLAIMED the
+        # 30-week MA but the stage still reads 1 (base), that's a fresh turn Python
+        # catches first — flag it so a chart still painting Stage 4 isn't confusing.
+        _ma30 = _g(ctx, "sma150")   # daily 150-SMA ≈ 30-week MA (the stage anchor)
+        _stg = None
+        for _sv in (str(_g(rec, "Stage", default="")), str(_g(rec_r, "Weinstein_Stage", default=""))):
+            _hit = next((d for d in "1234" if d in _sv), None)
+            if _hit:
+                _stg = int(_hit); break
+        if _ma30 and cmp_px and _stg == 1 and cmp_px > _ma30:
+            _d30 = (cmp_px / _ma30 - 1) * 100
+            st.caption(f"🟡 **Stage 1 · fresh reclaim** — price is **{_d30:+.1f}% above the 30-week MA** "
+                       f"({inr(_ma30)}), i.e. the stock has reclaimed its Weinstein anchor. If a "
+                       f"TradingView stage-background still shows **Stage 4**, it is *lagging this turn* "
+                       f"on its own data feed (the 4→1 flip is a knife-edge slope crossing) — Python "
+                       f"registered the reclaim first. Trust the price-vs-30WMA read: this is an early base, not a decline.")
 
-        def _pick_zone(_z, _tf):
-            """(label, lo, hi, proximal) for the tightest FRESH active zone under
-            price in one TF, or None. Keys off the exact tradeable zone labels —
-            'OB/FVG tested' never match, so a mitigated zone is never auto-picked."""
-            if not _z:
+        # The PRIMARY path drives the single next-action + guided execution below.
+        # Some names fire BOTH a bull catalyst AND a genuine recovery signal — and
+        # the two have DIFFERENT entries/stops/targets — so let the trader choose
+        # which setup to execute rather than silently defaulting. Otherwise the one
+        # applicable path leads automatically.
+        # The recovery path is SHOWN whenever it's a genuine/inherited recovery (the bull
+        # path always renders). Whenever BOTH are shown, offer the radio so the trader
+        # picks which to EXECUTE — and DEFAULT to the MORE-ACTIONABLE path. (The bug: the
+        # radio used to default to Bull, so DLF showed Bull·Avoid in Guided Execution even
+        # though Recovery·Buy-Trigger-Live was the valid setup.)
+        import gm_trigger_board as _gtbp
+        _rec_shown = (wf_rec is not None) and (rec_fired_real or _inh_rec_on)
+        if _rec_shown:
+            _br = _gtbp._cat_rank(_gtbp.trigger_category(wf_bull.get("verdict"), "bull"))
+            _rr = _gtbp._cat_rank(_gtbp.trigger_category(wf_rec.get("verdict"), "recovery"))
+            _default_idx = 1 if _rr > _br else 0        # default to the more-actionable path
+            _pick = st.radio(
+                "⚡ This name is valid on BOTH paths — execute which? (defaulting to the more-actionable)",
+                ["🐂 Bull", "🔄 Recovery"], horizontal=True, index=_default_idx,
+                key=f"gm_path_{symbol}")
+            wf = wf_rec if _pick.startswith("🔄") else wf_bull
+        else:
+            wf = wf_bull
+        _pa_html = render_pa_banner(ctx)
+        if _pa_html:
+            st.markdown(_pa_html, unsafe_allow_html=True)
+
+        # ---- Session shortlist capture (E3, 9-Jul-2026) — a TV scroll session
+        # leaves an artifact: every actionable name (BUY / ARMED / WAIT-class) is
+        # recorded in session state; a name that degrades to AVOID/WATCHLIST on a
+        # later look is removed. Rendered as a table further down.
+        _slk = "recovery_pa_patterns" if wf.get("recovery") else "pa_patterns"
+        _sl_tier = sum(t for _, f, t, _ in (_g(ctx, _slk, default=[]) or []) if f)
+        _sl_store = st.session_state.setdefault("gm_shortlist", {})
+        _sl_sym = symbol.replace(".NS", "").replace(".BO", "").upper()
+        if wf["actionable"]:
+            _sl_store[_sl_sym] = {"Symbol": _sl_sym, "Verdict": wf["verdict"],
+                                  "Path": "Recovery" if wf.get("recovery") else "Bull",
+                                  "Σ tier": _sl_tier, "Signal": str(head_label),
+                                  "Seen": datetime.now().strftime("%H:%M")}
+        else:
+            _sl_store.pop(_sl_sym, None)
+
+        # ---- The single next action + guided execution sequence ----
+        cur_step = wf["steps"][wf["current"] - 1]
+        if not wf["actionable"]:
+            if "AVOID" in wf["verdict"]:
+                st.error(f"**{wf['verdict']} — Step {wf['stop_at']}.** {cur_step.get('do_fail','')}  Go to the next name.")
+            else:
+                st.warning(f"**{wf['verdict']} — Step {wf['stop_at']}.** {cur_step.get('do_fail','')}  Track only; no action today.")
+        elif wf["current"] < 5:
+            st.warning(f"**→ NOW · Step {wf['current']} ({cur_step['title']}):**  {cur_step.get('do_fail','')}")
+        else:
+            st.success(f"**→ NOW · Step 5 (TRIGGER):**  {cur_step.get('do_now')}")
+
+            # ---- Position sizer (E2, 9-Jul-2026) — risk% of capital made concrete ----
+            _pe = wf.get("plan_entry"); _psl = wf.get("plan_sl"); _pt1 = wf.get("plan_t1")
+            _qty_sized = 0
+            if _pe and _psl and _pe > _psl:
+                if _gm_capital > 0:
+                    _risk_amt = _gm_capital * _gm_riskpct / 100.0
+                    _qty_sized = int(_risk_amt // (_pe - _psl))
+                    _ct_half = bool(_g(rec, "Counter_Trend")) and not wf.get("recovery")
+                    if _ct_half and _qty_sized > 1:
+                        _qty_sized //= 2
+                    _pos_val = _qty_sized * _pe
+                    st.markdown(
+                        f"**📏 Size @ {_gm_riskpct:.2f}% risk:** {inr(_risk_amt)} ÷ "
+                        f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · "
+                        f"position {inr(_pos_val)}"
+                        + (f" ({_pos_val / _gm_capital * 100:.1f}% of capital)" if _gm_capital else "")
+                        + (" · ⚠ counter-trend — size halved" if _ct_half else ""))
+                else:
+                    st.caption("📏 Set your capital above to get an auto position size at the configured risk.")
+
+            # ---- Guided execution — COLLAPSES when there's no location (Jay) ----------
+            # Expand automatically when there IS a location (a demand zone under price OR
+            # the Step-4 location gate passed); otherwise stay collapsed so it doesn't
+            # clutter with generic "hand-draw" steps you can't action yet. The checklist
+            # lives in the expander; the journal form stays OUTSIDE it (Streamlit forbids
+            # nested expanders — the journal has its own).
+            _supz = _g(ctx, "support", default={}) or {}
+
+            def _pick_zone(_z, _tf):
+                """(label, lo, hi, proximal) for the tightest FRESH active zone under
+                price in one TF, or None. Keys off the exact tradeable zone labels —
+                'OB/FVG tested' never match, so a mitigated zone is never auto-picked."""
+                if not _z:
+                    return None
+                _lbl = str(_z.get("zone", "outside"))
+                if _lbl in ("OB inside", "OB near"):
+                    return (f"{_tf} {_lbl}", _z.get("ob_bot"), _z.get("ob_top"), _z.get("ob_top"))
+                if _lbl in ("FVG inside", "FVG near"):
+                    return (f"{_tf} {_lbl}", _z.get("fvg_bot"), _z.get("fvg_top"), _z.get("fvg_top"))
+                if _lbl == "Pivot near":
+                    return (f"{_tf} Pivot near", _z.get("pivot"), _z.get("pivot"), _z.get("pivot"))
                 return None
-            _lbl = str(_z.get("zone", "outside"))
-            if _lbl in ("OB inside", "OB near"):
-                return (f"{_tf} {_lbl}", _z.get("ob_bot"), _z.get("ob_top"), _z.get("ob_top"))
-            if _lbl in ("FVG inside", "FVG near"):
-                return (f"{_tf} {_lbl}", _z.get("fvg_bot"), _z.get("fvg_top"), _z.get("fvg_top"))
-            if _lbl == "Pivot near":
-                return (f"{_tf} Pivot near", _z.get("pivot"), _z.get("pivot"), _z.get("pivot"))
-            return None
 
-        _pick = _pick_zone(_supz.get("daily"), "Daily") or _pick_zone(_supz.get("weekly"), "Weekly")
-        # Expand when there's a location (zone under price OR Step-4 passed) OR a live
-        # trigger fired (a BUY is immediately actionable regardless of location).
-        _has_loc = bool(_pick) or bool(wf.get("location_ok")) or str(wf.get("verdict", "")).startswith("BUY")
-        _done = 0; _next = None; _man = []
-        with st.expander("✅ Guided execution — tick as you go", expanded=_has_loc):
-            if _pick:
-                _z_lbl, _z_lo, _z_hi, _z_prox = _pick
-                _span_txt = inr(_z_lo) if _z_lo == _z_hi else f"{inr(_z_lo)}–{inr(_z_hi)}"
-                _zsummary = str(_supz.get("zone", ""))
-                st.caption(f"🟩 **Auto demand-zone:** {_z_lbl} at **{_span_txt}** "
-                           f"· alert proximal **{inr(_z_prox)}**  ·  _{_zsummary}_ — Steps 1-2 auto-marked; verify on the chart.")
-                _man = [
-                    ("zone",  f"1 · Auto zone confirmed: {_z_lbl} at {_span_txt} (verify it's fresh/untested)"),
-                    ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
-                    ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-                    ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
-                    ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
-                    ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
-                ]
+            _pick = _pick_zone(_supz.get("daily"), "Daily") or _pick_zone(_supz.get("weekly"), "Weekly")
+            # Expand when there's a location (zone under price OR Step-4 passed) OR a live
+            # trigger fired (a BUY is immediately actionable regardless of location).
+            _has_loc = bool(_pick) or bool(wf.get("location_ok")) or str(wf.get("verdict", "")).startswith("BUY")
+            _done = 0; _next = None; _man = []
+            with st.expander("✅ Guided execution — tick as you go", expanded=_has_loc):
+                if _pick:
+                    _z_lbl, _z_lo, _z_hi, _z_prox = _pick
+                    _span_txt = inr(_z_lo) if _z_lo == _z_hi else f"{inr(_z_lo)}–{inr(_z_hi)}"
+                    _zsummary = str(_supz.get("zone", ""))
+                    st.caption(f"🟩 **Auto demand-zone:** {_z_lbl} at **{_span_txt}** "
+                               f"· alert proximal **{inr(_z_prox)}**  ·  _{_zsummary}_ — Steps 1-2 auto-marked; verify on the chart.")
+                    _man = [
+                        ("zone",  f"1 · Auto zone confirmed: {_z_lbl} at {_span_txt} (verify it's fresh/untested)"),
+                        ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
+                        ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+                        ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                        ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                        ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+                    ]
+                else:
+                    st.caption("⬜ No auto demand-zone (OB/FVG/pivot on Daily or Weekly) under price yet — hand-draw the fresh zone.")
+                    _man = [
+                        ("zone",  "1 · Mark the FRESH demand zone on Daily/Weekly (hand-drawn, untested)"),
+                        ("alert", "2 · Set a TradingView alert at the zone proximal"),
+                        ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
+                        ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                        ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                        ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
+                    ]
+                _key = f"chk_{symbol}"
+                for _k, _label in _man:
+                    if st.checkbox(_label, key=f"{_key}_{_k}"):
+                        _done += 1
+                    elif _next is None:
+                        _next = _label
+                st.progress(_done / len(_man), text=f"{_done}/{len(_man)} done")
+            if _man and _done == len(_man):
+                # ---- E1 (9-Jul-2026): actually log the trade. upsert_trade()
+                # auto-captures the true-entry signal snapshot on new OPEN inserts
+                # (the Phase-0 hook) — so a GM-executed trade lands in the journal
+                # AND the attribution pipeline with its setup label.
+                st.success("✅ All steps done — log the trade to the journal below.")
+                _path_lbl = "Recovery" if wf.get("recovery") else "Bull"
+                _pa_key = "recovery_pa_patterns" if wf.get("recovery") else "pa_patterns"
+                _sig_tier = sum(t for _, f, t, _ in (_g(ctx, _pa_key, default=[]) or []) if f)
+                _rat_default = f"GM {wf['verdict']} · {_path_lbl} · {head_label} · Σ+{_sig_tier}"
+                with st.expander("📓 Log to journal", expanded=True):
+                    with st.form(f"gm_journal_{symbol}"):
+                        _jc1, _jc2, _jc3 = st.columns(3)
+                        with _jc1:
+                            _j_buy = st.number_input("Buy price", min_value=0.0, format="%.2f",
+                                                     value=float(_pe or cmp_px or 0.0))
+                            _j_qty = st.number_input("Quantity", min_value=0, step=1,
+                                                     value=int(_qty_sized))
+                        with _jc2:
+                            _j_sl = st.number_input("Stop-loss", min_value=0.0, format="%.2f",
+                                                    value=float(_psl or 0.0))
+                            _j_t1 = st.number_input("Target 1", min_value=0.0, format="%.2f",
+                                                    value=float(_pt1 or 0.0))
+                        with _jc3:
+                            _j_tf = st.selectbox("Timeframe", ["Positional", "Swing"],
+                                                 index=0 if str(head_label).upper().startswith(("POS", "REV", "WYC")) else 1)
+                            _j_rat = st.text_input("Rationale", value=_rat_default)
+                        if st.form_submit_button("📓 Log OPEN trade", type="primary"):
+                            try:
+                                import dhan_journal_v7 as _dj
+                                _bare_j = symbol.replace(".NS", "").replace(".BO", "").upper()
+                                _dj.upsert_trade({
+                                    "Symbol": _bare_j, "Type": "LONG", "Status": "OPEN",
+                                    "BuyPrice": float(_j_buy), "Quantity": float(_j_qty),
+                                    "StopLoss": float(_j_sl) or None,
+                                    "Target1": float(_j_t1) or None,
+                                    "EntryDate": datetime.now().strftime("%Y-%m-%d"),
+                                    "Timeframe": _j_tf, "Rationale": _j_rat,
+                                    "Sector": str(_g(fun, "sector", default="") or ""),
+                                })
+                                st.success(f"📓 {_bare_j} logged OPEN — entry snapshot captured. On to the next name.")
+                            except Exception as _je:
+                                st.error(f"Journal write failed (trade NOT logged): {_je}")
+            elif _next:
+                st.caption(f"→ Next: {_next}")
+
+        # ---- Recovery engine callout ------------------------------------------------
+        # The decision workflow above is bull-oriented; a recovery setup would
+        # otherwise be buried under a bull "no action" verdict. Surface it here so
+        # a REV/WYC signal on a fundamentally-strong beaten-down name is never missed.
+        if rec_fired_real:
+            _rev_entry = _g(rec_r, "Entry"); _rev_sl = _g(rec_r, "SL"); _rev_t1 = _g(rec_r, "T1")
+            _plan = ""
+            if _rev_entry and _rev_sl:
+                _plan = f"  ·  Entry {inr(_rev_entry)} · SL {inr(_rev_sl)}" + (f" · T1 {inr(_rev_t1)}" if _rev_t1 else "")
+            st.success(f"**🔄 RECOVERY SIGNAL — {rec_label}** (RFF {_g(rec_r,'RFF_Base',default=0)}/6, "
+                       f"{_g(rec_r,'RFF_Quality',default='—')} · {fnum(_rec_corr,1,'%')} off 52WH).{_plan}  "
+                       f"Fundamentally-strong beaten-down setup — validate on the chart, then trade the recovery playbook.")
+        elif rec_fired_mktpath:
+            # The engine fired REV/WYC via the MARKET-recovery path, but the stock
+            # itself is at/near its highs — not a beaten-down recovery. Say so
+            # plainly rather than mislabelling it "recovery".
+            st.caption(f"ℹ️ Recovery engine notes *{rec_label}* only via the market-recovery regime — "
+                       f"but **{symbol}** is just {fnum(_rec_corr,1,'%')} off its 52W high "
+                       f"(< {_rec_dd_floor:.0f}% floor), so this is **not** a beaten-down recovery. "
+                       f"Trade the bull catalyst above, not a recovery playbook.")
+        elif rec_sig == 1 and rec_beaten_down:
+            st.info(f"**🔄 Recovery: CB-Watch** — climax detected on **{symbol}**, no turn yet. "
+                    f"On watch; no recovery entry until the bounce confirms.")
+
+        # On-demand LIVE fundamentals: the fast path skips the blocking Screener.in
+        # scrape (so TV auto-sync stays responsive). If RFF read INSUFFICIENT only
+        # because fundamentals weren't cached, let the trader pull them for THIS name.
+        if not _deep_rec and str(_g(rec_r, "RFF_Quality", default="")) == "INSUFFICIENT":
+            if st.button("🔬 Fetch live fundamentals for recovery RFF (this symbol)",
+                         key=f"deeprec_btn_{symbol}",
+                         help="Skipped during fast scrolling to keep TV auto-sync responsive. "
+                              "Pulls Screener.in/yfinance fundamentals for this symbol only."):
+                st.session_state[f"gm_deeprec_{symbol}"] = True
+                st.rerun()
+
+        st.divider()
+
+        # ---- Session shortlist (E3) — the ranked artifact of this scroll session ----
+        _sl_all = st.session_state.get("gm_shortlist", {})
+        with st.expander(f"📋 Session shortlist ({len(_sl_all)})", expanded=False):
+            if _sl_all:
+                _sl_df = pd.DataFrame(list(_sl_all.values()))
+                _sl_df = _sl_df.sort_values(["Σ tier", "Symbol"], ascending=[False, True])
+                st.dataframe(_sl_df, use_container_width=True, hide_index=True)
+                _slc1, _slc2 = st.columns(2)
+                with _slc1:
+                    st.download_button(
+                        "⬇ TV watchlist (.txt)",
+                        "###GM_SHORTLIST\n" + "\n".join(f"NSE:{s}" for s in _sl_df["Symbol"]),
+                        file_name=f"GM_Shortlist-{datetime.now().strftime('%d%b%y').upper()}.txt",
+                        use_container_width=True)
+                with _slc2:
+                    if st.button("🗑 Clear shortlist", use_container_width=True):
+                        st.session_state["gm_shortlist"] = {}
+                        st.rerun()
             else:
-                st.caption("⬜ No auto demand-zone (OB/FVG/pivot on Daily or Weekly) under price yet — hand-draw the fresh zone.")
-                _man = [
-                    ("zone",  "1 · Mark the FRESH demand zone on Daily/Weekly (hand-drawn, untested)"),
-                    ("alert", "2 · Set a TradingView alert at the zone proximal"),
-                    ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-                    ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
-                    ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
-                    ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
-                ]
-            _key = f"chk_{symbol}"
-            for _k, _label in _man:
-                if st.checkbox(_label, key=f"{_key}_{_k}"):
-                    _done += 1
-                elif _next is None:
-                    _next = _label
-            st.progress(_done / len(_man), text=f"{_done}/{len(_man)} done")
-        if _man and _done == len(_man):
-            # ---- E1 (9-Jul-2026): actually log the trade. upsert_trade()
-            # auto-captures the true-entry signal snapshot on new OPEN inserts
-            # (the Phase-0 hook) — so a GM-executed trade lands in the journal
-            # AND the attribution pipeline with its setup label.
-            st.success("✅ All steps done — log the trade to the journal below.")
-            _path_lbl = "Recovery" if wf.get("recovery") else "Bull"
-            _pa_key = "recovery_pa_patterns" if wf.get("recovery") else "pa_patterns"
-            _sig_tier = sum(t for _, f, t, _ in (_g(ctx, _pa_key, default=[]) or []) if f)
-            _rat_default = f"GM {wf['verdict']} · {_path_lbl} · {head_label} · Σ+{_sig_tier}"
-            with st.expander("📓 Log to journal", expanded=True):
-                with st.form(f"gm_journal_{symbol}"):
-                    _jc1, _jc2, _jc3 = st.columns(3)
-                    with _jc1:
-                        _j_buy = st.number_input("Buy price", min_value=0.0, format="%.2f",
-                                                 value=float(_pe or cmp_px or 0.0))
-                        _j_qty = st.number_input("Quantity", min_value=0, step=1,
-                                                 value=int(_qty_sized))
-                    with _jc2:
-                        _j_sl = st.number_input("Stop-loss", min_value=0.0, format="%.2f",
-                                                value=float(_psl or 0.0))
-                        _j_t1 = st.number_input("Target 1", min_value=0.0, format="%.2f",
-                                                value=float(_pt1 or 0.0))
-                    with _jc3:
-                        _j_tf = st.selectbox("Timeframe", ["Positional", "Swing"],
-                                             index=0 if str(head_label).upper().startswith(("POS", "REV", "WYC")) else 1)
-                        _j_rat = st.text_input("Rationale", value=_rat_default)
-                    if st.form_submit_button("📓 Log OPEN trade", type="primary"):
-                        try:
-                            import dhan_journal_v7 as _dj
-                            _bare_j = symbol.replace(".NS", "").replace(".BO", "").upper()
-                            _dj.upsert_trade({
-                                "Symbol": _bare_j, "Type": "LONG", "Status": "OPEN",
-                                "BuyPrice": float(_j_buy), "Quantity": float(_j_qty),
-                                "StopLoss": float(_j_sl) or None,
-                                "Target1": float(_j_t1) or None,
-                                "EntryDate": datetime.now().strftime("%Y-%m-%d"),
-                                "Timeframe": _j_tf, "Rationale": _j_rat,
-                                "Sector": str(_g(fun, "sector", default="") or ""),
-                            })
-                            st.success(f"📓 {_bare_j} logged OPEN — entry snapshot captured. On to the next name.")
-                        except Exception as _je:
-                            st.error(f"Journal write failed (trade NOT logged): {_je}")
-        elif _next:
-            st.caption(f"→ Next: {_next}")
+                st.caption("Empty — actionable names (BUY / ARMED / WAIT) collect here as you scroll TV.")
 
-    # ---- Recovery engine callout ------------------------------------------------
-    # The decision workflow above is bull-oriented; a recovery setup would
-    # otherwise be buried under a bull "no action" verdict. Surface it here so
-    # a REV/WYC signal on a fundamentally-strong beaten-down name is never missed.
-    if rec_fired_real:
-        _rev_entry = _g(rec_r, "Entry"); _rev_sl = _g(rec_r, "SL"); _rev_t1 = _g(rec_r, "T1")
-        _plan = ""
-        if _rev_entry and _rev_sl:
-            _plan = f"  ·  Entry {inr(_rev_entry)} · SL {inr(_rev_sl)}" + (f" · T1 {inr(_rev_t1)}" if _rev_t1 else "")
-        st.success(f"**🔄 RECOVERY SIGNAL — {rec_label}** (RFF {_g(rec_r,'RFF_Base',default=0)}/6, "
-                   f"{_g(rec_r,'RFF_Quality',default='—')} · {fnum(_rec_corr,1,'%')} off 52WH).{_plan}  "
-                   f"Fundamentally-strong beaten-down setup — validate on the chart, then trade the recovery playbook.")
-    elif rec_fired_mktpath:
-        # The engine fired REV/WYC via the MARKET-recovery path, but the stock
-        # itself is at/near its highs — not a beaten-down recovery. Say so
-        # plainly rather than mislabelling it "recovery".
-        st.caption(f"ℹ️ Recovery engine notes *{rec_label}* only via the market-recovery regime — "
-                   f"but **{symbol}** is just {fnum(_rec_corr,1,'%')} off its 52W high "
-                   f"(< {_rec_dd_floor:.0f}% floor), so this is **not** a beaten-down recovery. "
-                   f"Trade the bull catalyst above, not a recovery playbook.")
-    elif rec_sig == 1 and rec_beaten_down:
-        st.info(f"**🔄 Recovery: CB-Watch** — climax detected on **{symbol}**, no turn yet. "
-                f"On watch; no recovery entry until the bounce confirms.")
-
-    # On-demand LIVE fundamentals: the fast path skips the blocking Screener.in
-    # scrape (so TV auto-sync stays responsive). If RFF read INSUFFICIENT only
-    # because fundamentals weren't cached, let the trader pull them for THIS name.
-    if not _deep_rec and str(_g(rec_r, "RFF_Quality", default="")) == "INSUFFICIENT":
-        if st.button("🔬 Fetch live fundamentals for recovery RFF (this symbol)",
-                     key=f"deeprec_btn_{symbol}",
-                     help="Skipped during fast scrolling to keep TV auto-sync responsive. "
-                          "Pulls Screener.in/yfinance fundamentals for this symbol only."):
-            st.session_state[f"gm_deeprec_{symbol}"] = True
-            st.rerun()
-
-    st.divider()
-
-    # ---- Session shortlist (E3) — the ranked artifact of this scroll session ----
-    _sl_all = st.session_state.get("gm_shortlist", {})
-    with st.expander(f"📋 Session shortlist ({len(_sl_all)})", expanded=False):
-        if _sl_all:
-            _sl_df = pd.DataFrame(list(_sl_all.values()))
-            _sl_df = _sl_df.sort_values(["Σ tier", "Symbol"], ascending=[False, True])
-            st.dataframe(_sl_df, use_container_width=True, hide_index=True)
-            _slc1, _slc2 = st.columns(2)
-            with _slc1:
-                st.download_button(
-                    "⬇ TV watchlist (.txt)",
-                    "###GM_SHORTLIST\n" + "\n".join(f"NSE:{s}" for s in _sl_df["Symbol"]),
-                    file_name=f"GM_Shortlist-{datetime.now().strftime('%d%b%y').upper()}.txt",
-                    use_container_width=True)
-            with _slc2:
-                if st.button("🗑 Clear shortlist", use_container_width=True):
-                    st.session_state["gm_shortlist"] = {}
-                    st.rerun()
-        else:
-            st.caption("Empty — actionable names (BUY / ARMED / WAIT) collect here as you scroll TV.")
-
-    # Full per-panel detail is one click away — but the workflow above is the decision.
-    with st.expander("▸ Full metrics — all panels (optional depth)", expanded=False):
-        # v2 (2026-07-03): pre-render every card so SECTION_SCORES fills, then show
-        # the one-glance score strip ABOVE the panels — read the strip, open a card
-        # only when its score surprises you.
-        SECTION_SCORES.clear()
-        _h_board  = render_technical_board(rec, ctx, cmp_px, mansfield)
-        _h_pa     = section_pa_patterns(ctx)
-        _h_ctx    = section_context(rec, ctx, cmp_px)
-        _h_struct = section_structure(rec, ctx, cmp_px, mansfield, decision)
-        _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)
-        _h_edges  = section_edges(rec, ctx, cmp_px)
-        _h_trade  = section_trade(rec, cmp_px)
-        _h_levels = section_levels(rec, ctx, cmp_px)
-        _h_sector = section_sector(rec, ctx, mansfield)
-        _h_funda  = section_fundamentals(fun, bff=ctx.get("bff"))
-        _h_recov  = section_recovery(rec_r, cmp_px)
-        _mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
-        st.markdown(render_score_strip(_mpass), unsafe_allow_html=True)
-        c1, c2, c3 = st.columns(3, gap="medium")
-        with c1:
-            st.markdown(_h_board, unsafe_allow_html=True)
-            st.markdown(_h_pa, unsafe_allow_html=True)
-            st.markdown(_h_ctx, unsafe_allow_html=True)
-        with c2:
-            st.markdown(_h_struct, unsafe_allow_html=True)
-            st.markdown(_h_gates, unsafe_allow_html=True)
-            st.markdown(_h_edges, unsafe_allow_html=True)
-            st.markdown(_h_recov, unsafe_allow_html=True)
-        with c3:
-            st.markdown(_h_trade, unsafe_allow_html=True)
-            st.markdown(_h_levels, unsafe_allow_html=True)
-            st.markdown(_h_sector, unsafe_allow_html=True)
-            st.markdown(_h_funda, unsafe_allow_html=True)
+        # Full per-panel detail is one click away — but the workflow above is the decision.
+        with st.expander("▸ Full metrics — all panels (optional depth)", expanded=False):
+            # v2 (2026-07-03): pre-render every card so SECTION_SCORES fills, then show
+            # the one-glance score strip ABOVE the panels — read the strip, open a card
+            # only when its score surprises you.
+            SECTION_SCORES.clear()
+            _h_board  = render_technical_board(rec, ctx, cmp_px, mansfield)
+            _h_pa     = section_pa_patterns(ctx)
+            _h_ctx    = section_context(rec, ctx, cmp_px)
+            _h_struct = section_structure(rec, ctx, cmp_px, mansfield, decision)
+            _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)
+            _h_edges  = section_edges(rec, ctx, cmp_px)
+            _h_trade  = section_trade(rec, cmp_px)
+            _h_levels = section_levels(rec, ctx, cmp_px)
+            _h_sector = section_sector(rec, ctx, mansfield)
+            _h_funda  = section_fundamentals(fun, bff=ctx.get("bff"))
+            _h_recov  = section_recovery(rec_r, cmp_px)
+            _mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
+            st.markdown(render_score_strip(_mpass), unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3, gap="medium")
+            with c1:
+                st.markdown(_h_board, unsafe_allow_html=True)
+                st.markdown(_h_pa, unsafe_allow_html=True)
+                st.markdown(_h_ctx, unsafe_allow_html=True)
+            with c2:
+                st.markdown(_h_struct, unsafe_allow_html=True)
+                st.markdown(_h_gates, unsafe_allow_html=True)
+                st.markdown(_h_edges, unsafe_allow_html=True)
+                st.markdown(_h_recov, unsafe_allow_html=True)
+            with c3:
+                st.markdown(_h_trade, unsafe_allow_html=True)
+                st.markdown(_h_levels, unsafe_allow_html=True)
+                st.markdown(_h_sector, unsafe_allow_html=True)
+                st.markdown(_h_funda, unsafe_allow_html=True)
     
-    st.divider()
-    st.caption(f"Data: Dhan feed + Screener.in via your validated modules · "
-               f"fetched {data.get('fetched_at','—')} · cache 120s · "
-               f"⚠ identification only — the trigger is yours on TradingView.")
-    if data.get("errors"):
-        with st.expander("⚠ Partial-data notes"):
-            for e in data["errors"]:
-                st.caption(f"• {e}")
+        st.divider()
+        st.caption(f"Data: Dhan feed + Screener.in via your validated modules · "
+                   f"fetched {data.get('fetched_at','—')} · cache 120s · "
+                   f"⚠ identification only — the trigger is yours on TradingView.")
+        if data.get("errors"):
+            with st.expander("⚠ Partial-data notes"):
+                for e in data["errors"]:
+                    st.caption(f"• {e}")
 
 #  TV SIDECAR — Quick-look chart companion
 # ══════════════════════════════════════════════════════════════════════════════
