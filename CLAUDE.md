@@ -1127,4 +1127,39 @@ Jay's call: keep Chartink + Screener.in as the **qualifiers** (paid, rich; Dhan 
 
 ---
 
+## 13–14 July 2026 — GM hardening: category-drift fixes → architectural review → P0+P1 remediation
+
+Branch `phase0-1-attribution-journal-snapshot`, all PUSHED, **main = `249590f`**.
+
+### A. Board-vs-Single category drift — ROOT-CAUSED and closed (13 Jul)
+Three successive real causes (each verified, not guessed):
+1. **`.NS` suffix** not stripped in `resolve_archetypes` → inheritance silently off on Single Symbol only → `_canon_key` used on BOTH union keys and lookups (memory: [[gm_symbol_ns_normalization]]).
+2. **Second `.NS` leak**: Single Symbol passed `SYM.NS` → `gm_load_intraday` → Dhan needs bare → intraday failed → daily PA vs board's 75m PA. Fix: canonicalize at the TOP of `gm_evaluate` so every loader gets one key.
+3. **Data-vintage split**: per-symbol "Refresh Data" made Single fresher than the board snapshot. Fix: ONE shared "Refresh Data (fresh · both surfaces)" button on both views (`_gm_reload_market_data`) + TF-staleness guard (board records `built_tf`). Also: `gm_evaluate()` extracted as the SINGLE evaluator both surfaces call — categories now agree by construction. Confirmed matching by Jay.
+
+### B. Decision-path corrections (13 Jul, all on main)
+- **Inherited decision-tree display**: Steps 1-3 relabel for inherited names (STILL VALID? / QUALITY·overlay / SETUP·inherited archetype) — the tree now says what the engine does.
+- **Catalyst-Scan strictness**: catalyst-scan-ONLY names need a live catalyst OR fired PA → else `WATCHLIST · catalyst expired` (archetype renamed Catalyst→Catalyst-Scan to kill the "Archetype Catalyst ✓ / Catalyst None ✗" self-collision).
+- **DLF-class bug**: Guided-Execution path radio now defaults to the MORE-ACTIONABLE path (was always Bull).
+- **EMA20 dynamic-S/R location fallback** (both paths): no zone nearby + no engine SL → EMA20 = the stop, target = 52WH else 2R — location/R:R always computed. Recovery rr-recompute ordering bug fixed.
+- **Unified Trigger-TF selector** (one `gm_trig_tf` key + gm_settings, both views). X-Ray checked by default. Overall pinned left in AG-Grid (was scrolling off); ★ tooltip (= FINAL_WATCHLIST top-25 badge). Guided-exec in an expander (expands on location or live BUY). Board Maximize-in-new-window (`?view=gm_board_maximized`) added by Jay/Gemini — preserved.
+
+### C. Architectural review (14 Jul) + P0/P1 SHIPPED
+Full review in `~/.claude/plans/glittery-jumping-scone.md` (3 parallel audits, file:line-verified). Verdict: decision core sound (gm_evaluate SSOT, inherited model, zero-drift); wrapped in ~20 silent-failure paths + correctness bugs + sequential build + UNVALIDATED decision layer.
+**P0 shipped (10 fixes):** error-dict guard (phantom "NOT A RECOVERY CONTEXT" off `{"_error"}` dicts — now renders "Recovery evaluation FAILED"); `_g()` NaN-safe (closes every missed-scrub site); `cmp_px` is-None fallback; `EMA20_RECLAIM_BAND_PCT` wired to **8.0** (Jay's call — was dead at 6.0, live gate hardcoded 8); `get_security_meta` → `canonical_nse_symbol` fallback (separator variants no longer silently defect to yfinance); `built_tf` persisted in board cache (staleness guard survives restarts); STRUCTURAL_*_ARCHETYPES constants in gm_trigger_board (rename-drift killed); NSE delivery join canonicalized; fetch_intraday docstring fixed (5-day cap = interval-1 only; 25m serves ~90d); **dhan_marketfeed REWRITTEN** — it NEVER worked (import-time None globals + meta-dicts passed as raw secids); now call-time resolution + O(1) secid→symbol reverse map, verified off-hours.
+**P1 shipped:** NEW `gm_log.py` → rotating `logs/gm_errors.log`; ~20 bare excepts converted to logged fallbacks; board build failures COUNTED + rendered ("Built 47/50 — 3 failed: …"); PA-detection crash renders "⚠ DETECTION ERROR" (not "none yet"); inheritance-resolver failure shows a "LEGACY verdict" banner; `LAST_UNION_ISSUES` surfaces unreadable/empty watchlist CSVs on the board header — **immediately caught a REAL issue: FINAL_Hunter_Picks.csv + FINAL_Recovery_ClimaxBounce.csv are header-only from the last auto-pilot (Hunter names silently missing from the board)**; `atomic_write_text` (tmp+os.replace) for board cache/RRG flags/gm_settings; provenance strips (Single: "src dhan/yfinance/cache" per get_last_source; board: built-TF + source-mix counts). Note: RerunException inherits BaseException, not Exception — `except Exception` can't swallow st.rerun (verified streamlit 1.53.1).
+
+### P2-P4 ROADMAP (documented in the plan file, NOT yet built)
+**P2 perf/staleness:** `_ttl_for` keys on period not interval (2y/1d frame gets 24h TTL — root cause of most staleness) · cache `load_watchlist_union` on CSV mtimes · ThreadPoolExecutor board build (2-5min → ~30-60s; verify parallel==sequential output) · split gm_load_symbol so live ticks stop re-invoking fundamentals.
+**P3 testability:** move-only extract of the pure decision core → `gm_core.py` importable without Streamlit · golden-snapshot characterization tests · journal upsert dedup (pyramid/update/cancel instead of silent OPEN-row overwrite).
+**P4 effectiveness (value order):** decision audit trail (JSONL per evaluation) → config-as-data (the magic numbers: Alpha 40/50/70, Minervini 5v6, 26w, corr≤50, 2.5×ATR…) → validate the decision layer via validation.py replay (the only edge-improving item) → auto-pilot headless board rebuild (today the 16:30 run does NOT refresh the board cache) → TV alert automation in guided-exec → UX debt (shortlist persistence, checklist tick keys on symbol+trigger-date, AG-Grid filter/staleness parity).
+
+### NEXT SESSION FIRST ACTIONS
+1. **Restart Web Commander → shared Refresh → Rebuild**; confirm failure counts + provenance strips render; spot-check 3 symbols board vs single.
+2. **Investigate why FINAL_Hunter_Picks.csv came out empty** from the last auto-pilot (the new observability caught it — is the Hunter Chartink scan returning nothing, or a pipeline bug?).
+3. During market hours: confirm the (now actually working) MarketFeed LTP overlay flashes on the streaming board.
+4. Then P2 (start with the `_ttl_for` interval-keying fix — biggest staleness win).
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
