@@ -6,16 +6,16 @@ from dhanhq import dhanhq
 from dhan_symbols import get_nse_id_map
 import time
 
+from dhan_auth import get_dhan_client
+from dhan_helpers import check_margin
+
 # --- 1. SETUP ---
 load_dotenv()
-CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
-ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
 DB_FILE = "trade_journal_v6.db"
 
 def connect_dhan():
     try:
-        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
-        return dhan
+        return get_dhan_client()
     except Exception as e:
         print(f"❌ Error connecting to Dhan: {e}")
         return None
@@ -64,8 +64,13 @@ def run_auto_shield():
     gtt_resp = dhan.get_forever()
     active_gtt_syms = []
     if gtt_resp.get('status') == 'success':
+        # RS-P0 (14-Jul-2026): dedup used to count ONLY orderStatus=='ACTIVE' while
+        # the Risk Shield page reads 'PENDING' — a live GTT reported as PENDING was
+        # invisible here, so the shield would PLACE A DUPLICATE OCO on an already-
+        # protected holding. Robust rule: anything NOT in a terminal state is live.
+        _TERMINAL = {"TRIGGERED", "CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "CLOSED"}
         for o in gtt_resp.get('data', []):
-            if o.get('orderStatus') == 'ACTIVE':
+            if str(o.get('orderStatus', '')).upper() not in _TERMINAL:
                 active_gtt_syms.append(o.get('tradingSymbol', '').upper())
 
     shieldable_list = []
@@ -128,6 +133,24 @@ def run_auto_shield():
             
             print(f"📡 Activating OCO for {sym} (Tgt: {item['target']}, SL: {item['sl']})...")
             try:
+                # Pre-flight Margin Check (Not strictly required for CNC SELL if holding, but good for validation)
+                try:
+                    margin_info = check_margin(
+                        dhan,
+                        security_id=str(sec_id),
+                        exchange_segment=dhan.NSE,
+                        transaction_type=dhan.SELL,
+                        quantity=item['qty'],
+                        product_type=dhan.CNC,
+                        price=item['target'],
+                        trigger_price=item['target']
+                    )
+                    # We only log for sell side since CNC SELL usually relies on holdings, not cash margin.
+                    if not margin_info.get("sufficient", True):
+                        print(f"   ⚠️  Warning: Dhan indicates insufficient margin (Shortfall: ₹{margin_info.get('shortfall', 0):.2f}). Attempting anyway since it's a SELL.")
+                except Exception as e:
+                    pass
+
                 # OCO Order Logic
                 res = dhan.place_forever(
                     security_id=str(sec_id),

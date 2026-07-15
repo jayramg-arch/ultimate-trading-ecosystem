@@ -211,6 +211,13 @@ ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
 _APP_DIR     = os.path.dirname(os.path.abspath(__file__))  # REC-4: absolute base dir
 DB_FILE      = os.path.join(_APP_DIR, "trade_journal_v6.db")  # BUG-H1: absolute path
 
+# RS-P0 (14-Jul-2026): this map was MISSING the entry-snapshot + override columns
+# that dhan_journal_v7's canonical map carries — so every read of "Setup"/"Manual SL
+# Override"/"Custom CE Mult"/"Pyramid Status" on the Risk Shield page returned None.
+# Consequences (all silent): manual SL overrides never applied, custom CE mult never
+# applied, pyramid 'Maxed' guard dead, and the CATALYST-AWARE TRAIL never engaged
+# (setup always blank → trail_mult_for never matched → heuristic 4.5/5.0 guess).
+# Keep in lockstep with dhan_journal_v7.load_db's rename_map.
 JOURNAL_RENAME_MAP = {
     'symbol':'Symbol','trade_type':'Type','stoploss':'StopLoss','target':'Target',
     'rationale':'Rationale','timeframe':'Timeframe','entry_date':'EntryDate',
@@ -218,7 +225,13 @@ JOURNAL_RENAME_MAP = {
     'exit_price':'ExitPrice','exit_reason':'ExitReason','status':'Status',
     'sector':'Sector','trade_quality':'Quality','compromises':'Compromises',
     'lessons':'Lessons','screenshot_path':'Screenshot','planned_rr':'PlannedRR',
-    'ai_analysis':'AI Analysis'
+    'ai_analysis':'AI Analysis',
+    'setup':'Setup','entry_stage':'EntryStage','entry_alpha':'EntryAlpha',
+    'entry_rs':'EntryRS','entry_conviction':'EntryConviction',
+    'snapshot_meta':'SnapshotMeta',
+    'manual_sl_override':'Manual SL Override',
+    'custom_ce_mult':'Custom CE Mult',
+    'pyramid_status':'Pyramid Status',
 }
 
 # ── FORMATTERS ───────────────────────────────────────────────────────────────
@@ -13659,6 +13672,12 @@ elif page == 'RISK SHIELD':
                                 if len(_c) >= 200:
                                     _sma50 = float(_c.rolling(50).mean().iloc[-1])
                                     _sma200 = float(_c.rolling(200).mean().iloc[-1])
+                                    # RS-P0 (14-Jul-2026): compute above200 HERE, before the
+                                    # Chandelier call below — it used to be assigned ~20 lines
+                                    # AFTER the call, so chandelier_exit always received
+                                    # above200=False (and bear=True whenever the regime scorer
+                                    # was down), silently loosening every trail by 0.5×ATR.
+                                    _ws_above200 = _ltp > _sma200
                                     _sma200_10d_ago = float(_c.rolling(200).mean().shift(10).iloc[-1])
                                     _sma200slp = ((_sma200 - _sma200_10d_ago) / _sma200_10d_ago) * 100 if _sma200_10d_ago else 0
                                     _hi52 = float(_c.max())
@@ -14321,7 +14340,9 @@ elif page == 'RISK SHIELD':
                                     flags_html = ""
                                     cond_trim = False
                                     cond_add = False
-                                    
+                                    _pyr_reason = ""   # RS-P0: init OUTSIDE the guard — read at the
+                                                       # card footer even when technicals failed
+                                                       # (was a NameError crash on a fetch miss)
                                     if _tech:
                                         _c5 = _tech.get("close_5d_ago")
                                         if _c5 and _c5 > 0 and ltp:
@@ -14573,6 +14594,8 @@ elif page == 'RISK SHIELD':
                                     flags_html = ""
                                     cond_trim = False
                                     cond_add = False
+                                    _pyr_reason = ""   # RS-P0: init outside the guard (NameError
+                                                       # at the reason_line when technicals miss)
                                     _tech_flag = hist_data.get(sym)
                                     if _tech_flag:
                                         _c5 = _tech_flag.get("close_5d_ago")
@@ -14646,8 +14669,12 @@ elif page == 'RISK SHIELD':
                                     is_swing = False
                                     
                                     if _tech:
-                                        atr_val = (ltp * _tech["atr_pct"]) / 100
-                                        is_swing = _tech['atr_pct'] > 4 or _tech['dist_from_200'] > 30 or _tech['ws_score'] < 60
+                                        # RS-P0: .get with defaults — direct [] here crashed the tab
+                                        # on a partial tech dict (unlike the OCO branch's guards).
+                                        _ap = _tech.get("atr_pct") or 0.0
+                                        atr_val = (ltp * _ap) / 100
+                                        is_swing = (_ap > 4 or (_tech.get("dist_from_200") or 0) > 30
+                                                    or (_tech.get("ws_score") or 100) < 60)
                                     else:
                                         raw_atr = get_atr(sym)
                                         if raw_atr: atr_val = raw_atr
@@ -14961,7 +14988,10 @@ elif page == 'RISK SHIELD':
                             if ltp and sl:
                                 current_risk = sl_qty * (ltp - sl)
                                 if current_risk > 0:
-                                    portfolio_pct = (current_risk / max(balance, 1)) * 100 if max(balance, 1) > 0 else 0.0
+                                    # RS-P0 (14-Jul-2026): divide by EQUITY (holdings+cash), not idle
+                                    # cash — the headline grade was fixed to equity on 05-Jul but this
+                                    # per-row column kept the cash denominator (absurd %s at low cash).
+                                    portfolio_pct = (current_risk / max(_equity_rp, 1)) * 100
                                     
                                     row_data = {
                                         "Symbol": sym, 
@@ -14976,10 +15006,12 @@ elif page == 'RISK SHIELD':
                                     ws_score = None
                                     
                                     if _tech:
-                                        atr_val = (ltp * _tech["atr_pct"]) / 100
-                                        atr_pct = _tech["atr_pct"]
-                                        is_swing = _tech['atr_pct'] > 4 or _tech['dist_from_200'] > 30 or _tech['ws_score'] < 60
-                                        ws_score = _tech['ws_score']
+                                        # RS-P0: .get with defaults (KeyError on partial tech dict)
+                                        atr_pct = _tech.get("atr_pct") or 0.0
+                                        atr_val = (ltp * atr_pct) / 100
+                                        is_swing = (atr_pct > 4 or (_tech.get("dist_from_200") or 0) > 30
+                                                    or (_tech.get("ws_score") or 100) < 60)
+                                        ws_score = _tech.get("ws_score")
                                     elif ltp:
                                         raw_atr = get_atr(sym)
                                         if raw_atr:
