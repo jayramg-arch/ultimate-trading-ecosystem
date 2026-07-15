@@ -1,5 +1,9 @@
 import os
 import sqlite3
+import argparse
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
 import pandas as pd
 from dotenv import load_dotenv
 from dhanhq import dhanhq
@@ -7,37 +11,74 @@ from dhan_symbols import get_nse_id_map
 import time
 
 from dhan_auth import get_dhan_client
-from dhan_helpers import check_margin
+# RS-P1 (14-Jul-2026): dhan_helpers imports DhanContext, which does NOT exist in
+# the installed dhanhq 2.0.x — that import made THIS WHOLE TOOL crash at launch in
+# the app venv (the COMMAND button spawned a script that died on ImportError).
+# check_margin is only a pre-flight warning (its call site is already try/except-
+# wrapped), so degrade to a no-op instead of dying.
+try:
+    from dhan_helpers import check_margin
+except Exception as _cm_exc:
+    _CM_ERR = str(_cm_exc)      # `except..as` names are cleared after the block
+    def check_margin(*_a, **_k):
+        return {"sufficient": True, "_unavailable": _CM_ERR}
 
 # --- 1. SETUP ---
 load_dotenv()
-DB_FILE = "trade_journal_v6.db"
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(_APP_DIR, "trade_journal_v6.db")
+
+# RS-P1 (14-Jul-2026): rotating log so scheduled runs leave a record a human can
+# read — console prints vanish when this runs headless from the scheduler.
+log = logging.getLogger("gtt_shield")
+if not log.handlers:
+    try:
+        os.makedirs(os.path.join(_APP_DIR, "logs"), exist_ok=True)
+        _h = RotatingFileHandler(os.path.join(_APP_DIR, "logs", "gtt_shield.log"),
+                                 maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+        _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s",
+                                          datefmt="%Y-%m-%d %H:%M:%S"))
+        log.addHandler(_h)
+        log.setLevel(logging.INFO)
+    except Exception:
+        pass
 
 def connect_dhan():
     try:
         return get_dhan_client()
     except Exception as e:
         print(f"❌ Error connecting to Dhan: {e}")
+        log.error(f"connect_dhan failed: {e}")
         return None
 
 def load_journal_data():
-    """Returns a dict mapping symbol to SL and Target."""
+    """Returns a dict mapping symbol to SL/Target + the entry-snapshot fields the
+    catalyst-aware trail needs (setup, manual_sl_override, custom_ce_mult)."""
     if not os.path.exists(DB_FILE):
         return {}
     try:
         conn = sqlite3.connect(DB_FILE)
-        df = pd.read_sql("SELECT symbol, stoploss, target FROM journal WHERE status = 'OPEN'", conn)
+        df = pd.read_sql("SELECT symbol, stoploss, target, setup, manual_sl_override, "
+                         "custom_ce_mult FROM journal WHERE status = 'OPEN'", conn)
         conn.close()
         # Normalize keys (Symbol -> data)
         data = {}
         for _, r in df.iterrows():
             sym = str(r['symbol']).strip().upper().replace("NSE:", "").replace("BSE:", "")
-            data[sym] = {'SL': r['stoploss'], 'Target': r['target']}
+            data[sym] = {'SL': r['stoploss'], 'Target': r['target'],
+                         'setup': r['setup'],
+                         'manual_sl': r['manual_sl_override'],
+                         'custom_mult': r['custom_ce_mult']}
         return data
-    except:
+    except Exception as e:
+        # RS-P1: this was a bare `except: return {}` — a schema/DB error silently
+        # yielded an empty map, every holding printed "NOT IN JOURNAL" and NOTHING
+        # got shielded, with no error surfaced. Now loud.
+        print(f"❌ Journal read FAILED (nothing will be shielded): {e}")
+        log.error(f"load_journal_data failed: {e}")
         return {}
 
-def run_auto_shield():
+def run_auto_shield(auto_yes: bool = False):
     print("="*60)
     print("🛡️ GTT AUTO-SHIELD: COCKPIT MODE")
     print("="*60)
@@ -117,12 +158,13 @@ def run_auto_shield():
 
     if not shieldable_list:
         print("\n✅ All journalled trades are already protected or missing data.")
-        input("\nPress Enter to exit...")
+        if not auto_yes:
+            input("\nPress Enter to exit...")
         return
 
     print("-" * 60)
-    confirm = input(f"\n🚀 SHIELD ALL {len(shieldable_list)} READY TRADES? (Y/N): ").upper()
-    
+    confirm = "Y" if auto_yes else input(f"\n🚀 SHIELD ALL {len(shieldable_list)} READY TRADES? (Y/N): ").upper()
+
     if confirm == 'Y':
         for item in shieldable_list:
             sym = item['symbol']
@@ -177,7 +219,211 @@ def run_auto_shield():
                 print(f"   ❌ ERROR: {e}")
 
     print("\nMission Accomplished.")
-    input("\nPress Enter to exit...")
+    if not auto_yes:
+        input("\nPress Enter to exit...")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RS-P1 (14-Jul-2026) — TRAIL PASS: the audit's biggest finding was that once a
+# GTT exists, the broker stop stays FROZEN at the entry SL forever (this tool was
+# create-only, and skipped any symbol with an existing GTT). The DNA says ATR
+# trailing stops are enforced programmatically — this pass makes that true:
+#
+#   For every live OCO SL leg, compute the catalyst-aware Chandelier
+#   (risk_common — the SAME brain Risk Shield and Pyramid use, journal `setup`
+#   drives the POS/WYC/REV/SWG multiplier) and, when the Chandelier is ABOVE the
+#   current GTT trigger, modify_forever the SL leg up. TIGHTEN-ONLY — a stop is
+#   never loosened. Jay's call: auto-trail, scheduled post-close daily.
+# ═══════════════════════════════════════════════════════════════════════════════
+_TERMINAL_GTT = {"TRIGGERED", "CANCELLED", "CANCELED", "EXPIRED", "REJECTED", "CLOSED"}
+_TIGHTEN_DEADBAND = 1.001          # ignore <0.1% improvements (avoid churn/API spam)
+
+
+def _live_oco_sl_legs(dhan):
+    """Parse get_forever() into {SYMBOL: {order_id, sl_trigger, sl_qty}} for live
+    OCO SL legs — same leg conventions as the Risk Shield page parser."""
+    out = {}
+    resp = dhan.get_forever()
+    if not (isinstance(resp, dict) and resp.get("status") == "success"):
+        print(f"❌ get_forever failed: {resp}")
+        log.error(f"trail: get_forever failed: {resp}")
+        return None
+    for g in (resp.get("data") or []):
+        if str(g.get("orderStatus", "")).upper() in _TERMINAL_GTT:
+            continue
+        if (g.get("transactionType", "") or "").upper() != "SELL":
+            continue
+        leg = (g.get("legName", "") or "").upper()
+        ot = (g.get("orderType", "") or "").upper()
+        if not ((ot == "OCO") or leg in ("STOP_LOSS_LEG", "TARGET_LEG")):
+            continue
+        sym = str(g.get("tradingSymbol", "")).upper().replace("NSE:", "").replace("-EQ", "")
+        trigger = float(g.get("triggerPrice", 0) or 0)
+        price = float(g.get("price", 0) or 0)
+        is_sl = (leg == "STOP_LOSS_LEG") if leg in ("STOP_LOSS_LEG", "TARGET_LEG") else (
+            trigger < price if (trigger and price) else True)
+        if is_sl and sym and trigger > 0:
+            out[sym] = {"order_id": str(g.get("orderId", "")),
+                        "sl_trigger": trigger,
+                        "sl_qty": int(float(g.get("quantity", 0) or 0))}
+    return out
+
+
+def run_trail_pass(auto_yes: bool = False):
+    """Tighten-only Chandelier trail of live GTT SL legs. Never loosens; never
+    modifies when the Chandelier sits at/above the last close (that's an EXIT
+    signal, not a trail — modifying would fire the order instantly)."""
+    print("=" * 60)
+    print("🛡️ GTT AUTO-SHIELD — TRAIL PASS (tighten-only)")
+    print("=" * 60)
+    log.info("trail pass start")
+
+    dhan = connect_dhan()
+    if not dhan:
+        return
+    # Token sanity: one cheap authed call before doing anything
+    try:
+        _fl = dhan.get_fund_limits()
+        if not (isinstance(_fl, dict) and _fl.get("status") == "success"):
+            print(f"❌ Token/API check failed — aborting: {_fl}")
+            log.error(f"trail: token check failed: {_fl}")
+            return
+    except Exception as e:
+        print(f"❌ Token/API check exception — aborting: {e}")
+        log.error(f"trail: token check exception: {e}")
+        return
+
+    journal = load_journal_data()
+    legs = _live_oco_sl_legs(dhan)
+    if legs is None:
+        return
+    if not legs:
+        print("ℹ️ No live OCO SL legs found — nothing to trail. (Run the shield "
+              "pass first to place OCOs.)")
+        log.info("trail: no live SL legs")
+        return
+
+    # Bear regime — same source as Risk Shield/Pyramid (market_regime score ≤ 5).
+    bear = False
+    try:
+        import market_regime as _mr
+        _reg = _mr.compute_regime(persist=False) or {}
+        bear = float(_reg.get("score", 10)) <= 5
+    except Exception as e:
+        log.warning(f"trail: regime unavailable (bear=False): {e}")
+
+    import data_provider as _dp
+    from risk_common import chandelier_exit
+
+    proposals = []        # (sym, leg, old_sl, new_sl, mult, src, note)
+    breached = []
+    for sym, leg in sorted(legs.items()):
+        j = journal.get(sym, {})
+        try:
+            df = _dp.fetch_ohlcv(sym, period="1y", interval="1d",
+                                 use_cache=True, auto_adjust=True)
+            if df is None or len(df) < 22:
+                log.warning(f"trail: {sym}: insufficient bars — skipped")
+                continue
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            c = df["Close"]; h = df["High"]; l = df["Low"]
+            ltp = float(c.iloc[-1])
+            above200 = bool(len(c) >= 200 and ltp > float(c.rolling(200).mean().iloc[-1]))
+            _cm = j.get("custom_mult")
+            _cm = float(_cm) if (_cm is not None and not pd.isna(_cm) and float(_cm) > 0) else None
+            ch, mult, src = chandelier_exit(h, l, c, setup=str(j.get("setup") or ""),
+                                            bear=bear, custom_mult=_cm,
+                                            above200=above200)
+            if ch is None:
+                continue
+            new_sl = ch
+            # Manual override acts as a FLOOR (never trail below a hand-set stop).
+            _msl = j.get("manual_sl")
+            if _msl is not None and not pd.isna(_msl) and float(_msl) > 0:
+                new_sl = max(new_sl, float(_msl))
+            new_sl = round(float(new_sl), 2)
+            if new_sl >= ltp:
+                # Stop above price = the position is BELOW its trail → exit signal.
+                # Do NOT modify (a SELL trigger ≥ LTP fires instantly = auto-exit,
+                # which is order automation we deliberately did not enable).
+                breached.append((sym, leg["sl_trigger"], new_sl, ltp))
+                log.warning(f"trail: {sym}: Chandelier {new_sl} >= LTP {ltp} — "
+                            f"EXIT SIGNAL, not trailed (GTT stays {leg['sl_trigger']})")
+                continue
+            if new_sl > leg["sl_trigger"] * _TIGHTEN_DEADBAND:
+                proposals.append((sym, leg, leg["sl_trigger"], new_sl, mult, src,
+                                  f"{'BEAR ' if bear else ''}{src}"))
+        except Exception as e:
+            print(f"⚠️ {sym}: trail computation failed: {e}")
+            log.error(f"trail: {sym}: computation failed: {e}")
+
+    print(f"\n{'SYMBOL':<14}{'GTT SL':>10}{'NEW SL':>10}{'MULT':>6}  SOURCE")
+    print("-" * 60)
+    for sym, leg, old, new, mult, src, note in proposals:
+        print(f"{sym:<14}{old:>10.2f}{new:>10.2f}{mult:>6.1f}  {note}")
+    for sym, old, ch, ltp in breached:
+        print(f"{sym:<14}{old:>10.2f}{'--':>10}      ⚠ BREACHED: Chandelier {ch} ≥ LTP {ltp} — exit review")
+    if not proposals:
+        print("✅ No tightenings needed (all GTT stops at/above their Chandelier).")
+        log.info(f"trail: 0 proposals, {len(breached)} breached")
+        return
+
+    if not auto_yes:
+        confirm = input(f"\n🚀 TIGHTEN {len(proposals)} GTT STOP(S)? (Y/N): ").upper()
+        if confirm != "Y":
+            print("Aborted."); log.info("trail: user aborted")
+            return
+
+    done = failed = 0
+    for sym, leg, old, new, mult, src, note in proposals:
+        try:
+            resp = dhan.modify_forever(
+                order_id=leg["order_id"],
+                order_flag="OCO",
+                order_type=dhan.LIMIT,
+                leg_name="STOP_LOSS_LEG",
+                quantity=leg["sl_qty"],
+                price=round(new * 0.995, 2),      # limit buffer, house convention
+                trigger_price=new,
+                disclosed_quantity=0,
+                validity="DAY")
+            ok = isinstance(resp, dict) and resp.get("status") == "success"
+            if ok:
+                done += 1
+                print(f"   ✅ {sym}: {old} → {new} ({note})")
+                log.info(f"trail: {sym}: {old} -> {new} mult={mult} src={src} "
+                         f"order={leg['order_id']}")
+                try:      # keep the journal floor in sync (same as Risk Shield tighten)
+                    conn = sqlite3.connect(DB_FILE)
+                    conn.execute("UPDATE journal SET manual_sl_override=? "
+                                 "WHERE symbol=? AND status='OPEN'", (new, sym))
+                    conn.commit(); conn.close()
+                except Exception as e:
+                    log.warning(f"trail: {sym}: journal write-back failed: {e}")
+            else:
+                failed += 1
+                print(f"   ❌ {sym}: {resp.get('remarks') if isinstance(resp, dict) else resp}")
+                log.error(f"trail: {sym}: modify failed: {resp}")
+            time.sleep(0.5)
+        except Exception as e:
+            failed += 1
+            print(f"   ❌ {sym}: {e}")
+            log.error(f"trail: {sym}: modify exception: {e}")
+
+    print(f"\nTrail pass done: {done} tightened, {failed} failed, "
+          f"{len(breached)} breached (exit review).")
+    log.info(f"trail pass done: {done} ok, {failed} failed, {len(breached)} breached")
+
 
 if __name__ == "__main__":
-    run_auto_shield()
+    ap = argparse.ArgumentParser(description="GTT Auto-Shield — place + trail Dhan GTT stops")
+    ap.add_argument("--trail", action="store_true",
+                    help="Tighten-only Chandelier trail of existing GTT SL legs")
+    ap.add_argument("--yes", action="store_true",
+                    help="Non-interactive (for the scheduler): skip confirmations")
+    args = ap.parse_args()
+    if args.trail:
+        run_trail_pass(auto_yes=args.yes)
+    else:
+        run_auto_shield(auto_yes=args.yes)
