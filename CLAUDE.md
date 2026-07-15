@@ -1162,4 +1162,43 @@ Full review in `~/.claude/plans/glittery-jumping-scone.md` (3 parallel audits, f
 
 ---
 
+## 14 July 2026 (evening) — GM board UX batch + RISK SHIELD audit → P0+P1 SHIPPED
+
+Branch `phase0-1-attribution-journal-snapshot`, all PUSHED (ff `main` pending for the risk-shield commits).
+
+### A. GM board UX batch (all on main through `019bdb4`)
+- **75m/125m bar-close auto-refresh** (Jay trades 75m): board rebuilds ONCE per NSE session bar (10:30·11:45·13:00·14:15·15:30 +75s settle; 125m: 11:20·13:25·15:30) — the definitive fix for the forming-bar fade (board built 13:51 mid-session showed PA that faded by close → "Buy Trigger Live" vs single's "catalyst expired"). Default Live mode = bar-close matching the Trigger-TF. `_gm_bar_close_times`/`_gm_last_passed_boundary` unit-tested.
+- **Single Symbol bleed under the board FIXED for good**: st.stop() is unreliable after the streaming AgGrid custom component (proof: works fine on the fragment-only single page) — the whole Single Symbol section is now a REAL conditional `if _gm_view != "📋 Trigger Board":` (~686 lines re-indented via script; TV SIDECAR elif intact). Browser reload does NOT reload code — full process restart required (that confusion recurred twice).
+- **Maximize Board = table-only pop-out** (`?view=gm_board_maximized`): no controls/sub-header, slim Rebuild + status caption, grid 880px, settings from gm_settings, auto-refreshes on bar close. **Open-in-new-window** (`?view=gm_window`) = full GM (view switch intact, sidebar hidden) for keeping GM open while using other pages.
+- **CSV download regression fixed** (bar-close default → AG-Grid → data_editor toolbar gone): explicit "⬇️ CSV" download_button in a SHARED header (warnings + filters + download rendered once for both render paths; `_board_apply_filters()` = the one filter definition for static editor + streaming grid + CSV). **Grid sort/filter**: floatingFilter row under every header; decision numbers coerced numeric + agNumberColumnFilter (CSV round-trip left them as text → lexicographic sort).
+- **AGE staleness guard** (41e1af9): warns when viewing a mid-session snapshot after close / a >15-min-old snapshot during market hours.
+
+### B. RISK SHIELD comprehensive audit (3 parallel agents, file:line-verified)
+**Verdict: B- design, D+ operational integrity.** Decision core intent right (risk_common shared brain, catalyst-aware trails), but: TWO headline features silently dead, the broker never received trailed stops, FIVE stop engines (not 3) computing different stops (A Risk Shield + B Pyramid share risk_common; C exit_signal_engine 22-high−3.0×ATR14; D Command E-02 ADR-bucket; E GTT=raw entry SL), zero alerts, zero automation.
+
+**RS-P0 shipped (`6d26907`):**
+1. **JOURNAL_RENAME_MAP** (web:214) was missing setup/entry_*/manual_sl_override/custom_ce_mult/pyramid_status → the ENTIRE override layer was write-only AND the catalyst-aware trail NEVER engaged (setup always blank → heuristic 4.5/5.0 guess). Map now mirrors dhan_journal_v7's.
+2. **_ws_above200 use-before-assignment** → chandelier always got above200=False (bear=True when regime down → +0.5 loosening). Computed before the call now.
+3. **_pyr_reason NameError** crashes on technicals miss (2 sites) — init outside guards.
+4. **% Port divided by CASH** not equity (per-row; headline was fixed 05-Jul) → `_equity_rp`.
+5. **GTT dedup status mismatch**: shield counted only ACTIVE, Risk Shield reads PENDING → duplicate-OCO risk. Now: any non-terminal status = live.
+6. Direct `_tech[...]` KeyError paths → .get with defaults.
+
+**RS-P1 shipped (`e8908d0` + exit-alert commit):**
+- **gtt_auto_shield --trail** (Jay: auto-trail, tighten-only): parses live OCO SL legs, computes catalyst-aware Chandelier via risk_common (journal setup → POS/WYC/REV/SWG mult; manual_sl_override=floor; custom_ce_mult; bear=market_regime≤5), modify_forever's the SL leg UP when >0.1% better. NEVER loosens; Chandelier≥LTP = BREACHED (reported, never auto-sold). Journal write-back to manual_sl_override (same as Risk Shield tighten). Token sanity-check; --yes headless; rotating logs/gtt_shield.log.
+- **CRITICAL FOUND DURING IMPL**: `dhan_helpers` imports `DhanContext` which does NOT exist in the venv's dhanhq 2.0.x → **gtt_auto_shield has been CRASHING AT LAUNCH** (the COMMAND button spawned a dead script). Guarded check_margin fallback revives it. Same discovery invalidated marketfeed rewrite #1 → **dhan_marketfeed REWRITE #2** on the real 2.0.x API (`dhanhq.marketfeed.DhanFeed`, asyncio thread-bound: construct+connect+poll in ONE daemon worker, get_data() polling, generation token for restarts).
+- **Scheduler jobs** (run while the app is up): `gtt_trail` 15:45 IST Mon-Fri (post-close, reads completed bar, Telegrams summary) · `exit_scan` 16:00 (exit_signal_engine --silent; the engine itself now Telegrams ACTION rows — stop hits/stage-decay used to be silent CSV-only).
+- **Chandelier ruling (Jay)**: KEEP 22-bar/highest-close as the house TRAIL standard (DNA's 14-day = initial stop sizing; 14/high is tighter = the exact bled-edge failure mode). Documented in risk_common docstring; changing it requires a replay.py A/B first. P2 = converge engines C/D/E onto risk_common.
+
+### RS roadmap (documented, NOT built): P2 = 5-engine reconciliation (C/D consume risk_common+pyramid classify; align at-SL 1.5-vs-1.0×ATR, time-stop 60/180-vs-10/42d, one regime source; propagate cap-protect) · P3 = "Exact" manual-SL mode vs no-discretionary-overrides DNA ruling; catalyst-fallback warning; config-as-data for ~15 magic numbers; uncached broker calls per rerun; entry_stage usage.
+
+### NEXT SESSION (risk-shield verification, market hours)
+1. Jay checks GM live (bar-close refresh, maximized table, sort/filter, CSV) — pending from morning.
+2. **First scheduled gtt_trail run 15:45** — watch Telegram summary + logs/gtt_shield.log; verify a real tighten landed at Dhan (Risk Shield hard-SL should move up).
+3. **exit_scan 16:00** — verify Telegram ACTION alert.
+4. NOTE: journal setups are mostly 'NONE' (backfilled positions) → trail uses heuristic-bull 4.5× until positions carry real setup labels (new entries via GM guided-exec do).
+5. Then RS-P2 (engine reconciliation) or GM-P2 (perf) per Jay's pick.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*

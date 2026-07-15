@@ -364,6 +364,22 @@ def job_gtt_trail() -> None:
         send_telegram(f"⚠️ GTT trail job failed: {exc}")
 
 
+def job_exit_scan() -> None:
+    """4:00 PM IST, Mon–Fri — exit-signal watchdog (STOP-LOSS / TARGET /
+    STAGE-DECAY / RS-FADE) on all open positions. The engine itself Telegrams
+    the ACTION rows (RS-P1) — a stop hit or a Stage-3/4 decay used to be silent
+    until someone opened the COMMAND page."""
+    logger.info("=== EXIT SCAN JOB START ===")
+    try:
+        import subprocess
+        subprocess.run([sys.executable, "exit_signal_engine.py", "--silent"],
+                       check=True, timeout=900)
+        logger.info("Exit scan job completed.")
+    except Exception as exc:
+        logger.error(f"Exit scan job failed: {exc}", exc_info=True)
+        send_telegram(f"⚠️ Exit-scan job failed: {exc}")
+
+
 # ── APScheduler EVENT LISTENER ───────────────────────────────────────────────
 
 def on_job_event(event) -> None:
@@ -500,6 +516,16 @@ def start_scheduler() -> BackgroundScheduler:
         CronTrigger(hour=15, minute=45, day_of_week="mon-fri", timezone=IST),
         id="gtt_trail",
         name="GTT Trail (tighten-only)",
+        replace_existing=True,
+    )
+
+    # Exit-signal watchdog: 4:00 PM IST, Mon–Fri (after the trail pass; the
+    # engine Telegrams ACTION rows itself).
+    scheduler.add_job(
+        job_exit_scan,
+        CronTrigger(hour=16, minute=0, day_of_week="mon-fri", timezone=IST),
+        id="exit_scan",
+        name="Exit Signal Scan",
         replace_existing=True,
     )
 
