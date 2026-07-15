@@ -58,8 +58,9 @@ def load_journal_data():
         return {}
     try:
         conn = sqlite3.connect(DB_FILE)
-        df = pd.read_sql("SELECT symbol, stoploss, target, setup, manual_sl_override, "
-                         "custom_ce_mult FROM journal WHERE status = 'OPEN'", conn)
+        df = pd.read_sql("SELECT symbol, stoploss, target, setup, timeframe, "
+                         "manual_sl_override, custom_ce_mult "
+                         "FROM journal WHERE status = 'OPEN'", conn)
         conn.close()
         # Normalize keys (Symbol -> data)
         data = {}
@@ -67,6 +68,7 @@ def load_journal_data():
             sym = str(r['symbol']).strip().upper().replace("NSE:", "").replace("BSE:", "")
             data[sym] = {'SL': r['stoploss'], 'Target': r['target'],
                          'setup': r['setup'],
+                         'timeframe': r['timeframe'],
                          'manual_sl': r['manual_sl_override'],
                          'custom_mult': r['custom_ce_mult']}
         return data
@@ -332,9 +334,12 @@ def run_trail_pass(auto_yes: bool = False):
             above200 = bool(len(c) >= 200 and ltp > float(c.rolling(200).mean().iloc[-1]))
             _cm = j.get("custom_mult")
             _cm = float(_cm) if (_cm is not None and not pd.isna(_cm) and float(_cm) > 0) else None
+            # Trade-type-aware trail clock: journal Timeframe → 14 swing / 22 pos.
+            _tfj = str(j.get("timeframe") or "").lower()
+            _swing = True if "swing" in _tfj else (False if "pos" in _tfj else None)
             ch, mult, src = chandelier_exit(h, l, c, setup=str(j.get("setup") or ""),
                                             bear=bear, custom_mult=_cm,
-                                            above200=above200)
+                                            above200=above200, swing=_swing)
             if ch is None:
                 continue
             new_sl = ch

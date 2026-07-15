@@ -13446,6 +13446,9 @@ elif page == 'RISK SHIELD':
                                 # B1: the trade's catalyst (journal 'setup' snapshot) drives
                                 # the validated trail multiplier set.
                                 "setup": str(r.get("Setup", "")).strip().upper() if pd.notna(r.get("Setup")) else "",
+                                # Trade-type-aware trail window (Jay, 14-Jul-2026):
+                                # journal Timeframe (Positional/Swing) → 22/14-bar clock.
+                                "timeframe": str(r.get("Timeframe", "")).strip() if pd.notna(r.get("Timeframe")) else "",
                             }
 
                 # B2: market regime (0-10 scorer) — degrades to per-symbol SMA200 check on failure
@@ -13737,14 +13740,19 @@ elif page == 'RISK SHIELD':
                                     # not "silently use system default" — flag it on the row.
                                     _invalid_ce_override = (_custom_mult is not None
                                                             and not (isinstance(_custom_mult, (int, float)) and _custom_mult > 0))
-                                    if len(_c) >= 22:
-                                        import risk_common as _rc
-                                        _setup_s = journal_overrides.get(_s, {}).get("setup", "")
+                                    import risk_common as _rc
+                                    _setup_s = journal_overrides.get(_s, {}).get("setup", "")
+                                    # Trade-type-aware trail clock (Jay, 14-Jul-2026):
+                                    # journal Timeframe → swing 14-bar / positional 22-bar.
+                                    _tf_s = str(journal_overrides.get(_s, {}).get("timeframe", "")).lower()
+                                    _swing_s = True if "swing" in _tf_s else (False if "pos" in _tf_s else None)
+                                    if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
                                         _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
                                             _hi, _lo, _c, setup=_setup_s, bear=_bear_s,
                                             cap_protect=_capital_protection_mode,
-                                            custom_mult=_custom_mult, above200=_ws_above200)
+                                            custom_mult=_custom_mult, above200=_ws_above200,
+                                            swing=_swing_s)
 
                                         # Apply Manual SL Override if present.
                                         # A7 FIX: override MODE — 'Floor' (default, can only tighten)
