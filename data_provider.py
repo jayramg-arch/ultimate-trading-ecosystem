@@ -133,13 +133,20 @@ def dhan_feed_live() -> bool:
 
     `DHAN_OK` alone reflects *import* success, not *feed* health — an expired
     token leaves DHAN_OK True while every fetch silently falls to yfinance. This
-    consults dhan_ohlcv's process-level `_AUTH_FAILED` flag so callers can report
-    the truth.
+    consults dhan_ohlcv's process-level auth latch so callers can report the truth.
+
+    Reads the public `auth_failed()` accessor rather than the private flag (17-Jul-
+    2026), so this stays correct as the latch's internals evolve. Note the latch is
+    now RECOVERABLE — a False here can flip back to True once the retry cooldown
+    lets a re-validated token through, so treat it as "right now", not "forever".
     """
     if not DHAN_OK or _dhan is None:
         return False
     try:
-        return not getattr(_dhan, "_AUTH_FAILED", False)
+        _af = getattr(_dhan, "auth_failed", None)
+        if callable(_af):
+            return not _af()
+        return not getattr(_dhan, "_AUTH_FAILED", False)     # older dhan_ohlcv
     except Exception:
         return True
 
@@ -330,6 +337,49 @@ def _content_stale_for_live(df: Optional[pd.DataFrame], interval: str,
     except Exception:
         return False
     return age_days > (5 if interval == "1d" else 12)
+
+
+def _assert_frame_contract(df, symbol: str, interval: str, pinned_date: Optional[str]) -> None:
+    """Boundary data-contract on fetch_ohlcv's returned frame — the invariant net
+    for the OHLCV spine. ~24 subsystems consume this one function, so a defect in
+    the cache layer corrupts ALL of them at once and silently (cache-poisoning
+    2026-07-03 stuck 15 symbols on dead bars for 9 days; the Dhan IST→UTC date-shift
+    2026-07-08 dated every daily bar a day early → propagated everywhere). This LOGS
+    a loud warning on any breach; it NEVER raises or mutates — a guard, not a gate.
+    Cheap enough to run on every fetch.
+    """
+    try:
+        if df is None or getattr(df, "empty", True):
+            return                                    # empty = a valid failure return
+        idx = df.index
+        if not isinstance(idx, pd.DatetimeIndex):
+            logger.warning("FRAME CONTRACT [%s]: index is %s, not a DatetimeIndex",
+                           symbol, type(idx).__name__)
+            return
+        if idx.has_duplicates:
+            logger.warning("FRAME CONTRACT [%s]: %d duplicate date(s) in the index",
+                           symbol, int(idx.duplicated().sum()))
+        if not idx.is_monotonic_increasing:
+            logger.warning("FRAME CONTRACT [%s]: dates are not strictly increasing", symbol)
+        missing = [c for c in ("Open", "High", "Low", "Close", "Volume") if c not in df.columns]
+        if missing:
+            logger.warning("FRAME CONTRACT [%s]: missing columns %s", symbol, missing)
+        # Date integrity — the two bugs the spine has actually hit.
+        last = pd.Timestamp(idx[-1])
+        if last.tzinfo is not None:
+            last = last.tz_localize(None)
+        today = pd.Timestamp.now().normalize()
+        if last.normalize() > today + pd.Timedelta(days=1):
+            logger.warning("FRAME CONTRACT [%s]: last bar %s is in the FUTURE (today %s)",
+                           symbol, last.date(), today.date())
+        if interval == "1d":
+            _wd = idx.weekday                          # Mon=0 … Sun=6
+            _n_wknd = int(((_wd == 5) | (_wd == 6)).sum())
+            if _n_wknd:
+                logger.warning("FRAME CONTRACT [%s]: %d daily bar(s) dated on a WEEKEND — "
+                               "likely a TZ/date-shift (IST↔UTC) bug", symbol, _n_wknd)
+    except Exception as e:
+        logger.debug("frame contract check failed for %s: %s", symbol, e)
 
 
 def _data_paths(key: str) -> tuple[str, str, str]:
@@ -587,6 +637,23 @@ def _yf_download_timeout(*args, _timeout: int = YF_DOWNLOAD_TIMEOUT_S, **kwargs)
 
 
 def fetch_ohlcv(symbol: str,
+                period: str = "6mo",
+                interval: str = "1d",
+                use_cache: bool = True,
+                auto_adjust: bool = True,
+                pinned_date: Optional[str] = None) -> pd.DataFrame:
+    """Public OHLCV entry point: fetch (see _fetch_ohlcv_impl) then run a boundary
+    data-contract check on the result (_assert_frame_contract) — the invariant net
+    for the data spine that ~24 subsystems depend on. The contract only LOGS; the
+    frame is returned unchanged."""
+    df = _fetch_ohlcv_impl(symbol, period=period, interval=interval,
+                           use_cache=use_cache, auto_adjust=auto_adjust,
+                           pinned_date=pinned_date)
+    _assert_frame_contract(df, symbol, interval, pinned_date or _PINNED_DATE)
+    return df
+
+
+def _fetch_ohlcv_impl(symbol: str,
                   period: str = "6mo",
                   interval: str = "1d",
                   use_cache: bool = True,
@@ -1067,9 +1134,44 @@ def clear_expired() -> int:
     return removed
 
 
+def invalidate_symbol(symbol: str,
+                      combos: Optional[list] = None) -> int:
+    """Delete the on-disk cache for ONE symbol so the next fetch_ohlcv() goes
+    to the network — used by interactive "Refresh" buttons that must beat the
+    long daily/weekly TTLs (a 2y/1d request carries the 24h weekly TTL, so a
+    cached daily frame otherwise survives a full day even when a newer session
+    has closed).
+
+    ``combos`` = list of (period, interval) pairs to bust; defaults to the set
+    the Golden Matcher + bull/recovery screeners actually request for a symbol.
+    Returns the number of files removed. Never raises.
+    """
+    ticker = _to_yf_ticker(symbol)
+    if not ticker:
+        return 0
+    if combos is None:
+        combos = [("2y", "1d"), ("3y", "1wk"), ("10y", "1wk")]
+    removed = 0
+    for period, interval in combos:
+        for auto_adjust in (True, False):
+            key = _cache_key(ticker, period, interval, auto_adjust)
+            parquet_p, csv_p, meta_p = _data_paths(key)
+            for p in (parquet_p, csv_p, meta_p):
+                try:
+                    if os.path.exists(p):
+                        os.remove(p)
+                        removed += 1
+                except Exception as e:
+                    logger.warning("invalidate_symbol could not remove %s: %s", p, e)
+    if removed:
+        logger.info("invalidate_symbol: cleared %d cache files for %s", removed, symbol)
+    return removed
+
+
 __all__ = [
     "clean_symbol", "fetch_ohlcv", "fetch_batch_ohlcv",
     "latest_close", "get_ltp", "stats", "clear_cache", "clear_expired",
+    "invalidate_symbol",
     "set_pinned_date", "get_pinned_date",
     "CACHE_DIR",
 ]
