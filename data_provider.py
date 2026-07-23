@@ -374,10 +374,22 @@ def _assert_frame_contract(df, symbol: str, interval: str, pinned_date: Optional
                            symbol, last.date(), today.date())
         if interval == "1d":
             _wd = idx.weekday                          # Mon=0 … Sun=6
-            _n_wknd = int(((_wd == 5) | (_wd == 6)).sum())
-            if _n_wknd:
-                logger.warning("FRAME CONTRACT [%s]: %d daily bar(s) dated on a WEEKEND — "
-                               "likely a TZ/date-shift (IST↔UTC) bug", symbol, _n_wknd)
+            _n = max(1, len(idx))
+            _sun = int((_wd == 6).sum())
+            _wknd = int(((_wd == 5) | (_wd == 6)).sum())
+            _frac = _wknd / _n
+            # A real IST↔UTC −1-day shift is SYSTEMATIC: it dumps ~1/5 of bars onto the
+            # weekend (every Mon→Sun), so it shows a LARGE fraction. A handful of weekend
+            # bars are almost always legitimate NSE Saturday special sessions (Budget-day
+            # / special live sessions) — do NOT cry wolf on those. Warn only on a
+            # systematic pattern; note isolated ones at debug level.
+            if _frac >= 0.05 or _sun >= max(3, int(0.03 * _n)):
+                logger.warning("FRAME CONTRACT [%s]: %d weekend-dated daily bars "
+                               "(%.0f%%, %d Sun) — likely a systematic TZ/date-shift "
+                               "(IST↔UTC) bug", symbol, _wknd, _frac * 100, _sun)
+            elif _wknd:
+                logger.debug("FRAME CONTRACT [%s]: %d weekend-dated daily bar(s) — likely "
+                             "legit NSE Saturday special session(s), not a shift", symbol, _wknd)
     except Exception as e:
         logger.debug("frame contract check failed for %s: %s", symbol, e)
 

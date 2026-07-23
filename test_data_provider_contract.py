@@ -34,8 +34,31 @@ def test_frame_contract_flags_weekend_future_and_dupes(caplog):
     with caplog.at_level(logging.WARNING):
         dp._assert_frame_contract(df, "TESTSYM", "1d", None)
     msg = " ".join(r.getMessage() for r in caplog.records)
-    assert "WEEKEND" in msg, "weekend-dated daily bar must be flagged (date-shift regression)"
+    assert "weekend" in msg.lower(), "weekend-dated daily bar must be flagged (date-shift regression)"
     assert "FUTURE" in msg, "future-dated bar must be flagged"
+
+
+def test_frame_contract_ignores_isolated_weekend_sessions(caplog):
+    # A handful of weekend bars in a long history = legit NSE Saturday special sessions,
+    # NOT a systematic shift — must stay silent at WARNING (no false alarm during auto-pilot).
+    weekdays = [d for d in pd.bdate_range("2024-01-01", periods=250)]
+    dates = weekdays + [pd.Timestamp("2024-02-03"), pd.Timestamp("2024-03-02")]  # 2 real NSE Saturdays
+    df = _daily_frame(sorted(dates))
+    with caplog.at_level(logging.WARNING):
+        dp._assert_frame_contract(df, "TESTSYM", "1d", None)
+    assert not [r for r in caplog.records if "systematic" in r.getMessage()], \
+        "a couple of weekend bars in a long history must NOT trip the shift warning"
+
+
+def test_frame_contract_flags_systematic_shift(caplog):
+    # A −1-day shift dumps ~1/5 of bars onto Sunday → a large fraction → MUST warn.
+    mondays_as_sunday = list(pd.date_range("2024-01-07", periods=40, freq="7D"))  # 40 Sundays
+    weekdays = list(pd.bdate_range("2024-01-01", periods=120))
+    df = _daily_frame(sorted(set(mondays_as_sunday + weekdays)))
+    with caplog.at_level(logging.WARNING):
+        dp._assert_frame_contract(df, "TESTSYM", "1d", None)
+    assert [r for r in caplog.records if "systematic" in r.getMessage()], \
+        "a systematic weekend fraction must trip the shift warning"
 
 
 def test_frame_contract_silent_on_clean_frame(caplog):
@@ -99,6 +122,8 @@ if __name__ == "__main__":
 
     passed = failed = 0
     for fn in (test_frame_contract_flags_weekend_future_and_dupes,
+               test_frame_contract_ignores_isolated_weekend_sessions,
+               test_frame_contract_flags_systematic_shift,
                test_frame_contract_silent_on_clean_frame,
                test_content_stale_for_live_and_pin_exempt,
                test_cache_serve_does_not_retimestamp):
