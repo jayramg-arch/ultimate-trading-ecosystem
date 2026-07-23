@@ -1150,6 +1150,7 @@ with st.sidebar:
             ("🗂️ PORTFOLIO",   "PORTFOLIO"),
             ("⚡ COMMAND",     "COMMAND"),
             ("🛡️ RISK SHIELD", "RISK SHIELD"),
+            ("🎯 ACTION CENTER", "ACTION CENTER"),
         ]),
         ("🩺  STATE OF MARKET", [
             ("🌐 MACRO",       "MACRO"),
@@ -2614,6 +2615,13 @@ EMA20_RECLAIM_BAND_PCT = 8.0
 # still-valid break-down guard, and TIME it (don't re-screen). Flag lets us A/B
 # against the legacy re-qualification funnel. ON = the redesign; OFF = old behaviour.
 INHERIT_QUALIFICATION = True
+# IZE ZONE ENGINE (18-Jul-2026) — port of the S4 Pine leg-base-leg demand/supply
+# zone engine (zone_engine.py) into the GM LOCATION gate, replacing the OB/FVG/pivot
+# PROXY's coarser read with the SAME zones the S4 chart draws (the documented
+# "location-accuracy ceiling" fix). A/B flag: ON = the IZE demand zones ALSO satisfy
+# at_support (superset with the proxy, moving toward S4 z_inDZ parity); OFF (default)
+# = legacy proxy only. Keep OFF until the board's location is validated against S4.
+GM_USE_IZE_ZONES = False
 # Structural-vs-catalyst-scan archetype sets — SINGLE SOURCE in gm_trigger_board
 # (next to the archetype names), deliberately NO fallback literal: a silent local
 # copy is exactly the rename-drift bug this import removes (P0, 14-Jul-2026).
@@ -2623,6 +2631,36 @@ from gm_trigger_board import (STRUCTURAL_BULL_ARCHETYPES,
 # P1 (14-Jul-2026): shared GM logger — every previously-swallowed exception in the
 # GM region now lands in logs/gm_errors.log (same safe fallbacks, but RECORDED).
 from gm_log import gm_log as _gm_logger
+
+
+# ----------------------------------------------------------------------------------------
+# STRUCTURAL PLAN SL  (twin of the S4 Pine v3.0 Plan fix)
+# ----------------------------------------------------------------------------------------
+def _plan_structural_sl(ctx, entry, atr):
+    """The disciplined stop = the nearest FRESH structural support BELOW entry (zone
+    distal / FVG bottom / pivot, on Daily + Weekly), buffered 1%, then HARD-CAPPED at
+    3×ATR from entry. Returns a price or None. This replaces the old behaviour that
+    anchored the stop to the far Stage-1 AVWAP / EMA20 and produced ~20-24% 'stops'."""
+    if not entry:
+        return None
+    sup = _g(ctx, "support", default={}) or {}
+    cands = []
+    for _tf in ("daily", "weekly"):
+        z = sup.get(_tf) or {}
+        for _k in ("ob_bot", "fvg_bot", "pivot"):
+            v = z.get(_k)
+            try:
+                v = float(v) if v is not None else None
+            except (TypeError, ValueError):
+                v = None
+            if v is not None and 0 < v < entry:
+                cands.append(v)
+    if not cands:
+        return None
+    sl = max(cands) * (1.0 - 0.01)                 # highest support below entry (tightest) + 1% buffer
+    if atr and atr > 0 and (entry - sl) > 3.0 * atr:
+        sl = entry - 2.5 * atr                     # sanity cap — never absurdly far
+    return sl if sl < entry else None
 
 
 # ----------------------------------------------------------------------------------------
@@ -2727,6 +2765,27 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
             rr = (_tgt - cmp_px) / _risk
             plan = (f"No catalyst plan — EMA20 as dynamic support: buy-STOP above the trigger "
                     f"bar, SL {inr(sl)} (EMA20, −{sl_pct:.1f}%), target {inr(t1)} ({fnum(rr,1)}R).")
+
+    # ── STRUCTURAL + ATR-CAPPED SL (twin of the S4 Pine v3.0 fix). Prefer the nearest
+    # FRESH zone distal BELOW entry; then cap risk at 3×ATR so the stop can never be
+    # absurdly far. Recompute sl_pct / rr (a tighter, correct stop also fixes the R:R).
+    _ssl = _plan_structural_sl(ctx, entry, _atr)
+    if entry and _ssl is not None:
+        sl = _ssl
+        sl_pct = (entry - sl) / entry * 100.0
+        if t1 and t1 > entry:
+            rr = (t1 - entry) / (entry - sl)
+        plan = (f"Buy-STOP above the trigger bar · SL {inr(sl)} (structural, −{sl_pct:.1f}%)"
+                + (f" · T1 {inr(t1)} ({fnum(rr,1)}R)" if (t1 and rr) else "")
+                + " · size at 0.25% risk.")
+    elif entry and sl is not None and _atr and _atr > 0 and (entry - sl) > 3.0 * _atr:
+        sl = entry - 2.5 * _atr                    # cap even the screener/EMA20 SL if it's too far
+        sl_pct = (entry - sl) / entry * 100.0
+        if t1 and t1 > entry:
+            rr = (t1 - entry) / (entry - sl)
+        plan = (f"Buy-STOP above the trigger bar · SL {inr(sl)} (ATR-capped, −{sl_pct:.1f}%)"
+                + (f" · T1 {inr(t1)} ({fnum(rr,1)}R)" if (t1 and rr) else "")
+                + " · size at 0.25% risk.")
 
     # ── Step-4 "room" rule: R:R (the real reward-room off the disciplined stop) +
     # EMA20 extension/direction. EMA20 (daily) = support above / resistance below.
@@ -3017,6 +3076,17 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
             _atr_r = _g(ctx, "atr")
             if _atr_r:
                 sl = entry - 2.5 * _atr_r        # recovery catalyst-aware fallback (2.5×ATR)
+    # STRUCTURAL + ATR-CAPPED SL (twin of the bull path + S4 Pine v3.0). Prefer the
+    # nearest FRESH zone distal BELOW entry; cap risk at 3×ATR so the stop is never
+    # absurdly far. Done BEFORE R:R so t1/rr resolve off the disciplined stop.
+    _atr_r2 = _g(ctx, "atr")
+    _ssl_r = _plan_structural_sl(ctx, entry, _atr_r2)
+    if entry and _ssl_r is not None:
+        sl = _ssl_r
+    elif entry and sl is not None and _atr_r2 and _atr_r2 > 0 and (entry - sl) > 3.0 * _atr_r2:
+        sl = entry - 2.5 * _atr_r2
+    if entry and sl and sl < entry:
+        sl_pct = (entry - sl) / entry * 100.0
     if rr is None and entry and sl and t1 and (entry - sl):
         rr = (t1 - entry) / (entry - sl)
     if t1 is None and entry and sl:
@@ -3245,7 +3315,14 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
 
     # Intraday trigger-TF overlay (Step-5 battery + momentum + LIVE cmp). Identical
     # to what the board used to inline — now the ONE place it lives.
-    intra_ok = False; intra_label = ""
+    # intra_reason / intra_reason_code (17-Jul-2026): the RAW failure reason, no
+    # longer only embedded in intra_label's prose. The board discarded intra_label
+    # entirely, so an all-"n/a" S4-GO column gave the user no cause at all — it read
+    # as a scoring problem when it is a data/feed problem. Both are None when the
+    # intraday read SUCCEEDED, and — deliberately — also when it was never attempted
+    # (Daily trigger-TF): "not attempted" is by design, not a failure, and must not
+    # be counted as one.
+    intra_ok = False; intra_label = ""; intra_reason = None; intra_reason_code = None
     if trigger_tf in ("75m", "125m"):
         _mins = 75 if trigger_tf == "75m" else 125
         _intra = gm_load_intraday(symbol, _mins) or {}
@@ -3257,11 +3334,14 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
             if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
             if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
+            if _intra.get("bar_ok") is not None:  ctx["bar_ok"] = _intra["bar_ok"]
             if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
             if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # LIVE intraday price
             intra_label = f"⏱ Trigger TF **{trigger_tf}** · bar {_intra.get('last_ts','?')} · {_intra.get('bars','?')} bars"
         else:
-            intra_label = f"⏱ Trigger TF {trigger_tf} — intraday unavailable ({_intra.get('reason','?')}); showing Daily PA"
+            intra_reason = _intra.get("reason") or "unknown"
+            intra_reason_code = _intra.get("code") or "unknown"
+            intra_label = f"⏱ Trigger TF {trigger_tf} — intraday unavailable ({intra_reason}); showing Daily PA"
 
     rec_r = gm_load_recovery(symbol, deep=deep_rec) or {}
 
@@ -3298,7 +3378,8 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                 cmp_px=cmp_px, mansfield=mansfield, rec_r=rec_r,
                 wf_bull=wf_bull, wf_rec=wf_rec, rec_error=rec_error,
                 inherited_bull=ib, inherited_rec=ir, inherit_error=inherit_error,
-                intra_ok=intra_ok, intra_label=intra_label)
+                intra_ok=intra_ok, intra_label=intra_label,
+                intra_reason=intra_reason, intra_reason_code=intra_reason_code)
 
 
 def render_workflow(wf: dict) -> str:
@@ -3776,6 +3857,47 @@ def gm_load_symbol(symbol: str) -> dict:
         except Exception as e:
             out["ctx"]["support"] = {}
             _gm_logger.warning(f"{symbol}: support-zone detection failed: {e}")
+        # IZE zone engine (A/B, GM_USE_IZE_ZONES): the real leg-base-leg zones S4 draws,
+        # on Daily + confirmed-Weekly structure (same TF scope as the proxy). An IZE
+        # demand zone containing/near price IS a location (S4 z_inDZ parity), so it
+        # upgrades at_support without dropping the proxy's own hits. Fully guarded —
+        # any failure leaves the proxy result untouched.
+        if GM_USE_IZE_ZONES:
+            try:
+                import zone_engine as _ze
+                _df = out.get("df")
+                if _df is not None and len(_df) >= 60:
+                    _sup = out["ctx"].get("support") or {}
+                    _pxN = float(_df["Close"].iloc[-1])
+                    _izD = _ze.zone_support(_df, "D", _pxN)
+                    _wk = _pap._confirmed_weekly_ohlcv(_df)
+                    _izW = _ze.zone_support(_wk, "W", _pxN) if (_wk is not None and len(_wk) >= 60) else {}
+                    _ize_at = bool(_izD.get("at_support") or _izW.get("at_support"))
+                    _sup["ize_at_support"] = _ize_at
+                    _sup["ize_zone"] = _izD.get("zone") or _izW.get("zone")
+                    _sup["ize_score"] = _izD.get("score") or _izW.get("score")
+                    _sup["ize_n_dz"] = int(_izD.get("n_dz") or 0) + int(_izW.get("n_dz") or 0)
+                    # S/R horizontal levels (phase 2 — the other half of S4's support_pass:
+                    # near_sr). A non-MTTWR SUPPORT level within 1.5% below price IS a
+                    # location (S4 near_sr). Daily + confirmed-Weekly, MTTWR excluded.
+                    _srD = _ze.sr_support(_df, "D", _pxN)
+                    _srW = _ze.sr_support(_wk, "W", _pxN) if (_wk is not None and len(_wk) >= 30) else {}
+                    _near_sr = bool(_srD.get("near_sr") or _srW.get("near_sr"))
+                    _sup["ize_near_sr"] = _near_sr
+                    _sup["ize_sr_level"] = _srD.get("level") or _srW.get("level")
+                    _sup["ize_sr_grade"] = _srD.get("grade") or _srW.get("grade")
+                    # Anchored VWAPs (Low/BO/Gap): price within 1.5% above a specific AVWAP
+                    # IS a location (S4 near_avwap). A precise price-memory level, not a broad
+                    # MA — so it belongs in the gate (unlike near_ema, deliberately excluded).
+                    _av = _ze.avwap_support(_df, _pxN)
+                    _near_av = bool(_av.get("near_avwap"))
+                    _sup["ize_near_avwap"] = _near_av
+                    _sup["ize_avwap"] = _av.get("nearest")
+                    if _ize_at or _near_sr or _near_av:
+                        _sup["at_support"] = True
+                    out["ctx"]["support"] = _sup
+            except Exception as e:
+                _gm_logger.warning(f"{symbol}: IZE zone engine failed (proxy stands): {e}")
         try:
             from sector_lookup import get_sector_index
             from sector_strength import get_sector_status, get_sector_score
@@ -3872,6 +3994,13 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
     Cached (ttl 180s) so the 2s TV auto-sync never re-hits Dhan. Returns
     {ok, pa, rpa, rsi, adx, relvol, vol_dry, last_ts, bars} — ok=False + reason
     when intraday is unavailable (page then falls back to the daily read).
+
+    On failure BOTH a prose `reason` (per-symbol, shown on the Single Symbol
+    caption) and a stable `code` are returned. The code is the bucket key the
+    Trigger Board aggregates on: prose carries per-symbol specifics (bar counts,
+    exception text) whose cardinality would shatter a count-by-reason into a
+    hundred one-row buckets. Codes: auth · no_data · short_history ·
+    no_closed_bar · error.
     """
     try:
         import dhan_ohlcv as _dh, pa_patterns as _pap, numpy as _np
@@ -3879,10 +4008,30 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
                                   from_date=(datetime.now().date() - timedelta(days=90)).isoformat(),
                                   to_date=datetime.now().date().isoformat(), interval=25)
         if df25 is None or df25.empty:
-            return {"ok": False, "reason": "no intraday data from Dhan"}
+            # Separate the FEED-WIDE auth failure from a genuinely dataless symbol.
+            # They look identical here (both = empty frame) but mean opposite things:
+            # auth blanks EVERY name at once and is fixable; no_data is per-symbol.
+            if _dh.auth_failed():
+                return {"ok": False, "code": "auth",
+                        "reason": "Dhan auth failed/expired — paid feed is not being used"}
+            return {"ok": False, "code": "no_data", "reason": "no intraday data from Dhan"}
         df = _pap.resample_intraday(df25, minutes, base_minutes=25)
         if df is None or len(df) < 60:
-            return {"ok": False, "reason": f"only {0 if df is None else len(df)} {minutes}m bars (<60)"}
+            return {"ok": False, "code": "short_history",
+                    "reason": f"only {0 if df is None else len(df)} {minutes}m bars (<60)"}
+        # LAST CLOSED BAR ONLY — drop the currently-forming bar so the intraday signal
+        # (PA · relvol · bar_ok · cmp) never repaints mid-bar. A bar is still forming if
+        # its close time (bar start + `minutes`) is after 'now'.
+        try:
+            _lt = df.index[-1]
+            if getattr(_lt, "tzinfo", None) is not None:
+                _lt = _lt.tz_localize(None)
+            if (_lt.to_pydatetime() + timedelta(minutes=minutes)) > datetime.now():
+                df = df.iloc[:-1]
+        except Exception as _e:
+            _gm_logger.warning(f"{symbol}: forming-bar drop failed: {_e}")
+        if df is None or len(df) < 60:
+            return {"ok": False, "code": "no_closed_bar", "reason": "no closed intraday bars yet"}
         # DNA rule: EMA20 is a DAILY anchor — on an intraday TF the engulfing
         # trend-context must use the DAILY EMA20/EMA10 overlaid on the 75/125m
         # bars, not a fresh intraday EMA. Pull the (cached) daily close for them.
@@ -3920,6 +4069,16 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
 
         def _f(s):
             x = float(s.iloc[-1]); return None if math.isnan(x) else x
+        # Trigger-bar quality (twin of the S4 Pine bar_ok): the last bar closed strong —
+        # green, OR a red bar that still closed in the UPPER HALF of its range. A close in
+        # the lower half (sold-off / upthrust) → False. Feeds the board's S4-GO preview.
+        _bar_ok = None
+        try:
+            _lb = df.iloc[-1]
+            _bo, _bh, _bl, _bc = float(_lb["Open"]), float(_lb["High"]), float(_lb["Low"]), float(_lb["Close"])
+            _bar_ok = bool((_bc >= _bo) or (((_bc - _bl) / (_bh - _bl)) >= 0.5 if _bh > _bl else True))
+        except Exception:
+            _bar_ok = None
         return {
             "ok": True, "bars": len(df),
             "pa":  _pap.detect_bull_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10),
@@ -3927,11 +4086,14 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             "rsi": _f(_rsi), "adx": _f(_adx),
             "relvol": (float(v.iloc[-1] / _vol20) if (_vol20 and not math.isnan(_vol20)) else None),
             "vol_dry": (_vol5 / _vol20) if _vol20 else None,
+            "bar_ok": _bar_ok,
             "cmp": (float(df["Close"].iloc[-1]) if len(df) else None),   # live intraday last price
             "last_ts": df.index[-1].strftime("%d-%b %H:%M"),
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        # Bucket on the exception TYPE — str(e) is per-symbol noise that would
+        # give every name its own row in the board's count-by-reason.
+        return {"ok": False, "code": f"error:{type(e).__name__}", "reason": str(e)}
 
 
 if page == 'DASHBOARD':
@@ -8315,25 +8477,40 @@ elif page == 'AUTOPSY':
                     _dq.append("quarantined: " + ", ".join(f"{v} {k.replace('_',' ')}" for k, v in _dropped.items()))
                 if _q.get("signal_snapshot_coverage"):
                     _dq.append(_q["signal_snapshot_coverage"])
+                if _q.get("provenance_note"):
+                    _dq.append(f"{_q.get('system_trades', 0)} SYSTEM / {_q.get('discretionary_trades', 0)} discretionary")
                 st.caption("🧪 Data quality — " + "  •  ".join(_dq))
 
                 if not _res.get("ok"):
                     st.info(_res.get("message", "No attributable closed trades yet."))
                 else:
-                    _h = _res["headline"]
-                    _pf = "∞" if _h["profit_factor"] == float("inf") else f"{_h['profit_factor']:.2f}"
-                    a1, a2, a3 = st.columns(3, gap="small")
-                    a1.metric("Trades (alpha-only)", str(_h["n_trades"]))
-                    a2.metric("Win Rate",            f"{_h['win_rate_pct']}%")
-                    a3.metric("Total Realized",      f"₹{format_inr_int(_h['total_realized'])}")
-                    a4, a5, a6 = st.columns(3, gap="small")
-                    a4.metric("Expectancy/Trade",    f"₹{format_inr_int(_h['expectancy'])}")
-                    a5.metric("Profit Factor",       _pf)
-                    a6.metric("Avg ROI/Trade",       f"{_h['avg_roi_pct']}%")
+                    def _hl_metrics(_h):
+                        _pf = "∞" if _h["profit_factor"] == float("inf") else f"{_h['profit_factor']:.2f}"
+                        a1, a2, a3 = st.columns(3, gap="small")
+                        a1.metric("Trades", str(_h["n_trades"]))
+                        a2.metric("Win Rate", f"{_h['win_rate_pct']}%")
+                        a3.metric("Total Realized", f"₹{format_inr_int(_h['total_realized'])}")
+                        a4, a5, a6 = st.columns(3, gap="small")
+                        a4.metric("Expectancy/Trade", f"₹{format_inr_int(_h['expectancy'])}")
+                        a5.metric("Profit Factor", _pf)
+                        a6.metric("Avg ROI/Trade", f"{_h['avg_roi_pct']}%")
 
-                    # Per-dimension tables — lead with the entry-signal drivers.
+                    # SYSTEM-only = the honest live record (Catalyst/GM+S4-entered). Foreground it.
+                    _hs = _res.get("headline_system") or {}
+                    section("🎯 System-only (Catalyst/GM+S4-entered — the honest live record)")
+                    if _hs.get("n_trades", 0) == 0:
+                        st.info("No system-entered trades have CLOSED yet. The live system record "
+                                "starts accruing as GM guided-exec entries (recompute snapshot) close. "
+                                "The numbers below are discretionary/random/legacy picks — NOT a measure of the system.")
+                    else:
+                        _hl_metrics(_hs)
+                    # ALL + discretionary shown for context, clearly labelled as NOT the system.
+                    with st.expander("All attributable (system + discretionary — NOT a system measure)", expanded=(_hs.get("n_trades", 0) == 0)):
+                        _hl_metrics(_res["headline"])
+
+                    # Per-dimension tables — lead with provenance, then the entry-signal drivers.
                     _labels = dict(_pa.DIMENSIONS)
-                    _order = ["setup", "stage_label", "alpha_band", "rs_band", "conv_band",
+                    _order = ["provenance", "setup", "stage_label", "alpha_band", "rs_band", "conv_band",
                               "sector", "trade_type", "hold_bucket", "exit_reason", "trade_quality", "system"]
                     for _col in _order:
                         _t = _res["tables"].get(_col)
@@ -11816,6 +11993,14 @@ elif page == 'GOLDEN MATCHER':
             _rows = []
             _failed = []                 # P1: a failed name must be VISIBLE, never vanish
             _items = list(_uni.items())
+            # Per-build record of intraday (trigger-TF) load failures — the cause
+            # behind an all-"n/a" S4-GO column. Reset HERE so counts describe THIS
+            # build only; build_row appends via note_intra_issue.
+            try:
+                _gtb.reset_intra_issues()
+            except Exception as e:
+                _gm_logger.warning(f"board build: reset_intra_issues failed "
+                                   f"(S4-GO cause counts may include a stale build): {e}")
             _prog = None if quiet else st.progress(0.0, "Building board…")
             for _i, (_sym, _info) in enumerate(_items):
                 try:
@@ -11842,6 +12027,15 @@ elif page == 'GOLDEN MATCHER':
             _bnd0 = _gm_last_passed_boundary(_trig_tf if _trig_tf in ("75m", "125m") else "75m")
             st.session_state["gm_board_last_boundary"] = _bnd0.isoformat() if _bnd0 else None
             st.session_state["gm_board_failed"] = _failed           # P1: visible failure list
+            # Snapshot the S4-GO "n/a" causes for the header strip. Held in
+            # session_state (not the DataFrame) so it survives reruns without
+            # leaking a build-health column into the grid / CSV export.
+            try:
+                st.session_state["gm_board_intra_issues"] = _gtb.intra_issue_summary()
+            except Exception as e:
+                st.session_state["gm_board_intra_issues"] = []
+                _gm_logger.warning(f"board build: intra_issue_summary failed "
+                                   f"(S4-GO cause strip hidden): {e}")
             _now_s = _gtb_dt.datetime.now().strftime("%d %b %H:%M")
             st.session_state["gm_board_tech_stamp"] = _now_s
             st.session_state["gm_board_tech_ts"] = _gtb_time.time()
@@ -12017,6 +12211,27 @@ elif page == 'GOLDEN MATCHER':
                 st.warning(f"⚠️ Built {len(_bdf_hdr)}/{len(_bdf_hdr) + len(_bfail)} — "
                            f"**{len(_bfail)} failed:** {', '.join(_bfail[:10])}"
                            + (" …" if len(_bfail) > 10 else "") + "  ·  `logs/gm_errors.log`")
+            # S4-GO "n/a" CAUSE strip — an all-n/a column is a data/feed problem,
+            # not a scoring one, and used to say nothing. Counts are bucketed by
+            # gm_load_intraday's stable code; the sample names let you spot-check.
+            _intra_iss = st.session_state.get("gm_board_intra_issues") or []
+            if _intra_iss:
+                _na_tot = sum(_i["count"] for _i in _intra_iss)
+                _lines = []
+                for _i in _intra_iss:
+                    _s = ", ".join(_i["symbols"][:6])
+                    if _i["count"] > len(_i["symbols"][:6]):
+                        _s += " …"
+                    _lines.append(f"- **{_i['count']}× {_i['reason']}**  ·  {_s}")
+                _auth_hit = any(_i["code"] == "auth" for _i in _intra_iss)
+                _hdr = (f"⚠️ **S4-GO `n/a` for {_na_tot}/{len(_bdf_hdr)}** — no intraday "
+                        f"trigger-TF read (a DATA/FEED gap, not a scoring result):")
+                _tail = ("\n\n🔑 **Dhan auth expired** — the feed self-heals on a retry "
+                         "(re-validated token, ~5 min); **Refresh Data** to force it now. "
+                         "A restart is no longer required."
+                         if _auth_hit else
+                         "\n\nS4-GO needs a 75m/125m read; these names fall back to Daily PA.")
+                st.warning(_hdr + "\n\n" + "\n".join(_lines) + _tail + "\n\n`logs/gm_errors.log`")
             _built_tf = st.session_state.get("gm_board_built_tf")
             if _built_tf and _built_tf != _trig_tf:
                 st.warning(f"⚠️ Board built at **{_built_tf}** but Trigger-TF is now **{_trig_tf}** — "
@@ -12142,9 +12357,22 @@ elif page == 'GOLDEN MATCHER':
                     # Pin the decision columns to the left so Overall/Category are ALWAYS
                     # visible (the grid has ~39 cols; Overall was scrolling off-screen).
                     for _pc, _pw in (("Symbol", 96), ("★", 42), ("Overall", 90),
-                                     ("Category", 150), ("Archetype", 120), ("Loc", 120)):
+                                     ("Category", 150), ("S4-GO", 84), ("Archetype", 120), ("Loc", 120)):
                         if _pc in _v.columns:
                             _gb.configure_column(_pc, pinned="left", width=_pw)
+                    if "S4-GO" in _v.columns:
+                        # In the MAXIMIZED (monitor) view, default-sort by S4-GO closeness
+                        # so 4/4 GO → 3/4 near-triggers float to the top at a glance (the
+                        # "4/4 GO" / "n/4" strings sort descending correctly). The normal
+                        # board keeps its Overall ranking.
+                        _gb.configure_column("S4-GO",
+                            **({"sort": "desc"} if is_max_board else {}),
+                            cellStyle=JsCode(
+                            "function(p){var v=String(p.value||'');"
+                            "if(v.indexOf('4/4')>=0)return{'color':'#26a69a','fontWeight':'700'};"
+                            "if(v.indexOf('3/4')>=0)return{'color':'#ffb74d','fontWeight':'600'};"
+                            "if(v.indexOf('2/4')>=0)return{'color':'#ff9800'};"
+                            "return{'color':'#787b86'};}"))
                     _gb.configure_column("RRG", editable=True, cellEditor="agSelectCellEditor",
                                          cellEditorParams={"values": _gtb.RRG_QUADRANTS})
                     if "PrevClose" in _v.columns:
@@ -12537,6 +12765,29 @@ elif page == 'GOLDEN MATCHER':
                         f"📋 <b>Trigger-Board category:</b> <b style='color:{_bc_col}'>{_board_cat}</b> "
                         f"&nbsp;·&nbsp; TF {_trig_tf} — this matches the board's Category column exactly."
                         f"</div>", unsafe_allow_html=True)
+
+        # S4-GO stage-2 preview chip — the SAME shared s4go_status the board's S4-GO
+        # column uses, so this page and the board agree on the stage-2 read too. Category
+        # above = the stage-1 ARM (no bar_ok); this = PA · location · volume · bar_ok.
+        try:
+            import gm_trigger_board as _gtbx2
+            _s4_path = "recovery" if (_board_cat and _board_cat.endswith("Recovery")) else "bull"
+            _s4_bat = "recovery_pa_patterns" if _s4_path == "recovery" else "pa_patterns"
+            _s4_pp = _g(ctx, _s4_bat, default=[]) or []
+            _s4_sigma = sum(t for _n, _f, t, _x in _s4_pp if _f) if _s4_pp else 0
+            _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"))
+            _s4_col = ("#26A69A" if _s4go.startswith("4/4") else "#FFB74D" if _s4go.startswith("3/4")
+                       else "#FF9800" if _s4go.startswith("2/4") else "#787B86")
+            _s4_msg = ("all four gates align — the S4 chart should show GO" if _s4go.startswith("4/4")
+                       else "no intraday trigger-TF read (can't preview)" if _s4go == "n/a"
+                       else f"one/two gates from GO ({_s4go.split('· ')[-1]}) — a watch candidate")
+            st.markdown(f"<div style='border-left:3px solid {_s4_col};background:{_s4_col}14;"
+                        f"border-radius:4px;padding:6px 10px;margin:2px 0 8px;font-size:13px'>"
+                        f"⚡ <b>S4-GO (stage-2 closeness):</b> <b style='color:{_s4_col}'>{_s4go}</b> "
+                        f"&nbsp;·&nbsp; PA · location · volume · bar — {_s4_msg}. Confirm on the S4 chart (final word)."
+                        f"</div>", unsafe_allow_html=True)
+        except Exception as _s4e:
+            _gm_logger.warning(f"{symbol}: S4-GO chip failed: {_s4e}")
 
         _wcol1, _wcol2 = st.columns(2)
         with _wcol1:
@@ -13173,6 +13424,153 @@ elif page == 'TV SIDECAR':
 
 
 # ══════════════════════════════════════════════════════════════════════════
+#  ACTION CENTER
+# ══════════════════════════════════════════════════════════════════════════
+elif page == 'ACTION CENTER':
+    st.markdown('<div class="page-title">🎯 Action Center</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Consolidated view of all pending actions requiring your immediate attention.</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <style>
+        .metric-card {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #00f260;
+            margin-bottom: 10px;
+        }
+        .metric-card.warning {
+            border-left: 4px solid #f1c40f;
+        }
+        .metric-card.danger {
+            border-left: 4px solid #ff4b4b;
+        }
+        .metric-title {
+            color: #888;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            color: #fff;
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner("Fetching live portfolio and analyzing journal..."):
+        try:
+            _dhan_ac = dhanhq(DhanContext(CLIENT_ID, ACCESS_TOKEN)) if DhanContext else dhanhq(CLIENT_ID, ACCESS_TOKEN)
+            resp = _dhan_ac.get_holdings()
+            holdings = [item for item in resp.get('data', []) if float(item.get('totalQty', 0)) > 0] if (isinstance(resp, dict) and resp.get('status') == 'success') else []
+        except:
+            holdings = []
+            
+        live_symbols = {}
+        for h in holdings:
+            sym = clean_symbol(h.get('tradingSymbol'))
+            live_symbols[sym] = h
+
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            df_open = pd.read_sql("SELECT * FROM journal WHERE status='OPEN'", conn)
+            conn.close()
+        except:
+            df_open = pd.DataFrame()
+
+        db_symbols = set()
+        if not df_open.empty:
+            if 'symbol' in df_open.columns:
+                df_open['cleaned_symbol'] = df_open['symbol'].apply(clean_symbol)
+                db_symbols = set(df_open['cleaned_symbol'].tolist())
+
+        actions = {
+            'missing_journal': [],
+            'pending_closure': [],
+            'missing_sl_target': [],
+            'pending_exits': [],
+            'missing_meta': [],
+        }
+        
+        for sym, item in live_symbols.items():
+            if sym not in db_symbols:
+                actions['missing_journal'].append({
+                    'symbol': sym,
+                    'qty': item.get('totalQty'),
+                    'avg_price': item.get('avgCostPrice'),
+                    'ltp': item.get('lastTradedPrice', 0)
+                })
+
+        if not df_open.empty:
+            for idx, row in df_open.iterrows():
+                sym = row.get('cleaned_symbol', row.get('symbol', ''))
+                if sym not in live_symbols:
+                    actions['pending_closure'].append(row)
+                sl = pd.to_numeric(row.get('stoploss', 0), errors='coerce')
+                tgt = pd.to_numeric(row.get('target', 0), errors='coerce')
+                if pd.isna(sl) or sl == 0 or pd.isna(tgt) or tgt == 0:
+                    actions['missing_sl_target'].append(row)
+                if sym in live_symbols:
+                    ltp = float(live_symbols[sym].get('lastTradedPrice', 0))
+                    if ltp > 0:
+                        if not pd.isna(sl) and sl > 0 and ltp <= sl:
+                            actions['pending_exits'].append({'row': row, 'reason': 'SL Hit', 'ltp': ltp})
+                        if not pd.isna(tgt) and tgt > 0 and ltp >= tgt:
+                            actions['pending_exits'].append({'row': row, 'reason': 'Target Hit', 'ltp': ltp})
+                rat = str(row.get('rationale', ''))
+                scr = str(row.get('screenshot_path', ''))
+                if rat.strip() in ['None', '', 'nan'] or scr.strip() in ['None', '', 'nan']:
+                    actions['missing_meta'].append(row)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.markdown(f"<div class='metric-card danger'><div class='metric-title'>Critical Exits/Trims</div><div class='metric-value'>{len(actions['pending_exits'])}</div></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='metric-card warning'><div class='metric-title'>Unjournaled Buys</div><div class='metric-value'>{len(actions['missing_journal'])}</div></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='metric-card warning'><div class='metric-title'>Pending Closures</div><div class='metric-value'>{len(actions['pending_closure'])}</div></div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='metric-card'><div class='metric-title'>Missing SL/Targets</div><div class='metric-value'>{len(actions['missing_sl_target'])}</div></div>", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    if len(actions['pending_exits']) > 0:
+        st.subheader("🚨 Pending Exits / Trims")
+        for item in actions['pending_exits']:
+            row = item['row']
+            with st.expander(f"🔴 {row.get('symbol')} - {item['reason']} @ {item['ltp']}"):
+                st.write(f"**Target:** {row.get('target')} | **StopLoss:** {row.get('stoploss')} | **LTP:** {item['ltp']}")
+                st.button("Open Journal 📝", key=f"btn_ex_{row.get('id', row.get('symbol'))}", on_click=lambda: st.toast("Navigate to Journal page to update."))
+
+    if len(actions['missing_journal']) > 0:
+        st.subheader("⚠️ Missing Journal Updates (Bought Stocks)")
+        st.info("These stocks are in your live portfolio but missing from the active journal.")
+        st.dataframe(pd.DataFrame(actions['missing_journal']), use_container_width=True)
+
+    if len(actions['pending_closure']) > 0:
+        st.subheader("⚠️ Pending Trade Closures (Sold Stocks)")
+        st.info("These stocks are marked OPEN in journal but missing from live portfolio.")
+        for row in actions['pending_closure']:
+            with st.expander(f"📦 {row.get('symbol')} - Qty: {row.get('quantity')}"):
+                st.write(f"**Buy Price:** {row.get('buy_price')} | **Date:** {row.get('entry_date')}")
+
+    if len(actions['missing_sl_target']) > 0:
+        st.subheader("ℹ️ Missing Stop Loss / Targets")
+        for row in actions['missing_sl_target']:
+            with st.expander(f"🛡️ {row.get('symbol')} - Missing Risk Parameters"):
+                st.write(f"**StopLoss:** {row.get('stoploss')} | **Target:** {row.get('target')}")
+
+    if len(actions['missing_meta']) > 0:
+        st.subheader("📝 Missing Metadata (Rationale/Screenshots)")
+        for row in actions['missing_meta']:
+            missing_items = []
+            if str(row.get('rationale', '')).strip() in ['None', '', 'nan']: missing_items.append("Rationale")
+            if str(row.get('screenshot_path', '')).strip() in ['None', '', 'nan']: missing_items.append("Screenshot")
+            with st.expander(f"🔍 {row.get('symbol')} - Missing: {', '.join(missing_items)}"):
+                st.write(f"Please update the journal entry to include these details for better AI analysis.")
+
+    if all(len(v) == 0 for v in actions.values()):
+        st.success("🎉 All caught up! No pending actions required.")
+        st.balloons()
+
+# ══════════════════════════════════════════════════════════════════════════
 #  RISK SHIELD — Active Exit Monitoring & Pullback Entry Tracking
 # ══════════════════════════════════════════════════════════════════════════
 elif page == 'RISK SHIELD':
@@ -13284,7 +13682,17 @@ elif page == 'RISK SHIELD':
                 sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl else 0.0
                 tgt_dist = ((target - ltp) / ltp * 100) if ltp and target else 0.0
                 orders_desc.append(f"  Leg {o_idx+1}: SL ₹{sl:,.0f} ({sl_dist:+.1f}%) | Tgt ₹{target:,.0f} (+{tgt_dist:.1f}%)")
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | open R: {r_mult} | open risk ₹{risk:,.0f}{_tech_str}\n" + "\n".join(orders_desc) + "\nProvide a brief technical analysis of this stock and advise if I should hold, trail the SL up, or exit."
+            _pyr_class = kwargs.get("pyr_class", ""); _pyr_reason = kwargs.get("pyr_reason", "")
+            _chand = _tech.get("chandelier_exit") if isinstance(_tech, dict) else None
+            _chand_str = f" The catalyst-aware Chandelier trailing stop is ₹{_chand}." if _chand not in (None, "N/A") else ""
+            if _pyr_class:
+                _reconcile = (f"\n\nThe RULES ENGINE classifies this position as **{_pyr_class}** ({_pyr_reason}).{_chand_str} "
+                              f"RECONCILE with it: state whether you AGREE, and if you disagree, say WHY specifically. "
+                              f"If the engine says ADD (pyramid), judge whether this is a valid add — a leader at a genuine pullback, NOT extended — and if so, confirm the position stop should be RAISED to the Chandelier level; if it's extended or the trend is decaying, say do NOT add. "
+                              f"If the engine says TRIM/REDUCE/EXIT, confirm or dispute that.")
+            else:
+                _reconcile = "\nAdvise if I should hold, trail the SL up, add (pyramid), or exit."
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | open R: {r_mult} | open risk ₹{risk:,.0f}{_tech_str}\n" + "\n".join(orders_desc) + _reconcile
             return ask_llm(prompt, fallback_text="Monitor position. SL and targets active.")
         elif order_type == "GTT_ENTRY":
             trigger = kwargs.get("trigger", 0); price = kwargs.get("price", 0)
@@ -13427,11 +13835,13 @@ elif page == 'RISK SHIELD':
                         oco["sl_trigger"], oco["target_trigger"] = _tg, _sl
                         oco["sl_qty"], oco["target_qty"] = oco["target_qty"], oco["sl_qty"]
 
-                # Fetch LTPs
-                if symbols_to_fetch:
-                    ltps = get_batch_ltps(tuple(sorted(symbols_to_fetch)))
-                else:
-                    ltps = {}
+                # LTP is now FULLY Dhan-sourced on this page (zero yfinance dependency).
+                # Populated in two Dhan passes below:
+                #   1) holdings lastTradedPrice — real-time, already fetched, no extra call
+                #   2) Dhan ohlc_data via dhan_ohlcv.fetch_ltp() for anything not held
+                #      (covers a stale OCO resting on a stock you've since sold) —
+                #      resolves securityId + exchange_segment from the Dhan scrip master.
+                ltps = {}
 
                 # Fetch overrides from global df (from SQLite)
                 journal_overrides = {}
@@ -13481,15 +13891,30 @@ elif page == 'RISK SHIELD':
                                 "entry_date": h.get("EntryDate", "")
                             }
 
-                # Dhan LTP is authoritative — every OCO exit sits on a stock you hold,
-                # so Dhan's lastTradedPrice covers all of them and is real-time intraday.
-                # Prefer it over yfinance (delayed, and flaky on some .NS tickers); fall
-                # back to yfinance only for symbols Dhan has no holding for (e.g. a stale
-                # OCO left after the underlying was sold). This makes the page's LTP — and
-                # therefore the SL/target distance %s — fully Dhan-sourced wherever possible.
+                # Pass 1 — Dhan holdings lastTradedPrice (real-time intraday, already
+                # fetched above, no extra API call). Every OCO exit sits on a stock you
+                # hold, so this covers the common case. Symbols not held fall through to
+                # the Dhan ohlc_data pass below. No yfinance anywhere on this page.
                 for _csym, _h in holdings_map.items():
                     if _h.get("ltp"):
                         ltps[_csym] = _h["ltp"]
+
+                # Dhan ohlc_data fallback for any exit symbol not covered by holdings
+                # (e.g. an OCO still resting on a stock you've already sold). Batched —
+                # one Dhan call for all missing names. dhan_ohlcv.fetch_ltp() resolves
+                # securityId + exchange_segment from the scrip master and never raises,
+                # so a failure just leaves the LTP blank (levels still render from Dhan).
+                _missing_ltp = [s for s in symbols_to_fetch if not ltps.get(s)]
+                if _missing_ltp:
+                    try:
+                        import dhan_ohlcv
+                        _dhan_ltps = dhan_ohlcv.fetch_ltp(_missing_ltp)
+                        for _s, _px in (_dhan_ltps or {}).items():
+                            _cs = clean_symbol(_s)
+                            if _px and not ltps.get(_cs):
+                                ltps[_cs] = float(_px)
+                    except Exception as _e:
+                        logger.warning(f"Entry Shield Dhan ohlc_data LTP fallback failed: {_e}")
 
                 # Detect unprotected holdings
                 # A1 SAFETY FIX (2026-07-04 audit): a single sell order is only proof of
@@ -13849,7 +14274,12 @@ elif page == 'RISK SHIELD':
                                 _rm = f"{(_ltp - _bp) * _tq / _tri:+.2f}R" if _tri > 0 else "N/A"
                             else:
                                 _rm = "N/A"
-                            _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re, "tech": hist_data.get(_sym)}))
+                            # Feed the RULES-ENGINE verdict to the AI so it RECONCILES
+                            # instead of contradicting: the AI was prompted only for
+                            # hold/trail/exit and never saw the module's ADD/TRIM/etc.
+                            # classification (Jay: "AI contradicts the module").
+                            _pcr = pyramid_class_dict.get(_sym, {})
+                            _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re, "tech": hist_data.get(_sym), "pyr_class": _pcr.get("classification", ""), "pyr_reason": _pcr.get("trigger", "")}))
                         else:
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _b in buy_gtts:

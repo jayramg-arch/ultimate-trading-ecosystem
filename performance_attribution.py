@@ -99,6 +99,7 @@ CONV_BANDS  = [(-1e9,6,"Low (<6)"), (6,7.5,"Medium (6–7.5)"),
 # "which setups / stages / scores actually pay me." They read "Unspecified"
 # for trades closed before the snapshot columns existed (honest, not imputed).
 DIMENSIONS = [
+    ("provenance",   "Provenance (System vs Discretionary)"),
     ("system",       "System (Stock / ETF)"),
     ("sector",       "Sector"),
     ("trade_type",   "Trade Type"),
@@ -221,6 +222,26 @@ def _prepare(df):
     # Canonical P&L (identical to ai_mentor_engine.py — zero drift).
     df["realized_pnl"] = (df["exit_price"] - df["buy_price"]) * df["quantity"]
     df["roi_pct"]      = (df["exit_price"] - df["buy_price"]) / df["buy_price"] * 100.0
+
+    # Provenance: was this trade actually ENTERED THROUGH the Catalyst/GM+S4
+    # workflow, or is it a discretionary / random / legacy pick? (Jay, 23-Jul-2026:
+    # the historical journal mixes system and hand-picked trades — the harvested
+    # names were random picks that never came from the system, so a whole-journal
+    # baseline does NOT measure the system.) A trade is SYSTEM iff it carries a
+    # true entry snapshot: snapshot_meta '...|recompute' (the upsert_trade hook
+    # fires it on a workflow OPEN) OR a real `setup`/catalyst label. Everything
+    # else — null meta, as-of-today 'backfill', setup NONE — is DISCRETIONARY.
+    # Computed from RAW columns BEFORE the label-normalisation loop clobbers setup.
+    _meta  = df.get("snapshot_meta")
+    _setup = df.get("setup")
+    def _is_system(i):
+        m = str(_meta.iloc[i]) if _meta is not None else ""
+        if "recompute" in m.lower():
+            return True
+        s = (str(_setup.iloc[i]).strip().upper() if _setup is not None else "")
+        return bool(s) and s not in ("NONE", "NAN", "UNSPECIFIED", "<NA>", "")
+    df["provenance"] = ["SYSTEM" if _is_system(i) else "DISCRETIONARY"
+                        for i in range(len(df))]
 
     # Hold period (calendar days). Unparseable dates -> "Unknown" bucket.
     ed = pd.to_datetime(df.get("entry_date"), errors="coerce")
@@ -355,22 +376,43 @@ def run_attribution(db_file=DB_FILE, etf_csv=ETF_TRADES_CSV):
                             f"{quality['total_closed']} CLOSED rows found, "
                             "all quarantined for missing exit/qty data.")}
 
-    # Headline metrics.
-    total_pnl = df["realized_pnl"].sum()
-    wins = df[df["realized_pnl"] > 0]
-    gross_profit = wins["realized_pnl"].sum()
-    gross_loss   = abs(df[df["realized_pnl"] < 0]["realized_pnl"].sum())
-    headline = {
-        "n_trades":      int(len(df)),
-        "total_realized":round(total_pnl, 2),
-        "win_rate_pct":  round(100.0 * len(wins) / len(df), 1),
-        "expectancy":    round(total_pnl / len(df), 2),
-        "avg_roi_pct":   round(df["roi_pct"].mean(), 2),
-        "profit_factor": round(gross_profit / gross_loss, 2) if gross_loss > 0
-                         else (np.inf if gross_profit > 0 else 0.0),
-        "best_trade":    round(df["realized_pnl"].max(), 2),
-        "worst_trade":   round(df["realized_pnl"].min(), 2),
-    }
+    # Headline metrics. `_headline(frame)` so we can report SYSTEM-only and ALL
+    # side by side — the honest scoreboard foregrounds SYSTEM-tagged trades.
+    def _headline(frame):
+        if frame.empty:
+            return {"n_trades": 0, "total_realized": 0.0, "win_rate_pct": 0.0,
+                    "expectancy": 0.0, "avg_roi_pct": 0.0, "profit_factor": 0.0,
+                    "best_trade": 0.0, "worst_trade": 0.0}
+        tp = frame["realized_pnl"].sum()
+        w  = frame[frame["realized_pnl"] > 0]
+        gp = w["realized_pnl"].sum()
+        gl = abs(frame[frame["realized_pnl"] < 0]["realized_pnl"].sum())
+        return {
+            "n_trades":      int(len(frame)),
+            "total_realized":round(tp, 2),
+            "win_rate_pct":  round(100.0 * len(w) / len(frame), 1),
+            "expectancy":    round(tp / len(frame), 2),
+            "avg_roi_pct":   round(frame["roi_pct"].mean(), 2),
+            "profit_factor": round(gp / gl, 2) if gl > 0 else (np.inf if gp > 0 else 0.0),
+            "best_trade":    round(frame["realized_pnl"].max(), 2),
+            "worst_trade":   round(frame["realized_pnl"].min(), 2),
+        }
+
+    sys_df = df[df["provenance"] == "SYSTEM"]
+    disc_df = df[df["provenance"] == "DISCRETIONARY"]
+    quality["system_trades"] = int(len(sys_df))
+    quality["discretionary_trades"] = int(len(disc_df))
+    quality["provenance_note"] = (
+        f"{len(sys_df)}/{len(df)} attributable trades were ENTERED THROUGH the "
+        "Catalyst/GM+S4 workflow (recompute snapshot or real setup label). The rest "
+        "are discretionary/random/legacy picks — NOT the system. The system-only "
+        "headline is the honest live record; it grows as GM-entered trades close."
+    )
+
+    # `headline` stays = ALL attributable (back-compat); add SYSTEM-only + discretionary.
+    headline = _headline(df)
+    headline_system = _headline(sys_df)
+    headline_discretionary = _headline(disc_df)
 
     tables = {}
     for col, _label in DIMENSIONS:
@@ -379,7 +421,10 @@ def run_attribution(db_file=DB_FILE, etf_csv=ETF_TRADES_CSV):
             if not t.empty:
                 tables[col] = t
 
-    return {"ok": True, "headline": headline, "quality": quality,
+    return {"ok": True, "headline": headline,
+            "headline_system": headline_system,
+            "headline_discretionary": headline_discretionary,
+            "quality": quality,
             "tables": tables, "trades": df, "message": "OK"}
 
 
@@ -406,6 +451,10 @@ def _print_report(result):
               + ", ".join(f"{v} {k.replace('_',' ')}" for k, v in dropped.items()))
     if q.get("signal_snapshot_coverage"):
         print(f"    Signal snapshot     : {q['signal_snapshot_coverage']}")
+    if q.get("provenance_note"):
+        print(f"    Provenance          : {q.get('system_trades', 0)} SYSTEM / "
+              f"{q.get('discretionary_trades', 0)} discretionary")
+        print(f"        ↳ {q['provenance_note']}")
     print(f"        ↳ {q['unobservable_note']}")
 
     if not result["ok"]:
@@ -413,16 +462,31 @@ def _print_report(result):
         print("═" * 72 + "\n")
         return
 
-    h = result["headline"]
-    pf = "∞" if h["profit_factor"] == np.inf else f"{h['profit_factor']:.2f}"
-    print("\n▸ HEADLINE")
-    print(f"    Trades              : {h['n_trades']}")
-    print(f"    Total Realized P&L  : ₹{format_inr(h['total_realized'])}")
-    print(f"    Win Rate            : {h['win_rate_pct']}%")
-    print(f"    Expectancy / trade  : ₹{format_inr(h['expectancy'])}")
-    print(f"    Avg ROI / trade     : {h['avg_roi_pct']}%")
-    print(f"    Profit Factor       : {pf}")
-    print(f"    Best / Worst trade  : ₹{format_inr(h['best_trade'])} / ₹{format_inr(h['worst_trade'])}")
+    def _print_headline(title, h, extra=""):
+        pf = "∞" if h["profit_factor"] == np.inf else f"{h['profit_factor']:.2f}"
+        print(f"\n▸ {title}{extra}")
+        print(f"    Trades              : {h['n_trades']}")
+        print(f"    Total Realized P&L  : ₹{format_inr(h['total_realized'])}")
+        print(f"    Win Rate            : {h['win_rate_pct']}%")
+        print(f"    Expectancy / trade  : ₹{format_inr(h['expectancy'])}")
+        print(f"    Avg ROI / trade     : {h['avg_roi_pct']}%")
+        print(f"    Profit Factor       : {pf}")
+        print(f"    Best / Worst trade  : ₹{format_inr(h['best_trade'])} / ₹{format_inr(h['worst_trade'])}")
+
+    # SYSTEM-only is the honest live record — foreground it. ALL and DISCRETIONARY
+    # follow for context (the discretionary/harvest book is NOT the system).
+    hs = result.get("headline_system")
+    if hs is not None:
+        if hs["n_trades"] == 0:
+            print("\n▸ SYSTEM-ONLY HEADLINE (Catalyst/GM+S4-entered trades)")
+            print("    No system-entered trades have CLOSED yet — the live system record")
+            print("    starts accruing as GM guided-exec entries (recompute snapshot) close.")
+        else:
+            _print_headline("SYSTEM-ONLY HEADLINE", hs, "  (Catalyst/GM+S4-entered — the honest live record)")
+    _print_headline("ALL ATTRIBUTABLE (system + discretionary — NOT a system measure)", result["headline"])
+    hd = result.get("headline_discretionary")
+    if hd is not None and hd["n_trades"]:
+        _print_headline("DISCRETIONARY / LEGACY (random & harvested picks — excluded from system)", hd)
 
     for col, label in DIMENSIONS:
         t = result["tables"].get(col)
