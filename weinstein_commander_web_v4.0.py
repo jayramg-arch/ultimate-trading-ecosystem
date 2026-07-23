@@ -2046,6 +2046,29 @@ def _gm_entry_instruction(tf_lbl="", short=False) -> str:
             else f"buy-STOP above that {tf_lbl + ' ' if tf_lbl else ''}bar's high. Never buy the touch")
 
 
+def _render_entry_method_selector(key: str):
+    """Render the entry-method selector (buy-stop vs retest) on ANY GM view. The
+    SETTING is global — persisted to gm_settings.json and read by _gm_entry_method()
+    everywhere — so all views already FOLLOW it; this just exposes the widget on more
+    surfaces (item 11). Unique `key` per view avoids a Streamlit duplicate-key clash;
+    changing it anywhere writes the shared setting. Only the fill WORDING changes."""
+    _opts = ["Buy-stop (confirmation)", "Retest (pullback limit)"]
+    _idx = 1 if _gm_entry_method() == "retest" else 0
+    _sel = st.selectbox(
+        "🎯 Entry method", _opts, index=_idx, key=key,
+        help="How the Plan / guided-execution tells you to ENTER once a trigger fires "
+             "(mirrors the S4 indicator's v4.8 toggle). Buy-stop = above the confirmed "
+             "bar's high (house doctrine, dodges the false-breakout trap). Retest = "
+             "buy-limit at the trigger close on the pullback (backtest-better matched "
+             "alpha, but the sim can't see false-breakout whipsaw — a live TRIAL). "
+             "Only the fill instruction changes; the trigger is identical. This setting "
+             "is GLOBAL — it applies to every GM view.")
+    _val = "retest" if _sel == _opts[1] else "buystop"
+    if _val != _gm_settings().get("entry_method", "buystop"):
+        _gm_settings_save(entry_method=_val)
+    return _val
+
+
 # ----------------------------------------------------------------------------------------
 # Graphical primitives (pure HTML/SVG — no extra deps)
 # ----------------------------------------------------------------------------------------
@@ -11943,22 +11966,8 @@ elif page == 'GOLDEN MATCHER':
                                              "Daily uses the closed daily bar.")
                 if _trig_tf != _gm_settings().get("trigger_tf"):
                     _gm_settings_save(trigger_tf=_trig_tf)
-                # Entry method — shared with the S4 v4.8 toggle. Changes only the Plan /
-                # guided-exec fill WORDING (trigger unchanged). Persisted to gm_settings.
-                _em_opts = ["Buy-stop (confirmation)", "Retest (pullback limit)"]
-                if "gm_entry_method_sel" not in st.session_state:
-                    st.session_state["gm_entry_method_sel"] = (
-                        _em_opts[1] if _gm_entry_method() == "retest" else _em_opts[0])
-                _em_sel = st.selectbox("🎯 Entry method", _em_opts, key="gm_entry_method_sel",
-                    help="How the Plan / guided-execution tells you to ENTER once a trigger fires "
-                         "(mirrors the S4 indicator's v4.8 toggle). Buy-stop = above the confirmed "
-                         "bar's high (house doctrine, dodges the false-breakout trap). Retest = "
-                         "buy-limit at the trigger close on the pullback (backtest-better matched "
-                         "alpha, but the sim can't see false-breakout whipsaw — a live TRIAL). "
-                         "Only the fill instruction changes; the trigger is identical.")
-                _em_val = "retest" if _em_sel == _em_opts[1] else "buystop"
-                if _em_val != _gm_settings().get("entry_method", "buystop"):
-                    _gm_settings_save(entry_method=_em_val)
+                # Entry method — shared, GLOBAL setting (see _render_entry_method_selector).
+                _render_entry_method_selector("gm_entry_method_sel")
                 # 75m/125m "bar-close" modes rebuild the board ONCE per session bar
                 # (aligned to NSE bar closes + ~75s settle) so the snapshot always reads
                 # a CLOSED bar — the definitive fix for the forming-bar fade that made
@@ -12409,6 +12418,15 @@ elif page == 'GOLDEN MATCHER':
                                 "Entry", "SL", "T1", "P/E"):
                         if _nc in _v.columns:
                             _v[_nc] = pd.to_numeric(_v[_nc], errors="coerce")
+                    # Column order (item 14): decision columns first, then group the
+                    # context metrics (RS · Stage · Catalyst · ΣPA · BFF · RFF) right
+                    # after RRG, then everything else.
+                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Archetype",
+                              "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
+                              "BFF", "RFF"]
+                    _ordered = ([c for c in _front if c in _v.columns]
+                                + [c for c in _v.columns if c not in _front])
+                    _v = _v[_ordered]
                     # (3) AG-Grid with native cell-change flash on the live columns.
                     # Per-column SORT (click header) + FILTER with an always-visible
                     # FLOATING FILTER row so it's discoverable, not a hover menu (Jay).
@@ -12423,10 +12441,13 @@ elif page == 'GOLDEN MATCHER':
                         if _nc in _v.columns:
                             _gb.configure_column(_nc, type=["numericColumn"],
                                                  filter="agNumberColumnFilter")
-                    # Pin the decision columns to the left so Overall/Category are ALWAYS
-                    # visible (the grid has ~39 cols; Overall was scrolling off-screen).
+                    # Pin the decision columns to the left so they are ALWAYS visible
+                    # (the grid has ~39 cols). Item 12: Path + RRG join the pinned set so
+                    # the full decision row (Symbol · Overall · Category · S4-GO ·
+                    # Archetype · Loc · Path · RRG) stays on-screen without scrolling.
                     for _pc, _pw in (("Symbol", 96), ("★", 42), ("Overall", 90),
-                                     ("Category", 150), ("S4-GO", 84), ("Archetype", 120), ("Loc", 120)):
+                                     ("Category", 150), ("S4-GO", 84), ("Archetype", 120),
+                                     ("Loc", 120), ("Path", 84), ("RRG", 96)):
                         if _pc in _v.columns:
                             _gb.configure_column(_pc, pinned="left", width=_pw)
                     if "S4-GO" in _v.columns:
@@ -12619,6 +12640,13 @@ elif page == 'GOLDEN MATCHER':
         if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
                 or (_gm_trig_tf != _gmset.get("trigger_tf")):
             _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct, trigger_tf=_gm_trig_tf)
+
+        # Entry method — GLOBAL setting, also exposed here so you can flip buy-stop /
+        # retest without leaving the Single Symbol view (item 11). It drives the Plan /
+        # guided-execution fill wording shown further down this page.
+        _emc1, _emc2 = st.columns([1.6, 4.4])
+        with _emc1:
+            _render_entry_method_selector("gm_entry_method_sel_single")
 
         if not symbol:
             st.info("Enter an NSE symbol in the sidebar.")
