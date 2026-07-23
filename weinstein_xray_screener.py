@@ -422,6 +422,15 @@ def get_xray_scorecard(symbol: str) -> dict:
         pf9 = None if (asset_turn is None or at_ly is None) else (1 if asset_turn > at_ly else 0)
         
         pio_score = sum(x for x in [pf1, pf2, pf3, pf4, pf5, pf6, pf7, pf8, pf9] if x is not None)
+        # Data-sufficiency: how many of the 9 Piotroski criteria actually resolved
+        # (the rest were None = missing statements). In batch board mode yfinance
+        # rate-limits, so most criteria go None → pio_score≈0 and the grade drags to
+        # a MISLEADING "F POOR" that really means "no data". Expose a quality flag so
+        # callers can blank the grade instead of showing a data-starved F/D. (Same
+        # anti-NaN→0 discipline as the recovery RFF gate.)
+        _pio_resolved = sum(1 for x in [pf1, pf2, pf3, pf4, pf5, pf6, pf7, pf8, pf9] if x is not None)
+        _xray_quality = ("FULL" if _pio_resolved >= 7 else
+                         "PARTIAL" if _pio_resolved >= 4 else "INSUFFICIENT")
 
         # -------------------------------------------------------------
         # OVERALL RATING (0-17)
@@ -519,6 +528,9 @@ def get_xray_scorecard(symbol: str) -> dict:
             },
             "Overall_Rating": ov_total,
             "Overall_Grade": ov_grade,
+            "Data_Quality": _xray_quality,            # FULL / PARTIAL / INSUFFICIENT
+            "Piotroski_Resolved": _pio_resolved,      # 0-9 criteria that had data
+
             "Overall_Details": {
                 "Combined Score": f"{combined_score:.1f}/100",
                 "Conviction Score": f"{conviction:.1f}/10",

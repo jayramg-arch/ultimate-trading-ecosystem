@@ -3382,7 +3382,7 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             if _intra.get("bar_ok") is not None:  ctx["bar_ok"] = _intra["bar_ok"]
             if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
             if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # LIVE intraday price
-            intra_label = f"⏱ Trigger TF **{trigger_tf}** · bar {_intra.get('last_ts','?')} · {_intra.get('bars','?')} bars"
+            intra_label = f"⏱ Trigger TF **{trigger_tf}** · last closed bar {_intra.get('last_ts','?')} · {_intra.get('bars','?')} bars (forming bar excluded — this is the bar time, not a refresh time)"
         else:
             intra_reason = _intra.get("reason") or "unknown"
             intra_reason_code = _intra.get("code") or "unknown"
@@ -11896,10 +11896,11 @@ elif page == 'GOLDEN MATCHER':
                     # fade within minutes — any non-fresh snapshot may legitimately
                     # disagree with the live Single Symbol page.
                     st.warning(f"⚠️ **Live market · snapshot is {_age_min} min old** (built "
-                               f"{_saved_dt.strftime('%H:%M')}). Intraday PA triggers fire on the "
-                               f"FORMING bar and can fade — the live Single Symbol page may "
-                               f"legitimately disagree on trigger-edge names. **Rebuild** (or use "
-                               f"Live refresh) before acting on a category.")
+                               f"{_saved_dt.strftime('%H:%M')}). The board reads the last CLOSED "
+                               f"trigger bar (the forming bar is excluded), but a newer bar may have "
+                               f"closed and the price moved since this build — the live Single Symbol "
+                               f"page may legitimately disagree on trigger-edge names. **Rebuild** (or "
+                               f"use Live refresh) before acting on a category.")
                 elif (not _mkt_open) and _saved_dt < _sess_close:
                     st.warning(f"⚠️ **Mid-session snapshot** — this board was built "
                                f"**{_saved_dt.strftime('%d-%b %H:%M')}**, before the "

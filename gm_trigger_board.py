@@ -790,9 +790,16 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     if loaders.get("use_xray") and loaders.get("xray"):
         try:
             _xr = loaders["xray"](sym) or {}
+            # Data-sufficiency gate: in batch board mode yfinance rate-limits, so most
+            # Piotroski criteria go None → a data-starved "F POOR" grade + a token
+            # Piotroski. Only surface the grade/Piotroski when the fundamentals actually
+            # resolved (Data_Quality != INSUFFICIENT); otherwise leave BLANK — an honest
+            # 'no data' rather than a misleading F/D. P/E still shows when present.
             if not _xr.get("error"):
-                pio = _xr.get("Piotroski_Score")
-                xray_grade = str(_xr.get("Overall_Grade", "") or "")
+                _dq = str(_xr.get("Data_Quality", "FULL"))
+                if _dq != "INSUFFICIENT":
+                    pio = _xr.get("Piotroski_Score")
+                    xray_grade = str(_xr.get("Overall_Grade", "") or "")
                 _pe = str((_xr.get("Raw_Metrics") or {}).get("P/E Ratio", "") or "")
                 pe_val = _to_num(_pe) if _pe and _pe != "N/A" else None
         except Exception as e:
