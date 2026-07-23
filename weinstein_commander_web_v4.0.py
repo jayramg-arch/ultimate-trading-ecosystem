@@ -2419,7 +2419,7 @@ def section_edges(rec, ctx, cmp_px) -> str:
     return card("MATHEMATICAL EDGES", rows, "#7B1FA2")
 
 
-def section_recovery(rec_r, cmp_px) -> str:
+def section_recovery(rec_r, cmp_px, canon_stage=None) -> str:
     """Recovery engine read (REV-CB/RS/EARLY + WYC-*), parallel to the bull side.
 
     The bull screener above only sees the 6 bull catalysts; recovery setups
@@ -2466,7 +2466,10 @@ def section_recovery(rec_r, cmp_px) -> str:
         (f"Beaten down (≥{_dd_floor:.0f}% off 52WH)", fnum(corr, 1, "%") if corr is not None else "—",
          "pass" if beaten_down else "fail"),
         (f"RFF gate (≥{_rff_min}/6)", f"{rff_b}/6 · {rff_q}", "pass" if rff_ok else "fail"),
-        ("Stage (weekly)", f"Stage {_stg_digit(_g(rec_r, 'Weinstein_Stage', default='')) or '—'}", "na"),
+        # Reconciled to ONE canonical weekly stage (the shared ctx computation) so a
+        # stock never shows two contradicting stages across panels (item 16). Falls
+        # back to the recovery row's own stage only when no canonical is passed.
+        ("Stage (weekly)", f"Stage {canon_stage if canon_stage not in (None, '', '—') else (_stg_digit(_g(rec_r, 'Weinstein_Stage', default='')) or '—')}", "na"),
         ("In recovery band (15-35%)", fnum(corr, 1, "%") if corr is not None else "—",
          "pass" if (corr is not None and 15 <= corr <= 35) else "watch"),
         ("RS vs N500", fnum(_g(rec_r, "Mansfield_RS_x100"), 1), "na"),
@@ -2500,6 +2503,28 @@ def section_recovery(rec_r, cmp_px) -> str:
             _src_txt += f" (⚠ {_adays}d old — re-run the recovery scan)"
         rows.append(("Read from", _src_txt, _src_state))
     return card("RECOVERY ENGINE · REV / WYC", rows, "#00838F")
+
+
+def _recovery_plan_card(wf) -> str:
+    """The disciplined recovery plan (GM Step-6: structural SL + R:R) — shown on the
+    recovery path instead of the bull catalyst geometry, and instead of the raw
+    recovery-screener levels (whose SL sat near the 52-week low and whose T2 could
+    invert below T1). Uses the SAME plan_entry/plan_sl/plan_t1 the guided-execution
+    sizer uses, so the plan card and the sizer can never disagree."""
+    e = wf.get("plan_entry"); s = wf.get("plan_sl"); t1 = wf.get("plan_t1")
+    if not (e and s and e > s):
+        return card("TRADE GEOMETRY · recovery plan",
+                    [("Status", "No disciplined level yet", "na"),
+                     ("Levels", "await a trigger / location", "na")], "#00838F")
+    slp = (e - s) / e * 100.0
+    rr = ((t1 - e) / (e - s)) if (t1 and t1 > e) else None
+    rows = [
+        ("Entry", inr(e), "na"),
+        ("Stop-Loss", f"{inr(s)} (-{slp:.1f}%, structural)", "fail"),
+    ]
+    if t1:
+        rows.append(("Target 1", inr(t1) + (f" ({fnum(rr,1)}R)" if rr is not None else ""), "pass"))
+    return card("TRADE GEOMETRY · recovery plan", rows, "#00838F")
 
 
 def section_trade(rec, cmp_px) -> str:
@@ -3588,9 +3613,11 @@ from pa_patterns import (
 )
 
 
-def section_pa_patterns(ctx) -> str:
+def section_pa_patterns(ctx, recovery: bool = False) -> str:
     """PA pattern batteries — split into COMMON (in both), BULL-only and RECOVERY-only
-    sub-cards so the two batteries (17 bull / 10 recovery, some shared) read clearly."""
+    sub-cards so the two batteries (17 bull / 10 recovery, some shared) read clearly.
+    `recovery` = the ACTIVE decision path, so the Σ chip reflects the right battery
+    (was always bull → a recovery stock showed the bull Σ)."""
     bull = _g(ctx, "pa_patterns", default=[]) or []
     rec = _g(ctx, "recovery_pa_patterns", default=[]) or []
     if not bull and not rec:
@@ -3614,8 +3641,11 @@ def section_pa_patterns(ctx) -> str:
     bull_only = [p for p in bull if p[0] not in _common]
     rec_only = [p for p in rec if p[0] not in _common]
 
-    # Summary chip = the ACTIVE decision-path battery's Σ (bull is the default path).
-    tier_sum = _sum(bull if bull else rec)
+    # Summary chip = the ACTIVE decision-path battery's Σ (recovery when the recovery
+    # path is selected, else bull). Was hardcoded to bull → the score-strip PA chip
+    # showed the bull Σ on a recovery stock (the leak).
+    _active_batt = (rec if recovery else bull) or bull or rec
+    tier_sum = _sum(_active_batt)
     SECTION_SCORES["Pa Patterns"] = (f"Σ +{tier_sum}", None, _scol(tier_sum))
 
     out = ""
@@ -3634,10 +3664,12 @@ def section_pa_patterns(ctx) -> str:
     return out
 
 
-def render_pa_banner(ctx) -> str:
+def render_pa_banner(ctx, recovery: bool = False) -> str:
     """High-visibility banner when strong PA patterns are live — Jay can't
-    spot these on the chart; the dashboard must shout them."""
-    pats = [(n, t) for n, f, t, _ in (_g(ctx, "pa_patterns", default=[]) or []) if f]
+    spot these on the chart; the dashboard must shout them. `recovery` = active
+    path, so the banner reflects the recovery battery on a recovery name."""
+    _key = "recovery_pa_patterns" if recovery else "pa_patterns"
+    pats = [(n, t) for n, f, t, _ in (_g(ctx, _key, default=[]) or []) if f]
     if not pats:
         return ""
     tier_sum = sum(t for _, t in pats)
@@ -12894,7 +12926,7 @@ elif page == 'GOLDEN MATCHER':
             wf = wf_rec if _pick.startswith("🔄") else wf_bull
         else:
             wf = wf_bull
-        _pa_html = render_pa_banner(ctx)
+        _pa_html = render_pa_banner(ctx, recovery=bool(wf.get("recovery")))
         if _pa_html:
             st.markdown(_pa_html, unsafe_allow_html=True)
 
@@ -13120,18 +13152,33 @@ elif page == 'GOLDEN MATCHER':
             # the one-glance score strip ABOVE the panels — read the strip, open a card
             # only when its score surprises you.
             SECTION_SCORES.clear()
+            # PANELS FOLLOW THE ACTIVE PATH (recovery-context-leak fix). When the
+            # Recovery path is selected, the shared metrics reflect the RECOVERY
+            # source (Mansfield RS, recovery PA-battery Σ) and the plan card shows the
+            # disciplined recovery levels — a recovery stock no longer shows bull
+            # Stage/RS/Σ. Stage is the ONE canonical shared weekly value (item 16).
+            _rec_active = bool(wf.get("recovery"))
+            _mansf_disp = (_g(rec_r, "Mansfield_RS_x100") if _rec_active else mansfield)
+            _canon_stage = _stg_digit(_g(rec, "Stage", default="")) or "—"
             _h_board  = render_technical_board(rec, ctx, cmp_px, mansfield)
-            _h_pa     = section_pa_patterns(ctx)
+            _h_pa     = section_pa_patterns(ctx, recovery=_rec_active)
             _h_ctx    = section_context(rec, ctx, cmp_px)
-            _h_struct = section_structure(rec, ctx, cmp_px, mansfield, decision)
+            _h_struct = section_structure(rec, ctx, cmp_px, _mansf_disp, decision)
             _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)
             _h_edges  = section_edges(rec, ctx, cmp_px)
-            _h_trade  = section_trade(rec, cmp_px)
+            # Plan card: on the recovery path show the DISCIPLINED recovery levels
+            # (GM Step-6 plan, structural SL) instead of the bull catalyst geometry —
+            # was showing bull Entry/SL/T1/T2 for a recovery name (item 23).
+            _h_trade  = (_recovery_plan_card(wf) if _rec_active else section_trade(rec, cmp_px))
             _h_levels = section_levels(rec, ctx, cmp_px)
-            _h_sector = section_sector(rec, ctx, mansfield)
+            _h_sector = section_sector(rec, ctx, _mansf_disp)
             _h_funda  = section_fundamentals(fun, bff=ctx.get("bff"))
-            _h_recov  = section_recovery(rec_r, cmp_px)
+            _h_recov  = section_recovery(rec_r, cmp_px, canon_stage=_canon_stage)
             _mpass, _ = minervini_checks(ctx, cmp_px, mansfield)
+            if _rec_active:
+                st.info("▸ Panels reflect the **Recovery** path (Mansfield RS, recovery PA Σ, "
+                        "disciplined recovery plan). The bull-leadership cards below "
+                        "(Structure · Bull Gates · Edges) are shown as reference.")
             st.markdown(render_score_strip(_mpass), unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3, gap="medium")
             with c1:
