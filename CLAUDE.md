@@ -1201,4 +1201,172 @@ Branch `phase0-1-attribution-journal-snapshot`, all PUSHED (ff `main` pending fo
 
 ---
 
+---
+
+## 16 July 2026 — S4 v3.0 Zone Engine + GM S4-GO preview + lean Pine screener (HANDOFF)
+
+Long multi-thread session. Branch **`phase0-1-attribution-journal-snapshot`** (uncommitted). **Rule reaffirmed: NEVER auto-compile on TradingView — hand Jay the file, he compiles & reverts** ([[never_autocompile_tradingview]]).
+
+### A. NEW FILE `Section4_Entry_Trigger_v3.0.pine` (was v1.0/internal v2.9.1)
+Ported the **Institutional Zone Engine v4.2** demand/supply subsystem WHOLESALE into S4: `f_detectZone` (RBR/DBR/RBD/DBD patterns) + `f_structZone` (pivot structural, NEW — refactored to a ZoneSig fn so it runs via request.security like patterns) on **Chart+Daily+Weekly+Monthly**. OB removed as support source (zones replace it); FVG + pivots kept. IZE panel NOT ported. Key tuning landed this session:
+- **MTF propagation FIXED** (was broken): (1) HTF zones wrongly age-expired in CHART bars → now calendar ageing per-TF (M 4y/W 2y/D 6mo/125m 4w/75m 3w, by FORMATION time, DELETE not grey); (2) same-TF dedup only (was any-TF → dropped monthly structural — pattern zones bypass dedup, structural didn't → asymmetry killed monthly).
+- **Per-TF width band** (× ATR14): M 0.5–4.0 · W 0.4–3.5 · D 0.3–3.0 · 125m 0.25–2.5 · 75m 0.2–2.0 (native picks by chart TF). Too-tight 75/125 max is the #1 knob if intraday zones vanish.
+- **Tested rule** (Jay's): reaction (wick pierced proximal / closed inside, then next bar moved out) THEN any of: travel ≥ testedTravelMult(2)×width / close crossed daily EMA20 / close crossed nearest HTF pivot (strongPivotTF Daily/Weekly). Tested → DELETED (no grey).
+- **Visuals:** near-transparent fills (bgAlpha 93–96), thin borders (1px/2px controlling), **box-text labels** (left, vertically centred, 10-space indent, size.small), **per-TF label colours** (M amber/W white/D yellow/125 cyan/75 green), violation mark = tiny faint dot (was ✗). **Exclusive controlling** (only the DZ nearest ATH; demote prior on new-ATH). Controlling assessed on OWN TF only (native), HTF-via-security never controlling in LTF.
+- **FVG Polygraph = Option C** (`require_intraday_fvg` default OFF): all intraday zones draw; FVG-backed (leg-out FVG) get ⚡ + brighter border, NOT filtered. Structural suppressed on intraday. LTF levels never shown on HTF, HTF shown on LTF (TF guardrails on f_zones FVG/pivot drawing too).
+- **GO logic REDESIGNED** (Jay's Option A): `go = any_pa (PA battery, mode) AND support_pass (location) AND vol_ok AND bar_ok`. AVWAP/intraday now OPTIONAL timing (⏱). **bar_ok** (lenient) = green OR close in upper half (kills big-red distribution/upthrust GOs; a structural pattern like 3BR/VCP/BC can fire on a red new-high-then-close-red bar — bar_ok vetoes it). **use_closed_candle** (default ON) shifts TRIGGER/PA-grid/STATUS/RV/Support/markers to the LAST CLOSED bar ([_so]). Panel: TRIGGER/STATUS = `P·L·V·B` (+⏱); verdict "GO — arm buy-stop > bar high".
+- **Plan SL fixed** (was ~24% far-AVWAP bug): now structural = demand-zone distal (in-zone→nearest below) → recent swing low → 2.5×ATR, capped 3×ATR, shows % risk.
+- Panel rows: Support Zone (DZ⚡/FVG/Piv/AVWAP/EMA/~Fib), Zones (MTF) + `natC d/f/m/L` funnel diagnostic (still in — strip when zone tuning done), Room for Trade (overhead = nearest supply zone/flipped-pivot/HTF-pivot), Price vs EMA20, per-TF ageing/width inputs.
+
+### B. GM Python — S4-GO preview + structural SL (weinstein_commander_web_v4.0.py + gm_trigger_board.py)
+- **`_plan_structural_sl()`** (NEW) wired into compute_workflow + compute_recovery_workflow — nearest FRESH zone distal (OB/FVG/pivot D+W) below entry, 3×ATR cap. Fixes the GM's far-SL (EMA20-fallback on extended names).
+- **`s4go_status()`** (NEW, shared in gm_trigger_board.py — zero-drift) = the S4 stage-2 gate mirrored → **gates-passed closeness score** `4/4 GO / 3/4 · no vol / 2/4 · no loc / n/a` (leading n/4 sorts desc). **S4-GO column** on the board (pinned by Category, coloured) + matching chip on Single Symbol. Two-stage kept: Category = stage-1 ARM (pa_fired, NO bar_ok); S4-GO = stage-2 (PA·loc·vol·bar). Location = GM's OB/FVG twin (S4 uses IZE) → strong predictor, not identical.
+- **`gm_load_intraday` drops the FORMING bar** → reads last CLOSED bar (relvol/bar_ok/cmp). Added `bar_ok` (close-strength) to its return.
+- **Maximized board** default-sorts by S4-GO closeness (single-glance monitor). Enables dropping the redundant auto-refresh board window (workflow #3).
+
+### C. NEW FILE `Commander_S4_Trigger_Screener_v1.0.pine`
+Lean, **ZERO request.security** Pine-Screener sibling of S4. Computes GO gate on chart TF (patterns copied verbatim; HTF+Stage-2-Launch dropped; location = EMA20/pivot proxy). Plots **Gates(0-4)·GO·Sigma·RV·Loc·Bar·FVG·LTP** columns + "S4 Screener GO" alertcondition. Bull/Recovery mode input. Apply on 75/125m, sort by Gates, one watchlist alert.
+
+### Workflow optimizations shipped (all 3): #1 S4-GO preview on both GM surfaces · #2 lean Pine screener + alert · #3 maximized board as single monitor. Location-accuracy ceiling = GM/screener use OB/FVG/EMA proxy vs S4's IZE zones (port IZE→Python is the future big lever).
+
+### NEXT STEP (Jay): **fine-tune the zone MARKINGS** — "some zones not drawn correctly, logic not followed" (proximal/distal on wrong candle, leg-in inclusion, width/offset, RBR-vs-DBR mislabels, spurious/missing zones). Awaiting a chart screenshot of a specific wrong zone + what it should be. Also pending: commit branch → main; RELIANCE Stage-4 exit; recompile S4 v3.0 + screener in TV (Jay); re-baseline validation (post bull_screener VCP (v*v) + Dhan date-shift fixes).
+
+---
+
+## 18 July 2026 — S4 Entry Trigger issues-list sweep (v3.5 → v3.9)
+
+Worked `S4 Entry Trigger Issues.txt` end-to-end in `Section4_Entry_Trigger_v3.0.pine` (in-file title now **v3.9**). Rule reaffirmed: [[never_autocompile_tradingview]] — hand Jay the file, he compiles. Jay confirmed **v3.5 compiled clean**; v3.6→v3.9 are staged for one compile (each detection change has its own off-switch to isolate a regression). New memory: **[[s4_zone_tf_mismatch_and_diagnostics]]** (judge a zone on its OWN timeframe; the 3-lever diagnostic toolkit).
+
+**Panel-restructuring decision:** v3.4 PANEL REBUILD is KEPT (Jay: "keep v3.4, resume other issues"). Did NOT redo the panel.
+
+**Shipped by version:**
+- **v3.5** — #1 trigger path-specificity (GO always needed PA; the 4 SHARED patterns Spring/Engulf/3-Bar/Pocket make it hold across a Bull↔Recovery flip → TRIGGER row now tags `⇄both` / `Bull-only` / `Rec-only`). #4 Daily zone label → light blue.
+- **v3.6** — #47 load no longer forces a Trendline draw (removed all 12 `confirm=true` from manual box/TL → numeric inputs). #37 zone fill transparency = input `zoneFillTransp` (88, was 93-96). #41 "Show tested zones in grey" toggle (new `Zone.tested` field; greys+freezes instead of deleting, excluded from trigger/counts). #61 TRIGGER amber-when-waiting. #62 ANALYSIS row slimmed to VERDICT-only (`show_analysis`).
+- **v3.7** — #34 narrow-zone wick-to-wick rescue (`narrowWickToWick`). #27 recency: displayed score decays formation→ageing-cap (`recencyDecay`/`recencyMaxDrop=20`, label + panel grade). Verified already-correct: #2 (ftLag/ftMaxRescue split), #3 (all 3 Controlling criteria), #5 (`use_closed_candle`), #29 (40-pivot pool per TF, M/W/D), #43 (wicky-FT cancel via noRevBull/noRevBear).
+- **v3.8** (screenshot-driven, from CoalIndia-W/Caplipoint-W/Anandrathi-M/Acutaas) — **#25/#40/#42 HTF OVER-REMOVAL FIX**: the tested EMA/level cross referenced the DAILY EMA20 for W/M zones → a weekly zone died on a daily EMA cross (CoalIndia 3 of 37 weekly alive). Now EMA/level applies to DAILY zones only; W/M judged by TRAVEL (own-TF ATR) + VIOLATION. #59 phantom geometry → geometry connectors DRAWN (`drawGeomLines`). Pivot-zone toggle surfaced (relabelled `useStructural` → "Draw Pivot (Structural) zones" for isolation). **Daily/intraday under-marking → per-TF leg-in**: split the global `legin_atr` (raised 0.3→1.0 on 17-Jul, the recent tighten) into `legin_ltf` (0.6, intraday+daily) / `legin_htf` (1.2, weekly+monthly) — resolves the #35 tension (monthly strict, daily/intraday loose).
+- **v3.9** — #30 S/R wick-pierce touches (`sr_wick_touch`: a level counts a pivot when its line threads the pivot's wick, not only the extreme; pierce-touch counted but doesn't drag the mean; feeds MTTWR). #31 rectangles drawn as a box for the "Range/rectangle" geometry. **#36/#40 D/W/M PATTERN FUNNEL** added to the diagnostics row (`pat D d/c·L  W d/c·L  M d/c·L`) — a missing daily/weekly/monthly pattern zone is now self-diagnosing (d=0 detection gate / d>0 c=0 EMA-RS-dedup / c>0 low-L removal).
+
+**Answered (no code):** #26 (3 Controlling criteria present), #28 (HTF=High Tight Flag is in the bull battery; Bull Flag ≠ HTF), #32 (pivot zones share the pattern lifecycle; no volume profile anywhere), #33 (pivot = weaker secondary shelf; location/stop confluence, not standalone), #39 (pivot zones NEVER override pattern zones — pattern created first, wins dedup), #58 (Nearest-AVWAP vs S/R-nearest vs Support-Zone are 3 different fields), #60 (Structure basis says "above 30WMA", deliberately not "reclaimed").
+
+**Still open (as of the v3.9 sweep):** #57 (needs Acutaas **75m** chart). Superseded below: the arrival/order-flow items shipped in v4.0.
+
+### v4.0 (18 Jul) — Arrival Style + Order-Flow Footprint (quality-of-zones #4/#5)
+- **Arrival Style** (pure geometry): velocity of the approach leg into the zone (ATR/bar) → FAST (sharp rejection likely) / GRIND (absorbing → bleed-through) / NORMAL. Inputs `arr_look` 20 · `arr_vel_fast` 0.5 · `arr_vel_slow` 0.22.
+- **Order-Flow Δ** (bar-level PROXY, NOT true tick/aggressor delta — no TV plan exposes that to Pine): intrabar up/down-volume via `request.security_lower_tf` (`of_ltf` default 1-min; must be < chart TF), summed over `of_win` 5 bars + delta-divergence → ABSORBING Δ+ / BLEEDING Δ− / NEUTRAL.
+- New **"Arrival · Δ" panel row** (row 26) + two confluence weights `cf_w_arrival`/`cf_w_absorb` (default 1, gated by `show_arrival`; they GRADE not GATE). Guide rewritten to **v4.0** (`Section4_Entry_Trigger_Guide.md`, comprehensive — 21 sections + Arrival section 6a).
+- **Jay confirmed v4.0 compiled clean.**
+
+### GM Board ↔ S4 GO mismatch — DIAGNOSED (not a bug), then the "big lever" started
+Jay: board shows 5 names 4/4 GO but S4 shows no GO. Diagnosis (4 = "No PA", 1 = "No Location"):
+- **Battery diff done — the 17 bull PA formulas are BYTE-IDENTICAL** between S4 `f_daily_pa` (chart-TF via `loc_*` when `use_chart_tf` ON) and Python `pa_patterns.detect_bull_patterns(intraday=True)`; both run on 75m bars. So the batteries are **NOT drifted** and S4's GO isn't broken. The "PA vs no-PA" gap is (a) **mode/path mismatch** (board's workflow path vs S4 Auto → different battery evaluated; the documented "Pine can't see GM's live Bull/Recovery decision" — set S4 Mode manually), (b) **feed data** (Dhan board vs TV S4 75m OHLCV, esp. volume on rv-gated patterns), (c) **snapshot staleness**. The 1 "No Location" = the OB/FVG/pivot-proxy vs IZE-zones ceiling.
+- Jay's call: don't force agreement; instead do the pending **"port the S4 zone engine to Python"** (the big lever).
+
+### **NEW `zone_engine.py`** — S4 IZE zone engine ported to Python (the big lever, phase 1)
+Faithful port of the S4 Pine `f_detectZone` + lifecycle so the GM LOCATION gate uses the SAME leg-base-leg zones S4 draws (not the OB/FVG/pivot proxy). Ported: gap-bridged (invisible) candles, RBR/DBR/RBD/DBD, **per-TF leg-in (#35)**, wick distals + **narrow wick-to-wick (#34)**, per-TF width band, FVG-Polygraph tag, base/body/volume score, lifecycle (reaction → travel-tested in own-TF ATR + **daily-EMA-tested DAILY-only per the #25 HTF fix** → violation → calendar ageing), same-dir overlap dedup. Public API `detect_zones(df, tf)` + `zone_support(df, tf, px)`.
+- **Smoke-tested (venv):** DBR/RBD detection, `at_support` inside a fresh zone (score 93) + the 1.5% "near" path, violation + reaction-travel lifecycle — all pass. Both `zone_engine.py` and `weinstein_commander_web_v4.0.py` `py_compile` clean.
+- **Wired into the GM** location gate behind flag **`GM_USE_IZE_ZONES = False`** (weinstein_commander_web_v4.0.py, near `INHERIT_QUALIFICATION`): ON = an IZE demand zone (Daily + confirmed-Weekly) containing/near price ALSO satisfies `at_support` (superset with the proxy, toward S4 z_inDZ parity); OFF (default) = legacy proxy only. Fully guarded — any failure leaves the proxy untouched.
+- **PHASE 2 DONE — the LOCATION HALF of S4's `support_pass` is fully ported.** Added to zone_engine.py: `detect_sr_levels`/`sr_support` (S/R horizontal levels — #30 wick-pierce touches + MTTWR grade + R↔S flip) and `avwap_support` (the 3 anchors Low/BO/Gap → `near_avwap`). Wired both into the GM gate under `GM_USE_IZE_ZONES`. **GM location gate (flag on) now = IZE zones + FVG/pivot proxy + `near_sr` + `near_avwap`.** All smoke-tested on real Dhan data (merged table verified: each source contributes distinctly — RELIANCE via IZE zone, COALINDIA via proxy+AVWAP). **Deliberately EXCLUDED `near_ema`** — it fires near the daily EMA20 most of the time and would make the board OVER-predict 4/4 GO (the board is a predictor; precise sources = better predictor; S4 includes near_ema only because the S4 chart is final).
+- **STILL DEFERRED — display/scoring ONLY (NOT location):** recency-decay display, Controlling 3-criteria promotion, geometry/rectangles, manual trendlines.
+- **NEXT:** A/B-validate `GM_USE_IZE_ZONES=True` against S4 on a few live names (Jay reads S4, compares the board's location), then flip the flag on + decide OR-vs-replace on the proxy merge.
+
+### Late-session (18 Jul, evening) — "zero GOs" investigation → CRITICAL v4.1 bugfix + v4.2 verdict
+
+**Jay's complaint:** GM board dropped from multiple S4-GOs (60-70% converting on S4) to ONE (CDSL), S4 showing none — "the levers are meant to strengthen identification, not filter everything out."
+
+**Diagnosis chain (each step measured, several early hypotheses corrected by Jay):**
+1. Funnel on the REAL 39-name board universe (`FINAL_GOLDEN_MATCHER.csv` — NOT the 11-name union I first measured): PA 31% · location 46% · RV≥1.0 only **26%** (median RV 0.70, quiet Friday) · clean bar 56% → exactly 1 GO. Chartink scans genuinely thin (Hunter **1**, EarlyBird 1, Leaders 2 — auto-pilot log shows ✅ success, market breadth is real). Weekend = one frozen bar. **The levers were NOT the cause.**
+2. De-tightenings shipped anyway (both measured): `legin_htf` 1.2→**1.0** (the 1.2 was a global tighten off one Acutaas chart); `sr_mttwr_n` 4→**6** in BOTH Pine and zone_engine.py (measured: 40-45% of all levels graded MTTWR → near_sr effectively never fired; at 6, RELIANCE's 5-touch shelf 0.2% below price is usable again). #30 wick-pierce was tested and exonerated (identical MTTWR counts ON/OFF).
+3. **CDSL Σ mismatch (GM Rec Σ+3 "Higher-Low/2B" vs S4 Σ0, SAME Recovery path) → REAL BUG FOUND, v4.1:** `f_daily_pa`'s `_o = confirm_daily ? 1 : 0` shift was applied to BOTH the daily security call (correct) AND the chart-TF `loc_*` call (WRONG) → with defaults (use_chart_tf ON + confirm_daily ON) the S4 battery evaluated the bar BEFORE the last closed one; live it compounded with `[_so]` → up to 2 bars stale, silently eating triggers. Proof: CDSL 2B=+3 on last bar, 0 on bar[-2], daily AND 75m. Fix: `confirmShift` param (daily call true, chart-TF call false). **Likely the true cause of the GM→S4 conversion collapse.** Jay recompiled v4.1 → S4 CDSL now shows Rec Σ+3 ✓ (parity restored), blocked only by volume (RV 0.72, legit).
+   *Memory lesson updated ([[zone_engine_port]]): when two surfaces disagree, diff the EVALUATED BAR/offset, not just the formulas; I had only diffed the BULL battery while claiming parity generally — the failing case was RECOVERY.*
+4. **v4.2 — VERDICT now RULES (Jay: "give a clear direction from ALL the key metrics"):** 5 rulings — TAKE IT / SKIP (GO but in-supply·<1R room, or neither house gate) / **NOT TRADEABLE** (blocked AND in-supply — "clearing that gate alone will NOT make this a trade", the CDSL case: volume-blocked but INSIDE supply with −0.1R) / LOW QUALITY (GRIND arrival Δ−) / ARM (names the one missing gate + what to watch). **Multi-line** (`\n` in one cell — a single long sentence was stretching the panel over the chart): headline / reason / disqualifier / metrics digest / action. Digest line = Loc sources (DZ/S-R/AVWAP/EMA20 +★ctrl ×NTF) · room R · arrival+Δ · RV · conf · path Σ. **Arrival · Δ row moved to row 14 (directly above TRIGGER)**; rows 14-25 shifted +1 (TRIGGER 15 · Plan 16 · Entry 17 · Qty 18 · PA 19-22 · Structure 23 · STATUS 24 · VERDICT 25 · Diag 26); verified rows 0-26 unique, both f_row AND raw table.cell forms. `_mx` built with successive assignments (wrapped-expression indent trap). `_roomTag`/`_arrTag` retired.
+
+**PENDING: Jay to compile v4.2** (carries: multi-line ruling verdict + Arrival row move; v4.1 stale-bar fix + de-tightenings already compiled in). Then Monday live session = the real conversion test. Infra bugs spotted in logs, unfixed: dhan_marketfeed asyncio "no current event loop in thread" crash (recurring), NSEFetcher archive failure.
+
+---
+
+## 19 July 2026 — S4 review batch (v4.1→v4.7) + zone/S-R Python port + infra
+
+> **▶ NEXT SESSION — START HERE (state as of session end):**
+> - **S4 `Section4_Entry_Trigger_v3.0.pine` = v4.7, COMPILED CLEAN by Jay.** No pending Pine edits. 14-item review essentially closed (code: 1,2,2b,3,4,7,8,10,12a,12b,13 + ABBOTINDIA/APOLLOHOSP fixes; answered: 5,6,9,14).
+> - **`dhan_marketfeed.py` fixed (asyncio loop) — proven, Python, no compile.** LTP overlay should stream in market hours.
+> - **RELIANCE Stage-4 exit DONE.** Jay working 2 other red holdings.
+> - **Immediate open items (Jay's call):** (1) **re-baseline validation** — worth running given all the detection changes (v4.1 stale-bar fix, de-tightenings, zone/S-R); ~2-3h. (2) **A/B `GM_USE_IZE_ZONES` vs S4 then flip** (default False, inert now). (3) **#11 rectangles** — Jay to test `geo_flat` 0.5-0.6; if an obvious range still won't draw, upgrade the 2-pivot classifier to multi-pivot. (4) commit branch → main.
+> - **Do NOT re-chase "the batteries drifted"** — formulas are identical; disagreements are evaluated-bar (fixed v4.1), feed (Dhan vs TV), or mode/path. See [[zone_engine_port]].
+> - **Jay = advisor/coach relationship, NOT a tip service** — sharpen the tool + pressure-test his read; his eyes win over the mechanical verdict.
+>
+> **PYRAMID / RISK SHIELD work (end of session, Python — RESTART Web Commander):**
+> - Jay: Risk Shield's AI Analysis contradicts the pyramid module + no revised SL shown on the add. ROOT CAUSE: two brains that never talked — `pyramid_logic.classify()` (deterministic ADD rule) vs the Active-Exits LLM (`get_stock_context_and_ai_review`, prompted ONLY for hold/trail/exit, never told the module verdict).
+> - **Fix 1** (`pyramid_logic.py` classify ADD branch): surface the revised stop — the catalyst-aware **Chandelier** (via `risk_common`) was ALREADY computed in the row (`row['chandelier']`), just not shown. ADD reason now says `RAISE stop → ₹X (from ₹Y)` — GUARDED: only when Chandelier > current stoploss (else `keep stop ₹Y`, never a silent lower).
+> - **Fix 2** (`weinstein_commander_web_v4.0.py` ~14252 + `get_stock_context_and_ai_review` OCO path): pass the module's `pyr_class`/`pyr_reason`/Chandelier into the AI prompt → the AI now RECONCILES (agree, or say why not; for ADD judge extended-or-not + confirm raise-stop) instead of contradicting.
+> - **Both compile clean.** The dedicated **Pyramid/Trim tab (Tab 2)** was already well-built — `render_section` shows a `chandelier` column (= the revised stop) + the trigger reason; the AI-contradiction was only in the Active-Exits tab (Tab 1).
+> - **NOT done (offered):** ADD-table column-clarity pass (rename/highlight `chandelier` → "Revised Stop / Raise-to"); an add-SIZE / combined-risk helper (needs Jay's capital + risk% — deliberately not guessed). ADD size stays the trader's discretionary call.
+>
+> **VALIDATION RE-BASELINE — DONE, and it's a MILESTONE (22-Jul run `20260722_135745`, bull, 24mo nifty500, catalyst-aware, 20 anchors/464 picks):** the VCP `(v*v)` fix + Dhan date-shift fix turned a NO-EDGE screener into one that clears the overfit gate. Mean matched alpha **−1.53% → +2.56%**, win **21.7% → 53.4%**, anchor hit **25% → 65%**, bootstrap prob-positive 80.2%. **Both families positive: POS +2.38% (120d), SWG +2.76%/61%win (60d) — SWG was the June −1.31% DRAG, now a contributor** (the VCP fix cleaned up the bleeding swing book). **OOS hard gate now ✅ PASSES** (was FAIL in June): IS α +0.66% / OOS α +1.41%, OOS/IS Sharpe 3.34 — edge persists & strengthens OOS → **Phase 3 (fitted weights) is UNBLOCKED**. Caveats: bootstrap CI95 [−1.44,+3.08] still straddles zero (20-anchor small sample); POS median −1.17% (lumpy, big-winner-carried, correct trend profile); RECOVERY screener NOT re-baselined (the slow ~2-3h run).
+
+
+Long session driven by Jay's 14-item S4 review, then live-trade reconciliations. All S4 changes in `Section4_Entry_Trigger_v3.0.pine` (now **v4.7**, Jay compiles each). Every scripted edit runs an odd-quote + row-uniqueness sweep (new memory [[bash-heredoc-de-escapes-backslash]] — Bash heredoc de-escapes `\n` → corrupts Pine strings; build escapes with chr(92) or use Edit/Write).
+
+### S4 versions this session
+- **v4.1 CRITICAL** — PA battery read a STALE bar: `_o = confirm_daily?1:0` was applied to BOTH the daily-security call AND the chart-TF `loc_*` call → with defaults the 75m battery evaluated the bar BEFORE last-closed (compounded with `use_closed_candle` [_so] → up to 2 bars stale, eating triggers). Fixed via `confirmShift` param. **The likely cause of the GM→S4 GO conversion collapse.** ([[zone_engine_port]] lesson: diff the EVALUATED BAR, not just the formula; the failing case was RECOVERY, which I hadn't diffed.)
+- **v4.2** — VERDICT rules (TAKE IT/SKIP/NOT TRADEABLE/LOW QUALITY/ARM), multi-line, weighs full panel; Arrival·Δ row moved to 14 (above TRIGGER).
+- **v4.3** — #1 draw the "must clear" obstacle on chart; #2 controlling zones were STRUCTURALLY DEAD (D/W/M passed ctrlAllowed=false — real bug, trend-reversal never counted); #3 over-extension → verdict; #4 EMA20-far zone-quality malus; #13 round numbers +1 confluence.
+- **v4.4** — #2b controlling M/W/D only (never intraday-native); #7 same-base zone dedup (`dedupSameBase`); #8 S/R wick-fit line placement (`sr_wick_fit`); #10 daily-battery-agreement +1 confluence (NOT a gate — Jay agreed); #12a dynamic risk (Kelly×vol×regime, Risk Allocator §9 port) in Qty row.
+- **v4.5** — #8 refine (count is pivots-only; line stays on max-wick set, no mean-drift); #12b TRADE-TYPE plan (Risk Shield is_swing: ATR%>4 / off52>30% / below-200 → SWING else POSITIONAL → sets SL cap 2.5×/4.0× ATR + R-targets swing 3R/5R · pos 5R/10R · Recovery T2=52WH).
+- **v4.6** — ABBOTINDIA: ext-ATR unit bug (daily-EMA20 distance ÷ 75m ATR inflated ~3×; use atrD_tf); WEAK-LOCATION guard (GO on AVWAP/EMA only, no zone/S-R → "CAUTION momentum/chase", not TAKE IT — this is why GM read "No location", both now consistent).
+- **v4.7** — APOLLOHOSP: BLUE-SKY/BREAKOUT-PIVOT ruling. A Stage-2 leader (above 30WMA+200DMA) within `ath_prox_pct` (3%) of its 52W high sitting in a supply band is a CONTINUATION pivot, not distribution — verdict reframes "SKIP·no room" → "BREAKOUT PIVOT: don't buy here, arm buy-STOP above the band ceiling, blue sky above". Only Stage-2 (a Stage 3/4 lower high stays a real SKIP). **Trading doctrine agreed:** ATH-pullbacks = often the best Minervini setups; buy the breakout ABOVE the pivot (never in the resistance), trail (blue sky, no fixed target); confirmation-before-entry = alert at the level → wait for a CLOSED 75m bar above on volume → buy-STOP above THAT bar (never a resting GTT at the level → false-breakout trap). GTT is for the SL once in.
+
+### Python (all inert until Jay flips flag / re-baselines)
+- `zone_engine.py` LOCATION port now complete: IZE zones + S/R levels (`detect_sr_levels`/`sr_support`, #30 wick-pierce + MTTWR) + AVWAPs (`avwap_support`, Low/BO/Gap → near_avwap). Wired into GM gate behind `GM_USE_IZE_ZONES=False`. near_ema deliberately excluded (over-predicts). `sr_mttwr_n` 4→6 (Pine+Py; 40-45% of levels were MTTWR → near_sr never fired). **A/B-validate vs S4, then flip.**
+- **`dhan_marketfeed.py` FIXED (19-Jul):** the recurring "no current event loop in thread 'dhan-marketfeed-gN'" crash = DhanFeed.__init__ calls asyncio.get_event_loop() (SDK marketfeed.py:48), which raises off the main thread (Py 3.10+). Fix: `asyncio.new_event_loop()+set_event_loop()` in the worker before constructing the feed. **PROVEN** (repro without / clean with). LTP overlay should stream during market hours now.
+
+### Jay's framing (this session)
+"You are my advisor and coach" — NOT a tip service. He does his own analysis; only trades on his own conviction. My role = make the tool honest/sharp so his read has better inputs, and pressure-test his analysis. When the verdict and his chart-read diverge, his eyes win. Don't over-trust the mechanical verdict.
+
+### Done / open
+- **RELIANCE Stage-4 exit DONE** (Jay, GTT sell, 18-Jul) — long-pending litmus finally closed. Two more red holdings he works today.
+- **Open:** #11 rectangles (Jay to test geo_flat 0.5-0.6; classifier+draw verified sound, only-2-pivots may be too coarse → multi-pivot upgrade if his chart shows an obvious range not firing) · flip GM_USE_IZE_ZONES after A/B · re-baseline validation (post the many detection changes) · commit branch `phase0-1-attribution-journal-snapshot` → main.
+
+---
+
+## 23 July 2026 — GM+S4 GO-gate backtest: the GO gate is a CLASSIFIER, not an entry optimizer
+
+Branch `phase0-1-attribution-journal-snapshot` (uncommitted). Ran the two 24mo nifty500 bull S4-GO validations built last session (`validation.py --gate s4go`, catalyst-aware windows, bootstrap 10k) — ARMED (`20260723_062636`, Stage-2+RS qualify) and CATALYST (`20260723_063652`, strict catalyst). Compared per-trade **matched-horizon alpha** vs the buy-at-anchor-close baseline `20260722_135745` (+2.56% mean, the VCP-fix milestone).
+
+### Verdict — GO-timing ERASES the entry edge (per-family × direction, never pooled)
+| | Baseline buy@close | S4GO-ARMED | S4GO-CATALYST |
+|---|---:|---:|---:|
+| Fill % | 100 | 66.3 | 64.9 |
+| n trades | 464 | 1942 | 268 |
+| **Mean matched α** | **+2.56%** | **−0.03%** | **−0.02%** |
+| Win % | 53.4 | 32.4 | 34.3 |
+| Bootstrap prob(α>0) | 80.2% | 33.2% | 18.9% |
+| OOS gate | ✅ PASS (Sharpe 3.34) | ⚪ NO-EDGE (IS α −0.32) | ⚪ NO-EDGE (IS α −1.06) |
+
+Per-family: POS/WYC·UP +3.47%→−0.13%, SWG·UP +2.80%→−0.09%, SWG·DOWN +2.54%→−0.2%. Only POS-ACCUM·DOWN survives (n=6-7, +2.3%). Not a composition artifact — holds cell-by-cell. Both OOS runs are un-gateable (IS α ≤ 0 → "fix the edge, not overfitting").
+
+### Mechanism (the recurring lesson, re-measured) — [[s4go_timing_gate_backtest]], [[pa_conversion_and_signal_lessons]]
+GO entry = **buy-STOP above the confirmed breakout bar** → higher entry against the SAME structural SL (distal / 10-bar swing low, 3×ATR cap in `replay._structural_sl`) → thin R → **67-69% stop out at ~7-8 days for −2% mean / 6-10% win**. The 33% survivors (trail-SL + time-expiry) are excellent (+3.4% to +13.8%, 84-100% win). Stop-outs bleed the mean to zero. **The GO gate cleanly classifies runners vs shakeouts; the SL geometry is what's broken.** Signal generation > exit calibration, again.
+
+### Follow-up A/B IN FLIGHT — wider GO stop
+Added a backward-compatible `sl_floor_by_family` knob to `replay._structural_sl` / `s4go_forward_trade` / `run_s4go_replay` (default None = reproduces the catalyst run byte-for-byte). Harness `s4go_stop_ab.py` qualifies each catalyst anchor ONCE (cached) then sims 3 stop configs on identical candidates: A0 control (no floor) · A1 flat 1.5×ATR floor · A2 catalyst-aware (SWG 1.5, POS/WYC/REV 2.5). Testing the classifier→stop hypothesis: does an ATR-floor stop (don't let tiny structures make razor-thin stops) recover the buy@close edge on GO-timed entries.
+
+**A/B RESULT — hypothesis REFUTED (wider stop does NOT recover the edge):**
+| config | mean α | median | win% | SLhit% | hold |
+|---|---:|---:|---:|---:|---:|
+| A0 control | −0.02% | −1.19% | 34.3% | 69% | 8.4d |
+| A1 flat 1.5× | −0.23% | −2.63% | 30.6% | 68% | 16.8d |
+| A2 catalyst-aware | +0.16% | −2.92% | 30.2% | 58% | 24.4d |
+
+The floor worked mechanically (SLhit 69→58%, hold 8→24d) but mean barely moved while **win% dropped (34→30) and median got much worse (−1.19→−2.92)** — widening the stop just converts quick −2% shakeouts into slow, LARGER losses. **The GO penalty is the buy-STOP ENTRY (buying higher after confirmation), not stop width — you can't stop-tune out of it.** Only exception: **POS-ACCUM** (180d accumulation) genuinely wants the long leash — A2 lifts it +0.69→+2.87% (win 42→45%), POS-ACCUM·DOWN +2.32→+6.69% — but n=38 and still below its +1.93% buy@close baseline. SWG gets WORSE with a wide stop (−0.10→−0.43%; short-horizon books bigger losses); POS·DOWN −0.49→−3.97%. **Conclusion: GO gate stays a trade CLASSIFIER, not an entry optimizer. Don't promote as entry filter, don't flip GM_USE_IZE_ZONES.** All A/B code inert by default (`sl_floor_by_family=None`). Artifacts: `validation_runs/_ab_{A0,A1,A2}_details.csv`, log `_s4go_stop_ab.log`.
+
+### Standing conclusions / DO-NOT
+- Do NOT promote the GO gate as a matched-alpha entry filter and do NOT flip `GM_USE_IZE_ZONES` on these numbers — location isn't the weak link, stop geometry is.
+- GO gate stays a live *arming/focus* tool (the [[gm_early_s4_execute_twostage]] doctrine is intact — GM arms, S4 GO times); the backtest is about matched-alpha entry optimization, a different question.
+
+### Open (unchanged + new)
+- Wider-GO-stop A/B (in flight, above) → if it recovers the edge, that's the real Phase-3 unblock path for the timed entry.
+- Prior open: #11 rectangles · flip GM_USE_IZE_ZONES after A/B · commit branch → main · RELIANCE done.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
