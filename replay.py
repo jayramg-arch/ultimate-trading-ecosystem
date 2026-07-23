@@ -807,12 +807,21 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
                        rv_floor: float = 1.0, cost_pct: float = COST_PER_LEG_DEFAULT,
                        trail_atr_mult: float = 4.5,
                        sl_floor_by_family: Optional[dict] = None,
+                       entry_mode: str = "buystop", retest_window: int = 8,
                        df_bench: Optional[pd.DataFrame] = None) -> dict:
     """Simulate ONE GM+S4 daily-approx GO entry for `sym`, starting the search at
     `as_of`. Steps: scan forward ≤ entry_window bars for the first bar where a PA
-    trigger fires AT a location WITH volume on a clean bar → arm a buy-stop above
-    that bar's high → fill within buystop_window bars → structural stop + R
-    targets → existing bar-by-bar exit sim → matched-horizon alpha from ENTRY.
+    trigger fires AT a location WITH volume on a clean bar → ENTER → structural stop
+    + R targets → existing bar-by-bar exit sim → matched-horizon alpha from ENTRY.
+
+    `entry_mode` (Fix-1 A/B, 23-Jul-2026):
+      • "buystop" (default, unchanged) — arm a buy-STOP above the GO bar's high, fill
+        on the thrust within `buystop_window` bars (chases the breakout extension).
+      • "retest"  — place a buy-LIMIT at the confirmed GO-bar CLOSE (the value the PA
+        fired at); fill on the first pullback (Low ≤ level) within `retest_window`
+        bars, else skip ("no retest in window"). Buys value, not the extension —
+        a materially lower entry near the buy@close baseline. Forward-only, no
+        look-ahead. Structural stop is unchanged (uses the GO-bar context).
 
     Returns a row dict (Status='OK' when a trade completed)."""
     triggers = GO_BULL_TRIGGERS if mode == "bull" else GO_REC_TRIGGERS
@@ -855,18 +864,32 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
         base["Status"] = "no GO in window"
         return base
 
-    # ── buy-STOP above the confirmed GO bar (confirmation-before-entry) ──
-    trigger = float(df["High"].iloc[go_pos])
+    # ── ENTRY ──
     entry_pos = entry_price = None
-    for j in range(go_pos + 1, min(go_pos + 1 + buystop_window, len(df))):
-        if float(df["High"].iloc[j]) >= trigger:
-            entry_pos = j
-            entry_price = max(float(df["Open"].iloc[j]), trigger)   # gap-through fills at open
-            break
-    if entry_pos is None:
-        base["Status"] = "buy-stop not triggered"
-        base["GO_Date"] = df.index[go_pos].strftime("%Y-%m-%d")
-        return base
+    if entry_mode == "retest":
+        # buy-LIMIT at the confirmed GO-bar close; fill on the first pullback to it
+        retest_level = float(df["Close"].iloc[go_pos])
+        for j in range(go_pos + 1, min(go_pos + 1 + retest_window, len(df))):
+            if float(df["Low"].iloc[j]) <= retest_level:
+                entry_pos = j
+                entry_price = min(float(df["Open"].iloc[j]), retest_level)  # gap-down fills better
+                break
+        if entry_pos is None:
+            base["Status"] = "no retest in window"
+            base["GO_Date"] = df.index[go_pos].strftime("%Y-%m-%d")
+            return base
+    else:
+        # buy-STOP above the confirmed GO bar (confirmation-before-entry)
+        trigger = float(df["High"].iloc[go_pos])
+        for j in range(go_pos + 1, min(go_pos + 1 + buystop_window, len(df))):
+            if float(df["High"].iloc[j]) >= trigger:
+                entry_pos = j
+                entry_price = max(float(df["Open"].iloc[j]), trigger)   # gap-through fills at open
+                break
+        if entry_pos is None:
+            base["Status"] = "buy-stop not triggered"
+            base["GO_Date"] = df.index[go_pos].strftime("%Y-%m-%d")
+            return base
 
     fwd = _go_forward_days(candidate, det, go_pos)
     # wider-GO-stop A/B: catalyst-aware ATR floor on the initial stop (default OFF)
@@ -934,6 +957,7 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
 def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
                     entry_window: int = 40, buystop_window: int = 5,
                     rv_floor: float = 1.0, sl_floor_by_family: Optional[dict] = None,
+                    entry_mode: str = "buystop", retest_window: int = 8,
                     out_csv: Optional[str] = None) -> dict:
     """Run the GM+S4 daily-approx GO gate over a candidate universe as-of `as_of`.
 
@@ -967,6 +991,7 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
         row = s4go_forward_trade(sym, as_of, candidate=meta, mode=mode,
                                  entry_window=entry_window, buystop_window=buystop_window,
                                  rv_floor=rv_floor, sl_floor_by_family=sl_floor_by_family,
+                                 entry_mode=entry_mode, retest_window=retest_window,
                                  df_bench=df_bench)
         rows.append(row)
 

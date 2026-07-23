@@ -1359,6 +1359,17 @@ Added a backward-compatible `sl_floor_by_family` knob to `replay._structural_sl`
 
 The floor worked mechanically (SLhit 69→58%, hold 8→24d) but mean barely moved while **win% dropped (34→30) and median got much worse (−1.19→−2.92)** — widening the stop just converts quick −2% shakeouts into slow, LARGER losses. **The GO penalty is the buy-STOP ENTRY (buying higher after confirmation), not stop width — you can't stop-tune out of it.** Only exception: **POS-ACCUM** (180d accumulation) genuinely wants the long leash — A2 lifts it +0.69→+2.87% (win 42→45%), POS-ACCUM·DOWN +2.32→+6.69% — but n=38 and still below its +1.93% buy@close baseline. SWG gets WORSE with a wide stop (−0.10→−0.43%; short-horizon books bigger losses); POS·DOWN −0.49→−3.97%. **Conclusion: GO gate stays a trade CLASSIFIER, not an entry optimizer. Don't promote as entry filter, don't flip GM_USE_IZE_ZONES.** All A/B code inert by default (`sl_floor_by_family=None`). Artifacts: `validation_runs/_ab_{A0,A1,A2}_details.csv`, log `_s4go_stop_ab.log`.
 
+### Fix-1 A/B — RETEST ENTRY (the real fix candidate: attack the ENTRY, not the stop)
+Diagnosis: the GO penalty is the buy-STOP entry (chasing the breakout extension above the confirmed bar's high) — a permanently higher entry vs buy@close. Fix-1 (`replay.s4go_forward_trade` new `entry_mode`; default `"buystop"`=unchanged, `"retest"`=buy-LIMIT at the confirmed GO-bar CLOSE, fill on first pullback within `retest_window`, forward-only) buys VALUE not the extension. Harness `s4go_entry_ab.py` (reuses `_ab_qual_cache`).
+| config | mean α | median | win% | SLhit | hold | fill (OK) |
+|---|---:|---:|---:|---:|---:|---:|
+| B0 buystop (control) | −0.02% | −1.19% | 34.3 | 69% | 8.4d | 268 |
+| **R_retest** | **+0.38%** | **−0.73%** | 33.8 | 64% | 8.4d | **320** |
+| R_retest+POS-floor | +0.29% | −2.76% | 32.2 | 54% | 25.8d | 320 |
+
+**Retest is a genuine, consistent improvement over buystop across EVERY family** (POS-ACCUM +0.69→+2.60 even w/o floor; SWG·DOWN −0.18→+0.89 win 27→52%) and fills 52 MORE names (buy-stop rejected 63 that never made a new high; retest only skips 11). It also matches Jay's own [[confirmation-before-entry]] doctrine (confirm→enter on the pullback, NOT chase). **BUT it recovers only ~0.4 of the 2.6pp gap to buy@close** — the residual is the structural **confirmation-wait tax** (waiting entry_window days for the GO to fire means winners already moved; not fixable by entry tweaks). Stacking the POS floor on retest again wrecks the median/SWG → floor is POS-ACCUM-only.
+**Net verdict: adopt RETEST as the GO entry convention (strictly better than buy-stop), but GO-timing's matched-alpha ceiling is buy@close minus the wait tax — it will not beat buy@close. Keep GO as the arming/classifier layer; use buy@close for mechanical alpha.** All code inert by default. Artifacts: `_entryab_*_details.csv`, log `_s4go_entry_ab.log`.
+
 ### Standing conclusions / DO-NOT
 - Do NOT promote the GO gate as a matched-alpha entry filter and do NOT flip `GM_USE_IZE_ZONES` on these numbers — location isn't the weak link, stop geometry is.
 - GO gate stays a live *arming/focus* tool (the [[gm_early_s4_execute_twostage]] doctrine is intact — GM arms, S4 GO times); the backtest is about matched-alpha entry optimization, a different question.
