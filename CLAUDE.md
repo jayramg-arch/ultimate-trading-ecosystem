@@ -2,7 +2,7 @@
 
 > **Purpose:** Persistent context file for Claude across Chat, Cowork, and Code.
 > Place this file in the root of any project folder used with Cowork or Code.
-> Last updated: 22 May 2026 (Validation framework campaign — catalyst-aware horizons, realistic execution sim, bootstrap CI, catalyst-aware SL discipline, rolled-back premature catalyst removals)
+> Last updated: 23 Jul 2026 (Gemini audit review → remediation: symbol-normalization consolidation, manual-webhook hardening, stale-feed + daily-PnL alarms, orphan-DB/atomic-write cleanup)
 
 ---
 
@@ -1406,6 +1406,76 @@ Every prior note that cites the reconciled journal loss (−₹4.99L / 25% win /
 ### Open (unchanged + new)
 - Wider-GO-stop A/B (in flight, above) → if it recovers the edge, that's the real Phase-3 unblock path for the timed entry.
 - Prior open: #11 rectangles · flip GM_USE_IZE_ZONES after A/B · commit branch → main · RELIANCE done.
+
+---
+
+## 23 July 2026 — Gemini audit review + remediation (memo + cheap wins + data cleanup)
+
+Jay had Gemini run an "unbiased institutional audit" of the GM + S4 ecosystem (report at
+`~/.gemini/antigravity-ide/brain/.../institutional_trading_ecosystem_audit.md`) and asked for MY
+recommendations, not implementation. Fact-checked every concrete claim (file:line), then — on Jay's
+go-ahead — shipped the small filtered-to-context subset. Branch `phase0-1-attribution-journal-snapshot`.
+
+### The audit's verdict: a generic HFT-infra review that graded a positional/swing desk as a low-latency execution desk
+**4 of 9 concrete claims FALSE:** Pine "v5" (all v6); MTF "look-ahead bias" (every `request.security`
+uses `lookahead_off` + confirm/closed-candle guards); "no slippage" (`replay.py` has 0.10%/leg cost +
+bar-by-bar SL/T1/T2 + gap-fill + armed-vs-filled); "heavy iterrows/apply" (zero in bull_screener).
+**2 TRUE-but-already-disclosed:** survivorship (`validation.py:92-96` labels alpha an "upper bound");
+Section4 332KB (real, but nowhere near TV's token/scope limit). **3 real:** dual-feed drift (already
+mitigated via As_Of/Stale_Data), the manual webhook, no drawdown circuit-breaker. The audit **never
+assessed EDGE** — Jay's own work already did that far more rigorously (matched-horizon WF + bootstrap
+CI + OOS gate → +2.56% selection alpha, OOS PASS; GO-gate-is-a-classifier). REJECTED as category error:
+Kafka/Redis-Celery/FIX/OMS-EMS/NautilusTrader/Mumbai-VPS/Docker-Grafana/Polars/full-DuckDB — none fit
+8-week-to-8-month holds with confirmed-bar buy-stop entries. Memo lives in the plan file
+`~/.claude/plans/i-asked-gemini-to-generic-noodle.md`.
+
+### Shipped (all zero-drift, no signal/backtest/Pine changes → NO re-baseline, NO TV recompile)
+1. **Symbol normalization consolidated (1A):** `gm_trigger_board._canon_key` was a WEAKER duplicate
+   (prefix/suffix strip only, disagreed on `_`/`-`/`&`) — the [[gm_symbol_ns_normalization]] bug class.
+   Now delegates to the authoritative `dhan_ohlcv.canonical_nse_symbol` (scrip-master, separator-
+   insensitive) with a guarded fallback to the cheap strip if the resolver is unavailable (board never
+   hard-fails offline). Verified: `BAJAJ_AUTO`/`BAJAJ-AUTO`→`BAJAJ-AUTO`, `M&M`/`M_M`→`M&M`.
+2. **Manual webhook HARDENED, kept manual-launch (1B) — `dhan_tv_webhook.py`:** `DRY_RUN` default→**True**
+   (live is now explicit opt-in `DRY_RUN=False`); margin check is now **BLOCKING** (was "continuing
+   anyway" — placed orders with balance unverified); NEW hard pre-trade risk gate `pre_trade_risk_check()`
+   before `place_forever` (max open positions / single-sector cap via `ai_risk_manager.analyze_sector_
+   concentration` + `sector_lookup` / per-trade risk-% of equity — rejects on breach, degrades OPEN only
+   when a sub-check genuinely can't compute); NEW in-memory idempotency dedup (same ticker+entry inside
+   `WEBHOOK_DEDUP_WINDOW_S` → rejected). Env knobs: `WEBHOOK_MAX_OPEN_POSITIONS`=15, `WEBHOOK_SECTOR_CAP_PCT`
+   =25, `WEBHOOK_MAX_RISK_PCT`=1.5, `WEBHOOK_DEDUP_WINDOW_S`=120. Archived the weaker duplicate
+   `webhook_daemon.py` (a 2nd FastAPI handler with `place_order` and NO risk check) → `_archive/legacy/`.
+   **Also fixed a latent launch crash:** `dhan_helpers.py` did a HARD `from dhanhq import DhanContext`
+   which does NOT exist in dhanhq 2.0.x → crashed EVERY consumer (incl. the webhook) at import. Guarded
+   it (DhanContext used only by `get_client()`, which no webhook path calls; now raises a clear error if
+   actually needed). This is the [[dhan_data_feed_wiring]] "DhanContext missing" issue at the dhan_helpers
+   root, not just the gtt_auto_shield wrapper.
+3. **Operator risk ALARMS (1C) — `scheduler_daemon.py`, notify-only, NEVER liquidate:**
+   `job_stale_feed_check` (every 15m in market hours; pulls a bellwether LTP via `data_provider.get_ltp`,
+   checks `get_last_source` ∈ {dhan-ws, dhan-ltp}; EDGE-triggered — one alarm on DOWN, one on RECOVER =
+   the audit's "stale feed disconnect guard") and `job_daily_pnl_alarm` (book unrealised-PnL drawdown from
+   live Dhan holdings, `PNL_DD_ALARM_PCT` default −3%, once-per-day latch, cash-park `LIQUID*` excluded =
+   the manual-desk form of the audit's circuit-breaker). Both reuse the existing `send_telegram` proxy sink.
+4. **Data cleanup (Tier 2, honestly scoped — NOT a DuckDB migration; state was already clean):**
+   deleted 3 zero-reference orphan DBs (`dhan_journal.db`, `weinstein_base.db`, `journal.db` — all 0-byte;
+   the `load_journal_db` refs are a FUNCTION name reading trade_journal_v6.db, not the file) → backed up to
+   `_archive/orphan_dbs_20260723/`. NEW shared `io_utils.atomic_write_text` (hoisted from gm_trigger_board,
+   which now re-exports it); routed the 4 plain-`to_csv` state writes through it (matcher's single
+   `save_with_golden_schema` choke-point → every `FINAL_*.csv`; `gmail_dispatcher` MASTER_Golden_Picks;
+   `catalyst_sentinel` both history CSVs). Deliberately did NOT migrate the Parquet OHLCV cache (already
+   the right shape) and recommended AGAINST the full DuckDB consolidation Jay initially picked (busywork).
+
+All verified with mock-Dhan unit tests (dedup, 3 risk gates, feed edge-trigger, PnL latch, atomic
+round-trip, re-export, canon). 9 files `py_compile` clean incl. the web app. **STANDING: restart the
+scheduler daemon (new jobs) + Web Commander (Python changes).** Committed on the branch.
+
+### Relationship note (reaffirmed)
+Jay = advisor/coach, not a tip service. He wanted the audit pressure-tested, not obeyed — the value was
+separating the 3 real gaps from the institutional-cargo-cult, and refusing the DuckDB busywork even though
+he'd selected it. [[second-order-review-before-done]] applied throughout.
+
+### Open (unchanged)
+- #11 S4 rectangles (Jay to test geo_flat) · flip `GM_USE_IZE_ZONES` after A/B vs S4 · merge branch → main
+  · recompile S4 v4.7 already done · RECOVERY-side validation re-baseline still pending (slow run).
 
 ---
 

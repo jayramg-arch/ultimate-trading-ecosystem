@@ -30,15 +30,10 @@ except Exception:
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
-def atomic_write_text(path: str, text: str) -> None:
-    """Write-tmp-then-os.replace so a kill mid-write can never leave a truncated
-    file (P1, 14-Jul-2026: a half-written board cache / RRG flags / settings file
-    used to silently read back as EMPTY — hand-curated state lost). os.replace is
-    atomic on the same volume on Windows + POSIX."""
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, path)
+# atomic_write_text now lives in io_utils (shared with the matcher / catalyst
+# history writers); re-exported here so the many `gm_trigger_board.atomic_write_text`
+# and `from gm_trigger_board import atomic_write_text` callers keep working.
+from io_utils import atomic_write_text  # noqa: E402,F401
 
 
 _RRG_PATH = os.path.join(_ROOT, "gm_rrg_flags.json")
@@ -86,12 +81,18 @@ STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader"}
 STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early"}
 
 
-def _canon_key(s: str) -> str:
-    """Normalize a symbol to the union-KEY form: upper, no NSE:/BSE: prefix, no
-    .NS/.BO suffix. The Single Symbol page passes 'APOLLOHOSP.NS' (TV/yfinance
-    style) while the watchlist union keys are bare 'APOLLOHOSP' — without stripping
-    the suffix the lookup misses and inheritance silently fails (board vs single
-    disagreement). One helper so union keys and lookups can never drift."""
+# Authoritative resolver (dhan_ohlcv.canonical_nse_symbol) — scrip-master-backed,
+# separator-insensitive. Imported guarded so a headless/offline import can never
+# hard-fail the board; when unavailable, _canon_key degrades to the cheap strip.
+try:
+    from dhan_ohlcv import canonical_nse_symbol as _canonical_nse_symbol
+except Exception:  # pragma: no cover — offline / import failure
+    _canonical_nse_symbol = None
+
+
+def _canon_key_strip(s: str) -> str:
+    """Cheap prefix/suffix strip — the offline fallback. Upper, no NSE:/BSE:
+    prefix, no .NS/.BO suffix. Does NOT collapse '_'/'-'/'&' separators."""
     s = str(s or "").strip().upper()
     for p in ("NSE:", "BSE:"):
         if s.startswith(p):
@@ -100,6 +101,28 @@ def _canon_key(s: str) -> str:
         if s.endswith(suf):
             s = s[:-len(suf)]
     return s.strip()
+
+
+def _canon_key(s: str) -> str:
+    """Normalize a symbol to the union-KEY form. The Single Symbol page passes
+    'APOLLOHOSP.NS' (TV/yfinance style) or 'BAJAJ_AUTO' (TV underscore) while the
+    watchlist union keys are bare 'APOLLOHOSP' / 'BAJAJ-AUTO' — without a
+    separator-insensitive resolve the lookup misses and inheritance silently fails
+    (the board-vs-single disagreement, [[gm_symbol_ns_normalization]]).
+
+    Delegates to the authoritative scrip-master resolver (canonical_nse_symbol) so
+    '_'/'-'/'&' variants collapse to ONE key — the weaker prefix/suffix-only strip
+    this replaced could disagree on separators. Falls back to the cheap strip when
+    the resolver is unavailable (offline/import failure) so the board never hard-
+    fails. One helper so union keys and lookups can never drift."""
+    if _canonical_nse_symbol is not None:
+        try:
+            out = str(_canonical_nse_symbol(s) or "").strip().upper()
+            if out:
+                return out
+        except Exception:
+            pass
+    return _canon_key_strip(s)
 
 
 # P1 (14-Jul-2026): per-call record of watchlist source problems — an unreadable
@@ -442,6 +465,74 @@ def trigger_category(verdict: str, path: str) -> str:
     return f"Other · {p}"
 
 
+def s4go_status(sigma_pa, ctx, intra_ok) -> str:
+    """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
+    triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
+    reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
+    Four gates: PA fired · at a location · RV ≥ 1.0 · trigger-bar closed strong (bar_ok).
+      4/4 GO          — all four align (the precise entry instant; catch via the alert)
+      3/4 · no vol    — armed + at location + clean bar, just needs volume  (watch)
+      2/4 · no loc    — armed + one more, needs a pullback to a location    (watch)
+      1/4 · no PA / …
+      n/a             — no intraday trigger-TF read (can't preview)
+    The leading n/4 sorts descending so the closest-to-GO float to the top. Location =
+    the GM's OB/FVG/pivot twin (S4 uses IZE zones) → a strong predictor, not identical;
+    the S4 chart is final. Reads the LAST CLOSED bar (gm_load_intraday drops the forming
+    bar)."""
+    ctx = ctx or {}
+    if not intra_ok:
+        return "n/a"
+    _rv = ctx.get("relvol")
+    _bar = ctx.get("bar_ok")
+    g_pa  = bool(sigma_pa and sigma_pa > 0)
+    g_loc = bool((ctx.get("support") or {}).get("at_support"))
+    g_vol = bool(_rv is not None and _rv >= 1.0)
+    g_bar = (_bar is None) or bool(_bar)          # unknown bar = don't penalize
+    n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar)
+    if n == 4:
+        return "4/4 GO"
+    _miss = ("no PA" if not g_pa else "no loc" if not g_loc
+             else "no vol" if not g_vol else "weak bar")
+    return f"{n}/4 · {_miss}"
+
+
+# ── S4-GO "n/a" observability ────────────────────────────────────────────────
+# P1 (17-Jul-2026): s4go_status returns "n/a" whenever the intraday trigger-TF
+# read failed. gm_load_intraday KNOWS why (auth / no data / thin history / not
+# closed yet) and the Single Symbol caption shows it — but the BOARD discarded
+# the reason, so an all-"n/a" column left the user with a misleading symptom: it
+# reads as a scoring problem when it is a data/feed problem. Same contract as
+# LAST_UNION_ISSUES — module-level, reset per build, rendered in the header strip
+# — and deliberately NOT a row column (it is a build-health fact, not per-name
+# decision data, and would otherwise leak into the grid and the CSV export).
+LAST_INTRA_ISSUES: dict = {}       # reason_code -> {"count", "reason", "symbols"}
+
+
+def reset_intra_issues() -> None:
+    """Clear the intraday-failure record. Call ONCE before a board build loop."""
+    LAST_INTRA_ISSUES.clear()
+
+
+def note_intra_issue(sym: str, code: str, reason: str = "") -> None:
+    """Record one symbol's intraday-load failure, bucketed by its stable `code`
+    (gm_load_intraday's contract). Prose `reason` carries per-symbol specifics —
+    bar counts, exception text — so it is kept only as ONE representative sample
+    per bucket; bucketing on it would shatter the count into one row per name."""
+    c = str(code or "unknown").strip() or "unknown"
+    e = LAST_INTRA_ISSUES.setdefault(c, {"count": 0, "reason": str(reason or c), "symbols": []})
+    e["count"] += 1
+    if len(e["symbols"]) < 10:            # bounded: a sample names it, a list floods it
+        e["symbols"].append(sym)
+
+
+def intra_issue_summary() -> list:
+    """Buckets, most-common first: [{code, count, reason, symbols}]. `symbols` is
+    a sample (≤10), so it may be shorter than `count`."""
+    return [{"code": c, "count": v["count"], "reason": v["reason"], "symbols": list(v["symbols"])}
+            for c, v in sorted(LAST_INTRA_ISSUES.items(),
+                               key=lambda kv: kv[1]["count"], reverse=True)]
+
+
 # category rank for picking the primary path when a name qualifies on both sides
 _CAT_RANK = {"Buy Trigger Live": 5, "Armed Wait": 4, "Wait for Pullback": 3,
              "No Catalyst": 2, "Watchlist": 1, "Invalidated": 0, "Avoid": 0, "Other": 0}
@@ -647,6 +738,21 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         sigma_pa = None
         _log.warning(f"{sym}: ΣPA aggregation failed (Setup dimension degrades): {e}")
 
+    # --- S4-GO PREVIEW (shared s4go_status → zero-drift with the Single Symbol page):
+    # the STAGE-2 gate mirrored from the S4 Pine (pa_fired · location · volume · bar_ok),
+    # so the board previews what the S4 chart will show WITHOUT opening each name on TV.
+    try:
+        s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"))
+        # Record WHY this row previews as "n/a" so the header can name the cause
+        # instead of the user staring at a dead column. gm_evaluate leaves
+        # intra_reason None when the read SUCCEEDED or was never attempted (Daily
+        # trigger-TF) — so a by-design "n/a" is never miscounted as a failure.
+        if s4go == "n/a" and ev.get("intra_reason"):
+            note_intra_issue(sym, ev.get("intra_reason_code"), ev.get("intra_reason"))
+    except Exception as e:
+        s4go = "·"
+        _log.warning(f"{sym}: S4-GO preview failed: {e}")
+
     _stale = g(rec, "Stale_Data")
 
     # --- Delivery % (NSE bhavcopy, one bulk fetch) — fallback to total volume ---
@@ -730,7 +836,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Symbol":     sym,
         "★":          ("★" if info.get("star") else ""),
         "Overall":    overall,
-        "Category":   cat,
+        "Category":   cat,                        # stage-1 ARM verdict (pa_fired; no bar_ok)
+        "S4-GO":      s4go,                        # stage-2 preview: PA·loc·vol·bar_ok (S4 chart is final)
         "Archetype":  arche_txt,                 # inherited setup thesis (Hunter=Breakout, …)
         "Loc":        _loc_col,                  # Step-4 location caveat (blank when fine)
         "Path":       "Recovery" if path == "recovery" else "Bull",

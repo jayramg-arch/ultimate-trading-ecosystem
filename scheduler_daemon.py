@@ -380,6 +380,105 @@ def job_exit_scan() -> None:
         send_telegram(f"⚠️ Exit-scan job failed: {exc}")
 
 
+# ── OPERATOR RISK MONITORS (audit remediation 1C, 23-Jul-2026) ───────────────
+# Two lightweight ALARMS the audit asked for — a stale-feed disconnect guard and
+# a daily-PnL drawdown warning. Both NOTIFY only (Telegram); neither cancels
+# orders or liquidates — the desk is manual/human-in-the-loop by design.
+
+FEED_STALE_ALARM   = os.getenv("FEED_STALE_ALARM", "True").lower() in ("true", "1", "yes")
+PNL_DD_ALARM_PCT   = float(os.getenv("PNL_DD_ALARM_PCT", "-3.0"))   # book drawdown % to warn at
+_FEED_BELLWETHERS  = ["RELIANCE", "HDFCBANK"]
+_LIVE_SOURCES      = {"dhan-ws", "dhan-ltp"}
+
+_feed_last_ok: bool | None = None   # edge-trigger so we alarm on transitions, not every tick
+_pnl_alarm_date: str | None = None  # once-per-day latch so a breached book doesn't spam
+
+
+def job_stale_feed_check() -> None:
+    """Every 15 min in market hours — is the LIVE feed alive? Pulls a bellwether
+    LTP via data_provider and checks the source is a live one (dhan-ws/dhan-ltp),
+    not an EOD fallback. Edge-triggered: alarms once on DOWN, once on RECOVER —
+    fills the audit's 'stale feed disconnect guard' without any order surface."""
+    global _feed_last_ok
+    if not FEED_STALE_ALARM:
+        return
+    try:
+        import data_provider as _dp
+        if not _dp.nse_market_open():
+            return
+        live = False
+        for sym in _FEED_BELLWETHERS:
+            try:
+                px = _dp.get_ltp(sym)
+                if px and px > 0 and _dp.get_last_source(sym) in _LIVE_SOURCES:
+                    live = True
+                    break
+            except Exception:
+                continue
+        if _feed_last_ok is True and not live:
+            send_telegram(
+                "🔴 <b>LIVE FEED STALE</b>\n"
+                "No live Dhan tick for the bellwethers during market hours "
+                "(fell back to EOD). Check the Dhan token / market-feed daemon."
+            )
+            logger.warning("Stale-feed alarm: live feed DOWN")
+        elif _feed_last_ok is False and live:
+            send_telegram("🟢 <b>Live feed recovered</b> — Dhan ticks flowing again.")
+            logger.info("Stale-feed alarm: live feed RECOVERED")
+        _feed_last_ok = live
+    except Exception as exc:
+        logger.warning("Stale-feed check failed: %s", exc)
+
+
+def job_daily_pnl_alarm() -> None:
+    """Every 15 min in market hours — book unrealised-PnL drawdown guard. Computes
+    portfolio P&L from the live Dhan holdings; if drawdown breaches PNL_DD_ALARM_PCT
+    it Telegrams a WARNING (once per day — latched). This is the manual-desk form of
+    the audit's circuit-breaker: notify Jay, NEVER auto-cancel or liquidate."""
+    global _pnl_alarm_date
+    try:
+        import data_provider as _dp
+        if not _dp.nse_market_open():
+            return
+        today = date.today().isoformat()
+        if _pnl_alarm_date == today:
+            return  # already alarmed today
+        from dhan_auth import get_dhan_client
+        dhan = get_dhan_client()
+        resp = dhan.get_holdings()
+        holdings = resp.get("data", []) if isinstance(resp, dict) else []
+        if not holdings:
+            return
+        cost = pnl = 0.0
+        for h in holdings:
+            sym = str(h.get("tradingSymbol") or h.get("tradingsymbol") or "").upper()
+            qty = float(h.get("totalQty") or h.get("quantity") or 0)
+            avg = float(h.get("avgCostPrice") or h.get("averagePrice") or 0)
+            if qty <= 0 or avg <= 0 or str(sym).upper().startswith("LIQUID"):
+                continue  # skip cash-park liquid ETFs
+            ltp = float(h.get("lastTradedPrice") or h.get("lastPrice") or 0)
+            if ltp <= 0:
+                try:
+                    ltp = float(_dp.get_ltp(sym) or 0)
+                except Exception:
+                    ltp = avg
+            cost += qty * avg
+            pnl += qty * (ltp - avg)
+        if cost <= 0:
+            return
+        dd_pct = pnl / cost * 100.0
+        if dd_pct <= PNL_DD_ALARM_PCT:
+            send_telegram(
+                f"⚠️ <b>BOOK DRAWDOWN {dd_pct:.2f}%</b> (limit {PNL_DD_ALARM_PCT:.1f}%)\n"
+                f"Unrealised P&L ₹{pnl:,.0f} on ₹{cost:,.0f} deployed.\n"
+                f"Review positions — this is an alarm only, no orders were touched."
+            )
+            _pnl_alarm_date = today
+            logger.warning("Daily-PnL alarm fired: book DD %.2f%%", dd_pct)
+    except Exception as exc:
+        logger.warning("Daily-PnL alarm check failed: %s", exc)
+
+
 # ── APScheduler EVENT LISTENER ───────────────────────────────────────────────
 
 def on_job_event(event) -> None:
@@ -410,13 +509,18 @@ def on_job_event(event) -> None:
 def start_scheduler() -> BackgroundScheduler:
     """Create, configure, and start the APScheduler BackgroundScheduler.
 
-    Registers six cron jobs:
-      - token_check  : 08:00 IST Mon–Fri  (Dhan token validity alert)
-      - premarket    : 08:30 IST Mon–Fri
-      - postmarket   : 16:30 IST Mon–Fri
-      - breadth      : 16:45 IST Mon–Fri  (also appends A/D row to ad_history.json)
-      - weekly       : 19:00 IST Sunday
-      - price_alerts : every 15 min 09:00–15:45 IST Mon–Fri
+    Registers cron jobs:
+      - token_check      : 08:00 IST Mon–Fri  (Dhan token validity alert)
+      - premarket        : 08:30 IST Mon–Fri
+      - postmarket       : 16:30 IST Mon–Fri
+      - breadth          : 16:45 IST Mon–Fri  (also appends A/D row to ad_history.json)
+      - weekly           : 19:00 IST Sunday
+      - price_alerts     : every 15 min 09:00–15:45 IST Mon–Fri
+      - auto_pilot       : 16:30 IST Mon–Fri
+      - gtt_trail        : 15:45 IST Mon–Fri  (tighten-only Chandelier)
+      - exit_scan        : 16:00 IST Mon–Fri
+      - stale_feed_check : every 15 min 09:15–15:30 IST Mon–Fri  (feed heartbeat, 1C)
+      - daily_pnl_alarm  : every 15 min 09:15–15:30 IST Mon–Fri  (book DD alarm, 1C)
 
     Returns:
         A running BackgroundScheduler instance.
@@ -526,6 +630,24 @@ def start_scheduler() -> BackgroundScheduler:
         CronTrigger(hour=16, minute=0, day_of_week="mon-fri", timezone=IST),
         id="exit_scan",
         name="Exit Signal Scan",
+        replace_existing=True,
+    )
+
+    # Stale-feed heartbeat: every 15 min, 9:15 AM – 3:30 PM IST, Mon–Fri (1C).
+    scheduler.add_job(
+        job_stale_feed_check,
+        CronTrigger(hour="9-15", minute="0,15,30,45", day_of_week="mon-fri", timezone=IST),
+        id="stale_feed_check",
+        name="Stale-Feed Heartbeat",
+        replace_existing=True,
+    )
+
+    # Daily-PnL drawdown alarm: every 15 min in market hours, once-per-day latch (1C).
+    scheduler.add_job(
+        job_daily_pnl_alarm,
+        CronTrigger(hour="9-15", minute="0,15,30,45", day_of_week="mon-fri", timezone=IST),
+        id="daily_pnl_alarm",
+        name="Daily-PnL Drawdown Alarm",
         replace_existing=True,
     )
 

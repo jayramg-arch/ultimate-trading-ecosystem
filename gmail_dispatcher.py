@@ -113,7 +113,8 @@ def dispatch_golden_matches():
     
     final_df = master_df[show_cols].head(20) # Top 20 across all
     master_csv_path = "MASTER_Golden_Picks.csv"
-    final_df.to_csv(master_csv_path, index=False)
+    from io_utils import atomic_write_text
+    atomic_write_text(master_csv_path, final_df.to_csv(index=False))  # torn-write safe
     
     # Format a nice HTML table for mobile reading
     html_table = final_df.to_html(index=False, classes="styled-table", border=0)

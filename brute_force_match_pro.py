@@ -3,8 +3,11 @@ import os
 import sys
 import time
 
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 def save_with_golden_schema(df, file_path):
-    """Enforce that the DataFrame contains exactly the 26 golden columns in the correct order,
+    """Enforce that the DataFrame contains exactly the golden columns in the correct order,
     filling missing columns with NaN/blanks, and save as CSV."""
     if df is None:
         df = pd.DataFrame(columns=['Symbol'])
@@ -15,7 +18,9 @@ def save_with_golden_schema(df, file_path):
         'EMA_Stack', 'Above_200DMA', 'Dist_52WH_pct', 'Vol_RelAvg',
         'ROE %', 'ROCE %', 'Debt to equity', 'Promoter holding %', 'Div Yld %',
         'Qtr Profit Var %', 'Qtr Sales Var %', 'Mar Cap Rs.Cr.',
-        'CMP Rs.', 'P/E', 'Volume', 'Hybrid_Catalyst', '%Chg'
+        'CMP Rs.', 'P/E', 'Volume', 'Hybrid_Catalyst', '%Chg',
+        'Minervini_Score', 'Piotroski_Score', 'Overall_Rating', 'Overall_Grade',
+        'Delivery_Pct', 'Futures_OI_Chg_Pct'
     ]
     
     out_df = df.copy()
@@ -29,13 +34,19 @@ def save_with_golden_schema(df, file_path):
     # Ensure all columns exist
     for col in golden_cols:
         if col not in out_df.columns:
-            out_df[col] = float('nan')
+            if col in ['Symbol', 'Name', 'Stage', 'EMA_Stack', 'Hybrid_Catalyst', 'Overall_Grade']:
+                out_df[col] = None
+            else:
+                out_df[col] = float('nan')
             
     # Order them
     out_df = out_df[golden_cols]
     
     try:
-        out_df.to_csv(file_path, index=False)
+        # Atomic write (tmp+os.replace) — a crash mid-write used to leave a torn
+        # FINAL_*.csv that read back empty/partial and corrupted board rankings.
+        from io_utils import atomic_write_text
+        atomic_write_text(file_path, out_df.to_csv(index=False))
         return True
     except PermissionError:
         print(f"\n❌ [ERROR] Could not write to {file_path} because it is currently OPEN in another program (like Excel). Please close it!")
@@ -140,6 +151,33 @@ def _safe_num(row, *keys, default=0.0):
 _BULL_CONV_V2 = os.getenv("BULL_CONVICTION_V2", "0").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _adjust_conviction_by_nse_metrics(row, score):
+    # 1. Delivery_Pct adjustments (applicable to all equity cash stocks)
+    del_val = _safe_num(row, 'Delivery_Pct', default=None)
+    if del_val is not None:
+        if del_val >= 50.0:
+            score += 0.5  # Heavy institutional accumulation
+        elif del_val < 35.0:
+            score -= 0.5  # Weak institutional accumulation on breakout
+
+    # 2. Futures_OI_Chg_Pct adjustments (only if F&O listed and populated)
+    oi_val = _safe_num(row, 'Futures_OI_Chg_Pct', default=None)
+    if oi_val is not None:
+        pct_chg = _safe_num(row, '%Chg', 'Change %', default=0.0)
+        # If OI rises on a positive breakout day, it's a Long Build-up (Bullish)
+        if oi_val > 0.0:
+            if pct_chg >= 0.0:
+                score += 0.5  # Long Build-up
+            else:
+                score -= 0.5  # Short Build-up (rising short interest)
+        elif oi_val < 0.0:
+            if pct_chg >= 0.0:
+                score -= 0.5  # Long Unwinding (weakness)
+            else:
+                score += 0.5  # Short Covering (bullish covering)
+    return score
+
+
 def _calc_conviction_v2(row):
     """Bull conviction v2 — growth-primary + now-reliable quality signals.
     Max caps at 10, but reaching the top now requires BOTH strong growth AND
@@ -173,7 +211,10 @@ def _calc_conviction_v2(row):
     # Size
     mcap = _safe_num(row, 'Mar Cap Rs.Cr.', 'Mar Cap')
     if 1000 < mcap < 20000: score += 0.25
-    return round(min(10.0, score), 1)
+    
+    # Factor in Daily Delivery and Futures OI Change
+    score = _adjust_conviction_by_nse_metrics(row, score)
+    return round(max(0.0, min(10.0, score)), 1)
 
 
 def calculate_conviction_score(row):
@@ -199,7 +240,10 @@ def calculate_conviction_score(row):
     # Market cap bias
     mcap = _safe_num(row, 'Mar Cap Rs.Cr.', 'Mar Cap')
     if 1000 < mcap < 20000: score += 0.5
-    return round(min(10.0, score), 1)
+    
+    # Factor in Daily Delivery and Futures OI Change
+    score = _adjust_conviction_by_nse_metrics(row, score)
+    return round(max(0.0, min(10.0, score)), 1)
 
 
 # ==========================================
@@ -269,8 +313,63 @@ def calculate_recovery_conviction_score(row):
     mcap = _safe_num(row, 'Mar Cap Rs.Cr.', 'Mar Cap')
     if mcap > 20000:          score += 0.5
     elif 1000 < mcap < 20000: score += 0.5
-    return round(min(10.0, score), 1)
+    
+    # Factor in Daily Delivery and Futures OI Change
+    score = _adjust_conviction_by_nse_metrics(row, score)
+    return round(max(0.0, min(10.0, score)), 1)
 
+
+def _safe_num_val(v, default=0.0):
+    if v is None or pd.isna(v):
+        return default
+    s = str(v).replace(',', '').strip()
+    if s.lower() in ('', 'nan', 'n/a', 'na', '-', '--', 'none'):
+        return default
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+def _calculate_weighted_overall(df):
+    if df is None or df.empty:
+        return df
+    
+    # Ensure target columns exist in df
+    for col in ['Overall_Rating', 'Overall_Grade']:
+        if col not in df.columns:
+            if col == 'Overall_Grade':
+                df[col] = None
+            else:
+                df[col] = float('nan')
+            
+    for idx, r in df.iterrows():
+        cs = _safe_num_val(r.get('Combined_Score'), 0.0)
+        conv = _safe_num_val(r.get('Conviction'), 0.0)
+        ts = _safe_num_val(r.get('Tech_Score'), 0.0)
+        ms = _safe_num_val(r.get('Minervini_Score'), 0.0)
+        ps = _safe_num_val(r.get('Piotroski_Score'), 0.0)
+        
+        # Normalize component scores to 0-100 scale
+        cs_norm = cs
+        conv_norm = conv * 10.0
+        ts_norm = ts
+        ms_norm = (ms / 8.0) * 100.0 if ms else 0.0
+        ps_norm = (ps / 9.0) * 100.0 if ps else 0.0
+        
+        # Weighted overall rating
+        rating = (0.30 * cs_norm) + (0.15 * conv_norm) + (0.15 * ts_norm) + (0.20 * ms_norm) + (0.20 * ps_norm)
+        rating = round(rating, 1)
+        
+        # Map rating to grade scale
+        grade = "A+ EXCEPTIONAL" if rating >= 90 else \
+                "A STRONG" if rating >= 80 else \
+                "B GOOD" if rating >= 70 else \
+                "C FAIR" if rating >= 55 else \
+                "D WEAK" if rating >= 40 else "F POOR"
+                
+        df.at[idx, 'Overall_Rating'] = rating
+        df.at[idx, 'Overall_Grade'] = grade
+    return df
 
 # ==========================================
 # MATCHING LOGIC
@@ -279,6 +378,16 @@ def perform_match(return_raw=False):
     print("=" * 65)
     print("✨ GOLDEN MATCHER PRO — STAGE 2 + RECOVERY PHASE")
     print("=" * 65)
+
+    # Load daily NSE Delivery and F&O Open Interest metrics
+    try:
+        import nse_archive_fetcher
+        print("   📥 Downloading latest daily NSE Delivery and F&O Open Interest metrics...")
+        nse_metrics = nse_archive_fetcher.get_nse_metrics()
+        print(f"   ✅ Loaded metrics for {len(nse_metrics)} symbols.")
+    except Exception as ne:
+        print(f"   ⚠️ Could not load daily NSE metrics: {ne}")
+        nse_metrics = {}
 
     if not os.path.exists(MASTER_FILE):
         print(f"❌ CRITICAL: '{MASTER_FILE}' not found.")
@@ -339,6 +448,10 @@ def perform_match(return_raw=False):
                 if i == 1 or i == total or i % 5 == 0:
                     print(f"      [{i:3d}/{total}] {sym}")
             df = _te.enrich_dataframe(df, progress_cb=_prog, bench_close=_bench_close)
+        
+        # Calculate/override the weighted Overall_Rating and Overall_Grade using actual matcher columns
+        df = _calculate_weighted_overall(df)
+
         if 'Combined_Score' in df.columns:
             df = df.sort_values('Combined_Score', ascending=False)
         return df
@@ -469,14 +582,28 @@ def perform_match(return_raw=False):
 
             # Ensure all fundamental columns exist in merged
             for col in ['ROE %', 'ROE', 'Debt to equity', 'Debt / Equity', 'Promoter holding %', 'Promoter holding',
-                        'ROCE %', 'Div Yld %', 'Qtr Profit Var %', 'Qtr Sales Var %', 'Mar Cap Rs.Cr.', 'CMP Rs.', 'P/E']:
+                        'ROCE %', 'Div Yld %', 'Qtr Profit Var %', 'Qtr Sales Var %', 'Mar Cap Rs.Cr.', 'CMP Rs.', 'P/E',
+                        'Minervini_Score', 'Piotroski_Score', 'Overall_Rating', 'Overall_Grade', 'Delivery_Pct', 'Futures_OI_Chg_Pct']:
                 if col not in merged.columns:
-                    merged[col] = float('nan')
+                    if col == 'Overall_Grade':
+                        merged[col] = None
+                    else:
+                        merged[col] = float('nan')
 
-            # Fetch missing fundamentals from yfinance via fundamental_hub
+            # Map daily Delivery and OI change metrics
+            for idx, r in merged.iterrows():
+                sym = r.get('Symbol')
+                if sym:
+                    clean_sym = str(sym).replace("NSE:", "").replace("BSE:", "").strip()
+                    if clean_sym in nse_metrics:
+                        merged.at[idx, 'Delivery_Pct'] = nse_metrics[clean_sym].get('Delivery_Pct')
+                        merged.at[idx, 'Futures_OI_Chg_Pct'] = nse_metrics[clean_sym].get('Futures_OI_Chg_Pct')
+
+            # Fetch missing fundamentals from yfinance via fundamental_hub and calculate X-Ray scores
             try:
                 import fundamental_hub as _fh
-                print(f"   📊 Enriching missing fundamentals (ROE %, Promoter holding %, etc.) for {start_name}...")
+                from weinstein_xray_screener import get_xray_scorecard
+                print(f"   📊 Enriching fundamentals & X-Ray Scores for {start_name}...")
                 for idx, r in merged.iterrows():
                     sym = r.get('Symbol')
                     if sym:
@@ -484,6 +611,26 @@ def perform_match(return_raw=False):
                         yf_sym = str(sym).replace("NSE:", "").replace("BSE:", "").strip()
                         if not yf_sym.endswith(".NS") and not yf_sym.endswith(".BO") and not yf_sym.startswith("^"):
                             yf_sym = f"{yf_sym}.NS"
+                        
+                        # Calculate X-Ray scorecard
+                        try:
+                            sc = get_xray_scorecard(yf_sym)
+                            if sc and "error" not in sc:
+                                merged.at[idx, 'Minervini_Score'] = sc.get('Minervini_Score', 0)
+                                merged.at[idx, 'Piotroski_Score'] = sc.get('Piotroski_Score', 0)
+                                merged.at[idx, 'Overall_Rating'] = sc.get('Overall_Rating', 0)
+                                merged.at[idx, 'Overall_Grade'] = sc.get('Overall_Grade', 'N/A')
+                            else:
+                                merged.at[idx, 'Minervini_Score'] = float('nan')
+                                merged.at[idx, 'Piotroski_Score'] = float('nan')
+                                merged.at[idx, 'Overall_Rating'] = float('nan')
+                                merged.at[idx, 'Overall_Grade'] = 'N/A'
+                        except Exception as _xre:
+                            print(f"   ⚠️ X-Ray Scorecard failed for {yf_sym}: {_xre}")
+                            merged.at[idx, 'Minervini_Score'] = float('nan')
+                            merged.at[idx, 'Piotroski_Score'] = float('nan')
+                            merged.at[idx, 'Overall_Rating'] = float('nan')
+                            merged.at[idx, 'Overall_Grade'] = 'N/A'
                         
                         # Check which columns are missing or NaN
                         roe_val = r.get('ROE %')
@@ -563,13 +710,9 @@ def perform_match(return_raw=False):
             if '_df_bench_cache' not in globals() or _df_bench_cache is None:
                 try:
                     import data_provider as _dp
-                    _df_bench_cache = bull_screener._flatten_cols(_dp.fetch_ohlcv(bull_screener.BENCHMARK_YF, period="3y", interval="1wk"))
+                    _df_bench_cache = bull_screener._flatten_cols(_dp.fetch_ohlcv(bull_screener.BENCHMARK_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
                 except Exception:
-                    try:
-                        import yfinance as yf
-                        _df_bench_cache = bull_screener._flatten_cols(yf.download(bull_screener.BENCHMARK_YF, period="3y", interval="1wk", auto_adjust=True, progress=False))
-                    except:
-                        _df_bench_cache = None
+                    _df_bench_cache = None
             
             for i, r in merged.iterrows():
                 sym_val = r.get('Symbol', r.get('NSECode', 'Unknown'))
@@ -609,32 +752,13 @@ def perform_match(return_raw=False):
                 wmap = {}  # symbol -> weekly DataFrame
                 BATCH = 50
                 unique_syms = [s for s in dict.fromkeys(ordered_syms) if s]
-                if _USE_DP and _dp is not None:
-                    for i in range(0, len(unique_syms), BATCH):
-                        chunk = unique_syms[i:i + BATCH]
-                        try:
-                            wmap.update(_dp.fetch_batch_ohlcv(chunk, period="1y", interval="1wk"))
-                        except Exception as _be:
-                            print(f"   ⚠️ Stage-gate batch failed: {_be}")
-                else:
-                    for i in range(0, len(unique_syms), BATCH):
-                        chunk = unique_syms[i:i + BATCH]
-                        try:
-                            raw = yf.download([f"{s}.NS" for s in chunk], period="1y",
-                                              interval="1wk", auto_adjust=True, progress=False,
-                                              group_by='ticker', threads=True, ignore_tz=True)
-                            for s in chunk:
-                                yf_t = f"{s}.NS"
-                                try:
-                                    df = raw[yf_t].copy() if len(chunk) > 1 else raw.copy()
-                                    if isinstance(df.columns, pd.MultiIndex):
-                                        df.columns = df.columns.get_level_values(0)
-                                    if not df.empty:
-                                        wmap[s] = df
-                                except Exception:
-                                    continue
-                        except Exception as _be:
-                            print(f"   ⚠️ Stage-gate batch failed: {_be}")
+                for i in range(0, len(unique_syms), BATCH):
+                    chunk = unique_syms[i:i + BATCH]
+                    import data_provider as _dp
+                    try:
+                        wmap.update(_dp.fetch_batch_ohlcv(chunk, period="1y", interval="1wk", use_cache=True, auto_adjust=True))
+                    except Exception as _be:
+                        print(f"   ⚠️ Stage-gate batch failed: {_be}")
 
                 # Score each row against the cached/batched data
                 for sym in ordered_syms:

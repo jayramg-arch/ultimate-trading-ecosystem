@@ -89,7 +89,8 @@ def record_and_check(df_results: pd.DataFrame, regime_bull: bool,
 
     hist = _load_history()
     hist = pd.concat([hist, pd.DataFrame([row])], ignore_index=True)
-    hist.to_csv(HISTORY_CSV, index=False)
+    from io_utils import atomic_write_text
+    atomic_write_text(HISTORY_CSV, hist.to_csv(index=False))  # torn-write safe
 
     verdict = check(hist, window=window, base_rate=base_rate,
                     blackout_runs=blackout_runs)
@@ -125,7 +126,8 @@ def record_and_check_recovery(df_results: pd.DataFrame, regime_open: bool,
     row.update(counts)
     hist = _load_history(REC_HISTORY_CSV, REC_FAMILIES)
     hist = pd.concat([hist, pd.DataFrame([row])], ignore_index=True)
-    hist.to_csv(REC_HISTORY_CSV, index=False)
+    from io_utils import atomic_write_text
+    atomic_write_text(REC_HISTORY_CSV, hist.to_csv(index=False))  # torn-write safe
     verdict = check(hist, window=window, base_rate=base_rate,
                     blackout_runs=blackout_runs, families=REC_FAMILIES,
                     regime_gated=set())
