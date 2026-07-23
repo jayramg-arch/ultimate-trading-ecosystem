@@ -807,21 +807,23 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
                        rv_floor: float = 1.0, cost_pct: float = COST_PER_LEG_DEFAULT,
                        trail_atr_mult: float = 4.5,
                        sl_floor_by_family: Optional[dict] = None,
-                       entry_mode: str = "buystop", retest_window: int = 8,
+                       entry_mode: str = "retest", retest_window: int = 8,
                        df_bench: Optional[pd.DataFrame] = None) -> dict:
     """Simulate ONE GM+S4 daily-approx GO entry for `sym`, starting the search at
     `as_of`. Steps: scan forward ≤ entry_window bars for the first bar where a PA
     trigger fires AT a location WITH volume on a clean bar → ENTER → structural stop
     + R targets → existing bar-by-bar exit sim → matched-horizon alpha from ENTRY.
 
-    `entry_mode` (Fix-1 A/B, 23-Jul-2026):
-      • "buystop" (default, unchanged) — arm a buy-STOP above the GO bar's high, fill
-        on the thrust within `buystop_window` bars (chases the breakout extension).
-      • "retest"  — place a buy-LIMIT at the confirmed GO-bar CLOSE (the value the PA
-        fired at); fill on the first pullback (Low ≤ level) within `retest_window`
+    `entry_mode` (Fix-1 A/B, 23-Jul-2026; DEFAULT flipped to "retest" — it beat
+    "buystop" on every family: mean −0.02→+0.38%, median −1.19→−0.73%, fill 268→320):
+      • "retest" (default) — place a buy-LIMIT at the confirmed GO-bar CLOSE (the value
+        the PA fired at); fill on the first pullback (Low ≤ level) within `retest_window`
         bars, else skip ("no retest in window"). Buys value, not the extension —
         a materially lower entry near the buy@close baseline. Forward-only, no
-        look-ahead. Structural stop is unchanged (uses the GO-bar context).
+        look-ahead. Structural stop is unchanged (uses the GO-bar context). Matches
+        Jay's confirm-then-enter-on-the-pullback doctrine.
+      • "buystop" — arm a buy-STOP above the GO bar's high, fill on the thrust within
+        `buystop_window` bars (chases the breakout extension; the old default).
 
     Returns a row dict (Status='OK' when a trade completed)."""
     triggers = GO_BULL_TRIGGERS if mode == "bull" else GO_REC_TRIGGERS
@@ -957,7 +959,7 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
 def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
                     entry_window: int = 40, buystop_window: int = 5,
                     rv_floor: float = 1.0, sl_floor_by_family: Optional[dict] = None,
-                    entry_mode: str = "buystop", retest_window: int = 8,
+                    entry_mode: str = "retest", retest_window: int = 8,
                     out_csv: Optional[str] = None) -> dict:
     """Run the GM+S4 daily-approx GO gate over a candidate universe as-of `as_of`.
 

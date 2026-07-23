@@ -104,7 +104,8 @@ def main():
             if cands.empty:
                 continue
             res = _replay.run_s4go_replay(a, cands, mode="bull", entry_window=40,
-                                          rv_floor=1.0, sl_floor_by_family=floor)
+                                          rv_floor=1.0, sl_floor_by_family=floor,
+                                          entry_mode="buystop")   # stop-only A/B (pre-Fix-1 default)
             perf = res.get("performance", pd.DataFrame())
             if isinstance(perf, pd.DataFrame) and not perf.empty:
                 pf = perf.copy(); pf.insert(0, "as_of", a)
