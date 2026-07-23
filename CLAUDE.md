@@ -1387,7 +1387,14 @@ Concentrated in the positional DNA: **POS-ACCUM +10.57pp** (conf +3.72 vs never 
 | IN-SAMPLE (11a) | +3.78% | −0.00% | +3.78pp | −1.6pp |
 | **OUT-SAMPLE (7a)** | +2.52% | **−4.01%** | **+6.54pp** | **+32.5pp** |
 
-POSITIONAL subgroup clean in BOTH windows (+8.34pp IS / +9.56pp OOS); SWING dilutes the pooled IS win-edge → **the filter is POSITIONAL-SPECIFIC** (data-driven, not asserted). Confirmed-only portfolio lifts per-anchor alpha +0.67pp IS / +0.98pp OOS + hit-rate 57→71% OOS (this is the selection CEILING — realized entries still pay the wait tax). Small samples (OOS never n=27, 13 positional) — directional, not statistically sealed; cleanest confirmation = a forward run recording go-confirmation live in the qualify step (future work). **Verdict: PASS — cleared to wire GO-confirmation as a conviction/priority flag on POSITIONAL picks (NOT the entry trigger, NOT on swing).** Commit chain: 66a9e89 stop-A/B · ed9c719 entry-A/B · 5f3e151 retest-default · a6c3a28 filter-value · [this] filter-OOS.
+POSITIONAL subgroup looked clean in both windows (+8.34pp IS / +9.56pp OOS). **⚠️ THIS RESULT WAS SUPERSEDED — see the next block.**
+
+### GO-as-filter CLEAN HARNESS — thesis LARGELY FAILED (`s4go_confirm_ledger.py`); do NOT wire it
+The `s4go_filter_oos.py` "PASS" was ENDOGENOUS: forward-detected confirmation ([D, D+40]) overlapped the outcome window ([D, D+H]) → "it rallied so it both confirmed and returned." The clean harness detects confirmation in the DISJOINT TRAILING window [D−w, D] (also the true live semantic), then measures forward alpha [D, D+H]. Result: the edge was mostly artifact.
+- Pooled "edge" tracks WINDOW LENGTH not filter strength (cw5 +2.04pp / cw10 +2.57 / cw20 +4.09 / cw40 +5.57) — longer window shrinks the never-cohort to a tiny extreme tail that inflates the number.
+- **On clean OOS POSITIONAL data (the real use case) confirmation does NOT help — the never-cohort BEAT confirmed at every window with any never-names (cw5 −2.07pp, cw10 −11.61, cw20 −16.24; all tiny-n).** At the live-realistic cw5 ("GO fired this week") positional edge ≈ +1.4pp, ZERO win-rate edge, negative OOS.
+- GO-confirmation is largely REDUNDANT with catalyst qualification for positional names (~90% confirm within 40 bars). A modest SWING win-rate edge (+8–12pp win) partially survives — opposite of the endogenous claim, and not where the filter would run.
+- **Verdict: do NOT wire a positional conviction/size flag on this.** Honest walk-back of the "vindicated" call. The harness now STANDS to accrue genuinely-prospective rows (schedule `s4go_confirm_ledger.py --mode record` live, no `--as_of`); revisit in months with a PRE-REGISTERED short window + minimum never-cohort — do not act on 4–16 name cells. [[s4go_timing_gate_backtest]]. Commit chain: 66a9e89 stop-A/B · ed9c719 entry-A/B · 5f3e151 retest-default · a6c3a28 filter-value · 5018c03 filter-OOS(endogenous) · [this] clean-harness+correction.
 
 ### Standing conclusions / DO-NOT
 - Do NOT promote the GO gate as a matched-alpha entry filter and do NOT flip `GM_USE_IZE_ZONES` on these numbers — location isn't the weak link, stop geometry is.
