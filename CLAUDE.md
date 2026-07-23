@@ -1368,7 +1368,17 @@ Diagnosis: the GO penalty is the buy-STOP entry (chasing the breakout extension 
 | R_retest+POS-floor | +0.29% | −2.76% | 32.2 | 54% | 25.8d | 320 |
 
 **Retest is a genuine, consistent improvement over buystop across EVERY family** (POS-ACCUM +0.69→+2.60 even w/o floor; SWG·DOWN −0.18→+0.89 win 27→52%) and fills 52 MORE names (buy-stop rejected 63 that never made a new high; retest only skips 11). It also matches Jay's own [[confirmation-before-entry]] doctrine (confirm→enter on the pullback, NOT chase). **BUT it recovers only ~0.4 of the 2.6pp gap to buy@close** — the residual is the structural **confirmation-wait tax** (waiting entry_window days for the GO to fire means winners already moved; not fixable by entry tweaks). Stacking the POS floor on retest again wrecks the median/SWG → floor is POS-ACCUM-only.
-**Net verdict: adopt RETEST as the GO entry convention (strictly better than buy-stop), but GO-timing's matched-alpha ceiling is buy@close minus the wait tax — it will not beat buy@close. Keep GO as the arming/classifier layer; use buy@close for mechanical alpha.** All code inert by default. Artifacts: `_entryab_*_details.csv`, log `_s4go_entry_ab.log`.
+**Net verdict: adopt RETEST as the GO entry convention (strictly better than buy-stop). Default flipped to `entry_mode="retest"` (`replay.py`, commit 5f3e151; validation inherits).** GO-timing's matched-alpha ceiling is buy@close minus the wait tax.
+
+### THE REFRAME — GO-confirmation is a strong SELECTION FILTER (GM+S4 is NOT a laggard, it was scored in the wrong job)
+Scored GO on the right axis: split the SAME catalyst picks (buy@close baseline) by whether a confirming GO fired within the window.
+| cohort | n | buy@close mean α | win% |
+|---|---:|---:|---:|
+| **GO-CONFIRMED** | 331 | **+3.36%** | 53.5% |
+| **GO-NEVER** | 82 | **−1.32%** | 43.9% |
+| **edge** | | **+4.68pp** | **+9.6pp** |
+
+Concentrated in the positional DNA: **POS-ACCUM +10.57pp** (conf +3.72 vs never −6.85), **POS/WYC +8.45pp** (+4.15 vs −4.30), **SWG +0.43pp** (no selection value on swing). Caveat: partial endogeneity (never-trigger = never-momentum), but confirmation needs only a trigger in ≤40d vs full-horizon return, and the +9.6pp WIN-rate gap says it's real. **GM+S4's alpha is real but lives in SELECTION (which positional catalyst names to trust/size), NOT entry timing (wait tax kills it).** Architectural repositioning: GO = conviction/quality filter on positional picks (confirm=high-trust hold, never-confirm=fizzle to drop/shrink), entries at/near signal (retest), don't run the filter on swing. **This VINDICATES the GM+S4 build — a discriminator that was being measured as a stopwatch.** [[s4go_timing_gate_backtest]]. Next: wire GO-confirmation as a conviction/size flag on positional picks (not the entry trigger).
 
 ### Standing conclusions / DO-NOT
 - Do NOT promote the GO gate as a matched-alpha entry filter and do NOT flip `GM_USE_IZE_ZONES` on these numbers — location isn't the weak link, stop geometry is.
