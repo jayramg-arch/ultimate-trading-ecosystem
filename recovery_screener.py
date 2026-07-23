@@ -1349,7 +1349,8 @@ def compute_score(signal: int, rff: int, rs_val: float,
 def compute_exit_levels(ind: dict, signal: int, climax_low: float = np.nan) -> dict:
     """
     REV-CB  : SL = climax zone low - 0.5ATR  |  T1 = EMA20  |  T2 = SMA200
-    REV-RS/E: SL = 10D low - 0.2ATR          |  T1 = 2.5R   |  T2 = 52W High
+    REV-RS/E: SL = 20D low - 0.5ATR          |  T1 = 2.5R   |  T2 = 52W High
+    All: SL capped at 3xATR from close; targets sorted so Entry < T1 < T2 (v1.7).
     """
     c     = ind["close"].iloc[-1]
     atr   = ind["atr14"].iloc[-1]
@@ -1374,9 +1375,28 @@ def compute_exit_levels(ind: dict, signal: int, climax_low: float = np.nan) -> d
         # out within days on routine volatility.
         sl = c - atr * 2.5
 
+    # v1.7 (2026-07-23): CAP the structural stop at 3x ATR from close. For a deeply
+    # beaten name the 20-day-low stop sat near the 52-week low (~16% away) — it read
+    # as a broken plan AND inflated `risk`, letting the 2.5R T1 overshoot the 52W-high
+    # T2 (targets inverting, T2 < T1). 3x ATR stays wide enough for the 90-day hold
+    # while structural (matches replay._structural_sl + the GM disciplined stop).
+    if atr > 0 and (c - sl) > 3.0 * atr:
+        sl = c - atr * 3.0
+
     risk = max(c - sl, c * 0.005)
     t1   = ema20 if signal == 2 else c + risk * 2.5
     t2   = s200  if signal == 2 else h52w
+
+    # Enforce monotonic targets Entry < T1 < T2. The two candidates (structural level
+    # + R-multiple / SMA200) were computed independently and could invert — a 2.5R T1
+    # overshooting a nearby 52W-high T2 printed T2 BELOW T1. Sort so T1 is the nearer
+    # target and T2 the farther, both above entry.
+    _cands = sorted(x for x in (t1, t2)
+                    if x is not None and not (isinstance(x, float) and np.isnan(x)) and x > c)
+    if len(_cands) == 2:
+        t1, t2 = _cands[0], _cands[1]
+    elif len(_cands) == 1:
+        t1 = _cands[0]; t2 = t1 + risk          # single valid target → extend T2 by 1R
 
     return {
         "Entry"  : round(c, 2),
@@ -1444,8 +1464,16 @@ def detect_wyckoff(df_d: pd.DataFrame):
 # -----------------------------------------------------------------------------
 def screen_symbol(symbol: str, edge_hint: str, regime: dict,
                   df_cnx500_w: pd.DataFrame, screener_row: dict | None,
-                  chartink_confirmed: bool = False) -> dict:
-    """Download OHLCV, compute all indicators, run all 3 edges, score, exit levels."""
+                  chartink_confirmed: bool = False,
+                  allow_live_fundamentals: bool = True) -> dict:
+    """Download OHLCV, compute all indicators, run all 3 edges, score, exit levels.
+
+    ``allow_live_fundamentals`` (default True) governs the fallback fundamental
+    fetch when ``screener_row`` is None: True = live Screener.in scrape +
+    yfinance (the batch-run behaviour); False = use only what was passed in (no
+    network), so RFF degrades to INSUFFICIENT for names without cached
+    fundamentals. Interactive callers set False to stay non-blocking.
+    """
 
     blank = dict(
         Symbol=symbol, Edge_Hint=edge_hint,
@@ -1560,7 +1588,11 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
     # fills only the gaps Screener.in's public page cannot provide (ICR, Current
     # ratio) — Screener.in wins every field it has (far more accurate for NSE).
     fund_source = "Screener.in"
-    if screener_row is None:
+    if screener_row is None and not allow_live_fundamentals:
+        # Interactive/non-blocking path: no live Screener.in scrape or yfinance
+        # fundamental fetch. RFF will read INSUFFICIENT for uncached names.
+        fund_source = "cache-only (skipped live)"
+    elif screener_row is None:
         scr_live = None
         try:
             from fundamental_hub import fetch_screener_rff_row
@@ -1821,6 +1853,86 @@ def load_fundamentals(max_age_days: int = 35) -> dict:
     return fund
 
 
+def get_rff(symbol: str, screener_row: dict | None = None,
+            allow_live: bool = True) -> tuple:
+    """Compute the RFF fundamental score for a single symbol — the SAME
+    fundamental-source resolution + compute_rff() that screen_symbol() uses, so
+    any caller (e.g. a fundamental gate on the bull catalyst list) stays zero-
+    drift with the recovery engine.
+
+    Returns (base 0-6, bonus 0-4, total 0-10, quality, source_label).
+    ``allow_live`` False = no network (cache/passed-row only → INSUFFICIENT if
+    absent). Guarded: never raises — returns (0,0,0,"INSUFFICIENT",...) on error.
+    """
+    try:
+        sym = str(symbol).strip().upper().replace("NSE:", "").replace("BSE:", "").replace(".NS", "")
+        src = "Screener.in"
+        if screener_row is None:
+            if not allow_live:
+                return (0, 0, 0, "INSUFFICIENT", "cache-only (skipped live)")
+            scr_live = None
+            try:
+                from fundamental_hub import fetch_screener_rff_row
+                scr_live = fetch_screener_rff_row(sym)
+            except Exception:
+                scr_live = None
+            yf_fund = fetch_yf_fundamentals(to_yf(sym))
+            if scr_live:
+                merged = dict(yf_fund or {})
+                if "Cash from operating activity" in scr_live:
+                    merged.pop("CapEx", None)
+                merged.update({k: v for k, v in scr_live.items() if v is not None})
+                screener_row = merged
+                src = "Screener.in-live" + ("+yf" if yf_fund else "")
+            elif yf_fund:
+                screener_row = yf_fund
+                src = "yfinance"
+            else:
+                return (0, 0, 0, "INSUFFICIENT", "unavailable")
+        base, bonus, total, quality, _checks = compute_rff(screener_row)
+        if quality == "INSUFFICIENT":
+            return (base, bonus, total, quality, src)
+
+        # ── SECTOR-AWARE ADJUSTMENT (financials) ─────────────────────────────
+        # RFF's D/E<2, ICR>3.5, CR>1 checks are structurally inapplicable to
+        # lenders (leverage IS the business; interest is a core cost), so banks/
+        # NBFCs cannot reach 4/6 no matter how strong — they'd be wrongly gated
+        # out. For financial-sector names re-score on the checks that ARE
+        # meaningful for a lender, scaled to the same 0-6 range so the caller's
+        # base≥4 gate is unchanged:
+        #   1) NI > 0            profitable
+        #   2) ROA > 1.0 OR ROCE > 10   lender-appropriate profitability
+        #      (banks run ~1-2% ROA — the industrial >5% bar is wrong for them)
+        #   3) Qtr Profit growth > 0    earnings not deteriorating
+        # This passes healthy financials and still fails genuinely weak ones
+        # (e.g. a bank with a profit collapse), which is correct — not a bias.
+        try:
+            import sector_lookup as _sl
+            _sidx = (_sl.get_sector_index(sym) or "").upper()
+        except Exception:
+            _sidx = ""
+        is_financial = ("BANKNIFTY" in _sidx) or ("FINANCE" in _sidx) or ("FINSERV" in _sidx)
+        if is_financial and screener_row:
+            _ni_ok  = bool(_checks.get("NI>0", False))
+            _roa    = _num(screener_row, "Return on assets", "ROA", "Return on Assets",
+                                        "ROA 12M %", "ROA 12M")
+            _roce   = _num(screener_row, "ROCE", "Return on capital employed",
+                                        "Return on capital employed %", "ROCE %")
+            _qpv    = _num(screener_row, "Qtr Profit Var %", "Profit Var Qtr %",
+                                        "QoQ Profit %", "YoY Profit Var %")
+            _prof_ok = ((not np.isnan(_roa) and _roa > 1.0) or
+                        (not np.isnan(_roce) and _roce > 10.0))
+            _grow_ok = (not np.isnan(_qpv) and _qpv > 0)
+            _fin = [_ni_ok, _prof_ok, _grow_ok]
+            _passed = sum(1 for x in _fin if x)
+            _fin_base = int(round(6 * _passed / len(_fin)))   # 2/3→4, 3/3→6
+            return (_fin_base, bonus, _fin_base + bonus, quality, src + " [fin-adj]")
+
+        return (base, bonus, total, quality, src)
+    except Exception as e:
+        return (0, 0, 0, "INSUFFICIENT", f"error: {e}")
+
+
 # -----------------------------------------------------------------------------
 # PROGRAMMATIC ENTRY POINT (called from weinstein_commander_web)
 # -----------------------------------------------------------------------------
@@ -1846,6 +1958,50 @@ def _apply_combined_ranking(df_out: pd.DataFrame) -> pd.DataFrame:
     except Exception as _cpe:
         logger.debug("Conviction passthrough skipped: %s", _cpe)
     return df_out
+
+
+def screen_one(symbol: str, edge_hint: str = "CUSTOM",
+               allow_live_fundamentals: bool = True) -> dict:
+    """Single-symbol convenience entry for dashboards / ad-hoc lookups.
+
+    Mirrors ``bull_screener.screen_one``: builds the CNX500 daily+weekly
+    benchmark frames and the recovery market regime (same fetches as
+    run_recovery_screener), resolves the symbol's Screener.in/yfinance
+    fundamentals and Chartink-confirmed flag, then delegates to
+    ``screen_symbol``.  Always returns the FULL record for the symbol (the
+    ``blank`` dict on any early-out already carries Stage/RS/RFF fields), so a
+    name that is not currently triggering still displays its technical +
+    fundamental read — the Signal just reads 0.
+
+    ``allow_live_fundamentals`` (default True) — set False for interactive,
+    fast-scroll callers (e.g. TV-synced dashboards) so a name without cached
+    fundamentals does NOT trigger a blocking live Screener.in/yfinance fetch.
+
+    Returns the same dict as ``screen_symbol``.  Additive wrapper — does not
+    alter run_recovery_screener's existing path.
+    """
+    import data_provider as dp
+    df_cnx_d = _flatten_cols(dp.fetch_ohlcv(CNX500_YF, period="2y", interval="1d",  use_cache=True, auto_adjust=True))
+    df_cnx_w = _flatten_cols(dp.fetch_ohlcv(CNX500_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
+    regime   = check_regime(df_cnx_d)
+
+    sym = str(symbol).strip().upper().replace("NSE:", "").replace("BSE:", "").replace(".NS", "")
+
+    # Screener.in-confirmed set + fundamentals map (same sources as the batch run).
+    # Guarded: a discovery-only lookup must never fail because a cache is missing.
+    try:
+        screener_syms = load_screener_symbols()
+    except Exception:
+        screener_syms = set()
+    try:
+        fund_map = load_fundamentals()
+    except Exception:
+        fund_map = {}
+
+    return screen_symbol(sym, edge_hint, regime, df_cnx_w,
+                         fund_map.get(sym),
+                         chartink_confirmed=(sym in screener_syms),
+                         allow_live_fundamentals=allow_live_fundamentals)
 
 
 def run_recovery_screener(progress_callback=None, symbols=None,
