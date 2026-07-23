@@ -2026,6 +2026,26 @@ def _gm_settings_save(**kw):
         _gm_logger.warning(f"gm_settings save failed (capital/risk/TF not persisted): {e}")
 
 
+def _gm_entry_method() -> str:
+    """Entry method for the Plan/guided-exec wording — mirrors the S4 v4.8 toggle.
+    'buystop' (default, house doctrine) = buy-STOP above the confirmed trigger bar's
+    high (only fill on continuation, dodges the false-breakout trap). 'retest' = a
+    buy-LIMIT at the trigger close on the pullback (lower entry / better R). The
+    backtest (replay.py) found retest beat buy-stop on matched alpha, BUT the sim
+    can't model the false-breakout whipsaw — this is a live TRIAL toggle, not a
+    directive. GM only changes the fill INSTRUCTION; the trigger is unchanged."""
+    return "retest" if str(_gm_settings().get("entry_method", "buystop")) == "retest" else "buystop"
+
+
+def _gm_entry_instruction(tf_lbl="", short=False) -> str:
+    """The order-placement phrase for the chosen entry method (see _gm_entry_method)."""
+    if _gm_entry_method() == "retest":
+        return ("buy-LIMIT @ close on the pullback" if short
+                else f"buy-LIMIT at the {tf_lbl + ' ' if tf_lbl else ''}trigger bar's close on the pullback (retest to value; skip a dead-volume fade)")
+    return ("buy-STOP above the trigger bar high" if short
+            else f"buy-STOP above that {tf_lbl + ' ' if tf_lbl else ''}bar's high. Never buy the touch")
+
+
 # ----------------------------------------------------------------------------------------
 # Graphical primitives (pure HTML/SVG — no extra deps)
 # ----------------------------------------------------------------------------------------
@@ -2170,7 +2190,7 @@ def compute_decision(rec: dict, ctx: dict, cmp_px, mansfield) -> dict:
     elif g1 and g2 and g3 and pa_fired:
         verdict, color = "STRONG BUY · TRIGGER LIVE", "#26A69A"
         reason = f"All 3 gates pass · PA trigger LIVE ({_pa_names} · Σ+{_pa_tier})."
-        action = f"Confirm a CLOSED 75/125m trigger → buy-STOP above its high. Size {_g(rec,'Suggested_Size','—')}."
+        action = f"Confirm a CLOSED 75/125m trigger → {_gm_entry_instruction(short=True)}. Size {_g(rec,'Suggested_Size','—')}."
     elif g1 and g2 and g3:
         verdict, color = "READY · AWAIT TRIGGER", "#FF9800"
         reason = f"All 3 gates pass · catalyst {catalyst} firing; no daily PA trigger printed yet."
@@ -2763,8 +2783,8 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
             entry, sl, t1 = cmp_px, _ema20, _tgt
             sl_pct = _risk / cmp_px * 100.0
             rr = (_tgt - cmp_px) / _risk
-            plan = (f"No catalyst plan — EMA20 as dynamic support: buy-STOP above the trigger "
-                    f"bar, SL {inr(sl)} (EMA20, −{sl_pct:.1f}%), target {inr(t1)} ({fnum(rr,1)}R).")
+            plan = (f"No catalyst plan — EMA20 as dynamic support: {_gm_entry_instruction(short=True)}, "
+                    f"SL {inr(sl)} (EMA20, −{sl_pct:.1f}%), target {inr(t1)} ({fnum(rr,1)}R).")
 
     # ── STRUCTURAL + ATR-CAPPED SL (twin of the S4 Pine v3.0 fix). Prefer the nearest
     # FRESH zone distal BELOW entry; then cap risk at 3×ATR so the stop can never be
@@ -2881,12 +2901,12 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                       ("Σ tier", (f"+{_pa_tier}" if _pa_tier else "0"), _pa_tier >= 2),
                       ("Confirm on", _confirm_lbl, None)],
              do_now=((f"TRIGGER LIVE — {_pa_names} (Σ+{_pa_tier}) fired on the {_fired_on}"
-                      + (f" bar at the zone → buy-STOP above that {_tf_lbl} bar's high. Never buy the touch."
+                      + (f" bar at the zone → {_gm_entry_instruction(_tf_lbl)}."
                          if _is_intra else
-                         ". Drop to 75/125m, confirm a CLOSED bar at the zone → buy-STOP above its high. Never buy the touch."))
+                         f". Drop to 75/125m, confirm a CLOSED bar at the zone → {_gm_entry_instruction()}."))
                      if pa_fired else
                      (f"No {_fired_on} PA trigger yet. Wait for a closed-bar pattern (VCP-BO / Pocket / 3-Bar / "
-                      f"Undercut / Spring / IB-NR7 …) at the zone on the {_tf_lbl} chart, then buy-STOP above the trigger bar high."))),
+                      f"Undercut / Spring / IB-NR7 …) at the zone on the {_tf_lbl} chart, then {_gm_entry_instruction(short=True)}."))),
         dict(n=6, title="EXECUTE", sub="Plan & GTT", hard=False, ok=None, execute=True,
              metrics=[], do_now=plan),
     ]
@@ -3180,9 +3200,9 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                       ("Σ tier", (f"+{_rpa_tier}" if _rpa_tier else "0"), _rpa_tier >= 2),
                       ("Confirm on", _confirm_lbl, None)],
              do_now=((f"TRIGGER LIVE — {_rpa_names} (Σ+{_rpa_tier}) fired on the {_fired_on}"
-                      + (f" bar at the zone → buy-STOP above that {_tf_lbl} bar's high. Never buy the touch."
+                      + (f" bar at the zone → {_gm_entry_instruction(_tf_lbl)}."
                          if _is_intra else
-                         ". Drop to 75/125m, confirm a CLOSED bar at the zone → buy-STOP above its high. Never buy the touch."))
+                         f". Drop to 75/125m, confirm a CLOSED bar at the zone → {_gm_entry_instruction()}."))
                      if rpa_fired else
                      (f"No {_fired_on} recovery PA trigger yet. Wait for a closed-bar reversal (Climax reclaim / Spring / "
                       f"Higher-Low-2B / Base-Breakout / Engulf / Hammer …) at the base on the {_tf_lbl} chart."))),
@@ -11890,6 +11910,22 @@ elif page == 'GOLDEN MATCHER':
                                              "Daily uses the closed daily bar.")
                 if _trig_tf != _gm_settings().get("trigger_tf"):
                     _gm_settings_save(trigger_tf=_trig_tf)
+                # Entry method — shared with the S4 v4.8 toggle. Changes only the Plan /
+                # guided-exec fill WORDING (trigger unchanged). Persisted to gm_settings.
+                _em_opts = ["Buy-stop (confirmation)", "Retest (pullback limit)"]
+                if "gm_entry_method_sel" not in st.session_state:
+                    st.session_state["gm_entry_method_sel"] = (
+                        _em_opts[1] if _gm_entry_method() == "retest" else _em_opts[0])
+                _em_sel = st.selectbox("🎯 Entry method", _em_opts, key="gm_entry_method_sel",
+                    help="How the Plan / guided-execution tells you to ENTER once a trigger fires "
+                         "(mirrors the S4 indicator's v4.8 toggle). Buy-stop = above the confirmed "
+                         "bar's high (house doctrine, dodges the false-breakout trap). Retest = "
+                         "buy-limit at the trigger close on the pullback (backtest-better matched "
+                         "alpha, but the sim can't see false-breakout whipsaw — a live TRIAL). "
+                         "Only the fill instruction changes; the trigger is identical.")
+                _em_val = "retest" if _em_sel == _em_opts[1] else "buystop"
+                if _em_val != _gm_settings().get("entry_method", "buystop"):
+                    _gm_settings_save(entry_method=_em_val)
                 # 75m/125m "bar-close" modes rebuild the board ONCE per session bar
                 # (aligned to NSE bar closes + ~75s settle) so the snapshot always reads
                 # a CLOSED bar — the definitive fix for the forming-bar fade that made
@@ -12938,6 +12974,10 @@ elif page == 'GOLDEN MATCHER':
             # trigger fired (a BUY is immediately actionable regardless of location).
             _has_loc = bool(_pick) or bool(wf.get("location_ok")) or str(wf.get("verdict", "")).startswith("BUY")
             _done = 0; _next = None; _man = []
+            # Step-4 fill instruction follows the entry-method toggle (buy-stop / retest).
+            _step4 = ("4 · Place a buy-LIMIT at the trigger bar's close on the pullback (retest to value; skip a dead-volume fade)"
+                      if _gm_entry_method() == "retest"
+                      else "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)")
             with st.expander("✅ Guided execution — tick as you go", expanded=_has_loc):
                 if _pick:
                     _z_lbl, _z_lo, _z_hi, _z_prox = _pick
@@ -12949,7 +12989,7 @@ elif page == 'GOLDEN MATCHER':
                         ("zone",  f"1 · Auto zone confirmed: {_z_lbl} at {_span_txt} (verify it's fresh/untested)"),
                         ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
                         ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-                        ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                        ("stop",  _step4),
                         ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
                         ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
                     ]
@@ -12959,7 +12999,7 @@ elif page == 'GOLDEN MATCHER':
                         ("zone",  "1 · Mark the FRESH demand zone on Daily/Weekly (hand-drawn, untested)"),
                         ("alert", "2 · Set a TradingView alert at the zone proximal"),
                         ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
-                        ("stop",  "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)"),
+                        ("stop",  _step4),
                         ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
                         ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
                     ]
