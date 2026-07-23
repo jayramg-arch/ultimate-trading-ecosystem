@@ -1378,7 +1378,16 @@ Scored GO on the right axis: split the SAME catalyst picks (buy@close baseline) 
 | **GO-NEVER** | 82 | **−1.32%** | 43.9% |
 | **edge** | | **+4.68pp** | **+9.6pp** |
 
-Concentrated in the positional DNA: **POS-ACCUM +10.57pp** (conf +3.72 vs never −6.85), **POS/WYC +8.45pp** (+4.15 vs −4.30), **SWG +0.43pp** (no selection value on swing). Caveat: partial endogeneity (never-trigger = never-momentum), but confirmation needs only a trigger in ≤40d vs full-horizon return, and the +9.6pp WIN-rate gap says it's real. **GM+S4's alpha is real but lives in SELECTION (which positional catalyst names to trust/size), NOT entry timing (wait tax kills it).** Architectural repositioning: GO = conviction/quality filter on positional picks (confirm=high-trust hold, never-confirm=fizzle to drop/shrink), entries at/near signal (retest), don't run the filter on swing. **This VINDICATES the GM+S4 build — a discriminator that was being measured as a stopwatch.** [[s4go_timing_gate_backtest]]. Next: wire GO-confirmation as a conviction/size flag on positional picks (not the entry trigger).
+Concentrated in the positional DNA: **POS-ACCUM +10.57pp** (conf +3.72 vs never −6.85), **POS/WYC +8.45pp** (+4.15 vs −4.30), **SWG +0.43pp** (no selection value on swing). Caveat: partial endogeneity (never-trigger = never-momentum), but confirmation needs only a trigger in ≤40d vs full-horizon return, and the +9.6pp WIN-rate gap says it's real. **GM+S4's alpha is real but lives in SELECTION (which positional catalyst names to trust/size), NOT entry timing (wait tax kills it).** Architectural repositioning: GO = conviction/quality filter on positional picks (confirm=high-trust hold, never-confirm=fizzle to drop/shrink), entries at/near signal (retest), don't run the filter on swing. **This VINDICATES the GM+S4 build — a discriminator that was being measured as a stopwatch.** [[s4go_timing_gate_backtest]].
+
+### GO-as-filter OOS VALIDATION — PASS, edge STRENGTHENS out-of-sample (`s4go_filter_oos.py`)
+60/40 chrono split (robust at 50/50). The discrimination does NOT decay OOS — it grows (opposite of overfitting):
+| window | confirmed | never | edge | win-edge |
+|---|---:|---:|---:|---:|
+| IN-SAMPLE (11a) | +3.78% | −0.00% | +3.78pp | −1.6pp |
+| **OUT-SAMPLE (7a)** | +2.52% | **−4.01%** | **+6.54pp** | **+32.5pp** |
+
+POSITIONAL subgroup clean in BOTH windows (+8.34pp IS / +9.56pp OOS); SWING dilutes the pooled IS win-edge → **the filter is POSITIONAL-SPECIFIC** (data-driven, not asserted). Confirmed-only portfolio lifts per-anchor alpha +0.67pp IS / +0.98pp OOS + hit-rate 57→71% OOS (this is the selection CEILING — realized entries still pay the wait tax). Small samples (OOS never n=27, 13 positional) — directional, not statistically sealed; cleanest confirmation = a forward run recording go-confirmation live in the qualify step (future work). **Verdict: PASS — cleared to wire GO-confirmation as a conviction/priority flag on POSITIONAL picks (NOT the entry trigger, NOT on swing).** Commit chain: 66a9e89 stop-A/B · ed9c719 entry-A/B · 5f3e151 retest-default · a6c3a28 filter-value · [this] filter-OOS.
 
 ### Standing conclusions / DO-NOT
 - Do NOT promote the GO gate as a matched-alpha entry filter and do NOT flip `GM_USE_IZE_ZONES` on these numbers — location isn't the weak link, stop geometry is.
