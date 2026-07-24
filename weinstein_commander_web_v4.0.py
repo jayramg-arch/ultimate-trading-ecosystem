@@ -2034,7 +2034,7 @@ def _gm_entry_method() -> str:
     backtest (replay.py) found retest beat buy-stop on matched alpha, BUT the sim
     can't model the false-breakout whipsaw — this is a live TRIAL toggle, not a
     directive. GM only changes the fill INSTRUCTION; the trigger is unchanged."""
-    return "retest" if str(_gm_settings().get("entry_method", "buystop")) == "retest" else "buystop"
+    return "retest" if str(_gm_settings().get("entry_method", "retest")) == "retest" else "buystop"
 
 
 def _gm_entry_instruction(tf_lbl="", short=False) -> str:
@@ -2064,7 +2064,7 @@ def _render_entry_method_selector(key: str):
              "Only the fill instruction changes; the trigger is identical. This setting "
              "is GLOBAL — it applies to every GM view.")
     _val = "retest" if _sel == _opts[1] else "buystop"
-    if _val != _gm_settings().get("entry_method", "buystop"):
+    if _val != _gm_settings().get("entry_method", "retest"):
         _gm_settings_save(entry_method=_val)
     return _val
 

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 import os
+import hmac
 import uvicorn
 from dotenv import load_dotenv
 from dhanhq import dhanhq
@@ -49,14 +50,16 @@ def pre_trade_risk_check(dhan, ticker: str, qty: int, entry_price: float, sl_pri
     ai_risk_manager.analyze_sector_concentration + sector_lookup, same logic the
     Risk Shield surfaces). A breach → (False, reason) → the order is rejected.
 
-    Degrades OPEN (True) with a note only when a sub-check genuinely cannot be
-    computed (e.g. holdings fetch fails) — the margin check and DRY_RUN default
-    remain as backstops. Never raises."""
+    FAIL-CLOSED (23-Jul-2026, Fable audit): if the gate cannot be evaluated — the
+    holdings fetch fails, or a sub-check throws — the order is BLOCKED, not allowed.
+    A Dhan hiccup must not silently remove all three portfolio caps. It's a manual
+    tool, so a false rejection costs nothing; a false allow could over-leverage.
+    Never raises."""
     try:
         resp = dhan.get_holdings()
         holdings = resp.get('data', []) if isinstance(resp, dict) else []
     except Exception as e:
-        return True, f"risk-gate skipped (holdings fetch failed: {e})"
+        return False, f"risk-gate UNAVAILABLE — holdings fetch failed ({e}); order BLOCKED"
 
     tk = str(ticker).upper()
     live = []
@@ -84,8 +87,8 @@ def pre_trade_risk_check(dhan, ticker: str, qty: int, entry_price: float, sl_pri
         if new_sector and float(breakdown.get(new_sector, 0)) > SECTOR_CAP_PCT:
             return False, (f"sector cap breached: {new_sector} would be "
                            f"{breakdown[new_sector]:.1f}% (> {SECTOR_CAP_PCT:.0f}%)")
-    except Exception:
-        pass  # sector check inconclusive — do not block on it
+    except Exception as e:
+        return False, f"sector-cap check failed ({e}) — order BLOCKED (fail-closed)"
 
     # 3) Per-trade risk as % of equity (needs a valid SL below entry).
     try:
@@ -98,8 +101,8 @@ def pre_trade_risk_check(dhan, ticker: str, qty: int, entry_price: float, sl_pri
             if equity > 0 and (risk_amt / equity * 100.0) > MAX_RISK_PCT:
                 return False, (f"trade risk {risk_amt / equity * 100:.2f}% exceeds "
                                f"{MAX_RISK_PCT:.1f}% of equity (₹{equity:,.0f})")
-    except Exception:
-        pass
+    except Exception as e:
+        return False, f"risk-% check failed ({e}) — order BLOCKED (fail-closed)"
 
     return True, "risk-gate passed"
 
@@ -162,10 +165,24 @@ async def handle_tv_webhook(request: Request):
     tp_price = 0.0
     try:
         data = await request.json()
+        # SHARED-SECRET AUTH (23-Jul-2026, Fable audit): the endpoint is reachable over a
+        # public ngrok tunnel with no auth — one leaked URL = live GTT orders. Require a
+        # secret (in the alert JSON as "secret", or an X-Webhook-Secret header) that matches
+        # WEBHOOK_SECRET. FAIL-CLOSED: if the server has no secret configured, reject ALL —
+        # an unconfigured secret must never leave the endpoint open. Constant-time compare.
+        _expected = os.getenv("WEBHOOK_SECRET", "")
+        _provided = str(data.get("secret", "") or request.headers.get("X-Webhook-Secret", ""))
+        if not _expected:
+            print("REJECTED: WEBHOOK_SECRET not configured — endpoint refuses all requests.")
+            return {"status": "rejected", "message": "Server not configured: set WEBHOOK_SECRET"}
+        if not (_provided and hmac.compare_digest(_provided, _expected)):
+            print("REJECTED: invalid or missing webhook secret.")
+            return {"status": "rejected", "message": "Invalid or missing webhook secret"}
+        _safe = {k: v for k, v in data.items() if k != "secret"}   # never log the secret
         print(f"\n=========================================")
         print(f"RECEIVED TRADINGVIEW WEBHOOK:")
-        print(f"Payload: {data}")
-        
+        print(f"Payload: {_safe}")
+
         # Parse payload
         # Expected: {"ticker":"NSE:RELIANCE", "action":"BUY", "entry":2500, "sl":2400, "tp":2700, "qty":10}
         ticker = data.get("ticker", "").replace("NSE:", "").replace("BSE:", "").strip()
