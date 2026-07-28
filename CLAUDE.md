@@ -1479,4 +1479,240 @@ he'd selected it. [[second-order-review-before-done]] applied throughout.
 
 ---
 
+## 26 July 2026 — Institutional benchmark audit → CRITICAL horizon bug → P0/P1/P2 remediation
+
+Jay asked how the ecosystem compares to professional trading operations. Audited the CODE (3 parallel
+explorations: backtest rigor, risk/portfolio construction, scale) rather than these notes — and
+verifying the headline number found a material measurement bug.
+
+### ⚠️ SUPERSEDES the 22-Jul "MILESTONE" block above
+`replay.py:430` (`forward_returns_with_exits`) benchmarked the catalyst's **full design window**
+(120/180d) against a stock leg that had usually exited far earlier. **428 of 464 trades (92%) closed
+before their benchmark window did**; the 180d bucket held a MEDIAN of 29 days vs a 180d index return.
+The same file already did it correctly in `s4go_forward_trade` (`xb = eb + res["days_held"]`).
+
+**Same 464 trades, both conventions (run `20260726_225547`, deterministic re-run):**
+
+| | OLD full-window (bug) | NEW actual-hold (fixed) |
+|---|---:|---:|
+| Mean matched α | +2.57% | **+0.80%** |
+| Median | +0.63% | **−2.38%** |
+| Win rate | 53.4% | **32.1%** |
+
+Consequences: (a) the "+2.56% milestone" was ~2/3 artifact — the real edge is **~+0.7–1.0%/trade**,
+bootstrap CI `[−0.8, +2.5]`, prob-positive 81.9%, and **the MEDIAN trade loses to the index** (a
+big-winner-carried trend profile, not a 53%-win system); (b) **"breakouts behave defensively in DOWN
+tapes" WAS this artifact** — an 8-day stop-out at −3% vs a 120d index at −10% books +7% of fake alpha;
+stops truncate the stock leg but never the benchmark leg. **Retire that interpretation.** Memory:
+[[matched-horizon-means-actual-hold]].
+
+### OOS gate re-derived (+ NEW purge/embargo)
+`walkforward_oos.py` gained `--embargo_days` (default 45; 0 = old leaky behaviour, 252 = strict
+no-overlap). Anchors are 30d apart but windows run 30–180d, so IS/OOS trades overlapped in calendar
+time with zero gap. Corrected run: **PASS at 0d (ratio 1.55) and 45d (1.21); STOP at 252d (0.17).**
+Read that carefully — **OOS alpha is +0.69% and identical at every embargo setting; only the IS
+baseline moves** (252d leaves 4 anchors with a freak 100%-hit Sharpe of 1.58). The 252d STOP is a
+small-sample denominator artifact, NOT edge decay. Real lesson: the "60% of IS Sharpe" gate is
+poorly conditioned at n≈10 — it compares two noisy point estimates with no standard error.
+
+### The benchmark answer (assessment, full text in `~/.claude/plans/for-my-trader-profile-sparkling-treehouse.md`)
+- **Exceeds most professionals:** point-in-time discipline (`_apply_pin` on every return path +
+  runtime assertions), zero-drift multi-surface parity, and the habit of killing your own
+  conclusions (SWG-PB parked, S4-GO walked back, journal-loss corrected).
+- **At parity:** execution realism; pre-trade risk gates — **NOTE the roadmap was STALE: correlation
+  gating IS built and enforced** (`sniper_trigger.py:299`, r≥0.90) alongside heat/sector/loss-streak.
+- **Below professional standard:** (1) **no live track record** — see below; (2) **uncorrected
+  multiple testing** — 98 validation runs, 4 alpha-selected sweeps, 2 ablation tables, 3 A/Bs whose
+  winners became production defaults, zero Bonferroni/FDR/deflated-Sharpe/PBO (grep-verified absent).
+  *The "hundreds of iterations" strength is also the largest statistical liability.* (3) survivorship
+  on nifty500/fno (disclosed only for watchlist universes); (4) corporate-action look-ahead
+  (`auto_adjust=True` + row-only pin slicing); (5) six stop engines / four formulas; (6) 0.27% test
+  coverage, no CI; (7) ungated order surfaces.
+- **One-line read: the infrastructure is running well ahead of the evidence.**
+
+### SHIPPED this session
+- **P0 horizon fix** — `replay.py:430` + `validation.py` `benchmark_pct` now self-consistent with
+  `alpha_pct` in catalyst mode (was reporting the full-window bench beside a matched alpha).
+- **P0 order surfaces** — NEW **`pre_trade_gate.py`**: the hardened webhook gate MOVED out of the
+  FastAPI module (logic unchanged, re-exported so `dhan_tv_webhook` call sites are intact) so every
+  surface can reuse it. Wired into **`n8n_order_handler.py`** (new `--entry`/`--sl`, LTP fallback),
+  **`dhan_mcp_server.dhan_place_order`** (the LLM-callable one), and the **Streamlit "Execute CNC
+  Order" button**. Design rule: **ENTRIES are gated, EXITS never are** — blocking a SELL is more
+  dangerous than allowing an entry. Fail-closed on BUY. Verified against a mock broker: SELL passes
+  with a full book · max-positions blocks · sector cap blocks · risk-% blocks at 2.67% / passes at
+  0.67% · holdings-fetch failure blocks.
+- **P1 purge/embargo** in `walkforward_oos.py` (+ reported/persisted embargoed anchors).
+- **P1 provenance hardened** — `performance_attribution.py` now requires `snapshot_meta ~ 'recompute'`
+  for SYSTEM. The old "any non-empty setup" rule counted a `backfill` row that re-screens well TODAY
+  (the real `2026-07-18|backfill` + `POS-BO`) as system provenance. **Live system record: 2 → 1
+  closed trade.** That is the honest number.
+- **P2 tests** — NEW `tests/test_pa_patterns_regression.py` (10 tests): battery-composition stability
+  (the blackout guard), two-sided NR7, intraday HTF suppression, flat-tape silence, and a **VCP
+  dry-up regression proven to have teeth** (the old `(c*v)` yields 100 vs a 2.7M volume threshold →
+  trivially true; the test goes red on revert). **Suite: 19 passed.**
+  ⚠️ **pytest is NOT installed in the TradingData venv** — tests run under global Python 3.14
+  (`python -m pytest tests/ -q`), which has pandas 3.0.3. Worth installing pytest into the venv.
+
+### Re-partition on the corrected run (`catalyst_regime_partition.py`, 464 trades)
+**By family:** POS n=246 win 35.0% α **+1.24%** PF 1.25 (41d) · SWG n=218 win 28.9% α +0.30% PF 1.14
+(14d). Per-catalyst: POS-ACCUM +2.09% · POS-BO +1.01% · SWG-PB +0.52% · **SWG-REV −0.44% (the one
+negative family, n=74)**. Every family's MEDIAN is negative (−1.6 to −3.4%) — confirms the
+big-winner-carried profile.
+
+**By exit reason — this is the actionable one, and it re-confirms the standing lesson:**
+| exit | n | win% | mean α | PF | avg days |
+|---|---:|---:|---:|---:|---:|
+| Time expiry | 17 | 100.0 | **+23.77%** | inf | 72 |
+| Trail SL | 242 | 42.1 | +2.08% | 1.51 | 42 |
+| **SL hit** | **186 (40%)** | **5.9** | **−3.78%** | **0.02** | **7** |
+40% of trades die at the initial stop in ~7 days with a 5.9% win rate and PF 0.02. **Signal
+generation is not the problem; stop geometry is** — same conclusion as POS-BO/SWG-PB/REV-RS, now
+measured honestly.
+
+**⚠️ NEW methodological catch — the direction partition is now ENDOGENOUS.** "DOWN tape" is
+`sign(Benchmark_Matched_pct)`, and after the fix that window's LENGTH is `days_held` — an OUTCOME.
+Fast stop-outs (7d) in a falling market self-select into DOWN; long runners (72d) into UP. Hence
+DOWN n=328 vs UP n=136. The old "defensive in DOWN tapes" claim is dead either way — the win-rate
+asymmetry that was its main evidence has **vanished** (31.7% DOWN vs 33.1% UP, was 50% vs 27%) and
+the alpha gap shrank (+1.14% vs −0.01%, was +2.54% vs −3.05%) — but do NOT replace it with "a
+smaller defensive tilt." **Fix before quoting any direction result: label direction from an EX-ANTE
+window (trailing regime, or the benchmark over the catalyst's design window) while keeping
+matched-horizon alpha.** The fix made the ALPHA honest and the DIRECTION LABEL endogenous.
+
+### Next
+(a) De-endogenise the direction label (above) before any per-direction conclusion is used.
+(b) Attack the 186-trade / 7-day SL bucket — that is where the edge leaks, and per
+[[s4go_timing_gate_backtest]] widening alone did NOT work, so this needs structure-aware stops, not
+a wider multiplier. (c) P1 research protocol (held-out period + variant ledger + deflated-Sharpe
+haircut) before ANY Phase-3 weight fitting. (d) Install pytest into the TradingData venv.
+Unchanged: #11 S4 rectangles · `GM_USE_IZE_ZONES` A/B · merge branch → main · recovery re-baseline.
+
+---
+
+## 28 July 2026 — WCL integration review + FIVE ideas tested and rejected
+
+Branch `phase0-1-attribution-journal-snapshot`, commits `eb19c5f` · `9cd9eaf` · `1d973d9` ·
+`6f07073` · `bf05e44` (+ this). **Not pushed, not merged.** Jay compiled S4 v5.2 clean.
+
+### A. S4 v5.0 (Gemini's WCL integration) → v5.2. Compiled clean.
+v5.0 never compiled (101,338 tokens vs a 100,256 limit) and **3 of the 5 features its header
+advertised were declared but never wired**. Fixed:
+- **REVERTED a 5-bar "sticky" PA window.** It claimed to match `pa_patterns.py`, but that module
+  evaluates the LAST BAR ONLY — the window CREATED drift (ΣPA summed patterns from different bars)
+  and printed GO while the V/L/B gate chips read fail beneath it. Markers/alerts used raw `go`.
+- **`cf_w_wcl` was in `cf_max` but never added to `cf`** — the ceiling rose while the score could
+  not reach it, so every name was understated and ★strong was harder than v4.7. Now wired.
+- **`near_vp_val`/`near_vp_poc` were computed and referenced nowhere.** VP VAL/POC now join
+  `support_pass` behind `en_wcl_loc` (fires on ~18% of names) and are named in the Support Zone row.
+  **This is the one WCL component that earns its place.**
+- VP moved to last-bar-only (a 100×40 nested loop per confirmed bar would trip TV's time limit);
+  `nz(d_bel30, 0.0)` returned MAX BULLISH on missing data → `nz(..., 1.0)`.
+- **v5.2:** the panel gave TWO entry instructions ~4% apart (CLEAR-TO-BREAK hardcoded "buy-STOP"
+  while Plan/STATUS follow `entry_method`, defaulted to RETEST since the 23-Jul A/B), and T1 was
+  set to the very level the verdict said not to target (now tagged `·lvl` when structural).
+
+### B. NEW `wcl_context.py` — Wyckoff + SMC ported properly
+The GM/board previously showed WCL from *proxies*: Wyckoff was `acc_ok and stage in (1,2)`, SMC was
+`2 if path=="bull" else -2` (literally the path name, penalising every Recovery name by 4), and
+`choch_count_20` was read with `default=0` and **produced nowhere** → Structure Health permanently
+`CLEAN (0)` feeding a constant 100 into the board's `overall_score`. Now a 1:1 port, computed ONCE
+in the ctx builder and read by both surfaces, **following the Trigger TF (75m/125m/Daily)** because
+S4 computes these on the chart TF; stage stays daily via stashed flags. 18 regression tests pin the
+three load-bearing Pine quirks (pivots resolve on the CONFIRMATION bar; the bearish ladder is a
+second `if` so DISTRIBUTION wins ties; `choch_up` tests the PRIOR bar's trend) — each verified to go
+red under mutation.
+
+### C. FIVE ideas tested, FIVE rejected (this is the session's real content)
+| # | idea | verdict |
+|---|---|---|
+| 1 | Wyckoff DISTRIBUTION as a GO veto | **BACKWARDS** — vetoed cohort +5.60% vs kept +0.52% |
+| 2 | Wyckoff as a SCORE input | **NULL** — held-out ρ +0.013, p 0.74; both windows null |
+| 3 | Dhan Trailing Target / TSL exit scheme (Gemini's AND mine) | **LOSES to current** |
+| 4 | POS stop re-tuning | **KEEP CURRENT** (3rd failed attempt) |
+| 5 | SWG stop re-tuning | **KEEP CURRENT** — no OOS edge to tune |
+
+Mechanism behind #1: **49% of qualified picks read DISTRIBUTION at signal time** because Wyckoff
+events fire at high-volume pivot highs — structurally what a breakout looks like. Faithful port; the
+concept just doesn't transfer to a pre-qualified breakout universe.
+
+### D. THE METHOD LESSON — R-multiples, and a conclusion I had to invert
+The SL×trail grid FIRST returned "ADOPT SL 6.5 × trail 8.0, +5.84pp". **Wrong, three ways:**
+(a) it was a **corner solution** — the surface climbed monotonically to the grid edge, so the
+"optimum" was just the widest cell allowed; (b) OOS retained **+0.19pp of a +5.84pp** IS margin
+(97% collapse) yet passed a gate that only required "positive"; (c) **the metric was wrong** —
+position size = risk / (k × ATR), so per-trade % return silently rewards wide stops for exposure
+they never bought. **Re-run in R-multiples the answer INVERTED**: best SL became 2.0–2.5 (TIGHTER
+than the current 3.85), and the whole SL axis declines as the stop widens. It still failed on OOS
+collapse and a −0.907R median.
+> **Standing rule: any stop/sizing study must be measured in R (return ÷ initial risk), never in
+> per-trade %.** A % metric structurally favours wide stops.
+
+Gates now used for any parameter sweep: **A** plateau (neighbours must also beat control) · **B**
+OOS retains ≥50% of the IS margin · **C** bootstrap stability (winner-or-neighbour ≥25% of 500
+resamples AND 5th pct of best−control > 0) · **D** median not worse by >0.25R · **E** interior (an
+edge winner FAILS — the grid is mis-specified).
+
+### E. Diagnostics that DID hold (use these)
+- **Stop-out forensics (`stopout_forensics.py`)** — of trades stopped at the initial SL:
+  **POS** only **1.9%** ever reached T1 and holding through averaged **−6.65%** → the 3.85×ATR stop
+  is doing its job, leave it alone. **SWG 36.4%** eventually reached T1 → genuine shakeouts.
+- **Early-dip vs later outcome (disjoint windows, non-circular):** SWG dipping 1.0–2.0 ATR in the
+  first 7 bars still returns **+1.4% to +3.4%** afterwards at ~52-54% win; expectancy only inverts
+  at **3–4 ATR**. The SWG stop at **1.14×ATR sits inside the shakeout zone**.
+- **SWG median is −1.049R** — the typical swing trade loses a full unit of risk. Widening to SL 2.5
+  flips the median to **+0.222R** in-sample… but **every SWG cell is negative OOS**.
+  **→ The swing problem is the SIGNAL, not the stop.** You cannot tune the stop of a book with no
+  out-of-sample edge. Consistent with SWG-PB parked (regime-mismatched) and SWG-BO as the drag.
+- **The trail wants to be WIDE** — every surface in every study climbs monotonically toward the
+  widest trail. The one consistent directional signal. Don't tighten trails.
+- **Chandelier > Dhan's ratchet for POS** (−1.85pp IS / −0.49pp OOS): a ratchet can't move until
+  price advances a full jump and can never tighten below its starting gap; **29.7% of OOS positional
+  trades died on an UNTOUCHED initial stop** under it vs 9.8%. Swing indistinguishable.
+
+### F. Two defects I introduced and corrected — do not repeat
+1. **`exit_policy_study.py` charged every config the benchmark matched to E0's hold length.** The
+   alternatives held far shorter (POS 43 vs 54d, SWG 6 vs 16d) so they were billed a longer
+   benchmark than they ran — the 26-Jul horizon bug, reintroduced, biasing **in favour of** the
+   conclusion I reported. `sl_trail_grid.py` recomputes the benchmark per cell from that cell's own
+   `days_held`. **The exit study needs re-running with per-config benchmarks before anyone leans on
+   its magnitudes.**
+2. **Same-bar sequencing** — stepping a ratchet on the current bar's HIGH and then testing the stop
+   against the same bar's LOW uses an intrabar order that may not have occurred. Lagging the step to
+   the prior bar's high shrank the POS gap from −3.05pp to −1.85pp; ~40% of the reported penalty was
+   harness bias. Real intraday behaviour lies between the two runs — report the bracket.
+
+### G. Dhan Trailing Target — mechanics established (manual use only)
+Trail Jump is a **STEP, not a distance**: price advances by the jump → the order moves the same
+amount, so **the gap is preserved**. Consequences: (a) with TT on, the target is **unreachable by
+construction** in any sustained trend — the runner leg's entire exit policy is the stop;
+(b) **a LARGER target jump makes premature capping MORE likely** (the jump is how close price gets
+before the target steps away) — Gemini's "1.5×ATR filters noise" rationale is inverted for targets;
+(c) Dhan's TSL **preserves the initial gap and can never tighten below it**, so initial SL distance
+IS the trail distance. Available on **Investing (delivery) with 365-day validity**; TG Trail works
+**without** SL Trail. **BUT: a TRAIL order is a different order CLASS** — the installed `dhanhq`
+2.0.x has no super/trail methods, so `modify_forever()` cannot touch one and `gtt_auto_shield
+--trail` would run clean and change nothing. **TRAIL orders are manual-only and invisible to the
+risk tooling.**
+
+### H. Shipped fixes
+- `gtt_trail` disabled (my suggestion, while trialling TRAIL orders) then **RE-ENABLED on evidence**
+  — default on, `GTT_TRAIL_ENABLED=0` kill switch retained.
+- **`pyramid_logic.py`** (live on Risk Shield via `_pyr_reason`, and injected into the AI prompt):
+  the TRIM rungs had **silently doubled** (R≥2 went from "book ⅓" to "OCO-1 (50%) exit") and
+  `trail_jump` was a hardcoded `atr14 * 1.5` — the SWING multiplier on every position — sitting
+  beside a correctly catalyst-aware Chandelier in the same dict. Rungs restored; `trail_jump` routed
+  through `risk_common.trail_mult_for()`; rungs now surface the Chandelier level.
+- `Commander_Risk_Allocator_v2.0.pine` **left uncommitted** — it encodes the 2-OCO scheme the study
+  rejected. Revert or fix before use.
+
+### Next
+(a) **Restart** the scheduler daemon (trail) + Web Commander. (b) GM spot-check: board vs Single
+Symbol, `en_wcl_loc` ~18%, confluence up, WCL row showing the right TF. (c) Re-run
+`exit_policy_study.py` with per-config benchmarks. (d) **The real question: does the swing book have
+an edge in the current regime at all?** If SWG-PB/SWG-BO are OOS-negative, gate them by regime or
+stop trading them — that is worth more than any exit parameter. (e) Push/merge the branch.
+Unchanged: #11 S4 rectangles · recovery re-baseline · pytest into the venv.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
