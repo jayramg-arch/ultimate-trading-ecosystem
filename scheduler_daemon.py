@@ -615,13 +615,42 @@ def start_scheduler() -> BackgroundScheduler:
 
     # GTT Trail (tighten-only Chandelier): 3:45 PM IST, Mon–Fri (post-close,
     # before the 16:30 auto-pilot so the trail reads today's completed bar).
-    scheduler.add_job(
-        job_gtt_trail,
-        CronTrigger(hour=15, minute=45, day_of_week="mon-fri", timezone=IST),
-        id="gtt_trail",
-        name="GTT Trail (tighten-only)",
-        replace_existing=True,
-    )
+    #
+    # Briefly disabled 28-Jul-2026 while trialling Dhan's native TRAIL order type,
+    # then RE-ENABLED the same day on evidence. `exit_policy_study.py` replayed the
+    # same 1,103 entries under six exit policies (see docs/PREREG_exit_policy_study.md)
+    # and the peak-anchored Chandelier this job drives BEAT Dhan's gap-preserving
+    # ratchet on every positional cell, in both windows and under both same-bar
+    # sequencing assumptions:
+    #     POS in-sample  E0 +5.54%  vs ratchet +3.69%   (-1.85pp)
+    #     POS out-sample E0 +1.24%  vs ratchet +0.75%   (-0.49pp)
+    # Mechanism: 29.7% of OOS positional trades died on an UNTOUCHED initial stop
+    # under the ratchet vs 9.8% here. A ratchet cannot move until price advances a
+    # full jump and can never tighten below its starting gap; the Chandelier moves
+    # continuously and can. Swing was indistinguishable (best margin +0.22pp against
+    # a required +1.0pp) — the positional case is what justifies this job.
+    #
+    # Still true, and the reason this job must never be pointed at a TRAIL order:
+    # a Dhan TRAIL order is a different order CLASS from a Forever/GTT order, and
+    # modify_forever() cannot touch one. It would run clean and change nothing —
+    # a silent no-op that reads as "my stops are being trailed" when they are not.
+    # This job is for Forever/GTT OCO positions only.
+    #
+    # Kill switch retained: GTT_TRAIL_ENABLED=0 disables without editing code.
+    GTT_TRAIL_ENABLED = os.getenv("GTT_TRAIL_ENABLED", "1") == "1"
+    if GTT_TRAIL_ENABLED:
+        scheduler.add_job(
+            job_gtt_trail,
+            CronTrigger(hour=15, minute=45, day_of_week="mon-fri", timezone=IST),
+            id="gtt_trail",
+            name="GTT Trail (tighten-only)",
+            replace_existing=True,
+        )
+        log.info("gtt_trail: ENABLED (15:45 IST Mon-Fri)")
+    else:
+        log.warning("gtt_trail: DISABLED (28-Jul-2026, manual TRAIL-order trial). "
+                    "Stops on any Forever/GTT OCO orders are NOT being ratcheted. "
+                    "Set GTT_TRAIL_ENABLED=1 to restore.")
 
     # Exit-signal watchdog: 4:00 PM IST, Mon–Fri (after the trail pass; the
     # engine Telegrams ACTION rows itself).
