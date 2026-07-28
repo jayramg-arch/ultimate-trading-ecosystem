@@ -2380,46 +2380,95 @@ def section_bull_gates(rec, ctx, cmp_px, mansfield) -> str:
 
 
 def section_context(rec, ctx, cmp_px) -> str:
-    """Mirror of the Context Layers panel — SMC / Wyckoff / Volume Profile."""
+    """Mirror of Section 4 v5.0 & WCL v1.2 Context Layers — SMC / Wyckoff / Volume Profile / Setup Detector."""
+    # 28-Jul-2026: WCL is now the REAL Pine calculation (wcl_context.py), computed once
+    # in the ctx builder and read here. `_w` is None only when that failed or the frame
+    # was too thin — in which case we fall back to the legacy proxies below and SAY SO,
+    # rather than printing proxy numbers under a label that claims Pine parity.
+    _w = _g(ctx, "wcl") if isinstance(_g(ctx, "wcl"), dict) else None
     adir = str(_g(rec, "Active_Dir", default="")).upper()
     smc = "BULLISH" if adir.startswith("UP") else "BEARISH" if adir.startswith("DOWN") else "NEUTRAL"
+    if _w:
+        smc = "BULLISH" if _w["smc"]["trend_up"] else "BEARISH"
     stage = str(_g(rec, "Stage", default=""))
     bfvg = _g(ctx, "bull_fvg", default=0); rfvg = _g(ctx, "bear_fvg", default=0)
     wyk = ("ACCUMULATION" if (_g(ctx, "acc_ok") and ("1" in stage or "2" in stage))
            else "DISTRIBUTION" if "3" in stage else "NEUTRAL")
     poc = _g(ctx, "poc"); vah = _g(ctx, "vah"); val = _g(ctx, "val")
-    vp_pos = _g(ctx, "vp_pos", default="—"); dpoc = _g(ctx, "dist_poc")
-    # WCL-mirror weighted score (replicates Weinstein_Context_Layers v1.2 FINAL
-    # SCORE composition: Wyk(-4..+4) + VP(+3/+1/-1/-3) + SMC(±2) + OB(±2) + Stage).
-    # Wyckoff here is the accumulation-bias proxy (no event decay); OB (order
-    # blocks) not computed on this surface -> 0, shown as '—'.
-    wyk_s = 3 if wyk == "ACCUMULATION" else (-3 if wyk == "DISTRIBUTION" else 0)
-    if vp_pos == "ABOVE VAH":
+    vp_pos_raw = _g(ctx, "vp_pos", default="—"); dpoc = _g(ctx, "dist_poc")
+    
+    # Detailed VP position matching S4 v5.0
+    if vp_pos_raw == "ABOVE VAH":
+        vp_pos = "✓ ABOVE VAH"
         vp_s = 3
-    elif vp_pos == "INSIDE VA":
-        vp_s = 1 if (dpoc or 0) >= 0 else -1
-    elif vp_pos == "BELOW VAL":
+    elif vp_pos_raw == "INSIDE VA":
+        if (dpoc or 0) >= 0:
+            vp_pos = "✓ IN VA (upper)"
+            vp_s = 1
+        else:
+            vp_pos = "✗ IN VA (lower)"
+            vp_s = -1
+    elif vp_pos_raw == "BELOW VAL":
+        vp_pos = "✗ BELOW VAL"
         vp_s = -3
     else:
+        vp_pos = "—"
         vp_s = 0
-    smc_s = 2 if smc == "BULLISH" else (-2 if smc == "BEARISH" else 0)
-    stg_s = 3 if "2" in stage else (1 if "1" in stage else (-1 if "3" in stage else -3))
-    wcl_total = wyk_s + vp_s + smc_s + stg_s
-    wcl_band = "BULL" if wcl_total >= 6 else ("NEUTRAL" if wcl_total >= 0 else "BEAR")
+
+    if _w:
+        # Real Pine values. Wyckoff carries an EVENT and a decayed tier, so the bias
+        # row can finally name what fired (SOS / Spring / SOW …) instead of inferring
+        # a bias from Stage + acc_ok.
+        wyk = _w["wyckoff"]["bias"]
+        wyk_s = _w["wyckoff"]["score_comp"]
+        smc_s = _w["smc"]["score"]
+        stg_s = _w["stage_score"]
+        wcl_total = _w["total_final"]
+        wcl_band = _w["band"]
+        choch_cnt = _w["choch_count_20"]
+        struct_str, struct_status = _w["struct"], _w["struct_status"]
+        setup_str = _w["setup"]
+        wyk_note = f" · {_w['wyckoff']['event']} ({_w['wyckoff']['age_bars']}b)" \
+            if _w["wyckoff"]["event"] != "—" else ""
+    else:
+        wyk_s = 3 if wyk == "ACCUMULATION" else (-3 if wyk == "DISTRIBUTION" else 0)
+        smc_s = 2 if smc == "BULLISH" else (-2 if smc == "BEARISH" else 0)
+        stg_s = 3 if "2" in stage else (1 if "1" in stage else (-1 if "3" in stage else -3))
+        wcl_total = wyk_s + vp_s + smc_s + stg_s
+        wcl_band = "STRONG BULL" if wcl_total >= 9 else ("BULL" if wcl_total >= 4 else ("NEUTRAL" if wcl_total >= -3 else ("CAUTION" if wcl_total >= -6 else "BEAR")))
+        choch_cnt = 0
+        struct_str, struct_status = "n/a (proxy mode)", "na"
+        setup_str = "● NONE"
+        wyk_note = ""
+    if not _w:
+        # Legacy proxy ladder — ONLY when the real engine is unavailable. Note it never
+        # detected a Spring; it inferred one from Stage + acc_ok, which is why a name
+        # could read "S2 — Spring/LPS Reversal" with no spring anywhere on the chart.
+        if wyk == "ACCUMULATION" and "2" in stage and vp_s >= 1 and wcl_total >= 4:
+            setup_str = "✓ S2 — Spring/LPS Reversal (proxy)"
+        elif vp_s >= 1 and wyk == "ACCUMULATION" and wcl_total >= 2:
+            setup_str = "✓ S1 — OB Retest + VP Support (proxy)"
+        elif "2" in stage and vp_s == 3:
+            setup_str = "✓ S5 — Stage 2 Continuation > VAH (proxy)"
+        elif wyk == "DISTRIBUTION" and wcl_total <= -3:
+            setup_str = "✗ S7 — Distribution Breakdown (proxy)"
+
+    wcl_val_disp = f"{wcl_band} ({wcl_total:+d}) · {setup_str}"
+
     rows = [
-        ("WCL Score (mirror)", f"{wcl_total:+d} → {wcl_band}",
-         "pass" if wcl_band == "BULL" else ("watch" if wcl_band == "NEUTRAL" else "fail")),
-        ("· components", f"Wyk:{wyk_s:+d} VP:{vp_s:+d} SMC:{smc_s:+d} Stg:{stg_s:+d} OB:—", "na"),
-        ("SMC Trend", smc, "pass" if smc == "BULLISH" else "fail" if smc == "BEARISH" else "na"),
+        ("WCL Context", wcl_val_disp, "pass" if "BULL" in wcl_band else ("watch" if wcl_band == "NEUTRAL" else "fail")),
+        ("Structure Health", struct_str, struct_status),
+        ("Volume Profile", f"{vp_pos} (POC {inr(poc)})" if poc else vp_pos, "pass" if "✓" in vp_pos else "watch" if "upper" in vp_pos else "fail"),
+        ("· components", f"Wyk:{wyk_s:+d} VP:{vp_s:+d} SMC:{smc_s:+d} Stg:{stg_s:+d}", "na"),
+        ("SMC Trend", smc + (f" · {_w['smc']['last_event']} ({_w['smc']['age_bars']}b)" if (_w and _w['smc']['last_event'] != '—') else ""),
+         "pass" if smc == "BULLISH" else "fail" if smc == "BEARISH" else "na"),
         ("Open FVGs", f"Bull {bfvg} · Bear {rfvg}", "pass" if bfvg >= rfvg else "watch"),
-        ("Wyckoff Bias", wyk, "pass" if wyk == "ACCUMULATION" else "fail" if wyk == "DISTRIBUTION" else "na"),
-        ("VP Position", vp_pos,
-         "pass" if vp_pos == "ABOVE VAH" else "watch" if vp_pos == "INSIDE VA" else "fail" if vp_pos == "BELOW VAL" else "na"),
-        ("POC", inr(poc) if poc else "—", "na"),
+        ("Wyckoff Bias", wyk + wyk_note, "pass" if wyk == "ACCUMULATION" else "fail" if wyk == "DISTRIBUTION" else "na"),
         ("VAH / VAL", (inr(vah) + " / " + inr(val)) if (vah and val) else "—", "na"),
         ("Dist to POC", fnum(dpoc, 1, "%"), "na"),
     ]
-    return card("CONTEXT LAYERS · SMC / VP / Wyckoff", rows, "#6A1B9A")
+    _wtf = (_w or {}).get("tf", "Daily")
+    return card("CONTEXT LAYERS · SMC / VP / Wyckoff" + (f" ({_wtf} · S4 parity)" if _w else " (PROXY — engine unavailable)"), rows, "#6A1B9A")
 
 
 def section_edges(rec, ctx, cmp_px) -> str:
@@ -2686,10 +2735,13 @@ INHERIT_QUALIFICATION = True
 # IZE ZONE ENGINE (18-Jul-2026) — port of the S4 Pine leg-base-leg demand/supply
 # zone engine (zone_engine.py) into the GM LOCATION gate, replacing the OB/FVG/pivot
 # PROXY's coarser read with the SAME zones the S4 chart draws (the documented
-# "location-accuracy ceiling" fix). A/B flag: ON = the IZE demand zones ALSO satisfy
-# at_support (superset with the proxy, moving toward S4 z_inDZ parity); OFF (default)
-# = legacy proxy only. Keep OFF until the board's location is validated against S4.
-GM_USE_IZE_ZONES = False
+# "location-accuracy ceiling" fix). ON (24-Jul-2026): the location gate is driven by
+# the validated S4 zone logic (zone_engine — pattern RBR/DBR/RBD/DBD + structural
+# PvH/PvL + S/R levels + AVWAP, D/W/M), REPLACING the old OB/FVG/pivot proxy. Validated
+# against live S4 v4.8 on MANAPPURAM + ENDURANCE (Endurance matched S4's panel exactly,
+# 6 DZ / 3 SZ). The proxy call is kept for its zone/level DATA but no longer decides
+# at_support. If the IZE engine errors, the proxy result stands as a safety fallback.
+GM_USE_IZE_ZONES = True
 # Structural-vs-catalyst-scan archetype sets — SINGLE SOURCE in gm_trigger_board
 # (next to the archetype names), deliberately NO fallback literal: a silent local
 # copy is exactly the rename-drift bug this import removes (P0, 14-Jul-2026).
@@ -3405,6 +3457,47 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             if _intra.get("bar_ok") is not None:  ctx["bar_ok"] = _intra["bar_ok"]
             if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
             if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # LIVE intraday price
+            # WCL follows the TRIGGER TF (Jay trades 75m / 125m / Daily). S4 computes
+            # Wyckoff / SMC / Volume Profile on the CHART TF — only the stage flags come
+            # from a daily security call — so a daily-derived WCL would not be the number
+            # on the chart being read. Structure Health in particular is inert on daily
+            # (CHoCH inside a trailing 20-bar daily window is rare); it only discriminates
+            # intraday. Stage stays daily via the stashed _wcl_b30/_wcl_b200.
+            try:
+                import wcl_context as _wclm, zone_engine as _zem
+                _idf = _intra.get("df")
+                if _idf is not None and len(_idf) >= 60:
+                    _ivp = _zem.vp_support(_idf)                  # VP on the trigger TF too
+                    _ipos = str(_ivp.get("vp_pos") or "")
+                    _ivps = (3 if _ipos == "ABOVE VAH" else 1 if _ipos == "IN VA (upper)"
+                             else -1 if _ipos == "IN VA (lower)" else -3 if _ipos == "BELOW VAL" else 0)
+                    ctx["wcl"] = _wclm.wcl_context(
+                        _idf, vp_score=_ivps,
+                        below_30w=ctx.get("_wcl_b30"), below_200=ctx.get("_wcl_b200"),
+                        vp_above_vah=(_ipos == "ABOVE VAH"))
+                    ctx["wcl"]["tf"] = trigger_tf
+                    ctx["choch_count_20"] = ctx["wcl"]["choch_count_20"]
+                    ctx["wcl_vp"] = _ivp
+                    # Re-derive the location gate with the VP term taken from the
+                    # TRIGGER TF, REPLACING (not OR-ing with) the daily VP term — Pine
+                    # has exactly one VP, on the chart TF, so OR-ing both would give
+                    # Python two bites and over-predict GO. The zone / S-R / AVWAP terms
+                    # stay D+W by design (context is daily; only the trigger is intraday).
+                    # NOTE: shallow-copy before mutating — ctx["support"] is the object
+                    # inside gm_load_symbol's st.cache_data entry; writing through it
+                    # would poison the cache for every later caller.
+                    _s = dict(ctx.get("support") or {})
+                    if _s.get("loc_source") == "IZE":
+                        _s["ize_near_vp"] = bool(_ivp.get("at_vp_support"))
+                        _s["vp_tf"] = trigger_tf
+                        _s["at_support"] = bool(_s.get("ize_at_support")
+                                                or _s.get("ize_near_sr")
+                                                or _s.get("ize_near_avwap")
+                                                or _ivp.get("at_vp_support"))
+                        ctx["support"] = _s
+            except Exception as e:
+                # Daily WCL from the ctx builder stands; it is labelled with its own tf.
+                _gm_logger.warning(f"{symbol}: intraday WCL recompute failed ({trigger_tf}): {e}")
             intra_label = f"⏱ Trigger TF **{trigger_tf}** · last closed bar {_intra.get('last_ts','?')} · {_intra.get('bars','?')} bars (forming bar excluded — this is the bar time, not a refresh time)"
         else:
             intra_reason = _intra.get("reason") or "unknown"
@@ -3932,6 +4025,44 @@ def gm_load_symbol(symbol: str) -> dict:
         except Exception as e:
             out["ctx"]["support"] = {}
             _gm_logger.warning(f"{symbol}: support-zone detection failed: {e}")
+        # WCL v1.2 Wyckoff + SMC (wcl_context.py — the real Pine calculation, not the
+        # old proxies). Computed ONCE here so the Single Symbol panel and the Trigger
+        # Board read the SAME numbers from ctx; two independent computations is how
+        # board-vs-single drift got in last time. Guarded: on failure the consumers
+        # fall back to their previous proxy display rather than crashing the load.
+        try:
+            import wcl_context as _wcl
+            if out.get("df") is not None:
+                _c = out["ctx"]
+                _last = _c.get("cmp")
+                _s150, _s200 = _c.get("sma150"), _c.get("sma200")
+                # Pine: bel30w = close < sma150, bel200 = close < sma200. None stays
+                # None so stage_score() applies its fail-bearish default (never 0-as-ok).
+                _b30 = (_last < _s150) if (_last is not None and _s150) else None
+                _b200 = (_last < _s200) if (_last is not None and _s200) else None
+                _vpp = str(_c.get("vp_pos") or "")
+                _dpoc = _c.get("dist_poc")
+                if _vpp == "ABOVE VAH":
+                    _vps = 3
+                elif _vpp == "INSIDE VA":
+                    _vps = 1 if (_dpoc or 0) >= 0 else -1
+                elif _vpp == "BELOW VAL":
+                    _vps = -3
+                else:
+                    _vps = 0
+                # Stash the DAILY stage flags. Pine reads bel30w/bel200 from a
+                # request.security("D") call regardless of the chart TF, so when
+                # gm_evaluate recomputes WCL on 75m/125m it must reuse THESE, not
+                # re-derive a "150-bar SMA" from intraday bars (which would be ~3
+                # weeks of tape, not 30 weeks).
+                _c["_wcl_b30"], _c["_wcl_b200"] = _b30, _b200
+                _c["wcl"] = _wcl.wcl_context(out["df"], vp_score=_vps,
+                                             below_30w=_b30, below_200=_b200,
+                                             vp_above_vah=(_vpp == "ABOVE VAH"))
+                _c["wcl"]["tf"] = "Daily"
+                _c["choch_count_20"] = _c["wcl"]["choch_count_20"]
+        except Exception as e:
+            _gm_logger.warning(f"{symbol}: WCL context (Wyckoff/SMC) failed: {e}")
         # IZE zone engine (A/B, GM_USE_IZE_ZONES): the real leg-base-leg zones S4 draws,
         # on Daily + confirmed-Weekly structure (same TF scope as the proxy). An IZE
         # demand zone containing/near price IS a location (S4 z_inDZ parity), so it
@@ -3947,11 +4078,24 @@ def gm_load_symbol(symbol: str) -> dict:
                     _izD = _ze.zone_support(_df, "D", _pxN)
                     _wk = _pap._confirmed_weekly_ohlcv(_df)
                     _izW = _ze.zone_support(_wk, "W", _pxN) if (_wk is not None and len(_wk) >= 60) else {}
-                    _ize_at = bool(_izD.get("at_support") or _izW.get("at_support"))
+                    # Monthly too — a shelf S4 tags Weekly can land on the monthly
+                    # resample here (native request.security vs pandas resample); check
+                    # both so a TF-assignment difference never drops a real HTF zone.
+                    # `out["df"]` is only 2y (→ ~24 monthly bars, below the 60-bar floor),
+                    # so pull a 5y daily frame JUST for the monthly resample (cached 24h;
+                    # monthly zones age out at 4y, so 5y is the right window). Weekly stays
+                    # on the 2y df — weekly zones age out at 2y anyway, so it's fully covered.
+                    try:
+                        _df5 = dp.fetch_ohlcv(symbol, period="5y", interval="1d", use_cache=True, auto_adjust=True)
+                    except Exception:
+                        _df5 = _df
+                    _mo = _pap._confirmed_month_ohlcv(_df5 if (_df5 is not None and len(_df5)) else _df)
+                    _izM = _ze.zone_support(_mo, "M", _pxN) if (_mo is not None and len(_mo) >= 60) else {}
+                    _ize_at = bool(_izD.get("at_support") or _izW.get("at_support") or _izM.get("at_support"))
                     _sup["ize_at_support"] = _ize_at
-                    _sup["ize_zone"] = _izD.get("zone") or _izW.get("zone")
-                    _sup["ize_score"] = _izD.get("score") or _izW.get("score")
-                    _sup["ize_n_dz"] = int(_izD.get("n_dz") or 0) + int(_izW.get("n_dz") or 0)
+                    _sup["ize_zone"] = _izD.get("zone") or _izW.get("zone") or _izM.get("zone")
+                    _sup["ize_score"] = _izD.get("score") or _izW.get("score") or _izM.get("score")
+                    _sup["ize_n_dz"] = int(_izD.get("n_dz") or 0) + int(_izW.get("n_dz") or 0) + int(_izM.get("n_dz") or 0)
                     # S/R horizontal levels (phase 2 — the other half of S4's support_pass:
                     # near_sr). A non-MTTWR SUPPORT level within 1.5% below price IS a
                     # location (S4 near_sr). Daily + confirmed-Weekly, MTTWR excluded.
@@ -3968,10 +4112,27 @@ def gm_load_symbol(symbol: str) -> dict:
                     _near_av = bool(_av.get("near_avwap"))
                     _sup["ize_near_avwap"] = _near_av
                     _sup["ize_avwap"] = _av.get("nearest")
-                    if _ize_at or _near_sr or _near_av:
-                        _sup["at_support"] = True
+                    # REPLACE the proxy (Jay, 24-Jul): the location decision is now driven
+                    # ONLY by the validated S4 zone logic — IZE zones (D/W/M) + non-MTTWR S/R
+                    # levels + AVWAP — overwriting the OB/FVG/pivot proxy's at_support, not
+                    # OR-ing with it. The proxy's zone/level DATA is still kept in _sup for
+                    # display/plan; only the at_support DECISION changes.
+                    # Volume Profile VAL / POC as LOCATION — the Python twin of S4
+                    # v5.1's `en_wcl_loc`. A high-volume acceptance shelf IS a location;
+                    # without this the board reads "no location" on names where S4 now
+                    # says GO. Same 1.5% tolerance, same one-sided VAL / two-sided POC
+                    # rule as the Pine. Deliberately NOT near_ema (over-predicts).
+                    _vpsup = _ze.vp_support(_df, _pxN)
+                    _near_vp = bool(_vpsup.get("at_vp_support"))
+                    _sup["ize_near_vp"] = _near_vp
+                    _sup["ize_vp_val"] = _vpsup.get("vp_val")
+                    _sup["ize_vp_poc"] = _vpsup.get("vp_poc")
+                    _sup["at_support"] = bool(_ize_at or _near_sr or _near_av or _near_vp)
+                    _sup["loc_source"] = "IZE"
                     out["ctx"]["support"] = _sup
             except Exception as e:
+                # Safety net: if the validated engine errors, the proxy's at_support (set
+                # above) stands rather than leaving the name with no location at all.
                 _gm_logger.warning(f"{symbol}: IZE zone engine failed (proxy stands): {e}")
         try:
             from sector_lookup import get_sector_index
@@ -4164,6 +4325,10 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             "bar_ok": _bar_ok,
             "cmp": (float(df["Close"].iloc[-1]) if len(df) else None),   # live intraday last price
             "last_ts": df.index[-1].strftime("%d-%b %H:%M"),
+            # The resampled trigger-TF frame itself. gm_evaluate recomputes WCL
+            # (Wyckoff / SMC / Volume Profile) on THIS, because S4 computes those on
+            # the chart TF — a daily-derived WCL would not be what the chart shows.
+            "df": df,
         }
     except Exception as e:
         # Bucket on the exception TYPE — str(e) is per-symbol noise that would
@@ -7547,6 +7712,21 @@ elif page == 'AI LAB':
                         is_amo = not (mkt_open <= now <= mkt_close and now.weekday() < 5 and not _is_holiday)
                         if _is_holiday:
                             st.info(f"ℹ️ Today is an NSE market holiday — order will be placed as AMO.")
+                        # PRE-TRADE RISK GATE (26-Jul-2026, audit P0). This button
+                        # placed live orders with none of the checks sniper_trigger.py
+                        # enforces. Both entry and SL are known here, so all three caps
+                        # apply (max open positions / sector / per-trade risk-%).
+                        # Fail-closed: an unevaluable gate blocks the order.
+                        from pre_trade_gate import gate_order
+                        _gok, _greason = gate_order(
+                            dhan_exec, sniper_sym_input, "BUY", sniper_qty,
+                            entry_price=sniper_entry, sl_price=sniper_sl)
+                        if not _gok:
+                            st.error(f"🛡️ BLOCKED by pre-trade risk gate — {_greason}")
+                            st.caption("No order was placed. Adjust size/stop, or resolve "
+                                       "the portfolio breach, then retry.")
+                            st.stop()
+                        st.caption(f"🛡️ Risk gate passed — {_greason}")
                         order = dhan_exec.place_order(
                             security_id=sec_id, exchange_segment=dhan_exec.NSE,
                             transaction_type=dhan_exec.BUY, quantity=sniper_qty,
@@ -12053,18 +12233,16 @@ elif page == 'GOLDEN MATCHER':
                                        f"(Deliv% falls to volume): {e}")
                 st.session_state["gm_board_nse"] = _nse_metrics
             _xray_fn = None
-            if _use_xray:
-                try:
-                    from weinstein_xray_screener import get_xray_scorecard as _xray_fn
-                except Exception as e:
-                    _xray_fn = None
-                    _gm_logger.warning(f"board build: X-Ray import failed (X-Ray cols blank "
-                                       f"despite checkbox ON): {e}")
+            try:
+                from weinstein_xray_screener import get_xray_scorecard as _xray_fn
+            except Exception as e:
+                _xray_fn = None
+                _gm_logger.warning(f"board build: X-Ray import failed: {e}")
             _loaders = dict(evaluate=gm_evaluate,          # SINGLE source of truth (shared with Single Symbol)
                             load_symbol=gm_load_symbol, load_recovery=gm_load_recovery,
                             bull_wf=compute_workflow, rec_wf=compute_recovery_workflow,
                             minervini=minervini_checks, nse_metrics=_nse_metrics,
-                            xray=_xray_fn, use_xray=bool(_use_xray),
+                            xray=_xray_fn, use_xray=True,
                             load_intraday=gm_load_intraday,
                             trigger_tf=_trig_tf,           # "75m"/"125m"/"Daily" — gm_evaluate honours Daily
                             overall_weights=_gtb.OVERALL_PRESETS.get(_score_mode))
@@ -12175,6 +12353,15 @@ elif page == 'GOLDEN MATCHER':
                         help="0-100 opportunity score — Leadership(Alpha+Minervini)/Fundamentals(Conviction/"
                              "BFF-or-RFF/Piotroski)/Setup(ΣPA+catalyst+VCP)/Risk(R:R), reweighted for missing "
                              "inputs. Independent of category & path."),
+                    "WCL Context": st.column_config.TextColumn(
+                        "WCL Context", width="medium",
+                        help="Weinstein Context Layer macro score band (STRONG BULL / BULL / NEUTRAL / CAUTION / BEAR) and active tactical setup (S1-S8)."),
+                    "Struct Health": st.column_config.TextColumn(
+                        "Struct Health", width="small",
+                        help="SMC Structure Health: CLEAN (0-1 CHoCHs), CHOPPY (2-3 CHoCHs, caps Kelly size at 0.5x), BROKEN (4+ CHoCHs)."),
+                    "VP Position": st.column_config.TextColumn(
+                        "VP Position", width="medium",
+                        help="Volume Profile Position: ✓ ABOVE VAH, ✓ IN VA (upper), ✗ IN VA (lower), ✗ BELOW VAL."),
                 },
                 disabled=[c for c in _view.columns if c != "RRG"],
             )
@@ -12414,7 +12601,7 @@ elif page == 'GOLDEN MATCHER':
                     # numerically (not lexicographically) and the number filter works —
                     # a CSV round-trip (disk cache reload) can leave them as object.
                     for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
-                                "Piotroski", "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%",
+                                "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%",
                                 "Entry", "SL", "T1", "P/E"):
                         if _nc in _v.columns:
                             _v[_nc] = pd.to_numeric(_v[_nc], errors="coerce")
@@ -12437,7 +12624,7 @@ elif page == 'GOLDEN MATCHER':
                     # AG-Grid otherwise treats them as text (lexicographic) when the
                     # pandas dtype is object. Explicit for the key decision numbers.
                     for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
-                                "Piotroski", "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%"):
+                                "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%"):
                         if _nc in _v.columns:
                             _gb.configure_column(_nc, type=["numericColumn"],
                                                  filter="agNumberColumnFilter")
@@ -14950,7 +15137,21 @@ elif page == 'RISK SHIELD':
                                         if _flags:
                                             flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                             
-                                    combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>"
+                                    # Calculate Dhan 50/50 2-OCO execution card parameters
+                                    trail_step_val = round(atr_val * 1.5, 2) if (atr_val and atr_val > 0) else 0.0
+                                    oco1_q = int(total_qty * 0.5) if total_qty else 0
+                                    oco2_q = total_qty - oco1_q if total_qty else 0
+                                    t1_price = tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.08 if buy_price else 0)
+                                    t2_price = tgt_vals[1] if len(tgt_vals) > 1 else (tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.15 if buy_price else 0))
+                                    sl_price = near_sl if near_sl else (buy_price * 0.94 if buy_price else 0)
+
+                                    dhan_oco_card_html = f"""<div style='background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 8px;margin-top:6px;font-size:0.75rem;'>
+                                        <div style='color:#58a6ff;font-weight:bold;margin-bottom:2px;'>📌 Dhan 2-OCO Plan (Trail Step: ₹{trail_step_val:,.2f} · 1.5× Daily ATR)</div>
+                                        <div style='color:#4ade80;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Static) ₹{t1_price:,.2f} | SL ₹{sl_price:,.2f} | TSL: <b>ON</b></div>
+                                        <div style='color:#a7f3d0;'>• <b>OCO-2 ({oco2_q} sh):</b> Trail T2 <b>ON</b> ₹{t2_price:,.2f} | SL ₹{sl_price:,.2f} | TSL: <b>ON</b></div>
+                                    </div>"""
+
+                                    combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>{dhan_oco_card_html}"
 
                                     # Qty string
                                     qty_parts = []

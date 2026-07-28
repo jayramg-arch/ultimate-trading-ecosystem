@@ -298,10 +298,9 @@ def _blend(parts):
 
 def overall_score(alpha=None, minervini=None, conviction=None, bff=None, rff_base=None,
                   piotroski=None, sigma_pa=None, catalyst_live=None, vcp=None,
-                  rr=None, rs=None, weights=None):
-    """4-DIMENSION opportunity score (0-100), category/path-independent, each raw
-    signal used ONCE, re-weighted for missing inputs. `weights` overrides the
-    dimension weights (e.g. an OVERALL_PRESETS entry). `minervini` = mpass/8 (0-1)."""
+                  rr=None, rs=None, wcl_total=None, choch_count=None, vp_s=None, weights=None):
+    """4-DIMENSION opportunity score (0-100), enhanced with WCL v1.2 & S4 v5.0 Context,
+    Structure Health, and Volume Profile. Each raw signal used ONCE, re-weighted for missing inputs."""
     W = dict(OVERALL_WEIGHTS)
     if weights:
         W.update(weights)
@@ -329,15 +328,25 @@ def overall_score(alpha=None, minervini=None, conviction=None, bff=None, rff_bas
         _fp.append((_clamp(piotroski / 9.0 * 100, 0, 100), 1.0))
     fund = _blend(_fp)
 
-    # 3. SETUP / TRIGGER — ΣPA (8+ = strong) + live catalyst + VCP base
+    # 3. SETUP / TRIGGER — ΣPA + live catalyst + VCP base + WCL Context Score
+    wcl_score_norm = _clamp((wcl_total + 10) / 20.0 * 100, 0, 100) if wcl_total is not None else None
     setup = _blend([
-        (_clamp(min(sigma_pa / 8.0, 1.0) * 100, 0, 100) if sigma_pa is not None else None, W["setup_pa"]),
-        ((100.0 if catalyst_live else 0.0) if catalyst_live is not None else None, W["setup_cat"]),
-        ((100.0 if vcp else 0.0) if vcp is not None else None, W["setup_vcp"]),
+        (_clamp(min(sigma_pa / 8.0, 1.0) * 100, 0, 100) if sigma_pa is not None else None, 0.40),
+        ((100.0 if catalyst_live else 0.0) if catalyst_live is not None else None, 0.20),
+        ((100.0 if vcp else 0.0) if vcp is not None else None, 0.15),
+        (wcl_score_norm, 0.25),
     ])
 
-    # 4. RISK / REWARD — R:R (3R = full). Location is already gated at GM Step 4.
-    risk = _clamp(min(rr / 3.0, 1.0) * 100, 0, 100) if rr is not None else None
+    # 4. RISK / QUALITY — R:R (3R = full) + SMC Structure Health + Volume Profile Location
+    rr_score = _clamp(min(rr / 3.0, 1.0) * 100, 0, 100) if rr is not None else None
+    struct_score = (100.0 if choch_count <= 1 else (50.0 if choch_count <= 3 else 0.0)) if choch_count is not None else None
+    vp_score = (100.0 if vp_s >= 3 else (75.0 if vp_s >= 1 else (35.0 if vp_s >= -1 else 0.0))) if vp_s is not None else None
+    
+    risk = _blend([
+        (rr_score, 0.60),
+        (struct_score, 0.20),
+        (vp_score, 0.20),
+    ])
 
     overall = _blend([
         (lead, W["leadership"]),
@@ -663,7 +672,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     _inh_bull = ev.get("inherited_bull") or []
     _inh_rec = ev.get("inherited_rec") or []
 
-    sides = info["sides"]
+    sides = info.get("sides") or []
     # Empty sides = a ★-only Golden Matcher name not resolvable to a per-strategy
     # list — time it on BOTH paths, so it's never silently dropped.
     _no_side = not sides
@@ -787,19 +796,13 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     pio = None
     xray_grade = ""
     pe_val = None
-    if loaders.get("use_xray") and loaders.get("xray"):
+    _xray_loader = loaders.get("xray")
+    if _xray_loader is not None:
         try:
-            _xr = loaders["xray"](sym) or {}
-            # Data-sufficiency gate: in batch board mode yfinance rate-limits, so most
-            # Piotroski criteria go None → a data-starved "F POOR" grade + a token
-            # Piotroski. Only surface the grade/Piotroski when the fundamentals actually
-            # resolved (Data_Quality != INSUFFICIENT); otherwise leave BLANK — an honest
-            # 'no data' rather than a misleading F/D. P/E still shows when present.
+            _xr = _xray_loader(sym) or {}
             if not _xr.get("error"):
-                _dq = str(_xr.get("Data_Quality", "FULL"))
-                if _dq != "INSUFFICIENT":
-                    pio = _xr.get("Piotroski_Score")
-                    xray_grade = str(_xr.get("Overall_Grade", "") or "")
+                pio = _xr.get("Piotroski_Score")
+                xray_grade = str(_xr.get("Overall_Grade", "") or "")
                 _pe = str((_xr.get("Raw_Metrics") or {}).get("P/E Ratio", "") or "")
                 pe_val = _to_num(_pe) if _pe and _pe != "N/A" else None
         except Exception as e:
@@ -814,6 +817,60 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         conv, _comb_c = compute_conviction(sym, g(rec, "Score"), path)
         if comb is None:
             comb = _comb_c
+
+    # --- WCL v1.2 & S4 v5.0 Context metrics ---
+    _stage_str = str(g(rec, "Stage", default=""))
+    _wyk_b = ("ACCUMULATION" if (g(ctx, "acc_ok") and ("1" in _stage_str or "2" in _stage_str)) else "DISTRIBUTION" if "3" in _stage_str else "NEUTRAL")
+    _vp_pos_r = g(ctx, "vp_pos", default="—")
+    _dpoc_val = g(ctx, "dist_poc")
+    _poc_val  = g(ctx, "poc")
+    
+    _wyk_s = 3 if _wyk_b == "ACCUMULATION" else (-3 if _wyk_b == "DISTRIBUTION" else 0)
+    if _vp_pos_r == "ABOVE VAH":
+        _vp_s = 3
+        _vp_disp = "✓ ABOVE VAH"
+    elif _vp_pos_r == "INSIDE VA":
+        if (_dpoc_val or 0) >= 0:
+            _vp_s = 1
+            _vp_disp = "✓ IN VA (upper)"
+        else:
+            _vp_s = -1
+            _vp_disp = "✗ IN VA (lower)"
+    elif _vp_pos_r == "BELOW VAL":
+        _vp_s = -3
+        _vp_disp = "✗ BELOW VAL"
+    else:
+        _vp_s = 0
+        _vp_disp = "—"
+
+    # 28-Jul-2026: read the REAL WCL engine (wcl_context.py) out of the shared ctx,
+    # computed once in gm_load_symbol. Previously this block scored SMC as
+    # `2 if path == "bull" else -2` — literally the path name, not structure, which
+    # penalised every Recovery name by 4 points by definition and could never agree
+    # with the Single Symbol panel. `_choch_c` was likewise read with default=0 and
+    # produced nowhere, so Struct Health was permanently CLEAN (0).
+    _wcl = g(ctx, "wcl")
+    _wcl = _wcl if isinstance(_wcl, dict) else None
+    if _wcl:
+        _wyk_b = _wcl["wyckoff"]["bias"]
+        _wyk_s = _wcl["wyckoff"]["score_comp"]
+        _smc_s = _wcl["smc"]["score"]
+        _stg_s = _wcl["stage_score"]
+        _wcl_tot = _wcl["total_final"]
+        _wcl_band = _wcl["band"]
+        _choch_c = _wcl["choch_count_20"]
+        _struct_disp = _wcl["struct"]
+        _setup_tag = _wcl["setup"].replace("✓ ", "").replace("✗ ", "").replace("● ", "")
+    else:
+        _smc_s = 0
+        _stg_s = 3 if "2" in _stage_str else (1 if "1" in _stage_str else (-1 if "3" in _stage_str else -3))
+        _wcl_tot = _wyk_s + _vp_s + _smc_s + _stg_s
+        _wcl_band = "STRONG BULL" if _wcl_tot >= 9 else ("BULL" if _wcl_tot >= 4 else ("NEUTRAL" if _wcl_tot >= -3 else ("CAUTION" if _wcl_tot >= -6 else "BEAR")))
+        _choch_c = None                      # unknown, NOT zero — see overall_score
+        _struct_disp = "n/a"
+        _setup_tag = "—"
+
+    _wcl_disp = f"{_wcl_band} ({_wcl_tot:+d}) · {_setup_tag}"
 
     # --- Overall opportunity score (0-100, path/category-independent) ---
     _rff_for_score = (g(rec_r, "RFF_Base") if rec_r else g(rec, "RFF_Base"))
@@ -830,7 +887,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             minervini=(mpass / 8.0 if mpass is not None else None),
             conviction=conv, bff=data.get("bff"), rff_base=_rff_for_score, piotroski=pio,
             sigma_pa=sigma_pa, catalyst_live=_cat_live, vcp=_vcp_flag,
-            rr=rr, rs=mansfield, weights=loaders.get("overall_weights"))
+            rr=rr, rs=mansfield, wcl_total=_wcl_tot, choch_count=_choch_c, vp_s=_vp_s,
+            weights=loaders.get("overall_weights"))
 
     # Inherited archetype(s) for the WINNING path (show-all) + ★ top-conviction badge.
     _win_arche = _inh_rec if path == "recovery" else _inh_bull
@@ -840,14 +898,17 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     arche_txt = ", ".join(_win_arche) if _win_arche else ", ".join(_arche)
 
     return {
-        "Symbol":     sym,
-        "★":          ("★" if info.get("star") else ""),
-        "Overall":    overall,
-        "Category":   cat,                        # stage-1 ARM verdict (pa_fired; no bar_ok)
-        "S4-GO":      s4go,                        # stage-2 preview: PA·loc·vol·bar_ok (S4 chart is final)
-        "Archetype":  arche_txt,                 # inherited setup thesis (Hunter=Breakout, …)
-        "Loc":        _loc_col,                  # Step-4 location caveat (blank when fine)
-        "Path":       "Recovery" if path == "recovery" else "Bull",
+        "Symbol":        sym,
+        "★":             ("★" if info.get("star") else ""),
+        "Overall":       overall,
+        "Category":      cat,                        # stage-1 ARM verdict (pa_fired; no bar_ok)
+        "S4-GO":         s4go,                        # stage-2 preview: PA·loc·vol·bar_ok (S4 chart is final)
+        "WCL Context":   _wcl_disp,
+        "Struct Health": _struct_disp,
+        "VP Position":   _vp_disp,
+        "Archetype":     arche_txt,                 # inherited setup thesis (Hunter=Breakout, …)
+        "Loc":           _loc_col,                  # Step-4 location caveat (blank when fine)
+        "Path":          "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller
         "Step":       wf.get("current"),
         "Conviction": _r1(conv),
@@ -877,7 +938,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "T1":         _r1(t1),
         "R:R":        _r1(rr),
         "RRGeng":     rrg_eng,
-        "Tier":       info["tier"],
-        "Sources":    ", ".join(dict.fromkeys(info["sources"])),
+        "Tier":       info.get("tier", "Discovery"),
+        "Sources":    ", ".join(dict.fromkeys(info.get("sources") or [])),
         "Stale":      ("⚠" if _stale else ""),
     }
