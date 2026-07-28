@@ -2,7 +2,21 @@
 // © Jayram G
 //
 // ============================================================================
-// SECTION 4 — ENTRY TRIGGER & PRICE MEMORY  v5.1 (WCL CONTEXT INTEGRATION)
+// SECTION 4 — ENTRY TRIGGER & PRICE MEMORY  v5.2 (WCL CONTEXT INTEGRATION)
+//
+// v5.2 (28 Jul 2026): PANEL SELF-CONTRADICTION FIXES (Jay, CUMMINSIND 125m).
+//   The panel gave TWO entry instructions ~4% apart, and targeted the level it told
+//   you not to target. Both are text/label bugs — no gate, score or plan MATH changed.
+//   1. CLEAR-TO-BREAK said "Arm a buy-STOP above <ovh>" (v4.7 APOLLOHOSP wording,
+//      which assumed buy-stop) while the Plan row and STATUS follow entry_method,
+//      defaulted to RETEST since the 23-Jul entry A/B. That line now follows the same
+//      input, so there is ONE entry instruction. The BLUE-SKY branch deliberately
+//      keeps its buy-STOP (a retest there fills you inside the supply band) and now
+//      says so explicitly, since the Plan row will be showing a retest limit.
+//   2. T1/T2 are tagged "·lvl" when they are a STRUCTURAL overhead (pl_t1_str), i.e.
+//      a level to CLEAR rather than a projected objective. CLEAR-TO-BREAK says that
+//      in prose while the Entry/SL/T1/T2 row was presenting the same number as the
+//      target. Applies to every structural target, not just the CLEAR-TO-BREAK case.
 //
 // v5.1 (28 Jul 2026): v5.0 REVIEW FIXES. v5.0 never compiled (token limit) and three of
 // its five advertised features were declared but not wired. This revision makes the file
@@ -776,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.1 (WCL Context Integration)", shorttitle="S4 Entry v5.1", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.2 (WCL Context Integration)", shorttitle="S4 Entry v5.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -4902,8 +4916,12 @@ if show_panel and d_panel and barstate.islast
     // with T1/T2 so the reward is read where the price is.
     string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
     string _lS  = na(pl_entry) ? "" : " · SL " + str.tostring(pl_sl, format.mintick) + (pl_cap ? "⚠" : "") + " (−" + str.tostring((pl_entry - pl_sl) / pl_entry * 100.0, "0.0") + "%)"
-    string _lT1 = na(pl_t1) ? " · T1 —" : " · T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R)"
-    string _lT2 = na(pl_t2) ? (na(pl_t1) ? " · T2 —" : " · T2 open") : " · T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R)"
+    // v5.2 (#2): a STRUCTURAL target (pl_t1_str/pl_t2_str = the nearest overhead level)
+    // is tagged "·lvl". It is a level to CLEAR, not a projected objective — the
+    // CLEAR-TO-BREAK verdict says exactly that in prose, while this row was quietly
+    // presenting the same number as the target. An R-multiple target has no tag.
+    string _lT1 = na(pl_t1) ? " · T1 —" : " · T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·lvl" : "") + ")"
+    string _lT2 = na(pl_t2) ? (na(pl_t1) ? " · T2 —" : " · T2 open") : " · T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·lvl" : "") + ")"
     string _lvlTxt = na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2)
     f_row(24, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : color.new(#26a69a,0))
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
@@ -5069,13 +5087,24 @@ if show_panel and d_panel and barstate.islast
         else if _blueSky
             _L1 := "BREAKOUT PIVOT — Stage-2 leader at its high"
             _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) — the 'supply' here IS the prior high, meant to BREAK. Not distribution, not a range reject."
-            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — above it is BLUE SKY (reward = measured move / trail, not the next level)."
+            // v5.2 (#1): the buy-STOP here is DELIBERATE and is NOT switched by
+            // entry_method — price is inside the supply band, so a retest limit would
+            // buy INTO resistance, which the blue-sky doctrine forbids. Say explicitly
+            // that this overrides the Plan row, which follows entry_method and will be
+            // showing a retest limit.
+            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — above it is BLUE SKY (reward = measured move / trail, not the next level)." + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — a retest here fills you inside the band." : "")
             _L5 := "Only valid Stage-2 (above 30WMA+200DMA). If RS fades / it's Stage 3, this same band is real supply → skip."
             _anCol := color.new(#26a69a, 0)
         else if _clearToBreak
             _L1 := "CLEAR TO BREAK — Stage-2, level overhead"
             _L2 := "Nearest overhead " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring((_ovh - _cl_r) / _cl_r * 100.0, "0.0") + "%) is a level to BREAK, not the target — on the trading TF an HTF level is ALWAYS overhead within a thin R."
-            _L3 := "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ". Real target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
+            // v5.2 (#1): this line hardcoded "Arm a buy-STOP" (written under the v4.7
+            // APOLLOHOSP ruling, which assumed buy-stop entry) while the Plan row and
+            // STATUS follow entry_method — defaulted to RETEST since the 23-Jul entry
+            // A/B, where retest beat buy-stop on every family. The panel therefore told
+            // you to enter in two places ~4% apart. It now follows the SAME input, so
+            // there is one entry instruction on the panel.
+            _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback); " + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " Real target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
             _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA). Stage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
             _anCol := color.new(#26a69a, 0)
         else if _qRoomBad
