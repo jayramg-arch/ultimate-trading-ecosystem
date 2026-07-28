@@ -178,6 +178,18 @@ def fetch_symbol_full(symbol: str, df_bench_w: pd.DataFrame,
         "ema20": ema20, "sma200": sma200, "sma200_slope": sma200_slope,
         "close_5d_ago": close_5d_ago, "days_to_earnings": days_to_earnings,
         "chandelier": chandelier,
+        # Dhan TRAIL-order ratchet step, CATALYST-AWARE (fixed 28-Jul-2026). This was
+        # a hardcoded atr14 * 1.5 — the SWING multiplier — applied to every position,
+        # sitting in the same dict as a Chandelier already computed from the
+        # catalyst-aware set (POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5). One module, two
+        # disagreeing trail distances, with the wrong one rendered in Risk Shield and
+        # fed to the AI exit review. Single source of truth now: risk_common.
+        # NOTE this is only meaningful if the position is held on a Dhan TRAIL order.
+        # `exit_policy_study.py` found the peak-anchored Chandelier BEATS Dhan's
+        # gap-preserving ratchet on every positional cell (-1.85pp IS / -0.49pp OOS),
+        # so for POS the Chandelier below is the operative stop, not this step.
+        "trail_jump": (atr14 * (rc.trail_mult_for(setup, bear)[0] or 1.5)
+                       if _numok(atr14) else np.nan),
         "score_100pt":    int(rec.get("Score", 0)),
         "catalyst":       rec.get("Catalyst", "None"),
         "stage":          int(rec.get("Stage", 0)),
@@ -292,12 +304,26 @@ def classify(row: dict) -> tuple[str, str]:
 
     # ══ 2. TRIM (partial) — trend intact, harvest / de-risk (winners only) ══
     if pnl > 0:
+        # 28-Jul-2026 — TWO defects fixed here, both introduced with the Dhan
+        # Trailing-Target rewrite and both live on the Risk Shield page:
+        #
+        # (1) The rungs silently DOUBLED. R>=3 read "book ½" and R>=2 read "book ⅓,
+        #     lock 0.5R"; they were reworded to "OCO-1 (50%) exit" — telling you to
+        #     sell half where the ladder says a third, with nothing marking the change.
+        #     Original sizes restored.
+        # (2) They asserted "Trailing Target ON" as the house policy. exit_policy_study.py
+        #     replayed 1,103 trades under six exit schemes: the Chandelier BEAT Dhan's
+        #     ratchet on every positional cell and swing was indistinguishable, so
+        #     nothing supports that as policy. The trail level shown is the Chandelier —
+        #     the mechanism that actually won — and it is already computed in the row.
+        _ch = row.get("chandelier")
+        _ch_str = f" · trail → ₹{_ch:,.0f} (Chandelier)" if _numok(_ch) else ""
         if _numok(R) and R >= 3.0:
-            return "TRIM", f"At {R:.1f}R — book ½, trail the rest"
+            return "TRIM", f"At {R:.1f}R — book ½, trail the rest{_ch_str}"
         if _numok(R) and R >= 2.0:
-            return "TRIM", f"At {R:.1f}R — book ⅓, lock 0.5R on the rest"
+            return "TRIM", f"At {R:.1f}R — book ⅓, lock 0.5R on the rest{_ch_str}"
         if _numok(tgt) and _numok(ltp) and ltp >= tgt:
-            return "TRIM", f"Target ₹{tgt:,.0f} reached — book partial"
+            return "TRIM", f"Target ₹{tgt:,.0f} reached — book partial{_ch_str}"
         if _numok(ema20) and _numok(atr14) and atr14 > 0 and (ltp - ema20) / atr14 >= EXT_ATR_MULT:
             return "TRIM", f"Over-extended {((ltp-ema20)/atr14):.1f}× ATR above 20-EMA — book into strength"
         if d2e is not None and d2e <= 3:
@@ -319,7 +345,25 @@ def classify(row: dict) -> tuple[str, str]:
                     _numok(c5) and ltp <= c5 * 1.10 and
                     _numok(ema20) and ltp > ema20)
     if _is_leader and _at_location:
-        return "ADD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · pullback to EMA20 · {catal}"
+        # The revised stop for the pyramid: the catalyst-aware Chandelier (risk_common)
+        # is ALREADY in the row — surface it. The cardinal pyramid rule is "every add
+        # raises the WHOLE position's stop"; showing the new level makes that actionable
+        # instead of a silent flag. (Add SIZE stays the trader's call — smaller than the
+        # prior tranche, total risk within ceiling.)
+        _ch = row.get("chandelier")
+        _cur_sl = row.get("stoploss")
+        if _numok(_ch) and _numok(_cur_sl) and _ch > _cur_sl:
+            # The trail has advanced past your stop → adding raises the WHOLE position's
+            # stop to it (from → to, so the raise is explicit and never a silent lower).
+            _slnote = f" · RAISE stop → ₹{_ch:,.0f} (Chandelier, from ₹{_cur_sl:,.0f})"
+        elif _numok(_ch) and _numok(_cur_sl):
+            # Trail still below your stop (early in the move) — do NOT lower; keep the stop.
+            _slnote = f" · keep stop ₹{_cur_sl:,.0f} (Chandelier ₹{_ch:,.0f} not yet above it)"
+        elif _numok(_ch):
+            _slnote = f" · Chandelier trail ₹{_ch:,.0f}"
+        else:
+            _slnote = " · raise the position stop before adding"
+        return "ADD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · pullback to EMA20{_slnote} · {catal}"
     if _is_leader and not _at_location:
         # A leader that's extended / not at a pullback — hold, don't chase.
         return "HOLD", f"Leader ({quad}, Score {score}) but extended — wait for pullback to add"
@@ -342,14 +386,14 @@ def render_section(label: str, subset: pd.DataFrame, sort_col: str, ascending: b
         return
     sorted_df = subset.sort_values(sort_col, ascending=ascending)
     display_cols = ["symbol", "trade_type", "classification", "days_held", "buy_price", "ltp",
-                     "pnl_pct", "r_mult", "score_100pt", "catalyst", "rrg_quadrant",
+                     "pnl_pct", "r_mult", "trail_jump", "score_100pt", "catalyst", "rrg_quadrant",
                      "rrg_arrow", "ema20", "wma30", "dma50", "swing_low", "chandelier", "target",
                      "stage", "sl_dist_atr", "trigger"]
     cols_present = [c for c in display_cols if c in sorted_df.columns]
     styled = sorted_df[cols_present].style.applymap(
         color_class, subset=["classification"]
     ).format({
-        "buy_price": "₹{:.2f}", "ltp": "₹{:.2f}",
+        "buy_price": "₹{:.2f}", "ltp": "₹{:.2f}", "trail_jump": "₹{:.2f}",
         "ema20": "₹{:.0f}", "wma30": "₹{:.0f}", "dma50": "₹{:.0f}",
         "swing_low": "₹{:.0f}", "chandelier": "₹{:.0f}", "target": "₹{:.0f}",
         "pnl_pct": "{:+.2f}%", "r_mult": "{:+.1f}R",
