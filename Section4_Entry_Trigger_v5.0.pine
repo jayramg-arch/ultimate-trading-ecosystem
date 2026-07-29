@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.8 (WCL Context Integration)", shorttitle="S4 Entry v5.8", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.9 (WCL Context Integration)", shorttitle="S4 Entry v5.9", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -854,9 +854,8 @@ confirm_daily = input.bool(true, "Confirmed daily only (no intraday repaint)", g
      tooltip="ON = read the LAST CLOSED daily bar (matches the Golden Matcher's EOD read; no forming-bar flicker). OFF = live developing daily bar (repaints intraday). Applies only when 'Use chart timeframe' is OFF.")
 rv_floor  = input.float(1.0, "Volume floor (RV) for a valid trigger", minval=0.0, step=0.25, group=grpPA,
      tooltip="A trigger only counts as GO if relative volume >= this. 1.0 = average day. A real breakout usually has RV > 1.25. Lower it (e.g. 0.8) if you find it too strict; raise it to demand stronger participation.")
-auto_dd_floor = input.float(15.0, "Auto: Recovery drawdown BAND — min %", minval=0.0, step=1.0, group=grpPA,
      tooltip="Auto mode resolves to the RECOVERY battery when the stock is at least this % off its 52-week high (and the 30-WMA proxy is not repaired). Keep in sync with the Golden Matcher recovery CONFIG min_stock_correction_pct (10).")
-auto_dd_ceiling = input.float(35.0, "Auto: Recovery drawdown BAND — max %", minval=1.0, step=1.0, group=grpPA, tooltip="Upper bound of the Python band (recovery_screener cb_drawdown_max_pct). Beyond this it is a falling knife, not quality on sale, and Python excludes it too. Measured off the DAILY 60-bar high, matching recovery_screener Pillar 1 exactly.")
+stage_gate = input.bool(true, "Stage 3/4 = NO TRADE (overrides mode)", group=grpPA, tooltip="Weinstein: only Stage 2 advances and Stage 1 turns are tradeable. With this ON a Stage-3 (30WMA falling, price above) or Stage-4 (below and falling) name resolves to NO TRADE and the verdict says so — even if you set the mode manually, because the stage is a fact, not a preference. OFF restores the old two-path behaviour.")
      tooltip="v2.9. ON (default) = Auto only flips to Recovery when price is BELOW its 200-DMA (stops a shallow bull PULLBACK, still above the 200-DMA, from mis-resolving Recovery — this is why Auto stays on the Bull path for most names). Turn OFF if you want early recoveries that have ALREADY reclaimed the 200-DMA to resolve Recovery. NOTE: Pine cannot see the Golden Matcher's live Bull/Recovery decision — for names where GM disagrees with Auto, set Mode = Bull or Recovery MANUALLY when you create the alert (that override is authoritative).")
 
 
@@ -1279,10 +1278,6 @@ float chart_atr = ta.atr(14)
 // right by accident: monthly zones are wide, so 2×width was large. It was still
 // wrong WITHIN a timeframe — a narrow 75m zone died on a tiny move.)
 float atrD_tf = request.security(syminfo.tickerid, "D", ta.atr(14), lookahead=barmerge.lookahead_off)
-// v5.8 — drawdown off the DAILY 60-bar high, the exact reference recovery_screener.py
-// uses for its Pillar-1 test (lookback_high = high.rolling(60).max()). S4's auto rule
-// had been using off-52W-high instead, which is a different number entirely.
-float d_dd60 = request.security(syminfo.tickerid, "D", (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, lookahead=barmerge.lookahead_off)
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 float chartEMA20 = ta.ema(close, 20)   // chart-TF EMA20 (used by the Price-vs-EMA20 panel row on a Daily chart)
@@ -3225,20 +3220,31 @@ bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // 
 // Pine can't see RFF, so an early recovery that already reclaimed the 200-DMA
 // resolves Bull here while GM (recovery engine) shows Recovery — use the manual
 // Mode override for that rare case.
-// v5.8 — AUTO MODE NOW MIRRORS THE PYTHON DEFINITION (Jay: "why can't you replicate the
-// same python logic into pine?"). recovery_screener.py qualifies a recovery on ONE
-// structural test — a drawdown BAND off the rolling 60-bar high:
-//     drawdown = (high.rolling(60).max() - close) / high.rolling(60).max()
-//     pillar1  = (drawdown >= 15%) and (drawdown <= 35%)        # "quality on sale"
-// There is NO below-30WMA test, NO below-200DMA test, and the reference is the 60-BAR
-// high, not the 52-week high. S4's old heuristic required off52 >= 10 AND (below 30WMA
-// OR 150-SMA falling) AND (below 200DMA) — three gates Python does not have, which is
-// why GLAXO / CRISIL / COLPAL never resolved and had to be forced to Manual.
-// NOT REPLICABLE: Python also requires RFF >= 4 (fundamentally strong). TradingView caps
-// request.financial() at 5 calls, which is why the Pine surfaces carry "RFF-Lite" at
-// best — so Auto here will select some names Python would reject on fundamentals.
-// Confirm the fundamental leg in the Golden Matcher; Pine cannot see it.
-bool auto_rec = nz(d_dd60, 0.0) >= auto_dd_floor and nz(d_dd60, 0.0) <= auto_dd_ceiling
+// v5.9 — CLASSIFY BY WEINSTEIN STAGE, NOT BY DRAWDOWN (Jay: "is it the right way of
+// classifying bull/recovery trades?" — it was not).
+// v5.8 promoted recovery_screener's Pillar-1 drawdown BAND to a classifier. But that
+// band is a QUALIFICATION test inside the recovery screen, not a way to tell paths
+// apart: a Stage-2 leader in a normal 15-20% correction, a Stage-4 name still falling,
+// and a Stage-1 base turning up all produce the same number. GLAXO is the first case —
+// above its 30WMA with a RISING 150-SMA — and v5.8 called it Recovery, which is the
+// wrong diagnosis reached by correct arithmetic.
+// The two flags needed are already computed, so this is the Weinstein 2x2:
+//     below 30WMA   30WMA falling   stage   path
+//        no             no            2     BULL
+//        yes            no            1     RECOVERY (the turn)
+//        no             yes           3     NO TRADE
+//        yes            yes           4     NO TRADE
+// The drawdown band stays where Python has it — a qualification note inside Recovery.
+bool _b30 = nz(d_bel30, 1.0) > 0.5          // na fails to the BEARISH side (v5.1 rule)
+bool _w30dn = nz(d_s150dn, 1.0) > 0.5
+int  stage_n = _b30 ? (_w30dn ? 4 : 1) : (_w30dn ? 3 : 2)
+// THE THIRD STATE. `mode` offers only two TRADEABLE paths, so a Stage-3/4 name was
+// forced into one and the verdict then worked faithfully inside a frame that should
+// never have been entered — exactly how COLPAL (30WMA FALLING) reached
+// "TAKE IT — Recovery ★strong". This applies even under a MANUAL mode, because the
+// stage is a fact about the chart, not a preference — that is the whole point.
+bool stage_skip = stage_gate and stage_n >= 3
+bool auto_rec = stage_n == 1
 bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
 
 int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
@@ -4989,7 +4995,7 @@ if show_panel and d_panel and barstate.islast
     // so calling it "reclaimed/repaired" would overclaim an event that isn't measured.
     string _wma_st = nz(d_bel30, 0.0) > 0.5 ? "below 30WMA" : nz(d_s150dn, 0.0) > 0.5 ? "30WMA falling" : "above 30WMA"
     string _200_st = nz(d_bel200, 0.0) > 0.5 ? "<200DMA" : ">200DMA"
-    string _basis  = str.tostring(nz(d_off52, 0.0), "0.0") + "% off52 · " + _wma_st + " · " + _200_st + (mode == "Auto" ? "  → auto-picked " + (is_rec_v ? "Recovery" : "Bull") : "  (mode set manually)")
+    string _basis  = "Stage " + str.tostring(stage_n) + " · " + str.tostring(nz(d_off52, 0.0), "0.0") + "% off52 · " + _wma_st + " · " + _200_st + (mode == "Auto" ? "  → auto-picked " + (is_rec_v ? "Recovery" : "Bull") : "  (mode set manually)")
     f_row(12, "Structure basis", _basis, is_rec_v ? color.new(#00838f, 0) : color.new(#26a69a, 0))
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
@@ -5122,7 +5128,12 @@ if show_panel and d_panel and barstate.islast
         // (that stays a caution unless ATH blue-sky), not already blue-sky, and Stage-2 only.
         bool _clearToBreak = momentum_clear and _stage2ok and not _blueSky and not _qSupply and not (_posOk or _swingOk) and not na(_ovh)
         string _rule  = _posOk and _swingOk ? "clears BOTH house gates (>=20% ROI and >=2R)" : _swingOk ? "SWING only — clears 2R, T1 under the 20% positional rule" : _posOk ? "POSITIONAL only — 20%+ room but R:R under 2.0" : "clears NEITHER house gate (R:R < 2.0 and room < 20%)"
-        if is_rec_v
+        if stage_skip
+            _L1 := "NO TRADE — Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping: 30WMA falling, price still above)" : " (declining: below a falling 30WMA)")
+            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only. A GO here is a valid TRIGGER inside an invalid CONTEXT — the pattern fired, the stage says do not own it."
+            _L3 := "If you take it anyway it is a counter-trend trade: half size at most, and manage against the stage, not the target."
+            _anCol := color.new(#ef5350, 0)
+        else if is_rec_v
             _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
             _L2 := "A recovery climbs back THROUGH overhead — the levels above ARE the target ladder (T1/T2), not a wall.\nThin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
             // v5.4 (#3 of 3): this buy-STOP is DELIBERATE for a recovery — you confirm the
