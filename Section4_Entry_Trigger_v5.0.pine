@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.5 (WCL Context Integration)", shorttitle="S4 Entry v5.5", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.6 (WCL Context Integration)", shorttitle="S4 Entry v5.6", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -896,6 +896,7 @@ sqz_len   = input.int(20, "Squeeze length", minval=5, group=grpIN)
 grpV = "Display"
 use_closed_candle = input.bool(true, "Signals from last CLOSED candle (no intraday repaint)", group=grpV, tooltip="ON (default): the TRIGGER / GO / RV / STATUS and the on-chart GO markers are read from the LAST CLOSED chart candle, so a shortlisted signal does NOT drop the moment a new bar opens (the forming bar has little volume / an undeveloped pattern). The signal only updates when the current bar CLOSES. OFF: live forming-bar values (repaint intraday).")
 show_panel = input.bool(true, "Entry panel", group=grpV)
+mk_bars    = input.int(10, "Markers: show only the last N bars", minval=1, maxval=300, group=grpV, tooltip="GO / PA★ / trigger markers are drawn only on the last N bars, so the chart shows the CURRENT setup instead of every historical one. Was hard-coded to 30. Lower it (5-10) to see just the latest trade; raise it to review recent history. This hides markers, it does NOT turn the detectors off — the panel still reads the live state.")
 panel_pos  = input.string("bottom_right", "Panel position", options=["top_right","top_left","bottom_right","bottom_left"], group=grpV)
 panel_size = input.string("small", "Panel size", options=["tiny","small","normal","large","auto"], group=grpV, tooltip="Controls the font and cell size for the Entry Trigger panel table.")
 c_low  = input.color(#42a5f5, "Low",  group=grpV, inline="c")
@@ -4231,7 +4232,7 @@ bgcolor(pinched ? color.new(color.teal, 88) : na, title="Pinch zone")
 // bars — no point cluttering old history with stale triggers.
 // #2: when use_closed_candle is ON, markers only appear on CONFIRMED (closed) bars,
 // so a forming-bar trigger doesn't flash on then drop when the bar develops.
-bool recent30 = (last_bar_index - bar_index) <= 30
+bool recent30 = (last_bar_index - bar_index) <= mk_bars
 bool _mkOK = recent30 and (not use_closed_candle or barstate.isconfirmed)
 plotshape(avwap_trig and _mkOK and d_markers,    title="AVWAP trigger",    style=shape.triangleup, location=location.belowbar, color=color.new(#26a69a, 0), size=size.tiny, text="S4")
 // v2.9: the on-candle "GO" fires ONLY on the combined gate `go` (= panel TRIGGER
@@ -5077,7 +5078,7 @@ if show_panel and d_panel and barstate.islast
         string _rule  = _posOk and _swingOk ? "clears BOTH house gates (>=20% ROI and >=2R)" : _swingOk ? "SWING only — clears 2R, T1 under the 20% positional rule" : _posOk ? "POSITIONAL only — 20%+ room but R:R under 2.0" : "clears NEITHER house gate (R:R < 2.0 and room < 20%)"
         if is_rec_v
             _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
-            _L2 := "A recovery climbs back THROUGH overhead — the levels above ARE the target ladder (T1/T2), not a wall. Thin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
+            _L2 := "A recovery climbs back THROUGH overhead — the levels above ARE the target ladder (T1/T2), not a wall.\nThin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
             // v5.4 (#3 of 3): this buy-STOP is DELIBERATE for a recovery — you confirm the
             // TURN before entering, never buy the touch of a level in a name that has been
             // falling. It is therefore NOT switched by entry_method. But the Plan row below
@@ -5089,25 +5090,25 @@ if show_panel and d_panel and barstate.islast
             _anCol := color.new(#26a69a, 0)
         else if _blueSky
             _L1 := "BREAKOUT PIVOT — Stage-2 leader at its high"
-            _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) — the 'supply' here IS the prior high, meant to BREAK. Not distribution, not a range reject."
+            _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) — the 'supply' here IS the prior high, meant to BREAK.\nNot distribution, not a range reject."
             // v5.2 (#1): the buy-STOP here is DELIBERATE and is NOT switched by
             // entry_method — price is inside the supply band, so a retest limit would
             // buy INTO resistance, which the blue-sky doctrine forbids. Say explicitly
             // that this overrides the Plan row, which follows entry_method and will be
             // showing a retest limit.
-            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — above it is BLUE SKY (reward = measured move / trail, not the next level)." + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — a retest here fills you inside the band." : "")
+            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — \nabove it is BLUE SKY (reward = measured move / trail, not the next level)." + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — a retest here fills you inside the band." : "")
             _L5 := "Only valid Stage-2 (above 30WMA+200DMA). If RS fades / it's Stage 3, this same band is real supply → skip."
             _anCol := color.new(#26a69a, 0)
         else if _clearToBreak
             _L1 := "CLEAR TO BREAK — Stage-2, level overhead"
-            _L2 := "Nearest overhead " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring((_ovh - _cl_r) / _cl_r * 100.0, "0.0") + "%) is a level to BREAK, not the target — on the trading TF an HTF level is ALWAYS overhead within a thin R."
+            _L2 := "Nearest overhead " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring((_ovh - _cl_r) / _cl_r * 100.0, "0.0") + "%) is a level to BREAK, not the target —\non the trading TF an HTF level is ALWAYS overhead within a thin R."
             // v5.2 (#1): this line hardcoded "Arm a buy-STOP" (written under the v4.7
             // APOLLOHOSP ruling, which assumed buy-stop entry) while the Plan row and
             // STATUS follow entry_method — defaulted to RETEST since the 23-Jul entry
             // A/B, where retest beat buy-stop on every family. The panel therefore told
             // you to enter in two places ~4% apart. It now follows the SAME input, so
             // there is one entry instruction on the panel.
-            _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback); " + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " Real target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
+            _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback); " + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " \nReal target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
             _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA). Stage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
             _anCol := color.new(#26a69a, 0)
         else if _qRoomBad
