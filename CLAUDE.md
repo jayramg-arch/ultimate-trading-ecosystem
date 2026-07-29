@@ -1945,4 +1945,63 @@ NOTHING** — that is how the panel was narrowed (long verdict lines now self-br
 
 ---
 
+## 29 July 2026 (cont.) — S4 v6.0: the Plan never latched the trigger bar (found on PFC)
+
+In-file title **v6.0 (Trigger-Bar Latch)**; filename stays `Section4_Entry_Trigger_v5.9.pine`
+(Jay's call — no rename). **Compiled clean.** Found by Jay reading a live PFC 75m panel:
+"this is not the trigger candle, the trigger was one bar below."
+
+### THE BUG — a plan anchored to "signal still true" ratchets with price
+`pl_entry := use_retest ? close[_so] : high[_so]` ran on EVERY bar `go_v` was true. `_so` is
+only the forming-bar shift, so a multi-bar GO sequence re-based the "retest limit" upward bar
+after bar. **A retest limit that follows price is a market entry wearing a limit's clothes** —
+the exact habit buy-stop confirmation was built to fix. On PFC it had drifted from the GO★ bar
+(~low-420s) up to 425.00.
+- The guard meant to catch it was **measuring the wrong thing**: `_retestLive` tested
+  `close > pl_entry * 1.0015` — price vs the QUOTED bar, never asking whether that bar was the
+  trigger. Any advancing bar satisfies it, so it printed "(true retest)" *precisely when the
+  anchor was most stale*.
+- **Fix:** `var trigBar/trigCls/trigHi` latched on the GO EDGE (`go_v and not go[_so + 1]`), in
+  GLOBAL scope (the v5.9 `ta.cross`-inside-`barstate.islast` lesson). `_retestLive` now requires
+  `trigAge > 0` AND price above. New `· trig Nb ago` tag on the Plan row. New input
+  **"Plan: re-latch the trigger after N bars"** (12) — a limit far behind an advancing market
+  never fills, so a stale anchor re-latches rather than quoting fiction.
+- **`_cl` changed from `close[_so]` to `pl_entry`** (necessary, not cosmetic): it is the basis
+  for the structural test AND the ATR cap. With a latched entry below the current close, capping
+  from the current close would put the stop too high and **inflate R**. Also fixes the
+  pre-existing buy-stop case, which paired a `high[_so]` entry with a `close[_so]` stop basis.
+
+### `_ovh2` separation — T1 and T2 were one obstacle printed twice
+PFC showed `T1 444.80 (1.4R ·lvl) · T2 445.75 (1.4R ·lvl)` — 95 paise apart. The `_ovh2` sources
+cluster (supply proximal / flipped pivot / pivot high within a rupee). Now
+`_ovhMin = _ovh + max(ATR × ovh2_gap_atr, _ovh × 0.002)` gates all six comparisons; new input
+**"T2: min gap above T1 (× ATR)"** (0.5). Anything inside the gap is the same obstacle.
+
+### Why 433.85 was NOT the target (asked, answered — working as designed)
+Both 433.85 and 448.65 are graded **MTTWR** and MTTWR levels are deliberately excluded from the
+S/R picker (`s.a1t < mttwrEff`, line ~3916) — hence `sr_above` = 485.20 ·W. Doctrine in the
+header ~line 400: *tests WEAKEN a level; one tested that often is a breakout candidate, not a
+ceiling.* Do not "fix" this. **Also note: the CLEAR-TO-BREAK verdict was correct regardless** —
+the SL cap pins risk at 4.0×ATR, so a perfect trigger-bar entry only moves T1 from ~1.38R to
+~1.65R, and the positional 20%-ROI gate fails anyway at +4.7% to T1. The latch fixes ~0.3R of
+drift; **it does not change any verdict.**
+
+### GM Python — the same text-vs-number split, reworded not rebuilt
+`compute_workflow` sets `entry = cmp_px` (current price) and never latches, while
+`_gm_entry_instruction` promised "the trigger bar's close". Per the two-stage doctrine
+([[gm_early_s4_execute_twostage]]) **GM arms, S4 is the plan of record** — so the fix is
+provenance, not a duplicate latch: new `_GM_ENTRY_SRC` caveat ("take that price off S4 — it
+latches the trigger bar; levels here are at CURRENT price"), `src_note` param, short forms now
+say "the S4 trigger close". Also **consolidated a hardcoded second copy** of the step-4 fill
+wording (~line 13244) that had already drifted — it now routes through the helper. py_compile clean.
+
+### Standing
+- **Restart Web Commander** for the GM wording (still stacked with the pending X-Ray restart).
+- Alerts bind to the compiled version — **delete & re-create the "S4 GO" alerts** after v6.0.
+- Scripted-edit traps bit again: the Bash-heredoc backslash de-escape broke a checker script
+  (write the script to a FILE). Post-edit sweep run: 0 odd-quote, paren depth 0, no orphaned
+  tooltip continuations, 24 unique `f_row` ids.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*

@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.9 (WCL Context Integration)", shorttitle="S4 Entry v5.9", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.0 (Trigger-Bar Latch)", shorttitle="S4 Entry v6.0", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -874,6 +874,8 @@ pinch_pct = input.float(2.5, "Pinch tolerance (% spread across AVWAPs)", minval=
 plan_slbuf_pct = input.float(0.5, "Plan: SL buffer below the structural level (%)", minval=0.1, maxval=2.0, step=0.1, group=grpPZ, tooltip="The Plan places the SL this far below the structural level (zone distal / swing low). Dedicated input: it was previously borrowed from the AVWAP touch tolerance, so widening that band silently widened every stop.")
 entry_method = input.string("Retest (pullback limit)", "Plan: entry method", options=["Buy-stop (confirmation)", "Retest (pullback limit)"], group=grpPZ, tooltip="#retest (Jay, 24-Jul): how the Plan tells you to ENTER once GO fires. DEFAULT flipped to Retest so the live plan MATCHES the backtest (replay.py defaults to retest) — Jay's call: trade the entry the edge numbers assume.\n• Retest (pullback limit) [DEFAULT — matches the backtest] — arm a buy-LIMIT at the confirmed trigger bar's CLOSE; you fill only if price pulls BACK to value. Lower entry / better R. Backtest found retest beat buy-stop on matched alpha across every family (-0.02→+0.38%). ⚠ CAVEAT: the sim cannot model the false-breakout whipsaw the buy-stop avoids, and retest re-approaches the 'enter at the level without confirmation' habit buy-stop was built to fix — so the backtested edge may be optimistic live.\n• Buy-stop (confirmation) [house doctrine] — arm a buy-STOP above the confirmed trigger bar's HIGH; you only fill if price continues UP through the high. Avoids the false-breakout trap. Higher entry. Trigger is unchanged (a real GO still has to fire first); only the fill instruction changes.")
 bool use_retest = entry_method == "Retest (pullback limit)"
+trig_max_age = input.int(12, "Plan: re-latch the trigger after N bars", group=grpPZ, minval=1, maxval=100, tooltip="The Plan is anchored to the bar the GO FIRED on, not to whatever bar GO happens to still be true on. If that anchor gets this old the limit will never fill against an advancing market, so it re-latches to the current bar. The Plan row always prints the anchor's age.")
+ovh2_gap_atr = input.float(0.5, "T2: min gap above T1 (× ATR)", group=grpPZ, minval=0.0, maxval=3.0, step=0.1, tooltip="T2 must clear T1 by at least this much, else the next obstacle up is skipped. Without it T1 and T2 both resolve inside one cluster of levels and the ladder is one target printed twice.")
 tol_pct   = input.float(1.0, "Support-touch tolerance (% around AVWAP)", minval=0.25, step=0.25, group=grpPZ)
 require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)", group=grpPZ, tooltip="If ON, the GO entry trigger will only fire if the close is inside or within 1.5% of an active Order Block, Fair Value Gap, Pivot Support (Daily OR Weekly) or AVWAP. This automates Steps 1 & 2 of the Guided Execution checklist.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
@@ -4222,6 +4224,32 @@ int   tsum_v     = tsum[_so]
 
 int   cf_v       = cf[_so]
 bool  shared_v   = pa_shared_only[_so]
+// #trigbar (29-Jul, PFC): LATCH THE TRIGGER BAR. pl_entry read close[_so]/high[_so] on
+// EVERY bar GO stayed true, so a multi-bar GO sequence ratcheted the "retest limit" up
+// with price — a retest that follows price is a market entry wearing a limit's clothes.
+// It also fooled the _retestLive guard, which compared price to the QUOTED bar rather
+// than asking whether that bar was the trigger, so it printed "(true retest)" exactly
+// when the anchor was most stale. Latch on the GO EDGE and hold that bar's close/high.
+// GLOBAL scope on purpose: var state must advance every bar, not only when the panel
+// draws (the ta.cross-inside-barstate.islast trap, v5.9).
+var int   trigBar = na
+var float trigCls = na
+var float trigHi  = na
+int  _dispBar  = bar_index - _so
+bool _goEdge   = go_v and not go[_so + 1]
+// Re-latch when the held anchor goes stale: a limit N bars behind an advancing market
+// never fills, so a fresh anchor beats an unfillable one. Bounded, and the age tag on
+// the Plan row always says which bar you are being quoted.
+bool _trigStale = not na(trigBar) and (_dispBar - trigBar) > trig_max_age
+if go_v and (_goEdge or na(trigBar) or _trigStale)
+    trigBar := _dispBar
+    trigCls := close[_so]
+    trigHi  := high[_so]
+if not go_v and _trigStale
+    trigBar := na
+    trigCls := na
+    trigHi  := na
+int trigAge = na(trigBar) ? 0 : _dispBar - trigBar
 // TRIGGER row: gate = PA(P) + Location(L) + Volume(V) + clean Bar(B). The confluence
 // score GRADES a live GO — "GO ★strong 8/13" vs a bare "GO 2/13". Same gate, but a
 // weak GO and a stacked one no longer look identical.
@@ -4750,18 +4778,23 @@ if show_panel and d_panel and barstate.islast
     // SECOND overhead = Target 2. Same sources as _ovh, the next one up. Stays na when
     // the first obstacle is the last known one — T2 then reads "open", not a guess.
     float _ovh2 = na
+    // #ovh2gap (29-Jul, PFC): T2 must CLEAR T1 by a real distance. The sources cluster —
+    // a supply proximal, a flipped pivot and a pivot high sitting within a rupee of each
+    // other resolved to T1 444.80 / T2 445.75, one target printed twice, both tagged ·lvl.
+    // Anything inside the gap is the SAME obstacle, so skip it and take the next one up.
+    float _ovhMin = _ovh + math.max(nz(_atr_r) * ovh2_gap_atr, _ovh * 0.002)
     if not na(_ovh)
-        if not na(_band_r) and _band_r > _ovh and (na(_ovh2) or _band_r < _ovh2)
+        if not na(_band_r) and _band_r > _ovhMin and (na(_ovh2) or _band_r < _ovh2)
             _ovh2 := _band_r
-        if not na(z_nearSZprox[_so]) and z_nearSZprox[_so] > _ovh and (na(_ovh2) or z_nearSZprox[_so] < _ovh2)
+        if not na(z_nearSZprox[_so]) and z_nearSZprox[_so] > _ovhMin and (na(_ovh2) or z_nearSZprox[_so] < _ovh2)
             _ovh2 := z_nearSZprox[_so]
-        if not na(sr_above[_so]) and sr_above[_so] > _ovh and (na(_ovh2) or sr_above[_so] < _ovh2)
+        if not na(sr_above[_so]) and sr_above[_so] > _ovhMin and (na(_ovh2) or sr_above[_so] < _ovh2)
             _ovh2 := sr_above[_so]
-        if not na(d_piv_res[_so]) and d_piv_res[_so] > _ovh and (na(_ovh2) or d_piv_res[_so] < _ovh2)
+        if not na(d_piv_res[_so]) and d_piv_res[_so] > _ovhMin and (na(_ovh2) or d_piv_res[_so] < _ovh2)
             _ovh2 := d_piv_res[_so]
-        if not na(w_piv_res[_so]) and w_piv_res[_so] > _ovh and (na(_ovh2) or w_piv_res[_so] < _ovh2)
+        if not na(w_piv_res[_so]) and w_piv_res[_so] > _ovhMin and (na(_ovh2) or w_piv_res[_so] < _ovh2)
             _ovh2 := w_piv_res[_so]
-        if not na(lastPH[_so]) and lastPH[_so] > _ovh and (na(_ovh2) or lastPH[_so] < _ovh2)
+        if not na(lastPH[_so]) and lastPH[_so] > _ovhMin and (na(_ovh2) or lastPH[_so] < _ovh2)
             _ovh2 := lastPH[_so]
     float _rf_entry = not na(_dzprox) ? _dzprox : _cl_r
     // Risk floor: a hairline zone must not print unlimited R. Without it a 0.1%-wide
@@ -4890,11 +4923,17 @@ if show_panel and d_panel and barstate.islast
     string pl_slsrc = ""
     string _plan   = na
     if go_v
-        float _cl  = close[_so]
         float _atr = chart_atr[_so]
         // Entry method (#retest A/B): buy-STOP above the trigger HIGH (confirmation,
         // default doctrine) OR buy-LIMIT at the trigger CLOSE (retest the pullback to value).
-        pl_entry := use_retest ? close[_so] : high[_so]
+        // #trigbar: both come from the LATCHED trigger bar, not from whatever bar GO is
+        // still true on. nz() falls back to the displayed bar if the latch is somehow cold.
+        pl_entry := use_retest ? nz(trigCls, close[_so]) : nz(trigHi, high[_so])
+        // #trigbar: the SL basis is the ENTRY, not the current close. Measuring the ATR cap
+        // from a close that has run above a latched entry inflates R by shrinking the stop
+        // distance the trade actually carries. (This also fixes the pre-latch buy-stop case,
+        // which paired a high[_so] entry with a close[_so] stop basis.)
+        float _cl  = pl_entry
         // SL source, in priority order — and NAMED, so the row says what it rests on.
         float _lvl = na
         if not na(z_inDZdist[_so])
@@ -4933,11 +4972,15 @@ if show_panel and d_panel and barstate.islast
         // The PLAN row is the METHOD — no prices (they are in the four rows below).
         // v5.4: the retest limit sits AT the trigger close, so on the trigger bar price IS
         // there and it fills as a MARKET entry. Only a real retest once price has moved above.
-        bool _retestLive = use_retest and not na(pl_entry) and pl_entry > 0 and close > pl_entry * 1.0015
+        // #trigbar: a retest is LIVE only on a bar AFTER the trigger (trigAge > 0) with price
+        // back above it. The old test was price-only, which any advancing bar satisfies — so
+        // it read "(true retest)" while the anchor was being re-based underneath it.
+        bool _retestLive = use_retest and not na(pl_entry) and pl_entry > 0 and trigAge > 0 and close > pl_entry * 1.0015
+        string _ageTag = trigAge > 0 ? " · trig " + str.tostring(trigAge) + "b ago" : ""
         string _entryMethodTxt = use_retest
              ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (_retestLive ? " (true retest)" : " = trigger close — fills as MARKET, not a retest")
              : "Buy-stop above the trigger bar"
-        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
+        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + _ageTag + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
     f_row(23, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.

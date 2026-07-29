@@ -2037,13 +2037,26 @@ def _gm_entry_method() -> str:
     return "retest" if str(_gm_settings().get("entry_method", "retest")) == "retest" else "buystop"
 
 
-def _gm_entry_instruction(tf_lbl="", short=False) -> str:
-    """The order-placement phrase for the chosen entry method (see _gm_entry_method)."""
+# The GM quotes entry/SL/T1 at CURRENT price (compute_workflow: entry = cmp_px). It does
+# NOT latch the bar the PA trigger fired on — S4 v6.0 does (trigBar/trigCls). The old
+# wording promised "the trigger bar's close" while the numbers beside it were live price,
+# which is the same text-vs-number split that let S4 ratchet its retest limit up with the
+# market. GM is the ARM surface, S4 is the plan of record (the two-stage doctrine), so the
+# fix is to say where the price comes from, not to duplicate the latch here.
+_GM_ENTRY_SRC = " — take that price off S4 (it latches the trigger bar); levels here are at CURRENT price"
+
+
+def _gm_entry_instruction(tf_lbl="", short=False, src_note=True) -> str:
+    """The order-placement phrase for the chosen entry method (see _gm_entry_method).
+
+    src_note=True appends the provenance caveat above. Pass False only where the
+    surrounding text already says the level comes from S4."""
+    _note = _GM_ENTRY_SRC if src_note else ""
     if _gm_entry_method() == "retest":
-        return ("buy-LIMIT @ close on the pullback" if short
-                else f"buy-LIMIT at the {tf_lbl + ' ' if tf_lbl else ''}trigger bar's close on the pullback (retest to value; skip a dead-volume fade)")
-    return ("buy-STOP above the trigger bar high" if short
-            else f"buy-STOP above that {tf_lbl + ' ' if tf_lbl else ''}bar's high. Never buy the touch")
+        return ("buy-LIMIT @ the S4 trigger close on the pullback" if short
+                else f"buy-LIMIT at the {tf_lbl + ' ' if tf_lbl else ''}trigger bar's close on the pullback (retest to value; skip a dead-volume fade){_note}")
+    return ("buy-STOP above the S4 trigger bar high" if short
+            else f"buy-STOP above that {tf_lbl + ' ' if tf_lbl else ''}bar's high. Never buy the touch{_note}")
 
 
 def _render_entry_method_selector(key: str):
@@ -13241,9 +13254,9 @@ elif page == 'GOLDEN MATCHER':
             _has_loc = bool(_pick) or bool(wf.get("location_ok")) or str(wf.get("verdict", "")).startswith("BUY")
             _done = 0; _next = None; _man = []
             # Step-4 fill instruction follows the entry-method toggle (buy-stop / retest).
-            _step4 = ("4 · Place a buy-LIMIT at the trigger bar's close on the pullback (retest to value; skip a dead-volume fade)"
-                      if _gm_entry_method() == "retest"
-                      else "4 · Place a buy-STOP above that trigger bar's high (never buy the touch)")
+            # Routed through _gm_entry_instruction so the fill wording has ONE definition —
+            # this was a hardcoded second copy and had already drifted from the helper.
+            _step4 = "4 · Place a " + _gm_entry_instruction()
             with st.expander("✅ Guided execution — tick as you go", expanded=_has_loc):
                 if _pick:
                     _z_lbl, _z_lo, _z_hi, _z_prox = _pick
