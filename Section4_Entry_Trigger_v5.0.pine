@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.6 (WCL Context Integration)", shorttitle="S4 Entry v5.6", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.7 (WCL Context Integration)", shorttitle="S4 Entry v5.7", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -1026,7 +1026,6 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // ==========================================================================
 grpCF = "Trigger — Confluence Score"
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
-show_diag   = input.bool(false, "Show engine diagnostics row", group=grpCF, tooltip="The zone-detection funnel (natC d/f/m/L · struct D/C/L) and the removal attribution (age/travel/emaX/lvlX/violated). Troubleshooting instrumentation — it answers 'why did that zone vanish', not 'should I take this trade'. Off by default; the Zones (MTF) row now carries the tradeable read instead.")
 show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — swing vs positional decided by the house rules (swing >= 2.0R · positional >= 20% ROI to T1). The old ANALYSIS row also restated CONTEXT / SETUP / RISK, which are already the Structure, STATUS and Entry rows above — that repetition is gone. Turn this off to hide the verdict too.")
 
 grpSize = "Position Sizing"
@@ -5003,6 +5002,22 @@ if show_panel and d_panel and barstate.islast
     bool _qRoomBad = (not is_rec_v) and (_qSupply or _qThinR)
     bool _qArrBad  = show_arrival and arr_style[_so] == "GRIND" and not of_absorb[_so]
     bool _qArrGood = show_arrival and arr_style[_so] == "FAST" and of_absorb[_so]
+    // v5.7 QUALITY DOWNGRADE (Jay, COLPAL). Three conditions that make a technically
+    // valid GO a bad trade, none of which previously touched the verdict:
+    //  1. 30WMA/150-SMA flat-or-FALLING — the Weinstein anchor. On the BULL path this is
+    //     disqualifying (Stage 2 REQUIRES a rising anchor), so it counts DOUBLE there; on
+    //     the Recovery path a falling anchor is expected, so it counts once.
+    //  2. Price CHOPPING through the EMA20 — measured as crossings of the daily EMA20 on
+    //     the chart TF. On 75m, 40 bars is ~8 sessions; 6+ crossings in that span is not a
+    //     trend, it is a range. This is what Jay reads off the candles by eye.
+    //  3. FAST arrival with BLEEDING delta. Note arr_fav currently treats ANY fast arrival
+    //     as favourable and even pays it a confluence point — but fast INTO resistance
+    //     with sellers in control is the opposite of absorption.
+    bool _qWmaDn  = nz(d_s150dn[_so], 0.0) > 0.5
+    bool _qChop   = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40) >= 6
+    bool _qBleed  = show_arrival and arr_style[_so] == "FAST" and not of_absorb[_so]
+    int  _qDeg    = (_qWmaDn ? (is_rec_v ? 1 : 2) : 0) + (_qChop ? 1 : 0) + (_qBleed ? 1 : 0)
+    string _degTxt = _qDeg >= 2 ? "  DOWNGRADED: " + (_qWmaDn ? "30WMA falling " : "") + (_qChop ? "EMA20 chop " : "") + (_qBleed ? "FAST bleeding" : "") : ""
     // #3: chasing — price too far above the daily EMA20 (in ATRs). Quality, not a gate.
     float _extV   = ext_atr[_so]
     bool  _qExt   = not na(_extV) and _extV > ext_atr_max
@@ -5156,7 +5171,7 @@ if show_panel and d_panel and barstate.islast
         _anCol := color.new(#ff9800, 0)
     // v5.4: the EXTENDED warning rides on the HEADLINE where it cannot be missed — a
     // late entry is a property of the ENTRY, not a reason the trade itself is wrong.
-    _aVer := _L1 + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + "\n" + _mx + (str.length(_L5) > 0 ? "\n" + _L5 : "")
+    _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + "\n" + _mx + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
         table.cell(pnl, 0, 22, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
         table.cell(pnl, 1, 22, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
@@ -5177,9 +5192,11 @@ if show_panel and d_panel and barstate.islast
     // Engine diagnostics — troubleshooting instrumentation, off by default. This is
     // what used to be bolted onto the Zones (MTF) row: it answers "why did that zone
     // vanish", never "should I take this trade".
-    if show_diag
-        string _diag = "natC d" + str.tostring(_dbgNatDetected) + " f" + str.tostring(_dbgNatFvgPass) + " m" + str.tostring(_dbgNatCreated) + " L" + str.tostring(zc_nat) + "  |  pat D " + str.tostring(_dbgPatDDet) + "/" + str.tostring(_dbgPatDCr) + "·L" + str.tostring(zc_patD) + "  W " + str.tostring(_dbgPatWDet) + "/" + str.tostring(_dbgPatWCr) + "·L" + str.tostring(zc_patW) + "  M " + str.tostring(_dbgPatMDet) + "/" + str.tostring(_dbgPatMCr) + "·L" + str.tostring(zc_patM) + "  |  struct D" + str.tostring(_dbgStrDetected) + " C" + str.tostring(_dbgStrCreated) + " L" + str.tostring(zc_struct) + "  |  removed: age " + str.tostring(_rmAge) + " · travel " + str.tostring(_rmTrv) + " · emaX " + str.tostring(_rmEma) + " · lvlX " + str.tostring(_rmLvl) + " · violated " + str.tostring(_rmVio)
-        f_row(26, "Diagnostics", _diag, color.new(#787b86, 0))
+    // v5.7: the zone-detection DIAGNOSTICS row (natC / pat funnel) is removed to buy
+    // token budget for the quality downgrade. It was default-OFF instrumentation and
+    // CLAUDE.md marked it 'strip when zone tuning done' — zone tuning is done apart
+    // from the rectangle classifier, which is a geometry issue, not a funnel one.
+    // Recover from git (pre-v5.7) if a zone funnel is ever needed again.
 
 // ==========================================
 // ALERTS
