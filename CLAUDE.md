@@ -2004,4 +2004,79 @@ wording (~line 13244) that had already drifted — it now routes through the hel
 
 ---
 
+## 29 July 2026 (cont.) — Stage drift ROOT-CAUSED: the strict-trend port was 3 versions stale
+
+Jay diffed the Trigger Board's `Stage` column against the v67 dashboard across 38 names
+(`gm_board_20260729_1358.csv`) — 11 disagreed, and **Stage 3/4 names were reaching the board
+labelled Stage 1**. Found the cause; NEW **`strict_trend.py`** is the fix.
+
+### It was never the stage machine — it was `tDir`
+Both surfaces run a **byte-identical** state machine with identical params (SMA30 / slope 6 /
+thresh 0.0012). Ruled out empirically, in this order: history length (3y = 5y = max — and the
+provider caps at ~262 weekly bars regardless of the `period` you ask for), `auto_adjust` (Dhan
+ignores it), weekly bar construction (0 gaps; native `1wk` == daily→W-MON resample byte-for-byte),
+staleness, and the `stageDisplay` presentation ladder (maps stageID→label, never changes the digit).
+
+What differs is the pivot **strict trend**, because the stage machine has two UNCONDITIONAL
+overrides keyed on it: `tDir==1 & stage4 → stage1` and `tDir==-1 & stage2 → stage3`. **Every
+strict-trend error becomes a wrong stage digit** — and an over-eager `tDir==1` *rescues a genuine
+downtrend into a base*, which is exactly the complaint.
+
+### `compute_strict_trend` was a v1.4-era port, frozen before Zigzag v6.2/v6.3 reached Pine
+Worse, `bull_screener.py` and `recovery_screener.py` each carried a **byte-identical private
+copy** (verified). Seven divergences from the current Pine:
+
+| # | Pine v67.1 / Zigzag v6.3 | old Python |
+|---|---|---|
+| 1 | EH/EL threshold **0.002** | `0.001` — 2× tighter |
+| 2 | extension re-classifies vs `prevLocked*` | vs `locked*` |
+| 3 | **HH+HL strict; EH/EL → SIDEWAYS** | `EL` confirmed uptrend, `EH` downtrend |
+| 4 | projection reads **confirmed** class | re-classified from the projection |
+| 5 | projection **gated** by activePivotType | both branches evaluated |
+| 6 | `syncBars = … + 1` (captures pivot bar) | no `+1` — started a bar late |
+| 7 | pivot-LOW seed `or na(activePivotType)` | **missing** — first-ever swing low dropped |
+
+**#7 is not in any changelog** — it only shows by reading the body, and it is the SAME asymmetric
+bootstrap the 14-Jun-2026 Zigzag audit fixed in Pine (v6.2→v6.3 Section 2). Python never got it.
+⚠️ **The dashboard's own header comment (line ~427) claims the threshold is 0.005 — that comment is
+STALE.** The authoritative value is the `eq_threshold_dash` input default 0.002, matching Zigzag's
+`eq_pct = 0.2`. Don't "fix" Python to 0.005 off that comment.
+
+### Result — measured, not asserted
+- **Disputed set: 9 of 11 now match Pine. Control set (6 names that already agreed): 6/6, no regressions.**
+- On the 38-name board: stage_ok (1 or 2) **33 → 27**. Newly blocked: ABBOTINDIA, CIPLA, COFORGE,
+  DLF, IKS, LODHA, NAUKRI, SUMICHEM. Newly admitted: ANTHEM, POWERGRID.
+- **Two still off, and they are NOT strict-trend**: COLPAL (`tDir=0` in both engines; Python has
+  close 2174.9 > 30WMA 2075.6, so 4→1 is arithmetically forced) and LODHA (close 1303 vs 30WMA
+  957.8 — 36% above). Pine calling either Stage 4 contradicts price-vs-MA, so it is a **data-level
+  difference or a transcription slip in the CSV column**. Unresolved — TradingView was not running
+  with CDP and I would not relaunch it mid-session. **Next: read 30WMA + price for COLPAL/LODHA off
+  the v67 dashboard.**
+
+### Shipped
+- **NEW `strict_trend.py`** — the one engine, `EQ_THRESHOLD = 0.002`, all seven fixes, with the
+  evidence in the module docstring. Both screeners now import it (121 duplicated lines deleted from
+  each); `technical_enrichment` picks it up transitively. Old names re-exported, so every call site
+  and existing monkeypatching still works.
+- **NEW `tests/test_strict_trend_regression.py`** — targeted tests plus real-data golden vectors
+  (CIPLA/LODHA, 90 weekly bars embedded, hermetic). **Suite 56 passed.** Mutation-verified: fixes
+  1/3/4/5/7 each go red when reverted. **fix 2 and fix 6 are NOT covered by any failing test** —
+  they need an extension event / window-boundary fixture these series don't contain. Stated in the
+  test file rather than papered over.
+- **KNOWN APPROXIMATION (pre-existing, carried over, unverified):** pivot detection uses "unique
+  extreme in window" for Pine's `ta.pivothigh`/`ta.pivotlow`. If a residual mismatch survives, look
+  here first.
+
+### ⚠️ CONSEQUENCE — every backtest number predates this fix
+Stage feeds `stage_ok` in the screener, so this changes SIGNAL GENERATION, not just the display.
+**The 22-Jul re-baseline (`20260722_135745`, +2.56%→ corrected +0.80%, OOS PASS) was computed on the
+stale engine and must be re-run**, along with the recovery-side baseline. Sequence deliberately:
+fix first (done), re-baseline as its own pass.
+
+### Standing
+Restart Web Commander and rebuild the board (this stacks with the earlier X-Ray + GM-wording
+restarts). Expect ~6 fewer names and several Stage 1→4 corrections.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*

@@ -354,125 +354,21 @@ def compute_rs_slope_w(df_stock_w: pd.DataFrame, df_cnx500_w: pd.DataFrame,
     return float((rs_line.iloc[-1] / ref - 1) * 100)
 
 
-def classify_high(new_high: float, prev_high: float) -> str:
-    if pd.isna(prev_high) or prev_high <= 0:
-        return "HH"
-    diff = abs(new_high - prev_high) / prev_high
-    if diff < 0.001:
-        return "EH"
-    elif new_high < prev_high:
-        return "LH"
-    return "HH"
-
-
-def classify_low(new_low: float, prev_low: float) -> str:
-    if pd.isna(prev_low) or prev_low <= 0:
-        return "LL"
-    diff = abs(new_low - prev_low) / prev_low
-    if diff < 0.001:
-        return "EL"
-    elif new_low > prev_low:
-        return "HL"
-    return "LL"
-
-
-def compute_strict_trend(high: pd.Series, low: pd.Series,
-                         piv_left: int = 2, piv_right: int = 2) -> pd.Series:
-    """
-    v1.4: pivot-zigzag strict trend (port of Pine f_getStrictTrend).
-    HH+HL pivot zigzag with projection.
-    """
-    n = len(high)
-    out = pd.Series(0, index=high.index, dtype=int)
-    if n < (piv_left + piv_right + 1):
-        return out
-
-    h_arr = high.to_numpy()
-    l_arr = low.to_numpy()
-
-    # Track states
-    trend_state = 0
-    locked_high = np.nan
-    locked_low = np.nan
-    last_high_class = "na"
-    last_low_class = "na"
-    active_pivot_type = "na"
-    active_pivot_price = np.nan
-    active_pivot_index = -1
-
-    for i in range(piv_left + piv_right, n):
-        piv_idx = i - piv_right
-        
-        # Pivot high check
-        win_h = h_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
-        is_ph = (h_arr[piv_idx] == win_h.max()) and ((win_h == h_arr[piv_idx]).sum() == 1)
-        ph_val = h_arr[piv_idx] if is_ph else np.nan
-
-        # Pivot low check
-        win_l = l_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
-        is_pl = (l_arr[piv_idx] == win_l.min()) and ((win_l == l_arr[piv_idx]).sum() == 1)
-        pl_val = l_arr[piv_idx] if is_pl else np.nan
-
-        if not np.isnan(ph_val):
-            if active_pivot_type == "H" and ph_val > active_pivot_price:
-                active_pivot_price = ph_val
-                active_pivot_index = piv_idx
-                last_high_class = classify_high(ph_val, locked_high)
-            elif active_pivot_type == "L" or active_pivot_type == "na":
-                if active_pivot_type == "L":
-                    locked_low = active_pivot_price
-                h_class = classify_high(ph_val, locked_high)
-                new_trend = 0
-                if h_class == "HH":
-                    new_trend = 1 if (last_low_class in ("HL", "EL")) else 0
-                elif h_class == "LH":
-                    new_trend = -1 if (last_low_class in ("LL", "EL")) else 0
-                trend_state = new_trend
-                locked_high = ph_val
-                last_high_class = h_class
-                active_pivot_price = ph_val
-                active_pivot_index = piv_idx
-                active_pivot_type = "H"
-
-        if not np.isnan(pl_val):
-            if active_pivot_type == "L" and pl_val < active_pivot_price:
-                active_pivot_price = pl_val
-                active_pivot_index = piv_idx
-                last_low_class = classify_low(pl_val, locked_low)
-            elif active_pivot_type == "H":
-                locked_high = active_pivot_price
-                l_class = classify_low(pl_val, locked_low)
-                new_trend = 0
-                if l_class == "LL":
-                    new_trend = -1 if (last_high_class in ("LH", "EH")) else 0
-                elif l_class == "HL":
-                    new_trend = 1 if (last_high_class in ("HH", "EH")) else 0
-                trend_state = new_trend
-                locked_low = pl_val
-                last_low_class = l_class
-                active_pivot_price = pl_val
-                active_pivot_index = piv_idx
-                active_pivot_type = "L"
-
-        # Projection block
-        if active_pivot_index == -1:
-            sync_bars = 1
-        else:
-            sync_bars = max(1, i - active_pivot_index)
-
-        proj_low = l_arr[i - sync_bars + 1 : i + 1].min()
-        proj_high = h_arr[i - sync_bars + 1 : i + 1].max()
-
-        if not np.isnan(locked_high) and classify_high(proj_high, locked_high) == "HH":
-            d_lc = classify_low(proj_low, locked_low) if not np.isnan(locked_low) else "HL"
-            trend_state = 1 if d_lc == "HL" else 0
-        elif not np.isnan(locked_low) and classify_low(proj_low, locked_low) == "LL":
-            d_hc = classify_high(proj_high, locked_high) if not np.isnan(locked_high) else "LH"
-            trend_state = -1 if d_hc == "LH" else 0
-
-        out.iloc[i] = trend_state
-
-    return out
+# ---------------------------------------------------------------------------
+# STRICT TREND — imported, not defined here. Until 29-Jul-2026 this file carried
+# its own copy of classify_high / classify_low / compute_strict_trend, byte-identical
+# to the copy in the sibling screener and frozen at the v1.4 port — i.e. BEFORE the
+# Zigzag v6.2/v6.3 fixes were propagated into Pine (v67.1). The drift produced wrong
+# tDir, which `compute_weekly_stage_and_wks` turns into a wrong Weinstein stage via
+# its two tDir overrides, which then passes the `stage in (1,2)` screening gate.
+# See strict_trend.py for the seven divergences and the evidence.
+# ---------------------------------------------------------------------------
+from strict_trend import (  # noqa: F401  (re-exported for existing call sites)
+    EQ_THRESHOLD,
+    classify_high,
+    classify_low,
+    compute_strict_trend,
+)
 
 
 def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int = 5,

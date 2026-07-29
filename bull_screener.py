@@ -274,8 +274,12 @@ def compute_indicators(df: pd.DataFrame) -> dict:
     # VCP / squeeze inputs (Pine v4.52 lines 672-685)
     atr10        = compute_atr(h, l, c, 10)
     atr10_sma50  = atr10.rolling(50).mean()
-    # VWMA(volume, 5) per Pine: Σ(v*c)/Σ(v)
-    vol_vwma5    = (v * c).rolling(5).sum() / v.rolling(5).sum().replace(0, np.nan)
+    # VWMA(VOLUME, 5) per Pine `ta.vwma(volume,5)`: Σ(v*v)/Σ(v).
+    # FIX (9-Jul-2026): was Σ(v*c)/Σ(v) — that is volume-weighted PRICE, not the
+    # volume VWMA. Comparing a ₹×shares figure to average volume (`vol_ma`) made
+    # the VCP dry-up leg a near-no-op, so VCP-BO fired without a real contraction.
+    # Now matches the canonical pa_patterns.detect_bull_patterns formula.
+    vol_vwma5    = (v * v).rolling(5).sum() / v.rolling(5).sum().replace(0, np.nan)
 
     # Bollinger Bands for bb_sqz_ok (window 20, 2σ)
     bb_std       = c.rolling(20).std()
@@ -324,125 +328,21 @@ def compute_indicators(df: pd.DataFrame) -> dict:
         bb_width=bb_width
     )
 
-def classify_high(new_high: float, prev_high: float) -> str:
-    if pd.isna(prev_high) or prev_high <= 0:
-        return "HH"
-    diff = abs(new_high - prev_high) / prev_high
-    if diff < 0.001:
-        return "EH"
-    elif new_high < prev_high:
-        return "LH"
-    return "HH"
-
-
-def classify_low(new_low: float, prev_low: float) -> str:
-    if pd.isna(prev_low) or prev_low <= 0:
-        return "LL"
-    diff = abs(new_low - prev_low) / prev_low
-    if diff < 0.001:
-        return "EL"
-    elif new_low > prev_low:
-        return "HL"
-    return "LL"
-
-
-def compute_strict_trend(high: pd.Series, low: pd.Series,
-                         piv_left: int = 2, piv_right: int = 2) -> pd.Series:
-    """
-    v1.4: pivot-zigzag strict trend (port of Pine f_getStrictTrend).
-    HH+HL pivot zigzag with projection.
-    """
-    n = len(high)
-    out = pd.Series(0, index=high.index, dtype=int)
-    if n < (piv_left + piv_right + 1):
-        return out
-
-    h_arr = high.to_numpy()
-    l_arr = low.to_numpy()
-
-    # Track states
-    trend_state = 0
-    locked_high = np.nan
-    locked_low = np.nan
-    last_high_class = "na"
-    last_low_class = "na"
-    active_pivot_type = "na"
-    active_pivot_price = np.nan
-    active_pivot_index = -1
-
-    for i in range(piv_left + piv_right, n):
-        piv_idx = i - piv_right
-        
-        # Pivot high check
-        win_h = h_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
-        is_ph = (h_arr[piv_idx] == win_h.max()) and ((win_h == h_arr[piv_idx]).sum() == 1)
-        ph_val = h_arr[piv_idx] if is_ph else np.nan
-
-        # Pivot low check
-        win_l = l_arr[piv_idx - piv_left : piv_idx + piv_right + 1]
-        is_pl = (l_arr[piv_idx] == win_l.min()) and ((win_l == l_arr[piv_idx]).sum() == 1)
-        pl_val = l_arr[piv_idx] if is_pl else np.nan
-
-        if not np.isnan(ph_val):
-            if active_pivot_type == "H" and ph_val > active_pivot_price:
-                active_pivot_price = ph_val
-                active_pivot_index = piv_idx
-                last_high_class = classify_high(ph_val, locked_high)
-            elif active_pivot_type == "L" or active_pivot_type == "na":
-                if active_pivot_type == "L":
-                    locked_low = active_pivot_price
-                h_class = classify_high(ph_val, locked_high)
-                new_trend = 0
-                if h_class == "HH":
-                    new_trend = 1 if (last_low_class in ("HL", "EL")) else 0
-                elif h_class == "LH":
-                    new_trend = -1 if (last_low_class in ("LL", "EL")) else 0
-                trend_state = new_trend
-                locked_high = ph_val
-                last_high_class = h_class
-                active_pivot_price = ph_val
-                active_pivot_index = piv_idx
-                active_pivot_type = "H"
-
-        if not np.isnan(pl_val):
-            if active_pivot_type == "L" and pl_val < active_pivot_price:
-                active_pivot_price = pl_val
-                active_pivot_index = piv_idx
-                last_low_class = classify_low(pl_val, locked_low)
-            elif active_pivot_type == "H":
-                locked_high = active_pivot_price
-                l_class = classify_low(pl_val, locked_low)
-                new_trend = 0
-                if l_class == "LL":
-                    new_trend = -1 if (last_high_class in ("LH", "EH")) else 0
-                elif l_class == "HL":
-                    new_trend = 1 if (last_high_class in ("HH", "EH")) else 0
-                trend_state = new_trend
-                locked_low = pl_val
-                last_low_class = l_class
-                active_pivot_price = pl_val
-                active_pivot_index = piv_idx
-                active_pivot_type = "L"
-
-        # Projection block
-        if active_pivot_index == -1:
-            sync_bars = 1
-        else:
-            sync_bars = max(1, i - active_pivot_index)
-
-        proj_low = l_arr[i - sync_bars + 1 : i + 1].min()
-        proj_high = h_arr[i - sync_bars + 1 : i + 1].max()
-
-        if not np.isnan(locked_high) and classify_high(proj_high, locked_high) == "HH":
-            d_lc = classify_low(proj_low, locked_low) if not np.isnan(locked_low) else "HL"
-            trend_state = 1 if d_lc == "HL" else 0
-        elif not np.isnan(locked_low) and classify_low(proj_low, locked_low) == "LL":
-            d_hc = classify_high(proj_high, locked_high) if not np.isnan(locked_high) else "LH"
-            trend_state = -1 if d_hc == "LH" else 0
-
-        out.iloc[i] = trend_state
-
-    return out
+# ---------------------------------------------------------------------------
+# STRICT TREND — imported, not defined here. Until 29-Jul-2026 this file carried
+# its own copy of classify_high / classify_low / compute_strict_trend, byte-identical
+# to the copy in the sibling screener and frozen at the v1.4 port — i.e. BEFORE the
+# Zigzag v6.2/v6.3 fixes were propagated into Pine (v67.1). The drift produced wrong
+# tDir, which `compute_weekly_stage_and_wks` turns into a wrong Weinstein stage via
+# its two tDir overrides, which then passes the `stage in (1,2)` screening gate.
+# See strict_trend.py for the seven divergences and the evidence.
+# ---------------------------------------------------------------------------
+from strict_trend import (  # noqa: F401  (re-exported for existing call sites)
+    EQ_THRESHOLD,
+    classify_high,
+    classify_low,
+    compute_strict_trend,
+)
 
 
 def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int = 5,
@@ -763,7 +663,8 @@ def calculate_alpha_score(ind: dict) -> int:
 
 def check_conditions(ind: dict, weekly: dict, alpha: int,
                        symbol: Optional[str] = None,
-                       mkt_bull: bool = True) -> dict:
+                       mkt_bull: bool = True,
+                       mkt_not_bear: bool = True) -> dict:
     alpha_ok = alpha >= CONFIG["alpha_gate"]
     
     c = ind["close"]
@@ -1123,12 +1024,15 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
             rv_now > 1.25 and intraday_pos >= 0.60 and c_now > o_now):
         cat_id = 4; cat_label = "SWG-BO"
     # SWG-PB: swing_pb_trg (is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_vdu_ok)
-    # REGIME-CONDITIONED (2026-07-02, Jay): + mkt_bull. SWG-PB is a momentum-CONTINUATION
-    # setup that is robustly negative in corrective regimes (validation campaign). Gating
-    # on mkt_bull suppresses it when the index is not in a confirmed uptrend — it only
-    # fires when the market wind is at its back. (mkt_bull stays an OVERLAY for the
-    # positional catalysts; here it is a hard gate because SWG-PB depends on the regime.)
-    elif (mkt_bull and is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_drying):
+    # REGIME-CONDITIONED. SWG-PB is a momentum-CONTINUATION setup that is robustly
+    # negative in TRUE corrective regimes (validation campaign). v-2026-07-07 (Jay):
+    # gate relaxed from the strict golden-cross `mkt_bull` (close>SMA200 AND
+    # SMA50>SMA200) to `mkt_not_bear` (close>SMA200 = not in a real downtrend).
+    # The strict gate blanket-blocked SWG-PB in RECOVERING tapes where price is
+    # back above the 200-DMA but the 50-DMA hasn't finished its cross — exactly
+    # where pullback-continuation starts working again. Still OFF in a genuine
+    # correction (price below the 200-DMA), preserving the validation finding.
+    elif (mkt_not_bear and is_ema_pb_zone and is_vcp_tight and pb_ma_stack and pb_pocket_pa and vol_drying):
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
     #   replaces RSI<35) + bullish reversal confirm (close>open and close>prior high)
@@ -1292,7 +1196,8 @@ def compute_score(cat_label: str, weekly: dict, alpha: int, rv_now: float,
 
 def screen_symbol(symbol: str, df_bench: pd.DataFrame,
                   force_output: bool = False,
-                  mkt_bull: bool = True) -> dict:
+                  mkt_bull: bool = True,
+                  mkt_not_bear: bool = True) -> dict:
     yf_sym = to_yf(symbol)
     try:
         import data_provider as _dp
@@ -1310,7 +1215,7 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
     
     weekly = compute_weekly_indicators(df_w, df_bench)
     alpha = calculate_alpha_score(ind)
-    cond = check_conditions(ind, weekly, alpha, symbol=symbol, mkt_bull=mkt_bull)
+    cond = check_conditions(ind, weekly, alpha, symbol=symbol, mkt_bull=mkt_bull, mkt_not_bear=mkt_not_bear)
     
     if cond["id"] == 0 and not force_output: return None
     
@@ -1501,20 +1406,25 @@ def screen_one(symbol: str, force_output: bool = True) -> dict:
                         df_bench = pd.concat([df_bench, _new])
         except Exception:
             pass
-    # Market regime — same gate as run_bull_screener (CNX500 close>SMA200 & SMA50>SMA200)
+    # Market regime — same gate as run_bull_screener (CNX500 close>SMA200 & SMA50>SMA200).
+    # mkt_not_bear = a LESS-STRICT regime (close>SMA200 only) that gates SWG-PB, so
+    # pullback-continuation fires in a recovering tape (price back above the 200-DMA)
+    # even before the 50-DMA completes its cross — but stays off in a true downtrend.
     mkt_bull = False
+    mkt_not_bear = False
     if not df_bench_d.empty and len(df_bench_d) >= 200:
         _bc   = df_bench_d["Close"]
         _s50  = float(_bc.rolling(50).mean().iloc[-1])
         _s200 = float(_bc.rolling(200).mean().iloc[-1])
         _c    = float(_bc.iloc[-1])
         mkt_bull = bool(not np.isnan(_s50) and not np.isnan(_s200) and _c > _s200 and _s50 > _s200)
+        mkt_not_bear = bool(not np.isnan(_s200) and _c > _s200)
     _override = os.environ.get("MKT_BULL_OVERRIDE", "").strip().upper()
     if _override in ("1", "TRUE", "BULL"):
-        mkt_bull = True
+        mkt_bull = True; mkt_not_bear = True
     elif _override in ("0", "FALSE", "NOT"):
-        mkt_bull = False
-    return screen_symbol(symbol, df_bench, force_output=force_output, mkt_bull=mkt_bull)
+        mkt_bull = False; mkt_not_bear = False
+    return screen_symbol(symbol, df_bench, force_output=force_output, mkt_bull=mkt_bull, mkt_not_bear=mkt_not_bear)
 
 
 def run_bull_screener(progress_callback=None, symbols=None,
@@ -1597,6 +1507,7 @@ def run_bull_screener(progress_callback=None, symbols=None,
     # Computed ONCE per run (same for all symbols). SWG-* catalysts suppressed
     # when the broader market is not in a confirmed uptrend.
     mkt_bull = False
+    mkt_not_bear = False
     _b_close = _b_sma50 = _b_sma200 = float("nan")
     _bench_rows = 0
     _bench_last_date = "n/a"
@@ -1615,18 +1526,22 @@ def run_bull_screener(progress_callback=None, symbols=None,
                 not np.isnan(_b_sma50) and not np.isnan(_b_sma200) and
                 _b_close > _b_sma200 and _b_sma50 > _b_sma200
             )
+            # mkt_not_bear = less-strict regime (price above 200-DMA only) that
+            # gates SWG-PB — fires pullback-continuation in a recovering tape.
+            mkt_not_bear = bool(not np.isnan(_b_sma200) and _b_close > _b_sma200)
 
     # Override via env var when Commander Web regime disagrees with yfinance ^CRSLDX
     _override = os.environ.get("MKT_BULL_OVERRIDE", "").strip().upper()
     if _override in ("1", "TRUE", "BULL"):
         print(f"  >>> MKT_BULL_OVERRIDE=BULL — forcing mkt_bull=True (was {mkt_bull})")
-        mkt_bull = True
+        mkt_bull = True; mkt_not_bear = True
     elif _override in ("0", "FALSE", "NOT"):
         print(f"  >>> MKT_BULL_OVERRIDE=NOT — forcing mkt_bull=False (was {mkt_bull})")
-        mkt_bull = False
+        mkt_bull = False; mkt_not_bear = False
 
     print(f"  Market regime: {'BULL' if mkt_bull else 'NOT BULL'} "
-          f"(CNX500 close>SMA200 AND SMA50>SMA200)")
+          f"(CNX500 close>SMA200 AND SMA50>SMA200) · "
+          f"not-bear (SWG-PB gate): {mkt_not_bear} (close>SMA200)")
     print(f"    Benchmark fetch: {_bench_rows} bars, last={_bench_last_date}")
     print(f"    CNX500 close = {_b_close:.2f}")
     print(f"    CNX500 SMA50 = {_b_sma50:.2f}")
@@ -1657,7 +1572,7 @@ def run_bull_screener(progress_callback=None, symbols=None,
             progress_callback(idx, total, sym)
         try:
             res = screen_symbol(sym, df_bench, force_output=force_tracker_mode,
-                                mkt_bull=mkt_bull)
+                                mkt_bull=mkt_bull, mkt_not_bear=mkt_not_bear)
             if res:
                 results.append(res)
         except Exception:
@@ -1684,7 +1599,7 @@ def run_bull_screener(progress_callback=None, symbols=None,
                         _dp.fetch_ohlcv(_s, period="2y", interval="1d", use_cache=False, auto_adjust=True)
                         _dp.fetch_ohlcv(_s, period="3y", interval="1wk", use_cache=False, auto_adjust=True)
                         _res2 = screen_symbol(_s, df_bench, force_output=force_tracker_mode,
-                                              mkt_bull=mkt_bull)
+                                              mkt_bull=mkt_bull, mkt_not_bear=mkt_not_bear)
                         if _res2:
                             results = [r for r in results if r.get("Symbol") != _s]
                             results.append(_res2)
