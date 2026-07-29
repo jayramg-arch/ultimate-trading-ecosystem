@@ -2067,11 +2067,49 @@ STALE.** The authoritative value is the `eq_threshold_dash` input default 0.002,
   extreme in window" for Pine's `ta.pivothigh`/`ta.pivotlow`. If a residual mismatch survives, look
   here first.
 
-### ⚠️ CONSEQUENCE — every backtest number predates this fix
-Stage feeds `stage_ok` in the screener, so this changes SIGNAL GENERATION, not just the display.
-**The 22-Jul re-baseline (`20260722_135745`, +2.56%→ corrected +0.80%, OOS PASS) was computed on the
-stale engine and must be re-run**, along with the recovery-side baseline. Sequence deliberately:
-fix first (done), re-baseline as its own pass.
+### RE-BASELINE DONE (`20260729_175838`) — and it says the edge was ONE TRADE
+
+Bull, 24mo, nifty500, catalyst-aware, bootstrap 10k — parameters matched to the corrected
+`20260726_225547` baseline exactly.
+
+| | BASE 26-Jul | **NEW 29-Jul** |
+|---|---:|---:|
+| picks | 464 | 459 |
+| mean matched α | +0.80% | **+0.54%** |
+| median | −2.38% | −2.42% |
+| win % | 32.1 | 31.6 |
+| anchor avg α | +0.75% | **−0.18%** |
+| anchor hit | 55.0% | 50.0% |
+| cumulative α | +15.08% | **−3.55%** |
+| bootstrap P(α>0) | 81.9% | **40.3%** |
+| CI95 | [−0.8, +2.5] | [−1.49, +1.10] |
+| OOS gate | ✅ PASS | **⚪ NO-EDGE** (IS mean α −0.57%) |
+
+**Do NOT read this as "the fix broke the edge."** Pick-level diff: **456 of 464 picks are
+byte-identical** (verified equal alpha). 8 dropped, 3 added — 2.4% of the book. SWG is
+*completely* untouched (218→218, identical mean) because `stage_ok` lives in `weinstein_setup`,
+the POS base gate; only POS moved (246→241).
+
+**The entire headline swing is one anchor.** 2025-04-15 went +11.74% → −5.16% (Δ −16.9pp) — it
+held FIVE picks, one of which was **LTF at +79.35% matched alpha**, now stage-blocked. Removing
+that single trade flips the aggregate. The 8 dropped names average +13.12% but their MEDIAN is
++4.0% — LTF alone is 79 of the 105 points removed.
+
+**The honest conclusion: the previously-reported edge was never statistically distinguishable
+from zero and was carried by a single outlier in a 5-pick anchor.** Both runs' bootstrap CIs
+straddle zero — the old one too. This is the same big-winner-carried profile already documented
+on 26-Jul (median trade loses to the index); the re-baseline just shows how concentrated it is.
+A correctness fix removed the trade that was propping up the point estimate.
+
+**Judge the FIX on parity (9/11 disputed, 6/6 control — it matches the canonical Zigzag
+definition), and judge the STRATEGY on the new number.** Those are separate questions.
+
+⚠️ **ONE THING WORTH A MANUAL CHECK:** the dropped set is winner-heavy and **PAGEIND appears 4
+times** (2024-07/09/10/12) — i.e. the corrected engine systematically re-stages that name across
+2024. Spot-check PAGEIND's weekly chart at those dates: if it was genuinely Stage 2 there, the
+port has an error the 17-name comparison didn't catch. n=8 is far too small to settle by backtest.
+
+**STILL PENDING: the recovery-side re-baseline** (the slow ~2-3h run) — not started.
 
 ### Standing
 Restart Web Commander and rebuild the board (this stacks with the earlier X-Ray + GM-wording
