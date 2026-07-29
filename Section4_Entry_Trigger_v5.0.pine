@@ -5050,11 +5050,14 @@ if show_panel and d_panel and barstate.islast
     //  3. FAST arrival with BLEEDING delta. Note arr_fav currently treats ANY fast arrival
     //     as favourable and even pays it a confluence point — but fast INTO resistance
     //     with sellers in control is the opposite of absorption.
-    bool _qWmaDn  = nz(d_s150dn[_so], 0.0) > 0.5
+    // v5.9: the 30WMA-falling flag is GONE from the downgrade — it is now exactly the
+    // Stage 3/4 test, so stage_skip already vetoes the verdict outright and repeating it
+    // here would only add noise to a headline that already says NO TRADE. If stage_gate
+    // is turned OFF the user has chosen to ignore stage, so nothing is silently lost.
     bool _qChop   = ema20_x40[_so] >= 6
     bool _qBleed  = show_arrival and arr_style[_so] == "FAST" and not of_bull[_so]
-    int  _qDeg    = (_qWmaDn ? (is_rec_v ? 1 : 2) : 0) + (_qChop ? 1 : 0) + (_qBleed ? 1 : 0)
-    string _degTxt = _qDeg >= 2 ? "  DOWNGRADED: " + (_qWmaDn ? "30WMA falling " : "") + (_qChop ? "EMA20 chop " : "") + (_qBleed ? "FAST bleeding" : "") : ""
+    int  _qDeg    = (_qChop ? 1 : 0) + (_qBleed ? 1 : 0)
+    string _degTxt = _qDeg >= 2 ? "  DOWNGRADED: EMA20 chop + FAST bleeding" : ""
     // #3: chasing — price too far above the daily EMA20 (in ATRs). Quality, not a gate.
     float _extV   = ext_atr[_so]
     bool  _qExt   = not na(_extV) and _extV > ext_atr_max
@@ -5075,7 +5078,12 @@ if show_panel and d_panel and barstate.islast
     // distribution — the "supply band" it sits in IS the prior high, meant to break. So an
     // in-supply state near the ATH is NOT a range-logic "no room" reject; it's a breakout
     // to arm ABOVE the band. Only in a Stage-2 uptrend; a Stage 3/4 lower high stays a SKIP.
-    bool  _stage2ok = nz(d_bel30[_so], 0.0) < 0.5 and nz(d_bel200[_so], 0.0) < 0.5
+    // v5.9 — was a SECOND definition of Stage 2 (above 30WMA AND above 200DMA) that never
+    // checked whether the 30WMA is RISING. It therefore returned TRUE for a Stage-3 name
+    // (above both, anchor falling) — the COLPAL case — so _blueSky and _clearToBreak could
+    // fire on Stage 3 while their own text says "Only valid Stage-2". Now the file has ONE
+    // stage definition; the 200-DMA is kept as the secondary confirm it always was.
+    bool  _stage2ok = stage_n == 2 and nz(d_bel200[_so], 1.0) < 0.5
     bool  _nearATH  = _off52v >= 0.0 and _off52v <= ath_prox_pct
     bool  _blueSky  = _inSZ_r and _nearATH and _stage2ok
     // Cite the NEAREST overhead (_ovh) as the obstacle, not the far band DISTAL — the verdict
