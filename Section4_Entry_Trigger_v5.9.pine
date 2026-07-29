@@ -854,9 +854,7 @@ confirm_daily = input.bool(true, "Confirmed daily only (no intraday repaint)", g
      tooltip="ON = read the LAST CLOSED daily bar (matches the Golden Matcher's EOD read; no forming-bar flicker). OFF = live developing daily bar (repaints intraday). Applies only when 'Use chart timeframe' is OFF.")
 rv_floor  = input.float(1.0, "Volume floor (RV) for a valid trigger", minval=0.0, step=0.25, group=grpPA,
      tooltip="A trigger only counts as GO if relative volume >= this. 1.0 = average day. A real breakout usually has RV > 1.25. Lower it (e.g. 0.8) if you find it too strict; raise it to demand stronger participation.")
-     tooltip="Auto mode resolves to the RECOVERY battery when the stock is at least this % off its 52-week high (and the 30-WMA proxy is not repaired). Keep in sync with the Golden Matcher recovery CONFIG min_stock_correction_pct (10).")
 stage_gate = input.bool(true, "Stage 3/4 = NO TRADE (overrides mode)", group=grpPA, tooltip="Weinstein: only Stage 2 advances and Stage 1 turns are tradeable. With this ON a Stage-3 (30WMA falling, price above) or Stage-4 (below and falling) name resolves to NO TRADE and the verdict says so — even if you set the mode manually, because the stage is a fact, not a preference. OFF restores the old two-path behaviour.")
-     tooltip="v2.9. ON (default) = Auto only flips to Recovery when price is BELOW its 200-DMA (stops a shallow bull PULLBACK, still above the 200-DMA, from mis-resolving Recovery — this is why Auto stays on the Bull path for most names). Turn OFF if you want early recoveries that have ALREADY reclaimed the 200-DMA to resolve Recovery. NOTE: Pine cannot see the Golden Matcher's live Bull/Recovery decision — for names where GM disagrees with Auto, set Mode = Bull or Recovery MANUALLY when you create the alert (that override is authoritative).")
 
 
 grpWCL = "🧠  Weinstein Context Layers (WCL v1.2) Integration"
