@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.3 (WCL Context Integration)", shorttitle="S4 Entry v5.3", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.4 (WCL Context Integration)", shorttitle="S4 Entry v5.4", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -880,6 +880,7 @@ entry_method = input.string("Retest (pullback limit)", "Plan: entry method", opt
 bool use_retest = entry_method == "Retest (pullback limit)"
 tol_pct   = input.float(1.0, "Support-touch tolerance (% around AVWAP)", minval=0.25, step=0.25, group=grpPZ)
 require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)", group=grpPZ, tooltip="If ON, the GO entry trigger will only fire if the close is inside or within 1.5% of an active Order Block, Fair Value Gap, Pivot Support (Daily OR Weekly) or AVWAP. This automates Steps 1 & 2 of the Guided Execution checklist.")
+ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
 ath_prox_pct = input.float(3.0, "Blue-sky breakout: within % of 52W high", group=grpPZ, minval=0.5, maxval=10.0, step=0.5, tooltip="#ATH (Jay, 19-Jul): a Stage-2 leader (above a rising 30WMA + 200DMA) consolidating within this % of its 52-week high is a BREAKOUT PIVOT, not distribution. The 'supply zone' there IS the prior high — meant to BREAK, not reject. When price is in that supply band, the verdict reframes 'SKIP · no room' into 'BREAKOUT PIVOT' (arm the buy-stop above the band ceiling; blue sky above), instead of applying range logic to a momentum setup. Only fires in a Stage-2 uptrend — a Stage 3/4 name at a lower high stays a real SKIP.")
 momentum_clear = input.bool(true, "Stage-2 momentum: near overhead is a level to CLEAR (not a no-room SKIP)", group=grpPZ, tooltip="THE 75-MIN ROOM FIX (Jay, 23-Jul). On the trading TF a higher-timeframe level (weekly R-line, monthly SZ, HTF pivot) is ALWAYS overhead within a thin R — so a 'room = R:R to the nearest overhead' test kills EVERY intraday trigger. That is the wrong denominator for a momentum entry: the nearby overhead is a level to BREAK toward the real (measured-move / swing-positional R) target, not the target itself. When ON, a Stage-2 leader (above 30WMA+200DMA) with a live GO but a nearby overhead reframes 'SKIP · no room' → 'CLEAR TO BREAK' (arm the buy-stop above the level; real target is the R-objective). Generalises the ATH blue-sky rule to any Stage-2 uptrend. Stage 3/4 into overhead, or price INSIDE a supply band (non-ATH), still SKIPs. OFF = strict room veto (pre-fix).")
@@ -4921,7 +4922,17 @@ if show_panel and d_panel and barstate.islast
         pl_rr1 := (_rsk > 0 and not na(pl_t1)) ? (pl_t1 - pl_entry) / _rsk : na
         pl_rr2 := (_rsk > 0 and not na(pl_t2)) ? (pl_t2 - pl_entry) / _rsk : na
         // The PLAN row is the METHOD — no prices (they are in the four rows below).
-        string _entryMethodTxt = use_retest ? "Buy-LIMIT at the trigger close (retest the pullback)" : "Buy-stop above the trigger bar"
+        // v5.4 (Jay: "2660.3 is not a retest, right?" — correct, and the label was lying).
+        // The retest limit sits AT the trigger bar's close. It only behaves as a retest if
+        // price ADVANCES first and later comes back to it; on the trigger bar itself price
+        // IS the close, so the limit fills immediately — a market entry wearing a retest
+        // label. Say which one it currently is instead of always claiming "retest".
+        float _retestGap = (not na(pl_entry) and pl_entry > 0) ? (close - pl_entry) / pl_entry * 100.0 : na
+        bool  _retestLive = use_retest and not na(_retestGap) and _retestGap > 0.15   // price has moved above the limit
+        string _entryMethodTxt = use_retest
+             ? (_retestLive ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + " — a real retest, price is " + str.tostring(_retestGap, "0.0") + "% above it"
+                            : "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + " = the trigger close — price is THERE, so this fills as a MARKET entry, not a retest")
+             : "Buy-stop above the trigger bar"
         _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
     f_row(23, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
@@ -5025,6 +5036,30 @@ if show_panel and d_panel and barstate.islast
     // #3: chasing — price too far above the daily EMA20 (in ATRs). Quality, not a gate.
     float _extV   = ext_atr[_so]
     bool  _qExt   = not na(_extV) and _extV > ext_atr_max
+    // v5.4 (Jay, GLAXO at +3.0 ATR / +7% above EMA20): the hard veto only fires above
+    // ext_atr_max (4.0), so a materially extended entry passed as "(Norm)" with nothing
+    // said. Warn from ext_warn_atr, and — more useful than a warning — NAME the level a
+    // proper pullback entry would use: the highest structure BELOW price (daily EMA20,
+    // nearest S/R below, or the nearest support the location engine found). That turns
+    // "you are chasing" into "here is where to wait".
+    bool  _qExtWarn = not na(_extV) and _extV >= ext_warn_atr and not _qExt
+    float _pbEma  = daily_ema20
+    float _pbSr   = sr_below
+    float _pbSup  = nearest_sup
+    float _pbLvl  = na
+    if not na(_pbEma) and _pbEma < close
+        _pbLvl := _pbEma
+    if not na(_pbSr) and _pbSr < close and (na(_pbLvl) or _pbSr > _pbLvl)
+        _pbLvl := _pbSr
+    if not na(_pbSup) and _pbSup < close and (na(_pbLvl) or _pbSup > _pbLvl)
+        _pbLvl := _pbSup
+    string _pbSrc = na(_pbLvl) ? "" : (_pbLvl == _pbSup ? "support" : _pbLvl == _pbSr ? "S/R" : "EMA20")
+    string _extTxt = (_qExt or _qExtWarn) and not na(_extV)
+         ? ("  ⚠ EXTENDED " + str.tostring(_extV, "0.0") + "xATR above EMA20"
+            + (na(_pbLvl) ? " — no structure below; wait or size down."
+                          : " — a pullback entry sits at " + str.tostring(_pbLvl, format.mintick)
+                            + " (" + _pbSrc + ", " + str.tostring((close - _pbLvl) / close * 100.0, "0.0") + "% lower)."))
+         : ""
     // WEAK LOCATION (ABBOTINDIA, 19-Jul): the GO rests ONLY on the AVWAP/EMA — price is
     // NOT in a demand zone or on a fresh S/R level. Per the house methodology (buy the
     // pullback into a Daily+ demand zone), that is a MOMENTUM/breakout entry, not a
@@ -5093,7 +5128,13 @@ if show_panel and d_panel and barstate.islast
         if is_rec_v
             _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
             _L2 := "A recovery climbs back THROUGH overhead — the levels above ARE the target ladder (T1/T2), not a wall. Thin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
-            _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder (trail as each clears); SL under the recovery low." + (_qArrBad ? " Caveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? " Caveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
+            // v5.4 (#3 of 3): this buy-STOP is DELIBERATE for a recovery — you confirm the
+            // TURN before entering, never buy the touch of a level in a name that has been
+            // falling. It is therefore NOT switched by entry_method. But the Plan row below
+            // follows entry_method and will be showing a retest LIMIT, so the panel gave two
+            // entries again. Say which wins. (Same fix as CLEAR-TO-BREAK and BLUE-SKY in v5.2.)
+            _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder (trail as each clears); SL under the recovery low."
+                     + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — on a recovery you confirm the turn, not buy the touch." : "") + (_qArrBad ? " Caveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? " Caveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
             _L5 := "Manage against the TURN, not the overhead — exit if it loses the recovery low."
             _anCol := color.new(#26a69a, 0)
         else if _blueSky
@@ -5128,7 +5169,7 @@ if show_panel and d_panel and barstate.islast
             _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (cf_v >= cf_strong ? " ★strong" : "") + (_qArrGood ? " · quality arrival" : ""))
             _L2 := _rule
             _L3 := _qLocWeak ? "Location is the AVWAP/EMA only — NOT a demand zone. A momentum/breakout entry, not a pullback to support (your A+ setup). Size down or wait for a pullback into a zone." : _qExt ? ("Caveat: EXTENDED " + str.tostring(_extV, "0.0") + " ATR above the EMA20 — chasing; size down or wait for a pullback toward value.") : _qArrBad ? "Caveat: GRIND arrival with Δ− — size down or wait for a sharper re-test." : ""
-            _L5 := "Buy-STOP above the trigger bar's high. Never buy the touch."
+            _L5 := "Buy-STOP above the trigger bar's high. Never buy the touch." + (use_retest ? " (Overrides the Plan row's retest limit.)" : "")
             _anCol := (_qArrBad or _qExt or _qLocWeak) ? color.new(#ff9800, 0) : color.new(#26a69a, 0)
         else
             _L1 := "SKIP — payoff too thin"
@@ -5162,7 +5203,9 @@ if show_panel and d_panel and barstate.islast
         _L3 := (not any_pa_v and support_v) ? "At a location with clean volume/bar — only the pattern is missing." : ""
         _L5 := _act
         _anCol := color.new(#ff9800, 0)
-    _aVer := _L1 + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + "\n" + _mx + (str.length(_L5) > 0 ? "\n" + _L5 : "")
+    // v5.4: the EXTENDED warning rides on the HEADLINE where it cannot be missed — a
+    // late entry is a property of the ENTRY, not a reason the trade itself is wrong.
+    _aVer := _L1 + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + "\n" + _mx + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
         table.cell(pnl, 0, 22, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
         table.cell(pnl, 1, 22, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
