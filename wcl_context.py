@@ -22,7 +22,8 @@ meaning the two surfaces were never running the same calculation.
 
 SOURCE OF TRUTH
 ---------------
-Ported 1:1 from ``Section4_Entry_Trigger_v5.0.pine`` (in-file title v5.1), sections
+Ported 1:1 from ``Section4_Entry_Trigger_v5.9.pine`` (renamed from _v5.0 on 29-Jul;
+the port was made against in-file title v5.1), sections
 "Wyckoff Series" and "SMC Module". Three Pine behaviours are load-bearing and are
 reproduced deliberately — do not "clean them up":
 
