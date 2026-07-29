@@ -60,17 +60,20 @@ html, body, [class*="css"], .stApp {
 /* Metric Cards */
 .metric-box {
     background: #0d1b2a; border: 1px solid #1e3a5f;
-    border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border-radius: 4px; padding: 6px 10px; margin-bottom: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .metric-lbl {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
-    color: #8b949e; text-transform: uppercase; letter-spacing: 1px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.60rem;
+    color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px;
     margin-bottom: 2px;
 }
 .metric-val {
-    font-family: 'Inter', sans-serif; font-size: 1.15rem;
-    font-weight: 600; color: #e6edf3; display: flex; align-items: center; gap: 5px;
+    font-family: 'Inter', sans-serif; font-size: 1.05rem;
+    font-weight: 600; color: #e6edf3; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+}
+.metric-val-sub {
+    font-size: 0.85rem; font-weight: 500;
 }
 
 /* Colors */
@@ -174,7 +177,10 @@ from ai_risk_manager import get_market_health
 @st.cache_data(ttl=3600)
 def fetch_market_health():
     try:
-        df_cnx = yf.download('^CRSLDX', period='6mo', progress=False)
+        import data_provider as dp
+        df_cnx = dp.fetch_ohlcv('^CRSLDX', period='6mo', interval='1d', use_cache=True, auto_adjust=True)
+        if df_cnx is None or df_cnx.empty:
+            return "Unknown"
         is_bullish, ma50, ma200 = get_market_health(df_cnx)
         return "BULLISH" if is_bullish else "BEARISH"
     except:
@@ -197,18 +203,23 @@ hdr_container = st.container()
 
 with hdr_container:
     st.markdown(f"""
-    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #1e3a5f; padding-bottom: 2px;">▶ MACRO-LEVEL (GLOBAL)</div>
-    <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e; margin-bottom: 10px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 6px; flex-wrap: wrap;">
-        <div><span style="color:#58a6ff; font-weight: bold;">BRENT CRUDE:</span> {fmt_macro(macro_data.get('Oil'), macro_data.get('Oil_pct'), prefix="$")}</div>
-        <div><span style="color:#58a6ff; font-weight: bold;">USD/INR:</span> {fmt_macro(macro_data.get('USDINR'), macro_data.get('USDINR_pct'), prefix="₹")}</div>
-        <div><span style="color:#58a6ff; font-weight: bold;">10Y G-SEC (IND):</span> {fmt_macro(macro_data.get('IN10Y'), macro_data.get('IN10Y_pct'), prefix="₹")}</div>
-    </div>
-    
-    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #1e3a5f; padding-bottom: 2px;">▶ MARKET-LEVEL (DOMESTIC)</div>
-    <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e; margin-bottom: 10px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 6px; flex-wrap: wrap;">
-        <div><span style="color:#58a6ff; font-weight: bold;">NIFTY 50:</span> {fmt_macro(macro_data.get('Nifty'), macro_data.get('Nifty_pct'))}</div>
-        <div><span style="color:#58a6ff; font-weight: bold;">CNX500:</span> {fmt_macro(macro_data.get('CNX_val'), macro_data.get('CNX_pct'))} <span style="margin-left:5px; color:{'#3fb950' if mkt_health == 'BULLISH' else '#f85149'}; border:1px solid currentColor; padding: 1px 4px; border-radius:3px; font-size:0.70rem;">{mkt_health}</span></div>
-        <div><span style="color:#58a6ff; font-weight: bold;">INDIA VIX:</span> {fmt_macro(macro_data.get('Vix'), macro_data.get('Vix_pct'))}</div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+        <div style="flex:1; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 4px; padding: 6px 10px;">
+            <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; color: #58a6ff; border-bottom: 1px solid #1e3a5f; margin-bottom: 4px; letter-spacing: 1px;">MACRO (GLOBAL)</div>
+            <div style="display: flex; gap: 15px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; flex-wrap: wrap;">
+                <div><span style="color:#58a6ff;">OIL:</span> {fmt_macro(macro_data.get('Oil'), macro_data.get('Oil_pct'), prefix="$")}</div>
+                <div><span style="color:#58a6ff;">USDINR:</span> {fmt_macro(macro_data.get('USDINR'), macro_data.get('USDINR_pct'), prefix="₹")}</div>
+                <div><span style="color:#58a6ff;">IN10Y:</span> {fmt_macro(macro_data.get('IN10Y'), macro_data.get('IN10Y_pct'), prefix="₹")}</div>
+            </div>
+        </div>
+        <div style="flex:1; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 4px; padding: 6px 10px;">
+            <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; color: #58a6ff; border-bottom: 1px solid #1e3a5f; margin-bottom: 4px; letter-spacing: 1px;">MARKET (DOMESTIC)</div>
+            <div style="display: flex; gap: 15px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; flex-wrap: wrap;">
+                <div><span style="color:#58a6ff;">NIFTY:</span> {fmt_macro(macro_data.get('Nifty'), macro_data.get('Nifty_pct'))}</div>
+                <div><span style="color:#58a6ff;">CNX500:</span> {fmt_macro(macro_data.get('CNX_val'), macro_data.get('CNX_pct'))} <span style="color:{'#3fb950' if mkt_health == 'BULLISH' else '#f85149'}; margin-left:3px; font-size:0.65rem; border:1px solid currentColor; padding:0 3px; border-radius:3px;">{mkt_health}</span></div>
+                <div><span style="color:#58a6ff;">VIX:</span> {fmt_macro(macro_data.get('Vix'), macro_data.get('Vix_pct'))}</div>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -420,14 +431,35 @@ def fetch_fundamentals(symbol):
                 data['RevenueGrowth'] = (curr - prev) / prev
                 
         eps_arr = q_rows.get('EPS in Rs')
+        data['EpsFQ'] = np.nan
+        if eps_arr and len(eps_arr) > 0:
+            data['EpsFQ'] = eps_arr[-1]
+            
         if eps_arr and len(eps_arr) >= 5:
             curr_eps = eps_arr[-1]; prev_eps = eps_arr[-5]
             if curr_eps and prev_eps and prev_eps != 0 and not np.isnan(curr_eps) and not np.isnan(prev_eps):
                 data['EpsGrowth'] = (curr_eps - prev_eps) / abs(prev_eps)
+                
+        np_arr = q_rows.get('Net Profit')
+        data['NiGrowth'] = np.nan
+        data['IsAccelerating'] = False
+        
+        if np_arr and len(np_arr) >= 5:
+            curr_np = np_arr[-1]; prev_np = np_arr[-5]
+            if curr_np and prev_np and prev_np != 0 and not np.isnan(curr_np) and not np.isnan(prev_np):
+                data['NiGrowth'] = (curr_np - prev_np) / abs(prev_np)
+                
+        if np_arr and len(np_arr) >= 3:
+            fq = np_arr[-1]; pq = np_arr[-2]; ppq = np_arr[-3]
+            if pq and ppq and pq != 0 and ppq != 0 and not np.isnan(fq) and not np.isnan(pq) and not np.isnan(ppq):
+                g1 = (fq - pq) / abs(pq)
+                g2 = (pq - ppq) / abs(ppq)
+                data['IsAccelerating'] = (g1 > g2) and (g1 > 0)
 
         pl_rows = get_table('profit-loss')
         
         data['RevenueTTM'] = np.nan
+        data['NetIncomeTTM'] = np.nan
         data['OpMargin'] = np.nan
         data['EpsTTM'] = np.nan
         data['ProfitMargin'] = np.nan
@@ -444,17 +476,68 @@ def fetch_fundamentals(symbol):
         if eps_pl and len(eps_pl) > 0: data['EpsTTM'] = eps_pl[-1]
             
         np_pl = pl_rows.get('Net Profit')
+        if np_pl and len(np_pl) > 0: data['NetIncomeTTM'] = np_pl[-1]
+        
         if np_pl and sales_pl and len(np_pl) > 0 and len(sales_pl) > 0 and sales_pl[-1]:
             data['ProfitMargin'] = np_pl[-1] / sales_pl[-1]
 
-        # Backfill Broker Estimates via yFinance (Screener omits Forward EPS & EV/EBITDA)
+        # ── EBITDA MARGIN — from SCREENER, not yfinance (29-Jul-2026, Jay: "move all
+        # fundamentals to screener.in unless there is a compelling reason").
+        # Screener's P&L publishes OPM % = Operating Profit / Sales, which IS the
+        # EBITDA margin for these statements. yfinance's `ebitdaMargins` is frequently
+        # absent for NSE names, and a missing value was being scored as a FAILED check.
+        # Reuses `opm_pl` above, which already carries the bank fallback
+        # (OPM % -> Financing Margin %), so banks are handled the same way here.
+        data['EbitdaMargin'] = np.nan
+        try:
+            if opm_pl and len(opm_pl) > 0 and opm_pl[-1] is not None and not np.isnan(opm_pl[-1]):
+                data['EbitdaMargin'] = float(opm_pl[-1]) / 100.0
+        except Exception:
+            pass
+
+        # ── The genuinely-unavailable fields stay on yfinance, and WHY is recorded so
+        # nobody "fixes" this later without checking:
+        #   CurrentRatio  — NOT on screener.in's public company page (documented in
+        #                   fundamental_hub.fetch_screener_rff_row's docstring).
+        #   GrossMargin   — screener's P&L gives Sales / Expenses / Operating Profit
+        #                   but does not split COGS, so gross margin is not derivable.
+        #                   (OPM is operating margin, a different thing — do not
+        #                   substitute it here; it is already used for EbitdaMargin.)
+        #   ROA / EpsFwd / EvToEbitda — broker/derived fields not on the public page.
+        # These are the "compelling reason" exceptions. Everything else is screener.
         try:
             yf_info = yf.Ticker(f"{base_sym}.NS").info
             data['EpsFwd'] = yf_info.get('forwardEps', np.nan)
             data['EvToEbitda'] = yf_info.get('enterpriseToEbitda', np.nan)
+            data['GrossMargin'] = yf_info.get('grossMargins', np.nan)
+            data['ROA'] = yf_info.get('returnOnAssets', np.nan)
+            data['CurrentRatio'] = yf_info.get('currentRatio', np.nan)
+            if np.isnan(data['EbitdaMargin']):          # screener OPM missing → fall back
+                data['EbitdaMargin'] = yf_info.get('ebitdaMargins', np.nan)
+            fcf = yf_info.get('freeCashflow', np.nan)
+            data['FreeCashFlow'] = (fcf / 10000000) if pd.notna(fcf) else np.nan
         except:
             data['EpsFwd'] = np.nan
             data['EvToEbitda'] = np.nan
+            data['GrossMargin'] = np.nan
+            data['ROA'] = np.nan
+            data['CurrentRatio'] = np.nan
+            data['FreeCashFlow'] = np.nan
+
+        # ── FREE CASH FLOW — prefer SCREENER's cash-flow statement over yfinance.
+        # FCF = Cash from Operating Activity - capex. Screener does not isolate capex,
+        # so "Cash from Investing Activity" is used as its proxy (it is dominated by
+        # capex for operating companies). Only overrides when screener actually
+        # returned an operating-cash figure.
+        try:
+            _cf = get_table('cash-flow')
+            _ocf = _cf.get('Cash from Operating Activity') or _cf.get('Cash from Operating Activity +')
+            _inv = _cf.get('Cash from Investing Activity') or _cf.get('Cash from Investing Activity +')
+            if _ocf and _ocf[-1] is not None and not np.isnan(_ocf[-1]):
+                _capex = abs(_inv[-1]) if (_inv and _inv[-1] is not None and not np.isnan(_inv[-1])) else 0.0
+                data['FreeCashFlow'] = float(_ocf[-1]) - _capex      # already ₹ Cr on screener
+        except Exception:
+            pass
         
         bs_rows = get_table('balance-sheet')
         data['DebtToEquity'] = np.nan
@@ -497,247 +580,464 @@ def fetch_fundamentals(symbol):
 #  UI LAYOUT
 # ══════════════════════════════════════════════════════════════════════
 
-if ticker_input:
-    with st.spinner(f"Auditing fundamentals for {ticker_input}..."):
-        data = fetch_fundamentals(ticker_input)
-        
-    if "error" in data:
-        st.error(f"Failed to fetch data for {ticker_input}. Ensure it's a valid NSE listed symbol. Error: {data['error']}")
-    elif data.get('IsETF', False):
-        st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #8b949e;'>**{data['Name']}** (Exchange Traded Fund / Index) | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
-        st.warning("Fundamental scorecards (Revenue, Margins, P/E) are mathematically invalid for Index Funds and ETFs. yFinance currently does not supply accurate Expense Ratios or AUM for NSE ETFs.")
-        
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.markdown('<div class="section-hdr">▶ ETF PRICING</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Current Price</div><div class="metric-val">₹{fmt_float(data["CurrentPrice"])}</div></div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="section-hdr">▶ AUM / ASSETS</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Total Assets</div><div class="metric-val" style="color:#8b949e; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown('<div class="section-hdr">▶ METRICS</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Expense Ratio & Yield</div><div class="metric-val" style="color:#8b949e; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
-            
-        st.markdown(f"""
-        <div style="background: #0d1b2a; border: 2px solid #1e3a5f; border-radius: 8px; padding: 12px; text-align: center; margin-top: 5px;">
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px;">FUNDAMENTAL X-RAY</div>
-            <div class="c-warn" style="font-family: 'Rajdhani', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1;">ETF MODE</div>
-            <div style="font-family: 'Inter', sans-serif; font-size: 0.8rem; color: #8b949e; margin-top: 5px;">Use Technical Analysis via TradingView for momentum scoring.</div>
-        </div>
-        """, unsafe_allow_html=True)
 
-    else:
-        # Emergency Screener Price Fallback if yfinance failed
-        if pd.isna(data.get('CurrentPrice')):
-            try:
-                 url = f"https://www.screener.in/company/{ticker_input.upper().replace('.NS', '')}/"
-                 res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-                 soup = BeautifulSoup(res.text, 'html.parser')
-                 price_el = soup.find('span', text='Current Price').find_next('span', class_='number')
-                 if price_el: data['CurrentPrice'] = float(price_el.text.replace(',', ''))
-            except: pass
-            
-        st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #8b949e;'>**{data['Name']}** | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
-        
-        nifty_1m = get_nifty_1m()
-        raw_sym = ticker_input.upper().replace('.NS', '').replace('.BO', '')
-        stock_1m = get_stock_1m(raw_sym)
-        rs_1m = stock_1m - nifty_1m if pd.notna(stock_1m) and pd.notna(nifty_1m) else np.nan
-        
-        sector_med = get_sector_median(raw_sym)
-        s_pe = sector_med.get('P/E', 'N/A')
-        s_roce = sector_med.get('ROCE\n                  %', 'N/A')
-        s_div = sector_med.get('Div Yld\n                  %', 'N/A')
-        
-        def fmt_perf(pct):
-            if pd.isna(pct) or pct is None: return "N/A"
-            arrow = "▲" if pct > 0 else "▼"
-            color = "#3fb950" if pct > 0 else "#f85149"
-            return f'<span style="color:{color};">{arrow} {abs(pct):.2f}%</span>'
+def calculate_scores(data, mkt_health, macro_data):
+    rg = data.get('RevenueGrowth')
+    nig = data.get('NiGrowth')
+    accel = data.get('IsAccelerating', False)
+    roe = data.get('ROE')
+    gm = data.get('GrossMargin')
+    de = data.get('DebtToEquity')
+    de_ratio = de / 100 if de is not None and not pd.isna(de) else None
+    cr = data.get('CurrentRatio')
+    fcf = data.get('FreeCashFlow')
+    is_bank = "Bank" in data.get('Name', '') or "Bank" in data.get('Sector', '') or "Fin" in data.get('Sector', '')
 
-        def color_pe(val_str):
-            if val_str == 'N/A': return '#c9d1d9'
-            try:
-                v = float(val_str)
-                return "#3fb950" if v < 20 else ("#d29922" if v <= 30 else "#f85149")
-            except: return '#c9d1d9'
-            
-        def color_roce(val_str):
-            if val_str == 'N/A': return '#c9d1d9'
-            try:
-                v = float(val_str)
-                return "#3fb950" if v >= 15 else ("#d29922" if v >= 10 else "#f85149")
-            except: return '#c9d1d9'
+    ms_rg = 1 if rg and rg >= 0.20 else 0
+    ms_ni = 1 if nig and nig >= 0.25 else 0
+    ms_accel = 1 if accel else 0
+    ms_roe = 1 if roe and roe >= 0.15 else 0
+    ms_gm = 1 if gm and gm >= 0.15 else 0
+    ms_de = 1 if de_ratio is not None and de_ratio <= 1.5 else (1 if is_bank else 0)
+    ms_cr = 1 if cr and cr >= 1.0 else (1 if is_bank else 0)
+    ms_fcf = 1 if fcf and fcf > 0 else (1 if is_bank else 0)
+    minervini_score = ms_rg + ms_ni + ms_accel + ms_roe + ms_gm + ms_de + ms_cr + ms_fcf
+    
+    ov_macro = 0
+    if mkt_health == 'BULLISH': ov_macro += 1
+    if macro_data.get('IN10Y_pct', 0) < 0: ov_macro += 1
+    if macro_data.get('USDINR_pct', 0) < 0: ov_macro += 1
+    
+    ov_mom = 0
+    ni = data.get('NetIncomeTTM')
+    eg = data.get('EpsGrowth')
+    if rg and rg >= 0.20: ov_mom += 1
+    if nig and nig >= 0.25: ov_mom += 1
+    if eg and eg >= 0.25: ov_mom += 1
+    if accel: ov_mom += 1
+    if ni and ni > 0: ov_mom += 1
+    
+    ov_mar = 0
+    ebm = data.get('EbitdaMargin')
+    opm = data.get('OpMargin')
+    if gm and gm >= 0.30: ov_mar += 1
+    if ebm and ebm >= 0.20: ov_mar += 1
+    if opm and opm >= 0.15: ov_mar += 1
+    if roe and roe >= 0.20: ov_mar += 1
+    
+    ov_hlth = 0
+    pe = data.get('TrailingPE')
+    pb = data.get('PriceToBook')
+    if de_ratio is not None and de_ratio <= 1.0: ov_hlth += 1
+    elif is_bank: ov_hlth += 1
+    if cr and cr >= 1.5: ov_hlth += 1
+    elif is_bank: ov_hlth += 1
+    if fcf and fcf > 0: ov_hlth += 1
+    elif is_bank: ov_hlth += 1
+    if pe and 0 < pe <= 40: ov_hlth += 1
+    if pb and 0 < pb <= 5.0: ov_hlth += 1
+    
+    # ── MISSING DATA MUST NOT SCORE AS A FAILURE (29-Jul-2026) ────────────────
+    # Every check above is `if value and value >= threshold`, so a MISSING value
+    # scores 0 — identical to a value that genuinely failed. That is the NaN->0
+    # pattern this desk bans, and it was the real reason names sat at C/D: an NSE
+    # stock missing 3-4 yfinance fields was being PENALISED for the gaps, not just
+    # scored on what is known.
+    #
+    # Fix: count how many of the data-dependent checks were EVALUABLE, then scale
+    # the earned score up to the full 17-point scale before grading. A name with 8
+    # of 13 available checks now grades like 10.5/17 (B) instead of 8/17 (C).
+    # The macro block (3 pts) is market-wide and always available, so it is added
+    # back untouched rather than scaled.
+    def _avail(v):
+        return v is not None and not (isinstance(v, float) and np.isnan(v))
 
-        def color_div(val_str):
-            if val_str == 'N/A': return '#c9d1d9'
-            try:
-                v = float(val_str)
-                return "#3fb950" if v >= 2 else ("#d29922" if v > 0 else "#c9d1d9")
-            except: return '#c9d1d9'
-            
-        c_pe = color_pe(s_pe)
-        c_div = color_div(s_div)
-        c_roce = color_roce(s_roce)
+    _data_checks = [
+        # (value, how many points in the raw scale depend on it)
+        (rg, 1), (nig, 1), (data.get('EpsGrowth'), 1), (data.get('NetIncomeTTM'), 1),   # ov_mom (accel is derived, always evaluable)
+        (gm, 1), (data.get('EbitdaMargin'), 1), (data.get('OpMargin'), 1), (roe, 1),    # ov_mar
+        (de_ratio, 1), (cr, 1), (fcf, 1), (pe, 1), (pb, 1),                             # ov_hlth
+    ]
+    _avail_pts = sum(w for v, w in _data_checks if _avail(v)) + 1   # +1 = ov_mom's accel
+    _max_data_pts = sum(w for _, w in _data_checks) + 1             # 14
+    _earned_data = ov_mom + ov_mar + ov_hlth
+    _coverage = (_avail_pts / _max_data_pts) if _max_data_pts else 1.0
+    # Scale only when something is genuinely missing, and never inflate past the max.
+    _scaled_data = (_earned_data / _avail_pts * _max_data_pts) if _avail_pts > 0 else 0.0
+    _scaled_data = min(_scaled_data, float(_max_data_pts))
+    overall_rating = int(round(ov_macro + _scaled_data))
+    if overall_rating >= 15: grade, g_col = "A+", "#3fb950"
+    elif overall_rating >= 13: grade, g_col = "A", "#3fb950"
+    elif overall_rating >= 10: grade, g_col = "B", "#58a6ff"
+    elif overall_rating >= 7: grade, g_col = "C", "#d29922"
+    elif overall_rating >= 4: grade, g_col = "D", "#f85149"
+    else: grade, g_col = "F", "#f85149"
+    
+    return {
+        "minervini_score": minervini_score,
+        "overall_rating": overall_rating,
+        # Honesty fields (29-Jul-2026): a low grade from MISSING DATA and a low grade
+        # from BAD FUNDAMENTALS are decision-different, and the UI could not tell them
+        # apart. `data_coverage` is the share of data-dependent checks that were
+        # evaluable; `overall_rating_raw` is the old un-scaled number for comparison.
+        "data_coverage": round(_coverage, 3),
+        "overall_rating_raw": int(ov_macro + _earned_data),
+        "grade": grade,
+        "g_col": g_col,
+        "ov_macro": ov_macro,
+        "ov_mom": ov_mom,
+        "ov_mar": ov_mar,
+        "ov_hlth": ov_hlth,
+        "ms": {
+            "rg": ms_rg, "ni": ms_ni, "accel": ms_accel, "roe": ms_roe, 
+            "gm": ms_gm, "de": ms_de, "cr": ms_cr, "fcf": ms_fcf
+        },
+        "is_bank": is_bank,
+        "de_ratio": de_ratio,
+        "rg": rg, "nig": nig, "accel": accel, "roe": roe, "gm": gm, "cr": cr, "fcf": fcf, "pe": pe, "pb": pb, "ebm": ebm, "opm": opm, "ni": ni, "eg": eg
+    }
 
-        st.markdown(f"""
-        <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #1e3a5f; padding-bottom: 2px;">▶ SECTOR-LEVEL (MEDIANS) [{data.get('Sector', 'N/A')} / {data.get('Industry', 'N/A')}]</div>
-        <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e; margin-bottom: 15px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 6px; flex-wrap: wrap;">
-            <div><span style="color:#58a6ff; font-weight: bold;">SECTOR P/E:</span> <span style="color:{c_pe}; font-weight: bold;">{s_pe}</span></div>
-            <div><span style="color:#58a6ff; font-weight: bold;">SECTOR DIV YIELD:</span> <span style="color:{c_div}; font-weight: bold;">{s_div}{'%' if s_div != 'N/A' else ''}</span></div>
-            <div><span style="color:#58a6ff; font-weight: bold;">SECTOR ROCE:</span> <span style="color:{c_roce}; font-weight: bold;">{s_roce}{'%' if s_roce != 'N/A' else ''}</span></div>
-            <div><span style="color:#58a6ff; font-weight: bold;">STOCK 1M RETURN:</span> {fmt_perf(stock_1m)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+tab_single, tab_batch = st.tabs(["X-Ray (Single Ticker)", "Screener (Batch / CSV)"])
+
+with tab_single:
+    if ticker_input:
+        with st.spinner(f"Auditing fundamentals for {ticker_input}..."):
+            data = fetch_fundamentals(ticker_input)
         
-        c1, c2, c3 = st.columns(3)
-        score = 0
-        max_score = 0
+        if "error" in data:
+            st.error(f"Failed to fetch data for {ticker_input}. Ensure it's a valid NSE listed symbol. Error: {data['error']}")
+        elif data.get('IsETF', False):
+            st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #8b949e;'>**{data['Name']}** (Exchange Traded Fund / Index) | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
+            st.warning("Fundamental scorecards (Revenue, Margins, P/E) are mathematically invalid for Index Funds and ETFs. yFinance currently does not supply accurate Expense Ratios or AUM for NSE ETFs.")
         
-        # --- QUADRANT A: GROWTH ---
-        with c1:
-            st.markdown('<div class="section-hdr">▶ MOMENTUM & GROWTH</div>', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown('<div class="section-hdr">▶ ETF PRICING</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Current Price</div><div class="metric-val">₹{fmt_float(data["CurrentPrice"])}</div></div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown('<div class="section-hdr">▶ AUM / ASSETS</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Total Assets</div><div class="metric-val" style="color:#8b949e; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown('<div class="section-hdr">▶ METRICS</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Expense Ratio & Yield</div><div class="metric-val" style="color:#8b949e; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
             
-            # Revenue TTM
-            rev = data.get('RevenueTTM')
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Total Revenue (TTM)</div><div class="metric-val">{fmt_money_inr(rev)}</div></div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background: #0d1b2a; border: 2px solid #1e3a5f; border-radius: 8px; padding: 12px; text-align: center; margin-top: 5px;">
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px;">FUNDAMENTAL X-RAY</div>
+                <div class="c-warn" style="font-family: 'Rajdhani', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1;">ETF MODE</div>
+                <div style="font-family: 'Inter', sans-serif; font-size: 0.8rem; color: #8b949e; margin-top: 5px;">Use Technical Analysis via TradingView for momentum scoring.</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            # Rev Growth
-            rg = data['RevenueGrowth']
-            c_rg = "c-good" if rg and rg > 0.15 else ("c-warn" if rg and rg > 0 else "c-bad")
-            if rg and rg > 0.15: score += 1
-            if rg is not None and not pd.isna(rg): max_score += 1
-            rg_str = fmt_pct(rg)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">YoY Quarterly Rev Growth</div><div class="metric-val {c_rg}">{rg_str}</div></div>', unsafe_allow_html=True)
+        else:
+            # Emergency Screener Price Fallback if yfinance failed
+            if pd.isna(data.get('CurrentPrice')):
+                try:
+                     url = f"https://www.screener.in/company/{ticker_input.upper().replace('.NS', '')}/"
+                     res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+                     soup = BeautifulSoup(res.text, 'html.parser')
+                     price_el = soup.find('span', text='Current Price').find_next('span', class_='number')
+                     if price_el: data['CurrentPrice'] = float(price_el.text.replace(',', ''))
+                except: pass
             
-            # EPS Growth
-            eg = data['EpsGrowth']
-            c_eg = "c-good" if eg and eg > 0.15 else ("c-warn" if eg and eg > 0 else "c-bad")
-            if eg and eg > 0.15: score += 1
-            if eg is not None and not pd.isna(eg): max_score += 1
-            eg_str = fmt_pct(eg)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">YoY Quarterly EPS Growth</div><div class="metric-val {c_eg}">{eg_str}</div></div>', unsafe_allow_html=True)
+            st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #8b949e;'>**{data['Name']}** | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
+        
+            nifty_1m = get_nifty_1m()
+            raw_sym = ticker_input.upper().replace('.NS', '').replace('.BO', '')
+            stock_1m = get_stock_1m(raw_sym)
+            rs_1m = stock_1m - nifty_1m if pd.notna(stock_1m) and pd.notna(nifty_1m) else np.nan
+        
+            sector_med = get_sector_median(raw_sym)
+            s_pe = sector_med.get('P/E', 'N/A')
+            s_roce = sector_med.get('ROCE\n                  %', 'N/A')
+            s_div = sector_med.get('Div Yld\n                  %', 'N/A')
+        
+            def fmt_perf(pct):
+                if pd.isna(pct) or pct is None: return "N/A"
+                arrow = "▲" if pct > 0 else "▼"
+                color = "#3fb950" if pct > 0 else "#f85149"
+                return f'<span style="color:{color};">{arrow} {abs(pct):.2f}%</span>'
 
-            # TTM vs Fwd EPS Target
-            eps = data['EpsTTM']
-            fwd = data['EpsFwd']
+            def color_pe(val_str):
+                if val_str == 'N/A': return '#c9d1d9'
+                try:
+                    v = float(val_str)
+                    return "#3fb950" if v < 20 else ("#d29922" if v <= 30 else "#f85149")
+                except: return '#c9d1d9'
             
-            has_eps = eps is not None and pd.notna(eps)
-            has_fwd = fwd is not None and pd.notna(fwd)
+            def color_roce(val_str):
+                if val_str == 'N/A': return '#c9d1d9'
+                try:
+                    v = float(val_str)
+                    return "#3fb950" if v >= 15 else ("#d29922" if v >= 10 else "#f85149")
+                except: return '#c9d1d9'
+
+            def color_div(val_str):
+                if val_str == 'N/A': return '#c9d1d9'
+                try:
+                    v = float(val_str)
+                    return "#3fb950" if v >= 2 else ("#d29922" if v > 0 else "#c9d1d9")
+                except: return '#c9d1d9'
             
-            c_eps = "c-good" if has_eps and has_fwd and fwd > eps else ("c-bad" if has_eps and has_fwd and fwd < eps else "c-warn")
-            if has_eps and has_fwd and fwd > eps: score += 1
-            if has_eps and has_fwd: max_score += 1
+            c_pe = color_pe(s_pe)
+            c_div = color_div(s_div)
+            c_roce = color_roce(s_roce)
+
+            st.markdown(f"""
+            <div style="background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 4px; padding: 6px 10px; margin-bottom: 10px;">
+                <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; color: #58a6ff; border-bottom: 1px solid #1e3a5f; margin-bottom: 4px; letter-spacing: 1px;">SECTOR MEDIANS [{data.get('Sector', 'N/A')} / {data.get('Industry', 'N/A')}]</div>
+                <div style="display: flex; gap: 15px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; flex-wrap: wrap;">
+                    <div><span style="color:#58a6ff;">P/E:</span> <span style="color:{c_pe};">{s_pe}</span></div>
+                    <div><span style="color:#58a6ff;">DIV YIELD:</span> <span style="color:{c_div};">{s_div}{'%' if s_div != 'N/A' else ''}</span></div>
+                    <div><span style="color:#58a6ff;">ROCE:</span> <span style="color:{c_roce};">{s_roce}{'%' if s_roce != 'N/A' else ''}</span></div>
+                    <div><span style="color:#58a6ff;">1M RETURN:</span> {fmt_perf(stock_1m)}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+            # --- SCORE CALCULATIONS ---
+            sc = calculate_scores(data, mkt_health, macro_data)
+            rg, nig, accel, roe, gm = sc['rg'], sc['nig'], sc['accel'], sc['roe'], sc['gm']
+            de_ratio, cr, fcf, pe, pb = sc['de_ratio'], sc['cr'], sc['fcf'], sc['pe'], sc['pb']
+            ebm, opm, ni, eg = sc['ebm'], sc['opm'], sc['ni'], sc['eg']
+            is_bank = sc['is_bank']
             
-            eps_trend = "🟢 Projecting Growth" if has_eps and has_fwd and fwd > eps else ("🔴 Contraction" if has_eps and has_fwd and fwd < eps else "N/A (No Fwd Data)")
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">EPS Trajectory (TTM → FWD)</div><div class="metric-val {c_eps}">₹{fmt_float(eps)} → ₹{fmt_float(fwd)}<br><span style="margin-top:5px; color:#8b949e;">{eps_trend}</span></div></div>', unsafe_allow_html=True)
+            minervini_score = sc['minervini_score']
+            overall_rating = sc['overall_rating']
+            grade, g_col = sc['grade'], sc['g_col']
+            ov_macro, ov_mom, ov_mar, ov_hlth = sc['ov_macro'], sc['ov_mom'], sc['ov_mar'], sc['ov_hlth']
+            ms_rg, ms_gm, ms_ni, ms_de = sc['ms']['rg'], sc['ms']['gm'], sc['ms']['ni'], sc['ms']['de']
+            ms_accel, ms_cr, ms_roe, ms_fcf = sc['ms']['accel'], sc['ms']['cr'], sc['ms']['roe'], sc['ms']['fcf']
+
+            m_col1, m_col2, m_col3, m_col4 = st.columns([1, 1, 1, 1.3])
+        
+            # --- MOMENTUM ---
+            with m_col1:
+                st.markdown('<div class="section-hdr">▶ MOMENTUM & GROWTH</div>', unsafe_allow_html=True)
             
-        # --- QUADRANT B: PROFITABILITY ---
-        with c2:
-            st.markdown('<div class="section-hdr">▶ PROFITABILITY & EFFICIENCY</div>', unsafe_allow_html=True)
+                mc = data.get('MarketCap')
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Market Capitalization</div><div class="metric-val">{fmt_money_inr(mc)}</div></div>', unsafe_allow_html=True)
             
-            # ROE
-            roe = data['ROE']
-            is_bank = "Bank" in data['Name'] or "Bank" in data['Sector'] or "Fin" in data['Sector']
+                rev = data.get('RevenueTTM')
+                c_rg = "c-good" if rg and rg >= 0.20 else ("c-warn" if rg and rg > 0 else "c-bad")
+                rg_str = fmt_pct(rg)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Total Rev (TTM) & YoY Growth</div><div class="metric-val"><div>{fmt_money_inr(rev)}</div> <div class="metric-val-sub {c_rg}">{rg_str}</div></div></div>', unsafe_allow_html=True)
             
-            if pd.isna(roe) and is_bank:
-                st.markdown(f'<div class="metric-box" title="Standard ROE equations strictly divide Net Income by Shareholder Equity. Banks use massive leverage (deposits) to generate income, skewing standard equity multipliers, so yFinance omits it."><div class="metric-lbl">Return on Equity (ROE)</div><div class="metric-val" style="color:#8b949e;">N/A (Financial Inst.)</div></div>', unsafe_allow_html=True)
+                c_ni = "c-good" if ni and ni > 0 else "c-bad"
+                ni_str = fmt_money_inr(ni)
+                c_nig = "c-good" if nig and nig >= 0.25 else ("c-warn" if nig and nig > 0 else "c-bad")
+                nig_str = fmt_pct(nig)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Net Income (TTM) & YoY Growth</div><div class="metric-val"><div class="{c_ni}">{ni_str}</div> <div class="metric-val-sub {c_nig}">{nig_str}</div></div></div>', unsafe_allow_html=True)
+            
+                eps_fq = data.get('EpsFQ')
+                eps_fq_str = f"₹{fmt_float(eps_fq)}" if eps_fq is not None and not pd.isna(eps_fq) else "N/A"
+                c_eg = "c-good" if eg and eg >= 0.25 else ("c-warn" if eg and eg > 0 else "c-bad")
+                eg_str = fmt_pct(eg)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">EPS (FQ) & YoY Growth</div><div class="metric-val"><div>{eps_fq_str}</div> <div class="metric-val-sub {c_eg}">{eg_str}</div></div></div>', unsafe_allow_html=True)
+            
+                c_accel = "c-good" if accel else "c-bad"
+                accel_str = "Yes" if accel else "No"
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Earnings Acceleration</div><div class="metric-val {c_accel}">{accel_str}</div></div>', unsafe_allow_html=True)
+            
+            # --- MARGINS ---
+            with m_col2:
+                st.markdown('<div class="section-hdr">▶ MARGINS (TTM/LATEST)</div>', unsafe_allow_html=True)
+            
+                c_gm = "c-good" if gm and gm >= 0.30 else ("c-warn" if gm and gm >= 0.15 else "c-bad")
+                gm_str = fmt_pct(gm)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Gross Margin</div><div class="metric-val {c_gm}">{gm_str}</div></div>', unsafe_allow_html=True)
+            
+                c_ebm = "c-good" if ebm and ebm >= 0.20 else ("c-warn" if ebm and ebm > 0 else "c-bad")
+                ebm_str = fmt_pct(ebm)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">EBITDA Margin</div><div class="metric-val {c_ebm}">{ebm_str}</div></div>', unsafe_allow_html=True)
+            
+                c_opm = "c-good" if opm and opm >= 0.15 else ("c-warn" if opm and opm > 0 else "c-bad")
+                opm_str = fmt_pct(opm)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Operating Margin</div><div class="metric-val {c_opm}">{opm_str}</div></div>', unsafe_allow_html=True)
+            
+                if pd.isna(roe) and is_bank:
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Return on Equity (ROE)</div><div class="metric-val" style="color:#8b949e;">N/A (Bank)</div></div>', unsafe_allow_html=True)
+                else:
+                    c_roe = "c-good" if roe and roe >= 0.20 else ("c-warn" if roe and roe >= 0.15 else "c-bad")
+                    roe_str = fmt_pct(roe)
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Return on Equity (ROE)</div><div class="metric-val {c_roe}">{roe_str}</div></div>', unsafe_allow_html=True)
+                
+                roa = data.get('ROA')
+                c_roa = "c-good" if roa and roa >= 0.05 else ("c-warn" if roa and roa > 0 else "c-bad")
+                roa_str = fmt_pct(roa)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Return on Assets (ROA)</div><div class="metric-val {c_roa}">{roa_str}</div></div>', unsafe_allow_html=True)
+
+            # --- HEALTH & VALUE ---
+            with m_col3:
+                st.markdown('<div class="section-hdr">▶ HEALTH & VALUE</div>', unsafe_allow_html=True)
+            
+                if pd.isna(de_ratio) and is_bank:
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Debt to Equity</div><div class="metric-val" style="color:#8b949e;">N/A (Bank)</div></div>', unsafe_allow_html=True)
+                else:
+                    c_de = "c-good" if de_ratio and de_ratio <= 1.0 else ("c-warn" if de_ratio and de_ratio <= 1.5 else "c-bad")
+                    de_str = f"{de_ratio:.2f}x" if de_ratio is not None else "N/A"
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Debt to Equity</div><div class="metric-val {c_de}">{de_str}</div></div>', unsafe_allow_html=True)
+                
+                if pd.isna(cr) and is_bank:
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Current Ratio</div><div class="metric-val" style="color:#8b949e;">N/A (Bank)</div></div>', unsafe_allow_html=True)
+                else:
+                    c_cr = "c-good" if cr and cr >= 1.5 else ("c-warn" if cr and cr >= 1.0 else "c-bad")
+                    cr_str = f"{cr:.2f}x" if cr is not None and not pd.isna(cr) else "N/A"
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Current Ratio</div><div class="metric-val {c_cr}">{cr_str}</div></div>', unsafe_allow_html=True)
+                
+                if pd.isna(fcf) and is_bank:
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Free Cash Flow (TTM)</div><div class="metric-val" style="color:#8b949e;">N/A (Bank)</div></div>', unsafe_allow_html=True)
+                else:
+                    c_fcf = "c-good" if fcf and fcf > 0 else "c-bad"
+                    fcf_str = fmt_money_inr(fcf)
+                    st.markdown(f'<div class="metric-box"><div class="metric-lbl">Free Cash Flow (TTM)</div><div class="metric-val {c_fcf}">{fcf_str}</div></div>', unsafe_allow_html=True)
+                
+                c_pe = "c-good" if pe and 0 < pe <= 40 else ("c-warn" if pe and pe > 40 else "c-bad")
+                if pe and pe < 0: c_pe = "c-bad"
+                pe_str = fmt_float(pe) if pe and pe > 0 else "Loss" if pe else "N/A"
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">P/E Ratio (TTM)</div><div class="metric-val {c_pe}">{pe_str}</div></div>', unsafe_allow_html=True)
+            
+                c_pb = "c-good" if pb and 0 < pb <= 5.0 else ("c-warn" if pb and pb > 5.0 else "c-bad")
+                pb_str = fmt_float(pb)
+                st.markdown(f'<div class="metric-box"><div class="metric-lbl">P/B Ratio</div><div class="metric-val {c_pb}">{pb_str}</div></div>', unsafe_allow_html=True)
+            
+            # --- SCORE & RATINGS ---
+            with m_col4:
+                st.markdown('<div class="section-hdr">▶ SCORING & RATING</div>', unsafe_allow_html=True)
+            
+                st.markdown(f"""
+                <div style="background: #0d1b2a; border: 1px solid #1e3a5f; border-radius: 4px; padding: 10px; margin-bottom: 8px;">
+                    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.95rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; border-bottom: 1px solid #1e3a5f; padding-bottom: 3px;">MINERVINI FUNDAMENTAL SCORE (0-8)</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e;">Score</div>
+                        <div style="font-family: 'Rajdhani', sans-serif; font-size: 1.8rem; font-weight: 700; color: {'#3fb950' if minervini_score >= 6 else ('#d29922' if minervini_score >= 4 else '#f85149')}; line-height: 1;">{minervini_score}/8</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-family: 'Inter', sans-serif; font-size: 0.75rem; color: #c9d1d9;">
+                        <div>{'✅' if ms_rg else '❌'} Rev Growth > 20%</div>
+                        <div>{'✅' if ms_gm else '❌'} Gross Margin > 15%</div>
+                        <div>{'✅' if ms_ni else '❌'} NI Growth > 25%</div>
+                        <div>{'✅' if ms_de else '❌'} D/E < 1.5</div>
+                        <div>{'✅' if ms_accel else '❌'} Accelerating EPS</div>
+                        <div>{'✅' if ms_cr else '❌'} Curr Ratio > 1.0</div>
+                        <div>{'✅' if ms_roe else '❌'} ROE > 15%</div>
+                        <div>{'✅' if ms_fcf else '❌'} FCF Positive</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+                st.markdown(f"""
+                <div style="background: #0d1b2a; border: 1px solid #1e3a5f; border-radius: 4px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.95rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px;">OVERALL FUNDAMENTAL RATING</div>
+                    <div style="font-family: 'Rajdhani', sans-serif; font-size: 2.5rem; font-weight: 700; color: {g_col}; line-height: 1.1;">{grade}</div>
+                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: #c9d1d9; margin-top: 2px;">{overall_rating} / 17 Points</div>
+                    <div style="display: flex; justify-content: center; gap: 8px; font-family: 'Inter', sans-serif; font-size: 0.65rem; color: #8b949e; margin-top: 8px; flex-wrap: wrap;">
+                        <div>Macro: {ov_macro}/3</div>
+                        <div>Momentum: {ov_mom}/5</div>
+                        <div>Margins: {ov_mar}/4</div>
+                        <div>Health/Value: {ov_hlth}/5</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+
+with tab_batch:
+    st.markdown("### 📂 BATCH SCREENER")
+    st.markdown("<div style='color:#8b949e; font-size:0.85rem; margin-bottom:15px;'>Upload a CSV or TXT file containing a list of tickers (e.g., 'NSE:RELIANCE, HDFC'). Data will be batch processed. Note: Safe scraping rate limit applies (~0.5s per ticker).</div>", unsafe_allow_html=True)
+    
+    import re
+    uploaded_file = st.file_uploader("Upload Ticker List (.csv, .txt)", type=["csv", "txt"])
+    
+    if uploaded_file is not None:
+        try:
+            file_name = uploaded_file.name.lower()
+            tickers_raw = []
+            
+            if file_name.endswith('.csv'):
+                try:
+                    df_input = pd.read_csv(uploaded_file)
+                    sym_col = next((c for c in df_input.columns if str(c).lower() in ['ticker', 'symbol', 'name']), None)
+                    if sym_col:
+                        tickers_raw = df_input[sym_col].dropna().astype(str).tolist()
+                    else:
+                        uploaded_file.seek(0)
+                        content = uploaded_file.getvalue().decode('utf-8', errors='ignore')
+                        tickers_raw = re.split(r'[,\n\t]+', content)
+                except:
+                    uploaded_file.seek(0)
+                    content = uploaded_file.getvalue().decode('utf-8', errors='ignore')
+                    tickers_raw = re.split(r'[,\n\t]+', content)
             else:
-                c_roe = "c-good" if roe and roe >= 0.15 else ("c-warn" if roe and roe >= 0.05 else "c-bad")
-                if roe and roe >= 0.15: score += 1
-                if roe is not None and not pd.isna(roe): max_score += 1
-                roe_str = fmt_pct(roe)
-                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Return on Equity (ROE)</div><div class="metric-val {c_roe}">{roe_str}</div></div>', unsafe_allow_html=True)
+                content = uploaded_file.getvalue().decode('utf-8', errors='ignore')
+                tickers_raw = re.split(r'[,\n\t]+', content)
             
-            # Operating Margin
-            opm = data['OpMargin']
-            c_opm = "c-good" if opm and opm >= 0.15 else ("c-warn" if opm and opm > 0 else "c-bad")
-            if opm and opm >= 0.15: score += 1
-            if opm is not None and not pd.isna(opm): max_score += 1
-            opm_str = fmt_pct(opm)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Operating Margin (OPM)</div><div class="metric-val {c_opm}">{opm_str}</div></div>', unsafe_allow_html=True)
+            tickers = []
+            for tkr in tickers_raw:
+                tkr = str(tkr).strip().upper()
+                if not tkr: continue
+                # Remove prefixes like NSE: and BSE:
+                tkr = tkr.replace('NSE:', '').replace('BSE:', '').strip()
+                # Ignore standard header names
+                if tkr in ['TICKER', 'SYMBOL', 'NAME'] or len(tkr) < 2: continue
+                # Only accept clean alphanumeric tickers with common symbols
+                if re.match(r'^[A-Z0-9\-\&\.]+$', tkr):
+                    if tkr not in tickers:
+                        tickers.append(tkr)
             
-            # Debt to Equity
-            de = data['DebtToEquity']
-            de_ratio = de / 100 if de is not None and not pd.isna(de) else None
-            
-            if pd.isna(de_ratio) and is_bank:
-                st.markdown(f'<div class="metric-box" title="Banks inherently have massive Debt/Equity ratios because customer deposits are technically liabilities (debt). Standard D/E is meaningless for banks."><div class="metric-lbl">Debt to Equity</div><div class="metric-val" style="color:#8b949e;">N/A (Financial Inst.)</div></div>', unsafe_allow_html=True)
+            if not tickers:
+                st.error("No valid tickers found in the file.")
             else:
-                c_de = "c-good" if de_ratio and de_ratio <= 1.0 else ("c-warn" if de_ratio and de_ratio <= 2.0 else "c-bad")
-                if de_ratio and de_ratio <= 1.0: score += 1
-                if de_ratio is not None and not pd.isna(de_ratio): max_score += 1
-                de_str = f"{de_ratio:.2f}x" if de_ratio is not None else "N/A"
-                st.markdown(f'<div class="metric-box"><div class="metric-lbl">Debt to Equity</div><div class="metric-val {c_de}">{de_str}</div></div>', unsafe_allow_html=True)
-
-        # --- QUADRANT C: VALUATION ---
-        with c3:
-            st.markdown('<div class="section-hdr">▶ VALUATION & HOLDINGS</div>', unsafe_allow_html=True)
-            
-            mc = data['MarketCap']
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Market Capitalization</div><div class="metric-val">{fmt_money_inr(mc)}</div></div>', unsafe_allow_html=True)
-            
-            pe = data['TrailingPE']
-            c_pe = "c-good" if pe and 0 < pe <= 30 else ("c-warn" if pe and pe > 30 else "")
-            if pe and pe < 0: c_pe = "c-bad"
-            if pe and 0 < pe <= 30: score += 1
-            if pe is not None and not pd.isna(pe) and pe > 0: max_score += 1
-            pe_str = fmt_float(pe) if pe and pe > 0 else "Loss" if pe else "N/A"
-            
-            peg = data['PegRatio']
-            peg_str = fmt_float(peg)
-            c_peg = "c-good" if peg and 0 < peg <= 1.0 else ("c-warn" if peg and peg <= 2.0 else "c-bad")
-            if peg and 0 < peg <= 1.5: score += 1
-            if peg is not None and not pd.isna(peg): max_score += 1
-            
-            if pd.isna(peg) and is_bank:
-                 st.markdown(f'<div class="metric-box" title="PEG relies on strict EPS growth forecasts which are highly regulated and opaque for Indian banking institutions."><div class="metric-lbl">P/E Ratio (TTM)</div><div class="metric-val {c_pe}">P/E: {pe_str} <span style="color:#8b949e; margin-left:10px;">| PEG: N/A (Bank)</span></div></div>', unsafe_allow_html=True)
-            else:
-                 st.markdown(f'<div class="metric-box"><div class="metric-lbl">P/E Ratio (TTM) & PEG</div><div class="metric-val {c_pe}">P/E: {pe_str} <span class="{c_peg}" style="margin-left:10px;">| PEG: {peg_str}</span></div></div>', unsafe_allow_html=True)
-            
-            pb = data['PriceToBook']
-            ev = data['EvToEbitda']
-            pb_str = fmt_float(pb)
-            ev_str = fmt_float(ev)
-            c_pb = "c-good" if pb and 0 < pb <= 3.0 else ("c-warn" if pb and pb <= 5.0 else "c-bad")
-            if pb and 0 < pb <= 3.0: score += 1
-            if pb is not None and not pd.isna(pb): max_score += 1
-            
-            c_ev = "c-good" if ev and 0 < ev <= 10.0 else ("c-warn" if ev and ev <= 15.0 else "c-bad")
-            if ev and 0 < ev <= 10.0: score += 1
-            if ev is not None and not pd.isna(ev): max_score += 1
-            
-            if pd.isna(ev) and is_bank:
-                st.markdown(f'<div class="metric-box" title="EV/EBITDA is invalid for banks. Enterprise Value includes Debt. For banks, debt (deposits) is their raw material. EBITDA completely ignores Interest Expense, which is the primary operating cost for a bank."><div class="metric-lbl">P/B Ratio</div><div class="metric-val {c_pb}">P/B: {pb_str} <span style="color:#8b949e; margin-left:10px;">| EV/EBITDA: INVALID</span></div></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="metric-box"><div class="metric-lbl">P/B & EV/EBITDA</div><div class="metric-val {c_pb}">P/B: {pb_str} <span class="{c_ev}" style="margin-left:10px;">| EV/EBITDA: {ev_str}</span></div></div>', unsafe_allow_html=True)
-            
-            inst = data['InstOwn']
-            ins = data['InsiderOwn']
-            # yfinance info block does not natively return quarter-over-quarter change % for institutional ownership
-            # We display the absolute holding % and color code based on minimum Minervini thresholds (>10%)
-            c_inst = "c-good" if inst and inst >= 0.10 else "c-warn"
-            c_ins = "c-good" if ins and ins >= 0.05 else "c-warn"
-            if inst and inst >= 0.10: score += 1
-            if inst is not None and not pd.isna(inst): max_score += 1
-            inst_str = fmt_pct(inst)
-            ins_str  = fmt_pct(ins)
-            msg = "yFinance API currently does not expose QoQ % change for Institutional holdings directly."
-            st.markdown(f'<div class="metric-box" title="{msg}"><div class="metric-lbl">Sponsorship (Absolute %)</div><div class="metric-val"><span class="{c_inst}">🏦 Inst: {inst_str}</span> <span class="{c_ins}" style="margin-left:10px;">| 👔 Insider: {ins_str}</span></div></div>', unsafe_allow_html=True)
-
-        # --- SCORECARD ---
-        final = 0
-        if max_score > 0:
-            final = (score / max_score) * 10
-        c_fin = "c-good" if final >= 7 else ("c-warn" if final >= 4 else "c-bad")
-        
-        st.markdown(f"""
-        <div style="background: #0d1b2a; border: 2px solid #1e3a5f; border-radius: 8px; padding: 10px; text-align: center; margin-top: 5px;">
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px;">Aggregate Fundamental Score</div>
-            <div class="{c_fin}" style="font-family: 'Rajdhani', sans-serif; font-size: 2.2rem; font-weight: 700; line-height: 1;">{final:.1f} <span style="font-size:1.0rem; color:#8b949e;">/ 10</span></div>
-            <div style="font-family: 'Inter', sans-serif; font-size: 0.75rem; color: #8b949e; margin-top: 2px;">Score derived from {max_score} available Weinstein/Minervini target metrics.</div>
-        </div>
-        """, unsafe_allow_html=True)
+                st.info(f"Loaded {len(tickers)} valid tickers {tickers[:5]}... Processing...")
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                results = []
+                for i, tkr in enumerate(tickers):
+                    status_text.text(f"Processing ({i+1}/{len(tickers)}): {tkr} / Fetching...")
+                    
+                    data = fetch_fundamentals(tkr)
+                    if "error" in data or data.get('IsETF', False):
+                        # skip or mark NA
+                        time.sleep(0.3)
+                    else:
+                        sc = calculate_scores(data, mkt_health, macro_data)
+                        results.append({
+                            "Ticker": tkr.upper(),
+                            "Name": data.get("Name", "N/A"),
+                            "Rating": sc['grade'],
+                            "Minervini Score (/8)": sc['minervini_score'],
+                            "Overall (/17)": sc['overall_rating'],
+                            "MarketCap (Cr)": data.get("MarketCap", 0),
+                            "RevGrowth YoY": data.get("RevenueGrowth", 0),
+                            "NIGrowth YoY": data.get("NiGrowth", 0),
+                            "ROE": data.get("ROE", 0),
+                            "Gross Margin": data.get("GrossMargin", 0),
+                            "P/E": data.get("TrailingPE", 0)
+                        })
+                        time.sleep(0.5) # rate limit
+                    
+                    progress_bar.progress((i + 1) / len(tickers))
+                
+                status_text.text("Processing Complete.")
+                
+                if results:
+                    df_res = pd.DataFrame(results)
+                    # Format percentages
+                    df_res["RevGrowth YoY"] = df_res["RevGrowth YoY"].apply(lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A")
+                    df_res["NIGrowth YoY"] = df_res["NIGrowth YoY"].apply(lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A")
+                    df_res["ROE"] = df_res["ROE"].apply(lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A")
+                    df_res["Gross Margin"] = df_res["Gross Margin"].apply(lambda x: f"{x*100:.1f}%" if pd.notna(x) else "N/A")
+                    
+                    # Sort primarily by Rating
+                    grade_map = {"A+": 6, "A": 5, "B": 4, "C": 3, "D": 2, "F": 1}
+                    df_res['_rank'] = df_res['Rating'].map(grade_map)
+                    df_res = df_res.sort_values(by=['_rank', 'Minervini Score (/8)', 'Overall (/17)'], ascending=[False, False, False]).drop(columns=['_rank'])
+                    
+                    st.dataframe(df_res, width="stretch")
+                else:
+                    st.warning("No valid data fetched for the provided tickers.")
+        except Exception as e:
+            st.error(f"Error processing CSV: {e}")
 
 # Polling Logic if Sync is enabled
 if st.session_state.get('sync_tv', False) or sync_tv:
