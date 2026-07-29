@@ -4146,6 +4146,12 @@ cf := cf + (near_round ? cf_w_round : 0)
 // agree, and the ATR read is consistent with the % read.
 float _extAtrRef = timeframe.isintraday ? nz(atrD_tf, chart_atr) : chart_atr
 float ext_atr = (not na(daily_ema20) and _extAtrRef > 0) ? (close - daily_ema20) / _extAtrRef : na
+// EMA20 CHOP COUNT — hoisted to GLOBAL scope. ta.* / math.sum must execute on EVERY bar
+// or their internal state is never built; inside the panel's
+// `if show_panel and d_panel and barstate.islast` block they ran on the last bar only,
+// which TradingView flagged (warning at 5025) and which made the chop read unreliable
+// rather than merely non-idiomatic. Same discipline as every other ta.* in this file.
+int ema20_x40 = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40)
 // The ceiling moves with the weights AND with the layer switches, so "8/13" can
 // never mean "8 out of a ceiling that counts layers you turned off" — an
 // unreachable maximum would make every score read artificially weak.
@@ -5022,7 +5028,7 @@ if show_panel and d_panel and barstate.islast
     //     as favourable and even pays it a confluence point — but fast INTO resistance
     //     with sellers in control is the opposite of absorption.
     bool _qWmaDn  = nz(d_s150dn[_so], 0.0) > 0.5
-    bool _qChop   = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40) >= 6
+    bool _qChop   = ema20_x40[_so] >= 6
     bool _qBleed  = show_arrival and arr_style[_so] == "FAST" and not of_bull[_so]
     int  _qDeg    = (_qWmaDn ? (is_rec_v ? 1 : 2) : 0) + (_qChop ? 1 : 0) + (_qBleed ? 1 : 0)
     string _degTxt = _qDeg >= 2 ? "  DOWNGRADED: " + (_qWmaDn ? "30WMA falling " : "") + (_qChop ? "EMA20 chop " : "") + (_qBleed ? "FAST bleeding" : "") : ""
