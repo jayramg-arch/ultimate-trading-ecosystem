@@ -3249,7 +3249,14 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     # (still declining: Stage 4, or collapsed well past the recovery band) and TIME it.
     inherited_setup = _g(ctx, "inherited_setup")
     inherited = bool(INHERIT_QUALIFICATION and inherited_setup)
-    still_valid = (stage_num != "4") and (corr is None or corr <= 50.0)
+    # 29-Jul: was Stage-4 ONLY, so a Stage-3 (topping) name PASSED the recovery guard
+    # while the BULL guard (line ~2846) already invalidated on Stage 3 OR 4 — two paths,
+    # two different definitions of broken. S4 v5.9 now resolves Stage 3/4 to NO TRADE
+    # regardless of path, so this closes the drift: COLPAL (Stage 3, forced to Recovery)
+    # read "still valid" here while S4 said NO TRADE. A recovery is a Stage-1 turn; Stage 3
+    # is topping — neither is a recovery setup. Honesty rule preserved: an UNKNOWN stage
+    # still passes (benefit of the doubt), only a positively-observed 3 or 4 invalidates.
+    still_valid = (stage_num not in ("3", "4")) and (corr is None or corr <= 50.0)
     if inherited:
         g1 = still_valid       # CONTEXT → still-valid (not Stage-4, not collapsed >50%)
         g2 = True              # QUALITY → RFF overlay (recovery scan already vetted funda)
