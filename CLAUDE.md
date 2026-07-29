@@ -1715,4 +1715,124 @@ Unchanged: #11 S4 rectangles · recovery re-baseline · pytest into the venv.
 
 ---
 
+## 28–29 July 2026 (cont.) — the diagnosis chain: what is actually wrong, and what is not
+
+Branch merged to **main** (`054ac84`). Everything below came AFTER the SL×trail grid, and
+it supersedes several conclusions in the section above. Read this one.
+
+### THE HEADLINE — the selection edge is REAL, and the planning number is +1%
+`beta_adjusted_alpha.py` tested the last remaining "it's all an artifact" story: every
+alpha number here is RAW excess return with no beta adjustment, and Stage-2 breakouts are
+high-beta by construction, so in a rising tape they outperform mechanically.
+
+**REFUTED. Median ex-ante beta is 1.11, not the ~1.5 I assumed** (250d ending AT the
+anchor; no holding-period data). The adjustment moves almost nothing:
+
+| | bench | RAW α | BETA-ADJ α |
+|---|---:|---:|---:|
+| POS-BO IS | +4.17% | +5.61% | **+5.03%** |
+| POS-BO OOS | −1.59% | +1.01% | **+1.11%** |
+| SWG IS / OOS | +0.37 / −0.84% | +0.46 / +0.30% | **+0.41 / +0.48%** |
+
+Only **15%** of the POS-BO IS→OOS gap was beta. **Selection survives in both windows.**
+OOS α *improves* under adjustment because the benchmark was negative — beta>1 predicts you
+lose MORE than the index, and the picks did not.
+
+> **PLAN AROUND +1% MATCHED ALPHA PER TRADE, NOT +5.6%.** The in-sample figure comes from
+> one exceptional stretch (below). The beta-adjusted MEDIAN is negative (POS-BO −2.49% IS /
+> −3.44% OOS): the edge is real AND it is a low-hit-rate, big-winner profile. Sizing and
+> drawdown tolerance matter more than the mean implies.
+
+### POS-BO's "18% edge decay" is REGIME AMPLIFICATION, not decay (`pos_bo_decay.py`)
+- **H2 outliers — REJECTED.** Trimming winners WIDENS the gap (drop top-10: IS +2.81% vs
+  OOS −2.00%). IS is *less* concentrated (top-10 = 25% of gross) than OOS (51%).
+- **H3 broad deterioration — confirmed:** median −1.92→−3.29, win 43.2→34.7%, avg win
+  +24.87→+16.80, avg loss −7.60→−9.01, payoff 3.27→1.87.
+- **H1 regime — THE CAUSE.** Benchmark over matched holds went **+4.17% → −1.59%**; the
+  stock leg **+9.78% → −0.58%**. In a rising tape these breakouts return ~2.3× the index;
+  flat-to-falling, they roughly match it. With beta excluded as the mechanism, this is
+  **conditional skill**, not leverage: breakouts follow through when the market cooperates.
+- **THE IS/OOS BOUNDARY IS ARBITRARY.** The strong stretch is **2023-05 → 2024-01** (+8% to
+  +16%/anchor) and it rolls over at **2024-02 — four months BEFORE the split**. The real
+  division is "that 8-month bull run vs everything since".
+- Exit machinery here is HEALTHY: 85–90% of POS-BO exits are trail-SL, 7–9% initial-stop.
+
+### Swing: the "broken book" was a POOLING ARTIFACT (`catalyst_breakdown.py`)
+| catalyst | IS | OOS | verdict |
+|---|---:|---:|---|
+| **SWG-PB** | +0.42% (n=171) | **+0.52%** (n=141) | KEEP — positive in BOTH |
+| SWG-REV | +0.54% (n=43) | **−0.44%** (n=74) | the drag |
+| POS-BO | +5.61% | +1.01% | KEEP |
+| POS-ACCUM | +5.23% | +2.09% | KEEP |
+
+**SWG-PB is the most STABLE catalyst in the book** — edge retained ~124% across windows vs
+POS-ACCUM 40% and POS-BO 18%. My earlier "swing has no OOS edge" / "swing is flat inside
+its own regime" statements POOLED SWG-PB with SWG-REV and were **wrong**. That is the third
+time pooling two families produced a false conclusion (cf. the pooled 40% stop-out figure,
+and June's pooled NO-EDGE verdict). **Always split by catalyst before concluding.**
+
+### SWG-REV: payoff geometry, not stop-outs (`swg_rev_diagnostic.py`)
+My premise ("it stops out 69%, so it's catching knives") was FALSE — **SWG-PB stops out 78%
+and is profitable**. Stop-out RATE is not the discriminator. SWG-REV *wins more often*
+(27.0% vs 22.0%) and still loses. OOS decomposition:
+
+| | SWG-REV | SWG-PB |
+|---|---:|---:|
+| avg win / avg loss | +7.93% / −4.90% | +10.08% / −3.21% |
+| payoff ratio | **1.62** | **3.14** |
+| stop distance | 1.55×ATR | 1.08×ATR |
+| winner max runup | +14.68% | +25.28% |
+| exits at INITIAL SL | **89.3%** | 74.0% |
+| exits via trail SL | **6.0%** | 17.9% |
+
+Two problems compounding: (1) the stop is 43% wider and buys nothing — it does NOT reduce
+stop-outs (89.3% vs 74.0%, worse), it just makes each cost more; (2) a reversal bounce is
+structurally a smaller move than a trend continuation. **The trail is effectively INERT
+here (6% of exits).** Rejected: volatility expansion (median realised/entry ATR = 0.990 —
+vol *contracts*) and early-entry (losers went green at similar rates, 39% vs 41%).
+**Retire rather than tune** — no stop setting fixes "the move isn't big enough". Caveat:
+n=74 OOS / 43 IS and IS was positive, so it does not clear the pre-registered bar.
+
+### Regime gating swing — already applied, and it doesn't save it (`swing_regime_partition.py`)
+NOT SUPPORTED on all four criteria. **SWG-PB fires 301 BULL / 11 NEUTRAL / 0 BEAR** — the
+hard `mkt_bull` gate added 2-Jul is binding, so this fix was NOT "never acted on"; it was
+made weeks ago. **You cannot measure whether a gate helps once it has removed its own
+counterfactual.** Also confounded: 36 of the 48 NOT-BULL swing trades are SWG-REV.
+
+### The "thinning funnel" is NOT a bug — it is regime
+`picks_with_data` by regime: **BEAR 5.5/anchor · NEUTRAL 16.7 · BULL 30.3**. Every thin
+anchor (2025-02: 3, 2025-03: 2, 2025-04: 5) is a bear tape. And
+`picks_universe == picks_filtered == picks_with_data` at **every** anchor — no stage
+silently drops candidates, which is exactly what distinguishes this from June's real bug
+(which showed as zero picks *in bull regimes*). Aggregate drop is 26.6→23.2/anchor (13%),
+not the 28% I quoted — that was POS-BO-specific, larger because the MIX shifts to
+swing/recovery in weak tapes.
+**Filed, not actioned:** `corr(picks_per_anchor, benchmark fwd-60d) = −0.19` — high-pick
+anchors preceded WEAKER markets (2024-12: 46 picks → −13.1%; 2025-02: 3 → +10.1%). Breadth
+peaking before tops. A surge in pick count is more plausibly a caution flag than an
+opportunity. Weak (n=44); do not trade it without its own test.
+
+### Scoreboard: six additions tested, six rejected; one foundation validated
+Wyckoff veto · Wyckoff score · Dhan trailing exits · POS stop re-tune · SWG stop re-tune ·
+swing regime gate — **all rejected**. The only thing validated is the **core selection
+edge**, which you already had. **The system does not need more parts.** It needs the parts
+it has to be sized and expected correctly.
+
+### GM buttons (`054ac84`) — press ONE
+`🔨 Rebuild board · N names` reuses CACHED data (fast — the right button after a Trigger-TF
+or X-Ray change). `🔄 Fetch fresh data + rebuild · ~N fetches` invalidates the whole
+universe AND sets `gm_force_rebuild`, so **it rebuilds by itself** — pressing both just
+rebuilds twice on identical data. Do not delete Rebuild: every TF switch would then cost
+~50 fetches.
+
+### Next
+(a) GM spot-check (WCL header must read `… · 75m · S4 parity`, NOT `(PROXY — engine
+unavailable)`; board vs Single agreement; ~18% VP location; Struct Health `CLEAN` on ~90%
+is EXPECTED; Overall has shifted — compare fresh, not cached). (b) SWG-REV: retire or leave
+as-is; do not tune it. (c) Re-run `exit_policy_study.py` with per-config benchmarks before
+trusting its magnitudes. (d) Any future stop/sizing study is measured in **R**, never
+per-trade % — see [[r-multiples-not-percent-for-stop-studies]].
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
