@@ -12117,18 +12117,29 @@ elif page == 'GOLDEN MATCHER':
         if not is_max_board:
             _bc1, _bc2, _bc3 = st.columns([1.2, 1.0, 2.2])
             with _bc1:
-                _build = st.button(f"🔄 Build / Refresh  ·  {len(_uni)} names",
-                                   type="primary", use_container_width=True, key="gm_board_build")
+                # 29-Jul: the two buttons both read "🔄 … Refresh" and neither showed its
+                # COST, so it was not obvious that one is cheap and the other is minutes.
+                # Build reuses cached data (_board_build(force_technical=False) clears no
+                # cache) — it is the right button for a Trigger-TF or X-Ray change.
+                _build = st.button(f"🔨 Rebuild board  ·  {len(_uni)} names",
+                                   type="primary", use_container_width=True, key="gm_board_build",
+                                   help="Re-runs the GM engine over the watchlist using data ALREADY CACHED. "
+                                        "Fast. Use after changing the Trigger TF or the X-Ray toggle, or when "
+                                        "the watchlist CSVs changed. Does NOT fetch new prices — for that use "
+                                        "Fetch fresh data below.")
                 _use_xray = st.checkbox("🔬 X-Ray (Piotroski · grade · P/E)", key="gm_board_xray",
                                         value=True,
                                         help="Adds the X-Ray fundamental screener fields and folds Piotroski "
                                              "into the Overall score. Heavier (statements per name), cached 24h. "
                                              "On by default; uncheck for a faster fundamentals-light build.")
-                _refresh_all = st.button("🔄 Refresh Data (fresh · both surfaces)",
+                _refresh_all = st.button(f"🔄 Fetch fresh data + rebuild  ·  ~{len(_uni)} fetches",
                                          use_container_width=True, key="gm_board_refresh_all",
-                                         help="Re-fetch FRESH data for the whole universe, then rebuild — the "
-                                              "SAME button is on the Single Symbol page, so both surfaces read "
-                                              "identical data (fixes board-vs-single drift). Slower: ~50 fresh fetches.")
+                                         help="Invalidates the on-disk cache for the WHOLE universe, then REBUILDS "
+                                              "automatically — you do NOT need to press Rebuild afterwards. Slow "
+                                              "(~50 fetches, minutes). Use it when prices may be stale: first build "
+                                              "of the day, after the close, or when the freshness banner warns. The "
+                                              "same button is on the Single Symbol page so both surfaces read "
+                                              "identical data (this is what fixed board-vs-single drift).")
             with _bc2:
                 # Trigger TF — UNIFIED with the Single Symbol page. Both widgets use the
                 # session key "gm_trig_tf" (the two views never render in the same run —
@@ -12791,7 +12802,7 @@ elif page == 'GOLDEN MATCHER':
             # fresh data for the WHOLE board universe (not just this symbol) and flags the
             # board to rebuild — so this page and the board always read IDENTICAL data. The
             # old per-symbol refresh made Single Symbol fresher than the board → drift.
-            if st.button("🔄 Refresh Data (fresh · both surfaces)", use_container_width=True,
+            if st.button("🔄 Fetch fresh data (both surfaces)", use_container_width=True,
                          help="Re-fetch FRESH data for the whole Golden Matcher universe, then rebuild the "
                               "board — the SAME button is on the Trigger Board, so both surfaces read "
                               "identical data (no more board-vs-single drift). Slower: ~50 fresh fetches."):
