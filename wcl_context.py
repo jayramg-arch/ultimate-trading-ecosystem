@@ -420,3 +420,32 @@ def wcl_context(df: pd.DataFrame, vp_score: int = 0, below_30w=None,
         "struct": struct_str, "struct_status": struct_status,
         "choch_count_20": choch,
     }
+
+
+def stage_path(below_30w=None, wma30_falling=None) -> tuple[int, str]:
+    """THE SHARED Bull/Recovery/NO-TRADE classifier — one definition for BOTH surfaces.
+
+    Mirrors Section4_Entry_Trigger_v5.9.pine exactly (the Weinstein 2x2):
+
+        below 30WMA   30WMA falling   stage   path
+           no             no            2     bull
+           yes            no            1     recovery
+           no             yes           3     none   (topping)
+           yes            yes           4     none   (declining)
+
+    S4 derives the two flags from its daily security (d_bel30 = close < SMA150,
+    d_s150dn = SMA150 <= SMA150[10]); Python passes the equivalents. A MISSING flag
+    fails to the BEARISH side, matching the v5.1 nz(..., 1.0) fail-safe — an unknown
+    stage must never be treated as a healthy one.
+
+    NOTE the surfaces still differ on ONE thing, deliberately: GM also carries the
+    inherited archetype (which watchlist surfaced the name), which encodes RFF >= 4 and
+    the recovery screener's other pillars. Pine cannot see any of that
+    (request.financial is capped at 5 calls). So stage decides TRADEABLE on both; the
+    archetype remains a GM-only tiebreak when stage is not decisive.
+    """
+    b30 = True if below_30w is None else bool(below_30w)
+    dn = True if wma30_falling is None else bool(wma30_falling)
+    if dn:
+        return (4, "none") if b30 else (3, "none")
+    return (1, "recovery") if b30 else (2, "bull")

@@ -687,7 +687,24 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     if not cands:
         return None
 
-    cands.sort(key=lambda c: _cat_rank(c[0]), reverse=True)   # most-actionable wins
+    # 29-Jul (Jay: "we have to have same logic for the mode on both GM and S4").
+    # The primary path was picked purely by which side had the more actionable CATEGORY,
+    # so GM and S4 could label the same name differently. Now the SHARED Weinstein 2x2
+    # (wcl_context.stage_path — the single definition both surfaces use) decides first;
+    # the category rank only breaks ties or acts when stage is not decisive.
+    # Stage 3/4 returns "none" and is left to the break-down guards, which already
+    # INVALIDATE it on both paths.
+    _sp = None
+    try:
+        from wcl_context import stage_path
+        _s150v = _g(ctx, "sma150"); _cmpv = _g(ctx, "cmp")
+        _b30v = (_cmpv < _s150v) if (_cmpv is not None and _s150v) else None
+        _s150p = _g(ctx, "sma150_prev")
+        _dnv = (_s150v <= _s150p) if (_s150v and _s150p) else None
+        _, _sp = stage_path(_b30v, _dnv)
+    except Exception as e:
+        _log.warning(f"{sym}: stage_path failed, falling back to category rank: {e}")
+    cands.sort(key=lambda c: (1 if (_sp and c[1] == _sp) else 0, _cat_rank(c[0])), reverse=True)
     cat, path, wf = cands[0]
     # Step-4 location caveat (e.g. "extended / thin R:R") — surfaced in its own Loc
     # column so it annotates a live trigger WITHOUT fragmenting the Category filter.
