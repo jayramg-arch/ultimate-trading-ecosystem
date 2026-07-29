@@ -803,6 +803,15 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             if not _xr.get("error"):
                 pio = _xr.get("Piotroski_Score")
                 xray_grade = str(_xr.get("Overall_Grade", "") or "")
+                # Data_Quality was RETURNED by the scorecard but never consumed here, so a
+                # grade computed from 3 resolved criteria looked identical to one computed
+                # from 9. Mark it: "⚠" = PARTIAL (4-6 of 9), "?" = INSUFFICIENT (<4). A
+                # grade is only trustworthy at FULL.
+                _xq = str(_xr.get("Data_Quality", "") or "")
+                if xray_grade and _xq == "PARTIAL":
+                    xray_grade += " ⚠"
+                elif xray_grade and _xq == "INSUFFICIENT":
+                    xray_grade += " ?"
                 _pe = str((_xr.get("Raw_Metrics") or {}).get("P/E Ratio", "") or "")
                 pe_val = _to_num(_pe) if _pe and _pe != "N/A" else None
         except Exception as e:

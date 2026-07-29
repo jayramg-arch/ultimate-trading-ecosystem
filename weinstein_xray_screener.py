@@ -406,7 +406,12 @@ def get_xray_scorecard(symbol: str) -> dict:
         sc_cr  = None if curr_ratio is None else (1 if curr_ratio > 1.0 else 0)
         sc_fcf = None if fcf_fy is None else (1 if fcf_fy > 0 else 0)
         
-        miner_score = sum(x for x in [sc_rev, sc_ni, sc_acc, sc_roe, sc_gm, sc_de, sc_cr, sc_fcf] if x is not None)
+        _miner_all = [sc_rev, sc_ni, sc_acc, sc_roe, sc_gm, sc_de, sc_cr, sc_fcf]
+        miner_score = sum(x for x in _miner_all if x is not None)
+        # How many of the 8 actually resolved. The raw score already SKIPS None, so an
+        # unresolved criterion silently costs a point when the score is later divided by
+        # the full 8 — a missing value scoring exactly like a failed one.
+        _miner_resolved = sum(1 for x in _miner_all if x is not None)
         
         # -------------------------------------------------------------
         # SCORE: PIOTROSKI F-SCORE (0-9)
@@ -491,8 +496,23 @@ def get_xray_scorecard(symbol: str) -> dict:
         combined_score = conviction * 5.0 + tech_score * 0.5
 
         # Weighted overall score (0-100 scale)
-        ov_total = (0.30 * combined_score) + (0.15 * (conviction * 10.0)) + (0.15 * tech_score) + \
-                   (0.20 * (miner_score / 8.0 * 100.0)) + (0.20 * (pio_score / 9.0 * 100.0))
+        # 29-Jul-2026 — MISSING CRITERIA WERE SCORING AS FAILURES. Both miner_score and
+        # pio_score already SKIP unresolved (None) criteria, but were then divided by the
+        # FULL 8 / 9. So a name whose statements only yielded 4 Piotroski criteria could
+        # score at most 4/9 = 44% on that term even if all four PASSED — and the two terms
+        # together carry 40% of the weighted score. That is why board names sat at
+        # "C FAIR" / "D WEAK": it read as weak fundamentals when it meant thin data.
+        # Normalise each term over the criteria that actually RESOLVED.
+        _miner_pct = (miner_score / _miner_resolved * 100.0) if _miner_resolved > 0 else 0.0
+        _pio_pct = (pio_score / _pio_resolved * 100.0) if _pio_resolved > 0 else 0.0
+        # Nothing resolved at all → the fundamental half is unknown, not zero. Fall back
+        # to the technical half rather than stamping a confident F on no evidence.
+        if _miner_resolved == 0 and _pio_resolved == 0:
+            ov_total = (0.30 * combined_score) + (0.15 * (conviction * 10.0)) + (0.15 * tech_score)
+            ov_total = ov_total / 0.60
+        else:
+            ov_total = (0.30 * combined_score) + (0.15 * (conviction * 10.0)) + (0.15 * tech_score) + \
+                       (0.20 * _miner_pct) + (0.20 * _pio_pct)
         ov_total = round(ov_total, 1)
         
         ov_grade = "A+ EXCEPTIONAL" if ov_total >= 90 else \
