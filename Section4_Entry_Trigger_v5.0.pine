@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.4 (WCL Context Integration)", shorttitle="S4 Entry v5.4", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.5 (WCL Context Integration)", shorttitle="S4 Entry v5.5", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -823,7 +823,6 @@ d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 //   B   → the CANDLE BODY repainted (bright green = clean bar · bright red = vetoed)
 // Purely visual: neither changes a signal, a gate or the panel.
 grpHL = "Highlights — spot PA / Bar (B) on the chart"
-hl_pa     = input.bool(true, "Highlight PA-pattern candles (background band)", group=grpHL, tooltip="Shades the background of any candle where the PA battery fired (the active Bull/Recovery set). Opacity scales with Σ — a strong multi-pattern bar is visibly darker than a single weak one.")
 hl_pa_min = input.int(2, "  · minimum Σ to highlight", group=grpHL, minval=1, maxval=12, tooltip="Only shade candles whose PA Σ reaches this. Raise it to hide the low-conviction single-pattern bars and leave only the meaningful ones on the chart.")
 hl_bar    = input.bool(true, "Highlight Bar-quality (B) candle (repaint body)", group=grpHL, tooltip="Repaints the candle body by the B gate: BRIGHT GREEN = closed strong (green, or red-but-upper-half — a shakeout that recovered), BRIGHT RED = closed in the lower half (weak / distribution) and therefore VETOED for entry. Deliberately brighter than the chart's default candle colours so it reads as a marker, not as a normal candle.")
 hl_bar_pa = input.bool(true, "  · only on PA candles", group=grpHL, tooltip="ON (default) = only repaint candles where a PA pattern fired — the bars where B actually decides anything. OFF = repaint EVERY bar, which is noisy (B passes on most bars) but shows the full run of strong/weak closes.")
@@ -3126,7 +3125,6 @@ float kc_rng = ta.atr(sqz_len)
 bool  sqz_on   = (basis + dev) < (basis + kc_mult * kc_rng) and (basis - dev) > (basis - kc_mult * kc_rng)
 bool  sqz_fire = not sqz_on and sqz_on[1]
 float sqz_mom  = ta.linreg(close - math.avg(math.avg(ta.highest(high, sqz_len), ta.lowest(low, sqz_len)), ta.sma(close, sqz_len)), sqz_len, 0)
-bool  sqz_fire_up = sqz_fire and sqz_mom > 0
 // v2.5: Relaxed Squeeze Trigger Window — allows entry while momentum is actively rising out of the squeeze
 bool  sqz_releasing = (not sqz_on) and sqz_mom > 0 and (sqz_fire or sqz_mom >= nz(sqz_mom[1]))
 bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
@@ -3578,11 +3576,13 @@ wyk_st_c   = not na(wyk_pl) and _w_lov and _w_nar
 wyk_spr_c  = not na(wyk_pl) and _w_lov and _w_chi and _w_upb
 wyk_sos_c  = not na(wyk_ph) and _w_hiv and _w_wid and _w_chi and _w_upb
 wyk_lps_c  = not na(wyk_pl) and _w_lov and _w_upb and not wyk_spr_c
-wyk_psy_c  = not na(wyk_ph) and _w_hiv and not _w_chi
-wyk_bc_c   = not na(wyk_ph) and _w_hiv and _w_wid and _w_chi and not _w_upb
-wyk_ut_c   = not na(wyk_ph) and _w_hiv and _w_wid and _w_clo
 wyk_sow_c  = wyk_lower_low and _w_hiv and _w_wid and _w_clo and _w_dnb
-wyk_lpsy_c = not na(wyk_ph) and _w_lov and _w_nar and _w_dnb
+// v5.5 TOKEN BUDGET: PSY/BC/UT/LPSY collapsed into ONE distribution condition. Wyckoff
+// measured as NON-PREDICTIVE (veto rejected: the vetoed cohort outperformed; score null
+// at rho +0.013, p 0.74 on 639 held-out trades), and this desk is long-only — the -2/-3
+// tier split was cosmetic. SOW keeps its own tier because it is the one that marks a
+// lower-low breakdown.
+wyk_dist_c = not na(wyk_ph) and (_w_hiv or (_w_lov and _w_nar and _w_dnb))
 
 var string wyk_last_event = "—"
 var int    wyk_last_bar   = na
@@ -3620,11 +3620,11 @@ if en_wcl and en_wcl_wyk
         wyk_last_bar   := bar_index
         wyk_bias       := "DISTRIBUTION"
         wyk_score_base := -4
-    else if wyk_lpsy_c or wyk_ut_c or wyk_bc_c or wyk_psy_c
-        wyk_last_event := wyk_lpsy_c ? "LPSY" : wyk_ut_c ? "UT" : wyk_bc_c ? "BC" : "PSY"
+    else if wyk_dist_c
+        wyk_last_event := "DIST"
         wyk_last_bar   := bar_index
         wyk_bias       := "DISTRIBUTION"
-        wyk_score_base := (wyk_lpsy_c or wyk_ut_c) ? -3 : -2
+        wyk_score_base := -3
 
 wyk_age = not na(wyk_last_bar) ? bar_index - wyk_last_bar : 9999
 wyk_decay_steps = int(wyk_age / wyk_decay_bars)
@@ -3689,28 +3689,10 @@ if en_wcl and en_wcl_smc
         smc_last_was_bull := false
         smc_last_choch    := smc_choch_dn
 
-var float smc_prev_ph = na
-var float smc_prev_pl = na
-
-if not na(smc_ph_liq)
-    smc_prev_ph := smc_ph_liq
-if not na(smc_pl_liq)
-    smc_prev_pl := smc_pl_liq
-
-smc_bull_sweep = not na(smc_prev_pl) and low  < smc_prev_pl and close > smc_prev_pl
-smc_bear_sweep = not na(smc_prev_ph) and high > smc_prev_ph and close < smc_prev_ph
-
-// v5.0-fix: carry the sweep DIRECTION as a bool. The setup detector used to re-parse
-// the display string (str.contains "▲"); a flag is cheaper and can't drift from the label.
-var bool smc_sweep_bull = false
-if smc_bull_sweep
-    smc_last_sweep := "Sweep ▲"
-    smc_sweep_bar  := bar_index
-    smc_sweep_bull := true
-if smc_bear_sweep
-    smc_last_sweep := "Sweep ▼"
-    smc_sweep_bar  := bar_index
-    smc_sweep_bull := false
+// v5.5 TOKEN BUDGET: the liquidity-SWEEP tracking block is removed. Its only reader was
+// setup S3 (Sweep+CHoCH), also removed below — nothing displayed it. SMC likewise has no
+// measured predictive value (untested as a gate; its IS/OOS gap vanished under beta
+// adjustment), so this costs no evidence-backed information.
 
 string _struct_str = choch_count_20 <= 1 ? "CLEAN (" + str.tostring(choch_count_20) + ")" : choch_count_20 <= 3 ? "CHOPPY (" + str.tostring(choch_count_20) + ")" : "BROKEN (" + str.tostring(choch_count_20) + ")"
 color  _struct_col = choch_count_20 <= 1 ? color.new(#26a69a, 0) : choch_count_20 <= 3 ? color.new(#ff9800, 0) : color.new(#ef5350, 0)
@@ -3816,22 +3798,14 @@ int    _setup_pri  = 0
 bool _setup_bear = false
 if en_wcl and en_wcl_stp
     _wyk_fresh_15  = not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 15
-    _wyk_fresh_10  = not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 10
-    _smc_fresh_10  = not na(smc_last_bar) and (bar_index - smc_last_bar) <= 10
     if wyk_score_base == 3 and _wyk_fresh_15 and smc_trend_up and _vp_score >= 1 and _total_base >= 4
         _setup_str := "✓ S2 — Spring/LPS Reversal"
         _setup_pri := 5
-    else if smc_sweep_bull and not na(smc_sweep_bar) and (bar_index - smc_sweep_bar) <= 10 and smc_last_choch and smc_last_was_bull and _smc_fresh_10 and _vp_score > -3
-        _setup_str := "✓ S3 — Sweep+CHoCH Reversal"
-        _setup_pri := 4
     else if _vp_score >= 1 and wyk_bias == "ACCUMULATION" and _total_base >= 2
         _setup_str := "✓ S1 — OB Retest + VP Support"
         _setup_pri := 3
     else if smc_last_was_bull and not smc_last_choch and not na(smc_last_bar) and (bar_index - smc_last_bar) <= 20 and not na(vp_vah) and close > vp_vah and choch_count_20 <= 1
         _setup_str := "✓ S5 — Stage 2 Continuation > VAH"
-        _setup_pri := 2
-    else if wyk_score_base == 4 and _wyk_fresh_10 and _vp_score >= 1 and smc_trend_up
-        _setup_str := "✓ S6 — SOS Momentum Push"
         _setup_pri := 2
     else if wyk_score_base <= -3 and _wyk_fresh_15 and not smc_trend_up and _total_base <= -3
         _setup_str := "✗ S7 — Distribution Breakdown"
@@ -4922,16 +4896,11 @@ if show_panel and d_panel and barstate.islast
         pl_rr1 := (_rsk > 0 and not na(pl_t1)) ? (pl_t1 - pl_entry) / _rsk : na
         pl_rr2 := (_rsk > 0 and not na(pl_t2)) ? (pl_t2 - pl_entry) / _rsk : na
         // The PLAN row is the METHOD — no prices (they are in the four rows below).
-        // v5.4 (Jay: "2660.3 is not a retest, right?" — correct, and the label was lying).
-        // The retest limit sits AT the trigger bar's close. It only behaves as a retest if
-        // price ADVANCES first and later comes back to it; on the trigger bar itself price
-        // IS the close, so the limit fills immediately — a market entry wearing a retest
-        // label. Say which one it currently is instead of always claiming "retest".
-        float _retestGap = (not na(pl_entry) and pl_entry > 0) ? (close - pl_entry) / pl_entry * 100.0 : na
-        bool  _retestLive = use_retest and not na(_retestGap) and _retestGap > 0.15   // price has moved above the limit
+        // v5.4: the retest limit sits AT the trigger close, so on the trigger bar price IS
+        // there and it fills as a MARKET entry. Only a real retest once price has moved above.
+        bool _retestLive = use_retest and not na(pl_entry) and pl_entry > 0 and close > pl_entry * 1.0015
         string _entryMethodTxt = use_retest
-             ? (_retestLive ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + " — a real retest, price is " + str.tostring(_retestGap, "0.0") + "% above it"
-                            : "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + " = the trigger close — price is THERE, so this fills as a MARKET entry, not a retest")
+             ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (_retestLive ? " (true retest)" : " = trigger close — fills as MARKET, not a retest")
              : "Buy-stop above the trigger bar"
         _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
     f_row(23, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
@@ -5036,30 +5005,11 @@ if show_panel and d_panel and barstate.islast
     // #3: chasing — price too far above the daily EMA20 (in ATRs). Quality, not a gate.
     float _extV   = ext_atr[_so]
     bool  _qExt   = not na(_extV) and _extV > ext_atr_max
-    // v5.4 (Jay, GLAXO at +3.0 ATR / +7% above EMA20): the hard veto only fires above
-    // ext_atr_max (4.0), so a materially extended entry passed as "(Norm)" with nothing
-    // said. Warn from ext_warn_atr, and — more useful than a warning — NAME the level a
-    // proper pullback entry would use: the highest structure BELOW price (daily EMA20,
-    // nearest S/R below, or the nearest support the location engine found). That turns
-    // "you are chasing" into "here is where to wait".
+    // v5.4: warn BELOW the hard veto and name where a pullback entry would sit — the
+    // highest structure under price (daily EMA20 / nearest S/R / nearest support).
     bool  _qExtWarn = not na(_extV) and _extV >= ext_warn_atr and not _qExt
-    float _pbEma  = daily_ema20
-    float _pbSr   = sr_below
-    float _pbSup  = nearest_sup
-    float _pbLvl  = na
-    if not na(_pbEma) and _pbEma < close
-        _pbLvl := _pbEma
-    if not na(_pbSr) and _pbSr < close and (na(_pbLvl) or _pbSr > _pbLvl)
-        _pbLvl := _pbSr
-    if not na(_pbSup) and _pbSup < close and (na(_pbLvl) or _pbSup > _pbLvl)
-        _pbLvl := _pbSup
-    string _pbSrc = na(_pbLvl) ? "" : (_pbLvl == _pbSup ? "support" : _pbLvl == _pbSr ? "S/R" : "EMA20")
-    string _extTxt = (_qExt or _qExtWarn) and not na(_extV)
-         ? ("  ⚠ EXTENDED " + str.tostring(_extV, "0.0") + "xATR above EMA20"
-            + (na(_pbLvl) ? " — no structure below; wait or size down."
-                          : " — a pullback entry sits at " + str.tostring(_pbLvl, format.mintick)
-                            + " (" + _pbSrc + ", " + str.tostring((close - _pbLvl) / close * 100.0, "0.0") + "% lower)."))
-         : ""
+    float _pbLvl = math.max(math.max(nz(daily_ema20 < close ? daily_ema20 : na, 0.0), nz(sr_below < close ? sr_below : na, 0.0)), nz(nearest_sup < close ? nearest_sup : na, 0.0))
+    string _extTxt = (_qExt or _qExtWarn) ? "  ⚠ EXTENDED " + str.tostring(_extV, "0.0") + "xATR vs EMA20 — pullback entry ~" + (_pbLvl > 0 ? str.tostring(_pbLvl, format.mintick) : "none below") : ""
     // WEAK LOCATION (ABBOTINDIA, 19-Jul): the GO rests ONLY on the AVWAP/EMA — price is
     // NOT in a demand zone or on a fresh S/R level. Per the house methodology (buy the
     // pullback into a Daily+ demand zone), that is a MOMENTUM/breakout entry, not a
