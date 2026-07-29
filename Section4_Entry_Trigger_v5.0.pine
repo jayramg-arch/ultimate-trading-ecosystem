@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v5.2 (WCL Context Integration)", shorttitle="S4 Entry v5.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v5.3 (WCL Context Integration)", shorttitle="S4 Entry v5.3", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -3167,11 +3167,23 @@ float active_sos    = use_chart_tf ? loc_sos     : nz(d_sos, 0.0)
 float active_hsup   = use_chart_tf ? loc_hsup    : nz(d_hsup, 0.0)
 float active_vdu    = use_chart_tf ? loc_vdu     : nz(d_vdu, 0.0)
 
-// HTF is positional ("100% move in 8 weeks + tight flag") — meaningless on an
-// intraday TF, so suppress it in chart-TF mode (matches the GM Python's
-// intraday=True, which forces HTF off). LAU / 30-WMA-reclaim already stay
-// weekly (w_cross), so HTF is the only positional pattern that would leak.
-bool kHTF   = show_pa and active_htf > 0.5 and not use_chart_tf
+// WEEKLY/POSITIONAL PATTERNS ON AN INTRADAY CHART — fixed 29-Jul-2026 (Jay:
+// "GM Sigma PA is 6, S4 Sigma PA is 9" on APOLLOHOSP 75m; the gap was exactly +3).
+//
+// The old comment here claimed "LAU / 30-WMA-reclaim already stay weekly (w_cross),
+// so HTF is the only positional pattern that would leak." That reasoning is
+// BACKWARDS. Staying weekly is exactly the problem: w_cross is a weekly CROSSOVER
+// EVENT, so on a 75m chart it stays true for the whole week and adds its +3 to
+// Sigma on EVERY bar (~26 bars at 75m, ~16 at 125m) — a weekly event reported as an
+// intraday trigger. pa_patterns.py suppresses both under intraday=True for this
+// reason (lines 351 and 510), so S4 was scoring +3 that the Golden Matcher did not.
+//
+// One precise guard for all three. `not use_chart_tf` was also wrong for HTF: it
+// suppressed HTF on a DAILY chart whenever chart-TF mode was on, where Python has
+// intraday=False and lets it fire. Suppress only when the battery is ACTUALLY
+// running on intraday bars.
+bool _paIntraday = use_chart_tf and timeframe.isintraday
+bool kHTF   = show_pa and active_htf > 0.5 and not _paIntraday
 bool kSC    = show_pa and active_sc > 0.5
 bool kVCP   = show_pa and active_vcp > 0.5
 bool kPP    = show_pa and active_pp > 0.5
@@ -3182,7 +3194,7 @@ bool k3B    = show_pa and active_3b > 0.5
 // BE Stage 2 ("2" in stage); the Pine proxy is close above a RISING 30-WMA proxy
 // (not d_bel30, not d_s150dn). Without it LAU fired on Stage-4 dead-cat bounces.
 bool s2_proxy = nz(d_bel30, 1.0) < 0.5 and nz(d_s150dn, 1.0) < 0.5
-bool kLAU   = show_pa and nz(w_cross, 0.0) > 0.5 and nz(d_rv, 0.0) > 1.25 and s2_proxy
+bool kLAU   = show_pa and nz(w_cross, 0.0) > 0.5 and nz(d_rv, 0.0) > 1.25 and s2_proxy and not _paIntraday
 bool kIN3   = show_pa and active_in3 > 0.5
 bool kNR7   = show_pa and active_nr7 > 0.5
 bool kIBNR7 = show_pa and active_ibnr7 > 0.5
@@ -3198,7 +3210,7 @@ bool k2B      = show_pa and active_2b > 0.5
 bool kSOS     = show_pa and active_sos > 0.5
 bool kHSUP    = show_pa and active_hsup > 0.5
 bool kVDU     = show_pa and active_vdu > 0.5
-bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5      // weekly 30-WMA reclaim (Stage 1→2)
+bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // weekly 30-WMA reclaim (Stage 1→2)
 // Mode resolution — aligned to the Golden Matcher's STRUCTURAL Bull-vs-Recovery
 // split (v2.3). GM puts Bull/accumulation ABOVE the 200-DMA and a beaten-down
 // recovery BELOW it, so Auto flips to Recovery only when ALL hold:
