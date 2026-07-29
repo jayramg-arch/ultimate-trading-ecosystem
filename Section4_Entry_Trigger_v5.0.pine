@@ -4151,7 +4151,7 @@ float ext_atr = (not na(daily_ema20) and _extAtrRef > 0) ? (close - daily_ema20)
 // `if show_panel and d_panel and barstate.islast` block they ran on the last bar only,
 // which TradingView flagged (warning at 5025) and which made the chop read unreliable
 // rather than merely non-idiomatic. Same discipline as every other ta.* in this file.
-int ema20_x40 = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40)
+float ema20_x40 = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40)
 // The ceiling moves with the weights AND with the layer switches, so "8/13" can
 // never mean "8 out of a ceiling that counts layers you turned off" — an
 // unreachable maximum would make every score read artificially weak.
