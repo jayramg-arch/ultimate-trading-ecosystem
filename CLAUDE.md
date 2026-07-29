@@ -1835,4 +1835,114 @@ per-trade % — see [[r-multiples-not-percent-for-stop-studies]].
 
 ---
 
+## 29 July 2026 — S4 v5.2 → v5.9: the mode classifier was the root cause
+
+All on **main** (`66d8c5d`). File RENAMED `Section4_Entry_Trigger_v5.0.pine` →
+**`Section4_Entry_Trigger_v5.9.pine`** (git mv, history follows). Jay compiled v5.9 clean.
+
+### THE HEADLINE — Bull/Recovery was classified wrongly; everything else was a symptom
+Jay kept forcing **Manual = Recovery** because Auto never resolved CRISIL / GLAXO / COLPAL.
+Three successive diagnoses, each correcting the last:
+
+1. **Manual mode was never broken.** `is_rec = mode=="Recovery" or (mode=="Auto" and auto_rec)`
+   honours the override. The blocker was `auto_require_below_200` (default ON) — Auto→Recovery
+   demanded price BELOW the 200-DMA, and all three are above it.
+2. **v5.8 replicated Python's drawdown band** (`recovery_screener` Pillar 1: drawdown off the
+   rolling **60-bar** high, 15–35%). S4 had used off-52W-high plus three gates Python does not
+   have. Better — but still wrong, because the band is a *qualification*, not a classifier.
+3. **v5.9 — classify by WEINSTEIN STAGE.** A drawdown number cannot separate a Stage-2 leader
+   in a 15–20% correction, a Stage-4 name still falling, and a Stage-1 base turning up. The
+   2×2, from two flags the file already computed (`d_bel30`, `d_s150dn`):
+
+   | below 30WMA | 30WMA falling | stage | path |
+   |---|---|---|---|
+   | no | no | 2 | BULL |
+   | yes | no | 1 | RECOVERY |
+   | no | yes | 3 | **NO TRADE** |
+   | yes | yes | 4 | **NO TRADE** |
+
+   GLAXO → Stage 2 → **Bull** (a pullback in an uptrend, NOT a recovery — the instinct to call
+   it recovery was the misread). COLPAL → Stage 3 → **NO TRADE**.
+
+### THE THIRD STATE was the actual missing piece
+`mode` offered only two *tradeable* paths, so a Stage-3/4 name was forced into one and the
+verdict then reasoned faithfully inside a frame it should never have entered — exactly how
+COLPAL (30WMA FALLING) reached "TAKE IT — Recovery ★strong". New `stage_skip` outranks every
+verdict branch and **applies under MANUAL mode too** (the stage is a fact, not a preference).
+`stage_gate` (default ON) restores the old behaviour. **Every patch below was downstream of this.**
+
+### Real bugs found and fixed in S4 (v5.2–v5.9)
+- **v5.3 Σ PARITY** (Jay: "GM Σ 6, S4 Σ 9"). `kLAU` (Stage-2 Launch, +3) and `kRECLAIM` (+3) had
+  NO intraday guard. Both key off `w_cross`, a WEEKLY crossover that stays true all week — so on
+  75m they added +3 on EVERY bar (~26 bars). `pa_patterns.py` suppresses both under
+  `intraday=True`. The old comment claimed "they already stay weekly, so HTF is the only leak" —
+  backwards. Also fixed `kHTF` (`not use_chart_tf` wrongly suppressed it on DAILY).
+- **`_stage2ok` was a SECOND definition of Stage 2** (above 30WMA AND above 200DMA) that never
+  checked whether the anchor was RISING → TRUE for Stage 3, so `_blueSky` / `_clearToBreak` could
+  fire while their own text says "Only valid Stage-2". Now `stage_n == 2`.
+- **Confluence paid points for SELLERS.** `arr_fav` rewarded ANY fast arrival; and `of_absorb` at
+  SUPPLY means *sellers* absorbing, yet it earned `cf_w_absorb`. New `of_bull` (long-side read)
+  now drives both terms and `_qBleed`. `of_absorb` kept for DISPLAY only.
+- **v5.4 "retest" was lying.** The limit sits AT the trigger close, so on the trigger bar it fills
+  as a MARKET entry. The Plan row now distinguishes a true retest from a market fill.
+- **4 entry-conflict instances** (CLEAR-TO-BREAK, BLUE-SKY, RECOVERY, never-buy-the-touch): the
+  verdict said buy-STOP while the Plan row followed `entry_method` (retest). Each now either
+  follows the input or states it OVERRIDES the Plan row.
+- **EXTENDED warning** (`ext_warn_atr`, default 2.5, below the 4.0 veto) names where a pullback
+  entry sits (highest structure below price).
+- **DOWNGRADE** when ≥2 of: EMA20 chop / FAST-bleeding arrival. (30WMA-falling was dropped from
+  it — now redundant with `stage_skip`.)
+- **`ta.cross` / `math.sum` were inside `if … barstate.islast`** → ran on the last bar only, so
+  the chop count was GARBAGE, not merely non-idiomatic. Hoisted to global (`ema20_x40`).
+  **Rule: compute in global scope, display in the panel block.**
+
+### X-Ray — missing data was scored as FAILED (why everything read C FAIR / D WEAK)
+TWO modules, and the first fix was on the wrong one:
+- `fundamental_xray.py` (`b2a62d2`) — EBITDA margin ← screener OPM%, FCF ← screener cash-flow;
+  score renormalised over evaluable checks; new `data_coverage` / `overall_rating_raw`.
+- **`weinstein_xray_screener.py` (`3a8242a`) is what the BOARD uses.** Its data source was already
+  screener-primary; the bug was scoring. `miner_score` / `pio_score` SKIP unresolved criteria and
+  were then divided by the FULL 8 and 9 — so 4-of-9 resolved capped that term at 44% even if all
+  four PASSED, and the two terms carry 40% of the weight. Now normalised over RESOLVED criteria.
+  `Data_Quality` was RETURNED and never consumed → the board now appends **⚠** (PARTIAL) / **?**
+  (INSUFFICIENT). Expect grades to RISE and Overall to shift.
+- COMPELLING-REASON exceptions (documented in code — do not "fix"): CurrentRatio and GrossMargin
+  are NOT derivable from screener.in's public page; ROA / EpsFwd / EvToEbitda are broker fields.
+
+### GM board — two buttons, press ONE (`054ac84`)
+`🔨 Rebuild board` uses CACHED data (fast — the right button after a Trigger-TF or X-Ray change).
+`🔄 Fetch fresh data + rebuild` invalidates the universe AND sets `gm_force_rebuild`, so **it
+rebuilds by itself**. Do not delete Rebuild — every TF switch would then cost ~50 fetches.
+
+### SCRIPTED-EDIT TRAPS THAT BIT TWICE THIS WEEK
+1. Bash-heredoc de-escapes a backslash-n into a REAL newline → broken Pine strings. Build the
+   escape with `chr(92)` or use Edit/Write. (See the bash-heredoc memory.)
+2. **Line-anchored regex is unsafe on Pine** — inputs routinely wrap, so a `^name = input…$`
+   pattern deletes the first line and orphans the `tooltip=…")` continuation → "Extra closing
+   parenthesis". Delete the whole STATEMENT, or use Edit.
+Always run the odd-quote + paren-balance + orphan-continuation sweep after a scripted edit.
+
+### Token ceiling — S4 sits permanently near it (100,256)
+String-concat code expands ~3.7 compiled tokens per source token. Removed to buy budget: the
+zone-detection DIAGNOSTICS row (default-off instrumentation, `show_diag`), Wyckoff's
+PSY/BC/UT/LPSY tiers (→ one DIST), setups **S3/S6** and the SMC liquidity-sweep block (S3 was its
+only reader), and `d_dd60` + the drawdown inputs. **A newline INSIDE a string literal costs
+NOTHING** — that is how the panel was narrowed (long verdict lines now self-break).
+
+### Settings to hold
+`stage_gate` ON · `mk_bars` 5–10 (marker declutter) · `auto_require_below_200` no longer exists.
+
+### Open
+- **RESTART Web Commander** — the X-Ray fixes landed after the last restart and are NOT live.
+- Rebuild the board; expect higher X-Ray grades, ⚠/? markers, and a shifted Overall.
+- **SWG-REV**: retire or leave — diagnosis complete (payoff ratio 1.62 vs 3.14; trail engages on
+  only 6% of exits). A decision, not more analysis.
+- Re-run `exit_policy_study.py` with per-config benchmarks before trusting its magnitudes.
+- Multi-pivot rectangle classifier (item #11) — the 2-pivot version calls rectangles "symmetrical
+  triangles" (confirmed on APOLLOHOSP and GLAXO).
+- `data_coverage` on the X-Ray CARD (the board column is done).
+- `Section4_Entry_Trigger_v3.0.pine` is still misnamed (it holds v4.7) — pre-WCL reference copy.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
