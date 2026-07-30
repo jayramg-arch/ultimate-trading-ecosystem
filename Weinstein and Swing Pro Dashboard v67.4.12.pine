@@ -1,5 +1,23 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.15]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.16]", overlay=true, max_bars_back=5000, max_lines_count=500)
+// v67.4.16 (30 Jul 2026): ICON BADGES (Jay: "only the icon colored, not the entire row —
+//   same for tick and cross marks"). Bumped the compressed-view table 4 -> 5 columns and
+//   added drawRowC1/drawRowC2 alongside drawRowC: the row's descriptive text keeps its own
+//   soft-pastel background (from the palette work above), and each arrow/tick/cross gets
+//   its OWN small cell at the row's right edge with a fixed dark-navy background + white
+//   text (C_BADGE_BG/C_BADGE_TXT) — a Pine table.cell has ONE bg/text colour for its whole
+//   string, so an icon embedded mid-sentence can never be recoloured without its own cell.
+//   Converted: WEEKLY STRUCTURE (W + 30WMA arrows), DAILY STRUCTURE (D + 50DMA arrows),
+//   RS vs N500/Sec (both RS icons), RRG vs N500 (quadrant arrow + the BUY-OK/WAIT tick).
+//   Each badge carries a short label with its glyph (e.g. "W ↗️") since it now sits apart
+//   from the row's main text, not adjacent to the word it used to follow.
+//   SCOPED OUT: the DETAILED view's individual RS rows (drawRowL, off by default) keep
+//   their icons embedded — badging them needs the left/right column-pair layout widened
+//   too, disproportionate for a view Jay does not have on by default. persona_txt's
+//   decorative emoji (🐂/⚓/💤) and displayRec's "★" are NOT trend arrows or ticks, left
+//   untouched. _tr_tag, now unused after the RRG row's rewrite, was removed.
+
+
 // v67.4.15 (30 Jul 2026): SOFT PALETTE PORTED FROM S4 (Jay: "replicate the same colour
 //   palette back to Weinstein Dashboard from S4 Entry Trigger"). f_softBg + C_SOFTTXT
 //   ported verbatim from Section4_Entry_Trigger_v5.9.pine — same classifier, same five
@@ -4566,15 +4584,17 @@ string _rrg500_letter = f_rrg_quad_letter(val500, _rsMom500)
 string _rrg500_full   = f_rrg_quad(val500, _rsMom500)
 string _rrgSec_full   = f_rrg_quad(valSec, _rsMomSec)
 [_rrg500_arrow, _rrg500_traj, _rrg500_cur, _rrg500_nxt, _rrg500_score, _rrg500_tradeable] = f_rrg_info(val500, _rsMom500, _valTrail500, _momTrail500)
-string _tr_tag = _rrg500_tradeable ? "✓ BUY OK" : "✗ WAIT"
 // v67.4.1: split RS and RRG into TWO distinct compressed rows.
 // compRsStr = per-benchmark direction/level only (Mansfield-style state).
 // compRrgStr = RRG quadrant + arrow + trajectory + score + tradeable.
 // RS row uses the legacy f_rsStateStr direction/level labels (Rising/Declining/Flat
 // + Positive/Negative/Neutral) — same wording as the detailed-view RS rows.
-string compRsStr  = "N500: " + f_rrg_icon(rs500State) + " " + rs500State + "  ·  Sec: " + f_rrg_icon(rsSecState) + " " + rsSecState
+// #badge: icons moved OUT of the string into their own drawRowC2 badge cells.
+string compRsStr  = "N500: " + rs500State + "  ·  Sec: " + rsSecState
 color  compRsCol  = f_rrg_color(rsSecState)
-string compRrgStr = _rrg500_cur + " " + _rrg500_arrow + "  " + (_rrg500_score > 0 ? "+" : "") + str.tostring(_rrg500_score) + "  ·  " + _rrg500_traj + "  ·  " + _tr_tag + "  (RS-Ratio " + str.tostring(val500 + 100, "#.#") + ")"
+// #badge: the quadrant arrow and the BUY OK/WAIT tick/cross both moved to badge cells;
+// the text keeps _rrg500_tradeable's WORD ("BUY OK"/"WAIT") without its glyph.
+string compRrgStr = _rrg500_cur + "  " + (_rrg500_score > 0 ? "+" : "") + str.tostring(_rrg500_score) + "  ·  " + _rrg500_traj + "  ·  " + (_rrg500_tradeable ? "BUY OK" : "WAIT") + "  (RS-Ratio " + str.tostring(val500 + 100, "#.#") + ")"
 // Color: tradeable=false (cliff-edge LEADING etc.) → RED. Else quadrant color.
 color  compRrgCol = not _rrg500_tradeable ? color.new(#ef5350, 0) : _rrg500_cur == "LEADING" ? color.new(#26a69a, 0) : _rrg500_cur == "WEAKENING" ? color.new(#ff9800, 0) : _rrg500_cur == "IMPROVING" ? color.new(#3b82f6, 0) : color.new(#ef5350, 0)
 
@@ -4592,14 +4612,17 @@ color  compCatCol = catalyst_id > 0 and bs_gates_passing == 9 ? color.new(#26a69
 string _w_arrow = wTrendDir == 1 ? "↗️" : wTrendDir == -1 ? "↘️" : "↔️"
 string _30wma_arrow = wMASlopeState == "RISING" ? "↗️" : wMASlopeState == "FALLING" ? "↘️" : "↔️"
 string _pb_suffix = wHealthStr == "N/A" or wHealthStr == "" ? "" : (" · PB " + (wHealthStr == "HEALTHY (Low Vol)" ? "Healthy" : str.contains(wHealthStr, "NORMAL") ? "Normal" : "Weak"))
-string compWeeklyStr = stageDisplay + (isStage2Family ? " · " + str.tostring(stageWeeks) + "w leg/" + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "") + " · W" + _w_arrow + " · 30WMA" + _30wma_arrow + _pb_suffix
+// #badge: the W / 30WMA arrows moved to badge cells (their SHORT LABEL rides with the
+// glyph there, e.g. "W ↗️", so the badge is still self-explanatory on its own).
+string compWeeklyStr = stageDisplay + (isStage2Family ? " · " + str.tostring(stageWeeks) + "w leg/" + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "") + _pb_suffix
 color  compWeeklyCol = stageCol
 
 // 5. DAILY STRUCTURE (one row, was 5)
 string _d_arrow = dTrendDir == 1 ? "↗️" : dTrendDir == -1 ? "↘️" : "↔️"
 string _50dma_arrow = d50SlopeState == "RISING" ? "↗️" : d50SlopeState == "FALLING" ? "↘️" : "↔️"
 string _engine_short = trend_engine_canonical ? "Engine v6.2 L" + str.tostring(pivotLeft) + "/R" + str.tostring(pivotRight) + " ✓" : "Engine ⚠ Sync Zigzag"
-string compDailyStr = "D" + _d_arrow + " · 50DMA" + _50dma_arrow + " " + (dSmaAligned ? "Aligned" : "Misaligned") + " · " + _engine_short
+// #badge: the D / 50DMA arrows moved to badge cells, same convention as WEEKLY STRUCTURE.
+string compDailyStr = (dSmaAligned ? "Aligned" : "Misaligned") + " · " + _engine_short
 color  compDailyCol = dTrendDir == 1 and dSmaAligned ? color.new(#26a69a, 0) : dTrendDir == -1 ? color.new(#ef5350, 0) : color.new(#ff9800, 30)
 
 // 6. PRICE ACTION (one row, unchanged content, denser format)
@@ -4638,7 +4661,10 @@ color  compPosStatusCol = timeWarnCol
 // ==========================================
 // DRAWING
 // ==========================================
-var table panel = table.new(tablePos, 4, 60, border_width=1, border_color=color.gray)  // v65.0: bumped 50→60 to accommodate recovery panel rows
+// v67.4.16: bumped 4->5 columns. Col 4 is reserved for a SECOND icon badge (rows with
+// two arrows/ticks — WEEKLY STRUCTURE, DAILY STRUCTURE, RS, RRG); rows with one or zero
+// badges just merge col4 into their text area, same as before.
+var table panel = table.new(tablePos, 5, 60, border_width=1, border_color=color.gray)  // v65.0: bumped 50→60 to accommodate recovery panel rows
 
 // #palette (30-Jul, Jay: "replicate the same colour palette back to Weinstein Dashboard
 // from S4 Entry Trigger"). Ported VERBATIM from Section4_Entry_Trigger_v5.9.pine — same
@@ -4679,8 +4705,33 @@ drawRowR(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
 drawRowC(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
     color _bg = f_softBg(valColor)
     table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+    table.merge_cells(tbl, 1, r, 4, r)
+    table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+
+// #badge (30-Jul, Jay: "boxed, dark blue background, white icon — same for both files").
+// Pine gives a table.cell ONE background and ONE text colour for its whole string, so an
+// arrow/tick embedded MID-SENTENCE can never be coloured differently from the sentence
+// around it — it needs its OWN cell. drawRowC1/C2 are drawRowC's siblings for rows that
+// carry one or two such icons: the descriptive text keeps the row's own soft pastel, and
+// the icon(s) get a small, separate, dark-blue-with-white-text badge at the row's right
+// edge (col 4, and col 3 for a second icon) — the row is not recoloured, only the badge is.
+C_BADGE_BG  = color.new(#0D3B66, 0)
+C_BADGE_TXT = color.new(#FFFFFF, 0)
+
+drawRowC1(tbl, r, title, valText, valColor, icon) =>
+    color _bg = f_softBg(valColor)
+    table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
     table.merge_cells(tbl, 1, r, 3, r)
     table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+    table.cell(tbl, 4, r, icon, bgcolor=C_BADGE_BG, text_color=C_BADGE_TXT, text_size=textSize, text_halign=text.align_center)
+
+drawRowC2(tbl, r, title, valText, valColor, icon1, icon2) =>
+    color _bg = f_softBg(valColor)
+    table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+    table.merge_cells(tbl, 1, r, 2, r)
+    table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+    table.cell(tbl, 3, r, icon1, bgcolor=C_BADGE_BG, text_color=C_BADGE_TXT, text_size=textSize, text_halign=text.align_center)
+    table.cell(tbl, 4, r, icon2, bgcolor=C_BADGE_BG, text_color=C_BADGE_TXT, text_size=textSize, text_halign=text.align_center)
 
 // v67.3.0: DETAILED VIEW — preserved verbatim, gated by show_detailed_view toggle.
 //   When OFF (default), control flows to the compressed render block below.
@@ -4916,13 +4967,16 @@ if barstate.islast and not show_detailed_view
     table.cell(panel, 0, row, "WEINSTEIN DASHBOARD · " + syminfo.ticker, bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
     table.merge_cells(panel, 0, row, 2, row)
     table.cell(panel, 3, row, str.tostring(year(timenow)) + "-" + str.tostring(month(timenow)) + "-" + str.tostring(dayofmonth(timenow)), bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+    // #badge: col4 is new (table widened 4->5 for the icon badges); fill it here so the
+    // header doesn't show a stray unfilled cell at the far right.
+    table.cell(panel, 4, row, "", bgcolor=C_HDR)
     row += 1
 
     // Trade Style Prominent Banner
     color _styleBg2 = f_softBg(style_col)
     table.cell(panel, 0, row, "RECOMMENDED STYLE", bgcolor=_styleBg2, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_left)
     table.cell(panel, 1, row, style_txt, bgcolor=_styleBg2, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_center)
-    table.merge_cells(panel, 1, row, 3, row)
+    table.merge_cells(panel, 1, row, 4, row)
     row += 1
 
     // CRITICAL ALERT (only when active)
@@ -4932,7 +4986,7 @@ if barstate.islast and not show_detailed_view
 
     // === 🎯 ACT NOW (4 rows) ===
     table.cell(panel, 0, row, "── 🎯 ACT NOW ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
+    table.merge_cells(panel, 0, row, 4, row)
     row += 1
 
     drawRowC(panel, row, "RECOMMENDATION",    displayRec,        recColor,         C_LBL, C_LBL_TXT, C_VAL_TXT)
@@ -4946,12 +5000,12 @@ if barstate.islast and not show_detailed_view
 
     // === 📊 STRUCTURE (5 rows) ===
     table.cell(panel, 0, row, "── 📊 STRUCTURE ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
+    table.merge_cells(panel, 0, row, 4, row)
     row += 1
 
-    drawRowC(panel, row, "WEEKLY STRUCTURE",  compWeeklyStr,     compWeeklyCol,    C_LBL, C_LBL_TXT, C_VAL_TXT)
+    drawRowC2(panel, row, "WEEKLY STRUCTURE", compWeeklyStr,     compWeeklyCol,    "W " + _w_arrow, "30WMA " + _30wma_arrow)
     row += 1
-    drawRowC(panel, row, "DAILY STRUCTURE",   compDailyStr,      compDailyCol,     C_LBL, C_LBL_TXT, C_VAL_TXT)
+    drawRowC2(panel, row, "DAILY STRUCTURE",  compDailyStr,      compDailyCol,     "D " + _d_arrow, "50DMA " + _50dma_arrow)
     row += 1
     drawRowC(panel, row, "PRICE ACTION",      compPaStr,         compPaCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
     row += 1
@@ -4962,14 +5016,14 @@ if barstate.islast and not show_detailed_view
 
     // === 🌐 CONTEXT (4 rows) ===
     table.cell(panel, 0, row, "── 🌐 CONTEXT ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
+    table.merge_cells(panel, 0, row, 4, row)
     row += 1
 
     drawRowC(panel, row, "MACRO / SECTOR",    compMacroStr,      compMacroCol,     C_LBL, C_LBL_TXT, C_VAL_TXT)
     row += 1
-    drawRowC(panel, row, "RS (vs N500/Sec)",  compRsStr,         compRsCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
+    drawRowC2(panel, row, "RS (vs N500/Sec)", compRsStr,         compRsCol,        "N500 " + f_rrg_icon(rs500State), "Sec " + f_rrg_icon(rsSecState))
     row += 1
-    drawRowC(panel, row, "RRG (vs N500)",     compRrgStr,        compRrgCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
+    drawRowC2(panel, row, "RRG (vs N500)",    compRrgStr,        compRrgCol,       "RRG " + _rrg500_arrow, _rrg500_tradeable ? "✓" : "✗")
     row += 1
     drawRowC(panel, row, "FUTURES OI STATE",  compOiStr,         compOiCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
     row += 1
@@ -4978,7 +5032,7 @@ if barstate.islast and not show_detailed_view
 
     // === 📦 PORTFOLIO ===
     table.cell(panel, 0, row, "── 📦 PORTFOLIO ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
+    table.merge_cells(panel, 0, row, 4, row)
     row += 1
 
     if tradeActive
