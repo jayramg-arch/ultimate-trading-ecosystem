@@ -12216,9 +12216,15 @@ elif page == 'GOLDEN MATCHER':
                 # the bar-close mode matching the selected Trigger-TF.
                 _live_opts = ["Off", "75m bar-close", "125m bar-close", "75m+125m bar-close",
                               "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"]
+                # PERSISTED (30-Jul, Jay: "set Live refresh to 75m+125m"). This lived in
+                # session_state only, so every reconnect/restart reset it to the Trigger-TF
+                # default — and on plain "75m" the board never rebuilds at 11:20 or 13:25,
+                # which silently made a 13:30 check-in read a 13:00 board. Now it survives
+                # like capital / risk% / trigger_tf, and defaults to the UNION so all seven
+                # session closes refresh out of the box.
                 if "gm_board_live" not in st.session_state:
-                    st.session_state["gm_board_live"] = (
-                        "125m bar-close" if _trig_tf == "125m" else "75m bar-close")
+                    _lv0 = str(_gm_settings().get("board_live", "75m+125m bar-close"))
+                    st.session_state["gm_board_live"] = _lv0 if _lv0 in _live_opts else "75m+125m bar-close"
                 _live = st.selectbox("🟢 Live refresh", _live_opts,
                                      key="gm_board_live",
                                      help="Rebuilds the technical + PA columns while the board is open. "
@@ -12896,10 +12902,12 @@ elif page == 'GOLDEN MATCHER':
                 help="Shared with the Trigger Board (one setting). The Step-5 PA trigger battery "
                      "and momentum gauges (RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. "
                      "Context/Quality (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly.")
+        _lv_now = st.session_state.get("gm_board_live")
         if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
                 or (_gm_trig_tf != _gmset.get("trigger_tf")) \
-                or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")):
-            _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct,
+                or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")) \
+                or (_lv_now and _lv_now != _gmset.get("board_live")):
+            _gm_settings_save(board_live=_lv_now, capital=_gm_capital, risk_pct=_gm_riskpct,
                               trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk)
 
         # Entry method — GLOBAL setting, also exposed here so you can flip buy-stop /
