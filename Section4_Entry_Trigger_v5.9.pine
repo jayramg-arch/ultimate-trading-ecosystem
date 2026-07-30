@@ -4,6 +4,30 @@
 // ============================================================================
 // SECTION 4 — ENTRY TRIGGER & PRICE MEMORY  v5.2 (WCL CONTEXT INTEGRATION)
 //
+// v6.8 (30 Jul 2026): PER-TOKEN PA BADGES (Jay: "the PA grid too — all ~17 tokens", after
+//   choosing this over the smaller "single ticks only" option, aware it's the bigger,
+//   riskier restructure). Table widened 2 -> 18 columns (PA_LAST_COL=17): col0=label,
+//   cols1-17=one cell per PA pattern token. A fired token gets its own dark-navy/white
+//   badge (C_BADGE_BG/C_BADGE_TXT, identical to the constants ported into Weinstein the
+//   same session, so a fired token reads the same colour in both panels); an unfired one
+//   blends into the row's own soft-pastel bg. Built from two arrays + one loop rather than
+//   17 hardcoded cells — a Pine loop's COMPILED size is fixed by its body, not by how many
+//   times it runs, so the loop is cheap; the loop naturally covers the bull path's 17
+//   tokens and the recovery path's 10, the unused tail columns render blank.
+//   Every OTHER row (all ~24 f_row rows + header/TRIGGER/STATUS/VERDICT) now merges
+//   col1..17 so it still reads as a plain 2-column row — the width change is invisible
+//   everywhere except the PA row itself.
+//   Made the 30-Jul width fix's PA-grid `\n` split MOOT (each token has its own cell now,
+//   nothing to wrap) — left as a comment marker only, not re-litigated.
+//   f_it() is DELETED, not retired: its only 27 callers were the _g0..g4 concatenation
+//   lines, all replaced by the array/loop version above.
+//   ⚠ TOKEN-CEILING RISK, stated plainly: this is the largest single addition to this
+//   file since the CONTEXT ROW that overshot the ~100,256 compile-token limit and had to
+//   be reverted (v6.4/v6.5, same day). This change is architecturally different — most of
+//   its size is the merge_cells calls added to ~28 existing rows plus 34 array.push calls,
+//   not dense new logic — but headroom was NOT re-measured before writing it. Real chance
+//   this does not compile on the first try.
+//
 // v6.7 (30 Jul 2026): COLUMN ALIGNMENT + THE PANEL-WIDTH FIX THAT ACTUALLY WORKS (Jay).
 //   1. Both columns now hug the CENTRE divider — label right-aligned, value left-aligned
 //      — instead of each hugging its own outer edge (which left a dead gap down the
@@ -826,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.7 (Centre-Aligned + Narrower Panel)", shorttitle="S4 Entry v6.7", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.8 (Per-Token PA Badges)", shorttitle="S4 Entry v6.8", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -4668,7 +4692,14 @@ if show_zones and d_lvls and barstate.islast
 f_pos(string p) => p == "top_left" ? position.top_left : p == "bottom_right" ? position.bottom_right : p == "bottom_left" ? position.bottom_left : position.top_right
 f_size(string s) => s == "tiny" ? size.tiny : s == "small" ? size.small : s == "normal" ? size.normal : s == "large" ? size.large : s == "auto" ? size.auto : size.small
 // Dark-theme panel: solid dark bg + TV grid frame so it reads cleanly on dark charts. Updated to 17 rows.
-var table pnl = table.new(f_pos(panel_pos), 2, 30, bgcolor=color.new(#131722, 0), frame_color=color.new(#2a2e39, 0), frame_width=1, border_color=color.new(#2a2e39, 0), border_width=1)
+// #badge (30-Jul, Jay: "the PA grid too — all ~17 tokens"). Table widened from 2 to 18
+// columns: col0 = label, cols 1..17 = one badge cell per PA pattern token (the bull path's
+// 17-token max: HTF/SC/VCP/LAU/GAP/BC/PP/U50/LIQ/SPR/ENG/3BR/H50/H200/IN3/NR7/IBN; the
+// recovery path uses only 10 and leaves the rest blank). Every OTHER row still occupies
+// just col0+col1 visually — f_row and the TRIGGER/STATUS/PA-header/VERDICT direct cells
+// each merge col1 through PA_LAST_COL so nothing else in the panel changes shape.
+PA_LAST_COL = 17
+var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 1, 30, bgcolor=color.new(#131722, 0), frame_color=color.new(#2a2e39, 0), frame_width=1, border_color=color.new(#2a2e39, 0), border_width=1)
 // #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
 // uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
 // bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
@@ -4687,23 +4718,30 @@ f_softBg(color c) =>
     float _mn = math.min(_r, math.min(_g, _b))
     _mx - _mn < 25 ? #AEB7C2 : _b > _r and _b > _g ? #8FC1EA : _r > 200 and _g > 100 and _b < 120 ? #F0B86E : _g >= _r and _g >= _b ? #7FCFC0 : #F1A7A0
 C_SOFTTXT = color.new(#10202E, 0)
+// Same two constants as Weinstein and Swing Pro Dashboard's drawRowC1/C2 badges (Jay:
+// "same styling for arrows and tick marks on both") — kept identical so a fired token in
+// EITHER panel reads as the same colour.
+C_BADGE_BG  = color.new(#0D3B66, 0)
+C_BADGE_TXT = color.new(#FFFFFF, 0)
 f_row(int r, string k, string vv, color vc) =>
     color _bg = f_softBg(vc)
     // #align (30-Jul, Jay): swapped so both columns hug the centre divider — label
     // right-aligned, value left-aligned — instead of each hugging its OUTER edge, which
     // left a wide dead gap in the middle of every row.
     table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_right)
+    // #badge (30-Jul): the table widened 2 -> 18 columns so the PA row can give each
+    // pattern token its own cell. Every OTHER row still reads as a plain 2-column row —
+    // merge the value across the new columns so nothing else changes visually.
+    table.merge_cells(pnl, 1, r, PA_LAST_COL, r)
     table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
-// one PA-condition token for the compact grid: name + fired(✓) / quiet(·)
-// #pa (30-Jul, Jay): fired ticks were the green-check EMOJI ✅, chosen because a Pine
-// table.cell has one text colour and the emoji carries its own green. But it renders as a
-// boxed glyph, and on this row's coloured background (pa_col_v, white text) the boxes are
-// hard to read. Now the same plain ✓ every other row uses — it inherits the row colour and
-// scans consistently with them. Not-fired stays a dot.
-f_it(string nm, bool fired) => nm + (fired ? " ✓ " : " ·  ")
+// f_it (the plain-text "name ✓/·" token) is GONE, not just retired: the 30-Jul badge
+// rewrite gives every PA token its own table.cell (fired = C_BADGE_BG/C_BADGE_TXT,
+// unfired = blends into the row), so there is no longer a shared string to build. Its
+// only 27 callers were the _g0.._g4 lines below, all replaced by the array/loop version.
 
 if show_panel and d_panel and barstate.islast
     table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_right)
+    table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
     table.cell(pnl, 1, 0, syminfo.ticker, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_left)
     // AVWAP levels — the three curves on one row (L · BO · Gap). Colour by the KEY
     // one (BO): green when price holds above the breakout AVWAP.
@@ -4966,6 +5004,7 @@ if show_panel and d_panel and barstate.islast
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
     color _trigBg = f_softBg(trig_col)
     table.cell(pnl, 0, 23, "TRIGGER", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right)
+    table.merge_cells(pnl, 1, 23, PA_LAST_COL, 23)
     table.cell(pnl, 1, 23, trig_txt, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
@@ -5087,31 +5126,87 @@ if show_panel and d_panel and barstate.islast
         f_row(16, "Structure Health", _struct_str, _struct_col)
         f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + ")" : ""), _vp_pos_col)
 
-    // --- PA CONDITIONS: compact grid, every condition shown fired(✓)/quiet(·); mode-aware ---
+    // --- PA CONDITIONS: one cell PER TOKEN, mode-aware ---
+    // #badge (30-Jul, Jay: "the PA grid too — all ~17 tokens"). Replaces the old single
+    // concatenated-string cell (which is also what the 30-Jul width fix had to `\n`-split
+    // to stop it setting the panel's width — moot now, each token has its own cell).
+    // A fired token gets its own dark-navy/white badge (C_BADGE_BG/C_BADGE_TXT); an unfired
+    // one blends into the row's own soft-pastel background — the row is not recoloured,
+    // only each fired token's cell is. Built from two parallel arrays and ONE loop rather
+    // than 17 hardcoded table.cell calls: a Pine loop's COMPILED cost is fixed by its body,
+    // not by how many times it runs, so this is far cheaper than it looks, and the SAME
+    // loop naturally handles the bull path's 17 tokens and the recovery path's 10 — the
+    // unused tail columns just render blank.
     string tf_suffix = use_chart_tf ? timeframe.period : "EOD"
     // #2 fix: the PA header + grid read the SAME (last-closed) bar as the TRIGGER /
     // STATUS via [_so], so the "Sum" / grid can never disagree with the Σ in STATUS.
-    string _hdr = (is_rec_v ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)"))
+    string _hdr = (is_rec_v ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)")) + "  Σ+" + str.tostring(tsum_v)
     color pa_col_v = tsum_v >= 4 ? color.new(#7b1fa2,0) : tsum_v >= 2 ? color.new(#26a69a,0) : tsum_v >= 1 ? color.new(#ff9800,0) : color.gray
-    // PA battery — ALL conditions on ONE row (Jay, 23-Jul): the panel is wide (the verbose
-    // verdict widens the value column), so the 17-item bull / 10-item recovery grid collapses
-    // into a single line with the Σ appended, instead of the old 3-row grid.
-    string _g0 = is_rec_v ? f_it("CLIMAX",kCLIMAX[_so])+f_it("SPR",kSPR[_so])+f_it("2B",k2B[_so])    : f_it("HTF",kHTF[_so])+f_it("SC",kSC[_so])+f_it("VCP",kVCP[_so])
-    string _g1 = is_rec_v ? f_it("SOS",kSOS[_so])+f_it("ENG",kENG[_so])+f_it("HSUP",kHSUP[_so])      : f_it("LAU",kLAU[_so])+f_it("GAP",kGAP[_so])+f_it("BC",kBC[_so])
-    string _g2 = is_rec_v ? f_it("3BR",k3B[_so])+f_it("PP",kPP[_so])+f_it("VDU",kVDU[_so])           : f_it("PP",kPP[_so])+f_it("U50",kU50[_so])+f_it("LIQ",kLIQ[_so])
-    string _g3 = is_rec_v ? f_it("30WMA",kRECLAIM[_so])                                              : f_it("SPR",kSPR[_so])+f_it("ENG",kENG[_so])+f_it("3BR",k3B[_so])
-    string _g4 = is_rec_v ? "" : f_it("H50",kH50[_so])+f_it("H200",kH200[_so])+f_it("IN3",kIN3[_so])+f_it("NR7",kNR7[_so])+f_it("IBN",kIBNR7[_so])
-    // #width (30-Jul, Jay): "you tried wrapping VERDICT to shrink the panel, it didn't
-    // work — try again." It didn't work because Pine sizes a COLUMN to the widest SINGLE
-    // UNBROKEN line across every cell in it, not just the row you edited — VERDICT was
-    // wrapped, but this PA grid was one 17-token unbroken line, comfortably wider than any
-    // wrapped VERDICT line, so IT was still setting the column (and panel) width. A `\n`
-    // here, splitting it in two, is the fix that actually moves the number; g0+g1+g2 stays
-    // the widest line either path takes, so bull and recovery now share one effective cap.
-    string _allPA = _g0 + _g1 + _g2 + "\n" + _g3 + _g4
     color _paBg = f_softBg(pa_col_v)
     table.cell(pnl, 0, 22, _hdr, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_right)
-    table.cell(pnl, 1, 22, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_left)
+    string[] _paNm = array.new_string()
+    bool[]   _paFr = array.new_bool()
+    if show_pa
+        if is_rec_v
+            array.push(_paNm, "CLIMAX")
+            array.push(_paFr, kCLIMAX[_so])
+            array.push(_paNm, "SPR")
+            array.push(_paFr, kSPR[_so])
+            array.push(_paNm, "2B")
+            array.push(_paFr, k2B[_so])
+            array.push(_paNm, "SOS")
+            array.push(_paFr, kSOS[_so])
+            array.push(_paNm, "ENG")
+            array.push(_paFr, kENG[_so])
+            array.push(_paNm, "HSUP")
+            array.push(_paFr, kHSUP[_so])
+            array.push(_paNm, "3BR")
+            array.push(_paFr, k3B[_so])
+            array.push(_paNm, "PP")
+            array.push(_paFr, kPP[_so])
+            array.push(_paNm, "VDU")
+            array.push(_paFr, kVDU[_so])
+            array.push(_paNm, "30WMA")
+            array.push(_paFr, kRECLAIM[_so])
+        else
+            array.push(_paNm, "HTF")
+            array.push(_paFr, kHTF[_so])
+            array.push(_paNm, "SC")
+            array.push(_paFr, kSC[_so])
+            array.push(_paNm, "VCP")
+            array.push(_paFr, kVCP[_so])
+            array.push(_paNm, "LAU")
+            array.push(_paFr, kLAU[_so])
+            array.push(_paNm, "GAP")
+            array.push(_paFr, kGAP[_so])
+            array.push(_paNm, "BC")
+            array.push(_paFr, kBC[_so])
+            array.push(_paNm, "PP")
+            array.push(_paFr, kPP[_so])
+            array.push(_paNm, "U50")
+            array.push(_paFr, kU50[_so])
+            array.push(_paNm, "LIQ")
+            array.push(_paFr, kLIQ[_so])
+            array.push(_paNm, "SPR")
+            array.push(_paFr, kSPR[_so])
+            array.push(_paNm, "ENG")
+            array.push(_paFr, kENG[_so])
+            array.push(_paNm, "3BR")
+            array.push(_paFr, k3B[_so])
+            array.push(_paNm, "H50")
+            array.push(_paFr, kH50[_so])
+            array.push(_paNm, "H200")
+            array.push(_paFr, kH200[_so])
+            array.push(_paNm, "IN3")
+            array.push(_paFr, kIN3[_so])
+            array.push(_paNm, "NR7")
+            array.push(_paFr, kNR7[_so])
+            array.push(_paNm, "IBN")
+            array.push(_paFr, kIBNR7[_so])
+    for i = 0 to PA_LAST_COL - 1
+        string _nm = i < array.size(_paNm) ? array.get(_paNm, i) : ""
+        bool   _fr = i < array.size(_paNm) ? array.get(_paFr, i) : false
+        table.cell(pnl, i + 1, 22, _nm, text_size=f_size(panel_size), text_color=_fr ? C_BADGE_TXT : C_SOFTTXT, bgcolor=_fr ? C_BADGE_BG : _paBg, text_halign=text.align_center)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was
     // never written and rendered BLANK — which reads as missing data, not "n/a".
@@ -5136,6 +5231,7 @@ if show_panel and d_panel and barstate.islast
     color _status_col = go_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
     color _stBg = f_softBg(_status_col)
     table.cell(pnl, 0, 24, "STATUS", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
+    table.merge_cells(pnl, 1, 24, PA_LAST_COL, 24)
     table.cell(pnl, 1, 24, _status, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
 
     // ======================================================================
@@ -5376,6 +5472,7 @@ if show_panel and d_panel and barstate.islast
     if show_analysis
         color _verBg = f_softBg(_anCol)
         table.cell(pnl, 0, 25, "VERDICT", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)
+        table.merge_cells(pnl, 1, 25, PA_LAST_COL, 25)
         table.cell(pnl, 1, 25, "➤ " + _aVer, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
