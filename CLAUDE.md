@@ -2209,4 +2209,79 @@ Recovery re-baseline finished — see the next section.
 
 ---
 
+## 30 July 2026 (cont.) — Pyramid ADDs on the board · union refresh · 13 S4 GO alerts
+
+Branch `phase0-1-attribution-journal-snapshot`. Commits `1ee3d3b` · `9057d9a` · `22c2f4b` ·
+`95f1e21` · `f4a3991` (+ this). S4 v6.3 is the compiled build; v6.4/6.5 were reverted (ceiling).
+
+### A. PYRAMID ADDs surface on the Trigger Board
+Modelled as INHERITED QUALIFICATION, not new logic: a holding `pyramid_logic` rates ADD is a
+qualified name from a different SOURCE, and the board times it with the unchanged
+`gm_evaluate()`. Jay then goes to S4 — the two-stage doctrine applied to adds.
+- **NEW `pyramid_logic.export_portfolio_watchlist()` → `FINAL_Portfolio_Picks.csv`**, written by
+  the auto-pilot (`run_pipeline` Phase 5). A peer of the nine `FINAL_*.csv`: ALL holdings, the
+  same `technical_enrichment.enrich_dataframe` the matcher applies, plus 8 pyramid columns
+  (`Pyr_Class · Qty · Avg · R_Mult · Add_SL · Pyr_Trigger · Corr_Max · Corr_With`). Enrichment
+  BEFORE the write (saving first blanks Tech_Score → corrupts Combined_Score).
+- Board reads the CSV (a file read, like the others); only `Pyr_Class == ADD` becomes a
+  `Pyramid` row. TRIM/REDUCE/EXIT stay on the Pyramid/Risk-Shield pages — this is a BUY board.
+  `PYRAMID_ARCHETYPE` registered in `BULL_ARCHETYPES` + `STRUCTURAL_BULL_ARCHETYPES` so the
+  break-down guard applies (it matters more on a name already owned).
+- **ONE new column `Pos`** (43 columns already): `24 @ 1049.2 · SL→1144.0 · add 3 @1%`. Entry/SL/
+  R:R above already carry the ADD's plan, so the only new information is what is held.
+- **Sizing = 1% per add** (Jay's call), off the RAISED Chandelier, as its own `pyr_risk_pct`
+  setting so it never moves the 0.25% new-entry sizer. Computed at ROW-BUILD time from the live
+  CMP — sizing off the held average produced NO quantity on every winner, because a raised
+  Chandelier sits above the average by definition.
+- **Correlation gate** (`9057d9a`): measured against the REST of the book, self excluded.
+  Reuses `ai_risk_manager.get_portfolio_correlation_matrix` and IMPORTS
+  `CORRELATION_BLOCK/WARN` from `sniper_trigger` so board/sniper/producer share ONE rule.
+  Surfaced (`⛔ r0.93 X`), never used to hide a row — correlation is RISK, Category is TIMING.
+  Failure reads `corr n/a`, never "clear".
+- **Live book: 15 holdings, 1 ADD (SAILIFE), 2 TRIM, 6 HOLD, 2 REDUCE, 4 EXIT.**
+  **Max pairwise |r| = 0.46** — the book is genuinely diversified, which CONTRADICTS the
+  "21 stocks, effective N ~4" critique. The gate will rarely fire; that is the right outcome.
+- ⚠️ `capital` in gm_settings is **₹50,000** — if that is a placeholder every add size is wrong.
+- NOT built (flagged): `pre_trade_gate` on Pyramid rows.
+
+### B. Refresh cadence + window plumbing
+- `75m+125m bar-close` Live option — rebuilds on all SEVEN closes (10:30·11:20·11:45·13:00·
+  13:25·14:15·15:30). **Persisted** to `gm_settings.board_live` and now the default: it lived in
+  session_state, so a reconnect reset it, and on plain "75m" the board never rebuilt at 11:20 or
+  13:25 — a 13:30 check-in silently read a **13:00** board.
+- **Page persistence** — the nav page lived only in session_state (dies with the websocket), so
+  the app fell back to `DASHBOARD`. New `_goto_page()` mirrors it to `?p=`; all three nav sites
+  route through it. `?view=` pop-outs were always immune (they read the URL every run).
+- **Per-window TF override `?tf=75m|125m|Daily`** + two buttons (75m green / 125m amber). Two
+  pop-outs can watch both TFs with no switching. Honoured only on a `?view=` pop-out, renders a
+  caption not a widget (a widget would be re-forced and read as fighting back), and NEVER writes
+  `trigger_tf` back to gm_settings or the pop-out would hijack the main window.
+- **Jay's check-in schedule audited: 2 of 5 mappings were wrong.** 11:50 is NOT the 125m 1st
+  close (that is 11:20, 30 min stale by then); 13:30 is NOT the 75m 3rd (that is 13:00). He
+  catches 6 of 8 instances, 4 of the 6 actionable ones (15:30 is post-close). Conclusion: the
+  board is the ARM stage and does not decay in 30 min — **close the gap with alerts, not more
+  screen time.**
+
+### C. 13 S4 GO alerts created on TradingView (75m · Once per bar close)
+APOLLOHOSP · CHENNPETRO · GLAXO · INDGN · LALPATHLAB · MANAPPURAM · RADICO · REDINGTON ·
+SAILIFE · TATATECH · TECHM · TITAN · VIJAYA. (COLPAL created then deleted per Jay — it is the
+unresolved Pine-Stage-4-vs-Python-Stage-1 name.)
+- `mcp__tradingview__alert_create` is **price-only** and cannot make an `alertcondition` alert;
+  they were made by driving the dialog. Full recipe + traps in [[tv_alert_automation_recipe]]
+  (DPR-scaled screenshot coords, synthetic events unreliable, async in ui_evaluate silently
+  doesn't run, and **`Clone` in the row context menu is the faster route next time**).
+- **A RECOMPILE LOSES ALERTS, not just stales them** — the two JBCHEPHARM S4 GO alerts, bound to
+  an older `pine_id`, vanished when the dialog opened against the recompiled script. After the
+  next S4 compile all 13 must be recreated. Treat it as mandatory.
+- SAILIFE was API-verified in full (`alert_cond_id plot_22`, `on_bar_close`, `resolution 75`,
+  current v6.3 pine_id / 246 inputs). The other 12 rest on the helper's pre-Create guard (it
+  only clicks Create when sub-condition AND trigger read back correctly) plus panel confirmation
+  of symbol + TF — a structural guarantee, not 12 individual API reads.
+
+### Standing
+Restart Web Commander (board_live default, TF override, Pos column) and rebuild the board.
+Recovery re-baseline result still unreported. Branch unpushed, ~9 commits ahead of origin.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
