@@ -375,7 +375,62 @@ PORTFOLIO_PICKS_CSV = os.path.join(_DIR, "FINAL_Portfolio_Picks.csv")
 # The pyramid-specific columns, appended beyond the golden schema. These cannot be
 # derived from the golden columns — they need the journal (qty/avg/stop) and the
 # catalyst-aware Chandelier — so they ride alongside rather than inside it.
-PYR_EXTRA_COLS = ["Pyr_Class", "Qty", "Avg", "R_Mult", "Add_SL", "Pyr_Trigger"]
+PYR_EXTRA_COLS = ["Pyr_Class", "Qty", "Avg", "R_Mult", "Add_SL", "Pyr_Trigger",
+                  "Corr_Max", "Corr_With"]
+
+# Correlation gate — the SAME thresholds and the SAME helper sniper_trigger E7 uses, so a
+# pyramid add is judged by the identical rule as a new entry. Imported from there rather
+# than restated, so the two can never drift apart.
+try:
+    from sniper_trigger import CORRELATION_BLOCK as CORR_BLOCK, CORRELATION_WARN as CORR_WARN
+except Exception:                                        # pragma: no cover
+    CORR_BLOCK, CORR_WARN = 0.90, 0.75
+
+
+def _corr_against_book(symbols: list) -> dict:
+    """Max |r| of each holding against the OTHER holdings -> {sym: (r, partner)}.
+
+    Adds are where correlation bites hardest: a new name at least adds a new bet, while an
+    add doubles down on one you already carry. So this measures each name against the REST
+    of the book, EXCLUDING itself — self-correlation is 1.0 and would block everything.
+
+    Computed here, in the auto-pilot producer, rather than at board-build time: it fetches
+    return history for the whole book, and daily-returns correlation does not move
+    meaningfully within a session. Failure returns {} — the gate then reports "n/a" rather
+    than silently reading as SAFE, which is the direction that matters for a risk check.
+    """
+    out: dict = {}
+    if not symbols or len(symbols) < 2:
+        return out
+    try:
+        from ai_risk_manager import get_portfolio_correlation_matrix
+        cdf, _shadows, _div = get_portfolio_correlation_matrix(list(symbols))
+        if cdf is None or cdf.empty:
+            return out
+        # The helper suffixes ".NS"; map back to the bare symbols we were given.
+        col_of = {}
+        for c in cdf.columns:
+            col_of[str(c).replace(".NS", "").upper()] = c
+        for s in symbols:
+            key = str(s).upper()
+            c_self = col_of.get(key)
+            if c_self is None:
+                continue
+            best_r, best_p = 0.0, None
+            for other_key, c_other in col_of.items():
+                if other_key == key:
+                    continue
+                try:
+                    r = float(cdf.loc[c_self, c_other])
+                except Exception:
+                    continue
+                if r == r and abs(r) > abs(best_r):      # r == r filters NaN
+                    best_r, best_p = r, other_key
+            if best_p:
+                out[key] = (round(best_r, 2), best_p)
+    except Exception:
+        return out
+    return out
 
 
 def export_portfolio_watchlist(path: str = None, silent: bool = False) -> str | None:
@@ -421,6 +476,16 @@ def export_portfolio_watchlist(path: str = None, silent: bool = False) -> str | 
             print("[OK] FINAL_Portfolio_Picks.csv — header only (no open positions)")
         return out_path
 
+    # One correlation pass over the whole book, then each row reads its own worst pair.
+    _syms = []
+    for _, r in df.iterrows():
+        _s = str(r.get("symbol") or "").strip().upper().replace("NSE:", "").replace("BSE:", "")
+        if _s.endswith(".NS"):
+            _s = _s[:-3]
+        if _s:
+            _syms.append(_s)
+    corr = _corr_against_book(_syms)
+
     rows = []
     for _, r in df.iterrows():
         sym = str(r.get("symbol") or "").strip().upper()
@@ -441,6 +506,8 @@ def export_portfolio_watchlist(path: str = None, silent: bool = False) -> str | 
             "R_Mult":      (round(float(r["r_mult"]), 2) if _numok(r.get("r_mult")) else None),
             "Add_SL":      (round(float(add_sl), 2) if _numok(add_sl) else None),
             "Pyr_Trigger": str(r.get("trigger") or ""),
+            "Corr_Max":    (corr.get(sym) or (None, None))[0],
+            "Corr_With":   (corr.get(sym) or (None, None))[1],
         })
     out = pd.DataFrame(rows, columns=cols)
 

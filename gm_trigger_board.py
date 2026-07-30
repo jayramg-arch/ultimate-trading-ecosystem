@@ -156,6 +156,14 @@ def _gm_setting(key: str, default):
 
 PORTFOLIO_PICKS = "FINAL_Portfolio_Picks.csv"
 
+# Correlation-gate thresholds for the Pos column. Imported from sniper_trigger so the
+# board, the sniper gate and the producer all judge an add by ONE rule.
+try:
+    from sniper_trigger import (CORRELATION_BLOCK as PYR_CORR_BLOCK,
+                                CORRELATION_WARN as PYR_CORR_WARN)
+except Exception:                                    # pragma: no cover
+    PYR_CORR_BLOCK, PYR_CORR_WARN = 0.90, 0.75
+
 
 def load_pyramid_adds() -> dict:
     """Holdings the auto-pilot flagged ADD, from FINAL_Portfolio_Picks.csv.
@@ -206,7 +214,12 @@ def load_pyramid_adds() -> dict:
         out[s] = {"qty": _to_num(r.get("Qty")), "avg": _to_num(r.get("Avg")),
                   "r_mult": _to_num(r.get("R_Mult")), "add_sl": _to_num(r.get("Add_SL")),
                   "reason": str(r.get("Pyr_Trigger") or ""),
-                  "capital": cap, "risk_pct": rpc}
+                  "capital": cap, "risk_pct": rpc,
+                  # Correlation gate, precomputed by the auto-pilot producer against the
+                  # REST of the book (self excluded). Absent column = older CSV format;
+                  # reported as n/a rather than defaulting to safe.
+                  "corr_max": _to_num(r.get("Corr_Max")) if "Corr_Max" in df.columns else None,
+                  "corr_with": (str(r.get("Corr_With") or "") if "Corr_With" in df.columns else "")}
     return out
 
 
@@ -240,6 +253,18 @@ def _pos_text(pyr: dict | None, cmp_px=None) -> str:
     else:
         q = int((cap * rpc / 100.0) // (ref - sl))
         bits.append(f"add {q} @{rpc:g}%" if q > 0 else f"add <1 sh @{rpc:g}%")
+    # CORRELATION GATE — same thresholds as sniper_trigger E7 (block 0.90 / warn 0.75),
+    # measured against the REST of the book. It is surfaced, never used to hide the row:
+    # correlation is a RISK read and Category is a TIMING read, so suppressing the row
+    # would lose the timing information to make a risk point. Per the catalyst-gate
+    # philosophy, structure fires and quality is status Jay eyeballs.
+    r, w = pyr.get("corr_max"), (pyr.get("corr_with") or "")
+    if r is None:
+        bits.append("corr n/a")
+    elif abs(r) >= PYR_CORR_BLOCK:
+        bits.append(f"⛔ r{abs(r):.2f} {w}")
+    elif abs(r) >= PYR_CORR_WARN:
+        bits.append(f"⚠ r{abs(r):.2f} {w}")
     return " · ".join(bits)
 
 
