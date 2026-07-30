@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.1 (Verdict = Direction)", shorttitle="S4 Entry v6.1", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.2 (Panel Order)", shorttitle="S4 Entry v6.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -4717,12 +4717,12 @@ if show_panel and d_panel and barstate.islast
     string _locVerb = "Zone " + (_lzZone ? "✓" : "·") + "   D/W-lvl " + (_lzLvl ? "✓" : "·") + "   AVWAP " + (_lzAv ? "✓" : "·") + "   EMA20 " + (_lzEma ? "✓" : "·") + "   S/R " + (_lzSr ? "✓" : "·")
     string _locTxt  = (support_v ? "AT LOCATION" : "NOT AT LOCATION") + "   —   " + _locVerb
     color  _locCol  = support_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
-    f_row(16, "Location (L)", _locTxt, _locCol)
+    f_row(19, "Location (L)", _locTxt, _locCol)
 
     // --- Confluence breakdown: WHICH ones fired, not just how many. A bare score
     // is its own kind of black box — this is the row that replaces eyeballing.
     string cfb = (ev_ok[_so] ? "AVWAP " : "") + (show_intraday and intra_ok[_so] ? "Intra " : "") + (z_inDZ_fvg[_so] ? "⚡ " : "") + (z_inDZ_ctrl[_so] ? "Ctrl " : "") + (near_sr[_so] ? "S/R " : "") + (tl_extra[_so] ? "TL " : "") + (bullFlag[_so] ? "Flag " : "") + (near_ema[_so] ? "EMA20 " : "") + (near_avwap[_so] ? "AVWL " : "") + (near_fib[_so] ? "Fib " : "") + (pinched[_so] ? "Pinch " : "") + (chart_rv[_so] >= cf_rv_strong ? "RV+ " : "") + (near_round[_so] ? "Rnd " : "") + (daily_pa_agrees[_so] ? "D-PA " : "") + (show_arrival and arr_fav[_so] ? "Arrival " : "") + (show_arrival and of_absorb[_so] ? "Δ+ " : "") + (_dzTfN[_so] >= 2 ? "MTF×" + str.tostring(_dzTfN[_so]) : "")
-    f_row(15, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : str.length(cfb) == 0 ? "—" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? color.new(#00e676,0) : cf_v > 0 ? color.new(#26a69a,0) : color.gray)
+    f_row(18, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : str.length(cfb) == 0 ? "—" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? color.new(#00e676,0) : cf_v > 0 ? color.new(#26a69a,0) : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
     // volume-delta absorption read. "— (not at a zone)" when price is in open space.
@@ -4874,7 +4874,7 @@ if show_panel and d_panel and barstate.islast
     f_row(8, _emaLbl, ema_txt, ema_col)
 
     // --- RV (volume): its own colour-coded field ---
-    f_row(17, "RV (rel vol · " + timeframe.period + ")", str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
+    f_row(20, "RV (rel vol · " + timeframe.period + ")", str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
 
     // Bar (B) — verbose, own row (24-Jul, Jay's PLVB sequence). Placed at row 25 (not
     // immediately after 12): rows 13/14 are Confluence/Arrival and 15 is the raw-numbered
@@ -4889,10 +4889,10 @@ if show_panel and d_panel and barstate.islast
     string _barDesc = _bGreen ? "green candle (bullish close)" : ("red candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + (bar_ok_v ? " — upper half, shakeout OK" : " — lower half, weak/distribution"))
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? color.new(#26a69a,0) : color.new(#ef5350,0)
-    f_row(18, "Bar (B)", _barTxt, _barCol)
+    f_row(21, "Bar (B)", _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
-    table.cell(pnl, 0, 20, "TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(trig_col, 65), text_halign=text.align_left)
-    table.cell(pnl, 1, 20, trig_txt, text_size=f_size(panel_size), text_color=trig_col, bgcolor=color.new(trig_col, 84), text_halign=text.align_right)
+    table.cell(pnl, 0, 23, "TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(trig_col, 65), text_halign=text.align_left)
+    table.cell(pnl, 1, 23, trig_txt, text_size=f_size(panel_size), text_color=trig_col, bgcolor=color.new(trig_col, 84), text_halign=text.align_right)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
     // stop). Priority: demand-zone distal (in-zone → nearest below) → recent swing low →
@@ -4981,7 +4981,7 @@ if show_panel and d_panel and barstate.islast
              ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (_retestLive ? " (true retest)" : " = trigger close — fills as MARKET, not a retest")
              : "Buy-stop above the trigger bar"
         _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + _ageTag + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
-    f_row(23, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
+    f_row(26, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
     string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
@@ -4993,7 +4993,7 @@ if show_panel and d_panel and barstate.islast
     string _lT1 = na(pl_t1) ? " · T1 —" : " · T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·lvl" : "") + ")"
     string _lT2 = na(pl_t2) ? (na(pl_t1) ? " · T2 —" : " · T2 open") : " · T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·lvl" : "") + ")"
     string _lvlTxt = na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2)
-    f_row(24, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : color.new(#26a69a,0))
+    f_row(27, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : color.new(#26a69a,0))
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.
     float _riskAmt = size_cap * active_risk / 100.0
@@ -5002,13 +5002,13 @@ if show_panel and d_panel and barstate.islast
     int   _qtyF   = math.min(_qtyR, _qtyC)
     string _dynTag = not use_dyn_risk ? "" : " (" + str.tostring(size_risk, "0.00") + "b ×" + str.tostring(kelly_mult, "0.00") + "K" + (vol_disc < 1.0 ? " ×" + str.tostring(vol_disc, "0.00") + "V" : "") + (not mkt_health ? " bear−" : "") + ")"
     string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + " · risk ₹" + str.tostring(_riskAmt, "0") + _dynTag)
-    f_row(25, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : color.new(#26a69a,0))
+    f_row(28, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : color.new(#26a69a,0))
 
     if en_wcl
         string _wcl_val_str = _wcl_score_band + " (+" + str.tostring(_total_final) + ")" + (_setup_pri > 0 ? "  ·  " + _setup_str : "")
-        f_row(27, "WCL Context", _wcl_val_str, _wcl_score_col)
-        f_row(28, "Structure Health", _struct_str, _struct_col)
-        f_row(29, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + ")" : ""), _vp_pos_col)
+        f_row(15, "WCL Context", _wcl_val_str, _wcl_score_col)
+        f_row(16, "Structure Health", _struct_str, _struct_col)
+        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + ")" : ""), _vp_pos_col)
 
     // --- PA CONDITIONS: compact grid, every condition shown fired(✓)/quiet(·); mode-aware ---
     string tf_suffix = use_chart_tf ? timeframe.period : "EOD"
@@ -5025,8 +5025,8 @@ if show_panel and d_panel and barstate.islast
     string _g3 = is_rec_v ? f_it("30WMA",kRECLAIM[_so])                                              : f_it("SPR",kSPR[_so])+f_it("ENG",kENG[_so])+f_it("3BR",k3B[_so])
     string _g4 = is_rec_v ? "" : f_it("H50",kH50[_so])+f_it("H200",kH200[_so])+f_it("IN3",kIN3[_so])+f_it("NR7",kNR7[_so])+f_it("IBN",kIBNR7[_so])
     string _allPA = _g0 + _g1 + _g2 + _g3 + _g4
-    table.cell(pnl, 0, 19, _hdr, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#455a64, 0), text_halign=text.align_left)
-    table.cell(pnl, 1, 19, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=color.white, bgcolor=pa_col_v, text_halign=text.align_left)
+    table.cell(pnl, 0, 22, _hdr, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#455a64, 0), text_halign=text.align_left)
+    table.cell(pnl, 1, 22, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=color.white, bgcolor=pa_col_v, text_halign=text.align_left)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was
     // never written and rendered BLANK — which reads as missing data, not "n/a".
@@ -5049,8 +5049,8 @@ if show_panel and d_panel and barstate.islast
     // "off/inactive"; amber reads as "armed, waiting for the gate" — the honest state
     // when the engine is live. Green only on a real GO.
     color _status_col = go_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
-    table.cell(pnl, 0, 21, "STATUS", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(_status_col, 55), text_halign=text.align_left)
-    table.cell(pnl, 1, 21, _status, text_size=f_size(panel_size), text_color=_status_col, bgcolor=color.new(_status_col, 88), text_halign=text.align_right)
+    table.cell(pnl, 0, 24, "STATUS", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(_status_col, 55), text_halign=text.align_left)
+    table.cell(pnl, 1, 24, _status, text_size=f_size(panel_size), text_color=_status_col, bgcolor=color.new(_status_col, 88), text_halign=text.align_right)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
@@ -5288,8 +5288,8 @@ if show_panel and d_panel and barstate.islast
     // The verdict is now exactly four lines: ruling · why · the one caveat · the action.
     _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
-        table.cell(pnl, 0, 22, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
-        table.cell(pnl, 1, 22, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
+        table.cell(pnl, 0, 25, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
+        table.cell(pnl, 1, 25, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
     // ACTUALLY being sensed, not just drawn on the chart — the toggle + source wiring
