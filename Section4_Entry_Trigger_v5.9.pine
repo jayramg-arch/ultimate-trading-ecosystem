@@ -4659,11 +4659,13 @@ var table pnl = table.new(f_pos(panel_pos), 2, 30, bgcolor=color.new(#131722, 0)
 // colour, matching how Weinstein colours label AND value together (e.g. its whole
 // "RECOMMENDATION" row is one orange block, not orange text on black).
 f_softBg(color c) =>
-    int _r = color.r(c)
-    int _g = color.g(c)
-    int _b = color.b(c)
-    int _mx = math.max(_r, math.max(_g, _b))
-    int _mn = math.min(_r, math.min(_g, _b))
+    // color.r/g/b() return FLOAT here (not int, despite the 0-255 docs description) —
+    // an explicit `int _r = color.r(c)` fails to compile ("series float" -> "const int").
+    float _r = color.r(c)
+    float _g = color.g(c)
+    float _b = color.b(c)
+    float _mx = math.max(_r, math.max(_g, _b))
+    float _mn = math.min(_r, math.min(_g, _b))
     _mx - _mn < 25 ? #AEB7C2 : _b > _r and _b > _g ? #8FC1EA : _r > 200 and _g > 100 and _b < 120 ? #F0B86E : _g >= _r and _g >= _b ? #7FCFC0 : #F1A7A0
 C_SOFTTXT = color.new(#10202E, 0)
 f_row(int r, string k, string vv, color vc) =>
