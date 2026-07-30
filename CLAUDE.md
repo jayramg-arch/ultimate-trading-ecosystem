@@ -2159,8 +2159,53 @@ ceiling. Net −23 lines and −1,741 bytes of string-concat vs +~600 added → 
 **VERDICT is now exactly four lines: ruling · why · the one caveat · the action.**
 
 ### Pending
-Jay to compile v6.1. Sweep clean (0 odd-quote, paren depth 0, 24 unique `f_row` ids, indentation
-verified 8/12/16). Recovery re-baseline still running (`biv88cxey`, ~5.5h).
+Jay compiled v6.1/v6.2/v6.3 clean. Sweep clean (0 odd-quote, paren depth 0, 24 unique `f_row` ids).
+
+### ⛔ S4 IS AT THE COMPILED-TOKEN CEILING — read before adding ANYTHING
+**`Section4_Entry_Trigger_v5.9.pine` (v6.3) compiles at ~100,069 of a 100,256 limit — ~190 tokens
+of headroom, 0.2%.** A CONTEXT row (Stage · RRG · RS vs N500 · Weekly trend · 30WMA · RSI) was
+built as v6.4/v6.5 and **failed at 102,602**. Both reverted (`85f1f5b`, `8b2e373`); the file is
+byte-identical to the compiled-clean v6.3 again. **Any future addition needs an equivalent removal.**
+
+**Cost model (measured, not guessed):** ~**2.43 compiled tokens per source token** (42,234 src →
+102,602). **A string LITERAL is ONE token regardless of length** — which is why newlines inside
+strings are free, and why *trimming tooltips or comments saves nothing*. Cost lives in OPERATIONS:
+each `+` concat, ternary, call, comparison. So dense logic and long concat chains are the expense.
+
+**Measured cost of removable blocks** (use these, don't re-derive):
+| block | lines | ~compiled |
+|---|---:|---:|
+| Manual trendline anchors (`tls_`/`tlr_`) | 56 | ~3,003 |
+| Arrival + order-flow Δ | 29 | ~1,968 |
+| Geometry / shape classifier | 31 | ~1,600 |
+| Pinch detection | 11 | ~1,445 |
+| External trendline bridge (`tl_ext`) | 17 | ~1,351 |
+| Manual consolidation box (`box_`) | 12 | ~507 |
+
+**THE KEY FINDING — 4 of the 6 requested fields were already free:**
+- **Stage** (`stage_n`) and **30WMA trend** (`_wma_st`, three states from `d_bel30`/`d_s150dn`) are
+  **ALREADY ON THE PANEL** — the Structure basis row reads `Stage 2 · 0.2% off52 · above 30WMA ·
+  >200DMA`. A new row would have duplicated them (the same restatement problem the v6.1 VERDICT fix
+  removed).
+- **RS vs N500** — `rsRatio` / `rsSlope` already exist off an EXISTING CNX500 call. Free as a
+  *direction*; it is a 60-bar linreg slope, NOT v67's JdK/Mansfield ×100, so it will not tie to v67.
+- **RSI(D)** — `rsi14` is already computed inside `f_daily_pa`, just not returned. One extra tuple
+  element = no new computation, no new security call. (v6.5 spent a dedicated call on it only to
+  avoid touching the parity-critical battery.)
+- **Genuinely new / expensive:** RRG quadrant + gradient (~505 + 1 security call) and Weekly Trend
+  (`f_getStrictTrend` port, ~700).
+
+**Cheapest path when this resumes (Jay's call, deferred):** append RS + RSI(D) to the EXISTING
+Structure basis row — ~125 compiled tokens, **fits in the current headroom with no cut at all**.
+RRG + Weekly Trend need ~1,200 freed; the manual box (~507) + the geometry classifier (~1,600,
+already documented broken — it calls rectangles "symmetrical triangles" on APOLLOHOSP/GLAXO) covers
+it. **Status: HOLDING — Jay deferred all new additions.**
+
+Structural note: at 0.2% headroom, duplicating v67's reads inside S4 is the wrong direction. The
+scalable alternative is S4 consuming v67's computed values via `input.source` (the pattern it
+already uses for `S4_Trendline_Tool`), which is ~2 tokens per field AND zero-drift by construction.
+
+Recovery re-baseline finished — see the next section.
 
 ---
 
