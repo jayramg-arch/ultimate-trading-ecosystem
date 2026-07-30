@@ -804,6 +804,17 @@ deployed_pct = round((total_deployed_g / total_cap) * 100, 1) if total_cap > 0 e
 _qview = st.query_params.get("view")
 is_maximized_board = (_qview == "gm_board_maximized")
 is_gm_window = (_qview == "gm_window")
+if "page" not in st.session_state and _qview is None:
+    # PAGE PERSISTENCE (30-Jul, Jay: "sometimes it goes back to its default page").
+    # The nav page lived ONLY in st.session_state, which dies with the websocket session
+    # — tab backgrounded/slept, network blip, or a server restart — so the next run fell
+    # through to the ('page','DASHBOARD') default below. The ?view= pop-outs never had
+    # this problem precisely because they derive the page from the URL on every run.
+    # Restore-only (guarded on a FRESH session) so it can never fight a nav click.
+    _qp = st.query_params.get("p")
+    if _qp:
+        st.session_state["page"] = str(_qp)
+
 if is_maximized_board or is_gm_window:
     st.session_state["page"] = "GOLDEN MATCHER"
     if is_maximized_board:
@@ -824,6 +835,18 @@ if is_maximized_board or is_gm_window:
     }
     </style>
     """, unsafe_allow_html=True)
+
+def _goto_page(key: str):
+    """Set the nav page AND mirror it to the URL (?p=), so a websocket reconnect or a
+    server restart restores where you were instead of snapping back to DASHBOARD.
+    One helper for every nav site — three call sites set the page, and they must not
+    drift into some persisting and some not."""
+    st.session_state["page"] = key
+    try:
+        st.query_params["p"] = key
+    except Exception:
+        pass                       # older Streamlit / read-only params — nav still works
+
 
 for k, v in [
     ('page','DASHBOARD'), ('huntertab','SCANNERS'), ('watchlisttab','GENERATION'),
@@ -1125,7 +1148,7 @@ with st.sidebar:
             launch_script("run_pipeline.py")
         except Exception as _ape:
             st.error(f"Auto-Pilot launch failed: {_ape}")
-        st.session_state["page"] = "WATCHLIST"
+        _goto_page("WATCHLIST")
         st.session_state["wf_run_trigger"] = True   # consumed by WATCHLIST page so it scrolls to the run-status section
         st.rerun()
 
@@ -1197,7 +1220,7 @@ with st.sidebar:
                 if page_key in EXTERNAL_PAGES:
                     launch_script(EXTERNAL_PAGES[page_key], is_streamlit=True)
                 else:
-                    st.session_state.page = page_key
+                    _goto_page(page_key)
                     st.rerun()
 
     # (Watchlist quick-access removed to declutter sidebar)
@@ -1982,9 +2005,16 @@ def _expected_last_session():
 def _gm_bar_close_times(tf: str):
     """NSE 9:15–15:30 session bar-CLOSE clock times (h, m) for a trading TF. The
     375-min session tiles EXACTLY: 5×75m and 3×125m, so both land on 15:30."""
+    _t75 = [(10, 30), (11, 45), (13, 0), (14, 15), (15, 30)]
+    _t125 = [(11, 20), (13, 25), (15, 30)]
     if tf == "125m":
-        return [(11, 20), (13, 25), (15, 30)]
-    return [(10, 30), (11, 45), (13, 0), (14, 15), (15, 30)]   # 75m (default)
+        return _t125
+    # UNION (30-Jul, Jay): rebuild on EVERY 75m and 125m close — 7 distinct times, since
+    # 15:30 is shared. Cadence only; the PA timeframe is still the Trigger-TF, so this
+    # makes the board fresher, it does NOT add 125m signals to a 75m board.
+    if tf == "75m+125m":
+        return sorted(set(_t75) | set(_t125))
+    return _t75                                                # 75m (default)
 
 
 def _gm_last_passed_boundary(tf: str, settle_s: int = 75, now=None):
@@ -4396,7 +4426,7 @@ if page == 'DASHBOARD':
             st.markdown(f'<div style="font-size:0.85rem;line-height:1.65;color:#c9d1d9;">{_db_snippet}</div>',
                         unsafe_allow_html=True)
             if st.button("📖 Open Full Brief in PRE-MARKET", key="db_full_brief"):
-                st.session_state.page = "PRE-MARKET"; st.rerun()
+                _goto_page("PRE-MARKET"); st.rerun()
         else:
             st.caption(
                 "No cached report yet. Generate one here for the snippet, OR open "
@@ -12184,7 +12214,7 @@ elif page == 'GOLDEN MATCHER':
                 # a CLOSED bar — the definitive fix for the forming-bar fade that made
                 # board vs Single Symbol disagree (Jay trades the 75m TF). Default to
                 # the bar-close mode matching the selected Trigger-TF.
-                _live_opts = ["Off", "75m bar-close", "125m bar-close",
+                _live_opts = ["Off", "75m bar-close", "125m bar-close", "75m+125m bar-close",
                               "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"]
                 if "gm_board_live" not in st.session_state:
                     st.session_state["gm_board_live"] = (
@@ -12562,7 +12592,10 @@ elif page == 'GOLDEN MATCHER':
             # ── Streaming AG-Grid (Option B): live PRICE via Dhan MarketFeed +
             #    AG-Grid native cell-flash; heavy DECISIONS recompute on cadence. ──
             _bar_mode = _live.endswith("bar-close")             # 75m/125m aligned
-            _bar_tf = "125m" if _live.startswith("125") else "75m"
+            # Order matters: test the UNION label before the "125" prefix test, or
+            # "75m+125m" would fall through to plain 75m and silently drop 11:20/13:25.
+            _bar_tf = ("75m+125m" if _live.startswith("75m+125m")
+                       else "125m" if _live.startswith("125") else "75m")
             _iv_sec = {"1 min": 60, "2 min": 120, "3 min": 180, "5 min": 300,
                        "10 min": 600, "15 min": 900}.get(_live, 0)
             _stream_ok = True
