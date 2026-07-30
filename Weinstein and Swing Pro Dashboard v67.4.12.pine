@@ -1,5 +1,18 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.14]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.15]", overlay=true, max_bars_back=5000, max_lines_count=500)
+// v67.4.15 (30 Jul 2026): SOFT PALETTE PORTED FROM S4 (Jay: "replicate the same colour
+//   palette back to Weinstein Dashboard from S4 Entry Trigger"). f_softBg + C_SOFTTXT
+//   ported verbatim from Section4_Entry_Trigger_v5.9.pine — same classifier, same five
+//   pastel outputs, same dark-navy text — so the two panels are one system rather than
+//   two independently hand-tuned near-matches. Rewired the THREE SHARED row functions
+//   (drawRowL/drawRowR/drawRowC) rather than any of the ~69 call sites: every call site
+//   passes the identical trailing (C_LBL, C_LBL_TXT, C_VAL_TXT) triple (verified before
+//   editing), so both the compressed (default) and detailed views get the new look for
+//   free. Also fixed the two "RECOMMENDED STYLE" banner rows, which draw direct
+//   table.cell pairs outside drawRow* and previously kept a fixed dark-navy label beside
+//   a raw-colour white-text value. Known, accepted simplification (same one S4 carries):
+//   C_LIME (#00c853, "strong bull") classifies into the same teal-green bucket as C_BULL
+//   (#26a69a) and loses its distinct brightness.
 
 // ==========================================
 // CHANGELOG v67.4.14 (2026-06-22) — Futures OI Build-up Integration
@@ -783,7 +796,7 @@ p8_sec  = input.string("Nifty IT", title="Sector", group=grpP6_10, inline="p8s",
 p8_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p8d", display=display.data_window)
 
 p9_tick = input.string("NSE:CAPLIPOINT", title="Slot 9", group=grpP6_10, inline="p9", display=display.data_window)
-p9_ent  = input.float(2549.2, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
+p9_ent  = input.float(2369.5156, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
 p9_sl   = input.price(2327.7, title="SL", group=grpP6_10, inline="p9", display=display.data_window)
 p9_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p9", display=display.data_window)
 p9_t1   = input.price(2998.5, title="T1", group=grpP6_10, inline="p9t", display=display.data_window)
@@ -803,49 +816,49 @@ p10_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP6_10, inl
 
 // --- GROUP 3: SLOTS 11-15 ---
 grpP11_15 = "3. Portfolio Slots 11-15"
-p11_tick = input.string("NSE:TRITURBINE", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
-p11_ent  = input.float(661.935, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
-p11_sl   = input.price(596.8, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
+p11_tick = input.string("NSE:ACUTAAS", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
+p11_ent  = input.float(3062.1, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
+p11_sl   = input.price(3065.8, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
 p11_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p11", display=display.data_window)
-p11_t1   = input.price(777.8, title="T1", group=grpP11_15, inline="p11t", display=display.data_window)
-p11_t2   = input.price(859.8, title="T2", group=grpP11_15, inline="p11t", display=display.data_window)
-p11_sec  = input.string("Capital Goods (BSE)", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
-p11_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
+p11_t1   = input.price(3927.2, title="T1", group=grpP11_15, inline="p11t", display=display.data_window)
+p11_t2   = input.price(4114.5, title="T2", group=grpP11_15, inline="p11t", display=display.data_window)
+p11_sec  = input.string("Nifty Commodities", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
+p11_date = input.time(0, title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
 
-p12_tick = input.string("NSE:ACUTAAS", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
-p12_ent  = input.float(3062.1, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
-p12_sl   = input.price(3065.8, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+p12_tick = input.string("NSE:LAURUSLABS", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
+p12_ent  = input.float(1377.1534, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sl   = input.price(1345.6, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p12", display=display.data_window)
-p12_t1   = input.price(3927.2, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
-p12_t2   = input.price(4114.5, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
-p12_sec  = input.string("Nifty Commodities", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
+p12_t1   = input.price(1701.0, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
+p12_t2   = input.price(1701.0, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
+p12_sec  = input.string("NSE:CNX500", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
 p12_date = input.time(0, title="Date", group=grpP11_15, inline="p12d", display=display.data_window)
 
-p13_tick = input.string("NSE:LAURUSLABS", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
-p13_ent  = input.float(1377.1534, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
-p13_sl   = input.price(1345.6, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
+p13_tick = input.string("NSE:GVT&D", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
+p13_ent  = input.float(5208.8945, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
+p13_sl   = input.price(3656.2, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
 p13_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p13", display=display.data_window)
-p13_t1   = input.price(1571.0, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
-p13_t2   = input.price(1701.0, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
-p13_sec  = input.string("NSE:CNX500", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
-p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
+p13_t1   = input.price(5382.8, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_t2   = input.price(6460.0, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_sec  = input.string("Infra", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
+p13_date = input.time(timestamp("2026-06-25"), title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
 
-p14_tick = input.string("NSE:GVT&D", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
-p14_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
-p14_sl   = input.price(4443.0, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+p14_tick = input.string("NSE:PAGEIND", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
+p14_ent  = input.float(41625.0, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sl   = input.price(39100.0, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p14", display=display.data_window)
-p14_t1   = input.price(5959.0, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
-p14_t2   = input.price(6460.0, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
-p14_sec  = input.string("Infra", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
-p14_date = input.time(timestamp("2026-06-25"), title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
+p14_t1   = input.price(44135.0, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
+p14_t2   = input.price(0.0, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
+p14_sec  = input.string("FMCG", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
+p14_date = input.time(timestamp("2026-07-09"), title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
 
-p15_tick = input.string("", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
-p15_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
+p15_tick = input.string("NSE:APOLLOHOSP", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
+p15_ent  = input.float(8876.228, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
 p15_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
 p15_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p15", display=display.data_window)
 p15_t1   = input.price(0.0, title="T1", group=grpP11_15, inline="p15t", display=display.data_window)
 p15_t2   = input.price(0.0, title="T2", group=grpP11_15, inline="p15t", display=display.data_window)
-p15_sec  = input.string("NSE:CNX500", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
+p15_sec  = input.string("Pharma", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
 p15_date = input.time(0, title="Date", group=grpP11_15, inline="p15d", display=display.data_window)
 
 
@@ -986,7 +999,7 @@ showAVWAP   = input.bool(true, title="Show Auto-Anchored VWAP (Stage 2 Start)", 
 // Styling
 groupStyle  = "Dashboard Style"
 show_detailed_view = input.bool(false, title="Show Detailed View (debug — expand all rows)", group=groupStyle, tooltip="v67.3.0: by default the Dashboard renders ~18 composite rows (Decision Mode). Toggle ON to expand back to the full ~60-row breakdown — useful for debugging or tuning, but slower to scan. All logic is unchanged either way; this only affects display density.")
-showStageBg = input.bool(true, title="Show Stage Background Colors", group=groupStyle, tooltip="Fills the chart background with Stage 1/2/3/4 colors.")
+stageBgMode = input.string("Ribbon (Bottom)", title="Stage Background Display", options=["Ribbon (Bottom)", "Full Chart", "Off"], group=groupStyle, tooltip="Ribbon (Bottom) displays a small visible ribbon row at the bottom of the chart for the 4 Weinstein stages (Stage 1 Yellow, Stage 2 Green, Stage 3 Orange, Stage 4 Red). Full Chart fills the entire background.")
 tablePos    = input.string(position.bottom_right, title="Position", options=[position.top_right, position.bottom_right, position.top_left, position.bottom_left], group=groupStyle)
 textSize    = input.string(size.normal, title="Data Size", options=[size.tiny, size.small, size.normal, size.large], group=groupStyle, tooltip="v67.4.13: default raised small→normal for readability (data text + icons). Section sub-headers (ACT NOW, STRUCTURE, …) are fixed at size.normal and unaffected. Flip to Large if you want data bigger still.")
 c_bg        = input.color(color.white, title="Background Color", group=groupStyle)
@@ -4627,21 +4640,47 @@ color  compPosStatusCol = timeWarnCol
 // ==========================================
 var table panel = table.new(tablePos, 4, 60, border_width=1, border_color=color.gray)  // v65.0: bumped 50→60 to accommodate recovery panel rows
 
+// #palette (30-Jul, Jay: "replicate the same colour palette back to Weinstein Dashboard
+// from S4 Entry Trigger"). Ported VERBATIM from Section4_Entry_Trigger_v5.9.pine — same
+// function name, same five hex outputs, same dark-text constant — so the two panels
+// read as one system rather than two hand-tuned near-matches that will drift apart the
+// next time either file is touched. f_softBg buckets a semantic colour by its DOMINANT
+// RGB CHANNEL into one fixed pastel; it is a classifier, not a per-row lookup table, so
+// whatever colour a row already computes (recColor / compWeeklyCol / persona_col / …)
+// gets the new look automatically. color.r/g/b() return FLOAT here despite the 0-255
+// range in the docs — an explicit `int` declaration fails to compile (S4 hit this first).
+f_softBg(color c) =>
+    float _r = color.r(c)
+    float _g = color.g(c)
+    float _b = color.b(c)
+    float _mx = math.max(_r, math.max(_g, _b))
+    float _mn = math.min(_r, math.min(_g, _b))
+    _mx - _mn < 25 ? #AEB7C2 : _b > _r and _b > _g ? #8FC1EA : _r > 200 and _g > 100 and _b < 120 ? #F0B86E : _g >= _r and _g >= _b ? #7FCFC0 : #F1A7A0
+C_SOFTTXT = color.new(#10202E, 0)
 
+// drawRowL/R/C previously painted the LABEL cell a fixed solid white (C_LBL) and only
+// the VALUE cell in the row's semantic colour — the two-tone look S4 replaced. All ~69
+// call sites across both the detailed and compressed views pass the SAME three trailing
+// constants (C_LBL, C_LBL_TXT, C_VAL_TXT), so they are read here for compatibility but no
+// longer drive the look — both cells now share ONE f_softBg(valColor) background + the
+// one dark-navy text colour, matching a full "RECOMMENDATION"-style block in S4.
 drawRowL(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
-    table.cell(tbl, 0, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
-    table.cell(tbl, 1, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_center)
+    color _bg = f_softBg(valColor)
+    table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+    table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_center)
 
 drawRowR(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
-    table.cell(tbl, 2, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
-    table.cell(tbl, 3, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_center)
+    color _bg = f_softBg(valColor)
+    table.cell(tbl, 2, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
+    table.cell(tbl, 3, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_center)
 
 // v67.3.0: full-width row for Decision-Mode (compressed view).
 // Merges columns 1-3 so the composite string can render across the whole cell.
 drawRowC(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
-    table.cell(tbl, 0, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
+    color _bg = f_softBg(valColor)
+    table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
     table.merge_cells(tbl, 1, r, 3, r)
-    table.cell(tbl, 1, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_left)
+    table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
 
 // v67.3.0: DETAILED VIEW — preserved verbatim, gated by show_detailed_view toggle.
 //   When OFF (default), control flows to the compressed render block below.
@@ -4670,8 +4709,12 @@ if barstate.islast and show_detailed_view
     rowR += 1
 
     // Trade Style Prominent Banner
-    table.cell(panel, 0, rowL, "RECOMMENDED STYLE", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, style_txt, bgcolor=style_col, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+    // #palette: this row is a direct table.cell pair (not through drawRow*), so it needs
+    // its own f_softBg call to match the rest of the panel rather than the old fixed
+    // dark-navy label / raw-colour-white-text value split.
+    color _styleBg = f_softBg(style_col)
+    table.cell(panel, 0, rowL, "RECOMMENDED STYLE", bgcolor=_styleBg, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, rowL, style_txt, bgcolor=_styleBg, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_center)
     table.merge_cells(panel, 1, rowL, 3, rowL)
     rowL += 1
     rowR += 1
@@ -4876,8 +4919,9 @@ if barstate.islast and not show_detailed_view
     row += 1
 
     // Trade Style Prominent Banner
-    table.cell(panel, 0, row, "RECOMMENDED STYLE", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, row, style_txt, bgcolor=style_col, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+    color _styleBg2 = f_softBg(style_col)
+    table.cell(panel, 0, row, "RECOMMENDED STYLE", bgcolor=_styleBg2, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_left)
+    table.cell(panel, 1, row, style_txt, bgcolor=_styleBg2, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_center)
     table.merge_cells(panel, 1, row, 3, row)
     row += 1
 
@@ -5004,12 +5048,33 @@ plot(showTrade and tradeActive ? visualSL : na, "Hard SL (Trail)", color=slColor
 plot(showTrade and tradeActive and finalSL > 0 and finalT1 > 0 ? t1_val : na, "Target 1", color=t1Color, style=plot.style_linebr, linewidth=1)
 plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "Target 2", color=t2Color, style=plot.style_linebr, linewidth=1)
 
-// --- Native Chandelier Exit (Restored) ---
-float active_ce_mult  = isBullMarket ? 4.5 : 5.0
-[ce_h_d, ce_atr_d] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.atr(22)], ignore_invalid_symbol=true)
-float ce_trailing_stop = ce_h_d - (ce_atr_d * active_ce_mult)
-plot(showTrade and tradeActive ? ce_trailing_stop : na, "Chandelier TSL (22, 4.5)", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
-// -----------------------------------------
+// --- Native Chandelier Exit (Canonical Risk Shield Parity) ---
+f_canonical_ce_mult(string _cat, bool _bull) =>
+    float _m = 4.5
+    if str.startswith(_cat, "POS")
+        _m := 4.5
+    else if str.startswith(_cat, "WYC")
+        _m := 3.5
+    else if str.startswith(_cat, "REV")
+        _m := 2.5
+    else if str.startswith(_cat, "SWG")
+        _m := 1.5
+    if not _bull
+        _m := _m + 0.5
+    _m
+
+[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.ema(ta.tr, 22)], lookahead=barmerge.lookahead_off)
+[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.ema(ta.tr, 14)], lookahead=barmerge.lookahead_off)
+
+string _active_cat_raw   = persistCat != "NONE" ? persistCat : chartCat
+string _active_cat_safe  = na(_active_cat_raw) ? "" : _active_cat_raw
+bool   _is_swg_trade     = str.startswith(_active_cat_safe, "SWG")
+float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
+float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
+float  active_ce_mult    = f_canonical_ce_mult(_active_cat_safe, isBullMarket)
+float  ce_trailing_stop  = ce_h_d - (ce_atr_d * active_ce_mult)
+plot(showTrade ? ce_trailing_stop : na, "Canonical Chandelier TSL", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
+// -------------------------------------------------------------
 
 // LABELS (Last Bar Only - v20.0 Style)
 if barstate.islast and showTrade and tradeActive
@@ -5209,20 +5274,28 @@ if show_csv and barstate.islast and time_ok
     alert("Portfolio CSV Data Generated. Check Pine Logs.", alert.freq_once_per_bar_close)
 
 // ==========================================
-// STAGE BACKGROUND COLORS
+// STAGE BACKGROUND / RIBBON DISPLAY
 // ==========================================
-color bg_col = na
-if showStageBg
-    if stageID == "STAGE 2 (UP)" or stageID == "STAGE 2 (PULLBACK)"
-        bg_col := color.new(color.green, 85)
-    else if stageID == "STAGE 4 (DOWN)"
-        bg_col := color.new(color.red, 85)
-    else if stageID == "STAGE 1 (BASE)"
-        bg_col := color.new(color.yellow, 85)
-    else if stageID == "STAGE 3 (TOP)"
-        bg_col := color.new(color.orange, 85)
+color bg_col     = na
+color ribbon_col = na
 
-bgcolor(bg_col, title="Stage Background")
+if stageBgMode != "Off"
+    if stageID == "STAGE 2 (UP)" or stageID == "STAGE 2 (PULLBACK)"
+        bg_col     := color.new(color.green, 85)
+        ribbon_col := color.new(#26a69a, 0)
+    else if stageID == "STAGE 4 (DOWN)"
+        bg_col     := color.new(color.red, 85)
+        ribbon_col := color.new(color.red, 0)
+    else if stageID == "STAGE 1 (BASE)"
+        bg_col     := color.new(color.yellow, 85)
+        ribbon_col := color.new(color.yellow, 0)
+    else if stageID == "STAGE 3 (TOP)"
+        bg_col     := color.new(color.orange, 85)
+        ribbon_col := color.new(color.orange, 0)
+
+bool show_ribbon = stageBgMode == "Ribbon (Bottom)" and not na(ribbon_col)
+bgcolor(stageBgMode == "Full Chart" ? bg_col : na, title="Stage Full Background")
+plotshape(show_ribbon, title="Weinstein Stage Ribbon (Bottom)", style=shape.square, location=location.bottom, color=ribbon_col, size=size.small, display=display.all)
 
 
 
