@@ -4,6 +4,23 @@
 // ============================================================================
 // SECTION 4 — ENTRY TRIGGER & PRICE MEMORY  v5.2 (WCL CONTEXT INTEGRATION)
 //
+// v6.6 (30 Jul 2026): SOFT PANEL PALETTE (Jay, comparing to the Weinstein & Swing Pro
+//   Dashboard panel screenshot: "more soft on my eyes and easy to read"). S4 rendered
+//   neon/bright TEXT on a near-black row background; Weinstein renders a solid pastel
+//   BACKGROUND per row with dark text — the background does the signalling, not a
+//   glowing foreground. New f_softBg(color) buckets a semantic colour by its dominant
+//   RGB channel (blue/orange/green/red/gray) into one of five fixed pastels; f_row now
+//   applies it + one dark text constant (C_SOFTTXT) to BOTH cells of every row, so all
+//   ~50 existing call sites get the new look with zero change at the call site. The
+//   TRIGGER / PA-header / STATUS / VERDICT rows (built with direct table.cell, not
+//   f_row) got the same treatment individually. Known simplification: #7b1fa2 (the
+//   pa_col_v "strong Σ" purple) buckets into the blue pastel rather than getting its
+//   own hue — acceptable, not a bug, kept for token cost.
+//   Version jumps v6.3 -> v6.6: v6.4/v6.5 were a CONTEXT ROW (Stage/RRG/RS/trend/RSI)
+//   that overshot the compile-token ceiling and was fully reverted the same day — those
+//   numbers exist only in git history, not in this file. Numbering resumes past them so
+//   "v6.4" is never ambiguous between the two unrelated attempts.
+//
 // v5.2 (28 Jul 2026): PANEL SELF-CONTRADICTION FIXES (Jay, CUMMINSIND 125m).
 //   The panel gave TWO entry instructions ~4% apart, and targeted the level it told
 //   you not to target. Both are text/label bugs — no gate, score or plan MATH changed.
@@ -790,7 +807,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.3 (Panel Legibility)", shorttitle="S4 Entry v6.3", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.6 (Soft Panel Palette)", shorttitle="S4 Entry v6.6", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -4633,9 +4650,26 @@ f_pos(string p) => p == "top_left" ? position.top_left : p == "bottom_right" ? p
 f_size(string s) => s == "tiny" ? size.tiny : s == "small" ? size.small : s == "normal" ? size.normal : s == "large" ? size.large : s == "auto" ? size.auto : size.small
 // Dark-theme panel: solid dark bg + TV grid frame so it reads cleanly on dark charts. Updated to 17 rows.
 var table pnl = table.new(f_pos(panel_pos), 2, 30, bgcolor=color.new(#131722, 0), frame_color=color.new(#2a2e39, 0), frame_width=1, border_color=color.new(#2a2e39, 0), border_width=1)
+// #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
+// uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
+// bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
+// its dominant RGB channel into one fixed pastel — a CLASSIFIER, not a per-call lookup
+// table, so every existing vc call site (there are ~50) gets the new look for free with
+// zero changes at the call site. Both cells of a row now share ONE bg + one dark text
+// colour, matching how Weinstein colours label AND value together (e.g. its whole
+// "RECOMMENDATION" row is one orange block, not orange text on black).
+f_softBg(color c) =>
+    int _r = color.r(c)
+    int _g = color.g(c)
+    int _b = color.b(c)
+    int _mx = math.max(_r, math.max(_g, _b))
+    int _mn = math.min(_r, math.min(_g, _b))
+    _mx - _mn < 25 ? #AEB7C2 : _b > _r and _b > _g ? #8FC1EA : _r > 200 and _g > 100 and _b < 120 ? #F0B86E : _g >= _r and _g >= _b ? #7FCFC0 : #F1A7A0
+C_SOFTTXT = color.new(#10202E, 0)
 f_row(int r, string k, string vv, color vc) =>
-    table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=color.new(#b2b5be, 0), text_halign=text.align_left)
-    table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=vc, text_halign=text.align_right)
+    color _bg = f_softBg(vc)
+    table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
+    table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_right)
 // one PA-condition token for the compact grid: name + fired(✓) / quiet(·)
 // #pa (30-Jul, Jay): fired ticks were the green-check EMOJI ✅, chosen because a Pine
 // table.cell has one text colour and the emoji carries its own green. But it renders as a
@@ -4906,8 +4940,9 @@ if show_panel and d_panel and barstate.islast
     color  _barCol  = bar_ok_v ? color.new(#26a69a,0) : color.new(#ef5350,0)
     f_row(21, "Bar (B)", _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
-    table.cell(pnl, 0, 23, "TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(trig_col, 65), text_halign=text.align_left)
-    table.cell(pnl, 1, 23, trig_txt, text_size=f_size(panel_size), text_color=trig_col, bgcolor=color.new(trig_col, 84), text_halign=text.align_right)
+    color _trigBg = f_softBg(trig_col)
+    table.cell(pnl, 0, 23, "TRIGGER", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left)
+    table.cell(pnl, 1, 23, trig_txt, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
     // stop). Priority: demand-zone distal (in-zone → nearest below) → recent swing low →
@@ -5040,8 +5075,9 @@ if show_panel and d_panel and barstate.islast
     string _g3 = is_rec_v ? f_it("30WMA",kRECLAIM[_so])                                              : f_it("SPR",kSPR[_so])+f_it("ENG",kENG[_so])+f_it("3BR",k3B[_so])
     string _g4 = is_rec_v ? "" : f_it("H50",kH50[_so])+f_it("H200",kH200[_so])+f_it("IN3",kIN3[_so])+f_it("NR7",kNR7[_so])+f_it("IBN",kIBNR7[_so])
     string _allPA = _g0 + _g1 + _g2 + _g3 + _g4
-    table.cell(pnl, 0, 22, _hdr, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#455a64, 0), text_halign=text.align_left)
-    table.cell(pnl, 1, 22, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=color.white, bgcolor=pa_col_v, text_halign=text.align_left)
+    color _paBg = f_softBg(pa_col_v)
+    table.cell(pnl, 0, 22, _hdr, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_left)
+    table.cell(pnl, 1, 22, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_left)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was
     // never written and rendered BLANK — which reads as missing data, not "n/a".
@@ -5064,8 +5100,9 @@ if show_panel and d_panel and barstate.islast
     // "off/inactive"; amber reads as "armed, waiting for the gate" — the honest state
     // when the engine is live. Green only on a real GO.
     color _status_col = go_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
-    table.cell(pnl, 0, 24, "STATUS", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(_status_col, 55), text_halign=text.align_left)
-    table.cell(pnl, 1, 24, _status, text_size=f_size(panel_size), text_color=_status_col, bgcolor=color.new(_status_col, 88), text_halign=text.align_right)
+    color _stBg = f_softBg(_status_col)
+    table.cell(pnl, 0, 24, "STATUS", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
+    table.cell(pnl, 1, 24, _status, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
@@ -5303,8 +5340,9 @@ if show_panel and d_panel and barstate.islast
     // The verdict is now exactly four lines: ruling · why · the one caveat · the action.
     _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
-        table.cell(pnl, 0, 25, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
-        table.cell(pnl, 1, 25, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
+        color _verBg = f_softBg(_anCol)
+        table.cell(pnl, 0, 25, "VERDICT", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
+        table.cell(pnl, 1, 25, "➤ " + _aVer, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
     // ACTUALLY being sensed, not just drawn on the chart — the toggle + source wiring
