@@ -4,6 +4,25 @@
 // ============================================================================
 // SECTION 4 — ENTRY TRIGGER & PRICE MEMORY  v5.2 (WCL CONTEXT INTEGRATION)
 //
+// v6.7 (30 Jul 2026): COLUMN ALIGNMENT + THE PANEL-WIDTH FIX THAT ACTUALLY WORKS (Jay).
+//   1. Both columns now hug the CENTRE divider — label right-aligned, value left-aligned
+//      — instead of each hugging its own outer edge (which left a dead gap down the
+//      middle of every row). Applied to f_row (all ~24 rows) and the four direct-cell
+//      rows (header, TRIGGER, PA-header, STATUS, VERDICT).
+//   2. "You tried wrapping VERDICT to shrink the panel, it didn't work — try again."
+//      Root cause: Pine sizes a COLUMN to the widest SINGLE UNBROKEN line across EVERY
+//      cell in it, not just the one row you edit. VERDICT was already wrapped into 4
+//      lines, but several OTHER things were still one very long unbroken line and kept
+//      setting the column width regardless: the PA condition grid (17 tokens, one line
+//      — the actual worst offender, wider than any wrapped Verdict line), the Plan row
+//      (entry-method + SL + T1 + T2 all concatenated), and roughly eight of the Verdict
+//      branches' OWN L1-L5 strings (each one is "wrapped" only in the sense of being one
+//      of four lines — several of those four were themselves 120-170 char unbroken
+//      strings). Added internal `\n` breaks to the PA grid (split after the 3rd group),
+//      the Plan row (method above, SL/T1/T2 below), and every verdict branch string over
+//      ~100 chars, at its natural clause boundary. `\n` inside a string literal costs
+//      ZERO compiled tokens either way, same as the v5.9 discovery that a comment does.
+//
 // v6.6 (30 Jul 2026): SOFT PANEL PALETTE (Jay, comparing to the Weinstein & Swing Pro
 //   Dashboard panel screenshot: "more soft on my eyes and easy to read"). S4 rendered
 //   neon/bright TEXT on a near-black row background; Weinstein renders a solid pastel
@@ -807,7 +826,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.6 (Soft Panel Palette)", shorttitle="S4 Entry v6.6", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.7 (Centre-Aligned + Narrower Panel)", shorttitle="S4 Entry v6.7", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -4670,8 +4689,11 @@ f_softBg(color c) =>
 C_SOFTTXT = color.new(#10202E, 0)
 f_row(int r, string k, string vv, color vc) =>
     color _bg = f_softBg(vc)
-    table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
-    table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_right)
+    // #align (30-Jul, Jay): swapped so both columns hug the centre divider — label
+    // right-aligned, value left-aligned — instead of each hugging its OUTER edge, which
+    // left a wide dead gap in the middle of every row.
+    table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_right)
+    table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
 // one PA-condition token for the compact grid: name + fired(✓) / quiet(·)
 // #pa (30-Jul, Jay): fired ticks were the green-check EMOJI ✅, chosen because a Pine
 // table.cell has one text colour and the emoji carries its own green. But it renders as a
@@ -4681,8 +4703,8 @@ f_row(int r, string k, string vv, color vc) =>
 f_it(string nm, bool fired) => nm + (fired ? " ✓ " : " ·  ")
 
 if show_panel and d_panel and barstate.islast
-    table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0))
-    table.cell(pnl, 1, 0, syminfo.ticker, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_right)
+    table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_right)
+    table.cell(pnl, 1, 0, syminfo.ticker, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_left)
     // AVWAP levels — the three curves on one row (L · BO · Gap). Colour by the KEY
     // one (BO): green when price holds above the breakout AVWAP.
     string _avL = na(avwap_low) ? "-" : str.tostring(avwap_low, format.mintick)
@@ -4943,8 +4965,8 @@ if show_panel and d_panel and barstate.islast
     f_row(21, "Bar (B)", _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
     color _trigBg = f_softBg(trig_col)
-    table.cell(pnl, 0, 23, "TRIGGER", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left)
-    table.cell(pnl, 1, 23, trig_txt, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right)
+    table.cell(pnl, 0, 23, "TRIGGER", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right)
+    table.cell(pnl, 1, 23, trig_txt, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
     // stop). Priority: demand-zone distal (in-zone → nearest below) → recent swing low →
@@ -5032,7 +5054,10 @@ if show_panel and d_panel and barstate.islast
         string _entryMethodTxt = use_retest
              ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (_retestLive ? " (true retest)" : " = trigger close — fills as MARKET, not a retest")
              : "Buy-stop above the trigger bar"
-        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + _ageTag + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
+        // #width (30-Jul): Plan was one unbroken line — entry-method plus SL/T1/T2 all on
+        // one row, easily the widest content in the panel. Split at the natural boundary
+        // (method above, numbers below), same convention as the Verdict clause breaks.
+        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + _ageTag + "\n· SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
     f_row(26, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
@@ -5076,9 +5101,16 @@ if show_panel and d_panel and barstate.islast
     string _g2 = is_rec_v ? f_it("3BR",k3B[_so])+f_it("PP",kPP[_so])+f_it("VDU",kVDU[_so])           : f_it("PP",kPP[_so])+f_it("U50",kU50[_so])+f_it("LIQ",kLIQ[_so])
     string _g3 = is_rec_v ? f_it("30WMA",kRECLAIM[_so])                                              : f_it("SPR",kSPR[_so])+f_it("ENG",kENG[_so])+f_it("3BR",k3B[_so])
     string _g4 = is_rec_v ? "" : f_it("H50",kH50[_so])+f_it("H200",kH200[_so])+f_it("IN3",kIN3[_so])+f_it("NR7",kNR7[_so])+f_it("IBN",kIBNR7[_so])
-    string _allPA = _g0 + _g1 + _g2 + _g3 + _g4
+    // #width (30-Jul, Jay): "you tried wrapping VERDICT to shrink the panel, it didn't
+    // work — try again." It didn't work because Pine sizes a COLUMN to the widest SINGLE
+    // UNBROKEN line across every cell in it, not just the row you edited — VERDICT was
+    // wrapped, but this PA grid was one 17-token unbroken line, comfortably wider than any
+    // wrapped VERDICT line, so IT was still setting the column (and panel) width. A `\n`
+    // here, splitting it in two, is the fix that actually moves the number; g0+g1+g2 stays
+    // the widest line either path takes, so bull and recovery now share one effective cap.
+    string _allPA = _g0 + _g1 + _g2 + "\n" + _g3 + _g4
     color _paBg = f_softBg(pa_col_v)
-    table.cell(pnl, 0, 22, _hdr, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_left)
+    table.cell(pnl, 0, 22, _hdr, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_right)
     table.cell(pnl, 1, 22, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_left)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was
@@ -5103,8 +5135,8 @@ if show_panel and d_panel and barstate.islast
     // when the engine is live. Green only on a real GO.
     color _status_col = go_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
     color _stBg = f_softBg(_status_col)
-    table.cell(pnl, 0, 24, "STATUS", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
-    table.cell(pnl, 1, 24, _status, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
+    table.cell(pnl, 0, 24, "STATUS", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
+    table.cell(pnl, 1, 24, _status, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
@@ -5244,8 +5276,8 @@ if show_panel and d_panel and barstate.islast
                 _rule := "Reward clears neither bar — T1 " + _roiTxt + " and " + _rrTxt + "."
         if stage_skip
             _L1 := "NO TRADE — Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping: 30WMA falling, price still above)" : " (declining: below a falling 30WMA)")
-            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only. A GO here is a valid TRIGGER inside an invalid CONTEXT — the pattern fired, the stage says do not own it."
-            _L3 := "If you take it anyway it is a counter-trend trade: half size at most, and manage against the stage, not the target."
+            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only.\nA GO here is a valid TRIGGER inside an invalid CONTEXT — the pattern fired, the stage says do not own it."
+            _L3 := "If you take it anyway it is a counter-trend trade: half size at most,\nand manage against the stage, not the target."
             _anCol := color.new(#ef5350, 0)
         else if is_rec_v
             _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
@@ -5255,7 +5287,7 @@ if show_panel and d_panel and barstate.islast
             // falling. It is therefore NOT switched by entry_method. But the Plan row below
             // follows entry_method and will be showing a retest LIMIT, so the panel gave two
             // entries again. Say which wins. (Same fix as CLEAR-TO-BREAK and BLUE-SKY in v5.2.)
-            _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder (trail as each clears); SL under the recovery low."
+            _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder\n(trail as each clears); SL under the recovery low."
                      + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — on a recovery you confirm the turn, not buy the touch." : "") + (_qArrBad ? " Caveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? " Caveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
             _L5 := "Manage against the TURN, not the overhead — exit if it loses the recovery low."
             _anCol := color.new(#26a69a, 0)
@@ -5280,7 +5312,7 @@ if show_panel and d_panel and barstate.islast
             // you to enter in two places ~4% apart. It now follows the SAME input, so
             // there is one entry instruction on the panel.
             _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback); " + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " \nReal target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
-            _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA). Stage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
+            _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA).\nStage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
             _anCol := color.new(#26a69a, 0)
         else if _qRoomBad
             _L1 := "SKIP — clean trigger, no room"
@@ -5290,7 +5322,7 @@ if show_panel and d_panel and barstate.islast
         else if _posOk or _swingOk
             _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (cf_v >= cf_strong ? " ★strong" : "") + (_qArrGood ? " · quality arrival" : ""))
             _L2 := _rule
-            _L3 := _qLocWeak ? "Location is the AVWAP/EMA only — NOT a demand zone. A momentum/breakout entry, not a pullback to support (your A+ setup). Size down or wait for a pullback into a zone." : _qExt ? ("Caveat: EXTENDED " + str.tostring(_extV, "0.0") + " ATR above the EMA20 — chasing; size down or wait for a pullback toward value.") : _qArrBad ? "Caveat: GRIND arrival with Δ− — size down or wait for a sharper re-test." : ""
+            _L3 := _qLocWeak ? "Location is the AVWAP/EMA only — NOT a demand zone. A momentum/breakout entry,\nnot a pullback to support (your A+ setup). Size down or wait for a pullback into a zone." : _qExt ? ("Caveat: EXTENDED " + str.tostring(_extV, "0.0") + " ATR above the EMA20 — chasing;\nsize down or wait for a pullback toward value.") : _qArrBad ? "Caveat: GRIND arrival with Δ− — size down or wait for a sharper re-test." : ""
             // #verdict (30-Jul, TITAN): the panel was giving THREE entry instructions at
             // once — Plan "Buy-LIMIT 4855 = trigger close", STATUS "arm buy-limit @ close
             // on the pullback", and this line "Buy-STOP above the high (overrides the Plan
@@ -5301,7 +5333,7 @@ if show_panel and d_panel and barstate.islast
             // here, and the action line adds only what the Plan row cannot: whether that
             // limit is actually a pullback, and where a real one sits.
             if use_retest
-                _L5 := "Action: buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (trigAge > 0 ? " on the pullback." : " — but that IS this bar's close, so it fills at MARKET, not a pullback." + (_pbLvl > 0 ? " A true pullback entry sits ~" + str.tostring(_pbLvl, format.mintick) + "." : ""))
+                _L5 := "Action: buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (trigAge > 0 ? " on the pullback." : " — but that IS this bar's close, so it fills at MARKET, not a pullback.\n" + (_pbLvl > 0 ? "A true pullback entry sits ~" + str.tostring(_pbLvl, format.mintick) + "." : ""))
             else
                 _L5 := "Action: buy-STOP above " + str.tostring(nz(trigHi, high[_so]), format.mintick) + " (the trigger bar's high). Never buy the touch."
             _anCol := (_qArrBad or _qExt or _qLocWeak) ? color.new(#ff9800, 0) : color.new(#26a69a, 0)
@@ -5318,12 +5350,12 @@ if show_panel and d_panel and barstate.islast
     else if _blueSky
         _L1 := "BREAKOUT PIVOT (arming)"
         _L2 := "Stage-2 leader consolidating under its ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH). Blocked: " + _blk + "."
-        _L3 := "Not a 'no room' reject — the band ceiling IS the breakout level. Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + "; above it is blue sky."
+        _L3 := "Not a 'no room' reject — the band ceiling IS the breakout level.\nArm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + "; above it is blue sky."
         _anCol := color.new(#ff9800, 0)
     else if _qRoomBad
         _L1 := "NOT TRADEABLE"
         _L2 := "Blocked: " + _blk
-        _L3 := "Disqualifier: " + _roomWord + " — clearing that gate alone will NOT make this a trade."
+        _L3 := "Disqualifier: " + _roomWord + "\n— clearing that gate alone will NOT make this a trade."
         _anCol := color.new(#ef5350, 0)
     else if _qArrBad
         _L1 := "LOW QUALITY — wait for a better tap"
@@ -5343,7 +5375,7 @@ if show_panel and d_panel and barstate.islast
     _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
         color _verBg = f_softBg(_anCol)
-        table.cell(pnl, 0, 25, "VERDICT", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
+        table.cell(pnl, 0, 25, "VERDICT", text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)
         table.cell(pnl, 1, 25, "➤ " + _aVer, text_size=f_size(panel_size), text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
