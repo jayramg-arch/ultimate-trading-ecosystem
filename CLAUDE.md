@@ -2117,4 +2117,51 @@ restarts). Expect ~6 fewer names and several Stage 1→4 corrections.
 
 ---
 
+## 30 July 2026 — S4 v6.1: the VERDICT was restating rows and contradicting itself (TITAN)
+
+Jay on a live TITAN 75m panel: *"Verdict says SWING only… again it says positional… at some places
+buy-limit and again buy pullback… it should give direction instead of repeating the row fields."*
+All three were real. In-file title **v6.1 (Verdict = Direction)**.
+
+### 1. "SWING only" under a "POSITIONAL" Plan — a gate-semantics bug, not just wording
+Two INDEPENDENT swing/positional determinations coexisted:
+- `tt_swing` → the trade TYPE, from structure (ATR%, off-52W, below-200DMA). TITAN = POSITIONAL.
+- `_swingOk` (rr ≥ 2.0) / `_posOk` (ROI to T1 ≥ 20%) → house gates on REWARD, reported as peers.
+
+`_rule` then printed "SWING only — clears 2R, T1 under the 20% positional rule" directly beneath a
+POSITIONAL plan, reading as a second, contradicting trade-type call. **Fixed: the trade TYPE now
+decides which gate applies** (DNA: swing 5-8% / 8-12wk vs positional 10-30% / 6-8mo — they are not
+peers), each gate quotes its own number, and when the trade clears only the OTHER bar the verdict
+says WHAT TO DO instead of restating a label.
+
+⚠️ **Structural tension this exposed — worth a decision:** a POSITIONAL plan targets `tt_t1r_pos`
+(5R), so ROI to T1 = 5 × risk%. With TITAN's 2.3% stop that is 11.5%, and **the 20% positional rule
+is unreachable whenever risk% < 4%.** The two positional rules contradict each other by
+construction. Left as-is (the verdict now explains it rather than hiding it), but either the 5R
+target or the 20% gate should probably move.
+
+### 2. THREE entry instructions on one panel
+Plan `Buy-LIMIT 4855 = trigger close` · STATUS `arm buy-limit @ close on the pullback` · VERDICT
+`Buy-STOP above the trigger bar's high (Overrides the Plan row's retest limit)`. The TAKE-IT/CAUTION
+branch was overriding `entry_method` **unconditionally**, which also silently reversed the retest
+default the 23-Jul A/B established. Now `entry_method` is the single source of truth in that branch
+(in-supply / recovery / blue-sky still override, and still say so). STATUS's "on the pullback" was
+also unconditional — on the trigger bar itself the limit IS that bar's close, so it fills at market;
+it now says which. The action line adds only what the Plan row cannot: whether the limit is really a
+pullback, and where a real one sits (`_pbLvl`).
+
+### 3. The metrics digest — DELETED, not hidden
+`_mx` restated Loc / room R / arrival+Δ / RV / confluence / PA Σ / WCL / Structure / trade-type /
+extension — **every one already has its own row**. Deleted rather than gated behind an input,
+because a hidden string still costs compiled tokens and this file lives against the ~100,256
+ceiling. Net −23 lines and −1,741 bytes of string-concat vs +~600 added → **buys headroom**.
+
+**VERDICT is now exactly four lines: ruling · why · the one caveat · the action.**
+
+### Pending
+Jay to compile v6.1. Sweep clean (0 odd-quote, paren depth 0, 24 unique `f_row` ids, indentation
+verified 8/12/16). Recovery re-baseline still running (`biv88cxey`, ~5.5h).
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*

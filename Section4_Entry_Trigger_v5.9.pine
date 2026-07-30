@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.0 (Trigger-Bar Latch)", shorttitle="S4 Entry v6.0", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.1 (Verdict = Direction)", shorttitle="S4 Entry v6.1", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -1025,7 +1025,7 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // ==========================================================================
 grpCF = "Trigger — Confluence Score"
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
-show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — swing vs positional decided by the house rules (swing >= 2.0R · positional >= 20% ROI to T1). The old ANALYSIS row also restated CONTEXT / SETUP / RISK, which are already the Structure, STATUS and Entry rows above — that repetition is gone. Turn this off to hide the verdict too.")
+show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — the ruling, why, the single biggest caveat, and the action. The applicable house gate follows the TRADE TYPE: a SWING plan is judged on >= 2.0R, a POSITIONAL plan on >= 20% ROI to T1. Turn this off to hide the verdict too.")
 
 grpSize = "Position Sizing"
 size_cap  = input.float(0.0, "Capital (₹)", group=grpSize, minval=0.0, tooltip="Total capital the 0.25% risk is taken against. 0 = hide the Qty row. The Qty is computed from the panel's own Entry and SL, so it is the same trade the plan describes.")
@@ -5040,7 +5040,10 @@ if show_panel and d_panel and barstate.islast
     f_row(12, "Structure basis", _basis, is_rec_v ? color.new(#00838f, 0) : color.new(#26a69a, 0))
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
-    string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? " — arm buy-limit @ close on the pullback" : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : "WEAK/RED BAR — no entry"
+    // #verdict (30-Jul): "on the pullback" was unconditional, but on the trigger bar itself
+    // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
+    // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
+    string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : "WEAK/RED BAR — no entry"
     string _status  = _verdict + " · P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " ⏱" + (timing_v?"✓":"·") + " · conf " + str.tostring(cf_v) + "/" + str.tostring(cf_max) + " · RV " + str.tostring(chart_rv_v, "0.00") + "/" + str.tostring(rv_floor, "0.00") + " · " + (is_rec_v?"Rec":"Bull") + " Σ+" + str.tostring(tsum_v)
     // Amber for EVERY waiting state, including no-PA (was grey). Grey read as
     // "off/inactive"; amber reads as "armed, waiting for the gate" — the honest state
@@ -5131,35 +5134,16 @@ if show_panel and d_panel and barstate.islast
     // used to say "must clear <band top>" (+11-13%) while the Room row above it said "first
     // <nearest> (+1-2%)". They now agree; the band top is shown only as secondary context.
     string _roomWord = _qSupply ? ("price is INSIDE supply" + (na(_ovh) ? "" : " — first clear " + str.tostring(_ovh, format.mintick) + (not na(_band_r) and _band_r > _ovh ? " (band extends to " + str.tostring(_band_r, format.mintick) + ")" : ""))) : _qThinR ? ("only " + str.tostring(_roomR, "0.0") + "R of room to the first obstacle") : ""
-    // (_roomTag / _arrTag retired — the metrics digest `_mx` below carries both now.)
+    // (_roomTag / _arrTag retired — room and arrival each have their own panel row.)
     // The binding gate, in words, with its number.
     string _blk = not any_pa_v ? "no PA pattern" : not support_v ? "not at a location" : not vol_ok_v ? ("volume below floor (RV " + str.tostring(chart_rv_v, "0.00") + "/" + str.tostring(rv_floor, "0.00") + ")") : "the trigger bar closed weak"
     string _act = not any_pa_v ? "Watch for a closed-bar PA trigger here." : not support_v ? "Needs a pullback into a zone / level." : not vol_ok_v ? "Watch for a volume surge." : "Wait for a bar that closes strong."
-    // WHICH location sources are actually holding price up (zone / S-R / AVWAP / EMA20).
-    string _locSrc = (z_inDZ[_so] ? "DZ" : "") + (near_sr[_so] ? (z_inDZ[_so] ? "+S/R" : "S/R") : "") + (near_avwap[_so] ? "+AVWAP" : "") + (near_ema[_so] ? "+EMA20" : "")
-    if str.length(_locSrc) == 0
-        _locSrc := (z_inSZ[_so] ? "IN SUPPLY" : "none")
-    // METRICS DIGEST — one compact line carrying every read the ruling weighed, so the
-    // verdict is auditable without re-scanning the panel: location sources, room, arrival
-    // + delta, RV vs floor, confluence, and the PA sum for the active path.
-    // Built with successive assignments, NOT a wrapped expression: a continuation line
-    // indented by a multiple of 4 parses as a new block in Pine and breaks silently.
-    string _mx = "Loc " + _locSrc
-    if z_inDZ_ctrl[_so]
-        _mx := _mx + " ★ctrl"
-    if _dzTfN[_so] >= 2
-        _mx := _mx + " ×" + str.tostring(_dzTfN[_so]) + "TF"
-    if not na(_roomR)
-        _mx := _mx + " · " + str.tostring(_roomR, "0.0") + "R"
-    if show_arrival and arr_style[_so] != "—"
-        _mx := _mx + " · " + arr_style[_so] + " " + of_read[_so]
-    if str.length(tt_lbl) > 0
-        _mx := _mx + " · " + tt_lbl
-    if not na(_extV)
-        _mx := _mx + " · " + (_extV >= 0 ? "+" : "") + str.tostring(_extV, "0.0") + "ATR vEMA20" + (_qExt ? "⚠" : "")
-    _mx := _mx + " · RV " + str.tostring(chart_rv_v, "0.00") + "/" + str.tostring(rv_floor, "0.00")
-    _mx := _mx + " · conf " + str.tostring(cf_v) + "/" + str.tostring(cf_max)
-    _mx := _mx + " · " + (is_rec_v ? "Rec" : "Bull") + " Σ+" + str.tostring(tsum_v) + (en_wcl ? " · WCL " + _wcl_score_band + "(+" + str.tostring(_total_final) + ") · " + _struct_str + (_setup_pri > 0 ? " · " + _setup_str : "") : "")
+    // #verdict (30-Jul, Jay): the METRICS DIGEST is GONE, not hidden. Every field it
+    // carried — Loc sources / room R / arrival+delta / RV / confluence / PA sum / WCL /
+    // Structure / trade-type / extension — already has its own row above, so appending it
+    // made the VERDICT read as a restatement of the panel instead of a direction (Jay,
+    // TITAN). Deleted rather than gated behind an input: a hidden string still costs
+    // compiled tokens, and this file lives against the ~100,256 ceiling.
     // Ruling assembled as SEPARATE LINES: one long string stretches the panel across the
     // chart (Jay), so headline / reason / disqualifier / metrics / action each get a row.
     string _L1 = ""
@@ -5176,7 +5160,34 @@ if show_panel and d_panel and barstate.islast
         // ONLY reframe a would-be SKIP, never downgrade a genuine TAKE IT), not in-supply
         // (that stays a caution unless ATH blue-sky), not already blue-sky, and Stage-2 only.
         bool _clearToBreak = momentum_clear and _stage2ok and not _blueSky and not _qSupply and not (_posOk or _swingOk) and not na(_ovh)
-        string _rule  = _posOk and _swingOk ? "clears BOTH house gates (>=20% ROI and >=2R)" : _swingOk ? "SWING only — clears 2R, T1 under the 20% positional rule" : _posOk ? "POSITIONAL only — 20%+ room but R:R under 2.0" : "clears NEITHER house gate (R:R < 2.0 and room < 20%)"
+        // #verdict (30-Jul, TITAN): the TRADE TYPE decides which house gate applies — DNA
+        // has swing at 5-8% over 8-12 weeks and positional at 10-30% over 6-8 months, so
+        // they are not peer tests. Reporting them as peers printed "SWING only" directly
+        // under a "POSITIONAL" Plan row, which reads as a second, contradicting trade-type
+        // call. Now: name the APPLICABLE gate, quote its own number, and when the trade
+        // clears only the OTHER bar say what to do about it instead of restating a label.
+        //
+        // NOTE the structural tension this exposed: a POSITIONAL plan targets tt_t1r_pos
+        // (5R), so ROI to T1 = 5 x risk%. With a 2.3% stop that is 11.5% and the 20% rule
+        // can NEVER be met — the two positional rules are mutually unreachable whenever
+        // risk% < 4%. That is why TITAN read "SWING only" while planned POSITIONAL.
+        string _roiTxt = na(_roiT1) ? "n/a" : (_roiT1 >= 0 ? "+" : "") + str.tostring(_roiT1, "0.0") + "%"
+        string _rrTxt  = na(pl_rr1) ? "n/a" : str.tostring(pl_rr1, "0.0") + "R"
+        string _rule   = ""
+        if tt_swing
+            if _swingOk
+                _rule := "Swing reward confirmed — T1 " + _rrTxt + ", clears the 2R bar."
+            else if _posOk
+                _rule := "Swing clock, positional-sized room (" + _roiTxt + ") but only " + _rrTxt + " — the stop is too wide for a swing. Tighten the stop or trade it as a positional."
+            else
+                _rule := "Reward clears neither bar — T1 " + _rrTxt + " and " + _roiTxt + "."
+        else
+            if _posOk
+                _rule := "Positional reward confirmed — T1 " + _roiTxt + ", clears the 20% bar."
+            else if _swingOk
+                _rule := "Positional structure, SWING-SIZED reward — T1 is only " + _roiTxt + " (20% rule) though R:R is " + _rrTxt + ". Either take it as a SWING and book at 2R, or wait for a deeper entry to earn the positional target."
+            else
+                _rule := "Reward clears neither bar — T1 " + _roiTxt + " and " + _rrTxt + "."
         if stage_skip
             _L1 := "NO TRADE — Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping: 30WMA falling, price still above)" : " (declining: below a falling 30WMA)")
             _L2 := "The house rule is Stage 2 advances and Stage 1 turns only. A GO here is a valid TRIGGER inside an invalid CONTEXT — the pattern fired, the stage says do not own it."
@@ -5226,7 +5237,19 @@ if show_panel and d_panel and barstate.islast
             _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (cf_v >= cf_strong ? " ★strong" : "") + (_qArrGood ? " · quality arrival" : ""))
             _L2 := _rule
             _L3 := _qLocWeak ? "Location is the AVWAP/EMA only — NOT a demand zone. A momentum/breakout entry, not a pullback to support (your A+ setup). Size down or wait for a pullback into a zone." : _qExt ? ("Caveat: EXTENDED " + str.tostring(_extV, "0.0") + " ATR above the EMA20 — chasing; size down or wait for a pullback toward value.") : _qArrBad ? "Caveat: GRIND arrival with Δ− — size down or wait for a sharper re-test." : ""
-            _L5 := "Buy-STOP above the trigger bar's high. Never buy the touch." + (use_retest ? " (Overrides the Plan row's retest limit.)" : "")
+            // #verdict (30-Jul, TITAN): the panel was giving THREE entry instructions at
+            // once — Plan "Buy-LIMIT 4855 = trigger close", STATUS "arm buy-limit @ close
+            // on the pullback", and this line "Buy-STOP above the high (overrides the Plan
+            // row)". This branch has no SITUATIONAL reason to override (unlike in-supply,
+            // recovery or blue-sky, which still do and still say so); it was overriding
+            // entry_method unconditionally, which also silently reversed the retest default
+            // the 23-Jul A/B established. `entry_method` is now the single source of truth
+            // here, and the action line adds only what the Plan row cannot: whether that
+            // limit is actually a pullback, and where a real one sits.
+            if use_retest
+                _L5 := "Action: buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (trigAge > 0 ? " on the pullback." : " — but that IS this bar's close, so it fills at MARKET, not a pullback." + (_pbLvl > 0 ? " A true pullback entry sits ~" + str.tostring(_pbLvl, format.mintick) + "." : ""))
+            else
+                _L5 := "Action: buy-STOP above " + str.tostring(nz(trigHi, high[_so]), format.mintick) + " (the trigger bar's high). Never buy the touch."
             _anCol := (_qArrBad or _qExt or _qLocWeak) ? color.new(#ff9800, 0) : color.new(#26a69a, 0)
         else
             _L1 := "SKIP — payoff too thin"
@@ -5262,7 +5285,8 @@ if show_panel and d_panel and barstate.islast
         _anCol := color.new(#ff9800, 0)
     // v5.4: the EXTENDED warning rides on the HEADLINE where it cannot be missed — a
     // late entry is a property of the ENTRY, not a reason the trade itself is wrong.
-    _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + "\n" + _mx + (str.length(_L5) > 0 ? "\n" + _L5 : "")
+    // The verdict is now exactly four lines: ruling · why · the one caveat · the action.
+    _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
         table.cell(pnl, 0, 22, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
         table.cell(pnl, 1, 22, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
