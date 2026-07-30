@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.5 (Context Row · Daily RSI)", shorttitle="S4 Entry v6.5", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.4 (Context Row)", shorttitle="S4 Entry v6.4", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -3079,23 +3079,10 @@ f_weekly() =>
     // Locals first: Pine cannot apply the history operator to a call result, so
     // `f_strictTrend(5,5)[_ow]` / `ta.rsi(close,14)[_ow]` are syntax errors.
     int   _td  = f_strictTrend(5, 5)
+    float _rs  = ta.rsi(close, 14)
     float _xc  = wcross ? 1.0 : 0.0
-    [_xc[_ow], _td[_ow], _st[_ow]]
-[w_cross, w_trend_dir, w_ma_slope] = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
-
-// DAILY RSI(14) for the context row (Jay, 30-Jul: "I need Daily RSI, my trading
-// timeframes are Daily/125m/75m"). A dedicated call rather than a 27th element on
-// f_daily_pa's tuple: that function is the parity-critical battery (the v4.1 stale-bar
-// fix lives in it) and its chart-TF twin would have had to receive an unused value.
-// One extra request.* is cheap here — 32 of TradingView's 40 in use.
-// The confirm_daily offset is applied for the same reason the battery applies it: on an
-// intraday chart request.security("D") returns the FORMING daily bar, so an unshifted
-// RSI would wobble all session and only settle at the close.
-f_dRsi() =>
-    float r = ta.rsi(close, 14)
-    int _o = confirm_daily ? 1 : 0
-    r[_o]
-float d_rsi14 = request.security(syminfo.tickerid, "D", f_dRsi(), barmerge.gaps_off, barmerge.lookahead_off)
+    [_xc[_ow], _td[_ow], _st[_ow], _rs[_ow]]
+[w_cross, w_trend_dir, w_ma_slope, w_rsi] = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
 
 // --- RS vs benchmark + RRG (v6.4) — port of v67's f_calc_rs_logic. Called on the RATIO
 // symbol "STOCK / BENCH", so `close` inside IS the ratio. Trimmed to the three reads this
@@ -4802,10 +4789,7 @@ if show_panel and d_panel and barstate.islast
         string _cRS  = na(ctx_rs) ? "RS —" : ("RS " + (ctx_rs >= 0 ? "+" : "") + str.tostring(ctx_rs, "0.0"))
         string _cWT  = "W " + (w_trend_dir == 1 ? "↗" : w_trend_dir == -1 ? "↘" : "↔")
         string _cMA  = "30WMA " + (w_ma_slope > 0 ? "↗" : w_ma_slope < 0 ? "↘" : "↔")
-        // DAILY RSI — Jay trades Daily/125m/75m, so the context row's momentum read is
-        // daily, matching the row above it (Price vs EMA20 (D) · ATR(D)). Icons mark the
-        // classic bands rather than making the reader recall them.
-        string _cRsi = na(d_rsi14) ? "RSI(D) —" : ("RSI(D) " + str.tostring(d_rsi14, "0") + (d_rsi14 >= 70 ? " 🔴" : d_rsi14 >= 60 ? " 🟢" : d_rsi14 >= 40 ? " ⚪" : d_rsi14 >= 30 ? " 🟠" : " 🔵"))
+        string _cRsi = na(w_rsi) ? "RSI(W) —" : ("RSI(W) " + str.tostring(w_rsi, "0"))
         // Colour by STAGE — the one read that decides tradeable at all (v5.9 doctrine:
         // Stage 3/4 is a NO TRADE regardless of how good the rest of the row looks).
         color _cCol = stage_n == 2 ? color.new(#26a69a, 0) : stage_n == 1 ? color.new(#ff9800, 0) : color.new(#ef5350, 0)
