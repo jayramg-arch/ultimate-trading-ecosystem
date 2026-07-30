@@ -67,7 +67,15 @@ STAR_SOURCE = "FINAL_WATCHLIST.csv"
 # "Catalyst-Scan"/"Rec-Catalyst-Scan" = the discovery SOURCE (Nifty-500 catalyst-first
 # scan), NOT the live catalyst field — renamed so the SETUP row no longer reads
 # "Archetype Catalyst ✓ / Catalyst None ✗" (a confusing self-collision).
-BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst-Scan"}
+# PYRAMID (30-Jul-2026) — an ADD on a name already held. Same inherited-qualification
+# model as every other archetype: the QUALIFIER is pyramid_logic.classify() == "ADD"
+# (RRG leader + winning + pullback location), and the board TIMES it with the unchanged
+# gm_evaluate(). Jay then goes to S4 for the trigger — the two-stage doctrine applied to
+# adds. It is a BULL archetype so the still-valid break-down guard (Stage 3/4 or below
+# 30WMA -> INVALIDATED) applies, which matters more for a position you already own.
+PYRAMID_ARCHETYPE = "Pyramid"
+BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst-Scan",
+                   PYRAMID_ARCHETYPE}
 RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Rec-Catalyst-Scan"}
 
 # STRUCTURAL archetypes = a setup that PERSISTS (a base/pullback/leadership structure)
@@ -77,7 +85,8 @@ RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Rec-
 # names, so a rename can never silently drift the two hardcoded tuples the workflows
 # used to carry (P0 fix, 14-Jul-2026). If you rename an archetype above, update it
 # here in the same edit.
-STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader"}
+STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader",
+                              PYRAMID_ARCHETYPE}
 STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early"}
 
 
@@ -129,6 +138,109 @@ def _canon_key(s: str) -> str:
 # CSV used to be SILENTLY skipped, shrinking the board universe with no signal.
 # Kept OUT of the returned union dict (run_pipeline Phase 4.8 iterates its keys).
 LAST_UNION_ISSUES: list = []
+
+
+def _gm_setting(key: str, default):
+    """Read one key from gm_settings.json. Module-level (no Streamlit) so the board can
+    size adds during a headless build. Fully guarded — a missing/corrupt file must never
+    break the board, it just costs the add-qty display."""
+    try:
+        import json
+        p = os.path.join(_ROOT, "gm_settings.json")
+        with open(p, encoding="utf-8") as f:
+            v = (json.load(f) or {}).get(key, default)
+        return v if v is not None else default
+    except Exception:
+        return default
+
+
+PORTFOLIO_PICKS = "FINAL_Portfolio_Picks.csv"
+
+
+def load_pyramid_adds() -> dict:
+    """Holdings the auto-pilot flagged ADD, from FINAL_Portfolio_Picks.csv.
+
+    Reads the CSV rather than recomputing: `pyramid_logic.export_portfolio_watchlist()`
+    produces it in the auto-pilot run, so a board build stays a file read (the other nine
+    sources work the same way) instead of re-fetching technicals for every holding.
+
+    Only the ADD rung becomes a Pyramid row. TRIM / REDUCE / EXIT are in the file — it is
+    a full portfolio watchlist — but they are sells and belong on the Pyramid and Risk
+    Shield pages, not on a buy board.
+
+    Add SIZE is NOT computed here and NOT in the CSV. Capital and `pyr_risk_pct` are UI
+    settings that change without re-running the pipeline, and the risk unit must be
+    measured against the LIVE price — so sizing happens in `_pos_text()` at row-build
+    time, where the board already holds the CMP it just fetched. Sizing off the held
+    average instead silently produced no quantity on every winner, because a raised
+    Chandelier sits ABOVE the average by definition. Jay's convention (30-Jul): 1% per
+    add, against the raised stop the file carries in Add_SL.
+
+    Returns {} on any failure — a portfolio-source problem must never take the board down.
+    """
+    import pandas as pd
+    out: dict = {}
+    p = os.path.join(_ROOT, PORTFOLIO_PICKS)
+    if not os.path.exists(p):
+        return out                       # absent = auto-pilot has not produced it yet
+    try:
+        df = pd.read_csv(p)
+    except Exception as e:
+        LAST_UNION_ISSUES.append(f"{PORTFOLIO_PICKS}: unreadable ({type(e).__name__})")
+        _log.warning(f"portfolio picks unreadable: {e}")
+        return out
+    if df.empty:
+        LAST_UNION_ISSUES.append(f"{PORTFOLIO_PICKS}: empty (no open positions)")
+        return out
+    if "Pyr_Class" not in df.columns:
+        LAST_UNION_ISSUES.append(f"{PORTFOLIO_PICKS}: missing Pyr_Class — stale format")
+        return out
+
+    cap = _to_num(_gm_setting("capital", 0.0)) or 0.0
+    rpc = _to_num(_gm_setting("pyr_risk_pct", 1.0)) or 1.0
+    adds = df[df["Pyr_Class"].astype(str).str.upper() == "ADD"]
+    for _, r in adds.iterrows():
+        s = _canon_key(r.get("Symbol"))
+        if not s or s == "NAN":
+            continue
+        out[s] = {"qty": _to_num(r.get("Qty")), "avg": _to_num(r.get("Avg")),
+                  "r_mult": _to_num(r.get("R_Mult")), "add_sl": _to_num(r.get("Add_SL")),
+                  "reason": str(r.get("Pyr_Trigger") or ""),
+                  "capital": cap, "risk_pct": rpc}
+    return out
+
+
+def _pos_text(pyr: dict | None, cmp_px=None) -> str:
+    """The one new board column: what is already held, and what an add would be.
+    Blank for every non-Pyramid row so the column costs nothing on a new-entry name.
+
+    Sizes the add HERE because this is the first point that knows the live price. Each
+    failure mode is NAMED rather than collapsing to one blank: no capital set, a raised
+    stop that has caught up to price (not a viable add — the pyramid page should be
+    showing a tighten), and a risk unit too small for a single share."""
+    if not pyr:
+        return ""
+    bits = []
+    if pyr.get("qty") and pyr.get("avg"):
+        bits.append(f"{int(pyr['qty'])} @ {pyr['avg']:.1f}")
+    if pyr.get("r_mult") is not None:
+        bits.append(f"{pyr['r_mult']:+.1f}R")
+    sl = pyr.get("add_sl")
+    if sl:
+        bits.append(f"SL→{sl:.1f}")
+    cap = pyr.get("capital") or 0.0
+    rpc = pyr.get("risk_pct") or 1.0
+    ref = _to_num(cmp_px)
+    if not cap:
+        bits.append("set Capital")
+    elif not (sl and ref):
+        bits.append("no price/stop")
+    elif ref <= sl:
+        bits.append("⚠ stop ≥ price")
+    else:
+        q = int((cap * rpc / 100.0) // (ref - sl))
+        bits.append(f"add {q} @{rpc:g}%" if q > 0 else f"add <1 sh @{rpc:g}%")
+    return " · ".join(bits)
 
 
 def load_watchlist_union() -> dict:
@@ -213,6 +325,23 @@ def load_watchlist_union() -> dict:
                 cb = _to_num(r["Combined_Score"])
                 if cb is not None and (e["combined"] is None or cb > e["combined"]):
                     e["combined"] = cb
+
+    # PYRAMID adds — a 10th source, sourced from the JOURNAL rather than a CSV. journal_sync
+    # keeps the journal's OPEN rows == the live Dhan book, so these are the real holdings.
+    # Tier "Rigorous": already owning a name that pyramid_logic rates ADD is a stronger
+    # qualification than any scan. A held name can also appear on a watchlist — it then
+    # carries BOTH archetypes, which is the show-all behaviour every other source gets.
+    for s, pyr in load_pyramid_adds().items():
+        e = uni.setdefault(s, {"sources": [], "archetypes": [], "tier": "Discovery",
+                               "sides": set(), "conviction": None, "combined": None,
+                               "star": False})
+        if "Portfolio" not in e["sources"]:
+            e["sources"].append("Portfolio")
+        if PYRAMID_ARCHETYPE not in e["archetypes"]:
+            e["archetypes"].append(PYRAMID_ARCHETYPE)
+        e["sides"].add("bull")
+        e["tier"] = "Rigorous"
+        e["pyr"] = pyr
     return uni
 
 
@@ -933,6 +1062,11 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Struct Health": _struct_disp,
         "VP Position":   _vp_disp,
         "Archetype":     arche_txt,                 # inherited setup thesis (Hunter=Breakout, …)
+        # Held position + the add, for Pyramid rows only (blank elsewhere). ONE column
+        # rather than four: the board already has 43, and Entry/SL/R:R above carry the
+        # ADD's own plan for these rows, so the only genuinely new information is what
+        # is already owned.
+        "Pos":           _pos_text(info.get("pyr"), cmp_px),
         "Loc":           _loc_col,                  # Step-4 location caveat (blank when fine)
         "Path":          "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller

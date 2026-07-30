@@ -92,9 +92,81 @@ def _load_bull_universe(logger):
         return None
 
 
+def _is_process_running(pid: int) -> bool:
+    """Check if a process with given PID is currently active on Windows/Linux."""
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            # 0x1000 = PROCESS_QUERY_LIMITED_INFORMATION
+            handle = kernel32.OpenProcess(0x1000, False, pid)
+            if handle:
+                exit_code = ctypes.c_ulong()
+                kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                kernel32.CloseHandle(handle)
+                return exit_code.value == 259  # STILL_ACTIVE = 259
+            return False
+        except Exception:
+            return False
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+
+LOCK_FILE = os.path.join(_DIR, "auto_pilot.lock")
+
+
+def acquire_pipeline_lock(logger) -> bool:
+    """Ensure only one Auto-Pilot pipeline runs at a time.
+    Prevents parallel browser collisions, DB corruption, and process kills.
+    """
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content.isdigit():
+                    existing_pid = int(content)
+                    if existing_pid != os.getpid() and _is_process_running(existing_pid):
+                        logger.error(f"⛔ AUTO-PILOT IS ALREADY RUNNING (PID {existing_pid})!")
+                        logger.error("   Aborting duplicate run to prevent process and data collisions.")
+                        print(f"\n⛔ AUTO-PILOT IS ALREADY RUNNING (PID {existing_pid}). Aborting duplicate run.\n")
+                        return False
+        except Exception as e:
+            logger.warning(f"⚠️ Failed reading lock file: {e}")
+
+    try:
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(os.getpid()))
+        import atexit
+        atexit.register(release_pipeline_lock)
+        return True
+    except Exception as e:
+        logger.warning(f"⚠️ Could not write lock file: {e}")
+        return True
+
+
+def release_pipeline_lock():
+    try:
+        if os.path.exists(LOCK_FILE):
+            with open(LOCK_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content == str(os.getpid()):
+                    os.remove(LOCK_FILE)
+    except Exception:
+        pass
+
+
 def main():
     logger, log_path = setup_logging()
     logger.info(f"[log] Auto-Pilot console log -> {log_path}")
+
+    if not acquire_pipeline_lock(logger):
+        sys.exit(0)
 
     # Clear any stale automated Chrome processes before starting the pipeline
     try:
@@ -134,6 +206,19 @@ def main():
             logger.warning(f"⚠️  Pre-flight cleanup skipped: {e}")
             p.status = "SKIP"
             p.message = f"skipped: {e}"
+
+    # 0.5 NUCLEAR WATCHLIST CLEANUP
+    logger.info("\n[PHASE 0.5] NUCLEAR WATCHLIST CLEANUP...")
+    with run.phase("Phase 0.5 — Nuclear Cleanup") as p:
+        try:
+            import nuclear_cleanup
+            import asyncio
+            asyncio.run(nuclear_cleanup.main())
+            p.message = "nuclear cleanup complete"
+        except Exception as e:
+            logger.error(f"❌ Error during Nuclear Cleanup: {e}")
+            p.status = "WARN"
+            p.message = f"cleanup error: {e}"
 
     # 1. RUN ALL CHARTINK SCANS
     logger.info("\n[PHASE 1] RUNNING TECHNICAL SCANNERS...")
@@ -442,6 +527,17 @@ def main():
         except Exception as e:
             logger.error(f"❌ Error creating watchlists: {e}")
             raise
+        # FINAL_Portfolio_Picks.csv — the enriched portfolio watchlist the Golden Matcher
+        # board consumes as its Pyramid source (holdings + pyramid verdict + the same
+        # technical enrichment the matcher gives the other nine lists). Separate try:
+        # this is an ADDITIVE artifact, so a failure here must not fail Phase 5 or the
+        # run — the board treats an absent file as "not generated yet" and carries on.
+        try:
+            import pyramid_logic as _pyr
+            _pyr.export_portfolio_watchlist(silent=True)
+            logger.info("   ↳ FINAL_Portfolio_Picks.csv (pyramid/ADD source) written")
+        except Exception as e:
+            logger.warning(f"   ↳ portfolio picks CSV skipped: {e}")
 
     # 5.5. FUNDAMENTAL X-RAY SCREENER (Deprecated — integrated directly into Golden Matcher)
     # logger.info("\n[PHASE 5.5] RUNNING FUNDAMENTAL X-RAY SCREENER...")
@@ -490,7 +586,8 @@ def main():
             p.message = "Strike sync OK"
         except Exception as e:
             logger.error(f"❌ Error in Strike Sync: {e}")
-            raise
+            p.status = "WARN"
+            p.message = f"sync error: {e}"
 
     # 7. TRADINGVIEW SYNC
     logger.info("\n[PHASE 7] SYNCING TO TRADINGVIEW (WATCHLISTS)...")
@@ -502,7 +599,8 @@ def main():
             p.message = "TV sync OK"
         except Exception as e:
             logger.error(f"❌ Error in TradingView Sync: {e}")
-            raise
+            p.status = "WARN"
+            p.message = f"sync error: {e}"
 
     # 8. POST-FLIGHT CLEANUP & BACKUP
     logger.info("\n[PHASE 8] POST-FLIGHT CLEANUP & DATABASE BACKUP...")

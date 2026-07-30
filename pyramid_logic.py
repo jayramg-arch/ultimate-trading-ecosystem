@@ -371,6 +371,100 @@ def classify(row: dict) -> tuple[str, str]:
     return "HOLD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · {row.get('rrg_trajectory','')}"
 
 
+PORTFOLIO_PICKS_CSV = os.path.join(_DIR, "FINAL_Portfolio_Picks.csv")
+# The pyramid-specific columns, appended beyond the golden schema. These cannot be
+# derived from the golden columns — they need the journal (qty/avg/stop) and the
+# catalyst-aware Chandelier — so they ride alongside rather than inside it.
+PYR_EXTRA_COLS = ["Pyr_Class", "Qty", "Avg", "R_Mult", "Add_SL", "Pyr_Trigger"]
+
+
+def export_portfolio_watchlist(path: str = None, silent: bool = False) -> str | None:
+    """Write FINAL_Portfolio_Picks.csv — the auto-pilot's enriched portfolio watchlist.
+
+    A first-class peer of the nine FINAL_*.csv lists: every open holding with the SAME
+    technical enrichment the matcher applies (Stage, Mansfield_RS, Daily_RSI/ADX,
+    EMA_Stack, Tech_Score, Combined_Score …) PLUS the pyramid verdict for each name.
+
+    Why here and not in watchlist_manager: that module builds TradingView .txt symbol
+    lists; this needs the journal, the Chandelier and the enrichment pipeline, all of
+    which already live in this module's domain. `LATEST_Portfolio.txt` is unchanged and
+    still the TV-import artifact — this is the CSV the Golden Matcher board consumes.
+
+    Contains ALL holdings with their classification, not just ADDs, so the file is a
+    genuine portfolio watchlist you can open standalone; the board applies the ADD
+    filter when deciding which rows to present as buys.
+
+    Enrichment runs BEFORE the write, never after — saving first leaves Tech_Score
+    blank and corrupts Combined_Score (the 19-Jun-2026 ranking bug).
+
+    Writes a HEADER-ONLY file when nothing is held, deliberately: the board treats an
+    absent file as "not generated" but an empty one as a reportable issue, which is how
+    a silently-empty watchlist got caught before.
+    """
+    out_path = path or PORTFOLIO_PICKS_CSV
+    try:
+        df = get_precomputed_classifications()
+    except Exception as e:
+        if not silent:
+            print(f"[ERROR] portfolio watchlist: classification failed: {e}")
+        return None
+
+    cols = ["Symbol"] + PYR_EXTRA_COLS
+    if df is None or df.empty:
+        _txt = pd.DataFrame(columns=cols).to_csv(index=False)
+        try:
+            from io_utils import atomic_write_text
+            atomic_write_text(out_path, _txt)
+        except Exception:
+            pd.DataFrame(columns=cols).to_csv(out_path, index=False)
+        if not silent:
+            print("[OK] FINAL_Portfolio_Picks.csv — header only (no open positions)")
+        return out_path
+
+    rows = []
+    for _, r in df.iterrows():
+        sym = str(r.get("symbol") or "").strip().upper()
+        sym = sym.replace("NSE:", "").replace("BSE:", "")
+        if sym.endswith(".NS"):
+            sym = sym[:-3]
+        if not sym:
+            continue
+        _cur, _chan = r.get("stoploss"), r.get("chandelier")
+        # Only ever RAISE — same rule as gtt_auto_shield --trail and the Risk Shield
+        # tighten: a Chandelier below the live stop is ignored, never applied.
+        add_sl = _chan if (_numok(_chan) and _numok(_cur) and _chan > _cur) else _cur
+        rows.append({
+            "Symbol":      sym,
+            "Pyr_Class":   str(r.get("classification") or ""),
+            "Qty":         r.get("quantity"),
+            "Avg":         r.get("buy_price"),
+            "R_Mult":      (round(float(r["r_mult"]), 2) if _numok(r.get("r_mult")) else None),
+            "Add_SL":      (round(float(add_sl), 2) if _numok(add_sl) else None),
+            "Pyr_Trigger": str(r.get("trigger") or ""),
+        })
+    out = pd.DataFrame(rows, columns=cols)
+
+    # Same enrichment the matcher applies per-watchlist, so this file ranks and reads
+    # like its nine siblings rather than being a second-class symbol dump.
+    try:
+        import technical_enrichment as _te
+        out = _te.enrich_dataframe(out, symbol_col="Symbol")
+    except Exception as e:
+        if not silent:
+            print(f"[WARN] portfolio watchlist: enrichment unavailable ({e}) — "
+                  "writing pyramid columns only (Combined_Score will be blank)")
+
+    try:
+        from io_utils import atomic_write_text
+        atomic_write_text(out_path, out.to_csv(index=False))
+    except Exception:
+        out.to_csv(out_path, index=False)
+    if not silent:
+        _adds = int((out["Pyr_Class"].astype(str).str.upper() == "ADD").sum())
+        print(f"[OK] FINAL_Portfolio_Picks.csv — {len(out)} holdings, {_adds} ADD")
+    return out_path
+
+
 def color_class(val: str) -> str:
     if val == "ADD":    return "background-color: #1e4620; color: #4ade80; font-weight: 600;"   # green
     if val == "TRIM":   return "background-color: #43290f; color: #fb923c; font-weight: 600;"   # orange (partial)

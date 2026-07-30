@@ -12639,8 +12639,10 @@ elif page == 'GOLDEN MATCHER':
                     # Column order (item 14): decision columns first, then group the
                     # context metrics (RS · Stage · Catalyst · ΣPA · BFF · RFF) right
                     # after RRG, then everything else.
+                    # "Pos" sits beside Archetype: on a Pyramid row it says what is already
+                    # held and what the add would be, and is blank on every other row.
                     _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Archetype",
-                              "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
+                              "Pos", "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
                               "BFF", "RFF"]
                     _ordered = ([c for c in _front if c in _v.columns]
                                 + [c for c in _v.columns if c not in _front])
@@ -12665,7 +12667,7 @@ elif page == 'GOLDEN MATCHER':
                     # Archetype · Loc · Path · RRG) stays on-screen without scrolling.
                     for _pc, _pw in (("Symbol", 96), ("★", 42), ("Overall", 90),
                                      ("Category", 150), ("S4-GO", 84), ("Archetype", 120),
-                                     ("Loc", 120), ("Path", 84), ("RRG", 96)):
+                                     ("Pos", 210), ("Loc", 120), ("Path", 84), ("RRG", 96)):
                         if _pc in _v.columns:
                             _gb.configure_column(_pc, pinned="left", width=_pw)
                     if "S4-GO" in _v.columns:
@@ -12841,6 +12843,12 @@ elif page == 'GOLDEN MATCHER':
             _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
                                           value=float(_gmset.get("risk_pct", 0.25)),
                                           key="gm_riskpct")
+            # Separate risk unit for PYRAMID adds (Jay, 30-Jul: "1% per add"). Kept apart
+            # from the new-entry Risk % above so changing one never moves the other.
+            _gm_pyrrisk = st.number_input("Add risk %", min_value=0.05, max_value=3.0, step=0.05,
+                                          value=float(_gmset.get("pyr_risk_pct", 1.0)),
+                                          key="gm_pyrriskpct",
+                                          help="Risk unit for a PYRAMID add, sized off the REVISED (raised) stop. Each add is its own unit — 5 adds on a 15-name book = 5 fresh units of heat.")
         with _szc3:
             # Trigger TF — UNIFIED with the Trigger Board (shared session key "gm_trig_tf"
             # + gm_settings). Seed from the persisted setting on first load; no index=
@@ -12856,8 +12864,10 @@ elif page == 'GOLDEN MATCHER':
                      "and momentum gauges (RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. "
                      "Context/Quality (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly.")
         if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
-                or (_gm_trig_tf != _gmset.get("trigger_tf")):
-            _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct, trigger_tf=_gm_trig_tf)
+                or (_gm_trig_tf != _gmset.get("trigger_tf")) \
+                or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")):
+            _gm_settings_save(capital=_gm_capital, risk_pct=_gm_riskpct,
+                              trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk)
 
         # Entry method — GLOBAL setting, also exposed here so you can flip buy-stop /
         # retest without leaving the Single Symbol view (item 11). It drives the Plan /
