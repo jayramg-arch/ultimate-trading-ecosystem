@@ -12128,7 +12128,7 @@ elif page == 'GOLDEN MATCHER':
         # persisted build from disk (survives Web Commander restarts / reloads) so
         # it doesn't force a full rebuild every time.
         if st.session_state.get("gm_board_df") is None:
-            _cdf, _cmeta = _gtb.load_board_cache()
+            _cdf, _cmeta = _gtb.load_board_cache(tf=st.session_state.get('gm_trig_tf'))
             if _cdf is not None:
                 st.session_state["gm_board_df"] = _cdf
                 st.session_state["gm_board_stamp"] = (_cmeta or {}).get("stamp") or "from cache"
@@ -12285,12 +12285,31 @@ elif page == 'GOLDEN MATCHER':
             # button + auto-refresh only. TF / Live / Score / X-Ray come from the
             # persisted settings so the table matches the main window.
             _gmset_mx = _gm_settings()
-            _trig_tf = str(_gmset_mx.get("trigger_tf", "75m"))
+            # TF_LOCK FIRST (30-Jul bug): this branch skips the controls block entirely, so
+            # it never saw the ?tf= override and BOTH pop-outs read trigger_tf from
+            # gm_settings — the "125m Board" button opened a 75m board. The lock has to be
+            # honoured here, not only where the selectbox lives.
+            _trig_tf = TF_LOCK or str(_gmset_mx.get("trigger_tf", "75m"))
             if _trig_tf not in ("75m", "125m", "Daily"):
                 _trig_tf = "75m"
-            _live = st.session_state.get("gm_board_live",
-                     "125m bar-close" if _trig_tf == "125m" else "75m bar-close")
+            # Persisted board_live first; the old TF-derived fallback overrode the saved
+            # "75m+125m bar-close" and displayed plain "75m bar-close".
+            _live = st.session_state.get("gm_board_live") or str(
+                _gmset_mx.get("board_live",
+                              "125m bar-close" if _trig_tf == "125m" else "75m bar-close"))
             st.session_state["gm_board_live"] = _live
+            # A DEDICATED WINDOW MUST SAY WHICH TF IT IS (Jay: "I'm not sure whether the
+            # 125m Board is 75m or 125m"). Colour-matched to the launch buttons.
+            _tfcol = {"75m": ("#4ade80", "#0d1b12"), "125m": ("#fbbf24", "#1a1408")}.get(
+                _trig_tf, ("#58a6ff", "#0d1b2a"))
+            st.markdown(
+                f'<div style="background:{_tfcol[1]};border-left:4px solid {_tfcol[0]};'
+                f'padding:6px 14px;margin-bottom:6px;font-family:monospace;'
+                f'font-size:20px;font-weight:700;color:{_tfcol[0]};letter-spacing:1px;">'
+                f'{_trig_tf} TRIGGER BOARD'
+                f'<span style="font-size:12px;font-weight:400;opacity:.75;margin-left:12px;">'
+                f'PA + momentum computed on {_trig_tf}</span></div>',
+                unsafe_allow_html=True)
             _use_xray = True
             _score_mode = "Balanced"
             _refresh_all = False
@@ -12388,7 +12407,7 @@ elif page == 'GOLDEN MATCHER':
                 st.session_state["gm_board_stamp"] = _now_s
             st.session_state["gm_board_saved_iso"] = _gtb_dt.datetime.now().isoformat()
             # Persist to disk so the board survives a restart / reload (instant-on).
-            _gtb.save_board_cache(_bdf_new, stamp=st.session_state.get("gm_board_stamp"),
+            _gtb.save_board_cache(_bdf_new, tf=_trig_tf, stamp=st.session_state.get("gm_board_stamp"),
                                   tech_stamp=_now_s, built_tf=_trig_tf)
 
         # --- render (RRG overlay + filters + editable table); keyed widgets so

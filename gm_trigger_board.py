@@ -561,7 +561,19 @@ def rrg_save(d: dict) -> None:
         _log.warning(f"rrg_save failed (RRG flags not persisted): {e}")
 
 
-def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None) -> None:
+def board_cache_paths(tf: str = None):
+    """(csv, json) cache paths for a Trigger-TF. PER-TF (30-Jul) because two pop-out
+    windows on different TFs shared ONE file: the 125m window displayed the 75m board and
+    each rebuild clobbered the other's snapshot. A 75m main window and a 75m pop-out still
+    share, which is correct — same TF, same board. tf=None keeps the legacy paths."""
+    if not tf:
+        return _BOARD_CACHE, _BOARD_META
+    sfx = str(tf).replace(".", "").replace("/", "")
+    return (os.path.join(_ROOT, f"gm_board_cache_{sfx}.csv"),
+            os.path.join(_ROOT, f"gm_board_cache_{sfx}.json"))
+
+
+def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None, tf=None) -> None:
     """Persist the built board to disk so it survives a Web Commander restart /
     browser reload (session_state is in-memory only). CSV (no pyarrow dep).
     built_tf (P0 fix, 14-Jul-2026): the Trigger-TF the snapshot was computed at —
@@ -571,29 +583,35 @@ def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None) -> None:
         if df is None or getattr(df, "empty", True):
             return
         import datetime
-        atomic_write_text(_BOARD_CACHE, df.to_csv(index=False))
-        atomic_write_text(_BOARD_META, json.dumps(
+        _csv, _meta = board_cache_paths(tf or built_tf)
+        atomic_write_text(_csv, df.to_csv(index=False))
+        atomic_write_text(_meta, json.dumps(
             {"stamp": stamp, "tech_stamp": tech_stamp, "built_tf": built_tf,
              "saved": datetime.datetime.now().isoformat()}))
     except Exception as e:
         _log.warning(f"save_board_cache failed (board won't survive restart): {e}")
 
 
-def load_board_cache(max_age_hours: float = 24.0):
+def load_board_cache(max_age_hours: float = 24.0, tf: str = None):
     """Load the persisted board (df, meta) if present and not older than
     max_age_hours. Returns (None, None) when absent/stale/unreadable. Used for
     instant-on after a restart — and by Auto-pilot to pre-populate the board."""
     try:
         import time as _t
-        if not os.path.exists(_BOARD_CACHE):
+        _csv, _meta = board_cache_paths(tf)
+        # Fall back to the legacy shared file so an existing board is not lost the first
+        # time a TF-specific cache is asked for.
+        if tf and not os.path.exists(_csv) and os.path.exists(_BOARD_CACHE):
+            _csv, _meta = _BOARD_CACHE, _BOARD_META
+        if not os.path.exists(_csv):
             return None, None
-        if (_t.time() - os.path.getmtime(_BOARD_CACHE)) / 3600.0 > max_age_hours:
+        if (_t.time() - os.path.getmtime(_csv)) / 3600.0 > max_age_hours:
             return None, None
         import pandas as pd
-        df = pd.read_csv(_BOARD_CACHE, encoding="utf-8")
+        df = pd.read_csv(_csv, encoding="utf-8")
         meta = {}
         try:
-            with open(_BOARD_META, "r", encoding="utf-8") as f:
+            with open(_meta, "r", encoding="utf-8") as f:
                 meta = json.load(f)
         except Exception as e:
             _log.warning(f"load_board_cache: meta sidecar unreadable (stamps/TF lost): {e}")
