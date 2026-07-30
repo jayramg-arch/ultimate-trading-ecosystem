@@ -815,6 +815,20 @@ if "page" not in st.session_state and _qview is None:
     if _qp:
         st.session_state["page"] = str(_qp)
 
+# PER-WINDOW TRIGGER-TF OVERRIDE (30-Jul, Jay). The union refresh makes the board
+# FRESHER but not dual-timeframe: PA still computes on the single shared Trigger-TF, so
+# at a 10:30 (75m-only) close a 125m board rebuilds on the wrong clock. `?tf=75m` locks
+# THIS WINDOW to a TF, so two pop-outs can monitor 75m and 125m side by side with no
+# switching. Only honoured on a ?view= pop-out — the main window keeps the shared
+# setting — and a locked window NEVER writes trigger_tf back to gm_settings, or the
+# pop-out would hijack the TF everywhere (that unification was deliberate, 13-Jul).
+TF_LOCK = None
+if _qview is not None:
+    _qtf = str(st.query_params.get("tf") or "").strip()
+    if _qtf in ("75m", "125m", "Daily"):
+        TF_LOCK = _qtf
+        st.session_state["gm_trig_tf"] = _qtf
+
 if is_maximized_board or is_gm_window:
     st.session_state["page"] = "GOLDEN MATCHER"
     if is_maximized_board:
@@ -12200,11 +12214,19 @@ elif page == 'GOLDEN MATCHER':
                 if "gm_trig_tf" not in st.session_state:
                     _tf0 = str(_gm_settings().get("trigger_tf", "75m"))
                     st.session_state["gm_trig_tf"] = _tf0 if _tf0 in _tf_opts_b else "75m"
-                _trig_tf = st.selectbox("⏱ Trigger TF", _tf_opts_b, key="gm_trig_tf",
-                                        help="Shared with the Single Symbol page (one setting). The board's "
-                                             "technical + PA columns (Category/Step/trigger/CMP) compute on THIS "
-                                             "timeframe. 75/125m use INTRADAY bars (move through the session); "
-                                             "Daily uses the closed daily bar.")
+                if TF_LOCK:
+                    # Locked by ?tf= — render a caption, not a widget. A selectbox here
+                    # would let the user change it and then be re-forced on the next run,
+                    # which reads as the control fighting back.
+                    _trig_tf = TF_LOCK
+                    st.caption(f"⏱ Trigger TF **{TF_LOCK}** · locked by URL (dedicated window)")
+                else:
+                    _trig_tf = st.selectbox(
+                        "⏱ Trigger TF", _tf_opts_b, key="gm_trig_tf",
+                        help="Shared with the Single Symbol page (one setting). The board's "
+                             "technical + PA columns (Category/Step/trigger/CMP) compute on THIS "
+                             "timeframe. 75/125m use INTRADAY bars (move through the session); "
+                             "Daily uses the closed daily bar.")
                 if _trig_tf != _gm_settings().get("trigger_tf"):
                     _gm_settings_save(trigger_tf=_trig_tf)
                 # Entry method — shared, GLOBAL setting (see _render_entry_method_selector).
@@ -12505,11 +12527,25 @@ elif page == 'GOLDEN MATCHER':
                 st.markdown(
                     '''<div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
                     <a href="/?view=gm_board_maximized" target="_blank" style="text-decoration: none;">
-                        <span style="display: inline-block; padding: 6px 14px; border: 1px solid #1e3a5f; 
-                        background: #0d1b2a; color: #58a6ff; border-radius: 4px; font-size: 13px; 
-                        font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer; 
+                        <span style="display: inline-block; padding: 6px 14px; border: 1px solid #1e3a5f;
+                        background: #0d1b2a; color: #58a6ff; border-radius: 4px; font-size: 13px;
+                        font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer;
                         transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                             ↗️ MAXIMIZE BOARD (NEW WINDOW)
+                        </span>
+                    </a>
+                    <a href="/?view=gm_board_maximized&tf=75m" target="_blank" style="text-decoration:none;margin-left:8px;">
+                        <span style="display:inline-block;padding:6px 12px;border:1px solid #1b4332;
+                        background:#0d1b12;color:#4ade80;border-radius:4px;font-size:13px;
+                        font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;">
+                            ↗️ 75m BOARD
+                        </span>
+                    </a>
+                    <a href="/?view=gm_board_maximized&tf=125m" target="_blank" style="text-decoration:none;margin-left:8px;">
+                        <span style="display:inline-block;padding:6px 12px;border:1px solid #4a3b1b;
+                        background:#1a1408;color:#fbbf24;border-radius:4px;font-size:13px;
+                        font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;">
+                            ↗️ 125m BOARD
                         </span>
                     </a>
                     </div>''',
@@ -12907,8 +12943,14 @@ elif page == 'GOLDEN MATCHER':
                 or (_gm_trig_tf != _gmset.get("trigger_tf")) \
                 or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")) \
                 or (_lv_now and _lv_now != _gmset.get("board_live")):
-            _gm_settings_save(board_live=_lv_now, capital=_gm_capital, risk_pct=_gm_riskpct,
-                              trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk)
+            # A ?tf=-locked window must not persist its override — otherwise opening a
+            # 75m pop-out would silently retune the main window and the Single Symbol page.
+            if TF_LOCK:
+                _gm_settings_save(board_live=_lv_now, capital=_gm_capital,
+                                  risk_pct=_gm_riskpct, pyr_risk_pct=_gm_pyrrisk)
+            else:
+                _gm_settings_save(board_live=_lv_now, capital=_gm_capital, risk_pct=_gm_riskpct,
+                                  trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk)
 
         # Entry method — GLOBAL setting, also exposed here so you can flip buy-stop /
         # retest without leaving the Single Symbol view (item 11). It drives the Plan /
