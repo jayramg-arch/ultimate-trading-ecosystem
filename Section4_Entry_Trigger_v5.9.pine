@@ -790,7 +790,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.2 (Panel Order)", shorttitle="S4 Entry v6.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.3 (Panel Legibility)", shorttitle="S4 Entry v6.3", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -3104,6 +3104,12 @@ if array.size(avs) > 0
         if a <= close and (na(nearest_sup) or a > nearest_sup)
             nearest_sup := a
 float sup_dist = (not na(nearest_sup) and close > 0) ? (close - nearest_sup) / close * 100.0 : na
+// #cf (30-Jul, TITAN): the Confluence row's AVWAP token was the HARDCODED string "AVWL",
+// printed off the generic `near_avwap` flag — so it claimed "AVWAP Low" whenever price was
+// near ANY of the three anchors. TITAN read AVWL while the Nearest AVWAP row correctly
+// showed the BO anchor 0.8% away; its Low anchor was ~20% below price and contributed
+// nothing. Name the anchor that is ACTUALLY nearest, so the two rows agree by construction.
+string nearest_sup_lbl = na(nearest_sup) ? "" : (not na(avwap_bo) and nearest_sup == avwap_bo ? "BO" : not na(avwap_gap) and nearest_sup == avwap_gap ? "Gap" : not na(avwap_low) and nearest_sup == avwap_low ? "L" : "?")
 
 float _tol = tol_pct / 100.0
 bool b_low = not na(avwap_low) and low <= avwap_low * (1.0 + _tol) and close > avwap_low and close > open
@@ -4631,10 +4637,12 @@ f_row(int r, string k, string vv, color vc) =>
     table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=color.new(#b2b5be, 0), text_halign=text.align_left)
     table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=vc, text_halign=text.align_right)
 // one PA-condition token for the compact grid: name + fired(✓) / quiet(·)
-// Fired ticks use the green-check emoji ✅ (inherently green) so they stand out — a Pine
-// table.cell has ONE text colour, so a per-character green ✓ inside the combined PA row
-// isn't possible; the emoji is the way to make just the ticks pop. Not-fired stays a dot.
-f_it(string nm, bool fired) => nm + (fired ? " ✅ " : " ·  ")
+// #pa (30-Jul, Jay): fired ticks were the green-check EMOJI ✅, chosen because a Pine
+// table.cell has one text colour and the emoji carries its own green. But it renders as a
+// boxed glyph, and on this row's coloured background (pa_col_v, white text) the boxes are
+// hard to read. Now the same plain ✓ every other row uses — it inherits the row colour and
+// scans consistently with them. Not-fired stays a dot.
+f_it(string nm, bool fired) => nm + (fired ? " ✓ " : " ·  ")
 
 if show_panel and d_panel and barstate.islast
     table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0))
@@ -4721,7 +4729,7 @@ if show_panel and d_panel and barstate.islast
 
     // --- Confluence breakdown: WHICH ones fired, not just how many. A bare score
     // is its own kind of black box — this is the row that replaces eyeballing.
-    string cfb = (ev_ok[_so] ? "AVWAP " : "") + (show_intraday and intra_ok[_so] ? "Intra " : "") + (z_inDZ_fvg[_so] ? "⚡ " : "") + (z_inDZ_ctrl[_so] ? "Ctrl " : "") + (near_sr[_so] ? "S/R " : "") + (tl_extra[_so] ? "TL " : "") + (bullFlag[_so] ? "Flag " : "") + (near_ema[_so] ? "EMA20 " : "") + (near_avwap[_so] ? "AVWL " : "") + (near_fib[_so] ? "Fib " : "") + (pinched[_so] ? "Pinch " : "") + (chart_rv[_so] >= cf_rv_strong ? "RV+ " : "") + (near_round[_so] ? "Rnd " : "") + (daily_pa_agrees[_so] ? "D-PA " : "") + (show_arrival and arr_fav[_so] ? "Arrival " : "") + (show_arrival and of_absorb[_so] ? "Δ+ " : "") + (_dzTfN[_so] >= 2 ? "MTF×" + str.tostring(_dzTfN[_so]) : "")
+    string cfb = (ev_ok[_so] ? "AVWAP " : "") + (show_intraday and intra_ok[_so] ? "Intra " : "") + (z_inDZ_fvg[_so] ? "⚡ " : "") + (z_inDZ_ctrl[_so] ? "Ctrl " : "") + (near_sr[_so] ? "S/R " : "") + (tl_extra[_so] ? "TL " : "") + (bullFlag[_so] ? "Flag " : "") + (near_ema[_so] ? "EMA20 " : "") + (near_avwap[_so] ? "@AVWAP-" + nearest_sup_lbl[_so] + " " : "") + (near_fib[_so] ? "Fib " : "") + (pinched[_so] ? "Pinch " : "") + (chart_rv[_so] >= cf_rv_strong ? "RV+ " : "") + (near_round[_so] ? "Rnd " : "") + (daily_pa_agrees[_so] ? "D-PA " : "") + (show_arrival and arr_fav[_so] ? "Arrival " : "") + (show_arrival and of_absorb[_so] ? "Δ+ " : "") + (_dzTfN[_so] >= 2 ? "MTF×" + str.tostring(_dzTfN[_so]) : "")
     f_row(18, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : str.length(cfb) == 0 ? "—" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? color.new(#00e676,0) : cf_v > 0 ? color.new(#26a69a,0) : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
@@ -4871,6 +4879,13 @@ if show_panel and d_panel and barstate.islast
         else
             ema_txt := "BELOW " + str.tostring(_emaDist, "0.0") + "% (" + _ext + ")"
             ema_col := color.new(#ef5350,0)
+    // #atr (30-Jul, Jay): the DAILY ATR in rupees and as a % of price, appended to every
+    // branch of this row rather than to one, so it is present whether price is ABOVE, BELOW,
+    // NEAR, SUPPORT or RESISTANCE. atrD_tf (not chart_atr) on purpose — the extension read
+    // above it is measured against the daily EMA20, so both halves of the row share one
+    // clock, and a 75m chart and a daily chart print the same number (the v4.6 unit bug).
+    if not na(atrD_tf) and close > 0
+        ema_txt := ema_txt + " · ATR(D) ₹" + str.tostring(atrD_tf, "0.0") + " (" + str.tostring(atrD_tf / close * 100.0, "0.0") + "%)"
     f_row(8, _emaLbl, ema_txt, ema_col)
 
     // --- RV (volume): its own colour-coded field ---
