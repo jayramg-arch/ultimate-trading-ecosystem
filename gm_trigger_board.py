@@ -156,6 +156,13 @@ def _gm_setting(key: str, default):
 
 PORTFOLIO_PICKS = "FINAL_Portfolio_Picks.csv"
 
+# Minimum PYRAMID add size, as a fraction of the position already held (Jay, 30-Jul:
+# "it makes no sense to buy just 2 shares — it should be at least 50%"). Acts as a FLOOR
+# under the 1%-risk size, which goes small on winners precisely because the raised
+# Chandelier stop is close to price. When the floor binds, the Pos column says so and
+# flags the risk multiple, since the add then exceeds one risk unit by construction.
+PYR_ADD_MIN_FRAC = 0.50
+
 # Correlation-gate thresholds for the Pos column. Imported from sniper_trigger so the
 # board, the sniper gate and the producer all judge an add by ONE rule.
 try:
@@ -251,8 +258,23 @@ def _pos_text(pyr: dict | None, cmp_px=None) -> str:
     elif ref <= sl:
         bits.append("⚠ stop ≥ price")
     else:
-        q = int((cap * rpc / 100.0) // (ref - sl))
-        bits.append(f"add {q} @{rpc:g}%" if q > 0 else f"add <1 sh @{rpc:g}%")
+        # RISK-BASED size: 1% of capital against the distance to the RAISED stop.
+        q_risk = int((cap * rpc / 100.0) // (ref - sl))
+        # #addfloor (30-Jul, Jay: "it makes no sense to buy just 2 shares, it should be at
+        # least 50%"). A raised Chandelier sits CLOSE to price on a winner, so (ref - sl) is
+        # small and the risk formula returns a token size — mathematically right, practically
+        # not worth an order. Floor the add at half the existing position, and report which
+        # rule bound so the number is never mysterious. The floor can EXCEED the 1% risk
+        # unit — that is the point, and it is flagged (⚠risk) rather than hidden, because it
+        # means this add carries more than one risk unit.
+        held = pyr.get("qty") or 0
+        q_floor = int(held * PYR_ADD_MIN_FRAC)
+        if q_floor > q_risk:
+            bits.append(f"add {q_floor} (≥{PYR_ADD_MIN_FRAC:.0%} of {int(held)}) ⚠risk {q_floor / max(q_risk, 1):.1f}×")
+        elif q_risk > 0:
+            bits.append(f"add {q_risk} @{rpc:g}%")
+        else:
+            bits.append(f"add <1 sh @{rpc:g}%")
     # CORRELATION GATE — same thresholds as sniper_trigger E7 (block 0.90 / warn 0.75),
     # measured against the REST of the book. It is surfaced, never used to hide the row:
     # correlation is a RISK read and Category is a TIMING read, so suppressing the row
@@ -661,7 +683,15 @@ def s4go_status(sigma_pa, ctx, intra_ok) -> str:
     the S4 chart is final. Reads the LAST CLOSED bar (gm_load_intraday drops the forming
     bar)."""
     ctx = ctx or {}
-    if not intra_ok:
+    # #dailygo (30-Jul, Jay): Daily returned "n/a" ALWAYS, because intra_ok is only ever
+    # set on the 75m/125m path. But the four gates don't need intraday data — they need a
+    # CLOSED bar, and the daily loader already reads the last closed daily candle. PA and
+    # location were always present for Daily; relvol was too; only bar_ok was missing and
+    # is now computed there with the identical formula. So: trust intra_ok when we have it,
+    # and otherwise fall through IF the daily ctx actually carries the ingredients. A ctx
+    # with neither relvol nor bar_ok is a genuine no-read and still returns "n/a" — the
+    # distinction that matters is "no data" vs "not attempted", not the timeframe.
+    if not intra_ok and ctx.get("relvol") is None and ctx.get("bar_ok") is None:
         return "n/a"
     _rv = ctx.get("relvol")
     _bar = ctx.get("bar_ok")

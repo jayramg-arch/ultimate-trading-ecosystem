@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v6.8 (Per-Token PA Badges)", shorttitle="S4 Entry v6.8", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v6.9 (Verdict Wrap Fix)", shorttitle="S4 Entry v6.9", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 
 // ==========================================================================
 // DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
@@ -5327,31 +5327,39 @@ if show_panel and d_panel and barstate.islast
                 _rule := "Reward clears neither bar — T1 " + _roiTxt + " and " + _rrTxt + "."
         if stage_skip
             _L1 := "NO TRADE — Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping: 30WMA falling, price still above)" : " (declining: below a falling 30WMA)")
-            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only.\nA GO here is a valid TRIGGER inside an invalid CONTEXT — the pattern fired, the stage says do not own it."
+            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only.\nA GO here is a valid TRIGGER inside an invalid CONTEXT —\nthe pattern fired, the stage says do not own it."
             _L3 := "If you take it anyway it is a counter-trend trade: half size at most,\nand manage against the stage, not the target."
             _anCol := color.new(#ef5350, 0)
         else if is_rec_v
             _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
-            _L2 := "A recovery climbs back THROUGH overhead — the levels above ARE the target ladder (T1/T2), not a wall.\nThin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
+            _L2 := "A recovery climbs back THROUGH overhead —\nthe levels above ARE the target ladder (T1/T2), not a wall.\nThin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
             // v5.4 (#3 of 3): this buy-STOP is DELIBERATE for a recovery — you confirm the
             // TURN before entering, never buy the touch of a level in a name that has been
             // falling. It is therefore NOT switched by entry_method. But the Plan row below
             // follows entry_method and will be showing a retest LIMIT, so the panel gave two
             // entries again. Say which wins. (Same fix as CLEAR-TO-BREAK and BLUE-SKY in v5.2.)
+            // #wrap (30-Jul, Jay — SAILIFE screenshot): the break I added earlier only
+            // covered the STATIC head of this string. The two optional tails below are
+            // appended AFTER it with no break of their own, so on a recovery with a caveat
+            // the line ran ~200 chars unbroken and set the panel width — the "one line with
+            // lots of text is not wrapping" case. Each optional tail now opens with its own
+            // \n, so it wraps whether or not the ones before it are present.
             _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder\n(trail as each clears); SL under the recovery low."
-                     + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — on a recovery you confirm the turn, not buy the touch." : "") + (_qArrBad ? " Caveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? " Caveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
+                     + (use_retest ? "\nTHIS OVERRIDES the Plan row's retest limit — on a recovery you confirm the turn, not buy the touch." : "") + (_qArrBad ? "\nCaveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? "\nCaveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
             _L5 := "Manage against the TURN, not the overhead — exit if it loses the recovery low."
             _anCol := color.new(#26a69a, 0)
         else if _blueSky
             _L1 := "BREAKOUT PIVOT — Stage-2 leader at its high"
-            _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) — the 'supply' here IS the prior high, meant to BREAK.\nNot distribution, not a range reject."
+            _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) —\nthe 'supply' here IS the prior high, meant to BREAK.\nNot distribution, not a range reject."
             // v5.2 (#1): the buy-STOP here is DELIBERATE and is NOT switched by
             // entry_method — price is inside the supply band, so a retest limit would
             // buy INTO resistance, which the blue-sky doctrine forbids. Say explicitly
             // that this overrides the Plan row, which follows entry_method and will be
             // showing a retest limit.
-            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — \nabove it is BLUE SKY (reward = measured move / trail, not the next level)." + (use_retest ? " THIS OVERRIDES the Plan row's retest limit — a retest here fills you inside the band." : "")
-            _L5 := "Only valid Stage-2 (above 30WMA+200DMA). If RS fades / it's Stage 3, this same band is real supply → skip."
+            // #wrap: same fix as the recovery branch — the optional retest-override tail
+            // gets its own \n instead of riding on the end of the previous line.
+            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — \nabove it is BLUE SKY (reward = measured move / trail, not the next level)." + (use_retest ? "\nTHIS OVERRIDES the Plan row's retest limit — a retest here fills you inside the band." : "")
+            _L5 := "Only valid Stage-2 (above 30WMA+200DMA).\nIf RS fades / it's Stage 3, this same band is real supply → skip."
             _anCol := color.new(#26a69a, 0)
         else if _clearToBreak
             _L1 := "CLEAR TO BREAK — Stage-2, level overhead"
@@ -5362,7 +5370,7 @@ if show_panel and d_panel and barstate.islast
             // A/B, where retest beat buy-stop on every family. The panel therefore told
             // you to enter in two places ~4% apart. It now follows the SAME input, so
             // there is one entry instruction on the panel.
-            _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback); " + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " \nReal target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
+            _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback);\n" + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " \nReal target = the measured move / swing-positional R-objective,\nnot this level; room to THIS level is thin by design."
             _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA).\nStage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
             _anCol := color.new(#26a69a, 0)
         else if _qRoomBad

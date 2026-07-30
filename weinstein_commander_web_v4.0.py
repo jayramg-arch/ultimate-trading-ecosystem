@@ -4006,6 +4006,16 @@ def gm_load_symbol(symbol: str) -> dict:
         except Exception:
             bull_fvg = bear_fvg = 0
 
+        # Trigger-bar quality on the last CLOSED daily bar — same test as the intraday
+        # loader's _bar_ok, so the S4-GO "clean bar" gate means the same thing on Daily.
+        _daily_bar_ok = None
+        try:
+            _dlb = df.iloc[-1]
+            _do, _dh, _dl, _dc = float(_dlb["Open"]), float(_dlb["High"]), float(_dlb["Low"]), float(_dlb["Close"])
+            _daily_bar_ok = bool((_dc >= _do) or (((_dc - _dl) / (_dh - _dl)) >= 0.5 if _dh > _dl else True))
+        except Exception:
+            _daily_bar_ok = None
+
         out["ctx"] = {
             "cmp": last,
             "prev": float(c.iloc[-2]) if len(c) > 1 else last,
@@ -4028,6 +4038,15 @@ def gm_load_symbol(symbol: str) -> dict:
             "poc": poc, "vah": vah_hi, "val": val_lo, "dist_poc": dist_poc, "vp_pos": vp_pos,
             "bull_fvg": bull_fvg, "bear_fvg": bear_fvg,
             "turnover_cr": last * float(v.iloc[-1]) / 1e7,
+            # #dailygo (30-Jul, Jay): "you're already using the last CLOSED daily candle,
+            # so what's the challenge?" — correct, and this was the only genuinely missing
+            # S4-GO ingredient on Daily. relvol above already exists here; bar_ok did not,
+            # purely because it had only ever been written inside the intraday loader.
+            # IDENTICAL formula to gm_load_intraday's (line ~4379): green close, OR a red
+            # bar that still closed in the upper half of its range. Pure OHLC — nothing
+            # intraday-specific about it — so the Daily read is the same test on the last
+            # closed daily bar, not an approximation of it.
+            "bar_ok": _daily_bar_ok,
         }
     except Exception as e:
         out["ctx"] = None
