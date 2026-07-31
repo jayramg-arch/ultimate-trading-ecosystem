@@ -31,3 +31,37 @@ data/cache/options_summary_*.json
 # armed each name with (levels, verdict, expiry) and churns as you trade.
 # Machine-local; committing it would fight across machines and leak positions.
 gm_armed.json
+
+# ── Operational state & generated artifacts (31-Jul-2026) ────────────────────
+# A `git add -A` in this repo would otherwise sweep in ~1,390 untracked files:
+# trading databases, 485 generated watchlists, 467 validation runs and 73 PNGs.
+#
+# ⚠️ .gitignore does NOT untrack what is already tracked. As of this commit the
+# repo still tracks: trade_journal_v6.db (1.8 MB of live positions and P&L),
+# 46 Generated_Watchlists, 18 validation_runs, 61 PNGs and 3 .bak files. To stop
+# tracking them going forward:  git rm --cached -r <path>
+# Their contents remain in git HISTORY either way — removing that needs a
+# history rewrite (git-filter-repo / BFG), which is a separate, destructive call.
+
+# Databases — journals, sector maps, pick logs. Positions and P&L. Never commit.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Backups and binary caches
+*.bak
+*.pkl
+*.backup_*
+
+# Generated output — reproducible from the pipeline, churns every run
+Generated_Watchlists/
+validation_runs/
+replay_runs/
+reports/
+logs/
+
+# Screenshots / chart captures
+*.png
+*.jpg
+*.jpeg
