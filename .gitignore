@@ -19,5 +19,15 @@ tv_user_data_diagnostics/
 strike_user_data/
 strike_user_data_debug/
 
+# Paid news (ET + Moneycontrol) Playwright profile — contains auth cookies.
+# NEVER commit this. Single-user, machine-local only.
+data/paid_news_profile/
+data/cache/options_summary_*.json
+
 # Claude internals
 .agent/
+
+# Armed Register — operational state, like the journal DB. Holds the plan you
+# armed each name with (levels, verdict, expiry) and churns as you trade.
+# Machine-local; committing it would fight across machines and leak positions.
+gm_armed.json

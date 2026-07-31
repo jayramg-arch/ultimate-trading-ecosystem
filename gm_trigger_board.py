@@ -74,9 +74,20 @@ STAR_SOURCE = "FINAL_WATCHLIST.csv"
 # adds. It is a BULL archetype so the still-valid break-down guard (Stage 3/4 or below
 # 30WMA -> INVALIDATED) applies, which matters more for a position you already own.
 PYRAMID_ARCHETYPE = "Pyramid"
+# ARMED (31-Jul-2026) — a name you set a TV alert on. The board is a snapshot rebuilt
+# from watchlists that churn nightly, so an alert firing three days later landed on a
+# name with no row, no levels and no thesis. The register (gm_armed.py) keeps it, and
+# it re-enters here carrying the archetypes it was ARMED with — same inherited-
+# qualification model as Pyramid. The badge is in BOTH sets on purpose: it must never
+# be the thing that decides bull-vs-recovery, since the armed record carries the path.
+try:
+    from gm_armed import ARMED_ARCHETYPE
+except Exception:                       # pragma: no cover — headless/offline import
+    ARMED_ARCHETYPE = "Armed"
 BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst-Scan",
-                   PYRAMID_ARCHETYPE}
-RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Rec-Catalyst-Scan"}
+                   PYRAMID_ARCHETYPE, ARMED_ARCHETYPE}
+RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early",
+                       "Rec-Catalyst-Scan", ARMED_ARCHETYPE}
 
 # STRUCTURAL archetypes = a setup that PERSISTS (a base/pullback/leadership structure)
 # vs the catalyst-scan archetypes whose thesis was a time-localized event. The
@@ -86,8 +97,9 @@ RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early", "Rec-
 # used to carry (P0 fix, 14-Jul-2026). If you rename an archetype above, update it
 # here in the same edit.
 STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader",
-                              PYRAMID_ARCHETYPE}
-STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early"}
+                              PYRAMID_ARCHETYPE, ARMED_ARCHETYPE}
+STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early",
+                                  ARMED_ARCHETYPE}
 
 
 # Authoritative resolver (dhan_ohlcv.canonical_nse_symbol) — scrip-master-backed,
@@ -228,6 +240,18 @@ def load_pyramid_adds() -> dict:
                   "corr_max": _to_num(r.get("Corr_Max")) if "Corr_Max" in df.columns else None,
                   "corr_with": (str(r.get("Corr_With") or "") if "Corr_With" in df.columns else "")}
     return out
+
+
+def _armed_text(rec) -> str:
+    """Board cell for an armed name: "4d · trg 1284.50". Blank for everything else.
+    Guarded — a malformed register record must degrade to blank, never break a row."""
+    if not isinstance(rec, dict):
+        return ""
+    try:
+        import gm_armed as _a
+        return _a.summary_line(rec)
+    except Exception:
+        return "armed"
 
 
 def _pos_text(pyr: dict | None, cmp_px=None) -> str:
@@ -389,6 +413,32 @@ def load_watchlist_union() -> dict:
         e["sides"].add("bull")
         e["tier"] = "Rigorous"
         e["pyr"] = pyr
+
+    # ARMED names — the register is the 11th source and the ONLY one that can keep a
+    # name on the board after every watchlist has dropped it. That is the point: the
+    # alert you set on Monday fires Thursday. Archetypes and path come from the RECORD
+    # (what the name was when you armed it), so it keeps its original thesis and the
+    # still-valid guard applies exactly as before.
+    try:
+        import gm_armed as _armed
+        for s, rec in (_armed.active() or {}).items():
+            e = uni.setdefault(s, {"sources": [], "archetypes": [], "tier": "Discovery",
+                                   "sides": set(), "conviction": None, "combined": None,
+                                   "star": False})
+            if "Armed" not in e["sources"]:
+                e["sources"].append("Armed")
+            for _a in (rec.get("archetypes") or []):
+                if _a not in e["archetypes"]:
+                    e["archetypes"].append(_a)
+            if ARMED_ARCHETYPE not in e["archetypes"]:
+                e["archetypes"].append(ARMED_ARCHETYPE)
+            e["sides"].add("recovery" if rec.get("path") == "recovery" else "bull")
+            e["tier"] = "Rigorous"
+            e["armed"] = rec
+    except Exception as _ae:
+        # A register failure must never shrink the board silently.
+        LAST_UNION_ISSUES.append(f"gm_armed: register unavailable ({type(_ae).__name__})")
+        _log.warning(f"watchlist union: armed register unavailable: {_ae}")
     return uni
 
 
@@ -668,7 +718,7 @@ def trigger_category(verdict: str, path: str) -> str:
     return f"Other · {p}"
 
 
-def s4go_status(sigma_pa, ctx, intra_ok) -> str:
+def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
@@ -696,15 +746,32 @@ def s4go_status(sigma_pa, ctx, intra_ok) -> str:
     _rv = ctx.get("relvol")
     _bar = ctx.get("bar_ok")
     g_pa  = bool(sigma_pa and sigma_pa > 0)
+    # PA RECENCY (Jay, 31-Jul-2026). An NSE session is 5 x 75-min bars, so a pattern
+    # that fires at 10:30 is invisible to a last-bar-only read by 11:45 — and this
+    # column is where the S4-GO shortlist gets FILTERED, so that name is simply lost.
+    # A PA is a STRUCTURAL event (a pattern that formed and still stands); volume,
+    # location and bar-strength are CURRENT-STATE and stay strictly on the live bar.
+    # So recency is allowed to satisfy the PA gate alone, and the age is ALWAYS
+    # printed — a 2-bar-old trigger must never read as though it just fired.
+    _recent = ctx.get("recovery_pa_recent" if path == "recovery" else "pa_recent")
+    _pa_age = None
+    if not g_pa and isinstance(_recent, dict) and (_recent.get("sigma") or 0) > 0:
+        g_pa = True
+        _pa_age = int(_recent.get("age") or 0)
     g_loc = bool((ctx.get("support") or {}).get("at_support"))
     g_vol = bool(_rv is not None and _rv >= 1.0)
     g_bar = (_bar is None) or bool(_bar)          # unknown bar = don't penalize
     n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar)
+    _age_tag = f" · PA {_pa_age}b" if _pa_age else ""
     if n == 4:
-        return "4/4 GO"
+        # "4/4 GO" stays reserved for all four aligning on the LIVE bar. A recent-PA
+        # name scores 4/4 and sorts with them, but says so — the entry then anchors
+        # to the bar that fired (S4 latches trigBar/trigHi), not to this one.
+        return "4/4 GO" if not _pa_age else f"4/4 · PA {_pa_age}b"
     _miss = ("no PA" if not g_pa else "no loc" if not g_loc
              else "no vol" if not g_vol else "weak bar")
-    return f"{n}/4 · {_miss}"
+    return f"{n}/4 · {_miss}{_age_tag}"
+
 
 
 # ── S4-GO "n/a" observability ────────────────────────────────────────────────
@@ -970,7 +1037,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     # the STAGE-2 gate mirrored from the S4 Pine (pa_fired · location · volume · bar_ok),
     # so the board previews what the S4 chart will show WITHOUT opening each name on TV.
     try:
-        s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"))
+        s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path)
         # Record WHY this row previews as "n/a" so the header can name the cause
         # instead of the user staring at a dead column. gm_evaluate leaves
         # intra_reason None when the read SUCCEEDED or was never attempted (Daily
@@ -1140,6 +1207,15 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # ADD's own plan for these rows, so the only genuinely new information is what
         # is already owned.
         "Pos":           _pos_text(info.get("pyr"), cmp_px),
+        # ARMED — age + the trigger level AS ARMED. The alert fires days after the
+        # board that produced the plan is gone, so this cell is the bridge: it says
+        # how long you have been waiting and what level you were waiting FOR. The
+        # Entry/SL/T1 columns beside it are LIVE (recomputed this rebuild), so the
+        # pair reads as "armed at X, now Y" — which is the comparison you need.
+        # Checkbox — arm/disarm straight from the grid. Editable in BOTH render
+        # paths (data_editor and the streaming AG-Grid), exactly like the RRG flag.
+        "Arm":           bool(info.get("armed")),
+        "Armed":         _armed_text(info.get("armed")),
         "Loc":           _loc_col,                  # Step-4 location caveat (blank when fine)
         "Path":          "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller

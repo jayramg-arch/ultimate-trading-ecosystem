@@ -3515,6 +3515,12 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             ctx["_trigger_tf"] = trigger_tf
             ctx["pa_patterns"] = _intra.get("pa")
             ctx["recovery_pa_patterns"] = _intra.get("rpa")
+            # PA recency — the snapshot of the most recent bar that DID fire when the
+            # current one is silent. Carried as its own key, never merged into
+            # pa_patterns: the live battery must keep describing the live bar, or the
+            # S4-GO chips end up contradicting the score above them (the v5.2 Pine bug).
+            ctx["pa_recent"] = _intra.get("pa_recent")
+            ctx["recovery_pa_recent"] = _intra.get("rpa_recent")
             if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
             if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
             if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
@@ -4303,6 +4309,13 @@ def gm_load_recovery(symbol: str, deep: bool = False) -> dict:
         return {"_error": str(e)}
 
 
+# How many closed trigger-TF bars back the PA battery is re-evaluated when the
+# CURRENT bar is silent. 3 = "this candle or the two before it" — Jay's ask, and
+# on 75m that is roughly the last half-session. Raising it finds more names but
+# quotes older triggers; the age is always shown so a stale one can't pass as live.
+_PA_LOOKBACK_BARS = 3
+
+
 @st.cache_data(ttl=180, show_spinner=False)
 def gm_load_intraday(symbol: str, minutes: int) -> dict:
     """Intraday (75/125-min) trigger data for the Golden Matcher's Step-5 battery
@@ -4398,10 +4411,47 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             _bar_ok = bool((_bc >= _bo) or (((_bc - _bl) / (_bh - _bl)) >= 0.5 if _bh > _bl else True))
         except Exception:
             _bar_ok = None
+        # ── PA RECENCY (Jay, 31-Jul-2026) ────────────────────────────────────
+        # There are 5 x 75-min candles in an NSE session, so a pattern that fires
+        # at 10:30 is gone from a last-bar-only read by 11:45 — and since the GM
+        # board is where the S4-GO shortlist is FILTERED, that name simply cannot
+        # be found again. Trigger-instant reads lose most of the session's signals.
+        #
+        # Done by re-running the SAME battery on an earlier slice (df.iloc[:-k]) —
+        # not by a rolling "sticky" window. That distinction is the whole point:
+        # the v5.0 Pine sticky window was reverted in v5.2 because it SUMMED
+        # patterns across different bars, producing a Sigma that described no bar
+        # that ever existed and a GO that contradicted its own gate chips. Here
+        # each candidate bar is evaluated whole, and what is reported is a SNAPSHOT
+        # of the one bar that fired: its age, its own Sigma, its own patterns.
+        # Zero drift — identical function, identical flags, different last row.
+        def _pa_recency(fn):
+            for k in range(1, _PA_LOOKBACK_BARS):
+                if len(df) - k < 60:
+                    break
+                try:
+                    _p = fn(df.iloc[:-k], "", intraday=True,
+                            ema20_ref=_d_e20, ema10_ref=_d_e10)
+                except Exception:
+                    continue
+                _s = sum(t for _n, _f, t, _x in _p if _f)
+                if _s > 0:
+                    return {"age": k, "sigma": _s,
+                            "names": [n for n, f, _t, _x in _p if f]}
+            return None
+
+        _pa_now = _pap.detect_bull_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10)
+        _rpa_now = _pap.detect_recovery_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10)
         return {
             "ok": True, "bars": len(df),
-            "pa":  _pap.detect_bull_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10),
-            "rpa": _pap.detect_recovery_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10),
+            "pa":  _pa_now,
+            "rpa": _rpa_now,
+            # Populated ONLY when the current bar is silent — a live PA needs no
+            # recency, and reporting one would invite reading a stale age as fresh.
+            "pa_recent":  (_pa_recency(_pap.detect_bull_patterns)
+                           if not any(f for _n, f, _t, _x in _pa_now) else None),
+            "rpa_recent": (_pa_recency(_pap.detect_recovery_patterns)
+                           if not any(f for _n, f, _t, _x in _rpa_now) else None),
             "rsi": _f(_rsi), "adx": _f(_adx),
             "relvol": (float(v.iloc[-1] / _vol20) if (_vol20 and not math.isnan(_vol20)) else None),
             "vol_dry": (_vol5 / _vol20) if _vol20 else None,
@@ -7027,23 +7077,87 @@ elif page == 'COMMAND':
         _exit_csv = os.path.join(_APP_DIR, "Exit_Signals.csv")
         _ec1, _ec2 = st.columns([1, 3], gap="small")
         with _ec1:
+            # NOTE (31-Jul-2026): this used to launch with `--silent`. The engine
+            # honours that flag by redirecting ALL stdout to a sink, so the console
+            # window that `launch_script` opens printed NOTHING and sat there blank —
+            # the scan ran fine and wrote Exit_Signals.csv, but it looked dead. The
+            # silent contract exists for the in-process import path (line ~4557),
+            # NOT for a user-launched console. Run it loud so the scan is visible;
+            # the engine's own input("Press Enter") then holds the window open.
             if st.button("🚨  Scan Exit Signals\nCheck all open positions for exit triggers.\n→  Scan Now",
                          use_container_width=True, key="cmd_exit_scan", type="primary"):
-                launch_script("exit_signal_engine.py", "--silent")
+                launch_script("exit_signal_engine.py")
+                st.info("Scan running in the console window. When it finishes, "
+                        "click ↻ Reload results below.")
+            if st.button("↻  Reload results", use_container_width=True, key="cmd_exit_reload"):
+                st.rerun()
         with _ec2:
             if os.path.exists(_exit_csv):
                 try:
                     _df_exit = pd.read_csv(_exit_csv)
                     _action  = _df_exit[_df_exit.get("Exit_Flag", pd.Series()) == "ACTION"] if "Exit_Flag" in _df_exit.columns else pd.DataFrame()
                     if not _action.empty:
+                        # pd.Timestamp(mtime, unit='s') is UTC — it rendered every
+                        # scan 5h30m in the past (an 08:42 IST run read "03:12"),
+                        # which made a scan that HAD just run look like it never did.
+                        # datetime.fromtimestamp() is local (IST) time.
+                        _scan_at = datetime.fromtimestamp(os.path.getmtime(_exit_csv))
                         st.warning(f"⚠️ **{len(_action)} position(s) need attention** — last scan: "
-                                   f"{pd.Timestamp(os.path.getmtime(_exit_csv), unit='s').strftime('%d %b %H:%M')}")
+                                   f"{_scan_at.strftime('%d %b %H:%M')}")
                         _exit_show = [c for c in ["Symbol","LTP","Weinstein_Stage","Mansfield_RS","StopLoss","Target","Exit_Reasons"] if c in _action.columns]
                         st.dataframe(_action[_exit_show], use_container_width=True, hide_index=True)
                     else:
                         st.success("✅ All positions clear — no exit signals.")
                 except Exception:
                     st.info("Run Exit Scan to generate results.")
+
+        # ── PULLBACK FINDER ─────────────────────────────────────────────────
+        # The Trigger Board answers WHEN (and a trigger bar is a wide-range up-bar
+        # near the recent high, so it is breakout-biased BY CONSTRUCTION — measured
+        # 31-Jul: actionable rows ran a median 1.74 ATR above the EMA20, all within
+        # 0.2-2.9% of their own 20-day high). This answers WHERE: Stage-2 names
+        # sitting AT value right now, ranked by location quality, regardless of
+        # whether anything has fired. Separate surface on purpose — see
+        # pullback_finder.py's header.
+        st.markdown("---")
+        section("Pullback Finder · Stage-2 names AT VALUE")
+        st.caption(
+            "Ranks by LOCATION, not by trigger: extension from the EMA20 (in ATR), "
+            "depth off the 20-day high, volume dry-up, range contraction and the "
+            "nearest real support below price. Scans the full Nifty 500 — it does "
+            "NOT apply the screener.in fundamental join that thins the Chartink "
+            "pullback list. Take a name from here to S4 for the trigger."
+        )
+        _pb_csv = os.path.join(_APP_DIR, "Pullback_Candidates.csv")
+        _pb1, _pb2 = st.columns([1, 3], gap="small")
+        with _pb1:
+            if st.button("🎯  Find Pullbacks\nStage-2 names at value (Nifty 500).\n→  Scan Now",
+                         use_container_width=True, key="cmd_pullback_scan", type="primary"):
+                launch_script("pullback_finder.py", "--universe nifty500")
+                st.info("Scan running in the console window (~3-5 min). "
+                        "Click ↻ Reload results when it finishes.")
+            if st.button("↻  Reload results", use_container_width=True, key="cmd_pb_reload"):
+                st.rerun()
+        with _pb2:
+            if os.path.exists(_pb_csv):
+                try:
+                    _df_pb = pd.read_csv(_pb_csv)
+                    _pb_at = datetime.fromtimestamp(os.path.getmtime(_pb_csv))
+                    _at_value = int((_df_pb["Ext_ATR"] <= 0).sum()) if "Ext_ATR" in _df_pb.columns else 0
+                    st.success(f"🎯 **{len(_df_pb)} names at value** — {_at_value} sitting at or "
+                               f"BELOW the EMA20 · last scan: {_pb_at.strftime('%d %b %H:%M')}")
+                    _pb_show = [c for c in ["Symbol", "Value_Score", "CMP", "Ext_ATR", "Depth_%",
+                                            "RS", "RRG", "Vol_vs_50", "Tight", "Support",
+                                            "Sup_Src", "Trigger>", "SL", "Risk_%", "T1_2R"]
+                                if c in _df_pb.columns]
+                    st.dataframe(_df_pb[_pb_show], use_container_width=True, hide_index=True,
+                                 height=340)
+                    st.caption("Trigger> = wait for a CLOSED bar above it, then buy-STOP above "
+                               "THAT bar. Never rest an order at the level.")
+                except Exception as _pe:
+                    st.info(f"Run the Pullback Finder to generate results. ({_pe})")
+            else:
+                st.info("No scan yet — press **Find Pullbacks**.")
 
         # ── E-02: TRAILING STOP ENGINE ──────────────────────────────────────
         st.markdown("---")
@@ -12467,6 +12581,14 @@ elif page == 'GOLDEN MATCHER':
             _edited = st.data_editor(
                 _view, use_container_width=True, hide_index=True, key="gm_board_editor",
                 column_config={
+                    "Symbol": st.column_config.TextColumn(
+                        "Symbol", width="medium"),
+                    "Arm": st.column_config.CheckboxColumn(
+                        "🔔", width="small",
+                        help="Arm this name — records the plan on THIS row (entry / SL / T1 / "
+                             "verdict) into the Armed Register. It then stays on the board even "
+                             "after every watchlist drops it, so the alert you set today still "
+                             "has its plan when it fires next week. Untick to disarm."),
                     "★": st.column_config.TextColumn(
                         "★", width="small",
                         help="Top-Conviction badge — the name is in FINAL_WATCHLIST.csv, i.e. the "
@@ -12480,6 +12602,16 @@ elif page == 'GOLDEN MATCHER':
                         help="0-100 opportunity score — Leadership(Alpha+Minervini)/Fundamentals(Conviction/"
                              "BFF-or-RFF/Piotroski)/Setup(ΣPA+catalyst+VCP)/Risk(R:R), reweighted for missing "
                              "inputs. Independent of category & path."),
+                    "Category": st.column_config.TextColumn(
+                        "Category", width="medium"),
+                    "S4-GO": st.column_config.TextColumn(
+                        "S4-GO", width="small"),
+                    "Archetype": st.column_config.TextColumn(
+                        "Archetype", width="medium"),
+                    "Loc": st.column_config.TextColumn(
+                        "Loc", width="small"),
+                    "Path": st.column_config.TextColumn(
+                        "Path", width="small"),
                     "WCL Context": st.column_config.TextColumn(
                         "WCL Context", width="medium",
                         help="Weinstein Context Layer macro score band (STRONG BULL / BULL / NEUTRAL / CAUTION / BEAR) and active tactical setup (S1-S8)."),
@@ -12499,7 +12631,84 @@ elif page == 'GOLDEN MATCHER':
                     _rrg[_s] = _v; _changed = True
             if _changed:
                 _gtb.rrg_save(_rrg)
+            # Arm ticks — SAME shared write-back the streaming grid uses.
+            if _gm_apply_arm_edits(_edited):
+                _changed = True
+            if _changed:
                 st.rerun()
+
+        # ── ARM EDITS FROM THE GRID ──────────────────────────────────────────
+        # ONE write-back used by BOTH render paths (data_editor and the streaming
+        # AG-Grid). Two copies of this is exactly the drift that has bitten this
+        # codebase repeatedly, and here it would be worse than cosmetic: the two
+        # paths would snapshot different plans for the same click.
+        #
+        # The snapshot is built FROM THE ROW, which is better than the Single Symbol
+        # route — the row is literally what you were looking at when you decided to
+        # arm, so the recorded plan and the plan you read are the same object.
+        def _gm_apply_arm_edits(edited) -> bool:
+            try:
+                import gm_armed as _ar
+            except Exception as e:
+                _gm_logger.warning(f"board: gm_armed unavailable, Arm column inert: {e}")
+                return False
+            if edited is None or "Arm" not in getattr(edited, "columns", []):
+                return False
+            _reg = _ar.load()
+            _changed = False
+            for _, r in edited.iterrows():
+                _sym = str(r.get("Symbol") or "").strip()
+                if not _sym:
+                    continue
+                _want = bool(r.get("Arm"))
+                _key = _ar.canon(_sym)
+                _now = (_reg.get(_key, {}) or {}).get("status") == _ar.STATUS_ARMED
+                if _want == _now:
+                    continue
+                try:
+                    if _want:
+                        _pth = "recovery" if str(r.get("Path", "")).lower().startswith("rec") else "bull"
+                        _arch = [a.strip() for a in str(r.get("Archetype") or "").split(",")
+                                 if a.strip() and a.strip() != _gtb.ARMED_ARCHETYPE]
+                        _ar.arm(_sym, path=_pth, archetypes=_arch,
+                                verdict=str(r.get("Category") or ""),
+                                category=str(r.get("Category") or ""),
+                                trigger=r.get("Entry"), entry=r.get("Entry"),
+                                sl=r.get("SL"), t1=r.get("T1"), rr=r.get("R:R"),
+                                sigma_pa=r.get("ΣPA"), s4go=str(r.get("S4-GO") or ""),
+                                cmp_px=r.get("CMP"),
+                                tf=str(st.session_state.get("gm_trig_tf") or ""),
+                                note="armed from the board grid")
+                    else:
+                        _ar.disarm(_sym, note="unticked on the board grid")
+                    _changed = True
+                except Exception as e:
+                    _gm_logger.warning(f"board: arm edit failed for {_sym}: {e}")
+            if _changed:
+                # The cached board frame still carries the PRE-edit Arm/Armed values,
+                # so without this the tick visibly reverts on the rerun and the change
+                # reads as "it didn't take" — the register would be right and the grid
+                # would be lying. Patch the two affected cells in place rather than
+                # forcing a full rebuild (which costs a fetch sweep).
+                try:
+                    import gm_armed as _ar2
+                    _bdf_s = st.session_state.get("gm_board_df")
+                    if _bdf_s is not None and "Symbol" in _bdf_s.columns:
+                        _reg2 = _ar2.load()
+                        _armed_now, _armed_txt = [], []
+                        for _sy in _bdf_s["Symbol"].astype(str):
+                            _rc = _reg2.get(_ar2.canon(_sy)) or {}
+                            _on = _rc.get("status") == _ar2.STATUS_ARMED
+                            _armed_now.append(_on)
+                            _armed_txt.append(_ar2.summary_line(_rc) if _on else "")
+                        _bdf_s["Arm"] = _armed_now
+                        if "Armed" in _bdf_s.columns:
+                            _bdf_s["Armed"] = _armed_txt
+                        st.session_state["gm_board_df"] = _bdf_s
+                except Exception as e:
+                    _gm_logger.warning(f"board: Arm cell refresh failed "
+                                       f"(tick may revert until rebuild): {e}")
+            return _changed
 
         # --- LIVE header: pulsing dot + last technical refresh time ---
         def _gm_live_header(live_label):
@@ -12666,6 +12875,65 @@ elif page == 'GOLDEN MATCHER':
                          "Live-refresh mode.")
             st.caption(f"Showing **{len(_dl_view)}** of {len(_bdf_hdr)} names")
 
+        # ── ARMED REGISTER ───────────────────────────────────────────────────
+        # THE place to look when an alert fires days later: the plan you armed with,
+        # beside what the board says about the name today. Rendered here (above the
+        # grid) rather than as a separate page because the alert-fires moment IS a
+        # board moment — you want the live row and the armed plan in one view.
+        try:
+            import gm_armed as _armreg
+            _areg = _armreg.active()
+            with st.expander(f"🔔 Armed Register — {len(_areg)} name(s) being watched",
+                             expanded=False):
+                if not _areg:
+                    st.caption("Nothing armed. Open a name in Single Symbol, set the "
+                               "TradingView alert, then press **Arm + record plan** — the "
+                               "register keeps it on this board after the watchlists drop "
+                               "it, and holds the levels for when the alert fires.")
+                else:
+                    st.caption("**Armed plan** = the levels as of the day you armed it. The "
+                               "board row above is **live**. Compare the two before acting — "
+                               "a wide gap means the setup moved on without you.")
+                    _on_board = set(_bdf_hdr["Symbol"].astype(str).str.upper()) \
+                        if "Symbol" in _bdf_hdr.columns else set()
+                    for _asym, _arec in sorted(
+                            _areg.items(), key=lambda kv: kv[1].get("first_armed") or ""):
+                        _d = _armreg.days_armed(_arec)
+                        _live_row = _bdf_hdr[_bdf_hdr["Symbol"].astype(str).str.upper() == _asym] \
+                            if "Symbol" in _bdf_hdr.columns else None
+                        _cat_now = (str(_live_row.iloc[0].get("Category", "—"))
+                                    if _live_row is not None and not _live_row.empty else "—")
+                        _s4_now = (str(_live_row.iloc[0].get("S4-GO", "—"))
+                                   if _live_row is not None and not _live_row.empty else "—")
+                        _r1, _r2 = st.columns([5, 1], gap="small")
+                        with _r1:
+                            st.markdown(
+                                f"**{_asym}** · armed **{_d}d** ago ({_arec.get('armed_on')}) · "
+                                f"{', '.join(_arec.get('archetypes') or []) or 'no archetype'} · "
+                                f"{_arec.get('path', 'bull').title()}  \n"
+                                f"　armed plan: trigger **₹{_arec.get('trigger') or '—'}** · "
+                                f"SL ₹{_arec.get('sl') or '—'} · T1 ₹{_arec.get('t1') or '—'} · "
+                                f"“{_arec.get('verdict') or '—'}” ({_arec.get('s4go') or '—'})  \n"
+                                f"　now: **{_cat_now}** · S4-GO **{_s4_now}**"
+                                + ("" if _asym in _on_board else
+                                   "  \n　⚠️ no longer on any watchlist — the register is the "
+                                   "only reason this name is still here")
+                                + f"  \n　expires {_arec.get('expires_on')}")
+                        with _r2:
+                            if st.button("Filled", key=f"armfill_{_asym}",
+                                         use_container_width=True,
+                                         help="Mark TRIGGERED — you took the trade."):
+                                _armreg.triggered(_asym); st.rerun()
+                            if st.button("Drop", key=f"armdrop_{_asym}",
+                                         use_container_width=True,
+                                         help="Stop watching. Kept as CANCELLED, not deleted."):
+                                _armreg.disarm(_asym, note="dropped from register panel")
+                                st.rerun()
+                        st.markdown("<hr style='margin:4px 0;border-color:#30363d'>",
+                                    unsafe_allow_html=True)
+        except Exception as _are:
+            _gm_logger.warning(f"armed register panel failed: {_are}")
+
         if _live == "Off":
             _board_render()
         else:
@@ -12798,6 +13066,13 @@ elif page == 'GOLDEN MATCHER':
                             "return{'color':'#787b86'};}"))
                     _gb.configure_column("RRG", editable=True, cellEditor="agSelectCellEditor",
                                          cellEditorParams={"values": _gtb.RRG_QUADRANTS})
+                    if "Arm" in _v.columns:
+                        # Boolean + editable renders AG-Grid's native checkbox, and the
+                        # VALUE_CHANGED update mode already round-trips edits (that is how
+                        # RRG persists), so no extra plumbing is needed.
+                        _gb.configure_column("Arm", editable=True, pinned="left", width=52,
+                                             cellRenderer="agCheckboxCellRenderer",
+                                             cellEditor="agCheckboxCellEditor")
                     if "PrevClose" in _v.columns:
                         _gb.configure_column("PrevClose", hide=True)
                     for _cc in ("CMP", "Chg%", "Overall", "R:R"):
@@ -12825,6 +13100,12 @@ elif page == 'GOLDEN MATCHER':
                             _gtb.rrg_save(_rrg)
                     except Exception as e:
                         _gm_logger.warning(f"stream grid: RRG edit persist failed: {e}")
+                    # Arm ticks — SAME shared write-back the data_editor path uses.
+                    try:
+                        if _gm_apply_arm_edits(_resp["data"]):
+                            st.rerun()
+                    except Exception as e:
+                        _gm_logger.warning(f"stream grid: arm edit persist failed: {e}")
 
                 _gm_stream()
         st.stop()
@@ -13215,13 +13496,17 @@ elif page == 'GOLDEN MATCHER':
         # S4-GO stage-2 preview chip — the SAME shared s4go_status the board's S4-GO
         # column uses, so this page and the board agree on the stage-2 read too. Category
         # above = the stage-1 ARM (no bar_ok); this = PA · location · volume · bar_ok.
+        # Defaults FIRST: the arm/disarm block below reads these, and if the chip's
+        # try-block raised (import failure) they would otherwise be undefined —
+        # a NameError inside a guarded block still loses the Arm button entirely.
+        _s4_path, _s4_sigma, _s4go = "bull", 0, ""
         try:
             import gm_trigger_board as _gtbx2
             _s4_path = "recovery" if (_board_cat and _board_cat.endswith("Recovery")) else "bull"
             _s4_bat = "recovery_pa_patterns" if _s4_path == "recovery" else "pa_patterns"
             _s4_pp = _g(ctx, _s4_bat, default=[]) or []
             _s4_sigma = sum(t for _n, _f, t, _x in _s4_pp if _f) if _s4_pp else 0
-            _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"))
+            _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"), _s4_path)
             _s4_col = ("#26A69A" if _s4go.startswith("4/4") else "#FFB74D" if _s4go.startswith("3/4")
                        else "#FF9800" if _s4go.startswith("2/4") else "#787B86")
             _s4_msg = ("all four gates align — the S4 chart should show GO" if _s4go.startswith("4/4")
@@ -13234,6 +13519,68 @@ elif page == 'GOLDEN MATCHER':
                         f"</div>", unsafe_allow_html=True)
         except Exception as _s4e:
             _gm_logger.warning(f"{symbol}: S4-GO chip failed: {_s4e}")
+
+        # ── ARM / DISARM ────────────────────────────────────────────────────
+        # Set the TV alert, then arm here. The board is rebuilt from watchlists that
+        # churn nightly, so without this the plan you just read exists nowhere by the
+        # time the alert fires. Arming snapshots the LEVELS (which cannot be
+        # reconstructed later — they came off today's bar) and keeps the name on the
+        # board through the churn, re-evaluated live every rebuild.
+        try:
+            import gm_armed as _arm
+            _a_rec = _arm.get(symbol)
+            _a_on = (_a_rec.get("status") or "") == _arm.STATUS_ARMED
+            _ac1, _ac2 = st.columns([1, 3], gap="small")
+            with _ac1:
+                if _a_on:
+                    if st.button("🔕 Disarm", key=f"gm_disarm_{symbol}",
+                                 use_container_width=True):
+                        _arm.disarm(symbol, note="disarmed from Single Symbol")
+                        st.rerun()
+                else:
+                    if st.button("🔔 Arm + record plan", key=f"gm_arm_{symbol}",
+                                 use_container_width=True, type="primary"):
+                        _wf_a = (wf_rec if _s4_path == "recovery" else wf_bull) or {}
+                        # Archetypes come from the SAME inherited lists the board
+                        # uses (_ib_ss / _ir_ss), so an armed name rejoins the board
+                        # under its original thesis rather than a re-derived one.
+                        _arch_a = list(_ir_ss if _s4_path == "recovery" else _ib_ss) or []
+                        _entry_a = _wf_a.get("plan_entry") or cmp_px
+                        _sl_a = _wf_a.get("plan_sl")
+                        _t1_a = _wf_a.get("plan_t1")
+                        _rr_a = None
+                        try:
+                            if _entry_a and _sl_a and _t1_a and _entry_a > _sl_a:
+                                _rr_a = (_t1_a - _entry_a) / (_entry_a - _sl_a)
+                        except Exception:
+                            _rr_a = None
+                        _arm.arm(
+                            symbol, path=_s4_path, archetypes=_arch_a,
+                            verdict=str(_wf_a.get("verdict") or ""),
+                            category=str(_board_cat or ""),
+                            # The confirmation level to wait for. compute_workflow has no
+                            # separate 'trigger' — the plan entry IS that level, and S4
+                            # remains the final word on the exact bar.
+                            trigger=_entry_a,
+                            entry=_entry_a, sl=_sl_a, t1=_t1_a, rr=_rr_a,
+                            sigma_pa=_s4_sigma, s4go=_s4go, cmp_px=cmp_px,
+                            tf=str(st.session_state.get("gm_trig_tf") or ""))
+                        st.rerun()
+            with _ac2:
+                if _a_on:
+                    _d = _arm.days_armed(_a_rec)
+                    st.caption(
+                        f"🔔 **Armed {_d}d ago** ({_a_rec.get('armed_on')}) · plan as armed: "
+                        f"trigger ₹{_a_rec.get('trigger') or '—'} · SL ₹{_a_rec.get('sl') or '—'} · "
+                        f"T1 ₹{_a_rec.get('t1') or '—'} · “{_a_rec.get('verdict') or '—'}” · "
+                        f"expires {_a_rec.get('expires_on')}. Levels shown above are LIVE — "
+                        f"compare them against these before acting on the alert.")
+                else:
+                    st.caption("Set the TradingView alert, then Arm — the register keeps this "
+                               "name on the board after the watchlists drop it, and holds "
+                               "today's levels for when the alert fires.")
+        except Exception as _ae:
+            _gm_logger.warning(f"{symbol}: arm/disarm control failed: {_ae}")
 
         _wcol1, _wcol2 = st.columns(2)
         with _wcol1:
@@ -14106,6 +14453,53 @@ elif page == 'RISK SHIELD':
     # Prompts are framed for Jay's NSE swing/positional method: Weinstein Stage 2,
     # ATR-trailed stops, R-discipline, and "confirmation before entry" (a closed
     # trigger bar, never a blind buy-limit at the zone). Keep answers to 1 sentence.
+    # TRUTHFULNESS (Jay, 31-Jul-2026): ask_llm returns `fallback_text` verbatim when
+    # every provider fails, and the old fallbacks were plausible-sounding advice
+    # ("Monitor position. SL and targets active.") rendered under the same 🤖 AI header
+    # as a real read. A dead API was therefore indistinguishable from analysis. One
+    # sentinel now marks the failure and the renderer styles it as NOT analysis.
+    _AI_UNAVAILABLE = "⚠ AI UNAVAILABLE — the LLM call failed. No analysis was generated for this position."
+
+    def _rs_type_badge(label):
+        """Trade-type badge, rendered from the RISK-SHIELD classification only.
+        It used to be parsed out of the AI's reply, so a drifting model could put a
+        SWING badge over positional-multiplier levels. A trailing '?' marks a type
+        inferred from the resting stop because technicals were unavailable."""
+        _st = ("padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;"
+               "font-weight:bold;vertical-align:middle;color:#ffffff;")
+        if not label or label == "UNKNOWN":
+            return (f'<span style="{_st}background:#484f58;" title="Technicals unavailable '
+                    f'— trade type not determined">TYPE UNKNOWN</span>')
+        _sw = label.startswith("SWING")
+        _inf = label.endswith("?")
+        _bg = "#8957e5" if _sw else "#238636"
+        _tip = ("Inferred from the resting stop distance (technicals unavailable)"
+                if _inf else "Risk Shield classification: ATR% / dist-200 / WS score")
+        return f'<span style="{_st}background:{_bg};{"opacity:0.7;" if _inf else ""}" title="{_tip}">{label}</span>'
+
+    def _rs_ai_card(ai_text):
+        """Render the AI block truthfully. A failed LLM call is styled as a failure
+        instead of borrowing the 🤖 header, and the generation time is stamped so a
+        cached read (the cache persists until you press Run AI Analysis) is never
+        mistaken for a fresh one."""
+        if not ai_text:
+            return ""
+        if ai_text.startswith("⚠ AI UNAVAILABLE") or ai_text == "AI review unavailable.":
+            return ('<div style="background:#2b1a1a;border-left:3px solid #f85149;padding:10px;'
+                    'border-radius:4px;margin-top:12px;font-size:0.8rem;color:#ffb3b3;'
+                    'line-height:1.4;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
+                    'The numbers above are unaffected.</div>')
+        if ai_text.startswith("AI analysis pending"):
+            return ('<div style="background:#1c2128;border-left:3px solid #484f58;padding:10px;'
+                    'border-radius:4px;margin-top:12px;font-size:0.8rem;color:#8b949e;'
+                    'line-height:1.4;">🤖 <b>AI:</b> not run yet — press “Run AI Analysis”.</div>')
+        _txt = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
+        _ts = st.session_state.get("ai_cache_ts")
+        _age = f' <span style="color:#6e7681;font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
+        return (f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:10px;'
+                f'border-radius:4px;margin-top:12px;font-size:0.8rem;color:#e6edf3;'
+                f'line-height:1.4;">🤖 <b>AI:</b>{_age}<br>{_txt}</div>')
+
     def get_stock_context_and_ai_review(symbol, order_type, **kwargs):
         from ai_provider_manager import ask_llm
         _tech = kwargs.get("tech")
@@ -14123,12 +14517,24 @@ elif page == 'RISK SHIELD':
                          f"Days to Earnings: {_tech.get('days_to_earnings') if _tech.get('days_to_earnings') is not None else 'N/A'} | "
                          f"Chandelier Exit (22D): ₹{_tech.get('chandelier_exit', 'N/A')}")
 
+        # TRADE TYPE (Jay, 31-Jul-2026): the model no longer classifies. Risk Shield's
+        # _rs_trade_type() owns that call and it is stated here as a GIVEN, so the badge
+        # and the Rec SL/T1/T2 multipliers can never disagree with the narrative. The
+        # model may still argue the classification looks wrong — that is analysis, and
+        # useful — but it cannot change what the page renders.
+        _tt_lbl = kwargs.get("trade_type") or "UNKNOWN"
+        _tt_str = (
+            f"\nTRADE TYPE (already determined by the risk engine — do NOT re-classify, "
+            f"and do NOT prefix your reply with any tag): {_tt_lbl}. "
+            + ("Manage it as a swing: tighter risk, faster exits, 5-8% objectives over 8-12 weeks. "
+               if _tt_lbl == "SWING" else
+               "Manage it as a positional trend-follow: wider trail, 10-30% objectives over 6-8 months. "
+               if _tt_lbl == "POSITIONAL" else
+               "The engine could NOT determine the type (technicals unavailable) — say so and stay generic on horizon. ")
+            + "If the data makes you think that classification is wrong, say so explicitly and why."
+        )
         _sys = (
             "You are an elite NSE technical analyst and risk manager evaluating an active trade. "
-            "CRITICAL: Start your response with exactly '[Positional]' or '[Swing]' based on your classification. "
-            "CLASSIFICATION RULES: "
-            "If the stock is highly volatile (ATR > 4%), extended from its 200-SMA (Dist > 30%), or showing trend decay (Weinstein Score < 60), classify it as '[Swing]' (tighter risk, faster exits). "
-            "If it is a stable Stage 2 compounder (ATR < 4%, Dist < 30%, strong score), classify it as '[Positional]' (trend following). "
             "ANALYSIS RULES: Provide a sharp, insightful 2-3 sentence technical evaluation. "
             "If 'Volume Climax' is Yes, warn about potential trend exhaustion. If 'Breakout Volume' is Yes, highlight the strong accumulation base breakout. If 'Days to Earnings' is < 5, recommend tightening risk or trimming. "
             "Do NOT just regurgitate the numbers provided in the prompt. "
@@ -14157,8 +14563,8 @@ elif page == 'RISK SHIELD':
                               f"If the engine says TRIM/REDUCE/EXIT, confirm or dispute that.")
             else:
                 _reconcile = "\nAdvise if I should hold, trail the SL up, add (pyramid), or exit."
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | open R: {r_mult} | open risk ₹{risk:,.0f}{_tech_str}\n" + "\n".join(orders_desc) + _reconcile
-            return ask_llm(prompt, fallback_text="Monitor position. SL and targets active.")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | open R: {r_mult} | open risk ₹{risk:,.0f}{_tech_str}{_tt_str}\n" + "\n".join(orders_desc) + _reconcile
+            return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         elif order_type == "GTT_ENTRY":
             trigger = kwargs.get("trigger", 0); price = kwargs.get("price", 0)
             ltp = kwargs.get("ltp", 0); dist = kwargs.get("dist", 0)
@@ -14168,18 +14574,18 @@ elif page == 'RISK SHIELD':
             if _tech:
                 if _tech.get("ws_score", 100) < 50 or _tech.get("sma200_slope", 0) < 0:
                     _setup_warn = f"\nWARNING: Setup may be invalid. WS Score is {_tech.get('ws_score')}/80 and SMA200 slope is {_tech.get('sma200_slope'):+.2f}%. Highlight these risks."
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | buy trigger ₹{trigger:,.2f} ({dist:+.1f}% vs LTP) | limit ₹{price:,.2f} | type: {_style}{_tech_str}{_setup_warn}\nProvide a brief technical analysis on whether this looks like a valid Stage-2 pullback entry setup."
-            return ask_llm(prompt, fallback_text="Pullback entry active. Wait for a confirmation close before entry.")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | buy trigger ₹{trigger:,.2f} ({dist:+.1f}% vs LTP) | limit ₹{price:,.2f} | type: {_style}{_tech_str}{_tt_str}{_setup_warn}\nProvide a brief technical analysis on whether this looks like a valid Stage-2 pullback entry setup."
+            return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         elif order_type == "UNPROTECTED_HOLDING":
             buy_price = kwargs.get("buy_price", 0); ltp = kwargs.get("ltp", 0)
             pnl_pct = ((ltp - buy_price) / buy_price * 100) if buy_price else 0.0
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | cost ₹{buy_price:,.2f} | P&L {pnl_pct:+.1f}% | NO STOP LOSS{_tech_str}\nProvide a technical view and suggest an optimal placement for a stop loss to protect this position."
-            return ask_llm(prompt, fallback_text="Place a stop loss immediately (≈2 ATR below a recent swing low).")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | cost ₹{buy_price:,.2f} | P&L {pnl_pct:+.1f}% | NO STOP LOSS{_tech_str}{_tt_str}\nProvide a technical view and suggest an optimal placement for a stop loss to protect this position."
+            return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         elif order_type == "SINGLE_EXIT":
             trigger = kwargs.get("trigger", 0); ltp = kwargs.get("ltp", 0)
             dist = kwargs.get("dist", 0); label = kwargs.get("label", "Stop Loss")
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | {label}: ₹{trigger:,.2f} ({dist:+.1f}% away){_tech_str}\nShould I hold, trail, or act on this {label.lower()}?"
-            return ask_llm(prompt, fallback_text=f"{label} trigger active. Monitor.")
+            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | {label}: ₹{trigger:,.2f} ({dist:+.1f}% away){_tech_str}{_tt_str}\nShould I hold, trail, or act on this {label.lower()}?"
+            return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         return "N/A"
 
     # --- Persistent AI Cache Logic ---
@@ -14703,6 +15109,36 @@ elif page == 'RISK SHIELD':
                                f"NOT current this run.")
                 st.session_state["cached_hist_data_v3"] = hist_data
 
+                # ── TRADE TYPE: ONE rule, owned by Risk Shield (Jay, 31-Jul-2026) ──────
+                # It used to be decided TWICE per tile: Python computed `is_swing` (which
+                # drives Rec SL / T1 / T2 multipliers) and the LLM was separately ordered to
+                # emit a "[Positional]"/"[Swing]" prefix, which is what the BADGE was parsed
+                # from. Same thresholds, two evaluators — so a model that drifted, or a
+                # prompt missing a field, put a SWING badge over positional-multiplier
+                # levels. Worse, the OCO path then fed the AI's own label back in as a
+                # fallback for `is_swing` (circular). Risk Shield decides now; the AI is
+                # TOLD the answer and analyses inside it. Defaults are the safe ones: a
+                # missing score must not silently mean "swing" (the OCO copy used 0 → <60 →
+                # swing, the Unprotected copy used 100 → positional; they disagreed).
+                def _rs_trade_type(_t):
+                    """(is_swing, label). label 'UNKNOWN' when technicals can't decide —
+                    never a guess dressed as a classification."""
+                    if not isinstance(_t, dict):
+                        return None, "UNKNOWN"
+                    _ap = _t.get("atr_pct") or 0.0
+                    if not _ap or _ap != _ap:
+                        return None, "UNKNOWN"
+                    _sc = _t.get("ws_score")
+                    _sw = bool(_ap > 4
+                               or (_t.get("dist_from_200") or 0.0) > 30
+                               or (100 if _sc is None else _sc) < 60)
+                    return _sw, ("SWING" if _sw else "POSITIONAL")
+
+                rs_trade_type = {}
+                for _tt_sym, _tt_tech in hist_data.items():
+                    if isinstance(_tt_tech, dict):
+                        rs_trade_type[_tt_sym] = _rs_trade_type(_tt_tech)
+
                 # A9: DATA FRESHNESS STRIP — where prices came from + technicals as-of.
                 try:
                     import data_provider as _dp9
@@ -14744,7 +15180,7 @@ elif page == 'RISK SHIELD':
                             # hold/trail/exit and never saw the module's ADD/TRIM/etc.
                             # classification (Jay: "AI contradicts the module").
                             _pcr = pyramid_class_dict.get(_sym, {})
-                            _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re, "tech": hist_data.get(_sym), "pyr_class": _pcr.get("classification", ""), "pyr_reason": _pcr.get("trigger", "")}))
+                            _ai_tasks.append((_ai_k, _sym, "OCO_EXIT_COMBINED", {"orders": _orders, "ltp": _ltp, "r_mult": _rm, "risk": _re, "tech": hist_data.get(_sym), "pyr_class": _pcr.get("classification", ""), "pyr_reason": _pcr.get("trigger", ""), "trade_type": rs_trade_type.get(_sym, (None, "UNKNOWN"))[1]}))
                         else:
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _b in buy_gtts:
@@ -14753,7 +15189,7 @@ elif page == 'RISK SHIELD':
                         if st.session_state.get("force_run_ai"):
                             _ltp = ltps.get(_sym) or 0
                             _dist = (_ltp - _b["trigger"]) / _ltp * 100 if _ltp else 0.0
-                            _ai_tasks.append((_ai_k, _sym, "GTT_ENTRY", {"trigger": _b["trigger"], "price": _b["price"], "ltp": _ltp, "dist": _dist, "tech": hist_data.get(_sym)}))
+                            _ai_tasks.append((_ai_k, _sym, "GTT_ENTRY", {"trigger": _b["trigger"], "price": _b["price"], "ltp": _ltp, "dist": _dist, "tech": hist_data.get(_sym), "trade_type": rs_trade_type.get(_sym, (None, "UNKNOWN"))[1]}))
                         else:
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _h in unprotected_holdings:
@@ -14761,7 +15197,7 @@ elif page == 'RISK SHIELD':
                     if _ai_k not in st.session_state:
                         if st.session_state.get("force_run_ai"):
                             _ltp = ltps.get(_sym) or _h["ltp"] or 0
-                            _ai_tasks.append((_ai_k, _sym, "UNPROTECTED_HOLDING", {"buy_price": _h["buy_price"], "qty": _h["qty"], "ltp": _ltp, "tech": hist_data.get(_sym)}))
+                            _ai_tasks.append((_ai_k, _sym, "UNPROTECTED_HOLDING", {"buy_price": _h["buy_price"], "qty": _h["qty"], "ltp": _ltp, "tech": hist_data.get(_sym), "trade_type": rs_trade_type.get(_sym, (None, "UNKNOWN"))[1]}))
                         else:
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
                 for _s in single_sells:
@@ -14771,7 +15207,7 @@ elif page == 'RISK SHIELD':
                             _ltp = ltps.get(_sym) or _s["price"] or 0
                             _dist = (_ltp - _s["trigger"]) / _ltp * 100 if _ltp else 0.0
                             _label = "Stop Loss" if _s["trigger"] < _ltp else "Target Limit"
-                            _ai_tasks.append((_ai_k, _sym, "SINGLE_EXIT", {"trigger": _s["trigger"], "ltp": _ltp, "dist": _dist, "label": _label, "tech": hist_data.get(_sym)}))
+                            _ai_tasks.append((_ai_k, _sym, "SINGLE_EXIT", {"trigger": _s["trigger"], "ltp": _ltp, "dist": _dist, "label": _label, "tech": hist_data.get(_sym), "trade_type": rs_trade_type.get(_sym, (None, "UNKNOWN"))[1]}))
                         else:
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
 
@@ -14791,8 +15227,14 @@ elif page == 'RISK SHIELD':
                             for key, res in executor.map(_run_ai, _ai_tasks):
                                 st.session_state[key] = res
                         
+                        # Stamp WHEN this batch ran. ai_cache.json survives restarts and is
+                        # only rebuilt when you press "Run AI Analysis", so without this the
+                        # card could show week-old prose beside a live LTP with nothing to
+                        # say which. _rs_ai_card() renders it on every AI block.
+                        st.session_state["ai_cache_ts"] = datetime.now().strftime("%d %b %H:%M")
+
                         # Save back to cache
-                        _new_cache = {}
+                        _new_cache = {"ai_cache_ts": st.session_state["ai_cache_ts"]}
                         for k, v in st.session_state.items():
                             if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_", "cached_hist_data_v3"]):
                                 _new_cache[k] = v
@@ -15195,24 +15637,28 @@ elif page == 'RISK SHIELD':
                                     header_entry = f"<b style='color:#8b949e;'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:#8b949e;'>Entry: N/A</b>"
                                     header_ltp = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#58a6ff;'>LTP: N/A</b>"
                                     
-                                    # Calculate ATR + is_swing first for Time Stop logic
+                                    # Calculate ATR + is_swing first for Time Stop logic.
+                                    # Trade type comes from rs_trade_type — the ONE rule
+                                    # (see _rs_trade_type). `tt_label` also drives the tile
+                                    # badge, so badge and multipliers cannot disagree.
                                     _tech = hist_data.get(sym)
                                     atr_val = 0
-                                    is_swing = False
-                                    
+                                    _tt_sw, tt_label = rs_trade_type.get(sym, (None, "UNKNOWN"))
+                                    is_swing = bool(_tt_sw)
+
                                     if _tech and _tech.get("atr_pct"):
                                         val = _tech.get("atr_pct")
                                         if isinstance(val, (int, float)) and val == val and val > 0:
                                             atr_val = (ltp * val) / 100
-                                            is_swing = _tech.get('atr_pct', 0) > 4 or _tech.get('dist_from_200', 0) > 30 or _tech.get('ws_score', 0) < 60
-                                        
+
                                     if (not atr_val or atr_val != atr_val) and ltp:
                                         raw_atr = get_atr(sym)
                                         if raw_atr and raw_atr == raw_atr: atr_val = raw_atr
-                                        ai_key = f"ai_exit_review_{sym}"
-                                        if ai_key in st.session_state and "[Swing]" in st.session_state[ai_key]:
-                                            is_swing = True
-                                            
+                                        # The AI's own "[Swing]" tag used to be read back in
+                                        # here as a trade-type source — circular (the model
+                                        # was told the rule, then its echo fed the engine).
+                                        # Removed; the SL-distance fallback below stands.
+
                                     if (not atr_val or atr_val != atr_val) and sl_vals and ltp:
                                         closest_sl = max(sl_vals)
                                         dist = ltp - closest_sl
@@ -15223,6 +15669,11 @@ elif page == 'RISK SHIELD':
                                             else:
                                                 atr_val = dist / 3.0
                                                 is_swing = False
+                                            # This path INFERS the type from the resting stop
+                                            # because technicals were unavailable. Say so on
+                                            # the badge rather than presenting it as the
+                                            # engine's classification.
+                                            tt_label = ("SWING" if is_swing else "POSITIONAL") + "?"
 
                                     # Compute Days Held & Time Stop Hit
                                     days_held = None
@@ -15299,8 +15750,10 @@ elif page == 'RISK SHIELD':
                                         if _flags:
                                             flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                             
-                                    # Calculate Dhan 50/50 2-OCO execution card parameters
-                                    trail_step_val = round(atr_val * 1.5, 2) if (atr_val and atr_val > 0) else 0.0
+                                    # Calculate Dhan 50/50 2-OCO execution card parameters.
+                                    # Both legs are FIXED (no trailing): OCO-1 = 50% qty, Fixed T1/SL;
+                                    # OCO-2 = remaining qty, Fixed T2/SL. (Trailing approach abandoned.)
+                                    _oco_family = "SWG" if is_swing else "POS"
                                     oco1_q = int(total_qty * 0.5) if total_qty else 0
                                     oco2_q = total_qty - oco1_q if total_qty else 0
                                     t1_price = tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.08 if buy_price else 0)
@@ -15308,9 +15761,9 @@ elif page == 'RISK SHIELD':
                                     sl_price = near_sl if near_sl else (buy_price * 0.94 if buy_price else 0)
 
                                     dhan_oco_card_html = f"""<div style='background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 8px;margin-top:6px;font-size:0.75rem;'>
-                                        <div style='color:#58a6ff;font-weight:bold;margin-bottom:2px;'>📌 Dhan 2-OCO Plan (Trail Step: ₹{trail_step_val:,.2f} · 1.5× Daily ATR)</div>
-                                        <div style='color:#4ade80;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Static) ₹{t1_price:,.2f} | SL ₹{sl_price:,.2f} | TSL: <b>ON</b></div>
-                                        <div style='color:#a7f3d0;'>• <b>OCO-2 ({oco2_q} sh):</b> Trail T2 <b>ON</b> ₹{t2_price:,.2f} | SL ₹{sl_price:,.2f} | TSL: <b>ON</b></div>
+                                        <div style='color:#58a6ff;font-weight:bold;margin-bottom:2px;'>📌 Dhan 2-OCO Plan · 50/50 Fixed ({_oco_family})</div>
+                                        <div style='color:#4ade80;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Fixed) ₹{t1_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
+                                        <div style='color:#a7f3d0;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 (Fixed) ₹{t2_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
                                     </div>"""
 
                                     combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>{dhan_oco_card_html}"
@@ -15331,7 +15784,10 @@ elif page == 'RISK SHIELD':
                                     rec_line = ""
 
                                     if ltp and atr_val and atr_val == atr_val and atr_val > 0:
-                                        sl_mult = 1.5 if is_swing else 3.0
+                                        # v2.2 catalyst-aware multipliers (risk_common canon):
+                                        # SWG  → SL 1.5× · T1 3R · T2  5R
+                                        # POS  → SL 4.5× · T1 5R · T2 10R
+                                        sl_mult = 1.5 if is_swing else 4.5
                                         t1_mult = 3.0 if is_swing else 5.0
                                         t2_mult = 5.0 if is_swing else 10.0
                                         atr_sl = ltp - (atr_val * sl_mult)
@@ -15341,8 +15797,21 @@ elif page == 'RISK SHIELD':
                                         if len(orders) == 1 or len(tgt_vals) <= 1 or (rec_t1 and ltp >= rec_t1):
                                             rec_t1 = None
                                             
-                                        t1_str = f' | Rec T1: <span style="color:#ffb000">₹{rec_t1:,.0f}</span>' if rec_t1 else ''
-                                        t2_str = f' | Rec T2: <span style="color:#ffb000">₹{rec_t2:,.0f}</span>' if rec_t2 else ''
+                                        # R:R on the recommended targets (Jay, 31-Jul-2026).
+                                        # Measured FROM LTP, not from entry: this is a live
+                                        # position, so the decision is "from here, what do I
+                                        # risk vs what do I still make". R = LTP − Rec SL
+                                        # (= ATR × sl_mult, always positive and always defined).
+                                        # An entry-based R would go negative the moment Rec SL
+                                        # rises above cost — i.e. it would blank out on exactly
+                                        # the winners you most need to size the trail against.
+                                        _rr_risk = ltp - atr_sl
+                                        def _rr(t):
+                                            if not t or not _rr_risk or _rr_risk <= 0:
+                                                return ''
+                                            return f' <span style="color:#6e7681">({(t - ltp) / _rr_risk:.1f}R)</span>'
+                                        t1_str = f' | Rec T1: <span style="color:#ffb000">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        t2_str = f' | Rec T2: <span style="color:#ffb000">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
                                         rec_line = f'<div style="font-size:0.75rem;margin-top:8px;color:#8b949e;">Rec SL: <span style="color:#bf40bf">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
                                             
                                     if ltp:
@@ -15431,18 +15900,10 @@ elif page == 'RISK SHIELD':
                                     reco_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
 
                                     ai_key = f"ai_exit_review_{sym}"
-                                    trade_style_badge = ""
-                                    ai_html = ""
-                                    if ai_key in st.session_state:
-                                        ai_text = st.session_state[ai_key]
-                                        if "[Positional]" in ai_text:
-                                            trade_style_badge = '<span style="background:#238636;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">POSITIONAL</span>'
-                                        elif "[Swing]" in ai_text:
-                                            trade_style_badge = '<span style="background:#8957e5;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">SWING</span>'
-                                            
-                                        display_text = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
-                                        ai_html = f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:10px;border-radius:4px;margin-top:12px;font-size:0.8rem;color:#e6edf3;line-height:1.4;">🤖 <b>AI:</b> {display_text}</div>'
-                                        
+                                    # Badge is Risk Shield's call, NOT parsed from the AI reply.
+                                    trade_style_badge = _rs_type_badge(tt_label)
+                                    ai_html = _rs_ai_card(st.session_state.get(ai_key))
+
                                     expand_btn = '<label class=\"expand-btn\" title=\"Toggle Fullscreen\" style=\"cursor:pointer;float:right;margin-top:-5px;\">⛶<input type=\"checkbox\" class=\"expand-toggle\" style=\"display:none;\"></label>'
 
                                     card_html = (
@@ -15491,17 +15952,17 @@ elif page == 'RISK SHIELD':
                                             days_held = (date.today() - entry_d).days
                                         except: pass
 
-                                    # A2 SAFETY FIX (2026-07-04 audit): the old dummy denominator
-                                    # (10% of cost) fired time-stops on fabricated math. R is now
-                                    # anchored to the ATR-based initial risk this page itself
-                                    # recommends (1.5x ATR swing / 3.0x positional). No ATR ->
-                                    # no time-stop verdict (n/a), never a fake one.
+                                    # v2.2 safety: R is anchored to the catalyst-aware initial risk
+                                    # (risk_common canon): SWG 1.5x ATR swing / POS 4.5x positional.
+                                    # No ATR -> no time-stop verdict (n/a), never a fake one.
                                     time_stop_hit = False
                                     r_multiple_up = None
                                     if days_held is not None and bp and ltp:
                                         _atr_pct_ts = (hist_data.get(sym) or {}).get("atr_pct") or 0
                                         if _atr_pct_ts > 0:
-                                            _risk_ps = (ltp * _atr_pct_ts / 100.0) * (1.5 if is_swing else 3.0)
+                                            # v2.2: SWG 1.5× · POS 4.5× (risk_common canon)
+                                            _ts_mult = 1.5 if is_swing else 4.5
+                                            _risk_ps = (ltp * _atr_pct_ts / 100.0) * _ts_mult
                                             if _risk_ps > 0:
                                                 r_multiple_up = (ltp - bp) / _risk_ps
                                         limit_days = 10 if is_swing else 42
@@ -15560,9 +16021,7 @@ elif page == 'RISK SHIELD':
                                         
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_single_review_{sym}_{s['order_id']}"
-                                    ai_html = ""
-                                    if ai_key in st.session_state:
-                                        ai_html = f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-top:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>'
+                                    ai_html = _rs_ai_card(st.session_state.get(ai_key))
                                     reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#fb923c;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
                                     st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{reason_line}{ai_html}</div>', unsafe_allow_html=True)
 
@@ -15585,28 +16044,30 @@ elif page == 'RISK SHIELD':
                                     atr_val = 0
                                     is_swing = False
                                     
+                                    # Trade type from the ONE rule (this block used to hold a
+                                    # SECOND copy of it whose ws_score default was 100 while
+                                    # the OCO copy used 0 — they disagreed on a missing score)
+                                    # and no longer from the AI's own "[Swing]" echo.
+                                    _tt_sw, tt_label = rs_trade_type.get(sym, (None, "UNKNOWN"))
+                                    is_swing = bool(_tt_sw)
                                     if _tech:
                                         # RS-P0: .get with defaults — direct [] here crashed the tab
                                         # on a partial tech dict (unlike the OCO branch's guards).
                                         _ap = _tech.get("atr_pct") or 0.0
                                         atr_val = (ltp * _ap) / 100
-                                        is_swing = (_ap > 4 or (_tech.get("dist_from_200") or 0) > 30
-                                                    or (_tech.get("ws_score") or 100) < 60)
                                     else:
                                         raw_atr = get_atr(sym)
                                         if raw_atr: atr_val = raw_atr
-                                        ai_key = f"ai_unprotected_review_{sym}"
-                                        if ai_key in st.session_state and "[Swing]" in st.session_state[ai_key]:
-                                            is_swing = True
-                                            
+
                                     pb_html = ""
                                     badge_html = ""
                                     rec_line = ""
                                     
                                     if atr_val > 0 and bp and ltp:
-                                        trade_style = "SWING" if is_swing else "POSITIONAL"
-                                        style_color = "#8957e5" if is_swing else "#238636"
-                                        sl_mult = 1.5 if is_swing else 3.0
+                                        # v2.2 catalyst-aware multipliers (risk_common canon):
+                                        # SWG  → SL 1.5× · T1 3R · T2  5R
+                                        # POS  → SL 4.5× · T1 5R · T2 10R
+                                        sl_mult = 1.5 if is_swing else 4.5
                                         t1_mult = 3.0 if is_swing else 5.0
                                         t2_mult = 5.0 if is_swing else 10.0
                                         
@@ -15671,11 +16132,16 @@ elif page == 'RISK SHIELD':
                                             
                                         pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
-                                        if _tech or trade_style: 
-                                            badge_html = f'<span style="background:{style_color};color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">{trade_style}</span>'
+                                        badge_html = _rs_type_badge(tt_label)
                                         
-                                        t1_str = f' | Rec T1: <span style="color:#00f260">₹{rec_t1:,.0f}</span>' if rec_t1 else ''
-                                        rec_line = f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">Rec SL: <span style="color:#bf40bf">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#00f260">₹{rec_t2:,.0f}</span></div>'
+                                        # Same R:R convention as the OCO tiles above: from LTP.
+                                        _rr_risk = ltp - rec_sl
+                                        def _rr(t, _px=ltp, _rk=_rr_risk):
+                                            if not t or not _rk or _rk <= 0:
+                                                return ''
+                                            return f' <span style="color:#6e7681">({(t - _px) / _rk:.1f}R)</span>'
+                                        t1_str = f' | Rec T1: <span style="color:#00f260">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        rec_line = f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">Rec SL: <span style="color:#bf40bf">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#00f260">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
                                     elif bp and ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
@@ -15707,9 +16173,7 @@ elif page == 'RISK SHIELD':
                                 
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_unprotected_review_{sym}"
-                                    ai_html = ""
-                                    if ai_key in st.session_state:
-                                        ai_html = f'<div style="background:#0e2035;border-left:3px solid #ff4b4b;padding:8px;border-radius:4px;margin-top:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>'
+                                    ai_html = _rs_ai_card(st.session_state.get(ai_key))
                                         
                                     flags_html = ""
                                     # Get classification from cache
@@ -15839,13 +16303,7 @@ elif page == 'RISK SHIELD':
                                     ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
                                 
                                     ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
-                                    trade_style_badge = ""
-                                    if ai_key in st.session_state:
-                                        ai_text = st.session_state[ai_key]
-                                        if "[Positional]" in ai_text:
-                                            trade_style_badge = '<span style="background:#238636;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">POSITIONAL</span>'
-                                        elif "[Swing]" in ai_text:
-                                            trade_style_badge = '<span style="background:#8957e5;color:#ffffff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;font-weight:bold;vertical-align:middle;">SWING</span>'
+                                    trade_style_badge = _rs_type_badge(rs_trade_type.get(sym, (None, "UNKNOWN"))[1])
 
                                     card = (
                                         f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {border};text-align:left;">'
@@ -15922,23 +16380,24 @@ elif page == 'RISK SHIELD':
                                     is_swing = False
                                     ws_score = None
                                     
+                                    # Third copy of the trade-type rule — also routed through
+                                    # the ONE engine call, and no longer seeded from the AI's
+                                    # own label.
+                                    _tt_sw, _tt_lb = rs_trade_type.get(sym, (None, "UNKNOWN"))
+                                    is_swing = bool(_tt_sw)
                                     if _tech:
                                         # RS-P0: .get with defaults (KeyError on partial tech dict)
                                         atr_pct = _tech.get("atr_pct") or 0.0
                                         atr_val = (ltp * atr_pct) / 100
-                                        is_swing = (atr_pct > 4 or (_tech.get("dist_from_200") or 0) > 30
-                                                    or (_tech.get("ws_score") or 100) < 60)
                                         ws_score = _tech.get("ws_score")
                                     elif ltp:
                                         raw_atr = get_atr(sym)
                                         if raw_atr:
                                             atr_val = raw_atr
                                             atr_pct = (raw_atr / ltp) * 100
-                                        ai_key = f"ai_exit_review_{sym}"
-                                        if ai_key in st.session_state and "[Swing]" in st.session_state[ai_key]:
-                                            is_swing = True
-                                            
-                                    row_data["Style"] = "SWING" if is_swing else "POSITIONAL"
+
+                                    # "UNKNOWN" must not silently render as POSITIONAL in the table.
+                                    row_data["Style"] = _tt_lb
                                     
                                     # A3 FIX (2026-07-04 audit): guard the ltp division — missing
                                     # LTP rows must show "—", not crash or fake a distance.
