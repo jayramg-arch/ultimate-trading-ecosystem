@@ -1,6 +1,19 @@
-# Golden Matcher — Single-Stock Command Center — User & Trading Guide
+# Golden Matcher — the GM + S4 Trading System — User & Trading Guide
 
-> **Module Role:** A **read-only** single-symbol decision funnel that renders the entire Golden Matcher checklist for **one stock at a time**. It answers one question — *"Is this name a buy right now, and if not, exactly what am I waiting for?"* — by ordering every signal into a **6-step gated decision path** (CONTEXT → QUALITY → SETUP → LOCATION → TRIGGER → EXECUTE), for **both a Bull path and a Recovery path**, ending in a **tick-as-you-go execution checklist**.
+> **Module Role:** The **upstream half of the GM + S4 system**. It has grown two
+> surfaces that share one engine:
+>
+> | Surface | Answers | Use it |
+> |---|---|---|
+> | **Trigger Board** | *Which of my ~50 qualified names deserve attention right now?* | All day — it rebuilds on every 75m/125m bar close |
+> | **Single Symbol** | *Is THIS name a buy, and if not, what exactly am I waiting for?* | When the board surfaces something |
+>
+> Both call the **same** `gm_evaluate()`, so they agree by construction. The board is the
+> filter; the single view is the read; **S4 on TradingView is the trigger and the final
+> word.** For the complete end-to-end workflow across both halves, see **PART B of
+> `docs/22_Section4_Entry_Trigger_Guide.md`**.
+>
+> Historically (and still, for the single view) it is a **read-only** single-symbol decision funnel that renders the entire Golden Matcher checklist for **one stock at a time**. It answers one question — *"Is this name a buy right now, and if not, exactly what am I waiting for?"* — by ordering every signal into a **6-step gated decision path** (CONTEXT → QUALITY → SETUP → LOCATION → TRIGGER → EXECUTE), for **both a Bull path and a Recovery path**, ending in a **tick-as-you-go execution checklist**.
 >
 > **Location:** the **🎯 Golden Matcher** page inside **`weinstein_commander_web_v4.0.py`** (Web Commander → **Execution → Golden Matcher**), with **Auto-Sync TV**. · **Companion Pine:** [Section 4 — Entry Trigger](./22_Section4_Entry_Trigger_Guide.md) (the TradingView trigger twin, unified Bull/Recovery mode).
 >
@@ -12,7 +25,9 @@
 >   - `recovery_screener` via `gm_load_recovery()` → REV catalysts, RFF, drawdown, Wyckoff (**Recovery path**)
 >   - `data_provider.fetch_ohlcv()` → OHLCV / CMP (Dhan-routed) · `fundamental_hub` → fundamentals
 > - **Bull path** uses the **17-PA battery**; **Recovery path** uses the **10-PA reversal battery** + RS-turning-up in its Quality gate. Both live in the shared **`pa_patterns.py`** module (`detect_bull_patterns` / `detect_recovery_patterns`, imported by the page as `_detect_pa_patterns` / `_detect_recovery_pa_patterns`) — the single source of truth also read by `pa_field_validator.py`. Both mirror the unified **Section 4 Pine** (Bull/Recovery mode) — same conditions fire on both surfaces.
-> - **Auto support zones** — `pa_patterns.detect_support_zones_dw()` marks the **Order Block / FVG / pivot-low support on both Daily and Weekly** (twin of the Section 4 Pine v2.3), and tracks **fresh vs tested** (a mitigated OB/FVG is excluded), so the LOCATION step and the guided checklist reference the *same fresh* demand zones the chart draws. Automates Guided-Execution Steps 1-2.
+> - **Location** — `pa_patterns.detect_support_zones_dw()` (FVG / pivot, Daily+Weekly) with fresh/tested/violated lifecycle. **`zone_engine.py`** is the full Python port of S4's Institutional leg-base-leg zone engine + S/R levels + AVWAPs; it sits behind the flag **`GM_USE_IZE_ZONES` (default False)** — A/B it against S4 before flipping. `near_ema` is deliberately **excluded** from the Python side: it fires most of the time and would make the board over-predict `4/4 GO`. *(Order Blocks were removed as a support source in S4 v3.0 — zones replace them.)*
+> - **Inherited qualification** — the watchlists QUALIFY; the board TIMES. A name carries the **archetype** of every list it appears in, and Context/Quality stop being re-screened. See §4b.
+> - **fresh vs tested** (a mitigated OB/FVG is excluded), so the LOCATION step and the guided checklist reference the *same fresh* demand zones the chart draws. Automates Guided-Execution Steps 1-2.
 > - **Bull/Recovery path parity** — the GM resolves the path from the engines (bull catalyst vs recovery signal + RFF). The **Section 4 Pine v2.3** now mirrors this structurally in its `Auto` mode (Bull above the 200-DMA; Recovery = beaten-down below it), so the two surfaces agree on which playbook applies (the residual gap is an early recovery that already reclaimed the 200-DMA — Pine can't see RFF; use the Pine `Mode` override).
 > - The Golden Matcher **identifies and sequences**; it **never triggers**. The trigger is always a **closed 75/125-min bar on TradingView**.
 
@@ -22,6 +37,15 @@
 
 | Milestone | Change |
 |---|---|
+| **31 Jul 2026 — Armed Register** | **The board gained memory.** `gm_armed.py` + `gm_armed.json`. The board is a snapshot rebuilt from watchlists that churn nightly, so an alert set Monday and firing Thursday landed on a name with **no row, no levels, no thesis**. Arming snapshots the plan (trigger/entry/SL/T1/verdict/Sigma/archetypes/path) and injects the name into the watchlist union as an **11th source**, carrying the archetypes it had *when armed* — so it keeps its original thesis and path plus an `Armed` badge, and is re-evaluated live on every rebuild. Arm from the **bell checkbox in the grid** (both render paths) or from Single Symbol. 45-day expiry, applied on every read. Disarm keeps a `CANCELLED` record — "I armed this and dropped it" is information. |
+| **31 Jul 2026 — PA recency** | An NSE session is five 75-min bars, so a pattern firing at 10:30 was invisible to the board by 11:45 — and the board is where you filter. The S4-GO **PA gate** now also accepts a pattern from the **last 3 closed bars**, always labelled (`4/4 · PA 2b` never reads as `4/4 GO`). **Only** the PA gate: volume, location and bar-strength stay strictly on the live bar. Implemented by re-running the *same* battery on `df.iloc[:-k]` — a snapshot of one real bar, **not** a rolling sticky window (that version was built and reverted in S4 v5.2 for summing Sigma across different bars). |
+| **31 Jul 2026 — Pullback Finder** | `pullback_finder.py` — a sibling surface answering **where is value**, because a trigger-based board is breakout-biased *by construction*. Measured: actionable rows sat a median **1.74 ATR** above the EMA20 while "Wait for Pullback" names sat at **0.23 ATR**. Ranks Stage-2 names on extension / depth / volume dry-up / contraction / real support, over the **full Nifty 500 and without** the ~149-name screener.in fundamental join that costs the Chartink pullback list ~76% of its names. First run: **76 candidates vs 6** from the watchlists. |
+| **30 Jul 2026 — Pyramid ADDs + cadence** | Holdings that `pyramid_logic` rates **ADD** enter the board as their own archetype (`FINAL_Portfolio_Picks.csv`), timed by the unchanged engine — the two-stage doctrine applied to adds, with a correlation gate surfaced (never hidden). **75m+125m bar-close auto-refresh** persisted to `gm_settings`; per-window `?tf=` override; page persistence via `?p=`. |
+| **14 Jul 2026 — P0/P1 hardening** | ~20 silent-failure paths closed. Error-dict guard (a phantom "NOT A RECOVERY CONTEXT" off an `{"_error"}` dict), NaN-safe `_g()`, `EMA20_RECLAIM_BAND_PCT` wired to 8.0 (it was dead), `built_tf` persisted so the staleness guard survives restarts, `STRUCTURAL_*_ARCHETYPES` constants (rename-drift killed), **`dhan_marketfeed` rewritten — it had never worked**. NEW `gm_log.py` -> `logs/gm_errors.log`; board build failures **counted and rendered**; `LAST_UNION_ISSUES` surfaces unreadable/empty watchlist CSVs — which immediately caught a real one (header-only Hunter + Recovery-Climax files). Atomic writes for the board cache / RRG flags / settings. |
+| **13 Jul 2026 — board-vs-single drift closed** | Three successive real causes, each measured: (1) `.NS` suffix not stripped in `resolve_archetypes` -> inheritance silently off on Single Symbol only; (2) a second `.NS` leak into `gm_load_intraday` -> daily PA vs the board's 75m PA; (3) a **data-vintage split** — per-symbol Refresh made Single fresher than the board snapshot. Fixes: one `_canon_key` on both union keys *and* lookups, canonicalization at the top of `gm_evaluate`, one shared Refresh, and **`gm_evaluate()` extracted as the SINGLE evaluator both surfaces call** — the categories now agree by construction, not by coincidence. |
+| **12 Jul 2026 — P1 INHERITED QUALIFICATION** | **The structural fix.** The board was re-qualifying (hard Context+Quality via the screeners) what each source watchlist had already qualified — so only the Nifty-500 catalyst scan produced actionable output, while the *rigorous* Chartink+Screener lists dead-ended at "no catalyst" (bull) or "SKIP · weak fundamentals" (recovery, because fast-mode RFF reads INSUFFICIENT). Doctrine: **the watchlists QUALIFY; the board TIMES.** Sources became the per-strategy lists so every name inherits its **archetype**; `FINAL_WATCHLIST` demoted to a **star** top-conviction badge; fundamentals became a ranking overlay, never a block; Category became pure timing state. A **still-valid break-down guard** (Stage 3/4, or below the 30WMA) replaces the re-screen. |
+| **12 Jul 2026 — Trigger Board** | `gm_trigger_board.py` — the batch surface. Runs every watchlist name through the same engine, one row each, with editable RRG flags persisted to `gm_rrg_flags.json`. |
+| **16 Jul 2026 — S4-GO preview** | `s4go_status()` mirrors S4's stage-2 gate into a **gates-passed closeness score** (`4/4 GO` / `3/4 · no vol` / ...), shared by the board column *and* the Single Symbol chip so they cannot drift. Lets you rank near-triggers without opening each name on TradingView. |
 | **30 Jun 2026** | Initial single-symbol second-screen page — 6-step decision path, 3-gate banner, Pine-panel mirror cards, guided execution checklist. |
 | **3 Jul 2026** | Full-metrics expander re-ordered around a **one-glance score strip** (`SECTION_SCORES`) — read the strip, open a card only when a score surprises you. |
 | **8 Jul 2026** | **Step 5 (TRIGGER) wired to the PA conditions** — surfaces which fired + Σ tier; verdict split into `BUY — TRIGGER LIVE` vs `ARMED · AWAIT TRIGGER`. **3-gate banner aligned** to the same language (`STRONG BUY · TRIGGER LIVE` / `READY · AWAIT TRIGGER`). **VCP-BO dry-up bug fixed** (vwma of volume, not price). |
@@ -175,6 +199,137 @@ show different RS numbers for the same stock.
 
 ---
 
+## 4b. THE TRIGGER BOARD — the surface you live in
+
+The Single Symbol view answers *is this one a buy*. The board answers *which of ~50 should
+I even look at*, and it is where the day is actually spent.
+
+### The doctrine — inherited qualification
+
+**The watchlists QUALIFY. The board TIMES.** Before this (P1, 12-Jul), the board
+re-screened Context and Quality with the live screeners — re-doing work the Chartink +
+Screener.in funnel had already done overnight. The result was perverse: only the loose
+Nifty-500 catalyst scan produced actionable rows, while the *rigorous* lists dead-ended at
+"no catalyst" or "SKIP · weak fundamentals".
+
+Now every name carries the **archetype** of each list it appears in, and:
+
+| Source list | Archetype | Path |
+|---|---|---|
+| `FINAL_Hunter_Picks.csv` | Breakout | bull |
+| `FINAL_EarlyBird_Picks.csv` | Accumulation | bull |
+| `FINAL_Pullback_Picks.csv` | Pullback | bull |
+| `FINAL_Leader_Picks.csv` | Leader | bull |
+| `FINAL_CATALYST_WATCHLIST.csv` | Catalyst-Scan | bull |
+| `FINAL_Recovery_RSLeaders.csv` | Recovery-RS | recovery |
+| `FINAL_Recovery_ClimaxBounce.csv` | Recovery-Climax | recovery |
+| `FINAL_Recovery_EarlyBirds.csv` | Recovery-Early | recovery |
+| `FINAL_RECOVERY_CATALYST_WATCHLIST.csv` | Rec-Catalyst-Scan | recovery |
+| `FINAL_Portfolio_Picks.csv` (pyramid ADDs) | Pyramid | bull |
+| **the Armed Register** | **Armed** + its original archetypes | from the record |
+
+`FINAL_WATCHLIST.csv` is **not** an archetype source — it is the top-25-by-Combined_Score
+union, surfaced only as a **star** badge.
+
+Consequences worth internalising:
+- **Fundamentals are a ranking overlay, never a block.** This is what unblocked the
+  Recovery path, whose fast-mode RFF reads INSUFFICIENT.
+- **Setup = the inherited archetype.** No live catalyst is required. The exception:
+  a **Catalyst-Scan-ONLY** name (no structural archetype) *does* need a live catalyst or a
+  fired PA, else it reads `WATCHLIST · catalyst expired` — its thesis was a time-localized
+  event, and events expire.
+- **The break-down guard replaces the re-screen.** Stage 3/4, or price below the 30WMA
+  (recovery: Stage 4 or >50% off-high) -> **INVALIDATED**. Missing data never invalidates —
+  only an *observed* break-down does.
+
+### The columns that decide
+
+| Column | Read it as |
+|---|---|
+| **Category** | Stage-1 ARM state: `Buy Trigger Live` / `Armed Wait` / `Wait for Pullback` / `Invalidated` / `Watchlist`. Pure **timing**, no quality. |
+| **S4-GO** | Stage-2 preview — how many of S4's four gates pass now. **Sort by this.** `4/4 GO` · `4/4 · PA 2b` · `3/4 · no vol` · `2/4 · no loc` · `n/a` (no trigger-TF read). |
+| **Archetype** | The inherited thesis. Multi-archetype names show all. |
+| **Overall** | 0-100 opportunity score. Independent of category and path. |
+| **bell / Armed** | Armed checkbox, and the age + trigger level as armed. |
+| **Pos** | For Pyramid rows: what you already hold and the add's plan. |
+| **Loc / Entry / SL / T1 / R:R** | The live plan, recomputed this rebuild. |
+
+> **`4/4 GO` vs `4/4 · PA 2b`:** the first means all four gates align on the **live** bar.
+> The second means the pattern fired up to 3 bars ago and the other three gates are true
+> now. Both are actionable; the second tells you the entry anchors to the **bar that
+> fired**, which is exactly what S4's v6.0 latch does.
+
+### Refresh cadence
+
+Set **Live = `75m+125m bar-close`** (now the default, persisted). The board then rebuilds
+once per NSE session bar — **10:30 · 11:20 · 11:45 · 13:00 · 13:25 · 14:15 · 15:30**
+(+75s settle). This is the fix for the forming-bar fade: a board built mid-bar shows PA
+that evaporates by the close, so it read `Buy Trigger Live` while the single view said
+`catalyst expired`.
+
+Two buttons, **press one**:
+- **Rebuild board** — reuses cached data. Fast. The right button after changing the
+  Trigger-TF or the X-Ray toggle.
+- **Fetch fresh data + rebuild** — invalidates the universe **and rebuilds itself**.
+  Pressing both just rebuilds twice on identical data.
+
+## 4c. THE ARMED REGISTER — the board's memory
+
+**The problem it solves:** you arm a name Monday and set the TradingView alert. Tuesday the
+auto-pilot rebuilds the watchlists and the name drops out of all of them. Thursday the
+alert fires — and there is no row, no entry, no stop, no thesis. Only a ping and a chart.
+
+**The model** is the same inherited-qualification doctrine: *the register qualifies, the
+board times.* An armed name is injected into the union carrying the archetypes it had
+**when armed**, so it keeps its original path and thesis and is re-evaluated live on every
+rebuild.
+
+**What is stored is the plan AS OF ARMING** — trigger, entry, SL, T1, R:R, verdict, Sigma,
+S4-GO, path, archetypes, TF. That is the part you cannot reconstruct later, because those
+levels came off that day's bar. Live re-evaluation is what the board already does.
+
+| Action | Where | Effect |
+|---|---|---|
+| **Arm** | bell checkbox in the grid, or Single Symbol | Records the plan from that row; the name stays on the board through churn |
+| **Disarm** | untick, or `Drop` in the register panel | Kept as `CANCELLED`, not deleted |
+| **Filled** | `Filled` in the register panel | Marked `TRIGGERED`, leaves the active set |
+| **Expiry** | automatic, 45 days | Applied on every read — an expiry that only runs on a button press never runs |
+
+The **Armed Register panel** sits above the grid. It shows, per name: the armed plan beside
+the **live** Category and S4-GO, how long you have been waiting, and a **warning on exactly
+the names the register is saving** ("no longer on any watchlist"). That comparison — armed
+at X, now Y — is the thing to read when an alert fires.
+
+> **Habit:** arm at the same moment you create the TV alert. They are a pair. An alert
+> without a register entry is precisely the failure this was built for.
+>
+> `gm_armed.json` is git-ignored — operational state, like the journal DB.
+
+## 4d. THE PULLBACK FINDER — the "where is value" sibling
+
+A trigger is a wide-range up-bar near the recent high, so a trigger-based board is
+**breakout-biased by construction**. That is not a bug in a gate; it is what a stopwatch
+does. Measured on a live board:
+
+| Timing state | n | median extension from EMA20 | at value (<= 1.0 ATR) |
+|---|---:|---:|---:|
+| Buy Trigger Live | 8 | **1.74 ATR** | 1 of 8 |
+| Armed Wait | 9 | 1.35 ATR | 4 of 9 |
+| Wait for Pullback | 17 | **0.23 ATR** | 14 of 17 |
+
+Every actionable name sat within 0.2-2.9% of its own 20-day high — and the names actually
+at value were the ones labelled "wait".
+
+`pullback_finder.py` ranks by **location**, not by trigger: extension from the EMA20 (in
+ATR), pullback depth off the 20-day high, volume dry-up, 5-vs-20-bar range contraction, and
+the nearest real support below price. Hard gates: Stage 2, above a rising 200-DMA, Mansfield
+RS > 0, no climax volume bar. It scans the **full Nifty 500** and skips the ~149-name
+screener.in fundamental join — the two things that were starving pullback supply.
+
+`Trigger>` in the output is the **confirmation level**, not an entry: wait for a closed bar
+above it, then buy-STOP above *that* bar.
+
+
 # PART B — TRADING GUIDE (step-by-step)
 
 The Golden Matcher runs the **entire pre-trade funnel** except the physical trigger. Work it top-down; the path won't let you cheat a gate.
@@ -222,23 +377,45 @@ Work the 6-item checklist on-screen. **Steps 1-2 are auto-filled** when an OB/FV
 
 ## Relationship to the ecosystem (zero-drift map)
 
-- **Upstream:** `bull_screener.screen_one` supplies Stage/RS/Alpha/Catalyst/levels; `data_provider` the OHLCV/CMP; `fundamental_hub` the Screener.in fundamentals. The Golden Matcher **re-computes nothing strategic** — it arranges.
-- **Sideways:** the **PA battery** *and* the **auto support zones** (OB/FVG/pivot) live in shared **`pa_patterns.py`** (Dashboard v67.4.12 mirror); the **Section 4 Pine v2.0** shows the identical patterns *and* draws the identical zones on TradingView. Step 5 + the LOCATION support chip here, and the Pine panel + zone boxes there, are twins.
-- **Downstream:** the **guided checklist** hands to the **📓 Log to journal** form → `dhan_journal_v7.upsert_trade` (auto entry-signal snapshot) → attribution pipeline; the 0.25% risk + same-evening GTT are your execution discipline.
-- **Pine↔Python caveat:** a marginal RV-based PA pattern can differ between TV feed and Dhan feed — the *formulas* are identical; trade the confluence, not one borderline pattern.
+| Surface | Role | Shared with the GM |
+|---|---|---|
+| **Section 4 Pine (v7.1)** | The trigger and the **final word**. GM arms; S4 executes. | `pa_patterns.py` batteries (byte-identical), the `s4go_status` gate mirror |
+| **`gm_trigger_board.py`** | Batch data layer — union, archetypes, rows, RRG flags | `gm_evaluate()`, the single evaluator both surfaces call |
+| **`gm_armed.py`** | The Armed Register — memory across watchlist churn | Injected as an 11th union source |
+| **`pullback_finder.py`** | The "where is value" sibling | `bull_screener` + `zone_engine`; ranks only |
+| **`zone_engine.py`** | Python port of S4's zone engine + S/R + AVWAP | Location, behind `GM_USE_IZE_ZONES` (still False) |
+| **`pyramid_logic.py`** | ADD/TRIM/EXIT on holdings | ADDs enter the board as the Pyramid archetype |
+| **`risk_common.py`** | The catalyst-aware Chandelier trail | Takes over after the fill |
+| **Dashboard v67.4.12** | Canonical source of the PA formulas | The 17 patterns |
+
+> **When the board and S4 disagree**, it is one of three things, in order of likelihood:
+> **(1) mode/path** — S4's Auto vs the GM's resolved path (set S4's Mode manually);
+> **(2) feed** — TV vs Dhan volume on a marginal RV test; **(3) staleness** — the board
+> snapshot vs the live chart. It is **not** battery drift: the 17 bull formulas are
+> byte-identical. Diff the **evaluated bar** before diffing formulas — the one real parity
+> bug was an offset, in the Recovery battery, which had never been diffed.
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
-| "Could not load \<SYM\>" | `screen_one` and OHLCV both failed — check the ticker and the Dhan token. |
-| CMP or fundamentals blank | Dhan token / Screener.in cookie stale — see the "Partial-data notes" expander; refresh the relevant session. |
-| Catalyst shows `NONE` but you expect a setup | The screener isn't triggering today — this is the SETUP gate doing its job; don't force it. |
-| PA Σ = 0 on a name you think is breaking out | No canonical pattern fired on the confirmed daily bar (or a marginal RV test just missed) — wait for the closed-bar confirmation. |
-| Page not reflecting a code change | Restart the Web Commander — Streamlit caches the module until reload. |
-| **STALE badge / data a day behind, Refresh seemed to do nothing** | Fixed 9 Jul 2026. A `2y/1d` request carried the 24h weekly cache TTL, so the daily frame survived a full day and Refresh only cleared Streamlit's layer. Refresh now force-busts the on-disk cache (`invalidate_symbol`) and GM auto-heals once per session. If it *stays* stale after Refresh, the provider genuinely hasn't published the new session's bar yet — wait, don't force. |
-| ₹ / emoji render as boxes | Launch via the .bat (it sets `PYTHONUTF8=1`); don't run bare `streamlit run` without it. |
+| **Board and Single Symbol disagree on a name** | Almost always vintage or TF, not logic — they call the same evaluator. Use the shared **Refresh Data**, confirm the board's built-TF matches your Trigger-TF, then rebuild. |
+| **The board is all breakouts / everything is extended** | Working as designed — a trigger board is breakout-biased by construction. Run the **Pullback Finder** (§4d) for names at value. |
+| **A name I armed vanished** | If it expired (45 days) it is `EXPIRED` in the register, not lost. If you disarmed it, it is `CANCELLED`. Both are still in `gm_armed.json`. |
+| **The armed checkbox reverts after I tick it** | Fixed — the cached board frame is patched in place. If it persists, rebuild; the columns come from `build_row` so a board built before the feature lacks them. |
+| **`S4-GO` column is all `n/a`** | No intraday trigger-TF read. The header strip names the cause (auth / no data / thin history / not closed yet) — it is a **feed** problem, not a scoring one. |
+| **A rigorous watchlist name reads "no catalyst"** | Pre-P1 behaviour. Inherited qualification means Setup = the archetype; only **Catalyst-Scan-ONLY** names need a live catalyst. |
+| **Pullback / EarlyBird lists are nearly empty** | The ~149-name `MASTER_scan_results.csv` fundamental join — Pullback loses ~76% of its Chartink names to it, EarlyBird can hit zero. Not a signal failure. |
+| **Board shows PA that is gone by the time I look** | Set Live = `75m+125m bar-close`, and note that **PA recency** now keeps a pattern visible for 3 bars, labelled `PA Nb`. |
+| **Watchlist CSV silently missing from the board** | The header strip surfaces unreadable/empty sources (`LAST_UNION_ISSUES`) — it has already caught real header-only files. |
+| **A GO alert never fired** | An S4 **recompile destroys alerts** (they bind to the `pine_id`). Delete and re-create every GO alert after every compile. |
+| Stage / RS look wrong vs Dashboard v67 | The strict-trend port was stale until 29-Jul (`strict_trend.py` is now the one engine). Confirm you restarted the app after that change. |
 
 ---
 
-*Guide written July 2026 from `weinstein_commander_web_v4.0.py` (Execution → Golden Matcher). The Golden Matcher is the single-symbol decision funnel; its Step-5 trigger and the [Section 4 Pine indicator](./22_Section4_Entry_Trigger_Guide.md) are the two faces of the same PA entry battery (17 Bull / 10 Recovery, shared via `pa_patterns.py`). It identifies and sequences — it never pulls the trigger.*
+*Guide rewritten 31 July 2026. The Golden Matcher is the **upstream half** of the GM + S4
+system: the Trigger Board filters, the Single Symbol view reads, the Armed Register
+remembers, and the Pullback Finder supplies what a trigger board structurally cannot. The
+downstream half — the trigger, the plan and the verdict — is
+`docs/22_Section4_Entry_Trigger_Guide.md`, whose **PART B is the complete end-to-end
+workflow across both.***
