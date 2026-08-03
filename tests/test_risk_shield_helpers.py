@@ -84,9 +84,24 @@ def test_unknown_type_is_visible():
     assert "TYPE UNKNOWN" in badge(None)
 
 
+def _bg(html):
+    """The background colour a badge rendered with."""
+    m = re.search(r"background:(#[0-9A-Fa-f]{6})", html)
+    return m.group(1).upper() if m else None
+
+
 def test_badge_colours_track_the_type():
-    assert ">SWING<" in badge("SWING") and "#8957e5" in badge("SWING")
-    assert ">POSITIONAL<" in badge("POSITIONAL") and "#238636" in badge("POSITIONAL")
+    # Asserts the PROPERTY the badge exists for — the two trade types must be visually
+    # distinguishable — not a specific hex. The palette moved dark -> light on 2-Aug-2026
+    # (SWING #8957e5 -> #7C3AED, POSITIONAL #238636 -> #15803D) and is still being tuned;
+    # pinning literals here just breaks the suite on every theme tweak without catching
+    # a single real defect. What WOULD be a real defect is the two types rendering the
+    # same colour, or a badge losing its colour entirely — both are caught below.
+    assert ">SWING<" in badge("SWING")
+    assert ">POSITIONAL<" in badge("POSITIONAL")
+    sw, pos = _bg(badge("SWING")), _bg(badge("POSITIONAL"))
+    assert sw is not None and pos is not None, "a badge rendered with no background colour"
+    assert sw != pos, f"SWING and POSITIONAL share a colour ({sw}) — the type is unreadable"
 
 
 def test_inferred_type_is_marked_and_determined_type_is_not():
@@ -96,9 +111,15 @@ def test_inferred_type_is_marked_and_determined_type_is_not():
 
 # ── AI card: a failed call must not wear the analysis header ──────────────────
 def test_llm_failure_is_styled_as_failure():
+    # Same reasoning as the badge test: the point is that a FAILED call is visually
+    # distinct from a real analysis and never wears the AI header — not that the border
+    # is one particular red (#f85149 dark -> #DC2626 light, 2-Aug-2026).
     out = card("⚠ AI UNAVAILABLE — the LLM call failed. No analysis was generated for this position.")
-    assert "No AI analysis" in out and "#f85149" in out
-    assert "🤖 <b>AI:</b>" not in out
+    ok  = card("[Positional] Holding above a rising 200-SMA.")
+    assert "No AI analysis" in out
+    assert "🤖 <b>AI:</b>" not in out, "a failed call must not wear the analysis header"
+    assert _bg(out) is not None, "the failure card rendered with no background colour"
+    assert _bg(out) != _bg(ok), "failure and analysis cards are indistinguishable"
 
 
 def test_thread_level_failure_also_caught():

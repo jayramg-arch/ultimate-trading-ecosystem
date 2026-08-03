@@ -187,6 +187,12 @@ FWD_DAYS_BY_CATALYST: dict[str, int] = {
     "REV-CB":          90,
     "REV-RS":          90,
     "REV-EARLY":       90,
+    # CB-Watch is the pre-buy WATCH state of REV-CB (recovery_screener.py:1559) —
+    # same family, same 3-month design horizon. Mapped so it can never fall through
+    # to the 30d default. NOTE it is a watch state, not an entry (no signal_date,
+    # and it bypasses the RFF gate) — whether it belongs in a TRADED backtest set at
+    # all is a separate question from its window.
+    "CB-WATCH":        90,
     # Swing — short window, matches design
     "SWG-BO":          30,
     # SWG-PB: 60d (8-12wk per Jay's design). A pullback first has to COMPLETE,
@@ -201,6 +207,32 @@ def fwd_days_for_catalyst(cat: str | None, default: int = 30) -> int:
     if not cat:
         return default
     return FWD_DAYS_BY_CATALYST.get(str(cat).upper().strip(), default)
+
+
+# The catalyst label lives under a DIFFERENT column depending on which screener
+# produced the pick: bull emits `Catalyst`, recovery emits `Signal_Label`
+# (REV-CB / REV-RS / REV-EARLY / WYC-SOS / CB-Watch), GM emits `setup`/`Archetype`.
+# Reading only `Catalyst` silently returned "" for EVERY recovery pick, so
+# fwd_days_for_catalyst fell back to the 30d default and a 90d REV-* setup was
+# scored on a 30d window — the exact failure this whole convention exists to
+# prevent (see the forward-window mismatch rule). `Signal` is deliberately NOT in
+# the list: in recovery output it is the numeric tier (1-8), not a label.
+_CATALYST_KEYS = ("Catalyst", "Signal_Label", "setup", "Setup", "Archetype")
+
+
+def catalyst_label_of(pick) -> str:
+    """First non-empty catalyst label on a pick row, across screener conventions."""
+    for key in _CATALYST_KEYS:
+        try:
+            val = pick.get(key)
+        except Exception:
+            continue
+        if val is None:
+            continue
+        s = str(val).strip()
+        if s and s.upper() not in ("NONE", "NAN"):
+            return s.upper()
+    return ""
 
 def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: float,
                          sl_price: float, t1_price: Optional[float], t2_price: Optional[float],
@@ -377,7 +409,7 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
     rows = []
     for _, pick in picks_df.iterrows():
         sym = str(pick["Symbol"])
-        cat = str(pick.get("Catalyst", "")).upper().strip()
+        cat = catalyst_label_of(pick)
 
         # v2.8: choose forward window per pick
         if use_catalyst_windows:
@@ -427,7 +459,20 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
                                      t1_price, t2_price, t1_qty, t2_qty,
                                      max_bars=fwd, cost_pct=cost_pct)
 
-        bench_matched = _bench_matched_return(as_of, fwd)
+        # v3.0 (26-Jul-2026) HORIZON FIX. The benchmark leg must span the trade's
+        # ACTUAL hold, not the catalyst's full design window. `res["realized_pct"]`
+        # is the return of a trade that usually exited early (stop / target / trail):
+        # on run 20260722_135745, 428 of 464 trades (92%) closed before their window
+        # did — the 180d bucket held a MEDIAN of 29 days against a 180d index return.
+        # Subtracting a full-window benchmark from an abbreviated stock return
+        # manufactured alpha, and did so asymmetrically (an 8-day stop-out at −3%
+        # against a 120-day index at −10% booked +7% of fake "alpha"), which is what
+        # produced the spurious "breakouts are defensive in DOWN tapes" reading.
+        # Effect of this fix on that run: mean +2.56% → +0.80%, median +0.63% → −2.38%,
+        # win 53.4% → 32.1%. Mirrors the already-correct S4-GO path in
+        # s4go_forward_trade(), which anchors the benchmark on res["days_held"].
+        _held = int(res.get("days_held") or 0)
+        bench_matched = _bench_matched_return(as_of, _held) if _held > 0 else None
         alpha_matched = (round(res["realized_pct"] - bench_matched, 2)
                           if (res["realized_pct"] is not None and bench_matched is not None)
                           else None)
@@ -778,13 +823,15 @@ def _go_forward_days(candidate, det: pd.DataFrame, go_pos: int, default: int = 6
     """Catalyst-aware forward window. Prefer the candidate's own setup/Catalyst
     label (GM's inherited archetype — the SETUP owns the horizon); else infer the
     longest horizon among the triggers that fired at the GO bar; else `default`."""
-    if candidate is not None:
-        for key in ("Catalyst", "setup", "Setup", "Archetype"):
-            val = candidate.get(key) if hasattr(candidate, "get") else None
-            if val and str(val).strip() and str(val).upper() != "NONE":
-                d = fwd_days_for_catalyst(str(val), default=0)
-                if d:
-                    return d
+    if candidate is not None and hasattr(candidate, "get"):
+        # Shares _CATALYST_KEYS with forward_returns_with_exits so the two paths
+        # can never disagree about where the label lives (this one was missing
+        # `Signal_Label`, i.e. blind to every recovery pick).
+        lbl = catalyst_label_of(candidate)
+        if lbl:
+            d = fwd_days_for_catalyst(lbl, default=0)
+            if d:
+                return d
     best = 0
     for col, state in _TRIGGER_STATE.items():
         if col in det.columns and bool(det[col].iloc[go_pos]):
