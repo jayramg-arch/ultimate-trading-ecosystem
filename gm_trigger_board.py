@@ -16,6 +16,7 @@
 #               NOT through the rigorous funnel, so lean on the GM QUALITY step.
 
 from __future__ import annotations
+import math
 import os
 import json
 
@@ -152,6 +153,33 @@ def _canon_key(s: str) -> str:
 LAST_UNION_ISSUES: list = []
 
 
+def _g(d: dict, *keys, default=None):
+    """dict getter treating None AND float NaN as missing.
+
+    BUG FIX (3-Aug): this module CALLED _g but never defined or imported it — the name
+    lives in weinstein_commander_web_v4.0.py. Every stage_path() attempt therefore raised
+    NameError and was swallowed by the surrounding try/except, so the board fell back to
+    category rank on EVERY row and the stage-based Bull-vs-Recovery resolution never ran
+    at all. It logged 675 times in one session before anyone noticed, which is the real
+    lesson: a warning that fires on every row reads as background noise, not a failure.
+
+    Kept as a local copy rather than an import: the web app is a Streamlit script and
+    cannot be imported from here (that is why the S/R engine, the batteries and everything
+    else shared between the two surfaces live in modules, not in the app).
+    Semantics mirror the canonical version exactly — NaN is not None, so an unscrubbed NaN
+    would otherwise sail into comparisons where it comparesFalse everywhere."""
+    for k in keys:
+        if k in d and d[k] is not None:
+            v = d[k]
+            try:
+                if isinstance(v, float) and math.isnan(v):
+                    continue
+            except Exception:
+                pass
+            return v
+    return default
+
+
 def _gm_setting(key: str, default):
     """Read one key from gm_settings.json. Module-level (no Streamlit) so the board can
     size adds during a headless build. Fully guarded — a missing/corrupt file must never
@@ -174,6 +202,12 @@ PORTFOLIO_PICKS = "FINAL_Portfolio_Picks.csv"
 # Chandelier stop is close to price. When the floor binds, the Pos column says so and
 # flags the risk multiple, since the add then exceeds one risk unit by construction.
 PYR_ADD_MIN_FRAC = 0.50
+# #addcap (31-Jul, Jay): hard ceiling on a pyramid add, as a fraction of the position
+# held. 1.0 = an add can at most DOUBLE the position. This binds AFTER the risk-based
+# size and the 50% floor, so the effective band is 50%..100% of held. It exists because
+# q_risk = risk_rupees / (price - raised_stop) grows without bound as the Chandelier
+# tightens on a winner — the sizer's most dangerous direction, and previously uncapped.
+PYR_ADD_MAX_FRAC = 1.00
 
 # Correlation-gate thresholds for the Pos column. Imported from sniper_trigger so the
 # board, the sniper gate and the producer all judge an add by ONE rule.
@@ -201,7 +235,9 @@ def load_pyramid_adds() -> dict:
     time, where the board already holds the CMP it just fetched. Sizing off the held
     average instead silently produced no quantity on every winner, because a raised
     Chandelier sits ABOVE the average by definition. Jay's convention (30-Jul): 1% per
-    add, against the raised stop the file carries in Add_SL.
+    add, against the raised stop the file carries in Add_SL — bounded (31-Jul) to the
+    band 50%..100% of the held quantity (PYR_ADD_MIN_FRAC / PYR_ADD_MAX_FRAC), so an add
+    is never a token order and never exceeds the position it reinforces.
 
     Returns {} on any failure — a portfolio-source problem must never take the board down.
     """
@@ -254,6 +290,28 @@ def _armed_text(rec) -> str:
         return "armed"
 
 
+def _inr(x) -> str:
+    """Indian digit grouping (₹1,23,456) per the DNA formatting rule. A local copy on
+    purpose — the canonical `inr()` lives in the Streamlit app, and the board must stay
+    importable headless (the auto-pilot builds it with no Streamlit in the process)."""
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return "—"
+    if x != x or x in (float("inf"), float("-inf")):
+        return "—"
+    s = str(int(round(abs(x))))
+    if len(s) > 3:
+        rest, last3 = s[:-3], s[-3:]
+        parts = []
+        while len(rest) > 2:
+            parts.insert(0, rest[-2:]); rest = rest[:-2]
+        if rest:
+            parts.insert(0, rest)
+        s = ",".join(parts) + "," + last3
+    return ("-₹" if x < 0 else "₹") + s
+
+
 def _pos_text(pyr: dict | None, cmp_px=None) -> str:
     """The one new board column: what is already held, and what an add would be.
     Blank for every non-Pyramid row so the column costs nothing on a new-entry name.
@@ -266,7 +324,15 @@ def _pos_text(pyr: dict | None, cmp_px=None) -> str:
         return ""
     bits = []
     if pyr.get("qty") and pyr.get("avg"):
-        bits.append(f"{int(pyr['qty'])} @ {pyr['avg']:.1f}")
+        # Held size, then its CURRENT value at the live price (Jay, 31-Jul). The value is
+        # what the 50%-of-position add floor is actually a fraction of, so showing
+        # qty @ avg without it left the add quantity unanchored to anything on screen.
+        # Deliberately valued at CMP, not at avg: the add is bought at CMP.
+        _held = f"{int(pyr['qty'])} @ {pyr['avg']:.1f}"
+        _ref0 = _to_num(cmp_px)
+        if _ref0:
+            _held += f" = {_inr(pyr['qty'] * _ref0)}"
+        bits.append(_held)
     if pyr.get("r_mult") is not None:
         bits.append(f"{pyr['r_mult']:+.1f}R")
     sl = pyr.get("add_sl")
@@ -285,16 +351,35 @@ def _pos_text(pyr: dict | None, cmp_px=None) -> str:
         # RISK-BASED size: 1% of capital against the distance to the RAISED stop.
         q_risk = int((cap * rpc / 100.0) // (ref - sl))
         # #addfloor (30-Jul, Jay: "it makes no sense to buy just 2 shares, it should be at
-        # least 50%"). A raised Chandelier sits CLOSE to price on a winner, so (ref - sl) is
-        # small and the risk formula returns a token size — mathematically right, practically
-        # not worth an order. Floor the add at half the existing position, and report which
-        # rule bound so the number is never mysterious. The floor can EXCEED the 1% risk
-        # unit — that is the point, and it is flagged (⚠risk) rather than hidden, because it
-        # means this add carries more than one risk unit.
-        held = pyr.get("qty") or 0
+        # least 50%"). Floor the add at half the existing position, and report which rule
+        # bound so the number is never mysterious. The floor can EXCEED the 1% risk unit —
+        # that is the point, and it is flagged (⚠risk) rather than hidden.
+        # CORRECTION 31-Jul: the original note here claimed a tight raised stop makes the
+        # risk formula "return a token size". That is BACKWARDS — q_risk divides by
+        # (ref - sl), so a TIGHTER stop returns MORE shares, without bound. A token size
+        # comes from small CAPITAL (the ₹50,000 placeholder), not from a tight stop.
+        # #addcap (31-Jul, Jay): an add may never exceed the position it is adding TO.
+        # Without it, max() was unbounded ABOVE — at ₹15L capital a 24-share SAILIFE add
+        # sized to 85 shares (₹1.12L on a ₹31,680 position), and at a ₹6 stop gap to
+        # 2,500 shares (₹28.75L), more than the whole account. The band is now explicit:
+        #   floor  50% of held  ≤  add  ≤  100% of held   (cap wins over the floor)
+        # A pyramid is a REINFORCEMENT, so 1.0x held is the natural ceiling — the add can
+        # at most double the position. Which rule bound is always named.
+        held = int(pyr.get("qty") or 0)
         q_floor = int(held * PYR_ADD_MIN_FRAC)
-        if q_floor > q_risk:
-            bits.append(f"add {q_floor} (≥{PYR_ADD_MIN_FRAC:.0%} of {int(held)}) ⚠risk {q_floor / max(q_risk, 1):.1f}×")
+        q_cap = int(held * PYR_ADD_MAX_FRAC)
+        q_want = max(q_risk, q_floor)
+        # held<=0 is not a real ADD row (no position to pyramid into) — leave the cap off
+        # rather than silently sizing to zero, and say so.
+        if held <= 0:
+            bits.append(f"add {q_risk} @{rpc:g}% (no held qty — uncapped)" if q_risk > 0
+                        else f"add <1 sh @{rpc:g}%")
+        elif q_want > q_cap:
+            bits.append(f"add {q_cap} (capped ≤{PYR_ADD_MAX_FRAC:.0%} of {held}) "
+                        f"⚠risk {q_cap / max(q_risk, 1):.1f}×" if q_cap > q_risk
+                        else f"add {q_cap} (capped ≤{PYR_ADD_MAX_FRAC:.0%} of {held})")
+        elif q_floor > q_risk:
+            bits.append(f"add {q_floor} (≥{PYR_ADD_MIN_FRAC:.0%} of {held}) ⚠risk {q_floor / max(q_risk, 1):.1f}×")
         elif q_risk > 0:
             bits.append(f"add {q_risk} @{rpc:g}%")
         else:
@@ -718,6 +803,44 @@ def trigger_category(verdict: str, path: str) -> str:
     return f"Other · {p}"
 
 
+# ── PULLBACK-AWARE GO GATE — mirrors Section 4 Entry Trigger (3-Aug) ─────────────
+# S4's volume and bar gates became setup-aware: a pullback is DEFINED by entering on
+# volume DRY-UP with a weak-but-holding bar at support, which the old setup-blind gate
+# read as failure. This mirror MUST carry the same rule, because Jay takes only 4/4
+# entries off this column — an unaligned mirror would show "3/4 · no vol" on exactly the
+# pullbacks S4 now calls GO, and the setups he is hunting would never reach him.
+# Names are the pa_patterns.py bull battery verbatim.
+PB_CONTRACTION = {
+    "VCP Breakout", "Pocket Pivot", "True NR7", "★ IB-NR7 Coil", "Inside-3 (Coil)",
+    "50SMA Undercut & Reclaim", "Hammer at 50-SMA", "Hammer at 200-SMA",
+}
+PB_EXPANSION = {
+    "★★ Power Play (HTF)", "Power Play (Strong Close)", "Gap-Up Breakout",
+    "Breakout Confirmed", "Stage-2 Launch", "Liq Sweep Reclaim",
+}
+PB_RV_FLOOR = 0.5      # S4 pb_rv_floor
+RV_FLOOR    = 1.0      # S4 rv_floor
+
+
+def _pullback_ctx(ctx: dict, path: str) -> bool:
+    """True when S4 would take its pullback branch: a CONTRACTION pattern fired, NO
+    expansion pattern did, and price sits inside a demand zone. The zone requirement is
+    what stops the relaxation applying to any random quiet bar — a pullback must be AT a
+    location. Recovery path is excluded: its battery is a different set entirely."""
+    if path == "recovery":
+        return False
+    fired = {n for (n, f, _t, _d) in (ctx.get("pa_patterns") or []) if f}
+    if not fired or not (fired & PB_CONTRACTION) or (fired & PB_EXPANSION):
+        return False
+    sup = ctx.get("support") or {}
+    # Include the NATIVE TRIGGER-TF zone (3-Aug). S4's pb_ctx tests z_inDZ, which on a
+    # 75/125m chart is a chart-TF zone. Checking only the D/W/M terms here meant the
+    # mirror could not fire where S4 did — the board said "no vol" on exactly the
+    # pullbacks S4 called GO, which is the disagreement Jay hit on ZYDUSLIFE.
+    return bool(sup.get("in_fresh_dz") or sup.get("ize_at_support")
+                or sup.get("tf_zone_in") or sup.get("tf_zone_at"))
+
+
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
@@ -759,15 +882,27 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
         g_pa = True
         _pa_age = int(_recent.get("age") or 0)
     g_loc = bool((ctx.get("support") or {}).get("at_support"))
-    g_vol = bool(_rv is not None and _rv >= 1.0)
-    g_bar = (_bar is None) or bool(_bar)          # unknown bar = don't penalize
+    # Pullback context relaxes the volume floor and swaps the bar test, exactly as S4
+    # does. Dry-up CONFIRMS a pullback; demanding average volume is what kept them off
+    # this column. It stays a floor, not a cap — a reversal bar on heavy volume is the
+    # best case and must not be vetoed either.
+    _pb = _pullback_ctx(ctx, path)
+    g_vol = bool(_rv is not None and _rv >= (PB_RV_FLOOR if _pb else RV_FLOOR))
+    # A pullback bar does not need to close STRONG — it needs to HOLD the zone. S4 tests
+    # close > zone distal; here the equivalent signal is that price is still inside/at a
+    # fresh demand zone, which _pullback_ctx has already established.
+    g_bar = True if _pb else ((_bar is None) or bool(_bar))   # unknown bar = don't penalize
     n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar)
-    _age_tag = f" · PA {_pa_age}b" if _pa_age else ""
+    _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "")
     if n == 4:
         # "4/4 GO" stays reserved for all four aligning on the LIVE bar. A recent-PA
         # name scores 4/4 and sorts with them, but says so — the entry then anchors
         # to the bar that fired (S4 latches trigBar/trigHi), not to this one.
-        return "4/4 GO" if not _pa_age else f"4/4 · PA {_pa_age}b"
+        # Tag PULLBACK 4/4s explicitly. This is the setup Jay is hunting and the one the
+        # relaxed gate exists to surface, so it must be identifiable at a glance among the
+        # breakout GOs — not silently mixed in with them.
+        _pbt = " · PB" if _pb else ""
+        return f"4/4 GO{_pbt}" if not _pa_age else f"4/4 · PA {_pa_age}b{_pbt}"
     _miss = ("no PA" if not g_pa else "no loc" if not g_loc
              else "no vol" if not g_vol else "weak bar")
     return f"{n}/4 · {_miss}{_age_tag}"
@@ -1251,3 +1386,38 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Sources":    ", ".join(dict.fromkeys(info.get("sources") or [])),
         "Stale":      ("⚠" if _stale else ""),
     }
+
+
+def s4_recovery_list(uni: dict | None = None) -> str:
+    """The GM's Bull-vs-Recovery answer, as a comma-separated string to paste into S4's
+    "Auto: GM Recovery list" input.
+
+    WHY THIS EXISTS (Jay, 2-Aug-2026): "for each stock, for each timeframe, I need to
+    check the mode and switch from auto to that mode. Then I might forget to change it
+    back." S4 cannot ask the GM anything, and it cannot INFER the GM's answer either --
+    the path is inherited from whichever screen qualified the name (REV-CB / REV-RS /
+    REV-EARLY), on RFF fundamentals and watchlist history that price structure does not
+    contain. TechM sits 2% off its 60-day high; no price-based rule will ever call that a
+    recovery. So the GM hands S4 the answer instead of S4 guessing it.
+
+    A name is listed when it carries ANY recovery archetype and NO bull archetype. The
+    exclusion matters: a name in both lists is genuinely ambiguous, and S4's own heuristic
+    (stage + drawdown) is a better tie-breaker there than an arbitrary preference here --
+    forcing those to Recovery would swap one silent misclassification for another.
+
+    Pasted ONCE per watchlist refresh; the path is a property of the NAME, so the same
+    paste is correct on every timeframe.
+    """
+    try:
+        uni = uni if uni is not None else load_watchlist_union()
+    except Exception as e:                      # a board problem must not break the page
+        _log.warning(f"s4_recovery_list: union unavailable: {e}")
+        return ""
+    out = []
+    for sym, rec in (uni or {}).items():
+        arche = set(rec.get("archetypes") or [])
+        if not arche:
+            continue
+        if (arche & RECOVERY_ARCHETYPES) and not (arche & BULL_ARCHETYPES):
+            out.append(str(sym).upper().strip())
+    return ",".join(sorted(set(out)))

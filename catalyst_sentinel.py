@@ -45,6 +45,18 @@ FAMILIES = ["POS-BO", "POS-ACCUM", "SWG-BO", "SWG-GAP", "SWG-PB", "SWG-REV"]
 # (SWG-PB is hard-gated on mkt_bull as of 2026-07-02).
 REGIME_GATED = {"SWG-PB"}
 
+
+def _retired_families() -> set:
+    """Families deliberately switched OFF — a zero is the SETTING, not a blackout.
+    Read live from the screener flag rather than hardcoded, so flipping the flag back
+    on restores the alarm automatically and the two can never disagree. Falls back to
+    'nothing retired' if the screener can't be imported (alarms stay conservative)."""
+    try:
+        import bull_screener as _bs
+        return set() if getattr(_bs, "SWG_REV_ENABLED", True) else {"SWG-REV"}
+    except Exception:
+        return set()
+
 # Recovery side (2026-07-04): same blackout discipline for the recovery
 # screener. Counted from the results' Signal_Label column; history kept in a
 # separate CSV. WYC-SPRING / WYC-JAC excluded — they are rare single-bar
@@ -145,12 +157,15 @@ def check(hist: pd.DataFrame | None = None,
           base_rate: float = DEFAULTS["base_rate"],
           blackout_runs: int = DEFAULTS["blackout_runs"],
           families: list | None = None,
-          regime_gated: set | None = None) -> str:
+          regime_gated: set | None = None,
+          retired: set | None = None) -> str:
     """Evaluate the trailing history and return a verdict string."""
     if families is None:
         families = FAMILIES
     if regime_gated is None:
         regime_gated = REGIME_GATED
+    if retired is None:
+        retired = _retired_families()
     if hist is None:
         hist = _load_history()
     if hist.empty:
@@ -168,7 +183,9 @@ def check(hist: pd.DataFrame | None = None,
         recent = series.iloc[-blackout_runs:]
         zero_streak = int((recent == 0).all()) if len(recent) >= blackout_runs else 0
 
-        if f in regime_gated and latest_regime != "BULL" and series.iloc[-1] == 0:
+        if f in retired and series.iloc[-1] == 0:
+            lines.append(f"  {f:<10} 0 — RETIRED (kill switch off): expected, no alarm")
+        elif f in regime_gated and latest_regime != "BULL" and series.iloc[-1] == 0:
             lines.append(f"  {f:<10} 0 — regime-gated (NOT BULL): expected, no alarm")
         elif zero_streak and fired_rate >= base_rate:
             lines.append(f"  {f:<10} ⛔ BLACKOUT — zero for {blackout_runs}+ runs "

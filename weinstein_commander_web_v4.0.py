@@ -783,11 +783,11 @@ if not df_active_global.empty:
 else:
     noise_count_g, noise_syms_g = 0, []
 
-h_color = "#00f260" if is_healthy        else "#ff4b4b"
+h_color = "#15803D" if is_healthy        else "#DC2626"
 h_text  = "BULLISH" if is_healthy        else "BEARISH (<200DMA)"
-w_color = "#ff4b4b" if noise_count_g > 0 else "#00f260"
+w_color = "#DC2626" if noise_count_g > 0 else "#15803D"
 w_text  = f"⚠ {noise_count_g} AT RISK"  if noise_count_g > 0 else "✔ SECURE"
-s_color = "#00f260" if sys_status == "SYSTEM ONLINE" else "#ff4b4b"
+s_color = "#15803D" if sys_status == "SYSTEM ONLINE" else "#DC2626"
 
 total_deployed_g = live_dep
 open_pos         = live_pos
@@ -861,6 +861,440 @@ def _goto_page(key: str):
     except Exception:
         pass                       # older Streamlit / read-only params — nav still works
 
+st.markdown(f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&family=JetBrains+Mono:wght@500;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
+*, *::before, *::after {{ box-sizing: border-box; }}
+.stApp {{
+    background: #F0F4F8 !important;
+    font-family: 'Inter', sans-serif; color: #090D16;
+}}
+.block-container {{ padding: 0 !important; margin: 0 !important; max-width: 100% !important; }}
+header, footer {{ visibility: hidden !important; }}
+#MainMenu {{ visibility: hidden !important; }}
+[data-testid="collapsedControl"] {{ display: none !important; }}
+[data-testid="stSidebarCollapseButton"] {{ display: none !important; }}
+button[kind="header"] {{ display: none !important; }}
+section[data-testid="stSidebar"] > div:first-child > div > button {{ display: none !important; }}
+
+/* ── SIDEBAR ── */
+[data-testid="stSidebar"] {{
+    background: #E2E8F0 !important;
+    border-right: 2px solid #64748B !important;
+    width: 270px !important; min-width: 270px !important; padding: 0 !important;
+    transform: none !important; visibility: visible !important; display: block !important;
+}}
+[data-testid="stSidebar"] > div {{ padding: 0 !important; }}
+[data-testid="stSidebarContent"] {{
+    padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important;
+    scrollbar-width: thin; scrollbar-color: #64748B #E2E8F0;
+}}
+[data-testid="stSidebarContent"]::-webkit-scrollbar {{ width: 5px; }}
+[data-testid="stSidebarContent"]::-webkit-scrollbar-track {{ background: #E2E8F0; }}
+[data-testid="stSidebarContent"]::-webkit-scrollbar-thumb {{ background: #64748B; border-radius: 3px; }}
+
+/* ── TOP STATUS BAR ── */
+.statusbar {{
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    gap: 8px; background: #E2E8F0; padding: 8px 10px; border-bottom: 2px solid #94A3B8;
+}}
+.sb-cell {{
+    background: linear-gradient(160deg, #EFF6FF 0%, #DBEAFE 60%, #BFDBFE 100%) !important;
+    border: 1.5px solid #93C5FD !important;
+    border-radius: 10px !important;
+    padding: 8px 14px !important;
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
+    box-shadow: 0 2px 6px rgba(59,130,246,0.12) !important;
+    transition: all 0.18s ease-in-out !important;
+}}
+.sb-cell:hover {{
+    background: linear-gradient(160deg, #DBEAFE 0%, #BFDBFE 60%, #93C5FD 100%) !important;
+    border-color: #3B82F6 !important;
+    box-shadow: 0 0 14px rgba(59,130,246,0.45), 0 2px 6px rgba(0,0,0,0.06) !important;
+    transform: translateY(-1px) !important;
+}}
+.sb-label {{ font-family: 'JetBrains Mono',monospace !important; font-size: 0.63rem !important; color: #1E3A8A !important; letter-spacing: 1.5px !important; text-transform: uppercase !important; font-weight: 800 !important; }}
+.sb-value {{ font-family: 'JetBrains Mono',monospace !important; font-size: 0.95rem !important; font-weight: 900 !important; margin-top: 2px !important; letter-spacing: 0.5px !important; color: #0F172A !important; }}
+
+/* ── HEADERS ── */
+.page-title {{
+    font-family: 'Rajdhani',sans-serif !important; font-size: 1.65rem !important; font-weight: 800 !important;
+    letter-spacing: 3px !important; text-transform: uppercase !important; color: #090D16 !important;
+    border-left: 4px solid #1D4ED8 !important; padding-left: 12px !important; margin: 14px 0 4px 0 !important;
+}}
+.page-desc {{ font-size: 0.75rem !important; color: #0F172A !important; letter-spacing: 2px !important; text-transform: uppercase !important; margin: 0 0 12px 15px !important; font-family: 'JetBrains Mono',monospace !important; font-weight: 800 !important; }}
+.section-hdr {{
+    font-family: 'JetBrains Mono',monospace !important; font-size: 0.76rem !important; color: #1E3A8A !important;
+    letter-spacing: 3px !important; text-transform: uppercase !important; margin: 14px 0 8px 0 !important;
+    display: flex !important; align-items: center !important; gap: 10px !important; font-weight: 800 !important;
+}}
+.section-hdr::after {{ content:'' !important; flex:1 !important; height:2px !important; background:#64748B !important; }}
+.section-sub-lbl {{
+    font-family: 'Rajdhani', sans-serif !important; font-size: 1.08rem !important; font-weight: 800 !important;
+    color: #1E3A8A !important; letter-spacing: 1.5px !important; text-transform: uppercase !important;
+    padding: 6px 14px !important; background: #DBEAFE !important;
+    border-left: 4px solid #1D4ED8 !important; border-radius: 0 4px 4px 0 !important; margin-bottom: 8px !important;
+}}
+
+/* ── EXPANDERS ── */
+[data-testid="stExpander"] {{
+    background: #FFFFFF !important;
+    border: 1.5px solid #64748B !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+    margin-bottom: 12px !important;
+}}
+[data-testid="stExpander"] summary {{
+    background: #F8FAFC !important;
+    border-bottom: 1.5px solid #CBD5E1 !important;
+    padding: 10px 14px !important;
+    border-radius: 8px 8px 0 0 !important;
+}}
+[data-testid="stExpander"] summary p, [data-testid="stExpander"] summary span {{
+    color: #0F172A !important;
+    font-weight: 800 !important;
+    font-size: 0.94rem !important;
+    letter-spacing: 0.3px !important;
+}}
+[data-testid="stExpander"] summary svg {{
+    fill: #0F172A !important;
+    color: #0F172A !important;
+}}
+
+/* ── METRIC CARDS ── */
+.metric-card {{
+    background: #FFFFFF !important; border: 1.5px solid #CBD5E1 !important; border-radius: 8px !important;
+    padding: 12px 16px !important; text-align: center !important; position: relative !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.06) !important;
+}}
+.metric-card:has(.expand-toggle:checked) {{
+    position: fixed !important;
+    top: 5% !important; left: 5% !important;
+    width: 90vw !important; height: 90vh !important;
+    z-index: 9999999 !important;
+    background: #FFFFFF !important;
+    border: 2px solid #1D4ED8 !important;
+    box-shadow: 0 0 50px rgba(0,0,0,0.25) !important;
+    overflow-y: auto !important;
+}}
+.metric-card:has(.expand-toggle:checked) .expand-btn {{
+    color: #dc2626 !important;
+}}
+.expand-btn {{
+    position: absolute !important; right: 8px !important; top: 8px !important; cursor: pointer !important; color: #0F172A !important;
+    font-size: 1.1rem !important; transition: color 0.2s !important;
+}}
+.expand-btn:hover {{ color: #090D16 !important; }}
+.metric-label {{ font-family: 'JetBrains Mono',monospace !important; font-size: 0.68rem !important; color: #0F172A !important; letter-spacing: 2px !important; text-transform: uppercase !important; font-weight: 800 !important; }}
+.metric-value {{ font-family: 'JetBrains Mono',monospace !important; font-size: 1.25rem !important; font-weight: 800 !important; margin-top: 3px !important; }}
+
+/* ── ALL BUTTONS: Light background, dark text, shining border on hover/active ── */
+div[data-testid="stButton"] > button,
+button[kind="secondary"] {{
+    background: linear-gradient(160deg, #EFF6FF 0%, #DBEAFE 100%) !important;
+    border: 1.5px solid #93C5FD !important;
+    border-radius: 8px !important;
+    color: #1E3A8A !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    padding: 7px 16px !important;
+    width: 100% !important;
+    text-align: center !important;
+    box-shadow: 0 1px 4px rgba(59,130,246,0.10) !important;
+    transition: all .15s ease-in-out !important;
+}}
+div[data-testid="stButton"] > button p,
+div[data-testid="stButton"] > button span,
+button[kind="secondary"] p, button[kind="secondary"] span {{
+    color: #1E3A8A !important;
+    font-weight: 700 !important;
+    font-size: 0.84rem !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin: 0 !important;
+}}
+
+/* Hover = stronger glow */
+div[data-testid="stButton"] > button:hover,
+button[kind="secondary"]:hover {{
+    background: linear-gradient(160deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+    border: 2px solid #3B82F6 !important;
+    color: #1D4ED8 !important;
+    box-shadow: 0 0 14px rgba(59,130,246,0.55), 0 2px 6px rgba(0,0,0,0.08) !important;
+    transform: translateY(-1px) !important;
+}}
+
+/* ── PRIMARY / ACTIVE BUTTONS — GLOWING SHINING BORDER (blue gradient + white text) ── */
+button[kind="primary"],
+[data-testid="stSidebar"] button[kind="primary"],
+.st-key-sb_auto_pilot button,
+div[data-testid="stSidebar"] .st-key-sb_auto_pilot button,
+button[key="sb_auto_pilot"] {{
+    background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%) !important;
+    border: 2px solid #60A5FA !important;
+    border-radius: 8px !important;
+    color: #FFFFFF !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.85rem !important;
+    font-weight: 800 !important;
+    padding: 8px 16px !important;
+    box-shadow: 0 0 16px rgba(37,99,235,0.6), 0 0 4px rgba(96,165,250,0.8), 0 2px 8px rgba(0,0,0,0.15) !important;
+    transition: all .15s ease-in-out !important;
+    justify-content: center !important;
+    text-align: center !important;
+}}
+button[kind="primary"] p, button[kind="primary"] span,
+[data-testid="stSidebar"] button[kind="primary"] p,
+.st-key-sb_auto_pilot button p, .st-key-sb_auto_pilot button span,
+button[key="sb_auto_pilot"] p, button[key="sb_auto_pilot"] span {{
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+    text-align: center !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+}}
+
+/* ── SIDEBAR BUTTONS ── Light blue tint, left-aligned, shining on hover ── */
+[data-testid="stSidebar"] button {{
+    background: linear-gradient(160deg, #F0F9FF 0%, #E0F2FE 100%) !important;
+    border: 1.5px solid #BAE6FD !important;
+    border-radius: 8px !important;
+    padding: 7px 12px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: #0C4A6E !important;
+    text-align: left !important;
+    width: calc(100% - 12px) !important;
+    margin: 2px 6px !important;
+    min-height: 0 !important;
+    line-height: 1.3 !important;
+    box-shadow: 0 1px 3px rgba(14,165,233,0.10) !important;
+    transition: all .15s ease-in-out !important;
+}}
+[data-testid="stSidebar"] button:hover {{
+    background: linear-gradient(160deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+    color: #1D4ED8 !important;
+    border: 1.5px solid #3B82F6 !important;
+    box-shadow: 0 0 12px rgba(59,130,246,0.45), 0 2px 4px rgba(0,0,0,0.06) !important;
+    transform: translateX(2px) !important;
+}}
+/* Sidebar primary button (Auto-Pilot etc.) — must override sidebar base */
+[data-testid="stSidebar"] button[kind="primary"],
+[data-testid="stSidebar"] .st-key-sb_auto_pilot button {{
+    background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%) !important;
+    border: 2px solid #60A5FA !important;
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+    box-shadow: 0 0 16px rgba(37,99,235,0.6), 0 0 4px rgba(96,165,250,0.8) !important;
+    transform: none !important;
+}}
+[data-testid="stSidebar"] button[kind="primary"] p,
+[data-testid="stSidebar"] button[kind="primary"] span,
+[data-testid="stSidebar"] .st-key-sb_auto_pilot button p,
+[data-testid="stSidebar"] .st-key-sb_auto_pilot button span {{
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+}}
+[data-testid="stSidebar"] button p {{
+    color: inherit !important;
+    font-weight: inherit !important;
+    text-align: left !important;
+    margin: 0 !important;
+}}
+
+/* ── MAIN PAGE RADIO BUTTONS (HORIZONTAL ALIGNMENT & SHINING BORDER) ── */
+[data-testid="stRadio"] {{ margin: 2px 0 !important; }}
+[data-testid="stRadio"] > label {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.74rem !important;
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    margin-bottom: 3px !important;
+    display: block !important;
+}}
+[data-testid="stRadio"] > div[role="radiogroup"] {{
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    align-items: center !important;
+}}
+[data-testid="stRadio"] label[data-baseweb="radio"] {{
+    display: inline-flex !important;
+    align-items: center !important;
+    background: linear-gradient(160deg, #F0F9FF 0%, #E0F2FE 100%) !important;
+    border: 1.5px solid #BAE6FD !important;
+    border-radius: 8px !important;
+    padding: 6px 14px !important;
+    margin: 0 !important;
+    width: auto !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.84rem !important;
+    color: #0C4A6E !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease-in-out !important;
+    box-shadow: 0 1px 3px rgba(14,165,233,0.10) !important;
+}}
+[data-testid="stRadio"] label[data-baseweb="radio"]:hover {{
+    background: linear-gradient(160deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+    border-color: #3B82F6 !important;
+    color: #1D4ED8 !important;
+    box-shadow: 0 0 10px rgba(59,130,246,0.35) !important;
+}}
+/* Selected Radio Option - GLOWING SHINING BORDER */
+[data-testid="stRadio"] label[data-baseweb="radio"]:has(input:checked),
+[data-testid="stRadio"] label[data-baseweb="radio"][data-checked="true"] {{
+    background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+    border: 2px solid #2563EB !important;
+    color: #1E3A8A !important;
+    font-weight: 800 !important;
+    box-shadow: 0 0 14px rgba(37,99,235,0.55), 0 0 4px rgba(96,165,250,0.9) !important;
+}}
+[role="radiogroup"] input {{ display: none !important; }}
+[role="radiogroup"] [data-testid="stMarkdownContainer"] p {{ margin: 0 !important; font-size: 0.84rem !important; color: inherit !important; font-weight: inherit !important; }}
+
+/* ── SIDEBAR RADIOS SPECIFIC OVERRIDE ── */
+[data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] {{
+    flex-direction: column !important;
+    gap: 4px !important;
+}}
+[data-testid="stSidebar"] [data-testid="stRadio"] label[data-baseweb="radio"] {{
+    width: calc(100% - 12px) !important;
+    display: block !important;
+}}
+
+.sb-section-lbl {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.70rem !important;
+    font-weight: 900 !important;
+    color: #0F172A !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    padding: 8px 12px 4px 12px !important;
+    border-top: 1.5px solid #94A3B8 !important;
+    margin-top: 10px !important;
+    margin-bottom: 2px !important;
+    display: block !important;
+    clear: both !important;
+    width: 100% !important;
+    background: transparent !important;
+}}
+[data-testid="stSidebarNav"] {{ display: none !important; }}
+section[data-testid="stSidebar"] > div:first-child {{ padding-top: 0.5rem !important; }}
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{ padding-top: 0 !important; }}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]:first-child {{ gap: 0.3rem !important; }}
+/* Sidebar nav buttons — left-aligned, NOT forced left-pad override on primary */
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button:not([kind="primary"]) {{
+    display: block !important;
+    text-align: left !important;
+    padding-left: 14px !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+}}
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button > div,
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button > div > div,
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button [data-testid="stMarkdownContainer"] {{
+    display: block !important;
+    text-align: left !important;
+    width: 100% !important;
+    justify-content: flex-start !important;
+}}
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button p {{
+    text-align: left !important;
+    width: 100% !important;
+    margin: 0 !important;
+    color: inherit !important;
+}}
+
+/* ── FORM INPUTS & METRICS ── */
+[data-testid="metric-container"] {{ background: #FFFFFF !important; border: 1.5px solid #CBD5E1 !important; border-radius: 6px !important; padding: 10px 14px !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }}
+[data-testid="metric-container"] label {{ font-family: 'JetBrains Mono',monospace !important; font-size: 0.68rem !important; color: #0F172A !important; letter-spacing: 2px !important; text-transform: uppercase !important; font-weight: 800 !important; }}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-family: 'JetBrains Mono',monospace !important; font-size: 1.25rem !important; font-weight: 800 !important; color: #090D16 !important; }}
+[data-testid="stDataFrame"] {{ border: 1.5px solid #CBD5E1 !important; border-radius: 6px !important; }}
+iframe {{ border-radius: 6px !important; }}
+hr {{ border-color: #64748B !important; margin: 10px 0 !important; }}
+[data-testid="stToast"] {{ background: #FFFFFF !important; border: 2px solid #1D4ED8 !important; border-radius: 6px !important; color: #0F172A !important; font-family: 'Inter', sans-serif !important; font-weight: 700 !important; }}
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input {{
+    background: #FFFFFF !important; border: 1.5px solid #475569 !important;
+    border-radius: 4px !important; color: #090D16 !important;
+    font-family: 'JetBrains Mono',monospace !important; font-size: 0.84rem !important; font-weight: 700 !important;
+}}
+[data-testid="stTextInput"] input:focus, [data-testid="stNumberInput"] input:focus {{ border-color: #1D4ED8 !important; box-shadow: 0 0 0 2px rgba(29,78,216,.25) !important; }}
+label {{ color: #0F172A !important; font-size: 0.82rem !important; font-weight: 800 !important; }}
+[data-testid="stCaptionContainer"] p, caption, .stCaption {{ color: #1E293B !important; font-weight: 800 !important; font-size: 0.78rem !important; }}
+[data-testid="stSelectbox"] > div > div {{ background: #FFFFFF !important; border: 1.5px solid #475569 !important; color: #090D16 !important; border-radius: 4px !important; font-weight: 700 !important; }}
+
+/* ── DATA SEMANTIC COLORS — Gain / Loss / Signals ── */
+/* Usage: wrap any value in <span class="val-gain"> or <span class="val-loss"> */
+.val-gain  {{ color: #15803D !important; font-weight: 800 !important; }}
+.val-loss  {{ color: #DC2626 !important; font-weight: 800 !important; }}
+.val-warn  {{ color: #B45309 !important; font-weight: 700 !important; }}
+.val-info  {{ color: #1D4ED8 !important; font-weight: 700 !important; }}
+.val-neut  {{ color: #475569 !important; font-weight: 600 !important; }}
+
+/* Pill / badge chips */
+.pill-bull  {{ display:inline-block;padding:2px 10px;background:#DCFCE7;color:#15803D;border:1px solid #86EFAC;border-radius:20px;font-size:0.72rem;font-weight:800;letter-spacing:0.5px; }}
+.pill-bear  {{ display:inline-block;padding:2px 10px;background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;border-radius:20px;font-size:0.72rem;font-weight:800;letter-spacing:0.5px; }}
+.pill-warn  {{ display:inline-block;padding:2px 10px;background:#FEF3C7;color:#B45309;border:1px solid #FCD34D;border-radius:20px;font-size:0.72rem;font-weight:800;letter-spacing:0.5px; }}
+.pill-info  {{ display:inline-block;padding:2px 10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #93C5FD;border-radius:20px;font-size:0.72rem;font-weight:800;letter-spacing:0.5px; }}
+.pill-neut  {{ display:inline-block;padding:2px 10px;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;border-radius:20px;font-size:0.72rem;font-weight:800;letter-spacing:0.5px; }}
+
+/* ── S4-STYLE TABLE ROWS ── */
+.s4-table {{ width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;font-size:0.84rem; }}
+.s4-table thead tr {{ background:#1E3A8A; }}
+.s4-table thead th {{ color:#FFFFFF;font-weight:800;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;padding:8px 12px;text-align:left;border:none; }}
+.s4-table tbody tr {{ background:#FFFFFF;border-bottom:1px solid #E2E8F0;transition:background .12s; }}
+.s4-table tbody tr:nth-child(even) {{ background:#F8FAFC; }}
+.s4-table tbody tr:hover {{ background:#EFF6FF !important;border-left:3px solid #3B82F6; }}
+.s4-table tbody td {{ padding:7px 12px;color:#1E293B;font-weight:600;vertical-align:middle; }}
+.s4-table tbody td.gain {{ color:#15803D;font-weight:800; }}
+.s4-table tbody td.loss {{ color:#DC2626;font-weight:800; }}
+.s4-table tbody td.warn {{ color:#B45309;font-weight:700; }}
+.s4-table tbody td.info {{ color:#1D4ED8;font-weight:700; }}
+
+/* ── SIGNAL STATUS INDICATORS ── */
+.sig-dot-bull {{ width:8px;height:8px;border-radius:50%;background:#15803D;display:inline-block;margin-right:5px;box-shadow:0 0 6px rgba(21,128,61,0.5); }}
+.sig-dot-bear {{ width:8px;height:8px;border-radius:50%;background:#DC2626;display:inline-block;margin-right:5px;box-shadow:0 0 6px rgba(220,38,38,0.5); }}
+.sig-dot-warn {{ width:8px;height:8px;border-radius:50%;background:#B45309;display:inline-block;margin-right:5px;box-shadow:0 0 6px rgba(180,83,9,0.4); }}
+.sig-dot-neut {{ width:8px;height:8px;border-radius:50%;background:#94A3B8;display:inline-block;margin-right:5px; }}
+
+/* ── CARD ACCENT BORDERS ── */
+.card-bull {{ border-top:3px solid #15803D !important; }}
+.card-bear {{ border-top:3px solid #DC2626 !important; }}
+.card-warn {{ border-top:3px solid #B45309 !important; }}
+.card-info {{ border-top:3px solid #1D4ED8 !important; }}
+
+/* ── STREAMLIT DATAFRAME — high-contrast table styling ── */
+[data-testid="stDataFrame"] table {{ border-collapse:collapse !important; width:100% !important; }}
+[data-testid="stDataFrame"] thead tr th {{
+    background: #1E3A8A !important; color: #FFFFFF !important;
+    font-family: 'JetBrains Mono',monospace !important;
+    font-size: 0.70rem !important; font-weight: 800 !important;
+    letter-spacing: 1px !important; text-transform: uppercase !important;
+    padding: 8px 10px !important; border: none !important;
+}}
+[data-testid="stDataFrame"] tbody tr td {{
+    color: #1E293B !important; font-weight: 600 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.83rem !important; padding: 6px 10px !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+}}
+[data-testid="stDataFrame"] tbody tr:nth-child(even) td {{ background: #F8FAFC !important; }}
+[data-testid="stDataFrame"] tbody tr:hover td {{ background: #EFF6FF !important; }}
+
+/* ── SCROLL BAR ── */
+::-webkit-scrollbar {{ width:6px; height:6px; }}
+::-webkit-scrollbar-track {{ background:#F1F5F9; }}
+::-webkit-scrollbar-thumb {{ background:#94A3B8; border-radius:3px; }}
+::-webkit-scrollbar-thumb:hover {{ background:#64748B; }}
+</style>
+""", unsafe_allow_html=True)
+
 
 for k, v in [
     ('page','DASHBOARD'), ('huntertab','SCANNERS'), ('watchlisttab','GENERATION'),
@@ -875,275 +1309,42 @@ for k, v in [
 # ══════════════════════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════════════════════
-bg_str = ""
-if os.path.exists("trading_bg_pro.png"):
-    bg_img = get_img_as_base64("trading_bg_pro.png")
-    bg_str = f', url("data:image/png;base64,{bg_img}")'
 
-st.markdown(f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;500&display=swap');
-*, *::before, *::after {{ box-sizing: border-box; }}
-.stApp {{
-    background: linear-gradient(160deg,#050d18 0%,#0a1628 60%,#060e1a 100%){bg_str};
-    background-attachment: fixed; background-size: cover;
-    font-family: 'Inter', sans-serif; color: #c9d1d9;
-}}
-.block-container {{ padding: 0 !important; margin: 0 !important; max-width: 100% !important; }}
-header, footer {{ visibility: hidden !important; }}
-#MainMenu {{ visibility: hidden !important; }}
-[data-testid="collapsedControl"] {{ display: none !important; }}
-[data-testid="stSidebarCollapseButton"] {{ display: none !important; }}
-button[kind="header"] {{ display: none !important; }}
-section[data-testid="stSidebar"] > div:first-child > div > button {{ display: none !important; }}
-[data-testid="stSidebar"] {{
-    background: linear-gradient(180deg,#0d1b2a 0%,#0a1628 100%) !important;
-    border-right: 1px solid #1e3a5f !important;
-    width: 270px !important; min-width: 270px !important; padding: 0 !important;
-    transform: none !important; visibility: visible !important; display: block !important;
-}}
-[data-testid="stSidebar"] > div {{ padding: 0 !important; }}
-[data-testid="stSidebarContent"] {{
-    padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important;
-    scrollbar-width: thin; scrollbar-color: #1e3a5f #0a1628;
-}}
-[data-testid="stSidebarContent"]::-webkit-scrollbar {{ width: 4px; }}
-[data-testid="stSidebarContent"]::-webkit-scrollbar-track {{ background: #0a1628; }}
-[data-testid="stSidebarContent"]::-webkit-scrollbar-thumb {{ background: #1e3a5f; border-radius: 2px; }}
-.statusbar {{
-    display: grid; grid-template-columns: repeat(8, 1fr);
-    gap: 1px; background: #1e3a5f; border-bottom: 2px solid #1e3a5f;
-}}
-.sb-cell {{ background: #0a1628; padding: 6px 16px; display: flex; flex-direction: column; justify-content: center; }}
-.sb-label {{ font-family: 'JetBrains Mono',monospace; font-size: 0.58rem; color: #5a8a9f; letter-spacing: 2px; text-transform: uppercase; }}
-.sb-value {{ font-family: 'JetBrains Mono',monospace; font-size: 0.95rem; font-weight: 600; margin-top: 1px; letter-spacing: 0.5px; }}
-.page-title {{
-    font-family: 'Rajdhani',sans-serif; font-size: 1.5rem; font-weight: 700;
-    letter-spacing: 3px; text-transform: uppercase; color: #e6edf3;
-    border-left: 3px solid #238636; padding-left: 12px; margin: 14px 0 2px 0;
-}}
-.page-desc {{ font-size: 0.68rem; color: #5a8a9f; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 12px 15px; font-family: 'JetBrains Mono',monospace; }}
-.section-hdr {{
-    font-family: 'JetBrains Mono',monospace; font-size: 0.62rem; color: #5a8a9f;
-    letter-spacing: 3px; text-transform: uppercase; margin: 14px 0 8px 0;
-    display: flex; align-items: center; gap: 10px;
-}}
-.section-hdr::after {{ content:''; flex:1; height:1px; background:#1e3a5f; }}
-.section-sub-lbl {{
-    font-family: 'Rajdhani', sans-serif; font-size: 1.0rem; font-weight: 600;
-    color: #e6edf3; letter-spacing: 1.5px; text-transform: uppercase;
-    padding: 5px 12px; background: rgba(88,166,255,0.08);
-    border-left: 3px solid #58a6ff; border-radius: 0 4px 4px 0; margin-bottom: 8px;
-}}
-.metric-card {{
-    background: #0d1b2a; border: 1px solid #1e3a5f; border-radius: 6px;
-    padding: 10px 14px; text-align: center; position: relative;
-}}
-.metric-card:has(.expand-toggle:checked) {{
-    position: fixed !important;
-    top: 5% !important; left: 5% !important;
-    width: 90vw !important; height: 90vh !important;
-    z-index: 9999999 !important;
-    background: #0d1117 !important;
-    border: 2px solid #58a6ff !important;
-    box-shadow: 0 0 50px rgba(0,0,0,0.9) !important;
-    overflow-y: auto !important;
-}}
-.metric-card:has(.expand-toggle:checked) .expand-btn {{
-    color: #ff4b4b !important;
-}}
-.expand-btn {{
-    position: absolute; right: 8px; top: 8px; cursor: pointer; color: #8b949e;
-    font-size: 1.1rem; transition: color 0.2s;
-}}
-.expand-btn:hover {{ color: #e6edf3; }}
-.metric-label {{ font-family: 'JetBrains Mono',monospace; font-size: 0.58rem; color: #5a8a9f; letter-spacing: 2px; text-transform: uppercase; }}
-.metric-value {{ font-family: 'JetBrains Mono',monospace; font-size: 1.1rem; font-weight: 600; color: #e6edf3; margin-top: 3px; }}
-button[kind="secondary"] {{
-    background: #0d1b2a !important; border: 1px solid #1e3a5f !important;
-    border-radius: 5px !important; color: #c9d1d9 !important;
-    font-family: 'Inter', sans-serif !important; font-size: 0.82rem !important;
-    padding: 12px 16px !important; width: 100% !important;
-    text-align: left !important; line-height: 1.6 !important;
-    min-height: 76px !important; transition: all .15s ease !important;
-}}
-button[kind="secondary"]:hover {{
-    background: #12243a !important; border-color: #238636 !important;
-    color: #e6edf3 !important;
-    box-shadow: inset 3px 0 0 #238636, 0 0 0 1px rgba(35,134,54,.2) !important;
-}}
-button[kind="secondary"] p {{ white-space: pre-line !important; text-align: left !important; margin: 0 !important; color: #c9d1d9 !important; font-size: 0.82rem !important; line-height: 1.6 !important; }}
-button[kind="primary"] {{
-    background: rgba(35,134,54,0.15) !important; border: 1px solid #238636 !important;
-    border-radius: 5px !important; color: #3fb950 !important;
-    font-family: 'Inter', sans-serif !important; font-size: 0.82rem !important;
-    padding: 12px 16px !important; width: 100% !important;
-    text-align: left !important; line-height: 1.6 !important;
-    min-height: 76px !important; box-shadow: 0 0 0 1px rgba(35,134,54,.15) !important;
-    transition: all .15s ease !important;
-}}
-button[kind="primary"]:hover {{
-    background: rgba(35,134,54,0.25) !important;
-    box-shadow: 0 0 16px rgba(35,134,54,.3), inset 3px 0 0 #3fb950 !important;
-    color: #e6edf3 !important;
-}}
-button[kind="primary"] p {{ white-space: pre-line !important; text-align: left !important; margin: 0 !important; color: inherit !important; font-size: 0.82rem !important; line-height: 1.6 !important; }}
-[data-testid="stSidebar"] button {{
-    background: transparent !important; border: none !important; border-radius: 0 !important;
-    border-left: 3px solid transparent !important; padding: 7px 16px !important;
-    font-family: 'Inter', sans-serif !important; font-size: 0.85rem !important;
-    font-weight: 500 !important; color: #8b949e !important; letter-spacing: 0.3px !important;
-    text-transform: none !important; text-align: left !important; width: 100% !important;
-    min-height: 0 !important; line-height: 1.3 !important; box-shadow: none !important;
-    transition: all .12s ease !important;
-}}
-[data-testid="stSidebar"] button:hover {{ background: rgba(255,255,255,0.04) !important; color: #e6edf3 !important; border-left-color: #30363d !important; box-shadow: none !important; }}
-[data-testid="stSidebar"] button[kind="primary"] {{ background: rgba(35,134,54,0.12) !important; color: #3fb950 !important; border-left-color: #238636 !important; font-weight: 600 !important; box-shadow: none !important; }}
-[data-testid="stSidebar"] button[kind="primary"]:hover {{ background: rgba(35,134,54,0.20) !important; box-shadow: none !important; }}
-[data-testid="stSidebar"] button p {{ white-space: nowrap !important; text-align: left !important; font-size: 0.85rem !important; color: inherit !important; }}
-[data-testid="stRadio"] {{ margin: 1px 0 !important; }}
-[data-testid="stRadio"] label {{
-    background: transparent !important; border: none !important; border-radius: 0 !important;
-    border-left: 3px solid transparent !important; padding: 6px 14px 6px 28px !important;
-    font-family: 'Inter', sans-serif !important; font-size: 0.88rem !important;
-    color: #adbac7 !important; cursor: pointer !important; transition: all .12s !important;
-    margin: 0 !important; display: block !important;
-}}
-[data-testid="stRadio"] label:hover {{ background: rgba(255,255,255,0.04) !important; color: #e6edf3 !important; border-left-color: #30363d !important; }}
-[data-testid="stRadio"] label[data-checked="true"] {{ background: rgba(35,134,54,0.10) !important; color: #3fb950 !important; border-left-color: #238636 !important; font-weight: 600 !important; }}
-[role="radiogroup"] input {{ display: none !important; }}
-[role="radiogroup"] [data-testid="stMarkdownContainer"] p {{ margin: 0 !important; font-size: 0.88rem !important; color: inherit !important; }}
-/* Group labels (DAILY INTEL, MARKET INTEL, etc) — brighter, more legible.
-   Was #3d5a6e (very dim — user feedback: "hardly visible"). Now #8aa4b8 with
-   slightly larger size and weight. */
-.sb-section-lbl {{ font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 600; color: #8aa4b8; letter-spacing: 2.5px; text-transform: uppercase; padding: 10px 16px 5px; border-top: 1px solid #1e3a5f; margin-top: 2px; }}
-/* Hide Streamlit's auto-generated multi-page nav at the top of the sidebar.
-   The pages/ folder (1_home, 2_xray, 3_journal, 4_autopsy) was originally
-   created for mobile access; we recreate the same links at the BOTTOM of the
-   sidebar via st.page_link() so the top is reserved for the v4.0 status strip
-   + Auto-Pilot button + main NAV_GROUPS. */
-[data-testid="stSidebarNav"] {{ display: none !important; }}
-/* Trim Streamlit's default sidebar top padding (~3rem of empty space above
-   the first widget). User feedback: "Some empty space is still left at the
-   top left". This pulls the WEINSTEIN logo to within ~12px of the top edge. */
-section[data-testid="stSidebar"] > div:first-child {{ padding-top: 0.5rem !important; }}
-section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{ padding-top: 0 !important; }}
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]:first-child {{ gap: 0.25rem !important; }}
-/* Left-align all sidebar button labels (PRE-MARKET, DASHBOARD, MACRO, etc).
-   Default Streamlit st.button text is centred via inline flex styles with high
-   specificity. To win the cascade we (a) drop the button's display from flex
-   to block, (b) override align/justify on every nested wrapper, and (c) force
-   the inner <p> to text-align:left with full width.
-   Note: Streamlit buttons render as: button > div > div[data-testid="stMarkdownContainer"] > p */
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button,
-section[data-testid="stSidebar"] button[kind="primary"],
-section[data-testid="stSidebar"] button[kind="secondary"],
-section[data-testid="stSidebar"] button[kind="primaryFormSubmit"],
-section[data-testid="stSidebar"] button[kind="secondaryFormSubmit"] {{
-    display: block !important;
-    text-align: left !important;
-    padding-left: 32px !important; /* indent sub-menu items 16px past the group label */
-    justify-content: flex-start !important;
-    align-items: flex-start !important;
-}}
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button > div,
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button > div > div,
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button [data-testid="stMarkdownContainer"] {{
-    display: block !important;
-    text-align: left !important;
-    width: 100% !important;
-    justify-content: flex-start !important;
-}}
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button p {{
-    text-align: left !important;
-    width: 100% !important;
-    margin: 0 !important;
-}}
-[data-testid="metric-container"] {{ background: #0d1b2a !important; border: 1px solid #1e3a5f !important; border-radius: 6px !important; padding: 10px 14px !important; }}
-[data-testid="metric-container"] label {{ font-family: 'JetBrains Mono',monospace !important; font-size: 0.60rem !important; color: #5a8a9f !important; letter-spacing: 2px !important; text-transform: uppercase !important; }}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-family: 'JetBrains Mono',monospace !important; font-size: 1.2rem !important; font-weight: 600 !important; color: #e6edf3 !important; }}
-[data-testid="stDataFrame"] {{ border: 1px solid #1e3a5f !important; border-radius: 6px !important; }}
-iframe {{ border-radius: 6px !important; }}
-hr {{ border-color: #1e3a5f !important; margin: 8px 0 !important; }}
-[data-testid="stToast"] {{ background: #0d1b2a !important; border: 1px solid #238636 !important; border-radius: 6px !important; color: #c9d1d9 !important; font-family: 'Inter', sans-serif !important; }}
-[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input {{
-    background: #0a1628 !important; border: 1px solid #1e3a5f !important;
-    border-radius: 4px !important; color: #e6edf3 !important;
-    font-family: 'JetBrains Mono',monospace !important; font-size: 0.82rem !important;
-}}
-[data-testid="stTextInput"] input:focus, [data-testid="stNumberInput"] input:focus {{ border-color: #238636 !important; box-shadow: 0 0 0 2px rgba(35,134,54,.2) !important; }}
-label {{ color: #8b949e !important; font-size: 0.75rem !important; }}
-[data-testid="stSelectbox"] > div > div {{ background: #0a1628 !important; border-color: #1e3a5f !important; color: #e6edf3 !important; border-radius: 4px !important; }}
-
-/* 🤖 Run Auto-Pilot Sidebar Button: Center align vertically and horizontally */
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) {{
-    margin: 0 !important;
-    padding: 10px 0 !important;
-}}
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button {{
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    padding: 12px 16px !important;
-    margin: 0 !important;
-    width: 100% !important;
-    min-height: 42px !important;
-}}
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button > div,
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button > div > div,
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button [data-testid="stMarkdownContainer"] {{
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    width: 100% !important;
-}}
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:nth-child(3) button p {{
-    text-align: center !important;
-    width: 100% !important;
-    margin: 0 !important;
-}}
-</style>
-""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("""
-    <div style="padding:12px 16px 10px;border-bottom:1px solid #1e3a5f;background:#080f1a;">
-      <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:#e6edf3;letter-spacing:1.5px;">🦁 WEINSTEIN</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:#3d5a6e;letter-spacing:3px;margin-top:2px;">COMMANDER WEB v4.0</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── TOP STATUS STRIP — always visible, no scroll needed ──────────────────
-    # Per user feedback: API Health + Available Capital must be at the top, not
-    # buried below all menu groups. Token is also surfaced here as a compact
-    # color indicator; the detailed Token expander (with paste-new-token) stays
-    # at its original bottom location for the rare manual-refresh action.
+    # ── TOP UNIFIED HEADER CARD — Single button-styled container ─────────────
     try:
         _ts_top = dhan_token_status() if _BROKER_OK else {"valid": False, "expires_at": "—"}
         _tk_top_valid = _ts_top.get("valid", False)
-        _tk_top_col   = "#00f260" if _tk_top_valid else "#ff4b4b"
+        _tk_top_col   = "#34D399" if _tk_top_valid else "#F87171"
         _tk_top_label = "VALID" if _tk_top_valid else "EXPIRED"
     except Exception:
-        _tk_top_valid, _tk_top_col, _tk_top_label = False, "#3d5a6e", "—"
+        _tk_top_valid, _tk_top_col, _tk_top_label = False, "#94A3B8", "—"
 
     st.markdown(f"""
-    <div style="padding:8px 14px 6px;border-bottom:1px solid #1e3a5f;background:#0a131f;font-family:'JetBrains Mono',monospace;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-        <span style="font-size:0.55rem;color:#3d5a6e;letter-spacing:2px;">API HEALTH</span>
-        <span style="font-size:0.72rem;font-weight:600;color:{s_color};">{sys_status}</span>
+    <div style="margin: 8px 8px 10px 8px; padding: 12px; background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1.5px solid #334155; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.12); color: #FFFFFF;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 8px;">
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif; font-size:1.30rem; font-weight:800; color:#FFFFFF; letter-spacing:1.5px; line-height:1.1;">🦁 WEINSTEIN</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:#93C5FD; letter-spacing:2px; font-weight:800; margin-top:2px;">COMMANDER WEB v4.0</div>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-        <span style="font-size:0.55rem;color:#3d5a6e;letter-spacing:2px;">CAPITAL</span>
-        <span style="font-size:0.82rem;font-weight:600;color:#e6edf3;">₹{format_inr_int(balance)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:0.55rem;color:#3d5a6e;letter-spacing:2px;">TOKEN</span>
-        <span style="font-size:0.68rem;font-weight:600;color:{_tk_top_col};">{_tk_top_label}</span>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; display:flex; flex-direction:column; gap:5px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.62rem; color:#94A3B8; letter-spacing:1.5px; font-weight:700;">API HEALTH</span>
+          <span style="font-weight:800; color:{s_color};">{sys_status}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.62rem; color:#94A3B8; letter-spacing:1.5px; font-weight:700;">CAPITAL</span>
+          <span style="font-weight:800; color:#F8FAFC;">₹{format_inr_int(balance)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.62rem; color:#94A3B8; letter-spacing:1.5px; font-weight:700;">TOKEN</span>
+          <span style="font-weight:800; color:{_tk_top_col};">{_tk_top_label}</span>
+        </div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1302,14 +1503,14 @@ try:
     if not _vix_bar.empty:
         if isinstance(_vix_bar.columns, pd.MultiIndex): _vix_bar.columns = _vix_bar.columns.get_level_values(0)
         _vix_val = float(_vix_bar["Close"].iloc[-1])
-        _vix_col = "#ff4b4b" if _vix_val > 20 else "#e3b341" if _vix_val > 15 else "#00f260"
+        _vix_col = "#DC2626" if _vix_val > 20 else "#B45309" if _vix_val > 15 else "#15803D"
         _vix_txt = f"{_vix_val:.1f}"
     else:
-        _vix_val, _vix_col, _vix_txt = 0, "#5a8a9f", "N/A"
+        _vix_val, _vix_col, _vix_txt = 0, "#334155", "N/A"
 except Exception:
-    _vix_val, _vix_col, _vix_txt = 0, "#5a8a9f", "N/A"
+    _vix_val, _vix_col, _vix_txt = 0, "#334155", "N/A"
 
-_fii_txt, _fii_col = "–", "#5a8a9f"
+_fii_txt, _fii_col = "–", "#334155"
 if _HUB_OK:
     try:
         _fii_df = fetch_fii_dii_data()
@@ -1319,16 +1520,16 @@ if _HUB_OK:
             # Combined display per user feedback (#4): one cell, FII / DII separated by /
             _fii_arrow = "▲" if _fii_net >= 0 else "▼"
             _dii_arrow = "▲" if _dii_net >= 0 else "▼"
-            _fii_part_col = "#00f260" if _fii_net >= 0 else "#ff4b4b"
-            _dii_part_col = "#00f260" if _dii_net >= 0 else "#ff4b4b"
+            _fii_part_col = "#15803D" if _fii_net >= 0 else "#DC2626"
+            _dii_part_col = "#15803D" if _dii_net >= 0 else "#DC2626"
             # HTML inline-coloured spans so each side colours independently
             _fii_txt = (
                 f"<span style='color:{_fii_part_col};'>{_fii_arrow} ₹{abs(_fii_net):,.0f}Cr</span>"
-                f"<span style='color:#5a8a9f;'> / </span>"
+                f"<span style='color:#334155;'> / </span>"
                 f"<span style='color:{_dii_part_col};'>{_dii_arrow} ₹{abs(_dii_net):,.0f}Cr</span>"
             )
             # Net colour for the cell border-tinge: dominant flow direction
-            _fii_col = "#00f260" if (_fii_net + _dii_net) >= 0 else "#ff4b4b"
+            _fii_col = "#15803D" if (_fii_net + _dii_net) >= 0 else "#DC2626"
     except Exception:
         pass
 
@@ -1337,7 +1538,7 @@ if _HUB_OK:
 # build_breadth_regime() label which could read "BULL HEALTHY" even while the
 # benchmark was below 200DMA with a death cross. The breadth-only label is
 # still surfaced (correctly named) in the EOD "Breadth Regime" panel.
-_regime_txt, _regime_col = "–", "#5a8a9f"
+_regime_txt, _regime_col = "–", "#334155"
 _regime_age_html = ""   # freshness sub-line for the Market Regime tile (filled below)
 try:
     import json as _json, os as _os
@@ -1356,11 +1557,11 @@ try:
             _regime_txt = f"{_v} ({_s}/10)" if _s is not None else _v
             _vu = _v.upper()
             if "BULL" in _vu or "RISK-ON" in _vu:
-                _regime_col = "#00f260"
+                _regime_col = "#15803D"
             elif "BEAR" in _vu or "DEFENSIVE" in _vu:
-                _regime_col = "#ff4b4b"
+                _regime_col = "#DC2626"
             else:
-                _regime_col = "#e3b341"
+                _regime_col = "#B45309"
         if _comp_str:
             try:
                 _comp_dt = _dt.fromisoformat(_comp_str)
@@ -1375,7 +1576,7 @@ try:
                     _age = f"{_mins // 60}h ago"
                 else:
                     _age = f"{_mins // 1440}d ago"
-                _age_col = "#e3b341" if _stale else "#5a8a9f"
+                _age_col = "#B45309" if _stale else "#334155"
                 _flag = " · <b>STALE</b>" if _stale else ""
                 _regime_age_html = (
                     f'<div style="font-family:JetBrains Mono,monospace;font-size:0.5rem;'
@@ -1424,7 +1625,7 @@ if _regime_txt == "–" and _BREADTH_OK:
     try:
         _br = calculate_breadth_metrics()
         _regime_txt = build_breadth_regime(_br)
-        _regime_col = "#00f260" if "BULL" in _regime_txt else "#ff4b4b" if "BEAR" in _regime_txt else "#e3b341"
+        _regime_col = "#15803D" if "BULL" in _regime_txt else "#DC2626" if "BEAR" in _regime_txt else "#B45309"
     except Exception:
         pass
 
@@ -1435,9 +1636,9 @@ st.markdown(f"""
   <div class="sb-cell"><div class="sb-label">India VIX</div><div class="sb-value" style="color:{_vix_col};">{_vix_txt}</div></div>
   <div class="sb-cell"><div class="sb-label">FII / DII (prev)</div><div class="sb-value" style="font-size:0.74rem;">{_fii_txt}</div></div>
   <div class="sb-cell"><div class="sb-label">Risk Watchdog</div><div class="sb-value" style="color:{w_color};">{w_text}</div></div>
-  <div class="sb-cell"><div class="sb-label">Deployment</div><div class="sb-value" style="color:#58a6ff;">{deployed_pct}%</div></div>
-  <div class="sb-cell"><div class="sb-label">Open Positions</div><div class="sb-value" style="color:#e6edf3;">{open_pos}</div></div>
-  <div class="sb-cell"><div class="sb-label">Total Deployed</div><div class="sb-value" style="color:#e3b341;">₹{format_inr(total_deployed_g)}</div></div>
+  <div class="sb-cell"><div class="sb-label">Deployment</div><div class="sb-value" style="color:#1D4ED8;">{deployed_pct}%</div></div>
+  <div class="sb-cell"><div class="sb-label">Open Positions</div><div class="sb-value" style="color:#090D16;">{open_pos}</div></div>
+  <div class="sb-cell"><div class="sb-label">Total Deployed</div><div class="sb-value" style="color:#B45309;">₹{format_inr(total_deployed_g)}</div></div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1491,7 +1692,7 @@ def _render_paid_news_grid(key_prefix: str,
         _age  = _et_meta.get("age_days")
         _age_s = f"{_age:.1f}d" if _age is not None else "—"
         st.markdown(
-            f'<div style="font-family:JetBrains Mono,monospace;font-size:0.74rem;color:#c9d1d9">'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:0.74rem;color:#1E293B">'
             f'{_icon} ET cookies · {_et_meta.get("cookie_count",0)} · age {_age_s}</div>',
             unsafe_allow_html=True)
     with _csb:
@@ -1499,7 +1700,7 @@ def _render_paid_news_grid(key_prefix: str,
         _age  = _mc_meta.get("age_days")
         _age_s = f"{_age:.1f}d" if _age is not None else "—"
         st.markdown(
-            f'<div style="font-family:JetBrains Mono,monospace;font-size:0.74rem;color:#c9d1d9">'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:0.74rem;color:#1E293B">'
             f'{_icon} MC cookies · {_mc_meta.get("cookie_count",0)} · age {_age_s}</div>',
             unsafe_allow_html=True)
     with _csc:
@@ -1574,12 +1775,12 @@ def _render_paid_news_grid(key_prefix: str,
 
     # Action → colour map
     _ACT_COL = {
-        "STRONG_BUY":  "#00f260",
+        "STRONG_BUY":  "#15803D",
         "BUY":         "#3fb950",
-        "HOLD":        "#e3b341",
+        "HOLD":        "#B45309",
         "SELL":        "#ff7b72",
-        "STRONG_SELL": "#ff4b4b",
-        "OTHER":       "#8b949e",
+        "STRONG_SELL": "#DC2626",
+        "OTHER":       "#475569",
     }
     _ACT_LBL = {
         "STRONG_BUY":  "🟢 STRONG BUY",
@@ -1589,7 +1790,7 @@ def _render_paid_news_grid(key_prefix: str,
         "STRONG_SELL": "🔴 STRONG SELL",
         "OTHER":       "📰 NEWS",
     }
-    _SRC_COL = {"Economic Times": "#ff7b72", "Moneycontrol": "#58a6ff"}
+    _SRC_COL = {"Economic Times": "#ff7b72", "Moneycontrol": "#1D4ED8"}
 
     # 4-column grid
     _N_COLS = 4
@@ -1598,10 +1799,10 @@ def _render_paid_news_grid(key_prefix: str,
         _cols = st.columns(_N_COLS, gap="small")
         for _col, _it in zip(_cols, _row):
             _act    = _it.get("action") or "OTHER"
-            _act_col = _ACT_COL.get(_act, "#8b949e")
+            _act_col = _ACT_COL.get(_act, "#475569")
             _act_lbl = _ACT_LBL.get(_act, _act)
             _src     = _it.get("source", "")
-            _src_col = _SRC_COL.get(_src, "#8b949e")
+            _src_col = _SRC_COL.get(_src, "#475569")
             _brk     = _it.get("brokerage") or ""
             _ttl     = (_it.get("title") or "").replace("<","&lt;").replace(">","&gt;")
             _url     = _it.get("url") or "#"
@@ -1610,7 +1811,7 @@ def _render_paid_news_grid(key_prefix: str,
             _stk_html = ""
             if _stocks:
                 _stk_pills = " ".join(
-                    f'<span style="background:#1c2937;color:#58a6ff;padding:1px 6px;'
+                    f'<span style="background:#1c2937;color:#1D4ED8;padding:1px 6px;'
                     f'border-radius:8px;font-size:0.62rem;margin-right:3px">{s}</span>'
                     for s in _stocks[:4]
                 )
@@ -1629,11 +1830,11 @@ def _render_paid_news_grid(key_prefix: str,
                     f'font-weight:700;letter-spacing:0.5px">{_act_lbl}</span>'
                     f'<span style="color:{_src_col};font-size:0.6rem;'
                     f'font-weight:600">{_src}</span></div>'
-                    f'<div style="font-size:0.78rem;color:#e6edf3;line-height:1.3">'
+                    f'<div style="font-size:0.78rem;color:#090D16;line-height:1.3">'
                     f'<a href="{_url}" target="_blank" '
-                    f'style="color:#e6edf3;text-decoration:none">{_ttl}</a></div>'
+                    f'style="color:#090D16;text-decoration:none">{_ttl}</a></div>'
                     f'{_brk_html}{_stk_html}'
-                    f'<div style="font-size:0.58rem;color:#5a8a9f;margin-top:6px">{_ts}</div>'
+                    f'<div style="font-size:0.58rem;color:#334155;margin-top:6px">{_ts}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -1671,12 +1872,12 @@ def _render_analyst_sentiment_panel(csv_path: str, symbol_col: str,
     _hc1, _hc2 = st.columns(2)
     _hc1.markdown(
         f'<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem">'
-        f'ET: <b style="color:{"#00f260" if _et_ok else "#ff4b4b"}">'
+        f'ET: <b style="color:{"#15803D" if _et_ok else "#DC2626"}">'
         f'{"✓ live" if _et_ok else "✗ down"}</b></div>',
         unsafe_allow_html=True)
     _hc2.markdown(
         f'<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem">'
-        f'MC: <b style="color:{"#00f260" if _mc_ok else "#ff4b4b"}">'
+        f'MC: <b style="color:{"#15803D" if _mc_ok else "#DC2626"}">'
         f'{"✓ live" if _mc_ok else "✗ down"}</b></div>',
         unsafe_allow_html=True)
 
@@ -1810,7 +2011,7 @@ def _csv_freshness_caption(csv_path: str, label: str = "Results") -> None:
     else:
         st.caption(f"✅ {label}: {_n_str} as of **{_ts}** ({_age_h:.1f}h ago)")
 
-def _render_ai_report(text: str, header_color: str = "#e3b341"):
+def _render_ai_report(text: str, header_color: str = "#B45309"):
     """
     Parse Gemini's === Title === format and render each section as a styled card.
     Uses re.split with a capturing group so titles and bodies are properly paired —
@@ -1841,13 +2042,13 @@ def _render_ai_report(text: str, header_color: str = "#e3b341"):
               <div style="font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;
                           color:{header_color};letter-spacing:1px;margin-bottom:8px;
                           text-transform:uppercase;">{_title}</div>
-              <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:#c9d1d9;
+              <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:#1E293B;
                           line-height:1.75;">{_body_html}</div>
             </div>""", unsafe_allow_html=True)
     else:
         # Fallback: plain text (no === markers found)
         _safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        st.markdown(f'<div style="font-size:0.85rem;color:#c9d1d9;line-height:1.75;'
+        st.markdown(f'<div style="font-size:0.85rem;color:#1E293B;line-height:1.75;'
                     f'white-space:pre-wrap;">{_safe}</div>', unsafe_allow_html=True)
 
 def sub_label(label):
@@ -1867,10 +2068,10 @@ try:
             "(possible causes: internet offline, or another process holds the 2-min rate limit)."
         )
         st.markdown(f"""
-        <div style="background:#3d0c0c;border:2px solid #ff4b4b;border-radius:8px;
+        <div style="background:#3d0c0c;border:2px solid #DC2626;border-radius:8px;
                     padding:14px 20px;margin-bottom:14px;">
           <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;
-                      color:#ff4b4b;letter-spacing:1px;">
+                      color:#DC2626;letter-spacing:1px;">
             🚨 DHAN TOKEN INVALID — AUTO-REFRESH FAILED</div>
           <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:#ffb3b3;
                       line-height:1.6;margin-top:6px;">
@@ -2084,10 +2285,146 @@ def _gm_entry_method() -> str:
 # The GM quotes entry/SL/T1 at CURRENT price (compute_workflow: entry = cmp_px). It does
 # NOT latch the bar the PA trigger fired on — S4 v6.0 does (trigBar/trigCls). The old
 # wording promised "the trigger bar's close" while the numbers beside it were live price,
-# which is the same text-vs-number split that let S4 ratchet its retest limit up with the
-# market. GM is the ARM surface, S4 is the plan of record (the two-stage doctrine), so the
-# fix is to say where the price comes from, not to duplicate the latch here.
+# fix is to say where the price comes from.
 _GM_ENTRY_SRC = " — take that price off S4 (it latches the trigger bar); levels here are at CURRENT price"
+
+def _pine_row_style(state: str) -> tuple[str, str, str, str]:
+    """Mirror the exact Section4_Entry_Trigger_v5.9.pine panel table colors.
+    Returns (label_bg, value_bg, text_color, border_color).
+    """
+    st = str(state).lower() if state else "na"
+    if st in ("pass", "bull", "ok", "go", "buy", "aligned", "healthy", "leading"):
+        return "#4DB6AC", "#4DB6AC", "#000000", "#26A69A"  # Pine Mint Teal
+    elif st in ("watch", "warn", "caution", "hold", "misaligned", "weakening", "losing steam", "easing"):
+        return "#FFB74D", "#FFB74D", "#000000", "#F57C00"  # Pine Warm Orange
+    elif st in ("fail", "bear", "stop", "avoid", "lagging", "deepening", "block"):
+        return "#E57373", "#E57373", "#000000", "#D32F2F"  # Pine Salmon Red
+    elif st in ("blue", "recovery", "rev", "improving", "strengthening"):
+        return "#64B5F6", "#64B5F6", "#000000", "#1976D2"  # Pine Soft Blue
+    elif st in ("purple", "special"):
+        return "#BA68C8", "#BA68C8", "#000000", "#7B1FA2"  # Pine Purple
+    else:
+        return "#86A2B3", "#9CB5C4", "#000000", "#546E7A"  # Pine Cool Slate
+
+def _soft_style(state: str) -> tuple[str, str]:
+    lbl_bg, val_bg, text_col, _ = _pine_row_style(state)
+    return val_bg, text_col
+
+def _sc(state: str) -> str:
+    bg, _ = _soft_style(state)
+    return bg
+
+def _soft_badge(value: str, state: str) -> str:
+    lbl_bg, val_bg, text_col, bdr_col = _pine_row_style(state)
+    if state == "na" and value in ("na", "n/a", "—", ""):
+        return "<span style='color:#000000;font-size:11px;font-weight:800;'>—</span>"
+    return (f"<span style='background:{val_bg};color:{text_col};padding:2.5px 8px;"
+            f"border-radius:4px;font-weight:800;font-size:11px;border:1px solid {bdr_col};"
+            f"display:inline-block;letter-spacing:0.2px;'>{value}</span>")
+
+def _gauge(label, value, vmin, vmax, gradient, state, valtxt) -> str:
+    lbl_bg, val_bg, text_col, bdr_col = _pine_row_style(state)
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        pct = 0.0
+        badge_html = "<span style='color:#000000;font-size:11px;font-weight:800;'>—</span>"
+    else:
+        pct = max(0.0, min(100.0, (float(value) - vmin) / (vmax - vmin) * 100.0))
+        badge_html = (f"<span style='background:{val_bg};color:{text_col};padding:2px 8px;"
+                      f"border-radius:4px;font-weight:800;font-size:11px;border:1px solid {bdr_col};'>{valtxt}</span>")
+
+    return (f"<div style='margin:6px 0;'>"
+            f"<div style='display:flex;justify-content:space-between;align-items:center;font-size:11.5px;margin-bottom:4px;'>"
+            f"<span style='color:#090D16;font-weight:800;'>{label}</span>"
+            f"{badge_html}</div>"
+            f"<div style='position:relative;height:9px;border-radius:6px;background:#CBD5E1;overflow:visible;border:1px solid #94A3B8;'>"
+            f"<div style='position:absolute;left:0;top:0;height:100%;width:{pct:.1f}%;border-radius:6px;"
+            f"background:{gradient};opacity:0.95;'></div>"
+            f"<div style='position:absolute;left:calc({pct:.1f}% - 3px);top:-3px;width:7px;height:15px;"
+            f"background:#090D16;box-shadow:0 1px 4px rgba(0,0,0,0.4);border-radius:3px;'></div></div></div>")
+
+def _crit(ok: bool, label: str) -> str:
+    lbl_bg, val_bg, text_col, bdr_col = _pine_row_style("pass" if ok else "fail")
+    mk = "✓" if ok else "✗"
+    return (f"<div style='display:flex;align-items:center;gap:6px;font-size:11.5px;margin:2.5px 0;'>"
+            f"<span style='flex:0 0 16px;width:16px;height:16px;border-radius:50%;background:{val_bg};"
+            f"color:{text_col};border:1px solid {bdr_col};display:inline-flex;align-items:center;justify-content:center;font-size:10px;"
+            f"font-weight:900'>{mk}</span><span style='color:#090D16;font-weight:700;'>{label}</span></div>")
+
+def _pill(state: str, label: str, val: str) -> str:
+    lbl_bg, val_bg, text_col, bdr_col = _pine_row_style(state)
+    return (f"<div style='background:{val_bg};border:1px solid {bdr_col};border-left:4px solid {bdr_col};border-radius:5px;padding:5px 8px;margin-bottom:3px;box-shadow:0 1px 2px rgba(0,0,0,0.05);'>"
+            f"<div style='color:#000000;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:800;'>{label}</div>"
+            f"<div style='color:#000000;font-size:11.5px;font-weight:800;'>{val}</div></div>")
+
+def _donut(passed: int, total: int) -> str:
+    r = 22.0; circ = 2 * math.pi * r
+    frac = (passed / total) if total else 0
+    lbl_bg, val_bg, text_col, bdr_col = _pine_row_style("pass" if frac >= 0.75 else ("watch" if frac >= 0.5 else "fail"))
+    off = circ * (1 - frac)
+    return (f"<svg width='54' height='54' viewBox='0 0 52 52'>"
+            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='#CBD5E1' stroke-width='6'/>"
+            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='{bdr_col}' stroke-width='6'"
+            f" stroke-dasharray='{circ:.1f}' stroke-dashoffset='{off:.1f}' stroke-linecap='round'"
+            f" transform='rotate(-90 26 26)'/>"
+            f"<text x='26' y='31' text-anchor='middle' font-size='13' font-weight='900' fill='#090D16'>{passed}/{total}</text></svg>")
+
+def _range_bar(low, high, cmp_, marks) -> str:
+    if not (low and high and high > low and cmp_):
+        return "<div style='font-size:11px;color:#090D16;font-weight:700;'>52W range unavailable</div>"
+    span = high - low
+    def p(x): return max(0.0, min(100.0, (x - low) / span * 100.0))
+    ticks = ""
+    for x, lab, col in marks:
+        if x is None:
+            continue
+        ticks += (f"<div style='position:absolute;left:{p(x):.1f}%;top:10px;width:2px;height:8px;"
+                  f"background:{col};transform:translateX(-50%)'></div>"
+                  f"<div style='position:absolute;left:{p(x):.1f}%;top:19px;transform:translateX(-50%);"
+                  f"font-size:9px;font-weight:800;color:#090D16;white-space:nowrap'>{lab}</div>")
+    cp = p(cmp_)
+    return (f"<div style='position:relative;margin:8px 0 32px;'>"
+            f"<div style='position:relative;height:8px;border-radius:6px;border:1px solid #94A3B8;"
+            f"background:linear-gradient(90deg,#E57373,#FFB74D,#4DB6AC);'>"
+            f"<div style='position:absolute;left:{cp:.1f}%;top:-6px;transform:translateX(-50%);width:0;height:0;"
+            f"border-left:5px solid transparent;border-right:5px solid transparent;border-top:10px solid #000000;'></div>"
+            f"{ticks}</div>"
+            f"<div style='display:flex;justify-content:space-between;font-size:10px;color:#090D16;font-weight:800;margin-top:4px'>"
+            f"<span>52WL {inr(low)}</span><span>52WH {inr(high)}</span></div></div>")
+
+def card(title: str, rows, accent: str = "#1E3A8A", chip_text: str = None,
+         chip_color: str = None) -> str:
+    """Compact table card mirroring Section4_Entry_Trigger_v5.9.pine panel table.
+    Every row is a full-width colored background row with crisp 1px borders and bold dark text,
+    matching the S4 Pine panel table.
+    """
+    body = ""
+    for label, value, state in rows:
+        lbl_bg, val_bg, text_col, bdr_col = _pine_row_style(state)
+        val_str = str(value)
+        body += (f"<div style='display:grid;grid-template-columns:38% 62%;margin-bottom:1px;border:1px solid #475569;font-size:11.5px;font-family:\"Inter\",sans-serif;'>"
+                 f"<div style='background:{lbl_bg};color:{text_col};font-weight:700;padding:4.5px 8px;border-right:1px solid #475569;display:flex;align-items:center;'>{label}</div>"
+                 f"<div style='background:{val_bg};color:{text_col};font-weight:800;padding:4.5px 8px;display:flex;align-items:center;justify-content:flex-start;'>{val_str}</div></div>")
+
+    hdr_bg = "#1E3A8A"
+    chip = ""
+    if chip_text is not None:
+        chip = (f"<span style='float:right;background:#1E293B;color:#FFFFFF;padding:1.5px 9px;"
+                f"border-radius:4px;font-weight:800;font-size:11px;border:1px solid #475569;'>{chip_text}</span>")
+    else:
+        evaluated = [s for _, _, s in rows if s in ("pass", "watch", "fail")]
+        passed = sum(1 for s in evaluated if s == "pass")
+        total = len(evaluated)
+        if total:
+            frac = passed / total
+            badge_st = "pass" if frac >= 0.7 else ("watch" if frac >= 0.4 else "fail")
+            _, val_bg, text_col, _ = _pine_row_style(badge_st)
+            chip = (f"<span style='float:right;background:{val_bg};color:{text_col};padding:1.5px 9px;"
+                    f"border-radius:4px;font-weight:800;font-size:11px;border:1px solid #475569;'>{passed}/{total}</span>")
+
+    return (f"<div style='background:#FFFFFF;border:1.5px solid #475569;border-radius:6px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.08);'>"
+            f"<div style='background:{hdr_bg};color:#FFFFFF;font-weight:800;font-size:11.5px;"
+            f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid #475569;'>{title}{chip}</div>"
+            f"<div style='padding:4px;background:#CBD5E1;'>{body}</div></div>")
 
 
 def _gm_entry_instruction(tf_lbl="", short=False, src_note=True) -> str:
@@ -2129,74 +2466,71 @@ def _render_entry_method_selector(key: str):
 # ----------------------------------------------------------------------------------------
 # Graphical primitives (pure HTML/SVG — no extra deps)
 # ----------------------------------------------------------------------------------------
-def _sc(state: str) -> str:
-    return {"pass": "#26A69A", "watch": "#FF9800", "fail": "#EF5350", "na": "#787B86"}.get(state, "#787B86")
-
-
-def _gauge(label, value, vmin, vmax, gradient, state, valtxt) -> str:
-    col = _sc(state)
-    if value is None or (isinstance(value, float) and math.isnan(value)):
-        pct = 0.0; valtxt = "—"; col = "#787B86"
-    else:
-        pct = max(0.0, min(100.0, (float(value) - vmin) / (vmax - vmin) * 100.0))
-    return (f"<div style='margin:5px 0;'>"
-            f"<div style='display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px;'>"
-            f"<span style='font-weight:600'>{label}</span>"
-            f"<span style='font-weight:800;color:{col}'>{valtxt}</span></div>"
-            f"<div style='position:relative;height:9px;border-radius:5px;background:{gradient};'>"
-            f"<div style='position:absolute;left:calc({pct:.1f}% - 1px);top:-2px;width:2px;height:13px;"
-            f"background:#111;box-shadow:0 0 0 1px #fff;border-radius:1px;'></div></div></div>")
-
+# S4 Entry Trigger v5.9 & Weinstein Dashboard Unified Palette (Financial Terminal Light)
+# ----------------------------------------------------------------------------------------
+C_SOFT_PASS   = "#A7F3D0"  # Vibrant Soft Emerald (Pass / Bull / OK / GO / Buy)
+C_TEXT_PASS   = "#064E3B"  # Deep Emerald Text (Bold)
+C_SOFT_WARN   = "#FDE68A"  # Vibrant Soft Amber (Watch / Caution / Hold / Warning)
+C_TEXT_WARN   = "#78350F"  # Deep Amber Text (Bold)
+C_SOFT_FAIL   = "#FECDD3"  # Vibrant Soft Rose (Fail / Bear / Stop / Avoid)
+C_TEXT_FAIL   = "#881337"  # Deep Rose Text (Bold)
+C_SOFT_BLUE   = "#BFDBFE"  # Vibrant Soft Sky Blue (Recovery / Improving / Blue)
+C_TEXT_BLUE   = "#1E3A8A"  # Deep Blue Text (Bold)
+C_SOFT_PURP   = "#E9D5FF"  # Vibrant Soft Purple (Special / Tier Bonus)
+C_TEXT_PURP   = "#581C87"  # Deep Purple Text (Bold)
+C_SOFT_NEUT   = "#E2E8F0"  # Slate Container
+C_SOFT_TEXT   = "#0F172A"  # Deep Charcoal Slate Text
+C_HDR_BG      = "#0F172A"  # Dark Slate Header Band
+C_CARD_BG     = "#FFFFFF"  # Crisp White Card Container
+C_CARD_BORDER = "#94A3B8"  # High-Contrast Slate Border
 
 def _crit(ok: bool, label: str) -> str:
-    col = "#26A69A" if ok else "#EF5350"; mk = "✓" if ok else "✗"
-    return (f"<div style='display:flex;align-items:center;gap:6px;font-size:11px;margin:1.5px 0;'>"
-            f"<span style='flex:0 0 15px;width:15px;height:15px;border-radius:50%;background:{col};"
-            f"color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;"
-            f"font-weight:700'>{mk}</span><span>{label}</span></div>")
-
+    bg, fg = _soft_style("pass" if ok else "fail")
+    mk = "✓" if ok else "✗"
+    return (f"<div style='display:flex;align-items:center;gap:6px;font-size:11px;margin:2px 0;'>"
+            f"<span style='flex:0 0 15px;width:15px;height:15px;border-radius:50%;background:{bg};"
+            f"color:{fg};display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;"
+            f"font-weight:800'>{mk}</span><span style='color:#1E293B;font-weight:600;'>{label}</span></div>")
 
 def _pill(state: str, label: str, val: str) -> str:
-    col = _sc(state)
-    return (f"<div style='border-left:3px solid {col};background:{col}22;border-radius:4px;padding:3px 7px;'>"
-            f"<div style='opacity:.65;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px'>{label}</div>"
-            f"<b style='color:{col};font-size:12px'>{val}</b></div>")
-
+    bg, fg = _soft_style(state)
+    return (f"<div style='background:{bg}80;border-left:3px solid {fg};border-radius:5px;padding:4px 8px;margin-bottom:2px;'>"
+            f"<div style='color:#475569;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;font-weight:600;'>{label}</div>"
+            f"<div style='color:{fg};font-size:11.5px;font-weight:700;'>{val}</div></div>")
 
 def _donut(passed: int, total: int) -> str:
     r = 22.0; circ = 2 * math.pi * r
     frac = (passed / total) if total else 0
-    col = "#26A69A" if frac >= 0.75 else ("#FF9800" if frac >= 0.5 else "#EF5350")
+    bg, fg = _soft_style("pass" if frac >= 0.75 else ("watch" if frac >= 0.5 else "fail"))
     off = circ * (1 - frac)
     return (f"<svg width='54' height='54' viewBox='0 0 52 52'>"
-            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='#80808033' stroke-width='6'/>"
-            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='{col}' stroke-width='6'"
+            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='#E2E8F0' stroke-width='6'/>"
+            f"<circle cx='26' cy='26' r='{r}' fill='none' stroke='{fg}' stroke-width='6'"
             f" stroke-dasharray='{circ:.1f}' stroke-dashoffset='{off:.1f}' stroke-linecap='round'"
             f" transform='rotate(-90 26 26)'/>"
-            f"<text x='26' y='31' text-anchor='middle' font-size='14' font-weight='800' fill='{col}'>{passed}/{total}</text></svg>")
-
+            f"<text x='26' y='31' text-anchor='middle' font-size='13' font-weight='800' fill='{fg}'>{passed}/{total}</text></svg>")
 
 def _range_bar(low, high, cmp_, marks) -> str:
     if not (low and high and high > low and cmp_):
-        return "<div style='font-size:11px;opacity:.6'>52W range unavailable</div>"
+        return "<div style='font-size:11px;color:#94A3B8;'>52W range unavailable</div>"
     span = high - low
     def p(x): return max(0.0, min(100.0, (x - low) / span * 100.0))
     ticks = ""
     for x, lab, col in marks:
         if x is None:
             continue
-        ticks += (f"<div style='position:absolute;left:{p(x):.1f}%;top:11px;width:1px;height:7px;"
+        ticks += (f"<div style='position:absolute;left:{p(x):.1f}%;top:10px;width:1.5px;height:8px;"
                   f"background:{col};transform:translateX(-50%)'></div>"
-                  f"<div style='position:absolute;left:{p(x):.1f}%;top:18px;transform:translateX(-50%);"
-                  f"font-size:8.5px;color:{col};white-space:nowrap'>{lab}</div>")
+                  f"<div style='position:absolute;left:{p(x):.1f}%;top:19px;transform:translateX(-50%);"
+                  f"font-size:8.5px;font-weight:600;color:#475569;white-space:nowrap'>{lab}</div>")
     cp = p(cmp_)
-    return (f"<div style='position:relative;margin:6px 0 30px;'>"
-            f"<div style='position:relative;height:9px;border-radius:5px;"
-            f"background:linear-gradient(90deg,#EF535055,#FF980055,#26A69A55);'>"
-            f"<div style='position:absolute;left:{cp:.1f}%;top:-5px;transform:translateX(-50%);width:0;height:0;"
-            f"border-left:6px solid transparent;border-right:6px solid transparent;border-top:11px solid #111;'></div>"
+    return (f"<div style='position:relative;margin:8px 0 32px;'>"
+            f"<div style='position:relative;height:8px;border-radius:6px;"
+            f"background:linear-gradient(90deg,rgba(254,226,226,0.6),rgba(254,243,199,0.6),rgba(209,250,229,0.6));'>"
+            f"<div style='position:absolute;left:{cp:.1f}%;top:-6px;transform:translateX(-50%);width:0;height:0;"
+            f"border-left:5px solid transparent;border-right:5px solid transparent;border-top:10px solid #059669;'></div>"
             f"{ticks}</div>"
-            f"<div style='display:flex;justify-content:space-between;font-size:9px;opacity:.6;margin-top:2px'>"
+            f"<div style='display:flex;justify-content:space-between;font-size:9.5px;color:#475569;font-weight:600;margin-top:4px'>"
             f"<span>52WL {inr(low)}</span><span>52WH {inr(high)}</span></div></div>")
 
 
@@ -2305,65 +2639,69 @@ def compute_decision(rec: dict, ctx: dict, cmp_px, mansfield) -> dict:
 SECTION_SCORES: dict = {}
 
 
-def card(title: str, rows, accent: str = "#2962FF", chip_text: str = None,
+def card(title: str, rows, accent: str = "#2563EB", chip_text: str = None,
          chip_color: str = None) -> str:
-    """Compact label:value table card mirroring a Pine panel.
-
-    v2: computes a section score from its own rows — passes / evaluated
-    (state 'na' rows excluded) — shown as a chip in the header and registered
-    in SECTION_SCORES for the summary strip. Zero per-section score logic.
-    chip_text/chip_color override the auto-score for sections where a
-    pass-count is the wrong benchmark (e.g. PA patterns: bonus tier, not x/N).
+    """Compact label:value table card mirroring Section4_Entry_Trigger_v5.9.pine panel in Light Mode.
+    Every row is a full-width colored background row with crisp borders and bold dark text,
+    matching the S4 Pine panel table color palette.
     """
     body = ""
     for label, value, state in rows:
-        col = _sc(state)
-        body += (f"<div style='display:flex;justify-content:space-between;gap:8px;padding:2.5px 0;"
-                 f"font-size:11.5px;border-bottom:1px solid rgba(136,136,136,.18)'>"
-                 f"<span style='opacity:.78'>{label}</span>"
-                 f"<b style='color:{col};text-align:right'>{value}</b></div>")
+        lbl_bg, val_bg, text_col, bdr_col = _pine_row_style(state)
+        val_str = str(value)
+        body += (f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                 f"background:{val_bg};color:{text_col};border:1px solid {bdr_col};border-left:4px solid {bdr_col};"
+                 f"padding:5px 10px;margin-bottom:3px;border-radius:4px;font-size:11.5px;font-family:\"Inter\",sans-serif;'>"
+                 f"<span style='font-weight:700;'>{label}</span>"
+                 f"<span style='font-weight:800;text-align:right;'>{val_str}</span></div>")
+
     if chip_text is not None:
-        hdr = chip_color or accent
-        chip = (f"<span style='float:right;background:rgba(255,255,255,.25);padding:0 8px;"
-                f"border-radius:9px;font-weight:800'>{chip_text}</span>")
-        return (f"<div style='border:1px solid rgba(136,136,136,.28);border-radius:7px;overflow:hidden;margin-bottom:9px'>"
-                f"<div style='background:{hdr};color:#fff;font-weight:700;font-size:10.5px;"
-                f"letter-spacing:.4px;padding:4px 9px'>{title}{chip}</div>"
-                f"<div style='padding:4px 9px 6px'>{body}</div></div>")
+        hdr_bg = C_HDR_BG
+        c_bg = chip_color or "rgba(255,255,255,0.2)"
+        chip = (f"<span style='float:right;background:{c_bg};color:#FFFFFF;padding:1.5px 9px;"
+                f"border-radius:10px;font-weight:800;font-size:10px;'>{chip_text}</span>")
+        return (f"<div style='background:#FFFFFF;border:1.5px solid #94A3B8;border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
+                f"<div style='background:{hdr_bg};color:#FFFFFF;font-weight:800;font-size:11.5px;"
+                f"letter-spacing:.5px;padding:7px 12px;border-bottom:1px solid #CBD5E1;'>{title}{chip}</div>"
+                f"<div style='padding:6px;background:#F8FAFC;'>{body}</div></div>")
+
     evaluated = [s for _, _, s in rows if s in ("pass", "watch", "fail")]
     passed = sum(1 for s in evaluated if s == "pass")
     total = len(evaluated)
     chip = ""
-    hdr = accent  # neutral fallback when a card has nothing to evaluate
+    hdr_bg = C_HDR_BG
     if total:
         frac = passed / total
-        # RAG header (2026-07-03, Jay): the header band IS the status —
-        # green >=70% pass, amber >=40%, red below.
-        hdr = "#1B7A6E" if frac >= 0.7 else ("#C77700" if frac >= 0.4 else "#C62828")
-        scol = "#26A69A" if frac >= 0.7 else ("#FF9800" if frac >= 0.4 else "#EF5350")
+        scol = C_TEXT_PASS if frac >= 0.7 else (C_TEXT_WARN if frac >= 0.4 else C_TEXT_FAIL)
         short = title.split("·")[0].strip().title()
         SECTION_SCORES[short] = (passed, total, scol)
-        chip = (f"<span style='float:right;background:rgba(255,255,255,.25);padding:0 8px;"
-                f"border-radius:9px;font-weight:800'>{passed}/{total}</span>")
-    return (f"<div style='border:1px solid rgba(136,136,136,.28);border-radius:7px;overflow:hidden;margin-bottom:9px'>"
-            f"<div style='background:{hdr};color:#fff;font-weight:700;font-size:10.5px;"
-            f"letter-spacing:.4px;padding:4px 9px'>{title}{chip}</div>"
-            f"<div style='padding:4px 9px 6px'>{body}</div></div>")
+        badge_st = "pass" if frac >= 0.7 else ("watch" if frac >= 0.4 else "fail")
+        c_bg, c_fg = _soft_style(badge_st)
+        chip = (f"<span style='float:right;background:{c_bg};color:{c_fg};padding:1.5px 9px;"
+                f"border-radius:10px;font-weight:800;font-size:10px;'>{passed}/{total}</span>")
+
+    return (f"<div style='background:#FFFFFF;border:1.5px solid #94A3B8;border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
+            f"<div style='background:{hdr_bg};color:#FFFFFF;font-weight:800;font-size:11.5px;"
+            f"letter-spacing:.5px;padding:7px 12px;border-bottom:1px solid #CBD5E1;'>{title}{chip}</div>"
+            f"<div style='padding:6px;background:#F8FAFC;'>{body}</div></div>")
 
 
 def render_score_strip(mpass: int = None) -> str:
-    """One-glance chips of every section score (populated by card() calls)."""
+    """One-glance chips of every section score using S4 soft palette in Light Mode."""
     chips = ""
     if mpass is not None:
-        mc = "#26A69A" if mpass >= 6 else ("#FF9800" if mpass >= 4 else "#EF5350")
-        chips += (f"<span style='border:1.5px solid {mc};color:{mc};border-radius:9px;"
-                  f"padding:2px 10px;font-size:11.5px;font-weight:800'>Minervini {mpass}/8</span>")
+        bg, fg = _soft_style("pass" if mpass >= 6 else ("watch" if mpass >= 4 else "fail"))
+        chips += (f"<span style='background:{bg};color:{fg};border-radius:6px;"
+                  f"padding:3.5px 11px;font-size:11.5px;font-weight:700;letter-spacing:0.2px;'>Minervini {mpass}/8</span>")
     for name, (p, t, col) in SECTION_SCORES.items():
-        disp = f"{p}/{t}" if t else str(p)  # t=None -> custom display string (e.g. 'Σ +3')
-        chips += (f"<span style='border:1.5px solid {col};color:{col};border-radius:9px;"
-                  f"padding:2px 10px;font-size:11.5px;font-weight:800'>{name} {disp}</span>")
-    return (f"<div style='display:flex;gap:7px;flex-wrap:wrap;align-items:center;"
-            f"margin:2px 0 10px'>{chips}</div>")
+        disp = f"{p}/{t}" if t else str(p)
+        st = "pass" if col in (C_SOFT_PASS, C_TEXT_PASS, "#26A69A", "#1B7A6E") else ("watch" if col in (C_SOFT_WARN, C_TEXT_WARN, "#FF9800", "#C77700") else "fail")
+        bg, fg = _soft_style(st)
+        chips += (f"<span style='background:{bg};color:{fg};border-radius:6px;"
+                  f"padding:3.5px 11px;font-size:11.5px;font-weight:700;letter-spacing:0.2px;'>{name} {disp}</span>")
+    return (f"<div style='display:flex;gap:8px;flex-wrap:wrap;align-items:center;"
+            f"margin:4px 0 14px;background:#FFFFFF;padding:10px 14px;border-radius:8px;"
+            f"border:1px solid #CBD5E1;box-shadow:0 1px 3px rgba(0,0,0,0.05);'>{chips}</div>")
 
 
 def _grade(a) -> str:
@@ -3560,10 +3898,39 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                     if _s.get("loc_source") == "IZE":
                         _s["ize_near_vp"] = bool(_ivp.get("at_vp_support"))
                         _s["vp_tf"] = trigger_tf
+                        # NATIVE TRIGGER-TF ZONES + S/R (3-Aug). The comment above used to
+                        # say the zone/S-R terms "stay D+W by design". That was wrong, and
+                        # it was the single biggest source of board-vs-S4 disagreement:
+                        # S4 on a 75/125m chart computes NATIVE chart-TF zones as well as
+                        # D/W/M — on ZYDUSLIFE it reported "9 DZ / 3 SZ live · IN DEMAND"
+                        # — while the board only ever looked at Daily/Weekly/Monthly and
+                        # so read the same bar as "below EMA20 / below value".
+                        # The gap was masked while both surfaces demanded RV >= 1.0 (a thin
+                        # bar failed on BOTH, so they agreed by accident). The moment the
+                        # pullback branch let S4 through on dry volume, the two answers
+                        # split apart.
+                        # `_idf` is already loaded for the PA battery, so this reuses the
+                        # frame rather than fetching anything new.
+                        _iz_tf = {"75m": "75m", "125m": "125m"}.get(str(trigger_tf), None)
+                        _izI = _srI = {}
+                        if _iz_tf:
+                            try:
+                                _pxI = float(_idf["Close"].iloc[-1])
+                                _izI = _zem.zone_support(_idf, _iz_tf, _pxI) or {}
+                                _srI = _zem.sr_support(_idf, _iz_tf, _pxI) or {}
+                            except Exception as _ze2:
+                                _gm_logger.warning(f"{symbol}: trigger-TF zones failed ({trigger_tf}): {_ze2}")
+                                _izI = _srI = {}
+                        _s["tf_zone_at"] = bool(_izI.get("at_support"))
+                        _s["tf_zone_in"] = bool(_izI.get("in_fresh_dz"))
+                        _s["tf_near_sr"] = bool(_srI.get("near_sr"))
+                        _s["tf_zone_tf"] = _iz_tf or ""
                         _s["at_support"] = bool(_s.get("ize_at_support")
                                                 or _s.get("ize_near_sr")
                                                 or _s.get("ize_near_avwap")
-                                                or _ivp.get("at_vp_support"))
+                                                or _ivp.get("at_vp_support")
+                                                or _s["tf_zone_at"]
+                                                or _s["tf_near_sr"])
                         ctx["support"] = _s
             except Exception as e:
                 # Daily WCL from the ctx builder stands; it is labelled with its own tf.
@@ -3614,8 +3981,8 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
 
 
 def render_workflow(wf: dict) -> str:
-    cmap = {"pass": "#26A69A", "fail": "#EF5350", "wait": "#FF9800",
-            "pending": "#2962FF", "skip": "#9aa0a6", "plan": "#26A69A"}
+    cmap = {"pass": "pass", "fail": "fail", "wait": "watch",
+            "pending": "blue", "skip": "na", "plan": "pass"}
     pill = {"pass": "DONE", "fail": "STOP", "wait": "WAIT", "pending": "YOUR MOVE", "skip": "LOCKED", "plan": "PLAN"}
     cur = wf.get("current")
     steps_html = ""; prior_fail = False; n = len(wf["steps"])
@@ -3632,16 +3999,18 @@ def render_workflow(wf: dict) -> str:
             status = "fail" if s.get("hard") else "wait"
         else:
             status = "pending"
-        col = cmap[status]
+            
+        p_st = cmap[status]
+        lbl_bg, val_bg, text_col, bdr_col = _pine_row_style(p_st)
         is_cur = (s["n"] == cur and status != "skip")
+        
         chips = ""
         for lab, val, ok in s["metrics"]:
-            cc = "#26A69A" if ok else ("#EF5350" if ok is False else "#9aa0a6")
             mk = "✓" if ok else ("✗" if ok is False else "·")
-            chips += (f"<span style='display:inline-block;margin:3px 9px 0 0;font-size:11.5px'>"
-                      f"<span style='opacity:.7'>{lab}</span> <b>{val}</b> "
-                      f"<span style='color:{cc};font-weight:700'>{mk}</span></span>")
-        # imperative guidance line — this is the "do this" of the sequence
+            chips += (f"<span style='display:inline-block;margin-right:8px;font-size:11px;font-weight:700;color:{text_col};'>"
+                      f"<span style='opacity:0.8;'>{lab}:</span> <b>{val}</b> "
+                      f"<span style='font-weight:900;'>{mk}</span></span>")
+        
         if status == "skip":
             guide = ""
         elif status == "pass":
@@ -3652,59 +4021,63 @@ def render_workflow(wf: dict) -> str:
             guide = "⏳ " + s.get("do_fail", "")
         else:
             guide = "▶ " + s.get("do_now", "")
-        guide_html = (f"<div style='font-size:11.5px;margin-top:3px;color:{col};font-weight:600'>{guide}</div>"
-                      if guide else "")
-        nowbadge = ("<span style='font-size:9px;font-weight:800;color:#fff;background:#111;"
-                    "padding:1px 7px;border-radius:9px;margin-left:6px'>← NOW</span>" if is_cur else "")
-        line = "" if i == n - 1 else f"<div style='width:2px;flex:1;background:{col}55;min-height:10px;margin:2px 0'></div>"
-        bg = f"background:{col}14;border-radius:7px;padding:5px 8px;margin:-4px 0;" if is_cur else "padding:0 8px;"
+            
+        guide_html = f"<span style='font-size:11px;font-weight:800;margin-left:8px;'>{guide}</span>" if guide else ""
+        nowbadge = ("<span style='font-size:9px;font-weight:900;color:#FFFFFF;background:#0F172A;"
+                    "padding:2px 6px;border-radius:4px;margin-left:6px;'>← NOW</span>" if is_cur else "")
+        
         steps_html += (
-            f"<div style='display:flex;gap:11px;align-items:stretch'>"
-            f"<div style='display:flex;flex-direction:column;align-items:center;flex:0 0 28px'>"
-            f"<div style='width:28px;height:28px;border-radius:50%;background:{col};color:#fff;display:flex;"
-            f"align-items:center;justify-content:center;font-weight:800;font-size:13px;"
-            f"{'box-shadow:0 0 0 3px ' + col + '44;' if is_cur else ''}'>{s['n']}</div>{line}</div>"
-            f"<div style='flex:1;padding-bottom:10px'><div style='{bg}'>"
-            f"<div style='display:flex;align-items:center;gap:8px'>"
-            f"<span style='font-weight:800;font-size:12.5px;color:{col}'>STEP {s['n']} · {s['title']}</span>"
-            f"<span style='font-size:9.5px;opacity:.55'>{s['sub']}</span>{nowbadge}"
-            f"<span style='margin-left:auto;font-size:9.5px;font-weight:800;color:#fff;background:{col};"
-            f"padding:1px 8px;border-radius:9px'>{pill[status]}</span></div>"
-            f"{('<div>' + chips + '</div>') if chips else ''}{guide_html}</div></div></div>")
+            f"<div style='display:flex;align-items:center;justify-content:space-between;gap:10px;"
+            f"background:{val_bg};color:{text_col};border:1.5px solid {bdr_col};border-left:6px solid {bdr_col};"
+            f"padding:7px 12px;margin-bottom:6px;border-radius:6px;font-size:12px;font-family:\"Inter\",sans-serif;'>"
+            f"<div style='display:flex;align-items:center;gap:8px;flex:1;min-width:0;'>"
+            f"<span style='font-weight:900;font-size:11.5px;background:#0F172A;color:#FFFFFF;padding:2px 7px;border-radius:4px;'>STEP {s['n']}</span>"
+            f"<span style='font-weight:800;font-size:12px;'>{s['title']}</span>"
+            f"<span style='font-size:11px;opacity:0.85;font-weight:600;'>({s['sub']})</span>{nowbadge}{guide_html}"
+            f"</div>"
+            f"<div style='display:flex;align-items:center;gap:12px;'>"
+            f"<div>{chips}</div>"
+            f"<span style='font-size:10px;font-weight:900;color:#FFFFFF;background:{bdr_col};"
+            f"padding:3px 10px;border-radius:4px;letter-spacing:0.5px;'>{pill[status]}</span>"
+            f"</div></div>"
+        )
         if s.get("hard") and s["ok"] is False:
             prior_fail = True
+
     sub = (f"⛔ stops at Step {wf['stop_at']}" if wf["stop_at"] else f"→ you are at Step {cur}")
-    return (f"<div style='border:2px solid {wf['color']};border-radius:10px;padding:12px 16px;"
-            f"background:{wf['color']}11;max-width:880px'>"
-            f"<div style='display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:11px'>"
-            f"<span style='font-size:11px;letter-spacing:1px;opacity:.55'>DECISION PATH</span>"
-            f"<span style='font-size:26px;font-weight:900;color:{wf['color']}'>{wf['verdict']}</span>"
-            f"<span style='font-size:11px;opacity:.6'>{sub}</span></div>{steps_html}</div>")
+    hdr_st = "pass" if wf["actionable"] else ("fail" if wf.get("stop_at") else "watch")
+    _, h_val_bg, h_text_col, h_bdr_col = _pine_row_style(hdr_st)
+    
+    return (f"<div style='background:#FFFFFF;border:1.5px solid #94A3B8;border-radius:8px;overflow:hidden;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
+            f"<div style='background:{h_val_bg};color:{h_text_col};border-bottom:1.5px solid {h_bdr_col};font-weight:900;font-size:13px;"
+            f"letter-spacing:.5px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;'>"
+            f"<span>{wf['verdict']}</span><span style='font-size:11px;font-weight:800;'>{sub}</span></div>"
+            f"<div style='padding:8px;background:#F8FAFC;'>{steps_html}</div></div>")
 
 
-def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
-    """Build the full graphical technical board as one HTML string."""
+def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> tuple[str, str, str]:
+    """Build the full graphical technical board as 3 distinct card HTML strings: (momentum, minervini, pa_signals)."""
     rsi = _g(rec, "RSI"); adx = _g(ctx, "adx"); alpha = _g(rec, "Alpha"); ml = _g(rec, "ML_Prob")
     vdry = _g(ctx, "vol_dry")
     rsi_state = ("watch" if (rsi or 0) >= 70 else "pass" if (rsi or 0) >= 50 else "watch" if (rsi or 0) >= 40 else "fail")
     gauges = "".join([
         _gauge("RSI (14)", rsi, 0, 100,
-               "linear-gradient(90deg,#EF5350,#FF9800 30%,#26A69A 50%,#26A69A 68%,#FF9800 78%,#EF5350)",
+               "linear-gradient(90deg,#FEE2E2,#FEF3C7 30%,#D1FAE5 50%,#D1FAE5 68%,#FEF3C7 78%,#FEE2E2)",
                rsi_state, fnum(rsi, 0)),
         _gauge("ADX (14)", adx, 0, 50,
-               "linear-gradient(90deg,#EF5350,#FF9800 40%,#26A69A 50%)",
+               "linear-gradient(90deg,#E2E8F0,#FEF3C7 40%,#D1FAE5 50%)",
                ("pass" if (adx or 0) >= 25 else "watch" if (adx or 0) >= 20 else "fail"), fnum(adx, 0)),
         _gauge("Alpha Score", alpha, 0, 100,
-               "linear-gradient(90deg,#EF5350,#FF9800 50%,#26A69A 70%)",
+               "linear-gradient(90deg,#FEE2E2,#FEF3C7 50%,#D1FAE5 70%)",
                ("pass" if (alpha or 0) >= 70 else "watch" if (alpha or 0) >= 50 else "fail"), fnum(alpha, 0)),
         _gauge("ML Win Prob", ml, 0, 100,
-               "linear-gradient(90deg,#EF5350,#FF9800 55%,#26A69A 65%)",
+               "linear-gradient(90deg,#FEE2E2,#FEF3C7 55%,#D1FAE5 65%)",
                ("pass" if (ml or 0) >= 65 else "watch" if (ml or 0) >= 55 else "fail"), fnum(ml, 1, "%")),
         _gauge("Mansfield RS", mansfield, -50, 50,
-               "linear-gradient(90deg,#EF5350,#80808055 50%,#26A69A)",
+               "linear-gradient(90deg,#FEE2E2,#E2E8F0 50%,#D1FAE5)",
                ("pass" if (mansfield or 0) > 0 else "fail"), fnum(mansfield, 1)),
         _gauge("Vol Dry-up 5/20d", vdry, 0, 2,
-               "linear-gradient(90deg,#26A69A,#FF9800 50%,#EF5350)",
+               "linear-gradient(90deg,#D1FAE5,#FEF3C7 50%,#FEE2E2)",
                ("pass" if (vdry if vdry is not None else 9) < 0.8 else "na"), fnum(vdry, 2, "×")),
     ])
 
@@ -3714,32 +4087,49 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
         (_g(ctx, "ema20"), "20e", "#FF9800"),
     ])
 
-    # Minervini 8-point trend template (shared with the decision engine)
+    hdr_bg = C_HDR_BG
+
+    h_momentum = (
+        f"<div style='background:#FFFFFF;border:1.5px solid #94A3B8;border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
+        f"<div style='background:{hdr_bg};color:#FFFFFF;font-weight:800;font-size:11.5px;"
+        f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid #CBD5E1;'>⚡ MOMENTUM &amp; STRENGTH</div>"
+        f"<div style='padding:8px 10px;background:#F8FAFC;'>"
+        f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;'>{gauges}</div>"
+        f"<div style='font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0284C7;margin:8px 0 2px;'>52-Week Range (●=CMP, ticks=MAs)</div>"
+        f"{rng}</div></div>"
+    )
+
+    # Minervini 8-point trend template
     e20 = _g(ctx, "ema20"); s50 = _g(ctx, "sma50"); s150 = _g(ctx, "sma150"); s200 = _g(ctx, "sma200")
     passed, c8 = minervini_checks(ctx, cmp_px, mansfield)
     dots = "".join(_crit(ok, lab) for ok, lab in c8)
+    
+    scol = C_TEXT_PASS if passed >= 6 else (C_TEXT_WARN if passed >= 4 else C_TEXT_FAIL)
+    c_bg, c_fg = _soft_style("pass" if passed >= 6 else ("watch" if passed >= 4 else "fail"))
+    chip_m = (f"<span style='float:right;background:{c_bg};color:{c_fg};padding:1.5px 9px;"
+              f"border-radius:10px;font-weight:800;font-size:10px;'>{passed}/8</span>")
+
+    h_minervini = (
+        f"<div style='background:#FFFFFF;border:1.5px solid #94A3B8;border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
+        f"<div style='background:{hdr_bg};color:#FFFFFF;font-weight:800;font-size:11.5px;"
+        f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid #CBD5E1;'>🏆 MINERVINI TREND TEMPLATE{chip_m}</div>"
+        f"<div style='padding:10px 12px;background:#F8FAFC;'>"
+        f"<div style='display:flex;gap:12px;align-items:center;margin-bottom:4px;'>"
+        f"<div>{_donut(passed, 8)}</div>"
+        f"<div style='display:grid;grid-template-columns:1fr;gap:1px;flex:1'>{dots}</div></div></div></div>"
+    )
 
     # Price-action signal pills
     stage = str(_g(rec, "Stage", default="—")); s2 = "2" in stage
     stacked = bool(e20 and s50 and cmp_px > e20 > s50 and (not s200 or s50 > s200))
-    above30w = bool(s150 and cmp_px > s150)
+    above_e20 = bool(e20 and cmp_px > e20)
     adir = _g(rec, "Active_Dir", default="—"); vacc = _g(rec, "Vel_Accel", default="")
     vcp = bool(_g(rec, "VCP_Valid")); rrg = _g(rec, "RRG_Quadrant", default="—")
     broke = bool(_g(rec, "Broke_Pivot")); rv = _g(ctx, "relvol"); d52 = _g(ctx, "dist52wh")
-    # v3 (Jay's dissection): Trend W/D replaces "Swing Structure" (weekly PA trend /
-    # daily Zigzag swing dir); Px vs EMA20 replaces Px vs 30W-MA (Stage 2 already
-    # implies above 30WMA); 52WH dist paired with 2y-high dist.
     s150p = _g(ctx, "sma150_prev")
     wk_up = bool(s150 and cmp_px > s150 and (s150p is None or s150 > s150p))
     d_up = str(adir).upper().startswith("UP")
-    above_e20 = bool(e20 and cmp_px > e20)
     dath = _g(ctx, "dist_ath")
-    # Trend qualifiers (Jay): Weekly accel from the 30W-MA-proxy slope change
-    # (recent 21d slope vs the prior 21d slope, direction-aware); Daily from the
-    # swing engine's Vel_Accel.
-    # Qualifier vocabulary names the IMPLICATION, not the mechanics (Jay:
-    # "Down (Decelerating)" read wrong): Strengthening / Losing Steam for
-    # uptrends, Deepening / Easing for downtrends, Steady when unchanged.
     s150p2 = _g(ctx, "sma150_prev2")
     w_q = ""
     if s150 and s150p and s150p2:
@@ -3771,20 +4161,15 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> str:
               "52WH / ATH Dist", f"{fnum(d52, 1, '%')} / {fnum(dath, 1, '%')}"),
     ])
 
-    sub = ("<div style='font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;"
-           "opacity:.6;margin:11px 0 4px'>{}</div>")
-    return (
-        sub.format("Momentum &amp; Strength")
-        + f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;'>{gauges}</div>"
-        + sub.format("52-Week Range (●=CMP, ticks=MAs)")
-        + rng
-        + sub.format(f"Minervini Trend Template — {passed}/8")
-        + ("<div style='display:flex;gap:12px;align-items:center;'>"
-           f"<div>{_donut(passed, 8)}</div>"
-           f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:0 14px;flex:1'>{dots}</div></div>")
-        + sub.format("Price-Action Signals")
-        + f"<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;'>{pills}</div>"
+    h_pa_signals = (
+        f"<div style='background:#FFFFFF;border:1.5px solid #94A3B8;border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
+        f"<div style='background:{hdr_bg};color:#FFFFFF;font-weight:800;font-size:11.5px;"
+        f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid #CBD5E1;'>📈 PRICE-ACTION SIGNALS</div>"
+        f"<div style='padding:8px 10px;background:#F8FAFC;'>"
+        f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;'>{pills}</div></div></div>"
     )
+
+    return h_momentum, h_minervini, h_pa_signals
 
 
 # ----------------------------------------------------------------------------------------
@@ -3834,20 +4219,22 @@ def section_pa_patterns(ctx, recovery: bool = False) -> str:
     tier_sum = _sum(_active_batt)
     SECTION_SCORES["Pa Patterns"] = (f"Σ +{tier_sum}", None, _scol(tier_sum))
 
-    out = ""
+    out_bull = ""
     if common_pats:
         _ts = _sum(common_pats)
-        out += card("PA PATTERNS · COMMON (bull ∩ recovery)", _rows(common_pats), "#455A64",
+        out_bull += card("PA PATTERNS · COMMON (bull ∩ recovery)", _rows(common_pats), "#455A64",
                     chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
     if bull_only:
         _ts = _sum(bull_only)
-        out += card("PA PATTERNS · BULL", _rows(bull_only), "#455A64",
+        out_bull += card("PA PATTERNS · BULL", _rows(bull_only), "#455A64",
                     chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
+    
+    out_rec = ""
     if rec_only:
         _ts = _sum(rec_only)
-        out += card("PA PATTERNS · RECOVERY", _rows(rec_only), "#455A64",
+        out_rec += card("PA PATTERNS · RECOVERY", _rows(rec_only), "#455A64",
                     chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
-    return out
+    return out_bull, out_rec
 
 
 def render_pa_banner(ctx, recovery: bool = False) -> str:
@@ -3860,10 +4247,12 @@ def render_pa_banner(ctx, recovery: bool = False) -> str:
         return ""
     tier_sum = sum(t for _, t in pats)
     chips = " · ".join(f"{n} (+{t})" for n, t in sorted(pats, key=lambda x: -x[1]))
-    col = "#7B1FA2" if tier_sum >= 4 else "#26A69A"
-    return (f"<div style='border:2px solid {col};background:{col}18;border-radius:9px;"
-            f"padding:8px 14px;margin:8px 0;font-size:14px'>"
-            f"<b style='color:{col}'>🔥 PA PATTERNS LIVE (Σ +{tier_sum}):</b> {chips}</div>")
+    col = "#6D28D9" if tier_sum >= 4 else "#047857"
+    bg  = "#F3E8FF" if tier_sum >= 4 else "#D1FAE5"
+    bdr = "#D8B4FE" if tier_sum >= 4 else "#6EE7B7"
+    return (f"<div style='border:1.5px solid {bdr};border-left:5px solid {col};background:{bg};border-radius:8px;"
+            f"padding:8px 14px;margin:8px 0;font-size:13.5px;color:#0F172A;font-weight:600;'>"
+            f"<b style='color:{col};font-weight:800;'>🔥 PA PATTERNS LIVE (Σ +{tier_sum}):</b> {chips}</div>")
 
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -4506,7 +4895,7 @@ if page == 'DASHBOARD':
             )
             _db_words  = _db_brief_text.split()
             _db_snippet = " ".join(_db_words[:300]) + ("…" if len(_db_words) > 300 else "")
-            st.markdown(f'<div style="font-size:0.85rem;line-height:1.65;color:#c9d1d9;">{_db_snippet}</div>',
+            st.markdown(f'<div style="font-size:0.85rem;line-height:1.65;color:#1E293B;">{_db_snippet}</div>',
                         unsafe_allow_html=True)
             if st.button("📖 Open Full Brief in PRE-MARKET", key="db_full_brief"):
                 _goto_page("PRE-MARKET"); st.rerun()
@@ -4525,7 +4914,7 @@ if page == 'DASHBOARD':
                         except Exception as _dbe:
                             st.error(f"Generation failed: {_dbe}")
                 if st.session_state.get("db_quick_brief"):
-                    _render_ai_report(st.session_state["db_quick_brief"], header_color="#58a6ff")
+                    _render_ai_report(st.session_state["db_quick_brief"], header_color="#1D4ED8")
 
     st.markdown("---")
     section("Quick Launch")
@@ -4618,9 +5007,9 @@ if page == 'DASHBOARD':
 
                 if not _action_df.empty:
                     st.markdown(
-                        f'<div style="background:rgba(255,75,75,0.1);border-left:3px solid #ff4b4b;'
+                        f'<div style="background:rgba(255,75,75,0.1);border-left:3px solid #DC2626;'
                         f'padding:8px 12px;border-radius:4px;margin-bottom:8px;">'
-                        f'<strong style="color:#ff4b4b;">⚠ {len(_action_df)} position(s) need attention</strong>'
+                        f'<strong style="color:#DC2626;">⚠ {len(_action_df)} position(s) need attention</strong>'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
@@ -4649,7 +5038,7 @@ if page == 'DASHBOARD':
                             _rec_str = _ar.get("Recommendations_Str", "")
                             if _rec_str:
                                 st.markdown(
-                                    f'<div style="font-size:0.8rem;color:#c9d1d9;padding:2px 0;">'
+                                    f'<div style="font-size:0.8rem;color:#1E293B;padding:2px 0;">'
                                     f'<strong>{_ar["Symbol"]}</strong>: {_rec_str}</div>',
                                     unsafe_allow_html=True,
                                 )
@@ -4706,10 +5095,12 @@ if page == 'DASHBOARD':
                              color_continuous_scale="RdYlGn", color_continuous_midpoint=0,
                              custom_data=["PnL_Str", "Quantity", "BuyPrice"])
             fig.update_traces(
+                textfont=dict(color="#090D16", size=13, family="Inter"),
                 hovertemplate="<b>%{label}</b><br>Capital Deployed: ₹%{value:,.0f}<br>Unrealized PnL: %{customdata[0]}<br>Qty: %{customdata[1]} | Buy Price: ₹%{customdata[2]:,.2f}"
             )
             fig.update_layout(margin=dict(t=10,l=0,r=0,b=0), height=320,
-                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                              paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                              font=dict(color="#090D16", family="Inter", size=11))
             st.plotly_chart(fig, use_container_width=True)
 
         with right_col:
@@ -4746,8 +5137,11 @@ if page == 'DASHBOARD':
                         fig2 = px.line(merged, x='Date', y=['Portfolio_%', 'Benchmark_%'],
                                        labels={'value': 'Return (%)', 'variable': 'Metric'})
                         fig2.update_layout(height=300, margin=dict(t=10,l=0,r=0,b=0),
-                                           paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                           legend=dict(font=dict(size=10), bgcolor="rgba(0,0,0,0)"),
+                                           paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                                           font=dict(color="#090D16", family="Inter", size=11),
+                                           xaxis=dict(tickfont=dict(color="#090D16", size=11), title_font=dict(color="#090D16", size=12), gridcolor="#CBD5E1"),
+                                           yaxis=dict(tickfont=dict(color="#090D16", size=11), title_font=dict(color="#090D16", size=12), gridcolor="#CBD5E1"),
+                                           legend=dict(font=dict(color="#090D16", size=11, weight="bold"), bgcolor="rgba(255,255,255,0.85)", bordercolor="#CBD5E1", borderwidth=1),
                                            yaxis_title="% Return (from starting equity)")
                         st.plotly_chart(fig2, use_container_width=True)
                 except Exception as e:
@@ -4824,7 +5218,7 @@ if page == 'DASHBOARD':
                             colorscale='RdYlGn', showscale=True
                         )
                         fig_corr.update_layout(height=350, margin=dict(t=30,l=0,r=0,b=0),
-                                               paper_bgcolor="rgba(0,0,0,0)")
+                                               paper_bgcolor="#FFFFFF")
                         st.plotly_chart(fig_corr, use_container_width=True)
                 except Exception as e:
                     st.error(f"Correlation Error: {e}")
@@ -5283,13 +5677,13 @@ elif page == 'HUNTER':
                 _ql_cons = _ql_sent["consensus"]
                 _ql_cons_color = {
                     "STRONG_BUY":  "#39ff14",
-                    "BUY":         "#00f260",
-                    "HOLD":        "#e3b341",
-                    "SELL":        "#ff4b4b",
+                    "BUY":         "#15803D",
+                    "HOLD":        "#B45309",
+                    "SELL":        "#DC2626",
                     "STRONG_SELL": "#ff1744",
                     "MIXED":       "#a78bfa",
-                    "NONE":        "#5a8a9f",
-                }.get(_ql_cons, "#5a8a9f")
+                    "NONE":        "#334155",
+                }.get(_ql_cons, "#334155")
                 _ql_cons_label = _ql_cons.replace("_", " ")
 
                 _q1, _q2, _q3, _q4, _q5, _q6 = st.columns(6)
@@ -5326,27 +5720,27 @@ elif page == 'HUNTER':
                             _a = _it.get("action") or "?"
                             _ac = {
                                 "STRONG_BUY":  "#39ff14",
-                                "BUY":         "#00f260",
-                                "HOLD":        "#e3b341",
-                                "SELL":        "#ff4b4b",
+                                "BUY":         "#15803D",
+                                "HOLD":        "#B45309",
+                                "SELL":        "#DC2626",
                                 "STRONG_SELL": "#ff1744",
-                            }.get(_a, "#5a8a9f")
+                            }.get(_a, "#334155")
                             _origin = _it.get("_origin", "?").upper()
                             _origin_label = {"ET": "Economic Times",
                                               "MC": "Moneycontrol"}.get(_origin, _origin)
                             _brk = _it.get("brokerage") or ""
                             _brk_str = f"  ·  {_brk}" if _brk else ""
                             st.markdown(
-                                f'<div style="margin:6px 0;padding:8px;background:#0a1628;'
+                                f'<div style="margin:6px 0;padding:8px;background:#F8FAFC;'
                                 f'border-left:3px solid {_ac};border-radius:4px;">'
                                 f'<span style="color:{_ac};font-weight:600;'
                                 f'font-family:JetBrains Mono,monospace;font-size:0.7rem;">'
                                 f'{_a.replace("_"," ")}</span>'
-                                f'  ·  <span style="color:#5a8a9f;font-size:0.72rem;">{_origin_label}</span>'
+                                f'  ·  <span style="color:#334155;font-size:0.72rem;">{_origin_label}</span>'
                                 f'<span style="color:#8b9eb0;font-size:0.72rem;">{_brk_str}</span>'
                                 f'<div style="margin-top:4px;">'
                                 f'<a href="{_it.get("url","#")}" target="_blank" '
-                                f'style="color:#e6edf3;font-size:0.86rem;text-decoration:none;">'
+                                f'style="color:#090D16;font-size:0.86rem;text-decoration:none;">'
                                 f'{_it.get("title","")}</a></div></div>',
                                 unsafe_allow_html=True
                             )
@@ -5846,12 +6240,12 @@ elif page == 'HUNTER':
             _ans_h1, _ans_h2 = st.columns(2)
             _ans_h1.markdown(
                 f'<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem">'
-                f'ET session: <b style="color:{"#00f260" if _et_ok else "#ff4b4b"}">'
+                f'ET session: <b style="color:{"#15803D" if _et_ok else "#DC2626"}">'
                 f'{"✓ live" if _et_ok else "✗ down — re-run setup_paid_news_cookies.py"}</b>'
                 f'</div>', unsafe_allow_html=True)
             _ans_h2.markdown(
                 f'<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem">'
-                f'MC session: <b style="color:{"#00f260" if _mc_ok else "#ff4b4b"}">'
+                f'MC session: <b style="color:{"#15803D" if _mc_ok else "#DC2626"}">'
                 f'{"✓ live" if _mc_ok else "✗ down — re-run setup_paid_news_cookies.py"}</b>'
                 f'</div>', unsafe_allow_html=True)
 
@@ -6154,7 +6548,7 @@ elif page == 'WATCHLIST':
             ⚠ Stale: 0 entries → empty AND old
         """
         if not os.path.exists(file_path):
-            return ("❌ Missing", "#ff4b4b", "—", None)
+            return ("❌ Missing", "#DC2626", "—", None)
         mtime = _dt_ph.datetime.fromtimestamp(os.path.getmtime(file_path))
         age_h = (_dt_ph.datetime.now() - mtime).total_seconds() / 3600
         ts = mtime.strftime("%d %b  %H:%M")
@@ -6165,10 +6559,10 @@ elif page == 'WATCHLIST':
             _n_rows = None
         _ent_str = (f"{_n_rows} entries" if _n_rows is not None else "?? entries")
         if age_h > 28:
-            return (f"⚠ Stale: {_ent_str} ({age_h:.0f}h)", "#e3b341", ts, age_h)
+            return (f"⚠ Stale: {_ent_str} ({age_h:.0f}h)", "#B45309", ts, age_h)
         if _n_rows == 0:
             return (f"⚪ 0 entries ({age_h:.1f}h ago)", "#7a92a6", ts, age_h)
-        return (f"✅ {_ent_str} ({age_h:.1f}h)", "#00f260", ts, age_h)
+        return (f"✅ {_ent_str} ({age_h:.1f}h)", "#15803D", ts, age_h)
 
     for layer_label, files in _ph_layers:
         st.markdown(f"**{layer_label}**")
@@ -6178,8 +6572,8 @@ elif page == 'WATCHLIST':
             _r1, _r2, _r3, _r4 = st.columns([3, 2, 2, 2])
             _r1.markdown(
                 f'<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem;'
-                f'color:#c9d1d9;">{fname}</div>'
-                f'<div style="font-size:0.66rem;color:#5a8a9f;">{note}</div>',
+                f'color:#1E293B;">{fname}</div>'
+                f'<div style="font-size:0.66rem;color:#334155;">{note}</div>',
                 unsafe_allow_html=True
             )
             _r2.markdown(
@@ -6352,10 +6746,10 @@ elif page == 'WATCHLIST':
                 # Colour-coded table
                 def _wr_colour(val):
                     if isinstance(val, str):
-                        if "Stage 2" in val: return "color: #00f260"
-                        if "Stage 4" in val: return "color: #ff4b4b"
-                        if "A+" in val:      return "color: #00f260; font-weight:700"
-                        if val == "⭐⭐ A":   return "color: #58a6ff"
+                        if "Stage 2" in val: return "color: #15803D"
+                        if "Stage 4" in val: return "color: #DC2626"
+                        if "A+" in val:      return "color: #15803D; font-weight:700"
+                        if val == "⭐⭐ A":   return "color: #1D4ED8"
                     return ""
 
                 _wr_disp = _wr_res[["Symbol","Score","Grade","Stage","LTP",
@@ -6919,14 +7313,14 @@ elif page == 'WATCHLIST':
                                     title="Alpha vs Nifty 500 by anchor (positive = green)",
                                 )
                                 _fig.update_layout(showlegend=False, height=280,
-                                                    paper_bgcolor="rgba(0,0,0,0)",
-                                                    plot_bgcolor="rgba(0,0,10,0.4)",
-                                                    font=dict(color="#c9d1d9"),
+                                                    paper_bgcolor="#FFFFFF",
+                                                    plot_bgcolor="#F8FAFC",
+                                                    font=dict(color="#1E293B"),
                                                     yaxis=dict(title="Alpha %",
-                                                               gridcolor="#1e3a5f"),
-                                                    xaxis=dict(gridcolor="#1e3a5f"))
+                                                               gridcolor="#E2E8F0"),
+                                                    xaxis=dict(gridcolor="#E2E8F0"))
                                 _fig.add_hline(y=0, line_dash="dot",
-                                                line_color="#5a8a9f")
+                                                line_color="#334155")
                                 st.plotly_chart(_fig, use_container_width=True)
                         except Exception:
                             pass
@@ -7438,18 +7832,18 @@ elif page == 'COMMAND':
                     with _al_col1:
                         st.markdown(
                             f"**{_al['symbol']}** — {_al['condition']} ₹{_al['price']:,.2f}  "
-                            f"<span style='color:#8b949e;font-size:0.8rem'>{_dist}</span>"
+                            f"<span style='color:#475569;font-size:0.8rem'>{_dist}</span>"
                             + (f"  *{_al['note']}*" if _al.get("note") else ""),
                             unsafe_allow_html=True
                         )
                         st.caption(f"Added {_al.get('created_at','')}")
                     with _al_col2:
                         if _cur_p:
-                            _trig_color = "#00f260" if (
+                            _trig_color = "#15803D" if (
                                 (_al["condition"] == "above"    and _cur_p >= _al["price"]) or
                                 (_al["condition"] == "below"    and _cur_p <= _al["price"]) or
                                 (_al["condition"] == "crossing" and abs(_cur_p - _al["price"]) / max(_al["price"], 1) < 0.003)
-                            ) else "#8b949e"
+                            ) else "#475569"
                             st.markdown(
                                 f'<div style="color:{_trig_color};font-size:0.9rem">₹{_cur_p:,.2f}</div>',
                                 unsafe_allow_html=True
@@ -7462,7 +7856,7 @@ elif page == 'COMMAND':
                         if st.button("🗑️ Remove", key=f"del_{_al['id'][:8]}"):
                             remove_alert(_al["id"])
                             st.rerun()
-                    st.markdown('<hr style="margin:4px 0;border-color:#1e3a5f">', unsafe_allow_html=True)
+                    st.markdown('<hr style="margin:4px 0;border-color:#CBD5E1">', unsafe_allow_html=True)
 
             # ── Fired history ─────────────────────────────────────────────────
             if _fired_alerts:
@@ -7694,7 +8088,7 @@ elif page == 'AI LAB':
                 except Exception:
                     pass
                 section(f"AI Analysis: {_ga_disp_sym}{_ltp_disp}")
-                _render_ai_report(st.session_state["ga_last_report"], header_color="#58a6ff")
+                _render_ai_report(st.session_state["ga_last_report"], header_color="#1D4ED8")
 
                 # Download button
                 st.download_button(
@@ -7732,7 +8126,7 @@ elif page == 'AI LAB':
 
                     if st.session_state.get("pr_last_report"):
                         st.markdown("---")
-                        _render_ai_report(st.session_state["pr_last_report"], header_color="#e3b341")
+                        _render_ai_report(st.session_state["pr_last_report"], header_color="#B45309")
                         st.download_button(
                             "📥 Download Review (.txt)",
                             data=st.session_state["pr_last_report"],
@@ -8066,15 +8460,15 @@ elif page == 'MACRO':
             section("Global Macro Snapshot")
             cols = st.columns(len(macro), gap="small")
             color_map = {
-                'India VIX': lambda v: "#ff4b4b" if v > 20 else "#e3b341" if v > 15 else "#00f260",
-                'Nifty 50':  lambda v: "#00f260",
+                'India VIX': lambda v: "#DC2626" if v > 20 else "#B45309" if v > 15 else "#15803D",
+                'Nifty 50':  lambda v: "#15803D",
             }
             for col, (name, dat) in zip(cols, macro.items()):
                 ltp_v = dat['LTP']
                 chg   = dat['1M%']
-                color = "#00f260" if chg >= 0 else "#ff4b4b"
+                color = "#15803D" if chg >= 0 else "#DC2626"
                 if name == 'India VIX':
-                    color = "#ff4b4b" if ltp_v > 20 else "#e3b341" if ltp_v > 15 else "#00f260"
+                    color = "#DC2626" if ltp_v > 20 else "#B45309" if ltp_v > 15 else "#15803D"
                 pctile_str = f"Pctile: {dat['Pctile']:.0f}%"
                 col.metric(name, f"{ltp_v:,.2f}", delta=f"{chg:+.1f}% (1M)",
                            help=f"1Y Range Percentile: {pctile_str} | Stage: {dat['Stage']}")
@@ -8086,16 +8480,16 @@ elif page == 'MACRO':
 
             vix_data = macro.get('India VIX', {})
             vix_val  = vix_data.get('LTP', 0)
-            if vix_val > 25:     vix_regime, vix_col = "🔴 STRESSED  (>25)", "#ff4b4b"
-            elif vix_val > 18:   vix_regime, vix_col = "🟡 ELEVATED (18–25)", "#e3b341"
-            else:                vix_regime, vix_col = "🟢 CALM     (<18)",   "#00f260"
+            if vix_val > 25:     vix_regime, vix_col = "🔴 STRESSED  (>25)", "#DC2626"
+            elif vix_val > 18:   vix_regime, vix_col = "🟡 ELEVATED (18–25)", "#B45309"
+            else:                vix_regime, vix_col = "🟢 CALM     (<18)",   "#15803D"
 
             with r1:
                 st.markdown(f"""
                 <div class="metric-card">
                   <div class="metric-label">India VIX Regime</div>
                   <div class="metric-value" style="color:{vix_col};">{vix_regime}</div>
-                  <div style="font-size:0.7rem;color:#5a8a9f;margin-top:4px;">1Y Pctile: {vix_data.get('Pctile',0):.0f}%</div>
+                  <div style="font-size:0.7rem;color:#334155;margin-top:4px;">1Y Pctile: {vix_data.get('Pctile',0):.0f}%</div>
                 </div>""", unsafe_allow_html=True)
 
             inr_data = macro.get('USD/INR', {})
@@ -8107,7 +8501,7 @@ elif page == 'MACRO':
                 <div class="metric-card">
                   <div class="metric-label">USD/INR Signal</div>
                   <div class="metric-value" style="font-size:0.9rem;">{inr_signal}</div>
-                  <div style="font-size:0.7rem;color:#5a8a9f;margin-top:4px;">LTP: {inr_ltp:.2f} | 200MA: {inr_sma200:.2f}</div>
+                  <div style="font-size:0.7rem;color:#334155;margin-top:4px;">LTP: {inr_ltp:.2f} | 200MA: {inr_sma200:.2f}</div>
                 </div>""", unsafe_allow_html=True)
 
             crude_data  = macro.get('Brent Crude', {})
@@ -8118,7 +8512,7 @@ elif page == 'MACRO':
                 <div class="metric-card">
                   <div class="metric-label">Crude Oil Signal</div>
                   <div class="metric-value" style="font-size:0.9rem;">{crude_sig}</div>
-                  <div style="font-size:0.7rem;color:#5a8a9f;margin-top:4px;">1M Change: {crude_chg1m:+.1f}%</div>
+                  <div style="font-size:0.7rem;color:#334155;margin-top:4px;">1M Change: {crude_chg1m:+.1f}%</div>
                 </div>""", unsafe_allow_html=True)
 
             st.markdown("---")
@@ -8138,10 +8532,10 @@ elif page == 'MACRO':
                     ))
             fig_macro.update_layout(
                 height=300, margin=dict(t=10,l=0,r=0,b=0),
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                legend=dict(font=dict(size=10,color="#c9d1d9"), bgcolor="rgba(0,0,0,0)"),
-                xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f"),
-                font=dict(color="#c9d1d9")
+                paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                legend=dict(font=dict(size=10, color="#1E293B"), bgcolor="rgba(0,0,0,0)"),
+                xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
+                font=dict(color="#1E293B")
             )
             st.plotly_chart(fig_macro, use_container_width=True)
 
@@ -8178,9 +8572,9 @@ elif page == 'MACRO':
                     # Style with red/green colour on the Chg% column based on sign
                     def _color_chg(val):
                         if isinstance(val, str) and val.startswith("▲"):
-                            return "color: #00f260; font-weight: 600;"
+                            return "color: #15803D; font-weight: 600;"
                         if isinstance(val, str) and val.startswith("▼"):
-                            return "color: #ff4b4b; font-weight: 600;"
+                            return "color: #DC2626; font-weight: 600;"
                         return ""
                     # 10 May 2026: round numeric columns to 2 decimals (user
                     # feedback: LTP, 52W High/Low were showing 6+ decimals).
@@ -8189,12 +8583,13 @@ elif page == 'MACRO':
                                       if c in _df_glo.columns}
                     try:
                         _styled = _df_glo.style.format(_glo_num_cols)
-                        _styled = (_styled.set_properties(**{'text-align': 'right', 'background-color': '#0d1b2a', 'color': '#c9d1d9', 'border-bottom': '1px solid #1e3a5f', 'padding': '8px'})
-                                   .set_properties(subset=['Name'], **{'text-align': 'left'}))
+                        _styled = (_styled.set_properties(**{'text-align': 'right', 'background-color': '#FFFFFF', 'color': '#1E293B', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px', 'font-weight': '600'})
+                                   .set_properties(subset=['Name'], **{'text-align': 'left', 'font-weight': '700'}))
                         _styled = (_styled.map(_color_chg, subset=["Chg%"]) if hasattr(_styled, "map") else _styled.applymap(_color_chg, subset=["Chg%"]))
                         _styled = (_styled.set_table_styles([
-                                       {'selector': 'th', 'props': [('text-align', 'right'), ('background-color', '#112236'), ('color', '#e6edf3'), ('border-bottom', '1px solid #58a6ff'), ('padding', '8px')]},
+                                       {'selector': 'th', 'props': [('text-align', 'right'), ('background-color', '#1E3A8A'), ('color', '#FFFFFF'), ('font-weight', '800'), ('letter-spacing', '0.8px'), ('font-size', '0.72rem'), ('text-transform', 'uppercase'), ('border-bottom', '2px solid #3B82F6'), ('padding', '9px 8px')]},
                                        {'selector': 'th.col_heading.level0.col0', 'props': [('text-align', 'left')]},
+                                       {'selector': 'tbody tr:nth-child(even) td', 'props': [('background-color', '#F8FAFC')]},
                                        {'selector': 'table', 'props': [('width', '100%'), ('border-collapse', 'collapse')]}
                                    ])
                                    .hide(axis="index"))
@@ -8222,18 +8617,18 @@ elif page == 'MACRO':
                 _fig_cum = go.Figure()
                 _x = _fii3["date"] if "date" in _fii3.columns else _fii3.index
                 _fig_cum.add_trace(go.Scatter(x=_x, y=_fii3["fii_cumulative"],
-                                              name="FII Cumulative (₹Cr)", line=dict(color="#00f260",width=2)))
+                                              name="FII Cumulative (₹Cr)", line=dict(color="#15803D",width=2)))
                 _fig_cum.add_trace(go.Scatter(x=_x, y=_fii3["dii_cumulative"],
-                                              name="DII Cumulative (₹Cr)", line=dict(color="#58a6ff",width=2)))
-                _fig_cum.add_hline(y=0, line_dash="dot", line_color="#3d5a6e", line_width=1)
+                                              name="DII Cumulative (₹Cr)", line=dict(color="#1D4ED8",width=2)))
+                _fig_cum.add_hline(y=0, line_dash="dot", line_color="#94A3B8", line_width=1)
                 _fig_cum.update_layout(
                     height=340, margin=dict(t=10,l=0,r=0,b=0),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                    legend=dict(font=dict(size=10,color="#c9d1d9"),bgcolor="rgba(0,0,0,0)"),
-                    xaxis=dict(gridcolor="#1e3a5f", type="date",
+                    paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                    legend=dict(font=dict(size=10, color="#1E293B"),bgcolor="rgba(0,0,0,0)"),
+                    xaxis=dict(gridcolor="#E2E8F0", type="date",
                                tickformat="%d %b", dtick="D1"),
-                    yaxis=dict(gridcolor="#1e3a5f", title="₹ Crore"),
-                    font=dict(color="#c9d1d9")
+                    yaxis=dict(gridcolor="#E2E8F0", title="₹ Crore"),
+                    font=dict(color="#1E293B")
                 )
                 st.plotly_chart(_fig_cum, use_container_width=True)
                 _df_to_show = _fii3[["date","fii_net","dii_net","fii_buy","fii_sell"]].tail(30) if "fii_buy" in _fii3.columns else _fii3.tail(30)
@@ -8241,10 +8636,10 @@ elif page == 'MACRO':
                 try:
                     _styled_fii = (_df_to_show.style
                                    .format(_fii_num_cols)
-                                   .set_properties(**{'text-align': 'right', 'background-color': '#0d1b2a', 'color': '#c9d1d9', 'border-bottom': '1px solid #1e3a5f', 'padding': '8px'})
+                                   .set_properties(**{'text-align': 'right', 'background-color': '#F8FAFC', 'color': '#1E293B', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px'})
                                    .set_properties(subset=['date'], **{'text-align': 'left'})
                                    .set_table_styles([
-                                       {'selector': 'th', 'props': [('text-align', 'right'), ('background-color', '#112236'), ('color', '#e6edf3'), ('border-bottom', '1px solid #58a6ff'), ('padding', '8px')]},
+                                       {'selector': 'th', 'props': [('text-align', 'right'), ('background-color', '#1E3A8A'), ('color', '#FFFFFF'), ('border-bottom', '2px solid #3B82F6'), ('padding', '8px')]},
                                        {'selector': 'th.col_heading.level0.col0', 'props': [('text-align', 'left')]},
                                        {'selector': 'table', 'props': [('width', '100%'), ('border-collapse', 'collapse')]}
                                    ])
@@ -8270,27 +8665,27 @@ elif page == 'MACRO':
 
         if not df_rrg.empty and 'RS-Ratio' in df_rrg.columns:
             fig_rrg = go.Figure()
-            quad_colors = {"🟢 Leading":"#00f260","🟡 Weakening":"#e3b341",
-                           "🔵 Improving":"#58a6ff","🔴 Lagging":"#ff4b4b","—":"#5a8a9f"}
+            quad_colors = {"🟢 Leading":"#15803D","🟡 Weakening":"#B45309",
+                           "🔵 Improving":"#1D4ED8","🔴 Lagging":"#DC2626","—":"#334155"}
             for _, row in df_rrg.iterrows():
                 q     = row.get('RRG Quadrant','—')
-                color = quad_colors.get(q,"#5a8a9f")
+                color = quad_colors.get(q,"#334155")
                 fig_rrg.add_trace(go.Scatter(
                     x=[row['RS-Ratio']], y=[row['Acceleration']],
                     mode='markers+text', name=row['Sector'],
                     text=[row['Sector'].replace('Nifty ','')],
                     textposition="top center",
-                    marker=dict(size=12, color=color, line=dict(width=1, color='#e6edf3')),
+                    marker=dict(size=12, color=color, line=dict(width=1, color='#94A3B8')),
                 ))
             # Quadrant lines
-            fig_rrg.add_hline(y=0, line_dash="dot", line_color="#3d5a6e", line_width=1)
-            fig_rrg.add_vline(x=100, line_dash="dot", line_color="#3d5a6e", line_width=1)
+            fig_rrg.add_hline(y=0, line_dash="dot", line_color="#94A3B8", line_width=1)
+            fig_rrg.add_vline(x=100, line_dash="dot", line_color="#94A3B8", line_width=1)
             fig_rrg.update_layout(
                 height=420, showlegend=False,
                 xaxis_title="RS-Ratio (100 = neutral)", yaxis_title="Acceleration (0 = neutral)",
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f"),
-                font=dict(color="#c9d1d9"), margin=dict(t=10,l=0,r=0,b=0)
+                paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
+                font=dict(color="#1E293B"), margin=dict(t=10,l=0,r=0,b=0)
             )
             st.plotly_chart(fig_rrg, use_container_width=True)
             _df_rrg_show = df_rrg[['Sector','4W %','Prior 4W %','Acceleration','RS-Ratio','RRG Quadrant','Signal']]
@@ -8298,10 +8693,10 @@ elif page == 'MACRO':
             try:
                 _styled_rrg = (_df_rrg_show.style
                                .format(_rrg_num_cols)
-                               .set_properties(subset=['4W %','Prior 4W %','Acceleration','RS-Ratio'], **{'text-align': 'right', 'background-color': '#0d1b2a', 'color': '#c9d1d9', 'border-bottom': '1px solid #1e3a5f', 'padding': '8px'})
-                               .set_properties(subset=['Sector','RRG Quadrant','Signal'], **{'text-align': 'left', 'background-color': '#0d1b2a', 'color': '#c9d1d9', 'border-bottom': '1px solid #1e3a5f', 'padding': '8px'})
+                               .set_properties(subset=['4W %','Prior 4W %','Acceleration','RS-Ratio'], **{'text-align': 'right', 'background-color': '#F8FAFC', 'color': '#1E293B', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px'})
+                               .set_properties(subset=['Sector','RRG Quadrant','Signal'], **{'text-align': 'left', 'background-color': '#F8FAFC', 'color': '#1E293B', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px'})
                                .set_table_styles([
-                                   {'selector': 'th', 'props': [('text-align', 'left'), ('background-color', '#112236'), ('color', '#e6edf3'), ('border-bottom', '1px solid #58a6ff'), ('padding', '8px')]},
+                                   {'selector': 'th', 'props': [('text-align', 'left'), ('background-color', '#1E3A8A'), ('color', '#FFFFFF'), ('border-bottom', '2px solid #3B82F6'), ('padding', '8px')]},
                                    {'selector': 'th.col_heading.level0.col1', 'props': [('text-align', 'right')]},
                                    {'selector': 'th.col_heading.level0.col2', 'props': [('text-align', 'right')]},
                                    {'selector': 'th.col_heading.level0.col3', 'props': [('text-align', 'right')]},
@@ -8418,9 +8813,9 @@ elif page == 'OPTIONS':
 
                 # PCR colour
                 _pcr_col = (
-                    "#00f260" if _oc_pcr > 1.3 else
-                    "#e3b341" if _oc_pcr > 0.7 else
-                    "#ff4b4b"
+                    "#15803D" if _oc_pcr > 1.3 else
+                    "#B45309" if _oc_pcr > 0.7 else
+                    "#DC2626"
                 )
                 _pcr_label = (
                     "Contrarian Bullish" if _oc_pcr > 1.3 else
@@ -8442,7 +8837,7 @@ elif page == 'OPTIONS':
 
                 # PCR gauge bar
                 st.markdown(
-                    f"""<div style="margin:8px 0 4px;font-size:0.78rem;color:#8b949e">
+                    f"""<div style="margin:8px 0 4px;font-size:0.78rem;color:#475569">
                     PCR gauge — 0 (bearish) → 0.7 → 1.0 → 1.3 → 2 (bullish hedge)
                     </div>""",
                     unsafe_allow_html=True
@@ -8469,34 +8864,34 @@ elif page == 'OPTIONS':
                     _fig_oi = go.Figure()
                     _fig_oi.add_trace(go.Bar(
                         x=_oc_view["strike"], y=_oc_view["CE_OI"],
-                        name="Call OI", marker_color="#ff4b4b",
+                        name="Call OI", marker_color="#DC2626",
                         opacity=0.85
                     ))
                     _fig_oi.add_trace(go.Bar(
                         x=_oc_view["strike"], y=_oc_view["PE_OI"],
-                        name="Put OI", marker_color="#00f260",
+                        name="Put OI", marker_color="#15803D",
                         opacity=0.85
                     ))
                     # Vertical lines for spot and max pain
                     _fig_oi.add_vline(
-                        x=_oc_spot, line_dash="dash", line_color="#58a6ff",
+                        x=_oc_spot, line_dash="dash", line_color="#1D4ED8",
                         annotation_text=f"Spot {_oc_spot:,.0f}",
-                        annotation_font_color="#58a6ff", line_width=1.5
+                        annotation_font_color="#1D4ED8", line_width=1.5
                     )
                     _fig_oi.add_vline(
-                        x=_oc_mp, line_dash="dot", line_color="#e3b341",
+                        x=_oc_mp, line_dash="dot", line_color="#B45309",
                         annotation_text=f"Max Pain {_oc_mp:,.0f}",
-                        annotation_font_color="#e3b341", line_width=1.5
+                        annotation_font_color="#B45309", line_width=1.5
                     )
                     _fig_oi.update_layout(
                         barmode="group", height=340,
                         margin=dict(t=10, l=0, r=0, b=0),
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,10,0.5)",
-                        xaxis=dict(gridcolor="#1e3a5f", title="Strike"),
-                        yaxis=dict(gridcolor="#1e3a5f", title="Open Interest (contracts)"),
-                        legend=dict(font=dict(size=10, color="#c9d1d9"), bgcolor="rgba(0,0,0,0)"),
-                        font=dict(color="#c9d1d9"),
+                        paper_bgcolor="#FFFFFF",
+                        plot_bgcolor="#F8FAFC",
+                        xaxis=dict(gridcolor="#E2E8F0", title="Strike"),
+                        yaxis=dict(gridcolor="#E2E8F0", title="Open Interest (contracts)"),
+                        legend=dict(font=dict(size=10, color="#1E293B"), bgcolor="rgba(0,0,0,0)"),
+                        font=dict(color="#1E293B"),
                     )
                     st.plotly_chart(_fig_oi, use_container_width=True)
 
@@ -8505,11 +8900,11 @@ elif page == 'OPTIONS':
                     section("Change in OI — Buildup Analysis")
                     _fig_doi = go.Figure()
                     _ce_doi_colors = [
-                        "#ff4b4b" if v >= 0 else "#ff9999"
+                        "#DC2626" if v >= 0 else "#ff9999"
                         for v in _oc_view["CE_chgOI"]
                     ]
                     _pe_doi_colors = [
-                        "#00f260" if v >= 0 else "#99ffcc"
+                        "#15803D" if v >= 0 else "#99ffcc"
                         for v in _oc_view["PE_chgOI"]
                     ]
                     _fig_doi.add_trace(go.Bar(
@@ -8521,17 +8916,17 @@ elif page == 'OPTIONS':
                         name="Put ΔOI", marker_color=_pe_doi_colors, opacity=0.85
                     ))
                     _fig_doi.add_vline(x=_oc_spot, line_dash="dash",
-                                       line_color="#58a6ff", line_width=1.5)
-                    _fig_doi.add_hline(y=0, line_color="#3d5a6e", line_width=1)
+                                       line_color="#1D4ED8", line_width=1.5)
+                    _fig_doi.add_hline(y=0, line_color="#94A3B8", line_width=1)
                     _fig_doi.update_layout(
                         barmode="group", height=280,
                         margin=dict(t=10, l=0, r=0, b=0),
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,10,0.5)",
-                        xaxis=dict(gridcolor="#1e3a5f", title="Strike"),
-                        yaxis=dict(gridcolor="#1e3a5f", title="Change in OI"),
-                        legend=dict(font=dict(size=10, color="#c9d1d9"), bgcolor="rgba(0,0,0,0)"),
-                        font=dict(color="#c9d1d9"),
+                        paper_bgcolor="#FFFFFF",
+                        plot_bgcolor="#F8FAFC",
+                        xaxis=dict(gridcolor="#E2E8F0", title="Strike"),
+                        yaxis=dict(gridcolor="#E2E8F0", title="Change in OI"),
+                        legend=dict(font=dict(size=10, color="#1E293B"), bgcolor="rgba(0,0,0,0)"),
+                        font=dict(color="#1E293B"),
                     )
                     st.plotly_chart(_fig_doi, use_container_width=True)
 
@@ -8548,15 +8943,15 @@ elif page == 'OPTIONS':
                         "Bulls in control (both OIs declining)"
                     )
                     _oc_bu_col = (
-                        "#00f260" if "Bull" in _oc_buildup else
-                        "#ff4b4b" if "Bear" in _oc_buildup else "#e3b341"
+                        "#15803D" if "Bull" in _oc_buildup else
+                        "#DC2626" if "Bear" in _oc_buildup else "#B45309"
                     )
                     st.markdown(
                         f'<div class="metric-card" style="border-left:3px solid {_oc_bu_col}">'
                         f'<div class="metric-label">ΔOI Interpretation</div>'
                         f'<div class="metric-value" style="color:{_oc_bu_col};font-size:0.9rem">'
                         f'{_oc_buildup}</div>'
-                        f'<div style="font-size:0.72rem;color:#8b949e;margin-top:4px">'
+                        f'<div style="font-size:0.72rem;color:#475569;margin-top:4px">'
                         f'CE ΔOI net: {_oc_ce_chg_tot:+,}  |  PE ΔOI net: {_oc_pe_chg_tot:+,}</div>'
                         f'</div>',
                         unsafe_allow_html=True
@@ -8573,26 +8968,26 @@ elif page == 'OPTIONS':
                         _fig_iv.add_trace(go.Scatter(
                             x=_iv_view["strike"], y=_iv_view["CE_IV"],
                             name="Call IV", mode="lines+markers",
-                            line=dict(color="#ff4b4b", width=1.5),
+                            line=dict(color="#DC2626", width=1.5),
                             marker=dict(size=5)
                         ))
                         _fig_iv.add_trace(go.Scatter(
                             x=_iv_view["strike"], y=_iv_view["PE_IV"],
                             name="Put IV", mode="lines+markers",
-                            line=dict(color="#00f260", width=1.5),
+                            line=dict(color="#15803D", width=1.5),
                             marker=dict(size=5)
                         ))
                         _fig_iv.add_vline(x=_oc_spot, line_dash="dash",
-                                          line_color="#58a6ff", line_width=1.5)
+                                          line_color="#1D4ED8", line_width=1.5)
                         _fig_iv.update_layout(
                             height=240, margin=dict(t=10, l=0, r=0, b=0),
-                            paper_bgcolor="rgba(0,0,0,0)",
-                            plot_bgcolor="rgba(0,0,10,0.5)",
-                            xaxis=dict(gridcolor="#1e3a5f", title="Strike"),
-                            yaxis=dict(gridcolor="#1e3a5f", title="IV %"),
-                            legend=dict(font=dict(size=10, color="#c9d1d9"),
+                            paper_bgcolor="#FFFFFF",
+                            plot_bgcolor="#F8FAFC",
+                            xaxis=dict(gridcolor="#E2E8F0", title="Strike"),
+                            yaxis=dict(gridcolor="#E2E8F0", title="IV %"),
+                            legend=dict(font=dict(size=10, color="#1E293B"),
                                         bgcolor="rgba(0,0,0,0)"),
-                            font=dict(color="#c9d1d9"),
+                            font=dict(color="#1E293B"),
                         )
                         st.plotly_chart(_fig_iv, use_container_width=True)
 
@@ -8759,11 +9154,11 @@ elif page == 'AUTOPSY':
             ec['Cum PnL'] = ec['PnL'].cumsum()
             fig_ec = px.area(ec, x='ExitDate', y='Cum PnL',
                              labels={'Cum PnL':'Cumulative P&L (₹)','ExitDate':'Date'})
-            fig_ec.update_traces(line_color='#00f260', fillcolor='rgba(0,242,96,0.08)')
+            fig_ec.update_traces(line_color='#15803D', fillcolor='rgba(0,242,96,0.08)')
             fig_ec.update_layout(height=280, margin=dict(t=10,l=0,r=0,b=0),
-                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                                  xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f"),
-                                  font=dict(color="#c9d1d9"))
+                                  paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                                  xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
+                                  font=dict(color="#1E293B"))
             st.plotly_chart(fig_ec, use_container_width=True)
 
         with _ap2:
@@ -8783,8 +9178,8 @@ elif page == 'AUTOPSY':
                                      labels=dict(color='P&L ₹'))
                 fig_cal.update_layout(height=max(200, len(pivot)*60+80),
                                        margin=dict(t=10,l=0,r=0,b=0),
-                                       paper_bgcolor="rgba(0,0,0,0)",
-                                       font=dict(color="#c9d1d9"))
+                                       paper_bgcolor="#FFFFFF",
+                                       font=dict(color="#1E293B"))
                 st.plotly_chart(fig_cal, use_container_width=True)
 
             section("Monthly P&L Table")
@@ -8812,9 +9207,9 @@ elif page == 'AUTOPSY':
                                   color_continuous_midpoint=0,
                                   labels={'Total_PnL':'Total P&L (₹)'})
                 fig_sec.update_layout(height=280, margin=dict(t=10,l=0,r=0,b=0),
-                                       paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                                       xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f"),
-                                       font=dict(color="#c9d1d9"))
+                                       paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                                       xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
+                                       font=dict(color="#1E293B"))
                 st.plotly_chart(fig_sec, use_container_width=True)
 
                 # ── Sector COVERAGE view (10 May 2026) ──────────────────
@@ -8887,9 +9282,9 @@ elif page == 'AUTOPSY':
                                 color_continuous_scale='RdYlGn', color_continuous_midpoint=0,
                                 labels={'Avg_PnL':'Average P&L per Trade (₹)'})
                 fig_q.update_layout(height=260, margin=dict(t=10,l=0,r=0,b=0),
-                                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                                     xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f"),
-                                     font=dict(color="#c9d1d9"))
+                                     paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                                     xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
+                                     font=dict(color="#1E293B"))
                 st.plotly_chart(fig_q, use_container_width=True)
             else:
                 st.info("No Quality column found. Grade your trades in the Journal to unlock this view.")
@@ -9204,22 +9599,22 @@ elif page == 'BACKTEST':
                         section("Return Distribution")
                         fig_hist = px.histogram(
                             df_done, x="Return_%", nbins=30,
-                            color_discrete_sequence=["#58a6ff"],
+                            color_discrete_sequence=["#1D4ED8"],
                             labels={"Return_%": f"Return % at {hold_used}d"},
                         )
-                        fig_hist.add_vline(x=0, line_dash="dash", line_color="#ff4b4b", line_width=1)
+                        fig_hist.add_vline(x=0, line_dash="dash", line_color="#DC2626", line_width=1)
                         fig_hist.add_vline(
-                            x=float(rets.mean()), line_dash="dot", line_color="#00f260",
+                            x=float(rets.mean()), line_dash="dot", line_color="#15803D",
                             line_width=1,
                             annotation_text=f"Mean {rets.mean():.1f}%",
-                            annotation_font_color="#00f260",
+                            annotation_font_color="#15803D",
                         )
                         fig_hist.update_layout(
                             height=260, margin=dict(t=10, l=0, r=0, b=0),
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                            xaxis=dict(title=f"Return % ({hold_used}d)", gridcolor="#1e3a5f"),
-                            yaxis=dict(title="Signal Count", gridcolor="#1e3a5f"),
-                            font=dict(color="#c9d1d9"),
+                            paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                            xaxis=dict(title=f"Return % ({hold_used}d)", gridcolor="#E2E8F0"),
+                            yaxis=dict(title="Signal Count", gridcolor="#E2E8F0"),
+                            font=dict(color="#1E293B"),
                         )
                         st.plotly_chart(fig_hist, use_container_width=True)
 
@@ -9234,13 +9629,13 @@ elif page == 'BACKTEST':
                                         "Return_%": f"Return % at {hold_used}d"},
                                 color_discrete_sequence=px.colors.qualitative.Set2,
                             )
-                            fig_sc.add_hline(y=0, line_dash="dash", line_color="#ff4b4b", line_width=1)
+                            fig_sc.add_hline(y=0, line_dash="dash", line_color="#DC2626", line_width=1)
                             fig_sc.update_layout(
                                 height=260, margin=dict(t=10, l=0, r=0, b=0),
-                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                                xaxis=dict(gridcolor="#1e3a5f"),
-                                yaxis=dict(gridcolor="#1e3a5f"),
-                                font=dict(color="#c9d1d9"),
+                                paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                                xaxis=dict(gridcolor="#E2E8F0"),
+                                yaxis=dict(gridcolor="#E2E8F0"),
+                                font=dict(color="#1E293B"),
                             )
                             st.plotly_chart(fig_sc, use_container_width=True)
 
@@ -9252,15 +9647,15 @@ elif page == 'BACKTEST':
                             df_ec, x="Signal_Date", y="Cum_Avg",
                             labels={"Signal_Date": "Signal Date",
                                     "Cum_Avg": "Cumulative Avg Return %"},
-                            color_discrete_sequence=["#00f260"],
+                            color_discrete_sequence=["#15803D"],
                         )
-                        fig_ec.add_hline(y=0, line_dash="dash", line_color="#ff4b4b", line_width=1)
+                        fig_ec.add_hline(y=0, line_dash="dash", line_color="#DC2626", line_width=1)
                         fig_ec.update_layout(
                             height=240, margin=dict(t=10, l=0, r=0, b=0),
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                            xaxis=dict(gridcolor="#1e3a5f"),
-                            yaxis=dict(gridcolor="#1e3a5f"),
-                            font=dict(color="#c9d1d9"),
+                            paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                            xaxis=dict(gridcolor="#E2E8F0"),
+                            yaxis=dict(gridcolor="#E2E8F0"),
+                            font=dict(color="#1E293B"),
                         )
                         st.plotly_chart(fig_ec, use_container_width=True)
 
@@ -9328,17 +9723,17 @@ elif page == 'PRE-MARKET':
         _gn = _fgn_pm() or {}
         if _gn:
             _gn_chg = _gn.get("change_pct", 0)
-            _gn_col = "#00f260" if _gn_chg >= 0 else "#ff4b4b"
+            _gn_col = "#15803D" if _gn_chg >= 0 else "#DC2626"
             _gn_arrow = "▲" if _gn_chg >= 0 else "▼"
             st.markdown(
                 f'<div style="display:flex;gap:14px;align-items:center;margin:6px 0 10px 0;'
                 f'padding:8px 14px;background:rgba(20,30,48,0.6);border-left:3px solid {_gn_col};'
                 f'border-radius:6px;font-family:JetBrains Mono,monospace">'
-                f'<span style="color:#5a8a9f;font-size:0.7rem;letter-spacing:1px">GIFT NIFTY</span>'
-                f'<span style="color:#e6edf3;font-size:1.05rem;font-weight:700">{_gn.get("close",0):,.2f}</span>'
+                f'<span style="color:#334155;font-size:0.7rem;letter-spacing:1px">GIFT NIFTY</span>'
+                f'<span style="color:#090D16;font-size:1.05rem;font-weight:700">{_gn.get("close",0):,.2f}</span>'
                 f'<span style="color:{_gn_col};font-size:0.85rem">{_gn_arrow} {_gn_chg:+.2f}%</span>'
-                f'<span style="color:#5a8a9f;font-size:0.65rem">O {_gn.get("open",0):,.0f} · H {_gn.get("high",0):,.0f} · L {_gn.get("low",0):,.0f}</span>'
-                f'<span style="color:#5a8a9f;font-size:0.62rem;margin-left:auto">as of {_gn.get("date","")}</span>'
+                f'<span style="color:#334155;font-size:0.65rem">O {_gn.get("open",0):,.0f} · H {_gn.get("high",0):,.0f} · L {_gn.get("low",0):,.0f}</span>'
+                f'<span style="color:#334155;font-size:0.62rem;margin-left:auto">as of {_gn.get("date","")}</span>'
                 f'</div>', unsafe_allow_html=True
             )
     except Exception as _gn_e:
@@ -9352,15 +9747,15 @@ elif page == 'PRE-MARKET':
         '<div style="display:flex;gap:10px;align-items:center;margin:0 0 10px 0;'
         'padding:6px 12px;background:rgba(20,30,48,0.3);border-radius:6px;'
         'font-family:JetBrains Mono,monospace;font-size:0.7rem">'
-        '<span style="color:#5a8a9f;letter-spacing:1px">EXTERNAL ANALYSIS</span>'
+        '<span style="color:#334155;letter-spacing:1px">EXTERNAL ANALYSIS</span>'
         '<a href="https://economictimes.indiatimes.com/markets/pre-open-market" target="_blank" '
         'style="color:#ff7b72;text-decoration:none;font-weight:600">ET · Pre-Open Market →</a>'
         '<a href="https://economictimes.indiatimes.com/prime/markets" target="_blank" '
         'style="color:#ff7b72;text-decoration:none;font-weight:600">ET Prime · Markets →</a>'
         '<a href="https://www.moneycontrol.com/markets/indian-indices/" target="_blank" '
-        'style="color:#58a6ff;text-decoration:none;font-weight:600">MC · Indices →</a>'
+        'style="color:#1D4ED8;text-decoration:none;font-weight:600">MC · Indices →</a>'
         '<a href="https://www.moneycontrol.com/news/business/markets/" target="_blank" '
-        'style="color:#58a6ff;text-decoration:none;font-weight:600">MC Pro · Markets →</a>'
+        'style="color:#1D4ED8;text-decoration:none;font-weight:600">MC Pro · Markets →</a>'
         '</div>', unsafe_allow_html=True
     )
 
@@ -9379,7 +9774,7 @@ elif page == 'PRE-MARKET':
         )
         _brief_text = _latest_pm.get("text")
         if _brief_text:
-            _render_ai_report(_brief_text, header_color="#58a6ff")
+            _render_ai_report(_brief_text, header_color="#1D4ED8")
         else:
             st.info("No pre-market report yet. Click **Refresh Now** to generate one.")
             if _GEMINI_OK and _HUB_OK:
@@ -9388,7 +9783,7 @@ elif page == 'PRE-MARKET':
                         try:
                             snap = build_premarket_snapshot()
                             brief = generate_premarket_brief(snap)
-                            _render_ai_report(brief, header_color="#58a6ff")
+                            _render_ai_report(brief, header_color="#1D4ED8")
                         except Exception as _e:
                             st.error(f"Generation failed: {_e}")
 
@@ -9428,12 +9823,12 @@ elif page == 'PRE-MARKET':
                             if not _dat: continue
                             _chg  = _dat.get("change_pct", 0) or 0
                             _ltp  = _dat.get("ltp", 0) or 0
-                            _col  = "#00f260" if _chg >= 0 else "#ff4b4b"
+                            _col  = "#15803D" if _chg >= 0 else "#DC2626"
                             _arrow= "▲" if _chg >= 0 else "▼"
                             st.markdown(f"""
                             <div style="display:flex;justify-content:space-between;align-items:center;
-                                        padding:5px 0;border-bottom:1px solid #1e3a5f;">
-                              <span style="font-family:'Inter',sans-serif;font-size:0.82rem;color:#c9d1d9;">{_name}</span>
+                                        padding:5px 0;border-bottom:1px solid #CBD5E1;">
+                              <span style="font-family:'Inter',sans-serif;font-size:0.82rem;color:#1E293B;">{_name}</span>
                               <span style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:{_col};">
                                 {_arrow} {abs(_chg):.2f}%</span>
                             </div>""", unsafe_allow_html=True)
@@ -9447,10 +9842,10 @@ elif page == 'PRE-MARKET':
                         if not _dat: continue
                         _chg = _dat.get("change_pct", 0) or 0
                         _ltp = _dat.get("ltp", 0) or 0
-                        _col = "#00f260" if _chg >= 0 else "#ff4b4b"
+                        _col = "#15803D" if _chg >= 0 else "#DC2626"
                         st.markdown(f"""
-                        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1e3a5f;">
-                          <span style="font-size:0.82rem;color:#c9d1d9;">{_name}</span>
+                        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #CBD5E1;">
+                          <span style="font-size:0.82rem;color:#1E293B;">{_name}</span>
                           <span style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:{_col};">
                             {_ltp:.2f} ({'+' if _chg>=0 else ''}{_chg:.1f}%)</span>
                         </div>""", unsafe_allow_html=True)
@@ -9461,11 +9856,11 @@ elif page == 'PRE-MARKET':
                         if not _dat: continue
                         _chg = _dat.get("change_pct", 0) or 0
                         _ltp = _dat.get("ltp", 0) or 0
-                        _col = "#00f260" if _chg >= 0 else "#ff4b4b"
-                        if _name == "USD/INR": _col = "#ff4b4b" if _chg > 0 else "#00f260"
+                        _col = "#15803D" if _chg >= 0 else "#DC2626"
+                        if _name == "USD/INR": _col = "#DC2626" if _chg > 0 else "#15803D"
                         st.markdown(f"""
-                        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1e3a5f;">
-                          <span style="font-size:0.82rem;color:#c9d1d9;">{_name}</span>
+                        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #CBD5E1;">
+                          <span style="font-size:0.82rem;color:#1E293B;">{_name}</span>
                           <span style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:{_col};">
                             {_ltp:.4f} ({'+' if _chg>=0 else ''}{_chg:.2f}%)</span>
                         </div>""", unsafe_allow_html=True)
@@ -9529,24 +9924,24 @@ elif page == 'PRE-MARKET':
                     _df_cal = _df_cal.sort_values("date")
 
                     def _imp_color(imp):
-                        return "#ff4b4b" if imp=="HIGH" else "#e3b341" if imp=="MEDIUM" else "#5a8a9f"
+                        return "#DC2626" if imp=="HIGH" else "#B45309" if imp=="MEDIUM" else "#334155"
 
                     _cal_cols = st.columns([1,3,1,1,1,1], gap="small")
                     for _h, _c in zip(["Date","Event","Importance","Previous","Forecast","Actual"], _cal_cols):
-                        _c.markdown(f'<div style="font-family:JetBrains Mono,monospace;font-size:0.58rem;color:#5a8a9f;letter-spacing:2px;text-transform:uppercase;">{_h}</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="border-bottom:1px solid #1e3a5f;margin:4px 0 8px 0;"></div>', unsafe_allow_html=True)
+                        _c.markdown(f'<div style="font-family:JetBrains Mono,monospace;font-size:0.58rem;color:#334155;letter-spacing:2px;text-transform:uppercase;">{_h}</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="border-bottom:1px solid #CBD5E1;margin:4px 0 8px 0;"></div>', unsafe_allow_html=True)
 
                     for _, _row in _df_cal.iterrows():
                         _c1,_c2,_c3,_c4,_c5,_c6 = st.columns([1,3,1,1,1,1], gap="small")
-                        _c1.markdown(f'<div style="font-size:0.78rem;color:#8b949e;">{_row["date"].strftime("%d %b")}</div>', unsafe_allow_html=True)
-                        _c2.markdown(f'<div style="font-size:0.82rem;color:#e6edf3;">{_row.get("event","")}</div>', unsafe_allow_html=True)
+                        _c1.markdown(f'<div style="font-size:0.78rem;color:#475569;">{_row["date"].strftime("%d %b")}</div>', unsafe_allow_html=True)
+                        _c2.markdown(f'<div style="font-size:0.82rem;color:#090D16;">{_row.get("event","")}</div>', unsafe_allow_html=True)
                         _imp = _row.get("importance","")
                         _c3.markdown(f'<div style="font-size:0.78rem;font-weight:600;color:{_imp_color(_imp)};">{_imp}</div>', unsafe_allow_html=True)
-                        _c4.markdown(f'<div style="font-size:0.78rem;color:#8b949e;">{_row.get("previous","–")}</div>', unsafe_allow_html=True)
-                        _c5.markdown(f'<div style="font-size:0.78rem;color:#adbac7;">{_row.get("forecast","–")}</div>', unsafe_allow_html=True)
+                        _c4.markdown(f'<div style="font-size:0.78rem;color:#475569;">{_row.get("previous","–")}</div>', unsafe_allow_html=True)
+                        _c5.markdown(f'<div style="font-size:0.78rem;color:#475569;">{_row.get("forecast","–")}</div>', unsafe_allow_html=True)
                         _act = _row.get("actual","")
-                        _act_col = "#e6edf3" if _act else "#3d5a6e"
-                        _c6.markdown(f'<div style="font-size:0.78rem;color:{_act_col};">{_act if _act else "Pending"}</div>', unsafe_allow_html=True)
+                        _act_col = "#1E293B" if _act else "#94A3B8"
+                        _c6.markdown(f'<div style="font-size:0.78rem;color:{_act_col};font-weight:{'700' if _act else '500'};">{_act if _act else "Pending"}</div>', unsafe_allow_html=True)
                 else:
                     st.info("No calendar events available.")
             except Exception as _e:
@@ -9610,13 +10005,13 @@ elif page == 'PRE-MARKET':
                     _o8.metric("Put Wall",      f'{_opts.get("strongest_put_strike","–")}')
 
                     _pcr = _opts.get("pcr_oi", 1.0)
-                    if _pcr > 1.2:   _pcr_sig, _pcr_col = "🟢 BULLISH — heavy Put writing (market supported)", "#00f260"
-                    elif _pcr < 0.7: _pcr_sig, _pcr_col = "🔴 BEARISH — heavy Call writing (market capped)", "#ff4b4b"
-                    else:            _pcr_sig, _pcr_col = "🟡 NEUTRAL — balanced positioning", "#e3b341"
+                    if _pcr > 1.2:   _pcr_sig, _pcr_col = "🟢 BULLISH — heavy Put writing (market supported)", "#15803D"
+                    elif _pcr < 0.7: _pcr_sig, _pcr_col = "🔴 BEARISH — heavy Call writing (market capped)", "#DC2626"
+                    else:            _pcr_sig, _pcr_col = "🟡 NEUTRAL — balanced positioning", "#B45309"
                     st.markdown(f'<div class="metric-card" style="margin-top:12px;">'
                                 f'<div class="metric-label">PCR Signal</div>'
                                 f'<div class="metric-value" style="color:{_pcr_col};font-size:0.88rem;">{_pcr_sig}</div>'
-                                f'<div style="font-size:0.55rem;color:#5a8a9f;margin-top:4px;">Source: {_src} · As of: {_opts.get("fetched_at","–")}</div>'
+                                f'<div style="font-size:0.55rem;color:#334155;margin-top:4px;">Source: {_src} · As of: {_opts.get("fetched_at","–")}</div>'
                                 f'</div>', unsafe_allow_html=True)
             except Exception as _e:
                 st.warning(f"Options data unavailable: {_e}")
@@ -9683,17 +10078,17 @@ elif page == 'POST-MARKET':
         _gn2 = _fgn_po() or {}
         if _gn2:
             _c2 = _gn2.get("change_pct", 0)
-            _col2 = "#00f260" if _c2 >= 0 else "#ff4b4b"
+            _col2 = "#15803D" if _c2 >= 0 else "#DC2626"
             _ar2 = "▲" if _c2 >= 0 else "▼"
             st.markdown(
                 f'<div style="display:flex;gap:14px;align-items:center;margin:6px 0 10px 0;'
                 f'padding:8px 14px;background:rgba(20,30,48,0.6);border-left:3px solid {_col2};'
                 f'border-radius:6px;font-family:JetBrains Mono,monospace">'
-                f'<span style="color:#5a8a9f;font-size:0.7rem;letter-spacing:1px">GIFT NIFTY</span>'
-                f'<span style="color:#e6edf3;font-size:1.05rem;font-weight:700">{_gn2.get("close",0):,.2f}</span>'
+                f'<span style="color:#334155;font-size:0.7rem;letter-spacing:1px">GIFT NIFTY</span>'
+                f'<span style="color:#090D16;font-size:1.05rem;font-weight:700">{_gn2.get("close",0):,.2f}</span>'
                 f'<span style="color:{_col2};font-size:0.85rem">{_ar2} {_c2:+.2f}%</span>'
-                f'<span style="color:#5a8a9f;font-size:0.65rem">O {_gn2.get("open",0):,.0f} · H {_gn2.get("high",0):,.0f} · L {_gn2.get("low",0):,.0f}</span>'
-                f'<span style="color:#5a8a9f;font-size:0.62rem;margin-left:auto">as of {_gn2.get("date","")}</span>'
+                f'<span style="color:#334155;font-size:0.65rem">O {_gn2.get("open",0):,.0f} · H {_gn2.get("high",0):,.0f} · L {_gn2.get("low",0):,.0f}</span>'
+                f'<span style="color:#334155;font-size:0.62rem;margin-left:auto">as of {_gn2.get("date","")}</span>'
                 f'</div>', unsafe_allow_html=True
             )
     except Exception as _gn_e2:
@@ -9704,15 +10099,15 @@ elif page == 'POST-MARKET':
         '<div style="display:flex;gap:10px;align-items:center;margin:0 0 10px 0;'
         'padding:6px 12px;background:rgba(20,30,48,0.3);border-radius:6px;'
         'font-family:JetBrains Mono,monospace;font-size:0.7rem">'
-        '<span style="color:#5a8a9f;letter-spacing:1px">EXTERNAL ANALYSIS</span>'
+        '<span style="color:#334155;letter-spacing:1px">EXTERNAL ANALYSIS</span>'
         '<a href="https://economictimes.indiatimes.com/markets/stocks/news" target="_blank" '
         'style="color:#ff7b72;text-decoration:none;font-weight:600">ET · Closing Bell →</a>'
         '<a href="https://economictimes.indiatimes.com/prime/markets" target="_blank" '
         'style="color:#ff7b72;text-decoration:none;font-weight:600">ET Prime · Markets →</a>'
         '<a href="https://www.moneycontrol.com/markets/" target="_blank" '
-        'style="color:#58a6ff;text-decoration:none;font-weight:600">MC · Market Wrap →</a>'
+        'style="color:#1D4ED8;text-decoration:none;font-weight:600">MC · Market Wrap →</a>'
         '<a href="https://www.moneycontrol.com/news/business/markets/" target="_blank" '
-        'style="color:#58a6ff;text-decoration:none;font-weight:600">MC Pro · Markets →</a>'
+        'style="color:#1D4ED8;text-decoration:none;font-weight:600">MC Pro · Markets →</a>'
         '</div>', unsafe_allow_html=True
     )
 
@@ -9730,7 +10125,7 @@ elif page == 'POST-MARKET':
         section("AI Post-Market Summary")
         _po_text = _latest_po.get("text")
         if _po_text:
-            _render_ai_report(_po_text, header_color="#e3b341")
+            _render_ai_report(_po_text, header_color="#B45309")
         else:
             st.info("No post-market report yet. Click **Refresh Now** or wait for 4:30 PM auto-run.")
             if _GEMINI_OK and _HUB_OK:
@@ -9742,7 +10137,7 @@ elif page == 'POST-MARKET':
                                 snap["breadth"] = calculate_breadth_metrics()
                                 snap["breadth_regime"] = build_breadth_regime(snap["breadth"])
                             summary = generate_postmarket_summary(snap)
-                            _render_ai_report(summary, header_color="#e3b341")
+                            _render_ai_report(summary, header_color="#B45309")
                         except Exception as _e:
                             st.error(f"Generation failed: {_e}")
 
@@ -9771,19 +10166,19 @@ elif page == 'POST-MARKET':
                         _fig_fii.add_bar(x=_fii_df2["date"] if "date" in _fii_df2.columns else _fii_df2.index,
                                          y=_fii_df2["fii_net"],
                                          name="FII Net (₹Cr)",
-                                         marker_color=["#00f260" if v>=0 else "#ff4b4b" for v in _fii_df2["fii_net"]])
+                                         marker_color=["#15803D" if v>=0 else "#DC2626" for v in _fii_df2["fii_net"]])
                     if "dii_net" in _fii_df2.columns:
                         _fig_fii.add_bar(x=_fii_df2["date"] if "date" in _fii_df2.columns else _fii_df2.index,
                                          y=_fii_df2["dii_net"],
                                          name="DII Net (₹Cr)",
-                                         marker_color=["#58a6ff" if v>=0 else "#e3b341" for v in _fii_df2["dii_net"]])
+                                         marker_color=["#1D4ED8" if v>=0 else "#B45309" for v in _fii_df2["dii_net"]])
                     _fig_fii.update_layout(
                         height=280, barmode="group",
                         margin=dict(t=10,l=0,r=0,b=0),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                        legend=dict(font=dict(size=10,color="#c9d1d9"),bgcolor="rgba(0,0,0,0)"),
-                        xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f",title="₹ Cr"),
-                        font=dict(color="#c9d1d9")
+                        paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                        legend=dict(font=dict(size=10, color="#1E293B"),bgcolor="rgba(0,0,0,0)"),
+                        xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0",title="₹ Cr"),
+                        font=dict(color="#1E293B")
                     )
                     st.plotly_chart(_fig_fii, use_container_width=True)
                 except Exception: pass
@@ -9973,19 +10368,19 @@ elif page == 'BREADTH':
                     _reg = _mr.compute_regime(_bm_for_regime, _ad_for_regime)
 
                 _verdict_color = (
-                    "#00f260" if _reg["score"] >= 6 else
-                    "#e3b341" if _reg["score"] >= 4 else
-                    "#ff4b4b"
+                    "#15803D" if _reg["score"] >= 6 else
+                    "#B45309" if _reg["score"] >= 4 else
+                    "#DC2626"
                 )
                 st.markdown(f"""
                 <div style="background:rgba(0,0,0,0.3);border:1px solid {_verdict_color};
                             border-radius:8px;padding:18px 24px;margin-bottom:20px;text-align:center;">
                   <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;
-                              color:#5a8a9f;letter-spacing:3px;text-transform:uppercase;">Regime Score</div>
+                              color:#334155;letter-spacing:3px;text-transform:uppercase;">Regime Score</div>
                   <div style="font-family:'Rajdhani',sans-serif;font-size:2.6rem;font-weight:700;
                               color:{_verdict_color};margin:4px 0;">{_reg['score']}/10</div>
                   <div style="font-family:'Rajdhani',sans-serif;font-size:1.2rem;color:{_verdict_color};">{_reg['verdict']}</div>
-                  <div style="font-size:0.68rem;color:#5a8a9f;margin-top:6px;">
+                  <div style="font-size:0.68rem;color:#334155;margin-top:6px;">
                       {_reg['benchmark']} @ {_reg['close']}  ·  SMA200 {_reg.get('sma200','—')}
                       ({'rising' if _reg.get('sma200_rising') else 'flat/falling'})
                       ·  computed {_reg['computed_at'][:16]}
@@ -10117,13 +10512,13 @@ elif page == 'BREADTH':
 
             if _bm:
                 _regime_s = build_breadth_regime(_bm)
-                _r_col = "#00f260" if "BULL" in _regime_s else "#ff4b4b" if "BEAR" in _regime_s else "#e3b341"
+                _r_col = "#15803D" if "BULL" in _regime_s else "#DC2626" if "BEAR" in _regime_s else "#B45309"
                 st.markdown(f"""
                 <div style="background:rgba(0,0,0,0.3);border:1px solid {_r_col};border-radius:8px;
                             padding:16px 24px;margin-bottom:20px;text-align:center;">
-                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:#5a8a9f;letter-spacing:3px;text-transform:uppercase;">Breadth Regime</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:#334155;letter-spacing:3px;text-transform:uppercase;">Breadth Regime</div>
                   <div style="font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:{_r_col};margin:4px 0;">{_regime_s}</div>
-                  <div style="font-size:0.68rem;color:#5a8a9f;">{_bm.get("symbols_analyzed",0)} stocks analyzed | Updated: {_bm.get("calculated_at","")}</div>
+                  <div style="font-size:0.68rem;color:#334155;">{_bm.get("symbols_analyzed",0)} stocks analyzed | Updated: {_bm.get("calculated_at","")}</div>
                 </div>""", unsafe_allow_html=True)
 
                 _g1,_g2,_g3,_g4 = st.columns(4, gap="small")
@@ -10152,17 +10547,17 @@ elif page == 'BREADTH':
                 }
                 _fig_bar = go.Figure(go.Bar(
                     x=list(_sma_data.keys()), y=list(_sma_data.values()),
-                    marker_color=["#00f260" if v>50 else "#e3b341" if v>30 else "#ff4b4b"
+                    marker_color=["#15803D" if v>50 else "#B45309" if v>30 else "#DC2626"
                                   for v in _sma_data.values()],
                     text=[f"{v:.1f}%" for v in _sma_data.values()], textposition="auto"
                 ))
-                _fig_bar.add_hline(y=50, line_dash="dot", line_color="#5a8a9f", line_width=1,
+                _fig_bar.add_hline(y=50, line_dash="dot", line_color="#334155", line_width=1,
                                    annotation_text="50% neutral line")
                 _fig_bar.update_layout(
                     height=260, margin=dict(t=10,l=0,r=0,b=0),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                    xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f",range=[0,100]),
-                    font=dict(color="#c9d1d9"), title_text="% Stocks Above Key Moving Averages"
+                    paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                    xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0",range=[0,100]),
+                    font=dict(color="#1E293B"), title_text="% Stocks Above Key Moving Averages"
                 )
                 st.plotly_chart(_fig_bar, use_container_width=True)
         with _br2:
@@ -10205,14 +10600,14 @@ elif page == 'BREADTH':
                 if len(_y_vals):
                     _fig_bm = go.Figure(go.Bar(
                         x=_x_vals, y=_y_vals,
-                        marker_color=["#00f260" if v >= 0 else "#ff4b4b" for v in _y_vals],
+                        marker_color=["#15803D" if v >= 0 else "#DC2626" for v in _y_vals],
                         text=[f"{v:+.1f}%" for v in _y_vals], textposition="auto"
                     ))
                     _fig_bm.update_layout(
                         height=280, margin=dict(t=10, l=0, r=0, b=0),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                        xaxis=dict(gridcolor="#1e3a5f", tickangle=-30),
-                        yaxis=dict(gridcolor="#1e3a5f"),
+                        paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                        xaxis=dict(gridcolor="#E2E8F0", tickangle=-30),
+                        yaxis=dict(gridcolor="#E2E8F0"),
                     )
                     st.plotly_chart(_fig_bm, use_container_width=True)
 
@@ -10281,15 +10676,15 @@ elif page == 'BREADTH':
                 if len(_y_vals):
                     _fig_sec = go.Figure(go.Bar(
                         x=_x_vals, y=_y_vals,
-                        marker_color=["#00f260" if v >= 0 else "#ff4b4b" for v in _y_vals],
+                        marker_color=["#15803D" if v >= 0 else "#DC2626" for v in _y_vals],
                         text=[f"{v:+.1f}%" for v in _y_vals], textposition="auto"
                     ))
                     _fig_sec.update_layout(
                         height=280, margin=dict(t=10, l=0, r=0, b=0),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                        xaxis=dict(gridcolor="#1e3a5f", tickangle=-30),
-                        yaxis=dict(gridcolor="#1e3a5f"),
-                        font=dict(color="#c9d1d9"),
+                        paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                        xaxis=dict(gridcolor="#E2E8F0", tickangle=-30),
+                        yaxis=dict(gridcolor="#E2E8F0"),
+                        font=dict(color="#1E293B"),
                         title_text=f"{_sec_period} Change by Sector",
                     )
                     st.plotly_chart(_fig_sec, use_container_width=True)
@@ -10358,8 +10753,8 @@ elif page == 'BREADTH':
                     _rows = len(_ad_df)
 
                     # Signal colours
-                    _osc_col = "#00f260" if _osc > 0 else "#ff4b4b"
-                    _sig_col = "#00f260" if "OVERSOLD" in _sig else "#ff4b4b" if "OVERBOUGHT" in _sig else "#e3b341"
+                    _osc_col = "#15803D" if _osc > 0 else "#DC2626"
+                    _sig_col = "#15803D" if "OVERSOLD" in _sig else "#DC2626" if "OVERBOUGHT" in _sig else "#B45309"
 
                     mc1, mc2, mc3, mc4 = st.columns(4)
                     mc1.metric("McClellan Oscillator", f"{_osc:+.1f}",
@@ -10385,19 +10780,19 @@ elif page == 'BREADTH':
                     _fig_mcl = go.Figure()
                     _fig_mcl.add_bar(
                         x=_ad_df["date"], y=_ad_df["mco"],
-                        marker_color=[("#00f260" if v >= 0 else "#ff4b4b") for v in _ad_df["mco"]],
+                        marker_color=[("#15803D" if v >= 0 else "#DC2626") for v in _ad_df["mco"]],
                         name="McClellan Oscillator",
                     )
-                    _fig_mcl.add_hline(y=100,  line_dash="dot", line_color="#ff4b4b", line_width=1,
+                    _fig_mcl.add_hline(y=100,  line_dash="dot", line_color="#DC2626", line_width=1,
                                        annotation_text="Overbought +100")
-                    _fig_mcl.add_hline(y=-100, line_dash="dot", line_color="#00f260", line_width=1,
+                    _fig_mcl.add_hline(y=-100, line_dash="dot", line_color="#15803D", line_width=1,
                                        annotation_text="Oversold -100")
-                    _fig_mcl.add_hline(y=0,    line_dash="solid", line_color="#5a8a9f", line_width=1)
+                    _fig_mcl.add_hline(y=0,    line_dash="solid", line_color="#334155", line_width=1)
                     _fig_mcl.update_layout(
                         height=300, margin=dict(t=10,l=0,r=0,b=0),
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                        xaxis=dict(gridcolor="#1e3a5f"), yaxis=dict(gridcolor="#1e3a5f"),
-                        font=dict(color="#c9d1d9"),
+                        paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                        xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
+                        font=dict(color="#1E293B"),
                         title_text=f"McClellan Oscillator — {_rows} days of A/D history",
                     )
                     st.plotly_chart(_fig_mcl, use_container_width=True)
@@ -10430,7 +10825,7 @@ elif page == 'BREADTH':
                     labels=list(_stage_data.keys()),
                     values=list(_stage_data.values()),
                     hole=0.5,
-                    marker_colors=["#00f260","#e3b341","#ff4b4b"],
+                    marker_colors=["#15803D","#B45309","#DC2626"],
                     textfont=dict(size=14, color="#0a0e14"),  # dark text on wedge
                     textposition="inside",
                     insidetextorientation="horizontal",
@@ -10438,11 +10833,11 @@ elif page == 'BREADTH':
                 ))
                 _fig_pie.update_layout(
                     height=320, margin=dict(t=10,l=0,r=0,b=0),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    legend=dict(font=dict(size=11,color="#c9d1d9"),bgcolor="rgba(0,0,0,0)"),
+                    paper_bgcolor="#FFFFFF",
+                    legend=dict(font=dict(size=11,color="#1E293B"),bgcolor="rgba(0,0,0,0)"),
                     annotations=[dict(text=f"S2: {_s2_pct:.0f}%",
                                       x=0.5, y=0.5, font_size=20,
-                                      font_color="#00f260", showarrow=False)]
+                                      font_color="#15803D", showarrow=False)]
                 )
                 st.plotly_chart(_fig_pie, use_container_width=True)
                 st.caption("Stage 2 > 35% = Confirmed Bull Market. Stage 2 < 20% = Bear Market.")
@@ -10504,13 +10899,13 @@ elif page == 'ETF':
             for label, meta in _file_meta.items():
                 if meta.get("exists"):
                     _age = meta["age_h"]
-                    _color = ("#00f260" if _age < 24
-                              else "#e3b341" if _age < 72
-                              else "#ff4b4b")
+                    _color = ("#15803D" if _age < 24
+                              else "#B45309" if _age < 72
+                              else "#DC2626")
                     _icon = ("🟢" if _age < 24 else "🟡" if _age < 72 else "🔴")
                     _txt = f"{label}: {meta['rows']} rows · {meta['mtime']}"
                 else:
-                    _color = "#ff4b4b"
+                    _color = "#DC2626"
                     _icon  = "🔴"
                     _txt   = f"{label}: not generated"
                 _strip_html += (
@@ -10591,16 +10986,16 @@ elif page == 'ETF':
                 _regime_lbl = (_df_picks["Regime"].iloc[0]
                                 if "Regime" in _df_picks.columns and not _df_picks.empty
                                 else "—")
-                _reg_color = ("#00f260" if _regime_lbl == "RISK_ON" else
-                              "#e3b341" if _regime_lbl in ("MIXED","INTL_LED") else
-                              "#58a6ff" if _regime_lbl == "GOLD_LED" else
-                              "#ff4b4b" if _regime_lbl == "RISK_OFF" else "#8b949e")
+                _reg_color = ("#15803D" if _regime_lbl == "RISK_ON" else
+                              "#B45309" if _regime_lbl in ("MIXED","INTL_LED") else
+                              "#1D4ED8" if _regime_lbl == "GOLD_LED" else
+                              "#DC2626" if _regime_lbl == "RISK_OFF" else "#475569")
                 st.markdown(
                     f'<div class="metric-card" style="padding:12px 16px;margin-bottom:14px">'
                     f'<div class="metric-label">Active Regime</div>'
                     f'<div class="metric-value" style="color:{_reg_color};font-size:1.2rem">'
                     f'{_regime_lbl}</div>'
-                    f'<div style="font-size:0.62rem;color:#5a8a9f;margin-top:3px">'
+                    f'<div style="font-size:0.62rem;color:#334155;margin-top:3px">'
                     f'{len(_df_picks)} picks · suggested weights sum to '
                     f'{_df_picks["Suggested_Weight_pct"].sum() if "Suggested_Weight_pct" in _df_picks.columns else 0}%</div>'
                     f'</div>', unsafe_allow_html=True
@@ -10681,10 +11076,10 @@ elif page == 'ETF':
                 _label  = _df_reg["regime_label"].iloc[0] if "regime_label" in _df_reg.columns else "—"
                 _fetched= _df_reg["fetched_at"].iloc[0]   if "fetched_at"   in _df_reg.columns else "—"
 
-                _reg_color = ("#00f260" if _label == "RISK_ON" else
-                              "#e3b341" if _label in ("MIXED","INTL_LED") else
-                              "#58a6ff" if _label == "GOLD_LED" else
-                              "#ff4b4b" if _label == "RISK_OFF" else "#8b949e")
+                _reg_color = ("#15803D" if _label == "RISK_ON" else
+                              "#B45309" if _label in ("MIXED","INTL_LED") else
+                              "#1D4ED8" if _label == "GOLD_LED" else
+                              "#DC2626" if _label == "RISK_OFF" else "#475569")
 
                 _r_a, _r_b = st.columns([3, 1])
                 with _r_a:
@@ -10693,7 +11088,7 @@ elif page == 'ETF':
                         f'<div class="metric-label">REGIME</div>'
                         f'<div class="metric-value" style="color:{_reg_color};'
                         f'font-size:1.5rem">{_label}</div>'
-                        f'<div style="font-size:0.62rem;color:#5a8a9f">'
+                        f'<div style="font-size:0.62rem;color:#334155">'
                         f'Detected at {_fetched}</div></div>',
                         unsafe_allow_html=True)
                 with _r_b:
@@ -10718,9 +11113,9 @@ elif page == 'ETF':
                             )
                             _fig_pie.update_layout(
                                 height=320, margin=dict(t=10,b=10,l=10,r=10),
-                                paper_bgcolor="rgba(0,0,0,0)",
-                                plot_bgcolor="rgba(0,0,0,0)",
-                                font=dict(color="#c9d1d9", size=11),
+                                paper_bgcolor="#FFFFFF",
+                                plot_bgcolor="#F8FAFC",
+                                font=dict(color="#1E293B", size=11),
                                 showlegend=True,
                             )
                             st.plotly_chart(_fig_pie, use_container_width=True)
@@ -10873,9 +11268,9 @@ elif page == 'NEWS':
             if _bad:
                 _bad_lines = " · ".join(f"<b>{k}</b>: {v}" for k, v in _bad.items())
                 st.markdown(
-                    f"<div style='font-size:0.72rem;color:#e3b341;"
+                    f"<div style='font-size:0.72rem;color:#B45309;"
                     f"background:rgba(227,179,65,0.08);padding:6px 10px;"
-                    f"border-left:3px solid #e3b341;border-radius:4px;margin-bottom:8px'>"
+                    f"border-left:3px solid #B45309;border-radius:4px;margin-bottom:8px'>"
                     f"⚠ {len(_bad)}/{len(_nw_health)} feed(s) unavailable — "
                     f"others loaded normally. {_bad_lines}"
                     f"</div>", unsafe_allow_html=True)
@@ -10902,9 +11297,9 @@ elif page == 'NEWS':
         _RSS_SRC_COL = {
             "Economic Times Markets": "#ff7b72",
             "Economic Times Stocks":  "#ff7b72",
-            "CNBCTV18 Markets":       "#58a6ff",
-            "Business Standard":      "#e3b341",
-            "Business Standard Co.":  "#e3b341",
+            "CNBCTV18 Markets":       "#1D4ED8",
+            "Business Standard":      "#B45309",
+            "Business Standard Co.":  "#B45309",
             "LiveMint Markets":       "#a371f7",
             "LiveMint Companies":     "#a371f7",
             "NDTV Profit":            "#3fb950",
@@ -10913,9 +11308,9 @@ elif page == 'NEWS':
         def _news_card_html(row) -> str:
             """Return one news card matching the paid-grid card style."""
             _sent    = str(row.get("sentiment", "🟡 Neutral"))
-            _sent_c  = str(row.get("sentiment_color", "#e3b341"))
+            _sent_c  = str(row.get("sentiment_color", "#B45309"))
             _src     = str(row.get("source", ""))
-            _src_c   = _RSS_SRC_COL.get(_src, "#8b949e")
+            _src_c   = _RSS_SRC_COL.get(_src, "#475569")
             _ts      = str(row.get("published_ts", ""))[:16]
             _title   = str(row.get("title", "")).replace("<", "&lt;").replace(">", "&gt;")
             _link    = str(row.get("link", "#")) or "#"
@@ -10931,12 +11326,12 @@ elif page == 'NEWS':
                 f'font-weight:700;letter-spacing:0.5px">{_sent}</span>'
                 f'<span style="color:{_src_c};font-size:0.6rem;'
                 f'font-weight:600">{_src}</span></div>'
-                f'<div style="font-size:0.78rem;color:#e6edf3;line-height:1.3">'
+                f'<div style="font-size:0.78rem;color:#090D16;line-height:1.3">'
                 f'<a href="{_link}" target="_blank" '
-                f'style="color:#e6edf3;text-decoration:none">{_title}</a></div>'
-                f'<div style="font-size:0.66rem;color:#8b949e;'
+                f'style="color:#090D16;text-decoration:none">{_title}</a></div>'
+                f'<div style="font-size:0.66rem;color:#475569;'
                 f'margin-top:6px;line-height:1.35">{_summ}</div>'
-                f'<div style="font-size:0.58rem;color:#5a8a9f;margin-top:6px">{_ts}</div>'
+                f'<div style="font-size:0.58rem;color:#334155;margin-top:6px">{_ts}</div>'
                 f'</div>'
             )
 
@@ -11047,8 +11442,8 @@ elif page == 'FUNDAMENTALS':
                     # Identity row
                     st.markdown(
                         f'<div class="metric-card" style="padding:12px 16px;margin-bottom:12px">'
-                        f'<div style="font-size:1.05rem;font-weight:700;color:#58a6ff">{_fd.get("name","")}</div>'
-                        f'<div style="font-size:0.78rem;color:#8b949e">{_fd.get("sector","")} › {_fd.get("industry","")}</div>'
+                        f'<div style="font-size:1.05rem;font-weight:700;color:#1D4ED8">{_fd.get("name","")}</div>'
+                        f'<div style="font-size:0.78rem;color:#475569">{_fd.get("sector","")} › {_fd.get("industry","")}</div>'
                         f'</div>', unsafe_allow_html=True
                     )
 
@@ -11123,12 +11518,12 @@ elif page == 'FUNDAMENTALS':
                     _score   = _sc.get("score", 0)
                     _rating  = _sc.get("rating", "N/A")
                     _bdown   = _sc.get("breakdown", {})
-                    _r_color = "#00f260" if "BUY" in str(_rating).upper() else "#ff4b4b" if "SELL" in str(_rating).upper() else "#e3b341"
+                    _r_color = "#15803D" if "BUY" in str(_rating).upper() else "#DC2626" if "SELL" in str(_rating).upper() else "#B45309"
 
                     st.markdown(
                         f'<div class="metric-card" style="padding:16px;text-align:center;margin-bottom:16px">'
                         f'<div style="font-size:2.5rem;font-weight:800;color:{_r_color}">{_rating}</div>'
-                        f'<div style="font-size:1rem;color:#c9d1d9">Score: {_score} / {sum(_bdown.values()) if _bdown else "?"}</div>'
+                        f'<div style="font-size:1rem;color:#1E293B">Score: {_score} / {sum(_bdown.values()) if _bdown else "?"}</div>'
                         f'</div>', unsafe_allow_html=True
                     )
 
@@ -11138,10 +11533,10 @@ elif page == 'FUNDAMENTALS':
                             _icon = "✅" if _pts > 0 else "❌"
                             _lbl  = _metric.replace("_"," ").title()
                             st.markdown(
-                                f'<div style="padding:6px 0;border-bottom:1px solid #1e3a5f;display:flex;align-items:baseline;gap:8px">'
+                                f'<div style="padding:6px 0;border-bottom:1px solid #CBD5E1;display:flex;align-items:baseline;gap:8px">'
                                 f'<span style="font-size:0.95rem">{_icon}</span>'
-                                f'<span style="font-size:0.82rem;color:#c9d1d9;flex:1">{_lbl}</span>'
-                                f'<span style="font-size:0.78rem;color:#e3b341;margin-left:8px">{_pts:+d} pts</span>'
+                                f'<span style="font-size:0.82rem;color:#1E293B;flex:1">{_lbl}</span>'
+                                f'<span style="font-size:0.78rem;color:#B45309;margin-left:8px">{_pts:+d} pts</span>'
                                 f'</div>', unsafe_allow_html=True
                             )
 
@@ -11351,10 +11746,10 @@ elif page == 'PORTFOLIO':
                         # HHI
                         _hhi = _ov.get("hhi", 0)
                         _hhi_label = "Low Concentration" if _hhi < 1000 else "Moderate" if _hhi < 2500 else "Highly Concentrated"
-                        _hhi_color = "#00f260" if _hhi < 1000 else "#e3b341" if _hhi < 2500 else "#ff4b4b"
+                        _hhi_color = "#15803D" if _hhi < 1000 else "#B45309" if _hhi < 2500 else "#DC2626"
                         st.markdown(
                             f'<div class="metric-card" style="padding:10px 14px;margin-top:10px">'
-                            f'<span style="color:#8b949e;font-size:0.78rem">HHI Concentration Index: </span>'
+                            f'<span style="color:#475569;font-size:0.78rem">HHI Concentration Index: </span>'
                             f'<span style="color:{_hhi_color};font-weight:700">{_hhi:.0f} — {_hhi_label}</span>'
                             f'</div>', unsafe_allow_html=True
                         )
@@ -11366,10 +11761,10 @@ elif page == 'PORTFOLIO':
                             _w = _t5["weight_pct"]
                             st.markdown(
                                 f'<div style="margin-bottom:6px">'
-                                f'<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#c9d1d9">'
-                                f'<span>{_t5["symbol"]}</span><span style="color:#58a6ff">{_w:.1f}%</span></div>'
-                                f'<div style="background:#1e3a5f;border-radius:4px;height:6px;margin-top:3px">'
-                                f'<div style="background:#58a6ff;width:{min(_w,100):.0f}%;height:100%;border-radius:4px"></div>'
+                                f'<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#1E293B">'
+                                f'<span>{_t5["symbol"]}</span><span style="color:#1D4ED8">{_w:.1f}%</span></div>'
+                                f'<div style="background:#CBD5E1;border-radius:4px;height:6px;margin-top:3px">'
+                                f'<div style="background:#1D4ED8;width:{min(_w,100):.0f}%;height:100%;border-radius:4px"></div>'
                                 f'</div></div>', unsafe_allow_html=True
                             )
 
@@ -11388,14 +11783,14 @@ elif page == 'PORTFOLIO':
                                 textposition="inside",
                                 insidetextorientation="horizontal",
                                 marker=dict(colors=[
-                                    "#58a6ff","#00f260","#e3b341","#ff4b4b","#a78bfa",
+                                    "#1D4ED8","#15803D","#B45309","#DC2626","#a78bfa",
                                     "#f97316","#06b6d4","#ec4899","#84cc16","#14b8a6","#f43f5e"
                                 ])
                             ))
                             _fig_sec.update_layout(
                                 height=300, margin=dict(t=0,l=0,r=0,b=0),
-                                paper_bgcolor="rgba(0,0,0,0)",
-                                showlegend=False, font=dict(color="#c9d1d9")
+                                paper_bgcolor="#FFFFFF",
+                                showlegend=False, font=dict(color="#1E293B")
                             )
                             st.plotly_chart(_fig_sec, use_container_width=True)
 
@@ -11442,7 +11837,7 @@ elif page == 'PORTFOLIO':
                         section("Factor Exposure vs Nifty50")
                         _f1, _f2, _f3, _f4 = st.columns(4)
                         _beta = _fac_res.get("portfolio_beta", 0)
-                        _beta_color = "#ff4b4b" if _beta > 1.3 else "#e3b341" if _beta > 1.0 else "#00f260"
+                        _beta_color = "#DC2626" if _beta > 1.3 else "#B45309" if _beta > 1.0 else "#15803D"
                         _f1.metric("Portfolio Beta",   f"{_beta:.2f}",      help=">1 = more volatile than Nifty")
                         _f2.metric("Nifty Correlation",f"{_fac_res.get('benchmark_corr',0):.2f}")
                         _f3.metric("Tracking Error",   f"{_fac_res.get('tracking_error_annual',0):.1f}%", help="Annual active risk vs benchmark")
@@ -11461,17 +11856,17 @@ elif page == 'PORTFOLIO':
                             ).sort_values("Beta", ascending=False)
                             _fig_beta = go.Figure(go.Bar(
                                 x=_sb_df["Symbol"], y=_sb_df["Beta"],
-                                marker_color=["#ff4b4b" if b > 1.2 else "#e3b341" if b > 1.0 else "#58a6ff"
+                                marker_color=["#DC2626" if b > 1.2 else "#B45309" if b > 1.0 else "#1D4ED8"
                                               for b in _sb_df["Beta"]],
                                 text=[f"{b:.2f}" for b in _sb_df["Beta"]], textposition="outside",
                             ))
-                            _fig_beta.add_hline(y=1.0, line_dash="dash", line_color="#3d5a6e", line_width=1)
+                            _fig_beta.add_hline(y=1.0, line_dash="dash", line_color="#94A3B8", line_width=1)
                             _fig_beta.update_layout(
                                 height=280, margin=dict(t=20,l=0,r=0,b=40),
-                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                                xaxis=dict(tickfont=dict(size=9,color="#c9d1d9"), gridcolor="#1e3a5f"),
-                                yaxis=dict(gridcolor="#1e3a5f", title="Beta"),
-                                font=dict(color="#c9d1d9"),
+                                paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                                xaxis=dict(tickfont=dict(size=9,color="#1E293B"), gridcolor="#E2E8F0"),
+                                yaxis=dict(gridcolor="#E2E8F0", title="Beta"),
+                                font=dict(color="#1E293B"),
                             )
                             st.plotly_chart(_fig_beta, use_container_width=True)
 
@@ -11513,7 +11908,7 @@ elif page == 'PORTFOLIO':
                         _fig_st = go.Figure()
                         _fig_st.add_trace(go.Bar(
                             name="Portfolio", x=_sc_labels, y=_sc_port,
-                            marker_color=["#00f260" if v >= 0 else "#ff4b4b" for v in _sc_port],
+                            marker_color=["#15803D" if v >= 0 else "#DC2626" for v in _sc_port],
                             text=[f"{v:+.1f}%" for v in _sc_port], textposition="outside",
                         ))
                         _fig_st.add_trace(go.Bar(
@@ -11524,11 +11919,11 @@ elif page == 'PORTFOLIO':
                         _fig_st.update_layout(
                             barmode="group", height=360,
                             margin=dict(t=20,l=0,r=0,b=100),
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                            xaxis=dict(tickangle=-30, tickfont=dict(size=9,color="#c9d1d9"), gridcolor="#1e3a5f"),
-                            yaxis=dict(gridcolor="#1e3a5f", title="Return (%)"),
-                            legend=dict(font=dict(size=10,color="#c9d1d9"), bgcolor="rgba(0,0,0,0)"),
-                            font=dict(color="#c9d1d9"),
+                            paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                            xaxis=dict(tickangle=-30, tickfont=dict(size=9,color="#1E293B"), gridcolor="#E2E8F0"),
+                            yaxis=dict(gridcolor="#E2E8F0", title="Return (%)"),
+                            legend=dict(font=dict(size=10, color="#1E293B"), bgcolor="rgba(0,0,0,0)"),
+                            font=dict(color="#1E293B"),
                         )
                         st.plotly_chart(_fig_st, use_container_width=True)
                     elif _st_run:
@@ -11596,20 +11991,20 @@ elif page == 'PORTFOLIO':
                         _fig_eq = go.Figure()
                         _fig_eq.add_trace(go.Scatter(
                             x=_eq["date"], y=_eq["portfolio_value"],
-                            name="Strategy", line=dict(color="#00f260", width=2),
+                            name="Strategy", line=dict(color="#15803D", width=2),
                         ))
                         _fig_eq.add_trace(go.Scatter(
                             x=_eq["date"], y=_eq["benchmark_value"],
-                            name="Nifty50 (buy & hold)", line=dict(color="#58a6ff", width=1.5, dash="dot"),
+                            name="Nifty50 (buy & hold)", line=dict(color="#1D4ED8", width=1.5, dash="dot"),
                         ))
-                        _fig_eq.add_hline(y=100, line_dash="dot", line_color="#3d5a6e", line_width=1)
+                        _fig_eq.add_hline(y=100, line_dash="dot", line_color="#94A3B8", line_width=1)
                         _fig_eq.update_layout(
                             height=380, margin=dict(t=10,l=0,r=0,b=0),
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                            xaxis=dict(gridcolor="#1e3a5f"),
-                            yaxis=dict(gridcolor="#1e3a5f", title="Indexed (Base 100)"),
-                            legend=dict(font=dict(size=10,color="#c9d1d9"), bgcolor="rgba(0,0,0,0)"),
-                            font=dict(color="#c9d1d9"),
+                            paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                            xaxis=dict(gridcolor="#E2E8F0"),
+                            yaxis=dict(gridcolor="#E2E8F0", title="Indexed (Base 100)"),
+                            legend=dict(font=dict(size=10, color="#1E293B"), bgcolor="rgba(0,0,0,0)"),
+                            font=dict(color="#1E293B"),
                         )
                         st.plotly_chart(_fig_eq, use_container_width=True)
                         st.caption(f"Total return: Strategy {_wf_res['total_return_pct']:+.1f}% | Nifty {_wf_res['benchmark_total_return_pct']:+.1f}% | Rebalances: {_wf_res['num_rebalances']}")
@@ -11663,7 +12058,7 @@ elif page == 'PORTFOLIO':
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == 'X-RAY':
     st.markdown('<div class="page-title">🧬 Stock X-Ray</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-desc">Deep-dive fundamental analysis — valuation · financials · quarterly results · sector comparison · multi-stock screen <span style="color:#5a8a9f;font-size:0.7rem;">(absorbed Fundamentals 10 May 2026)</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Deep-dive fundamental analysis — valuation · financials · quarterly results · sector comparison · multi-stock screen <span style="color:#334155;font-size:0.7rem;">(absorbed Fundamentals 10 May 2026)</span></div>', unsafe_allow_html=True)
 
     def sync_tv_symbol_xray():
         import subprocess
@@ -11737,8 +12132,8 @@ elif page == 'X-RAY':
                 if _xr_fd:
                     st.markdown(
                         f'<div class="metric-card" style="padding:12px 16px;margin-bottom:14px">'
-                        f'<div style="font-size:1.1rem;font-weight:700;color:#58a6ff">{_xr_fd.get("name","")}</div>'
-                        f'<div style="font-size:0.78rem;color:#8b949e">{_xr_fd.get("sector","")} › {_xr_fd.get("industry","")}</div>'
+                        f'<div style="font-size:1.1rem;font-weight:700;color:#1D4ED8">{_xr_fd.get("name","")}</div>'
+                        f'<div style="font-size:0.78rem;color:#475569">{_xr_fd.get("sector","")} › {_xr_fd.get("industry","")}</div>'
                         f'</div>', unsafe_allow_html=True
                     )
                     # Price
@@ -11842,18 +12237,18 @@ elif page == 'X-RAY':
                         _fig_qr = go.Figure()
                         for _rc in _rev_cols[:1]:
                             _fig_qr.add_trace(go.Bar(name="Revenue", x=_x_labels,
-                                                      y=_xr_qr[_rc], marker_color="#58a6ff"))
+                                                      y=_xr_qr[_rc], marker_color="#1D4ED8"))
                         for _pc in _prof_cols[:1]:
                             _fig_qr.add_trace(go.Bar(name="Net Profit", x=_x_labels,
-                                                      y=_xr_qr[_pc], marker_color="#00f260"))
+                                                      y=_xr_qr[_pc], marker_color="#15803D"))
                         _fig_qr.update_layout(
                             barmode="group", height=300, margin=dict(t=10,l=0,r=0,b=40),
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
-                            xaxis=dict(type="category", gridcolor="#1e3a5f", tickangle=-30,
+                            paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
+                            xaxis=dict(type="category", gridcolor="#E2E8F0", tickangle=-30,
                                        categoryorder="array", categoryarray=_x_labels),
-                            yaxis=dict(gridcolor="#1e3a5f"),
-                            legend=dict(font=dict(color="#c9d1d9"), bgcolor="rgba(0,0,0,0)"),
-                            font=dict(color="#c9d1d9"),
+                            yaxis=dict(gridcolor="#E2E8F0"),
+                            legend=dict(font=dict(color="#1E293B"), bgcolor="rgba(0,0,0,0)"),
+                            font=dict(color="#1E293B"),
                             transition=dict(duration=0),
                         )
                         _xr_sym_key = "".join(c if c.isalnum() else "_" for c in (_xr_sym or "x"))
@@ -11880,8 +12275,8 @@ elif page == 'X-RAY':
                 if _xr_sc and "error" not in _xr_sc:
                     st.markdown(
                         f'<div class="metric-card" style="padding:20px;text-align:center;margin-bottom:16px">'
-                        f'<div style="font-size:2.4rem;font-weight:800;color:#58a6ff">{_xr_sc.get("Overall_Grade", "N/A")}</div>'
-                        f'<div style="font-size:1rem;color:#c9d1d9;margin-top:4px">Overall Rating: {_xr_sc.get("Overall_Rating", 0)} / 17</div>'
+                        f'<div style="font-size:2.4rem;font-weight:800;color:#1D4ED8">{_xr_sc.get("Overall_Grade", "N/A")}</div>'
+                        f'<div style="font-size:1rem;color:#1E293B;margin-top:4px">Overall Rating: {_xr_sc.get("Overall_Rating", 0)} / 17</div>'
                         f'</div>', unsafe_allow_html=True
                     )
                     
@@ -11890,9 +12285,9 @@ elif page == 'X-RAY':
                         section(f"Minervini Score: {_xr_sc.get('Minervini_Score', 0)}/8")
                         for _k, _v in _xr_sc.get("Minervini_Details", {}).items():
                             st.markdown(
-                                f'<div style="padding:6px 0;border-bottom:1px solid #1e3a5f;display:flex;gap:8px;align-items:center">'
+                                f'<div style="padding:6px 0;border-bottom:1px solid #CBD5E1;display:flex;gap:8px;align-items:center">'
                                 f'<span>{"✅" if _v == 1 else "❌"}</span>'
-                                f'<span style="flex:1;font-size:0.85rem;color:#c9d1d9">{_k}</span>'
+                                f'<span style="flex:1;font-size:0.85rem;color:#1E293B">{_k}</span>'
                                 f'</div>', unsafe_allow_html=True
                             )
                         
@@ -11900,9 +12295,9 @@ elif page == 'X-RAY':
                         section("Overall Breakdown")
                         for _k, _v in _xr_sc.get("Overall_Details", {}).items():
                             st.markdown(
-                                f'<div style="padding:6px 0;border-bottom:1px solid #1e3a5f;display:flex;gap:8px;align-items:center">'
-                                f'<span style="flex:1;font-size:0.85rem;color:#c9d1d9">{_k}</span>'
-                                f'<span style="color:#e3b341;font-weight:bold;">{_v}</span>'
+                                f'<div style="padding:6px 0;border-bottom:1px solid #CBD5E1;display:flex;gap:8px;align-items:center">'
+                                f'<span style="flex:1;font-size:0.85rem;color:#1E293B">{_k}</span>'
+                                f'<span style="color:#B45309;font-weight:bold;">{_v}</span>'
                                 f'</div>', unsafe_allow_html=True
                             )
                             
@@ -11910,9 +12305,9 @@ elif page == 'X-RAY':
                         section(f"Piotroski F-Score: {_xr_sc.get('Piotroski_Score', 0)}/9")
                         for _k, _v in _xr_sc.get("Piotroski_Details", {}).items():
                             st.markdown(
-                                f'<div style="padding:6px 0;border-bottom:1px solid #1e3a5f;display:flex;gap:8px;align-items:center">'
+                                f'<div style="padding:6px 0;border-bottom:1px solid #CBD5E1;display:flex;gap:8px;align-items:center">'
                                 f'<span>{"✅" if _v == 1 else "❌"}</span>'
-                                f'<span style="flex:1;font-size:0.85rem;color:#c9d1d9">{_k}</span>'
+                                f'<span style="flex:1;font-size:0.85rem;color:#1E293B">{_k}</span>'
                                 f'</div>', unsafe_allow_html=True
                             )
                 elif "error" in _xr_sc:
@@ -12097,13 +12492,13 @@ elif page == 'X-RAY':
                     _xr_cons = _xr_sent["consensus"]
                     _cons_color = {
                         "STRONG_BUY":  "#39ff14",  # bright neon green — louder than BUY
-                        "BUY":         "#00f260",
-                        "HOLD":        "#e3b341",
-                        "SELL":        "#ff4b4b",
+                        "BUY":         "#15803D",
+                        "HOLD":        "#B45309",
+                        "SELL":        "#DC2626",
                         "STRONG_SELL": "#ff1744",  # bright red — louder than SELL
                         "MIXED":       "#a78bfa",
-                        "NONE":        "#5a8a9f",
-                    }.get(_xr_cons, "#5a8a9f")
+                        "NONE":        "#334155",
+                    }.get(_xr_cons, "#334155")
                     # Display label: pretty-print the underscored ones
                     _cons_label_display = _xr_cons.replace("_", " ")
 
@@ -12146,11 +12541,11 @@ elif page == 'X-RAY':
                             _act = _it.get("action") or "?"
                             _act_col = {
                                 "STRONG_BUY":  "#39ff14",
-                                "BUY":         "#00f260",
-                                "HOLD":        "#e3b341",
-                                "SELL":        "#ff4b4b",
+                                "BUY":         "#15803D",
+                                "HOLD":        "#B45309",
+                                "SELL":        "#DC2626",
                                 "STRONG_SELL": "#ff1744",
-                            }.get(_act, "#5a8a9f")
+                            }.get(_act, "#334155")
                             # Pretty-print underscored buckets for the badge label
                             _act_label = _act.replace("_", " ")
                             _brk = _it.get("brokerage") or ""
@@ -12158,12 +12553,12 @@ elif page == 'X-RAY':
                             _origin = _it.get("_origin", "?").upper()
                             _origin_label = {"ET": "Economic Times", "MC": "Moneycontrol"}.get(_origin, _origin)
                             st.markdown(
-                                f'<div style="margin:6px 0;padding:8px;background:#0a1628;border-left:3px solid {_act_col};border-radius:4px;">'
+                                f'<div style="margin:6px 0;padding:8px;background:#F8FAFC;border-left:3px solid {_act_col};border-radius:4px;">'
                                 f'<span style="color:{_act_col};font-weight:600;font-family:JetBrains Mono,monospace;font-size:0.7rem;">{_act_label}</span>'
-                                f'  ·  <span style="color:#5a8a9f;font-size:0.72rem;">{_origin_label}</span>'
+                                f'  ·  <span style="color:#334155;font-size:0.72rem;">{_origin_label}</span>'
                                 f'  ·  <span style="color:#8b9eb0;font-size:0.72rem;">{_brk}</span>'
                                 f'<div style="margin-top:4px;">'
-                                f'<a href="{_it.get("url","#")}" target="_blank" style="color:#e6edf3;font-size:0.86rem;text-decoration:none;">{_it.get("title","")}</a>'
+                                f'<a href="{_it.get("url","#")}" target="_blank" style="color:#090D16;font-size:0.86rem;text-decoration:none;">{_it.get("title","")}</a>'
                                 f'</div></div>',
                                 unsafe_allow_html=True
                             )
@@ -12210,8 +12605,8 @@ elif page == 'GOLDEN MATCHER':
                 st.markdown(
                     '''<div style="display:flex;justify-content:flex-end;margin-top:6px;">
                     <a href="/?view=gm_window" target="_blank" style="text-decoration:none;">
-                        <span style="display:inline-block;padding:6px 12px;border:1px solid #1e3a5f;
-                        background:#0d1b2a;color:#58a6ff;border-radius:4px;font-size:12px;
+                        <span style="display:inline-block;padding:6px 12px;border:1px solid #CBD5E1;
+                        background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:4px;font-size:12px;
                         font-family:'JetBrains Mono',monospace;font-weight:600;">
                         ↗️ OPEN IN NEW WINDOW</span></a></div>''',
                     unsafe_allow_html=True)
@@ -12237,6 +12632,54 @@ elif page == 'GOLDEN MATCHER':
             except Exception as e:
                 _gm_logger.warning(f"refresh: loader cache clear failed: {e}")
         st.session_state["gm_force_rebuild"] = True
+
+
+    @st.fragment(run_every='2s')
+    def auto_sync_tv_symbol_gm():
+        """Auto-sync the Golden Matcher symbol input with the active TradingView chart."""
+        import subprocess, csv, re
+        from io import StringIO
+        browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
+        for browser in browsers:
+            try:
+                res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'],
+                                     capture_output=True, text=True, errors='ignore', timeout=2)
+                reader = csv.reader(StringIO(res.stdout))
+                for row in reader:
+                    if len(row) > 8:
+                        exe = row[0].lower()
+                        title = row[8]
+                        if ('tradingview.exe' in exe and
+                                title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
+                           ('TradingView' in title and '—' in title):
+                            match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
+                            if match:
+                                sym = match.group(1).strip()
+                                if sym.upper() in ['NIFTY 50', 'NIFTY']:     sym = '^NSEI'
+                                elif sym.upper() in ['NIFTY BANK', 'BANKNIFTY']: sym = '^NSEBANK'
+                                elif sym.upper() == 'NIFTY 500':              sym = '^CRSLDX'
+                                else:
+                                    if not sym.endswith('.NS') and '^' not in sym and '=' not in sym:
+                                        sym += '.NS'
+                                current_sym = st.session_state.get('gm_sym_input', '')
+                                if sym != current_sym:
+                                    if sym == st.session_state.get('gm_pend_sym'):
+                                        st.session_state['gm_pend_count'] = st.session_state.get('gm_pend_count', 0) + 1
+                                    else:
+                                        st.session_state['gm_pend_sym'] = sym
+                                        st.session_state['gm_pend_count'] = 1
+                                    if st.session_state['gm_pend_count'] >= 2:
+                                        st.session_state['gm_pend_sym'] = None
+                                        st.session_state['gm_pend_count'] = 0
+                                        st.session_state['gm_sym_input'] = sym
+                                        st.session_state['gm_symbol'] = sym
+                                        st.rerun()
+                                else:
+                                    st.session_state['gm_pend_sym'] = None
+                                    st.session_state['gm_pend_count'] = 0
+                                return
+            except Exception:
+                pass
 
     # ── View switch: single-symbol checklist  vs  batch Trigger Board ──────────
     if is_max_board:
@@ -12434,7 +12877,7 @@ elif page == 'GOLDEN MATCHER':
             # A DEDICATED WINDOW MUST SAY WHICH TF IT IS (Jay: "I'm not sure whether the
             # 125m Board is 75m or 125m"). Colour-matched to the launch buttons.
             _tfcol = {"75m": ("#4ade80", "#0d1b12"), "125m": ("#fbbf24", "#1a1408")}.get(
-                _trig_tf, ("#58a6ff", "#0d1b2a"))
+                _trig_tf, ("#1D4ED8", "#EFF6FF"))
             st.markdown(
                 f'<div style="background:{_tfcol[1]};border-left:4px solid {_tfcol[0]};'
                 f'padding:6px 14px;margin-bottom:6px;font-family:monospace;'
@@ -12579,47 +13022,52 @@ elif page == 'GOLDEN MATCHER':
             _rrg = _gtb.rrg_load()
             _view = _board_apply_filters(_bdf)      # SHARED filter (see header block)
             _edited = st.data_editor(
-                _view, use_container_width=True, hide_index=True, key="gm_board_editor",
+                # use_container_width=False (3-Aug): with it TRUE, Streamlit stretches or
+                # SHRINKS every column to fill the container and the configured widths are
+                # overridden — which is why a rebuild collapsed the table and the manual
+                # re-widening never survived. False makes the configured pixel widths
+                # authoritative and the table scrolls horizontally instead.
+                _view, use_container_width=False, hide_index=True, key="gm_board_editor",
                 column_config={
                     "Symbol": st.column_config.TextColumn(
-                        "Symbol", width="medium"),
+                        "Symbol", width=105),
                     "Arm": st.column_config.CheckboxColumn(
-                        "🔔", width="small",
+                        "🔔", width=60,
                         help="Arm this name — records the plan on THIS row (entry / SL / T1 / "
                              "verdict) into the Armed Register. It then stays on the board even "
                              "after every watchlist drops it, so the alert you set today still "
                              "has its plan when it fires next week. Untick to disarm."),
                     "★": st.column_config.TextColumn(
-                        "★", width="small",
+                        "★", width=50,
                         help="Top-Conviction badge — the name is in FINAL_WATCHLIST.csv, i.e. the "
                              "top-25 by Combined_Score across all bull+recovery picks (the Golden "
                              "Matcher shortlist). A quality flag layered on top of the archetype."),
                     "RRG": st.column_config.SelectboxColumn(
-                        "RRG Flag", options=_gtb.RRG_QUADRANTS, width="small",
+                        "RRG Flag", options=_gtb.RRG_QUADRANTS, width=135,
                         help="Set from Strike.Money — persists per symbol."),
                     "Overall": st.column_config.ProgressColumn(
-                        "Overall", min_value=0, max_value=100, format="%.0f",
+                        "Overall", min_value=0, max_value=100, format="%.0f", width=105,
                         help="0-100 opportunity score — Leadership(Alpha+Minervini)/Fundamentals(Conviction/"
                              "BFF-or-RFF/Piotroski)/Setup(ΣPA+catalyst+VCP)/Risk(R:R), reweighted for missing "
                              "inputs. Independent of category & path."),
                     "Category": st.column_config.TextColumn(
-                        "Category", width="medium"),
+                        "Category", width=215),
                     "S4-GO": st.column_config.TextColumn(
-                        "S4-GO", width="small"),
+                        "S4-GO", width=175),
                     "Archetype": st.column_config.TextColumn(
-                        "Archetype", width="medium"),
+                        "Archetype", width=250),
                     "Loc": st.column_config.TextColumn(
-                        "Loc", width="small"),
+                        "Loc", width=230),
                     "Path": st.column_config.TextColumn(
-                        "Path", width="small"),
+                        "Path", width=85),
                     "WCL Context": st.column_config.TextColumn(
-                        "WCL Context", width="medium",
+                        "WCL Context", width=200,
                         help="Weinstein Context Layer macro score band (STRONG BULL / BULL / NEUTRAL / CAUTION / BEAR) and active tactical setup (S1-S8)."),
                     "Struct Health": st.column_config.TextColumn(
-                        "Struct Health", width="small",
+                        "Struct Health", width=120,
                         help="SMC Structure Health: CLEAN (0-1 CHoCHs), CHOPPY (2-3 CHoCHs, caps Kelly size at 0.5x), BROKEN (4+ CHoCHs)."),
                     "VP Position": st.column_config.TextColumn(
-                        "VP Position", width="medium",
+                        "VP Position", width=135,
                         help="Volume Profile Position: ✓ ABOVE VAH, ✓ IN VA (upper), ✗ IN VA (lower), ✗ BELOW VAL."),
                 },
                 disabled=[c for c in _view.columns if c != "RRG"],
@@ -12751,7 +13199,7 @@ elif page == 'GOLDEN MATCHER':
                 <style>
                 .gmstrip{{margin:2px 0 8px;white-space:nowrap;overflow-x:auto;padding-bottom:4px;}}
                 .gmchip{{display:inline-block;padding:3px 9px;margin:2px;border-radius:4px;
-                  font-size:12px;color:#e6edf3;border:1px solid #2a2e39;}}
+                  font-size:12px;color:#090D16;border:1px solid #2a2e39;}}
                 .gmup{{animation:gmflashup 2.6s ease-out;}}
                 .gmdn{{animation:gmflashdn 2.6s ease-out;}}
                 @keyframes gmflashup{{0%{{background:#1f7a6d;}}12%{{background:#26a69a;}}100%{{background:rgba(38,166,154,.10);}}}}
@@ -12772,26 +13220,28 @@ elif page == 'GOLDEN MATCHER':
             is_max_board = (st.query_params.get("view") == "gm_board_maximized")
             if not is_max_board:
                 st.markdown(
-                    '''<div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                    '''<div style="display: flex; justify-content: flex-end; margin-bottom: 8px; gap: 6px;">
                     <a href="/?view=gm_board_maximized" target="_blank" style="text-decoration: none;">
-                        <span style="display: inline-block; padding: 6px 14px; border: 1px solid #1e3a5f;
-                        background: #0d1b2a; color: #58a6ff; border-radius: 4px; font-size: 13px;
-                        font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer;
-                        transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                            ↗️ MAXIMIZE BOARD (NEW WINDOW)
+                        <span style="display: inline-block; padding: 6px 14px; border: 1.5px solid #93C5FD;
+                        background: #EFF6FF; color: #1D4ED8; border-radius: 6px; font-size: 12px;
+                        font-family: 'JetBrains Mono', monospace; font-weight: 700; cursor: pointer;
+                        transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(37,99,235,0.15);">
+                            ↗️ MAXIMIZE BOARD
                         </span>
                     </a>
-                    <a href="/?view=gm_board_maximized&tf=75m" target="_blank" style="text-decoration:none;margin-left:8px;">
-                        <span style="display:inline-block;padding:6px 12px;border:1px solid #1b4332;
-                        background:#0d1b12;color:#4ade80;border-radius:4px;font-size:13px;
-                        font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;">
+                    <a href="/?view=gm_board_maximized&tf=75m" target="_blank" style="text-decoration:none;">
+                        <span style="display:inline-block;padding:6px 12px;border:1.5px solid #86EFAC;
+                        background:#F0FDF4;color:#15803D;border-radius:6px;font-size:12px;
+                        font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
+                        box-shadow:0 2px 6px rgba(21,128,61,0.15);">
                             ↗️ 75m BOARD
                         </span>
                     </a>
-                    <a href="/?view=gm_board_maximized&tf=125m" target="_blank" style="text-decoration:none;margin-left:8px;">
-                        <span style="display:inline-block;padding:6px 12px;border:1px solid #4a3b1b;
-                        background:#1a1408;color:#fbbf24;border-radius:4px;font-size:13px;
-                        font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;">
+                    <a href="/?view=gm_board_maximized&tf=125m" target="_blank" style="text-decoration:none;">
+                        <span style="display:inline-block;padding:6px 12px;border:1.5px solid #FCD34D;
+                        background:#FFFBEB;color:#B45309;border-radius:6px;font-size:12px;
+                        font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
+                        box-shadow:0 2px 6px rgba(180,83,9,0.15);">
                             ↗️ 125m BOARD
                         </span>
                     </a>
@@ -12851,31 +13301,8 @@ elif page == 'GOLDEN MATCHER':
             if _built_tf and _built_tf != _trig_tf:
                 st.warning(f"⚠️ Board built at **{_built_tf}** but Trigger-TF is now **{_trig_tf}** — "
                            f"stale snapshot; **Build / Refresh** to recompute at {_trig_tf}.")
-            # Filters — adjustable in ALL modes (streaming reads these keys).
-            _rrg_h = _gtb.rrg_load()
-            _bdf_rrg = _bdf_hdr.copy()
-            _bdf_rrg["RRG"] = _bdf_rrg["Symbol"].map(lambda s: _rrg_h.get(s, "—"))
-            _cats_h = sorted(_bdf_rrg["Category"].dropna().unique())
-            _def_cat_h = [c for c in _cats_h if c.startswith(("Buy Trigger", "Armed", "Wait for Pullback"))]
-            _fc1, _fc2, _fc3, _fc4, _fc5 = st.columns([2, 1.6, 1.6, 1.6, 1.2])
-            _fc1.multiselect("Category", _cats_h, default=_def_cat_h, key="gm_bf_cat")
-            _fc2.multiselect("RRG Flag", _gtb.RRG_QUADRANTS, default=[], key="gm_bf_rrg")
-            _fc3.multiselect("Tier", ["Rigorous", "Discovery"], default=[], key="gm_bf_tier")
-            _fc4.multiselect("Path", ["Bull", "Recovery"], default=[], key="gm_bf_path")
-            # CSV download (FILTERED view) — works in every mode (fixes the regression
-            # where defaulting to the streaming grid removed the data_editor toolbar).
-            _dl_view = _board_apply_filters(_bdf_hdr)
-            with _fc5:
-                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                st.download_button(
-                    "⬇️ CSV", _dl_view.to_csv(index=False).encode("utf-8"),
-                    file_name=f"gm_board_{datetime.now():%Y%m%d_%H%M}.csv",
-                    mime="text/csv", use_container_width=True, key="gm_board_dl",
-                    help="Download the CURRENTLY-FILTERED board as CSV. Works in every "
-                         "Live-refresh mode.")
-            st.caption(f"Showing **{len(_dl_view)}** of {len(_bdf_hdr)} names")
 
-        # ── ARMED REGISTER ───────────────────────────────────────────────────
+        _gm_col1, _gm_col2, _gm_col3 = st.columns([2.5, 3.5, 3.0], gap="small")
         # THE place to look when an alert fires days later: the plan you armed with,
         # beside what the board says about the name today. Rendered here (above the
         # grid) rather than as a separate page because the alert-fires moment IS a
@@ -12929,7 +13356,7 @@ elif page == 'GOLDEN MATCHER':
                                          help="Stop watching. Kept as CANCELLED, not deleted."):
                                 _armreg.disarm(_asym, note="dropped from register panel")
                                 st.rerun()
-                        st.markdown("<hr style='margin:4px 0;border-color:#30363d'>",
+                        st.markdown("<hr style='margin:4px 0;border-color:#CBD5E1'>",
                                     unsafe_allow_html=True)
         except Exception as _are:
             _gm_logger.warning(f"armed register panel failed: {_are}")
@@ -13032,8 +13459,13 @@ elif page == 'GOLDEN MATCHER':
                     # Per-column SORT (click header) + FILTER with an always-visible
                     # FLOATING FILTER row so it's discoverable, not a hover menu (Jay).
                     _gb = GridOptionsBuilder.from_dataframe(_v)
+                    # minWidth (3-Aug): a FLOOR no column can contract below, whatever
+                    # AG-Grid decides on re-render. Explicit widths alone were not holding
+                    # on rebuild — this makes narrowing structurally impossible rather than
+                    # relying on the width hint being honoured.
                     _gb.configure_default_column(sortable=True, filter=True, resizable=True,
-                                                 floatingFilter=True)
+                                                 floatingFilter=True, minWidth=120,
+                                                 suppressSizeToFit=True)
                     # Numeric columns get a NUMBER filter (>, <, range) + numeric sort;
                     # AG-Grid otherwise treats them as text (lexicographic) when the
                     # pandas dtype is object. Explicit for the key decision numbers.
@@ -13046,11 +13478,20 @@ elif page == 'GOLDEN MATCHER':
                     # (the grid has ~39 cols). Item 12: Path + RRG join the pinned set so
                     # the full decision row (Symbol · Overall · Category · S4-GO ·
                     # Archetype · Loc · Path · RRG) stays on-screen without scrolling.
-                    for _pc, _pw in (("Symbol", 96), ("★", 42), ("Overall", 90),
-                                     ("Category", 150), ("S4-GO", 84), ("Archetype", 120),
-                                     ("Pos", 210), ("Loc", 120), ("Path", 84), ("RRG", 96)):
+                    # Widths sized from the WIDEST value actually in the board cache, not
+                    # guessed (3-Aug): Category 28 chars, S4-GO 22, Archetype 46, Pos 72,
+                    # Loc 36. The old numbers truncated every one of those, and because
+                    # AG-Grid discards a hand-dragged width on each rerun, a rebuild threw
+                    # the manual re-widening away every single time.
+                    for _pc, _pw in (("Symbol", 105), ("★", 46), ("Overall", 95),
+                                     ("Category", 215), ("S4-GO", 175), ("Archetype", 250),
+                                     ("Pos", 330), ("Loc", 230), ("Path", 90), ("RRG", 120)):
                         if _pc in _v.columns:
-                            _gb.configure_column(_pc, pinned="left", width=_pw)
+                            # minWidth == width: AG-Grid may re-flow on re-render, but it
+                            # cannot go below minWidth, so the decision columns keep their
+                            # size through a rebuild without any manual re-widening.
+                            _gb.configure_column(_pc, pinned="left", width=_pw,
+                                                 minWidth=_pw, suppressSizeToFit=True)
                     if "S4-GO" in _v.columns:
                         # In the MAXIMIZED (monitor) view, default-sort by S4-GO closeness
                         # so 4/4 GO → 3/4 near-triggers float to the top at a glance (the
@@ -13110,93 +13551,9 @@ elif page == 'GOLDEN MATCHER':
                 _gm_stream()
         st.stop()
 
-    # SINGLE SYMBOL view — real conditional (14-Jul-2026). st.stop() after the
-    # board's streaming AgGrid custom component is unreliable, so it let this
-    # section bleed in under the board. A plain `if` is bulletproof.
-    if _gm_view != "📋 Trigger Board":
-        st.markdown('''
-        <style>
-          .chk{display:flex;justify-content:space-between;align-items:center;
-               padding:4px 10px;border-radius:5px;margin:2px 0;font-size:14px;}
-          .chk b{font-weight:600;}
-          .pass{background:rgba(38,166,154,.16);border-left:3px solid #26A69A;}
-          .watch{background:rgba(255,152,0,.16);border-left:3px solid #FF9800;}
-          .fail{background:rgba(239,83,80,.16);border-left:3px solid #EF5350;}
-          .na{background:rgba(120,123,134,.12);border-left:3px solid #787B86;}
-          .sechead{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
-                   border-bottom:2px solid currentColor;padding-bottom:3px;margin:6px 0 6px;}
-          .verdict{font-size:26px;font-weight:800;}
-          .plan{font-family:Consolas,monospace;font-size:14px;line-height:1.7;}
-        </style>
-        ''', unsafe_allow_html=True)
+    else:   # ── 🎯 SINGLE SYMBOL VIEW ─────────────────────────────────────────────
 
-        @st.fragment(run_every="2s")
-        def auto_sync_tv_symbol_gm():
-            import subprocess
-            import csv
-            import re
-            from io import StringIO
-        
-            # REVERTED 9-Jul-2026: an attempted "one unfiltered tasklist call"
-            # optimization broke the sync — unfiltered `tasklist /v` enumerates
-            # window titles for EVERY process (~3.6 s, over any sane timeout),
-            # while the per-image `/fi` filtered call is ~0.12 s. The original
-            # per-browser filtered loop below is the fast, proven path.
-            browsers = ['TradingView.exe', 'chrome.exe', 'msedge.exe', 'brave.exe']
-            for browser in browsers:
-                try:
-                    res = subprocess.run(['tasklist', '/fi', f'imagename eq {browser}', '/v', '/fo', 'csv'], capture_output=True, text=True, errors='ignore', timeout=2)
-                    reader = csv.reader(StringIO(res.stdout))
-                    for row in reader:
-                        if len(row) > 8:
-                            exe = row[0].lower()
-                            title = row[8]
-                            if ('tradingview.exe' in exe and title not in ('N/A', 'OleMainThreadWndName', 'Input-Sink', 'Default IME', 'INFO')) or \
-                               ('TradingView' in title and '—' in title):
-                                match = re.search(r'^(.*?)\s+[\d,]+\.\d{1,4}(?:\s|%|\+|-|$)', title)
-                                if match:
-                                    sym = match.group(1).strip()
-                                    if sym.upper() in ["NIFTY 50", "NIFTY"]: sym = "^NSEI"
-                                    elif sym.upper() in ["NIFTY BANK", "BANKNIFTY"]: sym = "^NSEBANK"
-                                    elif sym.upper() == "NIFTY 500": sym = "^CRSLDX"
-                                    else:
-                                        if not sym.endswith(".NS") and "^" not in sym and "=" not in sym: sym += ".NS"
-
-                                    # TradingView uses '_' where NSE/yfinance use '-'/'&'
-                                    # (BAJAJ_AUTO→BAJAJ-AUTO, NAM_INDIA→NAM-INDIA, M_M→M&M).
-                                    # Canonicalize via the scrip master so the box AND the
-                                    # loaders get the resolvable ticker.
-                                    sym = _canon_sym(sym)
-
-                                    current_sym = st.session_state.get("gm_sym_input", "")
-                                    if sym != current_sym:
-                                        # DEBOUNCE (2026-07-03): commit the new symbol only after it has
-                                        # been STABLE for 2 consecutive polls (~4s). Without this, fast
-                                        # watchlist scrolling on TV fired a full screen_one fetch chain
-                                        # (daily+weekly+fundamentals) per name — a burst that trips the
-                                        # Dhan throttle (the same failure mode behind the cache-poisoning
-                                        # symptom). Mid-scroll names now never trigger fetches.
-                                        if sym == st.session_state.get("gm_pend_sym"):
-                                            st.session_state["gm_pend_count"] = st.session_state.get("gm_pend_count", 0) + 1
-                                        else:
-                                            st.session_state["gm_pend_sym"] = sym
-                                            st.session_state["gm_pend_count"] = 1
-                                        if st.session_state["gm_pend_count"] >= 2:
-                                            st.session_state["gm_pend_sym"] = None
-                                            st.session_state["gm_pend_count"] = 0
-                                            st.session_state["gm_sym_input"] = sym
-                                            st.session_state["gm_symbol"] = sym
-                                            st.rerun()
-                                    else:
-                                        st.session_state["gm_pend_sym"] = None
-                                        st.session_state["gm_pend_count"] = 0
-                                    return
-                except Exception as e:
-                    # 2s polling loop — failure = "no sync this tick" (self-evident on
-                    # screen). DEBUG level only, or a closed TV would flood the log.
-                    _gm_logger.debug(f"TV auto-sync tick failed: {e}")
-
-        _gm_col1, _gm_col2 = st.columns([2, 4])
+        _gm_col1, _gm_col2, _gm_col3 = st.columns([2.5, 3.5, 3.0], gap="small")
         with _gm_col1:
             auto_sync = st.toggle("🔄 Auto-Sync TV", value=True, key="gm_auto_sync", help="Automatically sync with active TradingView chart")
             if auto_sync:
@@ -13206,47 +13563,38 @@ elif page == 'GOLDEN MATCHER':
                 st.session_state["gm_sym_input"] = "NETWEB.NS"
             
             symbol = st.text_input("NSE symbol", key="gm_sym_input").strip().upper()
-            # Canonicalize underscore/hyphen/ampersand variants (esp. TradingView's
-            # BAJAJ_AUTO / NAM_INDIA) to the ticker the loaders can resolve. Covers
-            # manual entry / paste; the TV auto-sync path canonicalizes at commit.
             symbol = _canon_sym(symbol)
             if symbol and symbol != st.session_state.get("gm_symbol"):
                 st.session_state["gm_symbol"] = symbol
             
         with _gm_col2:
-            # SHARED refresh (Jay): the SAME button is on the Trigger Board. It re-fetches
-            # fresh data for the WHOLE board universe (not just this symbol) and flags the
-            # board to rebuild — so this page and the board always read IDENTICAL data. The
-            # old per-symbol refresh made Single Symbol fresher than the board → drift.
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
             if st.button("🔄 Fetch fresh data (both surfaces)", use_container_width=True,
-                         help="Re-fetch FRESH data for the whole Golden Matcher universe, then rebuild the "
-                              "board — the SAME button is on the Trigger Board, so both surfaces read "
-                              "identical data (no more board-vs-single drift). Slower: ~50 fresh fetches."):
+                         help="Re-fetch FRESH data for the whole Golden Matcher universe, then rebuild the board."):
                 _gm_reload_market_data()
                 st.rerun()
 
-        # ---- Position-sizing settings (E2) — persisted to gm_settings.json ----
+        with _gm_col3:
+            _render_entry_method_selector("gm_entry_method_sel_single")
+
+        # ---- Position-sizing & Trigger TF settings ----
         _gmset = _gm_settings()
-        _szc1, _szc2, _szc3 = st.columns([1.6, 1, 3.4])
+        _szc1, _szc2, _szc3, _szc4 = st.columns([2.2, 1.3, 1.3, 3.2], gap="small")
         with _szc1:
             _gm_capital = st.number_input("Capital (₹)", min_value=0.0, step=50000.0,
                                           value=float(_gmset.get("capital", 0.0)),
                                           format="%.0f", key="gm_capital",
-                                          help="Trading capital used for the 0.25%-risk position sizer on Step 6.")
+                                          help="Trading capital used for position sizing.")
         with _szc2:
             _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
                                           value=float(_gmset.get("risk_pct", 0.25)),
                                           key="gm_riskpct")
-            # Separate risk unit for PYRAMID adds (Jay, 30-Jul: "1% per add"). Kept apart
-            # from the new-entry Risk % above so changing one never moves the other.
+        with _szc3:
             _gm_pyrrisk = st.number_input("Add risk %", min_value=0.05, max_value=3.0, step=0.05,
                                           value=float(_gmset.get("pyr_risk_pct", 1.0)),
                                           key="gm_pyrriskpct",
-                                          help="Risk unit for a PYRAMID add, sized off the REVISED (raised) stop. Each add is its own unit — 5 adds on a 15-name book = 5 fresh units of heat.")
-        with _szc3:
-            # Trigger TF — UNIFIED with the Trigger Board (shared session key "gm_trig_tf"
-            # + gm_settings). Seed from the persisted setting on first load; no index=
-            # (that would clash with the session-state value the board may have set).
+                                          help="Risk unit for a PYRAMID add.")
+        with _szc4:
             _tf_opts = ["75m", "125m", "Daily"]
             if "gm_trig_tf" not in st.session_state:
                 _tf0 = str(_gmset.get("trigger_tf", "75m"))
@@ -13254,29 +13602,18 @@ elif page == 'GOLDEN MATCHER':
             _gm_trig_tf = st.radio(
                 "Trigger TF (Step-5 PA battery + momentum board)", _tf_opts, horizontal=True,
                 key="gm_trig_tf",
-                help="Shared with the Trigger Board (one setting). The Step-5 PA trigger battery "
-                     "and momentum gauges (RSI/ADX/RelVol/Vol-dry) recompute on this timeframe. "
-                     "Context/Quality (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly.")
+                help="Shared with the Trigger Board.")
         _lv_now = st.session_state.get("gm_board_live")
         if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
                 or (_gm_trig_tf != _gmset.get("trigger_tf")) \
                 or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")) \
                 or (_lv_now and _lv_now != _gmset.get("board_live")):
-            # A ?tf=-locked window must not persist its override — otherwise opening a
-            # 75m pop-out would silently retune the main window and the Single Symbol page.
             if TF_LOCK:
                 _gm_settings_save(board_live=_lv_now, capital=_gm_capital,
                                   risk_pct=_gm_riskpct, pyr_risk_pct=_gm_pyrrisk)
             else:
                 _gm_settings_save(board_live=_lv_now, capital=_gm_capital, risk_pct=_gm_riskpct,
                                   trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk)
-
-        # Entry method — GLOBAL setting, also exposed here so you can flip buy-stop /
-        # retest without leaving the Single Symbol view (item 11). It drives the Plan /
-        # guided-execution fill wording shown further down this page.
-        _emc1, _emc2 = st.columns([1.6, 4.4])
-        with _emc1:
-            _render_entry_method_selector("gm_entry_method_sel_single")
 
         if not symbol:
             st.info("Enter an NSE symbol in the sidebar.")
@@ -13460,15 +13797,13 @@ elif page == 'GOLDEN MATCHER':
             _arche_lbl = ", ".join(dict.fromkeys(
                 (_ib_ss if _inh_bull_on else []) + (_ir_ss if _inh_rec_on else []))) or "watchlist"
             st.markdown(
-                f"<div style='border-left:3px solid #7E57C2;background:#7E57C214;border-radius:4px;"
-                f"padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
-                f"🧬 <b>Inherited setup — {_arche_lbl}</b> (qualified by its source watchlist). "
+                f"<div style='border-left:6px solid #6D28D9;background:linear-gradient(135deg, #F3E8FF 0%, #FFFFFF 100%);border:1.5px solid #D8B4FE;"
+                f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:#0F172A;font-weight:700;box-shadow:0 2px 6px rgba(109,40,217,0.1);'>"
+                f"🧬 <b style='color:#6D28D9;font-weight:800;'>Inherited setup — {_arche_lbl}</b> (qualified by its source watchlist). "
                 f"Context &amp; Quality are trusted; this name is <b>timed</b> (still-valid guard → "
                 f"Location → Trigger), not re-screened. A break-down (Stage 3/4 · lost 30WMA) shows "
                 f"<b>INVALIDATED</b>.</div>", unsafe_allow_html=True)
         elif _ev.get("inherit_error"):
-            # P1: the archetype resolver failed — inheritance is OFF and this name fell
-            # to the legacy re-qualification funnel. That changes verdicts; say so.
             st.warning(f"⚠️ Inherited-qualification unavailable (archetype resolver failed) — "
                        f"showing the LEGACY re-qualification verdict. {_ev['inherit_error']} "
                        f"· logs/gm_errors.log")
@@ -13476,29 +13811,30 @@ elif page == 'GOLDEN MATCHER':
         # Trigger-TF banner: makes it explicit that Step-5's battery + momentum are on
         # the trading TF while Steps 1-4 remain Daily/Weekly positional context.
         if _intra_label:
-            _il_col = "#00838F" if _intra_ok else "#FF9800"
-            st.markdown(f"<div style='border-left:3px solid {_il_col};background:{_il_col}14;"
-                        f"border-radius:4px;padding:5px 10px;margin:2px 0 8px;font-size:12.5px'>"
-                        f"{_intra_label} &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
+            _il_col = "#0284C7" if _intra_ok else "#D97706"
+            _il_bg  = "#E0F2FE" if _intra_ok else "#FEF3C7"
+            _il_bdr = "#7DD3FC" if _intra_ok else "#FDE68A"
+            st.markdown(f"<div style='border-left:6px solid {_il_col};background:linear-gradient(135deg, {_il_bg} 0%, #FFFFFF 100%);border:1.5px solid {_il_bdr};"
+                        f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:#0F172A;font-weight:700;box-shadow:0 2px 6px rgba(2,132,199,0.1);'>"
+                        f"<b style='color:{_il_col};font-weight:800;'>{_intra_label}</b> &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
                         f"</div>", unsafe_allow_html=True)
 
         # Trigger-Board-identical category headline — the exact value you'd see in the
         # board's Category column for this symbol (same gm_evaluate, same selection).
         if _board_cat:
             _bc_actionable = _board_cat.split(" · ")[0] in ("Buy Trigger Live", "Armed Wait", "Wait for Pullback")
-            _bc_col = "#26A69A" if _board_cat.startswith("Buy Trigger") else ("#FF9800" if _bc_actionable else "#787B86")
-            st.markdown(f"<div style='border-left:3px solid {_bc_col};background:{_bc_col}14;"
-                        f"border-radius:4px;padding:6px 10px;margin:2px 0 8px;font-size:13px'>"
-                        f"📋 <b>Trigger-Board category:</b> <b style='color:{_bc_col}'>{_board_cat}</b> "
+            _bc_col = "#047857" if _board_cat.startswith("Buy Trigger") else ("#D97706" if _bc_actionable else "#475569")
+            _bc_bg  = "#D1FAE5" if _board_cat.startswith("Buy Trigger") else ("#FEF3C7" if _bc_actionable else "#F1F5F9")
+            _bc_bdr = "#6EE7B7" if _board_cat.startswith("Buy Trigger") else ("#FDE68A" if _bc_actionable else "#CBD5E1")
+            st.markdown(f"<div style='border-left:6px solid {_bc_col};background:linear-gradient(135deg, {_bc_bg} 0%, #FFFFFF 100%);border:1.5px solid {_bc_bdr};"
+                        f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:#0F172A;font-weight:700;box-shadow:0 2px 6px rgba(4,120,87,0.1);'>"
+                        f"📋 <b style='color:#0F172A;'>Trigger-Board category:</b> <b style='color:{_bc_col};font-weight:800;'>{_board_cat}</b> "
                         f"&nbsp;·&nbsp; TF {_trig_tf} — this matches the board's Category column exactly."
                         f"</div>", unsafe_allow_html=True)
 
         # S4-GO stage-2 preview chip — the SAME shared s4go_status the board's S4-GO
         # column uses, so this page and the board agree on the stage-2 read too. Category
         # above = the stage-1 ARM (no bar_ok); this = PA · location · volume · bar_ok.
-        # Defaults FIRST: the arm/disarm block below reads these, and if the chip's
-        # try-block raised (import failure) they would otherwise be undefined —
-        # a NameError inside a guarded block still loses the Arm button entirely.
         _s4_path, _s4_sigma, _s4go = "bull", 0, ""
         try:
             import gm_trigger_board as _gtbx2
@@ -13507,14 +13843,15 @@ elif page == 'GOLDEN MATCHER':
             _s4_pp = _g(ctx, _s4_bat, default=[]) or []
             _s4_sigma = sum(t for _n, _f, t, _x in _s4_pp if _f) if _s4_pp else 0
             _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"), _s4_path)
-            _s4_col = ("#26A69A" if _s4go.startswith("4/4") else "#FFB74D" if _s4go.startswith("3/4")
-                       else "#FF9800" if _s4go.startswith("2/4") else "#787B86")
+            _s4_col = ("#047857" if _s4go.startswith("4/4") else "#D97706" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#475569")
+            _s4_bg  = ("#D1FAE5" if _s4go.startswith("4/4") else "#FEF3C7" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#F1F5F9")
+            _s4_bdr = ("#6EE7B7" if _s4go.startswith("4/4") else "#FDE68A" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#CBD5E1")
             _s4_msg = ("all four gates align — the S4 chart should show GO" if _s4go.startswith("4/4")
                        else "no intraday trigger-TF read (can't preview)" if _s4go == "n/a"
                        else f"one/two gates from GO ({_s4go.split('· ')[-1]}) — a watch candidate")
-            st.markdown(f"<div style='border-left:3px solid {_s4_col};background:{_s4_col}14;"
-                        f"border-radius:4px;padding:6px 10px;margin:2px 0 8px;font-size:13px'>"
-                        f"⚡ <b>S4-GO (stage-2 closeness):</b> <b style='color:{_s4_col}'>{_s4go}</b> "
+            st.markdown(f"<div style='border-left:6px solid {_s4_col};background:linear-gradient(135deg, {_s4_bg} 0%, #FFFFFF 100%);border:1.5px solid {_s4_bdr};"
+                        f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:#0F172A;font-weight:700;box-shadow:0 2px 6px rgba(217,119,6,0.1);'>"
+                        f"⚡ <b style='color:#0F172A;'>S4-GO (stage-2 closeness):</b> <b style='color:{_s4_col};font-weight:800;'>{_s4go}</b> "
                         f"&nbsp;·&nbsp; PA · location · volume · bar — {_s4_msg}. Confirm on the S4 chart (final word)."
                         f"</div>", unsafe_allow_html=True)
         except Exception as _s4e:
@@ -13885,15 +14222,12 @@ elif page == 'GOLDEN MATCHER':
             _rec_active = bool(wf.get("recovery"))
             _mansf_disp = (_g(rec_r, "Mansfield_RS_x100") if _rec_active else mansfield)
             _canon_stage = _stg_digit(_g(rec, "Stage", default="")) or "—"
-            _h_board  = render_technical_board(rec, ctx, cmp_px, mansfield)
-            _h_pa     = section_pa_patterns(ctx, recovery=_rec_active)
+            _h_momentum, _h_minervini, _h_pa_signals = render_technical_board(rec, ctx, cmp_px, mansfield)
+            _h_pa_bull, _h_pa_rec = section_pa_patterns(ctx, recovery=_rec_active)
             _h_ctx    = section_context(rec, ctx, cmp_px)
             _h_struct = section_structure(rec, ctx, cmp_px, _mansf_disp, decision)
             _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)
             _h_edges  = section_edges(rec, ctx, cmp_px)
-            # Plan card: on the recovery path show the DISCIPLINED recovery levels
-            # (GM Step-6 plan, structural SL) instead of the bull catalyst geometry —
-            # was showing bull Entry/SL/T1/T2 for a recovery name (item 23).
             _h_trade  = (_recovery_plan_card(wf) if _rec_active else section_trade(rec, cmp_px))
             _h_levels = section_levels(rec, ctx, cmp_px)
             _h_sector = section_sector(rec, ctx, _mansf_disp)
@@ -13905,19 +14239,33 @@ elif page == 'GOLDEN MATCHER':
                         "disciplined recovery plan). The bull-leadership cards below "
                         "(Structure · Bull Gates · Edges) are shown as reference.")
             st.markdown(render_score_strip(_mpass), unsafe_allow_html=True)
-            c1, c2, c3 = st.columns(3, gap="medium")
-            with c1:
-                st.markdown(_h_board, unsafe_allow_html=True)
-                st.markdown(_h_pa, unsafe_allow_html=True)
-                st.markdown(_h_ctx, unsafe_allow_html=True)
-            with c2:
+            
+            # Top row: 3 columns (Momentum & Strength (left) · Minervini Trend Template (center) · Price-Action Signals (right))
+            mc1, mc2, mc3 = st.columns(3, gap="small")
+            with mc1:
+                st.markdown(_h_momentum, unsafe_allow_html=True)
+            with mc2:
+                st.markdown(_h_minervini, unsafe_allow_html=True)
+            with mc3:
+                st.markdown(_h_pa_signals, unsafe_allow_html=True)
+
+            # Section tiles: 4 horizontal columns for high density and tight field-value alignment
+            tc1, tc2, tc3, tc4 = st.columns(4, gap="small")
+            with tc1:
                 st.markdown(_h_struct, unsafe_allow_html=True)
-                st.markdown(_h_gates, unsafe_allow_html=True)
                 st.markdown(_h_edges, unsafe_allow_html=True)
                 st.markdown(_h_recov, unsafe_allow_html=True)
-            with c3:
-                st.markdown(_h_trade, unsafe_allow_html=True)
+            with tc2:
                 st.markdown(_h_levels, unsafe_allow_html=True)
+                if _h_pa_bull:
+                    st.markdown(_h_pa_bull, unsafe_allow_html=True)
+            with tc3:
+                st.markdown(_h_gates, unsafe_allow_html=True)
+                st.markdown(_h_trade, unsafe_allow_html=True)
+                if _h_pa_rec:
+                    st.markdown(_h_pa_rec, unsafe_allow_html=True)
+            with tc4:
+                st.markdown(_h_ctx, unsafe_allow_html=True)
                 st.markdown(_h_sector, unsafe_allow_html=True)
                 st.markdown(_h_funda, unsafe_allow_html=True)
     
@@ -14066,22 +14414,22 @@ elif page == 'TV SIDECAR':
                     _ic = "🟢" if _above else "🔴"
                     _di = f"{((_tv_price/_val)-1)*100:+.1f}%" if _val > 0 else ""
                     st.markdown(
-                        f'<div style="padding:5px 0;border-bottom:1px solid #1e3a5f;display:flex;gap:8px;font-size:0.82rem">'
+                        f'<div style="padding:5px 0;border-bottom:1px solid #CBD5E1;display:flex;gap:8px;font-size:0.82rem">'
                         f'<span>{_ic}</span>'
-                        f'<span style="flex:1;color:#c9d1d9">{_lbl}</span>'
-                        f'<span style="color:#58a6ff">₹{_val:,.2f}</span>'
-                        f'<span style="color:#8b949e;margin-left:8px">{_di}</span>'
+                        f'<span style="flex:1;color:#1E293B">{_lbl}</span>'
+                        f'<span style="color:#1D4ED8">₹{_val:,.2f}</span>'
+                        f'<span style="color:#475569;margin-left:8px">{_di}</span>'
                         f'</div>', unsafe_allow_html=True
                     )
             with _lv_col2:
                 for _lbl, _val, _col in [
-                    ("10D High", _tv_hi10, "#e3b341"),
-                    ("10D Low",  _tv_lo10, "#e3b341"),
-                    ("ATR(14)",  _tv_atr14, "#8b949e"),
+                    ("10D High", _tv_hi10, "#B45309"),
+                    ("10D Low",  _tv_lo10, "#B45309"),
+                    ("ATR(14)",  _tv_atr14, "#475569"),
                 ]:
                     st.markdown(
-                        f'<div style="padding:5px 0;border-bottom:1px solid #1e3a5f;display:flex;gap:8px;font-size:0.82rem">'
-                        f'<span style="flex:1;color:#c9d1d9">{_lbl}</span>'
+                        f'<div style="padding:5px 0;border-bottom:1px solid #CBD5E1;display:flex;gap:8px;font-size:0.82rem">'
+                        f'<span style="flex:1;color:#1E293B">{_lbl}</span>'
                         f'<span style="color:{_col}">₹{_val:,.2f}</span>'
                         f'</div>', unsafe_allow_html=True
                     )
@@ -14125,12 +14473,12 @@ elif page == 'TV SIDECAR':
                 open=_tv_hist["Open"], high=_tv_hist["High"],
                 low=_tv_hist["Low"],   close=_tv_hist["Close"],
                 name=_tv_sym,
-                increasing_line_color="#00f260", decreasing_line_color="#ff4b4b",
-                increasing_fillcolor="#00f260",  decreasing_fillcolor="#ff4b4b",
+                increasing_line_color="#15803D", decreasing_line_color="#DC2626",
+                increasing_fillcolor="#15803D",  decreasing_fillcolor="#DC2626",
             ), row=1, col=1)
             for _sl, _sv, _sc in [
-                ("SMA20",  _tv_hist["Close"].rolling(20).mean(),  "#e3b341"),
-                ("SMA50",  _tv_hist["Close"].rolling(50).mean(),  "#58a6ff"),
+                ("SMA20",  _tv_hist["Close"].rolling(20).mean(),  "#B45309"),
+                ("SMA50",  _tv_hist["Close"].rolling(50).mean(),  "#1D4ED8"),
                 ("SMA200", _tv_hist["Close"].rolling(200).mean(), "#a78bfa"),
             ]:
                 _fig_mp.add_trace(go.Scatter(
@@ -14140,7 +14488,7 @@ elif page == 'TV SIDECAR':
 
             # Row 2: Volume bars
             _vol_colors = [
-                "#00f260" if c >= o else "#ff4b4b"
+                "#15803D" if c >= o else "#DC2626"
                 for c, o in zip(_tv_hist["Close"], _tv_hist["Open"])
             ]
             _fig_mp.add_trace(go.Bar(
@@ -14151,20 +14499,20 @@ elif page == 'TV SIDECAR':
             # Row 3: RSI
             _fig_mp.add_trace(go.Scatter(
                 x=_tv_hist.index, y=_tv_rsi, name="RSI(14)", mode="lines",
-                line=dict(width=1.4, color="#58a6ff"), showlegend=False
+                line=dict(width=1.4, color="#1D4ED8"), showlegend=False
             ), row=3, col=1)
             _fig_mp.add_hrect(y0=70, y1=100, row=3, col=1,
                               fillcolor="rgba(255,75,75,0.08)", line_width=0)
             _fig_mp.add_hrect(y0=0, y1=30, row=3, col=1,
                               fillcolor="rgba(0,242,96,0.08)", line_width=0)
             _fig_mp.add_hline(y=70, row=3, col=1, line_dash="dot",
-                              line_color="#ff4b4b", line_width=1)
+                              line_color="#DC2626", line_width=1)
             _fig_mp.add_hline(y=30, row=3, col=1, line_dash="dot",
-                              line_color="#00f260", line_width=1)
+                              line_color="#15803D", line_width=1)
 
             # Row 4: MACD
             _macd_bar_colors = [
-                "#00f260" if v >= 0 else "#ff4b4b" for v in _tv_hist_macd.fillna(0)
+                "#15803D" if v >= 0 else "#DC2626" for v in _tv_hist_macd.fillna(0)
             ]
             _fig_mp.add_trace(go.Bar(
                 x=_tv_hist.index, y=_tv_hist_macd,
@@ -14172,21 +14520,21 @@ elif page == 'TV SIDECAR':
             ), row=4, col=1)
             _fig_mp.add_trace(go.Scatter(
                 x=_tv_hist.index, y=_tv_macd, name="MACD", mode="lines",
-                line=dict(width=1.2, color="#58a6ff"), showlegend=False
+                line=dict(width=1.2, color="#1D4ED8"), showlegend=False
             ), row=4, col=1)
             _fig_mp.add_trace(go.Scatter(
                 x=_tv_hist.index, y=_tv_sig, name="Signal", mode="lines",
-                line=dict(width=1.2, color="#e3b341"), showlegend=False
+                line=dict(width=1.2, color="#B45309"), showlegend=False
             ), row=4, col=1)
 
-            _common_ax = dict(gridcolor="#1e3a5f", showgrid=True, zeroline=False)
+            _common_ax = dict(gridcolor="#E2E8F0", showgrid=True, zeroline=False)
             _fig_mp.update_layout(
                 height=640, margin=dict(t=20, l=0, r=0, b=0),
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,10,0.5)",
+                paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
                 xaxis_rangeslider_visible=False,
-                legend=dict(font=dict(size=9, color="#c9d1d9"), bgcolor="rgba(0,0,0,0)",
+                legend=dict(font=dict(size=9, color="#1E293B"), bgcolor="rgba(0,0,0,0)",
                             orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
-                font=dict(color="#c9d1d9"),
+                font=dict(color="#1E293B"),
             )
             for _ax_key in ["xaxis", "xaxis2", "xaxis3", "xaxis4",
                             "yaxis",  "yaxis2",  "yaxis3",  "yaxis4"]:
@@ -14195,7 +14543,7 @@ elif page == 'TV SIDECAR':
 
             # Annotation: current RSI value
             _rsi_now = float(_tv_rsi.dropna().iloc[-1]) if not _tv_rsi.dropna().empty else 0
-            _rsi_col = "#ff4b4b" if _rsi_now > 70 else "#00f260" if _rsi_now < 30 else "#e3b341"
+            _rsi_col = "#DC2626" if _rsi_now > 70 else "#15803D" if _rsi_now < 30 else "#B45309"
             _fig_mp.add_annotation(
                 x=0.01, y=0.28, xref="paper", yref="paper",
                 text=f"RSI {_rsi_now:.1f}", showarrow=False,
@@ -14245,28 +14593,36 @@ elif page == 'ACTION CENTER':
     st.markdown("""
     <style>
         .metric-card {
-            background: #1e1e1e;
-            border-radius: 8px;
-            padding: 15px;
-            border-left: 4px solid #00f260;
+            background: #FFFFFF;
+            border-radius: 10px;
+            padding: 15px 18px;
+            border: 1.5px solid #E2E8F0;
+            border-left: 4px solid #15803D;
             margin-bottom: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
         }
         .metric-card.warning {
-            border-left: 4px solid #f1c40f;
+            border-left: 4px solid #B45309;
+            border-top: 1px solid #FCD34D;
         }
         .metric-card.danger {
-            border-left: 4px solid #ff4b4b;
+            border-left: 4px solid #DC2626;
+            border-top: 1px solid #FCA5A5;
         }
         .metric-title {
-            color: #888;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-bottom: 5px;
+            color: #64748B;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
         }
         .metric-value {
-            color: #fff;
-            font-size: 1.4em;
-            font-weight: bold;
+            color: #090D16;
+            font-size: 1.35rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -14468,11 +14824,11 @@ elif page == 'RISK SHIELD':
         _st = ("padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;"
                "font-weight:bold;vertical-align:middle;color:#ffffff;")
         if not label or label == "UNKNOWN":
-            return (f'<span style="{_st}background:#484f58;" title="Technicals unavailable '
+            return (f'<span style="{_st}background:#64748B;" title="Technicals unavailable '
                     f'— trade type not determined">TYPE UNKNOWN</span>')
         _sw = label.startswith("SWING")
         _inf = label.endswith("?")
-        _bg = "#8957e5" if _sw else "#238636"
+        _bg = "#7C3AED" if _sw else "#15803D"
         _tip = ("Inferred from the resting stop distance (technicals unavailable)"
                 if _inf else "Risk Shield classification: ATR% / dist-200 / WS score")
         return f'<span style="{_st}background:{_bg};{"opacity:0.7;" if _inf else ""}" title="{_tip}">{label}</span>'
@@ -14485,20 +14841,20 @@ elif page == 'RISK SHIELD':
         if not ai_text:
             return ""
         if ai_text.startswith("⚠ AI UNAVAILABLE") or ai_text == "AI review unavailable.":
-            return ('<div style="background:#2b1a1a;border-left:3px solid #f85149;padding:10px;'
-                    'border-radius:4px;margin-top:12px;font-size:0.8rem;color:#ffb3b3;'
-                    'line-height:1.4;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
+            return ('<div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:10px;'
+                    'border-radius:6px;margin-top:12px;font-size:0.8rem;color:#7F1D1D;'
+                    'line-height:1.4;font-weight:600;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
                     'The numbers above are unaffected.</div>')
         if ai_text.startswith("AI analysis pending"):
-            return ('<div style="background:#1c2128;border-left:3px solid #484f58;padding:10px;'
-                    'border-radius:4px;margin-top:12px;font-size:0.8rem;color:#8b949e;'
+            return ('<div style="background:#F8FAFC;border-left:4px solid #94A3B8;padding:10px;'
+                    'border-radius:6px;margin-top:12px;font-size:0.8rem;color:#475569;'
                     'line-height:1.4;">🤖 <b>AI:</b> not run yet — press “Run AI Analysis”.</div>')
         _txt = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
         _ts = st.session_state.get("ai_cache_ts")
-        _age = f' <span style="color:#6e7681;font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
-        return (f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:10px;'
-                f'border-radius:4px;margin-top:12px;font-size:0.8rem;color:#e6edf3;'
-                f'line-height:1.4;">🤖 <b>AI:</b>{_age}<br>{_txt}</div>')
+        _age = f' <span style="color:#475569;font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
+        return (f'<div style="background:#F0F9FF;border-left:4px solid #B45309;padding:12px;'
+                f'border-radius:6px;margin-top:12px;font-size:0.82rem;color:#0C4A6E;'
+                f'line-height:1.5;">🤖 <b>AI:</b>{_age}<br>{_txt}</div>')
 
     def get_stock_context_and_ai_review(symbol, order_type, **kwargs):
         from ai_provider_manager import ask_llm
@@ -14860,32 +15216,32 @@ elif page == 'RISK SHIELD':
                         if ltp and ltp > trigger: total_risk += qty * (ltp - trigger)
 
                 unprotected_count = len(unprotected_holdings)
-                unprotected_color = "#ff4b4b" if unprotected_count > 0 else "#00f260"
+                unprotected_color = "#DC2626" if unprotected_count > 0 else "#15803D"
                 unprotected_label = f"{unprotected_count} Positions" if unprotected_count > 0 else "All Protected ✅"
                 risk_deployed_pct = (total_risk / total_deployed_g) * 100 if total_deployed_g > 0 else 0.0
 
                 metrics_html = (
                     f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px;">'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #00f260;text-align:left;">'
+                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #15803D;text-align:left;">'
                     f'<div class="metric-label">Capital Protected</div>'
-                    f'<div class="metric-value" style="color:#00f260;font-size:1.5rem;">₹{format_inr_int(total_protected)}</div>'
-                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Active Stop Loss value</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #ff4b4b;text-align:left;">'
+                    f'<div class="metric-value" style="color:#15803D;font-size:1.5rem;">₹{format_inr_int(total_protected)}</div>'
+                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Active Stop Loss value</div></div>'
+                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #DC2626;text-align:left;">'
                     f'<div class="metric-label">Capital at Risk</div>'
-                    f'<div class="metric-value" style="color:#ff4b4b;font-size:1.5rem;">₹{format_inr_int(total_risk)} <span style="font-size:1rem; opacity:0.8;">({risk_deployed_pct:.1f}%)</span></div>'
-                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Loss to SL</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #58a6ff;text-align:left;">'
+                    f'<div class="metric-value" style="color:#DC2626;font-size:1.5rem;">₹{format_inr_int(total_risk)} <span style="font-size:1rem; opacity:0.8;">({risk_deployed_pct:.1f}%)</span></div>'
+                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Loss to SL</div></div>'
+                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #1D4ED8;text-align:left;">'
                     f'<div class="metric-label">Active Exits</div>'
-                    f'<div class="metric-value" style="color:#58a6ff;font-size:1.5rem;">{active_exits_count} Stocks</div>'
-                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #e3b341;text-align:left;">'
+                    f'<div class="metric-value" style="color:#1D4ED8;font-size:1.5rem;">{active_exits_count} Stocks</div>'
+                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
+                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #B45309;text-align:left;">'
                     f'<div class="metric-label">Pullback Entries</div>'
-                    f'<div class="metric-value" style="color:#e3b341;font-size:1.5rem;">{pending_entries_count} Orders</div>'
-                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Active GTT buy limits</div></div>'
+                    f'<div class="metric-value" style="color:#B45309;font-size:1.5rem;">{pending_entries_count} Orders</div>'
+                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Active GTT buy limits</div></div>'
                     f'<div class="metric-card" style="padding:14px;border-top:4px solid {unprotected_color};text-align:left;">'
                     f'<div class="metric-label">Unprotected</div>'
                     f'<div class="metric-value" style="color:{unprotected_color};font-size:1.5rem;">{unprotected_label}</div>'
-                    f'<div style="font-size:0.68rem;color:#5a8a9f;margin-top:2px;">Holdings with no SL</div></div>'
+                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Holdings with no SL</div></div>'
                     f'</div>'
                 )
                 st.markdown(metrics_html, unsafe_allow_html=True)
@@ -14908,7 +15264,7 @@ elif page == 'RISK SHIELD':
                     _heat_budget = _cap_base * (_rb_pct / 100.0) * max(_n_open_h, 1)
                     if _cap_base > 0:
                         _heat_ok = total_risk <= _heat_budget
-                        _hcol = "#00f260" if _heat_ok else "#ff4b4b"
+                        _hcol = "#15803D" if _heat_ok else "#DC2626"
                         _chip = (f" · 🌡️ Regime: <b>{_rs_regime_chip}</b>" if _rs_regime_chip else "")
                         st.markdown(
                             f"<div style='border:1.5px solid {_hcol};border-radius:8px;padding:8px 14px;"
@@ -15247,7 +15603,7 @@ elif page == 'RISK SHIELD':
                 # =====================================================================
                 # NEW ENHANCEMENTS: Actionable Alerts, Heatmap, What-If Tester, Risk Hist
                 # =====================================================================
-                st.markdown("<br><hr style='border-color:#30363d; margin: 10px 0;'>", unsafe_allow_html=True)
+                st.markdown("<br><hr style='border-color:#CBD5E1; margin: 10px 0;'>", unsafe_allow_html=True)
                 
                 portfolio_data = []
                 total_portfolio_value = 0
@@ -15332,11 +15688,11 @@ elif page == 'RISK SHIELD':
 
                 # 1. Alerts
                 if alerts:
-                    st.markdown('<div class="section-sub-lbl" style="color:#ff4b4b;margin-bottom:10px;">🚨 Requires Immediate Action</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="section-sub-lbl" style="color:#DC2626;margin-bottom:10px;">🚨 Requires Immediate Action</div>', unsafe_allow_html=True)
                     alert_cols = st.columns(3)
                     for i, al in enumerate(alerts):
                         with alert_cols[i % 3]:
-                            bg = "#ff4b4b" if al["type"] == "NO_SL" else ("#e3b341" if al["type"] == "EARNINGS" else "#bf40bf")
+                            bg = "#DC2626" if al["type"] == "NO_SL" else ("#B45309" if al["type"] == "EARNINGS" else "#bf40bf")
                             txt_c = "#fff" if al["type"] != "EARNINGS" else "#000"
                             st.markdown(f'<div style="background:{bg};color:{txt_c};padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:0.85rem;font-weight:bold;">{al["sym"]}: {al["msg"]}</div>', unsafe_allow_html=True)
 
@@ -15360,10 +15716,10 @@ elif page == 'RISK SHIELD':
                     
                     dd_pct = (sim_losses / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
                     st.markdown(f'''
-                    <div style="background:#0e2035;border:1px solid #30363d;padding:12px;border-radius:6px;margin-bottom:20px;">
-                        <div style="font-size:0.85rem;color:#8b949e;">Est. Portfolio Drawdown</div>
-                        <div style="font-size:1.6rem;font-weight:bold;color:#ff4b4b;">-{dd_pct:.2f}%</div>
-                        <div style="font-size:0.8rem;color:#c9d1d9;margin-top:8px;">Loss: ₹{sim_losses:,.0f} | SLs Hit: {hits}</div>
+                    <div style="background:#F0F9FF;border:1.5px solid #93C5FD;padding:14px;border-radius:8px;margin-bottom:20px;">
+                        <div style="font-size:0.85rem;color:#475569;">Est. Portfolio Drawdown</div>
+                        <div style="font-size:1.6rem;font-weight:bold;color:#DC2626;">-{dd_pct:.2f}%</div>
+                        <div style="font-size:0.8rem;color:#1E293B;margin-top:8px;">Loss: ₹{sim_losses:,.0f} | SLs Hit: {hits}</div>
                     </div>
                     ''', unsafe_allow_html=True)
                     
@@ -15397,13 +15753,13 @@ elif page == 'RISK SHIELD':
                     if len(dates) > 0:
                         fig2 = go.Figure(go.Scatter(
                             x=dates, y=risks, mode='lines+markers+text',
-                            text=[f"₹{r:,.0f}" for r in risks], textposition="top center", textfont=dict(color="#58a6ff", size=10),
-                            line=dict(color='#58a6ff', width=3), marker=dict(size=6, color='#58a6ff')
+                            text=[f"₹{r:,.0f}" for r in risks], textposition="top center", textfont=dict(color="#1D4ED8", size=10),
+                            line=dict(color='#1D4ED8', width=3), marker=dict(size=6, color='#1D4ED8')
                         ))
                         fig2.update_layout(
                             margin=dict(t=20, l=5, r=5, b=5), height=120,
-                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                            xaxis=dict(type='category', showgrid=False, visible=True, tickfont=dict(size=9, color="#8b949e")),
+                            paper_bgcolor='#FFFFFF', plot_bgcolor='#F8FAFC',
+                            xaxis=dict(type='category', showgrid=False, visible=True, tickfont=dict(size=9, color="#475569")),
                             yaxis=dict(showgrid=False, visible=False)
                         )
                         st.plotly_chart(fig2, use_container_width=True)
@@ -15426,7 +15782,7 @@ elif page == 'RISK SHIELD':
                 
                 with entry_tab0:
                     st.markdown('<div class="section-sub-lbl">✅ Review & Push (Morning Gate)</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Approve automatically generated Risk Management actions before pushing to Dhan.</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-size:0.85rem; color:#475569; margin-bottom:12px;">Approve automatically generated Risk Management actions before pushing to Dhan.</div>', unsafe_allow_html=True)
                     
                     proposed_actions = []
                     for sym, orders in sell_gtts_by_symbol.items():
@@ -15601,7 +15957,7 @@ elif page == 'RISK SHIELD':
                                         r_multiple_str = f"{r_multiple:+.2f}R"
                                     else:
                                         r_multiple = 0.0; r_multiple_str = "N/A"
-                                    r_color = "#00f260" if r_multiple > 0 else "#ff4b4b" if r_multiple < 0 else "#8b949e"
+                                    r_color = "#15803D" if r_multiple > 0 else "#DC2626" if r_multiple < 0 else "#475569"
 
                                     # SL/Target distances
                                     sl_vals = [o["sl_trigger"] for o in orders if o["sl_trigger"] is not None]
@@ -15616,26 +15972,26 @@ elif page == 'RISK SHIELD':
                                     for o_idx, o in enumerate(orders):
                                         sl = o["sl_trigger"]; tgt = o["target_trigger"]
                                         if sl is not None:
-                                            sl_str = f"SL <span style='color:#ff4b4b'>₹{sl:,.0f}</span>"
+                                            sl_str = f"SL <span style='color:#DC2626'>₹{sl:,.0f}</span>"
                                             if buy_price and ltp:
                                                 sl_d_e = (sl - buy_price) / buy_price * 100
                                                 sl_d_l = (sl - ltp) / ltp * 100
-                                                sl_str += f" (<span style='color:#8b949e'>{sl_d_e:+.1f}%</span> / <span style='color:#58a6ff'>{sl_d_l:+.1f}%</span>)"
+                                                sl_str += f" (<span style='color:#475569'>{sl_d_e:+.1f}%</span> / <span style='color:#1D4ED8'>{sl_d_l:+.1f}%</span>)"
                                             sl_parts.append(sl_str)
                                         if tgt is not None:
                                             label = f"T{o_idx+1}"
-                                            tgt_str = f"<span style='color:#00f260'>{label} ₹{tgt:,.0f}</span>"
+                                            tgt_str = f"<span style='color:#15803D'>{label} ₹{tgt:,.0f}</span>"
                                             if buy_price and ltp:
                                                 tgt_d_e = (tgt - buy_price) / buy_price * 100
                                                 tgt_d_l = (tgt - ltp) / ltp * 100
-                                                tgt_str += f" (<span style='color:#8b949e'>{tgt_d_e:+.1f}%</span> / <span style='color:#58a6ff'>{tgt_d_l:+.1f}%</span>)"
+                                                tgt_str += f" (<span style='color:#475569'>{tgt_d_e:+.1f}%</span> / <span style='color:#1D4ED8'>{tgt_d_l:+.1f}%</span>)"
                                                 if sl is not None and (buy_price - sl) > 0:
                                                     r_val = (tgt - buy_price) / (buy_price - sl)
-                                                    tgt_str += f" <span style='color:#e3b341;font-weight:bold;'>[{r_val:.1f}R]</span>"
+                                                    tgt_str += f" <span style='color:#B45309;font-weight:bold;'>[{r_val:.1f}R]</span>"
                                             tgt_parts.append(tgt_str)
 
-                                    header_entry = f"<b style='color:#8b949e;'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:#8b949e;'>Entry: N/A</b>"
-                                    header_ltp = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#58a6ff;'>LTP: N/A</b>"
+                                    header_entry = f"<b style='color:#475569;'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:#475569;'>Entry: N/A</b>"
+                                    header_ltp = f"<b style='color:#1D4ED8;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#1D4ED8;'>LTP: N/A</b>"
                                     
                                     # Calculate ATR + is_swing first for Time Stop logic.
                                     # Trade type comes from rs_trade_type — the ONE rule
@@ -15722,31 +16078,31 @@ elif page == 'RISK SHIELD':
                                         _pyr_reason = _pyr_rec.get("trigger", "")
                                         
                                         if _class == "EXIT":
-                                            _flags.append("<span style='background:#4a1d1d;color:#f87171;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #ff4b4b;'>⬇ EXIT</span>")
+                                            _flags.append("<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCA5A5;'>⬇ EXIT</span>")
                                         elif _class == "TRIM":
-                                            _flags.append("<span style='background:#43290f;color:#fb923c;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #fb923c;'>✂️ TRIM</span>")
+                                            _flags.append("<span style='background:#FEF3C7;color:#B45309;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCD34D;'>✂️ TRIM</span>")
                                         elif _class == "REDUCE":
-                                            _flags.append("<span style='background:#10314f;color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                            _flags.append("<span style='background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
                                         elif _class == "ADD":
-                                            _flags.append("<span style='background:#1e4620;color:#4ade80;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                            _flags.append("<span style='background:#F0FDF4;color:#15803D;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
                                         else:  # HOLD
-                                            _flags.append("<span style='background:#2d2d2d;color:#d1d5db;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
+                                            _flags.append("<span style='background:#F1F5F9;color:#334155;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
-                                            _flags.append(f"<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
+                                            _flags.append(f"<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
 
                                         if _tech.get("vol_breakout"):
-                                            _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                            _flags.append("<span style='background:#15803D;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
                                         elif _tech.get("vol_climax"):
-                                            _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                            _flags.append("<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
-                                            _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                            _flags.append(f"<span style='background:#B45309;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
                                             # B1: show which path chose the trail multiplier
                                             _ce_lbl = f"{_tech.get('ce_mult'):.1f}×·{_tech.get('ce_mult_src')}" if _tech.get("ce_mult") else "22D"
-                                            _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                            _flags.append(f"<span style='background:#F1F5F9;color:#1E293B;border:1.5px solid #94A3B8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}</span>")
                                         if _tech.get("invalid_ce_override"):
-                                            _flags.append(f"<span style='background:#5a1e1e;color:#ffb3b3;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠ invalid CE override ignored</span>")
+                                            _flags.append(f"<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠ invalid CE override ignored</span>")
                                         if _flags:
                                             flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                             
@@ -15760,10 +16116,10 @@ elif page == 'RISK SHIELD':
                                     t2_price = tgt_vals[1] if len(tgt_vals) > 1 else (tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.15 if buy_price else 0))
                                     sl_price = near_sl if near_sl else (buy_price * 0.94 if buy_price else 0)
 
-                                    dhan_oco_card_html = f"""<div style='background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 8px;margin-top:6px;font-size:0.75rem;'>
-                                        <div style='color:#58a6ff;font-weight:bold;margin-bottom:2px;'>📌 Dhan 2-OCO Plan · 50/50 Fixed ({_oco_family})</div>
-                                        <div style='color:#4ade80;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Fixed) ₹{t1_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
-                                        <div style='color:#a7f3d0;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 (Fixed) ₹{t2_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
+                                    dhan_oco_card_html = f"""<div style='background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;margin-top:8px;font-size:0.78rem;'>
+                                        <div style='color:#1D4ED8;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 Dhan 2-OCO Plan · 50/50 Fixed ({_oco_family})</div>
+                                        <div style='color:#15803D;font-weight:700;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Fixed) ₹{t1_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
+                                        <div style='color:#166534;font-weight:600;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 (Fixed) ₹{t2_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
                                     </div>"""
 
                                     combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>{dhan_oco_card_html}"
@@ -15809,10 +16165,10 @@ elif page == 'RISK SHIELD':
                                         def _rr(t):
                                             if not t or not _rr_risk or _rr_risk <= 0:
                                                 return ''
-                                            return f' <span style="color:#6e7681">({(t - ltp) / _rr_risk:.1f}R)</span>'
-                                        t1_str = f' | Rec T1: <span style="color:#ffb000">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        t2_str = f' | Rec T2: <span style="color:#ffb000">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
-                                        rec_line = f'<div style="font-size:0.75rem;margin-top:8px;color:#8b949e;">Rec SL: <span style="color:#bf40bf">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
+                                            return f' <span style="color:#475569">({(t - ltp) / _rr_risk:.1f}R)</span>'
+                                        t1_str = f' | Rec T1: <span style="color:#D97706">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        t2_str = f' | Rec T2: <span style="color:#D97706">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
+                                        rec_line = f'<div style="font-size:0.75rem;margin-top:8px;color:#475569;">Rec SL: <span style="color:#7C3AED">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
                                             
                                     if ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
@@ -15854,7 +16210,7 @@ elif page == 'RISK SHIELD':
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#ff4b4b;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #ff4b4b;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#DC2626;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #DC2626;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
                                                 else:
                                                     markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#eab308;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
                                             if atr_sl:
@@ -15862,25 +16218,25 @@ elif page == 'RISK SHIELD':
                                                 markers_html += f'<div style="position:absolute;left:{atr_pos:.1f}%;top:-2px;width:12px;height:12px;background:#bf40bf;border-radius:50%;transform:translateX(-50%);" title="AI Rec SL ₹{atr_sl:,.0f}"></div>'
                                             for sv in sl_vals:
                                                 pos = (sv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#ff4b4b;border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#DC2626;border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
                                             if buy_price:
                                                 entry_pos = (buy_price - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{buy_price:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{buy_price:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
                                             
                                             for tv in tgt_vals:
                                                 pos = (tv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#00f260;border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{tv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#15803D;border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{tv:,.0f}"></div>'
                                                 
                                             if rec_t1:
                                                 t1_pos = (rec_t1 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:#ffb000;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:#D97706;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
                                             if rec_t2:
                                                 t2_pos = (rec_t2 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:#ffb000;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:#D97706;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                                 
-                                            progress_bar_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            progress_bar_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
 
                                     # Trail SL recommendation
                                     reco_parts = []
@@ -15896,8 +16252,8 @@ elif page == 'RISK SHIELD':
                                         reco_parts.append(f"⚖️ Pyramid/Trim: {_pyr_reason}")
                                     reco_str = " · ".join(reco_parts) if reco_parts else "✅ Position in range"
 
-                                    status_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
-                                    reco_color = "#ff4b4b" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#ffb000" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#00f260"
+                                    status_color = "#DC2626" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#D97706" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#15803D"
+                                    reco_color = "#DC2626" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#D97706" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#15803D"
 
                                     ai_key = f"ai_exit_review_{sym}"
                                     # Badge is Risk Shield's call, NOT parsed from the AI reply.
@@ -15910,15 +16266,15 @@ elif page == 'RISK SHIELD':
                                         f'<div class="metric-card" style="padding:16px;margin-bottom:12px;border-left:4px solid {status_color};text-align:left;">'
                                         f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.2rem;font-weight:700;color:#58a6ff;vertical-align:middle;">{sym}</span>'
+                                        f'<div><span style="font-size:1.2rem;font-weight:700;color:#1D4ED8;vertical-align:middle;">{sym}</span>'
                                         f'{trade_style_badge}'
-                                        f'<span style="font-size:0.8rem;color:#8b949e;margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
-                                        f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.75rem;color:#8b949e;">'
+                                        f'<span style="font-size:0.8rem;color:#475569;margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
+                                        f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.75rem;color:#475569;">'
                                         f'R-Mult: <span style="font-family:JetBrains Mono;color:{r_color};font-weight:bold;">{r_multiple_str}</span>'
-                                        f' · Risk: <span style="font-family:JetBrains Mono;color:#ff4b4b;font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
+                                        f' · Risk: <span style="font-family:JetBrains Mono;color:#DC2626;font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
                                         f'{progress_bar_html}'
                                         f'{rec_line}'
-                                        f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">'
+                                        f'<div style="font-size:0.8rem;color:#1E293B;margin-top:5px;line-height:1.6;">'
                                         f'<div>{combined_line}</div></div>'
                                         f'<div style="margin-top:8px;font-size:0.78rem;line-height:1.35;color:{reco_color};font-weight:600;">{reco_str}</div>'
                                         f'{ai_html}</div>'
@@ -15939,7 +16295,7 @@ elif page == 'RISK SHIELD':
                                     ltp = ltps.get(sym) or s["price"] or 0
                                     dist = (ltp - trigger) / ltp * 100 if ltp else 0.0
                                     label = "Stop Loss" if trigger < ltp else "Target"
-                                    color = "#ff4b4b" if trigger < ltp else "#00f260"
+                                    color = "#DC2626" if trigger < ltp else "#15803D"
                                     
                                     flags_html = ""
                                     # Compute Days Held
@@ -16000,30 +16356,30 @@ elif page == 'RISK SHIELD':
                                         _pyr_reason = _pyr_rec.get("trigger", "")
                                         
                                         if _class == "EXIT":
-                                            _flags.append("<span style='background:#4a1d1d;color:#f87171;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #ff4b4b;'>⬇ EXIT</span>")
+                                            _flags.append("<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCA5A5;'>⬇ EXIT</span>")
                                         elif _class == "TRIM":
-                                            _flags.append("<span style='background:#43290f;color:#fb923c;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #fb923c;'>✂️ TRIM</span>")
+                                            _flags.append("<span style='background:#FEF3C7;color:#B45309;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCD34D;'>✂️ TRIM</span>")
                                         elif _class == "REDUCE":
-                                            _flags.append("<span style='background:#10314f;color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                            _flags.append("<span style='background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
                                         elif _class == "ADD":
-                                            _flags.append("<span style='background:#1e4620;color:#4ade80;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                            _flags.append("<span style='background:#F0FDF4;color:#15803D;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
                                         else:  # HOLD
-                                            _flags.append("<span style='background:#2d2d2d;color:#d1d5db;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
+                                            _flags.append("<span style='background:#F1F5F9;color:#334155;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
-                                            _flags.append(f"<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
+                                            _flags.append(f"<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
 
-                                        if _tech_flag.get("vol_breakout"): _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
-                                        elif _tech_flag.get("vol_climax"): _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
-                                        if _tech_flag.get("days_to_earnings") is not None and _tech_flag.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech_flag.get('days_to_earnings')}d</span>")
-                                        if _tech_flag.get("chandelier_exit"): _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech_flag.get('chandelier_exit'):.0f}</span>")
+                                        if _tech_flag.get("vol_breakout"): _flags.append("<span style='background:#15803D;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                        elif _tech_flag.get("vol_climax"): _flags.append("<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                        if _tech_flag.get("days_to_earnings") is not None and _tech_flag.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#B45309;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech_flag.get('days_to_earnings')}d</span>")
+                                        if _tech_flag.get("chandelier_exit"): _flags.append(f"<span style='background:#F1F5F9;color:#1E293B;border:1.5px solid #94A3B8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>TSL(22D): ₹{_tech_flag.get('chandelier_exit'):.0f}</span>")
                                         if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                         
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_single_review_{sym}_{s['order_id']}"
                                     ai_html = _rs_ai_card(st.session_state.get(ai_key))
-                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#fb923c;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
-                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{reason_line}{ai_html}</div>', unsafe_allow_html=True)
+                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#92400E;font-weight:600;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
+                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#1D4ED8;">{sym}</span> <span style="font-size:0.8rem;color:#475569;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#1E293B;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{reason_line}{ai_html}</div>', unsafe_allow_html=True)
 
                     # Unprotected Holdings
                     if unprotected_holdings:
@@ -16038,7 +16394,7 @@ elif page == 'RISK SHIELD':
                                     sym = h["symbol"]; bp = h["buy_price"]; qty = h["qty"]
                                     ltp = ltps.get(sym) or h["ltp"] or 0
                                     pnl_pct = ((ltp - bp) / bp * 100) if bp else 0.0
-                                    pnl_color = "#00f260" if pnl_pct >= 0 else "#ff4b4b"
+                                    pnl_color = "#15803D" if pnl_pct >= 0 else "#DC2626"
                                     
                                     _tech = hist_data.get(sym)
                                     atr_val = 0
@@ -16111,26 +16467,26 @@ elif page == 'RISK SHIELD':
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#ff4b4b;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #ff4b4b;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#DC2626;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #DC2626;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
                                                 else:
                                                     markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#eab308;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
                                                     
                                             entry_pos = (bp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             
                                             sl_pos = (rec_sl - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{sl_pos:.1f}%;top:-3px;width:14px;height:14px;background:#bf40bf;border-radius:50%;transform:translateX(-50%);" title="Rec SL ₹{rec_sl:,.0f}"></div>'
                                             
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
                                             if rec_t1:
                                                 t1_pos = (rec_t1 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:#00f260;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:#15803D;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
                                             
                                             t2_pos = (rec_t2 - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:#00f260;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:#15803D;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                             
-                                        pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        pb_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
                                         badge_html = _rs_type_badge(tt_label)
                                         
@@ -16139,9 +16495,9 @@ elif page == 'RISK SHIELD':
                                         def _rr(t, _px=ltp, _rk=_rr_risk):
                                             if not t or not _rk or _rk <= 0:
                                                 return ''
-                                            return f' <span style="color:#6e7681">({(t - _px) / _rk:.1f}R)</span>'
-                                        t1_str = f' | Rec T1: <span style="color:#00f260">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        rec_line = f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:5px;line-height:1.6;">Rec SL: <span style="color:#bf40bf">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#00f260">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
+                                            return f' <span style="color:#475569">({(t - _px) / _rk:.1f}R)</span>'
+                                        t1_str = f' | Rec T1: <span style="color:#15803D">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        rec_line = f'<div style="font-size:0.8rem;color:#1E293B;margin-top:5px;line-height:1.6;">Rec SL: <span style="color:#7C3AED">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#15803D">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
                                     elif bp and ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
@@ -16166,10 +16522,10 @@ elif page == 'RISK SHIELD':
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
                                                 markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
                                             entry_pos = (bp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
-                                        pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                        pb_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_unprotected_review_{sym}"
@@ -16183,34 +16539,34 @@ elif page == 'RISK SHIELD':
                                     
                                     _flags = []
                                     if _class == "EXIT":
-                                        _flags.append("<span style='background:#4a1d1d;color:#f87171;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #ff4b4b;'>⬇ EXIT</span>")
+                                        _flags.append("<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCA5A5;'>⬇ EXIT</span>")
                                     elif _class == "TRIM":
-                                        _flags.append("<span style='background:#43290f;color:#fb923c;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #fb923c;'>✂️ TRIM</span>")
+                                        _flags.append("<span style='background:#FEF3C7;color:#B45309;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCD34D;'>✂️ TRIM</span>")
                                     elif _class == "REDUCE":
-                                        _flags.append("<span style='background:#10314f;color:#60a5fa;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                        _flags.append("<span style='background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
                                     elif _class == "ADD":
-                                        _flags.append("<span style='background:#1e4620;color:#4ade80;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                        _flags.append("<span style='background:#F0FDF4;color:#15803D;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
                                     else:  # HOLD
-                                        _flags.append("<span style='background:#2d2d2d;color:#d1d5db;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
+                                        _flags.append("<span style='background:#F1F5F9;color:#334155;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                     
                                     if _tech:
-                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#00f260;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
-                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:#ff4b4b;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
-                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#e3b341;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
-                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:#2d333b;color:#c9d1d9;padding:2px 6px;border-radius:4px;font-size:0.7rem;border:1px solid #444c56;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#15803D;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#B45309;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:#F1F5F9;color:#1E293B;border:1.5px solid #94A3B8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
                                     if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
                                         
-                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#fb923c;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
+                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#92400E;font-weight:600;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
                                     card_html = (
-                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #ff4b4b;text-align:left;">'
+                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #DC2626;text-align:left;">'
                                         f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.1rem;font-weight:700;color:#58a6ff;vertical-align:middle;">{sym}</span>{badge_html}'
-                                        f' <span style="font-size:0.8rem;color:#ff4b4b;margin-left:8px;">⚠️ NO SL</span></div>'
-                                        f'<div style="font-size:0.8rem;color:#8b949e;padding-right:20px;">Qty: {qty}</div></div>'
+                                        f'<div><span style="font-size:1.1rem;font-weight:700;color:#1D4ED8;vertical-align:middle;">{sym}</span>{badge_html}'
+                                        f' <span style="font-size:0.8rem;color:#DC2626;margin-left:8px;">⚠️ NO SL</span></div>'
+                                        f'<div style="font-size:0.8rem;color:#475569;padding-right:20px;">Qty: {qty}</div></div>'
                                         f'{flags_html}'
                                         f'{pb_html}'
-                                        f'<div style="font-size:0.8rem;color:#c9d1d9;line-height:1.6;">'
+                                        f'<div style="font-size:0.8rem;color:#1E293B;line-height:1.6;">'
                                         f'Cost ₹{bp:,.2f} → LTP ₹{ltp:,.2f} <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
                                         f'</div>'
                                         f'{rec_line}'
@@ -16248,19 +16604,19 @@ elif page == 'RISK SHIELD':
                                     # BELOW LTP = dip buy-limit (fills automatically on the touch, no
                                     # confirmation). Flag the latter so it isn't a blind zone-buy.
                                     if not ltp:
-                                        kind_lbl = ""; status = "LTP: N/A"; dist_color = "#5a8a9f"; border = "#e3b341"
+                                        kind_lbl = ""; status = "LTP: N/A"; dist_color = "#334155"; border = "#B45309"
                                     elif trigger > ltp:
                                         kind_lbl = "Breakout buy-stop"
-                                        dist_color = "#00f260" if gap_pct <= 2 else "#58a6ff"
+                                        dist_color = "#15803D" if gap_pct <= 2 else "#1D4ED8"
                                         status = f"🟢 {gap_pct:.1f}% below trigger — waiting for breakout confirmation"
-                                        border = "#00f260"
+                                        border = "#15803D"
                                     elif gap_pct <= 0.5:
                                         kind_lbl = "Dip buy-limit"
-                                        dist_color = "#ffb000"; border = "#ffb000"
+                                        dist_color = "#D97706"; border = "#D97706"
                                         status = f"🟡 At trigger — fills on touch (no confirmation)"
                                     else:
                                         kind_lbl = "Dip buy-limit"
-                                        dist_color = "#ffb000" if gap_pct <= 3 else "#8b949e"; border = "#e3b341"
+                                        dist_color = "#D97706" if gap_pct <= 3 else "#475569"; border = "#B45309"
                                         status = f"{'🟡' if gap_pct <= 3 else '⚪'} {gap_pct:.1f}% above trigger — waiting for pullback (resting limit, no confirmation)"
                                     pb_html = ""
                                     if ltp and trigger:
@@ -16279,45 +16635,45 @@ elif page == 'RISK SHIELD':
                                                 ema_pos = (ema20 - bar_min) / bar_range * 100
                                                 markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
                                             trigger_pos = (trigger - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{trigger_pos:.1f}%;top:-3px;width:14px;height:14px;background:#e3b341;border-radius:50%;transform:translateX(-50%);" title="Trigger ₹{trigger:,.2f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{trigger_pos:.1f}%;top:-3px;width:14px;height:14px;background:#B45309;border-radius:50%;transform:translateX(-50%);" title="Trigger ₹{trigger:,.2f}"></div>'
                                             
                                             if price != trigger:
                                                 limit_pos = (price - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{limit_pos:.1f}%;top:-2px;width:12px;height:12px;background:#8b949e;border-radius:50%;transform:translateX(-50%);" title="Limit ₹{price:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{limit_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Limit ₹{price:,.2f}"></div>'
                                             
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#58a6ff;border:2px solid #0a0e14;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.2f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.2f}"></div>'
                                             
-                                            pb_html = f'<div style="width:100%;background:#1e3a5f;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            pb_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
-                                    kind_html = f' <span style="font-size:0.7rem;color:#8b949e;">· {kind_lbl}</span>' if kind_lbl else ""
+                                    kind_html = f' <span style="font-size:0.7rem;color:#475569;">· {kind_lbl}</span>' if kind_lbl else ""
                                     
                                     setup_warning_html = ""
                                     _tech_dict = hist_data.get(sym)
                                     if _tech_dict:
                                         if _tech_dict.get("ws_score", 100) < 50 or _tech_dict.get("sma200_slope", 0) < 0:
-                                            setup_warning_html = '<div style="font-size:0.75rem;color:#ff4b4b;font-weight:bold;margin-top:4px;">🚨 INVALID SETUP WARNING (WS Score < 50 or SMA200 slope < 0)</div>'
-                                            border = "#ff4b4b"
+                                            setup_warning_html = '<div style="font-size:0.75rem;color:#DC2626;font-weight:bold;margin-top:4px;">🚨 INVALID SETUP WARNING (WS Score < 50 or SMA200 slope < 0)</div>'
+                                            border = "#DC2626"
                                             
-                                    entry_line = f"<b style='color:#e3b341;'>Trigger ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
-                                    ltp_line = f"<b style='color:#58a6ff;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
+                                    entry_line = f"<b style='color:#B45309;'>Trigger ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
+                                    ltp_line = f"<b style='color:#1D4ED8;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
                                 
                                     ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
                                     trade_style_badge = _rs_type_badge(rs_trade_type.get(sym, (None, "UNKNOWN"))[1])
 
                                     card = (
                                         f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {border};text-align:left;">'
-                                        f'<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span>{trade_style_badge}'
-                                        f' <span style="font-size:0.8rem;color:#8b949e;">Qty: {b["qty"]}</span>{kind_html}'
+                                        f'<span style="font-size:1.1rem;font-weight:700;color:#1D4ED8;">{sym}</span>{trade_style_badge}'
+                                        f' <span style="font-size:0.8rem;color:#475569;">Qty: {b["qty"]}</span>{kind_html}'
                                         f'{pb_html}'
-                                        f'<div style="font-size:0.8rem;color:#c9d1d9;margin-top:6px;line-height:1.6;">'
+                                        f'<div style="font-size:0.8rem;color:#1E293B;margin-top:6px;line-height:1.6;">'
                                         f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div>{setup_warning_html}</div></div>'
                                     )
                                     st.markdown(card, unsafe_allow_html=True)
 
                                     ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
                                     if ai_key in st.session_state:
-                                        st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+                                        st.markdown(f'<div style="background:#F0F9FF;border-left:4px solid #B45309;padding:8px;border-radius:6px;margin-bottom:10px;font-size:0.78rem;color:#090D16;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
 
                 # ── Tab 4: Risk Profile ──
                 with entry_tab4:
@@ -16330,22 +16686,22 @@ elif page == 'RISK SHIELD':
                     portfolio_risk_pct = (total_risk / _equity_rp) * 100 if _equity_rp > 0 else 0.0
                     if portfolio_risk_pct <= 1.0:
                         risk_grade = "A+ (Excellent)"
-                        risk_grade_color = "#00f260"
+                        risk_grade_color = "#15803D"
                     elif portfolio_risk_pct <= 2.0:
                         risk_grade = "A (Good)"
-                        risk_grade_color = "#00f260"
+                        risk_grade_color = "#15803D"
                     elif portfolio_risk_pct <= 5.0:
                         risk_grade = "B (Moderate)"
-                        risk_grade_color = "#e3b341"
+                        risk_grade_color = "#B45309"
                     else:
                         risk_grade = "C (High Risk)"
-                        risk_grade_color = "#ff4b4b"
+                        risk_grade_color = "#DC2626"
 
                     st.markdown(
                         f'<div class="metric-card" style="padding:20px;text-align:center;margin-bottom:15px;border-top:3px solid {risk_grade_color};">'
                         f'<div class="metric-label">Total Open Heat & Risk Grade</div>'
                         f'<div class="metric-value" style="color:{risk_grade_color};font-size:2rem;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
-                        f'<div style="font-size:0.8rem;color:#5a8a9f;margin-top:4px;">'
+                        f'<div style="font-size:0.8rem;color:#334155;margin-top:4px;">'
                         f'Total capital at risk from current LTP to Stop Loss is <b>₹{format_inr_int(total_risk)}</b> '
                         f'on total portfolio equity of <b>₹{format_inr_int(_equity_rp)}</b> '
                         f'(holdings ₹{format_inr_int(total_portfolio_value)} + cash ₹{format_inr_int(balance)}).'
@@ -16455,7 +16811,7 @@ elif page == 'RISK SHIELD':
                 # ── Tab 5: Settings & Overrides ──
                 with entry_tab5:
                     st.markdown('<div class="section-sub-lbl">⚙️ Manual SL & Multiplier Overrides</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="font-size:0.85rem; color:#8b949e; margin-bottom:12px;">Configure persistent manual overrides for positions. These overrides are saved to the database and will bypass the dynamic mechanical rules.</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-size:0.85rem; color:#475569; margin-bottom:12px;">Configure persistent manual overrides for positions. These overrides are saved to the database and will bypass the dynamic mechanical rules.</div>', unsafe_allow_html=True)
 
                     # A7: manual-SL override semantics (applies to all manual overrides)
                     _rs_c1, _rs_c2 = st.columns(2)

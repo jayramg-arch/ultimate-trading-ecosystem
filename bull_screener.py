@@ -99,8 +99,17 @@ CONFIG = {
     "min_turnover_cr": 5.0,
     "alpha_gate": 60,
     "data_lookback_days": 400,
-    "download_delay_sec": 0.0
+    "download_delay_sec": 0.0,
+    # VDU lookback for SWG-PB (3-Aug). 1 = original single-bar gate.
+    "vdu_window": 3
 }
+
+# SWG-REV kill switch (Jay, 31-Jul-2026). Retired on payoff geometry, not calibration —
+# the full reasoning sits at the catalyst branch in classify_catalyst(). Env override so
+# a validation run can A/B it without a code edit:  SWG_REV_ENABLED=1 python validation.py
+# NOTE for catalyst_sentinel: a zero SWG-REV count is EXPECTED while this is False and
+# must not be read as a blackout.
+SWG_REV_ENABLED = os.environ.get("SWG_REV_ENABLED", "0") not in ("0", "false", "False", "")
 
 def to_yf(symbol: str) -> str:
     s = str(symbol).strip().upper()
@@ -773,9 +782,24 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
 
     intraday_pos = (c_now - l_now) / (h_now - l_now) if h_now > l_now else 0
     # VDU gate — Pine v3.1 line 1275: single-bar vol < 85% avg AND declining close
-    vol_drying = (
-        float(v.iloc[-1]) < float(ind["vol_ma"].iloc[-1]) * 0.85 and
-        c_now < float(c.iloc[-2])
+    # VDU gate. ORIGINAL (Pine v3.1 line 1275) was a SINGLE-BAR test: today's volume
+    # under 85% of average AND today closed DOWN. Measured 3-Aug on nifty500 it was the
+    # binding constraint on the whole pullback book — 17 names passed everything else and
+    # only 2 survived this, an 88% cut.
+    # The second clause is the real problem: requiring `close < close[-2]` means the name
+    # must still be FALLING, so the gate can flag a pullback in progress but can never
+    # flag the TURN — the reversal bar, which is the bar you would actually enter on.
+    # WINDOWED (VDU_WINDOW bars): dry-up is a property of the pullback, not of one candle,
+    # so it is satisfied if ANY bar in the recent window was dry. The falling-close clause
+    # is kept but measured over the same window, so a name that dried up and has now
+    # turned up still qualifies. Location and depth are already established by
+    # is_ema_pb_zone and rsi_pb_pocket, so this clause was doing little except excluding
+    # the entry bar. Set VDU_WINDOW = 1 to restore the original single-bar behaviour.
+    _vdu_w = CONFIG.get("vdu_window", 3)
+    _vma   = float(ind["vol_ma"].iloc[-1])
+    vol_drying = any(
+        float(v.iloc[-i]) < _vma * 0.85 and float(c.iloc[-i]) < float(c.iloc[-i - 1])
+        for i in range(1, _vdu_w + 1)
     )
     dist_ema20 = abs(c_now - ema20_now) / ema20_now * 100
     is_ema_pb_zone = dist_ema20 <= 2.5
@@ -959,12 +983,28 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
 
     # SWG-PB funnel (Pine-parity gate chain)
     FUNNEL["SWGPB_eligible"]    += 1
-    FUNNEL["SWGPB_pass_mkt"]    += 1 if mkt_bull else 0   # context only
-    FUNNEL["SWGPB_pass_pullback"]  += 1 if bull_pullback else 0
-    FUNNEL["SWGPB_pass_vcp"]    += 1 if (bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_mastack"] += 1 if (minervini and bull_pullback and is_vcp_tight) else 0
-    FUNNEL["SWGPB_pass_rsipocket"] += 1 if (minervini and bull_pullback and is_vcp_tight and pb_pocket_pa) else 0
-    FUNNEL["SWGPB_pass_voldry"] += 1 if (bull_pullback and is_vcp_tight and pb_ma_stack and pb_pocket_pa and pb_vol_dry) else 0
+    # REWRITTEN 3-Aug: this funnel had drifted off the gate it exists to diagnose, and
+    # every line of it was misleading:
+    #   * "mkt" counted mkt_bull, but the gate has used mkt_not_bear since the 2-Jul
+    #     relaxation — so it read 0/488 on a NOT_BULL tape while the real gate was open,
+    #     pointing the investigation straight at the wrong condition.
+    #   * "pullback" counted bull_pullback; the gate tests is_ema_pb_zone.
+    #   * "mastack" counted minervini; the gate tests pb_ma_stack.
+    # Now mirrors classify_catalyst's SWG-PB branch condition-for-condition, cumulatively,
+    # so each line is "survivors after adding this gate" and the drop between two lines is
+    # that gate's true cost.
+    _pb1 = mkt_not_bear
+    _pb2 = _pb1 and is_ema_pb_zone
+    _pb3 = _pb2 and is_vcp_tight
+    _pb4 = _pb3 and pb_ma_stack
+    _pb5 = _pb4 and pb_pocket_pa
+    _pb6 = _pb5 and vol_drying
+    FUNNEL["SWGPB_pass_mkt"]       += 1 if _pb1 else 0
+    FUNNEL["SWGPB_pass_pullback"]  += 1 if _pb2 else 0
+    FUNNEL["SWGPB_pass_vcp"]       += 1 if _pb3 else 0
+    FUNNEL["SWGPB_pass_mastack"]   += 1 if _pb4 else 0
+    FUNNEL["SWGPB_pass_rsipocket"] += 1 if _pb5 else 0
+    FUNNEL["SWGPB_pass_voldry"]    += 1 if _pb6 else 0
 
     # Sub-funnel: weinstein_setup composition
     FUNNEL["WEIN_stage_ok"]        += 1 if stage_ok else 0
@@ -1036,7 +1076,20 @@ def check_conditions(ind: dict, weekly: dict, alpha: int,
         cat_id = 3; cat_label = "SWG-PB"
     # SWG-REV: not stage4 + rev_struct + PRICE-ACTION oversold (pa_oversold,
     #   replaces RSI<35) + bullish reversal confirm (close>open and close>prior high)
-    elif (not_stage4 and rev_struct and pa_oversold and c_now > o_now and
+    # RETIRED 31-Jul-2026 (Jay's call) — gated OFF by SWG_REV_ENABLED, not deleted.
+    # It is the one negative family: OOS mean alpha -0.44% (n=74) vs SWG-PB +0.52%.
+    # The cause is PAYOFF GEOMETRY, not calibration — payoff ratio 1.62 vs SWG-PB's
+    # 3.14, 89.3% of exits at the INITIAL stop (worse than SWG-PB's 74%) and the trail
+    # engaging on only 6%. Its stop is 43% wider (1.55x ATR) and buys nothing. Three
+    # separate stop studies failed to fix it, and per the standing rule you cannot tune
+    # the stop of a book with no OOS edge. A reversal bounce is structurally a smaller
+    # move than a trend continuation, which no parameter changes.
+    # CAVEAT ON THE RECORD: n=74 OOS / 43 IS is small and IS was POSITIVE, so this does
+    # not clear a pre-registered bar. Flip the flag back to revive it.
+    # SIDE EFFECT, deliberate: SWG-REV was the family that fired in NOT-BULL tapes
+    # (36 of the 48 not-bull swing trades). With it off and SWG-PB hard-gated to
+    # mkt_not_bear, the swing book is effectively bull-regime-only.
+    elif (SWG_REV_ENABLED and not_stage4 and rev_struct and pa_oversold and c_now > o_now and
             c_now > float(h.iloc[-2])):
         cat_id = 5; cat_label = "SWG-REV"
 
