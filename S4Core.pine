@@ -1,0 +1,880 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// (c) Jayram G
+//
+// ============================================================================
+// S4Core  v3  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// ============================================================================
+// Compiled SEPARATELY from the scripts that import it, which is what keeps
+// Section 4 Entry Trigger under the 100,256 compiled-token ceiling -- and what
+// makes zero-drift structural: S4 and the visual indicators call the SAME
+// function, so there is exactly one definition of each engine.
+//
+// EXPORTS
+//   type ZoneSig   leg-base-leg zone signature (also returned by structZone)
+//   type SRSig     the two nearest S/R levels each side, with test counts
+//   detectZone()   Institutional Zone Engine: gap-bridged candles, RBR/DBR/
+//                  RBD/DBD, per-TF leg-in, wick distals + narrow rescue, width
+//                  band, FVG Polygraph, scoring, Controlling promotion.
+//   structZone()   pivot-based structural shelves (PvH/PvL), same lifecycle.
+//   srLevels()     horizontal S/R: per-TF pivot clustering, wick-fit placement,
+//                  wick-pierce touches, MTTWR grading (tests WEAKEN a level).
+//   dailyPA()      the 17-bull / 10-recovery price-action battery + the stage
+//                  inputs (off-52w, below-30WMA, 30WMA 3-state slope, RV).
+//   autoTL()       envelope fit for an auto trendline.
+//
+// CHANGES FROM THE S4 ORIGINALS -- names only, never logic. A library cannot
+// read the caller's scope, so values these functions used to take from S4
+// globals are now TRAILING parameters (appended, so no existing positional
+// argument moved):
+//   detectZone : base_rng_atr->baseRngAtr, ctrlMinLowerHighs->ctrlMinLH,
+//                gapBonus->gapBonusPts, narrowWickToWick->narrowWick
+//   srLevels   : sr_wick_fit->wickFit
+//   dailyPA    : confirm_daily->confirmDaily, wma_flat_pct->wmaFlatPct
+// Bodies are otherwise character-identical to the S4 versions they replaced.
+// ============================================================================
+//@version=6
+library("S4Core", overlay=true)
+
+// ---- ZoneSig -------------------------------------------------------------
+export type ZoneSig
+    int    zoneTime
+    float  proximal
+    float  distal
+    bool   isDemand
+    int    rawScore
+    string pattern
+    int    nBase
+    int    bStart
+    int    baseStartTime
+    bool   isControlling
+    bool   hasFVG        // S4: leg-out left an FVG (imbalance) — gates intraday chart-TF zones
+    bool   isProv        // v3.2: found at ft=0 (leg-out = the last CLOSED bar) → PREVIEW only
+
+// ---- detectZone ----------------------------------------------------------
+export detectZone(simple float ercM,  simple int minB,  simple int maxB, simple float bodyR,
+             simple float legBodyR, simple float legBodyAvgR, simple float strongFTMul,
+             simple float minW,  simple float maxW, simple float volM,
+             simple bool needBOS,
+             simple string proxMode, simple int ftLag, simple int ftRescue,
+             simple bool ctrlAllowed, simple bool provOn, simple int nbTol,
+             simple float maxBaseTRm, simple float legInWickRatio, simple int fvgBonusPts,
+             simple float leginAtrP, simple float baseRngAtr, simple int ctrlMinLH, simple int gapBonusPts, simple bool narrowWick) =>
+    a  = ta.atr(14)
+    v  = ta.sma(volume, 20)
+    tr = ta.tr
+    // INVISIBLE (gap-bridged) CANDLES — ALWAYS ON. Zone marking is defined on bridged
+    // price: each bar's open re-anchored at the previous close, high/low expanded to
+    // cover the gap, so a small-bodied gap day classifies as the leg candle it really
+    // is. This is methodology, not preference — there is deliberately NO toggle. The
+    // "Draw Invisible Candles" input (Zones — Visual) controls the VIEW only, so the
+    // overlay can never disagree with what the engine reads.
+    inv_open  = nz(close[1], open)
+    eff_open  = inv_open
+    eff_close = close
+    eff_high  = math.max(high, inv_open)
+    eff_low   = math.min(low,  inv_open)
+    eff_body  = math.abs(eff_close - eff_open)
+    eff_rng   = eff_high - eff_low
+    var float ath = na
+    var float atl = na
+    ath := na(ath) ? eff_high : math.max(ath, eff_high)
+    atl := na(atl) ? eff_low  : math.min(atl, eff_low)
+    ma50 = ta.sma(eff_close, 50)
+    // Bars since the running extreme last ADVANCED — drives the Controlling pullback rule.
+    // Because `ath` is a running max, every bar between the ATH bar and a later bar has a
+    // LOWER HIGH by definition. So "N bars of lower highs since the prior ATH" is exactly
+    // "the ATH bar is >= N bars older". barssince gives that in O(1) and keeps the history
+    // offset shallow (we read it at [liIdx], <= ~8 bars back). Must be called every bar.
+    newATHprint = not na(ath[1]) and eff_high > ath[1]
+    newATLprint = not na(atl[1]) and eff_low  < atl[1]
+    bsATH = ta.barssince(newATHprint)
+    bsATL = ta.barssince(newATLprint)
+    ph_l = ta.pivothigh(high, 10, 5)
+    pl_l = ta.pivotlow(low,  10, 5)
+    var float lph = na
+    var float lpl = na
+    if not na(ph_l)
+        lph := ph_l
+    if not na(pl_l)
+        lpl := pl_l
+    var int    sigTime      = 0
+    var float  sigProx      = na
+    var float  sigDist      = na
+    var bool   sigIsDmd     = false
+    var int    sigScore     = 0
+    var string sigPattern   = ""
+    var int    sigNb        = 0
+    var int    sigBStart    = 1
+    var int    sigBaseTime  = 0
+    var bool   sigCtrl      = false
+    var bool   sigFVG       = false
+    var bool   sigProv      = false
+    // ---- VARIABLE-LENGTH FOLLOW-THROUGH RESCUE SEARCH ----
+    // `ft` is the offset of the candidate LEG-OUT bar, and therefore also the number
+    // of follow-through bars available to judge it (the FT terms below measure from
+    // eff_close[ft] to the current bar). We try the SHORTEST ft first and stop at the
+    // first zone found, which gives exactly the intended behaviour:
+    //   * a STRONG leg-out (body >= legBodyR) needs NO follow-through and is found
+    //     immediately at ft = ftLag — one closed bar after it printed.
+    //   * an AVERAGE leg-out (legBodyAvgR <= body < legBodyR) fails at ft = ftLag and
+    //     gets another chance at ft+1, ft+2 ... where 2-3 bars of follow-through can
+    //     rescue it. Because it is then the LEG-OUT and not a base candle, the base
+    //     scan starts past it and the resulting zone is NARROWER.
+    // Previously ft was a FIXED input, so only one offset was ever tried: a weak
+    // leg-out could never be rescued, and raising the input just slid the whole
+    // detection window into the past rather than requiring more follow-through.
+    bool _found = false
+    // ---- PROVISIONAL PASS (v3.2) ----------------------------------------------
+    // ft >= 1 means the leg-out must be at least one bar back, so a leg-out on the
+    // LAST bar can never be a candidate: the newest zone stays invisible until a
+    // fresh bar exists. Intraday that is 75 minutes. At a session close it is until
+    // the next session — and at FRIDAY's close it is the whole weekend, which is
+    // exactly when the zone marking happens.
+    // So AFTER the normal search fails, on the last CONFIRMED bar only, try ft=0.
+    // ORDER MATTERS: last, never first. The loop takes the shortest successful ft,
+    // so trying 0 first would let a brand-new preview shadow an older REAL formation
+    // that ft=1 was about to find.
+    // ft=0 self-limits to STRONG legs, and that is correct rather than a compromise:
+    // `strongFT` and `hasFVG` both require a bar AFTER the leg-out, so they are
+    // unmeasurable here — that is time, not something code can work around. A strong
+    // leg needs no follow-through, which is precisely why it can be read at its close.
+    bool _provTry = provOn and barstate.islast and barstate.isconfirmed
+    for _i = 0 to ftRescue + (_provTry ? 1 : 0)
+        if _found
+            break
+        int ft = _i <= ftRescue ? ftLag + _i : 0
+        legBodyPct      = eff_rng[ft] > 0 ? eff_body[ft] / eff_rng[ft] : 0.0
+        legBodyStrong   = legBodyPct >= legBodyR
+        legBodyAverage  = legBodyPct >= legBodyAvgR and legBodyPct < legBodyR
+        legOutBig       = tr[ft] > a[ft] * ercM
+        closesUpper     = eff_close[ft] > eff_high[ft] - eff_rng[ft] * 0.25
+        closesLower     = eff_close[ft] < eff_low[ft]  + eff_rng[ft] * 0.25
+        dirBull         = eff_close[ft] > eff_open[ft]
+        dirBear         = eff_close[ft] < eff_open[ft]
+        strongFT_bull   = ft > 0 and (eff_close - eff_close[ft]) > a[ft] * strongFTMul
+        strongFT_bear   = ft > 0 and (eff_close[ft] - eff_close) > a[ft] * strongFTMul
+        // NOTE: the live leg-out gates are bullERC / bearERC below. Do not re-introduce a
+        // second "bullLegOut/bearLegOut" pair here — a dead FT-less twin of those gates used
+        // to sit at this spot, assigned and never read, so edits to it were silent no-ops.
+        bool ftOKbull = true
+        bool ftOKbear = true
+        if ft > 0
+            ercH = eff_high[ft]
+            ercL = eff_low[ft]
+            ercC = eff_close[ft]
+            progBull = eff_close > ercC
+            progBear = eff_close < ercC
+            bool noRevBull = true
+            bool noRevBear = true
+            for j = ft - 1 to 0
+                if eff_close[j] < ercL
+                    noRevBull := false
+                if eff_close[j] > ercH
+                    noRevBear := false
+            ftOKbull := progBull and noRevBull
+            ftOKbear := progBear and noRevBear
+        bullERC = (legOutBig and dirBull and closesUpper and legBodyStrong) or
+                  (legOutBig and dirBull and closesUpper and legBodyAverage and strongFT_bull and ftOKbull)
+        bearERC = (legOutBig and dirBear and closesLower and legBodyStrong) or
+                  (legOutBig and dirBear and closesLower and legBodyAverage and strongFT_bear and ftOKbear)
+        // ===== DEMAND =====
+        if bullERC
+            volOK = volM > 0.0 ? volume[ft] > v[ft] * volM : true
+            bosOK = needBOS ? (not na(lph[ft]) and eff_close[ft] > lph[ft]) : true
+            if volOK and bosOK
+                float zT = na
+                float zTwk = na                 // #34: base's WICK high, for the narrow-zone wick-to-wick rescue
+                int   nBC = 0
+                int   bS  = ft + 1
+                int   nbStreak = 0
+                for i = ft + 1 to ft + maxB
+                    cRange = eff_rng[i]
+                    cBody  = eff_body[i]
+                    smallBody  = cRange > 0 and (cBody / cRange) <= bodyR
+                    smallRange = tr[i] < a[i] * baseRngAtr
+                    isBase = (smallBody or smallRange) and tr[i] < a[i] * maxBaseTRm
+                    if isBase
+                        nbStreak := 0
+                        nBC := nBC + 1
+                        bS  := i
+                        pVal = proxMode == "Body Extreme" ? math.max(eff_close[i], eff_open[i]) : eff_high[i]
+                        zT := na(zT) ? pVal : math.max(zT, pVal)
+                        zTwk := na(zTwk) ? eff_high[i] : math.max(zTwk, eff_high[i])
+                    else
+                        nbStreak := nbStreak + 1
+                        if nbStreak > nbTol
+                            break
+                if nBC >= minB and nBC <= maxB and not na(zT)
+                    int liIdx = bS + 1
+                    liRng = eff_rng[liIdx]
+                    liBody = eff_body[liIdx]
+                    liUpWick   = eff_high[liIdx] - math.max(eff_close[liIdx], eff_open[liIdx])
+                    liLowWick  = math.min(eff_close[liIdx], eff_open[liIdx]) - eff_low[liIdx]
+                    liMaxWick  = math.max(liUpWick, liLowWick)
+                    bool legInWickOK = liBody > 0 and liMaxWick <= liBody * legInWickRatio
+                    bool legInValid = liRng > 0 and (liBody / liRng) >= legBodyAvgR and tr[liIdx] > a[liIdx] * leginAtrP and legInWickOK
+                    bool legInBullish = eff_close[liIdx] > eff_open[liIdx]
+                    if legInValid
+                        string pat = legInBullish ? "RBR" : "DBR"
+                        float zB = na
+                        int   distFrom = ft
+                        int   distTo   = pat == "DBR" ? liIdx : bS
+                        for k = distFrom to distTo
+                            lowSide = eff_low[k]     // ALL distals are WICK distals (house rule 17-Jul); scan range is pattern-aware via distTo
+                            zB := na(zB) ? lowSide : math.min(zB, lowSide)
+                        if not na(zB)
+                            // #34 NARROW-ZONE WICK-TO-WICK: the distal is already a wick
+                            // (eff_low). If the body-based proximal makes the zone thinner
+                            // than the band FLOOR, widen the proximal out to the base's wick
+                            // high — a thin-bodied base's true zone runs to its wicks, so
+                            // this rescues a precise zone that would otherwise be rejected.
+                            if narrowWick and not na(zTwk) and (zT - zB) < a[ft] * minW
+                                zT := math.max(zT, zTwk)
+                            w = zT - zB
+                            if w >= a[ft] * minW and w <= a[ft] * maxW
+                                bodyR_legOut = eff_body[ft] / math.max(eff_rng[ft], 0.001)
+                                volR  = volume[ft] / math.max(v[ft], 1.0)
+                                eP    = int(math.min(bodyR_legOut * 40.0, 40.0))
+                                // Volume is a BONUS, floored at 0. It used to be unclamped below
+                                // zero, so a below-average-volume leg-out silently subtracted up to
+                                // -12 from a zone's structural merit. `volMult` is the intended
+                                // volume GATE; scoring shouldn't double as a second, hidden one.
+                                vP    = int(math.min(math.max((volR - 1.0) * 12.0, 0.0), 30.0))
+                                bP    = nBC == 1 ? 12 : nBC == 2 ? 25 : nBC == 3 ? 25 : nBC == 4 ? 20 : nBC == 5 ? 10 : 5
+                                raw   = math.min(eP + vP + bP, 95)
+                                gapSize = open[ft] - close[ft + 1]          // RAW prices: the gap-bridge erases the gap (eff_open[ft] IS close[ft+1] -> the old expression was identically 0, gapBonusPts dead)
+                                hasGap  = gapSize > a[ft] * 0.3
+                                gapPts  = hasGap ? gapBonusPts : 0
+                                hasFVG  = ft > 0 and low[ft - 1] > high[ft + 1]      // RAW: bridged lows/highs close the very imbalance being tested
+                                fvgPts  = hasFVG ? fvgBonusPts : 0
+                                int pivBroken = 0
+                                for kk = ft + 1 to ft + 30
+                                    pk = ph_l[kk]
+                                    if not na(pk) and pk > eff_close[bS] and pk < eff_close[ft]
+                                        pivBroken := pivBroken + 1
+                                multiPivPts = math.min(pivBroken * 5, 15)
+                                patPts = pat == "DBR" ? 10 : 0
+                                sc = math.min(raw + gapPts + fvgPts + multiPivPts + patPts, 100)
+                                // ---- Controlling criterion #1: LEADS TO a new ATH ----
+                                // House rule (Jay's trainer): a DZ is Controlling only if it LEADS
+                                // TO a new ATH — it cannot be a CONTINUATION of one. Price must have
+                                // come off the prior high (lower highs printed) and the base must
+                                // form below it; the leg-out then breaks it. A base built while
+                                // price is already ratcheting the ATH up is disqualified.
+                                float athPrior = ath[liIdx]                       // ATH before this formation began
+                                // (a) NON-CONTINUATION: the ATH must not have advanced during the base.
+                                bool baseNoNewATH = not na(athPrior) and ath[ft + 1] <= athPrior
+                                // (b) PULLBACK: >= ctrlMinLH bars printed a lower high since the prior ATH.
+                                bool pulledBack   = not na(bsATH[liIdx]) and bsATH[liIdx] >= ctrlMinLH
+                                // (c) LEADS TO the new ATH: the leg-out closes through the prior high.
+                                bool leadsToATH   = not na(athPrior) and eff_close[ft] > athPrior
+                                bool isNewATH     = leadsToATH and baseNoNewATH and pulledBack
+                                bool wasBelowMA = true
+                                for kk2 = ft + 1 to ft + 20
+                                    if not na(ma50[kk2]) and eff_close[kk2] > ma50[kk2]
+                                        wasBelowMA := false
+                                        break
+                                bool isTrendShiftUp = wasBelowMA and not na(ma50[ft]) and eff_close[ft] > ma50[ft]
+                                bool isCtrl = ctrlAllowed and (isNewATH or isTrendShiftUp)
+                                sigTime     := time[ft]
+                                sigProx     := zT
+                                sigDist     := zB
+                                sigIsDmd    := true
+                                sigScore    := sc
+                                sigPattern  := pat
+                                sigNb       := nBC
+                                sigBStart   := bS
+                                sigBaseTime := time[bS]
+                                sigCtrl     := isCtrl
+                                sigFVG      := hasFVG
+                                sigProv     := ft == 0
+                                _found      := true
+        // ===== SUPPLY =====
+        if bearERC
+            volOK2 = volM > 0.0 ? volume[ft] > v[ft] * volM : true
+            bosOK2 = needBOS ? (not na(lpl[ft]) and eff_close[ft] < lpl[ft]) : true
+            if volOK2 and bosOK2
+                float zB2 = na
+                float zB2wk = na                // #34: base's WICK low, for the narrow-zone wick-to-wick rescue
+                int   nBC2 = 0
+                int   bS2  = ft + 1
+                int   nbStreak2 = 0
+                for i = ft + 1 to ft + maxB
+                    cR2 = eff_rng[i]
+                    cB2 = eff_body[i]
+                    smallBody2  = cR2 > 0 and (cB2 / cR2) <= bodyR
+                    smallRange2 = tr[i] < a[i] * baseRngAtr
+                    isBase2 = (smallBody2 or smallRange2) and tr[i] < a[i] * maxBaseTRm
+                    if isBase2
+                        nbStreak2 := 0
+                        nBC2 := nBC2 + 1
+                        bS2  := i
+                        pVal2 = proxMode == "Body Extreme" ? math.min(eff_close[i], eff_open[i]) : eff_low[i]
+                        zB2 := na(zB2) ? pVal2 : math.min(zB2, pVal2)
+                        zB2wk := na(zB2wk) ? eff_low[i] : math.min(zB2wk, eff_low[i])
+                    else
+                        nbStreak2 := nbStreak2 + 1
+                        if nbStreak2 > nbTol
+                            break
+                if nBC2 >= minB and nBC2 <= maxB and not na(zB2)
+                    int liIdx2 = bS2 + 1
+                    liRng2 = eff_rng[liIdx2]
+                    liBody2 = eff_body[liIdx2]
+                    liUpWick2  = eff_high[liIdx2] - math.max(eff_close[liIdx2], eff_open[liIdx2])
+                    liLowWick2 = math.min(eff_close[liIdx2], eff_open[liIdx2]) - eff_low[liIdx2]
+                    liMaxWick2 = math.max(liUpWick2, liLowWick2)
+                    bool legInWickOK2 = liBody2 > 0 and liMaxWick2 <= liBody2 * legInWickRatio
+                    bool legInValid2 = liRng2 > 0 and (liBody2 / liRng2) >= legBodyAvgR and tr[liIdx2] > a[liIdx2] * leginAtrP and legInWickOK2
+                    bool legInBullish2 = eff_close[liIdx2] > eff_open[liIdx2]
+                    if legInValid2
+                        string pat2 = legInBullish2 ? "RBD" : "DBD"
+                        float zT2 = na
+                        int   distFrom2 = ft
+                        int   distTo2   = pat2 == "RBD" ? liIdx2 : bS2
+                        for k = distFrom2 to distTo2
+                            highSide = eff_high[k]   // ALL distals are WICK distals — see the demand mirror
+                            zT2 := na(zT2) ? highSide : math.max(zT2, highSide)
+                        if not na(zT2)
+                            // #34 NARROW-ZONE WICK-TO-WICK (supply mirror): widen the
+                            // proximal DOWN to the base's wick low when the body zone is
+                            // thinner than the band floor. Distal (zT2) is already a wick.
+                            if narrowWick and not na(zB2wk) and (zT2 - zB2) < a[ft] * minW
+                                zB2 := math.min(zB2, zB2wk)
+                            w2 = zT2 - zB2
+                            if w2 >= a[ft] * minW and w2 <= a[ft] * maxW
+                                bodyR_legOut2 = eff_body[ft] / math.max(eff_rng[ft], 0.001)
+                                volR2  = volume[ft] / math.max(v[ft], 1.0)
+                                eP2    = int(math.min(bodyR_legOut2 * 40.0, 40.0))
+                                vP2    = int(math.min(math.max((volR2 - 1.0) * 12.0, 0.0), 30.0))   // floored at 0 — see the demand mirror
+                                bP2    = nBC2 == 1 ? 12 : nBC2 == 2 ? 25 : nBC2 == 3 ? 25 : nBC2 == 4 ? 20 : nBC2 == 5 ? 10 : 5
+                                raw2   = math.min(eP2 + vP2 + bP2, 95)
+                                gapSize2 = close[ft + 1] - open[ft]         // RAW prices - see the demand mirror
+                                hasGap2  = gapSize2 > a[ft] * 0.3
+                                gapPts2  = hasGap2 ? gapBonusPts : 0
+                                hasFVG2  = ft > 0 and high[ft - 1] < low[ft + 1]     // RAW - see the demand mirror
+                                fvgPts2  = hasFVG2 ? fvgBonusPts : 0
+                                int pivBroken2 = 0
+                                for kk = ft + 1 to ft + 30
+                                    pk = pl_l[kk]
+                                    if not na(pk) and pk < eff_close[bS2] and pk > eff_close[ft]
+                                        pivBroken2 := pivBroken2 + 1
+                                multiPivPts2 = math.min(pivBroken2 * 5, 15)
+                                patPts2 = pat2 == "RBD" ? 10 : 0
+                                sc2 = math.min(raw2 + gapPts2 + fvgPts2 + multiPivPts2 + patPts2, 100)
+                                // ---- Controlling criterion #1 (mirror): LEADS TO a new ATL ----
+                                // An SZ is Controlling only if it LEADS TO a new ATL, never if it
+                                // continues one: price must have bounced off the prior low (higher
+                                // lows printed), the base must form above it, and the leg-out breaks it.
+                                float atlPrior = atl[liIdx2]                      // ATL before this formation began
+                                bool baseNoNewATL = not na(atlPrior) and atl[ft + 1] >= atlPrior
+                                bool pushedUp     = not na(bsATL[liIdx2]) and bsATL[liIdx2] >= ctrlMinLH
+                                bool leadsToATL   = not na(atlPrior) and eff_close[ft] < atlPrior
+                                bool isNewATL     = leadsToATL and baseNoNewATL and pushedUp
+                                bool wasAboveMA = true
+                                for kk2 = ft + 1 to ft + 20
+                                    if not na(ma50[kk2]) and eff_close[kk2] < ma50[kk2]
+                                        wasAboveMA := false
+                                        break
+                                bool isTrendShiftDown = wasAboveMA and not na(ma50[ft]) and eff_close[ft] < ma50[ft]
+                                bool isCtrl2 = ctrlAllowed and (isNewATL or isTrendShiftDown)
+                                sigTime     := time[ft]
+                                sigProx     := zB2
+                                sigDist     := zT2
+                                sigIsDmd    := false
+                                sigScore    := sc2
+                                sigPattern  := pat2
+                                sigNb       := nBC2
+                                sigBStart   := bS2
+                                sigBaseTime := time[bS2]
+                                sigCtrl     := isCtrl2
+                                sigFVG      := hasFVG2
+                                sigProv     := ft == 0
+                                _found      := true
+    ZoneSig.new(sigTime, sigProx, sigDist, sigIsDmd, sigScore, sigPattern, sigNb, sigBStart, sigBaseTime, sigCtrl, sigFVG, sigProv)
+
+// ---- autoTL --------------------------------------------------------------
+export autoTL(array<float> py, array<int> px, bool isSupport, int off, float tolPx, float nudgePx, int maxAge) =>
+    int   _n = array.size(py) - off
+    bool  _live = false
+    int   _ax = na
+    float _ay = na
+    float _now = na
+    if _n >= 2
+        int _bT = -1                       // best touch count · _bA/_bB = anchor pivot indices
+        int _bA = -1
+        int _bB = -1
+        int _bSpan = -1
+        for _a = 0 to _n - 2
+            int   _xa = array.get(px, _a)
+            float _ya = array.get(py, _a)
+            for _b = _a + 1 to _n - 1
+                int _xb = array.get(px, _b)
+                int _dx = _xb - _xa
+                // the line's LATER anchor must be recent, so the line is current
+                if _dx > 0 and bar_index - _xb <= maxAge
+                    float _slope = (array.get(py, _b) - _ya) / float(_dx)
+                    bool  _valid = true
+                    int   _touch = 0
+                    for _j = 0 to _n - 1
+                        float _pred = _ya + _slope * float(array.get(px, _j) - _xa)
+                        float _d = array.get(py, _j) - _pred
+                        if isSupport and _d < -tolPx
+                            _valid := false       // a low BELOW the support line ⇒ not an envelope
+                        if (not isSupport) and _d > tolPx
+                            _valid := false       // a high ABOVE the resistance line ⇒ not an envelope
+                        if math.abs(_d) <= tolPx
+                            _touch += 1
+                    if _valid and _touch >= 2
+                        int _span = _xb - _xa
+                        if _touch > _bT or (_touch == _bT and _span > _bSpan)
+                            _bT := _touch
+                            _bA := _a
+                            _bB := _b
+                            _bSpan := _span
+        if _bA >= 0
+            int   _xa2 = array.get(px, _bA)
+            float _ya2 = array.get(py, _bA)
+            float _slp = (array.get(py, _bB) - _ya2) / float(array.get(px, _bB) - _xa2)
+            float _proj = _ya2 + _slp * float(bar_index - _xa2) + nudgePx
+            bool  _broken = isSupport ? (close < _proj - tolPx) : (close > _proj + tolPx)
+            if not _broken
+                _ax   := _xa2               // draw from the OLD (major-swing) anchor to now
+                _ay   := _ya2 + nudgePx
+                _now  := _proj
+                _live := true
+    [_live, _ax, _ay, _now]
+
+// ---- SRSig ---------------------------------------------------------------
+export type SRSig
+    float a1        // nearest level ABOVE
+    int   a1t       // touch count
+    int   a1x       // TIME of its first touch
+    bool  a1h       // origin = pivot HIGHS (else lows)
+    float a2
+    int   a2t
+    int   a2x
+    bool  a2h
+    float b1        // nearest level BELOW
+    int   b1t
+    int   b1x
+    bool  b1h
+    float b2
+    int   b2t
+    int   b2x
+    bool  b2h
+
+// ---- srLevels ------------------------------------------------------------
+export srLevels(simple int pvL, simple int pvR, simple int poolN, simple float tolAtr, simple int minSpace, simple int minTouch, simple bool wickTouch, simple bool wickFit) =>
+    a = ta.atr(14)
+    // ta.* unconditional every bar (Pine consistency rule).
+    float ph = ta.pivothigh(high, pvL, pvR)
+    float pl = ta.pivotlow(low,  pvL, pvR)
+    // PERSISTENT LEVEL OBJECTS (v3.3 — the grade-drift fix). The old engine kept a
+    // rolling 40-PIVOT pool and re-clustered it every bar, so a level's touch count
+    // DECAYED as its old members were evicted: MTTWR could quietly downgrade itself
+    // to "fresh" — and re-enter the picker as a stop candidate — with no price having
+    // touched it. Levels are now first-class objects: a confirmed pivot either MERGES
+    // into the level it belongs to (cumulative count — never decays; running-mean
+    // price; first-touch time kept, so the ray no longer creeps) or CREATES one.
+    // Capacity is a cap on LEVELS (poolN, evicting the oldest first-touch), and since
+    // levels are far scarcer than pivots, 40 levels holds YEARS of structure.
+    // Merging-on-arrival also makes levels >= tol apart by construction, which
+    // retires the slot-dedup patch the old clustering needed.
+    var array<float> Lp = array.new<float>()   // level price (running mean of touches)
+    var array<int>   Lc = array.new<int>()     // CUMULATIVE touch count
+    var array<int>   Lt = array.new<int>()     // first-touch TIME (ray anchor + origin)
+    var array<bool>  Lh = array.new<bool>()    // origin: born from a pivot HIGH
+    var array<int>   Lb = array.new<int>()     // last-touch bar (distinct-test spacing)
+    // #8 wick-fit: running INTERSECTION of the member pivots' wick bands. A line inside
+    // this interval threads EVERY member wick — placed at its midpoint (wickFit).
+    var array<float> Lil = array.new<float>()  // intersection low
+    var array<float> Lih = array.new<float>()  // intersection high
+    float tol = tolAtr * a
+    if not na(ph) and not na(a) and a > 0
+        // #30: match a level by EXTREME within tol OR by the level PIERCING the pivot's
+        // upper wick (body-top..high). Nearest-to-extreme wins among candidates. A
+        // pierce-only touch is counted but does NOT drag the level's mean.
+        float _wkLo = wickTouch ? math.max(open[pvR], close[pvR]) : ph
+        int _j = -1
+        float _bd = 1e15
+        bool _pierceOnly = false
+        if array.size(Lp) > 0
+            for i2 = 0 to array.size(Lp) - 1
+                float _lp   = array.get(Lp, i2)
+                float _d    = math.abs(_lp - ph)
+                bool  _near = _d <= tol
+                bool  _prc  = wickTouch and _lp <= ph and _lp >= _wkLo
+                if (_near or _prc) and _d < _bd
+                    _bd := _d
+                    _j := i2
+                    _pierceOnly := _prc and not _near
+        float _bTop = math.max(open[pvR], close[pvR])   // wick band = body-top .. high
+        if _j >= 0
+            if bar_index - pvR - array.get(Lb, _j) >= minSpace
+                int _c = array.get(Lc, _j) + 1
+                // #8: place the line to thread the MAXIMUM wicks — intersect this
+                // pivot's wick band with the level's running intersection; when it
+                // holds, the line moves to the midpoint (threads every member wick).
+                // When it doesn't, keep the interval and fall back to the mean drag.
+                float _nl = math.max(array.get(Lil, _j), _bTop)
+                float _nh = math.min(array.get(Lih, _j), ph)
+                // #8 (Jay, 19-Jul): thread the MAX wicks "to the extent possible". When the
+                // new pivot's wick band still intersects the running band, shrink+re-centre
+                // (one more wick threaded). When it does NOT, the touch STILL COUNTS (Lc++
+                // below — count is pivots-only) but the line STAYS put on the max-wick set;
+                // it must NOT drift to the mean. Mean-drag only when wick-fit is OFF.
+                if wickFit and _nl <= _nh
+                    array.set(Lil, _j, _nl)
+                    array.set(Lih, _j, _nh)
+                    array.set(Lp, _j, (_nl + _nh) / 2.0)
+                else if not wickFit and not _pierceOnly
+                    array.set(Lp, _j, (array.get(Lp, _j) * (_c - 1) + ph) / _c)
+                array.set(Lc, _j, _c)
+                array.set(Lb, _j, bar_index - pvR)
+        else
+            array.push(Lp, ph)
+            array.push(Lc, 1)
+            array.push(Lt, time[pvR])
+            array.push(Lh, true)
+            array.push(Lb, bar_index - pvR)
+            array.push(Lil, _bTop)
+            array.push(Lih, ph)
+    if not na(pl) and not na(a) and a > 0
+        // #30 mirror: match by EXTREME within tol OR the level piercing the pivot's LOWER
+        // wick (low..body-bottom). Pierce-only touch counted, does not drag the mean.
+        float _wkHi = wickTouch ? math.min(open[pvR], close[pvR]) : pl
+        int _j = -1
+        float _bd = 1e15
+        bool _pierceOnly = false
+        if array.size(Lp) > 0
+            for i2 = 0 to array.size(Lp) - 1
+                float _lp   = array.get(Lp, i2)
+                float _d    = math.abs(_lp - pl)
+                bool  _near = _d <= tol
+                bool  _prc  = wickTouch and _lp >= pl and _lp <= _wkHi
+                if (_near or _prc) and _d < _bd
+                    _bd := _d
+                    _j := i2
+                    _pierceOnly := _prc and not _near
+        float _bBot = math.min(open[pvR], close[pvR])   // wick band = low .. body-bottom
+        if _j >= 0
+            if bar_index - pvR - array.get(Lb, _j) >= minSpace
+                int _c = array.get(Lc, _j) + 1
+                float _nl = math.max(array.get(Lil, _j), pl)
+                float _nh = math.min(array.get(Lih, _j), _bBot)
+                if wickFit and _nl <= _nh
+                    array.set(Lil, _j, _nl)
+                    array.set(Lih, _j, _nh)
+                    array.set(Lp, _j, (_nl + _nh) / 2.0)
+                else if not wickFit and not _pierceOnly
+                    array.set(Lp, _j, (array.get(Lp, _j) * (_c - 1) + pl) / _c)
+                array.set(Lc, _j, _c)
+                array.set(Lb, _j, bar_index - pvR)
+        else
+            array.push(Lp, pl)
+            array.push(Lc, 1)
+            array.push(Lt, time[pvR])
+            array.push(Lh, false)
+            array.push(Lb, bar_index - pvR)
+            array.push(Lil, pl)
+            array.push(Lih, _bBot)
+    // Cap on LEVELS: evict the one that came into play longest ago.
+    while array.size(Lp) > poolN
+        int _old = 0
+        for i2 = 1 to array.size(Lp) - 1
+            if array.get(Lt, i2) < array.get(Lt, _old)
+                _old := i2
+        array.remove(Lp, _old)
+        array.remove(Lc, _old)
+        array.remove(Lt, _old)
+        array.remove(Lh, _old)
+        array.remove(Lb, _old)
+        array.remove(Lil, _old)
+        array.remove(Lih, _old)
+    // SELECT the two nearest qualified levels per side. NEAREST, not most-tested —
+    // ranking by touch count is the inversion this engine exists to remove. The
+    // min-touch gate stays: one pivot is a swing point, not a level.
+    float a1 = na
+    float a2 = na
+    float b1 = na
+    float b2 = na
+    int   a1t = 0
+    int   a2t = 0
+    int   b1t = 0
+    int   b2t = 0
+    int   a1x = 0
+    int   a2x = 0
+    int   b1x = 0
+    int   b2x = 0
+    bool  a1h = false
+    bool  a2h = false
+    bool  b1h = false
+    bool  b2h = false
+    if array.size(Lp) > 0
+        for i2 = 0 to array.size(Lp) - 1
+            float lvl = array.get(Lp, i2)
+            int   c   = array.get(Lc, i2)
+            if c >= minTouch
+                if lvl > close
+                    if na(a1) or lvl < a1
+                        a2 := a1
+                        a2t := a1t
+                        a2x := a1x
+                        a2h := a1h
+                        a1 := lvl
+                        a1t := c
+                        a1x := array.get(Lt, i2)
+                        a1h := array.get(Lh, i2)
+                    else if na(a2) or lvl < a2
+                        a2 := lvl
+                        a2t := c
+                        a2x := array.get(Lt, i2)
+                        a2h := array.get(Lh, i2)
+                else if lvl < close
+                    if na(b1) or lvl > b1
+                        b2 := b1
+                        b2t := b1t
+                        b2x := b1x
+                        b2h := b1h
+                        b1 := lvl
+                        b1t := c
+                        b1x := array.get(Lt, i2)
+                        b1h := array.get(Lh, i2)
+                    else if na(b2) or lvl > b2
+                        b2 := lvl
+                        b2t := c
+                        b2x := array.get(Lt, i2)
+                        b2h := array.get(Lh, i2)
+    SRSig.new(a1, a1t, a1x, a1h, a2, a2t, a2x, a2h, b1, b1t, b1x, b1h, b2, b2t, b2x, b2h)
+
+// ---- structZone ----------------------------------------------------------
+export structZone(simple int pvLeft, simple int pvRight, simple int padBars, simple float topThr, simple float deepThr, simple float minMove, simple float minW, simple float maxW, simple float minWMult) =>
+    a = ta.atr(14)
+    // INVISIBLE CANDLES (gap-bridged OHLC) — derivation IDENTICAL to f_detectZone, so both
+    // detectors read the SAME price structure. This function previously used RAW OHLC
+    // throughout and never even received the flag, so every structural PvL/PvH zone was
+    // built on un-bridged prices while pattern zones were bridged — the two engines
+    // silently disagreed about where price had been, and structural zones ignored the
+    // "Use Invisible Candles" setting entirely.
+    // The pivot IS the zone here (unlike f_detectZone, where pivots only confirm BOS and
+    // score), so the pivots themselves must be found on the bridged series too.
+    inv_open  = nz(close[1], open)
+    eff_open  = inv_open
+    eff_close = close
+    eff_high  = math.max(high, inv_open)
+    eff_low   = math.min(low,  inv_open)
+    // ta.* called unconditionally every bar (Pine consistency rule).
+    float ph = ta.pivothigh(eff_high, pvLeft, pvRight)
+    float pl = ta.pivotlow(eff_low,  pvLeft, pvRight)
+    float lowestSinceH  = ta.lowest(eff_low,  pvRight + 1)
+    float highestSinceL = ta.highest(eff_high, pvRight + 1)
+    var int    sT      = 0
+    var float  sProx   = na
+    var float  sDist   = na
+    var bool   sDmd    = false
+    var int    sScore  = 0
+    var string sPat    = ""
+    var int    sBStart = 1
+    var int    sBaseT  = 0
+    // ----- Pivot HIGH → structural SUPPLY -----
+    if not na(ph)
+        int   pBarH = pvRight
+        float sTop  = eff_high[pBarH]
+        float sBot  = math.min(eff_close[pBarH], eff_open[pBarH])
+        float proxThrH = nz(a[pBarH], a) * topThr
+        float deepThrH = nz(a[pBarH], a) * deepThr
+        for k = math.max(pBarH - padBars, 0) to pBarH + padBars
+            bodyHiK = math.max(eff_close[k], eff_open[k])
+            bodyLoK = math.min(eff_close[k], eff_open[k])
+            if bodyHiK >= sTop - proxThrH and bodyLoK >= sTop - deepThrH and bodyLoK < sBot
+                sBot := bodyLoK
+        float wH = sTop - sBot
+        if not na(a) and (sTop - lowestSinceH) > a * minMove and wH >= a * minW * minWMult and wH <= a * maxW
+            sT      := time
+            sProx   := sBot
+            sDist   := sTop
+            sDmd    := false
+            // A structural zone is a WEAKER construct than a validated leg-base-leg
+            // formation — it has no leg-in, no base and no leg-out. It used to score
+            // 60..100, i.e. a flat 60 floor on a different scale, so every PvL/PvH read
+            // 86-93pts and out-ranked real pattern zones. Scored 40..75 it can never
+            // out-rank a high-quality RBR/DBR (95-100), which is the correct ordering.
+            sScore  := math.min(40 + int((sTop - lowestSinceH) / a * 5.0), 75)
+            sPat    := "PvH"
+            sBStart := pBarH + padBars
+            sBaseT  := time[math.min(pBarH + padBars, bar_index)]
+    // ----- Pivot LOW → structural DEMAND -----
+    if not na(pl)
+        int   pBarL = pvRight
+        float dBot  = eff_low[pBarL]
+        float dTop  = math.max(eff_close[pBarL], eff_open[pBarL])
+        float proxThrL = nz(a[pBarL], a) * topThr
+        float deepThrL = nz(a[pBarL], a) * deepThr
+        for k = math.max(pBarL - padBars, 0) to pBarL + padBars
+            bodyHiK = math.max(eff_close[k], eff_open[k])
+            bodyLoK = math.min(eff_close[k], eff_open[k])
+            if bodyLoK <= dBot + proxThrL and bodyHiK <= dBot + deepThrL and bodyHiK > dTop
+                dTop := bodyHiK
+        float wL = dTop - dBot
+        if not na(a) and (highestSinceL - dBot) > a * minMove and wL >= a * minW * minWMult and wL <= a * maxW
+            sT      := time
+            sProx   := dTop
+            sDist   := dBot
+            sDmd    := true
+            sScore  := math.min(40 + int((highestSinceL - dBot) / a * 5.0), 75)   // 40..75 — see the PvH mirror
+            sPat    := "PvL"
+            sBStart := pBarL + padBars
+            sBaseT  := time[math.min(pBarL + padBars, bar_index)]
+    ZoneSig.new(sT, sProx, sDist, sDmd, sScore, sPat, 0, sBStart, sBaseT, false, false, false)
+
+// ---- dailyPA -------------------------------------------------------------
+export dailyPA(float ema10_ref, float ema20_ref, simple bool confirmShift, simple bool confirmDaily, simple float wmaFlatPct) =>
+    float rng     = high - low
+    float vol50   = ta.sma(volume, 50)
+    float rv      = vol50 > 0 ? volume / vol50 : 0.0
+    float sma50   = ta.sma(close, 50)
+    float ema10   = ta.ema(close, 10)
+    float ema20   = ta.ema(close, 20)
+    // EMA20/EMA10 are DAILY anchors (DNA). The daily security call passes na
+    // (use this context's own daily EMAs); the chart-TF `loc_*` call passes the
+    // DAILY EMAs so the engulf trend-context stays daily even on 75/125m.
+    float _e10    = na(ema10_ref) ? ema10 : ema10_ref
+    float _e20    = na(ema20_ref) ? ema20 : ema20_ref
+    float intrap  = rng > 0 ? (close - low) / rng : 0.0
+    float atr10   = ta.atr(10)
+    float atr10s  = ta.sma(atr10, 50)
+    float vwmaV5  = ta.vwma(volume, 5)               // CORRECT dry-up: vwma of VOLUME
+    float rsi14   = ta.rsi(close, 14)
+    float hh10    = ta.highest(high, 10)             // hoisted (runs every bar)
+    float hh3     = ta.highest(high, 3)
+    float ll5     = ta.lowest(low, 5)
+    float sma200  = ta.sma(close, 200)
+    float body    = math.abs(close - open)
+    float uwick   = high - math.max(open, close)
+    float lwick   = math.min(open, close) - low
+    bool  hammer  = rng > 0 and lwick > body * 2.0 and uwick < body and math.max(open, close) >= low + rng * 0.66
+    float l50_1   = ta.lowest(low, 50)[1]            // prior 50-bar low (for Spring)
+    float dlockH  = ta.highest(high, 20)[1]          // 20-bar locked resistance (Gap-BO / Breakout-Confirmed)
+    // 1. ★★ Power Play (HTF) +4
+    float low8w = ta.lowest(low, 40)
+    float hi15  = ta.highest(high, 15)
+    float lo15  = ta.lowest(low, 15)
+    bool p_htf = low8w > 0 and lo15 > 0 and (close - low8w) / low8w > 1.0 and (hi15 - lo15) / lo15 < 0.20 and close > sma50
+    // 2. Power Play (Strong Close) +2
+    bool p_sc = close > open and (close - low) > (high - close) * 3 and rv > 1.0
+    // 3. VCP Breakout +3 (contraction on PRIOR bar → 10d-high break on vol)
+    bool vcp_prior = not na(atr10s[1]) and atr10[1] < atr10s[1] * 1.5 and vwmaV5[1] < vol50[1]
+    bool p_vcp = vcp_prior and close > hh10[1] and rv > 1.2 and intrap >= 0.60
+    // 4. Pocket Pivot +2
+    float mdv = 0.0
+    for j = 1 to 10
+        if close[j] < close[j + 1] and volume[j] > mdv
+            mdv := volume[j]
+    bool p_pp = close > close[1] and close > open and mdv > 0 and volume > mdv and close > sma50 and (close - low) >= rng * 0.5
+    // 5. Bullish Engulfing (gated) +2
+    bool raw_eng = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
+    bool p_eng = raw_eng and close < _e10 and _e10 < _e20 and rv > 2.0 and not na(rsi14[1]) and rsi14[1] < 40
+    // 6. Liquidity Sweep Reclaim +2
+    bool p_liq = ll5 < sma50 and close > sma50 and volume > vol50 * 1.5
+    // 7. 3-Bar Bull Reversal +2
+    bool p_3b = low[1] < low[2] and low[2] < low[3] and close > hh3[1]
+    // 9. Inside-3 (Coil) +2
+    bool ins1 = high < high[1] and low > low[1]
+    bool ins2 = high[1] < high[2] and low[1] > low[2]
+    bool ins3 = high[2] < high[3] and low[2] > low[3]
+    bool p_in3 = ins1 and ins2 and ins3
+    // 10. True NR7 +1 (current range <= each of prior 6)
+    float low_rng6 = ta.lowest(high - low, 6)
+    bool  p_nr7    = rng > 0 and low_rng6[1] >= rng
+    // 11. ★ IB-NR7 Coil +2
+    bool p_ibnr7 = ins1 and p_nr7
+    // 12. Wyckoff Spring +3 — undercut prior 50-bar low, reclaim green, on LOW volume
+    bool p_spr  = not na(l50_1) and low < l50_1 and close > l50_1 and close > open and volume < vol50
+    // 13. Gap-Up Breakout +3 — gap over prior high, clears 20-bar locked resistance on vol
+    bool p_gap  = not na(dlockH) and open > high[1] and close > dlockH and close > open and rv > 1.25
+    // 14. 50-SMA Undercut & Reclaim +2
+    bool p_u50  = not na(sma50) and low < sma50 and close > sma50 and close > open and rv > 1.25
+    // 15. Hammer at 50-SMA +2 (hammer within 1.5% of the 50-SMA, closes above, on vol)
+    bool near50 = not na(sma50) and math.abs(low - sma50) / sma50 <= 0.015
+    bool p_h50  = hammer and near50 and close > sma50 and rv > 1.0
+    // 16. Hammer at 200-SMA +2 (within 2% of the 200-SMA)
+    bool near200 = not na(sma200) and math.abs(low - sma200) / sma200 <= 0.020
+    bool p_h200 = hammer and near200 and close > sma200 and rv > 1.0
+    // 17. Breakout Confirmed +2 — anti-algo: close > 20-bar lock, top-quartile close, on vol
+    bool p_bc   = not na(dlockH) and close > dlockH and (close - low) > rng * 0.75 and rv > 1.25
+    // --- RECOVERY-mode extras (5 new; Spring/Engulf/3-Bar/Pocket/30-WMA are reused) ---
+    float atr14 = ta.atr(14)
+    float lo_recent = ta.lowest(low, 10)
+    float lo_prior  = ta.lowest(low, 30)[10]         // 30-bar base low ending 10 bars ago
+    // R1. Climax Reversal (SC+AR) +3 — a climax down-bar in last 10, midpoint reclaimed
+    int climax_j = 0
+    for cj = 1 to 10
+        if climax_j == 0 and close[cj] < open[cj] and volume[cj] > vol50 * 2.5 and (high[cj]-low[cj]) > atr14 * 2
+            climax_j := cj
+    bool p_climax = false
+    if climax_j > 0
+        float cmid = (high[climax_j] + low[climax_j]) / 2.0
+        p_climax := close > cmid and close > open
+    // R2. Higher-Low / Double-Bottom +3 — recent low RETESTS the prior base low
+    // (holds >= 1% undercut, stays within 10% above it) and turns up. The
+    // proximity ceiling (v1.9, mirrors pa_patterns.py fix 9-Jul-2026) stops the
+    // pattern firing on every green day of an uptrend, where the 10-bar low is
+    // trivially above the 30-bar base low.
+    bool p_2b = lo_prior > 0 and lo_recent >= lo_prior * 0.99 and lo_recent <= lo_prior * 1.10 and close > open and close > close[1]
+    // R3. Base Breakout (SOS/JAC) +3 — wide up-bar over 20-bar base resistance on vol
+    float base_res = ta.highest(high, 20)[1]
+    bool p_sos = close > base_res and rng > atr14 * 1.3 and rv > 1.5 and close > open
+    // R4. Hammer at support +2 — hammer at the 200-SMA or the base low
+    bool near_base = lo_prior > 0 and math.abs(low - lo_prior) / lo_prior <= 0.03
+    bool p_hsup = hammer and (near200 or near_base) and close > open and rv > 1.0
+    // R5. Volume Dry-Up +1 — supply exhausted at the base
+    bool p_vdu = rv < 0.5 and rng < atr14 * 0.8
+    // AUTO-mode path inference (v1.8): >=10% off the 52-week high (the GM recovery
+    // CONTEXT gate) AND the long-term trend not yet repaired — below the 30-WMA proxy
+    // (SMA150) OR the proxy still falling. v1.7's "below SMA150" AND-leg was self-
+    // defeating: recovery names at Step 5 have confirmed the turn and often reclaimed
+    // SMA150, so the best recoveries resolved Bull. Slope catches them: even after a
+    // reclaim, a recovering name's SMA150 is flat/falling; a bull leader's is rising.
+    float h52    = ta.highest(high, 252)
+    float sma150 = ta.sma(close, 150)
+    float off52  = h52 > 0 ? (h52 - close) / h52 * 100.0 : 0.0
+    bool  bel30w = close < sma150
+    // v7.2 THREE-STATE 30WMA SLOPE (was `sma150 <= sma150[10]`, a boolean whose `<=`
+    // counted a FLAT MA as FALLING). A flattening 30-week MA IS the Weinstein Stage-1
+    // base, so the defining signature of a base was being read as "declining" and the
+    // name resolved Stage 4 -> NO TRADE. Encoded in the SAME tuple slot (no new element,
+    // no new security call): 0.0 = rising · 0.5 = flat · 1.0 = falling.
+    // Back-compatible for the existing `< 0.5` readers (s2_proxy, dyn_s2): rising still
+    // passes, flat and falling still fail, exactly as before. Only the `> 0.5` readers
+    // change meaning, and both are updated with this edit.
+    float _s150chg = sma150 > 0 ? (sma150 - sma150[10]) / sma150 * 100.0 : 0.0
+    float s150dn   = _s150chg > wmaFlatPct ? 0.0 : _s150chg < -wmaFlatPct ? 1.0 : 0.5
+    // v2.3 — 200-DMA position: the GM's Bull-vs-Recovery split hinges on it
+    // (Bull/accumulation lives ABOVE the 200-DMA; a beaten-down recovery is
+    // BELOW it). Used to align Auto with the Golden Matcher's structural path.
+    bool  bel200 = not na(sma200) and close < sma200
+
+    // NOTE (v2.1): the OB / FVG / pivot support trackers moved to f_zones()
+    // below, so they can be requested on BOTH "D" and "W" (the trading TF is
+    // 125/75-min, but demand zones come from Daily + Weekly structure).
+
+    // return as floats (na(series bool) is illegal; guard the float with nz()>0.5).
+    // _o = 1 when "Confirmed daily only" is on → return each pattern evaluated on the
+    // LAST CLOSED daily bar (no forming-bar repaint); _o = 0 = live developing bar.
+    // NOTE (v2.0): the [_o] offset is applied INSIDE the daily-context function, so it
+    // is measured in DAILY bars and is timeframe-INDEPENDENT — `expr[1]` is yesterday's
+    // confirmed daily value whether the chart is Daily or 75/125-min. A prior edit gated
+    // this on `timeframe.isdaily`, which made intraday charts read the DEVELOPING daily
+    // bar → the battery repainted through the session (the exact flicker confirmDaily
+    // exists to stop). Reverted: for a live developing-daily view, turn confirmDaily OFF.
+    // BUGFIX (18-Jul): the [_o] confirm shift must apply ONLY to the DAILY security
+    // call. It was applied unconditionally, so the CHART-TF (loc_*) battery was also
+    // read one bar back — the battery evaluated a STALE bar while the Golden Matcher
+    // evaluated the last closed one (CDSL: Rec Sum +3 in Python vs 0 in Pine, purely
+    // from this one-bar offset). Worse, during live hours it compounded with
+    // use_closed_candle's own [_so] display shift = up to TWO bars stale, silently
+    // eating triggers. confirmDaily's own tooltip already said it "applies only when
+    // Use chart timeframe is OFF" — the code just never honoured it. The chart-TF path
+    // needs no shift: use_closed_candle is what protects it from the forming bar.
+    int _o = (confirmShift and confirmDaily) ? 1 : 0
+    [(p_htf?1.0:0.0)[_o], (p_sc?1.0:0.0)[_o], (p_vcp?1.0:0.0)[_o], (p_pp?1.0:0.0)[_o], (p_eng?1.0:0.0)[_o], (p_liq?1.0:0.0)[_o], (p_3b?1.0:0.0)[_o], (p_in3?1.0:0.0)[_o], (p_nr7?1.0:0.0)[_o], (p_ibnr7?1.0:0.0)[_o], (p_spr?1.0:0.0)[_o], (p_gap?1.0:0.0)[_o], (p_u50?1.0:0.0)[_o], (p_h50?1.0:0.0)[_o], (p_h200?1.0:0.0)[_o], (p_bc?1.0:0.0)[_o], (p_climax?1.0:0.0)[_o], (p_2b?1.0:0.0)[_o], (p_sos?1.0:0.0)[_o], (p_hsup?1.0:0.0)[_o], (p_vdu?1.0:0.0)[_o], off52[_o], (bel30w?1.0:0.0)[_o], s150dn[_o], rv[_o], (bel200?1.0:0.0)[_o]]
