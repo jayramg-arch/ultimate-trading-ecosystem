@@ -1,0 +1,989 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// (c) Jayram G
+//
+// ############################################################################
+// S/R + TRENDLINE LAB  v1.0   --  TEMPORARY TESTBED
+// ############################################################################
+//
+// A standalone copy of the horizontal-S/R and trendline engines, lifted VERBATIM
+// out of "Section 4 Entry Trigger" (v7.2 working copy) so both can be tuned in
+// isolation -- on their own chart, without recompiling S4 and without competing
+// for its token budget (S4 currently sits ON the 100,256 compiled-token limit).
+//
+// NOTHING WAS REMOVED FROM S4. This is a COPY. The engine code here is
+// character-identical to S4's, so when a setting proves out, only the changed
+// INPUT DEFAULT needs to travel back -- never the logic.
+//
+// WHAT IS HERE (each independently switchable at the top of the settings):
+//   * S/R LEVELS -- per-TF pivot clustering (M/W/D each cluster their OWN pivots
+//     at their OWN ATR scale), wick-fit line placement (#8), wick-pierce touch
+//     counting (#30), MTTWR grading (tests WEAKEN a level -- the house rule that
+//     inverts the usual convention), and R<->S flip with reset-on-flip.
+//   * TRENDLINES -- manual numeric anchors (the live path), the parked auto
+//     envelope fit (f_bestLine / f_autoTL), and the external-tool source bridge.
+//
+// WHAT IS DELIBERATELY ABSENT: zones, the PA battery, the GO gate, the verdict
+// panel, alerts. This is a DRAWING/BEHAVIOUR lab, not a decision surface -- so
+// nothing on it can be mistaken for a trade signal while you are tuning.
+//
+// THE DIALS THAT MATTER MOST -- start here:
+//   S/R : sr_tol         cluster tightness (x ATR14) -- the #1 dial
+//         sr_min_touch   what earns the name "level" at all
+//         sr_mttwr_n     how many tests before a level is spent
+//         sr_pool        how far back a level can reach
+//         sr_wick_fit / sr_wick_touch -- line PLACEMENT vs touch COUNTING
+//   TL  : tl_auto        OFF by default; ON to work the envelope fit
+//         tl_thread      touch/pierce tolerance (x ATR)
+//         tl_pool        how far back a line may anchor
+//         tls_/tlr_anch_off   re-anchor by skipping N recent pivots
+//         tls_/tlr_nudge      shift the line without changing its slope
+//         pv_chart         pivot half-width feeding the pools
+//
+// ############################################################################
+//@version=6
+indicator("S/R + Trendline Lab v1.0", shorttitle="SR+TL Lab", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300)
+
+grpLab = "LAB -- which engine to test"
+d_sr = input.bool(true, "S/R levels engine", group=grpLab, tooltip="Master switch for the horizontal-level engine (auto clustering + your manual levels). Turn OFF to study trendlines alone on a clean chart.")
+d_tl = input.bool(true, "Trendline engine", group=grpLab, tooltip="Master switch for trendlines (manual anchors, the auto envelope fit, and the external-tool bridge). Turn OFF to study S/R alone.")
+
+// Zone-display flags the shared timeframe guardrails reference. There are no
+// zones in this lab, so they are plain constants rather than inputs -- kept only
+// so the guardrail block below stays character-identical to S4's.
+bool showMonthly = true
+bool showWeekly  = true
+bool showDaily   = true
+
+// ── CANONICAL PIVOT LENGTHS — ONE definition, used by BOTH engines ───────────
+// Mirrors the Swing Zigzag [Strict v6.3] (piv_m/piv_w/piv_d/piv_intra), which is the
+// canonical structure layer: it is on every template and it is the HH/HL reference at
+// gate 1, the break-of-structure confirm at gate 3 and the trail reference at gate 5.
+// If S/R lines and trendlines detect different pivots from the swings on screen, the
+// count you make by eye can never match the count the engine reports.
+//
+// One set feeds both: the S/R engine takes the per-TF value for each of its Monthly /
+// Weekly / Daily security calls, while the trendline pools take the CHART's value
+// (they run natively, on whatever timeframe you are looking at).
+//
+// NOT part of this canon, deliberately: the Institutional Zone Engine runs 5 left / 3
+// right, fixed and ASYMMETRIC — a zone needs less right-confirmation than a swing pivot
+// so it arms sooner. That is a different job, and forcing it onto these values would
+// change zone detection to solve a problem it does not have.
+grpPV = "Pivots — canonical (mirrors the Swing Zigzag)"
+piv_m      = input.int(1, "Pivot length — Monthly",  group=grpPV, minval=1, maxval=20, tooltip="Zigzag piv_m. Monthly bars are scarce and each is significant, so a long lookback finds almost no pivots at all.")
+piv_w      = input.int(5, "Pivot length — Weekly",   group=grpPV, minval=1, maxval=20, tooltip="Zigzag piv_w.")
+piv_d      = input.int(2, "Pivot length — Daily",    group=grpPV, minval=1, maxval=20, tooltip="Zigzag piv_d. NOTE this is far looser than the 5 the S/R engine used before — expect many more daily levels. If that is too noisy, do NOT raise it (that breaks alignment with the Zigzag); filter instead, with min-touches or the swing-magnitude gate.")
+piv_i      = input.int(2, "Pivot length — Intraday", group=grpPV, minval=1, maxval=20, tooltip="Zigzag piv_intra.")
+// The chart's own pivot length — what the trendline pools use, since they run natively.
+int pv_chart = timeframe.ismonthly ? piv_m : timeframe.isweekly ? piv_w : timeframe.isdaily ? piv_d : piv_i
+geo_maxage = input.int(120, "Max pivot age (bars)", group=grpPV, minval=20, maxval=500, tooltip="A pivot older than this may not anchor an auto trendline.")
+
+// ============================================================================
+// COLOUR CONSTANTS (verbatim from S4)
+// ============================================================================
+color C_OK = color.new(#26a69a, 0)
+color C_NO = color.new(#ef5350, 0)
+color C_WARN = color.new(#ff9800, 0)
+color C_REC = color.new(#00838f, 0)
+color C_GO = color.new(#00e676, 0)
+color C_INFO = color.new(#42a5f5, 0)
+color C_MUTE = color.new(#787b86, 0)
+color C_MAROON = color.new(color.maroon, 0)
+color C_WHITE = color.new(color.white, 0)
+color C_BLUE = color.new(color.blue, 0)
+color C_RED45 = color.new(color.red, 45)
+color C_GOLD = color.new(#FFB300, 0)
+color C_SKY = color.new(#4FC3F7, 0)
+color C_GREY20 = color.new(#9598a1, 20)
+color C_PURPLE = color.new(#7e57c2, 0)
+color C_OK82 = color.new(#26a69a, 82)
+color C_NO82 = color.new(#ef5350, 82)
+color C_GRID = color.new(#2a2e39, 0)
+
+// ==========================================================================
+// DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
+// --------------------------------------------------------------------------
+
+// ============================================================================
+// S/R INPUTS -- auto + manual M/W/D
+// ============================================================================
+grpSR = "S/R Levels — Auto"
+show_sr_lv   = input.bool(true, "Draw auto S/R levels", group=grpSR)
+sr_pool      = input.int(40, "Levels tracked per timeframe", group=grpSR, minval=8, maxval=120, tooltip="How many recent pivots each timeframe keeps for clustering. Chart Markup capped this at 16 — about 4-6 months of daily bars — so a level from 8 months back was UNREACHABLE at any setting. That was the single biggest reason its S/R felt immature. 40 per timeframe, and each TF clusters its own pivots at its own scale.")
+sr_tol       = input.float(0.6, "Cluster tolerance (× ATR14)", group=grpSR, minval=0.1, step=0.1, tooltip="How close two pivots must be to count as the same level. Measured in that TIMEFRAME's own ATR — and then CAPPED by the percent-of-price limit below, which is what stops it running away on the higher timeframes.")
+sr_tol_max_pct = input.float(1.5, "  · Cluster tolerance CAP (% of price)", group=grpSR, minval=0.1, maxval=10.0, step=0.1, tooltip="Hard ceiling on the cluster tolerance, as a percent of price. ATR alone does not scale across timeframes: on ABBOTINDIA, 0.6 x ATR14 is 0.99% of price on DAILY, 2.53% on WEEKLY and 6.43% on MONTHLY. Uncapped, a monthly level became the AVERAGE of 8 pivots spanning 25,150-28,490 — a price nothing ever turned at, drawn through candle bodies.\n\nA level is a price the market respected. If the band is 6% wide it is not a level, it is a region.\n\nThe cap binds only where ATR runs away (Weekly/Monthly) and is inert where ATR was already sane (Daily at 0.99% is untouched). RAISE it if genuine levels are splitting into two lines that should be one; LOWER it if lines still sit where no pivot is.")
+sr_wick_fit  = input.bool(true, "Place the line to thread maximum wicks", group=grpSR, tooltip="#8 (19-Jul): the level line is placed at the midpoint of the INTERSECTION of its member pivots' wick bands (body-top..high for highs, low..body-bottom for lows) — the one price that threads EVERY member wick, truly representing the reaction level. When a new touch's band does not intersect, the line stays put and the touch still counts. OFF = touch-mean placement (pre-#8).")
+sr_wick_touch= input.bool(true, "Count wick-pierce touches (max pivot touches)", group=grpSR, tooltip="#30: a pivot also counts toward a level when the level line PIERCES that pivot's wick (the upper wick of a pivot high, the lower wick of a pivot low), not only when the pivot's extreme is within Cluster tolerance. One line can then thread the wicks of MORE pivots, so the touch count reflects the real number it holds. A wick-pierce touch is COUNTED but does not drag the level's price (the line stays where it threads the wicks); only a near-extreme touch nudges it. Still PIVOT wicks only — never arbitrary bars. OFF = extreme-within-tolerance only (pre-#30).")
+// PIVOT LENGTH PER TIMEFRAME — aligned to the Swing Zigzag [Strict v6.3], which is the
+// canonical structure layer (it is on every template, and it is the HH/HL reference at
+// gate 1, the break-of-structure confirm at gate 3 and the trail reference at gate 5 of
+// the entry workflow). The S/R engine previously passed ONE length (5) to all three
+// timeframe calls, so its Monthly and Daily pivots were a different population from the
+// swings on screen — which is why a level's touch count could disagree with what you
+// count by eye. Defaults mirror the Zigzag's: M=1 · W=5 · D=2 (its intraday default is 2).
+//
+// STILL NOT EXACT, and worth knowing: this aligns the RAW fractals only. The Zigzag then
+// runs a locking state machine over them (EH/EL equal-threshold, strict HH/HL, extension
+// re-classification), so the swings it DRAWS are a subset of these. Full parity needs the
+// Zigzag to plot its locked pivot price for this engine to consume — a change to that
+// file, not this one.
+sr_min_touch = input.int(2, "Min touches for a level (pivot touches)", group=grpSR, minval=2, maxval=6, tooltip="A single pivot is a SWING POINT, not a level — it takes a SECOND touch to prove price respects it. Without this gate every pivot became a 'level' and the chart filled with one-touch lines that were never S/R at all.\n\nTouches are always PIVOT touches: the engine clusters confirmed pivot highs/lows, never arbitrary bars that drifted close.\n\nThis also anchors the grade: minTouch touches = FRESH (the level just proved itself and is unspent), more = weakening, >= the MTTWR count = primed to break.")
+sr_graze_place = input.bool(true, "Placement: fall back to max-wicks when pivots are too few", group=grpSR, tooltip="#graze (2-Aug) — PLACEMENT precedence, in Jay's words: 'the S/R line should preferably connect the PIVOTS, if they are there. Otherwise, it should connect the maximum wicks. However, only the pivot touches count towards tests.'\n\nSo three rules, kept separate:\n  1. PIVOTS still CREATE levels — that is what keeps the chart clean.\n  2. PLACEMENT prefers the pivots. With 2+ genuine pivot members the line sits on them and this does nothing.\n  3. FALLBACK: when a level has fewer than 2 real pivots (a lone pivot plus wick-pierces), the line moves to the price grazing the MOST wicks — highest low for a support, lowest high for a resistance.\n  4. TESTS/GRADE remain pivot-only. Grazed wicks move the line; they never add a touch, so a level's strength cannot be inflated by arbitrary bars.\n\nWhy the fallback is needed, measured on the real chart: of the seven monthly lows forming the 24,800 shelf, exactly ONE (24,575) is a pivot at piv_m=1 — every other has a neighbouring month with a lower low. The hand-drawn line grazes 24,770 / 24,790 / 24,809, three wick tips within 40 points, none of them pivots. A pivot-only engine cannot find that line at any setting; with this on it lands at 24,809.\n\nOFF = pivot extremes only.")
+sr_place_extreme = input.bool(true, "Draw the line at the wick EXTREME (not the midpoint)", group=grpSR, tooltip="#placement (2-Aug) — WHERE the line is drawn once its member pivots are known. Detection is identical either way; this only moves the price.\n\nEXTREME (default — matches hand-drawn): the member wick extreme — the HIGHEST high for a level born of pivot highs, the LOWEST low for one born of pivot lows. This is what makes the house rule 'no candle should close beyond the line' actually TRUE: every close sits inside the wick.\n\nMIDPOINT (the old wick-fit): the middle of the intersection of the member wick bands (body-top..high). It threads every member wick, but half the band sits ABOVE the line — so closes beyond it are guaranteed BY CONSTRUCTION, which is why those lines read wrong by eye.\n\nMeasured on ABBOTINDIA monthly: hand-drawn 29,625 vs engine 29,255, and 24,800 vs 24,715 — the manual lines matched the nearest monthly HIGH to within 14 and 56 points, not the midpoint.")
+sr_wick_only = input.bool(true, "  · Graze on WICKS only (not body edges)", group=grpSR, tooltip="A price only counts as a graze if the candle actually has a WICK on that side.\n\nWhy: a bar whose HIGH equals its body top has no upper shadow, and a green candle that opens at its low has low == open. Those prices are body EDGES, not wick extremes. Grazing them anchored a support at 5,513 on a candle's OPEN and cut straight through the previous body — the opposite of 'connect the wicks'.\n\nON (default): a high must exceed max(open, close), a low must sit below min(open, close). OFF: any extreme grazes, body edges included.\n\nApplies to grazing only — the seed PIVOT is unaffected, so a level anchored on a wickless pivot still exists; it just will not be dragged onto another candle's body.")
+sr_graze_back = input.int(120, "  · Backward graze lookback (bars)", group=grpSR, minval=0, maxval=400, tooltip="How far back a NEW level looks for near-extremes that already happened.\n\nWhy it exists: the per-bar refinement can only touch levels that ALREADY EXIST, so grazing was FORWARD-ONLY — a wick before a level's creation could never refine it. On PERSISTENT the 5,645 wick (Mar-26) precedes the 5,698 pivot (Jul-26), so that level stayed pinned to its single pivot; 4,297 grazed correctly only because its wick came AFTER.\n\nAt creation the level now scans back this many bars and folds in the near-extremes already on the chart, so placement no longer depends on the ACCIDENT of which wick came first.\n\n120 monthly bars is 10 years; on intraday it is a few weeks. 0 disables backward grazing (forward-only, pre-3-Aug).")
+sr_span_mult = input.float(1.0, "  · Level SPAN cap (× tolerance)", group=grpSR, minval=0.5, maxval=4.0, step=0.1, tooltip="Bounds a level's TOTAL width — lowest member to highest.\n\nWHY IT EXISTS: merge-on-arrival compares each new pivot to the level's RUNNING MEAN, so pivots CHAIN — A joins B, B joins C, and A ends up in the same level as C despite being 2× the tolerance away. On ABBOTINDIA monthly one level held 8 pivots spread over 3,340 points and drew at their AVERAGE: a price nothing ever traded at, cutting straight through candle bodies.\n\nCapping the span kills the chaining, and that is what makes a LOOSER tolerance safe. PERSISTENT needs ~70 points to group 4,230 with 4,297 — Jay reads those as one level — and the tighter 1.0% cap could never join them. With the span bounded, the tolerance can go back to 1.5% without the ABBOTINDIA blow-up returning.\n\n1.0 = a level may never be wider than the cluster tolerance itself. Raise it to group looser shelves; lower it to force tighter, more literal levels.")
+sr_max_cross = input.int(1, "Max closes beyond the line (0 = OFF)", group=grpSR, minval=0, maxval=20, tooltip="SEQUENCING NOTE (2-Aug): defaulted OFF for now, NOT because the rule is wrong but because PLACEMENT and this filter COMPOUND. A line placed too low shows closes beyond it that the correctly-placed line would not — so it eliminates ITSELF. Enabling this while placement is still being tuned deleted two valid resistances. Get placement right first, then turn this on (1 = allow one polarity change).\n\nTHE HOUSE RULE it implements: 'you can still cut through a candle, however, it shouldn't CLOSE beyond the line. Polarity change is the exception.'\n\nA cut is fine — a wick through the line is a test. A CLOSE beyond it is a break. This counts those breaks, from the moment the level FORMED (its first pivot), which is what makes the polarity exception work automatically: closes that happened before the level existed are not its fault.\n\nDEFAULT 1 = one polarity change allowed (the R<->S flip), and it must hold from there.\n0 = only levels never closed beyond at all.\n\nMeasured on ABBOTINDIA monthly, counting SINCE FORMATION:\n  24,800 (hand-drawn) — formed 2024-04, 0 closes beyond → valid\n  28,270 (hand-drawn) — formed 2026-03, 0 since (8 before it existed, i.e. the flip) → valid\n  29,555 (engine)     — formed 2024-02, 8 closes beyond since → correctly dropped\n\nNOTE: the window is what matters. Counted over ALL history, 28,270 and 29,555 both show 8 and look identical; counted since formation they are 0 vs 8. Do not judge a level by its full-history crossings.")
+sr_minspace  = input.int(5, "Distinct-test spacing (bars)", group=grpSR, minval=1, maxval=30, tooltip="Two touches closer together than this count as ONE test (Bulkowski). Stops a cluster of wicks a few bars apart from inflating a level's grade.")
+sr_mttwr_n   = input.int(6, "MTTWR: tests before a level is 'primed to break'", group=grpSR, minval=2, maxval=12, tooltip="HOUSE RULE, and the opposite of how most tools score S/R: tests WEAKEN a level, they do not strengthen it. 'MTTWR / MTTWS — Multiple Times Tested Weak Resistance / Support (a level tested so often it's primed to break)'.\n\n1 test = FRESH (strongest as S/R) · 2..n-1 = TESTED (valid, weakening) · >= n = MTTWR (spent as a floor; now a BREAKOUT candidate) — and MTTWR is EXCLUDED from the support picker.\n\nDEFAULT RAISED 4 -> 6 (18-Jul): measured on live data, a 40-pivot pool over ~2y graded 40-45% of ALL levels MTTWR, so the nearest support below price was almost always excluded and near_sr effectively never fired — the location gate silently lost a source. At 6, a genuine 5-touch shelf 0.2% under price (e.g. RELIANCE 1324) is correctly usable again. Lower it only if you find levels being leaned on that should have been spent.")
+// Clamp: with sr_min_touch >= sr_mttwr_n (both individually legal), every level
+// that EXISTS is already MTTWR -> excluded from the picker -> the panel reads
+// '-' with no explanation. The effective MTTWR count is forced above min-touch.
+int mttwrEff = math.max(sr_mttwr_n, sr_min_touch + 1)
+sr_show_M    = input.bool(true, "Show Monthly levels", group=grpSR, inline="tf")
+sr_show_W    = input.bool(true, "Weekly",              group=grpSR, inline="tf")
+sr_show_D    = input.bool(true, "Daily",               group=grpSR, inline="tf")
+
+grpSRM = "S/R Levels — MANUAL · MONTHLY  (0 = off; shows on ALL timeframes)"
+sr_on = input.bool(true, "Enable manual levels (override auto)", group=grpSRM, tooltip="Manual levels OUTRANK auto ones on a side you have marked: your hand-drawn levels ARE the location layer (Gate 2), the auto ones are the fallback for a side you have not marked yet. A side you leave blank still falls back to auto.\n\nType the price once (from the panel), then drag the handle on the chart.")
+mv1 = input.price(0.0, "Monthly level 1", group=grpSRM)
+mv2 = input.price(0.0, "Monthly level 2", group=grpSRM)
+mv3 = input.price(0.0, "Monthly level 3", group=grpSRM)
+mv4 = input.price(0.0, "Monthly level 4", group=grpSRM)
+
+grpSRW = "S/R Levels — MANUAL · WEEKLY  (shows on Weekly and below)"
+wv1 = input.price(0.0, "Weekly level 1", group=grpSRW)
+wv2 = input.price(0.0, "Weekly level 2", group=grpSRW)
+wv3 = input.price(0.0, "Weekly level 3", group=grpSRW)
+wv4 = input.price(0.0, "Weekly level 4", group=grpSRW)
+
+grpSRD = "S/R Levels — MANUAL · DAILY  (shows on Daily and below; hidden on W/M)"
+dv1 = input.price(0.0, "Daily level 1", group=grpSRD)
+dv2 = input.price(0.0, "Daily level 2", group=grpSRD)
+dv3 = input.price(0.0, "Daily level 3", group=grpSRD)
+dv4 = input.price(0.0, "Daily level 4", group=grpSRD)
+
+// ==========================================================================
+// TRENDLINES — MANUAL ONLY, by deliberate decision.
+
+// ============================================================================
+// TRENDLINE INPUTS -- auto + manual + external bridge
+// ============================================================================
+grpTL = "Trendlines — AUTO + manual"
+tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="Master enable for the MANUAL numeric anchors below. Auto-detect (next input) does not need these — it draws from pivots. Manual anchors are the exact-placement fallback: turn Auto OFF to use them.\n\nAnchors are numeric (0 = off) — enter time/price in this dialog. confirm/click-to-place was removed because it forced a draw on every add and closed the indicator on Esc.")
+// ── AUTO trendlines (Path A, 24-Jul): fit + adjust WITHOUT typing coordinates. Reuses
+// the geometry engine's f_bestLine (no 10th from-scratch fitter — the 9 failed rewrites
+// were all attempts at a GLOBAL auto-fit; this fits a sensible line and lets you nudge it).
+tl_auto      = input.bool(false, "Auto-detect trendlines (envelope fit) — OFF by default", group=grpTL, tooltip="OFF (24-Jul, Jay's call): auto-detection is parked — draw trendlines by hand instead. ON revives the envelope fit (support = the boundary no pivot low pierces; resistance the mirror) and feeds it to the picker/plan/confluence. Kept for later; the manual path below is the live one.")
+tl_thread    = input.float(0.5, "Auto: touch/pierce tolerance (× ATR)", group=grpTL, minval=0.1, maxval=3.0, step=0.05, tooltip="Two roles: how close a pivot must sit to count as a TOUCH, and how far a pivot may poke THROUGH the line before it's disqualified (a support line no low may close below). Larger = looser (more touches, tolerates small pierces); smaller = stricter.")
+tl_pool      = input.int(16, "Auto: pivots pool (how far back a line can anchor)", group=grpTL, minval=4, maxval=40, tooltip="How many recent pivots the envelope fit searches. A trendline anchors on the OLDEST pivot in this pool that the line still respects — so a bigger pool lets the line reach a major swing low/high further back (your long rising channel). Too big and it may reach stale structure; too small and it can't span the trend. Cost grows with the pool.")
+tls_anch_off = input.int(0, "Auto Support: re-anchor (skip N recent lows)", group=grpTL, minval=0, maxval=5, tooltip="Adjust WITHOUT coordinates: drop the N most-recent pivot LOWS before fitting, so the line re-anchors on older structure. 0 = use all recent lows (the default auto pick). Bump to 1-2 if the freshest low skews the line you actually want.")
+tlr_anch_off = input.int(0, "Auto Resistance: re-anchor (skip N recent highs)", group=grpTL, minval=0, maxval=5, tooltip="Same as the support re-anchor, for the resistance line (pivot HIGHS).")
+tls_nudge    = input.float(0.0, "Auto Support: nudge (× ATR, + up / − down)", group=grpTL, minval=-5.0, maxval=5.0, step=0.1, tooltip="Shift the whole support line up (+) or down (−) by this many ATR WITHOUT changing its slope — the numeric stand-in for dragging it a touch. 0 = sit on the fit.")
+tlr_nudge    = input.float(0.0, "Auto Resistance: nudge (× ATR, + up / − down)", group=grpTL, minval=-5.0, maxval=5.0, step=0.1, tooltip="Shift the whole resistance line up/down by this many ATR without changing its slope.")
+tls_tf = input.string("Daily", "Support TL — timeframe", options=["Monthly", "Weekly", "Daily"], group=grpTL, tooltip="The TF a line is drawn on IS its weight. Shows on this timeframe and every LOWER one, never upward — a Daily trendline never renders on a Weekly chart.")
+tls_t1 = input.time(0,    "Support TL — anchor 1 (swing low) time",   group=grpTL)
+tls_p1 = input.price(0.0, "Support TL — anchor 1 price",              group=grpTL)
+tls_t2 = input.time(0,    "Support TL — anchor 2 (higher low) time",  group=grpTL)
+tls_p2 = input.price(0.0, "Support TL — anchor 2 price",              group=grpTL)
+tlr_tf = input.string("Daily", "Resistance TL — timeframe", options=["Monthly", "Weekly", "Daily"], group=grpTL)
+tlr_t1 = input.time(0,    "Resistance TL — anchor 1 (swing high) time", group=grpTL)
+tlr_p1 = input.price(0.0, "Resistance TL — anchor 1 price",             group=grpTL)
+tlr_t2 = input.time(0,    "Resistance TL — anchor 2 (lower high) time", group=grpTL)
+tlr_p2 = input.price(0.0, "Resistance TL — anchor 2 price",             group=grpTL)
+// ── Hand-drawn trendlines SENSED from the "S4 Trendline Tool" companion (Option 2, 24-Jul).
+// S4 never prompts: the companion carries the click-to-place, S4 just reads its value. Each
+// sensed line feeds the picker/plan/confluence and self-sorts to support/resistance by the
+// side of price it sits on. Turn ON only AFTER adding the companion and wiring the source(s).
+tl_ext_on   = input.bool(false, "Sense hand-drawn trendlines (from 'S4 Trendline Tool')", group=grpTL, tooltip="Add the 'S4 Trendline Tool' companion to the chart, place a line on it, then point 'External trendline 1' below at its 'Trendline Value' plot and turn this ON. Add a second companion instance for a second line. S4 shows no placement prompt of its own.")
+tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
+tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
+
+grpZP = "Zones — Structural (Pivot-Based)"
+useStructural   = input.bool(true,  "Draw Pivot (Structural) zones",  group=grpZP, tooltip="Master on/off for ALL pivot (PvH/PvL) zones — the weaker, dashed shelves that come from a bare swing high/low with no leg-base-leg. Uncheck to hide EVERY pivot zone on all timeframes (it stops their creation, so a recompile leaves none on the chart).\n\nUSE THIS TO ISOLATE: turn pivot zones OFF to see ONLY the pattern demand/supply zones (RBR/DBR/RBD/DBD). If a pattern DZ/SZ still doesn't mark with pivots off, the issue is in pattern detection (leg/base/width gates), not a pivot zone hiding or overriding it. Turn the diagnostics row on and read natC d/f/m/L + struct D/C/L alongside.")
+
+// ============================================================================
+// TIMEFRAME GUARDRAILS + ATR (verbatim: HTF shows on LTF, never upward)
+// ============================================================================
+int chartSec   = timeframe.in_seconds(timeframe.period)
+int dailySec   = 86400
+// CALENDAR seconds, to match timeframe.in_seconds(). The old 432000/1900800 were
+// TRADING-day approximations (5x/22x 86400); compared against the calendar chartSec
+// they hid Weekly levels on the Weekly chart and blanked the Monthly chart entirely.
+// (Zone guardrail behaviour is unchanged by this on every standard TF - verified.)
+int weeklySec  = 604800
+int monthlySec = 2592000
+bool useDailyZ   = showDaily   and dailySec   > chartSec
+bool useWeeklyZ  = showWeekly  and weeklySec  > chartSec
+bool useMonthlyZ = showMonthly and monthlySec > chartSec
+// S/R LEVELS use the SAME guardrail — HTF propagates DOWN, LTF never renders UP —
+// reusing the constants above rather than declaring a second set that could drift.
+// `>=` not `>`: unlike a zone, a hand-typed Daily level has no separate "native"
+// path, so it MUST still render on a Daily chart.
+// TF VISIBILITY — stated as predicates, not seconds arithmetic (2-Aug fix).
+// The rule is unchanged: a level shows on its OWN timeframe and every LOWER one, never
+// upward. What changed is HOW it is decided. The old form compared a hard-coded
+// monthlySec (2,592,000 = 30 days) against timeframe.in_seconds(), and a calendar month
+// is not 30 days — so on a MONTHLY chart the comparison failed and monthly levels
+// vanished from the one timeframe they matter most on. That is the same class of failure
+// the constants caused once before ("blanked the Monthly chart entirely"), which is why
+// this now avoids the arithmetic entirely rather than patching the constant again.
+bool useLvM = true                                                  // highest tier — always eligible
+bool useLvW = not timeframe.ismonthly                               // hidden only above weekly
+bool useLvD = not (timeframe.ismonthly or timeframe.isweekly)       // hidden on W and M
+
+// ============================================================================
+// CHART ATR + EMA20
+// ============================================================================
+float chart_atr = ta.atr(14)
+// v3.2: PER-TIMEFRAME ATR for the tested-travel rule. The travel a zone must see
+
+// ============================================================================
+// SRSig TYPE
+// ============================================================================
+type SRSig
+    float a1        // nearest level ABOVE
+    int   a1t       // touch count
+    int   a1x       // TIME of its first touch
+    bool  a1h       // origin = pivot HIGHS (else lows)
+    float a2
+    int   a2t
+    int   a2x
+    bool  a2h
+    float b1        // nearest level BELOW
+    int   b1t
+    int   b1x
+    bool  b1h
+    float b2
+    int   b2t
+    int   b2x
+    bool  b2h
+
+// Cluster pivots into horizontal levels and return the two nearest each side of
+// price, with their test counts. Runs natively AND inside request.security, so
+
+// ============================================================================
+// f_srLevels -- the S/R clustering engine
+// ============================================================================
+f_srLevels(simple int pvL, simple int pvR, simple int poolN, simple float tolAtr, simple int minSpace, simple int minTouch, simple bool wickTouch, simple int maxCross, simple int grazeBack, simple bool wickOnly) =>
+    a = ta.atr(14)
+    // ta.* unconditional every bar (Pine consistency rule).
+    float ph = ta.pivothigh(high, pvL, pvR)
+    float pl = ta.pivotlow(low,  pvL, pvR)
+    // PERSISTENT LEVEL OBJECTS (v3.3 — the grade-drift fix). The old engine kept a
+    // rolling 40-PIVOT pool and re-clustered it every bar, so a level's touch count
+    // DECAYED as its old members were evicted: MTTWR could quietly downgrade itself
+    // to "fresh" — and re-enter the picker as a stop candidate — with no price having
+    // touched it. Levels are now first-class objects: a confirmed pivot either MERGES
+    // into the level it belongs to (cumulative count — never decays; running-mean
+    // price; first-touch time kept, so the ray no longer creeps) or CREATES one.
+    // Capacity is a cap on LEVELS (poolN, evicting the oldest first-touch), and since
+    // levels are far scarcer than pivots, 40 levels holds YEARS of structure.
+    // Merging-on-arrival also makes levels >= tol apart by construction, which
+    // retires the slot-dedup patch the old clustering needed.
+    var array<float> Lp = array.new<float>()   // level price (running mean of touches)
+    var array<int>   Lc = array.new<int>()     // CUMULATIVE touch count
+    var array<int>   Lt = array.new<int>()     // first-touch TIME (ray anchor + origin)
+    var array<bool>  Lh = array.new<bool>()    // origin: born from a pivot HIGH
+    var array<int>   Lb = array.new<int>()     // last-touch bar (distinct-test spacing)
+    // #8 wick-fit: running INTERSECTION of the member pivots' wick bands. A line inside
+    // this interval threads EVERY member wick — placed at its midpoint (sr_wick_fit).
+    var array<float> Lil = array.new<float>()  // intersection low
+    var array<float> Lih = array.new<float>()  // intersection high
+    // #cross (2-Aug, Jay's manual rule: "no candle should close beyond these lines").
+    // A level is PRICE MEMORY, so a single decisive break is not a disqualifier — it is
+    // the R<->S flip, and the level stays. What disqualifies it is being closed through
+    // REPEATEDLY: that is not memory, it is mid-range chop, and no hand-drawn line would
+    // survive it.
+    // Measured on ABBOTINDIA monthly, crossings — not closes-beyond — is the discriminator:
+    //   24715  31 closes above / 29 below but only  1 CROSSING  -> broken once, then held (valid)
+    //   27425  21 above / 39 below,                 7 CROSSINGS -> oscillated through (noise)
+    //   29255  11 above / 49 below,                 8 CROSSINGS -> oscillated through (noise)
+    // The level with the MOST closes on both sides is the one Jay accepted, which is why
+    // the count of closes beyond is the wrong test and the number of sign changes is right.
+    var array<float> Lmn = array.new<float>()  // lowest member price  ) together these give
+    var array<float> Lmx = array.new<float>()  // highest member price ) the level's SPAN
+    var array<int>   Lgz = array.new<int>()    // distinct GRAZING bars (non-pivot wicks at
+                                               // the level). Lets a level EXIST on wick
+                                               // confluence; never counts as a test.
+    var array<int>   Lpv = array.new<int>()    // TRUE pivot members (extreme at the level,
+                                               // not a wick-pierce) — decides whether the
+                                               // pivots can define the line on their own
+    var array<float> Lex = array.new<float>()  // member EXTREME (max high / min low) — hand-drawn placement
+    var array<int>   Lx = array.new<int>()     // cumulative close-through crossings
+    var array<bool>  La = array.new<bool>()    // last known side (close was above)
+    // CLUSTER TOLERANCE, with a PERCENT-OF-PRICE CAP (2-Aug fix).
+    // ATR alone does not scale across timeframes: on ABBOTINDIA 0.6 x ATR14 is 0.99% of
+    // price on Daily, 2.53% on Weekly and 6.43% on MONTHLY. At 6.4% any two pivots within
+    // ~1,800 points merged, so a monthly "level" was the AVERAGE of 8 pivots spanning
+    // 25,150-28,490 — a price where nothing ever turned, drawn straight through candle
+    // bodies. A level is a price the market respected; if the band is 6% wide it is not a
+    // level, it is a region.
+    // The cap is scale-invariant, so it binds on the timeframes where ATR runs away and is
+    // inert where ATR was already sane (Daily here is untouched at 0.99%).
+    float tol = math.min(tolAtr * a, sr_tol_max_pct / 100.0 * close)
+    if not na(ph) and not na(a) and a > 0
+        // #30: match a level by EXTREME within tol OR by the level PIERCING the pivot's
+        // upper wick (body-top..high). Nearest-to-extreme wins among candidates. A
+        // pierce-only touch is counted but does NOT drag the level's mean.
+        float _wkLo = wickTouch ? math.max(open[pvR], close[pvR]) : ph
+        int _j = -1
+        float _bd = 1e15
+        bool _pierceOnly = false
+        if array.size(Lp) > 0
+            for i2 = 0 to array.size(Lp) - 1
+                float _lp   = array.get(Lp, i2)
+                float _d    = math.abs(_lp - ph)
+                bool  _near = _d <= tol
+                bool  _prc  = wickTouch and _lp <= ph and _lp >= _wkLo
+                // SPAN CAP. merge-on-arrival compares each pivot to the RUNNING MEAN, so
+                // A->B->C can chain pivots that are 2x tol apart: on ABBOTINDIA monthly a
+                // single "level" ended up holding 8 pivots spread over 3,340 points, and
+                // its drawn price was their average — a price nothing ever traded at.
+                // Bounding the level's total span kills the chaining, which in turn allows
+                // a LOOSER tolerance: PERSISTENT needs ~70pts to group 4,230 with 4,297
+                // (Jay reads them as one level), and at the old 1.0% cap of 55.75 they
+                // could never join.
+                bool  _fits = math.max(array.get(Lmx, i2), ph) - math.min(array.get(Lmn, i2), ph) <= tol * sr_span_mult
+                if (_near or _prc) and _fits and _d < _bd
+                    _bd := _d
+                    _j := i2
+                    _pierceOnly := _prc and not _near
+        float _bTop = math.max(open[pvR], close[pvR])   // wick band = body-top .. high
+        if _j >= 0
+            if bar_index - pvR - array.get(Lb, _j) >= minSpace
+                int _c = array.get(Lc, _j) + 1
+                // #8: place the line to thread the MAXIMUM wicks — intersect this
+                // pivot's wick band with the level's running intersection; when it
+                // holds, the line moves to the midpoint (threads every member wick).
+                // When it doesn't, keep the interval and fall back to the mean drag.
+                float _nl = math.max(array.get(Lil, _j), _bTop)
+                float _nh = math.min(array.get(Lih, _j), ph)
+                // #8 (Jay, 19-Jul): thread the MAX wicks "to the extent possible". When the
+                // new pivot's wick band still intersects the running band, shrink+re-centre
+                // (one more wick threaded). When it does NOT, the touch STILL COUNTS (Lc++
+                // below — count is pivots-only) but the line STAYS put on the max-wick set;
+                // it must NOT drift to the mean. Mean-drag only when wick-fit is OFF.
+                if sr_wick_fit and _nl <= _nh
+                    array.set(Lil, _j, _nl)
+                    array.set(Lih, _j, _nh)
+                    array.set(Lp, _j, (_nl + _nh) / 2.0)
+                else if not sr_wick_fit and not _pierceOnly
+                    array.set(Lp, _j, (array.get(Lp, _j) * (_c - 1) + ph) / _c)
+                // Resistance: the highest price still threaded by EVERY member wick is
+                // the LOWEST of the member highs — each wick reaches UP through it. Taking
+                // the max would put the line on the single tallest wick, above all the
+                // others, touching one pivot and missing the rest.
+                if not _pierceOnly
+                    array.set(Lpv, _j, array.get(Lpv, _j) + 1)
+                array.set(Lmn, _j, math.min(array.get(Lmn, _j), ph))
+                array.set(Lmx, _j, math.max(array.get(Lmx, _j), ph))
+                array.set(Lex, _j, math.min(array.get(Lex, _j), ph))
+                array.set(Lc, _j, _c)
+                array.set(Lb, _j, bar_index - pvR)
+        else
+            array.push(Lp, ph)
+            array.push(Lc, 1)
+            array.push(Lt, time[pvR])
+            array.push(Lh, true)
+            array.push(Lb, bar_index - pvR)
+            array.push(Lil, _bTop)
+            array.push(Lih, ph)
+            array.push(Lmn, ph)
+            array.push(Lmx, ph)
+            // BACKWARD GRAZE (3-Aug). The per-bar refinement below only touches levels
+            // that ALREADY EXIST, so a wick that happened BEFORE a level was created can
+            // never refine it — grazing was forward-only. On PERSISTENT the 5,645 wick
+            // (Mar-26) precedes the 5,698 pivot (Jul-26), so that level stayed pinned on
+            // its single pivot, while 4,297 grazed fine because its wick came AFTER.
+            // At creation, scan back over the level's own history and fold in the
+            // near-extremes already on the chart. Bounded by grazeBack so the loop cost
+            // stays fixed.
+            float _bex = ph
+            int   _bgz = 0
+            for _k = pvR + 1 to grazeBack
+                // WICK-ONLY (3-Aug). A bar whose HIGH equals its body top has no upper
+                // wick — that price is a body EDGE, not a wick extreme. Letting it graze
+                // put a line on a candle's OPEN and cut the previous body, which is not
+                // "connecting the wicks". Require a real shadow on the side being used.
+                if math.abs(high[_k] - ph) <= tol and (not wickOnly or high[_k] > math.max(open[_k], close[_k]))
+                    _bgz := _bgz + 1
+                    if high[_k] < _bex
+                        _bex := high[_k]
+            array.push(Lgz, _bgz)
+            array.push(Lpv, 1)
+            array.push(Lex, _bex)
+            array.push(Lx, 0)
+            array.push(La, close > ph)
+    if not na(pl) and not na(a) and a > 0
+        // #30 mirror: match by EXTREME within tol OR the level piercing the pivot's LOWER
+        // wick (low..body-bottom). Pierce-only touch counted, does not drag the mean.
+        float _wkHi = wickTouch ? math.min(open[pvR], close[pvR]) : pl
+        int _j = -1
+        float _bd = 1e15
+        bool _pierceOnly = false
+        if array.size(Lp) > 0
+            for i2 = 0 to array.size(Lp) - 1
+                float _lp   = array.get(Lp, i2)
+                float _d    = math.abs(_lp - pl)
+                bool  _near = _d <= tol
+                bool  _prc  = wickTouch and _lp >= pl and _lp <= _wkHi
+                bool  _fits = math.max(array.get(Lmx, i2), pl) - math.min(array.get(Lmn, i2), pl) <= tol * sr_span_mult
+                if (_near or _prc) and _fits and _d < _bd
+                    _bd := _d
+                    _j := i2
+                    _pierceOnly := _prc and not _near
+        float _bBot = math.min(open[pvR], close[pvR])   // wick band = low .. body-bottom
+        if _j >= 0
+            if bar_index - pvR - array.get(Lb, _j) >= minSpace
+                int _c = array.get(Lc, _j) + 1
+                float _nl = math.max(array.get(Lil, _j), pl)
+                float _nh = math.min(array.get(Lih, _j), _bBot)
+                if sr_wick_fit and _nl <= _nh
+                    array.set(Lil, _j, _nl)
+                    array.set(Lih, _j, _nh)
+                    array.set(Lp, _j, (_nl + _nh) / 2.0)
+                else if not sr_wick_fit and not _pierceOnly
+                    array.set(Lp, _j, (array.get(Lp, _j) * (_c - 1) + pl) / _c)
+                // Support: mirror — the HIGHEST of the member lows. Every wick reaches
+                // DOWN through it, so the line grazes all of them.
+                if not _pierceOnly
+                    array.set(Lpv, _j, array.get(Lpv, _j) + 1)
+                array.set(Lmn, _j, math.min(array.get(Lmn, _j), pl))
+                array.set(Lmx, _j, math.max(array.get(Lmx, _j), pl))
+                array.set(Lex, _j, math.max(array.get(Lex, _j), pl))
+                array.set(Lc, _j, _c)
+                array.set(Lb, _j, bar_index - pvR)
+        else
+            array.push(Lp, pl)
+            array.push(Lc, 1)
+            array.push(Lt, time[pvR])
+            array.push(Lh, false)
+            array.push(Lb, bar_index - pvR)
+            array.push(Lil, pl)
+            array.push(Lih, _bBot)
+            array.push(Lmn, pl)
+            array.push(Lmx, pl)
+            // BACKWARD GRAZE — mirror of the high-origin block above.
+            float _bexL = pl
+            int   _bgzL = 0
+            for _k = pvR + 1 to grazeBack
+                // WICK-ONLY mirror: a low equal to the body bottom is a body edge. A green
+                // candle opening at its low has low == open, so grazing it anchored the
+                // line on that OPEN — exactly the 5,513 case.
+                if math.abs(low[_k] - pl) <= tol and (not wickOnly or low[_k] < math.min(open[_k], close[_k]))
+                    _bgzL := _bgzL + 1
+                    if low[_k] > _bexL
+                        _bexL := low[_k]
+            array.push(Lgz, _bgzL)
+            array.push(Lpv, 1)
+            array.push(Lex, _bexL)
+            array.push(Lx, 0)
+            array.push(La, close > pl)
+    // #cross: update every level's close-through count once per bar. A CROSSING is a
+    // change of side (close above <-> below), not merely closing beyond — so one decisive
+    // break costs 1, and only genuine oscillation accumulates.
+    if array.size(Lp) > 0
+        for i2 = 0 to array.size(Lp) - 1
+            // #graze (2-Aug): PLACEMENT is refined by ANY nearby wick extreme, pivot or
+            // not — the GRADE is not. Measured on ABBOTINDIA monthly: of the seven lows
+            // forming the 24,800 shelf, only ONE (24,575) is a pivot at piv_m=1, because
+            // every other has a neighbouring month with a lower low. A pivot-only engine
+            // can therefore never find the line Jay draws, which grazes 24,770 / 24,790 /
+            // 24,809 — three wick tips within 40 points, none of them pivots.
+            // Pivots still CREATE levels (that is what keeps the chart clean); this only
+            // settles WHERE an existing level sits. Touch counts are untouched, so the
+            // old warning about arbitrary bars inflating the grade still holds.
+            // PRECEDENCE (Jay, 2-Aug): "the S/R line should preferably connect the
+            // PIVOTS, if they are there. Otherwise, it should connect the maximum wicks."
+            // So grazing is a FALLBACK, not an override — it only runs when the level's
+            // own pivots cannot define the line (fewer than 2 genuine pivot members, i.e.
+            // a lone pivot plus wick-pierces). With 2+ real pivots the line stays on them.
+            if sr_graze_place and array.get(Lpv, i2) < 2
+                float _lpNow = array.get(Lp, i2)
+                // [1] — the LIVE bar never grazes (3-Aug). On PERSISTENT monthly the
+                // current bar's high WAS the close (5575) and sat inside a resistance
+                // cluster, so the refinement dragged that level down onto price. The
+                // selector then tests lvl > close for resistance and lvl < close for
+                // support; at EQUAL it is neither, and the level disappeared — which is
+                // why the chart showed two supports and no resistance at all.
+                // Reading [1] keeps every historical bar (each is [1] on the bar after)
+                // while excluding the one that is still forming — the same closed-bar
+                // rule the rest of the engine follows.
+                if array.get(Lh, i2)
+                    if math.abs(high[1] - _lpNow) <= tol and (not wickOnly or high[1] > math.max(open[1], close[1]))
+                        array.set(Lgz, i2, array.get(Lgz, i2) + 1)
+                        // NOTE: an earlier version also tested "> close" here. That was
+                        // wrong — this loop runs on EVERY bar, so `close` is that bar's
+                        // historical close, not current price; the guard compared against
+                        // a moving target. The [1] read is what actually fixes the
+                        // collapse-onto-price case, and a graze can only move a level
+                        // within its own tolerance band anyway.
+                        if high[1] < array.get(Lex, i2)
+                            array.set(Lex, i2, high[1])
+                else
+                    if math.abs(low[1] - _lpNow) <= tol and (not wickOnly or low[1] < math.min(open[1], close[1]))
+                        array.set(Lgz, i2, array.get(Lgz, i2) + 1)
+                        if low[1] > array.get(Lex, i2)
+                            array.set(Lex, i2, low[1])
+            bool _nowAb = close > array.get(Lp, i2)
+            if _nowAb != array.get(La, i2)
+                array.set(Lx, i2, array.get(Lx, i2) + 1)
+                array.set(La, i2, _nowAb)
+    // Cap on LEVELS: evict the one that came into play longest ago.
+    while array.size(Lp) > poolN
+        int _old = 0
+        for i2 = 1 to array.size(Lp) - 1
+            if array.get(Lt, i2) < array.get(Lt, _old)
+                _old := i2
+        array.remove(Lp, _old)
+        array.remove(Lmn, _old)
+        array.remove(Lmx, _old)
+        array.remove(Lgz, _old)
+        array.remove(Lpv, _old)
+        array.remove(Lex, _old)
+        array.remove(Lx, _old)
+        array.remove(La, _old)
+        array.remove(Lc, _old)
+        array.remove(Lt, _old)
+        array.remove(Lh, _old)
+        array.remove(Lb, _old)
+        array.remove(Lil, _old)
+        array.remove(Lih, _old)
+    // SELECT the two nearest qualified levels per side. NEAREST, not most-tested —
+    // ranking by touch count is the inversion this engine exists to remove. The
+    // min-touch gate stays: one pivot is a swing point, not a level.
+    float a1 = na
+    float a2 = na
+    float b1 = na
+    float b2 = na
+    int   a1t = 0
+    int   a2t = 0
+    int   b1t = 0
+    int   b2t = 0
+    int   a1x = 0
+    int   a2x = 0
+    int   b1x = 0
+    int   b2x = 0
+    bool  a1h = false
+    bool  a2h = false
+    bool  b1h = false
+    bool  b2h = false
+    if array.size(Lp) > 0
+        for i2 = 0 to array.size(Lp) - 1
+            // #placement: EXTREME mode emits the member wick extreme (max high for a
+            // level born of pivot highs, min low for one born of lows) instead of the
+            // wick-band midpoint. This is how the line is drawn by hand, and it is what
+            // makes "no candle closes beyond it" TRUE — every close sits inside the wick,
+            // whereas a midpoint has half the band above it and is violated by design.
+            float lvl = sr_place_extreme ? array.get(Lex, i2) : array.get(Lp, i2)
+            int   c   = array.get(Lc, i2)
+            // #cross: a level price has oscillated through is not price memory, it is
+            // mid-range chop — the line Jay would never draw by hand. Dropped from the
+            // picker entirely (not merely downgraded): a line that fails the "no candle
+            // closes beyond it" rule this badly should not be on the chart at all.
+            // QUALIFY on pivots + grazing wicks; GRADE on pivots alone.
+            // Jay's rule is "only the pivot touches count towards tests" — that governs the
+            // GRADE (a1t/b1t below are `c`, the pivot count, untouched). It does not have to
+            // govern EXISTENCE. The 29,855 resistance is one pivot (29,954) plus a wick at
+            // 29,861 that is not a pivot because September printed a higher high; requiring
+            // two PIVOTS deleted the level before placement could ever run on it.
+            // Wick confluence can earn a level its place on the chart; only pivots can make
+            // it strong.
+            int _qual = c + array.get(Lgz, i2)
+            if _qual >= minTouch and (maxCross <= 0 or array.get(Lx, i2) <= maxCross)
+                if lvl > close
+                    if na(a1) or lvl < a1
+                        a2 := a1
+                        a2t := a1t
+                        a2x := a1x
+                        a2h := a1h
+                        a1 := lvl
+                        a1t := c
+                        a1x := array.get(Lt, i2)
+                        a1h := array.get(Lh, i2)
+                    else if na(a2) or lvl < a2
+                        a2 := lvl
+                        a2t := c
+                        a2x := array.get(Lt, i2)
+                        a2h := array.get(Lh, i2)
+                else if lvl < close
+                    if na(b1) or lvl > b1
+                        b2 := b1
+                        b2t := b1t
+                        b2x := b1x
+                        b2h := b1h
+                        b1 := lvl
+                        b1t := c
+                        b1x := array.get(Lt, i2)
+                        b1h := array.get(Lh, i2)
+                    else if na(b2) or lvl > b2
+                        b2 := lvl
+                        b2t := c
+                        b2x := array.get(Lt, i2)
+                        b2h := array.get(Lh, i2)
+    SRSig.new(a1, a1t, a1x, a1h, a2, a2t, a2x, a2h, b1, b1t, b1x, b1h, b2, b2t, b2x, b2h)
+
+// ==========================================================================
+// Z3. ZONE ENGINE — LABEL + METHODS
+// ==========================================================================
+// NOTE: there is no touch counter. Zones are DELETED the moment they are tested (see the
+// state block below), so a "T n/max" token could never render. The old touchCount field and
+// the controllingMaxTouches input were dead weight and have been removed.
+
+// ============================================================================
+// S/R CORE -- security calls, helpers, draw fns, manual TL resolve
+// ============================================================================
+// ==========================================================================
+// S/R LEVELS — per-TF detection, then MANUAL-over-AUTO resolution
+// ==========================================================================
+// Each TF clusters its OWN pivots at its OWN ATR — a weekly level comes from
+// weekly swings, not from squinting at daily ones.
+srM = request.security(syminfo.tickerid, "M", f_srLevels(piv_m, piv_m, sr_pool, sr_tol, sr_minspace, sr_min_touch, sr_wick_touch, sr_max_cross, sr_graze_back, sr_wick_only), lookahead=barmerge.lookahead_off)
+srW = request.security(syminfo.tickerid, "W", f_srLevels(piv_w, piv_w, sr_pool, sr_tol, sr_minspace, sr_min_touch, sr_wick_touch, sr_max_cross, sr_graze_back, sr_wick_only), lookahead=barmerge.lookahead_off)
+srD = request.security(syminfo.tickerid, "D", f_srLevels(piv_d, piv_d, sr_pool, sr_tol, sr_minspace, sr_min_touch, sr_wick_touch, sr_max_cross, sr_graze_back, sr_wick_only), lookahead=barmerge.lookahead_off)
+
+// A manual level is live if the master switch is on, it has been placed (>0), and
+// its TF is visible on this chart.
+f_lvOn(float px, bool tfOk) => sr_on and d_sr and tfOk and not na(px) and px > 0.0
+// ROLE IS DERIVED — never fixed at detection — so a level flips Support↔Resistance
+// when price closes through it (the R-flip→S rule) instead of going stale.
+f_lvRole(float px) => px > close ? "Resistance" : "Support"
+// TESTS GRADE A LEVEL, and MORE IS WORSE (MTTWR). This is the inversion.
+// Grade anchors to the MIN-TOUCH count, not to 1. A level does not exist below
+// sr_min_touch touches, so minTouch touches IS the fresh state — the level has just
+// proved itself and is unspent. More = weakening. >= sr_mttwr_n = primed to break.
+// (Keyed to 1 this read "fresh" only for one-touch levels, which are now — correctly —
+//  not levels at all, so "fresh" would have become unreachable.)
+f_lvGrade(int tests) => tests >= mttwrEff ? "MTTWR" : tests <= sr_min_touch ? "fresh" : "tested×" + str.tostring(tests)
+// Does this TF have ANY manual level placed? If so it OWNS that timeframe: the
+// auto levels for that TF are suppressed entirely rather than drawn alongside,
+// because "your hand-drawn levels ARE the location layer" — a machine guess sitting
+// next to your mark on the same timeframe is noise, not a second opinion.
+f_tfHasManual(float v1, float v2, float v3, float v4, bool tfOk) => f_lvOn(v1, tfOk) or f_lvOn(v2, tfOk) or f_lvOn(v3, tfOk) or f_lvOn(v4, tfOk)
+
+bool manM = f_tfHasManual(mv1, mv2, mv3, mv4, useLvM)
+bool manW = f_tfHasManual(wv1, wv2, wv3, wv4, useLvW)
+bool manD = f_tfHasManual(dv1, dv2, dv3, dv4, useLvD)
+
+// --- MANUAL TRENDLINES: TF visibility, live test, projection to the current bar ---
+// Same guardrail as the levels (HTF down, never LTF up), driven by the line's own
+// TF dropdown rather than the group it sits in.
+f_tlVis(string tf) => tf == "Monthly" ? useLvM : tf == "Weekly" ? useLvW : useLvD
+// A line is live only when BOTH anchors carry a time AND a non-zero price. A
+// half-placed line must draw nothing rather than a line to somewhere arbitrary.
+bool tls_live = tl_on and d_tl and tls_t1 > 0 and tls_t2 > 0 and tls_p1 > 0.0 and tls_p2 > 0.0 and tls_t2 != tls_t1 and f_tlVis(tls_tf)
+bool tlr_live = tl_on and d_tl and tlr_t1 > 0 and tlr_t2 > 0 and tlr_p1 > 0.0 and tlr_p2 > 0.0 and tlr_t2 != tlr_t1 and f_tlVis(tlr_tf)
+// Projected value AT THIS BAR — this is what makes the line machine-readable: a
+// trendline is just a level whose price moves, so once projected it flows through
+// the same nearest-S/R pickers the horizontals use, and reaches the PLAN and the
+// confluence score without any of those consumers knowing it is a diagonal.
+// Anchors are in TIME (ms), so the slope is price-per-ms and must be applied to a
+// time delta — never mixed with a bar-index slope.
+float tls_now = tls_live ? tls_p2 + (tls_p2 - tls_p1) / float(tls_t2 - tls_t1) * float(time - tls_t2) : na
+float tlr_now = tlr_live ? tlr_p2 + (tlr_p2 - tlr_p1) / float(tlr_t2 - tlr_t1) * float(time - tlr_t2) : na
+string tls_tfTag = tls_tf == "Monthly" ? "M" : tls_tf == "Weekly" ? "W" : "D"
+string tlr_tfTag = tlr_tf == "Monthly" ? "M" : tlr_tf == "Weekly" ? "W" : "D"
+
+// Line WEIGHT encodes conviction, because the timeframe a level is drawn on IS its
+// weight: Monthly 3px, Weekly 2px, Daily 1px. You should be able to tell a weekly
+// floor from a daily one without reading the label.
+var array<line>  srLines = array.new<line>()
+var array<label> srLbls  = array.new<label>()
+var line  lnTlS = na
+var line  lnTlR = na
+var label lbTlS = na
+var label lbTlR = na
+var box   bxFlag = na
+var label lbFlag = na
+var box   bxMan  = na
+var label lbMan  = na
+
+f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool isManual) =>
+    if not na(px) and px > 0
+        bool isSup = px <= close
+        // COLOUR BY ROLE, not by timeframe: GREEN = support, RED = resistance. Role is
+        // derived from price, so a flipped R→S turns green by itself the moment price
+        // closes above it — no state to keep in sync. The TIMEFRAME is carried by line
+        // WIDTH (M 3px / W 2px / D 1px) and by the label, so nothing is lost.
+        color lc = isSup ? #26a69a : #ef5350
+        int   w  = tfTag == "M" ? 3 : tfTag == "W" ? 2 : 1
+        // FLIPPED = the level's ORIGIN disagrees with its current role: born from pivot
+        // HIGHS but now sitting below price (old resistance → support), or vice versa.
+        // Role alone cannot tell you this — it is derived from price and has forgotten
+        // where the level came from. That is why the origin is tracked at detection.
+        bool isFlip = (not isManual) and ((originHigh and isSup) or ((not originHigh) and (not isSup)))
+        // RESET-ON-FLIP (Jay, 23-Jul): a flipped level is FRESH in its new role — an old
+        // resistance touched 4× has 0 touches AS SUPPORT — so its displayed count/grade
+        // resets. This aligns the LABEL with the line, which already draws a flip SOLID
+        // (fresh). Origin is immutable, so a flip reads "fresh · S→R"; the count re-climbs
+        // only if the level flips back. (The cumulative touch history still lives in the
+        // level object; only the DISPLAYED, role-relative count resets.)
+        int    _effTests = (isFlip and not isManual) ? sr_min_touch : tests
+        // DASHED = tested and NOT flipped. A flipped level is fresh IN ITS NEW ROLE —
+        // an old resistance has never been tested as support — so it draws solid.
+        // MTTWR falls out of this for free (tests >= 4 > min_touch → tested → dashed).
+        bool tested = (not isManual) and _effTests > sr_min_touch
+        bool dash   = tested and not isFlip
+        string g    = isManual ? "manual" : f_lvGrade(_effTests)
+        string ftag = isFlip ? (isSup ? " · R→S" : " · S→R") : ""
+        // RAY FROM THE FIRST TOUCH — not from a blind 300-bar back-extension, which
+        // drew the level flat through history where it was not yet in play.
+        // The line ENDS at the current bar and the label hangs to its RIGHT
+        // (style_label_left anchors the body rightward), so the line can no longer run
+        // THROUGH the text and render it as struck-through. extend.right is gone for
+        // the same reason — it was the thing crossing the label.
+        int _t0 = firstT > 0 ? firstT : time[math.min(300, bar_index)]
+        array.push(srLines, line.new(_t0, px, time, px, xloc=xloc.bar_time, color=color.new(lc, dash ? 35 : 0), width=w, style=dash ? line.style_dashed : line.style_solid))
+        array.push(srLbls,  label.new(time, px, tfTag + " · " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + " · " + g, xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
+
+// Draw the auto pair for one TF, unless you have marked that TF yourself.
+f_drawAutoTf(SRSig s, string tfTag, bool tfOk, bool tfShow, bool hasManual) =>
+    if show_sr_lv and d_sr and tfOk and tfShow and not hasManual and not na(s)
+        f_drawLv(s.a1, tfTag, s.a1t, s.a1x, s.a1h, false)
+        f_drawLv(s.a2, tfTag, s.a2t, s.a2x, s.a2h, false)
+        f_drawLv(s.b1, tfTag, s.b1t, s.b1x, s.b1h, false)
+        f_drawLv(s.b2, tfTag, s.b2t, s.b2x, s.b2h, false)
+
+// ============================================================================
+// f_bestLine + f_autoTL -- the line fitters
+// ============================================================================
+f_bestLine(array<float> py, array<int> px, float tol) =>
+    int _n = array.size(py)
+    int   _xE = na
+    float _yE = na
+    int   _xL = na
+    float _yL = na
+    if _n >= 2
+        int _bestCount = -1
+        int _bestA = 0
+        int _bestB = 1
+        for _a = 0 to _n - 2
+            for _b = _a + 1 to _n - 1
+                int   _xa = array.get(px, _a)
+                float _ya = array.get(py, _a)
+                int   _dx = array.get(px, _b) - _xa
+                if _dx != 0
+                    float _slope = (array.get(py, _b) - _ya) / _dx
+                    int _cnt = 0
+                    for _k = 0 to _n - 1
+                        float _pred = _ya + _slope * (array.get(px, _k) - _xa)
+                        if math.abs(array.get(py, _k) - _pred) <= tol
+                            _cnt += 1
+                    if _cnt > _bestCount
+                        _bestCount := _cnt
+                        _bestA := _a
+                        _bestB := _b
+        int   _xa2 = array.get(px, _bestA)
+        float _ya2 = array.get(py, _bestA)
+        int   _dx2 = array.get(px, _bestB) - array.get(px, _bestA)
+        float _slp = _dx2 != 0 ? (array.get(py, _bestB) - _ya2) / _dx2 : 0.0
+        int   _minx =  2147483647
+        int   _maxx = -2147483647
+        for _k = 0 to _n - 1
+            int   _xk   = array.get(px, _k)
+            float _pred = _ya2 + _slp * (_xk - _xa2)
+            if math.abs(array.get(py, _k) - _pred) <= tol
+                if _xk < _minx
+                    _minx := _xk
+                    _yE   := _pred
+                if _xk > _maxx
+                    _maxx := _xk
+                    _yL   := _pred
+        _xE := _minx
+        _xL := _maxx
+    [_xE, _yE, _xL, _yL]
+
+// Auto-trendline = the ENVELOPE line, drawn like a trader (24-Jul, Jay's review: the old
+// max-threading fit force-fit FLAT/FAR lines against the trend). A support line is the
+// BOUNDARY that no pivot low pierces (every low sits on/above it, within tol), touching
+// the MOST lows; resistance is the mirror over the highs. Because the boundary is pinned
+// by the extreme pivot, it naturally anchors on a major swing and RISES with the trend.
+// Then: require a RECENT touch (the line is current) and that the latest close hasn't
+// BROKEN it. `off` skips the N most-recent pivots; `nudgePx` shifts it parallel.
+// Returns [live, anchorX(bar_index), anchorY, nowPrice]; live=false ⇒ no valid line
+// (so we never force a side that has none).
+f_autoTL(array<float> py, array<int> px, bool isSupport, int off, float tolPx, float nudgePx, int maxAge) =>
+    int   _n = array.size(py) - off
+    bool  _live = false
+    int   _ax = na
+    float _ay = na
+    float _now = na
+    if _n >= 2
+        int _bT = -1                       // best touch count · _bA/_bB = anchor pivot indices
+        int _bA = -1
+        int _bB = -1
+        int _bSpan = -1
+        for _a = 0 to _n - 2
+            int   _xa = array.get(px, _a)
+            float _ya = array.get(py, _a)
+            for _b = _a + 1 to _n - 1
+                int _xb = array.get(px, _b)
+                int _dx = _xb - _xa
+                // the line's LATER anchor must be recent, so the line is current
+                if _dx > 0 and bar_index - _xb <= maxAge
+                    float _slope = (array.get(py, _b) - _ya) / float(_dx)
+                    bool  _valid = true
+                    int   _touch = 0
+                    for _j = 0 to _n - 1
+                        float _pred = _ya + _slope * float(array.get(px, _j) - _xa)
+                        float _d = array.get(py, _j) - _pred
+                        if isSupport and _d < -tolPx
+                            _valid := false       // a low BELOW the support line ⇒ not an envelope
+                        if (not isSupport) and _d > tolPx
+                            _valid := false       // a high ABOVE the resistance line ⇒ not an envelope
+                        if math.abs(_d) <= tolPx
+                            _touch += 1
+                    if _valid and _touch >= 2
+                        int _span = _xb - _xa
+                        if _touch > _bT or (_touch == _bT and _span > _bSpan)
+                            _bT := _touch
+                            _bA := _a
+                            _bB := _b
+                            _bSpan := _span
+        if _bA >= 0
+            int   _xa2 = array.get(px, _bA)
+            float _ya2 = array.get(py, _bA)
+            float _slp = (array.get(py, _bB) - _ya2) / float(array.get(px, _bB) - _xa2)
+            float _proj = _ya2 + _slp * float(bar_index - _xa2) + nudgePx
+            bool  _broken = isSupport ? (close < _proj - tolPx) : (close > _proj + tolPx)
+            if not _broken
+                _ax   := _xa2               // draw from the OLD (major-swing) anchor to now
+                _ay   := _ya2 + nudgePx
+                _now  := _proj
+                _live := true
+    [_live, _ax, _ay, _now]
+
+// ============================================================================
+// PIVOT DETECTION + TRENDLINE POOLS
+// ============================================================================
+var array<float> gphy = array.new<float>()
+var array<float> gply = array.new<float>()
+float _gph = ta.pivothigh(high, pv_chart, pv_chart)
+float _gpl = ta.pivotlow(low,  pv_chart, pv_chart)
+var array<int> gpxh = array.new<int>()
+var array<int> gpxl = array.new<int>()
+if not na(_gph)
+    array.push(gphy, _gph)
+    array.push(gpxh, bar_index - pv_chart)
+    if array.size(gphy) > 6
+        array.shift(gphy)
+        array.shift(gpxh)
+if not na(_gpl)
+    array.push(gply, _gpl)
+    array.push(gpxl, bar_index - pv_chart)
+    if array.size(gply) > 6
+        array.shift(gply)
+        array.shift(gpxl)
+// Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
+// a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
+// pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
+var array<float> tlhy = array.new<float>()
+var array<int>   tlhx = array.new<int>()
+var array<float> tlly = array.new<float>()
+var array<int>   tllx = array.new<int>()
+if not na(_gph)
+    array.push(tlhy, _gph)
+    array.push(tlhx, bar_index - pv_chart)
+    if array.size(tlhy) > tl_pool
+        array.shift(tlhy)
+        array.shift(tlhx)
+if not na(_gpl)
+    array.push(tlly, _gpl)
+    array.push(tllx, bar_index - pv_chart)
+    if array.size(tlly) > tl_pool
+        array.shift(tlly)
+        array.shift(tllx)
+
+// ============================================================================
+// CHART TAG + AUTO-TL RESOLUTION
+// ============================================================================
+// ── AUTO TRENDLINES (tl_auto): fit a support line (pivot lows) + resistance line (pivot
+// highs) from the geometry pivots, then OVERRIDE tls_*/tlr_* so every consumer below —
+// the nearest-S/R picker, near_tl, the display marking and the drawing — uses them with
+// no extra wiring. When tl_auto is OFF, the manual anchors (computed above) stand.
+string _chartTag = timeframe.isdaily ? "D" : timeframe.isweekly ? "W" : timeframe.ismonthly ? "M" : "i"
+int   _tlsAX = na
+float _tlsAY = na
+int   _tlrAX = na
+float _tlrAY = na
+// Gated to the last bar: the envelope fit is O(pool^3); only the last bar's values feed
+// the picker/panel/plan/drawing that are actually read, so running it once (not every
+// bar) is exact for what's consumed and keeps the script fast on a big pool.
+if tl_auto and d_tl and barstate.islast
+    [_sLive, _sX, _sY, _sNow] = f_autoTL(tlly, tllx, true,  tls_anch_off, tl_thread * chart_atr, tls_nudge * chart_atr, geo_maxage)
+    [_rLive, _rX, _rY, _rNow] = f_autoTL(tlhy, tlhx, false, tlr_anch_off, tl_thread * chart_atr, tlr_nudge * chart_atr, geo_maxage)
+    tls_live := _sLive
+    tls_now  := _sNow
+    tlr_live := _rLive
+    tlr_now  := _rNow
+    tls_tfTag := _chartTag
+    tlr_tfTag := _chartTag
+    _tlsAX := _sX
+    _tlsAY := _sY
+    _tlrAX := _rX
+    _tlrAY := _rY
+
+// ============================================================================
+// DRAWING — the block that actually renders levels and trendlines
+// ============================================================================
+// Lifted verbatim from S4 (its `if barstate.islast` render block). Without this the
+// engines above compute correctly and draw NOTHING — which is exactly what the first
+// build of this lab did.
+if barstate.islast
+    // Cleanup is UNCONDITIONAL and up front. Chart Markup kept every delete inside
+    // its own `if show_*` gate, so toggling a feature off SKIPPED the delete and
+    // froze that drawing on the chart forever — you ended up tuning against ghosts.
+    // Deletes belong here; draw calls stay behind their gates.
+    if array.size(srLines) > 0
+        for i = 0 to array.size(srLines) - 1
+            line.delete(array.get(srLines, i))
+        array.clear(srLines)
+    if array.size(srLbls) > 0
+        for i = 0 to array.size(srLbls) - 1
+            label.delete(array.get(srLbls, i))
+        array.clear(srLbls)
+
+    // MANUAL first — highest TF first so the heavy Monthly line sits under the
+    // lighter Weekly/Daily ones rather than burying them.
+    f_drawLv(f_lvOn(mv1, useLvM) ? mv1 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv2, useLvM) ? mv2 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv3, useLvM) ? mv3 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv4, useLvM) ? mv4 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv1, useLvW) ? wv1 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv2, useLvW) ? wv2 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv3, useLvW) ? wv3 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv4, useLvW) ? wv4 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv1, useLvD) ? dv1 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv2, useLvD) ? dv2 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv3, useLvD) ? dv3 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv4, useLvD) ? dv4 : na, "D", 0, 0, false, true)
+    // AUTO — only on a TF you have NOT marked yourself.
+    f_drawAutoTf(srM, "M", useLvM, sr_show_M, manM)
+    f_drawAutoTf(srW, "W", useLvW, sr_show_W, manW)
+    f_drawAutoTf(srD, "D", useLvD, sr_show_D, manD)
+
+    // --- MANUAL TRENDLINES. Deletes are unconditional and up front (a delete left
+    // inside its own `if show_*` gate is how Chart Markup froze drawings on the
+    // chart forever). Width by TF, same conviction encoding as the levels.
+    line.delete(lnTlS)
+    line.delete(lnTlR)
+    label.delete(lbTlS)
+    label.delete(lbTlR)
+    if tls_live
+        int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
+        if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
+            lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
+            lbTlS := label.new(bar_index, tls_now, _chartTag + " · TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+        else                            // MANUAL: bar-time anchors from the numeric inputs
+            lnTlS := line.new(tls_t1, tls_p1, time, tls_now, xloc=xloc.bar_time, color=C_OK, width=_wS)   // ends AT the label anchor (collinear by construction) — extend.right ran the ray through the label text
+            lbTlS := label.new(time, tls_now, tls_tfTag + " · TL support  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+    if tlr_live
+        int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
+        if tl_auto and not na(_tlrAX)
+            lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
+            lbTlR := label.new(bar_index, tlr_now, _chartTag + " · TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+        else
+            lnTlR := line.new(tlr_t1, tlr_p1, time, tlr_now, xloc=xloc.bar_time, color=C_NO, width=_wR)
+            lbTlR := label.new(time, tlr_now, tlr_tfTag + " · TL resistance  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+
