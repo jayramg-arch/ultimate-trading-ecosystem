@@ -2285,3 +2285,107 @@ Recovery re-baseline result still unreported. Branch unpushed, ~9 commits ahead 
 ---
 
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
+
+---
+
+## 3 August 2026 — Pullback pipeline unblocked · S4Core library · S/R Lab (HANDOFF)
+
+Branch `phase0-1-attribution-journal-snapshot`. **Everything below is UNCOMMITTED.**
+
+### A. S4Core Pine LIBRARY — the token ceiling is no longer the constraint
+`S4Core.pine` published (jayramg/S4Core, **v3**). Exports `ZoneSig` · `SRSig` ·
+`detectZone` (340L) · `structZone` · `srLevels` (182L) · `dailyPA` (151L) · `autoTL`.
+S4 imports `/3`; **S4 5,564 → ~4,870 lines**. Library bodies compile separately, so they
+do not count against S4's 100,256 token budget. Renames only (params appended, so no
+positional arg moved): `base_rng_atr→baseRngAtr`, `ctrlMinLowerHighs→ctrlMinLH`,
+`gapBonus→gapBonusPts`, `narrowWickToWick→narrowWick`, `sr_wick_fit→wickFit`,
+`confirm_daily→confirmDaily`, `wma_flat_pct→wmaFlatPct`.
+**TWO separate ceilings** — the library fixes compiled TOKENS; the ~1000 **main-body
+statement** limit is unaffected (S4 hit 1011, fixed by wrapping 5 accumulator chains in
+functions → 957). Geometry classifier removed from S4 again (it lives in the Lab).
+
+### B. THE PULLBACK PIPELINE — was hostile at BOTH ends
+Jay: *"all the triggers are breakout trades, which are extended."* Two independent causes:
+1. **Screener** — `vol_drying` was a SINGLE-BAR test requiring `close < close[-2]`, i.e.
+   the stock must still be FALLING today, so it could flag a pullback in progress but
+   **never the turn** (the bar you enter on). Windowed to `CONFIG["vdu_window"]=3`:
+   **SWG-PB 2 → 14**, POS-BO unchanged at 8. Pullbacks now outnumber breakouts.
+2. **GO gate (S4 + board mirror)** — `vol_ok`/`bar_ok` were setup-blind and encoded a
+   breakout's signature. New `pb_aware` (default ON): when a CONTRACTION pattern fires
+   with NO expansion pattern AND price is in a demand zone → volume floor drops to
+   `pb_rv_floor` 0.5 and the bar test becomes "held the zone". Tagged `·PB` on the S4
+   TRIGGER row and on board 4/4s (which sort above breakout 4/4s).
+**⚠ NOT validated on edge** — the SWG-PB backtest (~124% OOS retention) measured the
+window=1 population. The extra 12 names inherit no validation. `vdu_window=1` for a clean A/B.
+**Entry Method ≠ setup filter** — `entry_method`/`use_retest` only changes the Plan row's
+fill instruction; it never touches the GO gate.
+
+### C. THREE REAL BUGS FOUND
+- **`stage_path` had NEVER run.** `gm_trigger_board.py` called `_g()`, defined only in the
+  Streamlit app → `NameError` swallowed by a try/except → board fell back to category rank
+  on EVERY row, **675 log lines/day**. Local `_g` added. *A warning that fires on every row
+  reads as noise, not failure.*
+- **The SWG-PB funnel measured the wrong variables** — `mkt_bull` (gate uses
+  `mkt_not_bear`), `bull_pullback` (gate uses `is_ema_pb_zone`), `minervini` (gate uses
+  `pb_ma_stack`). It reported `[+ mkt] 0/488` and pointed the whole investigation at the
+  market gate. Rewritten to mirror `classify_catalyst` cumulatively. **Fix the instrument
+  before trusting the measurement.**
+- **Board location was D/W/M only** while S4 on 75/125m also computes NATIVE chart-TF
+  zones (ZYDUSLIFE: S4 "IN DEMAND · 9 DZ" vs board "below EMA20"). Masked while both
+  demanded RV≥1.0; the pullback branch exposed it. Board now computes zones + S/R on the
+  trigger TF (reuses the already-loaded intraday frame, **+0.1s per 40-name rebuild**).
+
+### D. GM board / UI
+- **Column widths**: `minWidth` == width + `suppressSizeToFit` on the AG-Grid pinned
+  columns. A *width* is a hint AG-Grid can re-flow away from; **`minWidth` is a floor**.
+  Also `use_container_width=False` on the static `data_editor` (True stretches/shrinks and
+  overrides every configured width).
+- **3 GM tabs (Daily/125m/75m) DO work** — per-TF cache files + per-tab session state.
+  `gm_settings.trigger_tf` is only the last-written default, NOT what a tab is showing.
+  Diagnose with `gm_board_cache_<tf>.csv`, never that file.
+- **Background tabs go stale** — the bar-close rebuild lives in `@st.fragment(run_every=3s)`,
+  a browser timer Chrome throttles/freezes when hidden. They catch up ~3s after focus.
+  If the Dhan stream is down, `_stream_ok=False` and NO tab auto-refreshes at all.
+- Read S4 on the SAME TF as the board tab the signal came from. Board leads S4 slightly by
+  design (PA recency allowance, prints `PA 2b`) — that is not drift.
+
+### E. S/R + Trendline LAB (`SR_Trendline_Lab_v1.0.pine`) — separate track
+Standalone testbed, self-contained (no library import), ~958 lines. Toggles for the S/R and
+trendline engines independently. Canonical pivot lengths mirror the Swing Zigzag
+(`piv_m=1 · piv_w=5 · piv_d=2 · piv_i=2`) feeding BOTH engines.
+Rules learned from Jay's hand-drawn lines, each verified against his TradingView bars:
+- **Placement = wick EXTREME, not midpoint.** Midpoint has half the wick band above it, so
+  "no candle closes beyond the line" is violated BY CONSTRUCTION. Support = the HIGHEST
+  member low, resistance = the LOWEST member high (threads every wick; taking the deepest
+  extreme touches one pivot and misses the rest).
+- **Pivots CREATE levels; any nearby wick REFINES placement; only pivots count as TESTS.**
+  Wick confluence can also QUALIFY a level (`Lgz`) — 29,855 was 1 pivot + a non-pivot wick.
+- **Validity = closes beyond SINCE FORMATION**, not full history (`sr_max_cross=1`, one
+  polarity change). Counted over all history, a valid and an invalid level look identical.
+- **The live bar must never graze** (`[1]`) — its high WAS the close on PERSISTENT, dragging
+  the nearest resistance onto price where the selector dropped it (neither above nor below).
+- **SPAN CAP** (`sr_span_mult=1.0`): merge-on-arrival chains pivots via the running mean
+  (ABBOTINDIA: 8 pivots over 3,340pts averaged into one fictional price). Bounding the span
+  killed the chaining, which let the tolerance go back to **1.5%** so PERSISTENT's 4,230 /
+  4,297 (67 apart) group as Jay reads them.
+**Open**: engine returns only the TWO nearest levels per side — Jay's 3rd-nearest lines
+(6,533 / 4,268) were computed then discarded; consider 3/side. Pure wick-confluence shelves
+with NO pivot seed (ABBOTINDIA 28,270) can never be created by design.
+
+### F. DIAGNOSTIC WORKFLOW THAT WORKED — use it
+TradingView MCP over CDP closes the loop with no screenshots:
+`chart_get_state` · `data_get_pine_lines` (exact drawn prices) · `data_get_pine_tables`
+(the whole S4 panel incl. gate chips) · `data_get_ohlcv` (**his** bars) · `draw_list` +
+`draw_get_properties` (**exact prices of his hand-drawn lines**) · `capture_screenshot`.
+**Dhan monthly data disagreed with TradingView by ~3%** on ABBOTINDIA lows — every
+support prediction computed from Dhan missed while resistances landed within 10 points.
+For a levels question, pull TV's bars.
+
+### NEXT SESSION
+1. **Commit** — nothing from 2–3 Aug is committed; branch is ~29 commits ahead of `main`.
+2. Lab: decide 2-vs-3 levels per side; verify the span cap on PERSISTENT + ABBOTINDIA.
+3. Port the settled Lab behaviour back into S4 → **then** do the parked pivot tasks
+   ([[s4-parked-pivot-tasks]]: pivot ZONES to canonical per-TF; `pivBroken` 10/5 hardcode).
+4. Validation re-run for the widened SWG-PB book (`vdu_window` 1 vs 3).
+5. Armed-register JSON is corrupt (`Expecting property name…` in `logs/gm_errors.log`).
+6. Recovery-side validation re-baseline still pending (~12h run).
