@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v8.5 (Zone Declutter)", shorttitle="S4 Entry v8.5", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v8.7 (PA Combos)", shorttitle="S4 Entry v8.7", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/5 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -2771,6 +2771,31 @@ bool kSOS     = show_pa and active_sos > 0.5
 bool kHSUP    = show_pa and active_hsup > 0.5
 bool kVDU     = show_pa and active_vdu > 0.5
 bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // weekly 30-WMA reclaim (Stage 1→2)
+
+// ── PA COMBINATIONS (v8.7) ───────────────────────────────────────────────────────
+// A combo is a SEQUENCE, not a coincidence: a structural CONTEXT that formed over the
+// last N bars, released by a TRIGGER on the CURRENT bar. Sigma cannot express this --
+// it sums booleans on one bar, so "supply dried up for three weeks and tension broke
+// today" and "three unrelated things happened at once" score identically.
+// ta.barssince gives the context age for free and MUST run at global scope (the v5.9
+// lesson: ta.* inside the panel block evaluates on the last bar only, so the count is
+// garbage rather than merely non-idiomatic).
+// DISPLAY ONLY. No combo touches the GO gate, the confluence score or the verdict --
+// "combos work better" is an edge claim and combo_backtest.py is where it gets tested,
+// against a SIGMA-MATCHED control so it cannot just rediscover "more patterns fired".
+f_paCombos(bool rec) =>
+    _vcp = ta.barssince(kVCP)
+    _bc  = ta.barssince(kBC)
+    _swp = ta.barssince(kSPR or kLIQ)
+    _clx = ta.barssince(kCLIMAX)
+    _sprR= ta.barssince(kSPR)
+    _b2  = ta.barssince(k2B)
+    [_vcp, _bc, _swp, _clx, _sprR, _b2,
+     not rec and _vcp <= 10 and (kNR7 or kIN3 or kIBNR7),
+     not rec and _bc  <= 3  and (kPP or kGAP),
+     not rec and _swp <= 3  and kENG,
+     rec and _clx <= 10 and _sprR <= 3 and kENG,
+     rec and _clx <= 40 and _b2  <= 5  and kVDU]
 // Mode resolution — aligned to the Golden Matcher's STRUCTURAL Bull-vs-Recovery
 // split (v2.3). GM puts Bull/accumulation ABOVE the 200-DMA and a beaten-down
 // recovery BELOW it, so Auto flips to Recovery only when ALL hold:
@@ -2903,6 +2928,9 @@ bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.u
 bool _bel200path = nz(d_bel200, 0.0) > 0.5
 bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
 bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
+// Combo detection needs the resolved Bull/Recovery path, so the CALL lives here
+// while the function itself sits with the k* flags it reads.
+[_agVCP, _agBC, _agSPR, _agCLX, _agSPRr, _ag2B, cbSPRING, cbIGNITE, cbTRAP, cbFLOOR, cbSHIFT] = f_paCombos(is_rec)
 
 int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
 bool any_pa = is_rec ? (kCLIMAX or kSPR or k2B or kSOS or kENG or kHSUP or k3B or kPP or kVDU or kRECLAIM) : (kHTF or kSC or kVCP or kPP or kENG or kLIQ or k3B or kLAU or kIN3 or kNR7 or kIBNR7 or kSPR or kGAP or kU50 or kH50 or kH200 or kBC)
@@ -4700,6 +4728,10 @@ if show_panel and d_panel and barstate.islast
     color _oiC = na(_oiPct) ? C_MUTE : _pxUp and _oiUp ? C_OK : _pxUp and not _oiUp ? C_WARN : (not _pxUp) and _oiUp ? C_NO : C_WARN
     string _mac = "Sector " + (_okSec ? "Stage " + str.tostring(dashSecStg[_so], "0") : "-") + "  ·  OI " + _oiState + (na(_oiPct) ? "" : " " + str.tostring(_oiPct, "+0.0") + "%") + "\n" + _oiTip
     f_row(31, "Sector · Futures OI", _mac, _oiC)
+    // PA COMBO -- named, with the CONTEXT AGE, which is the part Sigma cannot show and
+    // the part that says whether the story is still fresh. Blank when none fire.
+    string _cbTxt = cbSPRING[_so] ? "COILED SPRING  ·  VCP " + str.tostring(_agVCP[_so]) + "b -> coil now" : cbIGNITE[_so] ? "INSTITUTIONAL IGNITION  ·  BC " + str.tostring(_agBC[_so]) + "b -> " + (kPP[_so] ? "PP" : "GAP") + " now" : cbTRAP[_so] ? "BEAR TRAP  ·  sweep " + str.tostring(_agSPR[_so]) + "b -> engulf now" : cbFLOOR[_so] ? "CAPITULATION FLOOR  ·  climax " + str.tostring(_agCLX[_so]) + "b + spring " + str.tostring(_agSPRr[_so]) + "b -> engulf now" : cbSHIFT[_so] ? "STRUCTURE SHIFT  ·  climax " + str.tostring(_agCLX[_so]) + "b + higher-low " + str.tostring(_ag2B[_so]) + "b -> dry-up now" : ""
+    f_row(32, "PA Combo", str.length(_cbTxt) > 0 ? _cbTxt : "-", str.length(_cbTxt) > 0 ? C_GO : C_MUTE)
 
     if en_wcl
         string _wcl_val_str = _wcl_score_band + " (+" + str.tostring(_total_final) + ")" + (_setup_pri > 0 ? "  ·  " + _setup_str : "")
