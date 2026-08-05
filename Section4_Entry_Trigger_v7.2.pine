@@ -850,47 +850,54 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v7.1 (Pullback Ruling)", shorttitle="S4 Entry v7.1", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/3 as core
+indicator("Section 4 Entry Trigger and Price Memory v8.5 (Zone Declutter)", shorttitle="S4 Entry v8.5", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+import jayramg/S4Core/5 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
 // construction instead of dozens (Pine cost is per OPERATION, not per character).
 // input.color() defaults keep their literals — Pine needs a const argument there.
-color C_OK = color.new(#26a69a, 0)
-color C_NO = color.new(#ef5350, 0)
-color C_WARN = color.new(#ff9800, 0)
-color C_REC = color.new(#00838f, 0)
-color C_GO = color.new(#00e676, 0)
-color C_INFO = color.new(#42a5f5, 0)
-color C_MUTE = color.new(#787b86, 0)
-color C_MAROON = color.new(color.maroon, 0)
-color C_WHITE = color.new(color.white, 0)
-color C_BLUE = color.new(color.blue, 0)
-color C_RED45 = color.new(color.red, 45)
-color C_GOLD = color.new(#FFB300, 0)
-color C_SKY = color.new(#4FC3F7, 0)
-color C_GREY20 = color.new(#9598a1, 20)
-color C_PURPLE = color.new(#7e57c2, 0)
-color C_OK82 = color.new(#26a69a, 82)
-color C_NO82 = color.new(#ef5350, 82)
-color C_GRID = color.new(#2a2e39, 0)
+// RECLAIM: the palette is 18 constants that never change. As a tuple it is two
+// statements instead of eighteen, and the values are the identical literals in the
+// identical order -- nothing on the panel can shift colour.
+f_palette() =>
+    [color.new(#26a69a, 0), color.new(#ef5350, 0), color.new(#ff9800, 0), color.new(#00838f, 0), color.new(#00e676, 0), color.new(#42a5f5, 0), color.new(#787b86, 0), color.new(color.maroon, 0), color.new(color.white, 0), color.new(color.blue, 0), color.new(color.red, 45), color.new(#FFB300, 0), color.new(#4FC3F7, 0), color.new(#9598a1, 20), color.new(#7e57c2, 0), color.new(#26a69a, 82), color.new(#ef5350, 82), color.new(#2a2e39, 0)]
+[C_OK, C_NO, C_WARN, C_REC, C_GO, C_INFO, C_MUTE, C_MAROON, C_WHITE, C_BLUE, C_RED45, C_GOLD, C_SKY, C_GREY20, C_PURPLE, C_OK82, C_NO82, C_GRID] = f_palette()
 
-// ==========================================================================
-// DISPLAY — CATEGORY MASTER SWITCHES  (triage / declutter)
-// --------------------------------------------------------------------------
-// One switch per layer, so a layer that is not earning its keep can be taken
-// out of service while you keep trading on the ones that are.
-//
-// IMPORTANT: OFF removes a layer from the DECISION as well as the chart — the
-// support gate, the plan's stop/target, and the confluence score. That is
-// deliberate. A layer you have judged untrustworthy must not keep quietly
-// steering a trade from behind a hidden drawing; "not shown" and "not counted"
-// have to mean the same thing, or turning something off becomes a lie.
-//
-// These sit ABOVE the per-feature toggles further down and AND with them.
-// ==========================================================================
+// NOTE: these MUST stay individual const declarations. input(group=...) requires a
+// CONST string, and a function return is SIMPLE — hoisting them into a tuple to save
+// statements produced 317 compile errors. The statement-budget trick works for the
+// palette and the float snapshots; it does NOT work for anything feeding input().
 grpDisp = "Display — layers (turn off what isn't working)"
+grpHL = "Highlights — spot PA / Bar (B) on the chart"
+grpAV = "Anchored VWAPs"
+grpPA = "Daily PA battery (Golden Matcher)"
+grpWCL = "🧠  Weinstein Context Layers (WCL v1.2) Integration"
+grpPZ = "Pinch & entry zone"
+grpIN = "Intraday trigger (apply on 75/125-min)"
+grpV = "Display"
+grpZG = "Zones — Geometry (Zone Engine)"
+grpZW = "Zones — Width Band (× ATR14, per timeframe)"
+grpZF = "Zones — Native-TF Filters (Zone Engine)"
+grpZM = "Zones — Multi-Timeframe (HTF visible on LTF only)"
+grpZC = "Zones — Confluence Scoring (Zone Engine)"
+grpZK = "Zones — Controlling (Zone Engine)"
+grpZS = "Zones — State & Tested Rule (S4)"
+grpZAge = "Zones — Ageing (calendar, per timeframe)"
+grpCF = "Trigger — Confluence Score"
+grpSize = "Position Sizing"
+grpTT = "Trade Type & Targets (Swing / Positional)"
+grpAF = "Arrival & Order-Flow (bar-level proxy)"
+grpSR = "S/R Levels — Auto"
+grpSRM = "S/R Levels — MANUAL · MONTHLY  (0 = off; shows on ALL timeframes)"
+grpSRW = "S/R Levels — MANUAL · WEEKLY  (shows on Weekly and below)"
+grpSRD = "S/R Levels — MANUAL · DAILY  (shows on Daily and below; hidden on W/M)"
+grpPAT = "Patterns"
+grpBOX = "Consolidation Box — MANUAL  (enter coords in settings; 0 = off)"
+grpTL = "Trendlines — AUTO + manual"
+grpZP = "Zones — Structural (Pivot-Based)"
+grpZV = "Zones — Visual (Zone Engine)"
+grpDash = "Dashboard import (v67 fields)"
 d_zones   = input.bool(true, "Demand / Supply zones (MTF)", group=grpDisp, tooltip="The IZE zone engine (RBR/DBR/RBD/DBD + structural pivot zones), all timeframes. OFF also drops zones from the support gate and the confluence score.")
 d_sr      = input.bool(true, "S/R lines (auto + manual)",   group=grpDisp, tooltip="Horizontal levels, all timeframes, both auto-detected and your manual ones. OFF also drops them from the nearest-S/R pickers, the plan and the score.")
 d_tl      = input.bool(true, "Trendlines (manual)",         group=grpDisp, tooltip="Your click-to-place trendlines. OFF also drops them from the pickers, the plan and the score.")
@@ -906,7 +913,6 @@ d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 //   PA  → a coloured BACKGROUND band behind the bar (purple, stronger Σ = more opaque)
 //   B   → the CANDLE BODY repainted (bright green = clean bar · bright red = vetoed)
 // Purely visual: neither changes a signal, a gate or the panel.
-grpHL = "Highlights — spot PA / Bar (B) on the chart"
 hl_pa_min = input.int(2, "  · minimum Σ to highlight", group=grpHL, minval=1, maxval=12, tooltip="Only shade candles whose PA Σ reaches this. Raise it to hide the low-conviction single-pattern bars and leave only the meaningful ones on the chart.")
 hl_bar    = input.bool(true, "Highlight Bar-quality (B) candle (repaint body)", group=grpHL, tooltip="Repaints the candle body by the B gate: BRIGHT GREEN = closed strong (green, or red-but-upper-half — a shakeout that recovered), BRIGHT RED = closed in the lower half (weak / distribution) and therefore VETOED for entry. Deliberately brighter than the chart's default candle colours so it reads as a marker, not as a normal candle.")
 hl_bar_pa = input.bool(true, "  · only on PA candles", group=grpHL, tooltip="ON (default) = only repaint candles where a PA pattern fired — the bars where B actually decides anything. OFF = repaint EVERY bar, which is noisy (B passes on most bars) but shows the full run of strong/weak closes.")
@@ -919,7 +925,6 @@ hl_pa_strong = input.int(5, "  · Σ for the escalated PA★ marker", group=grpH
 hl_pat_box  = input.bool(true, "Outline the candles that FORM the pattern", group=grpHL, tooltip="Draws a box around the actual candles making up the fired pattern — 2 bars for an Engulfing, 3 for a 3-Bar Reversal, 7 for an NR7, the contraction for a VCP — labelled with the pattern's name. This is the pattern itself on the chart, not a marker pointing at it.\n\nWhen several patterns fire on one bar the HIGHEST-WEIGHT one is drawn (the same weighting that builds Σ), with the extra count appended, e.g. 'VCP-BO +2 more'.")
 hl_pat_keep = input.int(6, "  · how many recent outlines to keep", group=grpHL, minval=1, maxval=40, tooltip="Older pattern boxes are deleted as new ones form, so the chart never fills up. Raise it to study a longer run of past patterns.")
 
-grpAV = "Anchored VWAPs"
 show_low  = input.bool(true, "AVWAP · Stage-1 Low",  group=grpAV, inline="l")
 show_bo   = input.bool(true, "AVWAP · Breakout",     group=grpAV, inline="b")
 show_gap  = input.bool(true, "AVWAP · Gap-up",       group=grpAV, inline="g")
@@ -928,7 +933,6 @@ bo_look   = input.int(40,  "Breakout-anchor lookback (days)", minval=10, group=g
 gap_pct   = input.float(3.0, "Gap-up min %", minval=0.5, step=0.5, group=grpAV)
 gap_volx  = input.float(1.5, "Gap-up vol x 50d avg", minval=1.0, step=0.25, group=grpAV)
 
-grpPA = "Daily PA battery (Golden Matcher)"
 mode      = input.string("Auto", "Mode", options=["Auto", "Bull", "Recovery"], group=grpPA,
      tooltip="Auto = infer the path from the WEINSTEIN STAGE (v5.9), refined in v7.2. The stage comes from price vs the 30-week MA and that MA's slope, now in THREE states with Mansfield RS as the tiebreaker:\n  above + rising      -> Stage 2  BULL\n  above + flat        -> RS leading = 2 BULL · RS lagging = 3 NO TRADE\n  above + falling     -> Stage 3  NO TRADE\n  below + flat        -> Stage 1  RECOVERY   (the base)\n  below + falling     -> RS rising = 1 RECOVERY (early turn) · else 4 NO TRADE\n  below + rising      -> Stage 1  RECOVERY\n\nv7.2 fixed the reason Auto had to be overridden by hand: FLAT was lumped in with FALLING, so a flattening 30WMA — the Stage-1 base signature — resolved Stage 4 = NO TRADE and Auto could almost never reach Recovery. Tune the deadzone with '30WMA: flat band'.\n\nCEILING: Python qualifies Recovery on RFF FUNDAMENTALS, which Pine cannot read. Auto approximates the path from structure alone — the Golden Matcher remains the authority. The panel header and Structure row show what Auto resolved to and why.\n\nBull = force the 17 continuation/breakout conditions. Recovery = force the 10 capitulation-reversal + Wyckoff conditions. Everything else (AVWAP, RV, intraday trigger) is shared.")
 show_pa   = input.bool(true, "Detect the PA patterns", group=grpPA)
@@ -941,6 +945,7 @@ pb_rv_floor = input.float(0.5, "  · Pullback volume floor (RV)", group=grpPA, m
 rv_floor  = input.float(1.0, "Volume floor (RV) for a valid trigger", minval=0.0, step=0.25, group=grpPA,
      tooltip="A trigger only counts as GO if relative volume >= this. 1.0 = average day. A real breakout usually has RV > 1.25. Lower it (e.g. 0.8) if you find it too strict; raise it to demand stronger participation.")
 stage_gate = input.bool(true, "Stage 3/4 = NO TRADE (overrides mode)", group=grpPA, tooltip="Weinstein: only Stage 2 advances and Stage 1 turns are tradeable. With this ON a Stage-3 (30WMA falling, price above) or Stage-4 (below and falling) name resolves to NO TRADE and the verdict says so — even if you set the mode manually, because the stage is a fact, not a preference. OFF restores the old two-path behaviour.")
+gm_pb_list = input.string("", "Auto: GM Pullback list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.4 — THE PLAYBOOK SPLIT.\n\nA momentum breakout and a structural pullback are opposite trades: one buys strength expanding out of a base on heavy volume with a strong close, the other buys weakness retracing INTO support on volume dry-up with a bar that only has to hold the zone. A single gate cannot be neutral between them — the setup-blind version encoded a breakout's signature and called it quality, so every GO reaching the chart was extended by construction.\n\nS4 has no archetype, so it infers the setup from the pattern mix. That inference has a hole: a reversal bar off a demand zone that CLOSES STRONG fires the Strong-Close pattern, which counts as expansion — so the textbook pullback entry disqualified itself from pullback treatment and was judged on a breakout's volume floor.\n\nThe Golden Matcher does not have to guess. A name off the Pullback screen (or a pyramid ADD, which requires pullback location) was QUALIFIED as a pullback. Paste its comma-separated Pullback list here and those symbols take the pullback gates directly.\n\nWhat this does NOT relax: the demand-zone requirement. A listed name still has to be AT a zone — that is the discipline of the setup and the only thing keeping the lower volume floor honest.\n\nAnything not listed falls back to the pattern inference. Leave blank to disable. Separators, spaces and NSE: prefixes tolerated; matching is case-insensitive.")
 gm_rec_list = input.string("", "Auto: GM Recovery list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.3 — THE SYNC (Jay, 2-Aug: 'for each stock, for each timeframe, I need to check the mode and switch... then I might forget to change it back').\n\nS4 cannot ask the Golden Matcher anything, and it cannot infer the GM's answer from price: the GM's path is INHERITED from whichever watchlist qualified the name (REV-CB / REV-RS / REV-EARLY), on RFF fundamentals and history S4 has no access to. TechM at 2% off its 60-day high looks like Bull to any price-based rule, and always will.\n\nSo the GM hands S4 the answer instead. Paste its comma-separated Recovery list here ONCE per watchlist refresh and every symbol resolves itself — no per-stock switching, nothing to forget, and the same answer on every timeframe (the path is a property of the NAME, not the chart).\n\nA symbol in this list resolves RECOVERY. Anything else falls back to the stage/drawdown heuristic, which matches the GM's own default of Bull. Leave it blank to disable the sync entirely.\n\nSeparators, spaces and NSE: prefixes are all tolerated; matching is case-insensitive.")
 use_dd_recovery = input.bool(true, "Auto: drawdown also routes to Recovery", group=grpPA, tooltip="v7.3 — the fix for Auto being 'glued to Bull'. The Golden Matcher does NOT decide Bull-vs-Recovery by stage: the path is inherited from the source watchlist, which recovery_screener qualified on RFF fundamentals + a 15-35% drawdown from the 60-bar high. A beaten-down name that has reclaimed its 30WMA is Stage 2 by structure, so a stage-only Auto called it Bull forever.\n\nON (default): Auto resolves RECOVERY when the name is Stage 1 OR its 60-bar drawdown sits in the band below — the same measure, on the same basis, as the GM (recovery_screener.py:880).\n\nSafe here in a way it was not in v5.8: a drawdown-based Recovery then let a Stage-3 topping name (COLPAL) through, which is why it was removed. 'Stage 3/4 = NO TRADE' now vetoes those independently and first, so the band only ever chooses between Bull and Recovery among already-tradeable names.\n\nCEILING: S4 cannot read RFF, so this is the drawdown HALF of the GM's test. A fundamentally weak name in the band will read Recovery here and be rejected by the GM. The GM stays the authority.")
 rec_dd_min   = input.float(15.0, "  · Recovery drawdown MIN (%)", group=grpPA, minval=0.0, maxval=60.0, step=1.0, tooltip="Lower bound of the band, mirroring recovery_screener's cb_drawdown_pct (15%). Below this the name has not been beaten down enough to be a recovery — it is a normal pullback, i.e. Bull.")
@@ -948,7 +953,6 @@ rec_dd_max   = input.float(35.0, "  · Recovery drawdown MAX (%)", group=grpPA, 
 wma_flat_pct = input.float(0.5, "30WMA: flat band (% over 10 bars)", group=grpPA, minval=0.0, maxval=3.0, step=0.1, tooltip="v7.2 — the deadzone that makes FLAT its own state instead of lumping it in with FALLING. The 150-SMA is called RISING above +this%, FALLING below -this%, and FLAT in between (measured as the 10-bar change as a % of the MA).\n\nWhy it matters: a flattening 30-week MA IS the Weinstein Stage-1 base. The old test was `sma150 <= sma150[10]`, so dead-flat counted as falling and the most common real recovery setup resolved Stage 4 = NO TRADE — which is why Auto mode almost never found a Recovery and had to be overridden by hand.\n\nRAISE it (0.8-1.0) if Auto still calls slow-turning bases Stage 4. LOWER it (0.2-0.3) if names with a genuinely falling MA are being admitted as Stage 1. 0 = disable the band (pre-v7.2 two-state behaviour).")
 
 
-grpWCL = "🧠  Weinstein Context Layers (WCL v1.2) Integration"
 en_wcl      = input.bool(true,  "Enable WCL Context Integration", group=grpWCL, tooltip="Integrates Wyckoff Phase, Volume Profile (VAH/POC/VAL), SMC Structure Health, and WCL Setup Detector (S1-S8) into S4's Confluence, Support Gate, Verdict, Panel, and Risk Sizing.")
 en_wcl_wyk  = input.bool(true,  "  · Wyckoff Module", group=grpWCL)
 en_wcl_vp   = input.bool(true,  "  · Volume Profile Module", group=grpWCL)
@@ -960,7 +964,6 @@ en_wcl_stp  = input.bool(true,  "  · Setup Detector (S1-S8)", group=grpWCL)
 // but expect MORE GOs. Off-switch kept separate so a regression can be isolated to it.
 en_wcl_loc  = input.bool(true,  "  · VP (VAL/POC) counts as LOCATION", group=grpWCL, tooltip="Adds Volume-Profile Value-Area Low and POC to the GO gate's support sources. LOOSENS the gate — turn off to A/B against v4.7 location behaviour.")
 
-grpPZ = "Pinch & entry zone"
 pinch_pct = input.float(2.5, "Pinch tolerance (% spread across AVWAPs)", minval=0.5, step=0.5, group=grpPZ)
 plan_slbuf_pct = input.float(0.5, "Plan: SL buffer below the structural level (%)", minval=0.1, maxval=2.0, step=0.1, group=grpPZ, tooltip="The Plan places the SL this far below the structural level (zone distal / swing low). Dedicated input: it was previously borrowed from the AVWAP touch tolerance, so widening that band silently widened every stop.")
 entry_method = input.string("Retest (pullback limit)", "Plan: entry method", options=["Buy-stop (confirmation)", "Retest (pullback limit)"], group=grpPZ, tooltip="#retest (Jay, 24-Jul): how the Plan tells you to ENTER once GO fires. DEFAULT flipped to Retest so the live plan MATCHES the backtest (replay.py defaults to retest) — Jay's call: trade the entry the edge numbers assume.\n• Retest (pullback limit) [DEFAULT — matches the backtest] — arm a buy-LIMIT at the confirmed trigger bar's CLOSE; you fill only if price pulls BACK to value. Lower entry / better R. Backtest found retest beat buy-stop on matched alpha across every family (-0.02→+0.38%). ⚠ CAVEAT: the sim cannot model the false-breakout whipsaw the buy-stop avoids, and retest re-approaches the 'enter at the level without confirmation' habit buy-stop was built to fix — so the backtested edge may be optimistic live.\n• Buy-stop (confirmation) [house doctrine] — arm a buy-STOP above the confirmed trigger bar's HIGH; you only fill if price continues UP through the high. Avoids the false-breakout trap. Higher entry. Trigger is unchanged (a real GO still has to fire first); only the fill instruction changes.")
@@ -975,7 +978,6 @@ ath_prox_pct = input.float(3.0, "Blue-sky breakout: within % of 52W high", group
 momentum_clear = input.bool(true, "Stage-2 momentum: near overhead is a level to CLEAR (not a no-room SKIP)", group=grpPZ, tooltip="THE 75-MIN ROOM FIX (Jay, 23-Jul). On the trading TF a higher-timeframe level (weekly R-line, monthly SZ, HTF pivot) is ALWAYS overhead within a thin R — so a 'room = R:R to the nearest overhead' test kills EVERY intraday trigger. That is the wrong denominator for a momentum entry: the nearby overhead is a level to BREAK toward the real (measured-move / swing-positional R) target, not the target itself. When ON, a Stage-2 leader (above 30WMA+200DMA) with a live GO but a nearby overhead reframes 'SKIP · no room' → 'CLEAR TO BREAK' (arm the buy-stop above the level; real target is the R-objective). Generalises the ATH blue-sky rule to any Stage-2 uptrend. Stage 3/4 into overhead, or price INSIDE a supply band (non-ATH), still SKIPs. OFF = strict room veto (pre-fix).")
 show_zones = input.bool(true, "Draw OB / FVG / Pivot zones (Daily + Weekly)", group=grpPZ, tooltip="Draws the auto support zones: Daily = dashed thin, Weekly = solid thick (bigger structural demand). Trading TF stays 75/125-min.")
 
-grpIN = "Intraday trigger (apply on 75/125-min)"
 show_intraday = input.bool(true, "Show intraday 10-EMA + TTM-squeeze trigger", group=grpIN)
 require_squeeze = input.bool(true, "Require TTM Squeeze to fire", group=grpIN, tooltip="If ON, the intraday trigger requires a TTM squeeze release. If OFF, a high-volume 10-EMA reclaim alone can trigger the entry on the 75/125m chart.")
 ema_len   = input.int(10, "Intraday EMA length", minval=3, group=grpIN)
@@ -983,7 +985,6 @@ bb_mult   = input.float(2.0, "BB mult", step=0.5, group=grpIN)
 kc_mult   = input.float(1.5, "KC mult", step=0.5, group=grpIN)
 sqz_len   = input.int(20, "Squeeze length", minval=5, group=grpIN)
 
-grpV = "Display"
 use_closed_candle = input.bool(true, "Signals from last CLOSED candle (no intraday repaint)", group=grpV, tooltip="ON (default): the TRIGGER / GO / RV / STATUS and the on-chart GO markers are read from the LAST CLOSED chart candle, so a shortlisted signal does NOT drop the moment a new bar opens (the forming bar has little volume / an undeveloped pattern). The signal only updates when the current bar CLOSES. OFF: live forming-bar values (repaint intraday).")
 show_panel = input.bool(true, "Entry panel", group=grpV)
 mk_bars    = input.int(10, "Markers: show only the last N bars", minval=1, maxval=300, group=grpV, tooltip="GO / PA★ / trigger markers are drawn only on the last N bars, so the chart shows the CURRENT setup instead of every historical one. Was hard-coded to 30. Lower it (5-10) to see just the latest trade; raise it to review recent history. This hides markers, it does NOT turn the detectors off — the panel still reads the live state.")
@@ -999,7 +1000,6 @@ c_gap  = input.color(#ff9800, "Gap",  group=grpV, inline="c")
 // These drive the demand/supply zone subsystem (Z1–Z6 below). Defaults match
 // the Institutional Zone Engine v4.2 so zone geometry is identical. The IZE
 // panel/webhook/reversal machinery is intentionally NOT ported (S4 has its own).
-grpZG = "Zones — Geometry (Zone Engine)"
 ercMult        = input.float(1.2,  "Leg Candle Min Range (× ATR14)",  group=grpZG, minval=0.5, step=0.1, tooltip="A 'leg' candle's True Range must exceed ATR14 by this multiple. Lower = more zones.")
 legBodyRatio   = input.float(0.75, "Min Leg Body / Range (Strong)",   group=grpZG, minval=0.50, maxval=1.0, step=0.05)
 legBodyAvg     = input.float(0.55, "Min Leg Body (Average + Follow)", group=grpZG, minval=0.30, maxval=0.90, step=0.05, tooltip="Average legs (>= this but < Strong) accepted only with strong follow-through. Also the leg-IN body threshold.")
@@ -1038,7 +1038,6 @@ narrowWickToWick = input.bool(true, "Narrow zones: draw wick-to-wick", group=grp
 // its width (proximal−distal) is between Min and Max × the TF's ATR. Tighter maxima
 // on LTF force crisp entries; wider on HTF allow broad institutional bases. Native
 // chart-TF zones pick the pair matching the chart timeframe (75m / 125m / D / W / M).
-grpZW = "Zones — Width Band (× ATR14, per timeframe)"
 minZW_M   = input.float(0.5,  "Monthly — Min Width",  group=grpZW, minval=0.0, step=0.1,  inline="m")
 maxZW_M   = input.float(4.0,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="m")
 minZW_W   = input.float(0.4,  "Weekly — Min Width",   group=grpZW, minval=0.0, step=0.1,  inline="w")
@@ -1050,20 +1049,17 @@ maxZW_125 = input.float(2.5,  "Max",                  group=grpZW, minval=0.5, s
 minZW_75  = input.float(0.2,  "75-min — Min Width",   group=grpZW, minval=0.0, step=0.05, inline="i75")
 maxZW_75  = input.float(2.0,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="i75")
 
-grpZF = "Zones — Native-TF Filters (Zone Engine)"
 volMult    = input.float(0.0,  "Volume Surge (× 20-bar Avg)",  group=grpZF, minval=0.0, step=0.1, tooltip="0 = disabled. When > 0 the leg-out volume must exceed this × 20-bar average.")
 useEMA     = input.bool(false,  "Require Daily EMA20 Alignment", group=grpZF)
 useRS      = input.bool(false,  "Require Nifty 500 RS Positive", group=grpZF)
 requireBOS = input.bool(false,  "Require Break of Structure",    group=grpZF)
 
-grpZM = "Zones — Multi-Timeframe (HTF visible on LTF only)"
 showChartZones = input.bool(true,  "Chart-TF Zones",   group=grpZM)
 showDaily      = input.bool(true,  "Daily HTF Zones",  group=grpZM)
 showWeekly     = input.bool(true,  "Weekly HTF Zones", group=grpZM)
 showMonthly    = input.bool(true,  "Monthly HTF Zones", group=grpZM)
 require_intraday_fvg = input.bool(false, "Intraday: require leg-out FVG (hard Polygraph gate)", group=grpZM, tooltip="OFF (default, Option C): ALL qualifying intraday pattern zones are drawn; the FVG-Polygraph-qualified ones (leg-out left a 75/125m FVG) are TAGGED with ⚡ + a brighter border, but not filtered out. ON (Option A): on a 75/125m chart only FVG-backed native zones are drawn (the strict FVG Polygraph Test).")
 
-grpZC = "Zones — Confluence Scoring (Zone Engine)"
 htfBoost         = input.int(15,   "HTF Overlap Bonus (pts)",        group=grpZC, minval=0, maxval=50)
 sameTfBoost      = input.int(5,    "Same-TF Overlap Bonus (pts)",    group=grpZC, minval=0, maxval=25)
 emaProxBoost     = input.int(10,   "EMA20 Directional Bonus (pts)",  group=grpZC, minval=0, maxval=30)
@@ -1074,12 +1070,10 @@ maxConfBoost     = input.int(50,   "Max Confluence Bonus (cap)",     group=grpZC
 emaFarAtr        = input.float(3.0, "EMA20 'Far' Threshold (× own-TF ATR)", group=grpZC, minval=0.5, maxval=10.0, step=0.5, tooltip="#4 (19-Jul): the MIRROR of the proximity bonus. When the daily EMA20 sits on the WRONG side of the zone and further than this (EMA20 below-and-away from a demand zone; above-and-away from supply), the zone is orphaned from value — price would be badly extended by the time it returns — so its quality is REDUCED.")
 emaFarMalus      = input.int(10,   "EMA20 'Far' Penalty (pts)",      group=grpZC, minval=0, maxval=30, tooltip="Points SUBTRACTED from the zone score when the EMA20-far condition above is true. 0 = disable the penalty.")
 
-grpZK = "Zones — Controlling (Zone Engine)"
 markControlling       = input.bool(true,  "Mark Controlling Zones",    group=grpZK)
 controllingMinTf      = input.string("Daily", "Min Timeframe for Controlling", group=grpZK, options=["Chart", "Daily", "Weekly", "Monthly"])
 ctrlMinLowerHighs     = input.int(2, "Controlling: min bars of lower highs since prior ATH", group=grpZK, minval=0, maxval=50, tooltip="HOUSE RULE: a demand zone is Controlling only if it LEADS TO a new ATH — never if it CONTINUES one. Requires this many bars printing a lower high between the previous ATH and the zone's leg-in (i.e. price must have come off the high before the zone formed), the base must sit below that prior ATH, and the leg-out must then close through it. Mirrored for supply (higher lows since the prior ATL).\n\nExpect Controlling to be RARE on a strong trender — that is the rule working.\n\n0 = disable the pullback rule (pre-fix behaviour: any new-ATH leg-out qualifies).")
 
-grpZS = "Zones — State & Tested Rule (S4)"
 mitBasis       = input.string("Body Close", "Mitigate On",        group=grpZS, options=["Body Close", "Wick Close", "50% Penetration"])
 markViolations = input.bool(true, "Mark Zone Violations (dot)",   group=grpZS, tooltip="When a zone is violated (price closes through the DISTAL edge per 'Mitigate On'), the zone is deleted and a small faint red dot is dropped at the distal price on the breaking bar — the only trace left behind.")
 // v3.2 TESTED-RULE REBUILD. The three rules are OR'd, so the LOOSEST always wins —
@@ -1092,7 +1086,6 @@ testedTravelMult = input.float(2.0, "Tested: travel × zone width (legacy)", gro
 tested_tf_match  = input.bool(true, "Tested rules 2 & 3: HTF zones only", group=grpZS, tooltip="Rules 2 and 3 test a close across the DAILY EMA20 / a DAILY-or-Weekly pivot. Those are HTF references, and letting them adjudicate a 75-min zone is a category error: a 75m base does not stop being valid because price crossed a DAILY EMA20 — that event says nothing about whether that base was consumed.\n\nON (default): rules 2 & 3 apply only to Daily-and-above zones (D/W/M, plus native zones on a Daily+ chart). Native INTRADAY zones are judged on travel and violation alone — the two tests that actually concern them.\n\nOFF: pre-v3.2 behaviour — the Daily references judge every zone on every timeframe.")
 strongPivotTF  = input.string("Daily", "Tested: strong S/R pivot TF", group=grpZS, options=["Daily", "Weekly"], tooltip="Rule 3 of 3: a strong Support/Resistance = the most recent CONFIRMED pivot high/low on THIS higher timeframe (the normal swing-S/R definition). After a reaction, a demand zone is tested once price CLOSES above the nearest HTF pivot high sitting above the zone; a supply zone once price closes below the nearest HTF pivot low below it.")
 
-grpZAge = "Zones — Ageing (calendar, per timeframe)"
 age_monthly_days = input.int(1460, "Monthly zone max age (days)", group=grpZAge, minval=30, tooltip="A zone ages out this many calendar days after its FORMATION. Monthly default 1460 = 4 years.")
 age_weekly_days  = input.int(730,  "Weekly zone max age (days)",  group=grpZAge, minval=30, tooltip="Default 730 = 2 years.")
 age_daily_days   = input.int(182,  "Daily zone max age (days)",   group=grpZAge, minval=15, tooltip="Default 182 = 6 months.")
@@ -1114,17 +1107,14 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // the EMA20 is something being TRUE. Set any weight to 0 to drop that
 // confluence from the score entirely.
 // ==========================================================================
-grpCF = "Trigger — Confluence Score"
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
 show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — the ruling, why, the single biggest caveat, and the action. The applicable house gate follows the TRADE TYPE: a SWING plan is judged on >= 2.0R, a POSITIONAL plan on >= 20% ROI to T1. Turn this off to hide the verdict too.")
 
-grpSize = "Position Sizing"
 size_cap  = input.float(0.0, "Capital (₹)", group=grpSize, minval=0.0, tooltip="Total capital the 0.25% risk is taken against. 0 = hide the Qty row. The Qty is computed from the panel's own Entry and SL, so it is the same trade the plan describes.")
 size_risk = input.float(0.25, "Risk per trade (%) — BASE", group=grpSize, minval=0.05, maxval=5.0, step=0.05, tooltip="House rule = 0.25%. With Dynamic Risk ON this is the BASE that the Risk-Allocator adjustments scale (0.75×–1.25× Kelly · ATR>3% volatility discount · −0.25% bear-regime discount, floored at 0.25× base). Qty = Capital × Active Risk% / (Entry − SL).")
 use_dyn_risk = input.bool(true, "Dynamic risk (Commander Risk Allocator rules)", group=grpSize, tooltip="#12 (19-Jul), ported from Commander_Risk_Allocator_v2.0:\n• KELLY 0.75×–1.25×: +1 pt each for Stage-2 uptrend (above a rising 150-SMA and the 200-SMA), RS improving, volume > 1.1× average → 3 pts = 1.25× · 2 = 1.0× · else 0.75×.\n• VOLATILITY discount: when daily ATR > 3% of price, risk scales by 3/ATR% (a 6%-ATR name risks half).\n• REGIME discount: −0.25% when the CNX500 is below its 200-SMA or the 50<200 (bear market).\nCombined floor = 0.25× base. OFF = flat base risk (pre-#12).")
 size_max_alloc = input.float(0.0, "Max allocation per trade (₹)", group=grpSize, minval=0.0, step=10000.0, tooltip="Risk-Allocator capital cap: Qty = min(risk-based qty, this ÷ Entry). 0 = no cap.")
 
-grpTT = "Trade Type & Targets (Swing / Positional)"
 use_tradetype_plan = input.bool(true, "Classify Swing/Positional → set SL width & targets", group=grpTT, tooltip="#12b (19-Jul), ported from the Risk Shield Active-Exits classifier + the Commander Risk Allocator canon. A VOLATILE name (daily ATR% high), one FAR off its 52-week high, or one BELOW its 200-DMA trades on a SWING clock — tighter stop, nearer targets. A tight, near-structure leader trades POSITIONAL — wider stop, further targets. The trade type sets the SL fallback/cap multiple and the R-multiple targets (used when no structural overhead exists). OFF = flat 2.5×ATR + structural-only targets (pre-#12b).")
 swing_atr_max   = input.float(4.0,  "Swing if daily ATR% >",       group=grpTT, minval=1.0, maxval=15.0, step=0.5, tooltip="Risk Shield rule: ATR > this % of price = a volatile name that belongs on a swing clock.")
 swing_off52_max = input.float(30.0, "Swing if % off 52W-high >",   group=grpTT, minval=5.0, maxval=90.0, step=5.0, tooltip="Far off the high (a proxy for 'far from structure', the Risk Shield's dist_from_200>30 rule) → swing.")
@@ -1168,7 +1158,6 @@ cf_w_absorb = input.int(1, "Absorbing (Δ order-flow)",    group=grpCF, minval=0
 // TV plan exposes that to Pine). Seconds-resolution data (Premium) makes the
 // intrabar TF granular; a coarser of_ltf gives more history.
 // ==========================================================================
-grpAF = "Arrival & Order-Flow (bar-level proxy)"
 show_arrival = input.bool(true, "Show Arrival · Δ row", group=grpAF)
 arr_look     = input.int(20, "Arrival lookback (swing bars)", group=grpAF, minval=5, maxval=100, tooltip="How far back to find the swing extreme that the approach leg is measured from (swing high for a demand arrival, swing low for supply).")
 arr_vel_fast = input.float(0.5,  "FAST arrival >= (ATR/bar)",  group=grpAF, minval=0.1, step=0.05, tooltip="Approach velocity = distance covered (in ATR) / bars taken. At or above this it is a FAST/impulsive arrival — a sharp rejection is more likely.")
@@ -1176,7 +1165,6 @@ arr_vel_slow = input.float(0.22, "GRIND arrival <= (ATR/bar)", group=grpAF, minv
 of_ltf       = input.timeframe("1", "Order-flow intrabar TF", group=grpAF, tooltip="The lower timeframe whose bars are classified up/down for the delta. Must be LOWER than the chart TF. '1' = 1-minute sub-bars (good for a 75/125m chart). Set '1S'/'5S' (Premium seconds) for finer delta, or '5' for more history — request.security_lower_tf caps total intrabars (~100k), so a finer TF trades history for granularity; the arrival read only needs recent bars.")
 of_win       = input.int(5, "Delta window (bars in the arrival)", group=grpAF, minval=2, maxval=20, tooltip="How many recent bars the arrival delta is summed over, and the lookback for the delta-divergence check.")
 
-grpSR = "S/R Levels — Auto"
 show_sr_lv   = input.bool(true, "Draw auto S/R levels", group=grpSR)
 sr_pool      = input.int(40, "Levels tracked per timeframe", group=grpSR, minval=8, maxval=120, tooltip="How many recent pivots each timeframe keeps for clustering. Chart Markup capped this at 16 — about 4-6 months of daily bars — so a level from 8 months back was UNREACHABLE at any setting. That was the single biggest reason its S/R felt immature. 40 per timeframe, and each TF clusters its own pivots at its own scale.")
 sr_tol       = input.float(0.6, "Cluster tolerance (× ATR14)", group=grpSR, minval=0.1, step=0.1, tooltip="How close two pivots must be to count as the same level. Measured in that TIMEFRAME's own ATR.")
@@ -1199,20 +1187,17 @@ sr_show_M    = input.bool(true, "Show Monthly levels", group=grpSR, inline="tf")
 sr_show_W    = input.bool(true, "Weekly",              group=grpSR, inline="tf")
 sr_show_D    = input.bool(true, "Daily",               group=grpSR, inline="tf")
 
-grpSRM = "S/R Levels — MANUAL · MONTHLY  (0 = off; shows on ALL timeframes)"
 sr_on = input.bool(true, "Enable manual levels (override auto)", group=grpSRM, tooltip="Manual levels OUTRANK auto ones on a side you have marked: your hand-drawn levels ARE the location layer (Gate 2), the auto ones are the fallback for a side you have not marked yet. A side you leave blank still falls back to auto.\n\nType the price once (from the panel), then drag the handle on the chart.")
 mv1 = input.price(0.0, "Monthly level 1", group=grpSRM)
 mv2 = input.price(0.0, "Monthly level 2", group=grpSRM)
 mv3 = input.price(0.0, "Monthly level 3", group=grpSRM)
 mv4 = input.price(0.0, "Monthly level 4", group=grpSRM)
 
-grpSRW = "S/R Levels — MANUAL · WEEKLY  (shows on Weekly and below)"
 wv1 = input.price(0.0, "Weekly level 1", group=grpSRW)
 wv2 = input.price(0.0, "Weekly level 2", group=grpSRW)
 wv3 = input.price(0.0, "Weekly level 3", group=grpSRW)
 wv4 = input.price(0.0, "Weekly level 4", group=grpSRW)
 
-grpSRD = "S/R Levels — MANUAL · DAILY  (shows on Daily and below; hidden on W/M)"
 dv1 = input.price(0.0, "Daily level 1", group=grpSRD)
 dv2 = input.price(0.0, "Daily level 2", group=grpSRD)
 dv3 = input.price(0.0, "Daily level 3", group=grpSRD)
@@ -1259,7 +1244,6 @@ dv4 = input.price(0.0, "Daily level 4", group=grpSRD)
 //      PATTERNS row. It also had no ascending/descending/symmetrical split at all.
 //   3. Manual consolidation BOX — you draw these; the engine should read them.
 // ==========================================================================
-grpPAT = "Patterns"
 show_flag   = input.bool(true, "Detect flags", group=grpPAT)
 flag_pole   = input.int(10,   "Pole lookback (bars)",            group=grpPAT, minval=4, maxval=60)
 flag_cons   = input.int(6,    "Consolidation bars",              group=grpPAT, minval=3, maxval=30)
@@ -1276,14 +1260,12 @@ geo_maxage  = input.int(120, "Geometry max pivot age (bars)",     group=grpPAT, 
 // has no conditional confirm, so the anchors are now plain numeric inputs: 0 = off,
 // enter time/price in the settings dialog to draw. Loading is instant; the manual
 // tools are opt-in via their coordinates, not a load-time gate.
-grpBOX = "Consolidation Box — MANUAL  (enter coords in settings; 0 = off)"
 box_on = input.bool(true, "Enable manual box", group=grpBOX)
 box_t1 = input.time(0,    "Box start time",  group=grpBOX)
 box_t2 = input.time(0,    "Box end time",    group=grpBOX)
 box_hi = input.price(0.0, "Box top",         group=grpBOX)
 box_lo = input.price(0.0, "Box bottom",      group=grpBOX)
 
-grpTL = "Trendlines — AUTO + manual"
 tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="Master enable for the MANUAL numeric anchors below. Auto-detect (next input) does not need these — it draws from pivots. Manual anchors are the exact-placement fallback: turn Auto OFF to use them.\n\nAnchors are numeric (0 = off) — enter time/price in this dialog. confirm/click-to-place was removed because it forced a draw on every add and closed the indicator on Esc.")
 // ── AUTO trendlines (Path A, 24-Jul): fit + adjust WITHOUT typing coordinates. Reuses
 // the geometry engine's f_bestLine (no 10th from-scratch fitter — the 9 failed rewrites
@@ -1313,19 +1295,74 @@ tl_ext_on   = input.bool(false, "Sense hand-drawn trendlines (from 'S4 Trendline
 tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
 tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
 
-grpZP = "Zones — Structural (Pivot-Based)"
 useStructural   = input.bool(true,  "Draw Pivot (Structural) zones",  group=grpZP, tooltip="Master on/off for ALL pivot (PvH/PvL) zones — the weaker, dashed shelves that come from a bare swing high/low with no leg-base-leg. Uncheck to hide EVERY pivot zone on all timeframes (it stops their creation, so a recompile leaves none on the chart).\n\nUSE THIS TO ISOLATE: turn pivot zones OFF to see ONLY the pattern demand/supply zones (RBR/DBR/RBD/DBD). If a pattern DZ/SZ still doesn't mark with pivots off, the issue is in pattern detection (leg/base/width gates), not a pivot zone hiding or overriding it. Turn the diagnostics row on and read natC d/f/m/L + struct D/C/L alongside.")
-pivotLeft       = input.int(5,      "Pivot Left Bars",              group=grpZP, minval=2, maxval=30)
-pivotRight      = input.int(3,      "Pivot Right Bars",             group=grpZP, minval=2, maxval=20)
+// PIVOT (STRUCTURAL) ZONES — CANONICAL PER-TF LENGTHS (v7.5, 5-Aug-2026).
+// One global 5/3 was applied to the chart TF *and* to the Daily, Weekly and Monthly
+// security calls alike, which is wrong in both directions at once: monthly bars are
+// scarce and individually significant, so a 5-bar lookback finds almost no pivots there,
+// while on daily/intraday the same 5 is too coarse and misses the shelves price is
+// actually turning at. These lengths match the Swing Zigzag and the S/R Lab, so a pivot
+// zone now sits on the same swing the Zigzag draws instead of a nearby-but-different one.
+// Left = right (the Zigzag convention: ta.pivot*(len, len)); the old asymmetric 5/3 had
+// no counterpart in the canonical definition.
+piv_m           = input.int(1,      "Pivot length — Monthly",       group=grpZP, minval=1, maxval=30, tooltip="Canonical (Swing Zigzag / S/R Lab). Monthly bars are scarce and each one is significant, so a long lookback finds almost no pivots at all.")
+piv_w           = input.int(5,      "Pivot length — Weekly",        group=grpZP, minval=1, maxval=30, tooltip="Canonical (Swing Zigzag / S/R Lab).")
+piv_d           = input.int(2,      "Pivot length — Daily",         group=grpZP, minval=1, maxval=30, tooltip="Canonical (Swing Zigzag / S/R Lab). Looser than the 5 used before — expect MORE daily pivot zones. If that is too noisy do NOT raise it, or you break alignment with the Zigzag; filter instead via the min-move and zone-width gates below.")
+piv_i           = input.int(2,      "Pivot length — Intraday",      group=grpZP, minval=1, maxval=30, tooltip="Canonical (Swing Zigzag / S/R Lab). Applies to the chart-TF (native) structural zones on 75m/125m charts.")
+// ── CANONICAL TREND, READ FROM THE ZIGZAG (v8.2) ────────────────────────────────────
+// S4 answered "what is the weekly trend?" with `stage_n == 2` — a Weinstein STAGE read
+// wearing a trend arrow. USHAMART is genuinely Stage 2 (above a rising 30WMA) AND
+// genuinely sideways in weekly swing structure, so S4 printed "W ↑" beside the Zigzag's
+// "W →" and it read as a contradiction when both were true about different things.
+// The Swing Zigzag is the canonical strict-trend engine, it is already on the chart, and
+// as of v6.4 it exports its MTF states. Reading them costs ~2 tokens per field and
+// CANNOT drift — it is the same computed value, not a second implementation.
+// Wire these to "Weinstein Swing Zigzag [Strict] : mtfTrendState / mtfTrendState2".
+// Leaving them unwired is safe: a source input cannot be blank, so it defaults to a
+// PRICE series, and any value outside {-1,0,1} is treated as not-wired (the panel then
+// falls back to the old proxy and SAYS so, rather than reading a price as a trend).
+zzTrendD = input.source(close, "Zigzag: MTF-1 trend state (Daily)", group=grpPA, tooltip="Bind to the Swing Zigzag's hidden 'mtfTrendState' plot (its MTF-1, Daily on an intraday chart). 1 = uptrend · -1 = downtrend · 0 = sideways. Unwired defaults to a price series and is detected as such.")
+zzTrendW = input.source(close, "Zigzag: MTF-2 trend state (Weekly)", group=grpPA, tooltip="Bind to the Swing Zigzag's hidden 'mtfTrendState2' plot (its MTF-2, Weekly). Same encoding. This is what makes S4's weekly trend agree with the Zigzag and v67 by construction instead of by luck.")
+// ── DASHBOARD IMPORT (v8.4) ─────────────────────────────────────────────────────────
+// Fields carried over from "Weinstein & Swing Pro Dashboard [v67.4.18]" so both panels
+// no longer have to be open at once. Each one is read with input.source, which carries
+// THE VALUE V67 COMPUTED — not a second implementation — so an imported field cannot
+// drift from its source the way the stage and the weekly trend did.
+// Wire each to the matching "s4_*" plot in the dropdown. Unwired inputs default to a
+// PRICE series; every row below range-checks its value and prints "—" rather than
+// rendering a price as a score.
+// STRINGS CANNOT CROSS a source input, so the sector NAME and the macro label stay on
+// v67; what comes over is the sector STAGE, which is the part that changes a decision.
+dashAction  = input.source(close, "v67: Action Signal",   group=grpDash, tooltip="Bind to s4_actionSignal. 0-10.")
+dashQuality = input.source(close, "v67: Asset Quality",   group=grpDash, tooltip="Bind to s4_assetQuality. 0-100.")
+dashRsi     = input.source(close, "v67: Daily RSI",       group=grpDash, tooltip="Bind to s4_rsiDaily.")
+dashRsRatio = input.source(close, "v67: RS-Ratio vs N500", group=grpDash, tooltip="Bind to s4_rsRatio500. RRG x-axis (100 = in line with the index).")
+dashRsMom   = input.source(close, "v67: RS-Momentum vs N500", group=grpDash, tooltip="Bind to s4_rsMom500. RRG y-axis. With RS-Ratio it gives the quadrant.")
+dashRsSlope = input.source(close, "v67: RS slope vs N500", group=grpDash, tooltip="Bind to s4_rsSlope500. Sign = rising or declining.")
+dashRsSec   = input.source(close, "v67: RS slope vs Sector", group=grpDash, tooltip="Bind to s4_rsSlopeSec.")
+dashSecStg  = input.source(close, "v67: Sector stage",    group=grpDash, tooltip="Bind to s4_secStage. 1-4.")
+dashStgWks  = input.source(close, "v67: Stage age (weeks)", group=grpDash, tooltip="Bind to s4_stageWeeks — the current LEG age.")
+dashMacWks  = input.source(close, "v67: Macro stage age",  group=grpDash, tooltip="Bind to s4_macroWeeks.")
+dashSlope50 = input.source(close, "v67: 50-DMA slope",    group=grpDash, tooltip="Bind to s4_slope50. Sign = the 50-DMA direction.")
+dashOi      = input.source(close, "v67: Futures OI",      group=grpDash, tooltip="Bind to s4_oi.")
+dashOiPrev  = input.source(close, "v67: Futures OI prior", group=grpDash, tooltip="Bind to s4_oiPrev. With OI and price direction this gives the four-state read.")
+wmaSlopeThresh = input.float(0.0012, "30WMA slope flat-band (x MA, 4-week change)", group=grpPA, minval=0.0001, maxval=0.02, step=0.0001, tooltip="The band inside which the 30-week MA counts as FLAT rather than rising or falling. 0.0012 = v67 Dashboard parity (its slopeThresh), applied to the RAW 4-week change of sma(close,30) on WEEKLY bars.\n\nThis is the input that was causing 'v67 says Stage 1, S4 says Stage 2'. S4 previously derived the slope from sma150 on DAILY bars over 10 DAYS — a slow average barely moves in ten days, so it read FLAT where v67 read FALLING, and the stage cell followed.\n\nWiden it and more names read FLAT (which, above the MA, is the Stage 1-vs-3 cell). Narrow it and almost everything reads rising or falling, skipping Stage 1 entirely. Measured across 55 board names at 0.0012: 37 rising / 2 flat / 16 falling.")
+resolveOpposing = input.bool(true, "Resolve supply/demand overlap (newer wins)", group=grpZP, tooltip="A price band cannot be supply AND demand at the same time.\n\nMeasured on POLYCAB monthly (5-Aug-2026): a supply zone at 9106.5-10126 and a demand zone at 8791-9961 overlapped by 855 points with spot sitting INSIDE BOTH. The panel read 'IN SUPPLY' while a demand zone occupied the same prices, and the Support Zone row had nothing usable to show. A location gate cannot be honest about a band that is both.\n\nON (default): when a new zone overlaps a live OPPOSING zone on the SAME timeframe, the older one is trimmed back to the newer one's edge — price has since traded into that band and turned the other way, so the old zone's fuel in the overlap is spent. A zone that ends up fully engulfed is greyed (tested), never deleted.\n\nCross-timeframe overlaps are untouched: a Monthly zone sitting on a Weekly one is CONFLUENCE, not a contradiction.\n\nOFF = both zones stay at full width and may contradict each other.")
+padZ_M = input.int(1, "  Monthly: pad bars (each side)", group=grpZP, minval=0, maxval=15, tooltip="Monthly bars are scarce and individually significant; a shelf reaching 3 months either side is not one shelf.")
+thrZ_M = input.float(0.5, "  Monthly: body tolerance (x ATR)", group=grpZP, minval=0.1, maxval=3.0, step=0.1, tooltip="How far into a NEIGHBOUR's body the shelf may reach, in ATR. The old global 1.5 is ~2100 points at a monthly ATR of ~1400 — which is how POLYCAB's June supply shelf swallowed July's body.")
+padZ_W = input.int(2, "  Weekly: pad bars (each side)", group=grpZP, minval=0, maxval=15)
+thrZ_W = input.float(0.8, "  Weekly: body tolerance (x ATR)", group=grpZP, minval=0.1, maxval=3.0, step=0.1)
+shelfReject = input.bool(true, "Pivot shelf = rejection region only", group=grpZP, tooltip="What a PIVOT shelf spans.\n\nON (default, v7.8): the REJECTION region only - supply runs from the candle BODY TOP up to its high; demand from the low up to the body bottom.\n\nOFF: the old body-to-extreme span, which swallowed the ENTIRE bridged body. On POLYCAB June monthly bar that made the supply shelf 648 points, of which the body was 483 and the wick only 165 - three quarters of the zone was body. For a pivot HIGH the lower body is where price traded UP THROUGH; it is not where supply sat.\n\nMeasured over 55 board names before shipping: monthly median zone width 8.7% to 4.9% of price, weekly 5.5% to 3.9%, daily 3.6% to 3.3%. Zone COUNT went UP (95 to 109 monthly) because narrower shelves survive the max-width ceiling that was discarding real structure. at_support flipped on ZERO names - the location gate does not move, which is the bar this had to clear.")
+struct_closed_confirm = input.bool(true, "Pivot zones: confirming bar must be CLOSED", group=grpZP, tooltip="ON (default) — a pivot zone is created one bar after the pivot confirms, so the bar that PROVIDED the right-side confirmation is complete.\n\nWhy this matters, measured on POLYCAB monthly (5-Aug-2026): with the canonical monthly length of 1, a pivot low needs only ONE bar to its right. On the monthly chart that bar was August, three days old with 555k volume against July's 8.4M — and the resulting demand zone would have simply VANISHED if August traded below the pivot. The Swing Zigzag has the same property and it is harmless there, because a repainting last leg on a drawing is obvious. Here the zone feeds z_inDZ, which is a GATE: it decides location, and location decides GO.\n\nCost: one bar of lag on zone creation, on the zone's OWN timeframe. A monthly zone appears a month later than it used to — but the version it replaces was provisional, and could un-happen.\n\nOFF = the old behaviour (zone appears the instant the pivot confirms, and can disappear).")
 pivotMinMoveATR = input.float(1.0,  "Min Move from Pivot (× ATR)",  group=grpZP, minval=0.2, maxval=10.0, step=0.1)
 structPadBars   = input.int(3,      "Zone Pad Bars (each side)",    group=grpZP, minval=0, maxval=15)
 structTopThrATR = input.float(1.5,  "Pivot Body-Top Tolerance (× ATR)",   group=grpZP, minval=0.2, maxval=5.0, step=0.1)
 structDeepThrATR= input.float(1.5,  "Pivot Body-Bottom Tolerance (× ATR)", group=grpZP, minval=0.5, maxval=8.0, step=0.1)
 structMinWMult  = input.float(0.5,  "Structural width floor (× the TF's Min Width)", group=grpZP, minval=0.1, maxval=1.0, step=0.05, tooltip="Structural (pivot) zones now honour the same per-TF width band as pattern zones — they previously bypassed it completely. But a pivot zone's width is body-to-low of ONE candle, so it is legitimately narrower than a leg-base-leg formation: this scales the band's FLOOR down for structural zones only (0.5 = half the TF's Min Width). The band's CEILING is shared unchanged.\n\nIf structural zones vanish after an update, LOWER this — do not disable the band. Watch the 'structD/structL' counters on the Zones (MTF) panel row.")
 
-grpZV = "Zones — Visual (Zone Engine)"
 showZonesIZE    = input.bool(true, "Draw Demand/Supply Zones (MTF)", group=grpZV)
 showLabels      = input.bool(true, "Show Zone Info Labels",          group=grpZV)
+zoneMaxDraw = input.int(3, "Draw at most N zones each side of price (0 = all)", group=grpZV, minval=0, maxval=20, tooltip="DISPLAY ONLY - it never changes the location gate, the counts, or a verdict. Every zone stays LIVE and still satisfies z_inDZ; this only decides how many are painted.\n\nWhy it exists: same-direction zones from 125m / D / W / M are all kept on purpose (that is confluence, and the overlap rule only resolves OPPOSING zones on the same timeframe). Measured on USHAMART: 15 boxes, SIX overlapping inside a 40-point band around spot. Every box carries extend.right, so each fills to the right edge forever - six translucent bands over the same prices that do not move when you scroll, because they have no right edge.\n\n3 = the three nearest demand and three nearest supply zones are painted; the rest go fully transparent. Raise it for the full stack, set 0 to disable the declutter.")
 zoneFillTransp  = input.int(88, "Zone fill transparency (0 = solid, 100 = clear)", group=grpZV, minval=60, maxval=98, tooltip="#37: base transparency of the zone BACKGROUND fill. Lower = more opaque / more visible. Per-TF spread is applied on top (Monthly most opaque, chart-native most transparent). Was hard-wired to 93-96 (nearly clear); default 88 makes the fills read without hiding the candles.")
 show_tested_grey= input.bool(false, "Show tested zones in grey (verify all zones drawn)", group=grpZV, tooltip="#41: OFF (default) = a zone is DELETED the moment it is tested (declutter — only fresh, tradeable zones stay on the chart). ON = a tested zone is recoloured GREY, dotted border, and FROZEN in place instead of deleted, so you can confirm EVERY valid zone that ever formed was marked correctly. Grey zones are excluded from the trigger and the live DZ/SZ counts — they are a verification overlay only.")
 retain_spent_supply = input.bool(true, "Count SPENT supply zones in Room for Trade", group=grpZV, tooltip="#room (2-Aug): a supply zone that has been TESTED is retired as a SIGNAL — it can never gate a trigger again — but sellers did transact there, so it is still evidence about how far this trade can travel.\n\nON (default): the zone OBJECT is kept after it is spent, its DRAWING is deleted (no clutter — which is why 'Show tested zones in grey' was not the answer), and the Room-for-Trade row names it separately as 'spent SZ' when one sits closer overhead than the nearest LIVE obstacle. The room NUMBER still measures to the live obstacle: a spent zone is house-doctrine consumed, so it warns, it does not shrink R.\n\nOFF: spent supply zones are deleted outright (pre-2-Aug behaviour).\n\nDemand zones are never retained this way — spent fuel below price says nothing about headroom.")
@@ -1452,6 +1489,13 @@ type Zone
     // rather than holding, so it stops being reported as overhead supply — the same
     // MTTWR logic the S/R levels use: tests WEAKEN a level, they never strengthen it.
     int    touches = 0
+    // v8.5 declutter: the styling this zone SHOULD have when painted. Remembered so a
+    // zone hidden for being far from price can be restored exactly, without re-deriving
+    // colours from pattern/TF/controlling state. Defaulted + LAST, so the existing
+    // positional Zone.new() call is untouched.
+    color  bgKeep  = na
+    color  bdKeep  = na
+    string txtKeep = ""
 
 
 var array<Zone> activeZones = array.new<Zone>()
@@ -1460,11 +1504,6 @@ var array<Zone> activeZones = array.new<Zone>()
 // zone was created and later removed, but is SILENT on which of the four exits took
 // it — which reduced the last diagnosis to guesswork across three OR'd tested-rules.
 // These name the culprit: age / travel / ema-cross / level-cross / violation.
-var int _rmAge = 0
-var int _rmTrv = 0
-var int _rmEma = 0
-var int _rmLvl = 0
-var int _rmVio = 0
 
 // ==========================================================================
 // Z0b. HORIZONTAL S/R LEVELS — timeframe-scoped, fresh-graded
@@ -1651,6 +1690,52 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
     if emaOK and rsOK and not na(sig.proximal) and not na(sig.distal) and not structDup and not patDup
         cBonus     = f_confluenceBoost(sig.proximal, sig.distal, sig.isDemand, tfTag)
         finalScore = math.min(sig.rawScore + cBonus, 100)
+        // ── OPPOSING-OVERLAP RESOLUTION (v7.7, 5-Aug-2026) ───────────────────────────
+        // A price band cannot be supply AND demand at once. Measured on POLYCAB monthly:
+        // SZ 9106.5-10126 and DZ 8791-9961 overlapped by 855 points with spot INSIDE
+        // BOTH, so the panel read "IN SUPPLY" while a demand zone sat at the same price
+        // and Support Zone showed nothing usable. The location gate cannot be honest
+        // about a band that is both.
+        // RULE: the NEWER zone wins the contested band; the older opposing zone is
+        // TRIMMED back to the newer one's edge. Rationale is the zones-are-fuel doctrine
+        // — price has since traded into that band and turned the other way, so the old
+        // zone's stock in the overlap is spent. Note this also lands the methodologically
+        // right answer on POLYCAB: the supply trims back to 9961-10126, which is exactly
+        // June's own body-to-high shelf, and the two stop contradicting each other.
+        // SAME TF ONLY, matching the structural-dedup doctrine directly above: a Monthly
+        // zone overlapping a Weekly one is CONFLUENCE and must survive.
+        // A fully engulfed zone is GREYED (tested), never array-removed — a zone that
+        // silently disappears is indistinguishable from a bug, and grey already means
+        // "kept for verification, excluded from the trigger".
+        // Reminder on edge semantics: supply proximal = LOWER edge (approached from
+        // below), demand proximal = UPPER edge. Trimming touches proximal in both cases.
+        if resolveOpposing and not na(sig.proximal) and not na(sig.distal)
+            float _nHiO = math.max(sig.proximal, sig.distal)
+            float _nLoO = math.min(sig.proximal, sig.distal)
+            int _szO = array.size(activeZones)
+            if _szO > 0
+                for _jo = 0 to _szO - 1
+                    _zx = array.get(activeZones, _jo)
+                    if _zx.isDemand != sig.isDemand and _zx.tf == tfTag and not _zx.tested
+                        float _xHi = math.max(_zx.proximal, _zx.distal)
+                        float _xLo = math.min(_zx.proximal, _zx.distal)
+                        if _nHiO > _xLo and _nLoO < _xHi
+                            if sig.isDemand
+                                // new demand below → raise the old supply's floor to it
+                                float _keep = _xHi - math.max(_xLo, _nHiO)
+                                if _keep > 0
+                                    _zx.proximal := math.max(_xLo, _nHiO)
+                                    box.set_bottom(_zx.drawing, _zx.proximal)
+                                else
+                                    _zx.tested := true
+                            else
+                                // new supply above → lower the old demand's ceiling to it
+                                float _keep = math.min(_xHi, _nLoO) - _xLo
+                                if _keep > 0
+                                    _zx.proximal := math.min(_xHi, _nLoO)
+                                    box.set_top(_zx.drawing, _zx.proximal)
+                                else
+                                    _zx.tested := true
         bool breaksOpposing = false
         sz_chk = array.size(activeZones)
         if sz_chk > 0
@@ -1750,11 +1835,19 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
         _bstyle = _isStruct ? line.style_dashed : line.style_solid
         box bx = na
         if isNative
-            leftBar = bar_index - sig.bStart
+            // v8.5: struct_closed_confirm reads the signature from the PREVIOUS bar, but
+            // bar_index here is the CURRENT one, so bStart (measured at that earlier bar)
+            // lands the box one bar to the RIGHT of its base. HTF zones are immune — they
+            // are placed by baseStartTime via xloc.bar_time, which carries the real time.
+            // Only structural zones take the shift; pattern zones never pass through it.
+            leftBar = bar_index - sig.bStart - ((_isStruct and struct_closed_confirm) ? 1 : 0)
             bx  := box.new(leftBar, topVal, bar_index, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, border_style=_bstyle, extend=extend.right, xloc=xloc.bar_index, text=_lblShown, text_color=_txtC, text_size=size.small, text_halign=text.align_left, text_valign=text.align_center)
         else
             bx  := box.new(sig.baseStartTime, topVal, time, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, border_style=_bstyle, extend=extend.right, xloc=xloc.bar_time, text=_lblShown, text_color=_txtC, text_size=size.small, text_halign=text.align_left, text_valign=text.align_center)
         z = Zone.new(sig.proximal, sig.distal, bar_index, sig.baseStartTime, sig.isDemand, finalScore, cBonus, sig.nBase, sig.pattern, tfTag, finalCtrl, bx, na, false, false, na, na, false, sig.hasFVG, false)
+        z.bgKeep := bgC
+        z.bdKeep := bdC
+        z.txtKeep := _lblShown
         array.push(activeZones, z)
 
 // ==========================================================================
@@ -1789,6 +1882,13 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
 // chart CAN be Controlling — they carry their own timeframe.
 bool ctrlAllowNative = markControlling and not timeframe.isintraday and (timeframe.ismonthly ? ctrlAllowMonthly : timeframe.isweekly ? ctrlAllowWeekly : ctrlAllowDaily)
 // Native chart-TF zone width band = the pair matching the chart timeframe.
+// The native structural zone takes the length of whatever TF the chart IS — same
+// selection the width band above uses, so the two can never describe different TFs.
+// NOTE: no `simple` qualifier on this declaration — that form is legal only in a
+// function PARAMETER signature, and using it here is a parse error ("Can't parse pine").
+// The inferred qualifier is already simple: every term is an input or a timeframe.*
+// built-in, so it satisfies structZone's `simple int pvLeft/pvRight` parameters.
+int pivNative = timeframe.ismonthly ? piv_m : timeframe.isweekly ? piv_w : timeframe.isdaily ? piv_d : piv_i
 float nativeMinW = timeframe.ismonthly ? minZW_M : timeframe.isweekly ? minZW_W : timeframe.isdaily ? minZW_D : chartSec >= 7500 ? minZW_125 : minZW_75
 float nativeMaxW = timeframe.ismonthly ? maxZW_M : timeframe.isweekly ? maxZW_W : timeframe.isdaily ? maxZW_D : chartSec >= 7500 ? maxZW_125 : maxZW_75
 nativeSig  = core.detectZone(ercMult, minBase, maxBase, bodyRatio, legBodyRatio, legBodyAvg, strongFTMult, nativeMinW, nativeMaxW, volMult, requireBOS, proxLineMode, ftLagBars, ftMaxRescue, ctrlAllowNative, prov_zone, baseStreak, maxBaseTR, legInMaxWickR, fvgBonus, (timeframe.isintraday or timeframe.isdaily ? legin_ltf : legin_htf), base_rng_atr, ctrlMinLowerHighs, gapBonus, narrowWickToWick)
@@ -1876,10 +1976,36 @@ if useMonthlyZ and not na(monthlySig) and monthlySig.zoneTime > lastMonthlyTime
 // f_createZone.
 // Each call passes ITS OWN timeframe's width band — identical wiring to the pattern-zone
 // security calls above (native uses the chart-TF ternary chain; D/W/M hardcode their pair).
-structNativeSig  = core.structZone(pivotLeft, pivotRight, structPadBars, structTopThrATR, structDeepThrATR, pivotMinMoveATR, nativeMinW, nativeMaxW, structMinWMult)
-structDailySig   = request.security(syminfo.tickerid, "D", core.structZone(pivotLeft, pivotRight, structPadBars, structTopThrATR, structDeepThrATR, pivotMinMoveATR, minZW_D, maxZW_D, structMinWMult), lookahead=barmerge.lookahead_off)
-structWeeklySig  = request.security(syminfo.tickerid, "W", core.structZone(pivotLeft, pivotRight, structPadBars, structTopThrATR, structDeepThrATR, pivotMinMoveATR, minZW_W, maxZW_W, structMinWMult), lookahead=barmerge.lookahead_off)
-structMonthlySig = request.security(syminfo.tickerid, "M", core.structZone(pivotLeft, pivotRight, structPadBars, structTopThrATR, structDeepThrATR, pivotMinMoveATR, minZW_M, maxZW_M, structMinWMult), lookahead=barmerge.lookahead_off)
+// CLOSED-CONFIRMATION WRAPPER (v7.6). One call to structZone, then optionally read the
+// PREVIOUS bar's result — which is the whole fix: reading it one bar later means the bar
+// that supplied the right-side pivot confirmation has since closed, so the pivot can no
+// longer be undone by that bar continuing to trade.
+// Written as a function rather than `cond ? f(...)[1] : f(...)` inline because the
+// ternary form calls structZone TWICE inside every request.security — a 100-line body
+// with its own ta.* series, evaluated twice per timeframe, for nothing.
+// Indexing on the returned object is per-timeframe INSIDE the security call, so [1] here
+// means "one bar of THAT timeframe", not one chart bar. That distinction is the reason
+// this cannot be done by indexing the security's result from outside.
+f_structSig(simple int pv, simple float mnW, simple float mxW, simple int pd, simple float th) =>
+    _s = core.structZone(pv, pv, pd, th, th, pivotMinMoveATR, mnW, mxW, structMinWMult, shelfReject)
+    struct_closed_confirm ? _s[1] : _s
+
+// PER-TF PAD + BODY TOLERANCE. These decide how far a pivot shelf reaches into its
+// NEIGHBOURS' bodies, and one global pair could not serve every timeframe: the tolerance
+// is a multiple of ATR, and ATR scales with the timeframe. At 1.5 x a ~1400-point monthly
+// ATR that is a ~2100-point reach, so a June supply shelf absorbed July's body.
+// Measured (Python mirror, 10 names): monthly median pivot-zone width 13.8% -> 9.4% of
+// price, weekly 6.8% -> 5.3%, daily unchanged — D/intraday keep the global pair.
+// No `simple` qualifier on these declarations — legal only in a function PARAMETER
+// signature; using it here is the "Can't parse pine" error from v7.5. The inferred
+// qualifier is already simple (inputs + timeframe.* built-ins), which is what
+// f_structSig's `simple int pd` / `simple float th` parameters require.
+int   padNative = timeframe.ismonthly ? padZ_M : timeframe.isweekly ? padZ_W : structPadBars
+float thrNative = timeframe.ismonthly ? thrZ_M : timeframe.isweekly ? thrZ_W : structTopThrATR
+structNativeSig  = f_structSig(pivNative, nativeMinW, nativeMaxW, padNative, thrNative)
+structDailySig   = request.security(syminfo.tickerid, "D", f_structSig(piv_d, minZW_D, maxZW_D, structPadBars, structTopThrATR), lookahead=barmerge.lookahead_off)
+structWeeklySig  = request.security(syminfo.tickerid, "W", f_structSig(piv_w, minZW_W, maxZW_W, padZ_W, thrZ_W), lookahead=barmerge.lookahead_off)
+structMonthlySig = request.security(syminfo.tickerid, "M", f_structSig(piv_m, minZW_M, maxZW_M, padZ_M, thrZ_M), lookahead=barmerge.lookahead_off)
 var int lastStrNativeTime  = 0
 var int lastStrDailyTime   = 0
 var int lastStrWeeklyTime  = 0
@@ -2067,152 +2193,202 @@ f_recencyScore(int baseScore, string ztf, int originT) =>
 
 // --- STATE MANAGEMENT with the S4 "tested" rule (reaction + travel/EMA/level) ---
 int _MS_DAY = 86400000
-if array.size(activeZones) > 0
-    for i = array.size(activeZones) - 1 to 0
-        z = array.get(activeZones, i)
-        // ── AGEING (calendar, per-TF) — zones age out this many days after FORMATION
-        // (z.originTime). Monthly 4y / Weekly 2y / Daily 6mo / 125m 4w / 75m 3w — so
-        // Daily+intraday zones stop populating indefinitely to the left, while
-        // Monthly/Weekly persist for years. Applies to every zone (M/W/D/native).
-        float _capMs = f_ageCapDays(z.tf) * _MS_DAY
-        if not na(z.originTime) and (time - z.originTime) > _capMs
-            if z.tf == "C"
-                _rmAge := _rmAge + 1
-            z.deleteDrawings()            // remove entirely (no greyed stub) — declutter
-            array.remove(activeZones, i)
-            continue
-        // v3.2 AUDIT FIX: reaction / tested / violation are judged on CLOSED bars
-        // ONLY. These rules read the forming bar (and forming HTF EMA/ATR via
-        // security) but end in array.remove + deleteDrawings — IRREVERSIBLE. An
-        // intraday tick across a forming daily EMA20 was deleting zones that a
-        // chart reload would resurrect: the live chart and the reloaded chart
-        // disagreed about which zones exist. Confirmation-before-entry applies to
-        // the engine too: nothing permanent happens on an unconfirmed bar.
-        // #41: a zone already greyed as tested is FROZEN — skip all reaction / tested /
-        // violation reprocessing so it stays put for visual verification.
-        if barstate.isconfirmed and not z.tested
-            // #27: refresh the label with the age-decayed score each confirmed bar. Done
-            // before the tested/violation checks below, so a zone about to be deleted just
-            // wastes one harmless set_text; a surviving zone shows its current recency read.
-            if recencyDecay and showZonesIZE and d_zones and showLabels and not na(z.drawing)
-                box.set_text(z.drawing, f_buildLabel(z.tf, z.isDemand, z.pattern, f_recencyScore(z.strength, z.tf, z.originTime), z.nBase, z.confBonus, z.isControlling, z.hasFVG))
-            float zW = math.abs(z.proximal - z.distal)
-            // "Touched" (z.wasInZone tracks this bar-to-bar) = a wick pierced the proximal
-            // line OR the candle closed within the zone — but did NOT close beyond the
-            // distal (that is a violation, handled by checkMitigation below).
-            bool touchedNow = z.isDemand ? (low <= z.proximal and close >= z.distal) : (high >= z.proximal and close <= z.distal)
-            // "Moved out" = this candle is back on the entry side of the proximal.
-            bool movedOut   = z.isDemand ? (low > z.proximal) : (high < z.proximal)
-            // Reaction = a PRIOR candle touched/closed-within, and THIS candle moved back
-            // out past the proximal (Jay's definition of a reaction from the zone).
-            if z.wasInZone and movedOut and bar_index > z.originBar + 1
-                z.reacted   := true
-                z.reactRef  := z.proximal
-                // Rule-3 strong S/R = nearest HTF pivot high ABOVE the zone (demand) /
-                // pivot low BELOW (supply). If the last HTF pivot is not on the correct
-                // side, rule 3 stays inert and rules 1 & 2 carry the tested check.
-                z.strongLvl := z.isDemand ? ((not na(lastPH) and lastPH > z.proximal) ? lastPH : na) : ((not na(lastPL) and lastPL < z.proximal) ? lastPL : na)
-                z.emaPre    := z.isDemand ? (not na(dailyEMA20) and close < dailyEMA20) : (not na(dailyEMA20) and close > dailyEMA20)
-            z.wasInZone := touchedNow
-            // TESTED = reacted AND confirmed by ANY of the 3 rules → the zone has done its
-            // job, so it is REMOVED from the chart entirely (no greyed tested state — Jay's
-            // declutter rule). A fresh, un-reacted zone is the only tradeable one.
-            bool _testedOut = false
-            if z.reacted
-                // RULE 1 — travel. v3.2: measured in ATR by default, not zone-widths.
-                // Zone-width scaling is INVERTED: it made the travel needed proportional
-                // to the zone's own size, so a 3pt zone died on a 6pt move while a 30pt
-                // zone survived it. The narrower (more precise) the zone, the faster it
-                // was retired — exactly backwards. ATR is the scale price actually moves in.
-                // The zone's OWN timeframe's ATR — a Monthly zone is judged in monthly
-                // ATR even when it is drawn on a 75m chart. Native "C" zones use the
-                // chart's ATR, which IS their own timeframe by definition.
-                float _zAtr = z.tf == "M" ? atrM_tf : z.tf == "W" ? atrW_tf : z.tf == "D" ? atrD_tf : chart_atr
-                float _travelNeed = testedTravelMode == "ATR" ? testedTravelATR * nz(_zAtr, chart_atr) : testedTravelMult * zW
-                bool c_travel = z.isDemand ? (high >= z.reactRef + _travelNeed) : (low <= z.reactRef - _travelNeed)
-                // RULES 2 & 3 — a close across the DAILY EMA20 / a daily-or-weekly pivot.
-                // Both are DAILY references, so they are same-TF only for a DAILY zone.
-                // #25/#40/#42 FIX: they used to apply to WEEKLY and MONTHLY zones too, which
-                // retired them on a DAILY EMA20 cross — far too fast (CoalIndia: 3 of 37
-                // weekly zones survived; Caplipoint 3 of 19). A weekly base is not consumed
-                // because price crossed the daily EMA20 — the same category error the v3.2
-                // note called out for 75m zones, just one tier up. W/M zones are now judged
-                // by TRAVEL (in their OWN TF's ATR, rule 1 above) and VIOLATION only, exactly
-                // like native intraday zones. Only DAILY (and native-daily) zones consult
-                // the EMA/level cross.
-                bool _zIsDaily = z.tf == "D" or (z.tf == "C" and timeframe.isdaily)
-                bool _emaLvlOk = (not tested_tf_match) or _zIsDaily
-                bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(dailyEMA20) and close > dailyEMA20) : (z.emaPre and not na(dailyEMA20) and close < dailyEMA20))
-                bool c_level  = _emaLvlOk and (z.isDemand ? (not na(z.strongLvl) and close > z.strongLvl) : (not na(z.strongLvl) and close < z.strongLvl))
-                _testedOut := c_travel or c_ema or c_level
-                // v3.2 DIAG: WHICH of the three retired it? The cumulative d/f/m/L funnel
-                // proves a zone was created-then-removed but is silent on WHY, which left
-                // the last diagnosis as guesswork between three OR'd rules. Attribute it.
-                // (Counted per rule that was TRUE, so overlaps show — they are not
-                //  mutually exclusive and the sum can exceed the removal count.)
-                if _testedOut and z.tf == "C"
-                    if c_travel
-                        _rmTrv := _rmTrv + 1
-                    if c_ema
-                        _rmEma := _rmEma + 1
-                    if c_level
-                        _rmLvl := _rmLvl + 1
-            if _testedOut
-                // #41: default = delete outright (declutter). With "Show tested zones in
-                // grey" ON, the zone is instead recoloured grey and FROZEN (z.tested) so
-                // every valid zone that ever formed can be verified on the chart. Either
-                // way it is excluded from the trigger (the support scan skips z.tested).
-                if show_tested_grey
-                    z.tested := true
-                    box.set_bgcolor(z.drawing, color.new(color.gray, 90))
-                    box.set_border_color(z.drawing, color.new(color.gray, 45))
-                    box.set_text_color(z.drawing, color.new(color.gray, 25))
-                    box.set_border_style(z.drawing, line.style_dotted)
-                    continue
-                // #room (Jay, 2-Aug): "I wanted to see if these supply zones are limiting
-                // my room for trade." A SPENT supply zone is retired as a signal — it can
-                // never gate a trigger again — but sellers did once transact there, so it
-                // is still evidence about how far this trade can travel. Keeping it costs
-                // nothing visually: the DRAWING is deleted (no clutter, which is why
-                // show_tested_grey was not the answer) and only the object survives, for
-                // the Room-for-Trade scan. Demand zones are NOT retained: spent fuel below
-                // price says nothing about headroom.
-                else if retain_spent_supply and not z.isDemand
-                    z.touches := z.touches + 1
-                    // Leash: 1 test for a normal zone, 2 for a Controlling one. Once it is
-                    // EXCEEDED the zone is not weakened supply any more, it is supply that
-                    // FAILED — reporting it as overhead would be a false ceiling, which is
-                    // exactly what Jay flagged. Drop it entirely at that point.
-                    if z.touches > (z.isControlling ? 2 : 1)
+// v8.6 ZONE-MAINTENANCE WRAP. A function body is exempt from the main-body statement
+// cap. The panel could NOT be wrapped this way - a function may reference at most 254
+// external elements (inputs + request.* results, ints/floats/bools counting double)
+// and the panel touches 453. This block touches ~16, so it is comfortably legal.
+// The five _rm* diagnostic counters were globals written with := , which a function
+// cannot do; they now live as var state INSIDE and come back as a tuple, so the
+// running totals behave exactly as before.
+f_zoneMaintain() =>
+    var int _rmAgeF = 0
+    var int _rmTrvF = 0
+    var int _rmEmaF = 0
+    var int _rmLvlF = 0
+    var int _rmVioF = 0
+    if array.size(activeZones) > 0
+        for i = array.size(activeZones) - 1 to 0
+            z = array.get(activeZones, i)
+            // ── AGEING (calendar, per-TF) — zones age out this many days after FORMATION
+            // (z.originTime). Monthly 4y / Weekly 2y / Daily 6mo / 125m 4w / 75m 3w — so
+            // Daily+intraday zones stop populating indefinitely to the left, while
+            // Monthly/Weekly persist for years. Applies to every zone (M/W/D/native).
+            float _capMs = f_ageCapDays(z.tf) * _MS_DAY
+            if not na(z.originTime) and (time - z.originTime) > _capMs
+                if z.tf == "C"
+                    _rmAgeF := _rmAgeF + 1
+                z.deleteDrawings()            // remove entirely (no greyed stub) — declutter
+                array.remove(activeZones, i)
+                continue
+            // v3.2 AUDIT FIX: reaction / tested / violation are judged on CLOSED bars
+            // ONLY. These rules read the forming bar (and forming HTF EMA/ATR via
+            // security) but end in array.remove + deleteDrawings — IRREVERSIBLE. An
+            // intraday tick across a forming daily EMA20 was deleting zones that a
+            // chart reload would resurrect: the live chart and the reloaded chart
+            // disagreed about which zones exist. Confirmation-before-entry applies to
+            // the engine too: nothing permanent happens on an unconfirmed bar.
+            // #41: a zone already greyed as tested is FROZEN — skip all reaction / tested /
+            // violation reprocessing so it stays put for visual verification.
+            if barstate.isconfirmed and not z.tested
+                // #27: refresh the label with the age-decayed score each confirmed bar. Done
+                // before the tested/violation checks below, so a zone about to be deleted just
+                // wastes one harmless set_text; a surviving zone shows its current recency read.
+                if recencyDecay and showZonesIZE and d_zones and showLabels and not na(z.drawing)
+                    box.set_text(z.drawing, f_buildLabel(z.tf, z.isDemand, z.pattern, f_recencyScore(z.strength, z.tf, z.originTime), z.nBase, z.confBonus, z.isControlling, z.hasFVG))
+                float zW = math.abs(z.proximal - z.distal)
+                // "Touched" (z.wasInZone tracks this bar-to-bar) = a wick pierced the proximal
+                // line OR the candle closed within the zone — but did NOT close beyond the
+                // distal (that is a violation, handled by checkMitigation below).
+                bool touchedNow = z.isDemand ? (low <= z.proximal and close >= z.distal) : (high >= z.proximal and close <= z.distal)
+                // "Moved out" = this candle is back on the entry side of the proximal.
+                bool movedOut   = z.isDemand ? (low > z.proximal) : (high < z.proximal)
+                // Reaction = a PRIOR candle touched/closed-within, and THIS candle moved back
+                // out past the proximal (Jay's definition of a reaction from the zone).
+                if z.wasInZone and movedOut and bar_index > z.originBar + 1
+                    z.reacted   := true
+                    z.reactRef  := z.proximal
+                    // Rule-3 strong S/R = nearest HTF pivot high ABOVE the zone (demand) /
+                    // pivot low BELOW (supply). If the last HTF pivot is not on the correct
+                    // side, rule 3 stays inert and rules 1 & 2 carry the tested check.
+                    z.strongLvl := z.isDemand ? ((not na(lastPH) and lastPH > z.proximal) ? lastPH : na) : ((not na(lastPL) and lastPL < z.proximal) ? lastPL : na)
+                    z.emaPre    := z.isDemand ? (not na(dailyEMA20) and close < dailyEMA20) : (not na(dailyEMA20) and close > dailyEMA20)
+                z.wasInZone := touchedNow
+                // TESTED = reacted AND confirmed by ANY of the 3 rules → the zone has done its
+                // job, so it is REMOVED from the chart entirely (no greyed tested state — Jay's
+                // declutter rule). A fresh, un-reacted zone is the only tradeable one.
+                bool _testedOut = false
+                if z.reacted
+                    // RULE 1 — travel. v3.2: measured in ATR by default, not zone-widths.
+                    // Zone-width scaling is INVERTED: it made the travel needed proportional
+                    // to the zone's own size, so a 3pt zone died on a 6pt move while a 30pt
+                    // zone survived it. The narrower (more precise) the zone, the faster it
+                    // was retired — exactly backwards. ATR is the scale price actually moves in.
+                    // The zone's OWN timeframe's ATR — a Monthly zone is judged in monthly
+                    // ATR even when it is drawn on a 75m chart. Native "C" zones use the
+                    // chart's ATR, which IS their own timeframe by definition.
+                    float _zAtr = z.tf == "M" ? atrM_tf : z.tf == "W" ? atrW_tf : z.tf == "D" ? atrD_tf : chart_atr
+                    float _travelNeed = testedTravelMode == "ATR" ? testedTravelATR * nz(_zAtr, chart_atr) : testedTravelMult * zW
+                    bool c_travel = z.isDemand ? (high >= z.reactRef + _travelNeed) : (low <= z.reactRef - _travelNeed)
+                    // RULES 2 & 3 — a close across the DAILY EMA20 / a daily-or-weekly pivot.
+                    // Both are DAILY references, so they are same-TF only for a DAILY zone.
+                    // #25/#40/#42 FIX: they used to apply to WEEKLY and MONTHLY zones too, which
+                    // retired them on a DAILY EMA20 cross — far too fast (CoalIndia: 3 of 37
+                    // weekly zones survived; Caplipoint 3 of 19). A weekly base is not consumed
+                    // because price crossed the daily EMA20 — the same category error the v3.2
+                    // note called out for 75m zones, just one tier up. W/M zones are now judged
+                    // by TRAVEL (in their OWN TF's ATR, rule 1 above) and VIOLATION only, exactly
+                    // like native intraday zones. Only DAILY (and native-daily) zones consult
+                    // the EMA/level cross.
+                    bool _zIsDaily = z.tf == "D" or (z.tf == "C" and timeframe.isdaily)
+                    bool _emaLvlOk = (not tested_tf_match) or _zIsDaily
+                    bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(dailyEMA20) and close > dailyEMA20) : (z.emaPre and not na(dailyEMA20) and close < dailyEMA20))
+                    bool c_level  = _emaLvlOk and (z.isDemand ? (not na(z.strongLvl) and close > z.strongLvl) : (not na(z.strongLvl) and close < z.strongLvl))
+                    _testedOut := c_travel or c_ema or c_level
+                    // v3.2 DIAG: WHICH of the three retired it? The cumulative d/f/m/L funnel
+                    // proves a zone was created-then-removed but is silent on WHY, which left
+                    // the last diagnosis as guesswork between three OR'd rules. Attribute it.
+                    // (Counted per rule that was TRUE, so overlaps show — they are not
+                    //  mutually exclusive and the sum can exceed the removal count.)
+                    if _testedOut and z.tf == "C"
+                        if c_travel
+                            _rmTrvF := _rmTrvF + 1
+                        if c_ema
+                            _rmEmaF := _rmEmaF + 1
+                        if c_level
+                            _rmLvlF := _rmLvlF + 1
+                if _testedOut
+                    // #41: default = delete outright (declutter). With "Show tested zones in
+                    // grey" ON, the zone is instead recoloured grey and FROZEN (z.tested) so
+                    // every valid zone that ever formed can be verified on the chart. Either
+                    // way it is excluded from the trigger (the support scan skips z.tested).
+                    if show_tested_grey
+                        z.tested := true
+                        box.set_bgcolor(z.drawing, color.new(color.gray, 90))
+                        box.set_border_color(z.drawing, color.new(color.gray, 45))
+                        box.set_text_color(z.drawing, color.new(color.gray, 25))
+                        box.set_border_style(z.drawing, line.style_dotted)
+                        continue
+                    // #room (Jay, 2-Aug): "I wanted to see if these supply zones are limiting
+                    // my room for trade." A SPENT supply zone is retired as a signal — it can
+                    // never gate a trigger again — but sellers did once transact there, so it
+                    // is still evidence about how far this trade can travel. Keeping it costs
+                    // nothing visually: the DRAWING is deleted (no clutter, which is why
+                    // show_tested_grey was not the answer) and only the object survives, for
+                    // the Room-for-Trade scan. Demand zones are NOT retained: spent fuel below
+                    // price says nothing about headroom.
+                    else if retain_spent_supply and not z.isDemand
+                        z.touches := z.touches + 1
+                        // Leash: 1 test for a normal zone, 2 for a Controlling one. Once it is
+                        // EXCEEDED the zone is not weakened supply any more, it is supply that
+                        // FAILED — reporting it as overhead would be a false ceiling, which is
+                        // exactly what Jay flagged. Drop it entirely at that point.
+                        if z.touches > (z.isControlling ? 2 : 1)
+                            z.deleteDrawings()
+                            array.remove(activeZones, i)
+                            continue
+                        z.tested := true
+                        z.deleteDrawings()
+                        // Re-arm: the reaction state must be EARNED again before another test
+                        // can count. Without this the zone satisfies _testedOut on every
+                        // subsequent bar and the counter runs away in a few bars.
+                        z.reacted  := false
+                        z.reactRef := na
+                        z.emaPre   := false
+                        continue
+                    else
                         z.deleteDrawings()
                         array.remove(activeZones, i)
                         continue
-                    z.tested := true
-                    z.deleteDrawings()
-                    // Re-arm: the reaction state must be EARNED again before another test
-                    // can count. Without this the zone satisfies _testedOut on every
-                    // subsequent bar and the counter runs away in a few bars.
-                    z.reacted  := false
-                    z.reactRef := na
-                    z.emaPre   := false
-                    continue
-                else
-                    z.deleteDrawings()
-                    array.remove(activeZones, i)
-                    continue
-            isMitigated = z.checkMitigation(close, low, high, mitBasis)
-            if isMitigated
-                if z.tf == "C"
-                    _rmVio := _rmVio + 1
-                z.deleteDrawings()
-                // #4: a small, faint dot marks the break (was a big red ✗ — too cluttered).
-                if markViolations
+                isMitigated = z.checkMitigation(close, low, high, mitBasis)
+                if isMitigated
                     if z.tf == "C"
-                        label.new(bar_index, z.distal, "", color=C_RED45, style=label.style_circle, size=size.tiny, xloc=xloc.bar_index)
-                    else
-                        label.new(time, z.distal, "", color=C_RED45, style=label.style_circle, size=size.tiny, xloc=xloc.bar_time)
-                array.remove(activeZones, i)
+                        _rmVioF := _rmVioF + 1
+                    z.deleteDrawings()
+                    // #4: a small, faint dot marks the break (was a big red ✗ — too cluttered).
+                    if markViolations
+                        if z.tf == "C"
+                            label.new(bar_index, z.distal, "", color=C_RED45, style=label.style_circle, size=size.tiny, xloc=xloc.bar_index)
+                        else
+                            label.new(time, z.distal, "", color=C_RED45, style=label.style_circle, size=size.tiny, xloc=xloc.bar_time)
+                    array.remove(activeZones, i)
+    [_rmAgeF, _rmTrvF, _rmEmaF, _rmLvlF, _rmVioF]
 
+[_rmAge, _rmTrv, _rmEma, _rmLvl, _rmVio] = f_zoneMaintain()
+
+
+// ── DECLUTTER (v8.5) — display only, applied AFTER all lifecycle work above so it can
+// never influence what the gate sees. Zones stay in activeZones, keep their state, and
+// keep satisfying z_inDZ / the counts; the only thing that changes is whether the box
+// is painted. Ranking is by distance from price WITHIN each direction, so the nearest
+// demand and nearest supply survive — which are the ones a decision actually uses.
+// v8.6: the declutter lives in a FUNCTION. A function BODY is exempt from the
+// main-body statement cap; the same 18 statements at global scope pushed the script
+// over it (v8.4 compiled, v8.5 did not). Behaviour is unchanged - same guard, same
+// ranking, same styling - it is only where the statements are counted that differs.
+f_declutterZones() =>
+    if zoneMaxDraw > 0 and array.size(activeZones) > 0
+        int _nz2 = array.size(activeZones)
+        for _a = 0 to _nz2 - 1
+            _za = array.get(activeZones, _a)
+            if not na(_za.drawing)
+                float _da = math.abs(close - _za.proximal)
+                int _rank = 0
+                for _b = 0 to _nz2 - 1
+                    if _b != _a
+                        _zb = array.get(activeZones, _b)
+                        // Same side of the book only — a demand zone competes with demand.
+                        if _zb.isDemand == _za.isDemand and not na(_zb.drawing)
+                            if math.abs(close - _zb.proximal) < _da
+                                _rank += 1
+                // A tested zone is already greyed by the lifecycle; leave it alone rather
+                // than fighting that styling here.
+                if not _za.tested
+                    bool _show = _rank < zoneMaxDraw
+                    box.set_bgcolor(_za.drawing, _show ? _za.bgKeep : color.new(color.gray, 100))
+                    box.set_border_color(_za.drawing, _show ? _za.bdKeep : color.new(color.gray, 100))
+                    box.set_text(_za.drawing, _show ? _za.txtKeep : "")
+    0
+int _dcl = f_declutterZones()
 // --- Per-bar zone scan → the decision values the S4 gate + panel consume ---
 float _z_inDZstr = na
 bool  z_inDZ = false
@@ -2355,7 +2531,7 @@ int anc_gap = na(anc_gap_f) ? na : int(anc_gap_f)
 // v7.2: moved to the S4Core library (see the import at the top). S4 now calls
 // core.srLevels / core.structZone / core.dailyPA and uses core.SRSig.
 
-[d_htf, d_sc, d_vcp, d_pp, d_eng, d_liq, d_3b, d_in3, d_nr7, d_ibnr7, d_spr, d_gap, d_u50, d_h50, d_h200, d_bc, d_climax, d_2b, d_sos, d_hsup, d_vdu, d_off52, d_bel30, d_s150dn, d_rv, d_bel200] = request.security(syminfo.tickerid, "D", core.dailyPA(na, na, true, confirm_daily, wma_flat_pct), barmerge.gaps_off, barmerge.lookahead_off)
+[d_htf, d_sc, d_vcp, d_pp, d_eng, d_liq, d_3b, d_in3, d_nr7, d_ibnr7, d_spr, d_gap, d_u50, d_h50, d_h200, d_bc, d_climax, d_2b, d_sos, d_hsup, d_vdu, d_off52, d_bel30, d_s150dn, d_rv, d_bel200, d_marg] = request.security(syminfo.tickerid, "D", core.dailyPA(na, na, true, confirm_daily, wma_flat_pct), barmerge.gaps_off, barmerge.lookahead_off)
 
 // 8. Stage-2 Launch +3 — TRUE weekly close crossover of 30-WMA (+ vol gate)
 f_weekly() =>
@@ -2535,32 +2711,21 @@ bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
 
 // Calculate PA patterns locally on the chart's timeframe (if toggled). Pass the
 // DAILY EMAs so the engulf keeps its EMA20 anchor daily even on 75/125m.
-[loc_htf, loc_sc, loc_vcp, loc_pp, loc_eng, loc_liq, loc_3b, loc_in3, loc_nr7, loc_ibnr7, loc_spr, loc_gap, loc_u50, loc_h50, loc_h200, loc_bc, loc_climax, loc_2b, loc_sos, loc_hsup, loc_vdu, loc_off52, loc_bel30, loc_s150dn, loc_rv, loc_bel200] = core.dailyPA(daily_ema10, daily_ema20, false, confirm_daily, wma_flat_pct)
+[loc_htf, loc_sc, loc_vcp, loc_pp, loc_eng, loc_liq, loc_3b, loc_in3, loc_nr7, loc_ibnr7, loc_spr, loc_gap, loc_u50, loc_h50, loc_h200, loc_bc, loc_climax, loc_2b, loc_sos, loc_hsup, loc_vdu, loc_off52, loc_bel30, loc_s150dn, loc_rv, loc_bel200, loc_marg] = core.dailyPA(daily_ema10, daily_ema20, false, confirm_daily, wma_flat_pct)
 
 // ==========================================
 // A3. Clean bools (na→false) + tier sum + names + family strings
 // ==========================================
-float active_htf    = use_chart_tf ? loc_htf     : nz(d_htf, 0.0)
-float active_sc     = use_chart_tf ? loc_sc      : nz(d_sc, 0.0)
-float active_vcp    = use_chart_tf ? loc_vcp     : nz(d_vcp, 0.0)
-float active_pp     = use_chart_tf ? loc_pp      : nz(d_pp, 0.0)
-float active_eng    = use_chart_tf ? loc_eng     : nz(d_eng, 0.0)
-float active_liq    = use_chart_tf ? loc_liq     : nz(d_liq, 0.0)
-float active_3b     = use_chart_tf ? loc_3b      : nz(d_3b, 0.0)
-float active_in3    = use_chart_tf ? loc_in3     : nz(d_in3, 0.0)
-float active_nr7    = use_chart_tf ? loc_nr7     : nz(d_nr7, 0.0)
-float active_ibnr7  = use_chart_tf ? loc_ibnr7   : nz(d_ibnr7, 0.0)
-float active_spr    = use_chart_tf ? loc_spr     : nz(d_spr, 0.0)
-float active_gap    = use_chart_tf ? loc_gap     : nz(d_gap, 0.0)
-float active_u50    = use_chart_tf ? loc_u50     : nz(d_u50, 0.0)
-float active_h50    = use_chart_tf ? loc_h50     : nz(d_h50, 0.0)
-float active_h200   = use_chart_tf ? loc_h200    : nz(d_h200, 0.0)
-float active_bc     = use_chart_tf ? loc_bc      : nz(d_bc, 0.0)
-float active_climax = use_chart_tf ? loc_climax  : nz(d_climax, 0.0)
-float active_2b     = use_chart_tf ? loc_2b      : nz(d_2b, 0.0)
-float active_sos    = use_chart_tf ? loc_sos     : nz(d_sos, 0.0)
-float active_hsup   = use_chart_tf ? loc_hsup    : nz(d_hsup, 0.0)
-float active_vdu    = use_chart_tf ? loc_vdu     : nz(d_vdu, 0.0)
+// STATEMENT-BUDGET RECLAIM (v8.3, 5-Aug-2026). Pine caps the MAIN BODY at ~1000
+// statements and S4 was at 980 with 20 left, which is not enough to import the
+// Dashboard fields. A function BODY does not count against that cap, so 21 one-line
+// selections become one declaration plus one destructure: -19 statements, and not a
+// single value changes -- each element is the identical expression, in the same order.
+// This is the same trick that took the file from 1011 back to 957 in July; it is now
+// the standard way to add anything here.
+f_activePA() =>
+    [use_chart_tf ? loc_htf     : nz(d_htf, 0.0), use_chart_tf ? loc_sc      : nz(d_sc, 0.0), use_chart_tf ? loc_vcp     : nz(d_vcp, 0.0), use_chart_tf ? loc_pp      : nz(d_pp, 0.0), use_chart_tf ? loc_eng     : nz(d_eng, 0.0), use_chart_tf ? loc_liq     : nz(d_liq, 0.0), use_chart_tf ? loc_3b      : nz(d_3b, 0.0), use_chart_tf ? loc_in3     : nz(d_in3, 0.0), use_chart_tf ? loc_nr7     : nz(d_nr7, 0.0), use_chart_tf ? loc_ibnr7   : nz(d_ibnr7, 0.0), use_chart_tf ? loc_spr     : nz(d_spr, 0.0), use_chart_tf ? loc_gap     : nz(d_gap, 0.0), use_chart_tf ? loc_u50     : nz(d_u50, 0.0), use_chart_tf ? loc_h50     : nz(d_h50, 0.0), use_chart_tf ? loc_h200    : nz(d_h200, 0.0), use_chart_tf ? loc_bc      : nz(d_bc, 0.0), use_chart_tf ? loc_climax  : nz(d_climax, 0.0), use_chart_tf ? loc_2b      : nz(d_2b, 0.0), use_chart_tf ? loc_sos     : nz(d_sos, 0.0), use_chart_tf ? loc_hsup    : nz(d_hsup, 0.0), use_chart_tf ? loc_vdu     : nz(d_vdu, 0.0)]
+[active_htf, active_sc, active_vcp, active_pp, active_eng, active_liq, active_3b, active_in3, active_nr7, active_ibnr7, active_spr, active_gap, active_u50, active_h50, active_h200, active_bc, active_climax, active_2b, active_sos, active_hsup, active_vdu] = f_activePA()
 
 // WEEKLY/POSITIONAL PATTERNS ON AN INTRADAY CHART — fixed 29-Jul-2026 (Jay:
 // "GM Sigma PA is 6, S4 Sigma PA is 9" on APOLLOHOSP 75m; the gap was exactly +3).
@@ -2646,8 +2811,35 @@ bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // 
 //     lagging = distribution (3). Previously it always read 3.
 // rsSlope is the 60-bar linreg slope of close/CNX500 — ALREADY computed (line ~1378) off
 // an existing benchmark call, so the tiebreak costs no new data.
-bool _b30  = nz(d_bel30, 1.0) > 0.5         // na fails to the BEARISH side (v5.1 rule)
-float _wst = nz(d_s150dn, 1.0)              // 0 rising · 0.5 flat · 1 falling
+// v8.1 (5-Aug) — THE STAGE NOW READS A REAL WEEKLY 30-SMA, not the daily SMA150.
+// Jay: "Dashboard v67 reports Stage 1, S4 reports Stage 2. I see these discrepancies
+// very often." Root cause was never the 2x2 — it was the INPUT. S4 took both the
+// position test and the slope from sma150 on DAILY bars (library dailyPA), measuring
+// the slope over 10 DAYS; v67 uses sma(close,30) on WEEKLY bars over 4 WEEKS with a
+// band of 0.0012 x MA. A slow average barely moves in ten days, so S4 read FLAT where
+// v67 read FALLING — and every stage cell downstream inherited that.
+// Measured across 55 board names before changing anything: the two definitions differ
+// on 3 (TECHM, LTFOODS, CASTROLIND), all flat->falling with price above, i.e. Stage 2
+// -> Stage 3. A tightening, in the safe direction.
+// The 3-state is computed INSIDE the security call so the 4-week history offset is
+// taken on WEEKLY bars; reading ma30[4] outside would offset by four CHART bars.
+// Encoding kept identical to the retired d_s150dn (0 rising / 0.5 flat / 1 falling) so
+// every existing reader keeps its meaning.
+// v67 parity (dashboard line ~2563): rising when the 4-week change exceeds 0.0012 x MA,
+// falling when it drops below -that, flat between. Returns [belowMA, slope3state] with
+// slope encoded 0 rising / 0.5 flat / 1 falling.
+f_wma30(simple float thr) =>
+    _m = ta.sma(close, 30)
+    _d = _m - _m[4]
+    _b = _m * thr
+    [close < _m ? 1.0 : 0.0, _d > _b ? 0.0 : _d < -_b ? 1.0 : 0.5]
+
+// The weekly bundle: one security call, evaluated ON weekly bars, returning the
+// position test and the 3-state slope together. f_wma30 must sit at global scope.
+[w_bel30, w_slp3] = request.security(syminfo.tickerid, "W", f_wma30(wmaSlopeThresh), lookahead=barmerge.lookahead_off)
+float _b30f = nz(w_bel30, 1.0)
+bool _b30  = _b30f > 0.5                    // na fails to the BEARISH side (v5.1 rule)
+float _wst = nz(w_slp3, 1.0)                // 0 rising / 0.5 flat / 1 falling
 bool _wdn  = _wst >= 0.75
 bool _wup  = _wst <= 0.25
 bool _rsUp = rsSlope > 0
@@ -2658,7 +2850,13 @@ int stage_n = 2
 if _b30
     stage_n := (_wdn and not _rsUp) ? 4 : 1
 else
-    stage_n := _wup ? 2 : _wdn ? 3 : (_rsUp ? 2 : 3)
+    // v8.1: the flat cell now resolves 1-vs-3, which is what the comment above always
+    // said it should. A FLAT 30WMA is not an advance — Weinstein Stage 2 requires the
+    // anchor to be RISING — so "above a flat MA" is a BASE (1) or a TOP (3), never 2.
+    // Emitting 2 here is why v67 read UNOMINDA as Stage 1 while S4 called it Stage 2.
+    // RS still breaks the tie, exactly as before: leading = accumulation base, lagging
+    // = distribution. Only the winning label changes, from 2 to 1.
+    stage_n := _wup ? 2 : _wdn ? 3 : (_rsUp ? 1 : 3)
 // THE THIRD STATE. `mode` offers only two TRADEABLE paths, so a Stage-3/4 name was
 // forced into one and the verdict then worked faithfully inside a frame that should
 // never have been entered — exactly how COLPAL (30WMA FALLING) reached
@@ -2690,7 +2888,20 @@ bool gm_rec = str.length(_gmL) > 0 and str.contains("," + _gmL + ",", "," + str.
 // GM FIRST: it knows which screen qualified the name, which is information no price rule
 // can recover. The heuristic is the fallback for symbols the list does not mention —
 // which is also the GM's own default (a name it did not qualify as Recovery is Bull).
-bool auto_rec = gm_rec or stage_n == 1 or rec_dd
+// THE SAME HANDOFF, ONE AXIS OVER (v7.4) — breakout vs pullback. Parsed identically so
+// the two lists behave the same way and neither can fire on a partial name.
+string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
+bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
+// v8.1 — THE PATH NO LONGER KEYS ON THE BARE STAGE DIGIT. Making the flat cell honest
+// (Stage 1 instead of 2) would otherwise route every healthy BASE to the Recovery
+// battery, because `stage_n == 1` alone meant recovery. A Stage-1 base is a base; what
+// makes it a RECOVERY is that it is beaten-down, and the 200-DMA is the discriminant
+// this file already uses for exactly that (v2.3). So: Stage 1 BELOW the 200-DMA is a
+// recovery base; Stage 1 ABOVE it is a bull base and stays on the Bull path.
+// Without this pairing the stage fix would have been a regression — UNOMINDA (leading
+// RS, above the 200-DMA) would have started being graded by the recovery battery.
+bool _bel200path = nz(d_bel200, 0.0) > 0.5
+bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
 bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
 
 int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
@@ -3366,7 +3577,18 @@ float swingLo10 = ta.lowest(low, 10)   // recent swing low for the structural Pl
 // stops this relaxing the gate on a random quiet bar — a pullback has to be AT a location.
 bool pa_contract = kVCP or kNR7 or kIBNR7 or kPP or kU50 or kH50 or kH200 or kIN3
 bool pa_expand   = kGAP or kBC or kSC or kLAU or kHTF or kLIQ
-bool pb_ctx      = pb_aware and pa_contract and not pa_expand and z_inDZ
+// KNOWN ARCHETYPE BEATS THE INFERENCE (v7.4, 5-Aug). pa_contract/pa_expand is how this
+// script GUESSES which setup it is looking at, because Pine has no archetype. When the
+// GM's Pullback list names this symbol, there is nothing to guess — that name came off
+// the SWG-PB screen (or is a pyramid ADD, which requires pullback location), which is
+// information no price rule can recover.
+// The inference has a real hole that this closes: a reversal bar off a demand zone that
+// closes strong fires kSC (Power Play / Strong Close), which is in pa_expand — so the
+// textbook pullback entry disqualified ITSELF from pullback treatment and was then held
+// to a breakout's volume floor. That is a large part of "why am I not getting pullbacks".
+// z_inDZ is NOT relaxed. A known pullback still has to be AT a demand zone; that is the
+// discipline of the setup and the only thing keeping the relaxed floor honest.
+bool pb_ctx      = pb_aware and (gm_pb or (pa_contract and not pa_expand)) and z_inDZ
 // VOLUME: for a pullback, dry-up CONFIRMS. Demanding >= average volume is the single
 // biggest reason pullbacks never reach GO. The floor drops rather than inverting — a
 // reversal bar arriving ON volume is the best case, so a high-RV pullback must not be
@@ -3560,19 +3782,11 @@ int   _so        = (use_closed_candle and barstate.islast and not barstate.iscon
 // indexed [_so] eight times costs eight index operations. Same values, same
 // bar, one read each. (array.size(activeZones) is NOT hoisted — that array is
 // mutated during the bar, so caching its size would be a bug, not a saving.)
-_so_z_inDZ = z_inDZ[_so]
-_so_z_nearSZprox = z_nearSZprox[_so]
-_so_z_spentSZ    = z_spentSZ[_so]
-_so_sr_above = sr_above[_so]
-_so_d_piv_res = d_piv_res[_so]
-_so_w_piv_res = w_piv_res[_so]
-_so_lastPH = lastPH[_so]
-_so_close = close[_so]
-_so_high = high[_so]
-_so_dzTfN = _dzTfN[_so]
-_so_of_absorb = of_absorb[_so]
-_so_arr_style = arr_style[_so]
-_so_chart_atr = chart_atr[_so]
+// Same reclaim as f_activePA: one closed-bar snapshot, one statement. Order and
+// expressions are untouched, so every _so_* value is bit-identical to before.
+f_soSnap() =>
+    [z_inDZ[_so], z_nearSZprox[_so], z_spentSZ[_so], sr_above[_so], d_piv_res[_so], w_piv_res[_so], lastPH[_so], close[_so], high[_so], _dzTfN[_so], of_absorb[_so], arr_style[_so], chart_atr[_so]]
+[_so_z_inDZ, _so_z_nearSZprox, _so_z_spentSZ, _so_sr_above, _so_d_piv_res, _so_w_piv_res, _so_lastPH, _so_close, _so_high, _so_dzTfN, _so_of_absorb, _so_arr_style, _so_chart_atr] = f_soSnap()
 bool  intra_ok_v = intra_ok[_so]
 bool  timing_v   = timing_ok[_so]
 // v5.0-fix: the 5-bar "sticky" window is REVERTED. It claimed to match
@@ -3625,7 +3839,11 @@ int trigAge = na(trigBar) ? 0 : _dispBar - trigBar
 // weak GO and a stacked one no longer look identical.
 string cf_txt   = show_cf ? ("  " + (go_v and cf_v >= cf_strong ? "★strong " : "") + str.tostring(cf_v) + "/" + str.tostring(cf_max)) : ""
 string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
-string pb_txt = pb_ctx_v ? "  ·PB" : ""
+// SAY WHICH PLAYBOOK IS RUNNING, AND ON WHOSE AUTHORITY. "·PB" alone left the reader
+// unable to tell a GM-qualified pullback from one this script inferred — and those two
+// carry different confidence. GM = the screen qualified it; the bare tag = a guess off
+// the pattern mix.
+string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
 string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt
 // #61: amber for EVERY waiting state, incl. no-PA (was grey). Matches the STATUS row —
 // grey read as "off/inactive"; amber = "live, waiting for the gate". Green only on GO.
@@ -4006,7 +4224,7 @@ var _pSize = f_size(panel_size)
 // just col0+col1 visually — f_row and the TRIGGER/STATUS/PA-header/VERDICT direct cells
 // each merge col1 through PA_LAST_COL so nothing else in the panel changes shape.
 PA_LAST_COL = 17
-var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 1, 30, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
+var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 1, 34, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
 // #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
 // uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
 // bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
@@ -4062,7 +4280,7 @@ if show_panel and d_panel and barstate.islast
     // each bar), NOT a drawn horizontal S/R line. Renamed from "Nearest support": it was
     // being read as a chart level that isn't there. The horizontal S/R levels live in
     // the "S/R (nearest)" row below — a different, static price-memory engine.
-    f_row(4, "Nearest AVWAP", na(nearest_sup) ? "-" : str.tostring(nearest_sup, format.mintick) + " (−" + str.tostring(sup_dist, "0.0") + "%)", na(nearest_sup) ? color.gray : C_INFO)
+    f_row(4, "Nearest AVWAP", na(nearest_sup) ? "-" : str.tostring(nearest_sup, format.mintick) + " (−" + str.tostring(sup_dist[_so], "0.0") + "%)", na(nearest_sup) ? color.gray : C_INFO)
     string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "GO 10EMA+sqz" : "GO 10EMA") : (ema_reclaim[_so] ? "10EMA ok" : (sqz_on[_so] ? "sqz ON, wait EMA" : "wait")))
     // relocated to row 24 (24-Jul) — row 11 now holds the dedicated Location (L) row,
     // keeping the P(10)·L(11)·V(12) trigger-gate block contiguous, per Jay's sequence.
@@ -4101,7 +4319,14 @@ if show_panel and d_panel and barstate.islast
     // strong trender there may be no 2-touch level nearby, so the nearest qualified
     // support can be well below. It greys when > 8% away — real, but not a stop you
     // would actually use — so it stops competing visually with an actionable level.
-    float _srBd = (not na(sr_below) and close > 0) ? (close - sr_below) / close * 100.0 : na
+    // DISPLAY BASIS = GATE BASIS (v8.0, 5-Aug-2026). These distances used LIVE close
+    // while near_sr / near_avwap are read at [_so], i.e. off the last CLOSED bar. During
+    // an intraday run the two diverge and the row contradicts its own gate: AUROPHARMA
+    // daily showed "S 1576.7 (−2.0%)" and "AVWAP 1567.6 (−2.5%)" beside AT LOCATION,
+    // with both numbers outside the 1.5% band the gate enforces — because the gate had
+    // measured from 1585.9 (0.58% and 1.15%) and the row from 1608. Nothing was wrong
+    // except the reference price, and that is unreadable from the panel.
+    float _srBd = (not na(sr_below) and close[_so] > 0) ? (close[_so] - sr_below) / close[_so] * 100.0 : na
     string sr_txt = "S " + f_srTxt(sr_below) + (na(sr_below) ? "" : "  (−" + str.tostring(_srBd, "0.0") + "%)") + "   |   R " + f_srTxt(sr_above) + (na(sr_above) ? "" : "  (+" + str.tostring((sr_above - close) / close * 100.0, "0.0") + "%)")
     color sr_col = near_sr ? C_OK : (not na(_srBd) and _srBd > 8.0) ? color.gray : C_INFO
     // #coil: the over-tested level price is stalling on — the one the picker above
@@ -4441,6 +4666,40 @@ if show_panel and d_panel and barstate.islast
     string _dynTag = not use_dyn_risk ? "" : " (" + str.tostring(size_risk, "0.00") + "b ×" + str.tostring(kelly_mult, "0.00") + "K" + (vol_disc < 1.0 ? " ×" + str.tostring(vol_disc, "0.00") + "V" : "") + (not mkt_health ? " bear−" : "") + ")"
     string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + " · risk ₹" + str.tostring(_riskAmt, "0") + _dynTag)
     f_row(28, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : C_OK)
+    // ── IMPORTED FROM v67 (v8.4) ────────────────────────────────────────────────
+    // Range checks first: an unwired source carries price, so anything outside a
+    // fields plausible range is treated as not-wired and prints "-".
+    bool _okAct = dashAction[_so]  >= 0 and dashAction[_so]  <= 10
+    bool _okQal = dashQuality[_so] >= 0 and dashQuality[_so] <= 100
+    bool _okRsi = dashRsi[_so]     >= 0 and dashRsi[_so]     <= 100
+    bool _okRat = dashRsRatio[_so] >= 50 and dashRsRatio[_so] <= 150
+    bool _okSec = dashSecStg[_so]  >= 1 and dashSecStg[_so]  <= 4
+    // A slope has no plausible range, so a range check cannot tell wired from unwired —
+    // and an unwired input carries CLOSE, which is positive, so every direction read as
+    // "up". Comparing against close is exact for the default-unwired case.
+    bool _okSl50 = dashSlope50[_so] != close[_so]
+    bool _okRsSl = dashRsSlope[_so] != close[_so]
+    bool _okRsSc = dashRsSec[_so]   != close[_so]
+    bool _okOi   = dashOi[_so] != close[_so] and dashOiPrev[_so] != close[_so]
+    string _qGrade = not _okQal ? "" : dashQuality[_so] >= 80 ? " [A]" : dashQuality[_so] >= 60 ? " [B]" : dashQuality[_so] >= 40 ? " [C]" : " [D]"
+    string _sig = (_okAct ? str.tostring(dashAction[_so], "0") + "/10" : "-") + "  ·  quality " + (_okQal ? str.tostring(dashQuality[_so], "0") + "/100" + _qGrade : "-") + "  ·  RSI " + (_okRsi ? str.tostring(dashRsi[_so], "0.0") : "-")
+    f_row(29, "Signal · Quality · RSI", _sig, _okAct ? (dashAction[_so] >= 7 ? C_OK : dashAction[_so] >= 4 ? C_WARN : C_MUTE) : C_MUTE)
+    // RRG quadrant from the (RS-Ratio, RS-Momentum) pair — the same two coordinates
+    // v67 classifies with, so the quadrant here IS v67s quadrant.
+    string _quad = not _okRat ? "-" : dashRsRatio[_so] >= 100 and dashRsMom[_so] >= 100 ? "LEADING" : dashRsRatio[_so] < 100 and dashRsMom[_so] >= 100 ? "IMPROVING" : dashRsRatio[_so] >= 100 and dashRsMom[_so] < 100 ? "WEAKENING" : "LAGGING"
+    color _quadC = _quad == "LEADING" ? C_OK : _quad == "IMPROVING" ? C_INFO : _quad == "WEAKENING" ? C_WARN : _quad == "LAGGING" ? C_NO : C_MUTE
+    string _rsTxt = "N500 " + (_okRat ? str.tostring(dashRsRatio[_so], "0.0") : "-") + " " + (not _okRsSl ? "-" : dashRsSlope[_so] > 0 ? "up" : dashRsSlope[_so] < 0 ? "down" : "flat") + "  ·  Sec " + (not _okRsSc ? "-" : dashRsSec[_so] > 0 ? "up" : dashRsSec[_so] < 0 ? "down" : "flat") + "  ·  RRG " + _quad
+    f_row(30, "RS · RRG (vs N500)", _rsTxt, _quadC)
+    // FUTURES OI — the state is only meaningful against the PRICE direction, so it is
+    // derived from both and reported as guidance rather than as a label to look up.
+    float _oiPct = (_okOi and dashOiPrev[_so] > 0 and dashOi[_so] > 0) ? (dashOi[_so] - dashOiPrev[_so]) / dashOiPrev[_so] * 100.0 : na
+    bool _pxUp = close[_so] >= close[_so + 1]
+    bool _oiUp = not na(_oiPct) and _oiPct > 0
+    string _oiState = na(_oiPct) ? "no F&O" : _pxUp and _oiUp ? "Long build-up" : _pxUp and not _oiUp ? "Short covering" : (not _pxUp) and _oiUp ? "Short build-up" : "Long unwinding"
+    string _oiTip = na(_oiPct) ? "cash only - no positioning read" : _pxUp and _oiUp ? "fresh money behind the move - a breakout here has fuel" : _pxUp and not _oiUp ? "the rally is shorts EXITING, not new buying - fades are common, do not chase" : (not _pxUp) and _oiUp ? "fresh shorts pressing - expect supply into strength" : "holders leaving without new sellers - weak, but not a short signal"
+    color _oiC = na(_oiPct) ? C_MUTE : _pxUp and _oiUp ? C_OK : _pxUp and not _oiUp ? C_WARN : (not _pxUp) and _oiUp ? C_NO : C_WARN
+    string _mac = "Sector " + (_okSec ? "Stage " + str.tostring(dashSecStg[_so], "0") : "-") + "  ·  OI " + _oiState + (na(_oiPct) ? "" : " " + str.tostring(_oiPct, "+0.0") + "%") + "\n" + _oiTip
+    f_row(31, "Sector · Futures OI", _mac, _oiC)
 
     if en_wcl
         string _wcl_val_str = _wcl_score_band + " (+" + str.tostring(_total_final) + ")" + (_setup_pri > 0 ? "  ·  " + _setup_str : "")
@@ -4462,7 +4721,12 @@ if show_panel and d_panel and barstate.islast
     string tf_suffix = use_chart_tf ? timeframe.period : "EOD"
     // #2 fix: the PA header + grid read the SAME (last-closed) bar as the TRIGGER /
     // STATUS via [_so], so the "Sum" / grid can never disagree with the Σ in STATUS.
-    string _hdr = (is_rec_v ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)")) + "  Σ+" + str.tostring(tsum_v)
+    // KNIFE-EDGE count for THIS bar (S4Core v5). Reads the same source the battery
+    // did: the chart-TF call when use_chart_tf is on, the daily security call otherwise.
+    // Shown beside Sigma so a total carried by threshold-huggers cannot read as
+    // conviction — Sigma+6 with 2 marginal is really Sigma+2 you can lean on.
+    int _margV = int(nz((use_chart_tf ? loc_marg : d_marg)[_so], 0))
+    string _hdr = (is_rec_v ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)")) + "  Σ+" + str.tostring(tsum_v) + (_margV > 0 ? "  " + str.tostring(_margV) + "⚖" : "")
     color pa_col_v = tsum_v >= 4 ? color.new(#7b1fa2,0) : tsum_v >= 2 ? C_OK : tsum_v >= 1 ? C_WARN : color.gray
     color _paBg = f_softBg(pa_col_v)
     table.cell(pnl, 0, 22, _hdr, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_paBg, text_halign=text.align_right)
@@ -4497,7 +4761,11 @@ if show_panel and d_panel and barstate.islast
     // Built as ONE concat of two ternaries. A string literal costs 1 token regardless of
     // length, so folding the words into the literals is free; it is the concats and
     // ternaries that cost. (The first draft here used an extra variable and 4 concats.)
-    string _wma_st = (nz(d_bel30, 0.0) > 0.5 ? "below 30WMA " : "above 30WMA ") + (_wup ? "(rising)" : _wdn ? "(falling)" : "(flat)")
+    // Reads the SAME weekly source the stage does (_b30 / _wup / _wdn). It used to take
+    // the position from the daily sma150 while the stage took it from elsewhere, so the
+    // row could read "above 30WMA (flat)" beside a stage derived from a different test —
+    // the display-vs-gate basis split, again.
+    string _wma_st = (_b30 ? "below 30WMA " : "above 30WMA ") + (_wup ? "(rising)" : _wdn ? "(falling)" : "(flat)")
     // v7.2 TREND ALIGNMENT (Jay, 1-Aug: "on my trading timeframes I want to be sure the
     // stock is in an uptrend AND the weekly is in an uptrend"). Appended to THIS row
     // rather than given its own — a new panel row costs several hundred compiled tokens
@@ -4508,11 +4776,22 @@ if show_panel and d_panel and barstate.islast
     //              30WMA slope + price position), so it needs no extra security call.
     // ONE concat + a nested ternary selecting a whole pre-written literal, instead of
     // four concats and three ternaries. Same output, a fraction of the token cost.
+    // A source input cannot be blank, so an unwired one carries PRICE. Anything outside
+    // {-1,0,1} is therefore not-wired, and we fall back to the old proxy rather than
+    // reading 517.30 as a trend state. The fallback is LABELLED (~) so a proxy reading
+    // can never be mistaken for the canonical one.
+    bool _zzOkD = zzTrendD[_so] >= -1.0 and zzTrendD[_so] <= 1.0
+    bool _zzOkW = zzTrendW[_so] >= -1.0 and zzTrendW[_so] <= 1.0
+    string _dArw = _zzOkD ? (zzTrendD[_so] > 0.5 ? "↑" : zzTrendD[_so] < -0.5 ? "↓" : "→") : ""
+    string _wArw = _zzOkW ? (zzTrendW[_so] > 0.5 ? "↑" : zzTrendW[_so] < -0.5 ? "↓" : "→") : (stage_n == 2 ? "~↑" : "~↓")
     bool _tfUp = close[_so] > chartEMA20[_so] and chartEMA20[_so] > chartEMA20[_so + 5]
-    bool _wkUp = stage_n == 2
-    string _trd = "  · trend " + tf_suffix + (_tfUp ? (_wkUp ? " ↑ · W ↑  ALIGNED" : " ↑ · W ↓") : (_wkUp ? " ↓ · W ↑" : " ↓ · W ↓"))
+    // ALIGNED now means what v67 and the Zigzag mean by it — the chart TF and the WEEKLY
+    // structure agreeing — instead of "EMA proxy AND stage==2", which could print
+    // ALIGNED beside the Zigzag's MIXED.
+    bool _algn = _zzOkW and _tfUp and zzTrendW[_so] > 0.5
+    string _trd = "  · trend " + tf_suffix + (_tfUp ? " ↑" : " ↓") + (_zzOkD ? " · D " + _dArw : "") + " · W " + _wArw + (_algn ? "  ALIGNED" : "") + "  ·  50DMA " + (not _okSl50 ? "-" : dashSlope50[_so] > 0 ? "up" : dashSlope50[_so] < 0 ? "down" : "flat")
     string _200_st = nz(d_bel200, 0.0) > 0.5 ? "<200DMA" : ">200DMA"
-    string _basis  = "Stage " + str.tostring(stage_n) + " · " + str.tostring(nz(d_off52, 0.0), "0.0") + "% off52 · " + _wma_st + " · " + _200_st + (mode == "Auto" ? "  → auto-picked " + (is_rec_v ? "Recovery" : "Bull") + (is_rec_v ? (gm_rec ? " (GM list)" : stage_n == 1 ? " (stage 1)" : " (dd " + str.tostring(nz(dd60, 0.0), "0.0") + "%)") : "") : "  (mode set manually)") + _trd
+    string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + " · " + str.tostring(nz(d_off52, 0.0), "0.0") + "% off52 · " + _wma_st + " · " + _200_st + (mode == "Auto" ? "  → auto-picked " + (is_rec_v ? "Recovery" : "Bull") + (is_rec_v ? (gm_rec ? " (GM list)" : stage_n == 1 ? " (stage 1)" : " (dd " + str.tostring(nz(dd60, 0.0), "0.0") + "%)") : "") : "  (mode set manually)") + _trd
     f_row(12, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
@@ -4645,7 +4924,15 @@ if show_panel and d_panel and barstate.islast
     string _L2 = ""
     string _L3 = ""
     string _L5 = ""
-    if go_v and not na(pl_entry)
+    // STAGE VETO REACHES BOTH ARMS (v7.9, 5-Aug-2026). `stage_skip` was the first branch
+    // INSIDE this GO+plan arm, so a Stage-3/4 name that had not triggered yet skipped it
+    // entirely and fell through to the no-GO chain below — where it read "ARM", inviting
+    // an alert on a stock in a topping or declining structure. Same defect Jay caught the
+    // same day in the board's S4-GO column, on the other side of the trigger.
+    // Admitting stage_skip to this arm keeps the NO-TRADE block exactly where it is (it
+    // is already the first branch) while making it unreachable-proof: every other branch
+    // here is an `else if`, so they still require go_v and a plan.
+    if stage_skip or (go_v and not na(pl_entry))
         bool _swingOk = not na(pl_rr1) and pl_rr1 >= 2.0
         float _roiT1  = na(pl_t1) ? na : (pl_t1 - pl_entry) / pl_entry * 100.0
         bool _posOk   = not na(_roiT1) and _roiT1 >= 20.0

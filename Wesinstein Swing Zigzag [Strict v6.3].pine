@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein Swing Zigzag [Strict v6.3]", overlay=true, max_lines_count=500, max_labels_count=500)
+indicator("Weinstein Swing Zigzag [Strict v6.4]", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // ==========================================
 // CHANGELOG v6.3 — audit fixes + enhancements (2026-06-14)
@@ -1090,6 +1090,14 @@ alertcondition(trendState == -1 and trendState[1] != -1, title="Downtrend Confir
 // Hidden plots (no visual change) so a screener or another script can consume this engine via
 // request.security(...) instead of scraping the panel. trendState is the LIVE (projection-aware)
 // trend; confirmedTrend is the pivot-confirmed-only trend; bosUp/bosDn are the BoS triggers.
+// v6.4 (5-Aug-2026) — the MTF states join the export set. They were computed for the
+// panel and nowhere readable, so S4 had to answer "what is the weekly trend?" with its
+// own proxy (`stage_n == 2`) and the two panels disagreed on USHAMART: Zigzag SIDEWAYS,
+// S4 "W ↑". Exporting the value S4 needs is strictly better than S4 re-deriving it —
+// there is then one strict-trend engine on the chart, and nothing to drift.
+// Encoding is the panel's own: 1 uptrend · -1 downtrend · 0 sideways.
+plot(mtfTrendState,  title="mtfTrendState",  display=display.none)
+plot(mtfTrendState2, title="mtfTrendState2", display=display.none)
 plot(trendState,     title="trendState",     display=display.none)
 plot(confirmedTrend, title="confirmedTrend", display=display.none)
 plot(bosUp ? 1 : 0,  title="bosUp",          display=display.none)

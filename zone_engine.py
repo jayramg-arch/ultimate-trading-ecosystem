@@ -60,12 +60,20 @@ import numpy as np
 import pandas as pd
 
 # ── Per-TF config (mirrors the S4 inputs) ────────────────────────────────────
+# `piv` = the structural-zone pivot length for that TF (left = right, the Swing Zigzag
+# convention). Canonical per the Zigzag / S/R Lab and S4 v7.5: Monthly 1 · Weekly 5 ·
+# Daily 2 · Intraday 2. One global 5/3 used to serve every TF, which was wrong in both
+# directions — too coarse to find the daily shelves price actually turns at, and far too
+# long for monthly bars, which are scarce and individually significant.
+# Mirrored here because the GM location gate calls detect_zones(): if these drift from
+# the S4 inputs, the board and the chart disagree about where support IS, which is the
+# whole class of bug the archetype handoff was built to end.
 TF_CFG = {
-    "75m":  dict(minW=0.20, maxW=2.0, legin=0.6, age_days=21),
-    "125m": dict(minW=0.25, maxW=2.5, legin=0.6, age_days=28),
-    "D":    dict(minW=0.30, maxW=3.0, legin=0.6, age_days=182),   # legin_ltf
-    "W":    dict(minW=0.40, maxW=3.5, legin=1.0, age_days=730),   # legin_htf (1.0 = S4 canonical, 19-Jul restore; was 1.2)
-    "M":    dict(minW=0.50, maxW=4.0, legin=1.0, age_days=1460),  # legin_htf (1.0 = S4 canonical, 19-Jul restore; was 1.2)
+    "75m":  dict(minW=0.20, maxW=2.0, legin=0.6, age_days=21,   piv=2, pad=3, thr=1.5),
+    "125m": dict(minW=0.25, maxW=2.5, legin=0.6, age_days=28,   piv=2, pad=3, thr=1.5),
+    "D":    dict(minW=0.30, maxW=3.0, legin=0.6, age_days=182,  piv=2, pad=3, thr=1.5),   # legin_ltf
+    "W":    dict(minW=0.40, maxW=3.5, legin=1.0, age_days=730,  piv=5, pad=2, thr=0.8),   # legin_htf (1.0 = S4 canonical, 19-Jul restore; was 1.2)
+    "M":    dict(minW=0.50, maxW=4.0, legin=1.0, age_days=1460, piv=1, pad=1, thr=0.5),   # legin_htf (1.0 = S4 canonical, 19-Jul restore; was 1.2)
 }
 
 # Global geometry params — S4 defaults (grpZG / grpZS).
@@ -91,8 +99,24 @@ TOUCH_TOL       = 0.015   # "near a zone" tolerance for the location gate (1.5%,
 # leg-base-leg formation (scored 40..75 so a pattern zone always wins dedup), same
 # gap-bridged candles + per-TF ageing; the width FLOOR is scaled by STRUCT_MIN_W_MULT
 # because a pivot shelf (body-to-extreme of one candle) is legitimately narrower.
-STRUCT_PV_LEFT   = 5      # pivotLeft
-STRUCT_PV_RIGHT  = 3      # pivotRight
+# RETIRED as the pivot length — kept only as the fallback for an unknown TF key, so a
+# caller passing something not in TF_CFG degrades to the old behaviour instead of
+# raising. The live value comes from TF_CFG[tf]["piv"] (S4 v7.5 parity).
+STRUCT_PV_FALLBACK = 2    # was pivotLeft=5 / pivotRight=3 applied to every TF alike
+STRUCT_CLOSED_CONFIRM = True   # S4 v7.6: the bar confirming a pivot must itself be closed
+RESOLVE_OPPOSING = True        # S4 v7.7: a band may not be supply and demand at once
+# PIVOT-SHELF DEFINITION. "A" = body-to-extreme (Pine parity today): the shelf spans the
+# whole bridged body plus the wick. "B" = rejection region only: body TOP -> high for a
+# supply shelf, low -> body BOTTOM for demand. Under A the body is typically ~75% of the
+# zone, and for a pivot HIGH the lower body is where price traded UP THROUGH, not where
+# supply sat. A/B'd before choosing — see the session notes.
+# CHOSEN: "B", measured 5-Aug-2026 across the 55-name board universe —
+#   monthly median width 8.7% -> 4.9%, weekly 5.5% -> 3.9%, daily 3.6% -> 3.3%
+#   zone COUNT rose (95->109 monthly): narrower shelves survive the max-width ceiling
+#   that was discarding real structure for being too fat
+#   at_support flips: ZERO names on any timeframe -> the location gate does not move,
+#   which is the bar a geometry change has to clear before it may ship.
+SHELF_MODE = "B" 
 STRUCT_PAD       = 3      # structPadBars (each side of the pivot)
 STRUCT_TOP_THR   = 1.5    # structTopThrATR  (body-top tolerance × ATR)
 STRUCT_DEEP_THR  = 1.5    # structDeepThrATR (body-bottom tolerance × ATR)
@@ -393,8 +417,29 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
     # ── structural (pivot-based) zones — port of Pine f_structZone ──
     # Emit a shelf at each confirmed pivot; append into the SAME `zones` list so the
     # lifecycle/ageing below treats them identically to pattern zones.
-    pvL, pvR, pad = STRUCT_PV_LEFT, STRUCT_PV_RIGHT, STRUCT_PAD
-    for i in range(pvL, n - pvR):
+    # Left = right, per TF (S4 v7.5 pivNative / piv_d / piv_w / piv_m).
+    _pv = int((TF_CFG.get(tf) or {}).get("piv", STRUCT_PV_FALLBACK))
+    # PER-TF PAD + BODY TOLERANCE (5-Aug-2026). These decide how far a pivot shelf
+    # reaches into its NEIGHBOURS' bodies, and a single global pair was the root cause of
+    # the POLYCAB monthly zones: at 1.5 x a ~1400-point monthly ATR the tolerance is
+    # ~2100 points, so the June supply shelf swallowed July's close and became 11% wide.
+    # ATR scales with the timeframe, so a fixed multiple of it does not.
+    _cfg = TF_CFG.get(tf) or {}
+    pvL, pvR, pad = _pv, _pv, int(_cfg.get("pad", STRUCT_PAD))
+    _thr = float(_cfg.get("thr", STRUCT_TOP_THR))
+    # CLOSED-CONFIRMATION (S4 v7.6 struct_closed_confirm parity) — BUT ONLY WHERE THE
+    # LAST ROW CAN STILL BE TRADING. Pine needs this on every TF because
+    # request.security includes the forming HTF bar. Python does not: both W and M
+    # frames reach this function through pa_patterns._confirmed_weekly_ohlcv /
+    # _confirmed_month_ohlcv, which have ALREADY dropped the in-progress period. Applying
+    # the withhold there too would delay every weekly zone by a week and every monthly
+    # zone by a MONTH for no protection — measured on POLYCAB, it withheld the 9106.5
+    # shelf whose confirming bar (July) was long closed.
+    # So: withhold on the raw frames (intraday and D, which fetch_ohlcv returns with
+    # today's incomplete bar attached), skip on the pre-confirmed W/M frames.
+    _raw_last_bar = tf not in ("W", "M")
+    _last_ok = n - pvR - (1 if (STRUCT_CLOSED_CONFIRM and _raw_last_bar) else 0)
+    for i in range(pvL, max(pvL, _last_ok)):
         a = atr[i]
         if math.isnan(a) or a <= 0:
             continue
@@ -404,10 +449,11 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
         origin = min(i + pvR, n - 1)
         klo, khi = max(i - pad, 0), min(i + pad, n - 1)
         if is_ph:                                        # pivot high → structural SUPPLY (PvH)
-            sTop = eh[i]; sBot = min(ec[i], eo[i])
+            sTop = eh[i]
+            sBot = max(ec[i], eo[i]) if SHELF_MODE == "B" else min(ec[i], eo[i])
             for k in range(klo, khi + 1):
                 bhi, blo = max(ec[k], eo[k]), min(ec[k], eo[k])
-                if bhi >= sTop - a * STRUCT_TOP_THR and blo >= sTop - a * STRUCT_DEEP_THR and blo < sBot:
+                if bhi >= sTop - a * _thr and blo >= sTop - a * _thr and blo < sBot:
                     sBot = blo
             wH = sTop - sBot
             low_since = float(el[i:origin + 1].min())
@@ -417,10 +463,11 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
                                   tf=tf, score=sc, n_base=0, has_fvg=False,
                                   origin_idx=origin, origin_ms=int(ts_ms[origin])))
         if is_pl:                                        # pivot low → structural DEMAND (PvL)
-            dBot = el[i]; dTop = max(ec[i], eo[i])
+            dBot = el[i]
+            dTop = min(ec[i], eo[i]) if SHELF_MODE == "B" else max(ec[i], eo[i])
             for k in range(klo, khi + 1):
                 bhi, blo = max(ec[k], eo[k]), min(ec[k], eo[k])
-                if blo <= dBot + a * STRUCT_TOP_THR and bhi <= dBot + a * STRUCT_DEEP_THR and bhi > dTop:
+                if blo <= dBot + a * _thr and bhi <= dBot + a * _thr and bhi > dTop:
                     dTop = bhi
             wL = dTop - dBot
             high_since = float(eh[i:origin + 1].max())
@@ -533,6 +580,39 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
                     break
         if not dup:
             kept.append(z)
+
+    # ── opposing-overlap resolution (S4 v7.7 resolveOpposing parity) ──
+    # A band cannot be supply AND demand. Measured on POLYCAB monthly: SZ 9106.5-10126
+    # and DZ 8791-9961 overlapped by 855 pts with spot inside BOTH, so the board could
+    # report "at support" on prices the chart called supply — the drift class this whole
+    # session has been closing. Newer zone wins the contested band; the older opposing
+    # one is trimmed back to its edge. Everything here is ONE timeframe already (the
+    # caller passes a single-TF frame), so the Pine same-TF restriction is implicit.
+    # Fully engulfed → marked tested (kept, excluded downstream), never dropped.
+    # proximal is the APPROACH edge: upper for demand, lower for supply — same as Pine.
+    if RESOLVE_OPPOSING and len(kept) > 1:
+        for _new in sorted(kept, key=lambda z: z.origin_idx):
+            n_hi = max(_new.proximal, _new.distal)
+            n_lo = min(_new.proximal, _new.distal)
+            for _old in kept:
+                if _old is _new or _old.is_demand == _new.is_demand or _old.tested:
+                    continue
+                if _old.origin_idx >= _new.origin_idx:
+                    continue                            # only trim what came BEFORE
+                o_hi = max(_old.proximal, _old.distal)
+                o_lo = min(_old.proximal, _old.distal)
+                if not (n_hi > o_lo and n_lo < o_hi):
+                    continue                            # no overlap
+                if _new.is_demand:                      # new demand below → raise supply floor
+                    if o_hi - max(o_lo, n_hi) > 0:
+                        _old.proximal = max(o_lo, n_hi)
+                    else:
+                        _old.tested = True
+                else:                                   # new supply above → lower demand ceiling
+                    if min(o_hi, n_lo) - o_lo > 0:
+                        _old.proximal = min(o_hi, n_lo)
+                    else:
+                        _old.tested = True
     return kept
 
 

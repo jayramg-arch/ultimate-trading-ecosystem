@@ -102,6 +102,20 @@ STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader",
 STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early",
                                   ARMED_ARCHETYPE}
 
+# PLAYBOOK SPLIT (5-Aug-2026) — which archetypes are a STRUCTURAL PULLBACK (buy into
+# support on a retracement) vs a MOMENTUM BREAKOUT (buy strength out of a base).
+# The two are opposite trades and were being judged by one gate; see _pullback_ctx.
+#   Pullback   = FINAL_Pullback_Picks (SWG-PB — the Stage-2 pullback screen).
+#   Pyramid    = pyramid_logic.classify() == "ADD", which REQUIRES pullback location
+#                (above a rising 200-DMA, price <= close_5d x 1.10, above EMA20). An add
+#                is a pullback entry on a name already held, so it belongs here.
+#   Breakout   = FINAL_Hunter_Picks (the breakout screen).
+# Accumulation (EarlyBird) is deliberately in NEITHER: it is a fresh Stage-2 base
+# breakout, so it is not a retracement, but it also coils rather than expanding — the
+# pattern inference remains the right judge for it.
+PULLBACK_ARCHETYPES = {"Pullback", PYRAMID_ARCHETYPE}
+BREAKOUT_ARCHETYPES = {"Breakout"}
+
 
 # Authoritative resolver (dhan_ohlcv.canonical_nse_symbol) — scrip-master-backed,
 # separator-insensitive. Imported guarded so a headless/offline import can never
@@ -261,6 +275,9 @@ def load_pyramid_adds() -> dict:
 
     cap = _to_num(_gm_setting("capital", 0.0)) or 0.0
     rpc = _to_num(_gm_setting("pyr_risk_pct", 1.0)) or 1.0
+    # Hard rupee ceiling per position (S4 size_max_alloc parity). An ADD is still money
+    # going into one name, so the same ceiling applies.
+    mxa = _to_num(_gm_setting("max_alloc", 0.0)) or 0.0
     adds = df[df["Pyr_Class"].astype(str).str.upper() == "ADD"]
     for _, r in adds.iterrows():
         s = _canon_key(r.get("Symbol"))
@@ -269,7 +286,7 @@ def load_pyramid_adds() -> dict:
         out[s] = {"qty": _to_num(r.get("Qty")), "avg": _to_num(r.get("Avg")),
                   "r_mult": _to_num(r.get("R_Mult")), "add_sl": _to_num(r.get("Add_SL")),
                   "reason": str(r.get("Pyr_Trigger") or ""),
-                  "capital": cap, "risk_pct": rpc,
+                  "capital": cap, "risk_pct": rpc, "max_alloc": mxa,
                   # Correlation gate, precomputed by the auto-pilot producer against the
                   # REST of the book (self excluded). Absent column = older CSV format;
                   # reported as n/a rather than defaulting to safe.
@@ -369,9 +386,23 @@ def _pos_text(pyr: dict | None, cmp_px=None) -> str:
         q_floor = int(held * PYR_ADD_MIN_FRAC)
         q_cap = int(held * PYR_ADD_MAX_FRAC)
         q_want = max(q_risk, q_floor)
+        # #maxalloc (5-Aug): a hard rupee ceiling OUTRANKS every share-count rule here,
+        # including the 50%-of-held floor. The floor is a convenience ("don't buy 2
+        # shares"); the cap is money the trader has said will not go into one name, and a
+        # convenience rule must never spend past it. Reported explicitly when it binds —
+        # an add quietly smaller than the floor would otherwise look like a bug.
+        mxa = pyr.get("max_alloc") or 0.0
+        q_money = int(mxa // ref) if (mxa > 0 and ref) else None
+        # Compare against the size the OTHER rules would have chosen, so "binds" means
+        # it actually changed the answer — not merely that a cap exists.
+        _q_other = q_risk if held <= 0 else min(q_want, q_cap)
+        _money_binds = q_money is not None and q_money < _q_other
         # held<=0 is not a real ADD row (no position to pyramid into) — leave the cap off
         # rather than silently sizing to zero, and say so.
-        if held <= 0:
+        if _money_binds:
+            bits.append(f"add {q_money} (capped ₹{mxa:,.0f}/trade)" if q_money > 0
+                        else f"add <1 sh — ₹{mxa:,.0f}/trade cap below 1 share")
+        elif held <= 0:
             bits.append(f"add {q_risk} @{rpc:g}% (no held qty — uncapped)" if q_risk > 0
                         else f"add <1 sh @{rpc:g}%")
         elif q_want > q_cap:
@@ -822,16 +853,32 @@ PB_RV_FLOOR = 0.5      # S4 pb_rv_floor
 RV_FLOOR    = 1.0      # S4 rv_floor
 
 
-def _pullback_ctx(ctx: dict, path: str) -> bool:
+def _pullback_ctx(ctx: dict, path: str, archetypes=None) -> bool:
     """True when S4 would take its pullback branch: a CONTRACTION pattern fired, NO
     expansion pattern did, and price sits inside a demand zone. The zone requirement is
     what stops the relaxation applying to any random quiet bar — a pullback must be AT a
-    location. Recovery path is excluded: its battery is a different set entirely."""
+    location. Recovery path is excluded: its battery is a different set entirely.
+
+    KNOWN ARCHETYPE OVERRIDES THE INFERENCE (5-Aug-2026). The pattern test is how S4
+    GUESSES the setup, because a Pine script has no archetype. The board does not have
+    to guess — a name off FINAL_Pullback_Picks.csv was QUALIFIED as a pullback by the
+    screen, which is information no price rule can recover. When the archetype says
+    pullback, the inference is skipped.
+
+    That matters because the inference has a real hole: a reversal bar off a demand
+    zone that closes strong fires "Power Play (Strong Close)", which sits in
+    PB_EXPANSION — so the textbook pullback entry disqualified ITSELF from pullback
+    treatment and was then judged on a breakout's volume floor. The zone requirement
+    is NOT relaxed: a known pullback still has to be AT a location, which is the whole
+    discipline of the setup."""
     if path == "recovery":
         return False
+    _arche = set(archetypes or [])
+    _known_pb = bool((_arche & PULLBACK_ARCHETYPES) and not (_arche & BREAKOUT_ARCHETYPES))
     fired = {n for (n, f, _t, _d) in (ctx.get("pa_patterns") or []) if f}
-    if not fired or not (fired & PB_CONTRACTION) or (fired & PB_EXPANSION):
-        return False
+    if not _known_pb:
+        if not fired or not (fired & PB_CONTRACTION) or (fired & PB_EXPANSION):
+            return False
     sup = ctx.get("support") or {}
     # Include the NATIVE TRIGGER-TF zone (3-Aug). S4's pb_ctx tests z_inDZ, which on a
     # 75/125m chart is a chart-TF zone. Checking only the D/W/M terms here meant the
@@ -841,7 +888,8 @@ def _pullback_ctx(ctx: dict, path: str) -> bool:
                 or sup.get("tf_zone_in") or sup.get("tf_zone_at"))
 
 
-def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
+def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
+                stage=None) -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
@@ -866,6 +914,18 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
     # distinction that matters is "no data" vs "not attempted", not the timeframe.
     if not intra_ok and ctx.get("relvol") is None and ctx.get("bar_ok") is None:
         return "n/a"
+    # STAGE VETO — parity with S4's `stage_skip` (Pine: stage_gate and stage_n >= 3),
+    # which outranks every verdict branch on the chart. Without it this column previewed
+    # "4/4 GO" for names S4 prints as NO TRADE, and because the board sorts on this
+    # column those names floated to the TOP of the GO list (Jay, 5-Aug: "why are some
+    # Invalidated entries coming into S4-GO?"). The four gates are mechanical — a
+    # Stage-3/4 chart can absolutely fire a pattern at a location on volume — so nothing
+    # here contradicts them. The stage is simply upstream of all four.
+    # Reported, never blanked: the gate count still shows, so a name one gate from GO in
+    # a topping structure is still visible for what it is.
+    _stg = str(stage or "")
+    _stg_n = next((int(c) for c in _stg if c.isdigit()), None)
+    _stage_blocked = _stg_n is not None and _stg_n >= 3
     _rv = ctx.get("relvol")
     _bar = ctx.get("bar_ok")
     g_pa  = bool(sigma_pa and sigma_pa > 0)
@@ -886,14 +946,25 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
     # does. Dry-up CONFIRMS a pullback; demanding average volume is what kept them off
     # this column. It stays a floor, not a cap — a reversal bar on heavy volume is the
     # best case and must not be vetoed either.
-    _pb = _pullback_ctx(ctx, path)
+    _pb = _pullback_ctx(ctx, path, archetypes)
     g_vol = bool(_rv is not None and _rv >= (PB_RV_FLOOR if _pb else RV_FLOOR))
     # A pullback bar does not need to close STRONG — it needs to HOLD the zone. S4 tests
     # close > zone distal; here the equivalent signal is that price is still inside/at a
     # fresh demand zone, which _pullback_ctx has already established.
     g_bar = True if _pb else ((_bar is None) or bool(_bar))   # unknown bar = don't penalize
     n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar)
-    _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "")
+    # KNIFE-EDGE tag. Patterns sitting on their threshold flip on a difference smaller
+    # than the routine Dhan-vs-TradingView gap — NAM-INDIA read Σ6 here and Σ2 on the
+    # chart for the same bar. Marking them stops that reading as a bug and stops a
+    # coin-flip Σ reading as conviction. It never changes the gate count: a marginal
+    # pattern still fired, and the S4 chart is still the plan of record.
+    _marg = [m for m in (ctx.get("pa_marginal") or []) if m]
+    _mtag = f" · {len(_marg)}⚖" if (_marg and g_pa) else ""
+    _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
+    if _stage_blocked:
+        # Sorts BELOW every live gate count (the column sorts on the leading number) —
+        # a topping structure must not head the GO list however clean its trigger looks.
+        return f"⛔ Stage {_stg_n} · gates {n}/4"
     if n == 4:
         # "4/4 GO" stays reserved for all four aligning on the LIVE bar. A recent-PA
         # name scores 4/4 and sorts with them, but says so — the entry then anchors
@@ -901,7 +972,7 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull") -> str:
         # Tag PULLBACK 4/4s explicitly. This is the setup Jay is hunting and the one the
         # relaxed gate exists to surface, so it must be identifiable at a glance among the
         # breakout GOs — not silently mixed in with them.
-        _pbt = " · PB" if _pb else ""
+        _pbt = (" · PB" if _pb else "") + _mtag
         return f"4/4 GO{_pbt}" if not _pa_age else f"4/4 · PA {_pa_age}b{_pbt}"
     _miss = ("no PA" if not g_pa else "no loc" if not g_loc
              else "no vol" if not g_vol else "weak bar")
@@ -1172,7 +1243,9 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     # the STAGE-2 gate mirrored from the S4 Pine (pa_fired · location · volume · bar_ok),
     # so the board previews what the S4 chart will show WITHOUT opening each name on TV.
     try:
-        s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path)
+        s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path,
+                           archetypes=info.get("archetypes"),
+                           stage=g(rec, "Stage", default=""))
         # Record WHY this row previews as "n/a" so the header can name the cause
         # instead of the user staring at a dead column. gm_evaluate leaves
         # intra_reason None when the read SUCCEEDED or was never attempted (Daily
@@ -1419,5 +1492,37 @@ def s4_recovery_list(uni: dict | None = None) -> str:
         if not arche:
             continue
         if (arche & RECOVERY_ARCHETYPES) and not (arche & BULL_ARCHETYPES):
+            out.append(str(sym).upper().strip())
+    return ",".join(sorted(set(out)))
+
+
+def s4_pullback_list(uni: dict | None = None) -> str:
+    """The GM's PULLBACK-vs-BREAKOUT answer, for S4's "Auto: GM Pullback list" input.
+
+    Same handoff as s4_recovery_list, one axis over. S4 has no archetype, so it infers
+    the setup from the pattern mix — and that inference is what made the two surfaces
+    disagree on Volume and Bar: they were grading the same candle against two different
+    setups' standards. A breakout must expand on heavy volume and close strong; a
+    pullback enters on volume DRY-UP with a bar that merely holds the zone. One gate
+    cannot be neutral between them, so the GM hands over which one this is.
+
+    Listed = a pullback archetype (SWG-PB screen, or a pyramid ADD, which requires
+    pullback location by construction) and NO breakout archetype. The exclusion is the
+    same reasoning as the recovery list: a name on both screens is genuinely ambiguous,
+    and S4's pattern inference is a better tie-break there than a coin-flip here.
+
+    Pasted ONCE per watchlist refresh — the setup is a property of the NAME.
+    """
+    try:
+        uni = uni if uni is not None else load_watchlist_union()
+    except Exception as e:
+        _log.warning(f"s4_pullback_list: union unavailable: {e}")
+        return ""
+    out = []
+    for sym, rec in (uni or {}).items():
+        arche = set(rec.get("archetypes") or [])
+        if not arche:
+            continue
+        if (arche & PULLBACK_ARCHETYPES) and not (arche & BREAKOUT_ARCHETYPES):
             out.append(str(sym).upper().strip())
     return ",".join(sorted(set(out)))

@@ -1,8 +1,9 @@
 {
-  "capital": 50000.0,
-  "risk_pct": 0.25,
-  "trigger_tf": "125m",
+  "capital": 3000000.0,
+  "risk_pct": 1.0,
+  "trigger_tf": "Daily",
   "entry_method": "retest",
   "pyr_risk_pct": 1.0,
-  "board_live": "75m+125m bar-close"
+  "board_live": null,
+  "max_alloc": 0.0
 }

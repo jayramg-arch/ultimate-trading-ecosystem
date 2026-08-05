@@ -3859,6 +3859,14 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             # S4-GO chips end up contradicting the score above them (the v5.2 Pine bug).
             ctx["pa_recent"] = _intra.get("pa_recent")
             ctx["recovery_pa_recent"] = _intra.get("rpa_recent")
+            # MARGINAL (knife-edge) patterns — those whose fired/not state flips under a
+            # nudge smaller than the routine Dhan-vs-TradingView difference. This is the
+            # NAM-INDIA case made visible: Σ6 here vs Σ2 on the S4 panel for the SAME
+            # bar, because a 40-paise close difference straddled three thresholds. The
+            # board and the chart read different feeds by design, so instead of chasing
+            # agreement we mark which points are a coin-flip. Guarded — a failure costs
+            # the tag, never the PA read.
+            ctx["pa_marginal"] = _intra.get("pa_marginal") or []
             if _intra.get("adx") is not None:     ctx["adx"] = _intra["adx"]
             if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
             if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
@@ -4835,6 +4843,11 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             "ok": True, "bars": len(df),
             "pa":  _pa_now,
             "rpa": _rpa_now,
+            # Knife-edge patterns on THIS bar (see ctx["pa_marginal"]). Computed here so
+            # it shares the one resampled frame — the perturbation re-runs the battery a
+            # few times, which is cheap on an in-memory frame and pointless to repeat.
+            "pa_marginal": sorted(_pap.marginal_patterns(
+                df, intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10)),
             # Populated ONLY when the current bar is silent — a live PA needs no
             # recency, and reporting one would invite reading a stale age as fresh.
             "pa_recent":  (_pa_recency(_pap.detect_bull_patterns)
@@ -12856,6 +12869,54 @@ elif page == 'GOLDEN MATCHER':
                             + (f" · TF **{_btf}**" if _btf else "") + _srcmix
                             + " · RRG persists") if _stamp
                            else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
+                # ── S4 "Auto: GM Recovery list" (2-Aug-2026) — S4 cannot infer the GM's
+                # Bull-vs-Recovery answer (it is inherited from the qualifying screen on
+                # RFF fundamentals, which price structure does not contain), so the GM
+                # hands it over. Paste ONCE per watchlist refresh: the path is a property
+                # of the NAME, so the same string is correct on every timeframe.
+                try:
+                    _s4rec = _gtb.s4_recovery_list(_uni)
+                except Exception as e:
+                    _s4rec = ""
+                    _gm_logger.warning(f"s4_recovery_list failed: {e}")
+                _s4n = len([s for s in _s4rec.split(",") if s.strip()]) if _s4rec else 0
+                # Shown OPEN, not behind an expander (Jay, 4-Aug): the paste is a
+                # once-per-watchlist-refresh action, so anything that needs a click to
+                # reveal is an action that gets forgotten — which leaves S4 on a stale
+                # list, silently forcing the wrong path on names that have since requalified.
+                if _s4rec:
+                    st.caption(f"🩺 **S4 Recovery list · {_s4n} names** — paste into S4's "
+                               f"*Auto: GM Recovery list* (Mode stays **Auto**). Recovery "
+                               f"archetype and NO bull archetype; names in both are left to "
+                               f"S4's stage+drawdown tie-break. Re-paste after a refresh.")
+                    st.code(_s4rec, language=None)
+                else:
+                    st.caption("🩺 **S4 Recovery list · 0 names** — no Recovery-only names in "
+                               "the current union. Clear S4's list input so nothing stale "
+                               "forces a Recovery path.")
+                # ── S4 "Auto: GM Pullback list" (5-Aug-2026) — the PLAYBOOK SPLIT.
+                # A breakout must expand on heavy volume and close strong; a pullback
+                # enters on volume DRY-UP with a bar that only holds the zone. One gate
+                # cannot be neutral between them, and S4 has no archetype to tell them
+                # apart — so it inferred the setup from patterns and the two surfaces
+                # graded the same candle against different standards. The GM knows which
+                # screen qualified the name; it hands the answer over.
+                try:
+                    _s4pb = _gtb.s4_pullback_list(_uni)
+                except Exception as e:
+                    _s4pb = ""
+                    _gm_logger.warning(f"s4_pullback_list failed: {e}")
+                _pbn = len([s for s in _s4pb.split(",") if s.strip()]) if _s4pb else 0
+                if _s4pb:
+                    st.caption(f"↩️ **S4 Pullback list · {_pbn} names** — paste into S4's "
+                               f"*Auto: GM Pullback list*. These get the PULLBACK playbook "
+                               f"(volume dry-up OK, bar only has to hold the zone); everything "
+                               f"else keeps the breakout gates. Still must be AT a demand zone.")
+                    st.code(_s4pb, language=None)
+                else:
+                    st.caption("↩️ **S4 Pullback list · 0 names** — no pullback-only names in "
+                               "the current union. Clear S4's input; S4 falls back to inferring "
+                               "the setup from the pattern mix.")
         else:
             # MAXIMIZED table-only pop-out (Jay): no heavy controls — a slim Rebuild
             # button + auto-refresh only. TF / Live / Score / X-Ray come from the
@@ -12896,6 +12957,17 @@ elif page == 'GOLDEN MATCHER':
         # --- build (full = fundamentals+technical; force_technical = technical/PA only;
         #     quiet = no progress bar, used on live ticks so the layout never jumps) ---
         def _board_build(force_technical=False, quiet=False):
+            # READ THE TF AT CALL TIME, NOT FROM THE CLOSURE (5-Aug-2026, Jay: "I set the
+            # TF to Daily and ran the rebuild, it still showed 75m; rebuilt again and it
+            # was Daily"). This function is also called from the live-refresh FRAGMENT
+            # (run_every 3s), and a fragment rerun does NOT re-execute the enclosing
+            # script — so it closes over whatever _trig_tf held at the last full rerun.
+            # A bar-close tick landing between a TF change and the rebuild therefore
+            # rebuilt at the OLD TF and re-stamped gm_board_built_tf with it, which also
+            # silenced the stale-snapshot warning that exists to catch exactly this.
+            # session_state is the single live value (the selectbox writes it directly),
+            # with TF_LOCK still winning for the ?tf= pop-out windows.
+            _tf_now = TF_LOCK or st.session_state.get("gm_trig_tf") or _trig_tf
             if force_technical:
                 # Live refresh: recompute ONLY technicals + PA. Clear the technical
                 # caches; the fundamental caches (BFF/RFF/X-Ray, 24h TTL) stay warm,
@@ -12928,7 +13000,7 @@ elif page == 'GOLDEN MATCHER':
                             minervini=minervini_checks, nse_metrics=_nse_metrics,
                             xray=_xray_fn, use_xray=True,
                             load_intraday=gm_load_intraday,
-                            trigger_tf=_trig_tf,           # "75m"/"125m"/"Daily" — gm_evaluate honours Daily
+                            trigger_tf=_tf_now,           # "75m"/"125m"/"Daily" — gm_evaluate honours Daily
                             overall_weights=_gtb.OVERALL_PRESETS.get(_score_mode))
             _rows = []
             _failed = []                 # P1: a failed name must be VISIBLE, never vanish
@@ -12961,10 +13033,10 @@ elif page == 'GOLDEN MATCHER':
             if not _bdf_new.empty and "Overall" in _bdf_new.columns:
                 _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
             st.session_state["gm_board_df"] = _bdf_new
-            st.session_state["gm_board_built_tf"] = _trig_tf        # TF this snapshot was computed at
+            st.session_state["gm_board_built_tf"] = _tf_now        # TF this snapshot was computed at
             # Stamp the current session bar so bar-close auto-refresh doesn't
             # redundantly rebuild right after a manual/interval build.
-            _bnd0 = _gm_last_passed_boundary(_trig_tf if _trig_tf in ("75m", "125m") else "75m")
+            _bnd0 = _gm_last_passed_boundary(_tf_now if _tf_now in ("75m", "125m") else "75m")
             st.session_state["gm_board_last_boundary"] = _bnd0.isoformat() if _bnd0 else None
             st.session_state["gm_board_failed"] = _failed           # P1: visible failure list
             # Snapshot the S4-GO "n/a" causes for the header strip. Held in
@@ -12983,8 +13055,21 @@ elif page == 'GOLDEN MATCHER':
                 st.session_state["gm_board_stamp"] = _now_s
             st.session_state["gm_board_saved_iso"] = _gtb_dt.datetime.now().isoformat()
             # Persist to disk so the board survives a restart / reload (instant-on).
-            _gtb.save_board_cache(_bdf_new, tf=_trig_tf, stamp=st.session_state.get("gm_board_stamp"),
-                                  tech_stamp=_now_s, built_tf=_trig_tf)
+            _gtb.save_board_cache(_bdf_new, tf=_tf_now, stamp=st.session_state.get("gm_board_stamp"),
+                                  tech_stamp=_now_s, built_tf=_tf_now)
+            # FORWARD RECORD (5-Aug-2026). Append every state CHANGE to the append-only
+            # signal log — written before the outcome is knowable, never edited after.
+            # This is the live track record; it is not derived from any backtest and
+            # cannot be re-specified by one. Dedup is per (date, tf, symbol, n/4 bucket),
+            # so bar-close rebuilds every 75 min do not inflate the sample.
+            # Guarded hard: a logging failure must never break a board build.
+            try:
+                import gm_signal_log as _gsl
+                _nlog = _gsl.append_board(_bdf_new, tf=_tf_now)
+                if _nlog:
+                    _gm_logger.info(f"signal log: +{_nlog} rows ({_tf_now})")
+            except Exception as e:
+                _gm_logger.warning(f"signal log append failed (board unaffected): {e}")
 
         # --- render (RRG overlay + filters + editable table); keyed widgets so
         #     filter/edit state survives the live-refresh fragment reruns ---
@@ -13579,7 +13664,7 @@ elif page == 'GOLDEN MATCHER':
 
         # ---- Position-sizing & Trigger TF settings ----
         _gmset = _gm_settings()
-        _szc1, _szc2, _szc3, _szc4 = st.columns([2.2, 1.3, 1.3, 3.2], gap="small")
+        _szc1, _szc2, _szc3, _szc5, _szc4 = st.columns([2.0, 1.1, 1.1, 1.6, 2.7], gap="small")
         with _szc1:
             _gm_capital = st.number_input("Capital (₹)", min_value=0.0, step=50000.0,
                                           value=float(_gmset.get("capital", 0.0)),
@@ -13594,6 +13679,21 @@ elif page == 'GOLDEN MATCHER':
                                           value=float(_gmset.get("pyr_risk_pct", 1.0)),
                                           key="gm_pyrriskpct",
                                           help="Risk unit for a PYRAMID add.")
+        with _szc5:
+            # MAX ALLOCATION (5-Aug-2026, Jay: "I'm limiting my amount per trade to 1 lakh").
+            # Mirrors S4's size_max_alloc so the two surfaces cannot disagree about size —
+            # without it the board sized this book at ~10x what S4 showed.
+            # NOTE it usually BINDS: at a 3% stop, 1% of 30L wants ~10L of stock, so a 1L
+            # cap decides the size and the risk% never gets a say. That is not a bug, but
+            # it does mean the effective risk is cap x stop% (~0.1% here), NOT the risk%
+            # above — the sizer says which rule bound so the number is never mysterious.
+            _gm_maxalloc = st.number_input("Max ₹/trade", min_value=0.0, step=25000.0,
+                                           value=float(_gmset.get("max_alloc", 0.0)),
+                                           format="%.0f", key="gm_maxalloc",
+                                           help="Hard rupee ceiling on one position: Qty = min(risk-based qty, "
+                                                "this ÷ entry). 0 = no cap. Set it to the same value as S4's "
+                                                "'Max allocation per trade (₹)' or the two surfaces will size "
+                                                "differently.")
         with _szc4:
             _tf_opts = ["75m", "125m", "Daily"]
             if "gm_trig_tf" not in st.session_state:
@@ -13607,13 +13707,16 @@ elif page == 'GOLDEN MATCHER':
         if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
                 or (_gm_trig_tf != _gmset.get("trigger_tf")) \
                 or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")) \
+                or (_gm_maxalloc != _gmset.get("max_alloc")) \
                 or (_lv_now and _lv_now != _gmset.get("board_live")):
             if TF_LOCK:
                 _gm_settings_save(board_live=_lv_now, capital=_gm_capital,
-                                  risk_pct=_gm_riskpct, pyr_risk_pct=_gm_pyrrisk)
+                                  risk_pct=_gm_riskpct, pyr_risk_pct=_gm_pyrrisk,
+                                  max_alloc=_gm_maxalloc)
             else:
                 _gm_settings_save(board_live=_lv_now, capital=_gm_capital, risk_pct=_gm_riskpct,
-                                  trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk)
+                                  trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk,
+                                  max_alloc=_gm_maxalloc)
 
         if not symbol:
             st.info("Enter an NSE symbol in the sidebar.")
@@ -13842,7 +13945,14 @@ elif page == 'GOLDEN MATCHER':
             _s4_bat = "recovery_pa_patterns" if _s4_path == "recovery" else "pa_patterns"
             _s4_pp = _g(ctx, _s4_bat, default=[]) or []
             _s4_sigma = sum(t for _n, _f, t, _x in _s4_pp if _f) if _s4_pp else 0
-            _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"), _s4_path)
+            # Pass the INHERITED archetypes so this chip takes the same playbook branch
+            # the board does (pullback gates vs breakout gates). Without them the Single
+            # Symbol page would re-infer the setup from patterns while the board read it
+            # off the watchlist — the two would disagree on exactly the pullbacks the
+            # split exists to surface.
+            _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"), _s4_path,
+                                       archetypes=(_ev.get("inherited_bull") or []),
+                                       stage=_g(rec, "Stage", default=""))
             _s4_col = ("#047857" if _s4go.startswith("4/4") else "#D97706" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#475569")
             _s4_bg  = ("#D1FAE5" if _s4go.startswith("4/4") else "#FEF3C7" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#F1F5F9")
             _s4_bdr = ("#6EE7B7" if _s4go.startswith("4/4") else "#FDE68A" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#CBD5E1")
@@ -14030,13 +14140,28 @@ elif page == 'GOLDEN MATCHER':
                     _ct_half = bool(_g(rec, "Counter_Trend")) and not wf.get("recovery")
                     if _ct_half and _qty_sized > 1:
                         _qty_sized //= 2
+                    # MAX-ALLOCATION CEILING (mirrors S4: Qty = min(risk qty, cap ÷ entry)).
+                    # Applied AFTER the counter-trend halving so the two reductions compose
+                    # rather than one masking the other.
+                    _cap_qty, _cap_bound = None, False
+                    if _gm_maxalloc and _gm_maxalloc > 0:
+                        _cap_qty = int(_gm_maxalloc // _pe)
+                        if _cap_qty < _qty_sized:
+                            _qty_sized, _cap_bound = _cap_qty, True
                     _pos_val = _qty_sized * _pe
+                    # When the cap binds, the risk% shown is NOT the risk taken — say so
+                    # with the real number rather than leaving a misleading label on screen.
+                    _eff_risk = _qty_sized * (_pe - _psl)
+                    _eff_pct = (_eff_risk / _gm_capital * 100.0) if _gm_capital else 0.0
                     st.markdown(
                         f"**📏 Size @ {_gm_riskpct:.2f}% risk:** {inr(_risk_amt)} ÷ "
                         f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · "
                         f"position {inr(_pos_val)}"
                         + (f" ({_pos_val / _gm_capital * 100:.1f}% of capital)" if _gm_capital else "")
-                        + (" · ⚠ counter-trend — size halved" if _ct_half else ""))
+                        + (" · ⚠ counter-trend — size halved" if _ct_half else "")
+                        + (f" · 🧢 **capped by Max ₹/trade {inr(_gm_maxalloc)}** — actual risk "
+                           f"{inr(_eff_risk)} ({_eff_pct:.2f}% of capital), not {_gm_riskpct:.2f}%"
+                           if _cap_bound else ""))
                 else:
                     st.caption("📏 Set your capital above to get an auto position size at the configured risk.")
 

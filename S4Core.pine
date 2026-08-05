@@ -2,7 +2,19 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v3  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v5  --  shared engines for the Section 4 / Golden Matcher ecosystem
+//
+// NOTE this line is DOCUMENTATION ONLY. A library's version is assigned by TradingView
+// at publish time and auto-increments; nothing in the source declares it. Keep it in step
+// with the last publish by hand, and do not confuse it with //@version=6 below, which is
+// the Pine LANGUAGE version.
+//
+// v4 (5-Aug-2026) — structZone gained `rejectOnly` (appended, default true): a pivot
+// shelf now spans the REJECTION region only (supply body-top→high, demand low→body-bottom)
+// instead of the whole bridged body. Measured over 55 names: monthly median zone width
+// 8.7%→4.9% of price, weekly 5.5%→3.9%, zone count UP (narrow shelves survive the
+// max-width ceiling), and ZERO at_support flips. Callers on v3 are unaffected — the
+// parameter was appended, so no positional argument moved.
 // ============================================================================
 // Compiled SEPARATELY from the scripts that import it, which is what keeps
 // Section 4 Entry Trigger under the 100,256 compiled-token ceiling -- and what
@@ -648,7 +660,16 @@ export srLevels(simple int pvL, simple int pvR, simple int poolN, simple float t
     SRSig.new(a1, a1t, a1x, a1h, a2, a2t, a2x, a2h, b1, b1t, b1x, b1h, b2, b2t, b2x, b2h)
 
 // ---- structZone ----------------------------------------------------------
-export structZone(simple int pvLeft, simple int pvRight, simple int padBars, simple float topThr, simple float deepThr, simple float minMove, simple float minW, simple float maxW, simple float minWMult) =>
+// v4 — `rejectOnly` APPENDED (never inserted): every existing positional argument keeps
+// its slot, so a caller on the old signature is unaffected apart from the new default.
+// TRUE = the shelf is the REJECTION region only (supply: body TOP -> high · demand:
+// low -> body BOTTOM). FALSE = the old body-to-extreme span, which swallowed the whole
+// bridged body — and for a pivot HIGH the lower body is where price traded UP THROUGH,
+// not where supply sat. Measured over 55 board names: monthly median zone width
+// 8.7% -> 4.9% of price, weekly 5.5% -> 3.9%, zone count UP (narrow shelves survive the
+// max-width ceiling that was discarding them), and ZERO at_support flips — tighter
+// geometry at no cost to the location gate.
+export structZone(simple int pvLeft, simple int pvRight, simple int padBars, simple float topThr, simple float deepThr, simple float minMove, simple float minW, simple float maxW, simple float minWMult, simple bool rejectOnly = true) =>
     a = ta.atr(14)
     // INVISIBLE CANDLES (gap-bridged OHLC) — derivation IDENTICAL to f_detectZone, so both
     // detectors read the SAME price structure. This function previously used RAW OHLC
@@ -680,7 +701,7 @@ export structZone(simple int pvLeft, simple int pvRight, simple int padBars, sim
     if not na(ph)
         int   pBarH = pvRight
         float sTop  = eff_high[pBarH]
-        float sBot  = math.min(eff_close[pBarH], eff_open[pBarH])
+        float sBot  = rejectOnly ? math.max(eff_close[pBarH], eff_open[pBarH]) : math.min(eff_close[pBarH], eff_open[pBarH])
         float proxThrH = nz(a[pBarH], a) * topThr
         float deepThrH = nz(a[pBarH], a) * deepThr
         for k = math.max(pBarH - padBars, 0) to pBarH + padBars
@@ -707,7 +728,7 @@ export structZone(simple int pvLeft, simple int pvRight, simple int padBars, sim
     if not na(pl)
         int   pBarL = pvRight
         float dBot  = eff_low[pBarL]
-        float dTop  = math.max(eff_close[pBarL], eff_open[pBarL])
+        float dTop  = rejectOnly ? math.min(eff_close[pBarL], eff_open[pBarL]) : math.max(eff_close[pBarL], eff_open[pBarL])
         float proxThrL = nz(a[pBarL], a) * topThr
         float deepThrL = nz(a[pBarL], a) * deepThr
         for k = math.max(pBarL - padBars, 0) to pBarL + padBars
@@ -728,6 +749,16 @@ export structZone(simple int pvLeft, simple int pvRight, simple int padBars, sim
     ZoneSig.new(sT, sProx, sDist, sDmd, sScore, sPat, 0, sBStart, sBaseT, false, false, false)
 
 // ---- dailyPA -------------------------------------------------------------
+// KNIFE-EDGE TEST (v5). True when a governing value sits within `eps` of the threshold
+// that decides its pattern — i.e. the pattern is one rounding away from the opposite
+// answer. Ratio-based, so it works for a volume multiple and a price distance alike.
+// Pine cannot re-run the battery on perturbed series the way the Python mirror does
+// (pa_patterns.marginal_patterns), so the chart side tests each governing scalar
+// against its own threshold instead. Same question, different mechanics: the Python
+// side asks "would another feed disagree?", this asks "is this decided by a hair?".
+edgeNear(float v, float t, float eps) =>
+    t != 0.0 and not na(v) and math.abs(v / t - 1.0) <= eps
+
 export dailyPA(float ema10_ref, float ema20_ref, simple bool confirmShift, simple bool confirmDaily, simple float wmaFlatPct) =>
     float rng     = high - low
     float vol50   = ta.sma(volume, 50)
@@ -877,4 +908,45 @@ export dailyPA(float ema10_ref, float ema20_ref, simple bool confirmShift, simpl
     // Use chart timeframe is OFF" — the code just never honoured it. The chart-TF path
     // needs no shift: use_closed_candle is what protects it from the forming bar.
     int _o = (confirmShift and confirmDaily) ? 1 : 0
-    [(p_htf?1.0:0.0)[_o], (p_sc?1.0:0.0)[_o], (p_vcp?1.0:0.0)[_o], (p_pp?1.0:0.0)[_o], (p_eng?1.0:0.0)[_o], (p_liq?1.0:0.0)[_o], (p_3b?1.0:0.0)[_o], (p_in3?1.0:0.0)[_o], (p_nr7?1.0:0.0)[_o], (p_ibnr7?1.0:0.0)[_o], (p_spr?1.0:0.0)[_o], (p_gap?1.0:0.0)[_o], (p_u50?1.0:0.0)[_o], (p_h50?1.0:0.0)[_o], (p_h200?1.0:0.0)[_o], (p_bc?1.0:0.0)[_o], (p_climax?1.0:0.0)[_o], (p_2b?1.0:0.0)[_o], (p_sos?1.0:0.0)[_o], (p_hsup?1.0:0.0)[_o], (p_vdu?1.0:0.0)[_o], off52[_o], (bel30w?1.0:0.0)[_o], s150dn[_o], rv[_o], (bel200?1.0:0.0)[_o]]
+    // ── MARGINAL (knife-edge) COUNT — v5 ────────────────────────────────────────────
+    // How many patterns that FIRED did so by a hair. NAM-INDIA read Sigma 6 on the
+    // Golden Matcher and Sigma 2 on this panel for the SAME 75m bar: Dhan closed it at
+    // 1210.4 (76.4% up the bar's range), TradingView at 1210.0 (73.2%), and three
+    // patterns sat right on their cut. Forty paise, four points of Sigma. The two
+    // surfaces read different feeds by design, so the fix is not to chase agreement —
+    // it is to say which points are a coin-flip, and let a thin Sigma look thin.
+    // Only patterns with a CONTINUOUS governing gate can be knife-edge; a purely
+    // structural one (inside bars, 3-bar sequence) either happened or did not, and is
+    // deliberately absent here rather than reported as always-solid.
+    // The Python mirror answers this by perturbation (pa_patterns.marginal_patterns),
+    // which Pine cannot do — it cannot re-run this body on modified series. Testing each
+    // governing scalar against its own threshold is the same question, asked directly.
+    float _mEps = 0.02
+    int _marg = 0
+    if p_sc and (edgeNear(close - low, (high - close) * 3.0, _mEps) or edgeNear(rv, 1.0, _mEps))
+        _marg += 1
+    if p_vcp and (edgeNear(rv, 1.2, _mEps) or edgeNear(intrap, 0.60, _mEps) or edgeNear(close, hh10[1], _mEps))
+        _marg += 1
+    if p_pp and (edgeNear(volume, mdv, _mEps) or edgeNear(close - low, rng * 0.5, _mEps))
+        _marg += 1
+    if p_bc and (edgeNear(rv, 1.25, _mEps) or edgeNear(close - low, rng * 0.75, _mEps) or edgeNear(close, dlockH, _mEps))
+        _marg += 1
+    if p_gap and (edgeNear(rv, 1.25, _mEps) or edgeNear(close, dlockH, _mEps))
+        _marg += 1
+    if p_u50 and (edgeNear(rv, 1.25, _mEps) or edgeNear(close, sma50, _mEps))
+        _marg += 1
+    if p_liq and edgeNear(volume, vol50 * 1.5, _mEps)
+        _marg += 1
+    if p_eng and (edgeNear(rv, 2.0, _mEps) or edgeNear(rsi14[1], 40.0, _mEps))
+        _marg += 1
+    if p_h50 and (edgeNear(rv, 1.0, _mEps) or edgeNear(close, sma50, _mEps))
+        _marg += 1
+    if p_h200 and (edgeNear(rv, 1.0, _mEps) or edgeNear(close, sma200, _mEps))
+        _marg += 1
+    if p_sos and (edgeNear(rv, 1.5, _mEps) or edgeNear(rng, atr14 * 1.3, _mEps) or edgeNear(close, base_res, _mEps))
+        _marg += 1
+    if p_hsup and edgeNear(rv, 1.0, _mEps)
+        _marg += 1
+    if p_vdu and (edgeNear(rv, 0.5, _mEps) or edgeNear(rng, atr14 * 0.8, _mEps))
+        _marg += 1
+    [(p_htf?1.0:0.0)[_o], (p_sc?1.0:0.0)[_o], (p_vcp?1.0:0.0)[_o], (p_pp?1.0:0.0)[_o], (p_eng?1.0:0.0)[_o], (p_liq?1.0:0.0)[_o], (p_3b?1.0:0.0)[_o], (p_in3?1.0:0.0)[_o], (p_nr7?1.0:0.0)[_o], (p_ibnr7?1.0:0.0)[_o], (p_spr?1.0:0.0)[_o], (p_gap?1.0:0.0)[_o], (p_u50?1.0:0.0)[_o], (p_h50?1.0:0.0)[_o], (p_h200?1.0:0.0)[_o], (p_bc?1.0:0.0)[_o], (p_climax?1.0:0.0)[_o], (p_2b?1.0:0.0)[_o], (p_sos?1.0:0.0)[_o], (p_hsup?1.0:0.0)[_o], (p_vdu?1.0:0.0)[_o], off52[_o], (bel30w?1.0:0.0)[_o], s150dn[_o], rv[_o], (bel200?1.0:0.0)[_o], _marg[_o]]
