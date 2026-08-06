@@ -884,8 +884,48 @@ def _pullback_ctx(ctx: dict, path: str, archetypes=None) -> bool:
     # 75/125m chart is a chart-TF zone. Checking only the D/W/M terms here meant the
     # mirror could not fire where S4 did — the board said "no vol" on exactly the
     # pullbacks S4 called GO, which is the disagreement Jay hit on ZYDUSLIFE.
+    return _in_demand_zone(ctx)
+
+
+def _in_demand_zone(ctx: dict) -> bool:
+    """Price is AT/INSIDE a demand zone — as opposed to at a level, an AVWAP or the
+    EMA20. Hoisted out of _pullback_ctx so the role check below reads the identical
+    definition; two private copies of one test is exactly how the drift class starts."""
+    sup = (ctx or {}).get("support") or {}
     return bool(sup.get("in_fresh_dz") or sup.get("ize_at_support")
                 or sup.get("tf_zone_in") or sup.get("tf_zone_at"))
+
+
+def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
+    """The fired pattern's ROLE does not match WHERE price is.
+
+    A pattern's role says what it claims is happening; the location says where.
+    IGNITION is expansion AWAY from value (a volume thrust, a gap, a strong close);
+    inside a demand zone price is being ABSORBED at value. Both can be arithmetically
+    true of one bar while describing opposite things, and the pair still reads as a
+    clean GO.
+
+    Measured on the live 75m board (6-Aug-2026): 3 of 7 armed names were IGNITION-only
+    inside a zone — TITAN, UNOMINDA, HINDALCO. n=7, so this TAGS and never gates: it
+    cannot remove a signal. It earns a gate only after a Sigma-matched measurement,
+    the way the combos were tested — and the combos failed that test.
+
+    Only the in-zone case is flagged. The converse (TENSION alone at a level) had zero
+    live instances, so tagging it would assert a rule nothing supports.
+
+    Mirrors S4's `roleMismatch`; roles come from pa_combos.ROLE, the one definition.
+    """
+    if not _in_demand_zone(ctx):
+        return False
+    try:
+        from pa_combos import ROLE
+    except Exception:
+        return False
+    fired = {n for (n, f, _t, _d) in ((ctx or {}).get("pa_patterns") or []) if f}
+    roles = {ROLE[n] for n in fired if n in ROLE}
+    # Unknown-role patterns (recovery-side names absent from ROLE) must not be read as
+    # agreement OR as mismatch — an empty role set means we simply do not know.
+    return bool(roles) and roles == {"IGNITION"}
 
 
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
@@ -960,6 +1000,9 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # pattern still fired, and the S4 chart is still the plan of record.
     _marg = [m for m in (ctx.get("pa_marginal") or []) if m]
     _mtag = f" · {len(_marg)}⚖" if (_marg and g_pa) else ""
+    # ROLE COHERENCE — display only, and it never touches the gate count. See
+    # _role_mismatch: in a demand zone with nothing but an expansion pattern behind it.
+    _mtag += " · ⚠role" if (g_pa and _role_mismatch(ctx, path)) else ""
     _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
     if _stage_blocked:
         # Sorts BELOW every live gate count (the column sorts on the leading number) —

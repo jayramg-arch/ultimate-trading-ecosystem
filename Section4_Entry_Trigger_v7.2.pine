@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v8.7 (PA Combos)", shorttitle="S4 Entry v8.7", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v8.8 (Spent Demand Stays Visible)", shorttitle="S4 Entry v8.8", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/5 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -1362,6 +1362,8 @@ structMinWMult  = input.float(0.5,  "Structural width floor (× the TF's Min Wid
 
 showZonesIZE    = input.bool(true, "Draw Demand/Supply Zones (MTF)", group=grpZV)
 showLabels      = input.bool(true, "Show Zone Info Labels",          group=grpZV)
+keep_tested_demand = input.bool(true, "Keep SPENT demand zones on the chart", group=grpZV, tooltip="A one-time tested SUPPLY zone can still act as resistance; a tested DEMAND zone cannot serve as a location or trigger (Jay, 6-Aug-2026, for NORMAL zones).\n\nSo a spent demand zone is not deleted - it is GREYED and excluded from the location gate. Visible, so you can see where price reacted and where the level was; untradeable, because its fuel is gone.\n\nBudget is in CONFIRMED TESTS, not touches: a test completes only when a reaction is confirmed by travel (2 x ATR) or the EMA20 cross. Normal zone = 1 test. Controlling, or score >= the threshold below = 2.\n\nA VIOLATED zone is still deleted outright - price closed through the distal, so the level failed rather than worked.")
+demand_strong_score = input.int(75, "  Strong-zone score (earns a 2nd test)", group=grpZV, minval=40, maxval=100, tooltip="A demand zone scoring at least this, OR flagged Controlling, is tradeable on a second confirmed test. Scores run 40-100.")
 zoneMaxDraw = input.int(3, "Draw at most N zones each side of price (0 = all)", group=grpZV, minval=0, maxval=20, tooltip="DISPLAY ONLY - it never changes the location gate, the counts, or a verdict. Every zone stays LIVE and still satisfies z_inDZ; this only decides how many are painted.\n\nWhy it exists: same-direction zones from 125m / D / W / M are all kept on purpose (that is confluence, and the overlap rule only resolves OPPOSING zones on the same timeframe). Measured on USHAMART: 15 boxes, SIX overlapping inside a 40-point band around spot. Every box carries extend.right, so each fills to the right edge forever - six translucent bands over the same prices that do not move when you scroll, because they have no right edge.\n\n3 = the three nearest demand and three nearest supply zones are painted; the rest go fully transparent. Raise it for the full stack, set 0 to disable the declutter.")
 zoneFillTransp  = input.int(88, "Zone fill transparency (0 = solid, 100 = clear)", group=grpZV, minval=60, maxval=98, tooltip="#37: base transparency of the zone BACKGROUND fill. Lower = more opaque / more visible. Per-TF spread is applied on top (Monthly most opaque, chart-native most transparent). Was hard-wired to 93-96 (nearly clear); default 88 makes the fills read without hiding the candles.")
 show_tested_grey= input.bool(false, "Show tested zones in grey (verify all zones drawn)", group=grpZV, tooltip="#41: OFF (default) = a zone is DELETED the moment it is tested (declutter — only fresh, tradeable zones stay on the chart). ON = a tested zone is recoloured GREY, dotted border, and FROZEN in place instead of deleted, so you can confirm EVERY valid zone that ever formed was marked correctly. Grey zones are excluded from the trigger and the live DZ/SZ counts — they are a verification overlay only.")
@@ -2297,6 +2299,39 @@ f_zoneMaintain() =>
                         if c_level
                             _rmLvlF := _rmLvlF + 1
                 if _testedOut
+                    // ── SPENT DEMAND: VISIBLE, NOT TRADEABLE (6-Aug-2026, Jay) ──────────
+                    // "A one time tested supply zone can still act as a resistance, while a
+                    // tested demand zone cannot serve as a location/trigger" — for NORMAL
+                    // zones. Deleting it outright also threw away the picture: you could no
+                    // longer see where price had reacted, or that the level existed at all.
+                    // So it is GREYED and marked z.tested, and the support scan above already
+                    // skips z.tested — visible, untradeable, in one flag.
+                    // Budget is in CONFIRMED TESTS (reaction + travel/EMA), not touches: a
+                    // mere poke into the zone that goes nowhere has spent nothing.
+                    // Normal = 1 test. Controlling or strong = 2, because a level that earned
+                    // Controlling or scored 75+ has shown enough interest to be worth a
+                    // second visit.
+                    if keep_tested_demand and z.isDemand
+                        z.touches := z.touches + 1
+                        int _dBudget = (z.isControlling or z.strength >= demand_strong_score) ? 2 : 1
+                        if z.touches >= _dBudget
+                            z.tested := true
+                            box.set_bgcolor(z.drawing, color.new(color.gray, 92))
+                            box.set_border_color(z.drawing, color.new(color.gray, 50))
+                            box.set_border_style(z.drawing, line.style_dotted)
+                            z.txtKeep := z.txtKeep + "  ·  spent"
+                            box.set_text(z.drawing, z.txtKeep)
+                            box.set_text_color(z.drawing, color.new(color.gray, 25))
+                            continue
+                        // A test left: re-arm so the next reaction must be earned, and stay
+                        // fully tradeable in the meantime.
+                        z.reacted  := false
+                        z.reactRef := na
+                        z.emaPre   := false
+                        z.txtKeep := z.txtKeep + "  ·  test 2"
+                        box.set_text(z.drawing, z.txtKeep)
+                        box.set_border_style(z.drawing, line.style_dashed)
+                        continue
                     // #41: default = delete outright (declutter). With "Show tested zones in
                     // grey" ON, the zone is instead recoloured grey and FROZEN (z.tested) so
                     // every valid zone that ever formed can be verified on the chart. Either
@@ -2771,6 +2806,26 @@ bool kSOS     = show_pa and active_sos > 0.5
 bool kHSUP    = show_pa and active_hsup > 0.5
 bool kVDU     = show_pa and active_vdu > 0.5
 bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // weekly 30-WMA reclaim (Stage 1→2)
+
+// ── PATTERN ROLE vs LOCATION (v8.9) ────────────────────────────────────────────────
+// A pattern's ROLE says WHAT it claims is happening; the location says WHERE. They can
+// disagree, and the pair still reads as a clean GO when they do. IGNITION is expansion
+// AWAY from value (a volume thrust, a gap, a strong close); price inside a demand zone
+// is being ABSORBED at value. Both can be arithmetically true of one bar while
+// describing opposite things — and the trade you would actually take is not obvious
+// from either.
+// Measured on the live 75m board (6-Aug-2026): 3 of 7 armed names were IGNITION-only
+// INSIDE a zone (TITAN, UNOMINDA, HINDALCO). n=7 — a story, not a rate.
+// So this TAGS and never gates. It cannot remove a signal; it says the two halves of
+// the setup do not agree, and leaves the read to Jay. It earns a gate only after a
+// Sigma-matched measurement, the way the combos were tested.
+// Roles mirror pa_combos.ROLE exactly — one definition, two surfaces.
+bool _roleIgn = kSC or kPP or kGAP or kBC or kLAU or kHTF or kSOS
+bool _roleRev = kSPR or kENG or k3B or kLIQ or kU50 or kH50 or kH200 or kHSUP or kCLIMAX or k2B or kRECLAIM
+bool _roleTen = kVCP or kNR7 or kIN3 or kIBNR7 or kVDU
+// Only the in-zone case is flagged. The converse (TENSION alone at a level) had ZERO
+// live instances to look at, so tagging it would be asserting a rule nothing supports.
+bool roleMismatch = z_inDZ and _roleIgn and not (_roleRev or _roleTen)
 
 // ── PA COMBINATIONS (v8.7) ───────────────────────────────────────────────────────
 // A combo is a SEQUENCE, not a coincidence: a structural CONTEXT that formed over the
@@ -3828,6 +3883,7 @@ bool  support_v  = support_pass[_so]
 bool  go_v       = go[_so]
 bool  bar_ok_v   = bar_ok[_so]
 bool  pb_ctx_v   = pb_ctx[_so]
+bool  roleMism_v = roleMismatch[_so]
 bool  avwap_v    = avwap_trig[_so]
 float chart_rv_v = chart_rv[_so]
 bool  is_rec_v   = is_rec[_so]
@@ -3872,7 +3928,10 @@ string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec"
 // carry different confidence. GM = the screen qualified it; the bare tag = a guess off
 // the pattern mix.
 string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
-string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt
+// Warning only, the gate above is untouched: in a demand zone, but the only
+// evidence is an expansion pattern. Worth looking at twice, not worth suppressing.
+string role_txt = roleMism_v ? "  ⚠role" : ""
+string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
 // #61: amber for EVERY waiting state, incl. no-PA (was grey). Matches the STATUS row —
 // grey read as "off/inactive"; amber = "live, waiting for the gate". Green only on GO.
 color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
@@ -4711,7 +4770,13 @@ if show_panel and d_panel and barstate.islast
     bool _okOi   = dashOi[_so] != close[_so] and dashOiPrev[_so] != close[_so]
     string _qGrade = not _okQal ? "" : dashQuality[_so] >= 80 ? " [A]" : dashQuality[_so] >= 60 ? " [B]" : dashQuality[_so] >= 40 ? " [C]" : " [D]"
     string _sig = (_okAct ? str.tostring(dashAction[_so], "0") + "/10" : "-") + "  ·  quality " + (_okQal ? str.tostring(dashQuality[_so], "0") + "/100" + _qGrade : "-") + "  ·  RSI " + (_okRsi ? str.tostring(dashRsi[_so], "0.0") : "-")
-    f_row(29, "Signal · Quality · RSI", _sig, _okAct ? (dashAction[_so] >= 7 ? C_OK : dashAction[_so] >= 4 ? C_WARN : C_MUTE) : C_MUTE)
+    // A row of dashes reads as MISSING DATA. When NOTHING is bound it is not missing,
+    // it is unconfigured — say which, and say where to fix it. (Inputs are matched by
+    // position, so inserting one mid-list drops existing source bindings; that is how
+    // these went blank after v8.5. New inputs go at the END from now on.)
+    bool _dashNone = not _okAct and not _okQal and not _okRsi and not _okRat and not _okSl50
+    string _sigRow = _dashNone ? "not bound — Settings ▸ Dashboard import (v67 fields)" : _sig
+    f_row(29, "Signal · Quality · RSI", _sigRow, _dashNone ? C_WARN : _okAct ? (dashAction[_so] >= 7 ? C_OK : dashAction[_so] >= 4 ? C_WARN : C_MUTE) : C_MUTE)
     // RRG quadrant from the (RS-Ratio, RS-Momentum) pair — the same two coordinates
     // v67 classifies with, so the quadrant here IS v67s quadrant.
     string _quad = not _okRat ? "-" : dashRsRatio[_so] >= 100 and dashRsMom[_so] >= 100 ? "LEADING" : dashRsRatio[_so] < 100 and dashRsMom[_so] >= 100 ? "IMPROVING" : dashRsRatio[_so] >= 100 and dashRsMom[_so] < 100 ? "WEAKENING" : "LAGGING"
