@@ -1,13 +1,23 @@
-# Section 4 — Entry Trigger & Price Memory v7.1 — User & Trading Guide
+# Section 4 — Entry Trigger & Price Memory v8.7 — User & Trading Guide
 
 > **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the daily price-action battery (**17 Bull / 10 Recovery**) — the same battery surfaced in the Golden Matcher "Full Metric" panel; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks the demand zones on both Daily and Weekly** — Order Block / Fair-Value-Gap / pivot-low support (v2.0, dual-TF v2.1) — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **buy-stop + SL plan** and raises alerts so you never have to sit and watch.
 >
-> **File:** `Section4_Entry_Trigger_v5.9.pine` (in-file title `Section 4 Entry Trigger and Price Memory v7.1 (Pullback Ruling)`) · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE · **Applies on:** the **75/125-min trading chart** — the PA battery + support zones come from **Daily and Weekly** via `request.security`, the intraday trigger from the chart TF.
+> **File:** `Section4_Entry_Trigger_v7.2.pine` (in-file title `Section 4 Entry Trigger and Price Memory v7.1 (Pullback Ruling)`) · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE · **Applies on:** the **75/125-min trading chart** — the PA battery + support zones come from **Daily and Weekly** via `request.security`, the intraday trigger from the chart TF.
 >
 > **Design contract (zero-drift by intent):**
 > - The PA conditions **and the auto support zones** are a 1:1 mirror of the Web Commander Golden Matcher — `detect_bull_patterns` (Bull, 17), `detect_recovery_patterns` (Recovery, 10) and **`detect_support_zones`** (OB/FVG/pivot) in the shared **`pa_patterns.py`** module (a port of **Dashboard v67.4.12**). When a name reaches Step 5, this Pine panel fires the identical patterns and marks the identical zones the Golden Matcher shows.
 > - The **VCP-BO volume dry-up** uses `ta.vwma(VOLUME, 5) < sma(volume, 50)` — the **correct canonical** form (matches `pa_field_validator.py`). *(This is the same leg that had a `(c*v)` no-op bug in the dashboard `.py`, fixed 8-Jul-2026; Pine has always used the correct form.)*
 > - Every daily PA pattern **and support zone** is computed on **confirmed daily bars** via `request.security(..., lookahead_off)` — **no repaint** (the confirmed-daily offset is timeframe-independent, so it holds on 75/125-min too). The two weekly-crossover patterns (Stage-2 Launch, 30-WMA Reclaim) read confirmed weeks. All alerts fire **once per bar close**.
+> - **S4 no longer re-derives what another indicator already computes.** As of v8.2/v8.4 it
+>   READS values from the Swing Zigzag and the v67 Dashboard via `input.source` — the same
+>   computed series, not a second implementation. This is what finally closed the recurring
+>   "v67 says Stage 1, S4 says Stage 2" class of disagreement: an imported field *cannot*
+>   drift from its source. Anything not imported is either genuinely S4's own (zones, PA
+>   battery, verdict) or explicitly documented as an approximation.
+> - **Heavy engines live in the `S4Core` library** (published `jayramg/S4Core`, currently **v5**).
+>   Library bodies compile separately, so they cost nothing against S4's compiled-token
+>   ceiling. NOTE there are TWO ceilings: compiled tokens (~100,256) and MAIN-BODY
+>   STATEMENTS (~1000). The library only helps the first.
 > - The indicator is a **trigger/timing layer only.** It assumes Context / Quality / Setup already passed upstream. It automates **Location** (marking the demand zone) and owns the trigger; it never overrides the Stage / RS / regime discipline.
 
 ---
@@ -16,6 +26,20 @@
 
 | Version | Added |
 |---|---|
+| **v8.7** | **PA COMBINATIONS.** A combo is a *sequence* — a structural CONTEXT that formed over the last N bars, released by a TRIGGER on the current bar — which Σ cannot express, because Σ sums booleans on one bar. Context ages come from `ta.barssince` on the existing flags, so an age can never disagree with the flag it is an age of. New panel row 32. **DISPLAY ONLY:** measured against a Σ-matched control on 464 picks, both testable combos *underperformed* (Coiled Spring −2.00pp, Institutional Ignition −1.18pp), so no combo feeds the gate or the confluence score. `Bear Trap` fires 0.33% of bars — too rare to ever be testable. |
+| **v8.6** | Statement-cap reclaim (`f_zoneMaintain`). **The panel CANNOT be wrapped in a function** — a Pine function may reference at most **254 external elements** (inputs + `request.*` results, ints/floats/bools counting double) and the panel touches **453**. |
+| **v8.5** | **ZONE DECLUTTER.** `Draw at most N zones each side of price` (default 3). Same-direction zones across 125m/D/W/M are kept on purpose (that is confluence), but with `extend.right` each box runs to the screen edge forever — measured on USHAMART: 15 boxes, **six overlapping inside a 40-point band**, which is what "the zones are glued to the screen" was. Display only; every zone stays live and still satisfies `z_inDZ`. |
+| **v8.4** | **DASHBOARD IMPORT.** 13 `input.source` fields from v67 (`v67.4.18` exports them as hidden numeric plots) + 2 from the Zigzag, rendered as panel rows 29-31 so both panels need not be open. Strings cannot cross a source input, so the sector NAME and macro label stay on v67; the sector STAGE crosses. Unbound inputs default to a PRICE series — every row range-checks, and row 29 says `not bound — Settings ▸ Dashboard import` rather than showing dashes. |
+| **v8.3** | Statement-cap reclaim (`f_activePA`, `f_soSnap`, `f_palette`). NOTE the same trick is **illegal for input groups**: `input(group=)` needs a `const string` and a function return is `simple` — attempting it produced 317 errors. |
+| **v8.2** | **CANONICAL TREND.** S4's "W ↑" was `stage_n == 2` — a Weinstein STAGE read wearing a trend arrow. USHAMART is genuinely Stage 2 *and* genuinely sideways in weekly swing structure, so S4 printed `W ↑` beside the Zigzag's `W →`. The Swing Zigzag (**v6.4**) now exports `mtfTrendState` / `mtfTrendState2`; S4 reads them. `ALIGNED` now means what v67 and the Zigzag mean. Unwired falls back to the old proxy and marks it `~↑`. |
+| **v8.1** | **STAGE PARITY WITH v67.** S4 took both the 30WMA position and its slope from `sma150` on **daily** bars over **10 days**; v67 uses `sma(close,30)` on **weekly** over **4 weeks**, band `0.0012 × MA`. A slow average barely moves in ten days, so S4 read FLAT where v67 read FALLING. Measured across 55 board names before changing: 3 differ (TECHM, LTFOODS, CASTROLIND), all Stage 2 → 3. The `above + flat` cell now resolves **1-vs-3** as its own comment always said (a flat 30WMA is not an advance), **paired** with decoupling `auto_rec` from the bare digit via the 200-DMA discriminant — otherwise every healthy base routes to the Recovery battery. |
+| **v8.0** | **KNIFE-EDGE + GATE BASIS.** (a) Patterns sitting on their threshold are tagged `N⚖` — NAM-INDIA read Σ6 on the GM and Σ2 here for the SAME bar because Dhan closed it at 1210.4 (76.4% up the range) and TV at 1210.0 (73.2%); proven by swapping the OHLCV, same code, Σ6 → Σ2. (b) The `Nearest AVWAP` / `S/R` distance readouts measured from LIVE close while their gates read `[_so]` — AUROPHARMA showed `AVWAP −2.5%` beside `AT LOCATION` because the gate had measured 1.15% from the closed bar. |
+| **v7.9** | **STAGE VETO REACHES BOTH ARMS.** `stage_skip` was the first branch of the GO+plan arm only, so a Stage-3/4 name that had not triggered fell through and read **ARM** — inviting an alert on a declining stock. |
+| **v7.8** | **TIGHT PIVOT SHELVES** (S4Core v4 `rejectOnly`). A pivot shelf spanned the whole bridged body; on POLYCAB's June bar that was 648pts of which **483 was body** — the part price traded UP THROUGH, not where supply sat. Now the rejection region only. Measured over 55 names: monthly median zone width **8.7% → 4.9%**, weekly 5.5% → 3.9%, zone count UP (narrow shelves survive the max-width ceiling), and **ZERO `at_support` flips**. Per-TF pad + body tolerance added (M 1/0.5, W 2/0.8) — the tolerance is a multiple of ATR and ATR scales with timeframe. |
+| **v7.7** | **ZONE COHERENCE.** A band cannot be supply AND demand. POLYCAB had SZ 9106.5-10126 and DZ 8791-9961 overlapping **855 points with spot inside BOTH**. Newer zone wins the contested band; the older is trimmed to its edge. Same TF only — a Monthly zone on a Weekly one is confluence. Fully engulfed → greyed, never deleted. |
+| **v7.6** | **CLOSED-CONFIRM PIVOTS.** With the canonical monthly length of 1, a pivot low needs only ONE bar to its right — on the monthly chart that bar was a three-day-old August, so the zone could simply un-happen while feeding the location gate. The confirming bar must now be closed. |
+| **v7.5** | **CANONICAL PER-TF PIVOT LENGTHS** — Monthly 1 · Weekly 5 · Daily 2 · Intraday 2, matching the Swing Zigzag and the S/R Lab. One global 5/3 served every timeframe: too coarse for the daily shelves price turns at, far too long for monthly bars. |
+| **v7.4** | **PLAYBOOK SPLIT.** A breakout must expand on heavy volume and close strong; a pullback enters on volume DRY-UP with a bar that only holds the zone. One gate cannot be neutral between them, and S4 has no archetype — so it inferred the setup from patterns, and the two surfaces graded the same candle against different standards. The GM now hands the answer over (`Auto: GM Pullback list`). The inference had a real hole: a reversal bar off a demand zone that CLOSES STRONG fires Strong-Close, which counts as *expansion*, so the textbook pullback entry disqualified itself. |
 | **v7.1** | **THE PULLBACK RULING.** The verdict ladder had *three* named breakout rulings (BREAKOUT PIVOT ×2, CLEAR TO BREAK) and one for recovery, but **none for a pullback** — so the house A+ setup (buy the pullback into a Daily+ demand zone) came out as a generic "TAKE IT", or was captured by CLEAR TO BREAK and described as a level to break *through*. New `_atValue` branch (Stage-2 · standing IN a real demand zone · not extended · not in supply), placed **above** CLEAR TO BREAK, which now carries `not _atValue`. It fires whether or not the reward gates clear — the headline says which (`TAKE IT — PULLBACK TO VALUE` vs `ARM — PULLBACK TO VALUE, reward still thin`). Unlike blue-sky and recovery it does **not** override `entry_method`, so a pullback at value keeps the Retest default. |
 | **v7.0.1** | **Token de-duplication (no functional change).** 117 repeated `color.new()` literals → 18 constants; 72 repeated `X[_so]` reads → 12 variables; `f_size(panel_size)` ×12 → one. Freed **~1,400 compiled tokens** and took headroom from ~0 to several hundred. `array.size(activeZones)` is deliberately **not** hoisted — that array is mutated during the bar, so caching its size is a correctness bug, not an optimisation. |
 | **v7.0** | **THE RECOVERY GUARD (NYKAA).** The `is_rec_v` branch was **unconditional**, so a name forced to Manual = Recovery short-circuited the ladder and printed `TAKE IT — Recovery ★strong` while `_blueSky` / `_clearToBreak` were unreachable — the same bar read TAKE IT in Recovery and CLEAR TO BREAK in Bull, with only the mode differing. And it is the greedy branch: no reward gate, and `_qRoomBad` excludes `is_rec_v` so room is bypassed too. Now `else if is_rec_v and not _stage2ok`. The guard is **`_stage2ok`, not an ATH test** — `stage_skip` already vetoes Stage 3/4, so the one remaining contradiction is Manual = Recovery on a **repaired** name (Stage 2 above a *rising* 30WMA **and** above the 200-DMA). A genuine in-progress recovery that reclaimed the 30WMA but is still under the 200-DMA fails `_stage2ok` and **keeps** this branch — correct, that one really is a recovery. |
@@ -141,6 +165,47 @@ The one question it answers: *"A leader is at its zone — is price actually in 
 | **Panel position** | `top_right` | `top_right / top_left / bottom_right / bottom_left`. |
 | **Low / BO / Gap colours** | blue / purple / orange | Line colours for the three AVWAPs. |
 
+
+### 3.6 Handoffs from the Golden Matcher (v7.4 / v7.3)
+
+S4 cannot see which screen qualified a name — that lives in the GM's watchlists, on RFF
+fundamentals and history no price rule can recover. So the GM hands the answer over.
+Paste each list **once per watchlist refresh**; the answer is a property of the NAME, so
+the same paste is correct on every timeframe.
+
+| Input | What it does |
+|---|---|
+| `Auto: GM Recovery list` | Symbols here resolve **Recovery**. Anything else falls back to the stage/drawdown heuristic. |
+| `Auto: GM Pullback list` | Symbols here take the **pullback playbook** — volume floor drops to `pb_rv_floor`, and the bar test becomes "closed back above the zone distal" instead of "closed strong". **The demand-zone requirement is NOT relaxed** — that is the discipline of the setup and the only thing keeping the lower floor honest. |
+
+Get both from the Trigger Board header. Names on *both* lists are genuinely ambiguous and
+are left to S4's own inference rather than an arbitrary preference here.
+
+### 3.7 Zones — structural (v7.5 – v7.8)
+
+| Input | Default | Notes |
+|---|---|---|
+| `Pivot length — Monthly / Weekly / Daily / Intraday` | 1 / 5 / 2 / 2 | Canonical, shared with the Swing Zigzag and the S/R Lab. Do **not** raise Daily to reduce noise — that breaks Zigzag alignment; filter with min-move or the width band instead. |
+| `Pivot zones: confirming bar must be CLOSED` | ON | Kills the repaint. At monthly length 1 the confirming bar can be three days old. |
+| `Resolve supply/demand overlap (newer wins)` | ON | A band cannot be supply and demand. Same TF only; cross-TF overlap is confluence. |
+| `Pivot shelf = rejection region only` | ON | Supply = body-top→high, demand = low→body-bottom. OFF restores the old whole-body span. |
+| `Monthly / Weekly: pad bars + body tolerance` | 1/0.5, 2/0.8 | How far a shelf reaches into neighbours' bodies. The tolerance is × ATR, and ATR scales with timeframe — which is why one global value could not serve all four. |
+| `Draw at most N zones each side of price` | 3 | **Display only.** Never changes the gate, the counts or a verdict. |
+
+### 3.8 Imported from the v67 Dashboard (v8.2 / v8.4)
+
+Bind these to the hidden `s4_*` plots on **Weinstein & Swing Pro Dashboard [v67.4.18]**
+and to the Swing Zigzag's `mtfTrendState` / `mtfTrendState2`. They carry **the value that
+indicator computed** — not a re-implementation — so an imported field cannot drift.
+
+Two constraints worth knowing: `input.source` carries **one float series**, so strings
+(sector name, macro label) cannot cross and stay on v67; and inputs are matched by
+**position**, so inserting a new input mid-list drops existing bindings — if the rows go
+blank after an upgrade, re-bind rather than debug.
+
+Unbound is safe: an unwired source defaults to a PRICE series, every row range-checks it,
+and row 29 reads `not bound — Settings ▸ Dashboard import` rather than showing dashes.
+
 ## 4. Reading the panel (top to bottom)
 
 | Row | Reads | How to use |
@@ -158,6 +223,16 @@ The one question it answers: *"A leader is at its zone — is price actually in 
 | **Auto basis** *(v1.9, 200-DMA v2.3, only in Mode=Auto)* | e.g. `12.4% off52 · 30WMA falling · <200DMA` | **Why Auto resolved Bull vs Recovery** — % off the 52-week high, the 30-WMA proxy state (`below 30WMA` / `30WMA falling` / `30WMA repaired`), and the **200-DMA state** (`<200DMA` / `>200DMA`). All three of (off52 ≥ floor · not-repaired · <200DMA) → Recovery (teal); anything above the 200-DMA → Bull (green). |
 | **PA · BULL / RECOVERY (EOD)** | `Sum +N` (colour by Σ) | Header of the compact grid. Mode-aware label (`PA · BULL` / `PA · RECOVERY`, plus `auto·`/`EOD`/`live*`). **Σ tier** = weighted sum of fired-pattern tiers. Purple ≥4, teal ≥2, amber ≥1, grey 0. |
 | **Grid** | e.g. `HTF ·  SC ·  VCP ·` … `NR7 ✓  IBN ✓` | **Every condition of the active battery, each with `✓` (fired) or `·` (quiet)** — nothing hidden. Bull codes: HTF, SC, VCP, LAU (Stage-2 Launch), GAP, BC (Breakout-Confirmed), PP (Pocket), U50 (Undercut-50), LIQ, SPR (Spring), ENG (Engulf), 3BR, H50, H200, IN3 (Inside-3), NR7, IBN (IB-NR7). Recovery codes: CLIMAX, SPR, 2B (Higher-Low), SOS (Base-BO), ENG, HSUP (Hammer-at-support), 3BR, PP, VDU (Volume-Dry-Up), 30WMA (reclaim). |
+
+
+### Rows 29-32 — imported context and combinations (v8.4 / v8.7)
+
+| Row | Reads |
+|---|---|
+| **Signal · Quality · RSI** | v67's Action Signal (0-10), Asset Quality (0-100 + letter) and daily RSI. `not bound` here means the sources are unbound, not that the data is missing. |
+| **RS · RRG (vs N500)** | RS-Ratio and direction vs the index and vs sector, plus the RRG quadrant — derived from the (RS-Ratio, RS-Momentum) pair, the same two coordinates v67 classifies with, so it **is** v67's quadrant. |
+| **Sector · Futures OI** | Sector stage, and the OI state with its reading. The state is only meaningful against price direction, so it is derived from both: **Long build-up** (price↑ OI↑) fresh money, breakout has fuel · **Short covering** (price↑ OI↓) the rally is shorts exiting, fades are common · **Short build-up** (price↓ OI↑) expect supply into strength · **Long unwinding** (price↓ OI↓) weak, but not a short signal. |
+| **PA Combo** | The named combination with its **context age** — `COILED SPRING · VCP 6b -> coil now`. The age is what Σ cannot show and what says whether the story is still fresh. **Narrative only** — see the version history for why it earns no score. |
 
 ## 5. The 17 daily PA patterns — what each requires
 
