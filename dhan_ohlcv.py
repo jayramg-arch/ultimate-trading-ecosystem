@@ -153,12 +153,36 @@ def _build_symbol_map():
                     "exchange_segment": "IDX_I",
                     "instrument_type":  "INDEX",
                 }
-    # Aliases for Nifty 500 (yfinance uses ^CRSLDX)
-    for src_alias in ("NIFTY 500", "NIFTY500"):
-        if src_alias in _sym_to_secid:
-            for alias in ("CNX500", "NIFTY500", "^CRSLDX", "CRSLDX", "NIFTY 500"):
-                _sym_to_secid[alias] = _sym_to_secid[src_alias]
-            break
+    # Sector & Index Aliases for Yahoo Finance carets (^...) and standard names
+    INDEX_ALIASES = {
+        "^NSEI": ["NIFTY 50", "NIFTY"],
+        "^NSEBANK": ["BANKNIFTY", "NIFTY BANK"],
+        "^CNXFIN": ["FINNIFTY", "NIFTY FINANCIAL SERVICES", "NIFTY FIN SERVICE"],
+        "^CNXAUTO": ["NIFTY AUTO"],
+        "^CNXIT": ["NIFTYIT", "NIFTY IT"],
+        "^CNXFMCG": ["NIFTY FMCG"],
+        "^CNXPHARMA": ["NIFTY PHARMA"],
+        "^CNXREALTY": ["NIFTY REALTY"],
+        "^CNXMETAL": ["NIFTY METAL"],
+        "^CNXMEDIA": ["NIFTY MEDIA"],
+        "^CNXENERGY": ["NIFTY ENERGY"],
+        "^CNXINFRA": ["NIFTYINFRA", "NIFTY INFRA"],
+        "^CNXSERVICE": ["NIFTY SERV SECTOR"],
+        "^CNXCONSUM": ["NIFTY CONSUMPTION"],
+        "^CNXCMDT": ["NIFTY COMMODITIES"],
+        "^CNX100": ["NIFTY 100"],
+        "^CNX200": ["NIFTY 200"],
+        "^CNX500": ["NIFTY 500", "NIFTY500"],
+        "^CRSLDX": ["NIFTY 500", "NIFTY500"],
+        "^NIFTY": ["NIFTY 50", "NIFTY"],
+    }
+    for alias_key, target_names in INDEX_ALIASES.items():
+        for tname in target_names:
+            if tname in _sym_to_secid:
+                target_meta = _sym_to_secid[tname]
+                _sym_to_secid[alias_key] = target_meta
+                _sym_to_secid[alias_key.lstrip("^")] = target_meta
+                break
     print(f"  Built symbol-->meta map: {len(_sym_to_secid)} NSE EQUITY + INDEX")
     return _sym_to_secid
 
@@ -178,6 +202,8 @@ def get_security_meta(symbol: str) -> Optional[dict]:
         if s.endswith(suffix):
             s = s[:-len(suffix)]
     meta = m.get(s)
+    if meta is None and s.startswith("^"):
+        meta = m.get(s[1:])
     if meta is None:
         canon = canonical_nse_symbol(s)
         if canon != s:
@@ -252,19 +278,30 @@ def canonical_nse_symbol(symbol: str) -> str:
 
 # ── Dhan client ───────────────────────────────────────────────────────────
 _client = None
+_client_token = None            # the token _client was BUILT with (see _get_client)
 
 # Failure visibility (19 Jun 2026): a silent empty-DataFrame on an expired
 # token meant the WHOLE ecosystem ran on yfinance while believing it was on the
 # paid Dhan feed. Surface the real reason once, loudly, then fast-fail.
 _AUTH_FAILED = False
 _FAILURE_BANNER_SHOWN = False
+# 17-Jul-2026: _AUTH_FAILED used to be a PERMANENT process-wide latch — once an
+# expired token tripped it, EVERY later fetch fast-failed to the fallback feed
+# for the life of the process and the only cure was a restart. That is exactly
+# the "long-running Streamlit returns ok=False while a fresh process returns
+# ok=True" symptom (it surfaced as an all-"n/a" S4-GO column on the Trigger
+# Board — a data/feed problem wearing a scoring problem's clothes). The latch is
+# now time-boxed: after the cooldown ONE probe is allowed through on a REBUILT
+# client, so a token that has since refreshed heals itself.
+_AUTH_FAILED_AT = 0.0
+_AUTH_RETRY_COOLDOWN_S = float(os.getenv("DHAN_AUTH_RETRY_COOLDOWN_S", "300"))
 
 
 def _note_dhan_failure(symbol, resp) -> None:
     """Surface the Dhan failure reason once. Detects expired/invalid auth and
     flips _AUTH_FAILED so the rest of the run fast-fails to the fallback feed
     instead of issuing one doomed API call per symbol."""
-    global _AUTH_FAILED, _FAILURE_BANNER_SHOWN
+    global _AUTH_FAILED, _FAILURE_BANNER_SHOWN, _AUTH_FAILED_AT
     remarks = {}
     if isinstance(resp, dict):
         remarks = resp.get("remarks") or resp.get("data") or {}
@@ -274,8 +311,10 @@ def _note_dhan_failure(symbol, resp) -> None:
         code = str(remarks.get("error_code") or remarks.get("errorCode") or "")
         msg = str(remarks.get("error_message") or remarks.get("errorMessage") or "")
     is_auth = ("DH-901" in code) or ("auth" in msg.lower()) or ("token" in msg.lower())
-    if is_auth and not _AUTH_FAILED:
+    is_fatal = is_auth or ("DH-905" in code)
+    if is_fatal and not _AUTH_FAILED:
         _AUTH_FAILED = True
+        _AUTH_FAILED_AT = time.time()      # starts the recovery cooldown (_auth_blocked)
     if not _FAILURE_BANNER_SHOWN:
         _FAILURE_BANNER_SHOWN = True
         if is_auth:
@@ -286,6 +325,13 @@ def _note_dhan_failure(symbol, resp) -> None:
                 "   Every price fetch is silently falling back to FREE yfinance.\n"
                 "   FIX: regenerate DHAN_ACCESS_TOKEN (Dhan tokens expire) and set it\n"
                 "   in the environment / .env, then re-run.\n" + "=" * 70)
+        elif "DH-905" in code:
+            banner = (
+                "\n" + "=" * 70 +
+                "\n[X] DHAN API BROKEN (DH-905) -- the PAID feed is NOT being used.\n"
+                f"   {code} {msg}\n"
+                "   Dhan's backend is rejecting valid parameters. Fast-failing to yfinance.\n"
+                "   This is a broker-side API issue.\n" + "=" * 70)
         else:
             detail = (f"{code} {msg}").strip() or "empty/non-JSON body (likely rate-limit/429)"
             banner = (f"\n[!] Dhan API non-success for {symbol}: {detail} "
@@ -294,10 +340,40 @@ def _note_dhan_failure(symbol, resp) -> None:
         print(banner, flush=True)
         logger.warning("Dhan failure: %s %s (symbol=%s)", code, msg, symbol)
 
+def _auth_blocked() -> bool:
+    """True when the paid feed should be skipped this call (fast-fail to fallback).
+
+    Replaces the bare `_AUTH_FAILED` reads at the fetch gates. The latch is now
+    RECOVERABLE: once the cooldown elapses the cached client is dropped and ONE
+    probe is let through — _get_client() then re-validates the token (TOTP-
+    refreshing, or picking up a token another process wrote to .env), so a
+    process whose token expired mid-session heals itself instead of needing a
+    restart. A still-bad token simply re-trips the latch via _note_dhan_failure,
+    so we still never hammer the API one-doomed-call-per-symbol.
+    """
+    global _AUTH_FAILED, _FAILURE_BANNER_SHOWN, _client, _client_token
+    if not _AUTH_FAILED:
+        return False
+    if (time.time() - _AUTH_FAILED_AT) < _AUTH_RETRY_COOLDOWN_S:
+        return True
+    logger.info("Dhan auth latch expired after %.0fs -- retrying the paid feed with "
+                "a re-validated token.", _AUTH_RETRY_COOLDOWN_S)
+    _AUTH_FAILED = False
+    _FAILURE_BANNER_SHOWN = False       # a NEW failure must be reported again, not swallowed
+    _client = None                      # the probe must NOT reuse the token that failed
+    _client_token = None
+    return False
+
+
+def auth_failed() -> bool:
+    """Public read of the auth-latch state. Lets callers report 'Dhan auth
+    expired' instead of a generic 'no data' — the difference between a column
+    that reads as a scoring problem and one that names its real cause."""
+    return bool(_AUTH_FAILED)
+
+
 def _get_client():
-    global _client
-    if _client is not None:
-        return _client
+    global _client, _client_token
     cid = os.getenv("DHAN_CLIENT_ID")
     # Root cause of the "paid feed silently dead" bug: the data path used the
     # RAW env token (which expires daily) while the journal path auto-refreshed
@@ -309,12 +385,28 @@ def _get_client():
     except Exception as e:
         logger.warning("dhan_auth.get_valid_token failed (%s) -- using raw env token", e)
         tok = os.getenv("DHAN_ACCESS_TOKEN", "").strip("'\"")
+    # Reuse the cached client ONLY while it still holds the CURRENT token.
+    # 17-Jul-2026: this function used to `return _client` on its first line, so the
+    # token was resolved ONCE per process and baked into the client forever — a
+    # long-running Streamlit kept presenting a token that had since expired
+    # (DH-901) while a fresh process worked, which is why "restart Web Commander"
+    # was the only known cure. get_valid_token() is cheap while the token is still
+    # valid (local JWT-expiry check, no network), so re-checking every call costs
+    # nothing and rebuilds only when the token actually rotated.
+    if _client is not None and tok and tok == _client_token:
+        return _client
+    if not tok and _client is not None:
+        # Couldn't resolve a token this call (offline / dhan_auth error) but we
+        # hold a client — keep using it rather than hard-failing a feed that may
+        # still be live. Preserves the old cached-client behaviour on that path.
+        return _client
     if not cid or not tok:
         raise RuntimeError("DHAN_CLIENT_ID / DHAN_ACCESS_TOKEN missing from env")
     if DhanContext:
         _client = dhanhq(DhanContext(cid, tok))
     else:
         _client = dhanhq(cid, tok)
+    _client_token = tok
     # Root cause #2 of the dead data feed: the Dhan v2 /charts/historical
     # endpoint requires BOTH 'access-token' AND 'client-id' headers, but the
     # dhanhq SDK only sets 'access-token' -> every historical call returned
@@ -390,7 +482,7 @@ def fetch_intraday(symbol: str,
     today-4d. Callers wanting 75/125m resamples should request 25-min bars over
     up to 90 days."""
     meta = get_security_meta(symbol)
-    if meta is None or _AUTH_FAILED:
+    if meta is None or _auth_blocked():
         return pd.DataFrame()
 
     if to_date is None:
@@ -454,6 +546,37 @@ def fetch_intraday(symbol: str,
     except Exception as e:
         logger.warning("Dhan intraday timestamp parse failed for %s: %s", symbol, e)
         return pd.DataFrame()
+
+    # ── DROP THE SESSION-CLOSE STUB (6-Aug-2026) ────────────────────────────────
+    # After the close Dhan publishes a phantom bar stamped 15:30 with
+    # O=H=L=C=<last close> and Volume=0. It is a marker, not a bar: no trades
+    # happened in it.
+    #
+    # Left in, it is a zero-range doji that resamples into a WHOLE EXTRA 75m/125m
+    # bar — RELIANCE showed five real 75m bars plus a sixth reading
+    # 1325/1325/1325/1325 vol 0. Any surface reading "the last closed bar" after
+    # the close then reads the stub, and this is exactly what happened: the GM
+    # trigger boards rebuilt at 23:13 returned ZERO S4-GOs on both 75m and 125m
+    # (RV = 0 on every name, so the volume gate failed everywhere) while Daily,
+    # which never sees the stub, returned 12. The damage is not limited to
+    # volume — a zero-range bar also feeds the PA battery and the bar-strength
+    # test, so the entire read lands on a bar in which nothing occurred.
+    #
+    # Scoped deliberately to TRAILING rows: the stub is always last (observed 1
+    # zero-volume row in 76 over five sessions, always 15:30). A genuine
+    # zero-volume bar mid-series in an illiquid name is left alone — dropping it
+    # would silently rewrite history to fix a boundary artifact.
+    if not df.empty and "Volume" in df.columns:
+        vol = pd.to_numeric(df["Volume"], errors="coerce").fillna(0.0)
+        rng = pd.to_numeric(df["High"], errors="coerce") - pd.to_numeric(df["Low"], errors="coerce")
+        stub = (vol <= 0) & (rng.abs() <= 0)
+        n = 0
+        while n < len(df) and bool(stub.iloc[len(df) - 1 - n]):
+            n += 1
+        if n:
+            logger.debug("%s: dropped %d trailing zero-volume stub bar(s) (last %s)",
+                         symbol, n, df.index[-1])
+            df = df.iloc[:len(df) - n]
     return df
 
 def fetch_daily(symbol: str,
@@ -472,8 +595,9 @@ def fetch_daily(symbol: str,
         return pd.DataFrame()
 
     # If auth already failed this process, don't hammer the API for every
-    # symbol (and don't stay silent). One loud banner, then fast-fail.
-    if _AUTH_FAILED:
+    # symbol (and don't stay silent). One loud banner, then fast-fail — but only
+    # until the cooldown lets a re-validated probe through (_auth_blocked).
+    if _auth_blocked():
         return pd.DataFrame()
 
     if to_date is None:
@@ -571,7 +695,7 @@ def fetch_ltp(symbols) -> dict:
     """
     if isinstance(symbols, str):
         symbols = [symbols]
-    if _AUTH_FAILED:
+    if _auth_blocked():
         return {}
     seg_ids = {}              # exchange_segment -> [security_id int]
     id_to_sym = {}            # (segment, sid) -> clean upper symbol
