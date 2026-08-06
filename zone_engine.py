@@ -152,6 +152,26 @@ CTRL_TRENDSHIFT_BARS    = 20     # Pine's ft+1..ft+20 below-MA lookback
 CTRL_TF                 = ("D", "W", "M")
 CTRL_MAX_TOUCHES        = 2      # vs 1 for an ordinary zone
 
+# ── SPENT DEMAND STAYS VISIBLE (port of Pine v8.8 `keep_tested_demand`) ──────
+# The old rule deleted a demand zone the moment it was TESTED. But the REACTION
+# is the entry and the TRAVEL is the trade working, so the zone was retired
+# immediately AFTER proving itself — the most evidenced level on the chart was
+# the one erased, and a second approach to a proven level had nothing to trade.
+# Now a spent demand zone is KEPT (z.tested = True) instead of dropped, on a
+# touch budget: normal 1 test, Controlling or score >= DEMAND_STRONG_SCORE 2.
+#
+# The asymmetry is the whole point and is deliberate (Jay, 6-Aug-2026):
+#   "A one-time tested SUPPLY zone can still act as a resistance, while a
+#    tested DEMAND zone cannot serve as a location/trigger."
+# So a spent demand zone stays VISIBLE (callers can still see the level and its
+# geometry) but is excluded from the LOCATION gate in zone_support() — it does
+# not arm a trade. Supply keeps its existing path untouched.
+#
+# A VIOLATED zone is still deleted at once, both directions. That is not a test,
+# it is a failure — price closed through the distal.
+KEEP_TESTED_DEMAND   = True
+DEMAND_STRONG_SCORE  = 75     # Pine demand_strong_score — earns the 2nd test
+
 
 @dataclass
 class Zone:
@@ -190,7 +210,17 @@ class Zone:
 
     @property
     def max_touches(self) -> int:
-        """A controlling zone gets a longer leash than an ordinary one."""
+        """Completed tests this zone survives before it is spent.
+
+        DEMAND (Pine v8.8): Controlling **or** intrinsic score >= DEMAND_STRONG_SCORE
+        earns a 2nd test; everything else is spent on the 1st. The score clause is
+        demand-only — Pine gates it inside the `z.isDemand` branch, so supply keeps
+        the older controlling-only rule and is not silently loosened by this port.
+        Uses the INTRINSIC score, not recency_score: a zone's leash is what it was
+        built with, and must not shrink just because it aged.
+        """
+        if self.is_demand and KEEP_TESTED_DEMAND:
+            return 2 if (self.controlling or self.score >= DEMAND_STRONG_SCORE) else 1
         return CTRL_MAX_TOUCHES if self.controlling else 1
 
 
@@ -523,6 +553,7 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
         react_ref = float("nan")
         ema_pre = False
         killed = False
+        spent = False
         touch_n = 0
         for i in range(z.origin_idx + 1, n):
             if z.is_demand:
@@ -543,12 +574,17 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
                 if is_daily_or_lower and tf == "D":     # EMA cross retires DAILY zones only (#25 fix)
                     c_ema = ema_pre and ((c[i] > ema20[i]) if z.is_demand else (c[i] < ema20[i]))
                 if c_travel or c_ema:
-                    # A CONTROLLING zone gets a longer leash — 2 touches vs 1 (Pine
-                    # house rule). Below the limit the zone survives and is re-armed
-                    # for another reaction cycle; at the limit it retires as before.
+                    # Below the budget the zone survives and is re-armed for another
+                    # reaction cycle. AT the budget it is SPENT — and what that means
+                    # now differs by direction (Pine v8.8): a demand zone is kept and
+                    # flagged tested (visible, but no longer a location — see
+                    # zone_support), while supply retires as before.
                     touch_n += 1
                     if touch_n >= z.max_touches:
-                        killed = True                    # TESTED -> removed
+                        if KEEP_TESTED_DEMAND and z.is_demand:
+                            spent = True                 # keep it, stop scanning it
+                        else:
+                            killed = True                # TESTED -> removed
                         break
                     reacted, react_ref, ema_pre = False, float("nan"), False
             # violation: close beyond the distal
@@ -559,6 +595,10 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
             continue
         z.was_in = was_in
         z.reacted = reacted
+        # A spent demand zone stays in the list — deliberately. Callers still want to
+        # SEE the level; only the location gate stops honouring it.
+        if spent:
+            z.tested = True
         alive.append(z)
 
     # de-dup: pattern zones win over structural on overlap (Pine skips a pivot shelf that
@@ -623,7 +663,8 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
            "proximal": None, "distal": None, "score": None, "has_fvg": False, "n_dz": 0, "n_sz": 0,
            # #27 / #3: the age-adjusted read and the Controlling flag. `score` stays the
            # INTRINSIC merit so nothing downstream that already reads it changes meaning.
-           "recency_score": None, "controlling": False, "n_ctrl": 0}
+           "recency_score": None, "controlling": False, "n_ctrl": 0,
+           "n_dz_spent": 0}
     zones = detect_zones(df, tf)
     if not zones:
         return out
@@ -633,7 +674,15 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
     out["n_dz"], out["n_sz"] = len(dz), len(sz)
     out["n_ctrl"] = sum(1 for z in zones if z.controlling)
     best = None
+    # SPENT demand is excluded from the gate but NOT from the list or the counts —
+    # the level is still on the chart, it just no longer arms a trade. This also
+    # closes a pre-existing gap: zones marked tested by the overlap-resolution pass
+    # were already being counted as fresh support, against this function's own
+    # docstring.
+    out["n_dz_spent"] = sum(1 for z in dz if z.tested)
     for z in dz:
+        if z.tested:
+            continue
         inside = z.distal <= px <= z.proximal
         near = px > z.proximal and (px - z.proximal) / z.proximal <= TOUCH_TOL
         if inside or near:
