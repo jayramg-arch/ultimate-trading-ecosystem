@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.18]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.19]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -5348,3 +5348,10 @@ plot(macroStageWeeks,   title="s4_macroWeeks",   display=display.none)
 plot(d_slope50,         title="s4_slope50",      display=display.none)
 plot(fut_oi,            title="s4_oi",           display=display.none)
 plot(fut_oi_prev,       title="s4_oiPrev",       display=display.none)
+// TRAJECTORY INPUTS FOR S4 (v67.4.19). f_rrg_info needs the TRAILING (v, m) pair to
+// say where the quadrant is heading — "WEAKENING -> LEADING" — and to pick the arrow.
+// Both are computed inside the WEEKLY request.security here, so S4 cannot rebuild them:
+// on a 75m chart `[n]` is n x 75 minutes, not n weeks. Export them and S4 reads the
+// same numbers this panel does, which is the whole point of the handoff.
+plot(_valTrail500,      title="s4_rsValTrail500", display=display.none)
+plot(_momTrail500,      title="s4_rsMomTrail500", display=display.none)

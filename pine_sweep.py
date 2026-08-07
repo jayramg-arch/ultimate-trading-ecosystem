@@ -159,13 +159,22 @@ def sweep(path: str) -> list[str]:
                                   f"declared later at line {at} — Pine resolves top-down")
                     local.add(tok)          # report once per function, not per use
 
+    # Names a fold-function declares locally AND returns in its own tuple are not
+    # shadowing: the local is scoped to the function, the global comes from the
+    # destructure of that same call. Flagging them buried 137 real-looking issues
+    # when v9.5 folded 11 declaration runs to get under the main-body cap.
+    folded = set()
+    for l in lines:
+        m = re.match(r'^\[([^\]]+)\]\s*=\s*f_fold\d+\(\)', l.strip())
+        if m:
+            folded.update(x.strip() for x in m.group(1).split(','))
     # ── 5 shadowing ─────────────────────────────────────────────────────────
     for i, l in enumerate(lines):
         if not l[:1].isspace():
             continue
         m = re.match(r"\s+(?:var\s+)?(?:bool|int|float|string|color)\s+([A-Za-z_]\w*)\s*=(?!=)",
                      strip_code(l))
-        if m and m.group(1) in globals_at:
+        if m and m.group(1) in globals_at and m.group(1) not in folded:
             issues.append(f"{i+1}: local `{m.group(1)}` shadows a global "
                           f"(line {globals_at[m.group(1)]})")
 
@@ -205,8 +214,32 @@ def sweep(path: str) -> list[str]:
         if re.search(r"(?<![A-Za-z0-9_])(NL|ind)(?![A-Za-z0-9_])", code) and "=" in code:
             issues.append(f"{i+1}: `NL`/`ind` in output — code-generator variable leaked")
 
+    issues.extend(check_nested_quote(lines))
     return issues
 
+
+def check_nested_quote(lines):
+    """A quote INSIDE a string literal closes it early, and the line still has an EVEN
+    quote count — so the odd-quote check passes and the compiler fails somewhere past
+    the real fault. Cost a compile round-trip on S4 v9.4:
+        tooltip=... the ...-> LEADING... read.   ->  Syntax error at input ">"
+    Heuristic: after a title=/tooltip=/shorttitle= literal closes, the next non-space
+    character must be a comma or a closing paren. Anything else means the literal ended
+    somewhere the author did not intend.
+    """
+    import re
+    pat = re.compile(r'(tooltip|title|shorttitle)\s*=\s*"')
+    out = []
+    for n, l in enumerate(lines, 1):
+        for m in pat.finditer(l):
+            j = l.find(chr(34), m.end() - 1) + 1
+            e = l.find(chr(34), j)
+            if e < 0:
+                continue
+            nxt = l[e + 1:e + 2]
+            if nxt and nxt not in ",) ":
+                out.append("%d: string literal ends early -> %s" % (n, l[max(0, e - 30):e + 20]))
+    return out
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:

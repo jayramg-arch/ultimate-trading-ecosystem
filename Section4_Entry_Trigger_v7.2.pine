@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v9.2 (HTF Nesting · Role Tag · Long-Only Fib)", shorttitle="S4 Entry v9.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v9.5 (v67 RS + RRG · statement fold)", shorttitle="S4 Entry v9.5", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/5 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -893,7 +893,6 @@ grpSRM = "S/R Levels — MANUAL · MONTHLY  (0 = off; shows on ALL timeframes)"
 grpSRW = "S/R Levels — MANUAL · WEEKLY  (shows on Weekly and below)"
 grpSRD = "S/R Levels — MANUAL · DAILY  (shows on Daily and below; hidden on W/M)"
 grpPAT = "Patterns"
-grpBOX = "Consolidation Box — MANUAL  (enter coords in settings; 0 = off)"
 grpTL = "Trendlines — AUTO + manual"
 grpZP = "Zones — Structural (Pivot-Based)"
 grpZV = "Zones — Visual (Zone Engine)"
@@ -1260,11 +1259,6 @@ geo_maxage  = input.int(120, "Geometry max pivot age (bars)",     group=grpPAT, 
 // has no conditional confirm, so the anchors are now plain numeric inputs: 0 = off,
 // enter time/price in the settings dialog to draw. Loading is instant; the manual
 // tools are opt-in via their coordinates, not a load-time gate.
-box_on = input.bool(true, "Enable manual box", group=grpBOX)
-box_t1 = input.time(0,    "Box start time",  group=grpBOX)
-box_t2 = input.time(0,    "Box end time",    group=grpBOX)
-box_hi = input.price(0.0, "Box top",         group=grpBOX)
-box_lo = input.price(0.0, "Box bottom",      group=grpBOX)
 
 tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="Master enable for the MANUAL numeric anchors below. Auto-detect (next input) does not need these — it draws from pivots. Manual anchors are the exact-placement fallback: turn Auto OFF to use them.\n\nAnchors are numeric (0 = off) — enter time/price in this dialog. confirm/click-to-place was removed because it forced a draw on every add and closed the indicator on Esc.")
 // ── AUTO trendlines (Path A, 24-Jul): fit + adjust WITHOUT typing coordinates. Reuses
@@ -1346,6 +1340,10 @@ dashMacWks  = input.source(close, "v67: Macro stage age",  group=grpDash, toolti
 dashSlope50 = input.source(close, "v67: 50-DMA slope",    group=grpDash, tooltip="Bind to s4_slope50. Sign = the 50-DMA direction.")
 dashOi      = input.source(close, "v67: Futures OI",      group=grpDash, tooltip="Bind to s4_oi.")
 dashOiPrev  = input.source(close, "v67: Futures OI prior", group=grpDash, tooltip="Bind to s4_oiPrev. With OI and price direction this gives the four-state read.")
+dashRsRatioSec = input.source(close, "v67: RS-Ratio vs Sector", group=grpDash, tooltip="Bind to s4_rsRatioSec. Needed for the sector half of the RS row — a slope alone says direction but not whether RS is above or below the sector.")
+dashRsValTr    = input.source(close, "v67: RS val trail (N500)", group=grpDash, tooltip="Bind to s4_rsValTrail500. The TRAILING RS-Ratio v67 uses to work out which way the RRG quadrant is rotating.")
+dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, tooltip="Bind to s4_rsMomTrail500. The trailing RS-Momentum. With the val trail it gives the trajectory arrow and the -> LEADING read.")
+rsSlopeThresh  = input.float(0.2, "v67: RS slope sensitivity", group=grpDash, minval=0.05, maxval=1.5, tooltip="Mirrors v67 rsSlopeThresh (default 0.2). Below this a slope reads Flat rather than Rising/Declining. Keep it equal to v67 or the two panels will word the same RS state differently.")
 wmaSlopeThresh = input.float(0.0012, "30WMA slope flat-band (x MA, 4-week change)", group=grpPA, minval=0.0001, maxval=0.02, step=0.0001, tooltip="The band inside which the 30-week MA counts as FLAT rather than rising or falling. 0.0012 = v67 Dashboard parity (its slopeThresh), applied to the RAW 4-week change of sma(close,30) on WEEKLY bars.\n\nThis is the input that was causing 'v67 says Stage 1, S4 says Stage 2'. S4 previously derived the slope from sma150 on DAILY bars over 10 DAYS — a slow average barely moves in ten days, so it read FLAT where v67 read FALLING, and the stage cell followed.\n\nWiden it and more names read FLAT (which, above the MA, is the Stage 1-vs-3 cell). Narrow it and almost everything reads rising or falling, skipping Stage 1 entirely. Measured across 55 board names at 0.0012: 37 rising / 2 flat / 16 falling.")
 resolveOpposing = input.bool(true, "Resolve supply/demand overlap (newer wins)", group=grpZP, tooltip="A price band cannot be supply AND demand at the same time.\n\nMeasured on POLYCAB monthly (5-Aug-2026): a supply zone at 9106.5-10126 and a demand zone at 8791-9961 overlapped by 855 points with spot sitting INSIDE BOTH. The panel read 'IN SUPPLY' while a demand zone occupied the same prices, and the Support Zone row had nothing usable to show. A location gate cannot be honest about a band that is both.\n\nON (default): when a new zone overlaps a live OPPOSING zone on the SAME timeframe, the older one is trimmed back to the newer one's edge — price has since traded into that band and turned the other way, so the old zone's fuel in the overlap is spent. A zone that ends up fully engulfed is greyed (tested), never deleted.\n\nCross-timeframe overlaps are untouched: a Monthly zone sitting on a Weekly one is CONFLUENCE, not a contradiction.\n\nOFF = both zones stay at full width and may contradict each other.")
 padZ_M = input.int(1, "  Monthly: pad bars (each side)", group=grpZP, minval=0, maxval=15, tooltip="Monthly bars are scarce and individually significant; a shelf reaching 3 months either side is not one shelf.")
@@ -1379,25 +1377,28 @@ invCandleDn     = input.color(color.new(#ef5350, 0), "down",                    
 // ==========================================================================
 // Z1. ZONE ENGINE — TIMEFRAME GUARDRAILS + SHARED STATE
 // ==========================================================================
-int chartSec   = timeframe.in_seconds(timeframe.period)
-int dailySec   = 86400
-// CALENDAR seconds, to match timeframe.in_seconds(). The old 432000/1900800 were
-// TRADING-day approximations (5x/22x 86400); compared against the calendar chartSec
-// they hid Weekly levels on the Weekly chart and blanked the Monthly chart entirely.
-// (Zone guardrail behaviour is unchanged by this on every standard TF - verified.)
-int weeklySec  = 604800
-int monthlySec = 2592000
-bool useDailyZ   = showDaily   and dailySec   > chartSec
-bool useWeeklyZ  = showWeekly  and weeklySec  > chartSec
-bool useMonthlyZ = showMonthly and monthlySec > chartSec
-// S/R LEVELS use the SAME guardrail — HTF propagates DOWN, LTF never renders UP —
-// reusing the constants above rather than declaring a second set that could drift.
-// `>=` not `>`: unlike a zone, a hand-typed Daily level has no separate "native"
-// path, so it MUST still render on a Daily chart.
-bool useLvM = monthlySec >= chartSec
-bool useLvW = weeklySec  >= chartSec
-bool useLvD = dailySec   >= chartSec
-bool ctrlAllowChart   = controllingMinTf == "Chart"
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold1386() =>
+    int chartSec   = timeframe.in_seconds(timeframe.period)
+    int dailySec   = 86400
+    int weeklySec  = 604800
+    int monthlySec = 2592000
+    bool useDailyZ   = showDaily   and dailySec   > chartSec
+    bool useWeeklyZ  = showWeekly  and weeklySec  > chartSec
+    bool useMonthlyZ = showMonthly and monthlySec > chartSec
+    bool useLvM = monthlySec >= chartSec
+    bool useLvW = weeklySec  >= chartSec
+    bool useLvD = dailySec   >= chartSec
+    bool ctrlAllowChart   = controllingMinTf == "Chart"
+    [chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart]
+[chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart] = f_fold1386()
 bool ctrlAllowDaily   = ctrlAllowChart or controllingMinTf == "Daily"
 bool ctrlAllowWeekly  = ctrlAllowDaily or controllingMinTf == "Weekly"
 bool ctrlAllowMonthly = true
@@ -2117,7 +2118,6 @@ var label lbTlS = na
 var label lbTlR = na
 var box   bxFlag = na
 var label lbFlag = na
-var box   bxMan  = na
 var label lbMan  = na
 
 f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool isManual) =>
@@ -2708,36 +2708,36 @@ if array.size(avs) > 0
         float a = array.get(avs, i)
         if a <= close and (na(nearest_sup) or a > nearest_sup)
             nearest_sup := a
-float sup_dist = (not na(nearest_sup) and close > 0) ? (close - nearest_sup) / close * 100.0 : na
-// #cf (30-Jul, TITAN): the Confluence row's AVWAP token was the HARDCODED string "AVWL",
-// printed off the generic `near_avwap` flag — so it claimed "AVWAP Low" whenever price was
-// near ANY of the three anchors. TITAN read AVWL while the Nearest AVWAP row correctly
-// showed the BO anchor 0.8% away; its Low anchor was ~20% below price and contributed
-// nothing. Name the anchor that is ACTUALLY nearest, so the two rows agree by construction.
-string nearest_sup_lbl = na(nearest_sup) ? "" : (not na(avwap_bo) and nearest_sup == avwap_bo ? "BO" : not na(avwap_gap) and nearest_sup == avwap_gap ? "Gap" : not na(avwap_low) and nearest_sup == avwap_low ? "L" : "?")
-
-float _tol = tol_pct / 100.0
-bool b_low = not na(avwap_low) and low <= avwap_low * (1.0 + _tol) and close > avwap_low and close > open
-bool b_bo  = not na(avwap_bo)  and low <= avwap_bo  * (1.0 + _tol) and close > avwap_bo  and close > open
-bool b_gap = not na(avwap_gap) and low <= avwap_gap * (1.0 + _tol) and close > avwap_gap and close > open
-bool _r2g_x = ta.crossover(close, avwap_bo)
-bool _r2g  = not na(avwap_bo) and _r2g_x
-bool avwap_trig = b_low or b_bo or b_gap or _r2g
-
-// ==========================================
-// C. INTRADAY TRIGGER (chart TF — best on 75/125-min)
-// ==========================================
-float ema10c = ta.ema(close, ema_len)
-bool  ema_reclaim = close > ema10c and ema10c > ema10c[1]
-float basis  = ta.sma(close, sqz_len)
-float dev    = bb_mult * ta.stdev(close, sqz_len)
-float kc_rng = ta.atr(sqz_len)
-bool  sqz_on   = (basis + dev) < (basis + kc_mult * kc_rng) and (basis - dev) > (basis - kc_mult * kc_rng)
-bool  sqz_fire = not sqz_on and sqz_on[1]
-float sqz_mom  = ta.linreg(close - math.avg(math.avg(ta.highest(high, sqz_len), ta.lowest(low, sqz_len)), ta.sma(close, sqz_len)), sqz_len, 0)
-// v2.5: Relaxed Squeeze Trigger Window — allows entry while momentum is actively rising out of the squeeze
-bool  sqz_releasing = (not sqz_on) and sqz_mom > 0 and (sqz_fire or sqz_mom >= nz(sqz_mom[1]))
-bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold2715() =>
+    float sup_dist = (not na(nearest_sup) and close > 0) ? (close - nearest_sup) / close * 100.0 : na
+    string nearest_sup_lbl = na(nearest_sup) ? "" : (not na(avwap_bo) and nearest_sup == avwap_bo ? "BO" : not na(avwap_gap) and nearest_sup == avwap_gap ? "Gap" : not na(avwap_low) and nearest_sup == avwap_low ? "L" : "?")
+    float _tol = tol_pct / 100.0
+    bool b_low = not na(avwap_low) and low <= avwap_low * (1.0 + _tol) and close > avwap_low and close > open
+    bool b_bo  = not na(avwap_bo)  and low <= avwap_bo  * (1.0 + _tol) and close > avwap_bo  and close > open
+    bool b_gap = not na(avwap_gap) and low <= avwap_gap * (1.0 + _tol) and close > avwap_gap and close > open
+    bool _r2g_x = ta.crossover(close, avwap_bo)
+    bool _r2g  = not na(avwap_bo) and _r2g_x
+    bool avwap_trig = b_low or b_bo or b_gap or _r2g
+    float ema10c = ta.ema(close, ema_len)
+    bool  ema_reclaim = close > ema10c and ema10c > ema10c[1]
+    float basis  = ta.sma(close, sqz_len)
+    float dev    = bb_mult * ta.stdev(close, sqz_len)
+    float kc_rng = ta.atr(sqz_len)
+    bool  sqz_on   = (basis + dev) < (basis + kc_mult * kc_rng) and (basis - dev) > (basis - kc_mult * kc_rng)
+    bool  sqz_fire = not sqz_on and sqz_on[1]
+    float sqz_mom  = ta.linreg(close - math.avg(math.avg(ta.highest(high, sqz_len), ta.lowest(low, sqz_len)), ta.sma(close, sqz_len)), sqz_len, 0)
+    bool  sqz_releasing = (not sqz_on) and sqz_mom > 0 and (sqz_fire or sqz_mom >= nz(sqz_mom[1]))
+    bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
+    [sup_dist, nearest_sup_lbl, _tol, _r2g, avwap_trig, ema_reclaim, basis, sqz_on, intraday_trig]
+[sup_dist, nearest_sup_lbl, _tol, _r2g, avwap_trig, ema_reclaim, basis, sqz_on, intraday_trig] = f_fold2715()
 
 // Daily EMA10/EMA20 (DNA anchors) to overlay on the chart-TF battery's engulf.
 // v7.2 TOKEN: f_daily_ema and these two values MOVED UP to the merged Daily
@@ -2802,30 +2802,25 @@ bool kBC    = show_pa and active_bc > 0.5
 // recovery-mode flags (5 new + reused Spring/Engulf/3-Bar/Pocket + weekly 30-WMA reclaim)
 bool kCLIMAX  = show_pa and active_climax > 0.5
 bool k2B      = show_pa and active_2b > 0.5
-bool kSOS     = show_pa and active_sos > 0.5
-bool kHSUP    = show_pa and active_hsup > 0.5
-bool kVDU     = show_pa and active_vdu > 0.5
-bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // weekly 30-WMA reclaim (Stage 1→2)
-
-// ── PATTERN ROLE vs LOCATION (v8.9) ────────────────────────────────────────────────
-// A pattern's ROLE says WHAT it claims is happening; the location says WHERE. They can
-// disagree, and the pair still reads as a clean GO when they do. IGNITION is expansion
-// AWAY from value (a volume thrust, a gap, a strong close); price inside a demand zone
-// is being ABSORBED at value. Both can be arithmetically true of one bar while
-// describing opposite things — and the trade you would actually take is not obvious
-// from either.
-// Measured on the live 75m board (6-Aug-2026): 3 of 7 armed names were IGNITION-only
-// INSIDE a zone (TITAN, UNOMINDA, HINDALCO). n=7 — a story, not a rate.
-// So this TAGS and never gates. It cannot remove a signal; it says the two halves of
-// the setup do not agree, and leaves the read to Jay. It earns a gate only after a
-// Sigma-matched measurement, the way the combos were tested.
-// Roles mirror pa_combos.ROLE exactly — one definition, two surfaces.
-bool _roleIgn = kSC or kPP or kGAP or kBC or kLAU or kHTF or kSOS
-bool _roleRev = kSPR or kENG or k3B or kLIQ or kU50 or kH50 or kH200 or kHSUP or kCLIMAX or k2B or kRECLAIM
-bool _roleTen = kVCP or kNR7 or kIN3 or kIBNR7 or kVDU
-// Only the in-zone case is flagged. The converse (TENSION alone at a level) had ZERO
-// live instances to look at, so tagging it would be asserting a rule nothing supports.
-bool roleMismatch = z_inDZ and _roleIgn and not (_roleRev or _roleTen)
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold2809() =>
+    bool kSOS     = show_pa and active_sos > 0.5
+    bool kHSUP    = show_pa and active_hsup > 0.5
+    bool kVDU     = show_pa and active_vdu > 0.5
+    bool kRECLAIM = show_pa and nz(w_cross,  0.0) > 0.5 and not _paIntraday      // weekly 30-WMA reclaim (Stage 1→2)
+    bool _roleIgn = kSC or kPP or kGAP or kBC or kLAU or kHTF or kSOS
+    bool _roleRev = kSPR or kENG or k3B or kLIQ or kU50 or kH50 or kH200 or kHSUP or kCLIMAX or k2B or kRECLAIM
+    bool _roleTen = kVCP or kNR7 or kIN3 or kIBNR7 or kVDU
+    bool roleMismatch = z_inDZ and _roleIgn and not (_roleRev or _roleTen)
+    [kSOS, kHSUP, kVDU, kRECLAIM, roleMismatch]
+[kSOS, kHSUP, kVDU, kRECLAIM, roleMismatch] = f_fold2809()
 
 // ── PA COMBINATIONS (v8.7) ───────────────────────────────────────────────────────
 // A combo is a SEQUENCE, not a coincidence: a structural CONTEXT that formed over the
@@ -2942,103 +2937,68 @@ else
 // never have been entered — exactly how COLPAL (30WMA FALLING) reached
 // "TAKE IT — Recovery ★strong". This applies even under a MANUAL mode, because the
 // stage is a fact about the chart, not a preference — that is the whole point.
-bool stage_skip = stage_gate and stage_n >= 3
-// v7.3 #autorec (Jay, 2-Aug: "effectively it is glued to Bull in auto mode"). Stage alone
-// could not find a Recovery, and the reason is structural: the Golden Matcher does not
-// classify by stage at all — the path is INHERITED from the source watchlist, which
-// recovery_screener qualified on RFF fundamentals + a 15-35% drawdown. A beaten-down name
-// that has reclaimed its 30WMA is Stage 2 by price structure, so Auto called it Bull
-// forever, whatever the drawdown said.
-// So drawdown returns as a SECOND route into Recovery. This is safe now in a way it was
-// not in v5.8: back then a drawdown-based Recovery let COLPAL — a Stage-3 topping name —
-// through, which is exactly why it was removed. `stage_skip` now vetoes Stage 3/4
-// independently and BEFORE this, so that failure mode is already covered; the band only
-// ever chooses between Bull and Recovery among names that are already tradeable.
-// APPROXIMATION, on the record: S4 cannot read RFF, so this is the drawdown half of the
-// GM's test only. A fundamentally weak name in the band will read Recovery here and be
-// rejected by the GM. The GM remains the authority — this makes Auto agree with it more
-// often, it does not make S4 equivalent.
-bool rec_dd  = use_dd_recovery and not na(dd60) and dd60 >= rec_dd_min and dd60 <= rec_dd_max
-// THE SYNC. Normalise both sides to ",SYMBOL," so a substring match cannot fire on a
-// partial name (RELIANCE must never match RELIANCEPOWER). Commas, semicolons, spaces and
-// newlines all read as separators, and an "NSE:" prefix is stripped, so the list can be
-// pasted from anywhere without reformatting.
-string _gmL = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_rec_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
-bool gm_rec = str.length(_gmL) > 0 and str.contains("," + _gmL + ",", "," + str.upper(syminfo.ticker) + ",")
-// GM FIRST: it knows which screen qualified the name, which is information no price rule
-// can recover. The heuristic is the fallback for symbols the list does not mention —
-// which is also the GM's own default (a name it did not qualify as Recovery is Bull).
-// THE SAME HANDOFF, ONE AXIS OVER (v7.4) — breakout vs pullback. Parsed identically so
-// the two lists behave the same way and neither can fire on a partial name.
-string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
-bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
-// v8.1 — THE PATH NO LONGER KEYS ON THE BARE STAGE DIGIT. Making the flat cell honest
-// (Stage 1 instead of 2) would otherwise route every healthy BASE to the Recovery
-// battery, because `stage_n == 1` alone meant recovery. A Stage-1 base is a base; what
-// makes it a RECOVERY is that it is beaten-down, and the 200-DMA is the discriminant
-// this file already uses for exactly that (v2.3). So: Stage 1 BELOW the 200-DMA is a
-// recovery base; Stage 1 ABOVE it is a bull base and stays on the Bull path.
-// Without this pairing the stage fix would have been a regression — UNOMINDA (leading
-// RS, above the 200-DMA) would have started being graded by the recovery battery.
-bool _bel200path = nz(d_bel200, 0.0) > 0.5
-bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
-bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold2949() =>
+    bool stage_skip = stage_gate and stage_n >= 3
+    bool rec_dd  = use_dd_recovery and not na(dd60) and dd60 >= rec_dd_min and dd60 <= rec_dd_max
+    string _gmL = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_rec_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
+    bool gm_rec = str.length(_gmL) > 0 and str.contains("," + _gmL + ",", "," + str.upper(syminfo.ticker) + ",")
+    string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
+    bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
+    bool _bel200path = nz(d_bel200, 0.0) > 0.5
+    bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
+    bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
+    [stage_skip, gm_rec, gm_pb, is_rec]
+[stage_skip, gm_rec, gm_pb, is_rec] = f_fold2949()
 // Combo detection needs the resolved Bull/Recovery path, so the CALL lives here
 // while the function itself sits with the k* flags it reads.
 [_agVCP, _agBC, _agSPR, _agCLX, _agSPRr, _ag2B, cbSPRING, cbIGNITE, cbTRAP, cbFLOOR, cbSHIFT] = f_paCombos(is_rec)
 
-int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
-bool any_pa = is_rec ? (kCLIMAX or kSPR or k2B or kSOS or kENG or kHSUP or k3B or kPP or kVDU or kRECLAIM) : (kHTF or kSC or kVCP or kPP or kENG or kLIQ or k3B or kLAU or kIN3 or kNR7 or kIBNR7 or kSPR or kGAP or kU50 or kH50 or kH200 or kBC)
-bool pa_fire = any_pa and not any_pa[1]
-// PATH-SPECIFICITY of the live trigger (answers "why does GO stay when I flip Bull<->Recovery?").
-// Spring/Engulf/3-Bar/Pocket are in BOTH batteries; a GO resting ONLY on those holds in either
-// path. A GO that carries a path-EXCLUSIVE pattern drops when you flip away from that path.
-bool pa_bull_excl   = kHTF or kSC or kVCP or kLIQ or kLAU or kIN3 or kNR7 or kIBNR7 or kGAP or kU50 or kH50 or kH200 or kBC
-bool pa_rec_excl    = kCLIMAX or k2B or kSOS or kHSUP or kVDU or kRECLAIM
-bool pa_shared_only = any_pa and not (is_rec ? pa_rec_excl : pa_bull_excl)
-
-// ==========================================================================
-// PATTERNS — flag · geometry · manual box
-// ==========================================================================
-// --- FLAG. Four requirements, because a flag is not "a quiet range after a move":
-//   POLE          a real impulse before the consolidation
-//   TIGHT         the consolidation is contained
-//   COUNTER-DRIFT it slopes AGAINST the pole  ← the defining feature
-//   DRY VOLUME    it dries up
-//   PROPORTION    it gives back only a fraction of the pole (else it's a reversal)
-// Chart Markup required only POLE + TIGHT, so it fired on continuation drifts.
-float _flagHi   = ta.highest(high, flag_cons)
-float _flagLo   = ta.lowest(low, flag_cons)
-float _flagVol  = ta.sma(volume, flag_cons)
-float _poleVol  = ta.sma(volume, flag_pole)[flag_cons]
-float _poleMove = close[flag_cons] - close[flag_cons + flag_pole]
-float _consRng  = _flagHi - _flagLo
-float _consDrift= close - close[flag_cons - 1]        // >0 = drifting up
-bool  _tight    = _consRng < flag_rngA * chart_atr
-bool  _volDry   = not na(_poleVol) and _poleVol > 0 and _flagVol <= _poleVol * flag_volDry
-// Bull flag: up-pole, drift DOWN (or flat), retrace within proportion.
-bool _bullPole  = _poleMove >  flag_poleA * chart_atr
-bool _bullDrift = (not flag_drift) or _consDrift <= 0
-float _poleHi   = ta.highest(high, flag_pole)[flag_cons]
-bool _bullProp  = _bullPole and (_poleHi - _flagLo) <= math.abs(_poleMove) * flag_retr   // from the pole's HIGH — a close understates the retrace, letting >50% pullbacks pass as flags
-bool bullFlag   = show_flag and d_pat and _tight and _bullPole and _bullDrift and _volDry and _bullProp
-// Bear flag: down-pole, drift UP (or flat).
-bool _bearPole  = _poleMove < -flag_poleA * chart_atr
-bool _bearDrift = (not flag_drift) or _consDrift >= 0
-float _poleLo   = ta.lowest(low, flag_pole)[flag_cons]
-bool _bearProp  = _bearPole and (_flagHi - _poleLo) <= math.abs(_poleMove) * flag_retr
-bool bearFlag   = show_flag and d_pat and _tight and _bearPole and _bearDrift and _volDry and _bearProp
-
-// #59 MAX-THREADING FIT (Jay, 23-Jul). The last-two-pivot read connects the recent
-// EXTREME pivots, not the MOST pivots — so a clean 3-pivot channel line was missed.
-// Given a set of same-side pivots (price py, time px), pick the pair whose line threads
-// the most members within `tol`, then anchor the line on the earliest/latest threaded
-// member (points placed ON the fit). Bounded O(n^2) over <=6 pivots. Returns
-// [xEarly, yEarly, xLate, yLate] (all na when < 2 pivots).
-// f_bestLine — the max-threading line fit used by the geometry classifier.
-// v7.3 TOKEN: f_bestLine removed with the geometry classifier — its only caller.
-float _gph = ta.pivothigh(high, geo_pv, geo_pv)
-float _gpl = ta.pivotlow(low,  geo_pv, geo_pv)
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold2994() =>
+    int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
+    bool any_pa = is_rec ? (kCLIMAX or kSPR or k2B or kSOS or kENG or kHSUP or k3B or kPP or kVDU or kRECLAIM) : (kHTF or kSC or kVCP or kPP or kENG or kLIQ or k3B or kLAU or kIN3 or kNR7 or kIBNR7 or kSPR or kGAP or kU50 or kH50 or kH200 or kBC)
+    bool pa_fire = any_pa and not any_pa[1]
+    bool pa_bull_excl   = kHTF or kSC or kVCP or kLIQ or kLAU or kIN3 or kNR7 or kIBNR7 or kGAP or kU50 or kH50 or kH200 or kBC
+    bool pa_rec_excl    = kCLIMAX or k2B or kSOS or kHSUP or kVDU or kRECLAIM
+    bool pa_shared_only = any_pa and not (is_rec ? pa_rec_excl : pa_bull_excl)
+    float _flagHi   = ta.highest(high, flag_cons)
+    float _flagLo   = ta.lowest(low, flag_cons)
+    float _flagVol  = ta.sma(volume, flag_cons)
+    float _poleVol  = ta.sma(volume, flag_pole)[flag_cons]
+    float _poleMove = close[flag_cons] - close[flag_cons + flag_pole]
+    float _consRng  = _flagHi - _flagLo
+    float _consDrift= close - close[flag_cons - 1]        // >0 = drifting up
+    bool  _tight    = _consRng < flag_rngA * chart_atr
+    bool  _volDry   = not na(_poleVol) and _poleVol > 0 and _flagVol <= _poleVol * flag_volDry
+    bool _bullPole  = _poleMove >  flag_poleA * chart_atr
+    bool _bullDrift = (not flag_drift) or _consDrift <= 0
+    float _poleHi   = ta.highest(high, flag_pole)[flag_cons]
+    bool _bullProp  = _bullPole and (_poleHi - _flagLo) <= math.abs(_poleMove) * flag_retr   // from the pole's HIGH — a close understates the retrace, letting >50% pullbacks pass as flags
+    bool bullFlag   = show_flag and d_pat and _tight and _bullPole and _bullDrift and _volDry and _bullProp
+    bool _bearPole  = _poleMove < -flag_poleA * chart_atr
+    bool _bearDrift = (not flag_drift) or _consDrift >= 0
+    float _poleLo   = ta.lowest(low, flag_pole)[flag_cons]
+    bool _bearProp  = _bearPole and (_flagHi - _poleLo) <= math.abs(_poleMove) * flag_retr
+    bool bearFlag   = show_flag and d_pat and _tight and _bearPole and _bearDrift and _volDry and _bearProp
+    float _gph = ta.pivothigh(high, geo_pv, geo_pv)
+    float _gpl = ta.pivotlow(low,  geo_pv, geo_pv)
+    [tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl]
+[tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl] = f_fold2994()
 // Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
 // a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
 // pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
@@ -3406,51 +3366,53 @@ f_nearlvl(float f) => not na(f) and close > 0 and math.abs(close - f) / close <=
 // v3.0: OB is REMOVED as a support source — the Institutional demand/supply zones
 // (z_inDZ, from the Zone Engine above) replace it (#8). FVG + pivot lines
 // ("other S/R key levels") are KEPT. Only FRESH (untested) zones count.
-bool in_d_fvg = f_inzone(d_fvg_top, d_fvg_bot) and nz(d_fvg_tested, 0.0) < 0.5
-bool in_d_piv = f_nearpiv(d_pivot)
-bool in_w_fvg = f_inzone(w_fvg_top, w_fvg_bot) and nz(w_fvg_tested, 0.0) < 0.5
-bool in_w_piv = f_nearpiv(w_pivot)
-// v2.0: an AVWAP support is ALSO an automated demand level — an AVWAP bounce (ev_ok)
-// happens AT one by definition, so counting it here stops require_support from
-// suppressing a valid AVWAP entry that isn't also sitting on a zone/FVG/pivot.
-bool near_avwap = not na(nearest_sup) and close >= nearest_sup and (close - nearest_sup) / close <= 0.015
-// #10: EMA20 as DYNAMIC support — price sitting just above the EMA20 anchor.
-bool near_ema = not na(dyn_ema) and close >= dyn_ema and (close - dyn_ema) / dyn_ema <= 0.015
-// v5.0-fix: these were computed and never referenced. They now feed BOTH the Support
-// Zone panel row and support_pass (gated by en_wcl_loc) — price holding the Value-Area
-// Low or the POC is a genuine high-volume acceptance shelf, which is what "location"
-// means. near_vp_poc is two-sided (abs) because the POC acts as a magnet from either
-// side; near_vp_val is one-sided (price must be AT OR ABOVE the VAL, not under it).
-bool near_vp_val = en_wcl and en_wcl_vp and not na(vp_val) and close >= vp_val and (close - vp_val) / close <= 0.015
-bool near_vp_poc = en_wcl and en_wcl_vp and not na(vp_poc) and close >= vp_poc and math.abs(close - vp_poc) / close <= 0.015
-bool at_vp_support = en_wcl_loc and (near_vp_val or near_vp_poc)
-
-// #11b: Fibonacci retracement of the last ~120-bar swing — INDICATION ONLY (never
-// gates). 38.2 / 50 / 61.8 of the swing high→low. `near_fib`/`fib_tag` are shown
-// in the Support Zone panel row but are NOT part of support_pass.
-// PULLBACK OF THE ADVANCE, long-only (v9.2). Two prior versions were both wrong for
-// this desk. The original measured DOWN from the 120-bar high unconditionally, which
-// is meaningless when the high came FIRST (ANANDRATHI 75m: high 2176.2 on 10-Jul,
-// low 2002.1 on 24-Jul — a decline). v9.1 then measured UP from the low, which is a
-// counter-trend BOUNCE — a short-seller's frame, and Jay does not take shorts.
-// The only leg worth measuring here is the ADVANCE: the swing low, then the highest
-// high made AFTER it (running high if the leg is still forming). A pullback is a
-// retracement DOWN from that high — the level you buy into.
-// When there is no advance to speak of (the low IS the last few bars, i.e. price is
-// still making lows) there is no pullback, and the row prints nothing rather than a
-// level with no leg behind it.
-int   _fibLoAgo = math.abs(ta.lowestbars(low, 120))
-float _fibLo    = ta.lowest(low, 120)
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold3413() =>
+    bool in_d_fvg = f_inzone(d_fvg_top, d_fvg_bot) and nz(d_fvg_tested, 0.0) < 0.5
+    bool in_d_piv = f_nearpiv(d_pivot)
+    bool in_w_fvg = f_inzone(w_fvg_top, w_fvg_bot) and nz(w_fvg_tested, 0.0) < 0.5
+    bool in_w_piv = f_nearpiv(w_pivot)
+    bool near_avwap = not na(nearest_sup) and close >= nearest_sup and (close - nearest_sup) / close <= 0.015
+    bool near_ema = not na(dyn_ema) and close >= dyn_ema and (close - dyn_ema) / dyn_ema <= 0.015
+    bool near_vp_val = en_wcl and en_wcl_vp and not na(vp_val) and close >= vp_val and (close - vp_val) / close <= 0.015
+    bool near_vp_poc = en_wcl and en_wcl_vp and not na(vp_poc) and close >= vp_poc and math.abs(close - vp_poc) / close <= 0.015
+    bool at_vp_support = en_wcl_loc and (near_vp_val or near_vp_poc)
+    int   _fibLoAgo = math.abs(ta.lowestbars(low, 120))
+    float _fibLo    = ta.lowest(low, 120)
+    [in_d_fvg, in_d_piv, in_w_fvg, in_w_piv, near_avwap, near_ema, near_vp_val, at_vp_support, _fibLoAgo, _fibLo]
+[in_d_fvg, in_d_piv, in_w_fvg, in_w_piv, near_avwap, near_ema, near_vp_val, at_vp_support, _fibLoAgo, _fibLo] = f_fold3413()
 float _fibHi    = na
 for _fi = 0 to _fibLoAgo
     _fibHi := na(_fibHi) ? high[_fi] : math.max(_fibHi, high[_fi])
-bool  _fibOk  = _fibLoAgo >= 3 and not na(_fibHi) and _fibHi > _fibLo
-float _fibRng = _fibOk ? _fibHi - _fibLo : na
-float fib382 = _fibHi - _fibRng * 0.382
-float fib50  = _fibHi - _fibRng * 0.500
-float fib618 = _fibHi - _fibRng * 0.618
-string fib_tag = f_nearlvl(fib618) ? "61.8" : f_nearlvl(fib50) ? "50" : f_nearlvl(fib382) ? "38.2" : ""
-bool near_fib = fib_tag != ""
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold3451() =>
+    bool  _fibOk  = _fibLoAgo >= 3 and not na(_fibHi) and _fibHi > _fibLo
+    float _fibRng = _fibOk ? _fibHi - _fibLo : na
+    float fib382 = _fibHi - _fibRng * 0.382
+    float fib50  = _fibHi - _fibRng * 0.500
+    float fib618 = _fibHi - _fibRng * 0.618
+    float _fd382 = f_nearlvl(fib382) ? math.abs(close - fib382) : 1e12
+    float _fd50  = f_nearlvl(fib50)  ? math.abs(close - fib50)  : 1e12
+    float _fd618 = f_nearlvl(fib618) ? math.abs(close - fib618) : 1e12
+    float _fdMin = math.min(_fd382, math.min(_fd50, _fd618))
+    string fib_tag = _fdMin > 1e11 ? "" : _fdMin == _fd382 ? "38.2" : _fdMin == _fd50 ? "50" : "61.8"
+    bool near_fib = fib_tag != ""
+    [fib_tag, near_fib]
+[fib_tag, near_fib] = f_fold3451()
 
 // ---- Nearest S/R LEVEL each side, manual-over-auto, TF-tagged ----------------
 // Resolution order per TF: if you marked that TF, YOUR levels are the only ones
@@ -3634,86 +3596,40 @@ if not na(coil_dn) and math.abs(close - coil_dn) <= _coilBand and (na(coil_lvl) 
 // Semantics this settles: each bar is tested against the level that was binding ON
 // THAT BAR, not against today's level applied backwards. That is the stricter and
 // more honest reading of "price has been halting here".
-float _coilHits = math.sum((not na(coil_lvl)) and math.abs(close - coil_lvl) <= _coilBand ? 1.0 : 0.0, coil_look)
-bool coil_on   = show_coil and not na(coil_lvl) and _coilHits >= coil_min and (sqz_on or not coil_need_sqz)
-bool coil_bo   = coil_on and coil_lvl >= close      // over-tested ceiling  -> breakout watch
-bool coil_bd   = coil_on and coil_lvl <  close      // over-tested floor    -> breakdown watch
-
-bool in_daily_zone  = in_d_fvg or in_d_piv
-bool in_weekly_zone = in_w_fvg or in_w_piv
-// v3.0 (#11): the Trigger's support consideration = FRESH demand zone (#8) OR FVG
-// OR pivot S/R OR AVWAP OR the EMA20 dynamic S/R (#10). Fibs are indication-only.
-// v3.2: + a fresh horizontal S/R level (near_sr). NOTE this LOOSENS the GO gate —
-// support_pass gains a source, so GO fires on names it previously skipped. That is
-// intended (a marked level IS a location), but it is a SIGNAL change, not a drawing
-// change: expect more GOs than v3.1.
-// near_sr already covers the manual trendline: tls_now/tlr_now are projected into
-// the sr_below pool above, so a trendline IS a level for the gate's purposes. No
-// separate term here — one source of truth for "am I at a location".
-// v5.0: + at_vp_support (Volume-Profile VAL/POC). See en_wcl_loc — this LOOSENS the gate.
-bool inside_support_zone = (d_zones and z_inDZ) or (d_lvls and (in_daily_zone or in_weekly_zone)) or (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
-bool support_pass = (not require_support) or inside_support_zone
-
-float vol_sma_50 = ta.sma(volume, 50)
-float _v50p = vol_sma_50[1]      // prior-bar average: a 5x volume bar must not inflate its own baseline (~8% RV understatement exactly at the floor)
-float chart_rv = _v50p > 0 ? volume / _v50p : 0.0
-float swingLo10 = ta.lowest(low, 10)   // recent swing low for the structural Plan SL (hoisted; ta.* can't run in the panel's conditional)
-// v2.9: the volume gate uses the TRADING-TIMEFRAME RV (chart_rv) — the exact number
-// now shown in the panel RV row — so the gate and the display can NEVER disagree.
-// (Was a mix of yesterday's confirmed daily RV and chart RV, which let the panel
-// show one RV while the gate tested another.)
-// ── PULLBACK CONTEXT (3-Aug, Jay: "all the triggers are breakout trades, which are
-// extended. Why am I not getting pullback trades?") ─────────────────────────────
-// The volume and bar-quality gates below were SETUP-BLIND, and a pullback is DEFINED by
-// failing both: it enters on volume DRY-UP (vol_drying is literally part of the SWG-PB
-// gate) and its bar into support is often red or weak-closing — that IS the retracement.
-// A breakout satisfies both trivially: expansion bar, heavy volume, strong close. So the
-// gate was not neutral between setups; it encoded a breakout's signature and called it
-// quality, and every GO reaching the chart was extended by construction.
-// Detected from what actually fired, since S4 has no archetype: CONTRACTION patterns with
-// no EXPANSION pattern, while price sits in a demand zone. Requiring the zone is what
-// stops this relaxing the gate on a random quiet bar — a pullback has to be AT a location.
-bool pa_contract = kVCP or kNR7 or kIBNR7 or kPP or kU50 or kH50 or kH200 or kIN3
-bool pa_expand   = kGAP or kBC or kSC or kLAU or kHTF or kLIQ
-// KNOWN ARCHETYPE BEATS THE INFERENCE (v7.4, 5-Aug). pa_contract/pa_expand is how this
-// script GUESSES which setup it is looking at, because Pine has no archetype. When the
-// GM's Pullback list names this symbol, there is nothing to guess — that name came off
-// the SWG-PB screen (or is a pyramid ADD, which requires pullback location), which is
-// information no price rule can recover.
-// The inference has a real hole that this closes: a reversal bar off a demand zone that
-// closes strong fires kSC (Power Play / Strong Close), which is in pa_expand — so the
-// textbook pullback entry disqualified ITSELF from pullback treatment and was then held
-// to a breakout's volume floor. That is a large part of "why am I not getting pullbacks".
-// z_inDZ is NOT relaxed. A known pullback still has to be AT a demand zone; that is the
-// discipline of the setup and the only thing keeping the relaxed floor honest.
-bool pb_ctx      = pb_aware and (gm_pb or (pa_contract and not pa_expand)) and z_inDZ
-// VOLUME: for a pullback, dry-up CONFIRMS. Demanding >= average volume is the single
-// biggest reason pullbacks never reach GO. The floor drops rather than inverting — a
-// reversal bar arriving ON volume is the best case, so a high-RV pullback must not be
-// vetoed either.
-bool vol_ok = chart_rv >= (pb_ctx ? pb_rv_floor : rv_floor)
-
-bool ev_ok    = avwap_trig
-bool intra_ok = intraday_trig
-bool timing_ok = ev_ok or intra_ok      // optional TIMING refinement (AVWAP / intraday)
-// TRIGGER-BAR QUALITY (B): the GO candle must CLOSE STRONG — green, or a red bar that
-// still closed in the UPPER HALF of its range (a shakeout that recovered is OK). A bar
-// that closes in the LOWER half (a sold-off / distribution / upthrust candle) is vetoed
-// — this blocks the case where a structural pattern (3-Bar, VCP, BC) fires on a big red
-// bar that spiked to a new high then closed weak (a failed breakout). Lenient per Jay:
-//   bar_ok = green OR close in the upper half of the bar's range.
-float _bqRng   = high - low
-float _bqClpos = _bqRng > 0 ? (close - low) / _bqRng : 0.5
-// BAR QUALITY: a pullback bar does not need to close STRONG — it needs to HOLD the zone.
-// Closing back above the demand zone's distal is the pullback's own confirmation, and it
-// is a stricter test than "upper half" for this case: it is measured against structure
-// rather than against the bar's own range.
-bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
-// #1 SIGNAL = PA. GO now requires a PA-battery pattern (from the current Bull/Recovery
-// mode) to have fired, AT a valid location (support), WITH volume, on a clean bar (B).
-// The AVWAP/intraday triggers are no longer required — shown as optional timing (⏱). So
-// flipping Bull↔Recovery changes the signal, and the trade signal comes from the PA.
-bool go       = any_pa and support_pass and vol_ok and bar_ok
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold3649() =>
+    float _coilHits = math.sum((not na(coil_lvl)) and math.abs(close - coil_lvl) <= _coilBand ? 1.0 : 0.0, coil_look)
+    bool coil_on   = show_coil and not na(coil_lvl) and _coilHits >= coil_min and (sqz_on or not coil_need_sqz)
+    bool coil_bo   = coil_on and coil_lvl >= close      // over-tested ceiling  -> breakout watch
+    bool coil_bd   = coil_on and coil_lvl <  close      // over-tested floor    -> breakdown watch
+    bool in_daily_zone  = in_d_fvg or in_d_piv
+    bool in_weekly_zone = in_w_fvg or in_w_piv
+    bool inside_support_zone = (d_zones and z_inDZ) or (d_lvls and (in_daily_zone or in_weekly_zone)) or (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
+    bool support_pass = (not require_support) or inside_support_zone
+    float vol_sma_50 = ta.sma(volume, 50)
+    float _v50p = vol_sma_50[1]      // prior-bar average: a 5x volume bar must not inflate its own baseline (~8% RV understatement exactly at the floor)
+    float chart_rv = _v50p > 0 ? volume / _v50p : 0.0
+    float swingLo10 = ta.lowest(low, 10)   // recent swing low for the structural Plan SL (hoisted; ta.* can't run in the panel's conditional)
+    bool pa_contract = kVCP or kNR7 or kIBNR7 or kPP or kU50 or kH50 or kH200 or kIN3
+    bool pa_expand   = kGAP or kBC or kSC or kLAU or kHTF or kLIQ
+    bool pb_ctx      = pb_aware and (gm_pb or (pa_contract and not pa_expand)) and z_inDZ
+    bool vol_ok = chart_rv >= (pb_ctx ? pb_rv_floor : rv_floor)
+    bool ev_ok    = avwap_trig
+    bool intra_ok = intraday_trig
+    bool timing_ok = ev_ok or intra_ok      // optional TIMING refinement (AVWAP / intraday)
+    float _bqRng   = high - low
+    float _bqClpos = _bqRng > 0 ? (close - low) / _bqRng : 0.5
+    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
+    bool go       = any_pa and support_pass and vol_ok and bar_ok
+    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
+[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
 
 // ==========================================================================
 // ARRIVAL STYLE + ORDER-FLOW DELTA (computed before the confluence block so the
@@ -3724,22 +3640,28 @@ bool go       = any_pa and support_pass and vol_ok and bar_ok
 // (neutral) if the lower-TF data is unavailable.
 array<float> _ofUp = request.security_lower_tf(syminfo.tickerid, of_ltf, close > open ? volume : 0.0)
 array<float> _ofDn = request.security_lower_tf(syminfo.tickerid, of_ltf, close < open ? volume : 0.0)
-float bar_delta = nz(array.sum(_ofUp)) - nz(array.sum(_ofDn))
-
-// Which zone (if any) price is interacting with right now — arrival is only meaningful at one.
-bool  _inDmd = z_inDZ
-bool  _inSup = z_inSZ and not z_inDZ
-// The approach leg: from the recent swing extreme into the zone. Demand = the drop
-// from the swing HIGH to the current low; supply = the rally from the swing LOW.
-float _swHiA = ta.highest(high, arr_look)
-float _swLoA = ta.lowest(low,  arr_look)
-int   _hiAgo = math.max(math.abs(ta.highestbars(high, arr_look)), 1)
-int   _loAgo = math.max(math.abs(ta.lowestbars(low,  arr_look)), 1)
-int   arr_bars = _inSup ? _loAgo : _hiAgo
-float arr_dist = _inSup ? (high - _swLoA) : (_swHiA - low)
-// Velocity in ATR/bar — the core Arrival-Style metric.
-float arr_vel  = (chart_atr > 0 and arr_bars > 0 and (arr_dist > 0)) ? (arr_dist / chart_atr) / arr_bars : na
-string arr_style = (not (_inDmd or _inSup)) ? "—" : na(arr_vel) ? "—" : arr_vel >= arr_vel_fast ? "FAST" : arr_vel <= arr_vel_slow ? "GRIND" : "NORMAL"
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold3739() =>
+    float bar_delta = nz(array.sum(_ofUp)) - nz(array.sum(_ofDn))
+    bool  _inDmd = z_inDZ
+    bool  _inSup = z_inSZ and not z_inDZ
+    float _swHiA = ta.highest(high, arr_look)
+    float _swLoA = ta.lowest(low,  arr_look)
+    int   _hiAgo = math.max(math.abs(ta.highestbars(high, arr_look)), 1)
+    int   _loAgo = math.max(math.abs(ta.lowestbars(low,  arr_look)), 1)
+    int   arr_bars = _inSup ? _loAgo : _hiAgo
+    float arr_dist = _inSup ? (high - _swLoA) : (_swHiA - low)
+    float arr_vel  = (chart_atr > 0 and arr_bars > 0 and (arr_dist > 0)) ? (arr_dist / chart_atr) / arr_bars : na
+    string arr_style = (not (_inDmd or _inSup)) ? "—" : na(arr_vel) ? "—" : arr_vel >= arr_vel_fast ? "FAST" : arr_vel <= arr_vel_slow ? "GRIND" : "NORMAL"
+    [bar_delta, _inDmd, _inSup, arr_vel, arr_style]
+[bar_delta, _inDmd, _inSup, arr_vel, arr_style] = f_fold3739()
 
 // Order-flow read: sum the last of_win bar deltas, plus a delta-divergence check.
 float of_delta = 0.0
@@ -3874,23 +3796,29 @@ int cf_max = (3 * cf_w_mtf) + (d_avwap ? cf_w_avwap : 0) + (show_intraday ? cf_w
 f_mkt_health() =>
     [mc, m50, m200] = request.security("NSE:CNX500", "D", [close, ta.sma(close, 50), ta.sma(close, 200)], lookahead=barmerge.lookahead_off)
     not na(mc) and not na(m200) and mc > m200 and m50 > m200
-bool mkt_health = f_mkt_health()
-// Stage-2 uptrend proxy from the daily battery reads (above 200-DMA, above a rising 150-SMA)
-bool  dyn_s2   = nz(d_bel200, 0.0) < 0.5 and nz(d_bel30, 0.0) < 0.5 and nz(d_s150dn, 0.0) < 0.5
-bool  dyn_rs   = rsSlope > 0
-bool  dyn_vol  = chart_rv > 1.1
-int   kelly_pts = (dyn_s2 ? 1 : 0) + (dyn_rs ? 1 : 0) + (dyn_vol ? 1 : 0)
-float wcl_kelly_adj = (en_wcl and _setup_pri >= 4) ? 0.25 : (en_wcl and choch_count_20 >= 3) ? -0.25 : 0.0
-float kelly_mult = math.max(0.5, (kelly_pts >= 3 ? 1.25 : kelly_pts == 2 ? 1.0 : 0.75) + wcl_kelly_adj)
-float dyn_atr_pct = close > 0 ? nz(atrD_tf, 0.0) / close * 100.0 : 0.0
-float vol_disc = dyn_atr_pct > 3.0 ? math.min(3.0 / dyn_atr_pct, 1.0) : 1.0
-float regime_risk = mkt_health ? size_risk : math.max(size_risk - 0.25, 0.25 * size_risk)
-float active_risk = use_dyn_risk ? math.max(regime_risk * math.max(vol_disc * kelly_mult, 0.75), 0.25 * size_risk) : size_risk
-// #2 LAST-CLOSED-CANDLE READ: on the live forming bar (barstate.islast & not confirmed)
-// with use_closed_candle ON, shift the DISPLAYED signal to the previous (closed) bar so
-// a shortlisted trigger doesn't drop the instant a new bar opens (undeveloped bar / thin
-// early volume). The signal then updates only when the current bar CLOSES.
-int   _so        = (use_closed_candle and barstate.islast and not barstate.isconfirmed) ? 1 : 0
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold3889() =>
+    bool mkt_health = f_mkt_health()
+    bool  dyn_s2   = nz(d_bel200, 0.0) < 0.5 and nz(d_bel30, 0.0) < 0.5 and nz(d_s150dn, 0.0) < 0.5
+    bool  dyn_rs   = rsSlope > 0
+    bool  dyn_vol  = chart_rv > 1.1
+    int   kelly_pts = (dyn_s2 ? 1 : 0) + (dyn_rs ? 1 : 0) + (dyn_vol ? 1 : 0)
+    float wcl_kelly_adj = (en_wcl and _setup_pri >= 4) ? 0.25 : (en_wcl and choch_count_20 >= 3) ? -0.25 : 0.0
+    float kelly_mult = math.max(0.5, (kelly_pts >= 3 ? 1.25 : kelly_pts == 2 ? 1.0 : 0.75) + wcl_kelly_adj)
+    float dyn_atr_pct = close > 0 ? nz(atrD_tf, 0.0) / close * 100.0 : 0.0
+    float vol_disc = dyn_atr_pct > 3.0 ? math.min(3.0 / dyn_atr_pct, 1.0) : 1.0
+    float regime_risk = mkt_health ? size_risk : math.max(size_risk - 0.25, 0.25 * size_risk)
+    float active_risk = use_dyn_risk ? math.max(regime_risk * math.max(vol_disc * kelly_mult, 0.75), 0.25 * size_risk) : size_risk
+    int   _so        = (use_closed_candle and barstate.islast and not barstate.isconfirmed) ? 1 : 0
+    [mkt_health, kelly_mult, vol_disc, active_risk, _so]
+[mkt_health, kelly_mult, vol_disc, active_risk, _so] = f_fold3889()
 // v7.1.1 — hoisted reads. Pine charges per OPERATION, so the same series
 // indexed [_so] eight times costs eight index operations. Same values, same
 // bar, one read each. (array.size(activeZones) is NOT hoisted — that array is
@@ -3900,28 +3828,20 @@ int   _so        = (use_closed_candle and barstate.islast and not barstate.iscon
 f_soSnap() =>
     [z_inDZ[_so], z_nearSZprox[_so], z_spentSZ[_so], sr_above[_so], d_piv_res[_so], w_piv_res[_so], lastPH[_so], close[_so], high[_so], _dzTfN[_so], of_absorb[_so], arr_style[_so], chart_atr[_so]]
 [_so_z_inDZ, _so_z_nearSZprox, _so_z_spentSZ, _so_sr_above, _so_d_piv_res, _so_w_piv_res, _so_lastPH, _so_close, _so_high, _so_dzTfN, _so_of_absorb, _so_arr_style, _so_chart_atr] = f_soSnap()
-bool  intra_ok_v = intra_ok[_so]
-bool  timing_v   = timing_ok[_so]
+// SNAPSHOT #2 (v9.5). Twenty single assignments of the form `x_v = x[_so]` are twenty
+// MAIN-BODY statements against a cap the script has now hit; as one tuple they are two.
+// Same shape as f_soSnap above — and a tuple must be destructured at GLOBAL scope,
+// which is why this sits here and not inside the panel block that consumes it.
+f_soSnap2() =>
+    [intra_ok[_so], timing_ok[_so], any_pa[_so], vol_ok[_so], support_pass[_so], go[_so], bar_ok[_so], pb_ctx[_so], roleMismatch[_so], avwap_trig[_so], chart_rv[_so], is_rec[_so], tsum[_so], cf[_so], pa_shared_only[_so]]
+[intra_ok_v, timing_v, any_pa_v, vol_ok_v, support_v, go_v, bar_ok_v, pb_ctx_v, roleMism_v, avwap_v, chart_rv_v, is_rec_v, tsum_v, cf_v, shared_v] = f_soSnap2()
 // v5.0-fix: the 5-bar "sticky" window is REVERTED. It claimed to match
 // pa_patterns.py, but pa_patterns.detect_bull_patterns evaluates on the LAST BAR
 // only — the window CREATED Pine↔Python drift (ΣPA summed patterns that fired on
 // different bars) and made the panel print GO with V·/L·/B· failing beneath it.
 // Every _v read is a plain [_so] shift again: one bar, one truth.
-bool  any_pa_v   = any_pa[_so]
-bool  vol_ok_v   = vol_ok[_so]
-bool  support_v  = support_pass[_so]
-bool  go_v       = go[_so]
-bool  bar_ok_v   = bar_ok[_so]
-bool  pb_ctx_v   = pb_ctx[_so]
-bool  roleMism_v = roleMismatch[_so]
-bool  avwap_v    = avwap_trig[_so]
-float chart_rv_v = chart_rv[_so]
-bool  is_rec_v   = is_rec[_so]
-int   tsum_v     = tsum[_so]
 
 
-int   cf_v       = cf[_so]
-bool  shared_v   = pa_shared_only[_so]
 // #trigbar (29-Jul, PFC): LATCH THE TRIGGER BAR. pl_entry read _so_close/_so_high on
 // EVERY bar GO stayed true, so a multi-bar GO sequence ratcheted the "retest limit" up
 // with price — a retest that follows price is a market entry wearing a limit's clothes.
@@ -3947,26 +3867,25 @@ if not go_v and _trigStale
     trigBar := na
     trigCls := na
     trigHi  := na
-int trigAge = na(trigBar) ? 0 : _dispBar - trigBar
-// TRIGGER row: gate = PA(P) + Location(L) + Volume(V) + clean Bar(B). The confluence
-// score GRADES a live GO — "GO ★strong 8/13" vs a bare "GO 2/13". Same gate, but a
-// weak GO and a stacked one no longer look identical.
-string cf_txt   = show_cf ? ("  " + (go_v and cf_v >= cf_strong ? "★strong " : "") + str.tostring(cf_v) + "/" + str.tostring(cf_max)) : ""
-string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
-// SAY WHICH PLAYBOOK IS RUNNING, AND ON WHOSE AUTHORITY. "·PB" alone left the reader
-// unable to tell a GM-qualified pullback from one this script inferred — and those two
-// carry different confidence. GM = the screen qualified it; the bare tag = a guess off
-// the pattern mix.
-string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
-// Warning only, the gate above is untouched: in a demand zone, but the only
-// evidence is an expansion pattern. Worth looking at twice, not worth suppressing.
-string role_txt = roleMism_v ? "  ⚠role" : ""
-string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
-// #61: amber for EVERY waiting state, incl. no-PA (was grey). Matches the STATUS row —
-// grey read as "off/inactive"; amber = "live, waiting for the gate". Green only on GO.
-color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
-// RV field colour (trading-TF RV): green >=1.25 (strong), amber >=1.0 (average), red <1.0 (thin/dead)
-color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold3954() =>
+    int trigAge = na(trigBar) ? 0 : _dispBar - trigBar
+    string cf_txt   = show_cf ? ("  " + (go_v and cf_v >= cf_strong ? "★strong " : "") + str.tostring(cf_v) + "/" + str.tostring(cf_max)) : ""
+    string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
+    string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
+    string role_txt = roleMism_v ? "  ⚠role" : ""
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
+    color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
+    [trigAge, trig_txt, trig_col, rv_col]
+[trigAge, trig_txt, trig_col, rv_col] = f_fold3954()
 
 // ==========================================
 // PLOTS
@@ -4165,32 +4084,33 @@ var line w_piv_ln = na
 var label w_piv_lbl = na
 var line w_pres_ln = na
 var label w_pres_lbl = na
-int _ms_day = 86400000
-int _d_left = time - 180 * _ms_day     // fallback window if a formation time is missing
-int _w_left = time - 540 * _ms_day
-// Left edge = the zone's FORMATION candle time (falls back to the window if na).
-int _d_fvg_L  = na(d_fvg_time)     ? _d_left : int(d_fvg_time)
-int _d_piv_L  = na(d_piv_time)     ? _d_left : int(d_piv_time)
-int _d_pres_L = na(d_piv_res_time) ? _d_left : int(d_piv_res_time)
-int _w_fvg_L  = na(w_fvg_time)     ? _w_left : int(w_fvg_time)
-int _w_piv_L  = na(w_piv_time)     ? _w_left : int(w_piv_time)
-int _w_pres_L = na(w_piv_res_time) ? _w_left : int(w_piv_res_time)
-
-// Tested zones grey out (excluded from the trigger); fresh keep their colour.
-bool d_fvg_t = nz(d_fvg_tested, 0.0) > 0.5
-bool w_fvg_t = nz(w_fvg_tested, 0.0) > 0.5
-color _grey = color.new(color.gray, 88)
-color _greyb = color.new(color.gray, 55)
-
-// #1 TF GUARDRAILS: a level only draws when its own TF is >= the chart TF, so LTF
-// pivots/FVGs never appear on a HIGHER-TF chart, while HTF ones appear on LOWER TFs.
-// Daily levels show on Daily and below; Weekly levels on Weekly and below.
-bool showDailyLvl  = chartSec <= dailySec
-bool showWeeklyLvl = chartSec <= weeklySec
-// #2 label convention (FVG + pivot): 10-space indent, left, vertically centred,
-// larger font — matching the zone labels. Pivot lines use a transparent-bubble
-// label_right anchored at the formation left so text reads INTO the level.
-color _pivBubble = color.new(color.gray, 100)
+// FOLD (v9.5): global declarations -> a function body, which does NOT count
+// against the main-body statement cap. Kept as STATEMENTS so dependencies
+// between consecutive lines still resolve. Only names read AFTER the run are
+// returned — an intermediate costs two identifier tokens (tuple + destructure)
+// for nothing, and this script is also against the 100,256 TOKEN ceiling.
+// Names are excluded when reassigned later, when their fields are read (a UDT
+// loses its type through a tuple), or when passed to core.*/ta.*/request.*,
+// which want `simple` — a function return is always `series`.
+f_fold4172() =>
+    int _ms_day = 86400000
+    int _d_left = time - 180 * _ms_day     // fallback window if a formation time is missing
+    int _w_left = time - 540 * _ms_day
+    int _d_fvg_L  = na(d_fvg_time)     ? _d_left : int(d_fvg_time)
+    int _d_piv_L  = na(d_piv_time)     ? _d_left : int(d_piv_time)
+    int _d_pres_L = na(d_piv_res_time) ? _d_left : int(d_piv_res_time)
+    int _w_fvg_L  = na(w_fvg_time)     ? _w_left : int(w_fvg_time)
+    int _w_piv_L  = na(w_piv_time)     ? _w_left : int(w_piv_time)
+    int _w_pres_L = na(w_piv_res_time) ? _w_left : int(w_piv_res_time)
+    bool d_fvg_t = nz(d_fvg_tested, 0.0) > 0.5
+    bool w_fvg_t = nz(w_fvg_tested, 0.0) > 0.5
+    color _grey = color.new(color.gray, 88)
+    color _greyb = color.new(color.gray, 55)
+    bool showDailyLvl  = chartSec <= dailySec
+    bool showWeeklyLvl = chartSec <= weeklySec
+    color _pivBubble = color.new(color.gray, 100)
+    [_d_fvg_L, _d_piv_L, _d_pres_L, _w_fvg_L, _w_piv_L, _w_pres_L, d_fvg_t, w_fvg_t, _grey, _greyb, showDailyLvl, showWeeklyLvl, _pivBubble]
+[_d_fvg_L, _d_piv_L, _d_pres_L, _w_fvg_L, _w_piv_L, _w_pres_L, d_fvg_t, w_fvg_t, _grey, _greyb, showDailyLvl, showWeeklyLvl, _pivBubble] = f_fold4172()
 // ==========================================================================
 // S/R LEVELS — render (manual first; auto only where you haven't marked)
 // ==========================================================================
@@ -4254,15 +4174,11 @@ if barstate.islast
     // --- PATTERNS: the detected flag, and your manual box. Deletes unconditional.
     box.delete(bxFlag)
     label.delete(lbFlag)
-    box.delete(bxMan)
     label.delete(lbMan)
     if (bullFlag or bearFlag) and (not use_closed_candle or barstate.isconfirmed)
         color _fc = bullFlag ? #26a69a : #ef5350
         bxFlag := box.new(bar_index - flag_cons + 1, _flagHi, bar_index, _flagLo, xloc=xloc.bar_index, border_color=color.new(_fc, 40), bgcolor=color.new(_fc, 90), border_width=1)
         lbFlag := label.new(bar_index - flag_cons + 1, _flagHi, (bullFlag ? "Bull" : "Bear") + " flag", xloc=xloc.bar_index, style=label.style_label_down, color=color.new(_fc, 75), textcolor=_fc, size=size.small)
-    if box_on and d_pat and box_t1 > 0 and box_t2 > 0 and box_hi > 0.0 and box_lo > 0.0
-        bxMan := box.new(box_t1, box_hi, box_t2, box_lo, xloc=xloc.bar_time, border_color=color.new(#ffd54f, 40), bgcolor=color.new(#ffd54f, 90), border_width=1)
-        lbMan := label.new(box_t1, box_hi, "Consolidation (manual)", xloc=xloc.bar_time, style=label.style_label_down, color=color.new(#ffd54f, 75), textcolor=#ffd54f, size=size.small)
 
 if show_zones and d_lvls and barstate.islast
     // --- Daily (dashed, thin) — FVG + pivots. Drawn on Daily-and-lower TFs only. ---
@@ -4380,6 +4296,43 @@ f_row(int r, string k, string vv, color vc) =>
 // rewrite gives every PA token its own table.cell (fired = C_BADGE_BG/C_BADGE_TXT,
 // unfired = blends into the row), so there is no longer a shared string to build. Its
 // only 27 callers were the _g0.._g4 lines below, all replaced by the array/loop version.
+
+// ── v67 RS / RRG WORDING (v9.4) ───────────────────────────────────────────────────
+// Ported verbatim from v67 f_rsStateStr / f_rrg_info so both panels say the SAME
+// thing about the same numbers — the point of the handoff is one answer, not two
+// dialects of it. Strings cannot cross input.source, so the wording is rebuilt here
+// from the numerics v67 exports.
+// NOTE the scale: v67 s val500/valSec are CENTRED ON 0 (the display adds 100). S4
+// had been range-checking RS-Ratio as 50..150 and classifying the quadrant at >= 100,
+// so the field failed its own guard and printed "-" while the quadrant compared a
+// ~10 value against 100. Zero is the axis.
+f_rsStateStr(float sl, float v, float th) =>
+    string lvl = v > 0 ? "(Positive)" : v < 0 ? "(Negative)" : "(Neutral)"
+    string dir = sl > th ? "Rising" : sl < -th ? "Declining" : "Flat"
+    dir + " " + lvl
+f_rsIcon(string st) => str.contains(st, "Rising") ? "↗️" : str.contains(st, "Declining") ? "↘️" : "➡️"
+f_rrgInfo(float v, float m, float vt, float mt) =>
+    float dv = v - vt
+    float dm = m - mt
+    string cur = v >= 0 and m >= 0 ? "LEADING" : v >= 0 ? "WEAKENING" : v < 0 and m < 0 ? "LAGGING" : "IMPROVING"
+    string nxt = cur
+    if cur == "LEADING"
+        nxt := dm < -0.3 ? "WEAKENING" : (dv < -0.3 and dm < 0.3 ? "IMPROVING" : cur)
+    else if cur == "WEAKENING"
+        nxt := dv < -0.3 ? "LAGGING" : (dm > 0.3 and dv > -0.3 ? "LEADING" : cur)
+    else if cur == "LAGGING"
+        nxt := dm > 0.3 ? "IMPROVING" : (dv > 0.3 and dm > -0.3 ? "WEAKENING" : cur)
+    else
+        nxt := dv > 0.3 ? "LEADING" : (dm < -0.3 and dv < 0.3 ? "LAGGING" : cur)
+    string arw = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : "↙️") : (dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "➡️")
+    string trj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
+    int sc = cur == "LEADING" ? 2 : 0
+    bool tr = (cur == "LEADING" and (nxt == "LEADING" or nxt == "IMPROVING")) or (cur == "IMPROVING" and nxt == "LEADING") or (cur == "LAGGING" and nxt == "IMPROVING") or (cur == "WEAKENING" and nxt == "LEADING")
+    [arw, trj, cur, sc, tr]
+// Pine forbids TUPLE DESTRUCTURING inside a local block, so the RRG call lives at
+// global scope and the panel reads the results at [_so] like every other field.
+bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
+[_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = f_rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
 
 if show_panel and d_panel and barstate.islast
     table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
@@ -4789,7 +4742,11 @@ if show_panel and d_panel and barstate.islast
     bool _okAct = dashAction[_so]  >= 0 and dashAction[_so]  <= 10
     bool _okQal = dashQuality[_so] >= 0 and dashQuality[_so] <= 100
     bool _okRsi = dashRsi[_so]     >= 0 and dashRsi[_so]     <= 100
-    bool _okRat = dashRsRatio[_so] >= 50 and dashRsRatio[_so] <= 150
+    // v67 exports val500 CENTRED ON 0 (its panel prints val+100). The old 50..150
+    // range guard therefore rejected every real value and the row printed "-".
+    bool _okRat = dashRsRatio[_so] != close[_so] and math.abs(dashRsRatio[_so]) <= 60
+    bool _okRatSec = dashRsRatioSec[_so] != close[_so] and math.abs(dashRsRatioSec[_so]) <= 60
+    bool _okTrail  = dashRsValTr[_so] != close[_so] and dashRsMomTr[_so] != close[_so]
     bool _okSec = dashSecStg[_so]  >= 1 and dashSecStg[_so]  <= 4
     // A slope has no plausible range, so a range check cannot tell wired from unwired —
     // and an unwired input carries CLOSE, which is positive, so every direction read as
@@ -4809,9 +4766,23 @@ if show_panel and d_panel and barstate.islast
     f_row(29, "Signal · Quality · RSI", _sigRow, _dashNone ? C_WARN : _okAct ? (dashAction[_so] >= 7 ? C_OK : dashAction[_so] >= 4 ? C_WARN : C_MUTE) : C_MUTE)
     // RRG quadrant from the (RS-Ratio, RS-Momentum) pair — the same two coordinates
     // v67 classifies with, so the quadrant here IS v67s quadrant.
-    string _quad = not _okRat ? "-" : dashRsRatio[_so] >= 100 and dashRsMom[_so] >= 100 ? "LEADING" : dashRsRatio[_so] < 100 and dashRsMom[_so] >= 100 ? "IMPROVING" : dashRsRatio[_so] >= 100 and dashRsMom[_so] < 100 ? "WEAKENING" : "LAGGING"
-    color _quadC = _quad == "LEADING" ? C_OK : _quad == "IMPROVING" ? C_INFO : _quad == "WEAKENING" ? C_WARN : _quad == "LAGGING" ? C_NO : C_MUTE
-    string _rsTxt = "N500 " + (_okRat ? str.tostring(dashRsRatio[_so], "0.0") : "-") + " " + (not _okRsSl ? "-" : dashRsSlope[_so] > 0 ? "up" : dashRsSlope[_so] < 0 ? "down" : "flat") + "  ·  Sec " + (not _okRsSc ? "-" : dashRsSec[_so] > 0 ? "up" : dashRsSec[_so] < 0 ? "down" : "flat") + "  ·  RRG " + _quad
+    // v67 WORDING (v9.4). Was: a bare quadrant token plus "up/down/flat", classified
+    // at >= 100 on a value centred at 0 — so the quadrant was wrong AND the row said
+    // less than the dashboard sitting two indicators below it. Now it renders exactly
+    // what v67 renders, from the same numbers, via the ported helpers.
+    string _rs5St = _okRsSl and _okRat ? f_rsStateStr(dashRsSlope[_so], dashRsRatio[_so], rsSlopeThresh) : ""
+    string _rsScSt = _okRsSc and _okRatSec ? f_rsStateStr(dashRsSec[_so], dashRsRatioSec[_so], rsSlopeThresh) : ""
+    string _rsLine = (_rs5St == "" ? "N500 -" : "N500: " + _rs5St + " " + f_rsIcon(_rs5St)) + "  ·  " + (_rsScSt == "" ? "Sec -" : "Sec: " + _rsScSt + " " + f_rsIcon(_rsScSt))
+    // The trajectory needs the TRAILING pair, which only v67 can compute (weekly
+    // security). Unbound -> say the quadrant and stop, rather than invent a rotation.
+    string _quad = "-"
+    string _rrgLine = "RRG — bind v67 RS val/mom trail"
+    color _quadC = C_MUTE
+    if _okRat
+        _quad := _rrgCur[_so]
+        _quadC := not _rrgTr[_so] ? C_NO : _rrgCur[_so] == "LEADING" ? C_OK : _rrgCur[_so] == "WEAKENING" ? C_WARN : _rrgCur[_so] == "IMPROVING" ? C_INFO : C_NO
+        _rrgLine := _rrgCur[_so] + " " + _rrgArw[_so] + "  " + (_rrgSc[_so] > 0 ? "+" : "") + str.tostring(_rrgSc[_so]) + "  ·  " + _rrgTrj[_so] + "  ·  " + (_rrgTr[_so] ? "✓ BUY OK" : "✗ WAIT") + "  (RS-Ratio " + str.tostring(dashRsRatio[_so] + 100, "0.0") + ")" + (_okTrail ? "" : "  · trail unbound")
+    string _rsTxt = _rsLine + "\n" + _rrgLine
     f_row(30, "RS · RRG (vs N500)", _rsTxt, _quadC)
     // FUTURES OI — the state is only meaningful against the PRICE direction, so it is
     // derived from both and reported as guidance rather than as a label to look up.
