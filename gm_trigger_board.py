@@ -896,6 +896,26 @@ def _in_demand_zone(ctx: dict) -> bool:
                 or sup.get("tf_zone_in") or sup.get("tf_zone_at"))
 
 
+def _htf_rank(ctx: dict) -> int:
+    """Rank (0-3) of the highest timeframe ABOVE the chart that also holds price in a
+    demand zone — Monthly 3 · Weekly 2 · Daily 1. Mirrors S4 v9.0's `_htfNest`.
+
+    Resolved HERE rather than in the loader because the rank is TF-RELATIVE: a daily
+    zone shelters a 75m read but is merely native on a Daily board. gm_load_symbol
+    stores the raw flags; `_trigger_tf` is what turns them into a rank.
+    """
+    sup = (ctx or {}).get("support") or {}
+    flags = sup.get("htf_at")
+    if not isinstance(flags, dict):
+        return 0
+    try:
+        from zone_engine import htf_nesting
+    except Exception:
+        return 0
+    return int(htf_nesting(flags, chart_tf=str((ctx or {}).get("_trigger_tf") or "Daily"))
+               .get("htf_rank") or 0)
+
+
 def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
     """The fired pattern's ROLE does not match WHERE price is.
 
@@ -1003,6 +1023,14 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # ROLE COHERENCE — display only, and it never touches the gate count. See
     # _role_mismatch: in a demand zone with nothing but an expansion pattern behind it.
     _mtag += " · ⚠role" if (g_pa and _role_mismatch(ctx, path)) else ""
+    # HTF NESTING — the board's answer to S4's TF-ranked confluence term. A location
+    # sheltered by a higher-timeframe demand zone is the stronger one, and the board
+    # previously had no cross-TF term at all. Grading only: it never moves the gate
+    # count, and it is never written back into a zone's score (so it cannot earn a
+    # nested zone the 2nd test the v8.8 retention budget grants at score >= 75).
+    _hr = _htf_rank(ctx)
+    if g_loc and _hr:
+        _mtag += " · ↑" + {1: "D", 2: "W", 3: "M"}.get(_hr, "")
     _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
     if _stage_blocked:
         # Sorts BELOW every live gate count (the column sorts on the leading number) —

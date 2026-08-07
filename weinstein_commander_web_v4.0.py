@@ -2227,6 +2227,12 @@ def _gm_bar_close_times(tf: str):
     # UNION (30-Jul, Jay): rebuild on EVERY 75m and 125m close — 7 distinct times, since
     # 15:30 is shared. Cadence only; the PA timeframe is still the Trigger-TF, so this
     # makes the board fresher, it does NOT add 125m signals to a 75m board.
+    # A DAILY board changes ONCE — at the session close. Falling through to the 75m
+    # list (the old behaviour for any unrecognised tf) rebuilt it at 10:30, 11:45,
+    # 13:00 and 14:15 for an identical answer, because a Daily read takes the last
+    # CLOSED daily bar and that does not move intraday. One rebuild, after the close.
+    if tf == "Daily":
+        return [(15, 30)]
     if tf == "75m+125m":
         return sorted(set(_t75) | set(_t125))
     return _t75                                                # 75m (default)
@@ -4614,6 +4620,18 @@ def gm_load_symbol(symbol: str) -> dict:
                     _sup["ize_vp_val"] = _vpsup.get("vp_val")
                     _sup["ize_vp_poc"] = _vpsup.get("vp_poc")
                     _sup["at_support"] = bool(_ize_at or _near_sr or _near_av or _near_vp)
+                    # HTF NESTING (v9.0 parity with S4's _htfNest). A zone sheltered by a
+                    # HIGHER timeframe zone is the stronger proposition — and the board had
+                    # no cross-TF term at all, so it systematically under-rated exactly the
+                    # setups the chart rates highest. Grading only: never feeds the gate,
+                    # never feeds Zone.score (so it cannot buy a nested zone a 2nd test).
+                    # Raw flags only — the RANK is relative to the chart timeframe
+                    # ("D" is nesting for a 75m board, native for a Daily one), and
+                    # gm_load_symbol has no timeframe in scope. Resolved downstream
+                    # where _trigger_tf is known.
+                    _sup["htf_at"] = {"D": bool(_izD.get("at_support")),
+                                      "W": bool(_izW.get("at_support")),
+                                      "M": bool(_izM.get("at_support"))}
                     _sup["loc_source"] = "IZE"
                     out["ctx"]["support"] = _sup
             except Exception as e:
@@ -12937,7 +12955,7 @@ elif page == 'GOLDEN MATCHER':
             st.session_state["gm_board_live"] = _live
             # A DEDICATED WINDOW MUST SAY WHICH TF IT IS (Jay: "I'm not sure whether the
             # 125m Board is 75m or 125m"). Colour-matched to the launch buttons.
-            _tfcol = {"75m": ("#4ade80", "#0d1b12"), "125m": ("#fbbf24", "#1a1408")}.get(
+            _tfcol = {"75m": ("#4ade80", "#0d1b12"), "125m": ("#fbbf24", "#1a1408"), "Daily": ("#60a5fa", "#0b1220")}.get(
                 _trig_tf, ("#1D4ED8", "#EFF6FF"))
             st.markdown(
                 f'<div style="background:{_tfcol[1]};border-left:4px solid {_tfcol[0]};'
@@ -13320,6 +13338,14 @@ elif page == 'GOLDEN MATCHER':
                         font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
                         box-shadow:0 2px 6px rgba(21,128,61,0.15);">
                             ↗️ 75m BOARD
+                        </span>
+                    </a>
+                    <a href="/?view=gm_board_maximized&tf=Daily" target="_blank" style="text-decoration:none;">
+                        <span style="display:inline-block;padding:6px 12px;border:1.5px solid #93C5FD;
+                        background:#EFF6FF;color:#1D4ED8;border-radius:6px;font-size:12px;
+                        font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
+                        box-shadow:0 2px 6px rgba(29,78,216,0.15);">
+                            ↗️ DAILY BOARD
                         </span>
                     </a>
                     <a href="/?view=gm_board_maximized&tf=125m" target="_blank" style="text-decoration:none;">

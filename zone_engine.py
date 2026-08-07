@@ -656,6 +656,42 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
     return kept
 
 
+TF_RANK = {"75m": 0, "125m": 0, "25m": 0,
+           "D": 1, "Daily": 1, "W": 2, "Weekly": 2, "M": 3, "Monthly": 3}
+
+
+def htf_nesting(supports: dict, chart_tf: str = "D") -> dict:
+    """How far ABOVE the chart is the highest timeframe that also holds price in a
+    demand zone? A 75m zone sheltered by a monthly zone is a different proposition
+    from one sheltered by a daily zone, and a flat "2+ timeframes overlap" count
+    throws that away.
+
+    `supports` maps a TF key ("D"/"W"/"M"/native) to a zone_support() result. Only
+    at_support entries count, and only for a TF strictly ABOVE the chart's own — a
+    zone on the chart's timeframe is NATIVE, not nesting.
+
+    Mirrors S4 v9.0's `_htfNest`. Returns rank 0-3 (M 3 · W 2 · D 1) + a label.
+
+    SCOPE, deliberately: this is a GRADING signal. It is not written back into
+    Zone.score, so it cannot reach max_touches and cannot buy a nested zone the
+    second test the v8.8 budget grants at score >= 75 (Jay, 7-Aug). Grading and
+    lifecycle stay separate.
+    """
+    base = TF_RANK.get(str(chart_tf), 0)
+    best, best_tf = 0, None
+    for tf, sup in (supports or {}).items():
+        # Accepts a full zone_support() result OR a plain bool — the board carries
+        # the flags forward from gm_load_symbol, which cannot resolve the rank.
+        at = bool(sup.get("at_support")) if isinstance(sup, dict) else bool(sup)
+        if not at:
+            continue
+        r = TF_RANK.get(str(tf), 0)
+        if r > base and r > best:
+            best, best_tf = r, str(tf)
+    return {"htf_rank": best, "htf_tf": best_tf,
+            "htf_label": ("" if not best else f"nested {best_tf}")}
+
+
 def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) -> dict:
     """The GM LOCATION half, mirroring S4's z_inDZ: is `price` inside/near a FRESH
     demand zone drawn by the IZE engine on this TF? Returns the gate + the zone."""

@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v8.8 (Spent Demand Stays Visible)", shorttitle="S4 Entry v8.8", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v9.2 (HTF Nesting · Role Tag · Long-Only Fib)", shorttitle="S4 Entry v9.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/5 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -1135,7 +1135,7 @@ cf_w_avwl   = input.int(1, "Sitting on an AVWAP",         group=grpCF, minval=0,
 cf_w_fib    = input.int(1, "At a Fib (38.2/50/61.8)",     group=grpCF, minval=0, maxval=5)
 cf_w_pinch  = input.int(1, "AVWAP pinch",                 group=grpCF, minval=0, maxval=5)
 cf_w_rv     = input.int(1, "RV strong (expanding)",       group=grpCF, minval=0, maxval=5)
-cf_w_mtf    = input.int(1, "Multi-TF zone overlap (2+)",  group=grpCF, minval=0, maxval=5, tooltip="Price inside demand zones on 2+ DISTINCT timeframes at once — e.g. a daily zone sitting inside a weekly one.")
+cf_w_mtf    = input.int(1, "HTF nesting (x1 D / x2 W / x3 M)", group=grpCF, minval=0, maxval=5, tooltip="Price is in a demand zone on a timeframe ABOVE the chart — a 75m zone sheltered by a Daily, Weekly or Monthly one. Awarded by the RANK of the highest such timeframe (Monthly 3x, Weekly 2x, Daily 1x this weight), not a flat count: a 75m zone nested in a MONTHLY zone is a different proposition from one nested in a Daily zone. A zone on the chart timeframe itself is native, not nesting, and scores nothing here. Grading only — it never gates, and it never feeds a zone score, so a nested zone does NOT earn the extra test the retention budget grants at score 75+.")
 cf_w_tl     = input.int(1, "On your manual trendline",    group=grpCF, minval=0, maxval=5, tooltip="Price sitting on the support trendline YOU drew. A line you placed by hand is a deliberate read, so it counts like any other location confluence.")
 cf_w_flag   = input.int(1, "Bull flag",                   group=grpCF, minval=0, maxval=5, tooltip="A qualified bull flag (pole + tight + counter-trend drift + dry volume + proportional retrace). Not part of the PA battery, so this does not double-count with the P gate.")
 cf_rv_strong= input.float(1.25, "RV counts as 'strong' at", group=grpCF, minval=1.0, step=0.05, tooltip="The GO gate only needs RV >= the floor (volume PRESENT). This is the higher bar for volume EXPANDING, which is what earns the point.")
@@ -3428,9 +3428,24 @@ bool at_vp_support = en_wcl_loc and (near_vp_val or near_vp_poc)
 // #11b: Fibonacci retracement of the last ~120-bar swing — INDICATION ONLY (never
 // gates). 38.2 / 50 / 61.8 of the swing high→low. `near_fib`/`fib_tag` are shown
 // in the Support Zone panel row but are NOT part of support_pass.
-float _fibHi = ta.highest(high, 120)
-float _fibLo = ta.lowest(low, 120)
-float _fibRng = _fibHi - _fibLo
+// PULLBACK OF THE ADVANCE, long-only (v9.2). Two prior versions were both wrong for
+// this desk. The original measured DOWN from the 120-bar high unconditionally, which
+// is meaningless when the high came FIRST (ANANDRATHI 75m: high 2176.2 on 10-Jul,
+// low 2002.1 on 24-Jul — a decline). v9.1 then measured UP from the low, which is a
+// counter-trend BOUNCE — a short-seller's frame, and Jay does not take shorts.
+// The only leg worth measuring here is the ADVANCE: the swing low, then the highest
+// high made AFTER it (running high if the leg is still forming). A pullback is a
+// retracement DOWN from that high — the level you buy into.
+// When there is no advance to speak of (the low IS the last few bars, i.e. price is
+// still making lows) there is no pullback, and the row prints nothing rather than a
+// level with no leg behind it.
+int   _fibLoAgo = math.abs(ta.lowestbars(low, 120))
+float _fibLo    = ta.lowest(low, 120)
+float _fibHi    = na
+for _fi = 0 to _fibLoAgo
+    _fibHi := na(_fibHi) ? high[_fi] : math.max(_fibHi, high[_fi])
+bool  _fibOk  = _fibLoAgo >= 3 and not na(_fibHi) and _fibHi > _fibLo
+float _fibRng = _fibOk ? _fibHi - _fibLo : na
 float fib382 = _fibHi - _fibRng * 0.382
 float fib50  = _fibHi - _fibRng * 0.500
 float fib618 = _fibHi - _fibRng * 0.618
@@ -3791,7 +3806,22 @@ cf := cf + (chart_rv >= cf_rv_strong ? cf_w_rv : 0)       // volume EXPANDING, n
 // the composite hasn't confirmed).
 cf := cf + (en_wcl ? (_total_final >= 4 ? cf_w_wcl : (wyk_bias == "ACCUMULATION" ? int(cf_w_wcl / 2) : 0)) : 0)
 int _dzTfN = (_dzTfC ? 1 : 0) + (_dzTfD ? 1 : 0) + (_dzTfW ? 1 : 0) + (_dzTfM ? 1 : 0)
-cf := cf + (d_zones and _dzTfN >= 2 ? cf_w_mtf : 0)       // a daily zone sitting inside a weekly one
+// ── HTF NESTING, TF-RANKED (v9.0) ──────────────────────────────────────────────────
+// "A higher timeframe zone is better than a lower/current timeframe zone. A 75min zone
+//  nested/overlapped/aligned with a higher timeframe zone has a higher chance."
+// The old term was a flat +1 for `_dzTfN >= 2` — a COUNT, so a 75m zone nested inside a
+// MONTHLY zone scored exactly the same as one nested inside a Daily zone. The rank of the
+// sheltering timeframe is the whole information, and it was being discarded.
+// Now: award by the HIGHEST timeframe above the chart that also holds price in a demand
+// zone — Monthly 3 x, Weekly 2 x, Daily 1 x the weight. A zone on the chart's OWN
+// timeframe is native, not nesting, so it scores nothing here.
+// DELIBERATELY confined to the CONFLUENCE grade. It does NOT feed z.strength (Jay,
+// 7-Aug: "nested zones should not earn the second test") — strength drives the v8.8
+// retention budget, so scoring nesting there would quietly keep nested zones alive for an
+// extra test. Grading and lifecycle stay separate.
+int _chartRank = timeframe.ismonthly ? 3 : timeframe.isweekly ? 2 : timeframe.isdaily ? 1 : 0
+int _htfNest   = (_dzTfM and _chartRank < 3) ? 3 : (_dzTfW and _chartRank < 2) ? 2 : (_dzTfD and _chartRank < 1) ? 1 : 0
+cf := cf + (d_zones ? cf_w_mtf * _htfNest : 0)             // a 75m zone sheltered by a weekly/monthly one
 // Price ON the support trendline you drew by hand — a deliberate read, so it counts.
 bool near_tl = (tls_live and not na(tls_now) and close >= tls_now and (close - tls_now) / close <= 0.015) or (not na(tl_ext1) and close >= tl_ext1 and (close - tl_ext1) / close <= 0.015) or (not na(tl_ext2) and close >= tl_ext2 and (close - tl_ext2) / close <= 0.015)
 // Deduped vs near_sr: the projected TL is IN the sr_below pool, so when the TL IS
@@ -3835,7 +3865,7 @@ float ema20_x40 = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40)
 // The ceiling moves with the weights AND with the layer switches, so "8/13" can
 // never mean "8 out of a ceiling that counts layers you turned off" — an
 // unreachable maximum would make every score read artificially weak.
-int cf_max = (d_avwap ? cf_w_avwap : 0) + (show_intraday ? cf_w_intra : 0) + (d_zones ? cf_w_fvg : 0) + (d_zones ? cf_w_ctrl : 0) + (d_sr ? cf_w_sr : 0) + cf_w_ema + (d_avwap ? cf_w_avwl : 0) + cf_w_fib + (d_avwap ? cf_w_pinch : 0) + cf_w_rv + (d_zones ? cf_w_mtf : 0) + (d_tl ? cf_w_tl : 0) + (d_pat and show_flag ? cf_w_flag : 0) + (show_arrival ? cf_w_arrival : 0) + (show_arrival ? cf_w_absorb : 0) + cf_w_round + ((use_chart_tf and timeframe.isintraday) ? cf_w_dailypa : 0) + (en_wcl ? cf_w_wcl : 0)
+int cf_max = (3 * cf_w_mtf) + (d_avwap ? cf_w_avwap : 0) + (show_intraday ? cf_w_intra : 0) + (d_zones ? cf_w_fvg : 0) + (d_zones ? cf_w_ctrl : 0) + (d_sr ? cf_w_sr : 0) + cf_w_ema + (d_avwap ? cf_w_avwl : 0) + cf_w_fib + (d_avwap ? cf_w_pinch : 0) + cf_w_rv + (d_tl ? cf_w_tl : 0) + (d_pat and show_flag ? cf_w_flag : 0) + (show_arrival ? cf_w_arrival : 0) + (show_arrival ? cf_w_absorb : 0) + cf_w_round + ((use_chart_tf and timeframe.isintraday) ? cf_w_dailypa : 0) + (en_wcl ? cf_w_wcl : 0)
 
 // ==========================================================================
 // #12 DYNAMIC RISK (ported from Commander_Risk_Allocator_v2.0 §9)
