@@ -79,6 +79,78 @@ def strip_code(line: str) -> str:
     return STR.sub('""', line).split("//")[0]
 
 
+INPUT_MANIFEST_DIR = ".pine_input_manifest"
+
+
+def _input_names(lines):
+    """Ordered list of input() variable names — the thing TradingView numbers."""
+    import re
+    pat = re.compile(r"^([A-Za-z_]\w*)\s*=\s*input(?:\.\w+)?\s*\(")
+    return [m.group(1) for l in lines if (m := pat.match(l))]
+
+
+def check_input_manifest(path, lines):
+    """DELETING OR REORDERING AN INPUT SILENTLY DESTROYS EVERY SOURCE BINDING.
+
+    TradingView saves study inputs as {in_N: value} where N is POSITIONAL — assigned
+    by declaration order. Delete an input and every id after it shifts down, so saved
+    values land on the wrong input or nowhere. On 7-Aug-2026 removing five unused
+    manual-box inputs to reclaim ~500 compiled tokens shifted the v67 import fields
+    from in_244.. to in_242.. and wiped all 18 source bindings — which had been
+    diagnosed for hours as "TradingView drops bindings on every recompile". It does
+    not; it drops them when the NUMBERING moves.
+
+    APPENDING is safe (existing ids keep their numbers). Deleting and reordering are
+    not. Inputs are also nearly free in tokens — the cost of that box was its DRAWING
+    body, not its five declarations — so when tokens are needed, cut the body and
+    leave the inputs declared and inert.
+
+    Compares against the manifest recorded on the last clean sweep. First run just
+    records. Delete the manifest file to re-baseline deliberately.
+    """
+    import os, json
+    names = _input_names(lines)
+    if not names:
+        return []
+    base = os.path.basename(path)
+    d = os.path.join(os.path.dirname(os.path.abspath(path)), INPUT_MANIFEST_DIR)
+    f = os.path.join(d, base + ".json")
+    try:
+        os.makedirs(d, exist_ok=True)
+        if not os.path.exists(f):
+            with open(f, "w", encoding="utf-8") as fh:
+                json.dump(names, fh, indent=1)
+            return []                      # first run: record, do not accuse
+        with open(f, encoding="utf-8") as fh:
+            old = json.load(fh)
+    except Exception:
+        return []                          # never let bookkeeping fail a sweep
+
+    issues = []
+    gone = [n for n in old if n not in names]
+    # Reorder = the shared names appear in a different relative order than before.
+    kept_old = [n for n in old if n in names]
+    kept_new = [n for n in names if n in old]
+    if gone:
+        first = names.index(kept_new[0]) if kept_new else 0
+        issues.append("INPUTS DELETED (%d): %s — every input id after the first one"
+                      % (len(gone), ", ".join(gone[:6])))
+        issues.append("   shifts, which silently voids EVERY input.source binding. "
+                      "Re-declare them inert, or accept a full rebind.")
+    elif kept_old != kept_new:
+        for a, b in zip(kept_old, kept_new):
+            if a != b:
+                issues.append("INPUTS REORDERED at `%s` (was `%s`) — same effect as a "
+                              "deletion: ids shift and source bindings void." % (b, a))
+                break
+    if not issues:
+        try:
+            with open(f, "w", encoding="utf-8") as fh:
+                json.dump(names, fh, indent=1)   # append-only change: re-baseline
+        except Exception:
+            pass
+    return issues
+
 def sweep(path: str) -> list[str]:
     lines = open(path, encoding="utf-8").read().split("\n")
     issues: list[str] = []
@@ -215,6 +287,7 @@ def sweep(path: str) -> list[str]:
             issues.append(f"{i+1}: `NL`/`ind` in output — code-generator variable leaked")
 
     issues.extend(check_nested_quote(lines))
+    issues.extend(check_input_manifest(path, lines))
     return issues
 
 

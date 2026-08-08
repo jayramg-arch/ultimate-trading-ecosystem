@@ -13337,7 +13337,7 @@ elif page == 'GOLDEN MATCHER':
             if not is_max_board:
                 st.markdown(
                     '''<div style="display: flex; justify-content: flex-end; margin-bottom: 8px; gap: 6px;">
-                    <a href="/?view=gm_board_maximized" target="_blank" style="text-decoration: none;">
+                    <a href="/?view=gm_board_maximized" target="gm_board_main" style="text-decoration: none;">
                         <span style="display: inline-block; padding: 6px 14px; border: 1.5px solid #93C5FD;
                         background: #EFF6FF; color: #1D4ED8; border-radius: 6px; font-size: 12px;
                         font-family: 'JetBrains Mono', monospace; font-weight: 700; cursor: pointer;
@@ -13345,7 +13345,7 @@ elif page == 'GOLDEN MATCHER':
                             ↗️ MAXIMIZE BOARD
                         </span>
                     </a>
-                    <a href="/?view=gm_board_maximized&tf=75m" target="_blank" style="text-decoration:none;">
+                    <a href="/?view=gm_board_maximized&tf=75m" target="gm_board_75m" style="text-decoration:none;">
                         <span style="display:inline-block;padding:6px 12px;border:1.5px solid #86EFAC;
                         background:#F0FDF4;color:#15803D;border-radius:6px;font-size:12px;
                         font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
@@ -13353,7 +13353,7 @@ elif page == 'GOLDEN MATCHER':
                             ↗️ 75m BOARD
                         </span>
                     </a>
-                    <a href="/?view=gm_board_maximized&tf=Daily" target="_blank" style="text-decoration:none;">
+                    <a href="/?view=gm_board_maximized&tf=Daily" target="gm_board_Daily" style="text-decoration:none;">
                         <span style="display:inline-block;padding:6px 12px;border:1.5px solid #93C5FD;
                         background:#EFF6FF;color:#1D4ED8;border-radius:6px;font-size:12px;
                         font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
@@ -13361,7 +13361,7 @@ elif page == 'GOLDEN MATCHER':
                             ↗️ DAILY BOARD
                         </span>
                     </a>
-                    <a href="/?view=gm_board_maximized&tf=125m" target="_blank" style="text-decoration:none;">
+                    <a href="/?view=gm_board_maximized&tf=125m" target="gm_board_125m" style="text-decoration:none;">
                         <span style="display:inline-block;padding:6px 12px;border:1.5px solid #FCD34D;
                         background:#FFFBEB;color:#B45309;border-radius:6px;font-size:12px;
                         font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
@@ -13369,6 +13369,22 @@ elif page == 'GOLDEN MATCHER':
                             ↗️ 125m BOARD
                         </span>
                     </a>
+                    <!-- OPEN ALL 3, IN THE ORDER THAT LANDS THEM 75m | 125m | Daily.
+                         Chrome inserts a target=_blank tab immediately AFTER the opener,
+                         so three separate presses land in REVERSE of the press order —
+                         which is what Jay was seeing. Tab position is not settable from
+                         JS at all, so the only lever is creation order: open Daily first,
+                         then 125m, then 75m, and each one pushes the previous right.
+                         Named targets mean a re-press REUSES that board tab instead of
+                         opening a duplicate. -->
+                    <span onclick="[['Daily','gm_board_Daily'],['125m','gm_board_125m'],['75m','gm_board_75m']]
+                        .forEach(function(t){window.open('/?view=gm_board_maximized&tf='+t[0], t[1]);});"
+                        style="display:inline-block;padding:6px 12px;border:1.5px solid #C4B5FD;
+                        background:#F5F3FF;color:#6D28D9;border-radius:6px;font-size:12px;
+                        font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
+                        box-shadow:0 2px 6px rgba(109,40,217,0.15);">
+                            ↗️ ALL 3 BOARDS
+                    </span>
                     </div>''',
                     unsafe_allow_html=True
                 )
