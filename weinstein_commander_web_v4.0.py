@@ -12967,10 +12967,23 @@ elif page == 'GOLDEN MATCHER':
                 unsafe_allow_html=True)
             _use_xray = True
             _score_mode = "Balanced"
-            _refresh_all = False
-            _mxc1, _mxc2 = st.columns([1, 5])
-            _build = _mxc1.button("🔄 Rebuild", use_container_width=True, key="gm_board_build_mx")
-            _mxc2.caption(f"Maximized table · TF {_trig_tf} · {_live} · auto-refresh on bar close · src {st.session_state.get('gm_board_built_tf','—')}")
+            # FRESH FETCH BELONGS HERE TOO (7-Aug, Jay: "these 3 timeframe windows have
+            # only Rebuild"). _refresh_all was hardcoded False, so a pop-out could only
+            # ever re-run the engine over CACHED frames. That matters because each TF
+            # keeps its OWN cache file: a fresh rebuild on the main window updates only
+            # the TF it is showing, leaving the other two pop-outs on older data with no
+            # way to fix it from inside the window. It also cannot self-heal the case
+            # that produced zero GOs — stub-corrupted intraday frames survive a plain
+            # Rebuild because Rebuild never re-fetches.
+            _mxc1, _mxc2, _mxc3 = st.columns([1, 1.4, 4])
+            _build = _mxc1.button("🔨 Rebuild", use_container_width=True, key="gm_board_build_mx",
+                                  help="Re-runs the engine over data ALREADY CACHED. Fast.")
+            _refresh_all = _mxc2.button("🔄 Fresh + rebuild", use_container_width=True,
+                                        key="gm_board_refresh_mx",
+                                        help="Invalidates the on-disk cache for the whole universe, then "
+                                             "rebuilds automatically. Slow (~50 fetches). Use it when prices "
+                                             "may be stale — first build of the day, or after the close.")
+            _mxc3.caption(f"Maximized table · TF {_trig_tf} · {_live} · auto-refresh on bar close · src {st.session_state.get('gm_board_built_tf','—')}")
 
         # --- build (full = fundamentals+technical; force_technical = technical/PA only;
         #     quiet = no progress bar, used on live ticks so the layout never jumps) ---

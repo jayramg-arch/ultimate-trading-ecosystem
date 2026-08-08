@@ -94,6 +94,32 @@ TESTED_TRAVEL_ATR = 2.0   # travel (in the zone's OWN-TF ATR) to retire a reacte
 NARROW_WICK     = True    # #34 narrow-zone wick-to-wick rescue
 TOUCH_TOL       = 0.015   # "near a zone" tolerance for the location gate (1.5%, S4 parity)
 
+# ── "NEAR" SCALES WITH THE ZONE, NOT WITH PRICE (R2, 7-Aug-2026) ─────────────
+# TOUCH_TOL was a flat 1.5% of price on EVERY timeframe, so a monthly zone could
+# essentially never be "near": measured over the 56-name board, the nearest unspent
+# monthly demand zone sits a median 30.6% below price (weekly 20.1%, daily 6.2%).
+# The HTF-nesting term therefore degraded to "Daily or nothing" — not wrong, just
+# unable to express the thing it was built for.
+#
+# This is the same error as the v3.8 zone fix ("judge a zone on its OWN timeframe",
+# where a weekly zone was dying on a DAILY EMA cross): a daily-scaled ruler applied
+# to higher timeframes. A monthly zone is wider and its approach is coarser.
+#
+# THE MEASUREMENT THAT SETTLED IT: median daily zone width is 2.9%, and half of that
+# is 1.45% — i.e. the flat 1.5% constant ALREADY WAS a width-proportional rule, only
+# ever calibrated for Daily. So this is not a new policy, it is the existing policy
+# in the right units. Counts across 56 names (at_support, incl. inside-the-zone):
+#     current flat 1.5%   D 13  W 2  M 2
+#     0.5x zone width     D 13  W 2  M 5      <- Daily and Weekly provably unchanged
+# ATR-scaled alternatives were rejected: 1.0x TF ATR gives D 21, nearly doubling the
+# PRIMARY location gate, which is rewriting the gate rather than fixing the ruler.
+#
+# COST, stated plainly: at_support on the board is D or W or M, so up to 3 of 56 names
+# can gain a location they did not have. Set TOUCH_TOL_WIDTH = None to revert to flat.
+TOUCH_TOL_WIDTH = 0.5     # "near" = gap above proximal <= this x the zone's own width
+TOUCH_TOL_FLOOR = 0.005   # ... but never tighter than 0.5%, so a hairline zone still
+                          # has a usable approach band
+
 # Structural (pivot-based) zones — port of Pine f_structZone (grpZP inputs).
 # A pivot high → supply shelf (PvH); a pivot low → demand shelf (PvL). Weaker than a
 # leg-base-leg formation (scored 40..75 so a pattern zone always wins dedup), same
@@ -720,7 +746,13 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
         if z.tested:
             continue
         inside = z.distal <= px <= z.proximal
-        near = px > z.proximal and (px - z.proximal) / z.proximal <= TOUCH_TOL
+        # R2: the band is a fraction of THIS zone's width (see TOUCH_TOL_WIDTH), so a
+        # monthly zone gets a monthly-sized approach and a daily one is unchanged.
+        _tol = TOUCH_TOL
+        if TOUCH_TOL_WIDTH:
+            _w = (z.proximal - z.distal) / z.proximal if z.proximal else 0.0
+            _tol = max(TOUCH_TOL_WIDTH * _w, TOUCH_TOL_FLOOR)
+        near = px > z.proximal and (px - z.proximal) / z.proximal <= _tol
         if inside or near:
             # Prefer a CONTROLLING zone, then score — the promotion is the whole point
             # of porting it, so it has to win the "which zone am I at" choice too.
