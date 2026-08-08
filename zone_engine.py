@@ -992,3 +992,130 @@ def vp_support(df: pd.DataFrame, price: float | None = None) -> dict:
             "vp_pos": pos
         })
     return out
+
+
+# ══════════════════════════ ROOM / FIRST OBSTACLE ══════════════════════════
+# Port of S4's `_ovh` / `_ovh2` / `_roomR` (panel row "Room for Trade").
+#
+# WHY: the board advertised HINDALCO at "R:R 1.9, T1 1163.5" on the same bar
+# S4 called it "NO ROOM". Same question, opposite answers, because they used
+# different obstacle engines — LOCATION was ported to this module in July,
+# ROOM never was. Room is the binding constraint in practice (Jay, 7-Aug:
+# "not a single stock is a TAKE IT"), so the surface that arms the trade was
+# the one computing it loosely.
+#
+# S4 takes the NEAREST of six overhead sources above the reference close:
+#   1. the supply BAND top, when price is sitting inside supply
+#   2. the nearest supply zone's proximal
+#   3. the nearest non-MTTWR S/R level above
+#   4. a daily flipped pivot (S->R)
+#   5. a weekly flipped pivot
+#   6. the last pivot high
+# ...then a SECOND obstacle beyond a minimum gap, so one obstacle reported
+# twice (T1 and T2 95 paise apart on PFC) cannot masquerade as two targets.
+#
+# Room is expressed in R, not %, against the same risk S4 uses: the demand
+# zone's own width (floored at 0.5 ATR) when price is at a zone, else
+# 2.5 ATR. Measuring room in % would flatter wide-stop names for exposure
+# they never bought — the same error the stop studies were re-run to fix.
+OVH2_GAP_ATR   = 0.5      # S4 ovh2_gap_atr — min separation for a 2nd obstacle
+ROOM_RISK_ATR  = 2.5      # fallback risk when no demand zone is in play
+ROOM_ZONE_FLOOR_ATR = 0.5 # a hairline zone still gets a usable risk unit
+
+
+def _atr_abs(df, n=14):
+    h, l, c = df["High"], df["Low"], df["Close"]
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    return float(tr.ewm(alpha=1 / n, adjust=False).mean().iloc[-1])
+
+
+def overhead_room(frames: dict, price: float | None = None,
+                  entry: float | None = None, risk: float | None = None) -> dict:
+    """Nearest overhead obstacle, the one beyond it, and the room between here
+    and the first — in R. `frames` maps a TF key ("D"/"W"/native) to a frame,
+    the same shape zone_support is fed.
+
+    Returns obstacle / obstacle2 / room_r / in_supply / band_top / source.
+    Every field is None rather than guessed when it cannot be computed — a
+    missing obstacle must read as unknown, never as "clear".
+    """
+    out = {"clear": False, "obstacle": None, "obstacle2": None, "room_r": None, "room_pct": None,
+           "in_supply": False, "band_top": None, "source": None, "sources": []}
+    frames = {k: v for k, v in (frames or {}).items() if v is not None and len(v) >= 60}
+    if not frames:
+        return out
+    ref = frames["D"] if "D" in frames else list(frames.values())[0]   # a DataFrame is not truthy
+    px = float(price) if price is not None else float(ref["Close"].iloc[-1])
+    atr = _atr_abs(ref)
+
+    cands = []                      # (level, why)
+    for tf, df in frames.items():
+        try:
+            for z in detect_zones(df, tf):
+                if z.tested:
+                    continue
+                if not z.is_demand:
+                    # supply: proximal is the edge price meets first from below
+                    if z.distal >= px >= z.proximal:      # INSIDE the band
+                        out["in_supply"] = True
+                        out["band_top"] = (max(out["band_top"], z.distal)
+                                           if out["band_top"] else z.distal)
+                    elif z.proximal > px:
+                        cands.append((z.proximal, f"SZ·{tf}"))
+        except Exception:
+            pass
+        try:
+            for L in detect_sr_levels(df, tf):
+                if L.get("grade") == "MTTWR":
+                    continue          # spent as a ceiling — S4 excludes it too
+                if float(L["price"]) > px:
+                    cands.append((float(L["price"]), f"{'PivR' if L.get('role')=='resistance' else 'S/R'}·{tf}"))
+        except Exception:
+            pass
+    # last pivot high on the reference frame
+    try:
+        h = ref["High"]
+        piv = [float(h.iloc[i]) for i in range(len(h) - 3, max(len(h) - 60, 2), -1)
+               if h.iloc[i] == h.iloc[max(0, i - 2):i + 3].max()]
+        for p in piv[:1]:
+            if p > px:
+                cands.append((p, "lastPH"))
+    except Exception:
+        pass
+    if out["band_top"] and out["band_top"] > px:
+        cands.append((float(out["band_top"]), "SZ band top"))
+
+    # NO OBSTACLE FOUND is not the same as COULD NOT COMPUTE. With frames present
+    # and price above every level, the name is in blue sky — that is S4 CLEAR TO
+    # BREAK, and it must not read as an unknown or (worse) as no room.
+    if not cands:
+        out["clear"] = True
+        return out
+    cands.sort()
+    out["obstacle"], out["source"] = cands[0][0], cands[0][1]
+    out["sources"] = [f"{lv:.2f} {why}" for lv, why in cands[:4]]
+    # second obstacle only beyond a real gap — otherwise it is the same shelf
+    gap = max(atr * OVH2_GAP_ATR, out["obstacle"] * 0.002)
+    for lv, _why in cands:
+        if lv > out["obstacle"] + gap:
+            out["obstacle2"] = lv
+            break
+
+    if entry is None or risk is None:
+        z = {}
+        for tf in ("D", "W"):
+            if tf in frames:
+                z = zone_support(frames[tf], tf, px) or {}
+                if z.get("at_support"):
+                    break
+        prox = z.get("proximal")
+        dist = z.get("distal")
+        entry = float(prox) if prox else px
+        if prox and dist and prox > dist:
+            risk = max(float(prox) - float(dist), atr * ROOM_ZONE_FLOOR_ATR)
+        else:
+            risk = atr * ROOM_RISK_ATR
+    if risk and risk > 0:
+        out["room_r"] = round((out["obstacle"] - float(entry)) / float(risk), 2)
+    out["room_pct"] = round((out["obstacle"] - px) / px * 100, 2)
+    return out

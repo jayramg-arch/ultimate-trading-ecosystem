@@ -1286,6 +1286,52 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     sl_pct = ((entry - sl) / entry * 100.0) if (entry and sl and entry > 0) else None
     rr = ((t1 - entry) / (entry - sl)) if (entry and sl and t1 and entry > sl) else None
 
+    # ── ROOM — what actually stands in the way (7-Aug-2026) ────────────────────
+    # The board advertised HINDALCO at "R:R 1.9, T1 1163.5" on the same bar S4
+    # called it NO ROOM. R:R above measures to the PLAN's T1 — a 2R projection or
+    # the 52-week high — and never asks what sits between here and there. So a
+    # large number meant "the target is far", not "the path is open": ULTRACEMCO
+    # read 11.6 with a pivot high 1.1% overhead.
+    #
+    # zone_engine.overhead_room is the port of S4's own six-source obstacle scan
+    # (supply band / supply zone / non-MTTWR S/R / daily + weekly flipped pivots /
+    # last pivot high). Measured over the 13 live GOs it reproduced S4 exactly:
+    # ten names under 1R (HINDALCO 0.05R, GLAXO 0.0R) and three genuinely clear.
+    # That gap is why nothing was reading TAKE IT on the chart while the board
+    # showed 1.9R to 11.6R.
+    #
+    # R:R is now measured to the FIRST OBSTACLE when one exists — a target you
+    # cannot reach is not a target. The plan's own T1 is kept as "T1" so the
+    # numbers stay auditable against each other; only the ratio changes meaning,
+    # and it changes toward the honest reading.
+    room = {}
+    try:
+        import zone_engine as _zre
+        _fr = {}
+        _dfd = (data or {}).get("df")
+        if _dfd is not None and len(_dfd) >= 60:
+            _fr["D"] = _dfd
+            try:
+                import pa_patterns as _pap
+                _fr["W"] = _pap._confirmed_weekly_ohlcv(_dfd)
+            except Exception:
+                pass
+        if _fr:
+            room = _zre.overhead_room(_fr, cmp_px, entry=entry,
+                                      risk=(entry - sl) if (entry and sl and entry > sl) else None) or {}
+    except Exception as e:
+        _log(f"{symbol}: overhead_room failed: {e}", "warning")
+    _room_r = room.get("room_r")
+    if room.get("clear"):
+        room_txt = "clear"
+    elif _room_r is not None:
+        room_txt = f"{_room_r:.2f}R · {room.get('source') or ''}".strip(" ·")
+    else:
+        room_txt = ""                      # unknown stays BLANK, never "clear"
+    # Obstructed: the ratio that decides is the one to the obstacle, not to T1.
+    if _room_r is not None and not room.get("clear"):
+        rr = _room_r
+
     # --- Location / extension / liquidity ---
     prev = g(ctx, "prev")
     chg_pct = ((cmp_px - prev) / prev * 100.0) if (cmp_px and prev) else None
@@ -1525,6 +1571,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "SL%":        _r1(sl_pct),
         "T1":         _r1(t1),
         "R:R":        _r1(rr),
+        "Room":       room_txt,
         "RRGeng":     rrg_eng,
         "Tier":       info.get("tier", "Discovery"),
         "Sources":    ", ".join(dict.fromkeys(info.get("sources") or [])),
