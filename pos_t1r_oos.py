@@ -21,7 +21,7 @@ import data_provider as _dp
 BASE = "validation_runs/validation_20260809_194851_details.csv"
 T1_RS = (1.0, 1.5, 2.0, 2.5, 3.0, 5.0)
 CONTROL = 5.0
-QTY1 = 50
+QTY1 = 25
 
 
 def main() -> int:
@@ -43,7 +43,7 @@ def main() -> int:
                 if risk <= 0:
                     continue
                 r = _rp._simulate_one_trade(df_d, pos, e, s, e + risk * t1_r, e + risk * t2_r,
-                                            t1_qty_pct=QTY1, t2_qty_pct=100 - QTY1,
+                                            t1_qty_pct=QTY1, t2_qty_pct=QTY1,
                                             max_bars=int(p["forward_days_used"]))
                 if not r or r.get("realized_pct") is None:
                     continue

@@ -33,7 +33,7 @@ import replay as _rp
 
 BASE = "validation_runs/validation_20260809_194851_details.csv"   # POS-only control run
 T1_RS = (1.0, 1.5, 2.0, 2.5, 3.0, 5.0)
-QTYS = (50,)
+QTYS = (25,)
 
 
 def _sim(df_d, entry_pos, entry_px, sl_px, t1_r, t2_r, q1, q2, fwd):

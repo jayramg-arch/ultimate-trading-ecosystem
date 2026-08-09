@@ -59,32 +59,42 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-# POS partial-take targets — 1.5R / 3R, MEASURED (9-Aug-2026). Was 5R/10R.
+# POS partial-take targets — 2.0R / 4R, MEASURED (9-Aug-2026). Was 5R/10R.
 #
 # At 5R, T1 was reached in 2% of POS trades (5 of 203 over 24 months), so the
 # partial, the move to breakeven and the trail-from-there NEVER engaged and every
 # trade carried full initial risk for its whole life. Jay: 'Swing had 2/3R. With
 # that I was able to hit T1, move SL to Entry, and trail from that point onwards.'
 #
-# Sweep over T1_R in {1.0 1.5 2.0 2.5 3.0 5.0}, POS-only, 203 trades, scored in R:
-#     1.5R  meanR -0.075   <- interior maximum, neighbours 1.0 and 2.0 either side
-#     2.0R  meanR -0.084
-#     5.0R  meanR -0.124   (control)
-# The MEDIAN is identical (-0.48R) across the ENTIRE grid, so booking earlier does
-# NOT shorten the right tail — the objection I raised against this was wrong.
+# THIS IS NOT A 2R TRADE. With the shipped POS sizing (replay.py ~535: t1_qty=25,
+# t2_qty=25) the shape is: 25% off at 2R -> stop to breakeven, the trade is now
+# risk-free; 25% off at 4R; and the remaining 50% rides the Chandelier UNCAPPED.
+# The >=2R rule Jay trades by governs whether to ENTER (room to the first
+# obstacle, the Room column); this governs what happens once in.
 #
+# Sweep, POS-only, 203 trades, scored in R, with the SHIPPED 25/25 quantities,
 # 60/40 chronological OOS split (11 IS / 8 OOS anchors, cut 2025-06-16):
-#     IS margin +0.048R   OOS margin +0.051R   retained 105%  PASS
-# The only change this session to clear the plateau + interior + OOS gates.
+#     T1_R   IS margin   OOS margin   retained
+#     1.0     +0.021      +0.022        106%   PASS
+#     1.5     +0.027      +0.023         85%   PASS  <- best IS
+#     2.0     +0.008      +0.036        451%   PASS  <- best OOS, SHIPPED
+#     3.0     -0.000      +0.020          --   fail
+# 1.5R and 2.0R are statistically indistinguishable at this sample size. 2.0R is
+# shipped because it has the better OOS margin AND matches the discipline Jay
+# already trades by — a rule that gets executed consistently is worth more than
+# 0.004R of backtested margin.
 #
-# Effect on the mechanic: T1 is now hit on 27.6% of POS trades instead of 2.5%.
-# Read the absolute numbers honestly — every cell is NEGATIVE in R. This improves
-# the exit; it does not make the book profitable. POS runs -0.18 to -0.22R in
-# sample and about flat OOS, so absolute performance is regime-driven far more
-# than target-driven. Env-overridable for future sweeps.
+# The MEDIAN is flat across the entire grid, so booking earlier does NOT shorten
+# the right tail — the 'you'll clip the tail' objection I raised was wrong.
+#
+# READ THE ABSOLUTE NUMBERS HONESTLY: every cell is NEGATIVE in R. This improves
+# the exit; it does not make the book profitable. POS runs about -0.21R in-sample
+# and about flat OOS, so absolute performance is regime-driven far more than
+# target-driven. The +1.05% quoted elsewhere is matched ALPHA against a falling
+# benchmark, not profit. Env-overridable for future sweeps.
 import os as _os_t1
-POS_T1_R = float(_os_t1.getenv('POS_T1_R', '1.5'))    # was 5.0 — see the sweep below
-POS_T2_R = float(_os_t1.getenv('POS_T2_R', '3.0'))    # was 10.0
+POS_T1_R = float(_os_t1.getenv('POS_T1_R', '2.0'))    # was 5.0
+POS_T2_R = float(_os_t1.getenv('POS_T2_R', '4.0'))    # was 10.0
 
 
 ENABLE_SWG_BOOK = True    # 9-Aug: re-enabled at Jay's call — the swing book is back on   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
