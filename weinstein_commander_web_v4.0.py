@@ -14998,43 +14998,40 @@ elif page == 'RISK SHIELD':
 
     def _rs_type_badge(label):
         """Trade-type badge, rendered from the RISK-SHIELD classification only.
-        It used to be parsed out of the AI's reply, so a drifting model could put a
-        SWING badge over positional-multiplier levels. A trailing '?' marks a type
-        inferred from the resting stop because technicals were unavailable."""
-        _st = ("padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-left:8px;"
-               "font-weight:bold;vertical-align:middle;color:#ffffff;")
+        High contrast dark theme styling."""
+        _st = ("padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-left:8px;"
+               "font-weight:800;vertical-align:middle;color:#ffffff;letter-spacing:0.5px;")
         if not label or label == "UNKNOWN":
-            return (f'<span style="{_st}background:#64748B;" title="Technicals unavailable '
+            return (f'<span style="{_st}background:#334155;border:1px solid #475569;" title="Technicals unavailable '
                     f'— trade type not determined">TYPE UNKNOWN</span>')
         _sw = label.startswith("SWING")
         _inf = label.endswith("?")
-        _bg = "#7C3AED" if _sw else "#15803D"
+        _bg = "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" if _sw else "linear-gradient(135deg, #059669 0%, #047857 100%)"
+        _border = "#C4B5FD" if _sw else "#A7F3D0"
         _tip = ("Inferred from the resting stop distance (technicals unavailable)"
                 if _inf else "Risk Shield classification: ATR% / dist-200 / WS score")
-        return f'<span style="{_st}background:{_bg};{"opacity:0.7;" if _inf else ""}" title="{_tip}">{label}</span>'
+        return f'<span style="{_st}background:{_bg};border:1px solid {_border};{"opacity:0.85;" if _inf else ""}" title="{_tip}">{label}</span>'
 
     def _rs_ai_card(ai_text):
-        """Render the AI block truthfully. A failed LLM call is styled as a failure
-        instead of borrowing the 🤖 header, and the generation time is stamped so a
-        cached read (the cache persists until you press Run AI Analysis) is never
-        mistaken for a fresh one."""
+        """Render the AI block truthfully with high contrast glass styling."""
         if not ai_text:
             return ""
         if ai_text.startswith("⚠ AI UNAVAILABLE") or ai_text == "AI review unavailable.":
-            return ('<div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:10px;'
-                    'border-radius:6px;margin-top:12px;font-size:0.8rem;color:#7F1D1D;'
-                    'line-height:1.4;font-weight:600;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
+            return ('<div style="background:linear-gradient(145deg, #451A1A 0%, #2D1517 100%);border-left:4px solid #EF4444;border:1px solid #7F1D1D;padding:12px 14px;'
+                    'border-radius:8px;margin-top:12px;font-size:0.82rem;color:#FCA5A5;'
+                    'line-height:1.45;font-weight:600;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
                     'The numbers above are unaffected.</div>')
         if ai_text.startswith("AI analysis pending"):
-            return ('<div style="background:#F8FAFC;border-left:4px solid #94A3B8;padding:10px;'
-                    'border-radius:6px;margin-top:12px;font-size:0.8rem;color:#475569;'
-                    'line-height:1.4;">🤖 <b>AI:</b> not run yet — press “Run AI Analysis”.</div>')
+            return ('<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border-left:4px solid #64748B;border:1px solid #334155;padding:12px 14px;'
+                    'border-radius:8px;margin-top:12px;font-size:0.82rem;color:#94A3B8;'
+                    'line-height:1.45;">🤖 <b>AI:</b> not run yet — press “Run AI Analysis”.</div>')
         _txt = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
         _ts = st.session_state.get("ai_cache_ts")
-        _age = f' <span style="color:#475569;font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
-        return (f'<div style="background:#F0F9FF;border-left:4px solid #B45309;padding:12px;'
-                f'border-radius:6px;margin-top:12px;font-size:0.82rem;color:#0C4A6E;'
-                f'line-height:1.5;">🤖 <b>AI:</b>{_age}<br>{_txt}</div>')
+        _age = f' <span style="color:#7DD3FC;font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
+        return (f'<div style="background:linear-gradient(145deg, #082F49 0%, #0F172A 100%);border-left:4px solid #38BDF8;border:1px solid #1E293B;padding:12px 16px;'
+                f'border-radius:8px;margin-top:12px;font-size:0.83rem;color:#F0F9FF;'
+                f'line-height:1.55;">🤖 <b>AI:</b>{_age}<br><span style="color:#E0F2FE;">{_txt}</span></div>')
+
 
     def get_stock_context_and_ai_review(symbol, order_type, **kwargs):
         from ai_provider_manager import ask_llm
@@ -15396,32 +15393,32 @@ elif page == 'RISK SHIELD':
                         if ltp and ltp > trigger: total_risk += qty * (ltp - trigger)
 
                 unprotected_count = len(unprotected_holdings)
-                unprotected_color = "#DC2626" if unprotected_count > 0 else "#15803D"
+                unprotected_color = "#EF4444" if unprotected_count > 0 else "#10B981"
                 unprotected_label = f"{unprotected_count} Positions" if unprotected_count > 0 else "All Protected ✅"
                 risk_deployed_pct = (total_risk / total_deployed_g) * 100 if total_deployed_g > 0 else 0.0
 
                 metrics_html = (
-                    f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px;">'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #15803D;text-align:left;">'
-                    f'<div class="metric-label">Capital Protected</div>'
-                    f'<div class="metric-value" style="color:#15803D;font-size:1.5rem;">₹{format_inr_int(total_protected)}</div>'
-                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Active Stop Loss value</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #DC2626;text-align:left;">'
-                    f'<div class="metric-label">Capital at Risk</div>'
-                    f'<div class="metric-value" style="color:#DC2626;font-size:1.5rem;">₹{format_inr_int(total_risk)} <span style="font-size:1rem; opacity:0.8;">({risk_deployed_pct:.1f}%)</span></div>'
-                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Loss to SL</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #1D4ED8;text-align:left;">'
-                    f'<div class="metric-label">Active Exits</div>'
-                    f'<div class="metric-value" style="color:#1D4ED8;font-size:1.5rem;">{active_exits_count} Stocks</div>'
-                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid #B45309;text-align:left;">'
-                    f'<div class="metric-label">Pullback Entries</div>'
-                    f'<div class="metric-value" style="color:#B45309;font-size:1.5rem;">{pending_entries_count} Orders</div>'
-                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Active GTT buy limits</div></div>'
-                    f'<div class="metric-card" style="padding:14px;border-top:4px solid {unprotected_color};text-align:left;">'
-                    f'<div class="metric-label">Unprotected</div>'
-                    f'<div class="metric-value" style="color:{unprotected_color};font-size:1.5rem;">{unprotected_label}</div>'
-                    f'<div style="font-size:0.68rem;color:#334155;margin-top:2px;">Holdings with no SL</div></div>'
+                    f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">'
+                    f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-top:4px solid #10B981;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Capital Protected</div>'
+                    f'<div style="color:#10B981;font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">₹{format_inr_int(total_protected)}</div>'
+                    f'<div style="font-size:0.72rem;color:#CBD5E1;margin-top:4px;">Active Stop Loss value</div></div>'
+                    f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-top:4px solid #EF4444;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Capital at Risk</div>'
+                    f'<div style="color:#EF4444;font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">₹{format_inr_int(total_risk)} <span style="font-size:0.95rem; opacity:0.85;">({risk_deployed_pct:.1f}%)</span></div>'
+                    f'<div style="font-size:0.72rem;color:#CBD5E1;margin-top:4px;">Loss to SL</div></div>'
+                    f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-top:4px solid #38BDF8;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Active Exits</div>'
+                    f'<div style="color:#38BDF8;font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{active_exits_count} Stocks</div>'
+                    f'<div style="font-size:0.72rem;color:#CBD5E1;margin-top:4px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
+                    f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-top:4px solid #F59E0B;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Pullback Entries</div>'
+                    f'<div style="color:#F59E0B;font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{pending_entries_count} Orders</div>'
+                    f'<div style="font-size:0.72rem;color:#CBD5E1;margin-top:4px;">Active GTT buy limits</div></div>'
+                    f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-top:4px solid {unprotected_color};border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Unprotected</div>'
+                    f'<div style="color:{unprotected_color};font-size:1.5rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{unprotected_label}</div>'
+                    f'<div style="font-size:0.72rem;color:#CBD5E1;margin-top:4px;">Holdings with no SL</div></div>'
                     f'</div>'
                 )
                 st.markdown(metrics_html, unsafe_allow_html=True)
@@ -15429,9 +15426,7 @@ elif page == 'RISK SHIELD':
                     st.caption(f"⚠️ {len(_no_ltp_rows)} position(s) excluded from Capital-at-Risk "
                                f"(no live LTP): {', '.join(sorted(_no_ltp_rows))}")
 
-                # B3: PORTFOLIO HEAT vs the capital risk budget (risk% x capital x open
-                # positions). Connects Risk Shield to the capital-based risk rule —
-                # 0.25% per trade during the execution freeze (1.0% standard).
+                # B3: PORTFOLIO HEAT vs the capital risk budget (risk% x capital x open positions).
                 try:
                     _rb_pct = float(st.session_state.get("rs_risk_budget_pct", 0.25))
                     _cash_b = 0.0
@@ -15444,15 +15439,15 @@ elif page == 'RISK SHIELD':
                     _heat_budget = _cap_base * (_rb_pct / 100.0) * max(_n_open_h, 1)
                     if _cap_base > 0:
                         _heat_ok = total_risk <= _heat_budget
-                        _hcol = "#15803D" if _heat_ok else "#DC2626"
+                        _hcol = "#10B981" if _heat_ok else "#EF4444"
                         _chip = (f" · 🌡️ Regime: <b>{_rs_regime_chip}</b>" if _rs_regime_chip else "")
                         st.markdown(
-                            f"<div style='border:1.5px solid {_hcol};border-radius:8px;padding:8px 14px;"
-                            f"margin:4px 0 10px;font-size:0.9rem;'>"
+                            f"<div style='background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid {_hcol};border-radius:10px;padding:12px 16px;"
+                            f"margin:4px 0 16px;font-size:0.9rem;color:#F8FAFC;box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
                             f"🔥 <b>Portfolio Heat:</b> ₹{format_inr_int(total_risk)} open risk vs budget "
                             f"₹{format_inr_int(_heat_budget)} ({_rb_pct}% × {_n_open_h} positions × "
                             f"₹{format_inr_int(_cap_base)} capital) — "
-                            f"<b style='color:{_hcol}'>{'WITHIN BUDGET' if _heat_ok else 'OVER BUDGET'}</b>"
+                            f"<b style='color:{_hcol}'>{'WITHIN BUDGET ✅' if _heat_ok else 'OVER BUDGET 🚨'}</b>"
                             f"{_chip}</div>", unsafe_allow_html=True)
                 except Exception:
                     pass
@@ -15767,7 +15762,8 @@ elif page == 'RISK SHIELD':
                         # only rebuilt when you press "Run AI Analysis", so without this the
                         # card could show week-old prose beside a live LTP with nothing to
                         # say which. _rs_ai_card() renders it on every AI block.
-                        st.session_state["ai_cache_ts"] = datetime.now().strftime("%d %b %H:%M")
+                        from datetime import datetime as _dt_now
+                        st.session_state["ai_cache_ts"] = _dt_now.now().strftime("%d %b %H:%M")
 
                         # Save back to cache
                         _new_cache = {"ai_cache_ts": st.session_state["ai_cache_ts"]}
@@ -15896,10 +15892,10 @@ elif page == 'RISK SHIELD':
                     
                     dd_pct = (sim_losses / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
                     st.markdown(f'''
-                    <div style="background:#F0F9FF;border:1.5px solid #93C5FD;padding:14px;border-radius:8px;margin-bottom:20px;">
-                        <div style="font-size:0.85rem;color:#475569;">Est. Portfolio Drawdown</div>
-                        <div style="font-size:1.6rem;font-weight:bold;color:#DC2626;">-{dd_pct:.2f}%</div>
-                        <div style="font-size:0.8rem;color:#1E293B;margin-top:8px;">Loss: ₹{sim_losses:,.0f} | SLs Hit: {hits}</div>
+                    <div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;padding:16px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
+                        <div style="font-size:0.75rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Est. Portfolio Drawdown</div>
+                        <div style="font-size:1.8rem;font-weight:900;color:#EF4444;margin-top:4px;font-family:JetBrains Mono;">-{dd_pct:.2f}%</div>
+                        <div style="font-size:0.85rem;color:#CBD5E1;margin-top:6px;">Est. Loss: <b style="color:#FCA5A5;">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:#FCA5A5;">{hits}</b></div>
                     </div>
                     ''', unsafe_allow_html=True)
                     
@@ -15933,13 +15929,13 @@ elif page == 'RISK SHIELD':
                     if len(dates) > 0:
                         fig2 = go.Figure(go.Scatter(
                             x=dates, y=risks, mode='lines+markers+text',
-                            text=[f"₹{r:,.0f}" for r in risks], textposition="top center", textfont=dict(color="#1D4ED8", size=10),
-                            line=dict(color='#1D4ED8', width=3), marker=dict(size=6, color='#1D4ED8')
+                            text=[f"₹{r:,.0f}" for r in risks], textposition="top center", textfont=dict(color="#38BDF8", size=10, family="JetBrains Mono"),
+                            line=dict(color='#38BDF8', width=3), marker=dict(size=7, color='#38BDF8', line=dict(color='#FFFFFF', width=1))
                         ))
                         fig2.update_layout(
-                            margin=dict(t=20, l=5, r=5, b=5), height=120,
-                            paper_bgcolor='#FFFFFF', plot_bgcolor='#F8FAFC',
-                            xaxis=dict(type='category', showgrid=False, visible=True, tickfont=dict(size=9, color="#475569")),
+                            margin=dict(t=22, l=5, r=5, b=5), height=130,
+                            paper_bgcolor='#0F172A', plot_bgcolor='#1E293B',
+                            xaxis=dict(type='category', showgrid=False, visible=True, tickfont=dict(size=9, color="#94A3B8")),
                             yaxis=dict(showgrid=False, visible=False)
                         )
                         st.plotly_chart(fig2, use_container_width=True)
@@ -16122,6 +16118,13 @@ elif page == 'RISK SHIELD':
                             for col, sym in zip(cols, row_items):
                                 with col:
                                     orders = sell_gtts_by_symbol[sym]
+                                    # ORDER THE LEGS BY TARGET, not by whatever Dhan returned. The T1/T2 labels
+                                    # and the policy flag below both key off o_idx, so a broker response in the
+                                    # other order would silently mislabel the nearer target as T2 AND compare it
+                                    # against the wrong policy R. Sorting makes the index mean what the label says.
+                                    # Legs with no target sort last so they never claim the T1 slot.
+                                    orders = sorted(orders, key=lambda _o: (_o.get('target_trigger') is None,
+                                                                            _o.get('target_trigger') or 0))
                                     ltp = ltps.get(sym) or 0
                                     holding = holdings_map.get(sym)
                                     buy_price = holding["buy_price"] if holding else 0
@@ -16152,31 +16155,44 @@ elif page == 'RISK SHIELD':
                                     for o_idx, o in enumerate(orders):
                                         sl = o["sl_trigger"]; tgt = o["target_trigger"]
                                         if sl is not None:
-                                            sl_str = f"SL <span style='color:#DC2626'>₹{sl:,.0f}</span>"
+                                            sl_str = f"SL <span style='color:#EF4444;font-weight:bold;'>₹{sl:,.0f}</span>"
                                             if buy_price and ltp:
                                                 sl_d_e = (sl - buy_price) / buy_price * 100
                                                 sl_d_l = (sl - ltp) / ltp * 100
-                                                sl_str += f" (<span style='color:#475569'>{sl_d_e:+.1f}%</span> / <span style='color:#1D4ED8'>{sl_d_l:+.1f}%</span>)"
+                                                sl_str += f" (<span style='color:#CBD5E1'>{sl_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{sl_d_l:+.1f}%</span>)"
                                             sl_parts.append(sl_str)
                                         if tgt is not None:
                                             label = f"T{o_idx+1}"
-                                            tgt_str = f"<span style='color:#15803D'>{label} ₹{tgt:,.0f}</span>"
+                                            tgt_str = f"<span style='color:#10B981;font-weight:bold;'>{label} ₹{tgt:,.0f}</span>"
                                             if buy_price and ltp:
                                                 tgt_d_e = (tgt - buy_price) / buy_price * 100
                                                 tgt_d_l = (tgt - ltp) / ltp * 100
-                                                tgt_str += f" (<span style='color:#475569'>{tgt_d_e:+.1f}%</span> / <span style='color:#1D4ED8'>{tgt_d_l:+.1f}%</span>)"
+                                                tgt_str += f" (<span style='color:#CBD5E1'>{tgt_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{tgt_d_l:+.1f}%</span>)"
                                                 if sl is not None and (buy_price - sl) > 0:
                                                     r_val = (tgt - buy_price) / (buy_price - sl)
-                                                    tgt_str += f" <span style='color:#B45309;font-weight:bold;'>[{r_val:.1f}R]</span>"
+                                                    tgt_str += f" <span style='color:#F59E0B;font-weight:bold;'>[{r_val:.1f}R]</span>"
+                                                    # POLICY CHECK (9-Aug-2026). These are LIVE broker OCOs — changing the
+                                                    # screener's targets does NOT move an order already resting at Dhan, so a
+                                                    # book placed under the old 5R/10R policy keeps its unreachable targets
+                                                    # forever. T1 was reached in 2% of POS trades at 5R; the partial and the
+                                                    # move-to-breakeven never fired. Flagging the gap is the only way to see
+                                                    # which orders still need re-placing.
+                                                    try:
+                                                        import bull_screener as _bs_pol
+                                                        _want = _bs_pol.POS_T1_R if o_idx == 0 else _bs_pol.POS_T2_R
+                                                        if r_val > _want * 1.25:
+                                                            tgt_str += (f" <span style='color:#F87171;font-weight:bold;' "
+                                                                        f"title='Policy is {_want:.1f}R for this leg. This order "
+                                                                        f"predates the change - re-place to book the partial and "
+                                                                        f"move the stop to entry.'>&#9888; vs {_want:.1f}R</span>")
+                                                    except Exception:
+                                                        pass
                                             tgt_parts.append(tgt_str)
 
-                                    header_entry = f"<b style='color:#475569;'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:#475569;'>Entry: N/A</b>"
-                                    header_ltp = f"<b style='color:#1D4ED8;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#1D4ED8;'>LTP: N/A</b>"
+                                    header_entry = f"<b style='color:#94A3B8;'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:#94A3B8;'>Entry: N/A</b>"
+                                    header_ltp = f"<b style='color:#38BDF8;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#38BDF8;'>LTP: N/A</b>"
                                     
                                     # Calculate ATR + is_swing first for Time Stop logic.
-                                    # Trade type comes from rs_trade_type — the ONE rule
-                                    # (see _rs_trade_type). `tt_label` also drives the tile
-                                    # badge, so badge and multipliers cannot disagree.
                                     _tech = hist_data.get(sym)
                                     atr_val = 0
                                     _tt_sw, tt_label = rs_trade_type.get(sym, (None, "UNKNOWN"))
@@ -16190,10 +16206,6 @@ elif page == 'RISK SHIELD':
                                     if (not atr_val or atr_val != atr_val) and ltp:
                                         raw_atr = get_atr(sym)
                                         if raw_atr and raw_atr == raw_atr: atr_val = raw_atr
-                                        # The AI's own "[Swing]" tag used to be read back in
-                                        # here as a trade-type source — circular (the model
-                                        # was told the rule, then its echo fed the engine).
-                                        # Removed; the SL-distance fallback below stands.
 
                                     if (not atr_val or atr_val != atr_val) and sl_vals and ltp:
                                         closest_sl = max(sl_vals)
@@ -16205,10 +16217,6 @@ elif page == 'RISK SHIELD':
                                             else:
                                                 atr_val = dist / 3.0
                                                 is_swing = False
-                                            # This path INFERS the type from the resting stop
-                                            # because technicals were unavailable. Say so on
-                                            # the badge rather than presenting it as the
-                                            # engine's classification.
                                             tt_label = ("SWING" if is_swing else "POSITIONAL") + "?"
 
                                     # Compute Days Held & Time Stop Hit
@@ -16230,9 +16238,7 @@ elif page == 'RISK SHIELD':
                                     flags_html = ""
                                     cond_trim = False
                                     cond_add = False
-                                    _pyr_reason = ""   # RS-P0: init OUTSIDE the guard — read at the
-                                                       # card footer even when technicals failed
-                                                       # (was a NameError crash on a fetch miss)
+                                    _pyr_reason = ""
                                     if _tech:
                                         _c5 = _tech.get("close_5d_ago")
                                         if _c5 and _c5 > 0 and ltp:
@@ -16252,43 +16258,38 @@ elif page == 'RISK SHIELD':
                                                 cond_add = True
 
                                         _flags = []
-                                        # Get classification from cache
                                         _pyr_rec = pyramid_class_dict.get(sym, {})
                                         _class = _pyr_rec.get("classification", "HOLD")
                                         _pyr_reason = _pyr_rec.get("trigger", "")
                                         
                                         if _class == "EXIT":
-                                            _flags.append("<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCA5A5;'>⬇ EXIT</span>")
+                                            _flags.append("<span style='background:#451A1A;color:#EF4444;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #7F1D1D;'>⬇ EXIT</span>")
                                         elif _class == "TRIM":
-                                            _flags.append("<span style='background:#FEF3C7;color:#B45309;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCD34D;'>✂️ TRIM</span>")
+                                            _flags.append("<span style='background:#451A1A;color:#F59E0B;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #78350F;'>✂️ TRIM</span>")
                                         elif _class == "REDUCE":
-                                            _flags.append("<span style='background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                            _flags.append("<span style='background:#0F172A;color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
                                         elif _class == "ADD":
-                                            _flags.append("<span style='background:#F0FDF4;color:#15803D;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                            _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #059669;'>▲ ADD</span>")
                                         else:  # HOLD
-                                            _flags.append("<span style='background:#F1F5F9;color:#334155;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
+                                            _flags.append("<span style='background:#1E293B;color:#94A3B8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #475569;'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
-                                            _flags.append(f"<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
+                                            _flags.append(f"<span style='background:#EF4444;color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>⏰ TIME STOP HIT</span>")
 
                                         if _tech.get("vol_breakout"):
-                                            _flags.append("<span style='background:#15803D;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
+                                            _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #059669;'>🚀 Breakout Vol</span>")
                                         elif _tech.get("vol_climax"):
-                                            _flags.append("<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                            _flags.append("<span style='background:#EF4444;color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
-                                            _flags.append(f"<span style='background:#B45309;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                            _flags.append(f"<span style='background:#78350F;color:#FBBF24;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
-                                            # B1: show which path chose the trail multiplier
                                             _ce_lbl = f"{_tech.get('ce_mult'):.1f}×·{_tech.get('ce_mult_src')}" if _tech.get("ce_mult") else "22D"
-                                            _flags.append(f"<span style='background:#F1F5F9;color:#1E293B;border:1.5px solid #94A3B8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                            _flags.append(f"<span style='background:#1E293B;color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}</span>")
                                         if _tech.get("invalid_ce_override"):
-                                            _flags.append(f"<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠ invalid CE override ignored</span>")
+                                            _flags.append(f"<span style='background:#451A1A;color:#EF4444;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠ invalid CE override ignored</span>")
                                         if _flags:
-                                            flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
+                                            flags_html = f"<div style='margin-bottom:8px;'>{''.join(_flags)}</div>"
                                             
-                                    # Calculate Dhan 50/50 2-OCO execution card parameters.
-                                    # Both legs are FIXED (no trailing): OCO-1 = 50% qty, Fixed T1/SL;
-                                    # OCO-2 = remaining qty, Fixed T2/SL. (Trailing approach abandoned.)
                                     _oco_family = "SWG" if is_swing else "POS"
                                     oco1_q = int(total_qty * 0.5) if total_qty else 0
                                     oco2_q = total_qty - oco1_q if total_qty else 0
@@ -16296,15 +16297,14 @@ elif page == 'RISK SHIELD':
                                     t2_price = tgt_vals[1] if len(tgt_vals) > 1 else (tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.15 if buy_price else 0))
                                     sl_price = near_sl if near_sl else (buy_price * 0.94 if buy_price else 0)
 
-                                    dhan_oco_card_html = f"""<div style='background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;margin-top:8px;font-size:0.78rem;'>
-                                        <div style='color:#1D4ED8;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 Dhan 2-OCO Plan · 50/50 Fixed ({_oco_family})</div>
-                                        <div style='color:#15803D;font-weight:700;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Fixed) ₹{t1_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
-                                        <div style='color:#166534;font-weight:600;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 (Fixed) ₹{t2_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
+                                    dhan_oco_card_html = f"""<div style='background:linear-gradient(145deg, #022C22 0%, #064E3B 100%);border:1.5px solid #059669;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.8rem;'>
+                                        <div style='color:#6EE7B7;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 Dhan 2-OCO Plan · 50/50 Fixed ({_oco_family})</div>
+                                        <div style='color:#A7F3D0;font-weight:700;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Fixed) ₹{t1_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
+                                        <div style='color:#6EE7B7;font-weight:600;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 (Fixed) ₹{t2_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
                                     </div>"""
 
                                     combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>{dhan_oco_card_html}"
 
-                                    # Qty string
                                     qty_parts = []
                                     for o_idx, o in enumerate(orders):
                                         sl_q = o.get("sl_qty") or o.get("qty") or 0
@@ -16312,7 +16312,6 @@ elif page == 'RISK SHIELD':
                                         qty_parts.append(f"SL:{int(sl_q)} Tgt:{int(tgt_q)}")
                                     qty_str = " · ".join(qty_parts)
 
-                                    # Progress bar with ATR SL
                                     progress_bar_html = ""
                                     atr_sl = None
                                     rec_t1 = None
@@ -16320,9 +16319,6 @@ elif page == 'RISK SHIELD':
                                     rec_line = ""
 
                                     if ltp and atr_val and atr_val == atr_val and atr_val > 0:
-                                        # v2.2 catalyst-aware multipliers (risk_common canon):
-                                        # SWG  → SL 1.5× · T1 3R · T2  5R
-                                        # POS  → SL 4.5× · T1 5R · T2 10R
                                         sl_mult = 1.5 if is_swing else 4.5
                                         t1_mult = 3.0 if is_swing else 5.0
                                         t2_mult = 5.0 if is_swing else 10.0
@@ -16333,22 +16329,14 @@ elif page == 'RISK SHIELD':
                                         if len(orders) == 1 or len(tgt_vals) <= 1 or (rec_t1 and ltp >= rec_t1):
                                             rec_t1 = None
                                             
-                                        # R:R on the recommended targets (Jay, 31-Jul-2026).
-                                        # Measured FROM LTP, not from entry: this is a live
-                                        # position, so the decision is "from here, what do I
-                                        # risk vs what do I still make". R = LTP − Rec SL
-                                        # (= ATR × sl_mult, always positive and always defined).
-                                        # An entry-based R would go negative the moment Rec SL
-                                        # rises above cost — i.e. it would blank out on exactly
-                                        # the winners you most need to size the trail against.
                                         _rr_risk = ltp - atr_sl
                                         def _rr(t):
                                             if not t or not _rr_risk or _rr_risk <= 0:
                                                 return ''
-                                            return f' <span style="color:#475569">({(t - ltp) / _rr_risk:.1f}R)</span>'
-                                        t1_str = f' | Rec T1: <span style="color:#D97706">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        t2_str = f' | Rec T2: <span style="color:#D97706">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
-                                        rec_line = f'<div style="font-size:0.75rem;margin-top:8px;color:#475569;">Rec SL: <span style="color:#7C3AED">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
+                                            return f' <span style="color:#94A3B8">({(t - ltp) / _rr_risk:.1f}R)</span>'
+                                        t1_str = f' | Rec T1: <span style="color:#F59E0B;font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        t2_str = f' | Rec T2: <span style="color:#F59E0B;font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
+                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:#CBD5E1;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
                                             
                                     if ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
@@ -16386,37 +16374,37 @@ elif page == 'RISK SHIELD':
                                                 markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#DC2626;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #DC2626;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#EF4444;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
                                                 else:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#eab308;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#F59E0B;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
                                             if atr_sl:
                                                 atr_pos = (atr_sl - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{atr_pos:.1f}%;top:-2px;width:12px;height:12px;background:#bf40bf;border-radius:50%;transform:translateX(-50%);" title="AI Rec SL ₹{atr_sl:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{atr_pos:.1f}%;top:-2px;width:12px;height:12px;background:#C084FC;border-radius:50%;transform:translateX(-50%);" title="AI Rec SL ₹{atr_sl:,.0f}"></div>'
                                             for sv in sl_vals:
                                                 pos = (sv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#DC2626;border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#EF4444;border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
                                             if buy_price:
                                                 entry_pos = (buy_price - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{buy_price:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#94A3B8;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{buy_price:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
                                             
                                             for tv in tgt_vals:
                                                 pos = (tv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#15803D;border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{tv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:#10B981;border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{tv:,.0f}"></div>'
                                                 
                                             if rec_t1:
                                                 t1_pos = (rec_t1 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:#D97706;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:#F59E0B;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
                                             if rec_t2:
                                                 t2_pos = (rec_t2 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:#D97706;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:#F59E0B;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                                 
-                                            progress_bar_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            progress_bar_html = f'<div style="width:100%;background:#334155;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
 
                                     # Trail SL recommendation
                                     reco_parts = []
@@ -16432,31 +16420,31 @@ elif page == 'RISK SHIELD':
                                         reco_parts.append(f"⚖️ Pyramid/Trim: {_pyr_reason}")
                                     reco_str = " · ".join(reco_parts) if reco_parts else "✅ Position in range"
 
-                                    status_color = "#DC2626" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#D97706" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#15803D"
-                                    reco_color = "#DC2626" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#D97706" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#15803D"
+                                    status_color = "#EF4444" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#F59E0B" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#10B981"
+                                    reco_color = "#F87171" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#FBBF24" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#34D399"
 
                                     ai_key = f"ai_exit_review_{sym}"
-                                    # Badge is Risk Shield's call, NOT parsed from the AI reply.
                                     trade_style_badge = _rs_type_badge(tt_label)
                                     ai_html = _rs_ai_card(st.session_state.get(ai_key))
 
-                                    expand_btn = '<label class=\"expand-btn\" title=\"Toggle Fullscreen\" style=\"cursor:pointer;float:right;margin-top:-5px;\">⛶<input type=\"checkbox\" class=\"expand-toggle\" style=\"display:none;\"></label>'
+                                    expand_btn = '<label class=\"expand-btn\" title=\"Toggle Fullscreen\" style=\"cursor:pointer;float:right;margin-top:-5px;color:#94A3B8;\">⛶<input type=\"checkbox\" class=\"expand-toggle\" style=\"display:none;\"></label>'
 
+                                    r_color = "#10B981" if r_multiple > 0 else "#EF4444" if r_multiple < 0 else "#94A3B8"
                                     card_html = (
-                                        f'<div class="metric-card" style="padding:16px;margin-bottom:12px;border-left:4px solid {status_color};text-align:left;">'
+                                        f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-left:4px solid {status_color};border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
                                         f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.2rem;font-weight:700;color:#1D4ED8;vertical-align:middle;">{sym}</span>'
+                                        f'<div><span style="font-size:1.3rem;font-weight:800;color:#F8FAFC;vertical-align:middle;font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>'
                                         f'{trade_style_badge}'
-                                        f'<span style="font-size:0.8rem;color:#475569;margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
-                                        f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.75rem;color:#475569;">'
+                                        f'<span style="font-size:0.8rem;color:#94A3B8;margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
+                                        f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.78rem;color:#94A3B8;">'
                                         f'R-Mult: <span style="font-family:JetBrains Mono;color:{r_color};font-weight:bold;">{r_multiple_str}</span>'
-                                        f' · Risk: <span style="font-family:JetBrains Mono;color:#DC2626;font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
+                                        f' · Risk: <span style="font-family:JetBrains Mono;color:#EF4444;font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
                                         f'{progress_bar_html}'
                                         f'{rec_line}'
-                                        f'<div style="font-size:0.8rem;color:#1E293B;margin-top:5px;line-height:1.6;">'
+                                        f'<div style="font-size:0.82rem;color:#CBD5E1;margin-top:6px;line-height:1.6;">'
                                         f'<div>{combined_line}</div></div>'
-                                        f'<div style="margin-top:8px;font-size:0.78rem;line-height:1.35;color:{reco_color};font-weight:600;">{reco_str}</div>'
+                                        f'<div style="margin-top:8px;font-size:0.8rem;line-height:1.35;color:{reco_color};font-weight:700;">{reco_str}</div>'
                                         f'{ai_html}</div>'
                                     )
                                     st.markdown(card_html, unsafe_allow_html=True)
@@ -16595,14 +16583,13 @@ elif page == 'RISK SHIELD':
                                         raw_atr = get_atr(sym)
                                         if raw_atr: atr_val = raw_atr
 
-                                    pb_html = ""
-                                    badge_html = ""
+                                    progress_bar_html = ""
+                                    atr_sl = None
+                                    rec_t1 = None
+                                    rec_t2 = None
                                     rec_line = ""
                                     
                                     if atr_val > 0 and bp and ltp:
-                                        # v2.2 catalyst-aware multipliers (risk_common canon):
-                                        # SWG  → SL 1.5× · T1 3R · T2  5R
-                                        # POS  → SL 4.5× · T1 5R · T2 10R
                                         sl_mult = 1.5 if is_swing else 4.5
                                         t1_mult = 3.0 if is_swing else 5.0
                                         t2_mult = 5.0 if is_swing else 10.0
@@ -16643,41 +16630,40 @@ elif page == 'RISK SHIELD':
                                                 markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#DC2626;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #DC2626;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:#EF4444;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
                                                 else:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#eab308;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:#F59E0B;border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
                                                     
                                             entry_pos = (bp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#94A3B8;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             
                                             sl_pos = (rec_sl - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{sl_pos:.1f}%;top:-3px;width:14px;height:14px;background:#bf40bf;border-radius:50%;transform:translateX(-50%);" title="Rec SL ₹{rec_sl:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{sl_pos:.1f}%;top:-3px;width:14px;height:14px;background:#C084FC;border-radius:50%;transform:translateX(-50%);" title="Rec SL ₹{rec_sl:,.0f}"></div>'
                                             
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
                                             if rec_t1:
                                                 t1_pos = (rec_t1 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:#15803D;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:#10B981;border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
                                             
                                             t2_pos = (rec_t2 - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:#15803D;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:#10B981;border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                             
-                                        pb_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        pb_html = f'<div style="width:100%;background:#334155;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
                                         badge_html = _rs_type_badge(tt_label)
                                         
-                                        # Same R:R convention as the OCO tiles above: from LTP.
                                         _rr_risk = ltp - rec_sl
                                         def _rr(t, _px=ltp, _rk=_rr_risk):
                                             if not t or not _rk or _rk <= 0:
                                                 return ''
-                                            return f' <span style="color:#475569">({(t - _px) / _rk:.1f}R)</span>'
-                                        t1_str = f' | Rec T1: <span style="color:#15803D">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        rec_line = f'<div style="font-size:0.8rem;color:#1E293B;margin-top:5px;line-height:1.6;">Rec SL: <span style="color:#7C3AED">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#15803D">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
+                                            return f' <span style="color:#94A3B8">({(t - _px) / _rk:.1f}R)</span>'
+                                        t1_str = f' | Rec T1: <span style="color:#10B981;font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        rec_line = f'<div style="font-size:0.78rem;color:#CBD5E1;margin-top:6px;line-height:1.6;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:#10B981;font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
                                     elif bp and ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
@@ -16700,54 +16686,53 @@ elif page == 'RISK SHIELD':
                                                 markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#d2a8ff;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
                                             entry_pos = (bp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#475569;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:#94A3B8;border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#1D4ED8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.0f}"></div>'
-                                        pb_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid #FFFFFF;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
+                                        pb_html = f'<div style="width:100%;background:#334155;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
-                                    expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
+                                    expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;color:#94A3B8;">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_unprotected_review_{sym}"
                                     ai_html = _rs_ai_card(st.session_state.get(ai_key))
                                         
                                     flags_html = ""
-                                    # Get classification from cache
                                     _pyr_rec = pyramid_class_dict.get(sym, {})
                                     _class = _pyr_rec.get("classification", "HOLD")
                                     _pyr_reason = _pyr_rec.get("trigger", "")
                                     
                                     _flags = []
                                     if _class == "EXIT":
-                                        _flags.append("<span style='background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCA5A5;'>⬇ EXIT</span>")
+                                        _flags.append("<span style='background:#451A1A;color:#EF4444;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #7F1D1D;'>⬇ EXIT</span>")
                                     elif _class == "TRIM":
-                                        _flags.append("<span style='background:#FEF3C7;color:#B45309;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:800;border:1px solid #FCD34D;'>✂️ TRIM</span>")
+                                        _flags.append("<span style='background:#451A1A;color:#F59E0B;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #78350F;'>✂️ TRIM</span>")
                                     elif _class == "REDUCE":
-                                        _flags.append("<span style='background:#EFF6FF;color:#1D4ED8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #60a5fa;'>◐ REDUCE</span>")
+                                        _flags.append("<span style='background:#0F172A;color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
                                     elif _class == "ADD":
-                                        _flags.append("<span style='background:#F0FDF4;color:#15803D;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                        _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #059669;'>▲ ADD</span>")
                                     else:  # HOLD
-                                        _flags.append("<span style='background:#F1F5F9;color:#334155;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
+                                        _flags.append("<span style='background:#1E293B;color:#94A3B8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #475569;'>━ HOLD</span>")
                                     
                                     if _tech:
-                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#15803D;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
-                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:#DC2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
-                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#B45309;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
-                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:#F1F5F9;color:#1E293B;border:1.5px solid #94A3B8;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
-                                    if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
+                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #059669;'>🚀 Breakout Vol</span>")
+                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:#EF4444;color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
+                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#78350F;color:#FBBF24;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:#1E293B;color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                    if _flags: flags_html = f"<div style='margin-bottom:8px;'>{''.join(_flags)}</div>"
                                         
-                                    reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:#92400E;font-weight:600;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
+                                    reason_line = f"<div style='font-size:0.78rem;margin-top:6px;color:#F59E0B;font-weight:600;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
                                     card_html = (
-                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid #DC2626;text-align:left;">'
+                                        f'<div style="background:linear-gradient(145deg, #2D1517 0%, #1F1315 100%);border:1.5px solid #7F1D1D;border-left:4px solid #EF4444;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
                                         f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.1rem;font-weight:700;color:#1D4ED8;vertical-align:middle;">{sym}</span>{badge_html}'
-                                        f' <span style="font-size:0.8rem;color:#DC2626;margin-left:8px;">⚠️ NO SL</span></div>'
-                                        f'<div style="font-size:0.8rem;color:#475569;padding-right:20px;">Qty: {qty}</div></div>'
+                                        f'<div><span style="font-size:1.3rem;font-weight:800;color:#F8FAFC;font-family:Rajdhani,sans-serif;letter-spacing:0.5px;vertical-align:middle;">{sym}</span>{badge_html}'
+                                        f' <span style="font-size:0.8rem;color:#F87171;font-weight:800;margin-left:8px;">⚠️ NO SL</span></div>'
+                                        f'<div style="font-size:0.8rem;color:#94A3B8;padding-right:20px;">Qty: {qty}</div></div>'
                                         f'{flags_html}'
                                         f'{pb_html}'
-                                        f'<div style="font-size:0.8rem;color:#1E293B;line-height:1.6;">'
-                                        f'Cost ₹{bp:,.2f} → LTP ₹{ltp:,.2f} <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
+                                        f'<div style="font-size:0.82rem;color:#CBD5E1;line-height:1.6;">'
+                                        f'Cost ₹{bp:,.2f} → LTP <b style="color:#38BDF8;">₹{ltp:,.2f}</b> <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
                                         f'</div>'
                                         f'{rec_line}'
                                         f'{reason_line}'
@@ -16826,64 +16811,57 @@ elif page == 'RISK SHIELD':
                                             
                                             pb_html = f'<div style="width:100%;background:#E2E8F0;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
-                                    kind_html = f' <span style="font-size:0.7rem;color:#475569;">· {kind_lbl}</span>' if kind_lbl else ""
+                                    kind_html = f' <span style="font-size:0.75rem;color:#94A3B8;">· {kind_lbl}</span>' if kind_lbl else ""
                                     
                                     setup_warning_html = ""
                                     _tech_dict = hist_data.get(sym)
                                     if _tech_dict:
                                         if _tech_dict.get("ws_score", 100) < 50 or _tech_dict.get("sma200_slope", 0) < 0:
-                                            setup_warning_html = '<div style="font-size:0.75rem;color:#DC2626;font-weight:bold;margin-top:4px;">🚨 INVALID SETUP WARNING (WS Score < 50 or SMA200 slope < 0)</div>'
-                                            border = "#DC2626"
+                                            setup_warning_html = '<div style="font-size:0.75rem;color:#EF4444;font-weight:bold;margin-top:6px;">🚨 INVALID SETUP WARNING (WS Score < 50 or SMA200 slope < 0)</div>'
+                                            border = "#EF4444"
                                             
-                                    entry_line = f"<b style='color:#B45309;'>Trigger ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
-                                    ltp_line = f"<b style='color:#1D4ED8;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
+                                    entry_line = f"<b style='color:#F59E0B;'>Trigger ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
+                                    ltp_line = f"<b style='color:#38BDF8;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
                                 
                                     ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
                                     trade_style_badge = _rs_type_badge(rs_trade_type.get(sym, (None, "UNKNOWN"))[1])
 
                                     card = (
-                                        f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {border};text-align:left;">'
-                                        f'<span style="font-size:1.1rem;font-weight:700;color:#1D4ED8;">{sym}</span>{trade_style_badge}'
-                                        f' <span style="font-size:0.8rem;color:#475569;">Qty: {b["qty"]}</span>{kind_html}'
+                                        f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-left:4px solid {border};border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
+                                        f'<span style="font-size:1.3rem;font-weight:800;color:#F8FAFC;font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>{trade_style_badge}'
+                                        f' <span style="font-size:0.8rem;color:#94A3B8;">Qty: {b["qty"]}</span>{kind_html}'
                                         f'{pb_html}'
-                                        f'<div style="font-size:0.8rem;color:#1E293B;margin-top:6px;line-height:1.6;">'
-                                        f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div>{setup_warning_html}</div></div>'
+                                        f'<div style="font-size:0.82rem;color:#CBD5E1;margin-top:6px;line-height:1.6;">'
+                                        f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div>{setup_warning_html}</div>'
+                                        f'{_rs_ai_card(st.session_state.get(ai_key))}</div>'
                                     )
                                     st.markdown(card, unsafe_allow_html=True)
-
-                                    ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
-                                    if ai_key in st.session_state:
-                                        st.markdown(f'<div style="background:#F0F9FF;border-left:4px solid #B45309;padding:8px;border-radius:6px;margin-bottom:10px;font-size:0.78rem;color:#090D16;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
 
                 # ── Tab 4: Risk Profile ──
                 with entry_tab4:
                     st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
-                    # BUG FIX (2026-07-05, Jay): `balance` is available CASH, not equity —
-                    # dividing open risk by idle cash produced absurd percentages (289%)
-                    # and mislabeled cash as "portfolio equity". True equity = holdings
-                    # market value + cash.
                     _equity_rp = float(total_portfolio_value or 0.0) + float(balance or 0.0)
                     portfolio_risk_pct = (total_risk / _equity_rp) * 100 if _equity_rp > 0 else 0.0
                     if portfolio_risk_pct <= 1.0:
                         risk_grade = "A+ (Excellent)"
-                        risk_grade_color = "#15803D"
+                        risk_grade_color = "#10B981"
                     elif portfolio_risk_pct <= 2.0:
                         risk_grade = "A (Good)"
-                        risk_grade_color = "#15803D"
+                        risk_grade_color = "#10B981"
                     elif portfolio_risk_pct <= 5.0:
                         risk_grade = "B (Moderate)"
-                        risk_grade_color = "#B45309"
+                        risk_grade_color = "#F59E0B"
                     else:
                         risk_grade = "C (High Risk)"
-                        risk_grade_color = "#DC2626"
+                        risk_grade_color = "#EF4444"
 
                     st.markdown(
-                        f'<div class="metric-card" style="padding:20px;text-align:center;margin-bottom:15px;border-top:3px solid {risk_grade_color};">'
-                        f'<div class="metric-label">Total Open Heat & Risk Grade</div>'
-                        f'<div class="metric-value" style="color:{risk_grade_color};font-size:2rem;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
-                        f'<div style="font-size:0.8rem;color:#334155;margin-top:4px;">'
-                        f'Total capital at risk from current LTP to Stop Loss is <b>₹{format_inr_int(total_risk)}</b> '
-                        f'on total portfolio equity of <b>₹{format_inr_int(_equity_rp)}</b> '
+                        f'<div style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:1.5px solid #334155;border-top:4px solid {risk_grade_color};border-radius:12px;padding:20px;text-align:center;margin-bottom:18px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">'
+                        f'<div style="font-size:0.78rem;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Total Open Heat & Risk Grade</div>'
+                        f'<div style="color:{risk_grade_color};font-size:2.2rem;font-weight:900;margin-top:6px;font-family:JetBrains Mono;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
+                        f'<div style="font-size:0.85rem;color:#CBD5E1;margin-top:8px;line-height:1.5;">'
+                        f'Total capital at risk from current LTP to Stop Loss is <b style="color:#EF4444;">₹{format_inr_int(total_risk)}</b> '
+                        f'on total portfolio equity of <b style="color:#38BDF8;">₹{format_inr_int(_equity_rp)}</b> '
                         f'(holdings ₹{format_inr_int(total_portfolio_value)} + cash ₹{format_inr_int(balance)}).'
                         f'</div></div>', unsafe_allow_html=True
                     )
