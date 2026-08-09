@@ -1,10 +1,16 @@
 /* Re-bind S4's `input.source` fields to the v67 Dashboard and Swing Zigzag plots.
  *
- * WHY THIS EXISTS: TradingView drops source bindings on EVERY recompile of S4 —
- * not only when inputs are inserted mid-list, which is what I first assumed. So
- * this is not a one-off setup step, it is a chore that follows every compile.
- * Fifteen dropdowns by hand, every time, is how the panel silently goes back to
- * reading `close` and printing "-" in half its rows.
+ * WHY THIS EXISTS: TradingView drops source bindings on EVERY recompile of S4.
+ * MEASURED, not assumed (7-Aug-2026): after a compile that changed NO inputs at
+ * all, 0 of 18 bindings survived. An earlier theory blamed input-id shifting —
+ * ids are positional, and deleting five unused inputs to reclaim tokens really
+ * did renumber everything after them — but that is a SECOND, independent way to
+ * break them, not the cause. The recompile alone is sufficient.
+ *
+ * So this is not a one-off setup step, it is a chore that follows every compile.
+ * Eighteen dropdowns by hand, every time, is how the panel silently goes back to
+ * reading `close` and printing "-" in half its rows — or worse, dropping a field
+ * entirely, which is how the Daily trend arrow disappeared without a trace.
  *
  * Matching is by NAME on both sides — S4's input titles and the exporter's plot
  * titles. Entity ids (DDeb97 / EKxZK4 / NlkikE) change whenever an indicator is
