@@ -571,6 +571,24 @@ def run_validation(months_back: int = 12,
                 picks = picks[pd.to_numeric(picks["Score"], errors="coerce")
                                 .fillna(0) >= min_score]
             # v2.8 (Week 4): sector rotation overlay — drop picks in unfavorable sectors
+            # FAMILY FILTER (9-Aug-2026). POS and SWG are two strategies pooled into one
+            # number: on the 519-pick book SWG-PB was 313 trades at -0.07% mean matched
+            # alpha and 23.6% win, POS-BO 154 at +1.13%, POS-ACCUM 49 at +0.81%.
+            # Reporting them together hid both.
+            # Anchored on STATE, not text: located after `picks = picks_full.copy()` and
+            # before the rotation overlay. Three earlier attempts matched the string
+            # 'sector rotation' and landed in the wrong function, then above the line
+            # where picks is even defined.
+            if FAMILY_FILTER and not picks.empty:
+                _cc = ('Catalyst' if 'Catalyst' in picks.columns
+                         else 'Signal_Label' if 'Signal_Label' in picks.columns else None)
+                if _cc:
+                    _n0 = len(picks)
+                    _pref = tuple(f.strip().upper() for f in FAMILY_FILTER if f.strip())
+                    picks = picks[picks[_cc].astype(str).str.strip().str.upper()
+                                    .str.startswith(_pref)]
+                    print(f'    family filter {_pref}: {_n0} -> {len(picks)} picks')
+
             if sector_rotation != "off" and not picks.empty:
                 try:
                     import sector_rotation as _sr
