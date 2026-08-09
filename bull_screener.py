@@ -355,7 +355,7 @@ from strict_trend import (  # noqa: F401  (re-exported for existing call sites)
 
 
 def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int = 5,
-                                 slope_len: int = 6, thresh_mult: float = 0.0012) -> tuple:
+                                 slope_len: int = 4, thresh_mult: float = 0.0012) -> tuple:  # 4 = S4 f_wma30 (_m - _m[4])
     n = len(df_w)
     stages = pd.Series(4, index=df_w.index, dtype=int)
     stage_wks = pd.Series(0.0, index=df_w.index, dtype=float)
@@ -368,7 +368,14 @@ def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int =
 
     ma = c.rolling(30).mean()
     old_ma = ma.shift(slope_len)
-    slope = (ma - old_ma.fillna(ma)) / max(1, slope_len)
+    # RAW N-bar change, NOT a per-bar rate (9-Aug-2026). S4 computes
+    #     _d = _m - _m[4]   and compares it to  _m * thresh
+    # while this divided by slope_len, making Python's flat band 4x WIDER than
+    # S4's. Under the old state machine hysteresis hid it; with a stateless 2x2
+    # it decides the digit — GLAXO's 30-WMA rose +12.5 over four weeks, S4 called
+    # that Stage 2, Python swallowed it as "flat" and fell through to the RS
+    # tiebreak for Stage 3. S4 is the trading trigger, so S4 is the definition.
+    slope = ma - old_ma.fillna(ma)
 
     trend_series = compute_strict_trend(h, l, piv_left=left, piv_right=right)
 
@@ -392,34 +399,34 @@ def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int =
         is_ma_downtrend = val_slope < -val_thresh
         is_above_ma = val_c > val_ma
 
-        # State machine transitions
-        if current_stage_htf == 1:
-            if is_ma_uptrend and is_above_ma:
-                current_stage_htf = 2
-            elif is_ma_downtrend and not is_above_ma and val_trend != 1:
-                current_stage_htf = 4
-        elif current_stage_htf == 2:
-            if is_ma_downtrend and not is_above_ma and val_trend != 1:
-                current_stage_htf = 4
-            elif (not is_ma_uptrend and not is_above_ma) or (val_trend == -1 and not is_above_ma):
-                current_stage_htf = 3
-        elif current_stage_htf == 3:
-            if is_ma_downtrend and not is_above_ma and val_trend != 1:
-                current_stage_htf = 4
-            elif is_ma_uptrend and is_above_ma:
-                current_stage_htf = 2
-        elif current_stage_htf == 4:
-            if is_ma_uptrend and is_above_ma:
-                current_stage_htf = 2
-            elif not is_ma_downtrend and is_above_ma:
-                current_stage_htf = 1
-
-        # Strict trend overrides
-        if val_trend == 1 and current_stage_htf == 4:
-            current_stage_htf = 1
-        if val_trend == -1 and current_stage_htf == 2:
-            current_stage_htf = 3
-
+        # ── STATELESS 2x2 (9-Aug-2026) — mirrors S4 exactly ────────────────────
+        # WAS a hysteresis state machine that evolved the stage from its previous
+        # value, plus two strict-trend overrides. It could park a name in a stage
+        # it had long left: promotion 1->2 required a RISING 30-WMA, so a stock
+        # trading well ABOVE a DECLINING 30-week average never left "Stage 1".
+        # Measured over the 56-name board, 19 names (34%) were mis-staged, and the
+        # dominant error was exactly that shape:
+        #   MPHASIS  +5.8% above the MA, MA falling 62.9  -> called Stage 1
+        #   CRISIL   +8.8% above the MA, MA falling  9.3  -> called Stage 1
+        # Both are distribution, not a base. The mirror error (COFORGE +27.7%
+        # above a falling MA held at Stage 4) came from the same freezing.
+        #
+        # S4 classifies fresh each bar from position x slope, and v67 agrees with
+        # it; this is the definition all three surfaces now share. The RS tiebreak
+        # resolves the two ambiguous cells (S4: `_rsUp`) — a flat MA is only a
+        # base/advance if relative strength is improving, else it is topping.
+        #
+        # The strict-trend overrides (tDir +1: 4->1, tDir -1: 2->3) are GONE. A
+        # stage that a separate pivot engine can rewrite is a stage you cannot
+        # reason about, and it is why GM and S4 disagreed on the same chart.
+        # HYSTERESIS TRADE-OFF, stated: a stateless read can flip 2<->3 when the
+        # MA hovers around flat. That is what thresh_mult is for — widen the flat
+        # band rather than freeze a stale digit.
+        rs_up = bool(val_trend == 1)
+        if is_above_ma:
+            current_stage_htf = 2 if is_ma_uptrend else (3 if is_ma_downtrend else (2 if rs_up else 3))
+        else:
+            current_stage_htf = (4 if (is_ma_downtrend and not rs_up) else 1)
         # Weeks-in-stage counter
         if current_stage_htf != prev_stage_htf:
             wks = 0.0
