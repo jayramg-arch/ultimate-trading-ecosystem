@@ -59,6 +59,10 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+ENABLE_SWG_BOOK = False   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
+SWG_LABELS = ("SWG-BO", "SWG-PB", "SWG-GAP", "SWG-REV")
+
+
 # v2.4 sync diagnostic — funnel counter per gate per catalyst.
 # Reset at start of each run; printed after the screening loop completes.
 # Tells you exactly where the catalyst funnel collapses.
@@ -1164,6 +1168,18 @@ def compute_score(cat_label: str, weekly: dict, alpha: int, rv_now: float,
         import v2_fixes as _v2
     except Exception:
         _v2 = None
+
+    # LIVE SWG SUPPRESSION (9-Aug-2026). Detection above still runs; the LABEL is
+    # withheld so the name never becomes a pick. Measured over 24mo/nifty500,
+    # matched-horizon: SWG-PB 313 trades -0.07% mean alpha 23.6% win, against
+    # POS-BO 154 at +1.13% and POS-ACCUM 49 at +0.81%. SWG was 60% of all signals,
+    # produced nothing, and paid costs on every one. It also owned the exit bleed —
+    # the pooled book stopped out on the INITIAL stop 53% of the time, POS-only
+    # 11.8%. Flip ENABLE_SWG_BOOK to re-enable; the swing book returns only as a
+    # SEPARATE strategy with its own OOS proof, not as a default. Backtests are
+    # unaffected — validation.py --families is the knob there.
+    if (not ENABLE_SWG_BOOK) and cat_label in SWG_LABELS:
+        cat_id, cat_label = 0, ""
 
     if cat_label in ("POS-BO", "SWG-BO", "SWG-GAP"):
         score += 30
