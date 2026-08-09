@@ -234,6 +234,45 @@ def catalyst_label_of(pick) -> str:
             return s.upper()
     return ""
 
+# ── TIME STOP REMOVED (5-Aug-2026, Jay) ─────────────────────────────────────
+# The simulator force-closed any position still open at `max_bars` and called it
+# "Time expiry". Nobody sells because sixty days elapsed, and it was distorting every
+# measurement taken here:
+#   * Time-expiry trades were the BIG winners (+11.63% MACD, +23.77% screener). Cutting
+#     them at an arbitrary bar truncates the right tail — exactly where a trend edge is.
+#   * It made every result a function of the horizon chosen, so two strategies were only
+#     comparable if they happened to share one.
+# Now a position runs until it exits on its OWN rules (initial stop or trail). `max_bars`
+# is only a DATA guard. Anything unresolved when the bars run out is "Still open" and
+# must be EXCLUDED from completed-trade stats, not counted as a winner.
+# ── STRUCTURE-ANCHORED INITIAL STOP (9-Aug-2026) — OFF by default ─────────────
+# The stop used by this path comes from the screener as a fixed ATR multiple
+# (SWG 1.5x, POS 4.0x). Measured on the 519-pick re-baseline: 276 trades die on
+# the initial stop, 252 of them SWG, and the SWG stop is a MEDIAN 3.02% hit in a
+# MEDIAN 3 days — roughly 1 ATR, i.e. inside ordinary daily range. 117 of those
+# 276 (42%) had already gone GREEN before the stop took them. Those are
+# shakeouts, not theses failing.
+#
+# `_structural_sl` (the S4-style stop: nearest structure below entry, else the
+# recent swing low, capped at 3x ATR) already existed but was only ever called
+# from the GO-timed path at line ~984 — never from here. So a structure-anchored
+# stop is UNTESTED on the path that produces the baseline, and the two earlier
+# stop studies do not apply to it: 23-Jul tested an ATR FLOOR on top of an
+# already-structural stop under a buy-STOP entry, which is a different stop, a
+# different entry and a different question.
+#
+# OFF by default so every existing artifact reproduces byte-for-byte. Set
+# STRUCTURAL_SL = True (optionally with a per-family ATR floor) to A/B it.
+# Score in R, never per-trade % — a % metric structurally rewards wide stops
+# for exposure they never bought.
+STRUCTURAL_SL = False
+STRUCTURAL_SL_CAP_ATR = 3.0        # bound the risk; _structural_sl never exceeds this
+STRUCTURAL_SL_FLOOR_BY_FAMILY = {} # e.g. {"SWG": 1.5, "POS": 2.5} — 0/absent = no floor
+
+NO_TIME_STOP = True
+MAX_HOLD_BARS = 400      # ceiling, not a target — a Chandelier retires most trades sooner
+
+
 def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: float,
                          sl_price: float, t1_price: Optional[float], t2_price: Optional[float],
                          t1_qty_pct: int, t2_qty_pct: int,
@@ -247,7 +286,11 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
                  "max_dd_pct": None, "max_runup_pct": None}
 
     # Bars AFTER the entry bar, capped at max_bars
-    end_pos = min(entry_idx_pos + 1 + max_bars, len(df_d))
+    # With the time stop off, max_bars is only a DATA guard — the trade runs to its own
+    # exit. Leaving the old cap here would have truncated at the same bar and merely
+    # relabelled the result "Still open", which is the bug wearing a different name.
+    _cap = MAX_HOLD_BARS if NO_TIME_STOP else max_bars
+    end_pos = min(entry_idx_pos + 1 + _cap, len(df_d))
     window = df_d.iloc[entry_idx_pos + 1 : end_pos]
     if window.empty:
         return {"realized_pct": 0.0, "exit_reason": "no forward bars", "days_held": 0,
@@ -273,6 +316,11 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
 
     days_held = 0
     final_exit_price = None
+    # HOW LONG DOES A TRADE TAKE TO PAY? Stamped on the first bar each becomes true —
+    # single pass, no look-ahead, no second scan of the window.
+    days_to_profit = None      # first close above entry NET of a round turn
+    days_to_1r = None          # first close at entry + the initial risk
+    _risk_pu = max(0.0, entry_price - sl_price)
     for i, (idx, row) in enumerate(window.iterrows()):
         days_held = i + 1
         bar_low  = float(row["Low"])
@@ -325,6 +373,11 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
             qty_open -= exit_qty
             hit_t2 = True
 
+        if days_to_profit is None and bar_close > entry_price * (1 + 2 * cost_pct / 100.0):
+            days_to_profit = days_held
+        if days_to_1r is None and _risk_pu > 0 and bar_close >= entry_price + _risk_pu:
+            days_to_1r = days_held
+
         highest_close = max(highest_close, bar_close)
 
     # If still open at end of window, mark-to-market at final close
@@ -333,7 +386,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         pnl_pct_this = (final_close - entry_price) / entry_price * 100 * (qty_open / 100.0)
         realized_pnl_pct += pnl_pct_this
         if not exit_reason:
-            exit_reason = "Time expiry"
+            exit_reason = "Still open" if NO_TIME_STOP else "Time expiry"
         final_exit_price = final_close
 
     # Apply commission + slippage: 1 entry + (entry/exit cycles = 1 if all SL, more if T1/T2 hits)
@@ -358,6 +411,8 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         "max_dd_pct":    max_dd_pct,
         "max_runup_pct": max_runup_pct,
         "cost_drag_pct": round(cost_drag, 3),
+        "days_to_profit": days_to_profit,
+        "days_to_1r":     days_to_1r,
     }
 
 
@@ -383,7 +438,8 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
 
     # Fetch benchmark with enough horizon for the longest possible window
     longest = max([forward_days] + list(FWD_DAYS_BY_CATALYST.values())) if use_catalyst_windows else forward_days
-    bench_period = "2y" if longest <= 250 else "3y"
+    # NO_TIME_STOP holds can run to MAX_HOLD_BARS, so pull enough history either way.
+    bench_period = "3y" if (NO_TIME_STOP or longest > 250) else "2y"
     df_bench_raw = _dp.fetch_ohlcv(BENCHMARK_YF, period=bench_period, interval="1d")
     bench_idx = df_bench_raw.index.tz_localize(None) if hasattr(df_bench_raw.index, "tz") and df_bench_raw.index.tz is not None else df_bench_raw.index
     df_bench = df_bench_raw.copy(); df_bench.index = bench_idx
@@ -441,9 +497,21 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
             continue
 
         sl_pct = float(pick.get("SL_pct", 3.0) or 3.0)
-        t1_pct = pick.get("T1_pct")
-        t2_pct = pick.get("T2_pct")
         sl_price = entry_price * (1 - sl_pct / 100)
+        if STRUCTURAL_SL:
+            # Anchor to structure instead of a volatility multiple. Falls back to the
+            # screener stop on any failure — a stop must never end up missing or above
+            # entry, so the ATR-based value stays the floor of last resort.
+            try:
+                _fam = str(catalyst_label_of(pick) or "")[:3]
+                _flr = float(STRUCTURAL_SL_FLOOR_BY_FAMILY.get(_fam, 0.0) or 0.0)
+                _ssl = _structural_sl(df2, entry_pos, entry_price, {},
+                                      atr_cap_mult=STRUCTURAL_SL_CAP_ATR, atr_floor_mult=_flr)
+                if _ssl and 0 < _ssl < entry_price:
+                    sl_price = float(_ssl)
+                    sl_pct = 100.0 * (entry_price - sl_price) / entry_price
+            except Exception:
+                pass
         t1_price = entry_price * (1 + float(t1_pct) / 100) if t1_pct is not None and not pd.isna(t1_pct) else None
         t2_price = entry_price * (1 + float(t2_pct) / 100) if t2_pct is not None and not pd.isna(t2_pct) else None
 
@@ -490,6 +558,8 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
             "Alpha_Matched_pct":    alpha_matched,
             "Exit_Reason":          res["exit_reason"],
             "Days_Held":            res["days_held"],
+            "Days_To_Profit":       res.get("days_to_profit"),
+            "Days_To_1R":           res.get("days_to_1r"),
             "Hit_SL":               res["hit_sl"],
             "Hit_Initial_SL":       res.get("hit_initial_sl", False),  # v2.9
             "Hit_Trail_SL":         res.get("hit_trail_sl",   False),  # v2.9
@@ -992,6 +1062,8 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
         "Alpha_Matched_pct":    alpha_matched,
         "Exit_Reason":          res["exit_reason"],
         "Days_Held":            res["days_held"],
+        "Days_To_Profit":       res.get("days_to_profit"),
+        "Days_To_1R":           res.get("days_to_1r"),
         "Hit_Initial_SL":       res.get("hit_initial_sl", False),
         "Hit_Trail_SL":         res.get("hit_trail_sl", False),
         "Hit_T1":               res["hit_t1"],
