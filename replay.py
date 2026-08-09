@@ -496,6 +496,8 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
                           "forward_days_used": fwd, "Catalyst_used": cat})
             continue
 
+        t1_pct = pick.get("T1_pct")
+        t2_pct = pick.get("T2_pct")
         sl_pct = float(pick.get("SL_pct", 3.0) or 3.0)
         sl_price = entry_price * (1 - sl_pct / 100)
         if STRUCTURAL_SL:
@@ -505,7 +507,18 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
             try:
                 _fam = str(catalyst_label_of(pick) or "")[:3]
                 _flr = float(STRUCTURAL_SL_FLOOR_BY_FAMILY.get(_fam, 0.0) or 0.0)
-                _ssl = _structural_sl(df2, entry_pos, entry_price, {},
+                # THE ZONE DISTAL, not just the swing low. `_location_at` is the same
+                # zone_engine lookup the GO path uses; passing {} left _structural_sl
+                # with only the swing low to work with, which is not the thing being
+                # tested. Sliced to entry_pos + 1 so the zone is built from bars that
+                # existed AT ENTRY — passing the whole frame would let a zone formed
+                # after the entry set the stop, which is look-ahead.
+                _loc = {}
+                try:
+                    _loc = _location_at(df2.iloc[:entry_pos + 1], entry_price) or {}
+                except Exception:
+                    _loc = {}
+                _ssl = _structural_sl(df2, entry_pos, entry_price, _loc,
                                       atr_cap_mult=STRUCTURAL_SL_CAP_ATR, atr_floor_mult=_flr)
                 if _ssl and 0 < _ssl < entry_price:
                     sl_price = float(_ssl)

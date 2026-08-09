@@ -86,6 +86,8 @@ _WATCHLIST_FILE_MAP = {
 }
 
 
+FAMILY_FILTER: tuple = ()   # e.g. ("POS",) — set by --families; () = all
+
 def _load_watchlist(name: str) -> list[str]:
     """Read a curated watchlist CSV, return its symbol list (canonicalized).
 
@@ -304,6 +306,17 @@ def run_chartink_validation(months_back: int = 12,
         bench = result.get("benchmark_pct")
 
         picks = picks_full.copy()
+        # FAMILY FILTER (9-Aug-2026). SWG was 316 of 519 trades on the re-baseline and
+        # returned +0.01% mean matched alpha at 24% win, while POS returned +1.05% at
+        # 36.5%. Two strategies were being pooled and reported as one. This isolates a
+        # family so each is judged on its own evidence. Empty/None = every family, so
+        # existing artifacts reproduce unchanged.
+        if FAMILY_FILTER and not picks.empty:
+            _cc = ("Catalyst" if "Catalyst" in picks.columns
+                     else "Signal_Label" if "Signal_Label" in picks.columns else None)
+            if _cc:
+                _pref = tuple(f.strip().upper() for f in FAMILY_FILTER if f.strip())
+                picks = picks[picks[_cc].astype(str).str.strip().str.upper().str.startswith(_pref)]
         if not picks.empty:
             cat_col = ("Catalyst" if "Catalyst" in picks.columns
                          else "Signal_Label" if "Signal_Label" in picks.columns else None)
@@ -582,6 +595,7 @@ def run_validation(months_back: int = 12,
         # ── Recompute forward returns + summary on the filtered set ─────
         # v2.6 (2026-05-21): Use realistic simulator with SL/T1/T2/trail/commission
         # if picks have Entry+SL_pct+T1_pct cols (Bull screener output does).
+        bench_reported = bench          # v3.0: overridden below in catalyst-windows mode
         if picks.empty:
             perf = pd.DataFrame()
             s    = {"n": 0, "n_complete": 0,
@@ -607,6 +621,10 @@ def run_validation(months_back: int = 12,
                 synthetic_bench = (float(ret_mean) - float(matched_mean)
                                     if pd.notna(ret_mean) and pd.notna(matched_mean) else bench)
                 s = _replay._summarize(perf, synthetic_bench)
+                # v3.0: report the benchmark that alpha_pct was actually measured
+                # against. Previously this row wrote the raw full-window `bench`
+                # beside a MATCHED alpha, so alpha_pct != avg_return - benchmark_pct.
+                bench_reported = round(synthetic_bench, 2) if synthetic_bench is not None else None
             else:
                 s = _replay._summarize(perf, bench)
 
@@ -620,7 +638,7 @@ def run_validation(months_back: int = 12,
             "median_return_pct": s.get("median_return_pct"),
             "best_pct":          s.get("best_pct"),
             "worst_pct":         s.get("worst_pct"),
-            "benchmark_pct":     bench,
+            "benchmark_pct":     bench_reported,
             "alpha_pct":         s.get("alpha_vs_bench"),
             # v2.3 E-5: drawdown quality metrics
             "avg_max_dd_pct":    s.get("avg_max_drawdown_pct"),
@@ -779,6 +797,232 @@ def run_validation(months_back: int = 12,
     }
 
 
+def _filter_armed(df: pd.DataFrame) -> pd.DataFrame:
+    """The GM QUALIFY (context+quality) filter on the bull tracker output: a
+    durable ARMED name = Stage-2 (advancing) AND RS leadership (Mansfield JdK
+    RS ≥ 100 outperforming, OR RRG-tradeable). This is what the watchlist arms
+    — NOT a same-day catalyst — so the S4 GO then TIMES the entry. Mirrors the
+    GM's Context + Quality gates (the SETUP is soft for bull)."""
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    if "Stage" in out.columns:
+        out = out[out["Stage"].astype(str).str.contains("2", na=False)]
+    if out.empty:
+        return out
+    rs_ok = pd.Series(True, index=out.index)
+    if "JdK_RS_Ratio" in out.columns:
+        rs_ok = pd.to_numeric(out["JdK_RS_Ratio"], errors="coerce").fillna(0) >= 100.0
+    if "RRG_Tradeable" in out.columns:
+        rs_ok = rs_ok | out["RRG_Tradeable"].astype(bool)
+    return out[rs_ok]
+
+
+def run_s4go_validation(months_back: int = 24,
+                        universe_name: str = "nifty500",
+                        screener: str = "bull",
+                        entry_window: int = 40,
+                        rv_floor: float = 1.0,
+                        qualify: str = "armed",
+                        basket: Optional[list[str]] = None,
+                        bootstrap_n: int = 0,
+                        progress_cb=None) -> dict:
+    """Walk-forward backtest of the GM+S4 daily-approx GO ENTRY (not the catalyst
+    pick). For each monthly anchor:
+
+      1. PIN data_provider to the anchor and build the as-of QUALIFIED universe
+         (point-in-time, no look-ahead). `qualify` controls what "qualified" means:
+           • "armed"    (bull default) — the GM QUALIFY: Stage-2 + RS leadership
+                        (tracker output via _filter_armed). This is the durable
+                        armed watchlist — the true "new criteria" universe — NOT a
+                        same-day catalyst. The S4 GO then TIMES the entry.
+           • "catalyst" — the screener's strict catalyst-firing set (same names the
+                        legacy catalyst backtest buys → directly comparable).
+         Recovery always uses its strict RFF+drawdown gate (that IS recovery's
+         QUALIFY — fundamentally-strong beaten-down), regardless of `qualify`.
+      2. UNPIN (the GO scan needs to see bars AFTER the anchor).
+      3. replay.run_s4go_replay(anchor, candidates) → scan forward for the first
+         S4 GO (PA trigger at a location + volume + clean bar), buy-STOP above the
+         confirmed bar, run the exit sim, matched-horizon alpha from the entry.
+
+    This answers the question the catalyst backtest cannot: does TIMING the entry
+    with the S4 GO (confirmation-before-entry) beat buying the pick at the anchor?
+
+    Per-anchor `alpha_pct` = mean matched-horizon alpha of the FILLED trades, so
+    walkforward_oos.py and the dashboard consume this run unchanged.
+    """
+    if screener not in ("bull", "recovery"):
+        raise ValueError(f"screener must be 'bull' or 'recovery', got {screener!r}")
+    import replay as _replay
+
+    universe = list(basket) if basket else default_universe(universe_name)
+    # The GO scan waits up to entry_window days for a trigger, THEN holds up to
+    # the longest catalyst window — so anchors must end that far short of today.
+    _longest = max(_replay.FWD_DAYS_BY_CATALYST.values())
+    end_off  = max(entry_window + _longest + 10, 35)
+    anchors  = monthly_anchors(months_back=months_back, end_offset_days=end_off)
+    if not anchors:
+        raise RuntimeError("No anchors generated — check months_back / today.")
+
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    summary_rows: list[dict] = []
+    detail_frames: list[pd.DataFrame] = []
+    t0 = time.time()
+
+    for i, anchor in enumerate(anchors, 1):
+        if progress_cb:
+            try: progress_cb(i, len(anchors), anchor)
+            except Exception: pass
+        print(f"[{i:2d}/{len(anchors)}]  S4-GO validating @ {anchor} …", flush=True)
+
+        # ── 1. As-of qualified universe (PINNED — point-in-time) ──
+        _dp.set_pinned_date(anchor)
+        try:
+            if screener == "recovery":
+                import recovery_screener as _sc
+                picks = _sc.run_recovery_screener(symbols=universe, strict=True)
+            elif qualify == "catalyst":
+                import bull_screener as _sc
+                picks = _sc.run_bull_screener(symbols=universe, strict=True)
+            else:  # "armed" — GM QUALIFY (Stage-2 + RS), the durable armed set
+                import bull_screener as _sc
+                picks = _filter_armed(_sc.run_bull_screener(symbols=universe, strict=False))
+        except Exception as e:
+            print(f"   ❌ qualifier failed: {e}", flush=True)
+            picks = pd.DataFrame()
+        finally:
+            _dp.set_pinned_date(None)
+
+        n_qualified = 0 if picks is None or picks.empty else len(picks)
+        if n_qualified == 0:
+            print("   (no qualified names as-of anchor)", flush=True)
+            summary_rows.append({"as_of": anchor, "n_candidates": 0, "n_go_fired": 0,
+                                 "n_filled": 0, "fill_pct": None, "win_rate_pct": None,
+                                 "avg_return_pct": None, "alpha_pct": None,
+                                 "matched_alpha_median": None, "pct_positive": None,
+                                 "duration_s": None})
+            continue
+
+        # Keep Symbol + the setup label so the GO forward window is horizon-aware.
+        keep = [c for c in ("Symbol", "Catalyst", "Signal_Label", "Score") if c in picks.columns]
+        cands = picks[keep].copy()
+        if "Signal_Label" in cands.columns and "Catalyst" not in cands.columns:
+            cands = cands.rename(columns={"Signal_Label": "Catalyst"})
+        print(f"   qualified: {n_qualified} names", flush=True)
+
+        # ── 2/3. Live S4-GO forward scan on the qualified set (UNPINNED) ──
+        out_csv = os.path.join(RUNS_DIR, f"s4go_{run_id}_{anchor}.csv")
+        try:
+            res = _replay.run_s4go_replay(anchor, cands, mode=screener,
+                                          entry_window=entry_window, rv_floor=rv_floor,
+                                          out_csv=out_csv)
+        except Exception as e:
+            print(f"   ❌ s4go replay failed: {e}", flush=True)
+            continue
+
+        s  = res.get("summary", {})
+        ma = res.get("matched_alpha")            # None if no filled trades
+        perf = res.get("performance", pd.DataFrame())
+        print(f"   GO fired {s.get('n_go_fired')}/{n_qualified} · filled "
+              f"{s.get('n_filled')} · matched α "
+              f"{(ma or {}).get('mean_alpha_pct')}", flush=True)
+
+        summary_rows.append({
+            "as_of":                anchor,
+            "n_candidates":         n_qualified,
+            "n_go_fired":           s.get("n_go_fired"),
+            "n_filled":             s.get("n_filled"),
+            "fill_pct":             s.get("fill_pct"),
+            "win_rate_pct":         s.get("win_rate_pct"),
+            "avg_return_pct":       s.get("avg_return_pct"),
+            # alpha_pct = mean matched-horizon alpha (the OOS-gate / dashboard field)
+            "alpha_pct":            (ma or {}).get("mean_alpha_pct"),
+            "matched_alpha_median": (ma or {}).get("median_alpha_pct"),
+            "cum_alpha_pct":        (ma or {}).get("cum_alpha_pct"),
+            "pct_positive":         (ma or {}).get("pct_positive"),
+            "sharpe_ratio":         s.get("sharpe_ratio"),
+            "duration_s":           res.get("duration_s"),
+        })
+
+        if isinstance(perf, pd.DataFrame) and not perf.empty:
+            pf = perf.copy(); pf.insert(0, "as_of", anchor)
+            detail_frames.append(pf)
+
+    summary_df = pd.DataFrame(summary_rows)
+    details_df = (pd.concat(detail_frames, ignore_index=True)
+                    if detail_frames else pd.DataFrame())
+
+    # ─── Aggregate ───────────────────────────────────────────────────────
+    aggregate = {
+        "n_anchors":       len(summary_rows),
+        "mode":            "s4go",
+        "screener":        screener,
+        "qualify":         ("strict-RFF" if screener == "recovery" else qualify),
+        "universe_size":   len(universe),
+        "entry_window":    entry_window,
+        "rv_floor":        rv_floor,
+        "duration_s":      round(time.time() - t0, 2),
+    }
+    if not summary_df.empty:
+        alphas = summary_df["alpha_pct"].dropna()
+        winrt  = summary_df["win_rate_pct"].dropna()
+        aggregate.update({
+            "n_filled_total":        int(summary_df["n_filled"].fillna(0).sum()),
+            "n_go_total":            int(summary_df["n_go_fired"].fillna(0).sum()),
+            "anchor_avg_alpha_pct":  round(float(alphas.mean()), 2)   if len(alphas) else None,
+            "anchor_median_alpha_pct": round(float(alphas.median()), 2) if len(alphas) else None,
+            "alpha_hit_rate_pct":    round(float((alphas > 0).sum() / len(alphas) * 100), 1)
+                                          if len(alphas) else None,
+            "anchor_avg_winrate_pct": round(float(winrt.mean()), 1) if len(winrt) else None,
+            "best_anchor_alpha":    (float(alphas.max()) if len(alphas) else None),
+            "worst_anchor_alpha":   (float(alphas.min()) if len(alphas) else None),
+        })
+        # per-trade matched alpha pooled across all filled trades (the honest headline)
+        if not details_df.empty and "Alpha_Matched_pct" in details_df.columns:
+            am = details_df["Alpha_Matched_pct"].dropna().astype(float)
+            if len(am):
+                aggregate["trade_mean_alpha_pct"]   = round(float(am.mean()), 2)
+                aggregate["trade_median_alpha_pct"] = round(float(am.median()), 2)
+                aggregate["trade_cum_alpha_pct"]    = round(float(am.sum()), 2)
+                aggregate["trade_pct_positive"]     = round(float((am > 0).mean() * 100), 1)
+                aggregate["n_trades"]               = int(len(am))
+
+    # bootstrap CI on mean anchor alpha (same machinery as run_validation)
+    if bootstrap_n and bootstrap_n > 0 and not summary_df.empty:
+        alphas = summary_df["alpha_pct"].dropna().to_numpy(dtype=float)
+        if len(alphas) >= 2:
+            rng = np.random.default_rng(42)
+            samples = rng.choice(alphas, size=(int(bootstrap_n), len(alphas)), replace=True)
+            means   = samples.mean(axis=1)
+            aggregate["bootstrap_n"]             = int(bootstrap_n)
+            aggregate["alpha_ci95_low"]          = round(float(np.percentile(means, 2.5)), 2)
+            aggregate["alpha_ci95_high"]         = round(float(np.percentile(means, 97.5)), 2)
+            aggregate["alpha_prob_positive_pct"] = round(float((means > 0).mean() * 100), 1)
+
+    # ─── Persist (same schema + LAST_RUN so downstream reads it unchanged) ──
+    sum_path  = os.path.join(RUNS_DIR, f"validation_{run_id}_summary.csv")
+    det_path  = os.path.join(RUNS_DIR, f"validation_{run_id}_details.csv")
+    meta_path = os.path.join(RUNS_DIR, f"validation_{run_id}_meta.json")
+    last_ptr  = os.path.join(RUNS_DIR, "LAST_RUN.txt")
+    summary_df.to_csv(sum_path, index=False)
+    if not details_df.empty:
+        details_df.to_csv(det_path, index=False)
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump({"run_id": run_id, "anchors": anchors,
+                   "aggregate": aggregate, "mode": "s4go"}, f, indent=2, default=str)
+    with open(last_ptr, "w", encoding="utf-8") as f:
+        f.write(run_id)
+
+    return {
+        "run_id":     run_id, "anchors": anchors,
+        "summary_df": summary_df, "details_df": details_df,
+        "aggregate":  aggregate,
+        "paths": {"summary": sum_path,
+                  "details": det_path if not details_df.empty else None,
+                  "meta": meta_path},
+    }
+
+
 def load_last_validation() -> Optional[dict]:
     """Reload the most recent validation run from disk for the dashboard."""
     last_ptr = os.path.join(RUNS_DIR, "LAST_RUN.txt")
@@ -905,12 +1149,13 @@ def sweep_chartink_param(scan_name: str,
 
 
 __all__ = ["monthly_anchors", "default_universe",
-           "run_validation", "run_chartink_validation",
+           "run_validation", "run_chartink_validation", "run_s4go_validation",
            "sweep_chartink_param",
            "load_last_validation", "RUNS_DIR"]
 
 
 def main() -> int:
+    global FAMILY_FILTER   # assigned from --families below; without this it binds a LOCAL and the filter silently no-ops
     import argparse, json as _json
     p = argparse.ArgumentParser(description="Multi-anchor screener validation")
     p.add_argument("--months",  type=int, default=12)
@@ -938,11 +1183,30 @@ def main() -> int:
                     help="Drop picks whose sector isn't LEADING (strict) "
                          "or LEADING+IMPROVING (soft)")
     # v2.8 (2026-05-21): catalyst-aware forward windows
+    p.add_argument("--families", default=None,
+                   help="Comma-separated catalyst FAMILY prefixes to keep, e.g. POS. Default: all. SWG and POS behave differently enough that pooling them hides both.")
     p.add_argument("--catalyst_windows", action="store_true",
                     help="Use per-catalyst forward windows from "
                          "replay.FWD_DAYS_BY_CATALYST (POS/WYC=120-180d, "
                          "REV=90d, SWG=30d). Without this flag, all picks use --forward.")
+    # v3.0 (2026-07-22): GM+S4 daily-approx GO entry gate
+    p.add_argument("--gate", default="catalyst", choices=["catalyst", "s4go"],
+                    help="catalyst = buy the top screener pick AT the anchor (legacy). "
+                         "s4go = qualify as-of, then TIME the entry with the daily-approx "
+                         "S4 GO (PA trigger at a location + vol + clean bar, buy-stop above it).")
+    p.add_argument("--entry_window", type=int, default=40,
+                    help="s4go only: max trading days after each anchor to wait for a GO")
+    p.add_argument("--rv_floor", type=float, default=1.0,
+                    help="s4go only: minimum relative volume for the GO (default 1.0)")
+    p.add_argument("--qualify", default="armed", choices=["armed", "catalyst"],
+                    help="s4go bull only: 'armed' = GM QUALIFY (Stage-2 + RS, the "
+                         "durable armed set — the new criteria); 'catalyst' = strict "
+                         "catalyst-firing set (comparable to the legacy baseline). "
+                         "Recovery always uses its strict RFF gate.")
     args = p.parse_args()
+    if args.families:
+        FAMILY_FILTER = tuple(x.strip().upper() for x in args.families.split(",") if x.strip())
+        print(f"  FAMILY FILTER: keeping {FAMILY_FILTER} only")
 
     basket = ([s.strip() for s in args.symbols.split(",") if s.strip()]
                 if args.symbols else None)
@@ -963,6 +1227,29 @@ def main() -> int:
     def _cb(i, n, anchor):
         # printed inside run_validation; cb is here for future UIs
         pass
+
+    # ── GM+S4 daily-approx GO gate ──
+    if args.gate == "s4go":
+        result = run_s4go_validation(months_back=args.months,
+                                     universe_name=args.universe,
+                                     screener=args.screener,
+                                     entry_window=args.entry_window,
+                                     rv_floor=args.rv_floor,
+                                     qualify=args.qualify,
+                                     basket=basket,
+                                     bootstrap_n=args.bootstrap_n,
+                                     progress_cb=_cb)
+        print()
+        print("=" * 68)
+        print(f"  S4-GO VALIDATION COMPLETE  run_id={result['run_id']}")
+        print("=" * 68)
+        print(_json.dumps(result["aggregate"], indent=2, default=str))
+        print()
+        print("  Per-anchor summary:")
+        print(result["summary_df"].to_string(index=False))
+        print()
+        print(f"  Saved to: {result['paths']['summary']}")
+        return 0
 
     result = run_validation(months_back=args.months,
                               forward_days=args.forward,
