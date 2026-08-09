@@ -1,4 +1,4 @@
-# Section 4 — Entry Trigger & Price Memory v8.9 — User & Trading Guide
+# Section 4 — Entry Trigger & Price Memory v9.12 — User & Trading Guide
 
 > **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the daily price-action battery (**17 Bull / 10 Recovery**) — the same battery surfaced in the Golden Matcher "Full Metric" panel; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks the demand zones on both Daily and Weekly** — Order Block / Fair-Value-Gap / pivot-low support (v2.0, dual-TF v2.1) — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **buy-stop + SL plan** and raises alerts so you never have to sit and watch.
 >
@@ -26,6 +26,14 @@
 
 | Version | Added |
 |---|---|
+| **v9.12** | **SECTIONED PANEL.** The 32 fields are grouped under five banded header rows, each stating the question its block answers: **I MACRO & CONTEXT** (what is the regime?) · **II LOCATION & QUALITY** (where are we?) · **III EXECUTION & TIMING** (is it firing?) · **IV DECISION SYNTHESIS** (what is the ruling?) · **V PLAN & RISK** (how do we size it?). The sections are not interchangeable — a name can be perfect on regime and worthless on location — and 32 undifferentiated rows read under time pressure hid that. **Room for Trade moved into DECISION**, because room is what decides whether a setup is tradeable at all. Table capacity 34 → 40. |
+| **v9.12** | **STRUCTURE BASIS is now a ladder, not a sentence:** `Stage 2 (13w leg/13w macro) · >30WMA ↗️ · >50DMA ↗️ · >200DMA · Trend 75 ⬆️ · D ➡️ · W ➡️`. Icons match the RRG row and the two arrow families MEAN different things — **diagonals are a moving-average slope, verticals are a trend state**. Previously both used the same glyphs so you had to remember which kind each was. `>50DMA` had to be built: S4's only 50-SMA was the INDEX's, and v67 exports the 50-DMA *slope* but not the *position*. One daily call now returns `[SMA50, ATH, SMA50 slope]`, the slope subtracted INSIDE the call because `d_sma50[5]` on a 75m chart is five CHART bars, not five days. |
+| **v9.12** | **off52 + offATH** on the extension row (`Price vs EMA20`), which already answers *how stretched are we* against value and volatility. 52-week distance alone cannot separate a name printing fresh highs from one that reclaimed its 52W high but sits far under its all-time high; side by side they do. Both signs forced negative with a literal minus so the convention cannot drift with the source — v67 publishes off52 POSITIVE. |
+| **v9.12** | **Two defects fixed, both mine.** The re-sequence remapped `table.cell()` but not `table.merge_cells()`, so TRIGGER/STATUS/VERDICT moved to rows 27-29 while their merges stayed on 23-25 — the dark block to the right of those rows. And the Daily trend term sat inside `_zzOkD ? … : ""`, so an unbound Zigzag source did not blank the field, it **deleted** it; it now prints `D —`. Same rule as *unknown must never read as clear*: an absent input has to be visible as absent. |
+| **v9.11** | **50-DMA slope made NATIVE.** It read v67's `s4_slope50` while the position came from S4's own SMA, so every recompile left the position printed with no arrow beside it. Fewer bindings is the durable fix — import from v67 only what S4 genuinely cannot compute. |
+| **v9.2** | **FIB is long-only and direction-aware.** It measured DOWN from the 120-bar high unconditionally, which is only right when the swing is an ADVANCE being retraced. ANANDRATHI 75m: high 2176.2 (10-Jul) came BEFORE the low 2002.1 (24-Jul), so the leg was a DECLINE and the panel called 2068.6 "61.8" when it was the 38.2% retracement of that fall. A first fix measured UP from the low — a counter-trend BOUNCE, a short-seller's frame. **v9.2 measures the ADVANCE**: swing low, then the highest high made AFTER it, retraced downward. With no advance to measure the row prints nothing rather than a level with no leg behind it. `fib_tag` also reports the NEAREST level, not the first in a fixed ternary. |
+| **v9.0** | **HTF NESTING, TF-RANKED.** Was a flat +1 for `_dzTfN >= 2` — a COUNT, so a 75m zone sheltered by a MONTHLY zone scored the same as one sheltered by a Daily zone. Now awarded by the RANK of the highest timeframe above the chart (M 3× · W 2× · D 1×). A zone on the chart's own timeframe is native, not nesting. |
+| **v9.x stage** | **The stage is the 2×2, and all three surfaces now agree.** CRISIL read Stage 1 on the Dashboard and the GM board, Stage 3 on S4. S4 was right. See §Stage parity below. |
 | **v8.9** | **ROLE vs LOCATION — a tag, never a gate.** A pattern's ROLE says *what* it claims is happening; the location says *where*. IGNITION is expansion AWAY from value (a volume thrust, a gap, a strong close); price inside a demand zone is being ABSORBED at value. Both can be arithmetically true of one bar while describing opposite things — and the pair still prints a clean `GO`. Measured on the live 75m board: **3 of 7 armed names were IGNITION-only inside a zone** (TITAN, UNOMINDA, HINDALCO). n=7 is a story, not a rate, so this **tags and never gates** — it cannot remove a signal, and it earns a gate only after a Σ-matched measurement, the way the combos were tested (and the combos failed). The converse case (TENSION alone at a level) had **zero** live instances, so it is deliberately NOT flagged: tagging it would assert a rule nothing supports. Roles mirror `pa_combos.ROLE` exactly — one definition, both surfaces. Prints `⚠role` on the **TRIGGER** row. |
 | **v8.8** | **SPENT DEMAND STAYS VISIBLE** (`keep_tested_demand`, default ON). *"If there is a strong demand zone, I'll wait for the price to come back to the zone and retrace — then only I should take the entry. We need to keep the tested zones on the chart, else I'll lose the edge to trade them."* The old rule deleted a demand zone the moment it was TESTED — but the **reaction is the entry** and the **travel is the trade working**, so the most-evidenced level on the chart was the one erased, right after it proved itself. Now a tested demand zone is **greyed and kept** on a **touch budget**: a normal zone is spent after **1** test, a Controlling zone or one scoring ≥ `demand_strong_score` (default 75) gets **2**. Beyond the budget it is deleted. **A VIOLATED zone is still deleted immediately** — that is not a test, it is a failure. Note the asymmetry, which is the point: a spent **supply** zone can still act as resistance, but a spent **demand** zone is no longer a location or a trigger. It stays on the chart so you can see the level; it does not arm a trade. |
 | **v8.7** | **PA COMBINATIONS.** A combo is a *sequence* — a structural CONTEXT that formed over the last N bars, released by a TRIGGER on the current bar — which Σ cannot express, because Σ sums booleans on one bar. Context ages come from `ta.barssince` on the existing flags, so an age can never disagree with the flag it is an age of. New panel row 32. **DISPLAY ONLY:** measured against a Σ-matched control on 464 picks, both testable combos *underperformed* (Coiled Spring −2.00pp, Institutional Ignition −1.18pp), so no combo feeds the gate or the confluence score. `Bear Trap` fires 0.33% of bars — too rare to ever be testable. |
@@ -94,6 +102,29 @@
 ---
 
 # PART A — USER GUIDE
+
+## 0b. Stage parity — the definition all three surfaces share (9 Aug 2026)
+
+CRISIL printed **Stage 1** on the Dashboard and the GM board and **Stage 3** on S4, for the same chart. S4 was right, and closing the gap took three separate fixes on the Python/v67 side.
+
+**The definition, everywhere:** price vs the weekly 30-SMA × that MA's slope, classified fresh each bar.
+
+| price vs 30-WMA | MA slope | stage |
+|---|---|---|
+| above | rising | **2** |
+| above | falling | **3** |
+| above | flat | RS up → 1, else 3 |
+| **below** | **rising** | **2 (PULLBACK)** |
+| below | falling & RS not up | **4** |
+| below | flat | **1** |
+
+**What was wrong before.** GM and v67 both ran a *hysteresis state machine* that evolved the stage from its previous value, so promotion required a RISING 30-WMA and a name trading well above a DECLINING 30-week average never left "Stage 1". MPHASIS sat at Stage 1 with its 30-WMA falling 62.9 points and price 5.8% above it — distribution, not a base. Measured over 56 board names, **19 (34%) were mis-staged** and `stage_ok` moved 48 → 41.
+
+Two further gaps were older and less visible: the slope was a **per-bar rate** (`(ma − ma[n]) / n`) against S4's raw N-bar change, and the lookback was **6** against S4's **4** — together making Python's flat band 6× wider. Both were hidden by hysteresis; with a stateless read they decide the digit.
+
+The two `tDir` strict-trend overrides (4→1, 2→3) are **gone**. A stage a separate pivot engine can rewrite is a stage you cannot reason about, and it is what let the panels disagree.
+
+**Two deliberate differences remain**, both documented in code: the **flat cell** (S4 breaks the tie with RS slope, v67 with `tDir`, because only `tDir` is in scope where v67 classifies), and **STAGE 2 (PULLBACK)** — v67 names that cell, S4 folds it into Stage 2. Same family, different label granularity.
 
 ## 1. What it does (in one breath)
 
