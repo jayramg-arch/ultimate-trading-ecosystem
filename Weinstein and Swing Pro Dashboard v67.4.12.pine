@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.19]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.20]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -931,7 +931,7 @@ quick_sl  = input.price(0.0, title="Temporary Hard SL", group=grpQuick)
 // ==========================================
 groupStrat  = "Strategy Inputs"
 maLengthW   = input.int(30, title="Weinstein SMA Length (Weekly)", group=groupStrat)
-wmaSlopeLen = input.int(6, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
+wmaSlopeLen = input.int(4, title="30 WMA Slope Lookback (Weeks)", group=groupStrat, tooltip="4 = S4 parity: f_wma30 compares (_m - _m[4]) to _m x thresh. Was 6.")
 slopeThresh = input.float(0.0012, title="30WMA Slope Threshold (Flat)", group=groupStrat)
 
 bench50     = input.symbol("NSE:NIFTY", title="Benchmark 1 (Nifty 50)", group=groupStrat)
@@ -2255,7 +2255,10 @@ f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
     float wMA = ta.sma(close, maLen)
     // Force array allocation with a trailing fallback to prevent nested <na> drops
     float wMA_old = wMA[slopeLen]
-    float slopeVal = (wMA - nz(wMA_old, wMA)) / math.max(1, slopeLen)
+    // RAW N-bar change, not a per-bar rate — S4 compares (_m - _m[4]) to _m * thresh.
+    // Dividing by slopeLen made this flat band 4x wider than S4 s; with lookback 6 it
+    // was 6x. GLAXO s 30-WMA rose +12.5 in four weeks: S4 said Stage 2, this said flat.
+    float slopeVal = wMA - nz(wMA_old, wMA)
     float dynThresh = wMA * thresh
     
     // Fetch Structural Trend for anchoring
@@ -2266,43 +2269,36 @@ f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
     bool isFalling = slopeVal < -dynThresh
     bool isAbove = wCl > wMA
     
-    var string s = "STAGE 4 (DOWN)"
-    
-    // STATE MACHINE LOGIC
-    if s == "STAGE 1 (BASE)"
-        if isRising and isAbove
-            s := "STAGE 2 (UP)"
-        else if isFalling and not isAbove and tDir != 1
-            s := "STAGE 4 (DOWN)"
-            
-    else if s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)"
-        if isFalling and not isAbove and tDir != 1
-            s := "STAGE 4 (DOWN)"
-        else if (not isRising and not isAbove) or (tDir == -1 and not isAbove)
-            s := "STAGE 3 (TOP)"
-        else if not isAbove
-            s := "STAGE 2 (PULLBACK)"
-        else
-            s := "STAGE 2 (UP)"
-            
-    else if s == "STAGE 3 (TOP)"
-        if isFalling and not isAbove and tDir != 1
-            s := "STAGE 4 (DOWN)"
-        else if isRising and isAbove
-            s := "STAGE 2 (UP)"
-            
-    else if s == "STAGE 4 (DOWN)"
-        if isRising and isAbove
-            s := "STAGE 2 (UP)"
-        else if not isFalling and isAbove
-            s := "STAGE 1 (BASE)"
-            
-    // Structural Overrides for safety
-    if tDir == 1 and s == "STAGE 4 (DOWN)"
-        s := "STAGE 1 (BASE)"
-    if tDir == -1 and (s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)")
-        s := "STAGE 3 (TOP)"
-        
+    // ── STATELESS 2x2 (9-Aug-2026) — the definition S4 and the GM board use ─────────
+    // WAS a hysteresis state machine plus two tDir overrides. It evolved the stage from
+    // its PREVIOUS value, so promotion needed a RISING 30-WMA and a name trading well
+    // ABOVE a DECLINING 30-week average never left "Stage 1". CRISIL read Stage 1 here
+    // and Stage 3 on S4 for the same chart; MPHASIS sat at Stage 1 with its 30-WMA
+    // falling 62.9 points and price 5.8% above it. That is distribution, not a base.
+    // Measured on the 56-name board: 19 of 56 (34%) were mis-staged.
+    //
+    // S4:  above -> rising ? 2 : falling ? 3 : (rsUp ? 1 : 3)
+    //      below -> (falling and not rsUp) ? 4 : 1
+    //
+    // The two tDir overrides (4->1, 2->3) are GONE. A stage a separate pivot engine can
+    // rewrite is a stage you cannot reason about, and it is what let this panel and S4
+    // disagree. tDir now enters in ONE place: the flat-cell tiebreak.
+    //
+    // ⚠ ONE DELIBERATE DIFFERENCE: S4 breaks the FLAT cell with RS slope. Only tDir is
+    // in scope here — v67 assigns val500/slope500 AFTER this function is called — so
+    // passing RS in would read an unassigned value and silently mis-stage every flat
+    // cell. tDir==1 is the proxy; it agrees with S4 wherever structure and RS agree and
+    // can differ on a flat 30-WMA where they do not. The real fix is a reorder.
+    bool rsUpProxy = tDir == 1
+    // STAGE 2 (PULLBACK) is KEPT (Jay). Price BELOW a RISING 30-WMA is a pullback
+    // inside an advance, not a base — the distinction the plain 2x2 loses, because
+    // it collapses everything below the MA that is not Stage 4 into "Stage 1".
+    // NOTE the consequence: S4 prints 1 for this cell, this panel prints 2(PULLBACK).
+    // That is a deliberate refinement, not drift — it stays in the Stage-2 FAMILY
+    // (isStage2Family / inStage2_now already match it), so every downstream gate
+    // treats it as Stage 2 while the label tells you which kind of Stage 2 it is.
+    string s = isAbove ? (isRising ? "STAGE 2 (UP)" : isFalling ? "STAGE 3 (TOP)" : (rsUpProxy ? "STAGE 1 (BASE)" : "STAGE 3 (TOP)"))
+         : ((isFalling and not rsUpProxy) ? "STAGE 4 (DOWN)" : (isRising ? "STAGE 2 (PULLBACK)" : "STAGE 1 (BASE)"))
     var string lastS = ""
     var int startTime = 0
     if bar_index == 0
