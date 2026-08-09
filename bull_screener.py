@@ -424,7 +424,10 @@ def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int =
         # band rather than freeze a stale digit.
         rs_up = bool(val_trend == 1)
         if is_above_ma:
-            current_stage_htf = 2 if is_ma_uptrend else (3 if is_ma_downtrend else (2 if rs_up else 3))
+            # above + FLAT resolves to 1 when RS is up, not 2 — S4:
+            #   stage_n := _wup ? 2 : _wdn ? 3 : (_rsUp ? 1 : 3)
+            # A flat 30-WMA is not an advance however strong RS is; it is a base.
+            current_stage_htf = 2 if is_ma_uptrend else (3 if is_ma_downtrend else (1 if rs_up else 3))
         else:
             current_stage_htf = (4 if (is_ma_downtrend and not rs_up) else 1)
         # Weeks-in-stage counter
