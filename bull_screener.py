@@ -59,7 +59,35 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-ENABLE_SWG_BOOK = False   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
+# POS partial-take targets — 1.5R / 3R, MEASURED (9-Aug-2026). Was 5R/10R.
+#
+# At 5R, T1 was reached in 2% of POS trades (5 of 203 over 24 months), so the
+# partial, the move to breakeven and the trail-from-there NEVER engaged and every
+# trade carried full initial risk for its whole life. Jay: 'Swing had 2/3R. With
+# that I was able to hit T1, move SL to Entry, and trail from that point onwards.'
+#
+# Sweep over T1_R in {1.0 1.5 2.0 2.5 3.0 5.0}, POS-only, 203 trades, scored in R:
+#     1.5R  meanR -0.075   <- interior maximum, neighbours 1.0 and 2.0 either side
+#     2.0R  meanR -0.084
+#     5.0R  meanR -0.124   (control)
+# The MEDIAN is identical (-0.48R) across the ENTIRE grid, so booking earlier does
+# NOT shorten the right tail — the objection I raised against this was wrong.
+#
+# 60/40 chronological OOS split (11 IS / 8 OOS anchors, cut 2025-06-16):
+#     IS margin +0.048R   OOS margin +0.051R   retained 105%  PASS
+# The only change this session to clear the plateau + interior + OOS gates.
+#
+# Effect on the mechanic: T1 is now hit on 27.6% of POS trades instead of 2.5%.
+# Read the absolute numbers honestly — every cell is NEGATIVE in R. This improves
+# the exit; it does not make the book profitable. POS runs -0.18 to -0.22R in
+# sample and about flat OOS, so absolute performance is regime-driven far more
+# than target-driven. Env-overridable for future sweeps.
+import os as _os_t1
+POS_T1_R = float(_os_t1.getenv('POS_T1_R', '1.5'))    # was 5.0 — see the sweep below
+POS_T2_R = float(_os_t1.getenv('POS_T2_R', '3.0'))    # was 10.0
+
+
+ENABLE_SWG_BOOK = True    # 9-Aug: re-enabled at Jay's call — the swing book is back on   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
 SWG_LABELS = ("SWG-BO", "SWG-PB", "SWG-GAP", "SWG-REV")
 
 
@@ -1331,7 +1359,7 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
     # SWG-GAP (gap-and-go, days):  2R/4R — gaps fade fast
     # SWG-REV (mean rev, days):    2R/2R — quick exit
     if _label.startswith("POS"):
-        t1_r, t2_r = 5.0, 10.0
+        t1_r, t2_r = POS_T1_R, POS_T2_R
     elif _label == "SWG-REV":
         t1_r, t2_r = 2.0, 2.0
     elif _label == "SWG-GAP":
