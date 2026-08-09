@@ -1039,7 +1039,7 @@ def overhead_room(frames: dict, price: float | None = None,
     Every field is None rather than guessed when it cannot be computed — a
     missing obstacle must read as unknown, never as "clear".
     """
-    out = {"clear": False, "obstacle": None, "obstacle2": None, "room_r": None, "room_pct": None,
+    out = {"clear": False, "obstacle": None, "obstacle_real": None, "source_real": None, "obstacle2": None, "room_r": None, "room_pct": None,
            "in_supply": False, "band_top": None, "source": None, "sources": []}
     frames = {k: v for k, v in (frames or {}).items() if v is not None and len(v) >= 60}
     if not frames:
@@ -1061,7 +1061,15 @@ def overhead_room(frames: dict, price: float | None = None,
                         out["band_top"] = (max(out["band_top"], z.distal)
                                            if out["band_top"] else z.distal)
                     elif z.proximal > px:
-                        cands.append((z.proximal, f"SZ·{tf}"))
+                        # A PvH is a single swing high with a pad around it — NOT a leg-base-leg supply
+                        # zone with a demand-imbalance origin. Measured on the 49-name board it is the
+                        # FIRST obstacle 31% of the time, so labelling both "SZ" hid which kind of
+                        # ceiling was capping the trade. Excluding pivots outright was TESTED AND
+                        # REJECTED: three names (HSCL, DIVISLAB, MARICO) lost their ONLY obstacle and
+                        # would have read "clear" with a recent swing high overhead, and CASTROLIND
+                        # went 0.73% -> 5.76% of room. A swing high 0.73% above price is a real
+                        # near-term ceiling. Keep it, name it, rank it last on ties.
+                        cands.append((z.proximal, f"Pv·{tf}" if z.pattern == "PvH" else f"SZ·{tf}"))
         except Exception:
             pass
         try:
@@ -1092,8 +1100,25 @@ def overhead_room(frames: dict, price: float | None = None,
         out["clear"] = True
         return out
     cands.sort()
+    # TIE-BREAK: at comparable distance a pattern zone or a real S/R shelf takes the
+    # first-obstacle slot over a pivot. "Comparable" reuses the same gap that
+    # suppresses a duplicate second obstacle, so this can never promote something
+    # materially further away.
+    _band = max(atr * 0.5, cands[0][0] * 0.002) if atr and atr == atr else 0.0
+    _near = [c for c in cands if c[0] <= cands[0][0] + _band]
+    if len(_near) > 1:
+        _near.sort(key=lambda c: (str(c[1]).startswith("Pv"), c[0]))
+        cands = _near + [c for c in cands if c not in _near]
     out["obstacle"], out["source"] = cands[0][0], cands[0][1]
     out["sources"] = [f"{lv:.2f} {why}" for lv, why in cands[:4]]
+    # NEXT NON-PIVOT OBSTACLE. When a pivot is what caps the trade, the number you
+    # actually want is how far the next REAL structure sits: CASTROLIND is 0.28R to
+    # a pivot and 2.21R to the next pattern zone, which reads as a breakout-pivot
+    # setup, not a no-room one. Surfacing both turns the ambiguity into information
+    # instead of hiding it behind whichever level happened to be nearest.
+    _real = [c for c in cands if not str(c[1]).startswith("Pv")]
+    out["obstacle_real"] = _real[0][0] if _real else None
+    out["source_real"]   = _real[0][1] if _real else None
     # second obstacle only beyond a real gap — otherwise it is the same shelf
     gap = max(atr * OVH2_GAP_ATR, out["obstacle"] * 0.002)
     for lv, _why in cands:

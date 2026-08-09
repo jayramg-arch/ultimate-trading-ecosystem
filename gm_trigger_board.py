@@ -1325,7 +1325,18 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     if room.get("clear"):
         room_txt = "clear"
     elif _room_r is not None:
-        room_txt = f"{_room_r:.2f}R · {room.get('source') or ''}".strip(" ·")
+        # When a PIVOT is what caps the trade, also show how far the next REAL
+        # structure sits. CASTROLIND is 0.28R to a pivot and 2.21R to the next
+        # pattern zone — that reads as a breakout-pivot setup, not a no-room one,
+        # and the two numbers together say so. A pivot is a single swing high with a
+        # pad, not a leg-base-leg zone; excluding pivots outright was tested and
+        # rejected (three names lost their ONLY obstacle and would have read "clear"
+        # with a swing high overhead), so they are kept, named, and ranked last.
+        _src = str(room.get("source") or "")
+        room_txt = f"{_room_r:.2f}R · {_src}".strip(" ·")
+        if _src.startswith("Pv") and room.get("obstacle_real") and entry and sl and entry > sl:
+            _rr = (float(room["obstacle_real"]) - float(entry)) / (float(entry) - float(sl))
+            room_txt += f"  ({_rr:.2f}R to {room.get('source_real')})"
     else:
         room_txt = ""                      # unknown stays BLANK, never "clear"
     # Obstructed: the ratio that decides is the one to the obstacle, not to T1.
