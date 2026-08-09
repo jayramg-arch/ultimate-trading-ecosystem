@@ -265,9 +265,20 @@ def _live_oco_sl_legs(dhan):
         is_sl = (leg == "STOP_LOSS_LEG") if leg in ("STOP_LOSS_LEG", "TARGET_LEG") else (
             trigger < price if (trigger and price) else True)
         if is_sl and sym and trigger > 0:
-            out[sym] = {"order_id": str(g.get("orderId", "")),
-                        "sl_trigger": trigger,
-                        "sl_qty": int(float(g.get("quantity", 0) or 0))}
+            # ONE ENTRY PER SL LEG. This was `out[sym] = {...}` — a plain assignment — so
+            # with TWO OCO orders on a symbol the second SL leg OVERWROTE the first and
+            # only one was ever trailed. Verified against a raw get_forever() dump:
+            # VIJAYA returns 4 records, two distinct orderIds, each with its OWN
+            # STOP_LOSS_LEG (1275.2 qty 31 and 1275.5 qty 31). 11 of 15 symbols on the
+            # live book carry two OCOs, so roughly half of each of those positions had a
+            # stop that never moved. The Risk Shield page read the same data correctly as
+            # a list; this docstring claimed 'same leg conventions' — the conventions
+            # matched, the CARDINALITY did not.
+            # Odd record counts are normal (ANANDRATHI has 3 — one target already filled),
+            # so never assume legs come in pairs.
+            out.setdefault(sym, []).append({"order_id": str(g.get("orderId", "")),
+                                            "sl_trigger": trigger,
+                                            "sl_qty": int(float(g.get("quantity", 0) or 0))})
     return out
 
 
@@ -319,7 +330,8 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
 
     proposals = []        # (sym, leg, old_sl, new_sl, mult, src, note)
     breached = []
-    for sym, leg in sorted(legs.items()):
+    for sym, sym_legs in sorted(legs.items()):
+      for leg in sym_legs:      # one tighten per ORDER — a symbol can hold two OCOs
         j = journal.get(sym, {})
         try:
             df = _dp.fetch_ohlcv(sym, period="1y", interval="1d",
@@ -363,10 +375,14 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
             print(f"⚠️ {sym}: trail computation failed: {e}")
             log.error(f"trail: {sym}: computation failed: {e}")
 
-    print(f"\n{'SYMBOL':<14}{'GTT SL':>10}{'NEW SL':>10}{'MULT':>6}  SOURCE")
+    # ORDER ID on every row: a symbol can hold TWO OCOs at the SAME stop level
+    # (Jay places both from the Risk Shield page off the Recommended SL), so two
+    # identical-looking rows are two REAL orders, not a duplicate. Without the id
+    # there is no way to tell those apart from a display bug.
+    print(f"\n{'SYMBOL':<14}{'GTT SL':>10}{'NEW SL':>10}{'MULT':>6}  {'ORDER ID':<16}SOURCE")
     print("-" * 60)
     for sym, leg, old, new, mult, src, note in proposals:
-        print(f"{sym:<14}{old:>10.2f}{new:>10.2f}{mult:>6.1f}  {note}")
+        print(f"{sym:<14}{old:>10.2f}{new:>10.2f}{mult:>6.1f}  {leg['order_id']:<16}{note}")
     for sym, old, ch, ltp in breached:
         print(f"{sym:<14}{old:>10.2f}{'--':>10}      ⚠ BREACHED: Chandelier {ch} ≥ LTP {ltp} — exit review")
     if not proposals:
