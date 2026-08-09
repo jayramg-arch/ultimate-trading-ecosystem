@@ -2920,7 +2920,13 @@ bool _rsUp = rsSlope > 0
 // re-indenting to 13 spaces only hides it until someone re-aligns the file.
 int stage_n = 2
 if _b30
-    stage_n := (_wdn and not _rsUp) ? 4 : 1
+    // BELOW a RISING 30-WMA is a PULLBACK inside an advance, not a base (v67 calls
+    // this STAGE 2 (PULLBACK)). S4 was collapsing every below-the-MA cell that is not
+    // Stage 4 into Stage 1, which is why the Dashboard and this panel printed 2 and 1
+    // for the same chart. NOTE this WIDENS stage_ok — a pullback name now passes the
+    // Stage-1-or-2 gate where it previously passed as Stage 1 anyway, so the gate is
+    // unchanged in effect; only the DIGIT and the reading change.
+    stage_n := (_wdn and not _rsUp) ? 4 : (_wup ? 2 : 1)
 else
     // v8.1: the flat cell now resolves 1-vs-3, which is what the comment above always
     // said it should. A FLAT 30WMA is not an advance — Weinstein Stage 2 requires the
