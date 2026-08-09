@@ -344,6 +344,11 @@ def job_auto_pilot() -> None:
 
 # ── GTT TRAIL JOB (RS-P1, 14-Jul-2026) ──────────────────────────────────────
 
+    # NOTE (9-Aug-2026): this job fired ONCE — 24-Jul 15:45 — and never again,
+    # because the daemon is not up at 15:45 on most weekdays. run_gtt_trail.bat +
+    # Windows Task Scheduler is now the primary path (same pattern as the journal
+    # sync, which survives restarts). This stays as a belt-and-braces duplicate:
+    # the trail is tighten-only and idempotent, so running twice is harmless.
 def job_gtt_trail() -> None:
     """3:45 PM IST, Mon–Fri — tighten-only Chandelier trail of live Dhan GTT SL
     legs (gtt_auto_shield --trail --yes). Closes the audit's biggest gap: the
@@ -355,7 +360,8 @@ def job_gtt_trail() -> None:
     try:
         import subprocess
         res = subprocess.run([sys.executable, "gtt_auto_shield.py", "--trail", "--yes"],
-                             check=True, capture_output=True, text=True, timeout=600)
+                             check=True, capture_output=True, text=True, timeout=600,
+                             cwd=os.path.dirname(os.path.abspath(__file__)))
         tail = "\n".join((res.stdout or "").strip().splitlines()[-6:])
         send_telegram(f"🛡️ <b>GTT TRAIL</b> pass done.\n<pre>{tail[:800]}</pre>")
         logger.info("GTT trail job completed.")

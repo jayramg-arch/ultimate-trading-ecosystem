@@ -271,7 +271,7 @@ def _live_oco_sl_legs(dhan):
     return out
 
 
-def run_trail_pass(auto_yes: bool = False):
+def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
     """Tighten-only Chandelier trail of live GTT SL legs. Never loosens; never
     modifies when the Chandelier sits at/above the last close (that's an EXIT
     signal, not a trail — modifying would fire the order instantly)."""
@@ -374,6 +374,16 @@ def run_trail_pass(auto_yes: bool = False):
         log.info(f"trail: 0 proposals, {len(breached)} breached")
         return
 
+    if dry_run:
+        # HEADLESS-SAFE EXIT. The interactive input() below is why this job produced a
+        # 0-byte log for three weeks: run without a tty the prompt raises EOFError AFTER
+        # the proposals print, so it looked like it had nothing to say rather than like
+        # it had died. --dry-run gives the same report with no prompt and no orders.
+        print("")
+        print(f"[DRY-RUN] {len(proposals)} tighten(s) proposed - nothing sent.")
+        log.info(f'trail DRY-RUN: {len(proposals)} proposals, {len(breached)} breached')
+        return
+
     if not auto_yes:
         confirm = input(f"\n🚀 TIGHTEN {len(proposals)} GTT STOP(S)? (Y/N): ").upper()
         if confirm != "Y":
@@ -425,10 +435,13 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="GTT Auto-Shield — place + trail Dhan GTT stops")
     ap.add_argument("--trail", action="store_true",
                     help="Tighten-only Chandelier trail of existing GTT SL legs")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Print the proposed tightens and exit without touching an "
+                         "order. Headless-safe: no prompt, no broker call.")
     ap.add_argument("--yes", action="store_true",
                     help="Non-interactive (for the scheduler): skip confirmations")
     args = ap.parse_args()
     if args.trail:
-        run_trail_pass(auto_yes=args.yes)
+        run_trail_pass(auto_yes=args.yes, dry_run=args.dry_run)
     else:
         run_auto_shield(auto_yes=args.yes)
