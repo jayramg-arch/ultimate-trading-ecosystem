@@ -135,7 +135,10 @@ TOUCH_TOL_FLOOR = 0.005   # ... but never tighter than 0.5%, so a hairline zone 
 # the backtest ONLY via `validation.py --gate s4go` (and `replay.STRUCTURAL_SL`, off by
 # default). A standard catalyst-gate run never calls this module, so flipping this there
 # would produce a null by construction rather than by measurement.
-USE_STRUCTURAL_ZONES = True
+# ENV-OVERRIDABLE so the A/B is two commands rather than an edit between runs. Editing a
+# module constant mid-campaign is how a previous comparison got contaminated — the second
+# arm ran against a file the first arm had not seen. `ZONE_USE_STRUCTURAL=0` ablates.
+USE_STRUCTURAL_ZONES = (__import__("os").getenv("ZONE_USE_STRUCTURAL", "1") != "0")
 
 STRUCT_PV_FALLBACK = 2    # was pivotLeft=5 / pivotRight=3 applied to every TF alike
 STRUCT_CLOSED_CONFIRM = True   # S4 v7.6: the bar confirming a pivot must itself be closed
