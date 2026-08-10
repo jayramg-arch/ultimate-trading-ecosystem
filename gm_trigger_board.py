@@ -1059,7 +1059,16 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     if _stage_blocked:
         # Sorts BELOW every live gate count (the column sorts on the leading number) —
         # a topping structure must not head the GO list however clean its trigger looks.
-        return f"⛔ Stage {_stg_n} · gates {n}/4"
+        #
+        # _mtag CARRIES (10-Aug-2026). This branch used to return bare, dropping the whole
+        # tag chain — and 11 of 14 recovery rows land here, so most of the board's tags were
+        # invisible on stage-blocked names. The one that actually cost something is ⧖D: a
+        # daily-fallback row that happened to be Stage 3 could never show its fault, and
+        # "count the ⧖ in the cache" is the check used to certify a whole tab as clean. It
+        # was blind to every blocked row. The recency/PB tags are deliberately still omitted
+        # — they describe a trigger nobody should act on here — but the DATA-QUALITY and
+        # context tags must survive, because a blocked row is still a row you diagnose from.
+        return f"⛔ Stage {_stg_n} · gates {n}/4{_mtag}"
     if n == 4:
         # "4/4 GO" stays reserved for all four aligning on the LIVE bar. A recent-PA
         # name scores 4/4 and sorts with them, but says so — the entry then anchors
