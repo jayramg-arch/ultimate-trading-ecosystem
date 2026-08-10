@@ -128,6 +128,15 @@ TOUCH_TOL_FLOOR = 0.005   # ... but never tighter than 0.5%, so a hairline zone 
 # RETIRED as the pivot length — kept only as the fallback for an unknown TF key, so a
 # caller passing something not in TF_CFG degrades to the old behaviour instead of
 # raising. The live value comes from TF_CFG[tf]["piv"] (S4 v7.5 parity).
+# A/B switch for the whole structural (pivot-shelf) family — the Python twin of Pine's
+# `useStructural` ("Draw Pivot (Structural) zones"), which existed since v3.8 while this
+# side had no way to turn them off. Set False to ablate. Default True = no change.
+# NOTE it only bites where zone_engine is actually reached: the GM location gate, and in
+# the backtest ONLY via `validation.py --gate s4go` (and `replay.STRUCTURAL_SL`, off by
+# default). A standard catalyst-gate run never calls this module, so flipping this there
+# would produce a null by construction rather than by measurement.
+USE_STRUCTURAL_ZONES = True
+
 STRUCT_PV_FALLBACK = 2    # was pivotLeft=5 / pivotRight=3 applied to every TF alike
 STRUCT_CLOSED_CONFIRM = True   # S4 v7.6: the bar confirming a pivot must itself be closed
 RESOLVE_OPPOSING = True        # S4 v7.7: a band may not be supply and demand at once
@@ -473,6 +482,16 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
     # ── structural (pivot-based) zones — port of Pine f_structZone ──
     # Emit a shelf at each confirmed pivot; append into the SAME `zones` list so the
     # lifecycle/ageing below treats them identically to pattern zones.
+    #
+    # A/B SWITCH (10-Aug-2026, Jay: "disable pivot zones and perform the test"). Pine has
+    # had `useStructural` since v3.8 to isolate this; Python had no equivalent, so the
+    # comparison could not be run at all on this side. Default True = unchanged behaviour.
+    # A pivot shelf is a single swing high/low with a pad, NOT a leg-base-leg formation —
+    # deliberately the weaker, secondary source — so it is the right thing to ablate first.
+    if not USE_STRUCTURAL_ZONES:
+        _pv_disabled = True
+    else:
+        _pv_disabled = False
     # Left = right, per TF (S4 v7.5 pivNative / piv_d / piv_w / piv_m).
     _pv = int((TF_CFG.get(tf) or {}).get("piv", STRUCT_PV_FALLBACK))
     # PER-TF PAD + BODY TOLERANCE (5-Aug-2026). These decide how far a pivot shelf
@@ -495,7 +514,7 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
     # today's incomplete bar attached), skip on the pre-confirmed W/M frames.
     _raw_last_bar = tf not in ("W", "M")
     _last_ok = n - pvR - (1 if (STRUCT_CLOSED_CONFIRM and _raw_last_bar) else 0)
-    for i in range(pvL, max(pvL, _last_ok)):
+    for i in range(pvL, max(pvL, _last_ok) if not _pv_disabled else pvL):
         a = atr[i]
         if math.isnan(a) or a <= 0:
             continue
