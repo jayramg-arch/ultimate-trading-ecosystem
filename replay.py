@@ -529,12 +529,11 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
         t2_price = entry_price * (1 + float(t2_pct) / 100) if t2_pct is not None and not pd.isna(t2_pct) else None
 
         # Partial-take sizes by catalyst
-        if cat.startswith("SWG-GAP") or cat == "SWG-REV":
-            t1_qty = 50; t2_qty = 50
-        elif cat.startswith("SWG"):
-            t1_qty = 33; t2_qty = 33
-        else:  # POS, WYC, REV
-            t1_qty = 25; t2_qty = 25
+        # ONE definition, shared with the Risk Shield card — bull_screener.partial_qty_for.
+        # A second copy is how the R-multiples and the quantities ended up on different
+        # fallbacks (blank setup: SWG targets, POS quantities).
+        import bull_screener as _bs_q
+        t1_qty, t2_qty = _bs_q.partial_qty_for(cat)
 
         res = _simulate_one_trade(df2, entry_pos, entry_price, sl_price,
                                      t1_price, t2_price, t1_qty, t2_qty,

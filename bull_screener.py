@@ -120,6 +120,28 @@ def target_r_for(setup):
     return 3.0, 5.0          # SWG-BO / SWG-PB / fallback / NONE
 
 
+def partial_qty_for(setup):
+    """(T1_qty_pct, T2_qty_pct) for a catalyst label — the partner of target_r_for.
+
+    Hoisted 10-Aug-2026 from replay.py's inline block so the R-multiples and the QUANTITIES
+    share one fallback. They did not: a blank setup took target_r_for's SWG fallback (3R/5R)
+    while a separate ternary gave it POS quantities (25/25) — swing targets sized like a
+    positional trade. Two fallbacks that disagree is the same defect class as the trade-type
+    triple-definition; one function per concept, and the concepts stay paired.
+
+    POS/WYC/REV take 25/25 so HALF the position rides the trail uncapped — that matters,
+    because 88% of POS trades exit on the trail and none on a target.
+    """
+    s = str(setup or "").upper()
+    if s.startswith("SWG-GAP") or s == "SWG-REV":
+        return 50, 50        # gaps fade fast / mean-reversion — take it off
+    if s.startswith("SWG"):
+        return 33, 33
+    if s.startswith(("POS", "WYC", "REV")):
+        return 25, 25
+    return 33, 33            # unknown -> matches target_r_for's SWG fallback
+
+
 ENABLE_SWG_BOOK = True    # 9-Aug: re-enabled at Jay's call — the swing book is back on   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
 SWG_LABELS = ("SWG-BO", "SWG-PB", "SWG-GAP", "SWG-REV")
 

@@ -16487,10 +16487,84 @@ elif page == 'RISK SHIELD':
                                     t2_price = tgt_vals[1] if len(tgt_vals) > 1 else (tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.15 if buy_price else 0))
                                     sl_price = near_sl if near_sl else (buy_price * 0.94 if buy_price else 0)
 
-                                    dhan_oco_card_html = f"""<div style='background:linear-gradient(145deg, #022C22 0%, #064E3B 100%);border:1.5px solid #059669;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:0.8rem;'>
-                                        <div style='color:#6EE7B7;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 Dhan 2-OCO Plan · 50/50 Fixed ({_oco_family})</div>
-                                        <div style='color:#A7F3D0;font-weight:700;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 (Fixed) ₹{t1_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
-                                        <div style='color:#6EE7B7;font-weight:600;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 (Fixed) ₹{t2_price:,.2f} | SL (Fixed) ₹{sl_price:,.2f}</div>
+                                    # ── RECOMMENDED half (10-Aug-2026, Jay) ─────────────────────
+                                    # The existing card is a MIRROR of what is already at Dhan
+                                    # (sl_price = near_sl, t1/t2 = the resting target legs) yet was
+                                    # labelled "Plan", which reads as advice. Left half now says so
+                                    # plainly; the right half is the actual recommendation, built
+                                    # from POLICY rather than from the broker:
+                                    #   SL   tighten-only max(resting SL, Chandelier) — the same rule
+                                    #        gtt_auto_shield --trail applies. It never loosens.
+                                    #   T1/2 bull_screener.target_r_for(setup) x R, anchored at ENTRY.
+                                    #        R is FIXED AT ENTRY (entry - the original stop): using a
+                                    #        trailing stop as the R unit would slide the targets down
+                                    #        every time the stop moved up.
+                                    #   qty  the family partial policy (replay.py:530) — POS/WYC/REV
+                                    #        25/25 so half rides the trail uncapped, SWG 33/33,
+                                    #        SWG-GAP/REV 50/50. The mirror hardcodes 50/50 for all.
+                                    _r_sl = _r_t1 = _r_t2 = _ce_r = None
+                                    _t1r = _t2r = 0.0
+                                    _r_note = "—"
+                                    try:
+                                        import bull_screener as _bs_r
+                                        _setup_r = str((_jov or {}).get("setup") or "")
+                                        _t1r, _t2r = _bs_r.target_r_for(_setup_r)
+                                        # R unit: prefer the journal's original stop; else the LOWEST
+                                        # resting SL (least-trailed, closest to the original); else the
+                                        # policy ATR stop. Whichever answers is named on the card.
+                                        for _cand, _lbl in ((_jov.get("stoploss"), "journal SL"),
+                                                            (min(sl_vals) if sl_vals else None, "oldest resting SL"),
+                                                            ((buy_price - atr_val * (1.5 if is_swing else 4.0))
+                                                             if (buy_price and atr_val) else None, "policy ATR stop")):
+                                            try:
+                                                _c = float(_cand)
+                                            except Exception:
+                                                continue
+                                            if _c > 0 and buy_price and _c < buy_price:
+                                                _runit = buy_price - _c
+                                                _r_t1 = buy_price + _t1r * _runit
+                                                _r_t2 = buy_price + _t2r * _runit
+                                                _r_note = _lbl
+                                                break
+                                        _ce_r = _tech.get("chandelier_exit") if isinstance(_tech, dict) else None
+                                        _cands = [float(x) for x in (near_sl, _ce_r) if x]
+                                        _r_sl = max(_cands) if _cands else None
+                                    except Exception as _e_r:
+                                        _gm_logger.warning(f"{sym}: recommended OCO failed: {_e_r}")
+                                    # ONE source for the split, paired with target_r_for's fallback.
+                                    # A local ternary here fell back to POS (25/25) while
+                                    # target_r_for fell back to SWG (3R/5R) — swing targets sized
+                                    # like a positional trade on any blank setup.
+                                    try:
+                                        _p1, _p2 = _bs_r.partial_qty_for((_jov or {}).get("setup"))
+                                    except Exception:
+                                        _p1 = _p2 = 33
+                                    _rq1 = int(total_qty * _p1 / 100) if total_qty else 0
+                                    _rq_rest = (total_qty - 2 * _rq1) if total_qty else 0
+                                    _fr = lambda v: f"₹{v:,.2f}" if v else "—"
+                                    _slsrc = ("Chandelier" if (_r_sl and _ce_r and abs(_r_sl - float(_ce_r)) < 0.01)
+                                              else "resting SL (already tighter)") if _r_sl else "—"
+                                    _rec_rows = ((
+                                        f"<div style='color:#FDE68A;font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
+                                        f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
+                                        f"<div style='color:#FCD34D;font-weight:600;'>• <b>OCO-2 ({_rq1} sh):</b> "
+                                        f"T2 {_fr(_r_t2)} <span style='color:#94A3B8'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
+                                        f"<div style='color:#94A3B8;font-size:0.72rem;margin-top:4px;'>"
+                                        f"{_rq_rest} sh ride the trail uncapped · SL = {_slsrc} · R from {_r_note}</div>"
+                                    ) if (_r_t1 or _r_sl) else
+                                        "<div style='color:#94A3B8;'>no entry price or stop on record — cannot size R</div>")
+
+                                    dhan_oco_card_html = f"""<div style='display:flex;gap:10px;margin-top:10px;font-size:0.8rem;'>
+                                      <div style='flex:1;background:linear-gradient(145deg, #022C22 0%, #064E3B 100%);border:1.5px solid #059669;border-radius:8px;padding:10px 14px;'>
+                                        <div style='color:#6EE7B7;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 AT DHAN NOW · what is resting ({_oco_family})</div>
+                                        <div style='color:#A7F3D0;font-weight:700;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 ₹{t1_price:,.2f} | SL ₹{sl_price:,.2f}</div>
+                                        <div style='color:#6EE7B7;font-weight:600;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 ₹{t2_price:,.2f} | SL ₹{sl_price:,.2f}</div>
+                                        <div style='color:#6B9080;font-size:0.72rem;margin-top:4px;'>read from your live orders — not advice</div>
+                                      </div>
+                                      <div style='flex:1;background:linear-gradient(145deg, #2A1F05 0%, #4A3410 100%);border:1.5px solid #D97706;border-radius:8px;padding:10px 14px;'>
+                                        <div style='color:#FDE68A;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p1} ({_oco_family})</div>
+                                        {_rec_rows}
+                                      </div>
                                     </div>"""
 
                                     combined_line = f"{flags_html}<div style='margin-bottom:6px;'>{header_entry} / {header_ltp}</div><div>{', '.join(sl_parts) if sl_parts else '⚠️ No SL'} | {', '.join(tgt_parts) if tgt_parts else 'N/A'}</div>{dhan_oco_card_html}"
