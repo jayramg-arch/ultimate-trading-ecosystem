@@ -268,17 +268,55 @@ Consequences worth internalising:
 | Column | Read it as |
 |---|---|
 | **Category** | Stage-1 ARM state: `Buy Trigger Live` / `Armed Wait` / `Wait for Pullback` / `Invalidated` / `Watchlist`. Pure **timing**, no quality. |
-| **S4-GO** | Stage-2 preview — how many of S4's four gates pass now. **Sort by this.** `4/4 GO` · `4/4 · PA 2b` · `3/4 · no vol` · `2/4 · no loc` · `n/a` (no trigger-TF read). |
+| **S4-GO** | Stage-2 preview — how many of S4's four gates pass now. **Sort by this.** Full grammar below. |
 | **Archetype** | The inherited thesis. Multi-archetype names show all. |
 | **Overall** | 0-100 opportunity score. Independent of category and path. |
+| **Room** | Distance to the **first obstacle overhead**, in R — `clear`, or `0.22R · S/R·D`, or blank. Blank means **unknown**, never clear. |
 | **bell / Armed** | Armed checkbox, and the age + trigger level as armed. |
 | **Pos** | For Pyramid rows: what you already hold and the add's plan. |
 | **Loc / Entry / SL / T1 / R:R** | The live plan, recomputed this rebuild. |
 
-> **`4/4 GO` vs `4/4 · PA 2b`:** the first means all four gates align on the **live** bar.
-> The second means the pattern fired up to 3 bars ago and the other three gates are true
-> now. Both are actionable; the second tells you the entry anchors to the **bar that
-> fired**, which is exactly what S4's v6.0 latch does.
+#### S4-GO — the complete grammar (`gm_trigger_board.s4go_status`)
+
+This column is the single most-read cell on the board and it carries **seven** kinds of
+suffix. They are not interchangeable and two of them look superficially alike, so read
+the glyph, not the letter.
+
+**The stem** — the gate count, which is what the column sorts on (descending):
+
+| Stem | Meaning |
+|---|---|
+| `4/4 GO` | All four gates align **on the live bar** |
+| `4/4 · PA Nb` | The other three are true now; the pattern fired **N bars ago** (≤3). Still actionable — but the entry anchors to the **bar that fired**, which is what S4's v6.0 latch does |
+| `3/4 · no vol` | Armed, at a location, clean bar — waiting on volume |
+| `3/4 · no PA` | Location + volume + bar, no pattern |
+| `2/4 · no loc` | Needs a pullback to a location |
+| `1/4 · no PA` | — |
+| `⛔ Stage N · gates n/4` | **Stage 3 or 4.** Sorts *below* every live count. The gates may well all be true — a topping chart can fire a pattern at a location on volume — but the stage is upstream of all four. Parity with S4's `stage_skip` |
+| `n/a` | No usable read: neither `relvol` nor `bar_ok` present. "No data", not "not attempted" |
+
+**The four gates** (`s4go_status`, lines ~1000-1018): `sigma_pa > 0` · `support.at_support`
+· `relvol ≥ RV_FLOOR` · `bar_ok`. An **unknown** `bar_ok` counts as PASS — the board never
+penalises a missing read.
+
+**The suffixes** — every one of these is **display-only and never changes the gate count**:
+
+| Tag | Name | Read it as |
+|---|---|---|
+| `· PB` | Pullback context | The **relaxed** gate applied: volume floor dropped to `PB_RV_FLOOR` (0.5) and the bar test became *held the zone* instead of *closed strong*. Fires only when a CONTRACTION pattern fired with no expansion pattern **and** price is inside a demand zone. This is the setup you are hunting; PB 4/4s sort above breakout 4/4s |
+| `· ↑D` `· ↑W` `· ↑M` | **HTF nesting** — up-arrow | **POSITIVE.** Price is held by a demand zone on a timeframe **above** the tab you are looking at (D 1 · W 2 · M 3). Only appears when the location gate already passed, and only for TFs strictly higher than the board tab — so a Daily zone shows on the 75m and 125m tabs and disappears on the Daily tab, where it is native |
+| `· ⧖D` | **Daily fallback** — hourglass | **A FAULT.** The intraday read failed and the PA behind this verdict came from the **daily** battery while the row still wears the intraday label. Ignore its PA verdict and rebuild. Distinct from `↑D` in every way except the letter |
+| `· N⚖` | Knife-edge | N fired patterns sit **on their threshold**. They flip on a difference smaller than the routine Dhan-vs-TradingView gap (NAM-INDIA: Σ6 here, Σ2 on the chart, same bar). A marginal Σ is not conviction |
+| `· ⚠role` | Role mismatch | The fired battery is **IGNITION-only** (expansion away from value) while price sits **inside a demand zone** (absorption at value). Both arithmetically true of one bar, describing opposite things. Measured 3 of 7 armed names on the live 75m board; n=7 is a story, not a rate, so it tags and never gates |
+
+> **`↑D` is not `⧖D`.** The up-arrow is a strength term; the hourglass is a data fault.
+> To check a whole tab at once, count `⧖` in `gm_board_cache_<tf>.csv` — zero is the
+> expected reading.
+
+**Location here is the GM's twin of S4's, not S4's.** `at_support` merges the IZE zone
+engine, the OB/FVG/pivot proxy, `near_sr` and `near_avwap`; S4 on the chart uses its own
+zone engine and is the plan of record. Treat a board `4/4 GO` as *arming*, and expect the
+occasional disagreement — when it happens the chart wins.
 
 ### Refresh cadence
 

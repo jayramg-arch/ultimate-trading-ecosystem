@@ -1,11 +1,14 @@
 # Section 4 — Entry Trigger & Price Memory v9.12 — User & Trading Guide
 
-> **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the daily price-action battery (**17 Bull / 10 Recovery**) — the same battery surfaced in the Golden Matcher "Full Metric" panel; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks the demand zones on both Daily and Weekly** — Order Block / Fair-Value-Gap / pivot-low support (v2.0, dual-TF v2.1) — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **buy-stop + SL plan** and raises alerts so you never have to sit and watch.
+> **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the price-action battery (**17 Bull / 10 Recovery**) on the **chart timeframe**; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks demand and supply zones on Chart + Daily + Weekly + Monthly** using the leg-base-leg engine ported from the Institutional Zone Engine, plus horizontal S/R levels and Volume-Profile VAL/POC — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **entry + SL plan** and raises alerts so you never have to sit and watch.
 >
-> **File:** `Section4_Entry_Trigger_v7.2.pine` (in-file title `Section 4 Entry Trigger and Price Memory v7.1 (Pullback Ruling)`) · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE · **Applies on:** the **75/125-min trading chart** — the PA battery + support zones come from **Daily and Weekly** via `request.security`, the intraday trigger from the chart TF.
+> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v9.12 (Sectioned Panel)` (`shorttitle "S4 Entry v9.12"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/5` · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
+>
+> **Which timeframe the PA battery actually reads** — this is the single most-misread line in this guide. `use_chart_tf` **defaults to TRUE** (line 938), so on a 75m chart the battery runs on **75m bars**, not Daily. The panel header says so: `PA · BULL (auto·75)`. Only the two weekly-anchored patterns (Stage-2 Launch, 30-WMA Reclaim) and the HTF pattern are suppressed on intraday. Set `use_chart_tf` OFF and the battery reverts to confirmed Daily via `request.security`. `confirm_daily` (default ON) shifts **only the daily-security call** by one bar — after the v4.1 fix it does **not** shift the chart-TF call, which is what had the 75m battery reading a stale bar.
 >
 > **Design contract (zero-drift by intent):**
-> - The PA conditions **and the auto support zones** are a 1:1 mirror of the Web Commander Golden Matcher — `detect_bull_patterns` (Bull, 17), `detect_recovery_patterns` (Recovery, 10) and **`detect_support_zones`** (OB/FVG/pivot) in the shared **`pa_patterns.py`** module (a port of **Dashboard v67.4.12**). When a name reaches Step 5, this Pine panel fires the identical patterns and marks the identical zones the Golden Matcher shows.
+> - The PA conditions are the twin of the Web Commander Golden Matcher's — `detect_bull_patterns` / `detect_recovery_patterns` in the shared **`pa_patterns.py`** module (a port of **Dashboard v67.4.20**). ⚠ **Known drift, measured 10-Aug-2026:** S4 fires **17** bull chips, `detect_bull_patterns` returns **16** — Pine has `★ IB-NR7 Coil` (chip `IBN`) and Python does not. Σ can therefore differ by up to the IB-NR7 tier between board and chart, and because IB-NR7 is a **TENSION** role, a bar where it is the only tension pattern reads IGNITION-only in Python (`⚠role` tag) and correctly mixed in Pine. Recovery is 10 = 10 with no drift.
+> - **Zones are NOT `detect_support_zones` (OB/FVG/pivot) any more.** That was v2.x. Since v3.0 the primary source is `S4Core.detectZone` — leg-base-leg RBR/DBR/RBD/DBD formations with per-TF width bands, a touch budget and calendar ageing — with `structZone` pivot shelves, FVGs and AVWAPs as secondary. The Python twin is **`zone_engine.py`**, not `pa_patterns.detect_support_zones`.
 > - The **VCP-BO volume dry-up** uses `ta.vwma(VOLUME, 5) < sma(volume, 50)` — the **correct canonical** form (matches `pa_field_validator.py`). *(This is the same leg that had a `(c*v)` no-op bug in the dashboard `.py`, fixed 8-Jul-2026; Pine has always used the correct form.)*
 > - Every daily PA pattern **and support zone** is computed on **confirmed daily bars** via `request.security(..., lookahead_off)` — **no repaint** (the confirmed-daily offset is timeframe-independent, so it holds on 75/125-min too). The two weekly-crossover patterns (Stage-2 Launch, 30-WMA Reclaim) read confirmed weeks. All alerts fire **once per bar close**.
 > - **S4 no longer re-derives what another indicator already computes.** As of v8.2/v8.4 it
@@ -241,35 +244,77 @@ and row 29 reads `not bound — Settings ▸ Dashboard import` rather than showi
 
 ## 4. Reading the panel (top to bottom)
 
+Since **v9.12 the panel is SECTIONED** — 32 fields under five banded header rows, each
+stating the question its block answers. The sections are not interchangeable: a name can
+be perfect on regime and worthless on location. Read them in order and stop at the first
+one that fails.
+
+The map below is the live panel, verified against a running chart (SONACOMS 75m,
+10-Aug-2026) via `data_get_pine_tables`. Row numbers are `f_row`/`f_sec` ids in the source.
+
+### I · MACRO & CONTEXT — *what is the underlying regime and environment?*
+
 | Row | Reads | How to use |
 |---|---|---|
-| **S4 ENTRY TRIGGER \| \<ticker\>** | header | — |
-| **AVWAP Low / BO / Gap** | each AVWAP's price; green if price is above it, red if below | Above all three = strength; the nearest one *below* price is your dynamic support. |
-| **Pinch** | `YES x%` (shaded) or `no x%` | `YES` = the anchors have converged → **high-conviction entry zone**. Lower % = tighter pinch. |
-| **Nearest support** | the closest AVWAP **at or below** price, and its distance % | This is the level your SL sits under. A trigger far above support (large %) = worse R:R than one *at* support. |
-| **AVWAP trigger** | `FIRED bounce` / `FIRED R2G>BO` / `waiting` | A price-memory trigger printed (bounce off support, or reclaim above the breakout AVWAP). |
-| **Intraday \<TF\>** | `GO 10EMA+sqz` / `10EMA ok, sqz wait` / `sqz ON, wait EMA` / `wait` / `off` | The **Intraday (I)** component — momentum timing on 75/125-min. |
-| **Support Zone** *(v2.0, dual-TF v2.1, fresh/tested v2.2)* | `D:OB W:FVG` / `D:Piv W:-` / `D:OBt W:-` / `D:- W:-  (AVWAP)` | **Is price at a FRESH auto-detected demand zone, per timeframe?** Reads Daily (`D:`) and Weekly (`W:`) — `OB`/`FVG`/`Piv` = fresh; a **`t` suffix** (`OBt`/`FVGt`) = a **tested** zone under price (present but **excluded**); `-` = none. Green when at a fresh zone (or AVWAP). With `require_support` ON, this must be green for a **GO** — a `t` zone will *not* trigger. |
-| **RV (rel vol)** | `1.42 strong` / `1.05 ok` / `0.20 thin` | The **Volume (V)** component, colour-coded: green ≥1.25 (strong), amber ≥1.0 (average), red <1.0 (thin/dead). Compared against the tunable `rv_floor`. |
-| **TRIGGER** (highlighted) | `GO   E✓ V✓ I·` / `no support   …` / `no volume   E✓ V· I·` / `WAIT   E· V· I·` | Suffix tags: `·PB(GM)` / `·PB` (playbook), `⇄both` / `Bull-only` / `Rec-only` (path), `★strong n/13` (confluence) and **`⚠role`** (v8.9 — you are in a demand zone but the only evidence is an expansion pattern; look twice, it is not a veto). **The COMBINED entry gate** — Event (AVWAP reclaim), Volume (RV≥floor), Intraday (10-EMA+squeeze), each ✓/·. **Green GO = a trigger fired (E *or* I) AND volume (V) AND price in a support zone** (when `require_support` is ON). `no support` = trigger + volume but price isn't at a demand zone; `no volume` = the dead-volume trap; grey = no trigger yet. |
-| **Plan** | `Buy-stop > bar high, SL < \<level\>` or `wait for GO` | The ready-to-place order. **Prints ONLY when TRIGGER = GO**. A trigger on dead volume, outside a support zone, or a daily PA/coil alone, will **not** produce a Plan. |
-| **Auto basis** *(v1.9, 200-DMA v2.3, only in Mode=Auto)* | e.g. `12.4% off52 · 30WMA falling · <200DMA` | **Why Auto resolved Bull vs Recovery** — % off the 52-week high, the 30-WMA proxy state (`below 30WMA` / `30WMA falling` / `30WMA repaired`), and the **200-DMA state** (`<200DMA` / `>200DMA`). All three of (off52 ≥ floor · not-repaired · <200DMA) → Recovery (teal); anything above the 200-DMA → Bull (green). |
-| **PA · BULL / RECOVERY (EOD)** | `Sum +N` (colour by Σ) | Header of the compact grid. Mode-aware label (`PA · BULL` / `PA · RECOVERY`, plus `auto·`/`EOD`/`live*`). **Σ tier** = weighted sum of fired-pattern tiers. Purple ≥4, teal ≥2, amber ≥1, grey 0. |
-| **Grid** | e.g. `HTF ·  SC ·  VCP ·` … `NR7 ✓  IBN ✓` | **Every condition of the active battery, each with `✓` (fired) or `·` (quiet)** — nothing hidden. Bull codes: HTF, SC, VCP, LAU (Stage-2 Launch), GAP, BC (Breakout-Confirmed), PP (Pocket), U50 (Undercut-50), LIQ, SPR (Spring), ENG (Engulf), 3BR, H50, H200, IN3 (Inside-3), NR7, IBN (IB-NR7). Recovery codes: CLIMAX, SPR, 2B (Higher-Low), SOS (Base-BO), ENG, HSUP (Hammer-at-support), 3BR, PP, VDU (Volume-Dry-Up), 30WMA (reclaim). |
+| **Structure basis** | A position/direction **ladder**: `Stage 2 (27w leg/27w macro) · >30WMA ↗️ · >50DMA ↗️ · >200DMA · Trend 75 ⬆️ · D ⬆️ · W ⬆️` | Two arrow families, and they mean different things — **diagonals (↗️↘️➡️) are a moving-average SLOPE, verticals (⬆️⬇️) are a TREND STATE**. The trend ladder runs chart-TF → next two higher (so a Daily chart ends at M). A field printing `—` means the source is **unbound**, not flat. |
+| **WCL Context** | `BULL (+6)` / `BEAR` / `NEUTRAL` | Wyckoff-SMC composite. Grading only — measured and rejected as both a veto and a score input. |
+| **Structure Health** | `CLEAN (0)` | CHoCH count. `CLEAN` on ~90% of names is **expected**, not a bug. |
+| **RS · RRG (vs N500)** | `N500: Rising (Positive) ↗️ · Sec: Rising (Positive) ↗️` / `LEADING ↗️ +2 · LEADING (stable) · ✓ BUY OK (RS-Ratio 114.3)` | Wording is identical to v67 by design. The quadrant is derived from the same (RS-Ratio, RS-Momentum) pair v67 classifies with, so it **is** v67's quadrant. |
+| **Sector · Futures OI** | `Sector Stage 3 · OI Short covering +2.5%` plus its plain-English reading | The OI state is only meaningful against price direction, so it is derived from both: **Long build-up** (price↑ OI↑) fresh money · **Short covering** (price↑ OI↓) the rally is shorts exiting, fades are common, do not chase · **Short build-up** (price↓ OI↑) supply into strength · **Long unwinding** (price↓ OI↓) weak, not a short signal. |
+| **Signal · Quality · RSI** | v67's Action Signal (0-10), Asset Quality (0-100 + letter), daily RSI | `not bound` = the `input.source` bindings are missing, **not** that the data is absent. Re-bind after every recompile. |
 
+### II · LOCATION & QUALITY — *where are we on the chart right now?*
 
-### Rows 29-32 — imported context and combinations (v8.4 / v8.7)
+| Row | Reads | How to use |
+|---|---|---|
+| **Zones (MTF)** | `between zones · 11 DZ / 0 SZ live` or `IN DEMAND · …` | Live zone inventory across Chart/D/W/M. |
+| **Support Zone** | `D:- W:-` or the zone grade + TF | The leg-base-leg zone under price, per timeframe. |
+| **S/R (nearest)** | `S 784.80 ·W (−4.3%) │ R —` | Nearest horizontal level each side, with its source TF. **MTTWR-graded levels are deliberately excluded from this picker** — repeated tests WEAKEN a level; one tested that often is a breakout candidate, not a ceiling. `R —` with nothing above is what produces `BLUE SKY`. |
+| **Trendlines** | `off` / the auto or manual line | — |
+| **Volume Profile** | `✓ ABOVE VAH (POC 723.00)` | VAL and POC join the location sources when `en_wcl_loc` is ON (default). The one WCL component that earned its place (~18% of names). |
+| **Price vs EMA20 (D)** | `ABOVE +9.5% (Norm) · ATR(D) ₹23.7 (2.9%) · off52 −4.0% · offATH −0.5%` | The extension read. **off52 and offATH together** separate a name printing fresh highs from one that reclaimed its 52W high but sits far under its all-time high. Both signs forced negative — v67 publishes off52 positive. |
+| **Location (L)** | `NOT AT LOCATION — Zone · D/W-lvl · AVWAP · EMA20 · S/R ·` | The **L gate**, with each source ticked or dotted. This is the gate the board mirrors. |
 
-| Row | Reads |
-|---|---|
-| **Signal · Quality · RSI** | v67's Action Signal (0-10), Asset Quality (0-100 + letter) and daily RSI. `not bound` here means the sources are unbound, not that the data is missing. |
-| **RS · RRG (vs N500)** | RS-Ratio and direction vs the index and vs sector, plus the RRG quadrant — derived from the (RS-Ratio, RS-Momentum) pair, the same two coordinates v67 classifies with, so it **is** v67's quadrant. |
-| **Sector · Futures OI** | Sector stage, and the OI state with its reading. The state is only meaningful against price direction, so it is derived from both: **Long build-up** (price↑ OI↑) fresh money, breakout has fuel · **Short covering** (price↑ OI↓) the rally is shorts exiting, fades are common · **Short build-up** (price↓ OI↑) expect supply into strength · **Long unwinding** (price↓ OI↓) weak, but not a short signal. |
-| **PA Combo** | The named combination with its **context age** — `COILED SPRING · VCP 6b -> coil now`. The age is what Σ cannot show and what says whether the story is still fresh. **Narrative only** — see the version history for why it earns no score. |
+### III · EXECUTION & TIMING — *are the intraday triggers and PA patterns firing?*
 
-## 5. The 17 daily PA patterns — what each requires
+| Row | Reads | How to use |
+|---|---|---|
+| **Intraday \<TF\>** | `GO 10EMA+sqz` / `10EMA ok, sqz wait` / `sqz ON, wait EMA` / `wait` / `off` | Momentum timing on the chart TF. **Optional** since v3.0 — it times, it does not qualify. |
+| **Nearest AVWAP** | price + distance | The closest anchored VWAP at or below price. |
+| **AVWAP L·BO·Gap** | the three anchors | Low (52wk/Stage-1 bottom) · Breakout · Gap. |
+| **Pinch** | `YES x%` / `no x%` | Anchors converged = high-conviction zone. Lower % = tighter. |
+| **AVWAP trigger** | `FIRED bounce` / `FIRED R2G>BO` / `waiting` | Optional timing leg (⏱ on the TRIGGER row). |
+| **Pattern \| Shape** | `no flag │ —` | Flag / geometry classifier. ⚠ The 2-pivot classifier calls rectangles "symmetrical triangles" (APOLLOHOSP, GLAXO) — known, unfixed. |
+| **PA · BULL/RECOVERY (auto·\<TF\>) Σ+N** + **grid** | Every condition of the active battery, `✓` fired / `·` quiet — nothing aggregated away | Bull codes: HTF, SC, VCP, LAU, GAP, BC, PP, U50, LIQ, SPR, ENG, 3BR, H50, H200, IN3, NR7, **IBN**. Recovery: CLIMAX, SPR, 2B, SOS, ENG, HSUP, 3BR, PP, VDU, 30WMA. **`IBN` has no Python twin** — see the drift note in the header. |
+| **PA Combo** | `COILED SPRING · VCP 6b → coil now` | The **sequence** Σ cannot express. **Narrative only** — both testable combos underperformed a Σ-matched control on 464 picks. |
+| **Bar (B)** | `OK — green candle (bullish close)` | The **B gate**. In a pullback context it becomes *held the zone* instead of *closed strong*. |
+| **Arrival · Δ** | `FAST / GRIND / NORMAL` + `Δ+ absorbing / Δ− bleeding` | Approach velocity and an intrabar order-flow **proxy** (not true aggressor delta — no TV plan exposes that to Pine). Grades, never gates. |
+| **RV (rel vol · \<TF\>)** | `1.30 strong` / `1.05 ok` / `0.20 thin` | The **V gate**. Floor is `rv_floor` (1.0), dropping to `pb_rv_floor` (0.5) in a pullback context. |
 
-*(All on confirmed daily bars. RV = today's volume ÷ 50-day average. "prior bar" = yesterday's close.)*
+### IV · DECISION SYNTHESIS — *what is the final ruling of the engine?*
+
+| Row | Reads | How to use |
+|---|---|---|
+| **Room for Trade** | `BLUE SKY 🚀` / `1.4R to <obstacle>` / `NO ROOM` | Distance to the **first obstacle overhead** across six sources. Pivot ceilings are named `Pv·` and ranked last. Room is what decides whether a setup is tradeable at all — which is why it sits in DECISION, not LOCATION. |
+| **Confluence n/23** | the scoring terms that fired | Grades the setup. `★strong` at the threshold. |
+| **TRIGGER** | `no location  P✓ L· V✓ B✓ ⏱  Bull-only  7/23` | The four gates as chips — **P**attern · **L**ocation · **V**olume · **B**ar — plus optional ⏱ timing, the path tag (`⇄both` / `Bull-only` / `Rec-only`), `·PB` for a pullback-relaxed gate, and **`⚠role`**. |
+| **STATUS** | the same gates in words + `conf` + `RV x/floor` + `Σ` | — |
+| **VERDICT** | Exactly **four lines**: ruling · why · the one caveat · the action | Rulings: **TAKE IT** · **SKIP** · **NOT TRADEABLE** (blocked *and* in supply — clearing the one gate will not make this a trade) · **LOW QUALITY** · **ARM** (names the single missing gate) · **BREAKOUT PIVOT** (Stage-2 within 3% of the 52W high in a supply band — don't buy here, arm a buy-stop above the band) · **NO TRADE** (Stage 3/4, outranks everything, applies under manual mode too). |
+
+### V · PLAN & RISK — *how do we execute and size it?*
+
+| Row | Reads | How to use |
+|---|---|---|
+| **Plan** | `wait for GO`, or the order | **Prints only on GO.** Follows `entry_method` — default **Retest (pullback limit)** at the latched trigger bar's close, not a buy-stop. Tagged `· trig Nb ago`; a stale anchor re-latches after N bars rather than quoting fiction. |
+| **Entry · SL · T1 · T2** | the levels | SL is **structural** — zone distal → recent swing low → 2.5×ATR, capped by trade type (swing 2.5× / positional 4.0×). T1/T2 are R-multiples by trade type. |
+| **Qty @ x% risk** | shares | Dynamic risk (Kelly × vol × regime), ported from the Risk Allocator. |
+
+> **The one thing to carry away:** the panel is a ladder, and the gates it prints are
+> `P L V B`. Everything above III grades; III fires; IV rules; V sizes.
+
+## 5. The 17 PA patterns — what each requires
+
+*(On the CHART timeframe by default — `use_chart_tf` is ON, so "bar" below means a 75m bar on a 75m chart, not a day. RV = this bar's volume ÷ its 50-bar average. The two weekly-anchored patterns and HTF are suppressed on intraday. Set `use_chart_tf` OFF for confirmed-daily behaviour.)*
 
 | # | Pattern | Tier | Fires when |
 |---|---|---:|---|
