@@ -57,10 +57,24 @@ echo   Launching Mission Control...
 :: the interpreter path baked in at venv-creation time - this venv was built under
 :: "E:\Gemini\VS Code\.venv", which no longer exists, so the shim dies with
 :: "Unable to create process". -m resolves the interpreter at run time.
-start "Commander Server" /B "%PYTHON_EXE%" -m streamlit run "%APP_SCRIPT%" --server.headless=false
+:: RUN IN THE FOREGROUND. This was:
+::     start "Commander Server" /B "%PYTHON_EXE%" -m streamlit run ...
+::     pause
+:: `start /B` spawns Streamlit as a SEPARATE process and the batch then sits at
+:: `pause`. Ctrl+C is delivered to the batch waiting on `pause`, so it kills the
+:: BATCH and orphans the server — which keeps holding the port. That is why
+:: Ctrl+C did not stop anything, and why a "restart" could silently leave the old
+:: server serving the page you were looking at.
+::
+:: Foreground means the console owns the process: Ctrl+C reaches Streamlit, it
+:: shuts down, the batch ends and the window closes. Streamlit on Windows
+:: sometimes wants a second Ctrl+C — that is normal.
+"%PYTHON_EXE%" -m streamlit run "%APP_SCRIPT%" --server.headless=false
 
-echo   Server starting - the browser opens in a few seconds.
-echo.
-echo   KEEP THIS WINDOW OPEN. Closing it stops the server.
-echo.
-pause
+:: Only hold the window open if it FAILED, so the error is readable. A clean
+:: Ctrl+C exits quietly instead of demanding a keypress.
+IF ERRORLEVEL 1 (
+    echo.
+    echo   [ERROR] Streamlit exited with an error - see the trace above.
+    pause
+)

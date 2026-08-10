@@ -47,14 +47,24 @@ echo 📡 Launching Mission Control UI...
 :: Start Streamlit in the background
 :: We remove the hardcoded port 8501 to allow auto-fallback if another instance is running
 echo 🚀 Launching Mission Control...
-start "Commander Server" /B "%PYTHON_EXE%" -m streamlit run "%APP_SCRIPT%" --server.headless=false
+:: RUN IN THE FOREGROUND. This was:
+::     start "Commander Server" /B "%PYTHON_EXE%" -m streamlit run ...
+::     pause
+:: `start /B` spawns Streamlit as a SEPARATE process and the batch then sits at
+:: `pause`. Ctrl+C is delivered to the batch waiting on `pause`, so it kills the
+:: BATCH and orphans the server — which keeps holding the port. That is why
+:: Ctrl+C did not stop anything, and why a "restart" could silently leave the old
+:: server serving the page you were looking at.
+::
+:: Foreground means the console owns the process: Ctrl+C reaches Streamlit, it
+:: shuts down, the batch ends and the window closes. Streamlit on Windows
+:: sometimes wants a second Ctrl+C — that is normal.
+"%PYTHON_EXE%" -m streamlit run "%APP_SCRIPT%" --server.headless=false
 
-echo ✅ Server initialization triggered. 
-echo 🌐 Opening browser...
-timeout /t 3 >nul
-
-echo 🕵️  Monitoring for system shutdown...
-echo (Keep this window open to maintain server connection)
-
-:: Keep window alive
-pause
+:: Only hold the window open if it FAILED, so the error is readable. A clean
+:: Ctrl+C exits quietly instead of demanding a keypress.
+IF ERRORLEVEL 1 (
+    echo.
+    echo   [ERROR] Streamlit exited with an error - see the trace above.
+    pause
+)

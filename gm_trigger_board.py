@@ -1020,6 +1020,12 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # pattern still fired, and the S4 chart is still the plan of record.
     _marg = [m for m in (ctx.get("pa_marginal") or []) if m]
     _mtag = f" · {len(_marg)}⚖" if (_marg and g_pa) else ""
+    # DAILY-FALLBACK TAG. If the trigger-TF read failed, the PA behind this verdict
+    # is the DAILY battery, not the timeframe named on the board. Say so — an
+    # unmarked fallback is how "no PA" on the 75m board meant "no PA on Daily".
+    _pasrc = str((ctx or {}).get("_pa_src") or "")
+    if _pasrc == "daily" and str((ctx or {}).get("_trigger_tf") or "Daily") != "Daily":
+        _mtag += " · ⧖D"   # PA from the DAILY battery — intraday read failed
     # ROLE COHERENCE — display only, and it never touches the gate count. See
     # _role_mismatch: in a demand zone with nothing but an expansion pattern behind it.
     _mtag += " · ⚠role" if (g_pa and _role_mismatch(ctx, path)) else ""

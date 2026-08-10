@@ -3854,9 +3854,18 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     if trigger_tf in ("75m", "125m"):
         _mins = 75 if trigger_tf == "75m" else 125
         _intra = gm_load_intraday(symbol, _mins) or {}
+        ctx["_pa_src"] = "daily"   # overwritten below only if the intraday read succeeds
         if _intra.get("ok"):
             intra_ok = True
             ctx["_trigger_tf"] = trigger_tf
+            # STAMP THE SOURCE. This overlay is conditional on _intra["ok"], and when the
+            # intraday read fails the ctx keeps the DAILY battery — a silent fallback that
+            # looks identical to a real trigger-TF read. On the 10-Aug 06:58 build several
+            # names (SAILIFE, SOLARINDS, LAURUSLABS) reported no PA on the 75m board while
+            # their 75m battery was firing; their ΣPA matched the DAILY sum exactly. A
+            # feed hiccup partway through 63 symbols is survivable — a board that cannot
+            # say which rows it affected is not.
+            ctx["_pa_src"] = trigger_tf
             ctx["pa_patterns"] = _intra.get("pa")
             ctx["recovery_pa_patterns"] = _intra.get("rpa")
             # PA recency — the snapshot of the most recent bar that DID fire when the
