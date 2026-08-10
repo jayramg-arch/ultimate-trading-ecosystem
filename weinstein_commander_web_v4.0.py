@@ -15141,9 +15141,18 @@ elif page == 'RISK SHIELD':
     # sentinel now marks the failure and the renderer styles it as NOT analysis.
     _AI_UNAVAILABLE = "⚠ AI UNAVAILABLE — the LLM call failed. No analysis was generated for this position."
 
-    def _rs_type_badge(label):
-        """Trade-type badge, rendered from the RISK-SHIELD classification only.
-        High contrast dark theme styling."""
+    def _rs_type_badge(label, src=None):
+        """Trade-type badge + WHERE THE ANSWER CAME FROM.
+
+        The source was computed by resolve_trade_type and discarded, so a tile reading
+        POSITIONAL gave no way to tell a declared answer from a classifier verdict from
+        the bare default — and those are three completely different situations. Chasing
+        one such tile cost three wrong theories; the provenance ends that in a glance.
+          journal  = you declared it (Timeframe)   -> authoritative
+          setup    = derived from the catalyst      -> intent at entry
+          allocator/structural = Risk Allocator v2.2 classification
+          default  = NOTHING was known. Not a classification.
+        """
         _st = ("padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-left:8px;"
                "font-weight:800;vertical-align:middle;color:#ffffff;letter-spacing:0.5px;")
         if not label or label == "UNKNOWN":
@@ -15153,9 +15162,17 @@ elif page == 'RISK SHIELD':
         _inf = label.endswith("?")
         _bg = "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" if _sw else "linear-gradient(135deg, #059669 0%, #047857 100%)"
         _border = "#C4B5FD" if _sw else "#A7F3D0"
-        _tip = ("Inferred from the resting stop distance (technicals unavailable)"
-                if _inf else "Risk Shield classification: ATR% / dist-200 / WS score")
-        return f'<span style="{_st}background:{_bg};border:1px solid {_border};{"opacity:0.85;" if _inf else ""}" title="{_tip}">{label}</span>'
+        _srcs = str(src or "")
+        _tip = {"journal": "You declared this on the trade (journal Timeframe)",
+                "setup": "Derived from the entry catalyst — the intent at entry",
+                "structural": "Commander Risk Allocator v2.2 classification",
+                "default": "NOTHING was known — no Timeframe, no setup, no classification. "
+                           "This is a fallback, not a verdict."}.get(_srcs, _srcs or "—")
+        _tag = ("" if not _srcs else
+                f'<span style="font-size:0.62rem;font-weight:700;opacity:0.75;margin-left:4px;">'
+                f'{"⚠ " if _srcs == "default" else ""}{_srcs}</span>')
+        return (f'<span style="{_st}background:{_bg};border:1px solid {_border};'
+                f'{"opacity:0.85;" if _inf else ""}" title="{_tip}">{label}{_tag}</span>')
 
     def _rs_ai_card(ai_text):
         """Render the AI block truthfully with high contrast glass styling."""
@@ -16751,7 +16768,7 @@ elif page == 'RISK SHIELD':
                                     reco_color = "#F87171" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#FBBF24" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#34D399"
 
                                     ai_key = f"ai_exit_review_{sym}"
-                                    trade_style_badge = _rs_type_badge(tt_label)
+                                    trade_style_badge = _rs_type_badge(tt_label, _tt_src)
                                     ai_html = _rs_ai_card(st.session_state.get(ai_key))
 
                                     expand_btn = '<label class=\"expand-btn\" title=\"Toggle Fullscreen\" style=\"cursor:pointer;float:right;margin-top:-5px;color:#94A3B8;\">⛶<input type=\"checkbox\" class=\"expand-toggle\" style=\"display:none;\"></label>'
@@ -16899,7 +16916,14 @@ elif page == 'RISK SHIELD':
                                     # SECOND copy of it whose ws_score default was 100 while
                                     # the OCO copy used 0 — they disagreed on a missing score)
                                     # and no longer from the AI's own "[Swing]" echo.
-                                    _tt_sw, tt_label = rs_trade_type.get(sym, (None, "UNKNOWN"))
+                                    # SAME resolver as the OCO tiles — this site read the raw
+                                    # structural verdict directly, so the two halves of the page
+                                    # could disagree on one symbol.
+                                    _jov_u = journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {}
+                                    _tt_sw, tt_label, _tt_src = _rc.resolve_trade_type(
+                                        timeframe=_jov_u.get("timeframe"),
+                                        setup=_jov_u.get("setup"),
+                                        structural=rs_trade_type.get(sym, (None, "UNKNOWN"))[0])
                                     is_swing = bool(_tt_sw)
                                     if _tech:
                                         # RS-P0: .get with defaults — direct [] here crashed the tab
@@ -16995,7 +17019,7 @@ elif page == 'RISK SHIELD':
                                             
                                         pb_html = f'<div style="width:100%;background:#334155;height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
-                                        badge_html = _rs_type_badge(tt_label)
+                                        badge_html = _rs_type_badge(tt_label, _tt_src)
                                         
                                         # R from the same anchor as the levels — see the OCO tile.
                                         _rr_risk = _runit2
