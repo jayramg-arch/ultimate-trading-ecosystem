@@ -16,7 +16,16 @@ REM  Needs TradingView Desktop started via LAUNCH_TRADINGVIEW_CDP.bat
 REM  (it must expose --remote-debugging-port=9222).
 REM ===================================================================
 title Bind S4 sources
-cd /d "%~dp0"
+REM ABSOLUTE path, not %~dp0 (10-Aug-2026). %~dp0 is the folder the .bat ITSELF sits in,
+REM so a copy on the Desktop cd'd to the Desktop, where tv_bind_s4.py does not exist, and
+REM died. Hard-coding the project directory means this works from a copy, a shortcut, the
+REM taskbar or a scheduled task — anywhere. If the repo ever moves, change this one line.
+set "PROJ=C:\Users\jayra\Documents\GeminiVSCode"
+cd /d "%PROJ%" || (echo [X] Project folder not found: %PROJ% & goto :hold)
+if not exist "tv_bind_s4.py" (
+    echo [X] tv_bind_s4.py not found in %PROJ%
+    goto :hold
+)
 
 set "PY=C:\Users\jayra\TradingData\venv\Scripts\python.exe"
 if not exist "%PY%" (
