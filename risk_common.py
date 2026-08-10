@@ -121,6 +121,18 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
         cat_mult, cat_fam = trail_mult_for(setup, bear)
         if cat_mult is not None:
             mult, src = cat_mult, (str(setup) or cat_fam)
+        elif swing is not None:
+            # TRADE TYPE, when the setup label cannot answer (10-Aug-2026).
+            # The bug this fixes: `swing` used to drive ONLY the window (14 vs 22 bars)
+            # while the MULTIPLIER fell through to the 4.5 heuristic. So a position the
+            # page itself labelled SWING trailed on a 14-bar clock at 4.5xATR — an
+            # incoherent pair, and the whole point of the 14/22 split is that the anchor
+            # and the ATR multiple belong to ONE clock. Live effect: every swing holding
+            # with a blank journal setup (i.e. all the backfilled ones) carried a
+            # POSITIONAL trail, which is the opposite of the "tighter risk, faster exits"
+            # mandate a swing trade is taken under.
+            mult = (1.5 if swing else 4.5) + (0.5 if bear else 0.0)
+            src = ("swing-inferred" if swing else "pos-inferred")
         else:
             mult = 4.5 if above200 else 5.0
             src = "heuristic-bull" if above200 else "heuristic-bear"

@@ -15716,8 +15716,20 @@ elif page == 'RISK SHIELD':
                                     _setup_s = journal_overrides.get(_s, {}).get("setup", "")
                                     # Trade-type-aware trail clock (Jay, 14-Jul-2026):
                                     # journal Timeframe → swing 14-bar / positional 22-bar.
-                                    _tf_s = str(journal_overrides.get(_s, {}).get("timeframe", "")).lower()
-                                    _swing_s = True if "swing" in _tf_s else (False if "pos" in _tf_s else None)
+                                    # ONE resolver, same as the tile and the R-policy check
+                                    # (10-Aug-2026). This read the journal Timeframe ONLY, so a
+                                    # holding the page labelled SWING? from structure still fed
+                                    # swing=None here and trailed on the positional multiplier.
+                                    # resolve_trade_type's precedence is journal -> setup prefix
+                                    # -> structural -> positional, so a declared Timeframe still
+                                    # wins; the structural read only speaks when nothing else can.
+                                    _struct_s = rs_trade_type.get(_s, (None, ""))[0] \
+                                        if isinstance(rs_trade_type, dict) else None
+                                    _jov_s = journal_overrides.get(_s, {}) if isinstance(journal_overrides, dict) else {}
+                                    _swing_s, _ttlab_s, _ttsrc_s = _rc.resolve_trade_type(
+                                        timeframe=_jov_s.get("timeframe"),
+                                        setup=_jov_s.get("setup"),
+                                        structural=_struct_s)
                                     if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
                                         _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
