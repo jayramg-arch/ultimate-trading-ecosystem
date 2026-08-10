@@ -308,6 +308,7 @@ penalises a missing read.
 | `· ⧖D` | **Daily fallback** — hourglass | **A FAULT.** The intraday read failed and the PA behind this verdict came from the **daily** battery while the row still wears the intraday label. Ignore its PA verdict and rebuild. Distinct from `↑D` in every way except the letter |
 | `· N⚖` | Knife-edge | N fired patterns sit **on their threshold**. They flip on a difference smaller than the routine Dhan-vs-TradingView gap (NAM-INDIA: Σ6 here, Σ2 on the chart, same bar). A marginal Σ is not conviction |
 | `· ⚠role` | Role mismatch | The fired battery is **IGNITION-only** (expansion away from value) while price sits **inside a demand zone** (absorption at value). Both arithmetically true of one bar, describing opposite things. Measured 3 of 7 armed names on the live 75m board; n=7 is a story, not a rate, so it tags and never gates |
+| `· ⚠unval` | **Unvalidated book** | On every **Recovery**-path row. The recovery side has no valid backtest: the only run that completed used a 30-day forward window on setups designed for 90-180 days, and the one post-fix attempt died partway. ~22% of the board. Tradeable on your own read — it is not a measured edge. Controlled by `gm_trigger_board.RECOVERY_UNVALIDATED`; **delete the tag when the re-baseline reports** |
 
 > **`↑D` is not `⧖D`.** The up-arrow is a strength term; the hourglass is a data fault.
 > To check a whole tab at once, count `⧖` in `gm_board_cache_<tf>.csv` — zero is the

@@ -526,7 +526,15 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
                 "rrg_score": 0, "rrg_arrow": "•", "rrg_tradeable": False,
                 "w_mom": False}
     c = df["Close"]
-    stages, stage_wks = compute_weekly_stage_and_wks(df, left=5, right=5, slope_len=6, thresh_mult=0.0012)
+    # DEFAULTS, not an override (10-Aug-2026). This call passed slope_len=6 while the
+    # function's own default is 4 — the value the 9-Aug alignment set for S4 parity
+    # (`f_wma30` reads `_m - _m[4]`). So the screener silently used a 6-week slope while
+    # technical_enrichment, which calls with no argument, used 4: two stage answers from
+    # one function inside a single run. Measured across 40 board names, exactly one name
+    # moves (TECHM 3 -> 1) — small, but 4 is the value the chart uses and the chart is
+    # the plan of record. Change the DEFAULT if this ever needs to move again; never
+    # re-introduce a call-site override.
+    stages, stage_wks = compute_weekly_stage_and_wks(df)
     stage = int(stages.iloc[-1]) if not stages.empty else 4
     stage_wks_val = float(stage_wks.iloc[-1]) if not stage_wks.empty else 999.0
 

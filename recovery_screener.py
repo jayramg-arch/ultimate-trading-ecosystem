@@ -371,87 +371,30 @@ from strict_trend import (  # noqa: F401  (re-exported for existing call sites)
 )
 
 
-def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int = 5,
-                                 slope_len: int = 6, thresh_mult: float = 0.0012) -> tuple:
-    n = len(df_w)
-    stages = pd.Series(4, index=df_w.index, dtype=int)
-    stage_wks = pd.Series(0.0, index=df_w.index, dtype=float)
-    if n < 35:
-        return stages, stage_wks
-
-    c = df_w["Close"]
-    h = df_w["High"]
-    l = df_w["Low"]
-
-    ma = c.rolling(30).mean()
-    old_ma = ma.shift(slope_len)
-    slope = (ma - old_ma.fillna(ma)) / max(1, slope_len)
-
-    trend_series = compute_strict_trend(h, l, piv_left=left, piv_right=right)
-
-    current_stage_htf = 4
-    prev_stage_htf = 4
-    wks = 0.0
-
-    for idx in range(n):
-        val_c = c.iloc[idx]
-        val_ma = ma.iloc[idx]
-        val_slope = slope.iloc[idx]
-        val_trend = trend_series.iloc[idx]
-        val_thresh = val_ma * thresh_mult
-
-        if pd.isna(val_ma) or pd.isna(val_slope):
-            stages.iloc[idx] = current_stage_htf
-            stage_wks.iloc[idx] = wks
-            continue
-
-        is_ma_uptrend = val_slope > val_thresh
-        is_ma_downtrend = val_slope < -val_thresh
-        is_above_ma = val_c > val_ma
-
-        # State machine transitions
-        if current_stage_htf == 1:
-            if is_ma_uptrend and is_above_ma:
-                current_stage_htf = 2
-            elif is_ma_downtrend and not is_above_ma and val_trend != 1:
-                current_stage_htf = 4
-        elif current_stage_htf == 2:
-            if is_ma_downtrend and not is_above_ma and val_trend != 1:
-                current_stage_htf = 4
-            elif (not is_ma_uptrend and not is_above_ma) or (val_trend == -1 and not is_above_ma):
-                current_stage_htf = 3
-        elif current_stage_htf == 3:
-            if is_ma_downtrend and not is_above_ma and val_trend != 1:
-                current_stage_htf = 4
-            elif is_ma_uptrend and is_above_ma:
-                current_stage_htf = 2
-        elif current_stage_htf == 4:
-            if is_ma_uptrend and is_above_ma:
-                current_stage_htf = 2
-            elif not is_ma_downtrend and is_above_ma:
-                current_stage_htf = 1
-
-        # Strict trend overrides
-        if val_trend == 1 and current_stage_htf == 4:
-            current_stage_htf = 1
-        if val_trend == -1 and current_stage_htf == 2:
-            current_stage_htf = 3
-
-        # Weeks-in-stage counter
-        if current_stage_htf != prev_stage_htf:
-            wks = 0.0
-            prev_stage_htf = current_stage_htf
-        else:
-            wks += 1.0
-
-        stages.iloc[idx] = current_stage_htf
-        stage_wks.iloc[idx] = wks
-
-    return stages, stage_wks
+# WEINSTEIN STAGE — imported, not defined here (10-Aug-2026).
+# This file carried its own full copy of the stage engine, and it was the copy that
+# never got the 9-Aug alignment: a HYSTERESIS STATE MACHINE (the stage evolved from
+# its previous value, so a name trading above a DECLINING 30-week average never left
+# "Stage 1"), on a per-bar slope RATE ((ma - ma[n]) / n) at slope_len=6 rather than
+# the raw N-bar change S4 uses. Both of the older gaps, intact, in one function.
+#
+# Measured over the 40 live board names before removal: SEVEN disagreed with the bull
+# engine (CRISIL / MPHASIS / CASTROLIND / FSL / ULTRACEMCO all read Stage 1 here where
+# bull read Stage 3 or 2) - and CRISIL and MPHASIS are the two names that started the
+# original stage investigation. Contained rather than critical, because stage is not a
+# hard gate on this side (`if stage in (1, 2): s += 1`) and the board re-stages from
+# the bull path - but it inflated Stage-3 names in the recovery ranking and wrote a
+# wrong Stage into every FINAL_Recovery_*.csv.
+#
+# Same remedy as strict_trend.py: ONE engine, imported. Two modules must never hold
+# private copies of one definition - that is how this drifted for a year.
+from bull_screener import compute_weekly_stage_and_wks  # noqa: F401  (re-exported)
 
 
 def compute_weinstein_stage(df_w: pd.DataFrame) -> int:
-    stages, _ = compute_weekly_stage_and_wks(df_w, left=5, right=5, slope_len=6, thresh_mult=0.0012)
+    # Defaults, deliberately: slope_len is 4 there (S4's f_wma30 reads `_m - _m[4]`).
+    # Passing 6 here is what kept this side on a flat band the chart does not use.
+    stages, _ = compute_weekly_stage_and_wks(df_w)
     return int(stages.iloc[-1]) if not stages.empty else 4
 
 

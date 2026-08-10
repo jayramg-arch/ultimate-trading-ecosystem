@@ -852,6 +852,11 @@ PB_EXPANSION = {
 PB_RV_FLOOR = 0.5      # S4 pb_rv_floor
 RV_FLOOR    = 1.0      # S4 rv_floor
 
+# One switch for the recovery-book warning, so turning it off after the re-baseline is a
+# one-line change in a findable place rather than a hunt through the tag chain. See the
+# comment at the tag site for the evidence.
+RECOVERY_UNVALIDATED = True
+
 
 def _pullback_ctx(ctx: dict, path: str, archetypes=None) -> bool:
     """True when S4 would take its pullback branch: a CONTRACTION pattern fired, NO
@@ -1037,6 +1042,19 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     _hr = _htf_rank(ctx)
     if g_loc and _hr:
         _mtag += " · ↑" + {1: "D", 2: "W", 3: "M"}.get(_hr, "")
+    # UNVALIDATED BOOK (10-Aug-2026). The recovery side has no valid backtest behind it:
+    # the only run that ever COMPLETED (validation_20260729_202824) used a 30-day forward
+    # window for all 503 trades, and recovery setups are designed for 90-180 — the exact
+    # window mismatch that invalidates a test outright. The fix (replay.catalyst_label_of,
+    # which reads recovery's `Signal_Label` and not only `Catalyst`) landed four days
+    # later, and the one post-fix attempt died at anchor 14 of 19.
+    #
+    # So ~22% of this board rests on no measurement. Jay's call was TAG, don't suppress:
+    # the rows stay tradeable on his own read, they just stop looking measured. Display
+    # only, like ⧖D and ⚠role — it never touches the gate count.
+    # REMOVE THIS the moment the re-baseline reports; a permanent warning becomes wallpaper.
+    if path == "recovery" and RECOVERY_UNVALIDATED:
+        _mtag += " · ⚠unval"
     _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
     if _stage_blocked:
         # Sorts BELOW every live gate count (the column sorts on the leading number) —

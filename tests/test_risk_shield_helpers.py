@@ -85,8 +85,17 @@ def test_unknown_type_is_visible():
 
 
 def _bg(html):
-    """The background colour a badge rendered with."""
-    m = re.search(r"background:(#[0-9A-Fa-f]{6})", html)
+    """The background colour a badge rendered with.
+
+    Matches a flat `background:#RRGGBB` OR the first stop of a
+    `background:linear-gradient(145deg, #451A1A 0%, ...)`. The badges and cards moved to
+    gradients after this helper was written, so it returned None for every one of them and
+    two tests failed on a rendering change that was entirely intentional — the assertions
+    were sound, the PARSER was stale. A helper that cannot see the current markup reports
+    "no colour" indistinguishably from a real regression, which is the one thing these
+    tests exist to tell apart.
+    """
+    m = re.search(r"background:\s*(?:linear-gradient\([^)]*?)?(#[0-9A-Fa-f]{6})", html)
     return m.group(1).upper() if m else None
 
 

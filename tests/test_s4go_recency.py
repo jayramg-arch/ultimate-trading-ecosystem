@@ -86,16 +86,24 @@ def test_malformed_recency_is_ignored_not_crashed():
 
 
 # ── path separation: the two batteries must not cross-feed ───────────────────
+# These assert on the STEM plus the absence of the recency token, not on the whole
+# cell. What is under test is path separation — one battery's recency must never feed
+# the other path — and an exact-equality assertion also pins every DISPLAY suffix, so a
+# tag that changes no behaviour (⚠unval, ⚠role, ↑D) reads as a broken contract. It did:
+# adding the recovery unvalidated tag failed this file while the separation it guards
+# was untouched. Gate semantics stay pinned; cosmetics do not.
 def test_recovery_path_reads_the_recovery_recency():
     c = ctx(recovery_pa_recent={"age": 1, "sigma": 4})
     assert "PA 1b" in s4go_status(0, c, True, path="recovery")
-    assert s4go_status(0, c, True, path="bull") == "3/4 · no PA"
+    _bull = s4go_status(0, c, True, path="bull")
+    assert _bull.startswith("3/4 · no PA") and "PA 1b" not in _bull
 
 
 def test_bull_path_reads_the_bull_recency():
     c = ctx(pa_recent={"age": 1, "sigma": 4})
     assert "PA 1b" in s4go_status(0, c, True, path="bull")
-    assert s4go_status(0, c, True, path="recovery") == "3/4 · no PA"
+    _rec = s4go_status(0, c, True, path="recovery")
+    assert _rec.startswith("3/4 · no PA") and "PA 1b" not in _rec
 
 
 def test_default_path_is_bull():

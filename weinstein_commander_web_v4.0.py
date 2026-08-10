@@ -14109,6 +14109,20 @@ elif page == 'GOLDEN MATCHER':
             # names never render differently (one full red path, one one-liner).
             if wf_rec is not None and (rec_fired_real or _inh_rec_on):
                 st.markdown(render_workflow(wf_rec), unsafe_allow_html=True)
+                # UNVALIDATED BOOK — see gm_trigger_board.RECOVERY_UNVALIDATED for the
+                # evidence. The board tags these rows `⚠unval`; this is the same statement
+                # in the one place a recovery verdict is read in full. Both are display
+                # only — the path stays tradeable, it just stops looking measured.
+                try:
+                    import gm_trigger_board as _gtb_unval
+                    if getattr(_gtb_unval, "RECOVERY_UNVALIDATED", False):
+                        st.caption(
+                            "⚠ **Recovery has no valid backtest.** The only run that completed "
+                            "used 30-day forward windows on setups designed for 90-180 days, "
+                            "which invalidates it; the one post-fix attempt did not finish. "
+                            "Trade this path on your own read, not on a measured edge.")
+                except Exception:
+                    pass
             elif _ev.get("rec_error"):
                 # P0 fix: an eval FAILURE is decision-different from "no recovery context"
                 # — never render a confident verdict off an error dict.
