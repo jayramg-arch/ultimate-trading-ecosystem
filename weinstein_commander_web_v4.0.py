@@ -15598,10 +15598,19 @@ elif page == 'RISK SHIELD':
                     pass
 
                 # --- Fetch technicals for AI review and Risk Profile ---
-                hist_data = st.session_state.get("cached_hist_data_v3", {})
+                hist_data = st.session_state.get("cached_hist_data_v4", {})
                 if hist_data and any(isinstance(v, dict) and ("close_5d_ago" not in v or "vol_breakout" not in v) for v in hist_data.values()):
                     hist_data = {}
-                missing_syms = [s for s in symbols_to_fetch if s not in hist_data or "ema20" not in hist_data.get(s, {})]
+                # FRESHNESS PROBE — must test the NEWEST required field, not an old one.
+                # It tested only "ema20": a cache written before a new field was added still
+                # had ema20, so nothing was ever refetched and the new field stayed absent
+                # forever. That is why every tile read POSITIONAL after the trade-type
+                # classifier shipped — tt_label was never computed, so the resolver fell
+                # through to its positional default on all 15 holdings.
+                _REQUIRED_TECH = ("ema20", "tt_label")
+                missing_syms = [s for s in symbols_to_fetch
+                                if s not in hist_data
+                                or any(k not in hist_data.get(s, {}) for k in _REQUIRED_TECH)]
                 _tech_failed_syms = []   # A5 FIX: track symbols whose technicals could not be computed
                 if missing_syms:
                     try:
@@ -15609,7 +15618,7 @@ elif page == 'RISK SHIELD':
                         import pandas as pd
                         import numpy as np
 
-                        _batch_data = dp.fetch_batch_ohlcv(missing_syms, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+                        _batch_data = dp.fetch_batch_ohlcv(missing_syms, period="2y", interval="1d", use_cache=True, auto_adjust=True)  # 2y: the v2.2 classifier needs >=260 daily bars (highest(high,250) + SMA200); 1y is ~250 and fails every symbol
                         _tech_failed_syms = [s for s in missing_syms
                                              if _batch_data.get(s) is None or getattr(_batch_data.get(s), "empty", True)]
                         # A9: capture the technicals' as-of date for the freshness strip.
@@ -15817,7 +15826,7 @@ elif page == 'RISK SHIELD':
                     st.warning(f"⚠️ Technicals unavailable for: {', '.join(sorted(_tech_failed_syms))} "
                                f"— Chandelier exits, WS scores and volume flags for these are "
                                f"NOT current this run.")
-                st.session_state["cached_hist_data_v3"] = hist_data
+                st.session_state["cached_hist_data_v4"] = hist_data
 
                 # ── TRADE TYPE: ONE rule, owned by Risk Shield (Jay, 31-Jul-2026) ──────
                 # It used to be decided TWICE per tile: Python computed `is_swing` (which
@@ -15917,7 +15926,7 @@ elif page == 'RISK SHIELD':
                             st.session_state[_ai_k] = "AI analysis pending. Click 'Run AI Analysis' to generate."
 
                 if _ai_tasks:
-                    st.session_state.pop("cached_hist_data_v3", None)
+                    st.session_state.pop("cached_hist_data_v4", None)
                     st.session_state.pop("pyramid_classifications", None)
                     st.caption("Only 'Tighten SL' rows execute. Trim / Pyramid remain manual. "
                                "Every execution is appended to logs/risk_shield_actions.log.")
@@ -15942,7 +15951,7 @@ elif page == 'RISK SHIELD':
                         # Save back to cache
                         _new_cache = {"ai_cache_ts": st.session_state["ai_cache_ts"]}
                         for k, v in st.session_state.items():
-                            if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_", "cached_hist_data_v3"]):
+                            if any(p in k for p in ["ai_exit_review_", "ai_single_review_", "ai_entry_review_", "ai_unprotected_review_", "cached_hist_data_v4"]):
                                 _new_cache[k] = v
                         try:
                             with open(AI_CACHE_FILE, "w") as f:
@@ -16273,7 +16282,7 @@ elif page == 'RISK SHIELD':
                                 st.info("No approved 'Tighten SL' rows to execute. "
                                         "(Trim / Pyramid actions are propose-only — execute those manually.)")
                             else:
-                                st.session_state.pop("cached_hist_data_v3", None)
+                                st.session_state.pop("cached_hist_data_v4", None)
                         st.caption("Only 'Tighten SL' rows execute. Trim / Pyramid remain manual. "
                                    "Every execution is appended to logs/risk_shield_actions.log.")
                     else:
@@ -17364,7 +17373,7 @@ elif page == 'RISK SHIELD':
                                              str(_orow["Symbol"])))
                                         _nsaved += _cur_ov.rowcount
                                     _conn_ov.commit(); _conn_ov.close()
-                                    st.session_state.pop("cached_hist_data_v3", None)  # recompute Chandeliers
+                                    st.session_state.pop("cached_hist_data_v4", None)  # recompute Chandeliers
                                     st.session_state.pop("pyramid_classifications", None)
                                     st.success(f"✅ Overrides saved — {_nsaved} journal row(s) updated. "
                                                f"Chandeliers will recompute on next refresh.")
