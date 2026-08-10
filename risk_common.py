@@ -51,7 +51,7 @@ def trail_window_for(setup, swing=None) -> int:
     return 14 if swing else 22
 
 
-def resolve_trade_type(timeframe=None, setup=None, structural=None):
+def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=None):
     """(is_swing, label, source) — the ONE precedence order for "is this a swing trade".
 
     Added 10-Aug-2026 after an audit found THREE independent answers coexisting on the
@@ -77,6 +77,21 @@ def resolve_trade_type(timeframe=None, setup=None, structural=None):
         return True, "SWING", "journal"
     if "pos" in tf:
         return False, "POSITIONAL", "journal"
+    # journal `trade_type` (10-Aug-2026). Added after the first version of this resolver
+    # silently made EVERY open position positional: `timeframe` is NULL and `setup` is
+    # 'NONE' on all 15 holdings, while trade_type says 'Swing' on ten of them. The declared
+    # answer was in the row the whole time, one column over.
+    #
+    # It is checked AFTER timeframe and guarded on content because this column USED to hold
+    # 'LONG'/'SHORT' — a 14-Jul audit found pyramid.classify() parsing it for a horizon and
+    # matching nothing, so it was abandoned as useless. The data has since changed shape.
+    # Matching on the words rather than trusting the column is what makes that safe: a
+    # legacy 'LONG' still falls through instead of being read as a horizon.
+    tt = str(trade_type or "").strip().lower()
+    if "swing" in tt:
+        return True, "SWING", "journal(trade_type)"
+    if "pos" in tt:
+        return False, "POSITIONAL", "journal(trade_type)"
     s = str(setup or "")
     if s.startswith("SWG"):
         return True, "SWING", "setup"

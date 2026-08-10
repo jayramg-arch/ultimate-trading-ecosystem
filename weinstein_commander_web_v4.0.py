@@ -15729,7 +15729,8 @@ elif page == 'RISK SHIELD':
                                     _swing_s, _ttlab_s, _ttsrc_s = _rc.resolve_trade_type(
                                         timeframe=_jov_s.get("timeframe"),
                                         setup=_jov_s.get("setup"),
-                                        structural=_struct_s)
+                                        structural=_struct_s,
+                                        trade_type=_jov_s.get("trade_type"))
                                     if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
                                         _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
@@ -16383,7 +16384,8 @@ elif page == 'RISK SHIELD':
                                     is_swing, tt_label, _tt_src = _rc.resolve_trade_type(
                                         timeframe=_jov.get("timeframe"),
                                         setup=_jov.get("setup"),
-                                        structural=_tt_struct)
+                                        structural=_tt_struct,
+                                        trade_type=_jov.get("trade_type"))
 
                                     if _tech and _tech.get("atr_pct"):
                                         val = _tech.get("atr_pct")
@@ -16508,7 +16510,7 @@ elif page == 'RISK SHIELD':
                                     try:
                                         import bull_screener as _bs_r
                                         _setup_r = str((_jov or {}).get("setup") or "")
-                                        _t1r, _t2r = _bs_r.target_r_for(_setup_r)
+                                        _t1r, _t2r = _bs_r.target_r_for(_setup_r, swing=is_swing)
                                         # R unit: prefer the journal's original stop; else the LOWEST
                                         # resting SL (least-trailed, closest to the original); else the
                                         # policy ATR stop. Whichever answers is named on the card.
@@ -16536,7 +16538,7 @@ elif page == 'RISK SHIELD':
                                     # target_r_for fell back to SWG (3R/5R) — swing targets sized
                                     # like a positional trade on any blank setup.
                                     try:
-                                        _p1, _p2 = _bs_r.partial_qty_for((_jov or {}).get("setup"))
+                                        _p1, _p2 = _bs_r.partial_qty_for((_jov or {}).get("setup"), swing=is_swing)
                                     except Exception:
                                         _p1 = _p2 = 33
                                     _rq1 = int(total_qty * _p1 / 100) if total_qty else 0
@@ -16575,6 +16577,20 @@ elif page == 'RISK SHIELD':
                                         tgt_q = o.get("target_qty") or o.get("qty") or 0
                                         qty_parts.append(f"SL:{int(sl_q)} Tgt:{int(tgt_q)}")
                                     qty_str = " · ".join(qty_parts)
+                                    # HOLDING QUANTITY (10-Aug-2026, Jay). The tile showed only the
+                                    # ORDER-LEG quantities ("SL:19 Tgt:19"), never how many shares are
+                                    # actually held — so a position only PARTLY covered by its OCOs
+                                    # looked fully protected. That gap is the one that matters: it is
+                                    # the uncovered shares that carry naked risk. Flagged in amber when
+                                    # the legs do not add up to the holding.
+                                    _leg_sl_tot = sum(int(o.get("sl_qty") or o.get("qty") or 0) for o in orders)
+                                    if total_qty:
+                                        _cov_col = "#94A3B8" if _leg_sl_tot >= int(total_qty) else "#F59E0B"
+                                        _cov_txt = (f"held {int(total_qty)} sh"
+                                                    + ("" if _leg_sl_tot >= int(total_qty)
+                                                       else f" · ⚠ only {_leg_sl_tot} covered by SL"))
+                                        qty_str = (f"<span style='color:{_cov_col};font-weight:700'>{_cov_txt}</span>"
+                                                   + (f" · {qty_str}" if qty_str else ""))
 
                                     progress_bar_html = ""
                                     atr_sl = None
@@ -16583,21 +16599,44 @@ elif page == 'RISK SHIELD':
                                     rec_line = ""
 
                                     if ltp and atr_val and atr_val == atr_val and atr_val > 0:
-                                        sl_mult = 1.5 if is_swing else 4.5
-                                        t1_mult = 3.0 if is_swing else 5.0
-                                        t2_mult = 5.0 if is_swing else 10.0
-                                        atr_sl = ltp - (atr_val * sl_mult)
-                                        rec_t1 = (buy_price if buy_price else ltp) + (atr_val * t1_mult)
-                                        rec_t2 = (buy_price if buy_price else ltp) + (atr_val * t2_mult)
+                                        # ONE target policy (10-Aug-2026, Jay: "the Rec SL below the
+                                        # level markers is different from the Recommended box").
+                                        # It was: sl 4.5xATR from LTP, t1/t2 5x/10xATR from ENTRY.
+                                        # Three faults in three lines —
+                                        #   * 5x/10x is the OLD 5R/10R target policy, never updated
+                                        #     when POS moved to 2R/4R;
+                                        #   * 4.5 is the CHANDELIER TRAIL multiplier being used as an
+                                        #     INITIAL stop, which is 4.0xATR;
+                                        #   * the stop was measured from LTP while the targets were
+                                        #     measured from ENTRY, so the printed R was neither.
+                                        # Now: initial stop 4.0x (POS) / 1.5x (SWG) and targets from
+                                        # target_r_for x R, both anchored at ENTRY — the same numbers
+                                        # the RECOMMENDED half of the OCO card shows.
+                                        sl_mult = 1.5 if is_swing else 4.0
+                                        _anchor = buy_price if buy_price else ltp
+                                        atr_sl = _anchor - (atr_val * sl_mult)
+                                        _runit_r = _anchor - atr_sl
+                                        try:
+                                            import bull_screener as _bs_rl
+                                            _t1r_l, _t2r_l = _bs_rl.target_r_for((_jov or {}).get("setup"), swing=is_swing)
+                                        except Exception:
+                                            _t1r_l, _t2r_l = (2.0, 4.0) if not is_swing else (3.0, 5.0)
+                                        rec_t1 = _anchor + _t1r_l * _runit_r
+                                        rec_t2 = _anchor + _t2r_l * _runit_r
                                         
                                         if len(orders) == 1 or len(tgt_vals) <= 1 or (rec_t1 and ltp >= rec_t1):
                                             rec_t1 = None
                                             
-                                        _rr_risk = ltp - atr_sl
+                                        # R is measured from the SAME anchor the levels are, so the
+                                        # printed multiple is the trade's R and not "R from here".
+                                        # Previously both were divided from LTP against a stop taken
+                                        # from LTP, which is why GLAXO read 2.2R / 3.6R instead of
+                                        # the policy's clean 2.0R / 4.0R.
+                                        _rr_risk = _runit_r
                                         def _rr(t):
                                             if not t or not _rr_risk or _rr_risk <= 0:
                                                 return ''
-                                            return f' <span style="color:#94A3B8">({(t - ltp) / _rr_risk:.1f}R)</span>'
+                                            return f' <span style="color:#94A3B8">({(t - _anchor) / _rr_risk:.1f}R)</span>'
                                         t1_str = f' | Rec T1: <span style="color:#F59E0B;font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
                                         t2_str = f' | Rec T2: <span style="color:#F59E0B;font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
                                         rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:#CBD5E1;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
@@ -16854,13 +16893,26 @@ elif page == 'RISK SHIELD':
                                     rec_line = ""
                                     
                                     if atr_val > 0 and bp and ltp:
-                                        sl_mult = 1.5 if is_swing else 4.5
-                                        t1_mult = 3.0 if is_swing else 5.0
-                                        t2_mult = 5.0 if is_swing else 10.0
-                                        
-                                        rec_sl = ltp - (atr_val * sl_mult)
-                                        rec_t1 = (bp if bp else ltp) + (atr_val * t1_mult)
-                                        rec_t2 = (bp if bp else ltp) + (atr_val * t2_mult)
+                                        # SECOND COPY of the same stale block (unprotected
+                                        # holdings). Same three faults as the OCO tiles: 4.5 is the
+                                        # TRAIL multiplier used as an initial stop (policy is 4.0),
+                                        # 5x/10x is the OLD 5R/10R target policy, and the stop was
+                                        # anchored at LTP while the targets were anchored at ENTRY.
+                                        # Two copies is why the fix had to be made twice — worth
+                                        # collapsing into one helper next time this area is touched.
+                                        sl_mult = 1.5 if is_swing else 4.0
+                                        _anch2 = bp if bp else ltp
+                                        rec_sl = _anch2 - (atr_val * sl_mult)
+                                        _runit2 = _anch2 - rec_sl
+                                        try:
+                                            import bull_screener as _bs_u
+                                            _t1r_u, _t2r_u = _bs_u.target_r_for(
+                                                (journal_overrides.get(sym, {}) or {}).get("setup"),
+                                                swing=is_swing)
+                                        except Exception:
+                                            _t1r_u, _t2r_u = (3.0, 5.0) if is_swing else (2.0, 4.0)
+                                        rec_t1 = _anch2 + _t1r_u * _runit2
+                                        rec_t2 = _anch2 + _t2r_u * _runit2
                                         
                                         if ltp >= rec_t1:
                                             rec_t1 = None
@@ -16921,8 +16973,9 @@ elif page == 'RISK SHIELD':
                                         
                                         badge_html = _rs_type_badge(tt_label)
                                         
-                                        _rr_risk = ltp - rec_sl
-                                        def _rr(t, _px=ltp, _rk=_rr_risk):
+                                        # R from the same anchor as the levels — see the OCO tile.
+                                        _rr_risk = _runit2
+                                        def _rr(t, _px=_anch2, _rk=_rr_risk):
                                             if not t or not _rk or _rk <= 0:
                                                 return ''
                                             return f' <span style="color:#94A3B8">({(t - _px) / _rk:.1f}R)</span>'

@@ -97,7 +97,7 @@ POS_T1_R = float(_os_t1.getenv('POS_T1_R', '2.0'))    # was 5.0
 POS_T2_R = float(_os_t1.getenv('POS_T2_R', '4.0'))    # was 10.0
 
 
-def target_r_for(setup):
+def target_r_for(setup, swing=None):
     """(T1_R, T2_R) for a catalyst label — the ONE target policy.
 
     Catalyst-differentiated because the horizon differs (v1.9, 21-May-2026):
@@ -117,10 +117,18 @@ def target_r_for(setup):
         return 2.0, 2.0
     if s == "SWG-GAP":
         return 2.0, 4.0
-    return 3.0, 5.0          # SWG-BO / SWG-PB / fallback / NONE
+    if s.startswith("SWG"):
+        return 3.0, 5.0
+    # UNKNOWN SETUP (10-Aug-2026). Every live journal row has setup='NONE', so this branch
+    # decides the targets on the whole book — and it used to return the SWING pair, which
+    # gave a POSITIONAL holding 3R/5R. When the caller knows the trade TYPE, use it; that is
+    # the same precedence chandelier_exit uses when the setup label cannot answer.
+    if swing is not None:
+        return (3.0, 5.0) if swing else (POS_T1_R, POS_T2_R)
+    return 3.0, 5.0          # nothing known at all — the historical fallback
 
 
-def partial_qty_for(setup):
+def partial_qty_for(setup, swing=None):
     """(T1_qty_pct, T2_qty_pct) for a catalyst label — the partner of target_r_for.
 
     Hoisted 10-Aug-2026 from replay.py's inline block so the R-multiples and the QUANTITIES
@@ -139,7 +147,11 @@ def partial_qty_for(setup):
         return 33, 33
     if s.startswith(("POS", "WYC", "REV")):
         return 25, 25
-    return 33, 33            # unknown -> matches target_r_for's SWG fallback
+    # Unknown setup: mirror target_r_for exactly, including its `swing` hint, so the
+    # R-multiples and the quantities can never land on different fallbacks again.
+    if swing is not None:
+        return (33, 33) if swing else (25, 25)
+    return 33, 33
 
 
 ENABLE_SWG_BOOK = True    # 9-Aug: re-enabled at Jay's call — the swing book is back on   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
