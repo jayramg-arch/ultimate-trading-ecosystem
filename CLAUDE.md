@@ -2389,3 +2389,93 @@ For a levels question, pull TV's bars.
 4. Validation re-run for the widened SWG-PB book (`vdu_window` 1 vs 3).
 5. Armed-register JSON is corrupt (`Expecting property name…` in `logs/gm_errors.log`).
 6. Recovery-side validation re-baseline still pending (~12h run).
+
+---
+
+## 4–10 August 2026 — S4 v9.12 · stage parity across 3 surfaces · POS-only exits · live-order plumbing
+
+Branch `phase0-1-attribution-journal-snapshot`, all PUSHED. Head `b486597`.
+S4 file is `Section4_Entry_Trigger_v7.2.pine`, **in-file title v9.12, compiled clean.**
+Dashboard is **v67.4.20**.
+
+### A. S4 panel + zone work
+- **Role tag** (`⚠role`, display-only, both surfaces) — an IGNITION pattern firing INSIDE a
+  demand zone is role-mismatched. Tag first, gate only after measurement ([[zone_aware_pa_combos_plan]]).
+- **v8.8 touch budget ported to `zone_engine.py`** — `KEEP_TESTED_DEMAND` / `DEMAND_STRONG_SCORE=75`,
+  and `TOUCH_TOL_WIDTH = 0.5` (near = 0.5 × zone WIDTH, was a flat %). Board and chart now agree.
+- **TF-ranked HTF confluence** — a Monthly/Weekly zone containing price outranks a chart-TF zone
+  (`htf_nesting()` / `_htfNest`). Jay's constraint honoured: **a nested zone does NOT earn the
+  second test** — the budget is charged once, to the outermost zone.
+- **Room measured to the FIRST obstacle**, six sources, `Pv·`-labelled pivot ceilings ranked last
+  (a pivot shelf is weaker than a supply zone). HINDALCO read 1.9R → **0.05R** — the old number was
+  measuring past the thing that stops the trade. Pivot zones are NOT gated (verified) and DO act as
+  ceilings in Room; excluding PvH was measured and rejected.
+- **Long-only Fib** — pullbacks measured low→high only.
+- **Panel re-sequenced into 5 sections** with header rows + descriptions: I MACRO & CONTEXT ·
+  II LOCATION & QUALITY · III EXECUTION & TIMING · IV DECISION SYNTHESIS · V PLAN & RISK.
+  Structure Basis rebuilt as a position/direction ladder (`>30WMA`, native 50-DMA slope, % off52 +
+  % offATH, icons matching the RS·RRG row: diagonals = MA slope, verticals = trend).
+- **Token ceiling hit again (100,319/100,256)** — recovered by returning only externally-used names
+  from folds and deleting the manual consolidation box. ⚠ **That shifted input ids and VOIDED the
+  v67 source bindings** — `input.source` binds by POSITION and is dropped on every recompile.
+  `tv_bind_s4_sources.js` re-binds all 15 in one pass; run it after EVERY compile.
+
+### B. STAGE PARITY — the one that mattered (memory: [[stage_2x2_parity]])
+CRISIL read Stage 1 on the Dashboard and GM, **Stage 3 on S4**, same chart. S4 was right.
+All three now share a **stateless 2×2** (price vs weekly 30-SMA × that MA's slope, classified fresh
+each bar). GM and v67 had run a hysteresis STATE MACHINE that evolved the stage from its previous
+value, so a name trading above a DECLINING 30-week average never left "Stage 1" — **MPHASIS sat at
+Stage 1 with its 30-WMA falling 62.9 points. 19 of 56 board names (34%) were mis-staged**;
+`stage_ok` 48 → 41. Two older gaps underneath: slope was a per-bar RATE `(ma-ma[n])/n` vs S4's raw
+N-bar change, and lookback 6 vs 4 — a flat band 6× too wide. The two `tDir` overrides (4→1, 2→3)
+are GONE. **STAGE 2 (PULLBACK) retained on v67 at Jay's instruction — do not remove it.**
+
+### C. Re-baseline + the honest read
+POS-only, 24mo nifty500, catalyst-aware: **+1.05% matched alpha, 203 trades, bootstrap
+P(α>0) = 50.2%**, and **−1.00% mean across the 14 anchors holding >3 picks** — the aggregate is
+carried by thin anchors. Structure-anchored SL tested per catalyst: **best mean AND passed the OOS
+gate, still REJECTED** — median −0.484R → −1.014R and stop-outs 11.8% → **52.7%**. Wired behind
+`replay.STRUCTURAL_SL = False`. That is the FOURTH stop study to reject tightening
+([[exit_architecture_verdicts]]).
+**Recommendation given, unchanged: 30 POS trades logged through guided execution beats another backtest.**
+
+### D. Exits — POS-only, and why (memory: [[exit_architecture_verdicts]])
+`ENABLE_SWG_BOOK` added to `bull_screener` (swing code **disabled then RE-ENABLED at Jay's
+instruction — never deleted**). POS targets **T1/T2 = 2.0R/4.0R** (`POS_T1_R`/`POS_T2_R`), 25/25
+partials so 50% rides the trail uncapped. At the old 5R, T1 was hit in **2%** of POS trades — the
+partial, the breakeven move and the trail never engaged. Risk Shield → Active Exits reads
+`POS_T1_R`/`POS_T2_R` LIVE and flags off-policy legs `⚠ vs 2.0R`; legs sorted by target price.
+⚠ The first sweep used 50/50 quantities vs the shipped 25/25 and reported **double** the real
+margin — always mirror the shipped partial sizes (`replay.py` ~535).
+
+### E. Live-order plumbing — five silent faults (memory: [[live_order_plumbing_faults]])
+None raised an error. **(1) `gtt_auto_shield --trail` had not run since 24-Jul** — headless
+`input()` + daemon-only scheduling; `logs/gtt_shield.log` 0 bytes since 15-Jul; 15 stops below their
+Chandelier, SAILIFE by 16.9%. Fixed: `--dry-run` + `run_gtt_trail.bat` for Task Scheduler.
+**(2) `_live_oco_sl_legs` kept ONE leg per symbol** (plain dict assignment) — a raw `get_forever()`
+dump proved VIJAYA has two distinct `orderId`s each with its own SL leg; **11 of 15 symbols carry
+two OCOs**, so half of every stop never moved. Proposals 9 → 15. **(3) Dhan's phantom 15:30 stub
+bar** (O=H=L=C, vol 0) resampled into an extra 75m/125m bar → RV 0 → **zero GOs on both intraday
+boards**; trailing zero-volume stubs now dropped. **(4) Silent daily-PA fallback** — a transient
+Dhan intraday failure leaves the DAILY battery in ctx and the row looks identical to a real
+trigger-TF read; now tagged `⧖D`. **(5) Ctrl+C orphaned Streamlit** (`start /B` + `pause`) — every
+"I restarted and it's still wrong" was ambiguous; launchers now run foreground.
+After a clean relaunch + rebuild: **GO 11 / 10 / 5 across Daily/125m/75m, zero fallback rows.**
+
+### F. Process (memory: [[read_the_code_not_the_notes]])
+Jay: *"you are not even reading the pages thoroughly"* … *"you seem to be hallucinating all the
+while."* Earned — the failure mode is asserting from CLAUDE.md/guides/adjacent columns instead of
+opening the file. Every pushback reversed a claim in one command. Standing rules now: file:line or a
+measured number, or don't say it · verify the PREMISE before proposing a test · a summary column
+can't answer a mechanism question · **scripted edits anchor on STATE, not TEXT** (a "sector
+rotation" match landed a one-line filter in the wrong function twice) · **after any slice edit RUN
+the function** — `py_compile` passes on undefined names, and a slice that dropped `t1_pct`/`t2_pct`
+killed a 20-minute run.
+
+### Open
+Apply the 15 stop tightens + register the `GTT_Trail_Daily` Task Scheduler entry (Jay) · bounded
+retry around the Dhan intraday fetch · v67 flat-cell parity (move the RS block above the stage call
+so it uses RS slope, not `tDir`) · Risk Allocator v2.2 `"SWG"` fallback bug (~line 154) · VIJAYA's
+2nd OCO covers 31 shares on the SL leg vs 15 on the target · board Pullback archetype still admits
+SWG-PB via inherited qualification · re-bind the 15 v67 sources after every S4 compile.
+Unchanged: SR/Trendline Lab fold-back + [[s4-parked-pivot-tasks]] · recovery re-baseline (~12h).
