@@ -51,6 +51,124 @@ def trail_window_for(setup, swing=None) -> int:
     return 14 if swing else 22
 
 
+def classify_trade_type_v22(df_daily, rrg: str = None):
+    """SWING vs POSITIONAL — Commander Risk Allocator v2.2, ported faithfully.
+
+    Jay, 10-Aug-2026: *"The journal's trade type is incorrect. The Commander risk allocator
+    v2.2 has the mechanism to classify the trades into Swing/positional. Go by that."*
+
+    Port of Commander_Risk_Allocator_v2.2.pine:111-155. Takes the DAILY OHLCV frame so every
+    input is derived here from one source — passing 15 pre-computed scalars is how a port
+    drifts from its original one field at a time.
+
+    Returns (is_swing, label, source, family).
+
+    THE TIE-BREAK IS THE POINT. is_positional and is_swing are BOTH commonly true, and Pine
+    does NOT default to positional there — :149 uses the CATALYST detection to decide and
+    only falls back to "POS" when that detection is NONE. A first version of this port
+    collapsed that to "both -> positional" and made 14 of 15 live holdings positional, which
+    is exactly the symptom Jay reported. The catalyst detection is therefore ported in full.
+
+    KNOWN PARITY GAP, deliberately preserved: this file's stage uses `wma30_p = sma(30)[6]`
+    (SIX weeks), while the unified 2x2 shipped this morning across S4 / v67 / the GM board
+    uses a FOUR-week change. Kept at 6 here because this is a port of the allocator and the
+    allocator is the authority Jay named; flagged rather than silently harmonised.
+    """
+    import numpy as _np
+    import pandas as _pd
+    if df_daily is None or len(df_daily) < 260:
+        return None, "UNKNOWN", "insufficient history", None
+    d = df_daily
+    c, h, l, o, v = d["Close"], d["High"], d["Low"], d.get("Open", d["Close"]), d["Volume"]
+    px = float(c.iloc[-1])
+
+    def _f(x):
+        try:
+            x = float(x)
+            return x if x == x else None
+        except Exception:
+            return None
+
+    d_50, d_150, d_200 = _f(c.rolling(50).mean().iloc[-1]), _f(c.rolling(150).mean().iloc[-1]), _f(c.rolling(200).mean().iloc[-1])
+    d_ema20 = _f(c.ewm(span=20, adjust=False).mean().iloc[-1])
+    d_high52 = _f(h.rolling(250).max().iloc[-1])          # ta.highest(high, 250)
+    d_high40c = _f(c.rolling(40).max().iloc[-1])          # ta.highest(close, 40)
+    d_low40 = _f(l.rolling(40).min().iloc[-1])
+    if None in (d_50, d_150, d_200, d_ema20, d_high52, d_high40c, d_low40):
+        return None, "UNKNOWN", "missing MAs", None
+
+    wk = d.resample("W-MON", label="left", closed="left").agg(
+        {"Open": "first", "High": "max", "Low": "min", "Close": "last", "Volume": "sum"}).dropna()
+    if len(wk) < 37:
+        return None, "UNKNOWN", "insufficient weekly history", None
+    _w = wk["Close"].rolling(30).mean()
+    wma30, wma30_p = _f(_w.iloc[-1]), _f(_w.iloc[-7])      # sma(close,30)[6] -> 6 weeks back
+    if wma30 is None or wma30_p is None:
+        return None, "UNKNOWN", "missing 30WMA", None
+
+    # :113 and :119, verbatim
+    stage2_uptrend = (px > d_50) and (d_50 > d_150) and (d_150 > d_200)
+    stage = 2 if (px > wma30 and wma30 >= wma30_p) else 3 if px > wma30 else 4 if wma30 < wma30_p else 1
+
+    # RS: the quadrant is Jay's manual Strike read when present. rs_momentum > 0 is the
+    # same fact the quadrant encodes (LEADING / IMPROVING are the momentum-positive halves).
+    q = str(rrg or "").strip().upper()
+    lagging = q.startswith("LAG")
+    rs_mom_pos = q.startswith(("LEAD", "IMPROV")) if q else None
+
+    dd_from_high = (d_high52 - px) / d_high52 if d_high52 > 0 else 0.0
+    base_range40 = (d_high40c - d_low40) / d_low40 if d_low40 > 0 else 1.0
+    c1, c2, c3, c5 = (_f(c.iloc[-2]), _f(c.iloc[-3]), _f(c.iloc[-4]), _f(c.iloc[-6]))
+    o0 = _f(o.iloc[-1])
+
+    det_gap = bool(o0 and c1 and o0 > c1 * 1.04 and px > o0)
+    det_breakout = bool(stage2_uptrend and px >= d_high40c * 0.999)
+    det_pullback = bool(stage2_uptrend and abs(px - d_ema20) / d_ema20 <= 0.03 and o0 and px > o0)
+    det_oversold = bool(c3 and c2 and c1 and c3 > c2 and c2 > c1 and px > c1)
+    det_recovery = bool(dd_from_high >= 0.15 and c5 and px > c5 and rs_mom_pos)
+    det_wyc = bool(dd_from_high >= 0.15 and base_range40 <= 0.25 and c5 and px > c5)
+
+    # :126 auto_cat_raw
+    if det_gap:
+        raw = "SWG-GAP"
+    elif dd_from_high >= 0.15:
+        raw = "WYC" if det_wyc else ("REV" if det_recovery else "NONE")
+    else:
+        raw = "POS" if det_breakout else ("SWG" if det_pullback else ("SWG-REV" if det_oversold else "NONE"))
+
+    # :134-144
+    is_positional = bool(stage in (1, 2) and px > d_200 and wma30 >= wma30_p and not lagging)
+    rsi14 = None
+    try:
+        _dd = c.diff()
+        _up = _dd.clip(lower=0).rolling(14).mean()
+        _dn = (-_dd.clip(upper=0)).rolling(14).mean()
+        rsi14 = _f((100 - 100 / (1 + _up / _dn.replace(0, _np.nan))).iloc[-1])
+    except Exception:
+        pass
+    _v50 = _f(v.rolling(50).mean().iloc[-1])
+    volr = (_f(v.iloc[-1]) / _v50) if _v50 else None
+    is_swing = bool(px > d_ema20 and d_ema20 > d_50
+                    and ((rsi14 is not None and rsi14 > 55) or (volr is not None and volr > 1.5))
+                    and ((px - d_ema20) / d_ema20) * 100 < 15)
+
+    # :148-155
+    if is_positional and is_swing:
+        fam = raw if raw != "NONE" else "POS"
+        src = f"allocator v2.2 (both -> {raw})" if raw != "NONE" else "allocator v2.2 (both, no catalyst -> POS)"
+    elif is_positional:
+        fam = raw if raw in ("POS", "WYC", "REV") else "POS"
+        src = "allocator v2.2 (positional)"
+    elif is_swing:
+        fam = raw if raw.startswith("SWG") else "SWG"
+        src = "allocator v2.2 (swing)"
+    else:
+        return None, "UNKNOWN", "allocator v2.2 (neither)", raw
+
+    sw = fam.startswith("SWG")
+    return sw, ("SWING" if sw else "POSITIONAL"), src, fam
+
+
 def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=None):
     """(is_swing, label, source) — the ONE precedence order for "is this a swing trade".
 
@@ -77,21 +195,12 @@ def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=N
         return True, "SWING", "journal"
     if "pos" in tf:
         return False, "POSITIONAL", "journal"
-    # journal `trade_type` (10-Aug-2026). Added after the first version of this resolver
-    # silently made EVERY open position positional: `timeframe` is NULL and `setup` is
-    # 'NONE' on all 15 holdings, while trade_type says 'Swing' on ten of them. The declared
-    # answer was in the row the whole time, one column over.
-    #
-    # It is checked AFTER timeframe and guarded on content because this column USED to hold
-    # 'LONG'/'SHORT' — a 14-Jul audit found pyramid.classify() parsing it for a horizon and
-    # matching nothing, so it was abandoned as useless. The data has since changed shape.
-    # Matching on the words rather than trusting the column is what makes that safe: a
-    # legacy 'LONG' still falls through instead of being read as a horizon.
-    tt = str(trade_type or "").strip().lower()
-    if "swing" in tt:
-        return True, "SWING", "journal(trade_type)"
-    if "pos" in tt:
-        return False, "POSITIONAL", "journal(trade_type)"
+    # `trade_type` IS DELIBERATELY NOT CONSULTED (10-Aug-2026). I wired it in when I found
+    # it holding 'Swing' on ten of fifteen holdings while timeframe/setup were empty — Jay:
+    # "the journal's trade type is incorrect... the Commander risk allocator v2.2 has the
+    # mechanism... go by that." So the column is unreliable DATA, not a missing wire, and
+    # the authoritative classifier is classify_trade_type_v22 above, passed in as
+    # `structural`. The parameter is kept only so existing callers do not break.
     s = str(setup or "")
     if s.startswith("SWG"):
         return True, "SWING", "setup"

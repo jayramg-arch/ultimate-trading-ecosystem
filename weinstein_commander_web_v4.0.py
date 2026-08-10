@@ -15729,8 +15729,7 @@ elif page == 'RISK SHIELD':
                                     _swing_s, _ttlab_s, _ttsrc_s = _rc.resolve_trade_type(
                                         timeframe=_jov_s.get("timeframe"),
                                         setup=_jov_s.get("setup"),
-                                        structural=_struct_s,
-                                        trade_type=_jov_s.get("trade_type"))
+                                        structural=_struct_s)
                                     if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
                                         _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
@@ -15768,7 +15767,29 @@ elif page == 'RISK SHIELD':
                                         (8  if _ws_above50  else 0)
                                     )
                                     
+                                # TRADE TYPE — the Commander Risk Allocator v2.2 classifier,
+                                # computed HERE because df_sym is already in hand. Jay, 10-Aug:
+                                # "the journal's trade type is incorrect... the risk allocator
+                                # v2.2 has the mechanism... go by that." RS quadrant comes from
+                                # his MANUAL Strike flags, which is the reading he trades.
+                                _tt_sw = _tt_lab = _tt_fam = _tt_why = None
+                                try:
+                                    _q_manual = None
+                                    try:
+                                        import gm_trigger_board as _gtb_tt
+                                        _q_manual = (_gtb_tt.rrg_load() or {}).get(str(_s).upper())
+                                    except Exception:
+                                        pass
+                                    _tt_sw, _tt_lab, _tt_why, _tt_fam = _rc.classify_trade_type_v22(
+                                        df_sym, rrg=_q_manual)
+                                except Exception as _e_tt:
+                                    _gm_logger.warning(f"{_s}: trade-type classify failed: {_e_tt}")
                                 hist_data[_s] = {
+                                    "ltp": round(_ltp, 2),
+                                    "tt_swing": _tt_sw,
+                                    "tt_label": _tt_lab,
+                                    "tt_family": _tt_fam,
+                                    "tt_source": _tt_why,
                                     "ws_score": int(_ws_score),
                                     "sma200_slope": round(_sma200slp, 2),
                                     "sma200": round(_sma200, 2),
@@ -15809,24 +15830,19 @@ elif page == 'RISK SHIELD':
                 # TOLD the answer and analyses inside it. Defaults are the safe ones: a
                 # missing score must not silently mean "swing" (the OCO copy used 0 → <60 →
                 # swing, the Unprotected copy used 100 → positional; they disagreed).
-                def _rs_trade_type(_t):
-                    """(is_swing, label). label 'UNKNOWN' when technicals can't decide —
-                    never a guess dressed as a classification."""
+                def _rs_trade_type(_t, _sym=None):
+                    """(is_swing, label) — read back the Risk Allocator v2.2 verdict the
+                    technicals loop computed. The old version was an ad-hoc guess (atr_pct>4
+                    or dist_from_200>30 or ws_score<60) that shared no term with the Pine
+                    which owns this decision."""
                     if not isinstance(_t, dict):
                         return None, "UNKNOWN"
-                    _ap = _t.get("atr_pct") or 0.0
-                    if not _ap or _ap != _ap:
-                        return None, "UNKNOWN"
-                    _sc = _t.get("ws_score")
-                    _sw = bool(_ap > 4
-                               or (_t.get("dist_from_200") or 0.0) > 30
-                               or (100 if _sc is None else _sc) < 60)
-                    return _sw, ("SWING" if _sw else "POSITIONAL")
+                    return _t.get("tt_swing"), (_t.get("tt_label") or "UNKNOWN")
 
                 rs_trade_type = {}
                 for _tt_sym, _tt_tech in hist_data.items():
                     if isinstance(_tt_tech, dict):
-                        rs_trade_type[_tt_sym] = _rs_trade_type(_tt_tech)
+                        rs_trade_type[_tt_sym] = _rs_trade_type(_tt_tech, _tt_sym)
 
                 # A9: DATA FRESHNESS STRIP — where prices came from + technicals as-of.
                 try:
@@ -16384,8 +16400,7 @@ elif page == 'RISK SHIELD':
                                     is_swing, tt_label, _tt_src = _rc.resolve_trade_type(
                                         timeframe=_jov.get("timeframe"),
                                         setup=_jov.get("setup"),
-                                        structural=_tt_struct,
-                                        trade_type=_jov.get("trade_type"))
+                                        structural=_tt_struct)
 
                                     if _tech and _tech.get("atr_pct"):
                                         val = _tech.get("atr_pct")

@@ -50,32 +50,24 @@ badge = _NS["_rs_type_badge"]
 card = _NS["_rs_ai_card"]
 
 
-# ── trade type: ONE rule, owned by Risk Shield ────────────────────────────────
-def test_stable_stage2_is_positional():
-    assert tt({"atr_pct": 2.0, "dist_from_200": 10, "ws_score": 72}) == (False, "POSITIONAL")
+# ── trade type ────────────────────────────────────────────────────────────────
+# The old rule here (swing if atr_pct>4 OR dist_from_200>30 OR ws_score<60) is GONE.
+# Jay, 10-Aug-2026: "the journal's trade type is incorrect... the Commander risk
+# allocator v2.2 has the mechanism to classify the trades into Swing/positional. Go by
+# that." So `_rs_trade_type` is now a READER of the verdict the technicals loop stores,
+# and the logic under test moved to risk_common.classify_trade_type_v22 (below).
+def test_reader_returns_the_stored_verdict():
+    assert tt({"tt_swing": False, "tt_label": "POSITIONAL"}) == (False, "POSITIONAL")
+    assert tt({"tt_swing": True, "tt_label": "SWING"}) == (True, "SWING")
 
 
-def test_each_swing_trigger_fires():
-    assert tt({"atr_pct": 5.1, "dist_from_200": 10, "ws_score": 72}) == (True, "SWING")
-    assert tt({"atr_pct": 2.0, "dist_from_200": 41, "ws_score": 72}) == (True, "SWING")
-    assert tt({"atr_pct": 2.0, "dist_from_200": 10, "ws_score": 45}) == (True, "SWING")
-
-
-def test_missing_score_is_not_swing():
-    """The divergence the two old copies disagreed on. A score we never computed
-    must not be read as trend decay."""
-    assert tt({"atr_pct": 2.0, "dist_from_200": 10}) == (False, "POSITIONAL")
-
-
-def test_score_zero_is_a_real_zero():
-    """...but a genuine 0 still means decay — the guard must be `is None`, not falsy."""
-    assert tt({"atr_pct": 2.0, "dist_from_200": 10, "ws_score": 0}) == (True, "SWING")
-
-
-def test_undeterminable_is_unknown_not_a_guess():
+def test_reader_never_invents_a_verdict():
+    """No stored classification must read as POSITIONAL — the caller's fallback is
+    positional, and a fabricated one would silently loosen a swing trail to 4.5x."""
     assert tt(None) == (None, "UNKNOWN")
-    assert tt({"atr_pct": 0, "ws_score": 72}) == (None, "UNKNOWN")
-    assert tt({"atr_pct": float("nan")}) == (None, "UNKNOWN")
+    assert tt({}) == (None, "UNKNOWN")
+    assert tt({"atr_pct": 2.0, "ws_score": 72}) == (None, "UNKNOWN")
+
 
 
 # ── badge: rendered from the engine, and honest about what it doesn't know ─────
@@ -170,3 +162,56 @@ if __name__ == "__main__":
         print("  ", _f)
     print("PASS" if not _fails else "FAIL")
     raise SystemExit(1 if _fails else 0)
+
+
+# ── the ported classifier itself ──────────────────────────────────────────────
+# risk_common.classify_trade_type_v22 is a port of Commander_Risk_Allocator_v2.2.pine
+# :111-155. The branch that matters is the TIE-BREAK: is_positional and is_swing are both
+# commonly true, and Pine resolves that through the CATALYST detection, only falling back
+# to "POS" when the detection is NONE. A first version of the port collapsed it to
+# "both -> positional" and made 14 of 15 live holdings positional.
+import numpy as _np
+import pandas as _pd
+import risk_common as _rc
+
+
+def _frame(n=400, slope=0.35, last=None, vol=1_000_000):
+    ix = _pd.date_range("2024-01-01", periods=n, freq="B")
+    base = 100 + _np.arange(n) * slope
+    c = _pd.Series(base, index=ix)
+    if last is not None:
+        c.iloc[-1] = last
+    return _pd.DataFrame({"Open": c.shift(1).fillna(c), "High": c * 1.01,
+                          "Low": c * 0.99, "Close": c, "Volume": vol}, index=ix)
+
+
+def test_steady_uptrend_is_positional():
+    sw, lab, src, fam = _rc.classify_trade_type_v22(_frame(), rrg="Leading")
+    assert (sw, lab) == (False, "POSITIONAL")
+    assert fam in ("POS", "SWG", "SWG-REV", "SWG-GAP", "WYC", "REV")
+
+
+def test_lagging_rs_blocks_the_positional_leg():
+    """pos_rs_ok = rs_quadrant != 'LAGGING' (Pine :136). With RS lagging the positional
+    leg fails, so the verdict must come from the swing leg or be UNKNOWN — never
+    POSITIONAL."""
+    _, lab, _, _ = _rc.classify_trade_type_v22(_frame(), rrg="Lagging")
+    assert lab != "POSITIONAL"
+
+
+def test_downtrend_satisfies_neither_and_says_unknown():
+    sw, lab, src, _ = _rc.classify_trade_type_v22(_frame(slope=-0.25), rrg="Lagging")
+    assert (sw, lab) == (None, "UNKNOWN") and "neither" in src
+
+
+def test_short_history_is_unknown_not_a_guess():
+    sw, lab, _, _ = _rc.classify_trade_type_v22(_frame(n=120), rrg="Leading")
+    assert (sw, lab) == (None, "UNKNOWN")
+    assert _rc.classify_trade_type_v22(None) [1] == "UNKNOWN"
+
+
+def test_tie_break_reports_which_branch_decided():
+    """The source string must name the branch — 'both', 'positional' or 'swing' — because
+    when the two surfaces disagree that is the first thing worth reading."""
+    _, _, src, _ = _rc.classify_trade_type_v22(_frame(), rrg="Leading")
+    assert any(k in src for k in ("both", "positional", "swing"))
