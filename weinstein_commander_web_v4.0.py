@@ -13489,13 +13489,27 @@ elif page == 'GOLDEN MATCHER':
                           // 75m lands them left-to-right as 75m | 125m | Daily. Named targets
                           // mean a re-press REUSES each board tab instead of duplicating it.
                           var w = window.parent || window;   // break out of the component iframe
+                          var blocked = [];
                           [['Daily','gm_board_Daily'],['125m','gm_board_125m'],['75m','gm_board_75m']]
                             .forEach(function (t) {
-                              w.open('/?view=gm_board_maximized&tf=' + t[0], t[1]);
+                              // window.open returns NULL when the popup blocker refuses it.
+                              // Browsers allow ONE popup per user gesture, so without
+                              // "Allow pop-ups" for this origin only the FIRST call lands —
+                              // which is exactly the "only the Daily board opens" symptom,
+                              // Daily being the one opened first. Report it rather than
+                              // silently delivering one board out of three.
+                              var h = w.open('/?view=gm_board_maximized&tf=' + t[0], t[1]);
+                              if (!h) { blocked.push(t[0]); }
                             });
+                          document.getElementById('all3msg').innerHTML = blocked.length
+                            ? '&#9888; blocked: ' + blocked.join(', ') + ' — allow pop-ups for '
+                              + w.location.host + ', or use the single-TF buttons'
+                            : '';
                         };
-                        </script>""",
-                        height=42)
+                        </script>
+                        <div id="all3msg" style="font-family:'JetBrains Mono',monospace;
+                            font-size:10px;color:#B45309;margin-top:4px;line-height:1.25;"></div>""",
+                        height=68)
 
         # ── SHARED header — warnings + filters + CSV download rendered ONCE for
         #    BOTH render paths (static editor AND streaming grid) so filters are
