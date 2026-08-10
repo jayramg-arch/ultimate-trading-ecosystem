@@ -4655,9 +4655,9 @@ if show_panel and d_panel and barstate.islast
     f_row(26, "Bar (B)", _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
     color _trigBg = f_softBg(trig_col)
-    table.cell(pnl, 0, 32, "TRIGGER", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right)
+    table.cell(pnl, 0, 32, "TRIGGER", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right, text_formatting=text.format_bold)
     table.merge_cells(pnl, 1, 32, PA_LAST_COL, 32)
-    table.cell(pnl, 1, 32, trig_txt, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left)
+    table.cell(pnl, 1, 32, trig_txt, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left, text_formatting=text.format_bold)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
     // stop). Priority: demand-zone distal (in-zone → nearest below) → recent swing low →
@@ -4960,7 +4960,14 @@ if show_panel and d_panel and barstate.islast
     // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
     string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : "WEAK/RED BAR — no entry"
-    string _status  = _verdict + " · P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " ⏱" + (timing_v?"✓":"·") + " · conf " + str.tostring(cf_v) + "/" + str.tostring(cf_max) + " · RV " + str.tostring(chart_rv_v, "0.00") + "/" + str.tostring(rv_floor, "0.00") + " · " + (is_rec_v?"Rec":"Bull") + " Σ+" + str.tostring(tsum_v)
+    // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
+    // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
+    // above: the gate chips are on TRIGGER, conf is the Confluence row, RV is the RV row,
+    // Σ is the PA header. Restating them made the longest line on the panel the one
+    // carrying the least new information, and pushed the actual instruction off to the left.
+    // What is UNIQUE here is the verdict sentence — the ruling plus what to do about it —
+    // so that is all it says now. Same rule that removed the metrics digest in v6.1.
+    string _status  = _verdict
     // Amber for EVERY waiting state, including no-PA (was grey). Grey read as
     // "off/inactive"; amber reads as "armed, waiting for the gate" — the honest state
     // when the engine is live. Green only on a real GO.

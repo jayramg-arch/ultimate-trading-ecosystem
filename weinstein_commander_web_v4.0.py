@@ -6,6 +6,7 @@
 # =============================================================================
 
 import streamlit as st
+import streamlit.components.v1 as st_components   # for HTML that must RUN script
 import pandas as pd
 import os, sys, sqlite3, base64, math, importlib, logging, json
 import numpy as np
@@ -13462,17 +13463,39 @@ elif page == 'GOLDEN MATCHER':
                          then 125m, then 75m, and each one pushes the previous right.
                          Named targets mean a re-press REUSES that board tab instead of
                          opening a duplicate. -->
-                    <span onclick="[['Daily','gm_board_Daily'],['125m','gm_board_125m'],['75m','gm_board_75m']]
-                        .forEach(function(t){window.open('/?view=gm_board_maximized&tf='+t[0], t[1]);});"
-                        style="display:inline-block;padding:6px 12px;border:1.5px solid #C4B5FD;
-                        background:#F5F3FF;color:#6D28D9;border-radius:6px;font-size:12px;
-                        font-family:'JetBrains Mono',monospace;font-weight:700;cursor:pointer;
-                        box-shadow:0 2px 6px rgba(109,40,217,0.15);">
-                            ↗️ ALL 3 BOARDS
-                    </span>
                     </div>''',
                     unsafe_allow_html=True
                 )
+                # ALL 3 BOARDS — rendered as a COMPONENT, not markdown (10-Aug-2026).
+                # It was a <span onclick=...> inside st.markdown(unsafe_allow_html=True),
+                # and Streamlit's markdown sanitiser STRIPS inline on* handlers, so the
+                # click was silently doing nothing. The three single-TF buttons beside it
+                # kept working because they are <a href> anchors, which the sanitiser keeps
+                # — same block, same styling, and only the JS one was dead. Anything that
+                # needs to RUN script has to go through components.html, which renders in
+                # an iframe where scripts execute.
+                _a3l, _a3r = st.columns([5, 1])
+                with _a3r:
+                    st_components.html(
+                        """<button id="all3" style="width:100%;padding:6px 12px;
+                            border:1.5px solid #C4B5FD;background:#F5F3FF;color:#6D28D9;
+                            border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace;
+                            font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(109,40,217,0.15);">
+                            &#8599;&#65039; ALL 3 BOARDS</button>
+                        <script>
+                        document.getElementById('all3').onclick = function () {
+                          // Creation order is the ONLY lever on tab position: Chrome inserts a
+                          // new tab immediately after the opener, so opening Daily -> 125m ->
+                          // 75m lands them left-to-right as 75m | 125m | Daily. Named targets
+                          // mean a re-press REUSES each board tab instead of duplicating it.
+                          var w = window.parent || window;   // break out of the component iframe
+                          [['Daily','gm_board_Daily'],['125m','gm_board_125m'],['75m','gm_board_75m']]
+                            .forEach(function (t) {
+                              w.open('/?view=gm_board_maximized&tf=' + t[0], t[1]);
+                            });
+                        };
+                        </script>""",
+                        height=42)
 
         # ── SHARED header — warnings + filters + CSV download rendered ONCE for
         #    BOTH render paths (static editor AND streaming grid) so filters are
