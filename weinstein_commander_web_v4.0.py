@@ -12974,6 +12974,43 @@ elif page == 'GOLDEN MATCHER':
                     st.caption("↩️ **S4 Pullback list · 0 names** — no pullback-only names in "
                                "the current union. Clear S4's input; S4 falls back to inferring "
                                "the setup from the pattern mix.")
+                # ── S4 "GM RRG" lists (10-Aug-2026) — the MANUAL Strike.Money read.
+                # Third handoff on the same pattern. S4 computes its own quadrant from
+                # v67's RS-Ratio/RS-Momentum; Jay reads his off Strike.Money on the WEEKLY
+                # chart and types it into the board, and that is the one he trades. When
+                # they disagree the manual read wins, so it has to reach the chart.
+                # WEEKLY cadence — unlike the two lists above, this does NOT need
+                # re-pasting after every auto-pilot run, only after a weekend RRG update.
+                try:
+                    _s4rrg = _gtb.s4_rrg_lists(_uni) or {}
+                except Exception as e:
+                    _s4rrg = {}
+                    _gm_logger.warning(f"s4_rrg_lists failed: {e}")
+                _rrg_n = sum(len([x for x in v.split(",") if x]) for v in _s4rrg.values())
+                if _rrg_n:
+                    _age_txt = ""
+                    try:
+                        _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                           "gm_rrg_flags.json")
+                        _ad = (time.time() - os.path.getmtime(_rp)) / 86400.0
+                        # An RRG read is a WEEKLY act, so >10 days is a real staleness
+                        # signal, not pedantry — a month-old quadrant is a different market.
+                        _age_txt = (f" · flags **{_ad:.0f}d old**"
+                                    + (" ⚠ update over the weekend" if _ad > 10 else ""))
+                    except Exception:
+                        pass
+                    st.caption(f"🧭 **S4 RRG lists · {_rrg_n} names**{_age_txt} — paste each into "
+                               f"S4's matching *GM RRG* input. Your Strike.Money weekly read "
+                               f"overrides S4's computed quadrant; unlisted names keep the "
+                               f"computed one (absence is **not** Lagging).")
+                    for _q in ("Leading", "Improving", "Weakening", "Lagging"):
+                        _v = _s4rrg.get(_q, "")
+                        if _v:
+                            st.caption(f"*GM RRG {_q}* · {len([x for x in _v.split(',') if x])}")
+                            st.code(_v, language=None)
+                else:
+                    st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
+                               "current union. Set them on the board's RRG column first.")
         else:
             # MAXIMIZED table-only pop-out (Jay): no heavy controls — a slim Rebuild
             # button + auto-refresh only. TF / Live / Score / X-Ray come from the

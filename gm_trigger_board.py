@@ -1658,6 +1658,53 @@ def s4_recovery_list(uni: dict | None = None) -> str:
     return ",".join(sorted(set(out)))
 
 
+def s4_rrg_lists(uni: dict | None = None) -> dict:
+    """Your MANUAL Strike.Money RRG reads, for S4's "GM RRG" inputs. (10-Aug-2026)
+
+    Same handoff shape as s4_recovery_list / s4_pullback_list, third axis. The reason it
+    is needed is the same reason those two exist: S4 cannot ask the GM anything, and it
+    cannot derive this from price. S4's own RRG comes from v67's RS-Ratio/RS-Momentum
+    pair — a computed quadrant. Yours is READ OFF STRIKE.MONEY on the weekly chart and
+    typed into the board, and it is the one you actually trade off. Those two can and do
+    disagree, and when they do the manual read wins.
+
+    Returns FOUR lists keyed by quadrant rather than one encoded blob. Two reasons:
+      * S4 parses a plain comma list with str.contains — no split loop, no per-symbol
+        parsing, which matters because S4 sits ~190 compiled tokens under the ceiling.
+      * A quadrant is not a boolean. Collapsing to "leading-ish" would throw away the
+        IMPROVING/WEAKENING distinction, which is the whole point of an RRG.
+
+    Only names present in `gm_rrg_flags.json` appear — an unflagged symbol is absent
+    from every list and S4 falls back to its computed quadrant. Silence is not "Lagging".
+
+    Refresh cadence is WEEKLY (you read RRG off the weekly chart), so unlike the
+    pullback/recovery lists this does NOT need re-pasting after every auto-pilot run.
+    """
+    try:
+        flags = rrg_load() or {}
+    except Exception as e:
+        _log.warning(f"s4_rrg_lists: flags unavailable: {e}")
+        return {}
+    if uni is None:
+        try:
+            uni = load_watchlist_union()
+        except Exception:
+            uni = None
+    # Restrict to the current union when we have one, so the pasted strings stay short
+    # and only carry names S4 could actually be looking at. No union -> emit everything.
+    keys = {_canon_key(s) for s in (uni or {})} if uni else None
+    out = {"Leading": [], "Improving": [], "Weakening": [], "Lagging": []}
+    for sym, q in flags.items():
+        qq = str(q or "").strip().capitalize()
+        if qq not in out:
+            continue
+        s = str(sym).upper().strip()
+        if keys is not None and _canon_key(s) not in keys:
+            continue
+        out[qq].append(s)
+    return {k: ",".join(sorted(set(v))) for k, v in out.items()}
+
+
 def s4_pullback_list(uni: dict | None = None) -> str:
     """The GM's PULLBACK-vs-BREAKOUT answer, for S4's "Auto: GM Pullback list" input.
 
