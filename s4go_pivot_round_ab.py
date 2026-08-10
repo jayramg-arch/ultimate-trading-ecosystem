@@ -183,8 +183,9 @@ def main():
         for tag, d in arms.items():
             print(f"  {tag} Location_Src: {d['Location_Src'].value_counts().to_dict()}")
         on, off = arms["P_on"], arms["P_off"]
-        lost = len(on) - len(off)
-        print(f"\n  fills: P_on {len(on)} -> P_off {len(off)}  ({lost:+d})")
+        delta = len(off) - len(on)          # was len(on)-len(off) and printed with a + sign,
+                                            # so a LOSS of 14 fills rendered as "(+14)"
+        print(f"\n  fills: P_on {len(on)} -> P_off {len(off)}  ({delta:+d})")
         print("  NOTE a LOWER fill count with pivots off means those trades only ever had a")
         print("  pivot shelf as their location — the ablation removed the setup, not a cap.")
         print("\n  -- per family --")
