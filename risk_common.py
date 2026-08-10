@@ -51,6 +51,43 @@ def trail_window_for(setup, swing=None) -> int:
     return 14 if swing else 22
 
 
+def resolve_trade_type(timeframe=None, setup=None, structural=None):
+    """(is_swing, label, source) — the ONE precedence order for "is this a swing trade".
+
+    Added 10-Aug-2026 after an audit found THREE independent answers coexisting on the
+    Risk Shield page: the Chandelier clock read the journal Timeframe (falling back to the
+    setup prefix, then positional), while the position tile read a purely STRUCTURAL
+    classifier (ATR% / distance from the 200 / score) and could even re-derive the answer
+    from the SL distance. The same symbol could therefore print SWING on its tile while its
+    stop trailed on the 22-bar POSITIONAL clock — and the R-target policy check used the
+    positional constants regardless.
+
+    Precedence, strongest evidence first:
+      1. journal `Timeframe`  — what YOU declared when the trade was logged
+      2. `setup` prefix       — SWG -> swing; POS / WYC / REV -> positional
+      3. `structural`         — the technicals' guess (caller supplies it); a HINT, so its
+                                label is suffixed "?" exactly as the old tile did
+      4. positional           — the long-standing default; never guess swing
+
+    Returns the SOURCE so a caller can say which rung answered rather than presenting a
+    fallback as a fact.
+    """
+    tf = str(timeframe or "").strip().lower()
+    if "swing" in tf:
+        return True, "SWING", "journal"
+    if "pos" in tf:
+        return False, "POSITIONAL", "journal"
+    s = str(setup or "")
+    if s.startswith("SWG"):
+        return True, "SWING", "setup"
+    if s.startswith(("POS", "WYC", "REV")):
+        return False, "POSITIONAL", "setup"
+    if structural is not None:
+        sw = bool(structural)
+        return sw, ("SWING?" if sw else "POSITIONAL?"), "structural"
+    return False, "POSITIONAL", "default"
+
+
 def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
                     setup: str = "", bear: bool = False,
                     cap_protect: bool = False, custom_mult=None,

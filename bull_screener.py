@@ -97,6 +97,29 @@ POS_T1_R = float(_os_t1.getenv('POS_T1_R', '2.0'))    # was 5.0
 POS_T2_R = float(_os_t1.getenv('POS_T2_R', '4.0'))    # was 10.0
 
 
+def target_r_for(setup):
+    """(T1_R, T2_R) for a catalyst label — the ONE target policy.
+
+    Catalyst-differentiated because the horizon differs (v1.9, 21-May-2026):
+      POS-*    positional, 2-12 month holds  -> POS_T1_R / POS_T2_R (2R / 4R since 9-Aug)
+      SWG-REV  mean reversion, days          -> 2R / 2R  (quick exit)
+      SWG-GAP  gap-and-go, days              -> 2R / 4R  (gaps fade fast)
+      SWG-BO / SWG-PB, 1-4 weeks             -> 3R / 5R  (partial fast, ride the rest)
+
+    Hoisted out of the screener body 10-Aug-2026 so the Risk Shield's policy check reads
+    the SAME numbers instead of applying the POSITIONAL constants to every open order.
+    An unknown / blank setup returns the swing default, matching the screener's fallback.
+    """
+    s = str(setup or "").upper()
+    if s.startswith("POS"):
+        return POS_T1_R, POS_T2_R
+    if s == "SWG-REV":
+        return 2.0, 2.0
+    if s == "SWG-GAP":
+        return 2.0, 4.0
+    return 3.0, 5.0          # SWG-BO / SWG-PB / fallback / NONE
+
+
 ENABLE_SWG_BOOK = True    # 9-Aug: re-enabled at Jay's call — the swing book is back on   # 9-Aug-2026: swing book off in LIVE screening (see suppression below)
 SWG_LABELS = ("SWG-BO", "SWG-PB", "SWG-GAP", "SWG-REV")
 
@@ -1363,21 +1386,7 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
     else:
         sl = c - atr * atr_mult
     risk = c - sl
-    # v1.9 (2026-05-21): Catalyst-differentiated T1/T2 — respect trade timeframe.
-    # POS (positional, 2-12mo holds): 5R/10R — let winners run
-    # SWG-BO/PB (swing, 1-4wk): 3R/5R — partial fast, ride remainder
-    # SWG-GAP (gap-and-go, days):  2R/4R — gaps fade fast
-    # SWG-REV (mean rev, days):    2R/2R — quick exit
-    if _label.startswith("POS"):
-        t1_r, t2_r = POS_T1_R, POS_T2_R
-    elif _label == "SWG-REV":
-        t1_r, t2_r = 2.0, 2.0
-    elif _label == "SWG-GAP":
-        t1_r, t2_r = 2.0, 4.0
-    elif _label.startswith("SWG"):           # SWG-BO, SWG-PB
-        t1_r, t2_r = 3.0, 5.0
-    else:                                     # fallback / NONE
-        t1_r, t2_r = 3.0, 5.0
+    t1_r, t2_r = target_r_for(_label)
     t1 = c + risk * t1_r
     t2 = c + risk * t2_r
     

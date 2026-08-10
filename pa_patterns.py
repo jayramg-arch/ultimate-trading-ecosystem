@@ -250,6 +250,16 @@ def _confirmed_weekly_close(c: pd.Series) -> pd.Series:
     return wk
 
 
+# ── DEAD-PATTERN FIXES (5-Aug-2026) ──────────────────────────────────────────
+# Two bull patterns fired ~0% of the time and had done so for months. Measured over
+# 3,000 bar-evaluations on 15 names:
+#     Stage-2 Launch        0 firings  — 153 REAL weekly 30WMA crossovers in the window
+#     Bullish Engulfing     0 firings  — 415 raw engulfings in the same bars
+# Neither was a rare pattern. Both were mis-specified, in different ways.
+# Flag kept so the before/after is one run apart rather than a memory of what changed.
+PA_FIXES = True
+
+
 def detect_bull_patterns(df: pd.DataFrame, stage: str = "", intraday: bool = False,
                          ema20_ref=None, ema10_ref=None) -> list:
     """Mirror of Dashboard v67's PA pattern battery, evaluated on the LAST bar.
@@ -331,9 +341,25 @@ def detect_bull_patterns(df: pd.DataFrame, stage: str = "", intraday: bool = Fal
         rsi = 100 - 100 / (1 + up / dn.replace(0, np.nan))
         c1, o1 = float(c.iloc[-2]), float(o.iloc[-2])
         raw_eng = c1 < o1 and cN > oN and oN <= c1 and cN >= o1
-        engulf = (raw_eng and cN < _e10 < _e20 and rv > 2.0 and
-                  not math.isnan(float(rsi.iloc[-2])) and float(rsi.iloc[-2]) < 40)
-        pats.append(("Bullish Engulfing (gated)", engulf, 2, "engulf at oversold on 2× vol"))
+        if PA_FIXES:
+            # BUG 2 — `cN < _e10 < _e20` is a DOWNTREND requirement, sitting in the BULL
+            # battery. Together with rsi<40 and rv>2.0 it described a capitulating stock,
+            # which is the RECOVERY battery's job (and its CLIMAX pattern already covers
+            # it). Result: 2 firings in 11,552 bars against 415 raw engulfings — the
+            # pattern was ~200x rarer than the thing it claims to detect, and it took
+            # `Bear Trap` down with it (that combo needs this as its trigger).
+            # The bull-side meaning of an engulf is a PULLBACK RECLAIM: price working
+            # back up through the short EMA in an intact uptrend, on real volume.
+            # No RSI gate — "oversold" is not part of a continuation setup.
+            # ema20 here is a SCALAR (last value), so the rising test needs its own
+            # series — computed locally rather than assuming one is in scope.
+            _e20s = c.ewm(span=20, adjust=False).mean()
+            _rising20 = len(_e20s) >= 6 and float(_e20s.iloc[-1]) > float(_e20s.iloc[-6])
+            engulf = raw_eng and cN > _e20 and _rising20 and rv > 1.25
+        else:
+            engulf = (raw_eng and cN < _e10 < _e20 and rv > 2.0 and
+                      not math.isnan(float(rsi.iloc[-2])) and float(rsi.iloc[-2]) < 40)
+        pats.append(("Bullish Engulfing (gated)", engulf, 2, "engulf reclaim in uptrend on vol"))
 
         # Liquidity Sweep Reclaim — swept below 50-SMA in last 5 bars, reclaimed on 1.5× vol
         liq = (float(l.iloc[-5:].min()) < sma50 and cN > sma50 and
@@ -352,9 +378,35 @@ def detect_bull_patterns(df: pd.DataFrame, stage: str = "", intraday: bool = Fal
             wk = _confirmed_weekly_close(c)
             if len(wk) >= 32:
                 wma30 = wk.rolling(30).mean()
-                launch = (("2" in str(stage)) and rv > 1.25 and
+                crossed = (float(wk.iloc[-1]) > float(wma30.iloc[-1]) and
+                           float(wk.iloc[-2]) <= float(wma30.iloc[-2]))
+                if PA_FIXES:
+                    # BUG 1 — the pattern was gated on `"2" in str(stage)`, and the ONLY
+                    # production caller passes stage="". "2" in "" is False, so the price
+                    # logic below never ran: 0 firings against 153 real crossovers. Every
+                    # TEST passed stage="Stage 2", which is why nothing caught it.
+                    # A pattern must not silently disable itself because a caller omitted
+                    # an optional argument, so Stage 2 is DERIVED here: price above a
+                    # RISING weekly 30-SMA. Same definition the rest of the stack settled
+                    # on today (weekly sma(close,30), 4-week slope).
+                    s2 = (len(wma30.dropna()) >= 5 and
                           float(wk.iloc[-1]) > float(wma30.iloc[-1]) and
-                          float(wk.iloc[-2]) <= float(wma30.iloc[-2]))
+                          float(wma30.iloc[-1]) > float(wma30.iloc[-5]))
+                    # BUG 1b — volume was a DAILY relative-volume test gating a WEEKLY
+                    # structural event. It asked that the day you happened to look also
+                    # had heavy volume, which says nothing about the launch week's
+                    # conviction, and it removed ~95% of the survivors. Now the crossover
+                    # WEEK's volume against its own 30-week average.
+                    wvol_ok = True
+                    try:
+                        wkv = _confirmed_weekly_ohlcv(df)["Volume"].astype(float)
+                        if len(wkv) >= 30:
+                            wvol_ok = float(wkv.iloc[-1]) > float(wkv.rolling(30).mean().iloc[-1]) * 1.1
+                    except Exception:
+                        pass
+                    launch = crossed and s2 and wvol_ok
+                else:
+                    launch = ("2" in str(stage)) and rv > 1.25 and crossed
         pats.append(("Stage-2 Launch", launch, 3, "confirmed weekly close × over 30-WMA"))
 
         # Inside-3 (Coil) — three nested inside bars
@@ -368,8 +420,14 @@ def detect_bull_patterns(df: pd.DataFrame, stage: str = "", intraday: bool = Fal
         # True NR7 — current range STRICTLY smallest of last 7
         nr7 = all((float(h.iloc[-i]) - float(l.iloc[-i])) >= rng for i in range(2, 8)) and rng > 0
         pats.append(("True NR7", nr7, 1, "tightest range of 7 bars"))
-        if inside and nr7:
-            pats.append(("★ IB-NR7 Coil", True, 2, "inside bar + NR7 — Crabel coil"))
+        # UNCONDITIONAL (10-Aug-2026). This was the only pattern in the battery appended
+        # *inside* an `if`, so the returned list was 16 entries when the coil was quiet and
+        # 17 when it fired. Consequences: the battery length was not a constant (the thing
+        # the composition regression test exists to pin), a caller could not render `IBN ·`
+        # as quiet the way Pine's grid does, and any positional read of the list shifted by
+        # one whenever the coil fired. Σ is unaffected either way — the tier is only summed
+        # when the flag is True — so this is a shape fix, not a signal change.
+        pats.append(("★ IB-NR7 Coil", bool(inside and nr7), 2, "inside bar + NR7 — Crabel coil"))
 
         # --- v1.4 additions (17-set): strong v67-cascade triggers the curated 11 omitted.
         # Formulas mirror Section4_Entry_Trigger v1.4 / pa_field_validator (zero-drift). ---

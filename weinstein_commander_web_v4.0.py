@@ -4850,7 +4850,11 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
         # of the one bar that fired: its age, its own Sigma, its own patterns.
         # Zero drift — identical function, identical flags, different last row.
         def _pa_recency(fn):
-            for k in range(1, _PA_LOOKBACK_BARS):
+            # +1 (10-Aug-2026): `range(1, N)` stops at N-1, so a constant named
+            # "_PA_LOOKBACK_BARS = 3" only ever looked back TWO bars. An NSE session is
+            # 5 x 75m bars, so a third of the intended recency window was unreachable and
+            # a pattern that fired 3 bars ago was simply lost from the board.
+            for k in range(1, _PA_LOOKBACK_BARS + 1):
                 if len(df) - k < 60:
                     break
                 try:
@@ -16186,14 +16190,33 @@ elif page == 'RISK SHIELD':
                                                     # forever. T1 was reached in 2% of POS trades at 5R; the partial and the
                                                     # move-to-breakeven never fired. Flagging the gap is the only way to see
                                                     # which orders still need re-placing.
+                                                    # 10-Aug-2026, two fixes: the policy was read
+                                                    # from the POSITIONAL constants for EVERY
+                                                    # position (a swing order was judged against
+                                                    # 4R and its tooltip said so), and only a
+                                                    # target that was too FAR was flagged — a leg
+                                                    # resting at 1R books the partial too early
+                                                    # and was invisible. Now keyed on the setup
+                                                    # via the screener's own target_r_for, and
+                                                    # flagged in both directions.
                                                     try:
                                                         import bull_screener as _bs_pol
-                                                        _want = _bs_pol.POS_T1_R if o_idx == 0 else _bs_pol.POS_T2_R
-                                                        if r_val > _want * 1.25:
+                                                        _setup_pol = (journal_overrides.get(sym, {}) or {}).get("setup") \
+                                                            if isinstance(journal_overrides, dict) else None
+                                                        _t1w, _t2w = _bs_pol.target_r_for(_setup_pol)
+                                                        _want = _t1w if o_idx == 0 else _t2w
+                                                        _far, _near = r_val > _want * 1.25, r_val < _want * 0.75
+                                                        if _far or _near:
+                                                            _why = ("too far - the partial and the move to "
+                                                                    "breakeven may never fire" if _far else
+                                                                    "too near - you book the partial before the "
+                                                                    "trade has paid for its risk")
+                                                            _basis = (f"setup {_setup_pol}" if _setup_pol
+                                                                      else "no setup on the journal row, so the swing default")
                                                             tgt_str += (f" <span style='color:#F87171;font-weight:bold;' "
-                                                                        f"title='Policy is {_want:.1f}R for this leg. This order "
-                                                                        f"predates the change - re-place to book the partial and "
-                                                                        f"move the stop to entry.'>&#9888; vs {_want:.1f}R</span>")
+                                                                        f"title='Policy is {_want:.1f}R for this leg ({_basis}). "
+                                                                        f"This order is {_why}. Re-place it.'>"
+                                                                        f"&#9888; vs {_want:.1f}R</span>")
                                                     except Exception:
                                                         pass
                                             tgt_parts.append(tgt_str)
@@ -16204,8 +16227,19 @@ elif page == 'RISK SHIELD':
                                     # Calculate ATR + is_swing first for Time Stop logic.
                                     _tech = hist_data.get(sym)
                                     atr_val = 0
-                                    _tt_sw, tt_label = rs_trade_type.get(sym, (None, "UNKNOWN"))
-                                    is_swing = bool(_tt_sw)
+                                    # ONE trade-type answer for the whole page (10-Aug-2026).
+                                    # This tile used to read the structural classifier alone,
+                                    # while the Chandelier a few hundred lines up read the
+                                    # journal Timeframe — so a position could be labelled
+                                    # SWING here and trailed on the 22-bar POSITIONAL clock.
+                                    # risk_common.resolve_trade_type owns the precedence:
+                                    # journal Timeframe -> setup prefix -> structural -> positional.
+                                    _tt_struct = rs_trade_type.get(sym, (None, "UNKNOWN"))[0]
+                                    _jov = journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {}
+                                    is_swing, tt_label, _tt_src = _rc.resolve_trade_type(
+                                        timeframe=_jov.get("timeframe"),
+                                        setup=_jov.get("setup"),
+                                        structural=_tt_struct)
 
                                     if _tech and _tech.get("atr_pct"):
                                         val = _tech.get("atr_pct")
@@ -16220,13 +16254,16 @@ elif page == 'RISK SHIELD':
                                         closest_sl = max(sl_vals)
                                         dist = ltp - closest_sl
                                         if dist > 0:
-                                            if (dist / ltp) < 0.08:
-                                                atr_val = dist / 1.5
-                                                is_swing = True
-                                            else:
-                                                atr_val = dist / 3.0
-                                                is_swing = False
-                                            tt_label = ("SWING" if is_swing else "POSITIONAL") + "?"
+                                            # The SL distance is a last-resort ATR PROXY. It may
+                                            # only speak to the trade type when nothing better
+                                            # has: inferring "swing" from a tight stop would
+                                            # otherwise overrule what you declared in the journal,
+                                            # and the stop is the one number you move by hand.
+                                            _sl_swing = (dist / ltp) < 0.08
+                                            atr_val = dist / (1.5 if _sl_swing else 3.0)
+                                            if _tt_src in ("structural", "default"):
+                                                is_swing = _sl_swing
+                                                tt_label = ("SWING" if is_swing else "POSITIONAL") + "?"
 
                                     # Compute Days Held & Time Stop Hit
                                     days_held = None
