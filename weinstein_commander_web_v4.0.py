@@ -2222,6 +2222,25 @@ def _gm_bar_close_times(tf: str):
     375-min session tiles EXACTLY: 5×75m and 3×125m, so both land on 15:30."""
     _t75 = [(10, 30), (11, 45), (13, 0), (14, 15), (15, 30)]
     _t125 = [(11, 20), (13, 25), (15, 30)]
+    # ── JAY'S CHECK-IN SCHEDULE (10-Aug-2026) — his desk clock, not the bar clock.
+    # 10:35 · 11:50 · 13:30 · 14:20 · 15:35, with 125m joining at 11:50 / 13:30 / 15:35.
+    # These are ~5 min AFTER a 75m close, which is why they work: at 10:35 the 10:30 bar
+    # is closed and published. Two of them do NOT sit just after a 125m close (11:50 is
+    # 30 min past the 11:20 bar; 13:30 is 5 min past 13:25) — that is HARMLESS, because a
+    # rebuild always reads the last CLOSED bar, so the 11:50 125m board reads the 11:20
+    # bar exactly as it should. It is a redundant rebuild, never a stale one.
+    # settle is not added for these (see _gm_last_passed_boundary) — the 5-minute offset
+    # he chose already is the settle.
+    _c75 = [(10, 35), (11, 50), (13, 30), (14, 20), (15, 35)]
+    _c125 = [(11, 50), (13, 30), (15, 35)]
+    if tf == "checkin-75m":
+        return _c75
+    if tf == "checkin-125m":
+        return _c125
+    if tf == "checkin-Daily":
+        return [(15, 35)]
+    if tf == "checkin":                      # union, for a board showing both TFs
+        return sorted(set(_c75) | set(_c125))
     if tf == "125m":
         return _t125
     # UNION (30-Jul, Jay): rebuild on EVERY 75m and 125m close — 7 distinct times, since
@@ -2247,6 +2266,10 @@ def _gm_last_passed_boundary(tf: str, settle_s: int = 75, now=None):
     now = now or datetime.now()
     if now.weekday() >= 5:                      # Sat/Sun — no session
         return None
+    # The check-in times already carry Jay's own ~5-minute offset from the bar close;
+    # adding the 75s broker-settle on top would push 15:35 to 15:36:15 for no reason.
+    if str(tf).startswith("checkin"):
+        settle_s = 0
     passed = None
     for hh, mm in _gm_bar_close_times(tf):
         b = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
@@ -12856,7 +12879,8 @@ elif page == 'GOLDEN MATCHER':
                 # a CLOSED bar — the definitive fix for the forming-bar fade that made
                 # board vs Single Symbol disagree (Jay trades the 75m TF). Default to
                 # the bar-close mode matching the selected Trigger-TF.
-                _live_opts = ["Off", "75m bar-close", "125m bar-close", "75m+125m bar-close",
+                _live_opts = ["Off", "Check-in schedule", "75m bar-close", "125m bar-close",
+                              "75m+125m bar-close",
                               "1 min", "2 min", "3 min", "5 min", "10 min", "15 min"]
                 # PERSISTED (30-Jul, Jay: "set Live refresh to 75m+125m"). This lived in
                 # session_state only, so every reconnect/restart reset it to the Trigger-TF
@@ -12870,9 +12894,11 @@ elif page == 'GOLDEN MATCHER':
                 _live = st.selectbox("🟢 Live refresh", _live_opts,
                                      key="gm_board_live",
                                      help="Rebuilds the technical + PA columns while the board is open. "
+                                          "**Check-in schedule** = your desk clock — 75m tab at 10:35·11:50·"
+                                          "13:30·14:20·15:35, 125m tab at 11:50·13:30·15:35, Daily once at 15:35. "
                                           "**75m/125m bar-close** = rebuild ONCE per session bar (10:30·11:45·"
                                           "13:00·14:15·15:30 for 75m) so the board reads CLOSED bars and matches "
-                                          "the live Single Symbol page — recommended for a 75m trader. The "
+                                          "the live Single Symbol page. The "
                                           "N-min options are fixed-interval. Fundamentals stay cached (change "
                                           "daily/quarterly). Full Build refreshes everything.")
                 _score_mode = st.selectbox("⚖️ Score mode", ["Balanced", "Hunting", "Watchlist"],
@@ -13519,11 +13545,20 @@ elif page == 'GOLDEN MATCHER':
         else:
             # ── Streaming AG-Grid (Option B): live PRICE via Dhan MarketFeed +
             #    AG-Grid native cell-flash; heavy DECISIONS recompute on cadence. ──
-            _bar_mode = _live.endswith("bar-close")             # 75m/125m aligned
+            _bar_mode = _live.endswith("bar-close") or _live.startswith("Check-in")
             # Order matters: test the UNION label before the "125" prefix test, or
             # "75m+125m" would fall through to plain 75m and silently drop 11:20/13:25.
-            _bar_tf = ("75m+125m" if _live.startswith("75m+125m")
-                       else "125m" if _live.startswith("125") else "75m")
+            if _live.startswith("Check-in"):
+                # Jay's desk schedule. The TIMES differ per tab, so this follows the
+                # board's own Trigger-TF rather than a label — a Daily tab has nothing
+                # to rebuild intraday and gets the single post-close pass.
+                _ctf = str(st.session_state.get("gm_trig_tf") or _gm_settings().get("trigger_tf") or "75m")
+                _bar_tf = ("checkin-125m" if _ctf.startswith("125")
+                           else "checkin-Daily" if _ctf.lower().startswith("d")
+                           else "checkin-75m")
+            else:
+                _bar_tf = ("75m+125m" if _live.startswith("75m+125m")
+                           else "125m" if _live.startswith("125") else "75m")
             _iv_sec = {"1 min": 60, "2 min": 120, "3 min": 180, "5 min": 300,
                        "10 min": 600, "15 min": 900}.get(_live, 0)
             _stream_ok = True
