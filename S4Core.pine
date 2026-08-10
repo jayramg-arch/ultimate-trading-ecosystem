@@ -950,3 +950,89 @@ export dailyPA(float ema10_ref, float ema20_ref, simple bool confirmShift, simpl
     if p_vdu and (edgeNear(rv, 0.5, _mEps) or edgeNear(rng, atr14 * 0.8, _mEps))
         _marg += 1
     [(p_htf?1.0:0.0)[_o], (p_sc?1.0:0.0)[_o], (p_vcp?1.0:0.0)[_o], (p_pp?1.0:0.0)[_o], (p_eng?1.0:0.0)[_o], (p_liq?1.0:0.0)[_o], (p_3b?1.0:0.0)[_o], (p_in3?1.0:0.0)[_o], (p_nr7?1.0:0.0)[_o], (p_ibnr7?1.0:0.0)[_o], (p_spr?1.0:0.0)[_o], (p_gap?1.0:0.0)[_o], (p_u50?1.0:0.0)[_o], (p_h50?1.0:0.0)[_o], (p_h200?1.0:0.0)[_o], (p_bc?1.0:0.0)[_o], (p_climax?1.0:0.0)[_o], (p_2b?1.0:0.0)[_o], (p_sos?1.0:0.0)[_o], (p_hsup?1.0:0.0)[_o], (p_vdu?1.0:0.0)[_o], off52[_o], (bel30w?1.0:0.0)[_o], s150dn[_o], rv[_o], (bel200?1.0:0.0)[_o], _marg[_o]]
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RRG — moved out of S4 (10-Aug-2026) to reclaim compiled tokens.
+//
+// WHY IT MOVED, and why this one first: S4 sits ~190 compiled tokens under the
+// 100,256 ceiling, and a library body compiles separately so it costs the caller
+// nothing but the call. `f_rrgInfo` was the cleanest candidate in the file —
+// measured ZERO free variables (it already took everything as arguments) and a
+// single call site, so moving it changes no behaviour and needs no new plumbing.
+// Frees ~758 compiled tokens in S4. Bodies with many free variables (the f_fold*
+// wrappers, up to 35) are POOR candidates: every global becomes a parameter and
+// the call site pays for it, which can cost more than the body saves.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Quadrant, trajectory and arrow from the (RS-Ratio, RS-Momentum) pair and its
+// trail. Byte-identical to S4's f_rrgInfo — same thresholds, same ternaries, so
+// the panel reads exactly as before.
+//   v, m   = current RS-Ratio / RS-Momentum (100-centred, i.e. already -100)
+//   vt, mt = the trailing pair, for the direction of travel
+// @returns [arrow, trajectory, quadrant, score, tradeable]
+export rrgInfo(float v, float m, float vt, float mt) =>
+    float dv = v - vt
+    float dm = m - mt
+    string cur = v >= 0 and m >= 0 ? "LEADING" : v >= 0 ? "WEAKENING" : v < 0 and m < 0 ? "LAGGING" : "IMPROVING"
+    string nxt = cur
+    if cur == "LEADING"
+        nxt := dm < -0.3 ? "WEAKENING" : (dv < -0.3 and dm < 0.3 ? "IMPROVING" : cur)
+    else if cur == "WEAKENING"
+        nxt := dv < -0.3 ? "LAGGING" : (dm > 0.3 and dv > -0.3 ? "LEADING" : cur)
+    else if cur == "LAGGING"
+        nxt := dm > 0.3 ? "IMPROVING" : (dv > 0.3 and dm > -0.3 ? "WEAKENING" : cur)
+    else
+        nxt := dv > 0.3 ? "LEADING" : (dm < -0.3 and dv < 0.3 ? "LAGGING" : cur)
+    string arw = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : "↙️") : (dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "➡️")
+    string trj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
+    int sc = cur == "LEADING" ? 2 : 0
+    bool tr = (cur == "LEADING" and (nxt == "LEADING" or nxt == "IMPROVING")) or (cur == "IMPROVING" and nxt == "LEADING") or (cur == "LAGGING" and nxt == "IMPROVING") or (cur == "WEAKENING" and nxt == "LEADING")
+    [arw, trj, cur, sc, tr]
+
+// STRIKE RRG — Jay's MANUAL Strike.Money weekly read, pasted from the Golden
+// Matcher board (gm_trigger_board.s4_rrg_lists emits one comma list per quadrant).
+//
+// ADDITIVE, never an override: S4's computed quadrant from rrgInfo() above stays
+// exactly as it is and keeps its own panel row. This is a SECOND, independent
+// reading — the one he actually trades — shown beside it. When the two disagree
+// that disagreement is the information, so collapsing them would destroy it.
+//
+// Lists arrive already upper-cased, stripped and NSE:-free from the GM, so the
+// match is a plain str.contains against a comma-fenced key — no split loop, which
+// is what keeps this affordable. A stray space is still tolerated by str.replace_all.
+// Absence from every list means NOT LISTED — deliberately not "Lagging": an
+// unflagged name simply has no manual read, and silence must never read as a verdict.
+// @returns [text, colour] ready for the panel row
+// Comma-fence a pasted list so a whole-symbol match cannot hit a substring
+// (",SAIL," must not match inside ",SAILIFE,"). Library-scope, not nested inside
+// strikeRrg — Pine forbids declaring a function inside a function body.
+f_rrgFence(simple string s) =>
+    "," + str.replace_all(str.upper(s), " ", "") + ","
+
+export strikeRrg(simple string lead, simple string impr, simple string weak,
+                 color cOk, color cWarn, color cNo, color cDim) =>
+    // THREE lists, LAGGING INFERRED (Jay, 10-Aug). An RRG has exactly four quadrants, so
+    // a name that is not Leading, Improving or Weakening is Lagging by elimination — there
+    // is no point pasting a fourth list to say so.
+    //
+    // The one guard that must stay: if ALL THREE inputs are blank the lists were never
+    // pasted, and inferring "Lagging" there would paint the WHOLE board as lagging off a
+    // setup mistake. Elimination is only valid once at least one list has content; before
+    // that, silence means nothing has been said yet.
+    //
+    // Known trade-off, and it is the right way round: a name not yet reviewed on Strike
+    // reads LAGGING rather than "unknown". Defaulting an unflagged name to the WEAKEST
+    // quadrant is conservative — it can only make you slower to buy, never quicker.
+    string _k = "," + str.upper(syminfo.ticker) + ","
+    bool _any = str.length(str.replace_all(lead + impr + weak, " ", "")) > 0
+    string _q = not _any ? ""
+         : str.contains(f_rrgFence(lead), _k) ? "LEADING"
+         : str.contains(f_rrgFence(impr), _k) ? "IMPROVING"
+         : str.contains(f_rrgFence(weak), _k) ? "WEAKENING"
+         : "LAGGING"
+    string _txt = _q == "" ? "lists not pasted — S4's computed quadrant stands"
+         : _q == "LAGGING" ? "LAGGING  ·  by elimination (on no Strike list)"
+         : _q + "  ·  Strike.Money weekly"
+    color  _col = _q == "LEADING" ? cOk : _q == "IMPROVING" ? cWarn : _q == "" ? cDim : cNo
+    [_txt, _col]

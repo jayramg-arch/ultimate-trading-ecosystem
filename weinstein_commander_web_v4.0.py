@@ -12999,15 +12999,24 @@ elif page == 'GOLDEN MATCHER':
                                     + (" ⚠ update over the weekend" if _ad > 10 else ""))
                     except Exception:
                         pass
-                    st.caption(f"🧭 **S4 RRG lists · {_rrg_n} names**{_age_txt} — paste each into "
-                               f"S4's matching *GM RRG* input. Your Strike.Money weekly read "
-                               f"overrides S4's computed quadrant; unlisted names keep the "
-                               f"computed one (absence is **not** Lagging).")
-                    for _q in ("Leading", "Improving", "Weakening", "Lagging"):
+                    _lagn = len([x for x in (_s4rrg.get("Lagging") or "").split(",") if x])
+                    st.caption(f"🧭 **Strike RRG · {_rrg_n} names**{_age_txt} — paste each into "
+                               f"S4's matching *Strike RRG* input. **Lagging is not pasted**: an "
+                               f"RRG has four quadrants, so S4 infers it by elimination from the "
+                               f"three below"
+                               + (f" ({_lagn} name{'s' if _lagn != 1 else ''} you flagged Lagging "
+                                  f"will resolve that way automatically)" if _lagn else "")
+                               + ". This is **additive** — S4's own computed quadrant keeps its "
+                                 "own row directly above.")
+                    for _q in ("Leading", "Improving", "Weakening"):
                         _v = _s4rrg.get(_q, "")
                         if _v:
-                            st.caption(f"*GM RRG {_q}* · {len([x for x in _v.split(',') if x])}")
+                            st.caption(f"*Strike RRG: {_q}* · {len([x for x in _v.split(',') if x])}")
                             st.code(_v, language=None)
+                        else:
+                            # An EMPTY list still has to be cleared in S4, or last week's
+                            # names keep resolving. Say so rather than rendering nothing.
+                            st.caption(f"*Strike RRG: {_q}* · 0 — clear this input in S4.")
                 else:
                     st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
                                "current union. Set them on the board's RRG column first.")
