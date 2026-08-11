@@ -16372,6 +16372,44 @@ elif page == 'RISK SHIELD':
                                                 sl_d_e = (sl - buy_price) / buy_price * 100
                                                 sl_d_l = (sl - ltp) / ltp * 100
                                                 sl_str += f" (<span style='color:#CBD5E1'>{sl_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{sl_d_l:+.1f}%</span>)"
+                                                # ATR MULTIPLE of the CURRENT stop (Jay, 11-Aug-2026).
+                                                # Read from hist_data rather than atr_val, which is not
+                                                # computed until ~40 lines below this block.
+                                                #
+                                                # TWO numbers because they answer different questions and
+                                                # the tile already shows both percentages the same way:
+                                                #   from ENTRY = the risk you TOOK  (this is the number the
+                                                #                trade-type ladder's rung 3 classifies on,
+                                                #                and the one that sets R)
+                                                #   from LTP   = how much room the stop has NOW, i.e. how
+                                                #                close it is to being hit
+                                                # On a trailed stop these diverge sharply, and the second is
+                                                # the one that decides whether today's noise takes you out.
+                                                _atrp = (hist_data.get(sym) or {}).get("atr_pct")
+                                                try:
+                                                    _atr_abs = float(ltp) * float(_atrp) / 100.0
+                                                except Exception:
+                                                    _atr_abs = 0.0
+                                                if _atr_abs > 0:
+                                                    _x_ent = (buy_price - sl) / _atr_abs
+                                                    _x_ltp = (ltp - sl) / _atr_abs
+                                                    # A stop AT or ABOVE entry has no risk left to express
+                                                    # as a multiple — it is locked profit. Rendering it as
+                                                    # "-3.9xATR entry" (LAURUSLABS, stop 1549.5 vs entry
+                                                    # 1377.2) reads as a mistake rather than as the good news
+                                                    # it is. 5 of 15 live positions are in this state.
+                                                    _ent_txt = (f"{_x_ent:.1f}×ATR entry" if _x_ent > 0.05
+                                                                else ("breakeven" if abs(_x_ent) <= 0.05
+                                                                      else f"locked +{-_x_ent:.1f}×ATR"))
+                                                    # Colour on the LIVE distance: under 1 ATR the stop sits
+                                                    # inside a single day's normal range.
+                                                    _xc = ("#EF4444" if _x_ltp < 1.0 else
+                                                           "#F59E0B" if _x_ltp < 2.0 else "#94A3B8")
+                                                    sl_str += (f" <span style='color:{_xc};font-size:0.78rem;' "
+                                                               f"title='Stop distance in ATR. From entry = the risk "
+                                                               f"you took (sets R). From LTP = room the stop has now — "
+                                                               f"under 1x is inside one day of normal range.'>"
+                                                               f"[{_ent_txt} · {_x_ltp:.1f}×ATR now]</span>")
                                             sl_parts.append(sl_str)
                                         if tgt is not None:
                                             label = f"T{o_idx+1}"
