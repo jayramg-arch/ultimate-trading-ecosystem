@@ -13,6 +13,35 @@ from dhanhq import dhanhq
 INPUT_FILE = "portfolio_data.json"
 OUTPUT_FILE = "market_intel.json"
 
+import warnings
+warnings.filterwarnings("ignore")
+import logging
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+# Silence nselib's noisy ERROR-level logs ("Resource not available for Price Volume Data")
+# that fire whenever NSE returns empty. The data is recovered via yfinance fallback
+# (see _safe_history below); these errors are cosmetic noise, not real failures.
+# Defensive duplicate of data_provider.py's silencing in case import order varies.
+logging.getLogger("nselib").setLevel(logging.CRITICAL)
+logging.getLogger("nselib.capital_market").setLevel(logging.CRITICAL)
+logging.getLogger("nselib.capital_market.get_func").setLevel(logging.CRITICAL)
+
+def _safe_history(symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
+    """Robust OHLCV fetch via data_provider."""
+    def _flatten(df: pd.DataFrame) -> pd.DataFrame:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        return df
+
+    try:
+        import data_provider as _dp
+        df = _dp.fetch_ohlcv(symbol, period=period, interval=interval, use_cache=True, auto_adjust=True)
+        if df is not None and not df.empty:
+            return _flatten(df)
+    except Exception:
+        pass
+
+    return pd.DataFrame()
+
 CLIENT_ID    = os.getenv("DHAN_CLIENT_ID")
 ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
 
@@ -93,11 +122,13 @@ def calculate_technical_structure(df):
         is_rising = curr['SMA30'] > prev['SMA30']
         is_above = curr['Close'] > curr['SMA30']
         
-        if is_rising and is_above: stage = "STAGE 2 (UP)"
+        # Canonical Weinstein 4-stage classification (was mislabelled: Stage 3
+        # called "Stage 4 Trap", Stage 1 called "Stage 2 Pullback").
+        if is_rising and is_above:         stage = "STAGE 2 (UP)"
         elif not is_rising and not is_above: stage = "STAGE 4 (DOWN)"
-        elif not is_rising and is_above: stage = "STAGE 4 (TRAP)"
-        elif is_rising and not is_above: stage = "STAGE 2 (PULLBACK)"
-        else: stage = "STAGE 1 (BASE)"
+        elif not is_rising and is_above:    stage = "STAGE 3 (TOP)"
+        elif is_rising and not is_above:    stage = "STAGE 1 (BASE)"
+        else:                                stage = "STAGE 1 (BASE)"
 
     # 2. Volatility Squeeze (Daily)
     bands = ta.bbands(df['Close'], length=20)
@@ -317,10 +348,8 @@ def get_macro_intel():
     
     for name, ticker in tickers.items():
         try:
-            t = yf.Ticker(ticker)
-            
-            # 1. Price Data
-            hist = t.history(period="5d")
+            # 1. Price Data — use _safe_history to avoid NoneType crash on Yahoo API failures
+            hist = _safe_history(ticker, period="5d")
             if not hist.empty:
                 current = hist['Close'].iloc[-1]
                 prev = hist['Close'].iloc[-2]
@@ -334,7 +363,14 @@ def get_macro_intel():
                 macro_data[name] = {"Current": 0, "Change": 0, "Trend": "FLAT"}
             
             # 2. News Data
+            # `t` was the yfinance Ticker built here before the _safe_history
+            # refactor removed it; the NameError landed in the bare except
+            # below, so this block has been contributing ZERO news items while
+            # looking like it worked. yfinance is the only source for .news —
+            # data_provider serves OHLCV, not headlines.
             try:
+                import yfinance as _yf
+                t = _yf.Ticker(ticker)
                 news = t.news
                 if news:
                     for n in news[:2]: # Top 2 per asset
@@ -431,14 +467,39 @@ def analyze_market():
     live_portfolio = get_live_holdings()
 
     print("[*] Launching Hybrid Intelligence Scanner...")
-    
+
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
+
+    # Merge any live-broker holdings that aren't already in portfolio_data.json.
+    # Previously the analysis universe was the CSV-derived JSON only, which left
+    # the PDF + Gemini prompt showing fewer stocks than the live dashboard when
+    # the CSV was stale (user reported: dashboard 6, PDF 4). Live broker data
+    # is the ground truth — fold any missing symbols in here so every held
+    # name gets analysed and persisted into portfolio_data.json for next run.
+    if live_portfolio:
+        _added = 0
+        for _sym in live_portfolio.keys():
+            if _sym and _sym not in raw_data:
+                raw_data[_sym] = []
+                _added += 1
+        if _added:
+            print(f"[+] Added {_added} live holding(s) missing from "
+                  f"{INPUT_FILE}: {[s for s in live_portfolio if s not in csv_metadata][:8]}")
+            try:
+                with open(INPUT_FILE, "w", encoding="utf-8") as _f:
+                    json.dump(raw_data, _f, indent=4)
+            except Exception as _we:
+                print(f"[!] Could not persist merged portfolio_data.json: {_we}")
         
-    # Benchmark
+    # Benchmark — _safe_history handles Yahoo chart API returning null
     print("[-] Fetching Nifty 50 Data...")
-    nifty = yf.Ticker("^NSEI")
-    nifty_hist = nifty.history(period="2y")
+    nifty_hist = _safe_history("^NSEI", period="2y")
+    if nifty_hist.empty:
+        nifty_hist = _safe_history("^CRSLDX", period="2y")   # Nifty 500 fallback
+    if nifty_hist.empty:
+        print("[!] WARNING: Could not fetch Nifty benchmark — RS ratings will be skipped.")
+    have_bench = not nifty_hist.empty
     
     # Get Macro Data
     macro_intel = get_macro_intel()
@@ -458,9 +519,9 @@ def analyze_market():
         try:
             ticker = get_ticker(symbol)
             stock = yf.Ticker(ticker)
-            
-            # 1. Price Data
-            df = stock.history(period="2y")
+
+            # 1. Price Data — _safe_history avoids NoneType crash on Yahoo API failures
+            df = _safe_history(ticker, period="2y")
             if df.empty: continue
             
             # 2. Fundamentals
@@ -479,14 +540,19 @@ def analyze_market():
             # 3. Technical Structure
             stage, sma_wk, squeeze, vol_status = calculate_technical_structure(df)
             
-            # 4. Relative Strength
-            common = df.index.intersection(nifty_hist.index)
-            s_c = df['Close'].loc[common]
-            n_c = nifty_hist['Close'].loc[common]
-            ratio = s_c / n_c
-            d_sma = ratio.rolling(52).mean()
-            mansfield = ((ratio / d_sma) - 1) * 10
-            rs_rating = round(mansfield.iloc[-1], 2)
+            # 4. Relative Strength (skipped if benchmark unavailable)
+            rs_rating = 0.0
+            if have_bench:
+                try:
+                    common = df.index.intersection(nifty_hist.index)
+                    s_c = df['Close'].loc[common]
+                    n_c = nifty_hist['Close'].loc[common]
+                    ratio = s_c / n_c
+                    d_sma = ratio.rolling(52).mean()
+                    mansfield = ((ratio / d_sma) - 1) * 10
+                    rs_rating = round(float(mansfield.iloc[-1]), 2)
+                except Exception:
+                    rs_rating = 0.0
             
             # 5. Sentiment
             sent, headlines = get_news_sentiment(stock)
