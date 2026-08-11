@@ -16391,25 +16391,38 @@ elif page == 'RISK SHIELD':
                                                 except Exception:
                                                     _atr_abs = 0.0
                                                 if _atr_abs > 0:
+                                                    # ENTRY-RELATIVE ONLY (Jay, 11-Aug-2026:
+                                                    # "calculate that with regard to entry price and not
+                                                    # LTP"). The stop's ATR multiple is the risk you TOOK,
+                                                    # measured from where you bought. The LTP-relative
+                                                    # version answered a different question (how much room
+                                                    # is left) and made the field two numbers when the one
+                                                    # that matters is the first. Dropped.
+                                                    #
+                                                    # This is also the number the trade-type ladder's rung 3
+                                                    # classifies on, so the tile now shows what drives the
+                                                    # SWING/POSITIONAL verdict rather than hiding it.
                                                     _x_ent = (buy_price - sl) / _atr_abs
-                                                    _x_ltp = (ltp - sl) / _atr_abs
-                                                    # A stop AT or ABOVE entry has no risk left to express
-                                                    # as a multiple — it is locked profit. Rendering it as
-                                                    # "-3.9xATR entry" (LAURUSLABS, stop 1549.5 vs entry
-                                                    # 1377.2) reads as a mistake rather than as the good news
-                                                    # it is. 5 of 15 live positions are in this state.
-                                                    _ent_txt = (f"{_x_ent:.1f}×ATR entry" if _x_ent > 0.05
+                                                    # A stop AT or ABOVE entry has no risk left to express as
+                                                    # a multiple — it is locked profit. "-3.9×ATR entry"
+                                                    # (LAURUSLABS, stop 1549.5 vs entry 1377.2) reads as a
+                                                    # bug rather than the good news it is; 5 of 15 live
+                                                    # positions are in that state.
+                                                    _ent_txt = (f"{_x_ent:.1f}×ATR" if _x_ent > 0.05
                                                                 else ("breakeven" if abs(_x_ent) <= 0.05
                                                                       else f"locked +{-_x_ent:.1f}×ATR"))
-                                                    # Colour on the LIVE distance: under 1 ATR the stop sits
-                                                    # inside a single day's normal range.
-                                                    _xc = ("#EF4444" if _x_ltp < 1.0 else
-                                                           "#F59E0B" if _x_ltp < 2.0 else "#94A3B8")
+                                                    # Colour against the POLICY stops: 2.5x swing, 4.0x
+                                                    # positional. Beyond 5x is wider than either policy
+                                                    # allows and worth seeing (COALINDIA was entered at 7.2x).
+                                                    _xc = ("#EF4444" if _x_ent > 5.0 else
+                                                           "#F59E0B" if _x_ent > 4.0 else "#94A3B8")
                                                     sl_str += (f" <span style='color:{_xc};font-size:0.78rem;' "
-                                                               f"title='Stop distance in ATR. From entry = the risk "
-                                                               f"you took (sets R). From LTP = room the stop has now — "
-                                                               f"under 1x is inside one day of normal range.'>"
-                                                               f"[{_ent_txt} · {_x_ltp:.1f}×ATR now]</span>")
+                                                               f"title='Stop distance from ENTRY in ATR — the risk "
+                                                               f"you took, and what sets R. Policy: 2.5x swing / "
+                                                               f"4.0x positional; above 5x is wider than either. "
+                                                               f"ATR is current, so on a long-held position it is "
+                                                               f"an approximation of the ATR at entry.'>"
+                                                               f"[{_ent_txt}]</span>")
                                             sl_parts.append(sl_str)
                                         if tgt is not None:
                                             label = f"T{o_idx+1}"
