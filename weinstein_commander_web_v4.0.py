@@ -16441,6 +16441,19 @@ elif page == 'RISK SHIELD':
                                         structural=_tt_struct,
                                         entry=buy_price, stop=_jov.get("stoploss"),
                                         atr_pct=(_tech or {}).get("atr_pct"))
+                                    # DIAGNOSTIC (10-Aug-2026). "default" means every rung
+                                    # abstained, and offline the same ladder answers for 8 of
+                                    # 14 holdings — so an input is not arriving. Rather than a
+                                    # fourth theory, record WHICH one is missing, once per
+                                    # symbol per run. Delete once the tiles read correctly.
+                                    if _tt_src == "default":
+                                        _gm_logger.warning(
+                                            "TT-DEFAULT %s | tf=%r setup=%r struct=%r "
+                                            "entry=%r stop=%r atr=%r | jov_keys=%s",
+                                            sym, _jov.get("timeframe"), _jov.get("setup"),
+                                            _tt_struct, buy_price, _jov.get("stoploss"),
+                                            (_tech or {}).get("atr_pct"),
+                                            sorted(_jov.keys()) if _jov else "EMPTY")
 
                                     if _tech and _tech.get("atr_pct"):
                                         val = _tech.get("atr_pct")
