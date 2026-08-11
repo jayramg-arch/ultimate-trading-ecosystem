@@ -15426,6 +15426,14 @@ elif page == 'RISK SHIELD':
                                 # Trade-type-aware trail window (Jay, 14-Jul-2026):
                                 # journal Timeframe (Positional/Swing) → 22/14-bar clock.
                                 "timeframe": str(r.get("Timeframe", "")).strip() if pd.notna(r.get("Timeframe")) else "",
+                                # ENTRY + STOP (10-Aug-2026) — rung 3 of the trade-type ladder
+                                # (risk taken at entry, in ATR units). This dict carried only
+                                # the five override fields, so classify_by_stop_distance was
+                                # handed stop=None and abstained on EVERY position — which is
+                                # why every tile fell through to "POSITIONAL · default".
+                                # The ladder was correct and simply never had the inputs.
+                                "buy_price": float(r.get("BuyPrice")) if pd.notna(r.get("BuyPrice")) else None,
+                                "stoploss": float(r.get("StopLoss")) if pd.notna(r.get("StopLoss")) else None,
                             }
 
                 # B2: market regime (0-10 scorer) — degrades to per-symbol SMA200 check on failure
