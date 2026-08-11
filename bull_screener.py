@@ -93,8 +93,10 @@ import yfinance as yf
 # target-driven. The +1.05% quoted elsewhere is matched ALPHA against a falling
 # benchmark, not profit. Env-overridable for future sweeps.
 import os as _os_t1
-POS_T1_R = float(_os_t1.getenv('POS_T1_R', '2.0'))    # was 5.0
-POS_T2_R = float(_os_t1.getenv('POS_T2_R', '4.0'))    # was 10.0
+POS_T1_R = float(_os_t1.getenv('POS_T1_R', '3.0'))    # 5.0 -> 2.0 -> 3.0 (Jay, 10-Aug: min 2R, positional 3R/5R)
+POS_T2_R = float(_os_t1.getenv('POS_T2_R', '5.0'))    # 10.0 -> 4.0 -> 5.0
+SWG_T1_R = float(_os_t1.getenv('SWG_T1_R', '2.0'))    # swing floor: Jay takes nothing under 2R
+SWG_T2_R = float(_os_t1.getenv('SWG_T2_R', '4.0'))
 
 
 def target_r_for(setup, swing=None):
@@ -110,22 +112,28 @@ def target_r_for(setup, swing=None):
     the SAME numbers instead of applying the POSITIONAL constants to every open order.
     An unknown / blank setup returns the swing default, matching the screener's fallback.
     """
+    # JAY'S RULING, 10-Aug-2026: "I will not take any trade if the RR is less than 2.
+    # So, let's go with this formula: Swing: 2R/4R, positional: 3R/5R. And you are anyway
+    # leaving some quantity without targets, which I'll trail."
+    #
+    # Positional now carries the HIGHER multiples, which is the right way round for his
+    # method - and because the R UNITS differ it is a bigger move in percent too:
+    #   SWING       2.5xATR stop (7.6%)  -> T1 2R = 15%,  T2 4R = 30%
+    #   POSITIONAL  4.0xATR stop (12.2%) -> T1 3R = 37%,  T2 5R = 61%
+    #
+    # Stated before he chose, recorded so it is not rediscovered as a surprise: measured
+    # over 203 POS trades only 8.4% ever reach 3R, so the T1 partial and the move to
+    # breakeven will rarely fire on the positional book. His framing absorbs that - half
+    # the position carries NO target and exits on the trail, which is what actually happens
+    # (88% of POS exits are trail-SL, zero hit a target). Targets are upside, not the
+    # mechanism.
+    #
+    # WYC/REV follow POSITIONAL here. They are 90-180 day setups and had been falling to
+    # the swing default by accident - flagged earlier the same day, fixed with this ruling.
     s = str(setup or "").upper()
-    if s.startswith("POS"):
+    if s.startswith(("POS", "WYC", "REV")):
         return POS_T1_R, POS_T2_R
-    if s == "SWG-REV":
-        return 2.0, 2.0
-    if s == "SWG-GAP":
-        return 2.0, 4.0
-    if s.startswith("SWG"):
-        return 3.0, 5.0
-    # UNKNOWN SETUP (10-Aug-2026). Every live journal row has setup='NONE', so this branch
-    # decides the targets on the whole book — and it used to return the SWING pair, which
-    # gave a POSITIONAL holding 3R/5R. When the caller knows the trade TYPE, use it; that is
-    # the same precedence chandelier_exit uses when the setup label cannot answer.
-    if swing is not None:
-        return (3.0, 5.0) if swing else (POS_T1_R, POS_T2_R)
-    return 3.0, 5.0          # nothing known at all — the historical fallback
+    return SWG_T1_R, SWG_T2_R      # every SWG-* family, and the unknown fallback
 
 
 def partial_qty_for(setup, swing=None):
