@@ -169,7 +169,50 @@ def classify_trade_type_v22(df_daily, rrg: str = None):
     return sw, ("SWING" if sw else "POSITIONAL"), src, fam
 
 
-def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=None):
+SWING_STOP_ATR = 2.5          # the shipped swing initial stop
+POS_STOP_ATR = 4.0            # the shipped positional initial stop
+STOP_CUT_ATR = (SWING_STOP_ATR + POS_STOP_ATR) / 2.0     # 3.25x — the boundary between them
+
+
+def classify_by_stop_distance(entry, stop, atr_pct):
+    """(is_swing, label, source) from WHAT YOU RISKED. Abstains unless it can be sure.
+
+    The one criterion that cannot drift. Every other test — the allocator's, Gemini's,
+    any MA/RSI rule — reads CURRENT chart state, so the verdict can flip mid-trade and
+    rewrite the stop multiplier and targets underneath an open position. Risk taken at
+    entry is fixed the moment you buy.
+
+    Credit where due: this rung came from Gemini's independent take ("using Stop Distance
+    alongside Weekly Stage context is the cleanest objective boundary — 2-5% swing,
+    5-12% positional"). Its 4-pillar framework was otherwise chart-state like the rest.
+
+    MEASURED IN ATR, NOT PERCENT. A flat 5% cut ignores that a 10% stop on COALINDIA
+    (ATR 1.5%) is 6.7x ATR — a very wide positional stop — while the same 10% on NETWEB
+    (ATR 4.2%) is only 2.4x. Percent boundaries misclassify low-volatility names as
+    positional and high-volatility ones as swing, which is backwards. The cut is 3.25x,
+    the midpoint of the system's OWN two stop policies, so this rung agrees with the
+    stop that would have been placed.
+
+    ABSTAINS (returns None) when the stop is at or above entry. The journal's `stoploss`
+    is the CURRENT stop, not the original: on a winner it has been trailed to breakeven or
+    into profit (ANANDRATHI 1895.5 vs entry 1787.78, LAURUSLABS 1549.5 vs 1377.15), and
+    5 of 15 live holdings are in that state. Inferring "tiny risk therefore swing" from a
+    trailed stop would classify every successful positional trade as a swing and tighten
+    its trail — the exact failure this whole ladder exists to prevent. Silence is correct.
+    """
+    try:
+        e, s, a = float(entry), float(stop), float(atr_pct)
+    except Exception:
+        return None, None, None
+    if not (e > 0 and s > 0 and a > 0) or s >= e:
+        return None, None, None           # no stop, bad data, or trailed to/above entry
+    risk_atr = ((e - s) / e * 100.0) / a
+    sw = risk_atr <= STOP_CUT_ATR
+    return sw, ("SWING" if sw else "POSITIONAL"), f"risk {risk_atr:.1f}xATR"
+
+
+def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=None,
+                       entry=None, stop=None, atr_pct=None):
     """(is_swing, label, source) — the ONE precedence order for "is this a swing trade".
 
     Added 10-Aug-2026 after an audit found THREE independent answers coexisting on the
@@ -206,6 +249,12 @@ def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=N
         return True, "SWING", "setup"
     if s.startswith(("POS", "WYC", "REV")):
         return False, "POSITIONAL", "setup"
+    # RUNG 3 — what you actually RISKED. Above the allocator because it is entry-fixed
+    # and describes THIS trade, where the allocator describes today's chart. Abstains
+    # rather than guessing when the stop has been trailed to or above entry.
+    _sw, _lab, _why = classify_by_stop_distance(entry, stop, atr_pct)
+    if _sw is not None:
+        return _sw, _lab, f"stop ({_why})"
     if structural is not None:
         sw = bool(structural)
         return sw, ("SWING?" if sw else "POSITIONAL?"), "structural"

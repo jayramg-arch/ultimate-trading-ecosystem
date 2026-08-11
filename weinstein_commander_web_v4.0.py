@@ -15166,6 +15166,7 @@ elif page == 'RISK SHIELD':
         _tip = {"journal": "You declared this on the trade (journal Timeframe)",
                 "setup": "Derived from the entry catalyst — the intent at entry",
                 "structural": "Commander Risk Allocator v2.2 classification",
+                "stop": "What you actually RISKED at entry, in ATR units — the one criterion that cannot drift mid-trade",
                 "default": "NOTHING was known — no Timeframe, no setup, no classification. "
                            "This is a fallback, not a verdict."}.get(_srcs, _srcs or "—")
         _tag = ("" if not _srcs else
@@ -15755,7 +15756,10 @@ elif page == 'RISK SHIELD':
                                     _swing_s, _ttlab_s, _ttsrc_s = _rc.resolve_trade_type(
                                         timeframe=_jov_s.get("timeframe"),
                                         setup=_jov_s.get("setup"),
-                                        structural=_struct_s)
+                                        structural=_struct_s,
+                                        entry=_jov_s.get("buy_price"),
+                                        stop=_jov_s.get("stoploss"),
+                                        atr_pct=(_tech or {}).get("atr_pct"))
                                     if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
                                         _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
@@ -16426,7 +16430,9 @@ elif page == 'RISK SHIELD':
                                     is_swing, tt_label, _tt_src = _rc.resolve_trade_type(
                                         timeframe=_jov.get("timeframe"),
                                         setup=_jov.get("setup"),
-                                        structural=_tt_struct)
+                                        structural=_tt_struct,
+                                        entry=buy_price, stop=_jov.get("stoploss"),
+                                        atr_pct=(_tech or {}).get("atr_pct"))
 
                                     if _tech and _tech.get("atr_pct"):
                                         val = _tech.get("atr_pct")
