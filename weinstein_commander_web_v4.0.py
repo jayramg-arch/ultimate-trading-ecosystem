@@ -15758,8 +15758,31 @@ elif page == 'RISK SHIELD':
                                     # resolve_trade_type's precedence is journal -> setup prefix
                                     # -> structural -> positional, so a declared Timeframe still
                                     # wins; the structural read only speaks when nothing else can.
-                                    _struct_s = rs_trade_type.get(_s, (None, ""))[0] \
-                                        if isinstance(rs_trade_type, dict) else None
+                                    # TRADE TYPE — Risk Allocator v2.2 classifier, computed HERE
+                                    # because df_sym is in hand. RS quadrant comes from the MANUAL
+                                    # Strike flags, which is the reading Jay trades.
+                                    #
+                                    # THIS USED TO READ `rs_trade_type`, WHICH IS BUILT ~120 LINES
+                                    # BELOW THIS LOOP. The NameError was swallowed by the batch
+                                    # except as "Technicals fetch failed this run", so NO symbol got
+                                    # technicals: no chandelier (TSL marker gone), no atr_pct (ladder
+                                    # rung 3 silent), no tt_label (rung 4 silent) — and every tile
+                                    # read "POSITIONAL default". One forward reference, every symptom
+                                    # reported today. A batch-level except that reports a data problem
+                                    # will hide a code problem indefinitely.
+                                    _tt_sw = _tt_lab = _tt_fam = _tt_why = None
+                                    try:
+                                        _q_manual = None
+                                        try:
+                                            import gm_trigger_board as _gtb_tt
+                                            _q_manual = (_gtb_tt.rrg_load() or {}).get(str(_s).upper())
+                                        except Exception:
+                                            pass
+                                        _tt_sw, _tt_lab, _tt_why, _tt_fam = _rc.classify_trade_type_v22(
+                                            df_sym, rrg=_q_manual)
+                                    except Exception as _e_tt:
+                                        _gm_logger.warning(f"{_s}: trade-type classify failed: {_e_tt}")
+                                    _struct_s = _tt_sw
                                     _jov_s = journal_overrides.get(_s, {}) if isinstance(journal_overrides, dict) else {}
                                     _swing_s, _ttlab_s, _ttsrc_s = _rc.resolve_trade_type(
                                         timeframe=_jov_s.get("timeframe"),
@@ -15805,23 +15828,8 @@ elif page == 'RISK SHIELD':
                                         (8  if _ws_above50  else 0)
                                     )
                                     
-                                # TRADE TYPE — the Commander Risk Allocator v2.2 classifier,
-                                # computed HERE because df_sym is already in hand. Jay, 10-Aug:
-                                # "the journal's trade type is incorrect... the risk allocator
-                                # v2.2 has the mechanism... go by that." RS quadrant comes from
-                                # his MANUAL Strike flags, which is the reading he trades.
-                                _tt_sw = _tt_lab = _tt_fam = _tt_why = None
-                                try:
-                                    _q_manual = None
-                                    try:
-                                        import gm_trigger_board as _gtb_tt
-                                        _q_manual = (_gtb_tt.rrg_load() or {}).get(str(_s).upper())
-                                    except Exception:
-                                        pass
-                                    _tt_sw, _tt_lab, _tt_why, _tt_fam = _rc.classify_trade_type_v22(
-                                        df_sym, rrg=_q_manual)
-                                except Exception as _e_tt:
-                                    _gm_logger.warning(f"{_s}: trade-type classify failed: {_e_tt}")
+                                # (trade type is classified further up, before the trail block that
+                                # consumes it — computing it twice would be two chances to drift)
                                 hist_data[_s] = {
                                     "ltp": round(_ltp, 2),
                                     "tt_swing": _tt_sw,
