@@ -811,12 +811,33 @@ def load_board_cache(max_age_hours: float = 24.0, tf: str = None):
         return None, None
 
 
-def trigger_category(verdict: str, path: str) -> str:
+def trigger_category(verdict: str, path: str, pyramid: bool = False) -> str:
     """Map a GM workflow verdict → the user's trigger category. Zero-drift: the
     verdict strings are exactly those compute_workflow/compute_recovery_workflow
-    produce."""
+    produce.
+
+    PYRAMID ADDS DO NOT WAIT FOR A GM TRIGGER (Jay, 10-Aug-2026): "as long as the
+    portfolio stock satisfies the basic criteria like stage-2 structure etc. — instead
+    of waiting for a full GO from GM. However, S4 will follow its own course."
+
+    The reasoning: a pyramid row is a position you ALREADY OWN, and `pyramid_logic`
+    only rates it ADD after its own gates pass — leader (RRG + score + winning) AND
+    pullback location (above a rising 200-DMA, within 10% of the 5-day close, above the
+    EMA20). Re-gating that on a fresh entry TRIGGER asks a second, unrelated question.
+    The structural break-down guard still applies (Pyramid is in
+    STRUCTURAL_BULL_ARCHETYPES), so Stage 3/4 or a lost 30-WMA still INVALIDATES.
+
+    Live example this made wrong: LAURUSLABS, Stage 2, structure intact, rated ADD by
+    pyramid_logic, read "Armed Wait" solely because no PA pattern fired that bar.
+
+    The S4-GO column is untouched — it keeps showing the timing detail, and S4 on the
+    chart keeps its own verdict. This changes what the CATEGORY calls it, not what any
+    engine computed.
+    """
     v = (verdict or "").upper()
     p = "Recovery" if path == "recovery" else "Bull"
+    if pyramid and not (v.startswith("INVALIDATED") or v.startswith("WATCHLIST")):
+        return f"ADD ready · {p}"
     if "TRIGGER LIVE" in v:
         return f"Buy Trigger Live · {p}"
     if v.startswith("ARMED"):
@@ -1122,7 +1143,7 @@ def intra_issue_summary() -> list:
 
 
 # category rank for picking the primary path when a name qualifies on both sides
-_CAT_RANK = {"Buy Trigger Live": 5, "Armed Wait": 4, "Wait for Pullback": 3,
+_CAT_RANK = {"Buy Trigger Live": 5, "ADD ready": 4.5, "Armed Wait": 4, "Wait for Pullback": 3,
              "No Catalyst": 2, "Watchlist": 1, "Invalidated": 0, "Avoid": 0, "Other": 0}
 
 
@@ -1258,11 +1279,14 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     run_bull = ("bull" in sides) or ("both" in sides) or _no_side
     run_rec = ("recovery" in sides) or ("both" in sides) or _no_side
 
+    # A pyramid ADD is a holding, not a candidate entry — it does not wait for a GM
+    # trigger. See trigger_category() for the reasoning and the LAURUSLABS case.
+    _is_pyr = PYRAMID_ARCHETYPE in set(info.get("archetypes") or [])
     cands = []          # (category, path, wf)
     if run_bull and _wfb is not None:
-        cands.append((trigger_category(_wfb.get("verdict"), "bull"), "bull", _wfb))
+        cands.append((trigger_category(_wfb.get("verdict"), "bull", _is_pyr), "bull", _wfb))
     if run_rec and _wfr is not None:
-        cands.append((trigger_category(_wfr.get("verdict"), "recovery"), "recovery", _wfr))
+        cands.append((trigger_category(_wfr.get("verdict"), "recovery", _is_pyr), "recovery", _wfr))
     if not cands:
         return None
 
