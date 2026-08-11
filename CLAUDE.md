@@ -2479,3 +2479,86 @@ so it uses RS slope, not `tDir`) · Risk Allocator v2.2 `"SWG"` fallback bug (~l
 2nd OCO covers 31 shares on the SL leg vs 15 on the target · board Pullback archetype still admits
 SWG-PB via inherited qualification · re-bind the 15 v67 sources after every S4 compile.
 Unchanged: SR/Trendline Lab fold-back + [[s4-parked-pivot-tasks]] · recovery re-baseline (~12h).
+
+---
+
+## 10–11 Aug 2026 — Risk Shield rebuild: trade-type ladder · exit reality · R-canon
+
+Branch `phase0-1-attribution-journal-snapshot`. ~20 commits, head `7f82e8c`. **Recovery
+re-baseline finished but is STILL UNREAD** — gate on `forward_days_used` showing 90/120/180
+before quoting any number from it.
+
+### A. Trade type — a ladder, not a classifier ([[trade-type-ladder]])
+`risk_common.resolve_trade_type`, first rung that can answer wins: **journal `Timeframe` →
+`setup` prefix → stop distance in ATR → allocator v2.2 → positional default.** The first
+three are ENTRY-FIXED; only rung 4 reads today's chart, and a chart classifier is
+non-stationary (recompute each bar and the stop multiplier flips 4.5x↔1.5x mid-trade).
+- **NEW `classify_trade_type_v22`** — port of `Commander_Risk_Allocator_v2.2.pine:111-155`.
+  THE TIE-BREAK IS THE POINT: both legs are commonly true and Pine resolves via the CATALYST
+  detection (:149), falling to POS only when that is NONE. My first port collapsed it to
+  "both → positional" and produced 14 of 15 positional — exactly the reported symptom.
+- **Rung 3 (stop distance) is Gemini's idea**, measured in ATR not percent (its 2-5%/5-12%
+  bands misclassify by volatility). Cut 3.25xATR. **Abstains when the stop is at/above entry**
+  — 5 of 15 holdings have trailed stops, and inferring "small risk = swing" would reclassify
+  every winner.
+- Journal `trade_type` column deliberately NOT used (Jay: "it's incorrect").
+- The badge prints the rung: `journal` / `setup` / `stop (risk 4.2xATR)` / `structural` /
+  `⚠ default`. Upstream fix that removes all inference: write `Timeframe` per position.
+
+### B. Exit reality ([[exit-reality-trail-owns-88pct]])
+POS n=203: **Trail SL 88.2% at mean −0.01R · SL hit 11.8% at −1.02R · book −0.13R mean,
+−0.48R median.** Only 8.4% ever reach 3R. So: the 4xATR stop is NOT the problem (hit 11.8%),
+targets are near-decorative, and **the trail owns 88% of exits and has never been properly
+A/B'd**. Absolute R is negative while matched alpha is +1.05% (falling benchmark) — quote both
+or neither.
+**T1-vs-SL is 0.98:1, not 2:1** — T1 pays 2R on HALF the shares, SL costs 1R on ALL of them.
+For true 2:1 you need T1=4R at 50/50. ⚠ replay's 25/25 does not fit Dhan 2-OCO (two legs cover
+the whole position, no untargeted runner) and would make it 0.75:1.
+
+### C. R-canon locked (Jay): **swing 2R/4R · positional 3R/5R · nothing under 2R**
+`bull_screener.target_r_for` + NEW `partial_qty_for` (hoisted from replay so R-multiples and
+quantities share ONE fallback — they had diverged: blank setup took SWG targets with POS
+quantities). WYC/REV moved onto the positional row. Propagated to **S4** (`tt_t1r_*`) and
+**Commander_Risk_Allocator_v2.2** (`t1/t2/t3_r_canon`, plus three hardcoded 10.0/15.0 that
+bypassed the constants). Both compiled by Jay.
+
+### D. Risk Shield surface
+- OCO card **split**: left = AT DHAN NOW (a mirror of resting orders, was mislabelled "Plan"),
+  right = RECOMMENDED (policy R off a FIXED-AT-ENTRY R unit, tighten-only SL).
+- **SL ATR multiple on every tile** — from ENTRY (the risk taken; `locked +3.9×ATR` /
+  `breakeven` when trailed above entry). TSL badge shows the gap FROM LTP (the badge's 4.5x is
+  the Chandelier SETTING; the live gap runs 2.8-4.5x because the anchor is the 22-bar highest
+  close). Rec SL names its LTP multiple.
+- **TSL timeline marker was invisible, not missing** — 3px sliver in the same purple as the
+  12px Rec-SL dot. Now cyan `#22D3EE`, 5x26px, z-index.
+- Swing trades were trailing on the POSITIONAL multiplier: `swing` drove only the 14/22-bar
+  WINDOW while the multiplier fell to the 4.5 heuristic whenever `setup` was blank.
+- Pyramid rows read **`ADD ready`** — a holding pyramid_logic rated ADD does not wait for a
+  fresh GM entry trigger (structural break-down guard still applies).
+
+### E. THE BUG THAT COST THE MOST — and its lesson
+`Technicals fetch failed this run (name 'rs_trade_type' is not defined)`. I referenced
+`rs_trade_type` inside the per-symbol technicals loop; it is built ~120 lines BELOW it. The
+batch-level `except` reported a CODE fault as a DATA fault, so nothing got technicals →
+no chandelier (TSL marker gone) → no atr_pct (rung 3 silent) → no tt_label (rung 4 silent) →
+every tile `POSITIONAL default`. **I chased four separate symptoms for an hour, and had
+considered this exact cause early and dismissed it.** A batch except that phrases a code fault
+as a data fault hides it indefinitely. Jay's screenshot of the warning solved it in one line.
+
+### F. Also shipped
+`tests/conftest.py` — autouse isolation after finding the SUITE was writing the LIVE
+`gm_armed.json` (records named OLD/X); the guard needed two attempts because the writers go
+through `atomic_write_text` (tmp + `os.replace`), which never `open()`s the real path.
+`tv_bind_s4.py` + `BIND_S4_SOURCES.bat` + desktop shortcut (Windows cannot pin a .bat; the
+shortcut targets `cmd.exe /c`). Check-in refresh schedule (10:35/11:50/13:30/14:20/15:35).
+`ALL 3 BOARDS` fixed — `st.markdown` strips inline `onclick`, so it moved to
+`components.v1.html`; popup blocking now reports itself.
+
+### Open
+Restart Web Commander and confirm the four symptoms clear together · **read the recovery
+re-baseline behind the forward_days_used gate** · port the pyramid ladder to v67 (analysis
+done: every term maps, slots already carry Entry/SL/T1/T2 via Sync-to-TV; port the PRIORITY
+ladder, not ADD alone, or it will prompt adds on names that should be EXITed) · Rec SL/T1/T2
+at `:16512` still on the OLD 5R/10R and mixed anchors (SL from LTP, targets from entry) ·
+OCO partial convention vs Risk Shield · GESHIP has `buy_price = 0.0` in the journal ·
+**register `GTT_Trail_Daily` + apply the 15 stop tightens** (Jay's, still open since 9-Aug).
