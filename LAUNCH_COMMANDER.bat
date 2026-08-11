@@ -44,6 +44,20 @@ SET "PYTHONUTF8=1"
 echo 🦁 INITIALIZING WEINSTEIN COMMANDER...
 echo 📡 Launching Mission Control UI...
 
+:: ---- PRE-FLIGHT: undefined names on the live trading path -------------------
+:: ~1s parse, no imports, no execution. Catches the class of bug that cost a
+:: whole session on 11-Aug-2026: a name referenced inside a loop but defined
+:: further down the file, swallowed by a batch except that reported it as
+:: "Technicals fetch failed this run". py_compile cannot see these.
+:: Exit 1 = real findings (offer to stop). Exit 2 = linter missing (carry on).
+"%PYTHON_EXE%" "%ROOT_DIR%preflight.py"
+IF ERRORLEVEL 2 GOTO :preflight_done
+IF ERRORLEVEL 1 (
+    echo   Launch anyway? Ctrl+C to stop and fix, or
+    pause
+)
+:preflight_done
+
 :: Start Streamlit in the background
 :: We remove the hardcoded port 8501 to allow auto-fallback if another instance is running
 echo 🚀 Launching Mission Control...

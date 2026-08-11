@@ -51,6 +51,20 @@ echo   WEINSTEIN COMMANDER
 echo   project : %PROJECT_DIR%
 echo   python  : %PYTHON_EXE%
 echo.
+:: ---- PRE-FLIGHT: undefined names on the live trading path -------------------
+:: ~1s parse, no imports, no execution. Catches the class of bug that cost a
+:: whole session on 11-Aug-2026: a name referenced inside a loop but defined
+:: further down the file, swallowed by a batch except that reported it as
+:: "Technicals fetch failed this run". py_compile cannot see these.
+:: Exit 1 = real findings (offer to stop). Exit 2 = linter missing (carry on).
+"%PYTHON_EXE%" "%PROJECT_DIR%\preflight.py"
+IF ERRORLEVEL 2 GOTO :preflight_done
+IF ERRORLEVEL 1 (
+    echo   Launch anyway? Ctrl+C to stop and fix, or
+    pause
+)
+:preflight_done
+
 echo   Launching Mission Control...
 
 :: NOTE: python -m streamlit, never streamlit.exe. The .exe is a launcher stub with

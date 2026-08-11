@@ -127,3 +127,7 @@ wsproto==1.3.2
 xlsxwriter==3.2.9
 yfinance==1.1.0
 zstandard==0.25.0
+
+# Dev/pre-launch tooling (LAUNCH_*.bat calls preflight.py; tests/ needs pytest)
+pyflakes
+pytest
