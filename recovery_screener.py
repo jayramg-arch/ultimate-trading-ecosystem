@@ -141,6 +141,11 @@ import yfinance as yf
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 logging.getLogger("peewee").setLevel(logging.CRITICAL)
 
+# Module logger. Three except handlers below call logger.debug/warning; without
+# this they raised NameError *inside* the handler, replacing a soft skip with a
+# hard crash.
+logger = logging.getLogger(__name__)
+
 # C1: route OHLCV through the unified data_provider when available.
 try:
     import data_provider as _dp

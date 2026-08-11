@@ -8134,6 +8134,9 @@ elif page == 'AI LAB':
                                 _ga_data["analysis_focus"] = "trade_setup"
                                 _ga_data["risk_reward_required"] = True
 
+                            # Not in the top-level gemini_reporter import list — import
+                            # locally, same as the Fundamentals card at ~:11565.
+                            from gemini_reporter import generate_stock_analysis
                             _ga_report = generate_stock_analysis(_ga_sym, _ga_data)
                             st.session_state["ga_last_report"] = _ga_report
                             st.session_state["ga_last_sym"]    = _ga_sym
@@ -12993,7 +12996,8 @@ elif page == 'GOLDEN MATCHER':
                     try:
                         _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                            "gm_rrg_flags.json")
-                        _ad = (time.time() - os.path.getmtime(_rp)) / 86400.0
+                        import time as _time_mod
+                        _ad = (_time_mod.time() - os.path.getmtime(_rp)) / 86400.0
                         # An RRG read is a WEEKLY act, so >10 days is a real staleness
                         # signal, not pedantry — a month-old quadrant is a different market.
                         _age_txt = (f" · flags **{_ad:.0f}d old**"
@@ -14954,10 +14958,15 @@ elif page == 'ACTION CENTER':
     
     with st.spinner("Fetching live portfolio and analyzing journal..."):
         try:
-            _dhan_ac = dhanhq(DhanContext(CLIENT_ID, ACCESS_TOKEN)) if DhanContext else dhanhq(CLIENT_ID, ACCESS_TOKEN)
-            resp = _dhan_ac.get_holdings()
+            # `DhanContext` is NOT a module-level name here — this line raised
+            # NameError on every run and the bare except read it as "no holdings",
+            # so this page has been showing an EMPTY live book. Route through the
+            # one client factory, which already handles the 2.0.x/older SDK split.
+            _dhan_ac, _ = get_dhanhq_client()
+            resp = _dhan_ac.get_holdings() if _dhan_ac else None
             holdings = [item for item in resp.get('data', []) if float(item.get('totalQty', 0)) > 0] if (isinstance(resp, dict) and resp.get('status') == 'success') else []
-        except:
+        except Exception as _e_hold:
+            _gm_logger.warning(f"live holdings fetch failed: {_e_hold}")
             holdings = []
             
         live_symbols = {}
@@ -15790,7 +15799,7 @@ elif page == 'RISK SHIELD':
                                         structural=_struct_s,
                                         entry=_jov_s.get("buy_price"),
                                         stop=_jov_s.get("stoploss"),
-                                        atr_pct=(_tech or {}).get("atr_pct"))
+                                        atr_pct=_atr_pct)
                                     if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
                                         _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(

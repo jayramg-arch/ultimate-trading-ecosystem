@@ -652,9 +652,9 @@ def start_scheduler() -> BackgroundScheduler:
             name="GTT Trail (tighten-only)",
             replace_existing=True,
         )
-        log.info("gtt_trail: ENABLED (15:45 IST Mon-Fri)")
+        logger.info("gtt_trail: ENABLED (15:45 IST Mon-Fri)")
     else:
-        log.warning("gtt_trail: DISABLED (28-Jul-2026, manual TRAIL-order trial). "
+        logger.warning("gtt_trail: DISABLED (28-Jul-2026, manual TRAIL-order trial). "
                     "Stops on any Forever/GTT OCO orders are NOT being ratcheted. "
                     "Set GTT_TRAIL_ENABLED=1 to restore.")
 

@@ -1377,7 +1377,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             room = _zre.overhead_room(_fr, cmp_px, entry=entry,
                                       risk=(entry - sl) if (entry and sl and entry > sl) else None) or {}
     except Exception as e:
-        _log(f"{symbol}: overhead_room failed: {e}", "warning")
+        _log(f"{sym}: overhead_room failed: {e}", "warning")
     _room_r = room.get("room_r")
     if room.get("clear"):
         room_txt = "clear"
