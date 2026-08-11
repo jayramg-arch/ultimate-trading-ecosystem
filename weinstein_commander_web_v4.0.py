@@ -16595,7 +16595,21 @@ elif page == 'RISK SHIELD':
                                             _flags.append(f"<span style='background:#78350F;color:#FBBF24;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
                                             _ce_lbl = f"{_tech.get('ce_mult'):.1f}×·{_tech.get('ce_mult_src')}" if _tech.get("ce_mult") else "22D"
-                                            _flags.append(f"<span style='background:#1E293B;color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                            # DISTANCE FROM LTP, in ATR (Jay, 11-Aug-2026: the initial SL
+                                            # is measured from ENTRY, the TSL and Rec SL from LTP).
+                                            # The multiplier in the badge (4.5×) is the Chandelier's own
+                                            # setting, NOT how far the level actually sits from price — the
+                                            # anchor is the 22-bar highest CLOSE, so the live gap drifts with
+                                            # every new high and is usually nothing like 4.5×. That gap is
+                                            # what decides whether today's range reaches it.
+                                            _ce_gap = ""
+                                            try:
+                                                _a = float(ltp) * float(_tech.get("atr_pct")) / 100.0
+                                                _g = (float(ltp) - float(_tech.get("chandelier_exit"))) / _a
+                                                _ce_gap = f" · {_g:.1f}×ATR below"
+                                            except Exception:
+                                                pass
+                                            _flags.append(f"<span style='background:#1E293B;color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}{_ce_gap}</span>")
                                         if _tech.get("invalid_ce_override"):
                                             _flags.append(f"<span style='background:#451A1A;color:#EF4444;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠ invalid CE override ignored</span>")
                                         if _flags:
@@ -16758,7 +16772,10 @@ elif page == 'RISK SHIELD':
                                             return f' <span style="color:#94A3B8">({(t - _anchor) / _rr_risk:.1f}R)</span>'
                                         t1_str = f' | Rec T1: <span style="color:#F59E0B;font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
                                         t2_str = f' | Rec T2: <span style="color:#F59E0B;font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
-                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:#CBD5E1;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span>{t1_str}{t2_str}</div>'
+                                        # Rec SL is LTP - sl_mult x ATR by construction, so naming the multiple makes
+                                        # the basis explicit rather than leaving a bare number to compare
+                                        # against the entry-relative hard SL beside it.
+                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:#CBD5E1;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span> <span style="color:#94A3B8;font-size:0.72rem;">({sl_mult:.1f}×ATR from LTP)</span>{t1_str}{t2_str}</div>'
                                             
                                     if ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
@@ -16796,7 +16813,12 @@ elif page == 'RISK SHIELD':
                                                 markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                                # TSL was a 3px sliver in the SAME purple (#C084FC) as the 12px Rec-SL
+                                                # dot, so the dot painted over it whenever the two levels were
+                                                # close and the trail simply looked absent (Jay: "the TSL bar
+                                                # is missing from the stock tile timeline"). Own colour, wider,
+                                                # taller, and drawn with a z-index so it can never be buried.
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-9px;width:5px;height:26px;background:#22D3EE;border-radius:2px;transform:translateX(-50%);box-shadow:0 0 6px rgba(34,211,238,0.9);z-index:5;" title="TSL / Chandelier ₹{chandelier:,.2f}"></div>'
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
