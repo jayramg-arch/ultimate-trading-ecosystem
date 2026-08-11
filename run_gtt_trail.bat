@@ -19,4 +19,10 @@ REM raises EOFError headless AFTER printing its proposals, which is what made
 REM the failure look like silence.
 cd /d "C:\Users\jayra\Documents\GeminiVSCode"
 echo ---------- %DATE% %TIME% ---------->> "logs\gtt_shield.log"
+REM Pre-flight (see preflight.py): --unattended never blocks and always exits 0
+REM - a linter must not be why the stops go untrailed for a day. Findings are
+REM written to logs\preflight.log AND pushed to Telegram, so a code fault shows
+REM up as a message instead of as a job that looks like it ran fine. That is
+REM precisely how the 24-Jul trail outage stayed invisible for three weeks.
+"C:\Users\jayra\TradingData\venv\Scripts\python.exe" preflight.py --unattended >> "logs\gtt_shield.log" 2>&1
 "C:\Users\jayra\TradingData\venv\Scripts\python.exe" gtt_auto_shield.py --trail --yes >> "logs\gtt_shield.log" 2>&1

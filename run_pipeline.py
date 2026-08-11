@@ -165,6 +165,24 @@ def main():
     logger, log_path = setup_logging()
     logger.info(f"[log] Auto-Pilot console log -> {log_path}")
 
+    # Pre-flight: undefined names on the live path (see preflight.py). Called
+    # HERE rather than from a .bat because the auto-pilot has several entry
+    # points - Task Scheduler, the Web Commander button, a manual run - and a
+    # check wired into only one of them is a check you cannot rely on.
+    # NEVER blocks: preflight's unattended mode always returns 0, and any
+    # failure of the check itself is swallowed. A 40-minute pipeline must not
+    # be stopped by a linter; the finding is a message, not a gate.
+    try:
+        import preflight as _pf
+        _sv = list(sys.argv)
+        try:
+            sys.argv = [_sv[0], "--unattended"]   # preflight reads sys.argv
+            _pf.main()
+        finally:
+            sys.argv = _sv
+    except Exception as _pfe:
+        logger.debug(f"preflight skipped: {_pfe}")
+
     if not acquire_pipeline_lock(logger):
         sys.exit(0)
 
