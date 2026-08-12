@@ -16,9 +16,10 @@ Streamlit app at launch.
 Scope is deliberately narrow: the app plus the modules on the Golden Matcher /
 Risk Shield / screener paths. Peripheral scripts have their own known
 undefined names (traceback/os imports missing in market_monitor_agent,
-quant_analyst, visual_manager, tradingview_automation_v2) and flagging those
-every launch would make this wallpaper. Add a file here when it joins a live
-path, not before.
+quant_analyst, visual_manager) and flagging those every launch would make this
+wallpaper. Add a file here when it joins a live path, not before -
+tradingview_automation_v2 was added on 12-Aug after its `pipeline_mode`
+NameError actually fired in an auto-pilot run.
 
 Exit codes: 0 = clean, 1 = undefined names found, 2 = could not run (pyflakes
 missing / a file unreadable). The launcher treats 2 as "carry on" — a missing
@@ -58,6 +59,8 @@ WATCHED = [
     "gtt_auto_shield.py",
     "run_pipeline.py",
     "pre_trade_gate.py",
+    "tradingview_automation_v2.py",
+    "strike_automation.py",
     "scheduler_daemon.py",
 ]
 

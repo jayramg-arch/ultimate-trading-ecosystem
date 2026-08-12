@@ -53,6 +53,8 @@ TARGET_BASES = [
     # of every name the Golden Matcher Trigger Board evaluates.
     "Golden_Matcher_Board",
     "XRay_Picks",
+    "Bull_Screener",
+    "Bull_Screener_Custom",
     "Portfolio"
 ]
 
@@ -142,7 +144,13 @@ async def run_sync(pipeline_mode=False):
                     print("⚠️  This is a one-time login for the new stable profile (v2).")
                     
                     # If we got here, launch succeeded
-                    await process_sync(context)
+                    # pipeline_mode MUST be threaded through: process_sync reads
+                    # it at the end to decide auto-close vs stay-open, and it is
+                    # run_sync's parameter, not a global. Without this the
+                    # reference raised NameError, the outer except swallowed it as
+                    # "Critical Error in sync process", and the browser was left
+                    # open every unattended run.
+                    await process_sync(context, pipeline_mode=pipeline_mode)
                     return # Exit successfully
                 finally:
                     if context:
@@ -342,7 +350,7 @@ async def wait_for_login(page, context):
     print("❌ Login detection timed out after 6 minutes.")
     return False
 
-async def process_sync(context):
+async def process_sync(context, pipeline_mode=False):
     """The main logic of the sync process after browser launch."""
     try:
         page = context.pages[0] if context.pages else await context.new_page()
@@ -475,10 +483,30 @@ async def process_sync(context):
                 
                 print("   Waiting for file chooser...")
                 file_chooser = await fc_info.value
-                await file_chooser.set_files(file_path)
                 
-                print(f"   ✅ Uploaded {filename}")
-                await page.wait_for_timeout(2000)
+                # --- TV Compatibility Pre-processing ---
+                import tempfile
+                import shutil
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # TradingView uses underscores instead of hyphens or ampersands (e.g. NAM_INDIA, M_M)
+                tv_content = content.replace('-', '_').replace('&', '_')
+                
+                temp_dir = tempfile.mkdtemp(prefix='tv_wl_dir_')
+                temp_path = os.path.join(temp_dir, filename)
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    f.write(tv_content)
+                
+                try:
+                    await file_chooser.set_files(temp_path)
+                    print(f"   ✅ Uploaded {filename}")
+                    await page.wait_for_timeout(2000)
+                finally:
+                    try:
+                        shutil.rmtree(temp_dir)
+                    except:
+                        pass
                 
             except Exception as e:
                 print(f"   ❌ Failed to import {base_name}: {e}")
