@@ -172,6 +172,8 @@ def classify_trade_type_v22(df_daily, rrg: str = None):
 SWING_STOP_ATR = 2.5          # the shipped swing initial stop
 POS_STOP_ATR = 4.0            # the shipped positional initial stop
 STOP_CUT_ATR = (SWING_STOP_ATR + POS_STOP_ATR) / 2.0     # 3.25x — the boundary between them
+MIN_RISK_FRAC = 0.005         # risk taken is only meaningful at >= 0.5% of price;
+                              # mirrors pyramid_logic.MIN_RISK_FRAC (R-multiple guard)
 
 
 def classify_by_stop_distance(entry, stop, atr_pct):
@@ -206,6 +208,14 @@ def classify_by_stop_distance(entry, stop, atr_pct):
         return None, None, None
     if not (e > 0 and s > 0 and a > 0) or s >= e:
         return None, None, None           # no stop, bad data, or trailed to/above entry
+    # ...and abstain just BELOW entry too (12-Aug-2026). `s >= e` only caught a stop
+    # trailed past entry; a stop sitting essentially ON it slipped through and, being
+    # a tiny risk, always read SWING. NAM-INDIA: stop 0.02% under entry -> 0.0xATR ->
+    # "SWING via stop", which then applied the swing structure and time-stop tests to
+    # a positional holding. Same MIN_RISK_FRAC (0.5% of price) that pyramid_logic uses
+    # to decide an R-multiple is meaningful — below it the number is noise either way.
+    if (e - s) < MIN_RISK_FRAC * e:
+        return None, None, None           # breakeven-ish stop: risk taken is unknowable now
     risk_atr = ((e - s) / e * 100.0) / a
     sw = risk_atr <= STOP_CUT_ATR
     return sw, ("SWING" if sw else "POSITIONAL"), f"risk {risk_atr:.1f}xATR"

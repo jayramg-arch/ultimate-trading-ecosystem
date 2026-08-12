@@ -1104,6 +1104,14 @@ var float visualSL = 0.0
 var string rrText = "N/A"
 var string tradeStatus = "NO POSITION"
 var color tradeColor = color.gray
+// Pyramid-ladder state, for the alerts at the end of the slot block. Kept as a
+// bare rung name (not the display string) so the alert tests a class, not text.
+// pyrPrevClass makes the alerts fire on the TRANSITION into a rung — a holding
+// sits in ADD or EXIT for days, and a once-per-bar alert on the state itself
+// would ping every session until you act.
+var string pyrClass     = "NONE"
+var string pyrPrevClass = "NONE"
+var string pyrReason    = ""
 var string displayRec = "WAIT"
 var bool newStrongBuy = false
 var bool newBuy = false
@@ -4233,6 +4241,8 @@ if tradeActive
                               "time-stop " + str.tostring(daysHeld) + "d at " + str.tostring(pyrR, "0.0") + "R"
         tradeStatus := "🛑 EXIT (" + pnlStr + ") · " + pyrWhy
         tradeColor  := color.red
+        pyrClass    := "EXIT"
+        pyrReason   := pyrWhy
 
     // ── 2. TRIM (partial) — winners only, trend intact ────────────────────
     else if pyrTrim
@@ -4247,6 +4257,8 @@ if tradeActive
         tradeStatus := "✂️ TRIM (" + pnlStr + ") · " + pyrWhy +
                        (na(ce_trailing_stop) ? "" : " · trail → " + str.tostring(math.round_to_mintick(ce_trailing_stop)))
         tradeColor  := color.fuchsia
+        pyrClass    := "TRIM"
+        pyrReason   := pyrWhy
 
     // ── 3. REDUCE (soft) — tighten stop, don't add. NEVER a sell ──────────
     // Price term only; see asymmetry note 1 above. ᴾ marks the partial test.
@@ -4254,6 +4266,8 @@ if tradeActive
         tradeStatus := "🔻 REDUCEᴾ (" + pnlStr + ") · below 50-DMA " +
                        str.tostring(math.round_to_mintick(dMA50)) + " — tighten stop, don't pyramid"
         tradeColor  := color.new(#60a5fa, 0)
+        pyrClass    := "REDUCE"
+        pyrReason   := "below 50-DMA"
 
     // ── 4. ADD (pyramid) — leader AND pullback location ───────────────────
     // Both halves required, exactly as the module: being a leader is not a
@@ -4271,14 +4285,20 @@ if tradeActive
                       " · raise the position stop before adding"
         tradeStatus := "🔼 ADD (" + pnlStr + ") · pullback to EMA20" + pyrWhy
         tradeColor  := color.blue
+        pyrClass    := "ADD"
+        pyrReason   := "pullback to EMA20"
 
     // ── 5. HOLD — including the "leader but extended" case ────────────────
     else if isStage2Family and wMASlopeState == "RISING" and curPnL >= 5.0
         tradeStatus := "HOLD (" + pnlStr + ") · leader but extended — wait for the pullback to add"
         tradeColor  := color.new(#26a69a, 0)
+        pyrClass    := "HOLD"
+        pyrReason   := "leader but extended"
     else
         tradeStatus := "HOLD (" + pnlStr + ")"
         tradeColor  := curPnL > 0 ? color.new(#26a69a, 0) : color.orange
+        pyrClass    := "HOLD"
+        pyrReason   := "no rung triggered"
         
     // Room for Trade Warning Check
     if not na(ovhPrice) and finalEntry > 0 and riskPerShare > 0
@@ -4288,6 +4308,44 @@ if tradeActive
             tradeColor := color.orange
         
     // Old line.new logic removed in favor of plot() calls at the end of script for better persistence
+
+// ══════════════════════════════════════════════════════════════════════════
+// PYRAMID LADDER ALERTS (12-Aug-2026) — global scope; alertcondition() cannot
+// live inside an `if`.
+//
+// EDGE-TRIGGERED. A holding sits in ADD or EXIT for days, so alerting on the
+// STATE would ping every session until you act; these fire only on the bar the
+// rung is ENTERED. Leaving and re-entering the rung fires again, which is the
+// behaviour you want — it means the condition genuinely re-formed.
+//
+// TWO WAYS TO USE THEM, because each has a limitation:
+//   • alertcondition() — pick "ADD ready" / "EXIT signal" from the condition
+//     dropdown. Pine requires a CONSTANT message here, so it carries only
+//     {{ticker}} and the price; the REASON cannot be interpolated.
+//   • alert() — choose "Any alert() function call" instead and the message
+//     carries the full rung text (which trigger, the raise-to stop, the R).
+// Create ONE or the OTHER per chart, not both, or every trigger double-pings.
+//
+// Both are once-per-bar-CLOSE: the ladder reads daily structure, and an
+// intrabar ADD that fades by the close is not a signal.
+bool pyrEnteredAdd  = tradeActive and pyrClass == "ADD"  and pyrPrevClass != "ADD"
+bool pyrEnteredExit = tradeActive and pyrClass == "EXIT" and pyrPrevClass != "EXIT"
+bool pyrEnteredTrim = tradeActive and pyrClass == "TRIM" and pyrPrevClass != "TRIM"
+
+alertcondition(pyrEnteredAdd,  title="Pyramid: ADD ready",
+     message="ADD ready — {{ticker}} pulled back to EMA20 while leading. Raise the WHOLE position's stop to the Chandelier before adding. See the MY TRADE row for the level.")
+alertcondition(pyrEnteredExit, title="Pyramid: EXIT signal",
+     message="EXIT — {{ticker}} broke the structure the position was held on (stop / -8% / Stage 4 / 30-WMA / swing low / Chandelier / time-stop). See the MY TRADE row for which one.")
+alertcondition(pyrEnteredTrim, title="Pyramid: TRIM signal",
+     message="TRIM — {{ticker}} hit a harvest rung (2R / 3R / T1 / over-extended / earnings). Book the partial and trail the rest.")
+
+if pyrEnteredAdd or pyrEnteredExit or pyrEnteredTrim
+    alert(pyrClass + " — " + syminfo.ticker + " · " + pyrReason + " · " + tradeStatus,
+     alert.freq_once_per_bar_close)
+
+// Roll the edge AFTER the tests above, and reset when the slot empties so
+// re-entering a symbol alerts again rather than being swallowed by stale state.
+pyrPrevClass := tradeActive ? pyrClass : "NONE"
 
 // ==========================================
 // Gemini Prompt Logic moved to end of script

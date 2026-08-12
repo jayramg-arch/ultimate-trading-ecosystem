@@ -271,12 +271,29 @@ def classify(row: dict) -> tuple[str, str]:
     c5     = row.get("close_5d_ago", np.nan)
     d2e    = row.get("days_to_earnings", None)
     days_held = row.get("days_held", None)
-    # Journal `timeframe` (Positional/Swing) is the horizon field; trade_type is the
-    # DIRECTION (LONG) and never matched — the old parse silently defaulted
-    # everything to positional (audit finding, 14-Jul-2026).
-    tt     = str(row.get("timeframe", "") or row.get("trade_type", "") or "").lower()
-    is_swing = "swing" in tt
-    is_positional = ("pos" in tt) or (not is_swing)   # positional is the default (wider) structure
+    # TRADE TYPE — one resolver, shared with Risk Shield, the Chandelier clock and
+    # the R-target policy check (risk_common.resolve_trade_type, 10-Aug-2026).
+    #
+    # This USED TO BE `str(timeframe or trade_type).lower()`. That fallback to
+    # `trade_type` is the field Jay flagged as incorrect ("the journal's trade type
+    # is incorrect... go by the Risk Allocator"), and resolve_trade_type documents
+    # at :241 that it is deliberately NOT consulted. Reading it here meant a sell
+    # decision could hang on unreliable data — NETWEB (12-Aug): timeframe empty,
+    # setup NONE, trade_type "Swing", so the 60-day swing time-stop fired at 65d /
+    # 0.46R and the module said EXIT. Its stop sits 19% below entry, which rung 3
+    # (what you actually RISKED, in ATR) calls positional → 180-day limit → no exit.
+    #
+    # Precedence now: journal Timeframe → setup prefix → risked-ATR → structural →
+    # positional. `structural` is not passed: classify() gets a row, not a frame, so
+    # the v2.2 chart classifier has nothing to read; the ladder falls to positional,
+    # which is the long-standing default and never guesses swing.
+    _atr_pct = (atr14 / ltp * 100.0) if (_numok(atr14) and _numok(ltp) and ltp > 0) else None
+    is_swing, _tt_label, _tt_src = rc.resolve_trade_type(
+        timeframe=row.get("timeframe"),
+        setup=row.get("setup"),
+        entry=buy, stop=sl, atr_pct=_atr_pct,
+    )
+    is_positional = not is_swing                      # positional is the default (wider) structure
 
     # R-multiple from journal risk. Valid only when risk-per-share is meaningful
     # (≥ MIN_RISK_FRAC of price) — a stop at/near breakeven makes R explode.
