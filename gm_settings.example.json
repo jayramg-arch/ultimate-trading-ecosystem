@@ -1,7 +1,7 @@
 {
-  "capital": 3000000.0,
-  "risk_pct": 1.0,
-  "trigger_tf": "Daily",
+  "capital": 1000000.0,
+  "risk_pct": 0.25,
+  "trigger_tf": "75m",
   "entry_method": "retest",
   "pyr_risk_pct": 1.0,
   "board_live": null,

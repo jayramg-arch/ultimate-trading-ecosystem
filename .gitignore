@@ -68,3 +68,9 @@ logs/
 
 # pine_sweep input-order baselines (per-machine bookkeeping, not source)
 .pine_input_manifest/
+
+# Live GM settings - capital / risk / TF are PERSONAL runtime state and the app
+# rewrites the file on every change. Tracked as gm_settings.example.json instead;
+# a missing file is handled (_gm_settings() returns {} and the defaults apply).
+gm_settings.json
+
