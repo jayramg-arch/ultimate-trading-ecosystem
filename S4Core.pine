@@ -2,12 +2,20 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v5  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v7  --  shared engines for the Section 4 / Golden Matcher ecosystem
 //
 // NOTE this line is DOCUMENTATION ONLY. A library's version is assigned by TradingView
 // at publish time and auto-increments; nothing in the source declares it. Keep it in step
 // with the last publish by hand, and do not confuse it with //@version=6 below, which is
 // the Pine LANGUAGE version.
+//
+// v7 (12-Aug-2026) — the Zone RECORD and its two heaviest consumers moved here from
+// Section 4, which had compiled at 101,149 against a 100,256 ceiling: `export type Zone`
+// (field order and defaults UNCHANGED, so S4's 20-argument positional constructor still
+// binds identically), `declutterZones` and `confluenceBoost`. Everything those two read
+// from S4 globals is a parameter now. A library body compiles separately, so the tokens
+// leave S4's budget with the behaviour byte-identical. Measured: S4 -540 source tokens,
+// ~-1,312 compiled.
 //
 // v4 (5-Aug-2026) — structZone gained `rejectOnly` (appended, default true): a pivot
 // shelf now spans the REJECTION region only (supply body-top→high, demand low→body-bottom)
@@ -1036,3 +1044,144 @@ export strikeRrg(simple string lead, simple string impr, simple string weak,
          : _q + "  ·  Strike.Money weekly"
     color  _col = _q == "LEADING" ? cOk : _q == "IMPROVING" ? cWarn : _q == "" ? cDim : cNo
     [_txt, _col]
+
+// ============================================================================
+// ZONE  --  the live zone record, moved out of Section 4 (12-Aug-2026)
+//
+// S4 compiled at 101,149 of a 100,256 token ceiling. The type and the two zone
+// helpers below are what came across: a library BODY is compiled separately, so
+// the tokens leave S4's budget while the behaviour is byte-identical.
+//
+// Field order and defaults are UNCHANGED, so the existing 20-argument positional
+// Zone.new() call in S4 still binds the same way -- it only gains the `core.`
+// prefix. Methods (checkMitigation / deleteDrawings) stay in S4: a method on an
+// imported type is script-local and costs nothing to leave where it is.
+// ============================================================================
+export type Zone
+    float  proximal
+    float  distal
+    int    originBar
+    int    originTime
+    bool   isDemand
+    int    strength
+    int    confBonus
+    int    nBase
+    string pattern
+    string tf
+    bool   isControlling
+    box    drawing
+    label  infoLabel
+    bool   wasInZone
+    bool   reacted       // S4: price entered then left the zone (a reaction occurred)
+    float  reactRef      // S4: proximal captured at the reaction (travel reference)
+    float  strongLvl     // S4: nearest strong pivot level to watch (tested rule 3)
+    bool   emaPre        // S4: at reaction, price on the pre-cross side of EMA20 (rule 2)
+    bool   hasFVG        // S4: leg-out left an FVG → FVG-Polygraph-qualified (⚡ tag)
+    bool   tested        // #41: greyed tested state (kept for verification, excluded from trigger)
+    // #room (2-Aug, Jay): how many times this zone has been TESTED. LAST field, and
+    // defaulted, so the existing 20-argument positional Zone.new() call is unchanged.
+    // Leash = 1 for a normal zone, 2 for a Controlling one. One test BEYOND the leash
+    // (twice-tested normal, three-times-tested controlling) means the level is BREAKING
+    // rather than holding, so it stops being reported as overhead supply — the same
+    // MTTWR logic the S/R levels use: tests WEAKEN a level, they never strengthen it.
+    int    touches = 0
+    // v8.5 declutter: the styling this zone SHOULD have when painted. Remembered so a
+    // zone hidden for being far from price can be restored exactly, without re-deriving
+    // colours from pattern/TF/controlling state. Defaulted + LAST, so the existing
+    // positional Zone.new() call is untouched.
+    color  bgKeep  = na
+    color  bdKeep  = na
+    string txtKeep = ""
+
+// ---------------------------------------------------------------------------
+// DECLUTTER -- display only. Paint the nearest `maxDraw` zones per side and mute
+// the rest. Ranking is by distance from price WITHIN each direction, so the
+// nearest demand and nearest supply always survive -- the two a decision uses.
+//
+// Zones stay in the array, keep their state, and keep satisfying z_inDZ and the
+// counts: the ONLY thing this changes is whether the box is painted. It must run
+// AFTER all lifecycle work so it can never influence what the gate sees.
+//
+// A tested zone is already greyed by the lifecycle -- left alone rather than
+// fighting that styling here.
+//
+// Returns 0 so the caller can consume it in one statement (Pine has no void).
+// ---------------------------------------------------------------------------
+export declutterZones(array<Zone> zones, simple int maxDraw, float px) =>
+    if maxDraw > 0 and array.size(zones) > 0
+        int _nz2 = array.size(zones)
+        for _a = 0 to _nz2 - 1
+            _za = array.get(zones, _a)
+            if not na(_za.drawing)
+                float _da = math.abs(px - _za.proximal)
+                int _rank = 0
+                for _b = 0 to _nz2 - 1
+                    if _b != _a
+                        _zb = array.get(zones, _b)
+                        // Same side of the book only -- demand competes with demand.
+                        if _zb.isDemand == _za.isDemand and not na(_zb.drawing)
+                            if math.abs(px - _zb.proximal) < _da
+                                _rank += 1
+                if not _za.tested
+                    bool _show = _rank < maxDraw
+                    box.set_bgcolor(_za.drawing, _show ? _za.bgKeep : color.new(color.gray, 100))
+                    box.set_border_color(_za.drawing, _show ? _za.bdKeep : color.new(color.gray, 100))
+                    box.set_text(_za.drawing, _show ? _za.txtKeep : "")
+    0
+
+// ---------------------------------------------------------------------------
+// CONFLUENCE BOOST -- moved out of Section 4 (12-Aug-2026) with the Zone type.
+// Scores a CANDIDATE zone against the zones already live: same-direction overlap
+// (a HIGHER-timeframe zone overlapping this one is the big bonus) plus proximity
+// to the daily 20-EMA, with a malus for an orphaned zone far on the wrong side.
+//
+// Everything it used to read from S4 globals is a parameter now, in the order
+// zones, geometry, then the tuning inputs. Body is otherwise unchanged.
+// ---------------------------------------------------------------------------
+export confluenceBoost(array<Zone> zones, float newProx, float newDist, bool newIsDmd, string newTf,
+     simple int htfBoost, simple int sameTfBoost, float dailyEMA20, float chart_atr,
+     float atrM_tf, float atrW_tf, float atrD_tf, simple float emaProxThreshATR,
+     simple int emaProxBoost, simple float emaFarAtr, simple int emaFarMalus, simple int maxConfBoost) =>
+    int bonus = 0
+    nLo = math.min(newProx, newDist)
+    nHi = math.max(newProx, newDist)
+    sz = array.size(zones)
+    if sz > 0
+        for i = 0 to sz - 1
+            zz = array.get(zones, i)
+            zLo = math.min(zz.proximal, zz.distal)
+            zHi = math.max(zz.proximal, zz.distal)
+            overlap = nLo <= zHi and nHi >= zLo
+            sameDir = zz.isDemand == newIsDmd
+            if overlap and sameDir
+                // Direction-aware: the big bonus is for a HIGHER-TF zone overlapping
+                // this one. It used to fire for ANY different TF — a Monthly zone was
+                // collecting the '+15 HTF overlap' from a 75-minute zone.
+                int _rN = newTf == "M" ? 4 : newTf == "W" ? 3 : newTf == "D" ? 2 : 1
+                int _rZ = zz.tf == "M" ? 4 : zz.tf == "W" ? 3 : zz.tf == "D" ? 2 : 1
+                bonus := bonus + (_rZ > _rN ? htfBoost : sameTfBoost)
+    if not na(dailyEMA20) and not na(chart_atr)
+        emaInZone = dailyEMA20 >= nLo and dailyEMA20 <= nHi
+        edgeDist  = emaInZone ? 0.0 : math.min(math.abs(dailyEMA20 - nLo), math.abs(dailyEMA20 - nHi))
+        // The zone's OWN TF ATR — the same v3.2 fix the tested-travel rule got.
+        // With the chart ATR, "near the EMA20" for a Monthly zone on a 75m chart
+        // meant "touching it": the same zone scored ~10 pts differently per chart TF.
+        float _cbAtr = newTf == "M" ? atrM_tf : newTf == "W" ? atrW_tf : newTf == "D" ? atrD_tf : chart_atr
+        nearby    = emaInZone or edgeDist <= nz(_cbAtr, chart_atr) * emaProxThreshATR
+        // EMA20 confluence = PROXIMITY only. This used to also grant the bonus to any
+        // demand zone sitting entirely BELOW the EMA20 (mirror for supply above) — which
+        // is every demand zone in an uptrend, regardless of distance. That made ★ a near
+        // constant (~everything read ★10) and stripped it of information. Distance to the
+        // daily EMA20 is the actual confluence; the half-plane is not.
+        if nearby
+            bonus := bonus + emaProxBoost
+        else
+            // #4 (19-Jul): the MIRROR — an ORPHANED zone loses quality. EMA20 on the
+            // WRONG side and far away (below-and-away from a DZ / above-and-away from
+            // an SZ) means price returns to this zone only when badly extended from
+            // value, which weakens the expected reaction.
+            bool _farDZ = newIsDmd and dailyEMA20 < nLo and (nLo - dailyEMA20) > nz(_cbAtr, chart_atr) * emaFarAtr
+            bool _farSZ = (not newIsDmd) and dailyEMA20 > nHi and (dailyEMA20 - nHi) > nz(_cbAtr, chart_atr) * emaFarAtr
+            if _farDZ or _farSZ
+                bonus := bonus - emaFarMalus
+    math.min(bonus, maxConfBoost)

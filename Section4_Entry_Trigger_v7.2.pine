@@ -851,7 +851,7 @@
 // ============================================================================
 //@version=6
 indicator("Section 4 Entry Trigger and Price Memory v9.12 (Sectioned Panel)", shorttitle="S4 Entry v9.12", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/6 as core
+import jayramg/S4Core/7 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -1484,44 +1484,11 @@ string _strongTF = strongPivotTF == "Weekly" ? "W" : "D"
 // ==========================================================================
 // Z2. ZONE ENGINE — TYPES  (Zone extended with S4 reaction-tracking fields)
 // ==========================================================================
-type Zone
-    float  proximal
-    float  distal
-    int    originBar
-    int    originTime
-    bool   isDemand
-    int    strength
-    int    confBonus
-    int    nBase
-    string pattern
-    string tf
-    bool   isControlling
-    box    drawing
-    label  infoLabel
-    bool   wasInZone
-    bool   reacted       // S4: price entered then left the zone (a reaction occurred)
-    float  reactRef      // S4: proximal captured at the reaction (travel reference)
-    float  strongLvl     // S4: nearest strong pivot level to watch (tested rule 3)
-    bool   emaPre        // S4: at reaction, price on the pre-cross side of EMA20 (rule 2)
-    bool   hasFVG        // S4: leg-out left an FVG → FVG-Polygraph-qualified (⚡ tag)
-    bool   tested        // #41: greyed tested state (kept for verification, excluded from trigger)
-    // #room (2-Aug, Jay): how many times this zone has been TESTED. LAST field, and
-    // defaulted, so the existing 20-argument positional Zone.new() call is unchanged.
-    // Leash = 1 for a normal zone, 2 for a Controlling one. One test BEYOND the leash
-    // (twice-tested normal, three-times-tested controlling) means the level is BREAKING
-    // rather than holding, so it stops being reported as overhead supply — the same
-    // MTTWR logic the S/R levels use: tests WEAKEN a level, they never strengthen it.
-    int    touches = 0
-    // v8.5 declutter: the styling this zone SHOULD have when painted. Remembered so a
-    // zone hidden for being far from price can be restored exactly, without re-deriving
-    // colours from pattern/TF/controlling state. Defaulted + LAST, so the existing
-    // positional Zone.new() call is untouched.
-    color  bgKeep  = na
-    color  bdKeep  = na
-    string txtKeep = ""
-
-
-var array<Zone> activeZones = array.new<Zone>()
+// `type Zone` MOVED to S4Core (12-Aug-2026). Field order and defaults are
+// unchanged, so the 20-argument positional core.Zone.new() call below still binds
+// exactly as before -- the type simply lives where its two heaviest consumers now
+// do. Methods stay here: a method on an imported type is script-local.
+var array<core.Zone> activeZones = array.new<core.Zone>()
 
 // v3.2 REMOVAL ATTRIBUTION (native chart-TF zones only). The d/f/m/L funnel proves a
 // zone was created and later removed, but is SILENT on which of the four exits took
@@ -1591,17 +1558,28 @@ f_buildLabel(string tf, bool isDemand, string pattern, int score, int nBase, int
     // 10-space indent so the text starts inside the zone body, offset from the left edge.
     "          " + line1 + "\n          " + line2
 
-method checkMitigation(Zone z, float _close, float _low, float _high, string _mitBasis) =>
+method checkMitigation(core.Zone z, float _close, float _low, float _high, string _mitBasis) =>
     switch _mitBasis
         "Body Close"      => z.isDemand ? _close < z.distal                      : _close > z.distal
         "Wick Close"      => z.isDemand ? _low   < z.distal                      : _high  > z.distal
         "50% Penetration" => z.isDemand ? _close < (z.proximal + z.distal) / 2.0 : _close > (z.proximal + z.distal) / 2.0
         => false
 
-method deleteDrawings(Zone z) =>
+method deleteDrawings(core.Zone z) =>
+    // RUNTIME-ERROR FIX (12-Aug-2026). box.delete() does NOT make the handle na, so
+    // z.drawing stayed non-na and every `not na(z.drawing)` guard in the script kept
+    // reading TRUE for a box that no longer exists. Most call sites deleted the zone
+    // from activeZones in the same breath, but the spent-supply path (retain_spent_
+    // supply, ~line 2385) deliberately KEEPS the zone and only drops its drawings -
+    // so a stale handle could sit in the array for the rest of the session and the
+    // next box.set_* on it threw "object deleted", which is the intermittent error
+    // that forces an indicator restart (and loses every input.source binding).
+    // Nulling here makes the existing guards mean what they say.
     box.delete(z.drawing)
+    z.drawing := na
     if not na(z.infoLabel)
         label.delete(z.infoLabel)
+        z.infoLabel := na
 
 // ==========================================================================
 // Z4. ZONE ENGINE — UNIVERSAL DETECTION FUNCTION  (verbatim from IZE v4.2)
@@ -1614,50 +1592,8 @@ method deleteDrawings(Zone z) =>
 // ==========================================================================
 // Z5. ZONE ENGINE — CONFLUENCE BONUS + CREATION
 // ==========================================================================
-f_confluenceBoost(float newProx, float newDist, bool newIsDmd, string newTf) =>
-    int bonus = 0
-    nLo = math.min(newProx, newDist)
-    nHi = math.max(newProx, newDist)
-    sz = array.size(activeZones)
-    if sz > 0
-        for i = 0 to sz - 1
-            zz = array.get(activeZones, i)
-            zLo = math.min(zz.proximal, zz.distal)
-            zHi = math.max(zz.proximal, zz.distal)
-            overlap = nLo <= zHi and nHi >= zLo
-            sameDir = zz.isDemand == newIsDmd
-            if overlap and sameDir
-                // Direction-aware: the big bonus is for a HIGHER-TF zone overlapping
-                // this one. It used to fire for ANY different TF — a Monthly zone was
-                // collecting the '+15 HTF overlap' from a 75-minute zone.
-                int _rN = newTf == "M" ? 4 : newTf == "W" ? 3 : newTf == "D" ? 2 : 1
-                int _rZ = zz.tf == "M" ? 4 : zz.tf == "W" ? 3 : zz.tf == "D" ? 2 : 1
-                bonus := bonus + (_rZ > _rN ? htfBoost : sameTfBoost)
-    if not na(dailyEMA20) and not na(chart_atr)
-        emaInZone = dailyEMA20 >= nLo and dailyEMA20 <= nHi
-        edgeDist  = emaInZone ? 0.0 : math.min(math.abs(dailyEMA20 - nLo), math.abs(dailyEMA20 - nHi))
-        // The zone's OWN TF ATR — the same v3.2 fix the tested-travel rule got.
-        // With the chart ATR, "near the EMA20" for a Monthly zone on a 75m chart
-        // meant "touching it": the same zone scored ~10 pts differently per chart TF.
-        float _cbAtr = newTf == "M" ? atrM_tf : newTf == "W" ? atrW_tf : newTf == "D" ? atrD_tf : chart_atr
-        nearby    = emaInZone or edgeDist <= nz(_cbAtr, chart_atr) * emaProxThreshATR
-        // EMA20 confluence = PROXIMITY only. This used to also grant the bonus to any
-        // demand zone sitting entirely BELOW the EMA20 (mirror for supply above) — which
-        // is every demand zone in an uptrend, regardless of distance. That made ★ a near
-        // constant (~everything read ★10) and stripped it of information. Distance to the
-        // daily EMA20 is the actual confluence; the half-plane is not.
-        if nearby
-            bonus := bonus + emaProxBoost
-        else
-            // #4 (19-Jul): the MIRROR — an ORPHANED zone loses quality. EMA20 on the
-            // WRONG side and far away (below-and-away from a DZ / above-and-away from
-            // an SZ) means price returns to this zone only when badly extended from
-            // value, which weakens the expected reaction.
-            bool _farDZ = newIsDmd and dailyEMA20 < nLo and (nLo - dailyEMA20) > nz(_cbAtr, chart_atr) * emaFarAtr
-            bool _farSZ = (not newIsDmd) and dailyEMA20 > nHi and (dailyEMA20 - nHi) > nz(_cbAtr, chart_atr) * emaFarAtr
-            if _farDZ or _farSZ
-                bonus := bonus - emaFarMalus
-    math.min(bonus, maxConfBoost)
+// f_confluenceBoost MOVED to S4Core with the Zone type -- its inputs are trailing
+// params now, so the tuning still lives in this script's Settings.
 
 f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
     bool emaOK = true
@@ -1711,7 +1647,7 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
                         patDup := true
                         break
     if emaOK and rsOK and not na(sig.proximal) and not na(sig.distal) and not structDup and not patDup
-        cBonus     = f_confluenceBoost(sig.proximal, sig.distal, sig.isDemand, tfTag)
+        cBonus     = core.confluenceBoost(activeZones, sig.proximal, sig.distal, sig.isDemand, tfTag, htfBoost, sameTfBoost, dailyEMA20, chart_atr, atrM_tf, atrW_tf, atrD_tf, emaProxThreshATR, emaProxBoost, emaFarAtr, emaFarMalus, maxConfBoost)
         finalScore = math.min(sig.rawScore + cBonus, 100)
         // ── OPPOSING-OVERLAP RESOLUTION (v7.7, 5-Aug-2026) ───────────────────────────
         // A price band cannot be supply AND demand at once. Measured on POLYCAB monthly:
@@ -1748,7 +1684,8 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
                                 float _keep = _xHi - math.max(_xLo, _nHiO)
                                 if _keep > 0
                                     _zx.proximal := math.max(_xLo, _nHiO)
-                                    box.set_bottom(_zx.drawing, _zx.proximal)
+                                    if not na(_zx.drawing)
+                                        box.set_bottom(_zx.drawing, _zx.proximal)
                                 else
                                     _zx.tested := true
                             else
@@ -1756,7 +1693,8 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
                                 float _keep = math.min(_xHi, _nLoO) - _xLo
                                 if _keep > 0
                                     _zx.proximal := math.min(_xHi, _nLoO)
-                                    box.set_top(_zx.drawing, _zx.proximal)
+                                    if not na(_zx.drawing)
+                                        box.set_top(_zx.drawing, _zx.proximal)
                                 else
                                     _zx.tested := true
         bool breaksOpposing = false
@@ -1811,8 +1749,9 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
                     _zc = array.get(activeZones, _k)
                     if _zc.isControlling and _zc.isDemand == sig.isDemand
                         _zc.isControlling := false
-                        box.set_border_width(_zc.drawing, 1)
-                        box.set_text(_zc.drawing, (showZonesIZE and d_zones and showLabels) ? f_buildLabel(_zc.tf, _zc.isDemand, _zc.pattern, _zc.strength, _zc.nBase, _zc.confBonus, false, _zc.hasFVG) : "")
+                        if not na(_zc.drawing)
+                            box.set_border_width(_zc.drawing, 1)
+                            box.set_text(_zc.drawing, (showZonesIZE and d_zones and showLabels) ? f_buildLabel(_zc.tf, _zc.isDemand, _zc.pattern, _zc.strength, _zc.nBase, _zc.confBonus, false, _zc.hasFVG) : "")
         basecol = sig.isDemand
              ? (sig.pattern == "DBR" ? color.green : sig.pattern == "RBR" ? color.lime   : color.teal)
              : (sig.pattern == "RBD" ? color.red   : sig.pattern == "DBD" ? color.orange : color.blue)
@@ -1867,7 +1806,7 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
             bx  := box.new(leftBar, topVal, bar_index, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, border_style=_bstyle, extend=extend.right, xloc=xloc.bar_index, text=_lblShown, text_color=_txtC, text_size=size.small, text_halign=text.align_left, text_valign=text.align_center)
         else
             bx  := box.new(sig.baseStartTime, topVal, time, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, border_style=_bstyle, extend=extend.right, xloc=xloc.bar_time, text=_lblShown, text_color=_txtC, text_size=size.small, text_halign=text.align_left, text_valign=text.align_center)
-        z = Zone.new(sig.proximal, sig.distal, bar_index, sig.baseStartTime, sig.isDemand, finalScore, cBonus, sig.nBase, sig.pattern, tfTag, finalCtrl, bx, na, false, false, na, na, false, sig.hasFVG, false)
+        z = core.Zone.new(sig.proximal, sig.distal, bar_index, sig.baseStartTime, sig.isDemand, finalScore, cBonus, sig.nBase, sig.pattern, tfTag, finalCtrl, bx, na, false, false, na, na, false, sig.hasFVG, false)
         z.bgKeep := bgC
         z.bdKeep := bdC
         z.txtKeep := _lblShown
@@ -2411,39 +2350,9 @@ f_zoneMaintain() =>
 [_rmAge, _rmTrv, _rmEma, _rmLvl, _rmVio] = f_zoneMaintain()
 
 
-// ── DECLUTTER (v8.5) — display only, applied AFTER all lifecycle work above so it can
-// never influence what the gate sees. Zones stay in activeZones, keep their state, and
-// keep satisfying z_inDZ / the counts; the only thing that changes is whether the box
-// is painted. Ranking is by distance from price WITHIN each direction, so the nearest
-// demand and nearest supply survive — which are the ones a decision actually uses.
-// v8.6: the declutter lives in a FUNCTION. A function BODY is exempt from the
-// main-body statement cap; the same 18 statements at global scope pushed the script
-// over it (v8.4 compiled, v8.5 did not). Behaviour is unchanged - same guard, same
-// ranking, same styling - it is only where the statements are counted that differs.
-f_declutterZones() =>
-    if zoneMaxDraw > 0 and array.size(activeZones) > 0
-        int _nz2 = array.size(activeZones)
-        for _a = 0 to _nz2 - 1
-            _za = array.get(activeZones, _a)
-            if not na(_za.drawing)
-                float _da = math.abs(close - _za.proximal)
-                int _rank = 0
-                for _b = 0 to _nz2 - 1
-                    if _b != _a
-                        _zb = array.get(activeZones, _b)
-                        // Same side of the book only — a demand zone competes with demand.
-                        if _zb.isDemand == _za.isDemand and not na(_zb.drawing)
-                            if math.abs(close - _zb.proximal) < _da
-                                _rank += 1
-                // A tested zone is already greyed by the lifecycle; leave it alone rather
-                // than fighting that styling here.
-                if not _za.tested
-                    bool _show = _rank < zoneMaxDraw
-                    box.set_bgcolor(_za.drawing, _show ? _za.bgKeep : color.new(color.gray, 100))
-                    box.set_border_color(_za.drawing, _show ? _za.bdKeep : color.new(color.gray, 100))
-                    box.set_text(_za.drawing, _show ? _za.txtKeep : "")
-    0
-int _dcl = f_declutterZones()
+// DECLUTTER (display only) MOVED to S4Core. It runs AFTER all lifecycle work so it
+// can never influence what the gate sees; zones stay in the array either way.
+int _dcl = core.declutterZones(activeZones, zoneMaxDraw, close)
 // --- Per-bar zone scan → the decision values the S4 gate + panel consume ---
 float _z_inDZstr = na
 bool  z_inDZ = false
