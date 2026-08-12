@@ -1359,10 +1359,6 @@ dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, 
 pyrClassSrc = input.source(close, "v67: Pyramid rung",  group=grpDash, tooltip="Bind to s4_pyrClass. 1 EXIT · 2 TRIM · 3 REDUCE · 4 ADD · 5 HOLD. na when this symbol is not in a v67 portfolio slot.")
 pyrPnlSrc   = input.source(close, "v67: Position P&L %", group=grpDash, tooltip="Bind to s4_pyrPnl.")
 pyrRSrc     = input.source(close, "v67: Position R",     group=grpDash, tooltip="Bind to s4_pyrR. Open R-multiple against the slot's entry and stop.")
-pyrEntrySrc = input.source(close, "v67: Slot entry",     group=grpDash, tooltip="Bind to s4_pyrEntry.")
-pyrSLSrc    = input.source(close, "v67: Slot SL",        group=grpDash, tooltip="Bind to s4_pyrSL. The HARD stop as logged, not the Chandelier.")
-pyrT1Src    = input.source(close, "v67: Slot T1",        group=grpDash, tooltip="Bind to s4_pyrT1.")
-pyrT2Src    = input.source(close, "v67: Slot T2",        group=grpDash, tooltip="Bind to s4_pyrT2.")
 pyrDaysSrc  = input.source(close, "v67: Days held",      group=grpDash, tooltip="Bind to s4_pyrDays.")
 pyrLeftSrc  = input.source(close, "v67: Days to time-stop", group=grpDash, tooltip="Bind to s4_pyrDaysLeft. Negative = the time-stop has passed.")
 pyrChandSrc = input.source(close, "v67: Chandelier stop", group=grpDash, tooltip="Bind to s4_pyrChand. The catalyst-aware trail; on an ADD this is what the WHOLE position's stop lifts to.")
@@ -4617,12 +4613,11 @@ if show_panel and d_panel and barstate.islast
         // The reason text is NOT carried: input.source cannot pass a string, and
         // encoding a dozen trigger codes would cost more than it is worth here.
         // The rung is the decision; v67's own row and Risk Shield spell out why.
-        f_row(32, "MY TRADE (v67 slot)", _pyTop, _pyCol)
+        f_row(29, "MY TRADE (v67 slot)", _pyTop + (na(pyrChandSrc[_so]) ? "" : "  ·  trail " + str.tostring(pyrChandSrc[_so], format.mintick)), _pyCol)
 
-        string _pyLv = "entry " + str.tostring(pyrEntrySrc[_so], format.mintick) + "  ·  SL " + str.tostring(pyrSLSrc[_so], format.mintick) + "  ·  trail " + str.tostring(pyrChandSrc[_so], format.mintick) + "  ·  T1 " + str.tostring(pyrT1Src[_so], format.mintick) + "  ·  T2 " + str.tostring(pyrT2Src[_so], format.mintick)
         float  _pyLeft = pyrLeftSrc[_so]
         string _pySt = (_pySw == 1 ? "SWING" : "POSITIONAL") + "  ·  " + str.tostring(pyrDaysSrc[_so], "0") + "d held" + (na(_pyLeft) ? "" : (_pyLeft < 0 ? "  ·  TIME-STOP PASSED by " + str.tostring(-_pyLeft, "0") + "d" : "  ·  " + str.tostring(_pyLeft, "0") + "d to time-stop"))
-        f_row(33, "POSITION", _pySt + "\n" + _pyLv, na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN)
+        f_row(35, "POSITION", _pySt, na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN)
     // #1 (Jay, 19-Jul): if the panel/verdict cites a level to clear ("must clear
     // 1439.95"), that level must be ON THE CHART — sensing a level and not drawing
     // it forces a manual hunt. Draw the binding obstacle: the supply-band ceiling
