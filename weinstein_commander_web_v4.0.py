@@ -28,6 +28,19 @@ import yfinance as yf
 from pine_generator import generate_pine_code
 # ── v4.0 Phase-1 imports ─────────────────────────────────────────────────────
 try:
+    from rrg_engine import (
+        SECTOR_INDICES, QUADRANT_COLORS,
+        calculate_jdk_rrg, compute_universe_rrg, render_rrg_plotly,
+        load_universe_data,          # was `from pages.6_rrg import ...` - not
+                                     # importable (module name starts with a digit),
+                                     # and importing that page would run its
+                                     # st.set_page_config/st.title at top level.
+    )
+    _RRG_OK = True
+except Exception:                    # ImportError was too narrow for the above
+    _RRG_OK = False
+
+try:
     from market_data_hub import (
         build_premarket_snapshot, build_postmarket_snapshot,
         fetch_global_overview, fetch_fii_dii_data, fetch_india_vix_history,
@@ -8730,37 +8743,21 @@ elif page == 'MACRO':
         # Screener where you actually act on them. See HUNTER cockpit.
 
         section("Sector RRG — Rotation Quadrant")
-        st.caption("RS-Ratio > 100 = outperforming. RS-Momentum > 100 = gaining speed. Centre = 100/100.")
+        st.caption("Canonical JdK 4-Quadrant Sector Rotation (RS-Ratio vs. RS-Momentum centered at 100/100). For interactive stock watchlists & drill-down, open the dedicated 🔄 Relative Rotation Graphs (RRG) page in the sidebar.")
+        
         with st.spinner("Loading sector RRG data (cached 5min)..."):
-            df_rrg = fetch_sector_momentum_cached()
+            symbols_list = list(SECTOR_INDICES.values()) + ["^CRSLDX", "^NSEI"]
+            data_map = load_universe_data(tuple(symbols_list), period="1y", interval="1wk")
+            summary_df, tails_dict = compute_universe_rrg(data_map, benchmark_symbol="^CRSLDX", jdk_length=12, tail_length=6)
 
-        if not df_rrg.empty and 'RS-Ratio' in df_rrg.columns:
-            fig_rrg = go.Figure()
-            quad_colors = {"🟢 Leading":"#15803D","🟡 Weakening":"#B45309",
-                           "🔵 Improving":"#1D4ED8","🔴 Lagging":"#DC2626","—":"#334155"}
-            for _, row in df_rrg.iterrows():
-                q     = row.get('RRG Quadrant','—')
-                color = quad_colors.get(q,"#334155")
-                fig_rrg.add_trace(go.Scatter(
-                    x=[row['RS-Ratio']], y=[row['Acceleration']],
-                    mode='markers+text', name=row['Sector'],
-                    text=[row['Sector'].replace('Nifty ','')],
-                    textposition="top center",
-                    marker=dict(size=12, color=color, line=dict(width=1, color='#94A3B8')),
-                ))
-            # Quadrant lines
-            fig_rrg.add_hline(y=0, line_dash="dot", line_color="#94A3B8", line_width=1)
-            fig_rrg.add_vline(x=100, line_dash="dot", line_color="#94A3B8", line_width=1)
-            fig_rrg.update_layout(
-                height=420, showlegend=False,
-                xaxis_title="RS-Ratio (100 = neutral)", yaxis_title="Acceleration (0 = neutral)",
-                paper_bgcolor="#FFFFFF", plot_bgcolor="#F8FAFC",
-                xaxis=dict(gridcolor="#E2E8F0"), yaxis=dict(gridcolor="#E2E8F0"),
-                font=dict(color="#1E293B"), margin=dict(t=10,l=0,r=0,b=0)
-            )
+        if not summary_df.empty:
+            fig_rrg = render_rrg_plotly(summary_df, tails_dict, title="19 Nifty Sectors Rotation vs Nifty 500", tail_length=6)
+            fig_rrg.update_layout(height=520)
             st.plotly_chart(fig_rrg, use_container_width=True)
-            _df_rrg_show = df_rrg[['Sector','4W %','Prior 4W %','Acceleration','RS-Ratio','RRG Quadrant','Signal']]
-            _rrg_num_cols = {c: "{:,.2f}" for c in ['4W %','Prior 4W %','Acceleration','RS-Ratio'] if c in _df_rrg_show.columns}
+            
+            _df_rrg_show = summary_df[['Symbol','4W %','RS-Ratio','RS-Momentum','Quadrant_Badge','Trajectory']]
+            _df_rrg_show = _df_rrg_show.rename(columns={'Quadrant_Badge':'Quadrant','Symbol':'Sector'})
+            _rrg_num_cols = {c: "{:,.2f}" for c in ['4W %','RS-Ratio','RS-Momentum'] if c in _df_rrg_show.columns}
             try:
                 _styled_rrg = (_df_rrg_show.style
                                .format(_rrg_num_cols)
