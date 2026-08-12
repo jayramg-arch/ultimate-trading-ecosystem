@@ -38,6 +38,17 @@
     "v67: RS-Ratio vs Sector":         ["v67", "s4_rsRatioSec"],
     "v67: RS val trail (N500)":        ["v67", "s4_rsValTrail500"],
     "v67: RS mom trail (N500)":        ["v67", "s4_rsMomTrail500"],
+    "v67: Pyramid rung":               ["v67", "s4_pyrClass"],
+    "v67: Position P&L %":             ["v67", "s4_pyrPnl"],
+    "v67: Position R":                 ["v67", "s4_pyrR"],
+    "v67: Slot entry":                 ["v67", "s4_pyrEntry"],
+    "v67: Slot SL":                    ["v67", "s4_pyrSL"],
+    "v67: Slot T1":                    ["v67", "s4_pyrT1"],
+    "v67: Slot T2":                    ["v67", "s4_pyrT2"],
+    "v67: Days held":                  ["v67", "s4_pyrDays"],
+    "v67: Days to time-stop":          ["v67", "s4_pyrDaysLeft"],
+    "v67: Chandelier stop":            ["v67", "s4_pyrChand"],
+    "v67: Swing (1) / positional (0)": ["v67", "s4_pyrSwing"],
     "Zigzag: MTF-1 trend state (Daily)":  ["zz", "mtfTrendState"],
     "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"]
   };

@@ -1350,6 +1350,23 @@ dashOiPrev  = input.source(close, "v67: Futures OI prior", group=grpDash, toolti
 dashRsRatioSec = input.source(close, "v67: RS-Ratio vs Sector", group=grpDash, tooltip="Bind to s4_rsRatioSec. Needed for the sector half of the RS row — a slope alone says direction but not whether RS is above or below the sector.")
 dashRsValTr    = input.source(close, "v67: RS val trail (N500)", group=grpDash, tooltip="Bind to s4_rsValTrail500. The TRAILING RS-Ratio v67 uses to work out which way the RRG quadrant is rotating.")
 dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, tooltip="Bind to s4_rsMomTrail500. The trailing RS-Momentum. With the val trail it gives the trajectory arrow and the -> LEADING read.")
+// --- v67 PORTFOLIO SLOT (12-Aug-2026) ---------------------------------------
+// MY TRADE and POSITION STATUS, so the dashboard TABLE can stay shut. The slots,
+// the levels and the pyramid ladder live in v67 (Sync-to-TV writes those inputs)
+// and are read here - nothing is recomputed, so the two panels cannot disagree.
+// input.source carries FLOATS only, which is why the rung arrives as a code and
+// the words are rebuilt below. Unbound = a price series, detected as such.
+pyrClassSrc = input.source(close, "v67: Pyramid rung",  group=grpDash, tooltip="Bind to s4_pyrClass. 1 EXIT · 2 TRIM · 3 REDUCE · 4 ADD · 5 HOLD. na when this symbol is not in a v67 portfolio slot.")
+pyrPnlSrc   = input.source(close, "v67: Position P&L %", group=grpDash, tooltip="Bind to s4_pyrPnl.")
+pyrRSrc     = input.source(close, "v67: Position R",     group=grpDash, tooltip="Bind to s4_pyrR. Open R-multiple against the slot's entry and stop.")
+pyrEntrySrc = input.source(close, "v67: Slot entry",     group=grpDash, tooltip="Bind to s4_pyrEntry.")
+pyrSLSrc    = input.source(close, "v67: Slot SL",        group=grpDash, tooltip="Bind to s4_pyrSL. The HARD stop as logged, not the Chandelier.")
+pyrT1Src    = input.source(close, "v67: Slot T1",        group=grpDash, tooltip="Bind to s4_pyrT1.")
+pyrT2Src    = input.source(close, "v67: Slot T2",        group=grpDash, tooltip="Bind to s4_pyrT2.")
+pyrDaysSrc  = input.source(close, "v67: Days held",      group=grpDash, tooltip="Bind to s4_pyrDays.")
+pyrLeftSrc  = input.source(close, "v67: Days to time-stop", group=grpDash, tooltip="Bind to s4_pyrDaysLeft. Negative = the time-stop has passed.")
+pyrChandSrc = input.source(close, "v67: Chandelier stop", group=grpDash, tooltip="Bind to s4_pyrChand. The catalyst-aware trail; on an ADD this is what the WHOLE position's stop lifts to.")
+pyrSwingSrc = input.source(close, "v67: Swing (1) / positional (0)", group=grpDash, tooltip="Bind to s4_pyrSwing. Which time-stop and structure test the ladder applied.")
 rsSlopeThresh  = input.float(0.2, "v67: RS slope sensitivity", group=grpDash, minval=0.05, maxval=1.5, tooltip="Mirrors v67 rsSlopeThresh (default 0.2). Below this a slope reads Flat rather than Rising/Declining. Keep it equal to v67 or the two panels will word the same RS state differently.")
 wmaSlopeThresh = input.float(0.0012, "30WMA slope flat-band (x MA, 4-week change)", group=grpPA, minval=0.0001, maxval=0.02, step=0.0001, tooltip="The band inside which the 30-week MA counts as FLAT rather than rising or falling. 0.0012 = v67 Dashboard parity (its slopeThresh), applied to the RAW 4-week change of sma(close,30) on WEEKLY bars.\n\nThis is the input that was causing 'v67 says Stage 1, S4 says Stage 2'. S4 previously derived the slope from sma150 on DAILY bars over 10 DAYS — a slow average barely moves in ten days, so it read FLAT where v67 read FALLING, and the stage cell followed.\n\nWiden it and more names read FLAT (which, above the MA, is the Stage 1-vs-3 cell). Narrow it and almost everything reads rising or falling, skipping Stage 1 entirely. Measured across 55 board names at 0.0012: 37 rising / 2 flat / 16 falling.")
 resolveOpposing = input.bool(true, "Resolve supply/demand overlap (newer wins)", group=grpZP, tooltip="A price band cannot be supply AND demand at the same time.\n\nMeasured on POLYCAB monthly (5-Aug-2026): a supply zone at 9106.5-10126 and a demand zone at 8791-9961 overlapped by 855 points with spot sitting INSIDE BOTH. The panel read 'IN SUPPLY' while a demand zone occupied the same prices, and the Support Zone row had nothing usable to show. A location gate cannot be honest about a band that is both.\n\nON (default): when a new zone overlaps a live OPPOSING zone on the SAME timeframe, the older one is trimmed back to the newer one's edge — price has since traded into that band and turned the other way, so the old zone's fuel in the overlap is spent. A zone that ends up fully engulfed is greyed (tested), never deleted.\n\nCross-timeframe overlaps are untouched: a Monthly zone sitting on a Weekly one is CONFLUENCE, not a contradiction.\n\nOFF = both zones stay at full width and may contradict each other.")
@@ -4581,6 +4598,31 @@ if show_panel and d_panel and barstate.islast
     if retain_spent_supply and not na(_so_z_spentSZ) and _so_z_spentSZ > _cl_r and (na(_ovh) or _so_z_spentSZ < _ovh)
         room_txt := room_txt + "  · spent SZ " + str.tostring(_so_z_spentSZ, format.mintick)
     f_row(30, "Room for Trade", room_txt, room_col)
+
+    // ── v67 PORTFOLIO SLOT: MY TRADE + POSITION STATUS ───────────────────────
+    // Bound, not recomputed - v67 owns the slots, the levels and the ladder, so
+    // these two rows cannot drift from its panel or from Risk Shield.
+    // UNBOUND DETECTION: an unbound input.source reads `close`, never na, so the
+    // test is that the rung is an integer 1-5 AND the swing flag is exactly 0/1.
+    // A close price that satisfies both at once is possible but not on this book.
+    float _pyC = pyrClassSrc[_so]
+    float _pySw = pyrSwingSrc[_so]
+    bool  _pyOn = not na(_pyC) and _pyC >= 1 and _pyC <= 5 and _pyC == math.round(_pyC) and (_pySw == 0 or _pySw == 1)
+    if _pyOn
+        string _pyName = _pyC == 1 ? "EXIT" : _pyC == 2 ? "TRIM" : _pyC == 3 ? "REDUCE" : _pyC == 4 ? "ADD" : "HOLD"
+        color  _pyCol  = _pyC == 1 ? C_NO : _pyC == 2 ? C_WARN : _pyC == 3 ? C_INFO : _pyC == 4 ? C_GO : C_OK
+        float  _pyPnl  = pyrPnlSrc[_so]
+        float  _pyR    = pyrRSrc[_so]
+        string _pyTop  = _pyName + "  " + (na(_pyPnl) ? "" : (_pyPnl > 0 ? "+" : "") + str.tostring(_pyPnl, "0.0") + "%") + (na(_pyR) ? "" : "  ·  " + str.tostring(_pyR, "0.00") + "R")
+        // The reason text is NOT carried: input.source cannot pass a string, and
+        // encoding a dozen trigger codes would cost more than it is worth here.
+        // The rung is the decision; v67's own row and Risk Shield spell out why.
+        f_row(32, "MY TRADE (v67 slot)", _pyTop, _pyCol)
+
+        string _pyLv = "entry " + str.tostring(pyrEntrySrc[_so], format.mintick) + "  ·  SL " + str.tostring(pyrSLSrc[_so], format.mintick) + "  ·  trail " + str.tostring(pyrChandSrc[_so], format.mintick) + "  ·  T1 " + str.tostring(pyrT1Src[_so], format.mintick) + "  ·  T2 " + str.tostring(pyrT2Src[_so], format.mintick)
+        float  _pyLeft = pyrLeftSrc[_so]
+        string _pySt = (_pySw == 1 ? "SWING" : "POSITIONAL") + "  ·  " + str.tostring(pyrDaysSrc[_so], "0") + "d held" + (na(_pyLeft) ? "" : (_pyLeft < 0 ? "  ·  TIME-STOP PASSED by " + str.tostring(-_pyLeft, "0") + "d" : "  ·  " + str.tostring(_pyLeft, "0") + "d to time-stop"))
+        f_row(33, "POSITION", _pySt + "\n" + _pyLv, na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN)
     // #1 (Jay, 19-Jul): if the panel/verdict cites a level to clear ("must clear
     // 1439.95"), that level must be ON THE CHART — sensing a level and not drawing
     // it forces a manual hunt. Draw the binding obstacle: the supply-band ceiling

@@ -1110,6 +1110,16 @@ var color tradeColor = color.gray
 // sits in ADD or EXIT for days, and a once-per-bar alert on the state itself
 // would ping every session until you act.
 var string pyrClass     = "NONE"
+// Numeric mirrors of the ladder, exported as s4_* plots so the S4 panel can show
+// MY TRADE / POSITION STATUS without this dashboard's table being open. input.source
+// carries FLOATS only - strings cannot cross - so the rung is a code and S4 renders
+// the words. na = no position, which S4 reads as "no slot for this symbol".
+var float pyrClassNum  = na   // 1 EXIT · 2 TRIM · 3 REDUCE · 4 ADD · 5 HOLD
+var float pyrPnlG      = na
+var float pyrDaysLeftG = na
+var float pyrSwingNum  = na   // 1 swing · 0 positional
+var bool  pyrLeaderG   = false  // leader half of ADD, for the chart levels
+var float pyrAddCeilG  = na     // ADD is only valid at/below close[5] x 1.10
 var string pyrPrevClass = "NONE"
 var string pyrReason    = ""
 var string displayRec = "WAIT"
@@ -4206,6 +4216,9 @@ if tradeActive
     float  pyrR       = (riskPerShare >= 0.005 * finalEntry and riskPerShare > 0) ? currentR : na
     float  pyrD2E     = na(earningsNext) ? na : (earningsNext - timenow) / 86400000.0
     string pyrWhy     = ""
+    pyrPnlG      := curPnL
+    pyrSwingNum  := pyrSwing ? 1 : 0
+    pyrDaysLeftG := (pyrSwing ? swg_stop_thresh : pos_stop_thresh) - daysHeld
     // ADD's two halves, each on ONE line. Wrapped boolean expressions in Pine
     // break with "end of line without line continuation" when the continuation
     // lands on a multiple-of-4 indent (it parses as a new block), so keep them
@@ -4214,6 +4227,8 @@ if tradeActive
     bool   pyrLocMA   = dMA200 > 0 and close > dMA200 and not na(pyrSlope200) and pyrSlope200 > 0
     bool   pyrLocPB   = not na(pyrClose5) and close <= pyrClose5 * 1.10 and use_ema20 > 0 and close > use_ema20
     bool   pyrAtLoc   = pyrLocMA and pyrLocPB
+    pyrLeaderG   := pyrLeader
+    pyrAddCeilG  := not na(pyrClose5) ? pyrClose5 * 1.10 : na
     // TRIM's four triggers, flat for the same reason. R>=3 implies R>=2, so the
     // gate tests >=2 and the WORDING below splits 3R (book ½) from 2R (book ⅓).
     bool   pyrTrimR   = not na(pyrR) and pyrR >= 2.0
@@ -4242,6 +4257,7 @@ if tradeActive
         tradeStatus := "🛑 EXIT (" + pnlStr + ") · " + pyrWhy
         tradeColor  := color.red
         pyrClass    := "EXIT"
+        pyrClassNum := 1
         pyrReason   := pyrWhy
 
     // ── 2. TRIM (partial) — winners only, trend intact ────────────────────
@@ -4258,6 +4274,7 @@ if tradeActive
                        (na(ce_trailing_stop) ? "" : " · trail → " + str.tostring(math.round_to_mintick(ce_trailing_stop)))
         tradeColor  := color.fuchsia
         pyrClass    := "TRIM"
+        pyrClassNum := 2
         pyrReason   := pyrWhy
 
     // ── 3. REDUCE (soft) — tighten stop, don't add. NEVER a sell ──────────
@@ -4267,6 +4284,7 @@ if tradeActive
                        str.tostring(math.round_to_mintick(dMA50)) + " — tighten stop, don't pyramid"
         tradeColor  := color.new(#60a5fa, 0)
         pyrClass    := "REDUCE"
+        pyrClassNum := 3
         pyrReason   := "below 50-DMA"
 
     // ── 4. ADD (pyramid) — leader AND pullback location ───────────────────
@@ -4286,6 +4304,7 @@ if tradeActive
         tradeStatus := "🔼 ADD (" + pnlStr + ") · pullback to EMA20" + pyrWhy
         tradeColor  := color.blue
         pyrClass    := "ADD"
+        pyrClassNum := 4
         pyrReason   := "pullback to EMA20"
 
     // ── 5. HOLD — including the "leader but extended" case ────────────────
@@ -4293,11 +4312,13 @@ if tradeActive
         tradeStatus := "HOLD (" + pnlStr + ") · leader but extended — wait for the pullback to add"
         tradeColor  := color.new(#26a69a, 0)
         pyrClass    := "HOLD"
+        pyrClassNum := 5
         pyrReason   := "leader but extended"
     else
         tradeStatus := "HOLD (" + pnlStr + ")"
         tradeColor  := curPnL > 0 ? color.new(#26a69a, 0) : color.orange
         pyrClass    := "HOLD"
+        pyrClassNum := 5
         pyrReason   := "no rung triggered"
         
     // Room for Trade Warning Check
@@ -5280,6 +5301,18 @@ plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "T
 // (it is consumed by the pyramid ladder, which must run before the panel is
 // drawn). Only the plot stays here.
 plot(showTrade ? ce_trailing_stop : na, "Canonical Chandelier TSL", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
+
+// --- Pyramid ADD levels on the chart (12-Aug-2026) --------------------------
+// The ladder's ADD rung needs price BETWEEN two lines: at/above the 20-EMA (the
+// pullback has held) and at/below close[5] x 1.10 (not already extended). Drawn
+// only while the LEADER half is true, so they appear on names where an add is
+// actually on the table and stay off every other chart.
+// The raise-to stop is the Chandelier already plotted above - the same line the
+// ADD row tells you to lift the whole position to.
+plot(showTrade and tradeActive and pyrLeaderG ? use_ema20 : na, "Pyramid: ADD floor (20-EMA)",
+     color=color.new(#3b82f6, 0), style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and pyrLeaderG ? pyrAddCeilG : na, "Pyramid: ADD ceiling (+10% in 5d)",
+     color=color.new(#3b82f6, 45), style=plot.style_linebr, linewidth=1)
 // -------------------------------------------------------------
 
 // LABELS (Last Bar Only - v20.0 Style)
@@ -5551,3 +5584,20 @@ plot(fut_oi_prev,       title="s4_oiPrev",       display=display.none)
 // same numbers this panel does, which is the whole point of the handoff.
 plot(_valTrail500,      title="s4_rsValTrail500", display=display.none)
 plot(_momTrail500,      title="s4_rsMomTrail500", display=display.none)
+
+// --- Portfolio slot -> S4 (12-Aug-2026) -------------------------------------
+// So the S4 panel can carry MY TRADE and POSITION STATUS and this table can stay
+// shut. The slots, their levels and the pyramid ladder all live HERE (Sync-to-TV
+// writes these inputs); S4 only renders. na when the chart symbol is not in a
+// slot, which is how S4 knows to print nothing rather than a zeroed row.
+plot(tradeActive ? pyrClassNum : na,      title="s4_pyrClass",    display=display.none)
+plot(tradeActive ? pyrPnlG : na,          title="s4_pyrPnl",      display=display.none)
+plot(tradeActive ? currentR : na,         title="s4_pyrR",        display=display.none)
+plot(tradeActive ? finalEntry : na,       title="s4_pyrEntry",    display=display.none)
+plot(tradeActive ? visualSL : na,         title="s4_pyrSL",       display=display.none)
+plot(tradeActive ? finalT1 : na,          title="s4_pyrT1",       display=display.none)
+plot(tradeActive ? finalT2 : na,          title="s4_pyrT2",       display=display.none)
+plot(tradeActive ? daysHeld : na,         title="s4_pyrDays",     display=display.none)
+plot(tradeActive ? pyrDaysLeftG : na,     title="s4_pyrDaysLeft", display=display.none)
+plot(tradeActive ? ce_trailing_stop : na, title="s4_pyrChand",    display=display.none)
+plot(tradeActive ? pyrSwingNum : na,      title="s4_pyrSwing",    display=display.none)
