@@ -1,0 +1,10 @@
+# Windows batch files MUST be CRLF. cmd.exe parses them by byte offset, so an
+# LF-only .bat breaks on labels, GOTO and parenthesised IF blocks - it runs the
+# early lines, then starts executing comment text as commands ("--- is not
+# recognized"). It fails in ways that look like a path or permission problem.
+# Editors and tools that write LF by default reintroduced this on 11-Aug-2026.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Pine sources are opened in the TradingView editor on Windows.
+*.pine text eol=crlf
