@@ -851,7 +851,7 @@
 // ============================================================================
 //@version=6
 indicator("Section 4 Entry Trigger and Price Memory v9.12 (Sectioned Panel)", shorttitle="S4 Entry v9.12", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/7 as core
+import jayramg/S4Core/8 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -2646,28 +2646,9 @@ if array.size(avs) > 0
 // Names are excluded when reassigned later, when their fields are read (a UDT
 // loses its type through a tuple), or when passed to core.*/ta.*/request.*,
 // which want `simple` — a function return is always `series`.
-f_fold2715() =>
-    float sup_dist = (not na(nearest_sup) and close > 0) ? (close - nearest_sup) / close * 100.0 : na
-    string nearest_sup_lbl = na(nearest_sup) ? "" : (not na(avwap_bo) and nearest_sup == avwap_bo ? "BO" : not na(avwap_gap) and nearest_sup == avwap_gap ? "Gap" : not na(avwap_low) and nearest_sup == avwap_low ? "L" : "?")
-    float _tol = tol_pct / 100.0
-    bool b_low = not na(avwap_low) and low <= avwap_low * (1.0 + _tol) and close > avwap_low and close > open
-    bool b_bo  = not na(avwap_bo)  and low <= avwap_bo  * (1.0 + _tol) and close > avwap_bo  and close > open
-    bool b_gap = not na(avwap_gap) and low <= avwap_gap * (1.0 + _tol) and close > avwap_gap and close > open
-    bool _r2g_x = ta.crossover(close, avwap_bo)
-    bool _r2g  = not na(avwap_bo) and _r2g_x
-    bool avwap_trig = b_low or b_bo or b_gap or _r2g
-    float ema10c = ta.ema(close, ema_len)
-    bool  ema_reclaim = close > ema10c and ema10c > ema10c[1]
-    float basis  = ta.sma(close, sqz_len)
-    float dev    = bb_mult * ta.stdev(close, sqz_len)
-    float kc_rng = ta.atr(sqz_len)
-    bool  sqz_on   = (basis + dev) < (basis + kc_mult * kc_rng) and (basis - dev) > (basis - kc_mult * kc_rng)
-    bool  sqz_fire = not sqz_on and sqz_on[1]
-    float sqz_mom  = ta.linreg(close - math.avg(math.avg(ta.highest(high, sqz_len), ta.lowest(low, sqz_len)), ta.sma(close, sqz_len)), sqz_len, 0)
-    bool  sqz_releasing = (not sqz_on) and sqz_mom > 0 and (sqz_fire or sqz_mom >= nz(sqz_mom[1]))
-    bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
-    [sup_dist, nearest_sup_lbl, _tol, _r2g, avwap_trig, ema_reclaim, basis, sqz_on, intraday_trig]
-[sup_dist, nearest_sup_lbl, _tol, _r2g, avwap_trig, ema_reclaim, basis, sqz_on, intraday_trig] = f_fold2715()
+// f_fold2715 MOVED to S4Core.avwapIntradayTrigger - pure function, ten reads became
+// parameters. See the library header for why.
+[sup_dist, nearest_sup_lbl, _tol, _r2g, avwap_trig, ema_reclaim, basis, sqz_on, intraday_trig] = core.avwapIntradayTrigger(nearest_sup, avwap_low, avwap_bo, avwap_gap, tol_pct, ema_len, sqz_len, bb_mult, kc_mult, require_squeeze)
 
 // Daily EMA10/EMA20 (DNA anchors) to overlay on the chart-TF battery's engulf.
 // v7.2 TOKEN: f_daily_ema and these two values MOVED UP to the merged Daily
@@ -2878,18 +2859,8 @@ else
 // Names are excluded when reassigned later, when their fields are read (a UDT
 // loses its type through a tuple), or when passed to core.*/ta.*/request.*,
 // which want `simple` — a function return is always `series`.
-f_fold2949() =>
-    bool stage_skip = stage_gate and stage_n >= 3
-    bool rec_dd  = use_dd_recovery and not na(dd60) and dd60 >= rec_dd_min and dd60 <= rec_dd_max
-    string _gmL = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_rec_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
-    bool gm_rec = str.length(_gmL) > 0 and str.contains("," + _gmL + ",", "," + str.upper(syminfo.ticker) + ",")
-    string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
-    bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
-    bool _bel200path = nz(d_bel200, 0.0) > 0.5
-    bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
-    bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
-    [stage_skip, gm_rec, gm_pb, is_rec]
-[stage_skip, gm_rec, gm_pb, is_rec] = f_fold2949()
+// f_fold2949 MOVED to S4Core.pathResolve (pure; reads became parameters).
+[stage_skip, gm_rec, gm_pb, is_rec] = core.pathResolve(stage_gate, stage_n, use_dd_recovery, dd60, rec_dd_min, rec_dd_max, gm_rec_list, gm_pb_list, d_bel200, mode)
 // Combo detection needs the resolved Bull/Recovery path, so the CALL lives here
 // while the function itself sits with the k* flags it reads.
 [_agVCP, _agBC, _agSPR, _agCLX, _agSPRr, _ag2B, cbSPRING, cbIGNITE, cbTRAP, cbFLOOR, cbSHIFT] = f_paCombos(is_rec)

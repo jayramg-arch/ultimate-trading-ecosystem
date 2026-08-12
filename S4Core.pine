@@ -1185,3 +1185,65 @@ export confluenceBoost(array<Zone> zones, float newProx, float newDist, bool new
             if _farDZ or _farSZ
                 bonus := bonus - emaFarMalus
     math.min(bonus, maxConfBoost)
+
+// ---------------------------------------------------------------------------
+// AVWAP + INTRADAY TRIGGER  (moved out of Section 4, 12-Aug-2026)
+//
+// Distance to the nearest AVWAP and which one it is, the AVWAP bounce/reclaim
+// test, and the intraday leg: a rising-EMA reclaim, optionally gated on a TTM
+// squeeze release. S4 called this as f_fold2715 - a wrapper that existed only to
+// keep these statements out of the main body, which Pine caps at ~1000. It is a
+// pure function of its inputs (no globals written, no S4 helpers called), so it
+// moved verbatim with its ten reads turned into parameters.
+//
+// S4 compiled at 100,914 against a 100,256 ceiling; a library body compiles
+// separately, so this returns ~1,090 tokens to that budget unchanged.
+// ---------------------------------------------------------------------------
+export avwapIntradayTrigger(float nearest_sup, float avwap_low, float avwap_bo, float avwap_gap,
+     simple float tol_pct, simple int ema_len, simple int sqz_len, simple float bb_mult,
+     simple float kc_mult, simple bool require_squeeze) =>
+    float sup_dist = (not na(nearest_sup) and close > 0) ? (close - nearest_sup) / close * 100.0 : na
+    string nearest_sup_lbl = na(nearest_sup) ? "" : (not na(avwap_bo) and nearest_sup == avwap_bo ? "BO" : not na(avwap_gap) and nearest_sup == avwap_gap ? "Gap" : not na(avwap_low) and nearest_sup == avwap_low ? "L" : "?")
+    float _tol = tol_pct / 100.0
+    bool b_low = not na(avwap_low) and low <= avwap_low * (1.0 + _tol) and close > avwap_low and close > open
+    bool b_bo  = not na(avwap_bo)  and low <= avwap_bo  * (1.0 + _tol) and close > avwap_bo  and close > open
+    bool b_gap = not na(avwap_gap) and low <= avwap_gap * (1.0 + _tol) and close > avwap_gap and close > open
+    bool _r2g_x = ta.crossover(close, avwap_bo)
+    bool _r2g  = not na(avwap_bo) and _r2g_x
+    bool avwap_trig = b_low or b_bo or b_gap or _r2g
+    float ema10c = ta.ema(close, ema_len)
+    bool  ema_reclaim = close > ema10c and ema10c > ema10c[1]
+    float basis  = ta.sma(close, sqz_len)
+    float dev    = bb_mult * ta.stdev(close, sqz_len)
+    float kc_rng = ta.atr(sqz_len)
+    bool  sqz_on   = (basis + dev) < (basis + kc_mult * kc_rng) and (basis - dev) > (basis - kc_mult * kc_rng)
+    bool  sqz_fire = not sqz_on and sqz_on[1]
+    float sqz_mom  = ta.linreg(close - math.avg(math.avg(ta.highest(high, sqz_len), ta.lowest(low, sqz_len)), ta.sma(close, sqz_len)), sqz_len, 0)
+    bool  sqz_releasing = (not sqz_on) and sqz_mom > 0 and (sqz_fire or sqz_mom >= nz(sqz_mom[1]))
+    bool  intraday_trig = ema_reclaim and (not require_squeeze or sqz_releasing)
+    [sup_dist, nearest_sup_lbl, _tol, _r2g, avwap_trig, ema_reclaim, basis, sqz_on, intraday_trig]
+
+// ---------------------------------------------------------------------------
+// PATH RESOLVE  (moved out of Section 4, 12-Aug-2026)
+//
+// Decides BULL vs RECOVERY and whether the stage gate blocks the name outright,
+// plus whether the ticker appears on the pasted Golden-Matcher recovery/pullback
+// lists. Was f_fold2949 - another main-body-statement wrapper, pure, so it moved
+// verbatim with its reads as parameters.
+//
+// stage_skip is Stage 3/4: a fact about the chart, applied even under a MANUAL
+// mode override, which is why it is resolved here and not inside a mode branch.
+// ---------------------------------------------------------------------------
+export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recovery, float dd60,
+     simple float rec_dd_min, simple float rec_dd_max, simple string gm_rec_list,
+     simple string gm_pb_list, float d_bel200, simple string mode) =>
+    bool stage_skip = stage_gate and stage_n >= 3
+    bool rec_dd  = use_dd_recovery and not na(dd60) and dd60 >= rec_dd_min and dd60 <= rec_dd_max
+    string _gmL = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_rec_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
+    bool gm_rec = str.length(_gmL) > 0 and str.contains("," + _gmL + ",", "," + str.upper(syminfo.ticker) + ",")
+    string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
+    bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
+    bool _bel200path = nz(d_bel200, 0.0) > 0.5
+    bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
+    bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
+    [stage_skip, gm_rec, gm_pb, is_rec]
