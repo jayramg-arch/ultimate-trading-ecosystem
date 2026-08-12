@@ -4339,26 +4339,21 @@ if tradeActive
 // rung is ENTERED. Leaving and re-entering the rung fires again, which is the
 // behaviour you want — it means the condition genuinely re-formed.
 //
-// TWO WAYS TO USE THEM, because each has a limitation:
-//   • alertcondition() — pick "ADD ready" / "EXIT signal" from the condition
-//     dropdown. Pine requires a CONSTANT message here, so it carries only
-//     {{ticker}} and the price; the REASON cannot be interpolated.
-//   • alert() — choose "Any alert() function call" instead and the message
-//     carries the full rung text (which trigger, the raise-to stop, the R).
-// Create ONE or the OTHER per chart, not both, or every trigger double-pings.
+// HOW TO USE: create ONE alert on this indicator with condition
+// "Any alert() function call" — the message below carries the rung, the ticker,
+// the trigger and the raise-to stop.
+//
+// The matching alertcondition() versions were REMOVED on 12-Aug-2026: every
+// alertcondition consumes one of the 64 RUNTIME plot slots and this script hit 66
+// (RE10140). Jay does not use v67's alert dropdown, so all 17 went; alert() costs
+// ZERO slots, which is why the ladder still pings. The removed ones are in git if
+// per-condition alerts are ever wanted again.
 //
 // Both are once-per-bar-CLOSE: the ladder reads daily structure, and an
 // intrabar ADD that fades by the close is not a signal.
 bool pyrEnteredAdd  = tradeActive and pyrClass == "ADD"  and pyrPrevClass != "ADD"
 bool pyrEnteredExit = tradeActive and pyrClass == "EXIT" and pyrPrevClass != "EXIT"
 bool pyrEnteredTrim = tradeActive and pyrClass == "TRIM" and pyrPrevClass != "TRIM"
-
-alertcondition(pyrEnteredAdd,  title="Pyramid: ADD ready",
-     message="ADD ready — {{ticker}} pulled back to EMA20 while leading. Raise the WHOLE position's stop to the Chandelier before adding. See the MY TRADE row for the level.")
-alertcondition(pyrEnteredExit, title="Pyramid: EXIT signal",
-     message="EXIT — {{ticker}} broke the structure the position was held on (stop / -8% / Stage 4 / 30-WMA / swing low / Chandelier / time-stop). See the MY TRADE row for which one.")
-alertcondition(pyrEnteredTrim, title="Pyramid: TRIM signal",
-     message="TRIM — {{ticker}} hit a harvest rung (2R / 3R / T1 / over-extended / earnings). Book the partial and trail the rest.")
 
 if pyrEnteredAdd or pyrEnteredExit or pyrEnteredTrim
     alert(pyrClass + " — " + syminfo.ticker + " · " + pyrReason + " · " + tradeStatus,
@@ -4660,26 +4655,9 @@ f_check_pullback(float c, float o, float l, float ema20, float v, float va) =>
 // ==========================================
 // ALERT CONDITIONS
 // ==========================================
-alertcondition(newStrongBuy, title="★ Strong Buy Signal", message="Weinstein Pro: STRONG BUY Signal Detected on {{ticker}}!")
-alertcondition(hitPullback, title="📉 PULLBACK ZONE", message="Weinstein Pro: Valid Pullback Zone Detected on {{ticker}}!")
-alertcondition(close > use_ema20 and close[1] < use_ema20, title="EMA 20 Crossover", message="Weinstein Pro: Price Crossed Above EMA 20 on {{ticker}}.")
-alertcondition(mktState == "BEARISH", title="Market Health Alert", message="Weinstein Pro: Nifty 500 has flipped to BEARISH.")
-
 // Dedicated Daily Price Action Entry Triggers (v67.4.15 additions)
-alertcondition(pa_50sma_undercut, title="★ Trigger: 50SMA Undercut & Reclaim", message="Weinstein Pro: 50SMA Undercut & Reclaim triggered on {{ticker}}!")
-alertcondition(pa_hammer_at_50, title="★ Trigger: Hammer at 50SMA", message="Weinstein Pro: Hammer at 50SMA triggered on {{ticker}}!")
-alertcondition(pa_hammer_at_200, title="★ Trigger: Hammer at 200SMA", message="Weinstein Pro: Hammer at 200SMA triggered on {{ticker}}!")
-alertcondition(pa_3bar_rev, title="★ Trigger: Three-Bar Reversal", message="Weinstein Pro: Three-Bar Reversal triggered on {{ticker}}!")
-alertcondition(pa_spring, title="★ Trigger: Wyckoff Spring", message="Weinstein Pro: Wyckoff Spring triggered on {{ticker}}!")
-alertcondition(pa_ib_nr7, title="★ Trigger: Inside Bar NR7 Coil", message="Weinstein Pro: Inside Bar NR7 Coil triggered on {{ticker}}!")
-alertcondition(pa_pocket, title="★ Trigger: Pocket Pivot", message="Weinstein Pro: Pocket Pivot triggered on {{ticker}}!")
-alertcondition(pa_vcp_bo, title="★ Trigger: VCP Breakout", message="Weinstein Pro: VCP Breakout triggered on {{ticker}}!")
-alertcondition(pa_gap_up_bo, title="★ Trigger: Gap-Up Breakout", message="Weinstein Pro: Gap-Up Breakout triggered on {{ticker}}!")
-
 // Compound and Dynamic Alerts
 bool any_pa_trigger = pa_50sma_undercut or pa_hammer_at_50 or pa_hammer_at_200 or pa_3bar_rev or pa_spring or pa_ib_nr7 or pa_pocket or pa_vcp_bo or pa_gap_up_bo
-alertcondition(any_pa_trigger, title="★ Trigger: ANY Price Action Trigger", message="Weinstein Pro: Entry Trigger Fired on {{ticker}}!")
-
 // Dynamic alert() call to push specific trigger names to a single TV Alert
 if any_pa_trigger and barstate.isconfirmed
     string active_triggers = ""
