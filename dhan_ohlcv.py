@@ -434,6 +434,11 @@ def _last_completed_session_date():
     return d
 
 
+# Symbols whose session-fill has already been reported this process (see the
+# logging note at the end of _append_completed_session_from_intraday).
+_SESSION_FILL_SEEN: set = set()
+
+
 def _append_completed_session_from_intraday(symbol: str, meta: dict, df_daily):
     """If the Dhan daily frame is behind the last COMPLETED session (their daily
     endpoint lags a day), aggregate the missing session(s) from the intraday
@@ -463,8 +468,18 @@ def _append_completed_session_from_intraday(symbol: str, meta: dict, df_daily):
     out = _pd.concat([df_daily, add[["Open", "High", "Low", "Close", "Volume"]]])
     out = out[~out.index.duplicated(keep="last")].sort_index()
     out.index.name = df_daily.index.name
-    logger.info("intraday session-fill: %s appended %d bar(s) up to %s (daily lagged at %s)",
-                symbol, len(add), target, last)
+    # This is NORMAL operation, not a fault: Dhan publishes a daily bar the NEXT
+    # day, so between the 15:30 close and their next publish every symbol needs
+    # the just-closed session rebuilt from intraday. On a 500-name scan that is
+    # 500+ identical lines and it reads like an error wall.
+    # Log the first occurrence per symbol per process at INFO (so the mechanism
+    # is visible and a genuinely odd case still surfaces), the rest at DEBUG.
+    # A symbol appears more than once when it is fetched at more than one
+    # period/interval in the same run.
+    lvl = logger.debug if symbol in _SESSION_FILL_SEEN else logger.info
+    _SESSION_FILL_SEEN.add(symbol)
+    lvl("intraday session-fill: %s appended %d bar(s) up to %s (daily lagged at %s)",
+        symbol, len(add), target, last)
     return out
 
 
