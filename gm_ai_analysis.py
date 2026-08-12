@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 MAX_NEWS_ITEMS = 8
 MAX_ANALYST_ITEMS = 6
+MAX_SECTOR_ITEMS = 6
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +67,103 @@ def _news_for(symbol: str, hours_back: int = 72) -> tuple[list, list, str]:
         logger.warning("gm_ai_analysis: news fetch failed for %s: %s", sym, exc)
     return arts[:MAX_NEWS_ITEMS], anns[:MAX_NEWS_ITEMS], note
 
+
+def _sector_for(symbol: str) -> tuple[str, str, list]:
+    """(sector_name, sector_index, peer_symbols). ("", "", []) when unknown."""
+    try:
+        import sector_lookup as sl
+        rec = sl.get_sector(_clean(symbol)) or {}
+        name = rec.get("display_name") or rec.get("sector_name") or ""
+        idx = rec.get("sector_index") or ""
+        peers = []
+        if idx:
+            import sqlite3, os
+            db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sectors.db")
+            with sqlite3.connect(db) as c:
+                peers = [r[0].upper() for r in c.execute(
+                    "select symbol from stock_sector where sector_index=?", (idx,))]
+            peers = [p for p in peers if p != _clean(symbol)]
+        return name, idx, peers
+    except Exception as exc:
+        logger.debug("gm_ai_analysis: sector lookup failed for %s: %s", symbol, exc)
+        return "", "", []
+
+
+def _peer_names(peers: list) -> dict:
+    """{TICKER: COMPANY NAME} from the Dhan scrip master, for the peers only.
+
+    Headlines say "HDFC Bank" and "UltraTech Cement", not HDFCBANK and
+    ULTRACEMCO, so ticker-only matching finds almost nothing on the names that
+    are covered most. Measured on a 60-article corpus: ticker-only matched 0 of
+    27 Bank peers. Names are the half that works.
+    """
+    out = {}
+    try:
+        import dhan_ohlcv as d
+        df = d._load_scrip_master()
+        df = df[(df["SEM_EXM_EXCH_ID"] == "NSE") & (df["SEM_INSTRUMENT_NAME"] == "EQUITY")]
+        want = set(peers)
+        for t, nm in zip(df["SEM_TRADING_SYMBOL"], df["SEM_CUSTOM_SYMBOL"]):
+            t = str(t).upper()
+            if t in want and isinstance(nm, str) and len(nm) > 4:
+                out[t] = nm.upper()
+    except Exception as exc:
+        logger.debug("gm_ai_analysis: peer-name map failed: %s", exc)
+    return out
+
+
+def _sector_news(symbol: str, sector_name: str, peers: list, own_titles: set,
+                 hours_back: int = 72) -> tuple[list, str]:
+    """Sector-level items, each tagged with WHY it matched.
+
+    MATCHING IS PEER-BASED, by ticker OR company name. It is deliberately NOT
+    matched on a bare sector word: the first cut of this function accepted
+    "ENERGY" and handed RELIANCE three headlines about UltraTech Cement and a
+    solar JV - noise dressed as sector context, which is exactly what this was
+    supposed to avoid. The only phrase accepted now is the full index name
+    ("NIFTY IT", "BANK NIFTY"), which is unambiguous.
+
+    Items already collected for the symbol itself are excluded so the two
+    buckets never double-count, and the match reason travels WITH each item so
+    a peer-earnings headline can be weighed differently from an index one.
+    """
+    if not sector_name and not peers:
+        return [], "sector unknown - no sector news"
+    out = []
+    try:
+        import news_fetcher
+        blob = news_fetcher.get_news(hours_back=hours_back) or {}
+        names = _peer_names(peers)
+        # PHRASE ONLY. "Nifty IT" and "Bank Nifty" are unambiguous; a bare
+        # sector word is not - "Energy" pulled in Solaris Horizon Energy and
+        # Insolation Energy for RELIANCE, neither of them sector news. If the
+        # index name is a single word, peers carry the whole job.
+        idx_phrase = sector_name.upper() if " " in sector_name.strip() else None
+        for a in (blob.get("articles") or []):
+            title = str(a.get("title", ""))
+            if title in own_titles:
+                continue
+            hay = (title + " " + str(a.get("summary", ""))).upper()
+            hits = [p for p in peers if len(p) > 4 and p in hay]
+            hits += [t for t, nm in names.items() if t not in hits and nm in hay]
+            why = None
+            if hits:
+                why = "peer: " + ", ".join(sorted(set(hits))[:3])
+            elif idx_phrase and idx_phrase in hay:
+                why = f"sector index named: {sector_name}"
+            if not why:
+                continue
+            out.append({"title": title, "source": a.get("source"),
+                        "published": a.get("published"), "matched_because": why})
+            if len(out) >= MAX_SECTOR_ITEMS:
+                break
+        note = (f"news_fetcher, matched on {len(peers)} {sector_name or 'sector'} peers "
+                f"(ticker or company name) or the index name; fetched "
+                f"{blob.get('fetched_at', 'n/a')}")
+    except Exception as exc:
+        logger.warning("gm_ai_analysis: sector news failed for %s: %s", symbol, exc)
+        return [], f"sector news unavailable ({exc})"
+    return out, note
 
 def _analyst_for(symbol: str) -> tuple[dict, str]:
     try:
@@ -117,6 +215,8 @@ def build_payload(symbol: str, ctx: dict | None = None, verdict: dict | None = N
     """
     sym = _clean(symbol)
     arts, anns, news_src = _news_for(sym)
+    sec_name, sec_idx, peers = _sector_for(sym)
+    sec_items, sec_src = _sector_news(sym, sec_name, peers, {str(a.get("title", "")) for a in arts})
     analyst, analyst_src = _analyst_for(sym)
     xray, xray_src = _xray_for(sym)
 
@@ -133,12 +233,14 @@ def build_payload(symbol: str, ctx: dict | None = None, verdict: dict | None = N
                        ("strong_buy", "buy", "hold", "sell", "strong_sell")},
             "items": (analyst.get("items") or [])[:MAX_ANALYST_ITEMS],
         },
-        "news": {"articles": arts, "announcements": anns},
+        "sector": {"name": sec_name, "index": sec_idx, "peer_count": len(peers)},
+        "news": {"articles": arts, "announcements": anns, "sector_items": sec_items},
         "_provenance": {
             "decision_context": "gm_evaluate (same engine as the Trigger Board)",
             "fundamentals": xray_src,
             "analyst_calls": analyst_src,
             "news": news_src,
+            "sector_news": sec_src,
         },
         "_missing": [],
     }
@@ -147,6 +249,8 @@ def build_payload(symbol: str, ctx: dict | None = None, verdict: dict | None = N
             payload["_missing"].append(k)
     if not arts and not anns:
         payload["_missing"].append("news (nothing matched this symbol in the window)")
+    if not sec_items:
+        payload["_missing"].append("sector news (no peer or sector-name match in the window)")
     return payload
 
 
@@ -188,6 +292,10 @@ What the X-Ray supports and what it does not. Name the data-quality level.
 === News and catalysts ===
 Only what is in the payload, quoted with its source. Include earnings proximity
 if present. If nothing matched, say nothing matched — do not pad.
+Cover the SECTOR separately from the stock: news.sector_items are peer or
+sector-level, each carrying "matched_because". A peer result is context for
+the sector, NOT evidence about this company — say which is which, and say
+plainly when the only news here is about somebody else.
 
 === What would have to be true for this to fail ===
 The disconfirming case, concretely. What would you expect to see on the chart
