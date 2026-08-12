@@ -1393,6 +1393,18 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
         import data_provider as _dp
         df_d = _flatten_cols(_dp.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True, auto_adjust=True))
         if df_d is None or df_d.empty or len(df_d) < 60: return None
+        # DELISTED / SUSPENDED GUARD (12-Aug-2026). A dead instrument does not
+        # vanish from the feed - Yahoo keeps serving the LAST traded price with
+        # volume 0, forever. JBCHEPHARM stopped trading ~23-Jul and every bar
+        # after it was 2408.90 / vol 0, which is a perfectly flat series: ATR
+        # collapses toward zero, so any ATR-scaled distance explodes and the
+        # name can score. Only the freshness audit caught it, and only as a
+        # warning. A frozen tail is not data; refuse the symbol.
+        _vtail = df_d["Volume"].tail(5)
+        if len(_vtail) == 5 and (_vtail.fillna(0) <= 0).all():
+            print(f"    {symbol}: last 5 bars have ZERO volume "
+                  f"(last bar {df_d.index[-1].date()}) — treating as delisted/suspended, skipped")
+            return None
         RUN_FRESHNESS[symbol] = df_d.index[-1]
         df_w = _flatten_cols(_dp.fetch_ohlcv(symbol, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
     except Exception:
