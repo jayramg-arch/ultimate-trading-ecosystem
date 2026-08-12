@@ -1362,6 +1362,8 @@ pyrRSrc     = input.source(close, "v67: Position R",     group=grpDash, tooltip=
 pyrDaysSrc  = input.source(close, "v67: Days held",      group=grpDash, tooltip="Bind to s4_pyrDays.")
 pyrLeftSrc  = input.source(close, "v67: Days to time-stop", group=grpDash, tooltip="Bind to s4_pyrDaysLeft. Negative = the time-stop has passed.")
 pyrChandSrc = input.source(close, "v67: Chandelier stop", group=grpDash, tooltip="Bind to s4_pyrChand. The catalyst-aware trail; on an ADD this is what the WHOLE position's stop lifts to.")
+pyrReasonSrc= input.source(close, "v67: Pyramid reason",  group=grpDash, tooltip="Bind to s4_pyrReason. The trigger as a CODE, because input.source cannot carry a string: 1-7 EXIT (at-SL / underwater / Stage 4 / swing low / 30-WMA / Chandelier / time-stop) · 11-15 TRIM (3R / 2R / T1 / earnings / extended) · 21 REDUCE · 31-33 ADD · 41-42 HOLD.")
+pyrEntryTsSrc= input.source(close, "v67: Entry date (epoch)", group=grpDash, tooltip="Bind to s4_pyrEntryTime. Milliseconds; rendered as yyyy-MM-dd in the chart timezone.")
 rsSlopeThresh  = input.float(0.2, "v67: RS slope sensitivity", group=grpDash, minval=0.05, maxval=1.5, tooltip="Mirrors v67 rsSlopeThresh (default 0.2). Below this a slope reads Flat rather than Rising/Declining. Keep it equal to v67 or the two panels will word the same RS state differently.")
 wmaSlopeThresh = input.float(0.0012, "30WMA slope flat-band (x MA, 4-week change)", group=grpPA, minval=0.0001, maxval=0.02, step=0.0001, tooltip="The band inside which the 30-week MA counts as FLAT rather than rising or falling. 0.0012 = v67 Dashboard parity (its slopeThresh), applied to the RAW 4-week change of sma(close,30) on WEEKLY bars.\n\nThis is the input that was causing 'v67 says Stage 1, S4 says Stage 2'. S4 previously derived the slope from sma150 on DAILY bars over 10 DAYS — a slow average barely moves in ten days, so it read FLAT where v67 read FALLING, and the stage cell followed.\n\nWiden it and more names read FLAT (which, above the MA, is the Stage 1-vs-3 cell). Narrow it and almost everything reads rising or falling, skipping Stage 1 entirely. Measured across 55 board names at 0.0012: 37 rising / 2 flat / 16 falling.")
 resolveOpposing = input.bool(true, "Resolve supply/demand overlap (newer wins)", group=grpZP, tooltip="A price band cannot be supply AND demand at the same time.\n\nMeasured on POLYCAB monthly (5-Aug-2026): a supply zone at 9106.5-10126 and a demand zone at 8791-9961 overlapped by 855 points with spot sitting INSIDE BOTH. The panel read 'IN SUPPLY' while a demand zone occupied the same prices, and the Support Zone row had nothing usable to show. A location gate cannot be honest about a band that is both.\n\nON (default): when a new zone overlaps a live OPPOSING zone on the SAME timeframe, the older one is trimmed back to the newer one's edge — price has since traded into that band and turned the other way, so the old zone's fuel in the overlap is spent. A zone that ends up fully engulfed is greyed (tested), never deleted.\n\nCross-timeframe overlaps are untouched: a Monthly zone sitting on a Weekly one is CONFLUENCE, not a contradiction.\n\nOFF = both zones stay at full width and may contradict each other.")
@@ -4534,10 +4536,37 @@ if show_panel and d_panel and barstate.islast
         // encoding a dozen trigger codes would cost more than it is worth here.
         // The rung is the decision; v67's own row and Risk Shield spell out why.
         f_sec(39, "  VI · PORTFOLIO             —  What do I already own here, and what does the ladder say?")
-        f_row(40, "MY TRADE (v67 slot)", _pyTop + (na(pyrChandSrc[_so]) ? "" : "  ·  trail " + str.tostring(pyrChandSrc[_so], format.mintick)), _pyCol)
+        // WHY, rebuilt from the code. Numbers the reason cites are re-read from the
+        // values already bound (the Chandelier) rather than carried again; levels S4
+        // does not have (30-WMA, swing low, 50-DMA) are named without their price -
+        // v67's own row and Risk Shield print those.
+        float _pyRc = pyrReasonSrc[_so]
+        string _pyChTxt = na(pyrChandSrc[_so]) ? "" : str.tostring(pyrChandSrc[_so], format.mintick)
+        string _pyWhy = na(_pyRc) or _pyRc == close ? "" :
+             _pyRc == 1  ? "at SL" :
+             _pyRc == 2  ? "thesis underwater" :
+             _pyRc == 3  ? "Stage 4 - trend broken" :
+             _pyRc == 4  ? "below swing low" :
+             _pyRc == 5  ? "below 30-WMA" :
+             _pyRc == 6  ? "below Chandelier " + _pyChTxt :
+             _pyRc == 7  ? "time-stop, dead money" :
+             _pyRc == 11 ? "3R+ - book 1/2, trail the rest" :
+             _pyRc == 12 ? "2R+ - book 1/3, lock 0.5R" :
+             _pyRc == 13 ? "T1 reached - book partial" :
+             _pyRc == 14 ? "earnings <= 3d - trim into it" :
+             _pyRc == 15 ? "over-extended vs 20-EMA" :
+             _pyRc == 21 ? "below 50-DMA - tighten, do not add" :
+             _pyRc == 31 ? "pullback to EMA20 - RAISE stop -> " + _pyChTxt :
+             _pyRc == 32 ? "pullback to EMA20 - keep the stop" :
+             _pyRc == 33 ? "pullback to EMA20 - raise the stop first" :
+             _pyRc == 41 ? "leader but extended - wait for the pullback" :
+             _pyRc == 42 ? "no rung triggered" : ""
+        f_row(40, "MY TRADE (v67 slot)", _pyTop + (str.length(_pyWhy) == 0 ? "" : "  ·  " + _pyWhy), _pyCol)
 
         float  _pyLeft = pyrLeftSrc[_so]
-        string _pySt = (_pySw == 1 ? "SWING" : "POSITIONAL") + "  ·  " + str.tostring(pyrDaysSrc[_so], "0") + "d held" + (na(_pyLeft) ? "" : (_pyLeft < 0 ? "  ·  TIME-STOP PASSED by " + str.tostring(-_pyLeft, "0") + "d" : "  ·  " + str.tostring(_pyLeft, "0") + "d to time-stop"))
+        float  _pyTs = pyrEntryTsSrc[_so]
+        bool   _pyTsOk = not na(_pyTs) and _pyTs > 1000000000000 and _pyTs != close
+        string _pySt = (_pySw == 1 ? "SWING" : "POSITIONAL") + (_pyTsOk ? "  ·  entry " + str.format_time(int(_pyTs), "yyyy-MM-dd", syminfo.timezone) : "") + "  ·  " + str.tostring(pyrDaysSrc[_so], "0") + "d held" + (na(_pyLeft) ? "" : (_pyLeft < 0 ? "  ·  TIME-STOP PASSED by " + str.tostring(-_pyLeft, "0") + "d" : "  ·  " + str.tostring(_pyLeft, "0") + "d to time-stop"))
         f_row(41, "POSITION", _pySt, na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN)
     // #1 (Jay, 19-Jul): if the panel/verdict cites a level to clear ("must clear
     // 1439.95"), that level must be ON THE CHART — sensing a level and not drawing

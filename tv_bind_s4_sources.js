@@ -44,6 +44,8 @@
     "v67: Days held":                  ["v67", "s4_pyrDays"],
     "v67: Days to time-stop":          ["v67", "s4_pyrDaysLeft"],
     "v67: Chandelier stop":            ["v67", "s4_pyrChand"],
+    "v67: Pyramid reason":             ["v67", "s4_pyrReason"],
+    "v67: Entry date (epoch)":         ["v67", "s4_pyrEntryTime"],
     "Zigzag: MTF-1 trend state (Daily)":  ["zz", "mtfTrendState"],
     "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"]
   };

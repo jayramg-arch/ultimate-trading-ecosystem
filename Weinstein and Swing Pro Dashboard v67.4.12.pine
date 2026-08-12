@@ -1118,6 +1118,9 @@ var float pyrClassNum  = na   // 1 EXIT · 2 TRIM · 3 REDUCE · 4 ADD · 5 HOLD
 var float pyrPnlG      = na
 var float pyrDaysLeftG = na
 var float pyrSwingNum  = na   // 1 swing · 0 positional
+var float pyrReasonNum = na   // WHY, as a code -- S4 rebuilds the words (a string
+                              // cannot cross input.source). 1-7 EXIT · 11-15 TRIM ·
+                              // 21 REDUCE · 31-33 ADD · 41-42 HOLD.
 var bool  pyrLeaderG   = false  // leader half of ADD, for the chart levels
 var float pyrAddCeilG  = na     // ADD is only valid at/below close[5] x 1.10
 var string pyrPrevClass = "NONE"
@@ -4262,6 +4265,7 @@ if tradeActive
         tradeStatus := "🛑 EXIT (" + pnlStr + ") · " + pyrWhy
         tradeColor  := color.red
         pyrClass    := "EXIT"
+        pyrReasonNum := ex_atsl ? 1 : ex_under ? 2 : ex_stage4 ? 3 : ex_swglow ? 4 : ex_wma30 ? 5 : ex_chand ? 6 : 7
         pyrClassNum := 1
         pyrReason   := pyrWhy
 
@@ -4279,6 +4283,7 @@ if tradeActive
                        (na(ce_trailing_stop) ? "" : " · trail → " + str.tostring(math.round_to_mintick(ce_trailing_stop)))
         tradeColor  := color.fuchsia
         pyrClass    := "TRIM"
+        pyrReasonNum := (not na(pyrR) and pyrR >= 3.0) ? 11 : (not na(pyrR) and pyrR >= 2.0) ? 12 : pyrTrimT1 ? 13 : pyrTrimER ? 14 : 15
         pyrClassNum := 2
         pyrReason   := pyrWhy
 
@@ -4289,6 +4294,7 @@ if tradeActive
                        str.tostring(math.round_to_mintick(dMA50)) + " — tighten stop, don't pyramid"
         tradeColor  := color.new(#60a5fa, 0)
         pyrClass    := "REDUCE"
+        pyrReasonNum := 21
         pyrClassNum := 3
         pyrReason   := "below 50-DMA"
 
@@ -4309,17 +4315,20 @@ if tradeActive
         tradeStatus := "🔼 ADD (" + pnlStr + ") · pullback to EMA20" + pyrWhy
         tradeColor  := color.blue
         pyrClass    := "ADD"
+        pyrReasonNum := (not na(ce_trailing_stop) and visualSL > 0 and ce_trailing_stop > visualSL) ? 31 : (not na(ce_trailing_stop) and visualSL > 0) ? 32 : 33
         pyrClassNum := 4
         pyrReason   := "pullback to EMA20"
 
     // ── 5. HOLD — including the "leader but extended" case ────────────────
     else if isStage2Family and wMASlopeState == "RISING" and curPnL >= 5.0
+        pyrReasonNum := 41
         tradeStatus := "HOLD (" + pnlStr + ") · leader but extended — wait for the pullback to add"
         tradeColor  := color.new(#26a69a, 0)
         pyrClass    := "HOLD"
         pyrClassNum := 5
         pyrReason   := "leader but extended"
     else
+        pyrReasonNum := 42
         tradeStatus := "HOLD (" + pnlStr + ")"
         tradeColor  := curPnL > 0 ? color.new(#26a69a, 0) : color.orange
         pyrClass    := "HOLD"
@@ -5587,3 +5596,7 @@ plot(tradeActive ? currentR : na,         title="s4_pyrR",        display=displa
 plot(tradeActive ? daysHeld : na,         title="s4_pyrDays",     display=display.none)
 plot(tradeActive ? pyrDaysLeftG : na,     title="s4_pyrDaysLeft", display=display.none)
 plot(tradeActive ? ce_trailing_stop : na, title="s4_pyrChand",    display=display.none)
+plot(tradeActive ? pyrReasonNum : na,     title="s4_pyrReason",   display=display.none)
+// Entry DATE as epoch ms. A date is a number, so unlike the reason TEXT it crosses
+// directly; S4 formats it with str.format_time in the chart timezone.
+plot(tradeActive and finalDate > 0 ? finalDate : na, title="s4_pyrEntryTime", display=display.none)
