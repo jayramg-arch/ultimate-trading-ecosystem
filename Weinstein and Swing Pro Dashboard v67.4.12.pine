@@ -5590,14 +5590,17 @@ plot(_momTrail500,      title="s4_rsMomTrail500", display=display.none)
 // shut. The slots, their levels and the pyramid ladder all live HERE (Sync-to-TV
 // writes these inputs); S4 only renders. na when the chart symbol is not in a
 // slot, which is how S4 knows to print nothing rather than a zeroed row.
-plot(tradeActive ? pyrClassNum : na,      title="s4_pyrClass",    display=display.none)
+// The four LEVEL exports (entry/SL/T1/T2) were removed on the same day they were
+// added: S4 stopped binding them (it has its own Entry-SL-T1-T2 plan row and the
+// levels are plotted on the chart), and every plot -- display=display.none
+// included -- costs one of the 64 RUNTIME plot slots. This script hit 66.
+// alertcondition() also consumes a slot, which is easy to forget: 17 of them here.
+// PACKED: rung + swing in ONE plot to save a slot -- 1-5 = positional, 11-15 = swing.
+// It also makes S4's unbound test STRICTER: an unbound source reads `close`, and a
+// price landing exactly on one of ten integers is rarer than one landing in 1-5.
+plot(tradeActive ? pyrClassNum + (pyrSwingNum == 1 ? 10 : 0) : na, title="s4_pyrClass", display=display.none)
 plot(tradeActive ? pyrPnlG : na,          title="s4_pyrPnl",      display=display.none)
 plot(tradeActive ? currentR : na,         title="s4_pyrR",        display=display.none)
-plot(tradeActive ? finalEntry : na,       title="s4_pyrEntry",    display=display.none)
-plot(tradeActive ? visualSL : na,         title="s4_pyrSL",       display=display.none)
-plot(tradeActive ? finalT1 : na,          title="s4_pyrT1",       display=display.none)
-plot(tradeActive ? finalT2 : na,          title="s4_pyrT2",       display=display.none)
 plot(tradeActive ? daysHeld : na,         title="s4_pyrDays",     display=display.none)
 plot(tradeActive ? pyrDaysLeftG : na,     title="s4_pyrDaysLeft", display=display.none)
 plot(tradeActive ? ce_trailing_stop : na, title="s4_pyrChand",    display=display.none)
-plot(tradeActive ? pyrSwingNum : na,      title="s4_pyrSwing",    display=display.none)

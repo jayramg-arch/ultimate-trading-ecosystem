@@ -44,7 +44,6 @@
     "v67: Days held":                  ["v67", "s4_pyrDays"],
     "v67: Days to time-stop":          ["v67", "s4_pyrDaysLeft"],
     "v67: Chandelier stop":            ["v67", "s4_pyrChand"],
-    "v67: Swing (1) / positional (0)": ["v67", "s4_pyrSwing"],
     "Zigzag: MTF-1 trend state (Daily)":  ["zz", "mtfTrendState"],
     "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"]
   };
