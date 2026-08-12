@@ -53,6 +53,7 @@ WATCHED = [
     "pa_patterns.py",
     "strict_trend.py",
     "gm_armed.py",
+    "gm_ai_analysis.py",
     # Unattended path — these run with nobody watching, which is exactly where
     # a silent fault survives longest (the trail job went dark for three weeks).
     "journal_sync.py",

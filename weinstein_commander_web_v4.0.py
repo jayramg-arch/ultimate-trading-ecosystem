@@ -14513,6 +14513,48 @@ elif page == 'GOLDEN MATCHER':
 
         st.divider()
 
+        # ---- AI analysis (12-Aug-2026) -------------------------------------
+        # BESIDE the decision path, never inside it. It reads what gm_evaluate
+        # already produced - so it can never describe a different bar than the
+        # panel above - then adds fundamentals, news and analyst calls and asks
+        # for a reading. Deliberately NOT a verdict: the framing Jay agreed is
+        # evidence + the disconfirming case, because a confident buy/sell here
+        # would be false precision against an edge every backtest calls thin.
+        #
+        # Button-gated on purpose. It is the only slow, non-deterministic thing
+        # on this page (LLM + news fetch), so it must never run on every rerun.
+        with st.expander("🧠 AI analysis — evidence, gaps and the disconfirming case", expanded=False):
+            _ai_key = f"gm_ai_{symbol}_{_trig_tf}"
+            _c1, _c2 = st.columns([1, 3])
+            _go_ai = _c1.button("Run analysis", key=f"{_ai_key}_btn", type="primary",
+                                use_container_width=True)
+            _c2.caption("Reads this page's own engine output, then pulls X-Ray fundamentals, "
+                        "RSS + NSE announcements and ET/MC analyst calls. Slow (~10-20s) and "
+                        "not reproducible word-for-word — it is a research aid, it does not "
+                        "gate the GO.")
+            if _go_ai:
+                with st.spinner("Assembling evidence and generating…"):
+                    try:
+                        import gm_ai_analysis as _gai
+                        # holding comes from the journal INSIDE the module -
+                        # journal_overrides is not in scope on this page and
+                        # guessing at it is how the last two silent faults started.
+                        _txt, _pl = _gai.analyse(symbol, ctx=ctx, verdict=_ev)
+                        st.session_state[_ai_key] = {"text": _txt, "payload": _pl}
+                    except Exception as _e_ai:
+                        st.session_state[_ai_key] = {"text": f"AI analysis failed: {_e_ai}", "payload": {}}
+            _cached_ai = st.session_state.get(_ai_key)
+            if _cached_ai:
+                _pl = _cached_ai.get("payload") or {}
+                _miss = _pl.get("_missing") or []
+                if _miss:
+                    st.warning("Gaps in the evidence: " + " · ".join(str(m) for m in _miss))
+                st.markdown(_cached_ai.get("text", ""))
+                with st.expander("What it was given (provenance)", expanded=False):
+                    for _k, _v in (_pl.get("_provenance") or {}).items():
+                        st.caption(f"**{_k}** — {_v}")
+                    st.json(_pl, expanded=False)
+
         # ---- Session shortlist (E3) — the ranked artifact of this scroll session ----
         _sl_all = st.session_state.get("gm_shortlist", {})
         with st.expander(f"📋 Session shortlist ({len(_sl_all)})", expanded=False):
