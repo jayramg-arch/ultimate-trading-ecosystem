@@ -824,61 +824,61 @@ p10_date = input.time(0, title="Date", group=grpP6_10, inline="p10d", display=di
 
 // --- GROUP 3: SLOTS 11-15 ---
 grpP11_15 = "3. Portfolio Slots 11-15"
-p11_tick = input.string("NSE:GVT&D", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
-p11_ent  = input.float(5208.8945, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
-p11_sl   = input.price(4235.2, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
+p11_tick = input.string("NSE:PAGEIND", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
+p11_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
+p11_sl   = input.price(38700.0, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
 p11_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p11", display=display.data_window)
-p11_t1   = input.price(7156.283500000001, title="T1", group=grpP11_15, inline="p11t", display=display.data_window)
-p11_t2   = input.price(6460.0, title="T2", group=grpP11_15, inline="p11t", display=display.data_window)
-p11_sec  = input.string("Infra", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
-p11_date = input.time(timestamp("2026-06-25"), title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
+p11_t1   = input.price(46695.0, title="T1", group=grpP11_15, inline="p11t", display=display.data_window)
+p11_t2   = input.price(0.0, title="T2", group=grpP11_15, inline="p11t", display=display.data_window)
+p11_sec  = input.string("FMCG", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
+p11_date = input.time(timestamp("2026-07-09"), title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
 
-p12_tick = input.string("NSE:PAGEIND", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
-p12_ent  = input.float(41625.0, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
-p12_sl   = input.price(38700.0, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+p12_tick = input.string("NSE:APOLLOHOSP", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
+p12_ent  = input.float(8876.228, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sl   = input.price(8370.5, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p12", display=display.data_window)
-p12_t1   = input.price(46695.0, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
-p12_t2   = input.price(0.0, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
-p12_sec  = input.string("FMCG", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
-p12_date = input.time(timestamp("2026-07-09"), title="Date", group=grpP11_15, inline="p12d", display=display.data_window)
+p12_t1   = input.price(9896.5, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
+p12_t2   = input.price(10407.5, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
+p12_sec  = input.string("Pharma", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
+p12_date = input.time(0, title="Date", group=grpP11_15, inline="p12d", display=display.data_window)
 
-p13_tick = input.string("NSE:APOLLOHOSP", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
-p13_ent  = input.float(8876.228, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
-p13_sl   = input.price(8370.5, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
+p13_tick = input.string("NSE:SONACOMS", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
+p13_ent  = input.float(742.6373, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
+p13_sl   = input.price(652.2, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
 p13_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p13", display=display.data_window)
-p13_t1   = input.price(9896.5, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
-p13_t2   = input.price(10407.5, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
-p13_sec  = input.string("Pharma", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
-p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
+p13_t1   = input.price(850.5, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_t2   = input.price(898.5, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_sec  = input.string("Auto", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
+p13_date = input.time(timestamp("2026-07-18"), title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
 
-p14_tick = input.string("NSE:SONACOMS", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
-p14_ent  = input.float(700.7, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
-p14_sl   = input.price(652.2, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+p14_tick = input.string("NSE:CUMMINSIND", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
+p14_ent  = input.float(5456.5, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sl   = input.price(4979.0, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p14", display=display.data_window)
-p14_t1   = input.price(850.5, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
-p14_t2   = input.price(898.5, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
-p14_sec  = input.string("Auto", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
-p14_date = input.time(timestamp("2026-07-18"), title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
+p14_t1   = input.price(6415.5, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
+p14_t2   = input.price(6908.0, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
+p14_sec  = input.string("Capital Goods (BSE)", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
+p14_date = input.time(timestamp("2026-07-29"), title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
 
-p15_tick = input.string("NSE:CUMMINSIND", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
-p15_ent  = input.float(5456.5, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
-p15_sl   = input.price(4979.0, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
+p15_tick = input.string("NSE:GLAXO", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
+p15_ent  = input.float(2629.2, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
+p15_sl   = input.price(2298.5, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
 p15_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p15", display=display.data_window)
-p15_t1   = input.price(6415.5, title="T1", group=grpP11_15, inline="p15t", display=display.data_window)
-p15_t2   = input.price(6908.0, title="T2", group=grpP11_15, inline="p15t", display=display.data_window)
-p15_sec  = input.string("Capital Goods (BSE)", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
-p15_date = input.time(timestamp("2026-07-29"), title="Date", group=grpP11_15, inline="p15d", display=display.data_window)
+p15_t1   = input.price(3278.5, title="T1", group=grpP11_15, inline="p15t", display=display.data_window)
+p15_t2   = input.price(3599.5, title="T2", group=grpP11_15, inline="p15t", display=display.data_window)
+p15_sec  = input.string("Pharma", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
+p15_date = input.time(0, title="Date", group=grpP11_15, inline="p15d", display=display.data_window)
 
 
 // --- GROUP 4: SLOTS 16-20 ---
 grpP16_20 = "4. Portfolio Slots 16-20"
-p16_tick = input.string("NSE:GLAXO", title="Slot 16", group=grpP16_20, inline="p16", display=display.data_window)
-p16_ent  = input.float(2629.2, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
-p16_sl   = input.price(2298.5, title="SL", group=grpP16_20, inline="p16", display=display.data_window)
+p16_tick = input.string("", title="Slot 16", group=grpP16_20, inline="p16", display=display.data_window)
+p16_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
+p16_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p16", display=display.data_window)
 p16_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p16", display=display.data_window)
-p16_t1   = input.price(3278.5, title="T1", group=grpP16_20, inline="p16t", display=display.data_window)
-p16_t2   = input.price(3599.5, title="T2", group=grpP16_20, inline="p16t", display=display.data_window)
-p16_sec  = input.string("Pharma", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
+p16_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p16t", display=display.data_window)
+p16_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p16t", display=display.data_window)
+p16_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
 p16_date = input.time(0, title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
 
 p17_tick = input.string("", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
@@ -1189,15 +1189,21 @@ f_prepTick(string t) =>
             r := "NSE:" + t
     r
 
-// AUTO SECTOR MAPPER
+// AUTO SECTOR MAPPER (TradingView Auto-Sensing)
 f_get_sector_ticker() =>
     string s = syminfo.sector
     string i = syminfo.industry
     string t = "NSE:CNX500" // Default fallback
     string n = "Nifty 500"
     
-    // Prioritize by Industry keywords first (more specific)
-    if str.contains(i, "Bank") or str.contains(s, "Finance")
+    // Prioritize by Industry & Sector keywords (TradingView metadata auto-sensing)
+    if str.contains(i, "Aerospace") or str.contains(i, "Defense") or str.contains(s, "Producer Manufacturing") or str.contains(i, "Industrial") or str.contains(i, "Capital Goods")
+        t := "BSE:CG"
+        n := "Capital Goods & Defense"
+    else if str.contains(s, "Chemical") or str.contains(i, "Chemical") or str.contains(i, "Fertilizer")
+        t := "NSE:CNXCOMMODITIES"
+        n := "Nifty Commodities"
+    else if str.contains(i, "Bank") or str.contains(s, "Finance")
         t := "NSE:BANKNIFTY"
         n := "Bank Nifty"
     else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
@@ -1206,12 +1212,15 @@ f_get_sector_ticker() =>
     else if str.contains(s, "Health") or str.contains(i, "Pharma")
         t := "NSE:CNXPHARMA"
         n := "Pharma"
-    else if str.contains(i, "Auto") or str.contains(s, "Consumer Durables")
+    else if str.contains(i, "Auto")
         t := "NSE:CNXAUTO"
         n := "Nifty Auto"
-    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage")
+    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage") or str.contains(s, "Consumer Durables")
         t := "NSE:CNXFMCG"
         n := "FMCG"
+    else if str.contains(i, "Hotel") or str.contains(i, "Resort") or str.contains(i, "Restaurant") or str.contains(s, "Consumer Services")
+        t := "NSE:CNXCONSUM"
+        n := "Nifty India Consumption"
     else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
         t := "NSE:CNXMETAL"
         n := "Metal"
@@ -1228,7 +1237,7 @@ f_get_sector_ticker() =>
     // Return Tuple
     [t, n]
 
-// // // <DB_LOOKUP_START>
+// // // // // // <DB_LOOKUP_START>
 // This function is AUTO-GENERATED by sector_manager.py
 f_db_sector_lookup(string t) =>
     string s = ""
@@ -1239,7 +1248,7 @@ f_db_sector_lookup(string t) =>
         "3MINDIA" => "NSE:CNXSERVICE"
         "AADHARHFC" => "NSE:CNXFINANCE"
         "AARTIDRUGS" => "NSE:CNXPHARMA"
-        "AARTIIND" => "NSE:CNXMETAL"
+        "AARTIIND" => "NSE:CNXCOMMODITIES"
         "AAVAS" => "NSE:CNXFINANCE"
         "ABB" => "BSE:CG"
         "ABBOTINDIA" => "NSE:CNXPHARMA"
@@ -1290,6 +1299,7 @@ f_db_sector_lookup(string t) =>
         "APOLLOHOSP" => "NSE:CNXPHARMA"
         "APOLLOTYRE" => "NSE:CNXAUTO"
         "APTUS" => "NSE:CNXFINANCE"
+        "ARE_M" => "NSE:CNXINFRA"
         "ARE_M" => "NSE:CNXAUTO"
         "ARVIND" => "NSE:CNXFMCG"
         "ASAHIINDIA" => "NSE:CNXAUTO"
@@ -1298,10 +1308,11 @@ f_db_sector_lookup(string t) =>
         "ASKASIAN" => "NSE:CNXFINANCE"
         "ASTERDM" => "NSE:CNXPHARMA"
         "ASTRAL" => "NSE:CNXINFRA"
+        "ASTRAMICRO" => "BSE:CG"
         "ASTRAZEN" => "NSE:CNXPHARMA"
         "ATGL" => "NSE:CNXENERGY"
         "ATHERENERG" => "NSE:CNXAUTO"
-        "ATUL" => "NSE:CNXMETAL"
+        "ATUL" => "NSE:CNXCOMMODITIES"
         "AUBANK" => "NSE:BANKNIFTY"
         "AUROPHARMA" => "NSE:CNXPHARMA"
         "AVANTIFEED" => "NSE:CNXFMCG"
@@ -1364,14 +1375,15 @@ f_db_sector_lookup(string t) =>
         "CEATLTD" => "NSE:CNXAUTO"
         "CEMPRO" => "NSE:CNXINFRA"
         "CENTRALBK" => "NSE:BANKNIFTY"
+        "CENTUM" => "BSE:CG"
         "CENTURYPLY" => "NSE:CNXINFRA"
         "CENTURYTEX" => "NSE:CNXFMCG"
         "CERA" => "NSE:CNXINFRA"
         "CESC" => "NSE:CNXENERGY"
         "CGCL" => "NSE:CNXFINANCE"
         "CGPOWER" => "BSE:CG"
-        "CHALET" => "NSE:CNXSERVICE"
-        "CHAMBLFERT" => "NSE:CNXMETAL"
+        "CHALET" => "NSE:CNXCONSUM"
+        "CHAMBLFERT" => "NSE:CNXCOMMODITIES"
         "CHENNPETRO" => "NSE:CNXENERGY"
         "CHOICEIN" => "NSE:CNXFINANCE"
         "CHOLAFIN" => "NSE:CNXFINANCE"
@@ -1379,7 +1391,7 @@ f_db_sector_lookup(string t) =>
         "CHOLAHLDNG" => "NSE:CNXFINANCE"
         "CIEINDIA" => "NSE:CNXAUTO"
         "CIPLA" => "NSE:CNXPHARMA"
-        "CLEAN" => "NSE:CNXMETAL"
+        "CLEAN" => "NSE:CNXCOMMODITIES"
         "COALINDIA" => "NSE:CNXENERGY"
         "COCHINSHIP" => "BSE:CG"
         "COFORGE" => "NSE:CNXIT"
@@ -1387,21 +1399,23 @@ f_db_sector_lookup(string t) =>
         "COLPAL" => "NSE:CNXFMCG"
         "CONCOR" => "NSE:CNXSERVICE"
         "CONCORDBIO" => "NSE:CNXPHARMA"
-        "COROMANDEL" => "NSE:CNXMETAL"
+        "COROMANDEL" => "NSE:CNXCOMMODITIES"
         "CPPLUS" => "NSE:CNXINFRA"
         "CRAFTSMAN" => "NSE:CNXAUTO"
         "CREDITACC" => "NSE:CNXFINANCE"
         "CRISIL" => "NSE:CNXFINANCE"
-        "CROMPTON" => "NSE:CNXFMCG"
+        "CROMPTON" => "BSE:CG"
         "CUB" => "NSE:BANKNIFTY"
         "CUMMINSIND" => "BSE:CG"
         "CYIENT" => "NSE:CNXIT"
+        "CYIENTDLM" => "BSE:CG"
         "DABUR" => "NSE:CNXFMCG"
         "DALBHARAT" => "NSE:CNXINFRA"
         "DATAPATTNS" => "BSE:CG"
         "DCMSHRIRAM" => "NSE:CNXMETAL"
+        "DCXIND" => "BSE:CG"
         "DEEPAKFERT" => "NSE:CNXCOMMODITIES"
-        "DEEPAKNTR" => "NSE:CNXMETAL"
+        "DEEPAKNTR" => "NSE:CNXCOMMODITIES"
         "DELHIVERY" => "NSE:CNXSERVICE"
         "DELTACORP" => "NSE:CNXSERVICE"
         "DEVYANI" => "NSE:CNXSERVICE"
@@ -1417,7 +1431,7 @@ f_db_sector_lookup(string t) =>
         "EDELWEISS" => "NSE:CNXFINANCE"
         "EICHERMOT" => "NSE:CNXAUTO"
         "EIDPARRY" => "NSE:CNXFMCG"
-        "EIHOTEL" => "NSE:CNXSERVICE"
+        "EIHOTEL" => "NSE:CNXCONSUM"
         "ELECON" => "NSE:CNXINFRA"
         "ELGIEQUIP" => "BSE:CG"
         "EMAMILTD" => "NSE:CNXFMCG"
@@ -1434,13 +1448,13 @@ f_db_sector_lookup(string t) =>
         "ETHOSLTD" => "NSE:CNXSERVICE"
         "EVEREADY" => "BSE:CG"
         "EXIDEIND" => "NSE:CNXAUTO"
-        "FACT" => "NSE:CNXMETAL"
+        "FACT" => "NSE:CNXCOMMODITIES"
         "FALCONTYRE" => "NSE:CNXAUTO"
         "FDC" => "NSE:CNXPHARMA"
         "FEDERALBNK" => "NSE:BANKNIFTY"
         "FERV" => "BSE:CG"
         "FINCABLES" => "BSE:CG"
-        "FINEORG" => "NSE:CNXMETAL"
+        "FINEORG" => "NSE:CNXCOMMODITIES"
         "FINPIPE" => "NSE:CNXINFRA"
         "FIRSTCRY" => "NSE:CNXCONSUM"
         "FIVESTAR" => "NSE:CNXFINANCE"
@@ -1450,7 +1464,7 @@ f_db_sector_lookup(string t) =>
         "FSL" => "NSE:CNXIT"
         "GABRIEL" => "NSE:CNXAUTO"
         "GAIL" => "NSE:CNXENERGY"
-        "GALAXYSURF" => "NSE:CNXMETAL"
+        "GALAXYSURF" => "NSE:CNXCOMMODITIES"
         "GALLANTT" => "NSE:CNXMETAL"
         "GANESHHOUC" => "NSE:CNXREALTY"
         "GARDENREACH" => "BSE:CG"
@@ -1492,6 +1506,7 @@ f_db_sector_lookup(string t) =>
         "GUJGASLTD" => "NSE:NIFTY_OIL_AND_GAS"
         "GULFOILLUB" => "NSE:NIFTY_OIL_AND_GAS"
         "GVT_D" => "NSE:CNXINFRA"
+        "GVT_D" => "NSE:CNXINFRA"
         "HAL" => "BSE:CG"
         "HAPPSTMNDS" => "NSE:CNXIT"
         "HATHWAY" => "NSE:CNXMEDIA"
@@ -1525,6 +1540,7 @@ f_db_sector_lookup(string t) =>
         "ICICIPRULI" => "NSE:CNXFINANCE"
         "IDBI" => "NSE:BANKNIFTY"
         "IDEA" => "NSE:CNXINFRA"
+        "IDEAFORGE" => "BSE:CG"
         "IDFC" => "NSE:CNXFINANCE"
         "IDFCFIRSTB" => "NSE:BANKNIFTY"
         "IEX" => "NSE:CNXFINANCE"
@@ -1536,7 +1552,7 @@ f_db_sector_lookup(string t) =>
         "IKS" => "NSE:CNXPHARMA"
         "IMAGICAA" => "NSE:CNXSERVICE"
         "INDGN" => "NSE:CNXPHARMA"
-        "INDHOTEL" => "NSE:CNXSERVICE"
+        "INDHOTEL" => "NSE:CNXCONSUM"
         "INDIACEM" => "NSE:CNXINFRA"
         "INDIAMART" => "NSE:CNXIT"
         "INDIANB" => "NSE:BANKNIFTY"
@@ -1584,6 +1600,7 @@ f_db_sector_lookup(string t) =>
         "JYOTHYLAB" => "NSE:CNXFMCG"
         "JYOTICNC" => "NSE:CNXINFRA"
         "JYOTISTRUC" => "BSE:CG"
+        "J_KBANK" => "NSE:BANKNIFTY"
         "KAJARIACER" => "NSE:CNXINFRA"
         "KALYANKJIL" => "NSE:CNXFMCG"
         "KANSAINER" => "NSE:CNXINFRA"
@@ -1661,12 +1678,15 @@ f_db_sector_lookup(string t) =>
         "MSUMI" => "NSE:CNXAUTO"
         "MTARTECH" => "BSE:CG"
         "MUTHOOTFIN" => "NSE:CNXFINANCE"
+        "M_M" => "NSE:CNXAUTO"
+        "M_MFIN" => "NSE:CNXFINANCE"
+        "NAM-INDIA" => "NSE:CNXFINANCE"
         "NAM_INDIA" => "NSE:CNXFINANCE"
         "NATCOPHARM" => "NSE:CNXPHARMA"
         "NATIONALUM" => "NSE:CNXMETAL"
         "NAUKRI" => "NSE:CNXSERVICE"
         "NAVA" => "NSE:CNXINFRA"
-        "NAVINFLUOR" => "NSE:CNXMETAL"
+        "NAVINFLUOR" => "NSE:CNXCOMMODITIES"
         "NAZARA" => "NSE:CNXMEDIA"
         "NBCC" => "NSE:CNXINFRA"
         "NCC" => "NSE:CNXINFRA"
@@ -1689,6 +1709,7 @@ f_db_sector_lookup(string t) =>
         "NUVOCO" => "NSE:CNXINFRA"
         "NYKAA" => "NSE:CNXSERVICE"
         "OBEROIRLTY" => "NSE:CNXREALTY"
+        "OBERREALTY" => "NSE:CNXREALTY"
         "OFSS" => "NSE:CNXIT"
         "OIL" => "NSE:CNXENERGY"
         "OLAEC" => "NSE:CNXAUTO"
@@ -1700,6 +1721,7 @@ f_db_sector_lookup(string t) =>
         "ORIENTELEC" => "BSE:CG"
         "PAGEIND" => "NSE:CNXFMCG"
         "PARADEEP" => "NSE:CNXCOMMODITIES"
+        "PARAS" => "BSE:CG"
         "PATANJALI" => "NSE:CNXFMCG"
         "PAYTM" => "NSE:CNXSERVICE"
         "PCBL" => "NSE:CNXCOMMODITIES"
@@ -1712,7 +1734,7 @@ f_db_sector_lookup(string t) =>
         "PGHH" => "NSE:CNXFMCG"
         "PHOENIXLTD" => "NSE:CNXREALTY"
         "PIDILITIND" => "NSE:CNXINFRA"
-        "PIIND" => "NSE:CNXMETAL"
+        "PIIND" => "NSE:CNXCOMMODITIES"
         "PINELABS" => "NSE:CNXIT"
         "PIRAMALFIN" => "NSE:CNXFINANCE"
         "PNB" => "NSE:BANKNIFTY"
@@ -1757,7 +1779,7 @@ f_db_sector_lookup(string t) =>
         "ROSSARI" => "NSE:CNXMETAL"
         "ROUTE" => "NSE:CNXIT"
         "RPOWER" => "NSE:CNXENERGY"
-        "RRKABEL" => "NSE:CNXINFRA"
+        "RRKABEL" => "BSE:CG"
         "RTNINDIA" => "NSE:CNXENERGY"
         "RVNL" => "BSE:CG"
         "SAFEWELL" => "BSE:CG"
@@ -1792,16 +1814,16 @@ f_db_sector_lookup(string t) =>
         "SJVN" => "NSE:CNXENERGY"
         "SKFINDIA" => "BSE:CG"
         "SOBHA" => "NSE:CNXREALTY"
-        "SOLARINDS" => "NSE:CNXMETAL"
+        "SOLARINDS" => "BSE:CG"
         "SONACOMS" => "NSE:CNXAUTO"
         "SONATSOFTW" => "NSE:CNXIT"
         "SPARC" => "NSE:CNXPHARMA"
         "SPLPETRO" => "NSE:CNXCOMMODITIES"
-        "SRF" => "NSE:CNXINFRA"
+        "SRF" => "NSE:CNXCOMMODITIES"
         "STARHEALTH" => "NSE:CNXFINANCE"
         "STLTECH" => "NSE:CNXINFRA"
         "SUDARSCHEM" => "NSE:CNXMETAL"
-        "SUMICHEM" => "NSE:CNXMETAL"
+        "SUMICHEM" => "NSE:CNXCOMMODITIES"
         "SUNDARMFIN" => "NSE:CNXFINANCE"
         "SUNPHARMA" => "NSE:CNXPHARMA"
         "SUNTECK" => "NSE:CNXREALTY"
@@ -1864,7 +1886,7 @@ f_db_sector_lookup(string t) =>
         "UNIONBANK" => "NSE:BANKNIFTY"
         "UNITDSPR" => "NSE:CNXFMCG"
         "UNOMINDA" => "NSE:CNXAUTO"
-        "UPL" => "NSE:CNXMETAL"
+        "UPL" => "NSE:CNXCOMMODITIES"
         "URBANCO" => "NSE:CNXIT"
         "USHAMART" => "NSE:CNXMETAL"
         "UTIAMC" => "NSE:CNXFINANCE"
@@ -4034,6 +4056,56 @@ else if f_match(p20_tick)
     finalT2 := p20_t2
     finalDate := p20_date
 
+// ══════════════════════════════════════════════════════════════════════════
+// NATIVE CHANDELIER EXIT (Canonical Risk Shield Parity)
+// Moved up from ~line 5079 (12-Aug-2026): the pyramid ladder below consumes
+// ce_trailing_stop, and the MY TRADE panel row is drawn long before the old
+// location. Pine needs the declaration first. The plot() stayed where it was.
+// ══════════════════════════════════════════════════════════════════════════
+f_canonical_ce_mult(string _cat, bool _bull) =>
+    float _m = 4.5
+    if str.startswith(_cat, "POS")
+        _m := 4.5
+    else if str.startswith(_cat, "WYC")
+        _m := 3.5
+    else if str.startswith(_cat, "REV")
+        _m := 2.5
+    else if str.startswith(_cat, "SWG")
+        _m := 1.5
+    if not _bull
+        _m := _m + 0.5
+    _m
+
+[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.ema(ta.tr, 22)], lookahead=barmerge.lookahead_off)
+[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.ema(ta.tr, 14)], lookahead=barmerge.lookahead_off)
+
+// isBullMarket used to be assigned only INSIDE `if tradeActive`, but the
+// Chandelier multiplier needs it and market regime does not depend on whether
+// a slot is filled. Assigned here; the in-block assignment is left as-is
+// (same expression, same value) so nothing downstream changes.
+isBullMarket := str.contains(mktState, "BULLISH")
+
+string _active_cat_raw   = persistCat != "NONE" ? persistCat : chartCat
+string _active_cat_safe  = na(_active_cat_raw) ? "" : _active_cat_raw
+bool   _is_swg_trade     = str.startswith(_active_cat_safe, "SWG")
+float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
+float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
+float  active_ce_mult    = f_canonical_ce_mult(_active_cat_safe, isBullMarket)
+float  ce_trailing_stop  = ce_h_d - (ce_atr_d * active_ce_mult)
+
+// Daily terms the pyramid ladder needs that the main daily bundle does not
+// return. Definitions are copied from pyramid_logic.load_open_positions so the
+// two engines answer the same question:
+//   swing low   = lowest LOW of the 10 bars BEFORE this one  (l.iloc[-11:-1])
+//   200-DMA slope = 10-bar % change of the 200-SMA           (>0 = rising)
+//   close 5 sessions ago                                     (c.iloc[-6])
+// Read on "D" so they stay daily when the dashboard is on an intraday TF.
+f_pyr_daily() =>
+    float _s200 = ta.sma(close, 200)
+    float _slope200 = na(_s200[10]) or _s200[10] == 0 ? na : (_s200 - _s200[10]) / _s200[10] * 100.0
+    [ta.lowest(low, 10)[1], _slope200, close[5]]
+[pyrSwingLow, pyrSlope200, pyrClose5] = request.security(syminfo.tickerid, "D", f_pyr_daily(), lookahead=barmerge.lookahead_off)
+
 tradeActive = finalEntry > 0
 
 if tradeActive
@@ -4093,28 +4165,120 @@ if tradeActive
     float curPnL = ((close - finalEntry) / finalEntry) * 100
     string pnlStr = (curPnL > 0 ? "+" : "") + str.tostring(curPnL, "0.00") + "%"
     
-    if close < visualSL
-        tradeStatus := "⚠️ STOP HIT (" + pnlStr + ")"
-        tradeColor := color.red
-    else if curPnL > 0
-        // SCALE IN / TRIM LOGIC — v67.5: RSI -> PA (5-day momentum / extension)
-        // cond_add: not overbought = not up >10% in 5 days (replaces dailyRsi<70)
-        bool cond_add = dTrendDir == 1 and close <= close[5] * 1.10 and close > use_ema20 and not isSqueeze // Don't add inside a squeeze, wait for pop
-        // cond_trim: overbought = parabolic >12% in 5 days (replaces dailyRsi>75)
-        bool cond_trim = close > close[5] * 1.12 or absDist > 15.0 or (not na(earningsNext) and (earningsNext - timenow) / 86400000 < 3)
-        
-        if cond_trim
-            tradeStatus := "TRIM (" + pnlStr + ")"
-            tradeColor := color.fuchsia
-        else if cond_add
-            tradeStatus := "SCALE IN (" + pnlStr + ")"
-            tradeColor := color.blue
-        else
-            tradeStatus := "HOLD (" + pnlStr + ")"
-            tradeColor := color.new(#26a69a, 0)
+    // ══════════════════════════════════════════════════════════════════════
+    // PYRAMID LADDER — port of pyramid_logic.classify() (12-Aug-2026)
+    //
+    // WHAT THIS REPLACED: a local three-state heuristic (STOP HIT / TRIM /
+    // SCALE IN / HOLD) written before pyramid_logic existed. It had NO exit
+    // rung beyond price<SL and NO reduce rung, so a Stage-4 name, one 8%
+    // underwater, or one through its Chandelier read "HOLD" on the chart while
+    // Risk Shield said EXIT — the same two-brains problem that made the
+    // Active-Exits AI contradict the Pyramid page.
+    //
+    // PRIORITY ORDER IS THE POINT: EXIT → TRIM → REDUCE → ADD → HOLD, first
+    // match wins. Porting ADD alone would prompt adds on names the module
+    // would be exiting.
+    //
+    // TWO DELIBERATE ASYMMETRIES vs the Python module, both shown on the panel
+    // rather than hidden:
+    //  1. REDUCE's "RRG LAGGING" and "score <= 25" terms need the enriched CSV
+    //     (RRG quadrant, 100-pt score) which Pine has no access to per slot.
+    //     Only the price term (below 50-DMA) is ported. Tagged ᴾ so you know
+    //     the chart is running the reduced test.
+    //  2. ADD's leader test uses Score/RRG in Python. On-chart it becomes the
+    //     structure v67 already computes: Stage-2 family + rising 30-WMA.
+    // Everything else — thresholds, ordering, wording — matches the module.
+    //
+    // Swing vs positional: the module reads the journal `Timeframe` first
+    // (rung 1 of the trade-type ladder); Pine cannot see the journal, so it
+    // falls to rung 2 — the catalyst prefix — the same sensing the Chandelier
+    // above already uses.
+    bool   pyrSwing   = _is_swg_trade
+    float  pyrAtr     = d_atr14
+    float  pyrR       = (riskPerShare >= 0.005 * finalEntry and riskPerShare > 0) ? currentR : na
+    float  pyrD2E     = na(earningsNext) ? na : (earningsNext - timenow) / 86400000.0
+    string pyrWhy     = ""
+    // ADD's two halves, each on ONE line. Wrapped boolean expressions in Pine
+    // break with "end of line without line continuation" when the continuation
+    // lands on a multiple-of-4 indent (it parses as a new block), so keep them
+    // flat rather than pretty.
+    bool   pyrLeader  = isStage2Family and wMASlopeState == "RISING" and curPnL >= 5.0
+    bool   pyrLocMA   = dMA200 > 0 and close > dMA200 and not na(pyrSlope200) and pyrSlope200 > 0
+    bool   pyrLocPB   = not na(pyrClose5) and close <= pyrClose5 * 1.10 and use_ema20 > 0 and close > use_ema20
+    bool   pyrAtLoc   = pyrLocMA and pyrLocPB
+    // TRIM's four triggers, flat for the same reason. R>=3 implies R>=2, so the
+    // gate tests >=2 and the WORDING below splits 3R (book ½) from 2R (book ⅓).
+    bool   pyrTrimR   = not na(pyrR) and pyrR >= 2.0
+    bool   pyrTrimT1  = finalT1 > 0 and close >= finalT1
+    bool   pyrTrimExt = not na(pyrAtr) and pyrAtr > 0 and use_ema20 > 0 and (close - use_ema20) / pyrAtr >= 4.0
+    bool   pyrTrimER  = not na(pyrD2E) and pyrD2E <= 3
+    bool   pyrTrim    = curPnL > 0 and (pyrTrimR or pyrTrimT1 or pyrTrimExt or pyrTrimER)
+
+    // ── 1. EXIT (full) — structure / thesis / risk broken ─────────────────
+    bool ex_atsl   = not na(pyrAtr) and pyrAtr > 0 and visualSL > 0 and (close - visualSL) <= 1.5 * pyrAtr and curPnL <= 0
+    bool ex_under  = curPnL <= -8.0
+    bool ex_stage4 = stageID == "STAGE 4 (DOWN)"
+    bool ex_swglow = pyrSwing and not na(pyrSwingLow) and close < pyrSwingLow
+    bool ex_wma30  = (not pyrSwing) and not na(wMA30) and close < wMA30
+    bool ex_chand  = not na(ce_trailing_stop) and close < ce_trailing_stop
+    bool ex_time   = daysHeld > 0 and not na(pyrR) and pyrR < 0.5 and daysHeld >= (pyrSwing ? 60 : 180)
+
+    if ex_atsl or ex_under or ex_stage4 or ex_swglow or ex_wma30 or ex_chand or ex_time
+        pyrWhy := ex_atsl   ? "at SL (" + str.tostring((close - visualSL) / pyrAtr, "0.0") + "×ATR)" :
+                  ex_under  ? "thesis underwater" :
+                  ex_stage4 ? "Stage 4 — trend broken" :
+                  ex_swglow ? "below swing low " + str.tostring(math.round_to_mintick(pyrSwingLow)) :
+                  ex_wma30  ? "below 30-WMA " + str.tostring(math.round_to_mintick(wMA30)) :
+                  ex_chand  ? "below Chandelier " + str.tostring(math.round_to_mintick(ce_trailing_stop)) :
+                              "time-stop " + str.tostring(daysHeld) + "d at " + str.tostring(pyrR, "0.0") + "R"
+        tradeStatus := "🛑 EXIT (" + pnlStr + ") · " + pyrWhy
+        tradeColor  := color.red
+
+    // ── 2. TRIM (partial) — winners only, trend intact ────────────────────
+    else if pyrTrim
+        // R rungs keep the module's sizes: >=3R book 1/2, >=2R book 1/3 + lock
+        // 0.5R. These were silently doubled once already (28-Jul) — do not
+        // reword them without changing pyramid_logic too.
+        pyrWhy := (not na(pyrR) and pyrR >= 3.0) ? str.tostring(pyrR, "0.0") + "R — book ½, trail rest" :
+                  (not na(pyrR) and pyrR >= 2.0) ? str.tostring(pyrR, "0.0") + "R — book ⅓, lock 0.5R" :
+                  (finalT1 > 0 and close >= finalT1) ? "T1 " + str.tostring(math.round_to_mintick(finalT1)) + " reached — book partial" :
+                  (not na(pyrD2E) and pyrD2E <= 3) ? "earnings in " + str.tostring(math.round(pyrD2E)) + "d — trim into it" :
+                  "over-extended " + str.tostring((close - use_ema20) / pyrAtr, "0.0") + "×ATR above 20-EMA"
+        tradeStatus := "✂️ TRIM (" + pnlStr + ") · " + pyrWhy +
+                       (na(ce_trailing_stop) ? "" : " · trail → " + str.tostring(math.round_to_mintick(ce_trailing_stop)))
+        tradeColor  := color.fuchsia
+
+    // ── 3. REDUCE (soft) — tighten stop, don't add. NEVER a sell ──────────
+    // Price term only; see asymmetry note 1 above. ᴾ marks the partial test.
+    else if (not pyrSwing) and dMA50 > 0 and close < dMA50
+        tradeStatus := "🔻 REDUCEᴾ (" + pnlStr + ") · below 50-DMA " +
+                       str.tostring(math.round_to_mintick(dMA50)) + " — tighten stop, don't pyramid"
+        tradeColor  := color.new(#60a5fa, 0)
+
+    // ── 4. ADD (pyramid) — leader AND pullback location ───────────────────
+    // Both halves required, exactly as the module: being a leader is not a
+    // reason to add, being at a location is not either.
+    else if pyrLeader and pyrAtLoc
+        // The cardinal pyramid rule is that every add raises the WHOLE
+        // position's stop. Show the level, and never present a LOWER stop as
+        // a raise (the module has the same guard).
+        pyrWhy := (not na(ce_trailing_stop) and visualSL > 0 and ce_trailing_stop > visualSL) ?
+                      " · RAISE stop → " + str.tostring(math.round_to_mintick(ce_trailing_stop)) +
+                      " (from " + str.tostring(math.round_to_mintick(visualSL)) + ")" :
+                  (not na(ce_trailing_stop) and visualSL > 0) ?
+                      " · keep stop " + str.tostring(math.round_to_mintick(visualSL)) +
+                      " (Chandelier " + str.tostring(math.round_to_mintick(ce_trailing_stop)) + " not yet above)" :
+                      " · raise the position stop before adding"
+        tradeStatus := "🔼 ADD (" + pnlStr + ") · pullback to EMA20" + pyrWhy
+        tradeColor  := color.blue
+
+    // ── 5. HOLD — including the "leader but extended" case ────────────────
+    else if isStage2Family and wMASlopeState == "RISING" and curPnL >= 5.0
+        tradeStatus := "HOLD (" + pnlStr + ") · leader but extended — wait for the pullback to add"
+        tradeColor  := color.new(#26a69a, 0)
     else
         tradeStatus := "HOLD (" + pnlStr + ")"
-        tradeColor := color.orange
+        tradeColor  := curPnL > 0 ? color.new(#26a69a, 0) : color.orange
         
     // Room for Trade Warning Check
     if not na(ovhPrice) and finalEntry > 0 and riskPerShare > 0
@@ -5054,31 +5218,9 @@ plot(showTrade and tradeActive ? visualSL : na, "Hard SL (Trail)", color=slColor
 plot(showTrade and tradeActive and finalSL > 0 and finalT1 > 0 ? t1_val : na, "Target 1", color=t1Color, style=plot.style_linebr, linewidth=1)
 plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "Target 2", color=t2Color, style=plot.style_linebr, linewidth=1)
 
-// --- Native Chandelier Exit (Canonical Risk Shield Parity) ---
-f_canonical_ce_mult(string _cat, bool _bull) =>
-    float _m = 4.5
-    if str.startswith(_cat, "POS")
-        _m := 4.5
-    else if str.startswith(_cat, "WYC")
-        _m := 3.5
-    else if str.startswith(_cat, "REV")
-        _m := 2.5
-    else if str.startswith(_cat, "SWG")
-        _m := 1.5
-    if not _bull
-        _m := _m + 0.5
-    _m
-
-[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.ema(ta.tr, 22)], lookahead=barmerge.lookahead_off)
-[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.ema(ta.tr, 14)], lookahead=barmerge.lookahead_off)
-
-string _active_cat_raw   = persistCat != "NONE" ? persistCat : chartCat
-string _active_cat_safe  = na(_active_cat_raw) ? "" : _active_cat_raw
-bool   _is_swg_trade     = str.startswith(_active_cat_safe, "SWG")
-float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
-float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
-float  active_ce_mult    = f_canonical_ce_mult(_active_cat_safe, isBullMarket)
-float  ce_trailing_stop  = ce_h_d - (ce_atr_d * active_ce_mult)
+// --- Native Chandelier Exit: computation MOVED above the portfolio-slot block
+// (it is consumed by the pyramid ladder, which must run before the panel is
+// drawn). Only the plot stays here.
 plot(showTrade ? ce_trailing_stop : na, "Canonical Chandelier TSL", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
 // -------------------------------------------------------------
 
