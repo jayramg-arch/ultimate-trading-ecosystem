@@ -241,5 +241,115 @@ drawdown window, which is throttling the recovery joins for no stated reason.
 **D · Leave it.** Every path is gated. Nothing measured says the differences cost
 anything.
 
+---
+
+## 8 · PROPOSED parameter table
+
+### 8.0 · First, a correction to §1
+
+§1 called the missing **₹5,000 Cr market-cap floor** on Catalyst and Pullback "the
+single largest divergence". Measured on today's 20-name Catalyst list, **every name is
+already above ₹12,835 Cr** — smallest ACE ₹12,835 Cr, median ~₹30,000 Cr. The floor is
+**not binding**. It is a real gap in the *code* and a non-event in the *output*, because
+the technical gates (turnover ≥ ₹5 Cr, Stage 2, RS, alpha) already select large caps.
+
+So a market-cap floor on Catalyst is **insurance, not a filter** — worth having so a
+regime that surfaces micro-caps cannot slip through, worth nothing today. Unmeasured for
+Pullback, which reaches lower (₹2 Cr turnover, ₹20 price) and is where a floor could
+actually bind.
+
+### 8.1 · The design
+
+**Jay's ruling (13 Aug 2026), which sets the trade-off:** *"I'm ok to have fewer results
+from GM+S4, rather than having a huge list of unreliable results."*
+
+That resolves the tension every version of this document kept hedging on. The earlier
+draft proposed *loosened* common thresholds (pledge < 10, mcap ≥ ₹2,000 Cr) to protect
+supply. **Supply is not the objective.** So the proposal below aligns the bull family to
+the Bull screens' OWN standard — the one Jay wrote, the strictest in the system — rather
+than to a diluted version of it.
+
+Two tiers. Governance, solvency and size are not style-dependent; growth-vs-survival is.
+
+| # | parameter | BULL | RECOVERY | CATALYST | PULLBACK |
+|---|---|---|---|---|---|
+| **TIER 1 — common core, at BULL-screen strength everywhere** |
+| 1 | Net profit > 0 | keep | keep | keep | keep |
+| 2 | Pledged % | < 5 keep | **< 5** ADD | **< 5** ADD | **< 5** ADD |
+| 3 | Market cap | ≥ ₹5,000 Cr keep | ≥ ₹5,000 Cr keep | **≥ ₹5,000 Cr** ADD | **≥ ₹5,000 Cr** ADD |
+| 4 | Promoter > 40% *or* FII/DII > 15% | keep | **ADD** | **ADD** | **ADD** |
+| 5 | Turnover | via screen | via screen | ≥ ₹5 Cr keep | **≥ ₹5 Cr** (was 2) |
+| 6 | Price floor | ₹200 / ₹50 keep | ₹100 keep | **₹100** ADD | **₹100** (was 20) |
+| **TIER 2 — path engine** (the question each book is entitled to ask) |
+| 7 | engine | screener.in growth screens | **RFF ≥ 4/6** keep | **BFF ≥ 4/5** *(was RFF)* | **BFF ≥ 4/5** *(was 2)* |
+| 8 | sales growth | > 10-20% | — | ≥ 15% via BFF | ≥ 15% via BFF |
+| 9 | profit growth | > 15-25% | — | ≥ 20% via BFF | ≥ 20% via BFF |
+| 10 | ROCE | > 15% | > 15-20% | ≥ 15% via BFF | ≥ 15% via BFF |
+| 11 | ROE | > 15% | — | **≥ 15%** ADD | **≥ 15%** ADD |
+| 12 | Debt / equity | < 0.5-1.5 | < 1-2 | **< 1.5** ADD | **< 1.5** ADD |
+| 13 | margin expansion | — | — | via BFF | via BFF |
+| 14 | solvency (ICR/CR/ROA/FCF) | — | **RFF, full** | — | — |
+| **TIER 3 — path-specific, unchanged** |
+| 15 | drawdown premise | within 15-25% of high | **10-40% off** | — | 2-18% off 20d high |
+| 16 | trigger required | breakout clause | signal ≥ 2 | **catalyst fires** | **none (location)** |
+| 17 | risk ceiling | — | — | — | ≤ 8% |
+
+**Changes from today:**
+
+| change | rationale | measured cost |
+|---|---|---|
+| Catalyst: RFF → **BFF ≥ 4** | it is a bull book and today checks NO growth parameter | **8 of 20 dropped** — 12 pass ≥ 4, 14 pass ≥ 3, 20 pass ≥ 2 |
+| Pullback: BFF **2 → 4** | at 2/5 a name passes on "profitable + margin expanded" with negative growth | unmeasured — needs a full run |
+| **pledge < 5%**, **mcap ≥ ₹5,000 Cr**, **promoter/institutional**, **ROE ≥ 15%**, **D/E < 1.5** on Cat + PB | these are the Bull screens' own conditions; the bull family should meet the bull standard | mcap: **zero today** (§8.0). Others unmeasured — fields not yet fetched. |
+| Pullback price ₹20 → **₹100**, turnover ₹2 Cr → **₹5 Cr** | the ₹20/₹2 Cr floor is the loosest in the system and admits names no other book would look at | unmeasured |
+| Recovery: add pledge/promoter | the only Tier-1 legs it lacks | unmeasured |
+
+**Still deliberately NOT proposed:**
+
+- **Solvency legs (ICR/CR/ROA/FCF) on the bull family.** That is RFF's job and the exact
+  mismatch this table removes — a high-growth leader mid-capex can fail ICR > 3.5.
+  Re-adding them under another name recreates the problem.
+- **Bull screens tightened.** They are already the standard everything else is being
+  raised to.
+
+### 8.2 · Implementation cost, stated honestly
+
+| item | status | order |
+|---|---|---|
+| BFF ≥ 4 on Pullback | one CONFIG value | **1** |
+| Pullback price ₹100 / turnover ₹5 Cr | two CONFIG values | **1** |
+| BFF instead of RFF on Catalyst | ~15 lines in `run_pipeline.py:406-425`, same shape as the existing RFF block | **2** |
+| **pledge %**, **market cap**, **promoter / FII / DII holding**, **D/E** | **NOT currently fetched.** `_fetch_screener_bff_row` returns 7 keys only: Net profit, OPM_Now, OPM_Prev, ROCE, ROE, profit_growth, sales_growth. ROE is already there; the rest need a parser extension against the screener.in company page (all four are on it — top ratios + shareholding). | **3** |
+
+Phase 1 and 2 are config-and-a-block. Phase 3 is one parser extension in
+`_fetch_screener_bff_row` that unlocks five parameters at once — worth doing as a single
+piece of work rather than five.
+
+**Sequencing note:** BFF's ≥ 4 threshold currently means "4 of 5 growth checks". Once
+pledge/mcap/holding/D-E join the check set, `min_bff_score` must be re-based or the
+meaning of "4" silently changes. Better: keep BFF as the 5-check growth score and add
+the Tier-1 legs as **separate hard gates** beside it, so each one's contribution stays
+readable in the log.
+
+### 8.3 · The honest caveat, and what it does not excuse
+
+**No forward-return test partitions on any fundamental field.** So this table is
+*coherent* — each book asks the question its premise entitles it to ask, and the bull
+family is held to the bull standard — but coherence is not proven edge.
+
+Given Jay's ruling that fewer/reliable beats many/unreliable, the asymmetry matters more
+than the uncertainty: a stricter gate that turns out not to add alpha costs some missed
+trades; a loose gate that admits weak businesses into a positional book costs capital in
+names he would never have picked by hand. Those are not symmetric, and the ruling says
+which side to err on.
+
+The measurable version remains worth running, and would settle the *engine* question
+specifically: take the existing `validation.py` bull runs, score each pick's BFF and RFF
+at its anchor date, and partition matched-horizon alpha by both. If BFF separates and RFF
+does not, §8.1's core swap is confirmed rather than argued.
+
+**Recommended order: ship Phase 1 (config only, reversible), run the partition, then
+decide Phase 2-3 on the result.**
+
 Related: `11_Bull_Screener_v3_3_Guide.md` · `09_Recovery_Screener_v2_1_Guide.md` ·
 `23_Golden_Matcher_Guide.md`
