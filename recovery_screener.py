@@ -206,7 +206,18 @@ CONFIG = {
     "use_regime_gate"          : True,  # MASTER TOGGLE: If true, stock MUST be corrected within 10-40% band
 
     # -- Fundamentals (RFF) ---------------------------------------------------
-    "rff_min_score"            : 4,     # min RFF base (4/6) — Jay: only fundamentally strong stocks (was 1 = ~any non-bankrupt)
+    # RAISED 4 -> 5 on 13 Aug 2026, on measurement rather than judgement. The
+    # recovery re-baseline (validation_20260810_153105, 400 trades / 19 anchors,
+    # forward windows 90d x343 + 120d x57 so it clears the window gate) was
+    # partitioned by RFF_Base via fundamental_gate_partition.py:
+    #     RFF >= 5   n=144   mean +0.66%   win 44%
+    #     RFF <= 4   n=256   mean -1.74%   win 28%
+    #     edge +2.40pp · symbol-block CI95 [+0.92, +3.88] (excludes zero)
+    #     IN-SAMPLE +1.01pp -> OUT-SAMPLE +4.52pp (strengthens, does not decay)
+    #     per-anchor: the high cohort beats the low in 14 of 19
+    # Nearly all of the book's loss sat in the RFF=4 bucket the old floor admitted
+    # (n=212, -1.66%, 32% win). This is the best-evidenced gate change in the repo.
+    "rff_min_score"            : 5,     # min RFF base (5/6) — was 4; see above
 
     # -- Data -----------------------------------------------------------------
     "data_lookback_days"       : 400,   # daily history to download (covers 200D SMA warmup)

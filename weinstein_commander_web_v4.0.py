@@ -3224,6 +3224,40 @@ def _plan_structural_sl(ctx, entry, atr):
 # ----------------------------------------------------------------------------------------
 # DECISION WORKFLOW — the sequential path (crucial metrics only)
 # ----------------------------------------------------------------------------------------
+GM_BFF_MIN = 4          # BFF's STRONG band; matches pullback_finder + the catalyst gate
+
+
+def _gm_bff_gate(ctx):
+    """True = passes, False = fails, None = unreadable (do NOT fail on None).
+
+    Tri-state on purpose. A screener.in outage is a judgement about our data,
+    not the company; failing on it would empty the board and look like a market
+    with nothing in it. Same rule as pullback_finder's weak-vs-unreadable split.
+    """
+    b = _g(ctx, "bff") or {}
+    sc, q = b.get("score"), str(b.get("quality") or "")
+    if sc is None or q == "INSUFFICIENT":
+        return None
+    try:
+        return float(sc) >= GM_BFF_MIN
+    except Exception:
+        return None
+
+
+def _gm_core_gate(symbol):
+    """Size / pledge / ownership floor. None = gate unavailable, keep the name."""
+    if not symbol:
+        return None
+    try:
+        import core_universe as _cu
+        elig = _cu.eligible_symbols()
+        if elig is None:
+            return None
+        return _cu.gate(symbol, elig)
+    except Exception:
+        return None
+
+
 def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     """Order the decision as a gated sequence: CONTEXT → QUALITY → SETUP → LOCATION → TRIGGER → EXECUTE."""
     stage = str(_g(rec, "Stage", default="")); s2 = "2" in stage; s34 = ("3" in stage or "4" in stage)
@@ -3266,6 +3300,24 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     else:
         g1 = s2 and rs and not s34                         # Stage-2 breakout context
         g2 = alpha >= 50 and mpass >= 5                     # Stage-2 leadership
+
+    # FUNDAMENTALS NOW GATE (Jay, 13 Aug 2026: "Currently, in GM, BFF is not
+    # gated. It should be. Have a similar approach for all other categories as
+    # well. In fact, today I noticed that a Microcap has slipped into my
+    # portfolio, due to these sporadic set of fundamental filters.")
+    #
+    # BFF was display-only here under the catalyst-gate philosophy (structure
+    # fires, quality is status). That philosophy still holds for TECHNICAL
+    # quality - it is why alpha stayed a status on the catalysts - but it was
+    # never meant to cover the BUSINESS. Overridden on instruction.
+    #
+    # UNREADABLE does NOT fail: a screener.in outage is a judgement about our
+    # data, not the company, and blocking on it would empty the board silently.
+    # The same distinction pullback_finder draws between weak and unreadable.
+    _bff_gate = _gm_bff_gate(ctx)                                  # True/False/None
+    _core_gate = _gm_core_gate(_g(rec, "Symbol", default=""))       # True/False/None
+    if _bff_gate is False or _core_gate is False:
+        g2 = False
     g3 = cat_on
 
     # ── P1 INHERITED QUALIFICATION ──────────────────────────────────────────────
@@ -3383,7 +3435,11 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     _bff_q = str(_bff.get("quality", "—"))
     _bff_sc = _bff.get("score")
     _bff_val = (f"{_bff_q} {_bff_sc}/5" if _bff_sc is not None else _bff_q)
-    _bff_ok = _bff_q in ("STRONG", "OK")
+    # GATED since 13 Aug 2026 — the tick now reflects the same test QUALITY applies,
+    # not a looser display band, so a red BFF row explains a failed g2 instead of
+    # sitting green beside it.
+    _bff_ok = (_bff_gate is not False)
+    _core_val = ("—" if _core_gate is None else ("PASS" if _core_gate else "below floor"))
 
     steps = [
         dict(n=1, title="CONTEXT", sub="Accumulation base" if is_accum else "Weekly trend", hard=True, ok=g1,
@@ -3404,11 +3460,13 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                        ("Accum days", f"{_g(ctx,'acc_days',default=0)}/10", acc_ok),
                        ("RRG", rrg, rrg_ok),
                        ("BFF (funda)", _bff_val, _bff_ok),
+                       ("Size/pledge", _core_val, _core_gate is not False),
                        ("ML Prob", fnum(ml, 0, "%"), (ml or 0) >= 60)] if is_accum else
                       [("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
                        ("Minervini", f"{mpass}/8", mpass >= 6),
                        ("RRG", rrg, rrg_ok),
                        ("BFF (funda)", _bff_val, _bff_ok),
+                       ("Size/pledge", _core_val, _core_gate is not False),
                        ("ML Prob", fnum(ml, 0, "%"), (ml or 0) >= 60)]),
              do_pass=("Accumulation confirmed (RS turning up / volume accumulation)." if is_accum else
                       "Leadership confirmed (Alpha + trend template + RRG)."),
@@ -3469,7 +3527,8 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
              metrics=[("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
                       ("Minervini", f"{mpass}/8", mpass >= 6),
                       ("RRG", rrg, rrg_ok),
-                      ("BFF (funda)", _bff_val, _bff_ok)],
+                      ("BFF (funda)", _bff_val, _bff_ok),
+                      ("Size/pledge", _core_val, _core_gate is not False)],
              do_pass="Quality is an OVERLAY here — Chartink + Screener.in already vetted leadership. "
                      "Strong reads rank it higher; weak reads NEVER block the trade.",
              do_fail="")
@@ -3676,6 +3735,14 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
 
     g1 = beaten and reg_ok
     g2 = rff_ok
+    # Same size/pledge/ownership floor as the bull path (13 Aug 2026). The
+    # recovery screener.in screens carry mcap > 5000, but a name reaching this
+    # surface from the Python recovery engine has never met that floor - which is
+    # exactly the inconsistency Jay's microcap came through.
+    # None = gate unavailable → keep, never silently reject on an outage.
+    _rec_core = _gm_core_gate(_g(rec_r, "Symbol", default=""))
+    if _rec_core is False:
+        g2 = False
     g3 = sig >= 2
 
     # ── P1 INHERITED QUALIFICATION (recovery) ───────────────────────────────────
@@ -8836,7 +8903,8 @@ elif page == 'MACRO':
             if rrg_tradeable_only:
                 plot_df = plot_df[plot_df['Is_Tradeable'] == True]
 
-            fig_rrg = render_rrg_plotly(plot_df, tails_dict, title=disp_title, tail_length=rrg_tail_len)
+            rrg_label_mode = "Show All Tickers"
+            fig_rrg = render_rrg_plotly(plot_df, tails_dict, title=disp_title, tail_length=rrg_tail_len, label_mode=rrg_label_mode)
             fig_rrg.update_layout(height=680)
             
             # Center the plot inside a container to maintain crisp square proportions

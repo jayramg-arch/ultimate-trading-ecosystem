@@ -403,27 +403,64 @@ def main():
                 # recovery floor (base ≥ 4/6 AND quality ≠ INSUFFICIENT). Only
                 # the ~firing names are scored, so the live fundamental fetch is
                 # cheap. Disable with env CATALYST_RFF_GATE=0.
-                if os.environ.get("CATALYST_RFF_GATE", "1").strip().lower() not in ("0", "false", "off", "no"):
+                # ENGINE SWAPPED RFF -> BFF, 13 Aug 2026. Catalyst is a BULL book
+                # and RFF is a SURVIVAL test: it checks NI/FCF/ICR/DE/CR/ROA and
+                # NO growth parameter at all - not sales, not profit, not margin,
+                # not ROE. So a leveraged high-growth leader mid-capex failed on
+                # ICR>3.5 while a cash-rich ex-growth company passed. The Bull
+                # scans Jay wrote are a GROWTH standard at almost exactly BFF's
+                # thresholds (sales>15, profit>20, ROCE>15) - see docs/25 section 4.
+                # Measured cost on the 20-name list of 13 Aug: BFF>=4 drops 8,
+                # >=3 drops 6, >=2 drops none.  Disable with CATALYST_FUND_GATE=0.
+                if os.environ.get("CATALYST_FUND_GATE",
+                                  os.environ.get("CATALYST_RFF_GATE", "1")
+                                  ).strip().lower() not in ("0", "false", "off", "no"):
                     try:
-                        import recovery_screener as _rs
-                        _fmap  = _rs.load_fundamentals()
-                        _floor = float(_rs.CONFIG.get("rff_min_score", 4))
-                        _bases, _quals = [], []
+                        import pandas as pd
+                        from bull_fundamental_filter import compute_bff
+                        _floor = float(os.environ.get("CATALYST_BFF_MIN", "4"))
+                        _sc, _q = [], []
                         for _sym in df_cat["Symbol"].astype(str):
-                            _b, _bo, _t, _q, _src = _rs.get_rff(
-                                _sym, _fmap.get(_sym.strip().upper()), allow_live=True)
-                            _bases.append(_b); _quals.append(_q)
-                        df_cat["RFF_Base"]    = _bases
-                        df_cat["RFF_Quality"] = _quals
+                            _b = None
+                            for _try in range(3):     # INSUFFICIENT is usually rate-limiting
+                                try:
+                                    _b = compute_bff(_sym)
+                                except Exception:
+                                    _b = None
+                                if _b and _b.get("score") is not None and _b.get("quality") != "INSUFFICIENT":
+                                    break
+                                time.sleep(0.6 * (_try + 1))
+                            _sc.append((_b or {}).get("score"))
+                            _q.append((_b or {}).get("quality") or "INSUFFICIENT")
+                        df_cat["BFF_Score"]   = _sc
+                        df_cat["BFF_Quality"] = _q
                         _n_before = len(df_cat)
-                        _keep = (df_cat["RFF_Base"] >= _floor) & (df_cat["RFF_Quality"] != "INSUFFICIENT")
-                        _n_gated = int((~_keep).sum())
+                        _keep = (pd.to_numeric(df_cat["BFF_Score"], errors="coerce") >= _floor)
+                        _n_unread = int((df_cat["BFF_Quality"] == "INSUFFICIENT").sum())
                         df_cat = df_cat[_keep].copy()
+                        logger.info(f"   BFF fundamental gate: kept {len(df_cat)}/{_n_before} "
+                                    f"(floor {_floor:.0f}/5; {_n_unread} unreadable — NOT judged weak)")
+
+                        # CORE UNIVERSE — size / pledge / ownership, the floor the
+                        # Bull and Recovery books get from their screener.in screens
+                        # and this list never had (Jay: a microcap reached the book).
+                        try:
+                            import core_universe as _cu
+                            _elig = _cu.eligible_symbols()
+                            if _elig is None:
+                                logger.warning("   CORE gate UNAVAILABLE — size/pledge/ownership NOT applied")
+                            else:
+                                _n2 = len(df_cat)
+                                df_cat = df_cat[df_cat["Symbol"].astype(str)
+                                                .map(lambda s: _cu.gate(s, _elig))].copy()
+                                logger.info(f"   CORE gate ({_cu.describe()}): "
+                                            f"kept {len(df_cat)}/{_n2}")
+                        except Exception as _ce2:
+                            logger.warning(f"   CORE gate skipped ({_ce2})")
+
                         df_cat.to_csv(os.path.join(_DIR, CATALYST_WATCHLIST), index=False)
-                        logger.info(f"   RFF fundamental gate: kept {len(df_cat)}/{_n_before} "
-                                    f"(dropped {_n_gated} with RFF<{_floor:.0f}/6 or INSUFFICIENT)")
                     except Exception as _ge:
-                        logger.warning(f"   RFF fundamental gate skipped ({_ge}); ungated list kept.")
+                        logger.warning(f"   Fundamental gate skipped ({_ge}); ungated list kept.")
                 logger.info(f"✅ Catalyst Scan: {len(df_cat)} catalyst signals from "
                             f"{_uni_n} symbols → {CATALYST_WATCHLIST}"
                             + (f" (dropped {n_dropped} Stage-4 swing BO)" if n_dropped else ""))
@@ -474,6 +511,24 @@ def main():
                     # technical rank (Combined_Score if present, else Score).
                     _sort_col = "Combined_Score" if "Combined_Score" in _fired.columns else "Score"
                     _fired = _fired.sort_values(["Signal", _sort_col], ascending=[False, False])
+
+                    # CORE UNIVERSE (13 Aug 2026) — size / pledge / ownership.
+                    # The recovery screener.in screens carry mcap > 5000, but this
+                    # Python path can fire on any nifty500 name, so the floor has to
+                    # be applied here too or the book is gated inconsistently.
+                    try:
+                        import core_universe as _cu
+                        _elig = _cu.eligible_symbols()
+                        if _elig is None:
+                            logger.warning("   CORE gate UNAVAILABLE — size/pledge/ownership NOT applied")
+                        else:
+                            _n0 = len(_fired)
+                            _fired = _fired[_fired["Symbol"].astype(str)
+                                            .map(lambda s: _cu.gate(s, _elig))].copy()
+                            logger.info(f"   CORE gate ({_cu.describe()}): kept {len(_fired)}/{_n0}")
+                    except Exception as _ce3:
+                        logger.warning(f"   CORE gate skipped ({_ce3})")
+
                     _fired.to_csv(os.path.join(_DIR, REC_CATALYST_WATCHLIST), index=False)
                     try:
                         logger.info(f"   Recovery catalysts: {_fired['Signal_Label'].value_counts().to_dict()}")
