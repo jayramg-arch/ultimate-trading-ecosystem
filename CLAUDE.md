@@ -2562,3 +2562,82 @@ ladder, not ADD alone, or it will prompt adds on names that should be EXITed) ·
 at `:16512` still on the OLD 5R/10R and mixed anchors (SL from LTP, targets from entry) ·
 OCO partial convention vs Risk Shield · GESHIP has `buy_price = 0.0` in the journal ·
 **register `GTT_Trail_Daily` + apply the 15 stop tightens** (Jay's, still open since 9-Aug).
+
+---
+
+## 13 Aug 2026 — S4 runtime faults · Pullback Finder wired · RV measured · sector tilt
+
+All on `main` (`4182be6`), pushed. S4 compiled clean; S4Core published **v8**.
+
+### A. Two S4 runtime faults, different causes ([[pine-token-ceiling]] — now FOUR limits)
+- **"Calculation timed out", twice in 30 min, only after market open.** The Volume
+  Profile build was gated `islastconfirmedhistory or barstate.isrealtime` —
+  **`isrealtime` is true on EVERY TICK**, so a 4,000-iteration loop ran per tick.
+  Now `islastconfirmedhistory or (isrealtime and isconfirmed)` = once per closed bar.
+- **"Heavy script, close to the 20s limit"** (historical pass). Biggest cost is
+  `request.security_lower_tf` — at `of_ltf` 1m on a 75m chart that is 150 sub-bars
+  per bar and TV caps ~100k intrabars (~1,300 bars). **Default 1m → 15m**, 15× less
+  data. The delta is a documented PROXY that GRADES (2 confluence pts) and never
+  gates GO. The display toggle does NOT help — the call is global scope.
+- **Execution time is the 4th Pine limit** and the only one that doesn't announce
+  itself at compile.
+
+### B. Pullback Finder — wired in, and the RV question MEASURED
+Jay: *"good pullback trades are being discarded on low RV; RV will definitely be
+lower on pullbacks."*
+- **True on the first half**: at-value bars print median RV **0.63** vs **1.35** on
+  breakout bars; `rv_floor 1.0` rejects **78%** of them.
+- **TIER 1 SHIPPED**: `pullback_finder.py` now runs as auto-pilot **Phase 4.75b**
+  (was click-only, CSV three days stale) and is a board source **"At Value"**
+  carrying the **Pullback archetype**. Board union **50 → 121 names, 76 from At
+  Value**. It has NO volume floor by design — it SCORES dry-up (`vol_dry_mult 1.0`)
+  and hard-rejects a climax (`vol_spike_max 2.5`).
+- **TIER 3 REFUTED — my own proposal.** 250 names, 3y, 74,267 at-value bars,
+  matched-horizon alpha: RV 0.0-0.5 **+0.84**, 0.5-0.8 +1.05, 0.8-1.0 +1.15,
+  **1.0-1.5 +1.30**, 1.5+ +1.00. The DRY bucket is NOT best, so inverting the test
+  is not supported. Rejected: **+0.97 mean α / 49% win**; admitted **+1.19 / 51%**;
+  edge of admitting **+0.22pp**, symbol-block CI95 **[+0.01, +0.42]**.
+  → the floor discards a *mildly positive* population, not a *better* one.
+- **METHOD**: the first bootstrap resampled BARS and gave [+0.04,+0.39] — with a
+  20-day window on daily bars consecutive rows share ~95% of their outcome window,
+  so effective n is rows/horizon (3,713 not 74,267). Block-bootstrap over SYMBOLS
+  is the honest one; the bar-level version was deleted from the script.
+- **TIER 2 still unanswered** — `pb_ctx … and z_inDZ` (S4:3542) is a LOCATION
+  question this test does not address. Needs a zone-split run.
+
+### C. Sector tilt — real, mostly structural, now visible
+Jay: *"why mostly pharma every day?"* Pharma **20.4% of qualifiers vs 9.8% of the
+universe (2.08×)**. NOT rotation — pharma is 5th by 12w sector RS (+2.5) behind
+Realty +11.5, Auto +9.1, Media +5.3, Bank +3.3; Auto is UNDER-represented 0.92×.
+Half is legitimate: pharma is big (49/500) AND has the best breadth — **76% above
+the 200-DMA** vs IT 31%. Against each sector's ELIGIBLE pool the ratio falls to
+**1.68×**; the residual is unattributed and is NOT the fundamental gates (the
+purely technical At Value list is 2.0× pharma alone).
+**No filter changed** — a screener sector cap was already tested and rejected, and
+`pre_trade_gate.SECTOR_CAP_PCT = 25` already caps every gated entry. Added a
+**sector-mix caption** under the board header (post-filter rows, threshold IMPORTED
+from pre_trade_gate so board and order gate cannot drift).
+
+### D. Pre-trade review — first live runs (TITAN)
+75m: GO 4/4 but the verdict itself said the entry IS the bar close (market fill,
+not the pullback it is premised on); true pullback ~4867. Also flagged the panel
+contradicting itself ("in a demand zone" vs `Zones: between zones`) and the
+Stage-4 sector on short covering.
+125m: `TRIGGER no volume — RV 0.43/1.00`. **0.43 is below even `pb_rv_floor` 0.5**,
+so Tier 2 would not unblock it either, and it sits in the one RV bucket that
+tested worst. Separately it is **+1.65 ATR above the daily EMA20 and ABOVE VAH** —
+not a pullback by the system's own metric. Jay agreed and passed; logged as the
+control-group row in `logs/trade_reviews.csv`.
+
+### Open
+- **Pyramid plan levels are NOT drawn for a new trade.** v67 plots Entry / Hard SL
+  / T1 / T2 but gated on `showTrade and tradeActive` = a name in a v67 SLOT, and
+  **S4 has only 3 `plot()` calls (the AVWAPs) — it never draws its own plan**. So
+  on an unheld name nothing appears. Fix is 4 plots in S4 (~110 compiled tokens,
+  971 spare). NOT built.
+- Run `python pullback_finder.py --universe nifty500` after 15:30 — the CSV on
+  disk is still `As_Of 2026-07-30`, so the 76 At Value names are stale.
+- Restart Web Commander for the sector strip + the At Value board source.
+- Unchanged: 15 stop tightens + register `GTT_Trail_Daily` · recovery re-baseline
+  unread · ~85 uncommitted tracked files incl. real edits to
+  `Section4_Entry_Trigger_v3.0.pine` (+568) · Gemini's RRG page review.
