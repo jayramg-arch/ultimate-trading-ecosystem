@@ -57,6 +57,16 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+# The console table and the gate banner use ·, →, ⚠. Under a cp1252 console
+# (a piped/redirected run, or an unattended one) those raise UnicodeEncodeError
+# and kill the whole scan at the final print - after all the work is done. Same
+# guard brute_force_match_pro.py carries.
+try:
+    if (sys.stdout.encoding or "").lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_FILE = os.path.join(_DIR, "Pullback_Candidates.csv")
 
@@ -73,6 +83,17 @@ CONFIG = {
     "swing_lookback":      20,  # bars for the reference swing high
     "max_risk_pct":      8.0,   # hard: stop distance; DNA swing target is 5-8%
     "min_price":         20.0,
+    # ── FUNDAMENTAL GATE (Jay, 13-Aug-2026: "I do not want to trade
+    #    fundamentally weak stocks through pullback finder") ──────────────────
+    # BFF = the Minervini growth leg (profit growth / sales growth / margin
+    # expansion / return quality / profitable), screener.in-sourced, 24h cached,
+    # with lender-appropriate thresholds for banks and NBFCs. It is DISPLAY-ONLY
+    # on the Bull path by design; here it is a HARD gate, on instruction.
+    #   >= 2 blocks BFF's own WEAK band. >= 4 is STRONG-only (14 of 48 on the
+    #   12-Aug set, against 40 at >= 2) - use --min-bff 4 for that.
+    "min_bff_score":       2,
+    "bff_block_unknown": True,  # block a name whose fundamentals cannot be read
+    "bff_retries":         3,   # see _bff_with_retry - INSUFFICIENT is usually rate-limiting
 }
 
 
@@ -123,6 +144,67 @@ def _support_below(df_d, px, ema20, sma50):
     if best is None:
         _take(float(df_d["Low"].iloc[-20:].min()), "20d low")
     return best, src
+
+
+BFF_STATS = {"weak": [], "unknown": [], "pass": 0}
+
+
+def _report_bff(cfg):
+    """Say what the fundamental gate removed, and keep the two reasons apart.
+
+    WEAK is a judgement about the COMPANY. UNREADABLE is a judgement about our
+    DATA. Collapsing them into one "dropped" count is how a screener.in outage
+    comes to look like a market with no quality left in it.
+    """
+    weak, unk = BFF_STATS["weak"], BFF_STATS["unknown"]
+    if not (weak or unk):
+        return
+    print(f"\n  BFF gate (>= {cfg['min_bff_score']}): {BFF_STATS['pass']} passed · "
+          f"{len(weak)} weak · {len(unk)} unreadable")
+    if weak:
+        print(f"    weak (below the bar): {' '.join(weak[:12])}"
+              + (" …" if len(weak) > 12 else ""))
+    if unk:
+        verb = "BLOCKED" if cfg.get("bff_block_unknown", True) else "kept"
+        print(f"    unreadable after {cfg.get('bff_retries', 3)} retries — {verb}, "
+              f"NOT judged weak: {' '.join(unk[:12])}"
+              + (" …" if len(unk) > 12 else ""))
+        if len(unk) > max(3, len(weak)):
+            print("    ⚠ that many unreadable suggests screener.in rate-limiting, "
+                  "not a market-wide quality problem")
+
+
+def _bff_with_retry(symbol, cfg):
+    """BFF for one symbol, retrying an INSUFFICIENT read before believing it.
+
+    MEASURED 13-Aug-2026, and the reason this wrapper exists: a batch of 48
+    sequential screener.in calls returned 10 INSUFFICIENT - and ALL TEN resolved
+    on an immediate retry. SUNPHARMA and ICICIBANK came back OK; IPCALAB STRONG 4;
+    SOLARINDS STRONG 5. None were genuinely missing fundamentals; screener.in was
+    rate-limiting the burst.
+
+    Without this, a HARD gate on INSUFFICIENT would drop good names on network
+    luck and the finder's output would not be reproducible run to run. The X-Ray
+    scoring bug was the same missing-data-as-failure mistake, but X-Ray is a
+    RANKER - there it only distorted the order, and a dragged-down grade was
+    still visible and still tradeable. A hard gate has no such mercy: the name
+    disappears, and nothing on the surface says a fetch failed rather than a
+    company. That is why the retry sits here and why `unknown` is counted and
+    reported separately from `weak` below.
+    """
+    import time as _t
+    from bull_fundamental_filter import compute_bff
+
+    bff = None
+    for attempt in range(max(1, int(cfg.get("bff_retries", 3)))):
+        try:
+            bff = compute_bff(symbol)
+        except Exception:
+            bff = None
+        if bff and bff.get("quality") != "INSUFFICIENT" and bff.get("score") is not None:
+            return bff
+        _t.sleep(0.6 * (attempt + 1))       # linear backoff; the burst is the problem
+    return bff
 
 
 def evaluate(symbol, df_bench_w, cfg):
@@ -225,6 +307,21 @@ def evaluate(symbol, df_bench_w, cfg):
     if not (risk_pct == risk_pct) or risk_pct <= 0 or risk_pct > cfg["max_risk_pct"]:
         return None
 
+    # ── FUNDAMENTALS (hard) ───────────────────────────────────────────────────
+    # LAST, deliberately: this is the only gate that costs a network call, so it
+    # runs on the ~50 names that survived everything else rather than all 500.
+    bff = _bff_with_retry(symbol, cfg) or {}
+    bff_score, bff_q = bff.get("score"), bff.get("quality") or "INSUFFICIENT"
+    if bff_score is None or bff_q == "INSUFFICIENT":
+        BFF_STATS["unknown"].append(symbol)
+        if cfg.get("bff_block_unknown", True):
+            return None
+    elif bff_score < cfg["min_bff_score"]:
+        BFF_STATS["weak"].append(f"{symbol}({bff_score})")
+        return None
+    else:
+        BFF_STATS["pass"] += 1
+
     return {
         "Symbol": symbol,
         "Value_Score": score,
@@ -238,6 +335,9 @@ def evaluate(symbol, df_bench_w, cfg):
         "Tight": "YES" if s_tight else "-",
         "Support": round(sup, 2),
         "Sup_Src": sup_src,
+        "BFF": bff_score,
+        "BFF_Q": bff_q,
+        "BFF_Why": " · ".join((bff.get("drivers") or [])[:3]),
         "Trigger>": round(trigger, 2),
         "SL": round(sl, 2),
         "Risk_%": round(risk_pct, 2),
@@ -284,12 +384,13 @@ def run(universe="nifty500", top=30, limit=None, cfg=None):
     print(f"  {datetime.now().strftime('%A %d %b %Y  %H:%M')}   universe={universe} ({len(syms)})")
     print(f"  gates: ext <= {cfg['max_ext_atr']} ATR from EMA20 · depth "
           f"{cfg['min_depth_pct']}-{cfg['max_depth_pct']}% off the 20d high · Stage 2 · RS > 0 "
-          f"· risk <= {cfg['max_risk_pct']}%")
+          f"· risk <= {cfg['max_risk_pct']}% · BFF >= {cfg['min_bff_score']}")
     print("=" * 74)
 
     df_bench_w = bs._flatten_cols(dp.fetch_ohlcv(bs.BENCHMARK_YF, period="3y",
                                                  interval="1wk", use_cache=True,
                                                  auto_adjust=True))
+    BFF_STATS["weak"], BFF_STATS["unknown"], BFF_STATS["pass"] = [], [], 0
     out, errs = [], 0
     for i, s in enumerate(syms, 1):
         if i % 50 == 0:
@@ -302,12 +403,14 @@ def run(universe="nifty500", top=30, limit=None, cfg=None):
             errs += 1
 
     if not out:
+        _report_bff(cfg)
         print("\n  No names at value right now. That is a real answer — in a tape "
               "that is running, nothing has pulled back yet.")
         return pd.DataFrame()
 
     d = pd.DataFrame(out).sort_values("Value_Score", ascending=False).reset_index(drop=True)
     d.to_csv(OUT_FILE, index=False)
+    _report_bff(cfg)
 
     print(f"\n  {len(d)} candidates ({errs} symbols errored)   →  {OUT_FILE}\n")
     cols = ["Symbol", "Value_Score", "CMP", "Ext_ATR", "Depth_%", "RS", "RRG",
@@ -329,6 +432,10 @@ if __name__ == "__main__":
     ap.add_argument("--max-ext", type=float, default=None, dest="max_ext")
     ap.add_argument("--max-risk", type=float, default=None, dest="max_risk",
                     help="ceiling on stop distance as %% of entry (default 8.0)")
+    ap.add_argument("--min-bff", type=int, default=None, dest="min_bff",
+                    help="BFF fundamental floor 0-5 (default 2 blocks WEAK; 4 = STRONG only)")
+    ap.add_argument("--keep-unreadable", action="store_true",
+                    help="keep names whose fundamentals could not be read (default: blocked)")
     ap.add_argument("--silent", action="store_true")
     a = ap.parse_args()
     cfg = {}
@@ -336,6 +443,10 @@ if __name__ == "__main__":
         cfg["max_ext_atr"] = a.max_ext
     if a.max_risk is not None:
         cfg["max_risk_pct"] = a.max_risk
+    if a.min_bff is not None:
+        cfg["min_bff_score"] = a.min_bff
+    if a.keep_unreadable:
+        cfg["bff_block_unknown"] = False
     cfg = cfg or None
     run(universe=a.universe, top=a.top, limit=a.limit, cfg=cfg)
     if not a.silent:
