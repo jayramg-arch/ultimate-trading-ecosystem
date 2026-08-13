@@ -77,21 +77,27 @@ CONFIG = {
     "max_ext_atr":       1.5,   # hard: how far above the EMA20 price may sit
     "min_depth_pct":     2.0,   # hard: must have actually pulled back off the 20d high
     "max_depth_pct":    18.0,   # hard: a pullback, not a breakdown
-    "min_turnover_cr":   2.0,   # hard: tradeable size
+    "min_turnover_cr":   5.0,   # hard: tradeable size (was 2.0 — raised to the Catalyst floor)
     "vol_dry_mult":      1.00,  # score: today's volume vs its 50-SMA
     "vol_spike_max":     2.50,  # hard: a climax bar is not a quiet pullback
     "swing_lookback":      20,  # bars for the reference swing high
     "max_risk_pct":      8.0,   # hard: stop distance; DNA swing target is 5-8%
-    "min_price":         20.0,
+    # Price/turnover floors raised 13 Aug 2026 to the levels the Bull and Recovery
+    # books already enforce (Jay: "I'm ok to have fewer results from GM+S4, rather
+    # than having a huge list of unreliable results"). The old 20/2.0 pair was the
+    # loosest in the system and admitted names no other source would look at.
+    "min_price":        100.0,  # was 20.0 — matches the Recovery screens' floor
     # ── FUNDAMENTAL GATE (Jay, 13-Aug-2026: "I do not want to trade
     #    fundamentally weak stocks through pullback finder") ──────────────────
     # BFF = the Minervini growth leg (profit growth / sales growth / margin
     # expansion / return quality / profitable), screener.in-sourced, 24h cached,
     # with lender-appropriate thresholds for banks and NBFCs. It is DISPLAY-ONLY
     # on the Bull path by design; here it is a HARD gate, on instruction.
-    #   >= 2 blocks BFF's own WEAK band. >= 4 is STRONG-only (14 of 48 on the
-    #   12-Aug set, against 40 at >= 2) - use --min-bff 4 for that.
-    "min_bff_score":       2,
+    #   >= 2 blocks BFF's own WEAK band; >= 4 is BFF's STRONG band. Raised 2 -> 4
+    #   on 13 Aug 2026: at 2 of 5 a name passes on "profitable + margin expanded"
+    #   alone, with NEGATIVE sales and profit growth - which is not a standard the
+    #   Bull scans would recognise. 4 of 5 means the growth legs have to carry it.
+    "min_bff_score":       4,
     "bff_block_unknown": True,  # block a name whose fundamentals cannot be read
     "bff_retries":         3,   # see _bff_with_retry - INSUFFICIENT is usually rate-limiting
 }
