@@ -4265,6 +4265,26 @@ f_rsIcon(string st) => str.contains(st, "Rising") ? "↗️" : str.contains(st, 
 bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
 [_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = core.rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
 
+// --- Plan levels on the chart (E/SL/T1/T2) -----------------------------------
+// The plan is computed inside the panel block (last bar only), so plot() cannot
+// reach it and a last-bar plot would draw a dot, not a level. Same idiom as the
+// "must clear" obstacle line: redrawn on each render, so a level never lingers
+// after the plan clears. Each CALL SITE gets its own var instance in Pine, which
+// is why one function can own four independent lines.
+show_plan_levels = input.bool(true, "Draw plan levels (E · SL · T1 · T2) on chart", group="Plan & Risk", tooltip="Off = panel only. Levels are drawn from the LATCHED trigger bar, so they match the Plan row exactly.")
+
+f_planLine(bool _on, float _lvl, string _txt, color _c, string _sty) =>
+    var line  _ln = na
+    var label _lb = na
+    line.delete(_ln)
+    label.delete(_lb)
+    _ln := na
+    _lb := na
+    if _on and not na(_lvl) and _lvl > 0
+        _ln := line.new(bar_index - 30, _lvl, bar_index, _lvl, xloc=xloc.bar_index, extend=extend.right, color=_c, width=1, style=_sty)
+        _lb := label.new(bar_index, _lvl, _txt + " " + str.tostring(_lvl, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(_c, 82), textcolor=C_NO, size=size.small)
+    _lvl
+
 if show_panel and d_panel and barstate.islast
     table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
@@ -4726,6 +4746,13 @@ if show_panel and d_panel and barstate.islast
     f_row(36, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? C_MUTE : C_OK)
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
+    // Draw the same four numbers the row below prints - one source, so the chart
+    // and the panel can never disagree. na plan => the calls clear the levels.
+    f_planLine(show_plan_levels, pl_entry, "E",  #26A69A, line.style_solid)
+    f_planLine(show_plan_levels, pl_sl,    "SL", #EF5350, line.style_dashed)
+    f_planLine(show_plan_levels, pl_t1,    "T1", #42A5F5, line.style_dotted)
+    f_planLine(show_plan_levels, pl_t2,    "T2", #7E57C2, line.style_dotted)
+
     string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
     string _lS  = na(pl_entry) ? "" : " · SL " + str.tostring(pl_sl, format.mintick) + (pl_cap ? "⚠" : "") + " (−" + str.tostring((pl_entry - pl_sl) / pl_entry * 100.0, "0.0") + "%)"
     // v5.2 (#2): a STRUCTURAL target (pl_t1_str/pl_t2_str = the nearest overhead level)
