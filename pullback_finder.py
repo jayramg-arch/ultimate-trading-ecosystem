@@ -152,7 +152,7 @@ def _support_below(df_d, px, ema20, sma50):
     return best, src
 
 
-BFF_STATS = {"weak": [], "unknown": [], "pass": 0}
+BFF_STATS = {"weak": [], "unknown": [], "pass": 0, "offcore": []}
 
 
 def _report_bff(cfg):
@@ -163,6 +163,10 @@ def _report_bff(cfg):
     comes to look like a market with no quality left in it.
     """
     weak, unk = BFF_STATS["weak"], BFF_STATS["unknown"]
+    off = BFF_STATS.get("offcore") or []
+    if off:
+        print(f"\n  CORE gate: {len(off)} rejected on size/pledge/ownership: "
+              f"{' '.join(off[:12])}" + (" …" if len(off) > 12 else ""))
     if not (weak or unk):
         return
     print(f"\n  BFF gate (>= {cfg['min_bff_score']}): {BFF_STATS['pass']} passed · "
@@ -313,6 +317,18 @@ def evaluate(symbol, df_bench_w, cfg):
     if not (risk_pct == risk_pct) or risk_pct <= 0 or risk_pct > cfg["max_risk_pct"]:
         return None
 
+    # ── CORE UNIVERSE (hard): size · pledge · ownership ───────────────────────
+    # The floor the Bull and Recovery books get from their screener.in screens
+    # and this one never had. Jay, 13 Aug 2026: "a Microcap has slipped into my
+    # portfolio, due to these sporadic set of fundamental filters."
+    # A None gate (screener.in unreachable) keeps everything and is reported.
+    _core = cfg.get("_core_universe", "unset")
+    if _core != "unset" and _core is not None:
+        import core_universe as _cu
+        if not _cu.gate(symbol, _core):
+            BFF_STATS["offcore"].append(symbol)
+            return None
+
     # ── FUNDAMENTALS (hard) ───────────────────────────────────────────────────
     # LAST, deliberately: this is the only gate that costs a network call, so it
     # runs on the ~50 names that survived everything else rather than all 500.
@@ -397,6 +413,18 @@ def run(universe="nifty500", top=30, limit=None, cfg=None):
                                                  interval="1wk", use_cache=True,
                                                  auto_adjust=True))
     BFF_STATS["weak"], BFF_STATS["unknown"], BFF_STATS["pass"] = [], [], 0
+    BFF_STATS["offcore"] = []
+    # ONE screener.in query for the whole run; None = gate unavailable, not empty.
+    try:
+        import core_universe as _cu
+        cfg["_core_universe"] = _cu.eligible_symbols()
+        if cfg["_core_universe"] is None:
+            print("  ⚠ CORE UNIVERSE UNAVAILABLE — size/pledge/ownership gate SKIPPED this run")
+        else:
+            print(f"  core universe: {len(cfg['_core_universe'])} eligible · {_cu.describe()}")
+    except Exception as _e:
+        cfg["_core_universe"] = None
+        print(f"  ⚠ core universe gate unavailable ({_e}) — SKIPPED")
     out, errs = [], 0
     for i, s in enumerate(syms, 1):
         if i % 50 == 0:
