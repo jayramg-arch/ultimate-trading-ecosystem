@@ -3145,7 +3145,15 @@ var float vp_val = na
 // historical consumes them (panel + _vp_score + support gate all read the latest
 // value only), so computing on the last bar alone is behaviourally identical and
 // ~20,000x cheaper.
-if en_wcl and en_wcl_vp and (barstate.islastconfirmedhistory or barstate.isrealtime)
+// RE-FIX 13-Aug-2026: `barstate.isrealtime` is true on EVERY TICK once the feed is
+// live, so this 4,000-iteration loop ran per tick during market hours - not once, as
+// the note above assumed. Symptom: "Calculation timed out. Remove the indicator and
+// reapply it", twice in 30 minutes, starting when the market opened; fine all
+// evening because a closed market produces no realtime ticks.
+// `isrealtime and isconfirmed` = once per CLOSED bar instead. vp_poc/vah/val are
+// `var`, so inside a forming bar they hold the last closed-bar profile - which is
+// correct anyway for a profile over 100 bars, and consistent with use_closed_candle.
+if en_wcl and en_wcl_vp and (barstate.islastconfirmedhistory or (barstate.isrealtime and barstate.isconfirmed))
     _hi    = vp_hi_s
     _lo    = vp_lo_s
     _range = _hi - _lo
