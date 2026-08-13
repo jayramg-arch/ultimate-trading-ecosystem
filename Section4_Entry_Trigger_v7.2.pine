@@ -1168,7 +1168,15 @@ show_arrival = input.bool(true, "Show Arrival · Δ row", group=grpAF)
 arr_look     = input.int(20, "Arrival lookback (swing bars)", group=grpAF, minval=5, maxval=100, tooltip="How far back to find the swing extreme that the approach leg is measured from (swing high for a demand arrival, swing low for supply).")
 arr_vel_fast = input.float(0.5,  "FAST arrival >= (ATR/bar)",  group=grpAF, minval=0.1, step=0.05, tooltip="Approach velocity = distance covered (in ATR) / bars taken. At or above this it is a FAST/impulsive arrival — a sharp rejection is more likely.")
 arr_vel_slow = input.float(0.22, "GRIND arrival <= (ATR/bar)", group=grpAF, minval=0.05, step=0.02, tooltip="At or below this the approach is a slow stair-step — momentum is absorbing into the level, higher bleed-through risk. Between the two thresholds = NORMAL.")
-of_ltf       = input.timeframe("1", "Order-flow intrabar TF", group=grpAF, tooltip="The lower timeframe whose bars are classified up/down for the delta. Must be LOWER than the chart TF. '1' = 1-minute sub-bars (good for a 75/125m chart). Set '1S'/'5S' (Premium seconds) for finer delta, or '5' for more history — request.security_lower_tf caps total intrabars (~100k), so a finer TF trades history for granularity; the arrival read only needs recent bars.")
+// RUNTIME (13-Aug-2026): the two request.security_lower_tf calls below are the most
+// expensive thing in this script - they pull EVERY sub-bar of EVERY chart bar. At 1m on
+// a 75m chart that is 150 sub-bars per bar, and TradingView caps the total near 100,000
+// intrabars (~1,300 chart bars before it degrades). The editor reported Heavy script,
+// close to the 20s runtime limit, so the default moved 1m -> 15m: 5 sub-bars per 75m
+// bar, 15x less data. The delta is a documented PROXY that GRADES (2 confluence points)
+// and never gates GO, so coarser granularity costs little. Put it back to 1m only on a
+// fast chart with short history.
+of_ltf       = input.timeframe("15", "Order-flow intrabar TF", group=grpAF, tooltip="The lower timeframe whose bars are classified up/down for the delta. Must be LOWER than the chart TF. '1' = 1-minute sub-bars (good for a 75/125m chart). Set '1S'/'5S' (Premium seconds) for finer delta, or '5' for more history — request.security_lower_tf caps total intrabars (~100k), so a finer TF trades history for granularity; the arrival read only needs recent bars.")
 of_win       = input.int(5, "Delta window (bars in the arrival)", group=grpAF, minval=2, maxval=20, tooltip="How many recent bars the arrival delta is summed over, and the lookback for the delta-divergence check.")
 
 show_sr_lv   = input.bool(true, "Draw auto S/R levels", group=grpSR)
