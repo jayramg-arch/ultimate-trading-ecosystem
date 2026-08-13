@@ -1,144 +1,245 @@
-# 25 · Scanner Filter Map — every auto-pilot source, technical and fundamental
+# 25 · Scanner Filter Map — parameter-by-parameter, all four categories
 
-Built 13 Aug 2026 from the code, in response to: *"We initially started with Bull
-scanners… strong technical and fundamental filters. Later we added Recovery… relaxed
-the fundamental filters. Then Catalyst… I'm not sure whether they have any fundamental
-filters. Now Pullback Finder, entirely bypassing fundamental filters. I'm not
-comfortable with this approach."*
+Built 13 Aug 2026 from the code and from the live screener.in screen definitions.
 
-The concern is right that the standard drifted. It is wrong in one specific: **the
-Catalyst list is hard-gated on fundamentals** (RFF ≥ 4/6, added 6 Jul 2026,
-`run_pipeline.py:406-425`). The actual problem is not a missing gate — it is that
-**three different fundamental engines are in use and they are not applied by path**.
+**Update to the first version of this document:** the screener.in criteria are NOT
+unauditable. Each saved screen exposes its query in the page's `query` textarea, so all
+seven are reproduced verbatim in §4 and folded into the matrices below. That changes the
+conclusion — see §5.
 
----
+The four categories compared:
 
-## 1 · The map
-
-| # | Source | Universe | Technical filter | Fundamental filter | Strength |
-|---|---|---|---|---|---|
-| 1 | **Stage 2 Hunter** | Chartink `{57960}` = N500 | 30W MA rising · close > 30W MA · 50>150>200 SMA stack · close > EMA20 · close > 200 SMA · within 15% of 52W high · weekly RSI > 55 · daily ADX > 20 · vol > 20W avg · ≥ ₹20 | membership in screener.in **Stage2 Hunter** screen | **HARD** (inner join) |
-| 2 | **Stage 2 Pullback** | same | close > 30W MA · weekly RSI > 55 · low < EMA20×1.015 · close > EMA20 · vol < 10D avg · close > 200 SMA · range < prior range · ≥ ₹20 | screener.in **Pullback** screen | **HARD** (inner join) |
-| 3 | **Early Birds** | same | weekly RSI > 50 · close > 50 SMA and < ×1.15 · weekly MACD cross up · prior signal < 0 · close > 20-day high · vol > 100k · ≥ ₹20 | screener.in **Early Birds** screen | **HARD** (inner join) |
-| 4 | **Strong Leaders** | same | daily RSI > 60 · close > 20 SMA · ADX > 25 · vol > 20D avg · close > 200 SMA · ≥ ₹20 | screener.in **Leaders** screen | **HARD** (inner join) |
-| 5 | **REV-RS** | same | Mansfield RS > 30W SMA · 10–40% off 52W high · close > 200 SMA · close > 50 SMA · weekly RSI > 55 · ≥ ₹100 | screener.in **RS Survivors** + **RFF ≥ 4/6** | **HARD ×2** |
-| 6 | **REV-CB** | same | RS > 30W SMA · 10–40% off high · close < 200 SMA×0.95 · daily RSI < 55 · ≥ ₹100 | screener.in **Climax Bounce** + **RFF ≥ 4/6** | **HARD ×2** |
-| 7 | **REV-EARLY** | same | 50 SMA ≥ 200 SMA×0.92 · 10–40% off high · close > 50 and 150 SMA · RS > 30W SMA · weekly RSI > 50 · ≥ ₹100 | screener.in **Recovery Early Birds** + **RFF ≥ 4/6** | **HARD ×2** |
-| 8 | **Bull Catalyst** | nifty500, full | `bull_screener` catalyst gates (POS-BO · POS-ACCUM · SWG-BO · SWG-PB · SWG-GAP · SWG-REV) + Stage-4 swing-BO dropped | **RFF ≥ 4/6**, INSUFFICIENT blocked | **HARD** |
-| 9 | **Recovery Catalyst** | nifty500 | `recovery_screener` pillars, Signal ≥ 2 · 15–35% drawdown band · regime gate | **RFF ≥ 4/6** (inside the engine) | **HARD** |
-| 10 | **Pullback Finder** | nifty500, full | Stage 2 · close > rising 200 SMA · Mansfield > 0 · ext ≤ 1.5 ATR · depth 2–18% · ≥ 50 SMA×0.97 · vol < 2.5× · risk ≤ 8% · ≥ ₹2 Cr turnover | **BFF ≥ 2/5** (13 Aug 2026) | **HARD** |
-| 11 | **Portfolio / Pyramid** | live holdings | `pyramid_logic` ADD rung only | none — already owned | n/a |
-
-Sources 1–7 feed the matcher (`brute_force_match_pro`); 8–11 are direct CSV producers.
-All eleven feed the Trigger Board, which inherits their qualification and only times it.
+| category | producer | fundamental gate |
+|---|---|---|
+| **BULL** | Chartink scans 1-4 → `brute_force_match_pro` inner join | screener.in Stage-2 screens (**hard**) |
+| **RECOVERY** | Chartink scans 5-7 → matcher → `recovery_screener` | screener.in Recovery screens **+ RFF ≥ 4/6** (hard ×2) |
+| **CATALYST** | `bull_screener.run_bull_screener`, nifty500 | **RFF ≥ 4/6** (hard) |
+| **PULLBACK** | `pullback_finder`, nifty500 | **BFF ≥ 2/5** (hard, added 13 Aug 2026) |
 
 ---
 
-## 2 · The three fundamental engines
+## 1 · FUNDAMENTAL parameters
 
-| engine | asks | checks | where it is HARD | where it is soft |
+`—` = not checked at all. Bull column shows the range across its four screens.
+
+| parameter | BULL (screener.in) | RECOVERY (screen + RFF) | CATALYST (RFF) | PULLBACK (BFF) |
 |---|---|---|---|---|
-| **screener.in screens** | "is it in my saved screen?" | *unknown to the codebase* — see §3 | sources 1–7 | — |
-| **RFF** (`recovery_screener.get_rff`) | "will it survive?" | NI > 0 · FCF > 0 · ICR > 3.5 · D/E < 2 · CR > 1 · ROA > 5% | sources 5–9 | — |
-| **BFF** (`bull_fundamental_filter`) | "is it growing?" | profit growth ≥ 20% · sales growth ≥ 15% · margin expansion · ROCE ≥ 15% · profitable | source 10 | **Bull path GM QUALITY — display only** |
+| **GROWTH** |
+| Qtr sales growth YoY | **> 10-20%** | — | — | **≥ 15%** |
+| Qtr profit growth YoY | **> 15-25%** | — | — | **≥ 20%** |
+| EPS qtr > year-ago qtr | Leaders only | — | — | — |
+| **PROFITABILITY / RETURNS** |
+| ROCE | **> 15%** | **> 15-20%** | — | **≥ 15%** (fin 10%) |
+| ROE | **> 15%** (2 of 4) | — | — | fin only (12%) |
+| ROA | — | **> 5%** | **> 5%** | — |
+| Net margin | Pullback: **> 10%** | — | — | — |
+| Margin expansion (OPM↑) | — | — | — | **yes** |
+| Net profit > 0 | implied by growth | **yes** | **yes** | **yes** |
+| **BALANCE SHEET** |
+| Debt / equity | **< 0.5-1.5** | **< 1-2** | **< 2** | — |
+| Interest coverage | — | **> 2** (screen) / **> 3.5** (RFF) | **> 3.5** | — |
+| Current ratio | — | **> 1** | **> 1** | — |
+| **CASH** |
+| Operating cash flow | Early Birds: **3yr > 0** | **last yr > 0** | — | — |
+| Free cash flow | — | **> 0** (RFF) | **> 0** | — |
+| **OWNERSHIP / GOVERNANCE** |
+| Promoter holding | **> 40%** (or FII/DII > 15%) | — | — | — |
+| Change in promoter holding | Early Birds: **> 0** | — | — | — |
+| FII/DII holding change | Leaders: **> 0** | — | — | — |
+| **Pledged %** | **< 2-5%** | — | — | — |
+| **SIZE** |
+| Market cap | **> ₹5,000 Cr** | **> ₹5,000 Cr** | — | — |
+| Turnover | — | — | > ₹5 Cr | > ₹2 Cr |
+| | | | | |
+| **checks that must pass** | **all** | **all** + 4 of 6 RFF | **4 of 6 RFF** | **2 of 5 BFF** |
 
-### The mismatch worth deciding on
+### What this table says
 
-**RFF is a survival test; BFF is a growth test.** They answer different questions and
-they were built for different books — RFF for beaten-down names whose tape you cannot
-trust, BFF for Minervini leaders where the market has already voted.
+**1. The BULL standard is a GROWTH standard, and it is the strictest in the system.**
+Sales growth, profit growth, ROCE, ROE, low debt, promoter skin-in-the-game, near-zero
+pledge, ₹5,000 Cr floor — every condition ANDed. That is textbook SEPA.
 
-Today:
+**2. CATALYST is gated by RFF — a survival test — and checks NO growth parameter.**
+Not sales, not profit growth, not margins, not ROE, no size floor, no pledge, no
+ownership. A ₹600 Cr micro-cap with flat sales, 40% pledged promoter holding and ROE of
+6% passes the Catalyst gate provided it is profitable with decent coverage. The same name
+is rejected outright by every Bull screen.
 
-- The **Bull Catalyst** list — POS-BO breakouts, the core positional edge — is gated by
-  **RFF**, the recovery/balance-sheet filter. A high-growth leader carrying debt from a
-  capex cycle can fail ICR > 3.5 or D/E < 2 and be dropped, while a low-growth, cash-rich,
-  ex-growth company passes cleanly. That is the opposite of SEPA.
-- **BFF**, the growth filter actually built for the bull path, is **display-only** there.
-- **Pullback Finder** — also a bull setup — now uses **BFF**, not RFF.
+**3. PULLBACK is the weakest of the four.** BFF asks the right *kind* of question
+(growth) but requires only **2 of 5** checks, and checks nothing on leverage, ownership,
+pledge, size or cash flow. At the ≥ 2 floor a name can pass on "profitable + margin
+expanded" alone with negative sales and profit growth.
 
-So two bull surfaces are gated by two different engines, and the one designed for bull
-is the one that does not gate. This is drift, not design.
+**4. RECOVERY is the most gated book, and it is internally coherent.** The screener.in
+Recovery screens are the RFF checks near-verbatim — NI > 0, OCF > 0, ICR > 2, D/E < 2,
+CR > 1, ROA > 5, ROCE > 15 — and then the engine applies RFF again at ICR > 3.5. Nothing
+about that is "relaxed"; it is the same test twice, the second time stricter.
+
+**5. The quality floor collapses left to right.** Market cap ₹5,000 Cr (Bull, Recovery) →
+turnover ₹5 Cr (Catalyst) → turnover ₹2 Cr and price ₹20 (Pullback). Pledge < 5% (Bull) →
+unchecked everywhere else. This is the single largest divergence in the table, and it is
+not a fundamental-engine question at all — it is a universe question.
 
 ---
 
-## 3 · The unauditable part
+## 2 · TECHNICAL parameters
 
-The fundamental criteria for sources 1–7 are **not in this repository.** They are saved
-screens in Jay's screener.in account, fetched by URL:
+| parameter | BULL (Chartink 1-4) | RECOVERY (Chartink 5-7) | CATALYST | PULLBACK |
+|---|---|---|---|---|
+| Stage / 30W MA | close > 30W MA, **30W rising** (Hunter) | — (below 200 SMA is the premise) | Stage from the 2×2; POS needs Stage 1-2 | **Stage 2 only** |
+| MA stack | 50 > 150 > 200 (Hunter) | 50 ≥ 200×0.92 (EARLY) | trend template inside `weinstein_setup` | close > **rising** 200 SMA |
+| vs 200 SMA | **above** | above (RS/EARLY) · **below ×0.95** (CB) | per catalyst | **above** |
+| vs EMA20 | above (Hunter) · pullback to ×1.015 (PB) | — | per catalyst | **ext ≤ 1.5 ATR** |
+| Mansfield RS | screen-implied | **RS line > 30W SMA** | RS in Alpha (status) | **> 0** |
+| Weekly RSI | **> 50-55** | **> 50-55** (RS/EARLY) | replaced by price action | — |
+| Daily RSI | > 60 (Leaders) | **< 55** (CB) | replaced by price action | — |
+| ADX | > 20-25 | — | up-bar count (PA) | — |
+| Distance from 52W high | within 15% (Hunter) | **10-40% off** | — | — |
+| Depth off recent high | ≤ 15% (PB) | — | — | **2-18% off 20d high** |
+| Volume | > 20W avg · < 10D avg (PB) · > 2× 1M avg (Leaders) | 1.25× confirm | RV per catalyst | **< 2.5× (climax reject)**, dry-up scored |
+| Breakout / trigger | 20-day high (EB) | 15-20D pivot | **catalyst must fire** | **none — location only** |
+| Stop / risk | — | — | — | **≤ 8% of entry** |
+| Price floor | ₹20 (₹200 via screen) | ₹100 | — | ₹20 |
+| Market regime | — | regime gate | SWG-PB needs `mkt_bull` | — |
 
-| screen | URL |
+### What this table says
+
+**Pullback Finder is the only source with no trigger requirement** — by design; it
+answers *where*, not *when*. It is also the only one with a **risk ceiling**.
+
+**Catalyst is the only source that demands a firing event.** Everything else is a state
+description; Catalyst requires a transition.
+
+**Recovery's technical premise is the inverse of Bull's** (10-40% off the high, below the
+200 SMA for CB) — which is why it needs a different fundamental test, and why RFF is
+correct *there*.
+
+---
+
+## 3 · The comparison, stated plainly
+
+| | asks | fundamentally | technically |
+|---|---|---|---|
+| BULL | "a great business breaking out" | growth + quality + governance + size | strong trend |
+| RECOVERY | "a survivor on sale" | survival + returns | corrected, turning |
+| CATALYST | "something just fired" | **survival only** | a firing event |
+| PULLBACK | "sitting at value" | **growth, 2 of 5** | at value, no trigger |
+
+**The two bull-family surfaces (Catalyst, Pullback) apply weaker and differently-shaped
+fundamental tests than the Bull scans they descend from.** Catalyst has the wrong shape
+(survival, no growth). Pullback has the right shape but a low bar and no
+leverage/ownership/size leg.
+
+Both were built to widen supply after the Chartink+screener.in funnel proved too narrow —
+Catalyst on 6 Jul, Pullback on 31 Jul. Widening the *universe* was the intent. Weakening
+the *fundamental standard* was a side effect, and it happened without a decision.
+
+---
+
+## 4 · The screener.in screens, verbatim
+
+Fetched live 13 Aug 2026. Reproduced here so a change to a screen is visible as a diff.
+
+**Stage2_Hunter** — `screens/3454433`
+```
+Market Capitalization > 5000 AND YOY Quarterly sales growth > 15 AND
+YOY Quarterly profit growth > 20 AND Return on capital employed > 15 AND
+Return on equity > 15 AND Debt to equity < 1 AND
+(Promoter holding > 40 OR FII holding > 15 OR DII holding > 15) AND
+Pledged percentage < 5 AND Down from 52w high < 25 AND Current Price > 200
+```
+
+**Stage2_Pullback** — `screens/3440648`
+```
+Market Capitalization > 5000 AND Return on equity > 15 AND
+Return on capital employed > 15 AND NPM last year > 10 AND
+Debt to equity < 0.5 AND Promoter holding > 40 AND
+Down from 52w high < 20 AND Down from 52w high > 5 AND
+Pledged percentage < 5 AND Volume 1week average > 100000
+```
+
+**Early_Birds** — `screens/3440667`
+```
+Market Capitalization > 5000 AND YOY Quarterly sales growth > 10 AND
+YOY Quarterly profit growth > 15 AND Current Price > 50 AND
+Debt to equity < 1.5 AND Change in Promoter holding > 0 AND
+(Promoter holding > 40 OR FII holding > 15 OR DII holding > 15) AND
+Operating cash flow 3years > 0
+```
+
+**Strong_Leaders** — `screens/3440684`
+```
+Market Capitalization > 5000 AND YOY Quarterly sales growth > 20 AND
+YOY Quarterly profit growth > 25 AND
+EPS latest quarter > EPS preceding year quarter AND Pledged percentage < 2 AND
+volume > 2 * Volume 1month average AND
+(Change in FII holding > 0 OR Change in DII holding > 0) AND
+Volume 1week average > 100000 AND Return on capital employed > 15%
+```
+
+**Recovery_RS_Survivors** — `screens/3591202` · **Recovery_Early_Birds** — `screens/3591222`
+(identical but for `Down from 52w high` 15 vs 20)
+```
+Current price > 100 AND Current price > DMA 200 AND Current price > DMA 50 AND
+Down from 52w high < 15 [EB: < 20] AND RSI > 55 AND
+Net profit > 0 AND Cash from operations last year > 0 AND
+Interest Coverage Ratio > 2 AND Debt to equity < 2 AND Current ratio > 1 AND
+Return on assets > 5 AND Return on capital employed % > 15 AND
+Market Capitalization > 5000
+```
+
+**Recovery_Climax_Bounce** — `screens/3591217`
+```
+Current price > 100 AND Current price < DMA 200 AND Down from 52w high < 30 AND
+RSI < 55 AND Net profit > 0 AND Cash from operations last year > 0 AND
+Interest Coverage Ratio > 2 AND Debt to equity < 1 AND Current ratio > 1 AND
+Return on assets > 5 AND Return on capital employed % > 20 AND
+Market Capitalization > 5000
+```
+
+⚠️ **Note the collision:** `Recovery_RS_Survivors` demands `Down from 52w high < 15`
+while its Chartink partner demands `close < 250-day high × 0.90`, i.e. **more than 10%
+off**. The two sides agree only in the narrow 10-15% band. `Recovery_Early_Birds` has the
+same structure at 10-20%. This is why those recovery inner joins are so lossy (RS
+Survivors kept 10 of 51 on 12 Aug) — not fundamental strictness, a **band mismatch**.
+
+---
+
+## 5 · What changed from the first version of this document
+
+| first version said | corrected |
 |---|---|
-| Stage2 Hunter | `screener.in/screens/3454433/stage2-hunter-final/` |
-| Pullback | `screener.in/screens/3440648/pullback-fundamentals-jay/` |
-| Early Birds | `screener.in/screens/3440667/early-birds-fundamentals-jay/` |
-| Leaders | `screener.in/screens/3440684/leader-fundamentals-jay/` |
-| RS Survivors | `screener.in/screens/3591202/rs-survivors/` |
-| Climax Bounce | `screener.in/screens/3591217/climax-bottom-bounce/` |
-| Recovery Early Birds | `screener.in/screens/3591222/recovery-early-birds/` |
-
-Consequences, in order of how much they matter:
-
-1. **Nobody can state the bull fundamental standard from the code.** The strongest claim
-   available is "it passed a screen Jay wrote at some point."
-2. **The join is invisible as a gate.** Measured 13 Aug: it discards **131 of 180 (73%)**
-   technical picks, including BOSCHLTD, TITAN, SIEMENS, INDIGO, ICICIBANK, HAL,
-   ABBOTINDIA. A dropped name is *never scored* — absent and rejected look identical.
-   Now logged per target (`logs/matcher_join_drops.csv`).
-3. **Editing a screen silently re-gates the pipeline** with no diff, no version, no note.
-4. **An expired cookie degrades to a smaller master**, which reads as a market with fewer
-   qualifying names rather than as a fetch failure.
+| "the bull fundamental standard is unstateable from the code" | **Wrong** — every screen is readable at its URL, now reproduced above. |
+| "three fundamental engines, not applied by path" | **Stands, and is sharper**: the Bull screens are a *growth* standard, ≈ BFF's own thresholds (sales 15 / profit 20 / ROCE 15). So BFF is the engine that matches the Bull path, and RFF-on-Catalyst is the outlier — now provable rather than argued. |
+| — | **New**: the biggest gap is not the engine at all, it is the **₹5,000 Cr market-cap floor** the Bull and Recovery books enforce and Catalyst and Pullback do not. |
 
 ---
 
-## 4 · Answering the original worry directly
+## 6 · Still not measured
 
-| Jay's statement | Verdict |
-|---|---|
-| "Bull scanners had strong technical AND fundamental filters" | **True** — but the fundamental half is a screener.in screen nobody can read from here. |
-| "Recovery relaxed the fundamental filters" | **False, inverted.** Recovery is the *most* gated book: a screener.in screen **and** RFF ≥ 4/6 with INSUFFICIENT blocked. RFF was raised 1 → 4 on 4 Jun 2026 on Jay's own instruction. |
-| "Not sure whether Catalyst has any fundamental filters" | **It does** — RFF ≥ 4/6 hard, `run_pipeline.py:406`, added 6 Jul 2026. |
-| "Pullback Finder entirely bypasses fundamental filters" | **Was true until 13 Aug 2026.** Now BFF ≥ 2/5 hard. |
+- Whether RFF-gated catalysts outperform BFF-gated ones.
+- Whether the ₹5,000 Cr floor helps or hurts on this book.
+- Whether the 131 names (73%) the inner join discards underperform.
 
-**So the book is more gated than it felt — and less consistent than it should be.**
-Every path has a hard fundamental gate. No two bull paths use the same one.
+No forward-return test partitions on any fundamental field. Every option below is a
+judgement until one does.
 
----
+## 7 · Options
 
-## 5 · Options, in the order I would take them
+**A · Give the bull family one fundamental standard.** BFF on Catalyst and Pullback,
+RFF on Recovery. Raises Pullback's floor from 2/5 and replaces Catalyst's survival test
+with a growth test. Changes what the Catalyst list admits → measure before/after.
 
-Nothing here is shipped. Each is a decision, and none should be taken on the strength of
-this document alone — the standing rule on this system is that six of the last six
-additions were rejected by measurement.
+**B · Add the missing legs to BFF** — market cap, pledge, promoter/institutional holding,
+D/E. These are the Bull screens' own conditions and they are cheap (already in the
+screener.in row BFF fetches). This closes most of the gap without touching the engine
+choice.
 
-**A · Decide the bull fundamental standard, then apply it to every bull surface.**
-The cheapest coherent version: **BFF for bull (catalyst + pullback + Chartink bull),
-RFF for recovery.** Each engine then gates the book it was designed for. This would
-change what the Catalyst list admits, so it needs a measured before/after, not a flip.
+**C · Fix the recovery band collision** in §4 — Chartink and screener.in disagree on the
+drawdown window, which is throttling the recovery joins for no stated reason.
 
-**B · Make the screener.in criteria explicit.** Either transcribe each screen's
-conditions into a comment block beside its URL (cheap, manual, drifts), or replace the
-join with an in-code fundamental gate (BFF/RFF) so the standard is versioned with the
-code. The second removes the 73% invisible drop as a side effect.
-
-**C · Report the fundamental funnel every run, per source.** The join-drop log does this
-for sources 1–7; RFF gating already logs a kept/dropped line; BFF now reports weak vs
-unreadable separately. Missing: one consolidated line so the whole funnel is legible in
-one place.
-
-**D · Leave it.** Defensible: every path *is* gated, and the inconsistency has not been
-shown to cost anything. The honest position is that no measurement currently
-distinguishes "RFF on bull" from "BFF on bull" in forward returns.
-
----
-
-## 6 · What is NOT measured
-
-- Whether RFF-gated bull catalysts outperform BFF-gated ones. **Nobody knows.**
-- Whether the 131 names the join discards underperform. **Nobody knows** — the
-  count is measured, the consequence is not.
-- Whether any fundamental gate improves matched-horizon alpha on this book at all.
-  The bull validation runs were never partitioned by fundamental score.
+**D · Leave it.** Every path is gated. Nothing measured says the differences cost
+anything.
 
 Related: `11_Bull_Screener_v3_3_Guide.md` · `09_Recovery_Screener_v2_1_Guide.md` ·
 `23_Golden_Matcher_Guide.md`
