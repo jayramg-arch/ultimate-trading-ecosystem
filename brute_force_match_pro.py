@@ -1,7 +1,9 @@
 import pandas as pd
+import csv
 import os
 import sys
 import time
+from datetime import datetime
 
 if sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -374,6 +376,52 @@ def _calculate_weighted_overall(df):
 # ==========================================
 # MATCHING LOGIC
 # ==========================================
+JOIN_DROP_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'logs', 'matcher_join_drops.csv')
+
+
+def _log_join_drop(name, tech_file, fund_file, df_tech, df_fund, merged):
+    """Report what the fundamental inner join discarded, per target.
+
+    The join silently removes technical picks that are absent from the
+    Screener.in list. Absent and rejected are NOT the same thing - an absent
+    name was never scored - but on the console they looked identical, which is
+    how an empty FINAL_EarlyBird_Picks.csv read as "the scan found nothing"
+    when the scan had in fact found three names.
+
+    Prints a one-line funnel and appends to logs/matcher_join_drops.csv so the
+    drop rate can be read across runs rather than guessed at. Fully guarded:
+    logging must never be able to break the matcher.
+    """
+    try:
+        tkeys = [s for s in df_tech['MATCH_KEY'].astype(str) if s and s != 'NAN']
+        fkeys = set(df_fund['MATCH_KEY'].astype(str)) if 'MATCH_KEY' in df_fund.columns else set()
+        dropped = [s for s in tkeys if s not in fkeys]
+        kept = len(tkeys) - len(dropped)
+        pct = (len(dropped) / len(tkeys) * 100.0) if tkeys else 0.0
+
+        shown = ' '.join(dropped[:8]) + (' …' if len(dropped) > 8 else '')
+        print(f"   🔗 {name}: {len(tkeys)} technical → {kept} matched, "
+              f"{len(dropped)} not in {os.path.basename(fund_file)} ({pct:.0f}% dropped)")
+        if dropped:
+            print(f"      dropped (never scored): {shown}")
+
+        os.makedirs(os.path.dirname(JOIN_DROP_LOG), exist_ok=True)
+        new = not os.path.exists(JOIN_DROP_LOG)
+        with open(JOIN_DROP_LOG, 'a', encoding='utf-8', newline='') as fh:
+            w = csv.writer(fh)
+            if new:
+                w.writerow(['run_ts', 'target', 'tech_file', 'fund_file',
+                            'tech_n', 'fund_n', 'matched_n', 'dropped_n',
+                            'dropped_pct', 'dropped_symbols'])
+            w.writerow([datetime.now().strftime('%Y-%m-%d %H:%M'), name,
+                        os.path.basename(tech_file), os.path.basename(fund_file),
+                        len(tkeys), len(fkeys), kept, len(dropped),
+                        f"{pct:.1f}", ' '.join(dropped)])
+    except Exception as e:
+        print(f"   ⚠️  join-drop logging failed for {name}: {e}")
+
+
 def perform_match(return_raw=False):
     print("=" * 65)
     print("✨ GOLDEN MATCHER PRO — STAGE 2 + RECOVERY PHASE")
@@ -543,6 +591,15 @@ def perform_match(return_raw=False):
         df_tech['MATCH_KEY'] = df_tech[col_tech].astype(str).str.upper().str.strip()
 
         merged = pd.merge(df_fund_target, df_tech, on='MATCH_KEY', how='inner')
+
+        # 13 Aug 2026: the inner join is a SECOND, undeclared gate. A technical
+        # pick absent from the fundamental list is never evaluated - which on the
+        # console looked identical to one that was evaluated and failed. Measured
+        # that day: 131 of 180 picks (73%) were dropped this way, including
+        # BOSCHLTD, TITAN, SIEMENS, INDIGO, ICICIBANK, HAL and ABBOTINDIA. That
+        # may well be correct behaviour (the master IS four fundamental screens),
+        # but it has to be visible to be judged. Log it, do not change the join.
+        _log_join_drop(start_name, tech_file, fund_file, df_tech, df_fund_target, merged)
 
         if merged.empty:
             print(f"⏭️  {start_name}: 0 matches (Chartink had {len(df_tech)} candidates "
