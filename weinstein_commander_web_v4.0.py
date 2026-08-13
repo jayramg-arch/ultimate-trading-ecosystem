@@ -8742,41 +8742,120 @@ elif page == 'MACRO':
         # analytics; stock-level recovery signals belong in HUNTER → Recovery
         # Screener where you actually act on them. See HUNTER cockpit.
 
-        section("Sector RRG — Rotation Quadrant")
-        st.caption("Canonical JdK 4-Quadrant Sector Rotation (RS-Ratio vs. RS-Momentum centered at 100/100). For interactive stock watchlists & drill-down, open the dedicated 🔄 Relative Rotation Graphs (RRG) page in the sidebar.")
+        section("Relative Rotation Graphs (RRG) — Rotation Quadrant")
+        st.caption("Canonical JdK 4-Quadrant Sector & Stock Rotation Engine (Pine v67.4 Standard). Select universe, timeframe, and tail length below.")
         
-        with st.spinner("Loading sector RRG data (cached 5min)..."):
-            symbols_list = list(SECTOR_INDICES.values()) + ["^CRSLDX", "^NSEI"]
-            data_map = load_universe_data(tuple(symbols_list), period="1y", interval="1wk")
-            summary_df, tails_dict = compute_universe_rrg(data_map, benchmark_symbol="^CRSLDX", jdk_length=12, tail_length=6)
+        # ── Interactive Control Panel for RRG ─────────────────────────────
+        c_rrg1, c_rrg2, c_rrg3, c_rrg4 = st.columns([3, 2, 2, 2])
+        with c_rrg1:
+            rrg_mode = st.selectbox(
+                "Rotation Universe:",
+                options=[
+                    "🌍 19 Nifty Sector Indices",
+                    "🛡️ Capital Goods & Defense Stocks",
+                    "🧪 Specialty Chemicals & Commodities",
+                    "🏆 Nifty 50 Heavyweights",
+                    "🔍 Intra-Sector Breakdown",
+                    "💼 Custom Watchlist"
+                ],
+                key="tab_rrg_mode"
+            )
+        with c_rrg2:
+            rrg_tf = st.selectbox(
+                "Timeframe:",
+                options=["Weekly (Positional)", "Daily (Swing)"],
+                index=0,
+                key="tab_rrg_tf"
+            )
+        with c_rrg3:
+            rrg_tail_len = st.slider("Tail Length (Bars):", min_value=1, max_value=15, value=6, key="tab_rrg_tail")
+        with c_rrg4:
+            rrg_tradeable_only = st.checkbox("BUY OK Only (✓)", value=False, key="tab_rrg_tr_only")
+
+        # Secondary Selectors for Intra-Sector and Custom Watchlist
+        rrg_sec_drill = None
+        rrg_custom_raw = None
+        if rrg_mode == "🔍 Intra-Sector Breakdown":
+            rrg_sec_drill = st.selectbox("Select Sector to Drill Down:", options=list(SECTOR_INDICES.keys()), key="tab_rrg_drill")
+        elif rrg_mode == "💼 Custom Watchlist":
+            rrg_custom_raw = st.text_input("Enter Tickers (comma separated):", value="DATAPATTNS, HAL, BEL, DEEPAKNTR, DIXON", key="tab_rrg_custom")
+
+        # Resolve Symbols & Data
+        interval = "1wk" if "Weekly" in rrg_tf else "1d"
+        period = "2y" if "Weekly" in rrg_tf else "6mo"
+        bench_symbol = "^CRSLDX"
+        symbols_to_fetch = []
+        disp_title = ""
+
+        if rrg_mode == "🌍 19 Nifty Sector Indices":
+            symbols_to_fetch = list(SECTOR_INDICES.values()) + [bench_symbol, "^NSEI"]
+            disp_title = f"19 Nifty Sector Indices Rotation vs Nifty 500 ({rrg_tf})"
+        elif rrg_mode == "🛡️ Capital Goods & Defense Stocks":
+            DEFENSE_STOCKS = ['DATAPATTNS.NS', 'HAL.NS', 'BEL.NS', 'BDL.NS', 'COCHINSHIP.NS', 'MAZDOCK.NS', 'GRSE.NS', 'SOLARINDS.NS', 'ZENTEC.NS', 'MTARTECH.NS', 'BEML.NS', 'PARAS.NS']
+            symbols_to_fetch = DEFENSE_STOCKS + [bench_symbol, "^CNXINFRA"]
+            disp_title = f"Capital Goods & Defense Stocks Rotation ({rrg_tf})"
+        elif rrg_mode == "🧪 Specialty Chemicals & Commodities":
+            CHEMICAL_STOCKS = ['DEEPAKNTR.NS', 'AARTIIND.NS', 'NAVINFLUOR.NS', 'ATUL.NS', 'SRF.NS', 'CLEAN.NS', 'FINEORG.NS', 'CHAMBLFERT.NS', 'COROMANDEL.NS', 'UPL.NS', 'PIIND.NS']
+            symbols_to_fetch = CHEMICAL_STOCKS + [bench_symbol, "^CNXCMDT"]
+            disp_title = f"Specialty Chemicals & Commodities Rotation ({rrg_tf})"
+        elif rrg_mode == "🏆 Nifty 50 Heavyweights":
+            NIFTY_50_STOCKS = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'ICICIBANK.NS', 'INFY.NS', 'BHARTIARTL.NS', 'ITC.NS', 'SBIN.NS', 'LT.NS', 'HINDUNILVR.NS', 'AXISBANK.NS', 'M&M.NS', 'TATAMOTORS.NS', 'SUNPHARMA.NS', 'NTPC.NS']
+            symbols_to_fetch = NIFTY_50_STOCKS + [bench_symbol, "^NSEI"]
+            disp_title = f"Nifty 50 Stock Rotation vs Nifty 500 ({rrg_tf})"
+        elif rrg_mode == "🔍 Intra-Sector Breakdown" and rrg_sec_drill:
+            sec_ticker = SECTOR_INDICES[rrg_sec_drill]
+            bench_symbol = sec_ticker
+            db_path = os.path.join(os.path.dirname(__file__), "sectors.db")
+            sec_stocks = []
+            if os.path.exists(db_path):
+                with sqlite3.connect(db_path) as conn:
+                    cur = conn.cursor()
+                    rows = cur.execute("SELECT symbol FROM stock_sector WHERE sector_index = ?", (sec_ticker,)).fetchall()
+                    sec_stocks = [r[0] + ".NS" for r in rows]
+            if not sec_stocks:
+                sec_stocks = ['DATAPATTNS.NS', 'HAL.NS', 'BEL.NS', 'BDL.NS']
+            symbols_to_fetch = sec_stocks + [sec_ticker, "^NSEI"]
+            disp_title = f"{rrg_sec_drill} Constituent Stocks vs {rrg_sec_drill} ({rrg_tf})"
+        elif rrg_mode == "💼 Custom Watchlist" and rrg_custom_raw:
+            raw_list = [s.strip().upper().replace('.NS', '') for s in rrg_custom_raw.split(',') if s.strip()]
+            symbols_to_fetch = [s + ".NS" for s in raw_list] + [bench_symbol, "^NSEI"]
+            disp_title = f"Custom Watchlist Rotation ({rrg_tf})"
+
+        with st.spinner("Computing JdK RRG 4-Quadrant Rotation..."):
+            data_map = load_universe_data(tuple(symbols_to_fetch), period=period, interval=interval)
+            summary_df, tails_dict = compute_universe_rrg(
+                data_map, 
+                benchmark_symbol=bench_symbol.replace('.NS', '').replace('^', ''), 
+                jdk_length=12, 
+                tail_length=rrg_tail_len
+            )
 
         if not summary_df.empty:
-            fig_rrg = render_rrg_plotly(summary_df, tails_dict, title="19 Nifty Sectors Rotation vs Nifty 500", tail_length=6)
-            fig_rrg.update_layout(height=520)
-            st.plotly_chart(fig_rrg, use_container_width=True)
+            # Filter tradeable if selected
+            plot_df = summary_df.copy()
+            if rrg_tradeable_only:
+                plot_df = plot_df[plot_df['Is_Tradeable'] == True]
+
+            fig_rrg = render_rrg_plotly(plot_df, tails_dict, title=disp_title, tail_length=rrg_tail_len)
+            fig_rrg.update_layout(height=680)
             
-            _df_rrg_show = summary_df[['Symbol','4W %','RS-Ratio','RS-Momentum','Quadrant_Badge','Trajectory']]
-            _df_rrg_show = _df_rrg_show.rename(columns={'Quadrant_Badge':'Quadrant','Symbol':'Sector'})
-            _rrg_num_cols = {c: "{:,.2f}" for c in ['4W %','RS-Ratio','RS-Momentum'] if c in _df_rrg_show.columns}
-            try:
-                _styled_rrg = (_df_rrg_show.style
-                               .format(_rrg_num_cols)
-                               .set_properties(subset=['4W %','Prior 4W %','Acceleration','RS-Ratio'], **{'text-align': 'right', 'background-color': '#F8FAFC', 'color': '#1E293B', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px'})
-                               .set_properties(subset=['Sector','RRG Quadrant','Signal'], **{'text-align': 'left', 'background-color': '#F8FAFC', 'color': '#1E293B', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px'})
-                               .set_table_styles([
-                                   {'selector': 'th', 'props': [('text-align', 'left'), ('background-color', '#1E3A8A'), ('color', '#FFFFFF'), ('border-bottom', '2px solid #3B82F6'), ('padding', '8px')]},
-                                   {'selector': 'th.col_heading.level0.col1', 'props': [('text-align', 'right')]},
-                                   {'selector': 'th.col_heading.level0.col2', 'props': [('text-align', 'right')]},
-                                   {'selector': 'th.col_heading.level0.col3', 'props': [('text-align', 'right')]},
-                                   {'selector': 'th.col_heading.level0.col4', 'props': [('text-align', 'right')]},
-                                   {'selector': 'table', 'props': [('width', '100%'), ('border-collapse', 'collapse')]}
-                               ])
-                               .hide(axis="index"))
-                st.markdown(f'<div style="max-height: 500px; overflow-y: auto;">{_styled_rrg.to_html(escape=False)}</div>', unsafe_allow_html=True)
-            except Exception:
-                st.dataframe(_df_rrg_show, use_container_width=True)
+            # Center the plot inside a container to maintain crisp square proportions
+            col_chart_left, col_chart_center, col_chart_right = st.columns([1, 10, 1])
+            with col_chart_center:
+                st.plotly_chart(fig_rrg, use_container_width=True)
+            
+            st.markdown("#### 📊 RRG Rotation & Tradeable Gate Cockpit")
+            _df_rrg_show = summary_df[[
+                'Symbol', 'Quadrant_Badge', 'Arrow', 'Trajectory', 'Tradeable Gate', 
+                'RRG Score', 'RS-Ratio', 'RS-Momentum', '4W %', 'Distance', 'Last_Price'
+            ]].rename(columns={'Quadrant_Badge': 'Quadrant', 'Distance': 'Dist from Center'})
+            
+            if rrg_tradeable_only:
+                _df_rrg_show = _df_rrg_show[_df_rrg_show['Tradeable Gate'] == '✓ BUY OK']
+                
+            st.dataframe(_df_rrg_show, use_container_width=True, hide_index=True)
         else:
-            st.info("Sector data unavailable. Check network and retry.")
+            st.info("Sector RRG data unavailable for selected universe. Check network or symbols.")
 
 # ════════════════════════════════════════════════════════════════════════════
 #  E-07: OPTIONS DESK
@@ -13564,6 +13643,53 @@ elif page == 'GOLDEN MATCHER':
             if _built_tf and _built_tf != _trig_tf:
                 st.warning(f"⚠️ Board built at **{_built_tf}** but Trigger-TF is now **{_trig_tf}** — "
                            f"stale snapshot; **Build / Refresh** to recompute at {_trig_tf}.")
+
+            # ── SECTOR MIX (13-Aug-2026) ─────────────────────────────────────
+            # Jay: "why am I mostly seeing pharma trades almost everyday?"
+            # Measured: pharma was 20.4% of qualifiers against 9.8% of the Nifty
+            # 500 (2.08x). About half of that is legitimate - pharma is a big
+            # sector AND has the best uptrend breadth (76% above the 200-DMA vs
+            # IT 31%) - and a sector cap INSIDE the screener was already tested
+            # and rejected for cutting alpha. So the tilt is not a bug to fix in
+            # the filters; it is something you should SEE while picking.
+            #
+            # The threshold is pre_trade_gate.SECTOR_CAP_PCT, imported rather than
+            # duplicated: that is the cap the ORDER path actually enforces, so the
+            # board warns with the same number that will later refuse the entry.
+            try:
+                import sector_lookup as _sl
+                _mix_src = _board_apply_filters(_bdf_hdr)
+                if not _mix_src.empty:
+                    def _sec1(_s):
+                        try:
+                            _r = _sl.get_sector(str(_s).upper()) or {}
+                            return _r.get("display_name") or _r.get("sector_name") or "?"
+                        except Exception:
+                            return "?"
+                    _secs = [_sec1(x) for x in _mix_src["Symbol"]]
+                    _tot = len([x for x in _secs if x != "?"])
+                    if _tot >= 5:
+                        from collections import Counter
+                        try:
+                            from pre_trade_gate import SECTOR_CAP_PCT as _CAP
+                        except Exception:
+                            _CAP = 25.0
+                        _cnt = Counter(x for x in _secs if x != "?")
+                        _parts, _hot = [], []
+                        for _k, _v in _cnt.most_common(6):
+                            _p = _v / _tot * 100.0
+                            _parts.append(f"**{_k} {_p:.0f}%** ({_v})" if _p >= _CAP
+                                          else f"{_k} {_p:.0f}% ({_v})")
+                            if _p >= _CAP:
+                                _hot.append(f"{_k} {_p:.0f}%")
+                        st.caption("Sector mix of the rows shown:  " + "  ·  ".join(_parts))
+                        if _hot:
+                            _hot_txt = ", ".join(_hot)
+                            st.caption(f"⚠️ {_hot_txt} is at or over the "
+                                       f"{_CAP:.0f}% sector cap the order gate enforces — "
+                                       f"further entries there may be refused at placement.")
+            except Exception as _e_mix:
+                _gm_logger.debug(f"sector mix strip skipped: {_e_mix}")
 
         _gm_col1, _gm_col2, _gm_col3 = st.columns([2.5, 3.5, 3.0], gap="small")
         # THE place to look when an alert fires days later: the plan you armed with,
