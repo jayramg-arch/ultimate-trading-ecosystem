@@ -417,9 +417,9 @@ def main():
                                   ).strip().lower() not in ("0", "false", "off", "no"):
                     try:
                         import pandas as pd
-                        from bull_fundamental_filter import compute_bff
+                        from bull_fundamental_filter import compute_bff, bff_passes
                         _floor = float(os.environ.get("CATALYST_BFF_MIN", "4"))
-                        _sc, _q = [], []
+                        _sc, _q, _raw = [], [], []
                         for _sym in df_cat["Symbol"].astype(str):
                             _b = None
                             for _try in range(3):     # INSUFFICIENT is usually rate-limiting
@@ -430,12 +430,14 @@ def main():
                                 if _b and _b.get("score") is not None and _b.get("quality") != "INSUFFICIENT":
                                     break
                                 time.sleep(0.6 * (_try + 1))
+                            _raw.append(_b or {})
                             _sc.append((_b or {}).get("score"))
                             _q.append((_b or {}).get("quality") or "INSUFFICIENT")
+                        df_cat["_bff_raw"]    = _raw
                         df_cat["BFF_Score"]   = _sc
                         df_cat["BFF_Quality"] = _q
                         _n_before = len(df_cat)
-                        _keep = (pd.to_numeric(df_cat["BFF_Score"], errors="coerce") >= _floor)
+                        _keep = df_cat["_bff_raw"].map(lambda b: bff_passes(b, _floor) is True)
                         _n_unread = int((df_cat["BFF_Quality"] == "INSUFFICIENT").sum())
                         df_cat = df_cat[_keep].copy()
                         logger.info(f"   BFF fundamental gate: kept {len(df_cat)}/{_n_before} "
@@ -458,6 +460,7 @@ def main():
                         except Exception as _ce2:
                             logger.warning(f"   CORE gate skipped ({_ce2})")
 
+                        df_cat = df_cat.drop(columns=["_bff_raw"], errors="ignore")
                         df_cat.to_csv(os.path.join(_DIR, CATALYST_WATCHLIST), index=False)
                     except Exception as _ge:
                         logger.warning(f"   Fundamental gate skipped ({_ge}); ungated list kept.")

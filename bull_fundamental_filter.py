@@ -56,6 +56,15 @@ CONFIG = {
     # --- financials (banks/NBFCs): OPM doesn't exist & ROCE>=15 is the wrong bar
     #     (lenders run low ROCE/ROA). Mirrors recovery_screener.get_rff's fin-adj:
     #     drop margin_expansion, use a lender-appropriate return threshold. ---
+    # GROWTH, lender bars (13 Aug 2026). Jay: "hardly any banking stocks are being
+    # selected." 20%/15% are Minervini GROWTH-STOCK thresholds; a large bank
+    # compounding 12-14% is performing well and failed BOTH legs, capping every
+    # big lender at 2 of 4. BFF already carried lender-specific RETURN thresholds
+    # (ROCE 10 / ROE 12 vs 15) and simply had none for growth - the omission, not
+    # a decision about banks. Measured before: HDFCBANK/ICICIBANK/AXISBANK/SBIN
+    # all scored 2 with profit_growth AND sales_growth False.
+    "fin_profit_growth_min_pct": 12.0,
+    "fin_sales_growth_min_pct":  10.0,
     "fin_roce_min_pct":      10.0,   # lender ROCE bar (RFF uses ROCE>10)
     "fin_roe_min_pct":       12.0,   # lender ROE bar (screener shows ROE for banks)
     "min_fields":            3,       # data-sufficiency floor (else INSUFFICIENT)
@@ -281,14 +290,16 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
     if profit_g is None:
         checks["profit_growth"] = None
     else:
-        checks["profit_growth"] = profit_g >= CONFIG["profit_growth_min_pct"]
+        checks["profit_growth"] = profit_g >= (CONFIG["fin_profit_growth_min_pct"]
+                                               if is_fin else CONFIG["profit_growth_min_pct"])
         drivers.append(f"Profit {profit_g:+.0f}%")
 
     # 2. Sales growth (both sectors) — top-line backing the move
     if sales_g is None:
         checks["sales_growth"] = None
     else:
-        checks["sales_growth"] = sales_g >= CONFIG["sales_growth_min_pct"]
+        checks["sales_growth"] = sales_g >= (CONFIG["fin_sales_growth_min_pct"]
+                                             if is_fin else CONFIG["sales_growth_min_pct"])
         drivers.append(f"Sales {sales_g:+.0f}%")
 
     if is_fin:
@@ -355,6 +366,37 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
 
     result["as_of"] = row.get("as_of") or row.get("As_Of")
     return result
+
+
+def bff_passes(bff: Optional[dict], floor: float = 4.0) -> Optional[bool]:
+    """Does this BFF result clear `floor`, SCALED to the checks that applied?
+
+    THE BUG THIS FIXES (found 13 Aug 2026 when Jay asked why banking stocks were
+    never being selected). `margin_expansion` is deliberately dropped for
+    financials - lenders do not report OPM - so a bank has FOUR applicable checks
+    while everything else has five. Comparing a bank's score against a floor of
+    "4 of 5" therefore demanded a PERFECT 4 of 4 from every bank, while a
+    non-financial needed only 4 of 5. Measured: HDFCBANK, ICICIBANK, AXISBANK
+    and SBIN all scored 2 and could never have reached 5.
+
+    Same shape as the X-Ray scoring bug - a score computed over a REDUCED check
+    set and then divided by the FULL denominator. There it dragged grades to C/D;
+    here it silently emptied a whole sector out of the book.
+
+    Scales the requirement instead: floor 4 of 5 == 80%, so a 4-check name needs
+    round(0.8 x 4) = 3. Returns None when the read is unusable, which callers must
+    treat as "do not gate" (a data judgement, not a company one).
+    """
+    if not bff:
+        return None
+    sc = bff.get("score")
+    if sc is None or str(bff.get("quality") or "") == "INSUFFICIENT":
+        return None
+    applicable = len([v for v in (bff.get("checks") or {}).values() if v is not None])
+    if applicable <= 0:
+        return None
+    required = round(float(floor) / 5.0 * applicable)
+    return float(sc) >= max(1, required)
 
 
 def bff_badge(bff: dict) -> str:

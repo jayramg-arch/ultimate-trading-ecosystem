@@ -3234,12 +3234,9 @@ def _gm_bff_gate(ctx):
     not the company; failing on it would empty the board and look like a market
     with nothing in it. Same rule as pullback_finder's weak-vs-unreadable split.
     """
-    b = _g(ctx, "bff") or {}
-    sc, q = b.get("score"), str(b.get("quality") or "")
-    if sc is None or q == "INSUFFICIENT":
-        return None
     try:
-        return float(sc) >= GM_BFF_MIN
+        from bull_fundamental_filter import bff_passes
+        return bff_passes(_g(ctx, "bff") or {}, GM_BFF_MIN)
     except Exception:
         return None
 

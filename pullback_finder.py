@@ -334,11 +334,13 @@ def evaluate(symbol, df_bench_w, cfg):
     # runs on the ~50 names that survived everything else rather than all 500.
     bff = _bff_with_retry(symbol, cfg) or {}
     bff_score, bff_q = bff.get("score"), bff.get("quality") or "INSUFFICIENT"
-    if bff_score is None or bff_q == "INSUFFICIENT":
+    from bull_fundamental_filter import bff_passes
+    _ok = bff_passes(bff, cfg["min_bff_score"])   # scaled to the APPLICABLE checks
+    if _ok is None:
         BFF_STATS["unknown"].append(symbol)
         if cfg.get("bff_block_unknown", True):
             return None
-    elif bff_score < cfg["min_bff_score"]:
+    elif not _ok:
         BFF_STATS["weak"].append(f"{symbol}({bff_score})")
         return None
     else:
