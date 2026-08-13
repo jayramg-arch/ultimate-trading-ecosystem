@@ -55,6 +55,11 @@ WATCHLISTS = [
     ("FINAL_EarlyBird_Picks.csv",              "EarlyBird",  "Rigorous",  "bull",     "Accumulation"),
     ("FINAL_Pullback_Picks.csv",               "Pullback",   "Rigorous",  "bull",     "Pullback"),
     ("FINAL_Leader_Picks.csv",                 "Leader",     "Rigorous",  "bull",     "Leader"),
+    # At-value names from pullback_finder.py (13-Aug-2026). NOT a trigger list - it
+    # ignores whether anything fired and ranks LOCATION, which is the half the board
+    # structurally cannot supply. Carries the Pullback archetype, so these names get
+    # pullback treatment in the timing gates rather than breakout treatment.
+    ("Pullback_Candidates.csv",                "At Value",   "Discovery", "bull",     "Pullback"),
     ("FINAL_CATALYST_WATCHLIST.csv",           "Bull Catalyst",     "Discovery", "bull",     "Catalyst-Scan"),
     ("FINAL_Recovery_RSLeaders.csv",           "Rec RS",     "Rigorous",  "recovery", "Recovery-RS"),
     ("FINAL_Recovery_ClimaxBounce.csv",        "Rec Climax", "Rigorous",  "recovery", "Recovery-Climax"),

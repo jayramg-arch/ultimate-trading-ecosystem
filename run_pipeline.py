@@ -520,6 +520,27 @@ def main():
     # union CSV (FINAL_GOLDEN_MATCHER.csv). This is the exact universe the Trigger
     # Board evaluates; it is exported as the single "Golden_Matcher_Board" TV list
     # (Phase 5) and synced to Strike (auto-split at 49) + TradingView (Phase 6/7).
+    # ---- PHASE 4.75b - PULLBACK FINDER (at-value names) ----------------------
+    # Runs BEFORE the board union so its output joins that union the same day.
+    # Wired into the auto-pilot on 13-Aug-2026: it had been a click-only surface and
+    # the CSV was three days stale. The board answers WHEN and is breakout-biased by
+    # construction (a trigger IS a wide-range up-bar near the high); this answers
+    # WHERE value is. It deliberately has NO volume floor - it SCORES dry-up and
+    # rejects only a climax spike, which is the correct volume reading on a pullback.
+    logger.info("\n[PHASE 4.75b] RUNNING PULLBACK FINDER (at-value scan)...")
+    with run.phase("Phase 4.75b - Pullback Finder") as p:
+        try:
+            import pullback_finder as _pbf
+            _pb_df = _pbf.run(universe="nifty500")
+            _n = 0 if _pb_df is None else len(_pb_df)
+            if _n:
+                p.message = f"{_n} at-value candidates -> Pullback_Candidates.csv"
+            else:
+                p.status = "SKIP"; p.message = "no at-value candidates today"
+        except Exception as e:
+            p.status = "FAIL"; p.message = str(e)[:160]
+            logger.warning(f"Pullback Finder failed (non-fatal): {e}")
+
     logger.info("\n[PHASE 4.8] CONSOLIDATING GOLDEN MATCHER BOARD WATCHLIST...")
     with run.phase("Phase 4.8 — Golden Matcher Board (union)") as p:
         try:
