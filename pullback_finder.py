@@ -41,6 +41,7 @@ USAGE
     python pullback_finder.py                     # nifty500, full scan
     python pullback_finder.py --universe watchlist
     python pullback_finder.py --max-ext 1.5 --top 40
+    python pullback_finder.py --max-risk 12       # positional: allow a wider stop
     python pullback_finder.py --limit 60          # quick smoke run
 
 Output: Pullback_Candidates.csv + a ranked console table.
@@ -70,6 +71,7 @@ CONFIG = {
     "vol_dry_mult":      1.00,  # score: today's volume vs its 50-SMA
     "vol_spike_max":     2.50,  # hard: a climax bar is not a quiet pullback
     "swing_lookback":      20,  # bars for the reference swing high
+    "max_risk_pct":      8.0,   # hard: stop distance; DNA swing target is 5-8%
     "min_price":         20.0,
 }
 
@@ -208,6 +210,21 @@ def evaluate(symbol, df_bench_w, cfg):
     trigger = float(ind["high"].iloc[-1])
     sl = min(sup, ema20) - 0.5 * atr
     risk = trigger - sl
+
+    # A stop is only as good as the structure it sits under, and `min(sup, ema20)`
+    # can land a long way below price when the nearest support is a distant zone.
+    # GABRIEL came through the 12-Aug run at 13.69% risk and still ranked 7th of
+    # 65, because nothing in the score above looks at stop distance at all.
+    #
+    # The default is anchored, not picked: the DNA's swing target is 5-8% per
+    # trade, so a stop wider than 8% risks more than the trade is designed to make
+    # - R:R below 1 by construction. Measured on that run: 8% keeps 48 of 65 (74%)
+    # and removes a tail reaching 14.92%. Positional trades can justify more, so
+    # this is a CONFIG value with a --max-risk override, not a constant.
+    risk_pct = (risk / trigger * 100.0) if trigger else np.nan
+    if not (risk_pct == risk_pct) or risk_pct <= 0 or risk_pct > cfg["max_risk_pct"]:
+        return None
+
     return {
         "Symbol": symbol,
         "Value_Score": score,
@@ -223,7 +240,7 @@ def evaluate(symbol, df_bench_w, cfg):
         "Sup_Src": sup_src,
         "Trigger>": round(trigger, 2),
         "SL": round(sl, 2),
-        "Risk_%": round(risk / trigger * 100.0, 2) if trigger else np.nan,
+        "Risk_%": round(risk_pct, 2),
         "T1_2R": round(trigger + 2 * risk, 2),
         "Dist_52WH_%": round((hi52 - c) / hi52 * 100.0, 1) if hi52 else np.nan,
         "As_Of": str(df_d.index[-1].date()),
@@ -266,7 +283,8 @@ def run(universe="nifty500", top=30, limit=None, cfg=None):
     print("  PULLBACK FINDER — Stage-2 names AT VALUE")
     print(f"  {datetime.now().strftime('%A %d %b %Y  %H:%M')}   universe={universe} ({len(syms)})")
     print(f"  gates: ext <= {cfg['max_ext_atr']} ATR from EMA20 · depth "
-          f"{cfg['min_depth_pct']}-{cfg['max_depth_pct']}% off the 20d high · Stage 2 · RS > 0")
+          f"{cfg['min_depth_pct']}-{cfg['max_depth_pct']}% off the 20d high · Stage 2 · RS > 0 "
+          f"· risk <= {cfg['max_risk_pct']}%")
     print("=" * 74)
 
     df_bench_w = bs._flatten_cols(dp.fetch_ohlcv(bs.BENCHMARK_YF, period="3y",
@@ -309,9 +327,16 @@ if __name__ == "__main__":
     ap.add_argument("--top", type=int, default=30)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--max-ext", type=float, default=None, dest="max_ext")
+    ap.add_argument("--max-risk", type=float, default=None, dest="max_risk",
+                    help="ceiling on stop distance as %% of entry (default 8.0)")
     ap.add_argument("--silent", action="store_true")
     a = ap.parse_args()
-    cfg = {"max_ext_atr": a.max_ext} if a.max_ext is not None else None
+    cfg = {}
+    if a.max_ext is not None:
+        cfg["max_ext_atr"] = a.max_ext
+    if a.max_risk is not None:
+        cfg["max_risk_pct"] = a.max_risk
+    cfg = cfg or None
     run(universe=a.universe, top=a.top, limit=a.limit, cfg=cfg)
     if not a.silent:
         try:
