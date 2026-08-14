@@ -270,6 +270,65 @@ part history depth — not cleanly separable.)
 
 ---
 
+## 6b · MEASURED — the low-RV pullback branch, 14 Aug 2026
+
+**The question (Jay, on TITAN Daily).** RV 0.61 vetoed the trade. RV is normally
+low on a pullback, so why? Mechanically: S4's `pb_aware` drops the volume floor
+1.00 → 0.50 only when a contraction pattern fires, no expansion pattern fires,
+**and price is inside a demand zone**. TITAN read `between zones`, so the branch
+never engaged. Jay's proposal: widen it — a pullback to a rising EMA20, or onto a
+tested D/W level, is a real pullback too.
+
+`pullback_location_ab.py`, nifty500, 3y, 20-session horizon, **63,706 at-value
+bars** (above a rising 200-DMA, ext ≤ 1.0 ATR, not a new 20-day high). Location
+labelled with the SAME engines the gate uses. Block-bootstrap over symbols.
+
+| location | RV | n | mean α | median | win |
+|---|---|---:|---:|---:|---:|
+| **DZ** | < 1.0 | 23,262 | **+1.20** | +0.28 | 51% |
+| DZ | ≥ 1.0 | 6,091 | +1.50 | +0.68 | 54% |
+| **EMA20** | < 1.0 | 15,147 | **+0.78** | −0.59 | 47% |
+| **LEVEL** | < 1.0 | 7,866 | **+0.05** | −0.85 | 45% |
+| **NONE** | < 1.0 | 4,261 | **+2.55** | +0.71 | 53% |
+
+**DECISION: do NOT widen. `z_inDZ` stands.**
+- **LEVEL** −1.16pp vs DZ, CI95 [−1.52, −0.79] — clearly rejected.
+- **EMA20** −0.42pp, CI95 [−0.84, −0.01] — rejected, but *narrowly*, and the cell
+  is still **positive**. Widening here would DILUTE, not poison. If more pullback
+  supply is ever wanted at a weaker average, EMA20 is the defensible place to
+  take it; LEVEL is not.
+
+### ⚠ THE NONE ANOMALY — open, and it cuts against the gate's own rationale
+
+**`NONE` is the BEST cell in the table (+2.55%), and it should be the worst.**
+
+`NONE` means at-value but not in a demand zone, not within 0.5 ATR of the EMA20,
+and not near an S/R level — i.e. 0.5–1.0 ATR off the EMA20 in clear space. If
+structure-location were what makes a dry at-value bar tradeable, that residual
+category should underperform every labelled one. It beats DZ by **+1.35pp**.
+
+So what this study actually supports is narrow: **among the location labels, DZ
+is the best one.** It does NOT establish that being at structure is what
+generates the alpha. Two readings, untested:
+
+1. `NONE` selects for cleanly-trending names that never pull back into structure
+   — the label is a proxy for trend quality, not for location.
+2. The location taxonomy is too coarse, and "near a level" is capturing overhead
+   supply as often as support.
+
+**Consequences to hold in mind:**
+- Do not cite this study as evidence that location gating works in general. It
+  compares labels; it does not validate the concept.
+- `GM_USE_IZE_ZONES` is still **False** awaiting its own A/B. This result is a
+  reason to run that A/B properly rather than assume zones improve the board.
+- n=4,261 for NONE against 23,262 for DZ — smaller, but not small.
+
+**Next test if this is picked up:** partition `NONE` by trend strength (ADX, RS,
+distance above the 200-DMA) to see whether it is trend quality wearing a location
+label. Until then it is an anomaly, not a finding.
+
+---
+
 ## 7 · Options
 
 **A · Give the bull family one fundamental standard.** BFF on Catalyst and Pullback,
