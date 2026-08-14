@@ -14834,7 +14834,14 @@ elif page == 'GOLDEN MATCHER':
             _mansf_disp = (_g(rec_r, "Mansfield_RS_x100") if _rec_active else mansfield)
             _canon_stage = _stg_digit(_g(rec, "Stage", default="")) or "—"
             _h_momentum, _h_minervini, _h_pa_signals = render_technical_board(rec, ctx, cmp_px, mansfield)
-            _h_pa_bull, _h_pa_rec = section_pa_patterns(ctx, recovery=_rec_active)
+            # section_pa_patterns returns ONE card (-> str), not a pair. The call
+            # site unpacked two and crashed Full Metrics with "too many values to
+            # unpack" (14 Aug 2026). The two names render in DIFFERENT columns
+            # below (bull in tc2, recovery in tc3), so the intent was two cards -
+            # which means two calls. Recovery card only when that path is live;
+            # the render guards below already expect "" for absent.
+            _h_pa_bull = section_pa_patterns(ctx, recovery=False)
+            _h_pa_rec = section_pa_patterns(ctx, recovery=True) if _rec_active else ""
             _h_ctx    = section_context(rec, ctx, cmp_px)
             _h_struct = section_structure(rec, ctx, cmp_px, _mansf_disp, decision)
             _h_gates  = section_bull_gates(rec, ctx, cmp_px, mansfield)

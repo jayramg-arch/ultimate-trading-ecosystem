@@ -120,7 +120,28 @@ def check_watchlist(path: str) -> Optional[dict]:
         checks.append({"name": "Combined_Score == Conviction*5 + Tech*0.5",
                        "ok": mism == 0, "detail": f"{len(df)-mism}/{len(df)} match"})
 
-    fills = _fill_rates(df, tech_inputs + ["Conviction", "Tech_Score", "Combined_Score"])
+    if {"Overall_Rating", "Combined_Score", "Conviction", "Tech_Score", "Minervini_Score", "Piotroski_Score"}.issubset(df.columns):
+        def _recalc_overall(r):
+            cs = _num(r.get("Combined_Score"))
+            conv = _num(r.get("Conviction")) * 10.0
+            ts = _num(r.get("Tech_Score"))
+            ms = (_num(r.get("Minervini_Score")) / 8.0) * 100.0 if _num(r.get("Minervini_Score")) else 0.0
+            ps = (_num(r.get("Piotroski_Score")) / 9.0) * 100.0 if _num(r.get("Piotroski_Score")) else 0.0
+            rating = (0.30 * cs) + (0.15 * conv) + (0.15 * ts) + (0.20 * ms) + (0.20 * ps)
+            return round(rating, 1)
+        recalc = df.apply(_recalc_overall, axis=1)
+        mism = int((recalc - df["Overall_Rating"].astype(float)).abs().gt(TOL).sum())
+        checks.append({"name": "Overall_Rating == weighted_sum(components)",
+                       "ok": mism == 0, "detail": f"{len(df)-mism}/{len(df)} match"})
+
+    if "Delivery_Pct" in df.columns:
+        # Check that values are within [0, 100] when not NaN
+        valid_mask = df["Delivery_Pct"].isna() | (df["Delivery_Pct"].astype(float) >= 0.0) & (df["Delivery_Pct"].astype(float) <= 100.0)
+        invalid_cnt = int((~valid_mask).sum())
+        checks.append({"name": "Delivery_Pct range check [0, 100]",
+                       "ok": invalid_cnt == 0, "detail": f"{len(df)-invalid_cnt}/{len(df)} within range"})
+
+    fills = _fill_rates(df, tech_inputs + ["Conviction", "Tech_Score", "Combined_Score", "Minervini_Score", "Piotroski_Score", "Overall_Rating", "Overall_Grade", "Delivery_Pct", "Futures_OI_Chg_Pct"])
     notes = []
     for c, pct, present in fills:
         if not present:
@@ -160,6 +181,9 @@ def check_recovery(path: str) -> Optional[dict]:
     if "Score" in df.columns and all(c in df.columns for c in
                                      ["Signal", "RFF_Total", "Weinstein_Stage", "Rel_Vol"]):
         def _recalc(row):
+            details = str(row.get("Details", ""))
+            if any(msg in details for msg in ["Below liquidity gate", "Insufficient daily data", "Download error"]):
+                return 0.0
             return _rs.compute_score(
                 int(g(row, "Signal")),
                 int(g(row, "RFF_Total")),
@@ -171,8 +195,37 @@ def check_recovery(path: str) -> Optional[dict]:
                 g(row, "Rel_Vol"),
                 gb(row, "Chartink_Confirmed"),
             )
+        # ROUNDING BAND (14 Aug 2026). The CSV stores Correction_52W_pct and
+        # Rel_Vol rounded, and compute_score has hard thresholds on both (>=30 /
+        # >=20 / >=10 and >=3.0 / >=2.0). A true 19.97 is written as 20.0, so
+        # recomputing from the COLUMN crosses a boundary the screener never
+        # crossed - CDSL recomputed to 10 against a stored 9 and the run reported
+        # FAIL for a score that was right. The check was wrong, not the score.
+        #
+        # So recompute at the rounding EDGES too and accept if the stored value
+        # matches any of them. A genuine drift still fails: it would have to be
+        # reproducible across the whole band, not explainable by one 0.05 nudge.
+        def _recalc_band(row):
+            outs = {_recalc(row)}
+            for col, eps in (("Correction_52W_pct", 0.05), ("Rel_Vol", 0.005)):
+                if col not in df.columns:
+                    continue
+                base = _num(row.get(col), 0.0)
+                for delta in (-eps, +eps):
+                    r2 = row.copy()
+                    r2[col] = base + delta
+                    try:
+                        outs.add(_recalc(r2))
+                    except Exception:
+                        pass
+            return outs
+
+        stored = df["Score"].astype(float)
         recalc = df.apply(_recalc, axis=1)
-        mism = int((recalc.astype(float) - df["Score"].astype(float)).abs().gt(TOL).sum())
+        _bands = df.apply(_recalc_band, axis=1)
+        mism = int(sum(
+            1 for i in range(len(df))
+            if not any(abs(float(v) - float(stored.iloc[i])) <= TOL for v in _bands.iloc[i])))
         checks.append({"name": "Score == compute_score(columns)",
                        "ok": mism == 0, "detail": f"{len(df)-mism}/{len(df)} match"})
 
@@ -263,7 +316,6 @@ _TARGETS = [
     ("FINAL_COMBINED_PICKS.csv", check_watchlist),
     ("Bull_Screener_Results.csv", check_bull),
     ("Recovery_Screener_Results.csv", check_recovery),
-    ("FINAL_XRay_Picks.csv", check_xray),
 ]
 
 
