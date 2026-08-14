@@ -3235,8 +3235,14 @@ def _gm_bff_gate(ctx):
     with nothing in it. Same rule as pullback_finder's weak-vs-unreadable split.
     """
     try:
-        from bull_fundamental_filter import bff_passes
-        return bff_passes(_g(ctx, "bff") or {}, GM_BFF_MIN)
+        from bull_fundamental_filter import bff_passes, roe_gate, de_gate
+        b = _g(ctx, "bff") or {}
+        # ROE and leverage are separate Tier-2 gates (docs/25 section 8.1), kept
+        # out of the score so a rejection names its own leg. Either failing is a
+        # fail; None (unreadable, or D/E on a lender) never rejects.
+        if roe_gate(b) is False or de_gate(b) is False:
+            return False
+        return bff_passes(b, GM_BFF_MIN)
     except Exception:
         return None
 

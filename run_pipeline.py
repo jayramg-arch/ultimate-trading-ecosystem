@@ -417,7 +417,7 @@ def main():
                                   ).strip().lower() not in ("0", "false", "off", "no"):
                     try:
                         import pandas as pd
-                        from bull_fundamental_filter import compute_bff, bff_passes
+                        from bull_fundamental_filter import compute_bff, bff_passes, roe_gate, de_gate
                         _floor = float(os.environ.get("CATALYST_BFF_MIN", "4"))
                         _sc, _q, _raw = [], [], []
                         for _sym in df_cat["Symbol"].astype(str):
@@ -437,7 +437,22 @@ def main():
                         df_cat["BFF_Score"]   = _sc
                         df_cat["BFF_Quality"] = _q
                         _n_before = len(df_cat)
-                        _keep = df_cat["_bff_raw"].map(lambda b: bff_passes(b, _floor) is True)
+                        # BFF score + the two separate Tier-2 gates (ROE, leverage).
+                        # Kept apart from the score so a rejection names its leg;
+                        # None (unreadable, or D/E on a lender) never rejects.
+                        _keep = df_cat["_bff_raw"].map(
+                            lambda b: (bff_passes(b, _floor) is True
+                                       and roe_gate(b) is not False
+                                       and de_gate(b) is not False))
+
+                        # Rs 100 price floor - the level the Recovery screens and
+                        # Pullback Finder already enforce; Catalyst had turnover only.
+                        _pxcol = next((c for c in ("CMP", "Close", "LTP", "Price")
+                                       if c in df_cat.columns), None)
+                        if _pxcol:
+                            _px = pd.to_numeric(df_cat[_pxcol], errors="coerce")
+                            _keep = _keep & (_px.isna() | (_px >= float(
+                                os.environ.get("CATALYST_MIN_PRICE", "100"))))
                         _n_unread = int((df_cat["BFF_Quality"] == "INSUFFICIENT").sum())
                         df_cat = df_cat[_keep].copy()
                         logger.info(f"   BFF fundamental gate: kept {len(df_cat)}/{_n_before} "

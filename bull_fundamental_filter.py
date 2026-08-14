@@ -52,6 +52,7 @@ CONFIG = {
     "sales_growth_min_pct":  15.0,   # YoY quarterly sales growth (top-line backing)
     "roce_min_pct":          15.0,   # return quality (ROCE from screener top-ratios)
     "roe_min_pct":           15.0,   # standalone ROE floor (Bull screens use ROE > 15)
+    "de_max":                 1.5,   # standalone leverage ceiling (Bull screens 0.5-1.5)
     # margin_expansion: OPM_Now > OPM_Prev  (operating leverage) — no numeric knob
     # profitable:       Net profit > 0
     # --- financials (banks/NBFCs): OPM doesn't exist & ROCE>=15 is the wrong bar
@@ -182,6 +183,19 @@ def _fetch_screener_bff_row(symbol: str, ttl: int = 86400) -> Optional[dict]:
     if opm_prev is not None:
         out["OPM_Prev"] = opm_prev
     ni, _ = _row_vals("profit-loss", "net profit")
+
+    # --- Balance sheet → Debt/Equity. screener.in shows D/E only as a screener
+    # QUERY field, not on the company page, so it is computed the same way the
+    # site does: Borrowings / (Equity Capital + Reserves), latest annual column.
+    # Meaningless for lenders (deposits are their raw material), so the caller
+    # exempts financials rather than us fabricating a number here.
+    _bor, _ = _row_vals("balance-sheet", "borrowings")
+    _eqc, _ = _row_vals("balance-sheet", "equity capital")
+    _res, _ = _row_vals("balance-sheet", "reserves")
+    if _bor is not None and (_eqc is not None or _res is not None):
+        _eq = (_eqc or 0.0) + (_res or 0.0)
+        if _eq > 0:
+            out["debt_to_equity"] = round(_bor / _eq, 2)
     if ni is not None:
         out["Net profit"] = ni
 
@@ -349,6 +363,7 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
     # re-fetching. They were computed above and then thrown away.
     result["roe"] = roe
     result["roce"] = roce
+    result["debt_to_equity"] = _num(row.get("debt_to_equity"))
     result["n_data"] = n_data
     if n_data < CONFIG["min_fields"]:
         # Honesty layer: too little data to judge — do NOT score 0.
@@ -394,6 +409,27 @@ def roe_gate(bff: Optional[dict], min_pct: Optional[float] = None) -> Optional[b
         CONFIG["fin_roe_min_pct"] if bff.get("is_financial") else CONFIG["roe_min_pct"])
     try:
         return float(roe) >= float(bar)
+    except Exception:
+        return None
+
+
+def de_gate(bff: Optional[dict], max_de: Optional[float] = None) -> Optional[bool]:
+    """Leverage ceiling — the Bull screens' own condition (D/E < 0.5-1.5).
+
+    FINANCIALS ARE EXEMPT, and that is the whole point of having this separate.
+    screener.in counts deposits and borrowings as debt, so every bank runs 8-12x
+    and `Debt to equity < 1` in Stage2_Hunter excludes the entire banking sector
+    by construction - one of the three mechanisms found on 13 Aug 2026 keeping
+    banks out of the book. Returns None for lenders (not applicable) and None
+    when unreadable, both of which mean DO NOT GATE.
+    """
+    if not bff or bff.get("is_financial"):
+        return None
+    de = bff.get("debt_to_equity")
+    if de is None:
+        return None
+    try:
+        return float(de) <= float(max_de if max_de is not None else CONFIG["de_max"])
     except Exception:
         return None
 

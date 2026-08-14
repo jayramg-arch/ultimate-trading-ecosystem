@@ -334,8 +334,15 @@ def evaluate(symbol, df_bench_w, cfg):
     # runs on the ~50 names that survived everything else rather than all 500.
     bff = _bff_with_retry(symbol, cfg) or {}
     bff_score, bff_q = bff.get("score"), bff.get("quality") or "INSUFFICIENT"
-    from bull_fundamental_filter import bff_passes
+    from bull_fundamental_filter import bff_passes, roe_gate, de_gate
     _ok = bff_passes(bff, cfg["min_bff_score"])   # scaled to the APPLICABLE checks
+    # ROE and leverage are SEPARATE gates, not BFF checks: folding them in would
+    # re-base what min_bff_score = 4 means and the log would stop naming the leg
+    # that rejected a name. Both return None when not applicable (lenders for D/E)
+    # or unreadable — None never rejects.
+    if roe_gate(bff) is False or de_gate(bff) is False:
+        BFF_STATS["weak"].append(f"{symbol}(ROE/DE)")
+        return None
     if _ok is None:
         BFF_STATS["unknown"].append(symbol)
         if cfg.get("bff_block_unknown", True):
