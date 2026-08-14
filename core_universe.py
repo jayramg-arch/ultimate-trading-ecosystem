@@ -170,7 +170,14 @@ def fetch(cfg=None, max_pages: int = 30):
     if len(out) < 100:
         logger.warning("core universe: only %d symbols — treating as UNAVAILABLE", len(out))
         return None
-    _write_cache(out)
+    # ONLY the default thresholds may write the shared cache. A parameter sweep
+    # (fetch({"mcap_min_cr": 20000}) while sizing the floor) previously wrote its
+    # 200-name result to the same file, and the next auto-pilot read that as the
+    # production universe - the pullback phase gated against a Rs 20,000 Cr floor
+    # and rejected 32 names including BAJFINANCE and CCL. A cache keyed to
+    # nothing is a cache that lies about what it holds.
+    if not cfg:
+        _write_cache(out)
     return out
 
 

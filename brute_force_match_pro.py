@@ -566,6 +566,14 @@ def perform_match(return_raw=False):
                 continue
             df_fund_target['MATCH_KEY'] = df_fund_target[col_fund_target].astype(str).str.upper().str.strip()
         else:
+            # Stage-2 targets share the master. fund_file MUST be bound here:
+            # it is only assigned inside the recovery branch above, so the join-
+            # drop logger referencing it raised UnboundLocalError and killed the
+            # ENTIRE matcher phase on 14 Aug 2026 - every FINAL_*.csv silently
+            # kept the prior run's contents while Phase 5 built watchlists from
+            # them. pyflakes cannot see this: the name IS assigned somewhere in
+            # the function, just not on every path.
+            fund_file = MASTER_FILE
             df_fund_target = df_fund
 
         if not os.path.exists(tech_file):
