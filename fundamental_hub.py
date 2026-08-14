@@ -509,12 +509,25 @@ def fetch_stock_fundamentals(symbol: str, ttl: int = 3600) -> dict:
                 if screener_data.get("revenue_growth") is not None:
                     result["revenue_growth"] = screener_data["revenue_growth"]
 
+            # Report MISSING as missing (14 Aug 2026). The old line printed
+            # `value or 0`, so a fetch that resolved nothing logged
+            # "Fundamentals OK: ADANIENT | P/E=0.0 | ROE=0.0% | Market Cap=0 Cr"
+            # - an unreadable company presented as a company worth zero. Five
+            # names did that in one auto-pilot run. The DATA was always correct
+            # (result holds None); only the log lied, which is worse in its way,
+            # because it is the surface anyone actually reads.
+            def _f(v, unit=""):
+                return "—" if v in (None, 0) else f"{v:.1f}{unit}"
+
+            _missing = [k for k in ("pe_ratio", "roe", "market_cap") if not result.get(k)]
             logger.info(
-                "Fundamentals OK: %s | P/E=%.1f | ROE=%.1f%% | Market Cap=%.0f Cr",
+                "Fundamentals %s: %s | P/E=%s | ROE=%s | Market Cap=%s%s",
+                "PARTIAL" if _missing else "OK",
                 symbol,
-                result["pe_ratio"] or 0,
-                result["roe"] or 0,
-                result["market_cap"] or 0,
+                _f(result["pe_ratio"]),
+                _f(result["roe"], "%"),
+                ("—" if not result["market_cap"] else f"{result['market_cap']:.0f} Cr"),
+                f"  (missing: {', '.join(_missing)})" if _missing else "",
             )
             return result
 

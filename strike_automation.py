@@ -14,6 +14,9 @@ import argparse
 from datetime import datetime
 
 
+_FAILED_UPLOADS = []
+
+
 def _is_file_from_today(path):
     """True if `path` was last modified today — used to reject STALE LATEST_
     watchlist files so a prior run's picks are never uploaded as if fresh."""
@@ -65,6 +68,8 @@ WATCHLIST_BASE_NAMES = [
     # from_txt(chunk_size=49) auto-splits it into Golden_Matcher_Board-1/-2 on Strike.
     "Golden_Matcher_Board",
     "XRay_Picks",
+    "Bull_Screener",
+    "Bull_Screener_Custom",
     "Portfolio"
 ]
 
@@ -497,6 +502,42 @@ async def upload_watchlists(page):
 
             try:
                 # 3. Open Watchlist Dropdown & Check/Create
+                #
+                # SELF-HEAL (14 Aug 2026). On the 08:51 auto-pilot the toggle went
+                # missing at the 8th of 14 lists and every remaining upload failed
+                # the same way - 6 watchlists silently never reached Strike while
+                # the run reported "All tasks completed". The cause is a leftover
+                # modal/backdrop from the previous upload swallowing the toggle,
+                # so the failure CASCADES: once one list leaves an overlay behind,
+                # nothing after it can open the dropdown.
+                #
+                # Clear any stale overlay before looking, and if the toggle is
+                # still missing, reload the page once and look again. A reload is
+                # cheap next to losing the back half of the sync.
+                for _heal in range(2):
+                    try:
+                        await page.evaluate(
+                            "document.querySelectorAll('.rs-modal-wrapper, .rs-modal-backdrop, "
+                            ".rs-drawer-backdrop').forEach(e => e.remove())")
+                        await page.keyboard.press("Escape")
+                        await page.wait_for_timeout(300)
+                    except Exception:
+                        pass
+                    dropdown_toggle = page.locator(
+                        ".rs-watchListDropdown .rs-picker-toggle, .rs-picker-toggle").first
+                    try:
+                        if await dropdown_toggle.is_visible():
+                            break
+                    except Exception:
+                        pass
+                    if _heal == 0:
+                        print("      [HEAL] Dropdown toggle missing — clearing overlays and reloading...")
+                        try:
+                            await page.reload(wait_until="domcontentloaded")
+                            await page.wait_for_timeout(2500)
+                        except Exception as _re:
+                            print(f"      [HEAL] reload failed ({_re})")
+
                 dropdown_toggle = page.locator(".rs-watchListDropdown .rs-picker-toggle, .rs-picker-toggle").first
 
                 if await dropdown_toggle.is_visible():
@@ -665,6 +706,7 @@ async def upload_watchlists(page):
                         with open(os.path.join(_SCRIPT_DIR, f"debug_import_modal_{wl_name}.html"), "w", encoding="utf-8") as f:
                             f.write(await page.content())
                 else:
+                    _FAILED_UPLOADS.append(wl_name)
                     print("      [!] 'Import' button not found or did not open modal.")
                     debug_path = os.path.join(_SCRIPT_DIR, f"debug_import_fail_{wl_name}.html")
                     if not os.path.exists(debug_path):
@@ -863,7 +905,16 @@ async def run_pipeline(mode_param=None):
             else:
                 await run_rrg_scan(page)
 
-            print("\n>> All tasks completed.")
+            # Report FAILED uploads instead of claiming success (14 Aug 2026).
+            # Six lists silently never reached Strike under a blanket
+            # "All tasks completed" — same class as the join-drop and the
+            # zero-fill log: the surface asserting something the run had not done.
+            if _FAILED_UPLOADS:
+                print(f"\n>> COMPLETED WITH FAILURES: {len(_FAILED_UPLOADS)} watchlist(s) did NOT "
+                      f"upload: {', '.join(_FAILED_UPLOADS)}")
+                print(">> Those lists are UNCHANGED on Strike. TradingView is unaffected.")
+            else:
+                print("\n>> All tasks completed.")
             print(">> Closing browser in 5 seconds...")
             await asyncio.sleep(5)
         except Exception as e:
