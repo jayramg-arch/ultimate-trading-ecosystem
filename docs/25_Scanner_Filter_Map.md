@@ -224,6 +224,52 @@ Survivors kept 10 of 51 on 12 Aug) — not fundamental strictness, a **band mism
 No forward-return test partitions on any fundamental field. Every option below is a
 judgement until one does.
 
+## 6a · MEASURED — the BFF gate, 14 Aug 2026
+
+The partition §6 said nobody had run. `fundamental_gate_partition.py --col BFF_Base`
+on `validation_20260809_191508` (519 POS trades, 60/120/180d windows), with BFF
+reconstructed **point-in-time** from screener.in's `#quarters`/`#ratios` history
+(`screener_history.py` → `fundamental_replay.bff_as_of`). **431 of 519 resolved (83%).**
+
+| BFF | n | mean α | median | win |
+|---:|---:|---:|---:|---:|
+| 1 | 62 | −0.12 | −1.84 | 29% |
+| 2 | 100 | −0.33 | −2.06 | 26% |
+| 3 | 127 | −0.08 | −2.39 | 27% |
+| **4** | 109 | **+1.14** | −2.32 | 32% |
+| **5** | 28 | **+1.01** | −1.21 | 43% |
+
+Split at ≥ 4: hi **+1.12%** / 34% win · lo **−0.19%** / 27% · edge **+1.31pp** ·
+symbol-block CI95 **[−0.67, +3.06]** · IS +1.50pp → OOS +1.20pp (80% retained) ·
+per-anchor hi **+2.47** vs lo **−0.46**, hi wins **11/17**.
+
+**DECISION (Jay): keep BFF ≥ 4.** Defensible, not proven.
+
+FOR: the edge **persists OOS** at 80% retention, clearing the ≥50% bar in the
+sweep protocol that killed most previous additions. It is a **threshold effect,
+not a gradient** — 1/2/3 are indistinguishable, then 4/5 jump — which is the
+shape a GATE should have, and why the near-zero Spearman (−0.012) is not the
+indictment it looks like. The **portfolio-level** gap (+2.47 vs −0.46) is wider
+than the trade-level one.
+
+AGAINST: **the CI straddles zero**, and it is materially weaker than RFF:
+
+| | edge | CI95 | IS → OOS |
+|---|---:|---|---|
+| RFF ≥ 5 | +2.40pp | [+0.92, +3.88] ✅ | +1.01 → +4.52 |
+| BFF ≥ 4 | +1.31pp | [−0.67, +3.06] ❌ | +1.50 → +1.20 |
+
+**Do NOT raise to 5** — n=28. **Every bucket's median is negative** (−1.2 to −2.4):
+BFF shifts the mean, it does not change the big-winner-carried shape of the book.
+
+⚠️ **Coverage is uneven and the OOS half is the THINNER one** — 100% across
+2024-10 → 2025-06, but 30–85% from 2025-07 on. So the OOS persistence rests on a
+partially-sampled cohort and is weaker than the headline implies. (A coverage
+re-check also hit screener.in DNS failures, so recent-anchor loss is part network,
+part history depth — not cleanly separable.)
+
+---
+
 ## 7 · Options
 
 **A · Give the bull family one fundamental standard.** BFF on Catalyst and Pullback,
