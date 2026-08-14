@@ -550,6 +550,39 @@ def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int =
     return stages, stage_wks
 
 
+TURNOVER_WINDOW = 20        # sessions used for the liquidity read
+
+
+def median_turnover_cr(ind, window: int = TURNOVER_WINDOW) -> float:
+    """MEDIAN daily traded value in Rs crore over `window` sessions.
+
+    WHY MEDIAN, AND WHY NOT ONE BAR (13 Aug 2026). Both call sites previously
+    used today's close x today's volume - a SINGLE bar. A normally-illiquid name
+    therefore qualified on one news day, and that is precisely the day it looks
+    attractive: the volume spike that draws the scan is the same spike that
+    fakes the liquidity. Jay asked how liquidity is ensured; it was not.
+
+    Median rather than mean because a mean over 20 sessions is still carried by
+    one 10x day. The median asks "on a TYPICAL day, could I get in and out",
+    which is the question position sizing actually depends on.
+
+    Market cap is deliberately NOT used for this: a large company with a small
+    free float can trade thinner than a mid-cap. Traded VALUE is the measure.
+
+    Degrades to whatever history exists, and to the last bar if the frame is
+    unusable - never raises, never returns NaN into a comparison.
+    """
+    try:
+        c = ind["close"].tail(window)
+        v = ind["volume"].tail(window)
+        tv = (c * v).dropna()
+        if len(tv):
+            return float(tv.median()) / 1e7
+        return float(ind["close"].iloc[-1] * ind["volume"].iloc[-1]) / 1e7
+    except Exception:
+        return 0.0
+
+
 def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     """Weekly Weinstein stage + JdK RS-Ratio / RS-Momentum (Strike.Money parity).
 
@@ -1412,7 +1445,7 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
 
     ind = compute_indicators(df_d)
     
-    turnover_cr = float(ind["close"].iloc[-1] * ind["volume"].iloc[-1]) / 1e7
+    turnover_cr = median_turnover_cr(ind)
     if turnover_cr < CONFIG["min_turnover_cr"] and not force_output: return None
     
     weekly = compute_weekly_indicators(df_w, df_bench)

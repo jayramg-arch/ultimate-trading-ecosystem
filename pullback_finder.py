@@ -250,7 +250,11 @@ def evaluate(symbol, df_bench_w, cfg):
 
     if not atr or atr != atr or c < cfg["min_price"]:
         return None
-    if (c * vol) / 1e7 < cfg["min_turnover_cr"]:
+    # MEDIAN 20-session traded value, not today's bar — see
+    # bull_screener.median_turnover_cr. Imported rather than reimplemented so the
+    # two surfaces cannot drift on the definition of "liquid".
+    turnover_cr = bs.median_turnover_cr(ind)
+    if turnover_cr < cfg["min_turnover_cr"]:
         return None
 
     # ── CONTEXT (hard): only pull back INTO an uptrend ────────────────────────
