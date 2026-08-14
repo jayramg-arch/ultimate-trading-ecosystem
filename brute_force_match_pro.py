@@ -601,6 +601,29 @@ def perform_match(return_raw=False):
         # but it has to be visible to be judged. Log it, do not change the join.
         _log_join_drop(start_name, tech_file, fund_file, df_tech, df_fund_target, merged)
 
+        # CORE UNIVERSE — size / pledge / ownership (13 Aug 2026).
+        # The four BULL screens carry mcap > 5000, pledged < 5 and a
+        # promoter/institutional floor inside the screener.in query. The three
+        # RECOVERY screens carry mcap ONLY - verified live: pledge=False,
+        # promoter=False. So a pledged recovery name passed the whole pipeline.
+        # Gating here rather than editing Jay's saved screens keeps one definition
+        # (core_universe.CONFIG) for all seven targets and for the Catalyst,
+        # Pullback and GM surfaces - which is the point of the exercise.
+        # None (screener.in unreachable) = do not gate, and say so.
+        if not merged.empty:
+            try:
+                import core_universe as _cu
+                _elig = _cu.eligible_symbols()
+                if _elig is None:
+                    print("   ⚠ CORE gate UNAVAILABLE — size/pledge/ownership NOT applied")
+                else:
+                    _n0 = len(merged)
+                    merged = merged[merged["MATCH_KEY"].map(lambda s: _cu.gate(s, _elig))].copy()
+                    if len(merged) != _n0:
+                        print(f"   🛡 CORE gate: kept {len(merged)}/{_n0} ({_cu.describe()})")
+            except Exception as _cue:
+                print(f"   ⚠ CORE gate skipped ({_cue})")
+
         if merged.empty:
             print(f"⏭️  {start_name}: 0 matches (Chartink had {len(df_tech)} candidates "
                   f"but none matched the Screener.in fundamental list)")

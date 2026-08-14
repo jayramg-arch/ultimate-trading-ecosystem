@@ -51,6 +51,7 @@ CONFIG = {
     "profit_growth_min_pct": 20.0,   # YoY quarterly profit growth (EPS proxy)
     "sales_growth_min_pct":  15.0,   # YoY quarterly sales growth (top-line backing)
     "roce_min_pct":          15.0,   # return quality (ROCE from screener top-ratios)
+    "roe_min_pct":           15.0,   # standalone ROE floor (Bull screens use ROE > 15)
     # margin_expansion: OPM_Now > OPM_Prev  (operating leverage) — no numeric knob
     # profitable:       Net profit > 0
     # --- financials (banks/NBFCs): OPM doesn't exist & ROCE>=15 is the wrong bar
@@ -344,6 +345,10 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
     result["checks"] = checks
 
     n_data = sum(1 for v in checks.values() if v is not None)
+    # Surface the raw returns so a caller can gate on ROE separately without
+    # re-fetching. They were computed above and then thrown away.
+    result["roe"] = roe
+    result["roce"] = roce
     result["n_data"] = n_data
     if n_data < CONFIG["min_fields"]:
         # Honesty layer: too little data to judge — do NOT score 0.
@@ -366,6 +371,31 @@ def compute_bff(symbol: str, ttl: int = 86400) -> dict:
 
     result["as_of"] = row.get("as_of") or row.get("As_Of")
     return result
+
+
+def roe_gate(bff: Optional[dict], min_pct: Optional[float] = None) -> Optional[bool]:
+    """Standalone ROE floor — the Bull screens' own condition (ROE > 15).
+
+    Kept OUTSIDE the BFF score deliberately. Folding it in would silently re-base
+    what `min_bff_score = 4` means (4 of 5 becomes 4 of 6) and the log would stop
+    saying which leg rejected a name. Proposed in docs/25 section 8.1 as a separate
+    Tier-2 gate; this is it.
+
+    Financials use the lender bar (fin_roe_min_pct) for the same reason their
+    growth and return bars differ - a bank running 12-14% ROE is performing.
+    Returns None when ROE is unreadable: a data judgement, never a company one.
+    """
+    if not bff:
+        return None
+    roe = bff.get("roe")
+    if roe is None:
+        return None
+    bar = min_pct if min_pct is not None else (
+        CONFIG["fin_roe_min_pct"] if bff.get("is_financial") else CONFIG["roe_min_pct"])
+    try:
+        return float(roe) >= float(bar)
+    except Exception:
+        return None
 
 
 def bff_passes(bff: Optional[dict], floor: float = 4.0) -> Optional[bool]:
