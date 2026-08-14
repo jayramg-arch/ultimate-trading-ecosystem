@@ -3335,6 +3335,16 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         g1 = still_valid          # CONTEXT → still-valid guard (not Stage-4, holds 30WMA)
         g2 = True                 # QUALITY → overlay (Alpha/Minervini rank, never block)
         g3 = True                 # SETUP → inherited archetype (no live catalyst required)
+        # ...but FUNDAMENTALS still gate (13 Aug 2026). Inheritance exists so the
+        # board stops re-running the TECHNICAL screen a rigorous watchlist already
+        # passed - Alpha, Minervini, RRG stay a ranking overlay, exactly as above.
+        # It was never meant to wave through the BUSINESS. Re-applied here because
+        # the assignment above would otherwise silently undo the gate for the
+        # majority of the board: on the 13 Aug board ALL 113 names were inherited,
+        # so a gate placed before this block would have bitten on nothing.
+        # None (unreadable/unavailable) still keeps the name - a data judgement.
+        if _bff_gate is False or _core_gate is False:
+            g2 = False
     # g4 (LOCATION) computed below — after R:R — in the "room rule" block.
 
     entry = _g(rec, "Entry", default=cmp_px); sl_pct = _g(rec, "SL_pct"); t1_pct = _g(rec, "T1_pct")
@@ -3762,6 +3772,12 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     if inherited:
         g1 = still_valid       # CONTEXT → still-valid (not Stage-4, not collapsed >50%)
         g2 = True              # QUALITY → RFF overlay (recovery scan already vetted funda)
+        # ...except the size/pledge/ownership floor, which the recovery scan does
+        # NOT vet for names reaching this surface from the Python recovery engine
+        # rather than the screener.in screens. Same fix as the bull path: the
+        # inherited assignment above would otherwise undo the gate for most names.
+        if _rec_core is False:
+            g2 = False
         g3 = True              # SETUP → inherited recovery archetype
 
     if entry and sl:
