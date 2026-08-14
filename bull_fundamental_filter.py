@@ -51,7 +51,20 @@ CONFIG = {
     "profit_growth_min_pct": 20.0,   # YoY quarterly profit growth (EPS proxy)
     "sales_growth_min_pct":  15.0,   # YoY quarterly sales growth (top-line backing)
     "roce_min_pct":          15.0,   # return quality (ROCE from screener top-ratios)
-    "roe_min_pct":           15.0,   # standalone ROE floor (Bull screens use ROE > 15)
+    # ROE floor. RELAXED 15 -> 10 on 13 Aug 2026, and the reason is structural
+    # rather than a preference for a looser book.
+    #
+    # ROE is LEVERED; ROCE is not. A company with little debt shows ROE at or
+    # BELOW its ROCE, so `ROE >= 15` AND `D/E <= 1.5` in the same gate penalises
+    # exactly the conservatively-financed names the leverage gate is demanding.
+    # Measured on the catalyst list: GLAND (ROE 13, ROCE 17) and SYRMA (ROE 13,
+    # ROCE 15) were rejected for ROE while their CAPITAL returns cleared the bar.
+    #
+    # Return QUALITY is already carried by ROCE >= 15 inside the BFF score
+    # (return_quality). This floor's job is narrower: catch genuinely poor equity
+    # returns, not act as a second quality bar. Per the DNA's own warning that a
+    # multi-level funnel compounds, two 15% return gates was over-tightening.
+    "roe_min_pct":           10.0,   # was 15 — see above; ROCE 15 carries quality
     "de_max":                 1.5,   # standalone leverage ceiling (Bull screens 0.5-1.5)
     # margin_expansion: OPM_Now > OPM_Prev  (operating leverage) — no numeric knob
     # profitable:       Net profit > 0
