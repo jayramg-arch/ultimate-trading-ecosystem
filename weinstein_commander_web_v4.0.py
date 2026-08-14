@@ -3630,6 +3630,12 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
         current = 5
     actionable = not verdict.startswith(("AVOID", "WATCHLIST", "INVALIDATED"))
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
+                # fund_block: the FUNDAMENTAL floor rejected this name (BFF or the
+                # size/pledge/ownership core). Exposed so the board can suppress the
+                # S4-GO cell - a 4/4 GO is the most eye-catching thing on a glance
+                # surface, and advertising it on a name the engine has rejected
+                # invites exactly the trade the gate exists to prevent.
+                fund_block=bool(_bff_gate is False or _core_gate is False),
                 current=current, actionable=actionable, loc_note=loc_note,
                 inherited=inherited, still_valid=still_valid, location_ok=bool(g4),
                 # numeric plan levels for the page's position sizer / journal form
@@ -3949,6 +3955,7 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         current = 5
     actionable = verdict.startswith("BUY") or verdict.startswith("ARMED") or verdict.startswith("WAIT")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
+                fund_block=bool(_rec_core is False),   # see the bull path
                 current=current, actionable=actionable, recovery=True, loc_note=loc_note,
                 inherited=inherited, still_valid=still_valid, location_ok=bool(loc_ok),
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)

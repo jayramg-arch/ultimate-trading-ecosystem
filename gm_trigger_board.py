@@ -1442,6 +1442,16 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # trigger-TF) — so a by-design "n/a" is never miscounted as a failure.
         if s4go == "n/a" and ev.get("intra_reason"):
             note_intra_issue(sym, ev.get("intra_reason_code"), ev.get("intra_reason"))
+
+        # FUNDAMENTAL BLOCK suppresses the preview (14 Aug 2026, Jay's call).
+        # S4-GO and QUALITY are independent by design - GO mirrors S4's execution
+        # gate (PA · location · volume · bar) and knows nothing about BFF or size.
+        # So a name the engine has REJECTED could still print 4/4, the most
+        # eye-catching cell on the board, and the maximised view sorts by it. The
+        # Category said SKIP but the eye went to the GO. Timing stays true; it is
+        # simply not on offer, and the cell says which floor rejected it.
+        if (wf or {}).get("fund_block"):
+            s4go = "⛔ funda"
     except Exception as e:
         s4go = "·"
         _log.warning(f"{sym}: S4-GO preview failed: {e}")
