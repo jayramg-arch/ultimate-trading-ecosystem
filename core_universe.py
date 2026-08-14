@@ -66,6 +66,13 @@ CACHE_TTL_S = 20 * 3600          # a trading day; the underlying data is quarter
 #    applied everywhere rather than only where a saved screen happens to run. ──
 CONFIG = {
     "mcap_min_cr":     5000,     # Bull + Recovery screens all use > 5000
+    # PRICE. Added 13 Aug 2026 after an audit found it enforced in only two of
+    # five producers: pullback_finder and the catalyst had Rs 100, while the GM
+    # workflow, the matcher and this query had NO floor at all. The Chartink bull
+    # scans use Rs 20 and the Early Birds screener.in screen only Rs 50, so a
+    # sub-100 name could reach the board through that pair. Putting it HERE fixes
+    # every surface at once, which is the whole reason this module exists.
+    "price_min":        100,     # Recovery screens' floor, now applied everywhere
     "pledge_max_pct":     5,     # Bull screens use < 5 (Leaders < 2)
     "promoter_min_pct":  40,     # promoter > 40 OR institutional conviction below
     "fii_min_pct":       15,
@@ -76,6 +83,7 @@ CONFIG = {
 def build_query(cfg=None) -> str:
     c = dict(CONFIG, **(cfg or {}))
     return (f"Market Capitalization > {c['mcap_min_cr']} AND "
+            f"Current Price > {c['price_min']} AND "
             f"Pledged percentage < {c['pledge_max_pct']} AND "
             f"(Promoter holding > {c['promoter_min_pct']} OR "
             f"FII holding > {c['fii_min_pct']} OR "
@@ -186,7 +194,8 @@ def gate(symbol: str, eligible) -> bool:
 
 def describe(cfg=None) -> str:
     c = dict(CONFIG, **(cfg or {}))
-    return (f"mcap > Rs {c['mcap_min_cr']:,} Cr · pledge < {c['pledge_max_pct']}% · "
+    return (f"mcap > Rs {c['mcap_min_cr']:,} Cr · price > Rs {c['price_min']} · "
+            f"pledge < {c['pledge_max_pct']}% · "
             f"promoter > {c['promoter_min_pct']}% or FII > {c['fii_min_pct']}% "
             f"or DII > {c['dii_min_pct']}%")
 
