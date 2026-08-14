@@ -64,8 +64,47 @@ def _line(label, A, B):
           f"   |   edge {A.mean() - B.mean():+.2f}pp")
 
 
+def _add_bff_column(d):
+    """Compute BFF point-in-time per (symbol, anchor) and add it as BFF_Base.
+
+    Bull validation details carry NO fundamental column — unlike recovery runs,
+    which store RFF_Base — so the bull side has to be reconstructed. Sourced from
+    screener.in's own #quarters/#ratios history via fundamental_replay.bff_as_of,
+    NOT from compute_bff, which reads today's page and would leak look-ahead into
+    every historical row.
+
+    Rows whose history does not reach the anchor stay NaN and drop out of the
+    partition rather than scoring as weak — a missing fundamental must never
+    look like a failing one.
+    """
+    import fundamental_replay as fr
+
+    pairs = d[["Symbol", "as_of"]].drop_duplicates()
+    print(f"  computing point-in-time BFF for {len(pairs)} symbol-anchor pairs "
+          f"({d['Symbol'].nunique()} symbols, cached per symbol)…")
+    cache, n_ok = {}, 0
+    for i, (_, r) in enumerate(pairs.iterrows(), 1):
+        if i % 50 == 0:
+            print(f"    {i}/{len(pairs)}  ({n_ok} resolved)", flush=True)
+        sym, anc = str(r["Symbol"]), str(r["as_of"])[:10]
+        try:
+            b = fr.bff_as_of(sym, anc)
+            sc = b.get("score")
+        except Exception:
+            sc = None
+        if sc is not None:
+            n_ok += 1
+        cache[(sym, anc)] = sc
+    d["BFF_Base"] = [cache.get((str(s), str(a)[:10])) for s, a in zip(d["Symbol"], d["as_of"])]
+    print(f"  resolved {n_ok}/{len(pairs)} pairs "
+          f"({len(d) - d['BFF_Base'].isna().sum()}/{len(d)} trades carry a score)")
+    return d
+
+
 def run(path, col, split, n_boot=3000):
     d = pd.read_csv(path)
+    if col == "BFF_Base" and col not in d.columns:
+        d = _add_bff_column(d)
     if col not in d.columns:
         print(f"{os.path.basename(path)} has no {col} column — nothing to partition.")
         print(f"  available: {[c for c in d.columns if 'RFF' in c or 'BFF' in c] or 'none'}")

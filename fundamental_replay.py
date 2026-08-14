@@ -370,82 +370,83 @@ def fundamentals_as_of(symbol: str, anchor: str) -> dict:
 
 # ─── Conviction scoring (port of brute_force_match_pro.calculate_conviction_score)
 def bff_as_of(symbol: str, anchor: str, is_financial: bool = False) -> dict:
-    """BFF-shaped result computed POINT-IN-TIME, for backtest partitioning.
+    """BFF computed POINT-IN-TIME from screener.in's own history tables.
 
-    WHY THIS CANNOT JUST CALL compute_bff (13 Aug 2026). bull_fundamental_filter
-    reads TODAY's screener.in page. Scoring a 2024 anchor with 2026 fundamentals
-    leaks look-ahead into every historical row and would make the partition
-    measure nothing - the exact class of error the matched-horizon and
+    WHY NOT compute_bff: it reads TODAY's page. Scoring a 2024 anchor with 2026
+    fundamentals leaks look-ahead into every historical row and makes the
+    partition measure nothing - the class of error the matched-horizon and
     window-mismatch lessons already cost this repo.
 
-    Returns the SAME shape compute_bff does, so bff_passes() consumes it
-    unchanged - including the scaling that makes a 4-check name comparable to a
-    5-check one.
+    WHY NOT yfinance (the first attempt, 13 Aug): it returns only FIVE quarters,
+    oldest 2025-03-31, while the bull anchors run 2024-06 to 2025-11. Most
+    anchors had neither the quarter nor its year-ago pair, so every row came back
+    INSUFFICIENT. screener_history reads the company page's #quarters (~13) and
+    #ratios (~12y) sections instead - enough history for every anchor, AND it
+    carries the OPM row, so this is the FULL 5-check BFF rather than the
+    degraded 4-check version yfinance allowed.
 
-    FOUR checks, not five. margin_expansion (OPM now vs prior) needs the annual
-    P&L OPM row, which these quarterly frames do not carry; it is reported as
-    None rather than guessed, and bff_passes scales the requirement accordingly.
-    State that when quoting any result: this is BFF-4, comparable across cohorts
-    but not identical to the live 5-check gate.
-
-    Thresholds come from bull_fundamental_filter.CONFIG, so a threshold change
-    moves the backtest and the live gate together.
+    Returns compute_bff's exact shape so bff_passes() consumes it unchanged,
+    including the scaling that makes a 4-check financial comparable to a
+    5-check non-financial. Thresholds come from bull_fundamental_filter.CONFIG,
+    so a threshold change moves the backtest and the live gate together.
     """
     import bull_fundamental_filter as bff
+    import screener_history as sh
 
-    f = fundamentals_as_of(symbol, anchor)
-    checks: dict = {}
-    drivers: list = []
-    if not f.get("ok"):
+    def _blank(reason):
         return {"symbol": symbol, "score": None, "max": 5, "quality": "INSUFFICIENT",
-                "checks": {}, "drivers": [], "as_of": anchor, "source": "replay",
-                "is_financial": is_financial}
+                "checks": {}, "drivers": [], "as_of": anchor, "source": "screener-history",
+                "is_financial": is_financial, "reason": reason}
+
+    f = sh.as_of(symbol, anchor)
+    if not f:
+        return _blank("no history at anchor")
 
     C = bff.CONFIG
-    pg = f.get("profit_growth_qtr_pct")
-    sg = f.get("sales_growth_qtr_pct")
-    roce = f.get("roce_pct")
-    roe = f.get("roe_pct")
-    ni = f.get("net_income")
+    checks, drivers = {}, []
+    pg, sg = f.get("profit_growth_pct"), f.get("sales_growth_pct")
+    opm_now, opm_prev = f.get("opm_now"), f.get("opm_prev")
+    roce, ni = f.get("roce_pct"), f.get("net_profit")
 
-    def _ok(v):
-        return v is not None and not (isinstance(v, float) and np.isnan(v))
-
-    checks["profit_growth"] = (pg >= (C["fin_profit_growth_min_pct"] if is_financial
-                                      else C["profit_growth_min_pct"])) if _ok(pg) else None
-    if _ok(pg):
+    checks["profit_growth"] = None if pg is None else (
+        pg >= (C["fin_profit_growth_min_pct"] if is_financial else C["profit_growth_min_pct"]))
+    if pg is not None:
         drivers.append(f"Profit {pg:+.0f}%")
-    checks["sales_growth"] = (sg >= (C["fin_sales_growth_min_pct"] if is_financial
-                                     else C["sales_growth_min_pct"])) if _ok(sg) else None
-    if _ok(sg):
+
+    checks["sales_growth"] = None if sg is None else (
+        sg >= (C["fin_sales_growth_min_pct"] if is_financial else C["sales_growth_min_pct"]))
+    if sg is not None:
         drivers.append(f"Sales {sg:+.0f}%")
 
+    # Lenders do not report OPM — dropped for financials exactly as compute_bff
+    # does, which is why bff_passes scales the floor to the APPLICABLE checks.
     if is_financial:
-        checks["return_quality"] = ((_ok(roce) and roce > C["fin_roce_min_pct"]) or
-                                    (_ok(roe) and roe > C["fin_roe_min_pct"])) \
-            if (_ok(roce) or _ok(roe)) else None
+        checks["margin_expansion"] = None
     else:
-        rq = roce if _ok(roce) else roe
-        checks["return_quality"] = (rq >= C["roce_min_pct"]) if _ok(rq) else None
-    checks["margin_expansion"] = None          # not reconstructible here — see docstring
-    checks["profitable"] = (ni > 0) if _ok(ni) else None
+        checks["margin_expansion"] = (None if (opm_now is None or opm_prev is None)
+                                      else opm_now > opm_prev)
+        if opm_now is not None and opm_prev is not None:
+            drivers.append(f"OPM {opm_prev:.0f}->{opm_now:.0f}%")
+
+    checks["return_quality"] = None if roce is None else (
+        roce > C["fin_roce_min_pct"] if is_financial else roce >= C["roce_min_pct"])
+    if roce is not None:
+        drivers.append(f"ROCE {roce:.0f}%")
+
+    checks["profitable"] = None if ni is None else ni > 0
 
     n_data = len([v for v in checks.values() if v is not None])
     if n_data < C["min_fields"]:
-        return {"symbol": symbol, "score": None, "max": 5, "quality": "INSUFFICIENT",
-                "checks": checks, "drivers": drivers, "as_of": anchor,
-                "source": "replay", "is_financial": is_financial}
+        return _blank(f"only {n_data} checks resolved")
 
     score = sum(1 for v in checks.values() if v is True)
     quality = ("STRONG" if score >= C["strong_min"] else
                "OK" if score >= C["ok_min"] else "WEAK")
     return {"symbol": symbol, "score": score, "max": 5, "quality": quality,
             "checks": checks, "drivers": drivers, "as_of": anchor,
-            "source": "replay", "is_financial": is_financial,
-            "roe": None if not _ok(roe) else roe,
-            "roce": None if not _ok(roce) else roce,
-            "debt_to_equity": f.get("debt_to_equity"),
-            "mar_cap_cr": f.get("mar_cap_cr")}
+            "source": "screener-history", "is_financial": is_financial,
+            "roce": roce, "roe": None, "debt_to_equity": None,
+            "quarter_end": f.get("quarter_end")}
 
 
 def conviction_score_as_of(symbol: str, anchor: str) -> tuple[float, dict]:
