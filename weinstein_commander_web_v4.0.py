@@ -3536,15 +3536,28 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                      f"{_arche_lbl} watchlist; the board is TIMING it, not re-screening.",
              do_fail="Broke down since it was watchlisted (Stage 3/4 or lost the 30WMA) → "
                      "INVALIDATED. Drop it — don't trade the setup.")
-        steps[1] = dict(n=2, title="QUALITY", sub="Overlay · status only", hard=False, ok=True,
+        # TECHNICAL quality stays an overlay for inherited names; FUNDAMENTALS do
+        # not. This dict REPLACES steps[1] wholesale, so hard-coding hard=False /
+        # ok=True here discarded the g2 gate at render time - ACE (BFF 2/5) still
+        # read as passing after the engine had already failed it. Third place the
+        # same override had to be closed: the gate, the inherited block, and now
+        # the renderer.
+        _fund_fail = (_bff_gate is False or _core_gate is False)
+        steps[1] = dict(n=2, title="QUALITY",
+             sub=("Fundamentals · HARD" if _fund_fail else "Overlay · status only"),
+             hard=_fund_fail, ok=not _fund_fail,
              metrics=[("Asset Qual", f"{alpha:.0f}/100", alpha >= 70),
                       ("Minervini", f"{mpass}/8", mpass >= 6),
                       ("RRG", rrg, rrg_ok),
                       ("BFF (funda)", _bff_val, _bff_ok),
                       ("Size/pledge", _core_val, _core_gate is not False)],
-             do_pass="Quality is an OVERLAY here — Chartink + Screener.in already vetted leadership. "
-                     "Strong reads rank it higher; weak reads NEVER block the trade.",
-             do_fail="")
+             do_pass="Technical quality is an OVERLAY here — Chartink + Screener.in already "
+                     "vetted leadership. Strong reads rank it higher; weak TECHNICAL reads "
+                     "never block. Fundamentals (BFF, size/pledge) DO block.",
+             do_fail=("Fails the fundamental floor — "
+                      + ("BFF below the bar. " if _bff_gate is False else "")
+                      + ("below the size/pledge/ownership floor. " if _core_gate is False else "")
+                      + "Inheritance covers the technical screen, not the business. SKIP."))
         steps[2] = dict(n=3, title="SETUP", sub="Inherited archetype", hard=False, ok=True,
              metrics=[("Archetype", _arche_lbl, True),
                       ("Catalyst", cat, cat_on),
@@ -3857,13 +3870,23 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                      f"by its {_arche_lbl} scan; the board is TIMING it, not re-screening.",
              do_fail="Broke down (Stage 4 or collapsed >50% off-high) → INVALIDATED. The recovery "
                      "thesis failed — drop it.")
-        steps[1] = dict(n=2, title="QUALITY", sub="Overlay · status only", hard=False, ok=True,
+        # Same fix as the bull path: RFF stays an overlay (the recovery scan
+        # already gated it), but the size/pledge/ownership floor is NOT something
+        # those screens check — verified live, the Recovery screener.in screens
+        # carry market cap only. So it blocks even here.
+        _rec_fund_fail = (_rec_core is False)
+        steps[1] = dict(n=2, title="QUALITY",
+             sub=("Size/pledge · HARD" if _rec_fund_fail else "Overlay · status only"),
+             hard=_rec_fund_fail, ok=not _rec_fund_fail,
              metrics=[("RFF gate", f"{rff_b}/6 (min {_rff_min})", rff_ok),
                       ("RFF quality", rff_q, rff_q == "FULL"),
+                      ("Size/pledge", ("below floor" if _rec_core is False else
+                                       ("PASS" if _rec_core else "—")), _rec_core is not False),
                       ("Mansfield RS", fnum(rs_val, 1), (rs_val or 0) > 0)],
-             do_pass="Quality is an OVERLAY here — the Recovery scan already RFF-gated it "
-                     "(fundamentally strong on sale). Shown as status; never blocks.",
-             do_fail="")
+             do_pass="RFF is an OVERLAY here — the Recovery scan already RFF-gated it "
+                     "(fundamentally strong on sale). Size/pledge/ownership still blocks.",
+             do_fail="Below the size/pledge/ownership floor. The Recovery screens check "
+                     "market cap only, so this was never vetted upstream. SKIP.")
         steps[2] = dict(n=3, title="SETUP", sub="Inherited archetype", hard=False, ok=True,
              metrics=[("Archetype", _arche_lbl, True),
                       ("Signal", label, sig >= 2),
