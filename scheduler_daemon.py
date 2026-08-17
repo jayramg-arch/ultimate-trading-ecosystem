@@ -654,9 +654,17 @@ def start_scheduler() -> BackgroundScheduler:
         )
         logger.info("gtt_trail: ENABLED (15:45 IST Mon-Fri)")
     else:
-        logger.warning("gtt_trail: DISABLED (28-Jul-2026, manual TRAIL-order trial). "
-                    "Stops on any Forever/GTT OCO orders are NOT being ratcheted. "
-                    "Set GTT_TRAIL_ENABLED=1 to restore.")
+        # The message names WHY it is off, because the reason changes and a stale
+        # one is worse than none — this previously still cited the 28-Jul-2026
+        # TRAIL-order trial months after that trial ended. Re-date it when the
+        # reason changes; do not leave a past reason attached to a live setting.
+        logger.warning("gtt_trail: DISABLED (17-Aug-2026, Jay is setting OCO stops "
+                    "and trailing levels BY HAND while validating the reworked "
+                    "Risk Shield). Stops on Forever/GTT OCO orders are NOT being "
+                    "ratcheted — manual levels stand exactly as placed. Re-arm "
+                    "with GTT_TRAIL_ENABLED=1 + restart Web Commander (the "
+                    "scheduler runs inside it); run `python gtt_auto_shield.py "
+                    "--trail --dry-run` first to see what it would move.")
 
     # Exit-signal watchdog: 4:00 PM IST, Mon–Fri (after the trail pass; the
     # engine Telegrams ACTION rows itself).
