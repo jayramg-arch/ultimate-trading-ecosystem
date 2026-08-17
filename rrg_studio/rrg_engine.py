@@ -166,6 +166,13 @@ STRATEGY_INDICES = {
     'Nifty50 Value 20':                         'NIFTY50_VAL.NS',
 }
 
+# Every display-name -> declared-ticker mapping in one place. Used by the dedup
+# in compute_universe_rrg to answer "is this series actually THIS index, or did
+# the fallback chain hand us someone else's?".
+_ALL_INDEX_TICKERS: Dict[str, str] = {}
+for _d in (BROAD_MARKET_INDICES, SECTORAL_INDICES, THEMATIC_INDICES, STRATEGY_INDICES):
+    _ALL_INDEX_TICKERS.update(_d)
+
 # Candidate Fallbacks for resilient downloading
 INDEX_FALLBACK_CANDIDATES = {
     'MON100.NS': ['^CRSLDX', '^NSEI'],
@@ -281,22 +288,34 @@ def load_universe_data(symbols: tuple, period: str = "1y", interval: str = "1wk"
     all_indices_map.update(THEMATIC_INDICES)
     all_indices_map.update(STRATEGY_INDICES)
     
+    # PROVENANCE (17-Aug). Which ticker ACTUALLY supplied each series — the key
+    # the fallback chain silently discards. Without it the broad-market view drew
+    # three separate dots for Nifty Midcap 100 / Midcap 150 / MidSmallcap 400 that
+    # were all one series (MID150BEES.NS), and a "Nifty500 LargeMidSmall Equal-Cap
+    # Weighted" dot that was really ^CRSLDX — i.e. the benchmark, plotted against
+    # itself under another name. Stored under a dunder key so the return type and
+    # every existing caller are unchanged; consumers must skip "__"-prefixed keys.
+    prov = {}
+
     for sym in symbols:
         ticker = all_indices_map.get(sym, sym)
         success = False
-        
+
+        def _store(_df, _src):
+            data_map[sym] = _df
+            data_map[ticker] = _df
+            data_map[sym.replace('.NS', '').replace('^', '')] = _df
+            prov[sym] = _src
+
         # 1. Try primary ticker
         try:
             df = dp.fetch_ohlcv(ticker, period=period, interval=interval, auto_adjust=True, use_cache=True)
             if df is not None and not df.empty and 'Close' in df.columns:
-                data_map[sym] = df
-                data_map[ticker] = df
-                clean = sym.replace('.NS', '').replace('^', '')
-                data_map[clean] = df
+                _store(df, ticker)
                 success = True
         except Exception as exc:
             logger.debug("load_universe_data: %s (%s) primary failed: %s", sym, ticker, exc)
-            
+
         # 2. Try candidate fallbacks if primary failed
         if not success:
             fallbacks = INDEX_FALLBACK_CANDIDATES.get(ticker, []) or INDEX_FALLBACK_CANDIDATES.get(sym, []) or ['^CRSLDX', '^NSEI']
@@ -304,15 +323,13 @@ def load_universe_data(symbols: tuple, period: str = "1y", interval: str = "1wk"
                 try:
                     df = dp.fetch_ohlcv(fb_sym, period=period, interval=interval, auto_adjust=True, use_cache=True)
                     if df is not None and not df.empty and 'Close' in df.columns:
-                        data_map[sym] = df
-                        data_map[ticker] = df
-                        clean = sym.replace('.NS', '').replace('^', '')
-                        data_map[clean] = df
+                        _store(df, fb_sym)
                         success = True
                         break
                 except Exception:
                     pass
 
+    data_map["__source__"] = prov
     return data_map
 
 
@@ -807,9 +824,16 @@ def compute_universe_rrg(
     tail_length: int = 6,
     mode: str = "percentage"
 ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
-    """Computes RRG trajectory for symbols against the benchmark."""
+    """Computes RRG trajectory for symbols against the benchmark.
+
+    Symbols that resolved to the SAME underlying series are collapsed to one —
+    see the dedup block below. The names dropped are reported on the returned
+    frame as `summary_df.attrs["collapsed"]` so the UI can say so out loud
+    rather than quietly plotting fewer series than the label claims.
+    """
     bench_clean = benchmark_symbol.replace('.NS', '').replace('^', '')
-    
+    _prov = data_dict.get("__source__") or {}
+
     bench_df = data_dict.get(benchmark_symbol)
     if bench_df is None or bench_df.empty:
         bench_df = data_dict.get(bench_clean)
@@ -836,26 +860,105 @@ def compute_universe_rrg(
         seen = set()
         symbols_to_process = []
         for k in data_dict.keys():
+            if k.startswith("__"):        # provenance / metadata keys
+                continue
             k_clean = k.replace('.NS', '').replace('^', '')
             if k_clean not in seen and k_clean != bench_clean:
                 seen.add(k_clean)
                 symbols_to_process.append(k)
 
+    # ── COLLAPSE SYMBOLS THAT RESOLVED TO THE SAME SERIES ────────────────────
+    # Two ways the universe lists more names than it has data for:
+    #   1. the map itself points two entries at one ticker (Nifty Midcap 100 AND
+    #      Nifty Midcap 150 are both MID150BEES.NS);
+    #   2. INDEX_FALLBACK_CANDIDATES substitutes a DIFFERENT index when the
+    #      declared one will not download (NIFTY500_LMS_EQCAP.NS -> ^CRSLDX).
+    # Either way the chart drew one series several times under different labels,
+    # which reads as independent confirmation when it is a single line. Worse for
+    # (2): the dot is labelled as an index it is not.
+    #
+    # Rule: a name keeps its dot only if the data came from ITS OWN declared
+    # ticker. A name whose data arrived via a fallback is dropped, not relabelled
+    # and not silently plotted — the same "unknown reads as unknown" rule used in
+    # zone_engine.overhead_room. If several names share one source and NONE owns
+    # it, the first is kept so the series is not lost entirely.
+    # Fingerprint is by resolved source when provenance exists, else by the data.
+    _bench_fp = (len(bench_close), float(bench_close.iloc[-1]), float(bench_close.iloc[0]))
+    _fp_owner, _kept, collapsed = {}, [], []
+
+    def _fingerprint(_s, _df):
+        src = _prov.get(_s)
+        if src:
+            return ("src", src)
+        c = _df['Close'].dropna()
+        if c.empty:
+            return ("empty", _s)
+        return ("data", len(c), round(float(c.iloc[-1]), 6), round(float(c.iloc[0]), 6))
+
     for sym in symbols_to_process:
         sym_clean = sym.replace('.NS', '').replace('^', '')
-        if sym == benchmark_symbol or sym_clean == bench_clean:
-            continue
-            
         df = data_dict.get(sym)
         if df is None or df.empty:
             df = data_dict.get(sym_clean)
         if df is None or df.empty or 'Close' not in df.columns:
+            _kept.append(sym)          # let the main loop handle/skip it
+            continue
+
+        c = df['Close'].dropna()
+        # IS the benchmark, whatever it is called. The old test compared the
+        # DISPLAY NAME ("Nifty 500") against the resolved ticker ("CRSLDX") and so
+        # never fired — which is why the benchmark appeared as its own constituent.
+        if (len(c), float(c.iloc[-1]), float(c.iloc[0])) == _bench_fp:
+            if sym != benchmark_symbol and sym_clean != bench_clean:
+                collapsed.append(f"{sym} → is the benchmark ({bench_clean})")
+            continue
+
+        fp = _fingerprint(sym, df)
+        if fp in _fp_owner:
+            owner = _fp_owner[fp]
+            collapsed.append(f"{sym} → same series as {owner}"
+                             + (f" (via {_prov[sym]})" if _prov.get(sym) else ""))
+            continue
+
+        # Data came from a fallback, i.e. this is not this index — drop it rather
+        # than draw a mislabelled dot, UNLESS nothing else claims that series.
+        declared = _ALL_INDEX_TICKERS.get(sym, sym)
+        src = _prov.get(sym)
+        if src and src != declared and any(
+                _ALL_INDEX_TICKERS.get(o, o) == src for o in symbols_to_process if o != sym):
+            collapsed.append(f"{sym} → no data; fell back to {src}, which is another index")
+            continue
+
+        _fp_owner[fp] = sym
+        _kept.append(sym)
+
+    symbols_to_process = _kept
+
+    for sym in symbols_to_process:
+        sym_clean = sym.replace('.NS', '').replace('^', '')
+        if sym == benchmark_symbol or sym_clean == bench_clean:
+            continue
+
+        df = data_dict.get(sym)
+        if df is None or df.empty:
+            df = data_dict.get(sym_clean)
+        if df is None or df.empty or 'Close' not in df.columns:
+            # Reported, not silent: otherwise the expander's arithmetic does not
+            # close (21 requested - 6 collapsed rendered 14, not 15) and the user
+            # is left to wonder which name vanished and why.
+            collapsed.append(f"{sym} → no data from any provider")
             continue
 
         sec_close = df['Close'].dropna()
         rrg_df = calculate_jdk_rrg(sec_close, bench_close, jdk_length=jdk_length, smooth_length=smooth_length, mode=mode)
 
-        if rrg_df.empty or len(rrg_df) < tail_length:
+        if rrg_df.empty:
+            collapsed.append(f"{sym} → too little history for this model "
+                             f"({len(sec_close)} bars)")
+            continue
+        if len(rrg_df) < tail_length:
+            collapsed.append(f"{sym} → only {len(rrg_df)} usable bars, "
+                             f"tail needs {tail_length}")
             continue
 
         tail_df = rrg_df.tail(tail_length).copy()
@@ -906,6 +1009,10 @@ def compute_universe_rrg(
     if not summary_df.empty:
         summary_df = summary_df.sort_values(by=['Quadrant_Rank', 'Distance'], ascending=[True, False])
 
+    # Carried on .attrs so the UI can report what was collapsed. A view that
+    # silently plots 14 of 18 requested names looks complete; this makes the
+    # difference visible without changing the return signature.
+    summary_df.attrs["collapsed"] = collapsed
     return summary_df, tails_dict
 
 

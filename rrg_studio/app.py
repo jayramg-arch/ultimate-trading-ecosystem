@@ -655,6 +655,25 @@ if summary_df.empty:
     st.warning("⚠️ No data available for selected universe.")
     st.stop()
 
+# COLLAPSED NAMES (17-Aug). The universe label counts what was REQUESTED; this
+# says what was actually plotted and why the two differ. Without it the broad
+# market view drew 11 series under an "18 Broad Market Indices" heading, three
+# of them the same line under different names — which reads as three independent
+# confirmations of a rotation that is really one.
+_collapsed = summary_df.attrs.get("collapsed") or []
+if _collapsed:
+    _req = len(active_entry["symbols"])
+    with st.expander(f"ℹ️ Plotting {len(summary_df)} of {_req} requested — "
+                     f"{len(_collapsed)} collapsed (click for why)"):
+        for _c in _collapsed:
+            st.caption(f"• {_c}")
+        st.caption(
+            "A name is dropped when its data came from a DIFFERENT index than the one "
+            "named — either because the map points two entries at one ticker, or because "
+            "the download fell back to a substitute. Plotting it anyway would label a dot "
+            "as an index it is not."
+        )
+
 
 # ─── LEFT PANEL: CONSTITUENT CARDS & INSTANT CONTROLS ────────────────────────
 with col_left:
