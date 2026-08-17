@@ -1084,24 +1084,27 @@ def render_rrg_plotly(
 
     # Palette
     if theme == "dark":
-        bg_leading   = "rgba(34, 197, 94, 0.14)"
+        bg_leading   = "rgba(34, 197, 94, 0.24)"     # deepened 17-Aug (was 0.14)
         bg_weakening = "rgba(245, 158, 11, 0.14)"
-        bg_lagging   = "rgba(239, 68, 68, 0.14)"
+        bg_lagging   = "rgba(239, 68, 68, 0.24)"     # deepened 17-Aug (was 0.14)
         bg_improving = "rgba(147, 51, 234, 0.14)"
         line_cross   = "#475569"
         paper_bg     = "#090d16"
         plot_bg      = "#0f172a"
-        grid_color   = "#1e293b"
+        grid_color   = "rgba(148, 163, 184, 0.30)"
         text_color   = "#f8fafc"
     else:
-        bg_leading   = "rgba(187, 247, 208, 0.45)"
+        # LEADING / LAGGING deepened 17-Aug (Jay: "too faint"). Moved from the
+        # -200 tints to -300 at higher alpha; WEAKENING / IMPROVING left alone so
+        # the two he called out actually read as the strong signals.
+        bg_leading   = "rgba(134, 239, 172, 0.60)"   # was rgba(187,247,208,0.45)
         bg_weakening = "rgba(254, 230, 138, 0.45)"
-        bg_lagging   = "rgba(254, 202, 202, 0.45)"
+        bg_lagging   = "rgba(252, 165, 165, 0.60)"   # was rgba(254,202,202,0.45)
         bg_improving = "rgba(233, 213, 255, 0.45)"
         line_cross   = "#0f172a"
         paper_bg     = "#ffffff"
         plot_bg      = "#f8fafc"
-        grid_color   = "#e2e8f0"
+        grid_color   = "rgba(100, 116, 139, 0.38)"
         text_color   = "#0f172a"
 
     # 1. QUADRANT BACKGROUND — UNBOUNDED (17-Aug-2026)
@@ -1266,11 +1269,20 @@ def render_rrg_plotly(
         # produced anyway; pinning it also makes double-click reset land on the
         # same framing every time. Pan and zoom are unaffected — they set `range`
         # directly rather than going through autorange.
+        # layer="above traces" is what brings the GRID BACK (17-Aug, Jay: "the
+        # grid lines have vanished"). Plotly paints background -> grid -> shapes
+        # (layer="below") -> traces, so once the quadrant rectangles became
+        # viewport-filling half-planes they covered every gridline. Shapes cannot
+        # be placed between the grid and the traces, so the axes are lifted
+        # instead. The grid therefore also crosses the markers — which is what
+        # Strike does — so it is kept thin and translucent rather than solid.
         xaxis=dict(
             title="<b>JdK RS-Ratio (Trend) →</b>",
             range=[x_min, x_max],
             autorange=False,
             gridcolor=grid_color,
+            gridwidth=1,
+            layer="above traces",
             zeroline=False,
             showgrid=True
         ),
@@ -1279,6 +1291,8 @@ def render_rrg_plotly(
             range=[y_min, y_max],
             autorange=False,
             gridcolor=grid_color,
+            gridwidth=1,
+            layer="above traces",
             zeroline=False,
             showgrid=True
         ),
