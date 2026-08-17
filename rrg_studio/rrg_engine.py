@@ -1104,25 +1104,43 @@ def render_rrg_plotly(
         grid_color   = "#e2e8f0"
         text_color   = "#0f172a"
 
-    # 1. Quadrant Background Shading
-    fig.add_shape(type="rect", x0=100, y0=100, x1=x_max, y1=y_max,
-                  fillcolor=bg_leading, line=dict(width=0), layer="below")
-    fig.add_shape(type="rect", x0=100, y0=y_min, x1=x_max, y1=100,
-                  fillcolor=bg_weakening, line=dict(width=0), layer="below")
-    fig.add_shape(type="rect", x0=x_min, y0=y_min, x1=100, y1=100,
-                  fillcolor=bg_lagging, line=dict(width=0), layer="below")
-    fig.add_shape(type="rect", x0=x_min, y0=100, x1=100, y1=y_max,
-                  fillcolor=bg_improving, line=dict(width=0), layer="below")
+    # 1. QUADRANT BACKGROUND — UNBOUNDED (17-Aug-2026)
+    # Was drawn to the DATA extent (x_max/y_min...), so zooming out or panning ran
+    # off the end of the shading and the chart turned white outside it, and the
+    # quadrant colours appeared to "compress". Strike keeps the four fields
+    # filling the viewport at any zoom. The fix is to anchor each rectangle at the
+    # 100/100 cross and extend it far beyond any reachable view: the quadrants are
+    # half-planes, so they should be drawn as half-planes.
+    # ±1e5 rather than a literal infinity — Plotly has no infinite shape, and the
+    # explicit axis `range` set below means this never distorts the initial view
+    # or the double-click reset.
+    _INF = 100000.0
+    for x0, y0, x1, y1, col in (
+        (100.0,  100.0,  _INF,  _INF, bg_leading),     # upper-right
+        (100.0, -_INF,   _INF, 100.0, bg_weakening),   # lower-right
+        (-_INF, -_INF,  100.0, 100.0, bg_lagging),     # lower-left
+        (-_INF,  100.0, 100.0,  _INF, bg_improving),   # upper-left
+    ):
+        fig.add_shape(type="rect", x0=x0, y0=y0, x1=x1, y1=y1,
+                      fillcolor=col, line=dict(width=0), layer="below")
 
-    # 2. Quadrant Headers
-    fig.add_annotation(x=x_max - (r_span*0.22), y=y_max - (m_span*0.08), text="<b>LEADING</b>",
-                       showarrow=False, font=dict(size=15, color="#16a34a" if theme == "dark" else "#15803d"))
-    fig.add_annotation(x=x_max - (r_span*0.22), y=y_min + (m_span*0.08), text="<b>WEAKENING</b>",
-                       showarrow=False, font=dict(size=15, color="#d97706" if theme == "dark" else "#b45309"))
-    fig.add_annotation(x=x_min + (r_span*0.22), y=y_min + (m_span*0.08), text="<b>LAGGING</b>",
-                       showarrow=False, font=dict(size=15, color="#dc2626" if theme == "dark" else "#b91c1c"))
-    fig.add_annotation(x=x_min + (r_span*0.22), y=y_max - (m_span*0.08), text="<b>IMPROVING</b>",
-                       showarrow=False, font=dict(size=15, color="#9333ea" if theme == "dark" else "#7e22ce"))
+    # 2. QUADRANT HEADERS — PINNED TO THE VIEWPORT, not to the data.
+    # Previously placed at data coordinates derived from the current extent, so
+    # panning left carried IMPROVING/LAGGING off-screen entirely. Paper refs keep
+    # them in the corners at any zoom or pan, which is what Strike does.
+    for _xa, _ya, _txt, _cd, _cl in (
+        (0.985, 0.985, "LEADING",   "#16a34a", "#15803d"),
+        (0.985, 0.015, "WEAKENING", "#d97706", "#b45309"),
+        (0.015, 0.015, "LAGGING",   "#dc2626", "#b91c1c"),
+        (0.015, 0.985, "IMPROVING", "#9333ea", "#7e22ce"),
+    ):
+        fig.add_annotation(
+            x=_xa, y=_ya, xref="paper", yref="paper",
+            xanchor="right" if _xa > 0.5 else "left",
+            yanchor="top" if _ya > 0.5 else "bottom",
+            text=f"<b>{_txt}</b>", showarrow=False,
+            font=dict(size=15, color=_cd if theme == "dark" else _cl),
+        )
 
     # 3. Crosshairs
     fig.add_hline(y=100.0, line=dict(color=line_cross, width=2.0, dash="solid"))
@@ -1240,9 +1258,18 @@ def render_rrg_plotly(
 
     fig.update_layout(
         title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=text_color)),
+        # autorange=False is REQUIRED, not cosmetic: the quadrant half-planes above
+        # extend to ±1e5, and Plotly includes axis-referenced shapes when it
+        # autoranges — so the toolbar's Autoscale would otherwise zoom out to the
+        # shapes and show four flat colours. The range set here is already derived
+        # from the data (heads + tails, padded), which is what Autoscale would have
+        # produced anyway; pinning it also makes double-click reset land on the
+        # same framing every time. Pan and zoom are unaffected — they set `range`
+        # directly rather than going through autorange.
         xaxis=dict(
             title="<b>JdK RS-Ratio (Trend) →</b>",
             range=[x_min, x_max],
+            autorange=False,
             gridcolor=grid_color,
             zeroline=False,
             showgrid=True
@@ -1250,6 +1277,7 @@ def render_rrg_plotly(
         yaxis=dict(
             title="<b>JdK RS-Momentum (Acceleration) →</b>",
             range=[y_min, y_max],
+            autorange=False,
             gridcolor=grid_color,
             zeroline=False,
             showgrid=True
