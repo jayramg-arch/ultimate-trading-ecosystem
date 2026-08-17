@@ -525,15 +525,27 @@ def get_all_universe_options() -> Dict[str, Dict[str, Any]]:
 # way to make one while the subscription is lapsed. If more Strike coordinates
 # from a DIFFERENT date ever surface, refit and check these constants before
 # trusting them further.
+# REFITTED 17-Aug-2026 (2nd pass). The first parameters (32/5/8) were chosen by
+# CORRELATION, before the origin-preserving rescale existed — so the lookbacks
+# were never fitted against the error they actually produce. Re-gridded on the
+# real objective (mean |coordinate error| AFTER the rescale, both axes weighted
+# by Strike's own spread), 24-32 x 6-12 x 7-11:
+#                    MAE ratio   MAE mom   leave-one-out   quadrant
+#   32/5/8  (old)       2.27       0.97      2.44 / 1.04     15/16
+#   25/10/7 (new)       0.47       0.25      0.51 / 0.26     16/16
+# Ratio error -79%, momentum -74%. Not a spike: LOO degrades 8%/4%, and the
+# neighbours (24,10,7) (26,10,7) (25,10,6) all sit at 0.47-0.54 — a plateau.
+# The first grid capped smoothing at 8 and so never saw 10, which is where the
+# ratio axis actually wants to be.
 STRIKE_CAL = {
-    "ratio_length": 32,     # SMA of the RS line
-    "ratio_smooth": 5,      # SMA of the percent-deviation series
-    "mom_length":   8,      # SMA of the ratio's bar-over-bar ROC
+    "ratio_length": 25,     # SMA of the RS line
+    "ratio_smooth": 10,     # SMA of the percent-deviation series
+    "mom_length":   7,      # SMA of the ratio's bar-over-bar ROC
     # SLOPES ONLY. The intercept is DERIVED as 100*(1-a) so the map always passes
     # through (100,100) — do not add a "ratio_b"/"mom_b" key here, that is exactly
     # the free-fit form that displaced the origin (see above).
-    "ratio_a": 0.582,
-    "mom_a":   2.452,
+    "ratio_a": 0.796,
+    "mom_a":   3.498,
     "fitted_on": "2026-05-19, n=17, Nifty 500 weekly",
 }
 
