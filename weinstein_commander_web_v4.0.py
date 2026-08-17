@@ -26,18 +26,18 @@ from ai_risk_manager import (
 from ai_grading_engine import get_weinstein_score
 import yfinance as yf
 from pine_generator import generate_pine_code
+import risk_common as _rc
 # ── v4.0 Phase-1 imports ─────────────────────────────────────────────────────
 try:
     from rrg_engine import (
         SECTOR_INDICES, QUADRANT_COLORS,
         calculate_jdk_rrg, compute_universe_rrg, render_rrg_plotly,
-        load_universe_data,          # was `from pages.6_rrg import ...` - not
-                                     # importable (module name starts with a digit),
-                                     # and importing that page would run its
-                                     # st.set_page_config/st.title at top level.
+        render_benchmark_sparkline, get_all_universe_options,
+        load_custom_watchlists, save_custom_watchlists,
+        load_universe_data
     )
     _RRG_OK = True
-except Exception:                    # ImportError was too narrow for the above
+except Exception:
     _RRG_OK = False
 
 try:
@@ -8853,126 +8853,238 @@ elif page == 'MACRO':
             st.warning("market_data_hub not available.")
 
     with _mc4:
-        # NOTE (10 May 2026): Stock-level Recovery Signals block was previously
-        # rendered here. Removed per user feedback (#7): RRG is sector-rotation
-        # analytics; stock-level recovery signals belong in HUNTER → Recovery
-        # Screener where you actually act on them. See HUNTER cockpit.
+        section("Relative Rotation Graphs (RRG) — Strike.Money Style Cockpit")
+        st.caption("Canonical JdK 4-Quadrant Sector & Stock Rotation Engine (Pine v67.4 Standard). Movable, resizable, and fully interactive.")
 
-        section("Relative Rotation Graphs (RRG) — Rotation Quadrant")
-        st.caption("Canonical JdK 4-Quadrant Sector & Stock Rotation Engine (Pine v67.4 Standard). Select universe, timeframe, and tail length below.")
-        
-        # ── Interactive Control Panel for RRG ─────────────────────────────
-        c_rrg1, c_rrg2, c_rrg3, c_rrg4 = st.columns([3, 2, 2, 2])
-        with c_rrg1:
-            rrg_mode = st.selectbox(
-                "Rotation Universe:",
-                options=[
-                    "🌍 19 Nifty Sector Indices",
-                    "🛡️ Capital Goods & Defense Stocks",
-                    "🧪 Specialty Chemicals & Commodities",
-                    "🏆 Nifty 50 Heavyweights",
-                    "🔍 Intra-Sector Breakdown",
-                    "💼 Custom Watchlist"
-                ],
-                key="tab_rrg_mode"
-            )
-        with c_rrg2:
-            rrg_tf = st.selectbox(
-                "Timeframe:",
-                options=["Weekly (Positional)", "Daily (Swing)"],
-                index=0,
-                key="tab_rrg_tf"
-            )
-        with c_rrg3:
-            rrg_tail_len = st.slider("Tail Length (Bars):", min_value=1, max_value=15, value=6, key="tab_rrg_tail")
-        with c_rrg4:
-            rrg_tradeable_only = st.checkbox("BUY OK Only (✓)", value=False, key="tab_rrg_tr_only")
-
-        # Secondary Selectors for Intra-Sector and Custom Watchlist
-        rrg_sec_drill = None
-        rrg_custom_raw = None
-        if rrg_mode == "🔍 Intra-Sector Breakdown":
-            rrg_sec_drill = st.selectbox("Select Sector to Drill Down:", options=list(SECTOR_INDICES.keys()), key="tab_rrg_drill")
-        elif rrg_mode == "💼 Custom Watchlist":
-            rrg_custom_raw = st.text_input("Enter Tickers (comma separated):", value="DATAPATTNS, HAL, BEL, DEEPAKNTR, DIXON", key="tab_rrg_custom")
-
-        # Resolve Symbols & Data
-        interval = "1wk" if "Weekly" in rrg_tf else "1d"
-        period = "2y" if "Weekly" in rrg_tf else "6mo"
-        bench_symbol = "^CRSLDX"
-        symbols_to_fetch = []
-        disp_title = ""
-
-        if rrg_mode == "🌍 19 Nifty Sector Indices":
-            symbols_to_fetch = list(SECTOR_INDICES.values()) + [bench_symbol, "^NSEI"]
-            disp_title = f"19 Nifty Sector Indices Rotation vs Nifty 500 ({rrg_tf})"
-        elif rrg_mode == "🛡️ Capital Goods & Defense Stocks":
-            DEFENSE_STOCKS = ['DATAPATTNS.NS', 'HAL.NS', 'BEL.NS', 'BDL.NS', 'COCHINSHIP.NS', 'MAZDOCK.NS', 'GRSE.NS', 'SOLARINDS.NS', 'ZENTEC.NS', 'MTARTECH.NS', 'BEML.NS', 'PARAS.NS']
-            symbols_to_fetch = DEFENSE_STOCKS + [bench_symbol, "^CNXINFRA"]
-            disp_title = f"Capital Goods & Defense Stocks Rotation ({rrg_tf})"
-        elif rrg_mode == "🧪 Specialty Chemicals & Commodities":
-            CHEMICAL_STOCKS = ['DEEPAKNTR.NS', 'AARTIIND.NS', 'NAVINFLUOR.NS', 'ATUL.NS', 'SRF.NS', 'CLEAN.NS', 'FINEORG.NS', 'CHAMBLFERT.NS', 'COROMANDEL.NS', 'UPL.NS', 'PIIND.NS']
-            symbols_to_fetch = CHEMICAL_STOCKS + [bench_symbol, "^CNXCMDT"]
-            disp_title = f"Specialty Chemicals & Commodities Rotation ({rrg_tf})"
-        elif rrg_mode == "🏆 Nifty 50 Heavyweights":
-            NIFTY_50_STOCKS = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'ICICIBANK.NS', 'INFY.NS', 'BHARTIARTL.NS', 'ITC.NS', 'SBIN.NS', 'LT.NS', 'HINDUNILVR.NS', 'AXISBANK.NS', 'M&M.NS', 'TATAMOTORS.NS', 'SUNPHARMA.NS', 'NTPC.NS']
-            symbols_to_fetch = NIFTY_50_STOCKS + [bench_symbol, "^NSEI"]
-            disp_title = f"Nifty 50 Stock Rotation vs Nifty 500 ({rrg_tf})"
-        elif rrg_mode == "🔍 Intra-Sector Breakdown" and rrg_sec_drill:
-            sec_ticker = SECTOR_INDICES[rrg_sec_drill]
-            bench_symbol = sec_ticker
-            db_path = os.path.join(os.path.dirname(__file__), "sectors.db")
-            sec_stocks = []
-            if os.path.exists(db_path):
-                with sqlite3.connect(db_path) as conn:
-                    cur = conn.cursor()
-                    rows = cur.execute("SELECT symbol FROM stock_sector WHERE sector_index = ?", (sec_ticker,)).fetchall()
-                    sec_stocks = [r[0] + ".NS" for r in rows]
-            if not sec_stocks:
-                sec_stocks = ['DATAPATTNS.NS', 'HAL.NS', 'BEL.NS', 'BDL.NS']
-            symbols_to_fetch = sec_stocks + [sec_ticker, "^NSEI"]
-            disp_title = f"{rrg_sec_drill} Constituent Stocks vs {rrg_sec_drill} ({rrg_tf})"
-        elif rrg_mode == "💼 Custom Watchlist" and rrg_custom_raw:
-            raw_list = [s.strip().upper().replace('.NS', '') for s in rrg_custom_raw.split(',') if s.strip()]
-            symbols_to_fetch = [s + ".NS" for s in raw_list] + [bench_symbol, "^NSEI"]
-            disp_title = f"Custom Watchlist Rotation ({rrg_tf})"
-
-        with st.spinner("Computing JdK RRG 4-Quadrant Rotation..."):
-            data_map = load_universe_data(tuple(symbols_to_fetch), period=period, interval=interval)
-            summary_df, tails_dict = compute_universe_rrg(
-                data_map, 
-                benchmark_symbol=bench_symbol.replace('.NS', '').replace('^', ''), 
-                jdk_length=12, 
-                tail_length=rrg_tail_len
-            )
-
-        if not summary_df.empty:
-            # Filter tradeable if selected
-            plot_df = summary_df.copy()
-            if rrg_tradeable_only:
-                plot_df = plot_df[plot_df['Is_Tradeable'] == True]
-
-            rrg_label_mode = "Show All Tickers"
-            fig_rrg = render_rrg_plotly(plot_df, tails_dict, title=disp_title, tail_length=rrg_tail_len, label_mode=rrg_label_mode)
-            fig_rrg.update_layout(height=680)
-            
-            # Center the plot inside a container to maintain crisp square proportions
-            col_chart_left, col_chart_center, col_chart_right = st.columns([1, 10, 1])
-            with col_chart_center:
-                st.plotly_chart(fig_rrg, use_container_width=True)
-            
-            st.markdown("#### 📊 RRG Rotation & Tradeable Gate Cockpit")
-            _df_rrg_show = summary_df[[
-                'Symbol', 'Quadrant_Badge', 'Arrow', 'Trajectory', 'Tradeable Gate', 
-                'RRG Score', 'RS-Ratio', 'RS-Momentum', '4W %', 'Distance', 'Last_Price'
-            ]].rename(columns={'Quadrant_Badge': 'Quadrant', 'Distance': 'Dist from Center'})
-            
-            if rrg_tradeable_only:
-                _df_rrg_show = _df_rrg_show[_df_rrg_show['Tradeable Gate'] == '✓ BUY OK']
-                
-            st.dataframe(_df_rrg_show, use_container_width=True, hide_index=True)
+        if not _RRG_OK:
+            st.error("RRG Engine dependencies not loaded.")
         else:
-            st.info("Sector RRG data unavailable for selected universe. Check network or symbols.")
+            _universe_opts = get_all_universe_options()
+
+            # ── Top Control Bar (Strike.Money style) ─────────────────────────
+            c_top1, c_top2, c_top3, c_top4, c_top5 = st.columns([3, 2, 2, 2, 2])
+            with c_top1:
+                _rrg_view_mode = st.radio(
+                    "View Mode:",
+                    options=["🔘 RRG (Rotation Graph)", "📋 Data Table"],
+                    horizontal=True,
+                    key="mc4_view_mode",
+                    label_visibility="collapsed"
+                )
+            with c_top2:
+                _rrg_bench_choice = st.selectbox(
+                    "Benchmark:",
+                    options=[
+                        "Nifty 500 (^CRSLDX)",
+                        "Nifty 50 (^NSEI)",
+                        "Bank Nifty (^NSEBANK)",
+                        "Auto Index (^CNXAUTO)",
+                        "IT Index (^CNXIT)",
+                        "Pharma Index (^CNXPHARMA)",
+                        "Metal Index (^CNXMETAL)",
+                        "FMCG Index (^CNXFMCG)",
+                        "Realty Index (^CNXREALTY)",
+                        "Infra Index (^CNXINFRA)",
+                        "Commodities (^CNXCMDT)"
+                    ],
+                    index=0,
+                    key="mc4_bench_choice"
+                )
+            with c_top3:
+                _rrg_tf = st.selectbox(
+                    "Timeframe:",
+                    options=["Weekly (Positional)", "Daily (Swing)"],
+                    index=0,
+                    key="mc4_tf"
+                )
+            with c_top4:
+                _rrg_date_range = st.selectbox(
+                    "Date Range:",
+                    options=["2 Years (Standard)", "1 Year", "5 Years"],
+                    index=0,
+                    key="mc4_date_range"
+                )
+            with c_top5:
+                _rrg_tail_len = st.number_input("Tail Length:", min_value=1, max_value=15, value=10, step=1, key="mc4_tail_len")
+
+            # Resolve timeframe, period, benchmark
+            _interval = "1wk" if "Weekly" in _rrg_tf else "1d"
+            if "5 Years" in _rrg_date_range:
+                _period = "5y"
+            elif "1 Year" in _rrg_date_range:
+                _period = "1y"
+            else:
+                _period = "2y"
+
+            _BENCH_MAP = {
+                "Nifty 500 (^CRSLDX)": "^CRSLDX",
+                "Nifty 50 (^NSEI)": "^NSEI",
+                "Bank Nifty (^NSEBANK)": "^NSEBANK",
+                "Auto Index (^CNXAUTO)": "^CNXAUTO",
+                "IT Index (^CNXIT)": "^CNXIT",
+                "Pharma Index (^CNXPHARMA)": "^CNXPHARMA",
+                "Metal Index (^CNXMETAL)": "^CNXMETAL",
+                "FMCG Index (^CNXFMCG)": "^CNXFMCG",
+                "Realty Index (^CNXREALTY)": "^CNXREALTY",
+                "Infra Index (^CNXINFRA)": "^CNXINFRA",
+                "Commodities (^CNXCMDT)": "^CNXCMDT"
+            }
+            _bench_sym = _BENCH_MAP.get(_rrg_bench_choice, "^CRSLDX")
+
+            # ── Sub-toolbar (View Controls & Sizing) ───────────────────────────
+            c_sub1, c_sub2, c_sub3, c_sub4, c_sub5 = st.columns([3, 2, 2, 2, 2])
+            with c_sub1:
+                st.caption(f"📅 **JdK Horizon:** {datetime.now().strftime('%d %b %Y')} · Benchmark: `{_bench_sym}`")
+            with c_sub2:
+                _rrg_height = st.slider("Canvas Height (px):", min_value=500, max_value=1000, value=680, step=20, key="mc4_height")
+            with c_sub3:
+                _rrg_lbl = st.selectbox("Ticker Labels:", ["Show All Tickers", "Top Leaders Only", "Hover Only"], index=0, key="mc4_lbl")
+            with c_sub4:
+                _rrg_theme = st.selectbox("Theme:", ["☀️ Light Canvas (Strike)", "🌙 Dark Canvas"], index=0, key="mc4_theme")
+            with c_sub5:
+                _rrg_tr_only = st.checkbox("BUY OK Only (✓)", value=False, key="mc4_tr_only")
+
+            _theme_str = "dark" if "Dark" in _rrg_theme else "light"
+
+            # ── Split Layout: Left (Symbols) & Right (RRG Canvas) ─────────────
+            _col_l, _col_r = st.columns([4, 9])
+
+            with _col_l:
+                _selected_wl_key = st.selectbox(
+                    "Watchlist / Universe:",
+                    options=list(_universe_opts.keys()),
+                    index=0,
+                    key="mc4_wl_key"
+                )
+
+                with st.expander("➕ Create / Manage Custom Watchlists"):
+                    _new_wl_n = st.text_input("New Watchlist Name:", placeholder="e.g. Breakouts", key="mc4_new_wl_n")
+                    _new_wl_s = st.text_area("Stock Tickers (comma separated):", placeholder="e.g. TATAMOTORS, HAL, BEL, DIXON", key="mc4_new_wl_s")
+                    if st.button("💾 Save Watchlist", use_container_width=True, key="mc4_save_wl"):
+                        if _new_wl_n and _new_wl_s:
+                            _raw_s = [s.strip().upper().replace('.NS', '') for s in _new_wl_s.split(',') if s.strip()]
+                            _cw = load_custom_watchlists()
+                            _cw[_new_wl_n] = _raw_s
+                            save_custom_watchlists(_cw)
+                            st.success(f"Watchlist '{_new_wl_n}' saved!")
+                            st.rerun()
+
+                _active_ent = _universe_opts[_selected_wl_key]
+                _syms_fetch = _active_ent["symbols"] + [_bench_sym, "^NSEI"]
+
+                _search_q = st.text_input("🔍 Search symbol in list:", "", key="mc4_search_q").strip().upper()
+
+            # ── Fetch Data ───────────────────────────────────────────────────
+            with st.spinner("🔄 Fetching market data & calculating JdK coordinates..."):
+                _data_dict = load_universe_data(tuple(_syms_fetch), period=_period, interval=_interval)
+                _summary_df, _tails_dict = compute_universe_rrg(
+                    data_dict=_data_dict,
+                    benchmark_symbol=_bench_sym.replace('.NS', '').replace('^', ''),
+                    jdk_length=12,
+                    tail_length=_rrg_tail_len
+                )
+
+            if _summary_df.empty:
+                st.warning("⚠️ No RRG data returned. Please select a different universe or check symbol tickers.")
+            else:
+                # ── Left Panel: Interactive Symbol List with Checkboxes ──────
+                with _col_l:
+                    _disp_df = _summary_df.copy()
+                    if _search_q:
+                        _disp_df = _disp_df[_disp_df['Symbol'].str.contains(_search_q)]
+                    if _rrg_tr_only:
+                        _disp_df = _disp_df[_disp_df['Is_Tradeable'] == True]
+
+                    _c_b1, _c_b2 = st.columns(2)
+                    with _c_b1:
+                        if st.button("✓ Select All", use_container_width=True, key="mc4_sel_all"):
+                            st.session_state["mc4_selected_syms"] = _disp_df['Symbol'].tolist()
+                    with _c_b2:
+                        if st.button("✗ Clear All", use_container_width=True, key="mc4_clr_all"):
+                            st.session_state["mc4_selected_syms"] = []
+
+                    if "mc4_selected_syms" not in st.session_state:
+                        st.session_state["mc4_selected_syms"] = _disp_df['Symbol'].head(15).tolist()
+
+                    st.markdown(f"<div style='color: #0F172A; font-weight: 700; margin: 8px 0 4px 0;'>Constituent Symbols ({len(_disp_df)}):</div>", unsafe_allow_html=True)
+                    _selected_syms_list = []
+
+                    with st.container(height=540):
+                        for _, _row in _disp_df.iterrows():
+                            _sym = _row['Symbol']
+                            _quad = _row['Quadrant']
+                            _p_str = f"₹{_row['Last_Price']:,.2f}" if _row['Last_Price'] > 0 else "-"
+                            _chg_str = f"{_row['4W %']:+.1f}%"
+                            _badge_cls = f"badge-{_quad.lower()}"
+                            _chg_col = "#15803D" if _row['4W %'] >= 0 else "#DC2626"
+
+                            _c_k, _c_i = st.columns([1, 6])
+                            with _c_k:
+                                _is_chk = st.checkbox(
+                                    f"mc4_chk_{_sym}",
+                                    value=(_sym in st.session_state["mc4_selected_syms"]),
+                                    key=f"mc4_chk_sym_{_sym}",
+                                    label_visibility="collapsed"
+                                )
+                                if _is_chk:
+                                    _selected_syms_list.append(_sym)
+
+                            with _c_i:
+                                st.markdown(f"""
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; margin-bottom: 4px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                                    <div>
+                                        <span style="font-weight: 700; font-size: 0.92rem; color: #0F172A;">{_sym}</span> &nbsp;
+                                        <span class="{_badge_cls}">{_quad.upper()}</span>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span style="font-weight: 600; font-size: 0.88rem; color: #334155;">{_p_str}</span> &nbsp;
+                                        <span style="color: {_chg_col}; font-weight: 700; font-size: 0.85rem;">{_chg_str}</span>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                # ── Right Panel: Canvas or Table ─────────────────────────────
+                with _col_r:
+                    _spark_fig = render_benchmark_sparkline(_bench_sym, _data_dict, _rrg_tf)
+                    st.plotly_chart(_spark_fig, use_container_width=True, config={'displayModeBar': False})
+
+                    if "Rotation Graph" in _rrg_view_mode:
+                        _plot_df = _summary_df.copy()
+                        if _selected_syms_list:
+                            _plot_df = _plot_df[_plot_df['Symbol'].isin(_selected_syms_list)]
+
+                        _fig_r = render_rrg_plotly(
+                            summary_df=_plot_df,
+                            tails_dict=_tails_dict,
+                            title=f"{_selected_wl_key} Rotation vs {_rrg_bench_choice} ({_rrg_tf})",
+                            tail_length=_rrg_tail_len,
+                            selected_symbols=_selected_syms_list,
+                            label_mode=_rrg_lbl,
+                            chart_height=_rrg_height,
+                            theme=_theme_str
+                        )
+
+                        st.plotly_chart(
+                            _fig_r,
+                            use_container_width=True,
+                            config={
+                                'scrollZoom': True,
+                                'displayModeBar': True,
+                                'modeBarButtonsToRemove': ['lasso2d'],
+                                'displaylogo': False
+                            }
+                        )
+                    else:
+                        st.markdown("#### 📊 RRG Rotation & Tradeable Gate Cockpit")
+                        _df_show = _summary_df[[
+                            'Symbol', 'Quadrant_Badge', 'Arrow', 'Trajectory', 'Tradeable Gate',
+                            'RRG Score', 'RS-Ratio', 'RS-Momentum', '4W %', 'Distance', 'Last_Price'
+                        ]].rename(columns={
+                            'Quadrant_Badge': 'Current Quadrant',
+                            'Distance': 'Dist from Center',
+                            'RRG Score': 'Score Bonus'
+                        })
+                        st.dataframe(_df_show, use_container_width=True, hide_index=True)
 
 # ════════════════════════════════════════════════════════════════════════════
 #  E-07: OPTIONS DESK
@@ -15370,6 +15482,7 @@ elif page == 'RISK SHIELD':
 
     # --- Precompute Pyramid/Trim classifications ---
     import pyramid_logic as pl
+    import risk_common as _rc
     if "pyramid_classifications" not in st.session_state:
         with st.spinner("Precomputing Pyramid/Trim classifications..."):
             try:
@@ -16985,9 +17098,23 @@ elif page == 'RISK SHIELD':
                                     _fr = lambda v: f"₹{v:,.2f}" if v else "—"
                                     _slsrc = ("Chandelier" if (_r_sl and _ce_r and abs(_r_sl - float(_ce_r)) < 0.01)
                                               else "resting SL (already tighter)") if _r_sl else "—"
-                                    _rec_rows = ((
+                                    # T1 ALREADY BANKED (17-Aug, Jay). The timeline block (~:17179) and
+                                    # the unprotected-holdings block (~:17466) both suppress T1 once
+                                    # `ltp >= rec_t1` — this card never did, so after OCO-1 filled it
+                                    # kept recommending a target BELOW the live price while the timeline
+                                    # beside it correctly showed only T2. Same defect class as the two
+                                    # copies of the Rec block noted at :17462: one guard, three renderers.
+                                    _t1_banked = bool(_r_t1) and bool(ltp) and ltp >= _r_t1
+                                    _row_t1 = (
+                                        f"<div style='color:#6B9080;font-weight:600;'>• <b>OCO-1:</b> "
+                                        f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> "
+                                        f"— ✓ banked, LTP above it</div>"
+                                    ) if _t1_banked else (
                                         f"<div style='color:#FDE68A;font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
                                         f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
+                                    )
+                                    _rec_rows = ((
+                                        f"{_row_t1}"
                                         f"<div style='color:#FCD34D;font-weight:600;'>• <b>OCO-2 ({_rq1} sh):</b> "
                                         f"T2 {_fr(_r_t2)} <span style='color:#94A3B8'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
                                         f"<div style='color:#94A3B8;font-size:0.72rem;margin-top:4px;'>"
