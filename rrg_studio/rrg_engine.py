@@ -582,12 +582,22 @@ def get_all_universe_options() -> Dict[str, Dict[str, Any]]:
 #     ratio    MAE 8.65 -> 2.12
 #     momentum MAE 2.22 -> 0.81
 #
-# THE COST, STATED. Quadrant agreement DROPS from 16/17 (94%) to 15/17 (88%):
-# the map pushes borderline names across the 100 line (NAVINFLUOR momentum
-# 99.79 -> 100.25 where Strike reads 98.27). Coordinates get much closer,
-# quadrant reading gets slightly worse. If you care about the QUADRANT more than
-# the number, use the Strike/39 preset instead — this model is for reading
-# coordinates the way Strike printed them.
+# THE MAP IS ORIGIN-PRESERVING: y = 100 + a*(x - 100), so `b` is DERIVED as
+# 100*(1-a) and is not a free parameter. Only the slopes are fitted.
+#
+# This was not the first attempt and the reason matters. A free `y = a*x + b`
+# fit scored slightly better on paper (ratio MAE 2.12 vs 2.16, momentum 0.81 vs
+# 0.93) but it MOVED THE ORIGIN: it mapped 100 -> 99.43 on the ratio axis and
+# 100 -> 100.70 on momentum. Caught by looking at the live Studio, where
+# "Nifty 500" — plotted against itself as a constituent — read d:0.9 instead of
+# sitting on the crosshair. A security identical to its benchmark has RS == 1 by
+# construction and MUST land exactly on (100, 100); (100,100) is the definition
+# of the RRG centre, so displacing it shifts every quadrant boundary with it.
+# That displacement was also the whole of the quadrant-accuracy loss: the free
+# fit scored 15/17 against Strike, the constrained one scores 16/17 — the same
+# as the uncalibrated model. With a > 0, (x - 100) keeps its sign, so this form
+# CANNOT change a quadrant; verified identical on all 17.
+# Lesson: fit the scale, never the centre.
 #
 # HOW MUCH TO TRUST IT. n=17, ONE date, and all 17 are pre-selected strong names
 # (every Strike ratio is >= 100.56), so the fit is calibrated on the right-hand
@@ -601,10 +611,18 @@ STRIKE_CAL = {
     "ratio_length": 32,     # SMA of the RS line
     "ratio_smooth": 5,      # SMA of the percent-deviation series
     "mom_length":   8,      # SMA of the ratio's bar-over-bar ROC
-    "ratio_a":  0.604, "ratio_b":  38.99,      # y = a*x + b, fitted on the 17
-    "mom_a":    2.180, "mom_b":  -117.35,
+    # SLOPES ONLY. The intercept is DERIVED as 100*(1-a) so the map always passes
+    # through (100,100) — do not add a "ratio_b"/"mom_b" key here, that is exactly
+    # the free-fit form that displaced the origin (see above).
+    "ratio_a": 0.582,
+    "mom_a":   2.452,
     "fitted_on": "2026-05-19, n=17, Nifty 500 weekly",
 }
+
+
+def _cal_map(x, a):
+    """Origin-preserving affine: 100 stays 100, the spread scales by `a`."""
+    return 100.0 + a * (x - 100.0)
 
 
 def calculate_jdk_rrg(
@@ -673,8 +691,8 @@ def calculate_jdk_rrg(
         _rat = _raw.rolling(window=_c["ratio_smooth"], min_periods=_c["ratio_smooth"]).mean()
         _mom = (100.0 * (_rat / _rat.shift(1))).rolling(
             window=_c["mom_length"], min_periods=_c["mom_length"]).mean()
-        rs_ratio    = _c["ratio_a"] * _rat + _c["ratio_b"]
-        rs_momentum = _c["mom_a"]   * _mom + _c["mom_b"]
+        rs_ratio    = _cal_map(_rat, _c["ratio_a"])
+        rs_momentum = _cal_map(_mom, _c["mom_a"])
     elif mode == "strike":
         # Strike.money 39-week EMA Institutional Model
         rs = df['sec'] / df['bench']
