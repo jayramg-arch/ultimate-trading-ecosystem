@@ -239,7 +239,63 @@ def load_universe_data(symbols: tuple, period: str = "1y", interval: str = "1wk"
         if not success:
             logger.warning("load_universe_data: no data for %s (%s) — not plotted", sym, ticker)
 
+    # ── STALENESS GUARD (17-Aug-2026) ────────────────────────────────────────
+    # THE BUG THIS FIXES: the cached weekly 'NIFTY 500' series was one bar behind
+    # the stocks (bench last 2026-08-10, HFCL last 2026-08-17). calculate_jdk_rrg
+    # inner-joins on the index, so the ENTIRE chart was silently computed at the
+    # last COMMON bar — i.e. a week-old snapshot — while Strike showed the current
+    # one. Measured on HFCL: ratio 154.02 vs Strike 148.57 (+5.45) stale, and
+    # 150.77 (+2.20) once aligned. More than half the apparent calibration error
+    # was this. Nothing warned, because a week-old chart looks exactly like a
+    # current one.
+    #
+    # Index bars evidently refresh later than stock bars, so the benchmark is the
+    # usual offender — but the rule is applied to EVERY symbol, since a stale
+    # constituent is the same defect with a smaller blast radius.
+    # One forced re-fetch per lagging symbol, then give up and report: a retry
+    # loop against a provider that simply has not published yet is just latency.
+    # Skipped entirely when a date is pinned — replay is SUPPOSED to be historical.
+    stale = {}
+    as_of = None
+    try:
+        if dp.get_pinned_date() is None:
+            def _last(_d):
+                try:
+                    return _d.index[-1]
+                except Exception:
+                    return None
+            dated = {k: _last(v) for k, v in data_map.items() if not k.startswith("__")}
+            dated = {k: v for k, v in dated.items() if v is not None}
+            if dated:
+                as_of = max(dated.values())
+                behind = sorted({k for k, v in dated.items() if v < as_of})
+                for k in behind:
+                    if k not in symbols:          # alias keys point at the same frame
+                        continue
+                    try:
+                        dp.invalidate_symbol(all_indices_map.get(k, k))
+                        df2 = dp.fetch_ohlcv(all_indices_map.get(k, k), period=period,
+                                             interval=interval, auto_adjust=True, use_cache=False)
+                        if df2 is not None and not df2.empty and 'Close' in df2.columns:
+                            t2 = all_indices_map.get(k, k)
+                            data_map[k] = df2
+                            data_map[t2] = df2
+                            data_map[k.replace('.NS', '').replace('^', '')] = df2
+                            logger.info("staleness guard: refreshed %s -> %s", k, df2.index[-1].date())
+                    except Exception as e:
+                        logger.warning("staleness guard: refresh failed for %s: %s", k, e)
+                # recompute after the refresh pass and report anything still behind
+                dated = {k: _last(v) for k, v in data_map.items() if not k.startswith("__")}
+                dated = {k: v for k, v in dated.items() if v is not None}
+                as_of = max(dated.values())
+                stale = {k: str(v.date()) for k, v in dated.items()
+                         if v < as_of and k in symbols}
+    except Exception as e:
+        logger.warning("staleness guard failed (continuing): %s", e)
+
     data_map["__source__"] = prov
+    data_map["__asof__"] = as_of
+    data_map["__stale__"] = stale
     return data_map
 
 
@@ -762,6 +818,24 @@ def compute_universe_rrg(
 
     bench_close = bench_df['Close'].dropna() if 'Close' in bench_df.columns else bench_df.iloc[:, 0].dropna()
 
+    # BENCHMARK LAG (17-Aug-2026). calculate_jdk_rrg inner-joins, so a benchmark
+    # one bar behind the constituents silently moves the ENTIRE chart back to the
+    # last common bar — a week-old picture that is indistinguishable from a
+    # current one. load_universe_data now force-refreshes laggards; this is the
+    # second line, for when the provider genuinely has not published yet.
+    # Reported, never fatal: an old chart is still worth seeing IF you know it is
+    # old. Surfaced on summary_df.attrs so the UI can say the date out loud.
+    bench_lag_note = ""
+    try:
+        _uni_asof = data_dict.get("__asof__")
+        _b_last = bench_close.index[-1] if len(bench_close) else None
+        if _uni_asof is not None and _b_last is not None and _b_last < _uni_asof:
+            bench_lag_note = (f"benchmark {bench_clean} last {_b_last.date()} but constituents "
+                              f"have {_uni_asof.date()} — chart is computed at {_b_last.date()}")
+            logger.warning("compute_universe_rrg: %s", bench_lag_note)
+    except Exception:
+        pass
+
     summary_rows = []
     tails_dict = {}
 
@@ -926,6 +1000,14 @@ def compute_universe_rrg(
     # silently plots 14 of 18 requested names looks complete; this makes the
     # difference visible without changing the return signature.
     summary_df.attrs["collapsed"] = collapsed
+    summary_df.attrs["bench_lag"] = bench_lag_note
+    summary_df.attrs["stale"] = data_dict.get("__stale__") or {}
+    # The date the coordinates are ACTUALLY computed at — the last bar shared by
+    # the benchmark and the constituents, which is not necessarily today.
+    try:
+        summary_df.attrs["as_of"] = str(bench_close.index[-1].date())
+    except Exception:
+        summary_df.attrs["as_of"] = ""
     return summary_df, tails_dict
 
 
@@ -1159,14 +1241,14 @@ def render_rrg_plotly(
     fig.update_layout(
         title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=text_color)),
         xaxis=dict(
-            title="<b>RS-Ratio (Trend) →</b>",
+            title="<b>JdK RS-Ratio (Trend) →</b>",
             range=[x_min, x_max],
             gridcolor=grid_color,
             zeroline=False,
             showgrid=True
         ),
         yaxis=dict(
-            title="<b>RS-Momentum (Acceleration) →</b>",
+            title="<b>JdK RS-Momentum (Acceleration) →</b>",
             range=[y_min, y_max],
             gridcolor=grid_color,
             zeroline=False,

@@ -535,13 +535,22 @@ with st.expander("⚙️ JdK Algorithm & Normalization Settings"):
 
     # Dynamic defaults based on preset
     _is_cal = "CALIBRATED" in calc_mode_choice
-    def_n = 32 if _is_cal else (39 if "Strike" in calc_mode_choice else (12 if "Weinstein" in calc_mode_choice else 14))
-    def_s = 5 if _is_cal else (2 if "Strike" in calc_mode_choice else (5 if "Weinstein" in calc_mode_choice else 1))
+    # CALIBRATED carries its own per-axis lookbacks (STRIKE_CAL) and IGNORES these
+    # two boxes — one shared N is precisely what does not work. Show its real
+    # values and disable the inputs, rather than leaving live-looking controls
+    # that silently do nothing (they were also still showing the pre-refit 32/5).
+    from rrg_engine import STRIKE_CAL as _SC
+    def_n = _SC["ratio_length"] if _is_cal else (39 if "Strike" in calc_mode_choice else (12 if "Weinstein" in calc_mode_choice else 14))
+    def_s = _SC["ratio_smooth"] if _is_cal else (2 if "Strike" in calc_mode_choice else (5 if "Weinstein" in calc_mode_choice else 1))
     
     with c_cfg2:
-        jdk_len_val = st.number_input("Lookback (N)", min_value=5, max_value=52, value=def_n, step=1, key="studio_jdk_n")
+        jdk_len_val = st.number_input("Lookback (N)", min_value=5, max_value=52, value=def_n, step=1,
+                                      disabled=_is_cal, key="studio_jdk_n",
+                                      help="Ignored by the CALIBRATED preset — it uses its own per-axis lookbacks." if _is_cal else None)
     with c_cfg3:
-        smooth_len_val = st.number_input("Smoothing (S)", min_value=1, max_value=10, value=def_s, step=1, key="studio_smooth_s")
+        smooth_len_val = st.number_input("Smoothing (S)", min_value=1, max_value=12, value=def_s, step=1,
+                                         disabled=_is_cal, key="studio_smooth_s",
+                                         help="Ignored by the CALIBRATED preset — it uses its own per-axis smoothing." if _is_cal else None)
 
 # CALIBRATED must be tested BEFORE the plain "Strike" check — its label also
 # contains "Strike.money", so an `in` test in the old order would swallow it.
@@ -660,6 +669,22 @@ if summary_df.empty:
 # market view drew 11 series under an "18 Broad Market Indices" heading, three
 # of them the same line under different names — which reads as three independent
 # confirmations of a rotation that is really one.
+# AS-OF + STALENESS (17-Aug-2026). The coordinates are computed at the last bar
+# the benchmark and the constituents SHARE — which was silently a week behind
+# when the cached index series lagged the stocks. Always state the date; shout
+# only when something is actually behind.
+_as_of = summary_df.attrs.get("as_of") or ""
+_lag = summary_df.attrs.get("bench_lag") or ""
+_stale = summary_df.attrs.get("stale") or {}
+if _lag:
+    st.error(f"⚠️ {_lag}")
+elif _stale:
+    st.warning(f"⚠️ {len(_stale)} symbol(s) behind the rest of the universe: "
+               + ", ".join(f"{k} ({v})" for k, v in list(_stale.items())[:6])
+               + (" …" if len(_stale) > 6 else ""))
+if _as_of:
+    st.caption(f"Coordinates as of **{_as_of}** (last bar shared by the benchmark and its constituents)")
+
 _collapsed = summary_df.attrs.get("collapsed") or []
 if _collapsed:
     _req = len(active_entry["symbols"])
