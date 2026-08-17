@@ -46,212 +46,127 @@ USER_WATCHLISTS_PATH = os.path.join(STUDIO_DIR, "rrg_watchlists.json")
 
 
 # ─── MASTER NIFTY INDICES TAXONOMIES & FALLBACK RESOLVER ─────────────────────
+# ─── NSE-AUTHORITATIVE INDEX MAPS (rebuilt 17-Aug-2026) ──────────────────────
+#
+# Source of NAMES: Nifty_Indices_Master_List.xlsx, downloaded from the NSE
+# portal by Jay — 43 indices across the four official categories, with their
+# full constituent lists (3,314 memberships, mirrored into
+# nse_indices_constituents.json).
+# Source of DATA: the Dhan Data API index segment (IDX_I), which carries 158
+# NSE indices. All 43 resolve and return current weekly bars.
+#
+# WHAT THIS REPLACES, and why it matters more than a tidy-up:
+# the previous maps held 108 entries whose names came from Strike.Money and
+# whose TICKERS were hand-guessed yfinance symbols. Most of those symbols do not
+# exist — yfinance does not carry NSE's thematic or factor indices at all — so
+# 44 of 108 fetched nothing and were silently papered over by a fallback table
+# that substituted a DIFFERENT index and drew it under the requested name. The
+# survivors were not much better: 64 live names collapsed to 45 distinct series.
+# Two measured examples of what that produced on the chart:
+#   * 'Nifty Microcap 250' -> MON100.NS, whose weekly returns correlate +0.52
+#     with the NASDAQ Composite and only +0.32..+0.36 with Indian indices. A US
+#     tech ETF was being plotted as Indian microcaps, and it sat at the extreme
+#     of the broad-market board. The REAL index (NIFTY MICROCAP250) was
+#     available from Dhan the entire time.
+#   * five STRATEGY names all pointed at MOM100.NS, which correlates +0.98 with
+#     Midcap 50 — a midcap tracker wearing five different factor labels.
+#
+# The fallback table is GONE. With real symbols there is nothing to fall back
+# for, and a fallback is not a resilience feature here: fetching a different
+# index and labelling it with the name you asked for is worse than a gap,
+# because a gap is visible and a mislabelled dot is not.
+#
+# ONE MAPPING IS INFERRED RATHER THAN CERTAIN: 'Nifty Quality 30' -> NIFTY200
+# QUALTY30. Settled with the constituent lists, not by name similarity — of its
+# 30 members, 12 sit outside the Nifty 100 but only 3 outside the Nifty 200.
+# Strongly indicated, not proven (3 outside the 200 is unexplained); if this
+# series ever looks wrong, check NIFTY100 QUALTY30 first.
 BROAD_MARKET_INDICES = {
-    'Nifty Microcap 250':                       'MON100.NS',
-    'Nifty Smallcap 50':                        '^CNXSC',
-    'Nifty Smallcap 100':                       'NIFTYSML250.NS',
-    'Nifty Smallcap 250':                       'NIFTY_SMALLCAP_250.NS',
-    'Nifty Midcap Select':                      'MIDCPNIFTY.NS',
-    'Nifty MidSmallcap 400':                    'MIDSMALL400.NS',
-    'Nifty Midcap 50':                          '^NSEMDCP50',
-    'Nifty Midcap 100':                         'MID150BEES.NS',
-    'Nifty Next 50':                            'JUNIORBEES.NS',
-    'Nifty Midcap 150':                         'MID150BEES.NS',
-    'Nifty500 LargeMidSmall Equal-Cap Weighted':'NIFTY500_LMS_EQCAP.NS',
-    'NIFTY 500 Multicap 50:25:25 Index':        'NIFTY500_MULTICAP.NS',
-    'Nifty LargeMidcap 250':                    'NIFTY_LARGEMID_250.NS',
-    'Nifty Total Market':                       'SETFNN50.NS',
-    'Nifty 500':                                '^CRSLDX',
-    'Nifty India FPI 150':                      'NIFTY_FPI_150.NS',
-    'Nifty 200':                                '^CNX200',
-    'Nifty 100':                                '^CNX100',
+    'Nifty 50':                     'NIFTY',
+    'Nifty 100':                    'NIFTY 100',
+    'Nifty 200':                    'NIFTY 200',
+    'Nifty 500':                    'NIFTY 500',
+    'Nifty Next 50':                'NIFTYNXT50',
+    'Nifty Midcap 50':              'NIFTYMCAP50',
+    'Nifty Midcap 100':             'NIFTY MID100 FREE',
+    'Nifty Midcap 150':             'NIFTY MIDCAP 150',
+    'Nifty Smallcap 50':            'NIFTY SMALLCAP 50',
+    'Nifty Smallcap 100':           'NIFTY SMALLCAP 100',
+    'Nifty Smallcap 250':           'NIFTY SMALLCAP 250',
+    'Nifty Microcap 250':           'NIFTY MICROCAP250',
+    'Nifty Total Market':           'NIFTY TOTAL MKT',
 }
 
 SECTORAL_INDICES = {
-    'Nifty Realty':                             '^CNXREALTY',
-    'Nifty Media':                              '^CNXMEDIA',
-    'Nifty MidSmall IT & Telecom':              'NIFTY_MS_IT.NS',
-    'NIFTY Consumer Durables':                  '^CNXCONSUM',
-    'Nifty Auto':                               '^CNXAUTO',
-    'Nifty Private Bank':                       'NIFTY_PVT_BANK.NS',
-    'Nifty Bank':                               '^NSEBANK',
-    'Nifty Financial Services':                 'NIFTY_FIN_SERVICE.NS',
-    'Nifty Financial Services 25/50':           'NIFTY_FIN_25_50.NS',
-    'Nifty IT':                                 '^CNXIT',
-    'Nifty MidSmall Healthcare':                'NIFTY_MS_HEALTH.NS',
-    'Nifty500 Healthcare':                      'NIFTY500_HEALTHCARE.NS',
-    'Nifty Pharma':                             '^CNXPHARMA',
-    'Nifty Healthcare Index':                   'PHARMABEES.NS',
-    'Nifty MidSmall Financial Services':        'NIFTY_MS_FIN.NS',
-    'Nifty Metal':                              '^CNXMETAL',
-    'Nifty Chemicals':                          'NIFTY_CHEMICALS.NS',
-    'Nifty Financial Services Ex- Bank':        'NIFTY_FIN_EX_BANK.NS',
-    'Nifty Oil & Gas':                          '^CNXENERGY',
-    'Nifty FMCG':                               '^CNXFMCG',
-    'Nifty PSU Bank':                           '^CNXPSUBANK',
+    'Nifty Auto':                   'NIFTY AUTO',
+    'Nifty Bank':                   'NSEBANK',
+    'Nifty Consumer Durables':      'NIFTY CONSR DURBL',
+    'Nifty FMCG':                   'NIFTY FMCG',
+    'Nifty Financial Services':     'CNXFIN',
+    'Nifty Healthcare':             'NIFTY HEALTHCARE',
+    'Nifty IT':                     'NIFTYIT',
+    'Nifty Media':                  'CNXMEDIA',
+    'Nifty Metal':                  'CNXMETAL',
+    'Nifty Oil & Gas':              'NIFTY OIL AND GAS',
+    'Nifty Pharma':                 'CNXPHARMA',
+    'Nifty Private Bank':           'NIFTY PVT BANK',
+    'Nifty PSU Bank':               'NIFTY PSU BANK',
+    'Nifty Realty':                 'CNXREALTY',
 }
 
 THEMATIC_INDICES = {
-    'Nifty India Internet':                     'NIFTY_INTERNET.NS',
-    'Nifty India Tourism':                      'NIFTY_TOURISM.NS',
-    'Nifty EV and New Age Automotive':          'AUTOBEES.NS',
-    'Nifty India New Age Consumption':          'NIFTY_NEWAGE_CONSUM.NS',
-    'Nifty Core Housing':                       'NIFTY_CORE_HOUSING.NS',
-    'NIFTY Transportation & Logistics':         'NIFTY_LOGISTICS.NS',
-    'Nifty MidSmall India Consumption':         'CONSUMBEES.NS',
-    'Nifty Mobility':                           'AUTOBEES.NS',
-    'Nifty India Digital':                      'NIFTY_DIGITAL.NS',
-    'Nifty India Consumption':                  '^CNXCONSUM',
-    'Nifty Non-Cyclical Consumer':              'FMCG.NS',
-    'Nifty 100 Liquid 15':                      '^CNX100',
-    'Nifty Services Sector':                    '^CNXSERVICE',
-    'Nifty IPO':                                'NIFTY_IPO.NS',
-    'Nifty India Defence':                      'NIFTY_DEFENCE.NS',
-    'Nifty Capital Market':                     'NIFTY_CAP_MARKETS.NS',
-    'Nifty Energy':                             '^CNXENERGY',
-    'Nifty Midcap Liquid 15':                   'MID150BEES.NS',
-    'Nifty India Infrastructure & Logistics':   'INFRABEES.NS',
-    'Nifty SME Emerge':                         'NIFTY_SME.NS',
-    'Nifty MNC':                                '^CNXMNC',
-    'Nifty500 Multicap India Manufacturing 50:30:20': 'NIFTY_MFG.NS',
-    'Nifty Commodities':                        '^CNXCMDT',
-    'Nifty500 Multicap Infrastructure 50:30:20 index':'INFRABEES.NS',
-    'Nifty India Manufacturing Index':          'NIFTY_MFG.NS',
-    'Nifty India Select 5 Corporate Groups (MAATR)':  'NIFTY_TATA.NS',
-    'Nifty Housing':                            '^CNXREALTY',
-    'Nifty Waves':                              '^CRSLDX',
-    'Nifty Infrastructure':                     '^CNXINFRA',
-    'Nifty Rural':                              '^CNXCONSUM',
-    'Nifty CPSE':                               'CPSEETF.NS',
-    'Nifty PSE':                                '^CNXPSE',
-    'Nifty Tata Group 25% Cap':                 'NIFTY_TATA.NS',
+    'Nifty Commodities':            'NIFTY COMMODITIES',
+    'Nifty CPSE':                   'NIFTYCPSE',
+    'Nifty Energy':                 'NIFTY ENERGY',
+    'Nifty Housing':                'NIFTY HOUSING',
+    'Nifty India Consumption':      'NIFTY CONSUMPTION',
+    'Nifty Infrastructure':         'NIFTYINFRA',
+    'Nifty MNC':                    'NIFTY MNC',
+    'Nifty PSE':                    'NIFTYPSE',
+    'Nifty Services Sector':        'NIFTY SERV SECTOR',
 }
 
 STRATEGY_INDICES = {
-    'NIFTY Alpha Low Volatility 30':            'ALPHALOWVOL.NS',
-    'Nifty Growth Sectors 15':                  'NIFTY_GROWTH_15.NS',
-    'Nifty 100 Low Volatility 30':              'LOWVOL.NS',
-    'Nifty500 Flexicap Quality 30':             'QUAL30.NS',
-    'NIFTY Quality Low-Volatility 30':          'QUAL30.NS',
-    'Nifty Top 10 Equal Weight':                'NIFTY_TOP10_EW.NS',
-    'Nifty50 USD':                              'NIFTYBEES.NS',
-    'Nifty Top 15 Equal Weight':                'NIFTY_TOP15_EW.NS',
-    'Nifty Top 20 Equal Weight':                'NIFTY_TOP20_EW.NS',
-    'Nifty High Beta 50':                       'HIGHBETA.NS',
-    'Nifty Smallcap250 Momentum Quality 100 Index': 'NIFTYSML250.NS',
-    'Nifty Alpha 50':                           'MOM100.NS',
-    'Nifty500 Equal Weight':                    'NIFTY500_EW.NS',
-    'Nifty MidSmallcap400 Momentum Quality 100 index': 'MID150BEES.NS',
-    'Nifty500 Quality 50':                      'QUAL30.NS',
-    'Nifty200 Alpha 30':                        'MOM30.NS',
-    'Nifty Total Market Momentum Quality 50':   'MOM100.NS',
-    'Nifty Midcap150 Quality 50':               'MID150BEES.NS',
-    'Nifty500 Momentum 50':                     'MOM100.NS',
-    'Nifty100 Equal Weight':                    'NIFTY100_EW.NS',
-    'Nifty500 Value 50':                        'NIFTY500_VAL.NS',
-    'Nifty Smallcap250 Quality 50':             'NIFTYSML250.NS',
-    'NIFTY Midcap150 Momentum 50':              'MID150BEES.NS',
-    'NIFTY Alpha Quality Low Volatility 30':    'MOM100.NS',
-    'NIFTY100 Alpha 30':                        'MOM30.NS',
-    'Nifty 50 Equal Weight':                    'NIFTY50_EW.NS',
-    'Nifty200 Momentum 30 Index':               'MOM30.NS',
-    'Nifty500 Multifactor MQVLv 50':            'MOM100.NS',
-    'NIFTY200 Quality 30':                      'QUAL30.NS',
-    'Nifty Low Volatility 50':                  'LOWVOL.NS',
-    'NIFTY100 Quality 30':                      'QUAL30.NS',
-    'Nifty500 Low Volatility 50':               'LOWVOL.NS',
-    'NIFTY Alpha Quality Value Low-Volatility 30': 'ALPHALOWVOL.NS',
-    'Nifty200 Value 30':                        'NIFTY200_VAL.NS',
-    'Nifty Dividend Opportunities 50':          'DIVOPP.NS',
-    'Nifty50 Value 20':                         'NIFTY50_VAL.NS',
+    'Nifty 100 Alpha 30':           'NIFTY100 ALPHA 30',
+    'Nifty 200 Alpha 30':           'NIFTY200 ALPHA 30',
+    'Nifty 100 Low Volatility 30':  'NIFTY100 LOW VOLATILITY 30',
+    'Nifty Quality 30':             'NIFTY200 QUALTY30',
+    'Nifty Midcap 150 Quality 50':  'NIFTY M150 QLTY50',
+    'Nifty Div Opp 50':             'NIFTY DIV OPPS 50',
+    'Nifty50 Value 20':             'NIFTY50 VALUE 20',
 }
 
-# Every display-name -> declared-ticker mapping in one place. Used by the dedup
-# in compute_universe_rrg to answer "is this series actually THIS index, or did
-# the fallback chain hand us someone else's?".
+# Every display-name -> Dhan-symbol pairing in one place, used by the dedup in
+# compute_universe_rrg to answer "is this series actually THIS index?".
 _ALL_INDEX_TICKERS: Dict[str, str] = {}
 for _d in (BROAD_MARKET_INDICES, SECTORAL_INDICES, THEMATIC_INDICES, STRATEGY_INDICES):
     _ALL_INDEX_TICKERS.update(_d)
 
-# Candidate Fallbacks for resilient downloading
-INDEX_FALLBACK_CANDIDATES = {
-    'MON100.NS': ['^CRSLDX', '^NSEI'],
-    'NIFTYSML250.NS': ['^CNXSC', '^CRSLDX'],
-    'NIFTY_SMALLCAP_250.NS': ['^CNXSC', '^CRSLDX'],
-    'MIDCPNIFTY.NS': ['MID150BEES.NS', '^NSEMDCP50', '^NSEI'],
-    'MIDSMALL400.NS': ['MID150BEES.NS', '^NSEMDCP50', '^CNXSC'],
-    'NIFTY500_LMS_EQCAP.NS': ['^CRSLDX', '^CNX200'],
-    'NIFTY500_MULTICAP.NS': ['^CRSLDX', '^CNX200'],
-    'NIFTY_LARGEMID_250.NS': ['^CNX200', '^CNX100'],
-    'SETFNN50.NS': ['JUNIORBEES.NS', '^CRSLDX'],
-    'NIFTY_FPI_150.NS': ['^CNX100', '^NSEI'],
-    'NIFTY_MS_IT.NS': ['^CNXIT', 'ITBEES.NS'],
-    'NIFTY_FIN_SERVICE.NS': ['^NSEBANK', '^NSEI'],
-    'NIFTY_FIN_25_50.NS': ['NIFTY_FIN_SERVICE.NS', '^NSEBANK'],
-    'NIFTY_MS_HEALTH.NS': ['PHARMABEES.NS', '^CNXPHARMA'],
-    'NIFTY500_HEALTHCARE.NS': ['^CNXPHARMA', 'PHARMABEES.NS'],
-    'NIFTY_MS_FIN.NS': ['NIFTY_FIN_SERVICE.NS', '^NSEBANK'],
-    'NIFTY_CHEMICALS.NS': ['TATACHEM.NS', '^CNXCMDT'],
-    'NIFTY_FIN_EX_BANK.NS': ['NIFTY_FIN_SERVICE.NS', '^NSEI'],
-    'NIFTY_INTERNET.NS': ['NAUKRI.NS', '^CNXIT'],
-    'NIFTY_TOURISM.NS': ['INDHOTEL.NS', '^CNXCONSUM'],
-    'NIFTY_NEWAGE_CONSUM.NS': ['CONSUMBEES.NS', '^CNXCONSUM'],
-    'NIFTY_CORE_HOUSING.NS': ['^CNXREALTY', 'DLF.NS'],
-    'NIFTY_LOGISTICS.NS': ['INFRABEES.NS', '^CNXINFRA'],
-    'FMCG.NS': ['^CNXFMCG', 'HINDUNILVR.NS'],
-    'NIFTY_IPO.NS': ['^CRSLDX', '^NSEI'],
-    'NIFTY_DEFENCE.NS': ['HAL.NS', 'BEL.NS'],
-    'NIFTY_CAP_MARKETS.NS': ['BSE.NS', 'HDFCAMC.NS'],
-    'NIFTY_SME.NS': ['^CNXSC', '^CRSLDX'],
-    'NIFTY_MFG.NS': ['^CNXAUTO', '^CRSLDX'],
-    'NIFTY_TATA.NS': ['TCS.NS', 'TATAMOTORS.NS'],
-    'ALPHALOWVOL.NS': ['MOM100.NS', '^CNX100'],
-    'NIFTY_GROWTH_15.NS': ['^NSEI', '^CNX100'],
-    'LOWVOL.NS': ['^CNX100', '^NSEI'],
-    'QUAL30.NS': ['^CNX100', '^NSEI'],
-    'NIFTY_TOP10_EW.NS': ['^NSEI', '^CNX100'],
-    'NIFTYBEES.NS': ['^NSEI'],
-    'NIFTY_TOP15_EW.NS': ['^NSEI', '^CNX100'],
-    'NIFTY_TOP20_EW.NS': ['^NSEI', '^CNX100'],
-    'HIGHBETA.NS': ['^CRSLDX', '^NSEBANK'],
-    'MOM100.NS': ['^CNX100', '^NSEI'],
-    'NIFTY500_EW.NS': ['^CRSLDX', '^CNX200'],
-    'MOM30.NS': ['^CNX200', '^CNX100'],
-    'NIFTY100_EW.NS': ['^CNX100', '^NSEI'],
-    'NIFTY500_VAL.NS': ['^CRSLDX', '^CNX200'],
-    'NIFTY50_EW.NS': ['^NSEI'],
-    'NIFTY200_VAL.NS': ['^CNX200', '^CNX100'],
-    'DIVOPP.NS': ['^CNX100', '^NSEI'],
-    'NIFTY50_VAL.NS': ['^NSEI'],
-}
+# INDEX_FALLBACK_CANDIDATES deleted 17-Aug-2026 — see the note above. Kept as an
+# empty dict so any stale reference degrades to "no fallback" instead of raising.
+INDEX_FALLBACK_CANDIDATES: Dict[str, List[str]] = {}
 
-# Unified Benchmark Dictionary for Dropdown Selection
+# Benchmarks offered in the dropdown. Same Dhan symbols; a benchmark that cannot
+# be fetched is worse than one fewer choice, so only verified names appear.
 ALL_BENCHMARK_INDICES = {
-    'Nifty 500 (^CRSLDX)':        '^CRSLDX',
-    'Nifty 50 (^NSEI)':           '^NSEI',
-    'Nifty Next 50 (JUNIORBEES)': 'JUNIORBEES.NS',
-    'Nifty Midcap 150 (MID150BEES)': 'MID150BEES.NS',
-    'Nifty Bank (^NSEBANK)':      '^NSEBANK',
-    'Nifty Auto (^CNXAUTO)':      '^CNXAUTO',
-    'Nifty Financial Services (NIFTY_FIN_SERVICE.NS)': 'NIFTY_FIN_SERVICE.NS',
-    'Nifty FMCG (^CNXFMCG)':      '^CNXFMCG',
-    'Nifty IT (^CNXIT)':          '^CNXIT',
-    'Nifty Media (^CNXMEDIA)':    '^CNXMEDIA',
-    'Nifty Metal (^CNXMETAL)':    '^CNXMETAL',
-    'Nifty Pharma (^CNXPHARMA)':  '^CNXPHARMA',
-    'Nifty PSU Bank (^CNXPSUBANK)': '^CNXPSUBANK',
-    'Nifty Private Bank (NIFTY_PVT_BANK.NS)': 'NIFTY_PVT_BANK.NS',
-    'Nifty Realty (^CNXREALTY)':  '^CNXREALTY',
-    'Nifty Consumer Durables (^CNXCONSUM)': '^CNXCONSUM',
-    'Nifty Energy (^CNXENERGY)':  '^CNXENERGY',
-    'Nifty Commodities (^CNXCMDT)': '^CNXCMDT',
-    'Nifty Infrastructure (^CNXINFRA)': '^CNXINFRA',
-    'Nifty Services Sector (^CNXSERVICE)': '^CNXSERVICE',
-    'Nifty CPSE (CPSEETF.NS)':    'CPSEETF.NS',
-    'Nifty PSE (^CNXPSE)':        '^CNXPSE',
-    'Nifty MNC (^CNXMNC)':        '^CNXMNC',
-    'Bharat 22 (ICICIB22.NS)':    'ICICIB22.NS',
-    'Capital Goods & Defense (BSE:CG)': 'BSE:CG',
+    'Nifty 500 (broadest)':         'NIFTY 500',
+    'Nifty Total Market':           'NIFTY TOTAL MKT',
+    'Nifty 50':                     'NIFTY',
+    'Nifty 100':                    'NIFTY 100',
+    'Nifty 200':                    'NIFTY 200',
+    'Nifty Next 50':                'NIFTYNXT50',
+    'Nifty Midcap 150':             'NIFTY MIDCAP 150',
+    'Nifty Smallcap 250':           'NIFTY SMALLCAP 250',
+    'Nifty Microcap 250':           'NIFTY MICROCAP250',
+    'Nifty Bank':                   'NSEBANK',
+    'Nifty Financial Services':     'CNXFIN',
+    'Nifty IT':                     'NIFTYIT',
+    'Nifty Auto':                   'NIFTY AUTO',
+    'Nifty Pharma':                 'CNXPHARMA',
+    'Nifty FMCG':                   'NIFTY FMCG',
+    'Nifty Metal':                  'CNXMETAL',
+    'Nifty Energy':                 'NIFTY ENERGY',
+    'Nifty Realty':                 'CNXREALTY',
 }
 
 # Legacy SECTOR_INDICES alias
@@ -307,27 +222,22 @@ def load_universe_data(symbols: tuple, period: str = "1y", interval: str = "1wk"
             data_map[sym.replace('.NS', '').replace('^', '')] = _df
             prov[sym] = _src
 
-        # 1. Try primary ticker
+        # ONE ATTEMPT, NO SUBSTITUTES (17-Aug). There used to be a second pass here
+        # that, on failure, walked INDEX_FALLBACK_CANDIDATES and finally
+        # ['^CRSLDX', '^NSEI'] — so a name that could not be fetched was drawn
+        # using the BENCHMARK's data under its own label. Now every symbol is a
+        # verified Dhan index, and a miss is left as a miss: the symbol simply does
+        # not enter data_map, compute_universe_rrg reports it under "collapsed",
+        # and the UI says how many of the requested names were plotted.
         try:
             df = dp.fetch_ohlcv(ticker, period=period, interval=interval, auto_adjust=True, use_cache=True)
             if df is not None and not df.empty and 'Close' in df.columns:
                 _store(df, ticker)
                 success = True
         except Exception as exc:
-            logger.debug("load_universe_data: %s (%s) primary failed: %s", sym, ticker, exc)
-
-        # 2. Try candidate fallbacks if primary failed
+            logger.debug("load_universe_data: %s (%s) failed: %s", sym, ticker, exc)
         if not success:
-            fallbacks = INDEX_FALLBACK_CANDIDATES.get(ticker, []) or INDEX_FALLBACK_CANDIDATES.get(sym, []) or ['^CRSLDX', '^NSEI']
-            for fb_sym in fallbacks:
-                try:
-                    df = dp.fetch_ohlcv(fb_sym, period=period, interval=interval, auto_adjust=True, use_cache=True)
-                    if df is not None and not df.empty and 'Close' in df.columns:
-                        _store(df, fb_sym)
-                        success = True
-                        break
-                except Exception:
-                    pass
+            logger.warning("load_universe_data: no data for %s (%s) — not plotted", sym, ticker)
 
     data_map["__source__"] = prov
     return data_map
@@ -474,91 +384,82 @@ def get_all_universe_options() -> Dict[str, Dict[str, Any]]:
 
     # Category 1: 18 Broad Market Indices
     broad_syms = list(BROAD_MARKET_INDICES.keys())
-    options[f"🌍 18 Broad Market Indices"] = {
+    options[f"🌍 Broad Market ({len(broad_syms)})"] = {
         "category": "Broad Market",
-        "benchmark": "^CRSLDX",
+        "benchmark": "NIFTY 500",
         "symbols": broad_syms
     }
 
     # Category 2: 21 Sectoral Indices
     sec_syms = list(SECTORAL_INDICES.keys())
-    options[f"🏭 21 Sectoral Indices"] = {
+    options[f"🏭 Sectoral ({len(sec_syms)})"] = {
         "category": "Sectoral",
-        "benchmark": "^CRSLDX",
+        "benchmark": "NIFTY 500",
         "symbols": sec_syms
     }
 
     # Category 3: 33 Thematic Indices
     them_syms = list(THEMATIC_INDICES.keys())
-    options[f"💡 33 Thematic Indices"] = {
+    options[f"💡 Thematic ({len(them_syms)})"] = {
         "category": "Thematic",
-        "benchmark": "^CRSLDX",
+        "benchmark": "NIFTY 500",
         "symbols": them_syms
     }
 
     # Category 4: 36 Strategy Indices
     strat_syms = list(STRATEGY_INDICES.keys())
-    options[f"⚡ 36 Strategy Indices"] = {
+    options[f"⚡ Strategy ({len(strat_syms)})"] = {
         "category": "Strategy",
-        "benchmark": "^CRSLDX",
+        "benchmark": "NIFTY 500",
         "symbols": strat_syms
     }
 
-    # Category 5: Intra-Sector Drilldowns (Constituent Stocks)
-    db_sectors = get_all_sectors_from_db()
-    for sec_name, data in db_sectors.items():
-        if data["stocks"]:
-            bench = data["yf_ticker"] if data["yf_ticker"] else "^CRSLDX"
-            options[f"🔍 Sector: {sec_name} ({len(data['stocks'])} stocks)"] = {
-                "category": "Sector Drilldown",
-                "benchmark": bench,
-                "symbols": [s + ".NS" for s in data["stocks"]]
-            }
+    # Category 5: DRILL-DOWN — the real constituents of each of the 43 indices,
+    # benchmarked against THAT index (17-Aug-2026).
+    #
+    # Replaces two blocks. The old "Sector Drilldown" read sectors.db, whose
+    # membership is our own bookkeeping rather than NSE's. The old "Index
+    # Drilldown" was worse: it sliced nifty500_symbols.json BY POSITION —
+    # [:50] labelled "Nifty 50", [50:100] "Nifty Next 50", [100:200] "Nifty
+    # Midcap 100" — which assumes that file is ordered by market cap in exactly
+    # those bands. It is not, so those three universes listed the wrong stocks
+    # under real index names, and benchmarked them against ETF proxies.
+    #
+    # Now sourced from nse_indices_constituents.json, generated from the NSE
+    # master list (43 indices, 3,314 memberships). Symbols are passed bare: the
+    # Dhan feed wants NSE symbols, and the ".NS" suffix the old code appended is
+    # yfinance syntax left over from when this ran on yfinance.
+    _members = {}
+    for _p in (os.path.join(STUDIO_DIR, "nse_indices_constituents.json"),
+               os.path.join(PARENT_DIR, "nse_indices_constituents.json")):
+        if os.path.exists(_p):
+            try:
+                with open(_p, "r", encoding="utf-8") as f:
+                    _members = json.load(f)
+                break
+            except Exception as e:
+                logger.warning("constituents load failed (%s): %s", _p, e)
 
-    # Category 6: Broad Index Constituents Drilldowns
-    n500_path = os.path.join(PARENT_DIR, "nifty500_symbols.json")
-    if os.path.exists(n500_path):
-        try:
-            with open(n500_path, "r", encoding="utf-8") as f:
-                n500_stocks = json.load(f)
-                if n500_stocks:
-                    options[f"🔍 Index: Nifty 500 ({len(n500_stocks)} stocks)"] = {
-                        "category": "Index Drilldown",
-                        "benchmark": "^CRSLDX",
-                        "symbols": [s + ".NS" for s in n500_stocks]
-                    }
-                    options["🔍 Index: Nifty 50 (50 stocks)"] = {
-                        "category": "Index Drilldown",
-                        "benchmark": "^NSEI",
-                        "symbols": [s + ".NS" for s in n500_stocks[:50]]
-                    }
-                    if len(n500_stocks) >= 100:
-                        options["🔍 Index: Nifty Next 50 (50 stocks)"] = {
-                            "category": "Index Drilldown",
-                            "benchmark": "JUNIORBEES.NS",
-                            "symbols": [s + ".NS" for s in n500_stocks[50:100]]
-                        }
-                    if len(n500_stocks) >= 250:
-                        options["🔍 Index: Nifty Midcap 100 (100 stocks)"] = {
-                            "category": "Index Drilldown",
-                            "benchmark": "MID150BEES.NS",
-                            "symbols": [s + ".NS" for s in n500_stocks[100:200]]
-                        }
-                        options["🔍 Index: Nifty Smallcap 100 (100 stocks)"] = {
-                            "category": "Index Drilldown",
-                            "benchmark": "NIFTY_SMALLCAP_250.NS",
-                            "symbols": [s + ".NS" for s in n500_stocks[200:300]]
-                        }
-        except Exception:
-            pass
+    for _idx_name, _stocks in sorted(_members.items()):
+        if not _stocks:
+            continue
+        _own = _ALL_INDEX_TICKERS.get(_idx_name)
+        options[f"🔍 {_idx_name} constituents ({len(_stocks)})"] = {
+            "category": "Index Drilldown",
+            # Benchmark against the index the stocks BELONG to — that is the
+            # question a drill-down answers ("who leads inside this index?").
+            # Falls back to the broadest available index, never to a proxy ETF.
+            "benchmark": _own or "NIFTY 500",
+            "symbols": list(_stocks),
+        }
 
     # Category 7: Commander Screeners
     gen_wl = get_latest_generated_watchlists()
     for s_name, stocks in gen_wl.items():
         options[f"⚡ {s_name} ({len(stocks)} stocks)"] = {
             "category": "Screeners",
-            "benchmark": "^CRSLDX",
-            "symbols": [s + ".NS" for s in stocks]
+            "benchmark": "NIFTY 500",
+            "symbols": list(stocks)
         }
 
     # Category 8: Custom Watchlists
@@ -566,8 +467,8 @@ def get_all_universe_options() -> Dict[str, Dict[str, Any]]:
     for c_name, stocks in custom_wl.items():
         options[f"💼 {c_name} ({len(stocks)} stocks)"] = {
             "category": "Custom",
-            "benchmark": "^CRSLDX",
-            "symbols": [s + ".NS" for s in stocks]
+            "benchmark": "NIFTY 500",
+            "symbols": list(stocks)
         }
     return options
 
@@ -817,7 +718,7 @@ def compute_rrg_info(
 
 def compute_universe_rrg(
     data_dict: Dict[str, pd.DataFrame],
-    benchmark_symbol: str = "^CRSLDX",
+    benchmark_symbol: str = "NIFTY 500",
     active_symbols: Optional[List[str]] = None,
     jdk_length: int = 12,
     smooth_length: int = 5,
