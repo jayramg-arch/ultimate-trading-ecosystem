@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.20]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.21]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -748,9 +748,9 @@ p2_date = input.time(timestamp("2026-04-16"), title="Date", group=grpP1_5, inlin
 
 p3_tick = input.string("NSE:ANANDRATHI", title="Slot 3", group=grpP1_5, inline="p3", display=display.data_window)
 p3_ent  = input.float(1787.7797, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
-p3_sl   = input.price(1895.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
+p3_sl   = input.price(2071.4, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
 p3_tsl  = input.price(0.0, title="Trail SL", group=grpP1_5, inline="p3", display=display.data_window)
-p3_t1   = input.price(2336.2, title="T1", group=grpP1_5, inline="p3t", display=display.data_window)
+p3_t1   = input.price(2541.2, title="T1", group=grpP1_5, inline="p3t", display=display.data_window)
 p3_t2   = input.price(2471.1, title="T2", group=grpP1_5, inline="p3t", display=display.data_window)
 p3_sec  = input.string("Financial Services", title="Sector", group=grpP1_5, inline="p3s", display=display.data_window)
 p3_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP1_5, inline="p3d", display=display.data_window)
@@ -786,16 +786,16 @@ p6_sec  = input.string("Nifty IT", title="Sector", group=grpP6_10, inline="p6s",
 p6_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p6d", display=display.data_window)
 
 p7_tick = input.string("NSE:CAPLIPOINT", title="Slot 7", group=grpP6_10, inline="p7", display=display.data_window)
-p7_ent  = input.float(2511.5742, title="Entry", group=grpP6_10, inline="p7", display=display.data_window)
-p7_sl   = input.price(2171.5, title="SL", group=grpP6_10, inline="p7", display=display.data_window)
+p7_ent  = input.float(2414.4526, title="Entry", group=grpP6_10, inline="p7", display=display.data_window)
+p7_sl   = input.price(2305.5, title="SL", group=grpP6_10, inline="p7", display=display.data_window)
 p7_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p7", display=display.data_window)
-p7_t1   = input.price(2998.5, title="T1", group=grpP6_10, inline="p7t", display=display.data_window)
+p7_t1   = input.price(2899.5, title="T1", group=grpP6_10, inline="p7t", display=display.data_window)
 p7_t2   = input.price(2998.5, title="T2", group=grpP6_10, inline="p7t", display=display.data_window)
 p7_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p7s", display=display.data_window)
 p7_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p7d", display=display.data_window)
 
 p8_tick = input.string("NSE:VIJAYA", title="Slot 8", group=grpP6_10, inline="p8", display=display.data_window)
-p8_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
+p8_ent  = input.float(1275.1935, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
 p8_sl   = input.price(1275.5, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
 p8_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p8", display=display.data_window)
 p8_t1   = input.price(1628.8, title="T1", group=grpP6_10, inline="p8t", display=display.data_window)
@@ -814,10 +814,10 @@ p9_date = input.time(0, title="Date", group=grpP6_10, inline="p9d", display=disp
 
 p10_tick = input.string("NSE:APOLLOHOSP", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
 p10_ent  = input.float(8876.228, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
-p10_sl   = input.price(8370.5, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
+p10_sl   = input.price(8599.5, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
 p10_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p10", display=display.data_window)
-p10_t1   = input.price(9896.5, title="T1", group=grpP6_10, inline="p10t", display=display.data_window)
-p10_t2   = input.price(10407.5, title="T2", group=grpP6_10, inline="p10t", display=display.data_window)
+p10_t1   = input.price(9886.5, title="T1", group=grpP6_10, inline="p10t", display=display.data_window)
+p10_t2   = input.price(10898.5, title="T2", group=grpP6_10, inline="p10t", display=display.data_window)
 p10_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p10s", display=display.data_window)
 p10_date = input.time(0, title="Date", group=grpP6_10, inline="p10d", display=display.data_window)
 
@@ -825,7 +825,7 @@ p10_date = input.time(0, title="Date", group=grpP6_10, inline="p10d", display=di
 // --- GROUP 3: SLOTS 11-15 ---
 grpP11_15 = "3. Portfolio Slots 11-15"
 p11_tick = input.string("NSE:SONACOMS", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
-p11_ent  = input.float(799.8, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
+p11_ent  = input.float(770.11084, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
 p11_sl   = input.price(652.2, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
 p11_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p11", display=display.data_window)
 p11_t1   = input.price(850.5, title="T1", group=grpP11_15, inline="p11t", display=display.data_window)
@@ -872,13 +872,13 @@ p15_date = input.time(timestamp("2026-08-12"), title="Date", group=grpP11_15, in
 
 // --- GROUP 4: SLOTS 16-20 ---
 grpP16_20 = "4. Portfolio Slots 16-20"
-p16_tick = input.string("", title="Slot 16", group=grpP16_20, inline="p16", display=display.data_window)
-p16_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
+p16_tick = input.string("NSE:IKS", title="Slot 16", group=grpP16_20, inline="p16", display=display.data_window)
+p16_ent  = input.float(1843.5, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
 p16_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p16", display=display.data_window)
 p16_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p16", display=display.data_window)
 p16_t1   = input.price(0.0, title="T1", group=grpP16_20, inline="p16t", display=display.data_window)
 p16_t2   = input.price(0.0, title="T2", group=grpP16_20, inline="p16t", display=display.data_window)
-p16_sec  = input.string("NSE:CNX500", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
+p16_sec  = input.string("Pharma", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
 p16_date = input.time(0, title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
 
 p17_tick = input.string("", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
@@ -4097,8 +4097,15 @@ f_canonical_ce_mult(string _cat, bool _bull) =>
         _m := _m + 0.5
     _m
 
-[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.ema(ta.tr, 22)], lookahead=barmerge.lookahead_off)
-[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.ema(ta.tr, 14)], lookahead=barmerge.lookahead_off)
+// ATR = WILDER (17-Aug). Was ta.ema(ta.tr, n) — alpha 2/(n+1) ≈ 0.087 at n=22 —
+// while risk_common.chandelier_exit uses tr.ewm(alpha=1/n) ≈ 0.045, i.e. Wilder's
+// RMA, which is what ta.atr() is and what the Chandelier Exit is defined on.
+// Measured effect is small (0.02–1.43% of LTP across four live holdings), so this
+// is NOT the source of the Risk-Shield-vs-chart gap — see the multiplier note
+// below, which moves the level by up to 13% — but a block titled "Canonical
+// Risk Shield Parity" should not carry a second ATR definition.
+[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.rma(ta.tr(true), 22)], lookahead=barmerge.lookahead_off)
+[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.rma(ta.tr(true), 14)], lookahead=barmerge.lookahead_off)
 
 // isBullMarket used to be assigned only INSIDE `if tradeActive`, but the
 // Chandelier multiplier needs it and market regime does not depend on whether
@@ -4106,7 +4113,20 @@ f_canonical_ce_mult(string _cat, bool _bull) =>
 // (same expression, same value) so nothing downstream changes.
 isBullMarket := str.contains(mktState, "BULLISH")
 
-string _active_cat_raw   = persistCat != "NONE" ? persistCat : chartCat
+// THE STOP MULTIPLIER IS ENTRY-FIXED (17-Aug). This was
+//     persistCat != "NONE" ? persistCat : chartCat
+// so any slot without a stored catalyst took TODAY'S chart detection — and
+// chartCat is recomputed every bar. That is the one thing the trade-type ladder
+// (risk_common.resolve_trade_type) exists to prevent: a chart classifier is
+// non-stationary, so the trail multiplier could flip 4.5x <-> 1.5x mid-trade and
+// the plotted stop would jump with it. It is also the measured cause of the
+// "Risk Shield and TradingView are quite different" report: on SAILIFE, POS 22b
+// x4.5 puts the Chandelier at 1265.90 and SWG 14b x1.5 at 1395.06 — a 129-rupee,
+// 8.9%-of-LTP gap, versus 0.85% from the ATR method. Python reads the JOURNAL
+// setup (entry-fixed); Pine now reads persistCat (its entry-fixed analogue) and
+// falls to the positional default when the slot has none — matching Python's
+// final rung — instead of asking the chart.
+string _active_cat_raw   = persistCat
 string _active_cat_safe  = na(_active_cat_raw) ? "" : _active_cat_raw
 bool   _is_swg_trade     = str.startswith(_active_cat_safe, "SWG")
 float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
@@ -5279,20 +5299,28 @@ float t2_val = finalT2 > 0 ? finalT2 : finalEntry + (risk_per_share * dyn_T2_R)
 
 // PLOTS (Continuous Lines for History)
 // Fix: Simplified condition to 'tradeActive' to restore draggability (TV requires plot series to be linked to inputs consistently)
-color entryColor = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.blue, 0) : color.new(color.blue, 100)
-color slColor    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.red, 0) : color.new(color.red, 100)
-color t1Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 30) : color.new(color.green, 100)
-color t2Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 50) : color.new(color.green, 100)
+// DISTINGUISHED FROM S4's PLAN LINES (17-Aug, Jay: "the Algo levels are clashing
+// with the entries from S4 Entry Trigger"). These four are the v67 SLOT record —
+// the trade as booked — while S4 draws the LIVE plan for a trade not yet taken.
+// Two sets of Entry/SL/T1/T2 in the same colours on one chart is unreadable, and
+// the two answer different questions, so they should not look alike.
+// Made RECESSIVE rather than removed: v67's are the record, S4's are the decision.
+// Titles carry an "ALGO" prefix so the legend and Data Window name the owner.
+// Transparency only — no new plots (v67 has already hit the 64-plot ceiling once).
+color entryColor = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.blue, 45) : color.new(color.blue, 100)
+color slColor    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.red, 45) : color.new(color.red, 100)
+color t1Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 60) : color.new(color.green, 100)
+color t2Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 70) : color.new(color.green, 100)
 
-plot(showTrade and finalEntry > 0 ? finalEntry : na, "Entry Price", color=entryColor, style=plot.style_linebr, linewidth=1)
-plot(showTrade and tradeActive ? visualSL : na, "Hard SL (Trail)", color=slColor, style=plot.style_linebr, linewidth=1)
-plot(showTrade and tradeActive and finalSL > 0 and finalT1 > 0 ? t1_val : na, "Target 1", color=t1Color, style=plot.style_linebr, linewidth=1)
-plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "Target 2", color=t2Color, style=plot.style_linebr, linewidth=1)
+plot(showTrade and finalEntry > 0 ? finalEntry : na, "ALGO Entry (v67 slot)", color=entryColor, style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive ? visualSL : na, "ALGO Hard SL (v67 slot)", color=slColor, style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 and finalT1 > 0 ? t1_val : na, "ALGO T1 (v67 slot)", color=t1Color, style=plot.style_linebr, linewidth=1)
+plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "ALGO T2 (v67 slot)", color=t2Color, style=plot.style_linebr, linewidth=1)
 
 // --- Native Chandelier Exit: computation MOVED above the portfolio-slot block
 // (it is consumed by the pyramid ladder, which must run before the panel is
 // drawn). Only the plot stays here.
-plot(showTrade ? ce_trailing_stop : na, "Canonical Chandelier TSL", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
+plot(showTrade ? ce_trailing_stop : na, "ALGO Chandelier TSL (v67)", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
 
 // --- Pyramid ADD levels on the chart (12-Aug-2026) --------------------------
 // The ladder's ADD rung needs price BETWEEN two lines: at/above the 20-EMA (the

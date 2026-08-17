@@ -257,7 +257,12 @@ def _live_oco_sl_legs(dhan):
             continue
         leg = (g.get("legName", "") or "").upper()
         ot = (g.get("orderType", "") or "").upper()
-        if not ((ot == "OCO") or leg in ("STOP_LOSS_LEG", "TARGET_LEG")):
+        # SINGLE included (17-Aug): run_cover_pass places SL-only GTTs over the
+        # shares no OCO covers, and those must join the trail schedule or the
+        # runner's stop would be created once and then never move — the exact
+        # failure the trail pass exists to prevent. A SINGLE sell GTT with no
+        # target leg is classified by the trigger<price test below.
+        if not ((ot in ("OCO", "SINGLE")) or leg in ("STOP_LOSS_LEG", "TARGET_LEG")):
             continue
         sym = str(g.get("tradingSymbol", "")).upper().replace("NSE:", "").replace("-EQ", "")
         trigger = float(g.get("triggerPrice", 0) or 0)
@@ -280,6 +285,201 @@ def _live_oco_sl_legs(dhan):
                                             "sl_trigger": trigger,
                                             "sl_qty": int(float(g.get("quantity", 0) or 0))})
     return out
+
+
+def _chandelier_for(sym: str, j: dict, bear: bool):
+    """ONE Chandelier computation, shared by the trail and cover passes.
+
+    Extracted 17-Aug after the cover pass — written as a separate copy of the same
+    six lines — silently diverged from the trail pass in FOUR ways, every one of
+    which degraded quietly instead of raising:
+      * `above200` was never computed, so it took the default True and the multiplier
+        was pinned to the 4.5 above-200-DMA branch no matter where price sat
+        relative to its 200-DMA. This is what made all six heuristic rows print
+        "heuristic-above200" while SONACOMS (which reaches the catalyst branch) printed
+        the bear-adjusted 5.0 — the two rungs looked inconsistent because one of them
+        was reading a hard-coded default, not a measurement.
+      * `custom_mult` was read as `custom_ce_mult` — the DB column name, not the key
+        load_journal_data() maps it to — so a hand-set multiplier was always ignored.
+      * `swing` was read from a non-existent "swing" key instead of being derived from
+        `timeframe`, so the 14/22-bar clock never engaged.
+      * no MultiIndex flatten on the frame.
+    Two callers, one formula, one place to be wrong. Returns None when the symbol
+    cannot be computed (caller decides how loudly to say so).
+    """
+    import data_provider as _dpm
+    from risk_common import chandelier_exit
+    df = _dpm.fetch_ohlcv(sym, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+    if df is None or len(df) < 22:
+        return None
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    c, h, l = df["Close"], df["High"], df["Low"]
+    ltp = float(c.iloc[-1])
+    above200 = bool(len(c) >= 200 and ltp > float(c.rolling(200).mean().iloc[-1]))
+    _cm = j.get("custom_mult")
+    _cm = float(_cm) if (_cm is not None and not pd.isna(_cm) and float(_cm) > 0) else None
+    _tfj = str(j.get("timeframe") or "").lower()
+    _swing = True if "swing" in _tfj else (False if "pos" in _tfj else None)
+    ce, mult, src = chandelier_exit(h, l, c, setup=str(j.get("setup") or ""),
+                                    bear=bear, custom_mult=_cm,
+                                    above200=above200, swing=_swing)
+    if ce is None:
+        return None
+    return {"ce": float(ce), "mult": float(mult), "src": str(src),
+            "ltp": ltp, "above200": above200}
+
+
+def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
+    """Place a SINGLE-leg SL GTT over the shares no OCO covers.
+
+    WHY (Jay, 17-Aug-2026): partial_qty_for returns 25/25 for POS, so the two OCO
+    legs protect 50% of the position and "half rides the trail uncapped". But the
+    trail only exists as an SL leg on a resting order — `run_trail_pass` MODIFIES
+    existing legs, it never creates one. So the uncapped half rides nothing at the
+    broker: on a gap-down the OCOs sell 50% and the rest is naked. His words: "what's
+    the point in leaving 50% qty, if the SL is already hit? Earlier I was selling all
+    the quantity if the SL is hit."
+
+    Option (b) of the two he was offered: keep the runner, but give it a real stop.
+    A third SL-only GTT at the same Chandelier level means an SL event exits the FULL
+    position (all legs fire together), while on the way up the runner is still
+    uncapped — no target on this leg. The 25/25 split and the T1/T2 policy are
+    untouched; 88% of POS exits are on the trail and that evidence stands.
+
+    DRY-RUN BY DEFAULT. This is the only function here that CREATES orders, so it
+    prints the plan and places nothing unless called with dry_run=False.
+    """
+    print("=" * 60)
+    print("🛡️ GTT AUTO-SHIELD — COVER PASS (naked shares → SL-only GTT)")
+    print("=" * 60)
+    log.info("cover pass start (dry_run=%s)", dry_run)
+
+    dhan = connect_dhan()
+    if not dhan:
+        return
+    try:
+        _fl = dhan.get_fund_limits()
+        if not (isinstance(_fl, dict) and _fl.get("status") == "success"):
+            print(f"❌ Token/API check failed — aborting: {_fl}")
+            return
+    except Exception as e:
+        print(f"❌ Token/API check exception — aborting: {e}")
+        return
+
+    # HELD quantities, from the broker (authoritative). An empty book is an API
+    # hiccup, never "all sold" — same guard journal_sync uses.
+    try:
+        h = dhan.get_holdings()
+        rows = (h or {}).get("data") or []
+    except Exception as e:
+        print(f"❌ Holdings fetch failed — aborting: {e}")
+        return
+    if not rows:
+        print("❌ Holdings came back EMPTY — refusing to act (API hiccup, not a flat book).")
+        log.error("cover: empty holdings, aborted")
+        return
+
+    held = {}
+    for r in rows:
+        s = str(r.get("tradingSymbol") or "").upper()
+        q = int(float(r.get("totalQty") or r.get("availableQty") or 0))
+        if s and q > 0 and not s.startswith("LIQUID"):     # cash park is not a trade
+            held[s] = held.get(s, 0) + q
+
+    legs = _live_oco_sl_legs(dhan)
+    if legs is None:
+        return
+
+    journal = load_journal_data()
+    bear = False
+    try:
+        import market_regime as _mr
+        bear = float((_mr.compute_regime(persist=False) or {}).get("score", 10)) <= 5
+    except Exception as e:
+        log.warning(f"cover: regime unavailable (bear=False): {e}")
+
+    import data_provider as _dp
+    from risk_common import chandelier_exit
+
+    plan = []
+    for sym, qty in sorted(held.items()):
+        covered = sum(int(l.get("sl_qty") or 0) for l in legs.get(sym, []))
+        naked = qty - covered
+        if naked <= 0:
+            continue
+        j = journal.get(sym, {})
+        try:
+            _r = _chandelier_for(sym, j, bear)
+        except Exception as e:
+            print(f"   ⚠️  {sym}: Chandelier failed ({e}) — SKIPPED")
+            continue
+        if _r is None:
+            print(f"   ⚠️  {sym}: {naked} naked sh but no Chandelier could be computed — SKIPPED")
+            continue
+        ce, mult, src, ltp = _r["ce"], _r["mult"], _r["src"], _r["ltp"]
+        if ce >= ltp:
+            # Same rule as the trail pass: a stop at/above price is an EXIT signal.
+            # Never auto-sell on it — report and let Jay decide.
+            print(f"   🚨 {sym}: {naked} naked sh and Chandelier {ce:.2f} >= LTP {ltp:.2f} "
+                  f"— BREACHED, not placing. Review manually.")
+            continue
+        plan.append({"sym": sym, "qty": naked, "held": qty, "covered": covered,
+                     "sl": round(ce, 1), "ltp": ltp, "mult": mult, "src": src})
+
+    if not plan:
+        print("✅ Every held share is covered by a resting SL leg. Nothing to do.")
+        log.info("cover: full coverage, no action")
+        return
+
+    print(f"\n{'SYMBOL':14s} {'HELD':>6s} {'COVERED':>8s} {'NAKED':>6s} {'SL→':>10s} {'LTP':>10s}  BASIS")
+    for p in plan:
+        print(f"{p['sym']:14s} {p['held']:6d} {p['covered']:8d} {p['qty']:6d} "
+              f"{p['sl']:10.1f} {p['ltp']:10.2f}  {p['mult']:.1f}xATR ({p['src']})")
+    print(f"\n{len(plan)} symbol(s), {sum(p['qty'] for p in plan)} shares currently with NO resting stop.")
+
+    if dry_run:
+        print("\n🔍 DRY RUN — nothing placed. Re-run with --cover --live to place these.")
+        log.info("cover: dry run, %d proposals", len(plan))
+        return
+
+    if not auto_yes:
+        if input("\nPlace SL-only GTTs for the naked shares? (yes/no): ").strip().lower() != "yes":
+            print("Aborted.")
+            return
+
+    import dhan_symbols
+    ok = 0
+    for p in plan:
+        try:
+            sec_id = dhan_symbols.get_security_id(p["sym"])
+            if not sec_id:
+                print(f"   ❌ {p['sym']}: no security id — skipped")
+                continue
+            res = dhan.place_forever(
+                security_id=str(sec_id),
+                exchange_segment=dhan.NSE,
+                product_type=dhan.CNC,
+                order_type=dhan.LIMIT,
+                transaction_type=dhan.SELL,
+                quantity=p["qty"],
+                price=p["sl"] * 0.995,        # limit just under the trigger
+                trigger_Price=p["sl"],
+                order_flag="SINGLE",          # SL only — the runner keeps NO target
+            )
+            if isinstance(res, dict) and res.get("status") == "success":
+                print(f"   ✅ {p['sym']}: SL-only GTT {p['qty']} sh @ {p['sl']:.1f} "
+                      f"(ID {res.get('data', {}).get('orderId')})")
+                log.info("cover: placed %s %d sh @ %.2f", p["sym"], p["qty"], p["sl"])
+                ok += 1
+            else:
+                print(f"   ❌ {p['sym']}: {res}")
+                log.error("cover: place failed %s: %s", p["sym"], res)
+        except Exception as e:
+            print(f"   ❌ {p['sym']}: {e}")
+            log.error("cover: exception %s: %s", p["sym"], e)
+        time.sleep(0.5)
+    print(f"\n{ok}/{len(plan)} placed. Re-run --trail to bring them onto the trail schedule.")
 
 
 def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
@@ -334,26 +534,13 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
       for leg in sym_legs:      # one tighten per ORDER — a symbol can hold two OCOs
         j = journal.get(sym, {})
         try:
-            df = _dp.fetch_ohlcv(sym, period="1y", interval="1d",
-                                 use_cache=True, auto_adjust=True)
-            if df is None or len(df) < 22:
-                log.warning(f"trail: {sym}: insufficient bars — skipped")
+            # Shared with run_cover_pass — see _chandelier_for(). Behaviour here is
+            # unchanged: the helper is a move of exactly these lines.
+            _r = _chandelier_for(sym, j, bear)
+            if _r is None:
+                log.warning(f"trail: {sym}: insufficient bars / no Chandelier — skipped")
                 continue
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
-            c = df["Close"]; h = df["High"]; l = df["Low"]
-            ltp = float(c.iloc[-1])
-            above200 = bool(len(c) >= 200 and ltp > float(c.rolling(200).mean().iloc[-1]))
-            _cm = j.get("custom_mult")
-            _cm = float(_cm) if (_cm is not None and not pd.isna(_cm) and float(_cm) > 0) else None
-            # Trade-type-aware trail clock: journal Timeframe → 14 swing / 22 pos.
-            _tfj = str(j.get("timeframe") or "").lower()
-            _swing = True if "swing" in _tfj else (False if "pos" in _tfj else None)
-            ch, mult, src = chandelier_exit(h, l, c, setup=str(j.get("setup") or ""),
-                                            bear=bear, custom_mult=_cm,
-                                            above200=above200, swing=_swing)
-            if ch is None:
-                continue
+            ch, mult, src, ltp = _r["ce"], _r["mult"], _r["src"], _r["ltp"]
             new_sl = ch
             # Manual override acts as a FLOOR (never trail below a hand-set stop).
             _msl = j.get("manual_sl")
@@ -456,8 +643,20 @@ if __name__ == "__main__":
                          "order. Headless-safe: no prompt, no broker call.")
     ap.add_argument("--yes", action="store_true",
                     help="Non-interactive (for the scheduler): skip confirmations")
+    ap.add_argument("--cover", action="store_true",
+                    help="Report shares with NO resting stop (held minus OCO SL-leg "
+                         "coverage) and place an SL-only GTT over them. DRY RUN unless "
+                         "--live is also passed.")
+    ap.add_argument("--live", action="store_true",
+                    help="With --cover: actually place the orders. Without it, --cover "
+                         "only prints the plan.")
     args = ap.parse_args()
-    if args.trail:
+    if args.cover:
+        # Inverted default vs --trail on purpose: --trail MODIFIES an existing stop
+        # (tighten-only, so the worst case is a stop that is too tight), while --cover
+        # CREATES orders. Creation gets the safer default.
+        run_cover_pass(auto_yes=args.yes, dry_run=not args.live)
+    elif args.trail:
         run_trail_pass(auto_yes=args.yes, dry_run=args.dry_run)
     else:
         run_auto_shield(auto_yes=args.yes)

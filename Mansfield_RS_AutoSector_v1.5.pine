@@ -1,0 +1,1031 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Jayram G
+//
+// ============================================================================
+// MANSFIELD RELATIVE STRENGTH — AUTO SECTOR v1.5
+// ============================================================================
+// Drop-in replacement for the community "Mansfield Relative Strength indicator"
+// with ONE upgrade: the Sector benchmark is AUTO-DETECTED per symbol using the
+// same hybrid stock→sector mapping as "Weinstein and Swing Pro Dashboard v67":
+//
+//   1. DB lookup (auto-generated from sectors.db by sector_manager.py —
+//      full Nifty 500 coverage). Refresh with:
+//         python sector_manager.py export-pine "Mansfield_RS_AutoSector_v1.5.pine"
+//   2. Keyword fallback on syminfo.sector / syminfo.industry (off-list tickers).
+//   3. Manual override input (checkbox) if you ever want to force a sector.
+//
+// Plots (separate pane):
+//   • Index RS  — Mansfield RS vs Nifty 500 (always on)
+//   • Sector RS — Mansfield RS vs the auto-detected sector index
+//   • Zero line + fills; last-bar label names the detected sector.
+//
+// Mansfield formula (identical to the original indicator):
+//   RP  = close / benchmark_close
+//   MRS = (RP / MA(RP, len) - 1) * 100
+// MA length auto-selects by chart timeframe: Daily 200 · Weekly 26 ·
+// Monthly 10 · all other 52 (same defaults as the original inputs).
+//
+// v1.1 — RS regime background (level × slope proxy). SUPERSEDED.
+// v1.2 — canonical JdK RRG quadrant background (v67-verbatim). SUPERSEDED as
+//        paint: weekly-JdK stripes diverged visually from the daily lines and
+//        read as confusing, even though the quadrant matched the v67 RRG cell.
+// v1.3 — simple RS-sign background. SUPERSEDED.
+// v1.4 — Stage × RS confluence background. SUPERSEDED (see v1.5).
+// v1.5 — STAGE REMOVED. The lightweight stage read (f_sec_stage_lite) is a
+//   COARSE approximation and drifted from the CANONICAL stage (v67's
+//   f_getStageAndTime / Python compute_weekly_stage_and_wks use a 0.0012 slope
+//   threshold + stateful transition machine + strict-trend overrides). A stock
+//   with a barely-positive 30-WMA read STAGE 2 here but STAGE 1 on the
+//   dashboard/Golden Matcher — confusing. Stage lives authoritatively on
+//   Dashboard v67 + Unified Ecosystem, so it is no longer computed or shown
+//   here. This pane now focuses on what it does canonically:
+//   • Background = simple RS-sign (🟢 Index RS > 0 · 🔴 Index RS < 0).
+//   • Last-bar label = "RRG: LEADING · Sector: CNXPHARMA (DB)" — the canonical
+//     JdK RRG quadrant (v67-parity) + auto-detected sector. No stage.
+// ============================================================================
+//@version=6
+indicator("Mansfield RS — Auto Sector v1.6", shorttitle="MRS Auto", overlay=false)
+
+// ==========================================
+// 1. INPUTS
+// ==========================================
+grpBench = "Benchmarks"
+idxTick    = input.symbol("NSE:CNX500", title="Index", group=grpBench)
+useManual  = input.bool(false, title="[Enable] Manual Sector Override", group=grpBench, tooltip="If checked, the symbol below is used as the sector benchmark. If unchecked, the sector is auto-detected from the internal DB / keyword mapper.")
+manualSec  = input.symbol("NSE:CNX500", title="Manual Sector", group=grpBench)
+showSector = input.bool(true, title="Plot Sector RS", group=grpBench)
+
+grpMA = "Moving Average"
+maType         = input.string("SMA", title="Which moving average to use?", options=["SMA", "EMA"], group=grpMA)
+lenWeek        = input.int(26, title="Weekly MA Length", minval=1, group=grpMA, tooltip="Moving average length applied on Weekly bars (default 26 weeks for Stan Weinstein Stage Analysis).")
+smoothIntraday = input.bool(true, title="Smooth Sub-Weekly Curves (No Stair-Stepping)", group=grpMA, tooltip="When checked, converts the 26-week horizon into continuous rolling bars on Daily & Intraday charts (Daily = 130 bars, 75m = 650 bars), producing fluid, non-stair-stepped curves.")
+
+grpDisp = "Display"
+showLabel = input.bool(true, title="Show detected-sector label", group=grpDisp)
+colIdx    = input.color(#2962ff, title="Index RS", group=grpDisp, inline="c")
+colSec    = input.color(#ff9800, title="Sector RS", group=grpDisp, inline="c")
+
+grpBg = "Background — RS sign"
+bgOn      = input.bool(true, title="RS-sign background", group=grpBg, tooltip="Simple, drift-free tint that mirrors the plotted Index RS line:\n🟢 Index RS > 0 = outperforming Nifty 500\n🔴 Index RS < 0 = underperforming\nStage lives on Dashboard v67 / Unified Ecosystem — deliberately NOT duplicated here.")
+colRSpos  = input.color(#26a69a, title="RS > 0", group=grpBg, inline="bg1")
+colRSneg  = input.color(#ef5350, title="RS < 0", group=grpBg, inline="bg1")
+
+grpRRG = "RRG label (canonical JdK, weekly — v67 parity)"
+jdkLength   = input.int(12, title="JdK RRG Length", minval=2, group=grpRRG, tooltip="Normalization length for JdK RS-Ratio / RS-Momentum. Default 12 = v67 / Unified Ecosystem (Strike-matched 1-pass + 5-bar smooth). Keep in sync with the dashboard.")
+rrgTrailLen = input.int(4, title="RRG Trajectory Tail (Weeks)", minval=1, group=grpRRG)
+
+// ==========================================
+// 2. AUTO SECTOR MAPPER (mirrors Dashboard v67 hybrid lookup)
+// ==========================================
+
+// Tier 2 fallback — keyword mapping on TradingView's sector/industry metadata (TradingView Auto-Sensing)
+f_get_sector_ticker() =>
+    string s = syminfo.sector
+    string i = syminfo.industry
+    string t = "NSE:CNX500" // Default fallback
+    string n = "Nifty 500"
+    // Prioritize by Industry & Sector keywords (TradingView metadata auto-sensing)
+    if str.contains(i, "Aerospace") or str.contains(i, "Defense") or str.contains(s, "Producer Manufacturing") or str.contains(i, "Industrial") or str.contains(i, "Capital Goods")
+        t := "BSE:CG"
+        n := "Capital Goods & Defense"
+    else if str.contains(s, "Chemical") or str.contains(i, "Chemical") or str.contains(i, "Fertilizer")
+        t := "NSE:CNXCOMMODITIES"
+        n := "Nifty Commodities"
+    else if str.contains(i, "Bank") or str.contains(s, "Finance")
+        t := "NSE:BANKNIFTY"
+        n := "Bank Nifty"
+    else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
+        t := "NSE:CNXIT"
+        n := "Nifty IT"
+    else if str.contains(s, "Health") or str.contains(i, "Pharma")
+        t := "NSE:CNXPHARMA"
+        n := "Pharma"
+    else if str.contains(i, "Auto")
+        t := "NSE:CNXAUTO"
+        n := "Nifty Auto"
+    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage") or str.contains(s, "Consumer Durables")
+        t := "NSE:CNXFMCG"
+        n := "FMCG"
+    else if str.contains(i, "Hotel") or str.contains(i, "Resort") or str.contains(i, "Restaurant") or str.contains(s, "Consumer Services")
+        t := "NSE:CNXCONSUM"
+        n := "Nifty India Consumption"
+    else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
+        t := "NSE:CNXMETAL"
+        n := "Metal"
+    else if str.contains(s, "Energy") or str.contains(i, "Oil") or str.contains(i, "Gas")
+        t := "NSE:CNXENERGY"
+        n := "Energy"
+    else if str.contains(s, "Real Estate") or str.contains(i, "Construction")
+        t := "NSE:CNXREALTY"
+        n := "Realty"
+    else if str.contains(s, "Infrastructure")
+        t := "NSE:CNXINFRA"
+        n := "Infra"
+    [t, n]
+
+// // // // // // <DB_LOOKUP_START>
+// This function is AUTO-GENERATED by sector_manager.py
+f_db_sector_lookup(string t) =>
+    string s = ""
+    // Ticker format in text is usually just the name (e.g. RELIANCE)
+    // We match against the DB keys which are NSE:RELIANCE
+    s := switch t
+        "360ONE" => "NSE:CNXFINANCE"
+        "3MINDIA" => "NSE:CNXSERVICE"
+        "AADHARHFC" => "NSE:CNXFINANCE"
+        "AARTIDRUGS" => "NSE:CNXPHARMA"
+        "AARTIIND" => "NSE:CNXCOMMODITIES"
+        "AAVAS" => "NSE:CNXFINANCE"
+        "ABB" => "BSE:CG"
+        "ABBOTINDIA" => "NSE:CNXPHARMA"
+        "ABCAPITAL" => "NSE:CNXFINANCE"
+        "ABDL" => "NSE:CNXFMCG"
+        "ABFRL" => "NSE:CNXFMCG"
+        "ABLBL" => "NSE:CNXCONSUM"
+        "ABREL" => "NSE:CNXREALTY"
+        "ABSLAMC" => "NSE:CNXFINANCE"
+        "ACC" => "NSE:CNXINFRA"
+        "ACE" => "BSE:CG"
+        "ACKO" => "NSE:CNXFINANCE"
+        "ACMESOLAR" => "NSE:CNXENERGY"
+        "ACUTAAS" => "NSE:CNXCOMMODITIES"
+        "ADANIENSOL" => "NSE:CNXINFRA"
+        "ADANIENT" => "NSE:CNXINFRA"
+        "ADANIGREEN" => "NSE:CNXENERGY"
+        "ADANIPORTS" => "NSE:CNXINFRA"
+        "ADANIPOWER" => "NSE:CNXENERGY"
+        "ADANITOTAL" => "NSE:NIFTY_OIL_AND_GAS"
+        "ADANIWILL" => "NSE:CNXFMCG"
+        "ADVENZYMES" => "NSE:CNXPHARMA"
+        "AEGISCHEM" => "NSE:NIFTY_OIL_AND_GAS"
+        "AEGISLOG" => "NSE:CNXENERGY"
+        "AEGISVOPAK" => "NSE:CNXENERGY"
+        "AETHER" => "NSE:CNXMETAL"
+        "AFCONS" => "NSE:CNXINFRA"
+        "AFFLE" => "NSE:CNXIT"
+        "AHLUCONT" => "NSE:CNXINFRA"
+        "AIAENG" => "BSE:CG"
+        "AIIL" => "NSE:CNXFINANCE"
+        "AJANTPHARM" => "NSE:CNXPHARMA"
+        "AKUMS" => "NSE:CNXPHARMA"
+        "ALKEM" => "NSE:CNXPHARMA"
+        "ALKYLAMINE" => "NSE:CNXMETAL"
+        "ALLCARGO" => "NSE:CNXSERVICE"
+        "ALOKINDS" => "NSE:CNXFMCG"
+        "AMARAJABAT" => "NSE:CNXAUTO"
+        "AMBER" => "BSE:CG"
+        "AMBUJACEM" => "NSE:CNXINFRA"
+        "ANANDRATHI" => "NSE:CNXFINANCE"
+        "ANANTRAJ" => "NSE:CNXREALTY"
+        "ANGELONE" => "NSE:CNXFINANCE"
+        "ANTHEM" => "NSE:CNXPHARMA"
+        "ANURAS" => "NSE:CNXMETAL"
+        "APARINDS" => "BSE:CG"
+        "APLAPOLLO" => "NSE:CNXMETAL"
+        "APOLLOHOSP" => "NSE:CNXPHARMA"
+        "APOLLOTYRE" => "NSE:CNXAUTO"
+        "APTUS" => "NSE:CNXFINANCE"
+        "ARE_M" => "NSE:CNXINFRA"
+        "ARE_M" => "NSE:CNXAUTO"
+        "ARVIND" => "NSE:CNXFMCG"
+        "ASAHIINDIA" => "NSE:CNXAUTO"
+        "ASHOKLEY" => "NSE:CNXAUTO"
+        "ASIANPAINT" => "NSE:CNXINFRA"
+        "ASKASIAN" => "NSE:CNXFINANCE"
+        "ASTERDM" => "NSE:CNXPHARMA"
+        "ASTRAL" => "NSE:CNXINFRA"
+        "ASTRAMICRO" => "BSE:CG"
+        "ASTRAZEN" => "NSE:CNXPHARMA"
+        "ATGL" => "NSE:CNXENERGY"
+        "ATHERENERG" => "NSE:CNXAUTO"
+        "ATUL" => "NSE:CNXCOMMODITIES"
+        "AUBANK" => "NSE:BANKNIFTY"
+        "AUROPHARMA" => "NSE:CNXPHARMA"
+        "AVANTIFEED" => "NSE:CNXFMCG"
+        "AWL" => "NSE:CNXFMCG"
+        "AXISBANK" => "NSE:BANKNIFTY"
+        "BAJAJ-AUTO" => "NSE:CNXAUTO"
+        "BAJAJCON" => "NSE:CNXFMCG"
+        "BAJAJELEC" => "BSE:CG"
+        "BAJAJFINSV" => "NSE:CNXFINANCE"
+        "BAJAJHFL" => "NSE:CNXFINANCE"
+        "BAJAJHLDNG" => "NSE:CNXFINANCE"
+        "BAJFINANCE" => "NSE:CNXFINANCE"
+        "BALAMINES" => "NSE:CNXMETAL"
+        "BALKRISIND" => "NSE:CNXAUTO"
+        "BALRAMCHIN" => "NSE:CNXFMCG"
+        "BANDHANBNK" => "NSE:BANKNIFTY"
+        "BANKBARODA" => "NSE:BANKNIFTY"
+        "BANKINDIA" => "NSE:BANKNIFTY"
+        "BASF" => "NSE:CNXMETAL"
+        "BATAINDIA" => "NSE:CNXFMCG"
+        "BAYERCROP" => "NSE:CNXMETAL"
+        "BBTC" => "NSE:CNXFMCG"
+        "BDL" => "BSE:CG"
+        "BEL" => "BSE:CG"
+        "BELRISE" => "BSE:CG"
+        "BEML" => "BSE:CG"
+        "BERGEPAINT" => "NSE:CNXINFRA"
+        "BHARATFORG" => "NSE:CNXAUTO"
+        "BHARATRAS" => "NSE:CNXMETAL"
+        "BHARTIARTL" => "NSE:CNXINFRA"
+        "BHARTIHEXA" => "NSE:CNXINFRA"
+        "BHEL" => "BSE:CG"
+        "BIKAJI" => "NSE:CNXFMCG"
+        "BIOCON" => "NSE:CNXPHARMA"
+        "BIRLACORPN" => "NSE:CNXINFRA"
+        "BIRLASOFT" => "NSE:CNXIT"
+        "BLS" => "NSE:CNXSERVICE"
+        "BLUEDART" => "NSE:CNXINFRA"
+        "BLUEJET" => "NSE:CNXPHARMA"
+        "BLUESTARCO" => "BSE:CG"
+        "BOMDYEING" => "NSE:CNXFMCG"
+        "BOSCHLTD" => "NSE:CNXAUTO"
+        "BPCL" => "NSE:CNXENERGY"
+        "BRIGADE" => "NSE:CNXREALTY"
+        "BRITANNIA" => "NSE:CNXFMCG"
+        "BSE" => "NSE:CNXFINANCE"
+        "BSOFT" => "NSE:CNXIT"
+        "CAMPUS" => "NSE:CNXFMCG"
+        "CAMS" => "NSE:CNXFINANCE"
+        "CANBK" => "NSE:BANKNIFTY"
+        "CANFINHOME" => "NSE:CNXFINANCE"
+        "CANHLIFE" => "NSE:CNXFINANCE"
+        "CAPLIPOINT" => "NSE:CNXPHARMA"
+        "CARBORUNIV" => "BSE:CG"
+        "CARTRADE" => "NSE:CNXSERVICE"
+        "CARYSIL" => "BSE:CG"
+        "CASTROLIND" => "NSE:NIFTY_OIL_AND_GAS"
+        "CCL" => "NSE:CNXFMCG"
+        "CDSL" => "NSE:CNXFINANCE"
+        "CEATLTD" => "NSE:CNXAUTO"
+        "CEMPRO" => "NSE:CNXINFRA"
+        "CENTRALBK" => "NSE:BANKNIFTY"
+        "CENTUM" => "BSE:CG"
+        "CENTURYPLY" => "NSE:CNXINFRA"
+        "CENTURYTEX" => "NSE:CNXFMCG"
+        "CERA" => "NSE:CNXINFRA"
+        "CESC" => "NSE:CNXENERGY"
+        "CGCL" => "NSE:CNXFINANCE"
+        "CGPOWER" => "BSE:CG"
+        "CHALET" => "NSE:CNXCONSUM"
+        "CHAMBLFERT" => "NSE:CNXCOMMODITIES"
+        "CHENNPETRO" => "NSE:CNXENERGY"
+        "CHOICEIN" => "NSE:CNXFINANCE"
+        "CHOLAFIN" => "NSE:CNXFINANCE"
+        "CHOLAHLD" => "NSE:CNXFINANCE"
+        "CHOLAHLDNG" => "NSE:CNXFINANCE"
+        "CIEINDIA" => "NSE:CNXAUTO"
+        "CIPLA" => "NSE:CNXPHARMA"
+        "CLEAN" => "NSE:CNXCOMMODITIES"
+        "COALINDIA" => "NSE:CNXENERGY"
+        "COCHINSHIP" => "BSE:CG"
+        "COFORGE" => "NSE:CNXIT"
+        "COHANCE" => "NSE:CNXPHARMA"
+        "COLPAL" => "NSE:CNXFMCG"
+        "CONCOR" => "NSE:CNXSERVICE"
+        "CONCORDBIO" => "NSE:CNXPHARMA"
+        "COROMANDEL" => "NSE:CNXCOMMODITIES"
+        "CPPLUS" => "NSE:CNXINFRA"
+        "CRAFTSMAN" => "NSE:CNXAUTO"
+        "CREDITACC" => "NSE:CNXFINANCE"
+        "CRISIL" => "NSE:CNXFINANCE"
+        "CROMPTON" => "BSE:CG"
+        "CUB" => "NSE:BANKNIFTY"
+        "CUMMINSIND" => "BSE:CG"
+        "CYIENT" => "NSE:CNXIT"
+        "CYIENTDLM" => "BSE:CG"
+        "DABUR" => "NSE:CNXFMCG"
+        "DALBHARAT" => "NSE:CNXINFRA"
+        "DATAPATTNS" => "BSE:CG"
+        "DCMSHRIRAM" => "NSE:CNXMETAL"
+        "DCXIND" => "BSE:CG"
+        "DEEPAKFERT" => "NSE:CNXCOMMODITIES"
+        "DEEPAKNTR" => "NSE:CNXCOMMODITIES"
+        "DELHIVERY" => "NSE:CNXSERVICE"
+        "DELTACORP" => "NSE:CNXSERVICE"
+        "DEVYANI" => "NSE:CNXSERVICE"
+        "DIVISLAB" => "NSE:CNXPHARMA"
+        "DIXON" => "BSE:CG"
+        "DLF" => "NSE:CNXREALTY"
+        "DMART" => "NSE:CNXFMCG"
+        "DOMS" => "NSE:CNXFMCG"
+        "DREAMFOLKS" => "NSE:CNXSERVICE"
+        "DRREDDY" => "NSE:CNXPHARMA"
+        "EASEMYTRIP" => "NSE:CNXSERVICE"
+        "ECLERX" => "NSE:CNXIT"
+        "EDELWEISS" => "NSE:CNXFINANCE"
+        "EICHERMOT" => "NSE:CNXAUTO"
+        "EIDPARRY" => "NSE:CNXFMCG"
+        "EIHOTEL" => "NSE:CNXCONSUM"
+        "ELECON" => "NSE:CNXINFRA"
+        "ELGIEQUIP" => "BSE:CG"
+        "EMAMILTD" => "NSE:CNXFMCG"
+        "EMCURE" => "NSE:CNXPHARMA"
+        "EMMVEE" => "BSE:CG"
+        "ENDURANCE" => "NSE:CNXAUTO"
+        "ENGINERSIN" => "NSE:CNXINFRA"
+        "ENRIN" => "NSE:CNXENERGY"
+        "EPL" => "NSE:CNXMETAL"
+        "EQUITASBNK" => "NSE:BANKNIFTY"
+        "ERIS" => "NSE:CNXPHARMA"
+        "ESCORTS" => "NSE:CNXAUTO"
+        "ETERNAL" => "NSE:CNXCONSUM"
+        "ETHOSLTD" => "NSE:CNXSERVICE"
+        "EVEREADY" => "BSE:CG"
+        "EXIDEIND" => "NSE:CNXAUTO"
+        "FACT" => "NSE:CNXCOMMODITIES"
+        "FALCONTYRE" => "NSE:CNXAUTO"
+        "FDC" => "NSE:CNXPHARMA"
+        "FEDERALBNK" => "NSE:BANKNIFTY"
+        "FERV" => "BSE:CG"
+        "FINCABLES" => "BSE:CG"
+        "FINEORG" => "NSE:CNXCOMMODITIES"
+        "FINPIPE" => "NSE:CNXINFRA"
+        "FIRSTCRY" => "NSE:CNXCONSUM"
+        "FIVESTAR" => "NSE:CNXFINANCE"
+        "FLUOROCHEM" => "NSE:CNXCOMMODITIES"
+        "FORCEMOT" => "NSE:CNXAUTO"
+        "FORTIS" => "NSE:CNXPHARMA"
+        "FSL" => "NSE:CNXIT"
+        "GABRIEL" => "NSE:CNXAUTO"
+        "GAIL" => "NSE:CNXENERGY"
+        "GALAXYSURF" => "NSE:CNXCOMMODITIES"
+        "GALLANTT" => "NSE:CNXMETAL"
+        "GANESHHOUC" => "NSE:CNXREALTY"
+        "GARDENREACH" => "BSE:CG"
+        "GARFIBRES" => "NSE:CNXFMCG"
+        "GATEWAY" => "NSE:CNXSERVICE"
+        "GENUSPOWER" => "BSE:CG"
+        "GESHIP" => "NSE:CNXSERVICE"
+        "GET_D" => "BSE:CG"
+        "GICRE" => "NSE:CNXFINANCE"
+        "GILLETTE" => "NSE:CNXFMCG"
+        "GLAND" => "NSE:CNXPHARMA"
+        "GLAXO" => "NSE:CNXPHARMA"
+        "GLENMARK" => "NSE:CNXPHARMA"
+        "GMDCLTD" => "NSE:CNXMETAL"
+        "GMMPFAUDLR" => "BSE:CG"
+        "GMRAIRPORT" => "NSE:CNXINFRA"
+        "GMRINFRA" => "NSE:CNXINFRA"
+        "GNFC" => "NSE:CNXMETAL"
+        "GOCOLORS" => "NSE:CNXFMCG"
+        "GODFRYPHLP" => "NSE:CNXFMCG"
+        "GODIGIT" => "NSE:CNXFINANCE"
+        "GODREJAGRO" => "NSE:CNXFMCG"
+        "GODREJCP" => "NSE:CNXFMCG"
+        "GODREJIND" => "NSE:CNXFMCG"
+        "GODREJPROP" => "NSE:CNXREALTY"
+        "GOKEX" => "NSE:CNXFMCG"
+        "GPIL" => "NSE:CNXMETAL"
+        "GPPL" => "NSE:CNXSERVICE"
+        "GRANULES" => "NSE:CNXPHARMA"
+        "GRAPHITE" => "NSE:CNXMETAL"
+        "GRASIM" => "NSE:CNXINFRA"
+        "GRAVITA" => "NSE:CNXMETAL"
+        "GREAVESCOT" => "BSE:CG"
+        "GRINDWELL" => "BSE:CG"
+        "GROWW" => "NSE:CNXFINANCE"
+        "GRSE" => "BSE:CG"
+        "GSFC" => "NSE:CNXMETAL"
+        "GSPL" => "NSE:NIFTY_OIL_AND_GAS"
+        "GUJGASLTD" => "NSE:NIFTY_OIL_AND_GAS"
+        "GULFOILLUB" => "NSE:NIFTY_OIL_AND_GAS"
+        "GVT_D" => "NSE:CNXINFRA"
+        "GVT_D" => "NSE:CNXINFRA"
+        "HAL" => "BSE:CG"
+        "HAPPSTMNDS" => "NSE:CNXIT"
+        "HATHWAY" => "NSE:CNXMEDIA"
+        "HAVELLS" => "BSE:CG"
+        "HBLENGINE" => "NSE:CNXINFRA"
+        "HCLTECH" => "NSE:CNXIT"
+        "HDBFS" => "NSE:CNXFINANCE"
+        "HDFCAMC" => "NSE:CNXFINANCE"
+        "HDFCBANK" => "NSE:BANKNIFTY"
+        "HDFCLIFE" => "NSE:CNXFINANCE"
+        "HEG" => "NSE:CNXMETAL"
+        "HEIDELBERG" => "NSE:CNXINFRA"
+        "HEROMOTOCO" => "NSE:CNXAUTO"
+        "HEXT" => "NSE:CNXIT"
+        "HFCL" => "NSE:CNXINFRA"
+        "HIKAL" => "NSE:CNXPHARMA"
+        "HINDALCO" => "NSE:CNXMETAL"
+        "HINDCOPPER" => "NSE:CNXMETAL"
+        "HINDPETRO" => "NSE:CNXENERGY"
+        "HINDUNILVR" => "NSE:CNXFMCG"
+        "HINDZINC" => "NSE:CNXMETAL"
+        "HOMEFIRST" => "NSE:CNXFINANCE"
+        "HONASA" => "NSE:CNXFMCG"
+        "HONAUT" => "BSE:CG"
+        "HSCL" => "NSE:CNXMETAL"
+        "HUDCO" => "NSE:CNXFINANCE"
+        "HYUNDAI" => "NSE:CNXAUTO"
+        "ICICIAMC" => "NSE:CNXFINANCE"
+        "ICICIBANK" => "NSE:BANKNIFTY"
+        "ICICIGI" => "NSE:CNXFINANCE"
+        "ICICIPRULI" => "NSE:CNXFINANCE"
+        "IDBI" => "NSE:BANKNIFTY"
+        "IDEA" => "NSE:CNXINFRA"
+        "IDEAFORGE" => "BSE:CG"
+        "IDFC" => "NSE:CNXFINANCE"
+        "IDFCFIRSTB" => "NSE:BANKNIFTY"
+        "IEX" => "NSE:CNXFINANCE"
+        "IFCI" => "NSE:CNXFINANCE"
+        "IGIL" => "NSE:CNXMETAL"
+        "IGL" => "NSE:NIFTY_OIL_AND_GAS"
+        "IIFL" => "NSE:CNXFINANCE"
+        "IIFLSEC" => "NSE:CNXFINANCE"
+        "IKS" => "NSE:CNXPHARMA"
+        "IMAGICAA" => "NSE:CNXSERVICE"
+        "INDGN" => "NSE:CNXPHARMA"
+        "INDHOTEL" => "NSE:CNXCONSUM"
+        "INDIACEM" => "NSE:CNXINFRA"
+        "INDIAMART" => "NSE:CNXIT"
+        "INDIANB" => "NSE:BANKNIFTY"
+        "INDIGO" => "NSE:CNXSERVICE"
+        "INDIGOPNTS" => "NSE:CNXINFRA"
+        "INDUSINDBK" => "NSE:BANKNIFTY"
+        "INDUSTOWER" => "NSE:CNXINFRA"
+        "INFY" => "NSE:CNXIT"
+        "INOXWIND" => "BSE:CG"
+        "INTELLECT" => "NSE:CNXIT"
+        "IOB" => "NSE:BANKNIFTY"
+        "IOC" => "NSE:CNXENERGY"
+        "IPCALAB" => "NSE:CNXPHARMA"
+        "IRB" => "NSE:CNXINFRA"
+        "IRCON" => "NSE:CNXINFRA"
+        "IRCTC" => "NSE:CNXSERVICE"
+        "IREDA" => "NSE:CNXFINANCE"
+        "IRFC" => "NSE:CNXFINANCE"
+        "ITC" => "NSE:CNXFMCG"
+        "ITCHOTELS" => "NSE:CNXCONSUM"
+        "ITI" => "NSE:CNXINFRA"
+        "J_KBANK" => "NSE:BANKNIFTY"
+        "JAINREC" => "NSE:CNXMETAL"
+        "JBCHEPHARM" => "NSE:CNXPHARMA"
+        "JBMA" => "NSE:CNXAUTO"
+        "JINDALSAW" => "NSE:CNXMETAL"
+        "JINDALSTEL" => "NSE:CNXMETAL"
+        "JIOFIN" => "NSE:CNXFINANCE"
+        "JKCEMENT" => "NSE:CNXINFRA"
+        "JKPAPER" => "NSE:CNXMETAL"
+        "JKTYRE" => "NSE:CNXAUTO"
+        "JMFINANCIL" => "NSE:CNXFINANCE"
+        "JPPOWER" => "NSE:CNXENERGY"
+        "JSL" => "NSE:CNXMETAL"
+        "JSWCEMENT" => "NSE:CNXINFRA"
+        "JSWDULUX" => "NSE:CNXFMCG"
+        "JSWENERGY" => "NSE:CNXENERGY"
+        "JSWINFRA" => "NSE:CNXINFRA"
+        "JSWSTEEL" => "NSE:CNXMETAL"
+        "JUBLFOOD" => "NSE:CNXSERVICE"
+        "JUBLINGREA" => "NSE:CNXMETAL"
+        "JUBLPHARMA" => "NSE:CNXPHARMA"
+        "JUSTDIAL" => "NSE:CNXIT"
+        "JWL" => "NSE:CNXINFRA"
+        "JYOTHYLAB" => "NSE:CNXFMCG"
+        "JYOTICNC" => "NSE:CNXINFRA"
+        "JYOTISTRUC" => "BSE:CG"
+        "J_KBANK" => "NSE:BANKNIFTY"
+        "KAJARIACER" => "NSE:CNXINFRA"
+        "KALYANKJIL" => "NSE:CNXFMCG"
+        "KANSAINER" => "NSE:CNXINFRA"
+        "KARURVYSYA" => "NSE:BANKNIFTY"
+        "KAYNES" => "BSE:CG"
+        "KEC" => "BSE:CG"
+        "KEI" => "BSE:CG"
+        "KFINTECH" => "NSE:CNXFINANCE"
+        "KIMS" => "NSE:CNXPHARMA"
+        "KIRLOSENG" => "NSE:CNXINFRA"
+        "KNRCON" => "NSE:CNXINFRA"
+        "KOTAKAMC" => "NSE:CNXFINANCE"
+        "KOTAKBANK" => "NSE:BANKNIFTY"
+        "KPIL" => "BSE:CG"
+        "KPITTECH" => "NSE:CNXIT"
+        "KPRMILL" => "NSE:CNXCONSUM"
+        "KRBL" => "NSE:CNXFMCG"
+        "KSB" => "BSE:CG"
+        "KSL" => "NSE:CNXMETAL"
+        "LALPATHLAB" => "NSE:CNXPHARMA"
+        "LATENTVIEW" => "NSE:CNXIT"
+        "LAURUSLABS" => "NSE:CNXPHARMA"
+        "LAXMACH" => "BSE:CG"
+        "LEMONTREE" => "NSE:CNXCONSUM"
+        "LENSKART" => "NSE:CNXCONSUM"
+        "LGEINDIA" => "NSE:CNXCONSUM"
+        "LICHSGFIN" => "NSE:CNXFINANCE"
+        "LICI" => "NSE:CNXFINANCE"
+        "LINDEINDIA" => "NSE:CNXMETAL"
+        "LLOYDSME" => "NSE:CNXMETAL"
+        "LMSYMBOL" => "NSE:CNXIT"
+        "LODHA" => "NSE:CNXREALTY"
+        "LT" => "NSE:CNXINFRA"
+        "LTF" => "NSE:CNXFINANCE"
+        "LTFOODS" => "NSE:CNXFMCG"
+        "LTIM" => "NSE:CNXIT"
+        "LTM" => "NSE:CNXIT"
+        "LTTS" => "NSE:CNXIT"
+        "LUMAXTECH" => "NSE:CNXAUTO"
+        "LUPIN" => "NSE:CNXPHARMA"
+        "LXCHEM" => "NSE:CNXMETAL"
+        "L_T" => "BSE:CG"
+        "L_TFH" => "NSE:CNXFINANCE"
+        "M_M" => "NSE:CNXAUTO"
+        "M_MFIN" => "NSE:CNXFINANCE"
+        "MAHABANK" => "NSE:BANKNIFTY"
+        "MAHLIFE" => "NSE:CNXREALTY"
+        "MAHLOG" => "NSE:CNXSERVICE"
+        "MAHSEAMLES" => "NSE:CNXMETAL"
+        "MANAPPURAM" => "NSE:CNXFINANCE"
+        "MANKIND" => "NSE:CNXPHARMA"
+        "MAPMYINDIA" => "NSE:CNXIT"
+        "MARICO" => "NSE:CNXFMCG"
+        "MARUTI" => "NSE:CNXAUTO"
+        "MASTEK" => "NSE:CNXIT"
+        "MAXHEALTH" => "NSE:CNXPHARMA"
+        "MAZDOCK" => "BSE:CG"
+        "MCX" => "NSE:CNXFINANCE"
+        "MEDANTA" => "NSE:CNXPHARMA"
+        "MEESHO" => "NSE:CNXCONSUM"
+        "METROPOLIS" => "NSE:CNXPHARMA"
+        "MFSL" => "NSE:CNXFINANCE"
+        "MGL" => "NSE:NIFTY_OIL_AND_GAS"
+        "MHRIL" => "NSE:CNXSERVICE"
+        "MINDACORP" => "NSE:CNXAUTO"
+        "MINDTREE" => "NSE:CNXIT"
+        "MIRZAINT" => "NSE:CNXFMCG"
+        "MMTC" => "NSE:CNXINFRA"
+        "MOTHERSON" => "NSE:CNXAUTO"
+        "MOTILALOFS" => "NSE:CNXFINANCE"
+        "MPHASIS" => "NSE:CNXIT"
+        "MRF" => "NSE:CNXAUTO"
+        "MRPL" => "NSE:CNXENERGY"
+        "MSTCLTD" => "NSE:CNXSERVICE"
+        "MSUMI" => "NSE:CNXAUTO"
+        "MTARTECH" => "BSE:CG"
+        "MUTHOOTFIN" => "NSE:CNXFINANCE"
+        "M_M" => "NSE:CNXAUTO"
+        "M_MFIN" => "NSE:CNXFINANCE"
+        "NAM-INDIA" => "NSE:CNXFINANCE"
+        "NAM_INDIA" => "NSE:CNXFINANCE"
+        "NATCOPHARM" => "NSE:CNXPHARMA"
+        "NATIONALUM" => "NSE:CNXMETAL"
+        "NAUKRI" => "NSE:CNXSERVICE"
+        "NAVA" => "NSE:CNXINFRA"
+        "NAVINFLUOR" => "NSE:CNXCOMMODITIES"
+        "NAZARA" => "NSE:CNXMEDIA"
+        "NBCC" => "NSE:CNXINFRA"
+        "NCC" => "NSE:CNXINFRA"
+        "NESTLEIND" => "NSE:CNXFMCG"
+        "NETWEB" => "NSE:CNXIT"
+        "NETWORK18" => "NSE:CNXMEDIA"
+        "NEULANDLAB" => "NSE:CNXPHARMA"
+        "NEWGEN" => "NSE:CNXIT"
+        "NH" => "NSE:CNXPHARMA"
+        "NHPC" => "NSE:CNXENERGY"
+        "NIACL" => "NSE:CNXFINANCE"
+        "NIITLTD" => "NSE:CNXIT"
+        "NIVABUPA" => "NSE:CNXFINANCE"
+        "NLCINDIA" => "NSE:CNXENERGY"
+        "NMDC" => "NSE:CNXMETAL"
+        "NSLNISP" => "NSE:CNXMETAL"
+        "NTPC" => "NSE:CNXENERGY"
+        "NTPCGREEN" => "NSE:CNXENERGY"
+        "NUVAMA" => "NSE:CNXFINANCE"
+        "NUVOCO" => "NSE:CNXINFRA"
+        "NYKAA" => "NSE:CNXSERVICE"
+        "OBEROIRLTY" => "NSE:CNXREALTY"
+        "OBERREALTY" => "NSE:CNXREALTY"
+        "OFSS" => "NSE:CNXIT"
+        "OIL" => "NSE:CNXENERGY"
+        "OLAEC" => "NSE:CNXAUTO"
+        "OLAELEC" => "NSE:CNXAUTO"
+        "OLECTRA" => "NSE:CNXAUTO"
+        "OMAXE" => "NSE:CNXREALTY"
+        "ONESOURCE" => "NSE:CNXPHARMA"
+        "ONGC" => "NSE:CNXENERGY"
+        "ORIENTELEC" => "BSE:CG"
+        "PAGEIND" => "NSE:CNXFMCG"
+        "PARADEEP" => "NSE:CNXCOMMODITIES"
+        "PARAS" => "BSE:CG"
+        "PATANJALI" => "NSE:CNXFMCG"
+        "PAYTM" => "NSE:CNXSERVICE"
+        "PCBL" => "NSE:CNXCOMMODITIES"
+        "PEL" => "NSE:CNXFINANCE"
+        "PERSISTENT" => "NSE:CNXIT"
+        "PETRONET" => "NSE:NIFTY_OIL_AND_GAS"
+        "PFC" => "NSE:CNXFINANCE"
+        "PFIZER" => "NSE:CNXPHARMA"
+        "PGEL" => "BSE:CG"
+        "PGHH" => "NSE:CNXFMCG"
+        "PHOENIXLTD" => "NSE:CNXREALTY"
+        "PIDILITIND" => "NSE:CNXINFRA"
+        "PIIND" => "NSE:CNXCOMMODITIES"
+        "PINELABS" => "NSE:CNXIT"
+        "PIRAMALFIN" => "NSE:CNXFINANCE"
+        "PNB" => "NSE:BANKNIFTY"
+        "PNBHOUSING" => "NSE:CNXFINANCE"
+        "PNCINFRA" => "NSE:CNXINFRA"
+        "POLICYBZR" => "NSE:CNXSERVICE"
+        "POLYCAB" => "BSE:CG"
+        "POLYMED" => "NSE:CNXPHARMA"
+        "POONAWALLA" => "NSE:CNXFINANCE"
+        "POWERGRID" => "NSE:CNXENERGY"
+        "POWERINDIA" => "NSE:CNXINFRA"
+        "PPLPHARMA" => "NSE:CNXPHARMA"
+        "PRAJIND" => "BSE:CG"
+        "PREMIERENE" => "BSE:CG"
+        "PRESTIGE" => "NSE:CNXREALTY"
+        "PRICOL" => "NSE:CNXAUTO"
+        "PRINCEPIPE" => "NSE:CNXINFRA"
+        "PRSMJOHNSN" => "NSE:CNXINFRA"
+        "PTCIL" => "NSE:CNXINFRA"
+        "PUNJABALK" => "NSE:CNXMETAL"
+        "PVRINOX" => "NSE:CNXMEDIA"
+        "PWL" => "NSE:CNXCONSUM"
+        "QUESS" => "NSE:CNXSERVICE"
+        "RADICO" => "NSE:CNXFMCG"
+        "RAILTEL" => "NSE:CNXINFRA"
+        "RAIN" => "NSE:CNXMETAL"
+        "RAINBOW" => "NSE:CNXPHARMA"
+        "RAJESHEXPO" => "NSE:CNXFMCG"
+        "RALLIS" => "NSE:CNXMETAL"
+        "RAMCOCEM" => "NSE:CNXINFRA"
+        "RATNAMANI" => "NSE:CNXMETAL"
+        "RAYMOND" => "NSE:CNXFMCG"
+        "RBLBANK" => "NSE:BANKNIFTY"
+        "RECLTD" => "NSE:CNXFINANCE"
+        "REDINGTON" => "NSE:CNXSERVICE"
+        "RELAXO" => "NSE:CNXFMCG"
+        "RELIANCE" => "NSE:CNXENERGY"
+        "RHIM" => "NSE:CNXMETAL"
+        "RITES" => "NSE:CNXINFRA"
+        "RKFORGE" => "NSE:CNXINFRA"
+        "ROLEXRINGS" => "NSE:CNXAUTO"
+        "ROSSARI" => "NSE:CNXMETAL"
+        "ROUTE" => "NSE:CNXIT"
+        "RPOWER" => "NSE:CNXENERGY"
+        "RRKABEL" => "BSE:CG"
+        "RTNINDIA" => "NSE:CNXENERGY"
+        "RVNL" => "BSE:CG"
+        "SAFEWELL" => "BSE:CG"
+        "SAGILITY" => "NSE:CNXPHARMA"
+        "SAIL" => "NSE:CNXMETAL"
+        "SAILIFE" => "NSE:CNXPHARMA"
+        "SAMMAANCAP" => "NSE:CNXFINANCE"
+        "SANSERA" => "NSE:CNXAUTO"
+        "SAPPHIRE" => "NSE:CNXSERVICE"
+        "SARDAEN" => "NSE:CNXMETAL"
+        "SAREGAMA" => "NSE:CNXMEDIA"
+        "SAREHGAMA" => "NSE:CNXMEDIA"
+        "SBFC" => "NSE:CNXFINANCE"
+        "SBICARD" => "NSE:CNXFINANCE"
+        "SBIGLI" => "NSE:CNXFINANCE"
+        "SBILIFE" => "NSE:CNXFINANCE"
+        "SBIN" => "NSE:BANKNIFTY"
+        "SCHAEFFLER" => "BSE:CG"
+        "SCHNEIDER" => "BSE:CG"
+        "SCI" => "NSE:CNXINFRA"
+        "SDBL" => "NSE:CNXFMCG"
+        "SEAMECLTD" => "NSE:CNXSERVICE"
+        "SFL" => "NSE:CNXFMCG"
+        "SHARDACROP" => "NSE:CNXMETAL"
+        "SHOPERSTOP" => "NSE:CNXSERVICE"
+        "SHREECEM" => "NSE:CNXINFRA"
+        "SHRIRAMFIN" => "NSE:CNXFINANCE"
+        "SHYAMMETL" => "NSE:CNXMETAL"
+        "SIEMENS" => "BSE:CG"
+        "SIGNATURE" => "NSE:CNXREALTY"
+        "SIS" => "NSE:CNXSERVICE"
+        "SJVN" => "NSE:CNXENERGY"
+        "SKFINDIA" => "BSE:CG"
+        "SOBHA" => "NSE:CNXREALTY"
+        "SOLARINDS" => "BSE:CG"
+        "SONACOMS" => "NSE:CNXAUTO"
+        "SONATSOFTW" => "NSE:CNXIT"
+        "SPARC" => "NSE:CNXPHARMA"
+        "SPLPETRO" => "NSE:CNXCOMMODITIES"
+        "SRF" => "NSE:CNXCOMMODITIES"
+        "STARHEALTH" => "NSE:CNXFINANCE"
+        "STLTECH" => "NSE:CNXINFRA"
+        "SUDARSCHEM" => "NSE:CNXMETAL"
+        "SUMICHEM" => "NSE:CNXCOMMODITIES"
+        "SUNDARMFIN" => "NSE:CNXFINANCE"
+        "SUNPHARMA" => "NSE:CNXPHARMA"
+        "SUNTECK" => "NSE:CNXREALTY"
+        "SUNTV" => "NSE:CNXMEDIA"
+        "SUPRAJIT" => "NSE:CNXAUTO"
+        "SUPREMEIND" => "NSE:CNXINFRA"
+        "SURYAROSNI" => "NSE:CNXMETAL"
+        "SUVENPHAR" => "NSE:CNXPHARMA"
+        "SUZLON" => "BSE:CG"
+        "SWANCORP" => "NSE:CNXINFRA"
+        "SWIGGY" => "NSE:CNXSERVICE"
+        "SYNGENE" => "NSE:CNXPHARMA"
+        "SYRMA" => "BSE:CG"
+        "TANLA" => "NSE:CNXIT"
+        "TARIL" => "NSE:CNXINFRA"
+        "TATACAP" => "NSE:CNXFINANCE"
+        "TATACHEM" => "NSE:CNXMETAL"
+        "TATACOMM" => "NSE:CNXINFRA"
+        "TATACONSUM" => "NSE:CNXFMCG"
+        "TATAELXSI" => "NSE:CNXIT"
+        "TATAINVEST" => "NSE:CNXFINANCE"
+        "TATAMOTORS" => "NSE:CNXAUTO"
+        "TATAPOWER" => "NSE:CNXENERGY"
+        "TATASTEEL" => "NSE:CNXMETAL"
+        "TATATECH" => "NSE:CNXIT"
+        "TBOTEK" => "NSE:CNXCONSUM"
+        "TCI" => "NSE:CNXSERVICE"
+        "TCIEXP" => "NSE:CNXSERVICE"
+        "TCS" => "NSE:CNXIT"
+        "TEAMLEASE" => "NSE:CNXSERVICE"
+        "TECHM" => "NSE:CNXIT"
+        "TECHNOE" => "BSE:CG"
+        "TEGA" => "BSE:CG"
+        "TEJASNET" => "NSE:CNXINFRA"
+        "TENNIND" => "NSE:CNXAUTO"
+        "THELEELA" => "NSE:CNXCONSUM"
+        "THERMAX" => "BSE:CG"
+        "THYROCARE" => "NSE:CNXPHARMA"
+        "TIINDIA" => "NSE:CNXAUTO"
+        "TIMKEN" => "BSE:CG"
+        "TIPSMUSIC" => "NSE:CNXMEDIA"
+        "TITAGARH" => "BSE:CG"
+        "TITAN" => "NSE:CNXFMCG"
+        "TMCV" => "NSE:CNXAUTO"
+        "TMPV" => "NSE:CNXAUTO"
+        "TORNTPHARM" => "NSE:CNXPHARMA"
+        "TORNTPOWER" => "NSE:CNXENERGY"
+        "TRAVELFOOD" => "NSE:CNXCONSUM"
+        "TRENT" => "NSE:CNXFMCG"
+        "TRIDENT" => "NSE:CNXFMCG"
+        "TRITURBINE" => "BSE:CG"
+        "TRIVENI" => "NSE:CNXFMCG"
+        "TTML" => "NSE:CNXINFRA"
+        "TVSMOTOR" => "NSE:CNXAUTO"
+        "TVSSRICHAK" => "NSE:CNXAUTO"
+        "UBL" => "NSE:CNXFMCG"
+        "UCOBANK" => "NSE:BANKNIFTY"
+        "UFLEX" => "NSE:CNXMETAL"
+        "ULTRACEMCO" => "NSE:CNXINFRA"
+        "UNIONBANK" => "NSE:BANKNIFTY"
+        "UNITDSPR" => "NSE:CNXFMCG"
+        "UNOMINDA" => "NSE:CNXAUTO"
+        "UPL" => "NSE:CNXCOMMODITIES"
+        "URBANCO" => "NSE:CNXIT"
+        "USHAMART" => "NSE:CNXMETAL"
+        "UTIAMC" => "NSE:CNXFINANCE"
+        "VAIBHAVGBL" => "NSE:CNXFMCG"
+        "VAKRANGEE" => "NSE:CNXIT"
+        "VALIANTORG" => "NSE:CNXMETAL"
+        "VARDHACRLC" => "NSE:CNXFMCG"
+        "VBL" => "NSE:CNXFMCG"
+        "VEDL" => "NSE:CNXMETAL"
+        "VENKEYS" => "NSE:CNXFMCG"
+        "VIJAYA" => "NSE:CNXPHARMA"
+        "VINATIORGA" => "NSE:CNXMETAL"
+        "VIPIND" => "NSE:CNXFMCG"
+        "VISHNU" => "NSE:CNXMETAL"
+        "VMM" => "NSE:CNXCONSUM"
+        "VOLTAS" => "BSE:CG"
+        "VTL" => "NSE:CNXFMCG"
+        "WAAREEENER" => "BSE:CG"
+        "WELCORP" => "NSE:CNXMETAL"
+        "WELENT" => "NSE:CNXINFRA"
+        "WELSPUNLIV" => "NSE:CNXFMCG"
+        "WESTLIFE" => "NSE:CNXSERVICE"
+        "WHIRLPOOL" => "BSE:CG"
+        "WIPRO" => "NSE:CNXIT"
+        "WOCKPHARMA" => "NSE:CNXPHARMA"
+        "YESBANK" => "NSE:BANKNIFTY"
+        "ZEEL" => "NSE:CNXMEDIA"
+        "ZENSARTECH" => "NSE:CNXIT"
+        "ZENTEC" => "BSE:CG"
+        "ZFCVINDIA" => "NSE:CNXAUTO"
+        "ZOMATO" => "NSE:CNXSERVICE"
+        "ZYDUSLIFE" => "NSE:CNXPHARMA"
+        "ZYDUSWELL" => "NSE:CNXFMCG"
+        => ""
+    s
+// <DB_LOOKUP_END>
+
+// Tier 1 → Tier 2 hybrid resolution
+f_get_hybrid_sector() =>
+    string t = ""
+    string n = ""
+    // 1. DB Lookup first (highest accuracy — full Nifty 500 coverage)
+    string __clean_t = str.replace_all(str.upper(str.trim(syminfo.ticker)), "NSE:", "")
+    __clean_t := str.replace_all(__clean_t, "BSE:", "")
+    string dbSec = f_db_sector_lookup(__clean_t)
+    if dbSec != ""
+        t := dbSec
+        n := str.replace_all(dbSec, "NSE:", "")
+    // 2. Fall back to keyword auto-mapper (off-list tickers)
+    if t == ""
+        [at, an] = f_get_sector_ticker()
+        t := at
+        n := an
+    [t, n]
+
+[autoSecTick, autoSecName] = f_get_hybrid_sector()
+string secTick = useManual ? manualSec : autoSecTick
+string secName = useManual ? str.replace_all(manualSec, "NSE:", "") : autoSecName
+
+// Sector RS is meaningless when the "sector" resolves to the index itself
+bool secIsIndex = str.replace_all(secTick, "NSE:", "") == str.replace_all(idxTick, "NSE:", "")
+
+// ==========================================
+// 3. MANSFIELD RS CALCULATION (SMOOTH CONTINUOUS & WEEKLY-TIED)
+// ==========================================
+// Calculate equivalent bars per week for sub-weekly timeframes to eliminate stair-stepping:
+// 1 week = 5 trading days = 1,875 trading minutes (NSE India).
+f_get_bars_per_week() =>
+    if timeframe.isweekly
+        1.0
+    else if timeframe.ismonthly
+        0.230769
+    else if timeframe.isdaily
+        5.0
+    else
+        float minsPerBar = timeframe.multiplier
+        if timeframe.isseconds
+            minsPerBar := timeframe.multiplier / 60.0
+        1875.0 / math.max(1.0, minsPerBar)
+
+float barsPerW = f_get_bars_per_week()
+int calcMaLen = math.max(1, math.round(lenWeek * barsPerW))
+
+// Continuous smooth Mansfield calculation on current chart resolution
+f_mansfield_smooth(float benchClose, int length, string ma_type) =>
+    float rp     = (na(benchClose) or benchClose == 0) ? na : close / benchClose
+    float emaVal = ta.ema(rp, length)
+    float smaVal = ta.sma(rp, length)
+    float rpMa   = ma_type == "EMA" ? emaVal : smaVal
+    (na(rp) or na(rpMa) or rpMa == 0) ? na : (rp / rpMa - 1) * 100
+
+// Weekly stair-stepped Mansfield calculation (for request.security option)
+f_calc_mrs_weekly(int length, string ma_type) =>
+    float rp     = close
+    float emaVal = ta.ema(rp, length)
+    float smaVal = ta.sma(rp, length)
+    float rpMa   = ma_type == "EMA" ? emaVal : smaVal
+    (na(rp) or na(rpMa) or rpMa == 0) ? na : (rp / rpMa - 1) * 100
+
+var string cleanTicker = (syminfo.prefix != "" ? syminfo.prefix + ":" : "") + syminfo.ticker
+string reqIdx = cleanTicker + " / " + idxTick
+string reqSec = cleanTicker + " / " + secTick
+
+// Fetch closes for smooth calculation
+float idxCloseNative = request.security(idxTick, timeframe.period, close, barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+float secCloseNative = request.security(secTick, timeframe.period, close, barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+
+// Smooth continuous values vs Stair-stepped weekly values
+float mrsIdxSmooth    = f_mansfield_smooth(idxCloseNative, calcMaLen, maType)
+float mrsSecRawSmooth = f_mansfield_smooth(secCloseNative, calcMaLen, maType)
+
+float mrsIdxStep      = request.security(reqIdx, "W", f_calc_mrs_weekly(lenWeek, maType), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+float mrsSecRawStep   = request.security(reqSec, "W", f_calc_mrs_weekly(lenWeek, maType), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+
+float mrsIdx    = smoothIntraday or timeframe.isweekly ? mrsIdxSmooth : mrsIdxStep
+float mrsSecRaw = smoothIntraday or timeframe.isweekly ? mrsSecRawSmooth : mrsSecRawStep
+float mrsSec    = showSector and not secIsIndex ? mrsSecRaw : na
+
+// ==========================================
+// 4. BACKGROUND (RS sign) + CANONICAL RRG QUADRANT (label only)
+// ==========================================
+// Background = sign of the plotted Index RS line (green above zero / red below)
+// — drift-free and self-consistent (it can only ever match the blue line).
+//
+// STAGE IS DELIBERATELY NOT COMPUTED HERE. The lightweight weekly stage read
+// (f_sec_stage_lite) is a COARSE approximation (raw slope > 0, no threshold, no
+// state machine) and drifts from the CANONICAL stage — v67's f_getStageAndTime
+// / Python compute_weekly_stage_and_wks use a slope threshold (0.0012) + a
+// stateful transition machine + strict-trend overrides. e.g. a stock whose
+// 30-WMA is barely positive reads STAGE 2 here but STAGE 1 on the dashboard.
+// Stage lives authoritatively on Dashboard v67 + Unified Ecosystem; duplicating
+// a drifting copy on this pane only causes confusion. Removed in v1.5.
+//
+// The RRG quadrant below feeds ONLY the last-bar label text (v67 parity read).
+//
+// f_calc_rs_logic is a VERBATIM port from Dashboard v67.4.12 (do-not-touch
+// RRG rule: copy exactly, never re-derive). Called on the weekly SYM/INDEX
+// spread — identical inputs (jdkLen=12, trail=4) → identical quadrant to the
+// dashboard's RRG cell on every bar.
+
+// v67.4.2: Strike.Money-matched JdK formula (replaces 2-pass StockCharts default).
+// Strike uses single-pass normalization with final 5-bar smoothing — NOT
+// the textbook double-pass. Returns CENTERED values (RS_Ratio - 100,
+// RS_Momentum - 100) so legacy >0 thresholds keep their meaning.
+f_calc_rs_logic(int rsl, int rslLevel, int slopeLen, int jdkLen, int trailLen) =>
+    // Called via request.security("STOCK / BENCH", ...) → close IS the ratio.
+    rs           = close
+    rs_sma       = ta.sma(rs, jdkLen)
+    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    rs_ratio     = ta.sma(rs_ratio_raw, 5)                 // 5-bar smooth — Strike-match
+    // RS-Momentum = SMA(length) of ROC of smoothed RS-Ratio
+    rm1          = 100.0 * (rs_ratio / rs_ratio[1])
+    rs_mom       = ta.sma(rm1, jdkLen)
+
+    // Centered (-100) so legacy >0 thresholds keep their meaning
+    float val      = rs_ratio - 100.0
+    float mom_c    = rs_mom   - 100.0
+
+    // Legacy slope arrow: change in RS_Ratio over slopeLen bars
+    float slope = val - nz(val[slopeLen], val)
+    float pastSlope = slope[5]
+
+    // RRG trajectory tail: where were we trailLen bars ago?
+    float val_trail = nz(val[trailLen],   val)
+    float mom_trail = nz(mom_c[trailLen], mom_c)
+
+    // Warm-up: JdK needs ~3×length + buffer for stable values
+    int warmup = math.max(jdkLen * 3 + 10, 60)
+    bool _warmed = bar_index >= warmup and not na(rs) and rs > 0
+    float val_g       = _warmed ? val       : na
+    float slope_g     = _warmed ? slope     : na
+    float mom_g       = _warmed ? mom_c     : na
+    float val_trail_g = _warmed ? val_trail : na
+    float mom_trail_g = _warmed ? mom_trail : na
+
+    [slope_g, val_g, pastSlope, mom_g, val_trail_g, mom_trail_g]
+
+// Verbatim from v67.4.12 — quadrant on centered JdK values.
+f_rrg_quad(float v, float m) =>
+    v >= 0 and m >= 0 ? "Leading" : v >= 0 ? "Weakening" : m >= 0 ? "Improving" : "Lagging"
+
+// Weekly JdK vs Index — same call shape as v67's req500 line
+// (rsLength=26, rsLevelLen=52, rsSlopeLen=8 legacy defaults).
+[_slopeIdx, valIdx, _pastSlopeIdx, momIdx, _valTrailIdx, _momTrailIdx] = request.security(reqIdx, "W", f_calc_rs_logic(26, 52, 8, jdkLength, rrgTrailLen), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+
+string rrgQuad = na(valIdx) or na(momIdx) ? "" : f_rrg_quad(valIdx, momIdx)
+
+// RS-sign tint: mirrors the plotted Index RS line (green >0 / red <0).
+color bgCol = na
+if bgOn and not na(mrsIdx)
+    bgCol := color.new(mrsIdx > 0 ? colRSpos : colRSneg, 88)
+bgcolor(bgCol, title="RS-sign background")
+
+// ==========================================
+// 5. PLOTS
+// ==========================================
+hline(0, "Zero", color=color.new(color.gray, 40), linestyle=hline.style_dotted)
+
+pIdx = plot(mrsIdx, title="Index RS (Nifty 500)", color=colIdx, linewidth=2)
+pSec = plot(mrsSec, title="Sector RS (auto)", color=colSec, linewidth=2)
+pZero = plot(0, title="Zero (fill anchor)", color=color.new(color.gray, 100), display=display.none, editable=false)
+
+fill(pIdx, pZero, color=color.new(colIdx, mrsIdx >= 0 ? 85 : 92), title="Index RS fill")
+
+// ==========================================
+// 6. DETECTED-SECTOR LABEL (last bar)
+// ==========================================
+var label secLbl = na
+if showLabel and barstate.islast
+    string src = useManual ? "manual" : (f_db_sector_lookup(str.replace_all(str.upper(str.trim(syminfo.ticker)), "NSE:", "")) != "" ? "DB" : "keyword")
+    string txt = secIsIndex or na(mrsSec) ? "Sector: " + secName + " (" + src + ") — not plotted" : "Sector: " + secName + " (" + src + ")"
+    if rrgQuad != ""
+        txt := "RRG: " + str.upper(rrgQuad) + " · " + txt
+    if na(secLbl)
+        secLbl := label.new(bar_index, 0, txt, style=label.style_label_left, color=color.new(colSec, 80), textcolor=colSec, size=size.small)
+    label.set_xy(secLbl, bar_index + 2, na(mrsSec) ? (na(mrsIdx) ? 0 : mrsIdx) : mrsSec)
+    label.set_text(secLbl, txt)
+
+// ==========================================
+// 7. RSI + ATR READOUT  (17-Aug-2026, Jay: "can I superimpose RSI and ATR on the
+//    MRS auto indicator? I do not want to load 2 more indicators on the screen")
+//
+// DELIBERATELY NOT PLOTTED. Mansfield RS oscillates around 0, RSI is bounded
+// 0-100, and ATR is in rupees — three incompatible scales. Plotting them on this
+// pane would either flatten the RS line against a 0-100 axis or require rescaling
+// RSI/ATR into RS units, after which the y-axis means nothing for any of the
+// three and every value read off it is wrong. A numeric cell has no scale to
+// conflict with, and a number is what you actually read these two for.
+//
+// ATR is shown as a PERCENT of price, not rupees: ATR 15 says nothing until you
+// know the price, and % is what the trade-type ladder and the stop policy use.
+// The RSI cell is tinted by zone, so the overbought/oversold read is still a
+// glance rather than a comparison.
+// ==========================================
+grpRA      = "RSI / ATR readout"
+showRA     = input.bool(true,  "Show RSI + ATR cell",          group=grpRA)
+raRsiLen   = input.int(14,     "RSI length",  minval=2,        group=grpRA)
+raAtrLen   = input.int(14,     "ATR length",  minval=2,        group=grpRA)
+raOB       = input.int(70,     "RSI overbought",               group=grpRA)
+raOS       = input.int(30,     "RSI oversold",                 group=grpRA)
+raPos      = input.string("Top Right", "Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=grpRA)
+
+float raRsi    = ta.rsi(close, raRsiLen)
+float raAtr    = ta.atr(raAtrLen)
+float raAtrPct = close > 0 ? raAtr / close * 100.0 : na
+
+if showRA and barstate.islast
+    var table raTbl = na
+    raTblPos = raPos == "Top Right" ? position.top_right : raPos == "Top Left" ? position.top_left : raPos == "Bottom Right" ? position.bottom_right : position.bottom_left
+    if na(raTbl)
+        raTbl := table.new(raTblPos, 2, 2, border_width=1, border_color=color.new(color.gray, 70), frame_width=1, frame_color=color.new(color.gray, 60))
+    color raRsiCol = na(raRsi) ? color.gray : raRsi >= raOB ? #EF5350 : raRsi <= raOS ? #26A69A : #B0BEC5
+    table.cell(raTbl, 0, 0, "RSI " + str.tostring(raRsiLen), text_color=color.new(color.gray, 20), text_size=size.tiny, bgcolor=color.new(color.black, 80))
+    table.cell(raTbl, 1, 0, na(raRsi) ? "—" : str.tostring(raRsi, "0.0"), text_color=raRsiCol, text_size=size.small, bgcolor=color.new(color.black, 80))
+    table.cell(raTbl, 0, 1, "ATR " + str.tostring(raAtrLen) + " %", text_color=color.new(color.gray, 20), text_size=size.tiny, bgcolor=color.new(color.black, 80))
+    table.cell(raTbl, 1, 1, na(raAtrPct) ? "—" : str.tostring(raAtrPct, "0.00") + "%", text_color=#B0BEC5, text_size=size.small, bgcolor=color.new(color.black, 80))

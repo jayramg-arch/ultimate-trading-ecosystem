@@ -1036,13 +1036,17 @@ def vp_support(df: pd.DataFrame, price: float | None = None) -> dict:
 # ...then a SECOND obstacle beyond a minimum gap, so one obstacle reported
 # twice (T1 and T2 95 paise apart on PFC) cannot masquerade as two targets.
 #
-# Room is expressed in R, not %, against the same risk S4 uses: the demand
-# zone's own width (floored at 0.5 ATR) when price is at a zone, else
-# 2.5 ATR. Measuring room in % would flatter wide-stop names for exposure
-# they never bought — the same error the stop studies were re-run to fix.
+# Room is expressed in R, not %, against the risk the CALLER supplies — the
+# plan's own (entry - SL). Measuring room in % would flatter wide-stop names for
+# exposure they never bought, the same error the stop studies were re-run to fix.
+# If the caller cannot supply entry and risk, room_r is None. It is NOT filled in
+# from zone geometry (removed 17-Aug): that produced a zone-width span wearing an
+# "R" label. S4 v9.13 keeps such a span but calls it "×zone".
 OVH2_GAP_ATR   = 0.5      # S4 ovh2_gap_atr — min separation for a 2nd obstacle
-ROOM_RISK_ATR  = 2.5      # fallback risk when no demand zone is in play
-ROOM_ZONE_FLOOR_ATR = 0.5 # a hairline zone still gets a usable risk unit
+# ROOM_RISK_ATR / ROOM_ZONE_FLOOR_ATR removed 17-Aug with the risk-unit fallback
+# they served (see overhead_room). Do not reinstate them to "fill in" a missing
+# risk: a zone-width span and a risk multiple are different quantities, and the
+# board prints both through one "R" label. Nothing outside that block used them.
 
 
 def _atr_abs(df, n=14):
@@ -1148,21 +1152,18 @@ def overhead_room(frames: dict, price: float | None = None,
             out["obstacle2"] = lv
             break
 
-    if entry is None or risk is None:
-        z = {}
-        for tf in ("D", "W"):
-            if tf in frames:
-                z = zone_support(frames[tf], tf, px) or {}
-                if z.get("at_support"):
-                    break
-        prox = z.get("proximal")
-        dist = z.get("distal")
-        entry = float(prox) if prox else px
-        if prox and dist and prox > dist:
-            risk = max(float(prox) - float(dist), atr * ROOM_ZONE_FLOOR_ATR)
-        else:
-            risk = atr * ROOM_RISK_ATR
-    if risk and risk > 0:
+    # NO RISK-UNIT FALLBACK (17-Aug). This used to substitute a risk unit when the
+    # caller could not supply one — the demand zone's own width, else 2.5 ATR, with
+    # `entry` moved to the zone proximal. That is a STRUCTURAL SPAN (zone -> obstacle,
+    # in zone widths), not reward-per-risk at your entry, and it was emitted through
+    # the same `room_r` field and printed with the same "R" suffix by the board. Two
+    # conventions behind one label, switched by a condition invisible on screen — and
+    # it selected for the worst case: `entry > sl` is false exactly on Pyramid/ADD
+    # rows, whose raised Chandelier can sit above price. S4 v9.13 relabelled its copy
+    # of this span "×zone"; here the honest answer is simply not to guess, per this
+    # function's own rule above — unknown reads as unknown, never as a number.
+    # gm_trigger_board:1403 already renders None as a blank Room cell.
+    if entry is not None and risk and risk > 0:
         out["room_r"] = round((out["obstacle"] - float(entry)) / float(risk), 2)
     out["room_pct"] = round((out["obstacle"] - px) / px * 100, 2)
     return out

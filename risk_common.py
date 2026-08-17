@@ -281,7 +281,9 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
     trail_window_for(). Multiplier precedence (identical to the Risk Shield page):
       1. valid custom override (>0)           → "custom"
       2. catalyst-aware set (trail_mult_for)  → "<setup/family>"
-      3. heuristic fallback (4.5 bull / 5.0 bear)
+      3. heuristic fallback: 4.5 above the 200-DMA / 5.0 below it. NOTE this rung
+         keys on `above200` (a per-STOCK test), not `bear` (the MARKET regime) that
+         rungs 1-2 use — see the comment at the branch. Deliberate as of 17-Aug.
       4. cap-protect (portfolio drawdown)     → 2.5, overrides all of the above
 
     Returns (level, multiplier, source) or (None, None, None) when there are
@@ -317,8 +319,23 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
             mult = (1.5 if swing else 4.5) + (0.5 if bear else 0.0)
             src = ("swing-inferred" if swing else "pos-inferred")
         else:
+            # LABEL ONLY (17-Aug). Multiplier deliberately UNCHANGED.
+            # This rung loosens on `above200` — whether THIS STOCK is above its own
+            # 200-DMA — while rungs 2 and 3 above loosen on `bear`, the MARKET regime
+            # score. Both are live at once, so the trail table could print the
+            # self-contradicting "BEAR heuristic-bull": market bear, stock above its
+            # 200-DMA. The old names read as market regime and hid which question was
+            # actually being asked; these name the input.
+            # The INCONSISTENCY IS REAL AND STILL HERE — a blank-setup name gets no
+            # bear widening unless it also sits below its 200-DMA, while a name with a
+            # setup always does. Unifying the two was considered and declined (Jay,
+            # 17-Aug): it is a stop-parameter change, it would widen 4.5 -> 5.0 on most
+            # of the book in the current regime, and four prior stop studies rejected
+            # multiplier changes for want of evidence. Fix the naming, not the numbers.
+            # The upstream lever is better anyway: 6 of 7 uncovered holdings reach this
+            # rung only because the journal `setup` is blank.
             mult = 4.5 if above200 else 5.0
-            src = "heuristic-bull" if above200 else "heuristic-bear"
+            src = "heuristic-above200" if above200 else "heuristic-below200"
         if cap_protect:
             mult, src = 2.5, "cap-protect"
 

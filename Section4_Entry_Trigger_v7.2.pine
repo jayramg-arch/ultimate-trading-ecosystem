@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v9.12 (Sectioned Panel)", shorttitle="S4 Entry v9.12", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v9.13 (Sectioned Panel)", shorttitle="S4 Entry v9.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/8 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -3546,7 +3546,17 @@ f_fold3649() =>
     bool timing_ok = ev_ok or intra_ok      // optional TIMING refinement (AVWAP / intraday)
     float _bqRng   = high - low
     float _bqClpos = _bqRng > 0 ? (close - low) / _bqRng : 0.5
-    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
+    // CLOSE LOCATION IS THE TEST, NOT THE COLOUR (17-Aug, Jay: "green candles with
+    // heavy selling pressure are ticked OK"). `close >= open` passes a bar that gaps
+    // up, runs, and closes on its low — distribution wearing a green body. The old
+    // rule was `close >= open OR clpos >= 0.5`, so the colour alone was sufficient.
+    // Now the close must sit in the upper half of the bar's RANGE on both paths: an
+    // upthrust/shooting-star closes bottom-half by construction and fails regardless
+    // of body colour. The pullback path keeps its "held the zone" alternative to the
+    // colour test (the 3-Aug pb_aware allowance) but is subject to the same floor.
+    // NOTE: this TIGHTENS the GO gate — the s4go backtest was run on the lenient rule.
+    float BAR_CLPOS_MIN = 0.5
+    bool  bar_ok   = (pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open)) and _bqClpos >= BAR_CLPOS_MIN
     bool go       = any_pa and support_pass and vol_ok and bar_ok
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
@@ -4476,7 +4486,13 @@ if show_panel and d_panel and barstate.islast
     float _rf_risk  = (not na(_dzW) and _dzW > 0) ? math.max(_dzW, _atr_r * 0.5) : _atr_r * 2.5
     float _rf_t1    = _rf_entry + _rf_risk * 2.0
     float _roomR    = (not na(_ovh) and _rf_risk > 0) ? (_ovh - _rf_entry) / _rf_risk : na
-    string _rtag    = na(_roomR) ? "" : " · " + str.tostring(_roomR, "0.0") + "R"
+    // v9.13 (#roomR, 17-Aug): this is NOT reward-per-risk at your entry. It is the
+    // structural span from the nearest demand-zone PROXIMAL to the obstacle, measured
+    // in ZONE WIDTHS (see _rf_entry/_rf_risk above). Printing it as "R" next to the
+    // Plan row's genuine R (T1 from the actual entry over the capped SL) read as the
+    // same quantity and was off by ~50x on IKS 17-Aug (Room 5.0R vs Plan T1 0.1R).
+    // Relabelled "×zone"; the thin-R VETO now reads pl_rr1 instead (see _qThinR).
+    string _rtag    = na(_roomR) ? "" : " · " + str.tostring(_roomR, "0.0") + "×zone"
     string room_txt = "CLEAR"
     color  room_col = C_OK
     if na(_ovh)
@@ -5000,7 +5016,10 @@ if show_panel and d_panel and barstate.islast
     color  _anCol = color.new(#b2b5be, 0)
     // Quality overlay — true regardless of which gate is blocking.
     bool _qSupply  = _inSZ_r
-    bool _qThinR   = (not na(_roomR)) and _roomR < 1.0
+    // v9.13: was _roomR (zone-span in zone widths) — the guard meant to stop a
+    // thin-reward trade was reading a structural measure, so IKS passed at "5.0R"
+    // while the executable plan was T1 0.1R. Now reads the Plan's own R.
+    bool _qThinR   = (not na(pl_rr1)) and pl_rr1 < 1.0
     // ROOM NEVER VETOES A RECOVERY (Jay, 23-Jul): a recovery is a beaten-down stock climbing
     // back UP through the levels it fell from — it INHERENTLY has overhead resistance, and
     // those levels ARE the target ladder (T1/T2/T3), not disqualifiers. The room / in-supply
@@ -5076,7 +5095,7 @@ if show_panel and d_panel and barstate.islast
     // Cite the NEAREST overhead (_ovh) as the obstacle, not the far band DISTAL — the verdict
     // used to say "must clear <band top>" (+11-13%) while the Room row above it said "first
     // <nearest> (+1-2%)". They now agree; the band top is shown only as secondary context.
-    string _roomWord = _qSupply ? ("price is INSIDE supply" + (na(_ovh) ? "" : " — first clear " + str.tostring(_ovh, format.mintick) + (not na(_band_r) and _band_r > _ovh ? " (band extends to " + str.tostring(_band_r, format.mintick) + ")" : ""))) : _qThinR ? ("only " + str.tostring(_roomR, "0.0") + "R of room to the first obstacle") : ""
+    string _roomWord = _qSupply ? ("price is INSIDE supply" + (na(_ovh) ? "" : " — first clear " + str.tostring(_ovh, format.mintick) + (not na(_band_r) and _band_r > _ovh ? " (band extends to " + str.tostring(_band_r, format.mintick) + ")" : ""))) : _qThinR ? ("only " + str.tostring(pl_rr1, "0.0") + "R at your entry to the first obstacle") : ""
     // (_roomTag / _arrTag retired — room and arrival each have their own panel row.)
     // The binding gate, in words, with its number.
     string _blk = not any_pa_v ? "no PA pattern" : not support_v ? "not at a location" : not vol_ok_v ? ("volume below floor (RV " + str.tostring(chart_rv_v, "0.00") + "/" + str.tostring(rv_floor, "0.00") + ")") : "the trigger bar closed weak"
