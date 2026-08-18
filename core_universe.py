@@ -142,11 +142,18 @@ def fetch(cfg=None, max_pages: int = 30):
     if ck:
         h["Cookie"] = ck
 
+    import screener_breaker as _brk
+    if not _brk.allow():
+        logger.warning("core universe: screener.in breaker %s - UNAVAILABLE (no gate)",
+                       _brk.state())
+        return None
+
     out, page = set(), 1
     while page <= max_pages:
         try:
             r = requests.get("https://www.screener.in/screen/raw/", headers=h,
                              params={"query": q, "page": page}, timeout=30)
+            _brk.record_ok()
             if r.status_code != 200:
                 logger.warning("core universe: HTTP %s on page %s", r.status_code, page)
                 break
@@ -154,6 +161,7 @@ def fetch(cfg=None, max_pages: int = 30):
             codes = [a["href"].split("/")[2].upper()
                      for a in s.select('table.data-table tbody tr a[href^="/company/"]')]
         except Exception as e:
+            _brk.record_fail(e)
             logger.warning("core universe: page %s failed (%s)", page, e)
             break
         if not codes:

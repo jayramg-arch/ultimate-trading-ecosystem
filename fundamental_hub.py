@@ -119,11 +119,16 @@ def _fetch_screener_fundamentals(symbol: str) -> Optional[dict]:
     if cookie_str:
         headers["Cookie"] = cookie_str
 
+    import screener_breaker as _brk
+    if not _brk.allow():
+        return None
     try:
         r = requests.get(url, headers=headers, timeout=15)
+        _brk.record_ok()
         if r.status_code != 200:
             return None
     except Exception as e:
+        _brk.record_fail(e)
         logger.warning("Screener company request failed for %s: %s", symbol, e)
         return None
 
@@ -286,11 +291,16 @@ def fetch_screener_rff_row(symbol: str, ttl: int = 86400) -> Optional[dict]:
         cookie = os.getenv("SCREENER_COOKIE", "")
         if cookie:
             headers["Cookie"] = cookie
+        import screener_breaker as _brk
+        if not _brk.allow():
+            return None
         try:
             r = requests.get(url, headers=headers, timeout=15)
+            _brk.record_ok()
             if r.status_code != 200:
                 return None
-        except Exception:
+        except Exception as _e:
+            _brk.record_fail(_e)
             return None
         soup = BeautifulSoup(r.text, "html.parser")
 
