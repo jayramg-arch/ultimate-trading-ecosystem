@@ -247,6 +247,24 @@ st.markdown("""
     }
 
     /* Top Bar Quick Action Buttons */
+    /* CONSTITUENT TILES ONLY (18-Aug, Jay: "reduce the font size on the
+       sectors/stocks shown below the Constituents header"). Targeted by the
+       st-key-btn_tile_* key rather than div.stButton, so the ✓ All / ✗ Clear
+       buttons and every other button in the app keep their size. Row padding and
+       min-height come down with the text — shrinking the font alone would leave
+       the same tall rows and fit no more names on screen, which is the point of
+       the change on a 250-name universe. */
+    div[class*="st-key-btn_tile"] button {
+        font-size: 0.63rem !important;
+        font-weight: 700 !important;
+        padding: 1px 6px !important;
+        min-height: 0 !important;
+        line-height: 1.25 !important;
+        letter-spacing: -0.1px;
+    }
+    div[class*="st-key-btn_tile"] {
+        margin-bottom: -6px !important;
+    }
     .btn-sel-all button {
         background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%) !important;
         color: #0369A1 !important;
