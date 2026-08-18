@@ -1380,7 +1380,7 @@ dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, 
 // v9.17 - an unbound source and a genuinely absent signal are different states.
 bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
 [_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = core.rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
-en_rrg_gate = input.bool(true, "Gate 5: require RRG 'BUY OK' (R)", group=grpDash, tooltip="Jay, 18-Aug-2026: only a Tradeable-Gate 'Buy OK' arms the trade. ON makes R a HARD gate - GO needs P, L, V, B and R.\n\nMEASURED BEFORE SHIPPING, on the real 49-name board universe and not a guess: BUY OK 21 (43%), WAIT 28 (57%), unknown 0. So R blocks more than half the board. RRG is a WEEKLY signal on a 75m trigger, so a blocked name can stay blocked for weeks - that is the cost you are accepting, and it is the reason this is a switch.\n\nOFF = R still shows on the TRIGGER chip and in the panel, it just stops vetoing - the tag-then-gate order that caught the Wyckoff veto running backwards.")
+en_rrg_gate = input.bool(false, "Gate 5: require RRG 'BUY OK' (R) - OFF, see tooltip", group=grpDash, tooltip="RE-MEASURED 18-Aug-2026 and turned OFF. The BUY OK whitelist was fitted in May on the OLD 12/5/12 RRG pair; every surface moved to the RRG Studio calibration that day, so the cells were being produced by a different function than the one whose alpha justified them.\n\nRe-measured on 473 symbols / 93,745 weekly observations, matched-horizon alpha, chronological IS-OOS, bootstrapped by SYMBOL: the 5-cell whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12 - it blocks half the universe for nothing. IMPROVING->LEADING is reliably NEGATIVE (-0.33 / -0.87, CI excludes 0) and cancels what LEADING->LEADING earns.\n\nOnly LEADING->LEADING and WEAKENING->LEADING are positive at both horizons in both windows. Jay's call: no mechanical veto - he eyeballs those two cases. R still PRINTS on the TRIGGER chip and in the RRG row; turning this ON restores the veto.")
 bool rrg_ok = not en_rrg_gate or not _gOkTrail or _rrgTr
 // --- v67 PORTFOLIO SLOT (12-Aug-2026) ---------------------------------------
 // MY TRADE and POSITION STATUS, so the dashboard TABLE can stay shut. The slots,
@@ -3880,7 +3880,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not bar_ok_v ? "weak/red bar" : "no RRG BUY OK") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (rrg_ok[_so]?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "✓" : "·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
@@ -5129,7 +5129,7 @@ if show_panel and d_panel and barstate.islast
     // #verdict (30-Jul): "on the pullback" was unconditional, but on the trigger bar itself
     // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
-    string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : not bar_ok_v ? "WEAK/RED BAR — no entry" : "RRG NOT TRADEABLE — " + _rrgTrj[_so] + ", v67 says WAIT"
+    string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : "WEAK/RED BAR — no entry"
     // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
     // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
     // above: the gate chips are on TRIGGER, conf is the Confluence row, RV is the RV row,

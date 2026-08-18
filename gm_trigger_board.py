@@ -990,12 +990,32 @@ def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
 # by the S4-GO colour rules, so re-denominating it would silently reinterpret every
 # historical log row. A blocked name still shows its gate count, so nothing is hidden.
 #
-# Set RRG_GATE = False to demote it to display-only. MEASURED on the real 49-name
-# board universe (18-Aug): BUY OK 21 (43%), WAIT 28 (57%), unknown 0 - so R blocks
-# more than half the board, and it blocks on WEEKLY evidence a 75m trigger cannot
-# outrun. Note the trajectory whitelist is NOT the same as "the quadrant is green":
-# LAGGING->IMPROVING passes and LEADING->WEAKENING does not.
-RRG_GATE = True
+# RE-MEASURED AND TURNED OFF, 18-Aug-2026. The whitelist was fitted in May on the OLD
+# 12/5/12 RRG pair; that morning every surface moved to the RRG Studio calibration, so
+# the cells were being produced by a different function than the one whose alpha
+# justified them (the file's own history records the same thing happening at v1.7).
+#
+# Re-measure: 473 symbols, 93,745 weekly observations, 2022-06..2026-07, matched-horizon
+# alpha, chronological IS/OOS, bootstrapped by SYMBOL (overlapping windows are not
+# independent, so raw n hugely overstates it). Cell alpha is reported as a DEVIATION from
+# the +0.97% (4w) / +3.20% (12w) universe drift - in absolute terms almost every cell is
+# "positive" and that is the equal-weighted universe, not the RRG.
+#
+#   whitelist                          passes    edge 4w    edge 12w
+#   current 5 cells                      49%     +0.12pp     +0.00pp   <- worth nothing
+#   drop IMPROVING->LEADING              33%     +0.31pp     +0.37pp
+#   only LEADING->LEADING, WEAKENING->LEADING  20%  +0.54pp  +0.83pp
+#
+# IMPROVING->LEADING (n~15,000) is reliably NEGATIVE at both horizons (-0.33 [-0.61,-0.06]
+# and -0.87 [-1.55,-0.14]) and cancels what LEADING->LEADING earns - the whitelist
+# contained its own antidote. Only LEADING->LEADING and WEAKENING->LEADING are positive at
+# both horizons in both windows.
+#
+# Jay's call: no mechanical veto; he eyeballs those two cases. R is DISPLAY-ONLY - a
+# non-tradeable name is tagged "· RRG·" and still shows its gate count. Set RRG_GATE=True
+# to restore the veto (and narrow the whitelist first if you do).
+# Artifacts: validation_runs/rrg_cells_h{4,12}_full.csv, rrg_cell_remeasure.py.
+RRG_GATE = False       # OFF 18-Aug-2026 - re-measured, see above
 
 
 _RRG_BENCH_W = {}          # benchmark weekly closes, fetched once per process
@@ -1072,16 +1092,24 @@ def rrg_tradeable_live(daily_df):
         return None
 
 
-def _rrg_ok(v) -> bool:
-    """Fail-OPEN. None/blank/unparseable = unknown, and an unknown must never read as a
-    verdict (the ICICIAMC lesson: absent data is not a signal). CSV round-trips turn the
-    bool into "True"/"False" strings, so coerce rather than trusting the type."""
-    if not RRG_GATE or v is None:
+def _rrg_ok_raw(v) -> bool:
+    """The coercion ONLY - ignores RRG_GATE. Used for the display tag, which must keep
+    working after the veto is switched off."""
+    if v is None:
         return True
     t = str(v).strip().lower()
     if t in ("", "nan", "none", "-", "—", "n/a"):
         return True
     return t not in ("false", "0", "no", "wait", "✗ wait")
+
+
+def _rrg_ok(v) -> bool:
+    """Fail-OPEN. None/blank/unparseable = unknown, and an unknown must never read as a
+    verdict (the ICICIAMC lesson: absent data is not a signal). CSV round-trips turn the
+    bool into "True"/"False" strings, so coerce rather than trusting the type."""
+    if not RRG_GATE:
+        return True
+    return _rrg_ok_raw(v)
 
 
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
@@ -1187,9 +1215,14 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     if path == "recovery" and RECOVERY_UNVALIDATED:
         _mtag += " · ⚠unval"
     _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
-    # GATE 5 (R): RRG not tradeable -> upstream veto. Sorts below every live gate count
-    # (the column sorts on the leading character) and carries the data-quality tags, for
-    # the same reason the stage branch does.
+    # GATE 5 (R). DISPLAY and VETO are deliberately separate: with the veto off the tag
+    # must still print, or a disabled gate silently removes the very information Jay is
+    # now eyeballing. _rrg_ok() answers the GATE (and is always True when RRG_GATE is
+    # False), so the tag is driven off the raw value instead.
+    _rrg_raw = rrg_tradeable
+    if _rrg_raw is not None and not _rrg_ok_raw(_rrg_raw):
+        _mtag += " · RRG·"          # not tradeable — LEADING->LEADING / WEAKENING->LEADING is what to look for
+        _age_tag += " · RRG·"
     if not _rrg_ok(rrg_tradeable) and not _stage_blocked:
         return f"⛔ RRG WAIT · gates {n}/4{_mtag}"
     if _stage_blocked:
