@@ -3565,11 +3565,39 @@ f_fold3649() =>
     //     clp>=50 AND wick<=20              33% pass   all three cases correct
     // The 18% is why nearly every Bar (B) row went red. Dropping the colour test
     // costs nothing in strictness (33% vs 37%) and fixes the shakeout.
+    // REGIME-CONDITIONAL B (18-Aug, Jay: "we have to look at both the PA and bar
+    // together — a bullish Inside Bar is still bullish despite forming a small
+    // candle after a momentum candle"). Confirmed by research (Al Brooks: every bar
+    // is a TREND bar or a DOJI, read in CONTEXT; inside-bar literature: compression
+    // near the top of the mother bar is strength) and then MEASURED — 4 rules,
+    // 18 anchors, identical names, block-bootstrapped by symbol:
+    //     legacy green-OR-upper-half   +0.14   (the 11-Aug rule)
+    //     flat CLV>=0 AND wick<=20%    -0.48   worse than legacy, CI excludes 0
+    //     REGIME (this)                -0.01   indistinguishable from legacy
+    //     body>=50% everywhere         -0.83   worst; CI excludes 0
+    // The flat rule I shipped earlier today was measurably HARMFUL: it cut fills
+    // 314 -> 241 and the trades it removed were net winners. A body floor applied
+    // everywhere is worse still — Jay's objection to small candles was right, but
+    // a body floor is the wrong instrument. Only the CONTEXT version pays.
+    // Chosen over the legacy rule not because it scores better (it does not, +0.15
+    // in its favour with CI [-0.18,+0.49]) but because it matches legacy at no
+    // measurable cost while rejecting the two bars Jay caught by eye — IGIL's
+    // spinning top and IPCALAB's capped bar — which legacy passes.
+    // Wick cap 20% -> 30% (Jay, 18-Aug).
     float BAR_CLPOS_MIN = 0.5
-    float BAR_WICK_MAX  = 0.20
-    float _bqUpW   = high - math.max(close, open)
+    float BAR_WICK_MAX  = 0.30
+    float BAR_BODY_MIN  = 0.50
+    float _bqUpW    = high - math.max(close, open)
     bool  _bqWickOk = _bqRng > 0 ? _bqUpW / _bqRng <= BAR_WICK_MAX : true
-    bool  _bqStrong = _bqClpos >= BAR_CLPOS_MIN and _bqWickOk
+    bool  _bqPlain  = _bqClpos >= BAR_CLPOS_MIN and _bqWickOk
+    // EXPANSION: the bar must BE the move — a trend bar, big body, small upper tail.
+    bool  _bqTrend  = _bqPlain and (_bqRng > 0 ? math.abs(close - open) / _bqRng >= BAR_BODY_MIN : false)
+    // CONTRACTION: the bar is SUPPOSED to be small. Judge it against the MOTHER bar
+    // instead — close in the upper half of the PRIOR bar's range and not below its
+    // low. That is the inside-bar case, and it is why a body floor cannot be used.
+    float _bqPRng   = high[1] - low[1]
+    bool  _bqHeld   = _bqPRng > 0 ? (close >= (high[1] + low[1]) / 2.0 and close >= low[1]) : _bqPlain
+    bool  _bqStrong = pa_contract ? _bqHeld : pa_expand ? _bqTrend : _bqPlain
     bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or _bqStrong) : _bqStrong
     bool go       = any_pa and support_pass and vol_ok and bar_ok
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]

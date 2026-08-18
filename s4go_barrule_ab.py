@@ -43,6 +43,7 @@ CATALYST_RUN = "20260723_063652"
 _ORIG_BAR = _replay._bar_ok_series
 
 # S4's own sets (Section4 :3540-3541), mapped to pa_field_validator columns.
+WICK = 0.20
 EXPAND   = ["pa_gap_up_bo", "pa_true_breakout", "pa_s2_launch", "pa_htf",
             "pa_liq_sweep", "pa_power_strong", "pa_outside_bull"]
 CONTRACT = ["pa_vcp_bo", "pa_pocket", "pa_50sma_undercut", "pa_hammer_at_50",
@@ -88,17 +89,34 @@ def bar_v2(det):
         if k in det:
             con |= det[k].fillna(False).to_numpy(dtype=bool)
     exp_only = exp & ~con
-    trend  = (clv >= 0) & (upw <= 0.20) & (body >= 0.50)
+    trend  = (clv >= 0) & (upw <= WICK) & (body >= 0.50)
     held   = (clv_prev >= 0) & (c >= pl)
-    plain  = (clv >= 0) & (upw <= 0.20)
+    plain  = (clv >= 0) & (upw <= WICK)
     out = pd.Series(np.where(exp_only, trend.fillna(False),
                     np.where(con, held.fillna(False), plain.fillna(False))),
                     index=det.index)
     return out.fillna(False)
 
 
-RULES = {"V0_legacy": bar_v0, "V1_currentPine": bar_v1,
-         "V2_regime": bar_v2, "V3_trendbar_all": bar_v3}
+def bar_v2_w30(det):
+    """V2 with the wick cap relaxed 20% -> 30% (Jay, 18-Aug). Same regime logic.
+
+    `global WICK`, NOT `import s4go_barrule_ab as _self`. Run directly the script
+    is __main__, so importing itself by name builds a SECOND module object: the
+    rebind landed on that copy while bar_v2 kept reading __main__.WICK. Both
+    configs silently ran at 20% and the first w30 result came back identical to
+    w20 to every decimal — which is the tell, not a finding.
+    """
+    global WICK
+    _o = WICK
+    WICK = 0.30
+    try:
+        return bar_v2(det)
+    finally:
+        WICK = _o
+
+
+RULES = {"V0_legacy": bar_v0, "V2_regime_w20": bar_v2, "V2_regime_w30": bar_v2_w30}
 
 
 def anchors_from_run(run_id):

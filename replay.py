@@ -829,14 +829,55 @@ def _go_pa_series(det: pd.DataFrame, triggers: list[str]) -> pd.Series:
     return s.fillna(False)
 
 
+BAR_CLPOS_MIN = 0.50
+BAR_WICK_MAX  = 0.30      # Jay, 18-Aug: relaxed from 0.20
+BAR_BODY_MIN  = 0.50
+BAR_EXPAND   = ["pa_gap_up_bo", "pa_true_breakout", "pa_s2_launch", "pa_htf",
+                "pa_liq_sweep", "pa_power_strong", "pa_outside_bull"]
+BAR_CONTRACT = ["pa_vcp_bo", "pa_pocket", "pa_50sma_undercut", "pa_hammer_at_50",
+                "pa_hammer_at_200", "pa_inside", "pa_inside3", "pa_nr7", "pa_ib_nr7"]
+
+
 def _bar_ok_series(det: pd.DataFrame) -> pd.Series:
-    """S4 bar_ok (lenient): green OR close in the upper half of the range. Kills
-    big-red distribution/upthrust bars that a structural pattern can fire on."""
+    """S4 bar_ok — REGIME-CONDITIONAL, mirroring Section4 (~:3568).
+
+    SYNCED 18-Aug-2026. This had silently held the 11-Aug rule (green OR upper
+    half) through every Pine change, so every s4go run measured a gate S4 was no
+    longer using. Pine and the backtest now share one definition; change both.
+
+    What the bar must prove depends on what the PATTERN claims — measured over 4
+    rules x 18 anchors, block-bootstrapped by symbol:
+        legacy green-OR-upper-half  +0.14   flat CLV+wick  -0.48 (CI excludes 0)
+        REGIME (this)               -0.01   body-floor-everywhere -0.83
+      • EXPANSION  (breakout/gap/launch): the bar must BE the move — trend bar,
+        body >= 50% of range, close upper half, upper wick <= 30%.
+      • CONTRACTION (inside/NR7/VCP/pocket/hammer): the bar is SUPPOSED to be
+        small. Judged against the MOTHER bar — close in the upper half of the
+        PRIOR bar's range and not below its low. A body floor would reject a
+        valid inside bar, which is exactly why one is not used.
+      • neither: close upper half + upper wick <= 30%.
+    """
     o, h, l, c = det["open"], det["high"], det["low"], det["close"]
     rng = (h - l).replace(0, np.nan)
-    upper_half = (c - l) / rng >= 0.5
-    green = c >= o
-    return (green | upper_half).fillna(False)
+    clpos = (c - l) / rng
+    upw = (h - np.maximum(c, o)) / rng
+    body = (c - o).abs() / rng
+    plain = (clpos >= BAR_CLPOS_MIN) & (upw <= BAR_WICK_MAX)
+    trend = plain & (body >= BAR_BODY_MIN)
+    ph, pl = h.shift(1), l.shift(1)
+    held = (c >= (ph + pl) / 2.0) & (c >= pl)
+
+    def _any(keys):
+        m = np.zeros(len(det), dtype=bool)
+        for k in keys:
+            if k in det:
+                m |= det[k].fillna(False).to_numpy(dtype=bool)
+        return m
+
+    con, exp = _any(BAR_CONTRACT), _any(BAR_EXPAND)
+    out = np.where(con, held.fillna(False),
+                   np.where(exp, trend.fillna(False), plain.fillna(False)))
+    return pd.Series(out, index=det.index).fillna(False)
 
 
 def _location_at(sub: pd.DataFrame, px: float) -> dict:
