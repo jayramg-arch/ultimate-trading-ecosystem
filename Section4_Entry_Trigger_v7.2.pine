@@ -4879,8 +4879,14 @@ if show_panel and d_panel and barstate.islast
     // and exports na. Nothing to bind — nothing to compute yet.
     // _dashNone (line above) already distinguishes them: it is true only when NO
     // v67 field is bound. Use it, and say which of the two it actually is.
-    string _rrgLine = _dashNone ? "bind v67 — Settings ▸ Dashboard import"
-                                : "no RS from v67 yet — too little weekly history for this symbol"
+    // Written as an if/else, NOT a wrapped ternary: a continuation line indented
+    // by a multiple of 4 parses as a new block ("end of line without line
+    // continuation"), which is exactly how v9.17 first failed to compile at this
+    // line. Re-indenting to 13 spaces also compiles but silently re-breaks the
+    // moment anyone re-aligns the file, so the ladder is the durable form.
+    string _rrgLine = "no RS from v67 yet — too little weekly history for this symbol"
+    if _dashNone
+        _rrgLine := "bind v67 — Settings ▸ Dashboard import"
     color _quadC = C_MUTE
     if _okRat
         _quad := _rrgCur[_so]
