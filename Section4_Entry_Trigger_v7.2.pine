@@ -851,7 +851,7 @@
 // ============================================================================
 //@version=6
 indicator("Section 4 Entry Trigger and Price Memory v9.17 (Sectioned Panel)", shorttitle="S4 Entry v9.17", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/9 as core
+import jayramg/S4Core/10 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one

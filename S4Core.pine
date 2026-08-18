@@ -1258,7 +1258,11 @@ export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recov
 // working exactly as it did in place.
 // Renders the two-line zone caption, 10-space indented so the text starts inside
 // the zone body rather than on its left edge.
-export buildLabel(simple string tf, bool isDemand, string pattern, int score,
+// `tf` is SERIES string, not simple: the call sites pass Zone fields (_zc.tf,
+// z.tf) and UDT fields are always series. Qualifying it `simple` on the way into
+// the library is what broke the first v9 publish — the local version this
+// replaced had plain `string tf`, and copying it faithfully was the whole job.
+export buildLabel(string tf, bool isDemand, string pattern, int score,
      int nBase, int confBonus, bool isControlling, bool hasFVG) =>
     chartTfName = timeframe.ismonthly ? "Monthly" : timeframe.isweekly ? "Weekly" :
                   timeframe.isdaily   ? "Daily"   : timeframe.period
