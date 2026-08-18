@@ -101,9 +101,22 @@ def main():
     ok = d[d["Status"] == "OK"].copy() if "Status" in d.columns else d.copy()
     ok["alpha"] = pd.to_numeric(ok.get("Alpha_Matched_pct"), errors="coerce")
     ok = ok.dropna(subset=["alpha"])
-    fam = ok.get("Catalyst", pd.Series(index=ok.index, dtype=object)).fillna("NONE")
-    ok["fam"] = ["POS" if str(x).startswith("POS") else "SWG" if str(x).startswith("SWG")
-                 else "OTH" for x in fam]
+    # run_s4go_replay does NOT carry Catalyst into `performance`, so the family has
+    # to be joined back from the qualification cache on (as_of, Symbol). Reading it
+    # off the result frame silently yields an EMPTY family table — which is exactly
+    # what the first pass of this script printed.
+    import glob as _g
+    cat = {}
+    for f in _g.glob(os.path.join(CACHE, "qual_*.pkl")):
+        a = os.path.basename(f)[5:-4]
+        c = pickle.load(open(f, "rb"))
+        if "Catalyst" in getattr(c, "columns", []):
+            for _, r in c.iterrows():
+                cat[(a, str(r["Symbol"]))] = str(r["Catalyst"])
+    ok["Catalyst"] = [cat.get((str(a)[:10], str(sy)), "")
+                      for a, sy in zip(ok["as_of"], ok["Symbol"])]
+    ok["fam"] = ["POS" if x.startswith("POS") else "SWG" if x.startswith("SWG")
+                 else "OTH" for x in ok["Catalyst"]]
 
     print(f"{'N':>2} {'fills':>6} {'mean α':>8} {'median':>8} {'win%':>6} {'SLhit%':>7} {'hold':>6}")
     print("-" * 52)
@@ -111,7 +124,10 @@ def main():
         s = ok[ok.N == N]
         if not len(s):
             print(f"{N:>2}   (none)"); continue
-        sl = s.get("Exit_Reason", pd.Series(dtype=object)).astype(str).str.contains("SL", case=False)
+        # Hit_Initial_SL, NOT `Exit_Reason contains "SL"`. Every exit in this run is
+        # either "SL hit" or "Trail SL", so the substring test reported 100% for all
+        # four configs and measured nothing at all.
+        sl = s["Hit_Initial_SL"].astype(str).str.lower().isin(["true", "1"])
         hold = pd.to_numeric(s.get("Days_Held"), errors="coerce")
         print(f"{N:>2} {len(s):>6} {s.alpha.mean():>8.2f} {s.alpha.median():>8.2f} "
               f"{(s.alpha > 0).mean()*100:>6.1f} {sl.mean()*100:>7.1f} {hold.mean():>6.1f}")
@@ -125,8 +141,10 @@ def main():
                 continue
             print(f"{N:>2} {f:>7} {len(s):>5} {s.alpha.mean():>8.2f} "
                   f"{s.alpha.median():>8.2f} {(s.alpha > 0).mean()*100:>6.1f}")
-    print("\nN=0 must match the published catalyst run (+/- nothing) — if it does not, "
-          "the cache or the machinery moved and the comparison is void.")
+    print("\nN=0 is the RETEST baseline (~314 fills), NOT the published buystop catalyst "
+          "run 20260723_063652 (268 fills) — replay's entry_mode default flipped to "
+          "retest in 5f3e151, after that run. All four configs share machinery, so the "
+          "comparison BETWEEN them is what is valid here.")
 
 
 if __name__ == "__main__":
