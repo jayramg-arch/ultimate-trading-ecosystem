@@ -979,8 +979,113 @@ def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
     return bool(roles) and roles == {"IGNITION"}
 
 
+# GATE 5 (R) — RRG "BUY OK" (Jay, 18-Aug-2026). The stock's OWN RRG vs N500 must be
+# tradeable, using bull_screener._rrg_tradeable, which is the same cell-level whitelist
+# as v67's f_rrg_info and S4Core.rrgInfo: LEADING->LEADING/IMPROVING, IMPROVING->LEADING,
+# LAGGING->IMPROVING, WEAKENING->LEADING. Strictly narrower than "the quadrant is green".
+#
+# Modelled as an UPSTREAM VETO, exactly like the Stage gate below it, rather than as a
+# 5th slot in the n/4 count. Two reasons: RRG is WEEKLY context, not a trigger mechanic
+# like PA/loc/vol/bar; and the "n/4" string is parsed by gm_signal_log.gate_bucket and
+# by the S4-GO colour rules, so re-denominating it would silently reinterpret every
+# historical log row. A blocked name still shows its gate count, so nothing is hidden.
+#
+# Set RRG_GATE = False to demote it to display-only. MEASURED on the real 49-name
+# board universe (18-Aug): BUY OK 21 (43%), WAIT 28 (57%), unknown 0 - so R blocks
+# more than half the board, and it blocks on WEEKLY evidence a 75m trigger cannot
+# outrun. Note the trajectory whitelist is NOT the same as "the quadrant is green":
+# LAGGING->IMPROVING passes and LEADING->WEAKENING does not.
+RRG_GATE = True
+
+
+_RRG_BENCH_W = {}          # benchmark weekly closes, fetched once per process
+
+
+def _bench_weekly_closes(bench: str = "NIFTY 500"):
+    """Benchmark weekly closes, memoised. One fetch serves the whole board."""
+    if bench in _RRG_BENCH_W:
+        return _RRG_BENCH_W[bench]
+    out = None
+    try:
+        import pandas as _pd, data_provider as _dp, pa_patterns as _pap
+        # DAILY + the SAME resampler the stock side uses. A native 1wk fetch anchors its
+        # bars differently from _confirmed_weekly_ohlcv, so the inner join in
+        # calculate_jdk_rrg dropped EVERY row and the gate failed open on all 8 test
+        # symbols while looking healthy. Same resampler on both legs or no alignment.
+        d = _dp.fetch_ohlcv(bench, period="3y", interval="1d", use_cache=True,
+                            auto_adjust=True)
+        if d is not None and not d.empty:
+            if isinstance(d.columns, _pd.MultiIndex):
+                d.columns = d.columns.get_level_values(0)
+            w = _pap._confirmed_weekly_ohlcv(d)
+            if w is not None and not w.empty:
+                out = w["Close"].dropna()
+    except Exception as e:
+        _log.warning("RRG gate: benchmark weekly fetch failed (%s) - R fails open", e)
+    _RRG_BENCH_W[bench] = out
+    return out
+
+
+def rrg_tradeable_live(daily_df):
+    """Compute the stock's own RRG "BUY OK" from the DAILY frame the board already has.
+
+    WHY THIS EXISTS: only FINAL_CATALYST_WATCHLIST.csv carries an RRG_Tradeable column.
+    FINAL_GOLDEN_MATCHER.csv - 49 of the 51 board rows - does not, so a CSV-only gate
+    would fail open on ~96% of the board and read as "shipped" while doing nothing.
+    Computing it here makes the gate independent of which watchlist produced the row.
+
+    Parity by construction: the weekly bars come from the same _confirmed_weekly_ohlcv
+    the zone engine uses, the RS pair from rrg_engine.calculate_jdk_rrg(mode="strike_cal")
+    - the RRG Studio maths - and the verdict from bull_screener._rrg_trajectory, the same
+    whitelist v67 and S4Core apply. Nothing is reimplemented here.
+
+    Returns True / False / None, where None means "could not compute" and fails OPEN.
+    """
+    try:
+        import pandas as _pd
+        import pa_patterns as _pap
+        from rrg_engine import calculate_jdk_rrg as _jdk
+        from bull_screener import _rrg_trajectory as _traj
+        if daily_df is None or len(daily_df) < 260:      # ~52 weekly bars minimum
+            return None
+        w = _pap._confirmed_weekly_ohlcv(daily_df)
+        if w is None or len(w) < 45:
+            return None
+        sec = w["Close"].dropna()
+        bench = _bench_weekly_closes()
+        if bench is None or sec.empty:
+            return None
+        rrg = _jdk(sec, bench, mode="strike_cal")
+        if rrg is None or rrg.empty:
+            return None
+        r = rrg["RS_Ratio"].dropna()
+        m = rrg["RS_Momentum"].dropna()
+        if len(r) < 6 or len(m) < 6:
+            return None
+        rv, mv = float(r.iloc[-1]), float(m.iloc[-1])
+        cur = ("LEADING" if rv >= 100 and mv >= 100 else
+               "WEAKENING" if rv >= 100 else
+               "LAGGING" if mv < 100 else "IMPROVING")
+        return bool(_traj(r, m, cur, 4)[4])
+    except Exception as e:
+        _log.warning("RRG gate: live compute failed (%s) - R fails open", e)
+        return None
+
+
+def _rrg_ok(v) -> bool:
+    """Fail-OPEN. None/blank/unparseable = unknown, and an unknown must never read as a
+    verdict (the ICICIAMC lesson: absent data is not a signal). CSV round-trips turn the
+    bool into "True"/"False" strings, so coerce rather than trusting the type."""
+    if not RRG_GATE or v is None:
+        return True
+    t = str(v).strip().lower()
+    if t in ("", "nan", "none", "-", "—", "n/a"):
+        return True
+    return t not in ("false", "0", "no", "wait", "✗ wait")
+
+
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
-                stage=None) -> str:
+                stage=None, rrg_tradeable=None) -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
@@ -1082,6 +1187,11 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     if path == "recovery" and RECOVERY_UNVALIDATED:
         _mtag += " · ⚠unval"
     _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
+    # GATE 5 (R): RRG not tradeable -> upstream veto. Sorts below every live gate count
+    # (the column sorts on the leading character) and carries the data-quality tags, for
+    # the same reason the stage branch does.
+    if not _rrg_ok(rrg_tradeable) and not _stage_blocked:
+        return f"⛔ RRG WAIT · gates {n}/4{_mtag}"
     if _stage_blocked:
         # Sorts BELOW every live gate count (the column sorts on the leading number) —
         # a topping structure must not head the GO list however clean its trigger looks.
@@ -1435,7 +1545,10 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     try:
         s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path,
                            archetypes=info.get("archetypes"),
-                           stage=g(rec, "Stage", default=""))
+                           stage=g(rec, "Stage", default=""),
+                           rrg_tradeable=(g(rec, "RRG_Tradeable")
+                                          if g(rec, "RRG_Tradeable") is not None
+                                          else rrg_tradeable_live((data or {}).get("df"))))
         # Record WHY this row previews as "n/a" so the header can name the cause
         # instead of the user staring at a dead column. gm_evaluate leaves
         # intra_reason None when the read SUCCEEDED or was never attempted (Daily

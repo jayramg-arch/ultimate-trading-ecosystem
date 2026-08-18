@@ -646,18 +646,30 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
         # Strike evidently uses single-pass normalization with longer SMA and
         # final 5-bar smoothing — NOT the textbook double-pass.
         # Parameters: length=12, single normalization, 5-bar final smooth.
-        length = 12
-        smooth = 5      # final smoothing on the ratio — key Strike-match parameter
+        # ---- RRG STUDIO PARITY (strike_cal), 18-Aug-2026 -----------------------
+        # Was length=12 / smooth=5 / mom=12 fitted by eye against Strike in May.
+        # RRG Studio then fit it properly: decoupled 25/10/7 plus an
+        # origin-preserving affine (ratio_a 0.796, mom_a 3.498), held-out MAE 0.74
+        # vs 10.6 before. Constants are IMPORTED from rrg_engine.STRIKE_CAL, never
+        # copied, so this file cannot drift from the Studio/Pine surfaces.
+        #
+        # SCOPE - read this before judging a screener re-baseline. `mansfield` and
+        # `mansfield_4w` below are derived from THIS pair, so RS-based gates and
+        # scores move with it. That is the intended consequence of "one RRG logic
+        # everywhere" (the DNA's signal-consistency rule), but it does mean the
+        # validated numbers were produced on the old pair.
+        from rrg_engine import STRIKE_CAL as _SC
+        length = 12     # retained: other call sites still reference it
+        smooth = 5
         trail_len = 4   # standard RRG tail length (weeks)
         rs_raw = merged["s"] / merged["m"].replace(0, np.nan)
-        # Single normalization pass (no double-pass)
-        rs_raw_sma = rs_raw.rolling(length).mean()
-        rs_ratio_raw = 100.0 + ((rs_raw - rs_raw_sma) / rs_raw_sma.replace(0, np.nan)) * 100.0
-        # Apply 5-bar SMA on the ratio — primary Strike-match adjustment
-        rs_ratio = rs_ratio_raw.rolling(smooth).mean()
-        # RS-Momentum = SMA(length) of ROC of smoothed RS-Ratio
-        rm1 = 100.0 * (rs_ratio / rs_ratio.shift(1).replace(0, np.nan))
-        rs_mom = rm1.rolling(length).mean()
+        _ma  = rs_raw.rolling(_SC["ratio_length"], min_periods=_SC["ratio_length"]).mean()
+        rs_ratio_raw = 100.0 + ((rs_raw - _ma) / _ma.replace(0, np.nan)) * 100.0
+        _rat = rs_ratio_raw.rolling(_SC["ratio_smooth"], min_periods=_SC["ratio_smooth"]).mean()
+        _mom = (100.0 * (_rat / _rat.shift(1).replace(0, np.nan))).rolling(
+            _SC["mom_length"], min_periods=_SC["mom_length"]).mean()
+        rs_ratio = 100.0 + _SC["ratio_a"] * (_rat - 100.0)
+        rs_mom   = 100.0 + _SC["mom_a"]   * (_mom - 100.0)
 
         rsr_val = float(rs_ratio.iloc[-1]) if not np.isnan(rs_ratio.iloc[-1]) else np.nan
         rsm_val = float(rs_mom.iloc[-1])   if not np.isnan(rs_mom.iloc[-1])   else np.nan

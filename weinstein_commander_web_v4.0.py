@@ -14390,7 +14390,8 @@ elif page == 'GOLDEN MATCHER':
             # split exists to surface.
             _s4go = _gtbx2.s4go_status(_s4_sigma, ctx, _ev.get("intra_ok"), _s4_path,
                                        archetypes=(_ev.get("inherited_bull") or []),
-                                       stage=_g(rec, "Stage", default=""))
+                                       stage=_g(rec, "Stage", default=""),
+                                       rrg_tradeable=_g(rec, "RRG_Tradeable"))
             _s4_col = ("#047857" if _s4go.startswith("4/4") else "#D97706" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#475569")
             _s4_bg  = ("#D1FAE5" if _s4go.startswith("4/4") else "#FEF3C7" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#F1F5F9")
             _s4_bdr = ("#6EE7B7" if _s4go.startswith("4/4") else "#FDE68A" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#CBD5E1")

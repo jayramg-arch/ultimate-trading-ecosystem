@@ -1364,6 +1364,24 @@ dashOiPrev  = input.source(close, "v67: Futures OI prior", group=grpDash, toolti
 dashRsRatioSec = input.source(close, "v67: RS-Ratio vs Sector", group=grpDash, tooltip="Bind to s4_rsRatioSec. Needed for the sector half of the RS row — a slope alone says direction but not whether RS is above or below the sector.")
 dashRsValTr    = input.source(close, "v67: RS val trail (N500)", group=grpDash, tooltip="Bind to s4_rsValTrail500. The TRAILING RS-Ratio v67 uses to work out which way the RRG quadrant is rotating.")
 dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, tooltip="Bind to s4_rsMomTrail500. The trailing RS-Momentum. With the val trail it gives the trajectory arrow and the -> LEADING read.")
+
+// --- RRG TRADEABLE GATE (R) — 5th gate, 18-Aug-2026 -------------------------
+// MOVED UP from below the plan block: the GO fold needs _rrgTr, and the fold is
+// defined long before the old call site. Same call, same arguments, one place.
+//
+// R passes ONLY on v67's "BUY OK" — core.rrgInfo's `tr`, which is byte-identical
+// to f_rrg_info in v67.4.21: a cell-level whitelist of (current -> next) pairs,
+// LEADING->LEADING/IMPROVING, IMPROVING->LEADING, LAGGING->IMPROVING,
+// WEAKENING->LEADING. It is an ENTRY-TIMING test, strictly narrower than "is the
+// quadrant green" - a stable LEADING name rolling over fails it.
+//
+// FAIL-OPEN when v67 is not bound or has no weekly history (_gOkTrail false):
+// a missing input must never read as a verdict. That is the ICICIAMC lesson from
+// v9.17 - an unbound source and a genuinely absent signal are different states.
+bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
+[_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = core.rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
+en_rrg_gate = input.bool(true, "Gate 5: require RRG 'BUY OK' (R)", group=grpDash, tooltip="Jay, 18-Aug-2026: only a Tradeable-Gate 'Buy OK' arms the trade. ON makes R a HARD gate - GO needs P, L, V, B and R.\n\nMEASURED BEFORE SHIPPING, on the real 49-name board universe and not a guess: BUY OK 21 (43%), WAIT 28 (57%), unknown 0. So R blocks more than half the board. RRG is a WEEKLY signal on a 75m trigger, so a blocked name can stay blocked for weeks - that is the cost you are accepting, and it is the reason this is a switch.\n\nOFF = R still shows on the TRIGGER chip and in the panel, it just stops vetoing - the tag-then-gate order that caught the Wyckoff veto running backwards.")
+bool rrg_ok = not en_rrg_gate or not _gOkTrail or _rrgTr
 // --- v67 PORTFOLIO SLOT (12-Aug-2026) ---------------------------------------
 // MY TRADE and POSITION STATUS, so the dashboard TABLE can stay shut. The slots,
 // the levels and the pyramid ladder live in v67 (Sync-to-TV writes those inputs)
@@ -3608,7 +3626,7 @@ f_fold3649() =>
     // range). B is a coarse veto, not a bar-quality opinion; the chart read keeps
     // its veto power over the panel.
     bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
-    bool go       = any_pa and support_pass and vol_ok and bar_ok
+    bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
 
@@ -3862,7 +3880,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not bar_ok_v ? "weak/red bar" : "no RRG BUY OK") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (rrg_ok[_so]?"✓":"·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
@@ -4346,8 +4364,6 @@ f_rsIcon(string st) => str.contains(st, "Rising") ? "↗️" : str.contains(st, 
 [d_sma50, d_ath, d_sl50n] = request.security(syminfo.tickerid, "D",
      [ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5]],
      lookahead=barmerge.lookahead_off)
-bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
-[_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = core.rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
 
 // --- Plan levels on the chart (E/SL/T1/T2) -----------------------------------
 // The plan is computed inside the panel block (last bar only), so plot() cannot
@@ -5113,7 +5129,7 @@ if show_panel and d_panel and barstate.islast
     // #verdict (30-Jul): "on the pullback" was unconditional, but on the trigger bar itself
     // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
-    string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : "WEAK/RED BAR — no entry"
+    string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : not bar_ok_v ? "WEAK/RED BAR — no entry" : "RRG NOT TRADEABLE — " + _rrgTrj[_so] + ", v67 says WAIT"
     // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
     // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
     // above: the gate chips are on TRIGGER, conf is the Confluence row, RV is the RV row,
