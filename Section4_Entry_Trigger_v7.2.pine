@@ -3541,8 +3541,22 @@ f_fold3649() =>
     // of body colour. The pullback path keeps its "held the zone" alternative to the
     // colour test (the 3-Aug pb_aware allowance) but is subject to the same floor.
     // NOTE: this TIGHTENS the GO gate — the s4go backtest was run on the lenient rule.
+    // THIRD TEST: an UPPER WICK over 20% of the range is not bullish (18-Aug, Jay,
+    // on IGIL daily). Direction + close position alone pass a spinning top:
+    // O 352.00 / H 362.55 / L 341.50 / C 354.95 is green and closes 63.9% up its
+    // range — while the body is 14% of the range with a 36% upper wick and a 50%
+    // lower wick. Two-sided rejection, not a strong close.
+    // A 20% CAP, not a minimum body size: a body floor would also reject a HAMMER
+    // (tiny body, no upper wick, long lower wick, closing at the high), which is a
+    // genuinely strong close. The cap targets the actual defect — sellers capping
+    // the bar — so hammers and dragonfly dojis still pass. Verified against eight
+    // real and synthetic shapes; the only ones rejected are IGIL's spinning top
+    // (36% wick), its doji (73%), IPCALAB (69%) and a shooting star (88%).
     float BAR_CLPOS_MIN = 0.5
-    bool  bar_ok   = (pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open)) and _bqClpos >= BAR_CLPOS_MIN
+    float BAR_WICK_MAX  = 0.20
+    float _bqUpW   = high - math.max(close, open)
+    bool  _bqWickOk = _bqRng > 0 ? _bqUpW / _bqRng <= BAR_WICK_MAX : true
+    bool  bar_ok   = (pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open)) and _bqClpos >= BAR_CLPOS_MIN and _bqWickOk
     bool go       = any_pa and support_pass and vol_ok and bar_ok
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
@@ -4676,7 +4690,19 @@ if show_panel and d_panel and barstate.islast
     // was O 1866.2 / H 1898.0 / L 1865.2 / C 1875.2: green body, closed 30% up
     // its range, sold into the close — vetoed correctly, explained wrongly.
     // Now the close POSITION is always stated, for both colours.
-    string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + (bar_ok_v ? " — strong close" : " — lower half, sold into the close")
+    // Name the FAILING test, not just the outcome. B now has three; a description
+    // that only ever mentions close position sends you looking at the wrong thing —
+    // which is exactly what "green candle (bullish close)" did on IPCALAB.
+    // The SAME 20% cap reads the other way for a red bar: a long LOWER wick means
+    // the lows were rejected, so the bar is not bearish either — it is a shakeout.
+    // Calling that "bearish" would be the mirror of the mistake this row already
+    // made in the other direction (Jay, 18-Aug).
+    float _bUpW = _so_high - math.max(_bC, _bO)
+    float _bLoW = math.min(_bC, _bO) - low[_so]
+    float _bUwP = _bRng2 > 0 ? _bUpW / _bRng2 * 100 : 0
+    float _bLwP = _bRng2 > 0 ? _bLoW / _bRng2 * 100 : 0
+    string _barWhy = not _bGreen ? (_bLwP > 20 ? " — red, but " + str.tostring(_bLwP, "0") + "% lower wick: lows rejected, not bearish" : " — bearish close") : _bClPos < 50 ? " — lower half, sold into the close" : _bUwP > 20 ? " — " + str.tostring(_bUwP, "0") + "% upper wick: capped, not bullish" : " — strong close"
+    string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + _barWhy
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
     f_row(27, "Bar (B)", _barTxt, _barCol)
