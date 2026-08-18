@@ -920,12 +920,31 @@ float mrsSec    = showSector and not secIsIndex ? mrsSecRaw : na
 f_calc_rs_logic(int rsl, int rslLevel, int slopeLen, int jdkLen, int trailLen) =>
     // Called via request.security("STOCK / BENCH", ...) → close IS the ratio.
     rs           = close
-    rs_sma       = ta.sma(rs, jdkLen)
-    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
-    rs_ratio     = ta.sma(rs_ratio_raw, 5)                 // 5-bar smooth — Strike-match
-    // RS-Momentum = SMA(length) of ROC of smoothed RS-Ratio
-    rm1          = 100.0 * (rs_ratio / rs_ratio[1])
-    rs_mom       = ta.sma(rm1, jdkLen)
+    // ---- RRG STUDIO PARITY (strike_cal), ported 18-Aug-2026 ------------------
+    // Identical maths to rrg_studio/rrg_engine.py + root rrg_engine.py + v67 +
+    // Risk Allocator v2.2. STRIKE_CAL: 25/10/7, ratio_a 0.796, mom_a 3.498 (refit
+    // d0f177f, validated out-of-sample aeb0b55). Axes are DECOUPLED so jdkLen is
+    // ignored here on purpose. The affine map is origin-preserving:
+    // y = 100 + a*(x-100) - the intercept is DERIVED, never fitted, or the origin
+    // shifts and an index plots against itself off (100,100). Do NOT add a b term.
+    // OLD (pre-parity), retained:
+    // rs_sma       = ta.sma(rs, jdkLen)
+    // rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    // rs_ratio     = ta.sma(rs_ratio_raw, 5)                 // 5-bar smooth — Strike-match
+    // // RS-Momentum = SMA(length) of ROC of smoothed RS-Ratio
+    // rm1          = 100.0 * (rs_ratio / rs_ratio[1])
+    // rs_mom       = ta.sma(rm1, jdkLen)
+    int   _calRatLen = 25
+    int   _calRatSm  = 10
+    int   _calMomLen = 7
+    float _calRatA   = 0.796
+    float _calMomA   = 3.498
+    _calMa       = ta.sma(rs, _calRatLen)
+    rs_ratio_raw = 100.0 + ((rs - _calMa) / _calMa) * 100.0
+    _calRat      = ta.sma(rs_ratio_raw, _calRatSm)
+    _calMom      = ta.sma(100.0 * (_calRat / nz(_calRat[1], _calRat)), _calMomLen)
+    rs_ratio     = 100.0 + _calRatA * (_calRat - 100.0)
+    rs_mom       = 100.0 + _calMomA * (_calMom - 100.0)
 
     // Centered (-100) so legacy >0 thresholds keep their meaning
     float val      = rs_ratio - 100.0
