@@ -915,10 +915,6 @@ d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 hl_pa_min = input.int(2, "  · minimum Σ to highlight", group=grpHL, minval=1, maxval=12, tooltip="Only shade candles whose PA Σ reaches this. Raise it to hide the low-conviction single-pattern bars and leave only the meaningful ones on the chart.")
 hl_bar    = input.bool(true, "Highlight Bar-quality (B) — good bars only", group=grpHL, tooltip="Marks candles that PASS the B gate: closed strong, in the upper half of their range.\n\nGOOD BARS ONLY (18-Aug-2026, Jay). A bar that FAILS B is left completely untouched — there is deliberately no red/failing state. Three reasons: the absence of a mark IS the veto; B fails more often than it passes, so red was marking the noisy majority; and the old red REPAINTED the body, so a green bar that failed on close position was displayed as a red candle.\n\nThe Bar (B) panel row still gives the verdict and the close position in words.")
 hl_bar_pa = input.bool(true, "  · only on PA candles", group=grpHL, tooltip="ON (default) = only mark candles where a PA pattern fired — the bars where B actually decides anything. OFF = mark EVERY bar, which is noisy (B passes on most bars) but shows the full run of strong/weak closes.")
-hl_bar_style = input.string("Marker below bar (keeps the real candle)", "  · how to show it",
-     options=["Marker below bar (keeps the real candle)", "Repaint candle body (overrides the real colour)"],
-     group=grpHL,
-     tooltip="Applies only to bars that PASS B — a failing bar is never drawn either way.\n\nMARKER (default, safe): a small green dot under the bar. The candle is never touched, so its true open/close colour always reads.\n\nREPAINT: paints the BODY green on a passing bar. Note this still overrides colour in one case — a red-bodied bar that passes B (closed in the upper half after a shakeout) will be shown green. That is why the marker is the default.\n\nUntil 18-Aug-2026 this also painted VETOED bars red, overriding green bodies on the most recent candles only, which read as the chart being corrupted (IPCALAB 125m).")
 hl_hist   = input.bool(false, "Highlight full history (else last 30 bars)", group=grpHL, tooltip="OFF (default) = highlights only on the recent 30 bars, matching the GO/PA marker convention — keeps old history clean. ON = shade/repaint across all loaded bars, for scanning past setups.")
 hl_pa_strong = input.int(5, "  · Σ for the escalated PA★ marker", group=grpHL, minval=2, maxval=15, tooltip="At or above this Σ the PA marker escalates from the small diamond to a bright labelled 'PA★ Σn <lead pattern>' — the high-conviction bars name themselves on the chart.")
 // THE PATTERN ITSELF — outline the actual candles that form it (24-Jul, Jay: "I want
@@ -4023,11 +4019,8 @@ bool _barHL = hl_bar and (hl_bar_pa ? any_pa : true) and _hlOK
 // could not be read, and it marked the majority case (B vetoes often) which is
 // noise. Absence of a mark IS the veto; the panel's Bar (B) row still states the
 // reason and the close position when you want it.
-bool _hlRepaint = hl_bar_style == "Repaint candle body (overrides the real colour)"
-bool _barGood   = _barHL and bar_ok
-plotshape(_barGood and not _hlRepaint ? 1 : na, title="Bar quality (B) marker",
-     location=location.belowbar, style=shape.circle, size=size.tiny, color=C_GO)
-barcolor(_barGood and _hlRepaint ? C_GO : na, title="Bar quality (B)")
+bool _barGood = _barHL and bar_ok
+barcolor(_barGood ? C_GO : na, title="Bar quality (B)")
 
 // Draw the support zones (v2.4): the LEFT edge is the zone's FORMATION candle
 // time (the OB/gap/pivot bar) — so a box begins at the candles that created it,
@@ -4697,10 +4690,7 @@ if show_panel and d_panel and barstate.islast
     // was O 1866.2 / H 1898.0 / L 1865.2 / C 1875.2: green body, closed 30% up
     // its range, sold into the close — vetoed correctly, explained wrongly.
     // Now the close POSITION is always stated, for both colours.
-    string _bPos = str.tostring(_bClPos, "0") + "% up its range"
-    string _barDesc = _bGreen
-         ? ("green candle, closed " + _bPos + (bar_ok_v ? " — upper half, strong close" : " — LOWER half: upper wick, sold into the close"))
-         : ("red candle, closed " + _bPos + (bar_ok_v ? " — held its zone" : " — bearish close"))
+    string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + (bar_ok_v ? " — strong close" : " — lower half, sold into the close")
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
     f_row(27, "Bar (B)", _barTxt, _barCol)
