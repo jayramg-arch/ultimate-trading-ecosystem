@@ -573,14 +573,29 @@ def get_all_universe_options() -> Dict[str, Dict[str, Any]]:
 # CANNOT change a quadrant; verified identical on all 17.
 # Lesson: fit the scale, never the centre.
 #
-# HOW MUCH TO TRUST IT. n=17, ONE date, and all 17 are pre-selected strong names
-# (every Strike ratio is >= 100.56), so the fit is calibrated on the right-hand
-# side of the plane and is extrapolating on laggards. Leave-one-out slope spread
-# is 13.0% (ratio) / 12.5% (momentum) — no single name carries it, but expect
-# +/-2-3 points of error on an unseen name. There is no held-out sample and no
-# way to make one while the subscription is lapsed. If more Strike coordinates
-# from a DIFFERENT date ever surface, refit and check these constants before
-# trusting them further.
+# HOW MUCH TO TRUST IT — NOW MEASURED OUT-OF-SAMPLE (18-Aug-2026).
+# The fit itself is n=17 from ONE date (2026-05-19), all pre-selected strong names
+# (every Strike ratio >= 100.56), so it was calibrated on the right-hand side of
+# the plane and EXTRAPOLATING on laggards. That caveat has now been tested rather
+# than assumed. Jay supplied 14 fresh Strike pairs on a different date, different
+# names, EIGHT of them below 100 — the half the fit never saw:
+#                       in-sample (n=17)      HELD OUT (n=14)
+#     RS-Ratio  MAE           0.46                 0.74   (max 1.58)
+#     RS-Mom    MAE           0.25                 0.52   (max 1.79)
+#     correlation          0.93 / 0.93        0.9990 / 0.9962
+#     quadrant               16/17                14/14
+# Degradation is 1.6x / 2.0x — normal, and far better than the +/-2-3 points
+# previously warned about here. Sub-100 names are among the most accurate in the
+# set (Timken 0.01, Anuras 0.09, IDBI 0.63), so the extrapolation worry did not
+# materialise.
+# NO REFIT IS WARRANTED: the origin-preserving slope that best fits the held-out
+# set is 1.006 (ratio) and 0.913 (momentum) — i.e. ~1.0, so the shipped constants
+# have already done the scaling and there is nothing material left to correct.
+# Known residual, deliberately NOT corrected: a +0.39 mean bias on ratio (we read
+# slightly high on 10 of 14). Nulling it needs an OFFSET, and an offset moves 100
+# off 100 — the exact defect fixed earlier the same day. Not worth breaking the
+# origin for 0.39.
+# Data: rrg_studio/strike_holdout_20260818.csv (pairs + per-name errors).
 # REFITTED 17-Aug-2026 (2nd pass). The first parameters (32/5/8) were chosen by
 # CORRELATION, before the origin-preserving rescale existed — so the lookbacks
 # were never fitted against the error they actually produce. Re-gridded on the
