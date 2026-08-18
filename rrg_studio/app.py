@@ -686,18 +686,33 @@ if _as_of:
     st.caption(f"Coordinates as of **{_as_of}** (last bar shared by the benchmark and its constituents)")
 
 _collapsed = summary_df.attrs.get("collapsed") or []
-if _collapsed:
+_shortened = summary_df.attrs.get("shortened") or []
+if _collapsed or _shortened:
     _req = len(active_entry["symbols"])
-    with st.expander(f"ℹ️ Plotting {len(summary_df)} of {_req} requested — "
-                     f"{len(_collapsed)} collapsed (click for why)"):
-        for _c in _collapsed:
-            st.caption(f"• {_c}")
-        st.caption(
-            "A name is dropped when its data came from a DIFFERENT index than the one "
-            "named — either because the map points two entries at one ticker, or because "
-            "the download fell back to a substitute. Plotting it anyway would label a dot "
-            "as an index it is not."
-        )
+    _bits = []
+    if _collapsed:
+        _bits.append(f"{len(_collapsed)} not plotted")
+    if _shortened:
+        _bits.append(f"{len(_shortened)} on a short tail")
+    with st.expander(f"ℹ️ Plotting {len(summary_df)} of {_req} — " + " · ".join(_bits)
+                     + "  (click for why)"):
+        if _collapsed:
+            st.caption("**Not plotted**")
+            for _c in _collapsed:
+                st.caption(f"• {_c}")
+            st.caption(
+                "Dropped when the name has too little history for the selected model, "
+                "when its symbol no longer trades, when it IS the benchmark, or when its "
+                "data came from a DIFFERENT index than the one named. Plotting that last "
+                "case would label a dot as an index it is not."
+            )
+        if _shortened:
+            # These ARE plotted — the head is correct, only the trail is stubby.
+            # Worth saying, because a 3-bar tail next to a 15-bar one looks like a
+            # rendering fault rather than a young index.
+            st.caption("**Plotted with a shorter tail** (head is exact; only the trail is short)")
+            for _s in _shortened:
+                st.caption(f"• {_s}")
 
 
 # ─── LEFT PANEL: CONSTITUENT CARDS & INSTANT CONTROLS ────────────────────────
@@ -748,7 +763,17 @@ with col_left:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown(f"<div style='color: #0F172A; font-weight: 800; font-size: 0.72rem; margin: 3px 0 1px 0;'>CONSTITUENTS ({len(display_df)}):</div>", unsafe_allow_html=True)
+    # "N of M", not a bare N (18-Aug, Jay: the Watchlist/Sector label said 29 while
+    # this said 19, and there was nothing on screen to explain the difference).
+    # M = what the index declares, N = what carries enough data to plot. The gap is
+    # real and named in the expander above (recent listings, dead tickers, the
+    # benchmark itself); showing only N made a correct chart look broken.
+    _req_n = len(active_entry["symbols"])
+    _hdr = f"CONSTITUENTS ({len(display_df)}"
+    if not search_query and len(display_df) < _req_n:
+        _hdr += f" of {_req_n}"
+    _hdr += "):"
+    st.markdown(f"<div style='color: #0F172A; font-weight: 800; font-size: 0.72rem; margin: 3px 0 1px 0;'>{_hdr}</div>", unsafe_allow_html=True)
 
     # ── Calculate dynamic horizontal fill bars based on Distance ──
     max_dist = max(display_df['Distance'].max(), 0.1) if not display_df.empty else 1.0

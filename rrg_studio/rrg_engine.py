@@ -938,6 +938,7 @@ def compute_universe_rrg(
     # Fingerprint is by resolved source when provenance exists, else by the data.
     _bench_fp = (len(bench_close), float(bench_close.iloc[-1]), float(bench_close.iloc[0]))
     _fp_owner, _kept, collapsed = {}, [], []
+    shortened = []   # plotted, but with fewer tail bars than requested
 
     def _fingerprint(_s, _df):
         src = _prov.get(_s)
@@ -1009,17 +1010,29 @@ def compute_universe_rrg(
             collapsed.append(f"{sym} → too little history for this model "
                              f"({len(sec_close)} bars)")
             continue
-        if len(rrg_df) < tail_length:
-            collapsed.append(f"{sym} → only {len(rrg_df)} usable bars, "
-                             f"tail needs {tail_length}")
+        # SHORT TAIL != NO PLOT (18-Aug-2026, Jay: dropdown said Strategy 29 but the
+        # constituent list showed 19). A name with fewer usable bars than the
+        # requested tail used to be DROPPED ENTIRELY — so raising Tail Bars silently
+        # deleted series. At tail=15 that cost Broad 1, Sectoral 1, Thematic 4 and
+        # Strategy 10, because the newer indices carry only 52-61 weekly bars and the
+        # calibrated model spends 42 of them on warm-up (25 + 10 + 7).
+        # The tail is a DISPLAY preference; the head is the datum. Draw whatever tail
+        # exists and say it was shortened, rather than discard a valid coordinate.
+        _tl = min(tail_length, len(rrg_df))
+        if _tl < 2:
+            collapsed.append(f"{sym} → only {len(rrg_df)} usable bar; a trajectory needs 2")
             continue
+        if _tl < tail_length:
+            shortened.append(f"{sym}: {_tl}-bar tail (asked {tail_length})")
 
-        tail_df = rrg_df.tail(tail_length).copy()
+        tail_df = rrg_df.tail(_tl).copy()
         tails_dict[sym_clean] = tail_df
         tails_dict[sym] = tail_df
 
         curr = tail_df.iloc[-1]
-        prev_tail = tail_df.iloc[-1 - min(tail_length - 1, 4)]
+        # Clamp against the ACTUAL tail, not the requested one — with a shortened
+        # tail `-1 - min(tail_length-1, 4)` indexes past the start of the frame.
+        prev_tail = tail_df.iloc[-1 - min(_tl - 1, 4)]
 
         v = curr['RS_Ratio'] - 100.0
         m = curr['RS_Momentum'] - 100.0
@@ -1066,6 +1079,7 @@ def compute_universe_rrg(
     # silently plots 14 of 18 requested names looks complete; this makes the
     # difference visible without changing the return signature.
     summary_df.attrs["collapsed"] = collapsed
+    summary_df.attrs["shortened"] = shortened
     summary_df.attrs["bench_lag"] = bench_lag_note
     summary_df.attrs["stale"] = data_dict.get("__stale__") or {}
     # The date the coordinates are ACTUALLY computed at — the last bar shared by
