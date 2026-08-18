@@ -3584,21 +3584,24 @@ f_fold3649() =>
     // measurable cost while rejecting the two bars Jay caught by eye — IGIL's
     // spinning top and IPCALAB's capped bar — which legacy passes.
     // Wick cap 20% -> 30% (Jay, 18-Aug).
-    float BAR_CLPOS_MIN = 0.5
-    float BAR_WICK_MAX  = 0.30
-    float BAR_BODY_MIN  = 0.50
-    float _bqUpW    = high - math.max(close, open)
-    bool  _bqWickOk = _bqRng > 0 ? _bqUpW / _bqRng <= BAR_WICK_MAX : true
-    bool  _bqPlain  = _bqClpos >= BAR_CLPOS_MIN and _bqWickOk
-    // EXPANSION: the bar must BE the move — a trend bar, big body, small upper tail.
-    bool  _bqTrend  = _bqPlain and (_bqRng > 0 ? math.abs(close - open) / _bqRng >= BAR_BODY_MIN : false)
-    // CONTRACTION: the bar is SUPPOSED to be small. Judge it against the MOTHER bar
-    // instead — close in the upper half of the PRIOR bar's range and not below its
-    // low. That is the inside-bar case, and it is why a body floor cannot be used.
-    float _bqPRng   = high[1] - low[1]
-    bool  _bqHeld   = _bqPRng > 0 ? (close >= (high[1] + low[1]) / 2.0 and close >= low[1]) : _bqPlain
-    bool  _bqStrong = pa_contract ? _bqHeld : pa_expand ? _bqTrend : _bqPlain
-    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or _bqStrong) : _bqStrong
+    // REVERTED TO THE 11-Aug RULE (18-Aug, Jay's call, on the measurement).
+    // Everything tried above it was measured over 18 anchors, identical qualified
+    // names, block-bootstrapped by symbol — and none of it beat this:
+    //     11-Aug  green OR upper-half        314 fills   +0.14   POS +0.62
+    //     flat CLV>=0 AND wick<=20%          241         -0.48   CI excludes 0
+    //     regime-conditional @20% / @30%     291/292     -0.01 / +0.00
+    //     body >= 50% everywhere             197         -0.83   CI excludes 0
+    // The regime model was the only variant that matched this one (a wash, CI
+    // [-0.18,+0.49]) and its sole advantage was subjective: it rejected two bars
+    // Jay had flagged by eye. That is not a reason to ship a change that does not
+    // beat the incumbent, so it does not ship. Study kept on record —
+    // s4go_barrule_ab.py, validation_runs/_bar_rule_ab_details.csv — to revisit.
+    //
+    // KNOWN AND ACCEPTED: this rule passes bars Jay would decline by eye — IGIL's
+    // spinning top (green, 36% upper wick) and IPCALAB (green, closed 30% up its
+    // range). B is a coarse veto, not a bar-quality opinion; the chart read keeps
+    // its veto power over the panel.
+    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
     bool go       = any_pa and support_pass and vol_ok and bar_ok
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
@@ -4745,7 +4748,12 @@ if show_panel and d_panel and barstate.islast
     float _bLwP = _bRng2 > 0 ? _bLoW / _bRng2 * 100 : 0
     // Colour is now CONTEXT, not the verdict — so the reason must lead with close
     // position and the wick, and call a strong red bar what it is: a shakeout.
-    string _barWhy = _bClPos < 50 ? " — lower half, sold into the close" : _bUwP > 20 ? " — " + str.tostring(_bUwP, "0") + "% upper wick: capped, not bullish" : _bGreen ? " — strong close" : " — shakeout: red body but closed strong, fine for a long"
+    // Reason matches the 11-Aug gate (green OR upper-half). The close position and
+    // upper wick are still PRINTED — they are what let Jay catch IGIL and IPCALAB
+    // by eye — but they are context now, not the verdict. A bar can read
+    // "OK ... 36% upper wick" and that is honest: B passed it, the shape is poor,
+    // and the chart read decides.
+    string _barWhy = _bGreen ? " — green close" : _bClPos >= 50 ? " — shakeout: red body but closed strong, fine for a long" : " — red and closed in the lower half"
     string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + _barWhy
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
