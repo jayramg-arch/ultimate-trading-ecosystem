@@ -509,20 +509,28 @@ with st.expander("⚙️ JdK Algorithm & Normalization Settings"):
         calc_mode_choice = st.selectbox(
             "Calculation Formula Preset",
             options=[
-                "Strike.money Parity — CALIBRATED (19-May-26 fit, n=17)",
+                "Strike.money Parity — CALIBRATED (fit n=17 · held-out n=14)",
                 "Strike.money Model (39-Wk Institutional EMA)",
                 "Weinstein Commander Model (12-Wk Swing SMA)",
                 "Classical JdK Standard (StockCharts / Optuma Z-Score)"
             ],
             index=0,
             help=(
-                "CALIBRATED is the closest match to Strike's printed COORDINATES: the two "
+                "CALIBRATED is the closest match to Strike's printed COORDINATES. The two "
                 "axes get separate lookbacks (one shared N cannot serve both), then an "
-                "origin-preserving rescale fitted to 17 names from 19-May-2026. Ratio error "
-                "8.65 → 2.17, momentum 2.22 → 0.93, and quadrant agreement is UNCHANGED at "
-                "16/17 — the rescale pivots about (100,100), so it can never move a name "
-                "across a quadrant line. Caveat: n=17 from ONE date, all of them strong names "
-                "(every Strike ratio ≥ 100.56), so expect ±2-3 points on a laggard. "
+                "origin-preserving rescale — it pivots about (100,100), so it can never "
+                "move a name across a quadrant line.\n\n"
+                "FITTED on 17 names, 19-May-2026: ratio error 8.65 → 0.46, momentum "
+                "2.22 → 0.25.\n"
+                "VALIDATED OUT-OF-SAMPLE on 14 fresh pairs, 18-Aug-2026 — different date, "
+                "different names, EIGHT of them below 100 (the half the fit never saw): "
+                "ratio MAE 0.74, momentum 0.52, correlation 0.999, quadrant 14/14. The best-"
+                "fit slope on that held-out set is 1.006, i.e. the shipped constants need no "
+                "correction.\n\n"
+                "COST: this chain needs 44 weekly bars (25 + 10 + 7 + 2), so a stock listed "
+                "within about 10 months cannot be plotted on it — the constituent list will "
+                "say so by name. Weinstein 12/5 needs only 19 bars if you want full coverage "
+                "of a young universe.\n"
                 "Lookback/Smoothing are ignored by CALIBRATED — it carries its own per-axis "
                 "values.\n\n"
                 "Strike.money uses a 39-week (200-day) EMA baseline. Weinstein Commander uses "
