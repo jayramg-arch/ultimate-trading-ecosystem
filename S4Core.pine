@@ -1247,3 +1247,27 @@ export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recov
     bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
     bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
     [stage_skip, gm_rec, gm_pb, is_rec]
+
+// ── buildLabel ───────────────────────────────────────────────────────────────
+// Moved out of Section 4 on 18-Aug-2026 to reclaim compiled-token budget: S4 hit
+// 100,351 against the 100,256 ceiling and Jay's instruction was "do not remove
+// any functionality, move some code to S4Core". A library body compiles
+// separately, so what lives here costs the caller only the call.
+// Pure by construction — every value arrives as a parameter, and the timeframe.*
+// built-ins resolve in the CALLER's context, so the chart-TF fallback keeps
+// working exactly as it did in place.
+// Renders the two-line zone caption, 10-space indented so the text starts inside
+// the zone body rather than on its left edge.
+export buildLabel(simple string tf, bool isDemand, string pattern, int score,
+     int nBase, int confBonus, bool isControlling, bool hasFVG) =>
+    chartTfName = timeframe.ismonthly ? "Monthly" : timeframe.isweekly ? "Weekly" :
+                  timeframe.isdaily   ? "Daily"   : timeframe.period
+    tfName   = tf == "M" ? "Monthly" : tf == "W" ? "Weekly" : tf == "D" ? "Daily" : chartTfName
+    zType    = isDemand ? "DZ" : "SZ"
+    bonusTag = confBonus > 0 ? " ★" + str.tostring(confBonus) : ""
+    prefix   = isControlling ? "Controlling " : ""
+    fvgTag   = hasFVG ? " ⚡" : ""
+    baseInfo = nBase > 0 ? str.tostring(nBase) + "B" : "Pivot"
+    line1    = prefix + tfName + " " + zType + fvgTag
+    line2    = pattern + "  " + str.tostring(score) + "pts  " + baseInfo + bonusTag
+    "          " + line1 + "\n          " + line2

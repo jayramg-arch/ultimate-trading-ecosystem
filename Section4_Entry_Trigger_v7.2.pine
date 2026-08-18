@@ -851,7 +851,7 @@
 // ============================================================================
 //@version=6
 indicator("Section 4 Entry Trigger and Price Memory v9.17 (Sectioned Panel)", shorttitle="S4 Entry v9.17", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/8 as core
+import jayramg/S4Core/9 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -1553,20 +1553,6 @@ var array<core.Zone> activeZones = array.new<core.Zone>()
 // NOTE: there is no touch counter. Zones are DELETED the moment they are tested (see the
 // state block below), so a "T n/max" token could never render. The old touchCount field and
 // the controllingMaxTouches input were dead weight and have been removed.
-f_buildLabel(string tf, bool isDemand, string pattern, int score, int nBase, int confBonus, bool isControlling, bool hasFVG) =>
-    chartTfName = timeframe.ismonthly ? "Monthly" : timeframe.isweekly ? "Weekly" :
-                  timeframe.isdaily   ? "Daily"   : timeframe.period
-    tfName   = tf == "M" ? "Monthly" : tf == "W" ? "Weekly" : tf == "D" ? "Daily" : chartTfName
-    zType    = isDemand ? "DZ" : "SZ"
-    bonusTag = confBonus > 0 ? " ★" + str.tostring(confBonus) : ""
-    prefix   = isControlling ? "Controlling " : ""
-    fvgTag   = hasFVG ? " ⚡" : ""            // FVG-Polygraph-qualified leg-out
-    baseInfo = nBase > 0 ? str.tostring(nBase) + "B" : "Pivot"
-    line1    = prefix + tfName + " " + zType + fvgTag
-    line2    = pattern + "  " + str.tostring(score) + "pts  " + baseInfo + bonusTag
-    // 10-space indent so the text starts inside the zone body, offset from the left edge.
-    "          " + line1 + "\n          " + line2
-
 method checkMitigation(core.Zone z, float _close, float _low, float _high, string _mitBasis) =>
     switch _mitBasis
         "Body Close"      => z.isDemand ? _close < z.distal                      : _close > z.distal
@@ -1760,7 +1746,7 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
                         _zc.isControlling := false
                         if not na(_zc.drawing)
                             box.set_border_width(_zc.drawing, 1)
-                            box.set_text(_zc.drawing, (showZonesIZE and d_zones and showLabels) ? f_buildLabel(_zc.tf, _zc.isDemand, _zc.pattern, _zc.strength, _zc.nBase, _zc.confBonus, false, _zc.hasFVG) : "")
+                            box.set_text(_zc.drawing, (showZonesIZE and d_zones and showLabels) ? core.buildLabel(_zc.tf, _zc.isDemand, _zc.pattern, _zc.strength, _zc.nBase, _zc.confBonus, false, _zc.hasFVG) : "")
         basecol = sig.isDemand
              ? (sig.pattern == "DBR" ? color.green : sig.pattern == "RBR" ? color.lime   : color.teal)
              : (sig.pattern == "RBD" ? color.red   : sig.pattern == "DBD" ? color.orange : color.blue)
@@ -1784,14 +1770,14 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
         bdC = color.new(basecol, bdAlpha)
         topVal = sig.isDemand ? sig.proximal : sig.distal
         botVal = sig.isDemand ? sig.distal   : sig.proximal
-        lblTxt = f_buildLabel(tfTag, sig.isDemand, sig.pattern, finalScore, sig.nBase, cBonus, finalCtrl, sig.hasFVG)
+        lblTxt = core.buildLabel(tfTag, sig.isDemand, sig.pattern, finalScore, sig.nBase, cBonus, finalCtrl, sig.hasFVG)
         // Boxes are ALWAYS created (state-management operates on them); showZonesIZE
         // off just renders them fully transparent + blanks the text.
         if not (showZonesIZE and d_zones)
             bgC := color.new(basecol, 100)
             bdC := color.new(basecol, 100)
         // #1/#5/#6 Label = the zone's own BOX TEXT: left-aligned, vertically CENTERED,
-        // SMALL font, 10-space indent (from f_buildLabel) — so it sits INSIDE the zone
+        // SMALL font, 10-space indent (from core.buildLabel) — so it sits INSIDE the zone
         // at the left edge, not offset out by a separate label's pointer. FVG boxes use
         // the identical convention; pivot lines mirror it with a small left label.
         string _lblShown = (showZonesIZE and d_zones and showLabels) ? lblTxt : ""
@@ -2204,7 +2190,7 @@ f_zoneMaintain() =>
                 // before the tested/violation checks below, so a zone about to be deleted just
                 // wastes one harmless set_text; a surviving zone shows its current recency read.
                 if recencyDecay and showZonesIZE and d_zones and showLabels and not na(z.drawing)
-                    box.set_text(z.drawing, f_buildLabel(z.tf, z.isDemand, z.pattern, f_recencyScore(z.strength, z.tf, z.originTime), z.nBase, z.confBonus, z.isControlling, z.hasFVG))
+                    box.set_text(z.drawing, core.buildLabel(z.tf, z.isDemand, z.pattern, f_recencyScore(z.strength, z.tf, z.originTime), z.nBase, z.confBonus, z.isControlling, z.hasFVG))
                 float zW = math.abs(z.proximal - z.distal)
                 // "Touched" (z.wasInZone tracks this bar-to-bar) = a wick pierced the proximal
                 // line OR the candle closed within the zone — but did NOT close beyond the
