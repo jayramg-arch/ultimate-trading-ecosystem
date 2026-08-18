@@ -4873,7 +4873,21 @@ if show_panel and d_panel and barstate.islast
     // is it tradeable" — and they fail independently, which the shared cell hid.
     // The panel table grew 42 -> 43 rows and every index >= 6 shifted down one to
     // make room; RS keeps 5, RRG takes 6, so they stay adjacent under MACRO.
-    f_row(5, "RS (vs N500)", _rsLine, _okRat ? C_SOFTTXT : C_MUTE)
+    // RS gets its own SIGNAL colour (18-Aug, Jay: "colour coding is not applied to
+    // RS — that was the idea behind separating the two rows"). It was
+    // `_okRat ? C_SOFTTXT : C_MUTE`, which only said have-data / no-data. Audited
+    // all 32 panel rows at the same time: this was the only one carrying no signal.
+    // Keyed on the N500 state, since that is the benchmark the row is named for —
+    // the sector state is in the text beside it. Four states, matching how the
+    // level/direction pair actually reads:
+    //   Positive + Rising    -> OK    outperforming and pulling away
+    //   Positive + Declining -> WARN  still ahead but giving it back
+    //   Negative + Rising    -> INFO  behind but closing (the IMPROVING case)
+    //   Negative + Declining -> NO    behind and losing more
+    // One line deliberately: a wrapped ternary here is the multiple-of-4
+    // continuation trap that broke the v9.17 compile.
+    color _rsCol = _rs5St == "" ? C_MUTE : str.contains(_rs5St, "(Positive)") ? (str.contains(_rs5St, "Declining") ? C_WARN : C_OK) : (str.contains(_rs5St, "Rising") ? C_INFO : C_NO)
+    f_row(5, "RS (vs N500)", _rsLine, _rsCol)
     f_row(6, "RRG (vs N500)", _rrgLine, _quadC)
     // Strike RRG sits directly under S4's computed quadrant on purpose: the whole
     // point is to see both at once. Never overwrites it.
