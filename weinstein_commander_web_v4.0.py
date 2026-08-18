@@ -8943,7 +8943,15 @@ elif page == 'MACRO':
                 data_map, 
                 benchmark_symbol=bench_symbol.replace('.NS', '').replace('^', ''), 
                 jdk_length=12, 
-                tail_length=rrg_tail_len
+                tail_length=rrg_tail_len,
+                # 18-Aug-2026: Strike.Money parity. RRG Studio is where this logic is
+                # developed and Web Commander must match it - the whole point of the
+                # split was to bring the result BACK here. Without this argument the
+                # call fell through to compute_universe_rrg's "percentage" default and
+                # the calibrated branch, though present in rrg_engine, never ran.
+                # jdk_length above is IGNORED in this mode (strike_cal carries its own
+                # 25/10/7 lookbacks); left in place so reverting the mode still works.
+                mode="strike_cal"
             )
 
         if not summary_df.empty:
