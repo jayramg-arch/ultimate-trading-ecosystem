@@ -151,8 +151,9 @@ def fetch(cfg=None, max_pages: int = 30):
     out, page = set(), 1
     while page <= max_pages:
         try:
-            r = requests.get("https://www.screener.in/screen/raw/", headers=h,
-                             params={"query": q, "page": page}, timeout=30)
+            with _brk.gate():
+                r = requests.get("https://www.screener.in/screen/raw/", headers=h,
+                                 params={"query": q, "page": page}, timeout=30)
             _brk.record_ok()
             if r.status_code != 200:
                 logger.warning("core universe: HTTP %s on page %s", r.status_code, page)
