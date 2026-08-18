@@ -3552,11 +3552,25 @@ f_fold3649() =>
     // the bar — so hammers and dragonfly dojis still pass. Verified against eight
     // real and synthetic shapes; the only ones rejected are IGIL's spinning top
     // (36% wick), its doji (73%), IPCALAB (69%) and a shooting star (88%).
+    // BODY COLOUR IS NOT THE TEST — WHERE IT CLOSES IS (18-Aug, Jay, on BANKINDIA).
+    //   O 144.09 / H 144.09 / L 141.00 / C 143.25
+    // Red body, but it opened at the high, sold to 141 and closed back at 72.8% of
+    // its range with a 0% upper wick. For a long that is a shakeout that recovered
+    // — a good bar — and requiring `close >= open` vetoed it. Pre-v9.13 the rule
+    // was `green OR upper-half`, which allowed exactly this; I turned the OR into
+    // an AND while tightening and silently dropped the shakeout case.
+    // Measured on the last daily bar of 123 Nifty-500 names:
+    //     green AND clp>=50                 37% pass   IGIL(spinning top) WRONGLY passes
+    //     green AND clp>=50 AND wick<=20    18% pass   BANKINDIA wrongly vetoed  <- was live
+    //     clp>=50 AND wick<=20              33% pass   all three cases correct
+    // The 18% is why nearly every Bar (B) row went red. Dropping the colour test
+    // costs nothing in strictness (33% vs 37%) and fixes the shakeout.
     float BAR_CLPOS_MIN = 0.5
     float BAR_WICK_MAX  = 0.20
     float _bqUpW   = high - math.max(close, open)
     bool  _bqWickOk = _bqRng > 0 ? _bqUpW / _bqRng <= BAR_WICK_MAX : true
-    bool  bar_ok   = (pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open)) and _bqClpos >= BAR_CLPOS_MIN and _bqWickOk
+    bool  _bqStrong = _bqClpos >= BAR_CLPOS_MIN and _bqWickOk
+    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or _bqStrong) : _bqStrong
     bool go       = any_pa and support_pass and vol_ok and bar_ok
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
@@ -4701,7 +4715,9 @@ if show_panel and d_panel and barstate.islast
     float _bLoW = math.min(_bC, _bO) - low[_so]
     float _bUwP = _bRng2 > 0 ? _bUpW / _bRng2 * 100 : 0
     float _bLwP = _bRng2 > 0 ? _bLoW / _bRng2 * 100 : 0
-    string _barWhy = not _bGreen ? (_bLwP > 20 ? " — red, but " + str.tostring(_bLwP, "0") + "% lower wick: lows rejected, not bearish" : " — bearish close") : _bClPos < 50 ? " — lower half, sold into the close" : _bUwP > 20 ? " — " + str.tostring(_bUwP, "0") + "% upper wick: capped, not bullish" : " — strong close"
+    // Colour is now CONTEXT, not the verdict — so the reason must lead with close
+    // position and the wick, and call a strong red bar what it is: a shakeout.
+    string _barWhy = _bClPos < 50 ? " — lower half, sold into the close" : _bUwP > 20 ? " — " + str.tostring(_bUwP, "0") + "% upper wick: capped, not bullish" : _bGreen ? " — strong close" : " — shakeout: red body but closed strong, fine for a long"
     string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + _barWhy
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
