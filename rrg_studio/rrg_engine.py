@@ -1007,8 +1007,19 @@ def compute_universe_rrg(
         rrg_df = calculate_jdk_rrg(sec_close, bench_close, jdk_length=jdk_length, smooth_length=smooth_length, mode=mode)
 
         if rrg_df.empty:
-            collapsed.append(f"{sym} → too little history for this model "
-                             f"({len(sec_close)} bars)")
+            # State the REQUIREMENT, not just the shortfall (18-Aug). "too little
+            # history (36 bars)" does not tell you whether 36 is nearly enough or
+            # nowhere near, nor that a different preset would plot it. The
+            # CALIBRATED chain spends 24 bars on the 25-week SMA, 9 on the 10-bar
+            # smoothing and 8 on momentum — so ~44 weekly bars, i.e. a listing
+            # older than about 10 months. Deliberately NOT worked around with
+            # min_periods: a "25-week SMA" computed on 15 weeks is a different
+            # measure, and it would sit on the same chart looking comparable.
+            _need = ((STRIKE_CAL["ratio_length"] + STRIKE_CAL["ratio_smooth"]
+                      + STRIKE_CAL["mom_length"] + 2) if mode == "strike_cal"
+                     else (jdk_length + smooth_length + 2))
+            collapsed.append(f"{sym} → {len(sec_close)} bars, needs {_need} for this "
+                             f"model (listed too recently)")
             continue
         # SHORT TAIL != NO PLOT (18-Aug-2026, Jay: dropdown said Strategy 29 but the
         # constituent list showed 19). A name with fewer usable bars than the
