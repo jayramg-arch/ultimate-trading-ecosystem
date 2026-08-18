@@ -937,6 +937,7 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
                        trail_atr_mult: float = 4.5,
                        sl_floor_by_family: Optional[dict] = None,
                        entry_mode: str = "retest", retest_window: int = 8,
+                       pa_lookback: int = 0,
                        df_bench: Optional[pd.DataFrame] = None) -> dict:
     """Simulate ONE GM+S4 daily-approx GO entry for `sym`, starting the search at
     `as_of`. Steps: scan forward ≤ entry_window bars for the first bar where a PA
@@ -982,10 +983,23 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
         return base
 
     # ── forward scan for the first GO ──
+    # `pa_lookback` (18-Aug-2026, Jay: "we consider the last 3 candles — if PA/Bar is
+    # active on any of the last 3, we should consider it, right?"). 0 = same-bar only,
+    # which reproduces every prior s4go run byte-for-byte.
+    #
+    # The PA / volume / bar TRIPLE is always evaluated together on ONE bar j. That is
+    # deliberate and is the whole difference from the v5.0 sticky window that had to be
+    # reverted: that one let ΣPA accumulate across different bars, so the panel printed
+    # GO while the V/B chips failed underneath — a total describing no single candle.
+    # Here the allowance is only that the qualifying bar j may sit up to N bars BEHIND
+    # the bar whose LOCATION we test. Location is a "where is price now" question, so it
+    # is always read at i; the pattern and its bar quality stay welded together at j.
     go_pos = None; go_loc = None
     scan_end = min(as_of_pos + 1 + entry_window, len(df))
     for i in range(as_of_pos + 1, scan_end):
-        if not (bool(go_pa.iloc[i]) and bool(vol_ok.iloc[i]) and bool(bar_ok.iloc[i])):
+        j0 = max(as_of_pos + 1, i - max(0, int(pa_lookback)))
+        if not any(bool(go_pa.iloc[j]) and bool(vol_ok.iloc[j]) and bool(bar_ok.iloc[j])
+                   for j in range(j0, i + 1)):
             continue
         loc = _location_at(df.iloc[:i + 1], float(df["Close"].iloc[i]))
         if loc["ok"]:
@@ -1091,6 +1105,7 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
                     entry_window: int = 40, buystop_window: int = 5,
                     rv_floor: float = 1.0, sl_floor_by_family: Optional[dict] = None,
                     entry_mode: str = "retest", retest_window: int = 8,
+                    pa_lookback: int = 0,
                     out_csv: Optional[str] = None) -> dict:
     """Run the GM+S4 daily-approx GO gate over a candidate universe as-of `as_of`.
 
@@ -1124,7 +1139,7 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
         row = s4go_forward_trade(sym, as_of, candidate=meta, mode=mode,
                                  entry_window=entry_window, buystop_window=buystop_window,
                                  rv_floor=rv_floor, sl_floor_by_family=sl_floor_by_family,
-                                 entry_mode=entry_mode, retest_window=retest_window,
+                                 entry_mode=entry_mode, pa_lookback=pa_lookback, retest_window=retest_window,
                                  df_bench=df_bench)
         rows.append(row)
 
