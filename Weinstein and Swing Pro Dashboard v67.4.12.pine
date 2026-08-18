@@ -2080,12 +2080,38 @@ f_rsVelocityStr(float currentSlope, float pastSlope) =>
 f_calc_rs_logic(int rsl, int rslLevel, int slopeLen, int jdkLen, int trailLen) =>
     // Called via request.security("STOCK / BENCH", ...) → close IS the ratio.
     rs           = close
-    rs_sma       = ta.sma(rs, jdkLen)
-    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
-    rs_ratio     = ta.sma(rs_ratio_raw, 5)                 // 5-bar smooth — Strike-match
-    // RS-Momentum = SMA(length) of ROC of smoothed RS-Ratio
-    rm1          = 100.0 * (rs_ratio / rs_ratio[1])
-    rs_mom       = ta.sma(rm1, jdkLen)
+    // ---------------------------------------------------------------------
+    // v67.4.21 (18-Aug-2026) — RRG STUDIO PARITY (strike_cal).
+    // Ported verbatim from rrg_studio/rrg_engine.py calculate_jdk_rrg(),
+    // mode="strike_cal" + STRIKE_CAL (fit 19-May-2026, n=17, Nifty 500 weekly).
+    // Held-out validation: MAE 0.74, quadrant 14/14, correlation 0.999.
+    //
+    // Two changes from the old block (kept commented directly below):
+    //   1. DECOUPLED lookbacks. One shared jdkLen cannot serve both axes —
+    //      ratio 25/10, momentum 7. jdkLen is therefore IGNORED here, exactly
+    //      as the Python ignores jdk_length in this mode. The input is left in
+    //      place so the other RS rows that pass it keep working.
+    //   2. Origin-preserving affine map y = 100 + a*(x-100). The intercept is
+    //      DERIVED, never fitted: a free y = ax+b displaced the origin and made
+    //      Nifty 500 plot against itself at d:0.9. Do not add a b term.
+    // ---------------------------------------------------------------------
+    // OLD (pre-parity) — retained for reference, do not delete:
+    // rs_sma       = ta.sma(rs, jdkLen)
+    // rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    // rs_ratio     = ta.sma(rs_ratio_raw, 5)
+    // rm1          = 100.0 * (rs_ratio / rs_ratio[1])
+    // rs_mom       = ta.sma(rm1, jdkLen)
+    int   _calRatLen = 25       // STRIKE_CAL ratio_length
+    int   _calRatSm  = 10       // STRIKE_CAL ratio_smooth
+    int   _calMomLen = 7        // STRIKE_CAL mom_length
+    float _calRatA   = 0.796    // STRIKE_CAL ratio_a
+    float _calMomA   = 3.498    // STRIKE_CAL mom_a
+    _calMa       = ta.sma(rs, _calRatLen)
+    rs_ratio_raw = 100.0 + ((rs - _calMa) / _calMa) * 100.0
+    _calRat      = ta.sma(rs_ratio_raw, _calRatSm)
+    _calMom      = ta.sma(100.0 * (_calRat / _calRat[1]), _calMomLen)
+    rs_ratio     = 100.0 + _calRatA * (_calRat - 100.0)
+    rs_mom       = 100.0 + _calMomA * (_calMom - 100.0)
 
     // Centered (-100) so legacy >0 thresholds keep their meaning
     float val      = rs_ratio - 100.0
@@ -2100,7 +2126,10 @@ f_calc_rs_logic(int rsl, int rslLevel, int slopeLen, int jdkLen, int trailLen) =
     float mom_trail = nz(mom_c[trailLen], mom_c)
 
     // Warm-up: JdK needs ~3×length + buffer for stable values
-    int warmup = math.max(jdkLen * 3 + 10, 60)
+    // v67.4.21: warm-up now covers the calibrated chain (25+10+7=42) rather than
+    // jdkLen*3; with jdkLen=12 the old floor of 60 happened to be enough, but it
+    // is no longer jdkLen that sets the requirement.
+    int warmup = math.max(_calRatLen + _calRatSm + _calMomLen + 10, 60)
     bool _warmed = bar_index >= warmup and not na(rs) and rs > 0
     float val_g       = _warmed ? val       : na
     float slope_g     = _warmed ? slope     : na
