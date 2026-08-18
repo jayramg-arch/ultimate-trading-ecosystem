@@ -3,6 +3,31 @@ import sys
 import os
 import time
 
+# ---------------------------------------------------------------------------
+# INTERPRETER GUARD (18-Aug-2026). The auto-pilot died with "No module named
+# 'bs4'": it had been started by the GLOBAL python (C:\Python314 - the .py file
+# association and the PATH `python`), which has none of the project's deps. The
+# Web Commander buttons and the WeinsteinAutoPilot task both pass the venv
+# explicitly, so only a double-click or a desktop shortcut reaches this - which
+# is exactly the path nobody remembers to fix.
+#
+# Re-exec into the venv instead of printing advice. _PIPELINE_REEXEC guards
+# against any loop if the venv itself is ever the broken one.
+# ---------------------------------------------------------------------------
+_VENV_PY = os.path.join("C:" + os.sep, "Users", "jayra", "TradingData",
+                        "venv", "Scripts", "python.exe")
+if (os.path.exists(_VENV_PY)
+        and os.path.normcase(sys.executable) != os.path.normcase(_VENV_PY)
+        and not os.environ.get("_PIPELINE_REEXEC")):
+    print("[launcher] wrong interpreter: " + sys.executable)
+    print("[launcher] re-executing under the venv: " + _VENV_PY)
+    os.environ["_PIPELINE_REEXEC"] = "1"
+    try:
+        os.execv(_VENV_PY, [_VENV_PY, os.path.abspath(__file__)] + sys.argv[1:])
+    except Exception as _e:                      # execv should not return
+        print("[launcher] re-exec FAILED (" + str(_e) + "); continuing on "
+              + sys.executable)
+
 if sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
