@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v9.13 (Sectioned Panel)", shorttitle="S4 Entry v9.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v9.14 (Sectioned Panel)", shorttitle="S4 Entry v9.14", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/8 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -4486,7 +4486,7 @@ if show_panel and d_panel and barstate.islast
     float _rf_risk  = (not na(_dzW) and _dzW > 0) ? math.max(_dzW, _atr_r * 0.5) : _atr_r * 2.5
     float _rf_t1    = _rf_entry + _rf_risk * 2.0
     float _roomR    = (not na(_ovh) and _rf_risk > 0) ? (_ovh - _rf_entry) / _rf_risk : na
-    // v9.13 (#roomR, 17-Aug): this is NOT reward-per-risk at your entry. It is the
+    // v9.14 (#roomR, 17-Aug): this is NOT reward-per-risk at your entry. It is the
     // structural span from the nearest demand-zone PROXIMAL to the obstacle, measured
     // in ZONE WIDTHS (see _rf_entry/_rf_risk above). Printing it as "R" next to the
     // Plan row's genuine R (T1 from the actual entry over the capped SL) read as the
@@ -4659,7 +4659,18 @@ if show_panel and d_panel and barstate.islast
     float _bRng2  = _so_high - low[_so]
     float _bClPos = _bRng2 > 0 ? (_bC - low[_so]) / _bRng2 * 100.0 : 50.0
     bool  _bGreen = _bC >= _bO
-    string _barDesc = _bGreen ? "green candle (bullish close)" : ("red candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + (bar_ok_v ? " — upper half, shakeout OK" : " — lower half, weak/distribution"))
+    // The description must explain the VERDICT, not just the colour (18-Aug, Jay
+    // on IPCALAB 125m). Since v9.14 bar_ok needs `close >= open` AND the close in
+    // the upper half of the RANGE, so a green body can be vetoed — but this line
+    // still branched on colour alone and printed "green candle (bullish close)"
+    // next to WEAK/VETOED, i.e. a reason that contradicted the ruling. IPCALAB
+    // was O 1866.2 / H 1898.0 / L 1865.2 / C 1875.2: green body, closed 30% up
+    // its range, sold into the close — vetoed correctly, explained wrongly.
+    // Now the close POSITION is always stated, for both colours.
+    string _bPos = str.tostring(_bClPos, "0") + "% up its range"
+    string _barDesc = _bGreen
+         ? ("green candle, closed " + _bPos + (bar_ok_v ? " — upper half, strong close" : " — LOWER half: upper wick, sold into the close"))
+         : ("red candle, closed " + _bPos + (bar_ok_v ? " — held its zone" : " — bearish close"))
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
     f_row(26, "Bar (B)", _barTxt, _barCol)
@@ -5016,7 +5027,7 @@ if show_panel and d_panel and barstate.islast
     color  _anCol = color.new(#b2b5be, 0)
     // Quality overlay — true regardless of which gate is blocking.
     bool _qSupply  = _inSZ_r
-    // v9.13: was _roomR (zone-span in zone widths) — the guard meant to stop a
+    // v9.14: was _roomR (zone-span in zone widths) — the guard meant to stop a
     // thin-reward trade was reading a structural measure, so IKS passed at "5.0R"
     // while the executable plan was T1 0.1R. Now reads the Plan's own R.
     bool _qThinR   = (not na(pl_rr1)) and pl_rr1 < 1.0
