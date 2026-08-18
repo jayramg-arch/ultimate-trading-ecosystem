@@ -850,7 +850,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v9.14 (Sectioned Panel)", shorttitle="S4 Entry v9.14", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v9.15 (Sectioned Panel)", shorttitle="S4 Entry v9.15", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 import jayramg/S4Core/8 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
@@ -914,7 +914,11 @@ d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 // Purely visual: neither changes a signal, a gate or the panel.
 hl_pa_min = input.int(2, "  · minimum Σ to highlight", group=grpHL, minval=1, maxval=12, tooltip="Only shade candles whose PA Σ reaches this. Raise it to hide the low-conviction single-pattern bars and leave only the meaningful ones on the chart.")
 hl_bar    = input.bool(true, "Highlight Bar-quality (B) candle (repaint body)", group=grpHL, tooltip="Repaints the candle body by the B gate: BRIGHT GREEN = closed strong (green, or red-but-upper-half — a shakeout that recovered), BRIGHT RED = closed in the lower half (weak / distribution) and therefore VETOED for entry. Deliberately brighter than the chart's default candle colours so it reads as a marker, not as a normal candle.")
-hl_bar_pa = input.bool(true, "  · only on PA candles", group=grpHL, tooltip="ON (default) = only repaint candles where a PA pattern fired — the bars where B actually decides anything. OFF = repaint EVERY bar, which is noisy (B passes on most bars) but shows the full run of strong/weak closes.")
+hl_bar_pa = input.bool(true, "  · only on PA candles", group=grpHL, tooltip="ON (default) = only mark candles where a PA pattern fired — the bars where B actually decides anything. OFF = mark EVERY bar, which is noisy (B passes on most bars) but shows the full run of strong/weak closes.")
+hl_bar_style = input.string("Marker below bar (keeps the real candle)", "  · how to show it",
+     options=["Marker below bar (keeps the real candle)", "Repaint candle body (overrides the real colour)"],
+     group=grpHL,
+     tooltip="MARKER (default, safe): a small dot under the bar — green = B passed, red = B vetoed. The candle keeps its true open/close colour.\n\nREPAINT: recolours the candle BODY. Be aware of what this costs — a vetoed bar is painted red even when it CLOSED UP, so the chart no longer shows whether the bar was green or red. Combined with the 'only on PA candles' filter and the last-N-bars window, only a few recent candles get overridden while older ones stay true, which looks like the chart has been corrupted. It was the default until 18-Aug-2026 and caused exactly that confusion on IPCALAB 125m.")
 hl_hist   = input.bool(false, "Highlight full history (else last 30 bars)", group=grpHL, tooltip="OFF (default) = highlights only on the recent 30 bars, matching the GO/PA marker convention — keeps old history clean. ON = shade/repaint across all loaded bars, for scanning past setups.")
 hl_pa_strong = input.int(5, "  · Σ for the escalated PA★ marker", group=grpHL, minval=2, maxval=15, tooltip="At or above this Σ the PA marker escalates from the small diamond to a bright labelled 'PA★ Σn <lead pattern>' — the high-conviction bars name themselves on the chart.")
 // THE PATTERN ITSELF — outline the actual candles that form it (24-Jul, Jay: "I want
@@ -3997,7 +4001,26 @@ if hl_pat_box and d_markers and _paTrig and _patSpan > 0 and _hlOK
 // is noise). Bright tones, NOT the chart's default candle colours, so a highlighted
 // bar can't be mistaken for an ordinary green/red one.
 bool _barHL = hl_bar and (hl_bar_pa ? any_pa : true) and _hlOK
-barcolor(_barHL ? (bar_ok ? C_GO : color.new(#ff1744, 0)) : na, title="Bar quality (B)")
+// NON-DESTRUCTIVE BY DEFAULT (18-Aug-2026). This used to be barcolor() only, and
+// barcolor REPLACES the body colour — so a VETOED bar was painted #ff1744 whether
+// it had closed up or down, and the chart stopped showing the candle's real
+// colour. Because the highlight is additionally gated on `any_pa` and on a
+// recent-bars window (mk_bars, default 10), only a few of the newest candles were
+// affected while everything older stayed true — which reads as the indicator
+// having corrupted a handful of candles.
+// Jay, IPCALAB 125m: "S4 is partially marking some candles... this is more
+// dangerous!" He was right, and it cost an hour of arguing about whether a green
+// bar was red — the bar WAS green (O 1866.2 / C 1875.2, +0.48%) and B had vetoed
+// it on close position, so it was being painted red.
+// The comment here previously asserted the tones were "NOT the chart's default
+// candle colours, so a highlighted bar can't be mistaken for an ordinary
+// green/red one". That claim is now disproven; a marker is used instead.
+// Repainting is still available, but it must be chosen deliberately.
+bool _hlRepaint = hl_bar_style == "Repaint candle body (overrides the real colour)"
+plotshape(_barHL and not _hlRepaint ? 1 : na, title="Bar quality (B) marker",
+     location=location.belowbar, style=shape.circle, size=size.tiny,
+     color=bar_ok ? C_GO : color.new(#ff1744, 0))
+barcolor(_barHL and _hlRepaint ? (bar_ok ? C_GO : color.new(#ff1744, 0)) : na, title="Bar quality (B)")
 
 // Draw the support zones (v2.4): the LEFT edge is the zone's FORMATION candle
 // time (the OB/gap/pivot bar) — so a box begins at the candles that created it,
@@ -4486,7 +4509,7 @@ if show_panel and d_panel and barstate.islast
     float _rf_risk  = (not na(_dzW) and _dzW > 0) ? math.max(_dzW, _atr_r * 0.5) : _atr_r * 2.5
     float _rf_t1    = _rf_entry + _rf_risk * 2.0
     float _roomR    = (not na(_ovh) and _rf_risk > 0) ? (_ovh - _rf_entry) / _rf_risk : na
-    // v9.14 (#roomR, 17-Aug): this is NOT reward-per-risk at your entry. It is the
+    // v9.15 (#roomR, 17-Aug): this is NOT reward-per-risk at your entry. It is the
     // structural span from the nearest demand-zone PROXIMAL to the obstacle, measured
     // in ZONE WIDTHS (see _rf_entry/_rf_risk above). Printing it as "R" next to the
     // Plan row's genuine R (T1 from the actual entry over the capped SL) read as the
@@ -4660,7 +4683,7 @@ if show_panel and d_panel and barstate.islast
     float _bClPos = _bRng2 > 0 ? (_bC - low[_so]) / _bRng2 * 100.0 : 50.0
     bool  _bGreen = _bC >= _bO
     // The description must explain the VERDICT, not just the colour (18-Aug, Jay
-    // on IPCALAB 125m). Since v9.14 bar_ok needs `close >= open` AND the close in
+    // on IPCALAB 125m). Since v9.15 bar_ok needs `close >= open` AND the close in
     // the upper half of the RANGE, so a green body can be vetoed — but this line
     // still branched on colour alone and printed "green candle (bullish close)"
     // next to WEAK/VETOED, i.e. a reason that contradicted the ruling. IPCALAB
@@ -5027,7 +5050,7 @@ if show_panel and d_panel and barstate.islast
     color  _anCol = color.new(#b2b5be, 0)
     // Quality overlay — true regardless of which gate is blocking.
     bool _qSupply  = _inSZ_r
-    // v9.14: was _roomR (zone-span in zone widths) — the guard meant to stop a
+    // v9.15: was _roomR (zone-span in zone widths) — the guard meant to stop a
     // thin-reward trade was reading a structural measure, so IKS passed at "5.0R"
     // while the executable plan was T1 0.1R. Now reads the Plan's own R.
     bool _qThinR   = (not na(pl_rr1)) and pl_rr1 < 1.0
