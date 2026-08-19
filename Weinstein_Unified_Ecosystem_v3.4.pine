@@ -312,7 +312,7 @@
 // LOGIC UNCHANGED — display-layer-only compression.
 // ==========================================
 
-strategy("Weinstein Unified Ecosystem [v3.4.2]", overlay=true,
+strategy("Weinstein Unified Ecosystem [v3.5]", overlay=true,
          initial_capital=100000,
          default_qty_type=strategy.percent_of_equity,
          default_qty_value=10,
@@ -442,13 +442,14 @@ atr_length    = input.int(14, title="ATR Length", group=grp_shared)
 sl_pad_pb     = input.float(0.2, title="SL Padding %", step=0.1, group=grp_shared) / 100
 trail_buf_pb  = input.float(1.0, title="EMA Trail Buffer %", step=0.1, group=grp_shared) / 100
 ce_length     = input.int(22, title="Chandelier Exit Length (POS/REC Trail)", minval=5, group=grp_shared)
-ce_mult       = input.float(4.5, title="Chandelier Exit ATR Mult (Bull)", minval=1.0, step=0.1, group=grp_shared, tooltip="v3.2 widened 3.0 → 4.5 to match T1@5R/T2@10R targets. Old 3.0 stopped winners on normal pullbacks before reaching wider targets. 4.5 allows ~30% drawdown from peak on a 10R runner.")
+ce_mult       = input.float(4.5, title="Chandelier Exit ATR Mult (Bull)", minval=1.0, step=0.1, group=grp_shared, tooltip="4.5 = risk_common.trail_mult_for() POS multiplier - the shared brain the Risk Shield, the pyramid ladder and gtt_auto_shield all use, so the strategy trails the way the live book does. v3.5 NOTE: the old tooltip justified 4.5 by T1@5R/T2@10R, and those targets are gone (R-canon 3R/5R). It stays at 4.5 on its own evidence, not theirs: 88% of POS trades exit on the TRAIL and only 8.4% ever reach 3R, so the trail is the mechanism and a tight one is what gives the edge back. FOUR stop studies have rejected tightening it.")
 use_fixed_sl  = input.bool(false, title="Use Fixed SL %?", group=grp_shared)
 fixed_sl_pct  = input.float(10.0, title="Fixed SL %", group=grp_shared)
 enable_trail  = input.bool(true, title="Enable Trailing SL?", group=grp_shared)
 show_signals  = input.bool(true, title="Show Strategy Signals?", group=grp_shared)
 show_ma       = input.bool(true, title="Show Moving Averages?", group=grp_shared)
 fast_bt       = input.bool(false, title="Fast Backtest Mode", group=grp_shared)
+stageBgMode   = input.string("Ribbon (Bottom)", title="Stage Background Display", options=["Ribbon (Bottom)", "Full Chart", "Off"], group=grp_shared, tooltip="Ribbon (Bottom) displays a small visible ribbon row at the bottom of the chart for the 4 Weinstein stages (Stage 1 Yellow, Stage 2 Green, Stage 3 Orange, Stage 4 Red). Full Chart fills the entire background.")
 piv_d_right   = input.int(2, title="Pivot Right Bars (Trend Lag)", minval=1, maxval=5, group=grp_shared)
 
 // ==========================================
@@ -477,7 +478,7 @@ use_webhook_json = input.bool(false, title="Send JSON Webhook Alerts (Ngrok + We
 // CONSTANTS
 // ==========================================
 var int   maLengthW   = 30
-var int   wSlopeLen   = 6
+var int   wSlopeLen   = 4            // v3.5: 4, not 6 - S4's f_wma30 reads (_m - _m[4]) and bull_screener._weekly slope_len=4. At 6 this flat band was 50% wider than every other surface.
 var float slopeThresh = 0.0012
 var int   piv_w_left  = 5
 var int   piv_w_right = 5
@@ -721,16 +722,42 @@ f_rs_math() =>
     // Default length raised 10 → 12. Returns CENTERED values so legacy >0
     // checks (mansfield > 0, rs_mom > 0) continue to work unchanged.
     rs           = close
-    rs_sma       = ta.sma(rs, jdkLength)
-    rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
-    rs_ratio     = ta.sma(rs_ratio_raw, 5)                 // 5-bar smooth — Strike-match
-    rs_mom       = ta.sma(100.0 * (rs_ratio / rs_ratio[1]), jdkLength)
+    // ---- RRG STUDIO PARITY (strike_cal), ported 19-Aug-2026 --------------------
+    // Identical maths to rrg_studio/rrg_engine.py, root rrg_engine.py, v67.4.21,
+    // S4 (which binds v67), Mansfield AutoSector v1.6 and Risk Allocator v2.2.
+    // STRIKE_CAL: 25/10/7, ratio_a 0.796, mom_a 3.498 - refit on the right objective
+    // (held-out MAE 10.6 -> 0.74, quadrant 14/14, correlation 0.999).
+    //
+    // Two departures from the block kept commented below:
+    //   1. DECOUPLED lookbacks. One shared length cannot serve both axes - ratio 25/10,
+    //      momentum 7 - so jdkLength is IGNORED here, exactly as the Python ignores
+    //      jdk_length in this mode. The variable stays because other rows pass it.
+    //   2. Origin-preserving affine y = 100 + a*(x-100). The intercept is DERIVED,
+    //      never fitted: a free y = ax+b displaced the origin and made Nifty 500 plot
+    //      against ITSELF at d:0.9. Do not add a b term.
+    // OLD (pre-parity), retained:
+    // rs_sma       = ta.sma(rs, jdkLength)
+    // rs_ratio_raw = 100.0 + ((rs - rs_sma) / rs_sma) * 100.0
+    // rs_ratio     = ta.sma(rs_ratio_raw, 5)
+    // rs_mom       = ta.sma(100.0 * (rs_ratio / rs_ratio[1]), jdkLength)
+    int   _calRatLen = 25
+    int   _calRatSm  = 10
+    int   _calMomLen = 7
+    float _calRatA   = 0.796
+    float _calMomA   = 3.498
+    _calMa       = ta.sma(rs, _calRatLen)
+    rs_ratio_raw = 100.0 + ((rs - _calMa) / _calMa) * 100.0
+    _calRat      = ta.sma(rs_ratio_raw, _calRatSm)
+    _calMom      = ta.sma(100.0 * (_calRat / nz(_calRat[1], _calRat)), _calMomLen)
+    rs_ratio     = 100.0 + _calRatA * (_calRat - 100.0)
+    rs_mom       = 100.0 + _calMomA * (_calMom - 100.0)
     float val   = rs_ratio - 100.0
     float mom_c = rs_mom   - 100.0
     float slope = val - nz(val[rs_slope_weeks], val)
     float val_trail = nz(val[rrgTrailLen],   val)
     float mom_trail = nz(mom_c[rrgTrailLen], mom_c)
-    bool _warmed = bar_index >= math.max(jdkLength * 3 + 10, 60) and not na(rs) and rs > 0
+    // Warm-up now covers the calibrated chain (25+10+7=42); jdkLength no longer sets it.
+    bool _warmed = bar_index >= math.max(_calRatLen + _calRatSm + _calMomLen + 10, 60) and not na(rs) and rs > 0
     [_warmed ? val : na, _warmed ? slope : na, _warmed ? mom_c : na, _warmed ? val_trail : na, _warmed ? mom_trail : na]
 
 // v2.9: Combined RRG trajectory + score + tradeable (parity with Dashboard f_rrg_info
@@ -764,7 +791,10 @@ f_get_weekly_bundle(maLen, slopeLen, l, r, thresh) =>
     c = close
     ma = ta.sma(close, maLen)
     float old_ma = ma[slopeLen]
-    slope = (ma - nz(old_ma, ma)) / math.max(1, slopeLen)
+    // RAW N-bar change, NOT a per-bar rate. S4 compares (_m - _m[4]) against
+    // _m * thresh; dividing by slopeLen made this flat band slopeLen times WIDER,
+    // so a 30-WMA that every other surface called rising read flat here.
+    slope = ma - nz(old_ma, ma)
     [trend, _, _] = f_getStrictTrend(high, low, l, r)
     rsi = ta.rsi(close, 14)
     float dynThresh = ma * thresh
@@ -772,32 +802,36 @@ f_get_weekly_bundle(maLen, slopeLen, l, r, thresh) =>
     bool is_ma_downtrend = slope < -dynThresh
     bool is_above_ma     = c > ma
 
-    var int current_stage_htf = 4
-    if current_stage_htf == 1
-        if is_ma_uptrend and is_above_ma
-            current_stage_htf := 2
-        else if is_ma_downtrend and not is_above_ma and trend != 1
-            current_stage_htf := 4
-    else if current_stage_htf == 2
-        if is_ma_downtrend and not is_above_ma and trend != 1
-            current_stage_htf := 4
-        else if (not is_ma_uptrend and not is_above_ma) or (trend == -1 and not is_above_ma)
-            current_stage_htf := 3
-    else if current_stage_htf == 3
-        if is_ma_downtrend and not is_above_ma and trend != 1
-            current_stage_htf := 4
-        else if is_ma_uptrend and is_above_ma
-            current_stage_htf := 2
-    else if current_stage_htf == 4
-        if is_ma_uptrend and is_above_ma
-            current_stage_htf := 2
-        else if not is_ma_downtrend and is_above_ma
-            current_stage_htf := 1
-
-    if trend == 1 and current_stage_htf == 4
-        current_stage_htf := 1
-    if trend == -1 and current_stage_htf == 2
-        current_stage_htf := 3
+    // ── STATELESS 2x2 (v3.5, 19-Aug-2026) — the definition S4, v67 and the GM share ──
+    // WAS a hysteresis state machine plus two tDir overrides: it evolved the stage from
+    // its PREVIOUS value, so a name trading above a DECLINING 30-week average never left
+    // "Stage 1". Measured on the 56-name board when v67 was fixed: 19 of 56 (34%) were
+    // mis-staged, MPHASIS sitting at Stage 1 with its 30-WMA falling 62.9 points. That is
+    // distribution, not a base — and this file is a STRATEGY, so a wrong stage does not
+    // merely mislabel a row, it gates entries.
+    //
+    // Byte-for-byte the rule in bull_screener._weekly (line ~537) and S4:
+    //     above -> rising ? 2 : falling ? 3 : (rsUp ? 1 : 3)
+    //     below -> (falling and not rsUp) ? 4 : 1
+    // A flat 30-WMA is a base however strong RS is, which is why the flat cell resolves
+    // to 1 and not 2.
+    //
+    // The two tDir overrides (4->1 on trend==1, 2->3 on trend==-1) are GONE. A stage a
+    // separate pivot engine can rewrite is a stage you cannot reason about, and it is
+    // exactly what let these surfaces disagree about the same chart. tDir survives only
+    // as the flat-cell tiebreak below (`rsUpProxy`), matching v67.
+    //
+    // NOT ported from v67: its "STAGE 2 (PULLBACK)" label for below+rising. That is a
+    // display refinement on a STRING; here the stage is an INT that feeds the catalyst
+    // gates, and promoting that cell to 2 would silently admit pullback-below-the-30WMA
+    // names into every Stage-2 gate. Python does not do it either.
+    //
+    // HYSTERESIS TRADE-OFF, stated plainly: a stateless read can flip 2<->3 while the MA
+    // hovers around flat. slopeThresh is the knob for that — widen the flat band rather
+    // than freeze a stale digit.
+    bool rsUpProxy = trend == 1
+    int current_stage_htf = is_above_ma ? (is_ma_uptrend ? 2 : is_ma_downtrend ? 3 : (rsUpProxy ? 1 : 3))
+         : ((is_ma_downtrend and not rsUpProxy) ? 4 : 1)
 
     // --- Weeks-in-Stage Counter (Sync with Beta v2.6) ---
     var int _prev_stage_htf = 4
@@ -819,14 +853,21 @@ f_get_weekly_bundle(maLen, slopeLen, l, r, thresh) =>
 f_get_mkt_bundle() =>
     [close, ta.sma(close, 50), ta.sma(close, 200), ta.highest(high, 250), ta.lowest(low, 10), ta.lowest(low, 10)[10]]
 
+// AUTO SECTOR MAPPER (TradingView Auto-Sensing)
 f_get_sector_ticker() =>
     string s = syminfo.sector
     string i = syminfo.industry
     string t = "NSE:CNX500" // Default fallback
     string n = "Nifty 500"
     
-    // Prioritize by Industry keywords first (more specific)
-    if str.contains(i, "Bank") or str.contains(s, "Finance")
+    // Prioritize by Industry & Sector keywords (TradingView metadata auto-sensing)
+    if str.contains(i, "Aerospace") or str.contains(i, "Defense") or str.contains(s, "Producer Manufacturing") or str.contains(i, "Industrial") or str.contains(i, "Capital Goods")
+        t := "BSE:CG"
+        n := "Capital Goods & Defense"
+    else if str.contains(s, "Chemical") or str.contains(i, "Chemical") or str.contains(i, "Fertilizer")
+        t := "NSE:CNXCOMMODITIES"
+        n := "Nifty Commodities"
+    else if str.contains(i, "Bank") or str.contains(s, "Finance")
         t := "NSE:BANKNIFTY"
         n := "Bank Nifty"
     else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
@@ -835,12 +876,15 @@ f_get_sector_ticker() =>
     else if str.contains(s, "Health") or str.contains(i, "Pharma")
         t := "NSE:CNXPHARMA"
         n := "Pharma"
-    else if str.contains(i, "Auto") or str.contains(s, "Consumer Durables")
+    else if str.contains(i, "Auto")
         t := "NSE:CNXAUTO"
         n := "Nifty Auto"
-    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage")
+    else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage") or str.contains(s, "Consumer Durables")
         t := "NSE:CNXFMCG"
         n := "FMCG"
+    else if str.contains(i, "Hotel") or str.contains(i, "Resort") or str.contains(i, "Restaurant") or str.contains(s, "Consumer Services")
+        t := "NSE:CNXCONSUM"
+        n := "Nifty India Consumption"
     else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
         t := "NSE:CNXMETAL"
         n := "Metal"
@@ -853,11 +897,9 @@ f_get_sector_ticker() =>
     else if str.contains(s, "Infrastructure")
         t := "NSE:CNXINFRA"
         n := "Infra"
-    
-    // Return Tuple
     [t, n]
 
-// // <DB_LOOKUP_START>
+// // // // // <DB_LOOKUP_START>
 // This function is AUTO-GENERATED by sector_manager.py
 f_db_sector_lookup(string t) =>
     string s = ""
@@ -868,11 +910,11 @@ f_db_sector_lookup(string t) =>
         "3MINDIA" => "NSE:CNXSERVICE"
         "AADHARHFC" => "NSE:CNXFINANCE"
         "AARTIDRUGS" => "NSE:CNXPHARMA"
-        "AARTIIND" => "NSE:CNXMETAL"
+        "AARTIIND" => "NSE:CNXCOMMODITIES"
         "AAVAS" => "NSE:CNXFINANCE"
         "ABB" => "BSE:CG"
         "ABBOTINDIA" => "NSE:CNXPHARMA"
-        "ABCAPITAL" => "NSE:BANKNIFTY"
+        "ABCAPITAL" => "NSE:CNXFINANCE"
         "ABDL" => "NSE:CNXFMCG"
         "ABFRL" => "NSE:CNXFMCG"
         "ABLBL" => "NSE:CNXCONSUM"
@@ -928,10 +970,11 @@ f_db_sector_lookup(string t) =>
         "ASKASIAN" => "NSE:CNXFINANCE"
         "ASTERDM" => "NSE:CNXPHARMA"
         "ASTRAL" => "NSE:CNXINFRA"
+        "ASTRAMICRO" => "BSE:CG"
         "ASTRAZEN" => "NSE:CNXPHARMA"
         "ATGL" => "NSE:CNXENERGY"
         "ATHERENERG" => "NSE:CNXAUTO"
-        "ATUL" => "NSE:CNXMETAL"
+        "ATUL" => "NSE:CNXCOMMODITIES"
         "AUBANK" => "NSE:BANKNIFTY"
         "AUROPHARMA" => "NSE:CNXPHARMA"
         "AVANTIFEED" => "NSE:CNXFMCG"
@@ -942,7 +985,7 @@ f_db_sector_lookup(string t) =>
         "BAJAJELEC" => "BSE:CG"
         "BAJAJFINSV" => "NSE:CNXFINANCE"
         "BAJAJHFL" => "NSE:CNXFINANCE"
-        "BAJAJHLDNG" => "NSE:BANKNIFTY"
+        "BAJAJHLDNG" => "NSE:CNXFINANCE"
         "BAJFINANCE" => "NSE:CNXFINANCE"
         "BALAMINES" => "NSE:CNXMETAL"
         "BALKRISIND" => "NSE:CNXAUTO"
@@ -954,14 +997,14 @@ f_db_sector_lookup(string t) =>
         "BATAINDIA" => "NSE:CNXFMCG"
         "BAYERCROP" => "NSE:CNXMETAL"
         "BBTC" => "NSE:CNXFMCG"
-        "BDL" => "NSE:CNXINFRA"
+        "BDL" => "BSE:CG"
         "BEL" => "BSE:CG"
         "BELRISE" => "BSE:CG"
         "BEML" => "BSE:CG"
         "BERGEPAINT" => "NSE:CNXINFRA"
         "BHARATFORG" => "NSE:CNXAUTO"
         "BHARATRAS" => "NSE:CNXMETAL"
-        "BHARTIARTL" => "NSE:CNXIT"
+        "BHARTIARTL" => "NSE:CNXINFRA"
         "BHARTIHEXA" => "NSE:CNXINFRA"
         "BHEL" => "BSE:CG"
         "BIKAJI" => "NSE:CNXFMCG"
@@ -980,7 +1023,7 @@ f_db_sector_lookup(string t) =>
         "BSE" => "NSE:CNXFINANCE"
         "BSOFT" => "NSE:CNXIT"
         "CAMPUS" => "NSE:CNXFMCG"
-        "CAMS" => "NSE:CNXIT"
+        "CAMS" => "NSE:CNXFINANCE"
         "CANBK" => "NSE:BANKNIFTY"
         "CANFINHOME" => "NSE:CNXFINANCE"
         "CANHLIFE" => "NSE:CNXFINANCE"
@@ -994,14 +1037,15 @@ f_db_sector_lookup(string t) =>
         "CEATLTD" => "NSE:CNXAUTO"
         "CEMPRO" => "NSE:CNXINFRA"
         "CENTRALBK" => "NSE:BANKNIFTY"
+        "CENTUM" => "BSE:CG"
         "CENTURYPLY" => "NSE:CNXINFRA"
         "CENTURYTEX" => "NSE:CNXFMCG"
         "CERA" => "NSE:CNXINFRA"
         "CESC" => "NSE:CNXENERGY"
         "CGCL" => "NSE:CNXFINANCE"
         "CGPOWER" => "BSE:CG"
-        "CHALET" => "NSE:CNXSERVICE"
-        "CHAMBLFERT" => "NSE:CNXMETAL"
+        "CHALET" => "NSE:CNXCONSUM"
+        "CHAMBLFERT" => "NSE:CNXCOMMODITIES"
         "CHENNPETRO" => "NSE:CNXENERGY"
         "CHOICEIN" => "NSE:CNXFINANCE"
         "CHOLAFIN" => "NSE:CNXFINANCE"
@@ -1009,7 +1053,7 @@ f_db_sector_lookup(string t) =>
         "CHOLAHLDNG" => "NSE:CNXFINANCE"
         "CIEINDIA" => "NSE:CNXAUTO"
         "CIPLA" => "NSE:CNXPHARMA"
-        "CLEAN" => "NSE:CNXMETAL"
+        "CLEAN" => "NSE:CNXCOMMODITIES"
         "COALINDIA" => "NSE:CNXENERGY"
         "COCHINSHIP" => "BSE:CG"
         "COFORGE" => "NSE:CNXIT"
@@ -1017,21 +1061,23 @@ f_db_sector_lookup(string t) =>
         "COLPAL" => "NSE:CNXFMCG"
         "CONCOR" => "NSE:CNXSERVICE"
         "CONCORDBIO" => "NSE:CNXPHARMA"
-        "COROMANDEL" => "NSE:CNXMETAL"
+        "COROMANDEL" => "NSE:CNXCOMMODITIES"
         "CPPLUS" => "NSE:CNXINFRA"
         "CRAFTSMAN" => "NSE:CNXAUTO"
         "CREDITACC" => "NSE:CNXFINANCE"
         "CRISIL" => "NSE:CNXFINANCE"
-        "CROMPTON" => "NSE:CNXFMCG"
+        "CROMPTON" => "BSE:CG"
         "CUB" => "NSE:BANKNIFTY"
         "CUMMINSIND" => "BSE:CG"
         "CYIENT" => "NSE:CNXIT"
+        "CYIENTDLM" => "BSE:CG"
         "DABUR" => "NSE:CNXFMCG"
         "DALBHARAT" => "NSE:CNXINFRA"
         "DATAPATTNS" => "BSE:CG"
         "DCMSHRIRAM" => "NSE:CNXMETAL"
+        "DCXIND" => "BSE:CG"
         "DEEPAKFERT" => "NSE:CNXCOMMODITIES"
-        "DEEPAKNTR" => "NSE:CNXMETAL"
+        "DEEPAKNTR" => "NSE:CNXCOMMODITIES"
         "DELHIVERY" => "NSE:CNXSERVICE"
         "DELTACORP" => "NSE:CNXSERVICE"
         "DEVYANI" => "NSE:CNXSERVICE"
@@ -1047,7 +1093,7 @@ f_db_sector_lookup(string t) =>
         "EDELWEISS" => "NSE:CNXFINANCE"
         "EICHERMOT" => "NSE:CNXAUTO"
         "EIDPARRY" => "NSE:CNXFMCG"
-        "EIHOTEL" => "NSE:CNXSERVICE"
+        "EIHOTEL" => "NSE:CNXCONSUM"
         "ELECON" => "NSE:CNXINFRA"
         "ELGIEQUIP" => "BSE:CG"
         "EMAMILTD" => "NSE:CNXFMCG"
@@ -1064,13 +1110,13 @@ f_db_sector_lookup(string t) =>
         "ETHOSLTD" => "NSE:CNXSERVICE"
         "EVEREADY" => "BSE:CG"
         "EXIDEIND" => "NSE:CNXAUTO"
-        "FACT" => "NSE:CNXMETAL"
+        "FACT" => "NSE:CNXCOMMODITIES"
         "FALCONTYRE" => "NSE:CNXAUTO"
         "FDC" => "NSE:CNXPHARMA"
         "FEDERALBNK" => "NSE:BANKNIFTY"
         "FERV" => "BSE:CG"
         "FINCABLES" => "BSE:CG"
-        "FINEORG" => "NSE:CNXMETAL"
+        "FINEORG" => "NSE:CNXCOMMODITIES"
         "FINPIPE" => "NSE:CNXINFRA"
         "FIRSTCRY" => "NSE:CNXCONSUM"
         "FIVESTAR" => "NSE:CNXFINANCE"
@@ -1080,7 +1126,7 @@ f_db_sector_lookup(string t) =>
         "FSL" => "NSE:CNXIT"
         "GABRIEL" => "NSE:CNXAUTO"
         "GAIL" => "NSE:CNXENERGY"
-        "GALAXYSURF" => "NSE:CNXMETAL"
+        "GALAXYSURF" => "NSE:CNXCOMMODITIES"
         "GALLANTT" => "NSE:CNXMETAL"
         "GANESHHOUC" => "NSE:CNXREALTY"
         "GARDENREACH" => "BSE:CG"
@@ -1122,6 +1168,7 @@ f_db_sector_lookup(string t) =>
         "GUJGASLTD" => "NSE:NIFTY_OIL_AND_GAS"
         "GULFOILLUB" => "NSE:NIFTY_OIL_AND_GAS"
         "GVT_D" => "NSE:CNXINFRA"
+        "GVT_D" => "NSE:CNXINFRA"
         "HAL" => "BSE:CG"
         "HAPPSTMNDS" => "NSE:CNXIT"
         "HATHWAY" => "NSE:CNXMEDIA"
@@ -1136,7 +1183,7 @@ f_db_sector_lookup(string t) =>
         "HEIDELBERG" => "NSE:CNXINFRA"
         "HEROMOTOCO" => "NSE:CNXAUTO"
         "HEXT" => "NSE:CNXIT"
-        "HFCL" => "NSE:CNXIT"
+        "HFCL" => "NSE:CNXINFRA"
         "HIKAL" => "NSE:CNXPHARMA"
         "HINDALCO" => "NSE:CNXMETAL"
         "HINDCOPPER" => "NSE:CNXMETAL"
@@ -1155,6 +1202,7 @@ f_db_sector_lookup(string t) =>
         "ICICIPRULI" => "NSE:CNXFINANCE"
         "IDBI" => "NSE:BANKNIFTY"
         "IDEA" => "NSE:CNXINFRA"
+        "IDEAFORGE" => "BSE:CG"
         "IDFC" => "NSE:CNXFINANCE"
         "IDFCFIRSTB" => "NSE:BANKNIFTY"
         "IEX" => "NSE:CNXFINANCE"
@@ -1166,14 +1214,14 @@ f_db_sector_lookup(string t) =>
         "IKS" => "NSE:CNXPHARMA"
         "IMAGICAA" => "NSE:CNXSERVICE"
         "INDGN" => "NSE:CNXPHARMA"
-        "INDHOTEL" => "NSE:CNXSERVICE"
+        "INDHOTEL" => "NSE:CNXCONSUM"
         "INDIACEM" => "NSE:CNXINFRA"
         "INDIAMART" => "NSE:CNXIT"
         "INDIANB" => "NSE:BANKNIFTY"
         "INDIGO" => "NSE:CNXSERVICE"
         "INDIGOPNTS" => "NSE:CNXINFRA"
         "INDUSINDBK" => "NSE:BANKNIFTY"
-        "INDUSTOWER" => "NSE:CNXIT"
+        "INDUSTOWER" => "NSE:CNXINFRA"
         "INFY" => "NSE:CNXIT"
         "INOXWIND" => "BSE:CG"
         "INTELLECT" => "NSE:CNXIT"
@@ -1187,7 +1235,7 @@ f_db_sector_lookup(string t) =>
         "IRFC" => "NSE:CNXFINANCE"
         "ITC" => "NSE:CNXFMCG"
         "ITCHOTELS" => "NSE:CNXCONSUM"
-        "ITI" => "NSE:CNXIT"
+        "ITI" => "NSE:CNXINFRA"
         "J_KBANK" => "NSE:BANKNIFTY"
         "JAINREC" => "NSE:CNXMETAL"
         "JBCHEPHARM" => "NSE:CNXPHARMA"
@@ -1214,14 +1262,15 @@ f_db_sector_lookup(string t) =>
         "JYOTHYLAB" => "NSE:CNXFMCG"
         "JYOTICNC" => "NSE:CNXINFRA"
         "JYOTISTRUC" => "BSE:CG"
+        "J_KBANK" => "NSE:BANKNIFTY"
         "KAJARIACER" => "NSE:CNXINFRA"
         "KALYANKJIL" => "NSE:CNXFMCG"
         "KANSAINER" => "NSE:CNXINFRA"
         "KARURVYSYA" => "NSE:BANKNIFTY"
-        "KAYNES" => "NSE:CNXIT"
+        "KAYNES" => "BSE:CG"
         "KEC" => "BSE:CG"
         "KEI" => "BSE:CG"
-        "KFINTECH" => "NSE:CNXIT"
+        "KFINTECH" => "NSE:CNXFINANCE"
         "KIMS" => "NSE:CNXPHARMA"
         "KIRLOSENG" => "NSE:CNXINFRA"
         "KNRCON" => "NSE:CNXINFRA"
@@ -1238,8 +1287,8 @@ f_db_sector_lookup(string t) =>
         "LAURUSLABS" => "NSE:CNXPHARMA"
         "LAXMACH" => "BSE:CG"
         "LEMONTREE" => "NSE:CNXCONSUM"
-        "LENSKART" => "NSE:CNXPHARMA"
-        "LGEINDIA" => "NSE:CNXIT"
+        "LENSKART" => "NSE:CNXCONSUM"
+        "LGEINDIA" => "NSE:CNXCONSUM"
         "LICHSGFIN" => "NSE:CNXFINANCE"
         "LICI" => "NSE:CNXFINANCE"
         "LINDEINDIA" => "NSE:CNXMETAL"
@@ -1275,7 +1324,7 @@ f_db_sector_lookup(string t) =>
         "MEDANTA" => "NSE:CNXPHARMA"
         "MEESHO" => "NSE:CNXCONSUM"
         "METROPOLIS" => "NSE:CNXPHARMA"
-        "MFSL" => "NSE:BANKNIFTY"
+        "MFSL" => "NSE:CNXFINANCE"
         "MGL" => "NSE:NIFTY_OIL_AND_GAS"
         "MHRIL" => "NSE:CNXSERVICE"
         "MINDACORP" => "NSE:CNXAUTO"
@@ -1291,12 +1340,15 @@ f_db_sector_lookup(string t) =>
         "MSUMI" => "NSE:CNXAUTO"
         "MTARTECH" => "BSE:CG"
         "MUTHOOTFIN" => "NSE:CNXFINANCE"
+        "M_M" => "NSE:CNXAUTO"
+        "M_MFIN" => "NSE:CNXFINANCE"
+        "NAM-INDIA" => "NSE:CNXFINANCE"
         "NAM_INDIA" => "NSE:CNXFINANCE"
         "NATCOPHARM" => "NSE:CNXPHARMA"
         "NATIONALUM" => "NSE:CNXMETAL"
         "NAUKRI" => "NSE:CNXSERVICE"
         "NAVA" => "NSE:CNXINFRA"
-        "NAVINFLUOR" => "NSE:CNXMETAL"
+        "NAVINFLUOR" => "NSE:CNXCOMMODITIES"
         "NAZARA" => "NSE:CNXMEDIA"
         "NBCC" => "NSE:CNXINFRA"
         "NCC" => "NSE:CNXINFRA"
@@ -1319,6 +1371,7 @@ f_db_sector_lookup(string t) =>
         "NUVOCO" => "NSE:CNXINFRA"
         "NYKAA" => "NSE:CNXSERVICE"
         "OBEROIRLTY" => "NSE:CNXREALTY"
+        "OBERREALTY" => "NSE:CNXREALTY"
         "OFSS" => "NSE:CNXIT"
         "OIL" => "NSE:CNXENERGY"
         "OLAEC" => "NSE:CNXAUTO"
@@ -1330,6 +1383,7 @@ f_db_sector_lookup(string t) =>
         "ORIENTELEC" => "BSE:CG"
         "PAGEIND" => "NSE:CNXFMCG"
         "PARADEEP" => "NSE:CNXCOMMODITIES"
+        "PARAS" => "BSE:CG"
         "PATANJALI" => "NSE:CNXFMCG"
         "PAYTM" => "NSE:CNXSERVICE"
         "PCBL" => "NSE:CNXCOMMODITIES"
@@ -1338,11 +1392,11 @@ f_db_sector_lookup(string t) =>
         "PETRONET" => "NSE:NIFTY_OIL_AND_GAS"
         "PFC" => "NSE:CNXFINANCE"
         "PFIZER" => "NSE:CNXPHARMA"
-        "PGEL" => "NSE:CNXIT"
+        "PGEL" => "BSE:CG"
         "PGHH" => "NSE:CNXFMCG"
         "PHOENIXLTD" => "NSE:CNXREALTY"
         "PIDILITIND" => "NSE:CNXINFRA"
-        "PIIND" => "NSE:CNXMETAL"
+        "PIIND" => "NSE:CNXCOMMODITIES"
         "PINELABS" => "NSE:CNXIT"
         "PIRAMALFIN" => "NSE:CNXFINANCE"
         "PNB" => "NSE:BANKNIFTY"
@@ -1387,7 +1441,7 @@ f_db_sector_lookup(string t) =>
         "ROSSARI" => "NSE:CNXMETAL"
         "ROUTE" => "NSE:CNXIT"
         "RPOWER" => "NSE:CNXENERGY"
-        "RRKABEL" => "NSE:CNXINFRA"
+        "RRKABEL" => "BSE:CG"
         "RTNINDIA" => "NSE:CNXENERGY"
         "RVNL" => "BSE:CG"
         "SAFEWELL" => "BSE:CG"
@@ -1422,16 +1476,16 @@ f_db_sector_lookup(string t) =>
         "SJVN" => "NSE:CNXENERGY"
         "SKFINDIA" => "BSE:CG"
         "SOBHA" => "NSE:CNXREALTY"
-        "SOLARINDS" => "NSE:CNXMETAL"
+        "SOLARINDS" => "BSE:CG"
         "SONACOMS" => "NSE:CNXAUTO"
         "SONATSOFTW" => "NSE:CNXIT"
         "SPARC" => "NSE:CNXPHARMA"
         "SPLPETRO" => "NSE:CNXCOMMODITIES"
-        "SRF" => "NSE:CNXINFRA"
+        "SRF" => "NSE:CNXCOMMODITIES"
         "STARHEALTH" => "NSE:CNXFINANCE"
-        "STLTECH" => "NSE:CNXIT"
+        "STLTECH" => "NSE:CNXINFRA"
         "SUDARSCHEM" => "NSE:CNXMETAL"
-        "SUMICHEM" => "NSE:CNXMETAL"
+        "SUMICHEM" => "NSE:CNXCOMMODITIES"
         "SUNDARMFIN" => "NSE:CNXFINANCE"
         "SUNPHARMA" => "NSE:CNXPHARMA"
         "SUNTECK" => "NSE:CNXREALTY"
@@ -1444,12 +1498,12 @@ f_db_sector_lookup(string t) =>
         "SWANCORP" => "NSE:CNXINFRA"
         "SWIGGY" => "NSE:CNXSERVICE"
         "SYNGENE" => "NSE:CNXPHARMA"
-        "SYRMA" => "NSE:CNXIT"
+        "SYRMA" => "BSE:CG"
         "TANLA" => "NSE:CNXIT"
         "TARIL" => "NSE:CNXINFRA"
         "TATACAP" => "NSE:CNXFINANCE"
         "TATACHEM" => "NSE:CNXMETAL"
-        "TATACOMM" => "NSE:CNXIT"
+        "TATACOMM" => "NSE:CNXINFRA"
         "TATACONSUM" => "NSE:CNXFMCG"
         "TATAELXSI" => "NSE:CNXIT"
         "TATAINVEST" => "NSE:CNXFINANCE"
@@ -1465,7 +1519,7 @@ f_db_sector_lookup(string t) =>
         "TECHM" => "NSE:CNXIT"
         "TECHNOE" => "BSE:CG"
         "TEGA" => "BSE:CG"
-        "TEJASNET" => "NSE:CNXIT"
+        "TEJASNET" => "NSE:CNXINFRA"
         "TENNIND" => "NSE:CNXAUTO"
         "THELEELA" => "NSE:CNXCONSUM"
         "THERMAX" => "BSE:CG"
@@ -1484,7 +1538,7 @@ f_db_sector_lookup(string t) =>
         "TRIDENT" => "NSE:CNXFMCG"
         "TRITURBINE" => "BSE:CG"
         "TRIVENI" => "NSE:CNXFMCG"
-        "TTML" => "NSE:CNXIT"
+        "TTML" => "NSE:CNXINFRA"
         "TVSMOTOR" => "NSE:CNXAUTO"
         "TVSSRICHAK" => "NSE:CNXAUTO"
         "UBL" => "NSE:CNXFMCG"
@@ -1494,7 +1548,7 @@ f_db_sector_lookup(string t) =>
         "UNIONBANK" => "NSE:BANKNIFTY"
         "UNITDSPR" => "NSE:CNXFMCG"
         "UNOMINDA" => "NSE:CNXAUTO"
-        "UPL" => "NSE:CNXMETAL"
+        "UPL" => "NSE:CNXCOMMODITIES"
         "URBANCO" => "NSE:CNXIT"
         "USHAMART" => "NSE:CNXMETAL"
         "UTIAMC" => "NSE:CNXFINANCE"
@@ -1523,7 +1577,7 @@ f_db_sector_lookup(string t) =>
         "YESBANK" => "NSE:BANKNIFTY"
         "ZEEL" => "NSE:CNXMEDIA"
         "ZENSARTECH" => "NSE:CNXIT"
-        "ZENTEC" => "NSE:CNXINFRA"
+        "ZENTEC" => "BSE:CG"
         "ZFCVINDIA" => "NSE:CNXAUTO"
         "ZOMATO" => "NSE:CNXSERVICE"
         "ZYDUSLIFE" => "NSE:CNXPHARMA"
@@ -2169,10 +2223,32 @@ else
 // 12. EXECUTION BLOCK
 // ==========================================
 
-// ── Chandelier Exit (CE) — must be at global scope (stateful ta.* calls) ────
-float active_ce_mult  = mkt_bull ? ce_mult : (ce_mult + 0.5)
-[ce_h_d, ce_atr_d] = request.security(syminfo.tickerid, "D", [ta.highest(close, ce_length), ta.atr(ce_length)], lookahead=barmerge.lookahead_off)
-float ce_trailing_stop = ce_h_d - (ce_atr_d * active_ce_mult)
+// ── Chandelier Exit (CE) — CANONICAL RISK SHIELD (risk_common.py PARITY) ────
+// Archetype-aware multiplier resolution matching Python risk_common.py
+f_canonical_ce_mult(string _cat, bool _bull) =>
+    float _m = 4.5
+    if str.startswith(_cat, "POS")
+        _m := 4.5
+    else if str.startswith(_cat, "WYC")
+        _m := 3.5
+    else if str.startswith(_cat, "REV")
+        _m := 2.5
+    else if str.startswith(_cat, "SWG")
+        _m := 1.5
+    if not _bull
+        _m := _m + 0.5
+    _m
+
+// Request both Positional (22-bar) and Swing (14-bar) highest CLOSE + EMA ATRs
+[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.ema(ta.tr, 22)], lookahead=barmerge.lookahead_off)
+[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.ema(ta.tr, 14)], lookahead=barmerge.lookahead_off)
+
+string _active_cat_safe = na(active_catalyst) ? "" : active_catalyst
+bool   _is_swg_trade    = str.startswith(_active_cat_safe, "SWG")
+float  ce_h_d           = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
+float  ce_atr_d         = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
+float  active_ce_mult   = f_canonical_ce_mult(_active_cat_safe, mkt_bull)
+float  ce_trailing_stop = ce_h_d - (ce_atr_d * active_ce_mult)
 
 // ── Event snaps: populated once at trade open (var = persist across bars) ───
 var float atr_entry_snap   = na
@@ -2306,61 +2382,51 @@ if strategy.position_size > 0
     float  snap_risk = nz(init_risk_snap, entry_px * 0.02)
 
     // ── T1 (partial profit — activates breakeven protection) ─────────────────
-    // v3.3 (2026-05-21): Catalyst-differentiated R-multiples respecting trade
-    // timeframe. Swing trades (1-4 week holds) can't realistically reach 5R/10R;
-    // setting wider targets just leaves the targets unused. Positional trades
-    // (multi-month holds) can. Wyckoff recovery (1-3mo holds) also can.
-    //   POS-BO/POS-ACCUM (positional): T1 5R, T2 10R
-    //   SWG-BO/SWG-PB    (swing):      T1 3R, T2 5R    ← realistic for 1-4wk
-    //   SWG-GAP          (gap-and-go): T1 2R, T2 4R    ← gaps fade fast
-    //   SWG-REV          (mean rev):   T1 2R, T2 2R    ← quick exit
-    //   REV-CB/RS/EARLY  (recovery):   T1 5R, T2 high52w (kept from v3.1)
-    float t1_target  = na
-    int   t1_qty_pct = 25     // default — keep more runner
-    if str.startswith(entry_cmt, "POS")
-        t1_target  := entry_px + (snap_risk * 5.0)    // positional 5R
-    else if entry_cmt == "SWG-REV"
-        t1_target  := entry_px + (snap_risk * 2.0)    // mean-rev 2R
-        t1_qty_pct := 50
-    else if entry_cmt == "SWG-GAP"
-        t1_target  := entry_px + (snap_risk * 2.0)    // gap fade 2R
-        t1_qty_pct := 50
-    else if str.startswith(entry_cmt, "SWG")          // SWG-BO, SWG-PB
-        t1_target  := entry_px + (snap_risk * 3.0)    // swing 3R
-        t1_qty_pct := 33
-    else if str.startswith(entry_cmt, "WYC")          // WYC-SPRING/SOS/JAC/SPRING+SOS
-        t1_target  := entry_px + (snap_risk * 5.0)    // Wyckoff post-accumulation
-    else if entry_cmt == "REV-CB"                     // legacy fallback
-        t1_target  := entry_px + (snap_risk * 5.0)
-    else if entry_cmt == "REV-RS" or entry_cmt == "REV-EARLY"
-        t1_target  := entry_px + (snap_risk * 5.0)
+    // v3.5 (19-Aug-2026): R-CANON. Mirrors bull_screener.target_r_for() and
+    // partial_qty_for() EXACTLY - one target policy, not a second opinion.
+    //
+    // JAY'S RULING, 10-Aug-2026: "I will not take any trade if the RR is less than 2.
+    // So, let's go with this formula: Swing: 2R/4R, positional: 3R/5R. And you are
+    // anyway leaving some quantity without targets, which I'll trail."
+    //
+    //   POS / WYC / REV   -> T1 3R, T2 5R, 25/25  (half the position rides the trail)
+    //   SWG-GAP, SWG-REV  -> T1 2R, T2 4R, 50/50  (gaps fade, mean-reversion is quick)
+    //   every other SWG   -> T1 2R, T2 4R, 33/33
+    //
+    // WAS: POS 5R/10R, SWG-BO/PB 3R/5R, SWG-REV 2R/2R. Positional now carries the
+    // HIGHER multiples, which is the right way round for this method, and because the R
+    // UNITS differ it is a bigger move in percent too (POS 4.0xATR stop -> T1 3R = 37%).
+    //
+    // STATED so it is not rediscovered as a surprise: measured over 203 POS trades only
+    // 8.4% ever reach 3R, so on the positional book the T1 partial and the breakeven
+    // move will rarely fire - 88% of POS exits are trail-SL and none hit a target.
+    // Targets are upside here; the TRAIL is the mechanism.
+    bool _isPosFam  = str.startswith(entry_cmt, "POS") or str.startswith(entry_cmt, "WYC") or str.startswith(entry_cmt, "REV")
+    bool _isFastSwg = entry_cmt == "SWG-REV" or str.startswith(entry_cmt, "SWG-GAP")
+    float _t1R = _isPosFam ? 3.0 : 2.0
+    float _t2R = _isPosFam ? 5.0 : 4.0
+    float t1_target  = entry_px + (snap_risk * _t1R)
+    int   t1_qty_pct = _isPosFam ? 25 : _isFastSwg ? 50 : 33
 
     if not na(t1_target) and high >= t1_target and not is_breakeven
         is_breakeven := true
         strategy.exit("T1", "Long", qty_percent=t1_qty_pct, limit=t1_target, comment="T1 Hit")
 
     // ── T2 (runner exit — partial of remaining post-T1 position) ─────────────
-    // v3.3 (2026-05-21): Catalyst-differentiated. Swing T2 dropped from 10R
-    // back to 5R (realistic for 1-4wk holds). Positional + Wyckoff keep 10R.
+    // Same canon. REV-* and WYC keep the 52-week high as an ALTERNATIVE ceiling where it
+    // sits further away than 5R: a recovery name has a natural target at the level it
+    // fell from, and capping it at 5R would book the runner early on exactly the setup
+    // meant to travel.
     if not is_t2_hit
-        float t2_target = na
-        if entry_cmt == "SWG-REV"
-            t2_target := entry_px + (snap_risk * 2.0)     // mean-rev quick
-        else if entry_cmt == "SWG-GAP"
-            t2_target := entry_px + (snap_risk * 4.0)     // gap fade
-        else if str.startswith(entry_cmt, "SWG")          // SWG-BO/PB
-            t2_target := entry_px + (snap_risk * 5.0)     // swing 5R
-        else if str.startswith(entry_cmt, "POS")
-            t2_target := entry_px + (snap_risk * 10.0)    // positional 10R
-        else if str.startswith(entry_cmt, "WYC")
-            t2_target := math.max(entry_px + (snap_risk * 10.0), high52w)  // 10R or 52wH, whichever larger
-        else if entry_cmt == "REV-CB"
-            t2_target := high52w
-        else if entry_cmt == "REV-RS" or entry_cmt == "REV-EARLY"
-            t2_target := high52w
+        float t2_target = entry_px + (snap_risk * _t2R)
+        if str.startswith(entry_cmt, "REV") or str.startswith(entry_cmt, "WYC")
+            t2_target := math.max(t2_target, nz(high52w, t2_target))
         if not na(t2_target) and high >= t2_target
             is_t2_hit := true
-            strategy.exit("T2", "Long", qty_percent=25, limit=t2_target, comment="T2 Hit")
+            // qty pairs with T1 (partial_qty_for returns them together). Hardcoding 25
+            // here gave a swing runner positional sizing - the same "two fallbacks that
+            // disagree" defect the Python hoist was written to end.
+            strategy.exit("T2", "Long", qty_percent=t1_qty_pct, limit=t2_target, comment="T2 Hit")
 
     // ── POSITION A: POS-BO / POS-ACCUM — CE Ratchet trailing stop ────────────
     if str.startswith(entry_cmt, "POS")
@@ -2450,17 +2516,26 @@ else
 
 // ==========================================
 // 13. PLOTTING & ALERTS
-color bg_col = na
-if stage2_uptrend
-    bg_col := color.new(color.green, 85)
-else if stage4_dntrend
-    bg_col := color.new(color.red, 85)
-else if stage1_base
-    bg_col := color.new(color.yellow, 85)
-else if stage3_top
-    bg_col := color.new(color.orange, 85)
+color bg_col     = na
+color ribbon_col = na
 
-bgcolor(bg_col, title="Stage Background")
+if stageBgMode != "Off"
+    if stage2_uptrend
+        bg_col     := color.new(color.green, 85)
+        ribbon_col := color.new(#26a69a, 0)
+    else if stage4_dntrend
+        bg_col     := color.new(color.red, 85)
+        ribbon_col := color.new(color.red, 0)
+    else if stage1_base
+        bg_col     := color.new(color.yellow, 85)
+        ribbon_col := color.new(color.yellow, 0)
+    else if stage3_top
+        bg_col     := color.new(color.orange, 85)
+        ribbon_col := color.new(color.orange, 0)
+
+bool show_ribbon = stageBgMode == "Ribbon (Bottom)" and not na(ribbon_col)
+bgcolor(stageBgMode == "Full Chart" ? bg_col : na, title="Stage Full Background")
+plotshape(show_ribbon, title="Weinstein Stage Ribbon (Bottom)", style=shape.square, location=location.bottom, color=ribbon_col, size=size.small, display=display.all)
 // ==========================================
 plot(show_ma ? d_ema20 : na,  "EMA 20",  color=color.rgb(255, 235, 59, 31), linewidth=2)
 plot(show_ma ? d_sma50 : na,  "SMA 50",  color=color.rgb(255, 82, 82, 32),  linewidth=2)
