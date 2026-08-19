@@ -850,8 +850,8 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v9.17 (Sectioned Panel)", shorttitle="S4 Entry v9.17", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/12 as core
+indicator("Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)", shorttitle="S4 Entry v9.18", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+import jayramg/S4Core/13 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -1120,6 +1120,7 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // confluence from the score entirely.
 // ==========================================================================
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
+oi_events = input.int(20, "OI basis: last N OI prints", group=grpCF, minval=5, maxval=120, tooltip="Futures OI is published ONCE PER DAY, so this window counts OI PRINTS, not bars - 20 means the last 20 daily prints on a Daily chart AND on a 75m chart, instead of silently meaning four hours on one and a month on the other. It sets how far back positions are still considered part of the current book.")
 show_summary = input.bool(true, "Show SUMMARY row (whole-panel synthesis)", group=grpCF, tooltip="One row that reads the ENTIRE panel as a single judgement - trend stack, leadership, location, participation, geometry, direction - and says what the combination MEANS rather than repeating the numbers above it. The VERDICT row stays the short ruling; this is the long-form read. Off if you only want the gates and the plan.")
 summary_wrap = input.int(62, "  · SUMMARY wrap width (chars)", group=grpCF, minval=30, maxval=140, tooltip="A Pine table cell does NOT auto-wrap - long text renders on one line and the cell just grows, which is what pushed the panel across the whole screen. The summary is wrapped to this many characters and rendered as a right-hand COLUMN down the full height of the panel. Lower it if the panel is still too wide; raise it if the column is too tall.")
 show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — the ruling, why, the single biggest caveat, and the action. The applicable house gate follows the TRADE TYPE: a SWING plan is judged on >= 2.0R, a POSITIONAL plan on >= 20% ROI to T1. Turn this off to hide the verdict too.")
@@ -3765,6 +3766,19 @@ bool _dPArec  = nz(d_climax,0)>0.5 or nz(d_spr,0)>0.5 or nz(d_2b,0)>0.5 or nz(d_
 bool daily_pa_agrees = use_chart_tf and timeframe.isintraday and any_pa and (is_rec ? _dPArec : _dPAbull)
 cf := cf + (daily_pa_agrees ? cf_w_dailypa : 0)
 // #13 Round number (price-scaled step, within 0.3%) — a psychological magnet level.
+// ── FUTURES-OI POSITIONING BASIS (19-Aug-2026) ─────────────────────────────────
+// Where the open book was BUILT: OI-change-weighted average price over the last
+// `oi_events` OI prints. See S4Core.oiBasis for what this is and - more importantly -
+// what it is NOT. Short version: it is a breakeven/magnet level derived from FUTURES OI.
+// It is NOT max pain and NOT an options-strike calculation; Pine cannot read an options
+// chain, so no strike-level OI exists to compute one from. The strike shown is just the
+// nearest tradeable strike to the basis, for order-entry convenience.
+//
+// dashOi is v67's daily futures OI, forward-filled onto this chart, so the accumulator
+// samples on CHANGE. The price stamped against each print is the close of the bar the
+// print arrived on - on an intraday chart that is the session's first bar rather than its
+// close, a systematic offset of one bar's range that is not worth a second security call.
+[oi_basis, oi_built_pct, oi_n] = core.oiBasis(dashOi, close, oi_events)
 float _rnStep = close >= 5000 ? 100.0 : close >= 1000 ? 50.0 : close >= 100 ? 10.0 : close >= 10 ? 1.0 : 0.5
 // The level itself, hoisted out of the test so the panel can NAME it (Jay, 1-Aug:
 // "Rnd" alone says a magnet exists but not where it is — and the number is the
@@ -4902,7 +4916,68 @@ if show_panel and d_panel and barstate.islast
     // presenting the same number as the target. An R-multiple target has no tag.
     string _lT1 = na(pl_t1) ? " · T1 —" : " · T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·lvl" : "") + ")"
     string _lT2 = na(pl_t2) ? (na(pl_t1) ? " · T2 —" : " · T2 open") : " · T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·lvl" : "") + ")"
-    string _lvlTxt = na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2)
+    // INVALIDATION — appended to the SAME row, no new row (Jay). This is NOT the stop.
+    // The STOP is where you get out; INVALIDATION is the price at which the reason you
+    // bought stops being true, and the two are different objects that the panel had been
+    // conflating. CHOLAFIN, 18-Aug: the engine put the stop 13 points under a demand zone
+    // whose distal sat 1 point below the entry, so "wrong" and "stopped" were the same
+    // price and the R was meaningless. Naming them separately is what makes the
+    // closing-basis exit possible: hard stop for the wick, structural exit for the thesis.
+    //
+    // Candidates are ranked NEAREST-BELOW-PRICE, because the first one price loses is the
+    // one that matters. Each carries WHY it invalidates, since the reason drives what you
+    // do next - a lost zone distal kills a pullback thesis outright, while a lost EMA20 is
+    // only a warning.
+    float _ivZone = (z_inDZ[_so] and not na(z_inDZdist)) ? z_inDZdist : na
+    float _ivSwg  = swingLo10[_so]
+    float _ivSr   = sr_below
+    float _ivEma  = daily_ema20
+    float _cmpIv  = close[_so]
+    // RANKED BY SEVERITY, NOT BY PROXIMITY — the fix for a real defect in the first
+    // version of this block. On CHOLAFIN it picked EMA20(D) at 1862 as "the"
+    // invalidation purely because it sat nearest, when the pullback thesis actually
+    // died at the zone distal 1852.7. Losing the EMA20 is a warning; losing the zone
+    // that defined the entry is the trade being wrong. So:
+    //   INVAL      = the strongest STRUCTURAL level below price (what kills the thesis)
+    //   first test = the nearest level below price, when it is a different one
+    // Priority: zone distal > swing low > S/R > EMA20(D).
+    float _ivStruct = na
+    string _ivStructN = ""
+    if not na(_ivEma) and _ivEma < _cmpIv
+        _ivStruct := _ivEma
+        _ivStructN := "EMA20(D)"
+    if not na(_ivSr) and _ivSr < _cmpIv
+        _ivStruct := _ivSr
+        _ivStructN := "S/R"
+    if not na(_ivSwg) and _ivSwg < _cmpIv
+        _ivStruct := _ivSwg
+        _ivStructN := "swing low"
+    if not na(_ivZone) and _ivZone < _cmpIv
+        _ivStruct := _ivZone
+        _ivStructN := "zone distal"
+    // nearest below price, whatever kind it is
+    float _ivNear = na
+    string _ivNearN = ""
+    if not na(_ivZone) and _ivZone < _cmpIv and (na(_ivNear) or _ivZone > _ivNear)
+        _ivNear := _ivZone
+        _ivNearN := "zone distal"
+    if not na(_ivSwg) and _ivSwg < _cmpIv and (na(_ivNear) or _ivSwg > _ivNear)
+        _ivNear := _ivSwg
+        _ivNearN := "swing low"
+    if not na(_ivSr) and _ivSr < _cmpIv and (na(_ivNear) or _ivSr > _ivNear)
+        _ivNear := _ivSr
+        _ivNearN := "S/R"
+    if not na(_ivEma) and _ivEma < _cmpIv and (na(_ivEma) or _ivEma > _ivNear)
+        _ivNear := _ivEma
+        _ivNearN := "EMA20(D)"
+    float _ivAtrRef = nz(atrD_tf, chart_atr)
+    string _ivTxt = na(_ivStruct) ? "" : "\n" + "INVAL " + str.tostring(_ivStruct, format.mintick) + " " + _ivStructN +
+         " (−" + str.tostring((_cmpIv / _ivStruct - 1.0) * 100.0, "0.0") + "%, " +
+         str.tostring((_cmpIv - _ivStruct) / math.max(_ivAtrRef, 0.01), "0.00") + "×ATR)" +
+         ((na(_ivNear) or _ivNear == _ivStruct) ? "" : "  ·  first test " + str.tostring(_ivNear, format.mintick) + " " + _ivNearN) +
+         ((_cmpIv - _ivStruct) / math.max(_ivAtrRef, 0.01) < 0.5 ?
+              "  ⚠ inside daily noise — close-basis only, do not stop here" : "")
+    string _lvlTxt = na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2) + _ivTxt
     f_row(38, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : C_OK)
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.
@@ -5009,7 +5084,19 @@ if show_panel and d_panel and barstate.islast
     string _oiState = na(_oiPct) ? "no F&O" : _pxUp and _oiUp ? "Long build-up" : _pxUp and not _oiUp ? "Short covering" : (not _pxUp) and _oiUp ? "Short build-up" : "Long unwinding"
     string _oiTip = na(_oiPct) ? "cash only - no positioning read" : _pxUp and _oiUp ? "fresh money behind the move - a breakout here has fuel" : _pxUp and not _oiUp ? "the rally is shorts EXITING, not new buying - fades are common, do not chase" : (not _pxUp) and _oiUp ? "fresh shorts pressing - expect supply into strength" : "holders leaving without new sellers - weak, but not a short signal"
     color _oiC = na(_oiPct) ? C_MUTE : _pxUp and _oiUp ? C_OK : _pxUp and not _oiUp ? C_WARN : (not _pxUp) and _oiUp ? C_NO : C_WARN
-    string _mac = "Sector " + (_okSec ? "Stage " + str.tostring(dashSecStg[_so], "0") : "-") + "  ·  OI " + _oiState + (na(_oiPct) ? "" : " " + str.tostring(_oiPct, "+0.0") + "%") + "\n" + _oiTip
+    // OI BASIS appended to the SAME row - no new row (Jay). The four-state read says what
+    // positioning is DOING; the basis says WHERE it sits, which is the part you can trade
+    // against. `bld` is the share of OI movement that was building: low means the book is
+    // unwinding and the basis is going stale.
+    float _oiStrike = na(oi_basis) ? na : math.round(oi_basis / _rnStep) * _rnStep
+    string _oiBas = na(oi_basis) ? "" : "\n" + "OI basis " + str.tostring(oi_basis, format.mintick) +
+         " (~" + str.tostring(_oiStrike, format.mintick) + " strike)  ·  " +
+         (close[_so] >= oi_basis ? "price ABOVE it - the marginal long is in profit, so it is SUPPORT until lost" :
+                                   "price BELOW it - the marginal long is underwater, so it is RESISTANCE until reclaimed") +
+         "  ·  " + str.tostring(math.abs(close[_so] / oi_basis - 1.0) * 100.0, "0.0") + "% away  ·  bld " +
+         str.tostring(nz(oi_built_pct, 0.0), "0") + "% of " + str.tostring(oi_n) + " prints" +
+         (nz(oi_built_pct, 100.0) < 40.0 ? "  ⚠ book is unwinding, basis stale" : "")
+    string _mac = "Sector " + (_okSec ? "Stage " + str.tostring(dashSecStg[_so], "0") : "-") + "  ·  OI " + _oiState + (na(_oiPct) ? "" : " " + str.tostring(_oiPct, "+0.0") + "%") + "\n" + _oiTip + _oiBas
     f_row(8, "Sector · Futures OI", _mac, _oiC)
     // PA COMBO -- named, with the CONTEXT AGE, which is the part Sigma cannot show and
     // the part that says whether the story is still fresh. Blank when none fire.

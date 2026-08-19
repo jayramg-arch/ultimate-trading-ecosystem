@@ -1365,3 +1365,59 @@ export wrapText(string src, int width) =>
             block := block + (str.length(block) == 0 ? "" : "\n") + line
         outAll := outAll + (pi == 0 ? "" : "\n") + block
     outAll
+
+
+// ---- oiBasis ----------------------------------------------------------------
+// WHERE THE OPEN INTEREST WAS BUILT — an OI-change-weighted average price.
+//
+// WHAT IT IS: every time futures OI RISES, positions were opened at roughly that price.
+// Weighting price by the positive OI change over the last N update events gives the
+// average cost of the open book: sum(dOI+ * px) / sum(dOI+). That level is where the
+// marginal long is at breakeven, which is why price returning to it tends to attract a
+// defence (longs adding / shorts covering) and why losing it tends to accelerate.
+//
+// WHAT IT IS NOT — read this before calling it a forecast:
+//   * It is NOT max pain and NOT an options-strike calculation. Max pain needs the
+//     OPTIONS chain by strike, and Pine cannot access an options chain on any plan. The
+//     "strike" this reports is simply the nearest tradeable strike to the futures basis,
+//     rounded for convenience - not a strike where OI is concentrated.
+//   * OI FALLING is deliberately ignored. A drop tells you positions CLOSED; it does not
+//     tell you at what price they were opened, so folding it in would corrupt the basis.
+//   * The basis is a MAGNET and a breakeven line, not a target. It says where pressure
+//     sits, not where price is going.
+//
+// EVENT-BASED, not bar-based, on purpose: TradingView publishes futures OI once per day,
+// so on a 75m chart the value is forward-filled and 4 of every 5 bars carry no new
+// information. Sampling on CHANGE makes the window mean "the last N OI prints" on every
+// timeframe instead of silently meaning 4 hours on one and 20 days on another.
+//
+// Returns [basis, builtPct, nEvents] where builtPct is the share of the window's total
+// OI movement that was BUILDING (a low share means the book is being unwound and the
+// basis is stale).
+export oiBasis(float oi, float px, simple int nEvents) =>
+    var array<float> dq = array.new<float>()
+    var array<float> pq = array.new<float>()
+    var array<float> aq = array.new<float>()        // absolute move, for the built share
+    float prev = nz(oi[1], oi)
+    bool fresh = not na(oi) and not na(oi[1]) and oi != oi[1] and prev > 0
+    if fresh
+        float d = oi - prev
+        array.push(dq, math.max(d, 0.0))
+        array.push(aq, math.abs(d))
+        array.push(pq, px)
+        while array.size(dq) > nEvents
+            array.shift(dq)
+            array.shift(pq)
+            array.shift(aq)
+    float wsum = 0.0
+    float dsum = 0.0
+    float asum = 0.0
+    if array.size(dq) > 0
+        for i = 0 to array.size(dq) - 1
+            float d = array.get(dq, i)
+            wsum += d * array.get(pq, i)
+            dsum += d
+            asum += array.get(aq, i)
+    float basis = dsum > 0 ? wsum / dsum : na
+    float builtPct = asum > 0 ? dsum / asum * 100.0 : na
+    [basis, builtPct, array.size(dq)]
