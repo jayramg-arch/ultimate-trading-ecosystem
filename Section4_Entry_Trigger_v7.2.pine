@@ -851,7 +851,7 @@
 // ============================================================================
 //@version=6
 indicator("Section 4 Entry Trigger and Price Memory v9.17 (Sectioned Panel)", shorttitle="S4 Entry v9.17", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/10 as core
+import jayramg/S4Core/11 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -1120,6 +1120,7 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // confluence from the score entirely.
 // ==========================================================================
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
+show_summary = input.bool(true, "Show SUMMARY row (whole-panel synthesis)", group=grpCF, tooltip="One row that reads the ENTIRE panel as a single judgement - trend stack, leadership, location, participation, geometry, direction - and says what the combination MEANS rather than repeating the numbers above it. The VERDICT row stays the short ruling; this is the long-form read. Off if you only want the gates and the plan.")
 show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — the ruling, why, the single biggest caveat, and the action. The applicable house gate follows the TRADE TYPE: a SWING plan is judged on >= 2.0R, a POSITIONAL plan on >= 20% ROI to T1. Turn this off to hide the verdict too.")
 
 size_cap  = input.float(0.0, "Capital (₹)", group=grpSize, minval=0.0, tooltip="Total capital the 0.25% risk is taken against. 0 = hide the Qty row. The Qty is computed from the panel's own Entry and SL, so it is the same trade the plan describes.")
@@ -4282,7 +4283,10 @@ PA_LAST_COL = 17
 // 42 rows (was 40): rows 0-38 are fully occupied - f_row, the raw TRIGGER/STATUS/
 // VERDICT cells AND f_sec's five section bands at 1/9/17/29/35. Only 39 was free and
 // the portfolio block needs three (a band + two rows), so the table grew by two.
-var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 1, 43, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
+// 44 rows (was 43): every index 0..42 was already claimed by f_row, a raw
+// table.cell or an f_sec band - only row 7 (the retired Strike RRG slot) was
+// free, and a whole-panel SUMMARY belongs at the BOTTOM, not inside Section I.
+var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 1, 44, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
 // #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
 // uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
 // bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
@@ -5146,6 +5150,33 @@ if show_panel and d_panel and barstate.islast
     table.cell(pnl, 0, 34, "STATUS", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 34, PA_LAST_COL, 34)
     table.cell(pnl, 1, 34, _status, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
+
+    // SUMMARY — the whole panel read as ONE judgement (19-Aug-2026, Jay: "the current
+    // Verdict field is not covering all the fields above, i.e. the trends"). He was
+    // right: the verdict reasoned from location and geometry and never once from the
+    // three degrees of trend printed at the top of the panel.
+    //
+    // SYNTHESIS, never a digest. v6.1 deleted the old metrics line because it restated
+    // rows already on screen, and that ruling stands - so this prints no value that
+    // appears above it. It prints what the COMBINATION means: trend stack, leadership,
+    // location, participation, geometry, then a direction that names what would change
+    // the answer.
+    //
+    // Placed LAST and computed here, not beside Room, because _tfUp / _zzOkD / _zzOkW /
+    // tt_swing / pl_entry / pl_sl are only defined further down - the first attempt sat
+    // next to the Room row and referenced six variables that did not exist yet.
+    //
+    // The body lives in S4Core.summaryRead so its prose never touches this file's
+    // compiled-token budget; the cost here is one call plus its arguments.
+    if show_summary
+        f_row(43, "SUMMARY", core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
+             zzTrendW[_so], zzTrendD[_so], _tfUp, _zzOkD, _zzOkW,
+             _rrgTr[_so], rsSlope > 0, dashRsSec[_so] > 0, nz(dashSecStg[_so], 0.0),
+             z_inDZ[_so], z_inSZ[_so], near_sr[_so], near_avwap[_so], near_ema[_so],
+             nz(ext_atr[_so], 0.0), -math.abs(nz(d_off52[_so], 0.0)), chart_rv[_so],
+             arr_style == "FAST", of_bull, is_rec_v, nz(_roomR, 0.0), cf_v, cf_max,
+             tt_swing, nz(pl_entry, close[_so]), nz(pl_sl, 0.0),
+             nz(atrD_tf, chart_atr), go_v), C_INFO)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
