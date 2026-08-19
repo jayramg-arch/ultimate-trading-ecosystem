@@ -1,9 +1,115 @@
-# Weinstein Unified Ecosystem [v3.4.2] — User Guide
+# Weinstein Unified Ecosystem [v3.5] — User Guide
 
-**Script:** `Weinstein_Unified_Ecosystem_v3.4.pine` (indicator title `[v3.4.2]`)
+**Script:** `Weinstein_Unified_Ecosystem_v3.4.pine` (filename is stale; indicator title `[v3.5]`)
 **Type:** Strategy (Overlay)
 **Market:** NSE/BSE — Nifty 500 Universe
 **Timeframe:** Daily (primary)
+
+---
+
+## 🆕 19 Aug 2026 — v3.5: seven weeks of rulings that had not reached this file
+
+This file was last touched **3 Jul**. Everything below had already landed on the other
+surfaces (S4, Dashboard v67, the Golden Matcher, `bull_screener`) and not here. It matters
+more in this script than in any of them, because **this one is a STRATEGY** — a stale
+stage does not mislabel a row, it gates an entry, and a stale target ladder sizes a real
+exit.
+
+> ⚠ **Strategy Tester numbers from before 19-Aug are not comparable.** Both the stage
+> (entries) and the target ladder (exits) changed. Re-run before reading anything into a
+> backtest.
+
+### 1. Stage is now a stateless 2×2 — the definition all four surfaces share
+
+The old code was a **hysteresis state machine** (`var int current_stage_htf`) that evolved
+the stage from its *previous* value, plus two `tDir` overrides that let a separate pivot
+engine rewrite the answer. Consequence: a name trading **above a declining 30-week
+average never left "Stage 1"**. When the same defect was fixed in v67 it measured at
+**19 of 56 board names (34%) mis-staged** — MPHASIS sat at Stage 1 with its 30-WMA falling
+62.9 points, which is distribution, not a base.
+
+The rule now, byte-for-byte `bull_screener._weekly` and S4:
+
+```
+above the 30-WMA  ->  rising ? 2 : falling ? 3 : (rsUp ? 1 : 3)
+below the 30-WMA  ->  (falling and not rsUp) ? 4 : 1
+```
+
+A **flat** 30-WMA resolves to **1**, not 2, however strong RS is — a flat anchor is a base,
+not an advance. The two `tDir` overrides (`4→1`, `2→3`) are **gone**; `tDir` survives only
+as the flat-cell tiebreak.
+
+**Deliberately NOT ported:** v67's `STAGE 2 (PULLBACK)` label for *below + rising*. That is
+a refinement on a display **string**. Here the stage is an **int that feeds the catalyst
+gates**, so promoting that cell would silently admit pullback-below-the-30WMA names into
+every Stage-2 gate. Python does not do it either. If you want that behaviour in the
+strategy it is a one-line change — make it deliberately, not by copying v67.
+
+**Hysteresis trade-off, stated:** a stateless read can flip 2↔3 while the MA hovers around
+flat. `slopeThresh` is the knob for that — widen the flat band rather than freeze a stale
+digit.
+
+### 2. Two slope errors, both widening the flat band
+
+| | was | now |
+|---|---|---|
+| `wSlopeLen` | **6** | **4** — S4 reads `(_m − _m[4])`, `bull_screener` uses `slope_len=4` |
+| slope form | `(ma − old_ma) / slopeLen` — a per-bar **rate** | `ma − old_ma` — the **raw N-bar change** |
+
+Together the flat band here was **6× S4's**, so a 30-WMA that every other surface called
+rising read *flat* in this strategy.
+
+### 3. RRG — the RRG Studio calibration
+
+Was the old 12/5/12 pair. Now `strike_cal`: decoupled **25/10/7** lookbacks and an
+origin-preserving affine `y = 100 + a(x − 100)` with `ratio_a 0.796`, `mom_a 3.498` — the
+same port already in v67, S4, Mansfield AutoSector v1.6 and Risk Allocator v2.2, verified
+identical to the Python engine to `0.000000000000`.
+
+`jdkLength` is **ignored** in that function by design (one lookback cannot serve both axes)
+and the warm-up now covers the calibrated chain (25+10+7) rather than `jdkLength × 3`. The
+old block is kept commented in place.
+
+### 4. Targets — the R-canon
+
+> **Jay, 10-Aug-2026:** *"I will not take any trade if the RR is less than 2. So, let's go
+> with this formula: Swing 2R/4R, positional 3R/5R. And you are anyway leaving some
+> quantity without targets, which I'll trail."*
+
+| family | was | **now** | qty |
+|---|---|---|---|
+| POS / WYC / REV | T1 5R · T2 10R | **T1 3R · T2 5R** | 25/25 |
+| SWG-GAP, SWG-REV | T1 2R · T2 2R–4R | **T1 2R · T2 4R** | 50/50 |
+| every other SWG | T1 3R · T2 5R | **T1 2R · T2 4R** | 33/33 |
+
+Mirrors `bull_screener.target_r_for()` and `partial_qty_for()` exactly — one target policy,
+not a second opinion. Positional now carries the *higher* multiples, which is the right way
+round for this method, and because the R units differ it is a bigger move in percent too
+(POS 4.0×ATR stop → T1 3R ≈ 37%).
+
+**T2's quantity was hardcoded at 25**, so a swing runner got positional sizing. It now
+pairs with T1 — the same "two fallbacks that disagree" defect the Python hoist was written
+to end. REV-* and WYC keep the 52-week high as an *alternative* ceiling where it sits
+beyond 5R, because a recovery name has a natural target at the level it fell from.
+
+**Stated so it is not rediscovered as a surprise:** over 203 POS trades only **8.4% ever
+reach 3R**, so on the positional book the T1 partial and the breakeven move will rarely
+fire. 88% of POS exits are trail-SL and none hit a target. **Targets are upside here; the
+TRAIL is the mechanism.**
+
+### 5. Chandelier — unchanged at 4.5, but for a different reason
+
+The old tooltip justified `ce_mult = 4.5` by *"T1@5R/T2@10R targets"*, and those targets no
+longer exist. It stays at 4.5 on its own evidence: it is `risk_common.trail_mult_for()`'s
+POS multiplier — the shared brain the Risk Shield, the pyramid ladder and
+`gtt_auto_shield` all use, so the strategy trails the way the live book does — and **four
+separate stop studies have rejected tightening it**.
+
+### Still current from 3-Jul (not touched)
+
+The catalyst gate sync (POS-BO, POS-ACCUM's `accum_base`, SWG-BO quality) and the three
+parity bugs fixed that day — the `wClose5wAgo` MTF fix, the OBV accumulation-bars drift and
+the `pa_dir` off-by-one — are all still canonical.
 
 ---
 
