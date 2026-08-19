@@ -1,8 +1,17 @@
-# Section 4 — Entry Trigger & Price Memory v9.12 — User & Trading Guide
+# Section 4 - Entry Trigger & Price Memory v9.17 - User & Trading Guide
 
 > **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the price-action battery (**17 Bull / 10 Recovery**) on the **chart timeframe**; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks demand and supply zones on Chart + Daily + Weekly + Monthly** using the leg-base-leg engine ported from the Institutional Zone Engine, plus horizontal S/R levels and Volume-Profile VAL/POC — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **entry + SL plan** and raises alerts so you never have to sit and watch.
 >
-> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v9.12 (Sectioned Panel)` (`shorttitle "S4 Entry v9.12"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/5` · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
+> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v9.17 (Sectioned Panel)` (`shorttitle "S4 Entry v9.17"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/12` · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
+>
+> ⚠ **"v9.17" spans two different builds — the title was not bumped when Gate 5 and the**
+> **SUMMARY went in, and that cost real time on 18-Aug** (a compiled build could not be told
+> apart from an uncompiled one, and I told Jay the wrong thing about which he was running).
+> Until the next functional change bumps it, identify your build by what it *shows*, not by
+> the title: **the SUMMARY column on the right** and the input labelled **`Gate 5: require
+> RRG 'BUY OK' (R)`** are only present in the current one. Library must be **S4Core/12** —
+> `wrapText` was added after v11 was published, which is what produced *"Could not find
+> method or method reference 'core.wrapText'"*.
 >
 > **Which timeframe the PA battery actually reads** — this is the single most-misread line in this guide. `use_chart_tf` **defaults to TRUE** (line 938), so on a 75m chart the battery runs on **75m bars**, not Daily. The panel header says so: `PA · BULL (auto·75)`. Only the two weekly-anchored patterns (Stage-2 Launch, 30-WMA Reclaim) and the HTF pattern are suppressed on intraday. Set `use_chart_tf` OFF and the battery reverts to confirmed Daily via `request.security`. `confirm_daily` (default ON) shifts **only the daily-security call** by one bar — after the v4.1 fix it does **not** shift the chart-TF call, which is what had the 75m battery reading a stale bar.
 >
@@ -29,6 +38,11 @@
 
 | Version | Added |
 |---|---|
+| **v9.17 (19 Aug)** | **SUMMARY — the whole panel read as one judgement.** Jay: *"the current Verdict field is not covering all the fields above, i.e. the trends."* Correct — the verdict reasoned from location and geometry and never once from the three degrees of trend printed at the top. SUMMARY is a **synthesis, never a digest**: v6.1 deleted the old metrics line for restating rows already on screen, and that ruling stands, so this prints **no value that appears above it**. Six lines: **TREND** (weekly/daily/entry-TF alignment + stage type + leg age) · **LEADERSHIP** (RS + rotation + sector stage) · **LOCATION** (zone vs supply vs extension vs secondary reference, + distance from the highs) · **PARTICIPATION** (RV read *against* location — heavy volume into resistance is an upthrust, thin volume at demand is dry-up) · **GEOMETRY** (the stop measured in ATR) · **DIRECTION** (the ruling, and what would change it). Body lives in `S4Core.summaryRead` so its prose never touches S4's compiled-token budget. |
+| **v9.17 (19 Aug)** | **SUMMARY renders as a right-hand COLUMN, not a full-width row.** The first build merged it across cols 1..17 and it took almost the whole width of a 34-inch monitor. A Pine table cell **does not auto-wrap** — long text renders on one line and the cell simply grows — so the fix is two parts: a new column (`PA_LAST_COL + 1`) merged down rows 0..42, and **`S4Core.wrapText()`**, a greedy word-wrap that inserts the newlines by hand. Width is the input **`summary_wrap`** (default 62): *lower it if the panel is still too wide, raise it if the column is too tall*. Table went one column wider and back to 43 rows. |
+| **v9.17 (19 Aug)** | **Gate 5 (R) — RRG "BUY OK" — added, measured, and turned OFF.** R reads the stock's own RRG tradeable flag (the cell-level whitelist `LEADING→LEADING/IMPROVING`, `IMPROVING→LEADING`, `LAGGING→IMPROVING`, `WEAKENING→LEADING`), which S4 already computes via `core.rrgInfo` from v67's bound pair — no new plot, no re-bind. It was then **re-measured on the new RRG calibration** (473 symbols, 93,745 weekly observations, matched-horizon alpha, IS/OOS split, bootstrapped by symbol) and found worth **+0.12pp at 4 weeks and +0.00pp at 12** — `IMPROVING→LEADING` is reliably NEGATIVE and cancels what `LEADING→LEADING` earns. **`en_rrg_gate` therefore defaults FALSE**: R shows on the TRIGGER chip as `R ✓ / · / ?` and never vetoes GO. The VERDICT and the TRIGGER reason mention R nowhere (Jay's instruction). Only `LEADING→LEADING` and `WEAKENING→LEADING` survived both horizons — the two cases he now eyeballs. |
+| **v9.17 (19 Aug)** | **Strike RRG (the manual Strike.Money paste) RETIRED.** v67's RRG is now a verbatim port of the RRG Studio calibration, so S4's computed RRG row **is** the Strike read and there was nothing left to reconcile. The three `gm_rrg_*` inputs and the panel row are **commented, not deleted** — uncomment all four to get the two-source comparison back. Panel row 7 is deliberately left free; rows 8+ were not renumbered. |
+| **v9.17 (19 Aug)** | **RRG values changed everywhere.** v67's `f_calc_rs_logic` now computes RS-Ratio / RS-Momentum exactly as `rrg_studio/rrg_engine.py` does in `strike_cal` mode — decoupled 25/10/7 lookbacks and an origin-preserving affine `y = 100 + a(x−100)`, `ratio_a 0.796`, `mom_a 3.498`. Verified identical to the Python engine to **0.000000000000** across 8 symbols × 222 weekly bars. `jdkLen` is **ignored** in that function by design: one shared lookback cannot serve both axes. Since S4 binds the pair from v67, **its RRG row and quadrant moved too** — expect different quadrants on names sitting near the 100 line. |
 | **v9.12** | **SECTIONED PANEL.** The 32 fields are grouped under five banded header rows, each stating the question its block answers: **I MACRO & CONTEXT** (what is the regime?) · **II LOCATION & QUALITY** (where are we?) · **III EXECUTION & TIMING** (is it firing?) · **IV DECISION SYNTHESIS** (what is the ruling?) · **V PLAN & RISK** (how do we size it?). The sections are not interchangeable — a name can be perfect on regime and worthless on location — and 32 undifferentiated rows read under time pressure hid that. **Room for Trade moved into DECISION**, because room is what decides whether a setup is tradeable at all. Table capacity 34 → 40. |
 | **v9.12** | **STRUCTURE BASIS is now a ladder, not a sentence:** `Stage 2 (13w leg/13w macro) · >30WMA ↗️ · >50DMA ↗️ · >200DMA · Trend 75 ⬆️ · D ➡️ · W ➡️`. Icons match the RRG row and the two arrow families MEAN different things — **diagonals are a moving-average slope, verticals are a trend state**. Previously both used the same glyphs so you had to remember which kind each was. `>50DMA` had to be built: S4's only 50-SMA was the INDEX's, and v67 exports the 50-DMA *slope* but not the *position*. One daily call now returns `[SMA50, ATH, SMA50 slope]`, the slope subtracted INSIDE the call because `d_sma50[5]` on a 75m chart is five CHART bars, not five days. |
 | **v9.12** | **off52 + offATH** on the extension row (`Price vs EMA20`), which already answers *how stretched are we* against value and volatility. 52-week distance alone cannot separate a name printing fresh highs from one that reclaimed its 52W high but sits far under its all-time high; side by side they do. Both signs forced negative with a literal minus so the convention cannot drift with the source — v67 publishes off52 POSITIVE. |
@@ -311,6 +325,81 @@ The map below is the live panel, verified against a running chart (SONACOMS 75m,
 
 > **The one thing to carry away:** the panel is a ladder, and the gates it prints are
 > `P L V B`. Everything above III grades; III fires; IV rules; V sizes.
+
+## 4d. The SUMMARY column — the whole panel as one judgement (v9.17, 19 Aug 2026)
+
+Everything above the SUMMARY is a **measurement**. The SUMMARY is the **reading**, and it
+is the only field on the panel that is allowed to weigh one section against another.
+
+It sits in its own **column down the right-hand side**, not as a row, because a Pine table
+cell does not wrap: as a full-width row its text stretched the panel across the whole
+screen. It is wrapped to `summary_wrap` characters (default 62) and merged from row 0 to
+the bottom, so it reads as a paragraph block beside the fields it is summarising.
+
+**It never repeats a value printed above it.** That rule is inherited from v6.1, which
+deleted the previous metrics digest for exactly that sin. Where the rows say *what*, the
+SUMMARY says *so what*:
+
+| Line | What it weighs | The kind of thing it will tell you |
+|---|---|---|
+| **TREND** | Weekly / Daily / entry-TF alignment, stage type, leg age | *"A dip inside a weekly uptrend — the textbook pullback and the best kind of long, PROVIDED the weekly holds."* · *"Down at every degree — a long here is a counter-trend bounce and must be traded as one."* |
+| **LEADERSHIP** | RS vs index + vs sector, RRG rotation, sector stage | *"Above the index, but the rotation has rolled over: relative strength is being GIVEN BACK, not built."* |
+| **LOCATION** | Zone / supply / extension / secondary reference, distance from the highs | *"Price is INSIDE supply — only makes sense if the plan is to be paid for BREAKING it, not for reaching it."* |
+| **PARTICIPATION** | RV **against location**, arrival velocity, order flow | *"Heavy volume arriving INTO resistance — that is how upthrusts are built, not confirmation."* · at demand the same thin volume reads as dry-up, which is a virtue |
+| **GEOMETRY** | Stop distance **in ATR**, room in R, trade type | *"THE STOP IS INSIDE THE NOISE — every reward multiple above is FLATTERED by it."* |
+| **DIRECTION** | All of the above | *"The SETUP is sound but the TRADE as planned is not"* · *"This is a take-it"* · *"If you would not defend this entry out loud, that is your answer."* |
+
+**The distinction that does the most work** is DIRECTION's split between *the setup* and
+*the plan*. A GO can be a genuinely good name with a badly-priced trade attached — that is
+the single most common failure this panel produces, because the engine derives its stop
+from the nearest structure without asking whether that structure is further away than a
+day's noise. When you see **"the SETUP is sound but the TRADE as planned is not"**, the fix
+is the entry, the stop or the target — not the thesis, and not a pass.
+
+**Worked example (CHOLAFIN, 75m, 18 Aug).** The panel said `GO`, `TAKE IT — PULLBACK TO
+VALUE`, `T1 5.6R`. The SUMMARY reads: weekly up / daily and 75m down (the good pullback
+shape) · leading on both benchmarks · at demand and not extended · thin volume, which at a
+zone is what you want · **stop inside the noise at 0.28×ATR, so the 5.6R is flattered** ·
+therefore *setup sound, trade as planned is not*. Re-priced against a 1×ATR stop, T1 was
+**~1.6R**. That is the whole review in one field.
+
+**Toggles:** `show_summary` (default ON) and `summary_wrap` (default 62), both in the
+Confluence group. Turn the row off if you only want the gates and the plan.
+
+---
+
+## 4e. Gate 5 (R) — present on the chip, not in the gate (v9.17)
+
+The TRIGGER chip reads **`P✓ L✓ V✓ B✓ R✓`**. The first four gate GO. **R does not** —
+`en_rrg_gate` defaults **FALSE**.
+
+R is the stock's own RRG "BUY OK": the cell-level whitelist below, which is *not* the same
+as "the quadrant is green".
+
+| Current → Next | R |
+|---|---|
+| LEADING → LEADING (stable) | ✓ |
+| LEADING → IMPROVING | ✓ |
+| IMPROVING → LEADING | ✓ |
+| LAGGING → IMPROVING | ✓ |
+| WEAKENING → LEADING | ✓ |
+| everything else, including **LEADING → WEAKENING** and all other "stable" cells | · |
+
+**Why it does not gate.** The whitelist was fitted in May on the *old* RRG formula. When
+every surface moved to the RRG Studio calibration the cells were being produced by a
+different function than the one whose alpha justified them, so it was re-measured: 473
+symbols, 93,745 weekly observations, matched-horizon alpha, chronological IS/OOS,
+bootstrapped by symbol. The five-cell whitelist is worth **+0.12pp at a 4-week horizon and
++0.00pp at 12** — it blocks roughly half the universe for nothing, because
+`IMPROVING → LEADING` (n≈15,000) is reliably **negative** and cancels what
+`LEADING → LEADING` earns.
+
+Only **`LEADING → LEADING`** and **`WEAKENING → LEADING`** were positive at both horizons
+in both windows. Those are the two cases worth eyeballing on the chip; the glyph is there
+so you can, and `?` means v67 is unbound or the name has too little weekly history — an
+unknown, never a verdict.
+
+Set `en_rrg_gate` ON to restore the veto, and narrow the whitelist first if you do.
 
 ## 5. The 17 PA patterns — what each requires
 

@@ -333,6 +333,110 @@ Two buttons, **press one**:
 - **Fetch fresh data + rebuild** — invalidates the universe **and rebuilds itself**.
   Pressing both just rebuilds twice on identical data.
 
+## 4b-i. Board defaults, and what they hide (19 Aug 2026)
+
+The Trigger Board now opens **filtered and sorted**, and both defaults live in
+`_board_apply_filters()` — the one definition the streaming grid, the static editor **and
+the CSV download** all share, so they cannot disagree about what you are looking at.
+
+| Default | Behaviour | Turn it off |
+|---|---|---|
+| **Sort: Overall descending** | Was `sort_values("Symbol")` — an alphabetical re-sort that silently discarded the Overall ranking the board had already applied upstream, which is why the grid always opened in name order. Symbol now breaks ties so the order is stable between rebuilds. | click any other column header |
+| **Filter: all gates (4/4) only** | Keeps only rows whose `S4-GO` **starts with** `4/4`. The header checkbox states how many rows it is hiding, so an empty-looking board is never mistaken for a failed build. | untick **"All gates (4/4) only"** |
+
+**Why the filter matches `4/4` and not `GO`.** `s4go_status` writes `4/4 GO` only when the
+PA fired on the **live** bar; a few bars old it writes `4/4 · PA 3b`, with no "GO" in the
+string. A `GO` match therefore hid names where all four gates pass but the pattern is not
+fresh — **CHOLAFIN was exactly that on 18-Aug** (`4/4 · PA 3b · PB · ↑W`) and was worth a
+full review. Measured on the live 75m cache the `GO` match kept **4 of 49**; `4/4` keeps
+**10**. The match is anchored to the START of the string on purpose: the upstream vetoes
+render as `⛔ Stage 3 · gates 4/4`, which *contain* `4/4`, and `startswith` keeps them out.
+
+---
+
+## 4b-ii. The RRG column and the `· RRG·` tag (19 Aug 2026)
+
+A row tagged **`· RRG·`** is one whose RRG trajectory is **not** on the tradeable
+whitelist. **It is display only — it never vetoes, and it never changes the gate count.**
+
+The board computes it itself rather than reading a CSV column, and that detail matters:
+only `FINAL_CATALYST_WATCHLIST.csv` carries `RRG_Tradeable`. `FINAL_GOLDEN_MATCHER.csv` —
+**49 of 51 board rows** — does not, so a CSV-only gate would have failed open on ~96% of
+the board while looking shipped. `gm_trigger_board.rrg_tradeable_live()` derives it from
+the daily frame the board already holds, using the same calibrated engine and the same
+whitelist as v67 and S4.
+
+> **A bug worth remembering from that build:** the first version returned `None` for every
+> symbol. The stock's weekly bars came from `_confirmed_weekly_ohlcv` while the benchmark
+> came from a native `1wk` fetch — the two anchor differently, so the inner join dropped
+> every row and the gate failed open *silently*. Both legs now use the same resampler.
+> **If you ever add a weekly comparison, resample both sides the same way or verify the
+> join is non-empty.**
+
+`RRG_GATE = False` in `gm_trigger_board.py` is what keeps it display-only; set it True to
+restore the veto, and read §"Gate 5" in the S4 guide first — the whitelist it would apply
+measured **+0.00pp at a 12-week horizon**.
+
+---
+
+## 4b-iii. Stage, RS and RRG all moved on 18–19 Aug — expect different numbers
+
+Three corrections landed in the screener that feed every board column. None of them
+changed *which names fire* (catalyst selection was unchanged on all 49 board rows), but
+they changed the **context** those names are shown with.
+
+**1 · RRG is now the RRG Studio calibration.** `bull_screener` was still running the old
+12/5/12 pair, so the Python producer disagreed with every other surface. It now **imports**
+`rrg_engine.STRIKE_CAL` (never copies it) — decoupled 25/10/7 plus an origin-preserving
+affine — verified identical to the Studio engine to `0.000000000000` across 8 symbols ×
+222 weekly bars. Web Commander, RRG Studio, v67, S4, Mansfield and the Risk Allocator now
+run the same maths.
+
+**2 · Weekly indicators no longer use the forming week.** Found on **SYRMA**, from two
+panels on one screen disagreeing — the Recovery card read `RRG LEADING`, SECTOR/MACRO read
+`WEAKENING`. Neither was stale and neither was drifted: one used confirmed weekly bars, the
+other included the week in progress. On a Tuesday that "weekly" bar holds two sessions:
+
+| | RS-Ratio | Momentum | verdict |
+|---|---:|---:|---|
+| confirmed weeks only | 127.83 | **100.38** | LEADING |
+| including the forming week | 126.73 | **98.92** | WEAKENING |
+
+`_drop_forming_week()` now removes the bar whose Friday has not arrived, from **both** the
+stock and the benchmark leg, and it reads the **pinned** date when one is set so replay
+drops the week that was forming *at that anchor*. Measured blast radius on the 49-name
+board: Stage changed 5/49, RRG quadrant 5/49, RRG tradeable 3/49, **Catalyst 0/49**.
+
+**3 · What this means when you read the board.** Stage and RS values shifted for about one
+name in ten — `MAZDOCK` and `TBOTEK` moved 2 → 3 and are now stage-blocked, `GVT&D` moved
+1 → 2 and is admitted. That is a correction, not a regression, but **do not compare today's
+Overall against a screenshot from last week.**
+
+**Validation, re-baselined with both changes** (`20260819_112959`, 24 months, nifty500,
+catalyst-aware windows verified 60/120/180):
+
+| run | trades | mean matched α | median | win% | anchor hit% |
+|---|---:|---:|---:|---:|---:|
+| neither correction | 400 | −0.88% | −2.38% | 33.8 | 31.6 |
+| RRG calibration only | 510 | +0.07% | −2.04% | 29.4 | 52.6 |
+| **both** | 515 | **+0.30%** | −1.93% | 30.7 | **55.0** |
+
+Every column improved monotonically and cumulative alpha went −9.71% → −3.86%. **But
+P(α>0) is 46.1%, CI95 [−2.62, +1.76] — still indistinguishable from zero.** These were
+correctness fixes; they made the measurement honest, they did not create an edge.
+
+---
+
+## 4b-iv. Operational fixes you will notice (18–19 Aug 2026)
+
+| Symptom | Cause | Now |
+|---|---|---|
+| **Rebuild hangs; console full of screener.in timeouts** | screener.in refuses a *burst* at the TCP connect, so every name paid a 15s timeout and `core_universe` paid 30s per page — with no memo, `CONCORDBIO` was fetched **four times in 34 seconds**. A single shell request answered in 0.3s from the same IP the whole time. | `screener_breaker.py`: max 2 concurrent dials ≥0.7s apart, a 15-min memo that **caches a miss**, and a breaker that stops dialling for 10 min after 3 straight failures. Measured: 15 names across 8 threads, 15/15 OK, breaker never opened. |
+| **"I restarted and it's still wrong"** | `python -m streamlit run` forks a **child** that serves the port; Ctrl+C hits the launcher and the child keeps 8501, so the app kept serving the OLD code. | **`STOP_COMMANDER.bat`** — kills the port-8501 owner plus any `weinstein_commander` orphan, and leaves RRG Studio on 8502 alone. |
+| **Full Metrics printed raw HTML** (`('<div style=...`) | `section_pa_patterns` is annotated `-> str` but returned a **tuple**; a 14-Aug fix removed the unpack at the *call site* instead of fixing the function, so `st.markdown` rendered the tuple's repr. The leading `('` is the tell — that is a Python tuple, not markup. | Returns one string chosen by the `recovery` flag. COMMON renders in the bull column only. |
+
+---
+
 ## 4c. THE ARMED REGISTER — the board's memory
 
 **The problem it solves:** you arm a name Monday and set the TradingView alert. Tuesday the
