@@ -570,6 +570,102 @@ All fire **once per bar close** — this is deliberate: the closed bar *is* your
 
 ---
 
+## 7b. Setting the alerts — step by step (procedure)
+
+> **Do this after EVERY compile.** A recompile does not stale an alert, it **deletes** it —
+> alerts bind to the compiled script's id at creation. The 13 GO alerts from 30-Jul ceased
+> to exist the moment v9.18 was compiled. Two JBCHEPHARM alerts went quiet in July for
+> exactly this reason and looked healthy in the list the whole time.
+
+### The five conditions, and which one you actually want
+
+| Condition | What it means | Use |
+|---|---|---|
+| **`S4 GO (PA + Location + Volume)`** | all four gates aligned on a closed bar | **this is the one** |
+| `S4 AVWAP trigger` | a bounce or R2G reclaim — timing only, no location/volume gate | a name you are stalking |
+| `S4 Intraday trigger` | rising-10-EMA reclaim + TTM squeeze | noisier; optional |
+| `S4 AVWAP pinch` | the three anchored VWAPs converging | rare, high-conviction |
+| `S4 ANY daily PA pattern` | any battery pattern fired | far too loose for a watchlist — it will spam you |
+
+### A. Per-symbol alert
+
+The chart's symbol **and timeframe** are both inherited by the alert, so set them first.
+
+1. Open the chart on the symbol, on the timeframe the board row came from (75m / 125m /
+   Daily), with **S4 loaded**.
+2. **Alt + A** (or the alarm-clock icon → **+**).
+3. **Condition**, first dropdown → **`Section 4 Entry Trigger and Price Memory v9.18`**.
+   Select the *indicator*, not the symbol.
+4. Second dropdown → **`S4 GO (PA + Location + Volume)`**.
+5. **Trigger** → `Once Per Bar Close`.
+6. **Expiration** → as far out as the plan allows, or open-ended.
+7. **Notifications** → app push (so it reaches the phone) + popup.
+8. **Name** → `S4 GO · SYRMA · 75m`. Symbol and timeframe in the name, so the notification
+   says what to open without you guessing.
+9. **Create.**
+
+For a shortlist the dropdowns remember the last selection, so each further name is: change
+symbol → **Alt+A** → confirm the two dropdowns → **Create**.
+
+### B. Watchlist alert — one alert for the whole shortlist
+
+**Supported, and the better default.** The GO condition is entirely self-computed:
+
+```
+go = any_pa and support_pass and vol_ok and bar_ok and rrg_ok
+```
+
+The PA battery, the zone/S-R location test, RV and the bar test are all native, and
+`rrg_ok` is constant `true` while `en_rrg_gate` is off. **Nothing in the GO gate reads a
+v67 `input.source` binding**, which is what would otherwise have broken it — those
+bindings are per-chart and cannot follow a watchlist alert across symbols. The panel's
+CONTEXT rows (Stage, RS, RRG, sector) do depend on them, but the panel is not what the
+alert evaluates.
+
+Set it up exactly as above, choosing the **watchlist** instead of a symbol in step 1.
+`{{ticker}}` is already in the message, so the notification names which symbol fired.
+
+**Three caveats, all real:**
+
+1. **Stage does not gate the alert.** `stage_skip` drives the VERDICT, not `go`, so a
+   Stage-3/4 name on the watchlist can still ping. Open the panel and it will say
+   NO TRADE — the alert is a prompt to look, not a verdict.
+2. **The pasted GM lists freeze at creation.** `gm_pb_list` and `gm_rec_list` are stored
+   with the alert, so pullback context and the Bull/Recovery path resolution go stale as
+   the board changes. A name that *becomes* a pullback next week will not get the relaxed
+   0.5 RV floor until the alert is recreated.
+3. **The watchlist must stay in sync** with the board (Auto-Sync TV / `watchlist_manager`).
+   An alert on a stale watchlist is watching last week's shortlist.
+
+**Recommended shape:** one watchlist alert as the net, plus per-symbol alerts only on names
+you are actively stalking — where the mode is set manually, or the pullback list needs to
+be current. Recreate the watchlist alert whenever the shortlist changes materially; it is
+cheap and it refreshes the frozen lists.
+
+### C. Verify before relying on it
+
+Open the **Alerts panel** and check, on at least one alert:
+
+- the condition names the **current** script version, not an older title,
+- the resolution reads **75** (or 125), **not `1D`**,
+- the trigger is **Once per bar close**.
+
+An alert bound to a stale script id sits in the list looking perfectly healthy and never
+fires. This check takes ten seconds and is the only thing that catches it.
+
+### D. What to do when one fires
+
+Act on the **ping**, never on the touch — the alert exists so you do not have to watch the
+name tick by tick, and watching is how the confirmation rule gets broken. When it fires:
+open S4 on that timeframe and run the pre-trade checklist. Remember what the alert
+actually asserts: **a trigger fired**, not that the trade is sound. The setup can be clean
+while the plan is not.
+
+`use_closed_candle` defaults ON, so the GO condition already requires a confirmed bar.
+"Once Per Bar Close" on top of that is belt-and-braces, and worth keeping.
+
+---
+
 # PART B — THE COMPLETE GM + S4 TRADING WORKFLOW
 
 > S4 is **one layer of five**. This section is the end-to-end system, so the indicator is
