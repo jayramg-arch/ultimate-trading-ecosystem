@@ -251,6 +251,45 @@ Run it in order. **Stop at the first NO.**
 
 ---
 
+### 8b. When the alert fires on a name you have NOT armed
+
+This is the one case the checklist above does not cover — it assumes you arrived at the
+chart deliberately. An alert can introduce you to a stock instead.
+
+**It is not a contradiction.** Arming is a manual attention marker, not a gate. A qualified
+name that triggers before you got round to arming it is the alert doing the watching you
+did not. The name is on the watchlist, so it is already qualified; nothing is missing from
+the chain.
+
+**Spend 30 seconds on WHY first, because the likeliest cause is a stale board.**
+
+1. Is the board rebuilt for *this* bar? Check the AGE strip. A hidden tab gets its refresh
+   fragment throttled by Chrome and you are reading an earlier bar.
+2. Same timeframe? An alert on 75m against a board tab on Daily is two different bar
+   closes and two different answers.
+3. What does the row actually say?
+
+| Board row | Do |
+|---|---|
+| agrees, or merely behind ("Wait for Pullback", 3/4) | take it through the checklist — S4 is the plan of record |
+| **`INVALIDATED`** | **stop.** Board and S4 share the same stage 2x2, so they should not disagree — one of them has stale data. Reconcile before acting. |
+| board unavailable (app down) | S4 alone can evaluate the trade, but the cross-check is gone — be stricter on geometry |
+
+**The real cost is not the missing arm, it is the missing homework.** An unarmed name is
+usually one you have not studied: you may not know its archetype, which scan qualified it,
+whether it is the Bull or Recovery path, or — if Recovery — whether the RFF fundamentals
+hold, which **S4 cannot see**. You would be doing that research at the trigger, under time
+pressure, which is the condition your worst entries have come from.
+
+> **The rule:** take it if the checklist passes AND you can answer *"why is this name on the
+> list at all"* without guessing. If you cannot answer that, the pass reason writes itself —
+> and it is a better reason to pass than anything on the chart.
+
+**The structural fix is upstream.** Arm names during the evening review, so a trigger
+arrives on a stock you have already thought about. The alert should tell you *when* — it
+should not be making the introduction.
+
+
 ## PART 9 — READING THE SYSTEM'S OWN OUTPUT
 
 **DO**
