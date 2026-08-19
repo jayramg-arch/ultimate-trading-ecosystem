@@ -1421,3 +1421,77 @@ export oiBasis(float oi, float px, simple int nEvents) =>
     float basis = dsum > 0 ? wsum / dsum : na
     float builtPct = asum > 0 ? dsum / asum * 100.0 : na
     [basis, builtPct, array.size(dq)]
+
+
+// ---- invalLevels -------------------------------------------------------------
+// INVALIDATION is NOT the stop. The stop is where you get out; invalidation is the price
+// at which the REASON you bought stops being true. CHOLAFIN, 18-Aug-2026, is why this
+// exists: the engine put the stop 13 points under a demand zone whose distal sat ONE
+// point below the entry, so "wrong" and "stopped" were the same price and the R was
+// meaningless. Separating them is what makes the two-level discipline possible - a hard
+// stop for the wick, a closing-basis exit for the thesis.
+//
+// RANKED BY SEVERITY, NOT PROXIMITY. The first version of this ranked by distance and so
+// reported "INVAL 1862 EMA20(D)" on CHOLAFIN purely because the EMA sat nearest, when the
+// pullback thesis actually died at the zone distal 1852.7. Losing the EMA20 is a warning;
+// losing the zone that DEFINED the entry is the trade being wrong.
+//   INVAL      = strongest structural level below price   (zone distal > swing > S/R > EMA)
+//   first test = nearest level below price, when different (what price meets first)
+//
+// Lives in the library for the same reason as summaryRead: S4 is against BOTH Pine
+// ceilings, and this is 40 statements of picker that would otherwise sit in the main body.
+export invalLevels(float px, float zoneDistal, bool inZone, float swingLo, float srBelow,
+       float ema20D, float atrRef) =>
+    float ivZone = (inZone and not na(zoneDistal)) ? zoneDistal : na
+    // strongest-first: each stronger candidate overwrites the weaker one
+    float st = na
+    string stn = ""
+    if not na(ema20D) and ema20D < px
+        st := ema20D
+        stn := "EMA20(D)"
+    if not na(srBelow) and srBelow < px
+        st := srBelow
+        stn := "S/R"
+    if not na(swingLo) and swingLo < px
+        st := swingLo
+        stn := "swing low"
+    if not na(ivZone) and ivZone < px
+        st := ivZone
+        stn := "zone distal"
+    // nearest below price, whatever kind
+    float nr = na
+    string nrn = ""
+    if not na(ivZone) and ivZone < px and (na(nr) or ivZone > nr)
+        nr := ivZone
+        nrn := "zone distal"
+    if not na(swingLo) and swingLo < px and (na(nr) or swingLo > nr)
+        nr := swingLo
+        nrn := "swing low"
+    if not na(srBelow) and srBelow < px and (na(nr) or srBelow > nr)
+        nr := srBelow
+        nrn := "S/R"
+    if not na(ema20D) and ema20D < px and (na(nr) or ema20D > nr)
+        nr := ema20D
+        nrn := "EMA20(D)"
+    float atrs = (px - st) / math.max(atrRef, 0.01)
+    string out = na(st) ? "" : "\n" + "INVAL " + str.tostring(st, format.mintick) + " " + stn +
+         " (-" + str.tostring((px / st - 1.0) * 100.0, "0.0") + "%, " + str.tostring(atrs, "0.00") + "xATR)" +
+         ((na(nr) or nr == st) ? "" : "  ·  first test " + str.tostring(nr, format.mintick) + " " + nrn) +
+         (atrs < 0.5 ? "  ⚠ inside daily noise — close-basis only, do not stop here" : "")
+    out
+
+
+// ---- oiText -------------------------------------------------------------------
+// Renders oiBasis() for the panel. See oiBasis for what the number is and is NOT - in
+// particular it is NOT max pain and the "strike" is only the nearest tradeable strike to
+// the futures basis, because Pine cannot read an options chain.
+export oiText(float basis, float builtPct, int nPrints, float px, float strikeStep) =>
+    float strike = na(basis) ? na : math.round(basis / strikeStep) * strikeStep
+    string out = na(basis) ? "" : "\n" + "OI basis " + str.tostring(basis, format.mintick) +
+         " (~" + str.tostring(strike, format.mintick) + " strike)  ·  " +
+         (px >= basis ? "price ABOVE it - the marginal long is in profit, so it is SUPPORT until lost"
+                      : "price BELOW it - the marginal long is underwater, so it is RESISTANCE until reclaimed") +
+         "  ·  " + str.tostring(math.abs(px / basis - 1.0) * 100.0, "0.0") + "% away  ·  bld " +
+         str.tostring(nz(builtPct, 0.0), "0") + "% of " + str.tostring(nPrints) + " prints" +
+         (nz(builtPct, 100.0) < 40.0 ? "  ⚠ book is unwinding, basis stale" : "")
+    out
