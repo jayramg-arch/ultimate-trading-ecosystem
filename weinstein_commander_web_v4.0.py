@@ -13738,8 +13738,32 @@ elif page == 'GOLDEN MATCHER':
                 _sel = st.session_state.get(_key) or []
                 if _sel and _col in v.columns:
                     v = v[v[_col].isin(_sel)]
+            # GO-ONLY (19-Aug-2026, Jay's default). Keep only rows whose S4-GO contains
+            # "GO" - i.e. a LIVE GO on the current bar.
+            #
+            # READ THIS BEFORE WIDENING IT: s4go_status emits "4/4 GO" only when the PA
+            # fired on the live bar; when it fired earlier it emits "4/4 · PA 3b", with
+            # no "GO" in the string. So this filter also hides names where all four
+            # gates pass but the pattern is a few bars old - CHOLAFIN was exactly that
+            # ("4/4 · PA 3b · PB · ↑W") on 18-Aug and was worth a look. Measured on the
+            # live 75m cache: 4 of 49 rows kept, and the recency 4/4s are among the 45
+            # dropped. Match on "4/4" instead of "GO" if you want those back.
+            # Default ON, cleared from the board header, and it lives HERE so the grid,
+            # the static editor and the CSV download can never disagree about what you
+            # are looking at.
+            if st.session_state.get("gm_bf_go_only", True) and "S4-GO" in v.columns:
+                v = v[v["S4-GO"].astype(str).str.contains("GO", na=False)]
             if not v.empty:
-                v = v.sort_values("Symbol").reset_index(drop=True)
+                # SORT: Overall descending (Jay's default) - was sort_values("Symbol"),
+                # an alphabetical re-sort that silently discarded the Overall ranking the
+                # board had already applied upstream, so the grid opened in name order.
+                # Symbol breaks ties so the order is stable between rebuilds.
+                if "Overall" in v.columns:
+                    v = v.sort_values(["Overall", "Symbol"], ascending=[False, True],
+                                      na_position="last")
+                else:
+                    v = v.sort_values("Symbol")
+                v = v.reset_index(drop=True)
             return v
 
         _bdf_hdr = st.session_state.get("gm_board_df")
@@ -13788,6 +13812,15 @@ elif page == 'GOLDEN MATCHER':
             # The threshold is pre_trade_gate.SECTOR_CAP_PCT, imported rather than
             # duplicated: that is the cap the ORDER path actually enforces, so the
             # board warns with the same number that will later refuse the entry.
+            # GO-only switch for the filter above. Shows how many rows it is hiding so
+            # an empty-looking board is never mistaken for a failed build.
+            _go_tot = int(_bdf_hdr["S4-GO"].astype(str).str.contains("GO", na=False).sum())                       if "S4-GO" in _bdf_hdr.columns else 0
+            st.checkbox(f"GO only  ·  {_go_tot} of {len(_bdf_hdr)} rows",
+                        value=True, key="gm_bf_go_only",
+                        help="Default ON: the table shows only names whose S4-GO reads a live "
+                             "GO, sorted by Overall descending. Untick to see every row "
+                             "including the near-misses (3/4, 2/4) and the upstream vetoes "
+                             "(Stage, RRG). Applies to the grid AND the CSV download.")
             try:
                 import sector_lookup as _sl
                 _mix_src = _board_apply_filters(_bdf_hdr)
@@ -14022,13 +14055,16 @@ elif page == 'GOLDEN MATCHER':
                             # size through a rebuild without any manual re-widening.
                             _gb.configure_column(_pc, pinned="left", width=_pw,
                                                  minWidth=_pw, suppressSizeToFit=True)
+                    # Grid-level sort indicator, matching the dataframe order applied in
+                    # _board_apply_filters, so the header arrow agrees with what is on
+                    # screen. The maximized board keeps S4-GO primary (it is a GO monitor);
+                    # Overall is primary everywhere else.
+                    if "Overall" in _v.columns:
+                        _gb.configure_column("Overall", sort="desc",
+                                             sortIndex=(1 if is_max_board else 0))
                     if "S4-GO" in _v.columns:
-                        # In the MAXIMIZED (monitor) view, default-sort by S4-GO closeness
-                        # so 4/4 GO → 3/4 near-triggers float to the top at a glance (the
-                        # "4/4 GO" / "n/4" strings sort descending correctly). The normal
-                        # board keeps its Overall ranking.
                         _gb.configure_column("S4-GO",
-                            **({"sort": "desc"} if is_max_board else {}),
+                            **({"sort": "desc", "sortIndex": 0} if is_max_board else {}),
                             cellStyle=JsCode(
                             "function(p){var v=String(p.value||'');"
                             "if(v.indexOf('4/4')>=0)return{'color':'#26a69a','fontWeight':'700'};"
