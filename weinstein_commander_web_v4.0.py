@@ -4410,7 +4410,14 @@ def section_pa_patterns(ctx, recovery: bool = False) -> str:
         _ts = _sum(rec_only)
         out_rec += card("PA PATTERNS · RECOVERY", _rows(rec_only), "#455A64",
                     chip_text=f"Σ +{_ts}", chip_color=(_scol(_ts) if _ts >= 1 else "#455A64"))
-    return out_bull, out_rec
+    # RETURN ONE STRING, chosen by the `recovery` flag - the signature has always said
+    # `-> str` and the call site makes TWO calls (bull card in one column, recovery card
+    # in another). This used to `return out_bull, out_rec`, which crashed Full Metrics
+    # with "too many values to unpack" on 14-Aug; that was fixed on the CALL SITE by
+    # dropping the unpack, which left the tuple intact - so st.markdown rendered its
+    # repr and the panel printed raw "('<div style=..." HTML as text (18-Aug).
+    # The COMMON sub-card rides with the bull return so it cannot render twice.
+    return out_rec if recovery else out_bull
 
 
 def render_pa_banner(ctx, recovery: bool = False) -> str:
@@ -14843,12 +14850,11 @@ elif page == 'GOLDEN MATCHER':
             _mansf_disp = (_g(rec_r, "Mansfield_RS_x100") if _rec_active else mansfield)
             _canon_stage = _stg_digit(_g(rec, "Stage", default="")) or "—"
             _h_momentum, _h_minervini, _h_pa_signals = render_technical_board(rec, ctx, cmp_px, mansfield)
-            # section_pa_patterns returns ONE card (-> str), not a pair. The call
-            # site unpacked two and crashed Full Metrics with "too many values to
-            # unpack" (14 Aug 2026). The two names render in DIFFERENT columns
-            # below (bull in tc2, recovery in tc3), so the intent was two cards -
-            # which means two calls. Recovery card only when that path is live;
-            # the render guards below already expect "" for absent.
+            # section_pa_patterns returns ONE html string per call, selected by the
+            # `recovery` flag; the two names render in DIFFERENT columns below (bull in
+            # tc2, recovery in tc3), hence two calls. Until 18-Aug the function still
+            # returned a TUPLE while this site assigned it whole, so the panel printed
+            # the tuple's repr as literal HTML text. Fixed in the function, not here.
             _h_pa_bull = section_pa_patterns(ctx, recovery=False)
             _h_pa_rec = section_pa_patterns(ctx, recovery=True) if _rec_active else ""
             _h_ctx    = section_context(rec, ctx, cmp_px)
