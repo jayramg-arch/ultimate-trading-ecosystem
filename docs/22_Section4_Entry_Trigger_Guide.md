@@ -637,10 +637,28 @@ Set it up exactly as above, choosing the **watchlist** instead of a symbol in st
 3. **The watchlist must stay in sync** with the board (Auto-Sync TV / `watchlist_manager`).
    An alert on a stale watchlist is watching last week's shortlist.
 
-**Recommended shape:** one watchlist alert as the net, plus per-symbol alerts only on names
-you are actively stalking — where the mode is set manually, or the pullback list needs to
-be current. Recreate the watchlist alert whenever the shortlist changes materially; it is
-cheap and it refreshes the frozen lists.
+**Recommended shape — a DAILY ritual, because the watchlist name carries the date.** The
+auto-pilot writes a new, date-stamped GM board watchlist every weekday after the close, so
+yesterday's alert points at yesterday's list by construction. Each evening:
+
+1. Check the board header's **source-issue strip** first. On a thin auto-pilot day — Hunter
+   returned **1 name** recently, and header-only CSVs have happened — you would otherwise
+   arm a near-empty watchlist and lose a day of coverage without noticing.
+2. **Delete yesterday's alert.** Left in place it keeps firing on names that have already
+   dropped out, which is the exact noise the shortlist exists to remove, and it eats the
+   alert quota.
+3. Create today's on the new watchlist, named to match it — `S4 GO · GM-19AUG · 75m` — so a
+   stale one is obvious at a glance in the Alerts panel.
+
+**This makes caveat 2 above disappear.** `gm_pb_list` / `gm_rec_list` are frozen into an
+alert at creation, which was the real weakness of the watchlist form; recreating daily
+means they are never more than one session old.
+
+**What does NOT need recreating: the names you are stalking.** Arm them. An armed name is
+injected into the board union carrying the archetypes it had when armed, so it survives
+into every subsequent watchlist even after it stops qualifying — which is precisely when
+losing the alert would hurt most. Add a per-symbol alert on top only where the mode is set
+manually.
 
 ### C. Verify before relying on it
 
