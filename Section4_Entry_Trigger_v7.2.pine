@@ -1121,6 +1121,7 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // ==========================================================================
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
 show_summary = input.bool(true, "Show SUMMARY row (whole-panel synthesis)", group=grpCF, tooltip="One row that reads the ENTIRE panel as a single judgement - trend stack, leadership, location, participation, geometry, direction - and says what the combination MEANS rather than repeating the numbers above it. The VERDICT row stays the short ruling; this is the long-form read. Off if you only want the gates and the plan.")
+summary_wrap = input.int(62, "  · SUMMARY wrap width (chars)", group=grpCF, minval=30, maxval=140, tooltip="A Pine table cell does NOT auto-wrap - long text renders on one line and the cell just grows, which is what pushed the panel across the whole screen. The summary is wrapped to this many characters and rendered as a right-hand COLUMN down the full height of the panel. Lower it if the panel is still too wide; raise it if the column is too tall.")
 show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — the ruling, why, the single biggest caveat, and the action. The applicable house gate follows the TRADE TYPE: a SWING plan is judged on >= 2.0R, a POSITIONAL plan on >= 20% ROI to T1. Turn this off to hide the verdict too.")
 
 size_cap  = input.float(0.0, "Capital (₹)", group=grpSize, minval=0.0, tooltip="Total capital the 0.25% risk is taken against. 0 = hide the Qty row. The Qty is computed from the panel's own Entry and SL, so it is the same trade the plan describes.")
@@ -4283,10 +4284,13 @@ PA_LAST_COL = 17
 // 42 rows (was 40): rows 0-38 are fully occupied - f_row, the raw TRIGGER/STATUS/
 // VERDICT cells AND f_sec's five section bands at 1/9/17/29/35. Only 39 was free and
 // the portfolio block needs three (a band + two rows), so the table grew by two.
-// 44 rows (was 43): every index 0..42 was already claimed by f_row, a raw
-// table.cell or an f_sec band - only row 7 (the retired Strike RRG slot) was
-// free, and a whole-panel SUMMARY belongs at the BOTTOM, not inside Section I.
-var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 1, 44, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
+// ONE EXTRA COLUMN (PA_LAST_COL + 2) for the SUMMARY, and back to 43 rows.
+// The summary was a full-width merged ROW, so its text stretched the panel across
+// a 34-inch monitor and left no chart. As a right-hand COLUMN merged down the
+// whole table it is bounded by the wrap width instead, and the panel keeps the
+// height it already had. Existing rows still merge cols 1..PA_LAST_COL, so they
+// never touch the new column.
+var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 2, 43, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
 // #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
 // uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
 // bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
@@ -5169,14 +5173,25 @@ if show_panel and d_panel and barstate.islast
     // The body lives in S4Core.summaryRead so its prose never touches this file's
     // compiled-token budget; the cost here is one call plus its arguments.
     if show_summary
-        f_row(43, "SUMMARY", core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
+        string _sumRaw = core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
              zzTrendW[_so], zzTrendD[_so], _tfUp, _zzOkD, _zzOkW,
              _rrgTr[_so], rsSlope > 0, dashRsSec[_so] > 0, nz(dashSecStg[_so], 0.0),
              z_inDZ[_so], z_inSZ[_so], near_sr[_so], near_avwap[_so], near_ema[_so],
              nz(ext_atr[_so], 0.0), -math.abs(nz(d_off52[_so], 0.0)), chart_rv[_so],
              arr_style == "FAST", of_bull, is_rec_v, nz(_roomR, 0.0), cf_v, cf_max,
              tt_swing, nz(pl_entry, close[_so]), nz(pl_sl, 0.0),
-             nz(atrD_tf, chart_atr), go_v), C_INFO)
+             nz(atrD_tf, chart_atr), go_v)
+        // Every cell of the column has to EXIST before it can be merged, so blank the
+        // range first, write the text into the top-left cell, then merge. Skipping the
+        // blanking pass is the usual reason a vertical merge silently does nothing.
+        int _sc = PA_LAST_COL + 1
+        for _r = 0 to 42
+            table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
+        table.cell(pnl, _sc, 0,
+             "SUMMARY\n\n" + core.wrapText(_sumRaw, summary_wrap),
+             text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
+             text_halign=text.align_left, text_valign=text.align_top)
+        table.merge_cells(pnl, _sc, 0, _sc, 42)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the

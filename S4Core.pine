@@ -1328,3 +1328,40 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     string sConf = cf >= cfMax / 2 ? "  Confluence is dense - several independent facts point the same way." : "  Confluence is thin: few independent facts agree, so this rests largely on the trigger alone."
     string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF) and this chart cannot see it, so the Golden Matcher remains the authority on whether the name belongs on the list at all." : ""
     sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + "\n" + sGeo + sRoom + sType + "\n" + sDir + sConf + sPath
+
+
+// ---- wrapText ---------------------------------------------------------------
+// Greedy word-wrap to a character width.
+//
+// WHY THIS HAS TO EXIST: a Pine table cell does NOT auto-wrap. Long text renders on a
+// single line and the cell simply grows, which is how the SUMMARY row pushed the panel
+// across a 34-inch monitor. The only way to constrain width is to put the newlines in
+// yourself, so the "auto wrap" is done here.
+//
+// Breaks on spaces and never mid-word; a token longer than `width` is emitted on its own
+// line rather than truncated, because silently losing text from a decision panel is
+// worse than one over-long line. Newlines already present in the input are preserved as
+// paragraph breaks, so summaryRead's six sections stay six paragraphs.
+export wrapText(string src, int width) =>
+    string outAll = ""
+    array<string> paras = str.split(src, "\n")
+    for pi = 0 to array.size(paras) - 1
+        string para = array.get(paras, pi)
+        string line = ""
+        string block = ""
+        array<string> words = str.split(para, " ")
+        for wi = 0 to array.size(words) - 1
+            string w = array.get(words, wi)
+            if str.length(w) == 0
+                continue
+            if str.length(line) == 0
+                line := w
+            else if str.length(line) + 1 + str.length(w) <= width
+                line := line + " " + w
+            else
+                block := block + (str.length(block) == 0 ? "" : "\n") + line
+                line := w
+        if str.length(line) > 0
+            block := block + (str.length(block) == 0 ? "" : "\n") + line
+        outAll := outAll + (pi == 0 ? "" : "\n") + block
+    outAll
