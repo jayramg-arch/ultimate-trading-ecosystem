@@ -583,6 +583,46 @@ def median_turnover_cr(ind, window: int = TURNOVER_WINDOW) -> float:
         return 0.0
 
 
+def _drop_forming_week(dfw):
+    """Drop the CURRENT, still-forming weekly bar.
+
+    WHY (18-Aug-2026, found on SYRMA): the weekly frames here include the week in
+    progress, so on a Tuesday a "weekly" reading rests on two sessions. SYRMA's RRG
+    momentum was 100.38 on confirmed weeks (LEADING) and 98.92 including the forming
+    week (WEAKENING) - two panels on one screen disagreed because one used each. A
+    weekly quadrant that can flip on Monday and flip back by Friday is a repaint, and
+    everything weekly in this function inherits it: stage, mansfield, mansfield_4w,
+    the RRG cell and w_mom.
+
+    CONVENTION, verified against live data rather than assumed: both the stock frame
+    (fetch_ohlcv interval="1wk") and the benchmark frame label a week by its MONDAY
+    (week START). CHOLAFIN's last weekly label was 2026-08-17 with the last daily bar
+    2026-08-18. So the bar labelled M covers M..M+4 (Fri) and is complete once that
+    Friday has arrived. NOTE a plain `resample("W-MON")` labels the RIGHT edge instead
+    - do not copy this rule to a frame you have not checked.
+
+    REPLAY-SAFE: the reference is the PINNED date when one is set, never the wall
+    clock, so a walk-forward anchor drops the week that was forming AT THAT ANCHOR.
+    Without a pin it is today, which is correct for live screening.
+    """
+    try:
+        if dfw is None or len(dfw) == 0:
+            return dfw
+        import data_provider as _dpv
+        _pin = _dpv.get_pinned_date()
+        ref = pd.Timestamp(_pin) if _pin else pd.Timestamp.today()
+        ref = ref.normalize()
+        last = pd.Timestamp(dfw.index[-1]).normalize()
+        if last.tz is not None or ref.tz is not None:      # never compare tz-mixed
+            last = last.tz_localize(None) if last.tz is not None else last
+            ref = ref.tz_localize(None) if ref.tz is not None else ref
+        if last + pd.Timedelta(days=4) > ref:              # its Friday has not arrived
+            return dfw.iloc[:-1]
+        return dfw
+    except Exception:
+        return dfw                                          # never break a run over this
+
+
 def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     """Weekly Weinstein stage + JdK RS-Ratio / RS-Momentum (Strike.Money parity).
 
@@ -594,6 +634,11 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     so existing tier thresholds (>0, >=10, >0 at lines 351/556-565) keep their
     semantic meaning. Quadrant labels now match Strike.Money's RRG view.
     """
+    # CONFIRMED WEEKS ONLY - see _drop_forming_week. Applied to BOTH legs: dropping it
+    # from the stock while the benchmark keeps its partial week would compute the RS
+    # ratio across mismatched periods, which is worse than the repaint it fixes.
+    df = _drop_forming_week(df)
+    df_bench = _drop_forming_week(df_bench)
     if len(df) < 35:
         return {"stage": 0, "stage_wks": 999.0, "mansfield": 0.0, "wrsi": 0.0,
                 "mansfield_4w": 0.0, "rrg_quadrant": "n/a",
