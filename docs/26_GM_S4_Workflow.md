@@ -132,8 +132,15 @@ yesterday's alert points at yesterday's list by construction.
 2. **Delete yesterday's alert.** Left running it fires on names that already dropped out
    and eats the alert quota.
 3. **Create today's** on the new watchlist: condition = the S4 indicator →
-   **`S4 GO (PA + Location + Volume)`**, trigger **Once Per Bar Close**, app push on, named
-   to match the dated watchlist (`S4 GO · GM-20AUG · 75m`).
+   **`S4 GO (PA + Location + Volume + Bar)`**, trigger **Once Per Bar Close**, app push on,
+   named to match the dated watchlist (`S4 GO · GM-20AUG · 75m`).
+4. **Repeat on a 125m chart** — an alert inherits the chart's resolution, so each timeframe
+   needs its own. 75m closes at 10:30 · 11:45 · 13:00 · 14:15 · 15:30; 125m at 11:20 ·
+   13:25 · 15:30. The 125m set skips the opening-drive bar by construction.
+
+> ⚠ A name pinging on both is **one setup seen twice**, not corroboration — same engine,
+> same gates, only the sampling rate differs. They share the 15:30 close, so duplicates
+> cluster there.
 
 **A side effect worth knowing:** `gm_pb_list` and `gm_rec_list` are frozen into an alert at
 creation, so pullback context and Bull/Recovery resolution would otherwise go stale.
