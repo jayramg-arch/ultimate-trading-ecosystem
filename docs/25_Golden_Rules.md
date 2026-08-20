@@ -290,6 +290,69 @@ arrives on a stock you have already thought about. The alert should tell you *wh
 should not be making the introduction.
 
 
+### 8c. The alert marks a BAR, not a state — and the first bar of the day lies
+
+Three of the four gates are fixed at the trigger bar. **Location is not.**
+
+| Gate | Nature | Still true an hour later? |
+|---|---|---|
+| **P** pattern | structural — a pattern *formed* | yes |
+| **V** volume | a property of that bar | yes |
+| **B** bar | a property of that bar | yes |
+| **L** location | *price is at a level right now* | **no — price moves off it** |
+
+An alert can fire correctly at 10:30 and the panel read `L·` when you open it at 11:45.
+Neither is wrong. There is a second route too: a **tested zone is deleted** by the
+lifecycle, so the touch that fired the alert can consume the zone that justified it.
+
+> **20-Aug:** nine alerts on the 10:30 bar. By the time the panels were read, SONACOMS and
+> COFORGE showed `no location` — SONACOMS still `P✓ L· V✓ B✓`, with the AVWAP-BO at 840.90
+> pressed against price at 836.90. It had drifted off the anchor it triggered on.
+
+**So: arriving late, re-evaluate at the CURRENT bar.** If location has gone, the entry
+premise has gone with it — the trade was *buy at the level*, and price is no longer at the
+level. This is also why the plan latches the trigger bar instead of re-deriving the entry
+from the live price.
+
+**And treat the 10:30 cluster with suspicion.** It is the FIRST 75m close of the session,
+so it carries the opening drive: relative volume is inflated, patterns fire in bulk, and
+gap-fills and auction noise are still resolving. **A 10:30 GO deserves more scrutiny than a
+13:00 GO, not less** — several firing at once is the bar's character, not a signal of a
+good day.
+
+---
+
+### 8d. Pyramid ADDs — you do NOT need all four, but you need location MORE
+
+An add is a different trade from an entry. You already own it, it is already working, and
+the thesis is proven by the position. What you are buying is more of a winner **at a good
+price** — so the gates change weight.
+
+| Gate | New entry | **ADD** |
+|---|---|---|
+| **P** pattern | required | **not required** — the position is the thesis |
+| **V** volume | required | **not required** — and demanding RV ≥ 1 is wrong at a pullback, where dry-up is what you want |
+| **B** bar | required | keep it — do not add on a collapsing bar |
+| **L** location | required | **the whole game** — a bad add raises your average and turns a winner into a bigger loser |
+
+**Three ADD-only checks that outrank all four:**
+
+1. **The stop must rise.** An add comes with the Chandelier raise for the WHOLE position.
+   If the stop cannot move up, you are only increasing risk.
+2. **Combined heat and correlation.** The board prints `⛔ r0.93` against the rest of the
+   book. An add concentrates exposure you already have — sector cap included.
+3. **Is it actually working?** ADD is for winners. R > 0, in profit, leading.
+
+> ⚠ **When the pyramid module and S4 disagree about location, S4 wins.**
+> `pyramid_logic._at_location` is a TREND test, not a location test:
+> `ltp > sma200 and slope > 0 and ltp <= close_5d × 1.10 and ltp > ema20`.
+> `ltp > ema20` passes at **+6.8% above** it, and the only extension guard is "has not run
+> 10% in five sessions". **20-Aug, SONACOMS:** pyramid said `ADD +8.7% · 0.57R`, S4 said
+> `NOT AT LOCATION · extended 2.9×ATR · IN SUPPLY · under 1R room`. Both correct by their
+> own definition — but the precise read is S4's. That name was a **hold**, not an add:
+> wait for it to come back toward the EMA20.
+
+
 ## PART 9 — READING THE SYSTEM'S OWN OUTPUT
 
 **DO**
