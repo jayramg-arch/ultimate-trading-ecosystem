@@ -35,6 +35,17 @@ import bull_screener as bs
 import data_provider as dp
 import risk_common as rc   # shared Chandelier / trail logic (synced with Risk Shield)
 
+# Max extension above the 20-EMA, in ATR, for a pyramid ADD to count as "at a
+# pullback". S4 warns at 2.5x and vetoes a new entry at 4.0x; an ADD sits below the
+# warning because its whole premise is buying MORE at value.
+#
+# CALIBRATED AGAINST THE LIVE BOOK, not picked: on 20-Aug the two ADDs measured
+# 1.46x (ANANDRATHI) and 0.89x (LAURUSLABS). A 1.5 cap would have sat 0.04 ATR above
+# a live ADD - one bar of movement from silently deleting it. 2.0 clears the observed
+# ADD population with margin while staying under S4's 2.5 warning, so it constrains
+# the genuinely extended without being a coin flip on the ordinary ones.
+ADD_MAX_EXT_ATR = float(os.getenv("PYRAMID_ADD_MAX_EXT_ATR", "2.0"))
+
 _DIR    = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
 BENCH   = "^CRSLDX"
@@ -357,10 +368,28 @@ def classify(row: dict) -> tuple[str, str]:
     # ══ 4. ADD (pyramid) — leader AND good location ══════════════════════
     _is_leader = (quad in ("LEADING", "WEAKENING") and pnl >= 5.0 and score >= 60) or \
                  (quad == "LEADING" and pnl >= 8.0)
+    # LOCATION, not merely TREND (20-Aug-2026). This test used to be
+    #     ltp > sma200 and slope > 0 and ltp <= c5*1.10 and ltp > ema20
+    # which is a trend filter wearing a location filter's name: `ltp > ema20` passes at
+    # +6.8% ABOVE the 20-EMA, and the only extension guard was "has not run 10% in five
+    # sessions". The docstring has always said "pullback to 20-EMA" — the code did not
+    # test for a pullback at all, it tested for an uptrend.
+    #
+    # SONACOMS, 20-Aug: this said ADD (+8.7%, 0.57R) while S4 read NOT AT LOCATION,
+    # extended 2.9xATR vs the daily EMA20, IN SUPPLY, under 1R of room. Both were correct
+    # by their own definition; S4's was the one that described where price actually was.
+    #
+    # The fix measures extension the way S4 does — in ATR above the 20-EMA — so the two
+    # surfaces answer the same question on the same scale. ADD_MAX_EXT_ATR is deliberately
+    # tighter than S4's 2.5x warning: an add is supposed to be AT value, and a name that
+    # needs 2.5 ATRs of give is not at a pullback, it is mid-run.
+    _ext_atr = ((ltp - ema20) / atr14) if (_numok(ltp) and _numok(ema20) and _numok(atr14)
+                                           and atr14 > 0) else np.nan
     _at_location = (_numok(sma200) and _numok(ltp) and ltp > sma200 and
                     _numok(sma200_slope) and sma200_slope > 0 and
                     _numok(c5) and ltp <= c5 * 1.10 and
-                    _numok(ema20) and ltp > ema20)
+                    _numok(ema20) and ltp > ema20 and
+                    _numok(_ext_atr) and _ext_atr <= ADD_MAX_EXT_ATR)
     if _is_leader and _at_location:
         # The revised stop for the pyramid: the catalyst-aware Chandelier (risk_common)
         # is ALREADY in the row — surface it. The cardinal pyramid rule is "every add
@@ -383,7 +412,19 @@ def classify(row: dict) -> tuple[str, str]:
         return "ADD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · pullback to EMA20{_slnote} · {catal}"
     if _is_leader and not _at_location:
         # A leader that's extended / not at a pullback — hold, don't chase.
-        return "HOLD", f"Leader ({quad}, Score {score}) but extended — wait for pullback to add"
+        # Name the actual reason. "extended" used to be asserted for every location
+        # failure, including names that were BELOW the 20-EMA or under a falling 200-DMA.
+        if _numok(_ext_atr) and _ext_atr > ADD_MAX_EXT_ATR:
+            _why = f"{_ext_atr:.1f}xATR above the 20-EMA (add limit {ADD_MAX_EXT_ATR:.1f}x)"
+        elif _numok(ema20) and _numok(ltp) and ltp <= ema20:
+            _why = "below the 20-EMA — not a pullback, a breakdown"
+        elif _numok(sma200_slope) and sma200_slope <= 0:
+            _why = "200-DMA is not rising"
+        elif _numok(c5) and _numok(ltp) and ltp > c5 * 1.10:
+            _why = "up >10% in five sessions — mid-run"
+        else:
+            _why = "not at a pullback location"
+        return "HOLD", f"Leader ({quad}, Score {score}) but {_why} — wait for the pullback to add"
 
     return "HOLD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · {row.get('rrg_trajectory','')}"
 

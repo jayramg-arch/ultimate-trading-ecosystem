@@ -343,14 +343,30 @@ price** — so the gates change weight.
    book. An add concentrates exposure you already have — sector cap included.
 3. **Is it actually working?** ADD is for winners. R > 0, in profit, leading.
 
-> ⚠ **When the pyramid module and S4 disagree about location, S4 wins.**
-> `pyramid_logic._at_location` is a TREND test, not a location test:
-> `ltp > sma200 and slope > 0 and ltp <= close_5d × 1.10 and ltp > ema20`.
-> `ltp > ema20` passes at **+6.8% above** it, and the only extension guard is "has not run
-> 10% in five sessions". **20-Aug, SONACOMS:** pyramid said `ADD +8.7% · 0.57R`, S4 said
-> `NOT AT LOCATION · extended 2.9×ATR · IN SUPPLY · under 1R room`. Both correct by their
-> own definition — but the precise read is S4's. That name was a **hold**, not an add:
-> wait for it to come back toward the EMA20.
+> ⚠ **CORRECTION (20-Aug, same day).** An earlier version of this rule claimed that on
+> SONACOMS "pyramid said ADD while S4 said NOT AT LOCATION". **That was wrong.**
+> `pyramid_logic` live said **HOLD** for SONACOMS. The `ADD +8.7% · 0.57R` visible on the
+> S4 panel comes from the **v67 portfolio slot** — a snapshot written by Sync-to-TV, not a
+> live pyramid verdict. I read one panel field and inferred a disagreement between two
+> engines that were not actually disagreeing.
+>
+> **The general rule still stands, for a different reason:** `pyramid_logic._at_location`
+> WAS a trend test wearing a location test's name —
+> `ltp > sma200 and slope > 0 and ltp <= close_5d × 1.10 and ltp > ema20` — where
+> `ltp > ema20` passes at any distance above the 20-EMA. It now carries an ATR extension
+> cap (`ADD_MAX_EXT_ATR`, default 2.0), measured the same way S4 measures it, so the two
+> surfaces answer the same question on the same scale.
+>
+> **Measured on the live 17-position book: the cap changes nothing today** — the two ADDs
+> sit at 1.46× and 0.89× ATR above the 20-EMA. It is a guard against a case that has not
+> occurred yet, not a fix for one that has. The cap is 2.0 rather than 1.5 because 1.5
+> would have sat 0.04 ATR above a live ADD, one bar from deleting it silently.
+
+**And a rule that came out of getting it wrong:** a value on the S4 panel is not always
+computed by S4. The **v67 slot rows** (MY TRADE / POSITION) are *synced snapshots* — they
+are as old as the last Sync-to-TV. When a portfolio field on the chart disagrees with the
+Pyramid page, the page is live and the chart is a photograph.
+
 
 
 ## PART 9 — READING THE SYSTEM'S OWN OUTPUT
