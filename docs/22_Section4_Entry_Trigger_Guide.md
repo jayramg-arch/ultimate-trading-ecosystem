@@ -647,8 +647,28 @@ yesterday's alert points at yesterday's list by construction. Each evening:
 2. **Delete yesterday's alert.** Left in place it keeps firing on names that have already
    dropped out, which is the exact noise the shortlist exists to remove, and it eats the
    alert quota.
-3. Create today's on the new watchlist, named to match it — `S4 GO · GM-19AUG · 75m` — so a
+3. Create today's on the new watchlist, named to match it — `S4 GO · GM-20AUG · 75m` — so a
    stale one is obvious at a glance in the Alerts panel.
+4. **Repeat on 125m** (Jay runs both since 20-Aug). An alert inherits the chart's resolution,
+   so this is a second alert created from a 125m chart: `S4 GO · GM-20AUG · 125m`.
+
+**Why both, and what the two schedules actually differ in:**
+
+| | closes |
+|---|---|
+| **75m** | 10:30 · 11:45 · 13:00 · 14:15 · 15:30 |
+| **125m** | 11:20 · 13:25 · 15:30 |
+
+125m is not merely "the same signals, slower". Its first close is **11:20 — after the
+opening drive**, whereas 75m's first close **is** the opening drive: inflated RV, patterns
+firing in bulk, gap-fills unresolved. On 20-Aug, nine of fourteen alerts came from that
+10:30 bar. So the 125m set structurally skips the noisiest bar of the day, at the cost of
+two fewer ping windows and a later entry.
+
+> ⚠ **Two pings on one name is ONE setup seen twice, not confirmation.** Same engine, same
+> gates, same bars — only the sampling rate differs. Both timeframes share the 15:30 close,
+> so duplicates cluster there. Do not let a second ping raise conviction; check the panel on
+> the timeframe you intend to act on and treat the other as an echo.
 
 **This makes caveat 2 above disappear.** `gm_pb_list` / `gm_rec_list` are frozen into an
 alert at creation, which was the real weakness of the watchlist form; recreating daily
