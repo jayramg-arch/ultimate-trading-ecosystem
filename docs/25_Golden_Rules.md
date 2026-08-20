@@ -314,11 +314,42 @@ premise has gone with it — the trade was *buy at the level*, and price is no l
 level. This is also why the plan latches the trigger bar instead of re-deriving the entry
 from the live price.
 
-**And treat the 10:30 cluster with suspicion.** It is the FIRST 75m close of the session,
-so it carries the opening drive: relative volume is inflated, patterns fire in bulk, and
-gap-fills and auction noise are still resolving. **A 10:30 GO deserves more scrutiny than a
-13:00 GO, not less** — several firing at once is the bar's character, not a signal of a
-good day.
+**And treat the 10:30 cluster with suspicion — this one is MEASURED.**
+
+S4 computes `chart_rv = volume / sma(volume, 50)[1]`, a rolling baseline that **mixes every
+bar of the day**. NSE intraday volume is U-shaped, so that single baseline is too low for
+the opening bar and too high for the midday ones. Measured over 55 board names × 90 days,
+**14,466 bar-observations** (`rv_time_of_day_study.py`):
+
+| 75m bar closes | median RV | share of session volume | **V-gate pass ≥1.0** |
+|---|---:|---:|---:|
+| **10:30** | 0.97 | 27.3% | **48.2%** |
+| 11:45 | 0.53 | 15.5% | **20.5%** |
+| 13:00 | 0.50 | 13.6% | **18.6%** |
+| 14:15 | 0.48 | 13.4% | **17.3%** |
+| **15:30** | 1.05 | 28.8% | **52.8%** |
+
+**The V gate passes ~50% of the time at the open and close, and ~18% midday — a 2.8×
+difference caused purely by time of day.** So:
+
+- **A 10:30 GO cleared the weakest volume test of the day**, at the bar most exposed to
+  auction noise and gap resolution. Several firing at once is the bar's character, not a
+  sign of a good day.
+- **An 11:45 or 13:00 GO cleared a test only ~1 bar in 5 passes.** On the volume dimension
+  those are *stronger* evidence, which is the opposite of the "later is worse" intuition.
+- **15:30 is as inflated as 10:30** — and it is post-close, so it is tomorrow's decision
+  anyway.
+- **125m is milder** (36% / 17% / 37%): wider bars average more of the session, so the
+  distortion is smaller. An unanticipated second argument for running the 125m set.
+
+⚠ **This measures the GATE, not outcomes.** It does not say 10:30 triggers lose money —
+that needs an intraday backtest, and none exists (the s4go replay is daily-bar, `GO_Date`
+has no time component). Treat it as "the volume gate is not the same test at every hour",
+which is enough to change how much weight you give V at each bar.
+
+**The latent fix**, not yet made: an RV baseline computed per time-of-day slot rather than
+across all bars. It would remove the distortion both ways. It is a signal change, so it
+gets measured before it ships.
 
 ---
 
