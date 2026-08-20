@@ -2284,6 +2284,130 @@ Recovery re-baseline result still unreported. Branch unpushed, ~9 commits ahead 
 
 ---
 
+---
+
+## 18–20 Aug 2026 — RRG unification · S4 v9.18 · the doctrine docs (HANDOFF)
+
+Branch `phase0-1-attribution-journal-snapshot`. All committed, **not pushed**. Head `be24903`.
+
+> **▶ NEXT SESSION — DO THESE FIRST (all queued for "after market hours", Jay's call):**
+> 1. **`STOP_COMMANDER.bat` → relaunch.** Only pending Python is `pyramid_logic`. (NEW file
+>    `STOP_COMMANDER.bat` — `python -m streamlit` forks a child that keeps 8501, so Ctrl+C
+>    left the OLD code serving; that cost two "the fix didn't work" hours.)
+> 2. **Compile S4** — only pending Pine change is the alert title
+>    `S4 GO (PA + Location + Volume + Bar)` + message. **No S4Core publish needed**, `/14`
+>    already carries everything.
+> 3. **Re-run `BIND_S4_SOURCES.bat`**, then the evening ritual (rebuild → arm → create
+>    BOTH alerts, 75m and 125m).
+> 4. Still open from before: push/merge the branch · recovery-side validation re-baseline.
+
+### A. RRG unified across SIX surfaces (the day's biggest change)
+The RRG Studio calibration (`strike_cal`: decoupled 25/10/7 + origin-preserving affine
+`y = 100 + a(x−100)`, ratio_a 0.796, mom_a 3.498) now runs identically in:
+`rrg_studio/rrg_engine.py` · root `rrg_engine.py` · v67.4.21 · S4 (binds v67) ·
+Mansfield v1.6 · Risk Allocator v2.2 · Unified v3.5 · `bull_screener`.
+Verified to **0.000000000000** at series AND universe level. Constants are IMPORTED from
+`rrg_engine.STRIKE_CAL`, never copied.
+**The caller wiring was the part that mattered** — adding the branch alone was dead code
+because both Web Commander callers passed no `mode` and fell to `"percentage"`.
+
+### B. Forming-week fix (found on SYRMA)
+Two panels disagreed: Recovery said RRG LEADING, SECTOR/MACRO said WEAKENING. Neither
+stale, neither drifted — one used confirmed weekly bars, the other included the week in
+progress (momentum 100.38 vs 98.92 on a Tuesday's two sessions). `_drop_forming_week()`
+now drops the bar whose Friday has not arrived, on BOTH stock and benchmark legs, reading
+the PINNED date so replay drops the week forming *at that anchor*.
+Blast radius: Stage 5/49, RRG quadrant 5/49, tradeable 3/49, **Catalyst 0/49**.
+
+### C. Validation re-baseline (both changes)
+`20260819_112959` — 24mo nifty500, catalyst-aware (windows verified 60/120/180):
+
+| run | trades | mean α | median | win% | anchor hit% |
+|---|---:|---:|---:|---:|---:|
+| neither | 400 | −0.88% | −2.38% | 33.8 | 31.6 |
+| RRG only | 510 | +0.07% | −2.04% | 29.4 | 52.6 |
+| **both** | 515 | **+0.30%** | −1.93% | 30.7 | **55.0** |
+
+Every column improved monotonically, cumulative −9.71% → −3.86%. **But P(α>0) = 46.1%,
+CI95 [−2.62, +1.76] — still indistinguishable from zero.** Correctness fixes; they made the
+measurement honest, they did not create an edge. `LAST_RUN.txt` = `20260819_112959`.
+
+### D. S4 → v9.18 (compiled clean except the pending title change)
+- **SUMMARY** — the whole panel as one judgement, six lines (trend stack · leadership ·
+  location · participation · geometry · direction). Synthesis, never a digest: prints no
+  value that appears above it. Rendered as a **right-hand COLUMN** merged down rows 0–42,
+  not a row — a Pine cell does not auto-wrap, so as a full-width row it stretched the panel
+  across a 34" monitor. NEW `S4Core.wrapText()` does the wrapping; `summary_wrap` = 62.
+- **Gate 5 (R)** added, measured, and **turned OFF**. The BUY-OK whitelist was fitted on the
+  OLD RRG formula; re-measured on the new one (473 symbols, 93,745 weekly obs, IS/OOS,
+  bootstrapped by symbol) it is worth **+0.12pp at 4w and +0.00pp at 12w** —
+  `IMPROVING→LEADING` is reliably NEGATIVE and cancels what `LEADING→LEADING` earns. Only
+  `LEADING→LEADING` and `WEAKENING→LEADING` survived. `en_rrg_gate` defaults FALSE; R shows
+  on the chip, never vetoes.
+- **Strike-RRG manual paste RETIRED** (commented, row 7 free).
+- **Futures-OI positioning basis** on the existing OI row + **invalidation levels** on the
+  levels row — no new rows. NOT max pain (Pine cannot read an options chain).
+- Bodies live in **S4Core/14** (`summaryRead` · `wrapText` · `oiBasis` · `invalLevels` ·
+  `oiText`) — S4 hit BOTH the token ceiling and the ~1,000 main-body statement limit.
+
+### E. Unified Ecosystem v3.4.2 → v3.5
+Seven weeks stale. Stage was still a **hysteresis state machine + two tDir overrides** (the
+defect that mis-staged 19 of 56 names when v67 was fixed) → stateless 2×2. Slope had TWO
+errors making the flat band 6× S4's (`wSlopeLen` 6→4, and a per-bar rate → raw N-bar
+change). RRG → strike_cal. Targets → R-canon (POS/WYC/REV 3R/5R 25/25, SWG 2R/4R, GAP/REV
+50/50); T2's qty was hardcoded at 25. **⚠ Strategy Tester numbers from before are not
+comparable.**
+
+### F. Operational fixes
+- **screener.in was throttling bursts**, not down (a shell GET answered in 0.3s from the same
+  IP while every app request timed out). NEW `screener_breaker.py`: breaker + burst gate
+  (2 concurrent, ≥0.7s apart) + 15-min memo that CACHES A MISS. The board had fetched
+  CONCORDBIO **4× in 34 seconds**. 15 names / 8 threads now 15/15 OK.
+- **`run_pipeline` re-execs into the venv** — "No module named 'bs4'" came from py314's bs4
+  living in USER site-packages, invisible when elevated / `-s` / another user.
+- **GM board defaults**: Overall descending (was `sort_values("Symbol")`, silently
+  discarding the ranking) + all-gates **4/4** filter (matches `4/4`, NOT `GO`, so recency
+  `4/4 · PA 3b` rows survive — CHOLAFIN was one).
+- **Full Metrics printed raw HTML** — `section_pa_patterns` returned a TUPLE against a
+  `-> str` signature; the 14-Aug fix had been applied to the call site instead of the
+  function.
+- **`pyramid_logic._at_location` was a TREND test** (`ltp > ema20` passes at any distance);
+  now capped by `ADD_MAX_EXT_ATR` (2.0, calibrated — the live ADDs sit at 1.46× and 0.89×,
+  so 1.5 would have been 0.04 ATR from deleting one). Blast radius 0/17.
+
+### G. NEW doctrine documents (both also published as private Artifact pages)
+- **`docs/25_Golden_Rules.md`** — the DO/DON'T doctrine for shortlisting. Ten rules · the
+  funnel · context · location & geometry · the confirmation rule · sizing · a 12-step
+  checklist · §8b un-armed alert · §8c the alert marks a BAR not a state (+ the measured RV
+  table) · §8d pyramid ADD gates · reading evidence · behavioural.
+  Page: https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b
+- **`docs/26_GM_S4_Workflow.md`** — the operating loop, built from the REAL job times and
+  pipeline phases. Page: https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2
+- `docs/22` §7b — the alert procedure (per-symbol + watchlist, now a DAILY two-alert ritual
+  because the GM watchlist name carries the date) and §B2 (location is the gate that expires).
+
+### H. MEASURED: RV is time-of-day biased
+55 board names × 90 days, 14,466 bar-observations. The V gate passes **48.2% at 10:30** and
+**~18% midday** (52.8% at 15:30) — a 2.8× swing from time of day alone, because RV divides
+by a baseline mixing every bar. 125m milder (36/17/37). Measures the GATE, not outcomes —
+**no intraday backtest exists** (s4go replay is daily-bar). Latent fix (per-slot RV
+baseline) deliberately unbuilt. `rv_time_of_day_study.py`.
+
+### I. Alerts — the standing ritual
+Watchlist name is date-stamped, so **create both alerts fresh every evening** (75m + 125m),
+deleting yesterday's. Recreating also refreshes the `gm_pb_list`/`gm_rec_list` frozen into
+an alert at creation. **A recompile DELETES alerts** (binds to the script id). Two pings on
+one name is ONE setup seen twice, not corroboration.
+
+### Process notes from this session
+Four library-version snags, all mine — see [[library-version-sequencing]]. Two wrong
+conclusions caught by measurement: the SONACOMS "pyramid vs S4" story (it was a v67 SYNCED
+SNAPSHOT, see [[s4-panel-synced-vs-live]]) and an inverted RV table (bars are labelled by
+OPEN, see [[intraday-data-path-gotchas]]). A patch that asserted after a partial write left
+the tree half-changed and the commit still ran — verify the postcondition, then commit.
+
+---
+
 *This file is the persistent memory and strategic DNA of Jay's trading environment. All Claude interactions should remain consistent with these established systems. The "Current Project State" section above is mutable and should be refreshed at the close of each substantive work session.*
 
 ---
