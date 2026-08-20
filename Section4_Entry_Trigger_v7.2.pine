@@ -5542,7 +5542,7 @@ if show_panel and d_panel and barstate.islast
 // ==========================================
 // ALERTS
 // ==========================================
-alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume)", message="{{ticker}} S4 GO - a PA pattern fired at a valid location WITH volume. Confirm the closed bar → buy-STOP above its high.")
+alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar)", message="{{ticker}} S4 GO - all four gates on a closed bar: a PA pattern, at a valid LOCATION, with VOLUME, on a clean BAR. NOTE the location gate is current-state and expires - if you arrive late and the panel reads L·, price has left the level and the entry premise is gone. Open S4 and re-check before acting.")
 alertcondition(avwap_trig,    title="S4 AVWAP trigger",       message="{{ticker}} S4 AVWAP trigger - bounce / R2G>BO")
 alertcondition(intraday_trig, title="S4 Intraday trigger",    message="{{ticker}} S4 INTRADAY trigger - reclaimed rising 10-EMA + TTM squeeze fired up")
 alertcondition(pinched,       title="S4 AVWAP pinch",         message="{{ticker}} S4 AVWAPs pinched - high-conviction entry zone")

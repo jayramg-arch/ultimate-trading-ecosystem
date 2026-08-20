@@ -581,7 +581,7 @@ All fire **once per bar close** — this is deliberate: the closed bar *is* your
 
 | Condition | What it means | Use |
 |---|---|---|
-| **`S4 GO (PA + Location + Volume)`** | all four gates aligned on a closed bar | **this is the one** |
+| **`S4 GO (PA + Location + Volume + Bar)`** | all four gates aligned on a closed bar | **this is the one** |
 | `S4 AVWAP trigger` | a bounce or R2G reclaim — timing only, no location/volume gate | a name you are stalking |
 | `S4 Intraday trigger` | rising-10-EMA reclaim + TTM squeeze | noisier; optional |
 | `S4 AVWAP pinch` | the three anchored VWAPs converging | rare, high-conviction |
@@ -659,6 +659,49 @@ injected into the board union carrying the archetypes it had when armed, so it s
 into every subsequent watchlist even after it stops qualifying — which is precisely when
 losing the alert would hurt most. Add a per-symbol alert on top only where the mode is set
 manually.
+
+### B2. What the alert asserts — and the one gate that EXPIRES
+
+The condition is `go`, i.e. **all four gates on a closed bar**:
+
+```pine
+go = any_pa and support_pass and vol_ok and bar_ok and rrg_ok
+```
+
+*(`rrg_ok` is constant `true` while `en_rrg_gate` is off.)*
+
+> ⚠ **The title said "PA + Location + Volume" until 20-Aug-2026 and omitted the bar test.**
+> `bar_ok` joined the gate in v3.0 and the alertcondition title was never updated, so it
+> described a three-gate rule for a four-gate condition for months. Corrected — but if you
+> are looking at an alert created before that compile, its stored title is the old one.
+
+**Three of the four gates are fixed at the trigger bar. Location is not.**
+
+| Gate | Nature | Still true an hour later? |
+|---|---|---|
+| **P** pattern | structural — a pattern *formed* | yes |
+| **V** volume | a property of that bar | yes |
+| **B** bar | a property of that bar | yes |
+| **L** location | *price is at a level right now* | **no — price moves off it** |
+
+So an alert can fire correctly at 10:30 and the panel can read `L·` when you open it at
+11:45. Neither is wrong; you are reading a snapshot after the event. There is a second
+mechanism too: a tested zone is **deleted** by the lifecycle, so the very touch that
+triggered the alert can consume the zone that justified it.
+
+**Observed 20-Aug-2026:** nine alerts fired on the 10:30 bar; by the time the panels were
+read, SONACOMS and COFORGE showed `no location` while the other seven still had all four.
+SONACOMS still read `P✓ L· V✓ B✓` with the AVWAP-BO at 840.90 pressed against price at
+836.90 — it had simply drifted off the anchor.
+
+**What to do about it:** the alert marks a BAR, not a state. Arriving late, re-evaluate at
+the current bar — if location has gone, the entry premise has gone with it, because the
+trade was "buy at the level" and price is no longer at the level. This is also why the plan
+**latches the trigger bar** rather than re-deriving the entry from the live price.
+
+**A timing note worth knowing:** 10:30 is the FIRST 75m close of the session, so it carries
+the opening drive — RV is inflated and patterns fire in bulk. A cluster of alerts there is
+expected, and deserves more scrutiny than a 13:00 trigger, not less.
 
 ### C. Verify before relying on it
 
