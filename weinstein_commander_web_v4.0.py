@@ -13752,7 +13752,19 @@ elif page == 'GOLDEN MATCHER':
             # the static editor and the CSV download can never disagree about what you
             # are looking at.
             if st.session_state.get("gm_bf_go_only", True) and "S4-GO" in v.columns:
-                v = v[v["S4-GO"].astype(str).str.contains("GO", na=False)]
+            # ALL-GATES-PASS filter (19-Aug-2026, Jay's default). Matches "4/4", NOT "GO".
+            #
+            # s4go_status emits "4/4 GO" only when the PA fired on the LIVE bar; a few
+            # bars old it emits "4/4 · PA 3b" with no "GO" in the string. Matching "GO"
+            # therefore hid names where all four gates pass but the pattern is not fresh
+            # - CHOLAFIN was exactly that on 18-Aug ("4/4 · PA 3b · PB · ↑W"). Jay's call:
+            # show the recency 4/4s.
+            #
+            # Anchored to the START of the string on purpose: the upstream vetoes render
+            # as "⛔ Stage 3 · gates 4/4" / "⛔ RRG WAIT · gates 4/4", which CONTAIN "4/4".
+            # startswith keeps them out; a plain `contains` would let a Stage-4 name back
+            # onto a board that exists to show tradeable names.
+                v = v[v["S4-GO"].astype(str).str.strip().str.startswith("4/4")]
             if not v.empty:
                 # SORT: Overall descending (Jay's default) - was sort_values("Symbol"),
                 # an alphabetical re-sort that silently discarded the Overall ranking the
@@ -13814,13 +13826,14 @@ elif page == 'GOLDEN MATCHER':
             # board warns with the same number that will later refuse the entry.
             # GO-only switch for the filter above. Shows how many rows it is hiding so
             # an empty-looking board is never mistaken for a failed build.
-            _go_tot = int(_bdf_hdr["S4-GO"].astype(str).str.contains("GO", na=False).sum())                       if "S4-GO" in _bdf_hdr.columns else 0
-            st.checkbox(f"GO only  ·  {_go_tot} of {len(_bdf_hdr)} rows",
+            _go_tot = (int(_bdf_hdr["S4-GO"].astype(str).str.strip().str.startswith("4/4").sum())
+                       if "S4-GO" in _bdf_hdr.columns else 0)
+            st.checkbox(f"All gates (4/4) only  ·  {_go_tot} of {len(_bdf_hdr)} rows",
                         value=True, key="gm_bf_go_only",
-                        help="Default ON: the table shows only names whose S4-GO reads a live "
-                             "GO, sorted by Overall descending. Untick to see every row "
-                             "including the near-misses (3/4, 2/4) and the upstream vetoes "
-                             "(Stage, RRG). Applies to the grid AND the CSV download.")
+                        help="Default ON: only names where all four gates pass - both a live "
+                             "'4/4 GO' and a recent '4/4 · PA 3b'. Sorted by Overall "
+                             "descending. Untick to see the near-misses (3/4, 2/4) and the "
+                             "upstream vetoes (Stage, RRG). Applies to the grid AND the CSV.")
             try:
                 import sector_lookup as _sl
                 _mix_src = _board_apply_filters(_bdf_hdr)
@@ -14035,8 +14048,13 @@ elif page == 'GOLDEN MATCHER':
                     for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
                                 "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%"):
                         if _nc in _v.columns:
+                            # sortingOrder desc-FIRST (21-Aug): AG-Grid's default cycle is
+                            # asc -> desc -> none, so on a ranked number the first click
+                            # gives you the WORST rows. For a decision board the useful
+                            # end is always the top, so descending is the first click.
                             _gb.configure_column(_nc, type=["numericColumn"],
-                                                 filter="agNumberColumnFilter")
+                                                 filter="agNumberColumnFilter",
+                                                 sortingOrder=["desc", "asc", None])
                     # Pin the decision columns to the left so they are ALWAYS visible
                     # (the grid has ~39 cols). Item 12: Path + RRG join the pinned set so
                     # the full decision row (Symbol · Overall · Category · S4-GO ·
@@ -14092,7 +14110,23 @@ elif page == 'GOLDEN MATCHER':
                             "if(v.indexOf('Armed')>=0)return{'color':'#ff9800'};"
                             "if(v.indexOf('Wait for Pullback')>=0)return{'color':'#ffb74d'};"
                             "return{};}"))
-                    _resp = AgGrid(_v, gridOptions=_gb.build(),
+                    # 21-Aug: apply the default sort STATE explicitly. A colDef `sort`
+                    # is honoured only when the grid first mounts; with a stable component
+                    # key the grid persists across reruns and comes back unsorted, which is
+                    # why the board needed one manual click. onGridReady + onFirstDataRendered
+                    # fire on mount and on each new data set -- NOT on user header clicks --
+                    # so this seeds the default without fighting a sort Jay chooses later.
+                    _sort_primary = "S4-GO" if is_max_board else "Overall"
+                    _sort_second = "Overall" if is_max_board else "S4-GO"
+                    _apply_sort_js = JsCode(
+                        "function(p){try{p.api.applyColumnState({state:["
+                        f"{{colId:'{_sort_primary}',sort:'desc',sortIndex:0}},"
+                        f"{{colId:'{_sort_second}',sort:'desc',sortIndex:1}}"
+                        "],defaultState:{sort:null}});}catch(e){}}")
+                    _go = _gb.build()
+                    _go["onGridReady"] = _apply_sort_js
+                    _go["onFirstDataRendered"] = _apply_sort_js
+                    _resp = AgGrid(_v, gridOptions=_go,
                                    height=(880 if is_max_board else 560), theme="streamlit",
                                    allow_unsafe_jscode=True, reload_data=False,
                                    update_mode=GridUpdateMode.VALUE_CHANGED, key="gm_aggrid")

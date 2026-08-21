@@ -187,8 +187,14 @@
   defaults to retest for this reason.
 - **For a breakout above a known ceiling:** wait for a closed bar above it on volume, then
   buy-stop above *that bar's* high, or bid the retest of the level as new support.
-- **Demand volume.** RV is the most reliable confirmation the panel offers and the thing most
-  often missing from failed breakouts — with one exception below.
+- **Insist on volume — the V gate is not optional.** RV is the most reliable confirmation the
+  panel offers and the thing most often missing from failed breakouts — with one exception below.
+  **What RV is:** the *current bar's* volume divided by a rolling 50-bar average of the same
+  series, computed **on the timeframe of the chart you are looking at**. On a 75m chart it is
+  a 75m bar vs the average 75m bar — so on an intraday chart RV *is* intraday volume. It is
+  not a daily figure, and there is no separate non-intraday volume measure anywhere in S4 or
+  the board. Read RV against the clock: the same 1.0 means different things at 10:30 and at
+  13:00 (§8c).
 
 **DON'T**
 
