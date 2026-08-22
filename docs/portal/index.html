@@ -26,6 +26,7 @@
   --cw:#B4551A; --cw-bg:#FBEDE1;
   --db:#1F3A5F; --db-bg:#E6ECF4;
   --bull:#3D4A8C; --bull-bg:#E8EAF6;
+  --rec:#8C4A2F; --rec-bg:#F8EBE4;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
   --body:'Newsreader',Georgia,'Times New Roman',serif;
@@ -47,6 +48,7 @@
     --cw:#F0985A; --cw-bg:#331F0F;
     --db:#7FA6D9; --db-bg:#131E2E;
     --bull:#8E9AE0; --bull-bg:#181C33;
+    --rec:#E0906B; --rec-bg:#331C11;
   }
 }
 :root[data-theme="dark"]{
@@ -65,6 +67,7 @@
   --cw:#F0985A; --cw-bg:#331F0F;
   --db:#7FA6D9; --db-bg:#131E2E;
   --bull:#8E9AE0; --bull-bg:#181C33;
+  --rec:#E0906B; --rec-bg:#331C11;
 }
 
 *{box-sizing:border-box}
@@ -147,6 +150,7 @@ td.st{width:120px;white-space:nowrap}
 .pill.page.cw{color:var(--cw);background:var(--cw-bg);border-color:var(--cw)}
 .pill.page.db{color:var(--db);background:var(--db-bg);border-color:var(--db)}
 .pill.page.bs{color:var(--bull);background:var(--bull-bg);border-color:var(--bull)}
+.pill.page.rc{color:var(--rec);background:var(--rec-bg);border-color:var(--rec)}
 .pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 
 .note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
@@ -176,7 +180,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>13</b><span>Published pages</span></div>
+      <div class="count"><b>14</b><span>Published pages</span></div>
       <div class="count"><b>24</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
@@ -187,7 +191,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Published pages</h2><div class="rule"></div><span class="ct">13 of 24</span>
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">14 of 24</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -362,6 +366,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
+
+    <a class="card" style="--spine:var(--rec)" href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 09 &middot; Screeners</p>
+        <p class="card-t">Quality on Sale</p>
+        <p class="card-d">The recovery screener &mdash; the 15&ndash;35% band that keeps falling
+        knives out, nine signal codes with Wyckoff on top, the ten adaptive gates, and the
+        best-evidenced gate change in the whole system.</p>
+        <div class="card-m"><span>Beaten down, not broken</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
   </div>
 
   <div class="sec-head">
@@ -416,7 +433,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td class="id">11</td><td class="nm"><a href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">The Catalyst Engine</a></td><td>Six catalysts, two scores, the six-gate base test</td><td class="st"><span class="pill page bs">Page</span></td></tr>
-        <tr><td class="id">09</td><td class="nm">Recovery Screener v2.1</td><td>RFF and the beaten-down book</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">09</td><td class="nm"><a href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">Quality on Sale</a></td><td>The band, nine signals, and the fundamental gate</td><td class="st"><span class="pill page rc">Page</span></td></tr>
         <tr><td class="id">13</td><td class="nm">Unified Ecosystem v3.5</td><td>The combined strategy surface</td><td class="st"><span class="pill md">Markdown</span></td></tr>
         <tr><td class="id">21</td><td class="nm">Mansfield RS Auto-Sector</td><td>Relative strength and sector benchmark</td><td class="st"><span class="pill md">Markdown</span></td></tr>
         <tr><td class="id">25*</td><td class="nm">Scanner Filter Map</td><td>Every auto-pilot source and its filters</td><td class="st"><span class="pill md">Markdown</span></td></tr>
