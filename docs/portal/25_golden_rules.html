@@ -1,0 +1,699 @@
+<title>GM + S4 Golden Rules</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7; --no-rule:#E5AFA8;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A; --no-rule:#6B2E2C;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A; --no-rule:#6B2E2C;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ── masthead ─────────────────────────────────────────── */
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:1180px;margin:0 auto;padding:44px 24px 34px;
+  display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;justify-content:space-between}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(34px,5.2vw,54px);line-height:1.02;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:16.5px;color:var(--ink-2);max-width:56ch;margin:14px 0 0}
+.stamp{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;line-height:1.9;
+  border-left:2px solid var(--rule);padding-left:16px}
+.stamp b{color:var(--ink-2);font-weight:500}
+
+/* ── layout ───────────────────────────────────────────── */
+.cols{display:grid;grid-template-columns:214px minmax(0,1fr);gap:56px;padding:44px 0 96px}
+nav.toc{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow-y:auto}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:baseline;
+  font-family:var(--mono);font-size:12px;line-height:1.35;color:var(--muted);
+  text-decoration:none;padding:7px 8px;border-radius:3px}
+nav.toc a span{color:var(--rule)}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink)}
+nav.toc a:hover span{color:var(--go)}
+nav.toc a:focus-visible{outline:2px solid var(--go);outline-offset:1px}
+
+main{min-width:0}
+section{margin:0 0 68px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(23px,2.7vw,31px);line-height:1.14;
+  letter-spacing:-.015em;margin:0 0 8px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:18.5px;letter-spacing:-.01em;
+  margin:34px 0 10px;color:var(--ink)}
+p{margin:0 0 15px;max-width:68ch}
+a{color:var(--go)}
+strong{font-weight:600}
+code,.m{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+.lede{font-size:18px;color:var(--ink-2);max-width:66ch}
+
+/* ── the ten ──────────────────────────────────────────── */
+ol.ten{list-style:none;counter-reset:t;margin:26px 0 0;padding:0;
+  display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+ol.ten li{counter-increment:t;background:var(--surface);padding:16px 20px 16px 62px;position:relative}
+ol.ten li::before{content:counter(t,decimal-leading-zero);position:absolute;left:18px;top:16px;
+  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--go)}
+ol.ten b{font-family:var(--grot);font-weight:700;font-size:16.5px;display:block;margin-bottom:2px}
+ol.ten span{font-size:15.5px;color:var(--ink-2)}
+
+/* ── do / dont ────────────────────────────────────────── */
+.pair{display:grid;gap:18px;margin:22px 0 0}
+@media(min-width:900px){.pair{grid-template-columns:1fr 1fr}}
+.blk{border:1px solid var(--rule);border-left-width:3px;background:var(--surface);padding:16px 18px}
+.blk.do{border-left-color:var(--go)}
+.blk.dont{border-left-color:var(--no)}
+.blk h4{margin:0 0 10px;font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;font-weight:600}
+.blk.do h4{color:var(--go)}
+.blk.dont h4{color:var(--no)}
+.blk ul{margin:0;padding-left:17px;display:flex;flex-direction:column;gap:9px}
+.blk li{font-size:15.5px;line-height:1.55}
+.blk li::marker{color:var(--muted)}
+
+/* ── callout ──────────────────────────────────────────── */
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:22px 0;font-size:15.5px;color:var(--ink)}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0 0 8px;max-width:none}
+.note p:last-child{margin:0}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:22px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink-2)}
+
+/* ── checklist tool ───────────────────────────────────── */
+.ck{border:1px solid var(--rule);background:var(--surface);margin:24px 0 0}
+.ck-hd{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--rule);background:var(--surface-2)}
+.ck-hd .t{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);font-weight:600}
+.ck-hd .s{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+button{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;cursor:pointer;
+  border:1px solid var(--rule);background:var(--surface);color:var(--ink-2);
+  padding:6px 12px;border-radius:3px}
+button:hover{border-color:var(--muted);color:var(--ink)}
+button:focus-visible{outline:2px solid var(--go);outline-offset:1px}
+.step{display:grid;grid-template-columns:34px 1fr auto;gap:14px;align-items:start;
+  padding:13px 18px;border-bottom:1px solid var(--rule-soft)}
+.step:last-child{border-bottom:0}
+.step .i{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);
+  font-variant-numeric:tabular-nums;padding-top:2px}
+.step .q{font-size:15.5px;line-height:1.5}
+.step .q em{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  display:block;margin-top:3px}
+.step .btns{display:flex;gap:6px}
+.step button.ok[aria-pressed="true"]{background:var(--go-bg);border-color:var(--go-rule);color:var(--go)}
+.step button.no[aria-pressed="true"]{background:var(--no-bg);border-color:var(--no-rule);color:var(--no)}
+.step.blocked{opacity:.34}
+.step.blocked .btns{pointer-events:none}
+.stopbar{display:none;padding:13px 18px;background:var(--no-bg);border-top:1px solid var(--no-rule);
+  font-family:var(--mono);font-size:12.5px;color:var(--no);line-height:1.55}
+.stopbar.on{display:block}
+
+/* ── close ────────────────────────────────────────────── */
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);
+  max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:860px){
+  body{font-size:16px}
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 70px}
+  nav.toc{position:static;max-height:none;margin:0 0 34px;
+    border:1px solid var(--rule);background:var(--surface);padding:10px}
+  nav.toc ol{flex-direction:row;flex-wrap:wrap;gap:2px}
+  .stamp{text-align:left;border-left:0;border-top:2px solid var(--rule);padding:14px 0 0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Trading doctrine · GM + S4</p>
+      <h1>Golden Rules</h1>
+      <p class="dek">The standing DO / DON'T guide for identifying and shortlisting trades.
+        Every rule names the incident or the number behind it — so it can be re-argued when
+        the evidence changes, and never broken silently.</p>
+    </div>
+    <div class="stamp">
+      <b>Updated</b> 20 Aug 2026<br>
+      <b>Scope</b> entry decisions<br>
+      <b>Read</b> Part 1 before the session<br>
+      <b>Use</b> Part 8 at the trade
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#p1"><span>01</span>The Ten Rules</a></li>
+    <li><a href="#p2"><span>02</span>Before any chart</a></li>
+    <li><a href="#p3"><span>03</span>The funnel</a></li>
+    <li><a href="#p4"><span>04</span>Context gates</a></li>
+    <li><a href="#p5"><span>05</span>Location &amp; geometry</a></li>
+    <li><a href="#p6"><span>06</span>Trigger &amp; entry</a></li>
+    <li><a href="#p7"><span>07</span>Sizing &amp; exits</a></li>
+    <li><a href="#p8"><span>08</span>The checklist</a></li>
+    <li><a href="#p9"><span>09</span>Reading the panel</a></li>
+    <li><a href="#p10"><span>10</span>Reading evidence</a></li>
+    <li><a href="#p11"><span>11</span>Behavioural</a></li>
+    <li><a href="#px"><span>—</span>Defaults</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="p1">
+  <p class="pt">Part 1</p>
+  <h2>The Ten Rules</h2>
+  <p class="lede">If you read nothing else before the session, read these.</p>
+  <ol class="ten">
+    <li><b>The watchlists qualify. The board times. S4 is the plan of record.</b><span>Never re-litigate qualification on the chart, and never take the plan from the board.</span></li>
+    <li><b>Never buy the touch. Buy the confirmation.</b><span>Alert at the level → wait for a CLOSED bar → act on that bar. Never a resting order at the level.</span></li>
+    <li><b>A stop closer than 1×ATR(D) is not a stop.</b><span>Any R-multiple measured against it is fiction. Re-price before you believe it.</span></li>
+    <li><b>Invalidation is not the stop.</b><span>Know both prices before you enter, and know which one you will act on.</span></li>
+    <li><b>A GO is not a trade.</b><span>The setup can be sound while the plan is wrong. Fix the entry, the stop or the target — or pass.</span></li>
+    <li><b>Room decides tradeability.</b><span>If T1 <em>is</em> the resistance you distrust, you don't have a trade — you have a breakout candidate.</span></li>
+    <li><b>Sector and weekly trend are gates, not footnotes.</b><span>A Stage 3/4 sector or a weekly downtrend changes what the same chart is worth.</span></li>
+    <li><b>Read results per family × direction. Never pooled.</b><span>Pooling has produced three false conclusions in this system already.</span></li>
+    <li><b>Log the decision — especially the passes.</b><span>A log that records only entries cannot tell you whether your instinct beats the system.</span></li>
+    <li><b>Confidence comes from executed trades, not built features.</b><span>When the urge is to build, check whether there is a trade you are avoiding.</span></li>
+  </ol>
+</section>
+
+<section id="p2">
+  <p class="pt">Part 2</p>
+  <h2>Before you look at a single chart</h2>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Restart properly.</b> <span class="m">STOP_COMMANDER.bat</span>, then relaunch. <span class="m">python -m streamlit</span> forks a child that keeps port 8501, so Ctrl+C leaves the OLD code serving.</li>
+        <li><b>Check the data is today's.</b> The board prints <span class="m">As_Of</span> and a provenance strip. A stale cache once froze 15 names on 9-day-old bars.</li>
+        <li><b>Rebuild after any Trigger-TF or X-Ray change.</b> Cached rows predate it.</li>
+        <li><b>Confirm the source lists aren't empty.</b> The header names header-only CSVs — that is how Hunter names silently vanished.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li>Don't assume a browser reload reloaded the code. It does not — only a process restart does.</li>
+        <li>Don't read a mid-session snapshot after the close, or a &gt;15-minute-old one during the session. The AGE guard warns you.</li>
+        <li>Don't compare today's Overall against last week's screenshot. Stage, RS and RRG were all recalibrated on 18–19 Aug.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="p3">
+  <p class="pt">Part 3</p>
+  <h2>The funnel — and what never to ask each surface</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Stage</th><th>Surface</th><th>Answers</th><th>Never ask it for</th></tr></thead>
+    <tbody>
+      <tr><td class="n">QUALIFY</td><td>Chartink · Screener.in · pullback_finder</td><td>Does this name belong on the list at all?</td><td class="n">timing</td></tr>
+      <tr><td class="n">TIME</td><td>GM Trigger Board</td><td>Which qualified names deserve attention now?</td><td class="n">the plan</td></tr>
+      <tr><td class="n">EXECUTE</td><td>S4 on TradingView</td><td>Entry, stop, target — and is it worth taking?</td><td class="n">qualification</td></tr>
+      <tr><td class="n">MANAGE</td><td>Risk Shield · Pyramid</td><td>What do I do now that I own it?</td><td class="n">entries</td></tr>
+    </tbody>
+  </table></div>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Inherit qualification.</b> A name off the Hunter / EarlyBird / Pullback / Leader list was already qualified. Re-qualifying dead-ended the rigorous lists for weeks.</li>
+        <li><b>Use the board default</b> — all-gates (4/4), sorted by Overall. Untick to see near-misses; the header says how many it hides.</li>
+        <li><b>Treat <span class="m">4/4 · PA 3b</span> as real.</b> All four gates pass, the pattern fired a few bars ago. CHOLAFIN was exactly that.</li>
+        <li><b>Read S4 on the same timeframe</b> as the board tab the name came from.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li>Don't chase catalyst-scan names with no live catalyst — the board marks them <span class="m">catalyst expired</span>.</li>
+        <li>Don't expect the board and S4 to agree perfectly. Different feeds, a location proxy, and the board leads by design. Identical output would be suspicious.</li>
+        <li>Don't trade a <b>Recovery</b> name off S4 alone. Recovery qualification is RFF <em>fundamentals</em>; the chart cannot see them.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="p4">
+  <p class="pt">Part 4</p>
+  <h2>Context — the gates that come before the chart</h2>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Check the trend stack</b> — weekly, daily, entry-TF. The best long is a dip inside a weekly uptrend. Down at all three is a counter-trend bounce: smaller size, first obstacle as target.</li>
+        <li><b>Respect the sector.</b> Stage 4 = long inside a group being distributed, the most common way a good chart fails. Stage 3 = no tailwind.</li>
+        <li><b>Prefer leadership.</b> Beating index <em>and</em> sector with rotation intact is the strongest single argument a name has.</li>
+        <li><b>Note the stage age.</b> Weeks old is early but unproven; 30 weeks in, demand more from the entry.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li><b>Don't hold Stage 3 or Stage 4.</b> The rule you are historically slowest on — RELIANCE sat as a known Stage-4 violation for weeks.</li>
+        <li>Don't gate on the RRG quadrant. Measured: the tradeable whitelist is worth <b>+0.12pp at 4 weeks, +0.00pp at 12</b>.</li>
+        <li>Don't call it leadership when rotation has rolled over. Strength being <em>given back</em> is not strength.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><span class="lbl">The two that survived</span>
+    <p>Only <span class="m">LEADING → LEADING</span> and <span class="m">WEAKENING → LEADING</span> were positive at both horizons in both windows. Those two are worth your eye on the chip. The rest is noise.</p>
+  </div>
+</section>
+
+<section id="p5">
+  <p class="pt">Part 5</p>
+  <h2>Location and geometry</h2>
+  <p class="lede">Where the money is actually lost.</p>
+
+  <h3>Location</h3>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Buy at a level, not a price.</b> A zone gives an area and a distal that defines wrong. A line gives way without warning.</li>
+        <li><b>Know which kind.</b> A pattern zone marks an imbalance — breaking it means the demand that caused the advance is gone. A pivot zone is a shelf — breaking it means a lower low. The pivot is weaker and scores nothing in confluence.</li>
+        <li><b>Tests WEAKEN a level.</b> 1 = fresh · 2–5 = tested · <b>6+ = spent, and a breakout candidate</b>.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li>Don't buy inside supply and call it a pullback. The only coherent long from inside supply is one paid for <em>breaking</em> it.</li>
+        <li>Don't buy extended. Beyond ~2.5×ATR from the daily EMA20 with no zone underneath, every stop is arbitrary and every dip looks like an entry.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Geometry — the most expensive recurring error</h3>
+  <div class="note"><span class="lbl">The evidence</span>
+    <p><b>CHOLAFIN, 18 Aug.</b> Engine printed <span class="m">T1 5.6R</span>. The stop was <b>13 points</b> against an <b>ATR(D) of 46.3</b> — 0.28×ATR. Re-priced against a 1×ATR stop, T1 was <b>~1.6R</b>.</p>
+    <p><b>COFORGE, 19 Aug.</b> <span class="m">3.1R</span> off a 0.33×ATR stop. Same fiction, next day.</p>
+  </div>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Measure every stop in ATR before believing any R.</b> Under 0.5× the panel says so outright; under 1× treat the R as optimistic.</li>
+        <li><b>Set the stop from volatility, then let the reward fall where it falls.</b> A 2R trade priced honestly beats a 5R trade on a stop that cannot survive a Tuesday.</li>
+        <li><b>Keep invalidation separate.</b> Hard stop for the wick, closing-basis exit at the structural level for the thesis. The panel prints both.</li>
+        <li><b>Check room first.</b> <span class="m">IN SUPPLY</span> or under 1R to the first obstacle means the trade must pay before it reaches anything.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li><b>Don't accept the R the panel hands you.</b> It derives the stop from the nearest structure without asking whether that structure is closer than a day's noise.</li>
+        <li>Don't set entry and invalidation a point apart. If being <em>in</em> and being <em>wrong</em> are the same price, wait for a deeper entry.</li>
+        <li>Don't widen a stop to flatter the R without re-sizing. Wider stop, smaller position, same rupee risk — or it is not the same trade.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="p6">
+  <p class="pt">Part 6</p>
+  <h2>Trigger and entry</h2>
+  <div class="note"><span class="lbl">Your most expensive habit</span>
+    <p>Entering at the zone on the touch, skipping confirmation. This is the rule with the most evidence behind it and the one worth being rigid about.</p>
+  </div>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Alert at the level. Wait for a CLOSED bar. Then act.</b></li>
+        <li><b>Prefer the retest to the buy-stop.</b> Your own A/B: buy-stop <b>−0.02%</b> mean matched alpha vs retest <b>+0.38%</b>, better in every family — and the retest filled <b>320 names vs 268</b>.</li>
+        <li><b>Breaking a known ceiling?</b> Wait for a closed bar above on volume, then buy-stop above <em>that bar's</em> high — or bid the retest of the level as new support.</li>
+        <li><b>Insist on volume — the V gate is not optional.</b> The most reliable confirmation the panel offers, and what failed breakouts most often lack. <b>What RV is:</b> the current bar’s volume ÷ a rolling 50-bar average of the same series, computed <b>on the timeframe of the chart you are looking at</b>. On a 75m chart that is a 75m bar against the average 75m bar — so on an intraday chart RV <em>is</em> intraday volume. There is no separate non-intraday volume measure in S4 or the board. Read it against the clock: the same 1.0 means different things at 10:30 and at 13:00 (see §8c).</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li><b>Never park a resting order at the level.</b> Price tags it, fills you, closes back below — and you are long inside supply with the level overhead.</li>
+        <li>Don't treat a coil as a trigger. NR7 and inside bars are <em>compression</em>, not ignition.</li>
+        <li>Don't act on a dead-volume reclaim. VIJAYA's RV-0.2 fade-bounce was a skip.</li>
+        <li>Don't read "buy-limit at the trigger close" as a pullback when that close <em>is</em> the current bar — it fills at market, and the panel says so.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><span class="lbl">The one volume exception</span>
+    <p>At a demand zone in pullback context, thin volume is <em>dry-up</em> — sellers exhausted, which is what you want. It stops being a virtue the moment you need follow-through. The RV floor drops to 0.5 there for exactly this reason.</p>
+  </div>
+</section>
+
+<section id="p7">
+  <p class="pt">Part 7</p>
+  <h2>Sizing, management and exits</h2>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>1% risk per trade</b> (0.25% new entries, 1% on pyramid adds), volatility-adjusted off the 14-day ATR.</li>
+        <li><b>Let the trail do the work.</b> Over 203 POS trades: <b>88% exit on the trail</b>, 11.8% at the initial stop, and only <b>8.4% ever reach 3R</b>.</li>
+        <li><b>Use the R-canon</b> — swing 2R/4R, positional 3R/5R, nothing under 2R. Half the position carries no target and rides.</li>
+        <li><b>Trail tighten-only, never loosen.</b></li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li>Don't re-tune the stop or trail on a hunch. Four studies have rejected tightening — the structural-SL variant had the best mean, passed the OOS gate, and was still rejected on median (−0.48R → −1.01R) and stop-outs (11.8% → 52.7%).</li>
+        <li>Don't hold a positional target on a swing-shaped trade. If structure says swing, book into strength.</li>
+        <li>Don't leave a position without a resting stop. 445 shares once sat uncovered.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="p8">
+  <p class="pt">Part 8</p>
+  <h2>The checklist</h2>
+  <p class="lede">Run it in order at the moment of the trade. <b>Stop at the first NO.</b></p>
+  <div class="ck">
+    <div class="ck-hd">
+      <span class="t">Pre-trade gate</span>
+      <span class="s" id="ckstat">0 of 12 cleared</span>
+      <button type="button" id="ckreset">Reset</button>
+    </div>
+    <div id="cksteps"></div>
+    <div class="stopbar" id="ckstop"></div>
+  </div>
+
+  <h3>8b · When the alert fires on a name you have <em>not</em> armed</h3>
+  <p>The one case the checklist above does not cover — it assumes you arrived at the chart
+     deliberately. An alert can instead introduce you to a stock.</p>
+  <p><b>It is not a contradiction.</b> Arming is a manual attention marker, not a gate. A
+     qualified name that triggers before you got round to arming it is the alert doing the
+     watching you didn't. The name is on the watchlist, so it is already qualified.</p>
+  <p>Spend 30 seconds on <em>why</em> first — the likeliest cause is a stale board. Is it
+     rebuilt for <em>this</em> bar? Same timeframe as the alert? Then read the row:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Board row</th><th>Do</th></tr></thead>
+    <tbody>
+      <tr><td class="n">agrees, or behind</td><td>Take it through the checklist — S4 is the plan of record.</td></tr>
+      <tr><td class="n">INVALIDATED</td><td><b>Stop.</b> Board and S4 share the same stage 2×2, so they should not disagree — one has stale data. Reconcile before acting.</td></tr>
+      <tr><td class="n">board unavailable</td><td>S4 alone can evaluate the trade, but the cross-check is gone. Be stricter on geometry.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><span class="lbl">The real cost</span>
+    <p>Not the missing arm — the missing homework. An un-armed name is usually one you have
+       not studied: its archetype, which scan qualified it, Bull or Recovery, and if Recovery
+       whether the RFF fundamentals hold — which <b>S4 cannot see</b>. You would be doing that
+       research at the trigger, under time pressure, which is where your worst entries came from.</p>
+    <p><b>The rule:</b> take it if the checklist passes <em>and</em> you can answer "why is this
+       name on the list at all" without guessing. If you cannot, the pass reason writes itself.</p>
+  </div>
+  <p><b>The structural fix is upstream.</b> Arm names during the evening review, so a trigger
+     arrives on a stock you have already thought about. The alert should tell you <em>when</em>
+     — it should not be making the introduction.</p>
+
+  <h3>8c · The alert marks a <em>bar</em>, not a state — and the first bar of the day lies</h3>
+  <p>Three of the four gates are fixed at the trigger bar. <b>Location is not.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Gate</th><th>Nature</th><th>True an hour later?</th></tr></thead>
+    <tbody>
+      <tr><td class="n">P · pattern</td><td>structural — a pattern <em>formed</em></td><td class="n">yes</td></tr>
+      <tr><td class="n">V · volume</td><td>a property of that bar</td><td class="n">yes</td></tr>
+      <tr><td class="n">B · bar</td><td>a property of that bar</td><td class="n">yes</td></tr>
+      <tr><td class="n">L · location</td><td><em>price is at a level right now</em></td><td class="n" style="color:var(--no)"><b>no</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>An alert can fire correctly at 10:30 and the panel read <span class="m">L·</span> when you
+     open it at 11:45. Neither is wrong. There is a second route too: a <b>tested zone is
+     deleted</b> by the lifecycle, so the touch that fired the alert can consume the zone that
+     justified it.</p>
+  <div class="note"><span class="lbl">20 Aug — nine alerts on the 10:30 bar</span>
+    <p>By the time the panels were read, SONACOMS and COFORGE showed <em>no location</em>.
+       SONACOMS still read <span class="m">P✓ L· V✓ B✓</span> with the AVWAP-BO at 840.90 pressed
+       against price at 836.90 — it had drifted off the anchor it triggered on.</p>
+  </div>
+  <p><b>Arriving late, re-evaluate at the current bar.</b> If location has gone, the entry
+     premise has gone with it — the trade was <em>buy at the level</em>, and price is no longer
+     at the level. It is also why the plan latches the trigger bar instead of re-deriving the
+     entry from live price.</p>
+  <p><b>And treat the 10:30 cluster with suspicion — this one is MEASURED.</b> S4 computes
+     <span class="m">chart_rv = volume / sma(volume,50)[1]</span>, a rolling baseline that mixes
+     <em>every bar of the day</em>. NSE intraday volume is U-shaped, so that single baseline is
+     too low for the opening bar and too high for the midday ones. Over 55 board names × 90 days,
+     <b>14,466 bar-observations</b>:</p>
+  <div class="tw"><table>
+    <thead><tr><th>75m bar closes</th><th>median RV</th><th>share of session volume</th><th>V-gate pass ≥1.0</th></tr></thead>
+    <tbody>
+      <tr><td class="n"><b>10:30</b></td><td class="n">0.97</td><td class="n">27.3%</td><td class="n" style="color:var(--no)"><b>48.2%</b></td></tr>
+      <tr><td class="n">11:45</td><td class="n">0.53</td><td class="n">15.5%</td><td class="n">20.5%</td></tr>
+      <tr><td class="n">13:00</td><td class="n">0.50</td><td class="n">13.6%</td><td class="n">18.6%</td></tr>
+      <tr><td class="n">14:15</td><td class="n">0.48</td><td class="n">13.4%</td><td class="n">17.3%</td></tr>
+      <tr><td class="n"><b>15:30</b></td><td class="n">1.05</td><td class="n">28.8%</td><td class="n" style="color:var(--no)"><b>52.8%</b></td></tr>
+    </tbody>
+  </table></div>
+  <p><b>The V gate passes ~50% at the open and close, and ~18% midday — a 2.8× difference from
+     time of day alone.</b> So a 10:30 GO cleared the weakest volume test of the day, at the bar
+     most exposed to auction noise; an 11:45 or 13:00 GO cleared one that only ~1 bar in 5
+     passes, which makes it <em>stronger</em> evidence on that dimension. 15:30 is as inflated as
+     10:30 and is post-close anyway. 125m is milder (36% / 17% / 37%) — wider bars average more
+     of the session, an unanticipated second argument for running that set.</p>
+  <div class="note"><span class="lbl">Scope</span>
+    <p>This measures the <b>gate</b>, not outcomes. It does not say 10:30 triggers lose money —
+       that needs an intraday backtest, and none exists (the s4go replay is daily-bar). Read it
+       as "the volume gate is not the same test at every hour", which is enough to change how
+       much weight you give V at each bar. <b>Latent fix, not yet made:</b> an RV baseline per
+       time-of-day slot. It is a signal change, so it gets measured before it ships.</p>
+  </div>
+
+  <h3>8d · Pyramid ADDs — not all four, but location matters <em>more</em></h3>
+  <p>An add is a different trade. You already own it, it is already working, and the thesis is
+     proven by the position. What you are buying is more of a winner <b>at a good price</b> — so
+     the gates change weight.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Gate</th><th>New entry</th><th>ADD</th></tr></thead>
+    <tbody>
+      <tr><td class="n">P · pattern</td><td>required</td><td><b>not required</b> — the position is the thesis</td></tr>
+      <tr><td class="n">V · volume</td><td>required</td><td><b>not required</b> — demanding RV ≥ 1 is wrong at a pullback, where dry-up is what you want</td></tr>
+      <tr><td class="n">B · bar</td><td>required</td><td>keep it — do not add on a collapsing bar</td></tr>
+      <tr><td class="n">L · location</td><td>required</td><td><b>the whole game</b> — a bad add raises your average and turns a winner into a bigger loser</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Three ADD-only checks that outrank all four:</b> the stop must <b>rise</b> (the Chandelier
+     raise applies to the whole position — if it cannot move up you are only adding risk) ·
+     <b>combined heat and correlation</b>, since an add concentrates exposure you already have ·
+     and <b>is it actually working</b> — ADD is for winners.</p>
+  <div class="note"><span class="lbl">Correction — same day, 20 Aug</span>
+    <p>An earlier version of this rule said that on SONACOMS "pyramid said ADD while S4 said
+       NOT AT LOCATION". <b>That was wrong.</b> <span class="m">pyramid_logic</span> live said
+       <b>HOLD</b>. The <span class="m">ADD +8.7% · 0.57R</span> on the S4 panel comes from the
+       <b>v67 portfolio slot</b> — a snapshot written by Sync-to-TV, not a live pyramid verdict.
+       One panel field was read and a disagreement inferred between two engines that were not
+       disagreeing.</p>
+    <p><b>The rule stands for a different reason.</b> <span class="m">_at_location</span> WAS a
+       trend test wearing a location test's name — <span class="m">ltp &gt; ema20</span> passes at
+       any distance above the 20-EMA. It now carries an ATR extension cap
+       (<span class="m">ADD_MAX_EXT_ATR</span>, default 2.0) measured the way S4 measures it.</p>
+    <p><b>Measured on the live 17-position book, the cap changes nothing today</b> — the two ADDs
+       sit at 1.46× and 0.89× ATR above the 20-EMA. It guards a case that has not happened yet.
+       2.0 rather than 1.5 because 1.5 would have sat 0.04 ATR above a live ADD.</p>
+  </div>
+  <p><b>A rule that came out of getting it wrong:</b> a value on the S4 panel is not always
+     computed by S4. The <b>v67 slot rows</b> (MY TRADE / POSITION) are <em>synced snapshots</em>,
+     as old as the last Sync-to-TV. When a portfolio field on the chart disagrees with the
+     Pyramid page, <b>the page is live and the chart is a photograph.</b></p>
+</section>
+
+<section id="p9">
+  <p class="pt">Part 9</p>
+  <h2>Reading the system's own output</h2>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Trust your chart read over the mechanical verdict.</b> The engine is a measuring instrument; your eyes have a veto. It can talk you <em>out</em> of a trade — never <em>into</em> one.</li>
+        <li><b>Treat an unknown as unknown.</b> <span class="m">?</span>, <span class="m">n/a</span>, <span class="m">—</span> mean data is absent, not that the answer is no. Every gate fails OPEN on missing data by design.</li>
+        <li><b>Believe the tags.</b> <span class="m">⚠role</span>, <span class="m">⧖D</span>, <span class="m">⚠unval</span>, <span class="m">· RRG·</span>, <span class="m">⚖</span> all say the row is softer than it looks.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li>Don't read a number without asking which bar it came from. SYRMA read LEADING on confirmed weeks and WEAKENING with the forming week — one Monday session deciding the quadrant.</li>
+        <li>Don't take a confluence score as conviction. It grades; it does not gate.</li>
+        <li>Don't assume two panels showing the same field agree. When they disagree, find which bar and which producer — that is where the information is.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="p10">
+  <p class="pt">Part 10</p>
+  <h2>Reading evidence</h2>
+  <p class="lede">Methodology rules. Each exists because it has already produced a wrong answer here.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Rule</th><th>What it cost when ignored</th></tr></thead>
+    <tbody>
+      <tr><td><b>Per family × direction, never pooled</b></td><td>Three false conclusions: June's "NO-EDGE" verdict, "swing has no OOS edge" (SWG-PB is the most stable catalyst), and the 40% stop-out figure.</td></tr>
+      <tr><td><b>Match the horizon to the setup</b></td><td>Never judge a positional setup on 30 days. A full-window benchmark against an early exit inflated alpha from +0.80% to +2.56%.</td></tr>
+      <tr><td><b>Measure stops in R, never per-trade %</b></td><td>Size = risk ÷ (k × ATR), so a % metric rewards wide stops. Re-running one study in R <em>inverted</em> its answer.</td></tr>
+      <tr><td><b>Demean before comparing</b></td><td>Almost every RRG cell looked positive because the universe drifted +0.97%. The signal is the deviation.</td></tr>
+      <tr><td><b>Bootstrap by symbol, not by row</b></td><td>Overlapping windows are not independent observations.</td></tr>
+      <tr><td><b>A gate isn't live until a name that should fail does</b></td><td>Verify with a counter-example, not by reading the code.</td></tr>
+      <tr><td><b>Re-fit when the formula changes</b></td><td>The RRG whitelist was fitted on the old formula and quietly became worthless when the calibration changed.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="p11">
+  <p class="pt">Part 11</p>
+  <h2>The behavioural rules</h2>
+  <p class="lede">The hardest ones — and the reason the rest exist.</p>
+  <div class="pair">
+    <div class="blk do">
+      <h4>Do</h4>
+      <ul>
+        <li><b>Act on the alert, not the touch.</b> Watching a name tick-by-tick is how the confirmation rule gets broken.</li>
+        <li><b>Write the override down.</b> Going against the system is allowed — it is your money and your read — but log it with the reason. After twenty rows the log tells you whether your instinct beats the system.</li>
+        <li><b>Log the passes.</b> A log of entries only is a survivorship-biased diary.</li>
+        <li><b>Judge the fix, not the P&amp;L, on the day you make it.</b> A correct change that lowers the headline number is still correct.</li>
+      </ul>
+    </div>
+    <div class="blk dont">
+      <h4>Don't</h4>
+      <ul>
+        <li><b>Don't build instead of trading.</b> The long-standing pattern is to build features when a trade needs taking. When the urge arrives mid-session, ask what you are avoiding.</li>
+        <li>Don't re-open a chart you already passed on. That is how a pass becomes a chase — one decision per name per session.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="px">
+  <p class="pt">Appendix</p>
+  <h2>Defaults worth knowing by heart</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Thing</th><th>Value</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Risk per trade</td><td class="n">1% · 0.25% new entry</td><td>DNA</td></tr>
+      <tr><td>Targets</td><td class="n">swing 2R/4R · positional 3R/5R</td><td>never under 2R — your ruling, 10 Aug</td></tr>
+      <tr><td>Partials</td><td class="n">POS 25/25 · SWG 33/33 · GAP/REV 50/50</td><td>half rides the trail</td></tr>
+      <tr><td>Chandelier</td><td class="n">POS 4.5× · SWG 1.5× ATR</td><td>tighten-only</td></tr>
+      <tr><td>Stop sanity floor</td><td class="n">1×ATR(D)</td><td>below this, R is fiction</td></tr>
+      <tr><td>RV floor</td><td class="n">1.0 breakout · 0.5 pullback</td><td>measured</td></tr>
+      <tr><td>MTTWR</td><td class="n">6 touches = spent</td><td>house rule</td></tr>
+      <tr><td>Stage</td><td class="n">above: rising 2 / falling 3 / flat (RS↑ 1 : 3)<br>below: (falling &amp; RS↓) 4 : 1</td><td>all four surfaces</td></tr>
+      <tr><td>Forward windows</td><td class="n">POS-BO 120d · POS-ACCUM 180d<br>REV 90d · SWG 30–60d</td><td>never test outside these</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <em>Doctrine, not dogma.</em> Every rule names its evidence — if the evidence changes,
+  change the rule and record why. What is not allowed is breaking one silently.
+</footer>
+
+</main>
+</div>
+</div>
+
+<script>
+const STEPS=[
+ ["Is it still valid — not Stage 3/4, not broken down?","S4 Structure basis"],
+ ["What is the trend stack — weekly / daily / entry-TF?","S4 SUMMARY, line 1"],
+ ["Is the sector Stage 1/2, or am I fighting the group?","S4 Sector row"],
+ ["Am I at a level, or nowhere in particular?","S4 Location (L)"],
+ ["Inside supply? Is there ≥1R of room to the first obstacle?","S4 Room"],
+ ["Has a trigger fired on a CLOSED bar, with volume?","S4 TRIGGER chip"],
+ ["What is the stop in ATR? Under 1× → re-price or pass.","S4 Entry · SL · T1 · T2"],
+ ["Where is invalidation — and is it a different price from the stop?","S4 INVAL"],
+ ["What is the R after fixing the stop? Under 2R → pass.","your arithmetic"],
+ ["Does the SUMMARY say take it, or setup-sound-plan-is-not?","S4 SUMMARY, last line"],
+ ["Size at 1% risk on the honest stop.","Risk Allocator"],
+ ["Log the decision — including a pass, with the reason.","log_trade_review.py"]
+];
+const host=document.getElementById('cksteps');
+const stat=document.getElementById('ckstat');
+const stop=document.getElementById('ckstop');
+const state=new Array(STEPS.length).fill(null);
+
+STEPS.forEach((s,i)=>{
+  const row=document.createElement('div');
+  row.className='step'; row.dataset.i=i;
+  row.innerHTML='<div class="i">'+String(i+1).padStart(2,'0')+'</div>'+
+    '<div class="q">'+s[0]+'<em>'+s[1]+'</em></div>'+
+    '<div class="btns"><button type="button" class="ok" aria-pressed="false">OK</button>'+
+    '<button type="button" class="no" aria-pressed="false">NO</button></div>';
+  host.appendChild(row);
+});
+
+function render(){
+  let firstNo=state.indexOf('no');
+  let cleared=0;
+  document.querySelectorAll('.step').forEach((row,i)=>{
+    const blocked = firstNo>-1 && i>firstNo;
+    row.classList.toggle('blocked',blocked);
+    row.querySelector('.ok').setAttribute('aria-pressed', state[i]==='ok');
+    row.querySelector('.no').setAttribute('aria-pressed', state[i]==='no');
+    if(state[i]==='ok' && (firstNo<0 || i<firstNo)) cleared++;
+  });
+  stat.textContent = cleared+' of '+STEPS.length+' cleared';
+  if(firstNo>-1){
+    stop.classList.add('on');
+    stop.textContent='STOP at step '+String(firstNo+1).padStart(2,'0')+
+      ' — resolve this before continuing. A NO here is the answer, not an obstacle to work around.';
+  } else {
+    stop.classList.remove('on');
+  }
+}
+host.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const i=+b.closest('.step').dataset.i;
+  const v=b.classList.contains('ok')?'ok':'no';
+  state[i] = state[i]===v ? null : v;
+  render();
+});
+document.getElementById('ckreset').addEventListener('click',()=>{state.fill(null);render();});
+render();
+</script>

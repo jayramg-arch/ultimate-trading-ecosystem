@@ -1,0 +1,302 @@
+<title>The Commander Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+
+<style>
+/* ───────────────────────────────────────────────────────────────
+   The shelf carries NO accent of its own. Every colour on this page
+   belongs to one of the documents, worn as a card spine — so the
+   index previews the identity you are about to land in.
+   ─────────────────────────────────────────────────────────────── */
+:root{
+  --ground:#F2F3F5; --surface:#FFFFFF; --surface-2:#F7F8FA; --surface-3:#ECEEF1;
+  --ink:#101418; --ink-2:#3B444F; --muted:#6B7480; --faint:#98A1AC;
+  --rule:#D9DEE4; --rule-soft:#E8ECF0;
+  /* document identities */
+  --doctrine:#0F7A66; --doctrine-bg:#E4F2EE;
+  --evidence:#2C5AA8; --evidence-bg:#E7EDF8;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --body:'Newsreader',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101317; --surface:#171B20; --surface-2:#1C2127; --surface-3:#222831;
+    --ink:#E8ECF1; --ink-2:#BFC7D1; --muted:#8792A0; --faint:#69737F;
+    --rule:#272E37; --rule-soft:#20262E;
+    --doctrine:#2BB39A; --doctrine-bg:#12302A;
+    --evidence:#6E9BE0; --evidence-bg:#152238;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101317; --surface:#171B20; --surface-2:#1C2127; --surface-3:#222831;
+  --ink:#E8ECF1; --ink-2:#BFC7D1; --muted:#8792A0; --faint:#69737F;
+  --rule:#272E37; --rule-soft:#20262E;
+  --doctrine:#2BB39A; --doctrine-bg:#12302A;
+  --evidence:#6E9BE0; --evidence-bg:#152238;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* ── masthead ─────────────────────────────────────────── */
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1120px;margin:0 auto;padding:52px 24px 40px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 16px}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(36px,5.6vw,58px);line-height:1.02;
+  letter-spacing:-.025em;margin:0;text-wrap:balance}
+.dek{font-size:17.5px;color:var(--ink-2);max-width:62ch;margin:18px 0 0}
+.counts{display:flex;flex-wrap:wrap;gap:26px;margin:26px 0 0;padding-top:22px;
+  border-top:1px solid var(--rule-soft)}
+.count b{font-family:var(--disp);font-size:26px;font-weight:700;color:var(--ink);
+  display:block;line-height:1;font-variant-numeric:tabular-nums}
+.count span{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-top:7px}
+
+main{padding:48px 0 90px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin:0 0 20px}
+.sec-head h2{font-family:var(--disp);font-weight:600;font-size:21px;letter-spacing:-.012em;margin:0}
+.sec-head .rule{flex:1;height:1px;background:var(--rule)}
+.sec-head .ct{font-family:var(--mono);font-size:11px;color:var(--faint);
+  font-variant-numeric:tabular-nums}
+.sec-note{font-size:15.5px;color:var(--muted);margin:-8px 0 22px;max-width:66ch}
+
+/* ── feature cards: published pages ───────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;
+  margin:0 0 52px}
+a.card{display:grid;grid-template-columns:5px minmax(0,1fr);text-decoration:none;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  transition:border-color .14s ease, transform .14s ease}
+a.card:hover,a.card:focus-visible{border-color:var(--spine);transform:translateY(-2px)}
+a.card:focus-visible{outline:2px solid var(--spine);outline-offset:2px}
+.spine{background:var(--spine)}
+.card-b{padding:22px 22px 20px;display:flex;flex-direction:column;height:100%}
+.card-n{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--spine);margin:0 0 10px;font-weight:600}
+.card-t{font-family:var(--disp);font-weight:700;font-size:23px;line-height:1.15;
+  letter-spacing:-.018em;color:var(--ink);margin:0 0 10px;text-wrap:balance}
+.card-d{font-size:15.5px;color:var(--ink-2);margin:0 0 16px;flex:1}
+.card-m{font-family:var(--mono);font-size:11px;color:var(--muted);
+  border-top:1px solid var(--rule-soft);padding-top:12px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card-m .go{color:var(--spine);font-weight:600}
+
+/* ── library table ────────────────────────────────────── */
+.grp{margin:0 0 34px}
+.grp h3{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 10px;font-weight:600}
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 14px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.id{font-family:var(--mono);font-size:12px;color:var(--faint);white-space:nowrap;
+  font-variant-numeric:tabular-nums;width:44px}
+td.nm{color:var(--ink);font-weight:500;white-space:nowrap}
+td.nm a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule)}
+td.nm a:hover{border-bottom-color:currentColor}
+td.st{width:120px;white-space:nowrap}
+
+.pill{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;padding:2.5px 8px;border-radius:2px;border:1px solid;white-space:nowrap}
+.pill.page{color:var(--doctrine);background:var(--doctrine-bg);border-color:var(--doctrine)}
+.pill.page.ev{color:var(--evidence);background:var(--evidence-bg);border-color:var(--evidence)}
+.pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
+  padding:16px 20px;border-radius:3px;margin:34px 0 0;font-size:15.5px;color:var(--ink-2)}
+.note b{color:var(--ink)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:8px}
+.note p{margin:0 0 10px}.note p:last-child{margin:0}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1120px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;
+  gap:16px;justify-content:space-between}
+
+@media (max-width:640px){
+  .cards{grid-template-columns:1fr}
+  .counts{gap:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}a.card:hover{transform:none}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Weinstein Commander · GM + S4</p>
+    <h1>The Commander Library</h1>
+    <p class="dek">Every guide, doctrine document and reference for the trading system —
+    the rules for choosing a trade, the loop that runs the day, the engines underneath,
+    and the evidence they all rest on.</p>
+    <div class="counts">
+      <div class="count"><b>3</b><span>Published pages</span></div>
+      <div class="count"><b>24</b><span>Guides in the library</span></div>
+      <div class="count"><b>6</b><span>Categories</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+
+  <div class="sec-head">
+    <h2>Start here</h2><div class="rule"></div><span class="ct">3 pages</span>
+  </div>
+  <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
+  what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
+  other two assume it.</p>
+
+  <div class="cards">
+
+    <a class="card" style="--spine:var(--doctrine)"
+       href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 25 · Doctrine</p>
+        <p class="card-t">GM + S4 Golden Rules</p>
+        <p class="card-d">The DO / DON'T guide for identifying and shortlisting trades. Ten
+        rules, the funnel, context gates, location and geometry, the confirmation rule,
+        sizing, and a 12-step checklist. Every rule names the incident or the number
+        behind it.</p>
+        <div class="card-m"><span>Read before shortlisting</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--doctrine)"
+       href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 26 · Process</p>
+        <p class="card-t">GM + S4 Operating Loop</p>
+        <p class="card-d">The daily workflow end to end — the four stages and what never to
+        ask of each, the real job times, the evening arm-and-alert ritual, what to do when
+        an alert fires, post-entry management, and the eight checks that fail silently.</p>
+        <div class="card-m"><span>The day, in order</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--evidence)"
+       href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 27 · Evidence</p>
+        <p class="card-t">The Backtest Court</p>
+        <p class="card-d">How the harness reaches a verdict and what it is allowed to
+        conclude. The four modules, the six gates a number must clear, why results are read
+        per family, the four mistakes that produced confident wrong answers — and a glossary
+        of every term it reports.</p>
+        <div class="card-m"><span>Before trusting a number</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="sec-head">
+    <h2>The full library</h2><div class="rule"></div><span class="ct">24 guides</span>
+  </div>
+  <p class="sec-note">Everything in <code>docs/</code>. <b>Page</b> means it is published here
+  and reads like the three above; <b>Markdown</b> means it still lives only in the repo and is
+  waiting to be brought across.</p>
+
+  <div class="grp">
+    <h3>Doctrine &amp; Process</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">25</td><td class="nm"><a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">Golden Rules</a></td><td>Choosing and shortlisting a trade</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">26</td><td class="nm"><a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">24</td><td class="nm">Pre-Trade Review Recipe</td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">18</td><td class="nm">Trade Checklist</td><td>The per-trade tick list</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">—</td><td class="nm">Weinstein / Minervini Bible</td><td>The underlying methodology</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Evidence &amp; Measurement</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">27</td><td class="nm"><a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">Backtest Process &amp; Glossary</a></td><td>How a verdict is reached, and its vocabulary</td><td class="st"><span class="pill page ev">Page</span></td></tr>
+        <tr><td class="id">16</td><td class="nm">Validation Framework</td><td>The harness modules in technical detail</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">19</td><td class="nm">Journal &amp; Attribution</td><td>Where realised P&amp;L actually came from</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>The Live System</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">23</td><td class="nm">Golden Matcher</td><td>The board and the 6-step decision path</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">22</td><td class="nm">Section 4 — Entry Trigger</td><td>The execution layer and the final word</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">07</td><td class="nm">Commander Web v4</td><td>The dashboard app itself</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">08</td><td class="nm">Dashboard v67</td><td>The primary trade chart</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Screeners &amp; Signals</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">11</td><td class="nm">Bull Screener v3.3</td><td>Catalyst gates for the bull book</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">09</td><td class="nm">Recovery Screener v2.1</td><td>RFF and the beaten-down book</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">13</td><td class="nm">Unified Ecosystem v3.5</td><td>The combined strategy surface</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">21</td><td class="nm">Mansfield RS Auto-Sector</td><td>Relative strength and sector benchmark</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">25*</td><td class="nm">Scanner Filter Map</td><td>Every auto-pilot source and its filters</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Chart Engines</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">01</td><td class="nm">Swing Zigzag [Strict] v6</td><td>Pivots and swing structure</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">02</td><td class="nm">Wyckoff Phases</td><td>Accumulation / distribution reads</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">03</td><td class="nm">Volume Profile</td><td>VAL / POC / VAH as location</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">04</td><td class="nm">SMC Zones</td><td>Order blocks and fair-value gaps</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">20</td><td class="nm">Chart Markup v2.0</td><td>The read-only chart scanner</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">15</td><td class="nm">Context Layers v1.2</td><td>Higher-timeframe context overlay</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Risk &amp; Sizing</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">10</td><td class="nm">Risk Allocator v2</td><td>Position size and the R canon</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="note">
+    <span class="tag">Two notes on this index</span>
+    <p><b>The numbering has one collision.</b> Both the Golden Rules and the Scanner Filter
+    Map are filed as 25 in <code>docs/</code>; the Scanner Filter Map is marked <code>25*</code>
+    here. Renumbering would break the filename links, so it is flagged rather than fixed.</p>
+    <p><b>Each page keeps its own address.</b> The three published documents are separate
+    pages with their own URLs, so any link you have already shared or bookmarked still works
+    — this library indexes them, it does not replace them.</p>
+  </div>
+
+</main>
+</div>
+
+<footer><div class="foot-in">
+  <span>The Commander Library · docs/portal</span>
+  <span>Sources kept in the repo at docs/portal/*.html</span>
+</div></footer>

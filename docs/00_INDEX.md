@@ -11,6 +11,12 @@
 
 ## Module Index
 
+> **📚 [The Commander Library](https://claude.ai/code/artifact/f5f003c2-b569-4cd5-b315-966ebb53d247)**
+> — the web portal for these guides. Three are published as pages so far (25 Golden Rules ·
+> 26 Operating Loop · 27 Backtest Court); the rest are listed there with a **Markdown** status
+> and are being brought across over time. HTML sources live in `docs/portal/`.
+
+
 | # | Guide | Module | Type | Role |
 |---|---|---|---|---|
 | 01 | [Swing Zigzag Strict v6.0](./01_Swing_Zigzag_Strict_v6_Guide.md) | `Wesinstein Swing Zigzag [Strict v6.0].pine` | Pine | Structural foundation — HH/HL/LH/LL state machine |
