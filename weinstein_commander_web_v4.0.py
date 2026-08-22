@@ -26,6 +26,7 @@ from ai_risk_manager import (
 from ai_grading_engine import get_weinstein_score
 import yfinance as yf
 from pine_generator import generate_pine_code
+import risk_common as _rc
 # ── v4.0 Phase-1 imports ─────────────────────────────────────────────────────
 try:
     from rrg_engine import (
@@ -15613,6 +15614,7 @@ elif page == 'RISK SHIELD':
         _portfolio_history[_today_str] = total_cap
         _rs_atomic_json_write(PORTFOLIO_FILE, _portfolio_history)
 
+    import risk_common as _rc
     _capital_protection_mode = False
     _cap_prot_msg = ""
     if len(_portfolio_history) >= 5:
@@ -15695,18 +15697,29 @@ elif page == 'RISK SHIELD':
         from ai_provider_manager import ask_llm
         _tech = kwargs.get("tech")
         _tech_str = ""
-        if _tech:
+        if isinstance(_tech, dict):
+            _ws_score = _tech.get('ws_score', 'N/A')
+            _sma200 = _tech.get('sma200', 'N/A')
+            _sma200_slope = _tech.get('sma200_slope', 0)
+            _sma50 = _tech.get('sma50', 'N/A')
+            _above200 = 'Yes' if _tech.get('above200') else 'No'
+            _dist_from_200 = _tech.get('dist_from_200', 'N/A')
+            _atr_pct = _tech.get('atr_pct', 'N/A')
+            _vol_climax = 'Yes (Spike >300%)' if _tech.get('vol_climax') else 'No'
+            _vol_breakout = 'Yes (Base Breakout)' if _tech.get('vol_breakout') else 'No'
+            _days_er = _tech.get('days_to_earnings') if _tech.get('days_to_earnings') is not None else 'N/A'
+            _chand = _tech.get('chandelier_exit', 'N/A')
             _tech_str = (f"\nLIVE TECHNICALS: "
-                         f"Weinstein Score: {_tech['ws_score']}/80 | "
-                         f"200-SMA: ₹{_tech['sma200']} ({'Rising' if _tech['sma200_slope'] > 0 else 'Falling'}, {_tech['sma200_slope']}% slope) | "
-                         f"50-SMA: ₹{_tech['sma50']} | "
-                         f"Price > 200-SMA: {'Yes' if _tech['above200'] else 'No'} | "
-                         f"Dist from 200-SMA: {_tech['dist_from_200']}% | "
-                         f"ATR Volatility: {_tech['atr_pct']}% | "
-                         f"Volume Climax: {'Yes (Spike >300%)' if _tech.get('vol_climax') else 'No'} | "
-                         f"Breakout Volume: {'Yes (Base Breakout)' if _tech.get('vol_breakout') else 'No'} | "
-                         f"Days to Earnings: {_tech.get('days_to_earnings') if _tech.get('days_to_earnings') is not None else 'N/A'} | "
-                         f"Chandelier Exit (22D): ₹{_tech.get('chandelier_exit', 'N/A')}")
+                         f"Weinstein Score: {_ws_score}/80 | "
+                         f"200-SMA: ₹{_sma200} ({'Rising' if isinstance(_sma200_slope, (int, float)) and _sma200_slope > 0 else 'Falling'}, {_sma200_slope}% slope) | "
+                         f"50-SMA: ₹{_sma50} | "
+                         f"Price > 200-SMA: {_above200} | "
+                         f"Dist from 200-SMA: {_dist_from_200}% | "
+                         f"ATR Volatility: {_atr_pct}% | "
+                         f"Volume Climax: {_vol_climax} | "
+                         f"Breakout Volume: {_vol_breakout} | "
+                         f"Days to Earnings: {_days_er} | "
+                         f"Chandelier Exit (22D): ₹{_chand}")
 
         # TRADE TYPE (Jay, 31-Jul-2026): the model no longer classifies. Risk Shield's
         # _rs_trade_type() owns that call and it is stated here as a GIVEN, so the badge
@@ -15738,12 +15751,14 @@ elif page == 'RISK SHIELD':
             risk = kwargs.get("risk", 0)
             orders_desc = []
             for o_idx, o in enumerate(orders_list):
-                sl = o["sl_trigger"]; target = o["target_trigger"]
+                sl = o.get("sl_trigger"); target = o.get("target_trigger")
                 sl_qty = o.get("sl_qty") or o.get("qty") or 0
                 tgt_qty = o.get("target_qty") or o.get("qty") or 0
-                sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl else 0.0
-                tgt_dist = ((target - ltp) / ltp * 100) if ltp and target else 0.0
-                orders_desc.append(f"  Leg {o_idx+1}: SL ₹{sl:,.0f} ({sl_dist:+.1f}%) | Tgt ₹{target:,.0f} (+{tgt_dist:.1f}%)")
+                sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl is not None else 0.0
+                tgt_dist = ((target - ltp) / ltp * 100) if ltp and target is not None else 0.0
+                sl_str = f"SL ₹{sl:,.0f} ({sl_dist:+.1f}%)" if sl is not None else "No SL"
+                tgt_str = f"Tgt ₹{target:,.0f} (+{tgt_dist:.1f}%)" if target is not None else "Trailing Runner (No Target)"
+                orders_desc.append(f"  Leg {o_idx+1}: {sl_str} | {tgt_str}")
             _pyr_class = kwargs.get("pyr_class", ""); _pyr_reason = kwargs.get("pyr_reason", "")
             _chand = _tech.get("chandelier_exit") if isinstance(_tech, dict) else None
             _chand_str = f" The catalyst-aware Chandelier trailing stop is ₹{_chand}." if _chand not in (None, "N/A") else ""
@@ -15762,7 +15777,7 @@ elif page == 'RISK SHIELD':
             _style = "dip buy-limit (fills on touch, NO confirmation)" if trigger < ltp else "breakout buy-stop (confirms on a close into the trigger)"
             _tech = kwargs.get("tech")
             _setup_warn = ""
-            if _tech:
+            if isinstance(_tech, dict):
                 if _tech.get("ws_score", 100) < 50 or _tech.get("sma200_slope", 0) < 0:
                     _setup_warn = f"\nWARNING: Setup may be invalid. WS Score is {_tech.get('ws_score')}/80 and SMA200 slope is {_tech.get('sma200_slope'):+.2f}%. Highlight these risks."
             prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | buy trigger ₹{trigger:,.2f} ({dist:+.1f}% vs LTP) | limit ₹{price:,.2f} | type: {_style}{_tech_str}{_tt_str}{_setup_warn}\nProvide a brief technical analysis on whether this looks like a valid Stage-2 pullback entry setup."
@@ -16465,11 +16480,15 @@ elif page == 'RISK SHIELD':
                     with st.spinner(f"⚡ Loading AI analysis for {len(_ai_tasks)} positions..."):
                         def _run_ai(task):
                             key, sym, otype, kw = task
-                            try: return key, get_stock_context_and_ai_review(sym, otype, **kw)
-                            except Exception: return key, "AI review unavailable."
+                            try:
+                                return key, get_stock_context_and_ai_review(sym, otype, **kw)
+                            except Exception as _e_ai:
+                                import logging
+                                logging.getLogger(__name__).error(f"[Risk Shield AI] Error running AI for {sym}: {_e_ai}", exc_info=True)
+                                return key, "AI review unavailable."
                         from concurrent.futures import ThreadPoolExecutor
-                        # Increased concurrency for paid API tiers
-                        with ThreadPoolExecutor(max_workers=15) as executor:
+                        # 6 concurrent workers with retry jitter to prevent API rate limit bursts
+                        with ThreadPoolExecutor(max_workers=6) as executor:
                             for key, res in executor.map(_run_ai, _ai_tasks):
                                 st.session_state[key] = res
                         
@@ -17119,8 +17138,35 @@ elif page == 'RISK SHIELD':
                                             flags_html = f"<div style='margin-bottom:8px;'>{''.join(_flags)}</div>"
                                             
                                     _oco_family = "SWG" if is_swing else "POS"
-                                    oco1_q = int(total_qty * 0.5) if total_qty else 0
-                                    oco2_q = total_qty - oco1_q if total_qty else 0
+                                    # MIRROR THE BROKER, LEG BY LEG (22-Aug-2026, Jay: ANANDRATHI
+                                    # showed "OCO-1 6 sh / OCO-2 7 sh" with only ONE OCO resting at
+                                    # Dhan). This half is labelled "what is resting" and it was not
+                                    # reading `orders` at all: it split total_qty 50/50 and paired
+                                    # the halves with tgt_vals[0]/[1] and the single nearest stop.
+                                    # With one leg that invents a second; with two unequal legs it
+                                    # misreports both. Now one row per ACTUAL resting order, each
+                                    # carrying its own quantity, target and stop.
+                                    _mirror_rows = []
+                                    for _oi, _o in enumerate(orders):
+                                        _mq = int(_o.get("sl_qty") or _o.get("qty") or 0)
+                                        _mt = _o.get("target_trigger")
+                                        _ms = _o.get("sl_trigger")
+                                        _mtxt = (f"T{_oi+1} ₹{_mt:,.2f}" if _mt is not None
+                                                 else "<span style='color:#FCA5A5'>no target leg</span>")
+                                        _mstxt = (f"SL ₹{_ms:,.2f}" if _ms is not None
+                                                  else "<span style='color:#FCA5A5'>no SL leg</span>")
+                                        _mcol = "#A7F3D0" if _oi == 0 else "#6EE7B7"
+                                        _mwt = 700 if _oi == 0 else 600
+                                        _mirror_rows.append(
+                                            f"<div style='color:{_mcol};font-weight:{_mwt};'>"
+                                            f"• <b>OCO-{_oi+1} ({_mq} sh):</b> {_mtxt} | {_mstxt}</div>")
+                                    if not _mirror_rows:
+                                        _mirror_rows.append(
+                                            "<div style='color:#FCA5A5;font-weight:600;'>"
+                                            "nothing resting at Dhan for this symbol</div>")
+                                    _mirror_html = "".join(_mirror_rows)
+                                    # Kept for the blocks below that still read them. They are
+                                    # AGGREGATES across the legs, not per-leg values.
                                     t1_price = tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.08 if buy_price else 0)
                                     t2_price = tgt_vals[1] if len(tgt_vals) > 1 else (tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.15 if buy_price else 0))
                                     sl_price = near_sl if near_sl else (buy_price * 0.94 if buy_price else 0)
@@ -17177,8 +17223,38 @@ elif page == 'RISK SHIELD':
                                         _p1, _p2 = _bs_r.partial_qty_for((_jov or {}).get("setup"), swing=is_swing)
                                     except Exception:
                                         _p1 = _p2 = 33
-                                    _rq1 = int(total_qty * _p1 / 100) if total_qty else 0
-                                    _rq_rest = (total_qty - 2 * _rq1) if total_qty else 0
+                                    # QUANTITIES (22-Aug-2026, Jay). Two defects, both live:
+                                    #  (a) TRUNCATION. int(6 * 33 / 100) = int(1.98) = 1, so
+                                    #      APOLLOHOSP read 1/1/4 where thirds of 6 are 2/2/2. The
+                                    #      policy percentages are shorthand for fractions of the
+                                    #      position, so allocate by largest remainder and let the
+                                    #      buckets sum to the position exactly.
+                                    #  (b) NO RE-BASE AFTER T1 FILLS. The split was always taken off
+                                    #      the current holding as if all three legs were still to
+                                    #      come. ANANDRATHI has 13 left with OCO-1 already executed
+                                    #      and read 4 / 5 - four shares unaccounted for. Once T1 is
+                                    #      banked the remaining policy is the T2 leg against the
+                                    #      uncapped tail, re-normalised over what is actually left:
+                                    #      33:34 of 13 = 6 and 7.
+                                    # Ties go to the LAST bucket, so the uncapped tail absorbs the
+                                    # odd share rather than the capped leg.
+                                    def _alloc_qty(_total, _fracs):
+                                        try:
+                                            _total = int(_total or 0)
+                                        except Exception:
+                                            _total = 0
+                                        if _total <= 0:
+                                            return [0] * len(_fracs)
+                                        _sum = float(sum(_fracs)) or 1.0
+                                        _raw = [_total * float(_f) / _sum for _f in _fracs]
+                                        _base = [int(_x) for _x in _raw]
+                                        _rem = _total - sum(_base)
+                                        _order = sorted(range(len(_fracs)),
+                                                        key=lambda _i: (_raw[_i] - _base[_i], _i),
+                                                        reverse=True)
+                                        for _i in _order[:max(0, _rem)]:
+                                            _base[_i] += 1
+                                        return _base
                                     _fr = lambda v: f"₹{v:,.2f}" if v else "—"
                                     _slsrc = ("Chandelier" if (_r_sl and _ce_r and abs(_r_sl - float(_ce_r)) < 0.01)
                                               else "resting SL (already tighter)") if _r_sl else "—"
@@ -17189,6 +17265,15 @@ elif page == 'RISK SHIELD':
                                     # beside it correctly showed only T2. Same defect class as the two
                                     # copies of the Rec block noted at :17462: one guard, three renderers.
                                     _t1_banked = bool(_r_t1) and bool(ltp) and ltp >= _r_t1
+                                    _p_tail = max(0, 100 - _p1 - _p2)
+                                    if _t1_banked:
+                                        _rq1 = 0
+                                        _rq2, _rq_rest = _alloc_qty(total_qty, [_p2, _p_tail])
+                                        _qty_basis = ("re-based on the "
+                                                      + str(int(total_qty or 0)) + " left after OCO-1")
+                                    else:
+                                        _rq1, _rq2, _rq_rest = _alloc_qty(total_qty, [_p1, _p2, _p_tail])
+                                        _qty_basis = ""
                                     _row_t1 = (
                                         f"<div style='color:#6B9080;font-weight:600;'>• <b>OCO-1:</b> "
                                         f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> "
@@ -17199,22 +17284,22 @@ elif page == 'RISK SHIELD':
                                     )
                                     _rec_rows = ((
                                         f"{_row_t1}"
-                                        f"<div style='color:#FCD34D;font-weight:600;'>• <b>OCO-2 ({_rq1} sh):</b> "
+                                        f"<div style='color:#FCD34D;font-weight:600;'>• <b>OCO-2 ({_rq2} sh):</b> "
                                         f"T2 {_fr(_r_t2)} <span style='color:#94A3B8'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
                                         f"<div style='color:#94A3B8;font-size:0.72rem;margin-top:4px;'>"
-                                        f"{_rq_rest} sh ride the trail uncapped · SL = {_slsrc} · R from {_r_note}</div>"
+                                        f"{_rq_rest} sh ride the trail uncapped · SL = {_slsrc} · R from {_r_note}"
+                                        f"{(' · ' + _qty_basis) if _qty_basis else ''}</div>"
                                     ) if (_r_t1 or _r_sl) else
                                         "<div style='color:#94A3B8;'>no entry price or stop on record — cannot size R</div>")
 
                                     dhan_oco_card_html = f"""<div style='display:flex;gap:10px;margin-top:10px;font-size:0.8rem;'>
                                       <div style='flex:1;background:linear-gradient(145deg, #022C22 0%, #064E3B 100%);border:1.5px solid #059669;border-radius:8px;padding:10px 14px;'>
                                         <div style='color:#6EE7B7;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 AT DHAN NOW · what is resting ({_oco_family})</div>
-                                        <div style='color:#A7F3D0;font-weight:700;'>• <b>OCO-1 ({oco1_q} sh):</b> T1 ₹{t1_price:,.2f} | SL ₹{sl_price:,.2f}</div>
-                                        <div style='color:#6EE7B7;font-weight:600;'>• <b>OCO-2 ({oco2_q} sh):</b> T2 ₹{t2_price:,.2f} | SL ₹{sl_price:,.2f}</div>
-                                        <div style='color:#6B9080;font-size:0.72rem;margin-top:4px;'>read from your live orders — not advice</div>
+                                        {_mirror_html}
+                                        <div style='color:#6B9080;font-size:0.72rem;margin-top:4px;'>{len(orders)} leg(s) resting · {total_qty} sh covered — read from your live orders, not advice</div>
                                       </div>
                                       <div style='flex:1;background:linear-gradient(145deg, #2A1F05 0%, #4A3410 100%);border:1.5px solid #D97706;border-radius:8px;padding:10px 14px;'>
-                                        <div style='color:#FDE68A;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p1} ({_oco_family})</div>
+                                        <div style='color:#FDE68A;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p2}/{_p_tail} ({_oco_family}){' · T1 banked' if _t1_banked else ''}</div>
                                         {_rec_rows}
                                       </div>
                                     </div>"""
