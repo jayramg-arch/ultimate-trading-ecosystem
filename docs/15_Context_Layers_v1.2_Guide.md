@@ -66,7 +66,7 @@ Only the STRONG BULL threshold moved (+1 to account for the +2 bonus headroom). 
 - All bug fixes (B1–B7) and color fixes (C3, C4, C5)
 - All v1.1 enhancements (E2 Stage, E3 alerts, E4 asymmetric POC, E5 freshness fade, E6 OB%, E7 Structure Health)
 - All 8 setups (S1–S8) with identical detection logic
-- `wcl_setup_pri_export` plot for Unified Ecosystem v2.5 E11 wiring
+- `wcl_setup_pri_export` plot for Unified Ecosystem v3.4 E11 wiring
 - Light theme (per prior user instruction)
 
 ---
@@ -597,7 +597,7 @@ Setup conditions on lines like `_total >= 6` (S2) and `_total <= -3` (S7) explic
    - STRONG BULL threshold: ≥ 8 → **≥ 9**
    - Other bands unchanged
 4. **Update entry checklist** to require non-negative SETUP BONUS (Section 5).
-5. **Verify Unified Ecosystem v2.5 E11 wiring** still works — `wcl_setup_pri_export` plot is preserved.
+5. **Verify Unified Ecosystem v3.4 E11 wiring** still works — `wcl_setup_pri_export` plot is preserved.
 6. **Run side-by-side on 5–10 stocks** with both v1.1 and v1.2 to see where the FINAL SCORE diverges.
 
 ### Expected Behavioral Differences
@@ -762,9 +762,9 @@ To change any of the above, edit the Pine source directly and re-publish as a pr
 | Component | v1.2 Integration |
 |---|---|
 | **Dashboard v67.4.12** | Same as v1.1 — provides Stage + Alpha + Recommendation. Cross-check FINAL SCORE before acting. |
-| **Unified Ecosystem v2.5** | `wcl_setup_pri_export` plot preserved. E11 gate now responds to setups that ALSO contribute to the bonus — alignment is tighter. |
+| **Unified Ecosystem v3.4** | `wcl_setup_pri_export` plot preserved. E11 gate now responds to setups that ALSO contribute to the bonus — alignment is tighter. |
 | **Risk Allocator v1.0** | Use FINAL SCORE (not BASE SCORE) for position sizing. S2 with +2 bonus = full Kelly trigger. |
-| **Bull Screener v3.2** | Screener output → load in WCL v1.2 → check FINAL SCORE + SETUP BONUS for entry timing. |
+| **Bull Screener v3.3** | Screener output → load in WCL v1.2 → check FINAL SCORE + SETUP BONUS for entry timing. |
 
 ---
 

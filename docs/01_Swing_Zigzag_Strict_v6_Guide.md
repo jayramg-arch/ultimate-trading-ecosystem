@@ -418,8 +418,8 @@ The Weinstein Dashboard's "Strict Trend" field reads directly from this logic. D
 | **Weinstein and Swing Pro Dashboard v67.4.12** | Displays the current trend state derived from this identical logic |
 | **Weinstein Unified Ecosystem v3.4** | `f_getStrictTrend()` is a direct port of this pivot-based classification; gates every entry |
 | **Weinstein Unified Ecosystem v3.4 (Recovery)** | Uses `f_getStrictTrend(leftBars, piv_d_right)` to validate the REV-RS pillar |
-| **Commander Recovery Screener v2.0** | Ports the same `f_getStrictTrend` helper to gate the `dTrend == 1` requirement for REV-RS signals |
-| **Commander Bull Screener v3.2** | Uses the pivot-based trend state to qualify POS-BO and SWG-BO setups |
+| **Commander Recovery Screener v2.1** | Ports the same `f_getStrictTrend` helper to gate the `dTrend == 1` requirement for REV-RS signals |
+| **Commander Bull Screener v3.3** | Uses the pivot-based trend state to qualify POS-BO and SWG-BO setups |
 | **Weinstein Context Layers v1.2** | The SMC module's CHoCH and BoS detection logic mirrors Section 3 of this indicator |
 
 > **Important:** Keep your **Pivot Length** consistent across all modules. If you use Daily `2` here, set the same value in the Recovery Strategy and Capitulation Screener inputs for structural alignment.

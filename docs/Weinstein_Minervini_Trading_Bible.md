@@ -11,7 +11,7 @@
 
 > **THIS IS THE SINGLE SOURCE OF TRUTH** for end-to-end swing and positional trading using the Weinstein Commander ecosystem. Everything you need — Python pipeline, watchlist generation, Pine validation, Dashboard reading, Unified Ecosystem execution, position sizing, exits, post-market — is in this document, in the order you'll perform it during a trading day.
 >
-> **What this document is:** A step-by-step operational guide for every decision in the trading workflow. It assumes you are running the production code (`chartink_replay.py` `SCAN_PARAMS_VERSION = "v2_FINAL_20260510"`, Bull Screener v3.2 (Py v1.11), Recovery Screener v2.0 (Py v1.6), Dashboard v67.4.12, Unified Ecosystem v3.4, Context Layers v1.2, Zigzag v6.2, Validation Framework v2.8).
+> **What this document is:** A step-by-step operational guide for every decision in the trading workflow. It assumes you are running the production code (`chartink_replay.py` `SCAN_PARAMS_VERSION = "v2_FINAL_20260510"`, Bull Screener v3.3 (Py v1.11), Recovery Screener v2.1 (Py v1.6), Dashboard v67.4.12, Unified Ecosystem v3.4, Context Layers v1.2, Zigzag v6.2, Validation Framework v2.8).
 >
 > **What this document is not:** A field-by-field input reference. For that, consult the dedicated module guides in `docs/01_…` through `docs/16_…`. The Bible references them at every step.
 >
@@ -20,15 +20,15 @@
 > **Architectural shift — cross-tool field ownership.** Each tool in the ecosystem now owns exactly one domain. Other tools either mirror the owner's logic verbatim or remove the duplicate row from display. Owners:
 > - **Mansfield RS engine** → Dashboard v67.4.12 (dual-SMA 52w level + 26w slope + 8w window + 4-bar momentum + 130-bar warm-up + JdK RS-Ratio model). Bull Screener / Recovery Screener / Unified Ecosystem mirror this engine and no longer render duplicate RS rows.
 > - **Strict trend (HH/HL state)** → Zigzag v6.2. Dashboard reads via `f_getStrictTrend`.
-> - **POS-BO 9-gate detail** → Bull Screener v3.2.
-> - **4-pillar Capitulation Bottom + RFF + 60-bar DD** → Recovery Screener v2.0.
+> - **POS-BO 9-gate detail** → Bull Screener v3.3.
+> - **4-pillar Capitulation Bottom + RFF + 60-bar DD** → Recovery Screener v2.1.
 > - **Catalyst diagnostic panel + ML probability + WCL Gate** → Unified Ecosystem v3.4.
 > - **Wyckoff / Volume Profile / SMC + CONTEXT SCORE** → Context Layers v1.2.
 >
 > **Eight headline upgrades since v5.0:**
 > 1. **Dashboard bumped to v67.4.12.** Major price action campaign: neutralized 4 bearish detectors to Tier 0 (dist day, shooting star, failed bo) based on N500 regime-split validation; demoted OUTSIDE_BAR_BULL to Tier +1; fixed directional alpha reporting. Decision-Mode compression (13–18 composite rows, toggle "Show Detailed View" to expand to ~60). Physical 664-symbol sector database port — zero string-matching hacks, 100% offline parity with Python. JdK RRG formula matches Strike.Money. RS vs Nifty 50 row dropped (N500 is canonical breadth benchmark).
-> 2. **Bull Screener v3.2.** Renamed `Commander_Bull_Screener_v3.2.pine`. **POS-ACCUM catalyst DISABLED** (backtest May 2025–Apr 2026 showed −10.04% mean alpha, zero wins). Composite-merge to ~13 rows. RS engine mirrors Dashboard. Physical DB port.
-> 3. **Recovery Screener v2.0.** Renamed `Commander_Recovery_Screener_v2.0.pine`. Wyckoff phase detection added (Phase B base / Phase C Spring-Shakeout / Phase D SOS-JAC). Composite-merge to ~14 rows. 10 gates paired 2-per-row.
+> 2. **Bull Screener v3.3.** Renamed `Commander_Bull_Screener_v3.2.pine`. **POS-ACCUM catalyst DISABLED** (backtest May 2025–Apr 2026 showed −10.04% mean alpha, zero wins). Composite-merge to ~13 rows. RS engine mirrors Dashboard. Physical DB port.
+> 3. **Recovery Screener v2.1.** Renamed `Commander_Recovery_Screener_v2.0.pine`. Wyckoff phase detection added (Phase B base / Phase C Spring-Shakeout / Phase D SOS-JAC). Composite-merge to ~14 rows. 10 gates paired 2-per-row.
 > 4. **Unified Ecosystem v3.4.** Three layers of change: (a) ported RS engine from Dashboard; (b) composite-merge + 4-column stacked CATALYST DIAG panel below main strategy panel showing *first failing gate per catalyst*; (c) added ML probability score + RSI 47–54 dead-zone filter + Wyckoff catalysts (Spring / SOS / JAC) + target realignment (swing 3R/5R was 5R/10R, partial 33%) + wider trails (SWG SMA50 trail, POS-BO 4.5× ATR Chandelier was 3.0×). (d) restored POS-ACCUM + REV-* to triggers; catalyst-aware fallback ATR multipliers (POS=4×, WYC=3.5×, REV=2.5×, SWG=1.5×).
 > 5. **Context Layers v1.2.** Setup Detector contributes signed bonus to score (+2 S2 Spring/LPS, +2 S3 Sweep+CHoCH, +1 S1 OB Retest, −2 S7 Distribution, −1 S8 Choppy). Panel grew to 24 rows: BASE SCORE / SETUP BONUS / FINAL SCORE / BREAKDOWN. STRONG BULL threshold raised ≥ 8 → ≥ 9 to account for bonus headroom.
 > 6. **Zigzag v6.2 (Strict).** EH/EL equal-pivot classes. Major/Minor pivots (Auto/Stock 8% / ETF 4% / Custom). MTF pivot lengths (Monthly/Weekly/Daily/Intraday). Section 3 developing-pivot detection (Trend / Structure / Swing Count / Swing Range / Choppiness all update live when a BoS or CHoCH is projected, not just on confirmed pivots). 11-row panel: TIMEFRAME / TREND / MTF TREND / STRUCTURE / SWING COUNT / SWING RANGE / CHOPPINESS / INVALIDATION / BOS LEVEL / VOL CONFIRM / BAR AGE. Longs-Only Mode default ON (Invalidation = latest swing low, BoS Level = latest swing high, Vol Confirm captures ↑ only). Fib extensions 1.272 / 1.618 added alongside 50% / 61.8% retracements.
@@ -103,11 +103,11 @@ The complete end-to-end workflow runs in **five distinct phases**. The system is
                            ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  PHASE 3 — VALIDATION (TradingView, per-symbol)  (09:00–09:15 IST)      │
-│  Bull Screener v3.2 (Bull) + Recovery Screener v2.0 (Recovery)          │
+│  Bull Screener v3.3 (Bull) + Recovery Screener v2.1 (Recovery)          │
 │  Dashboard v67.4.12 (final go/no-go)                                      │
 │                                                                          │
 │  For each ticker on the FINAL_* watchlists:                              │
-│    ├── Bull Screener v3.2 — VERDICT row + 9 POS-BO gates                │
+│    ├── Bull Screener v3.3 — VERDICT row + 9 POS-BO gates                │
 │    │      Hunter v1 FINAL: POS-BO needs wRSI≥60 + ADX≥25                │
 │    │      POS-ACCUM catalyst DISABLED (backtest verdict — see §16)      │
 │    │      pyScore: Python-aligned composite (use_python_aligned=ON)     │
@@ -565,7 +565,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 **For each ticker on the FINAL_COMBINED_BULL_PICKS.csv (or `LATEST_Bull_Picks_All.txt`) watchlist:**
 
 1. Load the ticker on TradingView (daily timeframe)
-2. Bull Screener v3.2 plots signals directly on the chart. Look for active catalyst labels.
+2. Bull Screener v3.3 plots signals directly on the chart. Look for active catalyst labels.
 3. **Check `pyScore` (the displayed `score`)** — should be ≥ 60. (`pyScore` mirrors `bull_screener.calculate_score()` byte-for-byte; the `use_python_aligned_score` toggle is ON by default.)
 4. **Check `alphaScore`** — independent gate, must be ≥ 60. Without alpha_ok, no catalyst can fire.
 5. Verify RS line vs CNX500 — is it LEADING or IMPROVING?
@@ -575,7 +575,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 
 **v2.9 Pass/fail by catalyst (NEW gates in bold):**
 
-| Catalyst | Bull Screener v3.2 Re-Screen Check | Unified Ecosystem v3.4 Gate |
+| Catalyst | Bull Screener v3.3 Re-Screen Check | Unified Ecosystem v3.4 Gate |
 |---|---|---|
 | POS-AC | OBV rising 2 bars + above OBV SMA20 + **dailyRsi ≤ 50 (v2 LOCK)** | VWMA20 > VWMA50; **d_rsi ≤ pos_accum_rsi_max (v2.3)** |
 | POS-BO | Volume ≥ 1.5× 50-day avg on breakout candle + **wRsiVal ≥ 60 + numeric ADX ≥ 25 (v1 FINAL Hunter)** | VWMA20 > VWMA50; close above 20-bar high; **wRSI ≥ 60 + adx_val ≥ 25 (v2.3)** |
@@ -590,12 +590,12 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 
 ---
 
-### Step 7B — Recovery Candidates (Commander Recovery Screener v2.0)
+### Step 7B — Recovery Candidates (Commander Recovery Screener v2.1)
 
 **For each of your top 10 Python Recovery candidates:**
 
 1. Load the ticker on TradingView (daily timeframe)
-2. Recovery Screener v2.0 plots the four REV pillars + Wyckoff Phase labels (B/C/D) on the chart
+2. Recovery Screener v2.1 plots the four REV pillars + Wyckoff Phase labels (B/C/D) on the chart
 3. Verify all four pillars against the Unified Ecosystem's updated REV-CB thresholds:
 
 | Pillar | Unified Ecosystem Condition | What to check on chart |
@@ -624,7 +624,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 
 **Rule:** Every candidate must pass ALL applicable dashboard gates before proceeding to execution. No exceptions.
 
-> **Recovery candidates note (v67.0):** Dashboard v67.4.12 has removed its dedicated Recovery section. Recovery candidates still pass through the Dashboard's macro, sector, RS, and Alpha gates (left column). Recovery-specific signal state — REV pillars, regime gate, RFF score — was already validated in Step 6B via the Recovery Screener v2.0 and Unified Ecosystem panel. Do not look for a RECOVERY row in the Dashboard right column; it no longer exists.
+> **Recovery candidates note (v67.0):** Dashboard v67.4.12 has removed its dedicated Recovery section. Recovery candidates still pass through the Dashboard's macro, sector, RS, and Alpha gates (left column). Recovery-specific signal state — REV pillars, regime gate, RFF score — was already validated in Step 6B via the Recovery Screener v2.1 and Unified Ecosystem panel. Do not look for a RECOVERY row in the Dashboard right column; it no longer exists.
 
 ---
 
@@ -665,7 +665,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 | **TIME WARN** | Position open ≥ 10 days (swing) or ≥ 6 weeks (positional) with P&L < 0.5R. Apply time-stop. |
 | **PORTFOLIO P&L** | W/L/Stop count. If ≥ 3 stops recently, reduce new sizes. |
 
-> **Note (v67.0):** The RECOVERY section has been removed from Dashboard v67.4.12. Recovery signal validation — REV-CB pillars, REV-RS breakout status, REV-EARLY compression check — is now handled exclusively through (a) the **Commander Recovery Screener v2.0** (real-time pillar display on chart) and (b) the **Weinstein_Unified_Ecosystem_v3.4.pine** recovery panel (regime gate, CB pillars P1–P4, RFF score). Do not expect a recovery row in the Dashboard right column.
+> **Note (v67.0):** The RECOVERY section has been removed from Dashboard v67.4.12. Recovery signal validation — REV-CB pillars, REV-RS breakout status, REV-EARLY compression check — is now handled exclusively through (a) the **Commander Recovery Screener v2.1** (real-time pillar display on chart) and (b) the **Weinstein_Unified_Ecosystem_v3.4.pine** recovery panel (regime gate, CB pillars P1–P4, RFF score). Do not expect a recovery row in the Dashboard right column.
 
 ---
 
@@ -701,7 +701,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 │  Step 3  Run Full Auto-Pilot → Watchlist       (Commander Web Tab 4.5)  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │              PER-TICKER VALIDATION (09:15 – 10:30 IST)                  │
-│  Step 4  Bull Screener v3.2 reading            (TradingView)            │
+│  Step 4  Bull Screener v3.3 reading            (TradingView)            │
 │  Step 5  Dashboard v67.4.12 final go/no-go      (TradingView)            │
 │  Step 6  Context Layers v1.2 FINAL SCORE       (TradingView)            │
 │  Step 7  Zigzag v6.2 structural confirmation   (TradingView)            │
@@ -767,7 +767,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 
 ---
 
-### Step 4 — Bull Screener v3.2 Reading (Per Ticker)
+### Step 4 — Bull Screener v3.3 Reading (Per Ticker)
 
 **Module:** `Commander_Screener_Beta_Edition_v2.9.pine` on each candidate's daily chart
 **Why fourth:** Re-screens the Python output against live candle data. Catches gaps, intraday shifts, and volume anomalies the EOD pipeline missed.
@@ -909,7 +909,7 @@ The Layer-3 outputs are formatted as TradingView-importable `.txt` files in `Gen
 | 1 | Macro / Breadth | CNX500 regime | NOT RED |
 | 2 | Sector Dashboard | Sector Stage | 1 or 2 |
 | 3 | Auto-Pilot watchlist | Conviction score | ≥ 6.0 (matcher floor) |
-| 4 | Bull Screener v3.2 | `pyScore` AND `alphaScore` | both ≥ 60 |
+| 4 | Bull Screener v3.3 | `pyScore` AND `alphaScore` | both ≥ 60 |
 | 5 | Dashboard v67.4.12 | Recommendation | STRONG BUY or BUY |
 | 6 | Context Layers v1.2 | CONTEXT SCORE | ≥ +3 (BULL) for full size |
 | 7 | Zigzag v6.2 | Trend state | HH-HL |
@@ -1298,19 +1298,19 @@ These are the canonical parameter values. Do not change these without updating a
 | Parameter | Value | Source | Used In |
 |---|---|---|---|
 | **`SCAN_PARAMS_VERSION`** | **`v2_FINAL_20260510`** | `chartink_replay.py` | Python pipeline canonical version stamp |
-| **Hunter `weekly_rsi_min`** | **60** (was 55) | v1 FINAL backtest | `chartink_replay.py`, Bull Screener v3.2 (`hunter_weekly_rsi_min`), Unified Ecosystem v3.4 (`hunter_weekly_rsi_min`), Dashboard ULTIMATE v3.9 |
+| **Hunter `weekly_rsi_min`** | **60** (was 55) | v1 FINAL backtest | `chartink_replay.py`, Bull Screener v3.3 (`hunter_weekly_rsi_min`), Unified Ecosystem v3.4 (`hunter_weekly_rsi_min`), Dashboard ULTIMATE v3.9 |
 | **Hunter `daily_adx_min`** | **25** (was 20) | v1 FINAL backtest | Same as above |
 | **EarlyBirds `disable_rsi`** | **`True`** (was False) | v1 FINAL backtest | `chartink_replay.py` SCAN_PARAMS |
-| **`pos_accum_rsi_threshold`** (v2 LOCK) | **50** | v2 ablation (only fix that promoted on both raw + filtered universes) | `v2_fixes.V2_PARAMS`, Bull Screener v3.2 (`pos_accum_rsi_max`), Unified Ecosystem v3.4 (`pos_accum_rsi_max`), Dashboard ULTIMATE v3.9 |
+| **`pos_accum_rsi_threshold`** (v2 LOCK) | **50** | v2 ablation (only fix that promoted on both raw + filtered universes) | `v2_fixes.V2_PARAMS`, Bull Screener v3.3 (`pos_accum_rsi_max`), Unified Ecosystem v3.4 (`pos_accum_rsi_max`), Dashboard ULTIMATE v3.9 |
 | **`V2_FLAGS["pos_accum_rsi_nullout"]`** | **`True`** (default) | v2 LOCK 10 May 2026 | `v2_fixes.py` |
-| **`V2_FLAGS["days_since_pivot_penalty"]`** | **`False`** (default) | v2 ablation rejected as default; retained as defensive flag | `v2_fixes.py`; Bull Screener v3.2 input `days_since_pivot_penalty_on` |
+| **`V2_FLAGS["days_since_pivot_penalty"]`** | **`False`** (default) | v2 ablation rejected as default; retained as defensive flag | `v2_fixes.py`; Bull Screener v3.3 input `days_since_pivot_penalty_on` |
 | **Matcher `min_conviction`** | **6.0** | Production matcher default | `matcher_replay.filter_by_conviction`, `brute_force_match_pro.calculate_conviction_score` |
 | **Validation Top-N** | **10** | Backtest spec | `validation.run_validation`, `validation.run_chartink_validation` |
 | **Validation forward window** | **30 days** | Backtest spec | Same as above |
 | **Validation anchors** | **12 monthly** | Backtest spec | Same as above |
 | **Benchmark** | **`^CRSLDX` (Nifty 500)** | Backtest spec | Same as above |
 
-> **Cross-surface invariant:** Whenever `chartink_replay.SCAN_PARAMS["hunter"]["weekly_rsi_min"]` is changed, the same value must be applied to: Bull Screener v3.2 input `Hunter Weekly RSI Min`, Unified Ecosystem v3.4 input `Hunter Weekly RSI Min (POS-BO)`, and Dashboard ULTIMATE v3.9 input `Hunter Weekly RSI Min`. Same for `daily_adx_min` and `pos_accum_rsi_threshold`. Zero signal drift between Python and Pine is the DNA-level rule.
+> **Cross-surface invariant:** Whenever `chartink_replay.SCAN_PARAMS["hunter"]["weekly_rsi_min"]` is changed, the same value must be applied to: Bull Screener v3.3 input `Hunter Weekly RSI Min`, Unified Ecosystem v3.4 input `Hunter Weekly RSI Min (POS-BO)`, and Dashboard ULTIMATE v3.9 input `Hunter Weekly RSI Min`. Same for `daily_adx_min` and `pos_accum_rsi_threshold`. Zero signal drift between Python and Pine is the DNA-level rule.
 
 ### 14B. Canonical Module Versions (May 2026)
 
@@ -1564,10 +1564,10 @@ For full evidence and decision tables, see `BACKTEST_RESULTS_v2.docx` (root) and
 
 | Domain | Canonical Owner | Mirrored In | Removed From Display In |
 |---|---|---|---|
-| Mansfield RS engine (52w level + 26w slope + 8w window + 4-bar momentum + 130-bar warm-up + JdK RS-Ratio) | **Dashboard v67.4.12** | Bull Screener v3.2, Recovery Screener v2.0, Unified Ecosystem v3.4 | All three mirrors (Bull dropped 3 rows, Recovery 2, Unified 1) |
+| Mansfield RS engine (52w level + 26w slope + 8w window + 4-bar momentum + 130-bar warm-up + JdK RS-Ratio) | **Dashboard v67.4.12** | Bull Screener v3.3, Recovery Screener v2.1, Unified Ecosystem v3.4 | All three mirrors (Bull dropped 3 rows, Recovery 2, Unified 1) |
 | Strict trend (HH/HL/LH/LL/EH/EL) | **Zigzag v6.2** | Dashboard via `f_getStrictTrend` | — |
-| POS-BO 9-gate detail | **Bull Screener v3.2** | Unified Ecosystem references via diag panel | — |
-| 4-pillar Capitulation Bottom + RFF + 60-bar DD + RSI(3) FEAR | **Recovery Screener v2.0** | Unified Ecosystem references via diag panel | Dashboard (removed Recovery section in v67.0) |
+| POS-BO 9-gate detail | **Bull Screener v3.3** | Unified Ecosystem references via diag panel | — |
+| 4-pillar Capitulation Bottom + RFF + 60-bar DD + RSI(3) FEAR | **Recovery Screener v2.1** | Unified Ecosystem references via diag panel | Dashboard (removed Recovery section in v67.0) |
 | ML probability score + WCL Gate + first-failing-gate diag | **Unified Ecosystem v3.4** | — | — |
 | Wyckoff + Volume Profile + SMC + Setup Detector | **Context Layers v1.2** | — | Legacy `Weinstein_Wyckoff_Phases`, `_Volume_Profile`, `_SMC_Zones` standalone modules (deprecated; remove from layouts) |
 
@@ -1699,9 +1699,9 @@ FINAL SCORE = BASE + BONUS                                                      
 - *`docs/05`–`06` — DEPRECATED strategy guides (Minervini + Recovery — superseded by Unified Ecosystem v3.4)*
 - *`docs/07_Commander_Web_v4_Guide.md` — Commander Web v4.0 (with Run Full Auto-Pilot pipeline)*
 - *`docs/08_Dashboard_v67_Guide.md` — Dashboard v67.4.12 (Decision-Mode + 664-symbol DB + JdK RRG)*
-- *`docs/09_Recovery_Screener_v2_0_Guide.md` — Recovery Screener v2.0 (Wyckoff Phases B/C/D + 10 paired gates)*
+- *`docs/09_Recovery_Screener_v2_0_Guide.md` — Recovery Screener v2.1 (Wyckoff Phases B/C/D + 10 paired gates)*
 - *`docs/10_Risk_Allocator_v1_Guide.md` — Risk Allocator v1.0*
-- *`docs/11_Bull_Screener_v3_2_Guide.md` — Bull Screener v3.2 (POS-ACCUM disabled, composite-merged, RS engine mirrored)*
+- *`docs/11_Bull_Screener_v3_2_Guide.md` — Bull Screener v3.3 (POS-ACCUM disabled, composite-merged, RS engine mirrored)*
 - *`docs/13_Unified_Ecosystem_User_Guide.md` — Unified Ecosystem v3.4 (user guide)*
 - *`docs/14_Unified_Ecosystem_Trading_Guide.md` — Unified Ecosystem v3.4 (trading guide)*
 - *`docs/15_Context_Layers_v1.2_Guide.md` — Context Layers v1.2 (Setup Bonus + Final Score)*

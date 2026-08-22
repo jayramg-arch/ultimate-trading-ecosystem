@@ -1,3 +1,5 @@
+> **[DEPRECATED]** This standalone guide is obsolete. Wyckoff, SMC, and Volume Profile have been unified into a single ecosystem module. Please refer to docs/15_Context_Layers_v1.2_Guide.md for the current canonical documentation.
+
 # Weinstein SMC Zones v1.0 — User & Trading Guide
 
 > **Module Role in Ecosystem:** The SMC (Smart Money Concepts) Zones module adds the **institutional footprint layer** to the Weinstein framework. While Weinstein uses weekly stages and moving averages to identify *what phase* the market is in, SMC pinpoints the *exact price zones* where institutional orders were placed — and therefore where price is most likely to react. This module provides the micro-precision entry and stop-level intelligence that the Zigzag's macro structure cannot.

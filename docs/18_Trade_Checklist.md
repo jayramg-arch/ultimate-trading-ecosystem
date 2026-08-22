@@ -7,7 +7,7 @@
 >
 > **Deployed versions this is written against** (all aligned with Bible v6.0):
 > Dashboard **v67.4.12** (in-file title v67.4.13 = display-only icon/font tweak) ·
-> Bull Screener **v3.2** (Py v1.11) · Recovery Screener **v2.0** (Py v1.6) ·
+> Bull Screener **v3.3** (Py v1.11) · Recovery Screener **v2.1** (Py v1.6) ·
 > Unified Ecosystem file **v3.4** / in-file title **v3.6** · Context Layers **v1.2** ·
 > Zigzag **Strict v6.2** · Risk Allocator **v1.0** · Web Commander **v4.0** ·
 > Scans `SCAN_PARAMS_VERSION = "v2_FINAL_20260510"`.
@@ -129,7 +129,7 @@ You do **not** pick the track up front. The checklist decides it for you, in thr
 
 ## PER-TICKER VALIDATION  (09:15–10:30 IST)
 
-### STEP 4 — BULL SCREENER v3.2  *(per chart, daily)*
+### STEP 4 — BULL SCREENER v3.3  *(per chart, daily)*
 
 | Reading | HARD FLOOR | Full-conviction |
 |---|---|---|
@@ -143,7 +143,7 @@ You do **not** pick the track up front. The checklist decides it for you, in thr
 | VCP Tight (ATR < 1.0× ATR-SMA) | required SWG-BO · preferred POS-BO | tighter base = sharper break |
 
 - [ ] `alphaScore ≥ 60` AND `pyScore ≥ 60` AND a catalyst is active.  **← HARD FLOOR**
-> **Note:** POS-AC **does** show as a catalyst label here (re-enabled, in-file v3.3 / Py v1.10), gated `dailyRsi ≤ 50`. Ignore the stale "disabled" comment in the .pine file header.
+> **Note:** POS-AC **does** show as a catalyst label here (re-enabled, in-file v3.3 / Py v1.10), gated `pa_not_extended`. Ignore the stale "disabled" comment in the .pine file header.
 > **Gold standard:** pyScore ≥ 80 + POS-BO + 9/9 + wRSI ≥ 65 + ADX ≥ 30 + Vol Shelf + OBV rising → full size.
 
 ### STEP 5 — DASHBOARD v67.4.12  *(final go/no-go, Decision Mode)*
@@ -213,7 +213,7 @@ Steps 1–7 hard floors and Step 9 sizing still bind.
 | Edge | Path A built-in gate (don't override the algo) | Path B — verify by eye for a manual entry |
 |---|---|---|
 | `pos_bo_trigger` | breakout + 1.5× vol + vol_shelf + **wRSI ≥ 60 + ADX ≥ 25** | Close above 20-bar high; vol ≥ 1.5× 50-day; not ≥ 3% extended. Buy-stop 0.25% above the high; wait for **close** above level |
-| `pos_ac_trigger` | accum + 1.2× vol + OBV rising & > MA + vol_shelf + **d_rsi ≤ 50** | Base + Close > EMA20 > SMA50, close top-30% of bar, OBV rising 2 bars & > SMA20, daily RSI ≤ 50. Limit 0.25% below close |
+| `pos_ac_trigger` | accum + 1.2× vol + OBV rising & > MA + vol_shelf + **d_rsi ≤ 50** | Base + Close > EMA20 > SMA50, close top-30% of bar, OBV rising 2 bars & > SMA20, close ≤ close[5] × 1.05. Limit 0.25% below close |
 | `swing_pb_trg` | mkt_bull + pullback + vcp_tight + ma_stack + rsi_pocket + vol_dry | Low pierced EMA20, close back > EMA20 (within 1.5%) on dry volume, RSI 30–70. Enter first green close |
 | `swing_bo_trg` | mkt_bull + vcp_tight + breakout + 1.5× vol | VCP tight (ATR < 1× avg), close > 20-bar high on ≥ 1.5× vol, bar range < 2× ATR. Buy-stop 0.5% above pivot |
 | `gap_go_trg` | mkt_bull + gap ≥ 4% + intraday pos ≥ 60% + 3× vol | Gap ≥ 4%, holds past 11:30 IST (first 15-min didn't retrace > 50%), ≥ 3× vol. Enter above first-candle high |
@@ -344,5 +344,5 @@ Score each of the 9 steps: **+1** if at the *confluence-boost* level · **+0.5**
 *Entry: every HARD FLOOR passes + Scorecard ≥ 7/9. Exit: follow the edge row mechanically — no discretionary
 overrides (DNA rule). RRG and scoring math are read-only ([[rrg-logic-do-not-touch]]); this checklist only
 consumes their outputs. POS-ACCUM is live across all surfaces (Bull Screener in-file v3.3, Py v1.10, Ecosystem
-v3.6; gated RSI ≤ 50) — judge it on the full 180-day horizon, never a short window. The .pine header's
+v3.6; gated pure PA (not extended)) — judge it on the full 180-day horizon, never a short window. The .pine header's
 "disabled" comment is stale; trust the code ([[validation-window-mismatch-warning]]).*

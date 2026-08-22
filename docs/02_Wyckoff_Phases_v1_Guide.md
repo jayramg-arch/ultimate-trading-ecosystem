@@ -1,3 +1,5 @@
+> **[DEPRECATED]** This standalone guide is obsolete. Wyckoff, SMC, and Volume Profile have been unified into a single ecosystem module. Please refer to docs/15_Context_Layers_v1.2_Guide.md for the current canonical documentation.
+
 # Weinstein Wyckoff Phases v1.0 — User & Trading Guide
 
 > **Module Role in Ecosystem:** This indicator adds a **narrative layer** on top of the structural data provided by the Zigzag and Volume Profile. While the Zigzag tells you *where* the market is structurally, Wyckoff tells you *why* — is this a base forming under distribution, or an accumulation structure about to launch? It works in tandem with the Volume Profile (identifying POC/VAH/VAL levels near Wyckoff events) and the SMC Zones module (Order Blocks often coincide with Wyckoff Spring or Test events).

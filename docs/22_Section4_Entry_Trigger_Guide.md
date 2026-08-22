@@ -2,13 +2,14 @@
 
 > **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the price-action battery (**17 Bull / 10 Recovery**) on the **chart timeframe**; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks demand and supply zones on Chart + Daily + Weekly + Monthly** using the leg-base-leg engine ported from the Institutional Zone Engine, plus horizontal S/R levels and Volume-Profile VAL/POC — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **entry + SL plan** and raises alerts so you never have to sit and watch.
 >
-> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)` (`shorttitle "S4 Entry v9.18"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/13` · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
+> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)` (`shorttitle "S4 Entry v9.18"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/14`  ⚠ **publish pending** — latest PUBLISHED is /13; the next publish carries `oiBasis` + `invalLevels` + `oiText` and lands on /14 · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
 >
 > ⚠ **Version discipline (learned the hard way, 18-Aug):** "v9.17" ended up spanning TWO
 > different builds because the title was not bumped when Gate 5 and the SUMMARY went in —
 > a compiled build could not be told apart from an uncompiled one. **v9.18 bumps it**, and
 > the rule now is that the in-file title moves with any functional change. Library must be
-> **S4Core/13**; publish the library BEFORE compiling S4, since an export added after a
+> **S4Core/14** (one publish away — /13 is live, /14 adds oiBasis + invalLevels + oiText);
+> publish the library BEFORE compiling S4, since an export added after a
 > publish produces *"Could not find method or method reference"*.
 >
 > **Which timeframe the PA battery actually reads** — this is the single most-misread line in this guide. `use_chart_tf` **defaults to TRUE** (line 938), so on a 75m chart the battery runs on **75m bars**, not Daily. The panel header says so: `PA · BULL (auto·75)`. Only the two weekly-anchored patterns (Stage-2 Launch, 30-WMA Reclaim) and the HTF pattern are suppressed on intraday. Set `use_chart_tf` OFF and the battery reverts to confirmed Daily via `request.security`. `confirm_daily` (default ON) shifts **only the daily-security call** by one bar — after the v4.1 fix it does **not** shift the chart-TF call, which is what had the 75m battery reading a stale bar.

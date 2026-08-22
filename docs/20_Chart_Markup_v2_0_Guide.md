@@ -1,8 +1,8 @@
-# Commander Chart Markup v2.0 — User & Trading Guide
+# Commander Chart Markup v2.2 — User & Trading Guide
 
 > **Module Role:** A self-contained, **timeframe-agnostic chart-reading engine**. Drop it on any NSE symbol (or any timeframe, or use it in the TV screener) and it auto-detects the structure — Weinstein Stage, Mansfield RS, trendlines, channels/wedges, support/resistance, gaps, classical patterns, anchored VWAP, Fibonacci — and renders a **decision-brief panel + descriptive annotations**. It is the *breadth scanner* of the markup workflow; you hand-draw the one tradeable trendline (see §Trading Guide).
 >
-> **File:** `Commander_Chart_Markup_v2.0.pine` · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE/BSE (any), benchmark `NSE:CNX500`.
+> **File:** `Commander_Chart_Markup_v2.2.pine` · **Type:** Indicator (overlay) · **Pine:** v6 · **Market:** NSE/BSE (any), benchmark `NSE:CNX500`.
 >
 > **Design contract:** RS and Stage reuse the same maths as the Mansfield RS pane and the Unified Ecosystem; AVWAP is ported from **Dashboard v67.4.12**; Fib from **Zigzag [Strict v6.2]** — zero-drift by intent, the other tools untouched.
 
@@ -22,6 +22,8 @@
 | **v1.8** | **Trendline close-respect rule** — a line is accepted only if no candle *closed* beyond it (above resistance / below support) within tolerance. Toggle "reject if a candle closes through it" |
 | **v1.9** | **Trendline recency bias** — selection scores touches + a bonus for how recent the anchor is, so it prefers lines connecting recent pivots over long lines reaching far back. Tunable (0 = most-touched) |
 | **v2.0** | **EMA20 confluence + ideal-angle biases** in line selection; **EMA20 plotted & timeframe-aware** (Monthly→M · Weekly→W · Daily & intraday 125/75-min→D, per the DNA spec). EMA20 confluence = line touches the EMA20 near CMP (break together) + parallel travel |
+| **v2.1** | **Bug-fix batch (audit):** stale-drawing cleanup (a failed fit can't leave old geometry on screen); **Mansfield RS now canonical weekly-52** on every chart TF (was silently a 52-*day* RS on daily charts); session-aware intraday EMA-slope scaling; **plan stop cap** (× ATR, "⚠cap" tag) |
+| **v2.2** | **Quality + alerts:** DT/DB min-depth & min-spacing gates · **top-2 S/R clusters** per side (R2/S2 dimmed) · direction-aware Fib (Stage 4 reads the swing top-down) · Minervini/conviction/pullback MAs **anchored to Daily** on all TFs · richer nearest-S/R pickers (EMA20, daily MAs, all Fib levels, S/R clusters) · **8-alert suite** · panel TL-BREAK row · panel position applies without reload · Cup min-width gate |
 
 ---
 
@@ -59,7 +61,8 @@
 | Input | Default | Meaning |
 |---|---|---|
 | **RS Benchmark** | `NSE:CNX500` | Index for Mansfield RS (Nifty 500). |
-| **Mansfield RS MA length** | 52 | Lookback for the RS ratio's moving average (52 = ~1y on daily). |
+| **Mansfield RS MA length (WEEKS)** | 52 | v2.1: the RS is always computed on the **weekly** SYM/BENCH spread regardless of chart TF — 52 = the canonical 52-week Mansfield (DNA "52-wk primary"). The old per-chart-TF behaviour (a 52-*day* RS on daily) was a zero-drift bug. |
+| **Plan: stop cap (× ATR)** (v2.1) | 2.5 | The PLAN's stop is never further than this many ATRs below entry, even when the nearest structural support is far away (the structural level still shows in LEVELS). A capped stop shows "⚠cap". |
 | **'At highs' threshold (% from 52WH)** | 3.0 | Within this % of the 52-week high → setup reads "Stage 2 at highs". |
 | **'Pullback to MA' band (× ATR)** | 1.5 | Price within this ATR-band of the 50-MA → setup reads "SWG-PB (pullback to MA)". |
 
@@ -88,6 +91,8 @@
 | Flag consolidation max (× ATR) | 2.5 | maximum consolidation range (tightness) |
 | Double / Triple Top & Bottom | ✓ | equal pivots + neckline, "✓break" on neckline break |
 | Equal-pivot tolerance (× ATR) | 0.5 | how equal the tops/bottoms must be |
+| **DT/DB min trough depth (× ATR)** (v2.2) | 1.0 | the dip between the tops (peak between bottoms) must be at least this deep — kills shallow-consolidation false positives |
+| **DT/DB min spacing (× pivot length)** (v2.2) | 2 | the two tops/bottoms must be at least this many pivot-lengths apart |
 
 ### 3.5 Batch 2 — heuristic CANDIDATES (false-positive-prone)
 | Input | Default | Meaning |
@@ -173,6 +178,24 @@ This is the single fastest read of *how many forces align* behind the move.
 - **Descriptive notes** (v1.5) — full sentences at Resistance / Support / AVWAP explaining *what the level means*.
 
 > **Important:** every line/label above is **indicator output — not draggable.** See the Trading Guide for how trendlines fit the workflow.
+
+---
+
+## 9. Alerts (v2.2)
+Create alerts from TradingView's alert dialog → condition = this indicator → pick from:
+
+| Alert | Fires when (one-shot edge) |
+|---|---|
+| **Trendline breakout** | close crosses **above** the auto resistance trendline (+ tolerance) — often EMA20-confluent by construction |
+| **Trendline breakdown** | close crosses **below** the auto support trendline |
+| **Resistance cluster break** | close breaks above the R1 pivot cluster |
+| **Support cluster break** | close breaks below the S1 pivot cluster |
+| **Pattern neckline ✓break** | a Double/Triple Top-Bottom or H&S neckline break confirms |
+| **SWG-PB trigger** | a Stage-2 pullback setup reclaims the **daily** 50-MA |
+| **Conviction STRONG** | the conviction score crosses to ≥ 6/7 |
+| **Weinstein stage change** | the weekly stage classification flips |
+
+All are edge-triggered (fire once per state change, not on every bar). The panel's **TL BREAK @** row shows the exact line values the trendline alerts watch.
 
 ---
 
