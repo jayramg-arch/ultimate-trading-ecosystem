@@ -120,6 +120,24 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:now
 .pg .n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap}
 .pg .j{font-size:14.5px;color:var(--ink-2)}
 
+
+/* collapsible reference — folded, never dropped */
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
 .stack{counter-reset:st;list-style:none;padding:0;margin:0 0 18px;max-width:none}
 .stack li{counter-increment:st;display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;
   padding:13px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
@@ -175,6 +193,7 @@ footer a{color:var(--acc)}
     <li><a href="#dash">The Dashboard</a></li>
     <li><a href="#command">The Command Center</a></li>
     <li><a href="#flows">Workflows</a></li>
+    <li><a href="#pages">Every page in detail</a></li>
     <li><a href="#ops">Operating notes</a></li>
   </ol>
 </nav>
@@ -414,8 +433,181 @@ footer a{color:var(--acc)}
   edge is holding → refresh the watchlists.</p>
 </section>
 
+<section id="pages">
+  <h2><span class="n">10</span>Every page, in detail</h2>
+  <p>Folded by group. This is the reference for <em>what is on this page and what each field
+  means</em> — the thing you open when a tab is unfamiliar or a number is unexpected.</p>
+
+  <details class="ref"><summary>🩺 State of Market — Macro · Breadth · News</summary><div class="rb">
+  <h4>Macro Radar</h4>
+  <ul>
+    <li><b>Overview</b> — a tile per instrument with its one-month change, a risk-on/risk-off read
+    of the complex, and a <b>12-month trend rebased to 100</b> so every series is comparable on one
+    axis.</li>
+    <li><b>Global Indices</b> — the full world board with change and 52-week range.</li>
+    <li><b>FII/DII Flows</b> — cumulative foreign against domestic flow over time.</li>
+    <li><b>Sector RRG</b> — rotation of the sector indices against the broad index. Leading,
+    improving, weakening, lagging. <b>This is the sector filter you apply before drilling to
+    stocks.</b> The rotation maths is locked and read-only.</li>
+  </ul>
+  <h4>Breadth Engine</h4>
+  <ul>
+    <li><b>Regime</b> — a single composite from breadth, advance/decline, McClellan and
+    percentage-above-averages. <b>This is your master gate</b>: it decides whether bull setups or
+    recovery setups are in season.</li>
+    <li><b>Overview</b> — percentage above the 50, 150 and 200-day averages (<b>the 200 is the big
+    one</b>), share of the universe in Stage 2, new highs against new lows, advance/decline and
+    high/low ratios.</li>
+    <li><b>Sectors</b> — each sector's stage tally, over a selectable lookback.</li>
+    <li><b>McClellan</b> — oscillator, summation index, a text verdict and the thrust reading.
+    <b>It warns when the data is more than a week stale</b>, which matters because a stale breadth
+    read looks exactly like a calm one.</li>
+    <li><b>Stage Map</b> — the full stage distribution across the universe.</li>
+  </ul>
+  <h4>News</h4>
+  <p>Headline counts split bullish / bearish / neutral with a net sentiment label. Three tabs: the
+  free feeds, <b>your paid analyst recommendations</b> (with a cookie-freshness indicator, because
+  an expired cookie fails quietly), and a per-symbol filter.</p>
+  </div></details>
+
+  <details class="ref"><summary>📅 Daily Intel — Pre-market · Dashboard · Post-market</summary><div class="rb">
+  <h4>Pre-market hub</h4>
+  <ul>
+    <li><b>Brief</b> — the <b>canonical</b> full briefing. The dashboard shows only a snippet of
+    this one.</li>
+    <li><b>Global</b> — the overnight pulse across equities, commodities, currencies and bonds.</li>
+    <li><b>Calendar</b> — economic and corporate events.</li>
+    <li><b>Options</b> — the pre-market snapshot: put-call ratios by open interest and volume, max
+    pain, at-the-money volatility, and the <b>call and put walls</b> — the strongest open-interest
+    strikes, which act as magnet and support.</li>
+    <li><b>Paid feed</b> — filtered to overnight and morning-brief headlines.</li>
+  </ul>
+  <h4>Dashboard — the open book</h4>
+  <p>No tabs, a single stacked read. Health vitals across eight tiles; the <b>exit signal scan</b>
+  checking stop proximity, R-multiple, <b>stage decay and fading relative strength</b>;
+  closed-trade performance; a heatmap sized by capital and coloured by return; active positions
+  with a stop-status column; and <b>correlation risk</b> with the diversification score and any
+  shadow-concentration pairs.</p>
+  <h4>Post-market</h4>
+  <p>The end-of-day summary, provisional institutional flows with five-day sums, top movers across
+  a selectable universe, and the paid feed filtered to closing-bell headlines.</p>
+  </div></details>
+
+  <details class="ref"><summary>🔍 Discovery — Hunter · Watchlist · X-Ray · ETF · Portfolio</summary><div class="rb">
+  <h4>Hunter — the screening workhorse, six tabs in workflow order</h4>
+  <ol>
+    <li><b>Scans</b> — launchers per strategy. Positional: stage-2 hunter and early accumulation.
+    Swing: pullback and strong leaders. Recovery: the three post-shock variants —
+    <b>use these only when the market is well off its high</b>.</li>
+    <li><b>Fundamentals</b> — fetch, then process. This produces the snapshot the matcher needs.</li>
+    <li><b>Golden Matcher</b> — combines the technical scans with fundamental conviction. Shows
+    freshness and <b>warns when the output is more than a day old</b>. Below it, the meta-ranking
+    concatenates all four files and ranks by conviction.</li>
+    <li><b>Bull Screener</b> — the Python port of the catalysts, pure price action. Pick a symbol
+    source (the combined picks, the broad universe which is <b>backtest-aligned</b>, the futures
+    basket, or an upload), then filter by catalyst and minimum score. Exports filtered CSV and a
+    symbol array for the chart. <b>Broad-universe runs are strict</b>; an upload keeps tracker
+    mode.</li>
+    <li><b>Recovery Screener</b> — hold-window aware, so it is safe to run post-market and at
+    weekends. Filter by signal type, minimum relative strength and <b>maximum signal age</b>. The
+    output carries the fundamental score, which is the hard gate.</li>
+    <li><b>X-Ray batch</b> — deep fundamentals across a list, filtered by overall rating and
+    quality score, with a single-symbol quick look at the top.</li>
+  </ol>
+  <h4>Watchlist — eight tabs</h4>
+  <p>Opens with the <b>latest pipeline output</b> and a <b>pipeline health panel that lets you
+  re-run a single broken phase</b> rather than the whole thing. Then: local generation and a
+  symbol-array generator; cloud sync and email dispatch; <b>smart rank</b>, which scores a symbol
+  source over a chosen lookback; the sector database with coverage and a lookup; the data cache
+  with its freshness and size; the pipeline phase report; <b>replay</b>, which asks what a screener
+  <em>would</em> have picked on a past date and how those picks did; and the <b>live track
+  record</b> of every pick logged.</p>
+  <h4>X-Ray — single stock, six tabs</h4>
+  <p>Snapshot (valuation, profitability, balance sheet), the income statement, quarterly results
+  with a trend chart, the <b>scorecard</b> carrying both quality scores, a multi-stock fundamental
+  screen, and news with corporate announcements and analyst consensus.</p>
+  <h4>ETF — a parallel pipeline</h4>
+  <p>Top picks, sector rotation on a composite relative strength, the asset-class regime detector
+  with an allocation view, and liquidity scoring. <b>Liquidity is the number-one ETF risk</b> —
+  a large share of listed ETFs trade too thin to exit cleanly.</p>
+  <h4>Portfolio analytics</h4>
+  <p>Overview and allocation; <b>risk metrics</b> — value at risk at a chosen confidence and
+  lookback, conditional VaR, annualised volatility, max drawdown, and factor exposure against the
+  index (beta, correlation, tracking error, alpha, Sharpe, Sortino); historical <b>stress
+  scenarios</b> replayed against your actual book; and a walk-forward stage-2 backtest with a
+  selectable rebalance and universe.</p>
+  </div></details>
+
+  <details class="ref"><summary>⚡ Execution — Command · Options · Sidecar</summary><div class="rb">
+  <h4>Command Center</h4>
+  <p><b>Active Ops</b> holds the live agents — order execution, the stop auto-shield that pushes
+  journal-derived stops to the broker, mobile monitoring, the intraday scanner, and the webhook
+  gateway that turns a chart alert into an order. Inline beside them: the exit scan, the trailing
+  engine, and the <b>rotation guard</b> that grades every open position.</p>
+  <p><b>Ledger</b> carries the live trade ledger and the sync that pushes it into the chart's
+  portfolio slots. <b>Price Alerts</b> is add, pause, remove, check-now, and fired history.</p>
+  <h4>Options Desk</h4>
+  <p>The live chain with a spot, put-call ratio and max-pain snapshot, a strike-range slider
+  driving open interest, change in open interest, volatility skew, and a near-the-money table.
+  Plus external links and a concepts reference.</p>
+  <h4>TV Sidecar</h4>
+  <p>A quote strip, <b>key technical levels</b> — price against each major average with distance,
+  the ten-day range, and ATR — and a multi-panel chart. A fast read-out to glance at while your
+  real chart is elsewhere.</p>
+  </div></details>
+
+  <details class="ref"><summary>🔬 Analysis — Autopsy · Backtest · AI Lab</summary><div class="rb">
+  <h4>Autopsy — five tabs</h4>
+  <ul>
+    <li><b>Overview</b> — trades, win rate, total realised, Sharpe, profit factor, expectancy, max
+    drawdown, average win and loss, holding-period analysis and the equity curve.</li>
+    <li><b>Calendar</b> — monthly profit and loss.</li>
+    <li><b>Sectors</b> — sector breakdown <em>and</em> coverage, so you can see which sectors you
+    have never traded at all.</li>
+    <li><b>Trade Quality</b> — the quality distribution and your win and loss streaks.</li>
+    <li><b>Attribution</b> — realised performance decomposed, with a <b>data-quality line</b>
+    stating what was excluded, what was quarantined as incomplete, and how much of the sample
+    carries an entry snapshot. Led by the <b>entry-signal drivers</b> — setup, stage, alpha,
+    relative strength, conviction. Reads the journal directly, no network.</li>
+  </ul>
+  <h4>Backtest lab</h4>
+  <p>Forward-return analysis of screener signals per holding horizon: win rate, average and median
+  return, best and worst, a breakdown by edge type, the return distribution, and
+  <b>return against signal age</b> — which is how you find out whether a stale signal is still
+  worth taking.</p>
+  <h4>AI Lab — four tabs</h4>
+  <p><b>Pre-flight</b> proposes a trade from a symbol, entry and risk, returning a grade, a score,
+  a suggested stop and a quantity — then can place the entry and its protective order together.
+  <b>Generative</b> covers stock analysis at selectable depth and a portfolio review.
+  <b>Workflows</b> holds the pipeline launcher and a sizing interface that computes quantity, trade
+  value, risk and targets before executing. <b>Weekly report</b> generates the week's summary.</p>
+  </div></details>
+
+  <details class="ref"><summary>📁 Records — the journal</summary><div class="rb">
+  <p>Launches the standalone journal app in its own window — the full trade journal with entry
+  snapshots. It is kept in step with your broker book by the scheduled daily sync, so
+  <b>the journal you open is already reconciled</b> rather than something you have to reconcile
+  first.</p>
+  <p class="refnote">A legacy fundamentals page still exists in the code but was absorbed into
+  X-Ray and is no longer in the sidebar.</p>
+  </div></details>
+
+  <details class="ref"><summary>The modules underneath — and how to use this list</summary><div class="rb">
+  <p>The app is a shell over roughly fifty-five modules in a few layers: <b>data and
+  infrastructure</b> (the provider, caching, the sector database), <b>broker, auth and
+  execution</b>, the <b>screening engines</b> that are the zero-drift core, the <b>analysis and
+  reporting</b> modules, and the <b>agents</b> that run on a schedule.</p>
+  <div class="note">
+    <p><b>Why this matters operationally:</b> almost nothing on a page computes a signal — pages
+    render what an engine produced. So when a number looks wrong, <b>the question is which engine
+    produced it</b>, and the answer is in that engine's own guide. It also means a page can look
+    healthy while the engine behind it has failed, which is exactly the launcher problem above.</p>
+  </div>
+  </div></details>
+</section>
+
 <section id="ops">
-  <h2><span class="n">10</span>Operating notes</h2>
+  <h2><span class="n">11</span>Operating notes</h2>
   <div class="tw"><table>
     <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
     <tbody>
