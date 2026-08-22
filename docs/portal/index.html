@@ -18,6 +18,9 @@
   --evidence:#2C5AA8; --evidence-bg:#E7EDF8;
   --gate:#9A5B00; --gate-bg:#FBF0DE;
   --funnel:#7A3E6B; --funnel-bg:#F4E9F1;
+  --bible:#8A6A1F; --bible-bg:#F6F1E2;
+  --honest:#0F6E86; --honest-bg:#E2F0F4;
+  --ledger:#44566C; --ledger-bg:#E9EDF2;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
   --body:'Newsreader',Georgia,'Times New Roman',serif;
@@ -31,6 +34,9 @@
     --evidence:#6E9BE0; --evidence-bg:#152238;
     --gate:#E0A020; --gate-bg:#332608;
     --funnel:#C589B8; --funnel-bg:#2A1826;
+    --bible:#C9A84C; --bible-bg:#2B2410;
+    --honest:#4FB3C9; --honest-bg:#0D2A32;
+    --ledger:#8FA3BA; --ledger-bg:#1A2029;
   }
 }
 :root[data-theme="dark"]{
@@ -41,6 +47,9 @@
   --evidence:#6E9BE0; --evidence-bg:#152238;
   --gate:#E0A020; --gate-bg:#332608;
   --funnel:#C589B8; --funnel-bg:#2A1826;
+  --bible:#C9A84C; --bible-bg:#2B2410;
+  --honest:#4FB3C9; --honest-bg:#0D2A32;
+  --ledger:#8FA3BA; --ledger-bg:#1A2029;
 }
 
 *{box-sizing:border-box}
@@ -115,6 +124,9 @@ td.st{width:120px;white-space:nowrap}
 .pill.page.ev{color:var(--evidence);background:var(--evidence-bg);border-color:var(--evidence)}
 .pill.page.gt{color:var(--gate);background:var(--gate-bg);border-color:var(--gate)}
 .pill.page.fn{color:var(--funnel);background:var(--funnel-bg);border-color:var(--funnel)}
+.pill.page.bi{color:var(--bible);background:var(--bible-bg);border-color:var(--bible)}
+.pill.page.hn{color:var(--honest);background:var(--honest-bg);border-color:var(--honest)}
+.pill.page.lg{color:var(--ledger);background:var(--ledger-bg);border-color:var(--ledger)}
 .pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 
 .note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
@@ -144,7 +156,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>5</b><span>Published pages</span></div>
+      <div class="count"><b>8</b><span>Published pages</span></div>
       <div class="count"><b>24</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
@@ -155,7 +167,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Start here</h2><div class="rule"></div><span class="ct">5 pages</span>
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">8 of 24</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -229,6 +241,43 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
+
+    <a class="card" style="--spine:var(--bible)" href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">The Bible &middot; Foundation</p>
+        <p class="card-t">The Commander Bible</p>
+        <p class="card-d">The original end-to-end guide &mdash; five phases, the context layer,
+        the parameter tables and thirty common mistakes. Written May 2026, so every claim the code
+        has since overtaken is flagged where it sits.</p>
+        <div class="card-m"><span>Where it all came from</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/code/artifact/53aee9e9-be8c-4084-afc2-a86ae598bad5">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 16 &middot; Evidence</p>
+        <p class="card-t">The Honesty Layer</p>
+        <p class="card-d">The validation framework itself: matched alpha and why the window must
+        fit the setup, the walk-forward harness, the execution simulator, the overfit gate, and the
+        partition that keeps finding the real answer.</p>
+        <div class="card-m"><span>How a claim gets tested</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--ledger)" href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 19 &middot; Evidence</p>
+        <p class="card-t">The Performance Ledger</p>
+        <p class="card-d">Turning raw broker fills into an attributable record &mdash; attribution
+        across eleven dimensions, the entry snapshot, the daily broker sync and its three verbs,
+        and what the exit reconcile really showed.</p>
+        <div class="card-m"><span>What the book actually did</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
   </div>
 
   <div class="sec-head">
@@ -247,7 +296,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <tr><td class="id">26</td><td class="nm"><a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
         <tr><td class="id">24</td><td class="nm"><a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">The Pre-Trade Gate</a></td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill page gt">Page</span></td></tr>
         <tr><td class="id">18</td><td class="nm"><a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">The Trade Funnel</a></td><td>The nine gated steps, floors and exits</td><td class="st"><span class="pill page fn">Page</span></td></tr>
-        <tr><td class="id">—</td><td class="nm">Weinstein / Minervini Bible</td><td>The underlying methodology</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">—</td><td class="nm"><a href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">The Commander Bible</a></td><td>The original end-to-end guide, with stale claims flagged</td><td class="st"><span class="pill page bi">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -258,8 +307,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td class="id">27</td><td class="nm"><a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">Backtest Process &amp; Glossary</a></td><td>How a verdict is reached, and its vocabulary</td><td class="st"><span class="pill page ev">Page</span></td></tr>
-        <tr><td class="id">16</td><td class="nm">Validation Framework</td><td>The harness modules in technical detail</td><td class="st"><span class="pill md">Markdown</span></td></tr>
-        <tr><td class="id">19</td><td class="nm">Journal &amp; Attribution</td><td>Where realised P&amp;L actually came from</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">16</td><td class="nm"><a href="https://claude.ai/code/artifact/53aee9e9-be8c-4084-afc2-a86ae598bad5">The Honesty Layer</a></td><td>The harness modules in technical detail</td><td class="st"><span class="pill page hn">Page</span></td></tr>
+        <tr><td class="id">19</td><td class="nm"><a href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">The Performance Ledger</a></td><td>Where realised P&amp;L actually came from</td><td class="st"><span class="pill page lg">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>

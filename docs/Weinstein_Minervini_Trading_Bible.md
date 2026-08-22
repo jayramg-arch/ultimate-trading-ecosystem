@@ -7,7 +7,7 @@
 >
 > **Indicator → price-action map:** RSI>60/50 → `close>close[10]&[5]` · ADX → `≥7/14 up-bars w/ higher highs` · weekly RSI≥60 → `wClose>wClose[5]` · POS-ACCUM `d_rsi≤50` → `pa_not_extended` (`close≤close[5]×1.05`) · SWG-PB RSI-pocket → 38-62% retrace · SWG-REV RSI<35 → prior down-structure + reversal bar.
 >
-> **Other June-2026 changes:** the `weinstein_setup` squeeze-gate bug (killed the positional book for 24 months) is fixed; **Recovery now has a fundamental hard gate (RFF ≥ 4) + a 15-35% drawdown band**, and REV-EARLY is un-blackouted; new `walkforward_oos.py` / `catalyst_regime_partition.py` / Phase-0/1 journal modules; `data_provider` download timeout. **Validated edge is per-family and regime-dependent** (bull breakouts + recovery are defensive — positive in down/recovering tapes). True closed-trade baseline: **−₹4.99L / 25.6% win**. **Current versions:** Bull Screener **v3.3 (PA)**, Recovery Screener **v2.1 (RFF-gated)**. See `docs/11`, `docs/09`, `docs/16`, `docs/19`, and the CLAUDE.md "4–5 June 2026" handoff for full detail.
+> **Other June-2026 changes:** the `weinstein_setup` squeeze-gate bug (killed the positional book for 24 months) is fixed; **Recovery now has a fundamental hard gate (RFF ≥ 4) + a 15-35% drawdown band**, and REV-EARLY is un-blackouted; new `walkforward_oos.py` / `catalyst_regime_partition.py` / Phase-0/1 journal modules; `data_provider` download timeout. **Validated edge is per-family and regime-dependent** (bull breakouts + recovery are defensive — positive in down/recovering tapes). ~~True closed-trade baseline: −₹4.99L / 25.6% win.~~ ⚠️ **CORRECTED** — that loss is substantially tax-loss-harvested **discretionary** picks that never came from this system; it is not a verdict on the ecosystem. See `docs/19`. **Current versions:** Bull Screener **v3.3 (PA)**, Recovery Screener **v2.1 (RFF-gated)**. See `docs/11`, `docs/09`, `docs/16`, `docs/19`, and the CLAUDE.md "4–5 June 2026" handoff for full detail.
 
 > **THIS IS THE SINGLE SOURCE OF TRUTH** for end-to-end swing and positional trading using the Weinstein Commander ecosystem. Everything you need — Python pipeline, watchlist generation, Pine validation, Dashboard reading, Unified Ecosystem execution, position sizing, exits, post-market — is in this document, in the order you'll perform it during a trading day.
 >
@@ -27,7 +27,7 @@
 >
 > **Eight headline upgrades since v5.0:**
 > 1. **Dashboard bumped to v67.4.12.** Major price action campaign: neutralized 4 bearish detectors to Tier 0 (dist day, shooting star, failed bo) based on N500 regime-split validation; demoted OUTSIDE_BAR_BULL to Tier +1; fixed directional alpha reporting. Decision-Mode compression (13–18 composite rows, toggle "Show Detailed View" to expand to ~60). Physical 664-symbol sector database port — zero string-matching hacks, 100% offline parity with Python. JdK RRG formula matches Strike.Money. RS vs Nifty 50 row dropped (N500 is canonical breadth benchmark).
-> 2. **Bull Screener v3.3.** Renamed `Commander_Bull_Screener_v3.2.pine`. **POS-ACCUM catalyst DISABLED** (backtest May 2025–Apr 2026 showed −10.04% mean alpha, zero wins). Composite-merge to ~13 rows. RS engine mirrors Dashboard. Physical DB port.
+> 2. **Bull Screener v3.3.** Renamed `Commander_Bull_Screener_v3.2.pine`. ~~**POS-ACCUM catalyst DISABLED**~~ ⚠️ **STALE — POS-ACCUM IS ENABLED.** No such gate exists in `bull_screener.py`; the 24-month nifty500 validation records it as the **strongest catalyst (+3.20% matched alpha)**. The −10.04% figure came from a short-window measurement that was later invalidated. Composite-merge to ~13 rows. RS engine mirrors Dashboard. Physical DB port.
 > 3. **Recovery Screener v2.1.** Renamed `Commander_Recovery_Screener_v2.0.pine`. Wyckoff phase detection added (Phase B base / Phase C Spring-Shakeout / Phase D SOS-JAC). Composite-merge to ~14 rows. 10 gates paired 2-per-row.
 > 4. **Unified Ecosystem v3.4.** Three layers of change: (a) ported RS engine from Dashboard; (b) composite-merge + 4-column stacked CATALYST DIAG panel below main strategy panel showing *first failing gate per catalyst*; (c) added ML probability score + RSI 47–54 dead-zone filter + Wyckoff catalysts (Spring / SOS / JAC) + target realignment (swing 3R/5R was 5R/10R, partial 33%) + wider trails (SWG SMA50 trail, POS-BO 4.5× ATR Chandelier was 3.0×). (d) restored POS-ACCUM + REV-* to triggers; catalyst-aware fallback ATR multipliers (POS=4×, WYC=3.5×, REV=2.5×, SWG=1.5×).
 > 5. **Context Layers v1.2.** Setup Detector contributes signed bonus to score (+2 S2 Spring/LPS, +2 S3 Sweep+CHoCH, +1 S1 OB Retest, −2 S7 Distribution, −1 S8 Choppy). Panel grew to 24 rows: BASE SCORE / SETUP BONUS / FINAL SCORE / BREAKDOWN. STRONG BULL threshold raised ≥ 8 → ≥ 9 to account for bonus headroom.
@@ -35,7 +35,7 @@
 > 7. **Validation Framework v2.8 (`validation.py` + `replay.py` + `sector_rotation.py`).** Catalyst-aware forward windows replace the single 30-day window: POS-BO 120d, POS-ACCUM 180d, WYC-* 120d, REV-* 90d, SWG-* 30d. Bootstrap CI on alpha (10,000 iterations). Realistic SL/T1/T2 bar-by-bar simulation. Optional risk overlays (sector cap / kill switch / sector rotation) — instrumented but NOT recommended as defaults; May 2026 testing showed they reduce alpha.
 > 8. **Five-phase daily workflow** retained. The Confluence Sequence (§7D) is unchanged in spirit; **only the version numbers and the per-tool ownership references have been refreshed**. Hard floors and confluence-boost factors are stable.
 >
-> **Backtest verdict preserved:** v1 FINAL Hunter gates (`weekly_rsi_min=60`, `daily_adx_min=25`, `disable_rsi=True` for EarlyBirds) remain locked. The v2 LOCK `pos_accum_rsi_nullout=True` flag remains active in `v2_fixes.py` for the Python pipeline; the Pine-side POS-ACCUM catalyst is now disabled outright in the Bull Screener (different layer, same intent: stop bleeding capital on chase-zone accumulation entries).
+> **Backtest verdict preserved:** v1 FINAL Hunter gates (`weekly_rsi_min=60`, `daily_adx_min=25`, `disable_rsi=True` for EarlyBirds) remain locked. The v2 LOCK `pos_accum_rsi_nullout=True` flag remains active in `v2_fixes.py` for the Python pipeline; ~~the Pine-side POS-ACCUM catalyst is now disabled outright~~ ⚠️ **STALE — re-enabled and converted to pure price action**; the anti-chase gate is now `close ≤ close[5] × 1.05`, not an RSI cap.
 
 ---
 
@@ -109,7 +109,7 @@ The complete end-to-end workflow runs in **five distinct phases**. The system is
 │  For each ticker on the FINAL_* watchlists:                              │
 │    ├── Bull Screener v3.3 — VERDICT row + 9 POS-BO gates                │
 │    │      Hunter v1 FINAL: POS-BO needs wRSI≥60 + ADX≥25                │
-│    │      POS-ACCUM catalyst DISABLED (backtest verdict — see §16)      │
+│    │      POS-ACCUM ENABLED (pure PA; strongest catalyst)          │
 │    │      pyScore: Python-aligned composite (use_python_aligned=ON)     │
 │    ├── Dashboard v67.4.12 — Decision-Mode 13–18 composite rows:          │
 │    │      Recommendation + Catalyst+Gates + Asset Quality (ACT NOW),    │
@@ -1539,7 +1539,7 @@ Going forward, `snapshot_archive.snapshot_today()` is run after every Auto-Pilot
 |---------|---------|-----------------|-------------------|----------------------|
 | `chartink_replay.py` | `v2_FINAL_20260510` | ✓ in `SCAN_PARAMS` | ✓ via `v2_fixes` flag default | source of truth |
 | `bull_screener.py` + `v2_fixes.py` | v2 LOCK | n/a | ✓ flag default `True` | source of truth |
-| Bull Screener Pine | **v3.3** | ✓ POS-BO gated | POS-ACCUM catalyst DISABLED (backtest verdict — see §16) | ✓ `pyScore` mirrors Python (default ON) |
+| Bull Screener Pine | **v3.3** | ✓ POS-BO gated | ⚠️ STALE: POS-ACCUM is ENABLED (pure PA, strongest catalyst) | ✓ `pyScore` mirrors Python (default ON) |
 | Dashboard ULTIMATE | **v3.9** | ✓ POS-BO catId=2 gated | ✓ catId=1 gated on `_rsi ≤ pos_accum_rsi_max` | n/a |
 | Unified Ecosystem | **v3.6 (in-file)** | ✓ `pos_bo_trigger` gated | ✓ `pos_ac_trigger` gated on `d_rsi ≤ 50` (POS-AC restored in v3.5/v3.6) | n/a |
 

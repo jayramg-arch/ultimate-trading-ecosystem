@@ -32,7 +32,9 @@
 > **The cardinal rule (saved to memory):** *never judge a positional/recovery setup on a 30-day window.* Measuring a 120–180-day setup over 30 days is invalid — it produced false "remove this catalyst" calls in May 2026 that were later rolled back. Always use `--catalyst_windows`.
 
 ### Up Tape / Down Tape — the regime cut
-The direction the **benchmark** moved over the trade's forward window. Splitting alpha by tape is the regime test: recovery and breakout setups are **defensive** (positive in down tapes, lag in up tapes); swing-pullback needs an up-trend. Always partition before ranking on pooled alpha.
+The direction the **benchmark** moved over the trade's forward window. Always partition before ranking on pooled alpha.
+
+> ⚠️ **RETIRED 26-Jul-2026 — do not quote a per-direction result.** This guide previously concluded that recovery and breakout setups are **defensive** (positive in down tapes, lagging in up tapes). That was an artifact of benchmarking a trade's full design window against a stock leg that had usually exited far earlier — an 8-day stop-out at −3% against a 120-day index at −10% books +7% of alpha that was never earned. After the matched-horizon fix the win-rate asymmetry that was its main evidence **vanished** (31.7% DOWN vs 33.1% UP). Worse, the direction label is now **endogenous**: the window's length is `days_held`, an *outcome*, so fast stop-outs self-select into DOWN and long runners into UP. Fix the label (derive direction from an **ex-ante** window) before quoting any per-direction number. Partitioning by **family** and by **exit reason** is unaffected and remains the decisive lens. See [[matched-horizon-means-actual-hold]].
 
 ### Win % / Profit Factor
 Win % = share of profitable trades; PF = gross profit ÷ gross loss. Read alongside alpha — a low win rate with big winners (trend-following) still makes money; a high win rate with a few large losses does not.

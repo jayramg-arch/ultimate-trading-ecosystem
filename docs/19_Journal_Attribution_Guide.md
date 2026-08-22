@@ -45,7 +45,9 @@ Keeps the journal's OPEN positions identical to the live Dhan book:
 
 `ai_reconcile_engine.reconcile_journal_exit_prices()` recovers missing exit prices from the Dhan trade history. Two silent bugs fixed June 2026: the token call was outside `try` (a stale token crashed the whole reconcile), and the trade-history API returns only `securityId` + `customSymbol` (no ticker) — resolved via the new `dhan_symbols.get_nse_secid_to_symbol()` (full NSE scrip master, equities + ETFs).
 
-**The finding that matters:** missing exit data had been *flattering* the book by ~₹4.4L. True closed-trade baseline = **−₹4,99,283 / 25.6% win / 0.24 PF**. This is the honest number all strategy work is measured against.
+**The finding that matters:** missing exit data had been *flattering* the book by ~₹4.4L. Reconciled closed-trade total = **−₹4,99,283 / 25.6% win / 0.24 PF**.
+
+> ⚠️ **CORRECTED 23-Jul-2026 — this is NOT a verdict on the system.** An earlier version of this line called it "the honest number all strategy work is measured against". That framing is retracted. The loss is substantially **tax-loss harvesting** (21 of ~25 harvest exits were a single FY-end batch), and those names were **discretionary picks that never came from the Catalyst/GM+S4 system** (ETFs and large-cap defensives). The journal mixes system and hand-picked trades and **cannot be separated retroactively → no clean live system track record exists yet.** The reconcile remains correct as accounting; build the system-only record forward from trades carrying a true `recompute` entry snapshot. See [[journal_loss_harvesting_correction]].
 
 ---
 
