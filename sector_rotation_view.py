@@ -196,7 +196,11 @@ def map_symbols_to_sectors(symbols, summary_df: pd.DataFrame) -> pd.DataFrame:
             except Exception:
                 pass
         key = _clean(yf) if yf else None
-        if key:
+        # Alias only when the DIRECT key is not charted. 22-Aug: the rotation
+        # universe now plots ^CNXFIN and drops NIFTY_FIN_SERVICE, so applying the
+        # alias unconditionally would have sent all 84 financials to Not-charted -
+        # an alias must never override a ticker the chart is actually plotting.
+        if key and key not in quad_by_idx:
             key = _INDEX_ALIASES.get(key, key)
         if not key:
             quad = "Unmapped"                       # lookup could not resolve a sector

@@ -29,7 +29,7 @@ from pine_generator import generate_pine_code
 # ── v4.0 Phase-1 imports ─────────────────────────────────────────────────────
 try:
     from rrg_engine import (
-        SECTOR_INDICES, QUADRANT_COLORS,
+        SECTOR_INDICES, QUADRANT_COLORS, rotation_universe,
         calculate_jdk_rrg, compute_universe_rrg, render_rrg_plotly,
         load_universe_data,          # was `from pages.6_rrg import ...` - not
                                      # importable (module name starts with a digit),
@@ -8874,7 +8874,7 @@ elif page == 'MACRO':
             rrg_mode = st.selectbox(
                 "Rotation Universe:",
                 options=[
-                    "🌍 19 Nifty Sector Indices",
+                    "🌍 All Sectors (rotation universe)",
                     "🛡️ Capital Goods & Defense Stocks",
                     "🧪 Specialty Chemicals & Commodities",
                     "🏆 Nifty 50 Heavyweights",
@@ -8899,7 +8899,12 @@ elif page == 'MACRO':
         rrg_sec_drill = None
         rrg_custom_raw = None
         if rrg_mode == "🔍 Intra-Sector Breakdown":
-            rrg_sec_drill = st.selectbox("Select Sector to Drill Down:", options=list(SECTOR_INDICES.keys()), key="tab_rrg_drill")
+            # rotation_universe(), not SECTOR_INDICES: the sectoral table alone
+            # left 44% of mapped stocks (298/684) pointing at an index the chart
+            # never plotted, so Infrastructure - 151 stocks - could not be drilled.
+            rrg_sec_drill = st.selectbox("Select Sector to Drill Down:",
+                                         options=list(rotation_universe().keys()),
+                                         key="tab_rrg_drill")
         elif rrg_mode == "💼 Custom Watchlist":
             rrg_custom_raw = st.text_input("Enter Tickers (comma separated):", value="DATAPATTNS, HAL, BEL, DEEPAKNTR, DIXON", key="tab_rrg_custom")
 
@@ -8910,9 +8915,11 @@ elif page == 'MACRO':
         symbols_to_fetch = []
         disp_title = ""
 
-        if rrg_mode == "🌍 19 Nifty Sector Indices":
-            symbols_to_fetch = list(SECTOR_INDICES.values()) + [bench_symbol, "^NSEI"]
-            disp_title = f"19 Nifty Sector Indices Rotation vs Nifty 500 ({rrg_tf})"
+        if rrg_mode == "🌍 All Sectors (rotation universe)":
+            # Derived from sectors.db so every sector a stock can map to is plotted.
+            _rot_uni = rotation_universe()
+            symbols_to_fetch = list(_rot_uni.values()) + [bench_symbol, "^NSEI"]
+            disp_title = f"{len(_rot_uni)} Sector Indices Rotation vs Nifty 500 ({rrg_tf})"
         elif rrg_mode == "🛡️ Capital Goods & Defense Stocks":
             DEFENSE_STOCKS = ['DATAPATTNS.NS', 'HAL.NS', 'BEL.NS', 'BDL.NS', 'COCHINSHIP.NS', 'MAZDOCK.NS', 'GRSE.NS', 'SOLARINDS.NS', 'ZENTEC.NS', 'MTARTECH.NS', 'BEML.NS', 'PARAS.NS']
             symbols_to_fetch = DEFENSE_STOCKS + [bench_symbol, "^CNXINFRA"]
@@ -8926,7 +8933,7 @@ elif page == 'MACRO':
             symbols_to_fetch = NIFTY_50_STOCKS + [bench_symbol, "^NSEI"]
             disp_title = f"Nifty 50 Stock Rotation vs Nifty 500 ({rrg_tf})"
         elif rrg_mode == "🔍 Intra-Sector Breakdown" and rrg_sec_drill:
-            sec_ticker = SECTOR_INDICES[rrg_sec_drill]
+            sec_ticker = rotation_universe()[rrg_sec_drill]
             bench_symbol = sec_ticker
             db_path = os.path.join(os.path.dirname(__file__), "sectors.db")
             sec_stocks = []
@@ -8998,7 +9005,7 @@ elif page == 'MACRO':
             #  transition gate was measured at +0.12pp/4w and disabled in S4
             #  (rrg_cell_remeasure.py); this must not smuggle it back as a veto.
             # ================================================================
-            if rrg_mode == "🌍 19 Nifty Sector Indices":
+            if rrg_mode == "🌍 All Sectors (rotation universe)":
                 try:
                     import sector_rotation_view as _srv
 

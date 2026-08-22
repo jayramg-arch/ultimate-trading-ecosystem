@@ -149,3 +149,70 @@ def test_holdings_sorted_worst_standing_first():
     finally:
         srv.map_symbols_to_sectors = orig
     assert per.iloc[0]["Symbol"] == "BAD"
+
+
+# ---------------------------------------------------------------- rotation universe
+def test_alias_never_overrides_a_charted_ticker():
+    """REAL BUG 22-Aug: the rotation universe began plotting ^CNXFIN and dropping
+    NIFTY_FIN_SERVICE, but the alias still redirected CNXFIN -> NIFTY_FIN_SERVICE
+    unconditionally, which would have sent all 84 financials to Not-charted. An
+    alias is a fallback for an UNCHARTED key, never an override."""
+    sm = pd.DataFrame([{"Symbol": "CNXFIN", "Quadrant": "Leading", "Distance": 1.0,
+                        "Trajectory": "-"}])
+
+    class _SL:
+        @staticmethod
+        def get_sector_index(_):
+            return "NSE:CNXFINANCE"
+
+        @staticmethod
+        def get_sector_name(_):
+            return "Financial Services"
+
+        @staticmethod
+        def sector_to_yf(_):
+            return "^CNXFIN"
+
+    import sys
+    prev = sys.modules.get("sector_lookup")
+    sys.modules["sector_lookup"] = _SL
+    try:
+        m = srv.map_symbols_to_sectors(["ANYBANK"], sm)
+    finally:
+        if prev is not None:
+            sys.modules["sector_lookup"] = prev
+        else:
+            sys.modules.pop("sector_lookup", None)
+    assert m.iloc[0]["Quadrant"] == "Leading", "charted ^CNXFIN was aliased away"
+
+
+def test_rotation_universe_has_no_duplicate_tickers():
+    """Two names pointing at one ticker would plot the same sector twice."""
+    import rrg_engine as re_
+    from collections import Counter
+    uni = re_.rotation_universe()
+    dupes = {t: n for t, n in Counter(uni.values()).items() if n > 1}
+    assert not dupes, f"same sector plotted twice: {dupes}"
+
+
+def test_rotation_universe_covers_every_mapped_stock():
+    """The guarantee this universe exists to provide. Measured 22-Aug: the plain
+    sectoral table covered only 56% of mapped stocks (Infrastructure alone is 151
+    names and lives in THEMATIC)."""
+    import os
+    import sqlite3
+    import rrg_engine as re_
+    import sector_lookup as sl
+    db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sectors.db")
+    if not os.path.exists(db):
+        pytest.skip("sectors.db not present")
+    tickers = {srv._clean(v) for v in re_.rotation_universe().values()}
+    con = sqlite3.connect(db)
+    try:
+        rows = con.execute("SELECT sector_index, COUNT(*) FROM stock_sector "
+                           "GROUP BY sector_index").fetchall()
+    finally:
+        con.close()
+    uncovered = [(si, n) for si, n in rows
+                 if srv._clean(sl.sector_to_yf(si) or "") not in tickers]
+    assert not uncovered, f"sectors stocks map to but the chart cannot plot: {uncovered}"

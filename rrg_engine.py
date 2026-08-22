@@ -250,6 +250,89 @@ ALL_BENCHMARK_INDICES = {
 # Legacy SECTOR_INDICES alias
 SECTOR_INDICES = SECTORAL_INDICES
 
+
+# ─── ROTATION UNIVERSE (22-Aug-2026) ────────────────────────────────────────
+# The Sector RRG tab plotted SECTORAL_INDICES only. Measured against sectors.db,
+# that left **44% of the mapped stock universe (298 of 684) pointing at a sector
+# the chart does not plot** — Infrastructure alone accounts for 151 stocks, and
+# it lives in THEMATIC_INDICES, not SECTORAL. A rotation view that cannot place
+# 44% of your names is not a rotation view.
+#
+# So the universe is derived rather than hardcoded: every index that stocks
+# ACTUALLY map to in sectors.db, resolved through all four index tables, unioned
+# with the sectoral set. Add a sector mapping to the DB and the chart picks it up
+# on the next run — no second list to keep in sync.
+#
+# Ticker convention: RRG Studio's index_map_nse43.csv carries the same indices
+# under DHAN symbols ("NIFTY SERV SECTOR"), while this loader fetches yfinance
+# tickers ("^CNXSERVICE"). The two tables are the same sectors keyed for
+# different feeds, so the yfinance side is what belongs here.
+
+# Same sector, two tickers. The DB ticker WINS (it is what stocks resolve to);
+# the listed duplicate is dropped so the sector is not plotted twice.
+_ROTATION_DUPES = {
+    "NIFTY_FIN_SERVICE.NS": "^CNXFIN",   # Nifty Financial Services
+}
+
+
+def _all_index_tables() -> dict:
+    """Every known index, name -> yfinance ticker, across all four tables."""
+    out = {}
+    for tbl in (BROAD_MARKET_INDICES, SECTORAL_INDICES, THEMATIC_INDICES, STRATEGY_INDICES):
+        out.update(tbl)
+    return out
+
+
+def rotation_universe(db_path: str = None) -> dict:
+    """Indices the Sector RRG should plot: sectoral + everything stocks map to.
+
+    Returns {display_name: yf_ticker}. Degrades to SECTORAL_INDICES if sectors.db
+    is unreadable — the chart must still render offline.
+    """
+    import os as _os
+    import sqlite3 as _sq
+
+    known = _all_index_tables()
+    by_ticker = {}
+    for _n, _t in known.items():
+        by_ticker.setdefault(_t, _n)
+
+    uni = dict(SECTORAL_INDICES)
+
+    if db_path is None:
+        db_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "sectors.db")
+    if not _os.path.exists(db_path):
+        return uni
+
+    try:
+        con = _sq.connect(db_path)
+        try:
+            rows = con.execute(
+                "SELECT DISTINCT m.yf_ticker, m.display_name "
+                "FROM stock_sector s JOIN sector_meta m "
+                "  ON s.sector_index = m.sector_index "
+                "WHERE m.yf_ticker IS NOT NULL AND m.is_broad_market = 0"
+            ).fetchall()
+        finally:
+            con.close()
+    except Exception:
+        return uni
+
+    for ticker, disp in rows:
+        if not ticker:
+            continue
+        # prefer the name the index tables already use, so labels stay consistent
+        uni[by_ticker.get(ticker, disp)] = ticker
+
+    # collapse same-sector duplicates, keeping the ticker stocks resolve to
+    present = set(uni.values())
+    for dup, keep in _ROTATION_DUPES.items():
+        if keep in present:
+            for nm in [k for k, v in uni.items() if v == dup]:
+                uni.pop(nm, None)
+
+    return uni
+
 # Color System for Quadrants (User-specified palette: Leading=Green, Improving=Purple, Weakening=Amber, Lagging=Red)
 QUADRANT_COLORS = {
     'Leading':    {'bg': 'rgba(34, 197, 94, 0.14)',  'border': '#16a34a', 'badge': '#15803d', 'label': '🟢 Leading'},
