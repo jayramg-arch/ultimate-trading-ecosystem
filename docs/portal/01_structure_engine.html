@@ -1,0 +1,581 @@
+<title>The Structure Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#2F4A9E; --acc-bg:#E8ECF9; --acc-rule:#AFBCE4;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#93A8EE; --acc-bg:#161A33; --acc-rule:#333C6B;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#93A8EE; --acc-bg:#161A33; --acc-rule:#333C6B;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 01 · Chart engines</p>
+      <h1>The Structure Engine</h1>
+      <p class="dek">Higher highs, higher lows, and nothing else — no averages, no oscillators.
+      Every other surface in the system takes its strict-trend read from this one, which is why
+      <b>a bug here does not stay here.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The one it hid for months</div>
+      On a chart opening in a<br>
+      downtrend, <b>the first swing<br>
+      low was silently dropped</b>.<br>
+      Fixed in Pine, then in Python.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#version">Which version you have</a></li>
+    <li><a href="#does">What it does</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#pivots">Pivots and classes</a></li>
+    <li><a href="#machine">The state machine</a></li>
+    <li><a href="#developing">The developing pivot</a></li>
+    <li><a href="#major">Major and minor</a></li>
+  </ol>
+  <p>The panel</p>
+  <ol>
+    <li><a href="#panel">Nineteen rows</a></li>
+    <li><a href="#drawings">What it draws</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#workflow">The workflow</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#mistakes">Mistakes to avoid</a></li>
+    <li><a href="#eco">Who consumes it</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="version">
+  <h2><span class="n">01</span>Which version you are actually running</h2>
+  <p>The markdown guide documents <b>v6.2</b>. The file on disk is named v6.3 and its in-file title
+  is <b>v6.4</b>. Two rounds of changes landed after that guide was written, and one of them fixed
+  a genuine silent bug.</p>
+
+  <div class="note stop">
+    <span class="tag">v6.3 · the bootstrap asymmetry</span>
+    <p>The high side handled the very first pivot on a chart; <b>the low side did not.</b> So on any
+    chart that opened in a downtrend, <b>the first swing low was silently dropped</b> — not locked,
+    not labelled — until a high formed to boot the engine.</p>
+    <p>The fix seeds state from a first-pivot low as well, mirroring the high side exactly. It is
+    behaviour-neutral everywhere except that early-history low. <b>Note what kind of bug this
+    was:</b> nothing errored, nothing looked wrong, and it only ever affected the left edge of the
+    chart — which is precisely why it survived so long.</p>
+  </div>
+
+  <div class="tw"><table>
+    <thead><tr><th>Version</th><th>Change</th><th>Why it matters to you</th></tr></thead><tbody>
+      <tr><td class="m">v6.3</td><td>The bootstrap fix above</td><td>Early-history structure on downtrend-opening charts is now complete</td></tr>
+      <tr><td class="m">v6.3</td><td>The flip array is trimmed to the choppiness window each bar</td><td>It grew unbounded over a chart's life</td></tr>
+      <tr><td class="m">v6.3</td><td>Daily anchors requested only on intraday charts; the second higher timeframe reuses the first when there is none</td><td>Fewer cross-timeframe requests — the script runs lighter</td></tr>
+      <tr><td class="m">v6.3</td><td><b>Hidden machine-readable outputs</b></td><td>Another script can now consume this engine directly instead of a proxy</td></tr>
+      <tr><td class="m">v6.3</td><td>New <b>confirmed-bar projection</b> input, default off</td><td>Turn it on for a calm, non-repainting alert path — see section 05</td></tr>
+      <tr><td class="m">v6.4</td><td>The higher-timeframe states join the export set</td><td>The reason is worth reading — below</td></tr>
+    </tbody></table></div>
+
+  <div class="note good">
+    <span class="tag">v6.4 · why exporting beat re-deriving</span>
+    <p>The higher-timeframe trend states were computed for the panel and <b>readable nowhere</b>. So
+    the entry-trigger script answered &ldquo;what is the weekly trend?&rdquo; with its own proxy —
+    and the two panels disagreed on the same chart: this one said sideways, that one said weekly up.</p>
+    <p>Exporting the value the other script needs is <b>strictly better than the other script
+    re-deriving it</b>. One structure engine on the chart, and nothing left to drift. That is the
+    same principle that later collapsed three duplicate stage reads into one.</p>
+  </div>
+</section>
+
+<section id="does">
+  <h2><span class="n">02</span>What it does</h2>
+  <p>It connects confirmed swing highs and lows, and classifies each new pivot against the previous
+  pivot <b>of the same type</b>. The output is an objective structural map built from price alone —
+  no lagging average anywhere in it.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Class</th><th>Meaning</th><th>Effect on trend</th></tr></thead><tbody>
+      <tr><td class="k">Higher high</td><td>Above the previous swing high</td><td>Bullish — confirms an uptrend when paired with a higher low</td></tr>
+      <tr><td class="k">Higher low</td><td>Above the previous swing low</td><td>Bullish, same pairing</td></tr>
+      <tr><td class="k">Lower high</td><td>Below the previous swing high</td><td>Bearish, paired with a lower low</td></tr>
+      <tr><td class="k">Lower low</td><td>Below the previous swing low</td><td>Bearish, same pairing</td></tr>
+      <tr><td class="k">Equal high</td><td>Within a threshold of the previous high</td><td><b>Sideways — the uptrend is NOT confirmed</b></td></tr>
+      <tr><td class="k">Equal low</td><td>Within a threshold of the previous low</td><td><b>Sideways — the downtrend is NOT confirmed</b></td></tr>
+    </tbody></table></div>
+  <p>The equal classes are the important addition. Without them a pivot a whisker above the last
+  one counts as a higher high and confirms a trend that structurally is not there. <b>A marginal
+  new high is a range, not an advance</b>, and the engine now says so.</p>
+  <div class="tw"><table>
+    <thead><tr><th>State</th><th>Condition</th><th>Colour</th></tr></thead><tbody>
+      <tr><td class="k">Uptrend</td><td>A higher high after a higher low, or the reverse order</td><td>Green</td></tr>
+      <tr><td class="k">Downtrend</td><td>A lower high after a lower low, or the reverse order</td><td>Red</td></tr>
+      <tr><td class="k">Sideways</td><td>Either equal class, a broadening pair, or anything mixed</td><td><b>Amber</b></td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="pivots">
+  <h2><span class="n">03</span>Pivots, and the state it keeps</h2>
+  <p>Pivots are strict extremes over a symmetric window, so a pivot is <b>confirmed only after its
+  right-hand bars have printed</b>. The window length resolves from the chart's own timeframe.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Chart</th><th class="r">Length</th></tr></thead><tbody>
+      <tr><td class="k">Monthly</td><td class="num">1</td></tr>
+      <tr><td class="k">Weekly</td><td class="num">5</td></tr>
+      <tr><td class="k">Daily</td><td class="num">2</td></tr>
+      <tr><td class="k">Intraday</td><td class="num">2</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Left and right use the same value — symmetric detection. <b>These four numbers
+  are canonical across the system</b>; other engines that detect pivots are expected to use them.</p>
+
+  <details class="ref"><summary>The persistent state, and why each piece exists</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>State</th><th>What it holds</th></tr></thead><tbody>
+      <tr><td class="k">Locked high / low</td><td>The most recent <b>confirmed</b> pivot of each type</td></tr>
+      <tr><td class="k">Previous locked high / low</td><td>Saved just before the lock is overwritten. <b>Used as the structural reference when an active pivot extends</b> — without it, an extending pivot compares against itself</td></tr>
+      <tr><td class="k">Active pivot — price, type, bar</td><td>The latest extreme in the current direction. Equal to the locked value at confirmation, then drifts as the pivot extends</td></tr>
+      <tr><td class="k">Last high class / low class</td><td>The classification of the most recent confirmed pivot on each side. <b>Section 05 reuses these rather than reclassifying</b></td></tr>
+    </tbody></table></div>
+  </div></details>
+</section>
+
+<section id="machine">
+  <h2><span class="n">04</span>The state machine</h2>
+  <p>Called on every confirmed direction change. It returns the new trend and the new swing count.</p>
+  <div class="tw"><table>
+    <thead><tr><th>New pivot</th><th>Prior opposite class</th><th>Trend</th></tr></thead><tbody>
+      <tr><td class="k">Higher high</td><td>Higher low</td><td>Uptrend</td></tr>
+      <tr><td class="k">Higher low</td><td>Higher high</td><td>Uptrend</td></tr>
+      <tr><td class="k">Lower high</td><td>Lower low</td><td>Downtrend</td></tr>
+      <tr><td class="k">Lower low</td><td>Lower high</td><td>Downtrend</td></tr>
+      <tr><td class="k">Either equal class</td><td>Anything</td><td><b>Sideways</b></td></tr>
+      <tr><td class="k">Higher high after a lower low</td><td>Broadening</td><td><b>Sideways</b></td></tr>
+      <tr><td class="k">Lower low after a higher high</td><td>Broadening</td><td><b>Sideways</b></td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">The counting rule</span>
+    <p>Consecutive sideways pivots <b>count</b>. The swing count resets only when the trend
+    <em>state</em> changes — an earlier version zeroed it on every sideways pivot, which made a long
+    range look permanently young.</p>
+  </div>
+</section>
+
+<section id="developing">
+  <h2><span class="n">05</span>The developing pivot — the part that makes it usable live</h2>
+  <p>A confirmed pivot label arrives late by construction: it cannot print until its right-hand bars
+  exist. If the panel only ever read confirmed pivots, it would be describing the past. So a third
+  section watches the <b>leg in progress</b> and classifies what the next confirmed pivot
+  <em>would</em> be.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Situation</th><th>Reads as</th><th>And if the confirmed opposite class agrees</th></tr></thead><tbody>
+      <tr><td class="k">Active low, the developing high exceeds the locked high</td><td>A developing higher high</td><td><b>Bullish break of structure</b> — the trend flips up now, not in two bars</td></tr>
+      <tr><td class="k">Active high, the developing low breaks the locked low</td><td>A developing lower low</td><td><b>Bearish break</b></td></tr>
+      <tr><td class="k">Anything broadening or mixed</td><td>Sideways</td><td>—</td></tr>
+    </tbody></table></div>
+  <p><b>Trend, structure, swing count, swing range and choppiness all read the developing value
+  where one exists</b>, falling back to confirmed otherwise. That is why the panel can be trusted
+  mid-leg while the chart labels still lag.</p>
+
+  <details class="ref"><summary>Two fixes that made this section reliable — and the repaint trade-off</summary><div class="rb">
+  <ul>
+    <li><b>It gates by which side is active.</b> Previously both sides were evaluated even when only
+    one was structurally relevant, producing false flips on an extending pivot.</li>
+    <li><b>It reuses the confirmed classification</b> rather than reclassifying from the projected
+    extreme, which removed a source of micro-drift.</li>
+    <li>The sync window <b>includes the pivot bar itself</b>. Without that the engine missed the
+    pivot bar's own extreme — it started counting a bar late.</li>
+  </ul>
+  <div class="note warn">
+    <p><b>By default this section is live, which means it repaints intrabar.</b> A developing break
+    can appear and disappear inside a bar. That is deliberate — it is what makes the panel current
+    — but it makes a naive alert noisy.</p>
+    <p>The <b>confirmed-bar projection</b> input restricts these writes to closed bars. Off gives
+    you the live read; on gives you a calm panel and a non-repainting alert path. <b>Set break
+    alerts to fire once per bar close regardless.</b></p>
+  </div>
+  </div></details>
+</section>
+
+<section id="major">
+  <h2><span class="n">06</span>Major and minor pivots</h2>
+  <p>A pivot is <b>major</b> when its move from the opposite locked level exceeds a threshold —
+  8% for stocks, 4% for funds, detected automatically, or a value you set. Major pivots draw with a
+  thick line and a full-size label; minor ones stay thin and small.</p>
+  <p>This is not decoration. It is what lets you read a chart's <b>skeleton</b> at a glance and
+  ignore the noise pivots that a two-bar window necessarily produces.</p>
+  <p class="refnote">Do not override a fund to the stock threshold — you will lose most of its
+  structural pivots, because a 4% instrument rarely moves 8% between pivots.</p>
+</section>
+
+<section id="panel">
+  <h2><span class="n">07</span>The panel — nineteen rows</h2>
+  <p>Every row shades its own background green, red, amber or grey against a rule, so the panel
+  reads as a heat map before you read a single number.</p>
+
+  <details class="ref"><summary>Rows 0–6 · context and structure</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>Shows</th><th>How to read it</th></tr></thead><tbody>
+      <tr><td class="k">Timeframe</td><td>The chart resolution</td><td>A check that you are on the timeframe you think you are</td></tr>
+      <tr><td class="k">Trend</td><td>Up, down or sideways</td><td>The foundational bias. <b>Developing-aware</b></td></tr>
+      <tr><td class="k">Distance from the short average</td><td>In volatility units, anchored to the daily average on intraday charts</td><td>Under 1.5 is a healthy pullback distance · 1.5–3 normal extension · 3–5 <b>stretched</b> · above 5 climax territory</td></tr>
+      <tr><td class="k">Higher timeframe, and the one above it</td><td>Their trend states</td><td>Confluence. Current up against a higher-timeframe down means <b>you are trading a counter-trend bounce</b></td></tr>
+      <tr><td class="k">Alignment</td><td>All three together</td><td>Aligned either way · <b>conflict</b> — a direct fight, the most dangerous chop · mixed — imperfect but not opposed</td></tr>
+      <tr><td class="k">Structure</td><td>The governing pivot pair</td><td>The structural <em>why</em> behind the trend cell</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Trend derives from the <b>same</b> pair the structure row prints, so the two can
+  never contradict. They used to: trend read a persisted variable that could go stale, printing
+  &ldquo;downtrend&rdquo; over a broadening structure.</p>
+  </div></details>
+
+  <details class="ref"><summary>Rows 7–10 · quality of the move</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>Shows</th><th>How to read it</th></tr></thead><tbody>
+      <tr><td class="k">Momentum expansion</td><td>The current leg against the previous leg <b>in the same direction</b></td><td><b>With-trend leg:</b> at or above 1.0 is healthy expansion, below is failure to expand. <b>Counter-trend leg:</b> below 1.0 is a shallower pullback and bullish; above 1.5 means the other side is hitting back far harder than last time</td></tr>
+      <tr><td class="k">Swing count</td><td>Consecutive pivots in this state</td><td>One or two is a fresh trend · three is maturing · <b>above three is late-stage</b></td></tr>
+      <tr><td class="k">Swing range</td><td>The developing leg's size against the major threshold</td><td>Under one multiple is a minor swing · one to two is a well-developed major swing · <b>above two is loose and extended</b>, with elevated snapback risk</td></tr>
+      <tr><td class="k">Choppiness</td><td>Bars per structural flip over the lookback</td><td>Clean trending needs roughly twenty or more bars per flip; under ten is a whipsaw instrument. <b>The thresholds adapt to the volatility regime</b></td></tr>
+    </tbody></table></div>
+  <p class="refnote">The momentum row is the subtle one — the same number means opposite things
+  depending on which kind of leg is developing. Read the leg direction first.</p>
+  </div></details>
+
+  <details class="ref"><summary>Rows 11–14 · the trade levels</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>Shows</th><th>How to read it</th></tr></thead><tbody>
+      <tr><td class="k">Invalidation</td><td>The structural stop — the swing low for longs — with its class label</td><td><b>Cross it and the structure is formally broken.</b> This is the denominator of your risk</td></tr>
+      <tr><td class="k">Break level</td><td>The swing high that must give way</td><td>The entry trigger, and the numerator's anchor</td></tr>
+      <tr><td class="k">Volume thrust</td><td>A pass mark plus a lead-in direction arrow</td><td>Pass <em>and</em> rising lead-in is a top-grade break. Either one failing takes it to amber</td></tr>
+      <tr><td class="k">Volume confirmation</td><td>The break bar's multiple of the long volume average</td><td>Pass at or above the multiplier — <b>the volume-confirmation rule made visible</b></td></tr>
+    </tbody></table></div>
+  <p class="refnote">The break level reads the <b>most recent</b> swing high — the fresh peak being
+  pulled back from when one exists, otherwise the locked high. An earlier version could quote an
+  older high, which quietly moved the entry.</p>
+  </div></details>
+
+  <details class="ref"><summary>Rows 15–18 · freshness and volatility</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>Shows</th><th>How to read it</th></tr></thead><tbody>
+      <tr><td class="k">Bar age</td><td>Bars since the active pivot formed</td><td>Five or fewer is fresh · six to fifteen is maturing · beyond that the move is stale</td></tr>
+      <tr><td class="k">Velocity</td><td>Percent per bar against the previous leg</td><td>Accelerating, decelerating, or steady — a 10% band either side counts as unchanged</td></tr>
+      <tr><td class="k">Regime</td><td>The instrument's volatility personality, and the adapted choppiness thresholds it is being judged against</td><td>High-volatility names get looser requirements; funds get stricter ones. <b>It stops the engine judging a wild small-cap by an index fund's standard</b></td></tr>
+      <tr><td class="k">Range percentage</td><td>The volatility measure as a percentage of price, with the absolute value</td><td>The cut-off <b>moves with the timeframe</b> — around 3% daily, 8% weekly, 15% monthly. So the same number is green on one chart and amber on another, correctly</td></tr>
+    </tbody></table></div>
+  </div></details>
+</section>
+
+<section id="drawings">
+  <h2><span class="n">08</span>What it draws</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Drawing</th><th>Detail</th></tr></thead><tbody>
+      <tr><td class="k">The pivot line</td><td>Connected between confirmed pivots. Green for a confirmed uptrend pair, red for a downtrend pair, <b>orange for an equal pivot</b>, faint white for broadening or mixed</td></tr>
+      <tr><td class="k">The projection</td><td>Dashed, from the active pivot to the developing extreme, coloured by trend</td></tr>
+      <tr><td class="k">Invalidation</td><td>Red dotted at the latest swing low — the structural stop</td></tr>
+      <tr><td class="k">Break level</td><td>Green dotted at the latest swing high — the trigger</td></tr>
+    </tbody></table></div>
+
+  <h3>The retracements and extensions</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Level</th><th>Measured from</th><th>Use</th></tr></thead><tbody>
+      <tr><td class="k">Half</td><td>Down from the locked high</td><td>Pullback support</td></tr>
+      <tr><td class="k">Just under two-thirds</td><td>Down from the locked high</td><td>Deeper pullback support</td></tr>
+      <tr><td class="k">1.272</td><td>Up from the locked low</td><td>First target</td></tr>
+      <tr><td class="k">1.618</td><td>Up from the locked low</td><td>Second target</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <p>They render <b>solid when actionable</b> and dotted-and-dimmed in a confirmed downtrend with
+    no break above the locked high. <b>The style is the signal</b> — dimmed fibs are reference
+    geometry, not a plan.</p>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">09</span>The workflow, longs only</h2>
+  <ol>
+    <li><b>Regime.</b> Confirm the timeframe, read the trend, check both higher timeframes. Aligned
+    is a green light; conflict is a reason to stop reading.</li>
+    <li><b>Structure.</b> What pair governs right now, how mature is the run, has the move covered
+    meaningful ground.</li>
+    <li><b>Quality.</b> Is this instrument trustworthy at all — choppiness — and is the current
+    swing fresh or aged.</li>
+    <li><b>Levels.</b> Take the break level as the trigger and the invalidation as the stop. Reward
+    against risk is <b>the first extension minus the break level, over the break level minus the
+    invalidation.</b></li>
+    <li><b>Volume gate.</b> Was the most recent upward break on confirming volume? If not, wait for
+    one that is, or take reduced size.</li>
+    <li><b>Cross-check.</b> The dashboard's strict-trend field reads this same logic, so the two
+    should agree. If they do not, that is a bug worth chasing — not a judgement call.</li>
+  </ol>
+  <div class="note warn">
+    <span class="tag">Longs-only mode changes what two rows mean</span>
+    <p>With it on — the default — invalidation tracks the swing low, the break level tracks the
+    swing high, and only bullish breaks are captured. <b>Turn it off and invalidation reverts to the
+    active pivot</b>, which is a different quantity that reads the same. If a downward arrow ever
+    appears in the volume row, the toggle is off.</p>
+  </div>
+</section>
+
+<section id="config">
+  <h2><span class="n">10</span>Configuration</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Setting</th><th>Positional, daily</th><th>Swing, intraday</th><th>Funds</th></tr></thead><tbody>
+      <tr><td class="k">Pivot length</td><td class="m">2 or 3</td><td class="m">2</td><td class="m">as the chart</td></tr>
+      <tr><td class="k">Major mode</td><td class="m">auto</td><td class="m">auto</td><td class="m"><b>auto — do not override</b></td></tr>
+      <tr><td class="k">Equal threshold</td><td class="m">0.5%</td><td class="m">0.5%</td><td class="m">0.3%</td></tr>
+      <tr><td class="k">Longs only</td><td class="m">on</td><td class="m">on</td><td class="m">on</td></tr>
+      <tr><td class="k">Volume multiplier</td><td class="m">1.5&times;</td><td class="m">1.5&times;</td><td class="m">1.5&times;</td></tr>
+      <tr><td class="k">Higher timeframe</td><td class="m">auto → weekly</td><td class="m">auto → daily</td><td class="m">auto</td></tr>
+      <tr><td class="k">Choppiness lookback</td><td class="m">52 weeks</td><td class="m">26 weeks</td><td class="m">52 weeks</td></tr>
+    </tbody></table></div>
+
+  <details class="ref"><summary>The remaining inputs</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Show the panel</td><td class="num">on</td><td>The whole table</td></tr>
+      <tr><td class="k">Show the projection</td><td class="num">on</td><td>The dashed developing leg</td></tr>
+      <tr><td class="k">Show pivot labels</td><td class="num">on</td><td>The class text at each confirmed pivot</td></tr>
+      <tr><td class="k">Show percentage change</td><td class="num">on</td><td>Magnitude from the prior pivot, under each label</td></tr>
+      <tr><td class="k">Panel position</td><td class="num">top right</td><td>Four corners</td></tr>
+      <tr><td class="k">Show the level lines</td><td class="num">on</td><td>Invalidation and break level</td></tr>
+      <tr><td class="k">Retracements · extensions</td><td class="num">on</td><td>Independently toggleable</td></tr>
+      <tr><td class="k">Extend right</td><td class="num">20 bars</td><td>How far the horizontal lines run past the last bar</td></tr>
+      <tr><td class="k">Custom major threshold</td><td class="num">8%</td><td>Used only in custom mode</td></tr>
+      <tr><td class="k">Confirmed-bar projection</td><td class="num">off</td><td><b>On for a non-repainting alert path</b> — section 05</td></tr>
+    </tbody></table></div></div></details>
+
+  <h3>Alerts</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Alert</th><th>Fires on</th></tr></thead><tbody>
+      <tr><td class="k">Bullish break</td><td>Price taking out the locked high</td></tr>
+      <tr><td class="k">Bearish break</td><td>Price losing the locked low</td></tr>
+      <tr><td class="k">Uptrend confirmed</td><td>The state transitioning up</td></tr>
+      <tr><td class="k">Downtrend confirmed</td><td>The state transitioning down</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The break alerts carry a note about the live projection being repainting.
+  <b>Set them once per bar close</b>, and turn on the confirmed-bar input if you want the underlying
+  detection to be non-repainting too.</p>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">11</span>Mistakes to avoid</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mistake</th><th>Why it costs you</th></tr></thead><tbody>
+      <tr><td class="k">Chasing a pivot label</td><td>Labels print late <b>by construction</b>. The pivot already happened — read the developing fields on the panel instead of waiting for the text</td></tr>
+      <tr><td class="k">Trading the amber state</td><td>Sideways means <b>no structural consensus</b>. Wait for resolution, or trade the edges knowing that is what you are doing</td></tr>
+      <tr><td class="k">Ignoring the higher-timeframe rows</td><td>Current up against higher-timeframe down is a counter-trend bounce, whatever the panel's own trend cell says</td></tr>
+      <tr><td class="k">Acting on a stale volume confirmation</td><td><b>That field is sticky</b> — it holds the last break's reading. Many bars later it is history, not a signal</td></tr>
+      <tr><td class="k">Mismatching pivot lengths across modules</td><td>Two tools with different windows produce different trend labels on the same chart, and you will spend the afternoon reconciling them</td></tr>
+      <tr><td class="k">Overriding a fund to the stock threshold</td><td>You lose most of its structural pivots</td></tr>
+      <tr><td class="k">Reading invalidation without checking the longs-only toggle</td><td>Off, it is the active pivot rather than the swing low. <b>Same row, different quantity</b></td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="eco">
+  <h2><span class="n">12</span>Who consumes this engine — and the drift it caused</h2>
+  <p>Every strict-trend read in the system traces back here.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>How it uses this</th></tr></thead><tbody>
+      <tr><td class="k">The dashboard</td><td>Displays the trend state from identical logic</td></tr>
+      <tr><td class="k">The unified strategy</td><td>A direct port, on both the bull and recovery sides</td></tr>
+      <tr><td class="k">Both screeners</td><td>Ported to gate the trend requirement</td></tr>
+      <tr><td class="k">The entry-trigger script</td><td><b>Now binds the exported values</b> rather than proxying them — see section 01</td></tr>
+      <tr><td class="k">The context overlay</td><td>Its structure-shift detection mirrors the developing-pivot section</td></tr>
+    </tbody></table></div>
+
+  <div class="note stop">
+    <span class="tag">What that dependency actually cost</span>
+    <p>The Python port of this engine was <b>three versions stale</b>, and both screeners carried
+    their own byte-identical copy of it. Seven divergences from the current Pine had accumulated,
+    including the equal-pivot threshold being <b>twice as tight</b>, the equal classes wrongly
+    <em>confirming</em> a trend instead of forcing sideways, and — <b>the same bootstrap asymmetry
+    from section 01, never ported.</b></p>
+    <p>Because the stage read at the time carried two unconditional overrides keyed on this trend,
+    <b>every strict-trend error became a wrong stage digit</b>, and an over-eager uptrend rescued a
+    genuine decline into a base. Eleven of thirty-eight board names disagreed with the chart.</p>
+  </div>
+  <div class="note good">
+    <span class="tag">How it was resolved — both halves</span>
+    <p>The duplicate copies collapsed into <b>one shared module</b> with all seven fixes and a
+    regression suite, mutation-verified. Separately, <b>the two stage overrides were removed
+    entirely</b> — a stage that a different engine can silently rewrite is a stage you cannot reason
+    about.</p>
+    <p>So this engine no longer feeds the stage read at all. <b>It defines structure; the stage
+    engine defines stage.</b> That separation is the point.</p>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Standing rule</span>
+    <p><b>Keep the pivot lengths identical everywhere.</b> They are the one input that, changed in
+    one place, makes two correct engines disagree — and the disagreement looks like a bug in
+    whichever tool you check second.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/01 · Swing Zigzag [Strict]</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">08 Swing Pro Dashboard</a> · <a href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">13 Unified Ecosystem</a></span>
+</div></footer>

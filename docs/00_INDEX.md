@@ -24,7 +24,7 @@
 
 | # | Guide | Module | Type | Role |
 |---|---|---|---|---|
-| 01 | [Swing Zigzag Strict v6.0](./01_Swing_Zigzag_Strict_v6_Guide.md) | `Wesinstein Swing Zigzag [Strict v6.0].pine` | Pine | Structural foundation — HH/HL/LH/LL state machine |
+| 01 | [The Structure Engine](https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289) — page (**v6.4, current**) · [markdown](./01_Swing_Zigzag_Strict_v6_Guide.md) (**STALE — describes v6.2**) | `Wesinstein Swing Zigzag [Strict v6.3].pine` (title `v6.4`) | Pine | Structural foundation — HH/HL/LH/LL state machine. **v6.3:** bootstrap-asymmetry fix (first swing low dropped on downtrend-opening charts), hidden machine-readable plots, confirmed-bar projection input. **v6.4:** MTF trend states exported so S4 binds them instead of proxying. |
 | 02 | [Wyckoff Phases v1.0](./02_Wyckoff_Phases_v1_Guide.md) | `Weinstein_Wyckoff_Phases_v1.0.pine` | Pine | Narrative layer — SC/AR/SOS/LPS event labelling |
 | 03 | [Volume Profile v1.0](./03_Volume_Profile_v1_Guide.md) | `Weinstein_Volume_Profile_v1.0.pine` | Pine | Value-area framework — POC/VAH/VAL levels |
 | 04 | [SMC Zones v1.0](./04_SMC_Zones_v1_Guide.md) | `Weinstein_SMC_Zones_v1.0.pine` | Pine | Institutional footprint — OBs, FVGs, Liquidity Sweeps |
