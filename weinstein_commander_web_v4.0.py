@@ -8986,6 +8986,111 @@ elif page == 'MACRO':
                 _df_rrg_show = _df_rrg_show[_df_rrg_show['Tradeable Gate'] == '✓ BUY OK']
                 
             st.dataframe(_df_rrg_show, use_container_width=True, hide_index=True)
+
+            # ================================================================
+            #  ROTATION DESK (21-Aug-2026)
+            #  The chart + cockpit above say WHERE each sector sits. They never
+            #  said what to DO about it, which is what Jay actually asks of this
+            #  page: which sectors are working, which of my names sit in them,
+            #  and is my book aligned. Those three, in that order.
+            #  Logic lives in sector_rotation_view.py (pure, testable, no network).
+            #  Sector standing RANKS and WARNS - it never filters. The RRG
+            #  transition gate was measured at +0.12pp/4w and disabled in S4
+            #  (rrg_cell_remeasure.py); this must not smuggle it back as a veto.
+            # ================================================================
+            if rrg_mode == "🌍 19 Nifty Sector Indices":
+                try:
+                    import sector_rotation_view as _srv
+
+                    st.markdown("---")
+                    st.markdown("### 🔄 Rotation Desk — what to do about it")
+
+                    _lb = _srv.sector_leaderboard(summary_df)
+                    if not _lb.empty:
+                        st.info(_srv.rotation_summary_line(_lb))
+
+                    _rt1, _rt2, _rt3 = st.tabs([
+                        "🏆 Sector Leaderboard",
+                        "🎯 Candidates in the Right Sectors",
+                        "💼 My Book vs Rotation",
+                    ])
+
+                    # ---- 1. which sectors are working -------------------------
+                    with _rt1:
+                        if _lb.empty:
+                            st.info("No sector rows to rank.")
+                        else:
+                            st.caption(
+                                "Ranked by quadrant (Leading → Lagging), then distance from "
+                                "centre — further out is a stronger statement of the same "
+                                "quadrant. Benchmark rows are excluded.")
+                            st.dataframe(_lb, use_container_width=True, hide_index=True)
+
+                    # ---- 2. my shortlist, ordered by sector standing ----------
+                    with _rt2:
+                        _bpath = None
+                        for _cand in ("gm_board_cache.csv", "FINAL_GOLDEN_MATCHER.csv"):
+                            if os.path.exists(_cand):
+                                _bpath = _cand
+                                break
+                        if _bpath is None:
+                            st.info("No board cache yet — build the Trigger Board first.")
+                        else:
+                            _bdf = pd.read_csv(_bpath)
+                            _cand_df = _srv.candidates_by_sector(_bdf, summary_df)
+                            if _cand_df.empty:
+                                st.info("No candidates to map.")
+                            else:
+                                _unm = int((_cand_df["Sector Standing"].astype(str)
+                                            .str.contains("Unknown")).sum())
+                                st.caption(
+                                    f"From `{_bpath}` · {len(_cand_df)} names · "
+                                    f"sector resolved for {len(_cand_df) - _unm}, "
+                                    f"unmapped {_unm}. Sorted by sector standing FIRST, then "
+                                    "Overall — so a strong name in a dead sector sinks. "
+                                    "Nothing is removed; this ranks, it does not gate.")
+                                st.dataframe(_cand_df, use_container_width=True, hide_index=True)
+
+                    # ---- 3. is the book aligned ------------------------------
+                    with _rt3:
+                        # load_open_positions() is a LOCAL journal read. Deliberately
+                        # NOT get_precomputed_classifications(): that fetches per-symbol
+                        # over the network for every position and takes minutes, which
+                        # would hang this tab on every visit. Sector mapping needs only
+                        # symbol + qty + price, all of which are local.
+                        _hold = None
+                        try:
+                            import pyramid_logic as _pl
+                            _raw = _pl.load_open_positions()
+                            if _raw is not None and not _raw.empty:
+                                _hold = _raw.rename(columns={
+                                    "symbol": "Symbol", "quantity": "Qty",
+                                    "buy_price": "Avg", "setup": "Setup",
+                                    "timeframe": "TF"})
+                        except Exception as _he:
+                            _gm_logger.warning(f"rotation desk: holdings load failed: {_he}")
+                        if _hold is None or getattr(_hold, "empty", True):
+                            st.info("No open positions available to map.")
+                        else:
+                            _per, _conc = _srv.holdings_by_sector(_hold, summary_df)
+                            if _per.empty:
+                                st.info("No holdings could be mapped.")
+                            else:
+                                st.markdown("**Concentration by sector**")
+                                st.caption(
+                                    "Cap imported from `pre_trade_gate.SECTOR_CAP_PCT`, the same "
+                                    "number the order gate enforces — so this page and your "
+                                    "entries cannot disagree.")
+                                st.dataframe(_conc, use_container_width=True, hide_index=True)
+                                st.markdown("**Positions — weakest sector standing first**")
+                                st.caption(
+                                    "This table exists to surface decay, so it is deliberately "
+                                    "sorted worst-first. A holding in a Lagging sector is fighting "
+                                    "the name and the tape at once.")
+                                st.dataframe(_per, use_container_width=True, hide_index=True)
+                except Exception as _re:
+                    _gm_logger.warning(f"rotation desk failed: {_re}")
+                    st.warning(f"Rotation Desk unavailable: {_re}")
         else:
             st.info("Sector RRG data unavailable for selected universe. Check network or symbols.")
 
