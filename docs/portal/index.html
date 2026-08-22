@@ -23,6 +23,8 @@
   --ledger:#44566C; --ledger-bg:#E9EDF2;
   --gm:#5B4BD6; --gm-bg:#ECEAFB;
   --s4:#A32B4E; --s4-bg:#FBE8ED;
+  --cw:#B4551A; --cw-bg:#FBEDE1;
+  --db:#1F3A5F; --db-bg:#E6ECF4;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
   --body:'Newsreader',Georgia,'Times New Roman',serif;
@@ -41,6 +43,8 @@
     --ledger:#8FA3BA; --ledger-bg:#1A2029;
     --gm:#9A8CFF; --gm-bg:#1D1938;
     --s4:#F0819E; --s4-bg:#33131F;
+    --cw:#F0985A; --cw-bg:#331F0F;
+    --db:#7FA6D9; --db-bg:#131E2E;
   }
 }
 :root[data-theme="dark"]{
@@ -56,6 +60,8 @@
   --ledger:#8FA3BA; --ledger-bg:#1A2029;
   --gm:#9A8CFF; --gm-bg:#1D1938;
   --s4:#F0819E; --s4-bg:#33131F;
+  --cw:#F0985A; --cw-bg:#331F0F;
+  --db:#7FA6D9; --db-bg:#131E2E;
 }
 
 *{box-sizing:border-box}
@@ -135,6 +141,8 @@ td.st{width:120px;white-space:nowrap}
 .pill.page.lg{color:var(--ledger);background:var(--ledger-bg);border-color:var(--ledger)}
 .pill.page.gm{color:var(--gm);background:var(--gm-bg);border-color:var(--gm)}
 .pill.page.s4{color:var(--s4);background:var(--s4-bg);border-color:var(--s4)}
+.pill.page.cw{color:var(--cw);background:var(--cw-bg);border-color:var(--cw)}
+.pill.page.db{color:var(--db);background:var(--db-bg);border-color:var(--db)}
 .pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 
 .note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
@@ -164,7 +172,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>10</b><span>Published pages</span></div>
+      <div class="count"><b>12</b><span>Published pages</span></div>
       <div class="count"><b>24</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
@@ -175,7 +183,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Published pages</h2><div class="rule"></div><span class="ct">10 of 24</span>
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">12 of 24</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -312,6 +320,31 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
+
+    <a class="card" style="--spine:var(--cw)" href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 07 &middot; Live system</p>
+        <p class="card-t">Mission Control</p>
+        <p class="card-d">The operator console &mdash; eighteen pages in six groups, arranged by
+        when in your day you use them, plus the decision stack, the catalyst-to-style map and the
+        two standing workflows.</p>
+        <div class="card-m"><span>The app itself</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--db)" href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 08 &middot; Live system</p>
+        <p class="card-t">Swing Pro Dashboard</p>
+        <p class="card-d">The primary trade chart, and the most heavily measured surface in the
+        system &mdash; validated per-pattern alphas with confidence intervals, the two headline
+        cells, and what it owns versus mirrors.</p>
+        <div class="card-m"><span>Is this worth looking at?</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
   </div>
 
   <div class="sec-head">
@@ -354,8 +387,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <tbody>
         <tr><td class="id">23</td><td class="nm"><a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">22</td><td class="nm"><a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">Section Four</a></td><td>The four-gate GO and the verdict ladder</td><td class="st"><span class="pill page s4">Page</span></td></tr>
-        <tr><td class="id">07</td><td class="nm">Commander Web v4</td><td>The dashboard app itself</td><td class="st"><span class="pill md">Markdown</span></td></tr>
-        <tr><td class="id">08</td><td class="nm">Dashboard v67</td><td>The primary trade chart</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">07</td><td class="nm"><a href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>
+        <tr><td class="id">08</td><td class="nm"><a href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">Swing Pro Dashboard</a></td><td>The primary trade chart and its validated alphas</td><td class="st"><span class="pill page db">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
