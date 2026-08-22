@@ -163,6 +163,23 @@ td.t{font-family:var(--mono);font-weight:700;text-align:center;white-space:nowra
 .grade .d{padding:12px 16px;font-size:14.5px;color:var(--ink-2)}
 .grade .d b{color:var(--ink)}
 
+
+/* collapsible reference — kept ON the page, folded so it does not drown the prose */
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:500;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
 footer{border-top:1px solid var(--rule);background:var(--surface);
   font-family:var(--mono);font-size:11px;color:var(--muted)}
 .foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
@@ -215,12 +232,14 @@ footer a{color:var(--acc)}
     <li><a href="#location">Location</a></li>
     <li><a href="#verdict">The verdict ladder</a></li>
     <li><a href="#plan">The plan</a></li>
+    <li><a href="#inputs">Inputs reference</a></li>
   </ol>
   <p>Operating it</p>
   <ol>
-    <li><a href="#alerts">Alerts</a></li>
+    <li><a href="#alerts">Setting the alerts</a></li>
+    <li><a href="#expires">The gate that expires</a></li>
     <li><a href="#quality">Quality ladder</a></li>
-    <li><a href="#traps">Traps</a></li>
+    <li><a href="#traps">Troubleshooting</a></li>
   </ol>
 </nav>
 
@@ -308,6 +327,67 @@ footer a{color:var(--acc)}
       <p class="h">Plan &amp; risk</p>
       <p>How do we execute? Entry, stop, targets and quantity — <b>printed only on GO</b>.</p></div></div>
   </div>
+  <h3>Every row, band by band</h3>
+  <p class="refnote">Folded per band. This is the lookup for “what is this row telling me”.</p>
+
+  <details class="ref"><summary>I · Macro &amp; context — what is the underlying regime</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Structure basis</td><td>A position and direction <b>ladder</b> — stage, the leg and macro age, price against the 30-week, 50-day and 200-day, then the trend state on the chart timeframe and the two above it. <b>Two arrow families that mean different things:</b> diagonals are a moving-average <em>slope</em>, verticals are a <em>trend state</em>. A field printing a dash means the source is <b>unbound</b>, not flat</td></tr>
+      <tr><td class="k">WCL Context</td><td>A Wyckoff and market-structure composite. <b>Grading only</b> — it was measured and rejected as both a veto and a score input</td></tr>
+      <tr><td class="k">Structure Health</td><td>A change-of-character count. <b>Reading “clean” on roughly nine names in ten is expected</b>, not a bug</td></tr>
+      <tr><td class="k">RS · RRG</td><td>Relative strength against the index and the sector, plus the rotation quadrant. <b>Wording is identical to the dashboard by design</b>, and the quadrant is derived from the same pair the dashboard classifies with — so it <em>is</em> the dashboard's quadrant, not a second opinion</td></tr>
+      <tr><td class="k">Sector · Futures OI</td><td>Sector stage plus the open-interest state, <b>which is only meaningful against price direction</b> — so it is derived from both. Long build-up is fresh money; <b>short covering means the rally is shorts exiting, fades are common, do not chase</b>; short build-up is supply into strength; long unwinding is weak but not a short signal</td></tr>
+      <tr><td class="k">Signal · Quality · RSI</td><td>The dashboard's action signal, asset quality and daily momentum. <code>not bound</code> means <b>the bindings are missing, not that the data is absent</b></td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>II · Location &amp; quality — where are we right now</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Zones (MTF)</td><td>The live zone inventory across chart, daily, weekly and monthly — how many demand and supply zones are alive, and whether price is inside one</td></tr>
+      <tr><td class="k">Support Zone</td><td>The leg-base-leg zone under price, per timeframe, with its grade</td></tr>
+      <tr><td class="k">S/R (nearest)</td><td>The nearest horizontal level each side with its source timeframe. <b>Heavily-tested levels are deliberately excluded from this picker</b> — tests weaken a level, so one tested that often is a breakout candidate rather than a ceiling. <b>Nothing above is what produces BLUE SKY</b></td></tr>
+      <tr><td class="k">Trendlines</td><td>The auto or manual line, when enabled</td></tr>
+      <tr><td class="k">Volume Profile</td><td>Value-area and point-of-control position. <b>The one composite component that earned its place</b> — it contributes on roughly a fifth of names</td></tr>
+      <tr><td class="k">Price vs EMA20</td><td>The extension read, in percent and in ATR, plus distance off the 52-week high <em>and</em> off the all-time high. <b>Both together separate a name printing fresh highs from one that reclaimed its 52-week high but sits far under its all-time high</b></td></tr>
+      <tr><td class="k">Location (L)</td><td><b>The L gate itself</b>, with each source ticked or dotted — zone, level, anchor, average. This is the gate the board mirrors</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>III · Execution &amp; timing — are the triggers firing</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Intraday</td><td>Momentum timing on the chart timeframe. <b>Optional — it times, it does not qualify</b></td></tr>
+      <tr><td class="k">Nearest AVWAP</td><td>The closest anchor at or below price, with distance</td></tr>
+      <tr><td class="k">AVWAP L · BO · Gap</td><td>The three anchors: the 52-week low, the last breakout, the last gap</td></tr>
+      <tr><td class="k">Pinch</td><td>The anchors converged — a high-conviction zone. <b>Lower percentage is tighter</b></td></tr>
+      <tr><td class="k">AVWAP trigger</td><td>A bounce or a reclaim. <b>An optional timing leg</b>, shown with a clock marker on the trigger row</td></tr>
+      <tr><td class="k">Pattern | Shape</td><td>The flag and geometry classifier. <b>Known defect: the two-pivot classifier calls rectangles symmetrical triangles.</b> Cosmetic — it does not touch the gate</td></tr>
+      <tr><td class="k">PA grid</td><td>Every condition of the active battery, fired or quiet — <b>nothing aggregated away</b>, so you can see <em>which</em> fired rather than only a total</td></tr>
+      <tr><td class="k">PA Combo</td><td>The <em>sequence</em> that a sum cannot express. <b>Narrative only</b> — both testable combinations underperformed a matched control across 464 picks</td></tr>
+      <tr><td class="k">Bar (B)</td><td><b>The B gate.</b> In a pullback context it becomes <em>held the zone</em> instead of <em>closed strong</em></td></tr>
+      <tr><td class="k">Arrival · Δ</td><td>Approach velocity, and an intrabar order-flow <b>proxy</b> — not true aggressor delta, because no charting plan exposes that. <b>Grades, never gates</b></td></tr>
+      <tr><td class="k">RV</td><td><b>The V gate</b>, against the floor — which drops in a pullback context</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>IV · Decision synthesis — the ruling</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Room for Trade</td><td>Distance to the <b>first obstacle overhead</b> across six sources, with pivot ceilings named and ranked last. <b>Room is what decides whether a setup is tradeable at all</b> — which is why it sits in decision rather than location</td></tr>
+      <tr><td class="k">Confluence</td><td>Grades the setup; marked strong at the threshold</td></tr>
+      <tr><td class="k">TRIGGER</td><td>The four gates as chips, plus optional timing, the path tag, a pullback marker, and any warning suffix</td></tr>
+      <tr><td class="k">STATUS</td><td>The same gates in words, with the confluence score, the volume against its floor, and the pattern sum</td></tr>
+      <tr><td class="k">VERDICT</td><td><b>Exactly four lines</b> — the ruling, why, the one caveat, and the action. The full ladder is in section 07</td></tr>
+      <tr><td class="k">SUMMARY column</td><td>The only field allowed to <b>weigh one section against another</b>, and it <b>never repeats a value printed above it</b>. It sits in its own right-hand column rather than as a row, because a table cell does not wrap — as a full-width row it stretched the panel across the screen</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>V · Plan &amp; risk — how to execute and size</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Plan</td><td><b>Prints only on GO.</b> Follows your entry method, tagged with how many bars ago the trigger fired — and <b>a stale anchor re-latches rather than quoting fiction</b></td></tr>
+      <tr><td class="k">Entry · SL · T1 · T2</td><td>The stop is <b>structural</b> — zone distal, then recent swing low, then an ATR fallback, capped by trade type. Targets are R-multiples set by that same trade type</td></tr>
+      <tr><td class="k">Qty at risk %</td><td>Dynamic risk — a Kelly, volatility and regime blend ported from the allocator</td></tr>
+  </tbody></table></div></div></details>
+
   <div class="note go">
     <span class="tag">The one thing to carry away</span>
     <p><b>Everything above III grades. III fires. IV rules. V sizes.</b></p>
@@ -500,32 +580,267 @@ B   BAR        the bar itself is not a distribution candle</pre>
   </div>
 </section>
 
-<section id="alerts">
-  <h2><span class="n">09</span>Alerts</h2>
-  <p>Set them once per shortlisted name and walk away. The ping is the cue — <b>act on alerts,
-  never on the touch.</b></p>
+<section id="inputs">
+  <h2><span class="n">09</span>Inputs — field by field</h2>
+  <p>Folded because you need this when you configure and never when you read. <b>Nothing is
+  omitted</b> — open the group you are changing.</p>
+
+  <details class="ref"><summary>Anchored VWAPs — the three price memories</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">AVWAP Stage-1 Low</td><td class="m">on</td><td>Anchored to the 52-week absolute bottom — the institutional cost baseline</td></tr>
+      <tr><td class="k">AVWAP Breakout</td><td class="m">on</td><td>Anchored to the most recent N-bar-high breakout day</td></tr>
+      <tr><td class="k">AVWAP Gap-up</td><td class="m">on</td><td>Anchored to the last high-volume gap — the earnings or news cost basis</td></tr>
+      <tr><td class="k">Low-anchor lookback</td><td class="m">252</td><td>The 52-week window for the low anchor</td></tr>
+      <tr><td class="k">Breakout-anchor lookback</td><td class="m">40</td><td>The breakout is a cross above the prior 40-bar high</td></tr>
+      <tr><td class="k">Gap-up minimum</td><td class="m">3.0%</td><td>Smallest gap that qualifies as an anchor</td></tr>
+      <tr><td class="k">Gap-up volume multiple</td><td class="m">1.5×</td><td>The gap day must trade at least this multiple of its 50-day average</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The PA battery — mode, timeframe and the volume floor</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Mode</td><td class="m">Auto</td><td><b>Auto mirrors the board's structural split</b> — Recovery only when sufficiently off the 52-week high <em>and</em> the 30-week average is unrepaired <em>and</em> price is below the 200-day. That last leg keeps a shallow bull pullback resolving Bull. The header shows what it resolved to; the other two force it</td></tr>
+      <tr><td class="k">Detect PA patterns</td><td class="m">on</td><td>Master toggle for the battery, its panel rows and its alert. Off gives a pure price-memory view</td></tr>
+      <tr><td class="k">Confirmed daily only</td><td class="m">on</td><td>Reads the <b>last closed daily bar</b>, so patterns do not flicker on the forming one. Off reads the developing bar and <b>repaints intraday</b></td></tr>
+      <tr><td class="k">Volume floor for a valid trigger</td><td class="m">1.0</td><td><b>The knob that decides how gettable a GO is.</b> 1.0 is an average day; a real breakout usually runs above 1.25. Lower it if you find it too strict</td></tr>
+      <tr><td class="k">Auto: min off-high for Recovery</td><td class="m">10.0%</td><td>Mirrors the board's recovery context gate — <b>keep the two in sync</b></td></tr>
+      <tr><td class="k">Use chart timeframe for patterns</td><td class="m">ON</td><td>The battery computes on the <b>active chart timeframe</b>, to match the board. Weekly-anchored patterns are auto-suppressed and the engulf keeps its daily anchor. Off forces daily; on a daily chart it is a no-op</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Pinch and the entry zone</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Pinch tolerance</td><td class="m">2.5%</td><td>The anchors are pinched when their spread is within this much of price. Tighter is stricter</td></tr>
+      <tr><td class="k">Support-touch tolerance</td><td class="m">1.0%</td><td>How close the bar's low must come to an anchor to count as a touch — also the buffer for placing the stop below support</td></tr>
+      <tr><td class="k">Require price in a support zone</td><td class="m">on</td><td><b>This is the location gate.</b> GO only fires if the close is inside or near an active zone, pivot support or anchor. Off lets a trigger fire on volume alone, regardless of where price is</td></tr>
+      <tr><td class="k">Draw the zones</td><td class="m">on</td><td>Chart drawings only — turning it off keeps the gate and the panel row live</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The intraday trigger — apply on 75 or 125-minute</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Show intraday trigger</td><td class="m">on</td><td>Master toggle for the row, the marker and its alert</td></tr>
+      <tr><td class="k">Intraday EMA length</td><td class="m">10</td><td>The reclaim average</td></tr>
+      <tr><td class="k">Squeeze length · band multipliers</td><td class="m">20 · 2.0 / 1.5</td><td>The squeeze fires up when it releases with positive momentum</td></tr>
+      <tr><td class="k">Require the squeeze to fire</td><td class="m">on</td><td>On, the trigger needs a squeeze release — relaxed to a rising-momentum window rather than the single fire bar. <b>Off, a high-volume reclaim alone fires it</b>, which is more responsive for morning breakouts</td></tr>
+  </tbody></table></div>
+  <p class="refnote">On an intraday chart the volume gate accepts the <b>chart-timeframe</b>
+  relative volume, so a 75-minute breakout is not blocked by an incomplete daily volume bar.</p>
+  </div></details>
+
+  <details class="ref"><summary>Handoffs from the board — the two pasted lists</summary><div class="rb">
+  <p>S4 cannot see <em>which screen qualified a name</em> — that lives in the watchlists, on
+  fundamentals and history no price rule can recover. <b>So the board hands the answer over.</b>
+  Paste each list once per watchlist refresh; the answer is a property of the <em>name</em>, so
+  the same paste is correct on every timeframe.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Recovery list</td><td>Symbols here resolve <b>Recovery</b>. Anything else falls back to the structural heuristic</td></tr>
+      <tr><td class="k">Pullback list</td><td>Symbols here take the <b>pullback playbook</b> — the volume floor drops and the bar test becomes “closed back above the zone distal”. <b>The demand-zone requirement is NOT relaxed</b> — that is the discipline of the setup, and the only thing keeping the lower floor honest</td></tr>
+  </tbody></table></div>
+  <p class="refnote">Names on <em>both</em> lists are genuinely ambiguous, and are left to S4's
+  own inference rather than an arbitrary preference.</p>
+  </div></details>
+
+  <details class="ref"><summary>Structural zones — pivot lengths and the width band</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Notes</th></tr></thead><tbody>
+      <tr><td class="k">Pivot length M / W / D / intraday</td><td class="m">1 / 5 / 2 / 2</td><td>Canonical, shared with the pivot tool and the levels lab. <b>Do not raise the daily to reduce noise</b> — that breaks alignment. Filter with minimum-move or the width band instead</td></tr>
+      <tr><td class="k">Confirming bar must be closed</td><td class="m">on</td><td><b>Kills the repaint.</b> At monthly length 1 the confirming bar can be three days old</td></tr>
+      <tr><td class="k">Resolve supply/demand overlap</td><td class="m">on</td><td>A band cannot be both. Same timeframe only — cross-timeframe overlap is confluence, not conflict</td></tr>
+      <tr><td class="k">Pivot shelf as rejection region</td><td class="m">on</td><td>Supply is body-top to high, demand is low to body-bottom. Off restores the whole-body span</td></tr>
+      <tr><td class="k">Pad bars and body tolerance</td><td class="m">per TF</td><td>How far a shelf reaches into its neighbours. The tolerance scales with ATR, <b>which is why one global value could not serve all four timeframes</b></td></tr>
+      <tr><td class="k">Draw at most N zones a side</td><td class="m">3</td><td><b>Display only.</b> Never changes the gate, the counts, or a verdict</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Imported from the dashboard — and why the rows go blank</summary><div class="rb">
+  <p>These bind to hidden numeric plots on the dashboard and the pivot tool. They carry
+  <b>the value that indicator computed</b> — not a re-implementation — so an imported field
+  cannot drift.</p>
   <div class="note no">
-    <span class="tag">A recompile DESTROYS your alerts — this is not housekeeping</span>
-    <p>Alerts bind to the compiled script. Recompiling does not stale them, <b>it deletes
-    them</b>. After every compile, delete and re-create every GO alert. Two alerts silently
-    vanished this way before the behaviour was understood.</p>
+    <span class="tag">Two constraints worth knowing before you debug</span>
+    <p>A source input carries <b>one float series</b>, so strings — sector name, macro label —
+    cannot cross and stay on the dashboard. And inputs are matched <b>by position</b>, so
+    inserting a new input mid-list <b>drops every existing binding</b>. If the rows go blank
+    after an upgrade, <b>re-bind rather than debug</b>.</p>
+  </div>
+  <p>Unbound is safe: an unwired source defaults to a price series, every row range-checks it,
+  and the panel prints <code>not bound</code> rather than silently showing dashes.</p>
+  </div></details>
+</section>
+
+<section id="alerts">
+  <h2><span class="n">10</span>Setting the alerts</h2>
+  <div class="note no">
+    <span class="tag">Do this after EVERY compile</span>
+    <p>A recompile does not stale an alert — <b>it deletes it.</b> Alerts bind to the compiled
+    script's id at creation, so the whole set ceases to exist the moment you compile. Two alerts
+    went quiet for a month for exactly this reason and <b>looked perfectly healthy in the list the
+    entire time.</b></p>
+  </div>
+
+  <h3>The five conditions, and which one you actually want</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Condition</th><th>What it means</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td class="k">S4 GO</td><td>All four gates aligned on a closed bar</td><td><b>This is the one</b></td></tr>
+      <tr><td class="k">AVWAP trigger</td><td>A bounce or reclaim — timing only, no location or volume gate</td><td>A name you are stalking</td></tr>
+      <tr><td class="k">Intraday trigger</td><td>Rising-EMA reclaim plus a squeeze release</td><td>Noisier; optional</td></tr>
+      <tr><td class="k">AVWAP pinch</td><td>The three anchors converging</td><td>Rare, high-conviction</td></tr>
+      <tr><td class="k">Any PA pattern</td><td>Any battery pattern fired</td><td><b>Far too loose for a watchlist</b> — it will spam you</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>A · The per-symbol alert</h3>
+  <p>The chart's symbol <b>and timeframe are both inherited</b> by the alert, so set them first.</p>
+  <ol class="steps">
+    <li><span>Open the chart on the symbol, <b>on the timeframe the board row came from</b>, with S4 loaded.</span></li>
+    <li><span>Open the alert dialog.</span></li>
+    <li><span><b>Condition, first dropdown → the Section Four indicator.</b> Select the <em>indicator</em>, not the symbol — this is the step people get wrong.</span></li>
+    <li><span>Second dropdown → <b>S4 GO</b>.</span></li>
+    <li><span><b>Trigger → once per bar close.</b></span></li>
+    <li><span>Expiration as far out as the plan allows, or open-ended.</span></li>
+    <li><span>Notifications → app push, so it reaches your phone.</span></li>
+    <li><span><b>Name it <code>S4 GO · SYMBOL · 75m</code></b> — symbol and timeframe in the name, so the notification tells you what to open without guessing.</span></li>
+    <li><span>Create.</span></li>
+  </ol>
+  <p>The dropdowns remember the last selection, so each further name is just: change symbol →
+  open the dialog → confirm → create.</p>
+
+  <h3>B · The watchlist alert — one alert for the whole shortlist</h3>
+  <p><b>Supported, and the better default.</b> The GO condition is entirely self-computed — the
+  battery, the location test, relative volume and the bar test are all native.</p>
+  <div class="note go">
+    <span class="tag">Why this works when it looks like it shouldn't</span>
+    <p><b>Nothing in the GO gate reads a dashboard binding.</b> That is what would otherwise have
+    broken it — those bindings are per-chart and cannot follow a watchlist alert across symbols.
+    The panel's context rows <em>do</em> depend on them, but the panel is not what the alert
+    evaluates.</p>
+  </div>
+  <p>Set it up exactly as above, choosing the <b>watchlist</b> instead of a symbol at step 1. The
+  ticker is already in the message, so the notification names which symbol fired.</p>
+
+  <h4>Three caveats, all real</h4>
+  <ol class="steps">
+    <li><span><b>Stage does not gate the alert.</b> The stage check drives the verdict, not the
+    GO condition — so a Stage-3/4 name on the watchlist can still ping. Open the panel and it will
+    say NO TRADE. <b>The alert is a prompt to look, not a verdict.</b></span></li>
+    <li><span><b>The pasted board lists freeze at creation.</b> Pullback context and the
+    Bull/Recovery resolution go stale as the board changes. A name that <em>becomes</em> a pullback
+    next week will not get the relaxed volume floor until the alert is recreated.</span></li>
+    <li><span><b>The watchlist must stay in sync</b> with the board. An alert on a stale watchlist
+    is watching last week's shortlist.</span></li>
+  </ol>
+
+  <h3>The daily ritual — because the watchlist name carries the date</h3>
+  <p>The pipeline writes a <b>new, date-stamped watchlist every weekday after the close</b>, so
+  yesterday's alert points at yesterday's list by construction. Each evening:</p>
+  <ol class="steps">
+    <li><span><b>Check the board's source-issue strip first.</b> On a thin pipeline day — one scan
+    returned a single name recently, and header-only files have happened — you would otherwise arm
+    a near-empty watchlist and <b>lose a day of coverage without noticing</b>.</span></li>
+    <li><span><b>Delete yesterday's alert.</b> Left in place it keeps firing on names that have
+    already dropped out — the exact noise the shortlist exists to remove — and it eats your alert
+    quota.</span></li>
+    <li><span><b>Create today's on the new watchlist, named to match it</b> — so a stale one is
+    obvious at a glance in the alerts panel.</span></li>
+    <li><span><b>Repeat on the second timeframe.</b> An alert inherits the chart's resolution, so
+    this is a separate alert created from a 125-minute chart.</span></li>
+  </ol>
+  <div class="note go">
+    <span class="tag">Recreating daily also fixes caveat 2</span>
+    <p>The frozen board lists were the real weakness of the watchlist form. Recreating daily means
+    <b>they are never more than one session old.</b></p>
+  </div>
+
+  <h3>Why both timeframes, and what actually differs</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Timeframe</th><th>Closes</th></tr></thead>
+    <tbody>
+      <tr><td class="k">75-minute</td><td class="m">10:30 · 11:45 · 13:00 · 14:15 · 15:30</td></tr>
+      <tr><td class="k">125-minute</td><td class="m">11:20 · 13:25 · 15:30</td></tr>
+    </tbody>
+  </table></div>
+  <p>125 is <b>not merely the same signals, slower.</b> Its first close is <b>11:20 — after the
+  opening drive</b>, whereas 75's first close <em>is</em> the opening drive: inflated volume,
+  patterns firing in bulk, gaps unresolved. On one measured session, <b>nine of fourteen alerts
+  came from that first bar.</b> So the 125 set structurally skips the noisiest bar of the day, at
+  the cost of two fewer windows and a later entry.</p>
+  <div class="note no">
+    <span class="tag">Two pings on one name is ONE setup seen twice</span>
+    <p>Same engine, same gates, same bars — only the sampling rate differs, and both timeframes
+    share the closing bar, so duplicates cluster there. <b>Do not let a second ping raise
+    conviction.</b> Check the panel on the timeframe you intend to act on and treat the other as an
+    echo.</p>
   </div>
   <div class="note">
-    <span class="tag">The watchlist alert expires in a way the per-symbol one does not</span>
-    <p>A watchlist alert carries the shortlist <b>frozen at creation</b>, and the list name carries
-    the date — so <b>create both alerts fresh every evening</b>, on both timeframes. Recreating
-    also refreshes the frozen list.</p>
-    <p>And know what the alert asserts: it fires on the gate, but <b>location is the gate that
-    expires</b> between the alert firing and you looking. Re-read the panel; do not act on the
-    memory of why you armed it.</p>
+    <span class="tag">What does NOT need recreating</span>
+    <p><b>The names you are stalking — arm them.</b> An armed name is injected into the board
+    carrying the archetypes it had when armed, so it survives into every subsequent watchlist even
+    after it stops qualifying — <b>which is precisely when losing the alert would hurt most.</b></p>
   </div>
+
+  <h3>C · Verify before relying on it</h3>
+  <p>Open the alerts panel and check, on at least one alert:</p>
+  <ul>
+    <li>the condition names the <b>current</b> script version, not an older title;</li>
+    <li>the resolution reads <b>75 or 125</b>, not daily;</li>
+    <li>the trigger is <b>once per bar close</b>.</li>
+  </ul>
+  <div class="note no">
+    <p><b>An alert bound to a stale script id sits in the list looking perfectly healthy and never
+    fires.</b> This check takes ten seconds and is the only thing that catches it.</p>
+  </div>
+
+  <h3>D · What to do when one fires</h3>
+  <p><b>Act on the ping, never on the touch.</b> The alert exists so you do not have to watch the
+  name tick by tick — and watching is exactly how the confirmation rule gets broken. When it
+  fires: open S4 on that timeframe and run the pre-trade review. And remember what the alert
+  actually asserts — <b>a trigger fired, not that the trade is sound.</b> The setup can be clean
+  while the plan is not.</p>
+</section>
+
+<section id="expires">
+  <h2><span class="n">11</span>The one gate that expires</h2>
+  <p>Three of the four gates are fixed at the trigger bar. <b>Location is not.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Gate</th><th>Nature</th><th>Still true an hour later?</th></tr></thead>
+    <tbody>
+      <tr><td class="k">P · pattern</td><td>Structural — a pattern <em>formed</em></td><td><b>Yes</b></td></tr>
+      <tr><td class="k">V · volume</td><td>A property of that bar</td><td><b>Yes</b></td></tr>
+      <tr><td class="k">B · bar</td><td>A property of that bar</td><td><b>Yes</b></td></tr>
+      <tr><td class="k">L · location</td><td><em>Price is at a level right now</em></td><td><b>No — price moves off it</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>So an alert can fire correctly at 10:30 and the panel can read <em>no location</em> when you
+  open it at 11:45. <b>Neither is wrong</b> — you are reading a snapshot after the event. There is
+  a second mechanism too: <b>a tested zone is deleted by the lifecycle</b>, so the very touch that
+  triggered the alert can consume the zone that justified it.</p>
   <div class="note">
-    <p><b>Two pings on one name is one setup seen twice</b>, not corroboration.</p>
+    <span class="tag">Observed, not theorised</span>
+    <p>On one session nine alerts fired on the first bar. By the time the panels were read, two
+    showed no location while the other seven still had all four. One still read
+    <code>P✓ L· V✓ B✓</code> with its anchor pressed within four rupees of price — <b>it had simply
+    drifted off the level.</b></p>
+  </div>
+  <div class="note go">
+    <span class="tag">What to do about it</span>
+    <p><b>The alert marks a BAR, not a state.</b> Arriving late, re-evaluate at the current bar —
+    if location has gone, <b>the entry premise has gone with it</b>, because the trade was “buy at
+    the level” and price is no longer at the level. This is also exactly why the plan
+    <b>latches the trigger bar</b> rather than re-deriving the entry from live price.</p>
+  </div>
+  <div class="note no">
+    <span class="tag">A timing note worth carrying</span>
+    <p>The first close of the session carries the opening drive — volume is inflated and patterns
+    fire in bulk. <b>A cluster of alerts there is expected, and deserves more scrutiny than a
+    midday trigger, not less.</b></p>
   </div>
 </section>
 
 <section id="quality">
-  <h2><span class="n">10</span>Quality ladder — when several names ping</h2>
+  <h2><span class="n">12</span>Quality ladder — when several names ping</h2>
   <div class="grades">
     <div class="grade a"><div class="g">A+</div><div class="d"><b>Take it — pullback to value.</b> A fresh demand zone under price, Σ ≥ 4, strong volume, arrival not grinding. <b>The house setup.</b></div></div>
     <div class="grade a"><div class="g">A</div><div class="d"><b>Take it</b> with zone or shelf location, both reward gates comfortable, clean bar.</div></div>
@@ -539,16 +854,27 @@ B   BAR        the bar itself is not a distribution candle</pre>
 </section>
 
 <section id="traps">
-  <h2><span class="n">11</span>Traps worth knowing</h2>
+  <h2><span class="n">13</span>Troubleshooting</h2>
   <div class="tw"><table>
-    <thead><tr><th>Symptom</th><th>Cause</th></tr></thead>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
     <tbody>
-      <tr><td class="k">Fields read <code>not bound</code></td><td>The value bindings dropped on the last recompile. They bind by <b>position</b> and an unbound source silently reads price rather than erroring. <b>Re-run the binding script after every compile</b></td></tr>
-      <tr><td class="k">A GO alert never fired</td><td>It was destroyed by a recompile. Re-create it</td></tr>
-      <tr><td class="k">“Calculation timed out”, only after the open</td><td>Execution time is Pine's <b>fourth</b> ceiling and the only one that does not announce itself at compile. Something is running per tick rather than per closed bar</td></tr>
-      <tr><td class="k">Panel disagrees with the board</td><td>Expected at the margin — different location code, and often a different data feed. <b>The chart wins</b></td></tr>
+      <tr><td class="k">“Too many tokens”</td><td>You are at the compiled ceiling. <b>Every addition needs a paired removal</b>, and cost is per <em>operation</em>, not per character — a long string literal is one token</td></tr>
+      <tr><td class="k">“Calculation timed out”, only after the open</td><td>Execution time is Pine's <b>fourth</b> ceiling, and the only one that does not announce itself at compile. Something is running <em>per tick</em> rather than per closed bar</td></tr>
+      <tr><td class="k">A GO alert never fired, though the panel showed GO</td><td>The alert was <b>destroyed by a recompile</b> — they bind to the script id. Delete and re-create every alert after every compile</td></tr>
+      <tr><td class="k">GO never appears on strong triggers</td><td><b>Location</b> — price is not at a zone or level. Check the Support Zone row. If intraday zones are missing entirely, the per-timeframe <b>width band</b> is the first knob</td></tr>
+      <tr><td class="k">Intraday zones vanish, or too few daily ones</td><td>Per-timeframe <b>leg-in strictness</b>. A single global value starves one end — that is why there are separate intraday and higher-timeframe settings</td></tr>
+      <tr><td class="k">A weekly zone disappeared for no reason</td><td>Old behaviour: the tested check used the <b>daily</b> average for every timeframe, so a weekly zone died on a daily cross. <b>Judge a zone on its own timeframe</b></td></tr>
+      <tr><td class="k">A heavily-tested level is not offered as support</td><td><b>Working as designed.</b> Tests <em>weaken</em> a level; one tested that often is a breakout candidate, not a ceiling</td></tr>
+      <tr><td class="k">Verdict says NO TRADE but the chart looks fine</td><td>Stage 3 or 4. The stage check <b>outranks everything and applies under manual mode too</b>. Trust it, or accept it is a counter-trend trade at half size</td></tr>
+      <tr><td class="k">Recovery mode says TAKE IT on what looks like a bull pullback</td><td>A repaired Stage-2 name now falls through to the bull rulings and the panel says the mode is contradicted. On an older build, set Mode manually</td></tr>
+      <tr><td class="k">The panel gives two different entry prices</td><td>Fixed. <b>Only recovery and blue-sky override your entry method</b>, and both say so explicitly on the panel</td></tr>
+      <tr><td class="k">“Retest” filled at market</td><td><b>Correct, and now stated.</b> On the trigger bar itself the limit <em>is</em> that bar's close. The panel distinguishes a true retest from a market fill and names where a real pullback sits</td></tr>
+      <tr><td class="k">Board says 4/4 but S4 shows nothing</td><td>Check three things in order: <b>mode and path</b> match; <b>pattern age</b> — a recency tag means it fired bars ago, so the live bar is legitimately quiet; and board <b>snapshot staleness</b></td></tr>
+      <tr><td class="k">Fields read <code>not bound</code></td><td>The bindings dropped on the last recompile. They bind <b>by position</b>, and an unbound source silently reads price rather than erroring. <b>Re-bind rather than debug</b></td></tr>
+      <tr><td class="k">Pattern rows all dashes on a fresh add</td><td>Give the higher-timeframe requests a moment, and confirm the master detect toggle is on</td></tr>
+      <tr><td class="k">The panel stops after a row</td><td>A stale persisted table from an older build. Reload the current file into a <b>fresh</b> chart</td></tr>
+      <tr><td class="k">A number prints as 1.2 when the true value is 0.94</td><td>Pine's short format strings are <b>broken</b> — they round to an integer and print a literal decimal. Use the explicit two-place form</td></tr>
       <tr><td class="k">A rectangle called a triangle</td><td>Known and unfixed: the two-pivot geometry classifier mislabels rectangles. Cosmetic — it does not touch the gate</td></tr>
-      <tr><td class="k">Cannot add a feature</td><td>The file sits at the compiled-token ceiling. <b>Every addition needs a paired removal</b>, and cost is per <em>operation</em>, not per character — a long string literal is one token</td></tr>
     </tbody>
   </table></div>
   <div class="note go">
