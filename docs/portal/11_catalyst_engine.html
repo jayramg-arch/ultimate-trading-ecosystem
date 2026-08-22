@@ -1,0 +1,813 @@
+<title>The Catalyst Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Rubik:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Saira:wght@600;700;800&display=swap">
+
+<style>
+/* Accent is deliberately not green: this document is wall-to-wall pass/fail
+   gates, and the semantics need to own that colour. */
+:root{
+  --ground:#F1F2F6; --surface:#FFFFFF; --surface-2:#F7F8FC; --surface-3:#EAECF3;
+  --ink:#12131C; --ink-2:#3A3F52; --muted:#676D80; --faint:#979CAF;
+  --rule:#D7DAE4; --rule-soft:#E7E9F0;
+  --acc:#3D4A8C; --acc-bg:#E8EAF6; --acc-rule:#AFB6DC;
+  --pass:#0F7A52; --pass-bg:#E2F1EA; --pass-rule:#9AC9B4;
+  --fail:#A8342A; --fail-bg:#FAE9E7; --fail-rule:#DFAAA3;
+  --warn:#9A5B00; --warn-bg:#FBF0DE; --warn-rule:#DFBB80;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Saira','Helvetica Neue',Arial,sans-serif;
+  --body:'Rubik','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1016; --surface:#15171F; --surface-2:#1A1C26; --surface-3:#22252F;
+    --ink:#E9EBF2; --ink-2:#C0C4D2; --muted:#868CA0; --faint:#636879;
+    --rule:#262A35; --rule-soft:#1E212A;
+    --acc:#8E9AE0; --acc-bg:#181C33; --acc-rule:#39406E;
+    --pass:#33B98A; --pass-bg:#0E2C22; --pass-rule:#1E5643;
+    --fail:#EF6E60; --fail-bg:#331A17; --fail-rule:#6A2F29;
+    --warn:#E0A020; --warn-bg:#332608; --warn-rule:#6A4E14;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1016; --surface:#15171F; --surface-2:#1A1C26; --surface-3:#22252F;
+  --ink:#E9EBF2; --ink-2:#C0C4D2; --muted:#868CA0; --faint:#636879;
+  --rule:#262A35; --rule-soft:#1E212A;
+  --acc:#8E9AE0; --acc-bg:#181C33; --acc-rule:#39406E;
+  --pass:#33B98A; --pass-bg:#0E2C22; --pass-rule:#1E5643;
+  --fail:#EF6E60; --fail-bg:#331A17; --fail-rule:#6A2F29;
+  --warn:#E0A020; --warn-bg:#332608; --warn-rule:#6A4E14;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.8vw,60px);line-height:1.02;
+  letter-spacing:-.026em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:16px 19px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.9;
+  min-width:214px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:9px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:600}
+
+.cols{display:grid;grid-template-columns:206px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.022em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.014em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:600;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc);font-weight:600}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.p{color:var(--pass);font-weight:600;text-align:right;font-family:var(--mono)}
+tr.gone td{opacity:.62}
+tr.gone td.k{text-decoration:line-through;text-decoration-color:var(--fail)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--fail);background:var(--fail-bg);border-color:var(--fail-rule)}
+.note.good{border-left-color:var(--pass);background:var(--pass-bg);border-color:var(--pass-rule)}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg);border-color:var(--warn-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--fail)} .note.good .tag{color:var(--pass)} .note.warn .tag{color:var(--warn)}
+.note p:last-child{margin-bottom:0}
+
+/* the six gates of the base test */
+.gates{border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--surface);
+  margin:0 0 18px;counter-reset:g}
+.gate{counter-increment:g;display:grid;grid-template-columns:40px 224px minmax(0,1fr);
+  border-bottom:1px solid var(--rule-soft)}
+.gate:last-child{border-bottom:none}
+.gate .i{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--acc);
+  display:flex;align-items:center;justify-content:center;background:var(--acc-bg);
+  border-right:1px solid var(--rule-soft)}
+.gate .i::before{content:counter(g)}
+.gate .c{font-family:var(--mono);font-size:12.5px;color:var(--ink);padding:13px 14px;
+  border-right:1px solid var(--rule-soft)}
+.gate .w{padding:13px 16px;font-size:14.5px;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+.mistakes{counter-reset:m;list-style:none;padding:0;margin:0 0 18px;max-width:none}
+.mistakes li{counter-increment:m;display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;
+  padding:12px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
+.mistakes li:last-child{border-bottom:none}
+.mistakes li::before{content:counter(m);font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--acc);padding-top:3px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .gate{grid-template-columns:34px minmax(0,1fr)}
+  .gate .c{grid-column:2;border-right:none;padding-bottom:0}
+  .gate .w{grid-column:2;padding-top:4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 11 · Screeners &amp; signals</p>
+      <h1>The Catalyst Engine</h1>
+      <p class="dek">The bull screener — six catalysts, two scores, and the gates that decide
+      which names reach the board at all. <b>Python is canonical here</b>; every chart surface is
+      synced up to it, not the other way round.</p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Two scores, two jobs</div>
+      <b>alphaScore</b> — the gate<br>
+      decides <em>if</em> a catalyst fires<br><br>
+      <b>pyScore</b> — the ranking<br>
+      decides <em>which</em> you take
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#corrections">Three corrections</a></li>
+    <li><a href="#pa">The PA conversion</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#catalysts">The six catalysts</a></li>
+    <li><a href="#scores">The two scores</a></li>
+    <li><a href="#basegate">The base gate</a></li>
+    <li><a href="#logic">Catalyst logic</a></li>
+    <li><a href="#stops">Catalyst-aware stops</a></li>
+  </ol>
+  <p>Reading output</p>
+  <ol>
+    <li><a href="#sweep">Liquidity sweep</a></li>
+    <li><a href="#inputs">Inputs reference</a></li>
+    <li><a href="#ecosystem">Ecosystem</a></li>
+    <li><a href="#panel">The panel</a></li>
+    <li><a href="#persona">Persona</a></li>
+    <li><a href="#csv">The CSV</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#workflow">Daily workflow</a></li>
+    <li><a href="#mistakes">Common mistakes</a></li>
+    <li><a href="#evidence">Where the evidence sits</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="corrections">
+  <h2><span class="n">01</span>Three corrections, verified against the code</h2>
+  <p>This guide predates several changes to the engine it documents. All three were checked at
+  source while this page was written.</p>
+
+  <div class="note stop">
+    <span class="tag">1 · The base test is SIX gates, not nine</span>
+    <p>The guide describes a nine-gate checklist and says <em>all nine must pass</em>. The code
+    requires six: <b>stage · trend alignment · relative strength · sector stage · volume
+    accumulation · trend template</b>.</p>
+    <p><b>Three gates were deliberately removed</b> — the Stage-2 freshness check (demoted to
+    something you eyeball rather than a blocker), and <b>both squeeze gates</b>. The squeeze
+    removal was the big one: a squeeze is <em>mutually exclusive</em> with a breakout, so
+    requiring both nullified the entire positional book. Any nine-gate reference below, including
+    the CSV proxy table, is historical.</p>
+  </div>
+
+  <div class="note stop">
+    <span class="tag">2 · The alpha score is price action, not RSI and ADX</span>
+    <p>The score table still lists <code>RSI(14) &gt; 60</code> and <code>ADX &gt; 20</code>. Those
+    were converted: momentum is now <b>close against its own 10-bar and 5-bar values</b>, and
+    direction is a <b>count of up-closes making higher highs</b>. <b>The point values are
+    unchanged</b> — only the mechanism moved, so the thresholds you know still hold.</p>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">3 · The per-catalyst alpha figures predate the horizon fix</span>
+    <p>The numbers quoted here were measured before a benchmarking error was found — trades were
+    being compared against their <em>full design window</em> while most had exited far earlier.
+    Correcting it <b>cut headline alpha by roughly two thirds</b>. Treat the per-catalyst ordering
+    as indicative and the magnitudes as too high; the current honest position is at the bottom of
+    this page.</p>
+  </div>
+</section>
+
+<section id="pa">
+  <h2><span class="n">02</span>The price-action conversion</h2>
+  <p>The single biggest change in the engine's history. Per the standing rule — <em>replace lagging
+  indicators with pure price action wherever possible</em> — every catalyst gate and the alpha score
+  were moved off oscillators onto price-action equivalents, and all chart surfaces were synced
+  <b>up to Python</b>.</p>
+
+  <h3>The rosetta stone</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Was</th><th>Now</th><th>Used in</th></tr></thead>
+    <tbody>
+      <tr><td class="m">RSI &gt; 60 / 50</td><td>Close above <b>both</b> its 10-bar-ago and 5-bar-ago value</td><td>Alpha score</td></tr>
+      <tr><td class="m">ADX strong</td><td><b>At least half of the last 14 bars</b> up-closes making higher highs</td><td>Alpha score · POS-BO</td></tr>
+      <tr><td class="m">Weekly RSI ≥ 60</td><td>Weekly close above its 5-week-ago close</td><td>POS-BO</td></tr>
+      <tr><td class="m">Daily RSI ≤ 50</td><td>Close no more than 5% above its 5-day-ago close — <b>the anti-chase test</b></td><td>POS-ACCUM</td></tr>
+      <tr><td class="m">RSI 30–70 pocket</td><td>A <b>38–62% retrace</b> of the 20-bar range off the swing high</td><td>SWG-PB</td></tr>
+      <tr><td class="m">RSI &lt; 35 oversold</td><td>Prior <em>down-structure</em> plus a bullish reversal bar today</td><td>SWG-REV</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>The structural bugs this exposed</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Bug</th><th>Effect, and the fix</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Squeeze gate in the base test</td><td>A coil and a breakout are <b>mutually exclusive</b>, so requiring both produced <b>zero positional picks for twenty-four months</b>. Removed</td></tr>
+      <tr><td class="k">Pullback quality stripped</td><td>It was firing on weak, rolling-over stocks. The full moving-average stack was restored, and an <b>entry confirmation</b> added — a close above the prior day's high, so you enter on <em>resumption</em> rather than into a falling dip. The stop became a structural floor rather than a fixed multiple that got whipsawed, and the evaluation window widened to match the intended hold</td></tr>
+      <tr><td class="k">Reversal logic contradiction</td><td>It required today be a <em>down</em> close <b>and</b> close above the prior high — <b>simultaneously impossible</b>. The oversold test now measures <em>prior</em> weakness, leaving today free to be the reversal bar</td></tr>
+      <tr><td class="k">Accumulation catalyst disabled</td><td>Disabled on a 30-day backtest — <b>the wrong horizon for a setup designed to run six to eight months</b>. Re-enabled, and it now measures as the strongest of the six</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note good">
+    <span class="tag">The pattern worth carrying</span>
+    <p>Three of those four were <b>silent</b> — they produced no error, just an empty or degraded
+    result set. <b>A catalyst that never fires looks exactly like a market with no setups.</b> The
+    funnel diagnostic that counts survivors at each stage is what found them.</p>
+  </div>
+</section>
+
+<section id="catalysts">
+  <h2><span class="n">03</span>The six catalysts</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Code</th><th>What it finds</th><th>Style</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-AC</td><td>Institutional accumulation inside a base — volume footprint <em>before</em> the price move</td><td>Positional</td></tr>
+      <tr><td class="k">POS-BO</td><td>A Stage-2 breakout above the 21-day high, through the full base gate</td><td>Positional</td></tr>
+      <tr><td class="k">SWG-PB</td><td>A pullback to the short average inside a valid trend template</td><td>Swing</td></tr>
+      <tr><td class="k">SWG-BO</td><td>A contraction breakout through a pivot, with an anti-algo filter</td><td>Swing</td></tr>
+      <tr><td class="k">SWG-REV</td><td>Short-term mean reversion in a healthy uptrend</td><td>Swing</td></tr>
+      <tr><td class="k">GAP-GO</td><td>A large gap held into the close on institutional volume</td><td>Swing</td></tr>
+    </tbody>
+  </table></div>
+  <p>Alongside the catalyst the engine emits an <b>alpha score</b> for setup quality, a
+  <b>confluence count</b> of how many gates fire at once, and a <b>recommendation</b>.</p>
+  <div class="note warn">
+    <p><b>Confluence is not a green light.</b> Several signals agreeing can just as easily mean
+    several signals confirming a bad macro setup. <b>Check stage and relative strength first.</b></p>
+  </div>
+</section>
+
+<section id="scores">
+  <h2><span class="n">04</span>The two scores — and which one to use</h2>
+  <p>They answer different questions and are not interchangeable.</p>
+
+  <h3>alphaScore — the gate</h3>
+  <p>This decides whether a catalyst is <em>allowed</em> to fire at all. <b>Sixty is the floor</b>;
+  eighty makes a name eligible for the top tier.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Condition</th><th class="r">Points</th></tr></thead>
+    <tbody>
+      <tr><td>Close above the 20-period average</td><td class="num">+15</td></tr>
+      <tr><td>Close above the 50-period average</td><td class="num">+15</td></tr>
+      <tr><td><b>Momentum</b> — close above both its 10-bar and 5-bar values</td><td class="num">+20</td></tr>
+      <tr><td>Momentum — 10-bar only</td><td class="num">+10</td></tr>
+      <tr><td><b>Direction</b> — sustained up-closes making higher highs</td><td class="num">+10</td></tr>
+      <tr><td>Green bar on strong volume</td><td class="num">+20</td></tr>
+      <tr><td>Green bar on above-average volume</td><td class="num">+10</td></tr>
+      <tr><td>Within 5% of the short average</td><td class="num">+20</td></tr>
+      <tr><td>Within 5–10% of it</td><td class="num">+10</td></tr>
+      <tr><td>Macro edge — institutional volume regime</td><td class="num">+10</td></tr>
+      <tr><td>Macro edge off <b>and</b> volume thin</td><td class="num">−20</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>pyScore — the ranking</h3>
+  <p>The displayed headline score, and a <b>mirror of the Python composite</b> so the chart reading
+  and the pipeline reading agree on the same stock. <b>Use this to pick between candidates.</b></p>
+  <details class="ref"><summary>Every component and its points</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Component</th><th class="r">Points</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Catalyst tier — POS-BO / SWG-BO / GAP-GO</td><td class="num">+30</td></tr>
+      <tr><td class="k">Catalyst tier — SWG-REV</td><td class="num">+20</td></tr>
+      <tr><td class="k">Catalyst tier — POS-ACCUM</td><td class="num">+15</td></tr>
+      <tr><td class="k">Catalyst tier — SWG-PB</td><td class="num">+10</td></tr>
+      <tr><td class="k">Stage 2 confirmed</td><td class="num">+10</td></tr>
+      <tr><td class="k">Relative strength above zero</td><td class="num">+10</td></tr>
+      <tr><td class="k">Relative strength strongly positive <em>(cumulative)</em></td><td class="num">+10</td></tr>
+      <tr><td class="k">Four-week RS momentum positive</td><td class="num">+5</td></tr>
+      <tr><td class="k">Rotation quadrant leading</td><td class="num">+5</td></tr>
+      <tr><td class="k">Rotation weakening</td><td class="num">−10</td></tr>
+      <tr><td class="k">Rotation lagging</td><td class="num">−5</td></tr>
+      <tr><td class="k">Volume — twice average or better</td><td class="num">+15</td></tr>
+      <tr><td class="k">Volume — one and a half times</td><td class="num">+10</td></tr>
+      <tr><td class="k">Volume — above average</td><td class="num">+5</td></tr>
+      <tr><td class="k">Sector in Stage 2</td><td class="num">+5</td></tr>
+      <tr><td class="k">Sector in Stage 4</td><td class="num">−5</td></tr>
+      <tr><td class="k">Trend template passes</td><td class="num">+10</td></tr>
+      <tr><td class="k">Within 5% of the 52-week high</td><td class="num">+10</td></tr>
+      <tr><td class="k">Within 10% · 15% · 25%</td><td class="num">+7 · +5 · +3</td></tr>
+      <tr><td class="k">Defensive penalty <em>(off by default)</em></td><td class="num">−10</td></tr>
+    </tbody>
+  </table></div>
+  <p class="refnote">Clamped to a 0–100 range.</p>
+  </div></details>
+
+  <div class="note good">
+    <span class="tag">Which to use</span>
+    <p><b>The gate score always governs whether a catalyst fires.</b> The composite is what you rank
+    by — it captures quality the way the backtest does. They are a filter and a sort, not two
+    opinions.</p>
+  </div>
+</section>
+
+<section id="basegate">
+  <h2><span class="n">05</span>The base gate — six conditions</h2>
+  <p>Every positional catalyst sits on this test. <b>All six must hold.</b></p>
+  <div class="gates">
+    <div class="gate"><div class="i"></div><div class="c">stage_ok</div>
+      <div class="w">Weekly Stage 2, or Stage 1 for an early entry. <b>Only trade in the right macro stage</b></div></div>
+    <div class="gate"><div class="i"></div><div class="c">trend_aligned</div>
+      <div class="w">Above the long-term average — the trend-template baseline</div></div>
+    <div class="gate"><div class="i"></div><div class="c">rs_ok</div>
+      <div class="w">Sector relative strength not lagging. <b>Do not buy a leader in a sinking sector</b></div></div>
+    <div class="gate"><div class="i"></div><div class="c">sector_stage_ok</div>
+      <div class="w">The sector itself is in Stage 1 or 2</div></div>
+    <div class="gate"><div class="i"></div><div class="c">vol_acc_ok</div>
+      <div class="w">Enough recent bars closing green in the upper part of range on above-average volume — <b>the accumulation footprint</b></div></div>
+    <div class="gate"><div class="i"></div><div class="c">trend_template_ok</div>
+      <div class="w">Within range of the 52-week high <b>and</b> well above the 52-week low — the growth-stock prerequisite</div></div>
+  </div>
+  <h4>What used to be here, and why it went</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Removed gate</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr class="gone"><td class="k">stage2_fresh_ok</td><td>Demoted from a blocker to a <b>status you eyeball</b>. Maturity is a sizing question, not an eligibility one</td></tr>
+      <tr class="gone"><td class="k">ma_sqz_ok</td><td rowspan="2"><b>A squeeze is mutually exclusive with a breakout.</b> Requiring compression <em>and</em> expansion on the same bar produced zero positional picks for two years</td></tr>
+      <tr class="gone"><td class="k">bb_sqz_ok</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <p>A name showing five of six is a <b>high-priority watch</b> even when the catalyst has not
+    fired — that is the intended way to read a near-miss.</p>
+  </div>
+</section>
+
+<section id="logic">
+  <h2><span class="n">06</span>Catalyst logic</h2>
+  <p>Folded per catalyst. Each sits on top of the base gate and the alpha floor.</p>
+
+  <details class="ref"><summary>POS-AC · accumulation before the move</summary><div class="rb">
+  <pre>on-balance volume breaking to a 20-bar high
+AND institutional volume on an accumulation bar
+AND <b>price has NOT run yet</b> — still meaningfully below the 63-bar high
+AND the alpha gate passes</pre>
+  <p>Finds the volume footprint <em>before</em> the price breakout. The price-lag condition is what
+  makes it accumulation rather than a late chase — and the anti-chase test now caps how far above
+  its own recent close the bar may sit.</p>
+  </div></details>
+
+  <details class="ref"><summary>POS-BO · the Stage-2 breakout</summary><div class="rb">
+  <pre>the full base gate
+AND close above the 21-day high
+AND close in the top quarter of today's range
+AND volume above average
+AND the alpha gate passes</pre>
+  <p><b>The core positional edge.</b> Note the range condition — a breakout that closes weak is not
+  a breakout, it is a rejection at the level.</p>
+  </div></details>
+
+  <details class="ref"><summary>SWG-PB · the pullback</summary><div class="rb">
+  <pre>trend template active — the full moving-average stack
+AND price close to the short average
+AND retrace 38-62% of the 20-bar range   <b>(was an RSI pocket)</b>
+AND volume dry-up
+AND <b>close above the prior day's high — entry confirmation</b>
+AND the micro edge is active
+AND the alpha gate passes</pre>
+  <div class="note warn">
+    <p><b>The confirmation clause is the important one.</b> Without it the catalyst fired into
+    falling dips on weak, rolling-over names. You are entering on <em>resumption</em>, not on the
+    way down. The stop is a <b>structural floor</b> at the short average rather than a fixed
+    multiple that got whipsawed out.</p>
+  </div>
+  <p><b>Regime-sensitive.</b> This is a momentum-continuation setup and it underperforms in
+  corrective tapes — it is the right tool only in a confirmed uptrend.</p>
+  </div></details>
+
+  <details class="ref"><summary>SWG-BO · the contraction breakout</summary><div class="rb">
+  <pre>volatility compression present
+AND close above the 15-bar pivot high
+AND <b>anti-algo: bar range under twice ATR</b>
+AND volume well above average
+AND the alpha gate passes</pre>
+  <p>The <b>anti-algo filter</b> is the distinctive part: it rejects abnormally wide bars, which are
+  more often stop-hunts than genuine breakouts. If it fails while price has broken out, <b>wait for
+  the next bar to confirm</b> rather than entering into the spike.</p>
+  </div></details>
+
+  <details class="ref"><summary>SWG-REV · mean reversion</summary><div class="rb">
+  <pre><b>prior down-structure plus a bullish reversal bar today</b>   (was RSI below 20)
+AND stage 1 or 2 — not a downtrend
+AND no genuine weekly weakness
+AND above the medium-term average
+AND the alpha gate passes</pre>
+  <p>Catches short-term pullbacks inside healthy uptrends. The rewrite fixed a contradiction that
+  made the original condition <b>impossible to satisfy</b>: it demanded a down close and a close
+  above the prior high on the same bar.</p>
+  </div></details>
+
+  <details class="ref"><summary>GAP-GO · the gap that holds</summary><div class="rb">
+  <pre>gap of 4% or more
+AND volume at least three times average — an institutional gap
+AND close in the upper 60% of the day's range
+AND the alpha gate passes</pre>
+  <div class="note stop">
+    <p><b>Do not trade this at the open.</b> The catalyst requires the stock to <em>hold</em> its
+    gains — entering before that is confirmed is speculation, not system trading.</p>
+  </div>
+  </div></details>
+</section>
+
+<section id="stops">
+  <h2><span class="n">07</span>Catalyst-aware stops</h2>
+  <p>The stop distance scales with the trade's <b>design horizon</b>. Risk per trade is unchanged —
+  so a wider stop means a <em>smaller</em> position, which is the correct discipline rather than a
+  bigger bet.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="r">ATR multiple</th><th class="r">Typical distance</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-BO · POS-ACCUM</td><td class="num">4.0×</td><td class="num">~6–12%</td><td>A multi-month hold needs room for ordinary volatility</td></tr>
+      <tr><td class="k">Wyckoff base</td><td class="num">3.5×</td><td class="num">~5–10%</td><td>Multi-month base structure</td></tr>
+      <tr><td class="k">Recovery</td><td class="num">2.5×</td><td class="num">~4–7%</td><td>A quarter-length horizon</td></tr>
+      <tr><td class="k">Swing family</td><td class="num">1.5×</td><td class="num">~2–4%</td><td>Short horizon — unchanged</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note good">
+    <span class="tag">Why this mattered</span>
+    <p>Every catalyst previously used the swing multiple. <b>A positional trade carrying a
+    swing-sized stop gets knocked out by routine pullbacks inside the first fortnight</b> — the
+    signal was fine and the exit threw the edge away.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Verify the stop before you order</span>
+    <p>The ATR rule is a <b>fallback</b> for when no structural anchor exists. In practice the
+    natural stop sits just below the breakout pivot, or below the accumulation base low. <b>If your
+    structural stop is tighter, use it</b> — and reduce size to keep risk constant. Only if it
+    would sit <em>above</em> the current close do you fall back to the multiple.</p>
+  </div>
+</section>
+
+<section id="sweep">
+  <h2><span class="n">08</span>The liquidity-sweep bonus</h2>
+  <p>A separate quality bonus rather than a catalyst of its own. When price <b>wicks below the
+  5-day low and then closes back above it</b> — and above the medium-term average, on expanded
+  volume — the alpha score receives a <b>+20 bonus</b>, capped at the ceiling.</p>
+  <pre>swept below the recent low  AND  closed back above the 50-period average
+AND volume well above average     →   alpha += 20</pre>
+  <div class="note good">
+    <p>This is the market-structure read folded directly into quality scoring: <b>stops below a
+    visible low were hunted and the move reversed</b>. Combined with an accumulation footprint it
+    is one of the more reliable entry patterns in the system — and because it lands in the
+    <em>score</em> rather than the catalyst, it lifts a marginal name over the gate rather than
+    firing a signal on its own.</p>
+  </div>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">09</span>Inputs — field by field</h2>
+  <p>Folded by group. Several are <b>shared constants</b> that must match other surfaces — those
+  are marked.</p>
+
+  <details class="ref"><summary>Strategy and benchmark</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Weinstein SMA length</td><td class="m">30</td><td>The canonical weekly anchor. <b>Do not change</b> — it is shared with every surface</td></tr>
+      <tr><td class="k">Slope lookback · threshold</td><td class="m">4 · 0.0005</td><td>Weeks used to judge slope, and the band below which it reads flat rather than directional</td></tr>
+      <tr><td class="k">Benchmarks</td><td class="m">index · broad</td><td>The broad index is the <b>primary</b> relative-strength benchmark</td></tr>
+      <tr><td class="k">RS length · lookback · sensitivity</td><td class="m">26 · 8 · 0.2</td><td>A six-month window for the level, a shorter one for direction, and the minimum rate that counts as rising rather than flat</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Moving averages and technicals</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">50 / 150 / 200 lengths</td><td class="m">50 / 150 / 200</td><td>The trend-template stack. The longest is the Stage-2 minimum</td></tr>
+      <tr><td class="k">50-day slope lookback</td><td class="m">21</td><td>—</td></tr>
+      <tr><td class="k">ATR length</td><td class="m">14</td><td>Drives volatility and every stop calculation</td></tr>
+      <tr><td class="k">Pivot left / right</td><td class="m">2 / 2</td><td><b>Must match the pivot tool</b>, or the trend readings disagree across surfaces</td></tr>
+      <tr><td class="k">Volume-profile lookback</td><td class="m">100</td><td>The window for the inline value levels</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The two mathematical edges</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Edge</th><th>Default</th><th>What it requires</th></tr></thead><tbody>
+      <tr><td class="k">Macro edge</td><td class="m">on</td><td>An <b>institutional volume regime</b> before a top-tier recommendation is allowed. This is the <em>volume shelf</em> you see on the panel</td></tr>
+      <tr><td class="k">Micro edge</td><td class="m">on</td><td>Price above the daily pivot <b>and</b> the monthly anchor, with compression present, before a pullback signal is allowed</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Both are quality filters rather than signal generators — turning either off
+  widens the funnel and lowers the average quality of what reaches you.</p>
+  </div></details>
+
+  <details class="ref"><summary>Display</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Toggle</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Dashboard table</td><td class="m">on</td><td>The main summary panel</td></tr>
+      <tr><td class="k">Alpha gauge</td><td class="m">on</td><td>A visual read of the gate score</td></tr>
+      <tr><td class="k">Gate status</td><td class="m">on</td><td>The per-gate breakdown. <b>Note it may still render nine rows</b> — the base test is six; see section 01</td></tr>
+      <tr><td class="k">Trade lines</td><td class="m">on</td><td>Entry, targets and stop drawn when a catalyst fires</td></tr>
+      <tr><td class="k">Sector RS row</td><td class="m">on</td><td>Adds the auto-detected sector comparison</td></tr>
+      <tr><td class="k">Table position</td><td class="m">—</td><td>Placement on the chart</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Backtest-locked parameters — and which are now price action</summary><div class="rb">
+  <p class="refnote">These surface the locked thresholds. <b>Defaults are backtest-verified — change
+  them only if you have re-run the ablation.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Status</th></tr></thead><tbody>
+      <tr><td class="k">Hunter weekly momentum minimum</td><td class="m">60</td><td>Locked by the validation. <b>Now expressed as price action</b> — a weekly close above its 5-week-ago close — rather than the oscillator the number came from</td></tr>
+      <tr><td class="k">Hunter daily strength minimum</td><td class="m">25</td><td>Locked. <b>Now a directional bar count</b> rather than an indicator reading</td></tr>
+      <tr><td class="k">Accumulation anti-chase cap</td><td class="m">50</td><td>Locked. <b>Now the price-action test</b> — close no more than 5% above its 5-day-ago value. The rationale is unchanged: <b>a late-stage accumulation entry at extended price is a chase trap</b>, and that failure mode has a named example in the backtest record</td></tr>
+      <tr><td class="k">Use the Python-aligned score</td><td class="m">on</td><td>Keeps the displayed score identical to the pipeline's. Turn off only for the legacy chart-native composite</td></tr>
+      <tr><td class="k">Defensive penalty</td><td class="m">off</td><td>Subtracts from the composite when a name has drifted far past its last pivot. <b>Measured: it lifts hit-rate but truncates upside</b> — so it is a drawdown tool, not a default</td></tr>
+      <tr><td class="k">Penalty threshold · points</td><td class="m">30 · 10</td><td>Bars since the pivot, and the deduction</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <p><b>The numbers are locked; the mechanisms moved.</b> An input still labelled after an
+    oscillator is measuring price action underneath — the threshold was preserved so the validated
+    behaviour was preserved with it.</p>
+  </div>
+  </div></details>
+</section>
+
+<section id="ecosystem">
+  <h2><span class="n">10</span>Where this sits in the ecosystem</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>Relationship</th></tr></thead>
+    <tbody>
+      <tr><td class="k">This engine — Python</td><td><b>Canonical.</b> The catalyst gates and both scores are defined here; everything else mirrors</td></tr>
+      <tr><td class="k">The chart screener</td><td>The same six catalysts and the same gate, rendered per chart. <b>Synced up to Python, never the reverse</b></td></tr>
+      <tr><td class="k">The strategy indicator</td><td>Mirrors the catalysts for <em>execution</em> — this engine finds candidates, that one manages the trade</td></tr>
+      <tr><td class="k">The dashboard</td><td>Duplicates the catalyst, score, persona and recommendation inline, as a <b>verbatim mirror</b> rather than a re-derivation</td></tr>
+      <tr><td class="k">The allocator</td><td>Consumes the recommended stop for sizing. <b>Feed it the stop from here rather than one you tightened by eye</b></td></tr>
+      <tr><td class="k">The board</td><td>Consumes the written watchlists. It <em>times</em> what this engine <em>qualified</em></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note good">
+    <span class="tag">The rule this table encodes</span>
+    <p><b>One owner per concept, everyone else mirrors verbatim.</b> When a threshold changes here,
+    it must reach every consumer in the same change — <b>zero signal drift is the DNA-level
+    rule</b>, and the reason a chart reading and a pipeline reading can be trusted to agree.</p>
+  </div>
+</section>
+
+<section id="panel">
+  <h2><span class="n">11</span>The panel</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Left — the setup</th><th>Right — quality factors</th></tr></thead>
+    <tbody>
+      <tr><td>Catalyst · alpha with stars · grade · stage and weeks · persona · style · recommendation</td><td>Relative strength against index and sector with quadrants · volume shelf · compression · volume trend · volatility</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>The trade-levels row</h3>
+  <p>Stop and targets are consolidated into one compound row. <b>What it prints depends on whether a
+  catalyst is live.</b></p>
+  <pre>P 1234.50 · SL 1180.20 (4.4%) · T1 1342.90 (2R) ⚠RESIST · T2 1451.30 (3R) · Sig BREAKOUT</pre>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">P</td><td>Current close — your reference entry</td></tr>
+      <tr><td class="k">SL</td><td>The catalyst-aware structural stop, with its distance</td></tr>
+      <tr><td class="k">T1</td><td>First target. Appends a <b>resistance warning</b> when a supply level sits between entry and target — <b>the target may stall short</b></td></tr>
+      <tr><td class="k">T2</td><td>Second target</td></tr>
+      <tr><td class="k">Sig</td><td>What fired on <em>this</em> bar — breakout, pullback, both, or nothing fresh</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note stop">
+    <span class="tag">When no catalyst is active</span>
+    <p>The row prints <code>SL/T1/T2 — (no active setup)</code>. It used to print a generic
+    round-number stop and mechanical targets off it — <b>which looked exactly like a real, tradeable
+    plan when it was nothing of the sort</b>. Only act on numeric levels when the catalyst shows a
+    real code.</p>
+  </div>
+</section>
+
+<section id="persona">
+  <h2><span class="n">12</span>Persona</h2>
+  <p>A behavioural classification that <b>drives sizing posture</b> rather than eligibility.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Persona</th><th>Profile</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Growth Leader</td><td>Fresh Stage 2, positional breakout, leading rotation, high alpha</td></tr>
+      <tr><td class="k">Momentum Breakout</td><td>Stage 2 with a swing catalyst and positive strength</td></tr>
+      <tr><td class="k">Recovery Play</td><td>Stage 1 or early Stage 2, any catalyst, moderate alpha</td></tr>
+      <tr><td class="k">Value Base</td><td>Stage 1 accumulation</td></tr>
+      <tr><td class="k">Speculative</td><td>Reversion or gap catalysts</td></tr>
+      <tr><td class="k">Avoid</td><td>Stage 3 or 4, lagging, weak alpha</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note stop">
+    <p><b>An “Avoid” persona means the macro backdrop is wrong.</b> Never enter one regardless of
+    how good the chart pattern looks.</p>
+  </div>
+</section>
+
+<section id="csv">
+  <h2><span class="n">13</span>The CSV output</h2>
+  <p>The batch run writes a wide file. Folded, because you need it at the spreadsheet and never
+  at the chart.</p>
+
+  <details class="ref"><summary>Column legend — all 32 fields</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Column</th><th>How to use it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Symbol · Description</td><td>Primary key, and a sanity check that the ticker is the company you think — renames and demergers bite here</td></tr>
+      <tr><td class="k">Alpha Score</td><td><b>Mandatory gate at 60.</b> 80+ is top tier. Never enter below 60</td></tr>
+      <tr><td class="k">Dashboard quality</td><td>Tie-breaker when two names have equal alpha</td></tr>
+      <tr><td class="k">Alpha stars</td><td>Quick visual rank</td></tr>
+      <tr><td class="k">Confluence</td><td>How many gates fire at once. <b>Not an entry on its own</b> — confirm stage and strength first</td></tr>
+      <tr><td class="k">Stage</td><td><b>Only trade 1 or 2.</b> Skip every 3 and 4</td></tr>
+      <tr><td class="k">Persona · Style</td><td>Match to your holding period; avoid the lowest persona regardless of alpha</td></tr>
+      <tr><td class="k">Catalyst</td><td>Which playbook applies. Zero means <b>no signal today</b>, not “skip forever”</td></tr>
+      <tr><td class="k">Recommended stop · distance</td><td>Feed the stop straight into sizing. <b>Reject anything whose distance exceeds your max risk</b></td></tr>
+      <tr><td class="k">Target 1 · Target 2</td><td>Book a partial at the first; trail the rest after the second</td></tr>
+      <tr><td class="k">Resistance warning</td><td>The first target lands inside a known supply zone — <b>scale out earlier</b></td></tr>
+      <tr><td class="k">True breakout flag</td><td><b>The fire trigger</b> for breakout catalysts. Do not enter on zero even when a catalyst is flagged</td></tr>
+      <tr><td class="k">Pullback hit flag</td><td>The fire trigger for the pullback catalyst</td></tr>
+      <tr><td class="k">Trend template</td><td><b>Hard requirement for the pullback</b>; strongly preferred for the breakout</td></tr>
+      <tr><td class="k">Relative strength · sector RS</td><td>Filter at zero. <b>Want both positive</b> — a name leading the market but lagging its sector is a rotation risk</td></tr>
+      <tr><td class="k">Rotation quadrant</td><td>Best entries are leading or improving</td></tr>
+      <tr><td class="k">Volume shelf</td><td><b>Required for the top tier.</b> Without it, halve your size</td></tr>
+      <tr><td class="k">Daily · weekly trend</td><td>Do not fight the daily. <b>Weekly negative is a hard reject for positional</b></td></tr>
+      <tr><td class="k">Current price</td><td>Entry <em>reference</em> only — place the actual order on the trigger logic</td></tr>
+      <tr><td class="k">Distance to the short average</td><td>Under 5% is the optimal swing zone; over 10% is extended</td></tr>
+      <tr><td class="k">Relative volume</td><td>Healthy above 1.25×; institutional above 1.5×; below 0.7× is no commitment</td></tr>
+      <tr><td class="k">Anti-algo gate</td><td><b>Required for the contraction breakout</b></td></tr>
+      <tr><td class="k">Volume-trend rising</td><td>Confirms smart-money flow. <b>A breakout without it is suspicious</b></td></tr>
+      <tr><td class="k">Compression flag</td><td>Required for the contraction breakout; adds quality to the positional one</td></tr>
+      <tr><td class="k">Stage duration</td><td><b>Sweet spot is the first half-year.</b> Beyond that, downgrade size; well beyond, avoid new entries</td></tr>
+      <tr><td class="k">Sector stage gate</td><td>Zero means you would be buying a leader in a falling sector</td></tr>
+    </tbody>
+  </table></div></div></details>
+
+  <details class="ref"><summary>Filter recipes</summary><div class="rb">
+  <h4>Highest-conviction universe</h4>
+  <pre>Alpha >= 80 AND Confluence >= 3 AND Stage in (1, 2)
+AND Persona in (top two) AND RS >= 10 AND Sector RS >= 0
+AND Volume shelf = 1 AND Weekly trend = 1 AND Stage duration <= 26</pre>
+  <h4>Breakout entries, today</h4>
+  <pre>Catalyst = breakout AND True-breakout = 1 AND Alpha >= 70
+AND Sector stage gate = 1 AND Trend template = 1 AND Volume trend rising = 1</pre>
+  <h4>Pullback entries</h4>
+  <pre>Catalyst = pullback AND Pullback-hit = 1 AND Trend template = 1
+AND Distance to average <= 5 AND Relative volume <= 0.7 AND Weekly trend = 1</pre>
+  <h4>Contraction breakouts with confirmation</h4>
+  <pre>Catalyst = contraction AND Anti-algo = 1 AND Compression = 1
+AND Relative volume >= 1.5 AND Alpha >= 70</pre>
+  <h4>Tomorrow's watchlist — no signal yet, everything else aligned</h4>
+  <pre>Catalyst = 0 AND Alpha >= 60 AND Stage in (1, 2)
+AND Volume shelf = 1 AND Persona in (top three) AND RS >= 0</pre>
+  </div></details>
+
+  <details class="ref"><summary>Pitfalls when reading the file</summary><div class="rb">
+  <ul>
+    <li><b>It is a snapshot at scan time, not real-time.</b> Price may have moved a percent or two before you open it — <b>always re-quote before ordering</b>.</li>
+    <li><b>No catalyst does not mean skip.</b> It means no signal <em>today</em>. With high alpha and a good stage, those are tomorrow's candidates.</li>
+    <li><b>A flagged catalyst with no confirming signal means the setup exists but the close has not happened.</b> Do not front-run it.</li>
+    <li><b>Relative strength is on a scaled measure</b>, not a raw ratio — a value of fifteen means fifteen points of outperformance, not fifteen times.</li>
+    <li><b>Two RS columns showing the same number is not a bug</b> — it happens when the sector index <em>is</em> the broad index.</li>
+  </ul>
+  </div></details>
+
+  <div class="note warn">
+    <span class="tag">One thing the CSV cannot give you</span>
+    <p>The gate breakdown is <b>not exported as individual columns</b>. Use confluence as the proxy
+    and open the chart when a name matters — <b>and disregard any nine-gate proxy mapping</b>, which
+    predates the reduction to six.</p>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">14</span>Daily workflow</h2>
+  <div class="tw"><table>
+    <thead><tr><th>When</th><th>What you do</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Pre-market</td><td>Run the scan, sort by score, and cut anything failing the alpha floor, a Stage 3/4, or a lagging sector — <b>before</b> you look at a single chart</td></tr>
+      <tr><td class="k">After the open</td><td>Watch the confirming flags on names already in the right regime. A flagged catalyst is not an entry until its trigger flips</td></tr>
+      <tr><td class="k">Post-market</td><td>Save the file with a date stamp. <b>Over time that builds a hit-rate database</b> — which catalysts, personas and quadrants actually deliver</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">15</span>Common mistakes</h2>
+  <ol class="mistakes">
+    <li><span><b>Acting on a catalyst below the alpha floor.</b> The gate is mandatory — a breakout scoring 45 has several quality factors missing, so the setup is incomplete rather than early.</span></li>
+    <li><span><b>Ignoring the persona.</b> An avoid classification means the macro backdrop is wrong, whatever the pattern looks like.</span></li>
+    <li><span><b>Trading the gap catalyst at the open.</b> It requires the stock to <em>hold</em> its gains. Entering before that is speculation.</span></li>
+    <li><span><b>Treating confluence as an automatic entry.</b> Multiple signals can all be confirming the same bad macro setup.</span></li>
+    <li><span><b>Skipping the anti-algo check.</b> Contraction breakouts on wide bars frequently fail — wait for the next bar rather than entering the spike.</span></li>
+    <li><span><b>Reading a nine-gate panel as current.</b> The base test is six; three gates were removed deliberately.</span></li>
+    <li><span><b>Using a swing-sized stop on a positional catalyst.</b> That is what threw the edge away before stops became horizon-aware.</span></li>
+  </ol>
+</section>
+
+<section id="evidence">
+  <h2><span class="n">16</span>Where the evidence sits</h2>
+  <p>Per-catalyst, measured on catalyst-aware matched windows. <b>Read the ordering, not the
+  magnitudes</b> — these predate the horizon correction described at the top.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Catalyst</th><th class="r">Win%</th><th class="r">Matched α</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-ACCUM</td><td class="num">43%</td><td class="p">+3.20%</td><td>Strongest — un-starved once the anti-chase test replaced the oscillator cap</td></tr>
+      <tr><td class="k">SWG-BO</td><td class="num">51%</td><td class="p">+1.80%</td><td>—</td></tr>
+      <tr><td class="k">SWG-REV</td><td class="num">53%</td><td class="p">+0.95%</td><td>—</td></tr>
+      <tr><td class="k">POS-BO</td><td class="num">48%</td><td class="p">+0.60%</td><td>The core positional edge</td></tr>
+      <tr><td class="k">SWG-PB</td><td class="num">—</td><td class="num">regime</td><td>Momentum continuation — <b>underperforms in corrective tapes</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note stop">
+    <span class="tag">The honest current position</span>
+    <p>After the horizon correction, the system-wide figure is roughly <b>+0.5% to +1.0% matched
+    alpha per trade</b>, with the probability of positive true alpha near <b>50%</b> and a
+    confidence interval that straddles zero. <b>The median trade loses to the index</b> — this is a
+    low-hit-rate, big-winner profile.</p>
+    <p>Older reports quoting much larger cumulative figures, or a badly negative Sharpe, were both
+    <b>measurement artifacts and should be disregarded.</b> Plan around the smaller number.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/11 · Bull Screener — the catalyst engine</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 Trade Funnel</a> · <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 Backtest Court</a></span>
+</div></footer>
