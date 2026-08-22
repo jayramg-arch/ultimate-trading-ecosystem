@@ -1,0 +1,591 @@
+<title>Relative Strength, Auto-Sector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#0F6D7A; --acc-bg:#E3F1F3; --acc-rule:#9CC9D0;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#5FC7D6; --acc-bg:#0D262B; --acc-rule:#1E5560;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#5FC7D6; --acc-bg:#0D262B; --acc-rule:#1E5560;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 21 · Chart engines</p>
+      <h1>Relative Strength, Auto-Sector</h1>
+      <p class="dek">Two Mansfield curves in one pane — against the market and against the stock's
+      own sector, which it detects for you. The pane that answers <b>"is this a leader?"</b> without
+      you ever typing a benchmark.</p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The v1.5 amputation</div>
+      It used to paint <b>Stage</b>.<br>
+      It drifted from the canon,<br>
+      so the whole read was<br>
+      <b>removed rather than tuned</b>.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#stale">Your guide is stale</a></li>
+    <li><a href="#job">What it does</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#sector">Sector detection</a></li>
+    <li><a href="#formula">The two lines</a></li>
+    <li><a href="#smooth">Stair-step or smooth</a></li>
+    <li><a href="#rrg">The rotation quadrant</a></li>
+    <li><a href="#readout">Background, label, readout</a></li>
+  </ol>
+  <p>Trading it</p>
+  <ol>
+    <li><a href="#funnel">Where it sits</a></li>
+    <li><a href="#lines">Reading the two lines</a></li>
+    <li><a href="#playbook">The playbook</a></li>
+  </ol>
+  <p>Reference</p>
+  <ol>
+    <li><a href="#inputs">Inputs</a></li>
+    <li><a href="#parity">Parity discipline</a></li>
+    <li><a href="#limits">What it will not do</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="stale">
+  <h2><span class="n">01</span>Your markdown guide describes a version that no longer exists</h2>
+  <div class="note stop">
+    <span class="tag">Three things changed after that guide was written</span>
+    <p>The file on disk is <code>Mansfield_RS_AutoSector_v1.5.pine</code> and its in-file title is
+    <b>v1.6</b>. If you are working from the old guide you will look for a stage background that
+    was deliberately deleted, and trust an input that no longer drives anything.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>What the old guide says</th><th>What the script does now</th></tr></thead><tbody>
+      <tr><td class="old">Stage × RS background, five colours, purple for weak leadership</td>
+          <td class="new">RS-sign only — green above zero, red below</td></tr>
+      <tr><td class="old">Label reads Stage · RRG · Sector</td>
+          <td class="new">Label reads <b>RRG · Sector</b>. No stage token</td></tr>
+      <tr><td class="old">Four MA-length inputs, one per timeframe</td>
+          <td class="new">One 26-week horizon plus a <b>smoothing switch</b></td></tr>
+      <tr><td class="old">Rotation length 12 drives the calculation</td>
+          <td class="new">Decoupled 25 / 10 / 7 with an affine calibration — <b>the 12 is inert</b></td></tr>
+      <tr><td class="old">No volatility readout</td>
+          <td class="new">A momentum and volatility cell in the corner</td></tr>
+    </tbody></table></div>
+
+  <h3>Why the stage read was removed rather than fixed</h3>
+  <p>The pane used a lightweight stage approximation — price against the 30-week average, plus a
+  four-week slope. The canonical stage engine uses a <b>slope threshold, a transition machine and
+  strict-trend overrides</b>. On a name whose 30-week average was barely positive, this pane said
+  <b>Stage 2</b> while the dashboard and the Golden Matcher said <b>Stage 1</b>.</p>
+  <div class="note good">
+    <span class="tag">The right call, and worth generalising</span>
+    <p>A second definition of a shared concept is worse than no definition. Stage lives
+    authoritatively on the dashboard and the unified strategy; this pane stopped computing it
+    rather than maintaining a copy that could drift again. <b>When two surfaces disagree about a
+    number, the answer is usually to delete one of them, not to reconcile both.</b></p>
+  </div>
+</section>
+
+<section id="job">
+  <h2><span class="n">02</span>What it does</h2>
+  <p>For whatever symbol is on the chart it does four things, in its own pane below price:</p>
+  <ol>
+    <li><b>Detects the sector.</b> No manual input — the mapping is the same one the dashboard uses.</li>
+    <li><b>Plots two relative-strength curves</b> — one against the broad index, one against that sector.</li>
+    <li><b>Tints the pane</b> by the sign of the index curve.</li>
+    <li><b>Prints a one-line brief</b> on the last bar: rotation quadrant, sector, and how the
+    sector was resolved.</li>
+  </ol>
+  <p>It answers one question the price chart cannot: <b>is this name leading, and leading against
+  whom?</b> A stock can beat the index purely because its whole sector is hot. Two lines separate
+  those cases in a glance; one line cannot.</p>
+  <div class="note">
+    <span class="tag">Setup, once</span>
+    <p>Paste, save, add to chart — it opens in its own pane, not as an overlay. Leave the manual
+    override off; auto-detection is the entire point of the fork. Stack it directly under the
+    dashboard so the panes line up bar for bar.</p>
+    <p>If a ticker resolves to the wrong sector, the mapping table inside the file is generated
+    from the sector database. Re-export it after you edit that database — <b>the table does not
+    read the database at runtime, it is baked in at export time.</b></p>
+  </div>
+</section>
+
+<section id="sector">
+  <h2><span class="n">03</span>Sector detection — three tiers, first hit wins</h2>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>Tier</th><th>How it resolves</th></tr></thead><tbody>
+      <tr><td class="m">1</td><td class="k">Database lookup</td><td>A generated table covering the full broad-index universe, matched on the cleaned ticker. Highest accuracy</td></tr>
+      <tr><td class="m">2</td><td class="k">Keyword fallback</td><td>For off-list names, maps the platform's own sector and industry metadata onto an index</td></tr>
+      <tr><td class="m">3</td><td class="k">Default</td><td>The broad index itself, when neither resolves</td></tr>
+    </tbody></table></div>
+  <p>The label tags which tier answered — <b>database</b>, <b>keyword</b>, or <b>manual</b>. That
+  tag is not decoration: a keyword resolution is a guess from platform metadata, and it is worth
+  a second look before you rank a name on its sector line.</p>
+  <div class="note warn">
+    <span class="tag">The self-comparison case</span>
+    <p>When a symbol resolves to the index itself, the sector line is <b>suppressed rather than
+    plotted flat at zero</b>, and the label says so. Relative strength against yourself is not a
+    reading — showing it as a flat line would look like an answer.</p>
+  </div>
+</section>
+
+<section id="formula">
+  <h2><span class="n">04</span>The two lines</h2>
+  <p>The formula is the classic one, unchanged from the community original:</p>
+  <pre>ratio    = close / benchmark close
+strength = (ratio / average of that ratio − 1) × 100</pre>
+  <p>So the plotted value is <b>not</b> the ratio itself — it is how far the ratio sits from its own
+  recent norm, as a percentage. Two consequences worth holding onto:</p>
+  <ul>
+    <li><b>Above zero means outperforming relative to its own habit</b>, not outperforming in
+    absolute terms. A chronic leader that pauses can print negative while still beating the index
+    over the year.</li>
+    <li><b>Zero is a moving reference.</b> The average travels with price, so a line that flattens
+    just above zero is holding a lead it already established, not building a new one.</li>
+  </ul>
+  <p>Benchmark closes are pulled with look-ahead disabled, so the historical curve does not
+  repaint.</p>
+  <div class="note">
+    <span class="tag">Blue and orange</span>
+    <p>Blue is against the broad index. Orange is against the detected sector. The zero line is
+    dotted, and the index curve carries a fill that lightens above zero — so the pane reads
+    correctly at a glance even before you focus on it.</p>
+  </div>
+</section>
+
+<section id="smooth">
+  <h2><span class="n">05</span>Stair-step or smooth — the one input that changes the shape</h2>
+  <p>The classic Mansfield horizon is <b>26 weeks</b>. On a weekly chart that is simply a 26-bar
+  average. On a daily or intraday chart there are two honest ways to render it, and the script
+  gives you both:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Mode</th><th>What it computes</th><th>What you see</th></tr></thead><tbody>
+      <tr><td class="k">Smoothing on <span class="m">(default)</span></td>
+          <td>The 26-week horizon converted into rolling bars of the chart's own timeframe — roughly 130 daily bars, or 650 bars on a 75-minute chart</td>
+          <td><b>A continuous curve.</b> Moves every bar</td></tr>
+      <tr><td class="k">Smoothing off</td>
+          <td>The true weekly value, pulled down onto the chart</td>
+          <td><b>A staircase.</b> One step per week, flat in between</td></tr>
+    </tbody></table></div>
+  <p>Neither is wrong. The staircase is the literal weekly reading and never moves intra-week; the
+  smooth curve is the same horizon expressed continuously, so it turns earlier and reads better
+  when you are working an intraday chart. <b>Weekly charts always use the smooth path</b>, because
+  on a weekly chart there is no difference to make.</p>
+  <p class="refnote">If you are comparing this pane against a weekly-anchored number elsewhere and
+  they disagree slightly mid-week, this switch is the first thing to check.</p>
+</section>
+
+<section id="rrg">
+  <h2><span class="n">06</span>The rotation quadrant</h2>
+  <p>The label's quadrant is <b>not</b> derived from the plotted lines. It is the same rotation
+  calculation the dashboard, the board, the risk allocator and the studio all run — computed on the
+  weekly spread of the stock against the index.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Ratio</th><th>Momentum</th><th>Quadrant</th></tr></thead><tbody>
+      <tr><td class="m">≥ 0</td><td class="m">≥ 0</td><td class="k">Leading</td></tr>
+      <tr><td class="m">≥ 0</td><td class="m">&lt; 0</td><td class="k">Weakening</td></tr>
+      <tr><td class="m">&lt; 0</td><td class="m">≥ 0</td><td class="k">Improving</td></tr>
+      <tr><td class="m">&lt; 0</td><td class="m">&lt; 0</td><td class="k">Lagging</td></tr>
+    </tbody></table></div>
+
+  <details class="ref"><summary>The calibration, and the input that no longer does anything</summary><div class="rb">
+  <p>The rotation axes were re-fitted so that every surface in the system plots a stock in the same
+  place. Two properties matter:</p>
+  <ul>
+    <li><b>The axes are decoupled.</b> The ratio and the momentum leg use different lengths —
+    twenty-five and ten for the ratio, seven for momentum — rather than one shared length.</li>
+    <li><b>The mapping preserves the origin.</b> The spread is scaled around the centre point, so
+    the neutral reading stays neutral. An earlier free-fit displaced that centre, which quietly
+    moved every name across quadrant boundaries.</li>
+  </ul>
+  <div class="note warn">
+    <p>Because the axes are decoupled, the <b>rotation length input is inert</b> for the quadrant.
+    Its tooltip still describes the old shared-length behaviour. Changing it will not move the
+    label — it only affects the warm-up bar count. <b>Do not tune it expecting a different
+    quadrant.</b></p>
+  </div>
+  <p class="refnote">There is a warm-up before the quadrant resolves at all. On a freshly listed
+  name the label will simply omit it rather than print a guess.</p>
+  </div></details>
+
+  <div class="note good">
+    <span class="tag">This is the parity claim</span>
+    <p>Because the calculation is shared rather than copied, <b>this label always matches the
+    rotation cell on the dashboard for the same bar.</b> If it ever diverges, that is a bug — not
+    a difference of opinion between two tools.</p>
+  </div>
+</section>
+
+<section id="readout">
+  <h2><span class="n">07</span>Background, label, and the corner readout</h2>
+
+  <h3>The background</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Tint</th><th>Condition</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Green</td><td class="m">index strength &gt; 0</td><td>Outperforming the broad market relative to its own norm</td></tr>
+      <tr><td class="k">Red</td><td class="m">index strength &lt; 0</td><td>Underperforming</td></tr>
+    </tbody></table></div>
+  <p>That is the whole scheme now, and it is deliberately trivial: <b>the tint mirrors the line
+  directly above it</b>, so it cannot drift from anything. Everything richer than that was tried
+  across four versions and removed.</p>
+
+  <details class="ref"><summary>The four backgrounds that were tried and dropped</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Version</th><th>What it painted</th><th>Why it went</th></tr></thead><tbody>
+      <tr><td class="m">v1.1</td><td>A regime read from level and slope</td><td>Disagreed with the canonical rotation quadrant</td></tr>
+      <tr><td class="m">v1.2</td><td>The rotation quadrant itself, four colours</td><td><b>Correct, but unreadable</b> — weekly stripes under daily lines looked disconnected. Demoted to the label</td></tr>
+      <tr><td class="m">v1.3</td><td>Simple strength sign</td><td>Judged too thin at the time</td></tr>
+      <tr><td class="m">v1.4</td><td>Stage crossed with strength, five colours</td><td>The stage read drifted from the canon</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Note that v1.5 landed back on v1.3's design. <b>The thin version was right;
+  it took two richer attempts to prove it.</b> The failures were not cosmetic — one was a drifting
+  duplicate definition and one was genuinely correct but visually misleading.</p>
+  </div></details>
+
+  <h3>The label</h3>
+  <pre>RRG: LEADING · Sector: CNXPHARMA (DB)</pre>
+  <p>Rotation quadrant, detected sector, and the tier that resolved it. When the sector is the
+  index, it reads <b>not plotted</b> instead of pretending.</p>
+
+  <h3>The corner readout</h3>
+  <p>A small two-row cell, added so a momentum and volatility check does not cost two more
+  indicators on the screen:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>Shows</th><th>Colour</th></tr></thead><tbody>
+      <tr><td class="k">Momentum</td><td>The 14-period oscillator</td><td>Red when stretched, green when washed out, neutral between</td></tr>
+      <tr><td class="k">Volatility</td><td><b>The 14-period range as a percentage of price</b></td><td>Plain</td></tr>
+    </tbody></table></div>
+  <p>The volatility figure is the useful one. It is the same quantity the sizing rules divide by, so
+  it tells you before you open the allocator <b>roughly how large a position this name can carry</b>
+  at your risk budget — and whether a stop placed a couple of ranges away is a sensible distance or
+  an absurd one.</p>
+</section>
+
+<section id="funnel">
+  <h2><span class="n">08</span>Where it sits in the funnel</h2>
+  <p>Its job is <b>leadership confirmation</b>, not signal generation. Per the standing rule to lead
+  with stage and strength, the sequence is:</p>
+  <ol>
+    <li><b>Stage</b> — from the dashboard, not from here. Only an advance is buyable.</li>
+    <li><b>Strength against the market</b> — the blue line and the quadrant.</li>
+    <li><b>Strength within the group</b> — the orange line.</li>
+  </ol>
+  <p>A name that clears all three — advancing, leading the market, leading its peers — is the
+  textbook leader. This pane collapses steps two and three into one look.</p>
+  <div class="note warn">
+    <span class="tag">It cannot complete the check by itself any more</span>
+    <p>Because the stage read was removed, <b>step one now has to come from another surface.</b>
+    That is the cost of the v1.5 decision and it was accepted deliberately. Run this pane stacked
+    under the dashboard rather than alone.</p>
+  </div>
+</section>
+
+<section id="lines">
+  <h2><span class="n">09</span>Reading the two lines together</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Pattern</th><th>What it means</th><th>What to do</th></tr></thead><tbody>
+      <tr><td class="k">Both above zero, both rising</td><td><b>The clean leader</b> — beating the market and its own group</td><td>The strongest state. Proceed to location and trigger</td></tr>
+      <tr><td class="k">Blue up, orange flat or down</td><td>Beating the market but only average inside a hot sector — <b>the group is doing the work</b></td><td>Compare peers. There is probably a stronger name in the same group</td></tr>
+      <tr><td class="k">Orange up, blue flat or down</td><td>Leading a group that is itself lagging</td><td>Size down, or wait for the group to turn. Check the sector's own stage</td></tr>
+      <tr><td class="k">Both below zero</td><td>A laggard on both counts</td><td>Nothing to confirm here</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">The most useful of the four</span>
+    <p>The second row is the one people miss. <b>A rising blue line is not proof of stock
+    selection</b> — in a sector run it can be entirely borrowed. The orange line is what tells you
+    whether you picked the right name or merely the right theme.</p>
+  </div>
+</section>
+
+<section id="playbook">
+  <h2><span class="n">10</span>The playbook</h2>
+  <p>Read the quadrant against the strength sign. The stage column now comes from the dashboard
+  sitting above this pane.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Tint</th><th>Quadrant</th><th>Read, and action</th></tr></thead><tbody>
+      <tr><td class="k">Green</td><td class="m">Leading</td><td><b>Top grade.</b> Outperforming with momentum behind it — proceed to the entry checklist</td></tr>
+      <tr><td class="k">Green</td><td class="m">Weakening</td><td>Still ahead, but <b>momentum is rolling over</b>. Manage existing longs tighter; be far pickier on adds</td></tr>
+      <tr><td class="k">Red</td><td class="m">Improving</td><td><b>The early-turn watch.</b> Behind, but rotating up. Alert it, do not chase it</td></tr>
+      <tr><td class="k">Red</td><td class="m">Lagging</td><td>Nothing here. Leave it alone</td></tr>
+      <tr><td class="k">Green</td><td class="m">Lagging</td><td><b>The contradiction worth looking at</b> — outperforming its own norm while the longer rotation is still behind. Often a genuine turn in progress, occasionally a dead-cat bounce. Confirm with structure before acting</td></tr>
+    </tbody></table></div>
+
+  <h3>The state the old guide called purple</h3>
+  <p>The most valuable single reading used to be <b>advancing but not leading</b> — a trend intact
+  while relative strength sat negative. That is the trend that fails first in a correction. The
+  pane no longer paints it as one colour, because it no longer knows the stage — but the reading
+  still exists, and it is worth assembling by hand on a held position:</p>
+  <ul>
+    <li>Stage 2 on the dashboard,</li>
+    <li><b>red tint here</b>, or a lagging quadrant.</li>
+  </ul>
+  <p>When both are true: tighten the stop, stop adding, and rank the position against greener
+  alternatives in the rotation matrix. <b>A trend that is not leading is borrowed time.</b></p>
+
+  <h3>Which chart to read it on</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Timeframe</th><th>What you get</th></tr></thead><tbody>
+      <tr><td class="k">Weekly</td><td>The canonical horizon, unsmoothed by definition. <b>The cleanest read for positional decisions</b></td></tr>
+      <tr><td class="k">Daily</td><td>The same horizon rolled continuously. Day-to-day tracking</td></tr>
+      <tr><td class="k">Intraday</td><td>The curves still resolve, but the rotation quadrant stays weekly-anchored and will not move during your session</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The quadrant being timeframe-independent is a feature — flipping the chart to
+  time an entry never changes your context read.</p>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">11</span>Inputs</h2>
+
+  <details class="ref"><summary>Benchmarks</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Index</td><td class="num">broad index</td><td>Drives the blue line <b>and</b> the rotation quadrant. Keep it aligned with the rest of the system or the label stops matching the dashboard</td></tr>
+      <tr><td class="k">Manual sector override</td><td class="num">off</td><td>Forces the sector benchmark. Only for an off-list name the mapper gets wrong</td></tr>
+      <tr><td class="k">Manual sector</td><td class="num">broad index</td><td>Used only with the override on</td></tr>
+      <tr><td class="k">Plot sector line</td><td class="num">on</td><td>Turn off for a pure vs-market view. Auto-suppressed anyway when the sector is the index</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The moving average</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Average type</td><td class="num">simple</td><td>Simple is the classic Mansfield. Exponential turns sooner and is noisier</td></tr>
+      <tr><td class="k">Weekly length</td><td class="num">26</td><td><b>The horizon, in weeks.</b> Roughly six months — the classic setting</td></tr>
+      <tr><td class="k">Smooth sub-weekly curves</td><td class="num">on</td><td>Converts the horizon to rolling bars of the chart's timeframe. Off gives the true weekly staircase — see section 05</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The old per-timeframe length inputs are gone. One horizon, expressed two ways,
+  replaced four numbers that could disagree with each other.</p>
+  </div></details>
+
+  <details class="ref"><summary>Display and background</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Show the label</td><td class="num">on</td><td>The last-bar brief</td></tr>
+      <tr><td class="k">Line colours</td><td class="num">blue / orange</td><td>Index and sector</td></tr>
+      <tr><td class="k">Strength-sign background</td><td class="num">on</td><td>The tint</td></tr>
+      <tr><td class="k">Positive / negative tints</td><td class="num">green / red</td><td>Both editable</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Rotation</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Rotation length</td><td class="num">12</td><td><b>Inert for the quadrant</b> — the axes are decoupled and calibrated. It only sets the warm-up count</td></tr>
+      <tr><td class="k">Trajectory tail</td><td class="num">4 weeks</td><td>How far back the rotation vector is measured. Reserved — the label prints the current quadrant only</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The corner readout</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Show the cell</td><td class="num">on</td><td>Momentum and volatility</td></tr>
+      <tr><td class="k">Momentum length</td><td class="num">14</td><td>Standard</td></tr>
+      <tr><td class="k">Range length</td><td class="num">14</td><td><b>Matches the sizing rules</b> — leave it alone unless you change those too</td></tr>
+      <tr><td class="k">Stretched / washed thresholds</td><td class="num">70 / 30</td><td>Colour boundaries only</td></tr>
+      <tr><td class="k">Position</td><td class="num">top right</td><td>Four corners</td></tr>
+    </tbody></table></div></div></details>
+</section>
+
+<section id="parity">
+  <h2><span class="n">12</span>Parity discipline</h2>
+  <p>This pane exists to agree with other surfaces. Three checks keep it honest:</p>
+  <ol>
+    <li><b>The quadrant must equal the dashboard's rotation cell</b> on the same bar. A divergence
+    is a bug or a mismatched index input — never a tuning preference.</li>
+    <li><b>Keep the index benchmark identical</b> across the system. Changing it here silently
+    forks the rotation read.</li>
+    <li><b>Re-export the sector table</b> after any change to the sector database, or this pane and
+    the dashboard will disagree about which group a name belongs to.</li>
+  </ol>
+  <div class="note">
+    <span class="tag">The stage lesson, stated once</span>
+    <p>The reason this section exists at all is that v1.4 broke rule one on a different field.
+    <b>A duplicated calculation does not stay identical; a shared one cannot diverge.</b> Where a
+    read cannot be shared, it is better deleted here than maintained twice.</p>
+  </div>
+</section>
+
+<section id="limits">
+  <h2><span class="n">13</span>What it deliberately will not do</h2>
+  <div class="tw"><table>
+    <thead><tr><th>It does not</th><th>Why</th></tr></thead><tbody>
+      <tr><td class="k">Compute stage</td><td>Removed in v1.5 after drifting from the canonical engine. Read it on the dashboard</td></tr>
+      <tr><td class="k">Infer stage from strength levels</td><td><b>That would be a second stage definition</b> — the exact failure that got the first one deleted</td></tr>
+      <tr><td class="k">Paint the rotation quadrant</td><td>Tried, correct, and visually misleading. It lives in the label</td></tr>
+      <tr><td class="k">Produce entries, stops or targets</td><td>Those belong to the screeners, the entry trigger and the allocator</td></tr>
+      <tr><td class="k">Read the sector database live</td><td>The mapping is baked in at export. <b>Editing the database changes nothing until you re-export</b></td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <p>What it is, stated plainly: <b>a leadership lens with the benchmark chosen for you.</b> It
+    confirms; it never selects.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/21 · Mansfield RS Auto-Sector</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">08 Swing Pro Dashboard</a> · <a href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">13 Unified Ecosystem</a></span>
+</div></footer>
