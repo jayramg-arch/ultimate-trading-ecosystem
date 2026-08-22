@@ -1,0 +1,569 @@
+<title>Section Four</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Oswald:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+
+<style>
+/* The accent is deliberately neither green nor brick-red, so the panel's real
+   pass/fail semantics stay unambiguous wherever they appear. */
+:root{
+  --ground:#F3F1F2; --surface:#FFFFFF; --surface-2:#FAF8F9; --surface-3:#EDEAEC;
+  --ink:#171315; --ink-2:#3F3940; --muted:#6D656C; --faint:#9C949B;
+  --rule:#DCD6DA; --rule-soft:#E9E4E7;
+  --acc:#A32B4E; --acc-bg:#FBE8ED; --acc-rule:#E3AFC0;
+  --go:#0F7A52; --go-bg:#E2F1EA; --go-rule:#9AC9B4;
+  --wait:#9A5B00; --wait-bg:#FBF0DE; --wait-rule:#DFBB80;
+  --no:#9E2F16; --no-bg:#FAEAE5; --no-rule:#DFB2A2;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Oswald','Helvetica Neue',Arial,sans-serif;
+  --body:'Public Sans','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131015; --surface:#1A161C; --surface-2:#201B22; --surface-3:#28222A;
+    --ink:#EFEAEE; --ink-2:#C7BFC5; --muted:#928A91; --faint:#6C656B;
+    --rule:#2E2831; --rule-soft:#251F27;
+    --acc:#F0819E; --acc-bg:#33131F; --acc-rule:#6B2C42;
+    --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+    --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+    --no:#EE7A5C; --no-bg:#331B14; --no-rule:#6A3527;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131015; --surface:#1A161C; --surface-2:#201B22; --surface-3:#28222A;
+  --ink:#EFEAEE; --ink-2:#C7BFC5; --muted:#928A91; --faint:#6C656B;
+  --rule:#2E2831; --rule-soft:#251F27;
+  --acc:#F0819E; --acc-bg:#33131F; --acc-rule:#6B2C42;
+  --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+  --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+  --no:#EE7A5C; --no-bg:#331B14; --no-rule:#6A3527;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 34px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:500}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(40px,6.6vw,68px);line-height:1;
+  letter-spacing:.005em;margin:0;text-transform:uppercase}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.gatebox{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;min-width:230px}
+.gatebox .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 11px;font-weight:500}
+.gatebox .eq{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--ink);
+  letter-spacing:.06em;line-height:1.8}
+.gatebox .sm{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:9px;
+  padding-top:9px;border-top:1px dashed var(--acc-rule)}
+
+.cols{display:grid;grid-template-columns:206px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:500}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,3.3vw,36px);line-height:1.1;
+  letter-spacing:.01em;margin:0 0 16px;text-transform:uppercase}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:7px;text-transform:none}
+h3{font-family:var(--disp);font-weight:600;font-size:20px;letter-spacing:.01em;margin:30px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:500}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.t{font-family:var(--mono);font-weight:700;text-align:center;white-space:nowrap;width:52px}
+.t4{color:var(--acc)} .t3{color:var(--go)} .t2{color:var(--ink-2)} .t1{color:var(--faint)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.no{border-left-color:var(--no);background:var(--no-bg);border-color:var(--no-rule)}
+.note.go{border-left-color:var(--go);background:var(--go-bg);border-color:var(--go-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:500}
+.note.no .tag{color:var(--no)} .note.go .tag{color:var(--go)}
+.note p:last-child{margin-bottom:0}
+
+/* the verdict ladder — first match wins, so order carries meaning */
+.ladder{border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--surface);
+  margin:0 0 18px;counter-reset:v}
+.rung{counter-increment:v;display:grid;grid-template-columns:40px 200px minmax(0,1fr);
+  border-bottom:1px solid var(--rule-soft)}
+.rung:last-child{border-bottom:none}
+.rung .i{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--faint);
+  display:flex;align-items:center;justify-content:center;background:var(--surface-2);
+  border-right:1px solid var(--rule-soft)}
+.rung .i::before{content:counter(v)}
+.rung .r{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.02em;
+  padding:13px 14px;border-right:1px solid var(--rule-soft);text-transform:uppercase}
+.rung.stop .r{color:var(--no)} .rung.take .r{color:var(--go)} .rung.arm .r{color:var(--wait)}
+.rung .d{padding:13px 16px;font-size:14.5px;color:var(--ink-2)}
+.rung .d b{color:var(--ink)}
+
+/* the five panel sections */
+.panel{display:grid;gap:0;border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  margin:0 0 18px;background:var(--surface)}
+.pband{display:grid;grid-template-columns:40px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
+.pband:last-child{border-bottom:none}
+.pband .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc);
+  background:var(--acc-bg);display:flex;align-items:center;justify-content:center;
+  border-right:1px solid var(--rule-soft)}
+.pband .bd{padding:14px 17px}
+.pband .h{font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:.02em;
+  margin:0 0 4px;text-transform:uppercase}
+.pband p{font-size:14.5px;margin:0;color:var(--ink-2);max-width:70ch}
+
+.chip{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:2px;
+  border:1px solid;white-space:nowrap;letter-spacing:.05em}
+.chip.p{color:var(--go);background:var(--go-bg);border-color:var(--go-rule)}
+.chip.f{color:var(--no);background:var(--no-bg);border-color:var(--no-rule)}
+
+.grades{border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--surface);
+  margin:0 0 18px}
+.grade{display:grid;grid-template-columns:64px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
+.grade:last-child{border-bottom:none}
+.grade .g{font-family:var(--disp);font-weight:700;font-size:18px;display:flex;align-items:center;
+  justify-content:center;border-right:1px solid var(--rule-soft);background:var(--surface-2)}
+.grade.a .g{color:var(--go);background:var(--go-bg)}
+.grade.b .g{color:var(--wait);background:var(--wait-bg)}
+.grade.x .g{color:var(--no);background:var(--no-bg)}
+.grade .d{padding:12px 16px;font-size:14.5px;color:var(--ink-2)}
+.grade .d b{color:var(--ink)}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .rung{grid-template-columns:34px minmax(0,1fr)}
+  .rung .r{grid-column:2;border-right:none;padding-bottom:0}
+  .rung .d{grid-column:2;padding-top:6px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 22 · The live system</p>
+      <h1>Section Four</h1>
+      <p class="dek">The execution layer, and the last authority. It answers one question: <em>a
+      leader is at its zone — is price actually in a demand zone, has a real trigger printed, and
+      where exactly do I buy and stop?</em></p>
+    </div>
+    <div class="gatebox">
+      <p class="lbl">The gate</p>
+      <div class="eq">GO = P · L · V · B</div>
+      <div class="sm">Pattern · Location<br>Volume · Bar</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Before the panel</p>
+  <ol>
+    <li><a href="#doctrine">The two-stage doctrine</a></li>
+    <li><a href="#stage">Stage parity</a></li>
+  </ol>
+  <p>Reading it</p>
+  <ol>
+    <li><a href="#panel">The five sections</a></li>
+    <li><a href="#gates">The four gates</a></li>
+    <li><a href="#patterns">The 17 patterns</a></li>
+    <li><a href="#location">Location</a></li>
+    <li><a href="#verdict">The verdict ladder</a></li>
+    <li><a href="#plan">The plan</a></li>
+  </ol>
+  <p>Operating it</p>
+  <ol>
+    <li><a href="#alerts">Alerts</a></li>
+    <li><a href="#quality">Quality ladder</a></li>
+    <li><a href="#traps">Traps</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="doctrine">
+  <h2><span class="n">01</span>The two-stage doctrine</h2>
+  <p class="dek" style="font-size:19px;border-left:2px solid var(--acc);padding-left:18px;margin:0 0 18px">
+  <b>The board ARMS. Section Four EXECUTES.</b> They deliberately disagree, and aligning them
+  would be a regression.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>Golden Matcher</th><th>Section Four</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Says</td><td><code>TRIGGER LIVE</code> — a pattern fired</td><td><code>GO</code> — pattern <b>and</b> location <b>and</b> volume <b>and</b> a clean bar</td></tr>
+      <tr><td class="k">Fires</td><td><b>Early</b>, so you can focus</td><td><b>Late</b>, at the executable instant</td></tr>
+      <tr><td class="k">Answers</td><td><em>Which names deserve attention today</em></td><td><em>Is this the bar, and where exactly do I buy and stop</em></td></tr>
+      <tr><td class="k">Final word</td><td>No</td><td><b>Yes — the chart is the last authority</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>The board's job is to hand you a shortlist small enough to actually watch. <b>S4's job is to
+  stop you entering on the touch.</b> Do not collapse them.</p>
+</section>
+
+<section id="stage">
+  <h2><span class="n">02</span>Stage parity — one definition, three surfaces</h2>
+  <p>A name once printed <b>Stage 1</b> on the dashboard and the board, and <b>Stage 3</b> on S4,
+  for the same chart. <b>S4 was right</b>, and closing the gap took three separate fixes on the
+  other side. The definition everywhere is now stateless — price against the weekly 30-SMA,
+  multiplied by that average's slope, classified fresh each bar:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Price vs 30-WMA</th><th>Slope</th><th>Stage</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Above</td><td>Rising</td><td class="k">2</td></tr>
+      <tr><td class="k">Above</td><td>Falling</td><td class="k">3</td></tr>
+      <tr><td class="k">Above</td><td>Flat</td><td>RS up → 1, else 3</td></tr>
+      <tr><td class="k">Below</td><td>Rising</td><td class="k">2 — pullback</td></tr>
+      <tr><td class="k">Below</td><td>Falling</td><td class="k">4</td></tr>
+      <tr><td class="k">Below</td><td>Flat</td><td class="k">1</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note no">
+    <span class="tag">What was wrong, and why it hid so long</span>
+    <p>The other two surfaces ran a <b>hysteresis state machine</b> that evolved the stage from its
+    previous value. A name trading well above a <em>declining</em> 30-week average never left
+    “Stage 1” — one sat there with its average falling 62.9 points and price 5.8% above it. That is
+    <b>distribution, not a base</b>. Across 56 board names, <b>19 (34%) were mis-staged.</b></p>
+    <p>Two older gaps hid underneath: the slope was a <em>per-bar rate</em> rather than a raw
+    N-bar change, and the lookback was 6 against S4's 4 — together making the flat band <b>six
+    times too wide</b>. Hysteresis concealed both; a stateless read exposes them immediately.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Two deliberate differences remain</span>
+    <p>The <b>flat cell</b> breaks its tie differently on each surface, because the tiebreaker each
+    one has in scope differs. And <b>Stage 2 (pullback)</b> is named as its own cell on the
+    dashboard while S4 folds it into Stage 2 — same family, different label granularity. Both are
+    documented in code rather than left to be discovered.</p>
+  </div>
+</section>
+
+<section id="panel">
+  <h2><span class="n">03</span>Reading the panel</h2>
+  <p>The panel is <b>sectioned into five bands</b>, each stating the question its block answers.
+  They are not interchangeable: a name can be perfect on regime and worthless on location.
+  <b>Read them in order and stop at the first one that fails.</b></p>
+  <div class="panel">
+    <div class="pband"><div class="num">I</div><div class="bd">
+      <p class="h">Macro &amp; context</p>
+      <p>What is the underlying regime? Structure basis, relative strength and rotation, sector and
+      futures positioning, quality and momentum.</p></div></div>
+    <div class="pband"><div class="num">II</div><div class="bd">
+      <p class="h">Location &amp; quality</p>
+      <p>Where are we on the chart <em>right now</em>? The zone inventory, the support under price,
+      nearest levels either side, volume profile, extension from the EMA20 — and the
+      <b>L gate</b>.</p></div></div>
+    <div class="pband"><div class="num">III</div><div class="bd">
+      <p class="h">Execution &amp; timing</p>
+      <p>Are the triggers firing? The intraday read, the anchored VWAPs and their pinch, the full
+      pattern grid with nothing aggregated away, arrival velocity — and the <b>B</b> and
+      <b>V</b> gates.</p></div></div>
+    <div class="pband"><div class="num">IV</div><div class="bd">
+      <p class="h">Decision synthesis</p>
+      <p>What is the ruling? Room for trade, confluence score, the four gate chips, and the
+      <b>VERDICT</b>.</p></div></div>
+    <div class="pband"><div class="num">V</div><div class="bd">
+      <p class="h">Plan &amp; risk</p>
+      <p>How do we execute? Entry, stop, targets and quantity — <b>printed only on GO</b>.</p></div></div>
+  </div>
+  <div class="note go">
+    <span class="tag">The one thing to carry away</span>
+    <p><b>Everything above III grades. III fires. IV rules. V sizes.</b></p>
+  </div>
+
+  <h3>The SUMMARY column</h3>
+  <p>Everything on the panel is a <em>measurement</em>. The SUMMARY is the <em>reading</em>, and
+  it is the only field allowed to weigh one section against another. It sits in its own column
+  down the right-hand side rather than as a row — a Pine cell does not wrap, so as a full-width
+  row it stretched the panel across the whole screen. <b>It never repeats a value printed
+  above it.</b></p>
+
+  <h4>Two reading traps on the panel itself</h4>
+  <ul>
+    <li><b>Two arrow families that mean different things.</b> Diagonals are a <em>moving-average
+    slope</em>; verticals are a <em>trend state</em>. They sit on the same row.</li>
+    <li><b>A field printing an em-dash means the source is <em>unbound</em>, not flat.</b> Likewise
+    <code>not bound</code> means the value bindings are missing after a recompile — not that the
+    data is absent.</li>
+  </ul>
+</section>
+
+<section id="gates">
+  <h2><span class="n">04</span>The four gates</h2>
+  <pre><b>GO  =  P  ·  L  ·  V  ·  B</b>
+
+P   PATTERN    a pattern from the active battery fired on this bar
+L   LOCATION   price is somewhere worth buying — zone, S/R, AVWAP, value area
+V   VOLUME     relative volume clears the floor
+B   BAR        the bar itself is not a distribution candle</pre>
+  <p>They print as chips on the TRIGGER row, plus an optional timing marker, the path tag, and any
+  warning suffix. <b>Timing is optional — it times, it does not qualify.</b></p>
+  <div class="note">
+    <span class="tag">The pullback relaxation</span>
+    <p>When a <b>contraction</b> pattern fires with no expansion pattern <em>and</em> price sits
+    inside a demand zone, the gate relaxes: the volume floor drops and the bar test becomes
+    <em>held the zone</em> rather than <em>closed strong</em>. Tagged <code>·PB</code>. Measured
+    reason: at-value bars print a median relative volume of <b>0.63</b> against <b>1.35</b> on
+    breakout bars, so the standard floor rejects roughly <b>78%</b> of them.</p>
+  </div>
+  <div class="note no">
+    <span class="tag">Measured, and it did not support inverting the test</span>
+    <p>Across 74,267 at-value bars, the <em>driest</em> volume bucket was <b>not</b> the best
+    performer — forward alpha rose with volume, not against it. So the relaxation exists to stop
+    discarding a mildly positive population, <b>not because dry volume is better</b>. Do not
+    reason from it in the other direction.</p>
+  </div>
+</section>
+
+<section id="patterns">
+  <h2><span class="n">05</span>The pattern battery</h2>
+  <p>Seventeen conditions on the bull path, ten on recovery, mode-selected. <b>Patterns are
+  additive bonuses, not a checklist</b> — there is no fixed N-of-N benchmark. A single tier-3 or
+  tier-4, or Σ ≥ 4, is a strong trigger.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Pattern</th><th class="t">Tier</th><th>Fires when</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Power Play (HTF)</td><td class="t t4">+4</td><td>A doubling inside eight weeks <b>and</b> a tight 15-bar flag <b>and</b> price above the 50-SMA. The rarest and strongest</td></tr>
+      <tr><td class="k">VCP Breakout</td><td class="t t3">+3</td><td>The prior bar <b>contracted</b> — narrowing range and volume dry-up — then today breaks the 10-day high on volume, closing strong</td></tr>
+      <tr><td class="k">Stage-2 Launch</td><td class="t t3">+3</td><td>A <b>true weekly close crossover</b> of the 30-week average on volume, with the Stage-2 proxy holding. Fresh Stage 1 → 2</td></tr>
+      <tr><td class="k">Wyckoff Spring</td><td class="t t3">+3</td><td>Undercuts the prior 50-bar low, then reclaims it closing green on <b>low</b> volume — a supply vacuum</td></tr>
+      <tr><td class="k">Gap-Up Breakout</td><td class="t t3">+3</td><td>Opens above the prior high and closes above locked resistance, green, on volume</td></tr>
+      <tr><td class="k">Pocket Pivot</td><td class="t t2">+2</td><td>Up close above the 50-SMA on volume greater than the largest down-day volume of the last ten</td></tr>
+      <tr><td class="k">IB-NR7 Coil</td><td class="t t2">+2</td><td>An inside bar that is <em>also</em> the narrowest of seven — the compression coil, and the best early trigger</td></tr>
+      <tr><td class="k">Bullish Engulfing</td><td class="t t2">+2</td><td><b>Quality-gated</b>: a true engulf in a downtrend on double volume with a weak prior bar. Not a naked engulf</td></tr>
+      <tr><td class="k">Liq Sweep Reclaim</td><td class="t t2">+2</td><td>Swept below the 50-SMA within five bars but reclaimed it on volume</td></tr>
+      <tr><td class="k">3-Bar Bull Reversal</td><td class="t t2">+2</td><td>Three lower lows, then a close above the highest high of the three — the pullback is over</td></tr>
+      <tr><td class="k">50-SMA Undercut</td><td class="t t2">+2</td><td>Sweeps below the 50-SMA and closes back above it, green, on volume</td></tr>
+      <tr><td class="k">Hammer at 50 / 200</td><td class="t t2">+2</td><td>A hammer inside a tight band of the average, closing above it</td></tr>
+      <tr><td class="k">Breakout Confirmed</td><td class="t t2">+2</td><td>Anti-algo: closes above locked resistance in the top quartile of range, on volume</td></tr>
+      <tr><td class="k">Inside-3 Coil</td><td class="t t2">+2</td><td>Three nested inside bars — a tightening coil</td></tr>
+      <tr><td class="k">Power Play (close)</td><td class="t t2">+2</td><td>A bar closing in the top quartile of its range on above-average volume</td></tr>
+      <tr><td class="k">True NR7</td><td class="t t1">+1</td><td>The narrowest range of the last seven bars</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Recovery battery:</b> ten capitulation-and-accumulation conditions — climax reversal,
+  Wyckoff spring, higher-low retest, base breakout, engulf, hammer at support, three-bar reversal,
+  pocket pivot, volume dry-up, and a 30-week reclaim.</p>
+  <div class="note">
+    <span class="tag">Two things about the grid</span>
+    <p><b>Nothing is aggregated away</b> — every condition shows fired or quiet, so you can see
+    <em>which</em> fired rather than only the total. And the <b>PA Combo</b> line names the
+    <em>sequence</em> that Σ cannot express — but it is <b>narrative only</b>: both testable combos
+    underperformed a Σ-matched control across 464 picks.</p>
+  </div>
+</section>
+
+<section id="location">
+  <h2><span class="n">06</span>Location — the part that took longest</h2>
+  <p>Five sources feed the L gate, in descending authority:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Source</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Demand zones</td><td>Leg-base-leg zones on chart, daily, weekly and monthly, ageing per timeframe and moving <b>fresh → tested → violated</b>. The primary source</td></tr>
+      <tr><td class="k">S/R levels</td><td>Horizontal shelves, placed at the wick extreme rather than a midpoint, and <b>weakening as they are tested</b></td></tr>
+      <tr><td class="k">Anchored VWAPs</td><td>Three price memories: the 52-week low, the last breakout day, the last high-volume gap</td></tr>
+      <tr><td class="k">Volume profile</td><td>Value-area low and point of control — the one composite component that earned its place</td></tr>
+      <tr><td class="k">EMA20</td><td>Dynamic support. <b>Weakest, and treated as such</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note no">
+    <span class="tag">Why a GO can still be a chase</span>
+    <p>A GO resting <b>only</b> on an anchored VWAP or the EMA20 — no zone, no shelf — is
+    downgraded to <b>CAUTION — momentum/chase</b>. That is a momentum entry, not a pullback to
+    support. <b>It is also exactly why the board can read “no location” while S4 shows a
+    trigger</b>: the board's Python twin deliberately excludes the EMA20, because it fires most of
+    the time and would make the board over-predict.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Repeated tests WEAKEN a level</span>
+    <p>Heavily-tested levels are <b>deliberately excluded</b> from the nearest-level picker. A
+    level tested that often is a breakout candidate, not a ceiling. When nothing is found above,
+    that is what produces <b>BLUE SKY</b>.</p>
+  </div>
+</section>
+
+<section id="verdict">
+  <h2><span class="n">07</span>The verdict ladder</h2>
+  <p>Evaluated <b>in order — the first match wins</b>. This is the output that matters; everything
+  above it exists to feed it.</p>
+  <div class="ladder">
+    <div class="rung stop"><div class="i"></div><div class="r">No trade — Stage 3/4</div>
+      <div class="d">A valid trigger inside an invalid context. <b>Applies under manual mode too</b> — the stage is a fact, not a preference.</div></div>
+    <div class="rung take"><div class="i"></div><div class="r">Take it — recovery</div>
+      <div class="d">A recovery climbs <em>through</em> overhead, so thin room is expected and does not deny the trade. Buy-stop confirms the turn — <b>overrides your entry method</b>.</div></div>
+    <div class="rung arm"><div class="i"></div><div class="r">Breakout pivot</div>
+      <div class="d">Stage 2, near the high, sitting in a supply band — because <b>the supply IS the prior high</b>. Don't buy here; arm above the band. Blue sky above it.</div></div>
+    <div class="rung take"><div class="i"></div><div class="r">Pullback to value</div>
+      <div class="d"><b>The house A+ location.</b> Stage 2, in a demand zone, not extended, not in supply. Keeps your retest default — which is the entire point of it.</div></div>
+    <div class="rung arm"><div class="i"></div><div class="r">Clear to break</div>
+      <div class="d">A level overhead that is there to be <em>broken</em>, not targeted. Can only ever reframe a would-be skip.</div></div>
+    <div class="rung stop"><div class="i"></div><div class="r">Skip — no room</div>
+      <div class="d">In supply, or under 1R of room. <b>Buying into overhead supply is not a trade.</b></div></div>
+    <div class="rung take"><div class="i"></div><div class="r">Take it / caution</div>
+      <div class="d">A reward gate clears. Caution when location is weak or price is extended.</div></div>
+    <div class="rung stop"><div class="i"></div><div class="r">Skip — payoff thin</div>
+      <div class="d">Entry is clean; the reward does not justify the risk.</div></div>
+  </div>
+  <p>Below a GO the ladder continues with <b>NOT TRADEABLE</b> — blocked <em>and</em> in supply, so
+  clearing the one missing gate still would not make it a trade — plus <b>LOW QUALITY</b> and
+  <b>ARM</b>, which names the single gate you are waiting on.</p>
+
+  <div class="note">
+    <span class="tag">Which reward gate applies is decided by the trade TYPE</span>
+    <p>Not by whichever happens to pass. Swing takes the 2R bar; positional takes the ROI bar.
+    They are <b>not peers</b> — swing is 5–8% over 8–12 weeks, positional 10–30% over 6–8 months.</p>
+  </div>
+  <div class="note no">
+    <span class="tag">A structural tension, stated rather than hidden</span>
+    <p>A positional plan targets 5R, so ROI-to-T1 is five times the risk percentage. With a 2.3%
+    stop that is 11.5% — meaning <b>the 20% positional rule is unreachable whenever risk is under
+    4%</b>. The two positional rules contradict each other by construction. Either the target or
+    the gate should move; until then <b>the verdict explains the conflict instead of pretending it
+    away.</b></p>
+  </div>
+</section>
+
+<section id="plan">
+  <h2><span class="n">08</span>The plan</h2>
+  <p>The plan row <b>prints only on GO</b>, and it is <b>latched to the bar that fired</b>. That
+  latch matters more than it sounds: a plan that recomputes while the signal stays true ratchets
+  the entry up with price, and a price-based staleness check will certify it as fresh precisely
+  when it is most stale. The row tags how many bars ago the trigger fired, and re-latches rather
+  than quoting fiction once that is too old.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>How it is derived</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Entry</td><td>Follows your entry method — default <b>retest</b>, a limit at the trigger bar's close</td></tr>
+      <tr><td class="k">Stop</td><td><b>Structural</b>: zone distal → recent swing low → an ATR fallback, capped by trade type</td></tr>
+      <tr><td class="k">T1 · T2</td><td>R-multiples set by trade type</td></tr>
+      <tr><td class="k">Quantity</td><td>Dynamic risk, ported from the allocator</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Retest versus buy-stop — and the honest caveat</span>
+    <p><b>Retest</b> is the measured default: a limit at the trigger bar's close beat the buy-stop
+    across every family. <b>But the simulation cannot model the false-breakout whipsaw that a
+    buy-stop avoids</b>, so treat that edge as optimistic rather than settled. Buy-stop above the
+    bar's high is house doctrine and costs a higher entry to avoid the false break.</p>
+    <p>Two rulings deliberately override your setting and say so on the panel — <b>recovery</b>
+    (you confirm the turn, never buy the touch of a falling name) and <b>blue-sky</b> (a limit
+    would fill you inside resistance). <b>Pullback-to-value does not override</b>, because keeping
+    the retest is the whole point of that ruling.</p>
+  </div>
+  <div class="note go">
+    <span class="tag">After the fill</span>
+    <p>Place the <b>stop order after the fill</b> — never a resting order at the level, which is
+    how you get tagged and filled into a failing setup. From that point S4's job is over and
+    management takes over.</p>
+  </div>
+</section>
+
+<section id="alerts">
+  <h2><span class="n">09</span>Alerts</h2>
+  <p>Set them once per shortlisted name and walk away. The ping is the cue — <b>act on alerts,
+  never on the touch.</b></p>
+  <div class="note no">
+    <span class="tag">A recompile DESTROYS your alerts — this is not housekeeping</span>
+    <p>Alerts bind to the compiled script. Recompiling does not stale them, <b>it deletes
+    them</b>. After every compile, delete and re-create every GO alert. Two alerts silently
+    vanished this way before the behaviour was understood.</p>
+  </div>
+  <div class="note">
+    <span class="tag">The watchlist alert expires in a way the per-symbol one does not</span>
+    <p>A watchlist alert carries the shortlist <b>frozen at creation</b>, and the list name carries
+    the date — so <b>create both alerts fresh every evening</b>, on both timeframes. Recreating
+    also refreshes the frozen list.</p>
+    <p>And know what the alert asserts: it fires on the gate, but <b>location is the gate that
+    expires</b> between the alert firing and you looking. Re-read the panel; do not act on the
+    memory of why you armed it.</p>
+  </div>
+  <div class="note">
+    <p><b>Two pings on one name is one setup seen twice</b>, not corroboration.</p>
+  </div>
+</section>
+
+<section id="quality">
+  <h2><span class="n">10</span>Quality ladder — when several names ping</h2>
+  <div class="grades">
+    <div class="grade a"><div class="g">A+</div><div class="d"><b>Take it — pullback to value.</b> A fresh demand zone under price, Σ ≥ 4, strong volume, arrival not grinding. <b>The house setup.</b></div></div>
+    <div class="grade a"><div class="g">A</div><div class="d"><b>Take it</b> with zone or shelf location, both reward gates comfortable, clean bar.</div></div>
+    <div class="grade a"><div class="g">A−</div><div class="d"><b>Breakout pivot</b> on a Stage-2 leader at its high — but you buy <em>above the band</em>, never inside it.</div></div>
+    <div class="grade b"><div class="g">B</div><div class="d"><b>Clear to break.</b> Clean trigger, nearby overhead, Stage 2. The real target is the R-objective, not the level.</div></div>
+    <div class="grade b"><div class="g">B−</div><div class="d">GO but location is <b>AVWAP or EMA only</b> → the panel says caution, momentum/chase. Size down, or wait for a zone.</div></div>
+    <div class="grade b"><div class="g">Wait</div><div class="d"><code>ARM</code> or 3/4 — one gate short. <b>Coils are compression, not a trigger.</b></div></div>
+    <div class="grade x"><div class="g">Skip</div><div class="d"><b>No room</b> · <b>payoff too thin</b> · <b>low quality</b> (grinding arrival with negative delta).</div></div>
+    <div class="grade x"><div class="g">Never</div><div class="d"><b>No trade — Stage 3/4</b>, and <b>not tradeable</b> — the second means clearing the blocking gate alone still would not make it a trade.</div></div>
+  </div>
+</section>
+
+<section id="traps">
+  <h2><span class="n">11</span>Traps worth knowing</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Fields read <code>not bound</code></td><td>The value bindings dropped on the last recompile. They bind by <b>position</b> and an unbound source silently reads price rather than erroring. <b>Re-run the binding script after every compile</b></td></tr>
+      <tr><td class="k">A GO alert never fired</td><td>It was destroyed by a recompile. Re-create it</td></tr>
+      <tr><td class="k">“Calculation timed out”, only after the open</td><td>Execution time is Pine's <b>fourth</b> ceiling and the only one that does not announce itself at compile. Something is running per tick rather than per closed bar</td></tr>
+      <tr><td class="k">Panel disagrees with the board</td><td>Expected at the margin — different location code, and often a different data feed. <b>The chart wins</b></td></tr>
+      <tr><td class="k">A rectangle called a triangle</td><td>Known and unfixed: the two-pivot geometry classifier mislabels rectangles. Cosmetic — it does not touch the gate</td></tr>
+      <tr><td class="k">Cannot add a feature</td><td>The file sits at the compiled-token ceiling. <b>Every addition needs a paired removal</b>, and cost is per <em>operation</em>, not per character — a long string literal is one token</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note go">
+    <span class="tag">The one rule</span>
+    <p><b>Never buy the touch.</b> Confirmation is the mechanical fix for the single most expensive
+    habit in this system — entering at the zone because it <em>looks</em> right. The alert pings on
+    a <b>closed</b> bar; read the verdict; enter per the plan row.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
+</div></footer>

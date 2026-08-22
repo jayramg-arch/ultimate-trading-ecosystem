@@ -22,6 +22,7 @@
   --honest:#0F6E86; --honest-bg:#E2F0F4;
   --ledger:#44566C; --ledger-bg:#E9EDF2;
   --gm:#5B4BD6; --gm-bg:#ECEAFB;
+  --s4:#A32B4E; --s4-bg:#FBE8ED;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
   --body:'Newsreader',Georgia,'Times New Roman',serif;
@@ -39,6 +40,7 @@
     --honest:#4FB3C9; --honest-bg:#0D2A32;
     --ledger:#8FA3BA; --ledger-bg:#1A2029;
     --gm:#9A8CFF; --gm-bg:#1D1938;
+    --s4:#F0819E; --s4-bg:#33131F;
   }
 }
 :root[data-theme="dark"]{
@@ -53,6 +55,7 @@
   --honest:#4FB3C9; --honest-bg:#0D2A32;
   --ledger:#8FA3BA; --ledger-bg:#1A2029;
   --gm:#9A8CFF; --gm-bg:#1D1938;
+  --s4:#F0819E; --s4-bg:#33131F;
 }
 
 *{box-sizing:border-box}
@@ -131,6 +134,7 @@ td.st{width:120px;white-space:nowrap}
 .pill.page.hn{color:var(--honest);background:var(--honest-bg);border-color:var(--honest)}
 .pill.page.lg{color:var(--ledger);background:var(--ledger-bg);border-color:var(--ledger)}
 .pill.page.gm{color:var(--gm);background:var(--gm-bg);border-color:var(--gm)}
+.pill.page.s4{color:var(--s4);background:var(--s4-bg);border-color:var(--s4)}
 .pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 
 .note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
@@ -160,7 +164,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>9</b><span>Published pages</span></div>
+      <div class="count"><b>10</b><span>Published pages</span></div>
       <div class="count"><b>24</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
@@ -171,7 +175,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Published pages</h2><div class="rule"></div><span class="ct">9 of 24</span>
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">10 of 24</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -295,6 +299,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
+
+    <a class="card" style="--spine:var(--s4)" href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 22 &middot; Live system</p>
+        <p class="card-t">Section Four</p>
+        <p class="card-d">The execution layer and the last authority. The four-gate GO, the
+        seventeen-pattern battery, the five location sources, and the eight-rung verdict ladder
+        where the first match wins.</p>
+        <div class="card-m"><span>Read at the chart</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
   </div>
 
   <div class="sec-head">
@@ -336,7 +353,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td class="id">23</td><td class="nm"><a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
-        <tr><td class="id">22</td><td class="nm">Section 4 — Entry Trigger</td><td>The execution layer and the final word</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">22</td><td class="nm"><a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">Section Four</a></td><td>The four-gate GO and the verdict ladder</td><td class="st"><span class="pill page s4">Page</span></td></tr>
         <tr><td class="id">07</td><td class="nm">Commander Web v4</td><td>The dashboard app itself</td><td class="st"><span class="pill md">Markdown</span></td></tr>
         <tr><td class="id">08</td><td class="nm">Dashboard v67</td><td>The primary trade chart</td><td class="st"><span class="pill md">Markdown</span></td></tr>
       </tbody>

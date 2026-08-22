@@ -12,10 +12,11 @@
 ## Module Index
 
 > **📚 [The Commander Library](https://claude.ai/code/artifact/f5f003c2-b569-4cd5-b315-966ebb53d247)**
-> — the web portal for these guides. **Nine** are published as pages so far (the Commander
-> Bible · 16 Honesty Layer · 18 Trade Funnel · 19 Performance Ledger · 23 Golden Matcher ·
-> 24 Pre-Trade Gate · 25 Golden Rules · 26 Operating Loop · 27 Backtest Court); the rest are
-> listed there with a **Markdown** status and are being brought across in library order. HTML sources live in
+> — the web portal for these guides. **Ten** are published as pages so far (the Commander
+> Bible · 16 Honesty Layer · 18 Trade Funnel · 19 Performance Ledger · 22 Section Four ·
+> 23 Golden Matcher · 24 Pre-Trade Gate · 25 Golden Rules · 26 Operating Loop · 27 Backtest
+> Court); the rest are listed there with a **Markdown** status and are being brought across
+> in library order. HTML sources live in
 > `docs/portal/`.
 
 
