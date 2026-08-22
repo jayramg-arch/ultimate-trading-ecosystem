@@ -5,7 +5,7 @@
 
 <style>
 /* The foundational text is set in plain ink. The derived documents wear the
-   colours; here the only real colour is the red of a superseded claim. */
+   colours; here the only accent is a single brass rule. */
 :root{
   --ground:#F4F3F0; --surface:#FFFFFF; --surface-2:#FAF9F6; --surface-3:#EEECE7;
   --ink:#16150F; --ink-2:#3C3A32; --muted:#6E6B60; --faint:#9B9789;
@@ -46,19 +46,18 @@ header.mast{background:var(--surface);border-bottom:3px double var(--rule)}
   color:var(--brass);margin:0 0 18px;font-weight:600}
 h1{font-family:var(--serif);font-weight:700;font-size:clamp(38px,6vw,64px);line-height:1.03;
   letter-spacing:-.022em;margin:0;text-wrap:balance}
-.sub{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink-2);
-  margin:14px 0 0}
+.sub{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink-2);margin:14px 0 0}
 .vline{display:inline-block;margin:22px auto 0;padding-top:16px;
   border-top:1px solid var(--brass-rule);font-family:var(--mono);font-size:11px;
   letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
-.cols{display:grid;grid-template-columns:212px minmax(0,1fr);gap:56px;padding:40px 0 96px}
+.cols{display:grid;grid-template-columns:214px minmax(0,1fr);gap:56px;padding:40px 0 96px}
 nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
 nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted);margin:16px 0 8px;font-weight:600}
 nav.toc p:first-child{margin-top:0}
 nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
-nav.toc a{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:baseline;
+nav.toc a{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:baseline;
   font-family:var(--mono);font-size:11px;line-height:1.35;color:var(--muted);
   text-decoration:none;padding:6px 8px;border-radius:2px}
 nav.toc a span{color:var(--faint)}
@@ -73,8 +72,7 @@ h2{font-family:var(--serif);font-weight:700;font-size:clamp(25px,3.2vw,34px);lin
   border-bottom:1px solid var(--rule);text-wrap:balance}
 h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--brass);
   letter-spacing:.16em;display:block;margin-bottom:9px;text-transform:uppercase}
-h3{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.008em;
-  margin:30px 0 10px}
+h3{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.008em;margin:30px 0 10px}
 h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--muted);margin:24px 0 9px;font-weight:600}
 p{margin:0 0 15px;max-width:70ch}
@@ -84,9 +82,10 @@ b,strong{font-weight:700;color:var(--ink)}
 em{font-style:italic}
 code{font-family:var(--mono);font-size:.84em;background:var(--surface-3);padding:1.5px 5px;
   border-radius:2px;color:var(--ink-2)}
-pre{font-family:var(--mono);font-size:12px;line-height:1.7;background:var(--surface-3);
-  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+pre{font-family:var(--mono);font-size:12px;line-height:1.75;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
   margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--brass);font-weight:600}
 
 .tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface);
   margin:0 0 18px}
@@ -94,8 +93,7 @@ table{border-collapse:collapse;width:100%;font-size:14.5px}
 th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
   border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
-td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);
-  vertical-align:top}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
 tr:last-child td{border-bottom:none}
 td.k{color:var(--ink);font-weight:600;white-space:nowrap}
 td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -109,19 +107,16 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:now
 .note.stale .tag{color:var(--stale)} .note.live .tag{color:var(--live)}
 .note p:last-child{margin-bottom:0}
 
-/* supersession banner — the most load-bearing element on the page */
-.super{border:2px solid var(--stale-rule);background:var(--stale-bg);border-radius:3px;
-  padding:24px 26px;margin:0 0 34px}
-.super h3{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--stale);margin:0 0 14px;font-weight:600}
-.super p{color:var(--ink-2);max-width:74ch}
-.super p:last-child{margin-bottom:0}
-.super b{color:var(--ink)}
-
-.chip{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid;white-space:nowrap}
-.chip.stale{color:var(--stale);background:var(--stale-bg);border-color:var(--stale-rule)}
-.chip.live{color:var(--live);background:var(--live-bg);border-color:var(--live-rule)}
+/* the four jobs — the load-bearing idea of the whole system */
+.jobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 20px;
+  background:var(--surface)}
+.job{padding:18px 20px;border-right:1px solid var(--rule-soft)}
+.job:last-child{border-right:none}
+.job .w{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em;
+  color:var(--brass);margin:0 0 9px}
+.job .who{font-family:var(--serif);font-weight:700;font-size:17px;margin:0 0 7px;color:var(--ink)}
+.job p{font-size:14.5px;margin:0;color:var(--ink-2)}
 
 .xref{border:1px dashed var(--brass-rule);background:var(--brass-bg);border-radius:2px;
   padding:14px 18px;margin:0 0 18px;font-size:15.5px;color:var(--ink-2)}
@@ -145,16 +140,17 @@ footer a{color:var(--brass)}
   .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
   nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
     border-radius:2px;padding:16px;background:var(--surface)}
+  .job{border-right:none;border-bottom:1px solid var(--rule-soft)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <header class="mast">
   <div class="mast-in">
-    <p class="eyebrow">The single source of truth</p>
+    <p class="eyebrow">The system map</p>
     <h1>The Commander Bible</h1>
-    <p class="sub">The complete end-to-end operational guide — Weinstein, Minervini, Wyckoff</p>
-    <div class="vline">Version 6.0 &nbsp;·&nbsp; 22 May 2026 &nbsp;·&nbsp; partly superseded, see below</div>
+    <p class="sub">How the whole thing fits together — Weinstein, Minervini, Wyckoff, and the GM + S4 machinery around them</p>
+    <div class="vline">Rewritten 22 Aug 2026 &nbsp;·&nbsp; current as of that date</div>
   </div>
 </header>
 
@@ -162,600 +158,430 @@ footer a{color:var(--brass)}
 <div class="cols">
 
 <nav class="toc">
-  <p>Read first</p>
+  <p>Orientation</p>
   <ol>
-    <li><a href="#super"><span>!</span>What is superseded</a></li>
-    <li><a href="#s1"><span>1</span>Philosophy</a></li>
+    <li><a href="#what"><span>·</span>What this is</a></li>
+    <li><a href="#phil"><span>1</span>Philosophy</a></li>
+    <li><a href="#jobs"><span>2</span>The four jobs</a></li>
+    <li><a href="#own"><span>3</span>Who owns what</a></li>
   </ol>
-  <p>The workflow</p>
+  <p>The machine</p>
   <ol>
-    <li><a href="#s2"><span>2</span>Architecture</a></li>
-    <li><a href="#s3"><span>3</span>Setup</a></li>
-    <li><a href="#s4"><span>4</span>Context layer</a></li>
-    <li><a href="#s5"><span>5</span>Pre-market</a></li>
-    <li><a href="#s6"><span>6</span>Discovery</a></li>
-    <li><a href="#s7"><span>7</span>Validation</a></li>
-    <li><a href="#s7d"><span>7D</span>Confluence</a></li>
-    <li><a href="#s89"><span>8·9</span>Execution</a></li>
-    <li><a href="#s10"><span>10</span>Sizing</a></li>
-    <li><a href="#s11"><span>11</span>Management</a></li>
-    <li><a href="#s12"><span>12</span>Post-market</a></li>
+    <li><a href="#pipe"><span>4</span>The overnight pipeline</a></li>
+    <li><a href="#board"><span>5</span>The board</a></li>
+    <li><a href="#s4"><span>6</span>Section 4</a></li>
+    <li><a href="#order"><span>7</span>Before the order</a></li>
+    <li><a href="#manage"><span>8</span>Managing the position</a></li>
+    <li><a href="#record"><span>9</span>The record</a></li>
   </ol>
-  <p>Reference</p>
+  <p>Standing</p>
   <ol>
-    <li><a href="#s13"><span>13</span>Quick decisions</a></li>
-    <li><a href="#s14"><span>14</span>Parameters</a></li>
-    <li><a href="#s15"><span>15</span>30 mistakes</a></li>
-    <li><a href="#s16"><span>16</span>Backtest lock</a></li>
+    <li><a href="#evidence"><span>10</span>Where the evidence sits</a></li>
+    <li><a href="#clock"><span>11</span>The clock</a></li>
+    <li><a href="#traps"><span>12</span>Rules &amp; traps</a></li>
+    <li><a href="#mistakes"><span>13</span>Thirty mistakes</a></li>
   </ol>
 </nav>
 
 <main>
 
-<section id="super">
-  <div class="super">
-    <h3>⚠ Read before anything below — what in here is superseded</h3>
-    <p>This Bible was written in <b>May 2026</b> and the system moved underneath it. Its own
-    header carries a June-2026 supersession notice; a further contradiction was found when this
-    page was built (22 Aug 2026) and is flagged below. <b>The body text is preserved as written</b>
-    — it is the historical source of truth — but where it conflicts with the code, the code wins.</p>
-
-    <p><b>1 · Indicator gates are now pure price action.</b> Wherever the text below describes a
-    catalyst or Alpha-Score gate using RSI / ADX / MACD / BB, <b>that gate is now price-action</b>.
-    The catalyst names and the intent are unchanged; only the mechanism moved. The map:
-    RSI&gt;60/50 → <code>close&gt;close[10]&amp;[5]</code> · ADX → ≥7/14 up-bars with higher highs ·
-    weekly RSI≥60 → <code>wClose&gt;wClose[5]</code> · POS-ACCUM <code>d_rsi≤50</code> →
-    <code>close≤close[5]×1.05</code> · SWG-PB RSI pocket → 38–62% retrace · SWG-REV RSI&lt;35 →
-    prior down-structure plus a reversal bar.</p>
-
-    <p><b>2 · POS-ACCUM is NOT disabled.</b> <span class="chip stale">Contradiction</span> Three
-    places below state the POS-ACCUM catalyst is disabled on a backtest verdict of −10.04% mean
-    alpha. <b>That is no longer true.</b> There is no such gate in <code>bull_screener.py</code>,
-    and the 24-month Nifty-500 validation records POS-ACCUM as the <b>strongest catalyst</b> at
-    +3.20% matched alpha. Treat every “POS-ACCUM DISABLED” line below as historical.</p>
-
-    <p><b>3 · A structural bug was fixed after this was written.</b> The
-    <code>weinstein_setup</code> squeeze gate had silently killed the entire positional book for
-    24 months. Recovery also gained a fundamental hard gate (RFF ≥ 4) and a 15–35% drawdown band,
-    and REV-EARLY was un-blackouted.</p>
-
-    <p><b>4 · The realised-loss figure quoted here is not the system.</b> Any reference to a
-    −₹4.99L closed-trade baseline is substantially tax-loss harvesting of discretionary picks that
-    never came from this system. It has since been corrected and should not be read as a verdict
-    on the ecosystem.</p>
-  </div>
-
-  <div class="xref">
-    <b>Where the newer word lives.</b> For the current, measured position see
+<section id="what">
+  <div class="note">
+    <span class="tag">What this document is, and what it is not</span>
+    <p>This is the <b>system map</b>: what each part of the ecosystem is for, why it exists, and
+    how the parts hand work to each other. It is the document to read when you want the
+    <em>whole shape</em> in one place, or when you come back after time away.</p>
+    <p>It deliberately does <b>not</b> restate the things that have their own page and would
+    immediately drift here. For the per-trade gates read
     <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 · The Trade
-    Funnel</a> (the nine steps, kept current),
-    <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 · The Backtest
-    Court</a> (what the evidence actually says), and
+    Funnel</a>; for the clock-driven day,
+    <a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">26 · The
+    Operating Loop</a>; for what to do and not do when shortlisting,
     <a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">25 · Golden
-    Rules</a> (the standing doctrine).
+    Rules</a>; for what the evidence supports,
+    <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 · The
+    Backtest Court</a>.</p>
+  </div>
+  <div class="note stale">
+    <span class="tag">Rewritten — what the previous version got wrong</span>
+    <p>The earlier Bible described a five-phase Python-and-TradingView workflow written before
+    GM + S4 existed. That framing is retired. The system now has a <b>ten-phase overnight
+    pipeline, a timing board, a dedicated execution layer, a written pre-trade gate and a
+    reconciled journal</b> — a different machine, not a bigger version of the old one.</p>
+    <p>Three specific corrections carried over: <b>POS-ACCUM is enabled</b>, not disabled — it is
+    the strongest catalyst measured. Indicator gates (RSI, ADX, MACD) are now <b>pure price
+    action</b>. And the −₹4.99L journal figure is <b>not a verdict on the system</b> — it is
+    largely tax-loss-harvested discretionary picks.</p>
   </div>
 </section>
 
-<section id="s1">
-  <h2><span class="n">Section 1</span>System philosophy</h2>
-  <h3>Three schools, one edge</h3>
+<section id="phil">
+  <h2><span class="n">Section 1</span>Philosophy — three schools, one edge</h2>
   <p><b>Stan Weinstein — stage analysis, the primary framework.</b> Every stock is always in one
   of four stages. Stage 2 — under accumulation, trending up through its 30-week SMA — is the only
-  stage where you want to own one. Stage 1 base-building, Stage 3 topping and Stage 4 decline are
-  all avoided for long entries. The 30-week SMA is the watershed line, and stage transitions are
-  the buy and sell triggers.</p>
+  stage where you want to own one. The 30-week average is the watershed, and stage transitions are
+  the triggers. This is why <b>Stage is computed identically on three surfaces</b> and why a
+  Stage 3 or 4 reading ends the conversation.</p>
   <p><b>Mark Minervini — SEPA and the trend template, the entry filter.</b> Within Stage 2, the
-  six-MA trend template filters for the strongest names: 50 DMA &gt; 150 DMA &gt; 200 DMA, all
-  rising, price above all three. VCP breakouts and EMA pullbacks provide the low-risk entry
-  points. The Alpha Score (0–100) quantifies this numerically.</p>
-  <p><b>Wyckoff, SMC and Volume Profile — the context layer.</b> Institutional footprints — volume
-  shelf, order blocks, fair-value gaps, liquidity sweeps, POC/VAH/VAL — confirm that smart money
-  is genuinely accumulating rather than distributing. Context Layers consolidates all three into
-  a single CONTEXT SCORE from −12 to +12.</p>
+  trend template filters for the strongest names, and VCP breakouts and pullbacks give the
+  low-risk entries. The Alpha Score puts a number on it.</p>
+  <p><b>Wyckoff, SMC and Volume Profile — the context layer.</b> Institutional footprints confirm
+  that money is genuinely accumulating rather than distributing.</p>
 
   <h3>The core discipline</h3>
   <div class="note">
-    <p><b>Never trade against macro.</b> If CNX500 is in bear or the sector is Stage 3/4, no long
-    setups exist — however good the individual stock looks. <b>Macro kills more trades than any
-    technical error.</b></p>
-    <p><b>Never skip the Dashboard.</b> Python finds candidates. Pine filters on raw data. The
-    Dashboard is the final judge. No position opens without ≥ BUY and Alpha ≥ 60.</p>
-    <p><b>Always cross-check the Context Score.</b> A BUY from the Unified Ecosystem with a context
-    score below BULL is a reduced-conviction entry. Size accordingly.</p>
-    <p><b>Never size into a signal you cannot defend.</b> Know the stop before entry.</p>
+    <p><b>Never trade against macro.</b> Bear index or a Stage 3/4 sector means no long setups
+    exist, however good the stock looks. Macro kills more trades than any technical error.</p>
+    <p><b>Confirmation before entry.</b> Alert at the level, wait for a <em>closed</em> bar, then
+    act. This is the single most valuable habit in the system and the one most often skipped.</p>
+    <p><b>Know the stop before the size.</b> Size falls out of risk budget ÷ stop distance. If the
+    answer is zero, the trade does not happen.</p>
+    <p><b>An override is allowed. An uncounted override is not.</b> Write the sentence, log it.</p>
   </div>
 </section>
 
-<section id="s2">
-  <h2><span class="n">Section 2</span>Architecture and the five phases</h2>
-  <p>The system is two-sided: a <b>Python backend</b> doing discovery, watchlist generation and
-  portfolio sync, and a <b>TradingView frontend</b> doing validation and execution. The five
-  phases run in the order you touch them.</p>
-  <div class="tw"><table>
-    <thead><tr><th>Phase</th><th>When</th><th>Where</th><th>What comes out</th></tr></thead>
-    <tbody>
-      <tr><td class="k">1 · Pre-market intelligence</td><td class="num">08:30–09:00</td><td>Commander Web</td><td>Macro, VIX, FII/DII, McClellan, AI brief, sector shortlist</td></tr>
-      <tr><td class="k">2 · Discovery</td><td class="num">08:00 batch</td><td>Auto-Pilot</td><td>The four-layer pipeline → <code>FINAL_WATCHLIST.csv</code></td></tr>
-      <tr><td class="k">3 · Validation</td><td class="num">09:00–09:15</td><td>TradingView</td><td>Per-ticker screener + Dashboard go/no-go</td></tr>
-      <tr><td class="k">4 · Execution</td><td class="num">09:15 onward</td><td>Unified Ecosystem</td><td>Nine catalysts, Kelly sizing, catalyst-aware trails</td></tr>
-      <tr><td class="k">5 · Post-market</td><td class="num">16:00 onward</td><td>Commander Web</td><td>Portfolio sync, journal autopsy, snapshot archive</td></tr>
-    </tbody>
-  </table></div>
+<section id="jobs">
+  <h2><span class="n">Section 2</span>The four jobs</h2>
+  <p>Everything in the ecosystem is doing one of four jobs, and <b>most confusion comes from
+  asking a tool to do a job that belongs to another one.</b></p>
+  <div class="jobs">
+    <div class="job"><p class="w">QUALIFY</p><p class="who">The watchlists</p>
+      <p>Decide <em>which names deserve attention at all</em> — technicals plus fundamentals,
+      overnight, on the whole universe.</p></div>
+    <div class="job"><p class="w">TIME</p><p class="who">The Trigger Board</p>
+      <p>Decide <em>which of those are live right now</em>. It does not re-qualify; it watches.</p></div>
+    <div class="job"><p class="w">TRIGGER</p><p class="who">Section 4</p>
+      <p>Decide <em>whether to act on this bar</em>, and produce the plan — entry, stop, targets.</p></div>
+    <div class="job"><p class="w">MANAGE</p><p class="who">Risk Shield &amp; Pyramid</p>
+      <p>Decide <em>what happens after the fill</em> — trail, add, trim, exit.</p></div>
+  </div>
 
-  <h4>Separations to internalise</h4>
-  <div class="tw"><table>
-    <thead><tr><th>Concept</th><th>Lives in</th><th>Purpose</th></tr></thead>
-    <tbody>
-      <tr><td class="k">Watchlists</td><td><code>Generated_Watchlists/</code>, <code>FINAL_*.csv</code></td><td>Pre-validated candidates — <em>not yet entered</em></td></tr>
-      <tr><td class="k">Open positions</td><td>Dashboard slots 1–30, filled from Dhan</td><td>Stocks you actually hold, with entry, stop, date, P&amp;L</td></tr>
-      <tr><td class="k">The Score</td><td><code>bull_screener.calculate_score()</code></td><td>Drives Top-N selection; mirrored in Pine as <code>pyScore</code></td></tr>
-      <tr><td class="k">The trigger</td><td>Pine <code>*_trigger</code> booleans</td><td>What actually creates an entry</td></tr>
-    </tbody>
-  </table></div>
+  <div class="note live">
+    <span class="tag">The doctrine that makes it work — inherited qualification</span>
+    <p><b>The watchlists QUALIFY; the board TIMES.</b> A name arriving from a rigorous scan has
+    already earned its place, so the board does not re-run the screen on it — it carries its
+    source <b>archetype</b> and the board reports only its <em>timing state</em>. Fundamentals
+    rank rather than block, and a “still valid” break-down guard replaces the re-screen.</p>
+    <p>Before this, only the broad catalyst scan produced actionable output and the most rigorous
+    lists dead-ended at “no catalyst”. <b>Re-qualifying what was already qualified throws away the
+    work.</b></p>
+  </div>
 
-  <div class="note stale">
-    <span class="tag">Critical — what never goes in a portfolio slot</span>
-    <p>Slots 1–30 are <b>exclusively</b> for open positions held in Dhan. They are not for
-    watchlist candidates. Every slot metric — P&amp;L, R-multiple, days held, time-stop warnings,
-    trailed-stop alerts — only makes sense once a position is live with a real entry, stop and
-    date. <b>Put a watchlist ticker in a slot and all of them will lie to you.</b></p>
+  <div class="note live">
+    <span class="tag">The two-stage rule — deliberate, do not collapse it</span>
+    <p>The board arms <b>early</b> and Section 4 fires <b>strictly</b>. That mismatch is
+    intentional: the board's job is to narrow your attention to a handful of names, and S4's job
+    is to say whether <em>this bar</em> is the one. <b>The board arms, S4 executes.</b> Making them
+    agree would destroy the value of both.</p>
   </div>
 </section>
 
-<section id="s3">
-  <h2><span class="n">Section 3</span>Setup and configuration</h2>
-  <h4>Python environment</h4>
-  <pre>pip install flask pandas yfinance requests python-dotenv
-
-# .env in the project folder
-DHAN_CLIENT_ID=...
-DHAN_ACCESS_TOKEN=...
-PINE_SCRIPT_PATH=...\Weinstein and Swing Pro Dashboard v67.4.12.pine
-PORT=5000</pre>
-  <p><b>Token refresh.</b> Dhan tokens expire daily. Before open, confirm <code>.env</code> holds a
-  fresh <code>DHAN_ACCESS_TOKEN</code>. If Portfolio Sync throws an auth error, refresh it and
-  restart the server.</p>
-
-  <h4>TradingView — the six indicators, added once and saved to the layout</h4>
-  <ol>
-    <li><b>Dashboard v67</b> — mission control, Decision Mode 13–18 composite rows</li>
-    <li><b>Unified Ecosystem</b> — the strategy script for all catalysts, with ML score and the CATALYST DIAG panel</li>
-    <li><b>Context Layers v1.2</b> — Wyckoff + Volume Profile + SMC with the FINAL SCORE panel</li>
-    <li><b>Recovery Screener</b> — four-pillar CB, Wyckoff phases, RFF, ten gates</li>
-    <li><b>Bull Screener</b> — verdict, nine POS-BO gates, trade levels</li>
-    <li><b>Swing Zigzag [Strict]</b> — HH/HL state, longs-only, MTF confluence, invalidation and BoS lines</li>
-  </ol>
-  <div class="note stale">
-    <span class="tag">Remove these from the layout</span>
-    <p>The three legacy standalone indicators — Wyckoff Phases v1.0, Volume Profile v1.0 and
-    SMC Zones v1.0 — are <b>fully replaced</b> by Context Layers v1.2. Running both creates
-    duplicate labels and conflicting drawings.</p>
-  </div>
-  <h4>Input consistency — must match across every indicator</h4>
+<section id="own">
+  <h2><span class="n">Section 3</span>Who owns what</h2>
+  <p>Each concept has exactly <b>one owner</b>. Everything else mirrors the owner verbatim or drops
+  the duplicate from display. This is the rule that keeps three surfaces from telling you three
+  different things about the same stock.</p>
   <div class="tw"><table>
+    <thead><tr><th>Concept</th><th>Owner</th><th>Everyone else</th></tr></thead>
     <tbody>
-      <tr><td class="k">Weinstein SMA</td><td class="num">30 weeks (weekly)</td></tr>
-      <tr><td class="k">Pivot left / right</td><td class="num">2 / 2</td></tr>
-      <tr><td class="k">ATR length</td><td class="num">14</td></tr>
-      <tr><td class="k">Chandelier length</td><td class="num">22</td></tr>
+      <tr><td class="k">Weinstein stage</td><td>A stateless 2×2 — price vs the weekly 30-SMA × that average's slope</td><td>Dashboard, S4 and the board all compute it identically</td></tr>
+      <tr><td class="k">Relative strength &amp; RRG</td><td>The RRG engine, one calibration</td><td>Imported as constants — never copied</td></tr>
+      <tr><td class="k">Strict trend (HH/HL)</td><td>The Zigzag engine, ported once to Python</td><td>Screeners import it; no private copies</td></tr>
+      <tr><td class="k">The catalyst gates</td><td><code>bull_screener.py</code> — <b>Python is canonical</b></td><td>Pine surfaces are synced <em>up</em> to Python</td></tr>
+      <tr><td class="k">The PA battery</td><td><code>pa_patterns.py</code></td><td>S4 mirrors it bar-for-bar</td></tr>
+      <tr><td class="k">Stops &amp; trails</td><td><code>risk_common.py</code></td><td>Risk Shield, Pyramid and the trail job all call it</td></tr>
+      <tr><td class="k">Sector cap</td><td><code>pre_trade_gate.SECTOR_CAP_PCT</code></td><td>Imported by the board and every order surface</td></tr>
     </tbody>
   </table></div>
+  <div class="note live">
+    <span class="tag">The DNA rule</span>
+    <p><b>Zero signal drift.</b> Change a value in the owner and it must reach every consumer in
+    the same commit. Where a platform genuinely cannot match — TradingView's data-call limits, for
+    instance — the gap is <em>documented as intentional</em>, never left to be discovered.</p>
+  </div>
+</section>
+
+<section id="pipe">
+  <h2><span class="n">Section 4</span>The overnight pipeline</h2>
+  <p>One scheduled run does the qualifying. It is ten phases, and it is the reason you wake up to a
+  shortlist rather than a universe.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Phase</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td class="k num">0 · 0.5</td><td>Pre-flight cleanup and a nuclear watchlist clear, so yesterday's names cannot leak into today</td></tr>
+      <tr><td class="k num">1</td><td>Technical scanners across the universe</td></tr>
+      <tr><td class="k num">2 · 3</td><td>Fundamental fetch and processing</td></tr>
+      <tr><td class="k num">4</td><td><b>Golden Matcher</b> — conviction ranking</td></tr>
+      <tr><td class="k num">4.5</td><td>Recovery screener — RFF hard-gated, regime-aware</td></tr>
+      <tr><td class="k num">4.6</td><td>Bull screener on the matched names</td></tr>
+      <tr><td class="k num">4.7</td><td><b>Catalyst-first broad scan.</b> Exists because 4.6 only sees pre-filtered names — a funnel that narrows before it scans will starve of catalysts</td></tr>
+      <tr><td class="k num">4.75</td><td>Recovery catalyst watchlist, and the <b>Pullback Finder</b> — the where-is-value sibling a trigger board structurally cannot be</td></tr>
+      <tr><td class="k num">5 · 5.7</td><td>Watchlist build and stale-list cleanup</td></tr>
+      <tr><td class="k num">6 · 7</td><td>Sync out to Strike and TradingView</td></tr>
+      <tr><td class="k num">8 · 9</td><td>Backup, and the portfolio rotation guard</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Why there are two bull scans, not one</span>
+    <p>Phase 4.6 screens the names the matcher already narrowed to. Phase 4.7 scans <b>catalyst
+    first, across the whole universe</b>. Without it the funnel collapsed to a handful of names and
+    catalysts appeared to vanish — the scan order itself was the bug.</p>
+  </div>
+</section>
+
+<section id="board">
+  <h2><span class="n">Section 5</span>The board — timing, not qualifying</h2>
+  <p>The Trigger Board takes every qualified name and answers one question per row: <b>is this live
+  now?</b> It runs one evaluator, so the board and the single-symbol view agree by construction
+  rather than by luck.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Column</th><th>What it actually means</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Archetype</td><td>Which list qualified it — breakout, pullback, leader, recovery, catalyst-scan, at-value, or a pyramid add on something you already hold</td></tr>
+      <tr><td class="k">Category</td><td>Pure <b>timing state</b>: invalidated · wait · armed · trigger live</td></tr>
+      <tr><td class="k">S4-GO</td><td>How close it is to Section 4's execution gate, as <code>n/4</code>. A preview, not the verdict</td></tr>
+      <tr><td class="k">Overall</td><td>The ranking. Sorted descending by default</td></tr>
+      <tr><td class="k">Loc</td><td>Which location sources place it — zone, S/R, AVWAP, value area</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Two things the board does that are easy to misread</span>
+    <p><b>It refreshes on bar close</b>, not continuously — once per 75m or 125m bar, plus a settle
+    delay. A board built mid-bar shows patterns that can fade by the close, which is exactly the
+    disagreement that used to look like a bug.</p>
+    <p><b>The Armed Register persists a plan.</b> An alert firing days later still has its levels
+    even after the watchlists have churned underneath it.</p>
+  </div>
 </section>
 
 <section id="s4">
-  <h2><span class="n">Section 4</span>The context layer — load first, change never</h2>
-  <p>Before running any screener or reading any signal, load the context tools on a daily chart.
-  They generate no entry signals. They tell you <em>where you are</em> in market structure and
-  whether institutional activity supports the trade.</p>
+  <h2><span class="n">Section 6</span>Section 4 — the execution layer</h2>
+  <p>S4 owns the trigger and the final word. Its gate is four things, and the panel prints them as
+  chips so you can see which one is missing:</p>
+  <pre><b>GO  =  PA  ·  LOCATION  ·  VOLUME  ·  BAR</b>
 
-  <h3>Zigzag [Strict] — the 11-row panel</h3>
-  <div class="tw"><table>
-    <thead><tr><th>Row</th><th>What it tells you</th></tr></thead>
-    <tbody>
-      <tr><td class="k">TREND</td><td>Uptrend / downtrend / sideways — developing-aware, flips live when a BoS or CHoCH is projected</td></tr>
-      <tr><td class="k">MTF TREND</td><td>Higher-timeframe state. <b>Confluence = full conviction; conflict = counter-trend</b></td></tr>
-      <tr><td class="k">STRUCTURE</td><td><code>HH / HL</code> uptrend · <code>LH / LL</code> downtrend · <code>EH / EL</code> equal, sideways</td></tr>
-      <tr><td class="k">SWING COUNT</td><td>Swings in the current state. ≥ 3 is extended</td></tr>
-      <tr><td class="k">CHOPPINESS</td><td>Flips per 26W / 52W. ≤ 4 good · 5–8 caution · &gt; 8 avoid</td></tr>
-      <tr><td class="k">INVALIDATION</td><td><b>Latest swing low — your structural stop</b></td></tr>
-      <tr><td class="k">BOS LEVEL</td><td><b>Latest swing high — your bullish trigger.</b> Stays visible after the break as a retest reference</td></tr>
-      <tr><td class="k">VOL CONFIRM</td><td>Volume on the last up-BoS vs the 50-SMA. ≥ 1.5× confirms</td></tr>
-      <tr><td class="k">BAR AGE</td><td>Bars since the active pivot — swing maturity</td></tr>
-    </tbody>
-  </table></div>
-  <p><b>Read together:</b> an uptrend with MTF confluence, fresh bar age, healthy swing range, low
-  choppiness, and a BoS level just broken on 2× volume is the textbook setup.</p>
-
-  <h3>Context Layers — base, bonus, final</h3>
-  <pre>BASE SCORE  = Wyckoff (−4..+4) + VP (−3..+3) + SMC (−3..+3) + OB proximity (−2..+2)
-SETUP BONUS = +2 Spring/LPS · +2 Sweep+CHoCH · +1 OB retest · −1 choppy · −2 distribution
-FINAL SCORE = BASE + BONUS      range −14 to +14</pre>
-  <p><b>Why a bonus at all?</b> Without it, a confirmed Spring firing at a borderline base of 6
-  could not distinguish itself from a flat 6. The bonus tips it into STRONG BULL, making
-  conviction visible on the panel. <b>Anti-circularity is enforced by code order</b> — the setup
-  detector runs on the base score only, so a setup never sees its own bonus.</p>
-  <div class="tw"><table>
-    <thead><tr><th>Final</th><th>Band</th><th>Meaning</th></tr></thead>
-    <tbody>
-      <tr><td class="k num">≥ 9</td><td>STRONG BULL</td><td>All three modules aligned plus an active setup. Full size, 1.25× Kelly</td></tr>
-      <tr><td class="k num">4 to 8</td><td>BULL</td><td>Majority aligned. Normal size</td></tr>
-      <tr><td class="k num">−3 to +3</td><td>NEUTRAL</td><td>Mixed. Be selective, reduce 25–50%</td></tr>
-      <tr><td class="k num">−4 to −6</td><td>CAUTION</td><td>Majority bearish. No new longs</td></tr>
-      <tr><td class="k num">≤ −7</td><td>BEAR</td><td>All aligned bearish. Flat or exit</td></tr>
-    </tbody>
-  </table></div>
-  <div class="note">
-    <p><b>The rule:</b> enter only when FINAL SCORE is BULL or STRONG BULL <b>and</b> SETUP BONUS
-    ≥ 0. A negative bonus comes from distribution or chop — both are sit-out signals even while
-    the final score is still in the BULL band, because that score is stale.</p>
+PA        a pattern from the battery fired on this bar
+LOCATION  price is at a place worth buying — demand zone, S/R shelf, AVWAP, value area
+VOLUME    relative volume clears the floor
+BAR       the bar itself is not a distribution candle</pre>
+  <p>Underneath the gate sits the part that took longest to get right: <b>location</b>. A
+  leg-base-leg zone engine runs on the chart timeframe plus daily, weekly and monthly, with zones
+  ageing per timeframe and moving fresh → tested → violated; alongside it, horizontal S/R levels
+  that <em>weaken</em> as they are tested, three anchored VWAPs, and volume-profile levels.</p>
+  <div class="note live">
+    <span class="tag">The verdict is a ruling, not a readout</span>
+    <p>S4 does not just print values — it rules: <b>take it · skip · not tradeable · low quality ·
+    arm and wait</b>, naming the one gate that is missing and what to watch. A Stage 3/4 name is
+    refused outright, before any other reasoning, because a plan reasoned <em>inside</em> the wrong
+    frame is worse than no plan.</p>
   </div>
-
-  <h4>Reading the modules</h4>
-  <p><b>Wyckoff.</b> SOS +4 is the strongest bullish event and an entry trigger. Spring and LPS
-  +3 each are excellent entry zones. SC +2 is an early floor, not yet actionable. On the bear
-  side SOW and LPSY are −4 each — exit immediately; UT −3, do not chase; BC −2, tighten stops.
-  <b>Always check the <em>bars ago</em> counter</b> — an SOS from 5 bars ago is actionable, one
-  from 80 bars ago is history that still scores.</p>
-  <p><b>Volume Profile.</b> Above VAH +3, in the control zone with institutional backing. In the
-  upper value area +1, healthy. Lower value area −1, weak. Below VAL −3, the rejection zone — no
-  positional longs. Distance to POC between 0% and +5% is the ideal pullback entry.</p>
-  <p><b>SMC.</b> A bull OB below price is demand; price <em>inside</em> it is maximum confluence.
-  A clear bear OB overhead is the ideal entry environment. A liquidity sweep within 10 bars,
-  combined with a bull OB, is one of the most reliable patterns in the module.</p>
-
-  <h4>The three highest-conviction context setups</h4>
-  <div class="tw"><table>
-    <thead><tr><th>Setup</th><th>Requires</th><th>Action</th></tr></thead>
-    <tbody>
-      <tr><td class="k">OB retest + VP support</td><td>POS-AC or SWG-PB signal · bull OB at price · above VAH or near POC · Wyckoff ACCUMULATION · context ≥ BULL</td><td>Normal entry</td></tr>
-      <tr><td class="k">Spring / LPS + SMC bullish</td><td>Spring or LPS within 15 bars · SMC BULLISH · VP upper value or above · context STRONG BULL</td><td><b>Maximum conviction — full Kelly</b></td></tr>
-      <tr><td class="k">Sweep reversal + CHoCH</td><td>Sweep within 5–10 bars · last SMC event CHoCH · not below VAL</td><td>High-probability counter-move via SWG-PB or SWG-BO</td></tr>
-    </tbody>
-  </table></div>
-</section>
-
-<section id="s5">
-  <h2><span class="n">Section 5</span>Phase 1 — pre-market intelligence</h2>
-  <p><b>08:30–09:00 IST, in Commander Web.</b> Assess macro risk, track institutional flows,
-  synthesise the day's strategy.</p>
-  <ol>
-    <li><b>Global markets</b> — overnight US closes, morning Asia.</li>
-    <li><b>FII/DII</b> — institutional net flows from the previous session.</li>
-    <li><b>India VIX</b> — a spiking VIX demands smaller sizing today.</li>
-    <li><b>Breadth</b> — the McClellan oscillator. Negative favours tightening stops over fresh longs.</li>
-    <li><b>AI briefing</b> — the Gemini reporter synthesises it into one recommendation: risk-on,
-    defensive, or cash-heavy. <b>Proceed to Phase 2 only if it allows deployment.</b></li>
-  </ol>
-</section>
-
-<section id="s6">
-  <h2><span class="n">Section 6</span>Phase 2 — discovery and screening</h2>
-  <p>Evening after close, or 30–45 minutes before open. Goal: <b>500 NSE stocks down to 15–25
-  candidates.</b></p>
-
   <div class="note">
-    <span class="tag">Sector first, always</span>
-    <p>Before touching any individual stock you must know the sector landscape. Stage 2 +
-    LEADING sectors are the hunting grounds. Stage 1 is acceptable for early entries only.
-    <b>Stage 3 or 4 is a hard block</b> regardless of the individual signal. LAGGING quadrant
-    demands Alpha ≥ 80 even in Stage 2.</p>
+    <span class="tag">Read the plan off S4, not the board</span>
+    <p>S4 <b>latches the trigger bar</b>, so its entry, stop and targets are anchored to the bar
+    that actually fired. The board shows levels at <em>current</em> price. When they differ, S4 is
+    the plan of record.</p>
   </div>
-
-  <h3>The Auto-Pilot — four layers, one click</h3>
-  <div class="tw"><table>
-    <thead><tr><th>Layer</th><th>What runs</th><th>Output</th></tr></thead>
-    <tbody>
-      <tr><td class="k">1 · Scans</td><td>Hunter, Pullback, EarlyBird, StrongLeader · REV-CB, REV-RS, REV-EARLY</td><td><code>Bull_*.txt</code> / <code>Rec_*.txt</code></td></tr>
-      <tr><td class="k">2 · Conviction</td><td>Screener.in filter — only conviction <b>≥ 6.0</b> survives (profit growth, sales growth, ROE, ROCE, D/E, market cap, dividend, promoter holding)</td><td><code>FINAL_*_Picks.csv</code></td></tr>
-      <tr><td class="k">3 · Combine</td><td>Deduplicated unions plus the Golden Matcher ranking</td><td><b><code>FINAL_WATCHLIST.csv</code></b> — the single best file to load</td></tr>
-      <tr><td class="k">4 · Sync</td><td>TradingView-importable text, manual or Playwright</td><td><code>LATEST_*.txt</code></td></tr>
-    </tbody>
-  </table></div>
-  <div class="note">
-    <p><b>Run it once per day, 08:00–08:30.</b> Mid-session re-runs rarely surface new candidates
-    because the underlying data only updates end-of-day. If you must, do it after a ≥ 1% index
-    move to catch late-day catalysts.</p>
-  </div>
-
-  <h4>The catalyst codes</h4>
-  <div class="tw"><table>
-    <thead><tr><th>Code</th><th>Setup</th></tr></thead>
-    <tbody>
-      <tr><td class="k">POS-AC</td><td>Positional accumulation — OBV-confirmed base building, early Stage 2</td></tr>
-      <tr><td class="k">POS-BO</td><td>Positional breakout — nine-gate Stage 2 break above an N-bar high</td></tr>
-      <tr><td class="k">SWG-PB</td><td>Swing pullback — EMA20 pullback inside an established Stage 2 uptrend</td></tr>
-      <tr><td class="k">SWG-BO</td><td>Swing VCP breakout — tight-base break on volume</td></tr>
-      <tr><td class="k">SWG-REV</td><td>Swing reversion — oversold above the SMA200</td></tr>
-      <tr><td class="k">GAP-GO</td><td>Gap and go — 4%+ institutional gap held into the close on 3× volume</td></tr>
-      <tr><td class="k">REV-CB</td><td>Climax bottom — four-pillar confirmation. <b>The highest-conviction recovery signal</b></td></tr>
-      <tr><td class="k">REV-RS</td><td>RS survivor — RS-positive, higher lows, breaking out during a correction</td></tr>
-      <tr><td class="k">REV-EARLY</td><td>Early bird — trendline reclaim on a compressed base. Earliest detection, <b>needs extra confirmation</b></td></tr>
-    </tbody>
-  </table></div>
 </section>
 
-<section id="s7">
-  <h2><span class="n">Section 7</span>Phase 3 — validation on TradingView</h2>
-  <p>During the first 30 minutes, with the overnight Python output in hand. <b>Purpose:</b>
-  re-screen against live candle data. Python's end-of-day data misses pre-market gaps, intraday
-  volatility shifts and volume anomalies.</p>
-
-  <h3>Reading the Dashboard, row by row</h3>
-  <div class="tw"><table>
-    <thead><tr><th>Row</th><th>Pass condition</th></tr></thead>
-    <tbody>
-      <tr><td class="k">MACRO</td><td>GREEN (bull) or YELLOW (recovery). <b>Never trade RED</b></td></tr>
-      <tr><td class="k">SECTOR</td><td>Stage 1 or 2. Stage 3/4 is a hard reject</td></tr>
-      <tr><td class="k">STAGE</td><td>Stage 2 ideal; Stage 1 acceptable for early entry only</td></tr>
-      <tr><td class="k">30W SMA</td><td>Rising confirms Stage 2. Flat is transition risk. Falling is Stage 3/4</td></tr>
-      <tr><td class="k">RS vs N500</td><td>LEADING required for STRONG BUY; IMPROVING acceptable for BUY</td></tr>
-      <tr><td class="k">50 DMA</td><td>Rising with price above is strong. Flat or declining reduces size 25%</td></tr>
-      <tr><td class="k">ALPHA SCORE</td><td>≥ 60 required · ≥ 80 full size · 40–59 half size maximum</td></tr>
-      <tr><td class="k">GRADE</td><td>A or A+ act · B act reduced · C/D watch only</td></tr>
-      <tr><td class="k">CATALYST</td><td>Must match the catalyst from Python and Pine screening</td></tr>
-      <tr><td class="k">RECOMMENDATION</td><td>STRONG BUY full · BUY normal · BUY* check fundamentals · PULLBACK re-entry only · WAIT skip</td></tr>
-      <tr><td class="k">RFF LITE</td><td>2/2 confirmed · 1/2 caution · 0/2 skip unless Alpha ≥ 90</td></tr>
-      <tr><td class="k">VOL SHELF</td><td>VWMA20 &gt; VWMA50 — institutional accumulation present</td></tr>
-      <tr><td class="k">EMA PROXIMITY</td><td>Over-extended means wait. ≤ 1.5% from EMA20 is the ideal swing entry</td></tr>
-      <tr><td class="k">TIME WARN</td><td>Open ≥ 10 days (swing) or ≥ 6 weeks (positional) at &lt; 0.5R → apply the time stop</td></tr>
-    </tbody>
-  </table></div>
-
-  <h4>The decision matrix</h4>
-  <div class="tw"><table>
-    <thead><tr><th>Recommendation</th><th>Alpha</th><th>RFF</th><th>Context</th><th>Action</th></tr></thead>
-    <tbody>
-      <tr><td class="k">STRONG BUY</td><td class="num">≥ 80</td><td class="num">2/2</td><td>STRONG BULL</td><td>Full size, 1.25× Kelly</td></tr>
-      <tr><td class="k">STRONG BUY</td><td class="num">≥ 80</td><td class="num">2/2</td><td>BULL</td><td>Full size, 1.0× Kelly</td></tr>
-      <tr><td class="k">BUY</td><td class="num">60–79</td><td class="num">2/2</td><td>BULL</td><td>Normal size</td></tr>
-      <tr><td class="k">BUY</td><td class="num">60–79</td><td class="num">2/2</td><td>NEUTRAL</td><td>Half size, be selective</td></tr>
-      <tr><td class="k">BUY</td><td class="num">60–79</td><td class="num">1/2</td><td>any</td><td>Half size, alert for RFF improvement</td></tr>
-      <tr><td class="k">BUY*</td><td>any</td><td class="num">0/2</td><td>any</td><td><b>Fundamentals failed — skip</b> unless Alpha ≥ 90 with a clear catalyst</td></tr>
-      <tr><td class="k">PULLBACK</td><td>any</td><td>any</td><td>any</td><td>Re-entry on an existing position only</td></tr>
-      <tr><td class="k">WAIT</td><td>any</td><td>any</td><td>any</td><td>Hard pass</td></tr>
-    </tbody>
-  </table></div>
-</section>
-
-<section id="s7d">
-  <h2><span class="n">Section 7D</span>The confluence sequence</h2>
-  <p>The nine-step sequence is the operational heart of this Bible — macro, sector, watchlist,
-  screener, dashboard, context, structure, entry, sizing, each step's output gating the next.
-  It is one-directional: <b>if a step fails at its hard floor the candidate is dead for that day</b>,
-  and you do not make up for it with a strong reading downstream.</p>
+<section id="order">
+  <h2><span class="n">Section 7</span>Between “armed” and “ordered”</h2>
+  <p>The gap between the system saying yes and the order going in is where the most expensive
+  mistakes live. Two things sit in it.</p>
+  <h3>The written review</h3>
+  <p>One tool call reads the whole S4 panel; the reply comes back in five fixed blocks — what the
+  system says, what you want to do, the divergence, the one question, and the sentence you write
+  if you override. It never talks you <em>into</em> a trade: the chart-read has veto power, not
+  entry power.</p>
   <div class="xref">
-    <b>This sequence now has its own page, kept current.</b> Rather than duplicate it here where it
-    would drift, read
-    <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 · The Trade
-    Funnel</a> — the same nine steps with every hard floor, the confluence levels, the D&amp;S entry
-    toolkit, the trade-quality scorecard and both exit tables.
+    Full procedure on <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24
+    · The Pre-Trade Gate</a>.
+  </div>
+  <h3>Sizing and the pre-trade gate</h3>
+  <p>Size is computed from risk budget and stop distance, then a hardened gate checks the order
+  against the book before it can be placed: maximum open positions, the sector cap, per-trade risk
+  as a share of equity, and a duplicate guard. <b>Entries are gated; exits never are</b> — blocking
+  a sell is more dangerous than allowing a buy.</p>
+</section>
+
+<section id="manage">
+  <h2><span class="n">Section 8</span>Managing the position</h2>
+  <p>Every open position sits on a five-rung ladder, evaluated in priority order:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Rung</th><th>Fires when</th></tr></thead>
+    <tbody>
+      <tr><td class="k">EXIT</td><td>At the stop, deeply underwater, Stage 4, price structure broken, trail stopped out, or the time stop expired</td></tr>
+      <tr><td class="k">TRIM</td><td>Winners only — a target hit, over-extension, or earnings within days</td></tr>
+      <tr><td class="k">REDUCE</td><td>Soft deterioration — lagging rotation, below the 50-day, weak score</td></tr>
+      <tr><td class="k">ADD</td><td>Leader <b>and</b> at location — both required, and capped on extension so it cannot chase</td></tr>
+      <tr><td class="k">HOLD</td><td>Everything else</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note live">
+    <span class="tag">Two things worth internalising about exits</span>
+    <p><b>Swing or positional is decided by a ladder, not a guess</b> — declared timeframe, then the
+    setup prefix, then the risk actually taken in ATR, then the chart. The entry-fixed rungs come
+    first deliberately: a classifier that reads today's chart would rewrite the stop multiplier
+    mid-trade.</p>
+    <p><b>The trail owns roughly 88% of positional exits</b>, the initial stop about 12%. Targets
+    are near-decorative — only a small minority of trades ever reach 3R. That makes the trail the
+    least-tested lever in the system and the stop <em>not</em> the problem, despite four separate
+    studies that went looking for one.</p>
   </div>
 </section>
 
-<section id="s89">
-  <h2><span class="n">Sections 8 &amp; 9</span>Execution — bull and recovery tracks</h2>
-  <p>Six bull edges (POS-BO, POS-AC, SWG-PB, SWG-BO, SWG-REV, GAP-GO) plus three Wyckoff catalysts
-  (Spring, SOS, JAC), and three recovery edges (REV-CB, REV-RS, REV-EARLY). Each carries its own
-  entry rule, target ladder, trail type and time stop.</p>
+<section id="record">
+  <h2><span class="n">Section 9</span>The record</h2>
+  <p>A daily job reconciles the journal to the live broker book — adding holdings it is missing,
+  correcting drifted quantities, and closing positions only when there is a completing sell with an
+  authoritative price. It <b>aborts entirely</b> if the book comes back empty, because an API
+  hiccup must never read as “everything was sold”.</p>
+  <p>Every new position captures a <b>true entry snapshot</b> — setup, stage, alpha, RS, conviction
+  — so realised P&amp;L can later be attributed to the signal that caused it rather than guessed at.</p>
   <div class="xref">
-    <b>The full edge-by-edge entry rules and both exit tables</b> are on
-    <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 · The Trade
-    Funnel</a> (Step 8 and the exits section), where they are maintained against the shipped
-    script defaults rather than this document's snapshot.
+    Detail on <a href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">19 ·
+    The Performance Ledger</a>.
+  </div>
+</section>
+
+<section id="evidence">
+  <h2><span class="n">Section 10</span>Where the evidence actually sits</h2>
+  <p>This is the section to read before believing anything the system tells you, including this
+  document.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Claim</th><th>Standing</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Selection edge</td><td>Roughly <b>+0.5% to +1.0% matched alpha per trade</b>, and it survives a beta adjustment</td></tr>
+      <tr><td class="k">The median trade</td><td><b>Loses to the index.</b> This is a low-hit-rate, big-winner-carried profile — about a third of trades win</td></tr>
+      <tr><td class="k">Statistical confidence</td><td>Probability of positive true alpha hovers near <b>50%</b>, with a confidence interval straddling zero</td></tr>
+      <tr><td class="k">The GO gate</td><td>A trade <b>classifier</b>, not an entry optimiser. Do not promote it to an entry filter</td></tr>
+      <tr><td class="k">Live track record</td><td><b>None yet.</b> The journal mixes system and discretionary trades and cannot be separated retroactively</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note stale">
+    <span class="tag">Plan around this, not around the best number you have seen</span>
+    <p><b>Plan around +1%, not +5%.</b> Several headline figures in this repo's history were later
+    found to be measurement artifacts — the largest cut alpha by roughly two thirds on the same
+    trades. Sizing and drawdown tolerance matter far more than the mean implies, and
+    <b>30 positional trades logged through guided execution would tell us more than another
+    backtest.</b></p>
+  </div>
+</section>
+
+<section id="clock">
+  <h2><span class="n">Section 11</span>The clock</h2>
+  <p>What runs without you, on weekdays, IST.</p>
+  <div class="tw"><table>
+    <thead><tr><th class="num">Time</th><th>Job</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td class="k num">08:00</td><td>Token check</td><td>Broker auth, before anything needs it</td></tr>
+      <tr><td class="k num">08:30</td><td>Pre-market report</td><td>Macro, flows, breadth</td></tr>
+      <tr><td class="k num">09:00–15:45</td><td>Every 15 min</td><td>Price alerts · stale-feed watchdog · daily P&amp;L alarm</td></tr>
+      <tr><td class="k num">15:45</td><td>Trail job</td><td>Tighten-only stop trail at the broker <em>(currently disarmed by choice)</em></td></tr>
+      <tr><td class="k num">16:00</td><td>Exit scan</td><td>Stop hits and stage decay, pushed as alerts</td></tr>
+      <tr><td class="k num">16:30</td><td><b>Auto-pilot</b></td><td>The ten-phase pipeline — tomorrow's shortlist</td></tr>
+      <tr><td class="k num">16:30</td><td><b>Journal sync</b></td><td>Reconcile the journal to the broker book</td></tr>
+      <tr><td class="k num">16:45</td><td>Breadth update</td><td>—</td></tr>
+      <tr><td class="k num">Sun 19:00</td><td>Weekly report</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">The one step that still needs you</span>
+    <p><b>The evening arm-and-alert ritual.</b> Rebuild the board, arm what deserves attention, and
+    create the alerts fresh — both timeframes. The watchlist name carries the date, so yesterday's
+    alert does not cover today's list.</p>
+  </div>
+</section>
+
+<section id="traps">
+  <h2><span class="n">Section 12</span>Standing rules and traps</h2>
+  <div class="note stale">
+    <span class="tag">A recompile destroys your alerts</span>
+    <p>Alerts bind to the compiled script. Recompiling S4 does not stale them — <b>it deletes
+    them.</b> Recreating every GO alert after every compile is mandatory, not housekeeping.</p>
   </div>
   <div class="note stale">
-    <span class="tag">Known documentation lag</span>
-    <p>The exit tables in this Bible show <b>legacy</b> values (POS-BO Chandelier 3.0×, swing
-    EMA20 trail, 2.5R/3.5R at 50%). Later revisions widened these — Chandelier 4.5×, swing SMA50
-    trail, 3R/5R at 33% — but the body tables were never updated. <b>Trust the input defaults in
-    your loaded script.</b> Exits are automated, not entered by hand.</p>
+    <span class="tag">Source bindings are positional and are dropped on recompile</span>
+    <p>S4 reads values from the dashboard by input source, which binds by <em>position</em>. Any
+    recompile drops all of them, and an unbound source silently reads price rather than erroring.
+    Re-run the binding script after every compile.</p>
   </div>
-</section>
-
-<section id="s10">
-  <h2><span class="n">Section 10</span>Position sizing</h2>
-  <p>Size is computed, never estimated. <b>Know the stop before entry</b> — the position size falls
-  out of the risk budget and the stop distance, and if the answer is zero the trade does not
-  happen.</p>
-  <div class="xref">
-    The full sizing table — risk percentages, the ATR fallback ladder, Kelly multiplier, volatility
-    and regime discounts, the 25% sector cap and the six-position limit — is Step 9 on
-    <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 · The Trade
-    Funnel</a>.
-  </div>
-</section>
-
-<section id="s11">
-  <h2><span class="n">Section 11</span>Trade management</h2>
-
-  <h3>Adding to winners</h3>
-  <p>Add a second lot <b>only</b> when all five hold:</p>
-  <ol>
-    <li>The first lot is ≥ 1R in profit and the breakeven lock is active</li>
-    <li>Alpha Score has not declined since entry</li>
-    <li>Vol shelf is still confirmed</li>
-    <li>Context score is still BULL or STRONG BULL</li>
-    <li>A genuinely new lower-risk entry exists — an EMA20 pullback or a fresh mini-VCP break</li>
-  </ol>
-  <p>Pyramid lot is <b>50% of the initial lot</b>. Never exceed 10% of capital in one name.</p>
-
-  <h3>Trailing stops</h3>
-  <p><b>Chandelier trail, positional.</b> After T1 the breakeven lock is active and the trail keeps
-  rising with price. The step-line is plotted on the chart — <b>never manually override it
-  downward</b>. Stage 4 is an immediate full close; do not wait for the trail.</p>
-  <p><b>EMA20 ratchet, swing.</b> The stop rises each bar to the greater of the current stop and
-  the EMA20 less the buffer. <b>Kill switch:</b> a close below the SMA50 exits immediately
-  regardless of where the trail sits.</p>
-
-  <h3>Gap-downs against the position</h3>
-  <div class="tw"><table>
-    <tbody>
-      <tr><td class="k">Below the stop</td><td><b>Exit at market on open.</b> Do not wait for a recovery</td></tr>
-      <tr><td class="k">Above but close to it</td><td>Check Context Layers. If Wyckoff reads ACCUMULATION and a new SC or Spring is forming, hold with the stop intact. Otherwise exit before it violates</td></tr>
-      <tr><td class="k">Always</td><td><b>Never average down on a loss. The initial stop is sacrosanct</b></td></tr>
-    </tbody>
-  </table></div>
-
-  <h3>The time-stop protocol</h3>
-  <ol>
-    <li>Is there a <em>structural</em> reason for the stagnation — sector underperformance,
-    earnings blackout, broad weakness? If the thesis is intact and the cause is macro,
-    <b>one extension of 5 days is permitted</b>.</li>
-    <li>No macro reason, or the extension also produced nothing → exit.</li>
-    <li>Log it as time-stopped, and review whether the setup was ambiguous or the catalyst weak.</li>
-  </ol>
   <div class="note">
-    <p><b>SWG-REV is the exception</b> — its time stop is 5 days, not 10. If mean reversion has not
-    happened in 5 days the setup has failed. Exit regardless of everything else.</p>
-  </div>
-</section>
-
-<section id="s12">
-  <h2><span class="n">Section 12</span>Phase 5 — post-market</h2>
-  <h4>After entry</h4>
-  <ol>
-    <li>Note the active catalyst label on the chart — <b>this locks in the trail type</b> for the trade.</li>
-    <li>Set three alerts: T1 (partial exit), initial stop (exit reminder), and 90% of the time-stop date.</li>
-    <li>Run Portfolio Sync to inject the position into the Dashboard.</li>
-  </ol>
-  <h4>After exit</h4>
-  <p>Clear or overwrite the portfolio slot, then re-run Portfolio Sync.</p>
-  <h4>Weekly review, Sunday evening</h4>
-  <ol>
-    <li>Portfolio Sync to snapshot week-end positions</li>
-    <li>Sector Dashboard — note stage transitions</li>
-    <li>Bull Screener — are current holdings still top-quartile by Alpha?</li>
-    <li>Recovery Screener — has any recovery position reached Stage 2 and earned promotion to the bull track?</li>
-    <li>Update stops the Chandelier moved during the week</li>
-    <li><b>If the recent win rate dropped below 40%, cut to 0.75× Kelly until it recovers</b></li>
-    <li>Load Context Layers on every holding — anything at CAUTION gets its trail tightened by half</li>
-  </ol>
-</section>
-
-<section id="s13">
-  <h2><span class="n">Section 13</span>Intraday quick-decision reference</h2>
-  <div class="tw"><table>
-    <thead><tr><th>Situation</th><th>Action</th></tr></thead>
-    <tbody>
-      <tr><td class="k">POS-BO trigger, Alpha ≥ 80, vol shelf, STRONG BULL</td><td>Buy-stop above the 20-bar high + 0.25%</td></tr>
-      <tr><td class="k">POS-BO on thin volume (&lt; 1.5×)</td><td><b>Wait</b> for next day's open to confirm volume</td></tr>
-      <tr><td class="k">POS-AC in base, OBV rising</td><td>Limit 0.25% below close</td></tr>
-      <tr><td class="k">SWG-PB fired, EMA proximity ≤ 1.5%</td><td>Limit 0.25% below close</td></tr>
-      <tr><td class="k">SWG-PB but over-extended</td><td><b>Do not enter.</b> Set an alert at the EMA20</td></tr>
-      <tr><td class="k">GAP-GO gap day</td><td>Wait until 11:30. Enter above the first-candle high</td></tr>
-      <tr><td class="k">GAP-GO fading immediately</td><td>Skip — gap fill in progress</td></tr>
-      <tr><td class="k">REV-CB, all four pillars</td><td>Enter next bar open after the turn bar</td></tr>
-      <tr><td class="k">REV-CB, 3 of 4 pillars</td><td>Wait for P4. Set an alert</td></tr>
-      <tr><td class="k">Context drops to CAUTION mid-hold</td><td>Tighten stop to the trail level − 0.5× ATR</td></tr>
-      <tr><td class="k">SMC trend flips bearish on an open position</td><td>Raise the stop to breakeven immediately</td></tr>
-      <tr><td class="k">Macro turns bear mid-trade</td><td><b>Exit all non-recovery positional trades immediately</b></td></tr>
-      <tr><td class="k">Sector drops to Stage 3</td><td><b>Exit all positions in that sector</b></td></tr>
-    </tbody>
-  </table></div>
-</section>
-
-<section id="s14">
-  <h2><span class="n">Section 14</span>Parameter master table</h2>
-  <div class="note stale">
-    <span class="tag">Version numbers below are a May-2026 snapshot</span>
-    <p>Module versions have moved on considerably. The <b>cross-surface invariant</b> is the part
-    that still binds; the specific version strings do not.</p>
+    <span class="tag">Pine has four ceilings, and only three announce themselves</span>
+    <p>Compiled tokens, main-body statements, plot outputs — and <b>execution time</b>, which only
+    shows up as a timeout on a live chart. A library relieves the first; nothing relieves the last
+    but doing less work per bar.</p>
   </div>
   <div class="note live">
-    <span class="tag">The invariant that still holds</span>
-    <p>Whenever a scan parameter changes in Python, <b>the same value must be applied to every
-    Pine surface that consumes it</b> — Bull Screener, Unified Ecosystem, Dashboard.
-    <b>Zero signal drift between Python and Pine is the DNA-level rule.</b></p>
+    <span class="tag">How to read any result</span>
+    <p><b>Split by catalyst family before concluding anything.</b> Pooling has produced a false
+    conclusion three separate times here. Measure stops and sizing in <b>R</b>, never per-trade
+    percent — a percentage metric structurally rewards a wider stop and has already inverted one
+    reported conclusion. And never judge a positional or recovery setup on a short window.</p>
   </div>
-  <h4>General parameters</h4>
-  <div class="tw"><table>
-    <tbody>
-      <tr><td class="k">Weinstein SMA, weekly</td><td class="num">30</td></tr>
-      <tr><td class="k">30W slope lookback</td><td class="num">4 weeks</td></tr>
-      <tr><td class="k">RS level period</td><td class="num">52 weeks</td></tr>
-      <tr><td class="k">RS slope, canonical</td><td class="num">26 weeks + 8w window</td></tr>
-      <tr><td class="k">Matcher min conviction</td><td class="num">6.0</td></tr>
-      <tr><td class="k">Benchmark</td><td class="num">^CRSLDX — Nifty 500</td></tr>
-    </tbody>
-  </table></div>
 </section>
 
-<section id="s15">
-  <h2><span class="n">Section 15</span>Thirty common mistakes, by stage</h2>
-  <p>The most durable section in this document — none of these has been superseded.</p>
+<section id="mistakes">
+  <h2><span class="n">Section 13</span>Thirty common mistakes</h2>
+  <p>The most durable section in the original Bible. Nothing here has been superseded — the tools
+  changed, these did not.</p>
 
-  <h4>At the Python discovery stage</h4>
+  <h4>Discovery</h4>
   <ol class="mistakes">
-    <li><span><b>Skipping the Sector Dashboard.</b> Screening without first checking which sectors are Stage 3/4 fills your shortlist with names you will be forced to discard later. Sector first, always.</span></li>
-    <li><span><b>Setting min Alpha too low.</b> At 40–50 the screener floods you with marginal setups. Floor is 60; raise to 70 in extended bull markets.</span></li>
-    <li><span><b>Disabling the regime gate on Recovery.</b> Not optional. In strong bull markets, “recovery” setups are usually just normal pullbacks.</span></li>
-    <li><span><b>Running scans on a stale Dhan token.</b> Portfolio Sync fails silently.</span></li>
-    <li><span><b>Not exporting the shortlist.</b> Without the CSV you lose scores, stops and targets by the time you reach Pine.</span></li>
+    <li><span><b>Skipping the sector read.</b> Screening without knowing which sectors are Stage 3/4 fills the shortlist with names you must later discard.</span></li>
+    <li><span><b>Setting the quality floor too low.</b> It floods you with marginal setups.</span></li>
+    <li><span><b>Disabling the recovery regime gate.</b> In a strong bull market, “recovery” setups are usually ordinary pullbacks.</span></li>
+    <li><span><b>Running on a stale broker token.</b> The sync fails silently.</span></li>
+    <li><span><b>Not keeping the shortlist.</b> You lose the scores, stops and targets by the time you reach the chart.</span></li>
   </ol>
 
-  <h4>At the Pine re-screening stage</h4>
-  <ol class="mistakes" start="6" style="counter-reset:m 5">
-    <li><span><b>Confusing the catalyst names.</b> POS-AC was POS-ACCUM; GAP-GO was SWG-GAP. Map them before the Pine step.</span></li>
-    <li><span><b>Not checking live volume on a POS-BO.</b> A breakout on below-average volume is a trap, and Python only sees end-of-day volume.</span></li>
-    <li><span><b>Entering GAP-GO before 11:30.</b> Gap openings are often reversed in the first hour. The rule is <em>above the first-candle high</em>, after volume confirms.</span></li>
-    <li><span><b>Taking REV-EARLY standalone.</b> The highest-risk recovery edge. It needs Context Layers to confirm accumulation and a context score ≥ neutral.</span></li>
-    <li><span><b>Ignoring the SWG-REV 5-day limit.</b> Mean-reversion trades that fail to revert quickly become trend-following losers.</span></li>
+  <h4>Screening</h4>
+  <ol class="mistakes" style="counter-reset:m 5">
+    <li><span><b>Confusing catalyst names across surfaces.</b> Map them before comparing.</span></li>
+    <li><span><b>Not checking live volume on a breakout.</b> A breakout on below-average volume is a trap, and overnight data only sees the close.</span></li>
+    <li><span><b>Entering a gap trade too early.</b> Gap openings are often reversed in the first hour; the rule is above the first-candle high, after volume confirms.</span></li>
+    <li><span><b>Taking the earliest recovery signal standalone.</b> It is the highest-risk edge and needs context confirmation.</span></li>
+    <li><span><b>Ignoring a short time limit on a mean-reversion trade.</b> One that fails to revert quickly becomes a trend-following loser.</span></li>
   </ol>
 
-  <h4>At the Dashboard stage</h4>
-  <ol class="mistakes" start="11" style="counter-reset:m 10">
-    <li><span><b>Acting on BUY* without checking fundamentals.</b> The asterisk means the technical fired but both RFF conditions failed. Most BUY* signals should be skipped.</span></li>
-    <li><span><b>Leaving Quick Check values populated.</b> They override the portfolio slot for that ticker. Reset both to zero after use.</span></li>
-    <li><span><b>Not cross-checking the context score.</b> A Dashboard BUY at CAUTION is not a valid entry. At NEUTRAL it gets 50% size at most.</span></li>
-    <li><span><b>Trusting a BUY in a Stage 3 sector.</b> The SECTOR row is authoritative — never override it.</span></li>
-    <li><span><b>Treating IMPROVING as equivalent to LEADING.</b> Improving means the stock is <em>still underperforming</em>, just less badly. It is a watch condition, not a full-conviction buy.</span></li>
+  <h4>Validation</h4>
+  <ol class="mistakes" style="counter-reset:m 10">
+    <li><span><b>Acting on a fundamentals-failed signal.</b> Most should be skipped.</span></li>
+    <li><span><b>Leaving override fields populated.</b> They mask the real position data for that ticker.</span></li>
+    <li><span><b>Not cross-checking context.</b> A buy signal in cautionary context is not a valid entry.</span></li>
+    <li><span><b>Trusting a buy in a Stage 3 sector.</b> The sector reading is authoritative — never override it.</span></li>
+    <li><span><b>Treating “improving” as “leading”.</b> Improving means <em>still underperforming</em>, just less badly. A watch condition, not a full-conviction buy.</span></li>
   </ol>
 
-  <h4>At the Context Layers stage</h4>
-  <ol class="mistakes" start="16" style="counter-reset:m 15">
-    <li><span><b>Running Context Layers alongside the three original modules.</b> It replaces them. Running all four creates duplicate labels, doubled FVG boxes and conflicting VP lines.</span></li>
-    <li><span><b>Over-relying on a stale Wyckoff event.</b> LAST EVENT persists until replaced — an SOS from 60 bars ago still scores +4. Events older than 30 bars are context, not triggers.</span></li>
-    <li><span><b>Misreading a downward liquidity sweep as a short trigger.</b> If you are long and SMC trend is still bullish, it is often continuation — the market took liquidity to fuel the next leg. React only if a bearish CHoCH follows.</span></li>
-    <li><span><b>Using a 100-bar VP lookback on weekly charts.</b> That is nearly two years; the profile becomes too diffuse. Use 52 on weekly.</span></li>
+  <h4>Context</h4>
+  <ol class="mistakes" style="counter-reset:m 15">
+    <li><span><b>Running the context layer alongside the modules it replaces.</b> Duplicate labels and conflicting drawings.</span></li>
+    <li><span><b>Over-relying on a stale Wyckoff event.</b> It persists until replaced and still scores. Check how many bars ago; older than about thirty is history, not a trigger.</span></li>
+    <li><span><b>Misreading a liquidity sweep as a reversal.</b> If you are long and the trend is intact, it is often continuation — the market took liquidity to fuel the next leg.</span></li>
+    <li><span><b>Using a daily-length volume-profile lookback on weekly charts.</b> The profile becomes too diffuse to mean anything.</span></li>
   </ol>
 
-  <h4>At the execution stage</h4>
-  <ol class="mistakes" start="20" style="counter-reset:m 19">
-    <li><span><b>Chasing a POS-BO more than 3% extended.</b> Past that the risk/reward has deteriorated. Wait for the first pullback to the breakout level.</span></li>
-    <li><span><b>Not moving to breakeven after T1.</b> Handled automatically — do not override or delete the breakeven floor.</span></li>
-    <li><span><b>Pyramiding before 1R.</b> Adding before the first lot works is averaging up before the thesis is validated.</span></li>
-    <li><span><b>Using SWG-BO without VCP tight.</b> Without the squeeze you are entering a loose, high-risk breakout.</span></li>
+  <h4>Execution</h4>
+  <ol class="mistakes" style="counter-reset:m 19">
+    <li><span><b>Chasing an extended breakout.</b> Past a few percent above the level the reward has gone. Wait for the first pullback.</span></li>
+    <li><span><b>Overriding the breakeven lock.</b> It exists so a runner cannot become a loss.</span></li>
+    <li><span><b>Adding before the first lot works.</b> That is averaging up before the thesis is validated.</span></li>
+    <li><span><b>Taking a breakout without the volatility squeeze.</b> Without it you are entering a loose, high-risk break.</span></li>
   </ol>
 
-  <h4>At the recovery stage</h4>
-  <ol class="mistakes" start="24" style="counter-reset:m 23">
-    <li><span><b>Applying the old 25% drawdown threshold.</b> The gate is drawdown from the 60-bar high with all four pillars, not 25% from the 52-week high.</span></li>
-    <li><span><b>Trading REV-CB in BEAR context.</b> A stock in full bear context is not recovering, it is breaking down further.</span></li>
-    <li><span><b>Holding recovery trades through a macro reversal.</b> If CNX500 falls through the regime gate, exit <em>all</em> recovery positions. No exceptions.</span></li>
-    <li><span><b>Setting the stop above the climax bar's low.</b> That low is the invalidation point for the entire recovery thesis.</span></li>
+  <h4>Recovery</h4>
+  <ol class="mistakes" style="counter-reset:m 23">
+    <li><span><b>Using an outdated drawdown threshold.</b> The gate is a band off the recent high with all pillars present, not a single deep number.</span></li>
+    <li><span><b>Trading a recovery setup in bearish context.</b> That stock is not recovering, it is still breaking down.</span></li>
+    <li><span><b>Holding recovery trades through a macro reversal.</b> The regime <em>is</em> the thesis — when it breaks, exit all of them.</span></li>
+    <li><span><b>Placing the stop above the climax low.</b> That low is the invalidation point for the whole thesis.</span></li>
   </ol>
 
-  <h4>At the portfolio stage</h4>
-  <ol class="mistakes" start="28" style="counter-reset:m 27">
-    <li><span><b>Not syncing entry dates.</b> Without the date, the days-held counter and time-stop warning cannot function.</span></li>
-    <li><span><b>Exceeding the 25% sector cap.</b> When a sector runs there is a natural pull to load up on it. Sector rotations reverse violently and concentration makes the drawdown severe.</span></li>
-    <li><span><b>Forgetting to re-sync after moving a stop.</b> Portfolio Sync will overwrite your manual value with the last broker-fetched one. Update at the broker first.</span></li>
+  <h4>Portfolio</h4>
+  <ol class="mistakes" style="counter-reset:m 27">
+    <li><span><b>Not recording entry dates.</b> Without them the days-held counter and time stop cannot function.</span></li>
+    <li><span><b>Exceeding the sector cap.</b> When a sector runs there is a natural pull to load up. Rotations reverse violently and concentration makes the drawdown severe.</span></li>
+    <li><span><b>Moving a stop locally and not at the broker.</b> The next sync overwrites your change with the broker's value. <b>Update at the broker first.</b></span></li>
   </ol>
-</section>
-
-<section id="s16">
-  <h2><span class="n">Section 16</span>The backtest lock</h2>
-  <p>This section documented the evidence behind the locked parameters — the two validators, the
-  spec, the ablation that promoted exactly one of five candidate fixes, and the baseline-drift
-  investigation.</p>
-  <div class="xref">
-    <b>Superseded in full by a dedicated page.</b> The measurement conventions here have since been
-    corrected twice — most importantly the matched-horizon fix, which cut headline alpha by roughly
-    two thirds and turned the median negative. Read
-    <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 · The Backtest
-    Court</a> for how a verdict is now reached, the six gates a result must clear, and the four
-    mistakes that produced confident wrong answers.
-  </div>
 </section>
 
 </main>
@@ -763,6 +589,6 @@ FINAL SCORE = BASE + BONUS      range −14 to +14</pre>
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/Weinstein_Minervini_Trading_Bible.md · v6.0, 22 May 2026</span>
+  <span>The Commander Bible · the system map · rewritten 22 Aug 2026</span>
   <span><a href="https://claude.ai/code/artifact/f5f003c2-b569-4cd5-b315-966ebb53d247">← The Commander Library</a></span>
 </div></footer>

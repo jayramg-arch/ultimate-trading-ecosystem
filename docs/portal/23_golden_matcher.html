@@ -1,0 +1,570 @@
+<title>The Golden Matcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@500;700;800&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+
+<style>
+/* A cockpit, not an essay: one signal hue, and green/amber/red left free to
+   carry actual state rather than decoration. */
+:root{
+  --ground:#F0F1F4; --surface:#FFFFFF; --surface-2:#F7F8FB; --surface-3:#EAECF2;
+  --ink:#111320; --ink-2:#383D52; --muted:#666C82; --faint:#979DB2;
+  --rule:#D8DBE5; --rule-soft:#E7E9F1;
+  --acc:#5B4BD6; --acc-bg:#ECEAFB; --acc-rule:#BDB5EE;
+  --go:#0F7A52; --go-bg:#E2F1EA; --go-rule:#9AC9B4;
+  --arm:#9A5B00; --arm-bg:#FBF0DE; --arm-rule:#DFBB80;
+  --bad:#A8342A; --bad-bg:#FAE9E7; --bad-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Manrope','Helvetica Neue',Arial,sans-serif;
+  --body:'Source Sans 3','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1017; --surface:#15171F; --surface-2:#1A1D27; --surface-3:#212430;
+    --ink:#E9EBF2; --ink-2:#C0C5D6; --muted:#8B92A8; --faint:#666C80;
+    --rule:#272B38; --rule-soft:#1F222D;
+    --acc:#9A8CFF; --acc-bg:#1D1938; --acc-rule:#413A78;
+    --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+    --arm:#E0A020; --arm-bg:#332608; --arm-rule:#6A4E14;
+    --bad:#EF6E60; --bad-bg:#331A17; --bad-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1017; --surface:#15171F; --surface-2:#1A1D27; --surface-3:#212430;
+  --ink:#E9EBF2; --ink-2:#C0C5D6; --muted:#8B92A8; --faint:#666C80;
+  --rule:#272B38; --rule-soft:#1F222D;
+  --acc:#9A8CFF; --acc-bg:#1D1938; --acc-rule:#413A78;
+  --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+  --arm:#E0A020; --arm-bg:#332608; --arm-rule:#6A4E14;
+  --bad:#EF6E60; --bad-bg:#331A17; --bad-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.8vw,60px);line-height:1.02;
+  letter-spacing:-.032em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--rule);background:var(--surface-2);border-radius:3px;
+  padding:16px 19px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.9;
+  min-width:216px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:9px}
+.stamp b{color:var(--ink);font-weight:600}
+
+.cols{display:grid;grid-template-columns:204px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.026em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.016em;margin:30px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap;font-weight:600}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.hard{background:var(--bad-bg);color:var(--ink);font-weight:600}
+td.soft{background:var(--surface-2)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.warn{border-left-color:var(--bad);background:var(--bad-bg);border-color:var(--bad-rule)}
+.note.good{border-left-color:var(--go);background:var(--go-bg);border-color:var(--go-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.warn .tag{color:var(--bad)} .note.good .tag{color:var(--go)}
+.note p:last-child{margin-bottom:0}
+
+/* the two surfaces */
+.surfaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:0 0 20px}
+.surf{border:1px solid var(--rule);border-radius:3px;background:var(--surface);padding:19px 21px}
+.surf .w{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--acc);margin:0 0 9px}
+.surf h3{margin:0 0 8px;font-size:20px}
+.surf p{font-size:15px;margin:0}
+
+/* the glyph legend — the single most misread cell on the board */
+.glyphs{border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--surface);
+  margin:0 0 18px}
+.gly{display:grid;grid-template-columns:88px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
+.gly:last-child{border-bottom:none}
+.gly .sym{font-family:var(--mono);font-size:15px;font-weight:700;display:flex;align-items:center;
+  justify-content:center;border-right:1px solid var(--rule-soft);background:var(--surface-2);
+  padding:14px 8px}
+.gly.pos .sym{color:var(--go);background:var(--go-bg)}
+.gly.neg .sym{color:var(--bad);background:var(--bad-bg)}
+.gly.neu .sym{color:var(--arm);background:var(--arm-bg)}
+.gly .bd{padding:13px 17px}
+.gly .nm{font-weight:700;font-size:15px;margin:0 0 3px;color:var(--ink)}
+.gly p{font-size:14.5px;margin:0;color:var(--ink-2);max-width:66ch}
+
+.steps{counter-reset:s;list-style:none;padding:0;margin:0 0 18px;max-width:none}
+.steps li{counter-increment:s;display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;
+  padding:13px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
+.steps li:last-child{border-bottom:none}
+.steps li::before{content:counter(s);font-family:var(--mono);font-size:12px;font-weight:700;
+  color:var(--acc);padding-top:3px}
+.steps b{color:var(--ink)}
+
+.pill{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid;white-space:nowrap}
+.pill.h{color:var(--bad);background:var(--bad-bg);border-color:var(--bad-rule)}
+.pill.s{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .gly{grid-template-columns:64px minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 23 · The live system</p>
+      <h1>The Golden Matcher</h1>
+      <p class="dek">The upstream half of the trading system: a board that tells you which of
+      ~50 names deserve attention right now, and a single-symbol path that tells you which gate a
+      name is standing at. <b>It identifies. Section 4 triggers.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The one rule</div>
+      Never buy the <b>touch</b>.<br>
+      Buy the <b>buy-stop</b> above a<br>
+      <b>closed</b> trigger bar.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>The doctrine</p>
+  <ol>
+    <li><a href="#two">Two surfaces</a></li>
+    <li><a href="#inherit">Inherited qualification</a></li>
+  </ol>
+  <p>The board</p>
+  <ol>
+    <li><a href="#cols">The columns</a></li>
+    <li><a href="#s4go">S4-GO grammar</a></li>
+    <li><a href="#cadence">Refresh cadence</a></li>
+    <li><a href="#armed">The Armed Register</a></li>
+    <li><a href="#pullback">The Pullback Finder</a></li>
+  </ol>
+  <p>Single symbol</p>
+  <ol>
+    <li><a href="#path">The six-step path</a></li>
+    <li><a href="#gates">Gates &amp; thresholds</a></li>
+    <li><a href="#exec">The guided execution</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#walk">The walkthrough</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="two">
+  <h2><span class="n">01</span>Two surfaces, one engine</h2>
+  <div class="surfaces">
+    <div class="surf"><p class="w">Where the day is spent</p><h3>The Trigger Board</h3>
+      <p>Answers <em>which of ~50 should I even look at</em>. One row per qualified name, sorted
+      by how close it is to firing.</p></div>
+    <div class="surf"><p class="w">When a name earns a look</p><h3>Single Symbol</h3>
+      <p>Answers <em>is this one a buy, and what is my next physical action</em>. A gated six-step
+      path with a verdict at the top.</p></div>
+  </div>
+  <div class="note good">
+    <span class="tag">They agree by construction, not by luck</span>
+    <p>Both surfaces call <b>one evaluator</b>. When they disagreed in the past it was never two
+    engines drifting — it was a symbol-normalisation slip, a different timeframe, or one view
+    holding fresher data than the other. All three are now closed, and both views share a single
+    Refresh.</p>
+  </div>
+  <p><b>Put the board on the second monitor and keep TradingView on the primary.</b> The board
+  narrows; the chart decides. After any code change, restart the app — a browser reload does not
+  reload Python.</p>
+</section>
+
+<section id="inherit">
+  <h2><span class="n">02</span>Inherited qualification</h2>
+  <p class="dek" style="font-size:19px;border-left:2px solid var(--acc);padding-left:18px;margin:0 0 18px">
+  <b>The watchlists QUALIFY. The board TIMES.</b></p>
+  <p>A name arriving from a rigorous overnight scan has <em>already</em> been qualified on
+  technicals and fundamentals. Re-running that screen on the board throws the work away — and it
+  did exactly that: only the broad catalyst scan produced actionable output, while the most
+  rigorous lists dead-ended at “no catalyst” or “weak fundamentals”.</p>
+  <p>So each name carries the <b>archetype</b> of the list that qualified it — breakout, pullback,
+  leader, catalyst-scan, at-value, recovery, or a pyramid add on something already held — and the
+  board reports only its <b>timing state</b>. Three consequences:</p>
+  <ul>
+    <li>Context and quality stop being vetoes and become a <b>still-valid guard</b>: a name is
+    invalidated only on an <em>observed</em> break-down — Stage 3/4, or price below the 30-week
+    average. <b>Missing data never invalidates</b>; only an observed break does.</li>
+    <li><b>Fundamentals rank rather than block.</b> This is what unblocked the recovery side, whose
+    fast-mode fundamental read was rejecting everything.</li>
+    <li>The inherited archetype <em>is</em> the setup, so no live catalyst is required.</li>
+  </ul>
+  <div class="note">
+    <span class="tag">The exception that keeps it honest</span>
+    <p>A name qualified <b>only</b> by the broad catalyst scan still needs a live catalyst or a
+    fired pattern — otherwise it reads <code>catalyst expired</code>. A snapshot-based archetype
+    should not outlive the snapshot that produced it.</p>
+  </div>
+</section>
+
+<section id="cols">
+  <h2><span class="n">03</span>The columns that decide</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Column</th><th>Read it as</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Category</td><td>Stage-1 <b>arm</b> state — <code>Buy Trigger Live</code> · <code>Armed Wait</code> · <code>Wait for Pullback</code> · <code>Invalidated</code> · <code>Watchlist</code>. Pure timing, no quality</td></tr>
+      <tr><td class="k">S4-GO</td><td>Stage-2 preview — how many of Section 4's four gates pass now. <b>Sort by this</b></td></tr>
+      <tr><td class="k">Archetype</td><td>The inherited thesis. Multi-archetype names show all of them</td></tr>
+      <tr><td class="k">Overall</td><td>0–100 opportunity score, independent of category and path</td></tr>
+      <tr><td class="k">Room</td><td>Distance to the <b>first obstacle overhead</b>, in R. <b>Blank means unknown, never clear</b></td></tr>
+      <tr><td class="k">Armed</td><td>The bell checkbox, plus how long it has been armed and at what trigger</td></tr>
+      <tr><td class="k">Pos</td><td>On pyramid rows: what you already hold, and the add's plan</td></tr>
+      <tr><td class="k">Entry · SL · T1 · R:R</td><td>The live plan, recomputed this rebuild</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Defaults the board opens with</span>
+    <p>Sorted <b>Overall descending</b> and filtered to <b>all-gates 4/4</b>. Both live in one
+    shared filter definition, so the streaming grid, the static table and the CSV download cannot
+    disagree about what you are looking at — and the header states how many rows are hidden, so an
+    empty-looking board is never mistaken for a failed build.</p>
+  </div>
+</section>
+
+<section id="s4go">
+  <h2><span class="n">04</span>S4-GO — the complete grammar</h2>
+  <p>This is the single most-read cell on the board, and it carries seven kinds of suffix. Two of
+  them look superficially alike and mean opposite things. <b>Read the glyph, not the letter.</b></p>
+
+  <h4>The stem — the gate count, which is what the column sorts on</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Stem</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="m">4/4 GO</td><td>All four gates align <b>on the live bar</b></td></tr>
+      <tr><td class="m">4/4 · PA Nb</td><td>The other three are true now; the pattern fired <b>N bars ago</b> (≤3). Still actionable — but the entry anchors to the <b>bar that fired</b>, which is exactly what Section 4's latch does</td></tr>
+      <tr><td class="m">3/4 · no vol</td><td>Armed, at a location, clean bar — waiting on volume</td></tr>
+      <tr><td class="m">3/4 · no PA</td><td>Location, volume and bar are fine; no pattern</td></tr>
+      <tr><td class="m">2/4 · no loc</td><td>Needs a pullback to a location</td></tr>
+      <tr><td class="m">⛔ Stage N</td><td><b>Stage 3 or 4.</b> Sorts below every live count. The gates may well all be true — a topping chart can fire a pattern at a location on volume — but <b>the stage is upstream of all four</b></td></tr>
+      <tr><td class="m">n/a</td><td>No usable read. “No data”, not “not attempted”</td></tr>
+    </tbody>
+  </table></div>
+  <p>The four gates are: a pattern fired · price is at a location · relative volume clears the
+  floor · the bar itself is clean. An <b>unknown</b> bar reading counts as a pass — the board never
+  penalises a missing value.</p>
+
+  <h4>The suffixes — every one is display-only and never changes the count</h4>
+  <div class="glyphs">
+    <div class="gly pos"><div class="sym">· PB</div><div class="bd">
+      <p class="nm">Pullback context</p>
+      <p>The <b>relaxed</b> gate applied — the volume floor dropped and the bar test became
+      <em>held the zone</em> rather than <em>closed strong</em>. Fires only when a contraction
+      pattern fired with no expansion pattern <em>and</em> price sits inside a demand zone.
+      <b>This is the setup you are hunting</b>; PB 4/4s sort above breakout 4/4s.</p></div></div>
+
+    <div class="gly pos"><div class="sym">· ↑D</div><div class="bd">
+      <p class="nm">HTF nesting — up arrow · POSITIVE</p>
+      <p>Price is held by a demand zone on a timeframe <b>above</b> the tab you are looking at.
+      Appears only when the location gate already passed, and only for higher timeframes — so a
+      daily zone shows on the 75m and 125m tabs and disappears on the Daily tab, where it is
+      native.</p></div></div>
+
+    <div class="gly neg"><div class="sym">· ⧖D</div><div class="bd">
+      <p class="nm">Daily fallback — hourglass · A FAULT</p>
+      <p>The intraday read <b>failed</b>, and the pattern behind this verdict came from the
+      <em>daily</em> battery while the row still wears its intraday label. <b>Ignore its verdict
+      and rebuild.</b> Distinct from <code>↑D</code> in every way except the letter.</p></div></div>
+
+    <div class="gly neu"><div class="sym">· N⚖</div><div class="bd">
+      <p class="nm">Knife-edge</p>
+      <p>N fired patterns sit <b>on their threshold</b> — they flip on a difference smaller than
+      the routine gap between two data feeds. One name read Σ6 on the board and Σ2 on the chart for
+      the same bar. <b>A marginal Σ is not conviction.</b></p></div></div>
+
+    <div class="gly neu"><div class="sym">· ⚠role</div><div class="bd">
+      <p class="nm">Role mismatch</p>
+      <p>The fired battery is <b>ignition-only</b> — expansion away from value — while price sits
+      <b>inside a demand zone</b>, which is absorption at value. Both are arithmetically true of
+      one bar while describing opposite things. It tags and never gates.</p></div></div>
+
+    <div class="gly neg"><div class="sym">· ⚠unval</div><div class="bd">
+      <p class="nm">Unvalidated book</p>
+      <p>On every <b>recovery</b>-path row. The recovery side <b>has no valid backtest</b> — the
+      only completed run used a 30-day window on setups designed for 90–180 days, and the post-fix
+      attempt died partway. Roughly a fifth of the board. Tradeable on your own read; <b>it is not
+      a measured edge.</b></p></div></div>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">↑D is not ⧖D</span>
+    <p>The up-arrow is a <b>strength</b> term. The hourglass is a <b>data fault</b>. To check a
+    whole tab at once, count the hourglasses in that tab's cache file — <b>zero is the expected
+    reading</b>.</p>
+  </div>
+  <div class="note">
+    <span class="tag">A board 4/4 is arming, not the verdict</span>
+    <p>The board's location read is the GM's <em>twin</em> of Section 4's, not the same code — it
+    merges the zone engine, an order-block and pivot proxy, S/R levels and anchored VWAPs, while
+    S4 on the chart uses its own engine and <b>is the plan of record</b>. Expect the occasional
+    disagreement; <b>when it happens, the chart wins.</b></p>
+  </div>
+</section>
+
+<section id="cadence">
+  <h2><span class="n">05</span>Refresh cadence</h2>
+  <p>Run the board on <b>75m + 125m bar-close</b>. It then rebuilds once per session bar —
+  <b>10:30 · 11:20 · 11:45 · 13:00 · 13:25 · 14:15 · 15:30</b>, plus a short settle.</p>
+  <div class="note warn">
+    <span class="tag">Why bar-close and not continuous</span>
+    <p>A board built <em>mid-bar</em> shows patterns that evaporate by the close. That is precisely
+    the disagreement that used to look like a bug: the board read <code>Buy Trigger Live</code>
+    while the single view said <code>catalyst expired</code>. <b>Neither was wrong — they were
+    reading different bars.</b></p>
+  </div>
+  <div class="note">
+    <span class="tag">Two buttons — press one</span>
+    <p><b>Rebuild board</b> reuses cached data and is fast; it is the right button after changing
+    the trigger timeframe. <b>Fetch fresh data + rebuild</b> invalidates the universe <em>and
+    rebuilds itself</em> — pressing both just rebuilds twice on identical data.</p>
+    <p>Background tabs go stale: the refresh runs on a browser timer that the browser throttles
+    when the tab is hidden. They catch up a few seconds after you focus them.</p>
+  </div>
+</section>
+
+<section id="armed">
+  <h2><span class="n">06</span>The Armed Register — the board's memory</h2>
+  <div class="note warn">
+    <span class="tag">The failure it exists to prevent</span>
+    <p>You arm a name on Monday and set the alert. Tuesday the pipeline rebuilds the watchlists and
+    the name drops out of all of them. Thursday <b>the alert fires — and there is no row, no entry,
+    no stop, no thesis.</b> Only a ping and a chart.</p>
+  </div>
+  <p>The register follows the same doctrine one level up: <b>the register qualifies, the board
+  times.</b> An armed name is injected into the union carrying the archetypes it had <em>when
+  armed</em>, so it keeps its original path and is re-evaluated live on every rebuild.</p>
+  <p><b>What is stored is the plan as of arming</b> — trigger, entry, stop, target, R:R, verdict,
+  path, timeframe. That is the part you cannot reconstruct later, because those levels came off
+  that day's bar. Live re-evaluation is what the board already does.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Action</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Arm</td><td>Records the plan from that row; the name survives watchlist churn</td></tr>
+      <tr><td class="k">Disarm</td><td>Kept as cancelled, <b>not deleted</b></td></tr>
+      <tr><td class="k">Filled</td><td>Marked triggered; leaves the active set</td></tr>
+      <tr><td class="k">Expiry</td><td>Automatic at 45 days, applied <b>on every read</b> — an expiry that only runs on a button press never runs</td></tr>
+    </tbody>
+  </table></div>
+  <p>The register panel shows the armed plan beside the <b>live</b> category and gate count, how
+  long you have waited, and a warning on exactly the names the register is saving. <b>That
+  comparison — armed at X, now Y — is the thing to read when an alert fires.</b></p>
+  <div class="note good">
+    <span class="tag">The habit</span>
+    <p><b>Arm at the same moment you create the alert. They are a pair.</b> An alert without a
+    register entry is precisely the failure this was built for.</p>
+  </div>
+</section>
+
+<section id="pullback">
+  <h2><span class="n">07</span>The Pullback Finder — the “where is value” sibling</h2>
+  <p>A trigger is a wide-range up-bar near the recent high, so <b>a trigger-based board is
+  breakout-biased by construction</b>. That is not a bug in a gate — it is what a stopwatch does.
+  Measured on a live board:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Timing state</th><th class="num">n</th><th class="num">Median extension from EMA20</th><th class="num">At value</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Buy Trigger Live</td><td class="num">8</td><td class="num"><b>1.74 ATR</b></td><td class="num">1 of 8</td></tr>
+      <tr><td class="k">Armed Wait</td><td class="num">9</td><td class="num">1.35 ATR</td><td class="num">4 of 9</td></tr>
+      <tr><td class="k">Wait for Pullback</td><td class="num">17</td><td class="num"><b>0.23 ATR</b></td><td class="num">14 of 17</td></tr>
+    </tbody>
+  </table></div>
+  <p>Every actionable name sat within a few percent of its own 20-day high — and <b>the names
+  actually at value were the ones labelled “wait”.</b></p>
+  <p>So the Pullback Finder ranks by <b>location</b> rather than trigger: extension from the EMA20
+  in ATR, pullback depth off the 20-day high, volume dry-up, range contraction, and the nearest
+  real support below price. Hard gates are Stage 2, above a rising 200-day, positive relative
+  strength, and no climax volume bar. It scans the <b>full universe</b> and skips the fundamental
+  join — the two things that were starving pullback supply.</p>
+  <div class="note">
+    <p><code>Trigger&gt;</code> in its output is the <b>confirmation level, not an entry</b>. Wait
+    for a closed bar above it, then buy-stop above <em>that</em> bar.</p>
+  </div>
+</section>
+
+<section id="path">
+  <h2><span class="n">08</span>The six-step path</h2>
+  <p>A vertical, gated sequence with a verdict header. Each step shows metric chips, an imperative
+  guidance line, a status pill, and a <b>← NOW</b> badge on the step that needs you. The two hard
+  gates can stop the path outright: a hard fail greys out every step below it, so
+  <b>the sequence will not let you skip to a trigger on a name that failed context or
+  quality.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>Step</th><th>Type</th><th>Passes when</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td class="k">CONTEXT</td><td><span class="pill h">Hard</span></td><td>Stage 2, weekly trend up, positive RS, not Stage 3/4</td></tr>
+      <tr><td class="num">2</td><td class="k">QUALITY</td><td><span class="pill h">Hard</span></td><td>Alpha and Minervini both clear their floors</td></tr>
+      <tr><td class="num">3</td><td class="k">SETUP</td><td><span class="pill s">Soft</span></td><td>A catalyst is live — or an archetype was inherited</td></tr>
+      <tr><td class="num">4</td><td class="k">LOCATION</td><td><span class="pill s">Soft</span></td><td>Above value <b>and</b> not extended, with R:R clearing 2.0</td></tr>
+      <tr><td class="num">5</td><td class="k">TRIGGER</td><td>Your move</td><td>A pattern fired, and a <b>closed</b> bar confirms it</td></tr>
+      <tr><td class="num">6</td><td class="k">EXECUTE</td><td>Plan</td><td>Structural stop, size, order and journal</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>The verdicts</h4>
+  <div class="tw"><table>
+    <tbody>
+      <tr><td class="k">BUY — TRIGGER LIVE</td><td>All gates pass <b>and</b> a pattern fired. Move to execution</td></tr>
+      <tr><td class="k">ARMED · AWAIT TRIGGER</td><td>Gates pass, nothing fired yet. <b>Set the alert and walk away</b> — the ping is your cue</td></tr>
+      <tr><td class="k">WAIT FOR PULLBACK</td><td>Extended or below value. <b>Do not chase</b></td></tr>
+      <tr><td class="k">BUY-WATCH · no catalyst</td><td>Context and quality good, nothing live. Alert at the zone</td></tr>
+      <tr><td class="k">WATCHLIST</td><td>Quality incomplete. Revisit when it firms up</td></tr>
+      <tr><td class="k">AVOID / EXIT</td><td>Stage 3/4 or negative RS. If held, plan the exit</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="gates">
+  <h2><span class="n">09</span>Gates and thresholds</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Step</th><th>Must all pass</th><th>Shown as status — does <em>not</em> gate</th></tr></thead>
+    <tbody>
+      <tr><td class="k">1 CONTEXT</td><td class="hard">Stage 2 · RS &gt; 0 · not Stage 3/4</td><td class="soft">Weekly trend, regime</td></tr>
+      <tr><td class="k">1 <em>accumulation variant</em></td><td class="hard">Stage 1/2 · RS &gt; 0 · above the 200-day</td><td class="soft">Regime</td></tr>
+      <tr><td class="k">2 QUALITY</td><td class="hard">Alpha and Minervini both above floor</td><td class="soft">Rotation quadrant, fundamentals, ML probability</td></tr>
+      <tr><td class="k">2 <em>accumulation variant</em></td><td class="hard">Lower alpha floor, plus rotation <b>or</b> volume accumulation</td><td class="soft">Accumulation days, fundamentals</td></tr>
+      <tr><td class="k">3 SETUP</td><td class="soft">A catalyst is live</td><td class="soft">Freshness, VCP validity, pattern tier</td></tr>
+      <tr><td class="k">4 LOCATION</td><td class="soft">Above value · R:R ≥ 2.0 · above EMA20 and not over-extended</td><td class="soft">Current distance from EMA20</td></tr>
+      <tr><td class="k">5 TRIGGER</td><td class="soft">A pattern fired <b>and</b> a closed bar confirms</td><td class="soft">Σ tier — a bonus, not a checklist</td></tr>
+      <tr><td class="k">6 EXECUTE</td><td class="soft">Structural stop → nearest fresh zone distal, capped at 3× ATR</td><td class="soft">R:R off the disciplined stop</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Why the two paths show different RS numbers for the same stock</span>
+    <p>They are <b>different measures</b>, not a bug: the bull path shows the RRG ratio convention,
+    the recovery path shows Mansfield RS on a different scale. Compare each to its own path.</p>
+  </div>
+</section>
+
+<section id="exec">
+  <h2><span class="n">10</span>The guided execution</h2>
+  <p>At Step 5 the page produces a position size from your capital and risk percentage, halves it
+  automatically on counter-trend names, and — when an order block, gap or pivot support sits under
+  price — <b>auto-fills the first two checklist steps</b> with that zone and its proximal, so you
+  <em>verify</em> rather than hand-draw.</p>
+  <ol class="steps">
+    <li><span><b>Mark the fresh demand zone</b> on daily or above — or verify the auto-detected one is genuinely fresh and untested.</span></li>
+    <li><span><b>Set the alert at the zone proximal.</b> Arm the name at the same moment.</span></li>
+    <li><span><b>Wait for a 75m or 125m bar to CLOSE</b> in your direction at the zone.</span></li>
+    <li><span><b>Place a buy-stop above that trigger bar's high.</b> Never buy the touch.</span></li>
+    <li><span><b>Stop below the zone distal</b>, sized at your risk percentage.</span></li>
+    <li><span><b>Place the order and the GTT the same evening</b>, and log the trade.</span></li>
+  </ol>
+  <p>Tick all six and a journal form appears, pre-filled from the active plan. Logging it
+  <b>auto-captures the true entry snapshot</b>, so the trade lands in the attribution pipeline
+  carrying its setup label — which is the only way a system-only track record ever gets built.</p>
+  <div class="note">
+    <span class="tag">The session shortlist</span>
+    <p>Every actionable name you land on accumulates into a ranked list you can export straight to
+    a TradingView watchlist. A name that later degrades drops off by itself. It turns a scrolling
+    session into an artifact.</p>
+  </div>
+</section>
+
+<section id="walk">
+  <h2><span class="n">11</span>The walkthrough</h2>
+  <ol class="steps">
+    <li><span><b>Read the header verdict first.</b> If it says AVOID, stop and go to the next name.</span></li>
+    <li><span><b>Context.</b> Not a leader → skip. No daily setup rescues a Stage 3/4 or RS-negative name.</span></li>
+    <li><span><b>Quality.</b> Fail → watchlist, revisit when it firms up.</span></li>
+    <li><span><b>Setup.</b> No live catalyst → buy-watch: alert at the zone, wait.</span></li>
+    <li><span><b>Location.</b> Extended or below value → <b>wait for pullback. Do not chase.</b> A green support chip is the confluence you want before Step 5.</span></li>
+    <li><span><b>Trigger.</b> Fired → note <em>which</em> pattern and its tier. A high tier is a strong trigger; <b>a lone coil means wait for the release</b>. Not fired → set the alert and walk away.</span></li>
+    <li><span><b>Switch to the chart.</b> Section 4 on the name, drop to 75m or 125m, wait for the GO. <b>The board arms; the chart executes.</b></span></li>
+  </ol>
+  <div class="note good">
+    <span class="tag">The one rule, again</span>
+    <p><b>The Golden Matcher identifies. You trigger.</b> Never buy because price <em>arrived</em>
+    at the zone. The whole page is built to stop you buying the touch.</p>
+  </div>
+</section>
+
+<section id="trouble">
+  <h2><span class="n">12</span>Troubleshooting</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Board and single symbol disagree</td><td>Almost always <b>data vintage or timeframe</b>, not logic. Use the shared Refresh and check both are on the same trigger TF</td></tr>
+      <tr><td class="k">Row shows <code>⧖D</code></td><td>The intraday fetch failed and you are reading a daily verdict on an intraday row. <b>Rebuild</b></td></tr>
+      <tr><td class="k">Board looks empty</td><td>The 4/4 filter is on. The header states how many rows it is hiding</td></tr>
+      <tr><td class="k">Nothing refreshed for a while</td><td>Background tabs are throttled by the browser; focus the tab. If the stream is down, no tab auto-refreshes</td></tr>
+      <tr><td class="k">A code change had no effect</td><td>A browser reload does not reload Python. <b>Stop the server and relaunch</b></td></tr>
+      <tr><td class="k">Alert fired on a name with no row</td><td>That is what the Armed Register prevents. Arm at the same moment you create the alert</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/23 · Golden Matcher — the GM + S4 system</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 Trade Funnel</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
+</div></footer>
