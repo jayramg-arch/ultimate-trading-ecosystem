@@ -1,0 +1,660 @@
+<title>The Trade Funnel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#F2F1F4; --surface:#FFFFFF; --surface-2:#F8F7FA; --surface-3:#EDEBF0;
+  --ink:#14111A; --ink-2:#3D3747; --muted:#6C6579; --faint:#9992A4;
+  --rule:#DCD8E2; --rule-soft:#E9E6EE;
+  --acc:#7A3E6B; --acc-bg:#F4E9F1; --acc-rule:#D3AFC8;
+  --floor:#A8342A; --floor-bg:#FAE9E7; --floor-rule:#E0AFA9;
+  --conf:#186B4F; --conf-bg:#E3F0EA; --conf-rule:#9CC7B5;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Familjen Grotesk','Helvetica Neue',Arial,sans-serif;
+  --body:'Public Sans','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#121016; --surface:#19161F; --surface-2:#1F1B26; --surface-3:#26212E;
+    --ink:#ECE8F2; --ink-2:#C4BDD0; --muted:#8E8799; --faint:#6B6478;
+    --rule:#2C2735; --rule-soft:#241F2C;
+    --acc:#C589B8; --acc-bg:#2A1826; --acc-rule:#553049;
+    --floor:#EF6E60; --floor-bg:#331A17; --floor-rule:#6A2F29;
+    --conf:#38B48A; --conf-bg:#0F2C22; --conf-rule:#1F5544;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#121016; --surface:#19161F; --surface-2:#1F1B26; --surface-3:#26212E;
+  --ink:#ECE8F2; --ink-2:#C4BDD0; --muted:#8E8799; --faint:#6B6478;
+  --rule:#2C2735; --rule-soft:#241F2C;
+  --acc:#C589B8; --acc-bg:#2A1826; --acc-rule:#553049;
+  --floor:#EF6E60; --floor-bg:#331A17; --floor-rule:#6A2F29;
+  --conf:#38B48A; --conf-bg:#0F2C22; --conf-rule:#1F5544;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(36px,5.8vw,60px);line-height:1.02;
+  letter-spacing:-.028em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--rule);background:var(--surface-2);border-radius:2px;
+  padding:15px 18px;font-family:var(--mono);font-size:11px;color:var(--ink-2);line-height:1.9;
+  min-width:212px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:9px}
+.stamp b{color:var(--ink);font-weight:600}
+
+.cols{display:grid;grid-template-columns:206px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:grid;grid-template-columns:26px 1fr;gap:7px;align-items:baseline;
+  font-family:var(--mono);font-size:11px;line-height:1.35;color:var(--muted);
+  text-decoration:none;padding:6px 8px;border-radius:2px}
+nav.toc a span{color:var(--faint)}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink)}
+nav.toc a:hover span{color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+
+/* phase band — PRE-MARKET / PER-TICKER / EXECUTION are real clock phases */
+.phase{display:flex;align-items:center;gap:14px;margin:52px 0 22px}
+.phase:first-child{margin-top:0}
+.phase h2{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.018em;margin:0;
+  white-space:nowrap}
+.phase .t{font-family:var(--mono);font-size:11px;color:var(--acc);white-space:nowrap;
+  border:1px solid var(--acc-rule);background:var(--acc-bg);padding:2.5px 9px;border-radius:2px}
+.phase .rule{flex:1;height:1px;background:var(--rule)}
+
+/* step card — the funnel is one-directional, so the number carries information */
+.step{background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  margin:0 0 20px;overflow:hidden}
+.step-h{display:grid;grid-template-columns:56px minmax(0,1fr);border-bottom:1px solid var(--rule)}
+.step-n{background:var(--acc-bg);color:var(--acc);font-family:var(--mono);font-weight:700;
+  font-size:15px;display:flex;align-items:center;justify-content:center;
+  border-right:1px solid var(--rule)}
+.step-t{padding:13px 18px}
+.step-t h3{font-family:var(--disp);font-weight:600;font-size:17.5px;letter-spacing:-.012em;
+  margin:0;color:var(--ink)}
+.step-t .src{font-family:var(--mono);font-size:11px;color:var(--muted);margin:4px 0 0}
+.step-b{padding:18px}
+.step-b > :last-child{margin-bottom:0}
+
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);margin:22px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:76ch}
+ul,ol{margin:0 0 14px;padding-left:20px;max-width:76ch}
+li{margin:0 0 6px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  margin:0 0 16px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:9px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.fl{color:var(--floor)} th.cf{color:var(--conf)}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);
+  vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.fl{background:var(--floor-bg);color:var(--ink);font-weight:600}
+td.cf{background:var(--conf-bg)}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* the tick — this document is a checklist and should read like one */
+.tick{display:grid;grid-template-columns:20px minmax(0,1fr);gap:11px;align-items:start;
+  border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:2px;
+  padding:12px 15px;margin:0 0 14px;font-size:15px;color:var(--ink)}
+.tick::before{content:"";width:14px;height:14px;margin-top:3px;border:1.5px solid var(--acc);
+  border-radius:2px;display:block}
+.tick b{color:var(--ink)}
+.tick .hf{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;
+  color:var(--floor);border:1px solid var(--floor-rule);background:var(--floor-bg);
+  padding:1px 6px;border-radius:2px;margin-left:7px;white-space:nowrap}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface-2);
+  padding:14px 18px;border-radius:2px;margin:0 0 16px;font-size:15px}
+.note.dq{border-left-color:var(--floor);background:var(--floor-bg);border-color:var(--floor-rule)}
+.note.boost{border-left-color:var(--conf);background:var(--conf-bg);border-color:var(--conf-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.dq .tag{color:var(--floor)} .note.boost .tag{color:var(--conf)}
+.note p:last-child{margin-bottom:0}
+
+.lede{font-size:18px;color:var(--ink-2);border-left:2px solid var(--acc);padding-left:18px;
+  margin:0 0 28px;max-width:66ch}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;
+  margin:0 0 16px}
+.mini{border:1px solid var(--rule);border-radius:2px;background:var(--surface);padding:16px 18px}
+.mini h5{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 9px;font-weight:600}
+.mini p{font-size:14.5px;margin:0}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:2px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 18 · Doctrine</p>
+      <h1>The Trade Funnel</h1>
+      <p class="dek">Nine gated steps from macro to order, for swing and positional alike.
+      Every row carries a <b>hard floor</b> that ends the trade and a confluence level that
+      earns full size. The funnel is one-directional: fail Step 1 and you never score the
+      stock.</p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Entry requires</div>
+      Every <b>HARD FLOOR</b> passes<br>
+      Scorecard <b>&ge; 7 / 9</b><br>
+      Size <b>&gt; 0</b>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Before you start</p>
+  <ol>
+    <li><a href="#use"><span>—</span>How to use it</a></li>
+    <li><a href="#track"><span>—</span>Swing vs positional</a></li>
+  </ol>
+  <p>Pre-market</p>
+  <ol>
+    <li><a href="#s1"><span>1</span>Macro &amp; breadth</a></li>
+    <li><a href="#s2"><span>2</span>Sector</a></li>
+    <li><a href="#s3"><span>3</span>Auto-pilot watchlist</a></li>
+    <li><a href="#s35"><span>3.5</span>RRG pre-filter</a></li>
+  </ol>
+  <p>Per ticker</p>
+  <ol>
+    <li><a href="#s4"><span>4</span>Bull Screener</a></li>
+    <li><a href="#s5"><span>5</span>Dashboard v67</a></li>
+    <li><a href="#s6"><span>6</span>Context Layers</a></li>
+    <li><a href="#s7"><span>7</span>Zigzag structure</a></li>
+  </ol>
+  <p>Execution</p>
+  <ol>
+    <li><a href="#s8"><span>8</span>Entry</a></li>
+    <li><a href="#ds"><span>8b</span>D&amp;S toolkit</a></li>
+    <li><a href="#s9"><span>9</span>Size it</a></li>
+  </ol>
+  <p>After</p>
+  <ol>
+    <li><a href="#score"><span>—</span>Scorecard</a></li>
+    <li><a href="#exits"><span>—</span>Exit rules</a></li>
+    <li><a href="#rhythm"><span>—</span>Daily rhythm</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<p class="lede">This is the tick-box distillation of the Trading Bible's 9-step confluence
+sequence, the bull and recovery exit tables, and position sizing — mapped to the modules you
+actually load and run.</p>
+
+<div class="note">
+  <span class="tag">Three nuances to internalise — read once, they are not bugs</span>
+  <p><b>1 · The Pine catalyst trigger is confirmation, not a gate.</b> The <code>*_trigger</code>
+  booleans encode the backtest gates, so they stay <b>silent most of the time even on a clean,
+  tradeable setup</b>. A silent trigger is <em>not</em> a veto. If Steps 1–7 pass and you can see
+  the edge's documented entry conditions with your own eyes, you take it discretionarily (Step 8,
+  Path B). What discretion never overrides: the hard floors of Steps 1–7 and the sizing and stop
+  discipline of Step 9. Judgement applies to <em>entry timing</em> — never to regime, conviction,
+  or risk.</p>
+  <p><b>2 · POS-ACCUM is enabled everywhere, and is now pure price action.</b> The anti-chase gate
+  is no longer an RSI cap: <code>dailyRsi ≤ 50</code> was replaced by
+  <code>close ≤ close[5] × 1.05</code>, and its VCP loosened to <code>f_is_vcp(1.5)</code> so quiet
+  accumulation is not starved. In the 24-month validation it is the <b>strongest catalyst</b>. Any
+  older note describing an RSI gate — or the “disabled” comment in the .pine header — is stale;
+  trust the code.</p>
+  <p><b>3 · Exit-table doc lag.</b> The guides say v3.6 widened the trails (POS-BO Chandelier
+  3.0×→4.5×, swing trail EMA20→SMA50, targets 5R/10R→3R/5R at 33%), but their body tables still
+  show the legacy values — as does the exit section here. <b>Trust the input defaults in your
+  loaded script.</b> Exits are automated, not hand-entered.</p>
+</div>
+
+<section id="use">
+  <h4>How to use it</h4>
+  <div class="grid2">
+    <div class="mini"><h5>Two tracks, one funnel</h5><p>Swing (8–12 weeks, 5–8%) and positional
+    (6–8 months, 10–30%) run the <b>same nine steps</b>. The track changes only the catalyst,
+    the exit row, and the risk percentage.</p></div>
+    <div class="mini"><h5>Hard floors are hard</h5><p>A failed <b>HARD FLOOR</b> is no trade, no
+    matter how strong everything downstream looks. Bypassing a floor is bypassing the system.</p></div>
+    <div class="mini"><h5>Order is one-directional</h5><p>Macro → Sector → Watchlist → Stock. If
+    Step 1 or 2 fails, <b>stop</b> — do not go on to score the stock.</p></div>
+  </div>
+</section>
+
+<section id="track">
+  <h4>Swing vs positional — the checklist decides, not you</h4>
+  <p>You do <b>not</b> pick the track up front. It resolves in three stages:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Stage</th><th>Where</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Lean</td><td>Step 2 / 3.5 — RRG tier</td><td><b>LEADING + RS-Ratio ≥ 100</b> → positional lean. <b>IMPROVING + RS-Ratio &lt; 100</b> → swing lean. Bias only, not a commitment.</td></tr>
+      <tr><td class="k">Lock</td><td>Step 4 — the catalyst</td><td><b>The decision point.</b> The catalyst <em>is</em> the horizon: POS-BO / POS-AC = positional (120/180-day window); SWG-PB / SWG-BO / GAP-GO = swing (30-day); REV-* = recovery. Make the firm call here.</td></tr>
+      <tr><td class="k">Operationalise</td><td>Steps 8–9</td><td><b>Positional</b> → Cat-2 MTF, room ≥ 20% ROI, POS exit row, risk 0.75%. <b>Swing</b> → Cat-1 MTF, room ≥ 2R, SWG exit row, risk 0.75%.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Tie-breaker</span>
+    <p>If a positional catalyst and a swing structure both appear, default to the
+    <b>catalyst's horizon</b> — never cut a positional winner short with a swing-sized target.</p>
+  </div>
+</section>
+
+<!-- ══════════════ PRE-MARKET ══════════════ -->
+<div class="phase"><h2>Pre-market</h2><span class="t">08:00 – 09:15 IST</span><div class="rule"></div></div>
+
+<section id="s1"><div class="step">
+  <div class="step-h"><div class="step-n">1</div><div class="step-t">
+    <h3>Macro &amp; breadth</h3><p class="src">Commander Web → Macro+ / Breadth / AI Brief</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Reading</th><th class="fl">Hard floor</th><th class="cf">Full conviction</th></tr></thead>
+      <tbody>
+        <tr><td class="k">CNX500 regime</td><td class="fl">NOT BEAR</td><td class="cf">BULL: price &gt; SMA200 <b>and</b> SMA50 &gt; SMA200</td></tr>
+        <tr><td class="k">India VIX</td><td class="fl num">&lt; 22</td><td class="cf">&lt; 16 optimal · 16–22 tradeable but elevated · <b>&gt; 22 halves all sizing</b></td></tr>
+        <tr><td class="k">McClellan (MSI)</td><td class="fl num">&gt; −50</td><td class="cf">&gt; 0 confirms · &gt; +50 is a breadth thrust</td></tr>
+        <tr><td class="k">FII / DII (5-day)</td><td class="fl">not net selling &gt; ₹10,000 Cr</td><td class="cf">Net buyers = tailwind; persistent FII selling → prefer POS-AC over POS-BO</td></tr>
+        <tr><td class="k">Sector breadth</td><td class="fl num">≥ 4 / 12 Stage 1-2</td><td class="cf">≥ 7 broad bull · ≤ 3 narrow, swing only</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span>All five floors pass.<span class="hf">HARD FLOOR</span></span></div>
+    <div class="note dq"><span class="tag">Disqualifier</span>
+      <p>CNX500 confirmed BEAR <b>and</b> VIX &gt; 25 → <b>no bull trades</b>. Recovery-only mode,
+      half size.</p></div>
+  </div>
+</div></section>
+
+<section id="s2"><div class="step">
+  <div class="step-h"><div class="step-n">2</div><div class="step-t">
+    <h3>Sector</h3><p class="src">Commander Web Tab 5 · RRG · Mansfield</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Reading</th><th class="fl">Hard floor</th><th class="cf">Full conviction</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Sector Weinstein stage</td><td class="fl">Stage 1 or 2</td><td class="cf">Stage 2 + rising 30W slope</td></tr>
+        <tr><td class="k">Sector RRG quadrant</td><td class="fl">NOT LAGGING</td><td class="cf">LEADING full · IMPROVING smaller · WEAKENING → avoid POS-BO</td></tr>
+        <tr><td class="k">Sector Mansfield RS</td><td class="fl num">≥ 0</td><td class="cf">≥ +5 leading · ≥ +10 strong rotation-in</td></tr>
+        <tr><td class="k">Weeks in sector stage</td><td class="fl num">≤ 26</td><td class="cf">&lt; 13 best · 13–26 mature but good · &gt; 26 downgrade</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span>Sector is not Stage 3/4 and not LAGGING.<span class="hf">HARD FLOOR</span></span></div>
+    <div class="note boost"><span class="tag">Boost</span>
+      <p>Top-three sectors all Stage 2 + LEADING + rising RS → bias the whole day's watchlist
+      to them.</p></div>
+  </div>
+</div></section>
+
+<section id="s3"><div class="step">
+  <div class="step-h"><div class="step-n">3</div><div class="step-t">
+    <h3>Auto-pilot watchlist</h3><p class="src">Commander Web → 🤖 Run Full Auto-Pilot</p></div></div>
+  <div class="step-b">
+    <div class="tick"><span>Stock is in <code>FINAL_WATCHLIST.csv</code> (Golden Matcher, conviction-ranked).</span></div>
+    <div class="tick"><span>Matcher conviction <b>≥ 6.0</b> — already enforced by the matcher.<span class="hf">HARD FLOOR</span></span></div>
+    <div class="note boost"><span class="tag">Boost</span>
+      <p>Appears in <b>both</b> <code>FINAL_Hunter_Picks.csv</code> and
+      <code>FINAL_Leader_Picks.csv</code> = dual-strategy confirmation → top priority.</p></div>
+    <div class="note dq"><span class="tag">Never</span>
+      <p>Never hand-add a ticker outside auto-pilot output. That is bypassing the system.</p></div>
+  </div>
+</div></section>
+
+<section id="s35"><div class="step">
+  <div class="step-h"><div class="step-n">3.5</div><div class="step-t">
+    <h3>Weekend RRG pre-filter</h3><p class="src">Strike.Money — run on the auto-pilot CSV candidates</p></div></div>
+  <div class="step-b">
+    <p>A <em>universe-narrowing</em> pre-filter done over the weekend: keep only LEADING and
+    IMPROVING quadrants, and bias to LEADING / IMPROVING sectors. It front-loads Step 2 and the
+    RS half of Steps 4–5. <b>It does not pre-approve trades</b> — survivors still run the full
+    per-ticker validation on Monday.</p>
+    <h4>Setup</h4>
+    <div class="tick"><span><b>Benchmark = Nifty 500</b> (<code>^CRSLDX</code>), not Nifty 50 — matches the dashboard's RS row.</span></div>
+    <div class="tick"><span><b>Weekly RRG</b> for the positional universe (the engine is weekly-anchored: 30W MA, 52W level, 26W slope). Daily RRG is for swing-entry <em>timing</em> only, never the weekend cut.</span></div>
+    <h4>Stock filter — tier them, do not lump them</h4>
+    <div class="tw"><table>
+      <thead><tr><th>Quadrant</th><th>RS-Ratio</th><th>Tier</th><th>How to treat</th></tr></thead>
+      <tbody>
+        <tr><td class="k">LEADING</td><td class="num">≥ 100</td><td>Confirmed leader — passes the validated RS gate; STRONG BUY eligible</td><td>Full size eligible; preferred for <b>positional</b></td></tr>
+        <tr><td class="k">IMPROVING</td><td class="num">&lt; 100</td><td>Anticipatory — BUY tier, <b>not</b> STRONG BUY</td><td>Smaller size, tighter structure (clean HH-HL, Stage 2 <em>confirmed</em>). Better for <b>swing</b>. Many curl back to LAGGING — cut fast on failure</td></tr>
+        <tr><td class="k">WEAKENING / LAGGING</td><td class="num">—</td><td>Drop</td><td>LAGGING is a hard reject at the Step 2 floor</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span><b>Read the tail, not just the dot.</b> The sweet spot is IMPROVING→LEADING with a long north-east tail. A LEADING dot <em>rolling over</em> toward WEAKENING is a distribution warning — drop it even though it is still in the leading box.</span></div>
+    <div class="tick"><span>Sector filter stays <b>soft</b>: fish preferentially in LEADING / IMPROVING sectors, but a genuinely leading stock in a mid-pack sector is still tradeable. The only hard sector rejects are Stage 3/4 or LAGGING.</span></div>
+  </div>
+</div></section>
+
+<!-- ══════════════ PER TICKER ══════════════ -->
+<div class="phase"><h2>Per-ticker validation</h2><span class="t">09:15 – 10:30 IST</span><div class="rule"></div></div>
+
+<section id="s4"><div class="step">
+  <div class="step-h"><div class="step-n">4</div><div class="step-t">
+    <h3>Bull Screener v3.3</h3><p class="src">Per chart, daily</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Reading</th><th class="fl">Hard floor</th><th class="cf">Full conviction</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Active catalyst</td><td class="fl">&gt; 0 (something fires)</td><td class="cf">Match to regime: bull → POS-BO · pullback → SWG-PB · gap → GAP-GO</td></tr>
+        <tr><td class="k"><code>alphaScore</code></td><td class="fl num">≥ 60</td><td class="cf">≥ 80 = STRONG BUY tier</td></tr>
+        <tr><td class="k"><code>pyScore</code></td><td class="fl num">≥ 60</td><td class="cf">≥ 80 full · 60–79 normal · 40–59 half max · &lt; 40 pass</td></tr>
+        <tr><td class="k">9-gate POS-BO panel</td><td class="fl num">≥ 8 / 9 ✓</td><td class="cf">9/9 highest conviction · <b>7/9 = watch only, no entry</b></td></tr>
+        <tr><td class="k">ADX + weekly RSI</td><td class="fl num">ADX ≥ 25 · wRSI ≥ 60</td><td class="cf">ADX 30+ / wRSI 65+</td></tr>
+        <tr><td class="k">OBV</td><td class="fl">Rising 2 bars <b>and</b> &gt; OBV SMA20</td><td class="cf">Confirms institutional accumulation</td></tr>
+        <tr><td class="k">Vol shelf (VWMA20 &gt; VWMA50)</td><td class="fl">Required POS-BO / POS-AC</td><td class="cf">Absent → halve size</td></tr>
+        <tr><td class="k">VCP tight (ATR &lt; 1.0× ATR-SMA)</td><td class="fl">Required SWG-BO</td><td class="cf">Preferred POS-BO — tighter base, sharper break</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span><code>alphaScore ≥ 60</code> <b>and</b> <code>pyScore ≥ 60</code> <b>and</b> a catalyst is active.<span class="hf">HARD FLOOR</span></span></div>
+    <div class="note boost"><span class="tag">Gold standard</span>
+      <p>pyScore ≥ 80 + POS-BO + 9/9 + wRSI ≥ 65 + ADX ≥ 30 + vol shelf + OBV rising → full size.</p></div>
+  </div>
+</div></section>
+
+<section id="s5"><div class="step">
+  <div class="step-h"><div class="step-n">5</div><div class="step-t">
+    <h3>Dashboard v67 — final go / no-go</h3><p class="src">Decision Mode</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Row</th><th class="fl">Hard floor</th><th class="cf">Full conviction</th></tr></thead>
+      <tbody>
+        <tr><td class="k">MACRO</td><td class="fl">GREEN or YELLOW — <b>never RED</b></td><td class="cf">GREEN + sector Stage 2</td></tr>
+        <tr><td class="k">SECTOR</td><td class="fl">Stage 1 or 2</td><td class="cf">Stage 2 + LEADING RRG</td></tr>
+        <tr><td class="k">STAGE (weekly)</td><td class="fl">Stage 2 (or 1 for early entry)</td><td class="cf">Stage 2.1, stage-weeks 4–13</td></tr>
+        <tr><td class="k">30W SMA slope</td><td class="fl">Rising ↑</td><td class="cf">Rising and price above</td></tr>
+        <tr><td class="k">RS vs N500</td><td class="fl">LEADING (IMPROVING ok for BUY tier)</td><td class="cf">LEADING + Mansfield ≥ +10</td></tr>
+        <tr><td class="k">ALPHA SCORE</td><td class="fl num">≥ 60</td><td class="cf">≥ 80 full size</td></tr>
+        <tr><td class="k">GRADE</td><td class="fl">A or A+</td><td class="cf">A+ = STRONG BUY tier</td></tr>
+        <tr><td class="k">CATALYST</td><td class="fl">Active and <b>matches Bull Screener</b></td><td class="cf">Same catalyst on both = high conviction</td></tr>
+        <tr><td class="k">RECOMMENDATION</td><td class="fl">STRONG BUY or BUY</td><td class="cf">STRONG BUY full · BUY normal · BUY* check fundamentals · PULLBACK re-entry only · WAIT pass</td></tr>
+        <tr><td class="k">RFF LITE</td><td class="fl num">2/2 ✓</td><td class="cf">1/2 caution · 0/2 skip unless Alpha ≥ 90</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span>Recommendation ≥ BUY · Macro not RED · Stage not 3/4 · Alpha ≥ 60 · Grade A/A+.<span class="hf">HARD FLOOR</span></span></div>
+    <div class="tick"><span><b>Gate-3 R:R preview</b> (LEVELS / ROOM row): prospective <code>~R:R ≥ 2.0R</code> to nearest overhead, or “open ▲”.</span></div>
+  </div>
+</div></section>
+
+<section id="s6"><div class="step">
+  <div class="step-h"><div class="step-n">6</div><div class="step-t">
+    <h3>Context Layers v1.2</h3><p class="src">FINAL SCORE panel</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Reading</th><th class="fl">Hard floor</th><th class="cf">Full conviction</th></tr></thead>
+      <tbody>
+        <tr><td class="k">CONTEXT (final) score</td><td class="fl num">≥ +3 full · ≥ 0 half</td><td class="cf">≥ +6 strong · ≥ +9 max</td></tr>
+        <tr><td class="k">SETUP BONUS</td><td class="fl num">≥ 0</td><td class="cf">+2 for S2 Spring/LPS or S3 Sweep+CHoCH</td></tr>
+        <tr><td class="k">Wyckoff bias</td><td class="fl">ACCUMULATION or NEUTRAL</td><td class="cf">ACCUMULATION + SOS/LPS ≤ 20 bars</td></tr>
+        <tr><td class="k">VP price location</td><td class="fl">At or above POC</td><td class="cf">Above VAH strong · below VAL = skip</td></tr>
+        <tr><td class="k">Distance to POC</td><td class="fl">Within 2 ATR</td><td class="cf">0–5% above POC is the ideal pullback zone</td></tr>
+        <tr><td class="k">SMC trend</td><td class="fl">BULLISH or NEUTRAL</td><td class="cf">BULLISH + bull OB within 1 ATR below</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span>FINAL SCORE ≥ +3 (full) and SETUP BONUS ≥ 0.<span class="hf">HARD FLOOR</span></span></div>
+    <div class="note dq"><span class="tag">Disqualifier</span>
+      <p>FINAL SCORE ≤ −3 (BEAR) <b>or</b> Wyckoff = DISTRIBUTION → skip, regardless of Steps 4–5.
+      Panel bands: STRONG BULL ≥ 9 · BULL 4–8 · NEUTRAL −3..+3 · CAUTION −4..−6 · BEAR ≤ −7.</p></div>
+  </div>
+</div></section>
+
+<section id="s7"><div class="step">
+  <div class="step-h"><div class="step-n">7</div><div class="step-t">
+    <h3>Zigzag Strict v6.2 — structure</h3><p class="src">The last thing before execution</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Reading</th><th class="fl">Hard floor</th><th class="cf">Full conviction</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Trend state</td><td class="fl">HH-HL</td><td class="cf">Clean HH-HL over the last three swings</td></tr>
+        <tr><td class="k">MTF trend</td><td class="fl">Confluence with current TF</td><td class="cf">HH-HL on daily <b>and</b> weekly</td></tr>
+        <tr><td class="k">Pivots</td><td class="fl">Left = 2 / Right = 2</td><td class="cf">Must match across all modules</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span>HH-HL confirmed. LH-LL is a structural downtrend — skip bull entries.<span class="hf">HARD FLOOR</span></span></div>
+  </div>
+</div></section>
+
+<!-- ══════════════ EXECUTION ══════════════ -->
+<div class="phase"><h2>Execution</h2><span class="t">Signal-fire bar onward</span><div class="rule"></div></div>
+
+<section id="s8"><div class="step">
+  <div class="step-h"><div class="step-n">8</div><div class="step-t">
+    <h3>Entry — trigger or discretionary confirmation</h3><p class="src">Unified Ecosystem v3.6</p></div></div>
+  <div class="step-b">
+    <h4>Bull master prerequisites — must hold on both paths</h4>
+    <div class="tick"><span>Bull Strategy toggle ON · Market Health: CNX500 close &gt; SMA200 <b>and</b> SMA50 &gt; SMA200</span></div>
+    <div class="tick"><span>Weinstein Stage 2 (or early Stage 2 for POS edges) · Alpha ≥ 60 · RS LEADING or IMPROVING</span></div>
+    <div class="tick"><span><b>Micro edge:</b> close &gt; daily CPR pivot <b>and</b> close &gt; monthly VWAP</span></div>
+
+    <div class="grid2">
+      <div class="mini"><h5>Path A — trigger fires</h5><p>The matched catalyst boolean is TRUE.
+      Enter on the signal bar or within the 3-bar hold window while conditions remain valid.
+      Highest-confidence confirmation.</p></div>
+      <div class="mini"><h5>Path B — discretionary</h5><p>The trigger is silent, but the edge's
+      documented conditions are visibly present. You verify by eye and enter manually.
+      <b>This is the normal case, not an exception.</b></p></div>
+    </div>
+
+    <div class="tw"><table>
+      <thead><tr><th>Edge</th><th>Path A — the algo's gate</th><th>Path B — verify by eye</th></tr></thead>
+      <tbody>
+        <tr><td class="k">pos_bo_trigger</td><td>Breakout + 1.5× vol + vol shelf + wRSI ≥ 60 + ADX ≥ 25</td><td>Close above 20-bar high; vol ≥ 1.5× 50-day; not ≥ 3% extended. Buy-stop 0.25% above the high; wait for a <b>close</b> above the level</td></tr>
+        <tr><td class="k">pos_ac_trigger</td><td>Accum + 1.2× vol + OBV rising and &gt; MA + vol shelf</td><td>Base + close &gt; EMA20 &gt; SMA50, close in top 30% of bar, OBV rising 2 bars and &gt; SMA20, close ≤ close[5] × 1.05. Limit 0.25% below close</td></tr>
+        <tr><td class="k">swing_pb_trg</td><td>mkt_bull + pullback + vcp_tight + ma_stack + pocket + vol_dry</td><td>Low pierced EMA20, close back above it (within 1.5%) on dry volume, RSI 30–70. Enter on the first green close</td></tr>
+        <tr><td class="k">swing_bo_trg</td><td>mkt_bull + vcp_tight + breakout + 1.5× vol</td><td>VCP tight (ATR &lt; 1× avg), close &gt; 20-bar high on ≥ 1.5× vol, bar range &lt; 2× ATR. Buy-stop 0.5% above pivot</td></tr>
+        <tr><td class="k">gap_go_trg</td><td>mkt_bull + gap ≥ 4% + intraday pos ≥ 60% + 3× vol</td><td>Gap ≥ 4%, holds past 11:30 IST (first 15 min did not retrace &gt; 50%), ≥ 3× vol. Enter above the first-candle high</td></tr>
+        <tr><td class="k">REV-CB / RS / EARLY</td><td>Recovery gates + RFF ≥ 3/6 + regime gate</td><td>All four CB pillars (or RS-survivor / early-bird structure) + RFF ≥ 3 + regime gate</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="tick"><span>Path A fired, <b>or</b> Path B conditions confirmed by eye <b>with all Steps 1–7 floors intact</b>.</span></div>
+
+    <div class="note dq">
+      <span class="tag">When the trigger is silent, ask why before going discretionary</span>
+      <p>If it is just the algo's strict margin (ADX 23 not 25, vol 1.4× not 1.5×) on an otherwise
+      clean setup, Path B is sound — size normally. If a <em>real</em> condition is missing (no
+      breakout, RS LAGGING, macro RED, structure LH-LL) that is a Step 1–7 floor failure, not a
+      trigger quirk, and you <b>do not</b> override it. <b>A quiet trigger is fine; a failed hard
+      floor is not.</b></p>
+      <p><b>Conviction tiering:</b> Path A with 9/9 gates → full size · clean Path B (floors pass,
+      1–2 algo gates marginal) → normal size · Path B with any soft floor → half size.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="ds"><div class="step">
+  <div class="step-h"><div class="step-n">8b</div><div class="step-t">
+    <h3>Execution toolkit — demand &amp; supply entries</h3><p class="src">Feeds Step 8 Path B · long-only, no intraday</p></div></div>
+  <div class="step-b">
+    <p>A second, complementary system: pure price-action <b>demand/supply zones</b>, key levels,
+    and EMA20 as dynamic support. <b>The quant funnel decides <em>which</em> stock; this toolkit
+    decides <em>where and when</em> you enter, where the stop sits, and whether there is room.</b>
+    These are named, selectable Path B triggers — they never relax Steps 1–7 or Step 9.</p>
+
+    <h4>Shared vocabulary</h4>
+    <ul>
+      <li><b>Zone construction</b> — legin → base (1–6 candles, sweet spot 2–4) → legout.
+      RBR/DBR are bullish demand zones. <b>Proximal</b> is the edge nearest price;
+      <b>distal</b> is the far edge and your stop anchor.</li>
+      <li><b>Controlling / WCDZ</b> — a weekly controlling demand zone that produced the move
+      creating the prevailing structure; the highest grade of demand. <b>Fresh</b> = untested
+      since formation. <b>Strong</b> = strong legout plus a gap or multi-pivot break.</li>
+      <li><b>MTTWR / MTTWS</b> — multiple-times-tested weak resistance or support: a level
+      tested so often it is primed to break.</li>
+      <li><b>MTF pairing</b> — <b>Cat-1:</b> HTF monthly/weekly/daily → LTF 125m/75m. Tighter
+      stop, more entries. <b>Cat-2:</b> HTF monthly/weekly → LTF daily. Wider stop, cleaner
+      signals, better for positional.</li>
+      <li><b>Room rule</b> — only take it if the path to the nearest opposing supply zone gives
+      <b>≥ 20% ROI</b> (positional) or clears <b>R:R ≥ 2.0R</b> (swing). No room, no trade,
+      however clean the entry.</li>
+    </ul>
+
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>What you must see</th><th>Long trigger (LTF)</th><th>Stop anchor</th><th>Catalyst</th></tr></thead>
+      <tbody>
+        <tr><td class="k num">1</td><td>Healthy time-correction near EMA20 (D/W) → continuation</td><td>TL BO or rectangle BO (close + retest hold)</td><td>Below base / breakout candle low</td><td>swing_pb · swing_bo · pos_bo</td></tr>
+        <tr><td class="k num">2</td><td>Price far below EMA20 (D/W), basing → revert to mean</td><td>TL BO off the basing structure</td><td>Below the basing low</td><td>swing_pb</td></tr>
+        <tr><td class="k num">3</td><td><em>Exit aid, not an entry:</em> extended above HTF EMA → expect a sharp pullback</td><td>— short de-scoped — use to trim or tighten an open long</td><td>—</td><td>Risk overlay</td></tr>
+        <tr><td class="k num">4</td><td>Halting at MTTWR in HTF, about to clear it → powerful rally on the break</td><td>HTF BO confirmed by LTF: TL BO / IC / engulf at retest</td><td>Below retest / EMA20-HTF</td><td>pos_bo · swing_bo</td></tr>
+        <tr><td class="k num">5</td><td>Reacting up from a very strong, fresh <b>controlling</b> demand zone</td><td>First LTF bullish reaction (engulf / IC) inside the zone</td><td><b>Distal of the controlling zone</b></td><td>pos_ac · swing_pb</td></tr>
+        <tr><td class="k num">6</td><td>Reacting up from a strong fresh zone while extended below HTF EMA</td><td>Engulf / IC / TL BO at the zone</td><td>Distal of the zone</td><td>swing_pb · pos_ac</td></tr>
+        <tr><td class="k num">7</td><td>Engulf inside a fresh strong WCDZ, or TL BO after a clean reaction — room ≥ 20%</td><td>Engulf in zone, or TL BO post-reaction</td><td>Distal of the WCDZ</td><td><b>pos_ac · pos_bo</b> (premier positional)</td></tr>
+        <tr><td class="k num">8</td><td>Weekly rectangle BO, room ≥ 20%; WEMA nearby</td><td>TL BO / IC / engulf at the retest</td><td>Below the rectangle top (now support)</td><td>pos_bo · swing_bo</td></tr>
+        <tr><td class="k num">9</td><td><em>Excluded — intraday level break; you do not intraday-trade</em></td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td class="k num">10</td><td>One-sided uptrend above W EMA; fib 38.2/50% confluence with W EMA</td><td>Engulf · IC · TL BO at the W-EMA</td><td>Below the fib / W-EMA confluence low</td><td><b>swing_pb</b> (premier pullback)</td></tr>
+        <tr><td class="k num">T</td><td>Legin + base candles in HTF → mark the recent pivot TL in LTF</td><td>TL BO of the LTF pivot in the legout direction</td><td>Opposite side of base</td><td>pos_bo · swing_bo</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>How it wires into the funnel</h4>
+    <div class="tick"><span><b>Zone-aware stop → Step 9.</b> Use the <b>distal</b> as the structural stop. Fall back to catalyst-aware ATR (POS 4.0× / SWG 1.5×) only if the distal sits <em>above</em> entry.</span></div>
+    <div class="tick"><span><b>Room → Gate 3.</b> Measure clear air to the nearest overhead supply. ≥ 20% ROI (positional) or R:R ≥ 2.0R (swing), or <b>skip</b>. This <em>is</em> the Gate-3 check, measured zone to zone.</span></div>
+    <div class="tick"><span><b>Zone quality → Step 6.</b> Fresh + strong + controlling is highest confidence; a tested or weak zone is a half-size signal at best.</span></div>
+    <div class="tick"><span><b>Long-only, no intraday.</b> Setup 3 is a trim tool, not an entry. Setup 9 is out of scope entirely.</span></div>
+
+    <div class="note boost"><span class="tag">One funnel, two lenses</span>
+      <p>The quant edges and these D&amp;S patterns point at the <em>same</em> trade from
+      different angles. When a Pine catalyst <b>and</b> a zone agree — <code>pos_ac_trigger</code>
+      plus an engulf in a fresh WCDZ — that is your highest-conviction, full-size entry.</p></div>
+  </div>
+</div></section>
+
+<section id="s9"><div class="step">
+  <div class="step-h"><div class="step-n">9</div><div class="step-t">
+    <h3>Size it before you order</h3><p class="src">Risk Allocator</p></div></div>
+  <div class="step-b">
+    <div class="tw"><table>
+      <thead><tr><th>Field</th><th>Setting</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Risk per trade</td><td>Bull <b>0.75%</b> · Recovery <b>0.50%</b> of capital. Halve if VIX &gt; 22 or Context NEUTRAL</td></tr>
+        <tr><td class="k">Initial stop</td><td>Structural (below demand or pivot). If invalid, catalyst-aware ATR14: <b>POS 4.0× · WYC 3.5× · REV 2.5× · SWG 1.5×</b></td></tr>
+        <tr><td class="k">Max allocation</td><td>₹25,000 per trade, or ~25% of capital, whichever is lower</td></tr>
+        <tr><td class="k">Position size</td><td><code>(Capital × Risk%) / (Entry − SL)</code>, rounded <b>down</b></td></tr>
+        <tr><td class="k">Kelly multiplier</td><td>1.25× if all three (Stage 2 + RS+ + vol &gt; SMA50) · 1.0× any two · 0.75× only one</td></tr>
+        <tr><td class="k">Vol discount</td><td><code>min(3.0 / ATR%, 1.0)</code>, floored at 0.75× — ATR% &gt; 3% auto-trims ≥ 25%</td></tr>
+        <tr><td class="k">Regime discount</td><td>Bear or correction: risk% − 0.25% (floor 0.25%)</td></tr>
+        <tr><td class="k">Sector concentration</td><td>≤ <b>25%</b> of capital per sector — hard cap</td></tr>
+        <tr><td class="k">Max open positions</td><td><b>6</b> simultaneously</td></tr>
+      </tbody>
+    </table></div>
+    <div class="tick"><span>Computed size <b>&gt; 0</b>. A size of zero means the stop is too wide for the risk budget → skip.<span class="hf">HARD FLOOR</span></span></div>
+  </div>
+</div></section>
+
+<!-- ══════════════ AFTER ══════════════ -->
+<div class="phase"><h2>Scoring &amp; exits</h2><span class="t">Before and after the fill</span><div class="rule"></div></div>
+
+<section id="score">
+  <h4>Trade-quality scorecard — max 9, entry floor ≥ 7</h4>
+  <p>Score each of the nine steps: <b>+1</b> at the confluence level · <b>+0.5</b> if it just
+  clears the hard floor · <b>0</b> if it fails (and the trade is dead).</p>
+  <div class="tw"><table>
+    <thead><tr><th>Score</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td class="k num">9 / 9</td><td>Textbook STRONG BUY — full size</td></tr>
+      <tr><td class="k num">7–8 / 9</td><td>Normal size</td></tr>
+      <tr><td class="k num">5–6 / 9</td><td>Half size, or skip</td></tr>
+      <tr><td class="k num">&lt; 5</td><td>Next candidate</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><span class="tag">Scoring Step 8</span>
+    <p>Path A trigger fired = <b>+1</b> · Path B discretionary with floors intact = <b>+0.5</b> ·
+    no edge visible = <b>0</b>. <b>A silent trigger never scores 0 on its own</b> — only an absent
+    setup does.</p></div>
+</section>
+
+<section id="exits">
+  <h4>Exit rules — automated, verify against your loaded script</h4>
+  <div class="note"><span class="tag">Breakeven lock on every edge</span>
+    <p>Once T1 hits, the stop floor moves to entry price. <b>The runner cannot turn into a
+    loss.</b></p></div>
+
+  <h4>Bull track</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Edge</th><th>T1</th><th>T1 exit</th><th>T2</th><th>Trail</th><th>Time stop</th><th>Hard exit</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-BO</td><td class="num">+2.5R</td><td class="num">30%</td><td>none (CE runs)</td><td>CE-POS: HiClose[22] − ATR[22]×3.0 (×3.5 bear)</td><td>6 wk if &lt; 0.5R</td><td><b>Stage 4 → close now</b></td></tr>
+      <tr><td class="k">POS-AC</td><td class="num">+2.5R</td><td class="num">30%</td><td>none (CE runs)</td><td>CE-POS (same)</td><td>6 wk if &lt; 0.5R</td><td>Stage 4 → close</td></tr>
+      <tr><td class="k">SWG-PB</td><td class="num">+2.5R / +2.0R bear</td><td class="num">50%</td><td class="num">+3.5R / +3.0R</td><td>EMA20 ratchet</td><td>10d if &lt; 0.5R</td><td>close &lt; SMA50</td></tr>
+      <tr><td class="k">SWG-BO</td><td class="num">+2.5R</td><td class="num">50%</td><td class="num">+3.5R</td><td>EMA20 ratchet</td><td>10d</td><td>close &lt; SMA50</td></tr>
+      <tr><td class="k">GAP-GO</td><td class="num">+2.5R</td><td class="num">50%</td><td class="num">+3.5R</td><td>EMA20 ratchet</td><td>10d</td><td>close &lt; SMA50; disqualify if first 15 min retraces &gt; 50% of gap</td></tr>
+      <tr><td class="k">SWG-REV</td><td class="num">+2.0R</td><td class="num">50%</td><td><b>none</b></td><td>EMA20 ratchet</td><td><b>5d</b> by design</td><td>close &lt; SMA50</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>Recovery track</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Edge</th><th>Initial SL</th><th>T1</th><th>T1 exit</th><th>T2</th><th>Trail post-T1</th><th>Time stop</th></tr></thead>
+    <tbody>
+      <tr><td class="k">REV-CB</td><td>Climax low − 0.5× ATR</td><td>EMA20 reclaim</td><td class="num">50%</td><td>SMA200 reclaim</td><td>EMA20 ratchet</td><td class="num">15d</td></tr>
+      <tr><td class="k">REV-RS</td><td>Higher low − pad</td><td class="num">+2.5R</td><td class="num">50%</td><td>52W high</td><td>CE-REC</td><td class="num">15d</td></tr>
+      <tr><td class="k">REV-EARLY</td><td>NR7 low − pad</td><td class="num">+2.5R</td><td class="num">50%</td><td>52W high</td><td>CE-REC</td><td class="num">15d</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note dq"><span class="tag">Recovery regime-change override — mandatory</span>
+    <p>If CNX500 falls back through the regime gate into a full bear, <b>exit all recovery
+    positions immediately</b>. The regime <em>is</em> the thesis.</p></div>
+</section>
+
+<section id="rhythm">
+  <h4>Daily rhythm</h4>
+  <div class="tw"><table>
+    <thead><tr><th>When</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Weekend</td><td>Full auto-pilot → Hunter / EarlyBird. <b>Step 3.5 RRG pre-filter</b> — keep LEADING/IMPROVING (tiered), bias to leading sectors. Refresh sector and ETF rotation.</td></tr>
+      <tr><td class="k">Pre-open</td><td>Step 1 (macro / VIX / McClellan / flows) + AI brief. RED → stand down.</td></tr>
+      <tr><td class="k">Session</td><td>Pullback entries on existing setups → run Steps 2–9 per candidate.</td></tr>
+      <tr><td class="k">Post-close</td><td><code>master_portfolio_sync.py</code> → dashboard slots. Trail stops, check time-stops and Stage-4 exits, journal and snapshot archive.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <p><b>Entry:</b> every hard floor passes and the scorecard reads ≥ 7/9. <b>Exit:</b> follow the
+    edge row mechanically — no discretionary overrides. RRG and scoring maths are read-only; this
+    checklist only consumes their outputs. Judge POS-ACCUM on its full 180-day horizon, never a
+    short window.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/18 · Swing &amp; Positional Trade Checklist</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">25 Golden Rules</a> · <a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">26 Operating Loop</a></span>
+</div></footer>

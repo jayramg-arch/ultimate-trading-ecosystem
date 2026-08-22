@@ -16,6 +16,8 @@
   /* document identities */
   --doctrine:#0F7A66; --doctrine-bg:#E4F2EE;
   --evidence:#2C5AA8; --evidence-bg:#E7EDF8;
+  --gate:#9A5B00; --gate-bg:#FBF0DE;
+  --funnel:#7A3E6B; --funnel-bg:#F4E9F1;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
   --body:'Newsreader',Georgia,'Times New Roman',serif;
@@ -27,6 +29,8 @@
     --rule:#272E37; --rule-soft:#20262E;
     --doctrine:#2BB39A; --doctrine-bg:#12302A;
     --evidence:#6E9BE0; --evidence-bg:#152238;
+    --gate:#E0A020; --gate-bg:#332608;
+    --funnel:#C589B8; --funnel-bg:#2A1826;
   }
 }
 :root[data-theme="dark"]{
@@ -35,6 +39,8 @@
   --rule:#272E37; --rule-soft:#20262E;
   --doctrine:#2BB39A; --doctrine-bg:#12302A;
   --evidence:#6E9BE0; --evidence-bg:#152238;
+  --gate:#E0A020; --gate-bg:#332608;
+  --funnel:#C589B8; --funnel-bg:#2A1826;
 }
 
 *{box-sizing:border-box}
@@ -107,6 +113,8 @@ td.st{width:120px;white-space:nowrap}
   text-transform:uppercase;padding:2.5px 8px;border-radius:2px;border:1px solid;white-space:nowrap}
 .pill.page{color:var(--doctrine);background:var(--doctrine-bg);border-color:var(--doctrine)}
 .pill.page.ev{color:var(--evidence);background:var(--evidence-bg);border-color:var(--evidence)}
+.pill.page.gt{color:var(--gate);background:var(--gate-bg);border-color:var(--gate)}
+.pill.page.fn{color:var(--funnel);background:var(--funnel-bg);border-color:var(--funnel)}
 .pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 
 .note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
@@ -136,7 +144,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>3</b><span>Published pages</span></div>
+      <div class="count"><b>5</b><span>Published pages</span></div>
       <div class="count"><b>24</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
@@ -147,7 +155,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Start here</h2><div class="rule"></div><span class="ct">3 pages</span>
+    <h2>Start here</h2><div class="rule"></div><span class="ct">5 pages</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -196,6 +204,31 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
+
+    <a class="card" style="--spine:var(--gate)" href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 24 &middot; Process</p>
+        <p class="card-t">The Pre-Trade Gate</p>
+        <p class="card-d">The fixed procedure between <em>armed</em> and <em>ordered</em>. One
+        call, five reply blocks, five rules, and the one sentence you write before overriding &mdash;
+        so an override is counted rather than invisible.</p>
+        <div class="card-m"><span>Run it before every order</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--funnel)" href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 18 &middot; Doctrine</p>
+        <p class="card-t">The Trade Funnel</p>
+        <p class="card-d">Nine gated steps from macro to order, for swing and positional alike.
+        Every row carries a hard floor that ends the trade and a confluence level that earns full
+        size &mdash; plus the scorecard, the D&amp;S entry toolkit, and the exit tables.</p>
+        <div class="card-m"><span>The whole validation sequence</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
   </div>
 
   <div class="sec-head">
@@ -212,8 +245,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <tbody>
         <tr><td class="id">25</td><td class="nm"><a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">Golden Rules</a></td><td>Choosing and shortlisting a trade</td><td class="st"><span class="pill page">Page</span></td></tr>
         <tr><td class="id">26</td><td class="nm"><a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">24</td><td class="nm">Pre-Trade Review Recipe</td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill md">Markdown</span></td></tr>
-        <tr><td class="id">18</td><td class="nm">Trade Checklist</td><td>The per-trade tick list</td><td class="st"><span class="pill md">Markdown</span></td></tr>
+        <tr><td class="id">24</td><td class="nm"><a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">The Pre-Trade Gate</a></td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill page gt">Page</span></td></tr>
+        <tr><td class="id">18</td><td class="nm"><a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">The Trade Funnel</a></td><td>The nine gated steps, floors and exits</td><td class="st"><span class="pill page fn">Page</span></td></tr>
         <tr><td class="id">—</td><td class="nm">Weinstein / Minervini Bible</td><td>The underlying methodology</td><td class="st"><span class="pill md">Markdown</span></td></tr>
       </tbody>
     </table></div>

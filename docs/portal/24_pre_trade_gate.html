@@ -1,0 +1,297 @@
+<title>The Pre-Trade Gate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+/* The document about keeping a written log is set in the face of a log file:
+   IBM Plex Mono carries the display role, not just the code. */
+:root{
+  --ground:#F1F0ED; --surface:#FFFFFF; --surface-2:#F8F7F4; --surface-3:#EDEBE6;
+  --ink:#17150F; --ink-2:#413C31; --muted:#6E675A; --faint:#9A9284;
+  --rule:#DAD5CA; --rule-soft:#E8E4DB;
+  --gate:#9A5B00; --gate-bg:#FBF0DE; --gate-rule:#DFBB80;
+  --stop:#A8342A; --stop-bg:#FAE9E7; --stop-rule:#E0AFA9;
+  --ok:#186B4F; --ok-bg:#E3F0EA; --ok-rule:#9CC7B5;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#14130F; --surface:#1B1915; --surface-2:#211F1A; --surface-3:#282520;
+    --ink:#EFEBE3; --ink-2:#CAC3B6; --muted:#948C7D; --faint:#6E6659;
+    --rule:#302C25; --rule-soft:#26231D;
+    --gate:#E0A020; --gate-bg:#332608; --gate-rule:#6A4E14;
+    --stop:#EF6E60; --stop-bg:#331A17; --stop-rule:#6A2F29;
+    --ok:#38B48A; --ok-bg:#0F2C22; --ok-rule:#1F5544;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14130F; --surface:#1B1915; --surface-2:#211F1A; --surface-3:#282520;
+  --ink:#EFEBE3; --ink-2:#CAC3B6; --muted:#948C7D; --faint:#6E6659;
+  --rule:#302C25; --rule-soft:#26231D;
+  --gate:#E0A020; --gate-bg:#332608; --gate-rule:#6A4E14;
+  --stop:#EF6E60; --stop-bg:#331A17; --stop-rule:#6A2F29;
+  --ok:#38B48A; --ok-bg:#0F2C22; --ok-rule:#1F5544;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17.5px;line-height:1.66;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1060px;margin:0 auto;padding:50px 24px 38px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--gate);margin:0 0 16px;font-weight:600}
+h1{font-family:var(--mono);font-weight:700;font-size:clamp(30px,4.8vw,50px);line-height:1.04;
+  letter-spacing:-.035em;margin:0;text-wrap:balance}
+.dek{font-size:18px;color:var(--ink-2);max-width:62ch;margin:18px 0 0}
+blockquote.voice{margin:24px 0 0;padding:0 0 0 18px;border-left:2px solid var(--gate-rule);
+  font-style:italic;color:var(--ink-2);max-width:62ch;font-size:16.5px}
+blockquote.voice cite{display:block;font-style:normal;font-family:var(--mono);font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+
+.cols{display:grid;grid-template-columns:196px minmax(0,1fr);gap:56px;padding:42px 0 92px}
+nav.toc{position:sticky;top:24px;align-self:start}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11.5px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:7px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--gate)}
+nav.toc a:focus-visible{outline:2px solid var(--gate);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 62px;scroll-margin-top:20px}
+
+h2{font-family:var(--mono);font-weight:600;font-size:clamp(20px,2.6vw,26px);line-height:1.2;
+  letter-spacing:-.022em;margin:0 0 16px;text-wrap:balance}
+h2 .n{color:var(--gate);margin-right:10px}
+h3{font-family:var(--mono);font-weight:600;font-size:14.5px;letter-spacing:-.01em;
+  margin:30px 0 10px;color:var(--ink)}
+p{margin:0 0 15px;max-width:66ch}
+ul,ol{margin:0 0 15px;padding-left:22px;max-width:66ch}
+li{margin:0 0 8px}
+b,strong{font-weight:600;color:var(--ink)}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  margin:0 0 20px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 14px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{font-family:var(--mono);font-size:12px;color:var(--ink);white-space:nowrap;font-weight:500}
+
+/* the five-block reply — the most characteristic object in this document */
+.reply{border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  overflow:hidden;margin:0 0 20px}
+.reply-h{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);padding:11px 18px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule)}
+.blk{display:grid;grid-template-columns:172px minmax(0,1fr);gap:20px;padding:13px 18px;
+  border-bottom:1px solid var(--rule-soft)}
+.blk:last-child{border-bottom:none}
+.blk dt{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--gate);
+  letter-spacing:.02em}
+.blk dd{margin:0;font-size:15.5px;color:var(--ink-2)}
+
+/* the override sentence, as the form line it actually is */
+.form{border:1px solid var(--gate-rule);background:var(--gate-bg);border-radius:2px;
+  padding:22px 24px;margin:0 0 20px}
+.form .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--gate);margin:0 0 14px;font-weight:600}
+.form .line{font-family:var(--mono);font-size:16px;color:var(--ink);line-height:2.1}
+.form .fill{display:inline-block;min-width:170px;border-bottom:1.5px solid var(--gate);
+  color:var(--gate);font-style:italic}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--gate);background:var(--surface);
+  padding:16px 20px;border-radius:2px;margin:0 0 18px}
+.note.hard{border-left-color:var(--stop);background:var(--stop-bg);border-color:var(--stop-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:8px}
+.note.hard .tag{color:var(--stop)}
+.note p:last-child{margin-bottom:0}
+
+.rules{counter-reset:r;list-style:none;padding:0;margin:0 0 20px;max-width:none}
+.rules li{counter-increment:r;display:grid;grid-template-columns:34px minmax(0,1fr);gap:14px;
+  padding:14px 0;border-bottom:1px solid var(--rule-soft);margin:0}
+.rules li:last-child{border-bottom:none}
+.rules li::before{content:counter(r);font-family:var(--mono);font-size:13px;font-weight:700;
+  color:var(--gate);padding-top:2px}
+.rules b{display:block;margin-bottom:3px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1060px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--gate)}
+
+@media (max-width:860px){
+  .cols{grid-template-columns:1fr;gap:0;padding:28px 0 66px}
+  nav.toc{position:static;margin-bottom:32px;border:1px solid var(--rule);
+    border-radius:2px;padding:16px;background:var(--surface)}
+  .blk{grid-template-columns:1fr;gap:4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Doc 24 · Process</p>
+    <h1>The Pre-Trade Gate</h1>
+    <p class="dek">One fixed procedure, run between <em>GM says armed</em> and <em>order
+    placed</em>, that makes the gap between the system's read and your instinct visible and
+    written down before money moves.</p>
+    <blockquote class="voice">Sometimes my natural instinct is overriding what the S4 panel /
+    GM AI tells me. To arrest this and improve my focus, I would like to take this approach.
+    <cite>Jay · 12 Aug 2026</cite></blockquote>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#when">When to run it</a></li>
+    <li><a href="#reads">What Claude reads</a></li>
+    <li><a href="#back">What comes back</a></li>
+    <li><a href="#rules">The five rules</a></li>
+    <li><a href="#override">The override sentence</a></li>
+    <li><a href="#why">Why this exists</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<p style="font-size:19px;color:var(--ink-2);border-left:2px solid var(--gate);padding-left:18px;
+   max-width:62ch;margin:0 0 30px">An override is not banned. It is <b>logged</b>. That is the
+whole mechanism: after 20&ndash;30 trades the log answers a question no amount of arguing can
+&mdash; do your overrides make money, or cost it?</p>
+
+<section id="when">
+  <h2><span class="n">01</span>When to run it</h2>
+  <div class="tw"><table>
+    <tbody>
+      <tr><td class="k">Trigger</td><td>GM Single Symbol reads <b>ARMED</b> or <b>BUY — TRIGGER LIVE</b>, and you are about to place the order</td></tr>
+      <tr><td class="k">Not for</td><td>Browsing, screening, or “what do you think of X”. This is a gate, not a chat</td></tr>
+      <tr><td class="k">Cost</td><td>~2,000 tokens · one tool call · a few seconds</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="reads">
+  <h2><span class="n">02</span>What Claude reads — one call</h2>
+  <pre>mcp__tradingview__data_get_pine_tables(study_filter="Section 4")</pre>
+  <p>That single call returns the whole decision surface: all six panel sections, the gate chips
+  (<code>P·L·V·B</code>), Room, Confluence, TRIGGER, VERDICT, the plan levels, and the
+  VI · PORTFOLIO rows.</p>
+
+  <div class="note">
+    <span class="tag">Why CDP and not the Chrome extension</span>
+    <p>TradingView draws the panel on a <code>&lt;canvas&gt;</code>. There is no DOM text to
+    read — measured 12 Aug, a DOM query returned empty. The extension would have to screenshot
+    and interpret pixels: <b>3–5× the tokens, and a misread decimal on a stop is a live risk</b>.
+    CDP returns the numbers as written.</p>
+  </div>
+
+  <p>Add only if needed: <code>quote_get</code> (live price, ~50 tokens),
+  <code>chart_get_state</code> (confirm symbol and timeframe, ~100). <b>Do not</b> screenshot
+  unless the numbers look wrong and the chart's <em>shape</em> is the question. <b>Never</b>
+  call <code>data_get_ohlcv</code> without <code>summary=true</code>.</p>
+
+  <div class="note hard">
+    <span class="tag">Prerequisite</span>
+    <p>TradingView Desktop must be launched with the debug port —
+    <code>LAUNCH_TRADINGVIEW_CDP.bat</code>. Started normally, port 9222 is shut and every tool
+    fails with <em>“fetch failed”</em>.</p>
+  </div>
+
+  <p><b>Already on screen, not re-fetched:</b> the GM AI brief (evidence, gaps, the
+  disconfirming case). Run it on the GM page first; the review does not duplicate it.</p>
+</section>
+
+<section id="back">
+  <h2><span class="n">03</span>What comes back — fixed shape, no essay</h2>
+  <div class="reply">
+    <div class="reply-h">The reply, always these five blocks</div>
+    <dl style="margin:0">
+      <div class="blk"><dt>SYSTEM SAYS</dt><dd>Stage · location · trigger state · room · R:R · what is blocking</dd></div>
+      <div class="blk"><dt>YOUR CALL</dt><dd>What you said you want to do, in your words</dd></div>
+      <div class="blk"><dt>DIVERGENCE</dt><dd>The specific gap — or “none, you and the panel agree”</dd></div>
+      <div class="blk"><dt>THE ONE QUESTION</dt><dd>The single thing that decides it</dd></div>
+      <div class="blk"><dt>IF OVERRIDING</dt><dd>The sentence you write before placing</dd></div>
+    </dl>
+  </div>
+  <p>Five short blocks. If there is no divergence it says so in one line and stops — agreement
+  does not need paragraphs.</p>
+</section>
+
+<section id="rules">
+  <h2><span class="n">04</span>The five rules Claude follows</h2>
+  <ol class="rules">
+    <li><span><b>Quote the panel verbatim.</b> Never paraphrase a gate into something softer.
+      “V✗ RV 0.72” is not “volume is a little light”.</span></li>
+    <li><span><b>Never talk you INTO a trade.</b> Your own doctrine: the chart-read has veto
+      power, not entry power. The same applies here — it can raise a reason to stop, never
+      manufacture a reason to go.</span></li>
+    <li><span><b>No new analysis mid-review.</b> A fresh idea is a note for after the trade,
+      not an input to this one. Scope creep at the point of entry is how a considered setup
+      becomes an improvised one.</span></li>
+    <li><span><b>Blocked gates are stated first</b>, before anything encouraging.</span></li>
+    <li><span><b>Silence on what is already known.</b> No restating the whole panel back.</span></li>
+  </ol>
+</section>
+
+<section id="override">
+  <h2><span class="n">05</span>The override sentence</h2>
+  <p>If you place against the panel, you write <b>one line</b> first.</p>
+  <div class="form">
+    <p class="lbl">Write this before the order goes in</p>
+    <p class="line">Overriding <span class="fill">&nbsp;what&nbsp;</span> because
+    <span class="fill">&nbsp;what you see that the system cannot&nbsp;</span>.</p>
+  </div>
+  <p>Two reasons this works:</p>
+  <ul>
+    <li><b>It is hard to write a bad one.</b> “Overriding no-volume because it feels ready”
+    reads as what it is, in your own handwriting.</li>
+    <li><b>It becomes evidence.</b> Joined against outcomes later, the log tells you whether
+    your reads beat the system's. If they do, the system needs changing. If they do not, you
+    have the answer you were looking for when you asked for this.</li>
+  </ul>
+  <h3>Logging it</h3>
+  <pre>python log_trade_review.py SYMBOL --verdict "S4 says" --call "what I did" --override "reason"</pre>
+  <p>Writes <code>logs/trade_reviews.csv</code>. Omit <code>--override</code> when you followed
+  the system — <b>those rows are the control group, and without them the log proves
+  nothing</b>.</p>
+</section>
+
+<section id="why">
+  <h2><span class="n">06</span>Why this exists at all</h2>
+  <p>Everything measured in this repo says the same thing: <b>signal generation is not the weak
+  part.</b> Four stop studies rejected tightening. The GO gate turned out to be a classifier,
+  not an entry optimiser. The edge, where it exists, is thin and lumpy — POS-BO carried by big
+  winners, a median trade that loses to the index.</p>
+  <p>A system that thin cannot survive discretionary overrides that nobody counts. Not because
+  instinct is worthless — yours has context the panel does not — but because
+  <b>an uncounted override is indistinguishable from a mistake, forever</b>. This makes them
+  countable.</p>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/24 · Pre-Trade Review Recipe</span>
+  <span>Companions — 23 Golden Matcher · 22 Section 4 · <a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">25 Golden Rules</a></span>
+</div></footer>
