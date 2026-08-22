@@ -137,6 +137,24 @@ td.soft{background:var(--surface-2)}
 .gly .nm{font-weight:700;font-size:15px;margin:0 0 3px;color:var(--ink)}
 .gly p{font-size:14.5px;margin:0;color:var(--ink-2);max-width:66ch}
 
+
+/* collapsible reference — folded, never dropped */
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
 .steps{counter-reset:s;list-style:none;padding:0;margin:0 0 18px;max-width:none}
 .steps li{counter-increment:s;display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;
   padding:13px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
@@ -210,6 +228,7 @@ footer a{color:var(--acc)}
   <p>Using it</p>
   <ol>
     <li><a href="#walk">The walkthrough</a></li>
+    <li><a href="#detail">Reference</a></li>
     <li><a href="#trouble">Troubleshooting</a></li>
   </ol>
 </nav>
@@ -545,8 +564,141 @@ footer a{color:var(--acc)}
   </div>
 </section>
 
+<section id="detail">
+  <h2><span class="n">12</span>Reference — defaults, tags and page anatomy</h2>
+  <p>Folded. The behaviour you rely on daily is above; this is what you open when something on
+  screen is unfamiliar or a number moved.</p>
+
+  <details class="ref"><summary>Board defaults — and why the filter matches 4/4, not GO</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Default</th><th>Behaviour</th><th>Turn it off</th></tr></thead><tbody>
+      <tr><td class="k">Sort: Overall descending</td><td>It used to re-sort alphabetically, <b>silently discarding the ranking the board had already applied upstream</b> — which is why the grid always opened in name order. Symbol now breaks ties, so the order is stable between rebuilds</td><td>Click any other header</td></tr>
+      <tr><td class="k">Filter: all gates only</td><td>Keeps rows whose gate cell <b>starts with</b> 4/4. The header states how many rows it is hiding, so <b>an empty-looking board is never mistaken for a failed build</b></td><td>Untick the filter</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">Why the match is 4/4 and not GO — measured</span>
+    <p>The cell reads <code>4/4 GO</code> only when the pattern fired on the <b>live</b> bar; a few
+    bars old it reads <code>4/4 · PA 3b</code>, with no “GO” in the string. Matching on GO therefore
+    <b>hid names where all four gates pass but the pattern is not fresh</b> — one such name was worth
+    a full review. On the live cache, matching GO kept <b>4 of 49</b> rows; matching 4/4 keeps
+    <b>10</b>.</p>
+    <p>The match is anchored to the <em>start</em> of the string on purpose: the upstream vetoes
+    render as <code>⛔ Stage 3 · gates 4/4</code>, which <em>contain</em> 4/4 — anchoring keeps them
+    out.</p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>The rotation tag — display only, and the bug behind it</summary><div class="rb">
+  <p>A row carrying the rotation tag is one whose trajectory is <b>not</b> on the tradeable
+  whitelist. <b>It never vetoes and never changes the gate count.</b></p>
+  <p>The board computes it <em>itself</em> rather than reading a column, and that detail matters:
+  only one of the source files carries the pre-computed flag. The main file — <b>49 of 51 board
+  rows</b> — does not, so a column-based gate would have <b>failed open on about 96% of the board
+  while looking shipped.</b></p>
+  <div class="note warn">
+    <span class="tag">A bug worth remembering as a class</span>
+    <p>The first version returned nothing for <em>every</em> symbol. The stock's weekly bars came
+    from one resampler and the benchmark's from a native weekly fetch — <b>the two anchor
+    differently, so the join dropped every row and the gate failed open silently.</b></p>
+    <p><b>If you ever add a weekly comparison: resample both sides the same way, or verify the join
+    is non-empty.</b> A gate that fails open looks exactly like a gate that passes.</p>
+  </div>
+  <p class="refnote">The veto is switched off deliberately. Before restoring it, read the gate
+  section in the Section Four guide — the whitelist it would apply measured <b>+0.00pp at a
+  twelve-week horizon</b>.</p>
+  </div></details>
+
+  <details class="ref"><summary>Why Stage, RS and rotation numbers all moved — and by how much</summary><div class="rb">
+  <p>Three corrections landed in the producer that feeds every board column. <b>None changed which
+  names fire</b> — catalyst selection was unchanged across all 49 rows — but they changed the
+  context those names are shown with.</p>
+
+  <h4>1 · The rotation engine was recalibrated</h4>
+  <p>The producer was still running an older lookback pair, so it disagreed with every other
+  surface. It now <b>imports</b> the shared calibration rather than copying it, and was verified
+  identical to the reference engine <b>to twelve decimal places</b> across thousands of weekly
+  observations. Every surface now runs the same maths.</p>
+
+  <h4>2 · Weekly indicators no longer use the forming week</h4>
+  <p>Found because <b>two panels on one screen disagreed</b> — one card read leading, another read
+  weakening. Neither was stale and neither had drifted: one used confirmed weekly bars, the other
+  included the week in progress. On a Tuesday that “weekly” bar holds two sessions.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th class="num">Ratio</th><th class="num">Momentum</th><th>Verdict</th></tr></thead><tbody>
+      <tr><td class="k">Confirmed weeks only</td><td class="num">127.83</td><td class="num">100.38</td><td><b>Leading</b></td></tr>
+      <tr><td class="k">Including the forming week</td><td class="num">126.73</td><td class="num">98.92</td><td><b>Weakening</b></td></tr>
+    </tbody></table></div>
+  <p>The forming bar is now dropped from <b>both</b> the stock and the benchmark leg, and it reads
+  the <b>pinned</b> date when replaying, so a historical run drops the week that was forming
+  <em>at that anchor</em>. Blast radius across 49 names: stage changed on 5, quadrant on 5,
+  tradeable on 3, <b>catalyst on none</b>.</p>
+
+  <h4>3 · What that means when you read the board</h4>
+  <p>Values shifted for roughly one name in ten — two moved up a stage and became blocked, one
+  moved down and was admitted. <b>That is a correction, not a regression — but do not compare
+  today's Overall against a screenshot from last week.</b></p>
+
+  <h4>The re-baseline, with both corrections</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Run</th><th class="num">Trades</th><th class="num">Mean α</th><th class="num">Median</th><th class="num">Win%</th><th class="num">Anchor hit</th></tr></thead><tbody>
+      <tr><td class="k">Neither correction</td><td class="num">400</td><td class="num">−0.88%</td><td class="num">−2.38%</td><td class="num">33.8</td><td class="num">31.6</td></tr>
+      <tr><td class="k">Calibration only</td><td class="num">510</td><td class="num">+0.07%</td><td class="num">−2.04%</td><td class="num">29.4</td><td class="num">52.6</td></tr>
+      <tr><td class="k"><b>Both</b></td><td class="num"><b>515</b></td><td class="num"><b>+0.30%</b></td><td class="num">−1.93%</td><td class="num">30.7</td><td class="num"><b>55.0</b></td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <p>Every column improved monotonically and cumulative alpha went from −9.71% to −3.86%.
+    <b>But the probability of positive alpha is 46.1% and the interval straddles zero.</b> These
+    were correctness fixes — <b>they made the measurement honest, they did not create an
+    edge.</b></p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>Operational faults you may still recognise</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause</th><th>Now</th></tr></thead><tbody>
+      <tr><td class="k">Rebuild hangs, console full of fundamental-source timeouts</td><td>The source refuses a <b>burst</b> at the connection level, so every name paid a full timeout — and with no memo one symbol was fetched <b>four times in thirty-four seconds</b>. A single shell request answered in a third of a second from the same address the whole time, <b>so it was never down</b></td><td>A breaker with paced concurrent dials, a memo that <b>caches a miss</b>, and a cut-out after repeated failures</td></tr>
+      <tr><td class="k">“I restarted and it is still wrong”</td><td>The launcher forks a <b>child</b> that serves the port, so interrupting the launcher leaves the child serving the <em>old</em> code</td><td>A stop script that kills the port owner and any orphan, leaving the other app alone</td></tr>
+      <tr><td class="k">A metrics panel printed raw markup</td><td>A function annotated as returning text actually returned a <b>tuple</b>; an earlier fix was applied at the <em>call site</em> rather than to the function. <b>The leading bracket-quote is the tell</b> — that is a tuple's repr, not markup</td><td>Returns one string, chosen by the path flag</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Single Symbol — page anatomy</summary><div class="rb">
+  <h4>The header strip</h4>
+  <p>Symbol and company with its sector, the current price and change, and a <b>freshness
+  line</b> — which reads green when the last bar is current and warns when it lags a completed
+  session. <b>On load a stale frame auto-heals once per session</b>: the page busts its cache and
+  reloads to pull the fresh bar. If the provider genuinely has not published it, the warning
+  stays. Then the catalyst, large and colour-coded — <b>this is the screener's setup label, not
+  the pattern trigger</b>.</p>
+  <h4>The decision path</h4>
+  <p>Each step shows metric chips, an imperative guidance line, a status pill, and a
+  <b>← NOW</b> badge on the step that needs you. A hard fail greys out everything below it.</p>
+  <h4>The trigger step</h4>
+  <p>Names <em>which</em> patterns fired and their combined tier. <b>Patterns are bonuses, not a
+  checklist</b> — you read the tier. A high tier or a strong single pattern is a real trigger;
+  <b>a lone coil means wait for the release</b>.</p>
+  <h4>Guided execution</h4>
+  <p>A position sizer from your capital and risk percentage, <b>automatically halved on
+  counter-trend names</b>. When a zone sits under price the first two checklist items are
+  <b>auto-filled</b> with that zone and its proximal, so you verify rather than hand-draw. Tick all
+  six and a journal form appears pre-filled — logging it <b>captures the true entry snapshot</b>,
+  which is the only way a system-only track record ever gets built.</p>
+  <h4>Session shortlist and full metrics</h4>
+  <p>Every actionable name you land on accumulates into a ranked list, exportable straight to a
+  watchlist; a name that later degrades drops off by itself. The full-metrics expander holds a
+  score strip and ten detail cards — <b>the strip exists so you only open a card when its score
+  surprises you</b>.</p>
+  <div class="note">
+    <span class="tag">Two verdict engines, and why</span>
+    <p>The decision path is your working view. A compact three-gate banner inside the expander is
+    the cross-check. <b>Both speak the same trigger language</b>, and the banner's displayed
+    sub-checks were aligned to the thresholds it actually enforces — so <b>a gate never shows a
+    tick over red criteria</b>.</p>
+  </div>
+  </div></details>
+</section>
+
 <section id="trouble">
-  <h2><span class="n">12</span>Troubleshooting</h2>
+  <h2><span class="n">13</span>Troubleshooting</h2>
   <div class="tw"><table>
     <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
     <tbody>

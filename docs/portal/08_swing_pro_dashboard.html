@@ -126,6 +126,23 @@ tr.lo td{background:var(--neg-bg)}
 .tier.t2{color:var(--acc);background:var(--acc-bg);border-color:var(--acc-rule)}
 .tier.t0{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 
+
+/* collapsible reference — folded, never dropped */
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
 .mistakes{counter-reset:m;list-style:none;padding:0;margin:0 0 18px;max-width:none}
 .mistakes li{counter-increment:m;display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;
   padding:12px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
@@ -186,6 +203,8 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#owns">What it owns</a></li>
     <li><a href="#day">The daily loop</a></li>
+    <li><a href="#catalog">The setup catalog</a></li>
+    <li><a href="#inputs">Inputs reference</a></li>
     <li><a href="#mistakes">Common mistakes</a></li>
   </ol>
 </nav>
@@ -415,8 +434,166 @@ footer a{color:var(--acc)}
   </table></div>
 </section>
 
+<section id="catalog">
+  <h2><span class="n">10</span>The setup catalog</h2>
+  <p>The price-action row displays one of <b>22 detected setups</b>, each carrying a tier that
+  feeds the Action Signal. The cascade evaluates <b>in priority order and the first match
+  wins</b>, with the rarest setup acting as a final override that supersedes everything else.</p>
+
+  <div class="note stop">
+    <span class="tag">An internal contradiction in the source, flagged rather than quietly resolved</span>
+    <p>The catalog below still lists the four bearish detectors at <b>tier −2</b>, while the
+    validated table in section 02 records them as <b>neutralised to tier 0</b> after regime-split
+    testing showed they predict the wrong direction in both regimes. <b>The neutralisation is the
+    later and evidenced decision</b> — the catalog tiers were simply never updated. Treat those
+    four as <em>watch</em> states that display but do not score.</p>
+  </div>
+
+  <details class="ref"><summary>Tier +4 · the override</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Power Play (high tight flag)</td><td>Up 100% or more in eight weeks, <b>and</b> a 15-bar range under 20%, <b>and</b> price above the 50-day. <b>The rarest and highest-conviction setup</b>, and it supersedes any other match</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Tier +3 · highest-conviction bullish</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Spring — failed breakdown</td><td>Dips below the 20-day low intraday and closes back above it. The Wyckoff classic</td></tr>
+      <tr><td class="k">VCP Breakout</td><td>A valid contraction, then a close above the 10-day high on above-average volume, closing in the upper part of the range</td></tr>
+      <tr><td class="k">Stage-2 Launch</td><td>A <b>weekly</b> close crossing the 30-week average upward on volume</td></tr>
+  </tbody></table></div>
+  <p class="refnote">These three plus the gap-up breakout are the states the validation calls
+  statistically airtight. <b>Trust them.</b></p>
+  </div></details>
+
+  <details class="ref"><summary>Tier +2 · high-quality bullish</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Breakout (confirmed)</td><td>Above locked resistance, closing in the top quarter of range, on volume</td></tr>
+      <tr><td class="k">Pocket Pivot</td><td>An up-close on volume greater than the largest <em>down</em>-bar volume of the last ten</td></tr>
+      <tr><td class="k">Liquidity Sweep Reclaim</td><td>Swept below the 50-day then reclaimed it on volume — <b>with a lockout so it cannot reprint through a pullback</b></td></tr>
+      <tr><td class="k">Bullish Engulfing</td><td>The bullish body fully engulfs the prior bearish one. <b>See the gating note below</b></td></tr>
+      <tr><td class="k">3-Bar Reversal</td><td>Three lower lows, then a close above the highest of the three</td></tr>
+      <tr><td class="k">Power Play (strong close)</td><td>A bullish bar whose lower wick is at least three times the upper</td></tr>
+  </tbody></table></div>
+  <div class="note good">
+    <p><b>The engulfing pattern was later gated</b> to fire only at an oversold reading on
+    institutional volume. That moved it from roughly zero alpha to <b>+3.46%</b> — the same
+    pattern, a tenth as often, and worth taking when it appears.</p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>Tier +1 · constructive and coiling</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Breakout (unconfirmed)</td><td>Above resistance but it <b>failed the anti-algo gate</b> — a weak close position or thin volume</td></tr>
+      <tr><td class="k">Consolidation (tight)</td><td>Just below resistance, within a few percent</td></tr>
+      <tr><td class="k">Flat base (tight)</td><td>A 25-day range under about a tenth of its low</td></tr>
+      <tr><td class="k">Inside-3 coil</td><td>Three consecutive inside bars</td></tr>
+      <tr><td class="k">True NR7</td><td>The range is <b>strictly</b> the smallest of the last seven — the strictness matters, an earlier version was not a real NR7</td></tr>
+      <tr><td class="k">Inside bar</td><td>Contained entirely within the prior bar</td></tr>
+      <tr><td class="k">Hammer reversal</td><td>Small body in the upper third with a long lower wick, above the 50-day</td></tr>
+  </tbody></table></div>
+  <p class="refnote"><b>Coils are compression, not ignition.</b> A tier-1 coil tells you a move is
+  being built, not that it has started.</p>
+  </div></details>
+
+  <details class="ref"><summary>Tier 0 and the neutralised bearish states</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th><th>Status</th></tr></thead><tbody>
+      <tr><td class="k">Normal</td><td>Nothing matched</td><td>Neutral</td></tr>
+      <tr><td class="k">Selling tail</td><td>A bearish bar with a long upper wick</td><td>Mild bearish</td></tr>
+      <tr><td class="k">Failed breakout</td><td>Closed above resistance yesterday, back below today</td><td><b>Watch — neutralised</b></td></tr>
+      <tr><td class="k">Distribution day</td><td>A wide-range down bar on elevated volume</td><td><b>Watch — neutralised</b></td></tr>
+      <tr><td class="k">Bearish engulfing</td><td>Engulfs the prior bullish body, below the 50-day</td><td><b>Watch — neutralised</b></td></tr>
+      <tr><td class="k">Shooting star</td><td>Rejection at resistance</td><td><b>Watch — neutralised</b></td></tr>
+  </tbody></table></div>
+  <div class="note stop">
+    <p><b>Two structural bugs lived in this cascade and are worth remembering as a class.</b> One
+    detector was <b>firing zero times</b> because it used the wrong contraction test. Another was
+    <b>structurally impossible</b> — its rolling maximum included the very bar being tested, making
+    its own condition a tautology that could never be true. <b>A detector that never fires looks
+    exactly like a detector that finds nothing.</b> Only counting the fires tells them apart.</p>
+  </div>
+  </div></details>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">11</span>Inputs — field by field</h2>
+  <p>Folded by group. Defaults are the validated values; <b>change them only against your own
+  data</b>, and remember that several are shared with other surfaces.</p>
+
+  <details class="ref"><summary>Portfolio slots — and the one rule about them</summary><div class="rb">
+  <div class="note stop">
+    <span class="tag">Slots are for OPEN positions only</span>
+    <p>They are reserved for stocks you <b>currently hold</b>, never for watchlist tracking. Every
+    slot metric — P&amp;L, R-multiple, days held, time-stop warnings, trailed-stop tracking — only
+    makes sense once a position is live with a real entry, stop and date. <b>Put a watchlist ticker
+    in a slot and all of them will lie to you.</b> The sync script enforces this by pulling only
+    open positions.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Ticker</td><td>Matched against the chart symbol to make this the active position</td></tr>
+      <tr><td class="k">Entry</td><td>Your average entry — drives unrealised P&amp;L and the R-multiple</td></tr>
+      <tr><td class="k">Stop</td><td>The active stop — drives distance-to-stop and its warnings</td></tr>
+      <tr><td class="k">Sector</td><td>The sector index for relative-strength comparison. <b>Let the automation fill this</b> — a wrong sector makes the RS-vs-sector row meaningless</td></tr>
+      <tr><td class="k">Date</td><td>Entry date. <b>Without it the days-held counter and the time stop cannot function at all</b></td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Strategy inputs — the shared constants</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Weinstein SMA, weekly</td><td class="m">30</td><td><b>Keep identical across every surface</b></td></tr>
+      <tr><td class="k">30-week slope lookback</td><td class="m">4</td><td>Weeks used to judge the slope</td></tr>
+      <tr><td class="k">Benchmarks</td><td class="m">index · broad</td><td>The broad index is the primary relative-strength benchmark</td></tr>
+      <tr><td class="k">Manual sector override</td><td class="m">off</td><td>Off, the physical sector database resolves it — <b>which is what gives offline parity</b></td></tr>
+      <tr><td class="k">Positional time stop</td><td class="m">6 weeks</td><td>Fires when open that long below half an R</td></tr>
+      <tr><td class="k">Swing time stop</td><td class="m">10 days</td><td>Same rule, shorter clock</td></tr>
+      <tr><td class="k">RS slope length · sensitivity · level period</td><td class="m">26 · 0.2 · 52</td><td>The relative-strength engine this surface owns</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Moving averages, technicals and the pivot setting</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">50 / 150 / 200-day lengths</td><td class="m">50 / 150 / 200</td><td>The trend-template stack</td></tr>
+      <tr><td class="k">50-day slope lookback</td><td class="m">21</td><td>—</td></tr>
+      <tr><td class="k">Slope flat threshold</td><td class="m">0.0005</td><td>Below this the slope reads flat rather than directional</td></tr>
+      <tr><td class="k">Pivot left / right</td><td class="m">2 / 2</td><td><b>Must match your on-chart pivot tool</b> or the trend rows will disagree — an earlier bump to 3/3 broke exactly that alignment and was reverted. Weekly is fixed</td></tr>
+      <tr><td class="k">ATR length</td><td class="m">14</td><td>Shared everywhere</td></tr>
+      <tr><td class="k">Volume-profile lookback</td><td class="m">100</td><td>The window for the point-of-control proxy</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The mathematical edges, alerts and style</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Macro edge</td><td class="m">on</td><td>Requires an institutional volume bias before a strong buy is allowed — <b>filters low-conviction signals</b></td></tr>
+      <tr><td class="k">Micro edge</td><td class="m">on</td><td>Requires price above the pivot and monthly anchor, with a squeeze, for pullback signals</td></tr>
+      <tr><td class="k">Labels · trade lines · distance</td><td class="m">on</td><td>On-chart signal labels and the entry/target lines with their distances</td></tr>
+      <tr><td class="k">Fresh-signal marker</td><td class="m">on</td><td>Stars a signal that fired within the last bar</td></tr>
+      <tr><td class="k">Anchored VWAP</td><td class="m">on</td><td>Anchored to the start of the current Stage 2</td></tr>
+      <tr><td class="k">Table position · size · colours</td><td class="m">—</td><td>Adjust for your screen and theme</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Advanced thresholds — previously hard-coded</summary><div class="rb">
+  <p class="refnote">Defaults are preserved from before they were exposed. <b>Change only after
+  validating against your own data.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Volume accumulation window · minimum days</td><td class="m">10 · 2</td><td>How many accumulation days inside the window flip the row to pass</td></tr>
+      <tr><td class="k">Volume average length</td><td class="m">50</td><td>The baseline for every volume row</td></tr>
+      <tr><td class="k">VCP tightness multiplier</td><td class="m">1.5</td><td>Lower is stricter; <b>1.0 is institutional-grade tight</b></td></tr>
+      <tr><td class="k">Volume dry-up threshold</td><td class="m">0.30</td><td>Volume must fall to roughly seventy percent of average</td></tr>
+      <tr><td class="k">Equal-high/low tolerance</td><td class="m">0.005</td><td>The pivot classifier's tie band. <b>Lower for large caps, higher for smaller ones</b></td></tr>
+      <tr><td class="k">Key-level proximity</td><td class="m">2.5%</td><td>When a level counts as near</td></tr>
+      <tr><td class="k">Pullback distance maximum</td><td class="m">5.0%</td><td>How far from the short average still counts as a pullback zone</td></tr>
+      <tr><td class="k">Sweep lockout</td><td class="m">10 bars</td><td><b>Stops the reclaim pattern reprinting through a pullback</b></td></tr>
+      <tr><td class="k">Stage-2 fresh threshold</td><td class="m">13 weeks</td><td>The leg-age cutoff for the fresh tag. Above it but within the macro limit reads maturing; beyond that, extended</td></tr>
+  </tbody></table></div></div></details>
+</section>
+
 <section id="mistakes">
-  <h2><span class="n">10</span>Common mistakes</h2>
+  <h2><span class="n">12</span>Common mistakes</h2>
   <ol class="mistakes">
     <li><span><b>Trusting the pattern tiers on an intraday chart.</b> The validation is daily-only. The label is the same; the event is not.</span></li>
     <li><span><b>Reading the Action Signal without the Recommendation.</b> A perfect bar in a Stage-4 name is still a Stage-4 name.</span></li>
