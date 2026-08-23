@@ -15885,7 +15885,14 @@ elif page == 'RISK SHIELD':
                         gid = order_id or g.get("correlationId", "")
                         if gid not in sell_gtts:
                             sell_gtts[gid] = {"symbol": symbol, "sl_trigger": None, "sl_qty": None,
-                                              "target_trigger": None, "target_qty": None, "order_id": gid, "qty": qty}
+                                              "target_trigger": None, "target_qty": None, "order_id": gid, "qty": qty,
+                                              # ORDER TYPE, carried through (22-Aug-2026). Dhan tags a
+                                              # STANDALONE stop as orderType SINGLE but still labels the
+                                              # leg STOP_LOSS_LEG, so `is_oco` above sweeps it into this
+                                              # group and the card called it "OCO-3". It is the single SL
+                                              # that covers the uncapped tail - a different instrument
+                                              # with a different purpose, and it must say so.
+                                              "order_type": ot}
                         if leg == "STOP_LOSS_LEG":
                             is_sl = True
                         elif leg == "TARGET_LEG":
@@ -17147,6 +17154,7 @@ elif page == 'RISK SHIELD':
                                     # misreports both. Now one row per ACTUAL resting order, each
                                     # carrying its own quantity, target and stop.
                                     _mirror_rows = []
+                                    _oco_n = 0
                                     for _oi, _o in enumerate(orders):
                                         _mq = int(_o.get("sl_qty") or _o.get("qty") or 0)
                                         _mt = _o.get("target_trigger")
@@ -17157,14 +17165,49 @@ elif page == 'RISK SHIELD':
                                                   else "<span style='color:#FCA5A5'>no SL leg</span>")
                                         _mcol = "#A7F3D0" if _oi == 0 else "#6EE7B7"
                                         _mwt = 700 if _oi == 0 else 600
+                                        _msingle = str(_o.get("order_type") or "").upper() == "SINGLE"
+                                        if _msingle:
+                                            _mname = "SINGLE SL"
+                                            _mcol = "#93C5FD"
+                                        else:
+                                            _mname = f"OCO-{_oco_n + 1}"
+                                            _oco_n += 1
                                         _mirror_rows.append(
                                             f"<div style='color:{_mcol};font-weight:{_mwt};'>"
-                                            f"• <b>OCO-{_oi+1} ({_mq} sh):</b> {_mtxt} | {_mstxt}</div>")
+                                            f"• <b>{_mname} ({_mq} sh):</b> {_mtxt} | {_mstxt}</div>")
                                     if not _mirror_rows:
                                         _mirror_rows.append(
                                             "<div style='color:#FCA5A5;font-weight:600;'>"
                                             "nothing resting at Dhan for this symbol</div>")
                                     _mirror_html = "".join(_mirror_rows)
+                                    # COVERAGE (22-Aug-2026, Jay). The card only ever described what
+                                    # is RESTING, never whether it covers the position. On the live
+                                    # book five symbols were short: ANANDRATHI 54 held / 13 covered,
+                                    # CAPLIPOINT 98 / 27, SONACOMS 258 / 71. Nothing on this tile
+                                    # said so, and the recommendation below was sized off the covered
+                                    # subset - so it recommended protecting 13 of 54 shares.
+                                    _held_qty = 0
+                                    try:
+                                        _held_qty = int((holding or {}).get("qty") or 0)
+                                    except Exception:
+                                        _held_qty = 0
+                                    _naked = (_held_qty - total_qty) if _held_qty else 0
+                                    if _held_qty and _naked > 0:
+                                        _cover_html = (
+                                            f"<div style='color:#FCA5A5;font-size:0.72rem;margin-top:4px;font-weight:700;'>"
+                                            f"⚠ {_held_qty} sh held · {total_qty} covered · "
+                                            f"<b>{_naked} UNPROTECTED</b></div>")
+                                    elif _held_qty and _naked < 0:
+                                        _cover_html = (
+                                            f"<div style='color:#FCD34D;font-size:0.72rem;margin-top:4px;font-weight:700;'>"
+                                            f"⚠ {_held_qty} sh held but {total_qty} sh in exit orders — "
+                                            f"over-covered by {-_naked}</div>")
+                                    else:
+                                        _cover_html = (
+                                            f"<div style='color:#6B9080;font-size:0.72rem;margin-top:4px;'>"
+                                            f"{len(orders)} order(s) resting · {total_qty} sh covered"
+                                            + (" — fully protected" if _held_qty else "")
+                                            + "</div>")
                                     # Kept for the blocks below that still read them. They are
                                     # AGGREGATES across the legs, not per-leg values.
                                     t1_price = tgt_vals[0] if len(tgt_vals) > 0 else (buy_price * 1.08 if buy_price else 0)
@@ -17266,29 +17309,57 @@ elif page == 'RISK SHIELD':
                                     # copies of the Rec block noted at :17462: one guard, three renderers.
                                     _t1_banked = bool(_r_t1) and bool(ltp) and ltp >= _r_t1
                                     _p_tail = max(0, 100 - _p1 - _p2)
-                                    if _t1_banked:
-                                        _rq1 = 0
-                                        _rq2, _rq_rest = _alloc_qty(total_qty, [_p2, _p_tail])
-                                        _qty_basis = ("re-based on the "
-                                                      + str(int(total_qty or 0)) + " left after OCO-1")
-                                    else:
-                                        _rq1, _rq2, _rq_rest = _alloc_qty(total_qty, [_p1, _p2, _p_tail])
-                                        _qty_basis = ""
+                                    # SIZE OFF THE POSITION, NOT OFF WHAT HAPPENS TO BE RESTING
+                                    # (22-Aug-2026, Jay). total_qty is the sum of the resting SL legs,
+                                    # so on a partly-covered name the recommendation was a plan for
+                                    # the covered fraction: ANANDRATHI (54 held, 13 covered) was sized
+                                    # as if the position were 13. The recommendation answers "what
+                                    # should be resting", so its base is the HOLDING. Falls back to
+                                    # the covered quantity only when the holding is unknown, and the
+                                    # card names which base it used.
+                                    _rec_base = _held_qty if _held_qty else total_qty
+                                    _base_note = ("" if _held_qty
+                                                  else " \u00b7 holding unknown, sized off the resting legs")
+                                    _rq1, _rq2, _rq_rest = _alloc_qty(_rec_base, [_p1, _p2, _p_tail])
+                                    # WHETHER T1 IS ALREADY TAKEN IS NOT SOMETHING THIS CARD CAN KNOW.
+                                    # It used to infer it from `ltp >= policy T1` and grey OCO-1 out -
+                                    # which read as "already banked". On ANANDRATHI that was FALSE:
+                                    # the trade history shows no sell in 60 days; the position is
+                                    # simply well in profit with a trailed stop above entry, so the
+                                    # policy T1 sits below price. Quantities no longer depend on the
+                                    # guess. The conditional line below offers the re-based split and
+                                    # says plainly that taking the partial is the precondition.
+                                    _qty_basis = ""
                                     _row_t1 = (
-                                        f"<div style='color:#6B9080;font-weight:600;'>• <b>OCO-1:</b> "
-                                        f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> "
-                                        f"— ✓ banked, LTP above it</div>"
+                                        f"<div style='color:#FDE68A;font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
+                                        f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)} "
+                                        f"<span style='color:#FCA5A5'>— LTP is already above this target</span></div>"
                                     ) if _t1_banked else (
                                         f"<div style='color:#FDE68A;font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
                                         f"T1 {_fr(_r_t1)} <span style='color:#94A3B8'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
                                     )
+                                    # NO RE-BASE LINE (22-Aug-2026, Jay: "for ANANDRATHI OCO-1 was
+                                    # executed, but subsequently there was a pyramid"). That is the
+                                    # case that kills the idea of adjusting the plan for history: the
+                                    # position was reduced by a fill and then added to again, so
+                                    # "what is left after OCO-1" is meaningless. The current holding
+                                    # is the only correct base whatever route it took to get here,
+                                    # and it always wants the full three orders. All the card owes
+                                    # you is the fact that the policy T1 currently sits below price.
+                                    _rebase_html = (
+                                        f"<div style='color:#FCD34D;font-size:0.72rem;margin-top:4px;"
+                                        f"border-top:1px dashed #92400E;padding-top:4px;'>"
+                                        f"Note: LTP is above the policy T1, so that leg would fill on "
+                                        f"placement. Quantities below are thirds of what you hold "
+                                        f"NOW — they do not assume anything about earlier fills."
+                                        f"</div>") if _t1_banked else ""
                                     _rec_rows = ((
                                         f"{_row_t1}"
                                         f"<div style='color:#FCD34D;font-weight:600;'>• <b>OCO-2 ({_rq2} sh):</b> "
                                         f"T2 {_fr(_r_t2)} <span style='color:#94A3B8'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
                                         f"<div style='color:#94A3B8;font-size:0.72rem;margin-top:4px;'>"
-                                        f"{_rq_rest} sh ride the trail uncapped · SL = {_slsrc} · R from {_r_note}"
-                                        f"{(' · ' + _qty_basis) if _qty_basis else ''}</div>"
+                                        f"{_rq_rest} sh on a SINGLE SL (the uncapped tail) · SL = {_slsrc} · R from {_r_note}{_base_note}</div>"
+                                        f"{_rebase_html}"
                                     ) if (_r_t1 or _r_sl) else
                                         "<div style='color:#94A3B8;'>no entry price or stop on record — cannot size R</div>")
 
@@ -17296,10 +17367,10 @@ elif page == 'RISK SHIELD':
                                       <div style='flex:1;background:linear-gradient(145deg, #022C22 0%, #064E3B 100%);border:1.5px solid #059669;border-radius:8px;padding:10px 14px;'>
                                         <div style='color:#6EE7B7;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 AT DHAN NOW · what is resting ({_oco_family})</div>
                                         {_mirror_html}
-                                        <div style='color:#6B9080;font-size:0.72rem;margin-top:4px;'>{len(orders)} leg(s) resting · {total_qty} sh covered — read from your live orders, not advice</div>
+                                        {_cover_html}
                                       </div>
                                       <div style='flex:1;background:linear-gradient(145deg, #2A1F05 0%, #4A3410 100%);border:1.5px solid #D97706;border-radius:8px;padding:10px 14px;'>
-                                        <div style='color:#FDE68A;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p2}/{_p_tail} ({_oco_family}){' · T1 banked' if _t1_banked else ''}</div>
+                                        <div style='color:#FDE68A;font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p2}/{_p_tail} ({_oco_family}) · on {_rec_base} sh</div>
                                         {_rec_rows}
                                       </div>
                                     </div>"""
