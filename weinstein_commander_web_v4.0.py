@@ -15566,6 +15566,143 @@ elif page == 'RISK SHIELD':
     st.markdown('<div class="page-title">🛡️ Risk Shield — Risk Management & Entries</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Live monitoring of OCO exits, pullback entries, and unprotected holdings from Dhan GTT orders.</div>', unsafe_allow_html=True)
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  DECLARE STRIP (22-Aug-2026, Jay: "I have a very bad discipline of not
+    #  logging the journal on placing trades... how do I cultivate the habit")
+    #
+    #  The diagnosis was that there is no habit to cultivate. The journal
+    #  already writes itself: buy_price 19/19, stoploss 19/19, entry snapshot
+    #  19/19 - the 4:30 sync and the upsert hook fill everything the broker
+    #  knows. Exactly ONE field cannot be recovered from Dhan and was blank on
+    #  every row: `timeframe`, which is rung 1 of the trade-type ladder. With
+    #  it blank the ladder falls through to a chart-state guess that moves with
+    #  the chart, and the trail multiplier is a heuristic rather than a
+    #  declaration.
+    #
+    #  So this is not a journaling form. It is one question, asked where he is
+    #  already looking, answerable in one click. Design rules it follows:
+    #    * never ask for data the machine has (only this one field appears)
+    #    * the debt is COUNTED, not implied - invisible debt is not paid
+    #    * forward-only; no backfill prompt, no history nag
+    #    * writing is idempotent and scoped to OPEN rows of that symbol
+    # ══════════════════════════════════════════════════════════════════════
+    def _rs_declare_strip():
+        import sqlite3 as _sq_d
+        try:
+            import dhan_journal_v7 as _dj_d
+            _dbf = _dj_d.DB_FILE
+        except Exception as _e:
+            return
+        try:
+            _cn = _sq_d.connect(_dbf)
+            _cn.row_factory = _sq_d.Row
+            _cols = {r[1] for r in _cn.execute("PRAGMA table_info(journal)")}
+            if "timeframe" not in _cols:
+                _cn.close()
+                return
+            _open = [dict(r) for r in _cn.execute(
+                "SELECT id, symbol, timeframe, setup, buy_price, quantity "
+                "FROM journal WHERE UPPER(status)='OPEN' ORDER BY symbol")]
+            _cn.close()
+        except Exception as _e:
+            _gm_logger.warning("declare strip: journal read failed: %s", _e)
+            return
+        if not _open:
+            return
+
+        def _blank(v):
+            return str(v or "").strip().lower() in ("", "none", "nan", "-")
+
+        _todo = [r for r in _open if _blank(r.get("timeframe"))]
+        _done = len(_open) - len(_todo)
+
+        if not _todo:
+            st.markdown(
+                f"<div style='background:#052E20;border:1px solid #059669;border-left:4px solid #10B981;"
+                f"border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:0.85rem;color:#A7F3D0;'>"
+                f"\u2713 <b>All {_done} open positions have a declared timeframe.</b> "
+                f"The trade-type ladder is reading rung 1 on every one of them \u2014 nothing is guessing."
+                f"</div>", unsafe_allow_html=True)
+            return
+
+        st.markdown(
+            f"<div style='background:#2A1F05;border:1px solid #D97706;border-left:4px solid #F59E0B;"
+            f"border-radius:8px;padding:10px 16px;margin-bottom:6px;font-size:0.9rem;color:#FDE68A;'>"
+            f"<b>\u270d\ufe0f Declare \u2014 {len(_todo)} of {len(_open)} positions have no timeframe.</b>"
+            f"<div style='font-size:0.78rem;color:#FCD34D;margin-top:3px;'>"
+            f"This is the ONE field Dhan cannot tell us, and it is rung 1 of the trade-type ladder. "
+            f"Until it is set, the type is inferred from today\u2019s chart (the <code>?</code> on the "
+            f"tiles) and the trail multiplier is a heuristic. One click each.</div></div>",
+            unsafe_allow_html=True)
+
+        def _write_tf(_rid, _sym, _val):
+            try:
+                _c2 = _sq_d.connect(_dbf)
+                _c2.execute("UPDATE journal SET timeframe=? WHERE id=?", (_val, _rid))
+                _c2.commit(); _c2.close()
+                try:
+                    # LOCAL import, deliberately. At this point in the file the
+                    # module-level name `datetime` is the CLASS (line 17,
+                    # `from datetime import datetime`); the RISK SHIELD block
+                    # rebinds it to the MODULE about 25 lines below this
+                    # function's call site. So `datetime.datetime.now()` here
+                    # raises AttributeError, and the audit line would vanish
+                    # into the except while the journal write looked fine.
+                    import datetime as _dtm
+                    os.makedirs("logs", exist_ok=True)
+                    with open(os.path.join("logs", "risk_shield_actions.log"), "a",
+                              encoding="utf-8") as _lf:
+                        _lf.write(f"{_dtm.datetime.now().isoformat(timespec='seconds')} "
+                                  f"DECLARE_TIMEFRAME {_sym} -> {_val}\n")
+                except Exception as _le:
+                    _gm_logger.warning("declare strip: audit log failed: %s", _le)
+                return True
+            except Exception as _e:
+                _gm_logger.warning("declare strip: write failed for %s: %s", _sym, _e)
+                st.error(f"Could not write {_sym}: {_e}")
+                return False
+
+        with st.container():
+            for _r in _todo:
+                _rid = _r.get("id"); _sym = str(_r.get("symbol") or "").upper()
+                _bp = _r.get("buy_price"); _qt = _r.get("quantity")
+                _c1, _c2c, _c3, _c4 = st.columns([3, 2, 1.1, 1.4])
+                with _c1:
+                    _sub = []
+                    if _qt:
+                        _sub.append(f"{int(float(_qt))} sh")
+                    if _bp:
+                        _sub.append(f"@ \u20b9{float(_bp):,.2f}")
+                    st.markdown(
+                        f"<div style='padding-top:6px;'><b style='color:#E2E8F0;'>{_sym}</b>"
+                        f"<span style='color:#64748B;font-size:0.78rem;'> "
+                        f"{' \u00b7 '.join(_sub)}</span></div>", unsafe_allow_html=True)
+                with _c2c:
+                    _stp = str(_r.get("setup") or "").strip()
+                    _stp_txt = _stp if _stp and _stp.upper() != "NONE" else "no setup label"
+                    st.markdown(f"<div style='padding-top:8px;color:#64748B;font-size:0.75rem;'>"
+                                f"{_stp_txt}</div>", unsafe_allow_html=True)
+                with _c3:
+                    if st.button("SWING", key=f"decl_sw_{_rid}", use_container_width=True,
+                                 help="8-12 week hold. Sets the 14-bar trail clock and the 2R/4R "
+                                      "target pair."):
+                        if _write_tf(_rid, _sym, "Swing"):
+                            st.rerun()
+                with _c4:
+                    if st.button("POSITIONAL", key=f"decl_po_{_rid}", use_container_width=True,
+                                 help="6-8 month hold. Sets the 22-bar trail clock and the 3R/5R "
+                                      "target pair."):
+                        if _write_tf(_rid, _sym, "Positional"):
+                            st.rerun()
+        st.caption("Declared once at entry and never re-read from the chart \u2014 that is the point. "
+                   "Change it only if the trade\u2019s intent genuinely changed.")
+        st.markdown("---")
+
+    try:
+        _rs_declare_strip()
+    except Exception as _e_ds:
+        _gm_logger.warning("declare strip failed: %s", _e_ds)
+
     # --- Precompute Pyramid/Trim classifications ---
     import pyramid_logic as pl
     if "pyramid_classifications" not in st.session_state:
