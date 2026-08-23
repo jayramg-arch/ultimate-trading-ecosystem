@@ -15635,10 +15635,16 @@ elif page == 'RISK SHIELD':
             f"tiles) and the trail multiplier is a heuristic. One click each.</div></div>",
             unsafe_allow_html=True)
 
-        def _write_tf(_rid, _sym, _val):
+        def _write_tf(_rid, _sym, _val, _rat=None):
             try:
+                _rat = str(_rat or "").strip()
                 _c2 = _sq_d.connect(_dbf)
-                _c2.execute("UPDATE journal SET timeframe=? WHERE id=?", (_val, _rid))
+                if _rat:
+                    # One statement, so the two fields can never half-land.
+                    _c2.execute("UPDATE journal SET timeframe=?, rationale=? WHERE id=?",
+                                (_val, _rat, _rid))
+                else:
+                    _c2.execute("UPDATE journal SET timeframe=? WHERE id=?", (_val, _rid))
                 _c2.commit(); _c2.close()
                 try:
                     # LOCAL import, deliberately. At this point in the file the
@@ -15653,7 +15659,8 @@ elif page == 'RISK SHIELD':
                     with open(os.path.join("logs", "risk_shield_actions.log"), "a",
                               encoding="utf-8") as _lf:
                         _lf.write(f"{_dtm.datetime.now().isoformat(timespec='seconds')} "
-                                  f"DECLARE_TIMEFRAME {_sym} -> {_val}\n")
+                                  f"DECLARE_TIMEFRAME {_sym} -> {_val}"
+                                  + (f" | {_rat}" if _rat else "") + "\n")
                 except Exception as _le:
                     _gm_logger.warning("declare strip: audit log failed: %s", _le)
                 return True
@@ -15666,33 +15673,47 @@ elif page == 'RISK SHIELD':
             for _r in _todo:
                 _rid = _r.get("id"); _sym = str(_r.get("symbol") or "").upper()
                 _bp = _r.get("buy_price"); _qt = _r.get("quantity")
-                _c1, _c2c, _c3, _c4 = st.columns([3, 2, 1.1, 1.4])
+                _c1, _c2c, _c3, _c4 = st.columns([2.4, 3.2, 1.1, 1.4])
                 with _c1:
                     _sub = []
                     if _qt:
                         _sub.append(f"{int(float(_qt))} sh")
                     if _bp:
                         _sub.append(f"@ \u20b9{float(_bp):,.2f}")
+                    _stp = str(_r.get("setup") or "").strip()
+                    if _stp and _stp.upper() != "NONE":
+                        _sub.append(_stp)
                     st.markdown(
                         f"<div style='padding-top:6px;'><b style='color:#E2E8F0;'>{_sym}</b>"
                         f"<span style='color:#64748B;font-size:0.78rem;'> "
                         f"{' \u00b7 '.join(_sub)}</span></div>", unsafe_allow_html=True)
                 with _c2c:
-                    _stp = str(_r.get("setup") or "").strip()
-                    _stp_txt = _stp if _stp and _stp.upper() != "NONE" else "no setup label"
-                    st.markdown(f"<div style='padding-top:8px;color:#64748B;font-size:0.75rem;'>"
-                                f"{_stp_txt}</div>", unsafe_allow_html=True)
+                    # RATIONALE (22-Aug-2026, Jay: "I'll save the chart snapshot on
+                    # the Notes section at trade time"). A snapshot records what the
+                    # chart LOOKED like; swing-vs-positional is an INTENT, and one
+                    # sentence typed at the same moment captures what re-reading the
+                    # picture later can only guess at. Deliberately OPTIONAL - the
+                    # one-click path must never be blocked by a second field, which
+                    # is how the original form-shaped journal died.
+                    st.text_input(
+                        "rationale", key=f"decl_rat_{_rid}", label_visibility="collapsed",
+                        value=str(_r.get("rationale") or ""),
+                        placeholder="why you took it — optional",
+                        help="Free text, written with the timeframe. One line is plenty: "
+                             "\"75m pullback off the 20, sector leading\".")
                 with _c3:
                     if st.button("SWING", key=f"decl_sw_{_rid}", use_container_width=True,
                                  help="8-12 week hold. Sets the 14-bar trail clock and the 2R/4R "
                                       "target pair."):
-                        if _write_tf(_rid, _sym, "Swing"):
+                        if _write_tf(_rid, _sym, "Swing",
+                                     st.session_state.get(f"decl_rat_{_rid}")):
                             st.rerun()
                 with _c4:
                     if st.button("POSITIONAL", key=f"decl_po_{_rid}", use_container_width=True,
                                  help="6-8 month hold. Sets the 22-bar trail clock and the 3R/5R "
                                       "target pair."):
-                        if _write_tf(_rid, _sym, "Positional"):
+                        if _write_tf(_rid, _sym, "Positional",
+                                     st.session_state.get(f"decl_rat_{_rid}")):
                             st.rerun()
         st.caption("Declared once at entry and never re-read from the chart \u2014 that is the point. "
                    "Change it only if the trade\u2019s intent genuinely changed.")
