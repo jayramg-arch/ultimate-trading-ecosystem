@@ -1,0 +1,454 @@
+<title>The Institutional Footprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#7A3E6B; --acc-bg:#F4E9F1; --acc-rule:#CFAAC4;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#C589B8; --acc-bg:#2A1826; --acc-rule:#5A3550;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#C589B8; --acc-bg:#2A1826; --acc-rule:#5A3550;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 04 · Chart engines</p>
+      <h1>The Institutional Footprint</h1>
+      <p class="dek">Order blocks, gaps, sweeps — and a structure state machine the old guide never
+      mentioned. <b>Two of its subsystems reach a live decision; one is provably unreachable and
+      stays on the panel anyway.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Measured, 38 names</div>
+      The <b>BROKEN</b> tier of<br>
+      Structure Health has<br>
+      <b>never rendered once</b>,<br>
+      at any setting.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#drift">What changed since the guide</a></li>
+  </ol>
+  <p>The zones</p>
+  <ol>
+    <li><a href="#ob">Order blocks</a></li>
+    <li><a href="#fvg">Fair value gaps</a></li>
+    <li><a href="#sweep">Liquidity sweeps</a></li>
+  </ol>
+  <p>The structure engine</p>
+  <ol>
+    <li><a href="#bos">Break versus change of character</a></li>
+    <li><a href="#health">Structure health — the dead tier</a></li>
+    <li><a href="#score">What it scores</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#workflow">The workflow</a></li>
+    <li><a href="#framework">Where it sits in the funnel</a></li>
+    <li><a href="#inputs">Inputs</a></li>
+    <li><a href="#mistakes">Mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="drift">
+  <h2><span class="n">01</span>What changed since the guide was written</h2>
+  <div class="note stop">
+    <span class="tag">The standalone indicator no longer exists</span>
+    <p>This module was merged into the context overlay and later ported to Python. The markdown
+    guide describes a version that is gone, and it is wrong in three specific ways plus one large
+    omission.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>The old guide says</th><th>The code does</th></tr></thead><tbody>
+      <tr><td class="k">Order blocks found by scanning 50 bars for an impulse move above 1.5&times; volatility</td><td><b>Pivot-anchored, swing length 5.</b> There is no impulse-threshold input and no lookback scan — the block is tied to a confirmed swing</td></tr>
+      <tr><td class="k">Gap minimum is 0.3&times; volatility</td><td><b>0.05% of price.</b> A percentage, not a volatility multiple — see the note below, because the two behave very differently across names</td></tr>
+      <tr><td class="k">Nothing about market structure</td><td><b>A whole subsystem</b> — break of structure, change of character, a trend state machine and a rolling event counter. Sections 05 and 06</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">Why the gap threshold change matters</span>
+    <p>A volatility-scaled minimum asks &ldquo;is this gap big <em>for this stock</em>&rdquo;. A
+    percentage minimum asks &ldquo;is this gap big&rdquo; full stop. On a quiet large-cap, 0.05%
+    is a fraction of a normal day and almost every gap qualifies; on a volatile small-cap it is
+    noise-level too. <b>The filter is far more permissive than the old one on calm names</b>, which
+    is why the display caps the count rather than relying on the threshold to do the pruning.</p>
+  </div>
+</section>
+
+<section id="ob">
+  <h2><span class="n">02</span>Order blocks</h2>
+  <p>The last opposite-direction candle before a decisive move. The premise is that institutions
+  filled there, and unfilled orders remain when price returns.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Type</th><th>Formation</th><th>Role</th></tr></thead><tbody>
+      <tr><td class="k">Bullish block</td><td>The last down candle before an up impulse</td><td>Support on a pullback</td></tr>
+      <tr><td class="k">Bearish block</td><td>The last up candle before a down impulse</td><td>Resistance — and <b>a natural exit target</b> for a long</td></tr>
+    </tbody></table></div>
+  <p>The box is drawn <b>body only</b>, open to close. The wick is excluded deliberately: the body
+  is where business was transacted, the wick is where price visited and left.</p>
+  <div class="note">
+    <span class="tag">Mitigation is the whole discipline here</span>
+    <p>When price <b>closes through</b> a block, its orders are considered filled and the zone is
+    spent. By default the box is removed from the chart entirely rather than greyed.</p>
+    <p>That deletion is not cosmetic. <b>A mitigated block has no predictive value</b>, and leaving
+    it visible invites you to trade a level that has already done its work. The setting to keep them
+    exists for study, not for trading.</p>
+  </div>
+  <p class="refnote">Only five blocks are shown at once, newest first. That cap is the real filter
+  on chart clutter — not the detection threshold.</p>
+</section>
+
+<section id="fvg">
+  <h2><span class="n">03</span>Fair value gaps</h2>
+  <p>A three-bar inefficiency: price moved so hard that the middle bar's range never overlapped its
+  neighbours, leaving a band nobody traded.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Type</th><th>Structure</th><th>Role</th></tr></thead><tbody>
+      <tr><td class="k">Bullish gap</td><td>The current low sits <b>above</b> the high from two bars back</td><td>Support; price tends to return and fill it</td></tr>
+      <tr><td class="k">Bearish gap</td><td>The current high sits <b>below</b> the low from two bars back</td><td>Resistance</td></tr>
+    </tbody></table></div>
+  <p>The box anchors to the middle bar and extends right until filled. Filled gaps are auto-removed,
+  ten shown at most.</p>
+  <p class="refnote">A gap is the <b>precision</b> layer, not the location layer — it narrows a wide
+  block into a few points of entry. Read on its own it is far too common to be a signal, which is
+  exactly what the permissive threshold in section 01 implies.</p>
+</section>
+
+<section id="sweep">
+  <h2><span class="n">04</span>Liquidity sweeps</h2>
+  <p>Price pierces a prior swing extreme — taking out the stops clustered there — then rejects and
+  closes back inside. It is the same event Wyckoff calls a spring, described in different language.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Sweep</th><th>Condition</th><th>Read</th></tr></thead><tbody>
+      <tr><td class="k">Below a swing low</td><td>The low breaks it, <b>the close does not</b></td><td>Stops taken, sellers exhausted — the long trigger</td></tr>
+      <tr><td class="k">Above a swing high</td><td>The high breaks it, the close does not</td><td>Supply above — an exit signal in a long-only book</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">The one combination worth waiting for</span>
+    <p>A sweep whose <b>wick lands inside a bullish order block</b>, closing back above the swept
+    level. Location and trigger in one bar, with the stop obvious just below the block. Everything
+    else in this module is context; this is the setup.</p>
+  </div>
+  <p class="refnote">The same event reaches the bull screener independently as its own quality
+  term, so a sweep is not only a chart annotation — it already contributes to what gets shortlisted.</p>
+</section>
+
+<section id="bos">
+  <h2><span class="n">05</span>Break of structure versus change of character</h2>
+  <p>The subsystem the old guide omits entirely, and the one that actually feeds the score. It keeps
+  a running trend flag and watches price cross the most recent confirmed swing.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Event</th><th>Fires when</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Break of structure, up</td><td>Close crosses above the last swing high <b>while already in an uptrend</b></td><td>Continuation — the trend did what it was supposed to</td></tr>
+      <tr><td class="k">Change of character, up</td><td>The same cross <b>while in a downtrend</b></td><td><b>Reversal.</b> The first sign the other side has taken control</td></tr>
+      <tr><td class="k">Break of structure, down</td><td>Close crosses below the last swing low while in a downtrend</td><td>Continuation lower</td></tr>
+      <tr><td class="k">Change of character, down</td><td>The same cross while in an uptrend</td><td><b>The first warning</b> an advance has failed</td></tr>
+    </tbody></table></div>
+  <p>Same price event, opposite meanings — <b>what separates them is the trend state at the time</b>,
+  not the bar. That is why the flag has to be carried between bars, and why the port could not be
+  vectorised.</p>
+
+  <div class="note stop">
+    <span class="tag">The load-bearing quirk in the port</span>
+    <p>The change-of-character test reads the trend flag <b>before</b> that same bar updates it — so
+    it is evaluated against the <em>prior</em> bar's trend. Reorder those two lines and every
+    reversal silently becomes a continuation.</p>
+    <p>The Python port reproduces this deliberately, along with two others from the Wyckoff side,
+    and pins all three with regression tests verified to go red under mutation. <b>It is not a bug
+    to be cleaned up</b> — it is the definition.</p>
+  </div>
+</section>
+
+<section id="health">
+  <h2><span class="n">06</span>Structure health — and the tier that cannot fire</h2>
+  <p>Changes of character are counted over a rolling twenty bars and graded:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Count</th><th>Label</th><th>Reality</th></tr></thead><tbody>
+      <tr><td class="m">0–1</td><td class="k">CLEAN</td><td>What roughly 90% of names read, always</td></tr>
+      <tr><td class="m">2–3</td><td class="k">CHOPPY</td><td>In practice means <b>exactly 2</b> — 3 has never been observed</td></tr>
+      <tr><td class="m">4+</td><td class="k">BROKEN</td><td><b>Unreachable. It has never rendered.</b></td></tr>
+    </tbody></table></div>
+  <div class="note stop">
+    <span class="tag">Measured, not assumed</span>
+    <p>Across 38 board names, on daily and 75-minute, at swing lengths 5, 7 and 10 — <b>the count
+    never reached 3 in any cell.</b> Two or more occurred on 3% of daily names and 11–13% of
+    intraday ones.</p>
+    <p>Two consequences follow. <b>The absence of BROKEN is not evidence that no name is broken</b>
+    — the label simply cannot appear. And a gate keyed on a count of three or more, which an earlier
+    version proposed, <b>would never have fired even once.</b> That is why the structure-health
+    downgrade was dropped rather than shipped.</p>
+  </div>
+  <p>The row stays as display. Re-tiering the thresholds to make the labels look better would break
+  parity between the two surfaces for a cosmetic gain — <b>and there is still no evidence that a
+  higher count predicts a worse trade</b>, which is what promoting it would require. Change both
+  surfaces together or neither.</p>
+</section>
+
+<section id="score">
+  <h2><span class="n">07</span>What it contributes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Term</th><th class="r">Value</th></tr></thead><tbody>
+      <tr><td class="k">Trend direction</td><td class="m">&plusmn;2</td></tr>
+      <tr><td class="k">A fresh change of character, in the same direction</td><td class="m">&plusmn;1</td></tr>
+    </tbody></table></div>
+  <p>Small, and deliberately so. The bonus rewards a reversal that has <em>just</em> happened rather
+  than the standing trend — a change of character twenty bars ago is history, and the freshness test
+  is what stops it being scored as if it were news.</p>
+  <div class="note warn">
+    <p>Before the Python port existed, the board did not compute any of this. Structure direction
+    was <b>the path name</b> — bull or recovery — so every recovery candidate was penalised four
+    points for being a recovery candidate, and the change-of-character count was read from a field
+    <b>nothing ever produced</b>, so structure health was permanently CLEAN feeding a constant into
+    the total. The port replaced three proxies with the real thing.</p>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">08</span>The workflow</h2>
+  <ol>
+    <li><b>Take the unmitigated bullish blocks below price.</b> Those are the pullback targets. Ones
+    above price are irrelevant as support.</li>
+    <li><b>Rank them.</b> A block sitting on a high-volume node or a major average is worth more
+    than one in open air; a recent block is worth more than a hundred-bar-old one; and the bigger
+    the move that left it, the more was transacted there.</li>
+    <li><b>Narrow with a gap.</b> A bullish gap inside the block is the precise entry — stop below
+    the block's low, not inside it.</li>
+    <li><b>Prefer a sweep as the trigger.</b> Section 04. Enter on the close of the sweep bar or the
+    first bar after the rejection.</li>
+    <li><b>Use bearish blocks above as targets.</b> If an engine target lands on one, that is where
+    to take the partial.</li>
+  </ol>
+  <div class="note">
+    <p>Nothing here generates a trade on its own. The blocks and gaps feed the <b>location</b> gate;
+    the sweep feeds a quality term. The decision belongs to the screeners and the entry gate.</p>
+  </div>
+</section>
+
+<section id="framework">
+  <h2><span class="n">09</span>Where it sits in the funnel</h2>
+  <p>This layer is <b>micro-precision inside a macro frame</b>, and it is worth being explicit about
+  the order, because using it alone is the classic failure:</p>
+  <pre>MACRO — is this even tradeable
+    stage 2 · above the 30-week average · relative strength positive
+
+TIMING — is it ready
+    the average stack aligned · a contraction or a pullback
+
+PRECISION — where exactly, and when
+    at an unmitigated bullish block
+    a gap inside it for the price
+    <b>or a sweep at or below it for the trigger</b></pre>
+  <p><b>A bullish order block in a stage-4 decline is a trap</b>, and it looks identical to one in a
+  stage-2 advance. The layer has no opinion about which it is drawing — that is what the layers
+  above it are for.</p>
+  <p class="refnote">The correspondences are worth holding: a sweep <em>is</em> a Wyckoff spring; a
+  block retest <em>is</em> a secondary test; the recovery book's climax turn-bar is structurally the
+  same event as a bullish sweep confirmation. Three vocabularies, one behaviour.</p>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">10</span>Inputs</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>Effect</th></tr></thead><tbody>
+      <tr><td class="k">Swing length for blocks</td><td class="num">5</td><td>Which pivots anchor a block. Higher gives fewer, larger blocks</td></tr>
+      <tr><td class="k">Maximum blocks shown</td><td class="num">5</td><td><b>The real declutter control</b></td></tr>
+      <tr><td class="k">Keep mitigated blocks</td><td class="num">off</td><td>On is for study. A spent zone on a live chart is an invitation to trade it</td></tr>
+      <tr><td class="k">Minimum gap size</td><td class="num">0.05%</td><td>Of price, not of volatility — section 01</td></tr>
+      <tr><td class="k">Auto-remove filled gaps</td><td class="num">on</td><td>Same reasoning as blocks</td></tr>
+      <tr><td class="k">Maximum gaps shown</td><td class="num">10</td><td></td></tr>
+      <tr><td class="k">Swing length for structure</td><td class="num">10</td><td>Which swings count as the structure being broken. <b>Longer means fewer, more meaningful breaks</b></td></tr>
+      <tr><td class="k">Swing length for sweeps</td><td class="num">10</td><td>Which extremes are treated as liquidity pools</td></tr>
+      <tr><td class="k">Show blocks · gaps · breaks · sweeps</td><td class="num">on</td><td>Independently toggleable</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">One combination to avoid</span>
+    <p>Keep the block swing length <b>at or below</b> the structure swing length. Above it, blocks
+    are anchored to larger pivots than the ones defining structure, and the two subsystems end up
+    describing different charts.</p>
+  </div>
+  <p class="refnote">Tighter is available — a longer block swing and a bigger gap minimum give fewer,
+  higher-quality zones. Looser is available too, and mostly produces more boxes rather than more
+  information.</p>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">11</span>Mistakes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mistake</th><th>Why it costs you</th></tr></thead><tbody>
+      <tr><td class="k">Trading every block</td><td>Only ones aligned with the stage. <b>A bullish block in a decline is a trap that looks exactly like the real thing</b></td></tr>
+      <tr><td class="k">Trading a mitigated zone</td><td>Price already closed through it; the orders are filled. The default removes it for this reason</td></tr>
+      <tr><td class="k">Putting the stop inside the block</td><td>Inside is where absorption happens. <b>You get taken out by the very activity that makes the zone work</b> — the stop belongs below its low</td></tr>
+      <tr><td class="k">Chasing a sweep</td><td>Enter on the sweep bar's close or the first bar after. Five bars later the move has happened and your stop is far away</td></tr>
+      <tr><td class="k">Reading the absence of BROKEN as health</td><td>Section 06. That tier has never rendered and cannot</td></tr>
+      <tr><td class="k">Confusing a break with a change of character</td><td>Same bar, opposite meanings. <b>One says the trend continued, the other says it turned</b></td></tr>
+    </tbody></table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/04 · SMC Zones — folded into the context overlay</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/5613c1cc-e562-45a4-bff1-cf2cad21dee1">03 Volume Profile</a> · <a href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">02 Wyckoff</a></span>
+</div></footer>
