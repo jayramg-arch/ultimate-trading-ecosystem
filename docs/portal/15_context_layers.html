@@ -1,0 +1,776 @@
+<title>The Context Layers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#0E5B54; --acc-bg:#E2F0EC; --acc-rule:#9BC7BC;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#54C6AE; --acc-bg:#0C2622; --acc-rule:#1D5147;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#54C6AE; --acc-bg:#0C2622; --acc-rule:#1D5147;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 15 · Chart engines</p>
+      <h1>The Context Layers</h1>
+      <p class="dek">Four modules into one score, eight setups out of it, and a bonus that feeds
+      back without closing the loop. This is the integrator the Wyckoff, volume-profile and zone
+      pages all fold into — <b>and one of its eight setups can never fire.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Follows from the measurement</div>
+      <b>S8 requires a CHoCH count<br>
+      of 3 or more.</b> Measured<br>
+      across 38 names, that count<br>
+      has never reached 3.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#dead">The setup that cannot fire</a></li>
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#loop">Breaking the loop</a></li>
+  </ol>
+  <p>The setups</p>
+  <ol>
+    <li><a href="#bull">The bullish five</a></li>
+    <li><a href="#bear">The bearish two, and the dead one</a></li>
+    <li><a href="#priority">Priority and conflict</a></li>
+    <li><a href="#bonus">The bonus, and why each value</a></li>
+  </ol>
+  <p>Trading it</p>
+  <ol>
+    <li><a href="#score">Score, bands, panel</a></li>
+    <li><a href="#checklist">The entry checklist</a></li>
+    <li><a href="#playbook">The playbook</a></li>
+    <li><a href="#chain">How setups chain</a></li>
+  </ol>
+  <p>Reference</p>
+  <ol>
+    <li><a href="#scenarios">What the bonus changes</a></li>
+    <li><a href="#params">Parameters</a></li>
+    <li><a href="#mistakes">Mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="dead">
+  <h2><span class="n">01</span>The setup that cannot fire</h2>
+  <p><b>S8 — Choppy Range</b> requires the change-of-character count over the trailing twenty bars
+  to reach <b>three or more</b>. Its condition is a single line, and it is exact.</p>
+  <div class="note stop">
+    <span class="tag">Measured, on the component that feeds it</span>
+    <p>Across 38 board names, on daily and 75-minute, at swing lengths 5, 7 and 10 — <b>that count
+    never reached 3 in any cell.</b> The distribution tops out at 2, which occurs on 3% of daily
+    names and 11–13% of intraday ones.</p>
+    <p>So <b>S8 has never labelled a bar, and its −1 penalty has never been applied.</b> The
+    &ldquo;sit out&rdquo; signal the checklist tells you to respect is not reachable — and the same
+    threshold makes the Structure Health <em>BROKEN</em> tier unreachable for the same reason.</p>
+  </div>
+  <p>Three consequences worth holding:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Consequence</th><th>What to do</th></tr></thead><tbody>
+      <tr><td class="k">The score's downside is narrower than documented</td><td>Only S7 can push it down. The −1 rung is theoretical</td></tr>
+      <tr><td class="k">&ldquo;Never enter on a negative bonus&rdquo; means only one thing</td><td>In practice it means <b>never enter against S7</b></td></tr>
+      <tr><td class="k">The chop warning does not exist</td><td><b>Its absence is not evidence the tape is clean.</b> Judge chop from the structure-health count itself — 2 is as high as it goes</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Left as-is deliberately rather than re-tiered: changing the threshold to make
+  the labels look right would break parity with the sibling surface for a cosmetic gain, and there
+  is still no evidence that a higher count predicts a worse trade. <b>Change both surfaces together
+  or neither.</b></p>
+</section>
+
+<section id="arch">
+  <h2><span class="n">02</span>Architecture</h2>
+  <p>Four modules produce component scores; those sum to a base; a detector reads the base and
+  classifies the bar into at most one setup; the setup returns a signed bonus; base plus bonus is
+  the final score, and the band comes from that.</p>
+  <pre>Wyckoff  ─┐
+Profile  ─┤
+Zones    ─┼──&gt; BASE SCORE ──┐
+Stage    ─┘        │         ├──&gt; FINAL SCORE ──&gt; band ──&gt; display
+                   │         │
+                   └──&gt; Setup Detector ──&gt; bonus ──┘</pre>
+  <p>Each of the four is documented on its own page — <b>this one is about what happens after they
+  have spoken.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Component</th><th>Range</th><th>Its page</th></tr></thead><tbody>
+      <tr><td class="k">Wyckoff</td><td class="m">&plusmn;4, decaying</td><td>Doc 02 — <b>rejected as a gate and as a score</b>, kept as context</td></tr>
+      <tr><td class="k">Volume profile</td><td class="m">&plusmn;3</td><td>Doc 03 — the one component wired into a live decision</td></tr>
+      <tr><td class="k">Zones and structure</td><td class="m">&plusmn;3</td><td>Doc 04 — trend &plusmn;2 plus a fresh-reversal bonus</td></tr>
+      <tr><td class="k">Stage</td><td class="m">&plusmn;3</td><td>The weekly 2&times;2</td></tr>
+      <tr><td class="k">Setup bonus</td><td class="m">−2 to +2</td><td>This page</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="loop">
+  <h2><span class="n">03</span>Breaking the loop</h2>
+  <p>&ldquo;The setup uses the score, the score uses the setup&rdquo; is circular. The design breaks
+  it by <b>strict ordering, enforced by code position rather than convention</b>:</p>
+  <ol>
+    <li>The four components compute. That sum is the <b>base score</b>.</li>
+    <li>The detector runs, reading <b>only the base</b>. Every threshold in a setup's conditions —
+    base at least 6 for S2, base at most −3 for S7 — refers to the raw figure.</li>
+    <li>The bonus is computed <em>from</em> the detected setup.</li>
+    <li>Final score is base plus bonus.</li>
+    <li>The band is assigned from the final.</li>
+  </ol>
+  <div class="note good">
+    <p><b>A setup can never see its own bonus.</b> That is the whole trick, and it is worth noticing
+    that it is guaranteed by <em>where the lines sit in the file</em> — the bonus variable does not
+    exist yet when the detector runs. Nothing enforces it at review time; the order does.</p>
+  </div>
+</section>
+
+<section id="bull">
+  <h2><span class="n">04</span>The bullish five</h2>
+  <p>Each is an AND-gate across all four modules. Folded, strongest first.</p>
+
+  <details class="ref"><summary>S2 · Spring or last-point-of-support reversal — priority 5, bonus +2</summary><div class="rb">
+  <p><b>The maximum-conviction long.</b> The textbook accumulation resolution: a false breakdown that
+  recovered, or a successful retest of that low, followed by a structural flip and value-area
+  support.</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Wyckoff</td><td>Most recent event is a <b>spring</b> or a <b>last point of support</b></td></tr>
+    <tr><td class="k">Freshness</td><td>Within 15 bars</td></tr>
+    <tr><td class="k">Structure</td><td>Trend bullish</td></tr>
+    <tr><td class="k">Profile</td><td>Score at least +1 — price has demand-side acceptance</td></tr>
+    <tr><td class="k">Base score</td><td><b>At least 6</b> — the composite must already be constructive</td></tr>
+  </tbody></table></div>
+  <p class="refnote">Note the base-score floor. <b>S2 cannot rescue a weak chart</b> — it only
+  upgrades one that is already good. That is what makes the +2 defensible.</p>
+  </div></details>
+
+  <details class="ref"><summary>S3 · Sweep plus change of character — priority 4, bonus +2</summary><div class="rb">
+  <p>The stop-run reversal. Price takes out a prior swing low, then breaks structure upward.</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Sweep</td><td>A bullish liquidity sweep within 10 bars</td></tr>
+    <tr><td class="k">Structure</td><td>A bullish change of character within 10 bars</td></tr>
+    <tr><td class="k">Profile</td><td>Score above −3 — <b>a sweep at extreme distribution is a dead cat, not a reversal</b></td></tr>
+  </tbody></table></div>
+  <p>The sweep removes hidden supply at the obvious low; the change of character confirms buyers
+  took the structure. <b>No base-score floor here</b> — unlike S2, this one can fire on a weaker
+  composite, which is why its entry is a pullback rather than the bar itself.</p>
+  </div></details>
+
+  <details class="ref"><summary>S1 · Order-block retest with profile support — priority 3, bonus +1</summary><div class="rb">
+  <p>The bread-and-butter entry: price retesting a bullish block while still in accumulation and
+  supported by the profile.</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Location</td><td>Price is <b>inside</b> a bullish order block</td></tr>
+    <tr><td class="k">Profile</td><td>Score at least +1, <b>or</b> within 5% of the control point</td></tr>
+    <tr><td class="k">Wyckoff</td><td>Bias is accumulation</td></tr>
+    <tr><td class="k">Base score</td><td>At least 3 — modest confirmation</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The most repeatable of the five, and the one whose stop is most obvious: below
+  the block's low.</p>
+  </div></details>
+
+  <details class="ref"><summary>S4 · Value-area-low bounce with a gap stack — priority 2, bonus 0</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Location</td><td>The low tagged the value-area low within 1% and the close is back above it</td></tr>
+    <tr><td class="k">Gaps</td><td>More unfilled bullish gaps than bearish</td></tr>
+    <tr><td class="k">Wyckoff</td><td><b>Not</b> distribution — accumulation or neutral both qualify</td></tr>
+    <tr><td class="k">Base score</td><td>At least 2</td></tr>
+  </tbody></table></div>
+  <p>Auction-theory mean reversion: a defended lower bound with buyers still aggressive above.
+  Target the control point, then the value-area high.</p>
+  </div></details>
+
+  <details class="ref"><summary>S5 · Stage-2 continuation above value — priority 2, bonus 0</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stage</td><td>2, advancing</td></tr>
+    <tr><td class="k">Structure</td><td>A bullish <b>break</b> — not a change of character — within 20 bars</td></tr>
+    <tr><td class="k">Profile</td><td>Close above the value-area high: price has accepted above the whole prior range</td></tr>
+    <tr><td class="k">Cleanliness</td><td><b>Change-of-character count at most 1</b></td></tr>
+  </tbody></table></div>
+  <div class="note warn">
+    <p>That last gate is <b>near-inert in practice</b>. The count is 0 or 1 on the large majority of
+    names, so it excludes only the 3–13% sitting at 2. It is not dead like S8 — but do not think of
+    it as doing much filtering.</p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>S6 · Sign-of-strength momentum — priority 2, bonus 0</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Wyckoff</td><td>Most recent event is a sign of strength, within 10 bars</td></tr>
+    <tr><td class="k">Profile</td><td>Score at least +1</td></tr>
+    <tr><td class="k">Structure</td><td>Trend bullish</td></tr>
+  </tbody></table></div>
+  <p class="refnote">Enter on the first shallow pullback and trail aggressively — <b>these bars
+  precede further markup, and they also precede climaxes</b>, and the bar itself does not tell you
+  which.</p>
+  </div></details>
+</section>
+
+<section id="bear">
+  <h2><span class="n">05</span>The bearish two, and the dead one</h2>
+
+  <details class="ref"><summary>S7 · Distribution breakdown — priority 3, bonus −2</summary><div class="rb">
+  <p><b>The exit flag</b>, and the mirror of S3.</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Wyckoff</td><td>A sign of weakness, last point of supply, or upthrust — within 15 bars</td></tr>
+    <tr><td class="k">Structure</td><td>Trend bearish</td></tr>
+    <tr><td class="k">Location</td><td>Inside a bearish block, <b>or</b> profile score at most −1</td></tr>
+    <tr><td class="k">Base score</td><td><b>At most −3</b></td></tr>
+  </tbody></table></div>
+  <p>Four conditions aligned, exactly as S3 requires four — which is why the magnitude matches at
+  two. <b>Exit longs; the short is optional.</b></p>
+  </div></details>
+
+  <details class="ref"><summary>S8 · Choppy range — priority 1, bonus −1 · UNREACHABLE</summary><div class="rb">
+  <div class="note stop">
+    <p>Requires no other setup to have fired <b>and</b> a change-of-character count of at least 3.
+    Section 01 — <b>that count has never been observed above 2.</b> This setup has never labelled a
+    bar.</p>
+  </div>
+  <p>Documented here because the checklist and the sizing table both still reference it, and because
+  <b>knowing a rung is dead is different from not knowing it exists.</b> Were it reachable, it would
+  mean: no new positions, tighten what you hold, wait for one clean break to clear the chop.</p>
+  </div></details>
+</section>
+
+<section id="priority">
+  <h2><span class="n">06</span>Priority, and the one genuine conflict</h2>
+  <p>At most one setup labels a bar. Priority resolves the rest:</p>
+  <pre>S2 (5)  &gt;  S3 (4)  &gt;  S1 (3) = S7 (3)  &gt;  S4 = S5 = S6 (2)  &gt;  S8 (1)  &gt;  none</pre>
+  <p><b>S7 is evaluated independently of the bull setups.</b> It can override anything at priority 3
+  or below — S1, S4, S5, S6 — but it cannot override S2.</p>
+  <div class="note warn">
+    <span class="tag">The S2-versus-S7 case</span>
+    <p>A spring has just printed <em>and</em> fresh distribution is visible. S2 wins on priority, so
+    the panel shows a maximum-conviction long on a chart that is simultaneously showing exit-volume
+    bars.</p>
+    <p><b>Treat that as a flag to read the chart by hand</b>, not as a verdict. It is rare, and it is
+    the one case where the priority ladder gives a confident answer to a genuinely ambiguous
+    picture.</p>
+  </div>
+</section>
+
+<section id="bonus">
+  <h2><span class="n">07</span>The bonus, and why each value</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th class="r">Priority</th><th class="r">Bonus</th><th>Reasoning</th></tr></thead><tbody>
+      <tr><td class="k">S2</td><td class="num">5</td><td class="new">+2</td><td>Five conditions aligned, on an already-constructive base</td></tr>
+      <tr><td class="k">S3</td><td class="num">4</td><td class="new">+2</td><td>High-probability reversal</td></tr>
+      <tr><td class="k">S1</td><td class="num">3</td><td class="num">+1</td><td>Solid, repeatable</td></tr>
+      <tr><td class="k">S7</td><td class="num">3</td><td class="num">−2</td><td><b>Symmetric with S3</b> — four conditions either way</td></tr>
+      <tr><td class="k">S4 · S5 · S6</td><td class="num">2</td><td class="num">0</td><td>See below</td></tr>
+      <tr><td class="k">S8</td><td class="num">1</td><td class="num">−1</td><td>Unreachable — section 01</td></tr>
+    </tbody></table></div>
+
+  <div class="note good">
+    <span class="tag">Why the priority-2 trio pays nothing, and this is the best decision in the design</span>
+    <p>They fire on conditions <b>that already drove the component scores</b>. S5 fires when stage is
+    2 and price is above the value area — stage is already at +3 and the profile at +3. S6 fires on
+    a sign of strength, which already put Wyckoff at +4. S4 fires on a gap stack the zone score has
+    already counted.</p>
+    <p><b>Paying a bonus for them would be counting the same evidence twice.</b> The label still
+    appears for situational awareness; the score stays honest. Most scoring systems get this wrong
+    by rewarding every detector that fires.</p>
+  </div>
+</section>
+
+<section id="score">
+  <h2><span class="n">08</span>Score, bands, and what the panel shows</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Band</th><th class="r">Final score</th></tr></thead><tbody>
+      <tr><td class="k">Strong bull</td><td class="num">&ge; 9</td></tr>
+      <tr><td class="k">Bull</td><td class="num">4 to 8</td></tr>
+      <tr><td class="k">Neutral</td><td class="num">−3 to +3</td></tr>
+      <tr><td class="k">Caution</td><td class="num">−4 to −6</td></tr>
+      <tr><td class="k">Bear</td><td class="num">&le; −7</td></tr>
+    </tbody></table></div>
+  <p>Only the top threshold moved when the bonus was added — up one, to account for the extra
+  headroom. <b>Importing an older preset without that adjustment silently loosens your strongest
+  band.</b></p>
+
+  <h3>The four score rows</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>Shows</th></tr></thead><tbody>
+      <tr><td class="k">Base score</td><td>The raw component sum, before any bonus</td></tr>
+      <tr><td class="k">Setup bonus</td><td>The value <b>and which setup produced it</b></td></tr>
+      <tr><td class="k">Final score</td><td>The band, with the arithmetic shown — <code>6+2=8</code></td></tr>
+      <tr><td class="k">Breakdown</td><td>Every component's contribution, bonus included</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <p><b>Showing the arithmetic is the point.</b> A score of 8 built from base 6 plus an S2 bonus is
+    a different signal from a pure base 8 with no setup — the first is one detector's opinion on top
+    of a good chart, the second is four modules agreeing without needing one. The panel refuses to
+    let you confuse them.</p>
+  </div>
+  <h3>The full panel — 24 rows in five blocks</h3>
+  <p>Read from the live table rather than the guide, which defers rows 0 to 18 to a version that is
+  no longer shipped.</p>
+
+  <details class="ref"><summary>Rows 1–8 · zones and structure</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">SMC trend</td><td>The carried structural direction — bullish or bearish</td></tr>
+      <tr><td class="k">Last SMC event</td><td>Break or change of character, with direction and age</td></tr>
+      <tr><td class="k">Bull OB zone</td><td>Whether price is <b>inside</b> a bullish block, or clear of one. <b>This is S1's location test made visible</b></td></tr>
+      <tr><td class="k">Bear OB zone</td><td>The mirror — one of S7's two location paths</td></tr>
+      <tr><td class="k">Open gaps</td><td>Unfilled counts each side. <b>S4 reads the difference</b>, not the totals</td></tr>
+      <tr><td class="k">Last sweep</td><td>Direction and age — S3's first condition</td></tr>
+      <tr><td class="k">Structure health</td><td>The change-of-character count and its tier. <b>Section 01 — it tops out at 2</b></td></tr>
+    </tbody></table></div>
+  <p class="refnote">Six of these seven rows are literally the inputs to a setup condition. <b>When a
+  setup does not fire, this block tells you which condition missed</b> — that is what it is for.</p>
+  </div></details>
+
+  <details class="ref"><summary>Rows 10–15 · Wyckoff and profile</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">Wyckoff bias</td><td>Accumulation, distribution or neutral — <b>persists until another event fires</b></td></tr>
+      <tr><td class="k">Last event</td><td>The event name with its volume multiple, and its decayed score</td></tr>
+      <tr><td class="k">VP position</td><td>Above the value high, upper or lower half of value, or below the low</td></tr>
+      <tr><td class="k">VP levels</td><td>The three prices themselves</td></tr>
+      <tr><td class="k">Distance to control point</td><td>Coloured <b>asymmetrically</b> — above scores friendlier than the same distance below</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Bias does not decay but the score does, so a chart can read
+  &ldquo;accumulation&rdquo; at a decayed score of zero — <b>bullish, a long time ago.</b> Read the
+  two rows together or not at all.</p>
+  </div></details>
+
+  <details class="ref"><summary>Rows 17–18 · stage and setup</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">Weinstein stage</td><td>The digit and its label, from the weekly 2&times;2</td></tr>
+      <tr><td class="k">Setup</td><td>The detected setup with its prefix — a tick for bullish, a cross for bearish, a dot for the choppy label. <b>The prefix is what the bonus logic actually reads</b></td></tr>
+    </tbody></table></div>
+  <p class="refnote">Worth knowing: the bonus is derived by testing the <em>string prefix</em> of the
+  setup label rather than a numeric type. It works, and it means the label and the score can never
+  disagree about direction — but it is also why the label text is not free to change.</p>
+  </div></details>
+</section>
+
+<section id="checklist">
+  <h2><span class="n">09</span>The entry checklist</h2>
+  <p>For a full-size position, all of:</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Dashboard</td><td>Stage 2, alpha at least 60, recommendation buy or better</td></tr>
+    <tr><td class="k">Final score</td><td>Bull or strong bull — <b>at least 4</b></td></tr>
+    <tr><td class="k">Structure health</td><td>Clean or choppy. <b>In practice always true</b> — section 01</td></tr>
+    <tr><td class="k">Stage</td><td>2, advancing</td></tr>
+    <tr><td class="k">Profile position</td><td>Above the value-area high, or the upper half of it</td></tr>
+    <tr><td class="k">Wyckoff bias</td><td>Accumulation</td></tr>
+    <tr><td class="k">Structure trend</td><td>Bullish</td></tr>
+    <tr><td class="k">Setup</td><td>Any of S1 to S6 active</td></tr>
+    <tr><td class="k">Setup bonus</td><td><b>Not negative.</b> Which, given S8 is dead, means: not S7</td></tr>
+  </tbody></table></div>
+
+  <h3>Sizing by setup</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th class="r">Bonus</th><th>Size</th></tr></thead><tbody>
+      <tr><td class="k">S2</td><td class="num">+2</td><td><b>1.25&times;</b></td></tr>
+      <tr><td class="k">S3 · S1</td><td class="num">+2 · +1</td><td>1.00&times;</td></tr>
+      <tr><td class="k">S4 · S5 · S6</td><td class="num">0</td><td>0.75 to 1.00&times;</td></tr>
+      <tr><td class="k">No setup, but band is bull</td><td class="num">0</td><td>0.75&times;</td></tr>
+      <tr><td class="k">S7</td><td class="num">−2</td><td><b>Zero long</b></td></tr>
+    </tbody></table></div>
+  <p class="refnote">Sizing tracks the bonus, which tracks how much <em>independent</em> evidence the
+  setup added. That is why the trio at zero bonus still sizes near full — they are good setups whose
+  evidence was already counted, not weak ones.</p>
+</section>
+
+<section id="playbook">
+  <h2><span class="n">10</span>The playbook</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Stop</th><th>Target</th><th>Hold</th><th>Class</th></tr></thead><tbody>
+      <tr><td class="k">S2</td><td>Spring low, less a quarter unit</td><td>Control point, value high, then trail</td><td>4–12 weeks</td><td>Positional</td></tr>
+      <tr><td class="k">S3</td><td>Sweep low, less a quarter</td><td>Prior lower high, then the next pool</td><td>1–3 weeks</td><td>Swing</td></tr>
+      <tr><td class="k">S1</td><td>Block low, less a quarter</td><td>Control point or value high</td><td>5–15 bars</td><td>Swing</td></tr>
+      <tr><td class="k">S4</td><td>Value low, less a half</td><td>Control point, then value high</td><td>2–10 bars</td><td>Auction</td></tr>
+      <tr><td class="k">S5</td><td>Prior value high, less a half</td><td>1.5R, measured move, then trail the 30-week</td><td>6 weeks–6 months</td><td>Positional</td></tr>
+      <tr><td class="k">S6</td><td>The strength bar's low, less a quarter</td><td>1.5–2R, then a three-bar trail</td><td>5–15 bars</td><td>Momentum</td></tr>
+      <tr><td class="k">S7</td><td>Above the distribution high</td><td>Control point or value low</td><td>5–20 bars</td><td>Exit</td></tr>
+    </tbody></table></div>
+  <p>Notice the hold periods run from <b>two bars to six months</b> across seven setups on one
+  panel. The setup label is therefore also a <em>trade-class</em> label — reading S4 and holding it
+  like S5 is a different trade from the one the system flagged.</p>
+  <h3>The execution manual, setup by setup</h3>
+  <p>Sizing assumes the standard 1% risk rule; the multiplier scales that 1%, it does not replace
+  it. <b>Every stop is volatility-aware</b> — clamp it to at least one unit from entry so it
+  survives normal noise, however tight the structure looks.</p>
+  <div class="note warn">
+    <span class="tag">The universal rule people break first</span>
+    <p><b>Confirm the panel on the same timeframe you are entering on.</b> Reading an S2 on the daily
+    and entering off a fifteen-minute impulse is not that setup — the panel state is
+    timeframe-specific, and so are every one of its thresholds.</p>
+  </div>
+
+  <details class="ref"><summary>S2 · execution</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Entry</td><td>A close above the spring or support-point pivot high on volume at 1.5&times; the recent average. On the retest variant, the first up-bar that holds above the prior swing low</td></tr>
+    <tr><td class="k">Stop</td><td>Below the swept low, less a quarter unit. <b>Re-entering the swept zone means the spring failed</b> — that is the structural invalidation, not a price you chose</td></tr>
+    <tr><td class="k">First target</td><td>Half off at the control point — typically 2 to 3R</td></tr>
+    <tr><td class="k">Second</td><td>A quarter off at the value-area high, usually the next supply node</td></tr>
+    <tr><td class="k">Runner</td><td>A quarter, trailed at two units or the short average, whichever is wider</td></tr>
+    <tr><td class="k">Management</td><td>Breakeven at 1R. After the first target, trail the most recent confirmed higher low the structure module prints</td></tr>
+    <tr><td class="k">Force exit</td><td>The spring low breaks intrabar · a bearish change of character within 10 bars of entry · the bias flips to distribution</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>S3 · execution</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Entry</td><td><b>Do not chase the reversal bar.</b> Wait for the pullback into the sweep candle's origin, or into the block the break created</td></tr>
+    <tr><td class="k">Stop</td><td>Below the sweep wick, less a quarter unit</td></tr>
+    <tr><td class="k">First target</td><td>Half off at the lower high the reversal broke — 2 to 3R</td></tr>
+    <tr><td class="k">Second</td><td>The next liquidity pool above</td></tr>
+    <tr><td class="k">Management</td><td>Faster than S2 — breakeven at 1.5R, half off at 2R, the rest on a two-unit trail</td></tr>
+    <tr><td class="k">Force exit</td><td>A bearish change of character · a close back below the sweep low · <b>base score dropping below zero</b></td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>S1 · execution</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Entry</td><td>A bullish reaction candle <em>inside</em> the block. <b>The box is the entry zone, not a price</b></td></tr>
+    <tr><td class="k">Stop</td><td>Below the block's low, less a quarter unit — a close beneath it invalidates the block itself</td></tr>
+    <tr><td class="k">Targets</td><td>Half at the control point or value high, whichever is nearer; the rest at the prior swing high</td></tr>
+    <tr><td class="k">Management</td><td>Breakeven at 1R. <b>If it stalls inside value for more than five bars without a higher high, leave at breakeven</b> — the setup has timed out</td></tr>
+    <tr><td class="k">Force exit</td><td>Block low broken on a close · bias off accumulation · base score below 3</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The time-stop is the part people skip. <b>A block that has not produced a higher
+  low in five bars is being distributed into, not defended.</b></p>
+  </div></details>
+
+  <details class="ref"><summary>S4 · execution</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Entry</td><td>A bullish bar closing in its upper half with the low at or within 1% of the value-area low, on at least average volume</td></tr>
+    <tr><td class="k">Stop</td><td>Below the value-area low, less half a unit. <b>It is a soft floor</b>, so it needs more room than a block</td></tr>
+    <tr><td class="k">Targets</td><td>60% at the control point — the standard rotation — then the rest at the value-area high if it punches through with momentum</td></tr>
+    <tr><td class="k">Management</td><td>At 1R, trail just below the most recent bullish gap that has been filled. <b>The unfilled gaps above are your stepping stones</b></td></tr>
+    <tr><td class="k">Force exit</td><td>A close below the value low · more bearish gaps forming above than bullish · bias flips to distribution</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>S5 · execution</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Entry</td><td>Either a three-bar low back into the prior value high, now support — or an add on the next structural break above</td></tr>
+    <tr><td class="k">Stop</td><td>Below that prior value high, less half a unit</td></tr>
+    <tr><td class="k">Targets</td><td>A third at 1.5R to fund the runner; a third at the measured move — the value area's own width projected up</td></tr>
+    <tr><td class="k">Runner</td><td>A third, trailed on the <b>weekly 30-week average</b></td></tr>
+    <tr><td class="k">Management</td><td><b>Resist tightening.</b> This is a trend-follow; let normal pullbacks breathe. Exit the runner only on a weekly stage-3 print or a close below the anchor</td></tr>
+    <tr><td class="k">Force exit</td><td>Close below the 30-week · stage flips to topping · a bearish change of character on the entry timeframe</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The only setup here whose runner is managed on a <em>weekly</em> clock. Hold is
+  six weeks to six months — <b>this is where the positional book actually lives.</b></p>
+  </div></details>
+
+  <details class="ref"><summary>S6 · execution</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Entry</td><td><b>Not the strength bar itself — it is already extended.</b> Wait for the first two-to-three bar pullback holding above that bar's midpoint, then enter on the next up-close</td></tr>
+    <tr><td class="k">Stop</td><td>Below the strength bar's low, less a quarter unit. Violate it and the whole momentum thesis is gone</td></tr>
+    <tr><td class="k">Targets</td><td>Half at 1.5 to 2R; the rest on a three-bar trailing low — deliberately aggressive</td></tr>
+    <tr><td class="k">Management</td><td>Watch for a buying climax or an upthrust on the panel. <b>Both are exit signals before the stop is reached.</b> Reduce if the Wyckoff event turns</td></tr>
+    <tr><td class="k">Force exit</td><td>A climax or upthrust prints · close below the strength bar's midpoint · the bias decays out of accumulation</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The tightest management of the six, because <b>a sign of strength precedes a
+  further leg and a climax about equally often</b> — and the bar cannot tell you which.</p>
+  </div></details>
+
+  <details class="ref"><summary>S7 · execution, and the NSE caveat</summary><div class="rb">
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Holding a long</td><td><b>Exit immediately. No waiting.</b> Four independent conditions confirmed the distribution — the burden of proof has moved</td></tr>
+    <tr><td class="k">Short entry</td><td>The first pullback into the distribution bar or the nearest bearish block</td></tr>
+    <tr><td class="k">Stop</td><td>Above that bar's high, plus half a unit. On an upthrust specifically, above the wick</td></tr>
+    <tr><td class="k">Targets</td><td>The control point if price was above value, the value low if it was rejected at the high; then the prior swing low or the 30-week</td></tr>
+    <tr><td class="k">Force exit</td><td>A bullish change of character · a close back above the distribution high · base score recovering above zero</td></tr>
+  </tbody></table></div>
+  <div class="note warn">
+    <p><b>Indian retail cannot short equity beyond intraday.</b> Treat S7 as an <em>exit and no-buy</em>
+    signal, not a short entry, unless you are trading derivatives. Everything in the short column
+    above is conditional on a mandate most readers of this page do not have.</p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>S8 · what it would have meant</summary><div class="rb">
+  <p>Recorded for completeness — <b>this cannot fire</b>, per section 01.</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Action</td><td>No new entries, full stop</td></tr>
+    <tr><td class="k">Existing positions</td><td>Halve the stop distance or scale to half size — chop produces whipsaw exits</td></tr>
+    <tr><td class="k">What clears it</td><td>One clean structural break with no character change for twenty bars after it. Or an S2 or S3 firing <em>inside</em> the range — a range-failure swing</td></tr>
+    <tr><td class="k">Time discipline</td><td>Persisting beyond forty bars means a true balance regime: <b>move it off the active list and recheck monthly</b></td></tr>
+    <tr><td class="k">The trap</td><td>Forcing a mean-reversion trade inside chop. Without a defined edge, range-trading is negative expectancy after costs</td></tr>
+  </tbody></table></div></div></details>
+</section>
+
+<section id="chain">
+  <h2><span class="n">11</span>How setups chain</h2>
+  <p>A clean advance produces a <em>sequence</em>, and watching for the sequence beats watching for
+  any single event:</p>
+  <pre>accumulation resolves   S2   first entry
+markup begins           S6   add on the first shallow pullback
+markup continues        S1   add on each clean retest of a new block
+trend matures           S5   the trailing position; ride it
+distribution appears    S7   exit</pre>
+  <div class="note stop">
+    <span class="tag">And the failure tell</span>
+    <p><b>S2 followed by S8 within ten bars means the spring was a trap</b> — exit immediately rather
+    than waiting for the stop.</p>
+    <p>Except that <b>S8 cannot fire</b>, so this tell cannot trigger. If you want it, watch the
+    structure-health count going to 2 shortly after an S2 instead — that is the reachable version of
+    the same warning.</p>
+  </div>
+</section>
+
+<section id="scenarios">
+  <h2><span class="n">12</span>What the bonus actually changes</h2>
+  <p>Four worked cases. The useful finding is that <b>the band moves in only two of them</b> — most
+  of the value is attribution, not reclassification.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Case</th><th class="r">Base</th><th class="r">Bonus</th><th class="r">Final</th><th>Band moves?</th></tr></thead><tbody>
+      <tr><td class="k">Mid-strength stage 2, fresh S2</td><td class="num">9</td><td class="num">+2</td><td class="num">11</td><td><b>No</b> — strong bull either way. But the panel now shows <em>why</em></td></tr>
+      <tr><td class="k">Modest composite, S3 fires</td><td class="num">6</td><td class="num">+2</td><td class="num">8</td><td><b>No</b> — bull either way, because the top threshold moved up with the bonus</td></tr>
+      <tr><td class="k">Weak composite, S7 fires</td><td class="num">−5</td><td class="num">−2</td><td class="num">−7</td><td><b>Yes</b> — caution becomes bear. The warning escalates</td></tr>
+      <tr><td class="k">Borderline bull, S8 fires</td><td class="num">4</td><td class="num">−1</td><td class="num">3</td><td><b>Would</b> demote bull to neutral — <em>but S8 cannot fire</em></td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">Read the second row carefully</span>
+    <p>Raising the strong-bull threshold by one to make room for the bonus means <b>a +2 bonus
+    frequently buys no band change at all</b> — it moved the goalposts by roughly what it adds. The
+    bonus is therefore doing most of its work as <em>visible attribution</em>, and only occasionally
+    as reclassification.</p>
+    <p>That is defensible, and it is not what the version notes imply. The one place it genuinely
+    escalates is the bearish side, where the threshold did <em>not</em> move.</p>
+  </div>
+</section>
+
+<section id="params">
+  <h2><span class="n">13</span>Parameters</h2>
+  <p>The per-module inputs live on their own pages; what follows is what this layer adds and the
+  couplings that will break if you touch them.</p>
+
+  <details class="ref"><summary>Presets by intent</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Intent</th><th>Shape</th></tr></thead><tbody>
+      <tr><td class="k">Daily positional</td><td>The defaults throughout</td></tr>
+      <tr><td class="k">Weekly positional</td><td>Shorter Wyckoff pivot, slower decay, lower high-volume threshold — <b>weekly volume is much smoother</b>, so the same multiple is a rarer event</td></tr>
+      <tr><td class="k">Intraday</td><td>Shorter windows across the board; expect faster, noisier setups</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Couplings — do not break these</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody>
+      <tr><td class="k">Wyckoff volume lookback at least twice its pivot length</td><td>Otherwise events confirm before there is enough volume history to judge them</td></tr>
+      <tr><td class="k">Profile window longer than the most recent significant move</td><td>Or the control point anchors to noise</td></tr>
+      <tr><td class="k">Block swing length at or below the structure swing length</td><td>Otherwise blocks anchor to larger pivots than the ones defining structure</td></tr>
+      <tr><td class="k">Decay step not below 5</td><td>The score evaporates in days</td></tr>
+      <tr><td class="k">Do not run the detector off while reading the final score</td><td>The bonus is then always zero, so final equals base. Acceptable — but you have lost the feedback the version exists for</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Deliberately not tunable</summary><div class="rb">
+  <ul>
+    <li>The eight setups' detection thresholds.</li>
+    <li>The bonus values.</li>
+    <li>The score bands.</li>
+    <li>The freshness windows the setup gates use — 5, 10, 15 and 20 bars.</li>
+  </ul>
+  <p class="refnote">Hardcoded for reproducibility: <b>a score whose bands move per chart is not a
+  score</b>, and two people quoting &ldquo;strong bull&rdquo; would mean different things. Fork the
+  file if you genuinely need different ones.</p>
+  </div></details>
+
+  <div class="note warn">
+    <span class="tag">Loading conflict</span>
+    <p>This layer <b>replaces</b> the three standalone modules. Running it alongside them double-draws
+    every zone and every level — and the standalone files no longer exist, so if you have them on a
+    chart they are stale copies.</p>
+  </div>
+  <h3>Where it plugs into the rest</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>The contract</th></tr></thead><tbody>
+      <tr><td class="k">The dashboard</td><td>Supplies stage, alpha and the recommendation. <b>Cross-check the final score before acting</b> — two surfaces agreeing is the point of having both</td></tr>
+      <tr><td class="k">The unified strategy</td><td>Reads the setup priority through a dedicated hidden plot. <b>Exported rather than re-derived</b> — the same discipline that fixed the weekly-trend disagreement in the structure engine</td></tr>
+      <tr><td class="k">The risk allocator</td><td>Sizes off the <b>final</b> score, never the base</td></tr>
+      <tr><td class="k">The bull screener</td><td>Produces the shortlist; this layer is the chart-level confirmation that the same conditions exist <em>on the timeframe you are trading</em></td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">On the catalyst mapping</span>
+    <p>Each setup has a rough screener-catalyst equivalent — the spring maps to the positional
+    breakout and accumulation labels, the sweep reversal to the swing ones, distribution to the
+    recovery family. <b>The mapping is informational only.</b> The screener computes its catalysts
+    independently from price and volume; nothing here feeds it, and a disagreement between the two
+    is information rather than a fault.</p>
+  </div>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">14</span>Mistakes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mistake</th><th>Why it costs you</th></tr></thead><tbody>
+      <tr><td class="k">Reading the final score without the attribution</td><td>Base 6 plus a bonus is not the same signal as a pure base 8. <b>The breakdown row exists for exactly this</b></td></tr>
+      <tr><td class="k">Carrying an old strong-bull threshold</td><td>It moved up by one when the bonus was added. An old preset silently loosens your best band</td></tr>
+      <tr><td class="k">Expecting the priority-2 trio to add bonus</td><td>They never will — section 07. Their evidence is already in the components</td></tr>
+      <tr><td class="k">Entering against a negative bonus</td><td>That is S7. If the band still reads bull despite it, <b>the band is stale — wait for it to roll</b></td></tr>
+      <tr><td class="k">Waiting for the chop warning</td><td>Section 01. It cannot appear</td></tr>
+      <tr><td class="k">Acting on a Wyckoff event without profile context</td><td>The oldest mistake here, and the reason these modules were merged in the first place</td></tr>
+      <tr><td class="k">Treating an S2 that outranks a live S7 as settled</td><td>Section 06. Read that chart by hand</td></tr>
+    </tbody></table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/15 · Weinstein Context Layers v1.2</span>
+  <span>Components — <a href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">02 Wyckoff</a> · <a href="https://claude.ai/code/artifact/5613c1cc-e562-45a4-bff1-cf2cad21dee1">03 Volume Profile</a> · <a href="https://claude.ai/code/artifact/50a2b6ce-b153-46c3-b194-2fd608139217">04 Zones</a></span>
+</div></footer>
