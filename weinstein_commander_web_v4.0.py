@@ -16034,6 +16034,7 @@ elif page == 'RISK SHIELD':
                     if csym not in all_protected_syms and h["qty"] > 0:
                         unprotected_holdings.append({"symbol": csym, "buy_price": h["buy_price"], "qty": h["qty"], "ltp": h["ltp"], "entry_date": h.get("entry_date", "")})
                         symbols_to_fetch.add(csym)
+                unprotected_holdings_syms = {u["symbol"] for u in unprotected_holdings}
                 if protection_unknown:
                     st.warning(f"⚠️ LTP unavailable — protection state UNKNOWN for: "
                                f"{', '.join(sorted(protection_unknown))}. Verify their stop "
@@ -16048,6 +16049,32 @@ elif page == 'RISK SHIELD':
                     sell_gtts_by_symbol[sym].append(oco)
                 for sym, orders in sell_gtts_by_symbol.items():
                     orders.sort(key=lambda x: x["target_trigger"] if x["target_trigger"] is not None else 9999999)
+
+                # PARTIAL COVER (22-Aug-2026, Jay). `unprotected_holdings` above is
+                # ALL-OR-NOTHING per symbol: one protecting order anywhere puts the
+                # symbol in all_protected_syms and it never appears again. So a
+                # position with 71 of 258 shares covered counted as protected, and
+                # the headline metric read "All Protected" while 187 shares sat
+                # naked. Coverage is a QUANTITY question and the page was answering
+                # it as a boolean. Same defect the tile's "held N sh" line had.
+                _partial_cover = []
+                for _csym, _h in holdings_map.items():
+                    _hq = int(_h.get("qty") or 0)
+                    if _hq <= 0 or _csym in unprotected_holdings_syms:
+                        continue
+                    _cov = sum(int(o.get("sl_qty") or o.get("qty") or 0)
+                               for o in sell_gtts_by_symbol.get(_csym, []))
+                    _cov += sum(int(x.get("qty") or 0) for x in single_sells
+                                if x.get("symbol") == _csym)
+                    if 0 < _cov < _hq:
+                        _partial_cover.append((_csym, _hq, _cov, _hq - _cov))
+                if _partial_cover:
+                    _partial_cover.sort(key=lambda t: -t[3])
+                    _pc_txt = " · ".join(f"**{a}** {d} of {b}" for a, b, c, d in _partial_cover)
+                    st.warning(
+                        f"⚠️ **Partly covered — {sum(t[3] for t in _partial_cover):,} shares "
+                        f"carry no stop.** These do NOT appear under Unprotected Holdings, because that "
+                        f"list is per-symbol and each of these has *some* order resting: {_pc_txt}")
 
 
 
@@ -17389,13 +17416,31 @@ elif page == 'RISK SHIELD':
                                     # looked fully protected. That gap is the one that matters: it is
                                     # the uncovered shares that carry naked risk. Flagged in amber when
                                     # the legs do not add up to the holding.
+                                    # THE NUMBER THAT SAID "held" WAS NOT THE HOLDING (22-Aug-2026, Jay:
+                                    # "held 13 sh, whereas the actual quantity on Dhan is 54... I was
+                                    # misled by the quantity 13 and created the orders earlier").
+                                    # `total_qty` is the sum of the RESTING SL legs. This line printed it
+                                    # as "held N sh" and then compared `_leg_sl_tot >= total_qty` - the
+                                    # same quantity against itself - so the "only N covered" warning it
+                                    # exists to raise could never fire, on any position, ever. A tile
+                                    # covering 13 of 54 shares read "held 13 sh" in calm grey.
+                                    # Six positions were affected: ANANDRATHI 13/54, SONACOMS 71/258,
+                                    # CAPLIPOINT 27/98, APOLLOHOSP 6/11, COALINDIA 262/263, IKS 53/54.
                                     _leg_sl_tot = sum(int(o.get("sl_qty") or o.get("qty") or 0) for o in orders)
-                                    if total_qty:
-                                        _cov_col = "#94A3B8" if _leg_sl_tot >= int(total_qty) else "#F59E0B"
-                                        _cov_txt = (f"held {int(total_qty)} sh"
-                                                    + ("" if _leg_sl_tot >= int(total_qty)
-                                                       else f" · ⚠ only {_leg_sl_tot} covered by SL"))
+                                    if _held_qty:
+                                        _short = _held_qty - _leg_sl_tot
+                                        _cov_col = "#94A3B8" if _short <= 0 else "#F59E0B"
+                                        _cov_txt = (f"held {_held_qty} sh"
+                                                    + ("" if _short <= 0
+                                                       else f" · ⚠ only {_leg_sl_tot} covered · "
+                                                            f"{_short} UNPROTECTED"))
                                         qty_str = (f"<span style='color:{_cov_col};font-weight:700'>{_cov_txt}</span>"
+                                                   + (f" · {qty_str}" if qty_str else ""))
+                                    elif total_qty:
+                                        # Holding unknown - say what this number IS rather than calling
+                                        # it the holding.
+                                        qty_str = (f"<span style='color:#94A3B8;font-weight:700'>"
+                                                   f"{int(total_qty)} sh in exit orders · holding unknown</span>"
                                                    + (f" · {qty_str}" if qty_str else ""))
 
                                     progress_bar_html = ""
