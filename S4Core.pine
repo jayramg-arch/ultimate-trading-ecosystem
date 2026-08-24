@@ -1734,3 +1734,63 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
     string _aVerOut = _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     [_aVerOut, _anCol]
 
+// ---------------------------------------------------------------------------
+// BASE COUNT - how many buy points deep into Stage 2 (24-Aug-2026, Jay's
+// over-extension parameter #2: "Base 1 & Base 2 the safest... Base 4 or Base 5:
+// Highly dangerous. The stock is obvious to the masses, institutions are likely
+// distributing into the strength").
+//
+// This is the one parameter of the seven that no existing field approximates.
+// Extension says how far price is from an average RIGHT NOW; base count says how
+// LONG the advance has been running in structural terms. A name can be perfectly
+// unextended and still be at its fifth buy point.
+//
+// INTENDED FOR WEEKLY. Weinstein bases are weekly structures and the whole stage
+// framework is weekly-anchored, so S4 calls this through its existing weekly
+// request.security - no new call.
+//
+// THE COUNT. Stage 2 begins (close at or above a flat-to-rising 30-week SMA) and
+// that launching breakout is buy point 1. Thereafter: price advances, stalls for
+// minBars weeks without a new high (a base has formed), then clears the base high
+// - that clearance is the next buy point. Lose Stage 2 and the count resets to 0,
+// because base counting only means anything inside one advance.
+//
+// KNOWN BIAS, stated rather than hidden: a marginal new high DURING a base resets
+// the stall counter, so a ragged base may not register and the count can read LOW.
+// That is the wrong-safe direction for a risk field - it under-warns - but the
+// alternative (a tolerance band) invents a second threshold with nothing to
+// calibrate it against. Ships as-is; measurable later by exporting the count into
+// the validation run the way EMA20_Dist_ATR already is, then checking whether a
+// high count actually predicts worse outcomes. Until that run exists this DISPLAYS
+// and does not gate.
+//
+// Returns floats, not an int tuple, because the value crosses request.security.
+export baseCount(simple int wmaLen, simple int slopeLen, simple int minBars) =>
+    float _ma  = ta.sma(close, wmaLen)
+    float _slp = _ma - _ma[slopeLen]
+    bool  _st2 = close >= _ma and _slp >= 0.0
+    var int   _cnt    = 0
+    var float _runHi  = na
+    var int   _flat   = 0
+    var bool  _inBase = false
+    if not _st2
+        _cnt    := 0
+        _inBase := false
+        _runHi  := na
+        _flat   := 0
+    else if not _st2[1]
+        _cnt    := 1
+        _runHi  := high
+        _flat   := 0
+        _inBase := false
+    else if na(_runHi) or high > _runHi
+        if _inBase
+            _cnt := _cnt + 1
+            _inBase := false
+        _runHi := high
+        _flat  := 0
+    else
+        _flat := _flat + 1
+        if _flat >= minBars and not _inBase
+            _inBase := true
+    [float(_cnt), _inBase ? 1.0 : 0.0, float(_flat)]
