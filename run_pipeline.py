@@ -639,6 +639,46 @@ def main():
             p.status = "FAIL"; p.message = str(e)[:160]
             logger.warning(f"Pullback Finder failed (non-fatal): {e}")
 
+    # ETF stack (24-Aug-2026). Added because it was NOT scheduled anywhere: the
+    # outputs on disk were 98 days old and the screener had been dying on its very
+    # first print the whole time, with nobody to notice. Jay trades ETFs and intends
+    # to again, so this runs with everything else rather than from memory.
+    # Non-fatal on both legs, and ROTATION IS SKIPPED WHEN THE SCREENER FAILED --
+    # rotation consumes the screener's output, so running it regardless would just
+    # rank a stale file and report success.
+    logger.info("[PHASE 4.9] ETF SCREENER + ROTATION...")
+    _etf_ok = False
+    with run.phase("Phase 4.9 - ETF Screener") as p:
+        try:
+            import etf_screener as _etfs
+            _edf = _etfs.rank_universe()
+            _en = 0 if _edf is None else len(_edf)
+            if _en:
+                _edf.to_csv(_etfs.OUTPUT_CSV, index=False)
+                _etf_ok = True
+                p.message = f"{_en} ETFs ranked -> {_etfs.OUTPUT_CSV}"
+            else:
+                p.status = "FAIL"
+                p.message = "0 ETFs scored - check the column-key resolution in rank_universe"
+        except Exception as e:
+            p.status = "FAIL"
+            p.message = str(e)[:160]
+            logger.warning(f"ETF screener failed (non-fatal): {e}")
+
+    with run.phase("Phase 4.9b - ETF Rotation") as p:
+        if not _etf_ok:
+            p.status = "SKIP"
+            p.message = "screener produced nothing - rotation would rank a stale file"
+        else:
+            try:
+                import etf_rotation as _etfr
+                _etfr.main()
+                p.message = "sector rotation + regime + RRG + top picks written"
+            except Exception as e:
+                p.status = "FAIL"
+                p.message = str(e)[:160]
+                logger.warning(f"ETF rotation failed (non-fatal): {e}")
+
     logger.info("\n[PHASE 4.8] CONSOLIDATING GOLDEN MATCHER BOARD WATCHLIST...")
     with run.phase("Phase 4.8 — Golden Matcher Board (union)") as p:
         try:

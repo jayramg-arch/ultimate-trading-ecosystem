@@ -358,68 +358,85 @@ def asset_class_regime() -> Dict:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. RRG COORDINATES
 # ─────────────────────────────────────────────────────────────────────────────
-def rrg_coordinates(syms: Optional[List[str]] = None,
-                    weeks: int = RRG_WEEKS_DEFAULT) -> pd.DataFrame:
-    """RS-Ratio + RS-Momentum coordinates over the last `weeks` weeks.
+def rrg_coordinates(syms=None, weeks: int = RRG_WEEKS_DEFAULT) -> pd.DataFrame:
+    """RS-Ratio / RS-Momentum tail, computed by the CANONICAL engine.
 
-    RS-Ratio    = (RS / 200d-SMA(RS) - 1) × 100   (Mansfield, ×100 scale)
-    RS-Momentum = ROC(RS-Ratio, 4 weeks)          (1-month change)
+    REWRITTEN 24-Aug-2026. This used to be a private implementation and it sat
+    outside the 18-20 Aug unification that put every other surface -- the GM board,
+    S4, v67, Mansfield, Risk Allocator, Unified and bull_screener -- on
+    rrg_engine.STRIKE_CAL. Three things differed, not one:
 
-    Returns long-format DataFrame:
+      1. CALIBRATION. It ran a plain Mansfield ratio with no strike_cal affine map,
+         so its numbers were on the pre-18-Aug scale. "GOLDBEES is LEADING" meant
+         something different here than on the board.
+      2. TIMEFRAME. It computed on DAILY bars with a 200-day SMA. The canonical
+         engine is weekly, and STRIKE_CAL was fitted weekly (n=17, Nifty 500).
+         Feeding daily bars to a weekly-fitted calibration is not the same measure
+         under another name.
+      3. FORMING WEEK. It had no equivalent of _drop_forming_week, so on a Tuesday
+         a "weekly" reading rested on two sessions. That is the SYRMA repaint: a
+         quadrant that flips on Monday and flips back by Friday.
+
+    All three are fixed by delegating. Constants are IMPORTED, never copied -- a
+    second private copy of a calibration is how this drifted in the first place.
+
+    Returns the same long format as before so callers are unchanged:
         Symbol, week_offset, rs_ratio, rs_momentum, quadrant
-        week_offset: 0 = current, -1 = 1 week ago, ..., -(weeks-1) = oldest
-
-    The weekly tail powers the "rotation tail" trail in the RRG plot.
     """
+    from rrg_engine import calculate_jdk_rrg
+
     if syms is None:
-        # Default: sector ETFs + flagships (the rotation universe)
         syms = sorted(set(sector_etfs() + list(FLAGSHIPS.values())))
 
     close_df = _fetch_close(syms + [BENCHMARK_YF], period="2y")
     if BENCHMARK_YF not in close_df.columns:
+        logger.error("Benchmark %s missing - no RRG coordinates", BENCHMARK_YF)
         return pd.DataFrame()
-    bench = close_df[BENCHMARK_YF].dropna()
 
+    def _weekly(ser: pd.Series) -> pd.Series:
+        """Daily -> weekly closes labelled by the week's MONDAY, with the still-
+        forming week dropped. Both conventions are copied deliberately from
+        bull_screener._drop_forming_week: a plain resample("W") labels the RIGHT
+        edge, and the rest of the ecosystem labels by week start."""
+        w = ser.resample("W-MON", label="left", closed="left").last().dropna()
+        if len(w) and hasattr(w.index[-1], "date"):
+            _ref = pd.Timestamp.today().normalize()
+            try:
+                from data_provider import get_pinned_date as _gpd   # replay-safe
+                _p = _gpd()
+                if _p is not None:
+                    _ref = pd.Timestamp(_p).normalize()
+            except Exception:
+                pass
+            # the bar labelled M covers M..M+4; complete once that Friday arrived
+            if (w.index[-1] + pd.Timedelta(days=4)) > _ref:
+                w = w.iloc[:-1]
+        return w
+
+    bench_w = _weekly(close_df[BENCHMARK_YF].dropna())
     rows = []
     for sym in syms:
         if sym not in close_df.columns:
             continue
-        close = close_df[sym].dropna()
-        aligned = pd.concat([close, bench], axis=1, join="inner").dropna()
-        if len(aligned) < 220:
+        sec_w = _weekly(close_df[sym].dropna())
+        aligned = pd.concat([sec_w, bench_w], axis=1, join="inner").dropna()
+        if len(aligned) < 45:          # strike_cal needs 25 + 10 + 7 + 2 weekly bars
             continue
         aligned.columns = ["px", "bx"]
-        rs        = aligned["px"] / aligned["bx"]
-        rs_sma    = rs.rolling(200).mean()
-        rs_ratio  = (rs / rs_sma - 1) * 100             # %
-        rs_mom    = rs_ratio.diff(20)                    # 4-week change
-
-        # Sample at weekly cadence (every ~5 sessions) for the last `weeks` points
-        for w in range(weeks):
-            offset = -1 - (w * 5)                        # 0,-5,-10... in trading days
-            if abs(offset) >= len(rs_ratio):
-                break
-            rr = rs_ratio.iloc[offset]
-            rm = rs_mom.iloc[offset]
-            if np.isnan(rr) or np.isnan(rm):
-                continue
-            if   rr >= 0 and rm >= 0: quad = "LEADING"
-            elif rr >= 0 and rm <  0: quad = "WEAKENING"
-            elif rr <  0 and rm <  0: quad = "LAGGING"
-            else:                     quad = "IMPROVING"
+        res = calculate_jdk_rrg(aligned["px"], aligned["bx"], mode="strike_cal")
+        if res is None or res.empty:
+            continue
+        tail = res.tail(weeks)
+        n = len(tail)
+        for i, (_, r) in enumerate(tail.iterrows()):
             rows.append({
-                "Symbol":      sym,
-                "week_offset": -w,                       # 0 = now, -1 = last week...
-                "rs_ratio":    round(float(rr), 2),
-                "rs_momentum": round(float(rm), 2),
-                "quadrant":    quad,
+                "Symbol": sym,
+                "week_offset": i - (n - 1),          # 0 = current, negative = older
+                "rs_ratio": round(float(r["RS_Ratio"]), 2),
+                "rs_momentum": round(float(r["RS_Momentum"]), 2),
+                "quadrant": str(r["Quadrant"]).upper(),
             })
-
-    if not rows:
-        return pd.DataFrame()
-    return pd.DataFrame(rows).sort_values(["Symbol", "week_offset"],
-                                           ascending=[True, False]).reset_index(drop=True)
-
+    return pd.DataFrame(rows)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Correlation gate -- block top picks that are too highly correlated.
