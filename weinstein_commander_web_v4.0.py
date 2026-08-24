@@ -16494,7 +16494,19 @@ elif page == 'RISK SHIELD':
                                         stop=_jov_s.get("stoploss"),
                                         atr_pct=_atr_pct)
                                     if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
-                                        _bear_s = _rs_regime_bear if _rs_regime_bear is not None else (not _ws_above200)
+                                        # #16 (24-Aug-2026). `bear` is the MARKET regime -- it widens the
+                                        # trail by 0.5 ATR to survive a choppy tape. The old fallback fed it
+                                        # `not _ws_above200`, a per-STOCK test, so when market_regime failed
+                                        # every stock under its own 200-DMA silently got a LOOSER trail. That
+                                        # is both a category error and backwards: a stock below its 200-DMA is
+                                        # weak, and weak is not an argument for more room. v67 uses its own
+                                        # market state for the same flag, so this was also a live source of
+                                        # the v67-vs-Risk-Shield gap Jay reported.
+                                        # Unknown regime now means NO widening, and the badge says so, rather
+                                        # than a guess dressed as a measurement.
+                                        _bear_s = bool(_rs_regime_bear) if _rs_regime_bear is not None else False
+                                        _bear_unknown = _rs_regime_bear is None
+                                        _ce_win = _rc.trail_window_for(_setup_s, _swing_s)
                                         _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
                                             _hi, _lo, _c, setup=_setup_s, bear=_bear_s,
                                             cap_protect=_capital_protection_mode,
@@ -16553,6 +16565,8 @@ elif page == 'RISK SHIELD':
                                     "days_to_earnings": _days_to_earnings if '_days_to_earnings' in locals() else None,
                                     "ce_mult": _ce_mult if '_ce_mult' in locals() else None,
                                     "ce_mult_src": _ce_mult_src if '_ce_mult_src' in locals() else None,
+                                    "ce_win": _ce_win if '_ce_win' in locals() else None,
+                                    "bear_unknown": _bear_unknown if '_bear_unknown' in locals() else False,
                                     "invalid_ce_override": _invalid_ce_override if '_invalid_ce_override' in locals() else False,
                                 }
                     except Exception as _e:
@@ -17308,7 +17322,16 @@ elif page == 'RISK SHIELD':
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
                                             _flags.append(f"<span style='background:#78350F;color:#FBBF24;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
-                                            _ce_lbl = f"{_tech.get('ce_mult'):.1f}×·{_tech.get('ce_mult_src')}" if _tech.get("ce_mult") else "22D"
+                                            # #16: the WINDOW is shown because it is what actually diverges from
+                                            # v67. v67 picks 14 vs 22 from the CATALYST PREFIX alone; Risk Shield
+                                            # picks it from the trade-type ladder, whose first rung is the journal
+                                            # Timeframe Jay declares. Those disagree whenever a declared SWING
+                                            # carries a POS setup (or the reverse), and the levels then differ with
+                                            # both surfaces correct by their own rule. Risk Shield is the
+                                            # authoritative one -- v67 structurally cannot see the journal.
+                                            # The old fallback string said "22D" even when the window was 14.
+                                            _ce_lbl = (f"{_tech.get('ce_mult'):.1f}×/{_tech.get('ce_win') or 22}b·{_tech.get('ce_mult_src')}"
+                                                       + ("·regime?" if _tech.get("bear_unknown") else "")) if _tech.get("ce_mult") else "no trail"
                                             # DISTANCE FROM LTP, in ATR (Jay, 11-Aug-2026: the initial SL
                                             # is measured from ENTRY, the TSL and Rec SL from LTP).
                                             # The multiplier in the badge (4.5×) is the Chandelier's own
