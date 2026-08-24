@@ -60,6 +60,13 @@ WATCHLISTS = [
     # structurally cannot supply. Carries the Pullback archetype, so these names get
     # pullback treatment in the timing gates rather than breakout treatment.
     ("Pullback_Candidates.csv",                "At Value",   "Discovery", "bull",     "Pullback"),
+    # ETFs (24-Aug-2026). Same inherited-qualification model as every other row:
+    # etf_screener QUALIFIES (liquidity, stage, RS, rotation), the board TIMES, S4
+    # plans. S4 needs no change at all -- it reads the chart, and zones / S-R /
+    # AVWAP / the PA battery are instrument-agnostic.
+    # ONLY the liquid, non-downtrend subset arrives here; see
+    # etf_screener.write_board_picks for why that gate lives upstream.
+    ("FINAL_ETF_Picks.csv",                    "ETF",        "Rigorous",  "bull",     "ETF"),
     ("FINAL_CATALYST_WATCHLIST.csv",           "Bull Catalyst",     "Discovery", "bull",     "Catalyst-Scan"),
     ("FINAL_Recovery_RSLeaders.csv",           "Rec RS",     "Rigorous",  "recovery", "Recovery-RS"),
     ("FINAL_Recovery_ClimaxBounce.csv",        "Rec Climax", "Rigorous",  "recovery", "Recovery-Climax"),
@@ -90,8 +97,9 @@ try:
     from gm_armed import ARMED_ARCHETYPE
 except Exception:                       # pragma: no cover — headless/offline import
     ARMED_ARCHETYPE = "Armed"
+ETF_ARCHETYPE = "ETF"
 BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader", "Catalyst-Scan",
-                   PYRAMID_ARCHETYPE, ARMED_ARCHETYPE}
+                   PYRAMID_ARCHETYPE, ARMED_ARCHETYPE, ETF_ARCHETYPE}
 RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early",
                        "Rec-Catalyst-Scan", ARMED_ARCHETYPE}
 
@@ -102,8 +110,11 @@ RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early",
 # names, so a rename can never silently drift the two hardcoded tuples the workflows
 # used to carry (P0 fix, 14-Jul-2026). If you rename an archetype above, update it
 # here in the same edit.
+# ETF is STRUCTURAL: an index fund cannot be re-qualified by a live catalyst the
+# way a stock can (it is in no Chartink scan), so it must inherit rather than
+# expire -- and the break-down guard still applies, which is the point.
 STRUCTURAL_BULL_ARCHETYPES = {"Breakout", "Accumulation", "Pullback", "Leader",
-                              PYRAMID_ARCHETYPE, ARMED_ARCHETYPE}
+                              PYRAMID_ARCHETYPE, ARMED_ARCHETYPE, ETF_ARCHETYPE}
 STRUCTURAL_RECOVERY_ARCHETYPES = {"Recovery-RS", "Recovery-Climax", "Recovery-Early",
                                   ARMED_ARCHETYPE}
 

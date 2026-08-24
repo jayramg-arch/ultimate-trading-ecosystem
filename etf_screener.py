@@ -82,6 +82,10 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 BENCHMARK_YF = "^CRSLDX"
 
 OUTPUT_CSV = "ETF_Screener_Results.csv"
+# The BOARD list. ETF_Screener_Results.csv stays the full analytical dump;
+# this is the qualified subset, the same split the stock side uses between a
+# screener output and its FINAL_* watchlist.
+FINAL_ETF_PICKS = "FINAL_ETF_Picks.csv"
 
 # Liquidity threshold for ILLIQUID signal. Matches Pine dashboard's
 # `liq_min_cr` input default (2.0 Rs Cr/day median turnover).
@@ -554,3 +558,41 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def write_board_picks(df=None, path: str = None) -> int:
+    """Qualified ETFs for the GM Trigger Board -> FINAL_ETF_Picks.csv.
+
+    THE BOARD IS A BUY BOARD, so this is not the whole universe. Two hard filters,
+    and both are ETF-specific risks the stock side has no equivalent for:
+
+      * LIQUIDITY. Roughly a third of the NSE ETF universe reads ILLIQUID -- 17 of
+        48 on the run this was written against. An armed ETF you cannot exit is
+        worse than no signal at all, and nothing downstream in the board or S4 has
+        any concept of turnover. This is the gate that has to live here.
+      * DOWNTREND. AVOID-DOWNTREND names are Stage 3/4; the board's break-down
+        guard would invalidate them anyway, so admitting them only adds noise.
+
+    Deliberately NOT filtered on signal strength. The board's job is timing, and a
+    NEUTRAL or HOLD-WATCH ETF that arrives at a level is exactly what it exists to
+    catch. Filtering to BUY-LEADER here would re-qualify on the board's behalf --
+    the mistake the inherited-qualification model was built to stop.
+    """
+    import pandas as pd
+    if df is None:
+        try:
+            df = pd.read_csv(os.path.join(_DIR, OUTPUT_CSV))
+        except Exception:
+            return 0
+    if df is None or df.empty:
+        return 0
+    out = df.copy()
+    sig = out["Signal"].astype(str) if "Signal" in out.columns else pd.Series([""] * len(out))
+    keep = ~sig.str.contains("ILLIQUID", na=False) & ~sig.str.contains("AVOID", na=False)
+    out = out[keep]
+    # Columns the board reads by name; everything else rides along for display.
+    if "Symbol" not in out.columns:
+        return 0
+    path = path or os.path.join(_DIR, FINAL_ETF_PICKS)
+    out.to_csv(path, index=False)
+    return len(out)

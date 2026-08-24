@@ -656,7 +656,15 @@ def main():
             if _en:
                 _edf.to_csv(_etfs.OUTPUT_CSV, index=False)
                 _etf_ok = True
-                p.message = f"{_en} ETFs ranked -> {_etfs.OUTPUT_CSV}"
+                # The BOARD list is the liquid, non-downtrend subset -- see
+                # etf_screener.write_board_picks. Guarded separately so a failure
+                # here cannot lose the analytical output that already wrote fine.
+                try:
+                    _eb = _etfs.write_board_picks(_edf)
+                except Exception as _ee:
+                    _eb = 0
+                    logger.warning(f"ETF board picks failed (non-fatal): {_ee}")
+                p.message = f"{_en} ETFs ranked -> {_etfs.OUTPUT_CSV}; {_eb} to the board"
             else:
                 p.status = "FAIL"
                 p.message = "0 ETFs scored - check the column-key resolution in rank_universe"
