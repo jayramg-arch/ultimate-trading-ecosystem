@@ -164,25 +164,52 @@ def score_liquidity(close: pd.Series, vol: pd.Series) -> tuple:
     return score, round(median_turnover_cr, 2), round(median_vol_lakhs, 2)
 
 
+# Canonical 30-week flat band, imported in spirit from S4's wmaSlopeThresh input
+# (Section4:1481, default 0.0012 x MA over a 4-week change). Same number, so the
+# two surfaces call the same chart flat.
+WMA_FLAT_PCT = 0.0012
+
+
 def _compute_stage(close: pd.Series) -> tuple:
-    """Weinstein stage on the daily series (we don't need weekly resample
-    here — for ETFs the daily 200-DMA proxies 30-WMA closely enough, and
-    rotation logic cares about *position relative to MA*, not the bar
-    interval). Returns (stage_int, ma200, ma200_slope)."""
+    """Weinstein stage, on the SAME stateless 2x2 the rest of the ecosystem uses.
+
+    REWRITTEN 24-Aug-2026. The shape was already right -- above/below the anchor x
+    anchor rising/falling -- but all three inputs differed from S4 / v67 / the GM
+    board, so an ETF's stage here did not mean what "Stage 2" means anywhere else:
+
+      * ANCHOR was the DAILY 200-SMA as a proxy for the weekly 30-SMA. 200 daily
+        bars is ~40 weeks against 30 -- a third longer, and slower to turn. The old
+        docstring called it "closely enough"; the 19-Aug parity pass found 19 of 56
+        names mis-staged on a smaller discrepancy than this.
+      * SLOPE was a PERCENT RATE over 21 daily bars. The canonical form is the RAW
+        change over 4 weekly bars. That exact pair of errors (rate-vs-change, wrong
+        lookback) is what made the Unified Ecosystem's flat band 6x too wide.
+      * FLAT BAND was a hardcoded 0.1%, unrelated to the 0.0012 x MA the rest use.
+
+    Returns (stage_int, ma_now, slope_pct) -- signature unchanged, and slope_pct is
+    still a percent so the caller's `slope > 0.5` scoring test keeps its meaning.
+    """
+    from rrg_engine import weekly_from_daily
     if len(close) < 210:
         return 0, np.nan, 0.0
-    ma200 = close.rolling(200).mean()
-    ma200_now  = float(ma200.iloc[-1])
-    ma200_prev = float(ma200.iloc[-21])  # ~1mo ago
-    slope_pct  = (ma200_now - ma200_prev) / ma200_prev * 100 if ma200_prev else 0.0
-    last = float(close.iloc[-1])
-    above = last > ma200_now
-    rising = slope_pct > 0.1
-    if above and rising:    stage = 2
-    elif above and not rising: stage = 3
-    elif not above and rising: stage = 1
-    else:                   stage = 4
-    return stage, ma200_now, slope_pct
+    w = weekly_from_daily(close)
+    if len(w) < 35:                      # 30-period SMA + the 4-bar slope lookback
+        return 0, np.nan, 0.0
+    ma = w.rolling(30).mean()
+    ma_now = float(ma.iloc[-1])
+    if not np.isfinite(ma_now) or ma_now == 0:
+        return 0, np.nan, 0.0
+    raw_slope = ma_now - float(ma.iloc[-5])      # 4-week change, canonical
+    band = ma_now * WMA_FLAT_PCT
+    last = float(w.iloc[-1])
+    above = last >= ma_now
+    falling = raw_slope < -band
+    if above and not falling:      stage = 2
+    elif not above and not falling: stage = 1
+    elif above and falling:        stage = 3
+    else:                          stage = 4
+    slope_pct = raw_slope / ma_now * 100.0
+    return stage, ma_now, slope_pct
 
 
 def score_trend(close: pd.Series) -> tuple:
@@ -229,11 +256,30 @@ def score_rs(close: pd.Series, bench_close: pd.Series) -> tuple:
     mans_4w  = float(mansfield.iloc[-21]) if len(mansfield) >= 21 else mans_now
     momentum_4w = mans_now - mans_4w   # change over ~1 month
 
-    # RRG quadrant on (RS-Ratio, RS-Momentum)
-    if   mans_now >= 0 and momentum_4w >= 0: quad = "LEADING"
-    elif mans_now >= 0 and momentum_4w <  0: quad = "WEAKENING"
-    elif mans_now <  0 and momentum_4w <  0: quad = "LAGGING"
-    else:                                    quad = "IMPROVING"
+    # QUADRANT FROM THE CANONICAL ENGINE (24-Aug-2026). This used to derive the
+    # quadrant from (Mansfield, 4-week Mansfield change) -- which is not JdK RRG at
+    # all, just a sign test on two Mansfield readings. It was a THIRD RRG in this
+    # stack, and it is why the screener printed GOLDBEES LEADING on the same day the
+    # rotation engine printed LAGGING. Mansfield itself is kept: it is a legitimate
+    # magnitude Jay reads directly, and it feeds the score below unchanged. Only the
+    # QUADRANT moves, because a quadrant is an RRG object and the ecosystem has one
+    # definition of that.
+    quad = "n/a"
+    try:
+        from rrg_engine import calculate_jdk_rrg, weekly_from_daily
+        _pw = weekly_from_daily(aligned["px"])
+        _bw = weekly_from_daily(aligned["bx"])
+        _aw = pd.concat([_pw, _bw], axis=1, join="inner").dropna()
+        if len(_aw) >= 45:              # strike_cal needs 25 + 10 + 7 + 2 weekly bars
+            _aw.columns = ["px", "bx"]
+            _res = calculate_jdk_rrg(_aw["px"], _aw["bx"], mode="strike_cal")
+            if _res is not None and not _res.empty:
+                quad = str(_res["Quadrant"].iloc[-1]).upper()
+    except Exception as _e:
+        logger.warning("canonical RRG failed, quadrant unavailable: %s", _e)
+    # Deliberately NO fallback to the old sign test. A wrong quadrant that looks
+    # right is worse than "n/a" -- score_rotation already returns 0 on "n/a", so an
+    # engine failure costs the rotation points rather than inventing them.
 
     score = 0
     if mans_now > 0:        score += 3

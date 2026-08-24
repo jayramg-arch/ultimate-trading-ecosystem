@@ -383,7 +383,7 @@ def rrg_coordinates(syms=None, weeks: int = RRG_WEEKS_DEFAULT) -> pd.DataFrame:
     Returns the same long format as before so callers are unchanged:
         Symbol, week_offset, rs_ratio, rs_momentum, quadrant
     """
-    from rrg_engine import calculate_jdk_rrg
+    from rrg_engine import calculate_jdk_rrg, weekly_from_daily as _wfd
 
     if syms is None:
         syms = sorted(set(sector_etfs() + list(FLAGSHIPS.values())))
@@ -393,25 +393,8 @@ def rrg_coordinates(syms=None, weeks: int = RRG_WEEKS_DEFAULT) -> pd.DataFrame:
         logger.error("Benchmark %s missing - no RRG coordinates", BENCHMARK_YF)
         return pd.DataFrame()
 
-    def _weekly(ser: pd.Series) -> pd.Series:
-        """Daily -> weekly closes labelled by the week's MONDAY, with the still-
-        forming week dropped. Both conventions are copied deliberately from
-        bull_screener._drop_forming_week: a plain resample("W") labels the RIGHT
-        edge, and the rest of the ecosystem labels by week start."""
-        w = ser.resample("W-MON", label="left", closed="left").last().dropna()
-        if len(w) and hasattr(w.index[-1], "date"):
-            _ref = pd.Timestamp.today().normalize()
-            try:
-                from data_provider import get_pinned_date as _gpd   # replay-safe
-                _p = _gpd()
-                if _p is not None:
-                    _ref = pd.Timestamp(_p).normalize()
-            except Exception:
-                pass
-            # the bar labelled M covers M..M+4; complete once that Friday arrived
-            if (w.index[-1] + pd.Timedelta(days=4)) > _ref:
-                w = w.iloc[:-1]
-        return w
+    # ONE definition, shared with etf_screener - see rrg_engine.weekly_from_daily.
+    _weekly = _wfd
 
     bench_w = _weekly(close_df[BENCHMARK_YF].dropna())
     rows = []

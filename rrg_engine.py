@@ -655,6 +655,50 @@ STRIKE_CAL = {
     "fitted_on": "2026-05-19, n=17, Nifty 500 weekly",
 }
 
+def weekly_from_daily(ser, pinned=None):
+    """Daily closes -> weekly closes, with the still-forming week DROPPED.
+
+    Hoisted here 24-Aug-2026 so the ETF screener and the ETF rotation engine share
+    one definition instead of growing a copy each -- which is precisely how the ETF
+    RRG drifted off STRIKE_CAL in the first place.
+
+    TWO CONVENTIONS, both verified against live data rather than assumed and both
+    taken from bull_screener._drop_forming_week:
+      * a week is labelled by its MONDAY (week START). A plain resample("W") labels
+        the RIGHT edge, which would shift every bar by four days.
+      * the bar labelled M covers M..M+4, so it is complete once that Friday has
+        arrived. Including the week in progress means a "weekly" reading can rest
+        on two sessions -- the SYRMA repaint, where one panel read LEADING and
+        another WEAKENING on the same Tuesday.
+
+    REPLAY-SAFE: `pinned` (or data_provider's pinned date) is the reference when one
+    is set, never the wall clock, so a walk-forward anchor drops the week that was
+    forming AT THAT ANCHOR.
+    """
+    import pandas as _pd
+    if ser is None or len(ser) == 0:
+        return ser
+    w = ser.resample("W-MON", label="left", closed="left").last().dropna()
+    if not len(w):
+        return w
+    ref = None
+    if pinned is not None:
+        ref = _pd.Timestamp(pinned).normalize()
+    else:
+        try:
+            from data_provider import get_pinned_date as _gpd
+            _p = _gpd()
+            if _p is not None:
+                ref = _pd.Timestamp(_p).normalize()
+        except Exception:
+            pass
+    if ref is None:
+        ref = _pd.Timestamp.today().normalize()
+    if (w.index[-1] + _pd.Timedelta(days=4)) > ref:
+        w = w.iloc[:-1]
+    return w
+
+
 def _cal_map(x, a):
     """Origin-preserving affine: 100 stays 100, the spread scales by `a`."""
     return 100.0 + a * (x - 100.0)
