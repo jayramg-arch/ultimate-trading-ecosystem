@@ -17696,6 +17696,15 @@ elif page == 'RISK SHIELD':
                                                 # is missing from the stock tile timeline"). Own colour, wider,
                                                 # taller, and drawn with a z-index so it can never be buried.
                                                 markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-9px;width:5px;height:26px;background:#22D3EE;border-radius:2px;transform:translateX(-50%);box-shadow:0 0 6px rgba(34,211,238,0.9);z-index:5;" title="TSL / Chandelier ₹{chandelier:,.2f}"></div>'
+                                                # #18 (24-Aug-2026, Jay: "show the price on the TSL curve").
+                                                # The level was only in the hover title, so the trail's actual
+                                                # number needed a mouse to read - and the whole point of the
+                                                # marker is that it is the price the position exits at. Sits
+                                                # BELOW the bar (top:20px) so it cannot collide with the
+                                                # marker glyphs above it, and rounds to whole rupees because
+                                                # two decimals at 9px is unreadable and the paise never matter
+                                                # for a stop level.
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:20px;transform:translateX(-50%);font-size:9px;font-weight:700;color:#22D3EE;white-space:nowrap;letter-spacing:.02em;z-index:5;">&#8377;{chandelier:,.0f}</div>'
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
