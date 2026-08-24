@@ -18,6 +18,31 @@ once-a-year decision properly, then trade whichever you chose.
 
 So: pick the VEHICLE here, time the TRADE on the board, plan it on S4.
 
+WHERE THE RETURNS COME FROM (traced 24-Aug-2026, not assumed)
+    etf_vehicles.build -> etf_screener._fetch_history(period="5y")
+                       -> data_provider.fetch_batch_ohlcv(auto_adjust=True)
+                       -> DHAN historical daily closes  (source=dhan, verified)
+  CAGR is first-close to last-close inside the window, annualised by the ACTUAL
+  span rather than the nominal one, so a fund listed mid-window is not credited
+  with time it did not trade.
+
+  TWO PROPERTIES OF THAT CHAIN WORTH KNOWING:
+
+  * `auto_adjust=True` is a NO-OP on the Dhan path. dhan_ohlcv.py does not mention
+    auto_adjust anywhere; the flag only binds on the yfinance fallback. Dhan
+    returns what it returns.
+  * That is NOT, however, a systemic adjustment failure, and it was worth checking
+    before saying so. Scanned for bar-over-bar ratios outside 0.55-1.9 across 5
+    years: 49 ETF series -> 3 artifacts, ALL of them AUTOIETF; 70 watchlist stock
+    series -> ZERO. So 118 of 119 series are clean and Dhan is adjusting corporate
+    actions properly. AUTOIETF is a single bad instrument, not the tip of anything.
+
+  These are PRICE returns, not total returns: a distributing ETF's payouts are not
+  added back, so its CAGR here understates what a holder actually earned. Most
+  Indian ETFs accumulate, which is why this is a footnote rather than a correction,
+  but it is the reason a fund with an unusually poor Track_Diff deserves a look at
+  its distribution history before being written off as a bad tracker.
+
 WHAT IS COMPUTED vs WHAT MUST BE SUPPLIED
   computed  : CAGR 1Y / 3Y / 5Y, tracking difference within a group, turnover,
               premium to NAV
