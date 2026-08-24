@@ -1008,41 +1008,6 @@ require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)
 en_ema_gate = input.bool(true, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
-// BASIC BULLISH-CANDLE RULES on the B gate (24-Aug-2026, Jay: "the bar gate is
-// triggering even on minute candles and dojis and candles with long upper wick as
-// well. So, arrive at some basic bullish candle rules, so that we do not flout the
-// basic rules").
-//
-// This OVERRULES the 18-Aug revert, knowingly and on a different criterion. That A/B
-// ranked variants by ALPHA and the incumbent won on fills; the objection here is
-// DEFINITIONAL - a doji is not a bullish bar and a seller-capped bar is not a strong
-// close, whatever they earn in a given sample. Cost is bounded by that same study:
-// the regime-conditional model measured -0.01 vs the incumbent, CI [-0.18,+0.49], a
-// wash, and it rejected the two bars Jay caught by eye (IGIL, IPCALAB). What is NEW
-// and unmeasured is the RANGE floor - the four tested variants included a BODY floor
-// but never a range floor, and a narrow bar can have a 100% body, so "minute candles"
-// were never actually addressed.
-//
-// THREE RULES, and no body-size floor. A body floor would reject a HAMMER (tiny body,
-// no upper wick, closes at its high), which is a genuinely strong bar; the wick cap
-// plus the close-position test already kill the dojis without that collateral damage.
-// A classic doji closes mid-range with a large upper wick and fails both; a DRAGONFLY
-// doji has ~0% upper wick and closes at its high, and correctly passes.
-//
-// COLOUR IS NOT ONE OF THE RULES, per the 18-Aug measurement: BANKINDIA printed a RED
-// body that opened at its high, sold off and closed 72.8% up its range with a 0% upper
-// wick - a shakeout that recovered, i.e. a good long bar. clp+wick scored 33% pass with
-// all three reference cases correct, vs 37% for green-AND-clp which passed IGIL.
-//
-// THE RANGE FLOOR IS IGNITION-ONLY. A pullback bar is SUPPOSED to be small - dry-up,
-// NR7, inside bars are the setup, and that is the regime-conditional insight from the
-// same study. Applying a range floor on the pullback path would delete the setup it is
-// meant to time. So the floor rides the non-pullback branch alone: a bar claiming
-// IGNITION must actually expand.
-en_bar_rules = input.bool(true, "Bar gate: basic bullish-candle rules", group=grpPZ, tooltip="OFF restores the 11-Aug rule exactly (close >= open OR close in the upper half), which is what the s4go backtest was run on. ON applies: close in the upper half of the range, upper wick under the cap, and - on ignition bars only - a minimum range in ATR.")
-bar_min_clpos = input.float(0.5, "  Close at least this far up the range", group=grpPZ, minval=0.3, maxval=0.9, step=0.05, tooltip="0.5 = the upper half. An upthrust or shooting star closes bottom-half by construction and fails here regardless of body colour.")
-bar_max_uwick = input.float(30.0, "  Max upper wick (% of range)", group=grpPZ, minval=10.0, maxval=60.0, step=5.0, tooltip="Sellers capping the bar. Jay set 30% on 18-Aug-2026. IGIL's spinning top is 36%, its doji 73%, IPCALAB 69%, a shooting star 88% - all rejected. A hammer has ~0% and passes.")
-bar_min_rng_atr = input.float(0.3, "  Min range on IGNITION bars (x ATR)", group=grpPZ, minval=0.0, maxval=1.5, step=0.05, tooltip="The minute-candle rule, and the only genuinely untested one here. Applies ONLY when this is not a pullback context - a pullback bar is meant to be small (dry-up / NR7 / inside bar), so the floor would delete the setup. Set 0 to disable just this leg.")
 ath_prox_pct = input.float(3.0, "Blue-sky breakout: within % of 52W high", group=grpPZ, minval=0.5, maxval=10.0, step=0.5, tooltip="#ATH (Jay, 19-Jul): a Stage-2 leader (above a rising 30WMA + 200DMA) consolidating within this % of its 52-week high is a BREAKOUT PIVOT, not distribution. The 'supply zone' there IS the prior high — meant to BREAK, not reject. When price is in that supply band, the verdict reframes 'SKIP · no room' into 'BREAKOUT PIVOT' (arm the buy-stop above the band ceiling; blue sky above), instead of applying range logic to a momentum setup. Only fires in a Stage-2 uptrend — a Stage 3/4 name at a lower high stays a real SKIP.")
 momentum_clear = input.bool(true, "Stage-2 momentum: near overhead is a level to CLEAR (not a no-room SKIP)", group=grpPZ, tooltip="THE 75-MIN ROOM FIX (Jay, 23-Jul). On the trading TF a higher-timeframe level (weekly R-line, monthly SZ, HTF pivot) is ALWAYS overhead within a thin R — so a 'room = R:R to the nearest overhead' test kills EVERY intraday trigger. That is the wrong denominator for a momentum entry: the nearby overhead is a level to BREAK toward the real (measured-move / swing-positional R) target, not the target itself. When ON, a Stage-2 leader (above 30WMA+200DMA) with a live GO but a nearby overhead reframes 'SKIP · no room' → 'CLEAR TO BREAK' (arm the buy-stop above the level; real target is the R-objective). Generalises the ATH blue-sky rule to any Stage-2 uptrend. Stage 3/4 into overhead, or price INSIDE a supply band (non-ATH), still SKIPs. OFF = strict room veto (pre-fix).")
 show_zones = input.bool(true, "Draw OB / FVG / Pivot zones (Daily + Weekly)", group=grpPZ, tooltip="Draws the auto support zones: Daily = dashed thin, Weekly = solid thick (bigger structural demand). Trading TF stays 75/125-min.")
@@ -3623,8 +3588,6 @@ f_fold3649() =>
     bool timing_ok = ev_ok or intra_ok      // optional TIMING refinement (AVWAP / intraday)
     float _bqRng   = high - low
     float _bqClpos = _bqRng > 0 ? (close - low) / _bqRng : 0.5
-    // upper wick as a share of range - the 'sellers capped it' test
-    float _bqUwick = _bqRng > 0 ? (high - math.max(open, close)) / _bqRng * 100.0 : 0.0
     // CLOSE LOCATION IS THE TEST, NOT THE COLOUR (17-Aug, Jay: "green candles with
     // heavy selling pressure are ticked OK"). `close >= open` passes a bar that gaps
     // up, runs, and closes on its low — distribution wearing a green body. The old
@@ -3694,16 +3657,7 @@ f_fold3649() =>
     // spinning top (green, 36% upper wick) and IPCALAB (green, closed 30% up its
     // range). B is a coarse veto, not a bar-quality opinion; the chart read keeps
     // its veto power over the panel.
-    // Legacy 11-Aug rule kept verbatim behind the toggle so the revert is one click and
-    // the backtested behaviour stays reachable.
-    bool  _barLegacy = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
-    bool  _barShape  = _bqClpos >= bar_min_clpos and _bqUwick <= bar_max_uwick
-    // 'Held the zone' stays an alternative to the close-position test on the pullback
-    // path only, but the wick cap applies everywhere: a bar capped by sellers is not a
-    // hold, it is a rejection.
-    bool  _barHeld   = pb_ctx and close > nz(z_inDZdist, low)
-    bool  _barRng    = pb_ctx or bar_min_rng_atr <= 0.0 or _bqRng >= bar_min_rng_atr * nz(chart_atr, 0.0)
-    bool  bar_ok   = not en_bar_rules ? _barLegacy : ((_barShape or _barHeld) and _bqUwick <= bar_max_uwick and _barRng)
+    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
     // EMA20 veto. INSIDE the fold beside the other gates so it snapshots to the
     // closed bar with them - reading it live while everything else reads [_so] is
     // the stale-bar class of bug that cost v4.1.
@@ -3711,8 +3665,8 @@ f_fold3649() =>
     // two operations instead of four.
     bool  ema_ok  = not en_ema_gate or close >= nz(dyn_ema, close)
     bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok
-    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, _bqUwick, _barRng]
-[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, _bqUwick, _barRng] = f_fold3649()
+    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok]
+[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok] = f_fold3649()
 
 // ==========================================================================
 // ARRIVAL STYLE + ORDER-FLOW DELTA (computed before the confluence block so the
@@ -3977,7 +3931,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not en_bar_rules ? "weak/red bar" : _bqUwick[_so] > bar_max_uwick ? "bar capped (upper wick)" : not _barRng[_so] ? "bar too narrow" : "weak close (lower half)") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "✓" : "·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "✓" : "·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
