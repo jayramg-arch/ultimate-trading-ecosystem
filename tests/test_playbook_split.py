@@ -39,12 +39,28 @@ def test_known_archetype_overrides_that_inference():
     assert _pullback_ctx(c, "bull", archetypes=["Pullback"]) is True
 
 
-def test_known_pullback_flips_the_volume_and_bar_gates():
-    """RV 0.6 fails the breakout floor (1.0) and passes the pullback floor (0.5);
-    a weak bar fails bar_ok but a pullback only has to hold the zone. So the same
-    row scores two gates higher once the setup is known."""
+def test_known_pullback_flips_the_volume_gate_ONLY():
+    """RV 0.6 fails the breakout floor (1.0) and passes the pullback floor (0.5),
+    so knowing the setup is worth exactly ONE gate.
+
+    It used to be worth two: the bar gate returned a free True on every pullback
+    row, on the reasoning that a pullback bar only has to HOLD the zone. But
+    "still in the zone" is g_loc — the gate was counting one fact twice, so the
+    board could not disagree with itself. S4:3660 tests a real bar
+    (close > distal or close >= open); ctx has no distal, so the board mirrors the
+    bar-strength read it does have. Removed 24-Aug-2026: 13 of 16 4/4 rows on the
+    125m board were taking this pass, and it was one of the two faults behind
+    board 4/4 vs S4 1/4."""
     c = ctx(["Hammer at 50-SMA", "Power Play (Strong Close)"])
     assert s4go_status(4, c, True, "bull").startswith("2/4")
+    _known = s4go_status(4, c, True, "bull", archetypes=["Pullback"])
+    assert _known.startswith("3/4"), _known
+    assert "weak bar" in _known, "the weak bar must still be NAMED, not absorbed"
+
+
+def test_a_pullback_with_a_clean_bar_does_reach_four_of_four():
+    """The complement: the volume relaxation is intact, only the freebie is gone."""
+    c = ctx(["Hammer at 50-SMA", "Power Play (Strong Close)"], bar_ok=True)
     assert s4go_status(4, c, True, "bull", archetypes=["Pullback"]).startswith("4/4")
 
 

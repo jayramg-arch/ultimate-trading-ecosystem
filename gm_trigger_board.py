@@ -1172,11 +1172,34 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # best case and must not be vetoed either.
     _pb = _pullback_ctx(ctx, path, archetypes)
     g_vol = bool(_rv is not None and _rv >= (PB_RV_FLOOR if _pb else RV_FLOOR))
-    # A pullback bar does not need to close STRONG — it needs to HOLD the zone. S4 tests
-    # close > zone distal; here the equivalent signal is that price is still inside/at a
-    # fresh demand zone, which _pullback_ctx has already established.
-    g_bar = True if _pb else ((_bar is None) or bool(_bar))   # unknown bar = don't penalize
+    # BAR GATE — mirror S4, do not hand it out (24-Aug-2026, Jay: "a discrepancy of 1
+    # or 2 gates is ok, but not 3 out of 4 failing"). This line used to return a free
+    # True on every pullback row, on the reasoning that a pullback bar only has to HOLD
+    # the zone — but "still in the zone" is g_loc, so the gate was counting one fact
+    # twice and the board could never disagree with itself. S4:3660 is a real test:
+    #     bar_ok = pb_ctx ? (close > z_inDZdist or close >= open)
+    #                     : (close >= open or _bqClpos >= 0.5)
+    # ctx carries no zone distal, so the closest honest mirror is the bar-strength read
+    # we already have. That makes the board very slightly STRICTER than S4 on the pb
+    # branch (S4 also passes a RED bar that closes above the distal) and identical off
+    # it. Deliberate direction: this column is a PREDICTOR of the S4 chart, so erring
+    # loose costs a false 4/4 every session while erring tight costs a rare row.
+    # MEASURED before the change: 13 of 16 4/4 rows on the 125m board carried "· PB",
+    # i.e. were taking this free pass.
+    #
+    # An UNKNOWN bar no longer passes either. "Don't penalize" was written for missing
+    # data, but a missing bar read is exactly the ⧖D daily-fallback case, and there it
+    # inflated the count on the timeframe that had failed to load.
+    g_bar = bool(_bar)
     n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar)
+    # RECENCY DOES NOT REACH 4/4. The PA gate above accepts a pattern that fired a few
+    # bars back (31-Jul); S4 has no such allowance and reads the current bar only. So a
+    # recency row differs from the chart by the PA gate BY CONSTRUCTION — and "4/4" is
+    # the one label that promises the chart will agree. Cap it at 3/4 and keep the age
+    # tag: the name still ranks as a watch, it just stops claiming to be a GO. Without
+    # this, recency + the free bar pass + the location proxy stacked to a 3-gate gap.
+    if _pa_age is not None:
+        n = min(n, 3)
     # KNIFE-EDGE tag. Patterns sitting on their threshold flip on a difference smaller
     # than the routine Dhan-vs-TradingView gap — NAM-INDIA read Σ6 here and Σ2 on the
     # chart for the same bar. Marking them stops that reading as a bug and stops a

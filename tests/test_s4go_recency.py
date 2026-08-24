@@ -35,12 +35,25 @@ def test_live_pa_is_unannotated_go():
     assert s4go_status(5, ctx(), True) == "4/4 GO"
 
 
-def test_recent_pa_reaches_four_of_four_but_is_labelled():
-    """The whole point: this name is findable again, and sorts with the GOs."""
+def test_recent_pa_is_findable_but_capped_below_four_of_four():
+    """Recency keeps the name on the board — it does NOT let it claim a GO.
+
+    24-Aug-2026, Jay: "a discrepancy of 1 or 2 gates is ok, but not 3 out of 4
+    failing." S4 has no recency allowance at all; it reads the current bar only.
+    So a recency row differs from the chart by the PA gate BY CONSTRUCTION, and
+    "4/4" is the one label that promises the chart will agree. Cap it.
+
+    The name still ranks above a genuine 3/4 in practice because the age tag is
+    printed and the watch value is intact — what is gone is the false promise."""
     out = s4go_status(0, ctx(pa_recent={"age": 2, "sigma": 5}), True)
-    assert out.startswith("4/4"), out
+    assert out.startswith("3/4"), out
     assert "PA 2b" in out, out
-    assert out != "4/4 GO", "a 2-bar-old trigger must not read as live"
+    assert not out.startswith("4/4"), "a 2-bar-old trigger must never read as a GO"
+
+
+def test_only_a_live_pa_can_reach_four_of_four():
+    """The complement, so the cap cannot be quietly widened to everything."""
+    assert s4go_status(5, ctx(), True) == "4/4 GO"
 
 
 def test_without_recency_the_same_name_is_lost():
