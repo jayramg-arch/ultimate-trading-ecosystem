@@ -590,6 +590,34 @@ def write_board_picks(df=None, path: str = None) -> int:
     sig = out["Signal"].astype(str) if "Signal" in out.columns else pd.Series([""] * len(out))
     keep = ~sig.str.contains("ILLIQUID", na=False) & ~sig.str.contains("AVOID", na=False)
     out = out[keep]
+
+    # PREMIUM / DISCOUNT vs NAV -- the third gate, and the only one that measures
+    # something no chart can show. See etf_inav for the numbers; the short version
+    # is that three international ETFs trade ~19.5% over NAV because SEBI's overseas
+    # cap suspended unit creation, so there is no arbitrage to close the gap. Two of
+    # them were on the board when this was written, ranked partly on a price series
+    # the premium itself inflates.
+    # The column is attached to EVERY surviving row, not just the rejected ones --
+    # a 1.3% premium on GOLDBEES passes the gate and is still worth seeing before
+    # committing 30% of a sleeve to it.
+    try:
+        import etf_inav as _inav
+        _pm = _inav.premium_map()
+        if _pm:
+            out["Premium_Pct"] = out["Symbol"].astype(str).str.upper().map(_pm)
+            _cap = _inav.MAX_PREMIUM_PCT
+            _bad = out["Premium_Pct"].abs() > _cap          # NaN compares False = kept
+            if _bad.any():
+                logger.warning("ETF premium gate blocked %d: %s", int(_bad.sum()),
+                               ", ".join(f"{r.Symbol} {r.Premium_Pct:+.1f}%"
+                                         for r in out[_bad].itertuples()))
+            out = out[~_bad]
+        else:
+            logger.warning("ETF NAV unavailable - premium gate NOT applied this run")
+    except Exception as _e:
+        # Never fail the board list over this. A missing premium is a missing
+        # WARNING, not a reason to ship no ETFs at all.
+        logger.warning("ETF premium gate skipped: %s", _e)
     # Columns the board reads by name; everything else rides along for display.
     if "Symbol" not in out.columns:
         return 0
