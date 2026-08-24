@@ -851,7 +851,11 @@
 // ============================================================================
 //@version=6
 indicator("Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)", shorttitle="S4 Entry v9.18", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
-import jayramg/S4Core/14 as core
+// Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
+// that the chart can be told apart from a stale compile without opening Settings.
+string S4_VER      = "v9.18"
+string S4_CORE_VER = "14"
+import jayramg/S4Core/18 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -984,6 +988,24 @@ trig_max_age = input.int(12, "Plan: re-latch the trigger after N bars", group=gr
 ovh2_gap_atr = input.float(0.5, "T2: min gap above T1 (× ATR)", group=grpPZ, minval=0.0, maxval=3.0, step=0.1, tooltip="T2 must clear T1 by at least this much, else the next obstacle up is skipped. Without it T1 and T2 both resolve inside one cluster of levels and the ladder is one target printed twice.")
 tol_pct   = input.float(1.0, "Support-touch tolerance (% around AVWAP)", minval=0.25, step=0.25, group=grpPZ)
 require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)", group=grpPZ, tooltip="If ON, the GO entry trigger will only fire if the close is inside or within 1.5% of an active Order Block, Fair Value Gap, Pivot Support (Daily OR Weekly) or AVWAP. This automates Steps 1 & 2 of the Guided Execution checklist.")
+// EMA20 GATE (23-Aug-2026, Jay: "I'll never take a trade, if it is below EMA20.
+// It should work as a gate"). Until now the EMA20 was only ONE OF SEVERAL optional
+// location sources (near_ema, which itself requires close >= ema20), so a name below
+// it could still GO on a demand zone, an S/R shelf, an AVWAP or the value-area low -
+// and NESTLEIND did exactly that. This makes it a veto instead.
+//
+// WHICH EMA (Jay's spec): chart EMA20 on WEEKLY and MONTHLY; DAILY EMA20 on DAILY,
+// 125m and 75m. `dyn_ema` already resolves to exactly that - on a daily chart
+// chartEMA20 IS the daily EMA20, and timeframe.isintraday routes 75/125m to the
+// security-fetched daily series. No new plumbing needed.
+//
+// LIVE, not closed. dyn_ema is the live daily EMA20 on intraday and `near_ema` - the
+// location source - tests the same series. Using the closed daily EMA20 here would
+// let the gate say "below" while the location row says "at the EMA" on the same bar.
+// One average, one answer.
+//
+// An INPUT defaulting ON, so it can be turned off and A/B'd like every other gate.
+en_ema_gate = input.bool(true, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
 ath_prox_pct = input.float(3.0, "Blue-sky breakout: within % of 52W high", group=grpPZ, minval=0.5, maxval=10.0, step=0.5, tooltip="#ATH (Jay, 19-Jul): a Stage-2 leader (above a rising 30WMA + 200DMA) consolidating within this % of its 52-week high is a BREAKOUT PIVOT, not distribution. The 'supply zone' there IS the prior high — meant to BREAK, not reject. When price is in that supply band, the verdict reframes 'SKIP · no room' into 'BREAKOUT PIVOT' (arm the buy-stop above the band ceiling; blue sky above), instead of applying range logic to a momentum setup. Only fires in a Stage-2 uptrend — a Stage 3/4 name at a lower high stays a real SKIP.")
@@ -1340,6 +1362,7 @@ piv_i           = input.int(2,      "Pivot length — Intraday",      group=grpZ
 // PRICE series, and any value outside {-1,0,1} is treated as not-wired (the panel then
 // falls back to the old proxy and SAYS so, rather than reading a price as a trend).
 zzTrendD = input.source(close, "Zigzag: MTF-1 trend state (Daily)", group=grpPA, tooltip="Bind to the Swing Zigzag's hidden 'mtfTrendState' plot (its MTF-1, Daily on an intraday chart). 1 = uptrend · -1 = downtrend · 0 = sideways. Unwired defaults to a price series and is detected as such.")
+zzTrendC = input.source(close, "Zigzag: CHART-TF trend state", group=grpPA, tooltip="Bind to the Swing Zigzag's hidden 'trendState' plot - its trend on THIS chart's timeframe. 1 = uptrend / -1 = downtrend / 0 = sideways. Unwired defaults to a price series and is detected as such, in which case the row falls back to the EMA20 proxy and marks itself with a tilde.")
 zzTrendW = input.source(close, "Zigzag: MTF-2 trend state (Weekly)", group=grpPA, tooltip="Bind to the Swing Zigzag's hidden 'mtfTrendState2' plot (its MTF-2, Weekly). Same encoding. This is what makes S4's weekly trend agree with the Zigzag and v67 by construction instead of by luck.")
 // ── DASHBOARD IMPORT (v8.4) ─────────────────────────────────────────────────────────
 // Fields carried over from "Weinstein & Swing Pro Dashboard [v67.4.18]" so both panels
@@ -1491,6 +1514,11 @@ f_daily_ema(int len) =>
 [atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
+// ONE arrow renderer for all three trend columns (chart TF / D / W). Three
+// identical nested ternaries were three copies of the same six operations;
+// the file sits against the compiled-token ceiling, and only operations cost.
+var string em_dash = "—"
+f_arw(float v) => v > 0.5 ? "⬆️" : v < -0.5 ? "⬇️" : "➡️"
 float chartEMA20 = ta.ema(close, 20)   // chart-TF EMA20 (used by the Price-vs-EMA20 panel row on a Daily chart)
 // #10: EMA20 as a DYNAMIC S/R level — daily EMA20 on 75/125m (DNA anchor), chart
 // EMA20 on a Daily chart. Feeds the support consideration + the Trigger.
@@ -3089,8 +3117,11 @@ smc_liq_len = 10
 
 smc_ph_bos = ta.pivothigh(high, smc_bos_len, smc_bos_len)
 smc_pl_bos = ta.pivotlow (low,  smc_bos_len, smc_bos_len)
-smc_ph_liq = ta.pivothigh(high, smc_liq_len, smc_liq_len)
-smc_pl_liq = ta.pivotlow (low,  smc_liq_len, smc_liq_len)
+// smc_ph_liq / smc_pl_liq REMOVED (23-Aug-2026): two ta.pivot* calls whose
+// results were never read. The liquidity-sweep display they were written for
+// is not in this file - S4 reads sweeps from the WCL binding, not natively.
+// Deleted with smc_last_sweep / smc_sweep_bar, the two var slots that held
+// their output.
 
 var float smc_last_sh   = na
 var float smc_last_sl   = na
@@ -3118,8 +3149,6 @@ var string smc_last_event    = "—"
 var int    smc_last_bar      = na
 var bool   smc_last_was_bull = true
 var bool   smc_last_choch    = false
-var string smc_last_sweep    = "—"
-var int    smc_sweep_bar     = na
 
 var int    choch_count_20 = 0
 var int[]  choch_bars     = array.new_int()
@@ -3629,9 +3658,15 @@ f_fold3649() =>
     // range). B is a coarse veto, not a bar-quality opinion; the chart read keeps
     // its veto power over the panel.
     bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
-    bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok
-    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go]
-[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go] = f_fold3649()
+    // EMA20 veto. INSIDE the fold beside the other gates so it snapshots to the
+    // closed bar with them - reading it live while everything else reads [_so] is
+    // the stale-bar class of bug that cost v4.1.
+    // nz() rather than na()+and: an unknown EMA must not block, and this is
+    // two operations instead of four.
+    bool  ema_ok  = not en_ema_gate or close >= nz(dyn_ema, close)
+    bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok
+    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok]
+[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok] = f_fold3649()
 
 // ==========================================================================
 // ARRIVAL STYLE + ORDER-FLOW DELTA (computed before the confluence block so the
@@ -3896,7 +3931,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "✓" : "·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "✓" : "·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
@@ -4408,7 +4443,11 @@ f_planLine(bool _on, float _lvl, string _txt, color _c, string _sty) =>
     _lvl
 
 if show_panel and d_panel and barstate.islast
-    table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
+    // VERSION ON THE PANEL (Jay, 21-Aug). "v9.17" once spanned two different compiled
+    // builds and there was no way to tell them apart from the chart - the title bar is
+    // truncated and the Settings dialog does not show it. Now the panel states the build
+    // AND the library it was compiled against, so a stale compile is visible at a glance.
+    table.cell(pnl, 0, 0, "S4 " + S4_VER + "  ·  core/" + S4_CORE_VER, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
     // Each banner states the QUESTION its block answers. The panel is read under time
     // pressure and the sections are not interchangeable — a name can be perfect on
@@ -4788,8 +4827,8 @@ if show_panel and d_panel and barstate.islast
     // made in the other direction (Jay, 18-Aug).
     float _bUpW = _so_high - math.max(_bC, _bO)
     float _bLoW = math.min(_bC, _bO) - low[_so]
-    float _bUwP = _bRng2 > 0 ? _bUpW / _bRng2 * 100 : 0
-    float _bLwP = _bRng2 > 0 ? _bLoW / _bRng2 * 100 : 0
+// _bUwP / _bLwP REMOVED (23-Aug-2026): upper and lower wick percentages,
+// computed every bar and never read. Bar quality is judged by _bqClpos.
     // Colour is now CONTEXT, not the verdict — so the reason must lead with close
     // position and the wick, and call a strong red bar what it is: a shakeout.
     // Reason matches the 11-Aug gate (green OR upper-half). The close position and
@@ -5100,7 +5139,9 @@ if show_panel and d_panel and barstate.islast
     // the position from the daily sma150 while the stage took it from elsewhere, so the
     // row could read "above 30WMA (flat)" beside a stage derived from a different test —
     // the display-vs-gate basis split, again.
-    string _wma_st = (_b30 ? "below 30WMA " : "above 30WMA ") + (_wup ? "(rising)" : _wdn ? "(falling)" : "(flat)")
+// _wma_st REMOVED (23-Aug-2026): built a "below/above 30WMA (rising/falling)"
+// string that nothing rendered. The Structure basis row states position and
+// slope with its own icons, which is what replaced this.
     // v7.2 TREND ALIGNMENT (Jay, 1-Aug: "on my trading timeframes I want to be sure the
     // stock is in an uptrend AND the weekly is in an uptrend"). Appended to THIS row
     // rather than given its own — a new panel row costs several hundred compiled tokens
@@ -5117,13 +5158,38 @@ if show_panel and d_panel and barstate.islast
     // can never be mistaken for the canonical one.
     bool _zzOkD = zzTrendD[_so] >= -1.0 and zzTrendD[_so] <= 1.0
     bool _zzOkW = zzTrendW[_so] >= -1.0 and zzTrendW[_so] <= 1.0
-    string _dArw = _zzOkD ? (zzTrendD[_so] > 0.5 ? "⬆️" : zzTrendD[_so] < -0.5 ? "⬇️" : "➡️") : ""
-    string _wArw = _zzOkW ? (zzTrendW[_so] > 0.5 ? "⬆️" : zzTrendW[_so] < -0.5 ? "⬇️" : "➡️") : (stage_n == 2 ? "~⬆️" : "~⬇️")
-    bool _tfUp = close[_so] > chartEMA20[_so] and chartEMA20[_so] > chartEMA20[_so + 5]
+    string _dArw = _zzOkD ? f_arw(zzTrendD[_so]) : ""
+    string _wArw = _zzOkW ? f_arw(zzTrendW[_so]) : (stage_n == 2 ? "~⬆️" : "~⬇️")
+    // CHART-TF TREND FROM THE ZIGZAG (23-Aug-2026, Jay: "whether it is 1D or 75m or
+    // 125m it should take the trend logic from swing zigzag, so that uniformity is
+    // maintained"). Was an EMA20 proxy - close above a rising EMA20 - while D and W
+    // came from the Zigzag's own state. On a DAILY chart tf_suffix renders "1D", so
+    // the row printed "Trend 1D down" beside "D up": one timeframe, two methods,
+    // indistinguishable by name. NESTLEIND on 21-Aug was exactly that - higher highs
+    // and higher lows (Zigzag up) while 0.5% under a rolling-over EMA20 (proxy down).
+    // Both true; only one of them is the structural trend.
+    //
+    // Same unbound detection as D and W: an unwired input.source reads `close`, a
+    // price, which cannot sit inside -1..1. On that path keep the proxy but TAG it
+    // with a tilde, so a dropped binding is visible instead of silent.
+    bool _zzOkC  = zzTrendC[_so] >= -1.0 and zzTrendC[_so] <= 1.0
+    // No EMA20 proxy fallback. An unbound source renders the same em-dash D
+    // already uses, which is both cheaper and more uniform - and _tfUp stays
+    // false, so ALIGNED cannot claim alignment from data it does not have.
+    bool _tfUp   = _zzOkC and zzTrendC[_so] > 0.5
+    // Three states now. The old boolean rendered SIDEWAYS as a down arrow, which is a
+    // different claim from "no structural consensus".
+    string _cArw = _zzOkC ? " " + f_arw(zzTrendC[_so]) : " " + em_dash
     // ALIGNED now means what v67 and the Zigzag mean by it — the chart TF and the WEEKLY
     // structure agreeing — instead of "EMA proxy AND stage==2", which could print
     // ALIGNED beside the Zigzag's MIXED.
-    bool _algn = _zzOkW and _tfUp and zzTrendW[_so] > 0.5
+    // _algn DELETED (23-Aug-2026). It was defined and never read - ALIGNED was
+    // dropped from this row in v9.6 - and it was WRONG besides: it compared the
+    // chart TF against MTF-2 and skipped MTF-1 entirely, so on a 75m chart it
+    // tested 75m vs WEEKLY and ignored Daily. Alignment across all three rungs
+    // already lives in core.summaryRead (wUp and dUp and tfUp), which is the
+    // definition Jay asked for. Leaving a dead variable with the wrong semantics
+    // is how someone later wires it up and reintroduces the skip.
     // STRUCTURE BASIS (v9.6, Jay's spec). Was a long sentence mixing position,
     // slope, distance and the Auto-mode resolution. Now a fixed left-to-right
     // ladder of POSITION + DIRECTION, each with its own arrow, so the eye reads
@@ -5149,7 +5215,17 @@ if show_panel and d_panel and barstate.islast
     // did not blank the field — it DELETED it, and the row silently lost a column every
     // time a recompile dropped the bindings. Same lesson as "unknown must never read as
     // clear": an absent input has to be visible as absent.
-    string _trd = "  ·  Trend " + tf_suffix + (_tfUp ? " ⬆️" : " ⬇️") + "  ·  D " + (_zzOkD ? _dArw : "—") + "  ·  W " + _wArw
+    // THE MTF LABELS ARE NOT FIXED (23-Aug-2026, Jay: "why are you binding just the
+    // 1D/125/75 trend from zigzag?"). The Zigzag resolves its two higher timeframes
+    // RELATIVE to the chart - intraday gives D and W, but a DAILY chart gives W and
+    // M. The columns were hardcoded "D" and "W", so on a daily chart this row called
+    // the weekly trend "D" and the monthly one "W". Mirrors the Zigzag's own ladder.
+    // LABELS ROLLED BACK to hardcoded D / W (23-Aug-2026): the timeframe-aware
+    // version cost tokens this file does not have. KNOWN WRONG on a DAILY chart,
+    // where the Zigzag's MTF-1 is WEEKLY and MTF-2 is MONTHLY - so on daily this
+    // row calls the weekly trend "D" and the monthly one "W". Restore the
+    // timeframe-aware labels once the S4Core move has freed the headroom.
+    string _trd = "  ·  Trend " + tf_suffix + _cArw + "  ·  D " + (_zzOkD ? _dArw : "—") + "  ·  W " + _wArw
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  ·  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
@@ -5327,190 +5403,20 @@ if show_panel and d_panel and barstate.islast
     // compiled tokens, and this file lives against the ~100,256 ceiling.
     // Ruling assembled as SEPARATE LINES: one long string stretches the panel across the
     // chart (Jay), so headline / reason / disqualifier / metrics / action each get a row.
-    string _L1 = ""
-    string _L2 = ""
-    string _L3 = ""
-    string _L5 = ""
-    // STAGE VETO REACHES BOTH ARMS (v7.9, 5-Aug-2026). `stage_skip` was the first branch
-    // INSIDE this GO+plan arm, so a Stage-3/4 name that had not triggered yet skipped it
-    // entirely and fell through to the no-GO chain below — where it read "ARM", inviting
-    // an alert on a stock in a topping or declining structure. Same defect Jay caught the
-    // same day in the board's S4-GO column, on the other side of the trigger.
-    // Admitting stage_skip to this arm keeps the NO-TRADE block exactly where it is (it
-    // is already the first branch) while making it unreachable-proof: every other branch
-    // here is an `else if`, so they still require go_v and a plan.
-    if stage_skip or (go_v and not na(pl_entry))
-        bool _swingOk = not na(pl_rr1) and pl_rr1 >= 2.0
-        float _roiT1  = na(pl_t1) ? na : (pl_t1 - pl_entry) / pl_entry * 100.0
-        bool _posOk   = not na(_roiT1) and _roiT1 >= 20.0
-        // CLEAR TO BREAK (the 75-min room fix): a Stage-2 leader with a live GO whose only
-        // problem is a nearby overhead is NOT a no-room reject — the overhead is a level to
-        // BREAK toward the real target. Fires only when neither house gate clears (so it can
-        // ONLY reframe a would-be SKIP, never downgrade a genuine TAKE IT), not in-supply
-        // (that stays a caution unless ATH blue-sky), not already blue-sky, and Stage-2 only.
-        // v7.1: `not _atValue` — an at-value pullback has its own ruling above now.
-        bool _clearToBreak = momentum_clear and _stage2ok and not _blueSky and not _atValue and not _qSupply and not (_posOk or _swingOk) and not na(_ovh)
-        // #verdict (30-Jul, TITAN): the TRADE TYPE decides which house gate applies — DNA
-        // has swing at 5-8% over 8-12 weeks and positional at 10-30% over 6-8 months, so
-        // they are not peer tests. Reporting them as peers printed "SWING only" directly
-        // under a "POSITIONAL" Plan row, which reads as a second, contradicting trade-type
-        // call. Now: name the APPLICABLE gate, quote its own number, and when the trade
-        // clears only the OTHER bar say what to do about it instead of restating a label.
-        //
-        // NOTE the structural tension this exposed: a POSITIONAL plan targets tt_t1r_pos
-        // (5R), so ROI to T1 = 5 x risk%. With a 2.3% stop that is 11.5% and the 20% rule
-        // can NEVER be met — the two positional rules are mutually unreachable whenever
-        // risk% < 4%. That is why TITAN read "SWING only" while planned POSITIONAL.
-        string _roiTxt = na(_roiT1) ? "n/a" : (_roiT1 >= 0 ? "+" : "") + str.tostring(_roiT1, "0.0") + "%"
-        string _rrTxt  = na(pl_rr1) ? "n/a" : str.tostring(pl_rr1, "0.0") + "R"
-        string _rule   = ""
-        if tt_swing
-            if _swingOk
-                _rule := "Swing reward confirmed — T1 " + _rrTxt + ", clears the 2R bar."
-            else if _posOk
-                _rule := "Swing clock, positional-sized room (" + _roiTxt + ") but only " + _rrTxt + " — the stop is too wide for a swing. Tighten the stop or trade it as a positional."
-            else
-                _rule := "Reward clears neither bar — T1 " + _rrTxt + " and " + _roiTxt + "."
-        else
-            if _posOk
-                _rule := "Positional reward confirmed — T1 " + _roiTxt + ", clears the 20% bar."
-            else if _swingOk
-                _rule := "Positional structure, SWING-SIZED reward — T1 is only " + _roiTxt + " (20% rule) though R:R is " + _rrTxt + ". Either take it as a SWING and book at 2R, or wait for a deeper entry to earn the positional target."
-            else
-                _rule := "Reward clears neither bar — T1 " + _roiTxt + " and " + _rrTxt + "."
-        // v7.1: the ACTION line hoisted out of the generic TAKE IT branch so the AT-VALUE
-        // branch reuses it rather than carrying a second copy. One expression, ONE line —
-        // a wrapped ternary indented by a multiple of 4 is the CE10156 trap.
-        string _actLine = use_retest ? ("Action: buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (trigAge > 0 ? " on the pullback." : " — but that IS this bar's close, so it fills at MARKET, not a pullback.\n" + (_pbLvl > 0 ? "A true pullback entry sits ~" + str.tostring(_pbLvl, format.mintick) + "." : ""))) : ("Action: buy-STOP above " + str.tostring(nz(trigHi, _so_high), format.mintick) + " (the trigger bar's high). Never buy the touch.")
-        if stage_skip
-            _L1 := "NO TRADE — Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping: 30WMA falling, price still above)" : " (declining: below a falling 30WMA)")
-            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only.\nA GO here is a valid TRIGGER inside an invalid CONTEXT —\nthe pattern fired, the stage says do not own it."
-            _L3 := "If you take it anyway it is a counter-trend trade: half size at most,\nand manage against the stage, not the target."
-            _anCol := C_NO
-        // v7.0 (31-Jul, Jay - NYKAA): this branch was UNCONDITIONAL, so a name forced
-        // to Manual=Recovery short-circuited here and printed "TAKE IT - Recovery"
-        // while _blueSky and _clearToBreak below were unreachable - which is why the
-        // SAME bar read TAKE IT in Recovery and CLEAR TO BREAK in Bull. Only the mode
-        // differed, and this branch is the greedy one: no reward gate, and _qRoomBad
-        // excludes is_rec_v so room is bypassed too.
-        // The guard is _stage2ok, NOT an ATH test. stage_skip already vetoes Stage 3/4,
-        // so the one remaining contradiction is Manual=Recovery on a REPAIRED name, and
-        // _stage2ok is exactly that: Stage 2 (above a RISING 30WMA) AND above the
-        // 200-DMA - the v2.3 Auto discriminant and the v5.9 GLAXO stage ruling. A real
-        // in-progress recovery that reclaimed the 30WMA but is still under the 200-DMA
-        // fails _stage2ok and KEEPS this branch, which is correct. Costs nothing new.
-        else if is_rec_v and not _stage2ok
-            _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
-            _L2 := "A recovery climbs back THROUGH overhead —\nthe levels above ARE the target ladder (T1/T2), not a wall.\nThin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
-            // v5.4 (#3 of 3): this buy-STOP is DELIBERATE for a recovery — you confirm the
-            // TURN before entering, never buy the touch of a level in a name that has been
-            // falling. It is therefore NOT switched by entry_method. But the Plan row below
-            // follows entry_method and will be showing a retest LIMIT, so the panel gave two
-            // entries again. Say which wins. (Same fix as CLEAR-TO-BREAK and BLUE-SKY in v5.2.)
-            // #wrap (30-Jul, Jay — SAILIFE screenshot): the break I added earlier only
-            // covered the STATIC head of this string. The two optional tails below are
-            // appended AFTER it with no break of their own, so on a recovery with a caveat
-            // the line ran ~200 chars unbroken and set the panel width — the "one line with
-            // lots of text is not wrapping" case. Each optional tail now opens with its own
-            // \n, so it wraps whether or not the ones before it are present.
-            _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder\n(trail as each clears); SL under the recovery low."
-                     + (use_retest ? "\nTHIS OVERRIDES the Plan row's retest limit — on a recovery you confirm the turn, not buy the touch." : "") + (_qArrBad ? "\nCaveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? "\nCaveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
-            _L5 := "Manage against the TURN, not the overhead — exit if it loses the recovery low."
-            _anCol := C_OK
-        else if _blueSky
-            _L1 := "BREAKOUT PIVOT — Stage-2 leader at its high"
-            _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) —\nthe 'supply' here IS the prior high, meant to BREAK.\nNot distribution, not a range reject."
-            // v5.2 (#1): the buy-STOP here is DELIBERATE and is NOT switched by
-            // entry_method — price is inside the supply band, so a retest limit would
-            // buy INTO resistance, which the blue-sky doctrine forbids. Say explicitly
-            // that this overrides the Plan row, which follows entry_method and will be
-            // showing a retest limit.
-            // #wrap: same fix as the recovery branch — the optional retest-override tail
-            // gets its own \n instead of riding on the end of the previous line.
-            _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — \nabove it is BLUE SKY (reward = measured move / trail, not the next level)." + (use_retest ? "\nTHIS OVERRIDES the Plan row's retest limit — a retest here fills you inside the band." : "")
-            _L5 := "Only valid Stage-2 (above 30WMA+200DMA).\nIf RS fades / it's Stage 3, this same band is real supply → skip."
-            _anCol := C_OK
-        // v7.1 — THE PULLBACK RULING. Sits ABOVE CLEAR TO BREAK deliberately: a name
-        // standing IN a demand zone is at value, so "the overhead is a level to break"
-        // is the wrong frame for it even though both can be true. Fires whether or not
-        // the reward gates clear — the headline says which and _rule carries the number,
-        // so a thin-reward pullback reads ARM, never a green light.
-        else if _atValue
-            _L1 := ((_posOk or _swingOk) ? "TAKE IT — PULLBACK TO VALUE" : "ARM — PULLBACK TO VALUE, reward still thin") + (cf_v >= cf_strong ? " ★strong" : "")
-            _L2 := _rule
-            _L3 := "In a demand zone, Stage-2, not extended, not in supply —\nthe house A+ location. Buy the pullback; this is NOT a breakout entry." + (_qArrBad ? "\nCaveat: GRIND arrival with Δ− — size down or wait for a sharper turn." : "")
-            _L5 := _actLine
-            _anCol := _qArrBad ? C_WARN : C_OK
-        else if _clearToBreak
-            _L1 := "CLEAR TO BREAK — Stage-2, level overhead"
-            _L2 := "Nearest overhead " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring((_ovh - _cl_r) / _cl_r * 100.0, "0.0") + "%) is a level to BREAK, not the target —\non the trading TF an HTF level is ALWAYS overhead within a thin R."
-            // v5.2 (#1): this line hardcoded "Arm a buy-STOP" (written under the v4.7
-            // APOLLOHOSP ruling, which assumed buy-stop entry) while the Plan row and
-            // STATUS follow entry_method — defaulted to RETEST since the 23-Jul entry
-            // A/B, where retest beat buy-stop on every family. The panel therefore told
-            // you to enter in two places ~4% apart. It now follows the SAME input, so
-            // there is one entry instruction on the panel.
-            _L3 := (use_retest ? "Enter per the Plan — buy-LIMIT at the trigger close (retest the pullback);\n" + str.tostring(_ovh, format.mintick) + " is the level to CLEAR on the way, not the entry." : "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ".") + " \nReal target = the measured move / swing-positional R-objective,\nnot this level; room to THIS level is thin by design."
-            _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA).\nStage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
-            _anCol := C_OK
-        else if _qRoomBad
-            _L1 := "SKIP — clean trigger, no room"
-            _L2 := _roomWord
-            _L3 := "Buying into overhead supply is not a trade."
-            _anCol := C_NO
-        else if _posOk or _swingOk
-            _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (cf_v >= cf_strong ? " ★strong" : "") + (_qArrGood ? " · quality arrival" : ""))
-            _L2 := _rule
-            _L3 := _qLocWeak ? "Location is the AVWAP/EMA only — NOT a demand zone. A momentum/breakout entry,\nnot a pullback to support (your A+ setup). Size down or wait for a pullback into a zone." : _qExt ? ("Caveat: EXTENDED " + str.tostring(_extV, "0.0") + " ATR above the EMA20 — chasing;\nsize down or wait for a pullback toward value.") : _qArrBad ? "Caveat: GRIND arrival with Δ− — size down or wait for a sharper re-test." : ""
-            // #verdict (30-Jul, TITAN): the panel was giving THREE entry instructions at
-            // once — Plan "Buy-LIMIT 4855 = trigger close", STATUS "arm buy-limit @ close
-            // on the pullback", and this line "Buy-STOP above the high (overrides the Plan
-            // row)". This branch has no SITUATIONAL reason to override (unlike in-supply,
-            // recovery or blue-sky, which still do and still say so); it was overriding
-            // entry_method unconditionally, which also silently reversed the retest default
-            // the 23-Jul A/B established. `entry_method` is now the single source of truth
-            // here, and the action line adds only what the Plan row cannot: whether that
-            // limit is actually a pullback, and where a real one sits.
-            // v7.1: hoisted verbatim to `_actLine` above and shared with AT-VALUE —
-            // one action instruction, one definition.
-            _L5 := _actLine
-            _anCol := (_qArrBad or _qExt or _qLocWeak) ? C_WARN : C_OK
-        else
-            _L1 := "SKIP — payoff too thin"
-            _L2 := _rule
-            _L3 := "The entry is clean; the reward does not justify the risk."
-            _anCol := C_NO
-    else if go_v
-        _L1 := "GO — but no plan"
-        _L2 := "No structural stop / target could be built."
-        _L5 := "Mark the levels by hand before acting."
-        _anCol := C_WARN
-    else if _blueSky
-        _L1 := "BREAKOUT PIVOT (arming)"
-        _L2 := "Stage-2 leader consolidating under its ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH). Blocked: " + _blk + "."
-        _L3 := "Not a 'no room' reject — the band ceiling IS the breakout level.\nArm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + "; above it is blue sky."
-        _anCol := C_WARN
-    else if _qRoomBad
-        _L1 := "NOT TRADEABLE"
-        _L2 := "Blocked: " + _blk
-        _L3 := "Disqualifier: " + _roomWord + "\n— clearing that gate alone will NOT make this a trade."
-        _anCol := C_NO
-    else if _qArrBad
-        _L1 := "LOW QUALITY — wait for a better tap"
-        _L2 := "Blocked: " + _blk
-        _L3 := "Arrival is a GRIND with Δ− — momentum is absorbing the level (bleed-through risk)."
-        _L5 := _act
-        _anCol := C_WARN
-    else
-        _L1 := "ARM" + (_qArrGood ? " — quality setup" : "")
-        _L2 := "Waiting on: " + _blk
-        _L3 := (not any_pa_v and support_v) ? "At a location with clean volume/bar — only the pattern is missing." : ""
-        _L5 := _act
-        _anCol := C_WARN
-    // v5.4: the EXTENDED warning rides on the HEADLINE where it cannot be missed — a
-    // late entry is a property of the ENTRY, not a reason the trade itself is wrong.
-    // The verdict is now exactly four lines: ruling · why · the one caveat · the action.
-    _aVer := _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
+    // VERDICT - the 184-line ruling ladder now lives in S4Core.verdictRead (24-Aug-2026,
+    // Jay: "free up the tokens on S4"). A library body compiles separately, so the whole
+    // block's cost left this file; only this call remains. Behaviour is byte-identical -
+    // it was a verbatim lift, and the branch ORDER is what decides the ruling.
+    // Params are POSITIONAL: keep this list in the library's declared order, and add any
+    // new one at the END so nothing already here shifts.
+    [_aVerL, _anColL] = core.verdictRead(
+        C_NO, C_OK, C_WARN, _act, _atValue, _band_r, _blk, _blueSky, _cl_r, _degTxt, _extTxt, 
+      _extV, _off52v, _ovh, _pbLvl, _qArrBad, _qArrGood, _qExt, _qLocWeak, _qRoomBad, _qSupply, 
+      _roomWord, _so_high, _stage2ok, any_pa_v, cf_strong, cf_v, go_v, is_rec_v, momentum_clear, 
+      pl_entry, pl_rr1, pl_t1, stage_n, stage_skip, support_v, trigAge, trigHi, tt_swing, 
+      use_retest)
+    _aVer  := _aVerL
+    _anCol := _anColL
     if show_analysis
         color _verBg = f_softBg(_anCol)
         table.cell(pnl, 0, 35, "VERDICT", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)

@@ -61,7 +61,10 @@ for l in code:
         elif not q and ch in "([": d += 1
         elif not q and ch in ")]": d -= 1
 assert d == 0, "paren depth %d" % d
-rows = re.findall(r"f_row\(\s*(\d+)", src2)
+# CODE lines only. A comment at v7.2:406 reads "f_row(14/15/16/17)" while
+# documenting the panel layout, so a raw scan reports a false duplicate.
+_code = "\n".join(l for l in src2.split("\n") if not l.strip().startswith("//"))
+rows = re.findall(r"f_row\(\s*(\d+)", _code)
 assert len(rows) == len(set(rows)), "duplicate f_row id"
 
 io.open(P, "w", encoding="utf-8").write(src2)
