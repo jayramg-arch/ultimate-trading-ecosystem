@@ -4763,9 +4763,19 @@ if show_panel and d_panel and barstate.islast
     string ema_txt = "-"
     color  ema_col = color.gray
     if not na(_useEma)
-        float _emaDist = close != 0 ? (close - _useEma) / close * 100.0 : 0.0
+        // #22 (24-Aug, Jay: "distance measured incorrectly, often reported low").
+        // This divided by CLOSE. A percentage distance from a reference is measured
+        // AGAINST THE REFERENCE, so price 112.5 over an EMA of 100 is 12.5% extended,
+        // not 11.1% — and the error grows with the distance, always understating it.
+        // That is the whole of the "reported low" complaint.
+        float _emaDist = _useEma != 0 ? (close - _useEma) / _useEma * 100.0 : 0.0
         float _absDist = math.abs(_emaDist)
-        string _ext = _absDist > 15.0 ? "OvrExt" : "Norm"
+        // ONE extension definition. A flat 15% was a SECOND opinion competing with the
+        // ATR measure the verdict actually vetoes on (ext_atr_max 4.0, ext_warn_atr
+        // 2.5) — so the row could read "Norm" while the verdict called the same bar
+        // over-extended. 15% is also volatility-blind: it is nothing on a 6%-ATR
+        // smallcap and enormous on an index ETF. ext_atr is already computed globally.
+        string _ext = nz(ext_atr, 0.0) >= ext_atr_max ? "OvrExt" : nz(ext_atr, 0.0) >= ext_warn_atr ? "Extended" : "Norm"
         if high > _useEma and close < _useEma
             ema_txt := "RESISTANCE (hit head)"
             ema_col := C_NO
@@ -4794,7 +4804,15 @@ if show_panel and d_panel and barstate.islast
     // (ATR). off52 and offATH answer the same question against the highs, so the three
     // read as one thought. offATH is new: 52W distance alone cannot tell a name making
     // fresh highs from one that reclaimed a 52W high but is still far under its ATH.
-    ema_txt := ema_txt + "  ·  off52 -" + str.tostring(math.abs(nz(d_off52[_so], 0.0)), "0.0") + "%" + (na(d_ath) or d_ath <= 0 ? "" : "  ·  offATH -" + str.tostring(math.abs((close - d_ath) / d_ath * 100.0), "0.0") + "%")
+    // #23 (24-Aug, Jay: "off52 shows -10.7% but price is above the 50-week high").
+    // Both fields hardcoded a minus and then took math.abs, so a NEW HIGH rendered the
+    // identical string as being that far BELOW the high — the one distinction the field
+    // exists to make. S4Core:879 defines off52 = (h52 - close)/h52*100, i.e. POSITIVE
+    // when below the high; offATH is the opposite convention, positive when above it.
+    // Hence the two signs below are inverted with respect to each other, deliberately.
+    float _o52raw = nz(d_off52[_so], 0.0)
+    float _oATHraw = (na(d_ath) or d_ath <= 0) ? na : (close - d_ath) / d_ath * 100.0
+    ema_txt := ema_txt + "  ·  off52 " + (_o52raw > 0.0 ? "-" : "+") + str.tostring(math.abs(_o52raw), "0.0") + "%" + (na(_oATHraw) ? "" : "  ·  offATH " + (_oATHraw < 0.0 ? "-" : "+") + str.tostring(math.abs(_oATHraw), "0.0") + "%")
     f_row(16, _emaLbl, ema_txt, ema_col)
 
     // --- RV (volume): its own colour-coded field ---
@@ -5410,7 +5428,7 @@ if show_panel and d_panel and barstate.islast
     // Params are POSITIONAL: keep this list in the library's declared order, and add any
     // new one at the END so nothing already here shifts.
     [_aVerL, _anColL] = core.verdictRead(
-        C_NO, C_OK, C_WARN, _act, _atValue, _band_r, _blk, _blueSky, _cl_r, _degTxt, _extTxt, 
+      C_NO, C_OK, C_WARN, _act, _atValue, _band_r, _blk, _blueSky, _cl_r, _degTxt, _extTxt,
       _extV, _off52v, _ovh, _pbLvl, _qArrBad, _qArrGood, _qExt, _qLocWeak, _qRoomBad, _qSupply, 
       _roomWord, _so_high, _stage2ok, any_pa_v, cf_strong, cf_v, go_v, is_rec_v, momentum_clear, 
       pl_entry, pl_rr1, pl_t1, stage_n, stage_skip, support_v, trigAge, trigHi, tt_swing, 
