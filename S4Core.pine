@@ -1544,6 +1544,10 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
   int cf_v, bool go_v, bool is_rec_v, bool momentum_clear, float pl_entry, float pl_rr1, float pl_t1, 
   int stage_n, bool stage_skip, bool support_v, int trigAge, float trigHi, bool tt_swing, 
   bool use_retest) =>
+    // _anCol was declared ABOVE the lifted range in S4 (v7.2:5311) and every branch
+    // below only ASSIGNS it, so the function has to declare it itself. Same default
+    // as the original, so an unmatched ladder returns the identical neutral colour.
+    color _anCol = color.new(#b2b5be, 0)
     string _L1 = ""
     string _L2 = ""
     string _L3 = ""
