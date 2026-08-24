@@ -17629,7 +17629,8 @@ elif page == 'RISK SHIELD':
                                             import bull_screener as _bs_rl
                                             _t1r_l, _t2r_l = _bs_rl.target_r_for((_jov or {}).get("setup"), swing=is_swing)
                                         except Exception:
-                                            _t1r_l, _t2r_l = (2.0, 4.0) if not is_swing else (3.0, 5.0)
+                                            # canon: swing 2R/4R, positional 3R/5R (was inverted)
+                                            _t1r_l, _t2r_l = (2.0, 4.0) if is_swing else (3.0, 5.0)
                                         rec_t1 = _anchor + _t1r_l * _runit_r
                                         rec_t2 = _anchor + _t2r_l * _runit_r
                                         
@@ -17934,7 +17935,8 @@ elif page == 'RISK SHIELD':
                                                 (journal_overrides.get(sym, {}) or {}).get("setup"),
                                                 swing=is_swing)
                                         except Exception:
-                                            _t1r_u, _t2r_u = (3.0, 5.0) if is_swing else (2.0, 4.0)
+                                            # canon: swing 2R/4R, positional 3R/5R (was inverted)
+                                            _t1r_u, _t2r_u = (2.0, 4.0) if is_swing else (3.0, 5.0)
                                         rec_t1 = _anch2 + _t1r_u * _runit2
                                         rec_t2 = _anch2 + _t2r_u * _runit2
                                         

@@ -133,7 +133,16 @@ def target_r_for(setup, swing=None):
     s = str(setup or "").upper()
     if s.startswith(("POS", "WYC", "REV")):
         return POS_T1_R, POS_T2_R
-    return SWG_T1_R, SWG_T2_R      # every SWG-* family, and the unknown fallback
+    # TRADE TYPE ANSWERS WHEN THE SETUP CANNOT (24-Aug-2026, Jay #20: "why are
+    # targets 2R/4R even for positional trades"). `swing` was accepted and then
+    # never read - every call returned the same pair for swing=True and False - so
+    # a blank setup took the SWG default regardless. Journal setups are mostly
+    # blank (backfilled positions), so a DECLARED positional trade was handed swing
+    # targets and the whole trade-type ladder was bypassed for targets.
+    # partial_qty_for already did this correctly; the two are meant to be partners.
+    if swing is not None:
+        return (SWG_T1_R, SWG_T2_R) if swing else (POS_T1_R, POS_T2_R)
+    return SWG_T1_R, SWG_T2_R      # unknown setup AND unknown type
 
 
 def partial_qty_for(setup, swing=None):
