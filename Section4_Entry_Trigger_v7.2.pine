@@ -855,7 +855,7 @@ indicator("Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)", sh
 // that the chart can be told apart from a stale compile without opening Settings.
 string S4_VER      = "v9.18"
 string S4_CORE_VER = "14"
-import jayramg/S4Core/18 as core
+import jayramg/S4Core/19 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -1037,6 +1037,13 @@ ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ
 // all the way back to the EMA20 is not.
 // Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR. The drawdown
 // monotonicity is what to trust; the exact 3-4 vs 4+ ordering is not.
+// BASE COUNT (24-Aug-2026, Jay parameter #2). Rides the EXISTING weekly
+// request.security - no new call. See S4Core.baseCount for the counting rule and
+// its known low-side bias. DISPLAY ONLY: there is no validation run carrying a base
+// count yet, so unlike the extension bands it has no measured threshold and must not
+// gate anything. The 4+ warning below is Jay's stated convention, not a fitted number.
+base_min_wks = input.int(5, "Base: weeks of stall that form one", group=grpPZ, minval=2, maxval=15, tooltip="Weeks without a new high before the stall counts as a base. Weinstein bases run 5+ weeks; below about 4 you start counting ordinary pullbacks as bases.")
+base_warn_n = input.int(4, "Base: warn at buy point number", group=grpPZ, minval=2, maxval=8, tooltip="Jay's convention: bases 1-2 safest, 3 needs a tighter stop, 4-5 is late and institutions are likely distributing into the strength. Not a fitted threshold - no run has measured base count against outcomes yet.")
 ext_band_lo = input.float(1.0, "Extension: shakeout band under (x ATR)", group=grpPZ, minval=0.0, maxval=3.0, step=0.25, tooltip="Below this the trade is not extended - it is EARLY, and measured 70-75% initial stop-outs. Not a veto, a different risk.")
 ext_band_hi = input.float(2.0, "Extension: end of the sweet spot (x ATR)", group=grpPZ, minval=0.5, maxval=5.0, step=0.25, tooltip="1-2 ATR measured best: +3.65% alpha, 41.9% win, 4.8% initial stop-outs.")
 ext_show_stats = input.bool(true, "Extension: show measured hold / drawdown", group=grpPZ, tooltip="Appends the bin's measured average hold and max drawdown from the 515-trade run. Historical averages for THIS band, not a forecast for this trade.")
@@ -2587,8 +2594,11 @@ f_weekly() =>
     // context, so `[1]` = last CLOSED week on ANY chart TF. (A prior `timeframe
     // .isweekly` gate made 75/125-min charts read the DEVELOPING week → repaint.)
     int _ow = confirm_daily ? 1 : 0
-    (wcross ? 1.0 : 0.0)[_ow]
-w_cross = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
+    // baseCount rides this bundle rather than opening a second weekly call. Same
+    // [_ow] confirm offset as w_cross, so both read the last CLOSED week.
+    [_bc, _bIn, _bFlat] = core.baseCount(30, 4, base_min_wks)
+    [(wcross ? 1.0 : 0.0)[_ow], _bc[_ow], _bIn[_ow], _bFlat[_ow]]
+[w_cross, wk_baseN, wk_inBase, wk_baseWks] = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
 
 // ==========================================
 // A2b. SUPPORT ZONES (OB / FVG / pivot-low) — requested on BOTH "D" and "W"
@@ -4885,6 +4895,7 @@ if show_panel and d_panel and barstate.islast
       + (chart_rv_v >= 3.0 and _xa >= ext_band_hi ? "  climax-vol" : "")
       + (dashStgWks > 1.0 and dashStgWks < 400.0 and dashStgWks >= 40.0 ? "  late-stage" : "")
       + (na(ext_sma50_atr) ? "" : "  50D " + (ext_sma50_atr >= 0.0 ? "+" : "") + str.tostring(ext_sma50_atr, "0.0") + "×")
+      + (nz(wk_baseN, 0.0) < 1.0 ? "" : "  base " + str.tostring(wk_baseN, "0") + (wk_baseN >= base_warn_n ? " ⚠" : ""))
     ema_txt := (_xBand == "" ? "" : _xBand + " " + str.tostring(_xa, "0.0") + "×ATR"
       + _xStat + _xTag + "   ·   ") + ema_txt
     f_row(16, _emaLbl, ema_txt, _xa >= ext_warn_atr ? _xCol : ema_col)
