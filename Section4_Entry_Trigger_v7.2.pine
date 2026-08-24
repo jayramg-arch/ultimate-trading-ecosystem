@@ -1060,6 +1060,18 @@ sqz_len   = input.int(20, "Squeeze length", minval=5, group=grpIN)
 
 use_closed_candle = input.bool(true, "Signals from last CLOSED candle (no intraday repaint)", group=grpV, tooltip="ON (default): the TRIGGER / GO / RV / STATUS and the on-chart GO markers are read from the LAST CLOSED chart candle, so a shortlisted signal does NOT drop the moment a new bar opens (the forming bar has little volume / an undeveloped pattern). The signal only updates when the current bar CLOSES. OFF: live forming-bar values (repaint intraday).")
 show_panel = input.bool(true, "Entry panel", group=grpV)
+// #12 (24-Aug-2026, Jay: "reduce the GO marker size on the S4 chart"). The two GO
+// markers were hardcoded at tiny and small, and a labelup carrying TEXT is dominated
+// by the text, not the shape - so the star marker sat noticeably larger than the plain
+// one and both crowded the price action they are pointing at.
+//
+// DOT drops the text entirely and is by far the smallest option; the GO vs GO-star
+// distinction survives in the COLOUR (C_OK vs C_GO), which is how the eye reads them
+// anyway at this size. LABEL keeps the old text markers for anyone who wants them.
+// Both sizes come from one input so the star can no longer drift larger than the plain
+// marker the way it had.
+mk_style   = input.string("Dot", "Markers: GO marker style", options=["Dot", "Label"], group=grpV, tooltip="Dot is the smallest - no text, and GO vs GO-star is carried by colour. Label restores the previous GO / GO-star text markers.")
+mk_size_s  = input.string("Tiny", "Markers: GO marker size", options=["Tiny", "Small", "Normal"], group=grpV, tooltip="Applies to BOTH the plain and the star marker, so they stay the same size. Previously the star was hardcoded one step larger.")
 mk_bars    = input.int(10, "Markers: show only the last N bars", minval=1, maxval=300, group=grpV, tooltip="GO / PA★ / trigger markers are drawn only on the last N bars, so the chart shows the CURRENT setup instead of every historical one. Was hard-coded to 30. Lower it (5-10) to see just the latest trade; raise it to review recent history. This hides markers, it does NOT turn the detectors off — the panel still reads the live state.")
 panel_pos  = input.string("bottom_right", "Panel position", options=["top_right","top_left","bottom_right","bottom_left"], group=grpV)
 panel_size = input.string("small", "Panel size", options=["tiny","small","normal","large","auto"], group=grpV, tooltip="Controls the font and cell size for the Entry Trigger panel table.")
@@ -4040,6 +4052,8 @@ bgcolor(pinched ? color.new(color.teal, 88) : na, title="Pinch zone")
 // #2: when use_closed_candle is ON, markers only appear on CONFIRMED (closed) bars,
 // so a forming-bar trigger doesn't flash on then drop when the bar develops.
 bool recent30 = (last_bar_index - bar_index) <= mk_bars
+string _mkSz = mk_size_s == "Normal" ? size.normal : mk_size_s == "Small" ? size.small : size.tiny
+bool   _mkDot = mk_style == "Dot"
 bool _mkOK = recent30 and (not use_closed_candle or barstate.isconfirmed)
 plotshape(avwap_trig and _mkOK and d_markers,    title="AVWAP trigger",    style=shape.triangleup, location=location.belowbar, color=C_OK, size=size.tiny, text="S4")
 // v2.9: the on-candle "GO" fires ONLY on the combined gate `go` (= panel TRIGGER
@@ -4048,8 +4062,10 @@ plotshape(avwap_trig and _mkOK and d_markers,    title="AVWAP trigger",    style
 // v3.2: the marker splits by CONFLUENCE so strength is readable off the chart without
 // opening the panel — a stacked GO is a brighter label. Same gate either way; the
 // score never decides whether a GO exists, only how strong it is.
-plotshape(go and _mkOK and d_markers and cf <  cf_strong, title="S4 GO", style=shape.labelup, location=location.belowbar, color=C_OK, textcolor=color.white, size=size.tiny, text="GO")
-plotshape(go and _mkOK and d_markers and cf >= cf_strong, title="S4 GO ★strong (high confluence)", style=shape.labelup, location=location.belowbar, color=C_GO, textcolor=color.black, size=size.small, text="GO★")
+plotshape(go and _mkOK and d_markers and cf <  cf_strong and _mkDot, title="S4 GO", style=shape.circle, location=location.belowbar, color=C_OK, size=_mkSz)
+plotshape(go and _mkOK and d_markers and cf >= cf_strong and _mkDot, title="S4 GO ★strong (high confluence)", style=shape.diamond, location=location.belowbar, color=C_GO, size=_mkSz)
+plotshape(go and _mkOK and d_markers and cf <  cf_strong and not _mkDot, title="S4 GO (label)", style=shape.labelup, location=location.belowbar, color=C_OK, textcolor=color.white, size=_mkSz, text="GO")
+plotshape(go and _mkOK and d_markers and cf >= cf_strong and not _mkDot, title="S4 GO ★strong (label)", style=shape.labelup, location=location.belowbar, color=C_GO, textcolor=color.black, size=_mkSz, text="GO★")
 // Intraday momentum LEG that fired but the gate is NOT yet met (thin volume / no
 // support) — small cyan triangle, NO "GO" text, so it's clearly not a trade.
 plotshape(show_intraday and intraday_trig and not go and _mkOK and d_markers, title="Intraday leg (gate not met)", style=shape.triangleup, location=location.belowbar, color=C_REC, size=size.tiny)
