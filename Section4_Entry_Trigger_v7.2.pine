@@ -1008,6 +1008,38 @@ require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)
 en_ema_gate = input.bool(true, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
+// OVER-EXTENSION BANDS (24-Aug-2026, Jay: "I'm often coming across trades, whose
+// prices are overextended and taking those trades either stopping me out or getting
+// me stuck there for long periods").
+//
+// CALIBRATED, not chosen. Measured on the 515-trade matched-horizon run
+// validation_20260819_112959, which already recorded EMA20_Dist_ATR per pick:
+//   ext(ATR)   n   meanA   medA  win%  SLhit%  days   maxDD
+//       <0   159   +0.04  -1.67  27.0   75.5   12.6   -3.62
+//      0-1   178   -0.07  -1.93  27.5   70.2   15.7   -4.00
+//      1-2    62   +3.65  -1.63  41.9    4.8   43.1   -8.31   <- best band
+//      2-3    83   +0.30  -2.81  34.9   10.8   36.5   -8.96
+//      3-4    22   -2.42  -4.81  31.8    4.5   37.5   -9.16   <- alpha turns
+//       4+    11   -3.10  -2.75  36.4   27.3   32.8  -11.63
+//
+// THREE THINGS THAT TABLE SAYS, in descending order of confidence:
+//  1. Max drawdown rises MONOTONICALLY with extension, -3.6% to -11.6%, every bin.
+//     That is the robust result and it is what this field is really warning about.
+//  2. corr(ext, days_held) = +0.373, holds stretching 13d -> 43d. That is Jay's
+//     "stuck there for long periods", measured rather than asserted.
+//  3. Alpha goes negative at 3 ATR, not 4 - so the existing ext_atr_max of 4.0 let a
+//     full ATR of damage through before vetoing.
+//
+// AND THE COUNTERINTUITIVE ONE: corr(ext, alpha) = 0.00 overall. Extension is a TAIL
+// risk, not a linear one. Buying at or under the EMA20 (<1 ATR) has a 70-75% INITIAL
+// stop-out rate, the worst in the table, against 4.8% in the 1-2 band. So the field
+// names a CHASE band and a SHAKEOUT band - "wait for the pullback" is right, waiting
+// all the way back to the EMA20 is not.
+// Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR. The drawdown
+// monotonicity is what to trust; the exact 3-4 vs 4+ ordering is not.
+ext_band_lo = input.float(1.0, "Extension: shakeout band under (x ATR)", group=grpPZ, minval=0.0, maxval=3.0, step=0.25, tooltip="Below this the trade is not extended - it is EARLY, and measured 70-75% initial stop-outs. Not a veto, a different risk.")
+ext_band_hi = input.float(2.0, "Extension: end of the sweet spot (x ATR)", group=grpPZ, minval=0.5, maxval=5.0, step=0.25, tooltip="1-2 ATR measured best: +3.65% alpha, 41.9% win, 4.8% initial stop-outs.")
+ext_show_stats = input.bool(true, "Extension: show measured hold / drawdown", group=grpPZ, tooltip="Appends the bin's measured average hold and max drawdown from the 515-trade run. Historical averages for THIS band, not a forecast for this trade.")
 ath_prox_pct = input.float(3.0, "Blue-sky breakout: within % of 52W high", group=grpPZ, minval=0.5, maxval=10.0, step=0.5, tooltip="#ATH (Jay, 19-Jul): a Stage-2 leader (above a rising 30WMA + 200DMA) consolidating within this % of its 52-week high is a BREAKOUT PIVOT, not distribution. The 'supply zone' there IS the prior high — meant to BREAK, not reject. When price is in that supply band, the verdict reframes 'SKIP · no room' into 'BREAKOUT PIVOT' (arm the buy-stop above the band ceiling; blue sky above), instead of applying range logic to a momentum setup. Only fires in a Stage-2 uptrend — a Stage 3/4 name at a lower high stays a real SKIP.")
 momentum_clear = input.bool(true, "Stage-2 momentum: near overhead is a level to CLEAR (not a no-room SKIP)", group=grpPZ, tooltip="THE 75-MIN ROOM FIX (Jay, 23-Jul). On the trading TF a higher-timeframe level (weekly R-line, monthly SZ, HTF pivot) is ALWAYS overhead within a thin R — so a 'room = R:R to the nearest overhead' test kills EVERY intraday trigger. That is the wrong denominator for a momentum entry: the nearby overhead is a level to BREAK toward the real (measured-move / swing-positional R) target, not the target itself. When ON, a Stage-2 leader (above 30WMA+200DMA) with a live GO but a nearby overhead reframes 'SKIP · no room' → 'CLEAR TO BREAK' (arm the buy-stop above the level; real target is the R-objective). Generalises the ATH blue-sky rule to any Stage-2 uptrend. Stage 3/4 into overhead, or price INSIDE a supply band (non-ATH), still SKIPs. OFF = strict room veto (pre-fix).")
 show_zones = input.bool(true, "Draw OB / FVG / Pivot zones (Daily + Weekly)", group=grpPZ, tooltip="Draws the auto support zones: Daily = dashed thin, Weekly = solid thick (bigger structural demand). Trading TF stays 75/125-min.")
@@ -4813,7 +4845,31 @@ if show_panel and d_panel and barstate.islast
     float _o52raw = nz(d_off52[_so], 0.0)
     float _oATHraw = (na(d_ath) or d_ath <= 0) ? na : (close - d_ath) / d_ath * 100.0
     ema_txt := ema_txt + "  ·  off52 " + (_o52raw > 0.0 ? "-" : "+") + str.tostring(math.abs(_o52raw), "0.0") + "%" + (na(_oATHraw) ? "" : "  ·  offATH " + (_oATHraw < 0.0 ? "-" : "+") + str.tostring(math.abs(_oATHraw), "0.0") + "%")
-    f_row(16, _emaLbl, ema_txt, ema_col)
+    // EXTENSION BAND - prepended to this row rather than given its own, because row 16
+    // already carries the EMA20 distance in both units and a second row would restate
+    // it. Reads first because it is the risk headline.
+    float _xa = nz(ext_atr, 0.0)
+    string _xBand = na(ext_atr) ? "" : _xa >= ext_atr_max ? "LATE"
+      : _xa >= ext_warn_atr ? "EXTENDED" : _xa >= ext_band_hi ? "CHASING"
+      : _xa >= ext_band_lo ? "SWEET SPOT" : "EARLY"
+    color _xCol = _xa >= ext_warn_atr ? C_NO : _xa >= ext_band_hi ? C_WARN
+      : _xa >= ext_band_lo ? C_OK : C_WARN
+    // Measured character of THIS band, from the run above. Averages, not predictions.
+    string _xStat = not ext_show_stats or na(ext_atr) ? ""
+      : _xa >= 3.0 ? "  (hold ~35d, DD -10%)"
+      : _xa >= ext_warn_atr ? "  (hold ~37d, DD -9%)"
+      : _xa >= ext_band_lo ? "  (hold ~43d, DD -8%)"
+      : "  (SL-hit ~72%, hold ~14d)"
+    // MODIFIERS ARE TAGS, NOT SCORE. Each is plausible and NONE is measured against
+    // outcomes here, so folding them into a number would dilute a calibrated signal
+    // with guesses. Same treatment the role-mismatch tag gets. Promote one only after
+    // it earns it in a run.
+    string _xTag = (not na(arr_vel[_so]) and arr_vel[_so] >= arr_vel_fast ? "  ⚡para" : "")
+      + (chart_rv_v >= 3.0 and _xa >= ext_band_hi ? "  climax-vol" : "")
+      + (dashStgWks > 1.0 and dashStgWks < 400.0 and dashStgWks >= 40.0 ? "  late-stage" : "")
+    ema_txt := (_xBand == "" ? "" : _xBand + " " + str.tostring(_xa, "0.0") + "×ATR"
+      + _xStat + _xTag + "   ·   ") + ema_txt
+    f_row(16, _emaLbl, ema_txt, _xa >= ext_warn_atr ? _xCol : ema_col)
 
     // --- RV (volume): its own colour-coded field ---
     f_row(29, "RV (rel vol · " + timeframe.period + ")", str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
