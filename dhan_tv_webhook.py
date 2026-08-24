@@ -19,9 +19,17 @@ id_map = get_nse_id_map()
 # explicitly told to go live, block on any unresolved risk/margin question, and
 # never place the same alert twice. Thresholds are env-overridable.
 # ─────────────────────────────────────────────────────────────────────────────
-MAX_OPEN_POSITIONS = int(os.getenv("WEBHOOK_MAX_OPEN_POSITIONS", "15"))
-SECTOR_CAP_PCT     = float(os.getenv("WEBHOOK_SECTOR_CAP_PCT", "25"))
-MAX_RISK_PCT       = float(os.getenv("WEBHOOK_MAX_RISK_PCT", "1.5"))   # of portfolio equity
+# 26-Jul-2026: the risk gate + its three caps MOVED to pre_trade_gate.py so the
+# other order surfaces (n8n handler, MCP tool, Streamlit execute button) can reuse
+# them without importing FastAPI. Re-exported here — behaviour is unchanged and the
+# WEBHOOK_* env names still work.
+from pre_trade_gate import (            # noqa: E402  (re-export, keeps call sites intact)
+    MAX_OPEN_POSITIONS,
+    SECTOR_CAP_PCT,
+    MAX_RISK_PCT,
+    pre_trade_risk_check,
+)
+
 DEDUP_WINDOW_S     = int(os.getenv("WEBHOOK_DEDUP_WINDOW_S", "120"))
 
 _RECENT_ALERTS: dict = {}   # (ticker, round(entry,2)) -> epoch seconds — in-memory dedup
@@ -41,70 +49,6 @@ def _is_duplicate(ticker: str, entry_price: float) -> bool:
     _RECENT_ALERTS[key] = now
     return False
 
-
-def pre_trade_risk_check(dhan, ticker: str, qty: int, entry_price: float, sl_price: float):
-    """Hard pre-trade portfolio risk gate. Returns (ok: bool, reason: str).
-
-    Enforces three caps against the LIVE Dhan book: max open positions, single-
-    sector exposure, and per-trade risk as a % of equity (reuses
-    ai_risk_manager.analyze_sector_concentration + sector_lookup, same logic the
-    Risk Shield surfaces). A breach → (False, reason) → the order is rejected.
-
-    FAIL-CLOSED (23-Jul-2026, Fable audit): if the gate cannot be evaluated — the
-    holdings fetch fails, or a sub-check throws — the order is BLOCKED, not allowed.
-    A Dhan hiccup must not silently remove all three portfolio caps. It's a manual
-    tool, so a false rejection costs nothing; a false allow could over-leverage.
-    Never raises."""
-    try:
-        resp = dhan.get_holdings()
-        holdings = resp.get('data', []) if isinstance(resp, dict) else []
-    except Exception as e:
-        return False, f"risk-gate UNAVAILABLE — holdings fetch failed ({e}); order BLOCKED"
-
-    tk = str(ticker).upper()
-    live = []
-    for h in holdings or []:
-        sym = str(h.get('tradingSymbol') or h.get('tradingsymbol') or '').upper()
-        q = float(h.get('totalQty') or h.get('quantity') or 0)
-        avg = float(h.get('avgCostPrice') or h.get('averagePrice') or 0)
-        if q > 0:
-            live.append({'Symbol': sym, 'Quantity': q, 'BuyPrice': avg})
-
-    # 1) Max open positions (only blocks a BRAND-NEW name, not a top-up).
-    open_syms = {p['Symbol'] for p in live}
-    if tk not in open_syms and len(open_syms) >= MAX_OPEN_POSITIONS:
-        return False, f"max open positions reached ({len(open_syms)}/{MAX_OPEN_POSITIONS})"
-
-    # 2) Single-sector exposure cap — include the incoming order, test its sector.
-    try:
-        import pandas as _pd
-        import ai_risk_manager as _rm
-        import sector_lookup as _sl
-        rows = list(live) + [{'Symbol': tk, 'Quantity': float(qty), 'BuyPrice': float(entry_price)}]
-        breakdown = (_rm.analyze_sector_concentration(_pd.DataFrame(rows)) or {}).get('breakdown', {})
-        rec = _sl.get_sector(tk)
-        new_sector = (rec.get('display_name') or rec.get('sector_name')) if rec else None
-        if new_sector and float(breakdown.get(new_sector, 0)) > SECTOR_CAP_PCT:
-            return False, (f"sector cap breached: {new_sector} would be "
-                           f"{breakdown[new_sector]:.1f}% (> {SECTOR_CAP_PCT:.0f}%)")
-    except Exception as e:
-        return False, f"sector-cap check failed ({e}) — order BLOCKED (fail-closed)"
-
-    # 3) Per-trade risk as % of equity (needs a valid SL below entry).
-    try:
-        if sl_price and float(sl_price) > 0 and float(entry_price) > float(sl_price):
-            risk_amt = float(qty) * (float(entry_price) - float(sl_price))
-            funds = dhan.get_fund_limits()
-            avail = float((funds.get('data') or {}).get('availabelBalance', 0)) if isinstance(funds, dict) else 0.0
-            deployed = sum(p['Quantity'] * p['BuyPrice'] for p in live)
-            equity = deployed + avail
-            if equity > 0 and (risk_amt / equity * 100.0) > MAX_RISK_PCT:
-                return False, (f"trade risk {risk_amt / equity * 100:.2f}% exceeds "
-                               f"{MAX_RISK_PCT:.1f}% of equity (₹{equity:,.0f})")
-    except Exception as e:
-        return False, f"risk-% check failed ({e}) — order BLOCKED (fail-closed)"
-
-    return True, "risk-gate passed"
 
 def send_webhook_email_notification(status: str, ticker: str, qty: int, entry: float, sl: float, tp: float, details: str):
     subject = f"🦁 Webhook Alert: {status.upper()} - {ticker}"
@@ -316,7 +260,47 @@ if __name__ == "__main__":
     print("   ngrok http 8000")
     print("\nThen paste the ngrok URL (e.g., https://<your-id>.ngrok.app/tv-webhook)")
     print("into the 'Webhook URL' box in your TradingView Alert.")
-    print("="*50 + "\n")
+    print("="*50)
+    print()
+
+    # PREFLIGHT (24-Aug-2026, item #14). "Webhook delivery failed" is reported by
+    # TradingView and never reaches this process, so a receiver that is simply DOWN
+    # looks identical to one that is broken. Nothing had ever arrived here -- logs/
+    # held no webhook file at all -- and from inside there was no way to tell which.
+    # State what we can see before sitting down to wait for traffic.
+    _dry = os.getenv("DRY_RUN", "True").lower() in ("true", "1", "yes")
+    print("  DRY_RUN  : %s" % ("True  - logs only, places NOTHING" if _dry
+                               else "FALSE - this WILL arm live GTT orders"))
+    try:
+        import socket
+        _sk = socket.socket()
+        _sk.settimeout(0.4)
+        _busy = _sk.connect_ex(("127.0.0.1", 8000)) == 0
+        _sk.close()
+        if _busy:
+            print("  PORT 8000: ALREADY IN USE - another receiver is running.")
+            print("             Alerts land in whichever process won the bind.")
+    except Exception:
+        pass
+    try:
+        import urllib.request
+        import json as _js
+        with urllib.request.urlopen("http://127.0.0.1:4040/api/tunnels", timeout=0.8) as _rp:
+            _tuns = _js.load(_rp).get("tunnels") or []
+        _pub = [t.get("public_url") for t in _tuns
+                if str(t.get("public_url", "")).startswith("https")]
+        if _pub:
+            print("  TUNNEL   : %s/tv-webhook" % _pub[0])
+            print("             ^ paste THIS into the alert. A free ngrok URL changes on")
+            print("               every restart, so re-check it whenever ngrok is bounced.")
+        else:
+            print("  TUNNEL   : ngrok is up but exposes no https tunnel on 8000.")
+    except Exception:
+        print("  TUNNEL   : NOT DETECTED. TradingView cannot reach localhost, so every")
+        print("             alert reports 'delivery failed' until a tunnel is up:")
+        print("               ngrok http 8000")
+    print("="*50)
+    print()
     
     # Start server
     uvicorn.run(app, host="0.0.0.0", port=8000)
