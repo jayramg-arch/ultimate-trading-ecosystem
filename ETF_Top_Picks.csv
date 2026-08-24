@@ -1,0 +1,5 @@
+Symbol,Reason,Suggested_Weight_pct,Source,Regime,Liquidity_Status
+AUTOIETF,Defensive sector #1,10,Sector,GOLD_LED,WATCH
+GOLDBEES,Gold leadership regime,30,Commodity,GOLD_LED,OK
+MAFANG,Intl hedge,10,Intl,GOLD_LED,OK
+LIQUIDBEES,Cash sleeve,30,Debt,GOLD_LED,OK

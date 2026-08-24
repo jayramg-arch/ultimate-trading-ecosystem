@@ -46,6 +46,7 @@ Public API
 from __future__ import annotations
 
 import os
+import sys
 import logging
 from typing import Dict, List, Optional
 
@@ -120,25 +121,15 @@ def _fetch_close(syms: List[str], period: str = "1y") -> pd.DataFrame:
     yf_syms = [f"{s}.NS" if not s.startswith("^") and not s.endswith(".NS") else s
                for s in syms]
 
-    if _USE_DP:
-        try:
-            bd = _dp.fetch_batch_ohlcv(yf_syms, period=period, interval="1d")
-            if bd:
-                out = pd.DataFrame({
-                    k: df["Close"] for k, df in bd.items() if "Close" in df.columns
-                })
-        except Exception as e:
-            logger.warning("data_provider failed: %s — yf fallback", e)
-
-    if out.empty:
-        logger.info("ETF rotation: prices served by yfinance FALLBACK "
-                    "(data_provider/Dhan returned nothing for this batch)")
-        raw = yf.download(yf_syms, period=period, interval="1d",
-                          auto_adjust=True, progress=False, threads=True)
-        if isinstance(raw.columns, pd.MultiIndex):
-            out = raw["Close"]
-        else:
-            out = raw[["Close"]].rename(columns={"Close": yf_syms[0]})
+    try:
+        import data_provider as dp
+        bd = dp.fetch_batch_ohlcv(yf_syms, period=period, interval="1d", use_cache=True, auto_adjust=True)
+        if bd:
+            out = pd.DataFrame({
+                k: df["Close"] for k, df in bd.items() if "Close" in df.columns
+            })
+    except Exception as e:
+        logger.warning("data_provider batch failed: %s", e)
 
     # Strip .NS for cleaner column names (keep ^ prefixed)
     out.columns = [c.replace(".NS", "") if not c.startswith("^") else c
@@ -587,23 +578,16 @@ def top_picks_by_regime(sector_df: pd.DataFrame,
             # _fetch_close strips .NS and returns only Close; need Volume too.
             # Prefer data_provider (Dhan-first, full OHLCV); yfinance is a loud fallback.
             vol_df = pd.DataFrame()
-            if _USE_DP and _dp is not None:
-                try:
-                    bd = _dp.fetch_batch_ohlcv(yf_syms, period="6mo", interval="1d")
-                    if bd:
-                        vol_df = pd.DataFrame({
-                            k.replace(".NS", ""): v["Volume"]
-                            for k, v in bd.items() if "Volume" in v.columns
-                        })
-                except Exception as e:
-                    logger.warning("Liquidity volume via data_provider failed: %s — yf fallback", e)
-            if vol_df.empty:
-                import yfinance as _yf
-                logger.info("ETF liquidity volume served by yfinance FALLBACK (data_provider empty)")
-                vol_raw = _yf.download(yf_syms, period="6mo", interval="1d",
-                                        progress=False, auto_adjust=True, threads=True)
-                vol_df = vol_raw["Volume"] if isinstance(vol_raw.columns, pd.MultiIndex) else pd.DataFrame()
-                vol_df.columns = [c.replace(".NS", "") for c in vol_df.columns]
+            try:
+                import data_provider as dp
+                bd = dp.fetch_batch_ohlcv(yf_syms, period="6mo", interval="1d", use_cache=True, auto_adjust=True)
+                if bd:
+                    vol_df = pd.DataFrame({
+                        k.replace(".NS", ""): v["Volume"]
+                        for k, v in bd.items() if "Volume" in v.columns
+                    })
+            except Exception as e:
+                logger.warning("Liquidity volume via data_provider failed: %s", e)
             df["Liquidity_Status"] = df["Symbol"].apply(
                 lambda s: _liquidity_status(s, close_df, vol_df, min_cr=2.0)
             )
@@ -618,6 +602,14 @@ def top_picks_by_regime(sector_df: pd.DataFrame,
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
+    # Same cp1252 crash as etf_screener: this file prints box rules and stars, and a
+    # Windows console kills the run on the first one. Reconfigure rather than strip
+    # the Unicode -- every other tool here prints the same characters.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(message)s")
     print("ETF Rotation Engine — Phase 2")

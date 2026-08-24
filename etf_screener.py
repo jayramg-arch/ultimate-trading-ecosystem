@@ -52,6 +52,7 @@ Changelog
 from __future__ import annotations
 
 import os
+import sys
 import logging
 from typing import Dict, List, Optional
 
@@ -118,37 +119,24 @@ except Exception:
 # ─────────────────────────────────────────────────────────────────────────────
 def _fetch_history(syms: List[str], period: str = "2y") -> pd.DataFrame:
     """Fetch close + volume for all symbols. Returns DataFrame with
-    MultiIndex columns (Symbol, Field). Uses parquet cache via data_provider
-    when available, else yf.download."""
+    MultiIndex columns (Symbol, Field). Uses data_provider."""
     out_close = pd.DataFrame()
     out_vol   = pd.DataFrame()
 
-    if _USE_DP:
-        try:
-            bd = _dp.fetch_batch_ohlcv(syms, period=period, interval="1d")
-            if bd:
-                out_close = pd.DataFrame({
-                    (k if k.startswith("^") else f"{k}"): df["Close"]
-                    for k, df in bd.items() if "Close" in df.columns
-                })
-                out_vol = pd.DataFrame({
-                    (k if k.startswith("^") else f"{k}"): df["Volume"]
-                    for k, df in bd.items() if "Volume" in df.columns
-                })
-        except Exception as e:
-            logger.warning("data_provider batch failed: %s — yf fallback", e)
-
-    if out_close.empty:
-        logger.info("ETF screener: prices served by yfinance FALLBACK "
-                    "(data_provider/Dhan returned nothing for this batch)")
-        raw = yf.download(syms, period=period, interval="1d",
-                          auto_adjust=True, progress=False, threads=True)
-        if isinstance(raw.columns, pd.MultiIndex):
-            out_close = raw["Close"]
-            out_vol   = raw["Volume"]
-        else:
-            out_close = raw[["Close"]].rename(columns={"Close": syms[0]})
-            out_vol   = raw[["Volume"]].rename(columns={"Volume": syms[0]})
+    try:
+        import data_provider as dp
+        bd = dp.fetch_batch_ohlcv(syms, period=period, interval="1d", use_cache=True, auto_adjust=True)
+        if bd:
+            out_close = pd.DataFrame({
+                (k if k.startswith("^") else f"{k}"): df["Close"]
+                for k, df in bd.items() if "Close" in df.columns
+            })
+            out_vol = pd.DataFrame({
+                (k if k.startswith("^") else f"{k}"): df["Volume"]
+                for k, df in bd.items() if "Volume" in df.columns
+            })
+    except Exception as e:
+        logger.warning("data_provider batch failed: %s", e)
 
     return out_close, out_vol
 
@@ -360,8 +348,16 @@ def rank_universe(syms: Optional[List[str]] = None,
 
     rows = []
     for sym in syms:
-        ysym = f"{sym}.NS"
         meta = get_meta(sym) or {}
+        # COLUMN KEY (24-Aug-2026). _fetch_history returns BARE symbols -- the ".NS"
+        # is stripped on the way through data_provider -- while this loop looked up
+        # "SYM.NS", so EVERY symbol missed and rank_universe returned an empty frame.
+        # The miss was logged at DEBUG and the only visible symptom was the summary
+        # line "No ETFs scored. Check data_provider / yfinance connectivity", which
+        # pointed at the network. Connectivity was fine: 56 ETFs fetched, 1241 bars.
+        # Resolve the key instead of assuming a suffix, so this survives either
+        # convention rather than trading one hardcoded guess for another.
+        ysym = sym if sym in close_df.columns else f"{sym}.NS"
         if ysym not in close_df.columns:
             logger.debug("No data for %s — skipped", sym)
             continue
@@ -458,6 +454,15 @@ def rank_universe(syms: Optional[List[str]] = None,
 # CLI entry
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
+    # Windows consoles default to cp1252 and this file prints box-drawing rules,
+    # so main() died on its FIRST print with UnicodeEncodeError -- which is why the
+    # outputs on disk were 98 days old. Reconfigure rather than de-Unicode the
+    # output: every other tool here prints the same characters.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(message)s")
     print("ETF Screener — Phase 1")
