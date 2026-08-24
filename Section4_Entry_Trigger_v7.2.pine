@@ -1562,7 +1562,14 @@ f_daily_ema(int len) =>
 // EXACT mirror of recovery_screener Pillar 1 (recovery_screener.py:880):
 //     lookback_high = high.rolling(60).max();  drawdown = (high60 - close) / high60
 // so S4's Recovery test is measured on the same basis the Golden Matcher qualified on.
-[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50)], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
+// #24 (24-Aug-2026, Jay: "S4 is dead slow"). This bundle absorbed a SECOND daily
+// call that fetched [sma50, max(high), sma50-sma50[5]] separately -- and sma50 was
+// in BOTH, so the same 50-period average was being pulled twice from the same feed.
+// One of those was mine, added hours earlier for the 50-DMA gravity leg without
+// checking whether the value already existed further down the file. It did.
+// Each request.security is its own data stream, so a merge is a real saving and
+// not a cosmetic one.
+[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50, d_ath, d_sl50n] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5]], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
@@ -1575,7 +1582,13 @@ float chartEMA20 = ta.ema(close, 20)   // chart-TF EMA20 (used by the Price-vs-E
 // EMA20 on a Daily chart. Feeds the support consideration + the Trigger.
 float dyn_ema = timeframe.isintraday ? dailyEMA20 : chartEMA20
 // Nifty 500 RS slope (for the optional useRS zone filter).
-float n500Close  = request.security("NSE:CNX500", "D", close, ignore_invalid_symbol=true)
+// #24: ONE CNX500 fetch, not two. f_mkt_health pulled the same symbol again for its
+// 50/200 averages; an external-symbol request is the most expensive kind there is,
+// so both now come from here. ignore_invalid_symbol is kept -- every consumer already
+// na-guards, and a missing benchmark must degrade rather than break the script.
+[n500Close, n500_50, n500_200] = request.security("NSE:CNX500", "D",
+     [close, ta.sma(close, 50), ta.sma(close, 200)],
+     ignore_invalid_symbol=true, lookahead=barmerge.lookahead_off)
 float rsRatio    = not na(n500Close) and n500Close > 0 ? close / n500Close : na
 float rsLR_diff  = ta.linreg(rsRatio, 60, 0) - ta.linreg(rsRatio, 60, 1)
 float rsSlope    = nz(rsLR_diff, 0.0)
@@ -3926,7 +3939,10 @@ int cf_max = (3 * cf_w_mtf) + (d_avwap ? cf_w_avwap : 0) + (show_intraday ? cf_w
 // active_risk% = max(regime_risk × max(vol_discount × kelly, 0.75), 0.25×base)
 // ==========================================================================
 f_mkt_health() =>
-    [mc, m50, m200] = request.security("NSE:CNX500", "D", [close, ta.sma(close, 50), ta.sma(close, 200)], lookahead=barmerge.lookahead_off)
+    // #24: all three values now come from the single CNX500 bundle at the RS block.
+    float mc  = n500Close
+    float m50 = n500_50
+    float m200 = n500_200
     not na(mc) and not na(m200) and mc > m200 and m50 > m200
 // FOLD (v9.5): global declarations -> a function body, which does NOT count
 // against the main-body statement cap. Kept as STATEMENTS so dependencies
@@ -4504,9 +4520,9 @@ f_rsIcon(string st) => str.contains(st, "Rising") ? "↗️" : str.contains(st, 
 // bindings — position printed, arrow did not. Computed INSIDE the security call so
 // the lookback is 5 DAILY bars; d_sma50[5] on an intraday chart would be 5 chart
 // bars, which is the MTF trap this file has hit before.
-[d_sma50, d_ath, d_sl50n] = request.security(syminfo.tickerid, "D",
-     [ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5]],
-     lookahead=barmerge.lookahead_off)
+// Merged upward into the main daily bundle (#24). d_sma50 is an alias so the call
+// sites below read unchanged; d_ath and d_sl50n now come from that bundle.
+float d_sma50 = daily_sma50
 
 // --- Plan levels on the chart (E/SL/T1/T2) -----------------------------------
 // The plan is computed inside the panel block (last bar only), so plot() cannot
