@@ -1543,7 +1543,7 @@ f_daily_ema(int len) =>
 // EXACT mirror of recovery_screener Pillar 1 (recovery_screener.py:880):
 //     lookback_high = high.rolling(60).max();  drawdown = (high60 - close) / high60
 // so S4's Recovery test is measured on the same basis the Golden Matcher qualified on.
-[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
+[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50)], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
@@ -3859,6 +3859,23 @@ cf := cf + (near_round ? cf_w_round : 0)
 // count ~3×. Use atrD_tf (the zone engine's daily ATR) so a 75m chart and a daily chart
 // agree, and the ATR read is consistent with the % read.
 float _extAtrRef = timeframe.isintraday ? nz(atrD_tf, chart_atr) : chart_atr
+// 50-DMA GRAVITY (24-Aug-2026, Jay's parameter #1). ext_atr below measures the SHORT
+// term - distance from the EMA20 - and a stock can sit right on its EMA20 while it is
+// 30% above the 50-DMA after a long grind. That is the specific shape of "getting me
+// stuck there for long periods": nothing looks extended bar to bar, and the whole leg
+// is stretched. Two different questions, so two measures.
+//
+// IN ATR, NOT PERCENT. Jay's brief said 20-30% above the 50-DMA, and offered ATR as the
+// alternative in the same sentence. ATR is the right one and the reason is on this very
+// row: a flat 15% EMA20 threshold was removed today for being volatility-blind - it is
+// nothing on a 6%-ATR smallcap and enormous on an index ETF. Same trap, larger numbers.
+//
+// NO THRESHOLD SHIPPED. The 515-trade run recorded EMA20_Dist_ATR and NOT a 50-DMA
+// distance, so there is no measured band for this the way there is for ext_atr. It
+// DISPLAYS, it does not grade or gate. Add EMA20_Dist_ATR's sibling to the validation
+// export, re-run, and only then give it bands - the same discipline the arrival and
+// role tags are held to.
+float ext_sma50_atr = (not na(daily_sma50) and daily_sma50 > 0 and _extAtrRef > 0) ? (close - daily_sma50) / _extAtrRef : na
 float ext_atr = (not na(daily_ema20) and _extAtrRef > 0) ? (close - daily_ema20) / _extAtrRef : na
 // EMA20 CHOP COUNT — hoisted to GLOBAL scope. ta.* / math.sum must execute on EVERY bar
 // or their internal state is never built; inside the panel's
@@ -4867,6 +4884,7 @@ if show_panel and d_panel and barstate.islast
     string _xTag = (not na(arr_vel[_so]) and arr_vel[_so] >= arr_vel_fast ? "  ⚡para" : "")
       + (chart_rv_v >= 3.0 and _xa >= ext_band_hi ? "  climax-vol" : "")
       + (dashStgWks > 1.0 and dashStgWks < 400.0 and dashStgWks >= 40.0 ? "  late-stage" : "")
+      + (na(ext_sma50_atr) ? "" : "  50D " + (ext_sma50_atr >= 0.0 ? "+" : "") + str.tostring(ext_sma50_atr, "0.0") + "×")
     ema_txt := (_xBand == "" ? "" : _xBand + " " + str.tostring(_xa, "0.0") + "×ATR"
       + _xStat + _xTag + "   ·   ") + ema_txt
     f_row(16, _emaLbl, ema_txt, _xa >= ext_warn_atr ? _xCol : ema_col)

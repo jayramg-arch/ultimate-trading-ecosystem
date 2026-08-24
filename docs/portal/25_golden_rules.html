@@ -198,6 +198,7 @@ footer em{color:var(--ink-2)}
     <li><a href="#p8"><span>08</span>The checklist</a></li>
     <li><a href="#p9"><span>09</span>Reading the panel</a></li>
     <li><a href="#p10"><span>10</span>Reading evidence</a></li>
+    <li><a href="#p10b"><span>10b</span>What the numbers say</a></li>
     <li><a href="#p11"><span>11</span>Behavioural</a></li>
     <li><a href="#px"><span>—</span>Defaults</a></li>
   </ol>
@@ -584,6 +585,90 @@ footer em{color:var(--ink-2)}
       <tr><td><b>Re-fit when the formula changes</b></td><td>The RRG whitelist was fitted on the old formula and quietly became worthless when the calibration changed.</td></tr>
     </tbody>
   </table></div>
+</section>
+
+<section id="p10b">
+  <p class="pt">Part 10b</p>
+  <h2>What the measurements actually say</h2>
+  <p class="lede">Part 10 is how to read evidence. This is the evidence — every number from a run in <code>validation_runs/</code>, with its sample size attached. Where a result is thin, it says so.</p>
+
+  <div class="note">
+    <span class="lbl">Remember this one</span>
+    <p><b> Plan around <b>+1% matched alpha per trade, and a MEDIAN trade that loses to the index.</b> The selection edge is real and survives beta adjustment (median ex-ante beta 1.11). But it is a low-hit-rate, big-winner-carried profile — the beta-adjusted median is <i>negative</i> (POS-BO −2.49% IS, −3.44% OOS). Sizing and drawdown tolerance matter more than the mean implies. Any figure you remember above ~+1% comes from one exceptional stretch, May 2023 – Jan 2024.</p>
+  </div>
+
+  <h3>Where to enter, relative to the EMA20 <span class="muted">— 515 trades</span></h3>
+  <div class="tw"><table>
+    <thead><tr><th>ext (ATR)</th><th>n</th><th>mean α</th><th>win %</th><th>initial-SL %</th><th>days held</th><th>max DD</th></tr></thead>
+    <tbody>
+      <tr><td>&lt; 0</td><td>159</td><td>+0.04</td><td>27.0</td><td><b>75.5</b></td><td>12.6</td><td>−3.62</td></tr>
+      <tr><td>0–1</td><td>178</td><td>−0.07</td><td>27.5</td><td><b>70.2</b></td><td>15.7</td><td>−4.00</td></tr>
+      <tr><td><b>1–2</b></td><td>62</td><td><b>+3.65</b></td><td><b>41.9</b></td><td><b>4.8</b></td><td>43.1</td><td>−8.31</td></tr>
+      <tr><td>2–3</td><td>83</td><td>+0.30</td><td>34.9</td><td>10.8</td><td>36.5</td><td>−8.96</td></tr>
+      <tr><td>3–4</td><td>22</td><td>−2.42</td><td>31.8</td><td>4.5</td><td>37.5</td><td>−9.16</td></tr>
+      <tr><td>4+</td><td>11</td><td>−3.10</td><td>36.4</td><td>27.3</td><td>32.8</td><td>−11.63</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>Max drawdown rises monotonically with extension</b>, −3.6% → −11.6%, every bin. The robust result, and the one to trust.</li>
+    <li><b>Extension predicts how long you are stuck.</b> <code>corr(ext, days_held) = +0.373</code>; holds stretch 13d → 43d. That is the cost of chasing, and it is not the stop.</li>
+    <li><b>Alpha turns negative at 3 ATR, not 4.</b></li>
+    <li><code>corr(ext, alpha) = 0.00</code> overall — extension is a <i>tail</i> risk, not a linear one.</li>
+    <li><b>Do not wait all the way back to the EMA20.</b> Under 1 ATR the initial stop-out rate is <b>70–75%</b>, the worst in the table, against 4.8% in the 1–2 band. "Wait for the pullback" is right; "buy at the EMA20" is not.</li>
+  </ul>
+  <p class="muted">Thin tails: n=22 and n=11 in the top two bins; p90 is 2.72 ATR.</p>
+
+  <h3>How you exit is not where you think <span class="muted">— 203 POS trades</span></h3>
+  <div class="tw"><table>
+    <thead><tr><th>Exit</th><th>Share</th><th>Mean R</th></tr></thead>
+    <tbody>
+      <tr><td><b>Trail SL</b></td><td><b>88.2%</b></td><td>−0.01</td></tr>
+      <tr><td>Initial SL</td><td>11.8%</td><td>−1.02</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>Only 8.4% of POS trades ever reach 3R.</b> Targets are upside, not the mechanism.</li>
+    <li><b>The trail owns the book and has never been properly A/B'd.</b> It is the untested lever; the stop is not.</li>
+    <li><b>T1-vs-SL is 0.98:1, not 2:1</b> — T1 pays 2R on <i>half</i> the shares, the SL costs 1R on <i>all</i> of them. True 2:1 needs T1 at 4R with a 50/50 split.</li>
+    <li><b>Four separate studies have rejected tightening the stop.</b> The structure-anchored stop had the best mean AND passed the OOS gate, and was still rejected: median −0.484R → −1.014R, stop-outs 11.8% → 52.7%.</li>
+    <li>Every cell of every stop study is negative in R. Absolute R is −0.13 mean / −0.48 median while matched alpha is +1.05% — a falling benchmark. Quote both or neither.</li>
+  </ul>
+
+  <h3>Confirmation times entries badly — but selects them well</h3>
+  <ul>
+    <li>Entering on a <b>buy-STOP above the confirmed GO bar erases the edge</b>: +2.56% at the anchor close → −0.02% GO-timed, across every family, cell by cell. Not a composition artifact.</li>
+    <li><b>A retest limit is strictly better than a buy-stop</b> in every family and fills 52 more names — now the default. But it recovers only ~0.4 of the 2.6pp gap; the residual is the <b>confirmation-wait tax</b>, and no entry tweak removes it.</li>
+    <li>Widening the stop does <b>not</b> rescue a GO-timed entry — it converts quick −2% shakeouts into slow, larger losses (win 34% → 30%, median −1.19% → −2.92%).</li>
+    <li><b>So the GO gate is a trade CLASSIFIER, not an entry optimizer.</b> Use it to arm and focus; do not expect it to improve fills.</li>
+  </ul>
+
+  <h3>Per family, because pooling has lied three times</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Catalyst</th><th>In-sample</th><th>Out-of-sample</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>SWG-PB</td><td>+0.42% <span class="muted">(n=171)</span></td><td><b>+0.52%</b> <span class="muted">(n=141)</span></td><td>most stable in the book</td></tr>
+      <tr><td>POS-ACCUM</td><td>+5.23%</td><td>+2.09%</td><td>keep</td></tr>
+      <tr><td>POS-BO</td><td>+5.61%</td><td>+1.01%</td><td>keep</td></tr>
+      <tr><td>SWG-REV</td><td>+0.54% <span class="muted">(n=43)</span></td><td><b>−0.44%</b> <span class="muted">(n=74)</span></td><td>the drag</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>POS-BO's "decay" is regime amplification, not decay.</b> The benchmark over matched holds went +4.17% → −1.59%. In a rising tape these breakouts return ~2.3× the index; flat to falling, they roughly match it. With beta excluded as the mechanism, that is <i>conditional skill</i>.</li>
+    <li><b>SWG-REV's problem is payoff geometry, not stop-outs.</b> SWG-PB stops out 78% and is profitable. Payoff ratio 1.62 vs 3.14 — a reversal bounce is structurally a smaller move than a trend continuation. No stop setting fixes "the move isn't big enough."</li>
+  </ul>
+
+  <h3>Gate behaviour worth knowing</h3>
+  <ul>
+    <li><b>The bar gate's errors are asymmetric, so it stays loose.</b> It fires the alert: a false positive costs one glance, a false negative costs the trade because the name never surfaces. Tightening cut fills 314 → 241 <b>and the removed trades were net winners.</b> Proposed, measured and rejected three times.</li>
+    <li><b>RV is time-of-day biased.</b> The volume gate passes <b>48% at 10:30, ~18% midday, 53% at 15:30</b> — a 2.8× swing from the clock alone, because RV divides by a baseline mixing every bar of the day. A burst of alerts at the close is partly that artifact.</li>
+    <li><b>Wyckoff failed twice</b> — as a GO veto it was <i>backwards</i> (vetoed cohort +5.60% vs kept +0.52%), and as a score input it was null (held-out ρ +0.013, p 0.74). 49% of qualified picks read DISTRIBUTION at signal time, because Wyckoff events fire at high-volume pivot highs — structurally what a breakout looks like.</li>
+  </ul>
+
+  <h3>And what the journal does NOT say</h3>
+  <div class="note">
+    <span class="lbl">What the journal is not</span>
+    <p><b>The −₹4.99L realized loss is not a verdict on this system.</b> It is substantially tax-loss harvesting — 21 of ~25 harvest exits in a single FY-end batch — of <b>random, discretionary picks that never came from the Catalyst/GM+S4 pipeline</b> (ETFs and large-cap defensives). The journal mixes system and hand-picked trades and cannot be separated retroactively, so <b>no clean live system track record exists yet.</b> The only clean evidence is the backtest, and it is positive. Build the live record forward from trades carrying a true entry snapshot.</p>
+  </div>
 </section>
 
 <section id="p11">
