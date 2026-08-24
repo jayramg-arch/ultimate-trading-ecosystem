@@ -3616,6 +3616,17 @@ f_fold3649() =>
     bool in_daily_zone  = in_d_fvg or in_d_piv
     bool in_weekly_zone = in_w_fvg or in_w_piv
     bool inside_support_zone = (d_zones and z_inDZ) or (d_lvls and (in_daily_zone or in_weekly_zone)) or (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
+    // WHICH source satisfied it - the alert's black box (24-Aug-2026). When an alert
+    // fires and the panel later reads L-dot, all four gates WERE true at fire time (an
+    // alert cannot fire otherwise), so logging the gate states proves nothing. The
+    // useful question is which SOURCE was under price, because two of the six move
+    // every bar: an AVWAP re-anchors and the EMA20 slides, so a location satisfied only
+    // by those can evaporate without price going anywhere. A zone or an S/R shelf
+    // cannot. Powers of two so several sources sum and stay readable.
+    float locSrc = (d_zones and z_inDZ ? 1.0 : 0.0)
+      + (d_lvls and (in_daily_zone or in_weekly_zone) ? 2.0 : 0.0)
+      + (d_avwap and near_avwap ? 4.0 : 0.0) + (near_ema ? 8.0 : 0.0)
+      + (near_sr ? 16.0 : 0.0) + (at_vp_support ? 32.0 : 0.0)
     bool support_pass = (not require_support) or inside_support_zone
     float vol_sma_50 = ta.sma(volume, 50)
     float _v50p = vol_sma_50[1]      // prior-bar average: a 5x volume bar must not inflate its own baseline (~8% RV understatement exactly at the floor)
@@ -3707,8 +3718,8 @@ f_fold3649() =>
     // two operations instead of four.
     bool  ema_ok  = not en_ema_gate or close >= nz(dyn_ema, close)
     bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok
-    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok]
-[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok] = f_fold3649()
+    [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, locSrc]
+[coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, locSrc] = f_fold3649()
 
 // ==========================================================================
 // ARRIVAL STYLE + ORDER-FLOW DELTA (computed before the confluence block so the
@@ -5551,7 +5562,11 @@ if show_panel and d_panel and barstate.islast
 // ==========================================
 // ALERTS
 // ==========================================
-alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar)", message="{{ticker}} S4 GO - all four gates on a closed bar: a PA pattern, at a valid LOCATION, with VOLUME, on a clean BAR. NOTE the location gate is current-state and expires - if you arrive late and the panel reads L·, price has left the level and the entry premise is gone. Open S4 and re-check before acting.")
+// The alert's evidence channel. A hidden plot is the ONLY way to get a live value into
+// an alertcondition message - those strings are static apart from {{...}} placeholders,
+// so a Pine variable cannot be interpolated. Costs 1 of the 64 plot outputs (16 in use).
+plot(locSrc, "S4 loc src", display=display.none)
+alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar)", message="{{ticker}} S4 GO {{interval}} - bar {{time}} - close {{close}} - loc-src {{plot(\"S4 loc src\")}} (1=zone 2=lvl 4=AVWAP 8=EMA20 16=S/R 32=VP; sums, and 4/8 MOVE every bar). All four gates were true on that bar - an alert cannot fire otherwise - so if the panel now reads L· the location has EXPIRED, not misfired. A loc-src of 4, 8 or 12 is the fragile case: nothing static was under price. Open S4 and re-check the current bar before acting.")
 alertcondition(avwap_trig,    title="S4 AVWAP trigger",       message="{{ticker}} S4 AVWAP trigger - bounce / R2G>BO")
 alertcondition(intraday_trig, title="S4 Intraday trigger",    message="{{ticker}} S4 INTRADAY trigger - reclaimed rising 10-EMA + TTM squeeze fired up")
 alertcondition(pinched,       title="S4 AVWAP pinch",         message="{{ticker}} S4 AVWAPs pinched - high-conviction entry zone")
