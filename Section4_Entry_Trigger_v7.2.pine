@@ -1519,20 +1519,8 @@ invCandleDn     = input.color(color.new(#ef5350, 0), "down",                    
 // Names are excluded when reassigned later, when their fields are read (a UDT
 // loses its type through a tuple), or when passed to core.*/ta.*/request.*,
 // which want `simple` — a function return is always `series`.
-f_fold1386() =>
-    int chartSec   = timeframe.in_seconds(timeframe.period)
-    int dailySec   = 86400
-    int weeklySec  = 604800
-    int monthlySec = 2592000
-    bool useDailyZ   = showDaily   and dailySec   > chartSec
-    bool useWeeklyZ  = showWeekly  and weeklySec  > chartSec
-    bool useMonthlyZ = showMonthly and monthlySec > chartSec
-    bool useLvM = monthlySec >= chartSec
-    bool useLvW = weeklySec  >= chartSec
-    bool useLvD = dailySec   >= chartSec
-    bool ctrlAllowChart   = controllingMinTf == "Chart"
-    [chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart]
-[chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart] = f_fold1386()
+// f_fold1386 moved to S4Core.tfGates (25-Aug-2026).
+[chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart] = core.tfGates(showDaily, showWeekly, showMonthly, controllingMinTf)
 bool ctrlAllowDaily   = ctrlAllowChart or controllingMinTf == "Daily"
 bool ctrlAllowWeekly  = ctrlAllowDaily or controllingMinTf == "Weekly"
 bool ctrlAllowMonthly = true
@@ -1634,18 +1622,9 @@ float rsSlope    = nz(rsLR_diff, 0.0)
 // HTF pivots (feed the "tested" rule 3 = close across a strong HTF pivot S/R).
 // The last CONFIRMED pivot high/low on the chosen higher timeframe = a normal
 // swing Support/Resistance level. Requested on Daily or Weekly per input.
-f_htf_piv() =>
-    float ph = ta.pivothigh(high, 5, 5)
-    float pl = ta.pivotlow(low, 5, 5)
-    var float lph = na
-    var float lpl = na
-    if not na(ph)
-        lph := ph
-    if not na(pl)
-        lpl := pl
-    [lph, lpl]
+// f_htf_piv moved to S4Core.htfPivots (25-Aug-2026) - pure, no S4 state.
 string _strongTF = strongPivotTF == "Weekly" ? "W" : "D"
-[lastPH, lastPL] = request.security(syminfo.tickerid, _strongTF, f_htf_piv(), lookahead=barmerge.lookahead_off)
+[lastPH, lastPL] = request.security(syminfo.tickerid, _strongTF, core.htfPivots(5), lookahead=barmerge.lookahead_off)
 
 // ==========================================================================
 // Z2. ZONE ENGINE — TYPES  (Zone extended with S4 reaction-tracking fields)
@@ -2279,30 +2258,17 @@ f_drawAutoTf(core.SRSig s, string tfTag, bool tfOk, bool tfShow, bool hasManual)
 
 // Calendar age cap (days) for a zone, by its own timeframe. Native "C" zones use
 // the CHART timeframe. Monthly 4y / Weekly 2y / Daily 6mo / 125m 4w / 75m 3w.
-f_ageCapDays(string ztf) =>
-    int d = age_75_days
-    if ztf == "M"
-        d := age_monthly_days
-    else if ztf == "W"
-        d := age_weekly_days
-    else if ztf == "D"
-        d := age_daily_days
-    else
-        // native "C" zone → cap by the CHART timeframe
-        d := timeframe.ismonthly ? age_monthly_days : timeframe.isweekly ? age_weekly_days : timeframe.isdaily ? age_daily_days : chartSec >= 7500 ? age_125_days : age_75_days
-    d
+// f_ageCapDays moved to S4Core.ageCapDays (25-Aug-2026). Kept as a thin local
+// wrapper: four call sites, and threading six ageing inputs through each of them
+// would hand back most of what the move saved.
+f_ageCapDays(string ztf) => core.ageCapDays(ztf, chartSec, age_75_days, age_125_days, age_daily_days, age_weekly_days, age_monthly_days)
 
 // #27 RECENCY: a zone's displayed score decays linearly from its FORMATION to its TF's
 // ageing cap (the same cap f_ageCapDays returns), so a fresher zone outscores an older
 // one of equal intrinsic merit. Floored at 0. z.strength holds the intrinsic (base)
 // score; this returns the age-adjusted read used on the label and in the panel grade.
-f_recencyScore(int baseScore, string ztf, int originT) =>
-    int _out = baseScore
-    if recencyDecay and not na(originT)
-        float _capMs = f_ageCapDays(ztf) * 86400000.0
-        float _frac  = _capMs > 0 ? math.min((time - originT) / _capMs, 1.0) : 0.0
-        _out := math.max(baseScore - int(math.round(recencyMaxDrop * _frac)), 0)
-    _out
+// f_recencyScore moved to S4Core.recencyScore (25-Aug-2026); same wrapper reason.
+f_recencyScore(int baseScore, string ztf, int originT) => core.recencyScore(baseScore, f_ageCapDays(ztf), originT, recencyDecay, recencyMaxDrop)
 
 // --- STATE MANAGEMENT with the S4 "tested" rule (reaction + travel/EMA/level) ---
 int _MS_DAY = 86400000
@@ -2626,17 +2592,9 @@ if not na(szBandTop) and array.size(activeZones) > 0
 // ==========================================
 // A1. ANCHOR DATES (daily structure → AVWAP anchors)
 // ==========================================
-f_anchors() =>
-    bool is_low    = low <= ta.lowest(low, low_look)
-    float a_low_f  = ta.valuewhen(is_low, time, 0)
-    bool bo_cross  = ta.crossover(close, ta.highest(high, bo_look)[1])
-    float a_bo_f   = ta.valuewhen(bo_cross, time, 0)
-    float _volsma  = ta.sma(volume, 50)
-    bool gap_cond  = open > close[1] * (1.0 + gap_pct / 100.0) and volume > _volsma * gap_volx
-    float a_gap_f  = ta.valuewhen(gap_cond, time, 0)
-    [a_low_f, a_bo_f, a_gap_f]
+// f_anchors moved to S4Core.avwapAnchors (25-Aug-2026).
 
-[anc_low_f, anc_bo_f, anc_gap_f] = request.security(syminfo.tickerid, "D", f_anchors(), barmerge.gaps_off, barmerge.lookahead_off)
+[anc_low_f, anc_bo_f, anc_gap_f] = request.security(syminfo.tickerid, "D", core.avwapAnchors(low_look, bo_look, gap_pct, gap_volx), barmerge.gaps_off, barmerge.lookahead_off)
 int anc_low = na(anc_low_f) ? na : int(anc_low_f)
 int anc_bo  = na(anc_bo_f)  ? na : int(anc_bo_f)
 int anc_gap = na(anc_gap_f) ? na : int(anc_gap_f)
@@ -3466,20 +3424,9 @@ for _fi = 0 to _fibLoAgo
 // Names are excluded when reassigned later, when their fields are read (a UDT
 // loses its type through a tuple), or when passed to core.*/ta.*/request.*,
 // which want `simple` — a function return is always `series`.
-f_fold3451() =>
-    bool  _fibOk  = _fibLoAgo >= 3 and not na(_fibHi) and _fibHi > _fibLo
-    float _fibRng = _fibOk ? _fibHi - _fibLo : na
-    float fib382 = _fibHi - _fibRng * 0.382
-    float fib50  = _fibHi - _fibRng * 0.500
-    float fib618 = _fibHi - _fibRng * 0.618
-    float _fd382 = f_nearlvl(fib382) ? math.abs(close - fib382) : 1e12
-    float _fd50  = f_nearlvl(fib50)  ? math.abs(close - fib50)  : 1e12
-    float _fd618 = f_nearlvl(fib618) ? math.abs(close - fib618) : 1e12
-    float _fdMin = math.min(_fd382, math.min(_fd50, _fd618))
-    string fib_tag = _fdMin > 1e11 ? "" : _fdMin == _fd382 ? "38.2" : _fdMin == _fd50 ? "50" : "61.8"
-    bool near_fib = fib_tag != ""
-    [fib_tag, near_fib]
-[fib_tag, near_fib] = f_fold3451()
+// f_fold3451 moved to S4Core.fibZone (25-Aug-2026). The f_nearlvl proximity
+// test is inlined there: one expression is cheaper than a library call.
+[fib_tag, near_fib] = core.fibZone(_fibHi, _fibLo, _fibLoAgo, 0.015)
 
 // ---- Nearest S/R LEVEL each side, manual-over-auto, TF-tagged ----------------
 // Resolution order per TF: if you marked that TF, YOUR levels are the only ones

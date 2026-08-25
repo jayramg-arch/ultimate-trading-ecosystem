@@ -1282,6 +1282,113 @@ export fundScore(simple string listStr, simple string sym) =>
                 _out := str.tonumber(str.substring(_hay, _from, _from + _end))
     _out
 
+// ── htfPivots ────────────────────────────────────────────────────────────────
+// Latched higher-timeframe pivot high / low. Called through request.security by
+// the caller, so ta.pivothigh/pivotlow resolve in the requested TF's context.
+// Pure: it takes no S4 state at all, which is why it moved first.
+export htfPivots(simple int leftRight) =>
+    float ph = ta.pivothigh(high, leftRight, leftRight)
+    float pl = ta.pivotlow(low, leftRight, leftRight)
+    var float lph = na
+    var float lpl = na
+    if not na(ph)
+        lph := ph
+    if not na(pl)
+        lpl := pl
+    [lph, lpl]
+
+// ── tfGates ──────────────────────────────────────────────────────────────────
+// Which higher timeframes are ABOVE this chart (so their zones may be shown) and
+// which are at-or-above it (so their S/R levels may be shown). The asymmetry is
+// deliberate and predates this move: a zone from the chart's own timeframe is
+// native rather than "higher", while a level on the chart's own timeframe is
+// still a level worth drawing.
+export tfGates(simple bool showDaily, simple bool showWeekly, simple bool showMonthly,
+     simple string controllingMinTf) =>
+    int chartSec   = timeframe.in_seconds(timeframe.period)
+    int dailySec   = 86400
+    int weeklySec  = 604800
+    int monthlySec = 2592000
+    bool useDailyZ   = showDaily   and dailySec   > chartSec
+    bool useWeeklyZ  = showWeekly  and weeklySec  > chartSec
+    bool useMonthlyZ = showMonthly and monthlySec > chartSec
+    bool useLvM = monthlySec >= chartSec
+    bool useLvW = weeklySec  >= chartSec
+    bool useLvD = dailySec   >= chartSec
+    bool ctrlAllowChart = controllingMinTf == "Chart"
+    [chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart]
+
+// ── fibZone ──────────────────────────────────────────────────────────────────
+// Which retracement level price is sitting on, if any. LONG-ONLY by construction:
+// the swing is measured low -> high, so these are pullback levels inside an
+// advance, never bounce levels inside a decline.
+// The proximity test was f_nearlvl in S4 and is inlined here rather than moved -
+// it is a single expression, and a library call would cost more than it saves.
+// Returns "" / false when no leg is available, never a stale tag.
+export fibZone(float fibHi, float fibLo, int fibLoAgo, simple float tol) =>
+    bool  _ok  = fibLoAgo >= 3 and not na(fibHi) and fibHi > fibLo
+    float _rng = _ok ? fibHi - fibLo : na
+    float f382 = fibHi - _rng * 0.382
+    float f50  = fibHi - _rng * 0.500
+    float f618 = fibHi - _rng * 0.618
+    float _d382 = (not na(f382) and close > 0 and math.abs(close - f382) / close <= tol) ? math.abs(close - f382) : 1e12
+    float _d50  = (not na(f50)  and close > 0 and math.abs(close - f50)  / close <= tol) ? math.abs(close - f50)  : 1e12
+    float _d618 = (not na(f618) and close > 0 and math.abs(close - f618) / close <= tol) ? math.abs(close - f618) : 1e12
+    float _dMin = math.min(_d382, math.min(_d50, _d618))
+    string tag = _dMin > 1e11 ? "" : _dMin == _d382 ? "38.2" : _dMin == _d50 ? "50" : "61.8"
+    [tag, tag != ""]
+
+// ── avwapAnchors ─────────────────────────────────────────────────────────────
+// The three AVWAP anchor DATES: the Stage-1 low, the last N-bar-high breakout and
+// the last high-volume gap-up. Anchors are resolved on the DAILY series by the
+// caller's request.security; the VWAP itself then accumulates on the chart TF.
+// ta.valuewhen, not dynamic historical indexing - `time[math.abs(ta.lowestbars())]`
+// is unreliable inside request.security and produced na anchors when it was tried.
+export avwapAnchors(simple int lowLook, simple int boLook, simple float gapPct,
+     simple float gapVolX) =>
+    bool  isLow    = low <= ta.lowest(low, lowLook)
+    float aLow     = ta.valuewhen(isLow, time, 0)
+    bool  boCross  = ta.crossover(close, ta.highest(high, boLook)[1])
+    float aBo      = ta.valuewhen(boCross, time, 0)
+    float volSma   = ta.sma(volume, 50)
+    bool  gapCond  = open > close[1] * (1.0 + gapPct / 100.0) and volume > volSma * gapVolX
+    float aGap     = ta.valuewhen(gapCond, time, 0)
+    [aLow, aBo, aGap]
+
+// ── ageCapDays / recencyScore ────────────────────────────────────────────────
+// How long a zone of a given timeframe stays on the chart, and the age-decayed
+// score shown on its label.
+// The ageing cap is CALENDAR-based and keyed to the zone's OWN timeframe - a
+// weekly zone must not expire on a chart-bar count, which is the v3.8 fix that
+// stopped weekly zones dying inside a day.
+// ztf is SERIES string, NOT simple. Every call site passes a Zone UDT field
+// (z.tf / zz.tf) and UDT fields are always series - qualifying this `simple` is
+// exactly what broke the first v9 publish on buildLabel, for the same reason.
+export ageCapDays(string ztf, int chartSec, simple int d75, simple int d125,
+     simple int dDaily, simple int dWeekly, simple int dMonthly) =>
+    int d = d75
+    if ztf == "M"
+        d := dMonthly
+    else if ztf == "W"
+        d := dWeekly
+    else if ztf == "D"
+        d := dDaily
+    else
+        d := timeframe.ismonthly ? dMonthly : timeframe.isweekly ? dWeekly : timeframe.isdaily ? dDaily : chartSec >= 7500 ? d125 : d75
+    d
+
+// A zone's displayed score decays linearly from FORMATION to its ageing cap, so a
+// fresher zone outranks an older one of equal intrinsic merit. Floored at 0. The
+// caller keeps the intrinsic score; this returns only the age-adjusted read.
+export recencyScore(int baseScore, int capDays, int originT, simple bool decayOn,
+     simple int maxDrop) =>
+    int _out = baseScore
+    if decayOn and not na(originT)
+        float _capMs = capDays * 86400000.0
+        float _frac  = _capMs > 0 ? math.min((time - originT) / _capMs, 1.0) : 0.0
+        _out := math.max(baseScore - int(math.round(maxDrop * _frac)), 0)
+    _out
+
 // ── buildLabel ───────────────────────────────────────────────────────────────
 // Moved out of Section 4 on 18-Aug-2026 to reclaim compiled-token budget: S4 hit
 // 100,351 against the 100,256 ceiling and Jay's instruction was "do not remove
