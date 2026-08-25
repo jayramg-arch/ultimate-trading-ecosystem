@@ -5110,9 +5110,12 @@ if show_panel and d_panel and barstate.islast
     // One line deliberately: a wrapped ternary here is the multiple-of-4
     // continuation trap that broke the v9.17 compile.
     color _rsCol = _rs5St == "" ? C_MUTE : str.contains(_rs5St, "(Positive)") ? (str.contains(_rs5St, "Declining") ? C_WARN : C_OK) : (str.contains(_rs5St, "Rising") ? C_INFO : C_NO)
-    // RS and RRG are one measurement against one index, read two ways: the strength
-    // and the rotation. Two rows meant two places for one answer. Row 6 now free.
-    f_row(5, "RS · RRG (vs N500)", _rsLine + "  │  " + _rrgLine, _rsCol)
+    // KEPT SEPARATE (Jay, 25-Aug) after being merged earlier the same day. They are
+    // related but not one reading: RS is the strength level, RRG is the rotation
+    // direction, and they are acted on differently - RS ranks a name, the quadrant
+    // times it. One row made you parse a sentence to get either.
+    f_row(5, "RS (vs N500)", _rsLine, _rsCol)
+    f_row(6, "RRG (vs N500)", _rrgLine, _quadC)
     // [retired] Strike RRG sits directly under S4's computed quadrant on purpose: the whole
     // [retired] point is to see both at once. Never overwrites it.
     // [_srTxt, _srCol] = core.strikeRrg(gm_rrg_lead, gm_rrg_impr, gm_rrg_weak, C_OK, C_WARN, C_NO, C_MUTE)
