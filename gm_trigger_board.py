@@ -2010,7 +2010,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     forget, each one silent. One field is one chance.
 
     FORMAT  pipe-separated TAG=value, single line:
-        REC=..|PB=..|RRGL=..|RRGI=..|RRGW=..|BFF=..|RFF=..|RANK=..
+        REC=..|PB=..|BFF=..|RFF=..|RANK=..
 
     EVERY tag is emitted even when its list is empty, and that is the point: an
     empty section CLEARS the corresponding input in S4. Omitting the tag would leave
@@ -2032,9 +2032,9 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         _log.warning(f"s4_bundle: union unavailable: {e}")
         uni = {}
 
-    rrg = _safe(s4_rrg_lists, uni) or {}
-    if not isinstance(rrg, dict):
-        rrg = {}
+    # RRG dropped from the bundle 25-Aug-2026: Strike RRG is retired in S4, so these
+    # three sections had no consumer. s4_rrg_lists is deliberately NOT removed - the
+    # board's RRG column still writes gm_rrg_flags.json and the reader stays with it.
     fund = _safe(s4_fund_lists, tf=tf) or {}
     if not isinstance(fund, dict):
         fund = {}
@@ -2042,9 +2042,6 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     parts = [
         ("REC",  _safe(s4_recovery_list, uni)),
         ("PB",   _safe(s4_pullback_list, uni)),
-        ("RRGL", rrg.get("Leading", "")),
-        ("RRGI", rrg.get("Improving", "")),
-        ("RRGW", rrg.get("Weakening", "")),
         ("BFF",  fund.get("BFF", "")),
         ("RFF",  fund.get("RFF", "")),
         ("RANK", fund.get("RANK", "")),
