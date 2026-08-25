@@ -3318,8 +3318,28 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     # UNREADABLE does NOT fail: a screener.in outage is a judgement about our
     # data, not the company, and blocking on it would empty the board silently.
     # The same distinction pullback_finder draws between weak and unreadable.
-    _bff_gate = _gm_bff_gate(ctx)                                  # True/False/None
-    _core_gate = _gm_core_gate(_g(rec, "Symbol", default=""))       # True/False/None
+    # AN ETF HAS NO FUNDAMENTALS TO GATE (24-Aug-2026). Caught live by Jay the
+    # morning after the ETF source was wired: GOLDETF printed "⛔ funda" on the
+    # board. Both gates return True/False/None, and None means "unknown" -- but for
+    # an index fund they were returning FALSE, i.e. REJECTED. There is no BFF for a
+    # basket, no promoter to pledge, no ownership concentration to check. The gate
+    # was answering a question that does not apply and calling the answer a failure.
+    #
+    # I checked that overall_score ABSTAINS on missing fundamentals -- it does, and
+    # I verified it -- and then did not check that a SECOND, separate fundamental
+    # gate exists downstream. Same defect shape as gate-closed-in-three-places, in
+    # the other direction.
+    #
+    # Short-circuited rather than post-filtered, for a second reason: _gm_bff_gate
+    # pulls screener.in, so 28 ETFs was 28 pointless fetches per board build against
+    # a source that already needed a circuit breaker for burst throttling.
+    _is_etf = "ETF" in (_g(ctx, "inherited_setup") or [])
+    if _is_etf:
+        _bff_gate = None
+        _core_gate = None
+    else:
+        _bff_gate = _gm_bff_gate(ctx)                                  # True/False/None
+        _core_gate = _gm_core_gate(_g(rec, "Symbol", default=""))       # True/False/None
     if _bff_gate is False or _core_gate is False:
         g2 = False
     g3 = cat_on

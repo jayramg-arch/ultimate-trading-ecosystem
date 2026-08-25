@@ -54,6 +54,37 @@ _cache: Dict[str, object] = {"at": 0.0, "df": None, "nav_date": None}
 MAX_PREMIUM_PCT = float(os.getenv("ETF_MAX_PREMIUM_PCT", "3.0"))
 
 
+_DISK_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "data", "etf_nav_cache.csv")
+# Beyond this the cached premium is refused rather than used. A week is generous
+# for a number that only has to separate 1% from 19%, and it still stops a table
+# from a previous quarter being read as current.
+_DISK_MAX_AGE_DAYS = 7
+
+
+def _load_disk_cache():
+    """Last good NAV table, or None when absent / too old to trust."""
+    try:
+        if not os.path.exists(_DISK_CACHE):
+            return None
+        age_days = (time.time() - os.path.getmtime(_DISK_CACHE)) / 86400.0
+        if age_days > _DISK_MAX_AGE_DAYS:
+            logger.warning("cached ETF NAV is %.1f days old - refusing it", age_days)
+            return None
+        return pd.read_csv(_DISK_CACHE)
+    except Exception as e:
+        logger.warning("ETF NAV disk cache unreadable: %s", e)
+        return None
+
+
+def _save_disk_cache(df) -> None:
+    try:
+        os.makedirs(os.path.dirname(_DISK_CACHE), exist_ok=True)
+        df.to_csv(_DISK_CACHE, index=False)
+    except Exception as e:
+        logger.warning("ETF NAV disk cache not written: %s", e)
+
+
 def _session():
     """Reuse the project's Akamai-warming NSE session when it is importable, so
     there is one place that knows how to talk to NSE. Falls back to a local warm-up
@@ -95,7 +126,22 @@ def fetch_nav_table(force: bool = False) -> pd.DataFrame:
         r.raise_for_status()
         payload = r.json()
     except Exception as e:
-        logger.warning("NSE ETF NAV fetch failed: %s", e)
+        # DISK FALLBACK (24-Aug-2026). Found the morning after this shipped: the
+        # auto-pilot ran at 06:20, NSE was unreachable pre-market, and the gate
+        # degraded to OFF -- so MON100 and MAFANG went onto the board at ~19.5%
+        # premium, which is precisely what the gate exists to stop. A transient
+        # outage silently disabling a safety check is the wrong failure direction.
+        # NAV moves ONCE A DAY, so yesterday's number catches a structural 19.5%
+        # exactly as well as today's; it is only useless for sub-1% readings, and
+        # the cap is deliberately set where those do not matter.
+        cached = _load_disk_cache()
+        if cached is not None and not cached.empty:
+            logger.warning("NSE ETF NAV fetch failed (%s) - using cached NAV from %s",
+                           e, cached["NAV_Date"].iloc[0])
+            _cache.update({"at": now, "df": cached,
+                           "nav_date": cached["NAV_Date"].iloc[0]})
+            return cached
+        logger.warning("NSE ETF NAV fetch failed and no usable cache: %s", e)
         return pd.DataFrame(columns=["Symbol", "NAV", "LTP", "Premium_Pct", "NAV_Date"])
 
     nav_date = str(payload.get("navDate") or "")
@@ -115,6 +161,8 @@ def fetch_nav_table(force: bool = False) -> pd.DataFrame:
                      "Premium_Pct": round((ltp - nav) / nav * 100.0, 2),
                      "NAV_Date": nav_date})
     df = pd.DataFrame(rows)
+    if not df.empty:
+        _save_disk_cache(df)          # so a pre-market outage cannot disable the gate
     _cache.update({"at": now, "df": df, "nav_date": nav_date})
     logger.info("NSE ETF NAV: %d symbols, navDate %s", len(df), nav_date or "?")
     return df
