@@ -13383,10 +13383,12 @@ elif page == 'GOLDEN MATCHER':
                     _gm_logger.warning(f"s4_fund_lists failed: {e}")
                 _bffs = _s4fund.get("BFF", "")
                 _rffs = _s4fund.get("RFF", "")
+                _rnks = _s4fund.get("RANK", "")
                 _bn = len([x for x in _bffs.split(",") if x])
                 _rn = len([x for x in _rffs.split(",") if x])
-                if _bn or _rn:
-                    st.caption(f"🧪 **S4 fundamental scores · BFF {_bn} · RFF {_rn}** — paste "
+                _kn = len([x for x in _rnks.split(",") if x])
+                if _bn or _rn or _kn:
+                    st.caption(f"🧪 **S4 scores · BFF {_bn} · RFF {_rn} · rank {_kn}** — paste "
                                f"into S4's *GM: BFF scores* and *GM: RFF scores*. A name ABSENT "
                                f"from a list renders as an em-dash on the panel, not a zero: "
                                f"unscored and scored-badly are different facts. Re-paste after a "
@@ -13398,6 +13400,14 @@ elif page == 'GOLDEN MATCHER':
                         st.caption(f"*GM: RFF scores* · {_rn} — RFF only exists for names a "
                                    f"recovery screen has scored, so a bull-heavy board shows few.")
                         st.code(_rffs, language=None)
+                    if _rnks:
+                        # #10 - the board's Overall. S4 grades ONE chart and cannot know
+                        # where that chart sits among the other forty; this is the only
+                        # way the panel can say "clean setup, 38th best name on the list".
+                        st.caption(f"*GM: board rank* · {_kn} — the board's Overall composite. "
+                                   f"Display-only on S4: it never gates and never scores, because "
+                                   f"the rank already contains most of what that panel measures.")
+                        st.code(_rnks, language=None)
                 else:
                     st.caption("🧪 **S4 fundamental scores · 0** — build the board first; "
                                "these are read from the built board, not recomputed.")

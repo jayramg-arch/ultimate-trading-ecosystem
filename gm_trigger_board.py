@@ -1946,10 +1946,11 @@ def s4_fund_lists(tf: str = None) -> dict:
     needed a circuit breaker. A name the board has not scored is simply absent, which S4
     renders as an em-dash: unscored and scored-badly must not look the same.
 
-    Returns {"BFF": "...", "RFF": "..."}; an empty string for a side the board has no
-    scores on. Never raises -- a board problem must not take the GM page down.
+    Returns {"BFF": ..., "RFF": ..., "RANK": ...}; an empty string for any side the
+    board has no scores on. Never raises -- a board problem must not take the GM
+    page down.
     """
-    out = {"BFF": "", "RFF": ""}
+    out = {"BFF": "", "RFF": "", "RANK": ""}
     try:
         df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)
     except Exception as e:
@@ -1968,6 +1969,22 @@ def s4_fund_lists(tf: str = None) -> dict:
             return None
         m = re.search(r"(\d+)", t)
         return int(m.group(1)) if m else None
+
+    # RANK (#10) is the board's Overall composite and is a FLOAT, so it is emitted
+    # whole rather than through _num -- 72.8 must not reach the chart as 72. It is the
+    # one field here S4 cannot even approximate: S4 grades one chart and has no idea
+    # where that chart sits among the other forty on the list.
+    if "Overall" in df.columns:
+        rk = []
+        for _, row in df.iterrows():
+            sym = _canon_key(row.get("Symbol"))
+            try:
+                v = float(row.get("Overall"))
+            except (TypeError, ValueError):
+                continue
+            if sym and v == v:                       # NaN check without importing math
+                rk.append(f"{sym}:{round(v, 1)}")
+        out["RANK"] = ",".join(sorted(set(rk)))
 
     for col in ("BFF", "RFF"):
         if col not in df.columns:

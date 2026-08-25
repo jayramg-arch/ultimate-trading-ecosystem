@@ -951,6 +951,7 @@ stage_gate = input.bool(true, "Stage 3/4 = NO TRADE (overrides mode)", group=grp
 gm_pb_list = input.string("", "Auto: GM Pullback list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.4 — THE PLAYBOOK SPLIT.\n\nA momentum breakout and a structural pullback are opposite trades: one buys strength expanding out of a base on heavy volume with a strong close, the other buys weakness retracing INTO support on volume dry-up with a bar that only has to hold the zone. A single gate cannot be neutral between them — the setup-blind version encoded a breakout's signature and called it quality, so every GO reaching the chart was extended by construction.\n\nS4 has no archetype, so it infers the setup from the pattern mix. That inference has a hole: a reversal bar off a demand zone that CLOSES STRONG fires the Strong-Close pattern, which counts as expansion — so the textbook pullback entry disqualified itself from pullback treatment and was judged on a breakout's volume floor.\n\nThe Golden Matcher does not have to guess. A name off the Pullback screen (or a pyramid ADD, which requires pullback location) was QUALIFIED as a pullback. Paste its comma-separated Pullback list here and those symbols take the pullback gates directly.\n\nWhat this does NOT relax: the demand-zone requirement. A listed name still has to be AT a zone — that is the discipline of the setup and the only thing keeping the lower volume floor honest.\n\nAnything not listed falls back to the pattern inference. Leave blank to disable. Separators, spaces and NSE: prefixes tolerated; matching is case-insensitive.")
 gm_rec_list = input.string("", "Auto: GM Recovery list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.3 — THE SYNC (Jay, 2-Aug: 'for each stock, for each timeframe, I need to check the mode and switch... then I might forget to change it back').\n\nS4 cannot ask the Golden Matcher anything, and it cannot infer the GM's answer from price: the GM's path is INHERITED from whichever watchlist qualified the name (REV-CB / REV-RS / REV-EARLY), on RFF fundamentals and history S4 has no access to. TechM at 2% off its 60-day high looks like Bull to any price-based rule, and always will.\n\nSo the GM hands S4 the answer instead. Paste its comma-separated Recovery list here ONCE per watchlist refresh and every symbol resolves itself — no per-stock switching, nothing to forget, and the same answer on every timeframe (the path is a property of the NAME, not the chart).\n\nA symbol in this list resolves RECOVERY. Anything else falls back to the stage/drawdown heuristic, which matches the GM's own default of Bull. Leave it blank to disable the sync entirely.\n\nSeparators, spaces and NSE: prefixes are all tolerated; matching is case-insensitive.")
 gm_bff_list = input.string("", "GM: BFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Bull Fundamental Filter score the Golden Matcher computed, carried across as text because Pine cannot compute it: BFF reads screener.in's compounded-growth table, which no Pine surface can reach.\n\nFormat: SYM:n pairs, comma separated - RELIANCE:7, TECHM:5, CIPLA:6. Spaces, newlines, semicolons and NSE: prefixes are all tolerated; matching is case-insensitive.\n\nA symbol NOT in the list renders as an em-dash, not a zero - unscored and scored-badly are different facts. DISPLAY ONLY: BFF never gates anything here, exactly as in the GM.")
+gm_rank_list = input.string("", "GM: board rank  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="#10 (25-Aug-2026). The Golden Matcher board's OVERALL score for this symbol - the composite it ranks the watchlist by. S4 grades ONE chart and has no idea where that chart sits among the other forty; this is the only way the panel can tell you that a clean-looking setup is the 38th best name on the list.\n\nFormat: SYM:n pairs - RELIANCE:72, TECHM:64. Parsed by the same reader as the BFF/RFF lists.\n\nDISPLAY ONLY. It never gates and never scores: the board rank already contains most of what this panel measures, so feeding it back into the confluence would be double-counting the same evidence. Absent renders an em-dash - unranked is not the same as ranked low.")
 gm_rff_list = input.string("", "GM: RFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Recovery Fundamental Fitness score (0-10) from recovery_screener. Pine CANNOT compute this - TradingView caps request.financial() at five calls per script and the Capitulation Screener already spends that budget on a two-check RFF Lite. The GM is the authority; this only carries its answer.\n\nFormat: SYM:n pairs - TECHM:6, CIPLA:4.\n\nColoured against the GM's own hard gate (RFF >= 4): below it the name is fundamentally weak and the GM would reject it, which is worth seeing before you plan the trade. Absent renders as an em-dash - the GM has not scored it - never as a failure.")
 
 // STRIKE RRG (10-Aug-2026) — the manual Strike.Money weekly read, handed over by the
@@ -1236,6 +1237,7 @@ cf_rv_strong= input.float(1.25, "RV counts as 'strong' at", group=grpCF, minval=
 cf_w_arrival= input.int(1, "Sharp arrival at a zone",     group=grpCF, minval=0, maxval=5, tooltip="Confluence point when price arrived into the zone FAST — a high-velocity drop into demand (or rally into supply), which tends to produce a sharp, immediate rejection. A slow stair-step (GRIND) does NOT earn it. Configured in the 'Arrival & Order-Flow' group.")
 cf_w_wcl    = input.int(2,      "WCL Context (Bullish/Accumulation)", group=grpCF, minval=0, maxval=5, tooltip="Grants confluence points (+1 to +2) when WCL Context Score is BULL/STRONG BULL or Wyckoff is ACCUMULATION.")
 cf_w_dailypa= input.int(1, "Daily battery agrees",        group=grpCF, minval=0, maxval=5, tooltip="#10 (19-Jul): when the chart-TF (75/125m) trigger fires AND the DAILY battery for the same path also has a pattern live, the trigger has multi-timeframe agreement — a stronger signal. GRADE not GATE (a daily pattern confirms only at the daily close; hard-requiring it would make every intraday trigger late — the anti-Holy-Grail ruling). Only counted on an intraday chart with 'Use chart timeframe' ON (elsewhere the battery IS the daily one). 0 = off.")
+cf_w_rrg    = input.int(1, "RRG trajectory (measured whitelist)", group=grpCF, minval=0, maxval=5, tooltip="#6 (25-Aug-2026). One point when the RRG TRAJECTORY is on the measured whitelist - LEADING->LEADING or WEAKENING->LEADING - not merely when the quadrant reads LEADING.\n\nWhy the distinction: measured over 473 symbols and 93,745 weekly observations, IS/OOS, bootstrapped by symbol, the whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12. IMPROVING->LEADING is reliably NEGATIVE and cancels what LEADING->LEADING earns, which is why the same test is available as a GATE (en_rrg_gate) and defaults OFF.\n\nAn edge that size belongs in a score, not a veto. Scores nothing when v67 is unbound - the trajectory needs the trailing RS pair, and an unknown must never read as a pass.")
 cf_w_round  = input.int(1, "At a round number",           group=grpCF, minval=0, maxval=5, tooltip="#13 (19-Jul): price within 0.3% of a psychological round number (step scales with price: 100 above 5000 · 50 above 1000 · 10 above 100 · 1 above 10). Round numbers attract resting orders and act as magnet/reaction levels — a location confluence, +1 like the other location facts.")
 cf_w_absorb = input.int(1, "Absorbing (Δ order-flow)",    group=grpCF, minval=0, maxval=5, tooltip="Confluence point when the intrabar up/down-volume delta shows the level being ABSORBED — Δ+ (net buying) or a bullish delta divergence (price lower low, delta higher low) at a demand zone; mirror at supply. This is a bar-classified volume-delta PROXY (via request.security_lower_tf), not true tick/aggressor order-flow, which Pine cannot access on any TradingView plan.")
 
@@ -1603,6 +1605,7 @@ int  _mvOf = _mvBound ? 8 : 7
 // v5.9 chop counter came to be garbage. na = the GM has not scored this symbol.
 float _bffV = core.fundScore(gm_bff_list, syminfo.ticker)
 float _rffV = core.fundScore(gm_rff_list, syminfo.ticker)
+float _rnkV = core.fundScore(gm_rank_list, syminfo.ticker)
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
@@ -3784,6 +3787,10 @@ float _rnStep = close >= 5000 ? 100.0 : close >= 1000 ? 50.0 : close >= 100 ? 10
 float rn_lvl  = math.round(close / _rnStep) * _rnStep
 bool near_round = math.abs(close - rn_lvl) / close <= 0.003
 cf := cf + (near_round ? cf_w_round : 0)
+// #6: the trajectory whitelist, not the quadrant. Gated on _gOkTrail because the
+// trajectory is computed from the TRAILING RS pair - with v67 unbound there is no
+// trajectory to score, and an unknown must never earn a point.
+cf := cf + ((_gOkTrail and _rrgTr) ? cf_w_rrg : 0)
 // #3 Over-extension above the daily EMA20 — measured in DAILY ATR to match the daily
 // EMA20. BUGFIX (19-Jul, from ABBOTINDIA: verdict read "8.8 ATR" while Price-vs-EMA20
 // read "+5.6% Norm"): dividing a DAILY-scale distance by the 75m chart ATR inflated the
@@ -3817,7 +3824,7 @@ float ema20_x40 = math.sum(ta.cross(close, dyn_ema) ? 1 : 0, 40)
 // The ceiling moves with the weights AND with the layer switches, so "8/13" can
 // never mean "8 out of a ceiling that counts layers you turned off" — an
 // unreachable maximum would make every score read artificially weak.
-int cf_max = (3 * cf_w_mtf) + (d_avwap ? cf_w_avwap : 0) + (show_intraday ? cf_w_intra : 0) + (d_zones ? cf_w_fvg : 0) + (d_zones ? cf_w_ctrl : 0) + (d_sr ? cf_w_sr : 0) + cf_w_ema + (d_avwap ? cf_w_avwl : 0) + cf_w_fib + (d_avwap ? cf_w_pinch : 0) + cf_w_rv + (d_tl ? cf_w_tl : 0) + (d_pat and show_flag ? cf_w_flag : 0) + (show_arrival ? cf_w_arrival : 0) + (show_arrival ? cf_w_absorb : 0) + cf_w_round + ((use_chart_tf and timeframe.isintraday) ? cf_w_dailypa : 0) + (en_wcl ? cf_w_wcl : 0)
+int cf_max = (3 * cf_w_mtf) + (d_avwap ? cf_w_avwap : 0) + (show_intraday ? cf_w_intra : 0) + (d_zones ? cf_w_fvg : 0) + (d_zones ? cf_w_ctrl : 0) + (d_sr ? cf_w_sr : 0) + cf_w_ema + (d_avwap ? cf_w_avwl : 0) + cf_w_fib + (d_avwap ? cf_w_pinch : 0) + cf_w_rv + (d_tl ? cf_w_tl : 0) + (d_pat and show_flag ? cf_w_flag : 0) + (show_arrival ? cf_w_arrival : 0) + (show_arrival ? cf_w_absorb : 0) + cf_w_round + (_gOkTrail ? cf_w_rrg : 0) + ((use_chart_tf and timeframe.isintraday) ? cf_w_dailypa : 0) + (en_wcl ? cf_w_wcl : 0)
 
 // ==========================================================================
 // #12 DYNAMIC RISK (ported from Commander_Risk_Allocator_v2.0 §9)
@@ -4356,6 +4363,21 @@ C_BADGE_TXT = color.new(#FFFFFF, 0)
 f_sec(int r, string t) =>
     table.cell(pnl, 0, r, t, text_size=_pSize, text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
     table.merge_cells(pnl, 0, r, PA_LAST_COL, r)
+// #15 (25-Aug-2026): each summary section starts "HEADER · prose". Break after the
+// header so it stands on its own line. Jay asked for BOLD headers; a Pine table cell
+// has ONE text style and no inline markup, so bold is not available at any price --
+// this is the achievable version and does most of the same work, since the eye finds
+// the six sections by scanning one column instead of reading into each paragraph.
+// Six literal replacements rather than a parse: the headers are a closed set defined
+// in core.summaryRead, and a generic "split on the first middle dot" rule would also
+// break any prose sentence that happens to contain one.
+f_sumHdr(string t) =>
+    string o = str.replace_all(t, "TREND · ", "TREND\n")
+    o := str.replace_all(o, "LEADERSHIP · ", "LEADERSHIP\n")
+    o := str.replace_all(o, "LOCATION · ", "LOCATION\n")
+    o := str.replace_all(o, "PARTICIPATION · ", "PARTICIPATION\n")
+    o := str.replace_all(o, "GEOMETRY · ", "GEOMETRY\n")
+    str.replace_all(o, "DIRECTION · ", "DIRECTION\n")
 f_row(int r, string k, string vv, color vc) =>
     color _bg = f_softBg(vc)
     // #align (30-Jul, Jay): swapped so both columns hug the centre divider — label
@@ -4563,7 +4585,7 @@ if show_panel and d_panel and barstate.islast
     // token however long it is. The three ▫ terms add one nested ternary each.
     // WCL was in the SCORE but had never been in this breakdown - the one term you
     // could not account for by reading the row. It is listed now.
-    string cfb = (ev_ok[_so] ? "🟢AVWAP " : "⚪AVWAP ") + (show_intraday ? (intra_ok[_so] ? "🟢Intra " : "⚪Intra ") : "▫Intra ") + (z_inDZ_fvg[_so] ? "🟢⚡FVG " : "⚪⚡FVG ") + (z_inDZ_ctrl[_so] ? "🟢Ctrl " : "⚪Ctrl ") + (near_sr[_so] ? "🟢S/R " : "⚪S/R ") + (tl_extra[_so] ? "🟢TL " : "⚪TL ") + (bullFlag[_so] ? "🟢Flag " : "⚪Flag ") + (near_ema[_so] ? "🟢EMA20 " : "⚪EMA20 ") + (near_avwap[_so] ? "🟢@AVWAP-" + nearest_sup_lbl[_so] + " " : "⚪@AVWAP ") + (near_fib[_so] ? "🟢Fib " : "⚪Fib ") + (pinched[_so] ? "🟢Pinch " : "⚪Pinch ") + (chart_rv[_so] >= cf_rv_strong ? "🟢RV+ " : "⚪RV+ ") + (near_round[_so] ? "🟢Rnd " + str.tostring(rn_lvl[_so], format.mintick) + " " : "⚪Rnd ") + (daily_pa_agrees[_so] ? "🟢D-PA " : "⚪D-PA ") + (show_arrival ? (arr_fav[_so] ? "🟢Arrival " : "⚪Arrival ") : "▫Arrival ") + (show_arrival ? (_so_of_absorb ? "🟢Δ+ " : "⚪Δ+ ") : "▫Δ+ ") + (en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? "🟢WCL " : "⚪WCL ") : "▫WCL ") + (_so_dzTfN >= 2 ? "🟢MTF×" + str.tostring(_so_dzTfN) : "⚪MTF")
+    string cfb = (ev_ok[_so] ? "🟢AVWAP " : "⚪AVWAP ") + (show_intraday ? (intra_ok[_so] ? "🟢Intra " : "⚪Intra ") : "▫Intra ") + (z_inDZ_fvg[_so] ? "🟢⚡FVG " : "⚪⚡FVG ") + (z_inDZ_ctrl[_so] ? "🟢Ctrl " : "⚪Ctrl ") + (near_sr[_so] ? "🟢S/R " : "⚪S/R ") + (tl_extra[_so] ? "🟢TL " : "⚪TL ") + (bullFlag[_so] ? "🟢Flag " : "⚪Flag ") + (near_ema[_so] ? "🟢EMA20 " : "⚪EMA20 ") + (near_avwap[_so] ? "🟢@AVWAP-" + nearest_sup_lbl[_so] + " " : "⚪@AVWAP ") + (near_fib[_so] ? "🟢Fib " : "⚪Fib ") + (pinched[_so] ? "🟢Pinch " : "⚪Pinch ") + (chart_rv[_so] >= cf_rv_strong ? "🟢RV+ " : "⚪RV+ ") + (near_round[_so] ? "🟢Rnd " + str.tostring(rn_lvl[_so], format.mintick) + " " : "⚪Rnd ") + (daily_pa_agrees[_so] ? "🟢D-PA " : "⚪D-PA ") + (show_arrival ? (arr_fav[_so] ? "🟢Arrival " : "⚪Arrival ") : "▫Arrival ") + (show_arrival ? (_so_of_absorb ? "🟢Δ+ " : "⚪Δ+ ") : "▫Δ+ ") + (en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? "🟢WCL " : "⚪WCL ") : "▫WCL ") + (_gOkTrail ? ((_rrgTr ? "🟢" : "⚪") + "RRG ") : "▫RRG ") + (_so_dzTfN >= 2 ? "🟢MTF×" + str.tostring(_so_dzTfN) : "⚪MTF")
     f_row(32, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? C_GO : cf_v > 0 ? C_OK : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
@@ -5334,7 +5356,12 @@ if show_panel and d_panel and barstate.islast
     // different facts and the panel must not merge them. RFF is red-capable because
     // it is the GM's hard Recovery gate; BFF is display-only status in the GM and
     // stays that way here.
-    string _fndTxt = "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
+    // #10: the board rank leads the fundamental block because it is the widest
+    // statement on the row - where this name sits among all the others. Banded on
+    // the board's own colouring, not on an absolute: 70+ is the top of a typical
+    // board, 55 is mid-table. Never red - a low rank is a ranking, not a fault.
+    string _rnkTxt = na(_rnkV) ? "" : "  │  GM rank " + str.tostring(_rnkV, "0.0") + (_rnkV >= 70 ? " 🟢" : " ⚪")
+    string _fndTxt = _rnkTxt + "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  │  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _fndTxt
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     f_row(3, "Minervini template  " + str.tostring(_mvN) + "/" + str.tostring(_mvOf) + (_mvBound ? "" : "~"), _mvTxt, _mvN >= _mvOf ? C_GO : _mvN >= _mvOf - 2 ? C_OK : C_MUTE)
@@ -5394,7 +5421,7 @@ if show_panel and d_panel and barstate.islast
         for _r = 0 to 42
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
-             "SUMMARY\n\n" + core.wrapText(str.replace_all(_sumRaw, "\n", "\n\n"), summary_wrap),
+             "SUMMARY\n\n" + core.wrapText(f_sumHdr(str.replace_all(_sumRaw, "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)
         table.merge_cells(pnl, _sc, 0, _sc, 42)
