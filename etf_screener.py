@@ -591,6 +591,21 @@ def write_board_picks(df=None, path: str = None) -> int:
     keep = ~sig.str.contains("ILLIQUID", na=False) & ~sig.str.contains("AVOID", na=False)
     out = out[keep]
 
+    # OUT OF TRADING SCOPE (25-Aug-2026). Debt and liquid ETFs are still SCORED and
+    # still appear in ETF_Screener_Results -- the regime engine reads LIQUIDBEES to
+    # detect risk-off and that measurement stays. They are simply never offered as a
+    # trade: Jay parks cash in a sweep-in FD, so a board row saying LIQUIDBEES is
+    # "Buy Trigger Live" is noise on a surface whose whole job is deciding what to buy.
+    try:
+        from etf_universe import is_tradeable as _tradeable
+        before = len(out)
+        out = out[out["Symbol"].map(_tradeable)]
+        if before != len(out):
+            logger.info("board picks: dropped %d out-of-scope (debt/liquid) ETFs",
+                        before - len(out))
+    except Exception as e:
+        logger.warning("trading-scope filter unavailable (%s) - keeping all rows", e)
+
     # PREMIUM / DISCOUNT vs NAV -- the third gate, and the only one that measures
     # something no chart can show. See etf_inav for the numbers; the short version
     # is that three international ETFs trade ~19.5% over NAV because SEBI's overseas

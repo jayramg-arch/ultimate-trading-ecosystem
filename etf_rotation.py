@@ -515,6 +515,14 @@ def top_picks_by_regime(sector_df: pd.DataFrame,
     # Build picks per regime
     picks: List[Dict] = []
 
+    # The cash sleeve is NOT an ETF (25-Aug-2026, Jay: "I have moved my funds to a
+    # sweep-in fixed deposit account"). It used to be LIQUIDBEES/BBETF, which is a
+    # recommendation to buy something he will never buy. Named rather than dropped:
+    # an allocation that quietly sums to 70% is worse than one that says where the
+    # rest went. `add` only records a label, so a non-symbol is safe here -- the
+    # correlation gate below touches Sector-sourced rows only.
+    FD_SLEEVE = "SWEEP-IN FD"
+
     def add(sym, reason, weight, source):
         picks.append({"Symbol": sym, "Reason": reason,
                       "Suggested_Weight_pct": weight, "Source": source})
@@ -531,25 +539,24 @@ def top_picks_by_regime(sector_df: pd.DataFrame,
         add("GOLDBEES",   "Gold leadership regime", 30, "Commodity")
         add("SILVERBEES", "Precious-metal sleeve",  10, "Commodity")
         add("MAFANG",     "Intl hedge",             10, "Intl")
-        add("LIQUIDBEES", "Cash sleeve",            30, "Debt")
+        add(FD_SLEEVE, "Cash sleeve — sweep-in FD, outside this system", 30, "Cash")
     elif label == "INTL_LED":
         add("MAFANG",     "International leadership", 25, "Intl")
         add("MON100",     "Nasdaq exposure",          25, "Intl")
         for i, s in enumerate(top_sectors[:2]):
             add(s, f"Best Indian sector #{i+1}", 15, "Sector")
         add("GOLDBEES",   "Diversifier", 10, "Commodity")
-        add("LIQUIDBEES", "Cash sleeve", 10, "Debt")
+        add(FD_SLEEVE, "Cash sleeve — sweep-in FD, outside this system", 10, "Cash")
     elif label == "RISK_OFF":
         add("GOLDBEES",   "Risk-off flight",   25, "Commodity")
-        add("LIQUIDBEES", "Cash preservation", 50, "Debt")
-        add("BBETF",      "Bond ladder",       15, "Debt")
+        add(FD_SLEEVE, "Cash preservation — sweep-in FD", 65, "Cash")
         add("SILVERBEES", "Diversifier",       10, "Commodity")
     else:  # MIXED
         for i, s in enumerate(top_sectors[:4]):
             add(s, f"Sector rotation #{i+1}", 12, "Sector")
         add("GOLDBEES",   "Diversifier",       15, "Commodity")
         add("MAFANG",     "International",     10, "Intl")
-        add("LIQUIDBEES", "Cash sleeve",       17, "Debt")
+        add(FD_SLEEVE, "Cash sleeve — sweep-in FD, outside this system", 17, "Cash")
 
     df = pd.DataFrame(picks).head(max_picks)
     df["Regime"] = label
