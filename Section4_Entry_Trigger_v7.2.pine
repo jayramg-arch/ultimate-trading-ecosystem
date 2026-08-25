@@ -4848,9 +4848,12 @@ if show_panel and d_panel and barstate.islast
       + _xStat + _xTag + "   │   ") + ema_txt
     f_row(16, _emaLbl, ema_txt, _xa >= ext_warn_atr ? _xCol : ema_col)
 
-    // RV is built here but RENDERED with the Bar row below -- see there. The two are
-    // one question ("is this candle worth acting on") and were five rows apart.
-    string _rvTxt = (vol_ok_v ? "🟢" : "⚪") + "RV " + str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? " strong" : chart_rv_v >= 1.0 ? " ok" : " thin")
+    // --- RV (volume): its own row and its OWN colour band (Jay, 25-Aug - reverted
+    // from the merge with Bar earlier the same day). rv_col grades the LEVEL
+    // (strong / ok / thin); sharing the Bar row meant sharing one colour, so that
+    // grading was lost to a pass-fail dot. The gate dot and the level are
+    // different readings and both are wanted.
+    f_row(29, "Volume (V) · RV " + timeframe.period, (vol_ok_v ? "🟢" : "⚪") + str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
 
     // Bar (B) — verbose, own row (24-Jul, Jay's PLVB sequence). Placed at row 25 (not
     // immediately after 12): rows 13/14 are Confluence/Arrival and 15 is the raw-numbered
@@ -4892,12 +4895,7 @@ if show_panel and d_panel and barstate.islast
     string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + _barWhy
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
-    // VOLUME + BAR IN ONE ROW (Jay, 25-Aug). V asks whether anyone turned up, B asks
-    // what they did with the bar; reading one without the other is how a strong close
-    // on no volume gets mistaken for participation. Row 29 is now free.
-    // V before B, matching the P.L.V.B order on the TRIGGER row -- the same four
-    // gates must not appear in two different orders on one panel.
-    f_row(27, "Volume (V) · Bar (B)", _rvTxt + "  │  " + (bar_ok_v ? "🟢" : "⚪") + _barTxt, _barCol)
+    f_row(27, "Bar (B)", (bar_ok_v ? "🟢" : "⚪") + _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
     color _trigBg = f_softBg(trig_col)
     table.cell(pnl, 0, 33, "TRIGGER", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right, text_formatting=text.format_bold)
