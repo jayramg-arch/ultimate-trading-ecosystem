@@ -855,7 +855,7 @@ indicator("Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)", sh
 // that the chart can be told apart from a stale compile without opening Settings.
 string S4_VER      = "v9.18"
 string S4_CORE_VER = "14"
-import jayramg/S4Core/19 as core
+import jayramg/S4Core/21 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -950,6 +950,8 @@ rv_floor  = input.float(1.0, "Volume floor (RV) for a valid trigger", minval=0.0
 stage_gate = input.bool(true, "Stage 3/4 = NO TRADE (overrides mode)", group=grpPA, tooltip="Weinstein: only Stage 2 advances and Stage 1 turns are tradeable. With this ON a Stage-3 (30WMA falling, price above) or Stage-4 (below and falling) name resolves to NO TRADE and the verdict says so — even if you set the mode manually, because the stage is a fact, not a preference. OFF restores the old two-path behaviour.")
 gm_pb_list = input.string("", "Auto: GM Pullback list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.4 — THE PLAYBOOK SPLIT.\n\nA momentum breakout and a structural pullback are opposite trades: one buys strength expanding out of a base on heavy volume with a strong close, the other buys weakness retracing INTO support on volume dry-up with a bar that only has to hold the zone. A single gate cannot be neutral between them — the setup-blind version encoded a breakout's signature and called it quality, so every GO reaching the chart was extended by construction.\n\nS4 has no archetype, so it infers the setup from the pattern mix. That inference has a hole: a reversal bar off a demand zone that CLOSES STRONG fires the Strong-Close pattern, which counts as expansion — so the textbook pullback entry disqualified itself from pullback treatment and was judged on a breakout's volume floor.\n\nThe Golden Matcher does not have to guess. A name off the Pullback screen (or a pyramid ADD, which requires pullback location) was QUALIFIED as a pullback. Paste its comma-separated Pullback list here and those symbols take the pullback gates directly.\n\nWhat this does NOT relax: the demand-zone requirement. A listed name still has to be AT a zone — that is the discipline of the setup and the only thing keeping the lower volume floor honest.\n\nAnything not listed falls back to the pattern inference. Leave blank to disable. Separators, spaces and NSE: prefixes tolerated; matching is case-insensitive.")
 gm_rec_list = input.string("", "Auto: GM Recovery list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.3 — THE SYNC (Jay, 2-Aug: 'for each stock, for each timeframe, I need to check the mode and switch... then I might forget to change it back').\n\nS4 cannot ask the Golden Matcher anything, and it cannot infer the GM's answer from price: the GM's path is INHERITED from whichever watchlist qualified the name (REV-CB / REV-RS / REV-EARLY), on RFF fundamentals and history S4 has no access to. TechM at 2% off its 60-day high looks like Bull to any price-based rule, and always will.\n\nSo the GM hands S4 the answer instead. Paste its comma-separated Recovery list here ONCE per watchlist refresh and every symbol resolves itself — no per-stock switching, nothing to forget, and the same answer on every timeframe (the path is a property of the NAME, not the chart).\n\nA symbol in this list resolves RECOVERY. Anything else falls back to the stage/drawdown heuristic, which matches the GM's own default of Bull. Leave it blank to disable the sync entirely.\n\nSeparators, spaces and NSE: prefixes are all tolerated; matching is case-insensitive.")
+gm_bff_list = input.string("", "GM: BFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Bull Fundamental Filter score the Golden Matcher computed, carried across as text because Pine cannot compute it: BFF reads screener.in's compounded-growth table, which no Pine surface can reach.\n\nFormat: SYM:n pairs, comma separated - RELIANCE:7, TECHM:5, CIPLA:6. Spaces, newlines, semicolons and NSE: prefixes are all tolerated; matching is case-insensitive.\n\nA symbol NOT in the list renders as an em-dash, not a zero - unscored and scored-badly are different facts. DISPLAY ONLY: BFF never gates anything here, exactly as in the GM.")
+gm_rff_list = input.string("", "GM: RFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Recovery Fundamental Fitness score (0-10) from recovery_screener. Pine CANNOT compute this - TradingView caps request.financial() at five calls per script and the Capitulation Screener already spends that budget on a two-check RFF Lite. The GM is the authority; this only carries its answer.\n\nFormat: SYM:n pairs - TECHM:6, CIPLA:4.\n\nColoured against the GM's own hard gate (RFF >= 4): below it the name is fundamentally weak and the GM would reject it, which is worth seeing before you plan the trade. Absent renders as an em-dash - the GM has not scored it - never as a failure.")
 
 // STRIKE RRG (10-Aug-2026) — the manual Strike.Money weekly read, handed over by the
 // GM exactly like the Recovery and Pullback lists above. Four inputs rather than one
@@ -1596,6 +1598,11 @@ bool _mv7 = d_ath > 0 and close >= d_ath * 0.75
 bool _mv8 = _mvBound and dashRsRatio > 100.0
 int  _mvN = (_mv1?1:0) + (_mv2?1:0) + (_mv3?1:0) + (_mv4?1:0) + (_mv5?1:0) + (_mv6?1:0) + (_mv7?1:0) + (_mv8?1:0)
 int  _mvOf = _mvBound ? 8 : 7
+// GM FUNDAMENTAL SCORES (item #3). Global scope on purpose - anything computed
+// inside `if barstate.islast` evaluates on the last bar only, which is how the
+// v5.9 chop counter came to be garbage. na = the GM has not scored this symbol.
+float _bffV = core.fundScore(gm_bff_list, syminfo.ticker)
+float _rffV = core.fundScore(gm_rff_list, syminfo.ticker)
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
@@ -5298,7 +5305,12 @@ if show_panel and d_panel and barstate.islast
     // words that actually disqualify the name. 🟢 = all eight clear.
     string _mvMiss = (_mv1 ? "" : "⚪<150/200 ") + (_mv2 ? "" : "⚪150<200 ") + (_mv3 ? "" : "⚪200flat ") + (_mv4 ? "" : "⚪50stack ") + (_mv5 ? "" : "⚪<50 ") + (_mv6 ? "" : "⚪<30%off-low ") + (_mv7 ? "" : "⚪>25%off-high ") + ((_mvBound and not _mv8) ? "⚪RS<mkt " : "")
     string _mvTxt = "  ·  MTT " + str.tostring(_mvN) + "/" + str.tostring(_mvOf) + (_mvBound ? "" : "~") + (_mvN >= _mvOf ? " 🟢" : "  " + _mvMiss)
-    string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  ·  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _mvTxt
+    // Absent renders em-dash, never a red dot: unscored and scored-badly are
+    // different facts and the panel must not merge them. RFF is red-capable because
+    // it is the GM's hard Recovery gate; BFF is display-only status in the GM and
+    // stays that way here.
+    string _fndTxt = "  ·  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  ·  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + " 🟢")
+    string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  ·  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _mvTxt + _fndTxt
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
