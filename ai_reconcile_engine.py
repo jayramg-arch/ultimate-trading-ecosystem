@@ -311,22 +311,40 @@ def sync_journal_with_dhan(target_symbols=None):
     # Filter for target symbols if provided
     symbols_to_check = target_symbols if target_symbols else j_df['symbol'].tolist()
     
+    # SAME COLLAPSE, NARROWER (fixed 25-Aug-2026). This site is already guarded to
+    # blank exits, so it cannot overwrite good data -- but a symbol sold in two
+    # tranches with BOTH exits missing would still have received ONE price on both
+    # rows, which is the identical defect at half the blast radius. Pair the blanks
+    # with distinct fills, oldest to oldest, and write BY ID.
     for sym in symbols_to_check:
         norm = normalize_symbol(sym)
-        match = completed_trades[completed_trades['Symbol'].apply(normalize_symbol) == norm]
-        
-        if not match.empty:
-            m = match.iloc[-1] # Primary target is the latest exit
-            exit_price = float(m['Exit Price'])
-            exit_date = str(m['Exit Date'])
-            
-            # Update Database — ONLY update rows already marked CLOSED (by stale-trade detector)
-            # NEVER force-close an OPEN position here
+        match = completed_trades[completed_trades["Symbol"].apply(normalize_symbol) == norm]
+        if match.empty or "id" not in j_df.columns:
+            continue
+
+        blanks = j_df[(j_df["symbol"] == sym)
+                      & (j_df["status"].astype(str).str.upper() == "CLOSED")
+                      & (j_df["exit_price"].isna()
+                         | (pd.to_numeric(j_df["exit_price"], errors="coerce").fillna(0) <= 0))]
+        if blanks.empty:
+            continue
+        _sort_on = [c for c in ("entry_date", "id") if c in blanks.columns]
+        blanks = blanks.sort_values(_sort_on, na_position="last")
+        legs = match.sort_values("Exit Date")
+
+        for i, (_, row) in enumerate(blanks.iterrows()):
+            # More blanks than fills: reuse the last known exit rather than invent
+            # one, and say so. Fewer blanks than fills is normal (older tranches
+            # may already be filled in).
+            leg = legs.iloc[min(i, len(legs) - 1)]
+            if i >= len(legs):
+                print(f"  [!] {sym}: {len(blanks)} blank rows vs {len(legs)} fills "
+                      f"- row {int(row['id'])} reuses the last known exit")
             cursor.execute("""
-                UPDATE journal 
+                UPDATE journal
                 SET exit_price = ?, exit_date = ?
-                WHERE symbol = ? AND status = 'CLOSED' AND (exit_price IS NULL OR exit_price = 0 OR exit_price = '')
-            """, (exit_price, exit_date, sym))
+                WHERE id = ?
+            """, (float(leg["Exit Price"]), str(leg["Exit Date"]), int(row["id"])))
             if cursor.rowcount > 0:
                 reconciled_count += 1
                 
@@ -359,37 +377,89 @@ def reconcile_journal_exit_prices():
     master_completed = process_trade_history(source, journal_df=j_df)
     
     # 3. Handle Updates
+    #
+    # THE TRANCHE COLLAPSE, FIXED 25-Aug-2026. This block had THREE compounding
+    # faults that together destroyed any position sold in more than one lot:
+    #
+    #   1. `WHERE symbol = ? AND status = CLOSED` updated EVERY closed row for the
+    #      symbol, so both halves of a two-tranche sale were overwritten at once.
+    #   2. `m = match.iloc[-1]  # Latest trade` always took the LAST completed
+    #      trade, so even a per-row update would have written the later exit to both.
+    #   3. The loop ran per journal ROW, so a two-row symbol fired the same
+    #      symbol-wide UPDATE twice.
+    #
+    # Measured cost: METALIETF and HDFCSML250 were reconstructed by hand on
+    # 2-Jun-2026 and this silently undid it. It cut BOTH ways -- HDFCSML250s loss
+    # was overstated by Rs 25,970 and METALIETFs GAIN by Rs 16,856, and the inflated
+    # win was the journals "best trade". A duplicated row flatters whatever it
+    # duplicates, so this was never only a loss problem.
+    #
+    # THE RULE NOW: pair each CLOSED journal row with a DISTINCT completed trade,
+    # oldest to oldest, and update BY ROW ID. When the counts do not line up the
+    # pairing is ambiguous, so it falls back to this functions original purpose --
+    # FILL BLANKS, NEVER OVERWRITE. Recovering a missing exit price is what it was
+    # built for (it recovered 17 in June); rewriting a populated one is the damage.
     reconciled_count = 0
     cursor = conn.cursor()
-    
-    for idx, row in j_df.iterrows():
-        sym = row['symbol']
-        norm = normalize_symbol(sym)
-        match = master_completed[master_completed['Symbol'].apply(normalize_symbol) == norm]
-        
-        if not match.empty:
-            # SKIP rows that are currently OPEN — never force-close active holdings
-            if str(row.get('status', '')).upper() == 'OPEN':
-                continue
-                
-            m = match.iloc[-1] # Latest trade
-            exit_price = float(m['Exit Price'])
-            exit_date = str(m['Exit Date'])
-            
-            # Inject Sector if missing or unassigned
-            current_sector = row.get('sector', '')
-            if not current_sector or current_sector in ['Unknown', 'Other', 'Unassigned', '']:
-                new_sector = get_symbol_sector(sym)
+
+    if "id" not in j_df.columns:
+        # Without a row id there is no way to target one row, and the symbol-wide
+        # UPDATE is precisely the bug. Refuse rather than corrupt.
+        print("  [!] journal has no `id` column - reconcile skipped (cannot target rows)")
+        conn.close()
+        return 0
+
+    closed = j_df[j_df["status"].astype(str).str.upper() == "CLOSED"].copy()
+    closed["_norm"] = closed["symbol"].apply(normalize_symbol)
+    mc = master_completed.copy()
+    mc["_norm"] = mc["Symbol"].apply(normalize_symbol)
+
+    def _blank(v):
+        try:
+            return v is None or pd.isna(v) or float(v) <= 0
+        except (TypeError, ValueError):
+            return True
+
+    for _norm, jrows in closed.groupby("_norm"):
+        legs = mc[mc["_norm"] == _norm]
+        if legs.empty:
+            continue
+        # Oldest first on both sides, so the Nth journal row meets the Nth fill.
+        _sort_on = [c for c in ("entry_date", "id") if c in jrows.columns]
+        jrows = jrows.sort_values(_sort_on, na_position="last")
+        legs = legs.sort_values("Exit Date")
+
+        paired = len(jrows) == len(legs)
+        if not paired and len(legs) > 1:
+            print(f"  [!] {_norm}: {len(jrows)} closed rows vs {len(legs)} completed "
+                  f"trades - filling blanks only, existing exits untouched")
+
+        for i, (_, row) in enumerate(jrows.iterrows()):
+            if paired:
+                leg = legs.iloc[i]
+            else:
+                # Ambiguous: only touch a row whose exit price is MISSING.
+                if not _blank(row.get("exit_price")):
+                    continue
+                leg = legs.iloc[min(i, len(legs) - 1)]
+
+            exit_price = float(leg["Exit Price"])
+            exit_date = str(leg["Exit Date"])
+
+            current_sector = row.get("sector", "")
+            if not current_sector or current_sector in ["Unknown", "Other", "Unassigned", ""]:
+                new_sector = get_symbol_sector(row["symbol"])
             else:
                 new_sector = current_sector
-            
+
+            # BY ID. Never by symbol - that is the whole fix.
             cursor.execute("""
-                UPDATE journal 
+                UPDATE journal
                 SET exit_price = ?, exit_date = ?, sector = ?
-                WHERE symbol = ? AND status = 'CLOSED'
-            """, (exit_price, exit_date, new_sector, sym))
+                WHERE id = ?
+            """, (exit_price, exit_date, new_sector, int(row["id"])))
             reconciled_count += 1
-            
+
     conn.commit()
     conn.close()
     return reconciled_count
