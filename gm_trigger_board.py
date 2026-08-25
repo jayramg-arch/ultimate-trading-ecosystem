@@ -1781,6 +1781,22 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     _arche = list(info.get("archetypes") or [])
     arche_txt = ", ".join(_win_arche) if _win_arche else ", ".join(_arche)
 
+    # ETF QUALITY BADGE — the ETF answer to the QUALITY step. BFF/RFF are
+    # correctly blank for a basket (no promoter, no margin, no growth table), but
+    # a BLANK quality step reads as "nothing to check here", which for an ETF is
+    # the opposite of true: a third of the NSE ETF universe trades under Rs 1Cr/day
+    # where the spread IS the trade, and an ETF can sit at a premium to what it
+    # holds that NO price-based reading can reveal.
+    # Empty string for a stock, so stock rows are untouched. Guarded end-to-end —
+    # a missing ETF_Screener_Results must never take the board down over a display
+    # field.
+    _etf_badge = ""
+    try:
+        import etf_quality as _etfq
+        _etf_badge = _etfq.badge(sym)
+    except Exception as _e:
+        _log.debug("etf_quality unavailable for %s: %s", sym, _e)
+
     return {
         "Symbol":        sym,
         "★":             ("★" if info.get("star") else ""),
@@ -1819,7 +1835,9 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Catalyst":   str(g(rec, "Catalyst", default="—")),
         "VCP":        vcp_txt,
         "ΣPA":        sigma_pa,
-        "BFF":        bff_txt,
+        # ETF rows show their own quality here (liquidity + premium to NAV); a
+        # stock keeps BFF. DISPLAY ONLY in both cases — neither gates.
+        "BFF":        (_etf_badge or bff_txt),
         "RFF":        rff_txt,
         "Piotroski":  (f"{int(pio)}/9" if pio is not None else ""),
         "XRay":       xray_grade,
