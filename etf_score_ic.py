@@ -46,6 +46,13 @@ def main() -> int:
     ap.add_argument("--horizon", type=int, default=60, help="forward trading days")
     ap.add_argument("--anchors", type=int, default=48, help="max monthly anchors")
     ap.add_argument("--boot", type=int, default=5000)
+    ap.add_argument("--liquid-only", action="store_true",
+                    help="Restrict to names that CLEAR the live liquidity gate "
+                         "(LIQ_MIN_CR) at the anchor. This is the decisive test for "
+                         "the Liquidity component: illiquid ETFs are already filtered "
+                         "out before anything is recommended, so an edge that only "
+                         "exists by comparing tradeable names against ones the system "
+                         "would never surface is not an edge you can act on.")
     args = ap.parse_args()
 
     try:
@@ -60,7 +67,10 @@ def main() -> int:
     syms = U.tradeable_symbols() if hasattr(U, "tradeable_symbols") else list(U.ETF_UNIVERSE)
     print(f"universe in trading scope: {len(syms)}")
 
-    close_df, vol_df = S._fetch_history([f"{s}.NS" for s in syms], period="5y")
+    # The benchmark has to be fetched WITH the universe: score_rs needs it aligned
+    # bar-for-bar, and a separate call can return a different index.
+    close_df, vol_df = S._fetch_history(
+        [f"{s}.NS" for s in syms] + [S.BENCHMARK_YF], period="5y")
     if close_df is None or close_df.empty:
         print("no data")
         return 1
@@ -74,6 +84,12 @@ def main() -> int:
         [usable.year, usable.month]).last().tolist()[-args.anchors:]
     print(f"anchors: {len(anchors)}  horizon: {args.horizon}d\n")
 
+    COMPONENTS = ["Liquidity", "Trend", "RS", "Rotation", "TOTAL"]
+    bench = close_df["^CRSLDX"] if "^CRSLDX" in close_df.columns else (
+        close_df[S.BENCHMARK_YF] if S.BENCHMARK_YF in close_df.columns else None)
+    if bench is None:
+        print("benchmark column missing - RS and Rotation cannot be scored")
+        return 1
     rows = []
     errs = {}
     for a in anchors:
@@ -100,8 +116,25 @@ def main() -> int:
             # are counted now and printed at the end: a silent skip is how a broken
             # measurement looks exactly like an empty one.
             try:
-                trend = S.score_trend(px)
-                trend = float(trend[0] if isinstance(trend, tuple) else trend)
+                comp = {}
+                _t = S.score_trend(px)
+                comp["Trend"] = float(_t[0])
+                _vcol = col if vol_df is not None and col in vol_df.columns else None
+                _v = vol_df[_vcol].loc[:a].dropna() if _vcol else pd.Series(dtype=float)
+                _lq = S.score_liquidity(px, _v) if len(_v) else None
+                comp["Liquidity"] = float(_lq[0]) if _lq else np.nan
+                if args.liquid_only and (not _lq or float(_lq[1]) < S.LIQ_MIN_CR):
+                    continue          # would never have reached a recommendation
+                _r = S.score_rs(px, bench.loc[:a].dropna())
+                comp["RS"] = float(_r[0])
+                comp["Rotation"] = float(S.score_rotation(_r[3], _r[1], _r[2]))
+                # The composite the screener actually publishes is the SUM of the
+                # four. Recomputed here rather than read from a CSV so it is
+                # point-in-time like its parts, and so a component that turns out to
+                # carry the signal can be compared against the whole on one axis.
+                comp["TOTAL"] = float(np.nansum([comp[k] for k in
+                                                 ("Liquidity", "Trend", "RS", "Rotation")]))
+                trend = comp["TOTAL"]
             except Exception as e:
                 errs[type(e).__name__ + ": " + str(e)[:60]] =                     errs.get(type(e).__name__ + ": " + str(e)[:60], 0) + 1
                 continue
@@ -109,17 +142,25 @@ def main() -> int:
             pN = fwd[col].dropna()
             if not np.isfinite(p0) or p0 <= 0 or pN.empty:
                 continue
-            scored.append((s, float(trend), (float(pN.iloc[-1]) / p0 - 1.0) * 100.0))
+            row = {"sym": s, "fwd": (float(pN.iloc[-1]) / p0 - 1.0) * 100.0}
+            row.update(comp)
+            scored.append(row)
 
         if len(scored) < 10:
             continue
-        d = pd.DataFrame(scored, columns=["sym", "score", "fwd"])
-        ic = stats.spearmanr(d["score"], d["fwd"]).correlation
+        d = pd.DataFrame(scored)
         k = max(3, len(d) // 4)
-        top = d.nlargest(k, "score")["fwd"].mean()
-        bot = d.nsmallest(k, "score")["fwd"].mean()
-        rows.append({"anchor": a.date(), "n": len(d), "ic": ic,
-                     "top": top, "bottom": bot, "spread": top - bot})
+        rec = {"anchor": a.date(), "n": len(d)}
+        for cname in COMPONENTS:
+            if cname not in d.columns or d[cname].notna().sum() < 10:
+                continue
+            dd = d[[cname, "fwd"]].dropna()
+            if dd[cname].nunique() < 3:      # a constant score cannot rank anything
+                continue
+            rec["ic_" + cname] = stats.spearmanr(dd[cname], dd["fwd"]).correlation
+            rec["sp_" + cname] = (dd.nlargest(k, cname)["fwd"].mean()
+                                  - dd.nsmallest(k, cname)["fwd"].mean())
+        rows.append(rec)
 
     if errs:
         print("scoring errors (symbol-anchor pairs skipped):")
@@ -129,7 +170,11 @@ def main() -> int:
     if not rows:
         print("no usable anchors")
         return 1
-    R = pd.DataFrame(rows).dropna(subset=["ic"])
+    # Per-component columns now, so there is no single "ic" to drop on. Keep any
+    # anchor that scored at least one component -- dropping the row because ONE
+    # component was unscoreable would silently shrink the sample for the others.
+    R = pd.DataFrame(rows)
+    R = R[[c for c in R.columns if c.startswith(("ic_", "sp_"))] + ["anchor", "n"]]
 
     def boot(v):
         """Resample ANCHORS, not observations -- rows inside one anchor share a
@@ -138,26 +183,32 @@ def main() -> int:
         m = [rng.choice(v, size=len(v), replace=True).mean() for _ in range(args.boot)]
         return np.percentile(m, 2.5), np.percentile(m, 97.5), float((np.array(m) > 0).mean())
 
-    ic_lo, ic_hi, ic_p = boot(R["ic"].values)
-    sp_lo, sp_hi, sp_p = boot(R["spread"].values)
-
-    print(f"{'anchors used':<22}{len(R)}")
-    print(f"{'mean rank IC':<22}{R['ic'].mean():+.4f}   CI95 [{ic_lo:+.4f}, {ic_hi:+.4f}]   "
-          f"P(>0) {ic_p*100:.1f}%")
-    print(f"{'median rank IC':<22}{R['ic'].median():+.4f}")
-    print(f"{'IC > 0 in':<22}{(R['ic'] > 0).mean()*100:.1f}% of anchors")
+    print(f"{'anchors used':<12}{len(R)}    horizon {args.horizon}d")
     print()
-    print(f"{'top quartile fwd':<22}{R['top'].mean():+.2f}%")
-    print(f"{'bottom quartile fwd':<22}{R['bottom'].mean():+.2f}%")
-    print(f"{'spread':<22}{R['spread'].mean():+.2f}pp   CI95 [{sp_lo:+.2f}, {sp_hi:+.2f}]   "
-          f"P(>0) {sp_p*100:.1f}%")
+    print(f"{'component':<12}{'rank IC':>9}{'IC>0':>8}   {'spread':>8}   {'CI95 spread':>20}  {'P(>0)':>7}")
+    print("-" * 74)
+    out = {}
+    for cname in COMPONENTS:
+        ick, spk = "ic_" + cname, "sp_" + cname
+        if ick not in R.columns:
+            continue
+        ic = R[ick].dropna()
+        sp = R[spk].dropna()
+        if ic.empty or sp.empty:
+            continue
+        lo, hi, pp = boot(sp.values)
+        out[cname] = (ic.mean(), sp.mean(), lo, hi, pp)
+        print(f"{cname:<12}{ic.mean():>+9.4f}{(ic > 0).mean()*100:>7.0f}%   "
+              f"{sp.mean():>+7.2f}pp   [{lo:>+6.2f}, {hi:>+6.2f}]  {pp*100:>6.1f}%")
+    print("-" * 74)
+    winners = [c for c, v in out.items() if v[2] > 0]
     print()
-    verdict = ("SIGNAL" if sp_lo > 0 and ic_lo > 0 else
-               "NO EDGE DEMONSTRATED (CI includes zero)")
-    print(f"VERDICT: {verdict}")
-    print("\nA CI that includes zero does not mean the score is useless -- it means "
-          "this sample\ncannot tell it apart from noise, and it must not be treated "
-          "as evidence either way.")
+    print("CI95 EXCLUDES ZERO:", ", ".join(winners) if winners else "none")
+    print()
+    print("Read per component, not pooled. A composite can be flat while one leg")
+    print("carries signal and another cancels it -- which is the whole reason for")
+    print("this run. A CI that includes zero means this sample cannot tell the")
+    print("component apart from noise; it is not evidence of absence.")
     return 0
 
 

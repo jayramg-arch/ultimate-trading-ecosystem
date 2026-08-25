@@ -193,6 +193,24 @@ def _prepare(df):
 
     df = df.copy()
 
+    # TAX-LOSS HARVEST (25-Aug-2026, Jay: "those ETF trades should not be taken as
+    # losses"). An FY-end harvest is an ACCOUNTING decision, not a trading outcome:
+    # the loss had already happened on paper, and crystallising it before 31 March
+    # converts an unrealised mark into a realised one to offset gains elsewhere.
+    # Counting it as strategy performance is a category error twice over -- the
+    # strategy did not choose the exit, and the exit price was not chosen on merit.
+    #
+    # Segregated, NOT deleted, and reported with its own headline: it is real money
+    # and it belongs in the record. It is simply not evidence about any signal.
+    # Tagged by tag_tax_harvest.py; run that with --revert to undo.
+    if "exit_reason" in df.columns:
+        _is_harv = df["exit_reason"].astype(str).str.upper().str.strip() == "TAX_HARVEST"
+        quality["harvest_excluded"] = int(_is_harv.sum())
+        if _is_harv.any():
+            _h = df[_is_harv]
+            quality["harvest_symbols"] = sorted(_h["symbol"].astype(str).unique().tolist())
+            df = df[~_is_harv].copy()
+
     # Exclude cash-parking instruments (liquid ETFs) — risk-off carry, not alpha.
     if "symbol" in df.columns:
         is_cash = df["symbol"].apply(_is_cash_equivalent)
@@ -232,14 +250,30 @@ def _prepare(df):
     # fires it on a workflow OPEN) OR a real `setup`/catalyst label. Everything
     # else — null meta, as-of-today 'backfill', setup NONE — is DISCRETIONARY.
     # Computed from RAW columns BEFORE the label-normalisation loop clobbers setup.
+    #
+    # HARDENED 26-Jul-2026 (audit P1). The previous rule also accepted "any
+    # non-empty setup label" as proof of system provenance. That silently
+    # over-counted: journal_sync.py inserts unmatched live Dhan holdings and
+    # stamps an as-of-TODAY 'backfill' snapshot, and a backfill that happens to
+    # re-screen into a catalyst today (e.g. the real row '2026-07-18|backfill'
+    # with setup 'POS-BO') is NOT evidence the position was ENTERED through the
+    # workflow — it only says the name screens well now. The old rule rested on
+    # the fragile invariant that backfills always leave `setup` NULL; the moment
+    # one didn't, a discretionary position was counted into "the honest live
+    # record". Since this number is the ONLY clean measure of the system that
+    # will ever exist, it must be conservative:
+    #
+    #   SYSTEM  <=>  snapshot_meta carries '|recompute'  (the upsert_trade entry
+    #                hook fired at OPEN — true point-of-entry evidence)
+    #   everything else (null meta, 'backfill', bare setup label) = DISCRETIONARY
+    #
+    # This under-counts rather than over-counts, which is the correct direction
+    # for a track record. Verified against the live journal: no pre-snapshot-era
+    # row carries a setup label, so nothing legitimate is lost by the tightening.
     _meta  = df.get("snapshot_meta")
-    _setup = df.get("setup")
     def _is_system(i):
         m = str(_meta.iloc[i]) if _meta is not None else ""
-        if "recompute" in m.lower():
-            return True
-        s = (str(_setup.iloc[i]).strip().upper() if _setup is not None else "")
-        return bool(s) and s not in ("NONE", "NAN", "UNSPECIFIED", "<NA>", "")
+        return "recompute" in m.lower()
     df["provenance"] = ["SYSTEM" if _is_system(i) else "DISCRETIONARY"
                         for i in range(len(df))]
 
@@ -486,7 +520,17 @@ def _print_report(result):
     _print_headline("ALL ATTRIBUTABLE (system + discretionary — NOT a system measure)", result["headline"])
     hd = result.get("headline_discretionary")
     if hd is not None and hd["n_trades"]:
-        _print_headline("DISCRETIONARY / LEGACY (random & harvested picks — excluded from system)", hd)
+        _print_headline("DISCRETIONARY / LEGACY (random picks — excluded from system)", hd)
+    _hn = (result.get("quality") or {}).get("harvest_excluded", 0)
+    if _hn:
+        _hs = (result.get("quality") or {}).get("harvest_symbols", [])
+        print()
+        print(f"▸ TAX-LOSS HARVEST — {_hn} exits, EXCLUDED from every figure above")
+        print(f"    {', '.join(_hs[:12])}{' …' if len(_hs) > 12 else ''}")
+        print("    An FY-end harvest is an accounting decision, not a trading outcome:")
+        print("    the loss had already happened on paper and crystallising it before")
+        print("    31 March offsets gains elsewhere. Real money, but not evidence about")
+        print("    any signal — so it is reported here and nowhere else.")
 
     for col, label in DIMENSIONS:
         t = result["tables"].get(col)
