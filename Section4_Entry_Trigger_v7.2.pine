@@ -3434,122 +3434,37 @@ for _fi = 0 to _fibLoAgo
 // you left blank falls back to its auto pair. An MTTWR level is EXCLUDED from
 // support: it is spent as a floor, and leaning a stop on a level that is primed to
 // break is exactly the mistake the grade exists to prevent.
-f_srBelow(float acc, float px) => (not na(px) and px > 0 and px < close) ? (na(acc) ? px : math.max(acc, px)) : acc
-f_srAbove(float acc, float px) => (not na(px) and px > 0 and px > close) ? (na(acc) ? px : math.min(acc, px)) : acc
-f_srAutoBelow(float acc, core.SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
-    float r = acc
-    if d_sr and tfOk and tfShow and not hasMan and not na(s)
-        r := s.b1t < mttwrEff ? f_srBelow(r, s.b1) : r
-        r := s.b2t < mttwrEff ? f_srBelow(r, s.b2) : r
-        // RE-HOME: slots split against the HTF close; on historical bars a level
-        // crossed mid-period sits in the "above" slot though now below chart price.
-        // f_srBelow re-filters px < close, so live this is a no-op.
-        r := s.a1t < mttwrEff ? f_srBelow(r, s.a1) : r
-        r := s.a2t < mttwrEff ? f_srBelow(r, s.a2) : r
-    r
-f_srAutoAbove(float acc, core.SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
-    float r = acc
-    if d_sr and tfOk and tfShow and not hasMan and not na(s)
-        r := s.a1t < mttwrEff ? f_srAbove(r, s.a1) : r
-        r := s.a2t < mttwrEff ? f_srAbove(r, s.a2) : r
-        r := s.b1t < mttwrEff ? f_srAbove(r, s.b1) : r    // re-home — see the below mirror
-        r := s.b2t < mttwrEff ? f_srAbove(r, s.b2) : r
-    r
-
-// Wrapped (2-Aug): this chain ran at GLOBAL scope and Pine caps the main body
-// at ~1000 statements — the script hit 1011. Accumulate-then-return, so a
-// function is behaviour-identical and returns the statements to the budget.
-f_srBelowAll() =>
-    float r = na
-    r := f_srBelow(r, f_lvOn(mv1, useLvM) ? mv1 : na)
-    r := f_srBelow(r, f_lvOn(mv2, useLvM) ? mv2 : na)
-    r := f_srBelow(r, f_lvOn(mv3, useLvM) ? mv3 : na)
-    r := f_srBelow(r, f_lvOn(mv4, useLvM) ? mv4 : na)
-    r := f_srBelow(r, f_lvOn(wv1, useLvW) ? wv1 : na)
-    r := f_srBelow(r, f_lvOn(wv2, useLvW) ? wv2 : na)
-    r := f_srBelow(r, f_lvOn(wv3, useLvW) ? wv3 : na)
-    r := f_srBelow(r, f_lvOn(wv4, useLvW) ? wv4 : na)
-    r := f_srBelow(r, f_lvOn(dv1, useLvD) ? dv1 : na)
-    r := f_srBelow(r, f_lvOn(dv2, useLvD) ? dv2 : na)
-    r := f_srBelow(r, f_lvOn(dv3, useLvD) ? dv3 : na)
-    r := f_srBelow(r, f_lvOn(dv4, useLvD) ? dv4 : na)
-    // A trendline is just a level whose price moves — once projected to this bar it is
-    // offered to BOTH sides like any other, and self-selects by which side of price it
-    // sits on (a support TL that price has broken below IS resistance now).
-    r := f_srBelow(r, tls_now)
-    r := f_srBelow(r, tlr_now)
-    r
-float sr_below = f_srBelowAll()
-// Hand-drawn trendlines from the companion. Guard: ignore a source left on `close`
-// (unwired) or reading na (line not placed) — only a real external line value is used.
+// ── S/R LEVEL PICKER — moved to S4Core on 25-Aug-2026 ────────────────────────
+// The whole cluster (both pickers, the auto-TF merge, the manual/TF tagging, the
+// panel formatter and the coil scan) now lives in the library. It was the largest
+// block left in this file at ~3,170 compiled tokens.
+//
+// It could not move as plain parameters: the picker reads 12 manual level prices,
+// 3 auto SRSig bundles, 3 TF gates, 3 show flags, 3 manual-present flags, 2
+// trendlines with tags, 2 external trendlines and 2 global switches. As ~35
+// arguments on functions that call each other, the argument lists would have given
+// back most of the saving. So they travel as ONE SRCtx object, built here once.
+//
+// Behaviour is unchanged, deliberately including the re-home pass and the MTTWR
+// exclusion. The one structural difference: the below-side used to run in two
+// passes (f_srBelowAll then f_srBelowTail) only because the external trendlines
+// were declared after the first pass. They are ctx fields now, so it is one pass —
+// safe because the accumulator is a max/min, so arrival order cannot change the
+// result, and nothing read sr_below between the two passes.
+//
+// The ctx is built HERE, after tl_ext1/tl_ext2, because those are its last inputs.
 float tl_ext1 = (tl_ext_on and not na(tl_ext1_src) and tl_ext1_src != close) ? tl_ext1_src : na
 float tl_ext2 = (tl_ext_on and not na(tl_ext2_src) and tl_ext2_src != close) ? tl_ext2_src : na
-// Tail of the same accumulator — it sits AFTER the tl_ext declarations it consumes, so
-// it could not be folded into f_srBelowAll above. Same global-scope budget reasoning.
-f_srBelowTail(float acc, float e1, float e2) =>
-    float r = acc
-    r := f_srBelow(r, e1)
-    r := f_srBelow(r, e2)
-    r := f_srAutoBelow(r, srM, useLvM, sr_show_M, manM)
-    r := f_srAutoBelow(r, srW, useLvW, sr_show_W, manW)
-    r := f_srAutoBelow(r, srD, useLvD, sr_show_D, manD)
-    r
-sr_below := f_srBelowTail(sr_below, tl_ext1, tl_ext2)
-
-// Wrapped (2-Aug) — see f_srBelowAll.
-f_srAboveAll() =>
-    float r = na
-    r := f_srAbove(r, f_lvOn(mv1, useLvM) ? mv1 : na)
-    r := f_srAbove(r, f_lvOn(mv2, useLvM) ? mv2 : na)
-    r := f_srAbove(r, f_lvOn(mv3, useLvM) ? mv3 : na)
-    r := f_srAbove(r, f_lvOn(mv4, useLvM) ? mv4 : na)
-    r := f_srAbove(r, f_lvOn(wv1, useLvW) ? wv1 : na)
-    r := f_srAbove(r, f_lvOn(wv2, useLvW) ? wv2 : na)
-    r := f_srAbove(r, f_lvOn(wv3, useLvW) ? wv3 : na)
-    r := f_srAbove(r, f_lvOn(wv4, useLvW) ? wv4 : na)
-    r := f_srAbove(r, f_lvOn(dv1, useLvD) ? dv1 : na)
-    r := f_srAbove(r, f_lvOn(dv2, useLvD) ? dv2 : na)
-    r := f_srAbove(r, f_lvOn(dv3, useLvD) ? dv3 : na)
-    r := f_srAbove(r, f_lvOn(dv4, useLvD) ? dv4 : na)
-    r := f_srAbove(r, tls_now)
-    r := f_srAbove(r, tlr_now)
-    r := f_srAbove(r, tl_ext1)
-    r := f_srAbove(r, tl_ext2)
-    r := f_srAutoAbove(r, srM, useLvM, sr_show_M, manM)
-    r := f_srAutoAbove(r, srW, useLvW, sr_show_W, manW)
-    r := f_srAutoAbove(r, srD, useLvD, sr_show_D, manD)
-    r
-float sr_above = f_srAboveAll()
+core.SRCtx _srCtx = core.SRCtx.new(mv1, mv2, mv3, mv4, wv1, wv2, wv3, wv4, dv1, dv2, dv3, dv4, useLvM, useLvW, useLvD, srM, srW, srD, sr_show_M, sr_show_W, sr_show_D, manM, manW, manD, sr_on, d_sr, mttwrEff, tls_now, tlr_now, tls_live, tlr_live, tls_tfTag, tlr_tfTag, tl_ext1, tl_ext2)
+float sr_below = core.srBelow(_srCtx)
+float sr_above = core.srAbove(_srCtx)
 
 // Which TF did the winning SUPPORT come from? This is the point of the whole TF
 // split: a stop on a WEEKLY level is a deeper distal → wider stop → SIZE DOWN
 // (Gate 4). Reading a stop without its level's weight is how a position is
 // mis-sized. Ties resolve UP — conviction takes the higher reading, never the lower.
-f_chkManM(float lvl) => useLvM and (lvl==mv1 or lvl==mv2 or lvl==mv3 or lvl==mv4)
-f_chkManW(float lvl) => useLvW and (lvl==wv1 or lvl==wv2 or lvl==wv3 or lvl==wv4)
-f_chkManD(float lvl) => useLvD and (lvl==dv1 or lvl==dv2 or lvl==dv3 or lvl==dv4)
-
-f_srTf(float lvl) =>
-    string t = ""
-    if not na(lvl)
-        if tls_live and lvl == tls_now
-            t := tls_tfTag
-        else if tlr_live and lvl == tlr_now
-            t := tlr_tfTag
-        else
-            bool isM = f_chkManM(lvl) or (not na(srM) and useLvM and sr_show_M and not manM and (srM.a1==lvl or srM.a2==lvl or srM.b1==lvl or srM.b2==lvl))
-            bool isW = f_chkManW(lvl) or (not na(srW) and useLvW and sr_show_W and not manW and (srW.a1==lvl or srW.a2==lvl or srW.b1==lvl or srW.b2==lvl))
-            t := isM ? "M" : isW ? "W" : "D"
-    t
-
-f_srIsMan(float lvl) =>
-    not na(lvl) and ((tls_live and lvl == tls_now) or (tlr_live and lvl == tlr_now) or f_chkManM(lvl) or f_chkManW(lvl) or f_chkManD(lvl))
-// Is this level a TRENDLINE? Worth saying out loud in the panel: a stop under a
-// rising trendline behaves differently from one under a horizontal shelf — it moves.
-f_srIsTl(float lvl) => not na(lvl) and ((tls_live and lvl == tls_now) or (tlr_live and lvl == tlr_now))
-// Format one side for the panel: price · TF [· TL|man] (± distance).
-f_srTxt(float lvl) =>
-    na(lvl) ? "—" : str.tostring(lvl, format.mintick) + " ·" + f_srTf(lvl) + (f_srIsTl(lvl) ? "·TL" : f_srIsMan(lvl) ? "·man" : "")
+// f_chkMan* / f_srTf / f_srIsMan / f_srIsTl / f_srTxt moved to S4Core (25-Aug-2026):
+// core.srTfTag · core.srIsMan · core.srIsTl · core.srTxt, all taking _srCtx.
 
 // Price sitting just above a fresh S/R level = at location, same 1.5% band the
 // AVWAP/EMA20 dynamic supports use.
@@ -3571,30 +3486,8 @@ bool near_sr = not na(sr_below) and close >= sr_below and (close - sr_below) / c
 //   3. range is COMPRESSING — reuses the existing TTM squeeze (sqz_on), free
 // Direction is positional: an over-tested level ABOVE is a breakout watch, one
 // BELOW is a breakdown watch. This is an ARM state, never a GO path.
-f_srMttwrNear(float acc, core.SRSig s, bool tfOk, bool tfShow, bool hasMan, bool wantAbove) =>
-    float r = acc
-    if d_sr and tfOk and tfShow and not hasMan and not na(s)
-        r := s.a1t >= mttwrEff ? (wantAbove ? f_srAbove(r, s.a1) : f_srBelow(r, s.a1)) : r
-        r := s.a2t >= mttwrEff ? (wantAbove ? f_srAbove(r, s.a2) : f_srBelow(r, s.a2)) : r
-        r := s.b1t >= mttwrEff ? (wantAbove ? f_srAbove(r, s.b1) : f_srBelow(r, s.b1)) : r
-        r := s.b2t >= mttwrEff ? (wantAbove ? f_srAbove(r, s.b2) : f_srBelow(r, s.b2)) : r
-    r
-// Wrapped (2-Aug) — see f_srBelowAll.
-f_coilUp() =>
-    float r = na
-    r := f_srMttwrNear(r, srM, useLvM, sr_show_M, manM, true)
-    r := f_srMttwrNear(r, srW, useLvW, sr_show_W, manW, true)
-    r := f_srMttwrNear(r, srD, useLvD, sr_show_D, manD, true)
-    r
-float coil_up = f_coilUp()
-// Wrapped (2-Aug) — see f_srBelowAll.
-f_coilDn() =>
-    float r = na
-    r := f_srMttwrNear(r, srM, useLvM, sr_show_M, manM, false)
-    r := f_srMttwrNear(r, srW, useLvW, sr_show_W, manW, false)
-    r := f_srMttwrNear(r, srD, useLvD, sr_show_D, manD, false)
-    r
-float coil_dn = f_coilDn()
+// f_srMttwrNear / f_coilUp / f_coilDn moved to S4Core.coilLevels (25-Aug-2026).
+[coil_up, coil_dn] = core.coilLevels(_srCtx)
 // The binding level is whichever over-tested level price is actually hugging.
 float _coilBand = coil_prox * chart_atr
 float coil_lvl  = na
@@ -4605,7 +4498,7 @@ if show_panel and d_panel and barstate.islast
     // measured from 1585.9 (0.58% and 1.15%) and the row from 1608. Nothing was wrong
     // except the reference price, and that is unreadable from the panel.
     float _srBd = (not na(sr_below) and close[_so] > 0) ? (close[_so] - sr_below) / close[_so] * 100.0 : na
-    string sr_txt = "S " + f_srTxt(sr_below) + (na(sr_below) ? "" : "  (−" + str.tostring(_srBd, "0.0") + "%)") + "   |   R " + f_srTxt(sr_above) + (na(sr_above) ? "" : "  (+" + str.tostring((sr_above - close) / close * 100.0, "0.0") + "%)")
+    string sr_txt = "S " + core.srTxt(_srCtx, sr_below) + (na(sr_below) ? "" : "  (−" + str.tostring(_srBd, "0.0") + "%)") + "   |   R " + core.srTxt(_srCtx, sr_above) + (na(sr_above) ? "" : "  (+" + str.tostring((sr_above - close) / close * 100.0, "0.0") + "%)")
     color sr_col = near_sr ? C_OK : (not na(_srBd) and _srBd > 8.0) ? color.gray : C_INFO
     // #coil: the over-tested level price is stalling on — the one the picker above
     // deliberately discarded. Named with its direction so it reads as a WATCH, not as a

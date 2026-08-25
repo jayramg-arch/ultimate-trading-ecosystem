@@ -1389,6 +1389,212 @@ export recencyScore(int baseScore, int capDays, int originT, simple bool decayOn
         _out := math.max(baseScore - int(math.round(maxDrop * _frac)), 0)
     _out
 
+// ── SRCtx / the S/R level picker ─────────────────────────────────────────────
+// Moved from Section 4 on 25-Aug-2026. This is the biggest single block still in
+// the main file (~3,170 compiled tokens) and it could not be relocated the way the
+// six blocks before it were: the picker reads TWELVE manual level prices, three
+// auto SRSig bundles, three timeframe gates, three show flags, three
+// manual-present flags, two trendlines with their tags, two external trendlines
+// and two global switches. As plain parameters that is ~35 arguments on functions
+// that call each other, and the argument lists would have handed back most of what
+// the bodies save.
+//
+// So the inputs travel as ONE object. S4 fills SRCtx once per bar and passes it
+// down; a library function counts a UDT parameter as a single external element,
+// which also keeps this well clear of the 254-element ceiling that the panel hit.
+//
+// BEHAVIOUR IS UNCHANGED, including the parts that look odd:
+//   * the RE-HOME pass (a1/a2 offered to the below-picker and vice versa) stays.
+//     The auto slots are split against the HTF close, so on a historical bar a
+//     level crossed mid-period sits in the wrong slot; srBelow re-filters on
+//     px < close, so live it is a no-op and removing it would only break replay.
+//   * MTTWR levels stay EXCLUDED from the pickers and are the ONLY thing the coil
+//     scan looks at. Tests WEAKEN a level here - that asymmetry is the house rule.
+//   * a trendline is offered to BOTH sides and self-selects by which side of price
+//     it sits on: a support line price has broken below IS resistance now.
+//
+// ONE DELIBERATE DIFFERENCE, and it is not a behaviour change. In S4 the below-side
+// ran in two passes (srBelowAll, then srBelowTail) purely because the external
+// trendlines were declared after the first pass. Here both external lines are ctx
+// fields, so it is one pass. Safe because the accumulator is a max (below) / min
+// (above): the result cannot depend on the order the candidates arrive in, and
+// nothing in S4 read sr_below between the two passes.
+export type SRCtx
+    float mv1
+    float mv2
+    float mv3
+    float mv4
+    float wv1
+    float wv2
+    float wv3
+    float wv4
+    float dv1
+    float dv2
+    float dv3
+    float dv4
+    bool  useM
+    bool  useW
+    bool  useD
+    SRSig srM
+    SRSig srW
+    SRSig srD
+    bool  showM
+    bool  showW
+    bool  showD
+    bool  manM
+    bool  manW
+    bool  manD
+    bool  srOn
+    bool  dSr
+    int   mttwr
+    float tlsNow
+    float tlrNow
+    bool  tlsLive
+    bool  tlrLive
+    string tlsTf
+    string tlrTf
+    float ext1
+    float ext2
+
+// A manual level counts only when manual levels are on, the S/R layer is on, that
+// timeframe is visible on this chart, and the price is actually set.
+srLvOn(SRCtx c, float px, bool tfOk) =>
+    c.srOn and c.dSr and tfOk and not na(px) and px > 0.0
+
+// Nearest level BELOW price = the HIGHEST candidate under it. Above = the LOWEST
+// over it. Both ignore anything on the wrong side, which is what lets every
+// candidate - manual, auto, trendline - be offered to both accumulators.
+srBelowPick(float acc, float px) =>
+    (not na(px) and px > 0 and px < close) ? (na(acc) ? px : math.max(acc, px)) : acc
+
+srAbovePick(float acc, float px) =>
+    (not na(px) and px > 0 and px > close) ? (na(acc) ? px : math.min(acc, px)) : acc
+
+// Auto levels for one timeframe. Skipped entirely when you have marked that
+// timeframe by hand: your levels ARE the location layer, auto is the fallback for
+// a side you have not marked yet.
+srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
+    float r = acc
+    if c.dSr and tfOk and tfShow and not hasMan and not na(s)
+        r := s.b1t < c.mttwr ? srBelowPick(r, s.b1) : r
+        r := s.b2t < c.mttwr ? srBelowPick(r, s.b2) : r
+        r := s.a1t < c.mttwr ? srBelowPick(r, s.a1) : r
+        r := s.a2t < c.mttwr ? srBelowPick(r, s.a2) : r
+    r
+
+srAutoAbove(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
+    float r = acc
+    if c.dSr and tfOk and tfShow and not hasMan and not na(s)
+        r := s.a1t < c.mttwr ? srAbovePick(r, s.a1) : r
+        r := s.a2t < c.mttwr ? srAbovePick(r, s.a2) : r
+        r := s.b1t < c.mttwr ? srAbovePick(r, s.b1) : r
+        r := s.b2t < c.mttwr ? srAbovePick(r, s.b2) : r
+    r
+
+// Nearest usable level below price. na when nothing qualifies - never 0, which
+// would read as a level at zero and size a position against it.
+export srBelow(SRCtx c) =>
+    float r = na
+    r := srBelowPick(r, srLvOn(c, c.mv1, c.useM) ? c.mv1 : na)
+    r := srBelowPick(r, srLvOn(c, c.mv2, c.useM) ? c.mv2 : na)
+    r := srBelowPick(r, srLvOn(c, c.mv3, c.useM) ? c.mv3 : na)
+    r := srBelowPick(r, srLvOn(c, c.mv4, c.useM) ? c.mv4 : na)
+    r := srBelowPick(r, srLvOn(c, c.wv1, c.useW) ? c.wv1 : na)
+    r := srBelowPick(r, srLvOn(c, c.wv2, c.useW) ? c.wv2 : na)
+    r := srBelowPick(r, srLvOn(c, c.wv3, c.useW) ? c.wv3 : na)
+    r := srBelowPick(r, srLvOn(c, c.wv4, c.useW) ? c.wv4 : na)
+    r := srBelowPick(r, srLvOn(c, c.dv1, c.useD) ? c.dv1 : na)
+    r := srBelowPick(r, srLvOn(c, c.dv2, c.useD) ? c.dv2 : na)
+    r := srBelowPick(r, srLvOn(c, c.dv3, c.useD) ? c.dv3 : na)
+    r := srBelowPick(r, srLvOn(c, c.dv4, c.useD) ? c.dv4 : na)
+    r := srBelowPick(r, c.tlsNow)
+    r := srBelowPick(r, c.tlrNow)
+    r := srBelowPick(r, c.ext1)
+    r := srBelowPick(r, c.ext2)
+    r := srAutoBelow(c, r, c.srM, c.useM, c.showM, c.manM)
+    r := srAutoBelow(c, r, c.srW, c.useW, c.showW, c.manW)
+    r := srAutoBelow(c, r, c.srD, c.useD, c.showD, c.manD)
+    r
+
+export srAbove(SRCtx c) =>
+    float r = na
+    r := srAbovePick(r, srLvOn(c, c.mv1, c.useM) ? c.mv1 : na)
+    r := srAbovePick(r, srLvOn(c, c.mv2, c.useM) ? c.mv2 : na)
+    r := srAbovePick(r, srLvOn(c, c.mv3, c.useM) ? c.mv3 : na)
+    r := srAbovePick(r, srLvOn(c, c.mv4, c.useM) ? c.mv4 : na)
+    r := srAbovePick(r, srLvOn(c, c.wv1, c.useW) ? c.wv1 : na)
+    r := srAbovePick(r, srLvOn(c, c.wv2, c.useW) ? c.wv2 : na)
+    r := srAbovePick(r, srLvOn(c, c.wv3, c.useW) ? c.wv3 : na)
+    r := srAbovePick(r, srLvOn(c, c.wv4, c.useW) ? c.wv4 : na)
+    r := srAbovePick(r, srLvOn(c, c.dv1, c.useD) ? c.dv1 : na)
+    r := srAbovePick(r, srLvOn(c, c.dv2, c.useD) ? c.dv2 : na)
+    r := srAbovePick(r, srLvOn(c, c.dv3, c.useD) ? c.dv3 : na)
+    r := srAbovePick(r, srLvOn(c, c.dv4, c.useD) ? c.dv4 : na)
+    r := srAbovePick(r, c.tlsNow)
+    r := srAbovePick(r, c.tlrNow)
+    r := srAbovePick(r, c.ext1)
+    r := srAbovePick(r, c.ext2)
+    r := srAutoAbove(c, r, c.srM, c.useM, c.showM, c.manM)
+    r := srAutoAbove(c, r, c.srW, c.useW, c.showW, c.manW)
+    r := srAutoAbove(c, r, c.srD, c.useD, c.showD, c.manD)
+    r
+
+srChkM(SRCtx c, float lvl) => c.useM and (lvl == c.mv1 or lvl == c.mv2 or lvl == c.mv3 or lvl == c.mv4)
+srChkW(SRCtx c, float lvl) => c.useW and (lvl == c.wv1 or lvl == c.wv2 or lvl == c.wv3 or lvl == c.wv4)
+srChkD(SRCtx c, float lvl) => c.useD and (lvl == c.dv1 or lvl == c.dv2 or lvl == c.dv3 or lvl == c.dv4)
+
+// Which timeframe did the winning level come from. This is the point of the whole
+// TF split: a stop on a WEEKLY level is a deeper distal, a wider stop and a SMALLER
+// position. Reading a stop without its level's weight is how a position is mis-sized.
+export srTfTag(SRCtx c, float lvl) =>
+    string t = ""
+    if not na(lvl)
+        if c.tlsLive and lvl == c.tlsNow
+            t := c.tlsTf
+        else if c.tlrLive and lvl == c.tlrNow
+            t := c.tlrTf
+        else
+            bool isM = srChkM(c, lvl) or (not na(c.srM) and c.useM and c.showM and not c.manM and (c.srM.a1 == lvl or c.srM.a2 == lvl or c.srM.b1 == lvl or c.srM.b2 == lvl))
+            bool isW = srChkW(c, lvl) or (not na(c.srW) and c.useW and c.showW and not c.manW and (c.srW.a1 == lvl or c.srW.a2 == lvl or c.srW.b1 == lvl or c.srW.b2 == lvl))
+            t := isM ? "M" : isW ? "W" : "D"
+    t
+
+export srIsMan(SRCtx c, float lvl) =>
+    not na(lvl) and ((c.tlsLive and lvl == c.tlsNow) or (c.tlrLive and lvl == c.tlrNow) or srChkM(c, lvl) or srChkW(c, lvl) or srChkD(c, lvl))
+
+// A stop under a rising trendline behaves differently from one under a horizontal
+// shelf - it moves - so the panel says which it is.
+export srIsTl(SRCtx c, float lvl) =>
+    not na(lvl) and ((c.tlsLive and lvl == c.tlsNow) or (c.tlrLive and lvl == c.tlrNow))
+
+export srTxt(SRCtx c, float lvl) =>
+    na(lvl) ? "—" : str.tostring(lvl, format.mintick) + " ·" + srTfTag(c, lvl) + (srIsTl(c, lvl) ? "·TL" : srIsMan(c, lvl) ? "·man" : "")
+
+// THE COIL SCAN picks up exactly what the pickers throw away. A level graded MTTWR
+// is excluded from support/resistance because it is spent - but "spent as a floor"
+// and "about to break" are the same state seen from two sides, and the grade's own
+// wording is "now a breakout candidate". An over-tested level ABOVE is a breakout
+// watch, one BELOW a breakdown watch. This is an ARM state and never creates a GO.
+srMttwrNear(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, bool wantAbove) =>
+    float r = acc
+    if c.dSr and tfOk and tfShow and not hasMan and not na(s)
+        r := s.a1t >= c.mttwr ? (wantAbove ? srAbovePick(r, s.a1) : srBelowPick(r, s.a1)) : r
+        r := s.a2t >= c.mttwr ? (wantAbove ? srAbovePick(r, s.a2) : srBelowPick(r, s.a2)) : r
+        r := s.b1t >= c.mttwr ? (wantAbove ? srAbovePick(r, s.b1) : srBelowPick(r, s.b1)) : r
+        r := s.b2t >= c.mttwr ? (wantAbove ? srAbovePick(r, s.b2) : srBelowPick(r, s.b2)) : r
+    r
+
+export coilLevels(SRCtx c) =>
+    float up = na
+    up := srMttwrNear(c, up, c.srM, c.useM, c.showM, c.manM, true)
+    up := srMttwrNear(c, up, c.srW, c.useW, c.showW, c.manW, true)
+    up := srMttwrNear(c, up, c.srD, c.useD, c.showD, c.manD, true)
+    float dn = na
+    dn := srMttwrNear(c, dn, c.srM, c.useM, c.showM, c.manM, false)
+    dn := srMttwrNear(c, dn, c.srW, c.useW, c.showW, c.manW, false)
+    dn := srMttwrNear(c, dn, c.srD, c.useD, c.showD, c.manD, false)
+    [up, dn]
+
 // ── buildLabel ───────────────────────────────────────────────────────────────
 // Moved out of Section 4 on 18-Aug-2026 to reclaim compiled-token budget: S4 hit
 // 100,351 against the 100,256 ceiling and Jay's instruction was "do not remove
