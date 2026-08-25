@@ -1018,7 +1018,8 @@ export rrgInfo(float v, float m, float vt, float mt) =>
 f_rrgFence(simple string s) =>
     "," + str.replace_all(str.upper(s), " ", "") + ","
 
-export strikeRrg(simple string lead, simple string impr, simple string weak,
+// lead / impr / weak relaxed to `string` -- see pathResolve above.
+export strikeRrg(string lead, string impr, string weak,
                  color cOk, color cWarn, color cNo, color cDim) =>
     // THREE lists, LAGGING INFERRED (Jay, 10-Aug). An RRG has exactly four quadrants, so
     // a name that is not Leading, Improving or Weakening is Lagging by elimination — there
@@ -1234,9 +1235,12 @@ export avwapIntradayTrigger(float nearest_sup, float avwap_low, float avwap_bo, 
 // stage_skip is Stage 3/4: a fact about the chart, applied even under a MANUAL
 // mode override, which is why it is resolved here and not inside a mode branch.
 // ---------------------------------------------------------------------------
+// gm_rec_list / gm_pb_list relaxed from `simple string` to `string` (25-Aug-2026):
+// they now arrive from bundleSection, whose return Pine treats as series. Free --
+// str.replace_all / str.contains both accept series, and this already ran per bar.
 export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recovery, float dd60,
-     simple float rec_dd_min, simple float rec_dd_max, simple string gm_rec_list,
-     simple string gm_pb_list, float d_bel200, simple string mode) =>
+     simple float rec_dd_min, simple float rec_dd_max, string gm_rec_list,
+     string gm_pb_list, float d_bel200, simple string mode) =>
     bool stage_skip = stage_gate and stage_n >= 3
     bool rec_dd  = use_dd_recovery and not na(dd60) and dd60 >= rec_dd_min and dd60 <= rec_dd_max
     string _gmL = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_rec_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
@@ -1268,7 +1272,8 @@ export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recov
 // GM has not scored it, which is a different statement from "scored it and it failed"
 // - the caller must render those differently or it will read an unlisted name as a
 // fundamental rejection. This is the same rule etf_inav.premium_for follows.
-export fundScore(simple string listStr, simple string sym) =>
+// listStr relaxed to `string` for the same reason -- see pathResolve above.
+export fundScore(string listStr, simple string sym) =>
     string _l = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(listStr), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
     float _out = na
     if str.length(_l) > 0
@@ -1594,6 +1599,37 @@ export coilLevels(SRCtx c) =>
     dn := srMttwrNear(c, dn, c.srW, c.useW, c.showW, c.manW, false)
     dn := srMttwrNear(c, dn, c.srD, c.useD, c.showD, c.manD, false)
     [up, dn]
+
+// ── bundleSection ────────────────────────────────────────────────────────────
+// ONE PASTE FOR THE WHOLE HANDOFF (Jay, 25-Aug-2026: "combine all five paste lists
+// into one block").
+//
+// The Golden Matcher had grown five separate things to copy after every board
+// rebuild -- Recovery, Pullback, Strike RRG, BFF/RFF and the board rank. That is not
+// a convenience problem, it is a correctness one: a MISSED paste does not blank the
+// field, it leaves the PREVIOUS list in place, so S4 keeps confidently applying last
+// week's answer to this week's board. Five chances to forget, and each failure is
+// silent.
+//
+// FORMAT  one line, pipe-separated, TAG=value:
+//     REC=TECHM,CIPLA|PB=RELIANCE|RRGL=MCX|RRGI=|RRGW=|BFF=MCX:5|RFF=LTM:6|RANK=MCX:71.0
+// An EMPTY section (TAG= with nothing after it) is meaningful and must round-trip as
+// an empty string: it says the GM has that category and it is empty, which is what
+// clears a stale list. A MISSING tag returns "" as well -- both mean "nothing here",
+// and the caller cannot act differently on the two anyway.
+//
+// Whitespace and case are tolerated on the TAG, not on the payload: symbols are
+// normalised downstream by the readers that already do it (pathResolve, fundScore).
+export bundleSection(string bundle, simple string tag) =>
+    string out = ""
+    if str.length(bundle) > 0
+        string hay = "|" + str.replace_all(bundle, " |", "|") + "|"
+        int at = str.pos(hay, "|" + tag + "=")
+        if not na(at)
+            int frm = at + str.length(tag) + 2
+            int end = str.pos(str.substring(hay, frm), "|")
+            out := na(end) ? str.substring(hay, frm) : str.substring(hay, frm, frm + end)
+    out
 
 // ── buildLabel ───────────────────────────────────────────────────────────────
 // Moved out of Section 4 on 18-Aug-2026 to reclaim compiled-token budget: S4 hit

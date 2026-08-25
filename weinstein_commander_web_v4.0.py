@@ -13271,6 +13271,28 @@ elif page == 'GOLDEN MATCHER':
                             + (f" · TF **{_btf}**" if _btf else "") + _srcmix
                             + " · RRG persists") if _stamp
                            else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
+                # ── THE ONE-PASTE BUNDLE (25-Aug-2026) ──────────────────────────
+                # Five separate pastes was a CORRECTNESS problem, not a convenience
+                # one: a missed paste does not blank the field in S4, it leaves the
+                # PREVIOUS list in place, so the chart goes on applying last week's
+                # answer to this week's board and nothing announces it. Five chances
+                # to forget, each silent. This is one.
+                # The five individual blocks below are KEPT: they are how you override
+                # a single list by hand, and a hand-typed S4 input wins over the bundle
+                # for its own field.
+                try:
+                    _s4bundle = _gtb.s4_bundle(_uni, tf=_trig_tf)
+                except Exception as e:
+                    _s4bundle = ""
+                    _gm_logger.warning(f"s4_bundle failed: {e}")
+                if _s4bundle:
+                    st.caption("📋 **ONE-PASTE bundle** — paste this single line into S4's "
+                               "*GM: ONE-PASTE bundle* input and every list below is fed from "
+                               "it. Every section is emitted even when empty, which is what "
+                               "CLEARS a stale list in S4 — the individual blocks below are "
+                               "still there for overriding one list by hand.")
+                    st.code(_s4bundle, language=None)
+
                 # ── S4 "Auto: GM Recovery list" (2-Aug-2026) — S4 cannot infer the GM's
                 # Bull-vs-Recovery answer (it is inherited from the qualifying screen on
                 # RFF fundamentals, which price structure does not contain), so the GM

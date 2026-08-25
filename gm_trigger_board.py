@@ -1999,6 +1999,63 @@ def s4_fund_lists(tf: str = None) -> dict:
     return out
 
 
+def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
+    """EVERY handoff as ONE line, for S4's single "GM: ONE-PASTE bundle" input.
+
+    WHY (Jay, 25-Aug-2026: "combine all five paste lists into one block"). The page
+    had grown five things to copy after every rebuild. That is a CORRECTNESS problem
+    rather than a convenience one: a missed paste does not blank the field in S4, it
+    leaves the PREVIOUS list sitting there -- so the chart goes on applying last
+    week's answer to this week's board, and nothing announces it. Five chances to
+    forget, each one silent. One field is one chance.
+
+    FORMAT  pipe-separated TAG=value, single line:
+        REC=..|PB=..|RRGL=..|RRGI=..|RRGW=..|BFF=..|RFF=..|RANK=..
+
+    EVERY tag is emitted even when its list is empty, and that is the point: an
+    empty section CLEARS the corresponding input in S4. Omitting the tag would leave
+    whatever was there before, which is the exact failure this replaces.
+
+    Never raises; a section that cannot be built comes back empty rather than
+    taking the page down with it.
+    """
+    def _safe(fn, *a, **k):
+        try:
+            return fn(*a, **k) or ""
+        except Exception as e:
+            _log.warning(f"s4_bundle: {getattr(fn, '__name__', fn)} failed: {e}")
+            return ""
+
+    try:
+        uni = uni if uni is not None else load_watchlist_union()
+    except Exception as e:
+        _log.warning(f"s4_bundle: union unavailable: {e}")
+        uni = {}
+
+    rrg = _safe(s4_rrg_lists, uni) or {}
+    if not isinstance(rrg, dict):
+        rrg = {}
+    fund = _safe(s4_fund_lists, tf=tf) or {}
+    if not isinstance(fund, dict):
+        fund = {}
+
+    parts = [
+        ("REC",  _safe(s4_recovery_list, uni)),
+        ("PB",   _safe(s4_pullback_list, uni)),
+        ("RRGL", rrg.get("Leading", "")),
+        ("RRGI", rrg.get("Improving", "")),
+        ("RRGW", rrg.get("Weakening", "")),
+        ("BFF",  fund.get("BFF", "")),
+        ("RFF",  fund.get("RFF", "")),
+        ("RANK", fund.get("RANK", "")),
+    ]
+    # A pipe inside a payload would split the bundle at the wrong place. Nothing
+    # upstream can produce one today (symbols and SYM:n pairs), but a stray pipe
+    # would corrupt EVERY later section rather than just its own, so it is removed
+    # here rather than trusted not to appear.
+    return "|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts)
+
+
 def s4_pullback_list(uni: dict | None = None) -> str:
     """The GM's PULLBACK-vs-BREAKOUT answer, for S4's "Auto: GM Pullback list" input.
 
