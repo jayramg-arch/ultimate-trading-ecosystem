@@ -1604,6 +1604,24 @@ int  _mvOf = _mvBound ? 8 : 7
 // GM FUNDAMENTAL SCORES (item #3). Global scope on purpose - anything computed
 // inside `if barstate.islast` evaluates on the last bar only, which is how the
 // v5.9 chop counter came to be garbage. na = the GM has not scored this symbol.
+// MOVED UP (25-Aug-2026): this block sat beside pathResolve at ~2990, but the
+// fundamental scores below consume _gmBff / _gmRff / _gmRank and are declared
+// ~1,380 lines EARLIER, so all three were undeclared identifiers at compile.
+// It only depends on the gm_* inputs and core.bundleSection, both of which are
+// available here, so the right home is above the first consumer rather than
+// beside the last one.
+// BUNDLE RESOLUTION. A hand-typed input WINS over the bundle for its own field --
+// the escape hatch for overriding one list without rebuilding the whole line. The
+// bundle is the default, not the authority.
+f_gmPick(simple string manual, simple string tag) => str.length(manual) > 0 ? manual : core.bundleSection(gm_bundle, tag)
+string _gmRec  = f_gmPick(gm_rec_list,     "REC")
+string _gmPb   = f_gmPick(gm_pb_list,      "PB")
+string _gmBff  = f_gmPick(gm_bff_list,     "BFF")
+string _gmRff  = f_gmPick(gm_rff_list,     "RFF")
+string _gmRank = f_gmPick(gm_rank_list,    "RANK")
+string _gmRgL  = f_gmPick(gm_rrg_lead_in,  "RRGL")
+string _gmRgI  = f_gmPick(gm_rrg_impr_in,  "RRGI")
+string _gmRgW  = f_gmPick(gm_rrg_weak_in,  "RRGW")
 float _bffV = core.fundScore(_gmBff, syminfo.ticker)
 float _rffV = core.fundScore(_gmRff, syminfo.ticker)
 float _rnkV = core.fundScore(_gmRank, syminfo.ticker)
@@ -2983,18 +3001,6 @@ else
 // loses its type through a tuple), or when passed to core.*/ta.*/request.*,
 // which want `simple` — a function return is always `series`.
 // f_fold2949 MOVED to S4Core.pathResolve (pure; reads became parameters).
-// BUNDLE RESOLUTION. A hand-typed input WINS over the bundle for its own field --
-// the escape hatch for overriding one list without rebuilding the whole line. The
-// bundle is the default, not the authority.
-f_gmPick(simple string manual, simple string tag) => str.length(manual) > 0 ? manual : core.bundleSection(gm_bundle, tag)
-string _gmRec  = f_gmPick(gm_rec_list,     "REC")
-string _gmPb   = f_gmPick(gm_pb_list,      "PB")
-string _gmBff  = f_gmPick(gm_bff_list,     "BFF")
-string _gmRff  = f_gmPick(gm_rff_list,     "RFF")
-string _gmRank = f_gmPick(gm_rank_list,    "RANK")
-string _gmRgL  = f_gmPick(gm_rrg_lead_in,  "RRGL")
-string _gmRgI  = f_gmPick(gm_rrg_impr_in,  "RRGI")
-string _gmRgW  = f_gmPick(gm_rrg_weak_in,  "RRGW")
 [stage_skip, gm_rec, gm_pb, is_rec] = core.pathResolve(stage_gate, stage_n, use_dd_recovery, dd60, rec_dd_min, rec_dd_max, _gmRec, _gmPb, d_bel200, mode)
 // Combo detection needs the resolved Bull/Recovery path, so the CALL lives here
 // while the function itself sits with the k* flags it reads.

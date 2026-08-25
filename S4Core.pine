@@ -1015,7 +1015,12 @@ export rrgInfo(float v, float m, float vt, float mt) =>
 // Comma-fence a pasted list so a whole-symbol match cannot hit a substring
 // (",SAIL," must not match inside ",SAILIFE,"). Library-scope, not nested inside
 // strikeRrg — Pine forbids declaring a function inside a function body.
-f_rrgFence(simple string s) =>
+// `s` must be plain `string`, NOT `simple` (25-Aug-2026). Relaxing strikeRrg's own
+// three parameters was not enough: they are passed straight into this helper, and a
+// simple-qualified helper forces its CALLER's parameters back to simple. That is why
+// v22 still rejected a series argument from the bundle even though the export line
+// looked right - the constraint propagates inward from wherever it is declared.
+f_rrgFence(string s) =>
     "," + str.replace_all(str.upper(s), " ", "") + ","
 
 // lead / impr / weak relaxed to `string` -- see pathResolve above.
