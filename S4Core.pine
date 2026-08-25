@@ -1248,6 +1248,40 @@ export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recov
     bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
     [stage_skip, gm_rec, gm_pb, is_rec]
 
+// ── fundScore ────────────────────────────────────────────────────────────────
+// THE GM's FUNDAMENTAL VERDICT, CARRIED INTO S4 (25-Aug-2026, Jay: "BFF/RFF scores
+// are still not brought in from GM to S4").
+//
+// Pine cannot compute either number. RFF needs six fundamental fields and Tier-B
+// growth history; TradingView caps request.financial() at five calls per script and
+// the Capitulation Screener already spends that budget on a two-check "RFF Lite".
+// BFF needs screener.in's compounded-growth table, which no Pine surface can reach.
+// So S4 does not derive these - it is TOLD, exactly as it is told the Recovery and
+// Pullback paths by gm_rec_list / gm_pb_list.
+//
+// FORMAT  "SYM:n" pairs, comma separated:   RELIANCE:5, TECHM:7, CIPLA:4
+// Separators, spaces, newlines and NSE: prefixes are all tolerated, matching is
+// case-insensitive - the same normalisation pathResolve does, for the same reason:
+// this is pasted by hand from the GM and must not fail on formatting.
+//
+// Returns na when the symbol is ABSENT, and na is NOT zero. A missing name means the
+// GM has not scored it, which is a different statement from "scored it and it failed"
+// - the caller must render those differently or it will read an unlisted name as a
+// fundamental rejection. This is the same rule etf_inav.premium_for follows.
+export fundScore(simple string listStr, simple string sym) =>
+    string _l = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(listStr), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
+    float _out = na
+    if str.length(_l) > 0
+        string _hay = "," + _l + ","
+        string _key = "," + str.upper(sym) + ":"
+        int _at = str.pos(_hay, _key)
+        if not na(_at)
+            int _from = _at + str.length(_key)
+            int _end  = str.pos(str.substring(_hay, _from), ",")
+            if not na(_end)
+                _out := str.tonumber(str.substring(_hay, _from, _from + _end))
+    _out
+
 // ── buildLabel ───────────────────────────────────────────────────────────────
 // Moved out of Section 4 on 18-Aug-2026 to reclaim compiled-token budget: S4 hit
 // 100,351 against the 100,256 ceiling and Jay's instruction was "do not remove

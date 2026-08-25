@@ -43,11 +43,11 @@ tick_size   = input.float(0.10, "Price Tick Size", step=0.05, group=grp_trade, t
 grp_dhan = "Dhan GTT 2-OCO Execution Settings"
 auto_trail_jump   = input.bool(true, "Trail Jump = catalyst-aware (recommended)", group=grp_dhan, tooltip="ON: the Dhan Trail Jump uses the SAME catalyst-aware multiplier as the Chandelier — POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5 xATR, +0.5 in a weak tape.")
 atr_trail_mult    = input.float(1.5, "Trail Jump ATR Multiple (manual override)", minval=0.1, step=0.1, group=grp_dhan, tooltip="Only used when catalyst-aware toggle is OFF.")
-dhan_split_mode   = input.string("50/50 Split (OCO-1 & OCO-2)", "Dhan GTT Split Mode", options=["50/50 Split (OCO-1 & OCO-2)", "Strategy Default (3-Leg Scale-Out)"], group=grp_dhan, tooltip="50/50 Split: Standard Dhan 2-OCO GTT execution. OCO-1 (50%) at Static T1, OCO-2 (50%) at Static T2.")
+dhan_split_mode   = input.string("50/50 Split (OCO-1 & OCO-2)", "Dhan GTT Split Mode", options=["50/50 Split (OCO-1 & OCO-2)", "Strategy Default (3-Leg Scale-Out)"], group=grp_dhan, tooltip="50/50 Split: Dhan 2-OCO GTT execution - OCO-1 (50%) at T1, OCO-2 (50%) at T2.\n\nREAD THIS BEFORE LEAVING IT ON A POSITIONAL TRADE. Two legs at 50% cover the WHOLE position, so there is NO untargeted runner - and 88% of positional trades exit on the trail, not on a target. It also changes the payoff: T1 pays on half the shares while the stop costs on all of them, which makes a 2R first target roughly 1:1 in practice, not 2:1.\n\nKept as the DEFAULT because it is a broker constraint, not a preference - Dhan OCO legs cover the position - but the panel now says when the active split departs from house policy so it is a choice you make rather than one you inherit.")
 
 grp_legs = "Scale-Out Split (3-leg)"
-t2_exit_pct = input.int(25, "T2 exit %", minval=0, maxval=100, group=grp_legs, tooltip="Share % to exit at T2.")
-t3_exit_pct = input.int(25, "T3 exit %", minval=0, maxval=100, group=grp_legs, tooltip="Share % to exit at T3 (the stretch runner target).")
+t2_exit_pct = input.int(0, "T2 exit %  (0 = house canon)", minval=0, maxval=100, group=grp_legs, tooltip="0 (default) uses the SAME split Risk Shield and the backtester use - bull_screener.partial_qty_for: POS/WYC/REV 25 · SWG-GAP/SWG-REV 50 · SWG 33. A non-zero value OVERRIDES it for every catalyst, which is what the old flat 25 did silently.")
+t3_exit_pct = input.int(0, "T3 exit %  (0 = house canon: no third leg)", minval=0, maxval=100, group=grp_legs, tooltip="DEFAULT CHANGED 25 -> 0 (25-Aug-2026). There is no T3 in the house policy: it is two target legs and a RUNNER. A 25% third leg cut the untargeted runner from 50% to 25% - and only three orders reach the broker anyway, so the fourth leg was a chart-only number that still shrank the position that rides the trail. Set it deliberately if you want a stretch target; it is no longer on by default.")
 
 // Round click-placed prices to nearest tick
 float entry_p = tick_size > 0 ? math.round(entry_p_raw / tick_size) * tick_size : entry_p_raw
@@ -176,7 +176,14 @@ string manual_fam = str.startswith(catalyst, "POS") ? "POS" : str.startswith(cat
 
 bool   use_auto = auto_detect_catalyst and auto_cat != "NONE"
 string cat_fam  = use_auto ? auto_cat : manual_fam
-string cat_src  = use_auto ? "AUTO" : "MAN"
+// "AUTO" USED TO MEAN TWO DIFFERENT THINGS (25-Aug-2026, item #11 - the guide already
+// recorded this: "a payload can reach the order tooling stamped AUTO for a name where
+// nothing was detected, so the label travels downstream with the same ambiguity it has
+// on the panel"). When auto_cat_raw is NONE the ladder above still assigns a family from
+// CONTEXT (is_positional / is_swing) - a reasonable default, but not a detection, and it
+// was reported identically to a real one. Now: AUTO = a catalyst was detected, CTX = no
+// catalyst fired and the family came from trade context. MAN = you set it.
+string cat_src  = use_auto ? (auto_cat_raw == "NONE" ? "CTX" : "AUTO") : "MAN"
 
 // ============================================================================
 // 6. TRAIL MODE & TRAIL JUMP (Dhan ATR Step Calculation)
@@ -215,7 +222,20 @@ float m_dist = (m_entry > 0 and m_stop > 0) ? math.abs(m_entry - m_stop) : 0.0
 float t1_r_canon = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 3.0 : 2.0
 float t2_r_canon = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 5.0 : 4.0
 float t3_r_canon = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 8.0 : 6.0   // runner leg, above T2
-int t1_qty_pct = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 25 : cat_fam == "SWG" ? 33 : 50
+// LEG QUANTITIES = bull_screener.partial_qty_for, mirrored exactly (25-Aug-2026,
+// Jay #10: "update the settings ... in line with what has been set in Risk Shield").
+//   POS / WYC / REV   25 / 25  -> HALF the position rides the trail uncapped. That
+//                                split is not a preference: 88% of positional trades
+//                                exit on the trail and essentially none on a target,
+//                                so the untargeted half is where the book's return is.
+//   SWG-GAP / SWG-REV 50 / 50  -> gaps fade and mean-reversion round-trips; take it off.
+//   SWG (BO / PB)     33 / 33
+// T2 was a flat input default of 25 for every catalyst, so a swing trade got positional
+// quantities against swing R-multiples - the same paired-fallback defect partial_qty_for
+// was hoisted to fix on the Python side. The inputs are now OVERRIDES: 0 = use the canon.
+int t1_qty_pct = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 25 : (cat_fam == "SWG-GAP" or cat_fam == "SWG-REV") ? 50 : cat_fam == "SWG" ? 33 : (is_positional ? 25 : 33)
+int t2_qty_canon = (cat_fam == "POS" or cat_fam == "WYC" or cat_fam == "REV") ? 25 : (cat_fam == "SWG-GAP" or cat_fam == "SWG-REV") ? 50 : cat_fam == "SWG" ? 33 : (is_positional ? 25 : 33)
+int t2_qty_pct = t2_exit_pct > 0 ? t2_exit_pct : t2_qty_canon
 
 bool  t1_manual = tp_p > 0
 float m_t1_raw = t1_manual ? tp_p : ref_px + (m_dist * t1_r_canon)
@@ -263,9 +283,9 @@ float q_dhan_oco1 = math.floor(m_final_qty * 0.5)
 float q_dhan_oco2 = math.max(0, m_final_qty - q_dhan_oco1)
 
 // --- Standard 3-Leg Quantities ---
-int run_pct = math.max(0, 100 - t1_qty_pct - t2_exit_pct - t3_exit_pct)
+int run_pct = math.max(0, 100 - t1_qty_pct - t2_qty_pct - t3_exit_pct)
 float q_t1  = math.floor(m_final_qty * t1_qty_pct / 100.0)
-float q_t2  = math.floor(m_final_qty * t2_exit_pct / 100.0)
+float q_t2  = math.floor(m_final_qty * t2_qty_pct / 100.0)
 float q_t3  = math.floor(m_final_qty * t3_exit_pct / 100.0)
 float q_run = math.max(0, m_final_qty - q_t1 - q_t2 - q_t3)
 
@@ -278,6 +298,14 @@ float active_q2 = is_dhan_5050 ? q_dhan_oco2 : q_t2
 // ============================================================================
 float m_overhead_res = math.min(d_high52, close < d_200 ? d_200 : d_high52)
 bool  is_t1_blocked  = m_t1 > m_overhead_res
+// STALE-PRICE GUARD (25-Aug-2026, item #11). The guide names this as the trap:
+// "switch symbols and the previous name's entry, stop and target are still loaded,
+// quietly sizing a completely different trade." Inputs do not follow the symbol and
+// Pine cannot clear them, so the next best thing is to NOTICE. A clicked entry three
+// times away from the current price in either direction is not a plan for this chart.
+// Deliberately loose - it must never fire on a legitimate wide stop, only on the
+// order-of-magnitude mismatch that a symbol switch produces.
+bool  is_px_stale = entry_p > 0 and close > 0 and (entry_p > close * 3 or entry_p < close / 3)
 
 // ============================================================================
 // 11. ALLOCATOR TABLE (Restored Dhan 50/50 Static 2-OCO Execution Assistant)
@@ -326,7 +354,7 @@ if barstate.islast and show_alloc_table and m_entry > 0
 
     // Trade Validation & Resistance
     table.cell(tbl_alloc, 0, 10, "Trade Validation", text_color=color.white, text_size=size.small, text_halign=text.align_right)
-    table.cell(tbl_alloc, 1, 10, is_t1_blocked ? "⚠️ T1 > Overhead Res (" + str.tostring(m_overhead_res, "0.00") + ")" : "✅ Clear Room to T1", text_color=is_t1_blocked ? color.orange : color.green, text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl_alloc, 1, 10, is_px_stale ? "⛔ PRICES LOOK LIKE ANOTHER SYMBOL - re-click entry/SL" : is_t1_blocked ? "⚠️ T1 > Overhead Res (" + str.tostring(m_overhead_res, "0.00") + ")" : "✅ Clear Room to T1", text_color=is_px_stale ? color.red : is_t1_blocked ? color.orange : color.green, text_size=size.small, text_halign=text.align_left)
 
     // RRG detail
     color quad_col = rs_quadrant == "LEADING" ? color.lime : rs_quadrant == "IMPROVING" ? color.aqua : rs_quadrant == "WEAKENING" ? color.yellow : color.red
@@ -382,7 +410,7 @@ if barstate.islast and show_lines and m_entry > 0 and m_stop > 0
 // ============================================================================
 // 13. ALERTS — Telegram Notes & Structured Dhan GTT 2-OCO JSON Export
 // ============================================================================
-string val_txt = is_t1_blocked ? "! T1 > Res " + str.tostring(m_overhead_res, "0.00") : "Clear"
+string val_txt = is_px_stale ? "! STALE PRICES - re-click" : is_t1_blocked ? "! T1 > Res " + str.tostring(m_overhead_res, "0.00") : "Clear"
 string rrg_txt = rs_quadrant + " RS:" + str.tostring(rsVal500, "0.00") + " mom:" + str.tostring(rs_momentum, "0.00")
 string cat_txt = cat_src + " " + cat_fam + " | St" + str.tostring(stage)
 

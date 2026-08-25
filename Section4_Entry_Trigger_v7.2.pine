@@ -1005,7 +1005,7 @@ require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)
 // One average, one answer.
 //
 // An INPUT defaulting ON, so it can be turned off and A/B'd like every other gate.
-en_ema_gate = input.bool(true, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
+en_ema_gate = input.bool(false, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="DEFAULT OFF (25-Aug-2026, Jay). Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
 // OVER-EXTENSION BANDS (24-Aug-2026, Jay: "I'm often coming across trades, whose
@@ -1573,7 +1573,41 @@ f_daily_ema(int len) =>
 // checking whether the value already existed further down the file. It did.
 // Each request.security is its own data stream, so a merge is a real saving and
 // not a cosmetic one.
-[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50, d_ath, d_sl50n] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5]], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
+// MINERVINI TREND TEMPLATE inputs appended here rather than in a new security call
+// (25-Aug-2026, Jay). Extra elements on an EXISTING request.security tuple are far
+// cheaper than a second stream, and this bundle already carries the 50-SMA and its
+// slope - sma150, sma200, the 200's one-month slope and the 52-week low complete the
+// eight-point checklist without a new call.
+[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50, d_ath, d_sl50n, daily_sma150, daily_sma200, d_s200sl, d_low52] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5], ta.sma(close, 150), ta.sma(close, 200), ta.sma(close, 200) - ta.sma(close, 200)[21], ta.lowest(low, 252)], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
+// ── MINERVINI TREND TEMPLATE (25-Aug-2026, Jay: "Add Minervini trend Template") ──
+// The eight-point SEPA stage-2 checklist, scored as a count so a name that misses one
+// leg is distinguishable from one that misses five. It GRADES - it is not a gate and it
+// never touches the GO decision. v67 carries a `minervini_trend` boolean but that is only
+// the MA stack (close > 50 > 150 > 200); binding it would have cost a v67 plot slot and a
+// re-bind to import HALF the template, so the full eight are computed here from the daily
+// bundle above instead.
+//   1 close > 150-SMA and > 200-SMA      5 close > 50-SMA
+//   2 150-SMA > 200-SMA                  6 close >= 30% above the 52-week low
+//   3 200-SMA rising (one month)         7 close within 25% of the 52-week high
+//   4 50-SMA > 150 and > 200             8 relative strength leading the index
+// Criterion 8 is the one approximation: Minervini uses an IBD RS RANK (a percentile
+// against the whole market) and Pine cannot compute a cross-sectional rank. The nearest
+// honest local proxy is v67's RS-Ratio vs the Nifty 500 - above 100 is outperforming the
+// index. When v67 is NOT BOUND that criterion is UNKNOWN, so it is dropped from the
+// denominator rather than scored as a failure: /7 with a tilde, never a silent /8 miss.
+// Global scope by construction - the v5.9 lesson was that ta.* and running state inside
+// `if barstate.islast` compute on the last bar only and silently return garbage.
+bool _mvBound = dashRsRatio != close
+bool _mv1 = close > daily_sma150 and close > daily_sma200
+bool _mv2 = daily_sma150 > daily_sma200
+bool _mv3 = d_s200sl > 0
+bool _mv4 = daily_sma50 > daily_sma150 and daily_sma50 > daily_sma200
+bool _mv5 = close > daily_sma50
+bool _mv6 = d_low52 > 0 and close >= d_low52 * 1.30
+bool _mv7 = d_ath > 0 and close >= d_ath * 0.75
+bool _mv8 = _mvBound and dashRsRatio > 100.0
+int  _mvN = (_mv1?1:0) + (_mv2?1:0) + (_mv3?1:0) + (_mv4?1:0) + (_mv5?1:0) + (_mv6?1:0) + (_mv7?1:0) + (_mv8?1:0)
+int  _mvOf = _mvBound ? 8 : 7
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
@@ -4033,7 +4067,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : "weak/red bar") + "   P" + (any_pa_v?"✓":"·") + " L" + (support_v?"✓":"·") + " V" + (vol_ok_v?"✓":"·") + " B" + (bar_ok_v?"✓":"·") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "✓" : "·") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : "weak/red bar") + "   P" + (any_pa_v?"🟢":"⚪") + " L" + (support_v?"🟢":"⚪") + " V" + (vol_ok_v?"🟢":"⚪") + " B" + (bar_ok_v?"🟢":"⚪") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
@@ -4654,15 +4688,32 @@ if show_panel and d_panel and barstate.islast
     bool _lzAv   = d_avwap and near_avwap[_so]
     bool _lzEma  = near_ema[_so]
     bool _lzSr   = near_sr[_so]
-    string _locVerb = "Zone " + (_lzZone ? "✓" : "·") + "   D/W-lvl " + (_lzLvl ? "✓" : "·") + "   AVWAP " + (_lzAv ? "✓" : "·") + "   EMA20 " + (_lzEma ? "✓" : "·") + "   S/R " + (_lzSr ? "✓" : "·")
+    // #dots (25-Aug-2026, Jay: "a Green Dot against tickmarks and grey dot against
+    // dots"). A Pine table cell carries ONE text colour, so a checkmark and a dot in
+    // the same cell read as the same colour and the eye has to parse the glyph. A
+    // coloured emoji carries its own colour THROUGH the cell, which is the only way to
+    // get per-field status colour inside a single cell. Same ternary count as the
+    // glyph version - the literals changed, nothing was added - so this costs nothing.
+    string _locVerb = "Zone " + (_lzZone ? "🟢" : "⚪") + "   D/W-lvl " + (_lzLvl ? "🟢" : "⚪") + "   AVWAP " + (_lzAv ? "🟢" : "⚪") + "   EMA20 " + (_lzEma ? "🟢" : "⚪") + "   S/R " + (_lzSr ? "🟢" : "⚪")
     string _locTxt  = (support_v ? "AT LOCATION" : "NOT AT LOCATION") + "   —   " + _locVerb
     color  _locCol  = support_v ? C_OK : C_WARN
     f_row(17, "Location (L)", _locTxt, _locCol)
 
     // --- Confluence breakdown: WHICH ones fired, not just how many. A bare score
     // is its own kind of black box — this is the row that replaces eyeballing.
-    string cfb = (ev_ok[_so] ? "AVWAP " : "") + (show_intraday and intra_ok[_so] ? "Intra " : "") + (z_inDZ_fvg[_so] ? "⚡ " : "") + (z_inDZ_ctrl[_so] ? "Ctrl " : "") + (near_sr[_so] ? "S/R " : "") + (tl_extra[_so] ? "TL " : "") + (bullFlag[_so] ? "Flag " : "") + (near_ema[_so] ? "EMA20 " : "") + (near_avwap[_so] ? "@AVWAP-" + nearest_sup_lbl[_so] + " " : "") + (near_fib[_so] ? "Fib " : "") + (pinched[_so] ? "Pinch " : "") + (chart_rv[_so] >= cf_rv_strong ? "RV+ " : "") + (near_round[_so] ? "Rnd " + str.tostring(rn_lvl[_so], format.mintick) + " " : "") + (daily_pa_agrees[_so] ? "D-PA " : "") + (show_arrival and arr_fav[_so] ? "Arrival " : "") + (show_arrival and _so_of_absorb ? "Δ+ " : "") + (_so_dzTfN >= 2 ? "MTF×" + str.tostring(_so_dzTfN) : "")
-    f_row(32, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : str.length(cfb) == 0 ? "—" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? C_GO : cf_v > 0 ? C_OK : color.gray)
+    // #cf-all (25-Aug-2026, Jay: "let the confluence row list all the confluence
+    // points"). It listed only the terms that FIRED, so an empty-ish row was
+    // ambiguous between "nothing lined up" and "most of these are not even being
+    // measured" - and you could not see WHICH point was missing without opening the
+    // settings. Every term now prints with its own status dot.
+    //   🟢 fired and scored   ⚪ measured, did not fire   ▫ module OFF (also absent from cf_max)
+    // COSTS NOTHING EXTRA: each term was already one ternary; only the else-literal
+    // changed from "" to a grey-dotted name, and a string literal is ONE compiled
+    // token however long it is. The three ▫ terms add one nested ternary each.
+    // WCL was in the SCORE but had never been in this breakdown - the one term you
+    // could not account for by reading the row. It is listed now.
+    string cfb = (ev_ok[_so] ? "🟢AVWAP " : "⚪AVWAP ") + (show_intraday ? (intra_ok[_so] ? "🟢Intra " : "⚪Intra ") : "▫Intra ") + (z_inDZ_fvg[_so] ? "🟢⚡FVG " : "⚪⚡FVG ") + (z_inDZ_ctrl[_so] ? "🟢Ctrl " : "⚪Ctrl ") + (near_sr[_so] ? "🟢S/R " : "⚪S/R ") + (tl_extra[_so] ? "🟢TL " : "⚪TL ") + (bullFlag[_so] ? "🟢Flag " : "⚪Flag ") + (near_ema[_so] ? "🟢EMA20 " : "⚪EMA20 ") + (near_avwap[_so] ? "🟢@AVWAP-" + nearest_sup_lbl[_so] + " " : "⚪@AVWAP ") + (near_fib[_so] ? "🟢Fib " : "⚪Fib ") + (pinched[_so] ? "🟢Pinch " : "⚪Pinch ") + (chart_rv[_so] >= cf_rv_strong ? "🟢RV+ " : "⚪RV+ ") + (near_round[_so] ? "🟢Rnd " + str.tostring(rn_lvl[_so], format.mintick) + " " : "⚪Rnd ") + (daily_pa_agrees[_so] ? "🟢D-PA " : "⚪D-PA ") + (show_arrival ? (arr_fav[_so] ? "🟢Arrival " : "⚪Arrival ") : "▫Arrival ") + (show_arrival ? (_so_of_absorb ? "🟢Δ+ " : "⚪Δ+ ") : "▫Δ+ ") + (en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? "🟢WCL " : "⚪WCL ") : "▫WCL ") + (_so_dzTfN >= 2 ? "🟢MTF×" + str.tostring(_so_dzTfN) : "⚪MTF")
+    f_row(32, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? C_GO : cf_v > 0 ? C_OK : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
     // volume-delta absorption read. "— (not at a zone)" when price is in open space.
@@ -5305,10 +5356,40 @@ if show_panel and d_panel and barstate.islast
     // {-1,0,1} is therefore not-wired, and we fall back to the old proxy rather than
     // reading 517.30 as a trend state. The fallback is LABELLED (~) so a proxy reading
     // can never be mistaken for the canonical one.
-    bool _zzOkD = zzTrendD[_so] >= -1.0 and zzTrendD[_so] <= 1.0
-    bool _zzOkW = zzTrendW[_so] >= -1.0 and zzTrendW[_so] <= 1.0
-    string _dArw = _zzOkD ? f_arw(zzTrendD[_so]) : ""
-    string _wArw = _zzOkW ? f_arw(zzTrendW[_so]) : (stage_n == 2 ? "~⬆️" : "~⬇️")
+    // THE ZIGZAG'S MTF PLOTS ARE RELATIVE TO ITS CHART, NOT ABSOLUTE (25-Aug-2026,
+    // Jay: "correct the Trends, they are disagreeing with Swing zigzag"). The Zigzag
+    // resolves its own chain from the chart it is running on
+    // (Swing Zigzag v6.3:629 — mtfTF = intraday->D, D->W, W->M, M->3M; mtfTF2 = the
+    // next rung above that), so ONE plot carries a DIFFERENT timeframe per chart:
+    //
+    //   S4 chart      Zigzag native   MTF-1 plot   MTF-2 plot
+    //   75m / 125m    75m / 125m      DAILY        WEEKLY
+    //   Daily         DAILY           WEEKLY       MONTHLY
+    //   Weekly        WEEKLY          MONTHLY      3-MONTH
+    //
+    // S4 bound MTF-1 as "D" and MTF-2 as "W" and labelled them that way on every
+    // timeframe. True on intraday, WRONG on a Daily chart — there the row printed the
+    // WEEKLY trend under "D" and the MONTHLY under "W", and the same mislabelled pair
+    // was handed to core.summaryRead as the daily/weekly rungs of its alignment test.
+    // Both surfaces were reading the Zigzag correctly and disagreeing about what the
+    // number meant, which is why no formula diff would ever have found it.
+    //
+    // Remap so D and W always MEAN Daily and Weekly. On a Daily chart the Zigzag's
+    // NATIVE state already is the daily trend, so it supplies the D rung and MTF-1
+    // supplies W. A rung the chart sits at or above (Daily on a weekly chart) has no
+    // source and renders as an em-dash rather than borrowing the wrong series.
+    bool _zzOkNat = zzTrendC[_so] >= -1.0 and zzTrendC[_so] <= 1.0
+    bool _zzOkM1  = zzTrendD[_so] >= -1.0 and zzTrendD[_so] <= 1.0
+    bool _zzOkM2  = zzTrendW[_so] >= -1.0 and zzTrendW[_so] <= 1.0
+    bool _tfIntra = timeframe.isintraday
+    bool _tfDay   = timeframe.isdaily
+    bool _tfWk    = timeframe.isweekly
+    float _zzDv = _tfIntra ? zzTrendD[_so] : _tfDay ? zzTrendC[_so] : na
+    float _zzWv = _tfIntra ? zzTrendW[_so] : _tfDay ? zzTrendD[_so] : _tfWk ? zzTrendC[_so] : na
+    bool _zzOkD = _tfIntra ? _zzOkM1 : _tfDay ? _zzOkNat : false
+    bool _zzOkW = _tfIntra ? _zzOkM2 : _tfDay ? _zzOkM1 : _tfWk ? _zzOkNat : false
+    string _dArw = _zzOkD ? f_arw(_zzDv) : ""
+    string _wArw = _zzOkW ? f_arw(_zzWv) : (stage_n == 2 ? "~⬆️" : "~⬇️")
     // CHART-TF TREND FROM THE ZIGZAG (23-Aug-2026, Jay: "whether it is 1D or 75m or
     // 125m it should take the trend logic from swing zigzag, so that uniformity is
     // maintained"). Was an EMA20 proxy - close above a rising EMA20 - while D and W
@@ -5321,7 +5402,7 @@ if show_panel and d_panel and barstate.islast
     // Same unbound detection as D and W: an unwired input.source reads `close`, a
     // price, which cannot sit inside -1..1. On that path keep the proxy but TAG it
     // with a tilde, so a dropped binding is visible instead of silent.
-    bool _zzOkC  = zzTrendC[_so] >= -1.0 and zzTrendC[_so] <= 1.0
+    bool _zzOkC  = _zzOkNat
     // No EMA20 proxy fallback. An unbound source renders the same em-dash D
     // already uses, which is both cheaper and more uniform - and _tfUp stays
     // false, so ALIGNED cannot claim alignment from data it does not have.
@@ -5364,18 +5445,20 @@ if show_panel and d_panel and barstate.islast
     // did not blank the field — it DELETED it, and the row silently lost a column every
     // time a recompile dropped the bindings. Same lesson as "unknown must never read as
     // clear": an absent input has to be visible as absent.
-    // THE MTF LABELS ARE NOT FIXED (23-Aug-2026, Jay: "why are you binding just the
-    // 1D/125/75 trend from zigzag?"). The Zigzag resolves its two higher timeframes
-    // RELATIVE to the chart - intraday gives D and W, but a DAILY chart gives W and
-    // M. The columns were hardcoded "D" and "W", so on a daily chart this row called
-    // the weekly trend "D" and the monthly one "W". Mirrors the Zigzag's own ladder.
-    // LABELS ROLLED BACK to hardcoded D / W (23-Aug-2026): the timeframe-aware
-    // version cost tokens this file does not have. KNOWN WRONG on a DAILY chart,
-    // where the Zigzag's MTF-1 is WEEKLY and MTF-2 is MONTHLY - so on daily this
-    // row calls the weekly trend "D" and the monthly one "W". Restore the
-    // timeframe-aware labels once the S4Core move has freed the headroom.
-    string _trd = "  ·  Trend " + tf_suffix + _cArw + "  ·  D " + (_zzOkD ? _dArw : "—") + "  ·  W " + _wArw
-    string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  ·  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd
+    // MTF LABELS NOW TRUE (25-Aug-2026). Fixed by RE-SOURCING rather than relabelling,
+    // which is why it now fits where the 23-Aug attempt did not: see the remap above.
+    // "D" and "W" always mean Daily and Weekly, so a rung is either correct or absent.
+    // Only rungs ABOVE the chart timeframe are printed - on a Daily chart the Zigzag's
+    // native state IS the D rung, so showing both would print the same arrow twice.
+    string _trd = "  ·  Trend " + tf_suffix + _cArw + (_tfIntra ? "  ·  D " + (_zzOkD ? _dArw : "—") : "") + ((_tfIntra or _tfDay) ? "  ·  W " + _wArw : "")
+    // MINERVINI TREND TEMPLATE, appended to Structure basis rather than given its own
+    // row: it IS a structure statement, and a new panel row costs several hundred
+    // compiled tokens against a file that has repeatedly hit the ceiling. Only the
+    // FAILING legs are named - a wall of eight dots takes longer to read than the two
+    // words that actually disqualify the name. 🟢 = all eight clear.
+    string _mvMiss = (_mv1 ? "" : "⚪<150/200 ") + (_mv2 ? "" : "⚪150<200 ") + (_mv3 ? "" : "⚪200flat ") + (_mv4 ? "" : "⚪50stack ") + (_mv5 ? "" : "⚪<50 ") + (_mv6 ? "" : "⚪<30%off-low ") + (_mv7 ? "" : "⚪>25%off-high ") + ((_mvBound and not _mv8) ? "⚪RS<mkt " : "")
+    string _mvTxt = "  ·  MTT " + str.tostring(_mvN) + "/" + str.tostring(_mvOf) + (_mvBound ? "" : "~") + (_mvN >= _mvOf ? " 🟢" : "  " + _mvMiss)
+    string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  ·  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _mvTxt
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
@@ -5419,7 +5502,7 @@ if show_panel and d_panel and barstate.islast
     // compiled-token budget; the cost here is one call plus its arguments.
     if show_summary
         string _sumRaw = core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
-             zzTrendW[_so], zzTrendD[_so], _tfUp, _zzOkD, _zzOkW,
+             _zzWv, _zzDv, _tfUp, _zzOkD, _zzOkW,
              _rrgTr[_so], rsSlope > 0, dashRsSec[_so] > 0, nz(dashSecStg[_so], 0.0),
              z_inDZ[_so], z_inSZ[_so], near_sr[_so], near_avwap[_so], near_ema[_so],
              nz(ext_atr[_so], 0.0), -math.abs(nz(d_off52[_so], 0.0)), chart_rv[_so],

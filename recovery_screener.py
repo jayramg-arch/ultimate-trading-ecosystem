@@ -1650,6 +1650,34 @@ def load_candidates() -> list:
               f"{', '.join(sorted(set(skipped))[:10])}" + (" ..." if len(set(skipped)) > 10 else ""))
     if not candidates:
         print("  WARN  No Screener.in recovery CSVs found — RFF will be 0 for all stocks.")
+
+    # WYCKOFF'S OWN SUPPLY LINE (25-Aug-2026). Everything above comes from three
+    # Chartink scans built for REV-RS / REV-CB / REV-EARLY. WYC-SPRING/SOS/JAC
+    # describe an accumulation base with a phase-C/D event — a different
+    # structural signature, with no Chartink scan of its own — so detect_wyckoff()
+    # was only ever offered names that had qualified as something else, and
+    # produced ZERO signals as a result. Measured the day this was added: 5 live
+    # WYC catalysts existed on nifty500 and NONE of them was in the 64-name
+    # Chartink list. See recovery_screener_v3_wyckoff.scan_universe_for_catalysts
+    # for the full funnel.
+    #
+    # The GATES ARE UNCHANGED. These names still have to clear rff_ok + regime_ok
+    # in _screen_one exactly like every REV-* edge; this only puts them in the
+    # room. Guarded end-to-end: a failure here leaves the Chartink candidates
+    # untouched rather than emptying the screener.
+    if os.getenv("RECOVERY_WYC_SCAN", "1") not in ("0", "false", "False"):
+        try:
+            import recovery_screener_v3_wyckoff as _wyc
+            wyc_added = 0
+            for sym, cat in _wyc.scan_universe_for_catalysts():
+                if _valid_sym(sym) and sym not in seen:
+                    candidates.append((sym, cat))
+                    seen.add(sym)
+                    wyc_added += 1
+            print(f"    WYC: {wyc_added} stocks from the universe scan")
+        except Exception as e:
+            print(f"  WARN  Wyckoff universe scan failed ({e}) — Chartink candidates only")
+
     print(f"  Total candidates: {len(candidates)}")
     return candidates
 
