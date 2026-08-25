@@ -1968,7 +1968,7 @@ def s4_fund_lists(tf: str = None) -> dict:
     board has no scores on. Never raises -- a board problem must not take the GM
     page down.
     """
-    out = {"BFF": "", "RFF": "", "RANK": ""}
+    out = {"BFF": "", "RFF": "", "RANK": "", "ETFL": "", "ETFP": ""}
     try:
         df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)
     except Exception as e:
@@ -2004,6 +2004,27 @@ def s4_fund_lists(tf: str = None) -> dict:
                 rk.append(f"{sym}:{round(v, 1)}")
         out["RANK"] = ",".join(sorted(set(rk)))
 
+    # ETF LIQUIDITY + PREMIUM (25-Aug-2026). Two separate SYM:n tags rather than one
+    # packed field, so S4 can read them with the SAME core.fundScore parser the BFF /
+    # RFF / RANK lists already use -- no library change, no publish cycle.
+    # Premium may be NEGATIVE (a discount); str.tonumber handles the sign.
+    try:
+        import etf_quality as _etfq
+        liq, prem = [], []
+        for _, row in df.iterrows():
+            sym = _canon_key(row.get("Symbol"))
+            q = _etfq.quality(sym) if sym else None
+            if not q:
+                continue
+            if q.get("turnover_cr") is not None:
+                liq.append(f"{sym}:{round(float(q['turnover_cr']), 1)}")
+            if q.get("premium_pct") is not None:
+                prem.append(f"{sym}:{round(float(q['premium_pct']), 2)}")
+        out["ETFL"] = ",".join(sorted(set(liq)))
+        out["ETFP"] = ",".join(sorted(set(prem)))
+    except Exception as e:
+        _log.warning("s4_fund_lists: ETF quality unavailable: %s", e)
+
     for col in ("BFF", "RFF"):
         if col not in df.columns:
             continue
@@ -2028,7 +2049,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     forget, each one silent. One field is one chance.
 
     FORMAT  pipe-separated TAG=value, single line:
-        REC=..|PB=..|BFF=..|RFF=..|RANK=..
+        REC=..|PB=..|BFF=..|RFF=..|RANK=..|ETFL=..|ETFP=..
 
     EVERY tag is emitted even when its list is empty, and that is the point: an
     empty section CLEARS the corresponding input in S4. Omitting the tag would leave
@@ -2063,6 +2084,10 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         ("BFF",  fund.get("BFF", "")),
         ("RFF",  fund.get("RFF", "")),
         ("RANK", fund.get("RANK", "")),
+        # ETF liquidity (Rs Cr, 60d) and premium/discount to NAV (%). Only ETFs
+        # appear, so a stock chart reads an em-dash on both and nothing changes.
+        ("ETFL", fund.get("ETFL", "")),
+        ("ETFP", fund.get("ETFP", "")),
     ]
     # A pipe inside a payload would split the bundle at the wrong place. Nothing
     # upstream can produce one today (symbols and SYM:n pairs), but a stray pipe

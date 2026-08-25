@@ -955,6 +955,7 @@ gm_bundle = input.string("", "GM: ONE-PASTE bundle (all lists)", group=grpPA, to
 gm_pb_list = input.string("", "Auto: GM Pullback list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.4 — THE PLAYBOOK SPLIT.\n\nA momentum breakout and a structural pullback are opposite trades: one buys strength expanding out of a base on heavy volume with a strong close, the other buys weakness retracing INTO support on volume dry-up with a bar that only has to hold the zone. A single gate cannot be neutral between them — the setup-blind version encoded a breakout's signature and called it quality, so every GO reaching the chart was extended by construction.\n\nS4 has no archetype, so it infers the setup from the pattern mix. That inference has a hole: a reversal bar off a demand zone that CLOSES STRONG fires the Strong-Close pattern, which counts as expansion — so the textbook pullback entry disqualified itself from pullback treatment and was judged on a breakout's volume floor.\n\nThe Golden Matcher does not have to guess. A name off the Pullback screen (or a pyramid ADD, which requires pullback location) was QUALIFIED as a pullback. Paste its comma-separated Pullback list here and those symbols take the pullback gates directly.\n\nWhat this does NOT relax: the demand-zone requirement. A listed name still has to be AT a zone — that is the discipline of the setup and the only thing keeping the lower volume floor honest.\n\nAnything not listed falls back to the pattern inference. Leave blank to disable. Separators, spaces and NSE: prefixes tolerated; matching is case-insensitive.")
 gm_rec_list = input.string("", "Auto: GM Recovery list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.3 — THE SYNC (Jay, 2-Aug: 'for each stock, for each timeframe, I need to check the mode and switch... then I might forget to change it back').\n\nS4 cannot ask the Golden Matcher anything, and it cannot infer the GM's answer from price: the GM's path is INHERITED from whichever watchlist qualified the name (REV-CB / REV-RS / REV-EARLY), on RFF fundamentals and history S4 has no access to. TechM at 2% off its 60-day high looks like Bull to any price-based rule, and always will.\n\nSo the GM hands S4 the answer instead. Paste its comma-separated Recovery list here ONCE per watchlist refresh and every symbol resolves itself — no per-stock switching, nothing to forget, and the same answer on every timeframe (the path is a property of the NAME, not the chart).\n\nA symbol in this list resolves RECOVERY. Anything else falls back to the stage/drawdown heuristic, which matches the GM's own default of Bull. Leave it blank to disable the sync entirely.\n\nSeparators, spaces and NSE: prefixes are all tolerated; matching is case-insensitive.")
 gm_bff_list = input.string("", "GM: BFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Bull Fundamental Filter score the Golden Matcher computed, carried across as text because Pine cannot compute it: BFF reads screener.in's compounded-growth table, which no Pine surface can reach.\n\nFormat: SYM:n pairs, comma separated - RELIANCE:7, TECHM:5, CIPLA:6. Spaces, newlines, semicolons and NSE: prefixes are all tolerated; matching is case-insensitive.\n\nA symbol NOT in the list renders as an em-dash, not a zero - unscored and scored-badly are different facts. DISPLAY ONLY: BFF never gates anything here, exactly as in the GM.")
+etf_prem_max = input.float(3.0, "ETF: max premium to NAV (%)", group=grpPZ, minval=0.5, maxval=25.0, step=0.5, tooltip="An ETF whose price sits further than this from its NAV is refused, however good the chart looks.\n\nThis is the only ETF-specific VETO on the panel, and it earns that status by not being a prediction. Trend, RRG and liquidity were all measured on 39-45 point-in-time anchors and none separated winners from losers inside the tradeable set, so they grade rather than gate. Premium is arithmetic: at +21% you are paying Rs 121 for Rs 100 of assets and the loss is booked on entry, whatever the index does next. No pattern, zone or trigger can see it -- they all read the PRICE, and the price is the thing that is wrong.\n\n3.0 sits above a normal day (p90 of the universe is 1.34%) and far below the structural cases (~19.5% on the international ETFs, where SEBI's overseas cap suspended unit creation so there is no arbitrage to close the gap). Raise it only for a deliberate allocation at a known premium.")
 gm_rank_list = input.string("", "GM: board rank  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="#10 (25-Aug-2026). The Golden Matcher board's OVERALL score for this symbol - the composite it ranks the watchlist by. S4 grades ONE chart and has no idea where that chart sits among the other forty; this is the only way the panel can tell you that a clean-looking setup is the 38th best name on the list.\n\nFormat: SYM:n pairs - RELIANCE:72, TECHM:64. Parsed by the same reader as the BFF/RFF lists.\n\nDISPLAY ONLY. It never gates and never scores: the board rank already contains most of what this panel measures, so feeding it back into the confluence would be double-counting the same evidence. Absent renders an em-dash - unranked is not the same as ranked low.")
 gm_rff_list = input.string("", "GM: RFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Recovery Fundamental Fitness score (0-10) from recovery_screener. Pine CANNOT compute this - TradingView caps request.financial() at five calls per script and the Capitulation Screener already spends that budget on a two-check RFF Lite. The GM is the authority; this only carries its answer.\n\nFormat: SYM:n pairs - TECHM:6, CIPLA:4.\n\nColoured against the GM's own hard gate (RFF >= 4): below it the name is fundamentally weak and the GM would reject it, which is worth seeing before you plan the trade. Absent renders as an em-dash - the GM has not scored it - never as a failure.")
 
@@ -1628,6 +1629,11 @@ string _gmPb   = f_gmPick(gm_pb_list,      "PB")
 string _gmBff  = f_gmPick(gm_bff_list,     "BFF")
 string _gmRff  = f_gmPick(gm_rff_list,     "RFF")
 string _gmRank = f_gmPick(gm_rank_list,    "RANK")
+// ETF liquidity (Rs Cr, 60-day) and premium/discount to NAV (%). Bundle-only:
+// they change with every board rebuild and there is nothing sensible to type by
+// hand. A stock is absent from both lists and reads na, so nothing below fires.
+string _gmEtfL = core.bundleSection(gm_bundle, "ETFL")
+string _gmEtfP = core.bundleSection(gm_bundle, "ETFP")
 // Strike RRG re-retired 25-Aug-2026 - no RRGL/RRGI/RRGW in the bundle any more.
 // string _gmRgL  = f_gmPick(gm_rrg_lead_in,  "RRGL")
 // string _gmRgI  = f_gmPick(gm_rrg_impr_in,  "RRGI")
@@ -1635,6 +1641,16 @@ string _gmRank = f_gmPick(gm_rank_list,    "RANK")
 float _bffV = core.fundScore(_gmBff, syminfo.ticker)
 float _rffV = core.fundScore(_gmRff, syminfo.ticker)
 float _rnkV = core.fundScore(_gmRank, syminfo.ticker)
+float _etfLiq = core.fundScore(_gmEtfL, syminfo.ticker)
+float _etfPrm = core.fundScore(_gmEtfP, syminfo.ticker)
+// A symbol present in EITHER list is an ETF the board has scored. Using both
+// rather than one: NSE premium coverage is good but not total, and a name with
+// liquidity but no premium is still an ETF.
+bool _isEtf = not na(_etfLiq) or not na(_etfPrm)
+// The veto. na premium never blocks -- unknown is not the same as bad, and the
+// board already refuses to publish an ETF over the cap, so an unknown here means
+// coverage rather than danger.
+bool _etfPrmBad = _isEtf and not na(_etfPrm) and math.abs(_etfPrm) > etf_prem_max
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
@@ -5441,7 +5457,11 @@ if show_panel and d_panel and barstate.islast
     // the board's own colouring, not on an absolute: 70+ is the top of a typical
     // board, 55 is mid-table. Never red - a low rank is a ranking, not a fault.
     string _rnkTxt = na(_rnkV) ? "" : "  │  GM rank " + str.tostring(_rnkV, "0.0") + (_rnkV >= 70 ? " 🟢" : " ⚪")
-    string _fndTxt = _rnkTxt + "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
+    // On an ETF the RFF/BFF pair is meaningless and always prints em-dashes, so
+    // the slot carries the ETF quality read instead: liquidity and premium, the
+    // two facts about the WRAPPER that no price-based row can show.
+    string _etfTxt = "  │  ETF " + (na(_etfLiq) ? "—Cr" : "₹" + str.tostring(_etfLiq, "0.0") + "Cr" + (_etfLiq < 1.0 ? " THIN" : "")) + "  │  NAV " + (na(_etfPrm) ? "—" : str.tostring(_etfPrm, "+0.0") + "%" + (_etfPrmBad ? " 🔴" : math.abs(_etfPrm) >= 1.0 ? " ⚪" : " 🟢"))
+    string _fndTxt = _isEtf ? (_rnkTxt + _etfTxt) : _rnkTxt + "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  │  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _fndTxt
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     f_row(3, "Minervini template  " + str.tostring(_mvN) + "/" + str.tostring(_mvOf) + (_mvBound ? "" : "~"), _mvTxt, _mvN >= _mvOf ? C_GO : _mvN >= _mvOf - 2 ? C_OK : C_MUTE)
@@ -5634,6 +5654,22 @@ if show_panel and d_panel and barstate.islast
       use_retest)
     _aVer  := _aVerL
     _anCol := _anColL
+    // ETF PREMIUM VETO. Prepended to whatever the ladder concluded, and it OUTRANKS
+    // that conclusion -- the chart can be flawless and the trade still wrong.
+    //
+    // This is the ONLY ETF-specific veto on the panel, and it earns that because it is
+    // not a prediction. Trend, RRG and liquidity were each measured on 39-45
+    // point-in-time anchors and none separated winners inside the tradeable set, so
+    // they grade. Premium is arithmetic about the price you are about to pay: at +21%
+    // you hand over 121 for 100 of assets and the loss is booked on entry, whatever
+    // the index does next. Nothing else on this panel can see it, because every other
+    // row reads the PRICE and the price is the thing that is wrong.
+    //
+    // Prepended rather than replacing the verdict: the rest of the read is still true
+    // and still worth having if you later switch to a cheaper fund on the same index.
+    if _etfPrmBad
+        _aVer := "NOT TRADEABLE - ETF at " + str.tostring(_etfPrm, "+0.0") + "% to NAV" + chr(10) + "You are paying " + str.tostring(100.0 + math.abs(_etfPrm), "0") + " for 100 of assets, booked on entry. Use a cheaper fund on the same index, or the sweep-in FD." + chr(10) + _aVerL
+        _anCol := C_NO
     if show_analysis
         color _verBg = f_softBg(_anCol)
         table.cell(pnl, 0, 35, "VERDICT", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)
