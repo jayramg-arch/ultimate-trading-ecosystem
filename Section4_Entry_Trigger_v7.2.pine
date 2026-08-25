@@ -5198,13 +5198,17 @@ if show_panel and d_panel and barstate.islast
     f_row(6, "RRG (vs N500)", _rrgLine, _quadC)
     // [retired] Strike RRG sits directly under S4's computed quadrant on purpose: the whole
     // [retired] point is to see both at once. Never overwrites it.
-    // STRIKE RRG STAYS RETIRED (25-Aug-2026). I restored this earlier today on the
-    // reasoning that the GM was emitting three lists with nowhere to land - but that
-    // had it backwards. The feature was retired deliberately; the GM still emitting for
-    // it was the leftover, and the fix was to stop emitting, not to un-retire the
-    // consumer. Nothing feeds these lists and they are not entered by hand.
-    // The panel has ONE RRG - row 6, computed from v67's RS-Ratio / RS-Momentum pair
-    // through core.rrgInfo. That is the only one anything live ever fed.
+    // STRIKE RRG STAYS RETIRED (25-Aug-2026), and the reason is better than "tokens".
+    // v67.4.21 calibrated its own RRG to STRIKE_CAL - decoupled 25/10/7 lengths plus the
+    // origin-preserving affine (ratio_a 0.796, mom_a 3.498, fitted n=17 on weekly Nifty
+    // 500) - so the computed quadrant on row 6 now REPRODUCES the Strike.Money read
+    // rather than approximating it. Once that landed, a hand-typed Strike list stopped
+    // being a second opinion and became a slower copy of the same number.
+    // I restored this earlier today on the reasoning that the GM was emitting three
+    // lists with nowhere to land. Backwards: the feature was retired deliberately, the
+    // GM still emitting for it was the leftover, and the fix was to stop emitting.
+    // The panel has ONE RRG - row 6, from v67's strike-calibrated RS-Ratio / RS-Momentum
+    // pair through core.rrgInfo. It is the Strike read, computed rather than typed.
     // Code kept, not deleted; core.strikeRrg is still exported and s4_rrg_lists still
     // exists. Row 7 intentionally left free - do NOT renumber rows 8+.
     // [_srTxt, _srCol] = core.strikeRrg(_gmRgL, _gmRgI, _gmRgW, C_OK, C_WARN, C_NO, C_MUTE)
