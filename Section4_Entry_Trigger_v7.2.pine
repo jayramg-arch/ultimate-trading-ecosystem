@@ -855,7 +855,7 @@ indicator("Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)", sh
 // that the chart can be told apart from a stale compile without opening Settings.
 string S4_VER      = "v9.18"
 string S4_CORE_VER = "14"
-import jayramg/S4Core/21 as core
+import jayramg/S4Core/22 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
