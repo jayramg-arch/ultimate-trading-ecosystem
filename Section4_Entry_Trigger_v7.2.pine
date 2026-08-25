@@ -3914,7 +3914,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : "weak/red bar") + "   P" + (any_pa_v?"🟢":"⚪") + " L" + (support_v?"🟢":"⚪") + " V" + (vol_ok_v?"🟢":"⚪") + " B" + (bar_ok_v?"🟢":"⚪") + " R" + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_ok_v?"🟢":"⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "R" + (timing_v ? "  ⏱" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
@@ -4545,7 +4545,7 @@ if show_panel and d_panel and barstate.islast
     // coloured emoji carries its own colour THROUGH the cell, which is the only way to
     // get per-field status colour inside a single cell. Same ternary count as the
     // glyph version - the literals changed, nothing was added - so this costs nothing.
-    string _locVerb = "Zone " + (_lzZone ? "🟢" : "⚪") + "   D/W-lvl " + (_lzLvl ? "🟢" : "⚪") + "   AVWAP " + (_lzAv ? "🟢" : "⚪") + "   EMA20 " + (_lzEma ? "🟢" : "⚪") + "   S/R " + (_lzSr ? "🟢" : "⚪")
+    string _locVerb = (_lzZone ? "🟢" : "⚪") + "Zone   " + (_lzLvl ? "🟢" : "⚪") + "D/W-lvl   " + (_lzAv ? "🟢" : "⚪") + "AVWAP   " + (_lzEma ? "🟢" : "⚪") + "EMA20   " + (_lzSr ? "🟢" : "⚪") + "S/R"
     string _locTxt  = (support_v ? "AT LOCATION" : "NOT AT LOCATION") + "   —   " + _locVerb
     color  _locCol  = support_v ? C_OK : C_WARN
     f_row(17, "Location (L)", _locTxt, _locCol)
