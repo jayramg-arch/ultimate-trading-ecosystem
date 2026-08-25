@@ -5309,7 +5309,7 @@ if show_panel and d_panel and barstate.islast
     // different facts and the panel must not merge them. RFF is red-capable because
     // it is the GM's hard Recovery gate; BFF is display-only status in the GM and
     // stays that way here.
-    string _fndTxt = "  ·  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  ·  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + " 🟢")
+    string _fndTxt = "  ·  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  ·  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  ·  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _mvTxt + _fndTxt
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,

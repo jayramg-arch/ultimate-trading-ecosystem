@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 import os
 import json
+import re
 
 # P1 (14-Jul-2026): shared GM logger — previously-swallowed errors now recorded.
 # Fallback to a null logger so headless imports (run_pipeline) can never break.
@@ -1922,6 +1923,63 @@ def s4_rrg_lists(uni: dict | None = None) -> dict:
             continue
         out[qq].append(s)
     return {k: ",".join(sorted(set(v))) for k, v in out.items()}
+
+
+def s4_fund_lists(tf: str = None) -> dict:
+    """The GM's BFF and RFF SCORES, for S4's two fundamental-score inputs. (25-Aug-2026)
+
+    FOURTH handoff on the same pattern as s4_recovery_list / s4_pullback_list /
+    s4_rrg_lists, and it exists for the strongest version of the same reason: S4 cannot
+    ask the GM anything, and unlike the path or the setup it cannot even approximate
+    these from price. RFF needs six fundamental fields plus Tier-B growth history against
+    a request.financial() ceiling of five calls per script -- a budget the Capitulation
+    Screener already spends on a two-check "RFF Lite". BFF reads screener.in's compounded
+    growth table, which no Pine surface can reach at all. The numbers exist only here.
+
+    FORMAT is "SYM:n" pairs rather than the bare symbol lists the other three use,
+    because these are SCORES, not membership. A name being on a list is the whole message
+    for Recovery/Pullback; for BFF/RFF the number IS the message.
+
+    SOURCE is the BUILT BOARD, not a fresh fetch. Two reasons: it is what the board
+    actually decided (so the chart cannot disagree with the row you clicked through
+    from), and re-deriving would mean a screener.in page per name -- the burst that
+    needed a circuit breaker. A name the board has not scored is simply absent, which S4
+    renders as an em-dash: unscored and scored-badly must not look the same.
+
+    Returns {"BFF": "...", "RFF": "..."}; an empty string for a side the board has no
+    scores on. Never raises -- a board problem must not take the GM page down.
+    """
+    out = {"BFF": "", "RFF": ""}
+    try:
+        df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)
+    except Exception as e:
+        _log.warning(f"s4_fund_lists: board cache unreadable: {e}")
+        return out
+    if df is None or getattr(df, "empty", True):
+        return out
+
+    def _num(v):
+        """First integer in the board's display string. BFF renders 'STRONG 5/5' and
+        RFF renders '6/6 FULL', so the leading number is the score in both. Returns
+        None for '', nan, or a quality-only cell -- never 0, which S4 would colour as
+        a hard fail on a name nothing was measured for."""
+        t = str(v or "").strip()
+        if not t or t.lower() == "nan":
+            return None
+        m = re.search(r"(\d+)", t)
+        return int(m.group(1)) if m else None
+
+    for col in ("BFF", "RFF"):
+        if col not in df.columns:
+            continue
+        pairs = []
+        for _, row in df.iterrows():
+            sym = _canon_key(row.get("Symbol"))
+            n = _num(row.get(col))
+            if sym and n is not None:
+                pairs.append(f"{sym}:{n}")
+        out[col] = ",".join(sorted(set(pairs)))
+    return out
 
 
 def s4_pullback_list(uni: dict | None = None) -> str:

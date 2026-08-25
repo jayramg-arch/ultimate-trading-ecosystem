@@ -13366,6 +13366,41 @@ elif page == 'GOLDEN MATCHER':
                 else:
                     st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
                                "current union. Set them on the board's RRG column first.")
+
+                # ── S4 BFF / RFF SCORE lists (25-Aug-2026) — the FOURTH handoff, and the
+                # one S4 cannot approximate at all. RFF needs six fundamental fields plus
+                # Tier-B growth against a five-call request.financial ceiling the
+                # Capitulation Screener already spends; BFF reads screener.in's growth
+                # table, which no Pine surface can reach. Unlike the path and the setup,
+                # there is no price-based fallback — without this the S4 fields stay blank.
+                # SYM:n pairs, not bare symbols: here the NUMBER is the message.
+                # Sourced from the BUILT BOARD so the chart cannot disagree with the row
+                # you clicked through from, and so this costs no screener.in fetches.
+                try:
+                    _s4fund = _gtb.s4_fund_lists(tf=_trig_tf) or {}
+                except Exception as e:
+                    _s4fund = {}
+                    _gm_logger.warning(f"s4_fund_lists failed: {e}")
+                _bffs = _s4fund.get("BFF", "")
+                _rffs = _s4fund.get("RFF", "")
+                _bn = len([x for x in _bffs.split(",") if x])
+                _rn = len([x for x in _rffs.split(",") if x])
+                if _bn or _rn:
+                    st.caption(f"🧪 **S4 fundamental scores · BFF {_bn} · RFF {_rn}** — paste "
+                               f"into S4's *GM: BFF scores* and *GM: RFF scores*. A name ABSENT "
+                               f"from a list renders as an em-dash on the panel, not a zero: "
+                               f"unscored and scored-badly are different facts. Re-paste after a "
+                               f"board rebuild.")
+                    if _bffs:
+                        st.caption(f"*GM: BFF scores* · {_bn}")
+                        st.code(_bffs, language=None)
+                    if _rffs:
+                        st.caption(f"*GM: RFF scores* · {_rn} — RFF only exists for names a "
+                                   f"recovery screen has scored, so a bull-heavy board shows few.")
+                        st.code(_rffs, language=None)
+                else:
+                    st.caption("🧪 **S4 fundamental scores · 0** — build the board first; "
+                               "these are read from the built board, not recomputed.")
         else:
             # MAXIMIZED table-only pop-out (Jay): no heavy controls — a slim Rebuild
             # button + auto-refresh only. TF / Live / Score / X-Ray come from the
