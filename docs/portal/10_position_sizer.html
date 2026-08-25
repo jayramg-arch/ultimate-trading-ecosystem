@@ -257,6 +257,13 @@ footer a{color:var(--acc)}
   <pre>if positional-context and swing-context   → the detected catalyst, else <b>"POS"</b>
 else if positional-context               → a positional catalyst, else <b>"POS"</b>
 else if swing-context                    → an SWG-prefixed catalyst, else <b>"SWG"</b></pre>
+  <div class="note go">
+    <span class="tag">Half-closed, 25 Aug 2026 — the label no longer lies</span>
+    <p>The <em>fallback</em> is unchanged, but it no longer reports itself as a detection.
+    <b><code>AUTO</code></b> now means a catalyst was actually detected; <b><code>CTX</code></b>
+    means none fired and the family came from context; <b><code>MAN</code></b> means you set it.
+    The payload carries whichever applies, so the ambiguity stops travelling downstream.</p>
+  </div>
   <div class="note stop">
     <span class="tag">Why this matters more than it looks</span>
     <p>The source flag is set to <b>AUTO</b> whenever the family is not &ldquo;none&rdquo; — and after
@@ -339,14 +346,32 @@ quantity      = risk amount ÷ (entry − stop)
 
 <section id="legs">
   <h2><span class="n">07</span>Legs and quantities</h2>
-  <p>The first leg's share is set by the family; the second and third are inputs; the runner is
-  whatever remains.</p>
+  <p><b>Updated 25 Aug 2026.</b> Both target legs are now derived from the family — they mirror
+  <code>bull_screener.partial_qty_for</code>, the same split the backtester and Risk Shield use.
+  <code>T2 exit %</code> and <code>T3 exit %</code> became <b>overrides</b>: <code>0</code> means
+  &ldquo;use the house canon&rdquo;.</p>
+  <p>Previously T2 was a flat input default of <b>25 for every catalyst</b>, so a swing trade took
+  positional quantities against swing R-multiples — the same paired-fallback defect
+  <code>partial_qty_for</code> was hoisted on the Python side to fix.</p>
   <div class="tw"><table>
     <thead><tr><th>Family</th><th class="r">T1 share</th><th>Rationale</th></tr></thead><tbody>
-      <tr><td class="k">Positional · Wyckoff · recovery</td><td class="num">25%</td><td>Three quarters stays on, because <b>the trail is what actually exits these</b></td></tr>
-      <tr><td class="k">Swing</td><td class="num">33%</td><td>A shorter horizon earns a bigger first take</td></tr>
-      <tr><td class="k">Gap · reversion</td><td class="num">50%</td><td><b>Gaps fade and reversions are not runners</b> — take half off</td></tr>
+      <tr><td class="k">Positional · Wyckoff · recovery</td><td class="num">25 / 25</td><td>Leaves a <b>50% runner</b>. Not a preference: <b>88% of positional trades exit on the trail and essentially none on a target</b>, so the untargeted half is where the return is</td></tr>
+      <tr><td class="k">Swing (BO / PB)</td><td class="num">33 / 33</td><td>A shorter horizon earns a bigger first take</td></tr>
+      <tr><td class="k">Gap · reversion</td><td class="num">50 / 50</td><td><b>Gaps fade and reversions are not runners</b> — take it off</td></tr>
     </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">T3 now defaults to 0 — and here is why it did harm</span>
+    <p>There is no third leg in house policy: it is <b>two target legs and a runner</b>. Only three
+    orders reach the broker anyway, so a 25% T3 was a chart-only number that still cut the
+    untargeted runner from <b>50% to 25%</b>. Set it deliberately if you want a stretch target.</p>
+  </div>
+  <div class="note stop">
+    <span class="tag">The split mode still defaults to 50/50, and that costs the runner</span>
+    <p>Two OCO legs at 50% cover the <b>whole</b> position, so there is <b>no runner</b> — and it
+    changes the payoff: T1 pays on half the shares while the stop costs on all of them, making a 2R
+    first target roughly <b>1:1</b> in practice rather than 2:1. Left as the default because it is a
+    Dhan constraint, not a preference; the tooltip now says what it costs.</p>
+  </div>
   <div class="note warn">
     <span class="tag">Four legs here, three orders at the broker</span>
     <p>The allocator plans <b>T1, T2, T3 and a runner</b>. What actually gets placed is <b>two paired

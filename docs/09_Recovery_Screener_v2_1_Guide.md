@@ -562,3 +562,57 @@ The Pine Commander Recovery Screener shows all of them — the priority order in
 ### 13.5 Live Trading vs Backtest Numbers
 
 The properly-windowed validation (90d horizon for REV-*) shows mean matched alpha consistent with the bull screener — small positive per-trade alpha that requires more anchors to confirm statistically. Run the system and accumulate live picks.
+
+---
+
+## 14. 25 Aug 2026 — Wyckoff was starved by PLUMBING, not by its gates
+
+WYC-* had produced **zero** signals for as long as anyone had looked, and the standing
+assumption was that the `rff_ok + regime_ok` gates or the market were responsible.
+Neither was. Measured on the day this was written:
+
+| | |
+|---|---:|
+| recovery_screener candidates (from Chartink) | 64 |
+| of which `regime_ok` | 59 |
+| median `RFF_Total` (gate is ≥ 4) | 6 |
+| **WYC catalysts found** | **0** |
+
+The **same detector** run over the full nifty500:
+
+| stage | count |
+|---|---:|
+| base range > 25% | 223 rejected |
+| prior decline < 20% | 186 rejected |
+| valid accumulation base | 91 |
+| **live catalyst** | **5** — COHANCE, MUTHOOTFIN, NCC, SBICARD, VMM (all SOS) |
+
+**All five were absent from the 64.**
+
+### The cause
+
+`load_candidates()` sources **only** the three Chartink recovery scans (REV-RS / REV-CB
+/ REV-EARLY), so `detect_wyckoff()` was only ever offered names that had already
+qualified as something **else**. A Wyckoff accumulation base is a different structural
+signature — there is no Chartink scan for one — so a WYC name could reach the detector
+only by coincidence. It never did.
+
+### The fix — supply, not gates
+
+`recovery_screener_v3_wyckoff.scan_universe_for_catalysts()` screens the universe
+directly for base + phase-C/D event. Wyckoff detection is **pure price/volume**, so it
+needs no pre-filter to be affordable (~2–3 min cold on 500, cache-warm in the pipeline).
+Its survivors are appended to the candidate list and then clear **the same
+`rff_ok + regime_ok` gates as every REV-\* edge**.
+
+**The gates are unchanged. Only the supply is.** Disable with `RECOVERY_WYC_SCAN=0`.
+
+You will see a new line in the run output:
+
+```
+    WYC: n stocks from the universe scan
+```
+
+If that reads 0 on a day the detector should be firing, the problem is the detector or
+the universe — not the gates, which is where five days of the previous investigation
+went.

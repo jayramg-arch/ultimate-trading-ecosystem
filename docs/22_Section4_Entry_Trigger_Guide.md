@@ -1,8 +1,8 @@
-# Section 4 - Entry Trigger & Price Memory v9.18 - User & Trading Guide
+# Section 4 - Entry Trigger & Price Memory v10.0 - User & Trading Guide
 
 > **Module Role:** The **precision entry layer** you apply on a single name in TradingView **after** the Golden Matcher decision tree has filtered it to **Step 5 (TRIGGER)**. It does **not** re-screen (Stage / RS / RRG / VCP / catalyst all live upstream in the Golden Matcher and Dashboard v67). It does four things: (A) fires the price-action battery (**17 Bull / 10 Recovery**) on the **chart timeframe**; (B) draws the **price-memory anchored VWAPs** (Low / Breakout / Gap) and their "pinch"; (C) **auto-marks demand and supply zones on Chart + Daily + Weekly + Monthly** using the leg-base-leg engine ported from the Institutional Zone Engine, plus horizontal S/R levels and Volume-Profile VAL/POC — so you no longer hand-draw them; (D) gives the exact **intraday timing trigger** (rising 10-EMA reclaim + TTM squeeze) on 75/125-min. It then prints a ready-to-execute **entry + SL plan** and raises alerts so you never have to sit and watch.
 >
-> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v9.18 (Sectioned Panel)` (`shorttitle "S4 Entry v9.18"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/14`  ⚠ **publish pending** — latest PUBLISHED is /13; the next publish carries `oiBasis` + `invalLevels` + `oiText` and lands on /14 · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
+> **File:** `Section4_Entry_Trigger_v7.2.pine` — **the filename is stale and does not track the version.** The authoritative version is the in-file title, currently `Section 4 Entry Trigger and Price Memory v10.0 (One-Paste + Ranked Panel)` (`shorttitle "S4 Entry v10.0"`, line 853). · **Type:** Indicator (overlay) · **Pine:** v6 · **Library:** `import jayramg/S4Core/23` (published) · **Market:** NSE · **Applies on:** the **75/125-min trading chart**.
 >
 > ⚠ **Version discipline (learned the hard way, 18-Aug):** "v9.17" ended up spanning TWO
 > different builds because the title was not bumped when Gate 5 and the SUMMARY went in —
@@ -37,6 +37,16 @@
 
 | Version | Added |
 |---|---|
+| **v10.0 (25 Aug)** | **ONE-PASTE BUNDLE.** The GM had grown five things to copy after every board rebuild — Recovery, Pullback, Strike RRG, BFF/RFF and the board rank. That is a **correctness** problem, not a convenience one: a missed paste does not blank the field in S4, it leaves the PREVIOUS list in place, so the chart goes on applying last week's answer to this week's board and nothing announces it. Five chances to forget, each silent. The GM now emits **one line** — `REC=..\|PB=..\|BFF=..\|RFF=..\|RANK=..` — into the single input **GM: ONE-PASTE bundle**, read by `core.bundleSection`. **Every tag is emitted even when its list is empty, and that is the point**: an empty section CLEARS the matching input, where omitting the tag would leave whatever was there before. The five individual inputs are **kept**, and a hand-typed one **wins** over the bundle for its own field — the escape hatch for overriding one list without rebuilding the line. |
+| **v10.0 (25 Aug)** | **BFF / RFF / GM RANK on the panel.** Pine cannot compute any of the three: RFF needs six fundamental fields plus Tier-B growth history against a five-call `request.financial()` ceiling the Capitulation Screener already spends, BFF reads a screener.in growth table no Pine surface can reach, and the board rank is a cross-sectional position S4 structurally cannot know — it grades **one** chart and has no idea where that chart sits among the other forty. All three arrive as `SYM:n` pairs through the bundle. **Absent renders an em-dash, never a zero or a red dot**: unscored and scored-badly are different facts, and merging them would turn every unlisted name into a fundamental rejection on sight. RFF is red-capable because it IS the GM's hard Recovery gate (≥ 4); BFF and rank are display-only. |
+| **v10.0 (25 Aug)** | **MINERVINI TREND TEMPLATE — its own row (row 3)**, all eight criteria with a status dot each. The two legs it duplicated **left** Structure basis: `>50DMA` IS criterion 5 and `>200DMA` is half of criterion 1. The 50-DMA **slope** stays there, because Minervini tests the 200's slope, not the 50's. Criterion 8 is the one approximation — Pine cannot compute a cross-sectional RS **rank**, so v67's RS-Ratio vs the Nifty 500 stands in, and when v67 is unbound that criterion is dropped from the denominator (`n/7~`) rather than scored as a failure. |
+| **v10.0 (25 Aug)** | **RRG AS CONFLUENCE (`cf_w_rrg`, +1)** — awarded on the **measured whitelist**, not on the quadrant. Re-measured on the strike_cal calibration (473 symbols, 93,745 weekly observations, IS/OOS, bootstrapped by symbol) the whitelist is worth **+0.12pp at 4 weeks and +0.00pp at 12**, because `IMPROVING→LEADING` is reliably NEGATIVE and cancels what `LEADING→LEADING` earns. Only `LEADING→LEADING` and `WEAKENING→LEADING` survived. So it reuses `_rrgTr` — the same whitelist the (default-OFF) Gate 5 uses — and puts **one point in the score**: an edge that size belongs in a grade, not a veto. Scores nothing when v67 is unbound. |
+| **v10.0 (25 Aug)** | **THE PANEL SPEAKS ONE LANGUAGE** — see §4f. Two kinds of "not there" had been collapsed into one character; they are now separated (🟢/⚪ for conditions, em-dash for absent values). Field separator `·` → `│` at 39 sites, so a dot only ever **joins** values inside one field. The PA battery stopped being 17 coloured table cells and became one dotted row like Confluence. **Both are now RANKED by contribution.** |
+| **v10.0 (25 Aug)** | **FOUR ROWS BECAME TWO.** `WCL Context` + `Structure Health` → row 4 (one statement about structure, and merging freed row 3 for Minervini so nothing renumbered). The four AVWAP rows — nearest curve, `L·BO·Gap`, pinch, trigger — → row 20. **RS/RRG and Volume/Bar were merged and then REVERTED at Jay's call**, and the reasoning is worth keeping: *related is not the same as one reading*. RS ranks a name, RRG times it; V asks whether anyone turned up, B asks what they did with the bar. Different decisions, so different rows. |
+| **v10.0 (25 Aug)** | **TREND RUNGS NOW MEAN WHAT THEY SAY.** The Zigzag resolves its two MTF plots **relative to its own chart** (`Swing Zigzag v6.3:629` — intraday→D, D→W, W→M). S4 bound MTF-1 as "D" and MTF-2 as "W" on every timeframe, so **on a Daily chart the row printed the WEEKLY trend under "D" and the MONTHLY under "W"** — and handed the same mislabelled pair to `summaryRead`'s alignment test. Both surfaces were reading the Zigzag correctly and disagreeing about what the number meant, which is why no formula diff would have found it. Fixed by **re-sourcing**, not relabelling: on a Daily chart the Zigzag's native state supplies the D rung and MTF-1 supplies W. Rungs at or below the chart TF render an em-dash rather than borrowing the wrong series. |
+| **v10.0 (25 Aug)** | **SUMMARY headers on their own line, blank line between sections.** Bold was asked for and is **impossible** — a Pine table cell has one text style and no inline markup, at any price. Order matters in the implementation: the paragraph-doubling runs first, then the header split; reversed, the doubling would also double the newline the split just inserted. |
+| **v10.0 (25 Aug)** | **`en_ema_gate` (REQUIRE price above EMA20) now defaults OFF.** |
+| **v10.0 (25 Aug)** | **~4,275 compiled tokens returned to S4** by moving six self-contained blocks and the entire S/R level picker into S4Core — see §8b. No behaviour change; equivalence was proven, not asserted. |
 | **v9.18 (19 Aug)** | **FUTURES-OI POSITIONING BASIS** on the existing `Sector · Futures OI` row (no new row). An OI-change-weighted average price — every time OI **rises**, positions were opened around that price, so `Σ(ΔOI⁺ × px) / Σ(ΔOI⁺)` over the last `oi_events` prints is the average cost of the open book. Price **above** it → the marginal long is in profit and it reads as **support**; **below** → underwater, and it reads as **resistance until reclaimed**. Shows the nearest tradeable **strike** beside it and `bld`, the share of OI movement that was *building* — under 40% flags an unwinding book and a stale basis. ⚠ **This is NOT max pain and NOT an options-strike forecast:** max pain needs the options chain BY STRIKE and Pine cannot read an options chain on any plan. The strike shown is simply the nearest strike to the futures basis, for order entry. OI *falling* is ignored on purpose — a drop says positions closed, not where they opened. **Event-based, not bar-based:** TradingView publishes futures OI once per day, so `oi_events` (default 20) means "the last 20 OI prints" on every timeframe rather than four hours on 75m and a month on Daily. |
 | **v9.18 (19 Aug)** | **INVALIDATION LEVELS** on the existing `Entry · SL · T1 · T2` row (no new row). **INVAL is not the stop.** The stop is where you get out; invalidation is where the *reason you bought* stops being true. CHOLAFIN on 18-Aug is the case that forced it: the engine put the stop 13 points under a demand zone whose distal sat **one point** below the entry, so "wrong" and "stopped" were the same price and the R was meaningless. Ranked by **severity** — zone distal > swing low > S/R > EMA20(D) — with the *nearest* level shown separately as `first test`, because what price meets first and what kills the thesis are different questions. Anything closer than **0.5×ATR(D)** is tagged *"inside daily noise — close-basis only, do not stop here"*. Enables the two-level discipline: hard stop for the wick, closing-basis exit for the thesis. |
 | **v9.17 (19 Aug)** | **SUMMARY — the whole panel read as one judgement.** Jay: *"the current Verdict field is not covering all the fields above, i.e. the trends."* Correct — the verdict reasoned from location and geometry and never once from the three degrees of trend printed at the top. SUMMARY is a **synthesis, never a digest**: v6.1 deleted the old metrics line for restating rows already on screen, and that ruling stands, so this prints **no value that appears above it**. Six lines: **TREND** (weekly/daily/entry-TF alignment + stage type + leg age) · **LEADERSHIP** (RS + rotation + sector stage) · **LOCATION** (zone vs supply vs extension vs secondary reference, + distance from the highs) · **PARTICIPATION** (RV read *against* location — heavy volume into resistance is an upthrust, thin volume at demand is dry-up) · **GEOMETRY** (the stop measured in ATR) · **DIRECTION** (the ruling, and what would change it). Body lives in `S4Core.summaryRead` so its prose never touches S4's compiled-token budget. |
@@ -271,9 +281,9 @@ The map below is the live panel, verified against a running chart (SONACOMS 75m,
 
 | Row | Reads | How to use |
 |---|---|---|
-| **Structure basis** | A position/direction **ladder**: `Stage 2 (27w leg/27w macro) · >30WMA ↗️ · >50DMA ↗️ · >200DMA · Trend 75 ⬆️ · D ⬆️ · W ⬆️` | Two arrow families, and they mean different things — **diagonals (↗️↘️➡️) are a moving-average SLOPE, verticals (⬆️⬇️) are a TREND STATE**. The trend ladder runs chart-TF → next two higher (so a Daily chart ends at M). A field printing `—` means the source is **unbound**, not flat. |
-| **WCL Context** | `BULL (+6)` / `BEAR` / `NEUTRAL` | Wyckoff-SMC composite. Grading only — measured and rejected as both a veto and a score input. |
-| **Structure Health** | `CLEAN (0)` | CHoCH count. `CLEAN` on ~90% of names is **expected**, not a bug. |
+| **Structure basis** | A position/direction **ladder**: `Stage 2 (27w leg/27w macro) │ >30WMA ↗️ │ 50 ↗️ │ Trend 75 ⬆️ │ D ⬆️ │ W ⬆️ │ RFF 6 🟢 │ BFF 5 🟢 │ GM rank 71.0 🟢` | Two arrow families, and they mean different things — **diagonals (↗️↘️➡️) are a moving-average SLOPE, verticals (⬆️⬇️) are a TREND STATE**. The trend ladder runs chart-TF → next two higher (so a Daily chart ends at M). A field printing `—` means the source is **unbound**, not flat. |
+| **Minervini template** *(row 3, new v10.0)* | `🟢>150/200  🟢150>200  ⚪200 rising  🟢50-stack  🟢>50  🟢+30% off low  🟢 within 25% of high  🟢RS > index` with the count in the label | The eight SEPA criteria, each with its own dot. A `~` on the count means v67 is unbound, so criterion 8 (RS) was dropped from the denominator rather than scored as a miss. GRADES only — it never gates. |
+| **WCL context │ structure** *(row 4, merged v10.0)* | `🟢BULL (+6) │ 🟢CLEAN (0)` | Wyckoff-SMC composite and the CHoCH count, one statement about structure. Both grading only — measured and rejected as a veto and as a score input. `CLEAN` on ~90% of names is **expected**, not a bug. |
 | **RS · RRG (vs N500)** | `N500: Rising (Positive) ↗️ · Sec: Rising (Positive) ↗️` / `LEADING ↗️ +2 · LEADING (stable) · ✓ BUY OK (RS-Ratio 114.3)` | Wording is identical to v67 by design. The quadrant is derived from the same (RS-Ratio, RS-Momentum) pair v67 classifies with, so it **is** v67's quadrant. |
 | **Sector · Futures OI** | `Sector Stage 3 · OI Short covering +2.5%` plus its plain-English reading | The OI state is only meaningful against price direction, so it is derived from both: **Long build-up** (price↑ OI↑) fresh money · **Short covering** (price↑ OI↓) the rally is shorts exiting, fades are common, do not chase · **Short build-up** (price↓ OI↑) supply into strength · **Long unwinding** (price↓ OI↓) weak, not a short signal. |
 | **Signal · Quality · RSI** | v67's Action Signal (0-10), Asset Quality (0-100 + letter), daily RSI | `not bound` = the `input.source` bindings are missing, **not** that the data is absent. Re-bind after every recompile. |
@@ -401,6 +411,105 @@ so you can, and `?` means v67 is unbound or the name has too little weekly histo
 unknown, never a verdict.
 
 Set `en_rrg_gate` ON to restore the veto, and narrow the whitelist first if you do.
+
+## 4f. The panel's vocabulary — one language, and why (v10.0, 25 Aug 2026)
+
+The panel had grown three different ways of saying the same thing, and the same fact
+printed in two places. This is the single convention it now uses everywhere.
+
+### Two kinds of "not there", and they must not look alike
+
+| Symbol | Means | Used for |
+|---|---|---|
+| 🟢 | measured, and it HELD | a named condition |
+| ⚪ | measured, and it did not | a named condition |
+| ▫ | the module is OFF — nothing measured it | a condition behind a display toggle |
+| — (em-dash) | the value does not exist | a price, a score, an unbound source |
+
+The distinction is the whole point. A grey dot in front of a price would claim the
+price is switched off, which is not a thing. An em-dash beside a pattern name would
+hide that the battery **ran** and that pattern simply did not fire. And ▫ exists
+because a term you turned off is not a term that failed — it is also absent from
+`cf_max`, so scoring it as a miss would be wrong twice.
+
+**The em-dash rule is load-bearing for RFF, BFF and rank.** A symbol missing from the
+pasted list means the GM has not scored it — a different fact from *scored it and it
+failed*. Rendering them the same would turn every unlisted name into a fundamental
+rejection on sight.
+
+### Where the dot sits
+
+- **before a NAME** — *did this named thing happen*: `🟢VCP3`, `⚪NR7`, `🟢P 🟢L ⚪V 🟢B`
+- **after a VALUE** — *is this number any good*: `RFF 5 🟢`, `GM rank 71.0 🟢`
+
+Both appear on the panel and each means something different. Leading = *this fired*;
+trailing = *this number passes*.
+
+### `│` separates fields, `·` joins values
+
+A middle dot was doing both jobs — separating fields and sitting inside values
+(`L·BO·Gap`, three anchor prices in a row). A vertical rule separates, a dot joins,
+so the eye finds the field boundary without reading the words.
+
+### The PA and Confluence rows are RANKED by contribution
+
+Both sort on `fired ? 1000 + weight : weight`.
+
+An unfired 2-pointer contributes **zero** right now, so it must not outrank a fired
+1-pointer; but among the unfired the heavier ones still read first, because those are
+the ones worth waiting for. So each row reads left-to-right as **what I have, best
+first — then what I am missing, most valuable first.**
+
+Weights print after the name where they exceed 1. Without that, a descending sort
+looks like an arbitrary shuffle.
+
+Sorted at **runtime**, not by reordering the source, because every confluence weight
+is a user input (`cf_w_*`): a static order would be correct at the defaults and
+silently wrong the moment you changed one. The PA weights are the same numbers `tsum`
+sums; they are duplicated in the row (splitting `tsum`, one folded expression, would
+cost more than the duplication) and a script cross-checks all 27 against it.
+
+---
+
+## 4g. The GM handoff — one paste (v10.0, 25 Aug 2026)
+
+**Input: `GM: ONE-PASTE bundle`.** The GM prints one line under the Trigger Board;
+paste it here after every board rebuild.
+
+```
+REC=TECHM,CIPLA|PB=RELIANCE,TCS|BFF=MCX:5,CGCL:5|RFF=LTM:6|RANK=MCX:71.0,CGCL:69.3
+```
+
+| Tag | Feeds | Cadence |
+|---|---|---|
+| `REC` | Bull-vs-Recovery path | every board rebuild |
+| `PB` | breakout-vs-pullback playbook | every board rebuild |
+| `BFF` | Bull Fundamental Filter score, 0–5 | every board rebuild |
+| `RFF` | Recovery Fundamental Fitness, 0–6 | every board rebuild |
+| `RANK` | the board's Overall composite | every board rebuild |
+
+**Why one field and not five.** A missed paste does not blank the field in S4 — it
+leaves the **previous** list in place, so the chart goes on applying last week's
+answer to this week's board, silently. Five separate pastes was five chances to make
+that mistake. One field is one chance.
+
+**An empty section is meaningful.** Every tag is emitted even when its list is empty,
+because that is what CLEARS a stale input. If the GM omitted the tag instead,
+whatever was there before would survive — the exact failure this replaces.
+
+**The five individual inputs are still there and still win.** A hand-typed value
+beats the bundle for its own field. That is deliberate: it lets you override one list
+without rebuilding the whole line.
+
+**What Pine cannot do, and why these exist at all.** RFF needs six fundamental fields
+plus Tier-B growth history, against a `request.financial()` ceiling of five calls per
+script that the Capitulation Screener already spends on a two-check "RFF Lite". BFF
+reads screener.in's compounded-growth table, which no Pine surface can reach. The
+board rank is a **cross-sectional** position — S4 grades one chart and cannot know
+where it sits among the other forty. None of the three is approximable from price, so
+the GM is the only possible source.
+
+---
 
 ## 5. The 17 PA patterns — what each requires
 
@@ -745,6 +854,79 @@ while the plan is not.
 
 `use_closed_candle` defaults ON, so the GO condition already requires a confirmed bar.
 "Once Per Bar Close" on top of that is belt-and-braces, and worth keeping.
+
+---
+
+## 8b. Where the code lives — the S4Core migration (v10.0, 25 Aug 2026)
+
+S4 sits permanently near Pine's **compiled-token ceiling** (100,256). A library body
+compiles **separately**, so anything moved into `S4Core` stops counting against S4's
+budget. ~**4,275 compiled tokens** were returned this way, which is what paid for
+everything else in v10.0.
+
+**Nothing was removed. Behaviour is unchanged.**
+
+### How the move candidates were chosen — the ranking inverts the obvious answer
+
+Rank every local function by **body tokens MINUS the free names it would have to take
+as parameters**, because a free name becomes an argument at the call site and hands
+the saving straight back. That disqualifies the three **biggest** bodies in the file:
+
+| block | body | free names | verdict |
+|---|---:|---:|---|
+| `f_fold2994` | 425 tok | 26 | bad move |
+| `f_srAboveAll` | 287 tok | 31 | bad move |
+| `f_activePA` | 236 tok | 43 | bad move |
+
+The winners are mid-sized and self-contained: `fibZone` · `avwapAnchors` · `tfGates` ·
+`recencyScore` · `ageCapDays` · `htfPivots` (~1,375 compiled).
+
+### The S/R picker needed a different shape
+
+The level picker was the largest block left (~3,170 compiled) and could **not** move as
+plain parameters — it reads 12 manual level prices, 3 auto `SRSig` bundles, 3 TF gates,
+3 show flags, 3 manual-present flags, 2 trendlines with tags, 2 external trendlines and
+2 global switches. ~35 arguments on functions that call each other would have eaten the
+saving. They travel as **one `SRCtx` object** instead, built once per bar; a UDT
+parameter also counts as a single external element, which keeps it clear of the
+**254-external-element** ceiling the panel already hit.
+
+**Equivalence was proven, not asserted** — this is the L gate, and a silent change here
+would surface weeks later as the board disagreeing with the chart:
+
+- **Structural skeleton** of all 9 moved bodies — operators, keywords and literals kept,
+  identifiers replaced by slot numbers in order of first appearance. All 9 matched, so
+  they differ only by a consistent 1:1 renaming. The renaming was inspected too, because
+  a skeleton match with a *nonsensical but consistent* mapping (`s.a1` → `s.b1`) would
+  still be a bug.
+- **Candidate sets** offered to each accumulator: BELOW 16 vs 16 identical, ABOVE 16 vs
+  16 identical.
+
+One structural difference, and it is not a behaviour change: the below side used to run
+in two passes only because the external trendlines were declared after the first. They
+are ctx fields now, so it is one pass — safe because the accumulator is a max/min, so
+arrival order cannot change the result.
+
+### Deliberately preserved, all three of which look wrong in isolation
+
+- **The re-home pass** (a-slots offered to the below picker and vice versa). Auto slots
+  split against the HTF close, so on a historical bar a level crossed mid-period sits in
+  the wrong slot; the picker re-filters on `px < close`, so live it is a no-op and
+  deleting it would only break replay.
+- **MTTWR levels excluded from the pickers** and the only input to the coil scan.
+- **A trendline offered to both sides**, self-selecting by which side of price it sits on.
+
+### Four Pine limits, and a fifth
+
+Compiled tokens (100,256) · main-body statements (~1,000) · plot outputs (64) ·
+**execution time (20s, the only one that does not announce itself at compile)** · and
+**254 external elements per function**, which is why the panel could never be wrapped in
+one.
+
+⚠ **A library export's parameter qualifier propagates INWARD.** `strikeRrg` was relaxed
+to `string` and still rejected a series argument, because it passes its parameters
+straight into `f_rrgFence(simple string s)` — a simple-qualified **helper** forces its
+caller's parameters back to simple. Relax the helper too.
 
 ---
 

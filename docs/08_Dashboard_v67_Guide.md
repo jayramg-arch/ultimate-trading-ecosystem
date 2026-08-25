@@ -1049,3 +1049,27 @@ So you see at a glance: Stage and basic positioning are fine; what's failing is 
 | **Dashboard (this file)** | `CATALYST (Edge)` row in The Verdict & Setup block | Mirrors Bull Screener via the verbatim port in section 8. Pair with the `POS-BO Gates` row for gate-by-gate visibility. |
 | **Commander Recovery Screener** | `CATALYST` (Recovery context) | Uses a different catalyst taxonomy (REV-CB / REV-RS / REV-EARLY) for capitulation-bottom plays — not comparable to Bull Screener's POS/SWG codes. |
 | **Weinstein Unified Ecosystem** | Recommendation / Persona row | Doesn't expose raw catalyst codes; consumes them internally and outputs a higher-level verdict. |
+
+---
+
+## 25 Aug 2026 — the weekly MA plots: visible, and settable
+
+Two separate causes, reported as one problem (*"the 30WMA and 40WMA are not visible.
+Also, on the settings→Style tab, why am I not able to set the colors?"*).
+
+**1 · Invisible.** The 40-week MA was hardcoded `color.black` — a black line on a
+near-black chart. Drawn correctly every bar and impossible to see. It now defaults to a
+light grey that reads on either theme.
+
+**2 · The Style tab did nothing.** A colour passed as a `color=` **argument** is
+re-applied by the script on every bar, so whatever you pick in Style is overwritten
+before you see it. The swatch is there; it just never wins.
+
+Both MAs now source **`input.color`**, so the Style tab *is* the script's input and your
+choice survives. New group **Weekly MA colours**: separate colours for the 30W rising and
+falling states (the slope conditional is preserved — both branches are yours to set),
+one for the 40W, and show/hide toggles for each.
+
+> **The general rule, worth knowing beyond this file:** a plot whose colour is *computed*
+> is not user-settable, and a **conditional** colour is computed by definition. If you
+> want a plot's colour to be adjustable, it has to come from an input.

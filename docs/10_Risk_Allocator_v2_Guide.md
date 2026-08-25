@@ -196,3 +196,75 @@ When you tick **📤 EXPORT DHAN GTT JSON**, this fires to the alert + Pine Log 
 - Risk-first always: the **Quantity is the output, never the input.** Don't round it up.
 - No Stage 3/4 entries: if the Context row shows **Stage 3 ⚠ / Stage 4 ✗**, do not initiate a long regardless of what the targets say.
 - The allocator sizes a trade; it does not validate the *thesis*. Entry/stop quality is on you.
+
+---
+
+## 25 Aug 2026 — leg splits aligned to Risk Shield, and two recorded issues closed
+
+### The scale-out split now mirrors `bull_screener.partial_qty_for`
+
+`t2_exit_pct` was a **flat input default of 25 for every catalyst**, so a swing trade
+took positional quantities against swing R-multiples — the same paired-fallback defect
+`partial_qty_for` was hoisted on the Python side to fix. The allocator now derives both
+legs from the catalyst family:
+
+| family | T1 | T2 | runner |
+|---|---:|---:|---:|
+| POS / WYC / REV | 25% | 25% | **50%** |
+| SWG-BO / SWG-PB | 33% | 33% | 34% |
+| SWG-GAP / SWG-REV | 50% | 50% | 0% |
+
+That 50% positional runner is not a preference: **88% of positional trades exit on the
+trail and essentially none on a target**, so the untargeted half is where the book's
+return actually is.
+
+`t2_exit_pct` and `t3_exit_pct` are now **overrides** — `0` means "use the house canon".
+
+### `t3_exit_pct` now defaults to 0
+
+There is no third leg in house policy — it is two target legs and a **runner**. Only
+three orders reach the broker anyway, so a 25% T3 was a chart-only number that still cut
+the untargeted runner from 50% to 25%. Set it deliberately if you want a stretch target.
+
+### ⚠ `Dhan GTT Split Mode` still defaults to 50/50, and that is a broker constraint
+
+Two legs at 50% cover the **whole** position, so there is **no runner** — and it changes
+the payoff: T1 pays on half the shares while the stop costs on all of them, which makes
+a 2R first target roughly **1:1** in practice, not 2:1. Left as the default because Dhan
+OCO legs cover the position; the tooltip now says what it costs so it is a choice rather
+than something inherited.
+
+### `AUTO` no longer labels a context assignment as a detection
+
+The guide already recorded this: *"a payload can reach the order tooling stamped AUTO for
+a name where nothing was detected, so the label travels downstream with the same
+ambiguity it has on the panel."* When `auto_cat_raw` is NONE the ladder still assigns a
+family from **context** (`is_positional` / `is_swing`) — reasonable as a default, but not
+a detection, and it was reported identically to one.
+
+| tag | means |
+|---|---|
+| `AUTO` | a catalyst was actually detected |
+| `CTX` | no catalyst fired; the family came from trade context |
+| `MAN` | you set it |
+
+### Stale-price guard for the persistence trap
+
+The guide names it: *"switch symbols and the previous name's entry, stop and target are
+still loaded, quietly sizing a completely different trade."* Inputs do not follow the
+symbol and Pine cannot clear them, so the next best thing is to **notice**. A clicked
+entry three times away from the current price in either direction now prints
+`⛔ PRICES LOOK LIKE ANOTHER SYMBOL — re-click entry/SL` in the validation row.
+
+Deliberately loose: it must never fire on a legitimately wide stop, only on the
+order-of-magnitude mismatch a symbol switch produces.
+
+### Still open from the recorded list
+
+- **The target matrix in §Targets is a policy generation stale** — it says POS 5R/10R/15R;
+  the live file computes the R-canon **3R/5R/8R** (SWG 2R/4R/6R). The *code* is correct;
+  this guide's table is not.
+- **Auto-detect still does not fall back to the manual selector as documented** — if
+  either context test passes it assigns POS or SWG regardless of detection. It now says
+  `CTX` when it does that, which makes the behaviour visible, but the fallback itself is
+  unchanged.

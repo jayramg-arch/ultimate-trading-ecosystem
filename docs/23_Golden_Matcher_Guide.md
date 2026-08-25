@@ -178,6 +178,64 @@ One expander holds a **score strip** + **10 detail cards** in three columns. The
 ### 4.7 Footer
 Data source + fetch time + cache note + the standing reminder: **"identification only — the trigger is yours on TradingView."** A "Partial-data notes" expander lists any module that degraded.
 
+## 4e. THE ONE-PASTE BUNDLE — the whole S4 handoff in one line (25 Aug 2026)
+
+Under the Trigger Board, above the individual list blocks:
+
+```
+REC=TECHM,CIPLA|PB=RELIANCE,TCS|BFF=MCX:5,CGCL:5|RFF=LTM:6|RANK=MCX:71.0,CGCL:69.3
+```
+
+Paste it into S4's **`GM: ONE-PASTE bundle`** input after every board rebuild. That is
+the whole handoff.
+
+**Why it exists.** The page had grown five things to copy — Recovery, Pullback, Strike
+RRG, BFF/RFF and the rank. That is a **correctness** problem rather than a convenience
+one: a missed paste does not blank the field in S4, it leaves the **previous** list in
+place, so the chart goes on applying last week's answer to this week's board and nothing
+announces it. Five chances to forget, each silent.
+
+**Every tag is emitted even when its list is empty**, because an empty section is what
+CLEARS a stale input. Omitting the tag would leave whatever was there before.
+
+**The individual blocks below it are kept** — they are how you override one list by hand,
+and a hand-typed S4 input wins over the bundle for its own field.
+
+### The three score lists (`s4_fund_lists`)
+
+`BFF`, `RFF` and `RANK` carry **`SYM:n` pairs**, not bare symbols — here the number is
+the message rather than membership.
+
+**Sourced from the BUILT BOARD, not a fresh fetch.** Two reasons: it is what the board
+actually decided, so the chart cannot disagree with the row you clicked through from;
+and re-deriving would mean a screener.in page per name — the burst that needed a circuit
+breaker in the first place. **A name the board has not scored is ABSENT**, which S4
+renders as an em-dash: unscored and scored-badly must never look the same.
+
+`RANK` is the board's `Overall` and is emitted as a **float** (72.8, not 72).
+
+⚠ **Cadence differs from the Recovery/Pullback lists**: those are a property of the NAME
+and change with the watchlists; the scores come from the BOARD and change every time you
+rebuild it. **Re-paste after each rebuild.**
+
+### Strike RRG is retired — and the reason is the calibration, not tokens
+
+The three per-quadrant RRG paste blocks are **hidden** (`SHOW_RRG_PASTE_BLOCKS = False`);
+`s4_rrg_lists` is untouched and the board's RRG column still writes `gm_rrg_flags.json`.
+
+v67.4.21 computes its RRG with **STRIKE_CAL** — decoupled 25/10/7 lengths plus the
+origin-preserving affine (`ratio_a 0.796`, `mom_a 3.498`, fitted n=17 on weekly Nifty
+500) — and exports it as `s4_rsRatio500` / `s4_rsMom500`, which is what S4 binds. So the
+computed quadrant **reproduces** the Strike.Money read rather than approximating it.
+Once that landed, a hand-typed Strike list stopped being a second opinion and became a
+slower copy of the same number.
+
+*(An earlier note called the retirement a token saving. That was the occasion, not the
+cause — and reading it that way is what led to the feature briefly being restored on
+25-Aug before being re-retired the same day.)*
+
+---
+
 ## 5. The two decision engines (why there are two verdicts)
 
 | Engine | Where | Structure | Verdicts |

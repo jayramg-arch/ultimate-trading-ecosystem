@@ -226,6 +226,7 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#inputs">Inputs</a></li>
     <li><a href="#csv">The CSV</a></li>
+    <li><a href="#wycplumb">Why Wyckoff was silent</a></li>
     <li><a href="#mistakes">Common mistakes</a></li>
     <li><a href="#evidence">The evidence</a></li>
   </ol>
@@ -637,6 +638,37 @@ AND relative volume elevated  AND  score >= 6</pre>
     <li><b>The chart table only renders on the main chart</b>, not in the screener tab — that tab shows column values only.</li>
   </ul>
   </div></details>
+</section>
+
+<section id="wycplumb">
+  <h2><span class="n">—</span>Wyckoff was starved by plumbing, not by its gates (25 Aug 2026)</h2>
+  <p>WYC-* had produced <b>zero</b> signals for as long as anyone had looked, and the standing
+  assumption was that the <code>rff_ok + regime_ok</code> gates or the market were responsible.
+  Neither was.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Checked</th><th class="r">Count</th></tr></thead><tbody>
+      <tr><td class="k">Candidates reaching the screener (from Chartink)</td><td class="num">64</td></tr>
+      <tr><td class="k">… of which <code>regime_ok</code></td><td class="num">59</td></tr>
+      <tr><td class="k">… median <code>RFF_Total</code> (gate is ≥ 4)</td><td class="num">6</td></tr>
+      <tr><td class="k">… WYC catalysts found</td><td class="num">0</td></tr>
+      <tr><td class="k"><b>The same detector over nifty500</b></td><td class="num">500</td></tr>
+      <tr><td class="k">… valid accumulation base</td><td class="num">91</td></tr>
+      <tr><td class="k">… <b>live catalyst</b> (COHANCE, MUTHOOTFIN, NCC, SBICARD, VMM)</td><td class="num">5</td></tr>
+    </tbody></table></div>
+  <div class="note no">
+    <span class="tag">All five were absent from the 64</span>
+    <p><code>load_candidates()</code> sources <b>only</b> the three Chartink recovery scans, so
+    <code>detect_wyckoff()</code> was only ever offered names that had already qualified as
+    something <em>else</em>. A Wyckoff accumulation base is a different structural signature and
+    there is no Chartink scan for one — a WYC name could arrive only by coincidence. It never did.</p>
+  </div>
+  <p>Wyckoff now has its own universe scan
+  (<code>scan_universe_for_catalysts</code>): pure price/volume, so it needs no pre-filter to be
+  affordable, and its survivors clear <b>the same gates as every REV-* edge</b>.
+  <b>The gates are unchanged — only the supply is.</b> Disable with <code>RECOVERY_WYC_SCAN=0</code>.</p>
+  <p>A new line appears in the run output: <code>WYC: n stocks from the universe scan</code>. If that
+  reads 0 on a day the detector should fire, the problem is the detector or the universe — not the
+  gates, which is where the previous investigation spent its time.</p>
 </section>
 
 <section id="mistakes">

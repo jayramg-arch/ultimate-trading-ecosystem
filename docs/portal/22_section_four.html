@@ -228,6 +228,8 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#panel">The five sections</a></li>
     <li><a href="#gates">The four gates</a></li>
+    <li><a href="#vocab">How the panel says things</a></li>
+    <li><a href="#handoff">The GM handoff</a></li>
     <li><a href="#patterns">The 17 patterns</a></li>
     <li><a href="#location">Location</a></li>
     <li><a href="#verdict">The verdict ladder</a></li>
@@ -412,7 +414,7 @@ footer a{color:var(--acc)}
 
 <section id="gates">
   <h2><span class="n">04</span>The four gates</h2>
-  <pre><b>GO  =  P  ·  L  ·  V  ·  B</b>
+  <pre><b>GO  =  P  │  L  │  V  │  B</b>
 
 P   PATTERN    a pattern from the active battery fired on this bar
 L   LOCATION   price is somewhere worth buying — zone, S/R, AVWAP, value area
@@ -435,6 +437,97 @@ B   BAR        the bar itself is not a distribution candle</pre>
     discarding a mildly positive population, <b>not because dry volume is better</b>. Do not
     reason from it in the other direction.</p>
   </div>
+</section>
+
+<section id="vocab">
+  <h2><span class="n">04b</span>How the panel says things</h2>
+  <p>The panel had grown three ways of saying one thing, and the same fact printed in two
+  places. This is the convention it now uses everywhere — worth two minutes, because most
+  of the panel is unreadable at speed without it.</p>
+
+  <h3>Two kinds of &ldquo;not there&rdquo;</h3>
+  <table>
+    <thead><tr><th>Mark</th><th>Means</th><th>Attached to</th></tr></thead>
+    <tbody>
+      <tr><td class="t">🟢</td><td>measured, and it held</td><td>a named condition</td></tr>
+      <tr><td class="t">⚪</td><td>measured, and it did not</td><td>a named condition</td></tr>
+      <tr><td class="t">▫</td><td>the module is off — nothing measured it</td><td>a condition behind a toggle</td></tr>
+      <tr><td class="t">&mdash;</td><td>the value does not exist</td><td>a price, a score, an unbound source</td></tr>
+    </tbody>
+  </table>
+  <p>The separation is the point. A grey dot in front of a price would claim the price is
+  switched off, which is not a thing. An em-dash beside a pattern name would hide that the
+  battery <em>ran</em> and that pattern simply did not fire.</p>
+
+  <div class="note no">
+    <span class="tag">The em-dash rule is load-bearing</span>
+    <p>For <b>RFF</b>, <b>BFF</b> and <b>GM rank</b>, a symbol missing from the pasted list means
+    <em>the GM has not scored it</em> — a different fact from <em>scored it and it failed</em>.
+    Rendering them the same would turn every unlisted name into a fundamental rejection on sight.</p>
+  </div>
+
+  <h3>Where the dot sits</h3>
+  <pre><b>before a NAME</b>   did this named thing happen     🟢VCP3   ⚪NR7   🟢P 🟢L ⚪V 🟢B
+<b>after a VALUE</b>   is this number any good          RFF 5 🟢   GM rank 71.0 🟢</pre>
+  <p>Both appear, and each means something different. Leading = <em>this fired</em>; trailing =
+  <em>this number passes</em>.</p>
+
+  <h3><code>│</code> separates fields, <code>·</code> joins values</h3>
+  <p>A middle dot was doing both jobs — separating fields <em>and</em> sitting inside values
+  (<code>L·BO·Gap</code>, three anchor prices in a row). A rule separates, a dot joins, so
+  the eye finds the boundary without reading the words.</p>
+
+  <h3>The PA and Confluence rows are ranked</h3>
+  <pre>key = fired ? 1000 + weight : weight</pre>
+  <p>An unfired 2-pointer contributes <b>zero</b> right now, so it must not outrank a fired
+  1-pointer — but among the unfired the heavier ones still read first, because those are the
+  ones worth waiting for. Each row reads left to right as <b>what I have, best first — then
+  what I am missing, most valuable first.</b> Weights print after the name where they exceed 1;
+  without that a descending sort looks like a shuffle.</p>
+  <div class="note">
+    <span class="tag">Why it sorts at runtime</span>
+    <p>Every confluence weight is a user input (<code>cf_w_*</code>). A static order would be
+    correct at the defaults and silently wrong the moment you changed one.</p>
+  </div>
+</section>
+
+<section id="handoff">
+  <h2><span class="n">04c</span>The GM handoff — one paste</h2>
+  <pre>REC=TECHM,CIPLA|PB=RELIANCE,TCS|BFF=MCX:5,CGCL:5|RFF=LTM:6|RANK=MCX:71.0</pre>
+  <p>The GM prints that one line under the Trigger Board. It goes into the single input
+  <b>GM: ONE-PASTE bundle</b>, after every board rebuild. That is the whole handoff.</p>
+
+  <div class="note no">
+    <span class="tag">Why one field, not five</span>
+    <p>A missed paste <b>does not blank the field</b> — it leaves the <em>previous</em> list in
+    place, so the chart goes on applying last week's answer to this week's board and nothing
+    announces it. Five separate pastes was five chances to make that mistake silently.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">An empty section is meaningful</span>
+    <p>Every tag is emitted even when its list is empty, because that is what <b>clears</b> a
+    stale input. If the GM omitted the tag instead, whatever was there before would survive.</p>
+  </div>
+
+  <p>The five individual inputs are still there and a <b>hand-typed value wins</b> over the
+  bundle for its own field — the escape hatch for overriding one list without rebuilding
+  the line.</p>
+
+  <h3>Why these three cannot be computed here</h3>
+  <table>
+    <thead><tr><th>Field</th><th>Why Pine cannot produce it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">RFF</td><td>Six fundamental fields plus Tier-B growth history, against a
+        <code>request.financial()</code> ceiling of five calls per script that the Capitulation
+        Screener already spends on a two-check &ldquo;RFF Lite&rdquo;.</td></tr>
+      <tr><td class="k">BFF</td><td>Reads screener.in's compounded-growth table. No Pine surface
+        can reach it.</td></tr>
+      <tr><td class="k">GM rank</td><td>A <b>cross-sectional</b> position. S4 grades one chart and
+        cannot know where it sits among the other forty — so a clean-looking setup that is
+        38th on the list was unreadable here until now.</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <section id="patterns">

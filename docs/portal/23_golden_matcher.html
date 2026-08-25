@@ -224,6 +224,7 @@ footer a{color:var(--acc)}
     <li><a href="#path">The six-step path</a></li>
     <li><a href="#gates">Gates &amp; thresholds</a></li>
     <li><a href="#exec">The guided execution</a></li>
+    <li><a href="#bundle">The one-paste bundle</a></li>
   </ol>
   <p>Using it</p>
   <ol>
@@ -406,6 +407,37 @@ footer a{color:var(--acc)}
     <p>Background tabs go stale: the refresh runs on a browser timer that the browser throttles
     when the tab is hidden. They catch up a few seconds after you focus them.</p>
   </div>
+</section>
+
+<section id="bundle">
+  <h2><span class="n">04e</span>The one-paste bundle</h2>
+  <pre>REC=TECHM,CIPLA|PB=RELIANCE,TCS|BFF=MCX:5,CGCL:5|RFF=LTM:6|RANK=MCX:71.0</pre>
+  <p>One line under the Trigger Board, into S4's <b>GM: ONE-PASTE bundle</b> input, after every
+  rebuild.</p>
+  <div class="note no">
+    <span class="tag">This replaced a correctness problem, not a chore</span>
+    <p>The page had grown five things to copy. A missed paste does not blank the field in S4 —
+    it leaves the <em>previous</em> list applying, silently, to a board that has moved on.</p>
+  </div>
+  <p><b>Every tag is emitted even when empty</b>, because an empty section is what clears a stale
+  input in S4. The individual blocks below the bundle are kept for overriding one list by hand.</p>
+  <h3>The three score lists</h3>
+  <p><code>BFF</code>, <code>RFF</code> and <code>RANK</code> carry <b>SYM:n pairs</b> — here
+  the number is the message, not membership. They are read <b>from the built board</b>, never
+  re-fetched: it is what the board actually decided, so the chart cannot disagree with the row you
+  clicked through from, and it costs no screener.in calls. A name the board has not scored is
+  <b>absent</b>, which S4 renders as an em-dash.</p>
+  <div class="note">
+    <span class="tag">Cadence differs from Recovery / Pullback</span>
+    <p>Those are a property of the NAME. The scores come from the BOARD — they move every time
+    you rebuild it, so re-paste after each rebuild.</p>
+  </div>
+  <h3>Strike RRG is retired — the calibration, not the tokens</h3>
+  <p>v67.4.21 computes its RRG with <b>STRIKE_CAL</b> (decoupled 25/10/7 lengths plus the
+  origin-preserving affine, <code>ratio_a 0.796</code> / <code>mom_a 3.498</code>, fitted n=17 on
+  weekly Nifty 500) and exports it as the pair S4 binds. The computed quadrant therefore
+  <b>reproduces</b> the Strike.Money read rather than approximating it — so a hand-typed Strike
+  list became a slower copy of the same number. The paste blocks are hidden; the code stays.</p>
 </section>
 
 <section id="armed">

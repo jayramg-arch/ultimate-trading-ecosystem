@@ -205,6 +205,7 @@ footer a{color:var(--acc)}
     <li><a href="#day">The daily loop</a></li>
     <li><a href="#catalog">The setup catalog</a></li>
     <li><a href="#inputs">Inputs reference</a></li>
+    <li><a href="#mas">The weekly MA plots</a></li>
     <li><a href="#mistakes">Common mistakes</a></li>
   </ol>
 </nav>
@@ -590,6 +591,32 @@ footer a{color:var(--acc)}
       <tr><td class="k">Sweep lockout</td><td class="m">10 bars</td><td><b>Stops the reclaim pattern reprinting through a pullback</b></td></tr>
       <tr><td class="k">Stage-2 fresh threshold</td><td class="m">13 weeks</td><td>The leg-age cutoff for the fresh tag. Above it but within the macro limit reads maturing; beyond that, extended</td></tr>
   </tbody></table></div></div></details>
+</section>
+
+<section id="mas">
+  <h2><span class="n">—</span>The weekly MA plots — visible, and settable (25 Aug 2026)</h2>
+  <p>Two separate causes, reported as one problem: <em>&ldquo;the 30WMA and 40WMA are not visible.
+  Also, on the settings&rarr;Style tab, why am I not able to set the colors?&rdquo;</em></p>
+  <div class="note no">
+    <span class="tag">1 · Invisible</span>
+    <p>The 40-week MA was hardcoded <code>color.black</code> — a black line on a near-black chart.
+    Drawn correctly every bar and impossible to see. Now a light grey that reads on either theme.</p>
+  </div>
+  <div class="note no">
+    <span class="tag">2 · The Style tab did nothing</span>
+    <p>A colour passed as a <code>color=</code> <b>argument</b> is re-applied by the script on every
+    bar, so whatever you pick in Style is overwritten before you see it. The swatch is there; it
+    just never wins.</p>
+  </div>
+  <p>Both MAs now source <code>input.color</code>, so the Style tab <em>is</em> the script's input and
+  your choice survives. New group <b>Weekly MA colours</b>: separate colours for the 30W rising and
+  falling states (the slope conditional is preserved — both branches are yours), one for the 40W,
+  and show/hide toggles.</p>
+  <div class="note">
+    <span class="tag">The general rule</span>
+    <p>A plot whose colour is <b>computed</b> is not user-settable — and a <b>conditional</b> colour
+    is computed by definition. If you want a plot's colour adjustable, it has to come from an input.</p>
+  </div>
 </section>
 
 <section id="mistakes">
