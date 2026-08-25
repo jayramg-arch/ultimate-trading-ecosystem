@@ -3226,6 +3226,13 @@ def _plan_structural_sl(ctx, entry, atr):
 # DECISION WORKFLOW — the sequential path (crucial metrics only)
 # ----------------------------------------------------------------------------------------
 GM_BFF_MIN = 4          # BFF's STRONG band; matches pullback_finder + the catalyst gate
+# Show the three per-quadrant Strike-RRG paste blocks under the Trigger Board.
+# OFF (Jay, 25-Aug-2026): they existed so each quadrant could be pasted into S4 by
+# hand, and the one-paste bundle now carries RRGL/RRGI/RRGW, so the blocks are three
+# code boxes of screen for a paste nobody needs to make any more. The lists are still
+# COMPUTED (s4_rrg_lists) and still reach the chart through the bundle -- this hides
+# the UI, it does not disconnect the feature.
+SHOW_RRG_PASTE_BLOCKS = False
 
 
 def _gm_bff_gate(ctx):
@@ -13341,53 +13348,56 @@ elif page == 'GOLDEN MATCHER':
                     st.caption("↩️ **S4 Pullback list · 0 names** — no pullback-only names in "
                                "the current union. Clear S4's input; S4 falls back to inferring "
                                "the setup from the pattern mix.")
-                # ── S4 "GM RRG" lists (10-Aug-2026) — the MANUAL Strike.Money read.
-                # Third handoff on the same pattern. S4 computes its own quadrant from
-                # v67's RS-Ratio/RS-Momentum; Jay reads his off Strike.Money on the WEEKLY
-                # chart and types it into the board, and that is the one he trades. When
-                # they disagree the manual read wins, so it has to reach the chart.
-                # WEEKLY cadence — unlike the two lists above, this does NOT need
-                # re-pasting after every auto-pilot run, only after a weekend RRG update.
-                try:
-                    _s4rrg = _gtb.s4_rrg_lists(_uni) or {}
-                except Exception as e:
-                    _s4rrg = {}
-                    _gm_logger.warning(f"s4_rrg_lists failed: {e}")
-                _rrg_n = sum(len([x for x in v.split(",") if x]) for v in _s4rrg.values())
-                if _rrg_n:
-                    _age_txt = ""
+                # RRG paste blocks hidden 25-Aug-2026 -- see SHOW_RRG_PASTE_BLOCKS. The lists
+                # still reach S4 through the one-paste bundle above; only the UI is gone.
+                if SHOW_RRG_PASTE_BLOCKS:
+                    # ── S4 "GM RRG" lists (10-Aug-2026) — the MANUAL Strike.Money read.
+                    # Third handoff on the same pattern. S4 computes its own quadrant from
+                    # v67's RS-Ratio/RS-Momentum; Jay reads his off Strike.Money on the WEEKLY
+                    # chart and types it into the board, and that is the one he trades. When
+                    # they disagree the manual read wins, so it has to reach the chart.
+                    # WEEKLY cadence — unlike the two lists above, this does NOT need
+                    # re-pasting after every auto-pilot run, only after a weekend RRG update.
                     try:
-                        _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                           "gm_rrg_flags.json")
-                        import time as _time_mod
-                        _ad = (_time_mod.time() - os.path.getmtime(_rp)) / 86400.0
-                        # An RRG read is a WEEKLY act, so >10 days is a real staleness
-                        # signal, not pedantry — a month-old quadrant is a different market.
-                        _age_txt = (f" · flags **{_ad:.0f}d old**"
-                                    + (" ⚠ update over the weekend" if _ad > 10 else ""))
-                    except Exception:
-                        pass
-                    _lagn = len([x for x in (_s4rrg.get("Lagging") or "").split(",") if x])
-                    st.caption(f"🧭 **Strike RRG · {_rrg_n} names**{_age_txt} — paste each into "
-                               f"S4's matching *Strike RRG* input. **Lagging is not pasted**: an "
-                               f"RRG has four quadrants, so S4 infers it by elimination from the "
-                               f"three below"
-                               + (f" ({_lagn} name{'s' if _lagn != 1 else ''} you flagged Lagging "
-                                  f"will resolve that way automatically)" if _lagn else "")
-                               + ". This is **additive** — S4's own computed quadrant keeps its "
-                                 "own row directly above.")
-                    for _q in ("Leading", "Improving", "Weakening"):
-                        _v = _s4rrg.get(_q, "")
-                        if _v:
-                            st.caption(f"*Strike RRG: {_q}* · {len([x for x in _v.split(',') if x])}")
-                            st.code(_v, language=None)
-                        else:
-                            # An EMPTY list still has to be cleared in S4, or last week's
-                            # names keep resolving. Say so rather than rendering nothing.
-                            st.caption(f"*Strike RRG: {_q}* · 0 — clear this input in S4.")
-                else:
-                    st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
-                               "current union. Set them on the board's RRG column first.")
+                        _s4rrg = _gtb.s4_rrg_lists(_uni) or {}
+                    except Exception as e:
+                        _s4rrg = {}
+                        _gm_logger.warning(f"s4_rrg_lists failed: {e}")
+                    _rrg_n = sum(len([x for x in v.split(",") if x]) for v in _s4rrg.values())
+                    if _rrg_n:
+                        _age_txt = ""
+                        try:
+                            _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                               "gm_rrg_flags.json")
+                            import time as _time_mod
+                            _ad = (_time_mod.time() - os.path.getmtime(_rp)) / 86400.0
+                            # An RRG read is a WEEKLY act, so >10 days is a real staleness
+                            # signal, not pedantry — a month-old quadrant is a different market.
+                            _age_txt = (f" · flags **{_ad:.0f}d old**"
+                                        + (" ⚠ update over the weekend" if _ad > 10 else ""))
+                        except Exception:
+                            pass
+                        _lagn = len([x for x in (_s4rrg.get("Lagging") or "").split(",") if x])
+                        st.caption(f"🧭 **Strike RRG · {_rrg_n} names**{_age_txt} — paste each into "
+                                   f"S4's matching *Strike RRG* input. **Lagging is not pasted**: an "
+                                   f"RRG has four quadrants, so S4 infers it by elimination from the "
+                                   f"three below"
+                                   + (f" ({_lagn} name{'s' if _lagn != 1 else ''} you flagged Lagging "
+                                      f"will resolve that way automatically)" if _lagn else "")
+                                   + ". This is **additive** — S4's own computed quadrant keeps its "
+                                     "own row directly above.")
+                        for _q in ("Leading", "Improving", "Weakening"):
+                            _v = _s4rrg.get(_q, "")
+                            if _v:
+                                st.caption(f"*Strike RRG: {_q}* · {len([x for x in _v.split(',') if x])}")
+                                st.code(_v, language=None)
+                            else:
+                                # An EMPTY list still has to be cleared in S4, or last week's
+                                # names keep resolving. Say so rather than rendering nothing.
+                                st.caption(f"*Strike RRG: {_q}* · 0 — clear this input in S4.")
+                    else:
+                        st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
+                                   "current union. Set them on the board's RRG column first.")
 
                 # ── S4 BFF / RFF SCORE lists (25-Aug-2026) — the FOURTH handoff, and the
                 # one S4 cannot approximate at all. RFF needs six fundamental fields plus
