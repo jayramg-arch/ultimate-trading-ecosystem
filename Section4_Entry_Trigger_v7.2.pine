@@ -5668,7 +5668,7 @@ if show_panel and d_panel and barstate.islast
     // Prepended rather than replacing the verdict: the rest of the read is still true
     // and still worth having if you later switch to a cheaper fund on the same index.
     if _etfPrmBad
-        _aVer := "NOT TRADEABLE - ETF at " + str.tostring(_etfPrm, "+0.0") + "% to NAV" + chr(10) + "You are paying " + str.tostring(100.0 + math.abs(_etfPrm), "0") + " for 100 of assets, booked on entry. Use a cheaper fund on the same index, or the sweep-in FD." + chr(10) + _aVerL
+        _aVer := "NOT TRADEABLE - ETF at " + str.tostring(_etfPrm, "+0.0") + "% to NAV" + "\n" + "You are paying " + str.tostring(100.0 + math.abs(_etfPrm), "0") + " for 100 of assets, booked on entry. Use a cheaper fund on the same index, or the sweep-in FD." + "\n" + _aVerL
         _anCol := C_NO
     if show_analysis
         color _verBg = f_softBg(_anCol)
