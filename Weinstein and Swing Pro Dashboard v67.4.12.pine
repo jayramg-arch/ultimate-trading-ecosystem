@@ -814,7 +814,7 @@ p9_date = input.time(0, title="Date", group=grpP6_10, inline="p9d", display=disp
 
 p10_tick = input.string("NSE:APOLLOHOSP", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
 p10_ent  = input.float(8876.228, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
-p10_sl   = input.price(8316.5, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
+p10_sl   = input.price(8275.5, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
 p10_tsl  = input.price(0.0, title="Trail SL", group=grpP6_10, inline="p10", display=display.data_window)
 p10_t1   = input.price(9428.5, title="T1", group=grpP6_10, inline="p10t", display=display.data_window)
 p10_t2   = input.price(9982.5, title="T2", group=grpP6_10, inline="p10t", display=display.data_window)
@@ -835,7 +835,7 @@ p11_date = input.time(timestamp("2026-07-18"), title="Date", group=grpP11_15, in
 
 p12_tick = input.string("NSE:CUMMINSIND", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
 p12_ent  = input.float(5456.5, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
-p12_sl   = input.price(4979.5, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sl   = input.price(4890.5, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_t1   = input.price(6405.5, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
 p12_t2   = input.price(7356.5, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
@@ -862,7 +862,7 @@ p14_date = input.time(timestamp("2026-08-12"), title="Date", group=grpP11_15, in
 
 p15_tick = input.string("NSE:ASTERDM", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
 p15_ent  = input.float(854.431, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
-p15_sl   = input.price(725.5, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
+p15_sl   = input.price(707.5, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
 p15_tsl  = input.price(0.0, title="Trail SL", group=grpP11_15, inline="p15", display=display.data_window)
 p15_t1   = input.price(1122.5, title="T1", group=grpP11_15, inline="p15t", display=display.data_window)
 p15_t2   = input.price(1369.5, title="T2", group=grpP11_15, inline="p15t", display=display.data_window)
@@ -903,7 +903,7 @@ p19_tick = input.string("NSE:AUBANK", title="Slot 19", group=grpP16_20, inline="
 p19_ent  = input.float(1085.9, title="Entry", group=grpP16_20, inline="p19", display=display.data_window)
 p19_sl   = input.price(992.5, title="SL", group=grpP16_20, inline="p19", display=display.data_window)
 p19_tsl  = input.price(0.0, title="Trail SL", group=grpP16_20, inline="p19", display=display.data_window)
-p19_t1   = input.price(1131.7, title="T1", group=grpP16_20, inline="p19t", display=display.data_window)
+p19_t1   = input.price(1178.5, title="T1", group=grpP16_20, inline="p19t", display=display.data_window)
 p19_t2   = input.price(1178.5, title="T2", group=grpP16_20, inline="p19t", display=display.data_window)
 p19_sec  = input.string("Bank Nifty", title="Sector", group=grpP16_20, inline="p19s", display=display.data_window)
 p19_date = input.time(timestamp("2026-08-21"), title="Date", group=grpP16_20, inline="p19d", display=display.data_window)
@@ -5637,6 +5637,29 @@ plotshape(show_ribbon, title="Weinstein Stage Ribbon (Bottom)", style=shape.squa
 //                                 short build-up / short covering) from OI vs price.
 // ============================================================================
 plot(conf_score,        title="s4_actionSignal", display=display.none)
+// ── ML WIN PROBABILITY (26-Aug-2026, Jay: port it here and bind from v67) ──────
+// The logistic scorer that lived only in the Unified Ecosystem. Computed HERE because
+// v67 already owns five of its six inputs and is already S4's binding channel -- so S4
+// gets it for one input.source instead of a second channel to a second indicator.
+//
+// f_calc_alpha_score is the SAME function in both files, so that term cannot drift.
+// The one term that WOULD have drifted is RS: Unified's rsVal500 is the JdK RS-Ratio
+// CENTERED ON 0 (`rs_positive = rsVal500 > 0`), while v67's val500 is the 100-based
+// ratio (S4 tests `> 100`). Feeding val500 straight in would have shifted every score
+// by 0.002488 x 100 = +0.249 and quietly inflated the probability. Hence val500 - 100.
+//
+// CAVEAT worth knowing: these six coefficients are a fitted logistic whose calibration
+// has never been validated out-of-sample in this project. Read it as a RANKING, not as
+// a true probability -- "38%" does not mean 38 trades in 100 worked.
+float _mlBasis = ta.sma(close, 20)
+float _mlBBw   = _mlBasis > 0 ? (4.0 * ta.stdev(close, 20)) / _mlBasis : 0.0
+float _mlHi52  = ta.highest(high, 250)
+float _mlPbDep = _mlHi52 > 0 ? (_mlHi52 - close) / _mlHi52 : 0.0
+float _mlAtrP  = (not na(d_atr14)) and d_atr14 > 0 and close > 0 ? (d_atr14 / close) * 100.0 : 3.0
+float _mlAlpha = f_calc_alpha_score(close, open, d_ema20val, d_sma50, volume, d_vavg)
+float _mlScore = -0.510474 + (0.023048 * dailyRsi) + (0.113267 * _mlAtrP) + (-0.848810 * _mlBBw) + (0.002488 * (val500 - 100.0)) + (-0.013312 * _mlAlpha) + (-1.137420 * _mlPbDep)
+float mlWinProb = (1.0 / (1.0 + math.exp(-_mlScore))) * 100.0
+plot(mlWinProb,         title="s4_mlWinProb",    display=display.none)
 plot(score,             title="s4_assetQuality", display=display.none)
 plot(dailyRsi,          title="s4_rsiDaily",     display=display.none)
 plot(val500,            title="s4_rsRatio500",   display=display.none)

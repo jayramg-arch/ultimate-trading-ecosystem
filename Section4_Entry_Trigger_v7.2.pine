@@ -911,6 +911,8 @@ d_lvls    = input.bool(true, "FVG / pivot levels",          group=grpDisp, toolt
 d_avwap   = input.bool(true, "Anchored VWAPs",              group=grpDisp, tooltip="The three AVWAP curves + the pinch read. OFF also drops AVWAP from the support gate and the score.")
 d_markers = input.bool(true, "Chart markers (GO / PA / triggers)", group=grpDisp, tooltip="The on-candle labels only. This does NOT change the signal — the PA battery keeps running and the panel keeps reading. Purely visual decluttering.")
 d_pat     = input.bool(true, "Patterns (flag / geometry / box)", group=grpDisp, tooltip="The flag detector, the pivot-based geometry read (triangle / wedge / channel / range) and your manual consolidation box. OFF also drops the flag from the confluence score.")
+show_cpr   = input.bool(true, "CPR pivot line",    group=grpDisp, tooltip="Central pivot (H+L+C)/3 of the PREVIOUS completed day. Stepline, because it is one value per session and a sloped line between sessions would imply intraday movement it does not have.")
+show_mvwap = input.bool(true, "Monthly VWAP line", group=grpDisp, tooltip="Volume-weighted average price anchored to the first bar of the month — the average price everyone who traded this month actually paid.")
 d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 
 // ── CANDLE HIGHLIGHTS (24-Jul): make the PA candle and the B (bar-quality) state
@@ -1494,6 +1496,10 @@ pyrLeftSrc  = input.source(close, "v67: Days to time-stop", group=grpDash, toolt
 pyrChandSrc = input.source(close, "v67: Chandelier stop", group=grpDash, tooltip="Bind to s4_pyrChand. The catalyst-aware trail; on an ADD this is what the WHOLE position's stop lifts to.")
 pyrReasonSrc= input.source(close, "v67: Pyramid reason",  group=grpDash, tooltip="Bind to s4_pyrReason. The trigger as a CODE, because input.source cannot carry a string: 1-7 EXIT (at-SL / underwater / Stage 4 / swing low / 30-WMA / Chandelier / time-stop) · 11-15 TRIM (3R / 2R / T1 / earnings / extended) · 21 REDUCE · 31-33 ADD · 41-42 HOLD.")
 pyrEntryTsSrc= input.source(close, "v67: Entry date (epoch)", group=grpDash, tooltip="Bind to s4_pyrEntryTime. Milliseconds; rendered as yyyy-MM-dd in the chart timezone.")
+// APPENDED AT THE END DELIBERATELY. input.source binds by POSITION, so inserting a
+// new one mid-list silently re-points every binding below it -- the v8.5 blank-fields
+// incident. New sources go here, never beside their thematic neighbours.
+dashMlProb  = input.source(close, "v67: ML win probability", group=grpDash, tooltip="Bind to s4_mlWinProb. The logistic scorer ported from the Unified Ecosystem into v67 (one binding channel, not two). Read it as a RANKING: the coefficients have never been validated out-of-sample, so 38% does not mean 38 trades in 100 worked. Unbound reads close, which is why the row prints '--' rather than a fake percentage when the shape is wrong.")
 rsSlopeThresh  = input.float(0.2, "v67: RS slope sensitivity", group=grpDash, minval=0.05, maxval=1.5, tooltip="Mirrors v67 rsSlopeThresh (default 0.2). Below this a slope reads Flat rather than Rising/Declining. Keep it equal to v67 or the two panels will word the same RS state differently.")
 wmaSlopeThresh = input.float(0.0012, "30WMA slope flat-band (x MA, 4-week change)", group=grpPA, minval=0.0001, maxval=0.02, step=0.0001, tooltip="The band inside which the 30-week MA counts as FLAT rather than rising or falling. 0.0012 = v67 Dashboard parity (its slopeThresh), applied to the RAW 4-week change of sma(close,30) on WEEKLY bars.\n\nThis is the input that was causing 'v67 says Stage 1, S4 says Stage 2'. S4 previously derived the slope from sma150 on DAILY bars over 10 DAYS — a slow average barely moves in ten days, so it read FLAT where v67 read FALLING, and the stage cell followed.\n\nWiden it and more names read FLAT (which, above the MA, is the Stage 1-vs-3 cell). Narrow it and almost everything reads rising or falling, skipping Stage 1 entirely. Measured across 55 board names at 0.0012: 37 rising / 2 flat / 16 falling.")
 resolveOpposing = input.bool(true, "Resolve supply/demand overlap (newer wins)", group=grpZP, tooltip="A price band cannot be supply AND demand at the same time.\n\nMeasured on POLYCAB monthly (5-Aug-2026): a supply zone at 9106.5-10126 and a demand zone at 8791-9961 overlapped by 855 points with spot sitting INSIDE BOTH. The panel read 'IN SUPPLY' while a demand zone occupied the same prices, and the Support Zone row had nothing usable to show. A location gate cannot be honest about a band that is both.\n\nON (default): when a new zone overlaps a live OPPOSING zone on the SAME timeframe, the older one is trimmed back to the newer one's edge — price has since traded into that band and turned the other way, so the old zone's fuel in the overlap is spent. A zone that ends up fully engulfed is greyed (tested), never deleted.\n\nCross-timeframe overlaps are untouched: a Monthly zone sitting on a Weekly one is CONFLUENCE, not a contradiction.\n\nOFF = both zones stay at full width and may contradict each other.")
@@ -1682,6 +1688,18 @@ float dyn_ema = timeframe.isintraday ? dailyEMA20 : chartEMA20
 float rsRatio    = not na(n500Close) and n500Close > 0 ? close / n500Close : na
 float rsLR_diff  = ta.linreg(rsRatio, 60, 0) - ta.linreg(rsRatio, 60, 1)
 float rsSlope    = nz(rsLR_diff, 0.0)
+
+// ── MOMENTUM & VALUE ROW (26-Aug-2026, Jay) — ADX/DI, CPR pivot, monthly VWAP ──
+// All global scope: ta.* and running state inside `if barstate.islast` compute on the
+// LAST BAR ONLY and return garbage the rest of the time (the v5.9 ema20_x40 lesson).
+[_diP, _diM, _adxV] = ta.dmi(14, 14)
+// CPR central pivot = (H+L+C)/3 of the PREVIOUS COMPLETED day. lookahead_off plus the
+// [1] index is what keeps it out of the forming session -- a CPR built from today's
+// own high/low repaints all day and would read as support that was never there.
+float _cprPivot = request.security(syminfo.tickerid, "D", (high[1] + low[1] + close[1]) / 3.0, lookahead=barmerge.lookahead_off)
+// Monthly-anchored VWAP: resets on the first bar of each month.
+float _mvwap = ta.vwap(hlc3, timeframe.change("M"))
+
 
 // HTF pivots (feed the "tested" rule 3 = close across a strong HTF pivot S/R).
 // The last CONFIRMED pivot high/low on the chosen higher timeframe = a normal
@@ -5529,7 +5547,7 @@ if show_panel and d_panel and barstate.islast
     // >50DMA and >200DMA moved OUT to the Minervini row (criteria 5 and 1): one
     // fact, one place. The 50-DMA SLOPE stays -- Minervini tests the 200 SMA slope,
     // not the 50, so the arrow is not a duplicate of anything over there.
-    string _50_st  = na(d_sl50n) ? "" : "  │  50"
+    string _50_st  = na(d_sl50n) ? "" : "  │  50DMA slope"   // NOT ">50DMA": this is the SLOPE (see the arrow). The level test is Minervini #5.
     // Native only — the v67 s4_slope50 fallback dropped to buy compiled tokens.
     // d_sl50n is the same measurement and needs no binding.
     string _50_ar  = na(d_sl50n) ? "" : (d_sl50n > 0 ? " ↗️" : d_sl50n < 0 ? " ↘️" : " ➡️")
@@ -5571,7 +5589,36 @@ if show_panel and d_panel and barstate.islast
     string _etfTxt = "  │  ETF " + (na(_etfLiq) ? "—Cr" : "₹" + str.tostring(_etfLiq, "0.0") + "Cr" + (_etfLiq < 1.0 ? " THIN" : "")) + "  │  NAV " + (na(_etfPrm) ? "—" : str.tostring(_etfPrm, "+0.0") + "%" + (_etfPrmBad ? " 🔴" : math.abs(_etfPrm) >= 1.0 ? " ⚪" : " 🟢"))
     string _fndTxt = _isEtf ? (_rnkTxt + _etfTxt) : _rnkTxt + "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  │  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _fndTxt
-    f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
+    // SECTOR (26-Aug-2026, Jay): from HIS curated sectors.db, ported into S4Core as a
+    // packed string map. It lives in the library because a library compiles separately
+    // -- 677 symbols cost this file one call, not 677 comparisons. TradingView's own
+    // syminfo.sector is the fallback, and is NOT the same taxonomy (it is a global GICS
+    // -style classification, not the NSE sector indices the RS/RRG work is built on), so
+    // it is marked with a ~ rather than passed off as the curated value.
+    string _secCur = core.sectorOf(syminfo.ticker)
+    string _secTxt = _secCur != "" ? _secCur : (syminfo.sector != "" ? syminfo.sector + " ~tv" : "—")
+    f_row(2, "Structure basis", _basis + "  │  " + _secTxt, is_rec_v ? C_REC : C_OK)
+    // ML win probability — bound, never recomputed. Unbound, input.source returns
+    // `close`, which is never na, so a bound/unbound test has to check the VALUE'S
+    // SHAPE: a probability lives in [0,100] and a price rarely does exactly.
+    bool _mlOk = dashMlProb != close and dashMlProb >= 0.0 and dashMlProb <= 100.0
+    // Row 21, not 4: rows 1/10/18/30/36/40 are SECTION BANDS and 4 is the WCL row.
+    // 21-23 are the only genuinely free ids (see the row audit in the header).
+    // MOMENTUM & VALUE (row 22). RSI stays on row 9 as part of the v67 signal triplet
+    // -- it is the SAME bound value, and duplicating it would repeat the mistake the
+    // v6.1 verdict rewrite removed (a panel restating itself). ATR appears here as a
+    // PERCENT of price, which is the comparable form; the absolute ATR is already in
+    // the Plan row where it sizes the stop.
+    float _atrPct = close > 0 and not na(chart_atr) ? (chart_atr / close) * 100.0 : na
+    string _cprTxt = na(_cprPivot) ? "CPR —" : (close >= _cprPivot ? "above CPR " : "below CPR ") + str.tostring(_cprPivot, format.mintick)
+    string _mvwTxt = na(_mvwap) ? "MVWAP —" : (close >= _mvwap ? "above MVWAP " : "below MVWAP ") + str.tostring(_mvwap, format.mintick)
+    string _momTxt = "ADX " + str.tostring(_adxV, "0.0") + (_diP > _diM ? " +DI" : " -DI") + " (" + str.tostring(_diP, "0") + "/" + str.tostring(_diM, "0") + ")"
+      + "  │  ATR " + (na(_atrPct) ? "—" : str.tostring(_atrPct, "0.0") + "%")
+      + "  │  " + _cprTxt + "  │  " + _mvwTxt
+      + "  │  VCP " + (kVCP ? "✓" : "·")
+    f_row(22, "Momentum & value", _momTxt, _adxV >= 25.0 and _diP > _diM ? C_OK : _adxV < 20.0 ? C_MUTE : C_WARN)
+    f_row(21, "ML win probability", _mlOk ? str.tostring(dashMlProb, "0.0") + "%" : "— unbound",
+      not _mlOk ? C_MUTE : dashMlProb >= 40.0 ? C_GO : dashMlProb >= 35.0 ? C_OK : C_MUTE)
     f_row(3, "Minervini template  " + str.tostring(_mvN) + "/" + str.tostring(_mvOf) + (_mvBound ? "" : "~"), _mvTxt, _mvN >= _mvOf ? C_GO : _mvN >= _mvOf - 2 ? C_OK : C_MUTE)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
@@ -5832,3 +5879,9 @@ if go and not go[1]
     string _zone = z_inDZ ? "at Demand Zone" : near_avwap ? "at AVWAP" : "at location"
     string _msg  = "S4 GO on " + syminfo.ticker + " (" + (is_rec ? "Recovery" : "Bull") + ") — PA: " + _pa + " " + _zone + " · RV " + str.tostring(nz(chart_rv, 0.0), "0.00") + " · Sum+" + str.tostring(tsum)
     alert(_msg, alert.freq_once_per_bar_close)
+
+// CPR pivot + monthly VWAP on the chart (Jay: "draw these two lines"). Both are
+// plot() outputs, so unlike the panel's boxes and labels their colours ARE settable
+// in Settings > Style -- which is also the answer to why the zone colours are not.
+plot(show_cpr   ? _cprPivot : na, "CPR pivot",    color=color.new(#FFB74D, 0), linewidth=1, style=plot.style_stepline)
+plot(show_mvwap ? _mvwap    : na, "Monthly VWAP", color=color.new(#4DD0E1, 0), linewidth=1)

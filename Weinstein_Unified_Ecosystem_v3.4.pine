@@ -2561,6 +2561,17 @@ plotshape(show_signals and gap_go_trg,      "GAP-GO",   style=shape.triangleup, 
 plotshape(show_signals and trigger_rev_cb,  "REV-CB",   style=shape.triangleup, location=location.belowbar, color=color.new(color.red, 0), size=size.small, text="CB")
 plotshape(show_signals and trigger_rev_rs,  "REV-RS",   style=shape.triangleup, location=location.belowbar, color=color.new(color.purple, 0), size=size.small, text="RS")
 plotshape(show_signals and trigger_rev_early,"REV-EAR", style=shape.triangleup, location=location.belowbar, color=color.new(color.blue, 0), size=size.small, text="EAR")
+// WYCKOFF ON THE CHART (26-Aug-2026, Jay: "why is Unified not displaying Wyckoff
+// catalysts on the chart?"). It was a plain omission, not a gate: v3.4 added the WYC
+// triggers, entries, stops and targets, and v3.4.2 added the panel row -- so Wyckoff
+// could fire, size and trade while leaving no mark on the chart. The four triggers are
+// mutually exclusive by construction (see their `not wyc_has_*` clauses), so at most
+// one prints per bar. Teal to separate the accumulation family from the red/purple/blue
+// REV-* markers.
+plotshape(show_signals and trigger_wyc_spring_sos, "WYC-SPRING+SOS", style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0), size=size.small, text="SPR+SOS")
+plotshape(show_signals and trigger_wyc_spring,     "WYC-SPRING",     style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0), size=size.small, text="SPRING")
+plotshape(show_signals and trigger_wyc_sos,        "WYC-SOS",        style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0), size=size.small, text="SOS")
+plotshape(show_signals and trigger_wyc_jac,        "WYC-JAC",        style=shape.triangleup, location=location.belowbar, color=color.new(color.teal, 0), size=size.small, text="JAC")
 
 // alert() replaces alertcondition() â€” the latter has no effect inside strategy scripts.
 if trigger_bull
@@ -2638,7 +2649,7 @@ if barstate.islast and show_panel
     f_row(dash, r, "BULL SETUP", _bull_setup_str, _bull_setup_col, c_lbl, c_val_txt, c_lbl_txt)
     r += 1
 
-    string _ml_prob_str = str.tostring(ml_win_prob, "#.#") + "%" + (ml_rsi_dead_zone ? " (DeadZone)" : "")
+    string _ml_prob_str = str.tostring(ml_win_prob, "0.0") + "%" + (ml_rsi_dead_zone ? " (DeadZone)" : "")
     color  _ml_prob_col = ml_win_prob >= 40.0 and not ml_rsi_dead_zone ? c_sig_on : (ml_win_prob >= 35.0 ? c_sig_warn : c_sig_red)
     f_row(dash, r, "ML WIN PROB", _ml_prob_str, _ml_prob_col, c_lbl, c_val_txt, c_lbl_txt)
     r += 1
