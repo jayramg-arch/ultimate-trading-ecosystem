@@ -3231,6 +3231,9 @@ GM_BFF_MIN = 4          # BFF's STRONG band; matches pullback_finder + the catal
 # input, which defaults the same way -- if you flip one, flip the other, or the chart
 # and the board will disagree about what "at location" means.
 GM_LOC_STRICT = True
+# A2: a PIVOT shelf alone is not location; it needs one more source. Mirrors
+# S4's `loc_pivot_needs_confluence`. Set ZONE_USE_STRUCTURAL=0 for pattern-only.
+GM_PIVOT_NEEDS_CONFLUENCE = True
 # Show the three per-quadrant Strike-RRG paste blocks under the Trigger Board.
 # OFF (Jay, 25-Aug-2026): they existed so each quadrant could be pasted into S4 by
 # hand, and the one-paste bundle now carries RRGL/RRGI/RRGW, so the blocks are three
@@ -4131,6 +4134,8 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                                 _gm_logger.warning(f"{symbol}: trigger-TF zones failed ({trigger_tf}): {_ze2}")
                                 _izI = _srI = {}
                         _s["tf_zone_at"] = bool(_izI.get("at_support"))
+                        _s["tf_zone_pattern"] = bool(_izI.get("at_support_pattern"))
+                        _s["tf_zone_pivot"] = bool(_izI.get("at_support_pivot"))
                         _s["tf_zone_in"] = bool(_izI.get("in_fresh_dz"))
                         _s["tf_near_sr"] = bool(_srI.get("near_sr"))
                         _s["tf_zone_tf"] = _iz_tf or ""
@@ -4163,13 +4168,39 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                         # The soft sources are NOT discarded -- they are kept on the
                         # row (and in the Loc column) as CONTEXT. They just no longer
                         # satisfy the gate alone.
-                        _s["loc_zone"] = bool(_s.get("ize_at_support") or _s["tf_zone_at"])
+                        # RULE A2 (25-Aug-2026). A PATTERN zone (leg-base-leg) stands
+                        # alone; a PIVOT shelf needs one more source to agree. Mirrors
+                        # S4's loc_pivot_needs_confluence exactly.
+                        # Measured on the live 76-name board:
+                        #   any zone 72.4% · pattern only 21.1% · A2 60.5%
+                        # Of 40 pivot-only names 30 already had a second source; A2
+                        # removes the 10 resting on a pivot and nothing else.
+                        # JAY'S CONCERN, recorded: he does not rely on pivot zones and
+                        # wants pattern-only. A2 is interim because pattern zones alone
+                        # currently fire on 21% of the board. ZONE_USE_STRUCTURAL=0
+                        # gives pattern-only on this surface.
+                        _s["loc_pattern"] = bool(_s.get("ize_at_support_pattern")
+                                                 or _s.get("tf_zone_pattern"))
+                        _s["loc_pivot"] = bool(_s.get("ize_at_support_pivot")
+                                               or _s.get("tf_zone_pivot"))
+                        # Fallback for a zone_engine that predates the split: treat an
+                        # unlabelled hit as a PATTERN zone rather than silently losing
+                        # it. Over-admitting one name beats blanking the gate.
+                        if not (_s["loc_pattern"] or _s["loc_pivot"]):
+                            _s["loc_pattern"] = bool(_s.get("ize_at_support")
+                                                     or _s["tf_zone_at"])
+                        _s["loc_zone"] = _s["loc_pattern"] or _s["loc_pivot"]
                         _s["loc_soft"] = bool(_s.get("ize_near_sr")
                                               or _s.get("ize_near_avwap")
                                               or _ivp.get("at_vp_support")
                                               or _s["tf_near_sr"])
-                        _s["at_support"] = (_s["loc_zone"] if GM_LOC_STRICT
-                                            else (_s["loc_zone"] or _s["loc_soft"]))
+                        if GM_LOC_STRICT:
+                            _s["at_support"] = bool(
+                                _s["loc_pattern"]
+                                or (_s["loc_pivot"] and
+                                    (_s["loc_soft"] if GM_PIVOT_NEEDS_CONFLUENCE else True)))
+                        else:
+                            _s["at_support"] = bool(_s["loc_zone"] or _s["loc_soft"])
                         ctx["support"] = _s
             except Exception as e:
                 # Daily WCL from the ctx builder stands; it is labelled with its own tf.
@@ -4816,6 +4847,12 @@ def gm_load_symbol(symbol: str) -> dict:
                     _mo = _pap._confirmed_month_ohlcv(_df5 if (_df5 is not None and len(_df5)) else _df)
                     _izM = _ze.zone_support(_mo, "M", _pxN) if (_mo is not None and len(_mo) >= 60) else {}
                     _ize_at = bool(_izD.get("at_support") or _izW.get("at_support") or _izM.get("at_support"))
+                    _sup["ize_at_support_pattern"] = bool(
+                        _izD.get("at_support_pattern") or _izW.get("at_support_pattern")
+                        or _izM.get("at_support_pattern"))
+                    _sup["ize_at_support_pivot"] = bool(
+                        _izD.get("at_support_pivot") or _izW.get("at_support_pivot")
+                        or _izM.get("at_support_pivot"))
                     _sup["ize_at_support"] = _ize_at
                     _sup["ize_zone"] = _izD.get("zone") or _izW.get("zone") or _izM.get("zone")
                     _sup["ize_score"] = _izD.get("score") or _izW.get("score") or _izM.get("score")

@@ -743,7 +743,15 @@ def htf_nesting(supports: dict, chart_tf: str = "D") -> dict:
 def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) -> dict:
     """The GM LOCATION half, mirroring S4's z_inDZ: is `price` inside/near a FRESH
     demand zone drawn by the IZE engine on this TF? Returns the gate + the zone."""
-    out = {"at_support": False, "in_fresh_dz": False, "zone": None,
+    # PATTERN vs PIVOT (25-Aug-2026). `pattern` is RBR/DBR/RBD/DBD for a leg-base-leg
+    # zone and PvH/PvL for a pivot shelf. The caller needs the distinction because the
+    # two are NOT equivalent evidence: a leg-base-leg zone marks where an imbalance
+    # actually happened, while a pivot shelf marks where price merely turned once.
+    # S4's own header records the doctrine -- "pivot = weaker secondary shelf;
+    # location/stop confluence, not standalone" -- and measured on the live board a
+    # pivot satisfies 52.6% of names on its own, so the gate stands or falls on it.
+    out = {"at_support": False, "at_support_pattern": False, "at_support_pivot": False,
+           "in_fresh_dz": False, "zone": None,
            "proximal": None, "distal": None, "score": None, "has_fvg": False, "n_dz": 0, "n_sz": 0,
            # #27 / #3: the age-adjusted read and the Controlling flag. `score` stays the
            # INTRINSIC merit so nothing downstream that already reads it changes meaning.
@@ -782,6 +790,11 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
                 best = z
                 out["at_support"] = True
                 out["in_fresh_dz"] = bool(inside)
+                # PvH/PvL are pivot shelves; everything else is leg-base-leg.
+                if str(z.pattern) in ("PvH", "PvL"):
+                    out["at_support_pivot"] = True
+                else:
+                    out["at_support_pattern"] = True
     if best is not None:
         out.update(zone=best.pattern, proximal=best.proximal, distal=best.distal,
                    score=best.score, has_fvg=best.has_fvg,

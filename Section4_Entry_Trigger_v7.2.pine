@@ -1019,6 +1019,7 @@ require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)
 // One average, one answer.
 //
 // An INPUT defaulting ON, so it can be turned off and A/B'd like every other gate.
+loc_pivot_needs_confluence = input.bool(true, "  · a PIVOT shelf needs one more source", group=grpPZ, tooltip="Rule A2. A leg-base-leg PATTERN zone (RBR/DBR/RBD/DBD) satisfies location on its own; a bare PIVOT shelf (PvH/PvL) must be joined by an S/R level, an AVWAP, the EMA20 or the value area.\n\nThis file has recorded the doctrine for months -- pivot = weaker secondary shelf, location/stop confluence, not standalone -- while the gate treated the two as equal. Measured on the live 76-name board: any zone 72.4%, pattern only 21.1%, A2 60.5%. Of 40 pivot-only names, 30 already had a second source; A2 removes the 10 that rest on a pivot and nothing else.\n\nFor PATTERN ZONES ONLY, turn off 'Draw Pivot (Structural) zones' -- that switch now governs this gate too.")
 loc_strict = input.bool(true, "Location must be a ZONE (not just near a line)", group=grpPZ, tooltip="ON (default, 25-Aug-2026): the L gate is satisfied ONLY by a demand ZONE - the leg-base-leg engine on the chart timeframe, or the daily/weekly zone layer.\n\nOFF restores the old six-way OR, which also accepted an AVWAP, the EMA20, an S/R level or the volume-profile value area. That union had SATURATED: measured across the live 76-name board it passed 97.4% of the universe, so L stopped discriminating and the GO count was really PA + volume + bar. The visible symptom was an identical 4/4 list on 75m, 125m and Daily.\n\nWhy a zone and not the others: location is supposed to mean price sits at a level that DEFINES WHERE YOU ARE WRONG. A zone has a distal edge. An AVWAP re-anchors and the EMA20 slides, so a location satisfied only by those can evaporate without price moving at all.\n\nThe other sources are not removed - they still draw, still score confluence, and still show in the Support Zone row. They are just no longer sufficient alone.")
 en_ema_gate = input.bool(false, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="DEFAULT OFF (25-Aug-2026, Jay). Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
@@ -2530,6 +2531,8 @@ int _dcl = core.declutterZones(activeZones, zoneMaxDraw, close)
 // --- Per-bar zone scan → the decision values the S4 gate + panel consume ---
 float _z_inDZstr = na
 bool  z_inDZ = false
+bool  z_inDZ_pat = false      // in a leg-base-leg (RBR/DBR/RBD/DBD) demand zone
+bool  z_inDZ_piv = false      // in a PIVOT (PvH/PvL) shelf only
 bool  z_inDZ_fvg = false      // the fresh DZ price is in is FVG-Polygraph-qualified
 bool  z_inDZ_ctrl = false     // v3.2: price is inside a CONTROLLING demand zone (confluence)
 bool  z_inSZ = false
@@ -2600,6 +2603,16 @@ if _zn > 0
             // deleted outright by the state block above. There is no "tested but still
             // drawn" state, hence no touch counter and no separate fresh flag.
             z_inDZ := true
+            // WHICH KIND of zone (25-Aug-2026). A leg-base-leg zone marks where an
+            // imbalance actually happened; a pivot shelf marks where price merely
+            // turned once. This file's own header has said so for months ("pivot =
+            // weaker secondary shelf; location/stop confluence, not standalone") and
+            // the gate never acted on it. Measured on the live board, a pivot alone
+            // satisfies 52.6% of names.
+            if zz.pattern == "PvH" or zz.pattern == "PvL"
+                z_inDZ_piv := true
+            else
+                z_inDZ_pat := true
             if zz.hasFVG
                 z_inDZ_fvg := true
             if zz.isControlling
@@ -3592,8 +3605,37 @@ f_fold3649() =>
     // average does not. The other four sources are NOT removed -- they still draw, they
     // still score confluence, and they still appear in locSrc and the Support Zone row.
     // They simply stop being sufficient on their own.
-    bool _locZone = (d_zones and z_inDZ) or (d_lvls and (in_daily_zone or in_weekly_zone))
+    // RULE A2 (25-Aug-2026, Jay). Location is a ZONE -- but a PATTERN zone stands
+    // alone while a PIVOT shelf needs one more source to agree. That is this file's
+    // own long-standing doctrine finally applied to the gate rather than only logged.
+    //
+    // Measured on the live 76-name board:
+    //     any zone (pattern or pivot)          72.4%
+    //     pattern only                         21.1%
+    //     pattern, or pivot + one soft source  60.5%   <- A2
+    // Of the 40 pivot-only names, 30 already have a second source; only 10 rest on a
+    // pivot and nothing else, and those are the ones A2 removes.
+    //
+    // in_d_piv / in_w_piv are NO LONGER in the gate. They were a 1.5% proximity LINE,
+    // not a zone -- and the IZE engine already represents the same pivots as BOXES
+    // with a distal edge, so the proxy was a second, weaker copy of the same fact.
+    // They remain available for display.
+    //
+    // JAY'S STANDING CONCERN, recorded here because the code is where it will be read:
+    // he does not rely on pivot zones and wants PATTERN ZONES ONLY. A2 is an interim
+    // because pattern zones alone currently fire on just 21% of the board. Turn
+    // `useStructural` OFF for pattern-only behaviour -- it now governs BOTH the zone
+    // engine and this gate, which it did not before.
+    bool _locPattern = (d_zones and z_inDZ_pat) or (d_lvls and (in_d_fvg or in_w_fvg))
+    // `useStructural` now governs the GATE, not just the drawing (25-Aug-2026).
+    // Before this it stopped pivot ZONES being created but left in_d_piv/in_w_piv
+    // firing from a separate proxy, so "turn pivot zones off" did NOT give
+    // pattern-only location -- the switch looked like it worked and did not. With
+    // the proxy out of the gate and this guard added, OFF means pattern zones only.
+    bool _locPivot   = useStructural and d_zones and z_inDZ_piv
     bool _locSoft = (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
+    bool _locZone = loc_pivot_needs_confluence ? (_locPattern or (_locPivot and _locSoft))
+      : (_locPattern or _locPivot)
     bool inside_support_zone = loc_strict ? _locZone : (_locZone or _locSoft)
     // WHICH source satisfied it - the alert's black box (24-Aug-2026). When an alert
     // fires and the panel later reads L-dot, all four gates WERE true at fire time (an
