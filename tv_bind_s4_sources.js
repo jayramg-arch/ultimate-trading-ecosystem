@@ -46,8 +46,16 @@
     "v67: Chandelier stop":            ["v67", "s4_pyrChand"],
     "v67: Pyramid reason":             ["v67", "s4_pyrReason"],
     "v67: Entry date (epoch)":         ["v67", "s4_pyrEntryTime"],
+    "v67: ML win probability":         ["v67", "s4_mlWinProb"],
     "Zigzag: MTF-1 trend state (Daily)":  ["zz", "mtfTrendState"],
-    "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"]
+    "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"],
+    // 23-Aug-2026: the CHART-TF trend. S4's Structure-basis row used to read an
+    // EMA20 proxy for this column while D and W came from the Zigzag, so on a
+    // daily chart it printed "Trend 1D down" beside "D up" — one timeframe, two
+    // methods. `trendState` is the Zigzag's LIVE chart-TF state (the same value
+    // its own TREND row shows); `confirmedTrend` is the pivot-confirmed-only
+    // variant, deliberately NOT used here so the two panels agree by construction.
+    "Zigzag: CHART-TF trend state":       ["zz", "trendState"]
   };
   try {
     var chart = (window.TradingViewApi || window.tvWidget).activeChart();
