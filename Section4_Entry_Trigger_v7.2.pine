@@ -858,7 +858,7 @@ string S4_VER      = "v10.0"
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
 string S4_CORE_VER = "23"
-import jayramg/S4Core/23 as core
+import jayramg/S4Core/24 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
