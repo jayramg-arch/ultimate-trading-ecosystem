@@ -1407,7 +1407,7 @@ tl_ext_on   = input.bool(false, "Sense hand-drawn trendlines (from 'S4 Trendline
 tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
 tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
 
-useStructural   = input.bool(true,  "Draw Pivot (Structural) zones",  group=grpZP, tooltip="Master on/off for ALL pivot (PvH/PvL) zones — the weaker, dashed shelves that come from a bare swing high/low with no leg-base-leg. Uncheck to hide EVERY pivot zone on all timeframes (it stops their creation, so a recompile leaves none on the chart).\n\nUSE THIS TO ISOLATE: turn pivot zones OFF to see ONLY the pattern demand/supply zones (RBR/DBR/RBD/DBD). If a pattern DZ/SZ still doesn't mark with pivots off, the issue is in pattern detection (leg/base/width gates), not a pivot zone hiding or overriding it. Turn the diagnostics row on and read natC d/f/m/L + struct D/C/L alongside.")
+useStructural   = input.bool(true,  "Use Pivot (Structural) zones + levels",  group=grpZP, tooltip="Master on/off for EVERY pivot-as-SUPPORT use.\n\nON (default): pivot (PvH/PvL) zones are drawn and can satisfy LOCATION -- but only with a confirming source (rule A2) -- and the Daily/Weekly pivot support lines are drawn.\n\nOFF: pattern (leg-base-leg) zones only. No pivot zone is created, no pivot satisfies location, and the pivot support lines are hidden. FVG levels are UNAFFECTED (they live under 'FVG / pivot levels').\n\nPivots are deliberately still counted OVERHEAD (Room / T1 / T2 / Pivot S-R). Switching off a SUPPORT source must not make targets look better -- that would loosen R:R while you were trying to be stricter.\n\nMirror of the GM board setting 'Use pivot (structural) zones'. Measured 26-Aug: no alpha difference vs admitting pivots, ~4x fewer names.")
 // PIVOT (STRUCTURAL) ZONES — CANONICAL PER-TF LENGTHS (v7.5, 5-Aug-2026).
 // One global 5/3 was applied to the chart TF *and* to the Daily, Weekly and Monthly
 // security calls alike, which is wrong in both directions at once: monthly bars are
@@ -4391,7 +4391,7 @@ if show_zones and d_lvls and barstate.islast
         line.delete(d_piv_ln)
     if not na(d_piv_lbl)
         label.delete(d_piv_lbl)
-    if showDailyLvl and not na(d_pivot)
+    if useStructural and showDailyLvl and not na(d_pivot)
         d_piv_ln := line.new(_d_piv_L, d_pivot, time, d_pivot, xloc=xloc.bar_time, extend=extend.right,
              color=color.new(color.blue, 30), style=line.style_dashed, width=1)
         d_piv_lbl := label.new(_d_piv_L, d_pivot, "          Daily Pivot", xloc=xloc.bar_time,
@@ -4421,7 +4421,7 @@ if show_zones and d_lvls and barstate.islast
         line.delete(w_piv_ln)
     if not na(w_piv_lbl)
         label.delete(w_piv_lbl)
-    if showWeeklyLvl and not na(w_pivot)
+    if useStructural and showWeeklyLvl and not na(w_pivot)
         w_piv_ln := line.new(_w_piv_L, w_pivot, time, w_pivot, xloc=xloc.bar_time, extend=extend.right,
              color=C_BLUE, style=line.style_solid, width=2)
         w_piv_lbl := label.new(_w_piv_L, w_pivot, "          Weekly Pivot", xloc=xloc.bar_time,
