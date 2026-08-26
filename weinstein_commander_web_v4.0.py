@@ -4033,7 +4033,31 @@ def _gm_apply_location_rule(_s, vp_at=False):
     terms carry it -- so one definition serves both without a second copy to drift.
     """
     _s["loc_pattern"] = bool(_s.get("ize_at_support_pattern") or _s.get("tf_zone_pattern"))
-    _s["loc_pivot"] = bool(_s.get("ize_at_support_pivot") or _s.get("tf_zone_pivot"))
+    # PIVOT LEVELS FEED LOCATION (26-Aug-2026, Jay) — S4 parity with _pivLvl. A pivot
+    # LINE and a RECLAIMED "Pivot S->R" are the same evidence as a pivot zone: price
+    # turned there. They enter as loc_pivot, never loc_pattern, so rule A2 still makes
+    # them earn a confirming source.
+    # Mirrors Pine's f_nearpiv exactly: price at or above the level, within 1.5%. The
+    # directionality is what makes the flipped S->R safe -- it counts only once price
+    # has RECLAIMED it. While it sits overhead it stays an obstacle, not a location.
+    _pivLvl = False
+    try:
+        # Off means off: a pivot LEVEL is pivot evidence like a pivot ZONE, so the
+        # same switch governs it. Without this the toggle would remove pivot zones
+        # and silently leave pivot lines satisfying location.
+        if not _gm_use_pivot_zones():
+            raise StopIteration
+        _px = _s.get("_px")
+        for _leg in ("daily", "weekly"):
+            _d = _s.get(_leg) or {}
+            for _k in ("pivot", "pivot_res"):
+                _lv = _d.get(_k)
+                if _px and _lv and _px >= _lv and (_px - _lv) / _lv <= 0.015:
+                    _pivLvl = True
+    except (Exception, StopIteration):
+        _pivLvl = False
+    _s["loc_pivot_level"] = bool(_pivLvl)
+    _s["loc_pivot"] = bool(_s.get("ize_at_support_pivot") or _s.get("tf_zone_pivot") or _pivLvl)
     # Fallback for a zone_engine predating the pattern/pivot split: treat an unlabelled
     # hit as a PATTERN zone rather than silently losing it.
     if not (_s["loc_pattern"] or _s["loc_pivot"]):
@@ -4841,6 +4865,13 @@ def gm_load_symbol(symbol: str) -> dict:
             import pa_patterns as _pap
             if out.get("df") is not None:
                 out["ctx"]["support"] = _pap.detect_support_zones_dw(out["df"])
+                # Stash the reference price the pivot-LEVEL test needs. The proxy
+                # returns levels but not the close they were judged against, and
+                # re-deriving it in the rule would risk a different bar.
+                try:
+                    out["ctx"]["support"]["_px"] = float(out["df"]["Close"].iloc[-1])
+                except Exception:
+                    pass
         except Exception as e:
             out["ctx"]["support"] = {}
             _gm_logger.warning(f"{symbol}: support-zone detection failed: {e}")

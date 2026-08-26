@@ -1407,7 +1407,7 @@ tl_ext_on   = input.bool(false, "Sense hand-drawn trendlines (from 'S4 Trendline
 tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
 tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
 
-useStructural   = input.bool(true,  "Use Pivot (Structural) zones + levels",  group=grpZP, tooltip="Master on/off for EVERY pivot-as-SUPPORT use.\n\nON (default): pivot (PvH/PvL) zones are drawn and can satisfy LOCATION -- but only with a confirming source (rule A2) -- and the Daily/Weekly pivot support lines are drawn.\n\nOFF: pattern (leg-base-leg) zones only. No pivot zone is created, no pivot satisfies location, and the pivot support lines are hidden. FVG levels are UNAFFECTED (they live under 'FVG / pivot levels').\n\nPivots are deliberately still counted OVERHEAD (Room / T1 / T2 / Pivot S-R). Switching off a SUPPORT source must not make targets look better -- that would loosen R:R while you were trying to be stricter.\n\nMirror of the GM board setting 'Use pivot (structural) zones'. Measured 26-Aug: no alpha difference vs admitting pivots, ~4x fewer names.")
+useStructural   = input.bool(true,  "Use Pivot (Structural) zones + levels",  group=grpZP, tooltip="Master on/off for EVERY pivot-as-SUPPORT use.\n\nON (default): pivot (PvH/PvL) zones are drawn and can satisfy LOCATION -- but only with a confirming source (rule A2) -- and the Daily/Weekly pivot support lines are drawn.\n\nOFF: pattern (leg-base-leg) zones only. No pivot zone is created, no pivot satisfies location, and the pivot support lines are hidden. FVG levels are UNAFFECTED (they live under 'FVG / pivot levels').\n\nOFF also removes pivots from OVERHEAD -- Room, T1, T2 and the Pivot S-R lines. Note this LOOSENS R:R: a hidden ceiling is not a cleared one. Other S/R levels are unaffected.\n\nMirror of the GM board setting 'Use pivot (structural) zones'. Measured 26-Aug: no alpha difference vs admitting pivots, ~4x fewer names.")
 // PIVOT (STRUCTURAL) ZONES — CANONICAL PER-TF LENGTHS (v7.5, 5-Aug-2026).
 // One global 5/3 was applied to the chart TF *and* to the Daily, Weekly and Monthly
 // security calls alike, which is wrong in both directions at once: monthly bars are
@@ -3655,7 +3655,16 @@ f_fold3649() =>
     // firing from a separate proxy, so "turn pivot zones off" did NOT give
     // pattern-only location -- the switch looked like it worked and did not. With
     // the proxy out of the gate and this guard added, OFF means pattern zones only.
-    bool _locPivot   = useStructural and d_zones and z_inDZ_piv
+    // PIVOT LEVELS FEED LOCATION (26-Aug-2026, Jay). A pivot LINE and a reclaimed
+    // "Pivot S->R" are the same evidence as a pivot ZONE -- price turned there -- so
+    // they belong in the gate. They enter as _locPivot, never _locPattern, so rule A2
+    // still makes them earn a confirming source; this is not a return to the old
+    // saturated OR that passed 97% of the board.
+    // f_nearpiv is directional (close >= level, within 1.5%), which is what makes the
+    // flipped S->R safe to include: it counts only once price has RECLAIMED it, i.e.
+    // when it is support again. While it sits overhead it stays a Room obstacle only.
+    bool _pivLvl = d_lvls and (in_d_piv or in_w_piv or f_nearpiv(d_piv_res) or f_nearpiv(w_piv_res))
+    bool _locPivot   = useStructural and ((d_zones and z_inDZ_piv) or _pivLvl)
     bool _locSoft = (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
     bool _locZone = loc_pivot_needs_confluence ? (_locPattern or (_locPivot and _locSoft))
       : (_locPattern or _locPivot)
@@ -4402,7 +4411,7 @@ if show_zones and d_lvls and barstate.islast
         line.delete(d_pres_ln)
     if not na(d_pres_lbl)
         label.delete(d_pres_lbl)
-    if showDailyLvl and not na(d_piv_res)
+    if useStructural and showDailyLvl and not na(d_piv_res)
         d_pres_ln := line.new(_d_pres_L, d_piv_res, time, d_piv_res, xloc=xloc.bar_time, extend=extend.right,
              color=color.new(color.maroon, 20), style=line.style_dashed, width=1)
         d_pres_lbl := label.new(_d_pres_L, d_piv_res, "          Daily Pivot S→R", xloc=xloc.bar_time,
@@ -4432,7 +4441,7 @@ if show_zones and d_lvls and barstate.islast
         line.delete(w_pres_ln)
     if not na(w_pres_lbl)
         label.delete(w_pres_lbl)
-    if showWeeklyLvl and not na(w_piv_res)
+    if useStructural and showWeeklyLvl and not na(w_piv_res)
         w_pres_ln := line.new(_w_pres_L, w_piv_res, time, w_piv_res, xloc=xloc.bar_time, extend=extend.right,
              color=C_MAROON, style=line.style_solid, width=2)
         w_pres_lbl := label.new(_w_pres_L, w_piv_res, "          Weekly Pivot S→R", xloc=xloc.bar_time,
@@ -4803,12 +4812,19 @@ if show_panel and d_panel and barstate.islast
         _ovh := _so_z_nearSZprox
     if not na(_so_sr_above) and _so_sr_above > _cl_r and (na(_ovh) or _so_sr_above < _ovh)
         _ovh := _so_sr_above
-    if not na(_so_d_piv_res) and _so_d_piv_res > _cl_r and (na(_ovh) or _so_d_piv_res < _ovh)
-        _ovh := _so_d_piv_res
-    if not na(_so_w_piv_res) and _so_w_piv_res > _cl_r and (na(_ovh) or _so_w_piv_res < _ovh)
-        _ovh := _so_w_piv_res
-    if not na(_so_lastPH) and _so_lastPH > _cl_r and (na(_ovh) or _so_lastPH < _ovh)
-        _ovh := _so_lastPH
+    // PIVOTS OFF = OFF EVERYWHERE (26-Aug-2026, Jay's explicit call). The earlier
+    // build kept pivots as overhead when the switch was off, on the reasoning that
+    // hiding an obstacle flatters R:R. Jay overruled: "whatever is related to the
+    // pivot zones will go off". Recorded because it IS a loosening -- with pivots off
+    // a name can pass on room it only has because the ceiling is not being counted.
+    // Other S/R levels (_so_sr_above) are untouched, per the same instruction.
+    if useStructural
+        if not na(_so_d_piv_res) and _so_d_piv_res > _cl_r and (na(_ovh) or _so_d_piv_res < _ovh)
+            _ovh := _so_d_piv_res
+        if not na(_so_w_piv_res) and _so_w_piv_res > _cl_r and (na(_ovh) or _so_w_piv_res < _ovh)
+            _ovh := _so_w_piv_res
+        if not na(_so_lastPH) and _so_lastPH > _cl_r and (na(_ovh) or _so_lastPH < _ovh)
+            _ovh := _so_lastPH
     // SECOND overhead = Target 2. Same sources as _ovh, the next one up. Stays na when
     // the first obstacle is the last known one — T2 then reads "open", not a guess.
     float _ovh2 = na
@@ -4824,12 +4840,13 @@ if show_panel and d_panel and barstate.islast
             _ovh2 := _so_z_nearSZprox
         if not na(_so_sr_above) and _so_sr_above > _ovhMin and (na(_ovh2) or _so_sr_above < _ovh2)
             _ovh2 := _so_sr_above
-        if not na(_so_d_piv_res) and _so_d_piv_res > _ovhMin and (na(_ovh2) or _so_d_piv_res < _ovh2)
-            _ovh2 := _so_d_piv_res
-        if not na(_so_w_piv_res) and _so_w_piv_res > _ovhMin and (na(_ovh2) or _so_w_piv_res < _ovh2)
-            _ovh2 := _so_w_piv_res
-        if not na(_so_lastPH) and _so_lastPH > _ovhMin and (na(_ovh2) or _so_lastPH < _ovh2)
-            _ovh2 := _so_lastPH
+        if useStructural
+            if not na(_so_d_piv_res) and _so_d_piv_res > _ovhMin and (na(_ovh2) or _so_d_piv_res < _ovh2)
+                _ovh2 := _so_d_piv_res
+            if not na(_so_w_piv_res) and _so_w_piv_res > _ovhMin and (na(_ovh2) or _so_w_piv_res < _ovh2)
+                _ovh2 := _so_w_piv_res
+            if not na(_so_lastPH) and _so_lastPH > _ovhMin and (na(_ovh2) or _so_lastPH < _ovh2)
+                _ovh2 := _so_lastPH
     float _rf_entry = not na(_dzprox) ? _dzprox : _cl_r
     // Risk floor: a hairline zone must not print unlimited R. Without it a 0.1%-wide
     // zone drove _roomR toward infinity and painted "38R" in green.

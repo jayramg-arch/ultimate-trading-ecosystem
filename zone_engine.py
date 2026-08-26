@@ -1286,15 +1286,24 @@ def overhead_room(frames: dict, price: float | None = None,
                     cands.append((float(L["price"]), f"{'PivR' if L.get('role')=='resistance' else 'S/R'}·{tf}"))
         except Exception:
             pass
-    # last pivot high on the reference frame
+    # last pivot high on the reference frame.
+    # PIVOTS OFF = OFF EVERYWHERE (26-Aug-2026, Jay). PvH ZONES already disappear on
+    # their own when USE_STRUCTURAL_ZONES is False (they are never created), but this
+    # raw swing high is computed here and had to be gated explicitly. S/R-engine
+    # levels -- including a flipped resistance -- are NOT gated: "the other S/R levels
+    # will continue". Note this LOOSENS room; excluding pivot ceilings was previously
+    # tested and rejected (HSCL/DIVISLAB/MARICO lost their only obstacle), so with the
+    # switch off a name can read clear on a ceiling that is merely hidden.
     try:
+        if not USE_STRUCTURAL_ZONES:
+            raise StopIteration
         h = ref["High"]
         piv = [float(h.iloc[i]) for i in range(len(h) - 3, max(len(h) - 60, 2), -1)
                if h.iloc[i] == h.iloc[max(0, i - 2):i + 3].max()]
         for p in piv[:1]:
             if p > px:
                 cands.append((p, "lastPH"))
-    except Exception:
+    except (Exception, StopIteration):
         pass
     if out["band_top"] and out["band_top"] > px:
         cands.append((float(out["band_top"]), "SZ band top"))
