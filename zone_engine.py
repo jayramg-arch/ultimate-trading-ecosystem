@@ -144,7 +144,30 @@ TOUCH_TOL_FLOOR = 0.005   # ... but never tighter than 0.5%, so a hairline zone 
 # ENV-OVERRIDABLE so the A/B is two commands rather than an edit between runs. Editing a
 # module constant mid-campaign is how a previous comparison got contaminated — the second
 # arm ran against a file the first arm had not seen. `ZONE_USE_STRUCTURAL=0` ablates.
-USE_STRUCTURAL_ZONES = (__import__("os").getenv("ZONE_USE_STRUCTURAL", "1") != "0")
+def _default_use_structural() -> bool:
+    """Startup default for pivot zones, in precedence order:
+        1. ZONE_USE_STRUCTURAL env var   (explicit, wins -- used by ablations)
+        2. gm_settings.json use_pivot_zones
+        3. True
+
+    Reading the SETTING here, not only in the Streamlit app, is what makes this a
+    real preference rather than a UI toggle: the auto-pilot, pullback_finder and
+    replay all import this module without ever touching the web layer, and would
+    otherwise keep using pivots while the board had them switched off.
+    """
+    import os, json
+    _env = os.getenv("ZONE_USE_STRUCTURAL")
+    if _env is not None:
+        return _env != "0"
+    try:
+        _f = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_settings.json")
+        with open(_f, encoding="utf-8") as fh:
+            return bool((json.load(fh) or {}).get("use_pivot_zones", True))
+    except Exception:
+        return True
+
+
+USE_STRUCTURAL_ZONES = _default_use_structural()
 
 
 def set_use_structural(on: bool) -> bool:
