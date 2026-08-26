@@ -2315,6 +2315,29 @@ def _gm_settings_save(**kw):
         _gm_logger.warning(f"gm_settings save failed (capital/risk/TF not persisted): {e}")
 
 
+def _gm_use_pivot_zones() -> bool:
+    """Pivot (structural) zones on/off — persisted in gm_settings.json.
+
+    Jay does not rely on pivot shelves and wanted this switchable from settings
+    rather than an env var read once at import. Default TRUE: rule A2 already makes a
+    pivot earn a confirming source, and the 26-Aug A/B found no alpha difference
+    between admitting pivots and refusing them -- only ~4x fewer trades. So this is a
+    preference switch, not a fix; off = pattern zones only, on both surfaces.
+    """
+    return bool(_gm_settings().get("use_pivot_zones", True))
+
+
+def _gm_sync_pivot_setting() -> None:
+    """Push the persisted setting into zone_engine. Called on every GM render because
+    zone_engine holds it as a module global that an import-time env read would
+    otherwise own for the life of the process."""
+    try:
+        import zone_engine as _zep
+        _zep.set_use_structural(_gm_use_pivot_zones())
+    except Exception as e:
+        _gm_logger.warning(f"pivot-zone setting not applied (zones keep previous state): {e}")
+
+
 def _gm_entry_method() -> str:
     """Entry method for the Plan/guided-exec wording — mirrors the S4 v4.8 toggle.
     'buystop' (default, house doctrine) = buy-STOP above the confirmed trigger bar's
@@ -4040,6 +4063,11 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     # the IDENTICAL symbol. Single Symbol passes 'ACUTAAS.NS' (TV style); the board
     # passes bare 'ACUTAAS'. gm_load_intraday resolves those differently (Dhan needs
     # bare) → different 75m PA/cmp → different trigger → categories disagree. One key.
+    # Apply the pivot-zone setting BEFORE any loader runs: it changes what a zone IS,
+    # and detection happens inside gm_load_symbol. Called here rather than only in the
+    # board's control block so the Single Symbol view cannot run a different rule --
+    # the same one-place-only defect that left the Daily tab off rule A2.
+    _gm_sync_pivot_setting()
     try:
         import gm_trigger_board as _gtb0
         symbol = _gtb0._canon_key(symbol) or symbol
@@ -13361,6 +13389,27 @@ elif page == 'GOLDEN MATCHER':
                              "Daily uses the closed daily bar.")
                 if _trig_tf != _gm_settings().get("trigger_tf"):
                     _gm_settings_save(trigger_tf=_trig_tf)
+                # Pivot (structural) zones — Jay's switch. Changing what a zone IS
+                # invalidates every cached evaluation, so this clears the loaders and
+                # forces a rebuild; without that the toggle reads as doing nothing.
+                _piv_now = st.checkbox(
+                    "Use pivot (structural) zones", value=_gm_use_pivot_zones(),
+                    key="gm_use_pivot_zones",
+                    help="ON (default): a pivot shelf can satisfy LOCATION, but only with a "
+                         "confirming S/R or AVWAP (rule A2). OFF: pattern (leg-base-leg) zones "
+                         "only — pivots are neither drawn nor counted. Measured 26-Aug: no alpha "
+                         "difference between the two, but pattern-only fires on ~4x fewer names. "
+                         "Mirror it on the S4 chart with 'Draw Pivot (Structural) zones'.")
+                if _piv_now != _gm_use_pivot_zones():
+                    _gm_settings_save(use_pivot_zones=bool(_piv_now))
+                    for _c in (gm_load_symbol, gm_load_recovery, gm_load_intraday):
+                        try:
+                            _c.clear()
+                        except Exception as e:
+                            _gm_logger.warning(f"pivot toggle: cache clear failed: {e}")
+                    st.session_state["gm_force_rebuild"] = True
+                    st.rerun()
+                _gm_sync_pivot_setting()
                 # Entry method — shared, GLOBAL setting (see _render_entry_method_selector).
                 _render_entry_method_selector("gm_entry_method_sel")
                 # 75m/125m "bar-close" modes rebuild the board ONCE per session bar

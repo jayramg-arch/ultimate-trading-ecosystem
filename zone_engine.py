@@ -146,6 +146,22 @@ TOUCH_TOL_FLOOR = 0.005   # ... but never tighter than 0.5%, so a hairline zone 
 # arm ran against a file the first arm had not seen. `ZONE_USE_STRUCTURAL=0` ablates.
 USE_STRUCTURAL_ZONES = (__import__("os").getenv("ZONE_USE_STRUCTURAL", "1") != "0")
 
+
+def set_use_structural(on: bool) -> bool:
+    """Turn pivot (structural) zones on/off at RUNTIME, so the GM setting can drive
+    this without an app restart. The env var remains the startup default.
+
+    detect_zones reads the module global on every call, so a reassignment takes
+    effect on the next detection -- but zone results are cached upstream, so any
+    caller flipping this MUST also clear its caches or the change looks like it
+    did nothing. Returns True if the value actually changed.
+    """
+    global USE_STRUCTURAL_ZONES
+    on = bool(on)
+    changed = (USE_STRUCTURAL_ZONES != on)
+    USE_STRUCTURAL_ZONES = on
+    return changed
+
 STRUCT_PV_FALLBACK = 2    # was pivotLeft=5 / pivotRight=3 applied to every TF alike
 STRUCT_CLOSED_CONFIRM = True   # S4 v7.6: the bar confirming a pivot must itself be closed
 RESOLVE_OPPOSING = True        # S4 v7.7: a band may not be supply and demand at once
