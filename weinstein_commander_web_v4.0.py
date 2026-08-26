@@ -3226,6 +3226,11 @@ def _plan_structural_sl(ctx, entry, atr):
 # DECISION WORKFLOW — the sequential path (crucial metrics only)
 # ----------------------------------------------------------------------------------------
 GM_BFF_MIN = 4          # BFF's STRONG band; matches pullback_finder + the catalyst gate
+# Location must be a ZONE, not merely "near a line". See the at_support block for the
+# measurement: the old six-way OR passed 97.4% of the board. Mirrors S4's `loc_strict`
+# input, which defaults the same way -- if you flip one, flip the other, or the chart
+# and the board will disagree about what "at location" means.
+GM_LOC_STRICT = True
 # Show the three per-quadrant Strike-RRG paste blocks under the Trigger Board.
 # OFF (Jay, 25-Aug-2026): they existed so each quadrant could be pasted into S4 by
 # hand, and the one-paste bundle now carries RRGL/RRGI/RRGW, so the blocks are three
@@ -4129,12 +4134,42 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                         _s["tf_zone_in"] = bool(_izI.get("in_fresh_dz"))
                         _s["tf_near_sr"] = bool(_srI.get("near_sr"))
                         _s["tf_zone_tf"] = _iz_tf or ""
-                        _s["at_support"] = bool(_s.get("ize_at_support")
-                                                or _s.get("ize_near_sr")
-                                                or _s.get("ize_near_avwap")
-                                                or _ivp.get("at_vp_support")
-                                                or _s["tf_zone_at"]
-                                                or _s["tf_near_sr"])
+                        # LOCATION IS A ZONE (25-Aug-2026, rule A). This was a
+                        # six-way OR and it had SATURATED: measured on the live
+                        # 76-name board it passed 97.4% of the universe. A gate that
+                        # passes 97% of names is not a gate -- with L a free pass the
+                        # S4-GO count was really only PA + volume + bar, and because
+                        # PA is STRUCTURAL (a pattern that formed still stands on any
+                        # timeframe) the board showed an IDENTICAL 4/4 set on 75m,
+                        # 125m and Daily. That was the reported symptom; this is the
+                        # cause. The timeframes were never broken -- relvol and bar_ok
+                        # varied correctly per TF; only at_support was stuck True,
+                        # 18 times out of 18 on the probe.
+                        #
+                        # MY REGRESSION: the IZE sources were merged in July as a
+                        # SUPERSET OR'd onto the existing proxy. near_ema was
+                        # deliberately excluded then, on the reasoning that it "fires
+                        # near the daily EMA20 most of the time and would make the
+                        # board OVER-predict 4/4 GO" -- and five other sources went in
+                        # anyway without the union ever being re-measured.
+                        #
+                        # A zone has a DISTAL EDGE, which is what makes it a location:
+                        # it defines where you are wrong. An AVWAP re-anchors and an
+                        # EMA slides, so a location satisfied only by those can
+                        # evaporate without price going anywhere. Mirrors S4's
+                        # `loc_strict` exactly, so board and chart agree by
+                        # construction rather than by luck.
+                        #
+                        # The soft sources are NOT discarded -- they are kept on the
+                        # row (and in the Loc column) as CONTEXT. They just no longer
+                        # satisfy the gate alone.
+                        _s["loc_zone"] = bool(_s.get("ize_at_support") or _s["tf_zone_at"])
+                        _s["loc_soft"] = bool(_s.get("ize_near_sr")
+                                              or _s.get("ize_near_avwap")
+                                              or _ivp.get("at_vp_support")
+                                              or _s["tf_near_sr"])
+                        _s["at_support"] = (_s["loc_zone"] if GM_LOC_STRICT
+                                            else (_s["loc_zone"] or _s["loc_soft"]))
                         ctx["support"] = _s
             except Exception as e:
                 # Daily WCL from the ctx builder stands; it is labelled with its own tf.

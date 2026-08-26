@@ -1019,6 +1019,13 @@ require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)
 // One average, one answer.
 //
 // An INPUT defaulting ON, so it can be turned off and A/B'd like every other gate.
+loc_strict = input.bool(true, "Location must be a ZONE (not just near a line)", group=grpPZ, tooltip="ON (default, 25-Aug-2026): the L gate is satisfied ONLY by a demand ZONE - the leg-base-leg engine on the chart timeframe, or the daily/weekly zone layer.
+
+OFF restores the old six-way OR, which also accepted an AVWAP, the EMA20, an S/R level or the volume-profile value area. That union had SATURATED: measured across the live 76-name board it passed 97.4% of the universe, so L stopped discriminating and the GO count was really PA + volume + bar. The visible symptom was an identical 4/4 list on 75m, 125m and Daily.
+
+Why a zone and not the others: location is supposed to mean price sits at a level that DEFINES WHERE YOU ARE WRONG. A zone has a distal edge. An AVWAP re-anchors and the EMA20 slides, so a location satisfied only by those can evaporate without price moving at all.
+
+The other sources are not removed - they still draw, still score confluence, and still show in the Support Zone row. They are just no longer sufficient alone.")
 en_ema_gate = input.bool(false, "Gate: REQUIRE price above EMA20 (hard veto)", group=grpPZ, tooltip="DEFAULT OFF (25-Aug-2026, Jay). Hard veto: no GO while price is below the EMA20 - chart EMA20 on weekly and monthly, DAILY EMA20 on daily, 125m and 75m.\n\nStricter than it looks. Several catalysts fire BELOW a short-term average by construction - the value-area bounce, the order-block retest, deeper pullbacks - so this trades signal count for the discipline of buying only the reclaim. That is the intent: take the pullback that has turned, not the one still falling.\n\nOFF restores the prior behaviour, where the EMA20 was one optional location source among zones, levels, AVWAP and volume profile.")
 ext_warn_atr = input.float(2.5, "WARN when extended above EMA20 (× ATR)", group=grpPZ, minval=0.5, maxval=8.0, step=0.5, tooltip="Softer than the veto below. At or above this, the verdict flags the extension AND names the level a pullback entry would use (highest structure below price: daily EMA20 / nearest S/R / nearest support). Between this and the veto the trade is still valid — it is the ENTRY that is late.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
@@ -3573,7 +3580,27 @@ f_fold3649() =>
     bool coil_bd   = coil_on and coil_lvl <  close      // over-tested floor    -> breakdown watch
     bool in_daily_zone  = in_d_fvg or in_d_piv
     bool in_weekly_zone = in_w_fvg or in_w_piv
-    bool inside_support_zone = (d_zones and z_inDZ) or (d_lvls and (in_daily_zone or in_weekly_zone)) or (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
+    // LOCATION IS A ZONE (25-Aug-2026). This was a SIX-WAY OR and it had saturated:
+    // measured on the live 76-name board the equivalent union passed 97.4% of the
+    // universe, and a gate that passes 97% of names is not a gate. With L a free pass
+    // the GO count was really only counting PA + volume + bar, which is why the board
+    // showed an IDENTICAL 4/4 set on 75m, 125m and Daily -- PA is structural and holds
+    // across timeframes, so nothing was left to separate them.
+    //
+    // The argument for the fix was already written three lines below, in the locSrc
+    // comment: "two of the six move every bar: an AVWAP re-anchors and the EMA20
+    // slides, so a location satisfied only by those can evaporate without price going
+    // anywhere. A zone or an S/R shelf cannot." The file already knew which sources
+    // were structural. It logged the distinction instead of acting on it.
+    //
+    // LOCATION now means what it is supposed to mean: price is at a level that DEFINES
+    // WHERE YOU ARE WRONG. A demand zone has a distal edge; proximity to a sliding
+    // average does not. The other four sources are NOT removed -- they still draw, they
+    // still score confluence, and they still appear in locSrc and the Support Zone row.
+    // They simply stop being sufficient on their own.
+    bool _locZone = (d_zones and z_inDZ) or (d_lvls and (in_daily_zone or in_weekly_zone))
+    bool _locSoft = (d_avwap and near_avwap) or near_ema or near_sr or at_vp_support
+    bool inside_support_zone = loc_strict ? _locZone : (_locZone or _locSoft)
     // WHICH source satisfied it - the alert's black box (24-Aug-2026). When an alert
     // fires and the panel later reads L-dot, all four gates WERE true at fire time (an
     // alert cannot fire otherwise), so logging the gate states proves nothing. The
