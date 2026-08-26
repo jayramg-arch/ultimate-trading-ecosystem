@@ -852,6 +852,32 @@ def _bar_ok_series(det: pd.DataFrame) -> pd.Series:
     return (green | upper_half).fillna(False)
 
 
+# LOCATION RULE (26-Aug-2026). Until today this file ran the legacy "any fresh demand
+# zone" test while the live surfaces had moved to rule A2 -- exactly the drift the
+# docstring above warns about ("every s4go run measured a gate S4 was no longer using").
+#   "any"     legacy: any zone, else S/R, else AVWAP
+#   "a2"      pattern stands alone; a pivot shelf needs one confirming source  [SHIPPED]
+#   "pattern" pattern zones only
+# Default tracks PRODUCTION, so a plain validation run measures the gate actually in
+# use. Set LOCATION_RULE = "any" to reproduce a pre-26-Aug s4go run.
+LOCATION_RULE = "a2"
+
+
+def _soft_at(sub: pd.DataFrame, px: float) -> bool:
+    """A2's confirming source for a pivot shelf: an S/R level or an anchored VWAP.
+    Deliberately excludes near-EMA20, matching the live gate -- EMA20 fires most of
+    the time and would make A2 indistinguishable from admitting pivots outright."""
+    try:
+        if (_ze.sr_support(sub, "D", px) or {}).get("near_sr"):
+            return True
+    except Exception:
+        pass
+    try:
+        return bool((_ze.avwap_support(sub, px) or {}).get("near_avwap"))
+    except Exception:
+        return False
+
+
 def _location_at(sub: pd.DataFrame, px: float) -> dict:
     """S4 support_pass, point-in-time: is `px` at a FRESH demand zone (IZE) OR a
     non-MTTWR S-R support OR an anchored-VWAP support, on the daily TF? Returns
@@ -861,8 +887,26 @@ def _location_at(sub: pd.DataFrame, px: float) -> dict:
     out = {"ok": False, "src": None, "distal": None}
     try:
         zs = _ze.zone_support(sub, "D", px)
-        if zs.get("at_support"):
-            out.update(ok=True, src="zone", distal=zs.get("distal"))
+        _pat = bool(zs.get("at_support_pattern"))
+        _piv = bool(zs.get("at_support_pivot"))
+        # Unlabelled hit from an older engine: treat as PATTERN rather than lose it.
+        if zs.get("at_support") and not (_pat or _piv):
+            _pat = True
+        if LOCATION_RULE == "pattern":
+            _zok = _pat
+        elif LOCATION_RULE == "a2":
+            _zok = _pat or (_piv and _soft_at(sub, px))
+        else:
+            _zok = bool(zs.get("at_support"))
+        if _zok:
+            out.update(ok=True, src="zone" if _pat else "pivot", distal=zs.get("distal"))
+            return out
+        # STRICT arms stop here. The S/R and AVWAP fallbacks below are the LEGACY
+        # rule's independent passes, and letting them run under "a2"/"pattern" would
+        # mean a name with no zone at all still satisfied location -- which is not
+        # what either rule says, and not what the live gate does (GM_LOC_STRICT makes
+        # soft sources a CONFIRMER for a pivot, never a pass on their own).
+        if LOCATION_RULE in ("a2", "pattern"):
             return out
     except Exception:
         pass
