@@ -1188,7 +1188,7 @@ markViolations = input.bool(true, "Mark Zone Violations (dot)",   group=grpZS, t
 testedTravelMode = input.string("ATR", "Tested: travel measured in", group=grpZS, options=["ATR", "Zone width"], tooltip="Rule 1 of 3 — how far price must travel from the proximal, after a reaction, before the zone counts as spent.\n\nATR (default): scale-consistent. A 3-point zone and a 30-point zone both need a REAL move to retire.\n\nZone width (legacy, pre-v3.2): travel measured in multiples of the zone's own width — which is INVERTED. The narrower the zone, the smaller the move needed to kill it, so the most precise zones (the ones worth keeping) died fastest. A 3pt zone was retired by a 6pt move.")
 testedTravelATR  = input.float(2.0, "Tested: travel × ATR14", group=grpZS, minval=0.5, maxval=10.0, step=0.5, tooltip="Used when travel is measured in ATR. Higher = zones survive longer. Turn on 'Show engine diagnostics row' and watch the removal attribution: if 'travel' dominates and zones you want are vanishing, raise this.")
 testedTravelMult = input.float(2.0, "Tested: travel × zone width (legacy)", group=grpZS, minval=0.5, maxval=6.0, step=0.5, tooltip="Only used when 'travel measured in' = Zone width. Retained so the pre-v3.2 behaviour is reproducible, not because it is correct.")
-tested_tf_match  = input.bool(true, "Tested rules 2 & 3: HTF zones only", group=grpZS, tooltip="Rules 2 and 3 test a close across the DAILY EMA20 / a DAILY-or-Weekly pivot. Those are HTF references, and letting them adjudicate a 75-min zone is a category error: a 75m base does not stop being valid because price crossed a DAILY EMA20 — that event says nothing about whether that base was consumed.\n\nON (default): rules 2 & 3 apply only to Daily-and-above zones (D/W/M, plus native zones on a Daily+ chart). Native INTRADAY zones are judged on travel and violation alone — the two tests that actually concern them.\n\nOFF: pre-v3.2 behaviour — the Daily references judge every zone on every timeframe.")
+tested_tf_match  = input.bool(false, "Tested rules 2 & 3: Daily zones only (legacy)", group=grpZS, tooltip="Rules 2 and 3 retire a zone on a close across the EMA20 / beyond a swing pivot.\n\nOFF (default, 26-Aug-2026): the rules apply on EVERY timeframe, each zone judged against its OWN reference -- a WEEKLY or MONTHLY zone against the chart EMA20 (weekly EMA20 for a weekly zone), and DAILY / 125m / 75m zones against the DAILY EMA20.\n\nON: the pre-26-Aug behaviour, where only DAILY zones consulted these rules. That restriction came from the #25 over-removal, which was really the wrong SERIES -- the daily EMA20 adjudicating a weekly base, evaluated at daily granularity. Measured after the fix: weekly zones lose 2.3%, monthly 0.0%, and the count of names AT a zone is unchanged.")
 strongPivotTF  = input.string("Daily", "Tested: strong S/R pivot TF", group=grpZS, options=["Daily", "Weekly"], tooltip="Rule 3 of 3: a strong Support/Resistance = the most recent CONFIRMED pivot high/low on THIS higher timeframe (the normal swing-S/R definition). After a reaction, a demand zone is tested once price CLOSES above the nearest HTF pivot high sitting above the zone; a supply zone once price closes below the nearest HTF pivot low below it.")
 
 age_monthly_days = input.int(1460, "Monthly zone max age (days)", group=grpZAge, minval=30, tooltip="A zone ages out this many calendar days after its FORMATION. Monthly default 1460 = 4 years.")
@@ -1655,6 +1655,13 @@ bool _isEtf = not na(_etfLiq) or not na(_etfPrm)
 bool _etfPrmBad = _isEtf and not na(_etfPrm) and math.abs(_etfPrm) > etf_prem_max
 float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
 float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
+// v10.1 — tested-rules 2 & 3 reference (Jay, 26-Aug-2026): a WEEKLY or MONTHLY zone is
+// judged against the CHART's own EMA20 (weekly EMA20 for a weekly zone), while DAILY,
+// 125m and 75m zones are judged against the DAILY EMA20. The rules themselves apply on
+// EVERY timeframe -- only the series changes. The #25 over-removal was the wrong SERIES
+// (daily EMA20 adjudicating a weekly base at daily granularity), not the wrong scope.
+float ema20W_tf = request.security(syminfo.tickerid, "W", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
+float ema20M_tf = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
 // identical nested ternaries were three copies of the same six operations;
 // the file sits against the compiled-token ceiling, and only operations cost.
@@ -2387,7 +2394,8 @@ f_zoneMaintain() =>
                     // pivot low BELOW (supply). If the last HTF pivot is not on the correct
                     // side, rule 3 stays inert and rules 1 & 2 carry the tested check.
                     z.strongLvl := z.isDemand ? ((not na(lastPH) and lastPH > z.proximal) ? lastPH : na) : ((not na(lastPL) and lastPL < z.proximal) ? lastPL : na)
-                    z.emaPre    := z.isDemand ? (not na(dailyEMA20) and close < dailyEMA20) : (not na(dailyEMA20) and close > dailyEMA20)
+                    float _zEmaRef = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : dailyEMA20
+                    z.emaPre    := z.isDemand ? (not na(_zEmaRef) and close < _zEmaRef) : (not na(_zEmaRef) and close > _zEmaRef)
                 z.wasInZone := touchedNow
                 // TESTED = reacted AND confirmed by ANY of the 3 rules → the zone has done its
                 // job, so it is REMOVED from the chart entirely (no greyed tested state — Jay's
@@ -2415,9 +2423,12 @@ f_zoneMaintain() =>
                     // by TRAVEL (in their OWN TF's ATR, rule 1 above) and VIOLATION only, exactly
                     // like native intraday zones. Only DAILY (and native-daily) zones consult
                     // the EMA/level cross.
+                    // Rules 2 & 3 now run on EVERY timeframe. `tested_tf_match` is retained
+                    // as the escape hatch to the Daily-only behaviour, no longer the default.
+                    float _emaRef  = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : dailyEMA20
                     bool _zIsDaily = z.tf == "D" or (z.tf == "C" and timeframe.isdaily)
                     bool _emaLvlOk = (not tested_tf_match) or _zIsDaily
-                    bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(dailyEMA20) and close > dailyEMA20) : (z.emaPre and not na(dailyEMA20) and close < dailyEMA20))
+                    bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(_emaRef) and close > _emaRef) : (z.emaPre and not na(_emaRef) and close < _emaRef))
                     bool c_level  = _emaLvlOk and (z.isDemand ? (not na(z.strongLvl) and close > z.strongLvl) : (not na(z.strongLvl) and close < z.strongLvl))
                     _testedOut := c_travel or c_ema or c_level
                     // v3.2 DIAG: WHICH of the three retired it? The cumulative d/f/m/L funnel
@@ -2535,6 +2546,7 @@ bool  z_inDZ_pat = false      // in a leg-base-leg (RBR/DBR/RBD/DBD) demand zone
 bool  z_inDZ_piv = false      // in a PIVOT (PvH/PvL) shelf only
 bool  z_inDZ_fvg = false      // the fresh DZ price is in is FVG-Polygraph-qualified
 bool  z_inDZ_ctrl = false     // v3.2: price is inside a CONTROLLING demand zone (confluence)
+bool  z_inDZ_react = false    // v10.1: NOT inside — tested once and REACTING off it
 bool  z_inSZ = false
 // v3.2: the DISTAL (far edge) of the supply zone(s) price is INSIDE. When price is
 // inside supply the proximal is BEHIND you — the obstacle is the distal, and you
@@ -2597,12 +2609,23 @@ if _zn > 0
         if zz.isControlling
             zc_ctrl := zc_ctrl + 1
         bool inDemand = zz.isDemand and zz.distal <= close and close <= zz.proximal
+        // REACTING (26-Aug-2026) — parity with zone_engine.zone_support. Price need NOT
+        // be inside the zone: the tradeable state is a zone that has been tested once
+        // with the turn already underway. "Not too far away after the test" is not a new
+        // threshold — a reaction cycle stays open only until the travel rule (or the
+        // Daily EMA20 cross) retires the zone, so zz.reacted IS that rule read back,
+        // never redefined. Without this the board passes location and this panel says
+        // "no location" on the same bar — the drift class that produced the identical
+        // 4/4 set across all three timeframes.
+        bool _reactD = zz.isDemand and zz.reacted and close >= zz.distal
         bool inSupply = (not zz.isDemand) and zz.proximal <= close and close <= zz.distal
-        if inDemand
+        if inDemand or _reactD
             // Every zone still in activeZones IS fresh: tested/violated/aged zones are
             // deleted outright by the state block above. There is no "tested but still
             // drawn" state, hence no touch counter and no separate fresh flag.
             z_inDZ := true
+            if _reactD and not inDemand
+                z_inDZ_react := true
             // WHICH KIND of zone (25-Aug-2026). A leg-base-leg zone marks where an
             // imbalance actually happened; a pivot shelf marks where price merely
             // turned once. This file's own header has said so for months ("pivot =
@@ -4638,7 +4661,7 @@ if show_panel and d_panel and barstate.islast
     // is on the chart. The detection funnel that used to live here was troubleshooting
     // instrumentation ("why did that zone vanish"), not a trading input — it is behind
     // `show_diag` on its own row now.
-    string _zHere = _so_z_inDZ ? ("IN DEMAND" + (z_inDZ_ctrl[_so] ? " ★ctrl" : "") + (z_inDZ_fvg[_so] ? " ⚡" : "") + (_so_dzTfN >= 2 ? " ×" + str.tostring(_so_dzTfN) + "TF" : "")) : z_inSZ[_so] ? "IN SUPPLY" : "between zones"
+    string _zHere = _so_z_inDZ ? ((z_inDZ_react[_so] ? "REACTING off DZ" : "IN DEMAND") + (z_inDZ_ctrl[_so] ? " ★ctrl" : "") + (z_inDZ_fvg[_so] ? " ⚡" : "") + (_so_dzTfN >= 2 ? " ×" + str.tostring(_so_dzTfN) + "TF" : "")) : z_inSZ[_so] ? "IN SUPPLY" : "between zones"
     string zmtf_txt = _zHere + "  │  " + str.tostring(zc_dz) + " DZ / " + str.tostring(zc_sz) + " SZ live" + (zc_ctrl > 0 ? " · ★" + str.tostring(zc_ctrl) : "")
     color  zmtf_col = _so_z_inDZ ? C_OK : z_inSZ[_so] ? C_NO : C_MUTE
     f_row(11, "Zones (MTF)", zmtf_txt, zmtf_col)
@@ -4699,7 +4722,12 @@ if show_panel and d_panel and barstate.islast
     // get per-field status colour inside a single cell. Same ternary count as the
     // glyph version - the literals changed, nothing was added - so this costs nothing.
     string _locVerb = (_lzZone ? "🟢" : "⚪") + "Zone   " + (_lzLvl ? "🟢" : "⚪") + "D/W-lvl   " + (_lzAv ? "🟢" : "⚪") + "AVWAP   " + (_lzEma ? "🟢" : "⚪") + "EMA20   " + (_lzSr ? "🟢" : "⚪") + "S/R"
-    string _locTxt  = (support_v ? "AT LOCATION" : "NOT AT LOCATION") + "   —   " + _locVerb
+    // The headline now names the STATE and the KIND, not just that a gate passed.
+    // "AT LOCATION" was true for a zone price sits inside, a zone price is reacting
+    // off, and a bare pivot shelf — three different trades reading identically.
+    // Pattern outranks pivot when both fire: it is the stronger evidence.
+    string _locHead = not support_v ? "NOT AT LOCATION" : z_inDZ_react[_so] ? "REACTING off " + (z_inDZ_pat[_so] ? "pattern" : "pivot") : _so_z_inDZ ? "AT " + (z_inDZ_pat[_so] ? "pattern" : "pivot") + " zone" : "AT LOCATION"
+    string _locTxt  = _locHead + "   —   " + _locVerb
     color  _locCol  = support_v ? C_OK : C_WARN
     f_row(17, "Location (L)", _locTxt, _locCol)
 

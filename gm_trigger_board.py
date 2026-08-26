@@ -1497,7 +1497,48 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     # Location never blocks the trigger; ⚠ only shows when the trigger fired at a
     # weak location.
     _loc = wf.get("loc_note") or ""
-    _loc_col = (f"⚠ {_loc}" if (_loc and cat.startswith("Buy Trigger Live")) else _loc)
+
+    # ── LOCATION, SAID OUT LOUD (25-Aug-2026) ────────────────────────────────
+    # The column used to carry only CAVEATS ("thin R:R", "below value"), so a row
+    # that passed location said nothing at all and a row that failed did not say
+    # WHY. Under rule A2 the distinction that decides the trade is which KIND of
+    # zone satisfied it -- a leg-base-leg pattern zone stands alone, a pivot shelf
+    # needs confluence -- and that was invisible.
+    #
+    #   AT pattern D        inside a daily leg-base-leg zone      (strongest)
+    #   AT pivot+conf       a pivot shelf WITH another source     (A2 minimum)
+    #   -2.3% → pattern D   not there yet; how far to the zone    (the queue)
+    #   no pattern zone     nothing below price to wait for
+    _sup = _g(ctx, "support", default={}) or {}
+    _zpct = _sup.get("next_zone_pct")
+    _ztf = _sup.get("next_zone_tf") or ""
+    _react = _sup.get("loc_reacting")
+    if _sup.get("loc_pattern"):
+        # INSIDE vs REACTING are different trades: inside is price still in the zone,
+        # reacting is the test done and the turn underway. Jay trades the second one,
+        # so the board has to distinguish them rather than collapse both to "AT".
+        _locWhat = ("REACTING off pattern" if _react
+                    else "AT pattern") + (f" {_ztf}" if _ztf else "")
+    elif _sup.get("loc_pivot") and _sup.get("at_support"):
+        _locWhat = "REACTING off pivot" if _react else "AT pivot+conf"
+    elif _sup.get("loc_pivot"):
+        # A pivot with no confluence is exactly what A2 refuses. Name it, so the
+        # row reads as a decision rather than a blank.
+        _locWhat = "pivot only ✗"
+    elif _sup.get("approaching"):
+        # Not a buy: the zone has not been tested yet, so there is nothing reacting.
+        # Named loudly because this is the state that becomes a trade next.
+        _apct = _sup.get("approach_pct")
+        _aptf = _sup.get("approach_tf") or _ztf
+        _locWhat = ("APPROACHING pattern" + (f" {_aptf}" if _aptf else "")
+                    + (f" −{_apct:.1f}%" if _apct is not None else ""))
+    elif _zpct is not None:
+        _locWhat = f"−{_zpct:.1f}% → pattern{(' ' + _ztf) if _ztf else ''}"
+    else:
+        _locWhat = "no pattern zone"
+    _loc_col = " · ".join(x for x in (_locWhat, _loc) if x)
+    if _loc and cat.startswith("Buy Trigger Live"):
+        _loc_col = f"⚠ {_loc_col}"
 
     # Path-appropriate fundamentals: BFF (growth) on Bull rows, RFF (recovery
     # fundamentals) on Recovery rows. Both are computed broadly, but showing only
@@ -1821,7 +1862,16 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # paths (data_editor and the streaming AG-Grid), exactly like the RRG flag.
         "Arm":           bool(info.get("armed")),
         "Armed":         _armed_text(info.get("armed")),
-        "Loc":           _loc_col,                  # Step-4 location caveat (blank when fine)
+        "Loc":           _loc_col,                  # what satisfied location + any caveat
+        # → Zone — how far price sits ABOVE the nearest FRESH PATTERN zone. This is
+        # the WATCH LIST the strict gate needs: measured across 76 names, 82.9% HAVE
+        # a fresh pattern zone but only 3.9% have price inside one, so a board that
+        # shows only "am I AT one" turns an abundant queue into an apparent signal
+        # shortage. Sort ascending to see what is closest to value.
+        # PATTERN zones only, deliberately — a queue built from pivot shelves would
+        # recreate the problem one step earlier.
+        "→Zone":         (0.0 if _sup.get("loc_pattern")
+                          else (round(float(_zpct), 1) if _zpct is not None else None)),
         "Path":          "Recovery" if path == "recovery" else "Bull",
         "RRG":        "—",                       # filled from json by the caller
         "Step":       wf.get("current"),

@@ -91,6 +91,12 @@ NB_TOL          = 0       # non-base tolerance inside a base run
 FT_LAG          = 1       # confirmation lag (bars after leg-out before the zone exists)
 FT_MAX_RESCUE   = 2       # average-leg follow-through rescue bars
 TESTED_TRAVEL_ATR = 2.0   # travel (in the zone's OWN-TF ATR) to retire a reacted zone
+# APPROACH (26-Aug-2026): price descending toward a fresh zone, within this many
+# own-TF ATRs of the proximal. Scale-consistent for the same reason the travel rule
+# is -- a % band would make a 30-point zone unreachable and a 3-point zone permanent.
+# Deliberately NOT part of at_support: an approach has not reacted yet, so honouring
+# it as location is buying the touch. It is a WATCH state, surfaced not gated.
+APPROACH_ATR = 1.0
 NARROW_WICK     = True    # #34 narrow-zone wick-to-wick rescue
 TOUCH_TOL       = 0.015   # "near a zone" tolerance for the location gate (1.5%, S4 parity)
 
@@ -291,7 +297,66 @@ def _eff(o, h, l, c):
 
 
 # ── detection ────────────────────────────────────────────────────────────────
-def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
+def _daily_ref(df, tf, daily_df=None):
+    """(daily EMA20, nearest daily pivot HIGH, nearest daily pivot LOW) as arrays
+    aligned onto `df`'s bars -- the reference tested-rules 2 and 3 are defined against.
+
+    WHICH reference (Jay, 26-Aug-2026):
+        WEEKLY / MONTHLY zones -> the CHART's own EMA20 (weekly EMA20 for a weekly zone).
+        DAILY / 125m / 75m zones -> the DAILY EMA20.
+    So the rules run on every timeframe; only the series they read changes. For a daily
+    frame those two are the same thing. This is also why the old #25 over-removal
+    happened: it judged a WEEKLY zone by the DAILY EMA20 -- the wrong series, evaluated
+    at daily granularity, which is a different and far more frequent event.
+
+    Rule 3's pivots come from the same source as the EMA, so a weekly zone is judged
+    against weekly structure and an intraday zone against daily structure.
+    """
+    try:
+        src = daily_df
+        if tf in ("W", "M"):
+            src = df                                # the chart's own frame
+        elif src is None:
+            if tf == "D":
+                src = df                            # own frame IS the daily frame
+            else:                                   # intraday: daily closes are in there
+                src = df.resample("1D").agg(
+                    {"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
+        if src is None or len(src) < 25:
+            return None, None, None
+        dema = src["Close"].ewm(span=20, adjust=False).mean()
+        # Nearest CONFIRMED daily swing pivot as of each bar (Pine's lastPH/lastPL).
+        # Confirmed = the pivot bar has `L` bars either side, so it is only knowable
+        # L bars later -- shifting by L is what keeps this out of the future.
+        L = 5
+        hi, lo = src["High"], src["Low"]
+        is_ph = (hi == hi.rolling(2 * L + 1, center=True).max())
+        is_pl = (lo == lo.rolling(2 * L + 1, center=True).min())
+        ph = hi.where(is_ph).shift(L).ffill()
+        pl = lo.where(is_pl).shift(L).ffill()
+        idx = df.index
+        return (dema.reindex(idx, method="ffill").to_numpy(float),
+                ph.reindex(idx, method="ffill").to_numpy(float),
+                pl.reindex(idx, method="ffill").to_numpy(float))
+    except Exception:
+        return None, None, None
+
+
+def detect_zones(df: pd.DataFrame, tf: str = "D",
+                 daily_df: "pd.DataFrame | None" = None) -> list[Zone]:
+    """`daily_df` supplies the DAILY reference that tested-rules 2 and 3 need.
+
+    Jay, 26-Aug-2026: rules 2 (EMA20 cross) and 3 (HTF pivot break) are NOT
+    daily-zone-only -- they apply on every timeframe -- and a 75m/125m zone must be
+    judged against the **daily** EMA20, never its own. That matches the DNA rule that
+    EMA20 is a daily anchor overlaid on intraday, and it is why the own-frame EMA20
+    below was the wrong series to reach for.
+
+    When `daily_df` is absent the daily reference is RESAMPLED from `df` for a daily
+    or intraday frame (its bars still carry daily closes). A WEEKLY or MONTHLY frame
+    contains no daily information, so rules 2 and 3 are skipped there rather than
+    faked from weekly closes -- silently substituting a weekly EMA20 would retire
+    zones on a rule nobody wrote."""
     cfg = TF_CFG.get(tf, TF_CFG["D"])
     minW, maxW, legin_atr, age_days = cfg["minW"], cfg["maxW"], cfg["legin"], cfg["age_days"]
     if df is None or len(df) < 60:
@@ -304,6 +369,8 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
     tr, atr = _wilder_atr(eh, el, ec, 14)
     vol20 = pd.Series(v).rolling(20).mean().to_numpy()
     ema20 = pd.Series(c).ewm(span=20, adjust=False).mean().to_numpy()
+    # DAILY reference for tested-rules 2 & 3, aligned onto THIS frame's bars.
+    dema20, d_ph, d_pl = _daily_ref(df, tf, daily_df)
     ts_ms = (df.index.view("int64") // 1_000_000) if hasattr(df.index, "view") else np.arange(n)
 
     # ── #3/#26 controlling-criteria inputs (mirror Pine's ath/atl/bsATH/bsATL/ma50) ──
@@ -353,7 +420,13 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
         return was_far and ec[lo_i] < ma50[lo_i]
 
     zones: list[Zone] = []
-    is_daily_or_lower = tf in ("D", "75m", "125m")  # EMA/level tested rule scope (#25 fix)
+    # Rules 2 & 3 run wherever a DAILY reference exists (Jay, 26-Aug-2026). The old
+    # `tf == "D"` restriction came from the #25/#40/#42 fix, which was really about the
+    # SERIES being wrong, not the timeframe: weekly zones were being retired by a daily
+    # EMA20 cross that said nothing about the weekly base. Judging every zone against a
+    # genuine daily reference is the intended rule; see the survival check in the
+    # session notes before widening this further.
+    rules23_ok = dema20 is not None   # only false if the reference could not be built
 
     # A candidate leg-out at index `lo` forms a zone that first EXISTS at lo+FT_LAG.
     for lo in range(MAX_BASE + 2, n):
@@ -600,6 +673,7 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
         reacted = False
         react_ref = float("nan")
         ema_pre = False
+        strong_lvl = float("nan")
         killed = False
         spent = False
         touch_n = 0
@@ -613,15 +687,34 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
             if was_in and moved_out and i > z.origin_idx + 1:
                 reacted = True
                 react_ref = z.proximal
-                ema_pre = (c[i] < ema20[i]) if z.is_demand else (c[i] > ema20[i])
+                # Pre-condition on the DAILY EMA20, not this frame's own.
+                if rules23_ok:
+                    ema_pre = (c[i] < dema20[i]) if z.is_demand else (c[i] > dema20[i])
+                # RULE 3 anchor, captured at the reaction (Pine's z.strongLvl): the
+                # nearest confirmed daily pivot on the far side of the zone.
+                if rules23_ok:
+                    _lv = d_ph[i] if z.is_demand else d_pl[i]
+                    if _lv == _lv and (
+                            (_lv > z.proximal) if z.is_demand else (_lv < z.proximal)):
+                        strong_lvl = _lv
+                    else:
+                        strong_lvl = float("nan")
             was_in = touched
             if reacted:
                 need = TESTED_TRAVEL_ATR * (atrD[i] if not math.isnan(atrD[i]) else 0.0)
                 c_travel = (h[i] >= react_ref + need) if z.is_demand else (l[i] <= react_ref - need)
                 c_ema = False
-                if is_daily_or_lower and tf == "D":     # EMA cross retires DAILY zones only (#25 fix)
-                    c_ema = ema_pre and ((c[i] > ema20[i]) if z.is_demand else (c[i] < ema20[i]))
-                if c_travel or c_ema:
+                c_level = False
+                if rules23_ok:
+                    # RULE 2 — a confirmed close across the DAILY EMA20.
+                    c_ema = ema_pre and (
+                        (c[i] > dema20[i]) if z.is_demand else (c[i] < dema20[i]))
+                    # RULE 3 — a confirmed close beyond the nearest daily swing pivot.
+                    # Missing from this port entirely until 26-Aug-2026, so Python zones
+                    # outlived Pine's on two of the three retirement rules.
+                    if strong_lvl == strong_lvl:
+                        c_level = (c[i] > strong_lvl) if z.is_demand else (c[i] < strong_lvl)
+                if c_travel or c_ema or c_level:
                     # Below the budget the zone survives and is re-armed for another
                     # reaction cycle. AT the budget it is SPENT — and what that means
                     # now differs by direction (Pine v8.8): a demand zone is kept and
@@ -635,6 +728,7 @@ def detect_zones(df: pd.DataFrame, tf: str = "D") -> list[Zone]:
                             killed = True                # TESTED -> removed
                         break
                     reacted, react_ref, ema_pre = False, float("nan"), False
+                    strong_lvl = float("nan")
             # violation: close beyond the distal
             if (c[i] < z.distal) if z.is_demand else (c[i] > z.distal):
                 killed = True
@@ -740,7 +834,8 @@ def htf_nesting(supports: dict, chart_tf: str = "D") -> dict:
             "htf_label": ("" if not best else f"nested {best_tf}")}
 
 
-def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) -> dict:
+def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None,
+                 daily_df: "pd.DataFrame | None" = None) -> dict:
     """The GM LOCATION half, mirroring S4's z_inDZ: is `price` inside/near a FRESH
     demand zone drawn by the IZE engine on this TF? Returns the gate + the zone."""
     # PATTERN vs PIVOT (25-Aug-2026). `pattern` is RBR/DBR/RBD/DBD for a leg-base-leg
@@ -752,12 +847,26 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
     # pivot satisfies 52.6% of names on its own, so the gate stands or falls on it.
     out = {"at_support": False, "at_support_pattern": False, "at_support_pivot": False,
            "in_fresh_dz": False, "zone": None,
+           # REACTING (26-Aug-2026). Price need not be INSIDE the zone. Jay trades the
+           # reaction: price retraces, tests the zone once, and turns up off it -- and
+           # it stays tradeable "as long as the price is not too far away after it
+           # tests the zone". That distance already has an answer in this engine and
+           # it is not a new threshold: a reaction cycle stays open until price
+           # travels TESTED_TRAVEL_ATR x ATR from the proximal (or, on Daily, crosses
+           # EMA20), at which point the zone is re-armed or spent. So `z.reacted` IS
+           # "tested and still reacting, not yet far away", by construction -- which
+           # means this gate cannot drift from the retirement rule.
+           "at_support_reacting": False, "zone_state": None,
+           "approaching": False, "approach_pct": None, "approach_tf": None,
+           # how far price sits ABOVE the nearest fresh PATTERN zone (None = none below)
+           "next_zone_pct": None, "next_zone_proximal": None, "next_zone_distal": None,
+           "next_zone_tf": None, "next_zone_pattern": None, "next_zone_score": None,
            "proximal": None, "distal": None, "score": None, "has_fvg": False, "n_dz": 0, "n_sz": 0,
            # #27 / #3: the age-adjusted read and the Controlling flag. `score` stays the
            # INTRINSIC merit so nothing downstream that already reads it changes meaning.
            "recency_score": None, "controlling": False, "n_ctrl": 0,
            "n_dz_spent": 0}
-    zones = detect_zones(df, tf)
+    zones = detect_zones(df, tf, daily_df=daily_df)
     if not zones:
         return out
     px = float(price) if price is not None else float(df["Close"].iloc[-1])
@@ -783,13 +892,19 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
             _w = (z.proximal - z.distal) / z.proximal if z.proximal else 0.0
             _tol = max(TOUCH_TOL_WIDTH * _w, TOUCH_TOL_FLOOR)
         near = px > z.proximal and (px - z.proximal) / z.proximal <= _tol
-        if inside or near:
+        # Reaction in progress: tested, moved out, travel still under the retirement
+        # threshold. Bounded ABOVE the zone only -- a demand zone is not "reacting"
+        # while price sits under it.
+        reacting = bool(z.reacted) and px >= z.distal
+        if inside or near or reacting:
             # Prefer a CONTROLLING zone, then score — the promotion is the whole point
             # of porting it, so it has to win the "which zone am I at" choice too.
             if best is None or (z.controlling, z.score) > (best.controlling, best.score):
                 best = z
                 out["at_support"] = True
                 out["in_fresh_dz"] = bool(inside)
+                out["at_support_reacting"] = bool(reacting and not inside)
+                out["zone_state"] = "inside" if inside else ("reacting" if reacting else "near")
                 # PvH/PvL are pivot shelves; everything else is leg-base-leg.
                 if str(z.pattern) in ("PvH", "PvL"):
                     out["at_support_pivot"] = True
@@ -799,6 +914,42 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None) ->
         out.update(zone=best.pattern, proximal=best.proximal, distal=best.distal,
                    score=best.score, has_fvg=best.has_fvg,
                    recency_score=best.recency_score, controlling=bool(best.controlling))
+
+    # ── DISTANCE TO THE NEAREST FRESH *PATTERN* ZONE BELOW PRICE ─────────────
+    # Added 25-Aug-2026 after measuring why the strict gate looked starved. Across
+    # 76 names, 82.9% HAVE a fresh pattern demand zone but only 3.9% have price
+    # inside one. The zones are not scarce -- price is rarely at them. So a gate
+    # that only reports "am I AT one" turns an abundant watch list into an apparent
+    # signal shortage, and the missing information is simply HOW FAR AWAY it is.
+    #
+    # PATTERN only, deliberately: a pivot shelf is the thing Jay does not want to
+    # lean on, so a queue built from pivots would recreate the problem one step
+    # earlier. Nearest BELOW price, because that is where a pullback goes; a zone
+    # above price is resistance, not a destination.
+    below = [z for z in dz
+             if not z.tested and not z.reacted
+             and str(z.pattern) not in ("PvH", "PvL")
+             and z.proximal is not None and z.proximal <= px]
+    if below:
+        nz = max(below, key=lambda z: z.proximal)      # the highest one under price
+        # Within an ATR of it, and coming down rather than running away: the reaction
+        # is the next thing that happens, so the name belongs in view.
+        try:
+            _a = float(_atr_abs(df))   # _atr_abs returns the LAST value, not a series
+        except Exception:
+            _a = float("nan")
+        if _a == _a and _a > 0 and (px - nz.proximal) <= APPROACH_ATR * _a:
+            _hi5 = float(df["High"].iloc[-6:-1].max()) if len(df) > 6 else px
+            if px <= _hi5:                              # not making new highs away from it
+                out["approaching"] = True
+                out["approach_pct"] = round((px - nz.proximal) / px * 100.0, 2) if px else None
+                out["approach_tf"] = nz.tf
+        out["next_zone_pct"] = round((px - nz.proximal) / px * 100.0, 2) if px else None
+        out["next_zone_proximal"] = nz.proximal
+        out["next_zone_distal"] = nz.distal
+        out["next_zone_tf"] = nz.tf
+        out["next_zone_pattern"] = nz.pattern
+        out["next_zone_score"] = nz.score
     return out
 
 

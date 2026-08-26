@@ -3997,6 +3997,37 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)
 
 
+def _gm_apply_location_rule(_s, vp_at=False):
+    """The ONE location rule — rule A2 + GM_LOC_STRICT — for every Trigger TF.
+
+    Lived inside `if trigger_tf in ("75m","125m")` until 26-Aug-2026, so the DAILY tab
+    never ran it: Daily kept the old saturated six-way OR while the intraday tabs used
+    A2. That is why Daily showed 19 "Buy Trigger Live" against 13 on 75m, and why names
+    11-27% below their nearest zone were still scoring 4/4. It also blanked the
+    descriptive Loc field on Daily, because the loc_* keys it reads were never set.
+
+    Trigger-TF terms (tf_*) are simply absent on Daily and fall to False -- the D/W/M
+    terms carry it -- so one definition serves both without a second copy to drift.
+    """
+    _s["loc_pattern"] = bool(_s.get("ize_at_support_pattern") or _s.get("tf_zone_pattern"))
+    _s["loc_pivot"] = bool(_s.get("ize_at_support_pivot") or _s.get("tf_zone_pivot"))
+    # Fallback for a zone_engine predating the pattern/pivot split: treat an unlabelled
+    # hit as a PATTERN zone rather than silently losing it.
+    if not (_s["loc_pattern"] or _s["loc_pivot"]):
+        _s["loc_pattern"] = bool(_s.get("ize_at_support") or _s.get("tf_zone_at"))
+    _s["loc_zone"] = _s["loc_pattern"] or _s["loc_pivot"]
+    _s["loc_reacting"] = bool(_s.get("ize_reacting") or _s.get("tf_reacting"))
+    _s["loc_soft"] = bool(_s.get("ize_near_sr") or _s.get("ize_near_avwap")
+                          or vp_at or _s.get("tf_near_sr"))
+    if GM_LOC_STRICT:
+        _s["at_support"] = bool(
+            _s["loc_pattern"]
+            or (_s["loc_pivot"] and (_s["loc_soft"] if GM_PIVOT_NEEDS_CONFLUENCE else True)))
+    else:
+        _s["at_support"] = bool(_s["loc_zone"] or _s["loc_soft"])
+    return _s
+
+
 def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) -> dict:
     """SINGLE SOURCE OF TRUTH for one symbol's GM decision. Both the Single Symbol
     page AND the Trigger Board (via loaders["evaluate"]) call THIS — so they can
@@ -4136,6 +4167,20 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                         _s["tf_zone_at"] = bool(_izI.get("at_support"))
                         _s["tf_zone_pattern"] = bool(_izI.get("at_support_pattern"))
                         _s["tf_zone_pivot"] = bool(_izI.get("at_support_pivot"))
+                        _s["tf_reacting"] = bool(_izI.get("at_support_reacting"))
+                        _tfa = _izI.get("approach_pct")
+                        if _izI.get("approaching") and _tfa is not None and (
+                                _s.get("approach_pct") is None or _tfa < _s["approach_pct"]):
+                            _s["approaching"] = True
+                            _s["approach_pct"], _s["approach_tf"] = _tfa, _izI.get("approach_tf")
+                        # The trigger-TF zone competes with D/W/M for "nearest": on a
+                        # 75m chart the zone you will actually reach first is often the
+                        # intraday one. Only replaces the D/W/M answer when it is CLOSER.
+                        _tfz = _izI.get("next_zone_pct")
+                        if _tfz is not None and (_s.get("next_zone_pct") is None
+                                                 or _tfz < _s["next_zone_pct"]):
+                            _s["next_zone_pct"] = _tfz
+                            _s["next_zone_tf"] = _izI.get("next_zone_tf") or _iz_tf
                         _s["tf_zone_in"] = bool(_izI.get("in_fresh_dz"))
                         _s["tf_near_sr"] = bool(_srI.get("near_sr"))
                         _s["tf_zone_tf"] = _iz_tf or ""
@@ -4179,28 +4224,7 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                         # wants pattern-only. A2 is interim because pattern zones alone
                         # currently fire on 21% of the board. ZONE_USE_STRUCTURAL=0
                         # gives pattern-only on this surface.
-                        _s["loc_pattern"] = bool(_s.get("ize_at_support_pattern")
-                                                 or _s.get("tf_zone_pattern"))
-                        _s["loc_pivot"] = bool(_s.get("ize_at_support_pivot")
-                                               or _s.get("tf_zone_pivot"))
-                        # Fallback for a zone_engine that predates the split: treat an
-                        # unlabelled hit as a PATTERN zone rather than silently losing
-                        # it. Over-admitting one name beats blanking the gate.
-                        if not (_s["loc_pattern"] or _s["loc_pivot"]):
-                            _s["loc_pattern"] = bool(_s.get("ize_at_support")
-                                                     or _s["tf_zone_at"])
-                        _s["loc_zone"] = _s["loc_pattern"] or _s["loc_pivot"]
-                        _s["loc_soft"] = bool(_s.get("ize_near_sr")
-                                              or _s.get("ize_near_avwap")
-                                              or _ivp.get("at_vp_support")
-                                              or _s["tf_near_sr"])
-                        if GM_LOC_STRICT:
-                            _s["at_support"] = bool(
-                                _s["loc_pattern"]
-                                or (_s["loc_pivot"] and
-                                    (_s["loc_soft"] if GM_PIVOT_NEEDS_CONFLUENCE else True)))
-                        else:
-                            _s["at_support"] = bool(_s["loc_zone"] or _s["loc_soft"])
+                        _gm_apply_location_rule(_s, bool(_ivp.get("at_vp_support")))
                         ctx["support"] = _s
             except Exception as e:
                 # Daily WCL from the ctx builder stands; it is labelled with its own tf.
@@ -4210,6 +4234,18 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             intra_reason = _intra.get("reason") or "unknown"
             intra_reason_code = _intra.get("code") or "unknown"
             intra_label = f"⏱ Trigger TF {trigger_tf} — intraday unavailable ({intra_reason}); showing Daily PA"
+
+    # The location rule must run on EVERY Trigger TF, not just the intraday ones. The
+    # intraday branch above applies it with the trigger-TF terms included; this catches
+    # DAILY (and any intraday tab whose fetch failed), where those terms are absent and
+    # the D/W/M merge carries it alone. Idempotent -- re-running it on a dict the branch
+    # already handled recomputes the same values from the same inputs.
+    try:
+        _sl = ctx.get("support")
+        if isinstance(_sl, dict) and _sl.get("loc_source") == "IZE" and "loc_pattern" not in _sl:
+            ctx["support"] = _gm_apply_location_rule(dict(_sl))
+    except Exception as e:
+        _gm_logger.warning(f"{symbol}: location rule (non-intraday) failed: {e}")
 
     rec_r = gm_load_recovery(symbol, deep=deep_rec) or {}
 
@@ -4853,7 +4889,36 @@ def gm_load_symbol(symbol: str) -> dict:
                     _sup["ize_at_support_pivot"] = bool(
                         _izD.get("at_support_pivot") or _izW.get("at_support_pivot")
                         or _izM.get("at_support_pivot"))
+                    # REACTING: tested once and turning up off the zone, still inside
+                    # the engine's own travel budget. Carried separately from
+                    # at_support so the board can SAY which of the two it is.
+                    _sup["ize_reacting"] = bool(
+                        _izD.get("at_support_reacting") or _izW.get("at_support_reacting")
+                        or _izM.get("at_support_reacting"))
+                    # APPROACH: watch state, never a gate pass. Closest of the three.
+                    _ap = [(_z.get("approach_pct"), _z.get("approach_tf"))
+                           for _z in (_izD, _izW, _izM)
+                           if _z and _z.get("approaching") and _z.get("approach_pct") is not None]
+                    if _ap:
+                        _sup["approach_pct"], _sup["approach_tf"] = min(_ap)
+                        _sup["approaching"] = True
                     _sup["ize_at_support"] = _ize_at
+                    # NEAREST FRESH PATTERN ZONE BELOW PRICE, across D/W/M. The board's
+                    # →Zone column is the watch list the strict gate needs: 82.9% of
+                    # names HAVE a fresh pattern zone but only 3.9% have price inside
+                    # one, so "am I AT one" alone turns an abundant queue into an
+                    # apparent signal shortage.
+                    # CLOSEST wins across the three timeframes — the question is "how
+                    # far to the next place worth buying", and the nearest one answers
+                    # it regardless of which timeframe drew it. The TF is carried too,
+                    # because a weekly zone 3% away is a different wait from a daily
+                    # zone 3% away.
+                    _cands = [(_z.get("next_zone_pct"), _z.get("next_zone_tf"))
+                              for _z in (_izD, _izW, _izM)
+                              if _z and _z.get("next_zone_pct") is not None]
+                    if _cands:
+                        _best = min(_cands, key=lambda t: t[0])
+                        _sup["next_zone_pct"], _sup["next_zone_tf"] = _best
                     _sup["ize_zone"] = _izD.get("zone") or _izW.get("zone") or _izM.get("zone")
                     _sup["ize_score"] = _izD.get("score") or _izW.get("score") or _izM.get("score")
                     _sup["ize_n_dz"] = int(_izD.get("n_dz") or 0) + int(_izW.get("n_dz") or 0) + int(_izM.get("n_dz") or 0)
