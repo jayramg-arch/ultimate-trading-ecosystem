@@ -896,9 +896,9 @@ grpSize = "Position Sizing"
 grpTT = "Trade Type & Targets (Swing / Positional)"
 grpAF = "Arrival & Order-Flow (bar-level proxy)"
 grpSR = "S/R Levels — Auto"
-grpSRM = "S/R Levels — MANUAL · MONTHLY  (0 = off; shows on ALL timeframes)"
-grpSRW = "S/R Levels — MANUAL · WEEKLY  (shows on Weekly and below)"
-grpSRD = "S/R Levels — MANUAL · DAILY  (shows on Daily and below; hidden on W/M)"
+grpSRM = "S/R Levels — MANUAL  │  MONTHLY  (0 = off; shows on ALL timeframes)"
+grpSRW = "S/R Levels — MANUAL  │  WEEKLY  (shows on Weekly and below)"
+grpSRD = "S/R Levels — MANUAL  │  DAILY  (shows on Daily and below; hidden on W/M)"
 grpPAT = "Patterns"
 grpTL = "Trendlines — AUTO + manual"
 grpZP = "Zones — Structural (Pivot-Based)"
@@ -940,7 +940,7 @@ gap_pct   = input.float(3.0, "Gap-up min %", minval=0.5, step=0.5, group=grpAV)
 gap_volx  = input.float(1.5, "Gap-up vol x 50d avg", minval=1.0, step=0.25, group=grpAV)
 
 mode      = input.string("Auto", "Mode", options=["Auto", "Bull", "Recovery"], group=grpPA,
-     tooltip="Auto = infer the path from the WEINSTEIN STAGE (v5.9), refined in v7.2. The stage comes from price vs the 30-week MA and that MA's slope, now in THREE states with Mansfield RS as the tiebreaker:\n  above + rising      -> Stage 2  BULL\n  above + flat        -> RS leading = 2 BULL · RS lagging = 3 NO TRADE\n  above + falling     -> Stage 3  NO TRADE\n  below + flat        -> Stage 1  RECOVERY   (the base)\n  below + falling     -> RS rising = 1 RECOVERY (early turn) · else 4 NO TRADE\n  below + rising      -> Stage 1  RECOVERY\n\nv7.2 fixed the reason Auto had to be overridden by hand: FLAT was lumped in with FALLING, so a flattening 30WMA — the Stage-1 base signature — resolved Stage 4 = NO TRADE and Auto could almost never reach Recovery. Tune the deadzone with '30WMA: flat band'.\n\nCEILING: Python qualifies Recovery on RFF FUNDAMENTALS, which Pine cannot read. Auto approximates the path from structure alone — the Golden Matcher remains the authority. The panel header and Structure row show what Auto resolved to and why.\n\nBull = force the 17 continuation/breakout conditions. Recovery = force the 10 capitulation-reversal + Wyckoff conditions. Everything else (AVWAP, RV, intraday trigger) is shared.")
+     tooltip="Auto = infer the path from the WEINSTEIN STAGE (v5.9), refined in v7.2. The stage comes from price vs the 30-week MA and that MA's slope, now in THREE states with Mansfield RS as the tiebreaker:\n  above + rising      -> Stage 2  BULL\n  above + flat        -> RS leading = 2 BULL  │  RS lagging = 3 NO TRADE\n  above + falling     -> Stage 3  NO TRADE\n  below + flat        -> Stage 1  RECOVERY   (the base)\n  below + falling     -> RS rising = 1 RECOVERY (early turn)  │  else 4 NO TRADE\n  below + rising      -> Stage 1  RECOVERY\n\nv7.2 fixed the reason Auto had to be overridden by hand: FLAT was lumped in with FALLING, so a flattening 30WMA — the Stage-1 base signature — resolved Stage 4 = NO TRADE and Auto could almost never reach Recovery. Tune the deadzone with '30WMA: flat band'.\n\nCEILING: Python qualifies Recovery on RFF FUNDAMENTALS, which Pine cannot read. Auto approximates the path from structure alone — the Golden Matcher remains the authority. The panel header and Structure row show what Auto resolved to and why.\n\nBull = force the 17 continuation/breakout conditions. Recovery = force the 10 capitulation-reversal + Wyckoff conditions. Everything else (AVWAP, RV, intraday trigger) is shared.")
 show_pa   = input.bool(true, "Detect the PA patterns", group=grpPA)
 use_chart_tf = input.bool(true, "Use chart timeframe for PA patterns", group=grpPA,
      tooltip="ON (default v2.8) = the PA battery is calculated on the current chart timeframe (75/125m) to MATCH the Golden Matcher, whose Trigger TF also defaults to 75m. HTF stays suppressed and the engulf keeps its daily EMA20 anchor. OFF = always Daily (EOD). On a Daily chart this toggle is a no-op (chart TF = daily).")
@@ -2317,7 +2317,7 @@ f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool is
         bool tested = (not isManual) and _effTests > sr_min_touch
         bool dash   = tested and not isFlip
         string g    = isManual ? "manual" : f_lvGrade(_effTests)
-        string ftag = isFlip ? (isSup ? " · R→S" : " · S→R") : ""
+        string ftag = isFlip ? (isSup ? "  │  R→S" : "  │  S→R") : ""
         // RAY FROM THE FIRST TOUCH — not from a blind 300-bar back-extension, which
         // drew the level flat through history where it was not yet in play.
         // The line ENDS at the current bar and the label hangs to its RIGHT
@@ -2326,7 +2326,7 @@ f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool is
         // the same reason — it was the thing crossing the label.
         int _t0 = firstT > 0 ? firstT : time[math.min(300, bar_index)]
         array.push(srLines, line.new(_t0, px, time, px, xloc=xloc.bar_time, color=color.new(lc, dash ? 35 : 0), width=w, style=dash ? line.style_dashed : line.style_solid))
-        array.push(srLbls,  label.new(time, px, tfTag + " · " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + " · " + g, xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
+        array.push(srLbls,  label.new(time, px, tfTag + "  │  " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + "  │  " + g, xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
 
 // Draw the auto pair for one TF, unless you have marked that TF yourself.
 f_drawAutoTf(core.SRSig s, string tfTag, bool tfOk, bool tfShow, bool hasManual) =>
@@ -4380,18 +4380,18 @@ if barstate.islast
         int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
         if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
             lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
-            lbTlS := label.new(bar_index, tls_now, _chartTag + " · TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+            lbTlS := label.new(bar_index, tls_now, _chartTag + "  │  TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
         else                            // MANUAL: bar-time anchors from the numeric inputs
             lnTlS := line.new(tls_t1, tls_p1, time, tls_now, xloc=xloc.bar_time, color=C_OK, width=_wS)   // ends AT the label anchor (collinear by construction) — extend.right ran the ray through the label text
-            lbTlS := label.new(time, tls_now, tls_tfTag + " · TL support  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+            lbTlS := label.new(time, tls_now, tls_tfTag + "  │  TL support  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
     if tlr_live
         int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
         if tl_auto and not na(_tlrAX)
             lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
-            lbTlR := label.new(bar_index, tlr_now, _chartTag + " · TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+            lbTlR := label.new(bar_index, tlr_now, _chartTag + "  │  TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
         else
             lnTlR := line.new(tlr_t1, tlr_p1, time, tlr_now, xloc=xloc.bar_time, color=C_NO, width=_wR)
-            lbTlR := label.new(time, tlr_now, tlr_tfTag + " · TL resistance  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+            lbTlR := label.new(time, tlr_now, tlr_tfTag + "  │  TL resistance  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
 
     // --- PATTERNS: the detected flag, and your manual box. Deletes unconditional.
     box.delete(bxFlag)
@@ -4488,7 +4488,9 @@ PA_LAST_COL = 17
 // whole table it is bounded by the wrap width instead, and the panel keeps the
 // height it already had. Existing rows still merge cols 1..PA_LAST_COL, so they
 // never touch the new column.
-var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 2, 43, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
+// 41 rows = indices 0..40 after the 26-Aug reorder. An oversized table renders blank
+// rows under the last section; an undersized one drops them silently.
+var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 2, 41, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
 // #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
 // uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
 // bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
@@ -4551,12 +4553,12 @@ f_rankRow(string[] nm, int[] st, int[] wt) =>
         o := o + (_s > 0 ? "🟢" : _s < 0 ? "▫" : "⚪") + array.get(nm, j) + (array.get(wt, j) > 1 ? str.tostring(array.get(wt, j)) : "") + "  "
     o
 f_sumHdr(string t) =>
-    string o = str.replace_all(t, "TREND · ", "TREND\n")
-    o := str.replace_all(o, "LEADERSHIP · ", "LEADERSHIP\n")
-    o := str.replace_all(o, "LOCATION · ", "LOCATION\n")
-    o := str.replace_all(o, "PARTICIPATION · ", "PARTICIPATION\n")
-    o := str.replace_all(o, "GEOMETRY · ", "GEOMETRY\n")
-    str.replace_all(o, "DIRECTION · ", "DIRECTION\n")
+    string o = str.replace_all(t, "TREND  │  ", "TREND\n")
+    o := str.replace_all(o, "LEADERSHIP  │  ", "LEADERSHIP\n")
+    o := str.replace_all(o, "LOCATION  │  ", "LOCATION\n")
+    o := str.replace_all(o, "PARTICIPATION  │  ", "PARTICIPATION\n")
+    o := str.replace_all(o, "GEOMETRY  │  ", "GEOMETRY\n")
+    str.replace_all(o, "DIRECTION  │  ", "DIRECTION\n")
 f_row(int r, string k, string vv, color vc) =>
     color _bg = f_softBg(vc)
     // #align (30-Jul, Jay): swapped so both columns hug the centre divider — label
@@ -4648,9 +4650,9 @@ if show_panel and d_panel and barstate.islast
     // long it is, so the prose is free.
     f_sec(1,  "  I · MACRO & CONTEXT      —  What is the underlying regime and environment?")
     f_sec(10,  "  II · LOCATION & QUALITY   —  Where are we on the chart right now?")
-    f_sec(18, "  III · EXECUTION & TIMING  —  Are the intraday triggers and PA patterns firing?")
+    f_sec(20, "  III · EXECUTION & TIMING  —  Are the intraday triggers and PA patterns firing?")
     f_sec(30, "  IV · DECISION SYNTHESIS   —  What is the final ruling of the engine?")
-    f_sec(36, "  V · PLAN & RISK          —  How do we execute and size it?")
+    f_sec(34, "  V · PLAN & RISK          —  How do we execute and size it?")
     table.cell(pnl, 1, 0, syminfo.ticker, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_left)
     // AVWAP levels — the three curves on one row (L · BO · Gap). Colour by the KEY
     // one (BO): green when price holds above the breakout AVWAP.
@@ -4663,16 +4665,16 @@ if show_panel and d_panel and barstate.islast
     // The three anchor prices keep the SINGLE-space dot between them -- that is a value
     // separator inside one field, not a field boundary, which is the whole point of
     // having two different characters.
-    string _avwTxt = (avwap_v ? "🟢" : "⚪") + (avwap_v ? ("TRIGGER " + (_r2g ? "R2G>BO" : "bounce")) : "no trigger") + "  │  " + "nearest " + (na(nearest_sup) ? "—" : str.tostring(nearest_sup, format.mintick) + " (−" + str.tostring(sup_dist[_so], "0.0") + "%)") + "  │  " + "L·BO·Gap " + _avL + " · " + _avB + " · " + _avG + "  │  " + (pinched ? "🟢" : "⚪") + "pinch" + (na(pinch_spread) ? "" : " " + str.tostring(pinch_spread, "0.0") + "%")
+    string _avwTxt = (avwap_v ? "🟢" : "⚪") + (avwap_v ? ("TRIGGER " + (_r2g ? "R2G>BO" : "bounce")) : "no trigger") + "  │  " + "nearest " + (na(nearest_sup) ? "—" : str.tostring(nearest_sup, format.mintick) + " (−" + str.tostring(sup_dist[_so], "0.0") + "%)") + "  │  " + "L·BO·Gap " + _avL + "  │  " + _avB + "  │  " + _avG + "  │  " + (pinched ? "🟢" : "⚪") + "pinch" + (na(pinch_spread) ? "" : " " + str.tostring(pinch_spread, "0.0") + "%")
     // "Nearest AVWAP" — the nearest AVWAP CURVE below price (a dynamic level that moves
     // each bar), NOT a drawn horizontal S/R line. Renamed from "Nearest support": it was
     // being read as a chart level that isn't there. The horizontal S/R levels live in
     // the "S/R (nearest)" row below — a different, static price-memory engine.
-    f_row(20, "AVWAP", _avwTxt, avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
+    f_row(22, "AVWAP", _avwTxt, avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
     string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "GO 10EMA+sqz" : "GO 10EMA") : (ema_reclaim[_so] ? "10EMA ok" : (sqz_on[_so] ? "sqz ON, wait EMA" : "wait")))
     // relocated to row 24 (24-Jul) — row 11 now holds the dedicated Location (L) row,
     // keeping the P(10)·L(11)·V(12) trigger-gate block contiguous, per Jay's sequence.
-    f_row(19, "Intraday " + timeframe.period, intra_status, intra_ok_v ? C_REC : C_MUTE)
+    f_row(21, "Intraday " + timeframe.period, intra_status, intra_ok_v ? C_REC : C_MUTE)
     
     // Support Zone row — v3.0: demand ZONE (Institutional, #8) + FVG/Pivot + AVWAP +
     // EMA20 dynamic S/R (#10). Fresh DZ reads "DZ" (green); in-zone-but-TESTED reads
@@ -4683,7 +4685,7 @@ if show_panel and d_panel and barstate.islast
     string w_zt = in_w_fvg[_so] ? "FVG" : in_w_piv[_so] ? "Piv" : "—"
     // v5.0: VP VAL/POC named explicitly — if it is carrying the L flag, the row must say so.
     string _extra = (near_avwap[_so] ? " AVWAP" : "") + (near_ema[_so] ? " EMA20" : "") + (at_vp_support[_so] ? (near_vp_val[_so] ? " VAL" : " POC") : "") + (near_fib[_so] ? " ~Fib" + fib_tag[_so] : "")
-    string zone_txt = _dztag + " · D:" + d_zt + " W:" + w_zt + _extra
+    string zone_txt = _dztag + "  │  D:" + d_zt + " W:" + w_zt + _extra
     color zone_col = inside_support_zone[_so] ? C_OK : (near_fib[_so] ? C_INFO : color.gray)
     f_row(12, "Support Zone", zone_txt, zone_col)
 
@@ -4692,7 +4694,7 @@ if show_panel and d_panel and barstate.islast
     // instrumentation ("why did that zone vanish"), not a trading input — it is behind
     // `show_diag` on its own row now.
     string _zHere = _so_z_inDZ ? ((z_inDZ_react[_so] ? "REACTING off DZ" : "IN DEMAND") + (z_inDZ_ctrl[_so] ? " ★ctrl" : "") + (z_inDZ_fvg[_so] ? " ⚡" : "") + (_so_dzTfN >= 2 ? " ×" + str.tostring(_so_dzTfN) + "TF" : "")) : z_inSZ[_so] ? "IN SUPPLY" : "between zones"
-    string zmtf_txt = _zHere + "  │  " + str.tostring(zc_dz) + " DZ / " + str.tostring(zc_sz) + " SZ live" + (zc_ctrl > 0 ? " · ★" + str.tostring(zc_ctrl) : "")
+    string zmtf_txt = _zHere + "  │  " + str.tostring(zc_dz) + " DZ / " + str.tostring(zc_sz) + " SZ live" + (zc_ctrl > 0 ? "  │  ★" + str.tostring(zc_ctrl) : "")
     color  zmtf_col = _so_z_inDZ ? C_OK : z_inSZ[_so] ? C_NO : C_MUTE
     f_row(11, "Zones (MTF)", zmtf_txt, zmtf_col)
 
@@ -4733,7 +4735,7 @@ if show_panel and d_panel and barstate.islast
     // to stop it reading as something you should see on the chart.
     string _geoTxt = geom[_so] == "—" ? "—" : "~shape: " + geom[_so]
     string _patTxt = not d_pat ? "off" : ((str.length(pats[_so]) > 0 ? pats[_so] : "no flag") + "   |   " + _geoTxt)
-    f_row(24, "Pattern | Shape", _patTxt, not d_pat ? color.gray : str.length(pats[_so]) > 0 ? C_OK : geom[_so] != "—" ? C_INFO : color.gray)
+    f_row(23, "Pattern | Shape", _patTxt, not d_pat ? color.gray : str.length(pats[_so]) > 0 ? C_OK : geom[_so] != "—" ? C_INFO : color.gray)
 
     // Location (L) — verbose, own row (24-Jul, Jay's PLVB sequence). The TRIGGER row's
     // "L✓/·" is a bare checkmark; this spells out WHICH of the exact sources the
@@ -4759,7 +4761,7 @@ if show_panel and d_panel and barstate.islast
     string _locHead = not support_v ? "NOT AT LOCATION" : z_inDZ_react[_so] ? "REACTING off " + (z_inDZ_pat[_so] ? "pattern" : "pivot") : _so_z_inDZ ? "AT " + (z_inDZ_pat[_so] ? "pattern" : "pivot") + " zone" : "AT LOCATION"
     string _locTxt  = _locHead + "   —   " + _locVerb
     color  _locCol  = support_v ? C_OK : C_WARN
-    f_row(17, "Location (L)", _locTxt, _locCol)
+    f_row(18, "Location (L)", _locTxt, _locCol)
 
     // --- Confluence breakdown: WHICH ones fired, not just how many. A bare score
     // is its own kind of black box — this is the row that replaces eyeballing.
@@ -4786,7 +4788,7 @@ if show_panel and d_panel and barstate.islast
     int[] _cfSt = array.from(ev_ok[_so] ? 1 : 0, show_intraday ? (intra_ok[_so] ? 1 : 0) : -1, z_inDZ_fvg[_so] ? 1 : 0, z_inDZ_ctrl[_so] ? 1 : 0, near_sr[_so] ? 1 : 0, tl_extra[_so] ? 1 : 0, bullFlag[_so] ? 1 : 0, near_ema[_so] ? 1 : 0, near_avwap[_so] ? 1 : 0, near_fib[_so] ? 1 : 0, pinched[_so] ? 1 : 0, chart_rv[_so] >= cf_rv_strong ? 1 : 0, near_round[_so] ? 1 : 0, daily_pa_agrees[_so] ? 1 : 0, show_arrival ? (arr_fav[_so] ? 1 : 0) : -1, show_arrival ? (_so_of_absorb ? 1 : 0) : -1, en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? 1 : 0) : -1, _gOkTrail ? (_rrgTr ? 1 : 0) : -1, _so_dzTfN >= 2 ? 1 : 0)
     int[] _cfWt = array.from(cf_w_avwap, cf_w_intra, cf_w_fvg, cf_w_ctrl, cf_w_sr, cf_w_tl, cf_w_flag, cf_w_ema, cf_w_avwl, cf_w_fib, cf_w_pinch, cf_w_rv, cf_w_round, cf_w_dailypa, cf_w_arrival, cf_w_absorb, cf_w_wcl, cf_w_rrg, cf_w_mtf * math.max(_so_dzTfN, 1))
     string cfb = f_rankRow(_cfNm, _cfSt, _cfWt)
-    f_row(32, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? C_GO : cf_v > 0 ? C_OK : color.gray)
+    f_row(29, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? C_GO : cf_v > 0 ? C_OK : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
     // volume-delta absorption read. "— (not at a zone)" when price is in open space.
@@ -4794,9 +4796,9 @@ if show_panel and d_panel and barstate.islast
         string _arS = _so_arr_style
         bool   _arF = arr_fav[_so]
         bool   _arA = _so_of_absorb
-        string _arrTxt = (_arS == "—") ? "— (not at a zone)" : (_arS + (na(arr_vel[_so]) ? "" : " " + str.tostring(arr_vel[_so], "0.00") + " ATR/bar") + " · " + of_read[_so])
+        string _arrTxt = (_arS == "—") ? "— (not at a zone)" : (_arS + (na(arr_vel[_so]) ? "" : " " + str.tostring(arr_vel[_so], "0.00") + " ATR/bar") + "  │  " + of_read[_so])
         color  _arrCol = (_arS == "—") ? color.gray : (_arF and _arA) ? C_GO : _arA ? C_OK : (_arS == "GRIND") ? C_WARN : color.new(#9598a1,0)
-        f_row(28, "Arrival · Δ", _arrTxt, _arrCol)
+        f_row(27, "Arrival · Δ", _arrTxt, _arrCol)
 
     // --- Room for Trade (#5 merged, #9): distance to the nearest OPPOSING overhead —
     // considered across HTF SUPPLY ZONES, flipped-pivot RESISTANCE and the HTF pivot
@@ -4880,7 +4882,7 @@ if show_panel and d_panel and barstate.islast
     // Plan row's genuine R (T1 from the actual entry over the capped SL) read as the
     // same quantity and was off by ~50x on IKS 17-Aug (Room 5.0R vs Plan T1 0.1R).
     // Relabelled "×zone"; the thin-R VETO now reads pl_rr1 instead (see _qThinR).
-    string _rtag    = na(_roomR) ? "" : " · " + str.tostring(_roomR, "0.0") + "×zone"
+    string _rtag    = na(_roomR) ? "" : "  │  " + str.tostring(_roomR, "0.0") + "×zone"
     string room_txt = "CLEAR"
     color  room_col = C_OK
     if na(_ovh)
@@ -4896,12 +4898,12 @@ if show_panel and d_panel and barstate.islast
         // Show what has to be cleared, and the R to it, so the size decision is made
         // against the real obstacle rather than against open sky.
         if _inSZ_r and not na(_band_r) and _ovh >= _band_r - _atr_r * 0.01
-            room_txt := "⛔ IN SUPPLY · clear " + str.tostring(_band_r, format.mintick) + " (+" + str.tostring((_band_r - _cl_r) / _cl_r * 100.0, "0.0") + "%)" + _rtag
+            room_txt := "⛔ IN SUPPLY  │  clear " + str.tostring(_band_r, format.mintick) + " (+" + str.tostring((_band_r - _cl_r) / _cl_r * 100.0, "0.0") + "%)" + _rtag
             room_col := C_NO
         else if _inSZ_r
             // Something stops price BEFORE the band's ceiling — report that, and say
             // the band is still overhead behind it.
-            room_txt := "⛔ IN SUPPLY · first " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring(_distOvh, "0.0") + "%)" + _rtag + " · band to " + str.tostring(_band_r, format.mintick)
+            room_txt := "⛔ IN SUPPLY  │  first " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring(_distOvh, "0.0") + "%)" + _rtag + "  │  band to " + str.tostring(_band_r, format.mintick)
             room_col := C_NO
         else if _rf_t1 > _ovh
             room_txt := "⚠️ NO ROOM " + str.tostring(_distOvh, "0.0") + "%" + _rtag
@@ -4916,8 +4918,8 @@ if show_panel and d_panel and barstate.islast
     // actually nearer than what the room was measured to (otherwise it is not the binding
     // obstacle and would be noise).
     if retain_spent_supply and not na(_so_z_spentSZ) and _so_z_spentSZ > _cl_r and (na(_ovh) or _so_z_spentSZ < _ovh)
-        room_txt := room_txt + "  · spent SZ " + str.tostring(_so_z_spentSZ, format.mintick)
-    f_row(31, "Room for Trade", room_txt, room_col)
+        room_txt := room_txt + "   │  spent SZ " + str.tostring(_so_z_spentSZ, format.mintick)
+    f_row(19, "Room for Trade", room_txt, room_col)
 
     // ── v67 PORTFOLIO SLOT: MY TRADE + POSITION STATUS ───────────────────────
     // Bound, not recomputed - v67 owns the slots, the levels and the ladder, so
@@ -4946,7 +4948,7 @@ if show_panel and d_panel and barstate.islast
         // The reason text is NOT carried: input.source cannot pass a string, and
         // encoding a dozen trigger codes would cost more than it is worth here.
         // The rung is the decision; v67's own row and Risk Shield spell out why.
-        f_sec(40, "  VI · PORTFOLIO             —  What do I already own here, and what does the ladder say?")
+        f_sec(38, "  VI · PORTFOLIO             —  What do I already own here, and what does the ladder say?")
         // WHY, rebuilt from the code. Numbers the reason cites are re-read from the
         // values already bound (the Chandelier) rather than carried again; levels S4
         // does not have (30-WMA, swing low, 50-DMA) are named without their price -
@@ -4972,13 +4974,13 @@ if show_panel and d_panel and barstate.islast
              _pyRc == 33 ? "pullback to EMA20 - raise the stop first" :
              _pyRc == 41 ? "leader but extended - wait for the pullback" :
              _pyRc == 42 ? "no rung triggered" : ""
-        f_row(41, "MY TRADE (v67 slot)", _pyTop + (str.length(_pyWhy) == 0 ? "" : "  │  " + _pyWhy), _pyCol)
+        f_row(39, "MY TRADE (v67 slot)", _pyTop + (str.length(_pyWhy) == 0 ? "" : "  │  " + _pyWhy), _pyCol)
 
         float  _pyLeft = pyrLeftSrc[_so]
         float  _pyTs = pyrEntryTsSrc[_so]
         bool   _pyTsOk = not na(_pyTs) and _pyTs > 1000000000000 and _pyTs != close
         string _pySt = (_pySw == 1 ? "SWING" : "POSITIONAL") + (_pyTsOk ? "  │  entry " + str.format_time(int(_pyTs), "yyyy-MM-dd", syminfo.timezone) : "") + "  │  " + str.tostring(pyrDaysSrc[_so], "0") + "d held" + (na(_pyLeft) ? "" : (_pyLeft < 0 ? "  │  TIME-STOP PASSED by " + str.tostring(-_pyLeft, "0") + "d" : "  │  " + str.tostring(_pyLeft, "0") + "d to time-stop"))
-        f_row(42, "POSITION", _pySt, na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN)
+        f_row(40, "POSITION", _pySt, na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN)
     // #1 (Jay, 19-Jul): if the panel/verdict cites a level to clear ("must clear
     // 1439.95"), that level must be ON THE CHART — sensing a level and not drawing
     // it forces a manual hunt. Draw the binding obstacle: the supply-band ceiling
@@ -5034,7 +5036,7 @@ if show_panel and d_panel and barstate.islast
     // above it is measured against the daily EMA20, so both halves of the row share one
     // clock, and a 75m chart and a daily chart print the same number (the v4.6 unit bug).
     if not na(atrD_tf) and close > 0
-        ema_txt := ema_txt + " · ATR(D) ₹" + str.tostring(atrD_tf, "0.0") + " (" + str.tostring(atrD_tf / close * 100.0, "0.0") + "%)"
+        ema_txt := ema_txt + "  │  ATR(D) ₹" + str.tostring(atrD_tf, "0.0") + " (" + str.tostring(atrD_tf / close * 100.0, "0.0") + "%)"
     // DISTANCE FROM THE HIGHS (v9.7). off52 came off the Structure basis row when that
     // became a position/direction ladder; it belongs here instead, because this row
     // already answers "how stretched are we" — vs value (EMA20) and vs volatility
@@ -5076,14 +5078,14 @@ if show_panel and d_panel and barstate.islast
       + (nz(wk_baseN, 0.0) < 1.0 ? "" : "  base " + str.tostring(wk_baseN, "0") + (wk_baseN >= base_warn_n ? " ⚠" : ""))
     ema_txt := (_xBand == "" ? "" : _xBand + " " + str.tostring(_xa, "0.0") + "×ATR"
       + _xStat + _xTag + "   │   ") + ema_txt
-    f_row(16, _emaLbl, ema_txt, _xa >= ext_warn_atr ? _xCol : ema_col)
+    f_row(17, _emaLbl, ema_txt, _xa >= ext_warn_atr ? _xCol : ema_col)
 
     // --- RV (volume): its own row and its OWN colour band (Jay, 25-Aug - reverted
     // from the merge with Bar earlier the same day). rv_col grades the LEVEL
     // (strong / ok / thin); sharing the Bar row meant sharing one colour, so that
     // grading was lost to a pass-fail dot. The gate dot and the level are
     // different readings and both are wanted.
-    f_row(29, "Volume (V) · RV " + timeframe.period, (vol_ok_v ? "🟢" : "⚪") + str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
+    f_row(28, "Volume (V) · RV " + timeframe.period, (vol_ok_v ? "🟢" : "⚪") + str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
 
     // Bar (B) — verbose, own row (24-Jul, Jay's PLVB sequence). Placed at row 25 (not
     // immediately after 12): rows 13/14 are Confluence/Arrival and 15 is the raw-numbered
@@ -5125,12 +5127,12 @@ if show_panel and d_panel and barstate.islast
     string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + _barWhy
     string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = bar_ok_v ? C_OK : C_NO
-    f_row(27, "Bar (B)", (bar_ok_v ? "🟢" : "⚪") + _barTxt, _barCol)
+    f_row(26, "Bar (B)", (bar_ok_v ? "🟢" : "⚪") + _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
     color _trigBg = f_softBg(trig_col)
-    table.cell(pnl, 0, 33, "TRIGGER", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right, text_formatting=text.format_bold)
+    table.cell(pnl, 0, 31, "TRIGGER", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right, text_formatting=text.format_bold)
     table.merge_cells(pnl, 1, 33, PA_LAST_COL, 33)
-    table.cell(pnl, 1, 33, trig_txt, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left, text_formatting=text.format_bold)
+    table.cell(pnl, 1, 31, trig_txt, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left, text_formatting=text.format_bold)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
     // stop). Priority: demand-zone distal (in-zone → nearest below) → recent swing low →
@@ -5214,15 +5216,15 @@ if show_panel and d_panel and barstate.islast
         // back above it. The old test was price-only, which any advancing bar satisfies — so
         // it read "(true retest)" while the anchor was being re-based underneath it.
         bool _retestLive = use_retest and not na(pl_entry) and pl_entry > 0 and trigAge > 0 and close > pl_entry * 1.0015
-        string _ageTag = trigAge > 0 ? " · trig " + str.tostring(trigAge) + "b ago" : ""
+        string _ageTag = trigAge > 0 ? "  │  trig " + str.tostring(trigAge) + "b ago" : ""
         string _entryMethodTxt = use_retest
              ? "Buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (_retestLive ? " (true retest)" : " = trigger close — fills as MARKET, not a retest")
              : "Buy-stop above the trigger bar"
         // #width (30-Jul): Plan was one unbroken line — entry-method plus SL/T1/T2 all on
         // one row, easily the widest content in the panel. Split at the natural boundary
         // (method above, numbers below), same convention as the Verdict clause breaks.
-        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + _ageTag + "\n· SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
-    f_row(37, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? C_MUTE : C_OK)
+        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + "  │  " : "") + _entryMethodTxt + _ageTag + "\n· SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + "  │  T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + "  │  T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
+    f_row(35, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? C_MUTE : C_OK)
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
     // Draw the same four numbers the row below prints - one source, so the chart
@@ -5233,20 +5235,20 @@ if show_panel and d_panel and barstate.islast
     f_planLine(show_plan_levels, pl_t2,    "T2", #7E57C2, line.style_dotted)
 
     string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
-    string _lS  = na(pl_entry) ? "" : " · SL " + str.tostring(pl_sl, format.mintick) + (pl_cap ? "⚠" : "") + " (−" + str.tostring((pl_entry - pl_sl) / pl_entry * 100.0, "0.0") + "%)"
+    string _lS  = na(pl_entry) ? "" : "  │  SL " + str.tostring(pl_sl, format.mintick) + (pl_cap ? "⚠" : "") + " (−" + str.tostring((pl_entry - pl_sl) / pl_entry * 100.0, "0.0") + "%)"
     // v5.2 (#2): a STRUCTURAL target (pl_t1_str/pl_t2_str = the nearest overhead level)
     // is tagged "·lvl". It is a level to CLEAR, not a projected objective — the
     // CLEAR-TO-BREAK verdict says exactly that in prose, while this row was quietly
     // presenting the same number as the target. An R-multiple target has no tag.
-    string _lT1 = na(pl_t1) ? " · T1 —" : " · T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·lvl" : "") + ")"
-    string _lT2 = na(pl_t2) ? (na(pl_t1) ? " · T2 —" : " · T2 open") : " · T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·lvl" : "") + ")"
+    string _lT1 = na(pl_t1) ? "  │  T1 —" : "  │  T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·lvl" : "") + ")"
+    string _lT2 = na(pl_t2) ? (na(pl_t1) ? "  │  T2 —" : "  │  T2 open") : "  │  T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·lvl" : "") + ")"
     // INVALIDATION — appended to the SAME row, no new row (Jay). NOT the stop: the stop
     // is where you get out, invalidation is where the reason you bought stops being true.
     // Ranked by SEVERITY (zone distal > swing > S/R > EMA20) with the nearest shown as
     // "first test". Body in S4Core.invalLevels — it was 40 statements of picker sitting in
     // the main body, which is what tripped Pine's ~1000-statement ceiling.
     string _lvlTxt = (na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2)) + core.invalLevels(close[_so], z_inDZdist, z_inDZ[_so], swingLo10[_so], sr_below, daily_ema20, nz(atrD_tf, chart_atr))
-    f_row(38, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : C_OK)
+    f_row(36, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : C_OK)
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.
     float _riskAmt = size_cap * active_risk / 100.0
@@ -5254,8 +5256,8 @@ if show_panel and d_panel and barstate.islast
     int   _qtyC   = (size_max_alloc > 0 and not na(pl_entry) and pl_entry > 0) ? int(math.floor(size_max_alloc / pl_entry)) : _qtyR
     int   _qtyF   = math.min(_qtyR, _qtyC)
     string _dynTag = not use_dyn_risk ? "" : " (" + str.tostring(size_risk, "0.00") + "b ×" + str.tostring(kelly_mult, "0.00") + "K" + (vol_disc < 1.0 ? " ×" + str.tostring(vol_disc, "0.00") + "V" : "") + (not mkt_health ? " bear−" : "") + ")"
-    string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + " · risk ₹" + str.tostring(_riskAmt, "0") + _dynTag)
-    f_row(39, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : C_OK)
+    string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + "  │  risk ₹" + str.tostring(_riskAmt, "0") + _dynTag)
+    f_row(37, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : C_OK)
     // ── IMPORTED FROM v67 (v8.4) ────────────────────────────────────────────────
     // Range checks first: an unwired source carries price, so anything outside a
     // fields plausible range is treated as not-wired and prints "-".
@@ -5283,7 +5285,7 @@ if show_panel and d_panel and barstate.islast
     // these went blank after v8.5. New inputs go at the END from now on.)
     bool _dashNone = not _okAct and not _okQal and not _okRsi and not _okRat and not _okSl50
     string _sigRow = _dashNone ? "not bound — Settings ▸ Dashboard import (v67 fields)" : _sig
-    f_row(9, "Signal · Quality · RSI", _sigRow, _dashNone ? C_WARN : _okAct ? (dashAction[_so] >= 7 ? C_OK : dashAction[_so] >= 4 ? C_WARN : C_MUTE) : C_MUTE)
+    f_row(8, "Signal · Quality · RSI", _sigRow, _dashNone ? C_WARN : _okAct ? (dashAction[_so] >= 7 ? C_OK : dashAction[_so] >= 4 ? C_WARN : C_MUTE) : C_MUTE)
     // RRG quadrant from the (RS-Ratio, RS-Momentum) pair — the same two coordinates
     // v67 classifies with, so the quadrant here IS v67s quadrant.
     // v67 WORDING (v9.4). Was: a bare quadrant token plus "up/down/flat", classified
@@ -5292,6 +5294,14 @@ if show_panel and d_panel and barstate.islast
     // what v67 renders, from the same numbers, via the ported helpers.
     string _rs5St = _okRsSl and _okRat ? f_rsStateStr(dashRsSlope[_so], dashRsRatio[_so], rsSlopeThresh) : ""
     string _rsScSt = _okRsSc and _okRatSec ? f_rsStateStr(dashRsSec[_so], dashRsRatioSec[_so], rsSlopeThresh) : ""
+    // SECTOR (26-Aug-2026, Jay): from HIS curated sectors.db, ported into S4Core as a
+    // packed string map — a library compiles separately, so 677 symbols cost this file
+    // one call, not 677 comparisons. TradingView's syminfo.sector is the fallback and is
+    // a DIFFERENT taxonomy (global GICS-style, not the NSE sector indices the RS/RRG work
+    // is built on), so it is tagged "~tv" rather than passed off as the curated value.
+    // Computed HERE, above the RS row, because the sector NAME now titles that row.
+    string _secCur = core.sectorOf(syminfo.ticker)
+    string _secTxt = _secCur != "" ? _secCur : (syminfo.sector != "" ? syminfo.sector + " ~tv" : "—")
     string _rsLine = (_rs5St == "" ? "N500 -" : "N500: " + _rs5St + " " + f_rsIcon(_rs5St)) + "  │  " + (_rsScSt == "" ? "Sec -" : "Sec: " + _rsScSt + " " + f_rsIcon(_rsScSt))
     // The trajectory needs the TRAILING pair, which only v67 can compute (weekly
     // security). Unbound -> say the quadrant and stop, rather than invent a rotation.
@@ -5318,7 +5328,7 @@ if show_panel and d_panel and barstate.islast
     if _okRat
         _quad := _rrgCur[_so]
         _quadC := not _rrgTr[_so] ? C_NO : _rrgCur[_so] == "LEADING" ? C_OK : _rrgCur[_so] == "WEAKENING" ? C_WARN : _rrgCur[_so] == "IMPROVING" ? C_INFO : C_NO
-        _rrgLine := _rrgCur[_so] + " " + _rrgArw[_so] + "  " + (_rrgSc[_so] > 0 ? "+" : "") + str.tostring(_rrgSc[_so]) + "  │  " + _rrgTrj[_so] + "  │  " + (_rrgTr[_so] ? "✓ BUY OK" : "✗ WAIT") + "  (RS-Ratio " + str.tostring(dashRsRatio[_so] + 100, "0.0") + ")" + (_okTrail ? "" : "  · trail unbound")
+        _rrgLine := _rrgCur[_so] + " " + _rrgArw[_so] + "  " + (_rrgSc[_so] > 0 ? "+" : "") + str.tostring(_rrgSc[_so]) + "  │  " + _rrgTrj[_so] + "  │  " + (_rrgTr[_so] ? "🟢 BUY OK" : "🔴 WAIT") + "  (RS-Ratio " + str.tostring(dashRsRatio[_so] + 100, "0.0") + ")" + (_okTrail ? "" : "   │  trail unbound")
     // TWO ROWS, not one cell with a newline (18-Aug, Jay). They answer different
     // questions — RS is "is it outperforming", RRG is "where in the rotation and
     // is it tradeable" — and they fail independently, which the shared cell hid.
@@ -5342,7 +5352,9 @@ if show_panel and d_panel and barstate.islast
     // related but not one reading: RS is the strength level, RRG is the rotation
     // direction, and they are acted on differently - RS ranks a name, the quadrant
     // times it. One row made you parse a sentence to get either.
-    f_row(5, "RS (vs N500)", _rsLine, _rsCol)
+    // The sector NAME titles the row (Jay, 26-Aug): "RS (vs N500 / Pharma)" says which
+    // sector the "Sec:" half is measured against, which the bare word "Sector" never did.
+    f_row(5, "RS (vs N500 / " + _secTxt + ")", _rsLine, _rsCol)
     f_row(6, "RRG (vs N500)", _rrgLine, _quadC)
     // [retired] Strike RRG sits directly under S4's computed quadrant on purpose: the whole
     // [retired] point is to see both at once. Never overwrites it.
@@ -5371,11 +5383,11 @@ if show_panel and d_panel and barstate.islast
     color _oiC = na(_oiPct) ? C_MUTE : _pxUp and _oiUp ? C_OK : _pxUp and not _oiUp ? C_WARN : (not _pxUp) and _oiUp ? C_NO : C_WARN
     // OI BASIS appended to the SAME row — no new row. Body in S4Core.oiText.
     string _mac = "Sector " + (_okSec ? "Stage " + str.tostring(dashSecStg[_so], "0") : "—") + "  │  OI " + _oiState + (na(_oiPct) ? "" : " " + str.tostring(_oiPct, "+0.0") + "%") + "\n" + _oiTip + core.oiText(oi_basis, oi_built_pct, oi_n, close[_so], _rnStep)
-    f_row(8, "Sector · Futures OI", _mac, _oiC)
+    f_row(7, "Sector · Futures OI", _mac, _oiC)
     // PA COMBO -- named, with the CONTEXT AGE, which is the part Sigma cannot show and
     // the part that says whether the story is still fresh. Blank when none fire.
     string _cbTxt = cbSPRING[_so] ? "COILED SPRING  │  VCP " + str.tostring(_agVCP[_so]) + "b -> coil now" : cbIGNITE[_so] ? "INSTITUTIONAL IGNITION  │  BC " + str.tostring(_agBC[_so]) + "b -> " + (kPP[_so] ? "PP" : "GAP") + " now" : cbTRAP[_so] ? "BEAR TRAP  │  sweep " + str.tostring(_agSPR[_so]) + "b -> engulf now" : cbFLOOR[_so] ? "CAPITULATION FLOOR  │  climax " + str.tostring(_agCLX[_so]) + "b + spring " + str.tostring(_agSPRr[_so]) + "b -> engulf now" : cbSHIFT[_so] ? "STRUCTURE SHIFT  │  climax " + str.tostring(_agCLX[_so]) + "b + higher-low " + str.tostring(_ag2B[_so]) + "b -> dry-up now" : ""
-    f_row(26, "PA Combo", str.length(_cbTxt) > 0 ? _cbTxt : "—", str.length(_cbTxt) > 0 ? C_GO : C_MUTE)
+    f_row(25, "PA Combo", str.length(_cbTxt) > 0 ? _cbTxt : "—", str.length(_cbTxt) > 0 ? C_GO : C_MUTE)
 
     if en_wcl
         string _wcl_val_str = _wcl_score_band + " (+" + str.tostring(_total_final) + ")" + (_setup_pri > 0 ? "  │  " + _setup_str : "")
@@ -5404,7 +5416,7 @@ if show_panel and d_panel and barstate.islast
     // Shown beside Sigma so a total carried by threshold-huggers cannot read as
     // conviction — Sigma+6 with 2 marginal is really Sigma+2 you can lean on.
     int _margV = int(nz((use_chart_tf ? loc_marg : d_marg)[_so], 0))
-    string _hdr = (is_rec_v ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)")) + "  Σ+" + str.tostring(tsum_v) + (_margV > 0 ? "  " + str.tostring(_margV) + "⚖" : "")
+    string _hdr = (is_rec_v ? "PA  │  RECOVERY " : "PA  │  BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)")) + "  Σ+" + str.tostring(tsum_v) + (_margV > 0 ? "  " + str.tostring(_margV) + "⚖" : "")
     color pa_col_v = tsum_v >= 4 ? color.new(#7b1fa2,0) : tsum_v >= 2 ? C_OK : tsum_v >= 1 ? C_WARN : color.gray
     color _paBg = f_softBg(pa_col_v)
     // PA BATTERY AS ONE DOTTED ROW (Jay, 25-Aug: "bring the PA row into the same format
@@ -5432,7 +5444,7 @@ if show_panel and d_panel and barstate.islast
     for i = 0 to array.size(_paNm) - 1
         array.push(_paSt, array.get(_paFr, i) ? 1 : 0)
     string _paTxt = array.size(_paNm) == 0 ? "" : f_rankRow(_paNm, _paSt, _paWt)
-    f_row(25, _hdr, not show_pa ? "off" : str.length(_paTxt) == 0 ? "—" : _paTxt, not show_pa ? color.gray : tsum_v > 0 ? C_GO : C_MUTE)
+    f_row(24, _hdr, not show_pa ? "off" : str.length(_paTxt) == 0 ? "—" : _paTxt, not show_pa ? color.gray : tsum_v > 0 ? C_GO : C_MUTE)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was
     // never written and rendered BLANK — which reads as missing data, not "n/a".
@@ -5590,17 +5602,9 @@ if show_panel and d_panel and barstate.islast
     // the slot carries the ETF quality read instead: liquidity and premium, the
     // two facts about the WRAPPER that no price-based row can show.
     string _etfTxt = "  │  ETF " + (na(_etfLiq) ? "—Cr" : "₹" + str.tostring(_etfLiq, "0.0") + "Cr" + (_etfLiq < 1.0 ? " THIN" : "")) + "  │  NAV " + (na(_etfPrm) ? "—" : str.tostring(_etfPrm, "+0.0") + "%" + (_etfPrmBad ? " 🔴" : math.abs(_etfPrm) >= 1.0 ? " ⚪" : " 🟢"))
-    string _fndTxt = _isEtf ? (_rnkTxt + _etfTxt) : _rnkTxt + "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
+    string _fndTxt = _isEtf ? _etfTxt : "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  │  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _fndTxt
-    // SECTOR (26-Aug-2026, Jay): from HIS curated sectors.db, ported into S4Core as a
-    // packed string map. It lives in the library because a library compiles separately
-    // -- 677 symbols cost this file one call, not 677 comparisons. TradingView's own
-    // syminfo.sector is the fallback, and is NOT the same taxonomy (it is a global GICS
-    // -style classification, not the NSE sector indices the RS/RRG work is built on), so
-    // it is marked with a ~ rather than passed off as the curated value.
-    string _secCur = core.sectorOf(syminfo.ticker)
-    string _secTxt = _secCur != "" ? _secCur : (syminfo.sector != "" ? syminfo.sector + " ~tv" : "—")
-    f_row(2, "Structure basis", _basis + "  │  " + _secTxt, is_rec_v ? C_REC : C_OK)
+    f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // ML win probability — bound, never recomputed. Unbound, input.source returns
     // `close`, which is never na, so a bound/unbound test has to check the VALUE'S
     // SHAPE: a probability lives in [0,100] and a price rarely does exactly.
@@ -5618,8 +5622,11 @@ if show_panel and d_panel and barstate.islast
       + "  │  ATR " + (_atrPct > 0 ? str.tostring(_atrPct, "0.0") + "%" : "—")   // reuses the closed-bar _atrPct from the trade-type block; it returns 0.0, never na
       + "  │  " + _cprTxt + "  │  " + _mvwTxt
       + "  │  VCP " + (kVCP ? "✓" : "·")
-    f_row(22, "Momentum & value", _momTxt, _adxV >= 25.0 and _diP > _diM ? C_OK : _adxV < 20.0 ? C_MUTE : C_WARN)
-    f_row(21, "ML win probability", _mlOk ? str.tostring(dashMlProb, "0.0") + "%" : "— unbound",
+    f_row(16, "Momentum & value", _momTxt, _adxV >= 25.0 and _diP > _diM ? C_OK : _adxV < 20.0 ? C_MUTE : C_WARN)
+    // GM rank joins the ML row (Jay, 26-Aug): both are SCORES of the setup rather than
+    // facts about its structure, so they read together and Structure basis is left to
+    // describe structure alone.
+    f_row(9, "ML win probability", (_mlOk ? str.tostring(dashMlProb, "0.0") + "%" : "— unbound") + _rnkTxt,
       not _mlOk ? C_MUTE : dashMlProb >= 40.0 ? C_GO : dashMlProb >= 35.0 ? C_OK : C_MUTE)
     f_row(3, "Minervini template  " + str.tostring(_mvN) + "/" + str.tostring(_mvOf) + (_mvBound ? "" : "~"), _mvTxt, _mvN >= _mvOf ? C_GO : _mvN >= _mvOf - 2 ? C_OK : C_MUTE)
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
@@ -5641,9 +5648,9 @@ if show_panel and d_panel and barstate.islast
     // when the engine is live. Green only on a real GO.
     color _status_col = go_v ? C_OK : C_WARN
     color _stBg = f_softBg(_status_col)
-    table.cell(pnl, 0, 34, "STATUS", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
+    table.cell(pnl, 0, 32, "STATUS", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 34, PA_LAST_COL, 34)
-    table.cell(pnl, 1, 34, _status, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
+    table.cell(pnl, 1, 32, _status, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
 
     // SUMMARY — the whole panel read as ONE judgement (19-Aug-2026, Jay: "the current
     // Verdict field is not covering all the fields above, i.e. the trends"). He was
@@ -5740,7 +5747,7 @@ if show_panel and d_panel and barstate.islast
     // with another quality problem, same bar as chop/bleeding.
     bool _qCoilDn = coil_bd[_so]
     int  _qDeg    = (_qChop ? 1 : 0) + (_qBleed ? 1 : 0) + (_qCoilDn ? 1 : 0)
-    string _degTxt = _qDeg >= 2 ? "  DOWNGRADED: " + (_qChop ? "EMA20 chop · " : "") + (_qBleed ? "FAST bleeding · " : "") + (_qCoilDn ? "coiling on a spent floor · " : "") : ""
+    string _degTxt = _qDeg >= 2 ? "  DOWNGRADED: " + (_qChop ? "EMA20 chop  │  " : "") + (_qBleed ? "FAST bleeding  │  " : "") + (_qCoilDn ? "coiling on a spent floor  │  " : "") : ""
     // #3: chasing — price too far above the daily EMA20 (in ATRs). Quality, not a gate.
     float _extV   = ext_atr[_so]
     bool  _qExt   = not na(_extV) and _extV > ext_atr_max
@@ -5829,9 +5836,9 @@ if show_panel and d_panel and barstate.islast
         _anCol := C_NO
     if show_analysis
         color _verBg = f_softBg(_anCol)
-        table.cell(pnl, 0, 35, "VERDICT", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)
+        table.cell(pnl, 0, 33, "VERDICT", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)
         table.merge_cells(pnl, 1, 35, PA_LAST_COL, 35)
-        table.cell(pnl, 1, 35, "➤ " + _aVer, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
+        table.cell(pnl, 1, 33, "➤ " + _aVer, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
     // ACTUALLY being sensed, not just drawn on the chart — the toggle + source wiring
@@ -5879,7 +5886,7 @@ if show_pa and any_pa and any_pa[1] and tsum > nz(tsum[1])
 if go and not go[1]
     string _pa   = str.substring(pa_names, 0, math.max(0, str.length(pa_names) - 2))
     string _zone = z_inDZ ? "at Demand Zone" : near_avwap ? "at AVWAP" : "at location"
-    string _msg  = "S4 GO on " + syminfo.ticker + " (" + (is_rec ? "Recovery" : "Bull") + ") — PA: " + _pa + " " + _zone + " · RV " + str.tostring(nz(chart_rv, 0.0), "0.00") + " · Sum+" + str.tostring(tsum)
+    string _msg  = "S4 GO on " + syminfo.ticker + " (" + (is_rec ? "Recovery" : "Bull") + ") — PA: " + _pa + " " + _zone + "  │  RV " + str.tostring(nz(chart_rv, 0.0), "0.00") + "  │  Sum+" + str.tostring(tsum)
     alert(_msg, alert.freq_once_per_bar_close)
 
 // CPR pivot + monthly VWAP on the chart (Jay: "draw these two lines"). Both are
