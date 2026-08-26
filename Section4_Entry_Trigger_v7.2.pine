@@ -4488,9 +4488,13 @@ PA_LAST_COL = 17
 // whole table it is bounded by the wrap width instead, and the panel keeps the
 // height it already had. Existing rows still merge cols 1..PA_LAST_COL, so they
 // never touch the new column.
-// 41 rows = indices 0..40 after the 26-Aug reorder. An oversized table renders blank
-// rows under the last section; an undersized one drops them silently.
-var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 2, 41, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
+// PANEL_ROWS is the ONE place the panel height is stated. The SUMMARY column blanks
+// and merges the full height, and when that was hardcoded to the old 43-row table it
+// wrote row 41 into a 41-row table -- RE10040 at runtime, not at compile. Derive both
+// from here so a future reorder cannot separate them again.
+int PANEL_ROWS = 41
+int PANEL_LAST = PANEL_ROWS - 1
+var table pnl = table.new(f_pos(panel_pos), PA_LAST_COL + 2, PANEL_ROWS, bgcolor=color.new(#131722, 0), frame_color=C_GRID, frame_width=1, border_color=C_GRID, border_width=1)
 // #v7 (30-Jul, Jay): "the Weinstein Dashboard panel is easier on my eyes" — that panel
 // uses a solid pastel BACKGROUND per row with dark text; S4 used near-black bg with
 // bright/neon TEXT, which is what read as harsh. f_softBg buckets a semantic colour by
@@ -5682,13 +5686,13 @@ if show_panel and d_panel and barstate.islast
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.
         int _sc = PA_LAST_COL + 1
-        for _r = 0 to 42
+        for _r = 0 to PANEL_LAST
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
              "SUMMARY\n\n" + core.wrapText(f_sumHdr(str.replace_all(_sumRaw, "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)
-        table.merge_cells(pnl, _sc, 0, _sc, 42)
+        table.merge_cells(pnl, _sc, 0, _sc, PANEL_LAST)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
