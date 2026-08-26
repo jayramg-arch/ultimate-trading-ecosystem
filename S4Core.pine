@@ -2186,6 +2186,8 @@ export baseCount(simple int wmaLen, simple int slopeLen, simple int minBars) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTOR MAP — Jay's curated NSE stock→sector database, generated from sectors.db
 // on 26-Aug-2026: 677 symbols, 18 sectors.
 //
@@ -2207,14 +2209,17 @@ export baseCount(simple int wmaLen, simple int slopeLen, simple int minBars) =>
 // An unknown symbol returns "" so the caller can fall back and the absence stays
 // visible. Never guess a sector.
 // ─────────────────────────────────────────────────────────────────────────────
-var array<string> _secSym = na
-var array<string> _secCod = na
-var array<string> _secNam = na
-
 // @function    Sector for an NSE symbol, from the curated mapping.
 // @param sym   Bare NSE symbol, e.g. syminfo.ticker ("RELIANCE", "M&M").
 // @returns     Display sector name, or "" when the symbol is not mapped.
 export sectorOf(string sym) =>
+    // The arrays are function-LOCAL vars, not globals: Pine forbids a function
+    // assigning to a global ("Cannot modify global variable in function"), and a
+    // library export is still a function. `var` inside the body gives the same
+    // build-once behaviour with a legal scope.
+    var array<string> _secSym = na
+    var array<string> _secCod = na
+    var array<string> _secNam = na
     if na(_secSym)
         string _a = "360ONE,3MINDIA,AADHARHFC,AARTIDRUGS,AARTIIND,AAVAS,ABB,ABBOTINDIA,ABCAPITAL,ABDL,ABFRL,ABLBL,ABREL,ABSLAMC,ACC,ACE,ACKO,ACMESOLAR,ACUTAAS,ADANIENSOL,ADANIENT,ADANIGREEN,ADANIPORTS,ADANIPOWER,ADANITOTAL,ADANIWILL,ADVENZYMES,AEGISCHEM,AEGISLOG,AEGISVOPAK,AEQUS,AETHER,AFCONS,AFFLE,AHLUCONT,AIAENG,AIIL,AJANTPHARM,AKUMS,ALKEM,ALKYLAMINE,ALLCARGO,ALOKINDS,AMARAJABAT,AMBER,AMBUJACEM,ANANDRATHI,ANANTRAJ,ANGELONE,ANTHEM,ANURAS,APARINDS,APLAPOLLO,APOLLO,APOLLOHOSP,APOLLOTYRE,APTUS,ARE&M,ARVIND,ASAHIINDIA,ASHOKLEY,ASIANPAINT,ASKASIAN,ASTERDM,ASTRAL,ASTRAMICRO,ASTRAZEN,ATGL,ATHERENERG,ATUL,AUBANK,AUROPHARMA,AVANTIFEED,AWL,AXISBANK,AXISCADES,BAJAJ-AUTO,BAJAJCON,BAJAJELEC,BAJAJFINSV,BAJAJHFL,BAJAJHLDNG,BAJFINANCE,BALAMINES,BALKRISIND,BALRAMCHIN,BANDHANBNK,BANKBARODA,BANKINDIA,BASF,"
         _a += "BATAINDIA,BAYERCROP,BBTC,BDL,BEL,BELRISE,BEML,BERGEPAINT,BHARATFORG,BHARATRAS,BHARTIARTL,BHARTIHEXA,BHEL,BIKAJI,BIOCON,BIRLACORPN,BIRLASOFT,BLS,BLUEDART,BLUEJET,BLUESTARCO,BOMDYEING,BOSCHLTD,BPCL,BRIGADE,BRITANNIA,BSE,BSOFT,CAMPUS,CAMS,CANBK,CANFINHOME,CANHLIFE,CAPLIPOINT,CARBORUNIV,CARTRADE,CARYSIL,CASTROLIND,CCL,CDSL,CEATLTD,CEMPRO,CENTRALBK,CENTUM,CENTURYPLY,CENTURYTEX,CERA,CESC,CGCL,CGPOWER,CHALET,CHAMBLFERT,CHENNPETRO,CHOICEIN,CHOLAFIN,CHOLAHLD,CHOLAHLDNG,CIEINDIA,CIPLA,CLEAN,COALINDIA,COCHINSHIP,COFORGE,COHANCE,COLPAL,CONCOR,CONCORDBIO,COROMANDEL,CPPLUS,CRAFTSMAN,CREDITACC,CRISIL,CROMPTON,CUB,CUMMINSIND,CYIENT,CYIENTDLM,DABUR,DALBHARAT,DATAPATTNS,DBCORP,DCMSHRIRAM,DCXIND,DEEPAKFERT,DEEPAKNTR,DELHIVERY,DELTACORP,DEVYANI,DIVISLAB,DIXON,"

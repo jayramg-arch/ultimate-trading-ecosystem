@@ -73,14 +73,17 @@ pine = f'''
 // An unknown symbol returns "" so the caller can fall back and the absence stays
 // visible. Never guess a sector.
 // ─────────────────────────────────────────────────────────────────────────────
-var array<string> _secSym = na
-var array<string> _secCod = na
-var array<string> _secNam = na
-
 // @function    Sector for an NSE symbol, from the curated mapping.
 // @param sym   Bare NSE symbol, e.g. syminfo.ticker ("RELIANCE", "M&M").
 // @returns     Display sector name, or "" when the symbol is not mapped.
 export sectorOf(string sym) =>
+    // The arrays are function-LOCAL vars, not globals: Pine forbids a function
+    // assigning to a global ("Cannot modify global variable in function"), and a
+    // library export is still a function. `var` inside the body gives the same
+    // build-once behaviour with a legal scope.
+    var array<string> _secSym = na
+    var array<string> _secCod = na
+    var array<string> _secNam = na
     if na(_secSym)
 {emit("_a", chunks(syms))}
 {emit("_b", chunks(codes))}
