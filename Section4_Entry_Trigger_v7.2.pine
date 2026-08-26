@@ -911,8 +911,6 @@ d_lvls    = input.bool(true, "FVG / pivot levels",          group=grpDisp, toolt
 d_avwap   = input.bool(true, "Anchored VWAPs",              group=grpDisp, tooltip="The three AVWAP curves + the pinch read. OFF also drops AVWAP from the support gate and the score.")
 d_markers = input.bool(true, "Chart markers (GO / PA / triggers)", group=grpDisp, tooltip="The on-candle labels only. This does NOT change the signal — the PA battery keeps running and the panel keeps reading. Purely visual decluttering.")
 d_pat     = input.bool(true, "Patterns (flag / geometry / box)", group=grpDisp, tooltip="The flag detector, the pivot-based geometry read (triangle / wedge / channel / range) and your manual consolidation box. OFF also drops the flag from the confluence score.")
-show_cpr   = input.bool(true, "CPR pivot line",    group=grpDisp, tooltip="Central pivot (H+L+C)/3 of the PREVIOUS completed day. Stepline, because it is one value per session and a sloped line between sessions would imply intraday movement it does not have.")
-show_mvwap = input.bool(true, "Monthly VWAP line", group=grpDisp, tooltip="Volume-weighted average price anchored to the first bar of the month — the average price everyone who traded this month actually paid.")
 d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 
 // ── CANDLE HIGHLIGHTS (24-Jul): make the PA candle and the B (bar-quality) state
@@ -4618,6 +4616,11 @@ float d_sma50 = daily_sma50
 // after the plan clears. Each CALL SITE gets its own var instance in Pine, which
 // is why one function can own four independent lines.
 show_plan_levels = input.bool(true, "Draw plan levels (E · SL · T1 · T2) on chart", group="Plan & Risk", tooltip="Off = panel only. Levels are drawn from the LATCHED trigger bar, so they match the Plan row exactly.")
+// Appended after the last input DELIBERATELY: inputs bind by POSITION, and an
+// insert anywhere above re-points the input.source bindings below it — the v8.5
+// blank-fields incident. Placement here costs nothing but a Settings ordering.
+show_cpr   = input.bool(true, "CPR pivot line",    group=grpDisp, tooltip="Central pivot (H+L+C)/3 of the PREVIOUS completed day. Stepline, because it is one value per session and a sloped line between sessions would imply intraday movement it does not have.")
+show_mvwap = input.bool(true, "Monthly VWAP line", group=grpDisp, tooltip="Volume-weighted average price anchored to the first bar of the month — the average price everyone who traded this month actually paid.")
 
 f_planLine(bool _on, float _lvl, string _txt, color _c, string _sty) =>
     var line  _ln = na
@@ -5609,11 +5612,10 @@ if show_panel and d_panel and barstate.islast
     // v6.1 verdict rewrite removed (a panel restating itself). ATR appears here as a
     // PERCENT of price, which is the comparable form; the absolute ATR is already in
     // the Plan row where it sizes the stop.
-    float _atrPct = close > 0 and not na(chart_atr) ? (chart_atr / close) * 100.0 : na
     string _cprTxt = na(_cprPivot) ? "CPR —" : (close >= _cprPivot ? "above CPR " : "below CPR ") + str.tostring(_cprPivot, format.mintick)
     string _mvwTxt = na(_mvwap) ? "MVWAP —" : (close >= _mvwap ? "above MVWAP " : "below MVWAP ") + str.tostring(_mvwap, format.mintick)
     string _momTxt = "ADX " + str.tostring(_adxV, "0.0") + (_diP > _diM ? " +DI" : " -DI") + " (" + str.tostring(_diP, "0") + "/" + str.tostring(_diM, "0") + ")"
-      + "  │  ATR " + (na(_atrPct) ? "—" : str.tostring(_atrPct, "0.0") + "%")
+      + "  │  ATR " + (_atrPct > 0 ? str.tostring(_atrPct, "0.0") + "%" : "—")   // reuses the closed-bar _atrPct from the trade-type block; it returns 0.0, never na
       + "  │  " + _cprTxt + "  │  " + _mvwTxt
       + "  │  VCP " + (kVCP ? "✓" : "·")
     f_row(22, "Momentum & value", _momTxt, _adxV >= 25.0 and _diP > _diM ? C_OK : _adxV < 20.0 ? C_MUTE : C_WARN)
