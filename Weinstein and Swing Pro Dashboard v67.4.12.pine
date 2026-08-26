@@ -5652,7 +5652,9 @@ plot(conf_score,        title="s4_actionSignal", display=display.none)
 // has never been validated out-of-sample in this project. Read it as a RANKING, not as
 // a true probability -- "38%" does not mean 38 trades in 100 worked.
 float _mlBasis = ta.sma(close, 20)
-float _mlBBw   = _mlBasis > 0 ? (4.0 * ta.stdev(close, 20)) / _mlBasis : 0.0
+float _mlSd    = ta.stdev(close, 20)   // hoisted: a ta.* call inside a ternary is not
+float _mlBBw   = _mlBasis > 0 ? (4.0 * _mlSd) / _mlBasis : 0.0   // evaluated every bar,
+// so its rolling window desyncs — the same defect class as ta.* inside `if barstate.islast`.
 float _mlHi52  = ta.highest(high, 250)
 float _mlPbDep = _mlHi52 > 0 ? (_mlHi52 - close) / _mlHi52 : 0.0
 float _mlAtrP  = (not na(d_atr14)) and d_atr14 > 0 and close > 0 ? (d_atr14 / close) * 100.0 : 3.0
