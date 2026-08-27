@@ -269,6 +269,12 @@ and row 29 reads `not bound — Settings ▸ Dashboard import` rather than showi
 
 ## 4. Reading the panel (top to bottom)
 
+> **Looking for a specific field?** This section is the *overview* — the shape of the
+> panel and the order to read it in. **[PART C](#part-c--the-panel-table-field-by-field)
+> is the complete reference**: every row, every value it can print, what the metric means,
+> why it was chosen, and how to read it against the rows around it. If you are trying to
+> work out what one cell is telling you, go there.
+
 Since **v9.12 the panel is SECTIONED** — 32 fields under five banded header rows, each
 stating the question its block answers. The sections are not interchangeable: a name can
 be perfect on regime and worthless on location. Read them in order and stop at the first
@@ -1132,3 +1138,1254 @@ Once you are filled, S4's job is over.
 **v7.1 — Pullback Ruling**). S4 is the execution layer of the GM + S4 system; the upstream
 layers are documented in `docs/23_Golden_Matcher_Guide.md`, and PART B above is the
 end-to-end workflow across both.*
+
+---
+
+# PART C — THE PANEL TABLE, FIELD BY FIELD
+
+> **What this part is.** Every row of the S4 panel, every value it can print, what the
+> metric means, why it was chosen, and how to read it against the rows around it. It is
+> written for someone who has never traded a breakout, and it is meant to be complete:
+> if you are looking something up on the panel, the answer is here and you should not
+> need anything else open.
+>
+> **What this part is not.** It is not the workflow — that is PART B. It is not the
+> input reference — that is §3. This is the *reading* manual.
+
+---
+
+## C0. Before the rows: the panel's four languages
+
+The panel says everything four ways at once. Learn these and most rows explain
+themselves.
+
+### C0.1 The glyph vocabulary
+
+| Glyph | Means | Never means |
+|---|---|---|
+| 🟢 | This leg **passed** | "good trade" |
+| ⚪ | This leg **did not pass**, and that is normal | "broken" or "error" |
+| 🔴 | This leg passed a threshold *in the wrong direction* — an active warning | mere absence |
+| ⛔ | A **hard block**. Price is somewhere you should not buy | "weak" |
+| ⚠️ | A **caveat**: tradeable, but something is against you | a block |
+| ★ | **Controlling** — the strongest instance of its kind on the chart | "starred/favourite" |
+| ⚡ | **FVG-backed** — a fair-value gap supports this zone | "fast" |
+| ⏱ | Optional **timing** confirmation fired (AVWAP or intraday) | a required gate |
+| ✓ / · | Present / absent, inside a compact list | pass / fail |
+| — | **Not measured.** No data, or not applicable | "zero" or "failed" |
+| ~ | **Inferred**, not drawn. A shape read off pivots | a chart object you can see |
+
+**The single most important distinction on the whole panel is `—` versus `⚪`.**
+`⚪` means *the engine looked and the answer was no*. `—` means *the engine could not
+look*. A beginner reads both as "bad" and throws away good setups on missing data, or
+worse, treats an unmeasured leg as a passed one.
+
+### C0.2 The colour vocabulary
+
+Colour grades the **level**, not the pass/fail — that is what the dot is for.
+
+| Colour | Reading |
+|---|---|
+| Green | Good, and acted on |
+| Teal / soft green | Present but partial |
+| Amber | **Waiting** or **caution** — armed, not wrong |
+| Red | Actively against the trade |
+| Grey | Off, unbound, or not applicable |
+
+Amber is the colour you will see most, and it is not a failure state. A panel that is
+amber everywhere is a panel doing its job: watching something that has not triggered.
+
+### C0.3 The separator vocabulary
+
+- `│` (pipe) separates **fields** — different facts.
+- ` · ` (dot) separates **values inside one field** — the same fact, several numbers.
+
+So `L·BO·Gap 1204.5 │ 1188.0 │ 1230.2` is one field (the three AVWAP anchors) whose
+values happen to be pipe-separated for width, while `Stage 2 │ above 30WMA` is two
+genuinely different facts. When you are scanning fast, pipes are where you are allowed
+to stop reading.
+
+### C0.4 The bar the panel is reading
+
+With **`Use closed candle` ON (the default)**, every row reads the **last CLOSED bar**,
+not the bar forming right now. This matters more than any single field:
+
+- A pattern that "appears" mid-bar can vanish before the close. The panel will not show
+  it until it survives.
+- The prices in the S/R and AVWAP rows are measured from the **closed bar's** close, not
+  from the live tick — so a distance can read `−2.0%` while the live price is 3% away.
+  That is correct: the *gate* was evaluated at the closed bar, and the row must agree
+  with the gate it is reporting.
+
+If you remember one operational fact from this part: **the panel is a photograph of the
+last completed bar, and every number on it is internally consistent with that moment.**
+
+---
+
+## C1. The six sections, and the question each answers
+
+The panel is not a list. It is an argument, top to bottom, and each band asks one
+question. If a band's answer is fatal, nothing below it can save the trade.
+
+| Band | Rows | The question | If the answer is bad |
+|---|---|---|---|
+| **I · MACRO & CONTEXT** | 2–9 | *Should I be looking at this name at all?* | Stop. Nothing below matters. |
+| **II · LOCATION, VALUE & ROOM** | 11–19 | *Is price somewhere worth buying, with somewhere to go?* | No trade — you are chasing. |
+| **III · EXECUTION & TIMING** | 21–29 | *Is something firing right now?* | Not yet. Wait; the setup is intact. |
+| **IV · DECISION SYNTHESIS** | 31–33 | *What does the engine rule?* | — |
+| **V · PLAN & RISK** | 35–37 | *At what price, what stop, what size?* | — |
+| **VI · PORTFOLIO** | 39–40 | *Do I already own this?* | Changes add vs new entry. |
+
+Row 0 is the header: `S4 v10.0 │ core/24` — the script version and the library version.
+Check it after every recompile; a mismatch means the library did not publish.
+
+**The order is deliberate and it is a filter.** Beginners read the panel bottom-up —
+they look at the Plan row, see a number, and buy. The Plan row is the *last* thing that
+becomes true and it is computed even when the trade is wrong. Read down, not up.
+
+---
+
+## C2. Band I — MACRO & CONTEXT (rows 2–9)
+
+This band decides whether the name deserves your attention today. It is almost entirely
+**weekly** information, because the framework underneath this system is Weinstein stage
+analysis and a stage is a weekly fact.
+
+---
+
+### Row 2 · Structure basis
+
+**What it prints**
+
+```
+Stage 2 (14w leg/38w macro) │ >30WMA ↑ >50 ↑ >200 uptrend │ RFF 5 🟢 │ BFF 4 🟢
+```
+
+**Field by field**
+
+| Field | Values | Meaning |
+|---|---|---|
+| `Stage N` | 1, 2, 3, 4 | The Weinstein stage. See below. |
+| `(Xw leg / Yw macro)` | integers, or absent | How many weeks the current leg has run, and the macro trend age |
+| 30WMA / 50 / 200 | `>` or `<` plus `↑ ↓ →` | Price above/below each average, and that average's slope |
+| trend word | `uptrend` `downtrend` `sideways` | The composite read of the three |
+| `RFF n` | 0–6, or `—` | **R**ecovery **F**undamental **F**ilter. 🟢 at ≥4, 🔴 below |
+| `BFF n` | 0–6, or `—` | **B**ull **F**undamental **F**ilter. 🟢 at ≥4, ⚪ below. Status only |
+| ETF variant | `ETF ₹12.4Cr │ NAV +0.3% 🟢` | On an ETF, replaces RFF/BFF with liquidity and premium |
+
+**The four stages — the single most important concept on this panel**
+
+Stage is derived from exactly two facts: where price sits relative to its **30-week
+moving average**, and whether that average is **rising or falling**. Nothing else.
+
+| | 30WMA rising | 30WMA falling |
+|---|---|---|
+| **Price above** | **Stage 2** — advancing. *The only stage you buy.* | **Stage 3** — topping |
+| **Price below** | **Stage 1** — basing | **Stage 4** — declining |
+
+- **Stage 1 (basing).** The decline has stopped; supply and demand are balancing. The
+  average is flat-to-turning. Recovery setups live here. Most Stage-1 names go nowhere
+  for months — that is the cost of buying early.
+- **Stage 2 (advancing).** Price above a rising 30-week average. This is where nearly
+  all trend profit is made and it is what the bull battery is built to find.
+- **Stage 3 (topping).** Price still above the average, but the average has rolled over.
+  This is the dangerous one: the chart still *looks* strong and the structure has already
+  broken underneath. Most late entries happen here.
+- **Stage 4 (declining).** Both against you. Nothing to do.
+
+**Why this metric.** A moving average of thirty weeks is roughly seven months of
+business — long enough that noise cannot flip it, short enough to turn within a real
+cycle. Its *slope* is the part beginners drop, and dropping it is precisely what turns
+a Stage 3 into a Stage 1 in your head.
+
+**How to read it.** Stage 2 or Stage 1, and you may continue. **Stage 3 or 4 and the
+engine refuses the trade outright** — the VERDICT row will say `NO TRADE — Stage 3`
+regardless of how perfect everything below looks. That refusal is not conservatism: a
+plan reasoned inside the wrong frame is worse than no plan, because it is a plan.
+
+**RFF and BFF.** Both are 0–6 fundamental scores that Pine cannot compute — they arrive
+bound from the Golden Matcher. RFF is the **hard gate for recovery trades** (quality on
+sale, not falling knives); BFF is **display-only status** on bull trades and never blocks
+anything. An em-dash means unscored, and unscored is not the same as scored badly.
+
+**Reading it with others.** Stage 2 plus a rising 200-DMA plus `uptrend` is the
+textbook backdrop. Stage 2 with a *falling* 50 is a pullback inside an uptrend — which
+is often the best entry, and is exactly the case Row 17 and Row 18 are there to judge.
+
+---
+
+### Row 3 · Minervini template N/8
+
+**What it prints**
+
+```
+Minervini template  7/8    🟢>150/200  🟢150>200  🟢200 rising  🟢50-stack  🟢>50  🟢+30% off low  ⚪within 25% of high  🟢RS > index
+```
+
+Every leg prints its own dot — passes and failures both. A list of only the failures
+answers "which of the eight does this have?" by subtraction, which is not a checklist you
+can read at a glance.
+
+**The eight legs**
+
+| Leg | Passes when | Why it is in the list |
+|---|---|---|
+| `>150/200` | Price above both the 150-day and 200-day averages | The most basic definition of "in an uptrend" |
+| `150>200` | The 150-day sits above the 200-day | Confirms the uptrend is *ordered*, not a spike |
+| `200 rising` | The 200-day has been rising (typically ≥1 month) | A flat 200 is a range, not a trend |
+| `50-stack` | The 50-day is above both the 150 and 200 | Short-term strength leads — the stack is intact |
+| `>50` | Price above the 50-day | Price is leading its own averages |
+| `+30% off low` | Price ≥30% above its 52-week low | The base is behind it, not ahead |
+| `within 25% of high` | Price within 25% of its 52-week high | Leaders trade near highs; laggards do not |
+| `RS > index` | Relative strength beats the benchmark | Outperformance, not just participation |
+
+A `~` after the count (`7/8~`) means the RS leg is unbound and the score is out of 7.
+
+**Why this metric.** These are Mark Minervini's trend-template criteria — a published,
+widely-used filter for the population that produces large trend moves. They are not
+predictive on their own; they define a *universe*. The point of showing all eight is
+that **which** ones fail tells you what kind of imperfection you are accepting.
+
+**How to read it.** 8/8 is the cleanest possible backdrop. 6/8 or 7/8 is normal and
+frequently better for entries: the leg that most often fails is `within 25% of high`,
+and a name 30% off its high that passes everything else is a base, not a broken stock.
+Below 6/8, ask which legs failed — `200 rising` failing is structurally serious;
+`+30% off low` failing on a Stage-1 recovery name is expected and fine.
+
+---
+
+### Row 4 · WCL context · structure
+
+**What it prints**
+
+```
+🟢BULLISH (+6)  │  S2 · Spring reclaim   │   🟢CLEAN (0)
+```
+
+Two independent readings in one row, each with its own dot.
+
+| Half | Values | Meaning |
+|---|---|---|
+| Context | `BULLISH` `NEUTRAL` `BEARISH` + `(+n)` | A composite Wyckoff/structure score; 🟢 at ≥4 |
+| Setup | `S1`–`S8` plus a name, or absent | Which of the eight context setups is active |
+| Structure Health | `CLEAN (n)` `CHOPPY (n)` `BROKEN (n)` | Count of character changes in the last 20 bars |
+
+**Read Structure Health carefully.** Its bands are 0–1 CLEAN, 2–3 CHOPPY, 4+ BROKEN —
+but **measured across the board universe, the count has never reached three.** In
+practice CHOPPY means *exactly two* and BROKEN cannot occur. So:
+
+- `CLEAN` is the ordinary state, not a clean bill of health.
+- `CHOPPY` is the top of the real scale and *is* meaningful — treat it as the warning.
+- `BROKEN` you will not see.
+
+**Why this metric.** Wyckoff describes the mechanics of accumulation and distribution.
+It is genuinely useful as *context* — but note that this system tested Wyckoff twice as
+a trading input (as a veto, and as a score) and **rejected it both times**. Roughly half
+of qualified breakout candidates read DISTRIBUTION at signal time, because Wyckoff events
+fire at high-volume pivot highs, which is structurally what a breakout looks like. So this
+row **describes**; it does not decide.
+
+---
+
+### Row 5 · RS (vs N500 / *Sector*)
+
+**What it prints**
+
+```
+RS (vs N500 / Pharma)     N500: +4.2 (Positive) Rising   │   Sec: +1.1 (Positive) Rising
+```
+
+The row's title names the sector the second half is measured against.
+
+**The four states, and their colours**
+
+| Level | Direction | Colour | Reading |
+|---|---|---|---|
+| Positive | Rising | Green | Outperforming **and pulling away** — the best state |
+| Positive | Declining | Amber | Still ahead but **giving it back** — leadership fading |
+| Negative | Rising | Teal | Behind but **closing the gap** — the improving case |
+| Negative | Declining | Red | Behind and losing more |
+
+**Why this metric.** Absolute price tells you what a stock did; relative strength tells
+you whether it did better than the alternatives. In a falling market a stock that drops
+less is a leader, and only RS can see that. This system benchmarks against the Nifty 500
+and against the stock's own sector, because a name can lead the market while lagging its
+own group — which usually means the *group* is carrying it.
+
+**How to read it with Row 6.** RS is the **level**; RRG is the **direction of rotation**.
+They are deliberately separate rows because they fail independently and are acted on
+differently: **RS ranks a name, the quadrant times it.**
+
+---
+
+### Row 6 · RRG (vs N500)
+
+**What it prints**
+
+```
+LEADING ↗  +12  │  strengthening  │  🟢 BUY OK  (RS-Ratio 104.2)
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| Quadrant | `LEADING` `WEAKENING` `IMPROVING` `LAGGING` | Position on the rotation graph |
+| Arrow | `↗ ↘ → ↑ ↓` | The direction of travel |
+| Score | signed integer | Composite rotation score |
+| Trajectory | a word | Where the tail is heading |
+| Gate | `🟢 BUY OK` / `🔴 WAIT` | Whether this transition is on the measured whitelist |
+| RS-Ratio | ~85–115 | The raw ratio, 100 = matching the index |
+
+**The four quadrants.** Plot relative strength (x) against relative momentum (y):
+
+- **LEADING** — strong and still gaining. Where you want to buy.
+- **WEAKENING** — strong but losing momentum. Often the top of a move.
+- **LAGGING** — weak and still losing.
+- **IMPROVING** — weak but gaining. The recovery quadrant.
+
+The normal clockwise cycle is IMPROVING → LEADING → WEAKENING → LAGGING → IMPROVING.
+
+**Why the BUY OK flag is display-only.** This was measured on 473 symbols across 93,745
+weekly observations. Only `LEADING→LEADING` and `WEAKENING→LEADING` survived; the intuitive
+`IMPROVING→LEADING` transition is **reliably negative** and cancels what the others earn.
+Net value: **+0.12pp at four weeks, +0.00pp at twelve.** So the flag is shown on the chip
+and **never vetoes** — it is a grade, not a gate. Do not decline a trade on it alone.
+
+---
+
+### Row 7 · Sector · Futures OI
+
+**What it prints**
+
+```
+Sector Stage 2  │  OI Long build-up +4.2%
+fresh money behind the move - a breakout here has fuel
+```
+
+The second line is guidance in words, and it changes with the state.
+
+**The four open-interest states**
+
+Open interest is the number of contracts outstanding. Read against price direction:
+
+| Price | OI | State | What it means |
+|---|---|---|---|
+| Up | Up | **Long build-up** | New money is buying. A breakout here has fuel. |
+| Up | Down | **Short covering** | The rally is shorts *exiting*, not new buying. **Fades are common — do not chase.** |
+| Down | Up | **Short build-up** | Fresh shorts pressing. Expect supply into strength. |
+| Down | Down | **Long unwinding** | Holders leaving without new sellers. Weak, but not a short signal. |
+| — | — | `no F&O` | Cash-only stock. No positioning read available. |
+
+**Why this metric.** Price alone cannot distinguish new conviction from position-closing.
+Two identical green candles mean opposite things depending on whether positions were
+opened or closed to produce them. **Short covering is the trap** this row exists to
+catch: it looks exactly like a breakout and has no one left to buy.
+
+**Sector Stage** is the same 2×2 stage test applied to the sector index. A Stage-2 stock
+in a Stage-4 sector is swimming against its own group.
+
+---
+
+### Row 8 · Signal · Quality · RSI
+
+Three values bound from the v67 dashboard: its action signal, its asset-quality read,
+and the daily RSI(14). Colour follows the action score — green at 7+, amber at 4+.
+
+**RSI in one paragraph.** The Relative Strength Index compares average gains to average
+losses over 14 days and returns 0–100. Above 70 is conventionally "overbought", below 30
+"oversold" — but in a Stage-2 trend, **RSI stays high for months** and selling at 70 is
+how you exit every winner early. Treat it as a description of momentum, not a signal.
+Its most useful reading here is *divergence*: price making a new high while RSI does not.
+
+---
+
+### Row 9 · ML win probability
+
+**What it prints**
+
+```
+41.3%  │  GM rank 72.4 🟢
+```
+
+| Value | Meaning |
+|---|---|
+| `nn.n%` | The model's estimated probability this setup wins |
+| `— unbound` | The source is not wired. Re-run the bind script |
+| `GM rank nn.n` | Where this name sits on the Golden Matcher board; 🟢 at 70+ |
+
+**Why "40%" is a good number.** This is a trend-following system: it wins less than half
+the time and makes money on the size of the winners. Measured, roughly 88% of positional
+exits come via the trail, and the median trade *loses* to the index. A 40% win probability
+attached to a 3:1 payoff is a good trade. **Do not read this like a school mark.** Green
+starts at 40%, amber at 35%.
+
+**GM rank is never red** — a low rank is a ranking, not a fault.
+
+**`— unbound` is the most common panel fault.** `input.source` binds by *position*, and
+**TradingView drops every binding on every recompile.** If this row (or any bound row)
+reads `— unbound`, you recompiled and did not re-run the bind script. Nothing is broken.
+
+---
+
+## C3. Band II — LOCATION, VALUE & ROOM (rows 11–19)
+
+This band answers the question that decides whether you are buying or chasing. It is
+the band this system has spent the most engineering on, and the one beginners skip.
+
+**The core idea, stated once.** A *zone* is a price area where a large order once left
+unfilled demand behind. Price leaving a zone violently is the evidence; price *returning*
+to it is the opportunity. The trade is not "price is in a zone" — it is **price returned,
+tested the zone, and turned.** That turn is the setup.
+
+---
+
+### Row 11 · Zones (MTF)
+
+**What it prints**
+
+```
+REACTING off DZ ★ctrl ⚡ ×2TF  │  6 DZ / 3 SZ live  │  ★2
+```
+
+| Value | Meaning |
+|---|---|
+| `IN DEMAND` | Price is inside a demand zone right now |
+| `REACTING off DZ` | Price tested a demand zone and has turned up off it — **the tradeable state** |
+| `IN SUPPLY` | Price is inside a supply zone. Overhead sellers. Red |
+| `between zones` | Open space. Neither support nor resistance nearby |
+| `★ctrl` | This is a **controlling** zone — the strongest of its kind |
+| `⚡` | The zone is FVG-backed (a fair-value gap supports it) |
+| `×2TF` | The zone is nested across 2 timeframes — stronger |
+| `n DZ / n SZ live` | Live demand and supply zone counts on the chart |
+
+**The zone lifecycle — read this once and it explains four rows**
+
+```
+fresh  →  reacted  →  spent
+                 ↘  violated (deleted)
+```
+
+- **Fresh** — never tested. It has proven nothing yet.
+- **Reacted** — price came back, tested it, and turned. *This is the trade.*
+- **Spent** — retired, but only after a **confirmation**: price travelled twice the
+  zone's own-timeframe ATR away from it, *or* crossed the EMA20, *or* broke the
+  higher-timeframe pivot that framed it. Until one of those happens the zone is still
+  live and still tradeable.
+- **Violated** — price *closed* beyond the far edge. The zone is deleted, not spent.
+
+Two asymmetries are deliberate: **demand outlives supply** (spent demand stays greyed on
+the chart, and a controlling or high-scoring zone earns a *second* test), and the EMA20
+that judges a zone is the one that frames it — **weekly and monthly zones answer to the
+chart's EMA20; daily and intraday zones answer to the daily EMA20.**
+
+---
+
+### Row 12 · Support Zone
+
+**What it prints**
+
+```
+DZ ⚡  │  D:FVG W:Piv AVWAP EMA20 VAL ~Fib0.618
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| Lead tag | `DZ` (+`⚡`) or `—` | Is price in a demand zone, and is it FVG-backed |
+| `D:` / `W:` | `FVG` `Piv` `—` | What kind of daily / weekly support is here |
+| Extras | `AVWAP` `EMA20` `VAL` `POC` `~Fib<n>` | Which additional supports coincide |
+
+**The support types, in plain terms**
+
+- **FVG (Fair Value Gap)** — a three-bar pattern where price moved so fast it left a gap
+  no one traded inside. Those gaps tend to get revisited.
+- **Piv (Pivot)** — a swing low that price has previously turned at. Price memory.
+- **AVWAP** — an anchored volume-weighted average price (see Row 22).
+- **EMA20** — the 20-period exponential average, a dynamic support in a trend.
+- **VAL / POC** — value-area low and point of control from the volume profile (Row 15).
+- **~Fib** — a Fibonacci retracement level. The `~` means inferred, not drawn.
+
+**How to read it.** One support is a level. **Three or more stacked in a tight band is a
+confluence**, and confluence is what makes a stop meaningful — you are not betting on one
+line holding, you are betting on several failing at once.
+
+---
+
+### Row 13 · S/R (nearest)
+
+**What it prints**
+
+```
+S 1718.00  (−2.1%)   |   R 1802.50  (+2.7%)      │  COILING under 1802.50 → breakout watch
+```
+
+| Field | Meaning |
+|---|---|
+| `S <price> (−n%)` | Nearest qualified **support** below, and how far |
+| `R <price> (+n%)` | Nearest qualified **resistance** above, and how far |
+| TF tag | Which timeframe the level came from. `man` = your own drawn level, which outranks the automatic pair |
+| `COILING <under/on> <price>` | Price is stalling at an over-tested level |
+
+**Why the timeframe tag is not decoration.** A stop resting on a **weekly** level is a
+deeper distal — a wider stop — which means **you must size down**. The same number off a
+**daily** shelf is a tighter stop and a bigger position. Reading `1718.00 −2.1%` without
+knowing which is how a position gets mis-sized.
+
+**Why a far distance is honest, not a bug.** On a strong trending stock there may be no
+qualified two-touch level nearby, so the nearest real support can sit well below. The row
+**greys out past 8%** — still true, but not a stop you would actually use.
+
+**Levels versus zones — the asymmetry that confuses everyone.** They answer a touch in
+opposite ways, and both are correct:
+
+| | A level | A demand zone |
+|---|---|---|
+| Models | Price **memory** | Unfilled **orders** |
+| A touch | **Weakens** it — heavily tested means primed to break | **Spends** it — the fuel is consumed |
+| A close beyond | **Flips** it. Broken support becomes resistance, and stays on the chart | **Deletes** it |
+
+This is why a level tested four times and a zone tested once say opposite things about
+their own reliability. It is also why the S/R picker deliberately **discards** the most
+over-tested levels from the support/resistance selection — and reports them separately as
+`COILING`. A level price keeps grinding on is a breakout candidate, not a floor.
+
+---
+
+### Row 14 · Trendlines
+
+| Value | Meaning |
+|---|---|
+| `off` | The trendline toggle is off. Nothing expected |
+| `TL1 1742.30 │ TL2 1689.00` | Your hand-drawn lines are being sensed and used |
+| `not sensed` | The toggle is ON but that source is unwired — check the dropdown |
+
+Wiring a trendline is three manual steps and easy to half-do with no feedback. That is
+the entire reason this row exists.
+
+---
+
+### Row 15 · Volume Profile
+
+| Value | Meaning |
+|---|---|
+| `✓ ABOVE VAH` | Above the value-area high — acceptance above value. Strongest |
+| `✓ IN VA (upper)` | Inside value, above the point of control |
+| `✗ IN VA (lower)` | Inside value, below the point of control |
+| `✗ BELOW VAL` | Below the value-area low. Weakest |
+| `(POC 1745.20)` | The price with the most traded volume in the window |
+
+**Why this metric.** A volume profile answers "where did the money actually change
+hands?" rather than "where did price go?". The **POC** is the fairest price in the
+window; the **value area** is the band containing ~70% of volume. Price above value with
+acceptance means buyers keep paying up.
+
+**This is the one component of the Wyckoff/SMC block that earned its place** — VAL and
+POC are admitted as genuine location sources and fire on roughly 18% of names.
+
+---
+
+### Row 16 · Momentum & value
+
+**What it prints**
+
+```
+ADX 27.4 +DI (31/18)  │  ATR 2.4%  │  above CPR 1722.40  │  above MVWAP 1698.10  │  VCP ✓
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| `ADX n` | 0–100 | Trend **strength**, direction-blind |
+| `+DI` / `-DI` | with `(n/n)` | Which directional index leads, and both values |
+| `ATR n%` | percent | Average True Range as a percent of price — **volatility** |
+| CPR | `above`/`below` + price | Central Pivot Range — the day's fair-value pivot |
+| MVWAP | `above`/`below` + price | Monthly anchored VWAP |
+| `VCP ✓` / `·` | | Volatility Contraction Pattern present |
+
+**ADX in plain terms.** Below 20 = no trend, price is ranging. 20–25 = a trend forming.
+Above 25 = a real trend. Above 40 = a strong, possibly extended trend. **ADX says
+nothing about direction** — that is what +DI versus -DI is for. `ADX 30 -DI` is a strong
+*downtrend*. The row is green only when ADX ≥ 25 **and** +DI leads.
+
+**ATR as a percent, and why.** ATR is the average range of a bar. Shown as a percent it
+becomes comparable across stocks: 2.4% means a typical day moves 2.4%. This drives
+everything downstream — the stop is a multiple of ATR, and position size is risk divided
+by that stop. A 6% ATR name gets a much smaller position than a 1.5% ATR name for the
+same rupee risk.
+
+**VCP** is Minervini's volatility contraction: successive pullbacks getting shallower on
+falling volume, meaning sellers are exhausting. It is one of the highest-quality
+pre-breakout patterns.
+
+---
+
+### Row 17 · Extension vs EMA20
+
+**What it prints**
+
+```
+EXTENDED 2.8×ATR above  ⚡para  late-stage  50D +3.1×  base 5 ⚠   │   above EMA20 by 4.2%
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| Band | `AT VALUE` `NORMAL` `EXTENDED` `FAR` | How far price sits from the daily EMA20, in ATRs |
+| `n×ATR` | number | The actual distance |
+| `⚡para` | tag | Parabolic arrival — velocity above the fast threshold |
+| `climax-vol` | tag | Extended *and* volume ≥3× normal — exhaustion risk |
+| `late-stage` | tag | The stage leg has run ≥40 weeks |
+| `50D ±n×` | number | Extension from the 50-day, in ATRs |
+| `base n ⚠` | count | Number of bases formed; ⚠ past the warning count |
+
+**Why extension matters more than almost anything here.** Your stop is placed by
+structure. The further price is from that structure, the wider your stop and the worse
+your reward-to-risk — *before* considering that extended price mean-reverts. This system
+**warns at 2.5×ATR** (the trade stays valid — it is the *entry* that is late, and the
+verdict names the level a pullback entry would use) and treats **4.0×ATR as
+over-extended**.
+
+**Neither is a gate.** Extension never blocks a GO — deliberately, under the
+anti-Holy-Grail rule: pile every quality test into the trigger and you get a signal that
+never fires. Extension feeds the **verdict** instead, where a GO while extended is
+downgraded to `CAUTION — momentum/chase`. So you will sometimes see a green TRIGGER row
+above an amber verdict, and **the verdict is the one judging the trade.**
+
+**`base n`** counts how many consolidations the stock has already built in this advance.
+Bases one and two are the highest-quality buy points. By base four or five, the move is
+widely recognised and failure rates climb — that is what the ⚠ marks.
+
+**Reading it with Row 18.** These two are the heart of the "am I chasing?" question.
+`AT VALUE` plus a location dot is a pullback entry. `EXTENDED` with no location is a
+chase, and the verdict will say `CAUTION — momentum/chase`.
+
+---
+
+### Row 18 · Location (L) — **a required gate**
+
+**What it prints**
+
+```
+REACTING off pattern   —   🟢Zone   ⚪D/W-lvl   🟢AVWAP   ⚪EMA20   🟢S/R
+```
+
+**The headline states the state and the kind**
+
+| Headline | Meaning |
+|---|---|
+| `NOT AT LOCATION` | Nothing supports price here. **The L gate fails** |
+| `AT pattern zone` | Price is inside a leg-base-leg pattern zone |
+| `AT pivot zone` | Price is inside a pivot shelf — weaker evidence |
+| `REACTING off pattern` | Tested a pattern zone and turned. **The strongest read** |
+| `REACTING off pivot` | Tested a pivot shelf and turned |
+| `AT LOCATION` | Supported, but by one of the other sources |
+
+**The five dots** name *which* sources support price: `Zone`, `D/W-lvl` (daily/weekly
+level), `AVWAP`, `EMA20`, `S/R`. Any one passing satisfies the gate.
+
+**Why "AT LOCATION" alone was not enough.** It was true for a zone price sits inside, a
+zone price is reacting off, and a bare pivot shelf — **three different trades reading
+identically.** Pattern outranks pivot when both fire, because leg-base-leg evidence is
+stronger than a shelf.
+
+**Weak location.** If the *only* thing supporting price is AVWAP or EMA20 — no zone, no
+S/R — the verdict downgrades to `CAUTION — momentum/chase`. Those two are dynamic curves
+that follow price, so they are nearly always "nearby" and cannot on their own mean you
+are at value.
+
+---
+
+### Row 19 · Room for Trade
+
+**What it prints**
+
+```
+CLEAR 6.4% (to supply 1802.5)     │  spent SZ 1786.00
+```
+
+| Value | Meaning |
+|---|---|
+| `CLEAR n%` | Clear space to the first obstacle. Green if R:R ≥ 2 |
+| `⚠️ NO ROOM n%` | The first obstacle sits **below your T1** |
+| `⛔ IN SUPPLY │ clear <price>` | Price is inside a supply zone. **Hard block** |
+| `⛔ IN SUPPLY │ first <price> … band to <price>` | Something stops price before the band's ceiling |
+| `spent SZ <price>` | A **retired** supply zone sits nearer than the live obstacle |
+
+**Why room is a first-class gate.** Reward is not "wherever T1 lands" — it is the distance
+to the first thing that will stop you. Room is measured to the *first* obstacle across six
+sources: supply zones, flipped-pivot resistance, higher-timeframe pivots and more. Pivot
+ceilings are labelled `Pv·` and ranked last, because a pivot shelf is weaker than a supply
+zone.
+
+**The `spent SZ` caveat is deliberately never folded into the number.** House doctrine
+says a tested zone is consumed — so a spent zone must not silently shrink your R. It is
+named as a caveat and you decide.
+
+---
+
+## C4. Band III — EXECUTION & TIMING (rows 21–29)
+
+Band II said *where*. This band says *now*. Everything here is about the current bar.
+
+---
+
+### Row 21 · Intraday *(timeframe)*
+
+| Value | Meaning |
+|---|---|
+| `off` | Intraday confirmation disabled |
+| `wait` | Neither condition met |
+| `sqz ON, wait EMA` | Volatility squeeze is on; waiting for the EMA reclaim |
+| `10EMA ok` | Price reclaimed the rising 10-EMA; squeeze not required or not present |
+| `GO 10EMA` / `GO 10EMA+sqz` | Intraday confirmation **fired** |
+
+A **squeeze** is a volatility contraction — Bollinger Bands inside Keltner Channels —
+meaning the market has coiled. Coils resolve with expansion, and the direction of the
+reclaim is the tell. This is **optional timing** (`⏱`), never a required gate.
+
+---
+
+### Row 22 · AVWAP
+
+**What it prints**
+
+```
+🟢TRIGGER R2G>BO  │  nearest 1724.50 (−1.2%)  │  L·BO·Gap 1655.20 │ 1724.50 │ 1698.00  │  🟢pinch 0.8%
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| Trigger | `TRIGGER bounce` `TRIGGER R2G>BO` `no trigger` | Whether an AVWAP event fired |
+| `nearest` | price + distance | The nearest AVWAP **curve** below price |
+| `L·BO·Gap` | three prices | The three anchors: 52-week Low, Breakout day, Gap-up day |
+| `pinch` | 🟢/⚪ + spread% | The three anchors converging into a tight band |
+
+**What an anchored VWAP is.** A normal VWAP resets daily. An *anchored* one starts at a
+chosen event and runs forward, giving the true average price paid by everyone who bought
+since that event. If price is above it, those buyers are collectively in profit — and
+they tend to defend it.
+
+**The three anchors, and why these three.** The **52-week low** is where the last cycle
+of sellers gave up. The **breakout day** is where the current advance began — its AVWAP is
+the average price of the buyers who started the trend. The **gap-up day** is where a
+repricing happened. These are the three moments where the market's opinion actually
+changed.
+
+**R2G ("reclaim to green")** means price fell below the breakout AVWAP and has reclaimed
+it — the failed-breakdown reversal, and the stronger of the two triggers.
+
+**A pinch** — all three anchors converging — is a high-conviction area: three separate
+cohorts of buyers share one average price, so a break of it flushes all three at once.
+
+**Note this is a dynamic curve, not a drawn line.** The static horizontal levels are
+Row 13, a different engine.
+
+---
+
+### Row 23 · Pattern | Shape
+
+| Field | Meaning |
+|---|---|
+| Pattern | A **drawn** flag — you can see the box on the chart |
+| `~shape: <name>` | An **inferred** shape from the last four pivots. Context only |
+
+The `~` prefix exists to stop the geometry read from being mistaken for something drawn.
+Note that the two-pivot shape classifier is known to be coarse — it has called obvious
+rectangles "symmetrical triangles". Treat it as a hint.
+
+---
+
+### Row 24 · The PA battery — **the P gate**
+
+This is the pattern engine. It prints every pattern in the active battery, **ranked by
+contribution**, with the ones that fired shown first.
+
+**Bull battery — 17 patterns**
+
+| Code | Pattern | Weight | What it is |
+|---|---|---:|---|
+| `HTF` | High Tight Flag | 4 | A 100%+ move in ~8 weeks then a shallow flag. Rare, powerful |
+| `VCP` | Volatility Contraction | 3 | Successive shallower pullbacks on falling volume |
+| `LAU` | Stage-2 Launch | 3 | The weekly crossover that starts Stage 2 |
+| `GAP` | Gap-Up Breakout | 3 | A gap through resistance on volume |
+| `SPR` | Spring | 3 | A false breakdown that immediately reverses |
+| `SC` | Shakeout / Climax | 2 | A capitulation flush that reverses |
+| `BC` | Base Completion | 2 | A base finishing its right side |
+| `PP` | Pivot Point | 2 | The classic Minervini buy point |
+| `U50` | 50-SMA Undercut | 2 | Undercut of the 50 that reclaims |
+| `LIQ` | Liquidity Sweep | 2 | Stops taken below a level, then reversal |
+| `ENG` | Bullish Engulfing | 2 | A bar engulfing the prior down bar |
+| `3BR` | Three-Bar Reversal | 2 | Three down bars, then a reversal bar |
+| `H50` | Hammer at 50-SMA | 2 | A hammer candle at the 50 |
+| `H200` | Hammer at 200-SMA | 2 | A hammer candle at the 200 |
+| `IN3` | Inside 3 | 2 | Three consecutive inside bars — tight coil |
+| `IBN` | Inside-Bar NR7 | 2 | An inside bar that is also the narrowest of 7 |
+| `NR7` | Narrowest Range 7 | 1 | The narrowest bar of the last seven |
+
+**Recovery battery — 10 patterns**
+
+| Code | Pattern | Weight |
+|---|---|---:|
+| `CLIMAX` | Selling climax | 3 |
+| `SPR` | Wyckoff Spring | 3 |
+| `2B` | Higher low / 2B reversal | 3 |
+| `SOS` | Sign of Strength | 3 |
+| `30WMA` | 30-week MA reclaim | 3 |
+| `ENG` | Bullish engulfing | 2 |
+| `HSUP` | Hammer at support | 2 |
+| `3BR` | Three-bar reversal | 2 |
+| `PP` | Pocket / pullback point | 2 |
+| `VDU` | Volume dry-up | 1 |
+
+**Why two batteries.** A stock in a Stage-2 advance and a beaten-down stock turning up
+are different animals. The bull battery looks for continuation; the recovery battery looks
+for a turn. **Which battery runs is decided by the stage 2×2** — Stage 2 resolves Bull,
+Stage 1 resolves Recovery, Stage 3/4 resolve to no trade at all.
+
+**Reading Σ (the sum).** The header shows the weighted total. A single weight-4 pattern
+is not the same as four weight-1 patterns. Σ is a **quality** measure, not a count —
+and it is a grade, not a gate. **The gate is simply: did at least one pattern fire?**
+
+---
+
+### Row 25 · PA Combo
+
+Named multi-pattern stories, with the **age** of the context leg — the part Σ cannot show,
+and the part that says whether the story is still fresh.
+
+| Combo | What it means |
+|---|---|
+| `COILED SPRING` | A VCP that has tightened into a coil now |
+| `INSTITUTIONAL IGNITION` | Base completion followed by a pivot or gap now |
+| `BEAR TRAP` | A liquidity sweep followed by an engulfing reversal now |
+| `CAPITULATION FLOOR` | Climax, then spring, then engulfing — a floor being built |
+| `STRUCTURE SHIFT` | Climax, then a higher low, then volume dry-up |
+| `—` | No combo |
+
+`VCP 12b -> coil now` reads as "the VCP formed 12 bars ago and the coil is here". A
+combo is the strongest single line on the panel when it fires, because it is a *sequence*
+rather than a coincidence.
+
+---
+
+### Row 26 · Bar (B) — **a required gate**
+
+**What it prints**
+
+```
+🟢OK   —   green candle, closed 82% up its range — green close
+⚪WEAK/VETOED   —   green candle, closed 30% up its range — red and closed in the lower half
+```
+
+The gate passes when the bar closed **green** OR closed in the **upper half of its
+range**. Both the colour and the close position are always stated.
+
+| Reason text | Meaning |
+|---|---|
+| `— green close` | Closed above its open |
+| `— shakeout: red body but closed strong, fine for a long` | Red bar, but closed in the upper half. The lows were rejected |
+| `— red and closed in the lower half` | Sold into the close. **Vetoed** |
+
+**Why this gate exists.** A pattern can fire on a bar that made a new high and then
+collapsed into the close — that is distribution wearing a breakout's clothes. The
+close position is the tell: **where a bar closes within its range is who won the day.**
+
+**Note the deliberate asymmetry.** A red bar with a long *lower* wick is a shakeout, not
+a bearish bar — the lows were rejected. Calling that bearish would be the mirror of the
+mistake this row already avoids in the other direction.
+
+---
+
+### Row 27 · Arrival · Δ
+
+| Field | Values | Meaning |
+|---|---|---|
+| Arrival style | `FAST` `GRIND` `NORMAL` | The velocity of the approach into the zone |
+| `n.nn ATR/bar` | number | Actual approach velocity |
+| Order-flow read | `ABSORBING Δ+` `BLEEDING Δ−` `NEUTRAL` | Volume-delta at the zone |
+| `— (not at a zone)` | | Price is in open space; nothing to measure |
+
+**FAST versus GRIND.** Price arriving *fast* into demand tends to produce a sharp
+rejection — sellers overshot. Price *grinding* down into it is absorbing the zone, and
+tends to bleed through. Same level, opposite outcomes, and only the approach tells you
+which.
+
+**The delta is a proxy, not true order flow.** No TradingView plan exposes real aggressor
+data to Pine; this is built from intrabar up/down volume. It **grades** (worth two
+confluence points) and **never gates**.
+
+---
+
+### Row 28 · Volume (V) · RV — **a required gate**
+
+```
+🟢1.42  strong
+```
+
+RV is **relative volume**: this bar's volume divided by a baseline for the same period.
+
+| Reading | Band |
+|---|---|
+| `≥ 1.25` | `strong` — green |
+| `≥ 1.00` | `ok` — amber |
+| `< 1.00` | `thin` — red |
+
+**Why volume gates the trade.** A breakout on thin volume means nobody showed up, and
+those fail back into the range at a high rate. Volume is participation, and participation
+is the difference between a price move and a repricing.
+
+**Two things you must know about this number.**
+
+1. **RV is time-of-day biased.** Measured across 14,466 bar-observations, the V gate
+   passes **48% at 10:30 and about 18% midday** — a 2.8× swing from the clock alone,
+   because the baseline mixes every bar of the day. A midday RV of 0.9 is not the same
+   evidence as a 10:30 RV of 0.9.
+2. **Pullback entries legitimately have lower volume.** Measured: at-value bars print a
+   median RV of **0.63** against **1.35** on breakout bars, and a 1.0 floor rejects 78% of
+   them. That is why the pullback-aware branch exists — when a contraction pattern fires
+   inside a demand zone with no expansion pattern, the floor drops to 0.5 and the bar test
+   becomes "held the zone". Such rows are tagged `·PB`.
+
+---
+
+### Row 29 · Confluence n/max
+
+Every supporting factor, **ranked by contribution**, with the ones that fired first.
+
+The nineteen sources: `AVWAP` · `Intra` · `⚡FVG` · `Ctrl` (controlling zone) · `S/R` ·
+`TL` (your trendline) · `Flag` (bull flag) · `EMA20` · `@AVWAP` · `Fib` · `Pinch` ·
+`RV+` · `Rnd` (round number) · `D-PA` (the daily battery agrees) · `Arrival` · `Δ+` ·
+`WCL` · `RRG` · `MTF` (multi-timeframe zone nesting, weighted by how many).
+
+**Confluence grades; it does not gate.** A high score does not make a failed gate pass,
+and a low score does not veto a clean setup. Its practical use is **ranking** — when four
+names ping in the same session, confluence is how you choose which to work first. `★strong`
+appears on the TRIGGER row and in the verdict once the score reaches **6** (the default
+strong threshold) — and that too is purely a read-out that does not gate the GO.
+
+**A note on round numbers.** They stay in the list at weight 1, but be aware the effect was
+tested and **did not replicate** — it looked harmful and monotonic on one sample and flipped
+sign on an independent one. It is retained as a weak grade, not as evidence.
+
+---
+
+## C5. Band IV — DECISION SYNTHESIS (rows 31–33)
+
+---
+
+### Row 31 · TRIGGER — the gate summary
+
+**What it prints**
+
+```
+GO   🟢P 🟢L 🟢V 🟢B ⚪R  ⏱  ·PB  Bull  ★strong
+```
+
+**The headline names the first failing gate:**
+
+| Headline | Meaning |
+|---|---|
+| `GO` | All four required gates passed |
+| `no PA` | No pattern fired |
+| `no location` | Price is not at a support |
+| `no volume` | RV below the floor |
+| `below EMA20` | Price under the EMA20 |
+| `weak/red bar` | The bar closed poorly |
+
+**The five chips**
+
+| Chip | Gate | Required? |
+|---|---|---|
+| `P` | A PA pattern fired | **Yes** |
+| `L` | Price is at a location | **Yes** |
+| `V` | Volume clears the floor | **Yes** |
+| `B` | The bar closed acceptably | **Yes** |
+| `R` | The RRG transition is on the whitelist | **No — display only** |
+
+**`GO = P AND L AND V AND B`.** R is shown and never counted. A `?` on R means the
+trail source is unbound.
+
+Trailing tags: `⏱` optional timing fired · `·PB` the pullback-aware branch is active ·
+`Bull`/`Rec` which path · `★strong` high confluence · a role tag when a pattern's kind
+mismatches its location.
+
+---
+
+### Row 32 · STATUS — the instruction
+
+One sentence: the ruling plus what to do about it.
+
+| Status | Meaning |
+|---|---|
+| `GO — arm buy-limit @ trigger close on the pullback` | Trigger fired on an earlier bar; the limit sits behind price |
+| `GO — buy-limit @ this bar's close (fills at MARKET)` | The trigger is **this** bar, so the limit is this close — it fills immediately. Not a retest |
+| `GO — arm buy-stop > bar high` | Buy-stop mode |
+| `NO PA PATTERN` / `NO LOCATION` / `NO VOLUME` | The blocking gate |
+| `WEAK/RED BAR — no entry` | The bar vetoed it |
+
+That MARKET distinction is the row's whole reason for existing. "Buy the retest" sounds
+disciplined; on the trigger bar itself there is no retest to wait for, and saying
+otherwise is false comfort.
+
+---
+
+### Row 33 · VERDICT — the ruling
+
+Four lines: **ruling · why · the one caveat · the action.** It weighs the entire panel,
+not just the gates.
+
+| Ruling | Meaning |
+|---|---|
+| `NO TRADE — Stage 3` / `Stage 4` | **Outranks everything.** Wrong structural frame |
+| `NOT TRADEABLE` | Blocked *and* in supply — clearing one gate will not make this a trade |
+| `NOT TRADEABLE - ETF at +21% to NAV` | ETF premium veto. You would book the loss on entry |
+| `TAKE IT` (`★strong`, `· quality arrival`) | Clean. Both the gates and the reward test pass |
+| `TAKE IT — PULLBACK TO VALUE` | The best case: at value, triggered, with room |
+| `TAKE IT — Recovery` | The recovery path equivalent |
+| `ARM — PULLBACK TO VALUE, reward still thin` | Right location, reward does not yet clear the bar |
+| `BREAKOUT PIVOT — Stage-2 leader at its high` | Do **not** buy in the band. Arm a buy-stop above it; blue sky beyond |
+| `BREAKOUT PIVOT (arming)` | The same shape, not yet triggered |
+| `CLEAR TO BREAK — Stage-2, level overhead` | The overhead is a level to break *toward* the target, not a rejection |
+| `CAUTION — momentum/chase` | Triggered on weak location or while extended |
+| `SKIP — clean trigger, no room` | Everything fired; there is nowhere to go |
+| `SKIP — payoff too thin` | Reward does not clear the applicable gate |
+| `LOW QUALITY — wait for a better tap` | Grinding arrival with bleeding delta |
+| `GO — but no plan` | Gates passed, no valid plan could be built |
+| `ARM` (`— quality setup`) | Not triggered. Names the one missing gate |
+
+**The reward gate depends on the trade type, and they are not peers.** A **swing** trade
+must clear **R:R ≥ 2.0**; a **positional** trade must clear **ROI to T1 ≥ 20%**. The
+system's own definitions differ — swing targets 5–8% over 8–12 weeks, positional 10–30%
+over 6–8 months — so applying both would be incoherent. The verdict names whichever
+applies.
+
+> **A known tension, stated honestly.** A positional plan targets T1 at 5R, so ROI to T1
+> is 5 × risk%. With a 2.3% stop that is 11.5%, and **the 20% positional rule is
+> unreachable whenever risk% is below 4%.** The verdict explains this rather than hiding
+> it, but the two positional rules do contradict each other by construction.
+
+---
+
+## C6. Band V — PLAN & RISK (rows 35–37)
+
+**These rows print only on a GO.** Before that they read `wait for GO`, deliberately —
+a plan on an untriggered setup is fiction, and reading one is how a watch candidate
+becomes a position.
+
+---
+
+### Row 35 · Plan
+
+```
+POSITIONAL  │  Buy-LIMIT 1742.30 (true retest)  · trig 3b ago
+· SL under the zone distal ⚠cap 3.0×ATR  │  T1 3.0R  │  T2 5.0R
+```
+
+| Field | Values | Meaning |
+|---|---|---|
+| Trade type | `SWING` `POSITIONAL` | Which reward gate and stop clock apply |
+| Entry method | `Buy-LIMIT <price>` or `Buy-stop above the trigger bar` | How you enter |
+| Retest tag | `(true retest)` or `= trigger close — fills as MARKET, not a retest` | Whether a pullback is genuinely available |
+| `trig Nb ago` | bar count | **How stale the trigger is** |
+| SL source | `zone distal` `swing low` `ATR` | What the stop is anchored to |
+| `⚠cap n×ATR` | | The structural stop was too wide and got capped |
+| T1 / T2 | `n.nR` or `overhead` or `52WH` | Targets, as R-multiples or as levels |
+
+**The trigger-bar latch.** The plan anchors to the bar the trigger **fired** on, and does
+not move while the signal stays true. Without this, a "retest limit" ratchets upward with
+price — a limit that follows price is a market order wearing a limit's clothes, which is
+exactly what confirmation was supposed to prevent. `trig 3b ago` tells you how far behind
+price the anchor sits. Past a configurable age the plan re-latches, because a limit far
+behind an advancing market never fills.
+
+---
+
+### Row 36 · Entry · SL · T1 · T2
+
+```
+E 1742.30  │  SL 1698.00 (−2.5%)  │  T1 1831.00 (2.0R)  │  T2 1919.60 (4.0R ·lvl)  │  invalidation …
+```
+
+| Field | Meaning |
+|---|---|
+| `E` | Entry |
+| `SL n (−n%)` | Stop, and the percent risk. `⚠` if capped |
+| `T1 n (n.nR)` | First target and its R-multiple |
+| `T2 n (n.nR)` | Second target. `T2 open` means it rides untargeted |
+| `·lvl` | This target is a **level to clear**, not a projected objective |
+| invalidation | Where the *reason you bought* stops being true |
+
+**R-multiples, the one number that matters.** 1R is your risk — the distance from entry
+to stop. A 2R target means you make twice what you risked. This is the only comparable
+unit across stocks: a 3% move on a low-volatility name and a 9% move on a volatile one
+can both be exactly 2R.
+
+**The R-canon in force:** positional (POS/WYC/REV) **3R and 5R**, taking 25% at each;
+swing breakouts **2R and 4R** at 33% each; swing reversals and gaps **2R/4R** at 50%
+each. Positional therefore keeps **half the position** running past T2 on an uncapped
+trail — that is where a trend trade earns its keep.
+
+**Stop versus invalidation — not the same thing.** The **stop** is where you get out. The
+**invalidation** is where your *thesis* dies. They are usually different prices, and the
+invalidation is ranked by severity: zone distal, then swing low, then S/R, then EMA20.
+
+---
+
+### Row 37 · Qty @ *n*% risk
+
+```
+Qty @ 0.25% risk        137 sh  │  risk ₹12,500  (0.25b ×1.10K ×0.85V)
+```
+
+| Field | Meaning |
+|---|---|
+| `n sh` | Shares. `(alloc-capped)` if the max-allocation cap bound before risk did |
+| `risk ₹n` | Rupees at risk if the stop fills |
+| `(n b ×n K ×n V bear−)` | The dynamic sizing breakdown: base, Kelly, volatility discount, bear penalty |
+| `set Capital in Sizing` | You have not entered capital |
+
+**The formula.** `Shares = (Capital × Risk%) ÷ (Entry − Stop)`. Risk a fixed *fraction*
+of capital per trade, and let the stop distance decide the share count. A wide stop
+automatically produces a small position. **This is the mechanism that makes a losing
+streak survivable** — you never risk more than a fixed slice, whatever the setup looks
+like.
+
+---
+
+## C7. Band VI — PORTFOLIO (rows 39–40)
+
+Present only when the v67 slot is bound.
+
+| Row | Prints | Meaning |
+|---|---|---|
+| `MY TRADE (v67 slot)` | The slot's plan plus the ladder's verdict | ADD / TRIM / REDUCE / EXIT / HOLD |
+| `POSITION` | Quantity, average, and open R | Amber when the open R is negative |
+
+**These are a bound snapshot, not a live recomputation.** v67 owns the slots, the levels
+and the ladder, so they cannot drift from its panel or from Risk Shield. If the chart
+disagrees with the Pyramid page, **the page is live and the chart is a photograph.**
+
+---
+
+## C8. The SUMMARY column
+
+The right-hand column reads the entire panel as **one judgement** — trend stack,
+leadership, location, participation, geometry, direction — and says what the combination
+*means*. It deliberately prints no value that appears above it. VERDICT is the short
+ruling; SUMMARY is the long-form read.
+
+It is a column, not a row, because a Pine table cell does not auto-wrap: as a full-width
+row it stretched the panel across the monitor.
+
+---
+
+## C9. Reading the rows together — the states you will actually see
+
+Individual rows are easy. The skill is the combination. These are the archetypes.
+
+### The A+ pullback entry — the one to wait for
+
+```
+Stage 2 · 7/8 · RS Positive Rising · RRG LEADING
+AT VALUE 0.8×ATR  ·  REACTING off pattern  ·  CLEAR 8.2%
+Σ+3 VCP  ·  RV 0.7 thin ·PB  ·  Bar OK
+TRIGGER GO 🟢P🟢L🟢V🟢B
+VERDICT: TAKE IT — PULLBACK TO VALUE ★strong
+```
+
+Everything aligns *and price is at value*. Note RV is 0.7 — thin — and that is correct:
+this is the pullback branch, where dry volume is the feature. Size normally.
+
+### The chase — the one that feels best and pays worst
+
+```
+Stage 2 · 8/8 · RS Positive Rising
+EXTENDED 3.1×ATR ⚡para  ·  AT LOCATION (⚪Zone ⚪S/R 🟢EMA20)
+RV 2.1 strong  ·  Bar OK  ·  Σ+3
+TRIGGER GO 🟢P🟢L🟢V🟢B
+VERDICT: CAUTION — momentum/chase
+```
+
+Every gate passed. The context is perfect. **It is still a bad entry**: 3.1×ATR extended,
+and the only thing holding it up is the EMA20, a curve that follows price. The stop must
+sit at real structure far below, so R:R is poor before the trade starts. This panel is
+why the verdict weighs more than the gates.
+
+### The trap — a breakout with nobody behind it
+
+```
+Stage 2  ·  OI Short covering +2.1%
+"the rally is shorts EXITING, not new buying - fades are common, do not chase"
+RV 1.9 strong  ·  Bar OK  ·  GAP fired
+```
+
+Volume looks excellent. It is shorts closing, not new buyers arriving. When they finish,
+the bid disappears. **Row 7 is the only row that can see this.**
+
+### The false comfort — right structure, wrong stage
+
+```
+Stage 3  ·  8/8 Minervini  ·  RS Positive  ·  Σ+6  ·  RV 1.6
+VERDICT: NO TRADE — Stage 3
+```
+
+Every quality metric is excellent. The 30-week average has rolled over. **This is the
+most dangerous panel on the list**, because everything you would normally check says buy.
+The stage veto exists precisely for it.
+
+### The armed watch — the normal state
+
+```
+Stage 2 · REACTING off pivot · CLEAR 6.1%
+TRIGGER no volume  🟢P🟢L⚪V🟢B  (RV 0.82/1.00)
+VERDICT: ARM — needs a volume surge
+```
+
+Nothing is wrong. Three of four gates hold and one is missing. **This is what most panels
+look like most of the time.** Set the alert and go do something else.
+
+---
+
+## C10. A complete read, in order, in about ninety seconds
+
+1. **Row 2 — Stage.** Not 2 or 1? Stop. You are done.
+2. **Row 3, 5, 6 — quality.** Template count, RS state, RRG quadrant. Is this a leader?
+3. **Row 7 — OI.** Short covering? Distrust any breakout below.
+4. **Row 17 — extension.** Extended past 2.5×ATR? You are late; the rest must be perfect.
+5. **Row 18 — location.** `NOT AT LOCATION` means no trade, whatever fired.
+6. **Row 19 — room.** In supply, or no room? There is nothing to win.
+7. **Row 31 — the gates.** Which chip is dark? That is your one missing thing.
+8. **Row 33 — the verdict.** It has already weighed all of the above.
+9. **Rows 35–37 — the plan.** Only if the verdict says take it.
+10. **Row 40 — position.** Already own it? Then this is an add, judged differently.
+
+**Steps 1 through 6 decide the trade. Steps 7 through 9 decide the timing.** Beginners
+invert this and read the verdict first.
+
+---
+
+## C11. Misreadings that cost money
+
+| The mistake | What is actually true |
+|---|---|
+| Reading `—` as a failure | It means *not measured*. Missing data is not evidence |
+| Treating Σ as the gate | Σ grades. The gate is "did one pattern fire" |
+| Buying because TRIGGER says GO | GO is four mechanical gates. The **verdict** weighs quality, location and room |
+| Selling because RSI > 70 | In a Stage-2 trend RSI stays high for months. This is how you exit every winner early |
+| Trusting Structure Health CLEAN | CLEAN is the ordinary state; the count has never reached 3 |
+| Reading a plan on a non-GO panel | It says `wait for GO` for a reason |
+| Reading `CHOPPY`/`BROKEN` as a four-point scale | It is effectively two-valued. CHOPPY is the top |
+| Taking `IMPROVING → LEADING` as a buy signal | Measured **negative**. Only LEADING→LEADING and WEAKENING→LEADING survived |
+| Assuming the panel shows live price | With closed-candle on, it is the last **closed** bar, and every number agrees with that moment |
+| Panicking at `— unbound` | You recompiled. Re-run the bind script. Nothing is broken |
+| Buying the touch of a zone | The **reaction** is the trade. `IN DEMAND` is not `REACTING off DZ` |
+| Reading a stop as an invalidation | The stop is where you exit; invalidation is where the thesis dies |
+| Comparing RV across the session | RV is time-of-day biased: ~48% pass at 10:30, ~18% midday |
+
+---
+
+## C12. The three things worth memorising
+
+1. **Stage decides everything.** Price versus the 30-week average, and that average's
+   slope. Stage 3 and 4 are refused outright no matter how good the rest looks.
+2. **The reaction is the trade, not the arrival.** A fresh zone has proven nothing. Price
+   returning, testing, and turning is the setup — and `REACTING off DZ` is the words for it.
+3. **GO is timing, not permission.** Four mechanical gates say something is firing now.
+   Whether it is worth firing on is Band II's answer, and the verdict's.
+
