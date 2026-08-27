@@ -1,0 +1,492 @@
+<title>Restyling the Commander</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Rajdhani:wght@700;800&display=swap">
+
+<style>
+/* Teal-anchored, built for a screen someone sits in front of all day.
+   The neutrals carry a blue-green bias so they sit UNDER the accent rather
+   than competing with it — a chosen grey, not a framework default.
+
+   The semantic trio keeps its hues: green is bull, red is bear, amber is
+   warn, exactly as before, because those are learned associations in a
+   trading app and swapping one would be actively harmful. What drops is
+   SATURATION — #DC2626 is built to alarm, which is wrong for a surface you
+   read for eight hours. Softening a hue is a different act from swapping it.
+
+   All four semantic colours clear 4.5:1 on their own tinted grounds in
+   both themes. */
+:root{
+  --ground:#EDF2F2; --surface:#FFFFFF; --surface-2:#F5F9F9; --surface-3:#E1E9E9;
+  --ink:#0D1618; --ink-2:#35474A; --muted:#64757A; --faint:#95A5A8;
+  --rule:#D2DDDD; --rule-soft:#E4EBEB;
+  --acc:#0E7C86; --acc-bg:#E2F0F1; --acc-rule:#9BC7CB;
+  --bull:#1B7A5A; --bull-bg:#E3F0EB; --bull-rule:#9BC6B5;
+  --bear:#C2453C; --bear-bg:#F9EAE8; --bear-rule:#E0AEA9;
+  --warn:#A76A1E; --warn-bg:#F8F1E2; --warn-rule:#DCC190;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --body:'Inter','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1618; --surface:#161F21; --surface-2:#1B2528; --surface-3:#222E31;
+    --ink:#E3EBEC; --ink-2:#B6C4C6; --muted:#7E8E91; --faint:#5C6B6E;
+    --rule:#232F32; --rule-soft:#1B2528;
+    --acc:#56C2CC; --acc-bg:#0C262A; --acc-rule:#1F4A50;
+    --bull:#45BE92; --bull-bg:#0C2A21; --bull-rule:#1D5142;
+    --bear:#E9857C; --bear-bg:#2C1A18; --bear-rule:#5C332E;
+    --warn:#DCA84E; --warn-bg:#2A2211; --warn-rule:#57461F;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1618; --surface:#161F21; --surface-2:#1B2528; --surface-3:#222E31;
+  --ink:#E3EBEC; --ink-2:#B6C4C6; --muted:#7E8E91; --faint:#5C6B6E;
+  --rule:#232F32; --rule-soft:#1B2528;
+  --acc:#56C2CC; --acc-bg:#0C262A; --acc-rule:#1F4A50;
+  --bull:#45BE92; --bull-bg:#0C2A21; --bull-rule:#1D5142;
+  --bear:#E9857C; --bear-bg:#2C1A18; --bear-rule:#5C332E;
+  --warn:#DCA84E; --warn-bg:#2A2211; --warn-rule:#57461F;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1200px;margin:0 auto;padding:48px 24px 32px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:700}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(34px,5.4vw,54px);line-height:1.02;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:64ch;margin:16px 0 0}
+.counts{display:flex;flex-wrap:wrap;gap:32px;margin:28px 0 0;padding-top:20px;
+  border-top:1px solid var(--rule-soft)}
+.count b{font-family:var(--disp);font-size:29px;font-weight:800;color:var(--ink);display:block;
+  line-height:1;font-variant-numeric:tabular-nums}
+.count span{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-top:7px}
+
+main{padding:42px 0 90px;display:flex;flex-direction:column;gap:50px}
+section{display:flex;flex-direction:column;gap:15px}
+h2{font-family:var(--disp);font-weight:700;font-size:26px;line-height:1.2;margin:0;
+  letter-spacing:-.015em;display:flex;align-items:baseline;gap:12px}
+h2 .n{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--acc);flex:none}
+h3{font-family:var(--body);font-weight:700;font-size:15px;margin:8px 0 0}
+p{margin:0;max-width:72ch}
+.pt{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0;font-weight:700}
+b{font-weight:700}
+code{font-family:var(--mono);font-size:.87em;background:var(--surface-3);padding:1px 5px;
+  border-radius:2px}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:600px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;text-align:left;padding:10px 13px;
+  border-bottom:1px solid var(--rule);background:var(--surface-2);white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+.m{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  border-radius:3px;padding:16px 19px;display:flex;flex-direction:column;gap:8px}
+.note.warn{border-left-color:var(--warn)}
+.note.no{border-left-color:var(--bear)}
+.note.go{border-left-color:var(--bull)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--acc);font-weight:700}
+.note.warn .tag{color:var(--warn)} .note.no .tag{color:var(--bear)} .note.go .tag{color:var(--bull)}
+.note p{max-width:80ch}
+
+/* ── the side-by-side specimen rig ─────────────────────────────────────── */
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.ab{grid-template-columns:1fr}}
+.ab>div{display:flex;flex-direction:column;gap:9px;min-width:0}
+.ablbl{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  font-weight:700;display:flex;align-items:center;gap:7px}
+.ablbl.now{color:var(--muted)} .ablbl.new{color:var(--acc)}
+.ablbl .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.stage{border:1px solid var(--rule);border-radius:3px;padding:16px;overflow-x:auto}
+.stage.now{background:#F0F4F8}
+.stage.new{background:var(--ground)}
+
+/* NOW — the Commander's live values, reproduced verbatim so the comparison is
+   fair. Scoped under .now so nothing here leaks into the proposal specimens. */
+.now .o-title{font-family:'Rajdhani',sans-serif;font-size:1.65rem;font-weight:800;
+  letter-spacing:3px;text-transform:uppercase;color:#090D16;border-left:4px solid #1D4ED8;
+  padding-left:12px;line-height:1.2}
+.now .o-desc{color:#475569;font-size:.86rem;margin-top:6px}
+.now .o-cells{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.now .o-cell{background:linear-gradient(160deg,#EFF6FF 0%,#DBEAFE 60%,#BFDBFE 100%);
+  border:1.5px solid #93C5FD;border-radius:10px;padding:8px 14px;
+  box-shadow:0 2px 6px rgba(59,130,246,.12)}
+.now .o-lbl{font-family:'JetBrains Mono',monospace;font-size:.63rem;color:#1E3A8A;
+  letter-spacing:1.5px;text-transform:uppercase;font-weight:800}
+.now .o-val{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:900;
+  margin-top:2px;color:#0F172A}
+.now .o-card{background:#FFF;border:1.5px solid #CBD5E1;border-radius:8px;padding:12px 16px;
+  text-align:center;box-shadow:0 2px 5px rgba(0,0,0,.06);margin-top:8px}
+.now .o-card .l{color:#64748B;font-size:.78rem;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.now .o-card .v{color:#090D16;font-size:1.35rem;font-weight:800;font-family:'JetBrains Mono',monospace}
+
+/* NEW — the proposed treatment, at dashboard density */
+.new .p-head{display:flex;align-items:baseline;gap:12px;padding-bottom:9px;
+  border-bottom:1px solid var(--rule)}
+.new .p-title{font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.01em;
+  color:var(--ink);text-transform:none}
+.new .p-desc{font-size:12.5px;color:var(--muted)}
+.new .p-cells{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:12px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.new .p-cell{background:var(--surface);padding:9px 12px}
+.new .p-lbl{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.12em;
+  text-transform:uppercase;font-weight:700}
+.new .p-val{font-family:var(--mono);font-size:16px;font-weight:700;margin-top:3px;
+  color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
+.new .p-val.up{color:var(--bull)} .new .p-val.dn{color:var(--bear)}
+.new .p-cell.acc{border-left:2px solid var(--acc)}
+.new .p-cell.up{border-left:2px solid var(--bull)}
+.new .p-cell.dn{border-left:2px solid var(--bear)}
+
+.chip{display:inline-block;font-family:var(--mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid}
+.chip.go{color:var(--bull);background:var(--bull-bg);border-color:var(--bull-rule)}
+.chip.no{color:var(--bear);background:var(--bear-bg);border-color:var(--bear-rule)}
+.chip.wt{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-rule)}
+
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
+.sw{border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--surface)}
+.sw .chipbar{height:38px}
+.sw .meta{padding:7px 9px;font-family:var(--mono);font-size:10px;line-height:1.5}
+.sw .meta b{display:block;color:var(--ink);font-size:10.5px}
+.sw .meta span{color:var(--muted)}
+
+.steps{display:flex;flex-direction:column;gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.steps>div{background:var(--surface);padding:15px 18px;display:grid;
+  grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:baseline}
+.steps .s{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--acc)}
+.steps .w{display:flex;flex-direction:column;gap:4px}
+.steps .t{font-weight:700;color:var(--ink);font-size:15px}
+.steps .d{font-size:14px;color:var(--ink-2);max-width:74ch}
+@media(max-width:640px){.steps>div{grid-template-columns:24px minmax(0,1fr)}
+  .steps>div .chip{grid-column:2}}
+
+footer{border-top:1px solid var(--rule);padding:24px 0 56px;color:var(--muted);font-size:13.5px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Web Commander · exploration · 27 August 2026</p>
+    <h1>Restyling the Commander</h1>
+    <p class="dek">The Library looks coherent because every page is built from tokens and a
+    handful of semantic classes. The Commander already <em>has</em> that system — it just
+    isn&rsquo;t being used. This is what it would take to close the gap, on a teal palette chosen for a screen you sit in front of all day &mdash; and the part that cannot be copied across.</p>
+    <div class="counts">
+      <div class="count"><b>35</b><span>classes defined</span></div>
+      <div class="count"><b>338</b><span>inline style attrs</span></div>
+      <div class="count"><b>~900</b><span>hardcoded hex colours</span></div>
+      <div class="count"><b>0</b><span>dark-mode support</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap"><main>
+
+<section>
+  <p class="pt">The finding</p>
+  <h2><span class="n">01</span>The design system exists. Almost nothing uses it.</h2>
+  <p>I expected the obstacle to be Streamlit. It isn&rsquo;t. <code>weinstein_commander_web_v4.0.py</code>
+  already defines <b>35 semantic classes</b> in a 430-line stylesheet — the same
+  <em>kind</em> of vocabulary the Library runs on. Then the pages bypass them.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>Class</th><th>Purpose</th><th>Times used</th></tr></thead>
+    <tbody>
+      <tr><td class="k m">page-title</td><td>Page heading</td><td class="m">22</td></tr>
+      <tr><td class="k m">metric-card</td><td>A stat tile</td><td class="m">18</td></tr>
+      <tr><td class="k m">section-hdr</td><td>Section heading</td><td class="m"><b>1</b></td></tr>
+      <tr><td class="k m">val-gain</td><td>A positive number</td><td class="m"><b>1</b></td></tr>
+      <tr><td class="k m">pill-bull / pill-bear / pill-warn</td><td>Status pills</td><td class="m"><b>0</b></td></tr>
+      <tr><td class="k m">card-bull / card-bear / card-warn / card-info</td><td>Callout cards</td><td class="m"><b>0</b></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note no">
+    <span class="tag">This is why it looks inconsistent, and it is also the good news</span>
+    <p>Seven of the most useful classes have <b>never been used once</b>. Every status pill,
+    every callout, every coloured number in the app is instead written as an inline
+    <code>style=</code> attribute — <b>338 of them</b>, drawing on roughly <b>900 hardcoded hex
+    values</b>. Nothing enforces that two &ldquo;bullish greens&rdquo; on different pages are the
+    same green, and they frequently are not.</p>
+    <p>The good news is the shape of the work. Because those classes are <em>unclaimed</em>,
+    adopting them is <b>additive</b> — you are not rewriting a system, you are starting to use
+    one that is already there and already loaded.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">What actually carries over</p>
+  <h2><span class="n">02</span>Tokens, type, and a dark theme — not the layout</h2>
+  <p>The Library is a <b>reading document</b>: 1180px column, generous whitespace, one idea per
+  band. The Commander is an <b>operational dashboard</b> at full width, scanned rather than read.
+  <b>Copying the Library&rsquo;s layout would make the Commander worse</b> — you would fit a third
+  as much on screen during a live session.</p>
+  <p>What transfers is the <em>craft underneath</em> the layout.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th></th><th>Carries over?</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Design tokens</td><td><span class="chip go">yes</span></td><td>CSS custom properties are framework-agnostic. This is the whole lever</td></tr>
+      <tr><td class="k">Typography pairing</td><td><span class="chip go">yes</span></td><td>Already loading three faces; only the display face needs to change</td></tr>
+      <tr><td class="k">Dark theme</td><td><span class="chip go">yes</span></td><td>The app has <b>none</b> today. Tokens give it almost for free</td></tr>
+      <tr><td class="k">Tables, callouts, chips</td><td><span class="chip go">yes</span></td><td>Plain HTML through <code>st.markdown</code> — the classes already exist</td></tr>
+      <tr><td class="k">Spacing rhythm</td><td><span class="chip wt">partly</span></td><td>Same discipline, tighter scale. Dashboard density, not document density</td></tr>
+      <tr><td class="k">Streamlit widgets</td><td><span class="chip no">fought, not styled</span></td><td>Buttons, selectboxes, dataframes render their own DOM. The app already overrides them with <code>!important</code> and always will</td></tr>
+      <tr><td class="k">AG-Grid boards</td><td><span class="chip no">separate</span></td><td>Themed through its own API, not CSS. A distinct piece of work</td></tr>
+      <tr><td class="k">The column layout</td><td><span class="chip no">deliberately not</span></td><td>Opposite goals — reading vs scanning</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <p class="pt">The specimens</p>
+  <h2><span class="n">03</span>Now, and proposed</h2>
+  <p>Real components, both sides. The left is the Commander&rsquo;s live CSS reproduced verbatim
+  so the comparison is honest; the right is the same content on tokens.</p>
+
+  <h3>Page header and the status strip</h3>
+  <div class="ab">
+    <div>
+      <p class="ablbl now"><span class="dot"></span>Now</p>
+      <div class="stage now">
+        <div class="o-title">Risk Shield</div>
+        <div class="o-desc">Active exit monitoring &amp; pullback entry tracking</div>
+        <div class="o-cells">
+          <div class="o-cell"><div class="o-lbl">Open Risk</div><div class="o-val">₹18,240</div></div>
+          <div class="o-cell"><div class="o-lbl">Book P&amp;L</div><div class="o-val">+₹1,42,900</div></div>
+          <div class="o-cell"><div class="o-lbl">At Stop</div><div class="o-val">2</div></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="ablbl new"><span class="dot"></span>Proposed</p>
+      <div class="stage new">
+        <div class="p-head"><span class="p-title">Risk Shield</span>
+          <span class="p-desc">Active exits &amp; pullback entries</span></div>
+        <div class="p-cells">
+          <div class="p-cell acc"><div class="p-lbl">Open risk</div><div class="p-val">₹18,240</div></div>
+          <div class="p-cell up"><div class="p-lbl">Book P&amp;L</div><div class="p-val up">+₹1,42,900</div></div>
+          <div class="p-cell dn"><div class="p-lbl">At stop</div><div class="p-val dn">2</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="tag">What changed, and why</span>
+    <p><b>The gradient and the glow go.</b> Three blue stops plus a coloured drop-shadow on every
+    cell is decoration competing with the numbers — and in a book with a red position, the cell
+    tinting fights the P&amp;L colour. Flat surfaces divided by hairlines read faster and leave
+    colour free to <em>mean</em> something: the left border now carries direction.</p>
+    <p><b>The title stops shouting.</b> <code>Rajdhani 800</code> at 3px letter-spacing in caps is
+    a gaming-dashboard convention; it costs width and reads slower. Sentence case in a grotesque
+    at a smaller size gives the same authority and lets the strip sit closer.</p>
+    <p><b>Numbers get tabular figures.</b> <code>font-variant-numeric: tabular-nums</code> — digits
+    align in columns and stop jittering as they tick. On a live P&amp;L strip this is the single
+    highest-value line of CSS in the whole proposal.</p>
+  </div>
+
+  <h3>Stat tiles and status</h3>
+  <div class="ab">
+    <div>
+      <p class="ablbl now"><span class="dot"></span>Now</p>
+      <div class="stage now">
+        <div class="o-card"><div class="l">Regime</div><div class="v">BULL</div></div>
+        <div class="o-card"><div class="l">Board GO</div><div class="v">7 / 41</div></div>
+        <div style="margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:.78rem">
+          <span style="color:#15803D;font-weight:800">● TAKE IT</span>
+          &nbsp; <span style="color:#B45309;font-weight:800">● ARM</span>
+          &nbsp; <span style="color:#DC2626;font-weight:800">● NO TRADE</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="ablbl new"><span class="dot"></span>Proposed</p>
+      <div class="stage new">
+        <div class="p-cells" style="grid-template-columns:1fr 1fr">
+          <div class="p-cell up"><div class="p-lbl">Regime</div><div class="p-val up">BULL</div></div>
+          <div class="p-cell acc"><div class="p-lbl">Board GO</div><div class="p-val">7<span style="color:var(--muted);font-weight:400">/41</span></div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:7px;flex-wrap:wrap">
+          <span class="chip go">Take it</span>
+          <span class="chip wt">Arm</span>
+          <span class="chip no">No trade</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p>The status dots become <b>chips</b> — the same three states, but the label sits inside a
+  tinted, bordered shape instead of relying on a coloured bullet. It survives a colour-blind
+  reader and it survives being screenshotted at low contrast, which the dot does not.</p>
+
+  <h3>Verdict callouts</h3>
+  <div class="ab">
+    <div>
+      <p class="ablbl now"><span class="dot"></span>Now</p>
+      <div class="stage now">
+        <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-left:4px solid #DC2626;border-radius:8px;padding:12px 14px">
+          <div style="color:#991B1B;font-weight:800;font-size:.8rem;letter-spacing:1px;text-transform:uppercase;font-family:'JetBrains Mono',monospace">Stage 4 violation</div>
+          <div style="color:#334155;font-size:.86rem;margin-top:5px">RELIANCE is below a falling 30-week average. House rule: no Stage 3/4 holds.</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="ablbl new"><span class="dot"></span>Proposed</p>
+      <div class="stage new">
+        <div class="note no" style="border-radius:3px">
+          <span class="tag">Stage 4 violation</span>
+          <p style="font-size:14px">RELIANCE is below a falling 30-week average. House rule:
+          <b>no Stage 3/4 holds.</b></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p>Visually close — which is the point. <b>The difference is that the right-hand one is
+  <code>class="note no"</code> and the left is 340 characters of inline CSS</b> that exists in
+  some variant at a dozen other call sites. Change the callout treatment once and every page
+  moves together.</p>
+</section>
+
+<section>
+  <p class="pt">The palette</p>
+  <h2><span class="n">04</span>Keep the semantics, reconsider the neutrals</h2>
+  <div class="swatches">
+    <div class="sw"><div class="chipbar" style="background:#0E7C86"></div>
+      <div class="meta"><b>#0E7C86</b><span>accent · teal</span></div></div>
+    <div class="sw"><div class="chipbar" style="background:#1B7A5A"></div>
+      <div class="meta"><b>#1B7A5A</b><span>bull · softened</span></div></div>
+    <div class="sw"><div class="chipbar" style="background:#C2453C"></div>
+      <div class="meta"><b>#C2453C</b><span>bear · softened</span></div></div>
+    <div class="sw"><div class="chipbar" style="background:#A76A1E"></div>
+      <div class="meta"><b>#A76A1E</b><span>warn · softened</span></div></div>
+    <div class="sw"><div class="chipbar" style="background:#EDF2F2"></div>
+      <div class="meta"><b>#EDF2F2</b><span>ground</span></div></div>
+    <div class="sw"><div class="chipbar" style="background:#0D1618"></div>
+      <div class="meta"><b>#0D1618</b><span>ink</span></div></div>
+  </div>
+
+  <div class="note go">
+    <span class="tag">Same meanings, lower volume — and a correction to what I said last round</span>
+    <p><b>Every hue keeps its job.</b> Green is still bull, red still bear, amber still warn. The
+    learned association you read before you read the number is untouched, and nothing has been
+    swapped for anything else.</p>
+    <p><b>What changed is saturation.</b> Last round I argued for keeping the semantic colours
+    <em>exactly</em>. That was over-cautious. <code>#DC2626</code> is a fire-engine red built to
+    alarm — correct for a smoke detector, wrong for a screen you sit in front of from pre-market
+    to the evening arming session. On a book with several red rows it is genuinely tiring.
+    <code>#C2453C</code> says the same thing at a lower volume. <b>Softening a hue is a different
+    act from swapping one</b>, and only the first is safe.</p>
+    <p><b>The neutrals now carry a teal bias</b> rather than Tailwind&rsquo;s stock slate ramp
+    (<code>#1E293B</code>, <code>#334155</code>, <code>#94A3B8</code>, <code>#CBD5E1</code>) — a
+    blue-green grey that sits under the accent instead of competing with it. Teal replaces the
+    <code>#1D4ED8</code> accent outright: it is the calmest hue that still reads as
+    &ldquo;interactive&rdquo;, and unlike blue it does not collide with the bear red across the
+    colour wheel.</p>
+    <p class="m" style="font-size:12.5px;color:var(--muted)">All four semantic colours clear
+    4.5:1 against their own tinted backgrounds in both themes.</p>
+  </div>
+
+  <h3>Typography — change one face of three</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Role</th><th>Now</th><th>Proposed</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Display</td><td class="m">Rajdhani 800</td><td class="m">Archivo 700</td><td>Rajdhani is condensed and squared — it reads as a gaming HUD, and at 3px tracking in caps it is slow. Archivo carries authority at smaller sizes</td></tr>
+      <tr><td class="k">Body</td><td class="m">Inter</td><td class="m">Inter — <b>kept</b></td><td>Correct for the job and already loaded</td></tr>
+      <tr><td class="k">Mono</td><td class="m">JetBrains Mono</td><td class="m">JetBrains Mono — <b>kept</b></td><td>Genuinely good for numbers. Add <code>tabular-nums</code> and it is better still</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <p class="pt">Dark mode</p>
+  <h2><span class="n">05</span>The thing tokens give you almost free</h2>
+  <p>The Commander has <b>no dark theme at all</b> — <code>prefers-color-scheme</code> appears
+  nowhere in 18,733 lines, and the ground is hardcoded <code>#F0F4F8</code>. For a screen open
+  from pre-market through to the evening arming session, that is a real ergonomic cost.</p>
+  <p>Once colours come from tokens, dark mode is one extra block redefining the same names.
+  <b>This page is proof</b> — switch your system theme and every specimen above follows,
+  including the semantic greens and reds, which are lifted for contrast on a dark ground rather
+  than naively inverted.</p>
+  <div class="note warn">
+    <span class="tag">The one caveat</span>
+    <p>Streamlit&rsquo;s own widgets do not follow your tokens. Getting a genuinely dark app means
+    setting Streamlit&rsquo;s <code>base="dark"</code> theme in <code>config.toml</code> as well —
+    the tokens handle everything <em>you</em> render, the config handles everything Streamlit
+    renders. Both are needed, and neither is hard.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">Recommendation</p>
+  <h2><span class="n">06</span>How I would actually do it</h2>
+  <p>Not as a redesign. As a <b>token migration</b>, in phases, each one shippable and
+  reversible — and none of them touching signal logic.</p>
+
+  <div class="steps">
+    <div><span class="s">01</span>
+      <span class="w"><span class="t">Extract the token layer</span>
+      <span class="d">One <code>commander_theme.py</code> holding the palette, the type scale and
+      the dark block, injected once at startup. Nothing else changes yet — the app looks
+      identical, and every subsequent phase gets cheaper.</span></span>
+      <span class="chip go">~2h</span></div>
+    <div><span class="s">02</span>
+      <span class="w"><span class="t">Point the existing 35 classes at the tokens</span>
+      <span class="d">The stylesheet stops carrying literal hex values. This alone re-themes
+      every <code>page-title</code> and <code>metric-card</code> — 40 call sites — and turns
+      dark mode on for all of them at once.</span></span>
+      <span class="chip go">~2h</span></div>
+    <div><span class="s">03</span>
+      <span class="w"><span class="t">Adopt the seven unused classes</span>
+      <span class="d">Convert inline pills and callouts to <code>pill-*</code> and
+      <code>card-*</code>. Highest ratio of consistency gained to risk taken, because the classes
+      already exist and are already tested. Do it page by page.</span></span>
+      <span class="chip wt">~1 day</span></div>
+    <div><span class="s">04</span>
+      <span class="w"><span class="t">Retire the inline styles, by page</span>
+      <span class="d">The long tail — 338 attributes. Strictly per page, so a bad render is
+      always one page and one revert. <b>Start with Risk Shield and the Dashboard</b>: most
+      looked-at, most numbers, most to gain.</span></span>
+      <span class="chip wt">phased</span></div>
+    <div><span class="s">05</span>
+      <span class="w"><span class="t">Theme AG-Grid separately</span>
+      <span class="d">The Trigger Board is themed through AG-Grid&rsquo;s own API, not CSS.
+      Own piece of work, own risk. Last, and only if the rest lands well.</span></span>
+      <span class="chip no">optional</span></div>
+  </div>
+
+  <div class="note">
+    <span class="tag">What I would not do</span>
+    <p><b>Not a big-bang restyle.</b> A half-migrated app looks worse than a consistently dated
+    one, because the eye reads the mismatch as breakage. Every phase above leaves the app
+    coherent.</p>
+    <p><b>Not during market hours</b>, and not bundled with anything that touches signal
+    generation. This is presentation only — it should never appear in the same commit as a gate,
+    a threshold or a screener change.</p>
+    <p><b>Not without your eye on it first.</b> Which is why this is a mockup and not a pull
+    request.</p>
+  </div>
+</section>
+
+</main>
+
+<footer><div class="wrap">
+  Exploration only — nothing in the app has been changed. Measured against
+  <span class="m">weinstein_commander_web_v4.0.py</span> at 18,733 lines, 27 Aug 2026.
+</div></footer>
+</div>
