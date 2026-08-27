@@ -103,10 +103,17 @@ def target_r_for(setup, swing=None):
     """(T1_R, T2_R) for a catalyst label — the ONE target policy.
 
     Catalyst-differentiated because the horizon differs (v1.9, 21-May-2026):
-      POS-*    positional, 2-12 month holds  -> POS_T1_R / POS_T2_R (2R / 4R since 9-Aug)
-      SWG-REV  mean reversion, days          -> 2R / 2R  (quick exit)
-      SWG-GAP  gap-and-go, days              -> 2R / 4R  (gaps fade fast)
-      SWG-BO / SWG-PB, 1-4 weeks             -> 3R / 5R  (partial fast, ride the rest)
+    Verified against the function's own return values on 26-Aug-2026 -- three of the
+    four rows here had described a pre-R-canon scheme and disagreed with the code they
+    document, which is the same defect class this audit was looking for elsewhere.
+
+      POS-* / WYC-* / REV-*   positional, 2-12 month holds  -> 3R / 5R, partials 25/25
+      SWG-BO / SWG-PB         1-4 weeks                     -> 2R / 4R, partials 33/33
+      SWG-REV / SWG-GAP       days                          -> 2R / 4R, partials 50/50
+
+    The R-canon (Jay, 10-Aug-2026): nothing under 2R, swing 2R/4R, positional 3R/5R.
+    POS keeps HALF the position running past T2 on the trail; the two fast swing
+    families take everything off at the targets, because there is nothing to ride.
 
     Hoisted out of the screener body 10-Aug-2026 so the Risk Shield's policy check reads
     the SAME numbers instead of applying the POSITIONAL constants to every open order.
