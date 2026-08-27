@@ -63,11 +63,13 @@ CONTRADICT = [
     # Must not match the INPUT NAMED "Tested rules 2 & 3: Daily zones only", which is
     # followed by the correct explanation -- a false positive here sends me rewriting
     # text that is already right.
-    ("EMA rule daily-only", r"(?<!: )(?<!:)only DAILY zones|rules?[^.]{0,30}apply only to daily"),
+    ("EMA rule daily-only", r"(?<!: )(?<!:)\bonly DAILY zones\b|rules?[^.]{0,30}apply only to daily"),
     ("geometry live in S4", r"geometry classifier(?![^.]{0,40}removed)"),
     ("buy-stop default", r"default[^.]{0,30}buy-?stop"),
     ("Strike RRG live", r"Strike RRG[^.]{0,30}(?:paste|panel|row)"),
     ("matched = design window", r"benchmark[^.]{0,50}(?:design|full) window"),
+    # Was only in check_page.py, never here — a mutation test caught the omission.
+    ("panel height", r"\b4[23] rows\b|panel is 4[23]\b"),
 ]
 
 # Things the code now does. Absence is a gap, not an error -- hence the lighter weight.
@@ -84,6 +86,33 @@ MISSING = [
 
 # Which page OWES which topic. Absence is only a gap where the page is the topic's
 # home; everywhere else it is correct editorial scope.
+
+# A shell heredoc once turned every \b in a pattern into a literal backspace (0x08).
+# The regex stayed valid and simply never matched, so the rule looked healthy while
+# catching nothing. Fail loudly instead.
+for _n, _p in CONTRADICT + MISSING:
+    assert not re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", _p), (
+        f"control character in pattern {_n!r} — a shell escape was mangled: {_p!r}")
+
+# Words that mark a claim as HISTORY rather than an assertion. See _retired_guard.py.
+_RETIRED = re.compile(
+    r"retired|artifact|superseded|no longer|used to|was the old|old behaviour|"
+    # "moved" removed 26-Aug: a mutation test proved it suppressed a GENUINE stale
+    # claim, because ordinary prose says "moved" constantly. A retirement marker
+    # has to be a word that only appears when describing history.
+    r"replaced|discarded|before the fix|pre-\w+ behaviour|legacy|"
+    r"versus retest|against retest|not because",
+    re.I)
+
+
+def _retired_context(text, match, span=220):
+    """True when the match sits inside retirement language — the page is describing
+    the old value, not claiming it."""
+    a = max(0, match.start() - span)
+    b = min(len(text), match.end() + span)
+    return bool(_RETIRED.search(text[a:b]))
+
+
 OWES = {
     "6b9eef4f": {"ML win probability", "REACTING location", "rule A2 / pivot confluence",
                  "sector map", "pivot master switch", "Momentum & value row",
@@ -124,7 +153,8 @@ def score(stub):
             t = text_of(content(stub))
     except Exception as e:
         return None, [], [], str(e)
-    con = [n for n, p in CONTRADICT if re.search(p, t, re.I)]
+    con = [n for n, p in CONTRADICT
+           if any(not _retired_context(t, m) for m in re.finditer(p, t, re.I))]
     owed = OWES.get(stub, set())
     mis = [n for n, p in MISSING if n in owed and not re.search(p, t, re.I)]
     return len(con) * 10 + len(mis) * 3, con, mis, None
