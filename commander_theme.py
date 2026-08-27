@@ -33,23 +33,38 @@ through to the evening arming session.
 Contrast: all four semantic colours clear 4.5:1 against their own tinted grounds in
 both themes.
 
-DARK MODE
----------
-Three blocks, deliberately:
-  :root                                        the complete light palette
-  @media (prefers-color-scheme:dark)           guarded :root:not([data-theme="light"])
-  :root[data-theme="dark"]                     so an explicit toggle wins both ways
+DARK MODE — and why it does NOT follow the OS
+---------------------------------------------
+Two blocks, not three:
+  :root                        the DARK palette — the default
+  :root[data-theme="light"]    light, only for anyone who explicitly stamps it
 
-A token defined in only one of them is the classic unreadable-theme bug — the system
-default and the explicit choice disagree, and one renders one theme's text on the
-other theme's ground. `assert_theme_parity()` below exists to catch exactly that.
+The first version followed `prefers-color-scheme` and broke the app on 27 Aug 2026.
+We do not own the whole page: Streamlit's widgets read `.streamlit/config.toml`,
+which is STATIC and cannot answer a media query. The moment the stylesheet follows
+the OS, a viewer whose desktop disagrees with that file gets Streamlit's widgets in
+one theme on our ground in the other — invisible metric values, a white dataframe on
+a dark page. A page that only half-owns its rendering has to COMMIT.
 
-CAVEAT — Streamlit's own widgets
---------------------------------
-Buttons, selectboxes and dataframes render their own DOM and do NOT follow these
-tokens. A genuinely dark app also needs `base="dark"` in `.streamlit/config.toml`.
-The tokens handle everything WE render; the config handles everything Streamlit
-renders. Both are needed.
+`assert_theme_parity()` guards the other half of this: a token present in one palette
+and missing from the other renders fine in the theme you tested and leaves a hole in
+the one you did not.
+
+STREAMLIT AND PLOTLY DO NOT READ THESE TOKENS
+---------------------------------------------
+Two consequences that have each cost a round of breakage:
+
+  * `.streamlit/config.toml` must be kept in AGREEMENT with DARK{} by hand. It is
+    the only lever for the dataframe, which is a canvas grid CSS cannot reach.
+  * A CSS variable renders as NOTHING in SVG. Never hand `var(--x)` to Plotly —
+    resolve to a literal from DARK{} instead, or the mark silently vanishes.
+
+TOKEN ROLES ARE NOT INTERCHANGEABLE
+-----------------------------------
+`surface*` are grounds and `ink*` / `muted` / `faint` are text. Using a ground token
+as a `color:` paints text the same shade as the card behind it — the invisible-number
+bug, expressed in tokens instead of literals. Likewise `--acc` is a light teal here,
+so anything sitting ON it needs `--ground`, not `--ink`.
 """
 
 # ── colour ───────────────────────────────────────────────────────────────────
@@ -65,7 +80,7 @@ LIGHT = {
 
 DARK = {
     "ground": "#0F1618", "surface": "#161F21", "surface-2": "#1B2528", "surface-3": "#222E31",
-    "ink": "#E3EBEC", "ink-2": "#B6C4C6", "muted": "#7E8E91", "faint": "#5C6B6E",
+    "ink": "#E3EBEC", "ink-2": "#B6C4C6", "muted": "#8B9BA0", "faint": "#7A8B8F",
     "rule": "#232F32", "rule-soft": "#1B2528",
     "acc": "#56C2CC", "acc-bg": "#0C262A", "acc-rule": "#1F4A50",
     "bull": "#45BE92", "bull-bg": "#0C2A21", "bull-rule": "#1D5142",

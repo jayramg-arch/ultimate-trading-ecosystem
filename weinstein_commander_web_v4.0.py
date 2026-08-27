@@ -890,6 +890,19 @@ if is_maximized_board or is_gm_window:
     </style>
     """, unsafe_allow_html=True)
 
+
+def _sb_cls(col: str) -> str:
+    """Status-strip tint class, derived from the SAME colour the value text uses.
+
+    Deriving it rather than passing a second flag is the point: a tint and a number
+    that disagree is worse than no tint at all, and with one source they cannot.
+    """
+    c = (col or "").lower()
+    if "--bull" in c:  return " is-bull"
+    if "--bear" in c:  return " is-bear"
+    if "--warn" in c:  return " is-warn"
+    return " is-neut"
+
 def _goto_page(key: str):
     """Set the nav page AND mirror it to the URL (?p=), so a websocket reconnect or a
     server restart restores where you were instead of snapping back to DASHBOARD.
@@ -1027,8 +1040,8 @@ section[data-testid="stSidebar"] > div:first-child > div > button {{ display: no
 .metric-value {{ font-family: var(--mono) !important; font-size: 1.25rem !important; font-weight: 800 !important; margin-top: 3px !important; }}
 
 /* ── ALL BUTTONS: Light background, dark text, shining border on hover/active ── */
-div[data-testid="stButton"] > button,
-button[kind="secondary"] {{
+div[data-testid="stButton"] > button:not([kind="primary"]),
+button[kind="secondary"]:not([kind="primary"]) {{
     background: var(--surface) !important;
     border: 1.5px solid var(--rule) !important;
     border-radius: 8px !important;
@@ -1054,8 +1067,8 @@ button[kind="secondary"] p, button[kind="secondary"] span {{
 }}
 
 /* Hover = stronger glow */
-div[data-testid="stButton"] > button:hover,
-button[kind="secondary"]:hover {{
+div[data-testid="stButton"] > button:not([kind="primary"]):hover,
+button[kind="secondary"]:not([kind="primary"]):hover {{
     background: var(--surface-2) !important;
     border: 2px solid var(--acc) !important;
     color: var(--acc) !important;
@@ -1072,7 +1085,7 @@ button[key="sb_auto_pilot"] {{
     background: var(--acc) !important;
     border: 2px solid var(--acc-rule) !important;
     border-radius: 8px !important;
-    color: var(--surface) !important;
+    color: var(--ground) !important;
     font-family: var(--body) !important;
     font-size: 0.85rem !important;
     font-weight: 800 !important;
@@ -1082,11 +1095,15 @@ button[key="sb_auto_pilot"] {{
     justify-content: center !important;
     text-align: center !important;
 }}
+/* On the ACCENT, which is a LIGHT teal in this theme, the label has to be DARK.
+   --ink is the text colour for the ground, not for the accent; using it here is the
+   invisible-text bug one layer up. --ground is the correct counterpart to --acc. */
 button[kind="primary"] p, button[kind="primary"] span,
 [data-testid="stSidebar"] button[kind="primary"] p,
 .st-key-sb_auto_pilot button p, .st-key-sb_auto_pilot button span,
 button[key="sb_auto_pilot"] p, button[key="sb_auto_pilot"] span {{
-    color: var(--surface) !important;
+    color: var(--ground) !important;
+    -webkit-text-fill-color: var(--ground) !important;
     font-weight: 800 !important;
     text-align: center !important;
     margin: 0 auto !important;
@@ -1123,7 +1140,8 @@ button[key="sb_auto_pilot"] p, button[key="sb_auto_pilot"] span {{
 [data-testid="stSidebar"] .st-key-sb_auto_pilot button {{
     background: var(--acc) !important;
     border: 2px solid var(--acc-rule) !important;
-    color: var(--surface) !important;
+    color: var(--ground) !important;
+    -webkit-text-fill-color: var(--ground) !important;
     font-weight: 800 !important;
     box-shadow: 0 0 16px rgba(37,99,235,0.6), 0 0 4px rgba(96,165,250,0.8) !important;
     transform: none !important;
@@ -1132,7 +1150,8 @@ button[key="sb_auto_pilot"] p, button[key="sb_auto_pilot"] span {{
 [data-testid="stSidebar"] button[kind="primary"] span,
 [data-testid="stSidebar"] .st-key-sb_auto_pilot button p,
 [data-testid="stSidebar"] .st-key-sb_auto_pilot button span {{
-    color: var(--surface) !important;
+    color: var(--ground) !important;
+    -webkit-text-fill-color: var(--ground) !important;
     font-weight: 800 !important;
 }}
 [data-testid="stSidebar"] button p {{
@@ -1285,7 +1304,7 @@ label {{ color: var(--ink) !important; font-size: 0.82rem !important; font-weigh
 /* ── S4-STYLE TABLE ROWS ── */
 .s4-table {{ width:100%;border-collapse:collapse;font-family:var(--body);font-size:0.84rem; }}
 .s4-table thead tr {{ background:var(--acc); }}
-.s4-table thead th {{ color:var(--surface);font-weight:800;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;padding:8px 12px;text-align:left;border:none; }}
+.s4-table thead th {{ color: var(--ink);font-weight:800;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;padding:8px 12px;text-align:left;border:none; }}
 .s4-table tbody tr {{ background:var(--surface);border-bottom:1px solid var(--surface-3);transition:background .12s; }}
 .s4-table tbody tr:nth-child(even) {{ background:var(--surface-2); }}
 .s4-table tbody tr:hover {{ background:var(--surface) !important;border-left:3px solid var(--acc); }}
@@ -1310,7 +1329,7 @@ label {{ color: var(--ink) !important; font-size: 0.82rem !important; font-weigh
 /* ── STREAMLIT DATAFRAME — high-contrast table styling ── */
 [data-testid="stDataFrame"] table {{ border-collapse:collapse !important; width:100% !important; }}
 [data-testid="stDataFrame"] thead tr th {{
-    background: var(--acc) !important; color: var(--surface) !important;
+    background: var(--acc) !important; color: var(--ink) !important;
     font-family: var(--mono) !important;
     font-size: 0.70rem !important; font-weight: 800 !important;
     letter-spacing: 1px !important; text-transform: uppercase !important;
@@ -1357,7 +1376,10 @@ label {{ color: var(--ink) !important; font-size: 0.82rem !important; font-weigh
 [data-testid="stTable"] td {{ border-bottom: 1px solid var(--rule-soft) !important;
     color: var(--ink-2) !important; }}
 [data-testid="stDataFrame"], [data-testid="stDataFrameResizable"] {{
-    background: var(--surface) !important; border: 1px solid var(--rule) !important; }}
+    background: var(--surface) !important;
+    /* NOT `border` -- see the header note. use_container_width measures the box,
+       and a border that changes the box makes it measure again, forever. */
+    box-shadow: inset 0 0 0 1px var(--rule) !important; }}
 
 /* expanders, tabs, inputs, code blocks -- all default to a light surface */
 [data-testid="stExpander"] {{ background: var(--surface) !important;
@@ -1372,11 +1394,87 @@ pre, code {{ background: var(--surface-2) !important; color: var(--ink) !importa
 
 /* the catch-all: anything still painting itself white */
 [style*="background:var(--surface)"], [style*="background: var(--surface)"],
-[style*="background-color:var(--surface)"], [style*="background-color: var(--surface)"],
+[style*="background-color: var(--surface-3)"], [style*="background-color: var(--surface-3)"],
 [style*="background:#fff"], [style*="background: #fff"] {{
     background: var(--surface) !important; }}
 [style*="color:var(--ink)"], [style*="color: var(--ink)"],
 [style*="color:var(--ink)"], [style*="color: var(--ink)"] {{ color: var(--ink) !important; }}
+
+/* ── BUTTONS, ROUND 2 (27 Aug 2026) ───────────────────────────────────────
+   Two gaps from the first pass.
+
+   (a) Not every button is a div[data-testid="stButton"] > button. Form submits,
+       download buttons, popovers and link buttons each get their own testid, and
+       none of them were in the selector list -- so they kept a white ground.
+
+   (b) The base rule styles the button's inner <p>/<span> explicitly. A hover rule
+       that only sets the BUTTON's colour therefore loses on the child, and the
+       label goes dark on a dark ground -- the disappearing text. Anything styled
+       on the parent has to be re-stated for the children on hover. */
+/* EXCLUDE the primary kinds. Without :not(), this broad rule set a SURFACE background
+   on primary buttons while the primary TEXT rule still applied --ground to the label --
+   two rules disagreeing about the same button, which renders as dark-on-dark. Streamlit
+   also ships newer testids (stBaseButton-*), so match on those too. */
+div[data-testid="stButton"] > button:not([kind="primary"]),
+div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]),
+div[data-testid="stDownloadButton"] > button:not([kind="primary"]),
+div[data-testid="stPopover"] > button:not([kind="primary"]),
+div[data-testid="stLinkButton"] > a,
+button[data-testid="stBaseButton-secondary"],
+button[data-testid="stBaseButton-tertiary"],
+button[kind="secondary"], button[kind="tertiary"], button[kind="secondaryFormSubmit"] {{
+    background: var(--surface) !important;
+    border: 1.5px solid var(--rule) !important;
+    color: var(--acc) !important;
+}}
+/* ...and state the primary pair together, so background and label can never diverge. */
+button[data-testid="stBaseButton-primary"],
+button[data-testid="stBaseButton-primaryFormSubmit"],
+button[kind="primary"] {{
+    background: var(--acc) !important;
+    border: 1.5px solid var(--acc) !important;
+}}
+button[data-testid="stBaseButton-primary"] p,
+button[data-testid="stBaseButton-primary"] span,
+button[data-testid="stBaseButton-primaryFormSubmit"] p {{
+    color: var(--ground) !important;
+    -webkit-text-fill-color: var(--ground) !important;
+}}
+div[data-testid="stButton"] > button:hover,
+div[data-testid="stButton"] > button:hover p,
+div[data-testid="stButton"] > button:hover span,
+div[data-testid="stButton"] > button:hover div,
+div[data-testid="stFormSubmitButton"] > button:hover,
+div[data-testid="stFormSubmitButton"] > button:hover p,
+div[data-testid="stDownloadButton"] > button:hover,
+div[data-testid="stDownloadButton"] > button:hover p,
+button[kind="secondary"]:hover, button[kind="secondary"]:hover p,
+button[kind="secondary"]:hover span {{
+    background: var(--surface-2) !important;
+    color: var(--acc) !important;
+    -webkit-text-fill-color: var(--acc) !important;   /* Streamlit paints some labels with this */
+}}
+button[kind="primary"]:hover, button[kind="primary"]:hover p,
+button[kind="primary"]:hover span {{
+    color: var(--ground) !important;
+    -webkit-text-fill-color: var(--ground) !important;
+}}
+/* focus must stay visible -- hover is not the only way in */
+div[data-testid="stButton"] > button:focus-visible {{
+    outline: 2px solid var(--acc) !important; outline-offset: 2px !important; }}
+
+/* ── STATUS STRIP COLOUR CODING (Jay's #2) ────────────────────────────────
+   The cells already carry their state in the VALUE's colour. Promoting it to the
+   cell's own tint + left border means the strip reads at a glance instead of
+   needing the number parsed. Driven by a class the renderer sets, so the tint can
+   never disagree with the text beside it. */
+.sb-cell.is-bull {{ background: var(--bull-bg) !important;
+    border-left: 3px solid var(--bull) !important; }}
+.sb-cell.is-bear {{ background: var(--bear-bg) !important;
+    border-left: 3px solid var(--bear) !important; }}
+.sb-cell.is-warn {{ background: var(--warn-bg) !important;
+    border-left: 3px solid var(--warn) !important; }}
+.sb-cell.is-neut {{ border-left: 3px solid var(--rule) !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1404,17 +1502,17 @@ with st.sidebar:
     try:
         _ts_top = dhan_token_status() if _BROKER_OK else {"valid": False, "expires_at": "—"}
         _tk_top_valid = _ts_top.get("valid", False)
-        _tk_top_col   = "#34D399" if _tk_top_valid else "#F87171"
+        _tk_top_col   = "var(--bull)" if _tk_top_valid else "#F87171"
         _tk_top_label = "VALID" if _tk_top_valid else "EXPIRED"
     except Exception:
         _tk_top_valid, _tk_top_col, _tk_top_label = False, "var(--faint)", "—"
 
     st.markdown(f"""
-    <div style="margin: 8px 8px 10px 8px; padding: 12px; background: linear-gradient(135deg, var(--ink-2) 0%, var(--ink) 100%); border: 1.5px solid var(--ink-2); border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.12); color: var(--surface);">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--ink-2); padding-bottom: 8px; margin-bottom: 8px;">
+    <div style="margin: 8px 8px 10px 8px; padding: 12px; background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%); border: 1.5px solid var(--rule); border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.12); color: var(--ink);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--rule); padding-bottom: 8px; margin-bottom: 8px;">
         <div>
-          <div style="font-family:'Rajdhani',sans-serif; font-size:1.30rem; font-weight:800; color:var(--surface); letter-spacing:1.5px; line-height:1.1;">🦁 WEINSTEIN</div>
-          <div style="font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--acc-rule); letter-spacing:2px; font-weight:800; margin-top:2px;">COMMANDER WEB v4.0</div>
+          <div style="font-family:'Rajdhani',sans-serif; font-size:1.30rem; font-weight:800; color: var(--ink); letter-spacing:1.5px; line-height:1.1;">🦁 WEINSTEIN</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:0.62rem; color: var(--acc); letter-spacing:2px; font-weight:800; margin-top:2px;">COMMANDER WEB v4.0</div>
         </div>
       </div>
       <div style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; display:flex; flex-direction:column; gap:5px;">
@@ -1424,7 +1522,7 @@ with st.sidebar:
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.62rem; color:var(--faint); letter-spacing:1.5px; font-weight:700;">CAPITAL</span>
-          <span style="font-weight:800; color:var(--surface-2);">₹{format_inr_int(balance)}</span>
+          <span style="font-weight:800; color: var(--ink-2);">₹{format_inr_int(balance)}</span>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.62rem; color:var(--faint); letter-spacing:1.5px; font-weight:700;">TOKEN</span>
@@ -1714,13 +1812,18 @@ if _regime_txt == "–" and _BREADTH_OK:
     except Exception:
         pass
 
+h_color_cls = _sb_cls(h_color)
+_regime_col_cls = _sb_cls(_regime_col)
+_vix_col_cls = _sb_cls(_vix_col)
+w_color_cls = _sb_cls(w_color)
+
 st.markdown(f"""
 <div class="statusbar">
-  <div class="sb-cell"><div class="sb-label">Nifty 500</div><div class="sb-value" style="color:{h_color};">{h_text}</div></div>
-  <div class="sb-cell"><div class="sb-label">Market Regime</div><div class="sb-value" style="color:{_regime_col};font-size:0.75rem;">{_regime_txt}</div>{_regime_age_html}</div>
-  <div class="sb-cell"><div class="sb-label">India VIX</div><div class="sb-value" style="color:{_vix_col};">{_vix_txt}</div></div>
+  <div class="sb-cell{h_color_cls}"><div class="sb-label">Nifty 500</div><div class="sb-value" style="color:{h_color};">{h_text}</div></div>
+  <div class="sb-cell{_regime_col_cls}"><div class="sb-label">Market Regime</div><div class="sb-value" style="color:{_regime_col};font-size:0.75rem;">{_regime_txt}</div>{_regime_age_html}</div>
+  <div class="sb-cell{_vix_col_cls}"><div class="sb-label">India VIX</div><div class="sb-value" style="color:{_vix_col};">{_vix_txt}</div></div>
   <div class="sb-cell"><div class="sb-label">FII / DII (prev)</div><div class="sb-value" style="font-size:0.74rem;">{_fii_txt}</div></div>
-  <div class="sb-cell"><div class="sb-label">Risk Watchdog</div><div class="sb-value" style="color:{w_color};">{w_text}</div></div>
+  <div class="sb-cell{w_color_cls}"><div class="sb-label">Risk Watchdog</div><div class="sb-value" style="color:{w_color};">{w_text}</div></div>
   <div class="sb-cell"><div class="sb-label">Deployment</div><div class="sb-value" style="color:var(--acc);">{deployed_pct}%</div></div>
   <div class="sb-cell"><div class="sb-label">Open Positions</div><div class="sb-value" style="color:var(--ink);">{open_pos}</div></div>
   <div class="sb-cell"><div class="sb-label">Total Deployed</div><div class="sb-value" style="color:var(--warn);">₹{format_inr(total_deployed_g)}</div></div>
@@ -1902,7 +2005,7 @@ def _render_paid_news_grid(key_prefix: str,
                 )
                 _stk_html = f'<div style="margin-top:5px">{_stk_pills}</div>'
             _brk_html = (
-                f'<div style="font-size:0.66rem;color:#adbac7;margin-top:4px">'
+                f'<div style="font-size:0.66rem;color:var(--faint);margin-top:4px">'
                 f'🏛 {_brk}</div>' if _brk else ""
             )
             with _col:
@@ -2158,7 +2261,7 @@ try:
           <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;
                       color:var(--bear);letter-spacing:1px;">
             🚨 DHAN TOKEN INVALID — AUTO-REFRESH FAILED</div>
-          <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:#ffb3b3;
+          <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--bear-rule);
                       line-height:1.6;margin-top:6px;">
             Live broker data is DOWN (prices may silently fall back to delayed yfinance).<br>
             <b>Reason:</b> {str(_auth_reason).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}<br>
@@ -2431,17 +2534,17 @@ def _pine_row_style(state: str) -> tuple[str, str, str, str]:
     """
     st = str(state).lower() if state else "na"
     if st in ("pass", "bull", "ok", "go", "buy", "aligned", "healthy", "leading"):
-        return "#4DB6AC", "#4DB6AC", "var(--ink)", "#26A69A"  # Pine Mint Teal
+        return "#4DB6AC", "#4DB6AC", "var(--ground)", "#26A69A"  # Pine Mint Teal
     elif st in ("watch", "warn", "caution", "hold", "misaligned", "weakening", "losing steam", "easing"):
-        return "#FFB74D", "#FFB74D", "var(--ink)", "#F57C00"  # Pine Warm Orange
+        return "var(--warn)", "var(--warn)", "var(--ground)", "#F57C00"  # Pine Warm Orange
     elif st in ("fail", "bear", "stop", "avoid", "lagging", "deepening", "block"):
-        return "#E57373", "#E57373", "var(--ink)", "#D32F2F"  # Pine Salmon Red
+        return "#E57373", "#E57373", "var(--ground)", "#D32F2F"  # Pine Salmon Red
     elif st in ("blue", "recovery", "rev", "improving", "strengthening"):
-        return "#64B5F6", "#64B5F6", "var(--ink)", "#1976D2"  # Pine Soft Blue
+        return "#64B5F6", "#64B5F6", "var(--ground)", "#1976D2"  # Pine Soft Blue
     elif st in ("purple", "special"):
-        return "#BA68C8", "#BA68C8", "var(--ink)", "#7B1FA2"  # Pine Purple
+        return "#BA68C8", "#BA68C8", "var(--ground)", "#7B1FA2"  # Pine Purple
     else:
-        return "#86A2B3", "#9CB5C4", "var(--ink)", "#546E7A"  # Pine Cool Slate
+        return "#86A2B3", "#9CB5C4", "var(--ground)", "#546E7A"  # Pine Cool Slate
 
 def _soft_style(state: str) -> tuple[str, str]:
     lbl_bg, val_bg, text_col, _ = _pine_row_style(state)
@@ -2477,7 +2580,7 @@ def _gauge(label, value, vmin, vmax, gradient, state, valtxt) -> str:
             f"<div style='position:absolute;left:0;top:0;height:100%;width:{pct:.1f}%;border-radius:6px;"
             f"background:{gradient};opacity:0.95;'></div>"
             f"<div style='position:absolute;left:calc({pct:.1f}% - 3px);top:-3px;width:7px;height:15px;"
-            f"background:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.4);border-radius:3px;'></div></div></div>")
+            f"background: var(--surface-3);box-shadow:0 1px 4px rgba(0,0,0,0.4);border-radius:3px;'></div></div></div>")
 
 def _crit(ok: bool, label: str) -> str:
     lbl_bg, val_bg, text_col, bdr_col = _pine_row_style("pass" if ok else "fail")
@@ -2521,7 +2624,7 @@ def _range_bar(low, high, cmp_, marks) -> str:
     cp = p(cmp_)
     return (f"<div style='position:relative;margin:8px 0 32px;'>"
             f"<div style='position:relative;height:8px;border-radius:6px;border:1px solid var(--faint);"
-            f"background:linear-gradient(90deg,#E57373,#FFB74D,#4DB6AC);'>"
+            f"background:linear-gradient(90deg,#E57373,var(--warn),#4DB6AC);'>"
             f"<div style='position:absolute;left:{cp:.1f}%;top:-6px;transform:translateX(-50%);width:0;height:0;"
             f"border-left:5px solid transparent;border-right:5px solid transparent;border-top:10px solid var(--ink);'></div>"
             f"{ticks}</div>"
@@ -2545,7 +2648,7 @@ def card(title: str, rows, accent: str = "var(--acc)", chip_text: str = None,
     hdr_bg = "var(--acc)"
     chip = ""
     if chip_text is not None:
-        chip = (f"<span style='float:right;background:var(--ink-2);color:var(--surface);padding:1.5px 9px;"
+        chip = (f"<span style='float:right;background: var(--surface-2);color: var(--ink);padding:1.5px 9px;"
                 f"border-radius:4px;font-weight:800;font-size:11px;border:1px solid var(--muted);'>{chip_text}</span>")
     else:
         evaluated = [s for _, _, s in rows if s in ("pass", "watch", "fail")]
@@ -2559,7 +2662,7 @@ def card(title: str, rows, accent: str = "var(--acc)", chip_text: str = None,
                     f"border-radius:4px;font-weight:800;font-size:11px;border:1px solid var(--muted);'>{passed}/{total}</span>")
 
     return (f"<div style='background:var(--surface);border:1.5px solid var(--muted);border-radius:6px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.08);'>"
-            f"<div style='background:{hdr_bg};color:var(--surface);font-weight:800;font-size:11.5px;"
+            f"<div style='background:{hdr_bg};color: var(--ink);font-weight:800;font-size:11.5px;"
             f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid var(--muted);'>{title}{chip}</div>"
             f"<div style='padding:4px;background:var(--rule);'>{body}</div></div>")
 
@@ -2605,21 +2708,21 @@ def _render_entry_method_selector(key: str):
 # ----------------------------------------------------------------------------------------
 # S4 Entry Trigger v5.9 & Weinstein Dashboard Unified Palette (Financial Terminal Light)
 # ----------------------------------------------------------------------------------------
-C_SOFT_PASS   = "#A7F3D0"  # Vibrant Soft Emerald (Pass / Bull / OK / GO / Buy)
+C_SOFT_PASS   = "var(--bull-rule)"  # Vibrant Soft Emerald (Pass / Bull / OK / GO / Buy)
 C_TEXT_PASS   = "#064E3B"  # Deep Emerald Text (Bold)
 C_SOFT_WARN   = "var(--warn-rule)"  # Vibrant Soft Amber (Watch / Caution / Hold / Warning)
 C_TEXT_WARN   = "#78350F"  # Deep Amber Text (Bold)
-C_SOFT_FAIL   = "#FECDD3"  # Vibrant Soft Rose (Fail / Bear / Stop / Avoid)
-C_TEXT_FAIL   = "#881337"  # Deep Rose Text (Bold)
-C_SOFT_BLUE   = "var(--acc-rule)"  # Vibrant Soft Sky Blue (Recovery / Improving / Blue)
+C_SOFT_FAIL   = "var(--bear-bg)"  # Vibrant Soft Rose (Fail / Bear / Stop / Avoid)
+C_TEXT_FAIL   = "var(--bear)"  # Deep Rose Text (Bold)
+C_SOFT_BLUE   = "var(--acc-bg)"  # Vibrant Soft Sky Blue (Recovery / Improving / Blue)
 C_TEXT_BLUE   = "var(--acc)"  # Deep Blue Text (Bold)
-C_SOFT_PURP   = "#E9D5FF"  # Vibrant Soft Purple (Special / Tier Bonus)
-C_TEXT_PURP   = "#581C87"  # Deep Purple Text (Bold)
-C_SOFT_NEUT   = "#E2E8F0"  # Slate Container
+C_SOFT_PURP   = "var(--acc-bg)"  # Vibrant Soft Purple (Special / Tier Bonus)
+C_TEXT_PURP   = "var(--acc)"  # Deep Purple Text (Bold)
+C_SOFT_NEUT   = "var(--surface-3)"  # Slate Container
 C_SOFT_TEXT   = "var(--ink)"  # Deep Charcoal Slate Text
-C_HDR_BG      = "var(--ink)"  # Dark Slate Header Band
+C_HDR_BG      = "var(--surface-3)"  # header band -- a RAISED surface, not inverted ink
 C_CARD_BG     = "var(--surface)"  # Crisp White Card Container
-C_CARD_BORDER = "var(--faint)"  # High-Contrast Slate Border
+C_CARD_BORDER = "var(--rule)"  # card border -- a RULE, not a text tone
 
 def _crit(ok: bool, label: str) -> str:
     bg, fg = _soft_style("pass" if ok else "fail")
@@ -2795,10 +2898,10 @@ def card(title: str, rows, accent: str = "var(--acc)", chip_text: str = None,
     if chip_text is not None:
         hdr_bg = C_HDR_BG
         c_bg = chip_color or "rgba(255,255,255,0.2)"
-        chip = (f"<span style='float:right;background:{c_bg};color:var(--surface);padding:1.5px 9px;"
+        chip = (f"<span style='float:right;background:{c_bg};color: var(--ink);padding:1.5px 9px;"
                 f"border-radius:10px;font-weight:800;font-size:10px;'>{chip_text}</span>")
         return (f"<div style='background:var(--surface);border:1.5px solid var(--faint);border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
-                f"<div style='background:{hdr_bg};color:var(--surface);font-weight:800;font-size:11.5px;"
+                f"<div style='background:{hdr_bg};color: var(--ink);font-weight:800;font-size:11.5px;"
                 f"letter-spacing:.5px;padding:7px 12px;border-bottom:1px solid var(--rule);'>{title}{chip}</div>"
                 f"<div style='padding:6px;background:var(--surface-2);'>{body}</div></div>")
 
@@ -2818,7 +2921,7 @@ def card(title: str, rows, accent: str = "var(--acc)", chip_text: str = None,
                 f"border-radius:10px;font-weight:800;font-size:10px;'>{passed}/{total}</span>")
 
     return (f"<div style='background:var(--surface);border:1.5px solid var(--faint);border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
-            f"<div style='background:{hdr_bg};color:var(--surface);font-weight:800;font-size:11.5px;"
+            f"<div style='background:{hdr_bg};color: var(--ink);font-weight:800;font-size:11.5px;"
             f"letter-spacing:.5px;padding:7px 12px;border-bottom:1px solid var(--rule);'>{title}{chip}</div>"
             f"<div style='padding:6px;background:var(--surface-2);'>{body}</div></div>")
 
@@ -4451,7 +4554,7 @@ def render_workflow(wf: dict) -> str:
             guide = "▶ " + s.get("do_now", "")
             
         guide_html = f"<span style='font-size:11px;font-weight:800;margin-left:8px;'>{guide}</span>" if guide else ""
-        nowbadge = ("<span style='font-size:9px;font-weight:900;color:var(--surface);background:var(--ink);"
+        nowbadge = ("<span style='font-size:9px;font-weight:900;color: var(--ink);background: var(--surface-3);"
                     "padding:2px 6px;border-radius:4px;margin-left:6px;'>← NOW</span>" if is_cur else "")
         
         steps_html += (
@@ -4459,13 +4562,13 @@ def render_workflow(wf: dict) -> str:
             f"background:{val_bg};color:{text_col};border:1.5px solid {bdr_col};border-left:6px solid {bdr_col};"
             f"padding:7px 12px;margin-bottom:6px;border-radius:6px;font-size:12px;font-family:\"Inter\",sans-serif;'>"
             f"<div style='display:flex;align-items:center;gap:8px;flex:1;min-width:0;'>"
-            f"<span style='font-weight:900;font-size:11.5px;background:var(--ink);color:var(--surface);padding:2px 7px;border-radius:4px;'>STEP {s['n']}</span>"
+            f"<span style='font-weight:900;font-size:11.5px;background: var(--surface-3);color: var(--ink);padding:2px 7px;border-radius:4px;'>STEP {s['n']}</span>"
             f"<span style='font-weight:800;font-size:12px;'>{s['title']}</span>"
             f"<span style='font-size:11px;opacity:0.85;font-weight:600;'>({s['sub']})</span>{nowbadge}{guide_html}"
             f"</div>"
             f"<div style='display:flex;align-items:center;gap:12px;'>"
             f"<div>{chips}</div>"
-            f"<span style='font-size:10px;font-weight:900;color:var(--surface);background:{bdr_col};"
+            f"<span style='font-size:10px;font-weight:900;color: var(--ground);background:{bdr_col};"
             f"padding:3px 10px;border-radius:4px;letter-spacing:0.5px;'>{pill[status]}</span>"
             f"</div></div>"
         )
@@ -4490,22 +4593,22 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> tuple[str
     rsi_state = ("watch" if (rsi or 0) >= 70 else "pass" if (rsi or 0) >= 50 else "watch" if (rsi or 0) >= 40 else "fail")
     gauges = "".join([
         _gauge("RSI (14)", rsi, 0, 100,
-               "linear-gradient(90deg,var(--bear-bg),var(--warn-bg) 30%,#D1FAE5 50%,#D1FAE5 68%,var(--warn-bg) 78%,var(--bear-bg))",
+               "linear-gradient(90deg,var(--bear-bg),var(--warn-bg) 30%,var(--bull-bg) 50%,var(--bull-bg) 68%,var(--warn-bg) 78%,var(--bear-bg))",
                rsi_state, fnum(rsi, 0)),
         _gauge("ADX (14)", adx, 0, 50,
-               "linear-gradient(90deg,#E2E8F0,var(--warn-bg) 40%,#D1FAE5 50%)",
+               "linear-gradient(90deg,var(--surface-3),var(--warn-bg) 40%,var(--bull-bg) 50%)",
                ("pass" if (adx or 0) >= 25 else "watch" if (adx or 0) >= 20 else "fail"), fnum(adx, 0)),
         _gauge("Alpha Score", alpha, 0, 100,
-               "linear-gradient(90deg,var(--bear-bg),var(--warn-bg) 50%,#D1FAE5 70%)",
+               "linear-gradient(90deg,var(--bear-bg),var(--warn-bg) 50%,var(--bull-bg) 70%)",
                ("pass" if (alpha or 0) >= 70 else "watch" if (alpha or 0) >= 50 else "fail"), fnum(alpha, 0)),
         _gauge("ML Win Prob", ml, 0, 100,
-               "linear-gradient(90deg,var(--bear-bg),var(--warn-bg) 55%,#D1FAE5 65%)",
+               "linear-gradient(90deg,var(--bear-bg),var(--warn-bg) 55%,var(--bull-bg) 65%)",
                ("pass" if (ml or 0) >= 65 else "watch" if (ml or 0) >= 55 else "fail"), fnum(ml, 1, "%")),
         _gauge("Mansfield RS", mansfield, -50, 50,
-               "linear-gradient(90deg,var(--bear-bg),#E2E8F0 50%,#D1FAE5)",
+               "linear-gradient(90deg,var(--bear-bg),var(--surface-3) 50%,var(--bull-bg))",
                ("pass" if (mansfield or 0) > 0 else "fail"), fnum(mansfield, 1)),
         _gauge("Vol Dry-up 5/20d", vdry, 0, 2,
-               "linear-gradient(90deg,#D1FAE5,var(--warn-bg) 50%,var(--bear-bg))",
+               "linear-gradient(90deg,var(--bull-bg),var(--warn-bg) 50%,var(--bear-bg))",
                ("pass" if (vdry if vdry is not None else 9) < 0.8 else "na"), fnum(vdry, 2, "×")),
     ])
 
@@ -4519,7 +4622,7 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> tuple[str
 
     h_momentum = (
         f"<div style='background:var(--surface);border:1.5px solid var(--faint);border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
-        f"<div style='background:{hdr_bg};color:var(--surface);font-weight:800;font-size:11.5px;"
+        f"<div style='background:{hdr_bg};color: var(--ink);font-weight:800;font-size:11.5px;"
         f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid var(--rule);'>⚡ MOMENTUM &amp; STRENGTH</div>"
         f"<div style='padding:8px 10px;background:var(--surface-2);'>"
         f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;'>{gauges}</div>"
@@ -4539,7 +4642,7 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> tuple[str
 
     h_minervini = (
         f"<div style='background:var(--surface);border:1.5px solid var(--faint);border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
-        f"<div style='background:{hdr_bg};color:var(--surface);font-weight:800;font-size:11.5px;"
+        f"<div style='background:{hdr_bg};color: var(--ink);font-weight:800;font-size:11.5px;"
         f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid var(--rule);'>🏆 MINERVINI TREND TEMPLATE{chip_m}</div>"
         f"<div style='padding:10px 12px;background:var(--surface-2);'>"
         f"<div style='display:flex;gap:12px;align-items:center;margin-bottom:4px;'>"
@@ -4591,7 +4694,7 @@ def render_technical_board(rec: dict, ctx: dict, cmp_px, mansfield) -> tuple[str
 
     h_pa_signals = (
         f"<div style='background:var(--surface);border:1.5px solid var(--faint);border-radius:8px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 6px rgba(0,0,0,0.06);'>"
-        f"<div style='background:{hdr_bg};color:var(--surface);font-weight:800;font-size:11.5px;"
+        f"<div style='background:{hdr_bg};color: var(--ink);font-weight:800;font-size:11.5px;"
         f"letter-spacing:.5px;padding:7px 12px;border-bottom:1.5px solid var(--rule);'>📈 PRICE-ACTION SIGNALS</div>"
         f"<div style='padding:8px 10px;background:var(--surface-2);'>"
         f"<div style='display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;'>{pills}</div></div></div>"
@@ -4683,8 +4786,8 @@ def render_pa_banner(ctx, recovery: bool = False) -> str:
     tier_sum = sum(t for _, t in pats)
     chips = " · ".join(f"{n} (+{t})" for n, t in sorted(pats, key=lambda x: -x[1]))
     col = "#6D28D9" if tier_sum >= 4 else "#047857"
-    bg  = "#F3E8FF" if tier_sum >= 4 else "#D1FAE5"
-    bdr = "#D8B4FE" if tier_sum >= 4 else "var(--bull-rule)"
+    bg  = "var(--acc-bg)" if tier_sum >= 4 else "var(--bull-bg)"
+    bdr = "var(--acc-rule)" if tier_sum >= 4 else "var(--bull-rule)"
     return (f"<div style='border:1.5px solid {bdr};border-left:5px solid {col};background:{bg};border-radius:8px;"
             f"padding:8px 14px;margin:8px 0;font-size:13.5px;color:var(--ink);font-weight:600;'>"
             f"<b style='color:{col};font-weight:800;'>🔥 PA PATTERNS LIVE (Σ +{tier_sum}):</b> {chips}</div>")
@@ -9084,7 +9187,7 @@ elif page == 'MACRO':
                                       if c in _df_glo.columns}
                     try:
                         _styled = _df_glo.style.format(_glo_num_cols)
-                        _styled = (_styled.set_properties(**{'text-align': 'right', 'background-color': 'var(--surface)', 'color': 'var(--ink-2)', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px', 'font-weight': '600'})
+                        _styled = (_styled.set_properties(**{'text-align': 'right', 'background-color': 'var(--surface)', 'color': 'var(--ink-2)', 'border-bottom': '1px solid var(--surface-3)', 'padding': '8px', 'font-weight': '600'})
                                    .set_properties(subset=['Name'], **{'text-align': 'left', 'font-weight': '700'}))
                         _styled = (_styled.map(_color_chg, subset=["Chg%"]) if hasattr(_styled, "map") else _styled.applymap(_color_chg, subset=["Chg%"]))
                         _styled = (_styled.set_table_styles([
@@ -9137,7 +9240,7 @@ elif page == 'MACRO':
                 try:
                     _styled_fii = (_df_to_show.style
                                    .format(_fii_num_cols)
-                                   .set_properties(**{'text-align': 'right', 'background-color': 'var(--surface-2)', 'color': 'var(--ink-2)', 'border-bottom': '1px solid #E2E8F0', 'padding': '8px'})
+                                   .set_properties(**{'text-align': 'right', 'background-color': 'var(--surface-2)', 'color': 'var(--ink-2)', 'border-bottom': '1px solid var(--surface-3)', 'padding': '8px'})
                                    .set_properties(subset=['date'], **{'text-align': 'left'})
                                    .set_table_styles([
                                        {'selector': 'th', 'props': [('text-align', 'right'), ('background-color', 'var(--surface-2)'), ('color', 'var(--surface)'), ('border-bottom', '2px solid var(--acc)'), ('padding', '8px')]},
@@ -9585,11 +9688,11 @@ elif page == 'OPTIONS':
                     section("Change in OI — Buildup Analysis")
                     _fig_doi = go.Figure()
                     _ce_doi_colors = [
-                        "var(--bear)" if v >= 0 else "#ff9999"
+                        "var(--bear)" if v >= 0 else "var(--bear-rule)"
                         for v in _oc_view["CE_chgOI"]
                     ]
                     _pe_doi_colors = [
-                        "var(--bull)" if v >= 0 else "#99ffcc"
+                        "var(--bull)" if v >= 0 else "var(--bull-bg)"
                         for v in _oc_view["PE_chgOI"]
                     ]
                     _fig_doi.add_trace(go.Bar(
@@ -13750,7 +13853,7 @@ elif page == 'GOLDEN MATCHER':
             st.session_state["gm_board_live"] = _live
             # A DEDICATED WINDOW MUST SAY WHICH TF IT IS (Jay: "I'm not sure whether the
             # 125m Board is 75m or 125m"). Colour-matched to the launch buttons.
-            _tfcol = {"75m": ("#4ade80", "#0d1b12"), "125m": ("#fbbf24", "#1a1408"), "Daily": ("var(--acc)", "#0b1220")}.get(
+            _tfcol = {"75m": ("var(--bull)", "#0d1b12"), "125m": ("var(--warn)", "#1a1408"), "Daily": ("var(--acc)", "#0b1220")}.get(
                 _trig_tf, ("var(--acc)", "var(--acc-bg)"))
             st.markdown(
                 f'<div style="background:{_tfcol[1]};border-left:4px solid {_tfcol[0]};'
@@ -14187,7 +14290,7 @@ elif page == 'GOLDEN MATCHER':
                 with _a3r:
                     st_components.html(
                         """<button id="all3" style="width:100%;padding:6px 12px;
-                            border:1.5px solid #C4B5FD;background:#F5F3FF;color:#6D28D9;
+                            border:1.5px solid var(--acc-rule);background:var(--surface-2);color:#6D28D9;
                             border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace;
                             font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(109,40,217,0.15);">
                             &#8599;&#65039; ALL 3 BOARDS</button>
@@ -14583,7 +14686,7 @@ elif page == 'GOLDEN MATCHER':
                             cellStyle=JsCode(
                             "function(p){var v=String(p.value||'');"
                             "if(v.indexOf('4/4')>=0)return{'color':'#26a69a','fontWeight':'700'};"
-                            "if(v.indexOf('3/4')>=0)return{'color':'#ffb74d','fontWeight':'600'};"
+                            "if(v.indexOf('3/4')>=0)return{'color':'var(--warn)','fontWeight':'600'};"
                             "if(v.indexOf('2/4')>=0)return{'color':'#ff9800'};"
                             "return{'color':'#787b86'};}"))
                     _gb.configure_column("RRG", editable=True, cellEditor="agSelectCellEditor",
@@ -14605,7 +14708,7 @@ elif page == 'GOLDEN MATCHER':
                             "function(p){var v=String(p.value||'');"
                             "if(v.indexOf('Buy Trigger Live')>=0)return{'color':'#26a69a','fontWeight':'700'};"
                             "if(v.indexOf('Armed')>=0)return{'color':'#ff9800'};"
-                            "if(v.indexOf('Wait for Pullback')>=0)return{'color':'#ffb74d'};"
+                            "if(v.indexOf('Wait for Pullback')>=0)return{'color':'var(--warn)'};"
                             "return{};}"))
                     # 21-Aug: apply the default sort STATE explicitly. A colDef `sort`
                     # is honoured only when the grid first mounts; with a stable component
@@ -14912,7 +15015,7 @@ elif page == 'GOLDEN MATCHER':
             _arche_lbl = ", ".join(dict.fromkeys(
                 (_ib_ss if _inh_bull_on else []) + (_ir_ss if _inh_rec_on else []))) or "watchlist"
             st.markdown(
-                f"<div style='border-left:6px solid #6D28D9;background:linear-gradient(135deg, #F3E8FF 0%, var(--surface) 100%);border:1.5px solid #D8B4FE;"
+                f"<div style='border-left:6px solid #6D28D9;background:linear-gradient(135deg, var(--acc-bg) 0%, var(--surface) 100%);border:1.5px solid var(--acc-rule);"
                 f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:var(--ink);font-weight:700;box-shadow:0 2px 6px rgba(109,40,217,0.1);'>"
                 f"🧬 <b style='color:#6D28D9;font-weight:800;'>Inherited setup — {_arche_lbl}</b> (qualified by its source watchlist). "
                 f"Context &amp; Quality are trusted; this name is <b>timed</b> (still-valid guard → "
@@ -14928,7 +15031,7 @@ elif page == 'GOLDEN MATCHER':
         if _intra_label:
             _il_col = "#0284C7" if _intra_ok else "var(--warn)"
             _il_bg  = "var(--acc-bg)" if _intra_ok else "var(--warn-bg)"
-            _il_bdr = "#7DD3FC" if _intra_ok else "var(--warn-rule)"
+            _il_bdr = "var(--acc-rule)" if _intra_ok else "var(--warn-rule)"
             st.markdown(f"<div style='border-left:6px solid {_il_col};background:linear-gradient(135deg, {_il_bg} 0%, var(--surface) 100%);border:1.5px solid {_il_bdr};"
                         f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:var(--ink);font-weight:700;box-shadow:0 2px 6px rgba(2,132,199,0.1);'>"
                         f"<b style='color:{_il_col};font-weight:800;'>{_intra_label}</b> &nbsp;·&nbsp; Steps 1-4 (Stage · RS · Alpha · catalyst · zones) stay Daily/Weekly."
@@ -14939,7 +15042,7 @@ elif page == 'GOLDEN MATCHER':
         if _board_cat:
             _bc_actionable = _board_cat.split(" · ")[0] in ("Buy Trigger Live", "Armed Wait", "Wait for Pullback")
             _bc_col = "#047857" if _board_cat.startswith("Buy Trigger") else ("var(--warn)" if _bc_actionable else "var(--muted)")
-            _bc_bg  = "#D1FAE5" if _board_cat.startswith("Buy Trigger") else ("var(--warn-bg)" if _bc_actionable else "#F1F5F9")
+            _bc_bg  = "var(--bull-bg)" if _board_cat.startswith("Buy Trigger") else ("var(--warn-bg)" if _bc_actionable else "var(--surface-2)")
             _bc_bdr = "var(--bull-rule)" if _board_cat.startswith("Buy Trigger") else ("var(--warn-rule)" if _bc_actionable else "var(--rule)")
             st.markdown(f"<div style='border-left:6px solid {_bc_col};background:linear-gradient(135deg, {_bc_bg} 0%, var(--surface) 100%);border:1.5px solid {_bc_bdr};"
                         f"border-radius:8px;padding:10px 14px;margin:6px 0;font-size:0.88rem;color:var(--ink);font-weight:700;box-shadow:0 2px 6px rgba(4,120,87,0.1);'>"
@@ -16003,7 +16106,7 @@ elif page == 'RISK SHIELD':
         if not _todo:
             st.markdown(
                 f"<div style='background:#052E20;border:1px solid var(--bull);border-left:4px solid var(--bull);"
-                f"border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:0.85rem;color:#A7F3D0;'>"
+                f"border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:0.85rem;color:var(--bull-rule);'>"
                 f"\u2713 <b>All {_done} open positions have a declared timeframe.</b> "
                 f"The trade-type ladder is reading rung 1 on every one of them \u2014 nothing is guessing."
                 f"</div>", unsafe_allow_html=True)
@@ -16193,14 +16296,14 @@ elif page == 'RISK SHIELD':
           default  = NOTHING was known. Not a classification.
         """
         _st = ("padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-left:8px;"
-               "font-weight:800;vertical-align:middle;color:var(--surface);letter-spacing:0.5px;")
+               "font-weight:800;vertical-align:middle;color: var(--ink);letter-spacing:0.5px;")
         if not label or label == "UNKNOWN":
-            return (f'<span style="{_st}background:var(--ink-2);border:1px solid var(--muted);" title="Technicals unavailable '
+            return (f'<span style="{_st}background: var(--surface-2);border:1px solid var(--muted);" title="Technicals unavailable '
                     f'— trade type not determined">TYPE UNKNOWN</span>')
         _sw = label.startswith("SWING")
         _inf = label.endswith("?")
         _bg = "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" if _sw else "linear-gradient(135deg, #059669 0%, #047857 100%)"
-        _border = "#C4B5FD" if _sw else "#A7F3D0"
+        _border = "var(--acc-rule)" if _sw else "var(--bull-rule)"
         _srcs = str(src or "")
         _tip = {"journal": "You declared this on the trade (journal Timeframe)",
                 "setup": "Derived from the entry catalyst — the intent at entry",
@@ -16224,13 +16327,13 @@ elif page == 'RISK SHIELD':
                     'line-height:1.45;font-weight:600;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
                     'The numbers above are unaffected.</div>')
         if ai_text.startswith("AI analysis pending"):
-            return ('<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border-left:4px solid var(--muted);border:1px solid var(--ink-2);padding:12px 14px;'
+            return ('<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border-left:4px solid var(--muted);border:1px solid var(--ink-2);padding:12px 14px;'
                     'border-radius:8px;margin-top:12px;font-size:0.82rem;color:var(--faint);'
                     'line-height:1.45;">🤖 <b>AI:</b> not run yet — press “Run AI Analysis”.</div>')
         _txt = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
         _ts = st.session_state.get("ai_cache_ts")
-        _age = f' <span style="color:#7DD3FC;font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
-        return (f'<div style="background:linear-gradient(145deg, #082F49 0%, var(--ink) 100%);border-left:4px solid #38BDF8;border:1px solid var(--ink-2);padding:12px 16px;'
+        _age = f' <span style="color: var(--acc);font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
+        return (f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border-left:4px solid #38BDF8;border:1px solid var(--ink-2);padding:12px 16px;'
                 f'border-radius:8px;margin-top:12px;font-size:0.83rem;color:var(--acc-bg);'
                 f'line-height:1.55;">🤖 <b>AI:</b>{_age}<br><span style="color:var(--acc-bg);">{_txt}</span></div>')
 
@@ -16656,23 +16759,23 @@ elif page == 'RISK SHIELD':
 
                 metrics_html = (
                     f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">'
-                    f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-top:4px solid var(--bull);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid var(--bull);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Capital Protected</div>'
                     f'<div style="color:var(--bull);font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">₹{format_inr_int(total_protected)}</div>'
                     f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Active Stop Loss value</div></div>'
-                    f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-top:4px solid var(--bear);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid var(--bear);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Capital at Risk</div>'
                     f'<div style="color:var(--bear);font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">₹{format_inr_int(total_risk)} <span style="font-size:0.95rem; opacity:0.85;">({risk_deployed_pct:.1f}%)</span></div>'
                     f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Loss to SL</div></div>'
-                    f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-top:4px solid #38BDF8;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid #38BDF8;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Active Exits</div>'
                     f'<div style="color:#38BDF8;font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{active_exits_count} Stocks</div>'
                     f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
-                    f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-top:4px solid var(--warn);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid var(--warn);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Pullback Entries</div>'
                     f'<div style="color:var(--warn);font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{pending_entries_count} Orders</div>'
                     f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Active GTT buy limits</div></div>'
-                    f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-top:4px solid {unprotected_color};border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
+                    f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid {unprotected_color};border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Unprotected</div>'
                     f'<div style="color:{unprotected_color};font-size:1.5rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{unprotected_label}</div>'
                     f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Holdings with no SL</div></div>'
@@ -16699,8 +16802,8 @@ elif page == 'RISK SHIELD':
                         _hcol = "var(--bull)" if _heat_ok else "var(--bear)"
                         _chip = (f" · 🌡️ Regime: <b>{_rs_regime_chip}</b>" if _rs_regime_chip else "")
                         st.markdown(
-                            f"<div style='background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid {_hcol};border-radius:10px;padding:12px 16px;"
-                            f"margin:4px 0 16px;font-size:0.9rem;color:var(--surface-2);box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
+                            f"<div style='background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border:1.5px solid {_hcol};border-radius:10px;padding:12px 16px;"
+                            f"margin:4px 0 16px;font-size:0.9rem;color: var(--ink-2);box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
                             f"🔥 <b>Portfolio Heat:</b> ₹{format_inr_int(total_risk)} open risk vs budget "
                             f"₹{format_inr_int(_heat_budget)} ({_rb_pct}% × {_n_open_h} positions × "
                             f"₹{format_inr_int(_cap_base)} capital) — "
@@ -17216,7 +17319,7 @@ elif page == 'RISK SHIELD':
                     
                     dd_pct = (sim_losses / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
                     st.markdown(f'''
-                    <div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);padding:16px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
+                    <div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);padding:16px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
                         <div style="font-size:0.75rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Est. Portfolio Drawdown</div>
                         <div style="font-size:1.8rem;font-weight:900;color:var(--bear);margin-top:4px;font-family:JetBrains Mono;">-{dd_pct:.2f}%</div>
                         <div style="font-size:0.85rem;color:var(--rule);margin-top:6px;">Est. Loss: <b style="color:var(--bear-rule);">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:var(--bear-rule);">{hits}</b></div>
@@ -17690,21 +17793,21 @@ elif page == 'RISK SHIELD':
                                         elif _class == "TRIM":
                                             _flags.append("<span style='background:#451A1A;color:var(--warn);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #78350F;'>✂️ TRIM</span>")
                                         elif _class == "REDUCE":
-                                            _flags.append("<span style='background:var(--ink);color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
+                                            _flags.append("<span style='background: var(--surface-3);color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
                                         elif _class == "ADD":
-                                            _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
+                                            _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
                                         else:  # HOLD
-                                            _flags.append("<span style='background:var(--ink-2);color:var(--faint);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
+                                            _flags.append("<span style='background: var(--surface-2);color:var(--faint);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
                                             _flags.append(f"<span style='background:var(--bear);color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>⏰ TIME STOP HIT</span>")
 
                                         if _tech.get("vol_breakout"):
-                                            _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
+                                            _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
                                         elif _tech.get("vol_climax"):
                                             _flags.append("<span style='background:var(--bear);color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
-                                            _flags.append(f"<span style='background:#78350F;color:#FBBF24;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                            _flags.append(f"<span style='background:#78350F;color:var(--warn);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
                                             # #16: the WINDOW is shown because it is what actually diverges from
                                             # v67. v67 picks 14 vs 22 from the CATALYST PREFIX alone; Risk Shield
@@ -17730,7 +17833,7 @@ elif page == 'RISK SHIELD':
                                                 _ce_gap = f" · {_g:.1f}×ATR below"
                                             except Exception:
                                                 pass
-                                            _flags.append(f"<span style='background:var(--ink-2);color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}{_ce_gap}</span>")
+                                            _flags.append(f"<span style='background: var(--surface-2);color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}{_ce_gap}</span>")
                                         if _tech.get("invalid_ce_override"):
                                             _flags.append(f"<span style='background:#451A1A;color:var(--bear);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠ invalid CE override ignored</span>")
                                         if _flags:
@@ -17755,7 +17858,7 @@ elif page == 'RISK SHIELD':
                                                  else "<span style='color:var(--bear-rule)'>no target leg</span>")
                                         _mstxt = (f"SL ₹{_ms:,.2f}" if _ms is not None
                                                   else "<span style='color:var(--bear-rule)'>no SL leg</span>")
-                                        _mcol = "#A7F3D0" if _oi == 0 else "var(--bull-rule)"
+                                        _mcol = "var(--bull-rule)" if _oi == 0 else "var(--bull-rule)"
                                         _mwt = 700 if _oi == 0 else 600
                                         _msingle = str(_o.get("order_type") or "").upper() == "SINGLE"
                                         if _msingle:
@@ -18102,7 +18205,7 @@ elif page == 'RISK SHIELD':
                                                 # close and the trail simply looked absent (Jay: "the TSL bar
                                                 # is missing from the stock tile timeline"). Own colour, wider,
                                                 # taller, and drawn with a z-index so it can never be buried.
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-9px;width:5px;height:26px;background:#22D3EE;border-radius:2px;transform:translateX(-50%);box-shadow:0 0 6px rgba(34,211,238,0.9);z-index:5;" title="TSL / Chandelier ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-9px;width:5px;height:26px;background:var(--acc);border-radius:2px;transform:translateX(-50%);box-shadow:0 0 6px rgba(34,211,238,0.9);z-index:5;" title="TSL / Chandelier ₹{chandelier:,.2f}"></div>'
                                                 # #18 (24-Aug-2026, Jay: "show the price on the TSL curve").
                                                 # The level was only in the hover title, so the trail's actual
                                                 # number needed a mouse to read - and the whole point of the
@@ -18111,7 +18214,7 @@ elif page == 'RISK SHIELD':
                                                 # marker glyphs above it, and rounds to whole rupees because
                                                 # two decimals at 9px is unreadable and the paise never matter
                                                 # for a stop level.
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:20px;transform:translateX(-50%);font-size:9px;font-weight:700;color:#22D3EE;white-space:nowrap;letter-spacing:.02em;z-index:5;">&#8377;{chandelier:,.0f}</div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:20px;transform:translateX(-50%);font-size:9px;font-weight:700;color:var(--acc);white-space:nowrap;letter-spacing:.02em;z-index:5;">&#8377;{chandelier:,.0f}</div>'
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
@@ -18141,7 +18244,7 @@ elif page == 'RISK SHIELD':
                                                 t2_pos = (rec_t2 - bar_min) / bar_range * 100
                                                 markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                                 
-                                            progress_bar_html = f'<div style="width:100%;background:var(--ink-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            progress_bar_html = f'<div style="width:100%;background: var(--surface-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
 
                                     # Trail SL recommendation
                                     reco_parts = []
@@ -18158,7 +18261,7 @@ elif page == 'RISK SHIELD':
                                     reco_str = " · ".join(reco_parts) if reco_parts else "✅ Position in range"
 
                                     status_color = "var(--bear)" if min_sl_dist is not None and min_sl_dist <= 3.0 else "var(--warn)" if min_sl_dist is not None and min_sl_dist <= 5.0 else "var(--bull)"
-                                    reco_color = "#F87171" if min_sl_dist is not None and min_sl_dist <= 3.0 else "#FBBF24" if min_sl_dist is not None and min_sl_dist <= 5.0 else "#34D399"
+                                    reco_color = "#F87171" if min_sl_dist is not None and min_sl_dist <= 3.0 else "var(--warn)" if min_sl_dist is not None and min_sl_dist <= 5.0 else "var(--bull)"
 
                                     ai_key = f"ai_exit_review_{sym}"
                                     trade_style_badge = _rs_type_badge(tt_label, _tt_src)
@@ -18168,10 +18271,10 @@ elif page == 'RISK SHIELD':
 
                                     r_color = "var(--bull)" if r_multiple > 0 else "var(--bear)" if r_multiple < 0 else "var(--faint)"
                                     card_html = (
-                                        f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-left:4px solid {status_color};border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
+                                        f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-left:4px solid {status_color};border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
                                         f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.3rem;font-weight:800;color:var(--surface-2);vertical-align:middle;font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>'
+                                        f'<div><span style="font-size:1.3rem;font-weight:800;color: var(--ink-2);vertical-align:middle;font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>'
                                         f'{trade_style_badge}'
                                         f'<span style="font-size:0.8rem;color:var(--faint);margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
                                         f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.78rem;color:var(--faint);">'
@@ -18267,7 +18370,7 @@ elif page == 'RISK SHIELD':
                                         elif _class == "REDUCE":
                                             _flags.append("<span style='background:var(--acc-bg);color:var(--acc);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid var(--acc);'>◐ REDUCE</span>")
                                         elif _class == "ADD":
-                                            _flags.append("<span style='background:var(--bull-bg);color:var(--bull);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #4ade80;'>▲ ADD</span>")
+                                            _flags.append("<span style='background:var(--bull-bg);color:var(--bull);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
                                         else:  # HOLD
                                             _flags.append("<span style='background:var(--surface-2);color:var(--ink-2);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                         
@@ -18411,7 +18514,7 @@ elif page == 'RISK SHIELD':
                                             t2_pos = (rec_t2 - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                             
-                                        pb_html = f'<div style="width:100%;background:var(--ink-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        pb_html = f'<div style="width:100%;background: var(--surface-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
                                         badge_html = _rs_type_badge(tt_label, _tt_src)
                                         
@@ -18450,7 +18553,7 @@ elif page == 'RISK SHIELD':
                                             markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
-                                        pb_html = f'<div style="width:100%;background:var(--ink-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        pb_html = f'<div style="width:100%;background: var(--surface-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;color:var(--faint);">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_unprotected_review_{sym}"
@@ -18467,17 +18570,17 @@ elif page == 'RISK SHIELD':
                                     elif _class == "TRIM":
                                         _flags.append("<span style='background:#451A1A;color:var(--warn);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid #78350F;'>✂️ TRIM</span>")
                                     elif _class == "REDUCE":
-                                        _flags.append("<span style='background:var(--ink);color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
+                                        _flags.append("<span style='background: var(--surface-3);color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
                                     elif _class == "ADD":
-                                        _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
+                                        _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
                                     else:  # HOLD
-                                        _flags.append("<span style='background:var(--ink-2);color:var(--faint);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
+                                        _flags.append("<span style='background: var(--surface-2);color:var(--faint);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
                                     
                                     if _tech:
-                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#064E3B;color:#34D399;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
+                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
                                         elif _tech.get("vol_climax"): _flags.append("<span style='background:var(--bear);color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
-                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#78350F;color:#FBBF24;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
-                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background:var(--ink-2);color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
+                                        if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#78350F;color:var(--warn);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
+                                        if _tech.get("chandelier_exit"): _flags.append(f"<span style='background: var(--surface-2);color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
                                     if _flags: flags_html = f"<div style='margin-bottom:8px;'>{''.join(_flags)}</div>"
                                         
                                     reason_line = f"<div style='font-size:0.78rem;margin-top:6px;color:var(--warn);font-weight:600;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
@@ -18485,7 +18588,7 @@ elif page == 'RISK SHIELD':
                                         f'<div style="background:linear-gradient(145deg, #2D1517 0%, #1F1315 100%);border:1.5px solid #7F1D1D;border-left:4px solid var(--bear);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
                                         f'{expand_btn}'
                                         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                                        f'<div><span style="font-size:1.3rem;font-weight:800;color:var(--surface-2);font-family:Rajdhani,sans-serif;letter-spacing:0.5px;vertical-align:middle;">{sym}</span>{badge_html}'
+                                        f'<div><span style="font-size:1.3rem;font-weight:800;color: var(--ink-2);font-family:Rajdhani,sans-serif;letter-spacing:0.5px;vertical-align:middle;">{sym}</span>{badge_html}'
                                         f' <span style="font-size:0.8rem;color:#F87171;font-weight:800;margin-left:8px;">⚠️ NO SL</span></div>'
                                         f'<div style="font-size:0.8rem;color:var(--faint);padding-right:20px;">Qty: {qty}</div></div>'
                                         f'{flags_html}'
@@ -18586,8 +18689,8 @@ elif page == 'RISK SHIELD':
                                     trade_style_badge = _rs_type_badge(rs_trade_type.get(sym, (None, "UNKNOWN"))[1])
 
                                     card = (
-                                        f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-left:4px solid {border};border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
-                                        f'<span style="font-size:1.3rem;font-weight:800;color:var(--surface-2);font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>{trade_style_badge}'
+                                        f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-left:4px solid {border};border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:left;">'
+                                        f'<span style="font-size:1.3rem;font-weight:800;color: var(--ink-2);font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>{trade_style_badge}'
                                         f' <span style="font-size:0.8rem;color:var(--faint);">Qty: {b["qty"]}</span>{kind_html}'
                                         f'{pb_html}'
                                         f'<div style="font-size:0.82rem;color:var(--rule);margin-top:6px;line-height:1.6;">'
@@ -18615,7 +18718,7 @@ elif page == 'RISK SHIELD':
                         risk_grade_color = "var(--bear)"
 
                     st.markdown(
-                        f'<div style="background:linear-gradient(145deg, var(--ink) 0%, var(--ink-2) 100%);border:1.5px solid var(--ink-2);border-top:4px solid {risk_grade_color};border-radius:12px;padding:20px;text-align:center;margin-bottom:18px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">'
+                        f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid {risk_grade_color};border-radius:12px;padding:20px;text-align:center;margin-bottom:18px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">'
                         f'<div style="font-size:0.78rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Total Open Heat & Risk Grade</div>'
                         f'<div style="color:{risk_grade_color};font-size:2.2rem;font-weight:900;margin-top:6px;font-family:JetBrains Mono;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
                         f'<div style="font-size:0.85rem;color:var(--rule);margin-top:8px;line-height:1.5;">'
