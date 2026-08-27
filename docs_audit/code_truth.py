@@ -122,6 +122,38 @@ F["bind_map_entries"] = re.findall(r'\["v67",\s*"(s4_\w+)"\]', read("tv_bind_s4_
 # ── catalyst families the screener can emit ───────────────────────────────────
 F["catalysts"] = sorted(set(re.findall(r'"(POS-[A-Z]+|SWG-[A-Z]+|REV-[A-Z]+|WYC-[A-Z]+)"', bs)))
 
+# ── cross-module numbers that disagree, and must not drift further ────────────
+# Found during the 27-Aug audit. Each is a case where two modules answer the same
+# question, so a change to ONE of them is exactly what nobody notices.
+rs_py = read("recovery_screener.py")
+
+# the recovery screener plans T1 off a hardcoded R multiple; the exit policy that
+# governs the same family plans 3R. Doc 09 documents the gap -- watch both numbers.
+F["rev_screener_t1_r"] = first(r"risk \* ([\d.]+)", rs_py)
+# read from source, not by import: code_truth must run from anywhere and must
+# never trigger a module's import-time side effects.
+F["rev_canon_t1_r"] = first(r"POS_T1_R\s*=\s*float\([^,]+,\s*'([\d.]+)'\)", bs)
+
+# the fundamental gate Doc 09 reports as 5 of 6
+F["rff_min_score"] = first(r'"rff_min_score"\s*:\s*(\d+)', rs_py)
+
+# "beaten down" is measured against two different highs (Doc 25* band collision)
+F["cb_lookback_high_days"] = first(r'"cb_lookback_high_days"\s*:\s*(\d+)', rs_py)
+F["cb_drawdown_band"] = "%s-%s" % (first(r'"cb_drawdown_pct"\s*:\s*([\d.]+)', rs_py),
+                                   first(r'"cb_drawdown_max_pct"\s*:\s*([\d.]+)', rs_py))
+F["stock_correction_min"] = first(r'"min_stock_correction_pct"\s*:\s*([\d.]+)', rs_py)
+
+# one sectors.db, two generated Pine artefacts (Doc 21)
+try:
+    import sqlite3
+    F["sector_db_rows"] = sqlite3.connect("sectors.db").execute(
+        "select count(*) from stock_sector").fetchone()[0]
+except Exception:
+    F["sector_db_rows"] = None
+
+# Structure Health's upper bands are unreachable (Docs 02 + 15)
+F["choch_window"] = first(r"CHOCH_WINDOW\s*=\s*(\d+)", read("wcl_context.py"))
+
 out = os.path.join(ROOT, "docs_audit", "code_truth.json")
 io.open(out, "w", encoding="utf-8").write(json.dumps(F, indent=2, ensure_ascii=False))
 for k, v in F.items():

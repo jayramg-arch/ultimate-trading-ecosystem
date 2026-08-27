@@ -150,6 +150,18 @@ LOCAL = {
     "50a2b6ce": "04_footprint.html",
     "886ba1e4": "18_trade_funnel.html",
     "577f5e2e": "24_pretrade_gate.html",
+    "22d57e0f": "26_operating_loop.html",
+    "33787741": "bible.html",
+    "b733f279": "19_performance_ledger.html",
+    "b6b75a40": "07_mission_control.html",
+    "ae4e28ea": "09_quality_on_sale.html",
+    "5144c644": "21_rs_autosector.html",
+    "48fa58a2": "25s_scanner_filter_map.html",
+    "259f16cd": "01_structure_engine.html",
+    "d6b98046": "02_wyckoff.html",
+    "5613c1cc": "03_volume_profile.html",
+    "79c4e8aa": "20_markup_engine.html",
+    "d52f6dcd": "15_context_layers.html",
 }
 
 

@@ -1,0 +1,655 @@
+<title>Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@600;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Karla:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#F2F1EF; --surface:#FFFFFF; --surface-2:#FAF9F7; --surface-3:#ECEAE6;
+  --ink:#15130F; --ink-2:#3D3931; --muted:#6C665C; --faint:#9B958A;
+  --rule:#DAD6CE; --rule-soft:#E8E5DE;
+  --acc:#B4551A; --acc-bg:#FBEDE1; --acc-rule:#E5BC97;
+  --ok:#186B4F; --ok-bg:#E3F0EA; --ok-rule:#9CC7B5;
+  --bad:#A8342A; --bad-bg:#FAE9E7; --bad-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Chivo','Helvetica Neue',Arial,sans-serif;
+  --body:'Karla','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131210; --surface:#1A1815; --surface-2:#201E1A; --surface-3:#282520;
+    --ink:#EEEBE5; --ink-2:#C6C1B8; --muted:#928C82; --faint:#6D675E;
+    --rule:#2F2C26; --rule-soft:#26231E;
+    --acc:#F0985A; --acc-bg:#331F0F; --acc-rule:#6B4526;
+    --ok:#38B48A; --ok-bg:#0F2C22; --ok-rule:#1F5544;
+    --bad:#EF6E60; --bad-bg:#331A17; --bad-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131210; --surface:#1A1815; --surface-2:#201E1A; --surface-3:#282520;
+  --ink:#EEEBE5; --ink-2:#C6C1B8; --muted:#928C82; --faint:#6D675E;
+  --rule:#2F2C26; --rule-soft:#26231E;
+  --acc:#F0985A; --acc-bg:#331F0F; --acc-rule:#6B4526;
+  --ok:#38B48A; --ok-bg:#0F2C22; --ok-rule:#1F5544;
+  --bad:#EF6E60; --bad-bg:#331A17; --bad-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.64;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1160px;margin:0 auto;padding:50px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:900;font-size:clamp(38px,6vw,62px);line-height:1;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17.5px;color:var(--ink-2);max-width:64ch;margin:16px 0 0}
+.counts{display:flex;flex-wrap:wrap;gap:28px;margin:26px 0 0;padding-top:20px;
+  border-top:1px solid var(--rule-soft)}
+.count b{font-family:var(--disp);font-size:25px;font-weight:900;color:var(--ink);display:block;
+  line-height:1;font-variant-numeric:tabular-nums}
+.count span{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-top:7px}
+
+.cols{display:grid;grid-template-columns:196px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:22px;align-self:start;max-height:calc(100vh - 44px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 11px;font-weight:600}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11.5px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:7px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:700;font-size:clamp(24px,3.1vw,32px);line-height:1.13;
+  letter-spacing:-.024em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.014em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:72ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:72ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.warn{border-left-color:var(--bad);background:var(--bad-bg);border-color:var(--bad-rule)}
+.note.good{border-left-color:var(--ok);background:var(--ok-bg);border-color:var(--ok-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.warn .tag{color:var(--bad)} .note.good .tag{color:var(--ok)}
+.note p:last-child{margin-bottom:0}
+
+/* the nav map — six groups ordered by WHEN in the day you use them */
+.groups{display:flex;flex-direction:column;gap:0;border:1px solid var(--rule);border-radius:3px;
+  overflow:hidden;background:var(--surface);margin:0 0 18px}
+.grp{display:grid;grid-template-columns:186px minmax(0,1fr);border-bottom:1px solid var(--rule)}
+.grp:last-child{border-bottom:none}
+.grp .hd{background:var(--surface-2);border-right:1px solid var(--rule);padding:16px 17px}
+.grp .hd .t{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.01em;
+  margin:0 0 5px;color:var(--ink)}
+.grp .hd .w{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--acc);margin:0;font-weight:600}
+.grp .pgs{padding:6px 0}
+.pg{display:grid;grid-template-columns:132px minmax(0,1fr);gap:14px;padding:8px 17px;
+  align-items:baseline}
+.pg .n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap}
+.pg .j{font-size:14.5px;color:var(--ink-2)}
+
+
+/* collapsible reference — folded, never dropped */
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+.stack{counter-reset:st;list-style:none;padding:0;margin:0 0 18px;max-width:none}
+.stack li{counter-increment:st;display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;
+  padding:13px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
+.stack li:last-child{border-bottom:none}
+.stack li::before{content:counter(st);font-family:var(--mono);font-size:12px;font-weight:700;
+  color:var(--acc);padding-top:3px}
+.stack b{color:var(--ink)}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1160px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .grp{grid-template-columns:1fr}
+  .grp .hd{border-right:none;border-bottom:1px solid var(--rule-soft)}
+  .pg{grid-template-columns:1fr;gap:2px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Doc 07 · The live system</p>
+    <h1>Mission Control</h1>
+    <p class="dek">The operator console — eighteen pages in six groups, deliberately arranged
+    <b>by when in your day you use them</b>. A thin local UI over about fifty-five modules that do
+    the actual work.</p>
+    <div class="counts">
+      <div class="count"><b>18</b><span>Pages</span></div>
+      <div class="count"><b>6</b><span>Groups</span></div>
+      <div class="count"><b>1</b><span>Operator, no login</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#shell">The shell</a></li>
+    <li><a href="#map">The navigation map</a></li>
+    <li><a href="#order">The reading order</a></li>
+    <li><a href="#stack">The decision stack</a></li>
+    <li><a href="#fields">Reading the fields</a></li>
+    <li><a href="#catalyst">Catalyst → style</a></li>
+    <li><a href="#dash">The Dashboard</a></li>
+    <li><a href="#command">The Command Center</a></li>
+    <li><a href="#flows">Workflows</a></li>
+    <li><a href="#pages">Every page in detail</a></li>
+    <li><a href="#ops">Operating notes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="shell">
+  <h2><span class="n">01</span>The shell</h2>
+  <pre>streamlit run weinstein_commander_web_v4.0.py    →    http://localhost:8501</pre>
+  <p>A <b>single-operator local app</b> — no login, no multi-user state. Keep it running through
+  the trading day.</p>
+
+  <h4>The status bar, pinned above every page</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>How to read it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">System status</td><td><code>AUTH EXPIRED</code> means the broker token died — <b>they expire daily</b>. Live book, GTT view and order entry are dead until you repaste it</td></tr>
+      <tr><td class="k">India VIX</td><td>Under 13 complacent · 13–16 normal · 16–20 caution · over 20 fear. <b>Sizing shrinks as VIX rises</b></td></tr>
+      <tr><td class="k">FII flow</td><td>Latest foreign net. <b>The single most important daily flow number for this market</b></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note good">
+    <span class="tag">What still works without a broker token</span>
+    <p><b>Every screener and analysis page.</b> They run on market data, not the broker. Only the
+    portfolio vitals, GTT view and order surfaces need the token — so an expired token costs you
+    execution, never research.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">Two button styles, and the difference matters</span>
+    <p><b>Launcher buttons</b> fire a backend script <em>in a separate console</em>. The page does
+    not block and will not tell you when it finished — watch the spawned console, then come back
+    and refresh. <b>Inline actions</b> run inside the page with a progress bar.</p>
+  </div>
+</section>
+
+<section id="map">
+  <h2><span class="n">02</span>The navigation map</h2>
+  <p>The grouping is not alphabetical or by module — it follows the clock.</p>
+  <div class="groups">
+
+    <div class="grp"><div class="hd"><p class="t">🎛️ Control Centre</p><p class="w">What you own, right now</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">DASHBOARD</span><span class="j">Your open book — health vitals, live P&amp;L, exit scan, correlation risk</span></div>
+        <div class="pg"><span class="n">PORTFOLIO</span><span class="j">Factor exposure, value-at-risk, stress tests</span></div>
+        <div class="pg"><span class="n">COMMAND</span><span class="j">Trade management — exit and trail engines, GTT book, alerts, agents</span></div>
+        <div class="pg"><span class="n">RISK SHIELD</span><span class="j">Position-by-position stop management, and the pyramid / trim ladder</span></div>
+        <div class="pg"><span class="n">ACTION CENTER</span><span class="j">Everything pending that wants a decision, in one list</span></div>
+      </div></div>
+
+    <div class="grp"><div class="hd"><p class="t">🩺 State of Market</p><p class="w">First, always</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">MACRO</span><span class="j">Global risk, VIX, currencies, commodities, sector rotation</span></div>
+        <div class="pg"><span class="n">BREADTH</span><span class="j">Index internals — regime score, advance/decline, McClellan, stage map</span></div>
+        <div class="pg"><span class="n">NEWS</span><span class="j">Live feeds plus paid analyst recommendations, filterable per stock</span></div>
+      </div></div>
+
+    <div class="grp"><div class="hd"><p class="t">📅 Daily Intel</p><p class="w">Before the open · after the close</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">PRE-MARKET</span><span class="j">Overnight pulse, calendar, options positioning, the AI brief</span></div>
+        <div class="pg"><span class="n">POST-MARKET</span><span class="j">EOD summary, provisional flows, top movers</span></div>
+      </div></div>
+
+    <div class="grp"><div class="hd"><p class="t">🔍 Discovery</p><p class="w">Finding candidates</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">HUNTER</span><span class="j">The screening engine — bull, recovery, matcher, batch X-ray</span></div>
+        <div class="pg"><span class="n">WATCHLIST</span><span class="j">Generate and sync lists, smart rank, sector database, track record</span></div>
+        <div class="pg"><span class="n">X-RAY</span><span class="j">Single-stock fundamental deep dive with scorecards</span></div>
+        <div class="pg"><span class="n">ETF</span><span class="j">Rotation, asset-class regime, liquidity scoring</span></div>
+      </div></div>
+
+    <div class="grp"><div class="hd"><p class="t">⚡ Execution</p><p class="w">Live, during the session</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">GOLDEN MATCHER</span><span class="j">The trigger board and the single-symbol decision path — where the day's shortlist is armed</span></div>
+        <div class="pg"><span class="n">OPTIONS</span><span class="j">Live chain — put-call ratio, max pain, open interest, volatility skew</span></div>
+        <div class="pg"><span class="n">TV SIDECAR</span><span class="j">Quick quote, key levels and a small chart beside your real chart</span></div>
+      </div></div>
+
+    <div class="grp"><div class="hd"><p class="t">🔬 Analysis</p><p class="w">Evenings and weekends</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">AUTOPSY</span><span class="j">Closed-trade post-mortem and performance attribution</span></div>
+        <div class="pg"><span class="n">BACKTEST</span><span class="j">Forward-return analysis of screener signals</span></div>
+        <div class="pg"><span class="n">AI LAB</span><span class="j">Pre-flight scoring, analysis, auto-pilot, weekly report</span></div>
+      </div></div>
+
+    <div class="grp"><div class="hd"><p class="t">📁 Records</p><p class="w">The permanent record</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">JOURNAL</span><span class="j">The full trade journal</span></div>
+      </div></div>
+
+  </div>
+  <div class="note">
+    <span class="tag">Two pages that are not where you would look for them</span>
+    <p><b>There is no PYRAMID page.</b> The add / trim / reduce ladder is computed inside
+    <b>RISK SHIELD</b>, which is the right place for it — an add is a decision about a position
+    you already hold, and it has to be read next to that position's stop, not on a screen of its
+    own.</p>
+    <p><b>GOLDEN MATCHER sits under Execution, not Discovery</b>, and the distinction is the
+    whole architecture: <em>the watchlists qualify, the board times</em>. By the time a name
+    reaches the board it has already been chosen. What is left is when.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">The sidebar's one-click button</span>
+    <p><b>Run Auto-Pilot</b> fires the whole daily pipeline — scanners, fundamentals, matcher,
+    watchlist sync. It runs in a <em>separate console</em> and takes several minutes. This is the
+    button that makes tomorrow's shortlist.</p>
+  </div>
+</section>
+
+<section id="order">
+  <h2><span class="n">03</span>The reading order</h2>
+  <p class="dek" style="font-size:19px;border-left:2px solid var(--acc);padding-left:18px;margin:0 0 16px">
+  State of Market → Pre-market → Dashboard → Discovery → Execution.
+  <b>Never trade against the tape.</b></p>
+  <p>Analysis pages are for evenings and weekends, not for the middle of a session. The order
+  exists because each stage can <em>end</em> the day's hunting: a risk-off tape means bull
+  breakouts are low-probability regardless of what any individual chart looks like.</p>
+</section>
+
+<section id="stack">
+  <h2><span class="n">04</span>The decision stack</h2>
+  <p>The same DNA surfaces everywhere: <b>Stage → RS → volatility → alpha → risk</b>. Read in that
+  order, top down.</p>
+  <ol class="stack">
+    <li><span><b>Tape.</b> Is the regime risk-on? Is breadth improving? If risk-off, only recovery
+    setups earn a look.</span></li>
+    <li><span><b>Sector.</b> Hunt only where the sector is leading or improving. <b>Skip a stock in
+    a lagging sector regardless of its own chart.</b></span></li>
+    <li><span><b>Catalyst.</b> Match the catalyst to your intended style — the map is below, and
+    the catalyst <em>is</em> the horizon.</span></li>
+    <li><span><b>Quality.</b> The fundamental scorecards confirm the backbone; the recovery gate is
+    a hard floor, not a preference.</span></li>
+    <li><span><b>Location and trigger.</b> Price at a fresh demand zone, then a <em>closed</em>
+    trigger bar. <b>Never buy at the zone on the touch</b> — this is the single most expensive
+    habit the whole system is built to prevent.</span></li>
+    <li><span><b>Risk.</b> Size off ATR so risk is a fixed share of capital, and place the
+    protective order the same evening.</span></li>
+  </ol>
+</section>
+
+<section id="fields">
+  <h2><span class="n">05</span>Reading the key fields</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Weinstein stage</td><td>1 basing → <b>2 advancing, the only stage you buy</b> → 3 topping → 4 declining. The exit scan flags stage decay on open positions</td></tr>
+      <tr><td class="k">Mansfield RS</td><td>Above zero and rising means outperforming. The primary ranking input — and <b>RS fading on an open position is an early exit tell</b></td></tr>
+      <tr><td class="k">Alpha score</td><td>Composite of stage, RS, volatility and catalyst. Rank candidates by this</td></tr>
+      <tr><td class="k">RRG quadrant</td><td>Leading beats improving beats weakening beats lagging, for new longs</td></tr>
+      <tr><td class="k">Stop in ATR</td><td>How many ATRs your stop sits below price — keeps stops volatility-normalised rather than a flat percentage</td></tr>
+      <tr><td class="k">Recovery fundamental score</td><td>The backbone of a beaten-down name. A <b>hard floor</b> — quality on sale, not falling knives</td></tr>
+      <tr><td class="k">Diversification &amp; shadow concentration</td><td>If secretly-correlated pairs appear, <b>your effective position count is smaller than it looks.</b> Trim before adding another correlated name</td></tr>
+      <tr><td class="k">Value at risk</td><td>What a bad day costs. Sanity-check it against your risk budget, not against your hopes</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="catalyst">
+  <h2><span class="n">06</span>Catalyst → trade style</h2>
+  <p>The catalyst decides the horizon. It is not a preference you apply afterwards.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Catalyst</th><th>Style</th><th>Horizon</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-BO</td><td>Positional</td><td class="num">6–8 mo</td><td><b>The core validated edge.</b> Wide stop — let it breathe</td></tr>
+      <tr><td class="k">POS-AC</td><td>Positional</td><td class="num">6–8 mo</td><td>The institutional footprint before the move</td></tr>
+      <tr><td class="k">SWG-PB</td><td>Swing</td><td class="num">8–12 wk</td><td><b>Confirmed up-trends only</b> — strongly regime-sensitive</td></tr>
+      <tr><td class="k">SWG-BO</td><td>Swing</td><td class="num">8–12 wk</td><td>Tight stop; respect the pivot</td></tr>
+      <tr><td class="k">SWG-REV</td><td>Swing</td><td class="num">days–wks</td><td>Counter-trend. <b>Smallest size</b></td></tr>
+      <tr><td class="k">GAP-GO</td><td>Swing</td><td class="num">short</td><td>Needs both the volume surge and the strong close</td></tr>
+      <tr><td class="k">REV-*</td><td>Recovery</td><td class="num">90–180 d</td><td>Only in a risk-off or recovering tape. The fundamental gate is mandatory</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note good">
+    <span class="tag">The lesson baked into the system</span>
+    <p><b>The signals find edge; tight stops on long holds give it back.</b> Match stop width to
+    the catalyst's horizon, and judge results <b>per family, never pooled</b>.</p>
+  </div>
+</section>
+
+<section id="dash">
+  <h2><span class="n">07</span>The Dashboard — your open book</h2>
+  <p>No tabs; a single stacked read of what you actually hold.</p>
+  <ul>
+    <li><b>Health vitals</b> — unrealised P&amp;L, return on deployed capital, current value, win
+    rate, average gain and loss, reward-to-risk.</li>
+    <li><b>Exit signal scan</b> — checks stop proximity, R-multiple, <b>stage decay</b> and
+    <b>fading relative strength</b> across open positions, and separates the ones needing action
+    from the healthy. Regime-aware.</li>
+    <li><b>Closed-trade performance</b> — Sharpe, Sortino, max drawdown, profit factor,
+    expectancy.</li>
+    <li><b>Active positions</b> — with a stop-status column that reads <b>locked</b> when the stop
+    sits above entry, <b>breached</b> when it doesn't, and the distance otherwise.</li>
+    <li><b>Correlation risk</b> — the diversification score and any <b>shadow-concentration</b>
+    pairs.</li>
+  </ul>
+  <div class="note warn">
+    <span class="tag">The tile worth acting on</span>
+    <p><b>Shadow concentration</b> is the one most people ignore. Two positions that look like
+    diversification while moving together mean your real exposure is roughly one position of
+    double the size — and you will only discover that on the day it matters.</p>
+  </div>
+</section>
+
+<section id="command">
+  <h2><span class="n">08</span>The Command Center — live management</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Tab</th><th>What lives there</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Active Ops</td><td>The live agents — order execution, the <b>stop auto-shield</b> that pushes journal-derived stops to the broker, mobile monitoring, the intraday scanner, and the webhook gateway. Plus inline engines: exit scan, trailing-stop, and the rotation guard that grades every open position</td></tr>
+      <tr><td class="k">Ledger</td><td>The live trade ledger, and the sync that pushes it into the chart's portfolio slots</td></tr>
+      <tr><td class="k">Price Alerts</td><td>Add, pause, remove; check prices on demand; fired history</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">A launcher that spawns a dead script tells you nothing</span>
+    <p>These buttons fire scripts in separate consoles. If one has crashed at launch — a missing
+    dependency, an expired token — <b>the page still shows a successful click</b>. When an agent
+    seems to have stopped working, check its log rather than the button. One of these ran dead for
+    weeks before anyone noticed.</p>
+  </div>
+</section>
+
+<section id="flows">
+  <h2><span class="n">09</span>Workflows</h2>
+
+  <h3>Swing — 8 to 12 weeks</h3>
+  <ol class="stack">
+    <li><span><b>Tape check.</b> Proceed only if risk-on or neutral.</span></li>
+    <li><span><b>Fresh lists</b> from the auto-pilot.</span></li>
+    <li><span><b>Screen</b> for the swing catalysts and sort by score.</span></li>
+    <li><span><b>Sector gate</b> — drop anything whose sector is not leading or improving.</span></li>
+    <li><span><b>Quality</b> on the top few names only.</span></li>
+    <li><span><b>Location and trigger</b> on the real chart. <b>Wait for the closed bar.</b></span></li>
+    <li><span><b>Size and protect</b> — buy-stop above the trigger bar, never a limit at the zone. Protective order the same evening.</span></li>
+    <li><span><b>Manage</b> via the exit scan and trailing engine. Trail under structure; take partials into the target band.</span></li>
+  </ol>
+
+  <h3>Positional — 6 to 8 months</h3>
+  <ol class="stack">
+    <li><span><b>Regime and sector</b> — you want breadth improving and a sector in early leadership.</span></li>
+    <li><span><b>Hunt the core edge</b> — the positional catalysts, on the broad universe, ranked by alpha.</span></li>
+    <li><span><b>Stage confirm on the weekly chart.</b> A clean Stage 2, not a hopeful one.</span></li>
+    <li><span><b>Fundamental backbone</b> — reject weak balance sheets outright.</span></li>
+    <li><span><b>Entry</b> on the breakout or the first pullback, with a <b>wide stop</b> so ordinary volatility cannot shake you out.</span></li>
+    <li><span><b>Size</b> respecting that wide stop — which means a <em>smaller</em> share count, not a bigger risk.</span></li>
+    <li><span><b>Hold.</b> Review weekly. <b>Exit on stage confirmation or the trail — not on noise.</b></span></li>
+    <li><span><b>Rotate</b> when a position decays, freeing that capital into the highest-conviction candidate.</span></li>
+  </ol>
+
+  <h3>End of day and weekend</h3>
+  <p><b>EOD:</b> post-market → dashboard vitals → confirm protective orders are live → set
+  tomorrow's alerts. <b>Weekend:</b> autopsy what worked by catalyst and sector → check whether the
+  edge is holding → refresh the watchlists.</p>
+</section>
+
+<section id="pages">
+  <h2><span class="n">10</span>Every page, in detail</h2>
+  <p>Folded by group. This is the reference for <em>what is on this page and what each field
+  means</em> — the thing you open when a tab is unfamiliar or a number is unexpected.</p>
+
+  <details class="ref"><summary>🩺 State of Market — Macro · Breadth · News</summary><div class="rb">
+  <h4>Macro Radar</h4>
+  <ul>
+    <li><b>Overview</b> — a tile per instrument with its one-month change, a risk-on/risk-off read
+    of the complex, and a <b>12-month trend rebased to 100</b> so every series is comparable on one
+    axis.</li>
+    <li><b>Global Indices</b> — the full world board with change and 52-week range.</li>
+    <li><b>FII/DII Flows</b> — cumulative foreign against domestic flow over time.</li>
+    <li><b>Sector RRG</b> — rotation of the sector indices against the broad index. Leading,
+    improving, weakening, lagging. <b>This is the sector filter you apply before drilling to
+    stocks.</b> The rotation maths is locked and read-only.</li>
+  </ul>
+  <h4>Breadth Engine</h4>
+  <ul>
+    <li><b>Regime</b> — a single composite from breadth, advance/decline, McClellan and
+    percentage-above-averages. <b>This is your master gate</b>: it decides whether bull setups or
+    recovery setups are in season.</li>
+    <li><b>Overview</b> — percentage above the 50, 150 and 200-day averages (<b>the 200 is the big
+    one</b>), share of the universe in Stage 2, new highs against new lows, advance/decline and
+    high/low ratios.</li>
+    <li><b>Sectors</b> — each sector's stage tally, over a selectable lookback.</li>
+    <li><b>McClellan</b> — oscillator, summation index, a text verdict and the thrust reading.
+    <b>It warns when the data is more than a week stale</b>, which matters because a stale breadth
+    read looks exactly like a calm one.</li>
+    <li><b>Stage Map</b> — the full stage distribution across the universe.</li>
+  </ul>
+  <h4>News</h4>
+  <p>Headline counts split bullish / bearish / neutral with a net sentiment label. Three tabs: the
+  free feeds, <b>your paid analyst recommendations</b> (with a cookie-freshness indicator, because
+  an expired cookie fails quietly), and a per-symbol filter.</p>
+  </div></details>
+
+  <details class="ref"><summary>📅 Daily Intel — Pre-market · Dashboard · Post-market</summary><div class="rb">
+  <h4>Pre-market hub</h4>
+  <ul>
+    <li><b>Brief</b> — the <b>canonical</b> full briefing. The dashboard shows only a snippet of
+    this one.</li>
+    <li><b>Global</b> — the overnight pulse across equities, commodities, currencies and bonds.</li>
+    <li><b>Calendar</b> — economic and corporate events.</li>
+    <li><b>Options</b> — the pre-market snapshot: put-call ratios by open interest and volume, max
+    pain, at-the-money volatility, and the <b>call and put walls</b> — the strongest open-interest
+    strikes, which act as magnet and support.</li>
+    <li><b>Paid feed</b> — filtered to overnight and morning-brief headlines.</li>
+  </ul>
+  <h4>Dashboard — the open book</h4>
+  <p>No tabs, a single stacked read. Health vitals across eight tiles; the <b>exit signal scan</b>
+  checking stop proximity, R-multiple, <b>stage decay and fading relative strength</b>;
+  closed-trade performance; a heatmap sized by capital and coloured by return; active positions
+  with a stop-status column; and <b>correlation risk</b> with the diversification score and any
+  shadow-concentration pairs.</p>
+  <h4>Post-market</h4>
+  <p>The end-of-day summary, provisional institutional flows with five-day sums, top movers across
+  a selectable universe, and the paid feed filtered to closing-bell headlines.</p>
+  </div></details>
+
+  <details class="ref"><summary>🔍 Discovery — Hunter · Watchlist · X-Ray · ETF · Portfolio</summary><div class="rb">
+  <h4>Hunter — the screening workhorse, six tabs in workflow order</h4>
+  <ol>
+    <li><b>Scans</b> — launchers per strategy. Positional: stage-2 hunter and early accumulation.
+    Swing: pullback and strong leaders. Recovery: the three post-shock variants —
+    <b>use these only when the market is well off its high</b>.</li>
+    <li><b>Fundamentals</b> — fetch, then process. This produces the snapshot the matcher needs.</li>
+    <li><b>Golden Matcher</b> — combines the technical scans with fundamental conviction. Shows
+    freshness and <b>warns when the output is more than a day old</b>. Below it, the meta-ranking
+    concatenates all four files and ranks by conviction.</li>
+    <li><b>Bull Screener</b> — the Python port of the catalysts, pure price action. Pick a symbol
+    source (the combined picks, the broad universe which is <b>backtest-aligned</b>, the futures
+    basket, or an upload), then filter by catalyst and minimum score. Exports filtered CSV and a
+    symbol array for the chart. <b>Broad-universe runs are strict</b>; an upload keeps tracker
+    mode.</li>
+    <li><b>Recovery Screener</b> — hold-window aware, so it is safe to run post-market and at
+    weekends. Filter by signal type, minimum relative strength and <b>maximum signal age</b>. The
+    output carries the fundamental score, which is the hard gate.</li>
+    <li><b>X-Ray batch</b> — deep fundamentals across a list, filtered by overall rating and
+    quality score, with a single-symbol quick look at the top.</li>
+  </ol>
+  <h4>Watchlist — eight tabs</h4>
+  <p>Opens with the <b>latest pipeline output</b> and a <b>pipeline health panel that lets you
+  re-run a single broken phase</b> rather than the whole thing. Then: local generation and a
+  symbol-array generator; cloud sync and email dispatch; <b>smart rank</b>, which scores a symbol
+  source over a chosen lookback; the sector database with coverage and a lookup; the data cache
+  with its freshness and size; the pipeline phase report; <b>replay</b>, which asks what a screener
+  <em>would</em> have picked on a past date and how those picks did; and the <b>live track
+  record</b> of every pick logged.</p>
+  <h4>X-Ray — single stock, six tabs</h4>
+  <p>Snapshot (valuation, profitability, balance sheet), the income statement, quarterly results
+  with a trend chart, the <b>scorecard</b> carrying both quality scores, a multi-stock fundamental
+  screen, and news with corporate announcements and analyst consensus.</p>
+  <h4>ETF — a parallel pipeline</h4>
+  <p>Top picks, sector rotation on a composite relative strength, the asset-class regime detector
+  with an allocation view, and liquidity scoring. <b>Liquidity is the number-one ETF risk</b> —
+  a large share of listed ETFs trade too thin to exit cleanly.</p>
+  <h4>Portfolio analytics</h4>
+  <p>Overview and allocation; <b>risk metrics</b> — value at risk at a chosen confidence and
+  lookback, conditional VaR, annualised volatility, max drawdown, and factor exposure against the
+  index (beta, correlation, tracking error, alpha, Sharpe, Sortino); historical <b>stress
+  scenarios</b> replayed against your actual book; and a walk-forward stage-2 backtest with a
+  selectable rebalance and universe.</p>
+  </div></details>
+
+  <details class="ref"><summary>⚡ Execution — Command · Options · Sidecar</summary><div class="rb">
+  <h4>Command Center</h4>
+  <p><b>Active Ops</b> holds the live agents — order execution, the stop auto-shield that pushes
+  journal-derived stops to the broker, mobile monitoring, the intraday scanner, and the webhook
+  gateway that turns a chart alert into an order. Inline beside them: the exit scan, the trailing
+  engine, and the <b>rotation guard</b> that grades every open position.</p>
+  <p><b>Ledger</b> carries the live trade ledger and the sync that pushes it into the chart's
+  portfolio slots. <b>Price Alerts</b> is add, pause, remove, check-now, and fired history.</p>
+  <h4>Options Desk</h4>
+  <p>The live chain with a spot, put-call ratio and max-pain snapshot, a strike-range slider
+  driving open interest, change in open interest, volatility skew, and a near-the-money table.
+  Plus external links and a concepts reference.</p>
+  <h4>TV Sidecar</h4>
+  <p>A quote strip, <b>key technical levels</b> — price against each major average with distance,
+  the ten-day range, and ATR — and a multi-panel chart. A fast read-out to glance at while your
+  real chart is elsewhere.</p>
+  </div></details>
+
+  <details class="ref"><summary>🔬 Analysis — Autopsy · Backtest · AI Lab</summary><div class="rb">
+  <h4>Autopsy — five tabs</h4>
+  <ul>
+    <li><b>Overview</b> — trades, win rate, total realised, Sharpe, profit factor, expectancy, max
+    drawdown, average win and loss, holding-period analysis and the equity curve.</li>
+    <li><b>Calendar</b> — monthly profit and loss.</li>
+    <li><b>Sectors</b> — sector breakdown <em>and</em> coverage, so you can see which sectors you
+    have never traded at all.</li>
+    <li><b>Trade Quality</b> — the quality distribution and your win and loss streaks.</li>
+    <li><b>Attribution</b> — realised performance decomposed, with a <b>data-quality line</b>
+    stating what was excluded, what was quarantined as incomplete, and how much of the sample
+    carries an entry snapshot. Led by the <b>entry-signal drivers</b> — setup, stage, alpha,
+    relative strength, conviction. Reads the journal directly, no network.</li>
+  </ul>
+  <h4>Backtest lab</h4>
+  <p>Forward-return analysis of screener signals per holding horizon: win rate, average and median
+  return, best and worst, a breakdown by edge type, the return distribution, and
+  <b>return against signal age</b> — which is how you find out whether a stale signal is still
+  worth taking.</p>
+  <h4>AI Lab — four tabs</h4>
+  <p><b>Pre-flight</b> proposes a trade from a symbol, entry and risk, returning a grade, a score,
+  a suggested stop and a quantity — then can place the entry and its protective order together.
+  <b>Generative</b> covers stock analysis at selectable depth and a portfolio review.
+  <b>Workflows</b> holds the pipeline launcher and a sizing interface that computes quantity, trade
+  value, risk and targets before executing. <b>Weekly report</b> generates the week's summary.</p>
+  </div></details>
+
+  <details class="ref"><summary>📁 Records — the journal</summary><div class="rb">
+  <p>Launches the standalone journal app in its own window — the full trade journal with entry
+  snapshots. It is kept in step with your broker book by the scheduled daily sync, so
+  <b>the journal you open is already reconciled</b> rather than something you have to reconcile
+  first.</p>
+  <p class="refnote">A legacy fundamentals page still exists in the code but was absorbed into
+  X-Ray and is no longer in the sidebar.</p>
+  </div></details>
+
+  <details class="ref"><summary>The modules underneath — and how to use this list</summary><div class="rb">
+  <p>The app is a shell over roughly fifty-five modules in a few layers: <b>data and
+  infrastructure</b> (the provider, caching, the sector database), <b>broker, auth and
+  execution</b>, the <b>screening engines</b> that are the zero-drift core, the <b>analysis and
+  reporting</b> modules, and the <b>agents</b> that run on a schedule.</p>
+  <div class="note">
+    <p><b>Why this matters operationally:</b> almost nothing on a page computes a signal — pages
+    render what an engine produced. So when a number looks wrong, <b>the question is which engine
+    produced it</b>, and the answer is in that engine's own guide. It also means a page can look
+    healthy while the engine behind it has failed, which is exactly the launcher problem above.</p>
+  </div>
+  </div></details>
+</section>
+
+<section id="ops">
+  <h2><span class="n">11</span>Operating notes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Everything broker-related is dead</td><td>The token expired — they do, <b>daily</b>. Repaste in the sidebar, save, reload</td></tr>
+      <tr><td class="k">A code change had no effect</td><td>A browser reload does <b>not</b> reload Python. <b>Stop the server and relaunch</b> — and be sure it actually stopped, because the launcher forks a child that keeps holding the port</td></tr>
+      <tr><td class="k">A launcher seemed to do nothing</td><td>It runs in a separate console. Watch that console, then come back and refresh</td></tr>
+      <tr><td class="k">A page shows stale numbers</td><td>Most pages cache. Use the page's own refresh rather than reloading the browser</td></tr>
+      <tr><td class="k">A screener returns almost nothing</td><td>Often the fundamental join, not the signal — some lists lose most of their names to it. Check the count before concluding the market is empty</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">What this app is, structurally</span>
+    <p>A <b>thin UI shell</b> over about fifty-five modules. Almost nothing here computes a signal —
+    it renders what the engines produce. That is why a signal question is answered in the engine's
+    guide, not this one, and why the zero-drift rule lives with the owners rather than the
+    screens.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/07 · Weinstein Commander Web</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">The Commander Bible</a></span>
+</div></footer>

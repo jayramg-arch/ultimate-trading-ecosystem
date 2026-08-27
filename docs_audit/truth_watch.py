@@ -28,6 +28,21 @@ BASE = os.path.join(HERE, "truth_baseline.json")
 # Which page cites which fact. Kept by hand because it encodes a judgement -- "this
 # document would be WRONG if this value changed" -- that no scanner can infer.
 CITED_BY = {
+    # ── the 27-Aug cross-module pairs ──
+    # These are watched in PAIRS on purpose. Each is a number that two modules
+    # answer independently, so the failure mode is not "a value went stale" but
+    # "one of two values moved and the other did not". If either side of a pair
+    # moves, re-read BOTH pages before editing: the gap may have been closed, or
+    # it may have widened.
+    "rev_screener_t1_r": ["09 Quality on Sale", "18 Trade Funnel"],
+    "rev_canon_t1_r": ["09 Quality on Sale", "18 Trade Funnel", "10 Position Sizer"],
+    "rff_min_score": ["09 Quality on Sale", "25* Scanner Filter Map"],
+    "cb_lookback_high_days": ["09 Quality on Sale", "25* Scanner Filter Map"],
+    "cb_drawdown_band": ["09 Quality on Sale", "25* Scanner Filter Map"],
+    "stock_correction_min": ["09 Quality on Sale", "25* Scanner Filter Map"],
+    "sector_db_rows": ["21 RS / Auto-Sector"],
+    "choch_window": ["02 Wyckoff", "15 Context Layers"],
+
     "s4_title": ["22 Section Four"],
     "s4_core_import": ["22 Section Four"],
     "v67_title": ["08 Swing Pro Dashboard", "22 Section Four"],

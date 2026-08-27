@@ -1,0 +1,388 @@
+<title>GM + S4 Operating Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Process · GM + S4 ecosystem</p>
+    <h1>The Operating Loop</h1>
+    <p class="dek">The machine qualifies overnight, <b>you arm in the evening</b>, the alerts
+      watch the session, and you only open a chart when one fires. Everything on this page is
+      either automatic or one of two moments that need judgement.</p>
+  </div>
+</header>
+
+<div class="wrap"><main>
+
+<section>
+  <p class="pt">Foundation</p>
+  <h2>Four stages — and what never to ask each one</h2>
+  <p class="lede">Every surface answers exactly one question. Most of the confusion this
+    system has produced came from asking a surface something it was never built to answer.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Stage</th><th>Surface</th><th>Answers</th><th>Never ask for</th></tr></thead>
+    <tbody>
+      <tr><td class="n">QUALIFY</td><td>Chartink · Screener.in · Pullback Finder · Recovery RFF</td><td>Does this name belong on the list at all?</td><td class="n warn">timing</td></tr>
+      <tr><td class="n">TIME</td><td>GM Trigger Board</td><td>Which qualified names deserve attention right now?</td><td class="n warn">the plan</td></tr>
+      <tr><td class="n">EXECUTE</td><td>S4 on TradingView</td><td>Entry, stop, target — and is it worth taking?</td><td class="n warn">qualification</td></tr>
+      <tr><td class="n">MANAGE</td><td>Risk Shield · Pyramid · GTT</td><td>What do I do now that I own it?</td><td class="n warn">entries</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><span class="lbl">The two-stage doctrine inside that</span>
+    <p>The GM fires <b>early</b> — a name is <em>armed</em>. S4 is the <b>strict execution
+      gate</b> — a trade is <em>triggered</em>. They are deliberately not aligned. GM arms →
+      you focus → you wait for the S4 GO. Collapsing them would destroy the thing that makes
+      the shortlist useful.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">The daily loop</p>
+  <h2>A weekday, in order</h2>
+
+  <div class="tl">
+
+    <div class="ev">
+      <div class="clk">15:30</div>
+      <div class="bd">
+        <p class="t">Close<span class="who">— nothing to do</span></p>
+        <p class="d">The session's last bar closes; the 75m and 125m boundaries land together.</p>
+      </div>
+    </div>
+
+    <div class="ev off">
+      <div class="clk">15:45</div>
+      <div class="bd">
+        <p class="t">GTT Trail<span class="who">automatic</span></p>
+        <p class="d">Tighten-only Chandelier on the live OCO stop legs, catalyst-aware
+          (POS 4.5× / SWG 1.5× ATR). Telegrams a summary. Never loosens a stop, never sells.</p>
+        <p class="d"><b>Currently disarmed</b> (<span class="m">GTT_TRAIL_ENABLED=0</span>) while you
+          set stops by hand. Re-arm with a <span class="m">--dry-run</span> first.</p>
+      </div>
+    </div>
+
+    <div class="ev">
+      <div class="clk">16:00</div>
+      <div class="bd">
+        <p class="t">Exit Signal Scan<span class="who">automatic</span></p>
+        <p class="d">Checks the open book for stop hits, stage decay and time stops, and
+          Telegrams the ACTION rows.</p>
+      </div>
+    </div>
+
+    <div class="ev">
+      <div class="clk">16:30</div>
+      <div class="bd">
+        <p class="t">Auto-Pilot full run<span class="who">automatic</span></p>
+        <p class="d">Chartink scans → Screener.in fundamentals → Golden Matcher → Recovery
+          (RFF ≥ 4) → Bull screener → broad catalyst scan → Pullback Finder → <b>board union</b>
+          → watchlists → X-Ray → Strike &amp; TradingView sync (the dated watchlist) → backup,
+          rotation guard, exports.</p>
+        <p class="d">Alongside it: Post-Market Summary, and the journal ↔ Dhan sync — which
+          aborts rather than guess if the holdings fetch fails or comes back empty.</p>
+      </div>
+    </div>
+
+    <div class="ev you">
+      <div class="clk">evening</div>
+      <div class="bd">
+        <p class="t">Review and arm<span class="who">← you · ~15 min</span></p>
+        <p class="d">The one step that needs judgement. Everything else today is a machine or
+          a reaction to one.</p>
+        <ol class="mini">
+          <li><b>Restart clean.</b> <span class="m">STOP_COMMANDER.bat</span> → relaunch. A browser reload does not reload code.</li>
+          <li><b>Rebuild the board</b> — <em>Fetch fresh data + rebuild</em> (it rebuilds itself; don't also press Rebuild).</li>
+          <li><b>Read the header before the rows.</b> Failure counts, source-issue strip, provenance, AGE. An empty source list means part of the shortlist is silently missing.</li>
+          <li><b>Work top-down.</b> The board opens filtered to all-gates (4/4), sorted by Overall. Open Single Symbol on anything worth attention.</li>
+          <li><b>ARM what you intend to stalk.</b> The highest-value action of the evening — an armed name is injected into every later board union with the archetypes it had when armed, so it survives after it stops qualifying.</li>
+          <li><b>Create tomorrow's alert</b> on the new dated watchlist.</li>
+          <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="ev">
+      <div class="clk">08:00</div>
+      <div class="bd">
+        <p class="t">Dhan token check · pre-market brief<span class="who">automatic</span></p>
+        <p class="d">The token job matters more than it looks: without it the feed silently
+          falls back to yfinance.</p>
+      </div>
+    </div>
+
+    <div class="ev">
+      <div class="clk">09:15<br>–15:30</div>
+      <div class="bd">
+        <p class="t">The session<span class="who">— do not watch the board</span></p>
+        <p class="d">The board's auto-refresh is a browser timer: Chrome throttles it when the
+          tab is hidden, and it stops entirely if Streamlit is down or the Dhan stream drops.
+          It is not the layer to depend on intraday.</p>
+        <p class="d">TradingView alerts fire on TV's servers — laptop shut, app crashed, feed
+          down, the ping still arrives.</p>
+      </div>
+    </div>
+
+    <div class="ev you">
+      <div class="clk">on ping</div>
+      <div class="bd">
+        <p class="t">Execute<span class="who">← you</span></p>
+        <p class="d">The second moment that needs judgement — and it is only as good as the
+          arming was, because an armed name is one you have already thought about.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <p class="pt">Every evening</p>
+  <h2>The alert ritual</h2>
+  <p>The auto-pilot writes a <b>new, date-stamped</b> TradingView watchlist each evening, so
+    yesterday's alert points at yesterday's list by construction.</p>
+  <ol class="mini">
+    <li><b>Check the source-issue strip first.</b> On a thin auto-pilot day you would otherwise arm a near-empty watchlist and lose a day of coverage silently.</li>
+    <li><b>Delete yesterday's alert.</b> Left running it fires on names that already dropped out, and eats the alert quota.</li>
+    <li><b>Create today's</b> — condition <span class="m">S4 GO (PA + Location + Volume + Bar)</span>, trigger <b>Once Per Bar Close</b>, app push on, named to match the watchlist: <span class="m">S4 GO · GM-20AUG · 75m</span>.</li>
+    <li><b>Repeat on a 125m chart.</b> An alert inherits the chart's resolution, so each timeframe needs its own.</li>
+  </ol>
+  <div class="tw"><table>
+    <thead><tr><th>Timeframe</th><th>Bar closes</th></tr></thead>
+    <tbody>
+      <tr><td class="n">75m</td><td class="n">10:30 · 11:45 · 13:00 · 14:15 · 15:30</td></tr>
+      <tr><td class="n">125m</td><td class="n">11:20 · 13:25 · 15:30</td></tr>
+    </tbody>
+  </table></div>
+  <p>125m is not just "slower". Its first close is <b>11:20 — after the opening drive</b>,
+     whereas 75m's first close <em>is</em> the opening drive. It skips the noisiest bar of
+     the session by construction, at the cost of two fewer ping windows.</p>
+  <div class="note"><span class="lbl">Two pings, one setup</span>
+    <p>A name firing on both timeframes is <b>one setup seen twice</b>, not corroboration —
+       same engine, same gates, only the sampling rate differs. They share the 15:30 close, so
+       duplicates cluster there. Check the panel on the timeframe you intend to act on and
+       treat the other as an echo.</p>
+  </div>
+  <div class="note"><span class="lbl">Two things worth knowing</span>
+    <p>Recreating daily also refreshes the GM lists frozen into the alert at creation, so
+      pullback context never goes stale. And <b>every S4 recompile deletes all alerts</b> —
+      they bind to the compiled script id — so recreating after a compile is mandatory, not
+      housekeeping.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">On the ping</p>
+  <h2>The execution path</h2>
+<pre><b>ping</b>  →  open S4 on the alert's timeframe
+      →  read the <b>SUMMARY</b> (bottom-right column) first
+      →  run the <b>12-step checklist</b>, stop at the first NO
+      →  size at 1% risk on the <b>honest stop</b> (≥ 1×ATR)
+      →  place entry + GTT stop
+      →  <b>log the decision</b>, including a pass</pre>
+  <p><b>Read the SUMMARY before the rows.</b> It is the only field that weighs one section
+    against another, and its last line tells you which case you are in:</p>
+  <div class="tw"><table>
+    <thead><tr><th>The SUMMARY says</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="n">This is a take-it</td><td>Trend, leadership, location and geometry agree. Execute the plan as written.</td></tr>
+      <tr><td class="n">Setup sound,<br>plan is not</td><td><b>The most common case.</b> Fix the entry, the stop or the target — do not take the plan as printed.</td></tr>
+      <tr><td class="n">Context against it</td><td>Counter-trend. Legitimate only if you size it as one and take the first obstacle as the target.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><span class="lbl">The two prices you must know before entering</span>
+    <p><b>SL</b> is where you get out. <b>INVAL</b> is where the reason you bought stops being
+      true. If they are the same price, you have no room to be wrong — wait for a deeper entry.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">After the entry</p>
+  <h2>Management</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td class="n">Risk Shield → Active Exits</td><td>Live stop/target picture per position, with the Chandelier and the policy-R check.</td></tr>
+      <tr><td class="n">Pyramid / Trim</td><td>The five-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD.</td></tr>
+      <tr><td class="n">gtt_auto_shield --trail</td><td>Tighten-only trail at the broker, when re-armed.</td></tr>
+      <tr><td class="n">journal_sync</td><td>Keeps the journal equal to the live Dhan book, daily.</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>88% of positional exits come from the trail</b>, and only 8.4% ever reach 3R. Targets
+    are upside; the trail is the mechanism. Do not tighten it — four studies have rejected that.</p>
+</section>
+
+<section>
+  <p class="pt">Hygiene</p>
+  <h2>The nine things that fail silently</h2>
+  <p class="lede">Each of these has already cost a day or more. None of them announces itself.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Check</th><th>Symptom when it fails</th></tr></thead>
+    <tbody>
+      <tr><td>Streamlit actually restarted</td><td>"the fix didn't work" — old code still serving 8501</td></tr>
+      <tr><td>Board source lists non-empty</td><td>part of the shortlist silently missing</td></tr>
+      <tr><td>Data freshness</td><td>catalysts firing on dead bars</td></tr>
+      <tr><td>Alerts bound to the current script</td><td>looks healthy in the list, never fires</td></tr>
+      <tr><td>v67 source bindings after an S4 compile</td><td>context rows blank or wrong — re-run the bind script</td></tr>
+      <tr><td>Dhan token</td><td>feed quietly falls back to yfinance</td></tr>
+      <tr><td>GTT trail actually running</td><td>stops never ratchet</td></tr>
+      <tr><td>Every position has a resting stop</td><td>naked exposure</td></tr>
+      <tr><td class="n">Guides still match the code</td><td>you act on a number the code stopped producing weeks ago — the page reads fine, because nothing on it is marked wrong</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <p class="pt">Beyond the day</p>
+  <h2>Weekly and monthly</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Cadence</th><th>Do</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="n">Weekend</td><td>RRG / sector rotation; refresh the weekly reads</td><td>Weinstein is a weekly framework — the stage and RS that gate everything are weekly numbers</td></tr>
+      <tr><td class="n">Weekend</td><td>Review the decision log, including passes</td><td>After ~20 rows it can tell you whether your instinct beats the system. Nothing else can.</td></tr>
+      <tr><td class="n">Weekly</td><td>ETF screener + rotation</td><td>A separate alpha source — rotation-driven, not stock-picking</td></tr>
+      <tr><td class="n">Monthly</td><td>Attribution (AUTOPSY → 📐)</td><td>P&amp;L by setup / stage / RS / conviction — meaningful only for system-tagged trades</td></tr>
+      <tr><td class="n">On code change</td><td>Re-baseline validation</td><td>Any signal change invalidates prior walk-forward and Strategy Tester numbers</td></tr>
+      <tr><td class="n">Daily, post-close</td><td>Docs truth check (<span class="m">DOCS_TRUTH_CHECK</span>)</td><td>Reports which code facts MOVED and which guide pages cite each one. Reports only — a moved fact can mean the doc is stale <em>or</em> that the code change was the mistake, and both have happened</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <p class="pt">Compressed</p>
+  <h2>The whole loop</h2>
+<pre>15:45  trail tightens              (auto)
+16:00  exit scan                   (auto)
+16:30  auto-pilot + journal sync   (auto)
+─────  <b>EVENING: restart · rebuild · read · ARM · tomorrow's alert</b>   ← you
+09:15  session — do not watch the board
+ ping  <b>S4 → SUMMARY → checklist → size → order → log</b>                ← you
+15:30  close</pre>
+  <p>Everything above the line is machinery. The two moments that need judgement are
+    <b>arming in the evening</b> and <b>the checklist at the trigger</b> — and the second is
+    only as good as the first.</p>
+</section>
+
+<footer>
+  <em>Process, not ceremony.</em> If a step stops earning its place, remove it — but remove
+  it deliberately, and write down why.
+</footer>
+
+</main></div>

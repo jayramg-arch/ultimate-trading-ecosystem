@@ -9,7 +9,7 @@
 ## Identity & Role
 
 - **Name:** Jay (Jayram G)
-- **Location:** India
+- **Location:** India — **operates on IST (UTC+5:30). Every date, day and time in any answer means IST.**
 - **Languages:** English (primary), Hindi
 - **Role:** Independent systematic quantitative & technical trader
 - **Operating style:** Institutional-grade risk management, solo operator
@@ -162,11 +162,19 @@ Additional confluence: Trendlines, Fibonacci, Order Flow, RSI, ATR
 
 1. **Signal consistency is sacred.** Never introduce indicator calculations that diverge from the unified specifications above.
 2. **Risk management is non-negotiable.** All trade plans must include ATR-based stops and volatility-adjusted sizing.
-3. **Indian market context.** Default exchange is NSE. Default currency is INR (₹). Trading hours: 9:15 AM – 3:30 PM IST.
+3. **Indian market context.** Default exchange is NSE. Default currency is INR (₹). Trading hours: 9:15 AM – 3:30 PM IST, Mon–Fri.
+   - **All dates and times are IST.** Never state the day or date from the session's own clock — it can run behind IST and has (23-Aug-2026: the harness said Sunday while Jay was live in the market on Monday, and a whole pyramid analysis was framed as a "weekend plan" on a signal that was actually current).
+   - **Infer the session state from data, not from the clock:** the last CLOSED daily bar plus a live broker LTP tells you whether the market is open and how stale a price is. A daily bar dated two days back is normal on a Monday and means nothing about staleness.
+   - **Never analyse a live position off the last daily close.** Pull the live LTP — during market hours the two differ, and every derived number (R-multiple, ATR extension, gate outcomes, position size) moves with it.
 4. **Pine Script discipline.** Always use v6 syntax. Test for `na` values. Handle `request.security()` correctly for MTF logic.
 5. **When building tools or dashboards:** Apply ₹ formatting, use the 5-star Alpha Score system, and align with Weinstein Stage logic.
 6. **When analyzing stocks:** Lead with Stage + RS assessment, then price action, then fundamentals/catalysts.
 7. **Portfolio decisions:** Reference the Sell-to-Buy rotation matrix and current portfolio context when relevant.
+8. **NO CODE CHANGES DURING MARKET HOURS** (09:15–15:30 IST, Mon–Fri). *Agreed with Jay, 23 Aug 2026.*
+   - **Allowed in-session:** reading code, diagnosing, measuring, querying Dhan or the journal, pre-trade reviews, order arithmetic, verifying what is resting. Writing a patch and **holding** it is fine — applying it is not.
+   - **Not allowed in-session:** editing `.pine` and asking for a compile; editing the Streamlit app and asking for a restart; anything that drops the S4 source bindings or the TV alerts (both die on every recompile and cost manual work to restore).
+   - **If something IS broken mid-session: ROLL BACK, do not fix forward.** Restoring the last known-good state is one action with a known outcome; another edit is a new experiment.
+   - Why: a Pine edit chain hit S4's token ceiling mid-session and burned five failed compiles in a row (100322 → 100276 → 100273 → 100273) while Jay was trying to trade. Compounding it, three of those "savings" were estimates that saved 0–3 tokens, because **string literals, comments AND dead code are all free** in Pine's compiled output.
 
 ---
 
@@ -899,7 +907,7 @@ SWG-PB (Stage-2 Pullback) was the DOMINANT catalyst in May (56–66 picks/run) b
 Diagnosed exhaustively: signal finds upside (+9.84% runup) but 90% stopped early; tried wider stop (worse), quality gates (alpha_ok over-restricts pullbacks), confirmation bar, 60d window, EMA20-structural-floor stop. **Robustly negative — it's a momentum-continuation setup in a corrective regime (wrong tool now).** Current gates: minervini + bull_pullback + is_vcp_tight + pb_pocket_pa(38-62%) + pb_vol_dry + close>prior-high; stop = EMA20 floor; window 60d. Needs regime-conditioning (only fire in confirmed up-trends) — future work.
 
 ### D. Recovery STRENGTHENED (Jay: "only fundamentally strong beaten-down stocks")
-- **RFF hard gate 1→4/6** (`rff_min_score`) — only fundamentally strong; INSUFFICIENT blocked. RFF Tier-A 6 checks + Tier-B bonus. (recovery_screener.py)
+- **RFF hard gate 1→4/6** (`rff_min_score`) — only fundamentally strong; INSUFFICIENT blocked. RFF Tier-A 6 checks + Tier-B bonus. (recovery_screener.py) *[27-Aug audit: the live value is **5**, not 4 — raised after this note was written. `rff_min_score` is now in `code_truth`, so it can't drift unnoticed again.]*
 - **REV-CB drawdown 25% → 15–35% BAND** (`cb_drawdown_pct`=15, `cb_drawdown_max_pct`=35) — quality on sale not falling knives. Climax detect 0.5%→5.2%.
 - **REV-EARLY un-blackouted (0→firing):** breakout AND→OR, vol-dry-up demoted to optional, `vol_confirm_mult` 1.5→1.25, and **strict-trend-UP gate DROPPED** (binary → made it "late"; breakout is now the early turn-confirm).
 - **REV-RS stop widened** low10-0.2ATR → low20-0.5ATR (62% SL-hit on 90d hold before +9.84% runup). Shares SL with REV-EARLY.
@@ -999,7 +1007,7 @@ Commit branch changes · re-baseline validation with the new gates · RELIANCE S
   - **ADD (pyramid):** leader AND pullback-location (above rising 200-DMA, `ltp≤close_5d×1.10`, `ltp>EMA20`) — both required.
   - Constants: `EXT_ATR_MULT=4.0`, `SWING_DAYS=60`, `POS_DAYS=180`, `TIME_STOP_R=0.5`, `MIN_RISK_FRAC=0.005` (guards garbage-R when stop≈buy).
 - **`risk_common.py`** (NEW) — `trail_mult_for(setup,bear)` + `chandelier_exit(...)`, catalyst-aware Chandelier (POS 4.5·WYC 3.5·REV 2.5·SWG 1.5, +0.5 bear, cap-protect 2.5; level = 22-bar max close − ATR(22, EWM α=1/22)×mult). **Verified byte-identical to old Risk Shield formula.** Risk Shield page refactored to call it → zero drift.
-- **Web Commander:** inline `elif page=='PYRAMID'` page (NOT a new screen), NAV button ⚖️ PYRAMID / TRIM under CONTROL CENTER. Verified on live 14-position book (EXIT 4 / TRIM 2 / ADD 2 / HOLD 6). `inr()` NaN/inf-safe.
+- **Web Commander:** inline `elif page=='PYRAMID'` page (NOT a new screen), NAV button ⚖️ PYRAMID / TRIM under CONTROL CENTER. *[27-Aug audit: superseded — there is no PYRAMID page or nav button today. That CONTROL CENTER slot holds **ACTION CENTER**, and pyramid classification runs inside **RISK SHIELD** (`import pyramid_logic as pl`), which is the right home: an add is a decision about a position you already hold.]* Verified on live 14-position book (EXIT 4 / TRIM 2 / ADD 2 / HOLD 6). `inr()` NaN/inf-safe.
 - Bugs fixed: journal status casing (`UPPER(status)='OPEN'`), NaN target (`pd.to_numeric coerce`), garbage-R guard, time-stop realigned 10/42→60/180d per DNA.
 - **DEFERRED (Jay):** making Risk Shield + `exit_signal_engine.py` also call the shared `classify()` brain (3-engine full reconciliation) — they still use own logic for now.
 - **STANDING ACTION:** restart Web Commander for all Python changes (pyramid_logic, risk_common, recovery wiring, catalyst gates, nav) to take effect.

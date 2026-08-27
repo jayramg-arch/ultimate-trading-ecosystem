@@ -1,0 +1,489 @@
+<title>The Markup Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#2B5C7A; --acc-bg:#E7EFF5; --acc-rule:#A8C3D6;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#7FB3D8; --acc-bg:#12202B; --acc-rule:#284A62;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#7FB3D8; --acc-bg:#12202B; --acc-rule:#284A62;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 20 · Chart engines</p>
+      <h1>The Markup Engine</h1>
+      <p class="dek">Drop it on anything and it reads the chart back to you — stage, strength,
+      trendlines, levels, a plan. <b>Nine revisions tried to tune a scoring function into drawing
+      the line your eye wants. The tenth stopped trying and let you drag it.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The lesson</div>
+      &ldquo;Optimal&rdquo; is chart-specific.<br>
+      Every field test moved the<br>
+      weights and <b>broke the<br>
+      previous fix.</b>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#version">You are running v2.11</a></li>
+    <li><a href="#pivot">The pivot — from auto to draggable</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#pipeline">The four stages</a></li>
+    <li><a href="#touch">The touch rule</a></li>
+    <li><a href="#tfsr">Timeframe-scoped levels</a></li>
+    <li><a href="#geometry">Geometry</a></li>
+  </ol>
+  <p>The panel</p>
+  <ol>
+    <li><a href="#panel">Row by row</a></li>
+    <li><a href="#setups">Setup and verdict</a></li>
+    <li><a href="#conviction">Conviction</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#workflow">Where it sits</a></li>
+    <li><a href="#alerts">Alerts</a></li>
+    <li><a href="#limits">Honest limits</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="version">
+  <h2><span class="n">01</span>You are running v2.11, and the guide stops at v2.2</h2>
+  <p>Nine point releases landed after the markdown was written, and they change what this tool
+  <em>is</em> — not just what it detects. Read section 02 before anything else.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Version</th><th>What changed</th></tr></thead><tbody>
+      <tr><td class="m">v2.3</td><td><b>Touches strictly dominate.</b> The recency, average-confluence and angle biases were able to <em>outvote a touch</em>, so a recent two-touch line could beat a valid three-touch one. They are now normalised below one and only break ties</td></tr>
+      <tr><td class="m">v2.4</td><td><b>Wicks may pierce.</b> The wick-rejection test contradicted the stated method — the only hard invalidation is a candle <em>closing</em> beyond the line</td></tr>
+      <tr><td class="m">v2.5</td><td>A doctrine pass — primary versus return line, distinct-touch spacing, a volatility-adjusted break filter, throwback memory</td></tr>
+      <tr><td class="m">v2.6</td><td><b>The two trendlines decoupled.</b> One shared fitting window could not satisfy both sides</td></tr>
+      <tr><td class="m">v2.7</td><td>The asymmetric touch rule, plus a debug view that marks every tracked pivot</td></tr>
+      <tr><td class="m">v2.9</td><td><b>Manual overrides — draggable handles the script can read.</b> Section 02</td></tr>
+      <tr><td class="m">v2.10</td><td>Manual levels outrank auto ones; the ghost-drawing fix</td></tr>
+      <tr><td class="m">v2.11</td><td><b>Timeframe-scoped manual levels.</b> Section 05</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="pivot">
+  <h2><span class="n">02</span>The pivot — nine revisions of tuning, answered by a drag handle</h2>
+  <div class="note stop">
+    <span class="tag">The admission in the v2.9 header, and it is the most useful line in the file</span>
+    <p>&ldquo;The premise of v1.0 to v2.8 was that a scoring function could be tuned until it drew
+    the line your eye wants. <b>It cannot: optimal is chart-specific, so every field test moved the
+    weights and broke the previous fix.</b>&rdquo;</p>
+  </div>
+  <p>Look at the sequence and the pattern is unmistakable — recency bias, then confluence bias, then
+  angle bias, then strict touch dominance, then per-side tolerances, then an asymmetric touch depth.
+  <b>Six attempts at a weighting that generalises, each prompted by one chart that came out wrong,
+  each breaking the chart the last one fixed.</b></p>
+  <p>v2.9 stopped. Auto-detection became a <b>seed</b>; you drag the line to where it belongs; and —
+  the part that matters — <b>the script reads your handle back.</b> Your level flows into the panel,
+  the plan, the alerts. It is not an annotation layer on top of the engine, it is an input to it.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Behaviour</th><th>Detail</th></tr></thead><tbody>
+      <tr><td class="k">Untouched is unchanged</td><td>A handle left at zero means &ldquo;use auto&rdquo;, so a chart you have not marked behaves exactly as before</td></tr>
+      <tr><td class="k">Manual outranks auto</td><td>Your marked level wins the panel and the plan even when an average or a retracement sits a few ticks nearer</td></tr>
+      <tr><td class="k">Manual replaces, never doubles</td><td>A hand-placed trendline <b>replaces</b> the auto fit for that side rather than drawing alongside it</td></tr>
+      <tr><td class="k">Provenance is visible</td><td>Your levels draw in their own colour and tag <code>·man</code> in the panel, so you always know which the plan actually used</td></tr>
+      <tr><td class="k">Auto-named</td><td>A dragged level is named for whatever structure it lands nearest — 52-week extreme, an average, the anchored curve — else just &ldquo;manual&rdquo;. <b>The script cannot know what you meant; it reports what you hit</b></td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">Why v2.10 was needed a day later</span>
+    <p>v2.9 merged manual and auto levels into <b>one flat nearest-wins pool</b>, so a level you had
+    deliberately marked could lose to an average a few ticks closer. It drew on the chart and never
+    reached the panel or the plan — which inverts the doctrine. <b>Your hand-drawn levels ARE the
+    location layer; the auto ones are the fallback for a side you have not marked yet.</b></p>
+    <p>Same release fixed a subtler one: every delete lived <em>inside</em> its own show-toggle, so
+    turning a feature off skipped its cleanup and froze that drawing on the chart permanently.
+    Tuning had been happening against stale levels from earlier settings.</p>
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2><span class="n">03</span>The four stages</h2>
+  <ol>
+    <li><b>Detect</b> — swing pivots, breakaway gaps on volume, rolling 52-week extremes.</li>
+    <li><b>Classify</b> — Weinstein stage off the weekly 30-week anchor, and Mansfield strength
+    against the broad index.</li>
+    <li><b>Annotate</b> — trendlines, geometry, level clusters, classical patterns, the anchored
+    curve, retracements.</li>
+    <li><b>Verdict</b> — a panel giving setup, conviction, nearest levels, and a computed plan.</li>
+  </ol>
+  <p class="refnote">Strength and stage reuse the same maths as the strength pane and the unified
+  strategy; the anchored curve is ported from the dashboard and the retracements from the swing
+  engine — <b>zero drift by intent</b>, with the other tools untouched.</p>
+  <p>Pivot lengths resolve from the chart's own timeframe — monthly 1, weekly 5, daily 2, intraday 2
+  — the same four numbers the structure engine uses. <b>Heavy pivot-pair fitting runs only on the
+  last bar.</b></p>
+</section>
+
+<section id="touch">
+  <h2><span class="n">04</span>The touch rule, and the one hard invalidation</h2>
+  <div class="note good">
+    <span class="tag">The correction that set the rule</span>
+    <p>Rejecting a line because a wick pierced it <b>contradicted the method</b>. A trendline may cut
+    through wicks — through bodies, in the extreme. <b>The only hard invalidation is a candle
+    CLOSING beyond it.</b> Wick rejection survives as an off-by-default strict mode.</p>
+  </div>
+  <p>v2.7 sharpened that into an <b>asymmetric</b> test: the line may cut deep into a wick and still
+  count that pivot as a touch, while the other side stays tight. That asymmetry is the whole point —
+  it is why a near-collinear set of four wicks now scores four touches instead of two, and wins,
+  because touches dominate.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>Rule</th><th>Source</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Primary versus return line</td><td>Magee</td><td>In a downtrend <em>the</em> trendline runs along the highs; in an uptrend along the lows. The label says which you are looking at</td></tr>
+      <tr><td class="k">Distinct-touch spacing</td><td>Bulkowski</td><td><b>Clustered touches a few bars apart count as ONE test.</b> Otherwise a single consolidation inflates a line to five touches</td></tr>
+      <tr><td class="k">Break filter</td><td>Murphy</td><td>A break alert needs a close a full volatility unit beyond the line, not a poke past the tolerance — the classic penetration rule, scaled to the instrument</td></tr>
+      <tr><td class="k">Throwback memory</td><td>Magee · Murphy</td><td>A just-broken line is frozen rather than discarded — broken support is the next resistance</td></tr>
+    </tbody></table></div>
+
+  <div class="note">
+    <span class="tag">Why the two sides were decoupled</span>
+    <p>A field test proved one shared fitting window could not satisfy both: <b>tuning support
+    wrecked resistance and vice versa.</b> Each side now has its own window and its own tolerance,
+    so the support line can loosen just enough to catch a near-collinear set of wicks without
+    loosening resistance at all.</p>
+  </div>
+  <p class="refnote">There is a debug toggle that marks every tracked pivot. Use it before blaming
+  the fit — <b>check the engine saw the swings your eye is using</b>, because most &ldquo;wrong
+  line&rdquo; complaints are really a pivot-detection disagreement.</p>
+</section>
+
+<section id="tfsr">
+  <div class="note">
+    <span class="lbl">Levels and zones are not the same object — do not reconcile them</span>
+    <p>With the entry trigger loaded you have two kinds of horizontal on one chart, and they
+    answer a touch in opposite ways. That is intentional.</p>
+    <div class="tw"><table>
+      <thead><tr><th></th><th>A level, here</th><th>A demand zone, on the entry trigger</th></tr></thead>
+      <tbody>
+        <tr><td class="k">What it models</td><td>Price <b>memory</b></td><td>Unfilled <b>orders</b></td></tr>
+        <tr><td class="k">A touch</td><td><b>Weakens</b> the read — repeatedly tested is a break candidate, not a fortress</td><td><b>Spends</b> it — the reaction is the trade, and the fuel is consumed</td></tr>
+        <tr><td class="k">A close beyond</td><td><b>Flips</b> it. Broken support becomes resistance and stays on the chart</td><td><b>Deletes</b> it. There is nothing left to react to</td></tr>
+      </tbody>
+    </table></div>
+    <p>So a line that has been tested four times and a zone that has been tested once are
+    telling you opposite things about their own reliability, and both are right. <b>The one
+    that disagrees with your instinct is usually the one worth reading.</b></p>
+  </div>
+
+  <h2><span class="n">05</span>Timeframe-scoped levels — the weekend marking workflow</h2>
+  <p>v2.11 replaced flat level slots with <b>three groups: monthly, weekly, daily.</b> The group is
+  the timeframe, and that is not filing — it is the conviction.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Rule</th><th>Behaviour</th></tr></thead><tbody>
+      <tr><td class="k">Higher timeframe down, never lower up</td><td>A level renders on its own timeframe and every lower one. Monthly shows everywhere; <b>a daily level never appears on a weekly chart</b>. Same guardrail the zone engine uses — not a second invented rule</td></tr>
+      <tr><td class="k">The timeframe rides to the panel</td><td>Support and resistance rows carry <code>·M</code>, <code>·W</code>, <code>·D</code></td></tr>
+      <tr><td class="k">Line weight encodes it too</td><td>Monthly heaviest, daily lightest</td></tr>
+      <tr><td class="k">Role is derived, not filed</td><td>Support or resistance comes from <b>price versus close</b>, so a level <em>flips</em> as price closes through it rather than going stale as a mislabelled resistance underfoot</td></tr>
+      <tr><td class="k">Ties go to the higher timeframe</td><td>A monthly and a daily level at the same price reads monthly. <b>Conviction takes the higher reading, never the lower</b></td></tr>
+    </tbody></table></div>
+  <div class="note stop">
+    <span class="tag">Why this is a sizing feature, not a display one</span>
+    <p>A stop on a <b>weekly</b> level is a deeper distal, which means a wider stop, which means
+    <b>size down</b>. Reading &ldquo;1,718.00 · −2.1%&rdquo; without knowing whether that floor is a
+    daily shelf or a monthly one is how a position gets mis-sized.</p>
+  </div>
+  <p class="refnote">Marking deliberately stops at daily. <b>The lower timeframes are a timing lens,
+  not a zone surface</b> — that is the zone engine's job, and duplicating it here would create a
+  second set of levels to keep in sync.</p>
+</section>
+
+<section id="geometry">
+  <h2><span class="n">06</span>Geometry</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Shape</th><th>When</th><th>Read</th></tr></thead><tbody>
+      <tr><td class="k">Rising or falling channel</td><td>The two lines run roughly parallel</td><td>An orderly trend. Buy the lower rail, trim the upper</td></tr>
+      <tr><td class="k">Wedge or triangle</td><td>They converge — an apex lies ahead</td><td>Near resolution. <b>Alert both rails and let price pick the door</b></td></tr>
+      <tr><td class="k">Trend, not parallel</td><td>Neither parallel nor converging</td><td>Directional but untidy</td></tr>
+      <tr><td class="k">Broadening</td><td>They widen</td><td>Rising volatility and indecision — lower conviction, wider stops</td></tr>
+    </tbody></table></div>
+  <p>A falling wedge inside a decline is the one worth flagging: <b>the down-move is running out of
+  room</b>, which is what a base completing looks like before the stage engine will say so.</p>
+  <p class="refnote">The apex prints its price and how many bars ahead it sits.</p>
+</section>
+
+<section id="panel">
+  <h2><span class="n">07</span>The panel, row by row</h2>
+  <p>Four sections — state, levels, plan, verdict. It is built to be read top to bottom as a trade
+  card.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">Stage</td><td>The digit, a mark, and <b>bars in stage</b> — freshness matters as much as the number</td></tr>
+      <tr><td class="k">Relative strength</td><td>Value, a trend arrow, and leads or lags</td></tr>
+      <tr><td class="k">Setup</td><td>Which play this is — section 08</td></tr>
+      <tr><td class="k">Trend</td><td>The geometry, plus the apex and its distance when converging</td></tr>
+      <tr><td class="k">Conviction</td><td>Score out of seven — section 09</td></tr>
+      <tr><td class="k">Resistance · Support</td><td>Nearest level each side with the distance, <b>tagged by timeframe and by whether it is yours</b></td></tr>
+      <tr><td class="k">Anchored curve</td><td>Its value, and whether price is above it</td></tr>
+      <tr><td class="k">Patterns</td><td>What was detected, with a confirmation mark or a candidate tag</td></tr>
+      <tr><td class="k">Entry · Stop · Target</td><td>The computed plan with risk percentage and reward-to-risk — <b>a dash on any non-bullish setup</b></td></tr>
+      <tr><td class="k">Break level</td><td>The exact values the trendline alerts are watching</td></tr>
+      <tr><td class="k">Verdict</td><td>The one-line action</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The plan's stop is capped at a volatility multiple and tags itself when the cap
+  binds — so a nearest-support that happens to sit a long way down cannot quietly produce a stop no
+  sizing rule would accept.</p>
+</section>
+
+<section id="setups">
+  <h2><span class="n">08</span>Setup and verdict</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Condition</th><th>Setup</th><th>Verdict</th></tr></thead><tbody>
+      <tr><td class="k">Stage 4 with negative strength</td><td>Decline</td><td><b>Exit or avoid — no new longs</b></td></tr>
+      <tr><td class="k">The 30-week average reclaimed recently, stage 1 or 2, strength positive</td><td>Reversal</td><td>Emerging long — <b>confirm strength is actually rising</b></td></tr>
+      <tr><td class="k">Stage 2, averages stacked, strength positive, near the 50-day</td><td>Pullback</td><td>Buy the dip — entry on the reclaim, stop below the average</td></tr>
+      <tr><td class="k">Same, but near the 52-week high</td><td>At highs</td><td>Buy strength — <b>and watch the extension</b></td></tr>
+      <tr><td class="k">Same, mid-range</td><td>Uptrend</td><td>Hold, add on a pullback to the average</td></tr>
+      <tr><td class="k">Stage 1</td><td>Base</td><td>Watch. Needs a breakout <em>and</em> positive strength</td></tr>
+      <tr><td class="k">Anything else</td><td>Neutral</td><td>No edge — wait</td></tr>
+    </tbody></table></div>
+  <p>The pullback row is the highest-quality of these — a leader resting on a rising average, with a
+  tight stop just underneath. <b>The at-highs row is the one to be careful with</b>: it is a real
+  setup and it is also where extension risk lives, which is why the verdict names both halves.</p>
+</section>
+
+<section id="conviction">
+  <h2><span class="n">09</span>Conviction</h2>
+  <p>Seven independent checks, one point each: <b>stage 2 · strength positive · strength rising ·
+  above the 50-day · above the anchored curve · above the 200-day · volume rising.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Score</th><th>Grade</th><th>Suggested sizing</th></tr></thead><tbody>
+      <tr><td class="m">6–7</td><td class="k">STRONG</td><td>Full position at standard risk — everything aligns</td></tr>
+      <tr><td class="m">4–5</td><td class="k">MODERATE</td><td>Half or a probe. <b>Add when the missing factor confirms</b>, not before</td></tr>
+      <tr><td class="m">≤ 3</td><td class="k">WEAK</td><td>No trade. The structure is not there yet</td></tr>
+    </tbody></table></div>
+  <p>It answers one question well — <b>how many forces agree</b> — and the value is that a headline
+  can look bullish while four of the seven quietly disagree.</p>
+  <p class="refnote">The averages behind it are anchored to <b>daily</b> on every chart timeframe, so
+  the score does not change meaning when you drop to an intraday view.</p>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">10</span>Where it sits</h2>
+  <p>This is the <b>breadth</b> tool. It answers <em>what is this and is it worth my time</em> on any
+  chart in seconds. It does not replace the deep read.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Layer</th><th>Tool</th><th>When</th></tr></thead><tbody>
+      <tr><td class="k">Breadth</td><td>This, read off the panel</td><td>Sweeping a watchlist or the screener</td></tr>
+      <tr><td class="k">Depth</td><td>Your own marked levels and trendline</td><td>The handful you will actually size</td></tr>
+    </tbody></table></div>
+  <h3>By timeframe</h3>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Weekly</td><td>The stage truth. Confirm a daily setup is a real stage change and not a bounce. Raise the pivot strength</td></tr>
+    <tr><td class="k">Daily</td><td>The primary canvas — the defaults are tuned here</td></tr>
+    <tr><td class="k">Intraday</td><td>Entry timing inside a confirmed daily setup. Patterns are faster and noisier</td></tr>
+  </tbody></table></div>
+  <p><b>The reading order is the gate:</b> stage and strength first, then conviction, then the setup,
+  then the levels, then the plan. Take the trade only where reward-to-risk clears 2 and the plan is
+  not a dash.</p>
+</section>
+
+<section id="alerts">
+  <h2><span class="n">11</span>Alerts</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Alert</th><th>Fires on</th></tr></thead><tbody>
+      <tr><td class="k">Trendline break, either side</td><td>A close through the line — <b>past the volatility filter, not just the tolerance</b></td></tr>
+      <tr><td class="k">Level cluster break, either side</td><td>A close through the nearest cluster</td></tr>
+      <tr><td class="k">Pattern neckline confirms</td><td>A double or triple formation, or a head and shoulders</td></tr>
+      <tr><td class="k">Pullback trigger</td><td>A stage-2 pullback reclaiming the daily 50-day</td></tr>
+      <tr><td class="k">Conviction turns strong</td><td>The score crossing to six</td></tr>
+      <tr><td class="k">Stage change</td><td>The weekly classification flipping</td></tr>
+    </tbody></table></div>
+  <p>All are <b>edge-triggered</b> — once per state change, not once per bar. The panel's break row
+  shows the exact values the trendline alerts are watching, so you can see what an alert would need
+  before it fires.</p>
+</section>
+
+<section id="limits">
+  <h2><span class="n">12</span>Honest limits</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Limit</th><th>Detail</th></tr></thead><tbody>
+      <tr><td class="k">Inputs do not follow the symbol</td><td><b>Switch symbols and your dragged levels stay put — and will be wrong.</b> Reset to zero or keep a per-symbol layout. There is no way around this in Pine, and it is why a heavily-marked name gets its own file</td></tr>
+      <tr><td class="k">Auto lines are a seed</td><td>They get you most of the way. <b>The line you trade should be one you placed</b> — which is better discipline anyway, and since v2.9 the script reads it</td></tr>
+      <tr><td class="k">Candidate patterns are heuristic</td><td>Head-and-shoulders and cup formations fire on noise. Confirm by eye; never trade the tag</td></tr>
+      <tr><td class="k">The plan is mechanical</td><td>Entry at the close, stop near support, target near resistance. <b>A starting plan</b>, to be refined against your own structure and volatility sizing</td></tr>
+      <tr><td class="k">It needs a clean feed</td><td>Strength and stage will mis-read on a delayed or illiquid one</td></tr>
+      <tr><td class="k">It finds; you decide</td><td>The job is to surface and frame candidates fast. The decision, the size and the execution stay yours</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <p><b>In one line:</b> scan with the panel, gate on stage plus strength plus conviction, trade
+    only the strong ones at reward-to-risk of two or better — and mark the levels yourself, because
+    since v2.9 the engine will use them.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/20 · Commander Chart Markup v2.11</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">01 Structure Engine</a> · <a href="https://claude.ai/code/artifact/50a2b6ce-b153-46c3-b194-2fd608139217">04 Institutional Footprint</a></span>
+</div></footer>

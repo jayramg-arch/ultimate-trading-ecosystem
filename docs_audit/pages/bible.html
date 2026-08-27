@@ -1,0 +1,615 @@
+<title>The Commander Bible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Spectral:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap">
+
+<style>
+/* The foundational text is set in plain ink. The derived documents wear the
+   colours; here the only accent is a single brass rule. */
+:root{
+  --ground:#F4F3F0; --surface:#FFFFFF; --surface-2:#FAF9F6; --surface-3:#EEECE7;
+  --ink:#16150F; --ink-2:#3C3A32; --muted:#6E6B60; --faint:#9B9789;
+  --rule:#D8D5CB; --rule-soft:#E7E4DB;
+  --brass:#8A6A1F; --brass-bg:#F6F1E2; --brass-rule:#CFBE8A;
+  --stale:#A8342A; --stale-bg:#FAE9E7; --stale-rule:#DFAAA3;
+  --live:#186B4F; --live-bg:#E3F0EA; --live-rule:#9CC7B5;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Spectral',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#14140F; --surface:#1B1A15; --surface-2:#211F19; --surface-3:#28261F;
+    --ink:#EFEDE4; --ink-2:#C9C5B8; --muted:#948F80; --faint:#6E6A5C;
+    --rule:#302D25; --rule-soft:#26241D;
+    --brass:#C9A84C; --brass-bg:#2B2410; --brass-rule:#5E4F22;
+    --stale:#EF6E60; --stale-bg:#331A17; --stale-rule:#6A2F29;
+    --live:#38B48A; --live-bg:#0F2C22; --live-rule:#1F5544;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14140F; --surface:#1B1A15; --surface-2:#211F19; --surface-3:#28261F;
+  --ink:#EFEDE4; --ink-2:#C9C5B8; --muted:#948F80; --faint:#6E6A5C;
+  --rule:#302D25; --rule-soft:#26241D;
+  --brass:#C9A84C; --brass-bg:#2B2410; --brass-rule:#5E4F22;
+  --stale:#EF6E60; --stale-bg:#331A17; --stale-rule:#6A2F29;
+  --live:#38B48A; --live-bg:#0F2C22; --live-rule:#1F5544;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17.5px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:3px double var(--rule)}
+.mast-in{max-width:1180px;margin:0 auto;padding:56px 24px 40px;text-align:center}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--brass);margin:0 0 18px;font-weight:600}
+h1{font-family:var(--serif);font-weight:700;font-size:clamp(38px,6vw,64px);line-height:1.03;
+  letter-spacing:-.022em;margin:0;text-wrap:balance}
+.sub{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink-2);margin:14px 0 0}
+.vline{display:inline-block;margin:22px auto 0;padding-top:16px;
+  border-top:1px solid var(--brass-rule);font-family:var(--mono);font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.cols{display:grid;grid-template-columns:214px minmax(0,1fr);gap:56px;padding:40px 0 96px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:baseline;
+  font-family:var(--mono);font-size:11px;line-height:1.35;color:var(--muted);
+  text-decoration:none;padding:6px 8px;border-radius:2px}
+nav.toc a span{color:var(--faint)}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink)}
+nav.toc a:hover span{color:var(--brass)}
+nav.toc a:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--serif);font-weight:700;font-size:clamp(25px,3.2vw,34px);line-height:1.14;
+  letter-spacing:-.014em;margin:0 0 16px;padding-bottom:10px;
+  border-bottom:1px solid var(--rule);text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--brass);
+  letter-spacing:.16em;display:block;margin-bottom:9px;text-transform:uppercase}
+h3{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.008em;margin:30px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 15px;max-width:70ch}
+ul,ol{margin:0 0 15px;padding-left:22px;max-width:70ch}
+li{margin:0 0 8px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12px;line-height:1.75;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--brass);font-weight:600}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--brass);background:var(--surface);
+  padding:16px 20px;border-radius:2px;margin:0 0 18px;font-size:16px}
+.note.stale{border-left-color:var(--stale);background:var(--stale-bg);border-color:var(--stale-rule)}
+.note.live{border-left-color:var(--live);background:var(--live-bg);border-color:var(--live-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:8px;font-weight:600}
+.note.stale .tag{color:var(--stale)} .note.live .tag{color:var(--live)}
+.note p:last-child{margin-bottom:0}
+
+/* the four jobs — the load-bearing idea of the whole system */
+.jobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 20px;
+  background:var(--surface)}
+.job{padding:18px 20px;border-right:1px solid var(--rule-soft)}
+.job:last-child{border-right:none}
+.job .w{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em;
+  color:var(--brass);margin:0 0 9px}
+.job .who{font-family:var(--serif);font-weight:700;font-size:17px;margin:0 0 7px;color:var(--ink)}
+.job p{font-size:14.5px;margin:0;color:var(--ink-2)}
+
+.xref{border:1px dashed var(--brass-rule);background:var(--brass-bg);border-radius:2px;
+  padding:14px 18px;margin:0 0 18px;font-size:15.5px;color:var(--ink-2)}
+.xref b{color:var(--ink)}
+.xref a{color:var(--brass);font-weight:600}
+
+.mistakes{counter-reset:m;list-style:none;padding:0;margin:0 0 18px;max-width:none}
+.mistakes li{counter-increment:m;display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;
+  padding:12px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:16px}
+.mistakes li:last-child{border-bottom:none}
+.mistakes li::before{content:counter(m);font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--brass);padding-top:4px}
+
+footer{border-top:3px double var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1180px;margin:0 auto;padding:26px 24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--brass)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:2px;padding:16px;background:var(--surface)}
+  .job{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">The system map</p>
+    <h1>The Commander Bible</h1>
+    <p class="sub">How the whole thing fits together — Weinstein, Minervini, Wyckoff, and the GM + S4 machinery around them</p>
+    <div class="vline">Rewritten 22 Aug 2026 &nbsp;·&nbsp; current as of that date</div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Orientation</p>
+  <ol>
+    <li><a href="#what"><span>·</span>What this is</a></li>
+    <li><a href="#phil"><span>1</span>Philosophy</a></li>
+    <li><a href="#jobs"><span>2</span>The four jobs</a></li>
+    <li><a href="#own"><span>3</span>Who owns what</a></li>
+  </ol>
+  <p>The machine</p>
+  <ol>
+    <li><a href="#pipe"><span>4</span>The overnight pipeline</a></li>
+    <li><a href="#board"><span>5</span>The board</a></li>
+    <li><a href="#s4"><span>6</span>Section 4</a></li>
+    <li><a href="#order"><span>7</span>Before the order</a></li>
+    <li><a href="#manage"><span>8</span>Managing the position</a></li>
+    <li><a href="#record"><span>9</span>The record</a></li>
+  </ol>
+  <p>Standing</p>
+  <ol>
+    <li><a href="#evidence"><span>10</span>Where the evidence sits</a></li>
+    <li><a href="#clock"><span>11</span>The clock</a></li>
+    <li><a href="#traps"><span>12</span>Rules &amp; traps</a></li>
+    <li><a href="#mistakes"><span>13</span>Thirty mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="what">
+  <div class="note">
+    <span class="tag">What this document is, and what it is not</span>
+    <p>This is the <b>system map</b>: what each part of the ecosystem is for, why it exists, and
+    how the parts hand work to each other. It is the document to read when you want the
+    <em>whole shape</em> in one place, or when you come back after time away.</p>
+    <p>It deliberately does <b>not</b> restate the things that have their own page and would
+    immediately drift here. For the per-trade gates read
+    <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 · The Trade
+    Funnel</a>; for the clock-driven day,
+    <a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">26 · The
+    Operating Loop</a>; for what to do and not do when shortlisting,
+    <a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">25 · Golden
+    Rules</a>; for what the evidence supports,
+    <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 · The
+    Backtest Court</a>.</p>
+  </div>
+  <div class="note stale">
+    <span class="tag">Rewritten — what the previous version got wrong</span>
+    <p>The earlier Bible described a five-phase Python-and-TradingView workflow written before
+    GM + S4 existed. That framing is retired. The system now has a <b>ten-phase overnight
+    pipeline, a timing board, a dedicated execution layer, a written pre-trade gate and a
+    reconciled journal</b> — a different machine, not a bigger version of the old one.</p>
+    <p>Three specific corrections carried over: <b>POS-ACCUM is enabled</b>, not disabled — it is
+    the strongest catalyst measured. Indicator gates (RSI, ADX, MACD) are now <b>pure price
+    action</b>. And the −₹4.99L journal figure is <b>not a verdict on the system</b> — it is
+    largely tax-loss-harvested discretionary picks.</p>
+  </div>
+</section>
+
+<section id="phil">
+  <h2><span class="n">Section 1</span>Philosophy — three schools, one edge</h2>
+  <p><b>Stan Weinstein — stage analysis, the primary framework.</b> Every stock is always in one
+  of four stages. Stage 2 — under accumulation, trending up through its 30-week SMA — is the only
+  stage where you want to own one. The 30-week average is the watershed, and stage transitions are
+  the triggers. This is why <b>Stage is computed identically on three surfaces</b> and why a
+  Stage 3 or 4 reading ends the conversation.</p>
+  <p><b>Mark Minervini — SEPA and the trend template, the entry filter.</b> Within Stage 2, the
+  trend template filters for the strongest names, and VCP breakouts and pullbacks give the
+  low-risk entries. The Alpha Score puts a number on it.</p>
+  <p><b>Wyckoff, SMC and Volume Profile — the context layer.</b> Institutional footprints confirm
+  that money is genuinely accumulating rather than distributing.</p>
+
+  <h3>The core discipline</h3>
+  <div class="note">
+    <p><b>Never trade against macro.</b> Bear index or a Stage 3/4 sector means no long setups
+    exist, however good the stock looks. Macro kills more trades than any technical error.</p>
+    <p><b>Confirmation before entry.</b> Alert at the level, wait for a <em>closed</em> bar, then
+    act. This is the single most valuable habit in the system and the one most often skipped.</p>
+    <p><b>Know the stop before the size.</b> Size falls out of risk budget ÷ stop distance. If the
+    answer is zero, the trade does not happen.</p>
+    <p><b>An override is allowed. An uncounted override is not.</b> Write the sentence, log it.</p>
+  </div>
+</section>
+
+<section id="jobs">
+  <h2><span class="n">Section 2</span>The four jobs</h2>
+  <p>Everything in the ecosystem is doing one of four jobs, and <b>most confusion comes from
+  asking a tool to do a job that belongs to another one.</b></p>
+  <div class="jobs">
+    <div class="job"><p class="w">QUALIFY</p><p class="who">The watchlists</p>
+      <p>Decide <em>which names deserve attention at all</em> — technicals plus fundamentals,
+      overnight, on the whole universe.</p></div>
+    <div class="job"><p class="w">TIME</p><p class="who">The Trigger Board</p>
+      <p>Decide <em>which of those are live right now</em>. It does not re-qualify; it watches.</p></div>
+    <div class="job"><p class="w">TRIGGER</p><p class="who">Section 4</p>
+      <p>Decide <em>whether to act on this bar</em>, and produce the plan — entry, stop, targets.</p></div>
+    <div class="job"><p class="w">MANAGE</p><p class="who">Risk Shield &amp; Pyramid</p>
+      <p>Decide <em>what happens after the fill</em> — trail, add, trim, exit.</p></div>
+  </div>
+
+  <div class="note live">
+    <span class="tag">The doctrine that makes it work — inherited qualification</span>
+    <p><b>The watchlists QUALIFY; the board TIMES.</b> A name arriving from a rigorous scan has
+    already earned its place, so the board does not re-run the screen on it — it carries its
+    source <b>archetype</b> and the board reports only its <em>timing state</em>. Fundamentals
+    rank rather than block, and a “still valid” break-down guard replaces the re-screen.</p>
+    <p>Before this, only the broad catalyst scan produced actionable output and the most rigorous
+    lists dead-ended at “no catalyst”. <b>Re-qualifying what was already qualified throws away the
+    work.</b></p>
+  </div>
+
+  <div class="note live">
+    <span class="tag">The two-stage rule — deliberate, do not collapse it</span>
+    <p>The board arms <b>early</b> and Section 4 fires <b>strictly</b>. That mismatch is
+    intentional: the board's job is to narrow your attention to a handful of names, and S4's job
+    is to say whether <em>this bar</em> is the one. <b>The board arms, S4 executes.</b> Making them
+    agree would destroy the value of both.</p>
+  </div>
+</section>
+
+<section id="own">
+  <h2><span class="n">Section 3</span>Who owns what</h2>
+  <p>Each concept has exactly <b>one owner</b>. Everything else mirrors the owner verbatim or drops
+  the duplicate from display. This is the rule that keeps three surfaces from telling you three
+  different things about the same stock.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Concept</th><th>Owner</th><th>Everyone else</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Weinstein stage</td><td>A stateless 2×2 — price vs the weekly 30-SMA × that average's slope</td><td>Dashboard, S4 and the board all compute it identically</td></tr>
+      <tr><td class="k">Relative strength &amp; RRG</td><td>The RRG engine, one calibration</td><td>Imported as constants — never copied</td></tr>
+      <tr><td class="k">Strict trend (HH/HL)</td><td>The Zigzag engine, ported once to Python</td><td>Screeners import it; no private copies</td></tr>
+      <tr><td class="k">The catalyst gates</td><td><code>bull_screener.py</code> — <b>Python is canonical</b></td><td>Pine surfaces are synced <em>up</em> to Python</td></tr>
+      <tr><td class="k">The PA battery</td><td><code>pa_patterns.py</code></td><td>S4 mirrors it bar-for-bar</td></tr>
+      <tr><td class="k">Stops &amp; trails</td><td><code>risk_common.py</code></td><td>Risk Shield, Pyramid and the trail job all call it</td></tr>
+      <tr><td class="k">Sector cap</td><td><code>pre_trade_gate.SECTOR_CAP_PCT</code></td><td>Imported by the board and every order surface</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note live">
+    <span class="tag">The DNA rule</span>
+    <p><b>Zero signal drift.</b> Change a value in the owner and it must reach every consumer in
+    the same commit. Where a platform genuinely cannot match — TradingView's data-call limits, for
+    instance — the gap is <em>documented as intentional</em>, never left to be discovered.</p>
+  </div>
+</section>
+
+<section id="pipe">
+  <h2><span class="n">Section 4</span>The overnight pipeline</h2>
+  <p>One scheduled run does the qualifying. It is ten phases, and it is the reason you wake up to a
+  shortlist rather than a universe.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Phase</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td class="k num">0 · 0.5</td><td>Pre-flight cleanup and a nuclear watchlist clear, so yesterday's names cannot leak into today</td></tr>
+      <tr><td class="k num">1</td><td>Technical scanners across the universe</td></tr>
+      <tr><td class="k num">2 · 3</td><td>Fundamental fetch and processing</td></tr>
+      <tr><td class="k num">4</td><td><b>Golden Matcher</b> — conviction ranking</td></tr>
+      <tr><td class="k num">4.5</td><td>Recovery screener — RFF hard-gated, regime-aware</td></tr>
+      <tr><td class="k num">4.6</td><td>Bull screener on the matched names</td></tr>
+      <tr><td class="k num">4.7</td><td><b>Catalyst-first broad scan.</b> Exists because 4.6 only sees pre-filtered names — a funnel that narrows before it scans will starve of catalysts</td></tr>
+      <tr><td class="k num">4.75</td><td>Recovery catalyst watchlist, and the <b>Pullback Finder</b> — the where-is-value sibling a trigger board structurally cannot be</td></tr>
+      <tr><td class="k num">5 · 5.7</td><td>Watchlist build and stale-list cleanup</td></tr>
+      <tr><td class="k num">6 · 7</td><td>Sync out to Strike and TradingView</td></tr>
+      <tr><td class="k num">8 · 9</td><td>Backup, and the portfolio rotation guard</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Why there are two bull scans, not one</span>
+    <p>Phase 4.6 screens the names the matcher already narrowed to. Phase 4.7 scans <b>catalyst
+    first, across the whole universe</b>. Without it the funnel collapsed to a handful of names and
+    catalysts appeared to vanish — the scan order itself was the bug.</p>
+  </div>
+</section>
+
+<section id="board">
+  <h2><span class="n">Section 5</span>The board — timing, not qualifying</h2>
+  <p>The Trigger Board takes every qualified name and answers one question per row: <b>is this live
+  now?</b> It runs one evaluator, so the board and the single-symbol view agree by construction
+  rather than by luck.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Column</th><th>What it actually means</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Archetype</td><td>Which list qualified it — breakout, pullback, leader, recovery, catalyst-scan, at-value, or a pyramid add on something you already hold</td></tr>
+      <tr><td class="k">Category</td><td>Pure <b>timing state</b>: invalidated · wait · armed · trigger live</td></tr>
+      <tr><td class="k">S4-GO</td><td>How close it is to Section 4's execution gate, as <code>n/4</code>. A preview, not the verdict</td></tr>
+      <tr><td class="k">Overall</td><td>The ranking. Sorted descending by default</td></tr>
+      <tr><td class="k">Loc</td><td>Which location sources place it — zone, S/R, AVWAP, value area</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Two things the board does that are easy to misread</span>
+    <p><b>It refreshes on bar close</b>, not continuously — once per 75m or 125m bar, plus a settle
+    delay. A board built mid-bar shows patterns that can fade by the close, which is exactly the
+    disagreement that used to look like a bug.</p>
+    <p><b>The Armed Register persists a plan.</b> An alert firing days later still has its levels
+    even after the watchlists have churned underneath it.</p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="n">Section 6</span>Section 4 — the execution layer</h2>
+  <p>S4 owns the trigger and the final word. Its gate is four things, and the panel prints them as
+  chips so you can see which one is missing:</p>
+  <pre><b>GO  =  PA  ·  LOCATION  ·  VOLUME  ·  BAR</b>
+
+PA        a pattern from the battery fired on this bar
+LOCATION  price is at a place worth buying — demand zone, S/R shelf, AVWAP, value area
+VOLUME    relative volume clears the floor
+BAR       the bar itself is not a distribution candle</pre>
+  <p>Underneath the gate sits the part that took longest to get right: <b>location</b>. A
+  leg-base-leg zone engine runs on the chart timeframe plus daily, weekly and monthly, with zones
+  ageing per timeframe and moving <b>fresh → reacted → spent</b>; alongside it, horizontal S/R
+  levels that <em>weaken</em> as they are tested, three anchored VWAPs, and volume-profile
+  levels.</p>
+  <div class="note">
+    <span class="tag">The reaction is the trade — not the arrival</span>
+    <p>A fresh zone has proven nothing. It is a place where price once left in a hurry, and
+    the reason to care is the <em>next</em> visit: price returns, tests the zone, and turns.
+    <b>That turn is the setup.</b> So the location gate does not ask &ldquo;is price inside a
+    fresh zone&rdquo; — it accepts a zone price is sitting in, one price is approaching, and one
+    price has already reacted off and not yet run away from.</p>
+    <p>Retirement takes a <b>confirmation, not a touch</b>. A reacted zone is spent only once
+    price travels <b>twice the zone&rsquo;s own-timeframe ATR</b> from the proximal edge, crosses
+    the EMA20, or breaks the higher-timeframe pivot that framed it. Until one of those happens
+    the zone is still live and still tradeable — which is exactly the window a pullback entry
+    lives in. <b>Violation is a different ending</b>: price closing beyond the distal edge, which
+    kills the zone outright rather than spending it.</p>
+    <p>Two asymmetries are deliberate. <b>Demand gets a longer life than supply</b> — spent
+    demand stays on the chart greyed, and a controlling zone or one scoring 75+ earns a
+    <em>second</em> test before it retires. And the EMA20 that judges a zone is the one that
+    frames it: <b>weekly and monthly zones answer to the chart&rsquo;s EMA20, daily and intraday
+    zones to the daily EMA20</b>. Judging a weekly zone by a daily average retires it on noise
+    it was never built to survive.</p>
+  </div>
+  <div class="note live">
+    <span class="tag">The verdict is a ruling, not a readout</span>
+    <p>S4 does not just print values — it rules: <b>take it · skip · not tradeable · low quality ·
+    arm and wait</b>, naming the one gate that is missing and what to watch. A Stage 3/4 name is
+    refused outright, before any other reasoning, because a plan reasoned <em>inside</em> the wrong
+    frame is worse than no plan.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Read the plan off S4, not the board</span>
+    <p>S4 <b>latches the trigger bar</b>, so its entry, stop and targets are anchored to the bar
+    that actually fired. The board shows levels at <em>current</em> price. When they differ, S4 is
+    the plan of record.</p>
+  </div>
+</section>
+
+<section id="order">
+  <h2><span class="n">Section 7</span>Between “armed” and “ordered”</h2>
+  <p>The gap between the system saying yes and the order going in is where the most expensive
+  mistakes live. Two things sit in it.</p>
+  <h3>The written review</h3>
+  <p>One tool call reads the whole S4 panel; the reply comes back in five fixed blocks — what the
+  system says, what you want to do, the divergence, the one question, and the sentence you write
+  if you override. It never talks you <em>into</em> a trade: the chart-read has veto power, not
+  entry power.</p>
+  <div class="xref">
+    Full procedure on <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24
+    · The Pre-Trade Gate</a>.
+  </div>
+  <h3>Sizing and the pre-trade gate</h3>
+  <p>Size is computed from risk budget and stop distance, then a hardened gate checks the order
+  against the book before it can be placed: maximum open positions, the sector cap, per-trade risk
+  as a share of equity, and a duplicate guard. <b>Entries are gated; exits never are</b> — blocking
+  a sell is more dangerous than allowing a buy.</p>
+</section>
+
+<section id="manage">
+  <h2><span class="n">Section 8</span>Managing the position</h2>
+  <p>Every open position sits on a five-rung ladder, evaluated in priority order:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Rung</th><th>Fires when</th></tr></thead>
+    <tbody>
+      <tr><td class="k">EXIT</td><td>At the stop, deeply underwater, Stage 4, price structure broken, trail stopped out, or the time stop expired</td></tr>
+      <tr><td class="k">TRIM</td><td>Winners only — a target hit, over-extension, or earnings within days</td></tr>
+      <tr><td class="k">REDUCE</td><td>Soft deterioration — lagging rotation, below the 50-day, weak score</td></tr>
+      <tr><td class="k">ADD</td><td>Leader <b>and</b> at location — both required, and capped on extension so it cannot chase</td></tr>
+      <tr><td class="k">HOLD</td><td>Everything else</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note live">
+    <span class="tag">Two things worth internalising about exits</span>
+    <p><b>Swing or positional is decided by a ladder, not a guess</b> — declared timeframe, then the
+    setup prefix, then the risk actually taken in ATR, then the chart. The entry-fixed rungs come
+    first deliberately: a classifier that reads today's chart would rewrite the stop multiplier
+    mid-trade.</p>
+    <p><b>The trail owns roughly 88% of positional exits</b>, the initial stop about 12%. Targets
+    are near-decorative — only a small minority of trades ever reach 3R. That makes the trail the
+    least-tested lever in the system and the stop <em>not</em> the problem, despite four separate
+    studies that went looking for one.</p>
+  </div>
+</section>
+
+<section id="record">
+  <h2><span class="n">Section 9</span>The record</h2>
+  <p>A daily job reconciles the journal to the live broker book — adding holdings it is missing,
+  correcting drifted quantities, and closing positions only when there is a completing sell with an
+  authoritative price. It <b>aborts entirely</b> if the book comes back empty, because an API
+  hiccup must never read as “everything was sold”.</p>
+  <p>Every new position captures a <b>true entry snapshot</b> — setup, stage, alpha, RS, conviction
+  — so realised P&amp;L can later be attributed to the signal that caused it rather than guessed at.</p>
+  <div class="xref">
+    Detail on <a href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">19 ·
+    The Performance Ledger</a>.
+  </div>
+</section>
+
+<section id="evidence">
+  <h2><span class="n">Section 10</span>Where the evidence actually sits</h2>
+  <p>This is the section to read before believing anything the system tells you, including this
+  document.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Claim</th><th>Standing</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Selection edge</td><td>Roughly <b>+0.5% to +1.0% matched alpha per trade</b>, and it survives a beta adjustment</td></tr>
+      <tr><td class="k">The median trade</td><td><b>Loses to the index.</b> This is a low-hit-rate, big-winner-carried profile — about a third of trades win</td></tr>
+      <tr><td class="k">Statistical confidence</td><td>Probability of positive true alpha hovers near <b>50%</b>, with a confidence interval straddling zero</td></tr>
+      <tr><td class="k">The GO gate</td><td>A trade <b>classifier</b>, not an entry optimiser. Do not promote it to an entry filter</td></tr>
+      <tr><td class="k">Live track record</td><td><b>None yet.</b> The journal mixes system and discretionary trades and cannot be separated retroactively</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note stale">
+    <span class="tag">Plan around this, not around the best number you have seen</span>
+    <p><b>Plan around +1%, not +5%.</b> Several headline figures in this repo's history were later
+    found to be measurement artifacts — the largest cut alpha by roughly two thirds on the same
+    trades. Sizing and drawdown tolerance matter far more than the mean implies, and
+    <b>30 positional trades logged through guided execution would tell us more than another
+    backtest.</b></p>
+  </div>
+</section>
+
+<section id="clock">
+  <h2><span class="n">Section 11</span>The clock</h2>
+  <p>What runs without you, on weekdays, IST.</p>
+  <div class="tw"><table>
+    <thead><tr><th class="num">Time</th><th>Job</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td class="k num">08:00</td><td>Token check</td><td>Broker auth, before anything needs it</td></tr>
+      <tr><td class="k num">08:30</td><td>Pre-market report</td><td>Macro, flows, breadth</td></tr>
+      <tr><td class="k num">09:00–15:45</td><td>Every 15 min</td><td>Price alerts · stale-feed watchdog · daily P&amp;L alarm</td></tr>
+      <tr><td class="k num">15:45</td><td>Trail job</td><td>Tighten-only stop trail at the broker <em>(currently disarmed by choice)</em></td></tr>
+      <tr><td class="k num">16:00</td><td>Exit scan</td><td>Stop hits and stage decay, pushed as alerts</td></tr>
+      <tr><td class="k num">16:30</td><td><b>Auto-pilot</b></td><td>The ten-phase pipeline — tomorrow's shortlist</td></tr>
+      <tr><td class="k num">16:30</td><td><b>Journal sync</b></td><td>Reconcile the journal to the broker book</td></tr>
+      <tr><td class="k num">16:45</td><td>Breadth update</td><td>—</td></tr>
+      <tr><td class="k num">Sun 19:00</td><td>Weekly report</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">The one step that still needs you</span>
+    <p><b>The evening arm-and-alert ritual.</b> Rebuild the board, arm what deserves attention, and
+    create the alerts fresh — both timeframes. The watchlist name carries the date, so yesterday's
+    alert does not cover today's list.</p>
+  </div>
+</section>
+
+<section id="traps">
+  <h2><span class="n">Section 12</span>Standing rules and traps</h2>
+  <div class="note stale">
+    <span class="tag">A recompile destroys your alerts</span>
+    <p>Alerts bind to the compiled script. Recompiling S4 does not stale them — <b>it deletes
+    them.</b> Recreating every GO alert after every compile is mandatory, not housekeeping.</p>
+  </div>
+  <div class="note stale">
+    <span class="tag">Source bindings are positional and are dropped on recompile</span>
+    <p>S4 reads values from the dashboard by input source, which binds by <em>position</em>. Any
+    recompile drops all of them, and an unbound source silently reads price rather than erroring.
+    Re-run the binding script after every compile.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Pine has four ceilings, and only three announce themselves</span>
+    <p>Compiled tokens, main-body statements, plot outputs — and <b>execution time</b>, which only
+    shows up as a timeout on a live chart. A library relieves the first; nothing relieves the last
+    but doing less work per bar.</p>
+  </div>
+  <div class="note live">
+    <span class="tag">How to read any result</span>
+    <p><b>Split by catalyst family before concluding anything.</b> Pooling has produced a false
+    conclusion three separate times here. Measure stops and sizing in <b>R</b>, never per-trade
+    percent — a percentage metric structurally rewards a wider stop and has already inverted one
+    reported conclusion. And never judge a positional or recovery setup on a short window.</p>
+  </div>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">Section 13</span>Thirty common mistakes</h2>
+  <p>The most durable section in the original Bible. Nothing here has been superseded — the tools
+  changed, these did not.</p>
+
+  <h4>Discovery</h4>
+  <ol class="mistakes">
+    <li><span><b>Skipping the sector read.</b> Screening without knowing which sectors are Stage 3/4 fills the shortlist with names you must later discard.</span></li>
+    <li><span><b>Setting the quality floor too low.</b> It floods you with marginal setups.</span></li>
+    <li><span><b>Disabling the recovery regime gate.</b> In a strong bull market, “recovery” setups are usually ordinary pullbacks.</span></li>
+    <li><span><b>Running on a stale broker token.</b> The sync fails silently.</span></li>
+    <li><span><b>Not keeping the shortlist.</b> You lose the scores, stops and targets by the time you reach the chart.</span></li>
+  </ol>
+
+  <h4>Screening</h4>
+  <ol class="mistakes" style="counter-reset:m 5">
+    <li><span><b>Confusing catalyst names across surfaces.</b> Map them before comparing.</span></li>
+    <li><span><b>Not checking live volume on a breakout.</b> A breakout on below-average volume is a trap, and overnight data only sees the close.</span></li>
+    <li><span><b>Entering a gap trade too early.</b> Gap openings are often reversed in the first hour; the rule is above the first-candle high, after volume confirms.</span></li>
+    <li><span><b>Taking the earliest recovery signal standalone.</b> It is the highest-risk edge and needs context confirmation.</span></li>
+    <li><span><b>Ignoring a short time limit on a mean-reversion trade.</b> One that fails to revert quickly becomes a trend-following loser.</span></li>
+  </ol>
+
+  <h4>Validation</h4>
+  <ol class="mistakes" style="counter-reset:m 10">
+    <li><span><b>Acting on a fundamentals-failed signal.</b> Most should be skipped.</span></li>
+    <li><span><b>Leaving override fields populated.</b> They mask the real position data for that ticker.</span></li>
+    <li><span><b>Not cross-checking context.</b> A buy signal in cautionary context is not a valid entry.</span></li>
+    <li><span><b>Trusting a buy in a Stage 3 sector.</b> The sector reading is authoritative — never override it.</span></li>
+    <li><span><b>Treating “improving” as “leading”.</b> Improving means <em>still underperforming</em>, just less badly. A watch condition, not a full-conviction buy.</span></li>
+  </ol>
+
+  <h4>Context</h4>
+  <ol class="mistakes" style="counter-reset:m 15">
+    <li><span><b>Running the context layer alongside the modules it replaces.</b> Duplicate labels and conflicting drawings.</span></li>
+    <li><span><b>Over-relying on a stale Wyckoff event.</b> It persists until replaced and still scores. Check how many bars ago; older than about thirty is history, not a trigger.</span></li>
+    <li><span><b>Misreading a liquidity sweep as a reversal.</b> If you are long and the trend is intact, it is often continuation — the market took liquidity to fuel the next leg.</span></li>
+    <li><span><b>Using a daily-length volume-profile lookback on weekly charts.</b> The profile becomes too diffuse to mean anything.</span></li>
+  </ol>
+
+  <h4>Execution</h4>
+  <ol class="mistakes" style="counter-reset:m 19">
+    <li><span><b>Chasing an extended breakout.</b> Past a few percent above the level the reward has gone. Wait for the first pullback.</span></li>
+    <li><span><b>Overriding the breakeven lock.</b> It exists so a runner cannot become a loss.</span></li>
+    <li><span><b>Adding before the first lot works.</b> That is averaging up before the thesis is validated.</span></li>
+    <li><span><b>Taking a breakout without the volatility squeeze.</b> Without it you are entering a loose, high-risk break.</span></li>
+  </ol>
+
+  <h4>Recovery</h4>
+  <ol class="mistakes" style="counter-reset:m 23">
+    <li><span><b>Using an outdated drawdown threshold.</b> The gate is a band off the recent high with all pillars present, not a single deep number.</span></li>
+    <li><span><b>Trading a recovery setup in bearish context.</b> That stock is not recovering, it is still breaking down.</span></li>
+    <li><span><b>Holding recovery trades through a macro reversal.</b> The regime <em>is</em> the thesis — when it breaks, exit all of them.</span></li>
+    <li><span><b>Placing the stop above the climax low.</b> That low is the invalidation point for the whole thesis.</span></li>
+  </ol>
+
+  <h4>Portfolio</h4>
+  <ol class="mistakes" style="counter-reset:m 27">
+    <li><span><b>Not recording entry dates.</b> Without them the days-held counter and time stop cannot function.</span></li>
+    <li><span><b>Exceeding the sector cap.</b> When a sector runs there is a natural pull to load up. Rotations reverse violently and concentration makes the drawdown severe.</span></li>
+    <li><span><b>Moving a stop locally and not at the broker.</b> The next sync overwrites your change with the broker's value. <b>Update at the broker first.</b></span></li>
+  </ol>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>The Commander Bible · the system map · rewritten 22 Aug 2026</span>
+  <span><a href="https://claude.ai/code/artifact/f5f003c2-b569-4cd5-b315-966ebb53d247">← The Commander Library</a></span>
+</div></footer>

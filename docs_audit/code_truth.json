@@ -134,5 +134,13 @@
     "SWG-GAP",
     "SWG-PB",
     "SWG-REV"
-  ]
+  ],
+  "rev_screener_t1_r": "2.5",
+  "rev_canon_t1_r": "3.0",
+  "rff_min_score": "5",
+  "cb_lookback_high_days": "60",
+  "cb_drawdown_band": "15.0-35.0",
+  "stock_correction_min": "10.0",
+  "sector_db_rows": 684,
+  "choch_window": "20"
 }

@@ -1,0 +1,448 @@
+<title>Where The Money Actually Traded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#1F5E3D; --acc-bg:#E5F1EA; --acc-rule:#A3CBB5;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#6FC79A; --acc-bg:#10241A; --acc-rule:#255239;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#6FC79A; --acc-bg:#10241A; --acc-rule:#255239;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 03 · Chart engines</p>
+      <h1>Where The Money Actually Traded</h1>
+      <p class="dek">The volume profile — acceptance and rejection, not structure and not narrative.
+      Of the three context layers, <b>this is the only one that survived measurement as a live
+      input to the entry gate.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Its standing</div>
+      Wyckoff: rejected twice.<br>
+      Structure health: inert.<br>
+      <b>Volume profile: wired in,<br>
+      and it fires on ~18%.</b>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#standing">Where it lives, and why it stayed</a></li>
+    <li><a href="#wrong">What the old guide got wrong</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#levels">The three levels</a></li>
+    <li><a href="#calc">How it is calculated</a></li>
+    <li><a href="#nodes">Nodes — the air pockets</a></li>
+  </ol>
+  <p>Reading it</p>
+  <ol>
+    <li><a href="#position">Position and score</a></li>
+    <li><a href="#stages">Against the stages</a></li>
+    <li><a href="#workflow">The workflow</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#inputs">Inputs and tuning</a></li>
+    <li><a href="#mistakes">Mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="standing">
+  <h2><span class="n">01</span>Where it lives, and why it stayed</h2>
+  <div class="note stop">
+    <span class="tag">The standalone indicator no longer exists</span>
+    <p>Volume profile, Wyckoff and the zone module were merged into one context overlay, and the
+    profile was later ported into the entry-trigger script. Everything below is read from those
+    live sources.</p>
+  </div>
+
+  <p>Three context components were put to the same test — does this improve the decision, measured?
+  Two failed. This one passed, and it is the reason the integration was worth doing at all.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Component</th><th>Verdict</th></tr></thead><tbody>
+      <tr><td class="k">Wyckoff as a veto</td><td><b>Backwards</b> — the vetoed cohort outperformed</td></tr>
+      <tr><td class="k">Wyckoff as a score</td><td><b>Null</b> — held-out correlation of +0.013</td></tr>
+      <tr><td class="k">Structure health</td><td><b>Inert</b> — the threshold it needs is never reached</td></tr>
+      <tr><td class="k">Volume profile</td><td><b>Wired into the location gate.</b> The value-area low and the point of control count as support, and they fire on roughly 18% of names</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">Why this one and not the others</span>
+    <p>The other two answer <em>what phase is this</em> and <em>has structure shifted</em> — both
+    already answered better elsewhere in the system. This one answers <b>where is price relative to
+    where business was actually done</b>, and nothing else in the stack knows that. It adds
+    information rather than a second opinion.</p>
+  </div>
+  <p class="refnote">It is a <b>loosening</b> gate — it adds support sources rather than removing
+  them — and it sits behind its own switch so it can be turned off and A/B'd against the prior
+  behaviour.</p>
+</section>
+
+<section id="wrong">
+  <h2><span class="n">02</span>What the old guide got wrong</h2>
+  <p>Two of its three core claims do not describe the live code, and the first one matters a great
+  deal.</p>
+  <div class="tw"><table>
+    <thead><tr><th>The old guide says</th><th>The code does</th></tr></thead><tbody>
+      <tr><td class="k">Each bar's <b>whole</b> volume goes into the single bin containing its typical price</td><td><b>Each bar's volume is spread across every bin its range overlaps, weighted by the overlap.</b> A wide bar contributes to eight bins in proportion, not all of itself to one</td></tr>
+      <tr><td class="k">The value area expands "outward, one bin at a time" in both directions</td><td>Each step compares the bin <b>above</b> against the bin <b>below</b> and takes <b>the heavier one</b>. The area grows asymmetrically toward volume, which is the standard algorithm</td></tr>
+      <tr><td class="k">24 rows</td><td><b>40 rows</b>, up to 80</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">Why the first one changes the picture</span>
+    <p>Typical-price binning turns every bar into a single point and throws away its range. On a
+    wide, high-volume bar — <b>exactly the bars that matter</b> — it puts all the volume at the
+    middle and none at the extremes where the fight actually happened. The profile comes out
+    spikier and its low-volume gaps are partly artefacts of the binning.</p>
+    <p>Overlap weighting is more expensive (it is a loop inside a loop) and it is why the heavy
+    recomputation is gated to closed bars — see section 04.</p>
+  </div>
+</section>
+
+<section id="levels">
+  <h2><span class="n">03</span>The three levels</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Level</th><th>What it is</th></tr></thead><tbody>
+      <tr><td class="k">Point of control</td><td>The price with the most volume traded in the window — <b>the fairest price</b> the market has found</td></tr>
+      <tr><td class="k">Value area high</td><td>Upper edge of the band holding 70% of the volume</td></tr>
+      <tr><td class="k">Value area low</td><td>Lower edge of that band</td></tr>
+    </tbody></table></div>
+  <p>The band between them is where the market spent its time and did its business. Price arriving
+  from outside tends to be pulled toward the control point; price leaving it with conviction is
+  discovering a new range.</p>
+  <p class="refnote">The seventy is not arbitrary — it is roughly one standard deviation of a normal
+  distribution, and it is the convention every desk reading a profile is using. <b>Changing it
+  means you are no longer looking at the same levels other people are watching</b>, which is half
+  of why the levels work.</p>
+</section>
+
+<section id="calc">
+  <h2><span class="n">04</span>How it is calculated</h2>
+  <ol>
+    <li><b>Take the window's high and low</b> and divide that range into rows.</li>
+    <li><b>For every bar in the window</b>, find how much of the bar's range falls in each row, and
+    give that row that <em>fraction</em> of the bar's volume.</li>
+    <li><b>The heaviest row is the control point</b> — its midpoint is the price.</li>
+    <li><b>Grow the value area outward from it.</b> At each step compare the next row up against
+    the next row down and take the heavier; stop when the accumulated volume reaches the target
+    share.</li>
+  </ol>
+  <p>The profile is <b>fixed-range and rolling</b>: it recomputes from scratch each time, always
+  describing the last N bars. It is not an anchored or session profile — there is no fixed start
+  date, so <b>the levels move as the window slides.</b></p>
+
+  <div class="note stop">
+    <span class="tag">The performance rule this taught</span>
+    <p>The build is a nested loop — every bar in the window against every row — and it is gated to
+    <b>confirmed bar closes</b>. Drawing is separate and runs on the last bar.</p>
+    <p>That split is not tidiness. The sibling script once gated the same work on
+    &ldquo;is this a live bar&rdquo;, which is true on <em>every tick</em>, and it ran a
+    four-thousand-iteration loop per tick until the platform killed the script mid-session — twice
+    in thirty minutes, only after the market opened. <b>Compute on closed bars, draw on the last
+    one.</b></p>
+  </div>
+</section>
+
+<section id="nodes">
+  <h2><span class="n">05</span>Nodes — where price hurries and where it lingers</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Node</th><th>Meaning</th><th>What price does</th></tr></thead><tbody>
+      <tr><td class="k">High-volume node</td><td>A row far heavier than its neighbours</td><td><b>Slows and hovers.</b> Business was done here, so there is inventory to work through</td></tr>
+      <tr><td class="k">Low-volume node</td><td>A row much lighter than its neighbours</td><td><b>Moves through fast.</b> An air pocket — nobody accepted these prices, so nothing is there to absorb an order</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">The single most useful read on the whole layer</span>
+    <p>Before a breakout, look at what sits immediately <em>above</em> the level.</p>
+    <p><b>An air pocket above means clear road</b> — the move has nothing to chew through and tends
+    to travel. <b>A heavy node above is a ceiling</b> and the breakout will more likely stall in it.
+    Same signal, same bar, entirely different expectation — and the profile is the only layer that
+    can tell you which one you are looking at.</p>
+  </div>
+  <p class="refnote">The mirror applies to stops: <b>put a stop below a heavy node, not inside an
+  air pocket.</b> A stop sitting in a gap gets taken out on nothing, because there is no volume
+  there to slow the move down.</p>
+</section>
+
+<section id="position">
+  <h2><span class="n">06</span>Position, and what the panel scores</h2>
+  <p>The panel reduces the profile to one question — where is price against the value area — and
+  scores it on a four-step scale:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Position</th><th class="r">Score</th><th>Read</th></tr></thead><tbody>
+      <tr><td class="k">Above the value-area high</td><td class="new">+3</td><td>Trading above accepted value — the bullish case</td></tr>
+      <tr><td class="k">Upper half of the value area</td><td class="num">+1</td><td>Inside value, on the better side of it</td></tr>
+      <tr><td class="k">Lower half of the value area</td><td class="num">−1</td><td>Inside value, on the weaker side</td></tr>
+      <tr><td class="k">Below the value-area low</td><td class="num">−3</td><td>Rejected below value — the bearish case</td></tr>
+    </tbody></table></div>
+  <p>Note the split of the value area into halves. <b>&ldquo;Inside value&rdquo; is not one
+  state</b> — the upper half is a market holding its gains and the lower half is one giving them
+  back, and collapsing them loses the distinction that matters.</p>
+  <div class="note">
+    <span class="tag">The distance colouring is deliberately asymmetric</span>
+    <p>Being <em>above</em> the control point scores friendlier than being the same distance
+    <em>below</em> it. That is not a bias in the display — it reflects that in a long-only book,
+    extension above fair value is a position to manage while extension below it is a thesis to
+    question.</p>
+  </div>
+
+  <h3>As a location source</h3>
+  <p>In the entry gate, two profile levels count as support:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Source</th><th>Fires when</th></tr></thead><tbody>
+      <tr><td class="k">At the value-area low</td><td>Price is <b>at or above</b> it and within 1.5% — the lower edge of accepted value, holding</td></tr>
+      <tr><td class="k">At the control point</td><td>Price is at or above it and within 1.5% either way</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Both require price to be <b>at or above</b> the level, never below it. A level
+  you are underneath is resistance, not support — the same asymmetry the panel colours by.</p>
+</section>
+
+<section id="stages">
+  <h2><span class="n">07</span>Against the stages</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Stage</th><th>Profile signature</th></tr></thead><tbody>
+      <tr><td class="k">1 · basing</td><td>Control point sits in the middle of the range; the value-area high lines up with the base ceiling</td></tr>
+      <tr><td class="k">2 · advancing</td><td>Price clears the value-area high on volume, and the control point <b>migrates up</b> as the new range builds</td></tr>
+      <tr><td class="k">3 · topping</td><td>A wide gap opens between the control point and the value-area high; the low creeps up underneath</td></tr>
+      <tr><td class="k">4 · declining</td><td>Price loses the value-area low and <b>the control point becomes overhead resistance</b></td></tr>
+    </tbody></table></div>
+  <p>The stage-2 signature is the useful one to internalise: <b>a breakout that does not drag the
+  control point up with it has not built a new range</b> — it has made an excursion. Watching where
+  the control point sits a few weeks after a breakout tells you whether the move was accepted.</p>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">08</span>The workflow</h2>
+  <ol>
+    <li><b>Context first, on the weekly.</b> A year of bars gives the macro fair-value zone every
+    participant is referencing.</li>
+    <li><b>Entries on the daily.</b> The best long locations are a pullback <em>to</em> the
+    value-area high from above — old resistance now support — or a test of the control point from
+    above. <b>The worst is deep inside the value area heading down toward the control point</b>:
+    the profile is a headwind and the reward is poor.</li>
+    <li><b>Check the fuel before a breakout.</b> Air pocket above is a green light; heavy node above
+    is a stall risk. Section 05.</li>
+    <li><b>Take targets off the profile.</b> From the low, aim control point then value-area high.
+    From the high, the classic measured move is the width of the value area added above it.</li>
+    <li><b>Sanity-check the stop.</b> Whatever the engine gives you, prefer a level below a heavy
+    node over one sitting in a gap.</li>
+  </ol>
+  <div class="note warn">
+    <p>Everything here is chart-reading. <b>The profile does not generate entries</b> — the
+    screeners and the gate do — and only its two support levels are wired into a decision.</p>
+  </div>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">09</span>Inputs and tuning</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>Effect</th></tr></thead><tbody>
+      <tr><td class="k">Lookback bars</td><td class="num">100</td><td>The window. Roughly four months on a daily chart</td></tr>
+      <tr><td class="k">Profile rows</td><td class="num">40</td><td>Resolution. More rows resolve nodes finer and cost more compute</td></tr>
+      <tr><td class="k">Value area share</td><td class="num">70%</td><td><b>Leave it.</b> It is the convention everyone else is reading</td></tr>
+      <tr><td class="k">Histogram width</td><td class="num">25</td><td>How far the bars reach across the chart — cosmetic</td></tr>
+      <tr><td class="k">Show histogram · control point · value area · labels</td><td class="num">on</td><td>Independently toggleable</td></tr>
+      <tr><td class="k">Extend lines left</td><td class="num">off</td><td>On, the levels run back across the window that produced them</td></tr>
+    </tbody></table></div>
+
+  <details class="ref"><summary>Window by timeframe — and the trap in scaling it</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Use</th><th class="r">Bars</th><th class="r">Rows</th></tr></thead><tbody>
+      <tr><td class="k">Macro context, weekly</td><td class="num">250</td><td class="num">30</td></tr>
+      <tr><td class="k">Medium term, daily</td><td class="num">100</td><td class="num">24–40</td></tr>
+      <tr><td class="k">Short swing or intraday</td><td class="num">50</td><td class="num">15</td></tr>
+    </tbody></table></div>
+  <div class="note stop">
+    <p><b>The lookback is in BARS, not in time.</b> A hundred bars is four months on a daily chart
+    and <b>two years on a weekly one</b> — and two years of business is not a tradeable level, it
+    is an average of three different regimes. Re-scale the window every time you change timeframe;
+    forgetting to is the most common way this layer produces confident nonsense.</p>
+  </div>
+  <p class="refnote">Too <em>short</em> fails the other way: twenty bars is one month, the levels sit
+  on top of each other, and none of them mean anything for a position you intend to hold for
+  months.</p>
+  </div></details>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">10</span>Mistakes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mistake</th><th>Why it costs you</th></tr></thead><tbody>
+      <tr><td class="k">Treating the control point as a guaranteed magnet</td><td>It is a magnet in a <b>balanced</b> market. A genuine stage-2 leader with strong relative strength can stay far above it for months — and that is the one you want to hold, not fade</td></tr>
+      <tr><td class="k">Not re-scaling the window across timeframes</td><td>Section 09. The default is four months on daily and two years on weekly</td></tr>
+      <tr><td class="k">Ignoring it on the bar before a breakout</td><td>That is <b>the one bar where it pays most</b> — it tells you whether there is road above the level</td></tr>
+      <tr><td class="k">Reading a level you are below as support</td><td>The gate deliberately refuses this. Underneath a level is resistance</td></tr>
+      <tr><td class="k">Placing a stop inside an air pocket</td><td>Nothing there to absorb a move; you get taken out on no real selling</td></tr>
+      <tr><td class="k">Expecting the levels to hold still</td><td>This is a rolling window, not an anchored profile. <b>The levels drift as the window slides</b> — a level from three weeks ago is not the level on the chart today</td></tr>
+    </tbody></table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/03 · Volume Profile — folded into the context overlay</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">02 Wyckoff</a> · <a href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">01 Structure Engine</a></span>
+</div></footer>

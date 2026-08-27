@@ -1,0 +1,521 @@
+<title>Wyckoff, As This System Reads It</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#8A4A2A; --acc-bg:#F8EDE6; --acc-rule:#DCB79E;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#E0966B; --acc-bg:#2E1B10; --acc-rule:#633B22;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#E0966B; --acc-bg:#2E1B10; --acc-rule:#633B22;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 02 · Chart engines</p>
+      <h1>Wyckoff, As This System Reads It</h1>
+      <p class="dek">The narrative layer — is this a base building under accumulation, or a top
+      distributing? It runs in three places, and <b>it was tested twice as a trading input and
+      rejected both times.</b> Read that before you lean on it.</p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The number to hold</div>
+      <b>49%</b> of qualified picks<br>
+      read DISTRIBUTION at<br>
+      signal time — because a<br>
+      breakout <b>looks like one</b>.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#where">Where it actually lives</a></li>
+    <li><a href="#rejected">Tested twice, rejected twice</a></li>
+  </ol>
+  <p>The events</p>
+  <ol>
+    <li><a href="#events">The two cycles</a></li>
+    <li><a href="#detect">How detection really works</a></li>
+    <li><a href="#ladder">The priority ladder</a></li>
+    <li><a href="#decay">Score, bias and decay</a></li>
+  </ol>
+  <p>The surfaces</p>
+  <ol>
+    <li><a href="#python">The Python port</a></li>
+    <li><a href="#recovery">The recovery catalysts</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#workflow">Reading a cycle</a></li>
+    <li><a href="#tuning">Tuning</a></li>
+    <li><a href="#mistakes">Mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="where">
+  <h2><span class="n">01</span>Where it actually lives now</h2>
+  <div class="note stop">
+    <span class="tag">The standalone indicator no longer exists</span>
+    <p>The markdown guide describes a separate Wyckoff Phases script with its own inputs. <b>There
+    is no such file.</b> Wyckoff, Volume Profile and the zone module were merged into one context
+    overlay, and the Wyckoff logic was later ported into the entry-trigger script and into Python.
+    Everything below is read from those live sources, not from the retired guide.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>What it does with Wyckoff</th></tr></thead><tbody>
+      <tr><td class="k">The context overlay</td><td>The canonical Pine implementation — events, labels, bias, and a decaying score component that feeds the context total</td></tr>
+      <tr><td class="k">The entry-trigger script</td><td>Carries the same logic; the Python port was made against it</td></tr>
+      <tr><td class="k">The context module in Python</td><td>A one-to-one port so the board and the chart agree — see section 07</td></tr>
+      <tr><td class="k">The recovery screener</td><td><b>A separate, stricter implementation</b> that produces actual tradeable catalysts — section 08</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">And the guide's detection description was wrong even for its own version</span>
+    <p>It says events are <b>sequential and stateful</b> — that a preliminary support must print
+    before a climax can be labelled. <b>The live code is not sequential.</b> Each event is an
+    independent test of one pivot bar's shape and volume, and collisions are resolved by a priority
+    ladder, not by a phase state machine. That difference changes how you read a chart: <b>you can
+    get a sign of strength with no climax before it.</b></p>
+  </div>
+</section>
+
+<section id="rejected">
+  <h2><span class="n">02</span>Tested twice as a trading input, rejected twice</h2>
+  <p>Before the mechanics, the evidence — because it determines what this layer is <em>for</em>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Proposal</th><th>Result</th></tr></thead><tbody>
+      <tr><td class="k">Use a distribution reading as a veto on the entry gate</td><td><b>Backwards.</b> The vetoed cohort returned <b>+5.60%</b> against <b>+0.52%</b> for the cohort it kept</td></tr>
+      <tr><td class="k">Feed the Wyckoff score into the ranking</td><td><b>Null.</b> Held-out rank correlation <b>+0.013</b>, and it was null in both windows</td></tr>
+    </tbody></table></div>
+  <div class="note stop">
+    <span class="tag">The mechanism, and why it will not transfer</span>
+    <p><b>49% of already-qualified picks read DISTRIBUTION at signal time.</b> Not because they were
+    topping — because Wyckoff distribution events fire at <b>high-volume pivot highs</b>, and that
+    is structurally what a breakout <em>is</em>. A wide, heavy, closing-strong bar at a new high is
+    both a sign of strength and, one bar later at a confirmed pivot, an upthrust candidate.</p>
+    <p>The port is faithful. The concept simply does not transfer to a universe that has already
+    been filtered for breakouts. <b>Do not re-litigate this</b> — it is measured, in both
+    directions.</p>
+  </div>
+  <div class="note good">
+    <span class="tag">So what is it good for</span>
+    <p><b>Reading a chart, and grading what you are already looking at.</b> It stays on the panel as
+    context and as a decaying score component. It does not gate, it does not rank, and it should
+    never be the reason you take or skip a trade on its own.</p>
+  </div>
+</section>
+
+<section id="events">
+  <h2><span class="n">03</span>The two cycles</h2>
+  <h3>Accumulation — the markup setup</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Event</th><th>What it is</th></tr></thead><tbody>
+      <tr><td class="k">Preliminary support</td><td>The first meaningful buying after a decline; volume picks up</td></tr>
+      <tr><td class="k">Selling climax</td><td>Panic selling — wide spread, heavy volume, closing near the low. <b>The potential bottom, and not a buy</b></td></tr>
+      <tr><td class="k">Automatic rally</td><td>The bounce off the climax. It defines the top of the trading range</td></tr>
+      <tr><td class="k">Secondary test</td><td>A retest of the climax area on lighter volume — <b>supply drying up</b></td></tr>
+      <tr><td class="k">Spring</td><td>A false breakdown below the range low that recovers, on <em>low</em> volume. Supply is exhausted</td></tr>
+      <tr><td class="k">Sign of strength</td><td>A wide, high-volume break upward closing strong — institutional demand</td></tr>
+      <tr><td class="k">Last point of support</td><td>The quiet pullback after that break. <b>The highest-probability entry in the method</b></td></tr>
+    </tbody></table></div>
+
+  <h3>Distribution — the markdown setup</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Event</th><th>What it is</th></tr></thead><tbody>
+      <tr><td class="k">Preliminary supply</td><td>The first meaningful selling after an advance</td></tr>
+      <tr><td class="k">Buying climax</td><td>Frenzied buying at the high on extreme volume</td></tr>
+      <tr><td class="k">Automatic reaction</td><td>The decline that defines the bottom of the range</td></tr>
+      <tr><td class="k">Upthrust</td><td>A false breakout above the range that fails back inside — <b>a supply test</b></td></tr>
+      <tr><td class="k">Sign of weakness</td><td>A wide, heavy break downward</td></tr>
+      <tr><td class="k">Last point of supply</td><td>The weak rally after it. A short entry in a system that takes shorts; here it is an exit</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="detect">
+  <h2><span class="n">04</span>How detection really works</h2>
+  <p>Every event is one test, applied to a <b>confirmed pivot bar</b>, built from four primitives:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Primitive</th><th>Definition</th></tr></thead><tbody>
+      <tr><td class="k">High volume</td><td>Above the volume average times the high multiplier</td></tr>
+      <tr><td class="k">Low volume</td><td>Below the average times the low multiplier — <b>required by every exhaustion event</b></td></tr>
+      <tr><td class="k">Wide / narrow</td><td>Range above 1.4 times the volatility measure, or below 0.6 times it</td></tr>
+      <tr><td class="k">Close position</td><td>In the top third of the bar, or the bottom third</td></tr>
+    </tbody></table></div>
+
+  <details class="ref"><summary>Every event's condition, in words</summary><div class="rb">
+  <h4>Accumulation, at a pivot low unless stated</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Event</th><th>Requires</th></tr></thead><tbody>
+      <tr><td class="k">Selling climax</td><td>High volume <b>and</b> wide <b>and</b> closing low</td></tr>
+      <tr><td class="k">Preliminary support</td><td>High volume, <b>not</b> closing low, and not already a climax</td></tr>
+      <tr><td class="k">Secondary test</td><td>Low volume <b>and</b> narrow</td></tr>
+      <tr><td class="k">Spring</td><td>Low volume <b>and</b> closing in the upper third <b>and</b> an up bar</td></tr>
+      <tr><td class="k">Last point of support</td><td>Low volume <b>and</b> an up bar, and not already a spring</td></tr>
+      <tr><td class="k">Sign of strength</td><td><em>At a pivot high:</em> high volume, wide, closing high, <b>and an up bar</b></td></tr>
+      <tr><td class="k">Automatic rally</td><td><em>At a pivot high:</em> volume near average, an up bar, not a sign of strength</td></tr>
+    </tbody></table></div>
+  <h4>Distribution</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Event</th><th>Requires</th></tr></thead><tbody>
+      <tr><td class="k">Buying climax</td><td>At a pivot high: high volume, wide, closing high — <b>and NOT an up bar</b></td></tr>
+      <tr><td class="k">Upthrust</td><td>At a pivot high: high volume, wide, <b>closing low</b></td></tr>
+      <tr><td class="k">Preliminary supply</td><td>At a pivot high: high volume, not closing high</td></tr>
+      <tr><td class="k">Sign of weakness</td><td><b>A lower-low pivot</b>, high volume, wide, closing low, on a down bar</td></tr>
+      <tr><td class="k">Last point of supply</td><td>At a pivot high: low volume, narrow, a down bar</td></tr>
+      <tr><td class="k">Automatic reaction</td><td>At a pivot low: volume near average, a down bar, not a climax or weakness</td></tr>
+    </tbody></table></div>
+  </div></details>
+
+  <div class="note good">
+    <span class="tag">Three fixes worth knowing, because each removed a class of false event</span>
+    <div class="tw"><table>
+      <thead><tr><th>Fix</th><th>What it stopped</th></tr></thead><tbody>
+        <tr><td class="k">Weakness needs a <b>lower-low</b> pivot</td><td>It was firing on heavy down bars inside a range — <b>a structural breakdown has to break structure</b></td></tr>
+        <tr><td class="k">Climax excludes up bars; strength excludes bodyless shapes</td><td>The two used to collide on the same bar. Now the close-versus-open test separates a genuine demand thrust from an exhaustion print with a long upper wick</td></tr>
+        <tr><td class="k">A spring needs an upper-third close <b>and</b> an up bar</td><td>Any low-volume dip of a fraction of a percent used to qualify. <b>A spring is a recovery, not a wobble</b></td></tr>
+      </tbody></table></div>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">The label lands late, by construction</span>
+    <p>A pivot resolves on its <b>confirmation</b> bar, ten bars after the pivot itself at the
+    default length. So the script tests the pivot bar's characteristics but records the event at the
+    confirmation bar — and freshness and decay are both measured from there. <b>An event you see
+    today describes a bar from ten bars ago.</b></p>
+  </div>
+</section>
+
+<section id="ladder">
+  <h2><span class="n">05</span>The priority ladder, and the tie that goes bearish</h2>
+  <p>A single pivot can satisfy several conditions. Accumulation resolves top-down, strongest first:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Priority</th><th>Event</th><th class="r">Score</th></tr></thead><tbody>
+      <tr><td class="m">1</td><td class="k">Sign of strength</td><td class="num">+4</td></tr>
+      <tr><td class="m">2</td><td class="k">Spring</td><td class="num">+3</td></tr>
+      <tr><td class="m">3</td><td class="k">Last point of support</td><td class="num">+3</td></tr>
+      <tr><td class="m">4</td><td class="k">Selling climax</td><td class="num">+2</td></tr>
+      <tr><td class="m">5</td><td class="k">Preliminary support</td><td class="num">+1</td></tr>
+      <tr><td class="m">6</td><td class="k">Secondary test</td><td class="num">+1</td></tr>
+    </tbody></table></div>
+  <div class="tw"><table>
+    <thead><tr><th>Priority</th><th>Event</th><th class="r">Score</th></tr></thead><tbody>
+      <tr><td class="m">1</td><td class="k">Sign of weakness</td><td class="num">−4</td></tr>
+      <tr><td class="m">2</td><td class="k">Last point of supply</td><td class="num">−3</td></tr>
+      <tr><td class="m">3</td><td class="k">Upthrust</td><td class="num">−3</td></tr>
+      <tr><td class="m">4</td><td class="k">Buying climax</td><td class="num">−2</td></tr>
+      <tr><td class="m">5</td><td class="k">Preliminary supply</td><td class="num">−1</td></tr>
+    </tbody></table></div>
+  <div class="note stop">
+    <span class="tag">Load-bearing quirk — do not "clean it up"</span>
+    <p>The distribution block is a <b>second independent test</b>, not an alternative branch. It runs
+    after the accumulation block and overwrites it. <b>So a bar that satisfies both resolves to
+    DISTRIBUTION</b> — the bearish read always wins a tie.</p>
+    <p>Combined with section 02, this is most of the story: on a breakout bar both sides can fire,
+    and the tie-break hands you the bearish label on a name that is doing exactly what you wanted.</p>
+  </div>
+</section>
+
+<section id="decay">
+  <h2><span class="n">06</span>Bias, score and decay</h2>
+  <p>Three values persist between events and are what the panel actually shows:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Value</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Bias</td><td>Accumulation, distribution or neutral — set by the last event that fired, and it <b>stays set</b> until another one does</td></tr>
+      <tr><td class="k">Base score</td><td>The event's tier, from +4 to −4</td></tr>
+      <tr><td class="k">Decayed score</td><td>What feeds the context total</td></tr>
+    </tbody></table></div>
+  <p>The score fades <b>25% every decay step</b>, so at the default it is worth nothing after four
+  steps — a half-life of roughly forty-five bars. That is the mechanism that stops a months-old
+  climax still colouring today's read.</p>
+  <div class="note">
+    <span class="tag">Read bias and score together, never separately</span>
+    <p><b>Bias does not decay; the score does.</b> A chart can print &ldquo;accumulation&rdquo; with
+    a decayed score of zero — meaning the last thing that happened was bullish, and it happened long
+    enough ago to be irrelevant. Bias alone is the single most misread cell on the panel.</p>
+  </div>
+</section>
+
+<section id="python">
+  <h2><span class="n">07</span>The Python port, and the three quirks it reproduces on purpose</h2>
+  <p>Before the port, the board showed Wyckoff from <b>proxies</b> — accumulation was inferred from
+  a volume flag and the stage, which is not Wyckoff at all. The port is one-to-one against the Pine
+  so the board and the chart cannot disagree.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Reproduced deliberately</th><th>Why it is load-bearing</th></tr></thead><tbody>
+      <tr><td class="k">Events record at the <b>confirmation</b> bar while testing the <b>pivot</b> bar</td><td>Freshness and decay are measured from the confirmation bar. Change this and every age is off by the pivot length</td></tr>
+      <tr><td class="k">The bearish block is a second test, so <b>distribution wins ties</b></td><td>Section 05. Making it an alternative branch would silently change roughly half the labels</td></tr>
+      <tr><td class="k">The structure-shift flag reads the <b>prior</b> bar's trend</td><td>It is evaluated before the trend updates on that bar</td></tr>
+    </tbody></table></div>
+  <p>Because all three depend on state carried bar to bar, the port is a bar-by-bar loop rather than
+  a vectorised pass. <b>That is a deliberate trade of speed for parity</b>, and the cost is
+  negligible next to fetching the data.</p>
+  <p class="refnote">Eighteen regression tests pin these three behaviours, each verified to go red
+  under mutation. Pivot ties are treated as breaking the pivot, matching the platform.</p>
+</section>
+
+<section id="recovery">
+  <div class="note warn">
+    <span class="lbl">The port's third output — and why it reads CLEAN almost always</span>
+    <p>The same module — <code>wcl_context.py</code> — also produces <b>Structure Health</b>, a
+    count of structure-shift events in the trailing twenty bars. It is banded
+    <b>CLEAN</b> (0–1), <b>CHOPPY</b> (2–3) and <b>BROKEN</b> (4+), and it is used: it is a term
+    in the board's risk-and-quality leg, and it caps position size once it leaves CLEAN.</p>
+    <p><b>Two of those four numbers never occur.</b> Measured across the board universe, the
+    count never reached three — distribution tops out at two. So in practice <b>CHOPPY means
+    exactly two events, and BROKEN is unreachable.</b> A gate keyed on three or more would
+    never fire once, which is exactly the kind of dead condition that reads as a working
+    safeguard until you check it.</p>
+    <p>So read CLEAN as <em>the ordinary state</em>, not as a clean bill of health, and treat a
+    CHOPPY as the meaningful signal — it is the top of the scale, not the middle of it. This is
+    also the shape of the two rejections in section 02: Wyckoff describes what price has done,
+    and it keeps failing when asked to decide what to do next.</p>
+  </div>
+
+  <h2><span class="n">08</span>The recovery catalysts — the one place Wyckoff trades</h2>
+  <p>Separate from the context layer, the recovery screener implements its own stricter Wyckoff and
+  <b>emits real catalysts</b>. These are validated and they are the priority recovery edge.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Catalyst</th><th>What must be true</th><th>Entry</th></tr></thead><tbody>
+      <tr><td class="k">Spring</td><td>Within the recent window, dipping no more than a few percent below the base low, on volume <b>at or under</b> average, and closing back above the base low within a few bars</td><td>After the rejection back into the range</td></tr>
+      <tr><td class="k">Sign of strength</td><td>Spread at least 1.5 times the recent average, closing in the upper third, on at least 1.5 times average volume</td><td>The first pullback after it</td></tr>
+      <tr><td class="k">Jump across the creek</td><td>A close above the range high on <b>twice</b> average volume</td><td>Immediately — <b>later, but safer</b></td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">Why this version outranks the older recovery edges</span>
+    <p>A spring followed by a sign of strength describes a <b>completed structure</b> — supply
+    exhausted, then demand proving itself. A bounce bar describes one day. That is also why these
+    stayed when the context-layer Wyckoff was rejected as a gate: <b>a strict multi-bar structure
+    on beaten-down names is a different test from a single event label on a breakout universe.</b></p>
+  </div>
+  <p class="refnote">Note the inversion that makes the spring real: <b>volume must be at or below
+  average</b>. A heavy break of the base low is not a spring, it is a breakdown.</p>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">09</span>Reading a cycle</h2>
+  <h3>The accumulation sequence</h3>
+  <ol>
+    <li><b>A selling climax prints.</b> Heavy, wide, closing at the low. This is the potential
+    bottom and <b>it is not an entry</b> — risk is still undefined.</li>
+    <li><b>An automatic rally follows.</b> Note the level; it is the top of the range.</li>
+    <li><b>A secondary test comes back down on lighter volume.</b> Supply is drying up. This is the
+    first watch point, and it maps to the recovery book's climax path.</li>
+    <li><b>A sign of strength breaks the range on expanding volume.</b> Demand is present.</li>
+    <li><b>A last point of support pulls back quietly into the breakout area.</b> This is the entry
+    the method is built around — stop below the pullback low.</li>
+  </ol>
+  <h3>The distribution warning</h3>
+  <ol>
+    <li><b>A buying climax at the highs</b> — start tightening on existing longs.</li>
+    <li><b>An upthrust</b> — a failed break above. If you are long from the base, this is an exit
+    signal, not a reason to add.</li>
+    <li><b>A sign of weakness</b> — structural confirmation. Close what remains.</li>
+  </ol>
+  <div class="note warn">
+    <p>Everything in this section is <b>chart-reading discipline, not a mechanical rule</b>. The
+    measured results in section 02 say the labels do not select winners on this universe. Use the
+    sequence to understand what a chart is doing; take the trade on the system's own gates.</p>
+  </div>
+</section>
+
+<section id="tuning">
+  <h2><span class="n">10</span>Tuning</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>Effect</th></tr></thead><tbody>
+      <tr><td class="k">Pivot length</td><td class="num">10</td><td>Bars each side to confirm a swing. <b>Higher gives fewer, stronger events</b> — right for positional. Lower is noisier</td></tr>
+      <tr><td class="k">Volume lookback</td><td class="num">20</td><td>The baseline. Raise toward 50 on very quiet names</td></tr>
+      <tr><td class="k">High multiplier</td><td class="num">1.5&times;</td><td>What counts as heavy. Higher is stricter and produces fewer events</td></tr>
+      <tr><td class="k">Low multiplier</td><td class="num">0.7&times;</td><td>What counts as dry. <b>Lower is stricter</b> — this is the one that governs springs and tests</td></tr>
+      <tr><td class="k">Decay step</td><td class="num">15 bars</td><td>25% fade per step. Lower prefers fresher setups; raise toward 30 for long holds</td></tr>
+      <tr><td class="k">Module toggle</td><td class="num">on</td><td>Turning it off suppresses the <b>labels only</b> — the score still feeds the panel</td></tr>
+    </tbody></table></div>
+  <div class="note stop">
+    <span class="tag">The one combination that breaks it</span>
+    <p><b>Keep the volume lookback at least twice the pivot length.</b> Below that, events confirm
+    before there is enough volume history to judge them against, and the whole layer becomes noise
+    that still looks authoritative.</p>
+  </div>
+  <p class="refnote">On weekly charts, shorten the pivot to five or seven, raise the decay step
+  toward thirty, and ease the high multiplier — weekly volume is much smoother, so 1.5 times average
+  is a rarer event than it is on a daily chart.</p>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">11</span>Mistakes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mistake</th><th>Why it costs you</th></tr></thead><tbody>
+      <tr><td class="k">Treating a distribution label as a sell on a breakout name</td><td><b>Measured backwards</b> — the vetoed cohort outperformed by five points. Section 02</td></tr>
+      <tr><td class="k">Reading bias without the score</td><td>Bias persists; the score decays. <b>Accumulation with a zero score means it was bullish, a long time ago</b></td></tr>
+      <tr><td class="k">Buying the climax</td><td>The climax is where risk is highest and undefined. <b>The method's entry is the quiet pullback after the break</b>, several events later</td></tr>
+      <tr><td class="k">Expecting a phase sequence</td><td>Detection is per-pivot, not stateful. A sign of strength with no climax before it is normal output, not a bug</td></tr>
+      <tr><td class="k">Acting on the label's bar</td><td>It resolves on the confirmation bar — <b>the event is already ten bars old</b> at the default length</td></tr>
+      <tr><td class="k">Reading events without location</td><td>An event at the value-area low means something different from the same event mid-range. <b>This layer was always designed to be read alongside the volume and zone layers</b>, never alone</td></tr>
+    </tbody></table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/02 · Wyckoff — folded into the context overlay</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">01 Structure Engine</a> · <a href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">09 Quality on Sale</a></span>
+</div></footer>

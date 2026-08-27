@@ -1,0 +1,314 @@
+<title>The Library Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* An auditor's page. Ledger greys with a faint green bias, one slate-blue stamp,
+   and three semantic colours that are NOT the accent — verified, gap, open. */
+:root{
+  --ground:#F1F3F1; --surface:#FFFFFF; --surface-2:#F8F9F8; --surface-3:#E7EAE7;
+  --ink:#14171A; --ink-2:#3A4147; --muted:#67707A; --faint:#98A1A8;
+  --rule:#D5DAD7; --rule-soft:#E4E8E5;
+  --acc:#34506B; --acc-bg:#E7EDF3; --acc-rule:#AEC0D2;
+  --ok:#1F6B4A; --ok-bg:#E3F0E9; --ok-rule:#9CC5B1;
+  --gap:#8A5B12; --gap-bg:#F8F0DE; --gap-rule:#DCC38C;
+  --open:#9B3A2E; --open-bg:#F9EAE7; --open-rule:#DCAEA5;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Newsreader',Georgia,'Times New Roman',serif;
+  --body:'Public Sans','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101312; --surface:#171B19; --surface-2:#1C211F; --surface-3:#232927;
+    --ink:#E9ECEA; --ink-2:#C0C7C3; --muted:#87908B; --faint:#636B67;
+    --rule:#282E2B; --rule-soft:#1F2523;
+    --acc:#8FB0CD; --acc-bg:#15202A; --acc-rule:#31485C;
+    --ok:#4FB98C; --ok-bg:#0E2B21; --ok-rule:#1F5442;
+    --gap:#D9A840; --gap-bg:#2C2410; --gap-rule:#5C4B1D;
+    --open:#E88070; --open-bg:#301A16; --open-rule:#63302A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101312; --surface:#171B19; --surface-2:#1C211F; --surface-3:#232927;
+  --ink:#E9ECEA; --ink-2:#C0C7C3; --muted:#87908B; --faint:#636B67;
+  --rule:#282E2B; --rule-soft:#1F2523;
+  --acc:#8FB0CD; --acc-bg:#15202A; --acc-rule:#31485C;
+  --ok:#4FB98C; --ok-bg:#0E2B21; --ok-rule:#1F5442;
+  --gap:#D9A840; --gap-bg:#2C2410; --gap-rule:#5C4B1D;
+  --open:#E88070; --open-bg:#301A16; --open-rule:#63302A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1180px;margin:0 auto;padding:52px 24px 34px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 15px;font-weight:600}
+h1{font-family:var(--disp);font-weight:500;font-size:clamp(38px,6vw,62px);line-height:1.02;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17.5px;color:var(--ink-2);max-width:62ch;margin:18px 0 0}
+.dek em{font-style:italic;color:var(--ink)}
+
+.counts{display:flex;flex-wrap:wrap;gap:34px;margin:30px 0 0;padding-top:22px;
+  border-top:1px solid var(--rule-soft)}
+.count b{font-family:var(--disp);font-size:31px;font-weight:600;color:var(--ink);display:block;
+  line-height:1;font-variant-numeric:tabular-nums}
+.count span{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-top:8px}
+
+main{padding:44px 0 96px;display:flex;flex-direction:column;gap:52px}
+section{display:flex;flex-direction:column;gap:16px}
+h2{font-family:var(--disp);font-weight:600;font-size:27px;line-height:1.2;margin:0;
+  letter-spacing:-.012em;text-wrap:balance;display:flex;align-items:baseline;gap:13px}
+h2 .n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--acc);
+  letter-spacing:.08em;flex:none}
+h3{font-family:var(--body);font-weight:700;font-size:15px;margin:10px 0 0;color:var(--ink)}
+p{margin:0;max-width:70ch}
+.pt{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0;font-weight:600}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:640px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;text-align:left;padding:11px 14px;
+  border-bottom:1px solid var(--rule);background:var(--surface-2);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;
+  color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.m,.m{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+b{color:var(--ink);font-weight:700}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface-3);
+  padding:1px 5px;border-radius:2px;color:var(--ink)}
+
+.chip{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:2px;
+  border:1px solid;white-space:nowrap}
+.chip.ok{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-rule)}
+.chip.gap{color:var(--gap);background:var(--gap-bg);border-color:var(--gap-rule)}
+.chip.open{color:var(--open);background:var(--open-bg);border-color:var(--open-rule)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  border-radius:2px;padding:17px 20px;display:flex;flex-direction:column;gap:9px}
+.note.warn{border-left-color:var(--gap)}
+.note.stop{border-left-color:var(--open)}
+.note .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--acc);font-weight:600}
+.note.warn .lbl{color:var(--gap)}
+.note.stop .lbl{color:var(--open)}
+.note p{max-width:78ch}
+
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.pair>div{background:var(--surface);padding:15px 17px;display:flex;flex-direction:column;gap:6px}
+.pair .who{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:600}
+.pair .val{font-family:var(--disp);font-size:24px;font-weight:600;color:var(--ink);line-height:1}
+.pair .why{font-size:13.5px;color:var(--ink-2)}
+@media(max-width:640px){.pair{grid-template-columns:1fr}}
+
+ol.plan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+ol.plan li{background:var(--surface);padding:16px 19px;display:grid;
+  grid-template-columns:30px minmax(0,1fr) auto;gap:15px;align-items:baseline}
+ol.plan .step{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--acc);
+  font-variant-numeric:tabular-nums}
+ol.plan .what{display:flex;flex-direction:column;gap:5px}
+ol.plan .ttl{font-weight:700;color:var(--ink);font-size:15px}
+ol.plan .sub{font-size:14px;color:var(--ink-2);max-width:72ch}
+@media(max-width:640px){ol.plan li{grid-template-columns:26px minmax(0,1fr)}
+  ol.plan li .chip{grid-column:2}}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;color:var(--muted);font-size:13.5px}
+a{color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Commander Library · 27 August 2026</p>
+    <h1>The Library Audit</h1>
+    <p class="dek">Twenty-four guide pages, checked against the code rather than against the
+    notes. Most were sound. The ones that were not had drifted in a particular way — <em>not
+    wrong numbers so much as missing states</em>: a lifecycle one stage short, a navigation map
+    missing its first group, a matrix missing its fifth column.</p>
+    <div class="counts">
+      <div class="count"><b>24</b><span>pages audited</span></div>
+      <div class="count"><b>22</b><span>corrected</span></div>
+      <div class="count"><b>2</b><span>verified unchanged</span></div>
+      <div class="count"><b>47</b><span>code facts now watched</span></div>
+      <div class="count"><b>2</b><span>gaps left open, deliberately</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap"><main>
+
+<section>
+  <p class="pt">Method</p>
+  <h2><span class="n">§</span>What the audit actually did</h2>
+  <p>Every claim was checked at its source file and line. Where a page and this project's own
+  notes disagreed, the code decided — and twice the notes lost, so they were corrected too.</p>
+  <p>Three tools carry the work forward. <code>code_truth.py</code> reads 47 values straight
+  out of the modules; <code>truth_watch.py</code> reports which of them <em>moved</em> and names
+  the pages citing each one; <code>rank_pages.py</code> scores every page for contradictions and
+  for gaps it specifically owes. All 24 pages now score zero.</p>
+  <div class="note">
+    <span class="lbl">Why a checker, and not just a careful read</span>
+    <p>A guide does not announce that it has gone stale. It reads exactly as well on the day
+    its number stops being true as it did the day before — which is what makes documentation
+    drift the same shape as the silent failures already catalogued on the operating-loop page.
+    <b>So it was added there as the ninth one</b>, with a post-close job to match.</p>
+    <p>The checker earns its place by being wrong in a useful direction: it flags, it does not
+    edit. Five of its early hits were pages correctly describing their own history — a
+    superseded number quoted <em>as</em> superseded. Those were fixed in the checker, never in
+    the prose.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">The findings that matter</p>
+  <h2><span class="n">§</span>Two numbers, two modules, one question</h2>
+  <p>The single-page corrections are listed further down. These two are different in kind:
+  nothing on either page was wrong. The disagreement is <em>between modules</em>, which is
+  exactly the class of defect a page-by-page read cannot find and a reader meets only at the
+  moment it costs them something.</p>
+
+  <h3>What a recovery trade targets</h3>
+  <div class="pair">
+    <div><span class="who">The screener plans</span><span class="val">2.5R</span>
+      <span class="why">The T1 on the signal row — the number you read when deciding whether
+      the setup has room.</span></div>
+    <div><span class="who">The exit policy places</span><span class="val">3R, then 5R</span>
+      <span class="why">Taking a quarter at each. The legs that actually rest at the
+      broker.</span></div>
+  </div>
+  <p>At the order, the exit policy wins. The screener's figure is a reward-plausibility check
+  at screening time, and Doc 09 now says so — but two modules answering one question with two
+  numbers is a gap, not a design.</p>
+
+  <h3>What "beaten down" is measured against</h3>
+  <div class="pair">
+    <div><span class="who">The signal test wants</span><span class="val">15–35%</span>
+      <span class="why">off a rolling <b>60-bar</b> high.</span></div>
+    <div><span class="who">The regime test wants</span><span class="val">10–40%</span>
+      <span class="why">off the <b>52-week</b> high.</span></div>
+  </div>
+  <p>A name 20% below its two-month high can sit 45% below its yearly one — passing the first
+  test and failing the second, with neither number meaning what the other reports.</p>
+
+  <div class="note stop">
+    <span class="lbl">Both were left unfixed in code, on purpose</span>
+    <p>Each sits inside signal output. Changing either moves what the pending recovery
+    re-baseline is measuring, and a correctness fix applied <em>during</em> a measurement
+    produces a result that answers neither question. <b>Both are now watched as pairs</b>, so
+    if one side moves and the other does not, the watcher names both pages.</p>
+  </div>
+</section>
+
+<section>
+  <p class="pt">The findings, by page</p>
+  <h2><span class="n">§</span>What was corrected</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Page</th><th>What was wrong</th><th>Class</th></tr></thead>
+    <tbody>
+      <tr><td class="k">The Bible</td><td>Zone lifecycle read <span class="m">fresh → tested → violated</span>, which implies a zone is finished the first time price touches it. The real sequence is <span class="m">fresh → reacted → spent</span>, retirement needs a confirmation, and <b>the reaction is the trade</b> — so the page contradicted the entry premise it exists to state</td><td><span class="chip gap">missing state</span></td></tr>
+      <tr><td class="k">07 Mission Control</td><td>The navigation map was missing its <b>first group entirely</b>. Control Centre's members were scattered into three other groups, Risk Shield and Action Center were absent, and Golden Matcher — the most-used page in the daily loop — was missing from Execution</td><td><span class="chip gap">missing state</span></td></tr>
+      <tr><td class="k">25* Scanner Filter Map</td><td>Four books, not five. The Pyramid book was absent, and it is the one that best proves the page's own thesis: it has <b>no fundamental gate and should not have one</b></td><td><span class="chip gap">missing state</span></td></tr>
+      <tr><td class="k">19 Performance Ledger</td><td>Eleven dimensions, not twelve. Provenance — the first cut, and the answer to the page's own "cannot be separated retroactively" caveat — was missing</td><td><span class="chip gap">missing state</span></td></tr>
+      <tr><td class="k">21 RS / Auto-Sector</td><td>Its parity rule said re-export <em>the</em> sector table. There are now <b>two</b> generated Pine artefacts from one database, by two different commands — and one needs a library publish before the change reaches any chart</td><td><span class="chip open">drift risk</span></td></tr>
+      <tr><td class="k">02 Wyckoff</td><td>The port has a third output, Structure Health, and <b>two of its four bands can never occur</b> — measured, the count never reaches three. CHOPPY means exactly two; BROKEN is unreachable</td><td><span class="chip open">dead rung</span></td></tr>
+      <tr><td class="k">01 Structure Engine</td><td>Reported seven fixes as uniformly mutation-verified. Five are; <b>two have no failing test behind them</b> — the fixtures contain no extension event and no window boundary</td><td><span class="chip open">overstated</span></td></tr>
+      <tr><td class="k">18 Trade Funnel</td><td>Exit tables carried legacy targets the page had already disowned two screens earlier, and the summary conflated the positional and swing families</td><td><span class="chip gap">stale value</span></td></tr>
+      <tr><td class="k">24 Pre-Trade Gate</td><td>Quoted four gates as peers. Three are properties of the trigger bar and stay true; <b>location is "price is here now"</b> and expires while you read the panel</td><td><span class="chip gap">missing state</span></td></tr>
+      <tr><td class="k">26 Operating Loop</td><td>Gained the post-close docs job, and a ninth silent failure — the guides themselves going stale under a code change</td><td><span class="chip ok">extended</span></td></tr>
+      <tr><td class="k">09 Quality on Sale</td><td>Accurate throughout. Gained the cross-module target gap above</td><td><span class="chip ok">extended</span></td></tr>
+      <tr><td class="k">20 Markup Engine</td><td>Accurate. Gained the boundary with the zone engine — two horizontals on one chart that answer a touch in opposite ways, both correctly</td><td><span class="chip ok">extended</span></td></tr>
+      <tr><td class="k">03 Volume Profile<br>15 Context Layers</td><td>Checked line by line against their files and needed no change. Doc 03 already carried the per-tick execution incident; Doc 15 already documented its own unreachable setup</td><td><span class="chip ok">verified</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="m" style="color:var(--muted);font-size:12.5px">Remaining pages — 22, 23, 25, 27, 11, 13, 08, 04, 10, 16 — were corrected earlier in the same pass and re-verified here.</p>
+</section>
+
+<section>
+  <p class="pt">Also corrected</p>
+  <h2><span class="n">§</span>Two claims in the project notes</h2>
+  <p>The notes are a document too, and drift the same way. Both were found by checking a page
+  against code and discovering the <em>notes</em> were the stale party.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Note said</th><th>Code says</th><th>Now</th></tr></thead>
+    <tbody>
+      <tr><td>Recovery fundamental gate raised to <span class="m">4 of 6</span></td><td class="m">5</td><td>Corrected in place, and added to the watched facts</td></tr>
+      <tr><td>A <b>Pyramid / Trim</b> nav button under Control Centre</td><td>No such page or button. That slot holds <b>Action Center</b>; pyramid classification runs inside Risk Shield</td><td>Marked superseded, with the reason it belongs there</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <p class="pt">Recommendation</p>
+  <h2><span class="n">§</span>What to do about the gaps</h2>
+  <p>In priority order. The first two are decisions, not edits — and both want the pending
+  recovery re-baseline in hand before they are made.</p>
+  <ol class="plan">
+    <li><span class="step">01</span>
+      <span class="what"><span class="ttl">Settle the recovery target</span>
+      <span class="sub">Either the screener plans 3R to match the policy, or the screener's number
+      is renamed to what it actually is — a screening-time R:R check, not a target. Read the
+      re-baseline first: the current 2.5 is what that run is measuring.</span></span>
+      <span class="chip open">decision</span></li>
+    <li><span class="step">02</span>
+      <span class="what"><span class="ttl">Pick one reference high for "beaten down"</span>
+      <span class="sub">The 60-bar and 52-week tests are asking the same question of the same
+      stock. One of them should move; which one is a trading judgement about whether recovery
+      is a two-month or a one-year idea.</span></span>
+      <span class="chip open">decision</span></li>
+    <li><span class="step">03</span>
+      <span class="what"><span class="ttl">Make the sector map one command</span>
+      <span class="sub">Both generators read the same database, so the only real risk is running
+      one and not the other. Wrap them together, and have the wrapper print the reminder that
+      the library still needs publishing — the step that gets forgotten, because the local edit
+      compiles cleanly while every importing script stays pinned to the old version.</span></span>
+      <span class="chip gap">small fix</span></li>
+    <li><span class="step">04</span>
+      <span class="what"><span class="ttl">Retire the rungs that cannot be reached</span>
+      <span class="sub">Structure Health's BROKEN tier and the choppy-range setup share one
+      threshold that has never been met. A live tooltip still offers "BROKEN (4+)" as though it
+      were a state you might see. Either lower the threshold to something reachable or say
+      plainly that the scale is two-valued — but do not leave a dead condition reading as a
+      working safeguard.</span></span>
+      <span class="chip gap">small fix</span></li>
+    <li><span class="step">05</span>
+      <span class="what"><span class="ttl">Write the two missing fixtures</span>
+      <span class="sub">An extension event and a window-boundary case, so all seven strict-trend
+      fixes have a test that fails without them. Until then, those two behaviours are held in
+      place by nothing but the code being currently correct.</span></span>
+      <span class="chip gap">small fix</span></li>
+    <li><span class="step">06</span>
+      <span class="what"><span class="ttl">Let the post-close check run, and read what it flags</span>
+      <span class="sub">It reports which facts moved and which pages cite them. A moved fact is
+      not automatically a stale doc — sometimes the code change was the mistake. That is the
+      point of reporting rather than auto-correcting.</span></span>
+      <span class="chip ok">standing</span></li>
+  </ol>
+  <div class="note warn">
+    <span class="lbl">The one thing this audit cannot do for you</span>
+    <p>Every page now agrees with the code. <b>That is a statement about consistency, not about
+    edge.</b> A guide that accurately describes a parameter says nothing about whether the
+    parameter earns its place — and several of these pages exist precisely to record that a
+    tested idea was rejected. Keeping those honest is what the library is for.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Checked against source on 27 August 2026 · <span class="m">code_truth.py</span> ·
+  <span class="m">truth_watch.py</span> · <span class="m">rank_pages.py</span> ·
+  every finding carries a file and line in the script that applied it.</p>
+</footer>
+</div>

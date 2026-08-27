@@ -1,0 +1,314 @@
+<title>The Performance Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+/* A ledger's only real colours are profit and loss. The page accent is slate;
+   green and red are reserved for what the book actually did. */
+:root{
+  --ground:#F1F2F4; --surface:#FFFFFF; --surface-2:#F7F8FA; --surface-3:#EAECF0;
+  --ink:#12151A; --ink-2:#39424E; --muted:#68717E; --faint:#98A1AD;
+  --rule:#D6DBE2; --rule-soft:#E6EAEF;
+  --acc:#44566C; --acc-bg:#E9EDF2; --acc-rule:#B2BECC;
+  --loss:#A8342A; --loss-bg:#FAE9E7; --loss-rule:#DFAAA3;
+  --gain:#186B4F; --gain-bg:#E3F0EA; --gain-rule:#9CC7B5;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --slab:'Bitter',Georgia,'Times New Roman',serif;
+  --body:'Lora',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101317; --surface:#171B21; --surface-2:#1C2128; --surface-3:#232932;
+    --ink:#E9ECF1; --ink-2:#C0C7D1; --muted:#858E9B; --faint:#626B77;
+    --rule:#272D36; --rule-soft:#1F252C;
+    --acc:#8FA3BA; --acc-bg:#1A2029; --acc-rule:#3A4757;
+    --loss:#EF6E60; --loss-bg:#331A17; --loss-rule:#6A2F29;
+    --gain:#38B48A; --gain-bg:#0F2C22; --gain-rule:#1F5544;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101317; --surface:#171B21; --surface-2:#1C2128; --surface-3:#232932;
+  --ink:#E9ECF1; --ink-2:#C0C7D1; --muted:#858E9B; --faint:#626B77;
+  --rule:#272D36; --rule-soft:#1F252C;
+  --acc:#8FA3BA; --acc-bg:#1A2029; --acc-rule:#3A4757;
+  --loss:#EF6E60; --loss-bg:#331A17; --loss-rule:#6A2F29;
+  --gain:#38B48A; --gain-bg:#0F2C22; --gain-rule:#1F5544;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:17px;line-height:1.66;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1060px;margin:0 auto;padding:50px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--slab);font-weight:700;font-size:clamp(34px,5.4vw,54px);line-height:1.05;
+  letter-spacing:-.024em;margin:0;text-wrap:balance}
+.dek{font-size:17.5px;color:var(--ink-2);max-width:64ch;margin:16px 0 0}
+
+.cols{display:grid;grid-template-columns:190px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:22px;align-self:start}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 11px;font-weight:600}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:baseline;
+  font-family:var(--mono);font-size:11.5px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:7px 8px;border-radius:2px}
+nav.toc a span{color:var(--faint)}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink)}
+nav.toc a:hover span{color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 56px;scroll-margin-top:20px}
+
+h2{font-family:var(--slab);font-weight:600;font-size:clamp(22px,2.9vw,29px);line-height:1.18;
+  letter-spacing:-.016em;margin:0 0 15px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--slab);font-weight:600;font-size:17px;margin:26px 0 9px}
+p{margin:0 0 14px;max-width:68ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:68ch}
+li{margin:0 0 7px}
+b,strong{font-weight:600;color:var(--ink)}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+td.neg{color:var(--loss);font-weight:600}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:16px}
+.note.warn{border-left-color:var(--loss);background:var(--loss-bg);border-color:var(--loss-rule)}
+.note.safe{border-left-color:var(--gain);background:var(--gain-bg);border-color:var(--gain-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.warn .tag{color:var(--loss)} .note.safe .tag{color:var(--gain)}
+.note p:last-child{margin-bottom:0}
+
+/* the three verbs the sync is allowed to perform */
+.verbs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:0 0 18px}
+.verb{border:1px solid var(--rule);border-radius:2px;background:var(--surface);padding:15px 17px}
+.verb .w{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.1em;
+  color:var(--acc);margin:0 0 8px}
+.verb p{font-size:14.5px;margin:0}
+
+.cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:0 0 18px}
+.dim{border:1px solid var(--rule);border-radius:2px;background:var(--surface-2);padding:13px 16px;
+  font-size:14.5px;color:var(--ink-2)}
+.dim b{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1060px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:860px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;margin-bottom:30px;border:1px solid var(--rule);border-radius:2px;
+    padding:16px;background:var(--surface)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Doc 19 · Evidence</p>
+    <h1>The Performance Ledger</h1>
+    <p class="dek">The performance-truth layer. These modules turn raw broker fills into an honest,
+    attributable record: what you actually made with no flattering gaps, <em>which setups, stages
+    and scores</em> made it, and a journal that stays in lockstep with the live book every day.</p>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#attr"><span>1</span>Attribution</a></li>
+    <li><a href="#enrich"><span>2</span>Entry snapshot</a></li>
+    <li><a href="#sync"><span>3</span>Daily sync</a></li>
+    <li><a href="#recon"><span>4</span>The exit reconcile</a></li>
+    <li><a href="#remind"><span>5</span>Key reminders</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<div class="note">
+  <span class="tag">The modules</span>
+  <p><code>performance_attribution.py</code> · <code>journal_enrichment.py</code> ·
+  <code>journal_sync.py</code> · <code>dhan_journal_v7.py</code> ·
+  <code>ai_reconcile_engine.py</code> · <code>dhan_symbols.py</code>. Database:
+  <code>trade_journal_v6.db</code>, table <code>journal</code>.</p>
+</div>
+
+<section id="attr">
+  <h2><span class="n">01</span>Attribution — decomposing realised P&amp;L</h2>
+  <p>Breaks <b>closed-trade</b> realised P&amp;L across <b>twelve</b> dimensions, reporting n, win rate,
+  total, expectancy, profit factor and signed contribution for every bucket.</p>
+  <div class="cols2">
+    <div class="dim"><b>The book</b><b>Provenance</b> · System · Sector · Trade type · Hold period · Exit reason · Trade quality</div>
+    <div class="dim"><b>The signal at entry</b>Setup / catalyst · Entry stage · Alpha band · RS band · Conviction band</div>
+  </div>
+
+  <div class="note safe">
+    <span class="tag">The honesty layer — the anti-NaN rule</span>
+    <p>Rows with a missing or zero exit price or quantity are <b>quarantined and reported, never
+    zero-filled</b>. Cash-park instruments are excluded — that is risk-off carry, not alpha.
+    Canonical P&amp;L is byte-identical to the mentor engine's <code>(exit − buy) × qty</code>, and
+    derived metrics are computed on read, never stored.</p>
+  </div>
+
+  <p><code>contribution_pct</code> is the signed share of <b>gross</b> |P&amp;L|, which stays
+  robust on a net-negative book where a net-share would invert. Signal dimensions read
+  “Unspecified” for trades closed before snapshots existed — <b>a shrinking coverage gap, reported
+  rather than imputed</b>.</p>
+  <div class="note safe">
+    <span class="tag">Provenance — the dimension that answers section 04's caveat</span>
+    <p>Provenance is the <b>first</b> cut, before sector or setup, and it asks one question:
+    <em>did this system choose this trade?</em> A row counts as <b>SYSTEM</b> only when it carries
+    a true entry snapshot — <code>snapshot_meta</code> containing <code>|recompute</code>, which
+    only the guided-execution hook writes at the moment of entry. Everything else is
+    <b>DISCRETIONARY</b>.</p>
+    <p>The looser rule — <em>&ldquo;any non-empty setup label counts&rdquo;</em> — was tried and
+    <b>rejected</b>. A backfilled position re-screens as of today, so a name that happens to
+    trigger now would be credited to the system retroactively. That is the same flattering-the-book
+    error the exit reconcile exposed, in a new place. The strict rule cost the live record a trade
+    when it landed; that is what a strict rule is for.</p>
+    <p>So the report prints <b>two headlines side by side</b> — SYSTEM-only and all-attributable —
+    with SYSTEM foregrounded. <b>The mixed history is not separable, but it is no longer
+    growing.</b> Every GM guided-exec entry that closes from here lands on the correct side of
+    the line, so the caveat in section 04 has a clock on it rather than being permanent.</p>
+  </div>
+
+  <pre>python performance_attribution.py     # or the Attribution tab in the AUTOPSY page</pre>
+</section>
+
+<section id="enrich">
+  <h2><span class="n">02</span>The lean entry snapshot</h2>
+  <p>Adds six curated columns to the journal so attribution can slice by signal —
+  <code>setup</code>, <code>entry_stage</code>, <code>entry_alpha</code>, <code>entry_rs</code>,
+  <code>entry_conviction</code>, <code>snapshot_meta</code>. Values come from the zero-drift
+  price-action mirror, so no TradingView is needed.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Mode</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td class="k">--mode migrate</td><td>Idempotent schema migration</td></tr>
+      <tr><td class="k">--mode backfill</td><td>As-of-today snapshot of OPEN trades, stamped <code>backfill</code></td></tr>
+      <tr><td class="k">--mode symbol</td><td>One trade</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note safe">
+    <span class="tag">Auto-capture on new trades</span>
+    <p>A hook in <code>upsert_trade()</code> captures a true <code>recompute</code> snapshot on
+    every new OPEN insert — after commit, and guarded so <b>a fetch failure can never block the
+    save</b>.</p>
+  </div>
+  <div class="note">
+    <span class="tag">A limitation by design, not a gap</span>
+    <p><code>setup</code> is only meaningful at <em>true entry</em>, because the catalyst is live
+    at trigger time. A backfilled open position re-screens today and shows
+    <code>setup=NONE</code> when it is not currently triggering. Only trades entered <em>because
+    they triggered</em> carry a real setup label.</p>
+  </div>
+</section>
+
+<section id="sync">
+  <h2><span class="n">03</span>The daily journal ↔ broker sync</h2>
+  <p>Keeps the journal's OPEN positions identical to the live book. It is allowed exactly three
+  verbs:</p>
+  <div class="verbs">
+    <div class="verb"><p class="w">ADD</p><p>Live holdings missing from the journal, plus one backfill snapshot.</p></div>
+    <div class="verb"><p class="w">UPDATE</p><p>Quantity and average price where they have drifted from the broker.</p></div>
+    <div class="verb"><p class="w">CLOSE</p><p>Journal OPENs no longer held — <b>only</b> with a completing sell in the trade history giving an authoritative exit price and date. Otherwise it <b>flags, never forces</b>.</p></div>
+  </div>
+  <div class="note warn">
+    <span class="tag">The safety that matters most</span>
+    <p>The sync <b>aborts entirely</b> if the holdings fetch fails <em>or returns an empty book</em>.
+    An API hiccup must never be read as “everything was sold”. Cash-park instruments are ignored on
+    both sides, and <code>--dry-run</code> / <code>--no-close</code> are available.</p>
+  </div>
+  <p><b>Scheduled</b> as a Windows task, weekdays at <b>16:30 IST</b> post-close, with catch-up
+  enabled so a machine that was off still runs it. Logs to <code>logs/journal_sync.log</code>.</p>
+</section>
+
+<section id="recon">
+  <h2><span class="n">04</span>The exit reconcile</h2>
+  <p>A one-time data recovery that pulled missing exit prices out of the broker's trade history.
+  <b>Two silent bugs were fixed in the process</b>, and both are worth remembering as a class:</p>
+  <ol>
+    <li>The token call sat <em>outside</em> the <code>try</code>, so a stale token crashed the
+    entire reconcile instead of degrading to local logs.</li>
+    <li>The trade-history API returns only a security id and a full company name — <b>no
+    ticker</b>. The old code reached for a column that never existed, threw, and had the error
+    swallowed by a bare <code>except</code>. Resolved by resolving ids through the full NSE scrip
+    master.</li>
+  </ol>
+
+  <h3>The finding that mattered</h3>
+  <p>Missing exit data had been <b>flattering the book by roughly ₹4.4 lakh</b>. The painful exits
+  were precisely the ones with no recorded price.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Metric</th><th class="num">With gaps</th><th class="num">Reconciled</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Total realised</td><td class="num">−₹39,311</td><td class="num neg">−₹4,99,283</td></tr>
+      <tr><td class="k">Win rate</td><td class="num">45%</td><td class="num neg">25.6%</td></tr>
+      <tr><td class="k">Profit factor</td><td class="num">0.71</td><td class="num neg">0.24</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note warn">
+    <span class="tag">Corrected since this guide was written — read this before quoting the number</span>
+    <p>This guide calls the reconciled figure “the honest number all strategy work is measured
+    against”. <b>That framing is wrong and has been retracted.</b> The loss is substantially
+    <b>tax-loss harvesting</b> — 21 of roughly 25 harvest exits were a single financial-year-end
+    batch — and those names were <b>discretionary picks that never came from this system</b>
+    (ETFs and large-cap defensives).</p>
+    <p>The journal mixes system-entered and hand-picked trades and <b>cannot be separated
+    retroactively</b>, so <b>no clean live track record of the system exists yet</b>. The
+    reconcile is still correct as an accounting exercise — the book really did lose that money —
+    but it is <b>not a verdict on the strategy</b>. Build the system-only record forward from
+    trades carrying a true <code>recompute</code> entry snapshot.</p>
+  </div>
+</section>
+
+<section id="remind">
+  <h2><span class="n">05</span>Key reminders</h2>
+  <ul>
+    <li><b>Trade off the live broker book, not the journal alone.</b> The daily sync makes them
+    match, but the broker is authoritative — before the sync existed the journal held a stale
+    closed position and wrong quantities.</li>
+    <li><b>No Stage 3/4 holds.</b> The entry snapshot surfaces violations; act on them.</li>
+    <li><b>Backups are taken before every reconcile or sync write.</b> The database is <em>data</em>
+    and is not git-tracked — it is preserved through those dated backups, so do not rely on version
+    control to recover it.</li>
+  </ul>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/19 · Journal, Attribution &amp; Daily Sync</span>
+  <span>Companion — <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 · The Backtest Court</a></span>
+</div></footer>

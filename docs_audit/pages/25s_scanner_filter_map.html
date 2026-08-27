@@ -1,0 +1,678 @@
+<title>The Scanner Filter Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#8A5A12; --acc-bg:#F7F0E1; --acc-rule:#D6BE8C;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#D6AC55; --acc-bg:#2B2210; --acc-rule:#5E4B1C;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#D6AC55; --acc-bg:#2B2210; --acc-rule:#5E4B1C;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 25* · Reference</p>
+      <h1>The Scanner Filter Map</h1>
+      <p class="dek">Four sources feed the board, and each one applies a different fundamental
+      standard. This is every parameter in all four, side by side — <b>what each book actually
+      demands, what it silently does not, and which of those gaps have been measured.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The finding</div>
+      Two bull-family sources<br>
+      applied <b>weaker fundamental<br>
+      tests than the scans they<br>
+      descend from</b> — by accident.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#shipped">What has since shipped</a></li>
+    <li><a href="#four">The five sources</a></li>
+  </ol>
+  <p>The parameters</p>
+  <ol>
+    <li><a href="#fund">Fundamental</a></li>
+    <li><a href="#tech">Technical</a></li>
+    <li><a href="#plain">Stated plainly</a></li>
+    <li><a href="#screens">The screens, verbatim</a></li>
+  </ol>
+  <p>Evidence</p>
+  <ol>
+    <li><a href="#bff">The growth gate, measured</a></li>
+    <li><a href="#rv">The low-volume branch</a></li>
+    <li><a href="#anomaly">The anomaly</a></li>
+  </ol>
+  <p>The design</p>
+  <ol>
+    <li><a href="#design">The proposed table</a></li>
+    <li><a href="#cost">What is left to build</a></li>
+    <li><a href="#caveat">The caveat</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="shipped">
+  <h2><span class="n">01</span>Most of this document&rsquo;s proposal has already shipped</h2>
+  <p>The map was built on 13 August and its recommendations were sequenced as three phases.
+  <b>Phases one and two are live in the code.</b> Read the rest of the page knowing that.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Proposed</th><th class="r">Then</th><th class="r">Now</th><th>Status</th></tr></thead><tbody>
+      <tr><td class="k">Pullback growth floor</td><td class="old">2 of 5</td><td class="new">4 of 5</td><td><b>shipped</b></td></tr>
+      <tr><td class="k">Pullback price floor</td><td class="old">&#8377;20</td><td class="new">&#8377;100</td><td><b>shipped</b></td></tr>
+      <tr><td class="k">Pullback turnover floor</td><td class="old">&#8377;2 Cr</td><td class="new">&#8377;5 Cr</td><td><b>shipped</b></td></tr>
+      <tr><td class="k">Catalyst engine</td><td class="old">survival test</td><td class="new">growth test, 4 of 5</td><td><b>shipped</b></td></tr>
+      <tr><td class="k">Return-on-equity gate</td><td class="old">unchecked</td><td class="new">separate hard gate</td><td><b>shipped</b></td></tr>
+      <tr><td class="k">Leverage gate</td><td class="old">unchecked</td><td class="new">separate hard gate</td><td><b>shipped</b></td></tr>
+      <tr><td class="k">Pledge · market cap · promoter and institutional holding</td><td class="old">unchecked</td><td class="old">still unchecked</td><td>needs the parser extension</td></tr>
+      <tr><td class="k">The recovery band collision</td><td class="old">open</td><td class="old">open</td><td>unfixed</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">Note the sequencing note was followed</span>
+    <p>Return-on-equity and leverage were added as <b>separate hard gates beside</b> the growth
+    score, not folded into it. That was deliberate: fold them in and the meaning of &ldquo;four of
+    five&rdquo; silently changes, and each leg&rsquo;s contribution stops being readable in the log.</p>
+  </div>
+  <div class="note stop">
+    <span class="tag">And the lesson that came out of shipping it</span>
+    <p>The growth gate had to be closed in <b>three</b> places before a name that should fail
+    actually failed — the engine, the inherited-qualification branch that reassigned the flag
+    twenty lines later, and the renderer, which replaced the whole step with a hard-coded pass for
+    inherited names. Each fix looked complete alone. <b>A gate is not live until you have watched
+    the failing case fail</b> — pick that case first, not a passing one.</p>
+  </div>
+</section>
+
+<section id="four">
+  <h2><span class="n">02</span>The five sources</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Book</th><th>Producer</th><th>Fundamental gate</th></tr></thead><tbody>
+      <tr><td class="k">Bull</td><td>Four scans, inner-joined against saved fundamental screens</td><td>The growth screens — <b>hard</b></td></tr>
+      <tr><td class="k">Recovery</td><td>Three scans, then the recovery engine</td><td>The recovery screens <b>plus</b> the survival score — <b>hard twice</b></td></tr>
+      <tr><td class="k">Catalyst</td><td>The bull screener over the full universe</td><td>The growth score — <b>hard</b></td></tr>
+      <tr><td class="k">Pullback</td><td>The pullback finder over the full universe</td><td>The growth score — <b>hard</b></td></tr>
+      <tr><td class="k">Pyramid</td><td>Holdings the auto-pilot rated <b>ADD</b></td><td><b>None</b> — you already own it</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">The fifth book is the one that proves the rule</span>
+    <p><b>Pyramid has no fundamental gate, and should not have one.</b> An add is not a new
+    idea — the name passed its screens when you first bought it, and re-running that test today
+    would either wave through what you already own or, worse, veto an add on a fundamental
+    reading you did not act on at entry.</p>
+    <p>What replaces the gate is the ladder: a holding only appears here when
+    <b>ADD</b> is its classification, which already requires a leader at a genuine pullback
+    rather than an extended one. The break-down guard still applies — arguably harder here than
+    anywhere, since a structural break on a name you hold is a reason to sell, not to buy
+    more.</p>
+  </div>
+
+  <p>All five qualify; the board only times. The question this document asks is not
+  <em>whether</em> a book is gated but <b>whether the gate matches the question that book is
+  asking.</b></p>
+</section>
+
+<section id="fund">
+  <h2><span class="n">03</span>Fundamental parameters</h2>
+  <p>A dash means <b>not checked at all</b>. The bull column shows the range across its four
+  screens.</p>
+
+  <details class="ref" open><summary>The full matrix</summary><div class="rb">
+  <h4>Growth</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Quarterly sales growth</td><td class="m">&gt; 10–20%</td><td class="m">—</td><td class="m">&ge; 15%</td><td class="m">&ge; 15%</td></tr>
+      <tr><td class="k">Quarterly profit growth</td><td class="m">&gt; 15–25%</td><td class="m">—</td><td class="m">&ge; 20%</td><td class="m">&ge; 20%</td></tr>
+      <tr><td class="k">Earnings above the year-ago quarter</td><td class="m">leaders only</td><td class="m">—</td><td class="m">—</td><td class="m">—</td></tr>
+    </tbody></table></div>
+  <h4>Profitability and returns</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Return on capital</td><td class="m">&gt; 15%</td><td class="m">&gt; 15–20%</td><td class="m">&ge; 15%</td><td class="m">&ge; 15%</td></tr>
+      <tr><td class="k">Return on equity</td><td class="m">&gt; 15%</td><td class="m">—</td><td class="m">&ge; 15%</td><td class="m">&ge; 15%</td></tr>
+      <tr><td class="k">Return on assets</td><td class="m">—</td><td class="m">&gt; 5%</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Net margin</td><td class="m">&gt; 10% (pullback screen)</td><td class="m">—</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Margin expansion</td><td class="m">—</td><td class="m">—</td><td class="m">yes</td><td class="m">yes</td></tr>
+      <tr><td class="k">Profitable</td><td class="m">implied</td><td class="m">yes</td><td class="m">yes</td><td class="m">yes</td></tr>
+    </tbody></table></div>
+  <h4>Balance sheet and cash</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Debt to equity</td><td class="m">&lt; 0.5–1.5</td><td class="m">&lt; 1–2</td><td class="m">&lt; 1.5</td><td class="m">&lt; 1.5</td></tr>
+      <tr><td class="k">Interest coverage</td><td class="m">—</td><td class="m">&gt; 2 then &gt; 3.5</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Current ratio</td><td class="m">—</td><td class="m">&gt; 1</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Operating cash flow</td><td class="m">3-year positive</td><td class="m">last year positive</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Free cash flow</td><td class="m">—</td><td class="m">&gt; 0</td><td class="m">—</td><td class="m">—</td></tr>
+    </tbody></table></div>
+  <h4>Ownership, governance and size</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Promoter holding</td><td class="m">&gt; 40%, or institutions &gt; 15%</td><td class="m">—</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Change in promoter holding</td><td class="m">positive (early birds)</td><td class="m">—</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Institutional flow</td><td class="m">positive (leaders)</td><td class="m">—</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Pledged holding</td><td class="m">&lt; 2–5%</td><td class="m">—</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Market cap</td><td class="m">&gt; &#8377;5,000 Cr</td><td class="m">&gt; &#8377;5,000 Cr</td><td class="m">—</td><td class="m">—</td></tr>
+      <tr><td class="k">Turnover</td><td class="m">via screen</td><td class="m">via screen</td><td class="m">&gt; &#8377;5 Cr</td><td class="m">&gt; &#8377;5 Cr</td></tr>
+      <tr><td class="k"><b>Checks that must pass</b></td><td class="m"><b>all</b></td><td class="m"><b>all, plus 4 of 6</b></td><td class="m"><b>4 of 5, plus 2 gates</b></td><td class="m"><b>4 of 5, plus 2 gates</b></td></tr>
+    </tbody></table></div>
+  </div></details>
+
+  <h3>What the matrix says</h3>
+  <ol>
+    <li><b>The bull standard is a growth standard, and it is the strictest in the system.</b>
+    Sales, profit, return on capital, return on equity, low debt, promoter skin in the game,
+    near-zero pledge, a size floor — every condition joined by AND.</li>
+    <li><b>The catalyst book used to check no growth parameter at all.</b> Its gate was a survival
+    test. A small-cap with flat sales, heavily pledged promoter holding and single-digit returns
+    passed it, while every bull screen rejected the same name outright. <b>That is the finding this
+    document was written for, and it has since been fixed.</b></li>
+    <li><b>The pullback book was the weakest of the four.</b> Its gate asked the right kind of
+    question but required only two of five checks — so a name could pass on
+    &ldquo;profitable and margin expanded&rdquo; with <em>negative</em> sales and profit growth.
+    Also fixed.</li>
+    <li><b>Recovery is the most gated book and is internally coherent.</b> Its saved screens are
+    the survival checks near-verbatim, and then the engine applies the same test again, stricter.
+    Nothing about it is relaxed.</li>
+    <li><b>The remaining gap is ownership and size.</b> Pledge, promoter and institutional holding
+    and the market-cap floor are still bull-only.</li>
+  </ol>
+  <div class="note warn">
+    <span class="tag">Why the two weak gates happened</span>
+    <p>Both bull-family sources were built to <b>widen supply</b> after the join-based funnel
+    proved too narrow. Widening the universe was the intent. <b>Weakening the fundamental standard
+    was a side effect, and it happened without anyone deciding it.</b> That is the failure mode
+    this map exists to catch.</p>
+  </div>
+</section>
+
+<section id="tech">
+  <h2><span class="n">04</span>Technical parameters</h2>
+  <details class="ref"><summary>The full matrix</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Stage anchor</td><td>Above a rising 30-week average</td><td>Below the long average is the premise</td><td>Stage from the shared read; positional needs 1 or 2</td><td><b>Stage 2 only</b></td></tr>
+      <tr><td class="k">Average stack</td><td>50 above 150 above 200</td><td>Within 8% of the long average</td><td>The trend template inside the base gate</td><td>Above a <b>rising</b> 200-day</td></tr>
+      <tr><td class="k">Versus the 200-day</td><td>Above</td><td>Above for survivors, <b>below</b> for the climax path</td><td>Per catalyst</td><td>Above</td></tr>
+      <tr><td class="k">Versus the short average</td><td>Above, or a pullback to it</td><td>—</td><td>Per catalyst</td><td><b>Extension under 1.5 ranges</b></td></tr>
+      <tr><td class="k">Relative strength</td><td>Screen-implied</td><td>The strength line above its own average</td><td>Status inside the score</td><td><b>Positive</b></td></tr>
+      <tr><td class="k">Momentum oscillators</td><td>Weekly above 50–55, daily above 60</td><td>Weekly above 50–55, daily below 55 on the climax path</td><td><b>Replaced by price action</b></td><td>—</td></tr>
+      <tr><td class="k">Trend strength index</td><td>Above 20–25</td><td>—</td><td><b>Replaced by an up-bar count</b></td><td>—</td></tr>
+      <tr><td class="k">Distance off the 52-week high</td><td>Within 15%</td><td><b>10–40% off</b></td><td>—</td><td>—</td></tr>
+      <tr><td class="k">Depth off the recent high</td><td>Under 15%</td><td>—</td><td>—</td><td><b>2–18% off the 20-day high</b></td></tr>
+      <tr><td class="k">Volume</td><td>Above the 20-week average, dry against the 10-day, or twice the monthly on leaders</td><td>1.25&times; confirmation</td><td>Per catalyst</td><td><b>Climax rejected above 2.5&times;</b>; dry-up scored</td></tr>
+      <tr><td class="k">Trigger</td><td>A 20-day high on the early-bird path</td><td>A 15–20 day pivot</td><td><b>A catalyst must fire</b></td><td><b>None — location only</b></td></tr>
+      <tr><td class="k">Risk ceiling</td><td>—</td><td>—</td><td>—</td><td><b>Stop within 8% of entry</b></td></tr>
+      <tr><td class="k">Market regime</td><td>—</td><td>The regime gate</td><td>Swing pullback needs a bull tape</td><td>—</td></tr>
+    </tbody></table></div></div></details>
+
+  <div class="tw"><table>
+    <thead><tr><th>The three that matter</th><th>Why</th></tr></thead><tbody>
+      <tr><td class="k">Pullback is the only source with no trigger</td><td>By design — <b>it answers <em>where</em>, not <em>when</em>.</b> It is also the only one with a risk ceiling</td></tr>
+      <tr><td class="k">Catalyst is the only source demanding an event</td><td>Everything else describes a <em>state</em>. Catalyst requires a <b>transition</b></td></tr>
+      <tr><td class="k">Recovery&rsquo;s premise inverts Bull&rsquo;s</td><td>Well off the high, below the long average — <b>which is exactly why it is entitled to a different fundamental test</b></td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="plain">
+  <h2><span class="n">05</span>Stated plainly</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Book</th><th>Asks</th><th>Fundamentally</th><th>Technically</th></tr></thead><tbody>
+      <tr><td class="k">Bull</td><td>A great business breaking out</td><td>Growth, quality, governance, size</td><td>A strong trend</td></tr>
+      <tr><td class="k">Recovery</td><td>A survivor on sale</td><td>Survival and returns</td><td>Corrected, turning</td></tr>
+      <tr><td class="k">Catalyst</td><td>Something just fired</td><td><b>Growth</b> — was survival only</td><td>A firing event</td></tr>
+      <tr><td class="k">Pullback</td><td>Sitting at value</td><td><b>Growth, 4 of 5</b> — was 2 of 5</td><td>At value, no trigger</td></tr>
+    </tbody></table></div>
+  <p>Each book now asks the question its own premise entitles it to ask. That is coherence — and
+  section 12 is honest about what coherence is not.</p>
+</section>
+
+<section id="screens">
+  <h2><span class="n">06</span>The saved screens, verbatim</h2>
+  <p>Reproduced so that a change to a screen shows up as a diff rather than as an unexplained shift
+  in the watchlist. <b>The first version of this document claimed these were unauditable. That was
+  wrong</b> — each screen exposes its own query on its page.</p>
+
+  <details class="ref"><summary>The four bull screens</summary><div class="rb">
+  <h4>Hunter</h4>
+  <pre>market cap &gt; 5000 AND quarterly sales growth &gt; 15
+AND quarterly profit growth &gt; 20 AND return on capital &gt; 15
+AND return on equity &gt; 15 AND debt to equity &lt; 1
+AND (promoter &gt; 40 OR foreign &gt; 15 OR domestic &gt; 15)
+AND pledged &lt; 5 AND down from 52-week high &lt; 25 AND price &gt; 200</pre>
+  <h4>Pullback</h4>
+  <pre>market cap &gt; 5000 AND return on equity &gt; 15
+AND return on capital &gt; 15 AND net margin &gt; 10
+AND debt to equity &lt; 0.5 AND promoter &gt; 40
+AND down from 52-week high &lt; 20 AND down from 52-week high &gt; 5
+AND pledged &lt; 5 AND weekly average volume &gt; 100000</pre>
+  <h4>Early birds</h4>
+  <pre>market cap &gt; 5000 AND quarterly sales growth &gt; 10
+AND quarterly profit growth &gt; 15 AND price &gt; 50
+AND debt to equity &lt; 1.5 AND change in promoter holding &gt; 0
+AND (promoter &gt; 40 OR foreign &gt; 15 OR domestic &gt; 15)
+AND 3-year operating cash flow &gt; 0</pre>
+  <h4>Strong leaders</h4>
+  <pre>market cap &gt; 5000 AND quarterly sales growth &gt; 20
+AND quarterly profit growth &gt; 25
+AND earnings this quarter &gt; the year-ago quarter AND pledged &lt; 2
+AND volume &gt; 2 &times; the monthly average
+AND (change in foreign holding &gt; 0 OR change in domestic holding &gt; 0)
+AND weekly average volume &gt; 100000 AND return on capital &gt; 15</pre>
+  </div></details>
+
+  <details class="ref"><summary>The three recovery screens</summary><div class="rb">
+  <h4>Survivors, and early birds</h4>
+  <p>Identical but for the drawdown ceiling — 15% and 20%.</p>
+  <pre>price &gt; 100 AND above the 200-day AND above the 50-day
+AND down from 52-week high &lt; 15 [early birds: 20] AND momentum &gt; 55
+AND profitable AND operating cash flow last year &gt; 0
+AND interest coverage &gt; 2 AND debt to equity &lt; 2 AND current ratio &gt; 1
+AND return on assets &gt; 5 AND return on capital &gt; 15
+AND market cap &gt; 5000</pre>
+  <h4>Climax bounce</h4>
+  <pre>price &gt; 100 AND <b>below</b> the 200-day AND down from 52-week high &lt; 30
+AND momentum &lt; 55 AND profitable AND operating cash flow last year &gt; 0
+AND interest coverage &gt; 2 AND debt to equity &lt; 1 AND current ratio &gt; 1
+AND return on assets &gt; 5 AND return on capital &gt; 20
+AND market cap &gt; 5000</pre>
+  </div></details>
+
+  <div class="note stop">
+    <span class="tag">The band collision — still open</span>
+    <p>The survivor screen demands the stock be <b>less than 15% off its high</b>, while its
+    technical partner demands it be <b>more than 10% off</b>. The two agree only inside a narrow
+    five-point band. The early-bird pair has the same structure at ten to twenty.</p>
+    <p><b>This is why the recovery joins are so lossy</b> — survivors kept ten names out of
+    fifty-one on one measured day. That is not fundamental strictness doing the work. It is two
+    halves of the same filter disagreeing about which window they are looking at, for no stated
+    reason.</p>
+  </div>
+</section>
+
+<section id="bff">
+  <h2><span class="n">07</span>The growth gate, measured</h2>
+  <p>The partition this document said nobody had run. Five hundred and nineteen positional trades,
+  scored <b>point-in-time</b> from historical fundamentals rather than today&rsquo;s — 83%
+  resolved.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Score</th><th class="r">n</th><th class="r">Mean alpha</th><th class="r">Median</th><th class="r">Win</th></tr></thead><tbody>
+      <tr><td class="m">1</td><td class="num">62</td><td class="num">−0.12%</td><td class="num">−1.84%</td><td class="num">29%</td></tr>
+      <tr><td class="m">2</td><td class="num">100</td><td class="num">−0.33%</td><td class="num">−2.06%</td><td class="num">26%</td></tr>
+      <tr><td class="m">3</td><td class="num">127</td><td class="num">−0.08%</td><td class="num">−2.39%</td><td class="num">27%</td></tr>
+      <tr><td class="k">4</td><td class="num">109</td><td class="new">+1.14%</td><td class="num">−2.32%</td><td class="num">32%</td></tr>
+      <tr><td class="k">5</td><td class="num">28</td><td class="new">+1.01%</td><td class="num">−1.21%</td><td class="num">43%</td></tr>
+    </tbody></table></div>
+  <p>Split at four: the high side returns <b>+1.12%</b> at 34% win against <b>−0.19%</b> at 27% —
+  an edge of <b>+1.31 points</b>. Out of sample it retains 80% of the in-sample margin. Per anchor
+  the high side wins eleven of seventeen.</p>
+
+  <div class="note good">
+    <span class="tag">The decision — keep the gate at four</span>
+    <p><b>For:</b> the edge persists out of sample at 80% retention, clearing the bar that has
+    killed most previous additions. And it is a <b>threshold effect, not a gradient</b> — one, two
+    and three are indistinguishable and then four and five jump. <b>That is the shape a gate should
+    have</b>, which is why the near-zero rank correlation is not the indictment it looks like. The
+    portfolio-level gap is wider than the trade-level one.</p>
+  </div>
+  <div class="note stop">
+    <span class="tag">Against — and this is not a footnote</span>
+    <p><b>The confidence interval straddles zero</b>, and the gate is materially weaker than the
+    survival gate it replaced on the recovery side.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Gate</th><th class="r">Edge</th><th>Interval</th><th>In → out of sample</th></tr></thead><tbody>
+        <tr><td class="k">Survival, at 5</td><td class="num">+2.40pp</td><td class="m">[+0.92, +3.88] ✓</td><td class="m">+1.01 → +4.52</td></tr>
+        <tr><td class="k">Growth, at 4</td><td class="num">+1.31pp</td><td class="m">[−0.67, +3.06] ✗</td><td class="m">+1.50 → +1.20</td></tr>
+      </tbody></table></div>
+    <p><b>Do not raise it to five</b> — the cell holds 28 trades. And <b>every bucket&rsquo;s median
+    is negative.</b> The gate shifts the mean; it does not change the big-winner-carried shape of
+    the book.</p>
+  </div>
+  <div class="note warn">
+    <span class="tag">The coverage caveat</span>
+    <p>Resolution is complete across the earlier window but falls to 30–85% later — so <b>the
+    out-of-sample half is the thinner one</b>, and the persistence claim rests on a partially
+    sampled cohort. A re-check also hit network failures, so recent-anchor loss is part missing
+    history and part infrastructure, and the two are not cleanly separable.</p>
+  </div>
+</section>
+
+<section id="rv">
+  <h2><span class="n">08</span>The low-volume pullback branch</h2>
+  <p><b>The question.</b> A relative volume of 0.61 vetoed a trade. Volume is <em>normally</em> low
+  on a pullback — so why does the volume floor apply at all? Mechanically, the floor drops from
+  1.0 to 0.5 only when a contraction pattern fires, no expansion pattern fires, <b>and price sits
+  inside a demand zone</b>. That name read <em>between zones</em>, so the branch never engaged.</p>
+  <p>The proposal was to widen it: a pullback to a rising short average, or onto a tested level, is
+  a real pullback too. Sixty-three thousand at-value bars, three years, twenty-session horizon,
+  location labelled by the same engines the gate uses, bootstrapped by symbol.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Location</th><th>Volume</th><th class="r">n</th><th class="r">Mean alpha</th><th class="r">Median</th><th class="r">Win</th></tr></thead><tbody>
+      <tr><td class="k">Demand zone</td><td class="m">&lt; 1.0</td><td class="num">23,262</td><td class="new">+1.20%</td><td class="num">+0.28%</td><td class="num">51%</td></tr>
+      <tr><td class="k">Demand zone</td><td class="m">&ge; 1.0</td><td class="num">6,091</td><td class="num">+1.50%</td><td class="num">+0.68%</td><td class="num">54%</td></tr>
+      <tr><td class="k">Short average</td><td class="m">&lt; 1.0</td><td class="num">15,147</td><td class="num">+0.78%</td><td class="num">−0.59%</td><td class="num">47%</td></tr>
+      <tr><td class="k">A level</td><td class="m">&lt; 1.0</td><td class="num">7,866</td><td class="num">+0.05%</td><td class="num">−0.85%</td><td class="num">45%</td></tr>
+      <tr><td class="k">None of them</td><td class="m">&lt; 1.0</td><td class="num">4,261</td><td class="new">+2.55%</td><td class="num">+0.71%</td><td class="num">53%</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">Decision — do not widen</span>
+    <p><b>Levels are clearly rejected</b> — 1.16 points below the zone branch, interval entirely
+    negative. <b>The short average is rejected narrowly</b> — 0.42 points below, interval only just
+    excluding zero, and <em>the cell is still positive</em>. Widening there would <b>dilute, not
+    poison</b>. If more pullback supply is ever wanted at a weaker average, that is the defensible
+    place to take it. Levels are not.</p>
+  </div>
+</section>
+
+<section id="anomaly">
+  <h2><span class="n">09</span>The anomaly, which cuts against the gate&rsquo;s own rationale</h2>
+  <div class="note stop">
+    <span class="tag">Open</span>
+    <p><b>&ldquo;None of them&rdquo; is the best cell in the table, and it should be the worst.</b></p>
+  </div>
+  <p>That category means at value but <em>not</em> in a demand zone, not near the short average,
+  and not near a level — half to one range out, in clear space. If being at structure is what makes
+  a quiet at-value bar tradeable, the residual category should underperform every labelled one. It
+  beats the demand zone by <b>1.35 points</b>.</p>
+  <p>So what the study actually supports is narrow: <b>among the location labels, the demand zone
+  is the best one.</b> It does <em>not</em> establish that being at structure is what generates the
+  alpha. Two readings, neither tested:</p>
+  <ol>
+    <li>The residual selects for cleanly trending names that never pull back into structure at all
+    — <b>the label is a proxy for trend quality, not for location</b>.</li>
+    <li>The taxonomy is too coarse, and &ldquo;near a level&rdquo; is capturing overhead supply as
+    often as support.</li>
+  </ol>
+  <div class="tw"><table>
+    <thead><tr><th>Consequence</th><th>What to do about it</th></tr></thead><tbody>
+      <tr><td class="k">Do not cite this as proof that location gating works</td><td>It compares labels. <b>It does not validate the concept</b></td></tr>
+      <tr><td class="k">The zone flag on the board is still off</td><td>This result is a reason to <b>run that comparison properly</b>, not to assume zones improve the board</td></tr>
+      <tr><td class="k">The cell is smaller but not small</td><td>Four thousand bars against twenty-three thousand</td></tr>
+    </tbody></table></div>
+  <p class="refnote"><b>Next test if this is picked up:</b> partition the residual by trend strength
+  — index, relative strength, distance above the long average — and see whether it is trend quality
+  wearing a location label. Until then it is an anomaly, not a finding.</p>
+</section>
+
+<section id="design">
+  <h2><span class="n">10</span>The proposed table</h2>
+  <div class="note">
+    <span class="tag">The ruling that set the trade-off</span>
+    <p><b>&ldquo;I&rsquo;m ok to have fewer results, rather than a huge list of unreliable
+    results.&rdquo;</b> An earlier draft proposed <em>loosened</em> common thresholds to protect
+    supply. <b>Supply is not the objective</b> — so the design aligns the bull family to the bull
+    screens&rsquo; own standard, the strictest in the system, rather than to a diluted version
+    of it.</p>
+  </div>
+  <p>Three tiers. Governance, solvency and size are not style-dependent; growth against survival
+  is.</p>
+
+  <details class="ref"><summary>Tier 1 — the common core, at bull strength everywhere</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Profitable</td><td>keep</td><td>keep</td><td>keep</td><td>keep</td></tr>
+      <tr><td class="k">Pledged under 5%</td><td>keep</td><td><b>add</b></td><td><b>add</b></td><td><b>add</b></td></tr>
+      <tr><td class="k">Market cap floor</td><td>keep</td><td>keep</td><td><b>add</b></td><td><b>add</b></td></tr>
+      <tr><td class="k">Promoter or institutional holding</td><td>keep</td><td><b>add</b></td><td><b>add</b></td><td><b>add</b></td></tr>
+      <tr><td class="k">Turnover</td><td>via screen</td><td>via screen</td><td>keep</td><td class="new">raised — shipped</td></tr>
+      <tr><td class="k">Price floor</td><td>keep</td><td>keep</td><td><b>add</b></td><td class="new">raised — shipped</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Tier 2 — the engine each book is entitled to</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Engine</td><td>The growth screens</td><td>Survival, 4 of 6</td><td class="new">Growth, 4 of 5 — shipped</td><td class="new">Growth, 4 of 5 — shipped</td></tr>
+      <tr><td class="k">Sales and profit growth</td><td>via screen</td><td>—</td><td>via the score</td><td>via the score</td></tr>
+      <tr><td class="k">Return on capital</td><td>via screen</td><td>via screen</td><td>via the score</td><td>via the score</td></tr>
+      <tr><td class="k">Return on equity</td><td>via screen</td><td>—</td><td class="new">shipped as a gate</td><td class="new">shipped as a gate</td></tr>
+      <tr><td class="k">Debt to equity</td><td>via screen</td><td>via screen</td><td class="new">shipped as a gate</td><td class="new">shipped as a gate</td></tr>
+      <tr><td class="k">Margin expansion</td><td>—</td><td>—</td><td>via the score</td><td>via the score</td></tr>
+      <tr><td class="k">Solvency legs</td><td>—</td><td><b>the full survival score</b></td><td>—</td><td>—</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Tier 3 — path-specific, unchanged</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Parameter</th><th>Bull</th><th>Recovery</th><th>Catalyst</th><th>Pullback</th></tr></thead><tbody>
+      <tr><td class="k">Drawdown premise</td><td>Within 15–25% of the high</td><td><b>10–40% off</b></td><td>—</td><td>2–18% off the 20-day high</td></tr>
+      <tr><td class="k">Trigger</td><td>A breakout clause</td><td>A signal pair</td><td><b>A catalyst fires</b></td><td><b>None — location</b></td></tr>
+      <tr><td class="k">Risk ceiling</td><td>—</td><td>—</td><td>—</td><td>Within 8%</td></tr>
+    </tbody></table></div></div></details>
+
+  <h3>The measured cost of the swap</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Change</th><th>Rationale</th><th>Cost</th></tr></thead><tbody>
+      <tr><td class="k">Catalyst: survival → growth</td><td>It is a bull book that checked no growth parameter</td><td><b>8 of 20 names dropped</b> on the measured day — twelve pass at four, fourteen at three, all twenty at two</td></tr>
+      <tr><td class="k">Pullback: 2 → 4</td><td>At two a name passed on margin expansion alone with negative growth</td><td>Unmeasured — needs a full run</td></tr>
+      <tr><td class="k">Ownership, pledge and size on both</td><td>These are the bull screens&rsquo; own conditions</td><td>The market-cap floor costs <b>nothing today</b> — see below. The rest are unmeasured because the fields are not fetched</td></tr>
+    </tbody></table></div>
+
+  <div class="note warn">
+    <span class="tag">A correction the document made to itself</span>
+    <p>Section 3 called the missing market-cap floor <b>the single largest divergence</b>. Measured
+    on a live twenty-name catalyst list, <b>every name was already above &#8377;12,835 Cr</b>, median
+    around &#8377;30,000 Cr. The floor is <b>not binding</b>. It is a real gap in the code and a
+    non-event in the output, because the technical gates already select large caps.</p>
+    <p>So a size floor on the catalyst book is <b>insurance, not a filter</b> — worth having so a
+    regime that starts surfacing micro-caps cannot slip through, worth nothing today. Still
+    unmeasured for the pullback book, which reaches lower and is where a floor could actually
+    bind.</p>
+  </div>
+
+  <h4>Deliberately not proposed</h4>
+  <ul>
+    <li><b>Solvency legs on the bull family.</b> That is the survival score&rsquo;s job and the
+    exact mismatch this design removes — <b>a high-growth leader mid-capex can fail interest
+    coverage.</b> Re-adding them under another name recreates the problem.</li>
+    <li><b>Tightening the bull screens.</b> They are already the standard everything else is being
+    raised to.</li>
+  </ul>
+</section>
+
+<section id="cost">
+  <h2><span class="n">11</span>What is left to build</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Item</th><th>Status</th></tr></thead><tbody>
+      <tr><td class="k">Pullback growth floor, price and turnover</td><td class="new">Shipped — three config values</td></tr>
+      <tr><td class="k">Growth engine on the catalyst book</td><td class="new">Shipped — a block in the pipeline, same shape as the one it replaced</td></tr>
+      <tr><td class="k">Return on equity and leverage gates</td><td class="new">Shipped — separate hard gates beside the score</td></tr>
+      <tr><td class="k">Pledge, market cap, promoter and institutional holding</td><td><b>Not fetched.</b> The fundamentals row returns seven fields; these four need one parser extension against the company page, where all of them appear</td></tr>
+      <tr><td class="k">The recovery band collision</td><td><b>Open</b> — the two halves measure &ldquo;beaten down&rdquo; against <b>different highs</b>. The signal test wants 15–35% off a <b>60-bar</b> high; the regime test wants 10–40% off the <b>52-week</b> high. A name 20% below its two-month high can sit 45% below its yearly one — passing the first, failing the second, and neither number means what the other reports</td></tr>
+    </tbody></table></div>
+  <p>The remaining work is <b>a single parser extension that unlocks four parameters at once</b> —
+  worth doing as one piece rather than four.</p>
+  <div class="note good">
+    <span class="tag">The sequencing rule, restated because it still applies</span>
+    <p>When those four legs arrive, <b>keep the growth score as a five-check growth score</b> and
+    add each new leg as its own hard gate. Fold them into the score and &ldquo;four of five&rdquo;
+    silently comes to mean something else, and no individual leg&rsquo;s contribution stays
+    readable in the log. The two gates already shipped follow this pattern.</p>
+  </div>
+</section>
+
+<section id="caveat">
+  <h2><span class="n">12</span>The caveat, and what it does not excuse</h2>
+  <p>One partition has been run, on the growth gate, and it is reported above with its interval
+  straddling zero. <b>No forward-return test partitions on ownership, pledge, size or leverage.</b>
+  So this design is <em>coherent</em> — each book asks the question its premise entitles it to ask,
+  and the bull family is held to the bull standard — <b>but coherence is not proven edge.</b></p>
+  <div class="note">
+    <span class="tag">Why the asymmetry decides it anyway</span>
+    <p>Given the ruling that fewer and reliable beats many and unreliable, <b>the asymmetry matters
+    more than the uncertainty.</b> A stricter gate that turns out to add no alpha costs some missed
+    trades. A loose gate that admits weak businesses into a positional book costs capital in names
+    that would never have been picked by hand. <b>Those are not symmetric</b>, and the ruling says
+    which side to err on.</p>
+  </div>
+  <h3>The test that would settle it</h3>
+  <p>Score every historical pick on <b>both</b> engines at its own anchor date and partition
+  matched-horizon alpha by each. If growth separates and survival does not, the core swap is
+  confirmed rather than argued. Half of that has now been done — <b>the growth side. The
+  head-to-head has not.</b></p>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/25* · Scanner Filter Map</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">11 Catalyst Engine</a> · <a href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">09 Quality on Sale</a> · <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 Backtest Court</a></span>
+</div></footer>

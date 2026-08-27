@@ -1,0 +1,626 @@
+<title>The Commander Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+
+<style>
+/* ───────────────────────────────────────────────────────────────
+   The shelf carries NO accent of its own. Every colour on this page
+   belongs to one of the documents, worn as a card spine — so the
+   index previews the identity you are about to land in.
+   ─────────────────────────────────────────────────────────────── */
+:root{
+  --ground:#F2F3F5; --surface:#FFFFFF; --surface-2:#F7F8FA; --surface-3:#ECEEF1;
+  --ink:#101418; --ink-2:#3B444F; --muted:#6B7480; --faint:#98A1AC;
+  --rule:#D9DEE4; --rule-soft:#E8ECF0;
+  /* document identities */
+  --doctrine:#0F7A66; --doctrine-bg:#E4F2EE;
+  --evidence:#2C5AA8; --evidence-bg:#E7EDF8;
+  --gate:#9A5B00; --gate-bg:#FBF0DE;
+  --funnel:#7A3E6B; --funnel-bg:#F4E9F1;
+  --bible:#8A6A1F; --bible-bg:#F6F1E2;
+  --honest:#0F6E86; --honest-bg:#E2F0F4;
+  --ledger:#44566C; --ledger-bg:#E9EDF2;
+  --gm:#5B4BD6; --gm-bg:#ECEAFB;
+  --s4:#A32B4E; --s4-bg:#FBE8ED;
+  --cw:#B4551A; --cw-bg:#FBEDE1;
+  --db:#1F3A5F; --db-bg:#E6ECF4;
+  --bull:#3D4A8C; --bull-bg:#E8EAF6;
+  --rec:#8C4A2F; --rec-bg:#F8EBE4;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --body:'Newsreader',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101317; --surface:#171B20; --surface-2:#1C2127; --surface-3:#222831;
+    --ink:#E8ECF1; --ink-2:#BFC7D1; --muted:#8792A0; --faint:#69737F;
+    --rule:#272E37; --rule-soft:#20262E;
+    --doctrine:#2BB39A; --doctrine-bg:#12302A;
+    --evidence:#6E9BE0; --evidence-bg:#152238;
+    --gate:#E0A020; --gate-bg:#332608;
+    --funnel:#C589B8; --funnel-bg:#2A1826;
+    --bible:#C9A84C; --bible-bg:#2B2410;
+    --honest:#4FB3C9; --honest-bg:#0D2A32;
+    --ledger:#8FA3BA; --ledger-bg:#1A2029;
+    --gm:#9A8CFF; --gm-bg:#1D1938;
+    --s4:#F0819E; --s4-bg:#33131F;
+    --cw:#F0985A; --cw-bg:#331F0F;
+    --db:#7FA6D9; --db-bg:#131E2E;
+    --bull:#8E9AE0; --bull-bg:#181C33;
+    --rec:#E0906B; --rec-bg:#331C11;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101317; --surface:#171B20; --surface-2:#1C2127; --surface-3:#222831;
+  --ink:#E8ECF1; --ink-2:#BFC7D1; --muted:#8792A0; --faint:#69737F;
+  --rule:#272E37; --rule-soft:#20262E;
+  --doctrine:#2BB39A; --doctrine-bg:#12302A;
+  --evidence:#6E9BE0; --evidence-bg:#152238;
+  --gate:#E0A020; --gate-bg:#332608;
+  --funnel:#C589B8; --funnel-bg:#2A1826;
+  --bible:#C9A84C; --bible-bg:#2B2410;
+  --honest:#4FB3C9; --honest-bg:#0D2A32;
+  --ledger:#8FA3BA; --ledger-bg:#1A2029;
+  --gm:#9A8CFF; --gm-bg:#1D1938;
+  --s4:#F0819E; --s4-bg:#33131F;
+  --cw:#F0985A; --cw-bg:#331F0F;
+  --db:#7FA6D9; --db-bg:#131E2E;
+  --bull:#8E9AE0; --bull-bg:#181C33;
+  --rec:#E0906B; --rec-bg:#331C11;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* ── masthead ─────────────────────────────────────────── */
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1120px;margin:0 auto;padding:52px 24px 40px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 16px}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(36px,5.6vw,58px);line-height:1.02;
+  letter-spacing:-.025em;margin:0;text-wrap:balance}
+.dek{font-size:17.5px;color:var(--ink-2);max-width:62ch;margin:18px 0 0}
+.counts{display:flex;flex-wrap:wrap;gap:26px;margin:26px 0 0;padding-top:22px;
+  border-top:1px solid var(--rule-soft)}
+.count b{font-family:var(--disp);font-size:26px;font-weight:700;color:var(--ink);
+  display:block;line-height:1;font-variant-numeric:tabular-nums}
+.count span{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-top:7px}
+
+main{padding:48px 0 90px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin:0 0 20px}
+.sec-head h2{font-family:var(--disp);font-weight:600;font-size:21px;letter-spacing:-.012em;margin:0}
+.sec-head .rule{flex:1;height:1px;background:var(--rule)}
+.sec-head .ct{font-family:var(--mono);font-size:11px;color:var(--faint);
+  font-variant-numeric:tabular-nums}
+.sec-note{font-size:15.5px;color:var(--muted);margin:-8px 0 22px;max-width:66ch}
+
+/* ── feature cards: published pages ───────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;
+  margin:0 0 52px}
+a.card{display:grid;grid-template-columns:5px minmax(0,1fr);text-decoration:none;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  transition:border-color .14s ease, transform .14s ease}
+a.card:hover,a.card:focus-visible{border-color:var(--spine);transform:translateY(-2px)}
+a.card:focus-visible{outline:2px solid var(--spine);outline-offset:2px}
+.spine{background:var(--spine)}
+.card-b{padding:22px 22px 20px;display:flex;flex-direction:column;height:100%}
+.card-n{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--spine);margin:0 0 10px;font-weight:600}
+.card-t{font-family:var(--disp);font-weight:700;font-size:23px;line-height:1.15;
+  letter-spacing:-.018em;color:var(--ink);margin:0 0 10px;text-wrap:balance}
+.card-d{font-size:15.5px;color:var(--ink-2);margin:0 0 16px;flex:1}
+.card-m{font-family:var(--mono);font-size:11px;color:var(--muted);
+  border-top:1px solid var(--rule-soft);padding-top:12px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card-m .go{color:var(--spine);font-weight:600}
+
+/* ── library table ────────────────────────────────────── */
+.grp{margin:0 0 34px}
+.grp h3{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 10px;font-weight:600}
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 14px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.id{font-family:var(--mono);font-size:12px;color:var(--faint);white-space:nowrap;
+  font-variant-numeric:tabular-nums;width:44px}
+td.nm{color:var(--ink);font-weight:500;white-space:nowrap}
+td.nm a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule)}
+td.nm a:hover{border-bottom-color:currentColor}
+td.st{width:120px;white-space:nowrap}
+
+.pill{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;padding:2.5px 8px;border-radius:2px;border:1px solid;white-space:nowrap}
+.pill.page{color:var(--doctrine);background:var(--doctrine-bg);border-color:var(--doctrine)}
+.pill.page.ev{color:var(--evidence);background:var(--evidence-bg);border-color:var(--evidence)}
+.pill.page.gt{color:var(--gate);background:var(--gate-bg);border-color:var(--gate)}
+.pill.page.fn{color:var(--funnel);background:var(--funnel-bg);border-color:var(--funnel)}
+.pill.page.bi{color:var(--bible);background:var(--bible-bg);border-color:var(--bible)}
+.pill.page.hn{color:var(--honest);background:var(--honest-bg);border-color:var(--honest)}
+.pill.page.lg{color:var(--ledger);background:var(--ledger-bg);border-color:var(--ledger)}
+.pill.page.gm{color:var(--gm);background:var(--gm-bg);border-color:var(--gm)}
+.pill.page.s4{color:var(--s4);background:var(--s4-bg);border-color:var(--s4)}
+.pill.page.cw{color:var(--cw);background:var(--cw-bg);border-color:var(--cw)}
+.pill.page.db{color:var(--db);background:var(--db-bg);border-color:var(--db)}
+.pill.page.bs{color:var(--bull);background:var(--bull-bg);border-color:var(--bull)}
+.pill.page.rc{color:var(--rec);background:var(--rec-bg);border-color:var(--rec)}
+.pill.md{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);
+  padding:16px 20px;border-radius:3px;margin:34px 0 0;font-size:15.5px;color:var(--ink-2)}
+.note b{color:var(--ink)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:8px}
+.note p{margin:0 0 10px}.note p:last-child{margin:0}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1120px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;
+  gap:16px;justify-content:space-between}
+
+@media (max-width:640px){
+  .cards{grid-template-columns:1fr}
+  .counts{gap:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}a.card:hover{transform:none}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Weinstein Commander · GM + S4</p>
+    <h1>The Commander Library</h1>
+    <p class="dek">Every guide, doctrine document and reference for the trading system —
+    the rules for choosing a trade, the loop that runs the day, the engines underneath,
+    and the evidence they all rest on.</p>
+    <div class="counts">
+      <div class="count"><b>24</b><span>Published pages</span></div>
+      <div class="count"><b>24</b><span>Guides in the library</span></div>
+      <div class="count"><b>6</b><span>Categories</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+
+  <div class="sec-head">
+    <h2>Provenance</h2><div class="rule"></div><span class="ct">checked 27 Aug</span>
+  </div>
+
+  <a class="card" style="--spine:var(--evidence)"
+     href="https://claude.ai/code/artifact/a436bfba-a6dd-401d-ae19-41d4b94fac6e">
+    <div class="spine"></div>
+    <div class="card-b">
+      <p class="card-n">Audit · 27 August 2026</p>
+      <p class="card-t">The Library Audit</p>
+      <p class="card-d">All 24 guides checked against source rather than against the notes.
+      What had drifted, two cross-module gaps left open on purpose, the plan to close them —
+      and the three scripts that now watch 47 code values so a page cannot go quietly stale
+      again.</p>
+      <div class="card-m"><span>Read when a number looks wrong</span><span class="go">Open →</span></div>
+    </div>
+  </a>
+
+  <div class="sec-head">
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">24 of 24</span>
+  </div>
+  <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
+  what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
+  other two assume it.</p>
+
+  <div class="cards">
+
+    <a class="card" style="--spine:var(--doctrine)"
+       href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 25 · Doctrine</p>
+        <p class="card-t">GM + S4 Golden Rules</p>
+        <p class="card-d">The DO / DON'T guide for identifying and shortlisting trades. Ten
+        rules, the funnel, context gates, location and geometry, the confirmation rule,
+        sizing, and a 12-step checklist. Every rule names the incident or the number
+        behind it.</p>
+        <div class="card-m"><span>Read before shortlisting</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--doctrine)"
+       href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 26 · Process</p>
+        <p class="card-t">GM + S4 Operating Loop</p>
+        <p class="card-d">The daily workflow end to end — the four stages and what never to
+        ask of each, the real job times, the evening arm-and-alert ritual, what to do when
+        an alert fires, post-entry management, and the eight checks that fail silently.</p>
+        <div class="card-m"><span>The day, in order</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--evidence)"
+       href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 27 · Evidence</p>
+        <p class="card-t">The Backtest Court</p>
+        <p class="card-d">How the harness reaches a verdict and what it is allowed to
+        conclude. The four modules, the six gates a number must clear, why results are read
+        per family, the four mistakes that produced confident wrong answers — and a glossary
+        of every term it reports.</p>
+        <div class="card-m"><span>Before trusting a number</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--gate)" href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 24 &middot; Process</p>
+        <p class="card-t">The Pre-Trade Gate</p>
+        <p class="card-d">The fixed procedure between <em>armed</em> and <em>ordered</em>. One
+        call, five reply blocks, five rules, and the one sentence you write before overriding &mdash;
+        so an override is counted rather than invisible.</p>
+        <div class="card-m"><span>Run it before every order</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--funnel)" href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 18 &middot; Doctrine</p>
+        <p class="card-t">The Trade Funnel</p>
+        <p class="card-d">Nine gated steps from macro to order, for swing and positional alike.
+        Every row carries a hard floor that ends the trade and a confluence level that earns full
+        size &mdash; plus the scorecard, the D&amp;S entry toolkit, and the exit tables.</p>
+        <div class="card-m"><span>The whole validation sequence</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--bible)" href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">The Bible &middot; Foundation</p>
+        <p class="card-t">The Commander Bible</p>
+        <p class="card-d">The original end-to-end guide &mdash; five phases, the context layer,
+        the parameter tables and thirty common mistakes. Written May 2026, so every claim the code
+        has since overtaken is flagged where it sits.</p>
+        <div class="card-m"><span>Where it all came from</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/code/artifact/53aee9e9-be8c-4084-afc2-a86ae598bad5">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 16 &middot; Evidence</p>
+        <p class="card-t">The Honesty Layer</p>
+        <p class="card-d">The validation framework itself: matched alpha and why the window must
+        fit the setup, the walk-forward harness, the execution simulator, the overfit gate, and the
+        partition that keeps finding the real answer.</p>
+        <div class="card-m"><span>How a claim gets tested</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--ledger)" href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 19 &middot; Evidence</p>
+        <p class="card-t">The Performance Ledger</p>
+        <p class="card-d">Turning raw broker fills into an attributable record &mdash; attribution
+        across eleven dimensions, the entry snapshot, the daily broker sync and its three verbs,
+        and what the exit reconcile really showed.</p>
+        <div class="card-m"><span>What the book actually did</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--gm)" href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 23 &middot; Live system</p>
+        <p class="card-t">The Golden Matcher</p>
+        <p class="card-d">The board that times ~50 qualified names and the six-step path that
+        judges one &mdash; inherited qualification, the Armed Register, the Pullback Finder, and
+        the full S4-GO suffix grammar where two glyphs mean opposite things.</p>
+        <div class="card-m"><span>Where the day is spent</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--s4)" href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 22 &middot; Live system</p>
+        <p class="card-t">Section Four</p>
+        <p class="card-d">The execution layer and the last authority. The four-gate GO, the
+        seventeen-pattern battery, the five location sources, and the eight-rung verdict ladder
+        where the first match wins.</p>
+        <div class="card-m"><span>Read at the chart</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--cw)" href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 07 &middot; Live system</p>
+        <p class="card-t">Mission Control</p>
+        <p class="card-d">The operator console &mdash; eighteen pages in six groups, arranged by
+        when in your day you use them, plus the decision stack, the catalyst-to-style map and the
+        two standing workflows.</p>
+        <div class="card-m"><span>The app itself</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--db)" href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 08 &middot; Live system</p>
+        <p class="card-t">Swing Pro Dashboard</p>
+        <p class="card-d">The primary trade chart, and the most heavily measured surface in the
+        system &mdash; validated per-pattern alphas with confidence intervals, the two headline
+        cells, and what it owns versus mirrors.</p>
+        <div class="card-m"><span>Is this worth looking at?</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--bull)" href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 11 &middot; Screeners</p>
+        <p class="card-t">The Catalyst Engine</p>
+        <p class="card-d">The bull screener, and the surface Python is canonical for. Six
+        catalysts, two scores doing two different jobs, the six-gate base test, horizon-aware
+        stops, and the full CSV reference.</p>
+        <div class="card-m"><span>What reaches the board at all</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+    <a class="card" style="--spine:var(--rec)" href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 09 &middot; Screeners</p>
+        <p class="card-t">Quality on Sale</p>
+        <p class="card-d">The recovery screener &mdash; the 15&ndash;35% band that keeps falling
+        knives out, nine signal codes with Wyckoff on top, the ten adaptive gates, and the
+        best-evidenced gate change in the whole system.</p>
+        <div class="card-m"><span>Beaten down, not broken</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--bull)" href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 13 &middot; Screeners</p>
+        <p class="card-t">The Unified Ecosystem</p>
+        <p class="card-d">Ten edges in one strategy, each with its own stop, trail and time stop.
+        The diagnostic panel that names the blocking gate, the exit engine, the sizing chain, and
+        every input group.</p>
+        <div class="card-m"><span>Which edge, and at what size</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/code/artifact/5144c644-9f1d-43e4-bfd9-258c6806eb91">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 21 &middot; Chart engines</p>
+        <p class="card-t">Relative Strength, Auto-Sector</p>
+        <p class="card-d">Two leadership curves in one pane — against the market and against the
+        stock&rsquo;s own sector, detected for you. Plus why the stage read was deleted rather than
+        fixed.</p>
+        <div class="card-m"><span>Is this name actually leading?</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--bible)" href="https://claude.ai/code/artifact/48fa58a2-88be-40cc-858e-ab8fff5089d8">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 25* &middot; Reference</p>
+        <p class="card-t">The Scanner Filter Map</p>
+        <p class="card-d">Every parameter across the four board sources, side by side — the saved
+        screens verbatim, the measured evidence for each gate, and the two divergences that are
+        still open.</p>
+        <div class="card-m"><span>What each book really demands</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--db)" href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 01 &middot; Chart engines</p>
+        <p class="card-t">The Structure Engine</p>
+        <p class="card-d">Higher highs and higher lows, and nothing else. Every strict-trend read
+        in the system descends from this one — including, for a while, its bugs.</p>
+        <div class="card-m"><span>What the structure actually is</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--rec)" href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 02 &middot; Chart engines</p>
+        <p class="card-t">Wyckoff, As This System Reads It</p>
+        <p class="card-d">Every event condition from the live code, the priority ladder where a tie
+        goes bearish, and the two studies that rejected it as a gate and as a score.</p>
+        <div class="card-m"><span>Why half read distribution</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--doctrine)" href="https://claude.ai/code/artifact/5613c1cc-e562-45a4-bff1-cf2cad21dee1">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 03 &middot; Chart engines</p>
+        <p class="card-t">Where The Money Actually Traded</p>
+        <p class="card-d">Acceptance and rejection: the value area, the control point, and the air
+        pockets a breakout runs through. The one context component that survived measurement.</p>
+        <div class="card-m"><span>Is there road above the level</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--funnel)" href="https://claude.ai/code/artifact/50a2b6ce-b153-46c3-b194-2fd608139217">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 04 &middot; Chart engines</p>
+        <p class="card-t">The Institutional Footprint</p>
+        <p class="card-d">Order blocks, gaps and sweeps — plus the break-of-structure engine the old
+        guide never mentioned, and the health tier that has never once rendered.</p>
+        <div class="card-m"><span>Where the orders were left</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--cw)" href="https://claude.ai/code/artifact/79c4e8aa-b2ba-4690-8f2f-8c57164cd76b">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 20 &middot; Chart engines</p>
+        <p class="card-t">The Markup Engine</p>
+        <p class="card-d">Drop it on anything and it reads the chart back — stage, strength,
+        trendlines, levels, a plan. Nine revisions of tuning ended in a drag handle.</p>
+        <div class="card-m"><span>What is this, and is it worth my time</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--doctrine)" href="https://claude.ai/code/artifact/d52f6dcd-7af4-404f-b7fe-396d406c5d00">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 15 &middot; Chart engines</p>
+        <p class="card-t">The Context Layers</p>
+        <p class="card-d">Four modules into one score, eight setups out of it, and a bonus that feeds
+        back without closing the loop. The integrator 02, 03 and 04 all fold into.</p>
+        <div class="card-m"><span>One of the eight cannot fire</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--s4)" href="https://claude.ai/code/artifact/6682471c-4356-40ea-a767-c4c919077b37">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 10 &middot; Execution</p>
+        <p class="card-t">The Position Sizer</p>
+        <p class="card-d">Click an entry, get a quantity. Catalyst-aware stops, targets and trail —
+        and two places where the shipped guides describe a version no longer running.</p>
+        <div class="card-m"><span>Fix the risk, derive the size</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+  <div class="sec-head">
+    <h2>The full library</h2><div class="rule"></div><span class="ct">24 guides</span>
+  </div>
+  <p class="sec-note">Everything in <code>docs/</code>. <b>Page</b> means it is published here
+  and reads like the three above; <b>Markdown</b> means it still lives only in the repo and is
+  waiting to be brought across.</p>
+
+  <div class="grp">
+    <h3>Doctrine &amp; Process</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">25</td><td class="nm"><a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">Golden Rules</a></td><td>Choosing and shortlisting a trade</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">26</td><td class="nm"><a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">24</td><td class="nm"><a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">The Pre-Trade Gate</a></td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill page gt">Page</span></td></tr>
+        <tr><td class="id">18</td><td class="nm"><a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">The Trade Funnel</a></td><td>The nine gated steps, floors and exits</td><td class="st"><span class="pill page fn">Page</span></td></tr>
+        <tr><td class="id">—</td><td class="nm"><a href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">The Commander Bible</a></td><td>The original end-to-end guide, with stale claims flagged</td><td class="st"><span class="pill page bi">Page</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Evidence &amp; Measurement</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">27</td><td class="nm"><a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">Backtest Process &amp; Glossary</a></td><td>How a verdict is reached, and its vocabulary</td><td class="st"><span class="pill page ev">Page</span></td></tr>
+        <tr><td class="id">16</td><td class="nm"><a href="https://claude.ai/code/artifact/53aee9e9-be8c-4084-afc2-a86ae598bad5">The Honesty Layer</a></td><td>The harness modules in technical detail</td><td class="st"><span class="pill page hn">Page</span></td></tr>
+        <tr><td class="id">19</td><td class="nm"><a href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">The Performance Ledger</a></td><td>Where realised P&amp;L actually came from</td><td class="st"><span class="pill page lg">Page</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>The Live System</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">23</td><td class="nm"><a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
+        <tr><td class="id">22</td><td class="nm"><a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">Section Four</a></td><td>The four-gate GO and the verdict ladder</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">07</td><td class="nm"><a href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>
+        <tr><td class="id">08</td><td class="nm"><a href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">Swing Pro Dashboard</a></td><td>The primary trade chart and its validated alphas</td><td class="st"><span class="pill page db">Page</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Screeners &amp; Signals</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">11</td><td class="nm"><a href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">The Catalyst Engine</a></td><td>Six catalysts, two scores, the six-gate base test</td><td class="st"><span class="pill page bs">Page</span></td></tr>
+        <tr><td class="id">09</td><td class="nm"><a href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">Quality on Sale</a></td><td>The band, nine signals, and the fundamental gate</td><td class="st"><span class="pill page rc">Page</span></td></tr>
+        <tr><td class="id">13</td><td class="nm"><a href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">The Unified Ecosystem</a></td><td>Ten edges, the diagnostic panel, the exit engine</td><td class="st"><span class="pill page bs">Page</span></td></tr>
+        <tr><td class="id">21</td><td class="nm"><a href="https://claude.ai/code/artifact/5144c644-9f1d-43e4-bfd9-258c6806eb91">Relative Strength, Auto-Sector</a></td><td>Two leadership curves, and the stage read that was deleted</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">25*</td><td class="nm"><a href="https://claude.ai/code/artifact/48fa58a2-88be-40cc-858e-ab8fff5089d8">The Scanner Filter Map</a></td><td>Four sources, four fundamental standards, side by side</td><td class="st"><span class="pill page">Page</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Chart Engines</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">01</td><td class="nm"><a href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">The Structure Engine</a></td><td>Pivot classes, the state machine, the developing pivot</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">02</td><td class="nm"><a href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">Wyckoff, As This System Reads It</a></td><td>Event conditions, the bearish tie-break, and why it was rejected</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">03</td><td class="nm"><a href="https://claude.ai/code/artifact/5613c1cc-e562-45a4-bff1-cf2cad21dee1">Where The Money Actually Traded</a></td><td>Value area, control point, air pockets</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">04</td><td class="nm"><a href="https://claude.ai/code/artifact/50a2b6ce-b153-46c3-b194-2fd608139217">The Institutional Footprint</a></td><td>Blocks, gaps, sweeps, and break vs change of character</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">20</td><td class="nm"><a href="https://claude.ai/code/artifact/79c4e8aa-b2ba-4690-8f2f-8c57164cd76b">The Markup Engine</a></td><td>Touch rule, TF-scoped levels, the drag-handle pivot</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">15</td><td class="nm"><a href="https://claude.ai/code/artifact/d52f6dcd-7af4-404f-b7fe-396d406c5d00">The Context Layers</a></td><td>Eight setups, the bonus loop, and the dead rung</td><td class="st"><span class="pill page">Page</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grp">
+    <h3>Risk &amp; Sizing</h3>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="id">10</td><td class="nm"><a href="https://claude.ai/code/artifact/6682471c-4356-40ea-a767-c4c919077b37">The Position Sizer</a></td><td>Risk-first sizing, the catalyst matrix, the stale targets</td><td class="st"><span class="pill page">Page</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="note">
+    <span class="tag">Two notes on this index</span>
+    <p><b>The numbering has one collision.</b> Both the Golden Rules and the Scanner Filter
+    Map are filed as 25 in <code>docs/</code>; the Scanner Filter Map is marked <code>25*</code>
+    here. Renumbering would break the filename links, so it is flagged rather than fixed.</p>
+    <p><b>Each page keeps its own address.</b> The three published documents are separate
+    pages with their own URLs, so any link you have already shared or bookmarked still works
+    — this library indexes them, it does not replace them.</p>
+  </div>
+
+</main>
+</div>
+
+<footer><div class="foot-in">
+  <span>The Commander Library · docs/portal</span>
+  <span>Sources kept in the repo at docs/portal/*.html</span>
+</div></footer>
