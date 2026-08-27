@@ -139,6 +139,8 @@ LOCAL = {
     "6682471c": "10_position_sizer.html",
     "53aee9e9": "16_honesty_layer.html",
     "30193746": "27_backtest_court.html",
+    "863499fe": "11_catalyst_engine.html",
+    "0aa8c4bb": "13_unified.html",
 }
 
 

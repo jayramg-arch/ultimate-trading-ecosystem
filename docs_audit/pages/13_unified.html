@@ -1,0 +1,1088 @@
+<title>The Unified Ecosystem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#5E3A7E; --acc-bg:#F0E9F6; --acc-rule:#C3AAD8;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#B79AD8; --acc-bg:#1F1730; --acc-rule:#463663;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#B79AD8; --acc-bg:#1F1730; --acc-rule:#463663;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+/* the edge tree */
+.tree{border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--surface);
+  margin:0 0 18px}
+.fam{border-bottom:1px solid var(--rule)}
+.fam:last-child{border-bottom:none}
+.fam .h{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:.01em;
+  padding:11px 17px;background:var(--surface-2);color:var(--ink);
+  border-bottom:1px solid var(--rule-soft)}
+.edge{display:grid;grid-template-columns:130px minmax(0,1fr);gap:14px;padding:9px 17px;
+  align-items:baseline;border-bottom:1px solid var(--rule-soft)}
+.edge:last-child{border-bottom:none}
+.edge .c{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--acc);white-space:nowrap}
+.edge .d{font-size:14.5px;color:var(--ink-2)}
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 13 · Screeners &amp; signals</p>
+      <h1>The Unified Ecosystem</h1>
+      <p class="dek">The one script that is a <b>strategy</b> rather than an indicator. It merges
+      the bull and recovery books into a single engine — one dashboard, one exit engine, one set
+      of sizing rules across every edge.</p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Why the difference matters</div>
+      A stale stage here does not<br>
+      mislabel a row — <b>it gates<br>
+      an entry</b>. A stale target<br>
+      ladder <b>sizes a real exit</b>.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#contradiction">One contradiction</a></li>
+    <li><a href="#rulings">The v3.5 rulings</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#edges">The edges</a></li>
+    <li><a href="#criteria">Entry criteria</a></li>
+    <li><a href="#prereq">Prerequisites</a></li>
+    <li><a href="#visuals">What it draws</a></li>
+    <li><a href="#panel">The diagnostic panel</a></li>
+    <li><a href="#exits">The exit engine</a></li>
+    <li><a href="#sizing">Sizing</a></li>
+    <li><a href="#gates">Quality gates</a></li>
+  </ol>
+  <p>Operating it</p>
+  <ol>
+    <li><a href="#choose">Choosing the edge</a></li>
+    <li><a href="#trouble">When it is not firing</a></li>
+    <li><a href="#setup">Setup &amp; profiles</a></li>
+    <li><a href="#inputs">Inputs</a></li>
+    <li><a href="#limits">Known limitations</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="contradiction">
+  <h2><span class="n">01</span>One contradiction, flagged not resolved</h2>
+  <div class="note stop">
+    <span class="tag">The header canon and the body tables disagree about targets and trails</span>
+    <p>The v3.5 rulings at the top of the source guide set the <b>R-canon</b> — positional 3R/5R,
+    swing 2R/4R — and confirm the trail multiple at <b>4.5</b>. The detailed exit tables further
+    down still show the <b>legacy</b> ladder (2.5R and 3.5R) and a <b>3.0</b> trail.</p>
+    <p><b>The header is the later and evidenced position.</b> This page states the canon in the
+    exit section and marks the legacy figures as superseded — but if you are reading the source
+    markdown, expect to meet both.</p>
+  </div>
+  <div class="note warn">
+    <span class="tag">And a consequence worth acting on</span>
+    <p><b>Strategy Tester results from before the v3.5 change are not comparable.</b> Both the
+    stage (which gates <em>entries</em>) and the target ladder (which sizes <em>exits</em>) moved.
+    <b>Re-run before reading anything into a backtest.</b></p>
+  </div>
+</section>
+
+<section id="rulings">
+  <h2><span class="n">02</span>The v3.5 rulings</h2>
+  <p>Seven weeks of decisions that had landed everywhere else and not here. That gap mattered more
+  in this script than in any other, <b>because this one takes trades</b>.</p>
+
+  <h3>1 · Stage became a stateless 2×2</h3>
+  <p>The old code ran a <b>hysteresis state machine</b> that evolved the stage from its previous
+  value, plus two overrides letting a separate pivot engine rewrite the answer. The consequence:
+  <b>a name trading above a declining 30-week average never left “Stage 1”.</b> When the same
+  defect was fixed on the dashboard it measured at <b>19 of 56 names mis-staged</b> — one sat at
+  Stage 1 with its anchor falling 62.9 points, which is distribution, not a base.</p>
+  <pre>above the 30-week average  →  rising ? <b>2</b> : falling ? <b>3</b> : (RS up ? <b>1</b> : <b>3</b>)
+below the 30-week average  →  (falling and RS not up) ? <b>4</b> : <b>1</b></pre>
+  <p>A <b>flat</b> anchor resolves to <b>1</b>, however strong relative strength is — a flat anchor
+  is a base, not an advance. Both overrides are gone; the pivot engine survives only as the
+  flat-cell tiebreak.</p>
+  <div class="note">
+    <span class="tag">One refinement deliberately NOT ported</span>
+    <p>The dashboard labels <em>below a rising anchor</em> as a pullback variant of Stage 2. Here
+    the stage is <b>an integer that feeds the catalyst gates</b>, not a display string — so
+    promoting that cell would <b>silently admit pullback-below-the-anchor names into every Stage-2
+    gate</b>. Python does not do it either. If you want it, make it a deliberate one-line change,
+    not a copy.</p>
+  </div>
+  <div class="note warn">
+    <span class="tag">The trade-off, stated rather than hidden</span>
+    <p>A stateless read can <b>flip between 2 and 3 while the average hovers near flat</b>. The
+    slope threshold is the knob for that — <b>widen the flat band rather than freeze a stale
+    digit</b>.</p>
+  </div>
+
+  <h3>2 · Two slope errors, both widening the flat band</h3>
+  <div class="tw"><table>
+    <thead><tr><th></th><th class="r">Was</th><th class="r">Now</th></tr></thead><tbody>
+      <tr><td class="k">Lookback</td><td class="old">6</td><td class="new">4</td></tr>
+      <tr><td class="k">Form</td><td class="old">per-bar rate</td><td class="new">raw N-bar change</td></tr>
+    </tbody></table></div>
+  <p>Together the flat band here was <b>six times</b> the one every other surface used — so an
+  anchor that everything else called <em>rising</em> read <b>flat</b> in the strategy, and blocked
+  entries accordingly.</p>
+
+  <h3>3 · Rotation recalibrated</h3>
+  <p>Moved onto the shared calibration — decoupled lookbacks with an origin-preserving transform —
+  the same port already in the dashboard, the trigger indicator and the allocator, <b>verified
+  identical to the Python engine to twelve decimal places</b>. The single-lookback input is now
+  <b>ignored by design</b>, because one lookback cannot serve both axes.</p>
+
+  <h3>4 · The R-canon</h3>
+  <p>Set by a single rule: <b>no trade below 2R</b>, and something always left to trail.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="r">Was</th><th class="r">Now</th><th class="r">Partials</th></tr></thead><tbody>
+      <tr><td class="k">Positional · Wyckoff · recovery</td><td class="old">5R / 10R</td><td class="new">3R / 5R</td><td class="num">25 / 25</td></tr>
+      <tr><td class="k">Gap and reversion</td><td class="old">2R / 2–4R</td><td class="new">2R / 4R</td><td class="num">50 / 50</td></tr>
+      <tr><td class="k">Other swing</td><td class="old">3R / 5R</td><td class="new">2R / 4R</td><td class="num">33 / 33</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <span class="tag">Why the old ladder failed in practice</span>
+    <p>At 5R, the first target was reached in a tiny minority of positional trades — so
+    <b>the partial, the breakeven move and the trail effectively never engaged</b>. A target you
+    almost never hit is not a target; it is a decoration.</p>
+  </div>
+
+  <h3>5 · The trail multiple stayed — for a different reason</h3>
+  <p>The old justification was the 5R/10R ladder, and that ladder is gone. It stays on <b>its own
+  evidence</b>: it is the shared brain's positional multiple — <b>so the strategy trails the way
+  your live book does</b> — and <b>four separate stop studies have rejected tightening it</b>.</p>
+</section>
+
+<section id="edges">
+  <h2><span class="n">03</span>The edges</h2>
+  <div class="tree">
+    <div class="fam"><div class="h">Bull — positional</div>
+      <div class="edge"><span class="c">POS-BO</span><span class="d">A Stage-2 momentum breakout</span></div>
+      <div class="edge"><span class="c">POS-AC</span><span class="d">A base entry gated on volume-flow confirmation</span></div>
+    </div>
+    <div class="fam"><div class="h">Bull — swing</div>
+      <div class="edge"><span class="c">SWG-PB</span><span class="d">A pullback to the short average inside a tight structure</span></div>
+      <div class="edge"><span class="c">SWG-BO</span><span class="d">A contraction-pattern breakout</span></div>
+      <div class="edge"><span class="c">SWG-REV</span><span class="d">Mean reversion above the long average</span></div>
+      <div class="edge"><span class="c">GAP-GO</span><span class="d">An institutional gap held into the close</span></div>
+    </div>
+    <div class="fam"><div class="h">Recovery — legacy</div>
+      <div class="edge"><span class="c">REV-CB</span><span class="d">A panic washout reversal</span></div>
+      <div class="edge"><span class="c">REV-RS</span><span class="d">A relative-strength survivor breaking out in a corrected market</span></div>
+      <div class="edge"><span class="c">REV-EARLY</span><span class="d">A trendline reclaim on a compressed base</span></div>
+    </div>
+    <div class="fam"><div class="h">Recovery — Wyckoff, the priority edge</div>
+      <div class="edge"><span class="c">WYC-SPR+SOS</span><span class="d"><b>Highest conviction</b> — the shakeout and its confirmation on one base</span></div>
+      <div class="edge"><span class="c">WYC-JAC</span><span class="d">A decisive volume-backed close above the base high</span></div>
+      <div class="edge"><span class="c">WYC-SOS</span><span class="d">Strength alone, with no qualifying shakeout</span></div>
+      <div class="edge"><span class="c">WYC-SPRING</span><span class="d">The shakeout alone, not yet confirmed</span></div>
+    </div>
+  </div>
+  <p>Each edge carries <b>its own entry logic, stop type, trail method and profit rules</b> — which
+  is the whole reason they are named rather than merged.</p>
+  <div class="note">
+    <span class="tag">A counting note</span>
+    <p>The source still calls this <b>“the 9 edges”</b>, from when there were six bull and three
+    recovery. Wyckoff was added afterwards as a fourth recovery edge with four variants, so the
+    tree above lists more than nine. <b>The label lagged the addition.</b></p>
+  </div>
+</section>
+
+<section id="criteria">
+  <h2><span class="n">04</span>Entry criteria, edge by edge</h2>
+  <p>Folded per edge. Each carries its own stop type, trail and time stop — <b>this is where the
+  ten edges actually differ</b>, and reading the wrong one is how a positional stop ends up on a
+  swing trade.</p>
+
+  <h3>Bull — positional</h3>
+
+  <details class="ref"><summary>POS-BO · positional breakout</summary><div class="rb">
+  <p><b>The cleanest institutional signal</b> — a stock escaping a base into open air.</p>
+  <pre>bull book ON · edge ON
+AND base confirmed        (Stage 2 + market bull + the MA stack)
+AND alpha above floor
+AND rotation leading or improving
+AND micro edge            (above the daily pivot and the monthly anchor)
+AND close above the 20-bar prior high
+AND volume above 1.5x average
+AND <b>volume shelf</b>          (the short volume-weighted average above the long)</pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>10-bar structural low with a small ATR pad</td></tr>
+    <tr><td class="k">Trail</td><td>Chandelier ratchet — upward only</td></tr>
+    <tr><td class="k">Size</td><td>Kelly-adjusted, capped by max allocation</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The volume-shelf gate is the one people skip: <b>it is what rules out a false
+  volume spike</b> on an otherwise clean-looking breakout.</p>
+  </div></details>
+
+  <details class="ref"><summary>POS-AC · positional accumulation</summary><div class="rb">
+  <p><b>Buy during the base itself</b> — before the breakout — when volume flow shows quiet
+  accumulation. Lower risk than the breakout, but it demands a tightening structure.</p>
+  <pre>everything POS-BO requires, minus the breakout, plus:
+  accumulation structure   close above the short averages, stacked
+  accumulation action      an up bar closing in the top third of its range
+  volume                   moderately above average
+  <b>loose contraction</b>        range narrowing AND volume below its average
+  <b>flow rising</b>              two consecutive rises AND above its own average
+  volume shelf</pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>Same as the breakout — structural low with a pad</td></tr>
+    <tr><td class="k">Trail</td><td>Chandelier ratchet, breakeven locked after the first target</td></tr>
+  </tbody></table></div>
+  <p class="refnote">Note the deliberate tension: <b>volume must be <em>below</em> average for the
+  contraction test and rising in flow terms.</b> That is the signature of accumulation — quiet
+  price, persistent buying.</p>
+  </div></details>
+
+  <h3>Bull — swing</h3>
+
+  <details class="ref"><summary>SWG-PB · swing pullback</summary><div class="rb">
+  <p>A continuation entry: price pulls back into the short average, <b>tightens</b>, and closes
+  back above it on a bullish bar.</p>
+  <pre>bull book ON · edge ON · market healthy
+AND above the medium average
+AND the low touched or pierced the short average
+AND close back above it       <b>the recovery, not the dip</b>
+AND a bullish close
+AND <b>tight contraction</b>         range well under its average
+AND <b>the MA stack aligned</b>      the structural filter
+AND momentum away from both extremes
+AND <b>volume dry-up</b>             prior bars consolidating, not distributing</pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>Five-bar swing low less padding</td></tr>
+    <tr><td class="k">Trail</td><td>Short-average ratchet, breakeven after the first target</td></tr>
+    <tr><td class="k">Time stop</td><td>Ten days below half an R</td></tr>
+    <tr><td class="k">Hard exit</td><td><b>A close below the medium average closes it immediately</b></td></tr>
+  </tbody></table></div>
+  </div></details>
+
+  <details class="ref"><summary>SWG-BO · swing contraction breakout</summary><div class="rb">
+  <p>A very tight base breaking out on volume — a shorter hold, <b>without the positional
+  prerequisite stack</b>.</p>
+  <pre>bull book ON · edge ON · market healthy
+AND tight contraction   range under its average AND volume under its average
+AND close above the 20-bar prior high
+AND volume above 1.5x average</pre>
+  <div class="note warn">
+    <p><b>This edge does not require base confirmation or an alpha floor.</b> It is a pure
+    momentum-and-pattern trade, which is exactly why its hold is short and its stop is a swing
+    stop. Do not size it like a positional entry.</p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>SWG-REV · swing reversion</summary><div class="rb">
+  <p>Mean reversion while the long-term trend is <em>intact</em>.</p>
+  <pre>above the long average          <b>the trend must still be there</b>
+AND below the short average     short-term depressed
+AND momentum oversold
+AND a bullish bar
+AND close above the prior bar's high   <b>the reversal confirmation</b></pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">First target</td><td><b>Fixed at 2R</b> — no dynamic adjustment, because a reversion is not a trend trade</td></tr>
+    <tr><td class="k">Time stop</td><td><b>Five days maximum.</b> If it has not reverted, the premise has failed</td></tr>
+    <tr><td class="k">Hard exit</td><td>A close below the medium average</td></tr>
+  </tbody></table></div>
+  </div></details>
+
+  <details class="ref"><summary>GAP-GO · the gap that holds</summary><div class="rb">
+  <pre>bull book ON · edge ON · market healthy
+AND the open is above the prior high AND the close is above the open
+AND the gap is at least 4%
+AND <b>the close sits in the top 40% of the gap bar's range</b>
+AND volume at least 3x average</pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>The gap bar's low, less padding</td></tr>
+    <tr><td class="k">Trail</td><td>Short-average ratchet</td></tr>
+    <tr><td class="k">Time stop</td><td>Ten days</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The intraday-position test is the whole edge: <b>it separates conviction
+  buying from a gap that faded</b>. Everything else is size and volume.</p>
+  </div></details>
+
+  <h3>Recovery — legacy</h3>
+
+  <details class="ref"><summary>REV-CB · climax bottom</summary><div class="rb">
+  <p><b>A high-risk, high-reward counter-trend entry.</b> The sequence is: stretched → panic →
+  climax → turn.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Pillar</th><th>Condition</th></tr></thead><tbody>
+      <tr><td class="k">Stretched</td><td>Materially down from the 60-bar high</td></tr>
+      <tr><td class="k">Oversold</td><td>A washout of red bars, closing near the bottom of the recent range</td></tr>
+      <tr><td class="k">Climax</td><td>Heavy volume on the <b>widest-range down bar</b> in the lookback</td></tr>
+      <tr><td class="k">Turn</td><td>A bullish bar closing above the prior high, in the top of its own range</td></tr>
+    </tbody></table></div>
+  <p>Plus: the climax must be <b>recent</b>, the fundamental score must clear, and the regime gate
+  must pass.</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td><b>Snapped at the climax bar</b> — the structural low with an ATR pad. It does not move before the first target</td></tr>
+    <tr><td class="k">Targets</td><td>The short-average reclaim, then the long average — <b>structure, not multiples</b></td></tr>
+    <tr><td class="k">Time stop</td><td>Fifteen days below half an R</td></tr>
+  </tbody></table></div>
+  </div></details>
+
+  <details class="ref"><summary>REV-RS · relative-strength survivor</summary><div class="rb">
+  <p>In a correction most names fall. <b>A survivor holds up, forms a higher low, and breaks its
+  own resistance</b> — these often lead the next leg.</p>
+  <pre>recovery book ON · edge ON
+AND relative strength slope positive
+AND <b>a higher low</b>              recent low above the prior low
+AND the pivot trend is up
+AND the stock sits inside the correction band
+AND close above the 20-bar prior high
+AND volume above average
+AND the sector in an acceptable stage
+AND the fundamental score clears · regime gate passes</pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>The recent higher low, less padding</td></tr>
+    <tr><td class="k">Trail</td><td>Chandelier ratchet with breakeven lock</td></tr>
+    <tr><td class="k">Second target</td><td>The 52-week high</td></tr>
+  </tbody></table></div>
+  </div></details>
+
+  <details class="ref"><summary>REV-EARLY · early bird</summary><div class="rb">
+  <p><b>The earliest possible recovery entry — and the highest risk of the three.</b> It fires
+  before strength has fully turned and before volume has confirmed.</p>
+  <pre>recovery book ON · edge ON
+AND <b>trendline reclaim</b>       close above the prior downtrend resistance
+AND a higher low AND the pivot trend up
+AND <b>a compressed base</b>       a narrow-range bar, or enough inside bars
+AND a pivot break on volume
+AND strength slope positive
+AND sector stage · fundamental score · regime gate</pre>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>The lowest low inside the compression window, less padding</td></tr>
+    <tr><td class="k">Trail</td><td>Chandelier ratchet</td></tr>
+  </tbody></table></div>
+  <p class="refnote">Because it is early, <b>it should never be taken standalone</b> — it needs
+  context confirmation, and it is the edge most often left as a watch.</p>
+  </div></details>
+
+  <h3>Recovery — Wyckoff</h3>
+
+  <details class="ref"><summary>WYCKOFF · the accumulation base</summary><div class="rb">
+  <p><b>Pure price and volume — no oscillators anywhere in it.</b> It detects the three phases of
+  an accumulation structure.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Phase</th><th>What must be present</th></tr></thead><tbody>
+      <tr><td class="k">B · the base</td><td>A long sideways range of contained volatility, <b>following a substantial prior decline</b>. Without the decline there is nothing to accumulate</td></tr>
+      <tr><td class="k">C · the spring</td><td>A <b>false breakdown</b> just below the base low <b>on weak volume</b>, recovering back into the base within a few bars. The weak volume is the point — supply is exhausted</td></tr>
+      <tr><td class="k">D · strength</td><td>A breakout above the minor resistance inside the base, <b>on expanded volume</b></td></tr>
+    </tbody></table></div>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Stop</td><td>The base low with an ATR pad</td></tr>
+    <tr><td class="k">Targets</td><td>The positional ladder — these are positional trades in character</td></tr>
+  </tbody></table></div>
+  <div class="note good">
+    <p><b>Why this outranks the legacy recovery edges:</b> a spring followed by a sign of strength
+    describes a <em>completed structure</em> — supply exhausted, then demand proving itself. A
+    bounce bar describes one day.</p>
+  </div>
+  </div></details>
+</section>
+
+<section id="prereq">
+  <h2><span class="n">05</span>Prerequisites — the hierarchy</h2>
+  <p>Filters pass top to bottom before any edge is allowed to fire.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Level</th><th>Requirement</th></tr></thead><tbody>
+      <tr><td class="k">Universal</td><td>Inside the backtest window · under the open-position cap · <b>no existing position</b> · fundamental gate (recovery only — <b>bull edges bypass it</b>)</td></tr>
+      <tr><td class="k">Bull</td><td>Market health — index above its long average with the medium above the long · weekly Stage 2 · base confirmed · alpha above floor · rotation leading or improving · the micro edge</td></tr>
+      <tr><td class="k">Recovery</td><td>Regime gate — market corrected, <em>or</em> the stock inside its own correction band · sector in an acceptable stage · positive relative strength · the fundamental score</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">The asymmetry is deliberate</span>
+    <p><b>Bull edges bypass the fundamental filter; recovery edges cannot.</b> A leader in an
+    uptrend is being judged on demonstrated strength. A beaten-down name has no such evidence —
+    <b>the fundamentals are the only thing standing between “on sale” and “broken”</b>.</p>
+  </div>
+</section>
+
+<section id="visuals">
+  <h2><span class="n">06</span>What the script draws</h2>
+  <p>Four layers, each separately toggleable. Read them together: <b>the background says which
+  stage you are in, the shape says which edge fired, and the lines say where the trade lives.</b></p>
+
+  <h4>Stage backgrounds</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Tint</th><th>Stage</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Faint green</td><td class="m">2</td><td>Advancing — <b>the only zone for bull entries</b></td></tr>
+      <tr><td class="k">Faint yellow</td><td class="m">1</td><td>Basing — watch for the breakout</td></tr>
+      <tr><td class="k">Faint orange</td><td class="m">3</td><td>Topping — tighten stops, no new entries</td></tr>
+      <tr><td class="k">Faint red</td><td class="m">4</td><td>Declining — <b>immediate exit for positional trades</b></td></tr>
+    </tbody></table></div>
+  <p>Tinting history is the fastest way to sanity-check the stage engine on a name you know: scroll
+  back and see whether the green blocks line up with the advances you remember.</p>
+
+  <h4>Moving averages</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Line</th><th>Colour</th><th>What it is used for</th></tr></thead><tbody>
+      <tr><td class="k">EMA 20</td><td class="m">yellow</td><td>Swing trail, and the first target for the climax-bottom edge</td></tr>
+      <tr><td class="k">SMA 50</td><td class="m">red</td><td>Positional trail floor, and the 50-average failure exit</td></tr>
+      <tr><td class="k">SMA 150</td><td class="m">blue</td><td>The stack check</td></tr>
+      <tr><td class="k">SMA 200</td><td class="m">white</td><td>Long-term trend, and the second target for the climax-bottom edge</td></tr>
+    </tbody></table></div>
+
+  <h4>Entry shapes — one per edge</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Mark</th><th>Colour</th><th>Edge</th></tr></thead><tbody>
+      <tr><td class="m">BO</td><td>lime</td><td>Positional breakout</td></tr>
+      <tr><td class="m">AC</td><td>teal</td><td>Positional accumulation</td></tr>
+      <tr><td class="m">PB</td><td>yellow</td><td>Swing pullback</td></tr>
+      <tr><td class="m">S-BO</td><td>orange</td><td>Swing contraction breakout</td></tr>
+      <tr><td class="m">REV</td><td>fuchsia</td><td>Swing reversion</td></tr>
+      <tr><td class="m">GAP</td><td>aqua</td><td>Gap and go</td></tr>
+      <tr><td class="m">CB</td><td>red</td><td>Climax bottom</td></tr>
+      <tr><td class="m">RS</td><td>purple</td><td>Relative-strength survivor</td></tr>
+      <tr><td class="m">EAR</td><td>blue</td><td>Early bird</td></tr>
+      <tr><td class="m">SPRING</td><td>teal</td><td>Wyckoff spring</td></tr>
+      <tr><td class="m">SPR+SOS</td><td>teal</td><td>Spring confirmed by a sign of strength — the strongest of the four</td></tr>
+      <tr><td class="m">SOS</td><td>teal</td><td>Sign of strength, no spring</td></tr>
+      <tr><td class="m">JAC</td><td>teal</td><td>Jump across the creek</td></tr>
+      <tr><td class="m">PRE-S2</td><td>yellow dot above the bar</td><td><b>Early stage-2 warning — not an entry</b></td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="lbl">Why the Wyckoff marks are new, and what their absence meant</span>
+    <p>The four teal marks were added on <b>26 August</b>. Until then the strategy could
+    <em>fire, size and trade</em> a Wyckoff edge while leaving <b>no mark on the chart at all</b>:
+    v3.4 added the triggers, entries, stops and targets, v3.4.2 added the panel row, and the
+    plotshapes were simply never written. Ten catalysts were drawn and Wyckoff was not one of
+    them.</p>
+    <p>They are teal to separate the accumulation family from the red / purple / blue recovery
+    marks, and <b>at most one can print per bar</b> — the four triggers exclude each other by
+    construction, so SPR+SOS never appears alongside a bare SPRING.</p>
+  </div>
+  <p class="refnote">The per-edge marker is why the historical chart is worth reading: when a name has
+  taken three trades, <b>you can see immediately whether the losses came from one edge</b> rather
+  than from the system as a whole.</p>
+
+  <h4>Exit and trail</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Plot</th><th>Style</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Chandelier trail</td><td class="m">fuchsia step-line</td><td>Always visible while in a position</td></tr>
+      <tr><td class="k">Active stop</td><td class="m">red line-break</td><td>The live ratcheted stop — <b>open position only</b></td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="panel">
+  <h2><span class="n">07</span>The diagnostic panel — the headline value</h2>
+  <p>The strategy <b>deliberately stopped duplicating</b> stage, strength, trend and price-action
+  rows — those live on the dashboard. What it gives instead is the thing no other surface does:
+  <b>when a setup is not firing, it names the first gate that blocked it.</b></p>
+
+  <h3>The four signal states</h3>
+  <div class="states">
+    <div class="st f"><p class="i">🟢</p><p class="n">FIRE</p><p>Triggered on <b>this</b> bar. A fresh actionable signal — read the plan now</p></div>
+    <div class="st h"><p class="i">🟡</p><p class="n">HOLD</p><p>Fired within the hold window. <b>The entry is later but still valid</b> if you missed the fire bar</p></div>
+    <div class="st a"><p class="i">🔵</p><p class="n">ACTIVE</p><p>A position from <b>this</b> edge is open. Manage it — <b>do not pyramid blindly</b></p></div>
+    <div class="st w"><p class="i">⚫</p><p class="n">WAIT</p><p>Nothing. Consult the grid below for the blocking gate</p></div>
+  </div>
+
+  <details class="ref"><summary>The summary rows — bull block</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">Bull setup</td><td>Base status — valid accumulation structure, or none — plus the <b>alpha score out of 100</b>, the composite trend-and-momentum reading</td></tr>
+      <tr><td class="k">Win probability</td><td>A historical win rate for the current setup cluster. Can also read <b>dead zone</b>, meaning a chopping, low-probability environment</td></tr>
+      <tr><td class="k">Positional signals</td><td>State of the two positional edges</td></tr>
+      <tr><td class="k">Swing signals</td><td>State of the four swing edges</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The summary rows — recovery block</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">Recovery state</td><td>The phase — reclaim, correction, or open — plus the fundamental score as a fraction of six</td></tr>
+      <tr><td class="k">Wyckoff signals</td><td>The four accumulation edges <b>in priority order</b>: spring-plus-strength, jump across the creek, strength alone, spring alone</td></tr>
+      <tr><td class="k">Recovery signals</td><td>The three legacy edges</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The Wyckoff row is listed <em>first</em> deliberately. It is the validated
+  priority recovery edge; the legacy rows below it are the fallback, not the headline.</p>
+  </div></details>
+
+  <details class="ref"><summary>The Wyckoff cells — every blocking value spelled out</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Cell</th><th>What it is</th><th>What can block it</th></tr></thead><tbody>
+      <tr><td class="k">Spring + strength</td><td>A shakeout followed by a strength push — <b>the highest-conviction combo</b></td><td>Recovery mode off · no qualifying base (range too wide, or not enough prior decline) · no recent spring · no recent strength push · regime</td></tr>
+      <tr><td class="k">Jump across the creek</td><td>A decisive close above the base resistance on expanding volume</td><td>Recovery mode off · no base · no volume-backed close above the base high · regime</td></tr>
+      <tr><td class="k">Strength alone</td><td>A push with no qualifying spring or creek-jump on the same bar</td><td>Recovery mode off · no push · <b>promoted to a higher-priority cell</b> · regime</td></tr>
+      <tr><td class="k">Spring alone</td><td>A shakeout with no qualifying push</td><td>Recovery mode off · no spring · <b>promoted</b> · regime</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Rotation and metadata quadrants</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What it carries</th></tr></thead><tbody>
+      <tr><td class="k">Rotation</td><td>The stock's quadrant against the broad index. Green for leading or improving, red for lagging or weakening</td></tr>
+      <tr><td class="k">Sector</td><td>The sector ticker, green when the sector itself clears the stage gate</td></tr>
+      <tr><td class="k">Context gate</td><td>Passed or blocked</td></tr>
+      <tr><td class="k">Base confirmation path</td><td><b>Which route confirmed the base</b> — the standard logic, a mature-trend exemption, or blocked. Worth reading: an exemption is a weaker confirmation than the standard path</td></tr>
+    </tbody></table></div></div></details>
+
+  <h3>The grid</h3>
+  <p>Four quadrants — bull catalysts, recovery catalysts, rotation, and metadata. A blocked cell
+  prints <b>the exact name of the first failing gate</b> rather than a generic cross.</p>
+  <div class="note stop">
+    <span class="tag">The bracketed number is a HIT COUNT, not a score</span>
+    <p>A cell reading <code>✗ regime [8]</code> does <b>not</b> mean eight criteria passed. The
+    bracket is <b>how many times this edge has fully fired across the chart's history</b>. It is
+    the most commonly misread element on the panel.</p>
+  </div>
+  <div class="note">
+    <span class="tag">And one "block" that is not a block</span>
+    <p>When a shakeout and a strength push coincide, the panel promotes them to the <b>combined</b>
+    cell, and the two standalone cells read <em>shown as the combo</em>. <b>That is a promotion,
+    not a failure.</b> Always read the four Wyckoff cells together.</p>
+  </div>
+  <div class="note warn">
+    <span class="tag">A display bug worth knowing as a class</span>
+    <p>An earlier version <b>fired the Wyckoff triggers and took the trades — but never showed
+    them.</b> A live Wyckoff position read “wait” across every recovery row, hiding real exposure.
+    The fix was display-only, with no change to any signal, entry, stop or target. <b>A surface
+    that acts but does not report is worse than one that does neither</b>, because it looks
+    calm.</p>
+  </div>
+</section>
+
+<section id="exits">
+  <h2><span class="n">08</span>The exit engine</h2>
+  <p>Four distinct position types, each with its own trail. <b>This is the part that makes it a
+  strategy rather than a screener.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Type</th><th>Initial stop</th><th>Trail</th><th>Hard exit</th></tr></thead><tbody>
+      <tr><td class="k">Positional</td><td>Recent low with a small pad</td><td><b>Chandelier ratchet</b> — only ever moves up, never down</td><td><b>Stage 4 closes it immediately</b>, without waiting for the trail</td></tr>
+      <tr><td class="k">Swing</td><td>Swing low less padding</td><td>Short-average ratchet</td><td><b>A close below the medium average exits</b> regardless of where the trail sits</td></tr>
+      <tr><td class="k">Capitulation</td><td>Climax low, snapped at the climax bar</td><td>Fixed until the first target, then a short-average ratchet floored at entry</td><td>—</td></tr>
+      <tr><td class="k">Recovery breakout</td><td>Higher low less padding</td><td>Chandelier ratchet, same as positional</td><td>—</td></tr>
+    </tbody></table></div>
+
+  <div class="note good">
+    <span class="tag">The breakeven lock</span>
+    <p>Once the first target hits, <b>every trailing stop is floored at the entry price</b>. The
+    runner cannot become a loss. This is also why the time stops do not fire on a position that
+    has already reached breakeven — <b>the runner is protected and can be held</b>.</p>
+  </div>
+
+  <h3>Targets — the current canon</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="r">T1</th><th class="r">T2</th><th class="r">Partials</th></tr></thead><tbody>
+      <tr><td class="k">Positional · Wyckoff · recovery</td><td class="new">3R</td><td class="new">5R</td><td class="num">25 / 25</td></tr>
+      <tr><td class="k">Gap · reversion</td><td class="new">2R</td><td class="new">4R</td><td class="num">50 / 50</td></tr>
+      <tr><td class="k">Other swing</td><td class="new">2R</td><td class="new">4R</td><td class="num">33 / 33</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The capitulation edge is the exception — it targets the short-average reclaim
+  and then the long average, because a recovery is measured against structure rather than a
+  multiple.</p>
+
+  <h3>Time stops</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="r">Max hold</th><th>Condition</th></tr></thead><tbody>
+      <tr><td class="k">Positional</td><td class="num">6 weeks</td><td rowspan="3">Fires only when the position is <b>below half an R and not yet at breakeven</b></td></tr>
+      <tr><td class="k">Swing</td><td class="num">10 days</td></tr>
+      <tr><td class="k">Recovery</td><td class="num">15 days</td></tr>
+    </tbody></table></div>
+  <p>Time stops exist to <b>free capital from stagnant positions</b>, not to cap winners — which is
+  exactly why breakeven exempts them.</p>
+</section>
+
+<section id="sizing">
+  <h2><span class="n">09</span>Sizing</h2>
+  <pre>risk amount   = capital × risk %
+stop distance = entry − initial stop
+<b>quantity      = min( risk amount / stop distance , max allocation / entry )</b></pre>
+  <p>Then three modifiers, applied in order:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Modifier</th><th>Effect</th></tr></thead><tbody>
+      <tr><td class="k">Regime discount</td><td>Outside a bull market the risk percentage is cut, with a floor</td></tr>
+      <tr><td class="k">Recovery discount</td><td>Recovery trades always use the lower recovery risk — <b>higher uncertainty, smaller bet</b></td></tr>
+      <tr><td class="k">Kelly multiplier <em>(bull only)</em></td><td>All three of Stage 2, positive strength and volume → full. Two of three → standard. One → half</td></tr>
+      <tr><td class="k">Volatility discount</td><td>Scales down with ATR as a share of price, with a floor so it cannot collapse the size</td></tr>
+    </tbody></table></div>
+  <div class="note good">
+    <p><b>The two caps in the base formula matter more than the modifiers.</b> Taking the
+    <em>minimum</em> of risk-based and allocation-based quantity means a very tight stop cannot
+    produce an oversized position — which is the failure mode a pure risk formula invites.</p>
+  </div>
+</section>
+
+<section id="gates">
+  <h2><span class="n">10</span>The quality gates</h2>
+  <p>Added specifically to stop low-quality fires <b>inflating trade count without improving
+  edge</b> — which is the correct thing to optimise against.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Gate</th><th>Problem it solves</th><th>What it requires</th></tr></thead><tbody>
+      <tr><td class="k">Accumulation flow</td><td>Accumulation signals firing when price is quiet but <b>no institutional buying is detectable</b></td><td>Volume flow rising consecutively <em>and</em> above its own average</td></tr>
+      <tr><td class="k">Pullback quality</td><td>Pullback entries firing in <b>weak or structurally broken trends</b></td><td>The moving-average stack aligned · momentum away from both extremes · <b>volume dry-up</b>, so the prior bars are consolidation rather than distribution</td></tr>
+      <tr><td class="k">Gap quality</td><td>Small gaps, or gaps that immediately fade, triggering entries</td><td>Size, volume and a hold into the close</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="choose">
+  <h2><span class="n">11</span>Choosing the edge, and what it pays</h2>
+
+  <h3>Frame the session first</h3>
+  <p>One read of the broad index sets which book is even eligible. Do this before you look at a
+  single name — <b>most bad trades are the right edge in the wrong regime.</b></p>
+  <pre>Index against its long average
+│
+├── above it, and the medium average above the long
+│     <b>BULL</b> — lead with the bull edges
+│     recovery stays armed: look for survivors and early turns
+│
+└── below it
+      ├── index down materially from its recent high
+      │     <b>CORRECTION</b> — prioritise the recovery edges
+      │     bull edges still fire, but the regime discount cuts size
+      │
+      └── far below
+            <b>BEAR</b> — recovery only. Disable the bull book, or accept the smaller size
+            watch for a market reclaim (a recent low above the prior low) as the turn</pre>
+
+  <details class="ref"><summary>Edge selection cheat sheet</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Condition</th><th>Best edges</th><th>Avoid</th></tr></thead><tbody>
+      <tr><td class="k">Strong bull, stage 2</td><td>Positional breakout · accumulation</td><td>Climax bottom — <b>counterproductive here</b></td></tr>
+      <tr><td class="k">Bull with a tight base</td><td>Swing pullback · swing breakout</td><td>Early bird — low reward</td></tr>
+      <tr><td class="k">A gap-up day</td><td>Gap and go</td><td>Reversion — wrong direction</td></tr>
+      <tr><td class="k">Oversold inside a bull</td><td>Swing reversion</td><td>Climax bottom — it needs correction context</td></tr>
+      <tr><td class="k">Market correction</td><td>Survivor · early bird</td><td>Positional breakout — no base to confirm</td></tr>
+      <tr><td class="k">Panic and capitulation</td><td>Climax bottom</td><td><b>Every bull edge</b></td></tr>
+      <tr><td class="k">Stage 4 confirmed</td><td>None</td><td><b>All of them. Stay flat.</b></td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>R-multiple reference — with the canon correction</summary><div class="rb">
+  <div class="note warn"><span class="tag">Read this before the table</span>
+    <p>The table below is the <b>script's own legacy ladder</b>. The live canon is
+    <b>swing 2R / 4R, positional 3R / 5R, and nothing under 2R</b>. Where they disagree, the canon
+    wins — the ladder is kept here because it is what an older build will show you on the chart.</p></div>
+  <div class="tw"><table>
+    <thead><tr><th>Edge</th><th>First target</th><th>Second target</th><th>Runner</th></tr></thead><tbody>
+      <tr><td class="k">Positional breakout</td><td class="m">2.5R · 30% out</td><td>None — the trail carries it</td><td class="num">70%</td></tr>
+      <tr><td class="k">Positional accumulation</td><td class="m">2.5R · 30% out</td><td>None — the trail carries it</td><td class="num">70%</td></tr>
+      <tr><td class="k">Swing pullback</td><td class="m">2.5R · 50% out</td><td class="m">3.5R · half the rest</td><td class="num">~25%</td></tr>
+      <tr><td class="k">Swing breakout</td><td class="m">2.5R · 50% out</td><td class="m">3.5R · half the rest</td><td class="num">~25%</td></tr>
+      <tr><td class="k">Swing reversion</td><td class="m">2.0R · 50% out</td><td><b>None</b></td><td class="num">50% closed</td></tr>
+      <tr><td class="k">Gap and go</td><td class="m">2.5R · 50% out</td><td class="m">3.5R · half the rest</td><td class="num">~25%</td></tr>
+      <tr><td class="k">Climax bottom</td><td>The short average · 50% out</td><td>The long average · half the rest</td><td class="num">~25%</td></tr>
+      <tr><td class="k">Survivor</td><td class="m">2.5R · 50% out</td><td>52-week high · half the rest</td><td class="num">~25%</td></tr>
+      <tr><td class="k">Early bird</td><td class="m">2.5R · 50% out</td><td>52-week high · half the rest</td><td class="num">~25%</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The reversion row is the one to internalise: <b>a hard five-day stop and one
+  target.</b> It is a quick mean-reversion trade, not a runner, and treating it like one is how it
+  turns into a hold.</p>
+  </div></details>
+</section>
+
+<section id="trouble">
+  <h2><span class="n">12</span>When it is not firing</h2>
+  <p>Most silence is correct. Work down this list before assuming something is broken — and
+  remember the panel already names the first blocking gate, so <b>start there, not here.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Likely cause</th><th>What to do</th></tr></thead><tbody>
+      <tr><td class="k">No bull signals anywhere</td><td>The market is in correction or bear</td><td>Check the index. <b>This is the system working</b>, not failing</td></tr>
+      <tr><td class="k">Breakout fires, accumulation does not</td><td>The volume-flow gate is blocking</td><td>Normal — accumulation needs flow confirmation. Wait for it to turn up</td></tr>
+      <tr><td class="k">Pullback silent on an obvious pullback</td><td>The moving-average stack has failed</td><td>Check whether the 150 has crossed below the 200 — <b>the name may be weakening</b></td></tr>
+      <tr><td class="k">Climax bottom fires on every bounce</td><td>The pillar thresholds are too loose</td><td>Raise the climax volume multiple, or the red-bar minimum</td></tr>
+      <tr><td class="k">Recovery signals in a bull tape</td><td>The regime gate is off</td><td>Turn the recovery regime requirement back on</td></tr>
+      <tr><td class="k">Alpha red on names you rate</td><td>The floor is set high</td><td>Drop it, or relax the macro-edge requirement — <b>but log that you did</b></td></tr>
+      <tr><td class="k">Stage reads 1 where you read 2</td><td>The slope threshold is tight</td><td>Ease it slightly. The threshold is the flicker knob</td></tr>
+      <tr><td class="k">Fundamental score reads no data</td><td>The platform lacks financials for the ticker</td><td>Set the floor to zero for that name, or skip it — <b>and use the Python screener, which has better coverage</b></td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="setup">
+  <h2><span class="n">13</span>Setup and profiles</h2>
+  <ol>
+    <li><b>Add it to a daily chart.</b> Weekly stage logic is unreliable below daily.</li>
+    <li><b>Set your capital parameters</b> — they drive every sizing calculation, so a placeholder here makes every quantity fiction.</li>
+    <li><b>Configure the backtest window</b> if you are testing rather than running live.</li>
+    <li><b>Check sector detection resolved</b> — conglomerates fall back to the broad index.</li>
+  </ol>
+  <div class="tw"><table>
+    <thead><tr><th>Profile</th><th>Shape</th></tr></thead><tbody>
+      <tr><td class="k">Conservative</td><td>Higher alpha floor, positive rotation required, both edges on, lower risk percentage — fewer trades, higher average quality</td></tr>
+      <tr><td class="k">Aggressive</td><td>Lower floors and relaxed gates — more trades, and <b>a lower average quality that the trade count will disguise</b></td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <p><b>Judge a profile change on quality, not count.</b> Loosening a gate always produces more
+    signals; that is not evidence it produced more edge. This is the exact failure the quality
+    gates were built to prevent.</p>
+  </div>
+  <h3>The two profiles, in numbers</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Setting</th><th class="r">Conservative</th><th class="r">Aggressive</th></tr></thead><tbody>
+      <tr><td class="k">Alpha floor</td><td class="num">60–70</td><td class="num">40</td></tr>
+      <tr><td class="k">Require positive rotation</td><td class="num">on</td><td class="num">off</td></tr>
+      <tr><td class="k">Breakout confirmation</td><td class="num">close</td><td class="num">intraday</td></tr>
+      <tr><td class="k">Risk per trade</td><td class="num">0.5%</td><td class="num">1.0–1.25%</td></tr>
+      <tr><td class="k">Minimum correction</td><td class="num">15%</td><td class="num">10%</td></tr>
+      <tr><td class="k">Fundamental floor</td><td class="num">held</td><td class="num">0</td></tr>
+    </tbody></table></div>
+
+  <h3>Where this script sits in the suite</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>Its job</th></tr></thead><tbody>
+      <tr><td class="k">Swing Pro Dashboard</td><td>Multi-stock overview, entry-date tracking, slot management</td></tr>
+      <tr><td class="k">Web Commander screeners</td><td>The scan that produces the shortlist</td></tr>
+      <tr><td class="k">This script</td><td><b>Applied per name from that shortlist</b> — final confirmation and sizing</td></tr>
+      <tr><td class="k">Context Layers</td><td>Wyckoff, volume profile and zone overlay on the same chart</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Note the direction: <b>it does not find names.</b> Feed it a shortlist and it
+  tells you whether that name is actionable today, and at what size.</p>
+
+  <details class="ref"><summary>The daily loop, step by step</summary><div class="rb">
+  <h4>1 · Shortlist</h4>
+  <p>Run the bull and recovery screeners. That is the candidate set — this script never replaces it.</p>
+  <h4>2 · Pre-market</h4>
+  <p>Load each shortlisted name. Read market health, stage and rotation first, <b>then</b> look for a
+  firing signal. In that order — a green signal in the wrong regime is not a trade.</p>
+  <h4>3 · Entry, by edge</h4>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Breakout · swing breakout</td><td>Buy-stop above the breakout level at the open</td></tr>
+    <tr><td class="k">Accumulation · pullback</td><td>Market at the open, or a limit at the short average</td></tr>
+    <tr><td class="k">Gap and go</td><td><b>Valid on the gap day only</b> — confirm volume before acting</td></tr>
+    <tr><td class="k">Climax bottom</td><td>The next bar's open after the turn bar</td></tr>
+  </tbody></table></div>
+  <h4>4 · Management</h4>
+  <ul>
+    <li>Record the initial stop.</li>
+    <li><b>Log the catalyst label</b> — it is what determines your trail type, and it is the field the ladder and the trail job both read.</li>
+    <li>Rest a limit at the first target; after it fills, the stop moves to breakeven automatically.</li>
+    <li>Hold the runner on the trail.</li>
+  </ul>
+  <h4>5 · Daily review</h4>
+  <ul>
+    <li>Is the trail still rising?</li>
+    <li>Stage 4 reached → <b>close the positional trade immediately.</b></li>
+    <li>Close below the medium average → close the swing trade immediately.</li>
+    <li>Time stop hit under half an R and not yet at breakeven → close.</li>
+  </ul>
+  </div></details>
+
+  <details class="ref"><summary>Running a backtest on it</summary><div class="rb">
+  <ol>
+    <li>Enable the date-range filter and set the window.</li>
+    <li>Open the strategy tester for the curve, the trade list and the profit factor.</li>
+    <li><b>Turn off the book you are not testing</b> — a pooled result across bull and recovery has
+    repeatedly produced false conclusions here. Read it per family.</li>
+    <li>Leave fast mode off. It skips checks, so its numbers are indicative at best.</li>
+  </ol>
+  </div></details>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">14</span>Inputs</h2>
+  <p>Every group folded. Defaults are the shipped values; where a default is a deliberate ruling
+  rather than a convenience, it is called out.</p>
+
+  <details class="ref"><summary>Master toggles</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Enable bull strategy</td><td class="num">on</td><td>Activates all six bull edges</td></tr>
+      <tr><td class="k">Enable recovery strategy</td><td class="num">on</td><td>Activates the recovery edges</td></tr>
+    </tbody></table></div>
+  <p class="refnote"><b>Turning a book off is the cleanest way to isolate behaviour in a backtest.</b>
+  Disable recovery in a strong bull tape to cut noise; disable bull in a confirmed stage-4 bear.</p>
+  </div></details>
+
+  <details class="ref"><summary>Bull — positional</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Positional breakout</td><td class="num">on</td><td>The breakout edge</td></tr>
+      <tr><td class="k">Positional accumulation</td><td class="num">on</td><td>The in-base edge</td></tr>
+      <tr><td class="k">Breakout confirmation</td><td class="num">daily close</td><td><b>Close</b> = signal only on a close above the level. <b>Intraday penetration</b> = the stop order fires the moment price touches it</td></tr>
+      <tr><td class="k">Breakout lookback</td><td class="num">20 bars</td><td>How far back the resistance level is defined</td></tr>
+      <tr><td class="k">Positional time stop</td><td class="num">6 weeks</td><td>Maximum hold while the gain is under half an R</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Bull — swing</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Swing pullback</td><td class="num">on</td><td>The short-average bounce</td></tr>
+      <tr><td class="k">Swing breakout</td><td class="num">on</td><td>The contraction breakout</td></tr>
+      <tr><td class="k">Swing reversion</td><td class="num">on</td><td>The oversold bounce off the long average</td></tr>
+      <tr><td class="k">Gap and go</td><td class="num">on</td><td>The held institutional gap</td></tr>
+      <tr><td class="k">Swing time stop</td><td class="num">10 days</td><td>Maximum hold under half an R</td></tr>
+      <tr><td class="k">Market-aware first target</td><td class="num">on</td><td>The first target adapts to the regime</td></tr>
+      <tr><td class="k">Fixed first target</td><td class="num">2R</td><td>Used only when the adaptive target is off</td></tr>
+    </tbody></table></div>
+  <div class="note warn"><span class="tag">Contradiction</span>
+    <p>The body of the source guide still shows the adaptive first target resolving to <b>2.5R in a
+    bull tape</b>. The v3.5 canon is <b>2R / 4R for swing and 3R / 5R for positional</b>. Trust the
+    canon; treat the older number as stale documentation.</p></div>
+  </div></details>
+
+  <details class="ref"><summary>Bull — filters and edge gates</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Require macro edge</td><td class="num">on</td><td>Penalises below-average-volume setups in the alpha score</td></tr>
+      <tr><td class="k">Require micro edge</td><td class="num">on</td><td>Price must sit above both the daily pivot and the monthly anchor</td></tr>
+      <tr><td class="k">Minimum alpha score</td><td class="num">50</td><td>The composite quality floor, out of 100</td></tr>
+      <tr><td class="k">Signal hold window</td><td class="num">3 bars</td><td>How long a fired signal stays in the hold state on the panel</td></tr>
+      <tr><td class="k">Require positive rotation</td><td class="num">on</td><td>Must be leading or improving</td></tr>
+      <tr><td class="k">Liquidity-sweep detection</td><td class="num">on</td><td><b>Reserved</b> — no live consumer</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Recovery — edges and the regime gate</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Climax bottom · survivor · early bird</td><td class="num">all on</td><td>The three legacy recovery edges</td></tr>
+      <tr><td class="k">Require recovery regime</td><td class="num">on</td><td>Every recovery edge needs the market or the stock in a correction</td></tr>
+      <tr><td class="k">Minimum correction</td><td class="num">10%</td><td>Off the 52-week high</td></tr>
+      <tr><td class="k">Maximum correction</td><td class="num">40%</td><td><b>Beyond this a name is a structural failure, not a recovery</b></td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Recovery — capitulation configuration</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Minimum climax volume</td><td class="num">2.0x</td><td>Against the 50-bar average, to count as a climax</td></tr>
+      <tr><td class="k">Climax detection window</td><td class="num">10 bars</td><td><b>The climax must be recent</b> for the turn to count</td></tr>
+      <tr><td class="k">Drawdown lookback</td><td class="num">60 bars</td><td>The window the drawdown is measured from</td></tr>
+      <tr><td class="k">Minimum drawdown</td><td class="num">15%</td><td>Off that lookback high</td></tr>
+      <tr><td class="k">Washout window · minimum red bars</td><td class="num">7 / 5</td><td>Five red bars inside seven</td></tr>
+      <tr><td class="k">Climax range lookback</td><td class="num">20 bars</td><td>Where the widest-range bar is searched for</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Recovery — survivor and early-bird configuration</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Strength breakout lookback</td><td class="num">20 bars</td><td>Prior resistance for the survivor breakout</td></tr>
+      <tr><td class="k">Higher-low windows</td><td class="num">5 / 10</td><td>Recent low against prior low</td></tr>
+      <tr><td class="k">Strength slope window</td><td class="num">4 weeks</td><td>Whether the relative line is genuinely rising</td></tr>
+      <tr><td class="k">Trendline skip / swing window</td><td class="num">10 / 10</td><td>How the reference downtrend line is drawn</td></tr>
+      <tr><td class="k">Narrow-range length</td><td class="num">7 bars</td><td>Compression detection</td></tr>
+      <tr><td class="k">Inside-bar lookback · minimum</td><td class="num">10 / 3</td><td>The alternative compression path</td></tr>
+    </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Recovery — the fundamental filter</summary><div class="rb">
+  <p>One input, six checks. <b>Zero disables it entirely.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Check</th><th>Threshold</th></tr></thead><tbody>
+      <tr><td class="k">Net income</td><td>Positive</td></tr>
+      <tr><td class="k">Free cash flow</td><td>Positive — operating cash less capital expenditure</td></tr>
+      <tr><td class="k">Interest coverage</td><td>Above 3.5x</td></tr>
+      <tr><td class="k">Debt to equity</td><td>Below 2.0</td></tr>
+      <tr><td class="k">Current ratio</td><td>Above 1.0</td></tr>
+      <tr><td class="k">Return on assets</td><td>Above 5%</td></tr>
+    </tbody></table></div>
+  <div class="note warn"><span class="tag">Drift from Python</span>
+    <p>This script ships a floor of <b>3 of 6</b>. The Python recovery screener sits at <b>5</b>,
+    and it is the surface that actually gates a trade. <b>The chart being permissive here is not
+    permission</b> — treat the Pine gate as a display and the screener as the authority.</p></div>
+  </div></details>
+
+  <details class="ref"><summary>Shared indicators and general</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Auto-detect sector</td><td class="num">on</td><td>Full index lookup with a keyword fallback</td></tr>
+      <tr><td class="k">Manual sector override</td><td class="num">IT</td><td>Used only when auto-detect is off</td></tr>
+      <tr><td class="k">Short average length</td><td class="num">20</td><td>Swing trail and the first-target reference</td></tr>
+      <tr><td class="k">ATR length</td><td class="num">14</td><td>Every stop and risk calculation</td></tr>
+      <tr><td class="k">Stop padding</td><td class="num">0.2%</td><td>Buffer below structural lows</td></tr>
+      <tr><td class="k">Trail buffer</td><td class="num">1.0%</td><td>Buffer below the short average</td></tr>
+      <tr><td class="k">Chandelier length</td><td class="num">22</td><td>Positional and recovery trail lookback</td></tr>
+      <tr><td class="k">Chandelier multiple</td><td class="num">see note</td><td>Auto-loosened by half a unit in a bear regime</td></tr>
+      <tr><td class="k">Use a fixed stop</td><td class="num">off</td><td>Overrides the structural stop with a flat percentage</td></tr>
+      <tr><td class="k">Fixed stop</td><td class="num">10%</td><td>Live only with the override on</td></tr>
+      <tr><td class="k">Enable trailing</td><td class="num">on</td><td><b>Off disables every ratchet</b></td></tr>
+      <tr><td class="k">Show signals · averages</td><td class="num">on</td><td>Chart visuals</td></tr>
+      <tr><td class="k">Fast backtest mode</td><td class="num">off</td><td>Reduces overhead and <b>may skip checks</b> — do not read results from it as final</td></tr>
+      <tr><td class="k">Pivot right bars</td><td class="num">2</td><td>Confirmation bars for daily pivots</td></tr>
+    </tbody></table></div>
+  <div class="note warn"><span class="tag">Contradiction</span>
+    <p>The source guide shows a shipped Chandelier multiple of <b>3.0</b>; the v3.5 canon is
+    <b>4.5</b>, matching the Python trail. Four separate stop studies have rejected tightening.
+    <b>If your copy reads 3.0, it is stale.</b></p></div>
+  </div></details>
+
+  <details class="ref"><summary>The panel itself</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th class="r">Default</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Show the panel</td><td class="num">on</td><td>Toggles the whole dashboard</td></tr>
+      <tr><td class="k">Position</td><td class="num">bottom right</td><td>Nine placements</td></tr>
+      <tr><td class="k">Show bull metrics · recovery metrics</td><td class="num">on</td><td>Section-level toggles, so you can collapse the book you are not trading</td></tr>
+    </tbody></table></div></div></details>
+</section>
+
+
+<section id="limits">
+  <h2><span class="n">15</span>Known limitations</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Limitation</th><th>Detail</th></tr></thead><tbody>
+      <tr><td class="k">One position per chart</td><td>A single long is managed at a time</td></tr>
+      <tr><td class="k">Daily timeframe</td><td><b>Weekly stage logic is unreliable below daily</b> — do not run it intraday and trust the stage</td></tr>
+      <tr><td class="k">Fundamental data gaps</td><td>Some smaller names lack financials on the platform, so the recovery gate degrades rather than resolving</td></tr>
+      <tr><td class="k">Sector fallback</td><td>Conglomerates fall back to the broad index, which makes the sector comparison less meaningful for them</td></tr>
+      <tr><td class="k">No pyramiding</td><td>Entry logic requires a flat position, so the script never adds to a winner even where the ladder would</td></tr>
+    </tbody></table></div>
+  <div class="note">
+    <span class="tag">Where the other surfaces pick up</span>
+    <p>The panel's own footer says it best — <b>the dashboard for strength, stage and price action;
+    the bull screener for gates and levels; the recovery screener for pillars and the fundamental
+    score.</b> This script deliberately stopped duplicating them.</p>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/13 · Weinstein Unified Ecosystem</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">11 Catalyst Engine</a> · <a href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">09 Quality on Sale</a></span>
+</div></footer>
