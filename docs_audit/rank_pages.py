@@ -127,7 +127,10 @@ OWES = {
     "53aee9e9": {"location A/B null"},                       # 16 Honesty Layer
     "c97d2473": {"ML win probability", "sector map"},        # 08 Swing Pro Dashboard
     "5144c644": {"sector map"},                              # 21 RS / Auto-Sector
-    "50a2b6ce": {"REACTING location", "rule A2 / pivot confluence"},  # 04 Inst. Footprint
+    # 04 covers the SMC engine (order blocks, FVGs, sweeps, BOS) — NOT the
+    # leg-base-leg zone lifecycle, which S4 owns. Assigning it those topics was a
+    # scoping error on my part; it owes neither.
+    "50a2b6ce": set(),                                        # 04 Inst. Footprint
     "886ba1e4": {"REACTING location"},                       # 18 Trade Funnel
     "577f5e2e": {"REACTING location"},                       # 24 Pre-Trade Gate
 }
@@ -141,6 +144,8 @@ LOCAL = {
     "30193746": "27_backtest_court.html",
     "863499fe": "11_catalyst_engine.html",
     "0aa8c4bb": "13_unified.html",
+    "c97d2473": "08_swing_pro.html",
+    "50a2b6ce": "04_footprint.html",
 }
 
 

@@ -1,0 +1,649 @@
+<title>Swing Pro Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@600;700;800&family=Figtree:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* Near-monochrome ink, so the only strong colour on the page is the SIGN of a
+   measured alpha. The evidence table is the centrepiece; everything else is chrome. */
+:root{
+  --ground:#EFF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA; --surface-3:#E9ECF1;
+  --ink:#0F141B; --ink-2:#374250; --muted:#647082; --faint:#96A1B0;
+  --rule:#D5DBE3; --rule-soft:#E6EAEF;
+  --acc:#1F3A5F; --acc-bg:#E6ECF4; --acc-rule:#A8BBD3;
+  --pos:#0F7A52; --pos-bg:#E2F1EA; --pos-rule:#9AC9B4;
+  --neg:#A8342A; --neg-bg:#FAE9E7; --neg-rule:#DFAAA3;
+  --warn:#9A5B00; --warn-bg:#FBF0DE; --warn-rule:#DFBB80;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Epilogue','Helvetica Neue',Arial,sans-serif;
+  --body:'Figtree','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1219; --surface:#141921; --surface-2:#1A2029; --surface-3:#222932;
+    --ink:#E8ECF2; --ink-2:#BEC7D3; --muted:#83909F; --faint:#5F6B79;
+    --rule:#252D38; --rule-soft:#1E242D;
+    --acc:#7FA6D9; --acc-bg:#131E2E; --acc-rule:#2C4058;
+    --pos:#33B98A; --pos-bg:#0E2C22; --pos-rule:#1E5643;
+    --neg:#EF6E60; --neg-bg:#331A17; --neg-rule:#6A2F29;
+    --warn:#E0A020; --warn-bg:#332608; --warn-rule:#6A4E14;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1219; --surface:#141921; --surface-2:#1A2029; --surface-3:#222932;
+  --ink:#E8ECF2; --ink-2:#BEC7D3; --muted:#83909F; --faint:#5F6B79;
+  --rule:#252D38; --rule-soft:#1E242D;
+  --acc:#7FA6D9; --acc-bg:#131E2E; --acc-rule:#2C4058;
+  --pos:#33B98A; --pos-bg:#0E2C22; --pos-rule:#1E5643;
+  --neg:#EF6E60; --neg-bg:#331A17; --neg-rule:#6A2F29;
+  --warn:#E0A020; --warn-bg:#332608; --warn-rule:#6A4E14;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.02;
+  letter-spacing:-.032em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--rule);background:var(--surface-2);border-radius:3px;
+  padding:16px 19px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.9;
+  min-width:210px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:9px}
+.stamp b{color:var(--ink);font-weight:600}
+
+.cols{display:grid;grid-template-columns:202px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.026em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.a{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-weight:700;
+  white-space:nowrap}
+td.a.p{color:var(--pos)} td.a.n{color:var(--neg)}
+tr.hi td{background:var(--pos-bg)}
+tr.lo td{background:var(--neg-bg)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg);border-color:var(--warn-rule)}
+.note.stop{border-left-color:var(--neg);background:var(--neg-bg);border-color:var(--neg-rule)}
+.note.good{border-left-color:var(--pos);background:var(--pos-bg);border-color:var(--pos-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.warn .tag{color:var(--warn)} .note.stop .tag{color:var(--neg)} .note.good .tag{color:var(--pos)}
+.note p:last-child{margin-bottom:0}
+
+.tier{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:2px;
+  border:1px solid;white-space:nowrap}
+.tier.t3{color:var(--pos);background:var(--pos-bg);border-color:var(--pos-rule)}
+.tier.t2{color:var(--acc);background:var(--acc-bg);border-color:var(--acc-rule)}
+.tier.t0{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
+
+
+/* collapsible reference — folded, never dropped */
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+.mistakes{counter-reset:m;list-style:none;padding:0;margin:0 0 18px;max-width:none}
+.mistakes li{counter-increment:m;display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;
+  padding:12px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:15.5px}
+.mistakes li:last-child{border-bottom:none}
+.mistakes li::before{content:counter(m);font-family:var(--mono);font-size:12px;font-weight:700;
+  color:var(--acc);padding-top:3px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 08 · The live system</p>
+      <h1>Swing Pro Dashboard</h1>
+      <p class="dek">The primary trade chart — the surface that answers <em>should I be looking at
+      this stock at all</em>, and separately <em>is today the day</em>. It owns the price-action
+      field, and its patterns are the most heavily measured thing in the system.</p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">The two headline cells</div>
+      <b>RECOMMENDATION</b><br>the regime says<br><br>
+      <b>ACTION SIGNAL</b><br>today's bar says
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#scope">Timeframe scope</a></li>
+    <li><a href="#alpha">The validated alphas</a></li>
+  </ol>
+  <p>Reading it</p>
+  <ol>
+    <li><a href="#left">The left column</a></li>
+    <li><a href="#pos">Positional block</a></li>
+    <li><a href="#swing">Swing block</a></li>
+    <li><a href="#rec">Recommendation logic</a></li>
+    <li><a href="#combine">Combining the two</a></li>
+  </ol>
+  <p>Around it</p>
+  <ol>
+    <li><a href="#owns">What it owns</a></li>
+    <li><a href="#day">The daily loop</a></li>
+    <li><a href="#catalog">The setup catalog</a></li>
+    <li><a href="#inputs">Inputs reference</a></li>
+    <li><a href="#mistakes">Common mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="scope">
+  <h2><span class="n">01</span>Timeframe scope — read before anything else</h2>
+  <div class="note stop">
+    <span class="tag">The price-action cascade was validated on the DAILY timeframe only</span>
+    <p>The dashboard renders on any chart timeframe, and the structural references — stage, moving
+    averages, relative strength — correctly fetch from the higher timeframe wherever you put it.
+    <b>The candle-pattern detectors do not.</b> They operate on whatever bars the chart is showing.</p>
+    <p>So <b>the alpha numbers below do not transfer to intraday.</b> An intraday breakout pattern
+    is a fundamentally different event from a daily one, however identical the label looks.
+    Weekly is not designed for at all — the mixed-timeframe references produce odd mismatches.</p>
+    <p><b>Use it:</b> keep the price-action field on <b>daily</b> for setup discovery and
+    positional decisions. For intraday entry timing, read raw price action manually rather than
+    trusting the tier output.</p>
+  </div>
+</section>
+
+<section id="alpha">
+  <h2><span class="n">02</span>The validated alphas</h2>
+  <p>Every pattern state was measured across the broad universe over five years, sign-aware, with
+  a confidence interval and a probability that the true alpha is positive. <b>This is the most
+  heavily evidenced table in the whole system</b> — which is what makes the detectors worth
+  trusting, and what got four of them switched off.</p>
+  <div class="tw"><table>
+    <thead><tr><th>State</th><th class="r">Tier</th><th class="r">Horizon</th><th class="r">N</th><th class="r">Alpha</th><th class="r">CI 95</th><th class="r">P(α&gt;0)</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td class="k">Stage-2 Launch</td><td class="num">+3</td><td class="num">180d</td><td class="num">469</td><td class="a p">+14.37%</td><td class="num">+10.0 … +19.1</td><td class="num">100%</td></tr>
+      <tr class="hi"><td class="k">Gap-Up Breakout</td><td class="num">+3</td><td class="num">90d</td><td class="num">4,851</td><td class="a p">+6.69%</td><td class="num">+5.9 … +7.4</td><td class="num">100%</td></tr>
+      <tr class="hi"><td class="k">VCP Breakout</td><td class="num">+3</td><td class="num">90d</td><td class="num">762</td><td class="a p">+5.33%</td><td class="num">+3.3 … +7.4</td><td class="num">100%</td></tr>
+      <tr class="hi"><td class="k">Spring</td><td class="num">+3</td><td class="num">120d</td><td class="num">2,412</td><td class="a p">+4.11%</td><td class="num">+3.1 … +5.2</td><td class="num">100%</td></tr>
+      <tr><td class="k">Bull Engulf <em>(gated)</em></td><td class="num">+2</td><td class="num">20d</td><td class="num">201</td><td class="a p">+3.46%</td><td class="num">+1.9 … +5.2</td><td class="num">100%</td></tr>
+      <tr><td class="k">Pocket Pivot</td><td class="num">+2</td><td class="num">30d</td><td class="num">38,805</td><td class="a p">+2.10%</td><td class="num">+2.0 … +2.2</td><td class="num">100%</td></tr>
+      <tr><td class="k">50-SMA Undercut</td><td class="num">+2</td><td class="num">45d</td><td class="num">7,066</td><td class="a p">+2.04%</td><td class="num">+1.7 … +2.4</td><td class="num">100%</td></tr>
+      <tr><td class="k">Hammer at 200-SMA</td><td class="num">+2</td><td class="num">60d</td><td class="num">331</td><td class="a p">+1.34%</td><td class="num">−0.2 … +2.9</td><td class="num">95%</td></tr>
+      <tr><td class="k">Three-Bar Reversal</td><td class="num">+2</td><td class="num">20d</td><td class="num">6,455</td><td class="a p">+1.05%</td><td class="num">+0.8 … +1.3</td><td class="num">100%</td></tr>
+      <tr><td class="k">Hammer at 50-SMA</td><td class="num">+2</td><td class="num">30d</td><td class="num">534</td><td class="a p">+0.83%</td><td class="num">−0.1 … +1.7</td><td class="num">96%</td></tr>
+      <tr><td class="k">Hammer Reversal</td><td class="num">+1</td><td class="num">15d</td><td class="num">18,137</td><td class="a p">+0.70%</td><td class="num">+0.6 … +0.8</td><td class="num">100%</td></tr>
+      <tr><td class="k">IB-NR7 Coil</td><td class="num">+2</td><td class="num">10d</td><td class="num">31,903</td><td class="a p">+0.58%</td><td class="num">+0.5 … +0.7</td><td class="num">100%</td></tr>
+      <tr><td class="k">Outside Bar Bull <em>(demoted)</em></td><td class="num">+1</td><td class="num">15d</td><td class="num">11,205</td><td class="a p">+0.46%</td><td class="num">+0.3 … +0.6</td><td class="num">100%</td></tr>
+      <tr class="lo"><td class="k">Distribution Day <em>(watch)</em></td><td class="num">0</td><td class="num">30d</td><td class="num">51,881</td><td class="a n">−1.62%</td><td class="num">−1.7 … −1.5</td><td class="num">0%</td></tr>
+      <tr class="lo"><td class="k">Shooting Star <em>(watch)</em></td><td class="num">0</td><td class="num">20d</td><td class="num">3,732</td><td class="a n">−2.11%</td><td class="num">−2.5 … −1.7</td><td class="num">0%</td></tr>
+      <tr class="lo"><td class="k">Failed Breakout <em>(watch)</em></td><td class="num">0</td><td class="num">30d</td><td class="num">748</td><td class="a n">−2.20%</td><td class="num">−3.4 … −1.1</td><td class="num">0%</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>What the table changed</h4>
+  <ol>
+    <li><b>The tier-3 states are the highest-edge setups in the field</b> — statistically airtight
+    across thousands of trades. Stage-2 Launch at +14% over 180 days is the strongest single signal
+    anywhere in the system.</li>
+    <li><b>Bull Engulf became selective rather than common.</b> Gating it to an oversold bar with
+    institutional volume moved it from roughly zero alpha to +3.46% — the same pattern, a tenth as
+    often, worth taking when it appears.</li>
+    <li><b>Four bearish detectors were switched off.</b> Regime-split validation showed all four
+    predicted the <em>wrong direction in both regimes</em>. They still display, tagged
+    <em>watch</em>, for human pattern recognition — but they no longer penalise the score.</li>
+    <li><b>Co-firing bullish states now win.</b> A bar firing both a distribution day and a pocket
+    pivot resolves to the pocket pivot. The old priority was actively wrong per the data.</li>
+    <li><b>Late-stage bases demote automatically.</b> A third base drops a tier, a fourth drops
+    two. Base one is prime; base three is late cycle.</li>
+  </ol>
+
+  <div class="note good">
+    <span class="tag">The lesson underneath the table</span>
+    <p>Two detectors were <b>firing zero times</b> and one was <b>structurally impossible</b> —
+    a rolling maximum that included the bar being tested, making its own condition a tautology.
+    <b>A detector that never fires looks identical to a detector that finds nothing.</b> Only
+    counting the fires distinguishes them.</p>
+  </div>
+</section>
+
+<section id="left">
+  <h2><span class="n">03</span>The left column — is this stock worth looking at</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to read it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">MACRO</td><td>Index regime. Sets the risk-on/off bias for everything below</td></tr>
+      <tr><td class="k">SECTOR</td><td>Auto-detected sector and its stage</td></tr>
+      <tr><td class="k">STAGE</td><td>Weekly Weinstein stage plus weeks in stage. <b>Stage 2 within about 26 weeks is the entry zone</b></td></tr>
+      <tr><td class="k">30W SMA</td><td>Slope. Rising confirms Stage 2; flat means transition</td></tr>
+      <tr><td class="k">RS vs N500</td><td>The primary relative-strength metric, with its rotation quadrant</td></tr>
+      <tr><td class="k">RS vs SECTOR</td><td>Leading its own sector marks a rotation leader</td></tr>
+      <tr><td class="k">ASSET QUALITY</td><td>Score and letter grade — act, tradeable, or watch only</td></tr>
+      <tr><td class="k">RECOMMENDATION</td><td>The headline verdict from stage, trend and RS</td></tr>
+      <tr><td class="k">CATALYST</td><td>A <b>verbatim mirror</b> of the screener's catalyst — gate-validated, not pattern-only</td></tr>
+      <tr><td class="k">POS-BO GATES</td><td><code>X/9</code> plus <em>which</em> gates are green. A direct mirror of the screener's gate panel</td></tr>
+      <tr><td class="k">ACTION SIGNAL</td><td><code>X/10</code> — base confluence plus the pattern tier, clamped</td></tr>
+      <tr><td class="k">TRADE STYLE</td><td>Positional, swing, both, or wait — classified from the confluence pattern</td></tr>
+      <tr><td class="k">PERSONA</td><td>Leader / momentum / turnaround / extended / volatile / laggard. <b>Drives sizing posture</b></td></tr>
+      <tr><td class="k">MY TRADE</td><td>Live instruction on a held position — hold, trim, scale in, stop hit</td></tr>
+      <tr><td class="k">R:R</td><td>Current unrealised R against the dynamic target</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">MY TRADE and the portfolio rows are a SNAPSHOT</span>
+    <p>They render from the synced portfolio slots, not from a live feed. <b>Reading one as a live
+    verdict has produced a wrong conclusion before</b> — when the chart disagrees with the
+    management page, the page is live and the chart is a photograph.</p>
+  </div>
+</section>
+
+<section id="pos">
+  <h2><span class="n">04</span>The positional block — weekly</h2>
+  <div class="tw"><table>
+    <tbody>
+      <tr><td class="k">Market Structure</td><td>The stage with its confluence flavour — full confluence, weak leadership, value zone, dip opportunity, dormant, liquidate</td></tr>
+      <tr><td class="k">Stage 2 Age</td><td><b>Two clocks, deliberately.</b> The <em>leg</em> resets on each pullback; the <em>macro</em> age is the full Stage-2 lifespan. Fresh / maturing / extended</td></tr>
+      <tr><td class="k">Master Trend (W)</td><td>Strict trend state on the weekly</td></tr>
+      <tr><td class="k">30-Week Slope</td><td><b>Defines whether Stage 2 is structurally valid at all</b></td></tr>
+      <tr><td class="k">Weekly Pullback Health</td><td>The quality of the most recent weekly pullback</td></tr>
+      <tr><td class="k">Overhead Resistance</td><td>Count of confirmed weekly levels above price</td></tr>
+      <tr><td class="k">Room for Trade</td><td>Blue sky, clear, or <b>no room</b> — does the target collide with supply</td></tr>
+      <tr><td class="k">52W and ATH space</td><td>How far below each high, or above if printing new ones</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Why Stage-2 age has two numbers</span>
+    <p>A single number could not answer both “how long has this leg been running” and “how old is
+    this whole advance”. Conflating them made a mature Stage 2 look fresh after any pullback — the
+    exact mistake that puts you into base four thinking it is base one.</p>
+  </div>
+</section>
+
+<section id="swing">
+  <h2><span class="n">05</span>The swing block — daily</h2>
+  <div class="tw"><table>
+    <tbody>
+      <tr><td class="k">Daily Trend</td><td>Strict-trend state from the canonical pivot engine mirror</td></tr>
+      <tr><td class="k">Trend Engine</td><td>The engine version and its pivot settings. <b>Amber with a sync warning means a knob was overridden</b> and the on-chart pivot tool no longer matches</td></tr>
+      <tr><td class="k">Trend Template</td><td>The classic moving-average alignment filter</td></tr>
+      <tr><td class="k">Price Action Structure</td><td>The 22-setup taxonomy that drives the tier feeding the Action Signal</td></tr>
+      <tr><td class="k">Volume Trend</td><td>Accumulation / distribution / dry-up / squeeze, with relative volume</td></tr>
+      <tr><td class="k">Volatility State</td><td>True dry-up, actionable contraction, expansion, or normal</td></tr>
+      <tr><td class="k">EMA20 Proximity</td><td>Near / support / resistance / above / below, with an over-extended flag</td></tr>
+      <tr><td class="k">Key-Level Proximity</td><td>The closest active zone, trendline, pivot or dynamic level. <b>Zones invalidate when price closes through</b></td></tr>
+      <tr><td class="k">RSI &amp; Divergence</td><td>Value plus any divergence flag</td></tr>
+      <tr><td class="k">Daily Pullback Health</td><td>Whether this is an institutional pullback zone or no setup at all</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">The sync warning is not cosmetic</span>
+    <p>If the trend engine row shows an override, <b>the dashboard's trend cell and your on-chart
+    pivot tool are computing different things.</b> Apply the same setting to both or accept that
+    two surfaces are disagreeing about structure.</p>
+  </div>
+</section>
+
+<section id="rec">
+  <h2><span class="n">06</span>The recommendation logic</h2>
+  <p>The headline cell, derived from stage, daily trend, relative strength and market health:</p>
+  <pre><b>STRONG BUY</b>   Stage 2 · daily uptrend · RS positive · market not bearish
+<b>BUY</b>          Stage 2 · daily uptrend · market not bearish
+<b>HOLD</b>         Stage 2 · daily sideways
+<b>WATCHLIST</b>    Stage 1 — basing
+<b>CAUTION</b>      bearish divergence active
+<b>NO TRADE</b>     daily trend down
+<b>AVOID</b>        Stage 4
+<b>WAIT</b>         any signal degraded by a bearish index regime
+<b>EXIT NOW</b>     hard panic exit — weekly close below the 40-week average</pre>
+  <div class="note">
+    <p>The cell reflects <b>technical state only</b>. The fundamental overlay lives in the strategy
+    indicator — pair them rather than expecting one cell to carry both.</p>
+  </div>
+</section>
+
+<section id="combine">
+  <h2><span class="n">07</span>Combining the two headline cells</h2>
+  <p>They answer different questions, and reading either alone is how you end up in the right stock
+  on the wrong day.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Recommendation</th><th>Action Signal</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr><td class="k">STRONG BUY</td><td class="num">≥ 7/10</td><td><b>Full confluence</b> — act on the next valid pivot</td></tr>
+      <tr><td class="k">STRONG BUY</td><td class="num">4–6/10</td><td><b>Right regime, wrong day.</b> Wait for a tighter bar</td></tr>
+      <tr><td class="k">BUY</td><td class="num">≥ 7/10</td><td>Acceptable entry; size down against a strong buy</td></tr>
+      <tr><td class="k">HOLD / WATCHLIST</td><td class="num">≥ 7/10</td><td>A high-quality bar <em>inside a base</em> — a pocket pivot or coil. Watchlist it with alerts</td></tr>
+      <tr><td class="k">AVOID / NO TRADE</td><td class="num">any</td><td><b>Skip regardless of bar quality</b></td></tr>
+      <tr><td class="k">any</td><td class="num">≤ 2/10</td><td>Wait. <b>Even a clean stock has zero edge today</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note good">
+    <span class="tag">The distinction in one line</span>
+    <p><b>Recommendation says whether you should be looking at this stock. Action Signal says
+    whether today is the day.</b> The first is slow and structural; the second changes every bar.</p>
+  </div>
+</section>
+
+<section id="owns">
+  <h2><span class="n">08</span>What this surface owns</h2>
+  <p>Under the ownership rule, every concept has exactly one owner and everyone else mirrors it
+  verbatim or drops the duplicate. The dashboard is the <b>primary trade chart</b>, so it owns the
+  fields you read to judge a name — and deliberately mirrors the ones it does not.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Concept</th><th>Status here</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Price-action field</td><td><b>Owned.</b> The 22-setup taxonomy and its validated tiers</td></tr>
+      <tr><td class="k">Relative strength engine</td><td><b>Owned.</b> The other surfaces mirror this one</td></tr>
+      <tr><td class="k">Sector mapping</td><td><b>Owned</b> — a physical database, not string matching, so it works offline and matches Python exactly</td></tr>
+      <tr><td class="k">Strict trend</td><td><b>Mirrored</b> from the pivot engine, with the sync warning when overridden</td></tr>
+      <tr><td class="k">Catalyst</td><td><b>Mirrored verbatim</b> from the screener — gate-validated, not re-derived</td></tr>
+      <tr><td class="k">Weinstein stage</td><td><b>Shared definition</b> — the stateless read, identical on all three surfaces</td></tr>
+      <tr><td class="k">Fundamentals</td><td><b>Not here.</b> Migrated to the strategy indicator</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Why the sector database is physical</span>
+    <p>The platform's own sector field is unreliable for this market. A generated database of
+    several hundred tickers takes precedence, which is what gives <b>100% offline parity with the
+    Python side</b> — and removes an entire class of string-matching bug.</p>
+  </div>
+  <h3>It is also the binding channel — and that is a kind of ownership</h3>
+  <p>Section Four does not re-derive the fields above; it <b>reads them off this file</b> through
+  twenty-five hidden numeric plots. That makes the dashboard the single source for stage, relative
+  strength, rotation, sector and the pyramid rung across two surfaces — a field that is imported
+  cannot drift from the one it was imported from.</p>
+  <div class="note warn">
+    <span class="lbl">The failure mode this creates, and how it presents</span>
+    <p><b>Bindings are matched by POSITION and are dropped on every recompile</b> — of either
+    script. Nothing errors: an unbound source silently reads the price series, so the far side
+    shows a plausible-looking number rather than a blank. That is why re-binding is a step in the
+    compile ritual and not a debugging response.</p>
+    <p>Two structural limits worth knowing before designing anything around it. <b>Only floats
+    cross</b> — a string cannot, which is why the sector NAME reaches Section Four through a packed
+    map compiled into the shared library rather than over this channel. And <b>plot slots are
+    finite</b>: this file uses 40 of its 64, and the exports account for 25 of them.</p>
+  </div>
+
+  <h3>The ML win probability — computed here, read elsewhere</h3>
+  <p>A logistic scorer over six inputs — daily RSI, ATR as a percent of price, Bollinger width,
+  relative strength against the index, the asset-quality score and the drawdown from the 52-week
+  high. It is <b>computed on this surface and bound across</b> to Section Four's panel.</p>
+  <p>It was moved here on 26 August rather than kept in the strategy indicator, because
+  <b>this file already owned five of the six inputs and was already the channel</b> — the
+  alternative meant a second binding channel to a second script, re-bound after every compile of
+  either. One trap was avoided in the port: the two files scale relative strength differently, one
+  centred on zero and one on a hundred, and feeding the raw value across would have shifted every
+  score by a quarter of a point without any visible symptom.</p>
+  <div class="note stop">
+    <span class="lbl">Read it as a ranking, not a probability</span>
+    <p><b>The six coefficients have never been validated out-of-sample in this system.</b> A
+    reading of 38% does not mean thirty-eight trades in a hundred worked — it means this name
+    ranks below one reading 60%. Use it to order a shortlist; do not use it to size anything.</p>
+  </div>
+</section>
+
+<section id="day">
+  <h2><span class="n">09</span>The daily loop</h2>
+  <div class="tw"><table>
+    <thead><tr><th>When</th><th>What you do here</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Pre-market</td><td>Check macro and sector rows first. Then work the watchlist: recommendation, stage, RS, room. Anything reading avoid or no-trade drops out before you spend time on it</td></tr>
+      <tr><td class="k">During the session</td><td>Watch the Action Signal on names already in the right regime. <b>A high signal in a bad regime is not an entry</b></td></tr>
+      <tr><td class="k">Post-market</td><td>Read MY TRADE and R:R across held positions, note anything showing stage decay, and set tomorrow's alerts</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="catalog">
+  <h2><span class="n">10</span>The setup catalog</h2>
+  <p>The price-action row displays one of <b>22 detected setups</b>, each carrying a tier that
+  feeds the Action Signal. The cascade evaluates <b>in priority order and the first match
+  wins</b>, with the rarest setup acting as a final override that supersedes everything else.</p>
+
+  <div class="note stop">
+    <span class="tag">An internal contradiction in the source, flagged rather than quietly resolved</span>
+    <p>The catalog below still lists the four bearish detectors at <b>tier −2</b>, while the
+    validated table in section 02 records them as <b>neutralised to tier 0</b> after regime-split
+    testing showed they predict the wrong direction in both regimes. <b>The neutralisation is the
+    later and evidenced decision</b> — the catalog tiers were simply never updated. Treat those
+    four as <em>watch</em> states that display but do not score.</p>
+  </div>
+
+  <details class="ref"><summary>Tier +4 · the override</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Power Play (high tight flag)</td><td>Up 100% or more in eight weeks, <b>and</b> a 15-bar range under 20%, <b>and</b> price above the 50-day. <b>The rarest and highest-conviction setup</b>, and it supersedes any other match</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Tier +3 · highest-conviction bullish</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Spring — failed breakdown</td><td>Dips below the 20-day low intraday and closes back above it. The Wyckoff classic</td></tr>
+      <tr><td class="k">VCP Breakout</td><td>A valid contraction, then a close above the 10-day high on above-average volume, closing in the upper part of the range</td></tr>
+      <tr><td class="k">Stage-2 Launch</td><td>A <b>weekly</b> close crossing the 30-week average upward on volume</td></tr>
+  </tbody></table></div>
+  <p class="refnote">These three plus the gap-up breakout are the states the validation calls
+  statistically airtight. <b>Trust them.</b></p>
+  </div></details>
+
+  <details class="ref"><summary>Tier +2 · high-quality bullish</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Breakout (confirmed)</td><td>Above locked resistance, closing in the top quarter of range, on volume</td></tr>
+      <tr><td class="k">Pocket Pivot</td><td>An up-close on volume greater than the largest <em>down</em>-bar volume of the last ten</td></tr>
+      <tr><td class="k">Liquidity Sweep Reclaim</td><td>Swept below the 50-day then reclaimed it on volume — <b>with a lockout so it cannot reprint through a pullback</b></td></tr>
+      <tr><td class="k">Bullish Engulfing</td><td>The bullish body fully engulfs the prior bearish one. <b>See the gating note below</b></td></tr>
+      <tr><td class="k">3-Bar Reversal</td><td>Three lower lows, then a close above the highest of the three</td></tr>
+      <tr><td class="k">Power Play (strong close)</td><td>A bullish bar whose lower wick is at least three times the upper</td></tr>
+  </tbody></table></div>
+  <div class="note good">
+    <p><b>The engulfing pattern was later gated</b> to fire only at an oversold reading on
+    institutional volume. That moved it from roughly zero alpha to <b>+3.46%</b> — the same
+    pattern, a tenth as often, and worth taking when it appears.</p>
+  </div>
+  </div></details>
+
+  <details class="ref"><summary>Tier +1 · constructive and coiling</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th></tr></thead><tbody>
+      <tr><td class="k">Breakout (unconfirmed)</td><td>Above resistance but it <b>failed the anti-algo gate</b> — a weak close position or thin volume</td></tr>
+      <tr><td class="k">Consolidation (tight)</td><td>Just below resistance, within a few percent</td></tr>
+      <tr><td class="k">Flat base (tight)</td><td>A 25-day range under about a tenth of its low</td></tr>
+      <tr><td class="k">Inside-3 coil</td><td>Three consecutive inside bars</td></tr>
+      <tr><td class="k">True NR7</td><td>The range is <b>strictly</b> the smallest of the last seven — the strictness matters, an earlier version was not a real NR7</td></tr>
+      <tr><td class="k">Inside bar</td><td>Contained entirely within the prior bar</td></tr>
+      <tr><td class="k">Hammer reversal</td><td>Small body in the upper third with a long lower wick, above the 50-day</td></tr>
+  </tbody></table></div>
+  <p class="refnote"><b>Coils are compression, not ignition.</b> A tier-1 coil tells you a move is
+  being built, not that it has started.</p>
+  </div></details>
+
+  <details class="ref"><summary>Tier 0 and the neutralised bearish states</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>Detection</th><th>Status</th></tr></thead><tbody>
+      <tr><td class="k">Normal</td><td>Nothing matched</td><td>Neutral</td></tr>
+      <tr><td class="k">Selling tail</td><td>A bearish bar with a long upper wick</td><td>Mild bearish</td></tr>
+      <tr><td class="k">Failed breakout</td><td>Closed above resistance yesterday, back below today</td><td><b>Watch — neutralised</b></td></tr>
+      <tr><td class="k">Distribution day</td><td>A wide-range down bar on elevated volume</td><td><b>Watch — neutralised</b></td></tr>
+      <tr><td class="k">Bearish engulfing</td><td>Engulfs the prior bullish body, below the 50-day</td><td><b>Watch — neutralised</b></td></tr>
+      <tr><td class="k">Shooting star</td><td>Rejection at resistance</td><td><b>Watch — neutralised</b></td></tr>
+  </tbody></table></div>
+  <div class="note stop">
+    <p><b>Two structural bugs lived in this cascade and are worth remembering as a class.</b> One
+    detector was <b>firing zero times</b> because it used the wrong contraction test. Another was
+    <b>structurally impossible</b> — its rolling maximum included the very bar being tested, making
+    its own condition a tautology that could never be true. <b>A detector that never fires looks
+    exactly like a detector that finds nothing.</b> Only counting the fires tells them apart.</p>
+  </div>
+  </div></details>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">11</span>Inputs — field by field</h2>
+  <p>Folded by group. Defaults are the validated values; <b>change them only against your own
+  data</b>, and remember that several are shared with other surfaces.</p>
+
+  <details class="ref"><summary>Portfolio slots — and the one rule about them</summary><div class="rb">
+  <div class="note stop">
+    <span class="tag">Slots are for OPEN positions only</span>
+    <p>They are reserved for stocks you <b>currently hold</b>, never for watchlist tracking. Every
+    slot metric — P&amp;L, R-multiple, days held, time-stop warnings, trailed-stop tracking — only
+    makes sense once a position is live with a real entry, stop and date. <b>Put a watchlist ticker
+    in a slot and all of them will lie to you.</b> The sync script enforces this by pulling only
+    open positions.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>What it does</th></tr></thead><tbody>
+      <tr><td class="k">Ticker</td><td>Matched against the chart symbol to make this the active position</td></tr>
+      <tr><td class="k">Entry</td><td>Your average entry — drives unrealised P&amp;L and the R-multiple</td></tr>
+      <tr><td class="k">Stop</td><td>The active stop — drives distance-to-stop and its warnings</td></tr>
+      <tr><td class="k">Sector</td><td>The sector index for relative-strength comparison. <b>Let the automation fill this</b> — a wrong sector makes the RS-vs-sector row meaningless</td></tr>
+      <tr><td class="k">Date</td><td>Entry date. <b>Without it the days-held counter and the time stop cannot function at all</b></td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Strategy inputs — the shared constants</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Weinstein SMA, weekly</td><td class="m">30</td><td><b>Keep identical across every surface</b></td></tr>
+      <tr><td class="k">30-week slope lookback</td><td class="m">4</td><td>Weeks used to judge the slope</td></tr>
+      <tr><td class="k">Benchmarks</td><td class="m">index · broad</td><td>The broad index is the primary relative-strength benchmark</td></tr>
+      <tr><td class="k">Manual sector override</td><td class="m">off</td><td>Off, the physical sector database resolves it — <b>which is what gives offline parity</b></td></tr>
+      <tr><td class="k">Positional time stop</td><td class="m">6 weeks</td><td>Fires when open that long below half an R</td></tr>
+      <tr><td class="k">Swing time stop</td><td class="m">10 days</td><td>Same rule, shorter clock</td></tr>
+      <tr><td class="k">RS slope length · sensitivity · level period</td><td class="m">26 · 0.2 · 52</td><td>The relative-strength engine this surface owns</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Moving averages, technicals and the pivot setting</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">50 / 150 / 200-day lengths</td><td class="m">50 / 150 / 200</td><td>The trend-template stack</td></tr>
+      <tr><td class="k">50-day slope lookback</td><td class="m">21</td><td>—</td></tr>
+      <tr><td class="k">Slope flat threshold</td><td class="m">0.0005</td><td>Below this the slope reads flat rather than directional</td></tr>
+      <tr><td class="k">Pivot left / right</td><td class="m">2 / 2</td><td><b>Must match your on-chart pivot tool</b> or the trend rows will disagree — an earlier bump to 3/3 broke exactly that alignment and was reverted. Weekly is fixed</td></tr>
+      <tr><td class="k">ATR length</td><td class="m">14</td><td>Shared everywhere</td></tr>
+      <tr><td class="k">Volume-profile lookback</td><td class="m">100</td><td>The window for the point-of-control proxy</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>The mathematical edges, alerts and style</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Macro edge</td><td class="m">on</td><td>Requires an institutional volume bias before a strong buy is allowed — <b>filters low-conviction signals</b></td></tr>
+      <tr><td class="k">Micro edge</td><td class="m">on</td><td>Requires price above the pivot and monthly anchor, with a squeeze, for pullback signals</td></tr>
+      <tr><td class="k">Labels · trade lines · distance</td><td class="m">on</td><td>On-chart signal labels and the entry/target lines with their distances</td></tr>
+      <tr><td class="k">Fresh-signal marker</td><td class="m">on</td><td>Stars a signal that fired within the last bar</td></tr>
+      <tr><td class="k">Anchored VWAP</td><td class="m">on</td><td>Anchored to the start of the current Stage 2</td></tr>
+      <tr><td class="k">Table position · size · colours</td><td class="m">—</td><td>Adjust for your screen and theme</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Advanced thresholds — previously hard-coded</summary><div class="rb">
+  <p class="refnote">Defaults are preserved from before they were exposed. <b>Change only after
+  validating against your own data.</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Note</th></tr></thead><tbody>
+      <tr><td class="k">Volume accumulation window · minimum days</td><td class="m">10 · 2</td><td>How many accumulation days inside the window flip the row to pass</td></tr>
+      <tr><td class="k">Volume average length</td><td class="m">50</td><td>The baseline for every volume row</td></tr>
+      <tr><td class="k">VCP tightness multiplier</td><td class="m">1.5</td><td>Lower is stricter; <b>1.0 is institutional-grade tight</b></td></tr>
+      <tr><td class="k">Volume dry-up threshold</td><td class="m">0.30</td><td>Volume must fall to roughly seventy percent of average</td></tr>
+      <tr><td class="k">Equal-high/low tolerance</td><td class="m">0.005</td><td>The pivot classifier's tie band. <b>Lower for large caps, higher for smaller ones</b></td></tr>
+      <tr><td class="k">Key-level proximity</td><td class="m">2.5%</td><td>When a level counts as near</td></tr>
+      <tr><td class="k">Pullback distance maximum</td><td class="m">5.0%</td><td>How far from the short average still counts as a pullback zone</td></tr>
+      <tr><td class="k">Sweep lockout</td><td class="m">10 bars</td><td><b>Stops the reclaim pattern reprinting through a pullback</b></td></tr>
+      <tr><td class="k">Stage-2 fresh threshold</td><td class="m">13 weeks</td><td>The leg-age cutoff for the fresh tag. Above it but within the macro limit reads maturing; beyond that, extended</td></tr>
+  </tbody></table></div></div></details>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">12</span>Common mistakes</h2>
+  <ol class="mistakes">
+    <li><span><b>Trusting the pattern tiers on an intraday chart.</b> The validation is daily-only. The label is the same; the event is not.</span></li>
+    <li><span><b>Reading the Action Signal without the Recommendation.</b> A perfect bar in a Stage-4 name is still a Stage-4 name.</span></li>
+    <li><span><b>Treating a <em>watch</em> state as a veto.</b> Those four detectors were switched off precisely because they predicted the wrong direction. They are for your eyes, not the score.</span></li>
+    <li><span><b>Ignoring the trend-engine sync warning.</b> It means this cell and your pivot tool now disagree about structure.</span></li>
+    <li><span><b>Reading Stage-2 age as one number.</b> The leg resets on every pullback; the macro clock does not. Base four is not base one.</span></li>
+    <li><span><b>Treating the portfolio rows as live.</b> They are a synced snapshot.</span></li>
+    <li><span><b>Chasing a name with no room.</b> The room row exists because a clean setup into overhead supply is still a bad trade.</span></li>
+    <li><span><b>Expecting a fundamental gate here.</b> It moved to the strategy indicator; this cell is technical state only.</span></li>
+  </ol>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/08 · Weinstein &amp; Swing Pro Dashboard</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a></span>
+</div></footer>
