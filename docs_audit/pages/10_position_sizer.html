@@ -1,0 +1,464 @@
+<title>The Position Sizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&display=swap">
+
+<style>
+:root{
+  --ground:#F3F1F5; --surface:#FFFFFF; --surface-2:#F9F7FB; --surface-3:#EDEAF1;
+  --ink:#151220; --ink-2:#3D3750; --muted:#6A6480; --faint:#9992AC;
+  --rule:#DAD5E2; --rule-soft:#E8E4EE;
+  --acc:#8C3A46; --acc-bg:#F8E9EB; --acc-rule:#DCA9B1;
+  --fire:#0F7A52; --fire-bg:#E2F1EA; --fire-rule:#9AC9B4;
+  --hold:#9A5B00; --hold-bg:#FBF0DE; --hold-rule:#DFBB80;
+  --block:#A8342A; --block-bg:#FAE9E7; --block-rule:#DFAAA3;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Sora','Helvetica Neue',Arial,sans-serif;
+  --body:'Assistant','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+    --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+    --rule:#282334; --rule-soft:#201C2A;
+    --acc:#E68C99; --acc-bg:#2B1216; --acc-rule:#5C2830;
+    --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+    --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+    --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#100E16; --surface:#17141E; --surface-2:#1C1926; --surface-3:#241F30;
+  --ink:#EAE7F2; --ink-2:#C2BCD2; --muted:#8A83A0; --faint:#655F78;
+  --rule:#282334; --rule-soft:#201C2A;
+  --acc:#E68C99; --acc-bg:#2B1216; --acc-rule:#5C2830;
+  --fire:#33B98A; --fire-bg:#0E2C22; --fire-rule:#1E5643;
+  --hold:#E0A020; --hold-bg:#332608; --hold-rule:#6A4E14;
+  --block:#EF6E60; --block-bg:#331A17; --block-rule:#6A2F29;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--disp);font-weight:800;font-size:clamp(36px,5.6vw,58px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.stamp{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;
+  padding:17px 20px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.85;
+  min-width:222px}
+.stamp .lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);
+  margin-bottom:10px;font-weight:600}
+.stamp b{color:var(--ink);font-weight:700}
+
+.cols{display:grid;grid-template-columns:208px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 8px;font-weight:600}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);
+  border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.1vw,32px);line-height:1.14;
+  letter-spacing:-.028em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:-.018em;margin:28px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:24px 0 9px;font-weight:600}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:15px 17px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+th.r{text-align:right}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.old{color:var(--faint);text-decoration:line-through;font-family:var(--mono);text-align:right}
+td.new{color:var(--acc);font-weight:700;font-family:var(--mono);text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.stop{border-left-color:var(--block);background:var(--block-bg);border-color:var(--block-rule)}
+.note.good{border-left-color:var(--fire);background:var(--fire-bg);border-color:var(--fire-rule)}
+.note.warn{border-left-color:var(--hold);background:var(--hold-bg);border-color:var(--hold-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.stop .tag{color:var(--block)} .note.good .tag{color:var(--fire)} .note.warn .tag{color:var(--hold)}
+.note p:last-child{margin-bottom:0}
+
+
+/* the four signal states */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;
+  background:var(--surface)}
+.st{padding:16px 18px;border-right:1px solid var(--rule-soft)}
+.st:last-child{border-right:none}
+.st .i{font-size:18px;margin:0 0 7px}
+.st .n{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.08em;margin:0 0 6px}
+.st.f .n{color:var(--fire)} .st.h .n{color:var(--hold)} .st.a .n{color:var(--acc)} .st.w .n{color:var(--muted)}
+.st p{font-size:14px;margin:0;color:var(--ink-2)}
+
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+details.ref .rb>:last-child{margin-bottom:12px}
+details.ref .rb h4:first-child{margin-top:0}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);
+    border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+  .edge{grid-template-columns:1fr;gap:2px}
+  .st{border-right:none;border-bottom:1px solid var(--rule-soft)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 10 · Execution</p>
+      <h1>The Position Sizer</h1>
+      <p class="dek">Click an entry, get a quantity. Risk-first sizing with catalyst-aware stops,
+      targets and trail — <b>and two places where the shipped guides describe a version that is no
+      longer running.</b></p>
+    </div>
+    <div class="stamp">
+      <div class="lbl">Stale by a policy generation</div>
+      The guide's matrix says<br>
+      positional <b>T1 = 5R</b>.<br>
+      The live file says <b>3R</b>,<br>
+      and the code is right.
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Read first</p>
+  <ol>
+    <li><a href="#which">Which file, which guide</a></li>
+    <li><a href="#targets">The targets moved</a></li>
+    <li><a href="#autocat">The auto-detect fallback</a></li>
+  </ol>
+  <p>The engine</p>
+  <ol>
+    <li><a href="#principle">Risk-first sizing</a></li>
+    <li><a href="#matrix">The catalyst matrix</a></li>
+    <li><a href="#adjust">The three risk adjustments</a></li>
+    <li><a href="#legs">Legs and quantities</a></li>
+  </ol>
+  <p>Using it</p>
+  <ol>
+    <li><a href="#workflow">The workflow</a></li>
+    <li><a href="#panel">Reading the panel</a></li>
+    <li><a href="#export">Export</a></li>
+    <li><a href="#mistakes">Mistakes</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="which">
+  <h2><span class="n">01</span>Which file, and which guide</h2>
+  <p>There are three allocator files on disk and two guides, and none of the pairings line up.</p>
+  <div class="tw"><table>
+    <thead><tr><th>File</th><th>In-file title</th><th>Status</th></tr></thead><tbody>
+      <tr><td class="m">…v1.0.pine</td><td>v1.1</td><td>The simpler two-leg predecessor</td></tr>
+      <tr><td class="m">…v2.0.pine</td><td><b>v2.1</b></td><td><b>Modified and uncommitted.</b> Its filename, its title and the guide that describes it are three different versions</td></tr>
+      <tr><td class="m">…v2.2.pine</td><td>v2.2</td><td><b>The live one.</b> Everything below is read from it</td></tr>
+    </tbody></table></div>
+  <div class="tw"><table>
+    <thead><tr><th>Guide</th><th>Describes</th></tr></thead><tbody>
+      <tr><td class="m">10_…v1_Guide</td><td>v1.1 — the two-leg predecessor</td></tr>
+      <tr><td class="m">10_…v2_Guide</td><td>v2.0 — <b>two point releases behind the live file</b>, and stale on targets</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The uncommitted v2.0 file is worth a decision rather than a shrug: it encodes an
+  exit scheme a later study rejected, and it sits in the working tree looking current.</p>
+</section>
+
+<section id="targets">
+  <h2><span class="n">02</span>The targets moved, and the guide did not</h2>
+  <div class="note stop">
+    <span class="tag">Do not size a trade off the guide's matrix</span>
+    <p>The v2 guide's catalyst table gives positional targets of <b>5R / 10R / 15R</b> and swing
+    <b>3R / 5R / 8R</b>. The live file computes <b>3R / 5R / 8R</b> positional and
+    <b>2R / 4R / 6R</b> swing.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="r">Guide T1</th><th class="r">Live T1</th><th class="r">Guide T2</th><th class="r">Live T2</th></tr></thead><tbody>
+      <tr><td class="k">Positional · Wyckoff · recovery</td><td class="old">5R</td><td class="new">3R</td><td class="old">10R</td><td class="new">5R</td></tr>
+      <tr><td class="k">Swing</td><td class="old">3R</td><td class="new">2R</td><td class="old">5R</td><td class="new">4R</td></tr>
+    </tbody></table></div>
+  <p><b>The code is correct and the guide is stale.</b> The live values are the R-canon that runs
+  everywhere else in the system — swing 2R/4R, positional 3R/5R, nothing under 2R — and they exist
+  because at the old 5R the first target was reached on about <b>2% of positional trades</b>. The
+  partial never filled, the stop never moved to breakeven, and the trail never engaged. A target
+  nobody reaches is not a conservative target; it is an absent one.</p>
+  <p class="refnote">The stretch third leg at 8R / 6R is allocator-specific and has no counterpart in
+  the strategy — it is a runner objective, not part of the canon.</p>
+</section>
+
+<section id="autocat">
+  <h2><span class="n">03</span>The auto-detect fallback does not do what the guide says</h2>
+  <p>The guide states that when nothing matches, <b>&ldquo;the panel uses your manual selector&rdquo;</b>
+  and the source row reads <em>auto found none, using manual</em>.</p>
+  <p>The code does that only when <b>both</b> context tests fail. If either passes, it assigns a
+  family regardless of whether any catalyst was detected:</p>
+  <pre>if positional-context and swing-context   → the detected catalyst, else <b>"POS"</b>
+else if positional-context               → a positional catalyst, else <b>"POS"</b>
+else if swing-context                    → an SWG-prefixed catalyst, else <b>"SWG"</b></pre>
+  <div class="note stop">
+    <span class="tag">Why this matters more than it looks</span>
+    <p>The source flag is set to <b>AUTO</b> whenever the family is not &ldquo;none&rdquo; — and after
+    those fallbacks it almost never is. So <b>the panel reads AUTO on a name where nothing was
+    detected</b>, and the label means &ldquo;a family was assigned&rdquo; rather than
+    &ldquo;a catalyst was found&rdquo;.</p>
+    <p>That assignment is not cosmetic. It picks the <b>targets</b> (3R/5R against 2R/4R), the
+    <b>trail</b> (4.5&times; against 1.5&times;) and the <b>stop fallback</b> (4.0&times; ATR against
+    1.5&times;). A trending name with no identifiable setup is silently planned as a swing trade —
+    and a merely-stage-2 name as a positional one.</p>
+  </div>
+  <p>The context tests themselves are reasonable — the swing one wants price above a rising short
+  average above the 50-day, with momentum or a volume expansion, and not extended more than 15%.
+  <b>The problem is only that passing a context test is reported as detecting a catalyst.</b></p>
+  <p class="refnote">This is on the open list as the &ldquo;SWG fallback&rdquo; item. Until it is
+  resolved, treat the <code>AUTO</code> tag as a family assignment and check the setup yourself —
+  or turn auto-detect off, where the manual selector is honest about being manual.</p>
+</section>
+
+<section id="principle">
+  <h2><span class="n">04</span>Risk-first sizing</h2>
+  <p>The whole tool inverts the usual order. You do not decide a quantity and discover your risk —
+  <b>you fix the risk and the quantity falls out.</b></p>
+  <pre>risk amount   = capital × adjusted risk %
+quantity      = risk amount ÷ (entry − stop)
+                <b>then capped</b> by the maximum allocation for that asset class</pre>
+  <p>Two consequences worth stating plainly:</p>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">A wider stop buys a smaller position</td><td>Automatically, with no judgement involved. <b>This is why the stop must be structural</b> — move it for comfort and you have silently resized the trade</td></tr>
+    <tr><td class="k">The allocation cap can bind before the risk math does</td><td>When both quantity columns show the same number, <b>the cap is what set your size</b>, not the risk calculation</td></tr>
+  </tbody></table></div>
+  <p class="refnote">Capital and risk are held <b>per asset class</b> — a separate base and a separate
+  percentage for funds and for stocks, each with its own ceiling. Set once.</p>
+</section>
+
+<section id="matrix">
+  <h2><span class="n">05</span>The catalyst matrix</h2>
+  <p>One family drives four things. Read the row for the family you are trading:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th>Structural stop</th><th class="r">Stop fallback</th><th>Trail</th><th class="r">T1 · T2 · T3</th></tr></thead><tbody>
+      <tr><td class="k">Positional</td><td>10-bar low, less 0.2 units</td><td class="num">4.0&times;</td><td>Chandelier 4.5&times;</td><td class="num">3R · 5R · 8R</td></tr>
+      <tr><td class="k">Wyckoff</td><td>Base low &times; 0.98</td><td class="num">3.5&times;</td><td>Chandelier 3.5&times;</td><td class="num">3R · <b>max(5R, 52wH)</b> · 8R</td></tr>
+      <tr><td class="k">Recovery</td><td>20-bar low, less 0.5 units</td><td class="num">2.5&times;</td><td>Chandelier 2.5&times;</td><td class="num">3R · <b>the 52-week high</b> · that high plus 5%</td></tr>
+      <tr><td class="k">Swing</td><td>The lower of the short average and the 10-bar low, less 0.1</td><td class="num">1.5&times;</td><td>Short average, about 1.5&times;</td><td class="num">2R · 4R · 6R</td></tr>
+    </tbody></table></div>
+  <p>The fallback multiple applies when the structural anchor comes out <b>at or above the entry</b>
+  — which happens more often than you would expect on a name that has already run.</p>
+  <div class="note">
+    <span class="tag">Recovery targets are structural, not multiples</span>
+    <p>The second target for a recovery trade is <b>the 52-week high itself</b>, and Wyckoff takes
+    whichever is higher of its multiple and that high. That is deliberate: on a beaten-down name the
+    prior high is a real destination, and an R-multiple measured off a wide recovery stop can land
+    somewhere meaningless.</p>
+  </div>
+  <p class="refnote">In a weak tape every trail widens by half a unit — the same regime adjustment the
+  Chandelier applies everywhere else.</p>
+</section>
+
+<section id="adjust">
+  <h2><span class="n">06</span>The three risk adjustments</h2>
+  <p>Base risk is adjusted by three independent multipliers before the quantity is computed.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Adjustment</th><th>How it works</th></tr></thead><tbody>
+      <tr><td class="k">Conviction</td><td>Three points — stage 2, positive strength, volume above average. Three points scales risk <b>up 25%</b>; two leaves it; one or none cuts it <b>25%</b></td></tr>
+      <tr><td class="k">Volatility</td><td>Above 3% daily range, risk scales down in proportion. <b>A wilder name gets less capital at the same stop distance</b></td></tr>
+      <tr><td class="k">Regime</td><td>A quarter point off the base in a weak tape</td></tr>
+    </tbody></table></div>
+  <p>Two floors keep it sane: the combined volatility-and-conviction multiplier cannot fall below
+  0.75, and the final risk cannot fall below 0.25%. <b>The tool will shrink a position; it will not
+  refuse to size one.</b></p>
+  <div class="note warn">
+    <span class="tag">Reading the adjusted figure</span>
+    <p>Adjusted <b>equal</b> to base means nothing objected. Adjusted <b>below</b> base is the market
+    telling you something — usually volatility, sometimes conviction — and the honest response is to
+    take the smaller size rather than override it. Adjusted <b>above</b> base means all three
+    conviction points landed, and it is the only case where the tool asks for more than your
+    standard risk.</p>
+  </div>
+</section>
+
+<section id="legs">
+  <h2><span class="n">07</span>Legs and quantities</h2>
+  <p>The first leg's share is set by the family; the second and third are inputs; the runner is
+  whatever remains.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="r">T1 share</th><th>Rationale</th></tr></thead><tbody>
+      <tr><td class="k">Positional · Wyckoff · recovery</td><td class="num">25%</td><td>Three quarters stays on, because <b>the trail is what actually exits these</b></td></tr>
+      <tr><td class="k">Swing</td><td class="num">33%</td><td>A shorter horizon earns a bigger first take</td></tr>
+      <tr><td class="k">Gap · reversion</td><td class="num">50%</td><td><b>Gaps fade and reversions are not runners</b> — take half off</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="tag">Four legs here, three orders at the broker</span>
+    <p>The allocator plans <b>T1, T2, T3 and a runner</b>. What actually gets placed is <b>two paired
+    exits plus one standalone stop covering the uncapped tail</b> — three orders, not four.</p>
+    <p>So the third target is a plan for the runner rather than an order you will rest. <b>Decide
+    before you place whether T3 is a real leg or a note to yourself</b>, because the quantities do
+    not map one-to-one onto what the broker will hold.</p>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2><span class="n">08</span>The workflow</h2>
+  <ol>
+    <li><b>Have the setup first.</b> This is a sizer, not a scanner — it plans a trade you have
+    already decided to take.</li>
+    <li><b>Set capital and risk once</b>, per asset class.</li>
+    <li><b>Click the entry.</b> That is the only mandatory click; the stop and first target fill
+    themselves from the family.</li>
+    <li><b>Override the stop only for structure</b> — a level the chart gives you, not a number that
+    makes the quantity look better.</li>
+    <li><b>Read the panel top to bottom</b> and check the validation row before anything else.</li>
+  </ol>
+  <div class="note stop">
+    <span class="tag">The validation row is the one people skim</span>
+    <p>It warns when <b>the first target sits above overhead resistance</b> — the 52-week high or the
+    200-day. That is not a detail. It means the plan's reward assumes price walks through a level it
+    has historically been rejected at, and <b>the reward-to-risk you are about to accept is
+    fictional.</b></p>
+  </div>
+</section>
+
+<section id="panel">
+  <h2><span class="n">09</span>Reading the panel</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What to take from it</th></tr></thead><tbody>
+      <tr><td class="k">Header</td><td>Asset class, and <b>whether the family came from detection or your selector</b> — read section 03 before trusting the auto tag</td></tr>
+      <tr><td class="k">Context</td><td>Weekly stage and rotation quadrant</td></tr>
+      <tr><td class="k">Entry · Stop</td><td>The stop is tagged auto or manual, with its distance</td></tr>
+      <tr><td class="k">Adjusted risk</td><td>The final percentage with the base in brackets — section 06</td></tr>
+      <tr><td class="k">Quantity</td><td><b>The primary output.</b> If it matches the capped column, the cap set it</td></tr>
+      <tr><td class="k">Invested · risk amount</td><td>What you are committing, and what you are risking</td></tr>
+      <tr><td class="k">T1 · T2 · T3 · runner</td><td>Price <b>and share count</b> per leg</td></tr>
+      <tr><td class="k">Validation</td><td>Clear room, or overhead resistance in the way — section 08</td></tr>
+      <tr><td class="k">Trail</td><td>The kind and the width, already regime-adjusted</td></tr>
+      <tr><td class="k">Rotation</td><td>Strength value and momentum</td></tr>
+      <tr><td class="k">Catalyst source</td><td>Detected, fell through to manual, or auto disabled</td></tr>
+    </tbody></table></div>
+  <p class="refnote">A zero quantity is not a failure — it means the risk amount cannot buy a single
+  share at that stop distance. <b>Widen nothing; the trade is too big for the account at that
+  stop.</b></p>
+  <h3>The rotation row, and what to do with it</h3>
+  <p>Two numbers — the strength value and its four-week rate of change — resolve to a quadrant.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Quadrant</th><th>Reading</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Leading</td><td>Both positive</td><td>Outperforming <b>and accelerating</b>. The quadrant to be long in</td></tr>
+      <tr><td class="k">Weakening</td><td>Value positive, momentum not</td><td>Still ahead, but the lead is fading</td></tr>
+      <tr><td class="k">Improving</td><td>Value negative, momentum positive</td><td>Behind, but recovering. Early-stage</td></tr>
+      <tr><td class="k">Lagging</td><td>Both negative</td><td>Behind and deteriorating</td></tr>
+    </tbody></table></div>
+  <div class="tw"><table>
+    <thead><tr><th>Rule</th><th>Detail</th></tr></thead><tbody>
+      <tr><td class="k">The floor for a long</td><td><b>Improving or better.</b> Do not open in lagging</td></tr>
+      <tr><td class="k">The best cell</td><td>Leading with strong momentum — these are where the conviction multiplier reaches its maximum and the full risk budget is deployed</td></tr>
+      <tr><td class="k">The alert while held</td><td><b>Leading to weakening is a management signal</b>, not an exit. Tighten the trail, or take the first partial even short of the target</td></tr>
+    </tbody></table></div>
+  <p class="refnote">The positional context test uses the same quadrant, and it excludes only
+  <em>lagging</em> — so a name can pass into a positional plan while merely improving. The rotation
+  row is where you see that.</p>
+
+  <h3>Two operational details</h3>
+  <div class="tw"><table><tbody>
+    <tr><td class="k">Futures and options</td><td>Set the lot multiplier to the contract size and <b>the quantity row becomes lots rather than shares</b> — the invested and risk figures scale with it. Leave it at one for cash equity</td></tr>
+    <tr><td class="k">Resetting a plan</td><td>The clicked prices persist until cleared. Zero the fields in the settings to re-run the click sequence — or <b>remove and re-add from a template</b>, which is faster and guarantees a clean slate</td></tr>
+  </tbody></table></div>
+  <div class="note warn">
+    <p>The persistence is the trap: <b>switch symbols and the previous name's entry, stop and target
+    are still loaded</b>, quietly sizing a completely different trade. Same limitation the markup
+    engine carries, for the same reason — inputs do not follow the symbol.</p>
+  </div>
+</section>
+
+<section id="export">
+  <h2><span class="n">10</span>Export</h2>
+  <p>Two one-shot toggles: one sends the plan as a note, the other emits a structured payload for the
+  order tooling — entry, stop, three legs with quantities, the runner, and the trail specification.</p>
+  <p>Both work the same way: <b>tick, confirm, untick.</b> They fire on the tick, not continuously.</p>
+  <div class="note warn">
+    <p>The payload carries the <b>catalyst source field</b>. Given section 03, a payload can reach the
+    order tooling stamped <code>AUTO</code> for a name where nothing was detected — so the label
+    travels downstream with the same ambiguity it has on the panel.</p>
+  </div>
+</section>
+
+<section id="mistakes">
+  <h2><span class="n">11</span>Mistakes</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mistake</th><th>Why it costs you</th></tr></thead><tbody>
+      <tr><td class="k">Sizing off the guide's target matrix</td><td>It is a policy generation out of date. <b>Positional T1 is 3R, not 5R</b> — section 02</td></tr>
+      <tr><td class="k">Reading the auto tag as a detection</td><td>Section 03. It usually means a family was assigned by context</td></tr>
+      <tr><td class="k">Moving the stop to get a bigger position</td><td>The arithmetic will happily oblige. <b>You have not reduced risk, you have hidden it</b></td></tr>
+      <tr><td class="k">Ignoring the validation warning</td><td>A first target above the 52-week high makes the whole reward-to-risk figure fictional</td></tr>
+      <tr><td class="k">Treating the third leg as an order</td><td>Three orders reach the broker, not four — section 07</td></tr>
+      <tr><td class="k">Overriding an adjusted risk that came out low</td><td>That is the volatility or conviction rule doing the one job it has</td></tr>
+      <tr><td class="k">Using it to find trades</td><td>It sizes a decision you have already made. <b>The screeners are the signal source, and when they and the on-chart detector disagree, the screener wins</b></td></tr>
+    </tbody></table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/10 · Commander Risk Allocator v2.2</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">13 Unified Ecosystem</a> · <a href="https://claude.ai/code/artifact/d52f6dcd-7af4-404f-b7fe-396d406c5d00">15 Context Layers</a></span>
+</div></footer>

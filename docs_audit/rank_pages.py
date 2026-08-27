@@ -46,9 +46,14 @@ PAGES = {
 # A claim the code disproves. Kept narrow on purpose: a false positive here sends me
 # rewriting prose that was already right.
 CONTRADICT = [
-    ("positional 5R/10R", r"\b5R\s*/\s*10R\b|\bT1\s*=\s*5R\b"),
-    ("positional 2R/4R", r"positional[^.]{0,40}\b2R\s*/\s*4R\b"),
-    ("stale milestone +2.56%", r"\+2\.56%"),
+    # Only a claim that the CURRENT targets are 5R/10R. A page citing the old
+    # numbers to say they MOVED is doing the right thing.
+    ("positional 5R/10R", r"(?:targets? (?:are|is)|currently|uses)[^.]{0,30}\b5R\s*/\s*10R\b"),
+    # 2R/4R is the SWING canon, so "positional ... 2R/4R" is only wrong when it
+    # assigns them to positional rather than contrasting the two.
+    ("positional 2R/4R", r"positional[^.]{0,24}(?:targets?|T1)[^.]{0,16}\b2R\s*/\s*4R\b"),
+    # Same rule: only when +2.56% is offered as the CURRENT figure.
+    ("stale milestone +2.56%", r"(?:alpha (?:is|of)|edge of|delivers|currently)[^.]{0,20}\+2\.56%"),
     ("stale LAST_RUN", r"2026(?:0722_135745|0726_225547|0723_06\d{4})"),
     ("v67 old version", r"v67\.4\.(?:0\d|1\d|20)\b"),
     ("S4Core old version", r"S4Core/(?:1\d|2[0-3])\b"),
@@ -70,14 +75,40 @@ MISSING = [
     ("ML win probability", r"ML win prob"),
     ("REACTING location", r"REACTING|reacting off"),
     ("rule A2 / pivot confluence", r"rule A2|pivot[^.]{0,30}confluence"),
-    ("sector map", r"sector map|curated sector|sectors\.db"),
-    ("pivot master switch", r"pivot[^.]{0,40}(?:master switch|toggle)"),
+    ("sector map", r"sector map|curated (?:sector|mapping)|sectors\.db"),
+    ("pivot master switch", r"pivot[^.]{0,40}(?:master switch|toggle)|turning pivots off|pivot switch|pivots off in settings"),
     ("Momentum & value row", r"Momentum &amp; value|Momentum & value|CPR pivot"),
-    ("location A/B null", r"location[^.]{0,40}(?:null|A/B)"),
+    ("location A/B null", r"pre-registered A/?B|location[^.]{0,40}(?:null|A/B)|within 0\.21 percentage"),
 ]
 
 
-LOCAL = {"6b9eef4f": "22_section_four.html"}
+# Which page OWES which topic. Absence is only a gap where the page is the topic's
+# home; everywhere else it is correct editorial scope.
+OWES = {
+    "6b9eef4f": {"ML win probability", "REACTING location", "rule A2 / pivot confluence",
+                 "sector map", "pivot master switch", "Momentum & value row",
+                 "location A/B null"},                       # 22 Section Four
+    # ML win probability is an S4 panel row bound from the dashboard, not a board
+    # column — the board does not owe it.
+    "bb8770c5": {"REACTING location", "rule A2 / pivot confluence",
+                 "pivot master switch", "location A/B null"},  # 23 Golden Matcher
+    "bfa433a3": {"REACTING location", "rule A2 / pivot confluence", "pivot master switch",
+                 "location A/B null"},                       # 25 Golden Rules
+    "30193746": {"location A/B null"},                       # 27 Backtest Court
+    "53aee9e9": {"location A/B null"},                       # 16 Honesty Layer
+    "c97d2473": {"ML win probability", "sector map"},        # 08 Swing Pro Dashboard
+    "5144c644": {"sector map"},                              # 21 RS / Auto-Sector
+    "50a2b6ce": {"REACTING location", "rule A2 / pivot confluence"},  # 04 Inst. Footprint
+    "886ba1e4": {"REACTING location"},                       # 18 Trade Funnel
+    "577f5e2e": {"REACTING location"},                       # 24 Pre-Trade Gate
+}
+
+LOCAL = {
+    "6b9eef4f": "22_section_four.html",
+    "bfa433a3": "25_golden_rules.html",
+    "bb8770c5": "23_golden_matcher.html",
+    "6682471c": "10_position_sizer.html",
+}
 
 
 def score(stub):
@@ -92,7 +123,8 @@ def score(stub):
     except Exception as e:
         return None, [], [], str(e)
     con = [n for n, p in CONTRADICT if re.search(p, t, re.I)]
-    mis = [n for n, p in MISSING if not re.search(p, t, re.I)]
+    owed = OWES.get(stub, set())
+    mis = [n for n, p in MISSING if n in owed and not re.search(p, t, re.I)]
     return len(con) * 10 + len(mis) * 3, con, mis, None
 
 
