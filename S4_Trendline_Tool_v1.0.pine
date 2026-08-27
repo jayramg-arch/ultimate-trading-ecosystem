@@ -1,0 +1,154 @@
+//@version=6
+indicator("S4 Trendline Tool", overlay=true, max_lines_count=2, max_labels_count=2)
+// ==========================================================================
+// Companion to "Section 4 Entry Trigger and Price Memory". v1.1 (24-Jul):
+// cut from 4 confirm-clicks to 2 and removed price placement entirely.
+// --------------------------------------------------------------------------
+// WHY THIS EXISTS: Pine cannot read a line you draw with TradingView's own
+// trendline tool — a script has no access to user drawings. The only way S4 can
+// SENSE a hand-drawn line is an interactive (confirm) input, and putting that in
+// S4 would prompt you to place a line every time you add S4 to a chart (you use
+// S4 across many symbols — that prompt was removed for exactly that reason).
+// So the placement lives HERE instead, in a small companion you add only to a
+// chart where you want to mark a line.
+//
+// v1.0 asked for 4 confirms (time + price, twice) — a genuine 2-point line, but
+// slow to place and each of the 4 handles was independently draggable, so a
+// small nudge on one could silently distort the whole line. v1.1 asks for ONLY
+// 2 confirms — one click per point, TIME only — and SNAPS each click to the
+// nearest actual pivot high/low the tool detects on its own. You don't need to
+// hit the exact wick: click roughly on the swing candle, it locks onto the
+// real extreme. Dragging a handle re-snaps it to whichever pivot is nearest at
+// the new position — like a magnet, not a free-floating point.
+//
+// HOW TO USE:
+//   1. Add "S4 Trendline Tool" to the chart. It asks you to click ONCE near
+//      the first swing point, then ONCE near the second. Drag either end
+//      later to re-snap it to a different pivot.
+//   2. In the Section 4 indicator settings → Trendlines group: turn ON
+//      "Sense hand-drawn trendlines" and set "External trendline 1" to this
+//      indicator's "Trendline Value" plot.
+//   3. Want a second line (e.g. one support + one resistance)? Add a SECOND
+//      instance of this indicator, place it, and point S4's "External trendline 2"
+//      at it. S4's picker sorts each line to support/resistance by which side of
+//      price it sits on — you don't tag it.
+// ==========================================================================
+grp = "Trendline  ·  click ONCE near each swing point — snaps to the pivot"
+pv_len = input.int(5,  "Pivot length (bars each side)", group=grp, minval=2, maxval=20, tooltip="Bars each side used to confirm a swing pivot. A click below snaps to the NEAREST pivot in TIME — so you only need to click roughly on the swing candle, not the exact wick.")
+pool   = input.int(40, "Pivot pool (per side)", group=grp, minval=5, maxval=80, tooltip="How many recent pivot highs/lows are kept to snap to. Raise it if a click near an older swing isn't finding it.")
+p1t = input.time(0, "Point 1 — click near a swing", group=grp, confirm=true)
+p2t = input.time(0, "Point 2 — click near a swing", group=grp, confirm=true)
+// Fine-adjust AFTER placing: the snap picks the pivot's exact extreme, which is
+// great for landing near the right swing but leaves you no way to sit the line
+// off that wick. These are plain numeric fields — no click, no confirm, no drag —
+// edit them anytime to nudge just THAT point's price up/down without re-clicking
+// or losing which pivot it's anchored to (the TIME anchor stays from the snap).
+p1nudge = input.float(0.0, "Point 1 — price nudge (× ATR)", group=grp, minval=-5.0, maxval=5.0, step=0.05, tooltip="Shifts POINT 1 only, up (+) or down (−), off the pivot's exact wick/extreme. 0 = sit exactly on the snapped pivot.")
+p2nudge = input.float(0.0, "Point 2 — price nudge (× ATR)", group=grp, minval=-5.0, maxval=5.0, step=0.05, tooltip="Shifts POINT 2 only, off its snapped pivot.")
+col  = input.color(color.new(#2962ff, 0), "Colour", group=grp, inline="s")
+wid  = input.int  (2, "Width", group=grp, inline="s", minval=1, maxval=5)
+extBars = input.int(15, "Extend right (bars past current)", group=grp, minval=0, maxval=200, tooltip="The line is always drawn through to the CURRENT bar (so you can judge whether recent price has violated it) plus this many bars further out, on the same slope. 0 = stop exactly at the current bar.")
+
+// ── pivot pool this tool maintains on its own (a separate script — no access
+// to S4's internal arrays) ──────────────────────────────────────────────────
+var array<int>   hpx = array.new<int>()     // pivot HIGH times
+var array<float> hpy = array.new<float>()
+var array<int>   lpx = array.new<int>()     // pivot LOW times
+var array<float> lpy = array.new<float>()
+
+float chart_atr = ta.atr(14)
+float ph = ta.pivothigh(high, pv_len, pv_len)
+float pl = ta.pivotlow(low,  pv_len, pv_len)
+if not na(ph)
+    array.push(hpx, time[pv_len])
+    array.push(hpy, ph)
+    if array.size(hpx) > pool
+        array.shift(hpx)
+        array.shift(hpy)
+if not na(pl)
+    array.push(lpx, time[pv_len])
+    array.push(lpy, pl)
+    if array.size(lpx) > pool
+        array.shift(lpx)
+        array.shift(lpy)
+
+// Nearest pivot to a clicked TIME, searching highs + lows together (whichever
+// swing — high or low — sits closest to where you clicked wins). Returns
+// [time, price] of that pivot, na when the pool has nothing yet.
+f_nearest(int clickT) =>
+    float _bestPx = na
+    int   _bestT  = na
+    float _bestD  = 1e18
+    if array.size(hpx) > 0
+        for i = 0 to array.size(hpx) - 1
+            float d = math.abs(array.get(hpx, i) - clickT)
+            if d < _bestD
+                _bestD := d
+                _bestT := array.get(hpx, i)
+                _bestPx := array.get(hpy, i)
+    if array.size(lpx) > 0
+        for i = 0 to array.size(lpx) - 1
+            float d = math.abs(array.get(lpx, i) - clickT)
+            if d < _bestD
+                _bestD := d
+                _bestT := array.get(lpx, i)
+                _bestPx := array.get(lpy, i)
+    [_bestT, _bestPx]
+
+// LOCK each point's snap the first time it resolves, so the line stays put even
+// if the pivot later ages out of the pool. Only re-snaps when you actually drag
+// the handle to a new clickT (a drag triggers a full fresh recalculation, which
+// resets these `var`s and re-locks from scratch).
+// GATED TO barstate.islast (bug fix): the search must run against the FULL pivot
+// pool. Un-gated, it ran starting bar 1 — when hpx/lpx held at most one early
+// entry — so BOTH points locked onto that same first-ever pivot (the only match
+// available yet), lockT1 == lockT2, and `placed` was permanently false: no line,
+// even though both clicks registered. islast guarantees the pool has already
+// been built from all of history before the first (and only) search attempt.
+var int   lockT1 = na
+var float lockY1 = na
+var int   lockT2 = na
+var float lockY2 = na
+if barstate.islast
+    if p1t > 0 and na(lockT1)
+        [_t1, _y1] = f_nearest(p1t)
+        if not na(_t1)
+            lockT1 := _t1
+            lockY1 := _y1
+    if p2t > 0 and na(lockT2)
+        [_t2, _y2] = f_nearest(p2t)
+        if not na(_t2)
+            lockT2 := _t2
+            lockY2 := _y2
+
+bool  placed = not na(lockT1) and not na(lockT2) and lockT1 != lockT2
+// Nudged prices — the per-point ATR offset applied to each snapped pivot. Slope,
+// projection and drawing all use these, not the raw snap, so the line reflects
+// wherever you've nudged each end to.
+float _y1n = placed ? lockY1 + p1nudge * chart_atr : na
+float _y2n = placed ? lockY2 + p2nudge * chart_atr : na
+float _slope = placed ? (_y2n - _y1n) / float(lockT2 - lockT1) : na
+// The line's price at the CURRENT bar (na when unplaced) — this is what S4 senses.
+float tlNow  = placed ? _y1n + _slope * float(time - lockT1) : na
+
+// Draw through to the CURRENT bar + extBars buffer, not just to the 2nd anchor —
+// otherwise the visible segment stops back at whichever pivot you clicked, which
+// is exactly what made a recent violation impossible to see. Same slope, just a
+// further endpoint; the line still passes through both real anchors en route.
+int   _barMs  = timeframe.in_seconds(timeframe.period) * 1000
+int   _endT   = placed ? int(time + extBars * _barMs) : na
+float _endY   = placed ? _y1n + _slope * float(_endT - lockT1) : na
+
+var line  _ln = na
+var label _lb = na
+if barstate.islast
+    line.delete(_ln)
+    label.delete(_lb)
+    if placed
+        _ln := line.new(lockT1, _y1n, _endT, _endY, xloc=xloc.bar_time, color=col, width=wid, extend=extend.none)
+        _lb := label.new(time, tlNow, "TL " + str.tostring(tlNow, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, textcolor=col, color=color.new(col, 88), size=size.small)
+
+// ── OUTPUT S4 READS ──────────────────────────────────────────────────────
+// The line's current-bar price (na when unplaced). In S4, select this as an
+// External-trendline source. display.none so it never clutters the chart.
+plot(tlNow, "Trendline Value", color=col, display=display.none)

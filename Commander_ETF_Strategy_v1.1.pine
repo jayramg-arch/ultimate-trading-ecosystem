@@ -1,0 +1,485 @@
+//@version=6
+// =============================================================================
+// Commander ETF Strategy v1.1 - Phase 5 of the ETF Trading System
+// =============================================================================
+// Built  : 12 May 2026
+// Author : Jay (Jayram G)
+// Stack  : Pine Script v6 - TradingView
+//
+// v1.1 upgrade from v1.0 -- ported best features from Weinstein Unified v2.3:
+//   - Stage background colour (Stage 1 yellow / Stage 2 green / Stage 3 orange / Stage 4 red)
+//   - Chandelier Exit (CE) trailing stop (replaces simple ATR trail; ratchets up)
+//   - T1 partial profit (30 percent off at 2.5R) + auto breakeven SL move
+//   - Time-decay stop (exit trades that haven't reached 0.5R after N bars)
+//   - Volatility-discounted position sizing (high-vol ETFs get smaller size)
+//   - Active SL line on chart (red step-line, only visible when in a position)
+//   - Pre-Stage-2 early warning marker
+//
+// Signal ladder (byte-identical to dashboard + etf_screener.py)
+// -------------------------------------------------------------
+//   PRIMARY    : BUY-LEADER = Stage 2 + RRG LEADING + liquidity score >= 6
+//   SECONDARY  : EARLY-BASE = Stage 1 + RRG IMPROVING (optional, half size)
+//   HARD EXIT  : Stage 4 entered
+//   SOFT EXIT  : RRG flipped to LAGGING
+//   CE EXIT    : Chandelier Exit (ratcheting highest-close trail)
+//   LIQ EXIT   : turnover collapses below user threshold
+//   TIME EXIT  : N bars passed with unrealized R < 0.5
+//
+// Risk management (institutional grade, per CLAUDE.md)
+// ----------------------------------------------------
+//   - 1% risk per trade (configurable)
+//   - Position size = (capital * risk%) / (ATR * stop_mult) * vol_disc
+//   - vol_disc auto-shrinks size when ATR% of price is high (smallcap, sector)
+//   - Hard instrument guard: refuses to fire on non-ETF symbols
+// =============================================================================
+strategy("Commander ETF Strategy v1.1", shorttitle="ETFS v1.1", overlay=true,
+     initial_capital            = 1000000,
+     default_qty_type           = strategy.percent_of_equity,
+     default_qty_value          = 10,
+     pyramiding                 = 0,
+     commission_type            = strategy.commission.percent,
+     commission_value           = 0.03,
+     slippage                   = 2,
+     calc_on_every_tick         = true,
+     process_orders_on_close    = true,
+     max_lines_count            = 50,
+     max_labels_count           = 50,
+     max_boxes_count            = 50)
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+grp_dates  = "Backtest Window"
+start_date = input.time(timestamp("2020-01-01"), "Start Date", group=grp_dates)
+end_date   = input.time(timestamp("2030-01-01"), "End Date",   group=grp_dates)
+
+grp_bench  = "Benchmark & RS"
+bench_sym  = input.symbol("NSE:CNX500", "RS Benchmark", group=grp_bench)
+mans_len   = input.int(200, "Mansfield SMA Length",        group=grp_bench, minval=50, maxval=252)
+rs_mom_len = input.int(20,  "RS-Momentum Lookback (bars)", group=grp_bench, minval=5,  maxval=60)
+
+grp_stage  = "Stage & Trend"
+show_30w   = input.bool(true,  "Show 30W MA (weekly anchor)", group=grp_stage)
+show_200d  = input.bool(true,  "Show 200-day SMA",            group=grp_stage)
+show_bgcol = input.bool(true,  "Stage Background Colour",     group=grp_stage)
+stage2_slope_min = input.float(0.1, "Min 200DMA Slope % (Stage 2 gate)", group=grp_stage, step=0.05)
+
+grp_liq      = "Liquidity"
+liq_lookback = input.int(60, "Liquidity Lookback (days)", group=grp_liq, minval=20, maxval=252)
+liq_min_cr   = input.float(2.0, "Min Median Turnover Rs Cr/day", group=grp_liq, minval=0.1, step=0.5)
+liq_exit_cr  = input.float(1.0, "Force-Exit Below Rs Cr/day",    group=grp_liq, minval=0.1, step=0.5,
+     tooltip="If turnover drops below this AFTER entry, force exit. Prevents getting stuck in a drying ETF.")
+liq_score_min = input.int(6, "Min Liquidity Score for BUY-LEADER", group=grp_liq, minval=2, maxval=10)
+
+grp_rules     = "Entry / Exit Rules"
+allow_early   = input.bool(false, "Allow EARLY-BASE entries (Stage 1 + IMPROVING)", group=grp_rules)
+early_size    = input.float(0.5, "EARLY-BASE Size Multiplier", group=grp_rules, minval=0.1, maxval=1.0, step=0.1)
+exit_on_rrg_lag = input.bool(true, "Exit when RRG flips to LAGGING", group=grp_rules)
+exit_on_stage3  = input.bool(false, "Exit on Stage 3 (aggressive)",   group=grp_rules)
+
+// ---- Chandelier Exit (NEW in v1.1) -----------------------------------------
+grp_ce        = "Chandelier Exit (CE) -- Trailing Stop"
+enable_ce     = input.bool(true,  "Use Chandelier Exit as trailing stop", group=grp_ce,
+     tooltip="CE = highest(close, N) - ATR(N) * mult. Ratchets up only, never down. " +
+             "Smoother than ATR trail on Stage 2 advances.")
+ce_length     = input.int(22,   "CE Lookback (bars)",   group=grp_ce, minval=10, maxval=50)
+ce_mult       = input.float(3.0,"CE ATR Multiplier",    group=grp_ce, minval=1.5, maxval=5.0, step=0.1)
+
+// ---- T1 Partial Profit (NEW in v1.1) ---------------------------------------
+grp_t1        = "T1 Partial Profit"
+enable_t1     = input.bool(true, "Take partial at T1 + move SL to breakeven", group=grp_t1)
+t1_r_mult     = input.float(2.5, "T1 target (R multiple)", group=grp_t1, minval=1.0, maxval=5.0, step=0.25,
+     tooltip="2.5R means exit partial when price has moved 2.5x the initial stop distance from entry.")
+t1_qty_pct    = input.int(30, "T1 Partial Qty (%)", group=grp_t1, minval=10, maxval=70, step=10,
+     tooltip="30 percent keeps the runner. 50 percent is more conservative for choppy ETFs.")
+
+// ---- Time-Decay Stop (NEW in v1.1) -----------------------------------------
+grp_time      = "Time-Decay Stop"
+enable_time   = input.bool(true, "Exit if no 0.5R progress within N bars", group=grp_time)
+time_stop_bars = input.int(40, "Time-stop window (bars)", group=grp_time, minval=10, maxval=120,
+     tooltip="40 = ~8 weeks. ETF advances are slower than stocks; tune higher than the 25-bar default in the stock strategy.")
+
+grp_size      = "Position Sizing"
+risk_pct      = input.float(1.0, "Risk per Trade (%)",        group=grp_size, minval=0.1, maxval=5.0, step=0.1)
+atr_len       = input.int(14,    "ATR Length",                group=grp_size, minval=5, maxval=30)
+
+// ---- Vol Profile preset (NEW Enhancement #6) -------------------------------
+// Drives atr_stop_mult and target_atr_pct based on the ETF's typical volatility.
+// "Custom" lets the user override directly via the two inputs below.
+vol_profile   = input.string("Med (broad equity)", "Vol Profile",
+     options=["Low (gold/debt)", "Med (broad equity)", "High (sector/smallcap)",
+              "Intl (Nasdaq/FANG)", "Custom"],
+     group=grp_size,
+     tooltip="Low: gold/silver/debt -- ATR mult 1.8, target 1.0%. " +
+             "Med: NIFTYBEES/JUNIORBEES -- ATR mult 2.5, target 1.5%. " +
+             "High: sector/smallcap -- ATR mult 3.0, target 2.0%. " +
+             "Intl: MAFANG/MON100 -- ATR mult 2.5, target 1.8% (USD vol). " +
+             "Custom: use the two inputs below as-is.")
+atr_stop_mult_in = input.float(2.5, "Initial Stop ATR Multiplier (Custom)", group=grp_size, minval=1.0, maxval=5.0, step=0.1)
+
+// Volatility discount (v1.1) -- shrinks position size for high-ATR ETFs.
+use_vol_disc  = input.bool(true, "Volatility-discount sizing (high-vol ETF = smaller qty)", group=grp_size,
+     tooltip="Shrinks qty when ATR pct of price exceeds the target. Gold/debt ETFs (low vol) get full size; smallcap/sector (high vol) get smaller.")
+target_atr_pct_in = input.float(1.5, "Target ATR pct of price (Custom)", group=grp_size, minval=0.5, maxval=3.0, step=0.1)
+
+// Resolve vol-profile preset (active values)
+// Auto-detect Vol Profile to assign stop mult and target ATR dynamically (per ETF Trading Bible)
+is_low_vol  = str.contains(syminfo.ticker, "GOLD") or str.contains(syminfo.ticker, "SILVER") or str.contains(syminfo.ticker, "LIQUID") or str.contains(syminfo.ticker, "GILT") or str.contains(syminfo.ticker, "BBETF")
+is_intl     = str.contains(syminfo.ticker, "FANG") or str.contains(syminfo.ticker, "MON100") or str.contains(syminfo.ticker, "NASD") or str.contains(syminfo.ticker, "MASPTOP50")
+is_broad    = str.contains(syminfo.ticker, "NIFTY") or str.contains(syminfo.ticker, "JUNIOR")
+
+float active_stop_mult  = vol_profile == "Custom" ? atr_stop_mult_in : is_low_vol ? 1.8 : is_intl ? 2.5 : is_broad ? 2.5 : 3.0
+float active_target_pct = vol_profile == "Custom" ? target_atr_pct_in : is_low_vol ? 1.0 : is_intl ? 1.8 : is_broad ? 1.5 : 2.0
+
+grp_guard      = "Instrument Guard"
+require_etf    = input.bool(true, "Block entries on non-ETF symbols", group=grp_guard,
+     tooltip="Pine syminfo.type must equal 'fund' for entries to fire. Prevents accidental application on stocks/indices.")
+
+grp_dash    = "Mini Dashboard"
+show_table  = input.bool(true, "Show mini dashboard (position/execution only)", group=grp_dash,
+     tooltip="Strategy panel shows ONLY trade-state fields (Position, Active SL, T1, Open P/L). " +
+             "For Stage / RRG / Liquidity / ATR / Sized Qty context, load Commander ETF Dashboard v1.1 alongside.")
+tbl_pos     = input.string("top_left", "Position", group=grp_dash,
+     options=["top_left","top_right","bottom_left","bottom_right","middle_right"],
+     tooltip="Default top_left so it doesn't collide with the Dashboard panel (top_right by default).")
+tbl_size    = input.string("small", "Text Size", group=grp_dash, options=["tiny","small","normal"])
+
+grp_signals = "Plot Signals"
+show_signals = input.bool(true, "Show entry/exit markers + Pre-S2 warning", group=grp_signals)
+
+// =============================================================================
+// COLOUR PALETTE
+// =============================================================================
+c_bg_hdr  = color.new(color.blue,  20)
+c_bg_card = color.new(color.black, 25)
+c_bg_row  = color.new(#0d1117,     30)
+c_pos     = color.new(#00f260,  0)
+c_neg     = color.new(#ff4b4b,  0)
+c_warn    = color.new(#e3b341,  0)
+c_neut    = color.new(#8b949e,  0)
+c_lbl     = color.new(#5a8a9f,  0)
+c_val     = color.new(#e6edf3,  0)
+c_accent  = color.new(#58a6ff,  0)
+c_ma30w   = color.new(#e3b341, 10)
+c_ma200   = color.new(#58a6ff, 30)
+
+// Stage background tints (matches Unified Stocks v2.3)
+c_bg_s1   = color.new(color.yellow, 85)
+c_bg_s2   = color.new(color.green,  85)
+c_bg_s3   = color.new(color.orange, 85)
+c_bg_s4   = color.new(color.red,    85)
+
+// =============================================================================
+// CORE COMPUTATIONS  (mirror Python etf_screener.score_* and the dashboard)
+// =============================================================================
+// Dynamically resolve MA length and slope lookback based on chart timeframe (30W MA vs 200DMA proxy)
+int ma_len      = timeframe.isweekly ? 30 : 200
+int slope_len   = timeframe.isweekly ? 4  : 20
+sma200_v        = ta.sma(close, ma_len)
+
+ma30w_v  = request.security(syminfo.tickerid, "W", ta.sma(close, 30),
+     lookahead=barmerge.lookahead_off)
+
+ma200_slope_pct = na(sma200_v[slope_len]) ? 0.0 : (sma200_v - sma200_v[slope_len]) / sma200_v[slope_len] * 100.0
+
+// Weinstein Stage (matches Python _compute_stage on Daily, True Weinstein on Weekly)
+stage_int = na(sma200_v) ? 0 :
+     (close > sma200_v) and (ma200_slope_pct > stage2_slope_min)  ? 2 :
+     (close > sma200_v) and (ma200_slope_pct <= stage2_slope_min) ? 3 :
+     (close <= sma200_v) and (ma200_slope_pct > stage2_slope_min) ? 1 :
+     4
+
+stage1_base   = stage_int == 1
+stage2_up     = stage_int == 2
+stage3_top    = stage_int == 3
+stage4_down   = stage_int == 4
+
+// Mansfield RS
+bench_close = request.security(bench_sym, timeframe.period, close)
+rs_raw    = bench_close == 0 ? na : close / bench_close
+rs_sma    = ta.sma(rs_raw, mans_len)
+mansfield = (na(rs_sma) or rs_sma == 0) ? na : (rs_raw / rs_sma - 1) * 100.0
+rs_mom_4w = mansfield - mansfield[rs_mom_len]
+
+rrg_quad = (na(mansfield) or na(rs_mom_4w)) ? "n/a"      :
+     (mansfield >= 0 and rs_mom_4w >= 0) ? "LEADING"   :
+     (mansfield >= 0 and rs_mom_4w <  0) ? "WEAKENING" :
+     (mansfield <  0 and rs_mom_4w <  0) ? "LAGGING"   :
+     "IMPROVING"
+
+// Liquidity
+turnover_cr     = (close * volume) / 1e7
+turnover_avg_cr = ta.median(turnover_cr, liq_lookback)
+liq_score = na(turnover_avg_cr) ? 0 :
+     turnover_avg_cr >= 10.0 ? 10 :
+     turnover_avg_cr >= 5.0  ? 8  :
+     turnover_avg_cr >= 2.0  ? 6  :
+     turnover_avg_cr >= 1.0  ? 4  :
+     turnover_avg_cr >= 0.5  ? 2  : 0
+
+// ATR for sizing + stops
+atr_v       = ta.atr(atr_len)
+stop_dist   = atr_v * active_stop_mult
+atr_pct     = close > 0 ? (atr_v / close) * 100.0 : 0.0
+
+// ---- Chandelier Exit (NEW in v1.1) -- must be at global scope ---------------
+// CE = highest(close, ce_length) - ATR(ce_length) * ce_mult
+// This is a stateful series; it ratchets up but never down via the ce_trail var below.
+ce_raw = ta.highest(close, ce_length) - ta.atr(ce_length) * ce_mult
+
+// Helper: explicit + sign for positives (Pine's "+0.00" format is broken)
+sgn(float v) => (v >= 0 ? "+" : "") + str.tostring(v, "0.00")
+
+// =============================================================================
+// INSTRUMENT GUARD + SIGNAL LADDER
+// =============================================================================
+// Strict daily/weekly timeframe guard (prevents incorrect intraday backtests)
+if not (timeframe.isdaily or timeframe.isweekly)
+    runtime.error("Commander ETF Strategy must be loaded on the Daily ('D') or Weekly ('W') timeframe.")
+
+is_etf       = syminfo.type == "fund"
+instr_type   = str.upper(syminfo.type)
+guard_pass   = (not require_etf) or is_etf
+
+in_window    = time >= start_date and time <= end_date
+
+// Pre-Stage-2 early warning -- Stage 1 with positive RS momentum
+pre_s2_warn  = guard_pass and stage_int == 1 and rs_mom_4w > 0 and not na(mansfield)
+
+// Entry conditions (mirror dashboard signal ladder)
+cond_buy_leader = guard_pass and in_window and
+     stage_int == 2 and rrg_quad == "LEADING" and
+     liq_score >= liq_score_min and
+     turnover_avg_cr >= liq_min_cr
+
+cond_early_base = allow_early and guard_pass and in_window and
+     stage_int == 1 and rrg_quad == "IMPROVING" and
+     turnover_avg_cr >= liq_min_cr
+
+// Exit conditions
+cond_stage_exit  = (stage_int == 4) or (exit_on_stage3 and stage_int == 3)
+cond_rrg_exit    = exit_on_rrg_lag and rrg_quad == "LAGGING"
+cond_liq_exit    = turnover_avg_cr < liq_exit_cr
+
+// Composite signal label
+sig_lbl = not is_etf ? "NOT AN ETF" :
+     cond_liq_exit and strategy.position_size > 0      ? "LIQ-EXIT"        :
+     cond_stage_exit and strategy.position_size > 0    ? "STAGE-EXIT"      :
+     cond_rrg_exit and strategy.position_size > 0      ? "RRG-EXIT"        :
+     cond_buy_leader                                   ? "BUY-LEADER"      :
+     cond_early_base                                   ? "EARLY-BASE"      :
+     pre_s2_warn                                       ? "PRE-S2 WARN"     :
+     turnover_avg_cr < liq_min_cr                      ? "ILLIQUID"        :
+     stage_int == 4                                    ? "AVOID-DOWNTREND" :
+     stage_int == 2 and rrg_quad == "WEAKENING"        ? "HOLD-WATCH"      :
+     "NEUTRAL"
+
+sig_col = not is_etf                              ? c_neg  :
+     str.contains(sig_lbl, "BUY-LEADER")          ? c_pos  :
+     str.contains(sig_lbl, "EARLY-BASE")          ? c_warn :
+     str.contains(sig_lbl, "PRE-S2")              ? c_warn :
+     str.contains(sig_lbl, "EXIT")                ? c_neg  :
+     str.contains(sig_lbl, "HOLD-WATCH")          ? c_warn :
+     str.contains(sig_lbl, "AVOID")               ? c_neg  :
+     str.contains(sig_lbl, "ILLIQUID")            ? c_neg  :
+     c_neut
+
+
+// =============================================================================
+// POSITION SIZING  (volatility-adjusted)
+// =============================================================================
+// Risk-based qty: (equity * risk_pct) / (ATR * stop_mult)
+// Vol discount: shrinks qty when ATR% of price is above the target.
+// Smallcap/sector ETFs (ATR% ~ 2.0) get ~75% size; large-cap broad (~1.0) get 100%.
+vol_disc     = use_vol_disc and atr_pct > 0 ? math.min(active_target_pct / atr_pct, 1.0) : 1.0
+risk_inr     = strategy.equity * (risk_pct / 100.0)
+qty_full     = stop_dist > 0 ? math.floor((risk_inr / stop_dist) * vol_disc) : 0
+qty_early    = math.floor(qty_full * early_size)
+
+
+// =============================================================================
+// ENTRY / EXIT EXECUTION
+// =============================================================================
+// Persistent per-trade state (var = persist across bars, reset when flat)
+var float entry_px_snap    = na    // entry price at trade open
+var float init_risk_snap   = na    // initial stop distance (entry - initial SL)
+var float ce_trail         = na    // Chandelier Exit ratchet (only rises)
+var bool  t1_hit           = false // T1 partial taken -> SL moves to BE
+
+// Entry: BUY-LEADER (full size)
+if cond_buy_leader and strategy.position_size == 0
+    strategy.entry("BUY-LEADER", strategy.long, qty=qty_full, comment="Stage2+LEADING+Liquid")
+    alert(syminfo.ticker + " ETF Strategy: BUY-LEADER entry - Stage 2 + RRG LEADING + liquid.",
+         alert.freq_once_per_bar_close)
+
+// Entry: EARLY-BASE (half size)
+if cond_early_base and strategy.position_size == 0
+    strategy.entry("EARLY-BASE", strategy.long, qty=qty_early, comment="Stage1+IMPROVING")
+    alert(syminfo.ticker + " ETF Strategy: EARLY-BASE entry (half size) - Stage 1 + IMPROVING.",
+         alert.freq_once_per_bar_close)
+
+// Snapshot entry state on the first bar in position
+is_new_trade = strategy.position_size > 0 and strategy.position_size[1] == 0
+if is_new_trade
+    entry_px_snap  := strategy.position_avg_price
+    init_risk_snap := stop_dist
+    ce_trail       := close - stop_dist     // seed CE just below entry
+    t1_hit         := false
+
+// Reset state when flat
+if strategy.position_size == 0
+    entry_px_snap  := na
+    init_risk_snap := na
+    ce_trail       := na
+    t1_hit         := false
+
+// In-position management
+if strategy.position_size > 0
+    // ---- Chandelier Exit ratchet (NEW in v1.1) ------------------------------
+    // CE only rises -- never lowers. Once t1_hit, floor at breakeven.
+    if enable_ce
+        float ce_new = math.max(nz(ce_trail, ce_raw), ce_raw)
+        if t1_hit
+            ce_new := math.max(ce_new, entry_px_snap)   // breakeven floor after T1
+        ce_trail := ce_new
+
+    // ---- T1 partial profit + breakeven SL move (NEW in v1.1) ----------------
+    if enable_t1 and not t1_hit and not na(init_risk_snap)
+        float t1_target = entry_px_snap + (init_risk_snap * t1_r_mult)
+        if high >= t1_target
+            strategy.exit("T1", from_entry="BUY-LEADER", qty_percent=t1_qty_pct,
+                 limit=t1_target, comment="T1 Hit (" + str.tostring(t1_r_mult) + "R)")
+            strategy.exit("T1", from_entry="EARLY-BASE", qty_percent=t1_qty_pct,
+                 limit=t1_target, comment="T1 Hit (" + str.tostring(t1_r_mult) + "R)")
+            t1_hit := true
+
+    // ---- Active stop = CE trail (preferred) or fixed ATR stop ---------------
+    // FIXED: Fallback uses init_risk_snap (fixed points) instead of dynamic stop_dist
+    float active_sl = enable_ce ? ce_trail : (entry_px_snap - init_risk_snap)
+    if not na(active_sl)
+        strategy.exit("Trail", from_entry="BUY-LEADER", stop=active_sl)
+        strategy.exit("Trail", from_entry="EARLY-BASE", stop=active_sl)
+
+    // ---- Time-decay stop (NEW in v1.1) --------------------------------------
+    if enable_time and not t1_hit and not na(init_risk_snap)
+        int bars_open = bar_index - strategy.opentrades.entry_bar_index(strategy.opentrades - 1)
+        float unrealized_r = init_risk_snap > 0 ? (close - entry_px_snap) / init_risk_snap : 0.0
+        if bars_open >= time_stop_bars and unrealized_r < 0.5
+            strategy.close_all(comment="Time-Decay (<0.5R after " + str.tostring(time_stop_bars) + "b)")
+            alert(syminfo.ticker + " ETF Strategy: Time-decay stop - no 0.5R progress after " + str.tostring(time_stop_bars) + " bars.",
+                 alert.freq_once_per_bar_close)
+
+// Hard exits: structural breakdowns
+if strategy.position_size > 0 and cond_stage_exit
+    strategy.close_all(comment="Stage 4 (or 3)")
+    alert(syminfo.ticker + " ETF Strategy: Stage 4 entered - closing position.",
+         alert.freq_once_per_bar_close)
+if strategy.position_size > 0 and cond_rrg_exit
+    strategy.close_all(comment="RRG LAGGING")
+    alert(syminfo.ticker + " ETF Strategy: RRG flipped to LAGGING - closing position.",
+         alert.freq_once_per_bar_close)
+if strategy.position_size > 0 and cond_liq_exit
+    strategy.close_all(comment="Liquidity collapse")
+    alert(syminfo.ticker + " ETF Strategy: Liquidity collapsed below threshold - closing position.",
+         alert.freq_once_per_bar_close)
+
+
+// =============================================================================
+// PLOTS  (Stage bgcolor + MAs + CE trail + active SL + markers)
+// =============================================================================
+
+// Stage background tint -- ported from Unified Stocks v2.3
+color bg_col = na
+if show_bgcol
+    bg_col := stage2_up ? c_bg_s2 : stage4_down ? c_bg_s4 : stage1_base ? c_bg_s1 : stage3_top ? c_bg_s3 : na
+bgcolor(bg_col, title="Stage Background")
+
+plot(show_30w  ? ma30w_v  : na, "30W MA (weekly anchor)", color=c_ma30w, linewidth=2)
+plot(show_200d ? sma200_v : na, "200-day SMA",            color=c_ma200, linewidth=2)
+
+// Chandelier Exit -- fuchsia step-line; always visible when enabled
+plot(enable_ce ? ce_raw : na, "CE (raw)", color=color.new(color.fuchsia, 60), linewidth=1, style=plot.style_stepline)
+
+// Active SL -- red step-line; only visible when in a position
+float active_sl_plot = strategy.position_size > 0 ? (enable_ce ? ce_trail : (entry_px_snap - init_risk_snap)) : na
+plot(active_sl_plot, "Active SL", color=color.new(color.red, 0), linewidth=2, style=plot.style_linebr)
+
+// Entry / exit markers
+plotshape(show_signals and cond_buy_leader and strategy.position_size == 0,
+     "BUY-LEADER entry", shape.triangleup, location.belowbar,
+     color=c_pos, size=size.small, text="BL")
+plotshape(show_signals and cond_early_base and strategy.position_size == 0 and allow_early,
+     "EARLY-BASE entry", shape.triangleup, location.belowbar,
+     color=c_warn, size=size.tiny, text="EB")
+plotshape(show_signals and pre_s2_warn and strategy.position_size == 0,
+     "Pre-S2 Warning", shape.circle, location.abovebar,
+     color=color.new(color.yellow, 20), size=size.tiny, text="PRE-S2")
+plotshape(show_signals and strategy.position_size > 0 and (cond_stage_exit or cond_rrg_exit or cond_liq_exit),
+     "Hard exit", shape.triangledown, location.abovebar,
+     color=c_neg, size=size.small, text="X")
+
+
+// =============================================================================
+// MINI DASHBOARD
+// =============================================================================
+var table mdash = na
+
+txt_size = tbl_size == "tiny"   ? size.tiny   :
+     tbl_size == "normal" ? size.normal :
+     size.small
+
+tbl_position = tbl_pos == "top_left"     ? position.top_left     :
+     tbl_pos == "bottom_left"  ? position.bottom_left  :
+     tbl_pos == "bottom_right" ? position.bottom_right :
+     tbl_pos == "middle_right" ? position.middle_right :
+     position.top_right
+
+// Strategy panel shows ONLY fields that the Dashboard does NOT cover.
+// Stage / RRG / Mansfield / Liquidity / ATR / Sized-Qty all live in the Dashboard.
+// This panel is dedicated to live trade state.
+if barstate.islast and show_table
+    if na(mdash)
+        mdash := table.new(tbl_position, 2, 6,
+             bgcolor=c_bg_card, border_width=1,
+             frame_color=color.new(color.gray, 70), frame_width=1)
+
+    _hdr_bg    = is_etf ? c_bg_hdr : color.new(color.red, 20)
+    _hdr_left  = is_etf ? "ETFS v1.1" : "WRONG INSTRUMENT"
+    _hdr_right = is_etf ? syminfo.ticker : syminfo.ticker + " (" + instr_type + ")"
+    _pos_size  = strategy.position_size
+    _pos_txt   = _pos_size > 0 ? str.tostring(_pos_size, "0") + " sh @ " + str.tostring(strategy.position_avg_price, "0.00") :
+                 _pos_size < 0 ? "SHORT " + str.tostring(-_pos_size, "0") : "FLAT"
+    _pos_col   = _pos_size > 0 ? c_pos : _pos_size < 0 ? c_neg : c_neut
+    _sl_txt    = strategy.position_size > 0 and not na(active_sl_plot) ?
+                 str.tostring(active_sl_plot, "0.00") + " (" + (t1_hit ? "BE+CE" : "CE") + ")" : "-"
+    _sl_col    = strategy.position_size > 0 ? (t1_hit ? c_pos : c_warn) : c_neut
+    _pnl_txt   = _pos_size != 0 ? sgn(strategy.openprofit) + " INR" : "-"
+    _pnl_col   = strategy.openprofit > 0 ? c_pos : strategy.openprofit < 0 ? c_neg : c_neut
+
+    table.cell(mdash, 0, 0, _hdr_left,  bgcolor=_hdr_bg, text_color=color.white, text_size=txt_size)
+    table.cell(mdash, 1, 0, _hdr_right, bgcolor=_hdr_bg, text_color=color.white, text_size=txt_size)
+    table.cell(mdash, 0, 1, "SIGNAL",   text_color=c_lbl, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(mdash, 1, 1, sig_lbl,    text_color=sig_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(mdash, 0, 2, "Position", text_color=c_lbl, text_size=txt_size)
+    table.cell(mdash, 1, 2, _pos_txt,   text_color=_pos_col, text_size=txt_size)
+    table.cell(mdash, 0, 3, "Active SL", text_color=c_lbl, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(mdash, 1, 3, _sl_txt,    text_color=_sl_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(mdash, 0, 4, "T1 Hit?",  text_color=c_lbl, text_size=txt_size)
+    table.cell(mdash, 1, 4, t1_hit ? "YES (BE locked)" : "NO", text_color=t1_hit ? c_pos : c_neut, text_size=txt_size)
+    table.cell(mdash, 0, 5, "Open P/L", text_color=c_lbl, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(mdash, 1, 5, _pnl_txt,   text_color=_pnl_col, text_size=txt_size, bgcolor=c_bg_row)
+
+
+// =============================================================================
+// SCREENER COLUMNS (data window pins)
+// =============================================================================
+plot(stage_int,        title="Stage 1-4",         color=color.new(color.white, 100), display=display.data_window)
+plot(mansfield,        title="Mansfield RS",      color=color.new(color.white, 100), display=display.data_window)
+plot(rs_mom_4w,        title="RS Momentum 4W",    color=color.new(color.white, 100), display=display.data_window)
+plot(liq_score,        title="Liquidity Score",   color=color.new(color.white, 100), display=display.data_window)
+plot(turnover_avg_cr,  title="Turnover RsCr/day", color=color.new(color.white, 100), display=display.data_window)
+plot(atr_v,            title="ATR(14)",           color=color.new(color.white, 100), display=display.data_window)
+plot(atr_pct,          title="ATR pct of price",  color=color.new(color.white, 100), display=display.data_window)
+plot(vol_disc,         title="Vol-disc factor",   color=color.new(color.white, 100), display=display.data_window)
+plot(qty_full,         title="Sized Qty (full)",  color=color.new(color.white, 100), display=display.data_window)
+plot(is_etf ? 1 : 0,   title="Is ETF (1/0)",      color=color.new(color.white, 100), display=display.data_window)

@@ -753,6 +753,26 @@ d_markers = input.bool(true, "Chart markers (GO / PA / triggers)", group=grpDisp
 d_pat     = input.bool(true, "Patterns (flag / geometry / box)", group=grpDisp, tooltip="The flag detector, the pivot-based geometry read (triangle / wedge / channel / range) and your manual consolidation box. OFF also drops the flag from the confluence score.")
 d_panel   = input.bool(true, "Panel",                       group=grpDisp)
 
+// ── CANDLE HIGHLIGHTS (24-Jul): make the PA candle and the B (bar-quality) state
+// spottable at a glance, instead of reading them off the panel. Two DIFFERENT visual
+// channels so both can be read on the SAME candle at once:
+//   PA  → a coloured BACKGROUND band behind the bar (purple, stronger Σ = more opaque)
+//   B   → the CANDLE BODY repainted (bright green = clean bar · bright red = vetoed)
+// Purely visual: neither changes a signal, a gate or the panel.
+grpHL = "Highlights — spot PA / Bar (B) on the chart"
+hl_pa     = input.bool(true, "Highlight PA-pattern candles (background band)", group=grpHL, tooltip="Shades the background of any candle where the PA battery fired (the active Bull/Recovery set). Opacity scales with Σ — a strong multi-pattern bar is visibly darker than a single weak one.")
+hl_pa_min = input.int(2, "  · minimum Σ to highlight", group=grpHL, minval=1, maxval=12, tooltip="Only shade candles whose PA Σ reaches this. Raise it to hide the low-conviction single-pattern bars and leave only the meaningful ones on the chart.")
+hl_bar    = input.bool(true, "Highlight Bar-quality (B) candle (repaint body)", group=grpHL, tooltip="Repaints the candle body by the B gate: BRIGHT GREEN = closed strong (green, or red-but-upper-half — a shakeout that recovered), BRIGHT RED = closed in the lower half (weak / distribution) and therefore VETOED for entry. Deliberately brighter than the chart's default candle colours so it reads as a marker, not as a normal candle.")
+hl_bar_pa = input.bool(true, "  · only on PA candles", group=grpHL, tooltip="ON (default) = only repaint candles where a PA pattern fired — the bars where B actually decides anything. OFF = repaint EVERY bar, which is noisy (B passes on most bars) but shows the full run of strong/weak closes.")
+hl_hist   = input.bool(false, "Highlight full history (else last 30 bars)", group=grpHL, tooltip="OFF (default) = highlights only on the recent 30 bars, matching the GO/PA marker convention — keeps old history clean. ON = shade/repaint across all loaded bars, for scanning past setups.")
+hl_pa_strong = input.int(5, "  · Σ for the escalated PA★ marker", group=grpHL, minval=2, maxval=15, tooltip="At or above this Σ the PA marker escalates from the small diamond to a bright labelled 'PA★ Σn <lead pattern>' — the high-conviction bars name themselves on the chart.")
+// THE PATTERN ITSELF — outline the actual candles that form it (24-Jul, Jay: "I want
+// to see the real pattern, not just the label"). Each pattern has a known bar-span
+// (Engulfing = 2 candles, 3-Bar Reversal = 3, NR7 = 7, VCP = the contraction, …), so
+// the box is drawn around exactly those bars, high-to-low, and named.
+hl_pat_box  = input.bool(true, "Outline the candles that FORM the pattern", group=grpHL, tooltip="Draws a box around the actual candles making up the fired pattern — 2 bars for an Engulfing, 3 for a 3-Bar Reversal, 7 for an NR7, the contraction for a VCP — labelled with the pattern's name. This is the pattern itself on the chart, not a marker pointing at it.\n\nWhen several patterns fire on one bar the HIGHEST-WEIGHT one is drawn (the same weighting that builds Σ), with the extra count appended, e.g. 'VCP-BO +2 more'.")
+hl_pat_keep = input.int(6, "  · how many recent outlines to keep", group=grpHL, minval=1, maxval=40, tooltip="Older pattern boxes are deleted as new ones form, so the chart never fills up. Raise it to study a longer run of past patterns.")
+
 grpAV = "Anchored VWAPs"
 show_low  = input.bool(true, "AVWAP · Stage-1 Low",  group=grpAV, inline="l")
 show_bo   = input.bool(true, "AVWAP · Breakout",     group=grpAV, inline="b")
@@ -780,12 +800,13 @@ auto_require_below_200 = input.bool(true, "Auto: also require price BELOW 200-DM
 grpPZ = "Pinch & entry zone"
 pinch_pct = input.float(2.5, "Pinch tolerance (% spread across AVWAPs)", minval=0.5, step=0.5, group=grpPZ)
 plan_slbuf_pct = input.float(0.5, "Plan: SL buffer below the structural level (%)", minval=0.1, maxval=2.0, step=0.1, group=grpPZ, tooltip="The Plan places the SL this far below the structural level (zone distal / swing low). Dedicated input: it was previously borrowed from the AVWAP touch tolerance, so widening that band silently widened every stop.")
-entry_method = input.string("Buy-stop (confirmation)", "Plan: entry method", options=["Buy-stop (confirmation)", "Retest (pullback limit)"], group=grpPZ, tooltip="#retest (Jay, 23-Jul, A/B): how the Plan tells you to ENTER once GO fires.\n• Buy-stop (confirmation) [DEFAULT, house doctrine] — arm a buy-STOP above the confirmed trigger bar's HIGH; you only fill if price continues UP through the high. Avoids the false-breakout trap (no resting limit at a level that keeps falling). Higher entry.\n• Retest (pullback limit) — arm a buy-LIMIT at the confirmed trigger bar's CLOSE; you fill only if price pulls BACK to value. Lower entry / better R. Backtest (replay.py) found retest beat buy-stop on matched alpha across every family (-0.02→+0.38%), BUT the sim cannot model the false-breakout whipsaw the buy-stop avoids — this toggle is to TRIAL retest live, not a directive. Trigger is unchanged (a real GO still has to fire first); only the fill instruction changes.")
+entry_method = input.string("Retest (pullback limit)", "Plan: entry method", options=["Buy-stop (confirmation)", "Retest (pullback limit)"], group=grpPZ, tooltip="#retest (Jay, 24-Jul): how the Plan tells you to ENTER once GO fires. DEFAULT flipped to Retest so the live plan MATCHES the backtest (replay.py defaults to retest) — Jay's call: trade the entry the edge numbers assume.\n• Retest (pullback limit) [DEFAULT — matches the backtest] — arm a buy-LIMIT at the confirmed trigger bar's CLOSE; you fill only if price pulls BACK to value. Lower entry / better R. Backtest found retest beat buy-stop on matched alpha across every family (-0.02→+0.38%). ⚠ CAVEAT: the sim cannot model the false-breakout whipsaw the buy-stop avoids, and retest re-approaches the 'enter at the level without confirmation' habit buy-stop was built to fix — so the backtested edge may be optimistic live.\n• Buy-stop (confirmation) [house doctrine] — arm a buy-STOP above the confirmed trigger bar's HIGH; you only fill if price continues UP through the high. Avoids the false-breakout trap. Higher entry. Trigger is unchanged (a real GO still has to fire first); only the fill instruction changes.")
 bool use_retest = entry_method == "Retest (pullback limit)"
 tol_pct   = input.float(1.0, "Support-touch tolerance (% around AVWAP)", minval=0.25, step=0.25, group=grpPZ)
 require_support = input.bool(true, "Require Price in Support Zone (OB/FVG/Pivot)", group=grpPZ, tooltip="If ON, the GO entry trigger will only fire if the close is inside or within 1.5% of an active Order Block, Fair Value Gap, Pivot Support (Daily OR Weekly) or AVWAP. This automates Steps 1 & 2 of the Guided Execution checklist.")
 ext_atr_max = input.float(4.0, "Over-extended above EMA20 (× ATR)", group=grpPZ, minval=1.0, maxval=10.0, step=0.5, tooltip="#3 (19-Jul): price further than this many chart-ATRs ABOVE the daily EMA20 is CHASING, even at a valid location — some GOs were firing well extended from value. Does NOT gate the GO (anti-Holy-Grail); it feeds the VERDICT: a GO while extended carries a chase-risk caveat / downgrades quality, and the extension prints in the metrics digest. Matches the GM's Step-4 EMA20 ceiling (4 ATR).")
 ath_prox_pct = input.float(3.0, "Blue-sky breakout: within % of 52W high", group=grpPZ, minval=0.5, maxval=10.0, step=0.5, tooltip="#ATH (Jay, 19-Jul): a Stage-2 leader (above a rising 30WMA + 200DMA) consolidating within this % of its 52-week high is a BREAKOUT PIVOT, not distribution. The 'supply zone' there IS the prior high — meant to BREAK, not reject. When price is in that supply band, the verdict reframes 'SKIP · no room' into 'BREAKOUT PIVOT' (arm the buy-stop above the band ceiling; blue sky above), instead of applying range logic to a momentum setup. Only fires in a Stage-2 uptrend — a Stage 3/4 name at a lower high stays a real SKIP.")
+momentum_clear = input.bool(true, "Stage-2 momentum: near overhead is a level to CLEAR (not a no-room SKIP)", group=grpPZ, tooltip="THE 75-MIN ROOM FIX (Jay, 23-Jul). On the trading TF a higher-timeframe level (weekly R-line, monthly SZ, HTF pivot) is ALWAYS overhead within a thin R — so a 'room = R:R to the nearest overhead' test kills EVERY intraday trigger. That is the wrong denominator for a momentum entry: the nearby overhead is a level to BREAK toward the real (measured-move / swing-positional R) target, not the target itself. When ON, a Stage-2 leader (above 30WMA+200DMA) with a live GO but a nearby overhead reframes 'SKIP · no room' → 'CLEAR TO BREAK' (arm the buy-stop above the level; real target is the R-objective). Generalises the ATH blue-sky rule to any Stage-2 uptrend. Stage 3/4 into overhead, or price INSIDE a supply band (non-ATH), still SKIPs. OFF = strict room veto (pre-fix).")
 show_zones = input.bool(true, "Draw OB / FVG / Pivot zones (Daily + Weekly)", group=grpPZ, tooltip="Draws the auto support zones: Daily = dashed thin, Weekly = solid thick (bigger structural demand). Trading TF stays 75/125-min.")
 
 grpIN = "Intraday trigger (apply on 75/125-min)"
@@ -800,6 +821,7 @@ grpV = "Display"
 use_closed_candle = input.bool(true, "Signals from last CLOSED candle (no intraday repaint)", group=grpV, tooltip="ON (default): the TRIGGER / GO / RV / STATUS and the on-chart GO markers are read from the LAST CLOSED chart candle, so a shortlisted signal does NOT drop the moment a new bar opens (the forming bar has little volume / an undeveloped pattern). The signal only updates when the current bar CLOSES. OFF: live forming-bar values (repaint intraday).")
 show_panel = input.bool(true, "Entry panel", group=grpV)
 panel_pos  = input.string("bottom_right", "Panel position", options=["top_right","top_left","bottom_right","bottom_left"], group=grpV)
+panel_size = input.string("small", "Panel size", options=["tiny","small","normal","large","auto"], group=grpV, tooltip="Controls the font and cell size for the Entry Trigger panel table.")
 c_low  = input.color(#42a5f5, "Low",  group=grpV, inline="c")
 c_bo   = input.color(#ab47bc, "BO",   group=grpV, inline="c")
 c_gap  = input.color(#ff9800, "Gap",  group=grpV, inline="c")
@@ -1079,6 +1101,8 @@ drawGeomLines = input.bool(true, "Draw the geometry lines (not just name them)",
 geo_pv      = input.int(5,    "Geometry pivot length",           group=grpPAT, minval=2, maxval=20)
 geo_flat    = input.float(0.3,"Flat tolerance (× ATR)",          group=grpPAT, minval=0.05, step=0.05, tooltip="Two consecutive pivots within this distance count as FLAT (equal) — which is what separates an ascending triangle (flat highs) from a symmetrical one (falling highs).")
 geo_maxage  = input.int(120, "Geometry max pivot age (bars)",     group=grpPAT, minval=20, maxval=500, tooltip="The 4 pivots feeding the geometry read must ALL be younger than this. Without it the last two highs could be six months older than the last two lows and still be confidently classified as a triangle.")
+geo_maxfit  = input.bool(true, "Fit the line to MAX pivots (not just the last two)", group=grpPAT, tooltip="#59 (23-Jul): the geometry line now connects the pivot pair whose line THREADS the most recent pivots within the tolerance below, anchored on the earliest/latest threaded pivot — so a clean 3+-pivot channel is drawn instead of just linking the two most-recent extreme pivots. OFF = last-two-pivot read (pre-fix).")
+geo_thread  = input.float(0.5, "Fit tolerance (× ATR)",           group=grpPAT, minval=0.1, step=0.05, tooltip="A pivot counts as ON the fitted line when it sits within this many ATR of it. Larger = more pivots thread one line (looser fit); smaller = stricter.")
 
 // #47: confirm=true forced a click-to-place on EVERY add and cancelled the whole
 // indicator on Esc ("it forces me to draw a Trendline first, else it closes"). Pine
@@ -1092,8 +1116,18 @@ box_t2 = input.time(0,    "Box end time",    group=grpBOX)
 box_hi = input.price(0.0, "Box top",         group=grpBOX)
 box_lo = input.price(0.0, "Box bottom",      group=grpBOX)
 
-grpTL = "Trendlines — MANUAL  (enter coords in settings; price 0 = off)"
-tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="There is no auto-fit. See the note in the source: nine rewrites of the Chart Markup fitter never converged, because the right anchors are chart-specific, not a global setting.\n\nAnchors are numeric (0 = off) — enter time/price in this dialog. confirm/click-to-place was removed because it forced a draw on every add and closed the indicator on Esc.")
+grpTL = "Trendlines — AUTO + manual"
+tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="Master enable for the MANUAL numeric anchors below. Auto-detect (next input) does not need these — it draws from pivots. Manual anchors are the exact-placement fallback: turn Auto OFF to use them.\n\nAnchors are numeric (0 = off) — enter time/price in this dialog. confirm/click-to-place was removed because it forced a draw on every add and closed the indicator on Esc.")
+// ── AUTO trendlines (Path A, 24-Jul): fit + adjust WITHOUT typing coordinates. Reuses
+// the geometry engine's f_bestLine (no 10th from-scratch fitter — the 9 failed rewrites
+// were all attempts at a GLOBAL auto-fit; this fits a sensible line and lets you nudge it).
+tl_auto      = input.bool(false, "Auto-detect trendlines (envelope fit) — OFF by default", group=grpTL, tooltip="OFF (24-Jul, Jay's call): auto-detection is parked — draw trendlines by hand instead. ON revives the envelope fit (support = the boundary no pivot low pierces; resistance the mirror) and feeds it to the picker/plan/confluence. Kept for later; the manual path below is the live one.")
+tl_thread    = input.float(0.5, "Auto: touch/pierce tolerance (× ATR)", group=grpTL, minval=0.1, maxval=3.0, step=0.05, tooltip="Two roles: how close a pivot must sit to count as a TOUCH, and how far a pivot may poke THROUGH the line before it's disqualified (a support line no low may close below). Larger = looser (more touches, tolerates small pierces); smaller = stricter.")
+tl_pool      = input.int(16, "Auto: pivots pool (how far back a line can anchor)", group=grpTL, minval=4, maxval=40, tooltip="How many recent pivots the envelope fit searches. A trendline anchors on the OLDEST pivot in this pool that the line still respects — so a bigger pool lets the line reach a major swing low/high further back (your long rising channel). Too big and it may reach stale structure; too small and it can't span the trend. Cost grows with the pool.")
+tls_anch_off = input.int(0, "Auto Support: re-anchor (skip N recent lows)", group=grpTL, minval=0, maxval=5, tooltip="Adjust WITHOUT coordinates: drop the N most-recent pivot LOWS before fitting, so the line re-anchors on older structure. 0 = use all recent lows (the default auto pick). Bump to 1-2 if the freshest low skews the line you actually want.")
+tlr_anch_off = input.int(0, "Auto Resistance: re-anchor (skip N recent highs)", group=grpTL, minval=0, maxval=5, tooltip="Same as the support re-anchor, for the resistance line (pivot HIGHS).")
+tls_nudge    = input.float(0.0, "Auto Support: nudge (× ATR, + up / − down)", group=grpTL, minval=-5.0, maxval=5.0, step=0.1, tooltip="Shift the whole support line up (+) or down (−) by this many ATR WITHOUT changing its slope — the numeric stand-in for dragging it a touch. 0 = sit on the fit.")
+tlr_nudge    = input.float(0.0, "Auto Resistance: nudge (× ATR, + up / − down)", group=grpTL, minval=-5.0, maxval=5.0, step=0.1, tooltip="Shift the whole resistance line up/down by this many ATR without changing its slope.")
 tls_tf = input.string("Daily", "Support TL — timeframe", options=["Monthly", "Weekly", "Daily"], group=grpTL, tooltip="The TF a line is drawn on IS its weight. Shows on this timeframe and every LOWER one, never upward — a Daily trendline never renders on a Weekly chart.")
 tls_t1 = input.time(0,    "Support TL — anchor 1 (swing low) time",   group=grpTL)
 tls_p1 = input.price(0.0, "Support TL — anchor 1 price",              group=grpTL)
@@ -1104,6 +1138,13 @@ tlr_t1 = input.time(0,    "Resistance TL — anchor 1 (swing high) time", group=
 tlr_p1 = input.price(0.0, "Resistance TL — anchor 1 price",             group=grpTL)
 tlr_t2 = input.time(0,    "Resistance TL — anchor 2 (lower high) time", group=grpTL)
 tlr_p2 = input.price(0.0, "Resistance TL — anchor 2 price",             group=grpTL)
+// ── Hand-drawn trendlines SENSED from the "S4 Trendline Tool" companion (Option 2, 24-Jul).
+// S4 never prompts: the companion carries the click-to-place, S4 just reads its value. Each
+// sensed line feeds the picker/plan/confluence and self-sorts to support/resistance by the
+// side of price it sits on. Turn ON only AFTER adding the companion and wiring the source(s).
+tl_ext_on   = input.bool(false, "Sense hand-drawn trendlines (from 'S4 Trendline Tool')", group=grpTL, tooltip="Add the 'S4 Trendline Tool' companion to the chart, place a line on it, then point 'External trendline 1' below at its 'Trendline Value' plot and turn this ON. Add a second companion instance for a second line. S4 shows no placement prompt of its own.")
+tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
+tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
 
 grpZP = "Zones — Structural (Pivot-Based)"
 useStructural   = input.bool(true,  "Draw Pivot (Structural) zones",  group=grpZP, tooltip="Master on/off for ALL pivot (PvH/PvL) zones — the weaker, dashed shelves that come from a bare swing high/low with no leg-base-leg. Uncheck to hide EVERY pivot zone on all timeframes (it stops their creation, so a recompile leaves none on the chart).\n\nUSE THIS TO ISOLATE: turn pivot zones OFF to see ONLY the pattern demand/supply zones (RBR/DBR/RBD/DBD). If a pattern DZ/SZ still doesn't mark with pivots off, the issue is in pattern detection (leg/base/width gates), not a pivot zone hiding or overriding it. Turn the diagnostics row on and read natC d/f/m/L + struct D/C/L alongside.")
@@ -2391,12 +2432,19 @@ f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool is
         // Role alone cannot tell you this — it is derived from price and has forgotten
         // where the level came from. That is why the origin is tracked at detection.
         bool isFlip = (not isManual) and ((originHigh and isSup) or ((not originHigh) and (not isSup)))
+        // RESET-ON-FLIP (Jay, 23-Jul): a flipped level is FRESH in its new role — an old
+        // resistance touched 4× has 0 touches AS SUPPORT — so its displayed count/grade
+        // resets. This aligns the LABEL with the line, which already draws a flip SOLID
+        // (fresh). Origin is immutable, so a flip reads "fresh · S→R"; the count re-climbs
+        // only if the level flips back. (The cumulative touch history still lives in the
+        // level object; only the DISPLAYED, role-relative count resets.)
+        int    _effTests = (isFlip and not isManual) ? sr_min_touch : tests
         // DASHED = tested and NOT flipped. A flipped level is fresh IN ITS NEW ROLE —
         // an old resistance has never been tested as support — so it draws solid.
         // MTTWR falls out of this for free (tests >= 4 > min_touch → tested → dashed).
-        bool tested = (not isManual) and tests > sr_min_touch
+        bool tested = (not isManual) and _effTests > sr_min_touch
         bool dash   = tested and not isFlip
-        string g    = isManual ? "manual" : f_lvGrade(tests)
+        string g    = isManual ? "manual" : f_lvGrade(_effTests)
         string ftag = isFlip ? (isSup ? " · R→S" : " · S→R") : ""
         // RAY FROM THE FIRST TOUCH — not from a blind 300-bar back-extension, which
         // drew the level flat through history where it was not yet in play.
@@ -3129,6 +3177,118 @@ float _poleLo   = ta.lowest(low, flag_pole)[flag_cons]
 bool _bearProp  = _bearPole and (_flagHi - _poleLo) <= math.abs(_poleMove) * flag_retr
 bool bearFlag   = show_flag and d_pat and _tight and _bearPole and _bearDrift and _volDry and _bearProp
 
+// #59 MAX-THREADING FIT (Jay, 23-Jul). The last-two-pivot read connects the recent
+// EXTREME pivots, not the MOST pivots — so a clean 3-pivot channel line was missed.
+// Given a set of same-side pivots (price py, time px), pick the pair whose line threads
+// the most members within `tol`, then anchor the line on the earliest/latest threaded
+// member (points placed ON the fit). Bounded O(n^2) over <=6 pivots. Returns
+// [xEarly, yEarly, xLate, yLate] (all na when < 2 pivots).
+f_bestLine(array<float> py, array<int> px, float tol) =>
+    int _n = array.size(py)
+    int   _xE = na
+    float _yE = na
+    int   _xL = na
+    float _yL = na
+    if _n >= 2
+        int _bestCount = -1
+        int _bestA = 0
+        int _bestB = 1
+        for _a = 0 to _n - 2
+            for _b = _a + 1 to _n - 1
+                int   _xa = array.get(px, _a)
+                float _ya = array.get(py, _a)
+                int   _dx = array.get(px, _b) - _xa
+                if _dx != 0
+                    float _slope = (array.get(py, _b) - _ya) / _dx
+                    int _cnt = 0
+                    for _k = 0 to _n - 1
+                        float _pred = _ya + _slope * (array.get(px, _k) - _xa)
+                        if math.abs(array.get(py, _k) - _pred) <= tol
+                            _cnt += 1
+                    if _cnt > _bestCount
+                        _bestCount := _cnt
+                        _bestA := _a
+                        _bestB := _b
+        int   _xa2 = array.get(px, _bestA)
+        float _ya2 = array.get(py, _bestA)
+        int   _dx2 = array.get(px, _bestB) - array.get(px, _bestA)
+        float _slp = _dx2 != 0 ? (array.get(py, _bestB) - _ya2) / _dx2 : 0.0
+        int   _minx =  2147483647
+        int   _maxx = -2147483647
+        for _k = 0 to _n - 1
+            int   _xk   = array.get(px, _k)
+            float _pred = _ya2 + _slp * (_xk - _xa2)
+            if math.abs(array.get(py, _k) - _pred) <= tol
+                if _xk < _minx
+                    _minx := _xk
+                    _yE   := _pred
+                if _xk > _maxx
+                    _maxx := _xk
+                    _yL   := _pred
+        _xE := _minx
+        _xL := _maxx
+    [_xE, _yE, _xL, _yL]
+
+// Auto-trendline = the ENVELOPE line, drawn like a trader (24-Jul, Jay's review: the old
+// max-threading fit force-fit FLAT/FAR lines against the trend). A support line is the
+// BOUNDARY that no pivot low pierces (every low sits on/above it, within tol), touching
+// the MOST lows; resistance is the mirror over the highs. Because the boundary is pinned
+// by the extreme pivot, it naturally anchors on a major swing and RISES with the trend.
+// Then: require a RECENT touch (the line is current) and that the latest close hasn't
+// BROKEN it. `off` skips the N most-recent pivots; `nudgePx` shifts it parallel.
+// Returns [live, anchorX(bar_index), anchorY, nowPrice]; live=false ⇒ no valid line
+// (so we never force a side that has none).
+f_autoTL(array<float> py, array<int> px, bool isSupport, int off, float tolPx, float nudgePx, int maxAge) =>
+    int   _n = array.size(py) - off
+    bool  _live = false
+    int   _ax = na
+    float _ay = na
+    float _now = na
+    if _n >= 2
+        int _bT = -1                       // best touch count · _bA/_bB = anchor pivot indices
+        int _bA = -1
+        int _bB = -1
+        int _bSpan = -1
+        for _a = 0 to _n - 2
+            int   _xa = array.get(px, _a)
+            float _ya = array.get(py, _a)
+            for _b = _a + 1 to _n - 1
+                int _xb = array.get(px, _b)
+                int _dx = _xb - _xa
+                // the line's LATER anchor must be recent, so the line is current
+                if _dx > 0 and bar_index - _xb <= maxAge
+                    float _slope = (array.get(py, _b) - _ya) / float(_dx)
+                    bool  _valid = true
+                    int   _touch = 0
+                    for _j = 0 to _n - 1
+                        float _pred = _ya + _slope * float(array.get(px, _j) - _xa)
+                        float _d = array.get(py, _j) - _pred
+                        if isSupport and _d < -tolPx
+                            _valid := false       // a low BELOW the support line ⇒ not an envelope
+                        if (not isSupport) and _d > tolPx
+                            _valid := false       // a high ABOVE the resistance line ⇒ not an envelope
+                        if math.abs(_d) <= tolPx
+                            _touch += 1
+                    if _valid and _touch >= 2
+                        int _span = _xb - _xa
+                        if _touch > _bT or (_touch == _bT and _span > _bSpan)
+                            _bT := _touch
+                            _bA := _a
+                            _bB := _b
+                            _bSpan := _span
+        if _bA >= 0
+            int   _xa2 = array.get(px, _bA)
+            float _ya2 = array.get(py, _bA)
+            float _slp = (array.get(py, _bB) - _ya2) / float(array.get(px, _bB) - _xa2)
+            float _proj = _ya2 + _slp * float(bar_index - _xa2) + nudgePx
+            bool  _broken = isSupport ? (close < _proj - tolPx) : (close > _proj + tolPx)
+            if not _broken
+                _ax   := _xa2               // draw from the OLD (major-swing) anchor to now
+                _ay   := _ya2 + nudgePx
+                _now  := _proj
+                _live := true
+    [_live, _ax, _ay, _now]
+
 // --- GEOMETRY, from PIVOT SEQUENCES. Two recent pivot highs + two pivot lows tell
 // you the shape directly — no line-fitting, so none of the "which two pivots"
 // ambiguity that made the auto-fitter unconvergeable. This also yields the
@@ -3151,6 +3311,25 @@ if not na(_gpl)
     if array.size(gply) > 6
         array.shift(gply)
         array.shift(gpxl)
+// Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
+// a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
+// pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
+var array<float> tlhy = array.new<float>()
+var array<int>   tlhx = array.new<int>()
+var array<float> tlly = array.new<float>()
+var array<int>   tllx = array.new<int>()
+if not na(_gph)
+    array.push(tlhy, _gph)
+    array.push(tlhx, bar_index - geo_pv)
+    if array.size(tlhy) > tl_pool
+        array.shift(tlhy)
+        array.shift(tlhx)
+if not na(_gpl)
+    array.push(tlly, _gpl)
+    array.push(tllx, bar_index - geo_pv)
+    if array.size(tlly) > tl_pool
+        array.shift(tlly)
+        array.shift(tllx)
 string geom = "—"
 // #59: geometry connector lines — cleared each bar, redrawn below only when a fresh
 // shape is classified, so the named shape is drawn (not phantom) and never goes stale.
@@ -3166,10 +3345,37 @@ _geoLo := na
 _geoBox := na
 bool _geoFresh = array.size(gpxh) >= 2 and array.size(gpxl) >= 2 and bar_index - math.min(array.get(gpxh, array.size(gpxh) - 2), array.get(gpxl, array.size(gpxl) - 2)) <= geo_maxage
 if show_geom and d_pat and _geoFresh and array.size(gphy) >= 2 and array.size(gply) >= 2
-    float _h1 = array.get(gphy, array.size(gphy) - 1)   // most recent high
-    float _h2 = array.get(gphy, array.size(gphy) - 2)
-    float _l1 = array.get(gply, array.size(gply) - 1)   // most recent low
-    float _l2 = array.get(gply, array.size(gply) - 2)
+    // Anchors ordered early(_2) → late(_1). geo_maxfit → the max-threading fit;
+    // else the last two pivots (pre-fix). Times computed here too so the drawing
+    // block reuses them (no re-fetch).
+    float _h1 = na
+    float _h2 = na
+    float _l1 = na
+    float _l2 = na
+    int   _xh1 = na
+    int   _xh2 = na
+    int   _xl1 = na
+    int   _xl2 = na
+    if geo_maxfit
+        [_xhE, _yhE, _xhL, _yhL] = f_bestLine(gphy, gpxh, geo_thread * chart_atr)
+        [_xlE, _ylE, _xlL, _ylL] = f_bestLine(gply, gpxl, geo_thread * chart_atr)
+        _h2 := _yhE
+        _h1 := _yhL
+        _xh2 := _xhE
+        _xh1 := _xhL
+        _l2 := _ylE
+        _l1 := _ylL
+        _xl2 := _xlE
+        _xl1 := _xlL
+    else
+        _h1 := array.get(gphy, array.size(gphy) - 1)
+        _h2 := array.get(gphy, array.size(gphy) - 2)
+        _l1 := array.get(gply, array.size(gply) - 1)
+        _l2 := array.get(gply, array.size(gply) - 2)
+        _xh1 := array.get(gpxh, array.size(gpxh) - 1)
+        _xh2 := array.get(gpxh, array.size(gpxh) - 2)
+        _xl1 := array.get(gpxl, array.size(gpxl) - 1)
+        _xl2 := array.get(gpxl, array.size(gpxl) - 2)
     float _ft = geo_flat * chart_atr
     bool _hFlat = math.abs(_h1 - _h2) <= _ft
     bool _lFlat = math.abs(_l1 - _l2) <= _ft
@@ -3201,11 +3407,7 @@ if show_geom and d_pat and _geoFresh and array.size(gphy) >= 2 and array.size(gp
     // #59/#31: draw the classification. A Range / rectangle → a BOX (flat top/bottom at
     // the mean of the two highs / two lows, spanning from the earliest pivot, extended
     // right). Every other shape → the two pivot connectors that produced it.
-    if drawGeomLines and geom != "—"
-        int _xh1 = array.get(gpxh, array.size(gpxh) - 1)
-        int _xh2 = array.get(gpxh, array.size(gpxh) - 2)
-        int _xl1 = array.get(gpxl, array.size(gpxl) - 1)
-        int _xl2 = array.get(gpxl, array.size(gpxl) - 2)
+    if drawGeomLines and geom != "—" and not na(_xh1) and not na(_xh2) and not na(_xl1) and not na(_xl2)
         if geom == "Range / rectangle"
             int _bxL = math.min(math.min(_xh1, _xh2), math.min(_xl1, _xl2))
             float _bxT = (_h1 + _h2) / 2.0
@@ -3215,8 +3417,34 @@ if show_geom and d_pat and _geoFresh and array.size(gphy) >= 2 and array.size(gp
             _geoHi := line.new(_xh2, _h2, _xh1, _h1, xloc=xloc.bar_index, color=color.new(#9598a1, 20), width=1, extend=extend.right, style=line.style_dashed)
             _geoLo := line.new(_xl2, _l2, _xl1, _l1, xloc=xloc.bar_index, color=color.new(#9598a1, 20), width=1, extend=extend.right, style=line.style_dashed)
 
+// ── AUTO TRENDLINES (tl_auto): fit a support line (pivot lows) + resistance line (pivot
+// highs) from the geometry pivots, then OVERRIDE tls_*/tlr_* so every consumer below —
+// the nearest-S/R picker, near_tl, the display marking and the drawing — uses them with
+// no extra wiring. When tl_auto is OFF, the manual anchors (computed above) stand.
+string _chartTag = timeframe.isdaily ? "D" : timeframe.isweekly ? "W" : timeframe.ismonthly ? "M" : "i"
+int   _tlsAX = na
+float _tlsAY = na
+int   _tlrAX = na
+float _tlrAY = na
+// Gated to the last bar: the envelope fit is O(pool^3); only the last bar's values feed
+// the picker/panel/plan/drawing that are actually read, so running it once (not every
+// bar) is exact for what's consumed and keeps the script fast on a big pool.
+if tl_auto and d_tl and barstate.islast
+    [_sLive, _sX, _sY, _sNow] = f_autoTL(tlly, tllx, true,  tls_anch_off, tl_thread * chart_atr, tls_nudge * chart_atr, geo_maxage)
+    [_rLive, _rX, _rY, _rNow] = f_autoTL(tlhy, tlhx, false, tlr_anch_off, tl_thread * chart_atr, tlr_nudge * chart_atr, geo_maxage)
+    tls_live := _sLive
+    tls_now  := _sNow
+    tlr_live := _rLive
+    tlr_now  := _rNow
+    tls_tfTag := _chartTag
+    tlr_tfTag := _chartTag
+    _tlsAX := _sX
+    _tlsAY := _sY
+    _tlrAX := _rX
+    _tlrAY := _rY
+
 string pats = bullFlag ? "Bull flag" : bearFlag ? "Bear flag" : ""
-string pa_names = is_rec ? ((kCLIMAX?"Climax, ":"")+(kSPR?"Spring, ":"")+(k2B?"HigherLow-2B, ":"")+(kSOS?"BaseBO-SOS, ":"")+(kENG?"Engulf, ":"")+(kHSUP?"Hammer-sup, ":"")+(k3B?"3BarRev, ":"")+(kPP?"Pocket, ":"")+(kVDU?"VDU, ":"")+(kRECLAIM?"30WMA-reclaim, ":"")) : ((kHTF?"HTF, ":"") + (kSC?"StrongClose, ":"") + (kVCP?"VCP-BO, ":"") + (kLAU?"Stage2-Launch, ":"") + (kGAP?"Gap-BO, ":"") + (kBC?"Breakout-Confirmed, ":"") + (kPP?"Pocket, ":"") + (kU50?"Undercut50, ":"") + (kLIQ?"LiqSweep, ":"") + (kSPR?"Spring, ":"") + (kENG?"Engulf, ":"") + (k3B?"3BarRev, ":"") + (kH50?"Hammer50, ":"") + (kH200?"Hammer200, ":"") + (kIN3?"Inside3, ":"") + (kNR7?"NR7, ":"") + (kIBNR7?"IB-NR7, ":""))
+string pa_names = is_rec ? ((kCLIMAX?"Climax, ":"")+(kSPR?"Spring, ":"")+(k2B?"HigherLow-2B, ":"")+(kSOS?"BaseBO-SOS, ":"")+(kRECLAIM?"30WMA-reclaim, ":"")+(kENG?"Engulf, ":"")+(kHSUP?"Hammer-sup, ":"")+(k3B?"3BarRev, ":"")+(kPP?"Pocket, ":"")+(kVDU?"VDU, ":"")) : ((kHTF?"HTF, ":"") + (kVCP?"VCP-BO, ":"") + (kLAU?"Stage2-Launch, ":"") + (kGAP?"Gap-BO, ":"") + (kSPR?"Spring, ":"") + (kSC?"StrongClose, ":"") + (kBC?"Breakout-Confirmed, ":"") + (kPP?"Pocket, ":"") + (kU50?"Undercut50, ":"") + (kLIQ?"LiqSweep, ":"") + (kENG?"Engulf, ":"") + (k3B?"3BarRev, ":"") + (kH50?"Hammer50, ":"") + (kH200?"Hammer200, ":"") + (kIN3?"Inside3, ":"") + (kIBNR7?"IB-NR7, ":"") + (kNR7?"NR7, ":""))
 
 // --- TRIGGER = the COMBINED entry gate: Event + Volume + Intraday ---
 // Event    = a price-action trigger on the chart (AVWAP bounce / R2G>BO).
@@ -3301,6 +3529,12 @@ sr_below := f_srBelow(sr_below, f_lvOn(dv4, useLvD) ? dv4 : na)
 // sits on (a support TL that price has broken below IS resistance now).
 sr_below := f_srBelow(sr_below, tls_now)
 sr_below := f_srBelow(sr_below, tlr_now)
+// Hand-drawn trendlines from the companion. Guard: ignore a source left on `close`
+// (unwired) or reading na (line not placed) — only a real external line value is used.
+float tl_ext1 = (tl_ext_on and not na(tl_ext1_src) and tl_ext1_src != close) ? tl_ext1_src : na
+float tl_ext2 = (tl_ext_on and not na(tl_ext2_src) and tl_ext2_src != close) ? tl_ext2_src : na
+sr_below := f_srBelow(sr_below, tl_ext1)
+sr_below := f_srBelow(sr_below, tl_ext2)
 sr_below := f_srAutoBelow(sr_below, srM, useLvM, sr_show_M, manM)
 sr_below := f_srAutoBelow(sr_below, srW, useLvW, sr_show_W, manW)
 sr_below := f_srAutoBelow(sr_below, srD, useLvD, sr_show_D, manD)
@@ -3320,6 +3554,8 @@ sr_above := f_srAbove(sr_above, f_lvOn(dv3, useLvD) ? dv3 : na)
 sr_above := f_srAbove(sr_above, f_lvOn(dv4, useLvD) ? dv4 : na)
 sr_above := f_srAbove(sr_above, tls_now)
 sr_above := f_srAbove(sr_above, tlr_now)
+sr_above := f_srAbove(sr_above, tl_ext1)
+sr_above := f_srAbove(sr_above, tl_ext2)
 sr_above := f_srAutoAbove(sr_above, srM, useLvM, sr_show_M, manM)
 sr_above := f_srAutoAbove(sr_above, srW, useLvW, sr_show_W, manW)
 sr_above := f_srAutoAbove(sr_above, srD, useLvD, sr_show_D, manD)
@@ -3481,7 +3717,7 @@ cf := cf + (chart_rv >= cf_rv_strong ? cf_w_rv : 0)       // volume EXPANDING, n
 int _dzTfN = (_dzTfC ? 1 : 0) + (_dzTfD ? 1 : 0) + (_dzTfW ? 1 : 0) + (_dzTfM ? 1 : 0)
 cf := cf + (d_zones and _dzTfN >= 2 ? cf_w_mtf : 0)       // a daily zone sitting inside a weekly one
 // Price ON the support trendline you drew by hand — a deliberate read, so it counts.
-bool near_tl = tls_live and not na(tls_now) and close >= tls_now and (close - tls_now) / close <= 0.015
+bool near_tl = (tls_live and not na(tls_now) and close >= tls_now and (close - tls_now) / close <= 0.015) or (not na(tl_ext1) and close >= tl_ext1 and (close - tl_ext1) / close <= 0.015) or (not na(tl_ext2) and close >= tl_ext2 and (close - tl_ext2) / close <= 0.015)
 // Deduped vs near_sr: the projected TL is IN the sr_below pool, so when the TL IS
 // the nearest support it already scored cf_w_sr — one location must not score twice.
 // It still scores when a DIFFERENT level is nearer (two stacked supports = genuine
@@ -3610,7 +3846,200 @@ plotshape(go and _mkOK and d_markers and cf >= cf_strong, title="S4 GO ★strong
 // Intraday momentum LEG that fired but the gate is NOT yet met (thin volume / no
 // support) — small cyan triangle, NO "GO" text, so it's clearly not a trade.
 plotshape(show_intraday and intraday_trig and not go and _mkOK and d_markers, title="Intraday leg (gate not met)", style=shape.triangleup, location=location.belowbar, color=color.new(#00838f, 0), size=size.tiny)
-plotshape(show_pa and pa_fire and _mkOK and d_markers, title="Daily PA trigger", style=shape.diamond, location=location.abovebar, color=color.new(#7e57c2, 0), size=size.tiny, text="PA")
+// PA marker — TIERED by Σ (24-Jul, replaces a bgcolor band that clashed with the
+// Weinstein & Swing Pro Dashboard's Stage 1-4 background colouring — a marker/candle
+// channel can't clash with another indicator's background the way two bgcolors would).
+// Mirrors the existing GO → GO★ escalation pattern (diamond → labelup, brighter,
+// bigger) so the visual language stays consistent across S4's own markers:
+//   Σ < hl_pa_min      → quiet: tiny dim diamond, lowercase "pa" (barely fired)
+//   hl_pa_min..strong  → the ORIGINAL marker, unchanged: tiny diamond, "PA"
+//   Σ >= hl_pa_strong  → escalated: labelup, bright magenta, "PA★" + Σ + the lead
+//                        pattern's short name (e.g. "PA★ Σ7 VCP-BO") — the one
+//                        case worth naming the pattern without opening the panel.
+// LEAD PATTERN — resolved ONCE here and reused by BOTH the marker below and the
+// pattern outline further down, so the chart can never name one pattern in the marker
+// and box a different one. When several fire on the same bar the HIGHEST-WEIGHT one
+// wins (the same weights that build Σ). Each carries its own BAR SPAN — how many
+// candles the pattern is actually made of — which is what turns a label into the
+// visible pattern (Engulfing = 2 candles, 3-Bar Reversal = 3, NR7 = 7, VCP = the
+// contraction, …).
+// if/else ladder, NOT a wrapped ternary: a continuation line indented by a multiple
+// of 4 parses as a new block in Pine and breaks silently.
+// LEAD PATTERN — dynamically selects the pattern with the HIGHEST WEIGHT (matching
+// the weights that build Σ). If weights are equal, the pattern with the larger bar span
+// wins (e.g. 15-bar VCP-BO or 3-bar Spring outline takes precedence over a 1-bar trigger).
+int _patSpan = 0
+string _patName = ""
+int _maxW = 0
+
+if is_rec
+    if kCLIMAX and (3 > _maxW or (3 == _maxW and 2 > _patSpan))
+        _maxW := 3
+        _patSpan := 2
+        _patName := "Climax Reversal"
+    if kSPR and (3 > _maxW or (3 == _maxW and 3 > _patSpan))
+        _maxW := 3
+        _patSpan := 3
+        _patName := "Spring"
+    if k2B and (3 > _maxW or (3 == _maxW and 3 > _patSpan))
+        _maxW := 3
+        _patSpan := 3
+        _patName := "Higher-Low / 2B"
+    if kSOS and (3 > _maxW or (3 == _maxW and 3 > _patSpan))
+        _maxW := 3
+        _patSpan := 3
+        _patName := "Base BO / SOS"
+    if kRECLAIM and (3 > _maxW or (3 == _maxW and 1 > _patSpan))
+        _maxW := 3
+        _patSpan := 1
+        _patName := "30-WMA Reclaim"
+    if kENG and (2 > _maxW or (2 == _maxW and 2 > _patSpan))
+        _maxW := 2
+        _patSpan := 2
+        _patName := "Bull Engulfing"
+    if kHSUP and (2 > _maxW or (2 == _maxW and 1 > _patSpan))
+        _maxW := 2
+        _patSpan := 1
+        _patName := "Hammer @ support"
+    if k3B and (2 > _maxW or (2 == _maxW and 3 > _patSpan))
+        _maxW := 2
+        _patSpan := 3
+        _patName := "3-Bar Reversal"
+    if kPP and (2 > _maxW or (2 == _maxW and 1 > _patSpan))
+        _maxW := 2
+        _patSpan := 1
+        _patName := "Pocket Pivot"
+    if kVDU and (1 > _maxW or (1 == _maxW and 5 > _patSpan))
+        _maxW := 1
+        _patSpan := 5
+        _patName := "Volume Dry-Up"
+else
+    if kHTF and (4 > _maxW or (4 == _maxW and 20 > _patSpan))
+        _maxW := 4
+        _patSpan := 20
+        _patName := "High Tight Flag"
+    if kVCP and (3 > _maxW or (3 == _maxW and 15 > _patSpan))
+        _maxW := 3
+        _patSpan := 15
+        _patName := "VCP-BO"
+    if kLAU and (3 > _maxW or (3 == _maxW and 3 > _patSpan))
+        _maxW := 3
+        _patSpan := 3
+        _patName := "Stage-2 Launch"
+    if kSPR and (3 > _maxW or (3 == _maxW and 3 > _patSpan))
+        _maxW := 3
+        _patSpan := 3
+        _patName := "Spring"
+    if kGAP and (3 > _maxW or (3 == _maxW and 2 > _patSpan))
+        _maxW := 3
+        _patSpan := 2
+        _patName := "Gap Breakout"
+    if kSC and (2 > _maxW or (2 == _maxW and 1 > _patSpan))
+        _maxW := 2
+        _patSpan := 1
+        _patName := "Strong Close"
+    if kPP and (2 > _maxW or (2 == _maxW and 1 > _patSpan))
+        _maxW := 2
+        _patSpan := 1
+        _patName := "Pocket Pivot"
+    if kENG and (2 > _maxW or (2 == _maxW and 2 > _patSpan))
+        _maxW := 2
+        _patSpan := 2
+        _patName := "Bull Engulfing"
+    if kLIQ and (2 > _maxW or (2 == _maxW and 2 > _patSpan))
+        _maxW := 2
+        _patSpan := 2
+        _patName := "Liquidity Sweep"
+    if k3B and (2 > _maxW or (2 == _maxW and 3 > _patSpan))
+        _maxW := 2
+        _patSpan := 3
+        _patName := "3-Bar Reversal"
+    if kIN3 and (2 > _maxW or (2 == _maxW and 3 > _patSpan))
+        _maxW := 2
+        _patSpan := 3
+        _patName := "Inside-3"
+    if kIBNR7 and (2 > _maxW or (2 == _maxW and 2 > _patSpan))
+        _maxW := 2
+        _patSpan := 2
+        _patName := "IB-NR7"
+    if kU50 and (2 > _maxW or (2 == _maxW and 3 > _patSpan))
+        _maxW := 2
+        _patSpan := 3
+        _patName := "Undercut 50"
+    if kH50 and (2 > _maxW or (2 == _maxW and 1 > _patSpan))
+        _maxW := 2
+        _patSpan := 1
+        _patName := "Hammer @ 50DMA"
+    if kH200 and (2 > _maxW or (2 == _maxW and 1 > _patSpan))
+        _maxW := 2
+        _patSpan := 1
+        _patName := "Hammer @ 200DMA"
+    if kBC and (2 > _maxW or (2 == _maxW and 2 > _patSpan))
+        _maxW := 2
+        _patSpan := 2
+        _patName := "Breakout Confirmed"
+    if kNR7 and (1 > _maxW or (1 == _maxW and 7 > _patSpan))
+        _maxW := 1
+        _patSpan := 7
+        _patName := "NR7"
+
+// OTHER patterns firing on the same bar. pa_names is "A, B, " → split(",") yields
+// one element PER PATTERN plus a trailing remainder, so patterns = size-1 and the
+// others = size-2. Floored at 0 so an empty/edge case can never print "-1 more".
+int _patN = math.max(array.size(str.split(pa_names, ",")) - 2, 0)
+bool _paTrig  = pa_fire or (any_pa and tsum > nz(tsum[1]))
+bool _paQuiet = show_pa and _paTrig and _mkOK and d_markers and tsum < hl_pa_min
+bool _paNorm  = show_pa and _paTrig and _mkOK and d_markers and tsum >= hl_pa_min and tsum < hl_pa_strong
+bool _paStr   = show_pa and _paTrig and _mkOK and d_markers and tsum >= hl_pa_strong
+plotshape(_paQuiet, title="Daily PA trigger (quiet, low Σ)", style=shape.diamond, location=location.abovebar, color=color.new(#7e57c2, 55), size=size.tiny, text="pa")
+plotshape(_paNorm,  title="Daily PA trigger",                style=shape.diamond, location=location.abovebar, color=color.new(#7e57c2, 0),  size=size.tiny, text="PA")
+plotshape(_paStr,   title="Daily PA trigger ★strong (high Σ)", style=shape.labelup, location=location.abovebar, color=color.new(#d500f9, 0), textcolor=color.white, size=size.small, text="PA★")
+// CE10123 fix: plotshape's `text` must be a CONST string — it can't carry the dynamic
+// "Σ7 VCP-BO" detail. A managed label does (same FIFO pattern as the trendline/pattern-
+// box labels elsewhere in this file), so the marker stays a fixed "PA★" and this small
+// label above it carries the live Σ + lead-pattern name.
+var array<label> _paLb = array.new<label>()
+if _paStr
+    label _pl = label.new(bar_index, high, "Σ" + str.tostring(tsum) + (str.length(_patName) > 0 ? " " + _patName : ""), style=label.style_label_up, color=color.new(#d500f9, 15), textcolor=color.white, size=size.tiny)
+    array.push(_paLb, _pl)
+    while array.size(_paLb) > hl_pat_keep
+        label.delete(array.shift(_paLb))
+
+// Shared highlight window/confirmation guard, used by BOTH the pattern outlines and
+// the B body repaint below. Declared here (above its first consumer): respects
+// use_closed_candle so a forming bar can't flash a highlight that vanishes as it
+// develops — the same guard the GO/PA markers use.
+bool _hlWin  = hl_hist or recent30
+bool _hlConf = (not use_closed_candle or barstate.isconfirmed)
+bool _hlOK   = _hlWin and _hlConf
+
+// FIFO of drawn outlines — oldest deleted past hl_pat_keep so the chart never fills.
+var array<box>   _patBx = array.new<box>()
+var array<label> _patLb = array.new<label>()
+if hl_pat_box and d_markers and _paTrig and _patSpan > 0 and _hlOK
+    float _pHi = high
+    float _pLo = low
+    for _i = 0 to _patSpan - 1
+        _pHi := math.max(_pHi, high[_i])
+        _pLo := math.min(_pLo, low[_i])
+    float _pad = chart_atr * 0.15
+    color _pc = is_rec ? color.new(#00838f, 0) : color.new(#7e57c2, 0)
+    box _b = box.new(bar_index - _patSpan + 1, _pHi + _pad, bar_index, _pLo - _pad, xloc=xloc.bar_index, border_color=_pc, border_width=2, bgcolor=color.new(_pc, 90))
+    label _l = label.new(bar_index - _patSpan + 1, _pHi + _pad, _patName + (_patN > 0 ? "  +" + str.tostring(_patN) + " more" : "") + "  Σ" + str.tostring(tsum), xloc=xloc.bar_index, style=label.style_label_lower_left, color=color.new(_pc, 20), textcolor=color.white, size=size.tiny)
+    array.push(_patBx, _b)
+    array.push(_patLb, _l)
+    while array.size(_patBx) > hl_pat_keep
+        box.delete(array.shift(_patBx))
+        label.delete(array.shift(_patLb))
+
+// ── CANDLE HIGHLIGHT — B (repainted body). PA is now the marker + pattern outline
+// above (no bgcolor, so nothing to clash with a Stage-background indicator); B stays
+// a body repaint, a different channel a background layer from another script can't touch.
+// scoped to PA candles by default (B passes on most bars, so repainting everything
+// is noise). Bright tones, NOT the chart's default candle colours, so a highlighted
+// bar can't be mistaken for an ordinary green/red one.
+bool _barHL = hl_bar and (hl_bar_pa ? any_pa : true) and _hlOK
+barcolor(_barHL ? (bar_ok ? color.new(#00e676, 0) : color.new(#ff1744, 0)) : na, title="Bar quality (B)")
 
 // Draw the support zones (v2.4): the LEFT edge is the zone's FORMATION candle
 // time (the OB/gap/pivot bar) — so a box begins at the candles that created it,
@@ -3698,12 +4127,20 @@ if barstate.islast
     label.delete(lbTlR)
     if tls_live
         int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
-        lnTlS := line.new(tls_t1, tls_p1, time, tls_now, xloc=xloc.bar_time, color=color.new(#26a69a, 0), width=_wS)   // ends AT the label anchor (collinear by construction) — extend.right ran the ray through the label text
-        lbTlS := label.new(time, tls_now, tls_tfTag + " · TL support  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(#26a69a, 82), textcolor=color.new(#26a69a, 0), size=size.small)
+        if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
+            lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=color.new(#26a69a, 0), width=_wS)
+            lbTlS := label.new(bar_index, tls_now, _chartTag + " · TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#26a69a, 82), textcolor=color.new(#26a69a, 0), size=size.small)
+        else                            // MANUAL: bar-time anchors from the numeric inputs
+            lnTlS := line.new(tls_t1, tls_p1, time, tls_now, xloc=xloc.bar_time, color=color.new(#26a69a, 0), width=_wS)   // ends AT the label anchor (collinear by construction) — extend.right ran the ray through the label text
+            lbTlS := label.new(time, tls_now, tls_tfTag + " · TL support  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(#26a69a, 82), textcolor=color.new(#26a69a, 0), size=size.small)
     if tlr_live
         int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
-        lnTlR := line.new(tlr_t1, tlr_p1, time, tlr_now, xloc=xloc.bar_time, color=color.new(#ef5350, 0), width=_wR)
-        lbTlR := label.new(time, tlr_now, tlr_tfTag + " · TL resistance  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(#ef5350, 82), textcolor=color.new(#ef5350, 0), size=size.small)
+        if tl_auto and not na(_tlrAX)
+            lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=color.new(#ef5350, 0), width=_wR)
+            lbTlR := label.new(bar_index, tlr_now, _chartTag + " · TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ef5350, 82), textcolor=color.new(#ef5350, 0), size=size.small)
+        else
+            lnTlR := line.new(tlr_t1, tlr_p1, time, tlr_now, xloc=xloc.bar_time, color=color.new(#ef5350, 0), width=_wR)
+            lbTlR := label.new(time, tlr_now, tlr_tfTag + " · TL resistance  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(#ef5350, 82), textcolor=color.new(#ef5350, 0), size=size.small)
 
     // --- PATTERNS: the detected flag, and your manual box. Deletes unconditional.
     box.delete(bxFlag)
@@ -3784,17 +4221,21 @@ if show_zones and d_lvls and barstate.islast
 // ENTRY PANEL
 // ==========================================
 f_pos(string p) => p == "top_left" ? position.top_left : p == "bottom_right" ? position.bottom_right : p == "bottom_left" ? position.bottom_left : position.top_right
+f_size(string s) => s == "tiny" ? size.tiny : s == "small" ? size.small : s == "normal" ? size.normal : s == "large" ? size.large : s == "auto" ? size.auto : size.small
 // Dark-theme panel: solid dark bg + TV grid frame so it reads cleanly on dark charts. Updated to 17 rows.
 var table pnl = table.new(f_pos(panel_pos), 2, 30, bgcolor=color.new(#131722, 0), frame_color=color.new(#2a2e39, 0), frame_width=1, border_color=color.new(#2a2e39, 0), border_width=1)
 f_row(int r, string k, string vv, color vc) =>
-    table.cell(pnl, 0, r, k, text_size=size.small, text_color=color.new(#b2b5be, 0), text_halign=text.align_left)
-    table.cell(pnl, 1, r, vv, text_size=size.small, text_color=vc, text_halign=text.align_right)
+    table.cell(pnl, 0, r, k, text_size=f_size(panel_size), text_color=color.new(#b2b5be, 0), text_halign=text.align_left)
+    table.cell(pnl, 1, r, vv, text_size=f_size(panel_size), text_color=vc, text_halign=text.align_right)
 // one PA-condition token for the compact grid: name + fired(✓) / quiet(·)
-f_it(string nm, bool fired) => nm + (fired ? " ✓  " : " ·  ")
+// Fired ticks use the green-check emoji ✅ (inherently green) so they stand out — a Pine
+// table.cell has ONE text colour, so a per-character green ✓ inside the combined PA row
+// isn't possible; the emoji is the way to make just the ticks pop. Not-fired stays a dot.
+f_it(string nm, bool fired) => nm + (fired ? " ✅ " : " ·  ")
 
 if show_panel and d_panel and barstate.islast
-    table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=size.small, text_color=color.white, bgcolor=color.new(#00838f, 0))
-    table.cell(pnl, 1, 0, syminfo.ticker, text_size=size.small, text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_right)
+    table.cell(pnl, 0, 0, "S4 ENTRY TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0))
+    table.cell(pnl, 1, 0, syminfo.ticker, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#00838f, 0), text_halign=text.align_right)
     // AVWAP levels — the three curves on one row (L · BO · Gap). Colour by the KEY
     // one (BO): green when price holds above the breakout AVWAP.
     string _avL = na(avwap_low) ? "-" : str.tostring(avwap_low, format.mintick)
@@ -3809,7 +4250,9 @@ if show_panel and d_panel and barstate.islast
     // the "S/R (nearest)" row below — a different, static price-memory engine.
     f_row(4, "Nearest AVWAP", na(nearest_sup) ? "-" : str.tostring(nearest_sup, format.mintick) + " (−" + str.tostring(sup_dist, "0.0") + "%)", na(nearest_sup) ? color.gray : color.new(#42a5f5,0))
     string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "GO 10EMA+sqz" : "GO 10EMA") : (ema_reclaim[_so] ? "10EMA ok" : (sqz_on[_so] ? "sqz ON, wait EMA" : "wait")))
-    f_row(11, "Intraday " + timeframe.period, intra_status, intra_ok_v ? color.new(#00838f,0) : color.new(#787b86,0))
+    // relocated to row 24 (24-Jul) — row 11 now holds the dedicated Location (L) row,
+    // keeping the P(10)·L(11)·V(12) trigger-gate block contiguous, per Jay's sequence.
+    f_row(13, "Intraday " + timeframe.period, intra_status, intra_ok_v ? color.new(#00838f,0) : color.new(#787b86,0))
     
     // Support Zone row — v3.0: demand ZONE (Institutional, #8) + FVG/Pivot + AVWAP +
     // EMA20 dynamic S/R (#10). Fresh DZ reads "DZ" (green); in-zone-but-TESTED reads
@@ -3857,10 +4300,25 @@ if show_panel and d_panel and barstate.islast
     string _patTxt = not d_pat ? "off" : ((str.length(pats[_so]) > 0 ? pats[_so] : "no flag") + "   |   " + _geoTxt)
     f_row(10, "Pattern | Shape", _patTxt, not d_pat ? color.gray : str.length(pats[_so]) > 0 ? color.new(#26a69a,0) : geom[_so] != "—" ? color.new(#42a5f5,0) : color.gray)
 
+    // Location (L) — verbose, own row (24-Jul, Jay's PLVB sequence). The TRIGGER row's
+    // "L✓/·" is a bare checkmark; this spells out WHICH of the exact sources the
+    // support_pass gate reads actually fired. Mirrors inside_support_zone's own gates
+    // (line ~3590) exactly — display toggles (d_zones/d_lvls/d_avwap) included, so a
+    // source that's turned off correctly shows "·" even if the raw signal is true.
+    bool _lzZone = d_zones and z_inDZ[_so]
+    bool _lzLvl  = d_lvls and (in_daily_zone[_so] or in_weekly_zone[_so])
+    bool _lzAv   = d_avwap and near_avwap[_so]
+    bool _lzEma  = near_ema[_so]
+    bool _lzSr   = near_sr[_so]
+    string _locVerb = "Zone " + (_lzZone ? "✓" : "·") + "   D/W-lvl " + (_lzLvl ? "✓" : "·") + "   AVWAP " + (_lzAv ? "✓" : "·") + "   EMA20 " + (_lzEma ? "✓" : "·") + "   S/R " + (_lzSr ? "✓" : "·")
+    string _locTxt  = (support_v ? "AT LOCATION" : "NOT AT LOCATION") + "   —   " + _locVerb
+    color  _locCol  = support_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
+    f_row(16, "Location (L)", _locTxt, _locCol)
+
     // --- Confluence breakdown: WHICH ones fired, not just how many. A bare score
     // is its own kind of black box — this is the row that replaces eyeballing.
     string cfb = (ev_ok[_so] ? "AVWAP " : "") + (show_intraday and intra_ok[_so] ? "Intra " : "") + (z_inDZ_fvg[_so] ? "⚡ " : "") + (z_inDZ_ctrl[_so] ? "Ctrl " : "") + (near_sr[_so] ? "S/R " : "") + (tl_extra[_so] ? "TL " : "") + (bullFlag[_so] ? "Flag " : "") + (near_ema[_so] ? "EMA20 " : "") + (near_avwap[_so] ? "AVWL " : "") + (near_fib[_so] ? "Fib " : "") + (pinched[_so] ? "Pinch " : "") + (chart_rv[_so] >= cf_rv_strong ? "RV+ " : "") + (near_round[_so] ? "Rnd " : "") + (daily_pa_agrees[_so] ? "D-PA " : "") + (show_arrival and arr_fav[_so] ? "Arrival " : "") + (show_arrival and of_absorb[_so] ? "Δ+ " : "") + (_dzTfN[_so] >= 2 ? "MTF×" + str.tostring(_dzTfN[_so]) : "")
-    f_row(13, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : str.length(cfb) == 0 ? "—" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? color.new(#00e676,0) : cf_v > 0 ? color.new(#26a69a,0) : color.gray)
+    f_row(15, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : str.length(cfb) == 0 ? "—" : cfb, not show_cf ? color.gray : cf_v >= cf_strong ? color.new(#00e676,0) : cf_v > 0 ? color.new(#26a69a,0) : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
     // volume-delta absorption read. "— (not at a zone)" when price is in open space.
@@ -3885,7 +4343,13 @@ if show_panel and d_panel and barstate.islast
     float _dzdist = z_inDZ[_so] ? z_inDZdist[_so] : z_nearDZdist[_so]
     float _dzW    = (not na(_dzprox) and not na(_dzdist)) ? math.abs(_dzprox - _dzdist) : na
     float _band_r = szBandTop[_so]
-    bool  _inSZ_r = z_inSZ[_so]
+    // "IN SUPPLY" means inside a supply band AND NOT simultaneously on a fresh demand zone
+    // (Jay, 23-Jul). A demand zone at the bottom of a WIDE (e.g. monthly) supply range means
+    // you're buying SUPPORT with supply overhead — a pullback long, not "buying into supply".
+    // Without this, a wide monthly SZ containing price flipped every at-demand pullback into a
+    // false "IN SUPPLY · must clear <far band top>" SKIP — ZENTEC at demand ₹1807 (nearest
+    // overhead ₹1824.6, +1%) was told to "clear ₹2264.8" (the monthly band top, +25%).
+    bool  _inSZ_r = z_inSZ[_so] and not z_inDZ[_so]
     // Combined overhead = the FIRST thing above price that actually stops it, across
     // {the merged supply band price is inside, the nearest supply zone above, the
     //  nearest S/R level above, flipped pivot S→R (D/W), the HTF pivot high}.
@@ -4001,10 +4465,25 @@ if show_panel and d_panel and barstate.islast
     f_row(8, _emaLbl, ema_txt, ema_col)
 
     // --- RV (volume): its own colour-coded field ---
-    f_row(12, "RV (rel vol · " + timeframe.period + ")", str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
+    f_row(17, "RV (rel vol · " + timeframe.period + ")", str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"), rv_col)
+
+    // Bar (B) — verbose, own row (24-Jul, Jay's PLVB sequence). Placed at row 25 (not
+    // immediately after 12): rows 13/14 are Confluence/Arrival and 15 is the raw-numbered
+    // TRIGGER row — Jay said not to disturb TRIGGER, so B sits in the free block near
+    // Trendlines/Intraday(24) instead. Order (V=12 < B=25) is still preserved; only
+    // strict adjacency to V isn't. Mirrors the bar_ok formula exactly (line ~3611-3614).
+    float _bO     = open[_so]
+    float _bC     = close[_so]
+    float _bRng2  = high[_so] - low[_so]
+    float _bClPos = _bRng2 > 0 ? (_bC - low[_so]) / _bRng2 * 100.0 : 50.0
+    bool  _bGreen = _bC >= _bO
+    string _barDesc = _bGreen ? "green candle (bullish close)" : ("red candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + (bar_ok_v ? " — upper half, shakeout OK" : " — lower half, weak/distribution"))
+    string _barTxt  = (bar_ok_v ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
+    color  _barCol  = bar_ok_v ? color.new(#26a69a,0) : color.new(#ef5350,0)
+    f_row(18, "Bar (B)", _barTxt, _barCol)
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
-    table.cell(pnl, 0, 15, "TRIGGER", text_size=size.small, text_color=color.white, bgcolor=color.new(trig_col, 65), text_halign=text.align_left)
-    table.cell(pnl, 1, 15, trig_txt, text_size=size.small, text_color=trig_col, bgcolor=color.new(trig_col, 84), text_halign=text.align_right)
+    table.cell(pnl, 0, 20, "TRIGGER", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(trig_col, 65), text_halign=text.align_left)
+    table.cell(pnl, 1, 20, trig_txt, text_size=f_size(panel_size), text_color=trig_col, bgcolor=color.new(trig_col, 84), text_halign=text.align_right)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
     // stop). Priority: demand-zone distal (in-zone → nearest below) → recent swing low →
@@ -4078,7 +4557,7 @@ if show_panel and d_panel and barstate.islast
         // The PLAN row is the METHOD — no prices (they are in the four rows below).
         string _entryMethodTxt = use_retest ? "Buy-LIMIT at the trigger close (retest the pullback)" : "Buy-stop above the trigger bar"
         _plan := (str.length(tt_lbl) > 0 ? tt_lbl + " · " : "") + _entryMethodTxt + " · SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + " · T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + " · T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
-    f_row(16, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
+    f_row(23, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? color.new(#787b86,0) : color.new(#26a69a,0))
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
     string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
@@ -4086,7 +4565,7 @@ if show_panel and d_panel and barstate.islast
     string _lT1 = na(pl_t1) ? " · T1 —" : " · T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R)"
     string _lT2 = na(pl_t2) ? (na(pl_t1) ? " · T2 —" : " · T2 open") : " · T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R)"
     string _lvlTxt = na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2)
-    f_row(17, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : color.new(#26a69a,0))
+    f_row(24, "Entry · SL · T1 · T2", _lvlTxt, na(pl_entry) ? color.gray : color.new(#26a69a,0))
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.
     float _riskAmt = size_cap * active_risk / 100.0
@@ -4095,27 +4574,24 @@ if show_panel and d_panel and barstate.islast
     int   _qtyF   = math.min(_qtyR, _qtyC)
     string _dynTag = not use_dyn_risk ? "" : " (" + str.tostring(size_risk, "0.00") + "b ×" + str.tostring(kelly_mult, "0.00") + "K" + (vol_disc < 1.0 ? " ×" + str.tostring(vol_disc, "0.00") + "V" : "") + (not mkt_health ? " bear−" : "") + ")"
     string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + " · risk ₹" + str.tostring(_riskAmt, "0") + _dynTag)
-    f_row(18, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : color.new(#26a69a,0))
+    f_row(25, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : color.new(#26a69a,0))
     // --- PA CONDITIONS: compact grid, every condition shown fired(✓)/quiet(·); mode-aware ---
     string tf_suffix = use_chart_tf ? timeframe.period : "EOD"
     // #2 fix: the PA header + grid read the SAME (last-closed) bar as the TRIGGER /
     // STATUS via [_so], so the "Sum" / grid can never disagree with the Σ in STATUS.
     string _hdr = (is_rec_v ? "PA · RECOVERY " : "PA · BULL ") + (mode == "Auto" ? (confirm_daily ? "(auto·" + tf_suffix + ")" : "(auto·live*)") : (confirm_daily ? "(" + tf_suffix + ")" : "(live*)"))
     color pa_col_v = tsum_v >= 4 ? color.new(#7b1fa2,0) : tsum_v >= 2 ? color.new(#26a69a,0) : tsum_v >= 1 ? color.new(#ff9800,0) : color.gray
-    table.cell(pnl, 0, 19, _hdr, text_size=size.small, text_color=color.white, bgcolor=color.new(#455a64, 0), text_halign=text.align_left)
-    table.cell(pnl, 1, 19, not show_pa ? "off" : ("Sum +" + str.tostring(tsum_v)), text_size=size.small, text_color=color.white, bgcolor=pa_col_v, text_halign=text.align_right)
-    color _gc = color.new(#d1d4dc, 0)
+    // PA battery — ALL conditions on ONE row (Jay, 23-Jul): the panel is wide (the verbose
+    // verdict widens the value column), so the 17-item bull / 10-item recovery grid collapses
+    // into a single line with the Σ appended, instead of the old 3-row grid.
     string _g0 = is_rec_v ? f_it("CLIMAX",kCLIMAX[_so])+f_it("SPR",kSPR[_so])+f_it("2B",k2B[_so])    : f_it("HTF",kHTF[_so])+f_it("SC",kSC[_so])+f_it("VCP",kVCP[_so])
     string _g1 = is_rec_v ? f_it("SOS",kSOS[_so])+f_it("ENG",kENG[_so])+f_it("HSUP",kHSUP[_so])      : f_it("LAU",kLAU[_so])+f_it("GAP",kGAP[_so])+f_it("BC",kBC[_so])
     string _g2 = is_rec_v ? f_it("3BR",k3B[_so])+f_it("PP",kPP[_so])+f_it("VDU",kVDU[_so])           : f_it("PP",kPP[_so])+f_it("U50",kU50[_so])+f_it("LIQ",kLIQ[_so])
     string _g3 = is_rec_v ? f_it("30WMA",kRECLAIM[_so])                                              : f_it("SPR",kSPR[_so])+f_it("ENG",kENG[_so])+f_it("3BR",k3B[_so])
-    string _g4 = is_rec_v ? "" : f_it("H50",kH50[_so])+f_it("H200",kH200[_so])+f_it("IN3",kIN3[_so])
-    table.cell(pnl, 0, 20, _g0, text_size=size.small, text_color=_gc, text_halign=text.align_left)
-    table.cell(pnl, 1, 20, _g1, text_size=size.small, text_color=_gc, text_halign=text.align_left)
-    table.cell(pnl, 0, 21, _g2, text_size=size.small, text_color=_gc, text_halign=text.align_left)
-    table.cell(pnl, 1, 21, _g3, text_size=size.small, text_color=_gc, text_halign=text.align_left)
-    table.cell(pnl, 0, 22, _g4, text_size=size.small, text_color=_gc, text_halign=text.align_left)
-    table.cell(pnl, 1, 22, is_rec_v ? "" : f_it("NR7",kNR7[_so])+f_it("IBN",kIBNR7[_so]), text_size=size.small, text_color=_gc, text_halign=text.align_left)
+    string _g4 = is_rec_v ? "" : f_it("H50",kH50[_so])+f_it("H200",kH200[_so])+f_it("IN3",kIN3[_so])+f_it("NR7",kNR7[_so])+f_it("IBN",kIBNR7[_so])
+    string _allPA = _g0 + _g1 + _g2 + _g3 + _g4
+    table.cell(pnl, 0, 19, _hdr, text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#455a64, 0), text_halign=text.align_left)
+    table.cell(pnl, 1, 19, not show_pa ? "off" : (_allPA + " ·  Sum +" + str.tostring(tsum_v)), text_size=f_size(panel_size), text_color=color.white, bgcolor=pa_col_v, text_halign=text.align_left)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was
     // never written and rendered BLANK — which reads as missing data, not "n/a".
@@ -4126,7 +4602,7 @@ if show_panel and d_panel and barstate.islast
     string _wma_st = nz(d_bel30, 0.0) > 0.5 ? "below 30WMA" : nz(d_s150dn, 0.0) > 0.5 ? "30WMA falling" : "above 30WMA"
     string _200_st = nz(d_bel200, 0.0) > 0.5 ? "<200DMA" : ">200DMA"
     string _basis  = str.tostring(nz(d_off52, 0.0), "0.0") + "% off52 · " + _wma_st + " · " + _200_st + (mode == "Auto" ? "  → auto-picked " + (is_rec_v ? "Recovery" : "Bull") : "  (mode set manually)")
-    f_row(23, "Structure basis", _basis, is_rec_v ? color.new(#00838f, 0) : color.new(#26a69a, 0))
+    f_row(12, "Structure basis", _basis, is_rec_v ? color.new(#00838f, 0) : color.new(#26a69a, 0))
     // v2.9: STATUS — a verbatim one-line summary of every gate + the blocking reason,
     // so the panel states IN WORDS exactly why it is GO or still waiting.
     string _verdict = go_v ? ("GO" + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? " — arm buy-limit @ close on the pullback" : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? "NO VOLUME" : "WEAK/RED BAR — no entry"
@@ -4135,8 +4611,8 @@ if show_panel and d_panel and barstate.islast
     // "off/inactive"; amber reads as "armed, waiting for the gate" — the honest state
     // when the engine is live. Green only on a real GO.
     color _status_col = go_v ? color.new(#26a69a,0) : color.new(#ff9800,0)
-    table.cell(pnl, 0, 24, "STATUS", text_size=size.small, text_color=color.white, bgcolor=color.new(_status_col, 55), text_halign=text.align_left)
-    table.cell(pnl, 1, 24, _status, text_size=size.small, text_color=_status_col, bgcolor=color.new(_status_col, 88), text_halign=text.align_right)
+    table.cell(pnl, 0, 21, "STATUS", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(_status_col, 55), text_halign=text.align_left)
+    table.cell(pnl, 1, 21, _status, text_size=f_size(panel_size), text_color=_status_col, bgcolor=color.new(_status_col, 88), text_halign=text.align_right)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
@@ -4161,7 +4637,12 @@ if show_panel and d_panel and barstate.islast
     // Quality overlay — true regardless of which gate is blocking.
     bool _qSupply  = _inSZ_r
     bool _qThinR   = (not na(_roomR)) and _roomR < 1.0
-    bool _qRoomBad = _qSupply or _qThinR
+    // ROOM NEVER VETOES A RECOVERY (Jay, 23-Jul): a recovery is a beaten-down stock climbing
+    // back UP through the levels it fell from — it INHERENTLY has overhead resistance, and
+    // those levels ARE the target ladder (T1/T2/T3), not disqualifiers. The room / in-supply
+    // veto is a BULL concept (a Stage-2 leader breaking into clear air). Applying it to a
+    // recovery denies the recovery thesis itself. So room only gates the Bull path.
+    bool _qRoomBad = (not is_rec_v) and (_qSupply or _qThinR)
     bool _qArrBad  = show_arrival and arr_style[_so] == "GRIND" and not of_absorb[_so]
     bool _qArrGood = show_arrival and arr_style[_so] == "FAST" and of_absorb[_so]
     // #3: chasing — price too far above the daily EMA20 (in ATRs). Quality, not a gate.
@@ -4182,7 +4663,10 @@ if show_panel and d_panel and barstate.islast
     bool  _stage2ok = nz(d_bel30[_so], 0.0) < 0.5 and nz(d_bel200[_so], 0.0) < 0.5
     bool  _nearATH  = _off52v >= 0.0 and _off52v <= ath_prox_pct
     bool  _blueSky  = _inSZ_r and _nearATH and _stage2ok
-    string _roomWord = _qSupply ? ("price is INSIDE supply" + (na(_band_r) ? "" : " — must clear " + str.tostring(_band_r, format.mintick))) : _qThinR ? ("only " + str.tostring(_roomR, "0.0") + "R of room to the first obstacle") : ""
+    // Cite the NEAREST overhead (_ovh) as the obstacle, not the far band DISTAL — the verdict
+    // used to say "must clear <band top>" (+11-13%) while the Room row above it said "first
+    // <nearest> (+1-2%)". They now agree; the band top is shown only as secondary context.
+    string _roomWord = _qSupply ? ("price is INSIDE supply" + (na(_ovh) ? "" : " — first clear " + str.tostring(_ovh, format.mintick) + (not na(_band_r) and _band_r > _ovh ? " (band extends to " + str.tostring(_band_r, format.mintick) + ")" : ""))) : _qThinR ? ("only " + str.tostring(_roomR, "0.0") + "R of room to the first obstacle") : ""
     // (_roomTag / _arrTag retired — the metrics digest `_mx` below carries both now.)
     // The binding gate, in words, with its number.
     string _blk = not any_pa_v ? "no PA pattern" : not support_v ? "not at a location" : not vol_ok_v ? ("volume below floor (RV " + str.tostring(chart_rv_v, "0.00") + "/" + str.tostring(rv_floor, "0.00") + ")") : "the trigger bar closed weak"
@@ -4222,12 +4706,30 @@ if show_panel and d_panel and barstate.islast
         bool _swingOk = not na(pl_rr1) and pl_rr1 >= 2.0
         float _roiT1  = na(pl_t1) ? na : (pl_t1 - pl_entry) / pl_entry * 100.0
         bool _posOk   = not na(_roiT1) and _roiT1 >= 20.0
+        // CLEAR TO BREAK (the 75-min room fix): a Stage-2 leader with a live GO whose only
+        // problem is a nearby overhead is NOT a no-room reject — the overhead is a level to
+        // BREAK toward the real target. Fires only when neither house gate clears (so it can
+        // ONLY reframe a would-be SKIP, never downgrade a genuine TAKE IT), not in-supply
+        // (that stays a caution unless ATH blue-sky), not already blue-sky, and Stage-2 only.
+        bool _clearToBreak = momentum_clear and _stage2ok and not _blueSky and not _qSupply and not (_posOk or _swingOk) and not na(_ovh)
         string _rule  = _posOk and _swingOk ? "clears BOTH house gates (>=20% ROI and >=2R)" : _swingOk ? "SWING only — clears 2R, T1 under the 20% positional rule" : _posOk ? "POSITIONAL only — 20%+ room but R:R under 2.0" : "clears NEITHER house gate (R:R < 2.0 and room < 20%)"
-        if _blueSky
+        if is_rec_v
+            _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
+            _L2 := "A recovery climbs back THROUGH overhead — the levels above ARE the target ladder (T1/T2), not a wall. Thin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
+            _L3 := "Buy-STOP above the trigger bar's high. Targets = the resistance ladder (trail as each clears); SL under the recovery low." + (_qArrBad ? " Caveat: Δ− arrival — size down / await a sharper turn." : _qLocWeak ? " Caveat: location is AVWAP/EMA, not a fresh zone — size down." : "")
+            _L5 := "Manage against the TURN, not the overhead — exit if it loses the recovery low."
+            _anCol := color.new(#26a69a, 0)
+        else if _blueSky
             _L1 := "BREAKOUT PIVOT — Stage-2 leader at its high"
             _L2 := "Consolidating under the ATH (" + str.tostring(_off52v, "0.0") + "% off 52WH) — the 'supply' here IS the prior high, meant to BREAK. Not distribution, not a range reject."
             _L3 := "Don't buy HERE (into the resistance). Arm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + " — above it is BLUE SKY (reward = measured move / trail, not the next level)."
             _L5 := "Only valid Stage-2 (above 30WMA+200DMA). If RS fades / it's Stage 3, this same band is real supply → skip."
+            _anCol := color.new(#26a69a, 0)
+        else if _clearToBreak
+            _L1 := "CLEAR TO BREAK — Stage-2, level overhead"
+            _L2 := "Nearest overhead " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring((_ovh - _cl_r) / _cl_r * 100.0, "0.0") + "%) is a level to BREAK, not the target — on the trading TF an HTF level is ALWAYS overhead within a thin R."
+            _L3 := "Arm a buy-STOP above " + str.tostring(_ovh, format.mintick) + ". Real target = the measured move / swing-positional R-objective, not this level; room to THIS level is thin by design."
+            _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA). Stage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
             _anCol := color.new(#26a69a, 0)
         else if _qRoomBad
             _L1 := "SKIP — clean trigger, no room"
@@ -4274,8 +4776,21 @@ if show_panel and d_panel and barstate.islast
         _anCol := color.new(#ff9800, 0)
     _aVer := _L1 + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + "\n" + _mx + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     if show_analysis
-        table.cell(pnl, 0, 25, "VERDICT", text_size=size.small, text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
-        table.cell(pnl, 1, 25, "➤ " + _aVer, text_size=size.small, text_color=_anCol, text_halign=text.align_left)
+        table.cell(pnl, 0, 22, "VERDICT", text_size=f_size(panel_size), text_color=color.white, bgcolor=color.new(#37474f, 0), text_halign=text.align_left)
+        table.cell(pnl, 1, 22, "➤ " + _aVer, text_size=f_size(panel_size), text_color=_anCol, text_halign=text.align_left)
+
+    // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
+    // ACTUALLY being sensed, not just drawn on the chart — the toggle + source wiring
+    // in the Trendlines group is 3 separate manual steps, easy to half-do and get no
+    // feedback. "off" = the toggle is off (nothing expected). "not sensed" on a source
+    // = tl_ext_on is ON but that source is still unwired (left on `close`) or reading
+    // na — check the source dropdown. A resolved value means S4 is using it in the
+    // picker/plan/confluence right now.
+    string _tl1Txt = na(tl_ext1) ? "not sensed" : str.tostring(tl_ext1, format.mintick)
+    string _tl2Txt = na(tl_ext2) ? "not sensed" : str.tostring(tl_ext2, format.mintick)
+    string _tlTxt  = not tl_ext_on ? "off" : ("TL1 " + _tl1Txt + "   ·   TL2 " + _tl2Txt)
+    color  _tlCol  = not tl_ext_on ? color.gray : (not na(tl_ext1) or not na(tl_ext2)) ? color.new(#26a69a,0) : color.new(#ff9800,0)
+    f_row(11, "Trendlines", _tlTxt, _tlCol)
 
     // Engine diagnostics — troubleshooting instrumentation, off by default. This is
     // what used to be bolted onto the Zones (MTF) row: it answers "why did that zone

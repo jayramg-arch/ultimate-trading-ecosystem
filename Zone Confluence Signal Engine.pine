@@ -1,0 +1,258 @@
+//@version=6
+// =============================================================================
+//  Zone Confluence Signal Engine — V11  (Pine v6, paired-inline point markers)
+// =============================================================================
+//  Workflow
+//  --------
+//  Add the indicator. Chart prompts for 2 clicks: each click captures BOTH a
+//  price AND a time simultaneously (a "corner point"). The script auto-sorts:
+//    zoneTop  = math.max(corner prices)
+//    zoneBot  = math.min(corner prices)
+//    baseTime = math.min(corner times)
+//
+//  Each corner renders as a single DRAGGABLE POINT MARKER on the chart (Pine
+//  v6 recognises the input.price + input.time pair when they share the same
+//  `inline` argument). Drag a marker → both time AND price move as a unit.
+//  This matches TradingView's native Price Range tool corner-drag UX.
+//
+//  Body-drag of the whole rectangle is still NOT possible (Pine cannot
+//  replicate TradingView's native-drawing body-drag). For unlimited visual
+//  zones with full body-drag, use TradingView's native Price Range tool as a
+//  parallel workflow — see "Recommended Hybrid Workflow" below.
+//
+//  CHANGELOG v11 (2026-05-25) — Pine v6 paired-inline point markers
+//    • 2-corner anchor model via paired input.price + input.time with matching
+//      inline argument. Each corner = 1 draggable point marker (vs V10.1's
+//      3 separate draggable lines).
+//    • Click count: 3 → 2 per zone.
+//    • Visual handles: 1 vertical + 2 horizontal lines → 2 corner diamonds
+//      (matches TradingView's Price Range tool aesthetic).
+//    • All V10.1 analytics preserved: auto-strength score with grade in
+//      label, mitigation auto-deletion (3 modes), faded-mitigated option,
+//      TF auto-detection, Price-Range-style width/% label.
+//    • Pine v6 alignment (per CLAUDE.md ecosystem standard).
+//
+//  ⚠ MIGRATION FROM V10.1: existing zones will need to be re-marked once.
+//     Input names change (baseTime/zonePrice1/zonePrice2 → p1*/p2*).
+//     2 clicks per zone × N zones to rebuild.
+//
+//  RECOMMENDED HYBRID WORKFLOW
+//  ---------------------------
+//  • Use TradingView's NATIVE PRICE RANGE TOOL for visual-only reference
+//    zones (unlimited count, full body-drag, no Pine instances consumed).
+//  • Use THIS INDICATOR (V11) for the 2-3 zones you're actively trading —
+//    the ones you want strength scoring, mitigation tracking, and (later)
+//    alerts + trade plan + reversal-pattern detection on.
+//  This split gives you body-drag (where Pine can't) AND smart analytics
+//  (where the native tool can't).
+// =============================================================================
+
+indicator("Zone Confluence Signal Engine - V11",
+     overlay=true,
+     max_boxes_count=10,
+     max_labels_count=10)
+
+// ── CORNER INPUTS (paired-inline → draggable point markers) ─────────────────
+// Pine v6: input.price + input.time with matching `inline` argument render as
+// ONE chart-click point marker (drag moves both time and price together).
+g_zone = "Zone Definition"
+
+float p1Price = input.price(0.0, "Corner 1", inline="c1", confirm=true, group=g_zone,
+     tooltip="Click any one corner of the zone — top-left, top-right, bottom-left, or bottom-right. Order doesn't matter; the script auto-sorts by price magnitude and time. The corner is a single draggable marker (move both time and price together).")
+int   p1Time  = input.time (0,   "",         inline="c1", confirm=true, group=g_zone)
+
+float p2Price = input.price(0.0, "Corner 2", inline="c2", confirm=true, group=g_zone,
+     tooltip="Click the OPPOSITE corner.")
+int   p2Time  = input.time (0,   "",         inline="c2", confirm=true, group=g_zone)
+
+// ── ZONE CONFIG ─────────────────────────────────────────────────────────────
+zoneType = input.string("Demand", title="Zone Type",
+     options=["Demand", "Supply"],
+     group=g_zone,
+     tooltip="⚠ Set this BEFORE clicking the 2 corners. Changing Type after the zone is drawn may auto-delete it (Pine re-evaluates mitigation under the new criterion). Add a new indicator instance for the opposite side.")
+
+tfTag = input.string("Auto", title="Timeframe Tag",
+     options=["Auto","Monthly","Weekly","Daily","4H","1H","75min","15min","5min","1min"],
+     group=g_zone,
+     tooltip="Auto = uses your current chart timeframe (label updates when you switch chart TF). To LOCK the label, change this dropdown to an explicit TF after marking — e.g., set to 'Daily' to keep 'Daily DZ' even when viewing the Weekly chart.")
+
+// ── GLOBAL SETTINGS ─────────────────────────────────────────────────────────
+g_global = "Global Settings"
+
+mitigationMode = input.string("Body Close Through", title="Delete Zone When",
+     options=["First Touch", "Body Close Through", "Wick Through"],
+     group=g_global,
+     tooltip="When does this zone get auto-deleted?\n• First Touch: any wick into the zone\n• Body Close Through (default): a candle body closes fully beyond\n• Wick Through: a wick prints fully beyond")
+
+showMitigated = input.bool(false, title="Show Mitigated Zone (faded)",
+     group=g_global,
+     tooltip="Keep box visible in gray after the zone is tested/violated")
+
+showPriceWidth = input.bool(true, title="Show Price Width in Label (Price Range style)",
+     group=g_global,
+     tooltip="Append the zone's price width and % to the label:\n  'Daily DZ (STRONG 78) · 60.50 (1.85%)'")
+
+demandFill   = input.color(color.new(color.green, 75), title="Demand Fill",   group=g_global, inline="dcol")
+demandBorder = input.color(color.green,                 title="",             group=g_global, inline="dcol")
+supplyFill   = input.color(color.new(color.red,   75), title="Supply Fill",   group=g_global, inline="scol")
+supplyBorder = input.color(color.red,                   title="",             group=g_global, inline="scol")
+
+// ── AUTO-STRENGTH SCORING (advanced) ───────────────────────────────────────
+g_score = "Auto-Strength Scoring (advanced)"
+useStrength    = input.bool(true, title="Compute Auto-Strength Score", group=g_score,
+     tooltip="If off, label shows just the TF tag (e.g. 'Daily DZ').")
+sBaseLegBodyMul = input.float(0.8, title="Leg-Out Body / ATR threshold", group=g_score, step=0.1,
+     tooltip="Leg-out bar's body must be ≥ this × ATR(14) for full leg-out points (+30). Half-credit at 60% (+15).")
+sVolMul         = input.float(1.5, title="Leg-Out Volume / SMA20 threshold", group=g_score, step=0.1,
+     tooltip="Leg-out bar's volume must be ≥ this × SMA(volume,20) for full volume points (+20). Half-credit at 60% (+10).")
+sFollowThruMul  = input.float(2.0, title="Follow-Through / Zone-Width threshold", group=g_score, step=0.1,
+     tooltip="5-bar max distance from zone proximal must be ≥ this × zone width for full follow-through points (+20). Half-credit at 50% (+10).")
+sObserveBars    = input.int  (5,   title="Bars to Observe After Base", group=g_score, minval=2, maxval=20,
+     tooltip="Number of bars after the base candle to observe before locking the strength score.")
+
+// ── AUTO-TF RESOLVER ────────────────────────────────────────────────────────
+f_tf_human(string p) =>
+    string r = p
+    if p == "M"
+        r := "Monthly"
+    else if p == "W"
+        r := "Weekly"
+    else if p == "D"
+        r := "Daily"
+    else if p == "240"
+        r := "4H"
+    else if p == "120"
+        r := "2H"
+    else if p == "60"
+        r := "1H"
+    else if p == "75"
+        r := "75min"
+    else if p == "30"
+        r := "30min"
+    else if p == "15"
+        r := "15min"
+    else if p == "5"
+        r := "5min"
+    else if p == "1"
+        r := "1min"
+    r
+
+string effectiveTF = tfTag == "Auto" ? f_tf_human(timeframe.period) : tfTag
+
+// ── DERIVE ZONE GEOMETRY FROM CORNERS ──────────────────────────────────────
+bool valid = p1Price > 0 and p2Price > 0 and p1Time > 0 and p2Time > 0
+float zoneTop  = valid ? math.max(p1Price, p2Price) : na
+float zoneBot  = valid ? math.min(p1Price, p2Price) : na
+int   baseTime = valid ? math.min(p1Time,  p2Time)  : 0
+
+isDemand = zoneType == "Demand"
+
+// ── MITIGATION ──────────────────────────────────────────────────────────────
+f_mitigated() =>
+    bool hit = false
+    if not valid
+        hit := false
+    else if isDemand
+        if mitigationMode == "First Touch"
+            hit := low <= zoneTop and high >= zoneBot
+        else if mitigationMode == "Body Close Through"
+            hit := close < zoneBot
+        else
+            hit := low < zoneBot
+    else
+        if mitigationMode == "First Touch"
+            hit := high >= zoneBot and low <= zoneTop
+        else if mitigationMode == "Body Close Through"
+            hit := close > zoneTop
+        else
+            hit := high > zoneTop
+    hit
+
+// ── AUTO-STRENGTH HELPERS ───────────────────────────────────────────────────
+f_qualityGrade(int score) =>
+    score >= 90 ? "EXCELLENT" : score >= 75 ? "STRONG" : score >= 60 ? "GOOD" : score >= 45 ? "AVERAGE" : "WEAK"
+
+f_finalize_score(float lb, float la, float lv, float av, float ft, float zoneWidth) =>
+    int score = 10
+    if la > 0 and (lb / la) >= sBaseLegBodyMul
+        score := score + 30
+    else if la > 0 and (lb / la) >= sBaseLegBodyMul * 0.6
+        score := score + 15
+    if av > 0 and (lv / av) >= sVolMul
+        score := score + 20
+    else if av > 0 and (lv / av) >= sVolMul * 0.6
+        score := score + 10
+    if zoneWidth > 0 and (ft / zoneWidth) >= sFollowThruMul
+        score := score + 20
+    else if zoneWidth > 0 and (ft / zoneWidth) >= sFollowThruMul * 0.5
+        score := score + 10
+    score := score + 20
+    math.min(score, 100)
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+var box  zoneBox      = na
+var bool wasMitigated = false
+
+var int   barsAfterBase = -1
+var float legOutBody    = 0.0
+var float legOutAtr     = 0.0
+var float legOutVol     = 0.0
+var float legOutAvgVol  = 0.0
+var float maxFollowThru = 0.0
+var int   finalScore    = -1
+
+chart_atr     = ta.atr(14)
+chart_vol_sma = ta.sma(volume, 20)
+
+if useStrength and valid and finalScore < 0
+    if barsAfterBase < 0 and time >= baseTime
+        barsAfterBase := 0
+    else if barsAfterBase >= 0
+        barsAfterBase := barsAfterBase + 1
+    if barsAfterBase == 1
+        legOutBody   := math.abs(close - open)
+        legOutAtr    := chart_atr
+        legOutVol    := volume
+        legOutAvgVol := chart_vol_sma
+    if barsAfterBase >= 1 and barsAfterBase <= sObserveBars
+        float ft = isDemand ? (high - zoneTop) : (zoneBot - low)
+        if ft > maxFollowThru
+            maxFollowThru := ft
+    if barsAfterBase == sObserveBars
+        finalScore := f_finalize_score(legOutBody, legOutAtr, legOutVol, legOutAvgVol, maxFollowThru, zoneTop - zoneBot)
+
+// ── MITIGATION CHECK + RENDER ───────────────────────────────────────────────
+if valid and not wasMitigated and time >= baseTime and f_mitigated()
+    wasMitigated := true
+    if not na(zoneBox)
+        if showMitigated
+            box.set_bgcolor(zoneBox, color.new(color.gray, 90))
+            box.set_border_color(zoneBox, color.new(color.gray, 60))
+            box.set_extend(zoneBox, extend.none)
+            box.set_right(zoneBox, time)
+        else
+            box.delete(zoneBox)
+            zoneBox := na
+
+if valid and not wasMitigated and barstate.islast
+    if not na(zoneBox)
+        box.delete(zoneBox)
+    color borderC = isDemand ? demandBorder : supplyBorder
+    color fillC   = isDemand ? demandFill   : supplyFill
+    string baseLbl = effectiveTF + (isDemand ? " DZ" : " SZ")
+    string lbl = baseLbl
+    if useStrength
+        if finalScore >= 0
+            lbl := baseLbl + " (" + f_qualityGrade(finalScore) + " " + str.tostring(finalScore) + ")"
+        else
+            lbl := baseLbl + " (… computing)"
+    if showPriceWidth
+        float zoneWidth    = zoneTop - zoneBot
+        float zoneWidthPct = zoneBot > 0 ? (zoneWidth / zoneBot) * 100.0 : 0.0
+        lbl := lbl + " · " + str.tostring(zoneWidth, "#.00") + " (" + str.tostring(zoneWidthPct, "#.##") + "%)"
+    zoneBox := box.new(
+         left=baseTime, top=zoneTop, right=time, bottom=zoneBot,
+         xloc=xloc.bar_time, extend=extend.right,
+         border_color=borderC, bgcolor=fillC,
+         text=lbl, text_color=borderC,
+         text_halign=text.align_right, text_size=size.small)

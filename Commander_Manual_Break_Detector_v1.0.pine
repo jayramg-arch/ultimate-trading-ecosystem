@@ -1,0 +1,160 @@
+//@version=6
+indicator("Commander Manual Break Detector v1.0", overlay=true, max_lines_count=20, max_labels_count=500)
+// ============================================================================
+// PURPOSE
+//   ONE indicator that detects CLOSE-confirmed breaks of BOTH:
+//     - up to 3 horizontal S/R levels  (click 1 point each)
+//     - up to 2 trendlines             (click 2 points each)
+//   that YOU place via interactive inputs. Pine cannot read a line drawn with
+//   the toolbar, but it CAN read the points you click via input.price /
+//   input.time. The script rebuilds your levels/lines and applies filters the
+//   native TradingView line-alert can't: close-confirm, volume surge, bar-close
+//   gating, and a single structured JSON webhook for all break events.
+//
+// HOW TO USE
+//   1. Add indicator -> click the points TradingView prompts for, in order:
+//      S/R 1..3 (1 click each), then TL1 P1, TL1 P2, TL2 P1, TL2 P2.
+//   2. Toggle on only what you need; re-click to reposition.
+//   3. Alert: condition "Any alert() function call" -> JSON webhook for ALL
+//      breaks; or use the named alertconditions for simple up/down pings.
+//
+//   A level/anchor left at 0.0 (price) or 0 (time) is treated as UNSET.
+//   Trendline math uses input.time (UNIX ms) -> slope is price-per-ms, matching
+//   a hand-drawn line across gaps. Breaks evaluate only AFTER the 2nd anchor.
+// ============================================================================
+
+// ---------------- S/R levels (click to place) ----------------
+gL = "S/R Levels  (click 1 point each)"
+l1on = input.bool(true,  "Level 1", group=gL, inline="1")
+l1   = input.price(0.0,  "",        group=gL, inline="1", confirm=true)
+l2on = input.bool(false, "Level 2", group=gL, inline="2")
+l2   = input.price(0.0,  "",        group=gL, inline="2", confirm=true)
+l3on = input.bool(false, "Level 3", group=gL, inline="3")
+l3   = input.price(0.0,  "",        group=gL, inline="3", confirm=true)
+
+// ---------------- Trendline 1 ----------------
+gT1 = "Trendline 1  (click 2 points)"
+t1on  = input.bool(false, "Enable TL1", group=gT1)
+t1p1  = input.price(0.0,  "P1 price", group=gT1, inline="1a", confirm=true)
+t1t1  = input.time(0,     "P1 time",  group=gT1, inline="1a", confirm=true)
+t1p2  = input.price(0.0,  "P2 price", group=gT1, inline="1b", confirm=true)
+t1t2  = input.time(0,     "P2 time",  group=gT1, inline="1b", confirm=true)
+t1ext = input.bool(true,  "Extend right", group=gT1)
+
+// ---------------- Trendline 2 ----------------
+gT2 = "Trendline 2  (click 2 points)"
+t2on  = input.bool(false, "Enable TL2", group=gT2)
+t2p1  = input.price(0.0,  "P1 price", group=gT2, inline="2a", confirm=true)
+t2t1  = input.time(0,     "P1 time",  group=gT2, inline="2a", confirm=true)
+t2p2  = input.price(0.0,  "P2 price", group=gT2, inline="2b", confirm=true)
+t2t2  = input.time(0,     "P2 time",  group=gT2, inline="2b", confirm=true)
+t2ext = input.bool(true,  "Extend right", group=gT2)
+
+// ---------------- Break logic ----------------
+gB = "Break Logic"
+useClose   = input.bool(true,  "Confirm on close (off = wick)", group=gB)
+volConf    = input.bool(false, "Require volume surge",          group=gB)
+volMult    = input.float(1.5,  "Volume >= x * SMA20",           group=gB, minval=1.0, step=0.1)
+oncePerBar = input.bool(true,  "Only signal at bar close",      group=gB)
+
+// ---------------- Visuals ----------------
+gV = "Visuals"
+colLvl = input.color(color.orange, "S/R color",  group=gV)
+col1   = input.color(color.blue,   "TL1 color",  group=gV)
+col2   = input.color(color.purple, "TL2 color",  group=gV)
+colUp  = input.color(color.green,  "Break-up color",   group=gV)
+colDn  = input.color(color.red,    "Break-down color", group=gV)
+showLbl= input.bool(true, "Show S/R labels", group=gV)
+
+// ---------------- Shared conditions ----------------
+volOk      = not volConf or (volume >= volMult * ta.sma(volume, 20))
+confirmBar = not oncePerBar or barstate.isconfirmed
+suU = useClose ? close : high
+sdD = useClose ? close : low
+
+// ---------------- Horizontal break helper ----------------
+f_break(float lvl, bool on) =>
+    bool active = on and not na(lvl) and lvl != 0.0
+    bool bu = active and ta.crossover(suU, lvl)  and volOk and confirmBar
+    bool bd = active and ta.crossunder(sdD, lvl) and volOk and confirmBar
+    [bu, bd]
+
+[u1, d1] = f_break(l1, l1on)
+[u2, d2] = f_break(l2, l2on)
+[u3, d3] = f_break(l3, l3on)
+
+// ---------------- Trendline projected value + break ----------------
+f_tlval(float p1, int tt1, float p2, int tt2) =>
+    na(p1) or na(p2) or p1 == 0.0 or p2 == 0.0 or tt1 == 0 or tt2 == 0 or tt2 == tt1 ? na : p1 + (p2 - p1) / (tt2 - tt1) * (time - tt1)
+
+v1 = t1on ? f_tlval(t1p1, t1t1, t1p2, t1t2) : na
+v2 = t2on ? f_tlval(t2p1, t2t1, t2p2, t2t2) : na
+active1 = t1on and not na(v1) and time >= t1t2
+active2 = t2on and not na(v2) and time >= t2t2
+
+tu1 = active1 and ta.crossover(suU, v1)  and volOk and confirmBar
+td1 = active1 and ta.crossunder(sdD, v1) and volOk and confirmBar
+tu2 = active2 and ta.crossover(suU, v2)  and volOk and confirmBar
+td2 = active2 and ta.crossunder(sdD, v2) and volOk and confirmBar
+
+// ---------------- Aggregate + identify which object fired ----------------
+srUp = u1 or u2 or u3
+srDn = d1 or d2 or d3
+tlUp = tu1 or tu2
+tlDn = td1 or td2
+
+anyUp = srUp or tlUp
+anyDn = srDn or tlDn
+
+// event metadata for the webhook (S/R takes priority if simultaneous)
+string brkKind = srUp or srDn ? "SR" : tlUp or tlDn ? "TL" : na
+string brkDir  = anyUp ? "BO" : anyDn ? "BD" : na
+float  brkVal  = u1 or d1 ? l1 : u2 or d2 ? l2 : u3 or d3 ? l3 : tu1 or td1 ? v1 : tu2 or td2 ? v2 : na
+string brkRef  = u1 or d1 ? "SR1" : u2 or d2 ? "SR2" : u3 or d3 ? "SR3" : tu1 or td1 ? "TL1" : tu2 or td2 ? "TL2" : na
+
+// ---------------- Plots: S/R levels ----------------
+plot(l1on and l1 != 0.0 ? l1 : na, "S/R 1", colLvl, 2, plot.style_linebr)
+plot(l2on and l2 != 0.0 ? l2 : na, "S/R 2", colLvl, 2, plot.style_linebr)
+plot(l3on and l3 != 0.0 ? l3 : na, "S/R 3", colLvl, 2, plot.style_linebr)
+
+// ---------------- Draw trendlines ----------------
+var line ln1 = na
+var line ln2 = na
+if barstate.islast
+    line.delete(ln1)
+    line.delete(ln2)
+    if t1on and t1p1 != 0.0 and t1p2 != 0.0 and t1t1 != 0 and t1t2 != 0
+        ln1 := line.new(t1t1, t1p1, t1t2, t1p2, xloc=xloc.bar_time, extend=(t1ext ? extend.right : extend.none), color=col1, width=2)
+    if t2on and t2p1 != 0.0 and t2p2 != 0.0 and t2t1 != 0 and t2t2 != 0
+        ln2 := line.new(t2t1, t2p1, t2t2, t2p2, xloc=xloc.bar_time, extend=(t2ext ? extend.right : extend.none), color=col2, width=2)
+
+// ---------------- S/R right-edge labels ----------------
+var label lb1 = na
+var label lb2 = na
+var label lb3 = na
+if showLbl and barstate.islast
+    label.delete(lb1), label.delete(lb2), label.delete(lb3)
+    if l1on and l1 != 0.0
+        lb1 := label.new(bar_index + 3, l1, "S/R 1: " + str.tostring(l1, format.mintick), style=label.style_label_left, color=color.new(colLvl, 80), textcolor=colLvl, size=size.small)
+    if l2on and l2 != 0.0
+        lb2 := label.new(bar_index + 3, l2, "S/R 2: " + str.tostring(l2, format.mintick), style=label.style_label_left, color=color.new(colLvl, 80), textcolor=colLvl, size=size.small)
+    if l3on and l3 != 0.0
+        lb3 := label.new(bar_index + 3, l3, "S/R 3: " + str.tostring(l3, format.mintick), style=label.style_label_left, color=color.new(colLvl, 80), textcolor=colLvl, size=size.small)
+
+// ---------------- Break markers ----------------
+plotshape(anyUp, "Break Up",   shape.triangleup,   location.belowbar, colUp, size=size.small, text="BO")
+plotshape(anyDn, "Break Down", shape.triangledown, location.abovebar, colDn, size=size.small, text="BD")
+
+// ---------------- Alerts ----------------
+alertcondition(anyUp, "Any Break UP",   "{{ticker}} broke ABOVE a manual S/R or trendline")
+alertcondition(anyDn, "Any Break DOWN", "{{ticker}} broke BELOW a manual S/R or trendline")
+
+if anyUp or anyDn
+    string msg = '{"ticker":"' + syminfo.ticker + '"' +
+                 ',"event":"' + brkKind + '_' + brkDir + '"' +
+                 ',"ref":"' + brkRef + '"' +
+                 ',"level":' + str.tostring(brkVal, format.mintick) +
+                 ',"price":' + str.tostring(close, format.mintick) +
+                 ',"tf":"' + timeframe.period + '"' +
+                 ',"ts":' + str.tostring(timenow) + '}'
+    alert(msg, alert.freq_once_per_bar_close)

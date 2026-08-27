@@ -1,0 +1,1313 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © Weinstein Commander Suite — Context Layers v1.2
+//
+// CHANGELOG v1.1 → v1.2
+// ─────────────────────
+// NEW
+//  • Setup Bonus feeds the Context Score (was: setups were pure consumers).
+//    A detected setup adds a signed bonus to _total, then the score band is
+//    assigned from the bonus-adjusted total. Bonuses by priority:
+//      S2 (pri 5)         → +2
+//      S3 (pri 4)         → +2
+//      S1 (pri 3, bull)   → +1
+//      S7 (pri 3, bear)   → −2 (bearish setup pushes score DOWN)
+//      S4/S5/S6 (pri 2)   → 0  (these conditions already drive component scores)
+//      S8 (pri 1, choppy) → −1 (sit-out penalty)
+//    Setup-detector conditions still use ORIGINAL _total (no circular feedback).
+//  • Panel adds two new rows:
+//      "SETUP BONUS"   — shows the signed bonus value with attribution
+//      "FINAL SCORE"   — shows base + bonus = total breakdown
+//    Original "CONTEXT SCORE" row renamed to "BASE SCORE" for clarity.
+//  • Score thresholds re-tuned for new ±16 max (was ±14):
+//      STRONG BULL ≥ 9 (was 8) | BULL ≥ 4 | NEUTRAL −3..+3 | CAUTION ≤ −4 | BEAR ≤ −7
+//
+// PRESERVED FROM v1.1
+//  • All bug fixes (B1–B7) and color/display fixes (C3, C4, C5).
+//  • All enhancements (E2 Stage, E3 alerts, E4 asymmetric POC, E5 freshness fade,
+//    E6 OB %, E7 Structure Health) and 8 setups (S1–S8) intact.
+//  • wcl_setup_pri_export plot retained for Unified Ecosystem v2.5 E11 wiring.
+// Combines: Wyckoff Phase Detector | Volume Profile | SMC Zones | Setup Detector
+// NSE/India optimised | Pine Script v6
+//
+// CHANGELOG v1.0 → v1.1
+// ─────────────────────
+// BUG FIXES
+//  B1  SC ↔ SOW disambiguation — SOW now requires a confirmed lower-low pivot break (no
+//      more dual labels on the same bar).
+//  B2  BC ↔ SOS disambiguation — BC now excludes up-bars; SOS now excludes BC-style
+//      exhaustion bars.
+//  B3  Volume Profile heavy loop moved to `barstate.isconfirmed`; only line refresh
+//      runs on `barstate.islast`.
+//  B4  CHoCH variable names corrected (smc_choch_up / smc_choch_dn — readable).
+//  B5  Spring condition tightened: now requires close in upper 35% AND up-bar.
+//  B6  Wyckoff score decays by ~25% per 15 bars elapsed (half-life ≈ 45 bars).
+//  B7  BOS/CHoCH labels gated by `barstate.isconfirmed` to prevent realtime duplicates.
+//
+// COLOR FIXES (theme retained — light)
+//  C3  STRONG BULL now uses distinct bright-spring green (#1de9b6) vs BULL teal.
+//  C4  Bear OB "inside" tautology fixed — uses darker red when price sits inside.
+//  C5  Context Score now uses ✓ / ✗ / ● prefixes per documented mark legend.
+//
+// ENHANCEMENTS
+//  E2  Weinstein Stage input wired into Context Score (-4…+3).
+//  E3  Alert conditions for score transitions and key events.
+//  E4  POC distance color asymmetric — above-POC scores friendlier than below.
+//  E5  Event freshness fades cell color transparency as event ages (0 / 30 / 60 %).
+//  E6  Bull/Bear OB rows now show % distance to price.
+//  E7  Structure Health row — CHoCH count over last 20 bars (CLEAN / CHOPPY / BROKEN).
+//  NEW Setup Detector — auto-flags six entry scenarios on the panel.
+
+//@version=6
+indicator("Weinstein Context Layers v1.2",
+     shorttitle       = "WCL v1.2",
+     overlay          = true,
+     max_labels_count = 500,
+     max_lines_count  = 500,
+     max_boxes_count  = 500)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MASTER CONTROLS
+// ══════════════════════════════════════════════════════════════════════════════
+grp_m = "🎛  MASTER CONTROLS"
+en_wyk  = input.bool  (true,        "Enable Wyckoff Module",         group=grp_m)
+en_vp   = input.bool  (true,        "Enable Volume Profile Module",  group=grp_m)
+en_smc  = input.bool  (true,        "Enable SMC Zones Module",       group=grp_m)
+en_stp  = input.bool  (true,        "Enable Setup Detector",         group=grp_m)
+en_pnl  = input.bool  (true,        "Show Context Panel",            group=grp_m)
+pnl_pos = input.string("Top Left",  "Panel Position",
+     options=["Top Left", "Top Center", "Top Right", "Middle Left", "Middle Center", "Middle Right", "Bottom Left", "Bottom Center", "Bottom Right"],   group=grp_m)
+pnl_sz  = input.string("Small",     "Panel Text Size",
+     options=["Tiny","Small","Normal"],                               group=grp_m)
+
+grp_stage = "Weinstein Stage (manual input)"
+stage_in = input.string("2 - Advancing", "Current Weinstein Stage",
+     options=["1 - Basing", "2 - Advancing", "3 - Topping", "4 - Declining", "Auto (30-WMA slope)"],
+     group=grp_stage,
+     tooltip="Sets a 4th Context Score component. Auto mode uses 30-WMA slope: rising→Stage 2, flat→Stage 1, falling→Stage 4.")
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  WYCKOFF INPUTS
+// ══════════════════════════════════════════════════════════════════════════════
+grp_ws = "Wyckoff — Swing Settings"
+wyk_pivot_len   = input.int  (10,  "Pivot Length",                minval=3,  maxval=30,  group=grp_ws)
+wyk_vol_lookbk  = input.int  (20,  "Volume Avg Lookback",         minval=10, maxval=50,  group=grp_ws)
+wyk_vol_mult_hi = input.float(1.5, "High Volume Threshold (×avg)", minval=1.1, maxval=5.0, step=0.1, group=grp_ws)
+wyk_vol_mult_lo = input.float(0.7, "Low Volume Threshold  (×avg)", minval=0.2, maxval=1.0, step=0.1, group=grp_ws)
+wyk_decay_bars  = input.int  (15,  "Score decay step (bars)",     minval=5,  maxval=60,  group=grp_ws,
+     tooltip="Wyckoff score fades by 25% every N bars after the event fires. 15 = half-life ~45 bars.")
+
+grp_wd = "Wyckoff — Display"
+wyk_show_acc = input.bool(true, "Show Accumulation Events",       group=grp_wd)
+wyk_show_dis = input.bool(true, "Show Distribution Events",       group=grp_wd)
+wyk_show_vol = input.bool(true, "Show Volume Multiplier in Label",group=grp_wd)
+
+grp_wc = "Wyckoff — Colours"
+wyk_col_acc  = input.color(color.new(color.green,  10), "Accumulation Labels", group=grp_wc)
+wyk_col_dis  = input.color(color.new(color.red,    10), "Distribution Labels", group=grp_wc)
+wyk_col_str  = input.color(color.new(color.teal,   20), "SOS / Strength",      group=grp_wc)
+wyk_col_weak = input.color(color.new(color.orange, 20), "SOW / Weakness",      group=grp_wc)
+wyk_col_sc   = input.color(color.new(color.purple, 10), "Climax Events",       group=grp_wc)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  VOLUME PROFILE INPUTS
+// ══════════════════════════════════════════════════════════════════════════════
+grp_vps = "Volume Profile — Settings"
+vp_lookback = input.int  (100,  "Lookback Bars",          minval=20,  maxval=500, group=grp_vps)
+vp_num_rows = input.int  (40,   "Profile Rows",           minval=10,  maxval=80,  group=grp_vps)
+vp_va_pct   = input.float(70.0, "Value Area %",           minval=50,  maxval=95,  step=5, group=grp_vps)
+vp_hist_w   = input.int  (25,   "Histogram Width (bars)", minval=5,   maxval=60,  group=grp_vps)
+
+grp_vpd = "Volume Profile — Display"
+vp_show_hist = input.bool(true,  "Show Histogram",           group=grp_vpd)
+vp_show_poc  = input.bool(true,  "Show POC Line",            group=grp_vpd)
+vp_show_va   = input.bool(true,  "Show Value Area",          group=grp_vpd)
+vp_show_lbl  = input.bool(true,  "Show Price Labels",        group=grp_vpd)
+vp_extend    = input.bool(false, "Extend POC/VA Lines Left", group=grp_vpd)
+
+grp_vpc = "Volume Profile — Colours"
+vp_col_hist = input.color(color.new(color.blue,   65), "Histogram",  group=grp_vpc)
+vp_col_va   = input.color(color.new(color.teal,   55), "Value Area", group=grp_vpc)
+vp_col_poc  = input.color(color.red,                   "POC Line",   group=grp_vpc)
+vp_col_vah  = input.color(color.new(color.green,  20), "VAH Line",   group=grp_vpc)
+vp_col_val  = input.color(color.new(color.orange, 20), "VAL Line",   group=grp_vpc)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SMC INPUTS
+// ══════════════════════════════════════════════════════════════════════════════
+grp_ob = "SMC — Order Blocks"
+smc_show_ob         = input.bool (true,  "Show Order Blocks",              group=grp_ob)
+smc_ob_len          = input.int  (5,     "Swing Length for OB",  minval=3, maxval=20, group=grp_ob)
+smc_ob_max_show     = input.int  (5,     "Max OBs to Show",      minval=1, maxval=20, group=grp_ob)
+smc_ob_mitigated    = input.bool (false, "Keep Mitigated OBs",             group=grp_ob)
+smc_col_bull_ob     = input.color(color.new(color.green, 80), "Bullish OB Fill",   group=grp_ob)
+smc_col_bear_ob     = input.color(color.new(color.red,   80), "Bearish OB Fill",   group=grp_ob)
+smc_col_bull_ob_brd = input.color(color.new(color.green, 20), "Bullish OB Border", group=grp_ob)
+smc_col_bear_ob_brd = input.color(color.new(color.red,   20), "Bearish OB Border", group=grp_ob)
+
+grp_fvg = "SMC — Fair Value Gaps"
+smc_show_fvg     = input.bool (true,  "Show FVGs",                         group=grp_fvg)
+smc_fvg_min_pct  = input.float(0.05,  "Min Gap Size (% of price)",
+                  minval=0.0, maxval=2.0, step=0.01,                       group=grp_fvg)
+smc_fvg_auto_mit = input.bool (true,  "Auto-remove Mitigated FVGs",        group=grp_fvg)
+smc_fvg_max_show = input.int  (10,    "Max FVGs to Show",      minval=1,   maxval=30, group=grp_fvg)
+smc_col_bull_fvg = input.color(color.new(color.teal,   80), "Bullish FVG Fill", group=grp_fvg)
+smc_col_bear_fvg = input.color(color.new(color.orange, 80), "Bearish FVG Fill", group=grp_fvg)
+
+grp_bos = "SMC — BOS / CHoCH"
+smc_show_bos   = input.bool(true, "Show BOS Labels",      group=grp_bos)
+smc_show_choch = input.bool(true, "Show CHoCH Labels",    group=grp_bos)
+smc_bos_len    = input.int (10,   "Swing Length for BOS", minval=3, maxval=30, group=grp_bos)
+smc_col_bos_b  = input.color(color.new(color.green, 20), "Bullish BOS / CHoCH", group=grp_bos)
+smc_col_bos_s  = input.color(color.new(color.red,   20), "Bearish BOS / CHoCH", group=grp_bos)
+
+grp_liq = "SMC — Liquidity"
+smc_show_liq = input.bool(true, "Show Liquidity Sweeps",   group=grp_liq)
+smc_liq_len  = input.int (10,   "Swing Length for Sweeps", minval=3, maxval=30, group=grp_liq)
+smc_col_liq  = input.color(color.new(color.purple, 30), "Sweep Label", group=grp_liq)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SHARED SERIES  (must run unconditionally every bar)
+// ══════════════════════════════════════════════════════════════════════════════
+atr14 = ta.atr(14)
+sma30w = request.security(syminfo.tickerid, "W", ta.sma(close, 30), lookahead=barmerge.lookahead_off)   // True 30-week MA requested from Weekly timeframe to prevent intraday drift
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  WYCKOFF MODULE
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Series ────────────────────────────────────────────────────────────────────
+wyk_avg_vol = ta.sma(volume, wyk_vol_lookbk)
+wyk_hi_vol  = volume > wyk_avg_vol * wyk_vol_mult_hi
+wyk_lo_vol  = volume < wyk_avg_vol * wyk_vol_mult_lo
+wyk_wide    = (high - low) > atr14 * 1.4
+wyk_narrow  = (high - low) < atr14 * 0.6
+wyk_dn_bar  = close < open
+wyk_up_bar  = close > open
+wyk_cls_hi  = (close - low)  / math.max(high - low, 0.001) > 0.65
+wyk_cls_lo  = (high - close) / math.max(high - low, 0.001) > 0.65
+wyk_ph      = ta.pivothigh(high, wyk_pivot_len, wyk_pivot_len)
+wyk_pl      = ta.pivotlow (low,  wyk_pivot_len, wyk_pivot_len)
+wyk_pb      = wyk_pivot_len     // bar offset to the confirmed pivot
+
+// Track prior pivot low for SOW lower-low confirmation (B1 fix)
+var float wyk_prev_pl = na
+var float wyk_curr_pl = na
+if not na(wyk_pl)
+    wyk_prev_pl := wyk_curr_pl
+    wyk_curr_pl := wyk_pl
+wyk_lower_low = not na(wyk_pl) and not na(wyk_prev_pl) and wyk_pl < wyk_prev_pl
+
+// ── Event conditions ──────────────────────────────────────────────────────────
+// B1 fix: SOW requires lower-low pivot break (structural breakdown)
+// B2 fix: BC excludes up-bars; SOS excludes wide-vol exhaustion shapes (cls_hi w/ no body)
+// B5 fix: Spring requires upper-35% close AND up-bar (real recovery, not 0.5% noise)
+wyk_sc_c    = not na(wyk_pl) and wyk_hi_vol[wyk_pb] and wyk_wide[wyk_pb]   and wyk_cls_lo[wyk_pb]
+wyk_ps_c    = not na(wyk_pl) and wyk_hi_vol[wyk_pb] and not wyk_cls_lo[wyk_pb] and not wyk_sc_c
+wyk_st_c    = not na(wyk_pl) and wyk_lo_vol[wyk_pb] and wyk_narrow[wyk_pb]
+wyk_spr_c   = not na(wyk_pl) and wyk_lo_vol[wyk_pb] and wyk_cls_hi[wyk_pb] and wyk_up_bar[wyk_pb]
+wyk_sos_c   = not na(wyk_ph) and wyk_hi_vol[wyk_pb] and wyk_wide[wyk_pb]   and wyk_cls_hi[wyk_pb] and wyk_up_bar[wyk_pb]
+wyk_lps_c   = not na(wyk_pl) and wyk_lo_vol[wyk_pb] and wyk_up_bar[wyk_pb] and not wyk_spr_c
+wyk_ar_a_c  = not na(wyk_ph) and volume[wyk_pb] > wyk_avg_vol[wyk_pb] * 0.9 and wyk_up_bar[wyk_pb] and not wyk_sos_c
+wyk_psy_c   = not na(wyk_ph) and wyk_hi_vol[wyk_pb] and not wyk_cls_hi[wyk_pb]
+wyk_bc_c    = not na(wyk_ph) and wyk_hi_vol[wyk_pb] and wyk_wide[wyk_pb]   and wyk_cls_hi[wyk_pb] and not wyk_up_bar[wyk_pb]
+wyk_ut_c    = not na(wyk_ph) and wyk_hi_vol[wyk_pb] and wyk_wide[wyk_pb]   and wyk_cls_lo[wyk_pb]
+wyk_sow_c   = wyk_lower_low and wyk_hi_vol[wyk_pb] and wyk_wide[wyk_pb] and wyk_cls_lo[wyk_pb] and wyk_dn_bar[wyk_pb]
+wyk_lpsy_c  = not na(wyk_ph) and wyk_lo_vol[wyk_pb] and wyk_narrow[wyk_pb] and wyk_dn_bar[wyk_pb]
+wyk_ar_d_c  = not na(wyk_pl) and volume[wyk_pb] > wyk_avg_vol[wyk_pb] * 0.9 and wyk_dn_bar[wyk_pb] and not wyk_sc_c and not wyk_sow_c
+
+// ── Vol-multiplier helper ─────────────────────────────────────────────────────
+wyk_vmul(v) =>
+    wyk_show_vol ? " (" + str.tostring(v / wyk_avg_vol, "#.#") + "×)" : ""
+
+// ── Panel state (persistent, updated on every event fire) ─────────────────────
+var string wyk_last_event = "—"
+var int    wyk_last_bar   = na
+var string wyk_bias       = "NEUTRAL"
+var int    wyk_score_base = 0       // raw component before decay (-4…+4)
+
+if true
+    // Accumulation (priority: SOS > Spring > LPS > SC > PS > ST)
+    if wyk_sos_c
+        wyk_last_event := "SOS"  + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "ACCUMULATION"
+        wyk_score_base := 4
+    else if wyk_spr_c
+        wyk_last_event := "Spring" + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "ACCUMULATION"
+        wyk_score_base := 3
+    else if wyk_lps_c
+        wyk_last_event := "LPS"  + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "ACCUMULATION"
+        wyk_score_base := 3
+    else if wyk_sc_c
+        wyk_last_event := "SC"   + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "ACCUMULATION"
+        wyk_score_base := 2
+    else if wyk_ps_c
+        wyk_last_event := "PS"   + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "ACCUMULATION"
+        wyk_score_base := 1
+    else if wyk_st_c
+        wyk_last_event := "ST"   + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "ACCUMULATION"
+        wyk_score_base := 1
+    // Distribution — separate if chain (different pivot type)
+    if wyk_sow_c
+        wyk_last_event := "SOW"  + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "DISTRIBUTION"
+        wyk_score_base := -4
+    else if wyk_lpsy_c
+        wyk_last_event := "LPSY" + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "DISTRIBUTION"
+        wyk_score_base := -3
+    else if wyk_ut_c
+        wyk_last_event := "UT"   + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "DISTRIBUTION"
+        wyk_score_base := -3
+    else if wyk_bc_c
+        wyk_last_event := "BC"   + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "DISTRIBUTION"
+        wyk_score_base := -2
+    else if wyk_psy_c
+        wyk_last_event := "PSY"  + wyk_vmul(volume[wyk_pb])
+        wyk_last_bar   := bar_index
+        wyk_bias       := "DISTRIBUTION"
+        wyk_score_base := -1
+
+// B6/E1: Wyckoff score decay — 25% fade per `wyk_decay_bars` elapsed
+wyk_age = not na(wyk_last_bar) ? bar_index - wyk_last_bar : 9999
+wyk_decay_steps = int(wyk_age / wyk_decay_bars)
+wyk_decay_mult = math.max(0.0, 1.0 - wyk_decay_steps * 0.25)
+wyk_score_comp = int(math.round(wyk_score_base * wyk_decay_mult))
+
+// ── Accumulation chart labels ─────────────────────────────────────────────────
+if en_wyk and wyk_show_acc and barstate.isconfirmed
+    if wyk_sc_c
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "SC" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_sc, textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+    else if wyk_spr_c
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "Spring" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_acc, textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+    else if wyk_ps_c
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "PS" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_acc, textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+    else if wyk_st_c
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "ST" + wyk_vmul(volume[wyk_pb]),
+             color=color.new(wyk_col_acc, 30), textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+    else if wyk_lps_c
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "LPS" + wyk_vmul(volume[wyk_pb]),
+             color=color.new(wyk_col_acc, 30), textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+    if wyk_sos_c
+        label.new(bar_index[wyk_pb], high[wyk_pb] + atr14[wyk_pb] * 0.5,
+             "SOS" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_str, textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+    else if wyk_ar_a_c and not wyk_bc_c
+        label.new(bar_index[wyk_pb], high[wyk_pb] + atr14[wyk_pb] * 0.5,
+             "AR" + wyk_vmul(volume[wyk_pb]),
+             color=color.new(wyk_col_acc, 30), textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+
+// ── Distribution chart labels ─────────────────────────────────────────────────
+if en_wyk and wyk_show_dis and barstate.isconfirmed
+    if wyk_bc_c and not wyk_sos_c                         // B2: don't draw BC if SOS already fired
+        label.new(bar_index[wyk_pb], high[wyk_pb] + atr14[wyk_pb] * 0.5,
+             "BC" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_sc, textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+    else if wyk_ut_c
+        label.new(bar_index[wyk_pb], high[wyk_pb] + atr14[wyk_pb] * 0.5,
+             "UT" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_dis, textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+    else if wyk_psy_c
+        label.new(bar_index[wyk_pb], high[wyk_pb] + atr14[wyk_pb] * 0.5,
+             "PSY" + wyk_vmul(volume[wyk_pb]),
+             color=color.new(wyk_col_dis, 30), textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+    else if wyk_lpsy_c
+        label.new(bar_index[wyk_pb], high[wyk_pb] + atr14[wyk_pb] * 0.5,
+             "LPSY" + wyk_vmul(volume[wyk_pb]),
+             color=color.new(wyk_col_dis, 30), textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+    if wyk_sow_c and not wyk_sc_c                         // B1: don't draw SOW if SC already fired
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "SOW" + wyk_vmul(volume[wyk_pb]),
+             color=wyk_col_weak, textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+    else if wyk_ar_d_c
+        label.new(bar_index[wyk_pb], low[wyk_pb] - atr14[wyk_pb] * 0.5,
+             "AR" + wyk_vmul(volume[wyk_pb]),
+             color=color.new(wyk_col_dis, 30), textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SMC ZONES MODULE
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Pivot series (all three swing lengths — unconditional) ────────────────────
+smc_ph_ob  = ta.pivothigh(high, smc_ob_len,  smc_ob_len)
+smc_pl_ob  = ta.pivotlow (low,  smc_ob_len,  smc_ob_len)
+smc_ph_bos = ta.pivothigh(high, smc_bos_len, smc_bos_len)
+smc_pl_bos = ta.pivotlow (low,  smc_bos_len, smc_bos_len)
+smc_ph_liq = ta.pivothigh(high, smc_liq_len, smc_liq_len)
+smc_pl_liq = ta.pivotlow (low,  smc_liq_len, smc_liq_len)
+
+// ── BOS / CHoCH swing state ───────────────────────────────────────────────────
+var float smc_last_sh   = na
+var float smc_last_sl   = na
+var int   smc_last_sh_i = na
+var int   smc_last_sl_i = na
+var bool  smc_trend_up  = true
+
+if not na(smc_ph_bos)
+    smc_last_sh   := smc_ph_bos
+    smc_last_sh_i := bar_index[smc_bos_len]
+if not na(smc_pl_bos)
+    smc_last_sl   := smc_pl_bos
+    smc_last_sl_i := bar_index[smc_bos_len]
+
+// Pre-compute crossovers unconditionally
+smc_cross_up   = ta.crossover (close, smc_last_sh)
+smc_cross_down = ta.crossunder(close, smc_last_sl)
+
+smc_bull_bos = not na(smc_last_sh) and smc_cross_up
+smc_bear_bos = not na(smc_last_sl) and smc_cross_down
+// B4: renamed for clarity. choch_up = bullish CHoCH (uptrend reversal from bearish).
+smc_choch_up = smc_bull_bos and not smc_trend_up   // bull BOS in a downtrend = bullish CHoCH
+smc_choch_dn = smc_bear_bos and     smc_trend_up   // bear BOS in an uptrend  = bearish CHoCH
+
+if smc_bull_bos
+    smc_trend_up := true
+if smc_bear_bos
+    smc_trend_up := false
+
+// ── Panel state ───────────────────────────────────────────────────────────────
+var string smc_last_event    = "—"
+var int    smc_last_bar      = na
+var bool   smc_last_was_bull = true
+var bool   smc_last_choch    = false
+var string smc_last_sweep    = "—"
+var int    smc_sweep_bar     = na
+
+// E7: CHoCH count tracker — sliding 20-bar window
+var int    choch_count_20 = 0
+var int[]  choch_bars     = array.new_int()
+if smc_choch_up or smc_choch_dn
+    array.push(choch_bars, bar_index)
+while array.size(choch_bars) > 0 and bar_index - array.get(choch_bars, 0) > 20
+    array.shift(choch_bars)
+choch_count_20 := array.size(choch_bars)
+
+if true
+    if smc_bull_bos
+        smc_last_event    := smc_choch_up ? "CHoCH ▲" : "BOS ▲"
+        smc_last_bar      := bar_index
+        smc_last_was_bull := true
+        smc_last_choch    := smc_choch_up
+    if smc_bear_bos
+        smc_last_event    := smc_choch_dn ? "CHoCH ▼" : "BOS ▼"
+        smc_last_bar      := bar_index
+        smc_last_was_bull := false
+        smc_last_choch    := smc_choch_dn
+
+// ── BOS / CHoCH chart labels (B7: gated by barstate.isconfirmed) ──────────────
+if en_smc and smc_bull_bos and not na(smc_last_sh) and barstate.isconfirmed
+    _lbl  = smc_choch_up ? "CHoCH ▲" : "BOS ▲"
+    _col  = smc_choch_up ? smc_col_bos_b : color.new(smc_col_bos_b, 40)
+    _draw = (smc_choch_up and smc_show_choch) or (not smc_choch_up and smc_show_bos)
+    if _draw
+        line.new(smc_last_sh_i, smc_last_sh, bar_index, smc_last_sh,
+             color=_col, width=1, style=line.style_dashed)
+        label.new(bar_index, smc_last_sh, _lbl,
+             color=_col, textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+
+if en_smc and smc_bear_bos and not na(smc_last_sl) and barstate.isconfirmed
+    _lbl  = smc_choch_dn ? "CHoCH ▼" : "BOS ▼"
+    _col  = smc_choch_dn ? smc_col_bos_s : color.new(smc_col_bos_s, 40)
+    _draw = (smc_choch_dn and smc_show_choch) or (not smc_choch_dn and smc_show_bos)
+    if _draw
+        line.new(smc_last_sl_i, smc_last_sl, bar_index, smc_last_sl,
+             color=_col, width=1, style=line.style_dashed)
+        label.new(bar_index, smc_last_sl, _lbl,
+             color=_col, textcolor=color.white,
+             style=label.style_label_up, size=size.small)
+
+// ── FVG arrays ────────────────────────────────────────────────────────────────
+var box[]   fvg_boxes   = array.new_box()
+var float[] fvg_top     = array.new_float()
+var float[] fvg_bot     = array.new_float()
+var bool[]  fvg_is_bull = array.new_bool()
+var bool[]  fvg_active  = array.new_bool()
+
+fvg_min_pts  = close * smc_fvg_min_pct / 100.0
+smc_bull_fvg = (low  - high[2]) > fvg_min_pts
+smc_bear_fvg = (low[2] - high)  > fvg_min_pts
+
+if smc_bull_fvg
+    while array.size(fvg_boxes) >= smc_fvg_max_show
+        box.delete(array.shift(fvg_boxes))
+        array.shift(fvg_top)
+        array.shift(fvg_bot)
+        array.shift(fvg_is_bull)
+        array.shift(fvg_active)
+    _bg = (en_smc and smc_show_fvg) ? smc_col_bull_fvg : na
+    _bd = (en_smc and smc_show_fvg) ? color.new(color.teal, 20) : na
+    _b = box.new(bar_index[1], low, bar_index + 1, high[2],
+         bgcolor=_bg,
+         border_color=_bd, border_width=1,
+         extend=extend.right)
+    array.push(fvg_boxes, _b)
+    array.push(fvg_top,     low)
+    array.push(fvg_bot,     high[2])
+    array.push(fvg_is_bull, true)
+    array.push(fvg_active,  true)
+
+if smc_bear_fvg
+    while array.size(fvg_boxes) >= smc_fvg_max_show
+        box.delete(array.shift(fvg_boxes))
+        array.shift(fvg_top)
+        array.shift(fvg_bot)
+        array.shift(fvg_is_bull)
+        array.shift(fvg_active)
+    _bg = (en_smc and smc_show_fvg) ? smc_col_bear_fvg : na
+    _bd = (en_smc and smc_show_fvg) ? color.new(color.orange, 20) : na
+    _b = box.new(bar_index[1], low[2], bar_index + 1, high,
+         bgcolor=_bg,
+         border_color=_bd, border_width=1,
+         extend=extend.right)
+    array.push(fvg_boxes, _b)
+    array.push(fvg_top,     low[2])
+    array.push(fvg_bot,     high)
+    array.push(fvg_is_bull, false)
+    array.push(fvg_active,  true)
+
+// ── FVG mitigation ────────────────────────────────────────────────────────────
+if smc_fvg_auto_mit and array.size(fvg_boxes) > 0
+    for i = array.size(fvg_boxes) - 1 to 0
+        if array.get(fvg_active, i)
+            _t   = array.get(fvg_top,     i)
+            _b2  = array.get(fvg_bot,     i)
+            _bul = array.get(fvg_is_bull, i)
+            _mit = (_bul and close < _b2) or (not _bul and close > _t)
+            if _mit
+                array.set(fvg_active, i, false)
+                box.delete(array.get(fvg_boxes, i))
+
+// ── OB arrays ─────────────────────────────────────────────────────────────────
+var box[]   ob_boxes   = array.new_box()
+var bool[]  ob_is_bull = array.new_bool()
+var bool[]  ob_active  = array.new_bool()
+var float[] ob_top     = array.new_float()
+var float[] ob_bot     = array.new_float()
+
+if smc_bull_bos
+    _found = false
+    for i = 1 to smc_ob_len
+        if not _found and close[i] < open[i]
+            _found := true
+            while array.size(ob_boxes) >= smc_ob_max_show
+                box.delete(array.shift(ob_boxes))
+                array.shift(ob_is_bull)
+                array.shift(ob_active)
+                array.shift(ob_top)
+                array.shift(ob_bot)
+            _bg = (en_smc and smc_show_ob) ? smc_col_bull_ob : na
+            _bd = (en_smc and smc_show_ob) ? smc_col_bull_ob_brd : na
+            _b = box.new(bar_index[i], open[i], bar_index, close[i],
+                 bgcolor=_bg,
+                 border_color=_bd, border_width=1,
+                 extend=extend.right)
+            if en_smc and smc_show_ob
+                label.new(bar_index[i], close[i], "Bull OB",
+                     color=smc_col_bull_ob_brd, textcolor=color.white,
+                     style=label.style_label_up, size=size.tiny)
+            array.push(ob_boxes,   _b)
+            array.push(ob_is_bull, true)
+            array.push(ob_active,  true)
+            array.push(ob_top,     open[i])
+            array.push(ob_bot,     close[i])
+
+if smc_bear_bos
+    _found = false
+    for i = 1 to smc_ob_len
+        if not _found and close[i] > open[i]
+            _found := true
+            while array.size(ob_boxes) >= smc_ob_max_show
+                box.delete(array.shift(ob_boxes))
+                array.shift(ob_is_bull)
+                array.shift(ob_active)
+                array.shift(ob_top)
+                array.shift(ob_bot)
+            _bg = (en_smc and smc_show_ob) ? smc_col_bear_ob : na
+            _bd = (en_smc and smc_show_ob) ? smc_col_bear_ob_brd : na
+            _b = box.new(bar_index[i], close[i], bar_index, open[i],
+                 bgcolor=_bg,
+                 border_color=_bd, border_width=1,
+                 extend=extend.right)
+            if en_smc and smc_show_ob
+                label.new(bar_index[i], close[i], "Bear OB",
+                     color=smc_col_bear_ob_brd, textcolor=color.white,
+                     style=label.style_label_down, size=size.tiny)
+            array.push(ob_boxes,   _b)
+            array.push(ob_is_bull, false)
+            array.push(ob_active,  true)
+            array.push(ob_top,     close[i])
+            array.push(ob_bot,     open[i])
+
+// ── OB mitigation ─────────────────────────────────────────────────────────────
+if not smc_ob_mitigated and array.size(ob_boxes) > 0
+    for i = array.size(ob_boxes) - 1 to 0
+        if array.get(ob_active, i)
+            _t   = array.get(ob_top,     i)
+            _b3  = array.get(ob_bot,     i)
+            _bul = array.get(ob_is_bull, i)
+            _mit = (_bul and close < _b3) or (not _bul and close > _t)
+            if _mit
+                array.set(ob_active, i, false)
+                box.delete(array.get(ob_boxes, i))
+
+// ── Liquidity sweeps ──────────────────────────────────────────────────────────
+var float smc_prev_ph = na
+var float smc_prev_pl = na
+
+if not na(smc_ph_liq)
+    smc_prev_ph := smc_ph_liq
+if not na(smc_pl_liq)
+    smc_prev_pl := smc_pl_liq
+
+smc_bull_sweep = not na(smc_prev_pl) and low  < smc_prev_pl and close > smc_prev_pl
+smc_bear_sweep = not na(smc_prev_ph) and high > smc_prev_ph and close < smc_prev_ph
+
+if smc_bull_sweep and barstate.isconfirmed
+    if en_smc and smc_show_liq
+        label.new(bar_index, low,  "Liq Sweep ▲",
+             color=smc_col_liq, textcolor=color.white,
+             style=label.style_label_up,   size=size.small)
+if smc_bear_sweep and barstate.isconfirmed
+    if en_smc and smc_show_liq
+        label.new(bar_index, high, "Liq Sweep ▼",
+             color=smc_col_liq, textcolor=color.white,
+             style=label.style_label_down, size=size.small)
+if smc_bull_sweep
+    smc_last_sweep := "Sweep ▲"
+    smc_sweep_bar  := bar_index
+if smc_bear_sweep
+    smc_last_sweep := "Sweep ▼"
+    smc_sweep_bar  := bar_index
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  VOLUME PROFILE MODULE  (B3: heavy loop on isconfirmed, redraw on islast)
+// ══════════════════════════════════════════════════════════════════════════════
+
+vp_hi_s = ta.highest(high, vp_lookback)
+vp_lo_s = ta.lowest (low,  vp_lookback)
+
+// Persistent profile state — re-used by realtime redraw without recomputing
+var float   vp_poc       = na
+var float   vp_vah       = na
+var float   vp_val       = na
+var float[] vp_bin_vol   = array.new_float()
+var float   vp_bin_max   = na
+var int     vp_va_lo_idx = na
+var int     vp_va_hi_idx = na
+var float   vp_range_lo  = na
+var float   vp_row_h     = na
+
+// Persistent line / label handles
+var line[]  vp_hist_lines = array.new_line()
+var line    vp_poc_line   = na
+var line    vp_vah_line   = na
+var line    vp_val_line   = na
+var label   vp_poc_lbl    = na
+var label   vp_vah_lbl    = na
+var label   vp_val_lbl    = na
+
+// ── HEAVY: recompute profile only on confirmed bar close ──────────────────────
+if barstate.isconfirmed
+    _hi    = vp_hi_s
+    _lo    = vp_lo_s
+    _range = _hi - _lo
+    if _range > 0
+        _row  = _range / vp_num_rows
+        _varr = array.new_float(vp_num_rows, 0.0)
+        for i = 0 to math.min(vp_lookback, bar_index) - 1
+            bhi   = high[i]
+            blo   = low[i]
+            bvol  = volume[i]
+            brang = bhi - blo
+            if brang > 0
+                for j = 0 to vp_num_rows - 1
+                    lvlo    = _lo + j       * _row
+                    lvhi    = _lo + (j + 1) * _row
+                    overlap = math.max(0.0, math.min(bhi, lvhi) - math.max(blo, lvlo))
+                    if overlap > 0
+                        array.set(_varr, j, array.get(_varr, j) + bvol * (overlap / brang))
+        _maxv   = array.max(_varr)
+        _pocidx = array.indexof(_varr, _maxv)
+        vp_poc := _lo + (_pocidx + 0.5) * _row
+        _totv  = array.sum(_varr)
+        _vatgt = _totv * (vp_va_pct / 100.0)
+        _vavol = _maxv
+        _vai   = _pocidx
+        _vbi   = _pocidx
+        for _i = 0 to vp_num_rows - 1
+            if _vavol >= _vatgt
+                break
+            _nhi = _vai + 1 < vp_num_rows ? array.get(_varr, _vai + 1) : 0.0
+            _nlo = _vbi - 1 >= 0          ? array.get(_varr, _vbi - 1) : 0.0
+            if _nhi >= _nlo
+                _vai   := _vai + 1
+                _vavol += _nhi
+            else
+                _vbi   := _vbi - 1
+                _vavol += _nlo
+        vp_vah := _lo + (_vai + 1) * _row
+        vp_val := _lo +  _vbi      * _row
+        // cache for redraw
+        vp_bin_vol   := _varr
+        vp_bin_max   := _maxv
+        vp_va_lo_idx := _vbi
+        vp_va_hi_idx := _vai
+        vp_range_lo  := _lo
+        vp_row_h     := _row
+
+// ── LIGHT: redraw lines/histogram on live tick & last bar (no recomputation) ──
+if barstate.islast and not na(vp_poc)
+    if array.size(vp_hist_lines) > 0
+        for i = 0 to array.size(vp_hist_lines) - 1
+            line.delete(array.get(vp_hist_lines, i))
+    array.clear(vp_hist_lines)
+
+    if en_vp and vp_show_hist and not na(vp_bin_max) and vp_bin_max > 0
+        for j = 0 to vp_num_rows - 1
+            _v  = array.get(vp_bin_vol, j)
+            _bw = int(_v / vp_bin_max * vp_hist_w)
+            _mp = vp_range_lo + (j + 0.5) * vp_row_h
+            _c  = (j >= vp_va_lo_idx and j <= vp_va_hi_idx) ? vp_col_va : vp_col_hist
+            _ln = line.new(bar_index, _mp, bar_index - _bw, _mp,
+                 color=_c, width=3, style=line.style_solid)
+            array.push(vp_hist_lines, _ln)
+
+    line.delete(vp_poc_line)
+    line.delete(vp_vah_line)
+    line.delete(vp_val_line)
+    label.delete(vp_poc_lbl)
+    label.delete(vp_vah_lbl)
+    label.delete(vp_val_lbl)
+
+    _ext  = vp_extend ? extend.both : extend.right
+    _lbar = bar_index - vp_lookback
+
+    if en_vp and vp_show_poc
+        vp_poc_line := line.new(_lbar, vp_poc, bar_index, vp_poc,
+             color=vp_col_poc, width=2, style=line.style_solid, extend=_ext)
+        if vp_show_lbl
+            vp_poc_lbl := label.new(bar_index, vp_poc,
+                 "POC " + str.tostring(vp_poc, "#.##"),
+                 style=label.style_label_left, color=vp_col_poc,
+                 textcolor=color.white, size=size.small)
+
+    if en_vp and vp_show_va
+        vp_vah_line := line.new(_lbar, vp_vah, bar_index, vp_vah,
+             color=vp_col_vah, width=1, style=line.style_dashed, extend=_ext)
+        vp_val_line := line.new(_lbar, vp_val, bar_index, vp_val,
+             color=vp_col_val, width=1, style=line.style_dashed, extend=_ext)
+        if vp_show_lbl
+            vp_vah_lbl := label.new(bar_index, vp_vah,
+                 "VAH " + str.tostring(vp_vah, "#.##"),
+                 style=label.style_label_left, color=vp_col_vah,
+                 textcolor=color.white, size=size.small)
+            vp_val_lbl := label.new(bar_index, vp_val,
+                 "VAL " + str.tostring(vp_val, "#.##"),
+                 style=label.style_label_left, color=vp_col_val,
+                 textcolor=color.white, size=size.small)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  WEINSTEIN STAGE (E2)
+// ══════════════════════════════════════════════════════════════════════════════
+sma30w_slope = sma30w - sma30w[6]
+stage_auto = sma30w_slope > 0 and close > sma30w ? "2 - Advancing" :
+             sma30w_slope > 0 and close < sma30w ? "1 - Basing"    :
+             sma30w_slope < 0 and close > sma30w ? "3 - Topping"   :
+             sma30w_slope < 0 and close < sma30w ? "4 - Declining" : "1 - Basing"
+stage_active = stage_in == "Auto (30-WMA slope)" ? stage_auto : stage_in
+stage_score = stage_active == "2 - Advancing" ?  3 :
+              stage_active == "1 - Basing"    ?  1 :
+              stage_active == "3 - Topping"   ? -2 :
+              stage_active == "4 - Declining" ? -4 : 0
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CONTEXT PANEL  (light theme — palette unchanged from v1.0)
+// ══════════════════════════════════════════════════════════════════════════════
+_bars_ago(b) => not na(b) ? " (" + str.tostring(bar_index - b) + " bars ago)" : ""
+
+// Freshness transparency (E5): 0 / 30 / 60 % based on event age in bars
+_freshness(b) =>
+    not na(b) ?
+         (bar_index - b <= 10  ? 0  :
+          bar_index - b <= 30  ? 30 :
+          bar_index - b <= 60  ? 60 : 80) : 80
+
+var table  _pnl          = na
+var string _pnl_last_pos = ""
+
+// Exported for cross-indicator wiring (Unified Ecosystem v2.5 E11 gate).
+// Mirrors the highest-priority setup detected each bar (0 = none, 5 = S2 max).
+var int wcl_setup_pri_export = 0
+
+if en_pnl and barstate.islast
+
+    _pos = pnl_pos == "Top Left" ? position.top_left :
+           pnl_pos == "Top Center" ? position.top_center :
+           pnl_pos == "Top Right" ? position.top_right :
+           pnl_pos == "Middle Left" ? position.middle_left :
+           pnl_pos == "Middle Center" ? position.middle_center :
+           pnl_pos == "Middle Right" ? position.middle_right :
+           pnl_pos == "Bottom Left" ? position.bottom_left :
+           pnl_pos == "Bottom Center" ? position.bottom_center : position.bottom_right
+    _sz  = pnl_sz  == "Tiny"    ? size.tiny   : pnl_sz == "Normal" ? size.normal : size.small
+
+    // ── Palette (light theme retained per user instruction) ───────────────────
+    C_BG      = color.new(#ffffff, 0)
+    C_HDR     = color.new(#1e222d, 0)
+    C_LBL_BG  = color.new(#ffffff, 0)
+    C_VAL_TXT = color.new(#000000, 0)
+    C_LBL_TXT = color.new(#000000, 0)
+    C_DIM     = color.new(#ffffff, 0)
+    C_PLAIN   = color.new(#f5f5f5, 0)
+    C_BULL    = color.new(#26a69a, 0)   // teal — bull
+    C_BEAR    = color.new(#ef5350, 0)   // red — bear
+    C_NEUT    = color.new(#f5f5f5, 0)
+    C_WARN    = color.new(#ff9800, 0)
+    C_STRONG  = color.new(#1de9b6, 0)   // C3: distinct bright-spring for STRONG BULL
+    C_BEAR_HOT = color.new(#b71c1c, 0)  // C4: darker red for "inside Bear OB"
+
+    C_STRONG_BG  = C_STRONG
+    C_BULL_BG    = C_BULL
+    C_CAUTION_BG = C_WARN
+    C_BEAR_BG    = C_BEAR
+
+    // ── OB proximity scan ─────────────────────────────────────────────────────
+    float _nbull_top  = na
+    float _nbull_bot  = na
+    float _nbear_top  = na
+    float _nbear_bot  = na
+    float _nbull_dist = 1e10
+    float _nbear_dist = 1e10
+    bool  _in_bull_ob = false
+    bool  _in_bear_ob = false
+
+    if array.size(ob_boxes) > 0
+        for i = 0 to array.size(ob_boxes) - 1
+            if array.get(ob_active, i)
+                _ot  = array.get(ob_top,     i)
+                _ob2 = array.get(ob_bot,     i)
+                _bul = array.get(ob_is_bull, i)
+                _mid = (_ot + _ob2) * 0.5
+                _d   = math.abs(_mid - close)
+                if _bul
+                    if close >= _ob2 and close <= _ot
+                        _in_bull_ob := true
+                    if _d < _nbull_dist
+                        _nbull_dist := _d
+                        _nbull_top  := _ot
+                        _nbull_bot  := _ob2
+                else
+                    if close >= _ob2 and close <= _ot
+                        _in_bear_ob := true
+                    if _d < _nbear_dist
+                        _nbear_dist := _d
+                        _nbear_top  := _ot
+                        _nbear_bot  := _ob2
+
+    // E6: % distance to nearest OB midpoint
+    float _bull_ob_pct = not na(_nbull_top) ? (close - (_nbull_top + _nbull_bot) * 0.5) / close * 100.0 : na
+    float _bear_ob_pct = not na(_nbear_top) ? ((_nbear_top + _nbear_bot) * 0.5 - close) / close * 100.0 : na
+
+    // ── FVG count scan ────────────────────────────────────────────────────────
+    int _n_bull_fvg = 0
+    int _n_bear_fvg = 0
+    if array.size(fvg_boxes) > 0
+        for i = 0 to array.size(fvg_boxes) - 1
+            if array.get(fvg_active, i)
+                if array.get(fvg_is_bull, i)
+                    _n_bull_fvg += 1
+                else
+                    _n_bear_fvg += 1
+
+    // ── SMC strings & colors ──────────────────────────────────────────────────
+    _smc_off       = false
+    _smc_trend_str = _smc_off ? "— MODULE OFF" : (smc_trend_up ? "✓ BULLISH  ▲" : "✗ BEARISH  ▼")
+    _smc_trend_col = _smc_off ? C_PLAIN : (smc_trend_up ? C_BULL : C_BEAR)
+    _smc_evt_pfx   = smc_last_was_bull ? "✓ " : "✗ "
+    _smc_evt_str   = _smc_off ? "—" : (not na(smc_last_bar) ? _smc_evt_pfx + smc_last_event + _bars_ago(smc_last_bar) : "—")
+    _smc_evt_base  = smc_last_was_bull ? C_BULL : C_BEAR
+    _smc_evt_col   = _smc_off ? C_PLAIN : color.new(_smc_evt_base, _freshness(smc_last_bar))
+
+    string _bull_ob_str = "—"
+    string _bear_ob_str = "—"
+    color  _bull_ob_col = C_PLAIN
+    color  _bear_ob_col = C_PLAIN
+    if true
+        if not na(_nbull_top)
+            _bull_pfx = _bull_ob_pct >= 0 ? "+" : ""
+            _bull_ob_str := "✓ " + str.tostring(_nbull_bot, "#.##") + " – " + str.tostring(_nbull_top, "#.##") + "  (" + _bull_pfx + str.tostring(_bull_ob_pct, "#.#") + "%)"
+            _bull_ob_col := _in_bull_ob ? C_STRONG : C_BULL
+        else
+            _bull_ob_str := "● NONE"
+            _bull_ob_col := C_PLAIN
+        if not na(_nbear_top)
+            _bear_pfx = _bear_ob_pct >= 0 ? "+" : ""
+            _bear_ob_str := "✗ " + str.tostring(_nbear_bot, "#.##") + " – " + str.tostring(_nbear_top, "#.##") + "  (" + _bear_pfx + str.tostring(_bear_ob_pct, "#.#") + "%)"
+            _bear_ob_col := _in_bear_ob ? C_BEAR_HOT : C_BEAR
+        else
+            _bear_ob_str := "✓ CLEAR"
+            _bear_ob_col := C_BULL
+
+    _fvg_pfx = _n_bull_fvg > _n_bear_fvg ? "✓ " : _n_bear_fvg > _n_bull_fvg ? "✗ " : "● "
+    _fvg_str = _fvg_pfx + "Bull: " + str.tostring(_n_bull_fvg) + "  Bear: " + str.tostring(_n_bear_fvg)
+    _fvg_col = _n_bull_fvg > _n_bear_fvg ? C_BULL : _n_bear_fvg > _n_bull_fvg ? C_BEAR : C_PLAIN
+
+    _sweep_age  = not na(smc_sweep_bar) ? bar_index - smc_sweep_bar : 999
+    _sweep_pfx  = _sweep_age > 20 ? "" : str.contains(smc_last_sweep, "▲") ? "✓ " : "✗ "
+    _sweep_str  = _sweep_age <= 20 ? _sweep_pfx + smc_last_sweep + _bars_ago(smc_sweep_bar) : "—"
+    _sweep_base = str.contains(_sweep_str, "▲") ? C_BULL : str.contains(_sweep_str, "▼") ? C_BEAR : C_PLAIN
+    _sweep_col  = color.new(_sweep_base, _freshness(smc_sweep_bar))
+
+    // E7: Structure Health from CHoCH count
+    string _struct_str = "—"
+    color  _struct_col = C_PLAIN
+    if true
+        if choch_count_20 == 0
+            _struct_str := "✓ CLEAN (0)"
+            _struct_col := C_BULL
+        else if choch_count_20 == 1
+            _struct_str := "✓ CLEAN (1)"
+            _struct_col := C_BULL
+        else if choch_count_20 <= 3
+            _struct_str := "● CHOPPY (" + str.tostring(choch_count_20) + ")"
+            _struct_col := C_WARN
+        else
+            _struct_str := "✗ BROKEN (" + str.tostring(choch_count_20) + ")"
+            _struct_col := C_BEAR
+
+    // ── Wyckoff ───────────────────────────────────────────────────────────────
+    _wyk_off      = false
+    _wyk_bias_base = _wyk_off ? C_PLAIN : wyk_bias == "ACCUMULATION" ? C_BULL : wyk_bias == "DISTRIBUTION" ? C_BEAR : C_PLAIN
+    _wyk_bias_col = _wyk_off ? C_PLAIN : color.new(_wyk_bias_base, _freshness(wyk_last_bar))
+    _wyk_bias_str = _wyk_off ? "— MODULE OFF" : wyk_bias == "ACCUMULATION" ? "✓ ACCUMULATION" : wyk_bias == "DISTRIBUTION" ? "✗ DISTRIBUTION" : "● NEUTRAL"
+    _wyk_evt_pfx  = not na(wyk_last_bar) ? (wyk_score_comp > 0 ? "✓ " : wyk_score_comp < 0 ? "✗ " : "● ") : ""
+    _wyk_evt_str  = _wyk_off ? "—" : (not na(wyk_last_bar) ? _wyk_evt_pfx + wyk_last_event + _bars_ago(wyk_last_bar) + "  [s:" + str.tostring(wyk_score_comp) + "]" : "—")
+
+    // ── Volume Profile ────────────────────────────────────────────────────────
+    _vp_off         = false
+    float _poc_dist = na
+    string _vp_pos_str = _vp_off ? "— MODULE OFF" : "—"
+    color  _vp_pos_col = C_PLAIN
+    int    _vp_score   = 0
+
+    if not _vp_off and not na(vp_poc)
+        _poc_dist := (close - vp_poc) / vp_poc * 100.0
+        if close > vp_vah
+            _vp_pos_str := "✓ ABOVE VAH"
+            _vp_pos_col := C_BULL
+            _vp_score   := 3
+        else if close > vp_poc
+            _vp_pos_str := "✓ IN VA  (upper)"
+            _vp_pos_col := color.new(C_BULL, 40)
+            _vp_score   := 1
+        else if close > vp_val
+            _vp_pos_str := "✗ IN VA  (lower)"
+            _vp_pos_col := C_WARN
+            _vp_score   := -1
+        else
+            _vp_pos_str := "✗ BELOW VAL"
+            _vp_pos_col := C_BEAR
+            _vp_score   := -3
+
+    _vp_lvl_str   = not na(vp_poc) ? "● POC " + str.tostring(vp_poc,"#.##") + "  │  VAH " + str.tostring(vp_vah,"#.##") + "  │  VAL " + str.tostring(vp_val,"#.##") : "—"
+    _poc_dist_str = not na(_poc_dist) ? (_poc_dist >= 0 ? "+" : "") + str.tostring(_poc_dist,"#.##") + "%" : "—"
+
+    // E4: POC dist color — asymmetric (above is friendlier than below)
+    float _abs_poc_dist = math.abs(nz(_poc_dist))
+    color _poc_dist_col = C_PLAIN
+    if not na(_poc_dist)
+        if _poc_dist >= 0 and _abs_poc_dist <= 5
+            _poc_dist_col := C_BULL
+        else if _poc_dist > 5 and _abs_poc_dist <= 15
+            _poc_dist_col := C_WARN
+        else if _poc_dist > 15
+            _poc_dist_col := C_BEAR
+        else if _poc_dist < 0 and _abs_poc_dist <= 5
+            _poc_dist_col := C_WARN
+        else
+            _poc_dist_col := C_BEAR
+
+    // ── Stage row ─────────────────────────────────────────────────────────────
+    _stage_str = stage_active + (stage_in == "Auto (30-WMA slope)" ? "  [auto]" : "")
+    color _stage_col = C_PLAIN
+    if stage_score >= 3
+        _stage_col := C_BULL
+    else if stage_score >= 1
+        _stage_col := color.new(C_BULL, 40)
+    else if stage_score >= -2
+        _stage_col := C_WARN
+    else
+        _stage_col := C_BEAR
+    _stage_pfx = stage_score > 0 ? "✓ " : stage_score < 0 ? "✗ " : "● "
+
+    // ══ CONTEXT SCORE ═════════════════════════════════════════════════════════
+    _smc_score = 0
+    if true
+        _smc_score := smc_trend_up ? 2 : -2
+        if smc_last_choch and not na(smc_last_bar) and (bar_index - smc_last_bar) <= 10
+            _smc_score += smc_last_was_bull ? 1 : -1
+
+    _ob_score = (_in_bull_ob ? 2 : _in_bear_ob ? -2 : 0)
+
+    _total = wyk_score_comp + _vp_score + _smc_score + _ob_score + stage_score
+
+    // v1.2: BASE SCORE is the raw _total. The score band is now computed AFTER
+    //       the Setup Detector so it can incorporate the Setup Bonus. Setup
+    //       conditions below still reference _total (raw) to avoid circular
+    //       feedback (setup uses score → score uses setup).
+
+    // ══ SETUP DETECTOR ════════════════════════════════════════════════════════
+    string _setup_str  = "● NONE"
+    color  _setup_col  = C_PLAIN
+    int    _setup_pri  = 0       // higher overrides lower
+
+    if en_stp
+        // — S2: Spring/LPS Reversal (max conviction, priority 5)
+        _wyk_event_spr = str.contains(wyk_last_event, "Spring") or str.contains(wyk_last_event, "LPS")
+        _wyk_fresh_15  = not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 15
+        if _wyk_event_spr and _wyk_fresh_15 and smc_trend_up and _vp_score >= 1 and _total >= 6
+            _setup_str := "✓ S2 — Spring/LPS Reversal  (Full Kelly 1.25×)"
+            _setup_col := C_STRONG_BG
+            _setup_pri := 5
+
+        // — S3: Liq Sweep + CHoCH Reversal (priority 4)
+        _sweep_up_recent = str.contains(smc_last_sweep, "▲") and not na(smc_sweep_bar) and (bar_index - smc_sweep_bar) <= 10
+        _choch_up_recent = str.contains(smc_last_event, "CHoCH ▲") and not na(smc_last_bar) and (bar_index - smc_last_bar) <= 10
+        if _setup_pri < 4 and _sweep_up_recent and _choch_up_recent and _vp_score > -3
+            _setup_str := "✓ S3 — Sweep+CHoCH Reversal  (SWG-PB / SWG-BO trigger)"
+            _setup_col := C_BULL_BG
+            _setup_pri := 4
+
+        // — S1: OB Retest + VP Support (priority 3)
+        if _setup_pri < 3 and _in_bull_ob and (_vp_score >= 1 or _abs_poc_dist <= 5) and wyk_bias == "ACCUMULATION" and _total >= 3
+            _setup_str := "✓ S1 — OB Retest + VP Support  (POS-AC / SWG-PB)"
+            _setup_col := C_BULL_BG
+            _setup_pri := 3
+
+        // — S4: VAL Bounce + Bull FVG Stack (priority 2)
+        _val_bounce = not na(vp_val) and close > vp_val and low <= vp_val * 1.01
+        if _setup_pri < 2 and _val_bounce and _n_bull_fvg > _n_bear_fvg and wyk_bias != "DISTRIBUTION" and _total >= 2
+            _setup_str := "✓ S4 — VAL Bounce + Bull FVG Stack"
+            _setup_col := C_BULL_BG
+            _setup_pri := 2
+
+        // — S5: Stage 2 Continuation Above VAH (priority 2)
+        _bos_up_recent = str.contains(smc_last_event, "BOS ▲") and not na(smc_last_bar) and (bar_index - smc_last_bar) <= 20
+        if _setup_pri < 2 and stage_active == "2 - Advancing" and _bos_up_recent and not na(vp_vah) and close > vp_vah and choch_count_20 <= 1
+            _setup_str := "✓ S5 — Stage 2 Continuation Above VAH"
+            _setup_col := C_BULL_BG
+            _setup_pri := 2
+
+        // — S6: SOS Momentum Push (priority 2)
+        _sos_recent = str.contains(wyk_last_event, "SOS") and not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 10
+        if _setup_pri < 2 and _sos_recent and _vp_score >= 1 and smc_trend_up
+            _setup_str := "✓ S6 — SOS Momentum Push"
+            _setup_col := C_BULL_BG
+            _setup_pri := 2
+
+        // — S7: Distribution / SHORT setup (priority 3 — overrides weaker bull setups)
+        _wyk_event_dist = str.contains(wyk_last_event, "SOW") or str.contains(wyk_last_event, "LPSY") or str.contains(wyk_last_event, "UT")
+        _wyk_dist_fresh = not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 15
+        if _setup_pri < 3 and _wyk_event_dist and _wyk_dist_fresh and not smc_trend_up and (_in_bear_ob or _vp_score <= -1) and _total <= -3
+            _setup_str := "✗ S7 — Distribution Breakdown  (SHORT / EXIT)"
+            _setup_col := C_BEAR_BG
+            _setup_pri := 3
+
+        // — S8: Choppy Range — sit out (priority 1 — never overrides confirmed setups)
+        if _setup_pri == 0 and choch_count_20 >= 3
+            _setup_str := "● S8 — Choppy Range  (no trade)"
+            _setup_col := C_CAUTION_BG
+            _setup_pri := 1
+
+    // Export to module-scope var (for Unified Ecosystem v2.5 E11 gate wiring)
+    wcl_setup_pri_export := _setup_pri
+
+    // ══ SETUP BONUS  (v1.2: setup feeds back into Context Score) ══════════════
+    // Bull bonuses: S2/S3 = +2, S1 = +1, S4/S5/S6 = 0 (already in components)
+    // Bear bonus:   S7 = -2  (bearish setup pushes score DOWN)
+    // Sit-out:      S8 = -1  (choppy environment penalty)
+    bool _setup_is_bear = str.startswith(_setup_str, "✗")
+    bool _setup_is_chop = str.startswith(_setup_str, "● S8")
+    int _setup_bonus = 0
+    if _setup_is_bear
+        _setup_bonus := _setup_pri >= 4 ? -2 : _setup_pri >= 3 ? -2 : 0
+    else if _setup_is_chop
+        _setup_bonus := -1
+    else if _setup_pri >= 4
+        _setup_bonus := 2
+    else if _setup_pri == 3
+        _setup_bonus := 1
+    // S4/S5/S6 (pri 2) and NONE (pri 0) → bonus = 0
+
+    int _total_final = _total + _setup_bonus
+
+    // ══ CONTEXT SCORE  (band assigned from bonus-adjusted total) ══════════════
+    string _score_str = ""
+    color  _score_bg  = C_NEUT
+    string _score_calc = "(" + str.tostring(_total) + (_setup_bonus >= 0 ? "+" : "") + str.tostring(_setup_bonus) + "=" + str.tostring(_total_final) + ")"
+
+    if _total_final >= 9
+        _score_str := "✓ STRONG BULL  " + _score_calc
+        _score_bg  := C_STRONG_BG
+    else if _total_final >= 4
+        _score_str := "✓ BULL  " + _score_calc
+        _score_bg  := C_BULL_BG
+    else if _total_final >= -3
+        _score_str := "● NEUTRAL  " + _score_calc
+        _score_bg  := C_NEUT
+    else if _total_final >= -6
+        _score_str := "✗ CAUTION  " + _score_calc
+        _score_bg  := C_CAUTION_BG
+    else
+        _score_str := "✗ BEAR  " + _score_calc
+        _score_bg  := C_BEAR_BG
+
+    // Setup Bonus display string + color (for new panel row)
+    // Extract the active setup tag from _setup_str (e.g., "S2", "S7") for attribution
+    string _bonus_setup_tag = "—"
+    if _setup_pri > 0
+        if str.contains(_setup_str, "S2")
+            _bonus_setup_tag := "S2"
+        else if str.contains(_setup_str, "S3")
+            _bonus_setup_tag := "S3"
+        else if str.contains(_setup_str, "S1")
+            _bonus_setup_tag := "S1"
+        else if str.contains(_setup_str, "S7")
+            _bonus_setup_tag := "S7"
+        else if str.contains(_setup_str, "S8")
+            _bonus_setup_tag := "S8"
+        else if str.contains(_setup_str, "S4")
+            _bonus_setup_tag := "S4"
+        else if str.contains(_setup_str, "S5")
+            _bonus_setup_tag := "S5"
+        else if str.contains(_setup_str, "S6")
+            _bonus_setup_tag := "S6"
+
+    string _bonus_str = "● 0  (no bonus)"
+    color  _bonus_col = C_PLAIN
+    if _setup_bonus > 0
+        _bonus_str := "✓ +" + str.tostring(_setup_bonus) + "  (from " + _bonus_setup_tag + ")"
+        _bonus_col := C_BULL
+    else if _setup_bonus < 0
+        _bonus_str := "✗ " + str.tostring(_setup_bonus) + "  (from " + _bonus_setup_tag + ")"
+        _bonus_col := _setup_is_chop ? C_WARN : C_BEAR
+
+    // ══ Build / rebuild table ═════════════════════════════════════════════════
+    _rows = 24    // v1.2: +2 rows for SETUP BONUS and FINAL SCORE breakdown
+    if na(_pnl) or pnl_pos != _pnl_last_pos
+        if not na(_pnl)
+            table.delete(_pnl)
+        _pnl := table.new(_pos, 2, _rows,
+             bgcolor      = C_BG,
+             border_color = color.new(#334466, 50),
+             border_width = 1,
+             frame_color  = color.new(#4466AA, 40),
+             frame_width  = 1)
+        _pnl_last_pos := pnl_pos
+
+    // Row 0: Header
+    table.cell(_pnl, 0, 0,  "◈  CONTEXT LAYERS",
+         text_color=color.new(#ffffff, 0), text_size=_sz,
+         bgcolor=C_HDR, text_halign=text.align_left)
+    table.cell(_pnl, 1, 0,  "WCL v1.1",
+         text_color=color.new(#ffffff, 0), text_size=size.tiny,
+         bgcolor=C_HDR, text_halign=text.align_right)
+
+    // Row 1: SMC divider
+    table.cell(_pnl, 0, 1,  "── SMC ZONES ──",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR, text_halign=text.align_center)
+    table.cell(_pnl, 1, 1,  "",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR)
+
+    // Row 2: SMC Trend
+    table.cell(_pnl, 0, 2,  "SMC TREND",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 2,  _smc_trend_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_smc_trend_col, text_halign=text.align_center)
+
+    // Row 3: Last SMC Event
+    table.cell(_pnl, 0, 3,  "LAST SMC EVENT",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 3,  _smc_evt_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_smc_evt_col, text_halign=text.align_center)
+
+    // Row 4: Bull OB Zone
+    table.cell(_pnl, 0, 4,  "BULL OB ZONE",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 4,  _bull_ob_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_bull_ob_col, text_halign=text.align_center)
+
+    // Row 5: Bear OB Zone
+    table.cell(_pnl, 0, 5,  "BEAR OB ZONE",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 5,  _bear_ob_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_bear_ob_col, text_halign=text.align_center)
+
+    // Row 6: Open FVGs
+    table.cell(_pnl, 0, 6,  "OPEN FVGs",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 6,  _fvg_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_fvg_col, text_halign=text.align_center)
+
+    // Row 7: Last Liquidity Sweep
+    table.cell(_pnl, 0, 7,  "LAST LIQ SWEEP",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 7,  _sweep_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_sweep_col, text_halign=text.align_center)
+
+    // Row 8: Structure Health (E7)
+    table.cell(_pnl, 0, 8,  "STRUCTURE HEALTH",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 8,  _struct_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_struct_col, text_halign=text.align_center)
+
+    // Row 9: Wyckoff divider
+    table.cell(_pnl, 0, 9,  "── WYCKOFF ──",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR, text_halign=text.align_center)
+    table.cell(_pnl, 1, 9,  "",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR)
+
+    // Row 10: Wyckoff Bias
+    table.cell(_pnl, 0, 10, "WYCKOFF BIAS",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 10, _wyk_bias_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_wyk_bias_col, text_halign=text.align_center)
+
+    // Row 11: Last Wyckoff Event + decayed score
+    table.cell(_pnl, 0, 11, "LAST EVENT",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 11, _wyk_evt_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_wyk_bias_col, text_halign=text.align_center)
+
+    // Row 12: VP divider
+    table.cell(_pnl, 0, 12, "── VOL PROFILE ──",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR, text_halign=text.align_center)
+    table.cell(_pnl, 1, 12, "",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR)
+
+    // Row 13: VP Position
+    table.cell(_pnl, 0, 13, "VP POSITION",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 13, _vp_pos_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_vp_pos_col, text_halign=text.align_center)
+
+    // Row 14: VP Levels
+    table.cell(_pnl, 0, 14, "VP LEVELS",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 14, _vp_lvl_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=C_PLAIN, text_halign=text.align_center)
+
+    // Row 15: Distance to POC
+    table.cell(_pnl, 0, 15, "DIST TO POC",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 15, _poc_dist_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_poc_dist_col, text_halign=text.align_center)
+
+    // Row 16: Stage divider
+    table.cell(_pnl, 0, 16, "── STAGE & SETUP ──",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR, text_halign=text.align_center)
+    table.cell(_pnl, 1, 16, "",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR)
+
+    // Row 17: Weinstein Stage
+    table.cell(_pnl, 0, 17, "WEINSTEIN STAGE",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 17, _stage_pfx + _stage_str + "  [s:" + str.tostring(stage_score) + "]",
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_stage_col, text_halign=text.align_center)
+
+    // Row 18: Active Setup
+    table.cell(_pnl, 0, 18, "SETUP",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 18, _setup_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_setup_col, text_halign=text.align_center)
+
+    // Row 19: Score divider
+    table.cell(_pnl, 0, 19, "── SCORE ──",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR, text_halign=text.align_center)
+    table.cell(_pnl, 1, 19, "",
+         text_color=C_DIM, text_size=size.tiny, bgcolor=C_HDR)
+
+    // Row 20: Base Score (raw _total before setup bonus)
+    table.cell(_pnl, 0, 20, "BASE SCORE",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 20, "● " + str.tostring(_total),
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=C_PLAIN, text_halign=text.align_center)
+
+    // Row 21: Setup Bonus (v1.2 NEW)
+    table.cell(_pnl, 0, 21, "SETUP BONUS",
+         text_color=C_LBL_TXT, text_size=_sz, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 21, _bonus_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_bonus_col, text_halign=text.align_center)
+
+    // Row 22: Final Score (base + bonus, banded)
+    table.cell(_pnl, 0, 22, "FINAL SCORE",
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_score_bg, text_halign=text.align_left)
+    table.cell(_pnl, 1, 22, _score_str,
+         text_color=C_VAL_TXT, text_size=_sz, bgcolor=_score_bg, text_halign=text.align_center)
+
+    // Row 23: Breakdown (v1.2: now includes +B:N for setup bonus)
+    _bd = "Wyk:" + str.tostring(wyk_score_comp) +
+          "  VP:" + str.tostring(_vp_score) +
+          "  SMC:" + str.tostring(_smc_score + _ob_score) +
+          "  Stg:" + str.tostring(stage_score) +
+          "  Bns:" + (_setup_bonus >= 0 ? "+" : "") + str.tostring(_setup_bonus)
+    table.cell(_pnl, 0, 23, "BREAKDOWN",
+         text_color=C_LBL_TXT, text_size=size.tiny, bgcolor=C_LBL_BG, text_halign=text.align_left)
+    table.cell(_pnl, 1, 23, _bd,
+         text_color=C_VAL_TXT, text_size=size.tiny, bgcolor=C_PLAIN, text_halign=text.align_center)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ALERTS (E3)
+// ══════════════════════════════════════════════════════════════════════════════
+alertcondition(wyk_sos_c,        title="Wyckoff SOS",         message="WCL: Sign of Strength detected — bullish breakout")
+alertcondition(wyk_spr_c,        title="Wyckoff Spring",      message="WCL: Spring detected — accumulation reversal")
+alertcondition(wyk_sow_c,        title="Wyckoff SOW",         message="WCL: Sign of Weakness — distribution confirmed")
+alertcondition(smc_choch_up,     title="SMC CHoCH ▲",         message="WCL: Bullish change of character — reversal up")
+alertcondition(smc_choch_dn,     title="SMC CHoCH ▼",         message="WCL: Bearish change of character — reversal down")
+alertcondition(smc_bull_sweep,   title="Liq Sweep ▲",         message="WCL: Bullish liquidity sweep — stop hunt below recovered")
+alertcondition(smc_bear_sweep,   title="Liq Sweep ▼",         message="WCL: Bearish liquidity sweep — stop hunt above rejected")
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  EXPORTED PLOTS  (for cross-indicator wiring — Unified Ecosystem v2.5 E11)
+// ══════════════════════════════════════════════════════════════════════════════
+// Setup priority (0..5): 0 = NONE, 1 = S8 Choppy, 2 = S4/S5/S6, 3 = S1/S7, 4 = S3, 5 = S2
+// Wire into Unified Ecosystem strategy: WCL Gate → WCL Setup Source dropdown.
+plot(wcl_setup_pri_export, title="WCL_Setup_Pri", display=display.data_window, color=color.new(color.gray, 80))

@@ -1,0 +1,1481 @@
+//@version=6
+indicator("Institutional Zone Engine v6.12 (Pattern + Structural)", overlay=true, max_boxes_count=500, max_labels_count=500)
+
+// ════════════════════════════════════════════════════════════════════════════
+// IMPLEMENTATION COVERAGE  vs  USER METHODOLOGY NOTES
+// ════════════════════════════════════════════════════════════════════════════
+// v4.2 closes the three gaps from v4.1 ("Strong Zone #2", "Controlling #3",
+// "Invisible candle display"). The remaining items below are intentional
+// interpretive choices, not omissions.
+//
+// ────────────────────────────────────────────────────────────────────────────
+// ✅ FULL METHODOLOGY COVERAGE  (notable items)
+// ────────────────────────────────────────────────────────────────────────────
+//
+//   STRONG ZONE — All four criteria covered:
+//     (a) Strong leg-out (body/range ≥ legBodyRatio, default 0.75)         ✓ gate
+//     (b) Average leg-out + good follow-through                            ✓ alternate gate
+//         (body/range ≥ legBodyAvg AND cumulative post-leg-out
+//          move > strongFTMult × ATR)
+//     (c) Leg-out with gap (≥ 0.3 × ATR from last base close)              ✓ +gapBonus
+//     (d) Single leg-out breaking multiple pivots                          ✓ +multi-pivot bonus
+//
+//   CONTROLLING — All three criteria covered:
+//     (1) New ATH (demand) / ATL (supply) within the zone's TF context     ✓
+//     (2) 50-SMA trend shift after ≥ 20 bars on the opposite side          ✓
+//     (3) Breaks an opposing controlling zone                              ✓ cross-zone check at creation
+//
+//   INVISIBLE CANDLES — One checkbox drives BOTH:
+//     • Zone detection logic (gap-bridged OHLC for classification)
+//     • Chart display overlay (plotcandle in Section 13)
+//     Native candles can be hidden via Chart Settings → Symbol.
+//
+// ────────────────────────────────────────────────────────────────────────────
+// ⚠ INTERPRETIVE CHOICES  (intentional, not omissions)
+// ────────────────────────────────────────────────────────────────────────────
+//
+// 1. RIGHT-TO-LEFT SCAN STARTING FROM LTP
+//    Your spec describes the MANUAL marking direction. The engine works on
+//    Pine series indexing where `high[1]` IS the previous bar — so the scan
+//    is naturally right-to-left from the current bar (leg-out → base →
+//    leg-in). Functionally identical to your workflow; not a literal reverse
+//    iteration over a stored OHLC array.
+//
+// 2. EMA20 — "MUCH BELOW" vs "NEARBY" GRADING
+//    Your spec lists "nearby" and "much below" as two SEPARATE best-quality
+//    conditions for demand. The engine collapses them into a SINGLE
+//    full-bonus tier (both award the same emaProxBoost). No tiered
+//    differentiation between the two best-cases.
+//
+// 3. CONTROLLING TIE-BREAKERS
+//    If a leg-out fires multiple controlling criteria simultaneously (e.g.,
+//    new ATH AND trend shift AND breaks opposing), the zone is still tagged
+//    simply "Controlling" — no extra weight, no compound label. The alert
+//    payload exposes the `breaksOpposing` flag separately if you want to
+//    differentiate downstream.
+//
+// 4. PROXIMAL/DISTAL VISUAL STYLE
+//    Your spec describes proximal/distal as LINES at specific price levels.
+//    The engine draws a BOX whose top and bottom edges ARE those lines.
+//    Trade logic uses the boundaries identically. Purely a visual difference.
+//
+// 5. DISTAL OVERRIDE FOR RBD/DBD
+//    Your notes contained two contradictory sentences for supply distal:
+//       (1st) "RBD = entire formation; DBD = ignore leg-in"
+//       (2nd) "For DBD and RBD, consider only the base candles"
+//    Chose the FIRST (symmetric with demand: include leg-in only when its
+//    direction is OPPOSITE the leg-out — the exhaustion-print rule).
+//    Confirmed by your follow-up message. The "base-only override" sentence
+//    is NOT applied.
+//
+// 6. "BREAKS OPPOSING CONTROLLING" — TIMING CAVEAT
+//    The cross-zone check (Controlling criterion #3) runs at zone CREATION
+//    using the current state of the activeZones array. If an opposing
+//    controlling zone was mitigated on the SAME bar as the new zone's leg-out
+//    fires AND state management ran first, the check will miss it. In
+//    practice the dispatch order (creation → state management) makes this
+//    rare, but worth flagging.
+//
+// ════════════════════════════════════════════════════════════════════════════
+
+// ============================================================
+// SECTION 1 — INPUTS
+// ============================================================
+
+// === Zone Detection — Geometry ===
+grp1 = "Zone Detection — Geometry"
+ercMult        = input.float(1.2,  "Leg Candle Min Range (× ATR14)",  group=grp1, minval=0.5, step=0.1, tooltip="A 'leg' candle's True Range must exceed ATR14 by this multiple. Combined with the body/range threshold, this is what separates legs from bases. Lower = more zones detected.")
+legBodyRatio   = input.float(0.75, "Min Leg Body / Range (Strong)",   group=grp1, minval=0.50, maxval=1.0, step=0.05, tooltip="A leg candle qualifies as STRONG when body/range ≥ this. Strong legs are accepted unconditionally.")
+legBodyAvg     = input.float(0.55, "Min Leg Body (Average + Follow)", group=grp1, minval=0.30, maxval=0.90, step=0.05, tooltip="Average legs (body/range ≥ this but < legBodyRatio) are accepted ONLY IF strong follow-through fires. Also used as the leg-IN body threshold (leg-in does not need to be as explosive as leg-out).")
+legInMaxWickR  = input.float(1.0,  "Max Leg-In Wick / Body",          group=grp1, minval=0.2, maxval=3.0, step=0.1, tooltip="Maximum ratio of the leg-in candle's largest wick to its body. Default 1.0 = wicks can be at most equal to body. A candle with wicks larger than its body is NOT a clean directional candle — buyers/sellers showed up DURING the move — so it shouldn't qualify as a leg-in. Lower = stricter (cleaner candles only).")
+strongFTMult   = input.float(0.75, "Strong Follow-Through (× ATR)",   group=grp1, minval=0.3, maxval=3.0, step=0.1, tooltip="The cumulative price movement from the leg-out close to the current bar's close must exceed this multiple of ATR for an average leg-out to qualify.")
+bodyRatio      = input.float(0.65, "Max Base Body / Range",           group=grp1, minval=0.10, maxval=0.90, step=0.05, tooltip="Max body/range ratio for a candle to qualify as a base candle. 0.50 = strict micro-base; 0.65 = lets monthly/weekly consolidation candles with moderate bodies still count as base.")
+maxBaseTR      = input.float(2.5,  "Max Base TR (× ATR)",              group=grp1, minval=0.5, maxval=5.0, step=0.1, tooltip="Max True Range (vs ATR) for a candle to qualify as a base candle. Decoupled from ercMult so wide-range topping/bottoming candles with long wicks (common at distribution tops and accumulation bottoms) can still count as base. Default 2.5× ATR — generous enough to capture wide-bodied topping candles. Tighten to ~1.0× for strict micro-bases.")
+minBase        = input.int(1,      "Min Base Candles",                 group=grp1, minval=1, maxval=20)
+maxBase        = input.int(8,      "Max Base Candles",                 group=grp1, minval=1, maxval=20, tooltip="Max base candles between leg-in and leg-out. 1–6 is the ideal sweet-spot per methodology; 8 gives headroom for slightly longer consolidations.")
+baseStreak     = input.int(0,      "Non-Base Tolerance (candles)",     group=grp1, minval=0, maxval=5,  tooltip="Consecutive non-qualifying candles allowed before the base scan stops. 0 (default) = STRICT — scan breaks on first non-qualifying candle. This keeps zones tight (visual width matches base candle count) AND naturally splits wide multi-stage distributions into separate zones at each break point. Raise to 1–2 only if you want a single zone to span a wider consolidation with minor impurities.")
+minZoneW       = input.float(0.2,  "Min Zone Width (× ATR)",           group=grp1, minval=0.0, step=0.1)
+maxZoneW       = input.float(4.0,  "Max Zone Width (× ATR)",           group=grp1, minval=0.5, step=0.1)
+followThruBars = input.int(1,      "Follow-Through Bars Required",     group=grp1, minval=0, maxval=5, tooltip="Bars after the leg-out that must continue the move. 0 disables. Lower = more zones.")
+
+// === Zone Detection — Lines & Candle Mode ===
+grp1b = "Zone Detection — Lines & Candle Mode"
+useInvCandles = input.bool(true,   "Use Invisible Candles",             group=grp1b, tooltip="ON: (1) zone detection uses gap-bridged OHLC (each bar's open re-anchored at the prior close; high/low expanded to cover gap) — so a small-bodied gap day can re-classify as a leg candle. (2) Invisible candles are also PLOTTED on the chart as a visual overlay. To see only the invisible candles, hide native candles via Chart Settings → Symbol → uncheck Body/Borders/Wick. OFF: detection and display both use native OHLC.")
+proxLineMode  = input.string("Body Extreme", "Proximal Line Source",   group=grp1b, options=["Body Extreme", "Wick Extreme"], tooltip="User spec: proximal = highest body of base (demand) / lowest body (supply). 'Body Extreme' matches the spec.")
+distLineMode  = input.string("Wick Extreme", "Distal Line Source",     group=grp1b, options=["Wick Extreme", "Body Extreme"], tooltip="User spec: distal = lowest/highest 'point' of the relevant candles. 'Wick Extreme' (full low/high) matches the spec.")
+
+// === Native-TF Filters ===
+grp2 = "Native Timeframe Filters"
+volMult    = input.float(0.0, "Volume Surge (× 20-bar Avg)",        group=grp2, minval=0.0, step=0.1, tooltip="0 = DISABLED (no volume filter — current default while pattern detection is being tuned). When > 0, the leg-out's volume must exceed this × 20-bar average. After pattern detection is dialled in, raise to 1.0–1.5 to add volume as a quality filter for high-conviction breakouts.")
+useEMA     = input.bool(false, "Require Daily EMA20 Alignment",     group=grp2, tooltip="OFF (recommended): zones are drawn regardless of EMA position, allowing historical zone marking. ON: demand zones only created when price > EMA20 — blocks most historical zones.")
+useRS      = input.bool(false, "Require Nifty 500 RS Positive",     group=grp2, tooltip="OFF (recommended): zones created regardless of RS slope. ON: demand zones only when RS slope > 0 — too restrictive for zone marking.")
+requireBOS = input.bool(false, "Require Break of Structure",        group=grp2, tooltip="OFF (recommended): zones created without needing a pivot-high/low break. ON: leg-out must close above last pivot high (demand) or below last pivot low (supply) — very restrictive, eliminates most zones.")
+
+// === Multi-Timeframe ===
+grp3 = "Multi-Timeframe Zones  (HTF visible on LTF only)"
+showDaily   = input.bool(true,  "Daily HTF Zones",     group=grp3)
+showWeekly  = input.bool(true,  "Weekly HTF Zones",    group=grp3)
+showMonthly = input.bool(true,  "Monthly HTF Zones",   group=grp3)
+
+// === Confluence Scoring ===
+grp4 = "Confluence Scoring"
+htfBoost         = input.int(15,   "HTF Overlap Bonus (pts)",        group=grp4, minval=0, maxval=50)
+sameTfBoost      = input.int(5,    "Same-TF Overlap Bonus (pts)",    group=grp4, minval=0, maxval=25)
+emaProxBoost     = input.int(10,   "EMA20 Directional Bonus (pts)",  group=grp4, minval=0, maxval=30, tooltip="Full bonus when zone is 'nearby' the EMA20 (within threshold) OR much below it (for DZ) / much above it (for SZ). Zero bonus when over-extended on the wrong side: DZ over-extended above EMA = poor; SZ over-extended below EMA = poor.")
+emaProxThreshATR = input.float(0.5, "EMA20 'Nearby' Threshold (× ATR)", group=grp4, minval=0.1, maxval=2.0, step=0.1, tooltip="A zone is 'nearby' the EMA20 if its closest edge is within this many ATRs. Edge cases like 'EMA20 just above the DZ' are absorbed into 'nearby' by widening this threshold. Default 0.5 ATR.")
+gapBonus         = input.int(10,   "Leg-Out Gap Bonus (pts)",        group=grp4, minval=0, maxval=25, tooltip="Awarded when the leg-out opens with a gap ≥ 0.3 × ATR from the last base candle's close.")
+fvgBonus         = input.int(15,   "Fair Value Gap (FVG) Bonus (pts)",group=grp4, minval=0, maxval=25, tooltip="Awarded when the leg-out candle leaves an FVG (Imbalance).")
+maxConfBoost     = input.int(50,   "Max Confluence Bonus (cap)",     group=grp4, minval=0, maxval=80)
+
+// === Controlling Zones ===
+grp4b = "Controlling Zones"
+markControlling       = input.bool(true,  "Mark Controlling Zones",      group=grp4b, tooltip="Detect zones whose leg-out makes a new all-time high (demand) or all-time low (supply) within the zone's own timeframe context. Labelled 'Controlling [TF] DZ/SZ'.")
+controllingMaxTouches = input.int(3,      "Max Touches — Controlling",   group=grp4b, minval=1, maxval=10, tooltip="Controlling zones are removed after this many tests. Per user spec: 3 (one more than normal zones, since controlling zones have stronger conviction).")
+controllingMinTf      = input.string("Daily", "Min Timeframe for Controlling", group=grp4b, options=["Chart", "Daily", "Weekly", "Monthly"], tooltip="Only zones at or above this timeframe are eligible to be marked Controlling. User note: controlling zones generally appear in higher timeframes.")
+
+// === Zone State ===
+grp5 = "Zone State Management"
+maxAge      = input.int(150,   "Zone Expiry (Bars)",            group=grp5, minval=10)
+maxTouches  = input.int(2,     "Max Touches — Normal Zones",    group=grp5, minval=1, maxval=10, tooltip="Normal zones are removed after this many tests. Per user spec: 2 (fresh → 1st test (fade) → 2nd test (deleted from chart)).")
+mitBasis    = input.string("Body Close", "Mitigate On",         group=grp5, options=["Body Close", "Wick Close", "50% Penetration"])
+markViolations = input.bool(true, "Mark Zone Violations",       group=grp5, tooltip="Per user spec: a candle closing beyond distal = violation. Drops a red ✗ at the breakage bar.")
+
+// === Entry Confirmation ===
+grp7 = "Entry Confirmation  (at Zone Touches)"
+detectReversal = input.bool(true,  "Detect Reversal Patterns at Touch",     group=grp7)
+markReversal   = input.bool(true,  "Mark Reversal Patterns on Chart",       group=grp7)
+emitTradePlan  = input.bool(true,  "Emit Trade Plan in First-Touch Alert",  group=grp7)
+slBufferATR    = input.float(0.5,  "SL Buffer (× ATR)",                     group=grp7, minval=0.0, maxval=3.0, step=0.1)
+
+// === Structural Zones (Pivot-Based) ===
+grpStr = "Structural Zones  (Pivot-Based)"
+useStructural   = input.bool(true,  "Enable Structural Detection",       group=grpStr, tooltip="Detects zones at significant pivot highs/lows. Complements pattern detection (RBR/DBR/RBD/DBD) by catching V-tops, V-bottoms, and reversal zones with no clean leg-in/base/leg-out structure. Pattern-pattern conflicts are avoided via overlap check.")
+pivotLeft       = input.int(5,      "Pivot Left Bars",                   group=grpStr, minval=2, maxval=30, tooltip="Bars to the LEFT of the pivot required for confirmation. Higher = more selective (only major pivots).")
+pivotRight      = input.int(3,      "Pivot Right Bars",                  group=grpStr, minval=2, maxval=20, tooltip="Bars to the RIGHT required for confirmation. The pivot becomes visible this many bars after it forms.")
+pivotMinMoveATR = input.float(1.0,  "Min Move from Pivot (× ATR)",       group=grpStr, minval=0.2, maxval=10.0, step=0.1, tooltip="Minimum price move AWAY from the pivot for it to register as a structural zone. The check runs at pivot confirmation time (only pivotRight bars after the actual pivot), so very early in a reversal the move may still be small — keep this lenient (1.0×) to catch fresh structural zones. Raise to 2.0×+ if you only want confirmed major reversals.")
+structPadBars   = input.int(3,      "Zone Pad Bars (each side)",         group=grpStr, minval=0, maxval=15, tooltip="Number of bars on each side of the pivot considered when computing zone bounds. Default 3 covers most topping/bottoming formations. Raise if multi-bar distribution patterns are being truncated.")
+structTopThrATR = input.float(1.5,  "Pivot Body-Top Tolerance (× ATR)",  group=grpStr, minval=0.2, maxval=5.0, step=0.1, tooltip="A neighbour bar qualifies as part of the formation if its body high is within this × ATR of the pivot's wick. Higher = more topping bars are captured (deeper zone). Lower = stricter (tighter zone, only bars right at the pivot count).")
+structDeepThrATR= input.float(1.5,  "Pivot Body-Bottom Tolerance (× ATR)", group=grpStr, minval=0.5, maxval=8.0, step=0.1, tooltip="A neighbour bar's body LOW must be within this × ATR of the pivot. Prevents the leg-in (close near pivot but open far below) from being absorbed into the zone. CRITICAL: this is what excludes the leg-in — keep it tight (1.3-1.7) for clean zones.")
+
+// === Visual ===
+grp6 = "Visual"
+showLabels      = input.bool(true, "Show Zone Info Labels",   group=grp6)
+showTestedZones = input.bool(true, "Show Tested Zones",       group=grp6, tooltip="When off, zones hide on first re-entry.")
+showPanel       = input.bool(true, "Show Summary Panel",      group=grp6)
+panelPosStr     = input.string("top_right", "Panel Position", group=grp6, options=["top_left","top_right","middle_left","middle_right","bottom_left","bottom_right"])
+
+// ============================================================
+// SECTION 2 — TIMEFRAME GUARDRAILS
+// ============================================================
+int chartSec   = timeframe.in_seconds(timeframe.period)
+int dailySec   = 86400
+int weeklySec  = 432000
+int monthlySec = 1900800
+
+bool useDaily   = showDaily   and dailySec   > chartSec
+bool useWeekly  = showWeekly  and weeklySec  > chartSec
+bool useMonthly = showMonthly and monthlySec > chartSec
+
+// Eligibility: which TFs can be Controlling, based on controllingMinTf setting
+bool ctrlAllowChart   = controllingMinTf == "Chart"
+bool ctrlAllowDaily   = ctrlAllowChart or controllingMinTf == "Daily"
+bool ctrlAllowWeekly  = ctrlAllowDaily or controllingMinTf == "Weekly"
+bool ctrlAllowMonthly = true
+
+chart_atr = ta.atr(14)
+
+// ============================================================
+// SECTION 3 — TYPES
+// ============================================================
+type Zone
+    float  proximal
+    float  distal
+    int    originBar
+    int    originTime
+    bool   isDemand
+    int    touchCount
+    int    strength
+    int    confBonus
+    int    nBase
+    string pattern
+    string tf
+    bool   isControlling
+    box    drawing
+    label  infoLabel
+    bool   wasInZone
+
+type ZoneSig
+    int    zoneTime
+    float  proximal
+    float  distal
+    bool   isDemand
+    int    rawScore
+    string pattern
+    int    nBase
+    int    bStart
+    int    baseStartTime
+    bool   isControlling
+
+var array<Zone> activeZones = array.new<Zone>()
+
+// ============================================================
+// SECTION 4 — LABEL TEXT HELPER
+// ============================================================
+f_buildLabel(string tf, bool isDemand, string pattern, int score, int nBase, int confBonus, int touchCount, int maxT, bool isControlling) =>
+    // "C" = native chart TF — resolve to the actual timeframe name so zones on a
+    // 1D chart say "Daily", on 1W say "Weekly", on 1M say "Monthly", etc.
+    chartTfName = timeframe.ismonthly ? "Monthly" : timeframe.isweekly ? "Weekly" :
+                  timeframe.isdaily   ? "Daily"   : timeframe.period
+    tfName   = tf == "M" ? "Monthly" : tf == "W" ? "Weekly" : tf == "D" ? "Daily" : chartTfName
+    zType    = isDemand ? "DZ" : "SZ"
+    bonusTag = confBonus > 0 ? " ★" + str.tostring(confBonus) : ""
+    prefix   = isControlling ? "Controlling " : ""
+    touchTxt = touchCount > 0 ? "  T" + str.tostring(touchCount) + "/" + str.tostring(maxT) : ""
+    baseInfo = nBase > 0 ? str.tostring(nBase) + "B" : "Pivot"
+    line1    = prefix + tfName + " " + zType
+    line2    = pattern + "  " + str.tostring(score) + "pts  " + baseInfo + bonusTag + touchTxt
+    line1 + "\n" + line2
+
+// ============================================================
+// SECTION 4b — REVERSAL PATTERN DETECTOR (chart-TF candle)
+// ============================================================
+f_reversalPattern(bool isBullish) =>
+    string result = ""
+    rng = high - low
+    body = math.abs(close - open)
+    bodyTop = math.max(close, open)
+    bodyBot = math.min(close, open)
+    upWick  = high - bodyTop
+    lowWick = bodyBot - low
+    if rng > 0
+        if isBullish
+            if lowWick > body * 2 and upWick < body and close > low + rng * 0.66
+                result := "Hammer"
+            else if close > open and close[1] < open[1] and close >= open[1] and open <= close[1]
+                result := "BullEngulf"
+            else if body / rng < 0.10
+                result := "Doji"
+        else
+            if upWick > body * 2 and lowWick < body and close < high - rng * 0.66
+                result := "ShootStar"
+            else if close < open and close[1] > open[1] and close <= open[1] and open >= close[1]
+                result := "BearEngulf"
+            else if body / rng < 0.10
+                result := "Doji"
+    result
+
+// ============================================================
+// SECTION 4c — TRADE PLAN CALCULATOR
+// ============================================================
+f_tradePlan(float prox, float dist, bool isDemand) =>
+    float entry = prox
+    float slBuf = chart_atr * slBufferATR
+    float sl    = isDemand ? dist - slBuf : dist + slBuf
+    float risk  = math.abs(entry - sl)
+    float t1    = isDemand ? entry + risk        : entry - risk
+    float t2    = isDemand ? entry + risk * 2.0  : entry - risk * 2.0
+    float t3    = isDemand ? entry + risk * 3.0  : entry - risk * 3.0
+    float riskPct = entry > 0 ? (risk / entry) * 100.0 : 0.0
+    [entry, sl, t1, t2, t3, risk, riskPct]
+
+// ============================================================
+// SECTION 4d — ZONE METHODS (Object-Oriented)
+// ============================================================
+method isExpired(Zone z, int currentBar, int expiryBars) =>
+    currentBar - z.originBar > expiryBars
+
+method expireDrawings(Zone z, int _bar_index, int _time) =>
+    box.set_extend(z.drawing, extend.none)
+    if z.tf == "C"
+        box.set_right(z.drawing, _bar_index)
+    else
+        box.set_right(z.drawing, _time)
+    box.set_border_color(z.drawing, color.new(color.gray, 70))
+    box.set_bgcolor(z.drawing, color.new(color.gray, 94))
+    if not na(z.infoLabel)
+        label.set_textcolor(z.infoLabel, color.new(color.gray, 60))
+
+method checkMitigation(Zone z, float _close, float _low, float _high, string _mitBasis) =>
+    switch _mitBasis
+        "Body Close"      => z.isDemand ? _close < z.distal                      : _close > z.distal
+        "Wick Close"      => z.isDemand ? _low   < z.distal                      : _high  > z.distal
+        "50% Penetration" => z.isDemand ? _close < (z.proximal + z.distal) / 2.0 : _close > (z.proximal + z.distal) / 2.0
+        => false
+
+method deleteDrawings(Zone z) =>
+    box.delete(z.drawing)
+    if not na(z.infoLabel)
+        label.delete(z.infoLabel)
+
+method markTested(Zone z, bool _showTestedZones, bool _showLabels, int _effMaxTouches) =>
+    if not _showTestedZones
+        box.set_bgcolor(z.drawing, color.new(color.gray, 100))
+        box.set_border_color(z.drawing, color.new(color.gray, 100))
+        if not na(z.infoLabel)
+            label.set_color(z.infoLabel, color.new(color.gray, 100))
+            label.set_textcolor(z.infoLabel, color.new(color.gray, 100))
+    else
+        box.set_bgcolor(z.drawing, color.new(color.gray, 85))
+        box.set_border_color(z.drawing, color.new(color.gray, 50))
+        if _showLabels and not na(z.infoLabel)
+            label.set_text(z.infoLabel, f_buildLabel(z.tf, z.isDemand, z.pattern, z.strength, z.nBase, z.confBonus, z.touchCount, _effMaxTouches, z.isControlling))
+            label.set_textcolor(z.infoLabel, color.new(color.gray, 30))
+
+// ============================================================
+// SECTION 5 — UNIVERSAL ZONE DETECTION FUNCTION
+// ============================================================
+// Builds candle classification on EFFECTIVE OHLC (invisible-candle aware).
+// Looks for: [Leg-In (strong body)][Base (1–6 narrow bodies)][Leg-Out (strong body)] + follow-through.
+// Pattern is decided by leg-in's colour:
+//   Demand (bullish leg-out): bullish leg-in = RBR, bearish leg-in = DBR
+//   Supply (bearish leg-out): bullish leg-in = RBD, bearish leg-in = DBD
+// Distal per pattern: DBR uses full formation, RBR uses base+leg-out, RBD/DBD use base only.
+f_detectZone(simple float ercM,  simple int minB,  simple int maxB, simple float bodyR,
+             simple float legBodyR, simple float legBodyAvgR, simple float strongFTMul,
+             simple float minW,  simple float maxW, simple float volM,
+             simple bool needBOS,
+             simple string proxMode, simple string distMode, simple int ftbBars,
+             simple bool invCandles, simple bool ctrlAllowed, simple int nbTol,
+             simple float maxBaseTRm, simple float legInWickRatio, simple int fvgBonusPts) =>
+    a  = ta.atr(14)
+    v  = ta.sma(volume, 20)
+    tr = ta.tr
+
+    // ---- Effective OHLC (invisible-candle aware) ----
+    // Open is re-anchored at the previous close; high/low expand to cover any gap.
+    inv_open = nz(close[1], open)
+    eff_open  = invCandles ? inv_open                          : open
+    eff_close = close
+    eff_high  = invCandles ? math.max(high, inv_open)          : high
+    eff_low   = invCandles ? math.min(low,  inv_open)          : low
+    eff_body  = math.abs(eff_close - eff_open)
+    eff_rng   = eff_high - eff_low
+
+    // ---- ATH / ATL tracking for controlling-zone detection (per TF context) ----
+    var float ath = na
+    var float atl = na
+    ath := na(ath) ? eff_high : math.max(ath, eff_high)
+    atl := na(atl) ? eff_low  : math.min(atl, eff_low)
+
+    // ---- 50-period SMA for trend-shift detection (controlling criterion #2) ----
+    ma50 = ta.sma(eff_close, 50)
+
+    // ---- Pivots for BOS ----
+    ph_l = ta.pivothigh(high, 10, 5)
+    pl_l = ta.pivotlow(low,  10, 5)
+    var float lph = na
+    var float lpl = na
+    if not na(ph_l)
+        lph := ph_l
+    if not na(pl_l)
+        lpl := pl_l
+
+    // ---- Leg-out at offset ftbBars ----
+    // Two acceptance paths (per methodology #1 + #2):
+    //   STRONG: body/range ≥ legBodyR  (unconditional)
+    //   AVERAGE + STRONG FOLLOW-THROUGH: body/range ≥ legBodyAvgR AND
+    //       cumulative post-leg-out move > strongFTMul × ATR  (rescues average legs)
+    // Both paths additionally require: explosive range, correct direction, closes near extreme.
+    legBodyPct      = eff_rng[ftbBars] > 0 ? eff_body[ftbBars] / eff_rng[ftbBars] : 0.0
+    legBodyStrong   = legBodyPct >= legBodyR
+    legBodyAverage  = legBodyPct >= legBodyAvgR and legBodyPct < legBodyR
+    legOutBig       = tr[ftbBars] > a[ftbBars] * ercM
+    closesUpper     = eff_close[ftbBars] > eff_high[ftbBars] - eff_rng[ftbBars] * 0.25
+    closesLower     = eff_close[ftbBars] < eff_low[ftbBars]  + eff_rng[ftbBars] * 0.25
+    dirBull         = eff_close[ftbBars] > eff_open[ftbBars]
+    dirBear         = eff_close[ftbBars] < eff_open[ftbBars]
+
+    // Strong follow-through: cumulative move from leg-out close > strongFTMul × ATR
+    strongFT_bull   = ftbBars > 0 and (eff_close - eff_close[ftbBars]) > a[ftbBars] * strongFTMul
+    strongFT_bear   = ftbBars > 0 and (eff_close[ftbBars] - eff_close) > a[ftbBars] * strongFTMul
+
+    bullLegOut = legOutBig and dirBull and closesUpper and (legBodyStrong or (legBodyAverage and strongFT_bull))
+    bearLegOut = legOutBig and dirBear and closesLower and (legBodyStrong or (legBodyAverage and strongFT_bear))
+
+    // ---- Follow-through validation ----
+    bool ftOKbull = true
+    bool ftOKbear = true
+    if ftbBars > 0
+        ercH = eff_high[ftbBars]
+        ercL = eff_low[ftbBars]
+        ercC = eff_close[ftbBars]
+        progBull = eff_close > ercC
+        progBear = eff_close < ercC
+        bool noRevBull = true
+        bool noRevBear = true
+        for j = ftbBars - 1 to 0
+            if eff_close[j] < ercL
+                noRevBull := false
+            if eff_close[j] > ercH
+                noRevBear := false
+        ftOKbull := progBull and noRevBull
+        ftOKbear := progBear and noRevBear
+
+    // Strong leg-outs are unconditional — no follow-through bar check needed.
+    // The bar-by-bar ftOK gate applies only to average legs (which already passed
+    // the cumulative ATR check via strongFT_bull/bear in bullLegOut/bearLegOut).
+    bullERC = (legOutBig and dirBull and closesUpper and legBodyStrong) or
+              (legOutBig and dirBull and closesUpper and legBodyAverage and strongFT_bull and ftOKbull)
+    bearERC = (legOutBig and dirBear and closesLower and legBodyStrong) or
+              (legOutBig and dirBear and closesLower and legBodyAverage and strongFT_bear and ftOKbear)
+
+    // ---- Persistent signal state ----
+    var int    sigTime      = 0
+    var float  sigProx      = na
+    var float  sigDist      = na
+    var bool   sigIsDmd     = false
+    var int    sigScore     = 0
+    var string sigPattern   = ""
+    var int    sigNb        = 0
+    var int    sigBStart    = 1
+    var int    sigBaseTime  = 0
+    var bool   sigCtrl      = false
+
+    // ===== DEMAND =====
+    if bullERC
+        // Volume filter disabled when volM = 0 (pattern-detection tuning mode).
+        volOK = volM > 0.0 ? volume[ftbBars] > v[ftbBars] * volM : true
+        bosOK = needBOS ? (not na(lph[ftbBars]) and eff_close[ftbBars] > lph[ftbBars]) : true
+        if volOK and bosOK
+            // Base scan — with non-base tolerance so wide accumulation zones aren't
+            // aborted by a single large-body candle inside the consolidation.
+            float zT = na
+            int   nBC = 0
+            int   bS  = ftbBars + 1
+            int   nbStreak = 0          // consecutive non-base candle counter
+            for i = ftbBars + 1 to ftbBars + maxB
+                cRange = eff_rng[i]
+                cBody  = eff_body[i]
+                smallBody  = cRange > 0 and (cBody / cRange) <= bodyR
+                smallRange = tr[i] < a[i] * 0.6
+                isBase = (smallBody or smallRange) and tr[i] < a[i] * maxBaseTRm
+                if isBase
+                    nbStreak := 0
+                    nBC := nBC + 1
+                    bS  := i
+                    pVal = proxMode == "Body Extreme" ? math.max(eff_close[i], eff_open[i]) : eff_high[i]
+                    zT := na(zT) ? pVal : math.max(zT, pVal)
+                else
+                    nbStreak := nbStreak + 1
+                    if nbStreak > nbTol
+                        break
+
+            if nBC >= minB and nBC <= maxB and not na(zT)
+                // ---- Leg-in: directional candle into the base (softer threshold than leg-out) ----
+                // Uses legBodyAvg (default 0.55) not legBodyR (0.75) — leg-in doesn't need
+                // to be as explosive as the leg-out, just clearly directional.
+                int liIdx = bS + 1
+                liRng = eff_rng[liIdx]
+                liBody = eff_body[liIdx]
+                // Wick check — a candle with a wick larger than its body is not a clean
+                // directional leg-in (buyers/sellers showed up mid-move, contradicting
+                // a clean direction). Per user spec: such candles do not qualify as leg-in.
+                liUpWick   = eff_high[liIdx] - math.max(eff_close[liIdx], eff_open[liIdx])
+                liLowWick  = math.min(eff_close[liIdx], eff_open[liIdx]) - eff_low[liIdx]
+                liMaxWick  = math.max(liUpWick, liLowWick)
+                bool legInWickOK = liBody > 0 and liMaxWick <= liBody * legInWickRatio
+                bool legInValid = liRng > 0 and (liBody / liRng) >= legBodyAvgR and tr[liIdx] > a[liIdx] * 0.3 and legInWickOK
+                bool legInBullish = eff_close[liIdx] > eff_open[liIdx]
+
+                if legInValid
+                    string pat = legInBullish ? "RBR" : "DBR"
+
+                    // Proximal is computed from BASE candles only (above, during base scan).
+                    // Leg-in affects the DISTAL for DBR (full formation), not the proximal.
+
+                    // ---- Distal per pattern ----
+                    // DBR: leg-in + base + leg-out (full formation)
+                    // RBR: base + leg-out (ignore leg-in)
+                    float zB = na
+                    int   distFrom = ftbBars                   // leg-out
+                    int   distTo   = pat == "DBR" ? liIdx : bS // include leg-in for DBR only
+                    for k = distFrom to distTo
+                        // DBR: the entire formation (leg-in + base + leg-out) uses WICKS
+                        // for the distal, regardless of the global distMode setting. The
+                        // wick is what defines the true zone reach for full-formation
+                        // patterns. RBR (continuation) uses the global distMode.
+                        lowSide = pat == "DBR" ? eff_low[k] : (distMode == "Wick Extreme" ? eff_low[k] : math.min(eff_close[k], eff_open[k]))
+                        zB := na(zB) ? lowSide : math.min(zB, lowSide)
+
+                    if not na(zB)
+                        w = zT - zB
+                        if w >= a * minW and w <= a * maxW
+                            // ---- Score ----
+                            bodyR_legOut = eff_body[ftbBars] / math.max(eff_rng[ftbBars], 0.001)
+                            volR  = volume[ftbBars] / math.max(v[ftbBars], 1.0)
+                            eP    = int(math.min(bodyR_legOut * 40.0, 40.0))
+                            vP    = int(math.min((volR - 1.0) * 12.0, 30.0))
+                            bP    = nBC == 1 ? 12 : nBC == 2 ? 25 : nBC == 3 ? 25 : nBC == 4 ? 20 : nBC == 5 ? 10 : 5
+                            raw   = math.min(eP + vP + bP, 95)
+
+                            // Gap & FVG bonus
+                            gapSize = eff_open[ftbBars] - eff_close[ftbBars + 1]
+                            hasGap  = gapSize > a[ftbBars] * 0.3
+                            gapPts  = hasGap ? gapBonus : 0
+                            
+                            hasFVG  = ftbBars > 0 and eff_low[ftbBars - 1] > eff_high[ftbBars + 1]
+                            fvgPts  = hasFVG ? fvgBonusPts : 0
+
+                            // Multi-pivot break bonus: count confirmed pivot highs between
+                            // the base top and the leg-out close (broken by the leg-out)
+                            int pivBroken = 0
+                            for kk = ftbBars + 1 to ftbBars + 30
+                                pk = ph_l[kk]
+                                if not na(pk) and pk > eff_close[bS] and pk < eff_close[ftbBars]
+                                    pivBroken := pivBroken + 1
+                            multiPivPts = math.min(pivBroken * 5, 15)
+
+                            // Pattern premium (DBR's counter-trend exhaustion is stronger than RBR continuation)
+                            patPts = pat == "DBR" ? 10 : 0
+
+                            sc = math.min(raw + gapPts + fvgPts + multiPivPts + patPts, 100)
+
+                            // ---- Controlling: new ATH OR 50-SMA trend shift ----
+                            prevATH = ath[ftbBars + 1]
+                            bool isNewATH = not na(prevATH) and eff_close[ftbBars] > prevATH
+
+                            bool wasBelowMA = true
+                            for kk2 = ftbBars + 1 to ftbBars + 20
+                                if not na(ma50[kk2]) and eff_close[kk2] > ma50[kk2]
+                                    wasBelowMA := false
+                                    break
+                            bool isTrendShiftUp = wasBelowMA and not na(ma50[ftbBars]) and eff_close[ftbBars] > ma50[ftbBars]
+
+                            bool isCtrl = ctrlAllowed and (isNewATH or isTrendShiftUp)
+
+                            sigTime     := time
+                            sigProx     := zT
+                            sigDist     := zB
+                            sigIsDmd    := true
+                            sigScore    := sc
+                            sigPattern  := pat
+                            sigNb       := nBC
+                            sigBStart   := bS
+                            sigBaseTime := time[bS]
+                            sigCtrl     := isCtrl
+
+    // ===== SUPPLY =====
+    if bearERC
+        volOK2 = volM > 0.0 ? volume[ftbBars] > v[ftbBars] * volM : true
+        bosOK2 = needBOS ? (not na(lpl[ftbBars]) and eff_close[ftbBars] < lpl[ftbBars]) : true
+        if volOK2 and bosOK2
+            float zB2 = na
+            int   nBC2 = 0
+            int   bS2  = ftbBars + 1
+            int   nbStreak2 = 0
+            for i = ftbBars + 1 to ftbBars + maxB
+                cR2 = eff_rng[i]
+                cB2 = eff_body[i]
+                smallBody2  = cR2 > 0 and (cB2 / cR2) <= bodyR
+                smallRange2 = tr[i] < a[i] * 0.6
+                isBase2 = (smallBody2 or smallRange2) and tr[i] < a[i] * maxBaseTRm
+                if isBase2
+                    nbStreak2 := 0
+                    nBC2 := nBC2 + 1
+                    bS2  := i
+                    pVal2 = proxMode == "Body Extreme" ? math.min(eff_close[i], eff_open[i]) : eff_low[i]
+                    zB2 := na(zB2) ? pVal2 : math.min(zB2, pVal2)
+                else
+                    nbStreak2 := nbStreak2 + 1
+                    if nbStreak2 > nbTol
+                        break
+
+            if nBC2 >= minB and nBC2 <= maxB and not na(zB2)
+                int liIdx2 = bS2 + 1
+                liRng2 = eff_rng[liIdx2]
+                liBody2 = eff_body[liIdx2]
+                liUpWick2  = eff_high[liIdx2] - math.max(eff_close[liIdx2], eff_open[liIdx2])
+                liLowWick2 = math.min(eff_close[liIdx2], eff_open[liIdx2]) - eff_low[liIdx2]
+                liMaxWick2 = math.max(liUpWick2, liLowWick2)
+                bool legInWickOK2 = liBody2 > 0 and liMaxWick2 <= liBody2 * legInWickRatio
+                bool legInValid2 = liRng2 > 0 and (liBody2 / liRng2) >= legBodyAvgR and tr[liIdx2] > a[liIdx2] * 0.3 and legInWickOK2
+                bool legInBullish2 = eff_close[liIdx2] > eff_open[liIdx2]
+
+                if legInValid2
+                    string pat2 = legInBullish2 ? "RBD" : "DBD"
+
+                    // Proximal is computed from BASE candles only (above, during base scan).
+                    // Leg-in affects the DISTAL for RBD (full formation), not the proximal.
+
+                    // ---- Distal per pattern (symmetric with demand) ----
+                    // RBD: full formation (leg-in + base + leg-out) — opposite-direction leg-in's HIGH is the buyer-exhaustion print
+                    // DBD: base + leg-out (leg-in is continuation, excluded)
+                    float zT2 = na
+                    int   distFrom2 = ftbBars                                   // leg-out
+                    int   distTo2   = pat2 == "RBD" ? liIdx2 : bS2              // include leg-in for RBD only
+                    for k = distFrom2 to distTo2
+                        // RBD: the entire formation (leg-in + base + leg-out) uses WICKS
+                        // for the distal, regardless of the global distMode setting. The
+                        // wick captures full price reach. DBD (continuation) uses global distMode.
+                        highSide = pat2 == "RBD" ? eff_high[k] : (distMode == "Wick Extreme" ? eff_high[k] : math.max(eff_close[k], eff_open[k]))
+                        zT2 := na(zT2) ? highSide : math.max(zT2, highSide)
+
+                    if not na(zT2)
+                        w2 = zT2 - zB2
+                        if w2 >= a * minW and w2 <= a * maxW
+                            bodyR_legOut2 = eff_body[ftbBars] / math.max(eff_rng[ftbBars], 0.001)
+                            volR2  = volume[ftbBars] / math.max(v[ftbBars], 1.0)
+                            eP2    = int(math.min(bodyR_legOut2 * 40.0, 40.0))
+                            vP2    = int(math.min((volR2 - 1.0) * 12.0, 30.0))
+                            bP2    = nBC2 == 1 ? 12 : nBC2 == 2 ? 25 : nBC2 == 3 ? 25 : nBC2 == 4 ? 20 : nBC2 == 5 ? 10 : 5
+                            raw2   = math.min(eP2 + vP2 + bP2, 95)
+
+                            gapSize2 = eff_close[ftbBars + 1] - eff_open[ftbBars]
+                            hasGap2  = gapSize2 > a[ftbBars] * 0.3
+                            gapPts2  = hasGap2 ? gapBonus : 0
+
+                            hasFVG2  = ftbBars > 0 and eff_high[ftbBars - 1] < eff_low[ftbBars + 1]
+                            fvgPts2  = hasFVG2 ? fvgBonusPts : 0
+
+                            // Multi-pivot break bonus: pivot LOWS between leg-out close and base bottom
+                            int pivBroken2 = 0
+                            for kk = ftbBars + 1 to ftbBars + 30
+                                pk = pl_l[kk]
+                                if not na(pk) and pk < eff_close[bS2] and pk > eff_close[ftbBars]
+                                    pivBroken2 := pivBroken2 + 1
+                            multiPivPts2 = math.min(pivBroken2 * 5, 15)
+
+                            patPts2 = pat2 == "RBD" ? 10 : 0
+
+                            sc2 = math.min(raw2 + gapPts2 + fvgPts2 + multiPivPts2 + patPts2, 100)
+
+                            // ---- Controlling: new ATL OR 50-SMA trend shift down ----
+                            prevATL = atl[ftbBars + 1]
+                            bool isNewATL = not na(prevATL) and eff_close[ftbBars] < prevATL
+
+                            bool wasAboveMA = true
+                            for kk2 = ftbBars + 1 to ftbBars + 20
+                                if not na(ma50[kk2]) and eff_close[kk2] < ma50[kk2]
+                                    wasAboveMA := false
+                                    break
+                            bool isTrendShiftDown = wasAboveMA and not na(ma50[ftbBars]) and eff_close[ftbBars] < ma50[ftbBars]
+
+                            bool isCtrl2 = ctrlAllowed and (isNewATL or isTrendShiftDown)
+
+                            sigTime     := time
+                            sigProx     := zB2
+                            sigDist     := zT2
+                            sigIsDmd    := false
+                            sigScore    := sc2
+                            sigPattern  := pat2
+                            sigNb       := nBC2
+                            sigBStart   := bS2
+                            sigBaseTime := time[bS2]
+                            sigCtrl     := isCtrl2
+
+    ZoneSig.new(sigTime, sigProx, sigDist, sigIsDmd, sigScore, sigPattern, sigNb, sigBStart, sigBaseTime, sigCtrl)
+
+// ============================================================
+// SECTION 6 — MARKET DATA FOR NATIVE-TF FILTERS
+// ============================================================
+dailyEMA20 = request.security(syminfo.tickerid, "D", ta.ema(close, 20), ignore_invalid_symbol=true)
+n500Close  = request.security("NSE:CNX500", "D", close, ignore_invalid_symbol=true)
+rsRatio    = not na(n500Close) and n500Close > 0 ? close / n500Close : na
+// ta.linreg must be called unconditionally every bar for internal-state consistency (CW10004).
+// Compute the slope first; gate the result via nz() rather than wrapping the ta calls in a ternary.
+rsLR_diff  = ta.linreg(rsRatio, 60, 0) - ta.linreg(rsRatio, 60, 1)
+rsSlope    = nz(rsLR_diff, 0.0)
+
+// ============================================================
+// SECTION 7 — REQUEST ZONES (NATIVE + HTF)
+// ============================================================
+// 'ctrlAllowed' is wired per-call so the controlling-zone test only fires on eligible timeframes.
+nativeSig  = f_detectZone(ercMult, minBase, maxBase, bodyRatio, legBodyRatio, legBodyAvg, strongFTMult, minZoneW, maxZoneW, volMult, requireBOS, proxLineMode, distLineMode, followThruBars, useInvCandles, markControlling and ctrlAllowChart,   baseStreak, maxBaseTR, legInMaxWickR, fvgBonus)
+dailySig   = request.security(syminfo.tickerid, "D", f_detectZone(ercMult, minBase, maxBase, bodyRatio, legBodyRatio, legBodyAvg, strongFTMult, minZoneW, maxZoneW, volMult, requireBOS, proxLineMode, distLineMode, followThruBars, useInvCandles, markControlling and ctrlAllowDaily,   baseStreak, maxBaseTR, legInMaxWickR, fvgBonus), lookahead=barmerge.lookahead_off)
+weeklySig  = request.security(syminfo.tickerid, "W", f_detectZone(ercMult, minBase, maxBase, bodyRatio, legBodyRatio, legBodyAvg, strongFTMult, minZoneW, maxZoneW, volMult, requireBOS, proxLineMode, distLineMode, followThruBars, useInvCandles, markControlling and ctrlAllowWeekly,  baseStreak, maxBaseTR, legInMaxWickR, fvgBonus), lookahead=barmerge.lookahead_off)
+monthlySig = request.security(syminfo.tickerid, "M", f_detectZone(ercMult, minBase, maxBase, bodyRatio, legBodyRatio, legBodyAvg, strongFTMult, minZoneW, maxZoneW, volMult, requireBOS, proxLineMode, distLineMode, followThruBars, useInvCandles, markControlling and ctrlAllowMonthly, baseStreak, maxBaseTR, legInMaxWickR, fvgBonus), lookahead=barmerge.lookahead_off)
+
+// ============================================================
+// SECTION 8 — CONFLUENCE BONUS  (overlap + EMA20 DIRECTIONAL)
+// ============================================================
+// Directional EMA logic per user spec:
+//   Demand: zone INSIDE EMA20 or BELOW it = full bonus. Near (within 0.3 ATR) below = full. Above = zero.
+//   Supply: zone INSIDE EMA20 or ABOVE it = full bonus. Near (within 0.3 ATR) above = full. Below = zero.
+f_confluenceBoost(float newProx, float newDist, bool newIsDmd, string newTf) =>
+    int bonus = 0
+    nLo = math.min(newProx, newDist)
+    nHi = math.max(newProx, newDist)
+
+    // -- Same-direction zone overlap --
+    sz = array.size(activeZones)
+    if sz > 0
+        for i = 0 to sz - 1
+            zz = array.get(activeZones, i)
+            zLo = math.min(zz.proximal, zz.distal)
+            zHi = math.max(zz.proximal, zz.distal)
+            overlap = nLo <= zHi and nHi >= zLo
+            sameDir = zz.isDemand == newIsDmd
+            if overlap and sameDir
+                bonus := bonus + (zz.tf == newTf ? sameTfBoost : htfBoost)
+
+    // -- Daily EMA20 proximity (per user clarification) --
+    // Terminology (user's framing):
+    //   "Nearby"        = EMA20 inside the zone OR within emaProxThreshATR × ATR of either zone edge.
+    //                     A small gap (EMA just above the DZ, or EMA just below the SZ) is absorbed here.
+    //   "Above" zone    = EMA20 far above the zone proximal (zone is over-extended below for DZ scenarios — note inverse from price perspective).
+    //   "Below" zone    = EMA20 far below the zone distal (zone is over-extended above).
+    // User rules:
+    //   DZ: nearby OR zone-entirely-below-EMA = best quality (both award full bonus).
+    //       Zone entirely above EMA (and NOT nearby) = poor, no bonus.
+    //   SZ: nearby OR zone-entirely-above-EMA = best quality.
+    //       Zone entirely below EMA (and NOT nearby) = poor, no bonus.
+    if not na(dailyEMA20) and not na(chart_atr)
+        emaInZone = dailyEMA20 >= nLo and dailyEMA20 <= nHi
+        edgeDist  = emaInZone ? 0.0 : math.min(math.abs(dailyEMA20 - nLo), math.abs(dailyEMA20 - nHi))
+        nearby    = emaInZone or edgeDist <= chart_atr * emaProxThreshATR
+
+        if newIsDmd
+            zoneEntirelyBelow = nHi < dailyEMA20
+            if nearby or zoneEntirelyBelow
+                bonus := bonus + emaProxBoost
+        else
+            zoneEntirelyAbove = nLo > dailyEMA20
+            if nearby or zoneEntirelyAbove
+                bonus := bonus + emaProxBoost
+
+    math.min(bonus, maxConfBoost)
+
+// ============================================================
+// SECTION 9 — ZONE CREATION
+// ============================================================
+f_createZone(ZoneSig sig, string tfTag, bool isNative) =>
+    bool emaOK = true
+    bool rsOK  = true
+    if isNative
+        emaOK := useEMA ? (sig.isDemand ? close > dailyEMA20 : close < dailyEMA20) : true
+        rsOK  := useRS  ? (sig.isDemand ? rsSlope > 0        : rsSlope < 0)        : true
+
+    if emaOK and rsOK and not na(sig.proximal) and not na(sig.distal)
+        cBonus     = f_confluenceBoost(sig.proximal, sig.distal, sig.isDemand, tfTag)
+        finalScore = math.min(sig.rawScore + cBonus, 100)
+
+        // ---- Controlling criterion #3: breaks opposing controlling zone ----
+        // Iterate activeZones for opposite-direction zones flagged as Controlling.
+        // A new DEMAND zone "breaks" a Controlling SUPPLY zone if the new DZ's
+        // proximal (top) sits ABOVE the SZ's distal (top of SZ) — meaning the
+        // leg-out's path traversed through and beyond the SZ.
+        // Mirror for new SUPPLY zone breaking Controlling DEMAND.
+        bool breaksOpposing = false
+        sz_chk = array.size(activeZones)
+        if sz_chk > 0
+            for jj = 0 to sz_chk - 1
+                zo = array.get(activeZones, jj)
+                if zo.isControlling and zo.isDemand != sig.isDemand
+                    if sig.isDemand
+                        // New DZ proximal above existing Controlling SZ's top (distal)
+                        if sig.proximal > zo.distal
+                            breaksOpposing := true
+                            break
+                    else
+                        // New SZ proximal below existing Controlling DZ's bottom (distal)
+                        if sig.proximal < zo.distal
+                            breaksOpposing := true
+                            break
+
+        // Eligibility gate for the new zone's TF (same gate used in f_detectZone)
+        bool ctrlAllowedHere = markControlling and (
+             tfTag == "C" ? ctrlAllowChart :
+             tfTag == "D" ? ctrlAllowDaily :
+             tfTag == "W" ? ctrlAllowWeekly :
+             ctrlAllowMonthly)
+
+        // Final controlling status: ATH/ATL OR trend shift (from sig) OR breaks opposing
+        bool finalCtrl = sig.isControlling or (breaksOpposing and ctrlAllowedHere)
+
+        // ---- Styling ----
+        // Pattern zones use methodology colours; structural zones (PvH/PvL) use teal/blue
+        // so they're visually distinct from pattern zones at a glance.
+        basecol = sig.isDemand
+             ? (sig.pattern == "DBR" ? color.green : sig.pattern == "RBR" ? color.lime   : color.teal)
+             : (sig.pattern == "RBD" ? color.red   : sig.pattern == "DBD" ? color.orange : color.blue)
+        bgAlpha = tfTag == "C" ? 80 : tfTag == "D" ? 70 : tfTag == "W" ? 60 : 50
+        bdAlpha = tfTag == "C" ? 25 : tfTag == "D" ? 15 : tfTag == "W" ? 10 : 0
+        // Controlling zones get thicker borders + lower transparency for prominence
+        bwidth  = finalCtrl ? (tfTag == "M" ? 4 : tfTag == "W" ? 3 : 2) : (tfTag == "M" ? 3 : tfTag == "W" ? 2 : 1)
+        if finalCtrl
+            bgAlpha := math.max(bgAlpha - 15, 30)
+        bgC = color.new(basecol, bgAlpha)
+        bdC = color.new(basecol, bdAlpha)
+
+        topVal = sig.isDemand ? sig.proximal : sig.distal
+        botVal = sig.isDemand ? sig.distal   : sig.proximal
+
+        box   bx  = na
+        label lbl = na
+
+        // Effective max touches reflects controlling status (for the label "T n/N" denominator)
+        effMaxT = finalCtrl ? controllingMaxTouches : maxTouches
+        lblTxt = f_buildLabel(tfTag, sig.isDemand, sig.pattern, finalScore, sig.nBase, cBonus, 0, effMaxT, finalCtrl)
+
+        if isNative
+            leftBar = bar_index - sig.bStart
+            bx  := box.new(leftBar, topVal, bar_index, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, extend=extend.right, xloc=xloc.bar_index)
+            lbl := label.new(leftBar, topVal, text=showLabels ? lblTxt : "", textcolor=color.white, style=label.style_none, size=size.small, xloc=xloc.bar_index, textalign=text.align_left)
+        else
+            bx  := box.new(sig.baseStartTime, topVal, time, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, extend=extend.right, xloc=xloc.bar_time)
+            lbl := label.new(sig.baseStartTime, topVal, text=showLabels ? lblTxt : "", textcolor=color.white, style=label.style_none, size=size.small, xloc=xloc.bar_time, textalign=text.align_left)
+
+        z = Zone.new(sig.proximal, sig.distal, bar_index, sig.baseStartTime, sig.isDemand, 0, finalScore, cBonus, sig.nBase, sig.pattern, tfTag, finalCtrl, bx, lbl, false)
+        array.push(activeZones, z)
+
+        alert('{"ticker":"' + syminfo.ticker
+             + '","zone":"'    + (sig.isDemand ? "DEMAND" : "SUPPLY") + '"'
+             + ',"tf":"'       + tfTag + '"'
+             + ',"pattern":"'  + sig.pattern + '"'
+             + ',"controlling":'      + (finalCtrl ? "true" : "false")
+             + ',"breaksOpposing":'   + (breaksOpposing ? "true" : "false")
+             + ',"proximal":'  + str.tostring(sig.proximal, "#.00")
+             + ',"distal":'    + str.tostring(sig.distal,   "#.00")
+             + ',"strength":'  + str.tostring(finalScore)
+             + ',"raw":'       + str.tostring(sig.rawScore)
+             + ',"confluenceBoost":' + str.tostring(cBonus)
+             + ',"nBase":'     + str.tostring(sig.nBase)
+             + ',"chartTf":"'  + timeframe.period + '"'
+             + ',"ts":'        + str.tostring(time) + '}',
+             alert.freq_once_per_bar_close)
+
+// ============================================================
+// SECTION 10 — DETECT NEW ZONES & DISPATCH
+// ============================================================
+var int lastNativeTime  = 0
+var int lastDailyTime   = 0
+var int lastWeeklyTime  = 0
+var int lastMonthlyTime = 0
+
+// request.security() can return `na` for UDT signals on warmup bars before the
+// HTF has its first closed bar of data. Each dispatch must na-guard before
+// accessing fields, otherwise RE10041 fires at bar 0.
+if not na(nativeSig) and nativeSig.zoneTime > lastNativeTime
+    lastNativeTime := nativeSig.zoneTime
+    f_createZone(nativeSig, "C", true)
+
+if useDaily and not na(dailySig) and dailySig.zoneTime > lastDailyTime
+    lastDailyTime := dailySig.zoneTime
+    f_createZone(dailySig, "D", false)
+
+if useWeekly and not na(weeklySig) and weeklySig.zoneTime > lastWeeklyTime
+    lastWeeklyTime := weeklySig.zoneTime
+    f_createZone(weeklySig, "W", false)
+
+if useMonthly and not na(monthlySig) and monthlySig.zoneTime > lastMonthlyTime
+    lastMonthlyTime := monthlySig.zoneTime
+    f_createZone(monthlySig, "M", false)
+
+// ============================================================
+// SECTION 10b — STRUCTURAL ZONE DETECTION (PIVOT-BASED)
+// ============================================================
+// Runs on the native chart timeframe. Catches V-tops, V-bottoms, and
+// reaction zones that don't have a clean leg-in/base/leg-out pattern.
+// Tagged with pattern="PvH" (supply at pivot high) or "PvL" (demand at
+// pivot low). Overlap check skips duplicates that pattern detection
+// already created at the same level.
+
+// Pre-compute ta.* unconditionally (Pine consistency rule —
+// these functions maintain internal state per call site and must execute every bar).
+pivH_str = ta.pivothigh(high, pivotLeft, pivotRight)
+pivL_str = ta.pivotlow(low,  pivotLeft, pivotRight)
+a_str    = ta.atr(14)
+lowestSinceH_pre  = ta.lowest(low,  pivotRight + 1)
+highestSinceL_pre = ta.highest(high, pivotRight + 1)
+
+if useStructural
+    // ===== Pivot HIGH → Structural Supply Zone =====
+    if not na(pivH_str)
+        int   pBarH = pivotRight                              // offset to pivot bar
+        float sTop  = high[pBarH]                              // pivot wick high
+        float sBot  = math.min(close[pBarH], open[pBarH])      // start: pivot body low
+        // Two-axis proximity filter — a bar qualifies as part of the topping
+        // formation if BOTH its body top AND body bottom are reasonably near
+        // the pivot top. Topping bars have small bodies near the pivot. The
+        // leg-in candle has body_top near pivot but body_bottom FAR below —
+        // failing the second check excludes it.
+        float proxThrH = nz(a_str[pBarH], a_str) * structTopThrATR    // body_top must be within
+        float deepThrH = nz(a_str[pBarH], a_str) * structDeepThrATR   // body_bottom must be within
+        int kStartH = math.max(pBarH - structPadBars, 0)
+        int kEndH   = pBarH + structPadBars              // restored: look on BOTH sides of pivot
+        for k = kStartH to kEndH
+            bodyHiK = math.max(close[k], open[k])
+            bodyLoK = math.min(close[k], open[k])
+            if bodyHiK >= sTop - proxThrH and bodyLoK >= sTop - deepThrH and bodyLoK < sBot
+                sBot := bodyLoK
+
+        // Confirm a meaningful reversal: lowest low since pivot must be far enough below
+        lowestSinceH = lowestSinceH_pre
+        moveDownStr  = sTop - lowestSinceH
+        if not na(a_str) and moveDownStr > a_str * pivotMinMoveATR
+            // Overlap check vs existing supply zones (avoid duplicating pattern zones)
+            bool isDupS  = false
+            int  szCntS  = array.size(activeZones)
+            if szCntS > 0
+                for ii = 0 to szCntS - 1
+                    zzS = array.get(activeZones, ii)
+                    if not zzS.isDemand
+                        zHiS = math.max(zzS.proximal, zzS.distal)
+                        zLoS = math.min(zzS.proximal, zzS.distal)
+                        if sTop >= zLoS and sBot <= zHiS
+                            isDupS := true
+                            break
+            if not isDupS
+                int strScoreS = math.min(60 + int(moveDownStr / a_str * 5.0), 100)
+                strSigS = ZoneSig.new(time[pBarH], sBot, sTop, false, strScoreS, "PvH", 0, pBarH + structPadBars, time[math.min(pBarH + structPadBars, bar_index)], false)
+                f_createZone(strSigS, "C", true)
+
+    // ===== Pivot LOW → Structural Demand Zone =====
+    if not na(pivL_str)
+        int   pBarL = pivotRight
+        float dBot  = low[pBarL]                                // pivot wick low
+        float dTop  = math.max(close[pBarL], open[pBarL])       // start: pivot body high
+        // Symmetric two-axis filter: body_low near pivot low AND body_high not too
+        // far above. Bottoming bars have small bodies near pivot; leg-in (bearish
+        // candle into demand) has body_low near pivot but body_high FAR above.
+        float proxThrL = nz(a_str[pBarL], a_str) * structTopThrATR
+        float deepThrL = nz(a_str[pBarL], a_str) * structDeepThrATR
+        int kStartL = math.max(pBarL - structPadBars, 0)
+        int kEndL   = pBarL + structPadBars              // restored: look on BOTH sides of pivot
+        for k = kStartL to kEndL
+            bodyHiK = math.max(close[k], open[k])
+            bodyLoK = math.min(close[k], open[k])
+            if bodyLoK <= dBot + proxThrL and bodyHiK <= dBot + deepThrL and bodyHiK > dTop
+                dTop := bodyHiK
+
+        highestSinceL = highestSinceL_pre
+        moveUpStr     = highestSinceL - dBot
+        if not na(a_str) and moveUpStr > a_str * pivotMinMoveATR
+            bool isDupD  = false
+            int  szCntD  = array.size(activeZones)
+            if szCntD > 0
+                for ii = 0 to szCntD - 1
+                    zzD = array.get(activeZones, ii)
+                    if zzD.isDemand
+                        zHiD = math.max(zzD.proximal, zzD.distal)
+                        zLoD = math.min(zzD.proximal, zzD.distal)
+                        if dTop >= zLoD and dBot <= zHiD
+                            isDupD := true
+                            break
+            if not isDupD
+                int strScoreD = math.min(60 + int(moveUpStr / a_str * 5.0), 100)
+                strSigD = ZoneSig.new(time[pBarL], dTop, dBot, true, strScoreD, "PvL", 0, pBarL + structPadBars, time[math.min(pBarL + structPadBars, bar_index)], false)
+                f_createZone(strSigD, "C", true)
+
+// ============================================================
+// SECTION 11 — ZONE STATE MANAGEMENT
+// ============================================================
+if array.size(activeZones) > 0
+    for i = array.size(activeZones) - 1 to 0
+        z = array.get(activeZones, i)
+
+        // Per-zone effective touch limit (controlling gets higher tolerance)
+        effMaxTouches = z.isControlling ? controllingMaxTouches : maxTouches
+
+        // ── 1. AGE EXPIRY ─────────────────────────────────────────
+        if z.isExpired(bar_index, maxAge)
+            z.expireDrawings(bar_index, time)
+            array.remove(activeZones, i)
+            continue
+
+        // ── 2. DISTINCT TOUCH DETECTION ───────────────────────────
+        inZone = z.isDemand
+             ? (low  <= z.proximal and low  >= z.distal)
+             : (high >= z.proximal and high <= z.distal)
+        newTouch = inZone and not z.wasInZone and bar_index > z.originBar + 1
+
+        if newTouch
+            z.touchCount := z.touchCount + 1
+
+            z.markTested(showTestedZones, showLabels, effMaxTouches)
+
+            // Reversal pattern (chart TF)
+            string revPat = detectReversal ? f_reversalPattern(z.isDemand) : ""
+            bool   hasPat = revPat != ""
+
+            if hasPat and markReversal
+                if z.isDemand
+                    label.new(bar_index, na, revPat, color=color.new(color.green, 0), textcolor=color.white,
+                         style=label.style_label_up, size=size.tiny, xloc=xloc.bar_index, yloc=yloc.belowbar, textalign=text.align_left)
+                else
+                    label.new(bar_index, na, revPat, color=color.new(color.red, 0), textcolor=color.white,
+                         style=label.style_label_down, size=size.tiny, xloc=xloc.bar_index, yloc=yloc.abovebar, textalign=text.align_left)
+
+            string tradePlanJson = ""
+            if emitTradePlan and z.touchCount == 1
+                [tpEntry, tpSL, tpT1, tpT2, tpT3, tpRisk, tpRiskPct] = f_tradePlan(z.proximal, z.distal, z.isDemand)
+                tradePlanJson := ',"entry":'    + str.tostring(tpEntry, "#.00")
+                     + ',"sl":'          + str.tostring(tpSL,    "#.00")
+                     + ',"t1":'          + str.tostring(tpT1,    "#.00")
+                     + ',"t2":'          + str.tostring(tpT2,    "#.00")
+                     + ',"t3":'          + str.tostring(tpT3,    "#.00")
+                     + ',"riskPerUnit":' + str.tostring(tpRisk,  "#.00")
+                     + ',"riskPct":'     + str.tostring(tpRiskPct,"#.00")
+
+            alert('{"ticker":"' + syminfo.ticker
+                 + '","event":"'    + (z.isDemand ? "DEMAND_TOUCH" : "SUPPLY_TOUCH") + '"'
+                 + ',"tf":"'        + z.tf + '"'
+                 + ',"controlling":' + (z.isControlling ? "true" : "false")
+                 + ',"touch":'      + str.tostring(z.touchCount)
+                 + ',"of":'         + str.tostring(effMaxTouches)
+                 + ',"strength":'   + str.tostring(z.strength)
+                 + ',"pattern":"'   + z.pattern + '"'
+                 + ',"reversal":"'  + revPat + '"'
+                 + ',"confirmed":'  + (hasPat ? "true" : "false")
+                 + ',"proximal":'   + str.tostring(z.proximal, "#.00")
+                 + ',"distal":'     + str.tostring(z.distal,   "#.00")
+                 + tradePlanJson
+                 + ',"ts":'         + str.tostring(time) + '}',
+                 alert.freq_once_per_bar_close)
+
+        z.wasInZone := inZone
+
+        // ── 3. MITIGATION ─────────────────────────────────────────
+        isMitigated = z.checkMitigation(close, low, high, mitBasis)
+
+        if isMitigated
+            // Price broke through distal — zone is violated. Delete box and label
+            // from chart entirely (clean slate). Drop a ✗ marker at the breach bar.
+            z.deleteDrawings()
+            if markViolations
+                if z.tf == "C"
+                    label.new(bar_index, z.distal, "", color=color.new(color.red, 0), style=label.style_xcross, size=size.small, xloc=xloc.bar_index)
+                else
+                    label.new(time, z.distal, "", color=color.new(color.red, 0), style=label.style_xcross, size=size.small, xloc=xloc.bar_time)
+            array.remove(activeZones, i)
+
+        else if z.touchCount >= effMaxTouches
+            // Touch limit reached — DELETE the zone entirely (per user spec:
+            // normal zones removed after 2 tests, controlling zones after 3).
+            // No more "retired but visible" state — exhausted = gone.
+            z.deleteDrawings()
+            array.remove(activeZones, i)
+
+// ============================================================
+// SECTION 12 — ALERT CONDITIONS
+// ============================================================
+var bool dEntry        = false
+var bool sEntry        = false
+var bool dEntryConfirm = false
+var bool sEntryConfirm = false
+dEntry        := false
+sEntry        := false
+dEntryConfirm := false
+sEntryConfirm := false
+
+aSize = array.size(activeZones)
+if aSize > 0
+    for i = 0 to aSize - 1
+        z = array.get(activeZones, i)
+        if bar_index > z.originBar + 1
+            inZ = z.isDemand
+                 ? (low  <= z.proximal and low  >= z.distal)
+                 : (high >= z.proximal and high <= z.distal)
+            if inZ and not z.wasInZone
+                pat = detectReversal ? f_reversalPattern(z.isDemand) : ""
+                if     z.isDemand
+                    dEntry := true
+                    if pat != ""
+                        dEntryConfirm := true
+                else
+                    sEntry := true
+                    if pat != ""
+                        sEntryConfirm := true
+
+alertcondition(dEntry,        "Demand Zone — Price Entry",        "{{ticker}} entered a Demand Zone ({{interval}})")
+alertcondition(sEntry,        "Supply Zone — Price Entry",        "{{ticker}} entered a Supply Zone ({{interval}})")
+alertcondition(dEntryConfirm, "Demand Zone — Confirmed Reversal", "{{ticker}} entered a Demand Zone WITH bullish reversal pattern ({{interval}})")
+alertcondition(sEntryConfirm, "Supply Zone — Confirmed Reversal", "{{ticker}} entered a Supply Zone WITH bearish reversal pattern ({{interval}})")
+
+// ============================================================
+// SECTION 13 — PLOTS
+// ============================================================
+plot(useEMA ? dailyEMA20 : na, "Daily EMA20", color=color.new(color.blue, 20), linewidth=1)
+
+// ---- Invisible Candles overlay (chart-level visual) ----
+// When useInvCandles is ON, plot candles using gap-bridged OHLC. Each bar's
+// open is re-anchored at the previous close; high/low are expanded to cover
+// the gap. To see ONLY these candles, hide the native candles via:
+//   Chart Settings → Symbol → uncheck Body / Borders / Wick.
+chart_inv_open = nz(close[1], open)
+chart_inv_high = math.max(high, chart_inv_open)
+chart_inv_low  = math.min(low,  chart_inv_open)
+plotcandle(
+     useInvCandles ? chart_inv_open : na,
+     useInvCandles ? chart_inv_high : na,
+     useInvCandles ? chart_inv_low  : na,
+     useInvCandles ? close          : na,
+     title       = "Invisible Candles",
+     color       = close >= chart_inv_open ? color.new(#26a69a, 0) : color.new(#ef5350, 0),
+     wickcolor   = close >= chart_inv_open ? color.new(#26a69a, 0) : color.new(#ef5350, 0),
+     bordercolor = close >= chart_inv_open ? color.new(#26a69a, 0) : color.new(#ef5350, 0))
+
+// ============================================================
+// SECTION 14 — SUMMARY PANEL  (Trade Intelligence)
+// ============================================================
+f_pos(string p) =>
+    switch p
+        "top_left"      => position.top_left
+        "top_right"     => position.top_right
+        "middle_left"   => position.middle_left
+        "middle_right"  => position.middle_right
+        "bottom_left"   => position.bottom_left
+        "bottom_right"  => position.bottom_right
+        => position.top_right
+
+// Quality grade label (EXCELLENT > STRONG > GOOD > AVERAGE > WEAK)
+f_qualityGrade(int score) =>
+    score >= 90 ? "EXCELLENT" : score >= 75 ? "STRONG" : score >= 60 ? "GOOD" : score >= 45 ? "AVERAGE" : "WEAK"
+
+f_qualityColor(int score) =>
+    score >= 90 ? color.new(color.lime,   0) :
+     score >= 75 ? color.new(#26a69a,     0) :
+      score >= 60 ? color.new(color.yellow, 0) :
+       score >= 45 ? color.new(#ff9800,   0) :
+                     color.new(#ef5350,   0)
+
+// "Controlling Weekly DZ DBR" — one-line zone descriptor
+f_zoneDesc(string tf, bool isDemand, string pattern, bool isControlling) =>
+    chartTfName2 = timeframe.ismonthly ? "Monthly" : timeframe.isweekly ? "Weekly" :
+                   timeframe.isdaily   ? "Daily"   : timeframe.period
+    tfName = tf == "M" ? "Monthly" : tf == "W" ? "Weekly" : tf == "D" ? "Daily" : chartTfName2
+    prefix = isControlling ? "Controlling " : ""
+    zType  = isDemand ? "DZ" : "SZ"
+    prefix + tfName + " " + zType + " " + pattern
+
+// Row drawing helpers
+f_panelHeader(table tbl, int r, string lbl, string val) =>
+    table.cell(tbl, 0, r, lbl, text_color=color.new(#4466aa, 0), bgcolor=color.new(#1a1e2e, 0), text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl, 1, r, val, text_color=color.new(#7090cc, 0), bgcolor=color.new(#1a1e2e, 0), text_size=size.small, text_halign=text.align_center)
+
+f_panelTitle(table tbl, int r, string lbl, string val) =>
+    table.cell(tbl, 0, r, lbl, text_color=color.new(#7090cc, 0), bgcolor=color.new(#0b0e17, 0), text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl, 1, r, val, text_color=color.new(#f7c842, 0), bgcolor=color.new(#0b0e17, 0), text_size=size.small, text_halign=text.align_center)
+
+f_panelRow(table tbl, int r, string lbl, string val, color bg) =>
+    // Always white text — dark mode optimised. Coloured cell backgrounds convey signal.
+    table.cell(tbl, 0, r, lbl, text_color=color.new(#b2b5be, 0), bgcolor=color.new(#131722, 0), text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl, 1, r, val, text_color=color.white, bgcolor=bg, text_size=size.small, text_halign=text.align_center)
+
+f_panelAction(table tbl, int r, string lbl, string val, color bg) =>
+    table.cell(tbl, 0, r, lbl, text_color=color.new(#b2b5be, 0), bgcolor=color.new(#131722, 0), text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl, 1, r, val, text_color=color.white, bgcolor=bg, text_size=size.small, text_halign=text.align_center)
+
+var table panel = table.new(position.top_right, 2, 34, bgcolor=color.new(#131722, 0), frame_color=color.new(#4466AA, 40), frame_width=1, border_color=color.new(#334466, 50), border_width=1)
+
+if showPanel and barstate.islast
+    table.set_position(panel, f_pos(panelPosStr))
+    table.clear(panel, 0, 0, 1, 33)
+
+    // ============================================
+    //   AGGREGATE  +  LTP POSITION RESOLUTION
+    // ============================================
+    int cnt_c_d = 0
+    int cnt_c_s = 0
+    int cnt_d_d = 0
+    int cnt_d_s = 0
+    int cnt_w_d = 0
+    int cnt_w_s = 0
+    int cnt_m_d = 0
+    int cnt_m_s = 0
+    int cnt_ctrl = 0
+
+    // LTP-relative tracking
+    int   inDZIdx     = -1
+    int   inDZScore   = -1
+    int   inSZIdx     = -1
+    int   inSZScore   = -1
+    int   nearDZIdx   = -1
+    float nearDZProx  = na      // proximal of nearest DZ below LTP
+    int   nearSZIdx   = -1
+    float nearSZProx  = na      // proximal of nearest SZ above LTP
+
+    pSz = array.size(activeZones)
+    if pSz > 0
+        for ii = 0 to pSz - 1
+            zz = array.get(activeZones, ii)
+
+            // TF counts
+            if zz.tf == "C"
+                if zz.isDemand
+                    cnt_c_d := cnt_c_d + 1
+                else
+                    cnt_c_s := cnt_c_s + 1
+            else if zz.tf == "D"
+                if zz.isDemand
+                    cnt_d_d := cnt_d_d + 1
+                else
+                    cnt_d_s := cnt_d_s + 1
+            else if zz.tf == "W"
+                if zz.isDemand
+                    cnt_w_d := cnt_w_d + 1
+                else
+                    cnt_w_s := cnt_w_s + 1
+            else if zz.tf == "M"
+                if zz.isDemand
+                    cnt_m_d := cnt_m_d + 1
+                else
+                    cnt_m_s := cnt_m_s + 1
+
+            if zz.isControlling
+                cnt_ctrl := cnt_ctrl + 1
+
+            // LTP position resolution
+            // Demand zone: distal (bottom) ≤ LTP ≤ proximal (top)
+            // Supply zone: proximal (bottom) ≤ LTP ≤ distal (top)
+            inDemand = zz.isDemand and zz.distal <= close and close <= zz.proximal
+            inSupply = (not zz.isDemand) and zz.proximal <= close and close <= zz.distal
+
+            if inDemand
+                if zz.strength > inDZScore
+                    inDZScore := zz.strength
+                    inDZIdx := ii
+            else if inSupply
+                if zz.strength > inSZScore
+                    inSZScore := zz.strength
+                    inSZIdx := ii
+            else
+                // Not inside; track nearest DZ below and nearest SZ above
+                if zz.isDemand and zz.proximal < close
+                    if na(nearDZProx) or zz.proximal > nearDZProx
+                        nearDZProx := zz.proximal
+                        nearDZIdx := ii
+                else if (not zz.isDemand) and zz.proximal > close
+                    if na(nearSZProx) or zz.proximal < nearSZProx
+                        nearSZProx := zz.proximal
+                        nearSZIdx := ii
+
+    // ============================================
+    //   SETUP RECOMMENDATION RESOLVER
+    // ============================================
+    string setupPos    = ""
+    string setupAction = ""
+    string setupReason = ""
+    color  setupColor  = color.new(#2a2e39, 0)
+    int    tpZoneIdx   = -1
+    bool   showTP      = false
+
+    // Approach distance threshold (in ATRs)
+    float approachATR = chart_atr * 0.5
+
+    if inDZIdx >= 0
+        zd = array.get(activeZones, inDZIdx)
+        setupPos := "IN DEMAND ZONE"
+        if zd.touchCount == 0 and zd.strength >= 75
+            setupAction := "🟢 STRONG LONG"
+            setupColor  := color.new(#26a69a, 0)
+            showTP      := true
+        else if zd.touchCount == 0 and zd.strength >= 60
+            setupAction := "🟢 LONG SETUP"
+            setupColor  := color.new(#26a69a, 0)
+            showTP      := true
+        else if zd.touchCount == 0
+            setupAction := "⚠ WEAK LONG"
+            setupColor  := color.new(#ff9800, 0)
+            showTP      := true
+        else
+            setupAction := "⚠ CAUTIOUS LONG"
+            setupColor  := color.new(#ff9800, 0)
+            showTP      := false
+        setupReason := (zd.touchCount == 0 ? "Fresh " : "Tested ") + f_zoneDesc(zd.tf, true, zd.pattern, zd.isControlling) + "  (" + f_qualityGrade(zd.strength) + ")"
+        tpZoneIdx := inDZIdx
+
+    else if inSZIdx >= 0
+        zs = array.get(activeZones, inSZIdx)
+        setupPos := "IN SUPPLY ZONE"
+        if zs.touchCount == 0 and zs.strength >= 75
+            setupAction := "🔴 STRONG SHORT"
+            setupColor  := color.new(#ef5350, 0)
+            showTP      := true
+        else if zs.touchCount == 0 and zs.strength >= 60
+            setupAction := "🔴 SHORT SETUP"
+            setupColor  := color.new(#ef5350, 0)
+            showTP      := true
+        else if zs.touchCount == 0
+            setupAction := "⚠ WEAK SHORT"
+            setupColor  := color.new(#ff9800, 0)
+            showTP      := true
+        else
+            setupAction := "⚠ CAUTIOUS SHORT"
+            setupColor  := color.new(#ff9800, 0)
+            showTP      := false
+        setupReason := (zs.touchCount == 0 ? "Fresh " : "Tested ") + f_zoneDesc(zs.tf, false, zs.pattern, zs.isControlling) + "  (" + f_qualityGrade(zs.strength) + ")"
+        tpZoneIdx := inSZIdx
+
+    else if nearDZIdx >= 0 and (close - nearDZProx) <= approachATR and (nearSZIdx < 0 or (nearSZProx - close) > (close - nearDZProx))
+        zd = array.get(activeZones, nearDZIdx)
+        setupPos := "APPROACHING DZ"
+        setupAction := "👀 WATCH LONG"
+        setupColor  := color.new(color.yellow, 0)
+        float dPct = (close - nearDZProx) / close * 100.0
+        setupReason := f_zoneDesc(zd.tf, true, zd.pattern, zd.isControlling) + " · " + str.tostring(dPct, "#.##") + "% away  (" + f_qualityGrade(zd.strength) + ")"
+
+    else if nearSZIdx >= 0 and (nearSZProx - close) <= approachATR
+        zs = array.get(activeZones, nearSZIdx)
+        setupPos := "APPROACHING SZ"
+        setupAction := "👀 WATCH SHORT"
+        setupColor  := color.new(color.yellow, 0)
+        float dPct = (nearSZProx - close) / close * 100.0
+        setupReason := f_zoneDesc(zs.tf, false, zs.pattern, zs.isControlling) + " · " + str.tostring(dPct, "#.##") + "% away  (" + f_qualityGrade(zs.strength) + ")"
+
+    else if nearDZIdx >= 0 or nearSZIdx >= 0
+        setupPos := "BETWEEN ZONES"
+        setupAction := "⚪ NEUTRAL"
+        setupColor  := color.new(#2a2e39, 0)
+        setupReason := "Wait for price to reach a zone"
+
+    else
+        setupPos := "NO ZONES NEAR"
+        setupAction := "💤 WAIT"
+        setupColor  := color.new(#2a2e39, 0)
+        setupReason := "No active zones in play"
+
+    // ============================================
+    //   COLORS (Dark Mode)
+    // ============================================
+    color cBg     = color.new(#131722, 0)
+    color cBgAlt  = color.new(#1e222d, 0)
+    color cCtrl   = color.new(color.purple, 0)
+    color cBull   = color.new(#26a69a, 0)
+    color cBear   = color.new(#ef5350, 0)
+
+    int r = 0
+
+    // ============================================
+    //   1. TITLE
+    // ============================================
+    f_panelTitle(panel, r, "INSTITUTIONAL ZONE ENGINE", syminfo.ticker + "  " + timeframe.period)
+    r := r + 1
+
+    // ============================================
+    //   2. PRICE & CONTEXT
+    // ============================================
+    f_panelHeader(panel, r, "── PRICE & CONTEXT ──", "")
+    r := r + 1
+    f_panelRow(panel, r, "  LTP", "₹" + str.tostring(close, "#.00"), cBg)
+    r := r + 1
+    emaTxt = na(dailyEMA20) ? "—" : "₹" + str.tostring(dailyEMA20, "#.00") + (close > dailyEMA20 ? "  ↑" : "  ↓")
+    emaBg  = na(dailyEMA20) ? cBgAlt : (close > dailyEMA20 ? cBull : cBear)
+    f_panelRow(panel, r, "  Daily EMA20", emaTxt, emaBg)
+    r := r + 1
+    rsTxt = na(rsSlope) ? "—" : str.tostring(rsSlope * 10000, "#.##") + "bp  " + (rsSlope > 0 ? "↑ Outperf" : rsSlope < 0 ? "↓ Underperf" : "→ Flat")
+    rsBg  = na(rsSlope) ? cBg : (rsSlope > 0 ? cBull : rsSlope < 0 ? cBear : cBg)
+    f_panelRow(panel, r, "  RS vs N500", rsTxt, rsBg)
+    r := r + 1
+
+    // Bias = alignment of price vs EMA20 and RS direction
+    priceAbove = not na(dailyEMA20) and close > dailyEMA20
+    rsPositive = rsSlope > 0
+    string biasTxt = priceAbove and rsPositive ? "BULLISH" : (not priceAbove) and (not rsPositive) ? "BEARISH" : "MIXED"
+    color  biasBg  = priceAbove and rsPositive ? cBull : (not priceAbove) and (not rsPositive) ? cBear : color.new(#2a2e39, 0)
+    f_panelRow(panel, r, "  Bias", biasTxt, biasBg)
+    r := r + 1
+
+    // ============================================
+    //   3. ACTIVE ZONES (counts by TF)
+    // ============================================
+    f_panelHeader(panel, r, "── ACTIVE ZONES ──", "Total: " + str.tostring(pSz))
+    r := r + 1
+    f_panelRow(panel, r, "  Chart",   str.tostring(cnt_c_d) + " DZ · " + str.tostring(cnt_c_s) + " SZ", cBg)
+    r := r + 1
+    f_panelRow(panel, r, "  Daily",   str.tostring(cnt_d_d) + " DZ · " + str.tostring(cnt_d_s) + " SZ", cBgAlt)
+    r := r + 1
+    f_panelRow(panel, r, "  Weekly",  str.tostring(cnt_w_d) + " DZ · " + str.tostring(cnt_w_s) + " SZ", cBg)
+    r := r + 1
+    f_panelRow(panel, r, "  Monthly", str.tostring(cnt_m_d) + " DZ · " + str.tostring(cnt_m_s) + " SZ", cBgAlt)
+    r := r + 1
+    f_panelRow(panel, r, "  Controlling", str.tostring(cnt_ctrl), cnt_ctrl > 0 ? cCtrl : cBg)
+    r := r + 1
+
+    // ============================================
+    //   4. DEMAND SUPPORT BELOW
+    // ============================================
+    f_panelHeader(panel, r, "── DEMAND BELOW ──", "")
+    r := r + 1
+    int dzShowIdx = inDZIdx >= 0 ? inDZIdx : nearDZIdx
+    if dzShowIdx >= 0
+        zd = array.get(activeZones, dzShowIdx)
+        zCenter = (zd.proximal + zd.distal) / 2.0
+        distPct = (close - zCenter) / close * 100.0
+        grade = f_qualityGrade(zd.strength)
+        gradeBg = f_qualityColor(zd.strength)
+        bonusTag = zd.confBonus > 0 ? "  ★" + str.tostring(zd.confBonus) : ""
+        eMax = zd.isControlling ? controllingMaxTouches : maxTouches
+        statusTxt = zd.touchCount == 0 ? "Fresh" + bonusTag : "T" + str.tostring(zd.touchCount) + "/" + str.tostring(eMax) + bonusTag
+        statusBg  = zd.touchCount == 0 ? color.new(#26a69a, 0) : color.new(#ff9800, 0)
+        distLabel = inDZIdx >= 0 ? "AT PRICE (inside)" : str.tostring(math.abs(distPct), "#.##") + "% below"
+
+        f_panelRow(panel, r, "  " + f_zoneDesc(zd.tf, true, zd.pattern, zd.isControlling), str.tostring(zd.strength) + " " + grade, gradeBg)
+        r := r + 1
+        f_panelRow(panel, r, "  Prox / Distal", "₹" + str.tostring(zd.proximal, "#.00") + " / " + str.tostring(zd.distal, "#.00"), cBg)
+        r := r + 1
+        f_panelRow(panel, r, "  Distance", distLabel, cBgAlt)
+        r := r + 1
+        f_panelRow(panel, r, "  Status", statusTxt, statusBg)
+        r := r + 1
+    else
+        f_panelRow(panel, r, "  No demand zone below", "—", cBg)
+        r := r + 4   // skip the 3 detail rows for layout consistency
+
+    // ============================================
+    //   5. SUPPLY RESISTANCE ABOVE
+    // ============================================
+    f_panelHeader(panel, r, "── SUPPLY ABOVE ──", "")
+    r := r + 1
+    int szShowIdx = inSZIdx >= 0 ? inSZIdx : nearSZIdx
+    if szShowIdx >= 0
+        zs = array.get(activeZones, szShowIdx)
+        zCenter = (zs.proximal + zs.distal) / 2.0
+        distPct = (zCenter - close) / close * 100.0
+        grade = f_qualityGrade(zs.strength)
+        gradeBg = f_qualityColor(zs.strength)
+        bonusTag = zs.confBonus > 0 ? "  ★" + str.tostring(zs.confBonus) : ""
+        eMax = zs.isControlling ? controllingMaxTouches : maxTouches
+        statusTxt = zs.touchCount == 0 ? "Fresh" + bonusTag : "T" + str.tostring(zs.touchCount) + "/" + str.tostring(eMax) + bonusTag
+        statusBg  = zs.touchCount == 0 ? color.new(#26a69a, 0) : color.new(#ff9800, 0)
+        distLabel = inSZIdx >= 0 ? "AT PRICE (inside)" : str.tostring(math.abs(distPct), "#.##") + "% above"
+
+        f_panelRow(panel, r, "  " + f_zoneDesc(zs.tf, false, zs.pattern, zs.isControlling), str.tostring(zs.strength) + " " + grade, gradeBg)
+        r := r + 1
+        f_panelRow(panel, r, "  Prox / Distal", "₹" + str.tostring(zs.proximal, "#.00") + " / " + str.tostring(zs.distal, "#.00"), cBg)
+        r := r + 1
+        f_panelRow(panel, r, "  Distance", distLabel, cBgAlt)
+        r := r + 1
+        f_panelRow(panel, r, "  Status", statusTxt, statusBg)
+        r := r + 1
+    else
+        f_panelRow(panel, r, "  No supply zone above", "—", cBg)
+        r := r + 4
+
+    // ============================================
+    //   6. SETUP ANALYSIS
+    // ============================================
+    f_panelHeader(panel, r, "── SETUP ANALYSIS ──", "")
+    r := r + 1
+    f_panelAction(panel, r, "  Position", setupPos, setupColor)
+    r := r + 1
+    f_panelAction(panel, r, "  Action", setupAction, setupColor)
+    r := r + 1
+    f_panelRow(panel, r, "  Reason", setupReason, color.new(#1e222d, 0))
+    r := r + 1
+
+    // ============================================
+    //   7. TRADE PLAN  (only when setup is actionable)
+    // ============================================
+    if showTP and tpZoneIdx >= 0
+        zt = array.get(activeZones, tpZoneIdx)
+        [tEntry, tSL, tT1, tT2, tT3, tRisk, tRiskPct] = f_tradePlan(zt.proximal, zt.distal, zt.isDemand)
+        rrToOpposing = zt.isDemand and not na(nearSZProx) ? (nearSZProx - tEntry) / math.max(tRisk, 0.001) : (not zt.isDemand) and not na(nearDZProx) ? (tEntry - nearDZProx) / math.max(tRisk, 0.001) : na
+
+        f_panelHeader(panel, r, "── TRADE PLAN ──", "")
+        r := r + 1
+        f_panelRow(panel, r, "  Entry", "₹" + str.tostring(tEntry, "#.00"), cBg)
+        r := r + 1
+        f_panelRow(panel, r, "  SL  (" + str.tostring(tRiskPct, "#.##") + "%)", "₹" + str.tostring(tSL, "#.00"), color.new(#ef5350, 0))
+        r := r + 1
+        f_panelRow(panel, r, "  T1  (1R)", "₹" + str.tostring(tT1, "#.00"), color.new(#26a69a, 0))
+        r := r + 1
+        f_panelRow(panel, r, "  T2  (2R)", "₹" + str.tostring(tT2, "#.00"), color.new(#26a69a, 0))
+        r := r + 1
+        f_panelRow(panel, r, "  T3  (3R)", "₹" + str.tostring(tT3, "#.00"), color.new(#26a69a, 0))
+        r := r + 1
+        if not na(rrToOpposing)
+            rrLabel = zt.isDemand ? "  R:R to opposing SZ" : "  R:R to opposing DZ"
+            rrBg    = rrToOpposing >= 2.0 ? color.new(#26a69a, 0) : rrToOpposing >= 1.0 ? color.new(color.yellow, 0) : color.new(#ef5350, 0)
+            f_panelRow(panel, r, rrLabel, "1 : " + str.tostring(rrToOpposing, "#.##"), rrBg)
+            r := r + 1

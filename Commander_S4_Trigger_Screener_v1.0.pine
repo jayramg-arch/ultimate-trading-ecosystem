@@ -1,0 +1,183 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Jayram G
+//
+// ============================================================================
+// COMMANDER S4 TRIGGER SCREENER  v1.0
+// ============================================================================
+// A LEAN, Pine-Screener-friendly sibling of "Section 4 Entry Trigger v3.0". It
+// mirrors the S4 stage-2 GO gate — PA pattern · location · volume · clean bar —
+// so you can monitor the whole Golden_Matcher_Board watchlist AT ONCE and set a
+// single alert, instead of opening each name on TV to check its S4 GO.
+//
+// WHY A SEPARATE, STRIPPED FILE (not the full S4):
+//   The TradingView Pine Screener runs an indicator across the whole watchlist
+//   under a tight compute budget. The full S4 fires ~19 request.security() calls
+//   (the Institutional zone engine on Chart/D/W/M + the PA battery + HTF pivots)
+//   and would time-out / be rejected. This file uses ZERO request.security() —
+//   everything is computed on the CHART timeframe (apply it on 75m or 125m).
+//
+// WHAT MATCHES THE FULL S4 (zero-drift where it counts):
+//   • The PA pattern definitions are copied verbatim from S4 f_daily_pa (bull) /
+//     the recovery battery, computed on the chart TF (the S4's use_chart_tf=ON path).
+//   • The GO gate shape: any_pa AND location AND volume AND bar_ok.
+//   • bar_ok (trigger-bar quality) and the last-CLOSED-candle read (no repaint).
+//
+// WHAT IS AN APPROXIMATION (confirm precise values on the S4 chart):
+//   • LOCATION — the full S4 uses the Institutional demand zones; this uses a
+//     lightweight proxy (price pulled back to the EMA20 OR near a recent pivot low).
+//   • Two positional patterns that need HTF/weekly data are DROPPED: Power-Play
+//     (HTF) and Stage-2-Launch (weekly 30-WMA cross). Immaterial on 75/125m.
+//   • The Bull-Engulf uses the CHART EMA20/10 anchor (S4 uses the daily EMA20).
+//
+// HOW TO USE:
+//   1. Publish this indicator (invite-only is fine), open the Pine Screener,
+//      pick your Golden_Matcher_Board watchlist, set the timeframe to 75m/125m.
+//   2. Columns appear as GO · Sigma · RV · Loc · Bar · FVG · LTP. Sort by GO desc.
+//   3. Set ONE screener alert on "S4 Screener GO" → you get pinged with the symbol
+//      when any watchlist name fires the S4 stage-2 gate. Open only that name on TV.
+// ============================================================================
+//@version=6
+indicator("Commander S4 Trigger Screener v1.0", shorttitle="S4 Screener", overlay=false)
+
+// ---------------------------------------------------------------------------
+// INPUTS
+// ---------------------------------------------------------------------------
+mode        = input.string("Bull", "Mode", options=["Bull", "Recovery"], tooltip="Bull = 15 continuation/breakout patterns. Recovery = 9 capitulation-reversal patterns. (The board's bull names → Bull; recovery names → run a second screener instance in Recovery.)")
+rv_floor    = input.float(1.0,  "Volume floor (RV)", minval=0.0, step=0.25, tooltip="A GO needs relative volume ≥ this (volume / 50-bar average). 1.0 = average day.")
+loc_tol     = input.float(2.0,  "Location tolerance % (EMA20 / pivot)", minval=0.5, step=0.5, tooltip="Lightweight location proxy: price is 'at a location' when it is within this % ABOVE the EMA20, or within (this+1)% of a recent pivot low. Approximation of the S4 demand zones.")
+ema_len     = input.int(20,     "EMA length (dynamic S/R)", minval=5)
+use_closed  = input.bool(true,  "Signals from last CLOSED candle (no repaint)", tooltip="ON = read the last CLOSED bar so a screener hit doesn't drop the instant a new bar opens; updates only on bar close.")
+
+// ---------------------------------------------------------------------------
+// CORE SERIES (chart TF — no request.security)
+// ---------------------------------------------------------------------------
+float rng    = high - low
+float vol50  = ta.sma(volume, 50)
+float rv     = vol50 > 0 ? volume / vol50 : 0.0
+float ema20  = ta.ema(close, ema_len)
+float ema10  = ta.ema(close, 10)
+float sma50  = ta.sma(close, 50)
+float sma200 = ta.sma(close, 200)
+float intrap = rng > 0 ? (close - low) / rng : 0.0
+float atr10  = ta.atr(10)
+float atr10s = ta.sma(atr10, 50)
+float atr14  = ta.atr(14)
+float vwmaV5 = ta.vwma(volume, 5)
+float rsi14  = ta.rsi(close, 14)
+float hh10   = ta.highest(high, 10)
+float hh3    = ta.highest(high, 3)
+float ll5    = ta.lowest(low, 5)
+float body   = math.abs(close - open)
+float uwick  = high - math.max(open, close)
+float lwick  = math.min(open, close) - low
+bool  hammer = rng > 0 and lwick > body * 2.0 and uwick < body and math.max(open, close) >= low + rng * 0.66
+float l50_1  = ta.lowest(low, 50)[1]
+float dlockH = ta.highest(high, 20)[1]
+
+// ---------------------------------------------------------------------------
+// BULL PATTERNS (copied from S4 f_daily_pa; HTF + Stage-2-Launch dropped)
+// ---------------------------------------------------------------------------
+bool p_sc  = close > open and (close - low) > (high - close) * 3 and rv > 1.0
+bool vcp_prior = not na(atr10s[1]) and atr10[1] < atr10s[1] * 1.5 and vwmaV5[1] < vol50[1]
+bool p_vcp = vcp_prior and close > hh10[1] and rv > 1.2 and intrap >= 0.60
+float mdv = 0.0
+for j = 1 to 10
+    if close[j] < close[j + 1] and volume[j] > mdv
+        mdv := volume[j]
+bool p_pp  = close > close[1] and close > open and mdv > 0 and volume > mdv and close > sma50 and (close - low) >= rng * 0.5
+bool raw_eng = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
+bool p_eng = raw_eng and close < ema10 and ema10 < ema20 and rv > 2.0 and not na(rsi14[1]) and rsi14[1] < 40
+bool p_liq = ll5 < sma50 and close > sma50 and volume > vol50 * 1.5
+bool p_3b  = low[1] < low[2] and low[2] < low[3] and close > hh3[1]
+bool ins1  = high < high[1] and low > low[1]
+bool ins2  = high[1] < high[2] and low[1] > low[2]
+bool ins3  = high[2] < high[3] and low[2] > low[3]
+bool p_in3 = ins1 and ins2 and ins3
+bool p_nr7 = rng > 0 and (high[1]-low[1]) >= rng and (high[2]-low[2]) >= rng and (high[3]-low[3]) >= rng and (high[4]-low[4]) >= rng and (high[5]-low[5]) >= rng and (high[6]-low[6]) >= rng
+bool p_ibnr7 = ins1 and p_nr7
+bool p_spr = not na(l50_1) and low < l50_1 and close > l50_1 and close > open and volume < vol50
+bool p_gap = not na(dlockH) and open > high[1] and close > dlockH and close > open and rv > 1.25
+bool p_u50 = not na(sma50) and low < sma50 and close > sma50 and close > open and rv > 1.25
+bool near50 = not na(sma50) and math.abs(low - sma50) / sma50 <= 0.015
+bool p_h50 = hammer and near50 and close > sma50 and rv > 1.0
+bool near200 = not na(sma200) and math.abs(low - sma200) / sma200 <= 0.020
+bool p_h200 = hammer and near200 and close > sma200 and rv > 1.0
+bool p_bc  = not na(dlockH) and close > dlockH and (close - low) > rng * 0.75 and rv > 1.25
+
+// ---------------------------------------------------------------------------
+// RECOVERY PATTERNS (copied from S4 recovery extras; 30-WMA reclaim dropped)
+// ---------------------------------------------------------------------------
+float lo_recent = ta.lowest(low, 10)
+float lo_prior  = ta.lowest(low, 30)[10]
+int climax_j = 0
+for cj = 1 to 10
+    if climax_j == 0 and close[cj] < open[cj] and volume[cj] > vol50 * 2.5 and (high[cj]-low[cj]) > atr14 * 2
+        climax_j := cj
+bool p_climax = false
+if climax_j > 0
+    float cmid = (high[climax_j] + low[climax_j]) / 2.0
+    p_climax := close > cmid and close > open
+bool p_2b  = lo_prior > 0 and lo_recent >= lo_prior * 0.99 and lo_recent <= lo_prior * 1.10 and close > open and close > close[1]
+float base_res = ta.highest(high, 20)[1]
+bool p_sos = close > base_res and rng > atr14 * 1.3 and rv > 1.5 and close > open
+bool near_base = lo_prior > 0 and math.abs(low - lo_prior) / lo_prior <= 0.03
+bool p_hsup = hammer and (near200 or near_base) and close > open and rv > 1.0
+bool p_vdu = rv < 0.5 and rng < atr14 * 0.8
+
+// ---------------------------------------------------------------------------
+// TIER SUM + any_pa (mode-aware)
+// ---------------------------------------------------------------------------
+bool is_rec = mode == "Recovery"
+int  tsum   = is_rec ? ((p_climax?3:0)+(p_spr?3:0)+(p_2b?3:0)+(p_sos?3:0)+(p_eng?2:0)+(p_hsup?2:0)+(p_3b?2:0)+(p_pp?2:0)+(p_vdu?1:0)) : ((p_sc?2:0)+(p_vcp?3:0)+(p_pp?2:0)+(p_eng?2:0)+(p_liq?2:0)+(p_3b?2:0)+(p_in3?2:0)+(p_nr7?1:0)+(p_ibnr7?2:0)+(p_spr?3:0)+(p_gap?3:0)+(p_u50?2:0)+(p_h50?2:0)+(p_h200?2:0)+(p_bc?2:0))
+bool any_pa = is_rec ? (p_climax or p_spr or p_2b or p_sos or p_eng or p_hsup or p_3b or p_pp or p_vdu) : (p_sc or p_vcp or p_pp or p_eng or p_liq or p_3b or p_in3 or p_nr7 or p_ibnr7 or p_spr or p_gap or p_u50 or p_h50 or p_h200 or p_bc)
+
+// ---------------------------------------------------------------------------
+// LOCATION PROXY · VOLUME · BAR QUALITY · FVG
+// ---------------------------------------------------------------------------
+float pl = ta.pivotlow(low, 5, 5)
+var float lastPL = na
+if not na(pl)
+    lastPL := pl
+bool nearEma = not na(ema20) and close >= ema20 and (close - ema20) / ema20 <= loc_tol / 100.0
+bool nearPiv = not na(lastPL) and close >= lastPL and (close - lastPL) / lastPL <= (loc_tol + 1.0) / 100.0
+bool loc_ok  = nearEma or nearPiv
+bool vol_ok  = rv >= rv_floor
+bool bar_ok  = close >= open or intrap >= 0.5          // green OR closed in the upper half (S4 bar_ok)
+bool hasFVG  = low > high[2]                            // bullish 3-bar imbalance (leg-out FVG proxy)
+
+bool go_raw = any_pa and loc_ok and vol_ok and bar_ok
+// GATES-PASSED closeness (0-4): PA · location · volume · bar. Sort by this in the Pine
+// Screener so near-triggers (3/4) rank just under the GOs (4/4) — a 3 is a WATCH name.
+int  gates  = (any_pa ? 1 : 0) + (loc_ok ? 1 : 0) + (vol_ok ? 1 : 0) + (bar_ok ? 1 : 0)
+
+// ---------------------------------------------------------------------------
+// LAST-CLOSED-CANDLE READ (no repaint) — same shift the full S4 uses
+// ---------------------------------------------------------------------------
+int   _so     = (use_closed and barstate.islast and not barstate.isconfirmed) ? 1 : 0
+bool  go      = go_raw[_so]
+int   gates_v = gates[_so]
+int   tsum_v  = tsum[_so]
+float rv_v    = rv[_so]
+bool  loc_v   = loc_ok[_so]
+bool  bar_v   = bar_ok[_so]
+bool  fvg_v   = hasFVG[_so]
+
+// ---------------------------------------------------------------------------
+// SCREENER COLUMNS (each plot = a sortable column in the Pine Screener)
+// ---------------------------------------------------------------------------
+plot(gates_v,         "Gates", color = gates_v >= 4 ? color.new(color.green, 0) : gates_v == 3 ? color.new(color.orange, 0) : color.new(color.gray, 0))
+plot(go ? 1 : 0,      "GO",    color = go ? color.new(color.green, 0) : color.new(color.gray, 0))
+plot(tsum_v,          "Sigma", color = color.new(color.aqua, 0))
+plot(rv_v,            "RV",    color = color.new(color.orange, 0))
+plot(loc_v ? 1 : 0,   "Loc",   color = color.new(color.blue, 0))
+plot(bar_v ? 1 : 0,   "Bar",   color = color.new(color.teal, 0))
+plot(fvg_v ? 1 : 0,   "FVG",   color = color.new(color.yellow, 0))
+plot(close,           "LTP",   color = color.new(color.white, 0))
+
+// on-chart glyph so it's also usable as a normal indicator (not only in the screener)
+plotshape(go and barstate.islast, title="S4 GO", style=shape.labelup, location=location.bottom, color=color.new(color.green, 0), textcolor=color.white, size=size.tiny, text="GO")
+
+// ---------------------------------------------------------------------------
+// ALERT — set ONE screener alert on this condition for the whole watchlist
+// ---------------------------------------------------------------------------
+alertcondition(go, title="S4 Screener GO", message="{{ticker}} S4 screener GO — PA pattern + location + volume + clean bar on {{interval}}. Confirm on the S4 chart, then buy-STOP above the trigger bar.")

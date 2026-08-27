@@ -1,0 +1,451 @@
+//@version=6
+// Commander ETF Dashboard v1.2 - Phase 3 of the ETF Trading System
+// v1.2 (12 May 2026): Total_Score + Grade rows (mirrors Python axis-by-axis).
+//                     Zero-drift: Python and Pine must produce same Total.
+// v1.1 (12 May 2026): Stage bgcolor, CE Trail preview, ATR/Sized-Qty rows,
+//                     PRE-S2 warning in signal label.
+// Built: 11 May 2026 | Author: Jay (Jayram G) | Pine Script v6
+
+indicator("Commander ETF Dashboard v1.2", shorttitle="ETFD v1.2", overlay=true,
+     max_lines_count=50, max_labels_count=50, max_boxes_count=50)
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+grp_bench    = "Benchmark & RS"
+bench_sym    = input.symbol("NSE:CNX500", "RS Benchmark", group=grp_bench)
+mans_len     = input.int(200,  "Mansfield SMA Length",          group=grp_bench, minval=50,  maxval=252)
+rs_mom_len   = input.int(20,   "RS-Momentum Lookback (bars)",   group=grp_bench, minval=5,   maxval=60)
+
+grp_trend    = "Trend & Stage"
+show_30w     = input.bool(true,  "Show 30W MA (weekly anchor)", group=grp_trend)
+show_200d    = input.bool(true,  "Show 200-day SMA",            group=grp_trend)
+show_50d     = input.bool(false, "Show 50-day SMA",             group=grp_trend)
+
+grp_liq      = "Liquidity"
+liq_lookback = input.int(60,   "Liquidity Lookback (days)",     group=grp_liq, minval=20, maxval=252)
+liq_min_cr   = input.float(2.0,"Min Median Turnover Rs Cr/day", group=grp_liq, minval=0.1, step=0.5)
+
+grp_dash     = "Dashboard"
+show_table   = input.bool(true, "Show dashboard table", group=grp_dash)
+tbl_pos      = input.string("top_right", "Table Position", group=grp_dash,
+     options=["top_left","top_right","bottom_left","bottom_right","middle_right"])
+tbl_size     = input.string("small", "Text Size", group=grp_dash, options=["tiny","small","normal"])
+
+// ---- Stage Background Colour (NEW) -----------------------------------------
+grp_bgcol    = "Stage Background"
+show_bgcol   = input.bool(true, "Tint chart background by Weinstein Stage", group=grp_bgcol,
+     tooltip="Stage 1 yellow / Stage 2 green / Stage 3 orange / Stage 4 red. Matches Unified Stocks v2.3.")
+
+// ---- ATR + Chandelier Exit Preview (NEW) -----------------------------------
+// Defaults match Commander_ETF_Strategy v1.1 for zero drift across signals.
+grp_atr_ce   = "ATR & CE Preview"
+atr_len      = input.int(14,    "ATR Length",              group=grp_atr_ce, minval=5,  maxval=30)
+atr_stop_mult= input.float(2.5, "Initial Stop ATR Mult",   group=grp_atr_ce, minval=1.0, maxval=5.0, step=0.1)
+ce_length    = input.int(22,    "Chandelier Exit Lookback",group=grp_atr_ce, minval=10, maxval=50)
+ce_mult      = input.float(3.0, "Chandelier Exit ATR Mult",group=grp_atr_ce, minval=1.5, maxval=5.0, step=0.1)
+
+// ---- Sized Qty Preview (NEW) -----------------------------------------------
+// Answers "if I entered this ETF right now at 1% risk, how many shares?"
+grp_sizing   = "Sized Qty Preview"
+preview_capital = input.float(1000000, "Account Capital (Rs)",     group=grp_sizing, minval=100000, step=100000)
+preview_risk    = input.float(1.0,     "Risk per Trade (%)",       group=grp_sizing, minval=0.1, maxval=5.0, step=0.1)
+use_vol_disc    = input.bool(true, "Volatility-discount sizing",  group=grp_sizing,
+     tooltip="Shrinks qty when ATR pct of price exceeds the target. Gold/debt ETFs get full size; smallcap/sector get smaller.")
+target_atr_pct  = input.float(1.5, "Target ATR pct of price",      group=grp_sizing, minval=0.5, maxval=3.0, step=0.1)
+
+// =============================================================================
+// COLOUR PALETTE
+// =============================================================================
+c_bg_hdr  = color.new(color.blue,  20)
+c_bg_card = color.new(color.black, 25)
+c_bg_row  = color.new(#0d1117,     30)
+c_pos     = color.new(#00f260,  0)
+c_neg     = color.new(#ff4b4b,  0)
+c_warn    = color.new(#e3b341,  0)
+c_neut    = color.new(#8b949e,  0)
+c_lbl     = color.new(#5a8a9f,  0)
+c_val     = color.new(#e6edf3,  0)
+c_accent  = color.new(#58a6ff,  0)
+c_ma30w   = color.new(#e3b341, 10)
+c_ma200   = color.new(#58a6ff, 30)
+c_ma50    = color.new(color.gray, 40)
+
+// Stage background tints (matches Unified Stocks v2.3)
+c_bg_s1   = color.new(color.yellow, 85)
+c_bg_s2   = color.new(color.green,  85)
+c_bg_s3   = color.new(color.orange, 85)
+c_bg_s4   = color.new(color.red,    85)
+
+// =============================================================================
+// CORE COMPUTATIONS
+// =============================================================================
+sma50_v  = ta.sma(close, 50)
+
+// Dynamically resolve MA length and slope lookback based on chart timeframe (30W MA vs 200DMA proxy)
+int ma_len      = timeframe.isweekly ? 30 : 200
+int slope_len   = timeframe.isweekly ? 4  : 20
+sma200_v        = ta.sma(close, ma_len)
+
+ma30w_v = request.security(syminfo.tickerid, "W", ta.sma(close, 30),
+     lookahead=barmerge.lookahead_off)
+
+ma200_slope_pct = na(sma200_v[slope_len]) ? 0.0 : (sma200_v - sma200_v[slope_len]) / sma200_v[slope_len] * 100.0
+
+// Weinstein Stage (matches Python _compute_stage on Daily, True Weinstein on Weekly)
+stage_int = na(sma200_v) ? 0 :
+     (close > sma200_v) and (ma200_slope_pct > 0.1)  ? 2 :
+     (close > sma200_v) and (ma200_slope_pct <= 0.1) ? 3 :
+     (close <= sma200_v) and (ma200_slope_pct > 0.1) ? 1 :
+     4
+
+stage_lbl = stage_int == 0 ? "INSUFFICIENT" :
+     stage_int == 1 ? "1 BASE"    :
+     stage_int == 2 ? "2 ADVANCE" :
+     stage_int == 3 ? "3 TOP"     :
+     "4 DECLINE"
+
+stage_col = stage_int == 2 ? c_pos  :
+     stage_int == 1 ? c_warn :
+     stage_int == 3 ? c_warn :
+     stage_int == 4 ? c_neg  :
+     c_neut
+
+// Mansfield RS (x100 scale, matches Python)
+bench_close = request.security(bench_sym, timeframe.period, close)
+rs_raw    = bench_close == 0 ? na : close / bench_close
+rs_sma    = ta.sma(rs_raw, mans_len)
+mansfield = (na(rs_sma) or rs_sma == 0) ? na : (rs_raw / rs_sma - 1) * 100.0
+rs_mom_4w = mansfield - mansfield[rs_mom_len]
+
+// --- RRG helpers from Weinstein stock v67.4.12 (compressed JdK centered, RRG plane projection)
+f_rrg_quad(float v, float m) =>
+    v >= 0 and m >= 0 ? "Leading" : v >= 0 ? "Weakening" : m >= 0 ? "Improving" : "Lagging"
+f_rrg_quad_letter(float v, float m) =>
+    v >= 0 and m >= 0 ? "L" : v >= 0 ? "W" : m >= 0 ? "I" : "G"
+
+f_rrg_info(float v, float m, float vt, float mt) =>
+    float dv = v - vt
+    float dm = m - mt
+    string cur = v >= 0 and m >= 0 ? "LEADING" : v >= 0 ? "WEAKENING" : v < 0 and m < 0 ? "LAGGING" : "IMPROVING"
+    string nxt = cur
+    if cur == "LEADING"
+        nxt := dm < -0.3 ? "WEAKENING" : (dv < -0.3 and dm < 0.3 ? "IMPROVING" : cur)
+    else if cur == "WEAKENING"
+        nxt := dv < -0.3 ? "LAGGING"   : (dm >  0.3 and dv > -0.3 ? "LEADING"   : cur)
+    else if cur == "LAGGING"
+        nxt := dm >  0.3 ? "IMPROVING" : (dv >  0.3 and dm > -0.3 ? "WEAKENING" : cur)
+    else
+        nxt := dv >  0.3 ? "LEADING"   : (dm < -0.3 and dv <  0.3 ? "LAGGING"   : cur)
+    string arrow = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : dm < -0.3 ? "↙️" : "⬅️") : dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "•"
+    string traj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
+    int sc = cur == "LEADING" ? 2 : 0
+    bool tr = (cur == "LEADING"   and (nxt == "LEADING"   or nxt == "IMPROVING")) or
+              (cur == "IMPROVING" and  nxt == "LEADING")  or
+              (cur == "LAGGING"   and  nxt == "IMPROVING") or
+              (cur == "WEAKENING" and  nxt == "LEADING")
+    [arrow, traj, cur, nxt, sc, tr]
+
+// Trail values (4 weeks = 20 daily bars)
+mansfield_trail = nz(mansfield[20], mansfield)
+rs_mom_trail    = nz(rs_mom_4w[20], rs_mom_4w)
+
+[rrg_arrow, rrg_traj, rrg_quad, rrg_nxt, rrg_sc_bonus, rrg_tradeable] = f_rrg_info(mansfield, rs_mom_4w, mansfield_trail, rs_mom_trail)
+
+rrg_txt = rrg_arrow + " " + rrg_traj + " (" + (rrg_tradeable ? "BUY OK" : "WAIT") + ")"
+rrg_col = rrg_quad == "LEADING"   ? c_pos  :
+     rrg_quad == "IMPROVING" ? c_warn :
+     rrg_quad == "WEAKENING" ? c_warn :
+     rrg_quad == "LAGGING"   ? c_neg  :
+     c_neut
+
+// Liquidity
+turnover_cr     = (close * volume) / 1e7
+turnover_avg_cr = ta.median(turnover_cr, liq_lookback)
+
+liq_score = na(turnover_avg_cr) ? 0 :
+     turnover_avg_cr >= 10.0 ? 10 :
+     turnover_avg_cr >= 5.0  ? 8  :
+     turnover_avg_cr >= 2.0  ? 6  :
+     turnover_avg_cr >= 1.0  ? 4  :
+     turnover_avg_cr >= 0.5  ? 2  : 0
+
+liq_lbl = liq_score >= 8 ? "HIGH" :
+     liq_score >= 4 ? "OK"       :
+     liq_score >= 2 ? "THIN"     :
+     "ILLIQUID"
+
+liq_col = liq_score >= 8 ? c_pos :
+     liq_score >= 4 ? c_warn :
+     c_neg
+
+// Distance metrics
+high_52w      = ta.highest(close, 252)
+dist_52wh_pct = (close - high_52w) / high_52w * 100.0
+dist_200d_pct = na(sma200_v) ? na : (close - sma200_v) / sma200_v * 100.0
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Total_Score (NEW v1.2 -- Enhancement #7 from validation audit)
+// Mirrors Python etf_screener.score_* axis-by-axis. Zero-drift constraint:
+// Pine and Python must produce the same Total_Score for the same ETF.
+// Each axis is 0-10; Total is 0-40.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- Trend axis ---
+// +5 stage 2 / +2 stage 1 (basing partial credit)
+// +2 above 200dma
+// +1 above sma50
+// +1 200dma slope > 0.5
+// +1 within 5% of 52W high
+_t_stage   = stage_int == 2 ? 5 : stage_int == 1 ? 2 : 0
+_t_above2  = (not na(sma200_v)) and close > sma200_v ? 2 : 0
+_t_above50 = close > sma50_v ? 1 : 0
+_t_slope   = ma200_slope_pct > 0.5 ? 1 : 0
+_t_52w     = (not na(dist_52wh_pct)) and dist_52wh_pct > -5 ? 1 : 0
+trend_score = math.min(_t_stage + _t_above2 + _t_above50 + _t_slope + _t_52w, 10)
+
+// --- RS axis ---
+// +3 mans > 0  /  +2 mans > 5  /  +1 mans > 15  (progressive)
+// +2 mom > 0   /  +1 mom > 3
+// +1 quad == LEADING
+_rs_m0   = (not na(mansfield)) and mansfield > 0  ? 3 : 0
+_rs_m5   = (not na(mansfield)) and mansfield > 5  ? 2 : 0
+_rs_m15  = (not na(mansfield)) and mansfield > 15 ? 1 : 0
+_rs_mo0  = (not na(rs_mom_4w)) and rs_mom_4w > 0  ? 2 : 0
+_rs_mo3  = (not na(rs_mom_4w)) and rs_mom_4w > 3  ? 1 : 0
+_rs_lead = rrg_quad == "LEADING" ? 1 : 0
+rs_score = math.min(_rs_m0 + _rs_m5 + _rs_m15 + _rs_mo0 + _rs_mo3 + _rs_lead, 10)
+
+// --- Rotation axis ---
+// Base by quadrant + magnitude bonuses
+_rot_base  = rrg_quad == "LEADING"   ? 7 :
+             rrg_quad == "IMPROVING" ? 5 :
+             rrg_quad == "WEAKENING" ? 3 :
+             rrg_quad == "LAGGING"   ? 1 : 0
+_rot_mom5  = (not na(rs_mom_4w)) and rs_mom_4w > 5 ? 2 :
+             (not na(rs_mom_4w)) and rs_mom_4w > 0 ? 1 : 0
+_rot_mans  = (not na(mansfield)) and mansfield > 10 ? 1 : 0
+rotation_score = math.min(_rot_base + _rot_mom5 + _rot_mans, 10)
+
+// --- Total + Grade ---
+total_score = liq_score + trend_score + rs_score + rotation_score
+grade_lbl = total_score >= 32 ? "*** A+" :
+  total_score >= 26 ? "** A"   :
+  total_score >= 20 ? "* B"    :
+  total_score >= 14 ? "C"      : "D"
+grade_col = total_score >= 32 ? c_pos :
+  total_score >= 26 ? c_pos :
+  total_score >= 20 ? c_warn :
+  total_score >= 14 ? c_neut : c_neg
+
+// ETF-type guard -- block signals on non-ETF instruments
+// Pine's syminfo.type returns "fund" for ETFs, "stock" for equities,
+// "index" for benchmarks, etc. NSE ETFs all classify as "fund".
+is_etf       = syminfo.type == "fund"
+instr_type   = str.upper(syminfo.type)
+
+// Composite signal (matches Python etf_screener signal logic)
+// Uses liq_min_cr input for configurable ILLIQUID threshold
+// Pre-Stage-2 early warning -- Stage 1 with positive RS momentum.
+// Defined here (before sig_lbl) so the signal label can reference it.
+pre_s2_warn = stage_int == 1 and not na(rs_mom_4w) and rs_mom_4w > 0
+
+sig_lbl = not is_etf ? "NOT AN ETF" :
+     turnover_avg_cr < liq_min_cr                        ? "ILLIQUID"        :
+     stage_int == 4                                      ? "AVOID-DOWNTREND" :
+     (stage_int == 2 and rrg_quad == "LEADING" and liq_score >= 6) ? "BUY-LEADER" :
+     (stage_int == 2 and rrg_quad == "IMPROVING")        ? "ACCUMULATE"     :
+     (stage_int == 2 and rrg_quad == "WEAKENING")        ? "HOLD-WATCH"     :
+     (stage_int == 1 and rrg_quad == "IMPROVING")        ? "EARLY-BASE"     :
+     pre_s2_warn                                         ? "PRE-S2 WARN"    :
+     "NEUTRAL"
+
+sig_col = not is_etf                              ? c_neg  :
+     str.contains(sig_lbl, "BUY-LEADER")          ? c_pos  :
+     str.contains(sig_lbl, "ACCUMULATE")          ? c_warn :
+     str.contains(sig_lbl, "EARLY-BASE")          ? c_warn :
+     str.contains(sig_lbl, "PRE-S2")              ? c_warn :
+     str.contains(sig_lbl, "HOLD-WATCH")          ? c_warn :
+     str.contains(sig_lbl, "AVOID")               ? c_neg  :
+     str.contains(sig_lbl, "ILLIQUID")            ? c_neg  :
+     c_neut
+
+// Pre-computed series at global scope (ta.* must run every bar)
+rel_vol   = volume / ta.sma(volume, 50)
+ma30_dist = (na(ma30w_v) or ma30w_v == 0) ? na : (close - ma30w_v) / ma30w_v * 100.0
+
+// ATR + Chandelier Exit preview (NEW -- matches Strategy v1.1 defaults)
+// Auto-detect Vol Profile to assign stop mult and target ATR dynamically (per ETF Trading Bible)
+is_low_vol  = str.contains(syminfo.ticker, "GOLD") or str.contains(syminfo.ticker, "SILVER") or str.contains(syminfo.ticker, "LIQUID") or str.contains(syminfo.ticker, "GILT") or str.contains(syminfo.ticker, "BBETF")
+is_intl     = str.contains(syminfo.ticker, "FANG") or str.contains(syminfo.ticker, "MON100") or str.contains(syminfo.ticker, "NASD") or str.contains(syminfo.ticker, "MASPTOP50")
+is_broad    = str.contains(syminfo.ticker, "NIFTY") or str.contains(syminfo.ticker, "JUNIOR")
+
+float active_stop_mult  = is_low_vol ? 1.8 : is_intl ? 2.5 : is_broad ? 2.5 : 3.0
+float active_target_pct = is_low_vol ? 1.0 : is_intl ? 1.8 : is_broad ? 1.5 : 2.0
+
+atr_v       = ta.atr(atr_len)
+atr_pct     = close > 0 ? (atr_v / close) * 100.0 : 0.0
+stop_dist   = atr_v * active_stop_mult
+ce_raw      = ta.highest(close, ce_length) - ta.atr(ce_length) * ce_mult
+
+// Sized Qty preview (NEW -- "if I entered now at 1% risk, how many shares?")
+vol_disc    = use_vol_disc and atr_pct > 0 ? math.min(active_target_pct / atr_pct, 1.0) : 1.0
+risk_inr    = preview_capital * (preview_risk / 100.0)
+qty_preview = stop_dist > 0 ? math.floor((risk_inr / stop_dist) * vol_disc) : 0
+
+// Helper: format number with explicit + sign for positives (Pine's "+0.00"
+// format prepends + literally, producing "-+3.03" for negatives -- broken).
+sgn(float v) => (v >= 0 ? "+" : "") + str.tostring(v, "0.00")
+
+// =============================================================================
+// PLOTS
+// =============================================================================
+plot(show_30w  ? ma30w_v  : na, "30W MA (weekly anchor)", color=c_ma30w, linewidth=2)
+plot(show_200d ? sma200_v : na, "200-day SMA",            color=c_ma200, linewidth=2)
+plot(show_50d  ? sma50_v  : na, "50-day SMA",             color=c_ma50,  linewidth=1)
+
+// Stage background tint -- ported from Unified Stocks v2.3
+color bg_col = na
+if show_bgcol
+    bg_col := stage_int == 2 ? c_bg_s2 : stage_int == 4 ? c_bg_s4 :
+              stage_int == 1 ? c_bg_s1 : stage_int == 3 ? c_bg_s3 : na
+bgcolor(bg_col, title="Stage Background")
+
+// Chandelier Exit preview -- fuchsia step-line, shows where SL would sit if entered now
+plot(ce_raw, "CE Trail (preview)", color=color.new(color.fuchsia, 60), linewidth=1, style=plot.style_stepline)
+
+// =============================================================================
+// DASHBOARD TABLE
+// =============================================================================
+
+// table var at global scope -- Pine v6 requires this outside conditional blocks
+var table dash = na
+
+txt_size = tbl_size == "tiny"   ? size.tiny   :
+     tbl_size == "normal" ? size.normal :
+     size.small
+
+tbl_position = tbl_pos == "top_left"     ? position.top_left     :
+     tbl_pos == "bottom_left"  ? position.bottom_left  :
+     tbl_pos == "bottom_right" ? position.bottom_right :
+     tbl_pos == "middle_right" ? position.middle_right :
+     position.top_right
+
+if barstate.islast and show_table
+    if na(dash)
+        dash := table.new(tbl_position, 2, 19,
+             bgcolor=c_bg_card, border_width=1,
+             frame_color=color.new(color.gray, 70), frame_width=1)
+
+    // Pre-compute all cell strings and colours
+    _mans_txt  = na(mansfield)     ? "n/a" : sgn(mansfield) + " (mom " + sgn(rs_mom_4w) + ")"
+    _mans_col  = na(mansfield)     ? c_neut : mansfield > 0 ? c_pos : c_neg
+    _30w_txt   = na(ma30_dist)     ? "n/a" : sgn(ma30_dist) + "%"
+    _30w_col   = na(ma30_dist)     ? c_neut : ma30_dist > 0 ? c_pos : c_neg
+    _200d_txt  = na(dist_200d_pct) ? "n/a" : sgn(dist_200d_pct) + "%"
+    _200d_col  = na(dist_200d_pct) ? c_neut : dist_200d_pct > 0 ? c_pos : c_neg
+    _slope_txt = sgn(ma200_slope_pct) + "% / 20D"
+    _slope_col = ma200_slope_pct > 0.1 ? c_pos : ma200_slope_pct < -0.1 ? c_neg : c_warn
+    _52wh_txt  = sgn(dist_52wh_pct) + "%"
+    _52wh_col  = dist_52wh_pct > -3 ? c_pos : dist_52wh_pct > -10 ? c_warn : c_neg
+    _liq_txt   = str.tostring(turnover_avg_cr, "0.00") + " RsCr/day " + liq_lbl
+    _liq10_txt = str.tostring(liq_score) + " / 10"
+    _rvol_txt  = na(rel_vol) ? "n/a" : str.tostring(rel_vol, "0.00") + "x"
+    _rvol_col  = na(rel_vol) ? c_neut : rel_vol > 1.5 ? c_pos : rel_vol < 0.7 ? c_neg : c_neut
+    _time_txt  = str.format_time(time_close, "yyyy-MM-dd HH:mm", "Asia/Kolkata")
+
+    // v1.1 cells: ATR + CE Trail + Sized Qty
+    _atr_txt    = str.tostring(atr_v, "0.00") + " (" + str.tostring(atr_pct, "0.0") + "%)"
+    _atr_col    = atr_pct < 1.0 ? c_pos : atr_pct < 2.0 ? c_warn : c_neg
+    _ce_txt     = str.tostring(ce_raw, "0.00") + " (" + sgn((ce_raw - close) / close * 100) + "%)"
+    _ce_col     = close > ce_raw ? c_pos : c_neg
+    _vol_disc_txt = use_vol_disc ? str.tostring(vol_disc * 100, "0") + "%" : "off"
+    _qty_txt    = str.tostring(qty_preview, "0") + " sh (vol-disc " + _vol_disc_txt + ")"
+
+    // NEW v1.2 cells: Total_Score + Grade (matches Python etf_screener)
+    _total_txt  = str.tostring(total_score) + " / 40   T" + str.tostring(trend_score) +
+                  " R" + str.tostring(rs_score) + " Ro" + str.tostring(rotation_score) +
+                  " L" + str.tostring(liq_score)
+    _total_col  = total_score >= 26 ? c_pos : total_score >= 20 ? c_warn :
+                  total_score >= 14 ? c_neut : c_neg
+
+    // Header bgcolor turns red/orange on wrong instrument/timeframe
+    is_daily   = timeframe.isdaily
+    is_weekly  = timeframe.isweekly
+    is_valid_tf = is_daily or is_weekly
+    _hdr_bg    = not is_etf ? color.new(color.red, 20) : not is_valid_tf ? color.new(color.orange, 20) : c_bg_hdr
+    _hdr_left  = not is_etf ? "WRONG INSTRUMENT" : not is_valid_tf ? "SWITCH TO D/W" : is_weekly ? "ETF DASH v1.2 (W)" : "ETF DASH v1.2"
+    _hdr_right = not is_etf ? syminfo.ticker + " (" + instr_type + ")" : syminfo.ticker
+    table.cell(dash, 0, 0,  _hdr_left,  bgcolor=_hdr_bg, text_color=color.white, text_size=txt_size)
+    table.cell(dash, 1, 0,  _hdr_right, bgcolor=_hdr_bg, text_color=color.white, text_size=txt_size)
+    table.cell(dash, 0, 1,  "SIGNAL",  text_color=c_lbl,   text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 1,  sig_lbl,   text_color=sig_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 2,  "Stage",   text_color=c_lbl,     text_size=txt_size)
+    table.cell(dash, 1, 2,  stage_lbl, text_color=stage_col, text_size=txt_size)
+    table.cell(dash, 0, 3,  "RRG Quadrant", text_color=c_lbl,   text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 3,  rrg_txt,        text_color=rrg_tradeable ? c_pos : c_neg, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 4,  "Mansfield RS", text_color=c_lbl,    text_size=txt_size)
+    table.cell(dash, 1, 4,  _mans_txt,      text_color=_mans_col, text_size=txt_size)
+    table.cell(dash, 0, 5,  "vs 30W MA", text_color=c_lbl,   text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 5,  _30w_txt,    text_color=_30w_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 6,  "vs 200 DMA", text_color=c_lbl,    text_size=txt_size)
+    table.cell(dash, 1, 6,  _200d_txt,    text_color=_200d_col, text_size=txt_size)
+    table.cell(dash, 0, 7,  "200DMA Slope", text_color=c_lbl,     text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 7,  _slope_txt,    text_color=_slope_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 8,  "vs 52W High", text_color=c_lbl,   text_size=txt_size)
+    table.cell(dash, 1, 8,  _52wh_txt,     text_color=_52wh_col, text_size=txt_size)
+    table.cell(dash, 0, 9,  "Liquidity", text_color=c_lbl,  text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 9,  _liq_txt,    text_color=liq_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 10, "Liq Score",  text_color=c_lbl,  text_size=txt_size)
+    table.cell(dash, 1, 10, _liq10_txt,   text_color=liq_col, text_size=txt_size)
+    // NEW v1.2 rows: Total + Grade
+    table.cell(dash, 0, 11, "Total Score", text_color=c_lbl, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 11, _total_txt,   text_color=_total_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 12, "Grade",     text_color=c_lbl, text_size=txt_size)
+    table.cell(dash, 1, 12, grade_lbl,   text_color=grade_col, text_size=txt_size)
+    // Existing rows shifted down by 2
+    table.cell(dash, 0, 13, "Rel Volume", text_color=c_lbl,    text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 13, _rvol_txt,    text_color=_rvol_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 14, "ATR (14)",  text_color=c_lbl,  text_size=txt_size)
+    table.cell(dash, 1, 14, _atr_txt,    text_color=_atr_col, text_size=txt_size)
+    table.cell(dash, 0, 15, "CE Trail (preview)", text_color=c_lbl,  text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 15, _ce_txt,    text_color=_ce_col, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 16, "Sized Qty (1%)", text_color=c_lbl,    text_size=txt_size)
+    table.cell(dash, 1, 16, _qty_txt,        text_color=c_accent, text_size=txt_size)
+    table.cell(dash, 0, 17, "Last Bar", text_color=c_lbl, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 1, 17, _time_txt,  text_color=c_val, text_size=txt_size, bgcolor=c_bg_row)
+    table.cell(dash, 0, 18, "Bench",   text_color=c_lbl,   text_size=size.tiny)
+    table.cell(dash, 1, 18, bench_sym, text_color=c_accent, text_size=size.tiny)
+
+// =============================================================================
+// SCREENER COLUMNS (data window pins)
+// =============================================================================
+plot(stage_int,        title="Stage 1-4",        color=color.new(color.white, 100), display=display.data_window)
+plot(mansfield,        title="Mansfield RS",      color=color.new(color.white, 100), display=display.data_window)
+plot(rs_mom_4w,        title="RS Momentum 4W",    color=color.new(color.white, 100), display=display.data_window)
+plot(liq_score,        title="Liquidity Score",   color=color.new(color.white, 100), display=display.data_window)
+plot(turnover_avg_cr,  title="Turnover RsCr/day", color=color.new(color.white, 100), display=display.data_window)
+plot(dist_200d_pct,    title="Dist 200DMA pct",   color=color.new(color.white, 100), display=display.data_window)
+plot(dist_52wh_pct,    title="Dist 52WH pct",     color=color.new(color.white, 100), display=display.data_window)
+plot(ma200_slope_pct,  title="200DMA Slope pct",  color=color.new(color.white, 100), display=display.data_window)
+plot(is_etf ? 1 : 0,   title="Is ETF (1/0)",      color=color.new(color.white, 100), display=display.data_window)
+plot(trend_score,      title="Trend Score 0-10",  color=color.new(color.white, 100), display=display.data_window)
+plot(rs_score,         title="RS Score 0-10",     color=color.new(color.white, 100), display=display.data_window)
+plot(rotation_score,   title="Rotation Score 0-10",color=color.new(color.white, 100), display=display.data_window)
+plot(total_score,      title="Total Score 0-40",  color=color.new(color.white, 100), display=display.data_window)
+
+// =============================================================================
+// ALERTS
+// =============================================================================
+alertcondition(stage_int == 2 and stage_int[1] != 2,
+     title="ETF entered Stage 2",
+     message="{{ticker}} entered Stage 2 (Advance) - Weinstein breakout confirmed.")
+alertcondition(rrg_quad == "LEADING" and rrg_quad[1] != "LEADING",
+     title="ETF flipped to LEADING quadrant",
+     message="{{ticker}} RRG quadrant: LEADING (Mansfield > 0 AND momentum > 0).")
+alertcondition(stage_int == 2 and stage_int[1] == 2 and liq_score >= 6 and rrg_quad == "LEADING",
+     title="ETF BUY-LEADER signal",
+     message="{{ticker}} BUY-LEADER: Stage 2 + RRG LEADING + liquid >= Rs 2Cr/day.")
+alertcondition(stage_int == 4 and stage_int[1] != 4,
+     title="ETF entered Stage 4",
+     message="{{ticker}} entered Stage 4 (Decline) - exit positions, avoid new entries.")

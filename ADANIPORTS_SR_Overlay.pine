@@ -1,0 +1,219 @@
+//@version=6
+// =============================================================================
+// ADANIPORTS — S/R + Trendline + Box + Alpha Score + Weekly Stage Overlay
+// Positional / Swing annotation overlay (Weinstein Stage-2 context)
+// Built for Jay | NSE:ADANIPORTS | 28-Jun-2026
+//
+// ZERO-DRIFT NOTE (honors "signal consistency is sacred"):
+//   The Stage state-machine (f_getStageAndTime) and the Mansfield RS engine
+//   (f_calc_rs_logic) below are COPIED VERBATIM from Commander_Bull_Screener_v3.2
+//   so readings are byte-identical. The Alpha Score here reproduces the
+//   STRUCTURAL components of bull_screener.calculate_score() / pyScore exactly
+//   (Stage2, Mansfield RS, RRG, Volume, Trend-template, 52W-distance).
+//
+//   SCOPED OUT (by design, to avoid a drift-prone partial re-implementation):
+//     • Catalyst TIER points (+30/+20/+15/+10) and the catalyst LABEL
+//       (POS-BO / POS-ACCUM / SWG-*) — these depend on the full PA catalyst
+//       gate engine. Read the authoritative catalyst from your
+//       Commander_Bull_Screener on the same chart. This overlay shows a
+//       lightweight "setup context" line instead, and reports the score as
+//       "structural (ex-catalyst), max 72".
+//
+//   Apply on a DAILY chart. Levels from the 28-Jun-2026 read
+//   (LTP ~1796 | 52W H 1857.80 / L 1290.50 | 50-DMA ~1718 | 200-DMA ~1510).
+// =============================================================================
+indicator("ADANIPORTS S/R + Alpha Overlay", overlay = true, max_lines_count = 60, max_labels_count = 60, max_boxes_count = 10)
+
+// ============================ INPUTS =========================================
+gL = "Horizontal S/R Levels"
+show_levels = input.bool(true, "Show S/R levels", group = gL)
+r1 = input.price(1857.80, "Resistance — 52W High (breakout trigger)", group = gL)
+s1 = input.price(1790.0,  "Support — minor (flag floor)",             group = gL)
+s2 = input.price(1718.0,  "Support — 50-DMA / trendline (primary)",    group = gL)
+s3 = input.price(1640.0,  "Support — breakout shelf (structure flip)", group = gL)
+s4 = input.price(1510.0,  "Support — 200-DMA (last support)",          group = gL)
+
+gT = "Ascending Trendline"
+show_tl = input.bool(true, "Show trendline", group = gT)
+tl_t1 = input.time(timestamp("2026-04-10T00:00"), "Anchor 1 time (swing low)",   group = gT, confirm = true)
+tl_p1 = input.price(1360.0, "Anchor 1 price",                                    group = gT, confirm = true)
+tl_t2 = input.time(timestamp("2026-06-20T00:00"), "Anchor 2 time (higher low)",  group = gT, confirm = true)
+tl_p2 = input.price(1700.0, "Anchor 2 price",                                    group = gT, confirm = true)
+
+gB = "Consolidation Box (flag under ATH)"
+show_box = input.bool(true, "Show consolidation box", group = gB)
+box_t1 = input.time(timestamp("2026-05-20T00:00"), "Box start time", group = gB, confirm = true)
+box_t2 = input.time(timestamp("2026-06-28T00:00"), "Box end time",   group = gB, confirm = true)
+box_top = input.price(1857.80, "Box top",    group = gB)
+box_bot = input.price(1790.0,  "Box bottom", group = gB)
+
+gS = "Alpha Score & Weekly Stage"
+show_panel = input.bool(true, "Show score / stage panel", group = gS)
+benchSym   = input.symbol("NSE:CNX500", "RS Benchmark (Nifty 500)", group = gS)
+// Canonical params (must match Commander_Bull_Screener_v3.2)
+maLengthW   = input.int(30,     "Weinstein SMA Length (Weekly)",  group = gS)
+wmaSlopeLen = input.int(6,      "30-WMA Slope Lookback (Weeks)",  group = gS)
+slopeThresh = input.float(0.0012, "30-WMA Slope Threshold (Flat)", group = gS)
+rsLength    = input.int(26,     "Mansfield RS Slope SMA (Weeks)", group = gS)
+rsLevelLen  = input.int(52,     "Mansfield RS Level SMA (Weeks)", group = gS)
+rsSlopeLen  = input.int(8,      "RS Slope Lookback (Weeks)",      group = gS)
+
+// Colors
+c_res   = color.new(color.red,    0)
+c_sup   = color.new(color.green,  0)
+c_minor = color.new(color.gray,   0)
+c_ma    = color.new(color.blue,   0)
+c_tl    = color.new(color.orange, 0)
+c_box   = color.new(color.olive,  85)
+
+// ===================== CANONICAL STAGE STATE MACHINE =========================
+// VERBATIM from Commander_Bull_Screener_v3.2 f_getStageAndTime (zero drift)
+f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
+    float wMA      = ta.sma(close, maLen)
+    float slopeVal = (wMA - wMA[slopeLen]) / (slopeLen == 0 ? 1 : slopeLen)
+    bool maRising  = slopeVal >  thresh
+    bool maFalling = slopeVal < -thresh
+    bool maFlat    = not maRising and not maFalling
+    bool aboveMA   = close > wMA
+    var int stageState = 4
+    if stageState == 4
+        if maFlat and aboveMA
+            stageState := 1
+    else if stageState == 1
+        if maRising and aboveMA
+            stageState := 2
+        else if maFalling
+            stageState := 4
+    else if stageState == 2
+        if maFlat and not aboveMA
+            stageState := 3
+        else if maFalling and not aboveMA
+            stageState := 4
+    else if stageState == 3
+        if maFalling
+            stageState := 4
+        else if maRising and aboveMA
+            stageState := 2
+    string s = stageState == 2 ? "STAGE 2 (UP)" : stageState == 4 ? "STAGE 4 (DOWN)" : stageState == 1 ? "STAGE 1 (BASE)" : "STAGE 3 (TOP)"
+    var int _prev_stageState = 4
+    var int _stage_start_time = 0
+    if stageState != _prev_stageState
+        _stage_start_time := time
+        _prev_stageState := stageState
+    float _stageWks_acc = (time - _stage_start_time) / (7.0 * 86400000.0)
+    [s, wMA, _stageWks_acc]
+
+// ===================== CANONICAL MANSFIELD RS ENGINE =========================
+// VERBATIM from Commander_Bull_Screener_v3.2 f_calc_rs_logic (zero drift)
+f_calc_rs_logic(int rsl, int rslLevel, int slopeLen) =>
+    int jdkLen   = 12
+    rp           = close
+    rs_sma       = ta.sma(rp, jdkLen)
+    rs_ratio_raw = 100.0 + ((rp - rs_sma) / rs_sma) * 100.0
+    rs_ratio     = ta.sma(rs_ratio_raw, 5)
+    mrsLevel     = rs_ratio - 100.0
+    rm1          = 100.0 * (rs_ratio / rs_ratio[1])
+    rs_mom_full  = ta.sma(rm1, jdkLen)
+    rs_mom       = rs_mom_full - 100.0
+    slope        = mrsLevel - nz(mrsLevel[slopeLen], mrsLevel)
+    float pastSlope  = slope[5]
+    bool _warmed = bar_index >= math.max(jdkLen * 3 + 10, 60) and not na(rp) and rp > 0
+    float mrsLevel_g = _warmed ? mrsLevel : na
+    float slope_g    = _warmed ? slope    : na
+    float rs_mom_g   = _warmed ? rs_mom   : na
+    [slope_g, mrsLevel_g, pastSlope, rs_mom_g]
+
+// ===================== HIGHER-TIMEFRAME PULLS ================================
+f_weekly_bundle() =>
+    [sId, wMA, wWks] = f_getStageAndTime(maLengthW, wmaSlopeLen, slopeThresh)
+    [sId, wMA, wWks]
+
+[stageID, wMA30, stageWks] = request.security(syminfo.tickerid, "W", f_weekly_bundle(), lookahead = barmerge.lookahead_off)
+
+// RS is benchmark-relative: pull stock & bench weekly Mansfield, then difference
+// (matches the screener's relative read of stock vs Nifty 500)
+[stkSlope, stkVal, stkPast, stkMom] = request.security(syminfo.tickerid, "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), lookahead = barmerge.lookahead_off)
+[bchSlope, bchVal, bchPast, bchMom] = request.security(benchSym,        "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), lookahead = barmerge.lookahead_off)
+float val500 = (not na(stkVal) and not na(bchVal)) ? stkVal - bchVal : na   // Mansfield RS vs N500
+float rsMom  = (not na(stkMom) and not na(bchMom)) ? stkMom - bchMom : na   // 4w RS momentum vs N500
+
+string rrgQ = (not na(val500) and not na(rsMom)) ? (val500 >= 0 and rsMom >= 0 ? "LEADING" : val500 >= 0 ? "WEAKENING" : val500 < 0 and rsMom < 0 ? "LAGGING" : "IMPROVING") : "n/a"
+
+// ===================== DAILY STRUCTURAL INPUTS ==============================
+float dMA200   = ta.sma(close, 200)
+float dHigh52w = ta.highest(high, 252)
+float dLow52w  = ta.lowest(low, 252)
+float dVolAvg  = ta.sma(volume, 50)
+float curRelVol = dVolAvg > 0 ? volume / dVolAvg : na
+bool trend_template_ok = dHigh52w > 0 and dLow52w > 0 and ((dHigh52w - high) / dHigh52w <= 0.25) and ((close - dLow52w) / dLow52w >= 0.30)
+float distHighPct = dHigh52w > 0 ? (dHigh52w - close) / dHigh52w * 100 : na
+
+// ===================== STRUCTURAL ALPHA SCORE ===============================
+// Mirrors pyScore component weights EXCEPT catalyst tier (+30) and sector (±5).
+// Max structural = 72.  See header for scope note.
+int aScore = 0
+if stageID == "STAGE 2 (UP)"
+    aScore += 10
+if not na(val500)
+    aScore += val500 > 0 ? 10 : 0
+    aScore += val500 >= 10 ? 10 : 0
+if not na(rsMom) and rsMom > 0
+    aScore += 5
+aScore += rrgQ == "LEADING" ? 2 : 0
+if not na(curRelVol)
+    aScore += curRelVol >= 2.0 ? 15 : curRelVol >= 1.5 ? 10 : curRelVol >= 1.0 ? 5 : 0
+if trend_template_ok
+    aScore += 10
+if not na(distHighPct)
+    aScore += distHighPct <= 5 ? 10 : distHighPct <= 10 ? 7 : distHighPct <= 15 ? 5 : distHighPct <= 25 ? 3 : 0
+aScore := math.max(0, math.min(aScore, 72))
+int stars = math.round(aScore / 72.0 * 5)
+string starStr = str.repeat("★", stars) + str.repeat("☆", 5 - stars)
+
+// Lightweight SETUP CONTEXT (NOT the canonical catalyst label — read that from
+// Commander_Bull_Screener). Pure structural read of the advance.
+string setupCtx = stageID == "STAGE 2 (UP)" and rrgQ == "LEADING" and trend_template_ok and not na(distHighPct) and distHighPct <= 8 ? "Stage-2 leader near highs — breakout watch" : stageID == "STAGE 2 (UP)" and close > s2 ? "Stage-2 advance — buy pullbacks to demand" : stageID == "STAGE 1 (BASE)" ? "Basing — await Stage-2 trigger" : stageID == "STAGE 3 (TOP)" ? "Topping — tighten / no new longs" : stageID == "STAGE 4 (DOWN)" ? "Stage 4 — avoid" : "Neutral"
+
+// ============================ DRAW: LEVELS ===================================
+f_level(_price, _txt, _col) =>
+    line.new(bar_index - 300, _price, bar_index, _price, color = _col, width = 2, extend = extend.right)
+    label.new(bar_index, _price, _txt, style = label.style_label_left, color = color.new(_col, 80), textcolor = _col, size = size.small)
+
+if show_levels and barstate.islast
+    f_level(r1, "R: 52W High 1857.80 (breakout trigger)",   c_res)
+    f_level(s1, "S: 1790 minor support (flag floor)",       c_minor)
+    f_level(s2, "S: 1718 — 50-DMA / trendline (primary)",    c_sup)
+    f_level(s3, "S: 1640 — breakout shelf (structure flip)", c_sup)
+    f_level(s4, "S: 1510 — 200-DMA (last support)",          c_ma)
+
+// ============================ DRAW: TRENDLINE ================================
+if show_tl and barstate.islast
+    line.new(tl_t1, tl_p1, tl_t2, tl_p2, xloc = xloc.bar_time, color = c_tl, width = 2, extend = extend.right)
+    label.new(tl_t2, tl_p2, "Rising trendline (advance support)", xloc = xloc.bar_time, style = label.style_label_down, color = color.new(c_tl, 80), textcolor = c_tl, size = size.small)
+
+// ============================ DRAW: BOX ======================================
+if show_box and barstate.islast
+    box.new(box_t1, box_top, box_t2, box_bot, xloc = xloc.bar_time, border_color = color.new(color.orange, 40), border_width = 1, bgcolor = c_box)
+
+// ============================ DRAW: PANEL ====================================
+var table pnl = table.new(position.top_right, 2, 9, border_width = 1, frame_color = color.gray, frame_width = 1)
+if show_panel and barstate.islast
+    color stgCol = stageID == "STAGE 2 (UP)" ? color.green : stageID == "STAGE 4 (DOWN)" ? color.red : color.orange
+    table.cell(pnl, 0, 0, "ADANIPORTS", text_color = color.white, bgcolor = color.new(color.blue, 0), text_size = size.small)
+    table.cell(pnl, 1, 0, "Alpha Overlay", text_color = color.white, bgcolor = color.new(color.blue, 0), text_size = size.small)
+    table.cell(pnl, 0, 1, "Weekly Stage", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 1, stageID + " (" + str.tostring(stageWks, "#.0") + "w)", text_color = stgCol, text_size = size.small)
+    table.cell(pnl, 0, 2, "Mansfield RS (N500)", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 2, na(val500) ? "n/a" : str.tostring(val500, "#.0"), text_color = (not na(val500) and val500 > 0) ? color.green : color.red, text_size = size.small)
+    table.cell(pnl, 0, 3, "RRG Quadrant", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 3, rrgQ, text_color = rrgQ == "LEADING" ? color.green : rrgQ == "LAGGING" ? color.red : color.orange, text_size = size.small)
+    table.cell(pnl, 0, 4, "Rel Volume", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 4, na(curRelVol) ? "n/a" : str.tostring(curRelVol, "#.00") + "x", text_color = color.white, text_size = size.small)
+    table.cell(pnl, 0, 5, "Trend Template", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 5, trend_template_ok ? "PASS" : "fail", text_color = trend_template_ok ? color.green : color.red, text_size = size.small)
+    table.cell(pnl, 0, 6, "Dist off 52W High", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 6, na(distHighPct) ? "n/a" : str.tostring(distHighPct, "#.0") + "%", text_color = color.white, text_size = size.small)
+    table.cell(pnl, 0, 7, "Alpha (struct /72)", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 7, str.tostring(aScore) + "  " + starStr, text_color = color.yellow, text_size = size.small)
+    table.cell(pnl, 0, 8, "Setup context", text_color = color.gray, text_size = size.small)
+    table.cell(pnl, 1, 8, setupCtx, text_color = color.white, text_size = size.small)
