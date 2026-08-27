@@ -4653,7 +4653,7 @@ if show_panel and d_panel and barstate.islast
     // 32 fields as one undifferentiated list. A string literal is one token however
     // long it is, so the prose is free.
     f_sec(1,  "  I · MACRO & CONTEXT      —  What is the underlying regime and environment?")
-    f_sec(10,  "  II · LOCATION & QUALITY   —  Where are we on the chart right now?")
+    f_sec(10,  "  II · LOCATION, VALUE & ROOM —  Are we at value, and is there room to trade?")
     f_sec(20, "  III · EXECUTION & TIMING  —  Are the intraday triggers and PA patterns firing?")
     f_sec(30, "  IV · DECISION SYNTHESIS   —  What is the final ruling of the engine?")
     f_sec(34, "  V · PLAN & RISK          —  How do we execute and size it?")
