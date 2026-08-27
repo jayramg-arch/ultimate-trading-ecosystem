@@ -1,0 +1,18 @@
+[theme]
+# DARK, deliberately — and it must AGREE with commander_theme.py.
+#
+# The app cannot follow the operating system's light/dark preference. This file is
+# STATIC, and Streamlit's own widgets (metrics, dataframes, radios, inputs) take their
+# colours from here rather than from our CSS variables. If the stylesheet follows
+# prefers-color-scheme while this file is pinned, every Streamlit-rendered element ends
+# up in the opposite theme from the ground behind it — dark-on-dark metric values, a
+# white dataframe on a dark page. That is exactly what happened on 27 Aug 2026.
+#
+# So: one theme, chosen, in both places. These five values mirror the DARK block of
+# commander_theme.py. Change them together or not at all.
+base = "dark"
+primaryColor = "#56C2CC"           # --acc      teal
+backgroundColor = "#0F1618"        # --ground
+secondaryBackgroundColor = "#161F21"  # --surface   cards, sidebar, table rows
+textColor = "#E3EBEC"              # --ink
+font = "sans serif"

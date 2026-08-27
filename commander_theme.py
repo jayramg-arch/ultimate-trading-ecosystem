@@ -98,22 +98,34 @@ def _decls(d):
 
 
 def tokens_css() -> str:
-    """The three theme blocks plus the type tokens.
+    """The token blocks plus the type tokens.
 
-    Returned with SINGLE braces. The app's main stylesheet is an f-string (every CSS
-    brace doubled); this is concatenated in rather than interpolated, so it must not
-    be doubled or the braces reach the browser literally.
+    DARK IS THE DEFAULT, and this does NOT follow prefers-color-scheme. That is a
+    correction, not an oversight — the first version did follow the OS and it broke the
+    app on 27 Aug 2026.
+
+    The reason is that we do not own the whole page. Streamlit's widgets — metrics,
+    dataframes, radios, inputs — take their colours from .streamlit/config.toml, which
+    is a STATIC file that cannot respond to a media query. So the moment the stylesheet
+    follows the OS, a viewer on a light desktop gets Streamlit's dark widgets on our
+    light ground, or the reverse: invisible dark-on-dark metric values and a white
+    dataframe sitting on a dark page.
+
+    A page that only half-owns its own rendering has to COMMIT to one theme. Light stays
+    reachable through an explicit data-theme="light" stamp for anyone who wants it, but
+    nothing sets that automatically, and config.toml would need to change with it.
+
+    Returned with SINGLE braces: the app's main stylesheet is an f-string (every CSS
+    brace doubled) and this is concatenated rather than interpolated, so doubling here
+    would send literal braces to the browser.
     """
     fonts = "".join(f"  --{k}:{v};\n" for k, v in FONTS.items())
     return (
         "@import url('" + GOOGLE_FONTS + "');\n"
-        ":root{\n" + _decls(LIGHT) + fonts +
+        ":root{\n" + _decls(DARK) + fonts +
         "  --radius:3px;\n"
         "}\n"
-        "@media (prefers-color-scheme:dark){\n"
-        "  :root:not([data-theme=\"light\"]){\n" + _decls(DARK) + "  }\n"
-        "}\n"
-        ":root[data-theme=\"dark\"]{\n" + _decls(DARK) + "}\n"
+        ":root[data-theme=\"light\"]{\n" + _decls(LIGHT) + "}\n"
     )
 
 
