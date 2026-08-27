@@ -1,0 +1,346 @@
+<title>The Honesty Layer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+/* One engineered superfamily throughout — the measurement document set in the
+   type of an instrument, not a magazine. */
+:root{
+  --ground:#EFF2F3; --surface:#FFFFFF; --surface-2:#F6F9FA; --surface-3:#E8EDEF;
+  --ink:#0E1519; --ink-2:#37454C; --muted:#657379; --faint:#95A2A8;
+  --rule:#D3DCE0; --rule-soft:#E4EAED;
+  --acc:#0F6E86; --acc-bg:#E2F0F4; --acc-rule:#9DC8D4;
+  --warn:#A8342A; --warn-bg:#FAE9E7; --warn-rule:#DFAAA3;
+  --ok:#186B4F; --ok-bg:#E3F0EA; --ok-rule:#9CC7B5;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;
+  --serif:'IBM Plex Serif',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1417; --surface:#151C20; --surface-2:#1A2328; --surface-3:#212B31;
+    --ink:#E7EDF0; --ink-2:#BEC9CF; --muted:#849198; --faint:#616E75;
+    --rule:#263037; --rule-soft:#1E272C;
+    --acc:#4FB3C9; --acc-bg:#0D2A32; --acc-rule:#27565F;
+    --warn:#EF6E60; --warn-bg:#331A17; --warn-rule:#6A2F29;
+    --ok:#38B48A; --ok-bg:#0F2C22; --ok-rule:#1F5544;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1417; --surface:#151C20; --surface-2:#1A2328; --surface-3:#212B31;
+  --ink:#E7EDF0; --ink-2:#BEC9CF; --muted:#849198; --faint:#616E75;
+  --rule:#263037; --rule-soft:#1E272C;
+  --acc:#4FB3C9; --acc-bg:#0D2A32; --acc-rule:#27565F;
+  --warn:#EF6E60; --warn-bg:#331A17; --warn-rule:#6A2F29;
+  --ok:#38B48A; --ok-bg:#0F2C22; --ok-rule:#1F5544;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1080px;margin:0 auto;padding:50px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc);margin:0 0 14px;font-weight:600}
+h1{font-family:var(--sans);font-weight:700;font-size:clamp(36px,5.6vw,56px);line-height:1.03;
+  letter-spacing:-.03em;margin:0;text-wrap:balance}
+.dek{font-size:17.5px;color:var(--ink-2);max-width:64ch;margin:16px 0 0}
+
+.cols{display:grid;grid-template-columns:196px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:22px;align-self:start}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 11px;font-weight:600}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:baseline;
+  font-family:var(--mono);font-size:11.5px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:7px 8px;border-radius:2px}
+nav.toc a span{color:var(--faint)}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink)}
+nav.toc a:hover span{color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+
+h2{font-family:var(--sans);font-weight:600;font-size:clamp(23px,3vw,30px);line-height:1.16;
+  letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);
+  letter-spacing:.16em;display:block;margin-bottom:8px}
+h3{font-family:var(--sans);font-weight:600;font-size:17px;letter-spacing:-.01em;margin:28px 0 9px}
+p{margin:0 0 14px;max-width:68ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:68ch}
+li{margin:0 0 7px}
+b,strong{font-weight:600;color:var(--ink)}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;
+  border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc);font-weight:500}
+
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:2px;background:var(--surface);
+  margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-family:var(--sans)}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:16px}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg);border-color:var(--warn-rule)}
+.note.rule{border-left-color:var(--ok);background:var(--ok-bg);border-color:var(--ok-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:7px;font-weight:600}
+.note.warn .tag{color:var(--warn)} .note.rule .tag{color:var(--ok)}
+.note p:last-child{margin-bottom:0}
+
+.verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;
+  margin:0 0 18px}
+.v{border:1px solid var(--rule);border-radius:2px;background:var(--surface);padding:15px 17px}
+.v .lbl{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;
+  margin:0 0 8px}
+.v.pass .lbl{color:var(--ok)} .v.stop .lbl{color:var(--warn)} .v.none .lbl{color:var(--muted)}
+.v p{font-size:14.5px;margin:0;font-family:var(--sans);color:var(--ink-2)}
+
+.steps{counter-reset:s;list-style:none;padding:0;margin:0 0 18px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);gap:13px;
+  padding:12px 0;border-bottom:1px solid var(--rule-soft);margin:0;font-size:16px}
+.steps li:last-child{border-bottom:none}
+.steps li::before{content:counter(s);font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--acc);padding-top:3px}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1080px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;
+  justify-content:space-between}
+footer a{color:var(--acc)}
+
+@media (max-width:860px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;margin-bottom:30px;border:1px solid var(--rule);border-radius:2px;
+    padding:16px;background:var(--surface)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <p class="eyebrow">Doc 16 · Evidence</p>
+    <h1>The Honesty Layer</h1>
+    <p class="dek">Every claim about a strategy's edge is produced here. The framework replays the
+    screeners at historical dates, grades the picks against their <em>matched-horizon</em> forward
+    returns, and tells you whether an edge is real, in which regime, and whether it survives
+    out-of-sample.</p>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#concepts"><span>1</span>Core concepts</a></li>
+    <li><a href="#harness"><span>2</span>The harness</a></li>
+    <li><a href="#replay"><span>3</span>Execution sim</a></li>
+    <li><a href="#gate"><span>4</span>The overfit gate</a></li>
+    <li><a href="#partition"><span>5</span>Where edge lives</a></li>
+    <li><a href="#data"><span>6</span>Pinnable data</a></li>
+    <li><a href="#flow"><span>7</span>The workflow</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<div class="note">
+  <span class="tag">The six modules</span>
+  <p><code>validation.py</code> walk-forward harness · <code>replay.py</code> screen plus
+  execution sim · <code>walkforward_oos.py</code> overfit gate ·
+  <code>catalyst_regime_partition.py</code> per-family edge · <code>data_provider.py</code>
+  date-pinnable data · <code>sector_rotation.py</code> opt-in overlay.</p>
+</div>
+
+<section id="concepts">
+  <h2><span class="n">01</span>Core concepts — read these first</h2>
+
+  <h3>Matched alpha, the metric that matters</h3>
+  <p><b>Alpha = your return − the benchmark's return over the same window.</b> It answers the only
+  question worth asking: <em>did this beat the market, or just ride it?</em> A +8% trade in a +8%
+  market is <b>zero alpha</b> — single-stock risk taken for nothing.</p>
+  <p><b>“Matched”</b> means each trade is measured over <em>its own design horizon</em>, not a
+  fixed 30 days:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Catalyst</th><th class="num">Matched window</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-ACCUM</td><td class="num">180 d</td></tr>
+      <tr><td class="k">POS-BO · WYC-*</td><td class="num">120 d</td></tr>
+      <tr><td class="k">REV-* recovery</td><td class="num">90 d</td></tr>
+      <tr><td class="k">SWG-PB</td><td class="num">60 d</td></tr>
+      <tr><td class="k">SWG-BO · GAP</td><td class="num">30 d</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note rule">
+    <span class="tag">The cardinal rule</span>
+    <p><b>Never judge a positional or recovery setup on a 30-day window.</b> Measuring a
+    120–180-day setup over 30 days is invalid — it produced false “remove this catalyst” calls in
+    May 2026 that all had to be rolled back. Always pass <code>--catalyst_windows</code>.</p>
+  </div>
+
+  <h3>Up tape / down tape — the regime cut</h3>
+  <p>The direction the benchmark moved over the trade's forward window. Splitting alpha by tape is
+  the regime test.</p>
+  <div class="note warn">
+    <span class="tag">Corrected since this guide was written</span>
+    <p>This section originally concluded that recovery and breakout setups are <b>defensive</b> —
+    positive in down tapes, lagging in up tapes. <b>That result was an artifact and is
+    retired.</b> It came from benchmarking a trade's full design window against a stock leg that
+    had usually exited far earlier; an 8-day stop-out at −3% measured against a 120-day index at
+    −10% books seven points of alpha that were never earned.</p>
+    <p>Worse, after the fix the direction label became <b>endogenous</b>: the window's length is
+    now <code>days_held</code>, which is an <em>outcome</em>. Fast stop-outs self-select into
+    “down”, long runners into “up”. <b>Do not quote any per-direction result</b> until direction
+    is derived from an ex-ante window. The partition by <em>family</em> and by <em>exit reason</em>
+    is unaffected and remains the decisive lens.</p>
+  </div>
+
+  <h3>Win rate and profit factor</h3>
+  <p>Win % is the share of profitable trades; PF is gross profit ÷ gross loss. Read them
+  <em>alongside</em> alpha: a low win rate with big winners is a trend-following profile and still
+  makes money; a high win rate with a few large losses does not.</p>
+</section>
+
+<section id="harness">
+  <h2><span class="n">02</span><code>validation.py</code> — the walk-forward harness</h2>
+  <p>Runs the screener at each of N monthly anchors and aggregates per-anchor and overall.</p>
+  <pre>python validation.py --months 24 --universe nifty500 --screener bull \
+                     <b>--catalyst_windows</b> --bootstrap_n 10000 [--top_n 10]</pre>
+  <div class="tw"><table>
+    <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">--months</td><td>Number of monthly anchors</td></tr>
+      <tr><td class="k">--universe</td><td><code>nifty100</code> / <code>nifty500</code> — current constituents, so mild survivorship bias</td></tr>
+      <tr><td class="k">--screener</td><td><code>bull</code> or <code>recovery</code></td></tr>
+      <tr><td class="k">--catalyst_windows</td><td>Per-catalyst matched forward windows — <b>use this</b></td></tr>
+      <tr><td class="k">--bootstrap_n</td><td>Bootstrap CI on mean anchor alpha, e.g. 10000</td></tr>
+      <tr><td class="k">--top_n</td><td>Keep only the top N by score per anchor — mirrors the live Top-N, so this is the <em>tradeable</em> edge</td></tr>
+      <tr><td class="k">--sector_rotation</td><td>Opt-in RRG overlay. Off by default; strict cut alpha in testing</td></tr>
+    </tbody>
+  </table></div>
+  <p>Outputs <code>validation_runs/validation_&lt;id&gt;_{summary,details}.csv</code> and updates
+  <code>LAST_RUN.txt</code>.</p>
+  <div class="note">
+    <span class="tag">On speed</span>
+    <p>The recovery screener fetches fundamentals at <em>every</em> anchor, so a 24-month recovery
+    run takes <b>2–3 hours</b>. Bull runs are far faster. The download timeout prevents hangs but
+    does not change the base cost — run recovery detached and read the log later.</p>
+  </div>
+</section>
+
+<section id="replay">
+  <h2><span class="n">03</span><code>replay.py</code> — the execution simulator</h2>
+  <p>For one anchor: pins data to that date, runs the screener, then <b>simulates each trade
+  bar by bar</b> with stop, T1, T2 and Chandelier trail, charging <b>0.10% per leg</b> in
+  commission and slippage. Reports Sharpe, Sortino and Calmar.</p>
+  <div class="note rule">
+    <span class="tag">Read the exit flags correctly — this distinction was once missed</span>
+    <p><code>Hit_Initial_SL</code> is a <b>true loss</b> — use it as the failure metric.
+    <code>Hit_Trail_SL</code> is often a <b>profit-protect</b> exit and must not be read as a
+    failure. Conflating the two once produced a false panic that the stop was too tight.</p>
+  </div>
+
+  <h3>The other half — replaying the live GO gate</h3>
+  <p>The same file replays the <b>four-gate GO</b> against historical bars, so the entry the
+  board and Section Four would actually have produced can be measured rather than assumed. Three
+  switches decide what it models, and each has a default that is a claim about the live system:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Switch</th><th>Default</th><th>What it asserts</th></tr></thead><tbody>
+      <tr><td class="k"><code>LOCATION_RULE</code></td><td class="m">a2</td><td>A pattern zone stands alone; a pivot shelf needs a confirming source. Set <code>any</code> to reproduce a pre-26-Aug run</td></tr>
+      <tr><td class="k"><code>entry_mode</code></td><td class="m">retest</td><td>A limit at the trigger bar's close, not a buy-stop above its high — measured, and it beat the buy-stop across every family</td></tr>
+      <tr><td class="k"><code>STRUCTURAL_SL</code></td><td class="m">False</td><td>The structure-anchored stop is available and <b>not</b> used: it had the best mean and passed the OOS gate, and was still rejected because the median went from −0.48R to −1.01R and stop-outs from 11.8% to 52.7%</td></tr>
+    </tbody></table></div>
+  <div class="note warn">
+    <span class="lbl">The defect this exposed, and the general lesson</span>
+    <p>Until 26 August <code>replay</code> ran the <b>legacy</b> location rule while the live
+    surfaces had moved to A2. Every GO-gate run since 11 August therefore measured
+    <b>a gate the system was no longer using</b> — and nothing about the output looked wrong,
+    because a simulator that models the wrong rule faithfully still produces clean numbers.</p>
+    <p><b>The general form is worth more than the instance:</b> when a harness and a live surface
+    encode the same rule twice, they will drift, and the drift is invisible from the results. The
+    only defence is to make the default track production and to say so where the default is
+    written — which is why the table above states what each one asserts rather than only what it
+    is set to.</p>
+  </div>
+  <div class="note">
+    <span class="lbl">And the rule itself measured as a null</span>
+    <p>Measured with those switches: the location rule is a <b>null</b>.
+  Any-zone, A2 and pattern-only landed within <b>0.21 percentage points</b> on matched alpha across
+  eighteen anchors, while the trade count fell 221 → 88 → 51. Tightening location buys fewer
+  trades, not better ones.</p>
+  </div>
+</section>
+
+<section id="gate">
+  <h2><span class="n">04</span><code>walkforward_oos.py</code> — the overfit gate</h2>
+  <p>Splits the anchors chronologically — earlier 60% in-sample, later 40% out-of-sample — treats
+  each anchor's alpha as a period return, and issues one of three verdicts.</p>
+  <div class="verdicts">
+    <div class="v pass"><p class="lbl">PASS</p><p>OOS Sharpe ≥ 60% of in-sample, and OOS alpha above zero.</p></div>
+    <div class="v stop"><p class="lbl">STOP</p><p>OOS degraded more than 40%. Overfit — do <b>not</b> proceed to weight-fitting.</p></div>
+    <div class="v none"><p class="lbl">NO-EDGE</p><p>In-sample alpha was already ≤ 0. Nothing to overfit; fix the screener or the window first.</p></div>
+  </div>
+  <div class="note warn">
+    <span class="tag">Always per family, never pooled</span>
+    <p>A pooled STOP or NO-EDGE is usually <b>one weak catalyst dragging several positive
+    ones</b>. Pooling has produced a false conclusion three separate times in this repo.</p>
+  </div>
+</section>
+
+<section id="partition">
+  <h2><span class="n">05</span><code>catalyst_regime_partition.py</code> — where the edge lives</h2>
+  <p>Partitions trades by catalyst family, direction and exit reason, on matched alpha. This is
+  the decisive lens, and it has overturned more conclusions than any other tool here:</p>
+  <ul>
+    <li>The bull <b>NO-EDGE was a composition artifact</b> — four of five catalysts were positive
+    and one drag was sinking the pooled number.</li>
+    <li>Recovery is regime-fitted, not broken.</li>
+    <li><b>The recurring exit signature:</b> most catalysts' losers are early stop-outs and the
+    survivors are big winners — <b>the stops, not the signals, are the drag.</b></li>
+  </ul>
+</section>
+
+<section id="data">
+  <h2><span class="n">06</span><code>data_provider.py</code> — pinnable data</h2>
+  <ul>
+    <li><code>set_pinned_date(as_of)</code> makes every fetch return data <b>as of</b> that date.
+    No lookahead — <b>this is the backbone of an honest backtest</b>.</li>
+    <li>On-disk cache, rate limiting, and an NSE-direct fallback.</li>
+    <li><b>Hard download timeout.</b> No fetch can hang the process — a stalled download aborts
+    and continues via fallback or cache. One stalled connection once froze a run for roughly
+    fifteen hours.</li>
+  </ul>
+</section>
+
+<section id="flow">
+  <h2><span class="n">07</span>The recommended workflow</h2>
+  <ol class="steps">
+    <li><span>Run the <b>tradeable</b> configuration: <code>--months 24 --universe nifty500 --screener bull --catalyst_windows --top_n 10</code>.</span></li>
+    <li><span>Partition it. Read <b>per family</b> and by exit reason. Identify the edge-carriers and the drags.</span></li>
+    <li><span>Run the overfit gate — per family — before any weight-fitting.</span></li>
+    <li><span><b>Never act on</b> a pooled verdict, a non-matched window, or an in-sample-only number.</span></li>
+  </ol>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/16 · Validation &amp; Backtest Framework</span>
+  <span>Companion — <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 · The Backtest Court</a></span>
+</div></footer>

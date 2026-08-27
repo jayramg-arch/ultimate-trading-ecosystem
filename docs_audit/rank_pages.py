@@ -108,6 +108,8 @@ LOCAL = {
     "bfa433a3": "25_golden_rules.html",
     "bb8770c5": "23_golden_matcher.html",
     "6682471c": "10_position_sizer.html",
+    "53aee9e9": "16_honesty_layer.html",
+    "30193746": "27_backtest_court.html",
 }
 
 

@@ -1,0 +1,501 @@
+<title>The Backtest Court</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+:root{
+  --ground:#EDF0F3; --surface:#FFFFFF; --surface-2:#F5F7FA; --surface-3:#EAEEF3;
+  --ink:#0D1218; --ink-2:#38424F; --muted:#68737F;
+  --rule:#D4DBE3; --rule-soft:#E5EAF0;
+  --acc:#2C5AA8; --acc-bg:#E7EDF8; --acc-rule:#A9C0E4;
+  --pass:#0F7A66; --pass-bg:#E3F1ED; --pass-rule:#9BCDBF;
+  --stop:#B23025; --stop-bg:#FAE8E6; --stop-rule:#E4ADA6;
+  --none:#6E7681; --none-bg:#EDEFF2; --none-rule:#C6CCD4;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --body:'Public Sans','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#11151C; --surface:#171C25; --surface-2:#1D232E; --surface-3:#232A36;
+    --ink:#E8ECF1; --ink-2:#BFC7D2; --muted:#8791A0;
+    --rule:#28303C; --rule-soft:#212833;
+    --acc:#6E9BE0; --acc-bg:#152238; --acc-rule:#2E4A78;
+    --pass:#33B79C; --pass-bg:#10302A; --pass-rule:#21584C;
+    --stop:#EF6259; --stop-bg:#331819; --stop-rule:#672C2A;
+    --none:#8791A0; --none-bg:#1C222C; --none-rule:#333B47;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#11151C; --surface:#171C25; --surface-2:#1D232E; --surface-3:#232A36;
+  --ink:#E8ECF1; --ink-2:#BFC7D2; --muted:#8791A0;
+  --rule:#28303C; --rule-soft:#212833;
+  --acc:#6E9BE0; --acc-bg:#152238; --acc-rule:#2E4A78;
+  --pass:#33B79C; --pass-bg:#10302A; --pass-rule:#21584C;
+  --stop:#EF6259; --stop-bg:#331819; --stop-rule:#672C2A;
+  --none:#8791A0; --none-bg:#1C222C; --none-rule:#333B47;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.68;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+
+/* masthead */
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1200px;margin:0 auto;padding:48px 24px 36px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 14px}
+h1{font-family:var(--disp);font-weight:400;font-size:clamp(40px,6.4vw,68px);line-height:1;
+  letter-spacing:-.012em;margin:0;text-wrap:balance}
+.dek{font-size:16px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+
+/* evidence stamp — the number WITH its uncertainty, which is the point */
+.stamp{border:1px solid var(--rule);background:var(--surface-2);border-radius:2px;
+  padding:16px 20px;min-width:260px}
+.stamp .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 10px}
+.stamp .big{font-family:var(--disp);font-size:40px;line-height:1;color:var(--acc);
+  font-variant-numeric:tabular-nums}
+.stamp .qual{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);line-height:1.8;
+  margin-top:10px;padding-top:10px;border-top:1px dashed var(--rule);font-variant-numeric:tabular-nums}
+.stamp .qual b{color:var(--stop);font-weight:700}
+
+/* layout */
+.cols{display:grid;grid-template-columns:212px minmax(0,1fr);gap:60px;padding:44px 0 100px}
+nav.toc{position:sticky;top:24px;align-self:start;max-height:calc(100vh - 48px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:baseline;
+  font-family:var(--mono);font-size:11.5px;line-height:1.4;color:var(--muted);
+  text-decoration:none;padding:7px 8px;border-radius:2px}
+nav.toc a span{color:var(--rule)}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink)}
+nav.toc a:hover span{color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 66px;scroll-margin-top:20px}
+
+h2{font-family:var(--disp);font-weight:400;font-size:clamp(26px,3.4vw,36px);line-height:1.12;
+  letter-spacing:-.008em;margin:0 0 18px;text-wrap:balance}
+h2 .n{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--acc);
+  letter-spacing:.1em;display:block;margin-bottom:8px}
+h3{font-family:var(--body);font-weight:700;font-size:16px;letter-spacing:-.005em;
+  margin:34px 0 10px;color:var(--ink)}
+p{margin:0 0 15px;max-width:68ch}
+ul,ol{margin:0 0 15px;padding-left:22px;max-width:68ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+a{color:var(--acc)}
+code{font-family:var(--mono);font-size:.875em;background:var(--surface-3);
+  padding:1.5px 5px;border-radius:2px;color:var(--ink-2)}
+
+.lede{font-size:18px;color:var(--ink-2);border-left:2px solid var(--acc);
+  padding-left:18px;margin:0 0 26px;max-width:64ch}
+
+/* callouts */
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);
+  padding:16px 20px;border-radius:2px;margin:0 0 20px}
+.note.warn{border-left-color:var(--stop);background:var(--stop-bg);border-color:var(--stop-rule)}
+.note p:last-child{margin-bottom:0}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:8px}
+.note.warn .tag{color:var(--stop)}
+
+/* code block */
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:var(--surface-3);
+  border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;
+  margin:0 0 20px;color:var(--ink-2)}
+pre b{color:var(--acc);font-weight:500}
+
+/* tables */
+.tw{overflow-x:auto;margin:0 0 22px;border:1px solid var(--rule);border-radius:2px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:11px 14px;border-bottom:1px solid var(--rule);
+  background:var(--surface-2);white-space:nowrap;font-weight:500}
+td{padding:10px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+td b{color:var(--ink)}
+
+/* verdict chips */
+.chip{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;padding:2.5px 8px;border-radius:2px;white-space:nowrap;
+  border:1px solid}
+.chip.pass{color:var(--pass);background:var(--pass-bg);border-color:var(--pass-rule)}
+.chip.stop{color:var(--stop);background:var(--stop-bg);border-color:var(--stop-rule)}
+.chip.none{color:var(--none);background:var(--none-bg);border-color:var(--none-rule)}
+
+/* the gate ladder — numbering is real here: these are sequential hurdles */
+.gates{display:flex;flex-direction:column;gap:0;border:1px solid var(--rule);
+  border-radius:2px;overflow:hidden;margin:0 0 22px;background:var(--surface)}
+.gate{display:grid;grid-template-columns:52px minmax(0,1fr);gap:0;
+  border-bottom:1px solid var(--rule-soft)}
+.gate:last-child{border-bottom:none}
+.gate .g{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc);
+  background:var(--surface-2);border-right:1px solid var(--rule-soft);
+  display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.gate .gb{padding:14px 18px}
+.gate .gt{font-weight:700;font-size:15px;margin:0 0 4px;color:var(--ink)}
+.gate .gd{font-size:14.5px;color:var(--ink-2);margin:0;max-width:62ch}
+
+/* flow */
+.flow{font-family:var(--mono);font-size:12.5px;line-height:2;background:var(--surface);
+  border:1px solid var(--rule);border-radius:2px;padding:18px 20px;overflow-x:auto;
+  margin:0 0 22px;color:var(--ink-2)}
+.flow b{color:var(--acc);font-weight:500}
+
+/* glossary */
+.gloss{border-top:1px solid var(--rule);margin:0}
+.gi{padding:15px 0;border-bottom:1px solid var(--rule-soft);
+  display:grid;grid-template-columns:212px minmax(0,1fr);gap:26px}
+.gi dt{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink);line-height:1.5}
+.gi dd{margin:0;font-size:15px;color:var(--ink-2);max-width:62ch}
+.gi dd b{color:var(--ink)}
+
+footer{border-top:1px solid var(--rule);background:var(--surface);
+  font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.foot-in{max-width:1200px;margin:0 auto;padding:26px 24px;
+  display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between}
+
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:30px 0 70px}
+  nav.toc{position:static;max-height:none;margin-bottom:34px;
+    border:1px solid var(--rule);border-radius:2px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:26px}
+  .gi{grid-template-columns:1fr;gap:5px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 27 · Trading system reference</p>
+      <h1>The Backtest Court</h1>
+      <p class="dek">How the harness reaches a verdict, which gates a result must clear before
+      it is allowed to change anything, and the four mistakes that have cost us the most —
+      each of which produced a confident, wrong answer first.</p>
+    </div>
+    <div class="stamp">
+      <p class="lbl">Current standing verdict</p>
+      <div class="big">+0.5–1.0%</div>
+      <div class="qual">
+        mean matched alpha / trade<br>
+        P(α&gt;0) <b>≈ 50%</b><br>
+        CI95 <b>straddles zero</b>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#s1"><span>01</span>What it can say</a></li>
+    <li><a href="#s2"><span>02</span>The four modules</a></li>
+    <li><a href="#s3"><span>03</span>Running one</a></li>
+    <li><a href="#s4"><span>04</span>How it trades</a></li>
+    <li><a href="#s5"><span>05</span>The six gates</a></li>
+    <li><a href="#s6"><span>06</span>Read it per family</a></li>
+    <li><a href="#s7"><span>07</span>The four mistakes</a></li>
+    <li><a href="#s8"><span>08</span>What it says now</a></li>
+    <li><a href="#s9"><span>09</span>Glossary</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<p class="lede">The backtest is the only clean evidence about this system that exists.
+The trade journal cannot serve that purpose — it mixes system-entered trades with
+discretionary and tax-loss-harvested ones, and the two cannot be separated
+retroactively. So when a decision has to be made about whether something works, this
+harness is the court.</p>
+
+<section id="s1">
+  <h2><span class="n">01</span>What a backtest here can and cannot say</h2>
+  <p><b>It can</b> answer one question: does this selection rule pick names that beat
+  the index over the horizon the setup was designed for?</p>
+  <p><b>It cannot</b> answer:</p>
+  <ul>
+    <li><b>Whether you will execute it.</b> Every trade here fills mechanically.</li>
+    <li><b>Anything intraday.</b> The replay runs on daily bars (<code>interval="1d"</code>).
+    <code>GO_Date</code> carries no time of day, so no study of "is a 10:30 trigger worse
+    than 11:45" is possible from this data, however much we would like one.</li>
+    <li><b>Whether a discretionary chart read adds value.</b> It measures the mechanical rule.</li>
+  </ul>
+  <div class="note warn">
+    <span class="tag">Known biases, disclosed in the code</span>
+    <p><b>Survivorship.</b> The universe is today's Nifty 500 — names that were delisted
+    or fell out never appear. <code>validation.py:92-96</code> labels its alpha an
+    <em>upper bound</em> for exactly this reason.</p>
+    <p><b>Corporate actions.</b> <code>auto_adjust=True</code> with row-only pin slicing
+    means a split or bonus is retro-applied to history.</p>
+  </div>
+</section>
+
+<section id="s2">
+  <h2><span class="n">02</span>The four modules</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Module</th><th>Job</th><th>Run it when</th></tr></thead>
+    <tbody>
+      <tr><td><code>validation.py</code></td><td><b>The harness.</b> Walks anchors month by month, screens at each, hands picks to replay, aggregates.</td><td>Re-baselining after any signal change</td></tr>
+      <tr><td><code>replay.py</code></td><td><b>The execution simulator.</b> Bar-by-bar SL / T1 / T2 / trail with costs.</td><td>Never directly — validation calls it</td></tr>
+      <tr><td><code>walkforward_oos.py</code></td><td><b>The overfit gate.</b> Splits anchors chronologically, compares in-sample to out-of-sample.</td><td>After every re-baseline, before believing it</td></tr>
+      <tr><td><code>catalyst_regime_partition.py</code></td><td><b>The lens.</b> Breaks results down by family, direction, exit reason.</td><td>Always. The pooled number lies</td></tr>
+    </tbody>
+  </table></div>
+  <div class="flow">anchor date  →  screener runs <b>as of</b> that date (point-in-time pinned)
+             →  picks
+             →  replay simulates each pick forward, bar by bar
+             →  per-trade <b>matched</b> alpha
+             →  aggregate per anchor  →  summary.csv
+             →  walkforward_oos.py    →  <b>PASS / STOP / NO-EDGE</b>
+             →  catalyst_regime_partition.py  →  where the edge actually lives</div>
+</section>
+
+<section id="s3">
+  <h2><span class="n">03</span>Running one</h2>
+  <p>The canonical bull re-baseline. Recovery is the same with
+  <code>--screener recovery</code>. It takes hours — per-anchor fundamental fetches —
+  so run it detached and read the log later.</p>
+  <pre>python -u validation.py --months 24 --universe nifty500 <b>--catalyst_windows</b> --bootstrap_n 10000</pre>
+  <div class="tw"><table>
+    <thead><tr><th>Flag</th><th>Default</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>--months</code></td><td class="num">12</td><td>How far back to walk. 24 is the standard baseline.</td></tr>
+      <tr><td><code>--universe</code></td><td>nifty100</td><td><code>nifty500</code> for a real run.</td></tr>
+      <tr><td><code>--screener</code></td><td>bull</td><td><code>bull</code> or <code>recovery</code>.</td></tr>
+      <tr><td><code>--catalyst_windows</code></td><td>off</td><td><b>Turn this on.</b> Each catalyst gets its design horizon instead of a flat 30 days.</td></tr>
+      <tr><td><code>--bootstrap_n</code></td><td class="num">0</td><td>10000 gives a confidence interval. Without it you have a point estimate and no idea if it is noise.</td></tr>
+      <tr><td><code>--gate</code></td><td>catalyst</td><td><code>s4go</code> instead simulates entering only on an S4 GO.</td></tr>
+      <tr><td><code>--forward</code></td><td class="num">30</td><td>Only used when <code>--catalyst_windows</code> is off.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>The one check to run before reading any result</h3>
+  <pre>python -c "import pandas as pd; d=pd.read_csv('validation_runs/&lt;run&gt;_details.csv'); print(d['forward_days_used'].value_counts())"</pre>
+  <div class="note warn">
+    <span class="tag">This is not hypothetical</span>
+    <p>If you asked for <code>--catalyst_windows</code> you must see <b>60 / 90 / 120 / 180</b>
+    in that output. Seeing only <code>30</code> means the windows silently did not apply and
+    the run is invalid. An <b>11.6-hour recovery run was thrown away</b> because recovery
+    emits its label in a column called <code>Signal_Label</code> while replay was reading
+    <code>Catalyst</code> — so every pick fell through to the 30-day default, with the flag on.</p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="n">04</span>How the simulator actually trades</h2>
+  <p><code>replay.py</code>, bar by bar on daily data:</p>
+  <ul>
+    <li><b>Entry</b> — default <code>entry_mode="retest"</code>: a buy-limit at the trigger
+    bar's close, filled on the first pullback within the retest window. This is the default
+    because it was measured: buy-stop <b>−0.02%</b> mean matched alpha versus retest
+    <b>+0.38%</b>, better in <em>every</em> family, filling 320 names against 268.</li>
+    <li><b>Costs</b> — <code>COST_PER_LEG_DEFAULT = 0.10</code> (%). STT + brokerage + slippage.</li>
+    <li><b>Stop</b> — catalyst-aware; positional 4×ATR, swing tighter.
+    <code>STRUCTURAL_SL = False</code>: the structural variant had the best mean
+    <em>and</em> passed the OOS gate, and was <b>still rejected</b> — the median went
+    −0.48R → −1.01R and stop-outs 11.8% → 52.7%.</li>
+    <li><b>Targets</b> — R-canon: positional 3R/5R, swing 2R/4R, nothing under 2R.
+    Partials 25/25 for positional, so half the position rides the trail uncapped.</li>
+    <li><b>Exit</b> — initial SL, trail SL, target, or time expiry at the horizon.</li>
+  </ul>
+
+  <h3>The design horizons — <code>FWD_DAYS_BY_CATALYST</code></h3>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th class="num">Days</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><b>POS-ACCUM</b></td><td class="num">180</td><td>Stage 1→2 accumulation takes months</td></tr>
+      <tr><td><b>POS-BO</b>, <b>WYC-*</b></td><td class="num">120</td><td>4–6 month positional evaluation</td></tr>
+      <tr><td><b>REV-*</b></td><td class="num">90</td><td>Recovery needs a quarter to play out</td></tr>
+      <tr><td><b>SWG-PB</b></td><td class="num">60</td><td>The pullback must complete <em>before</em> the swing runs</td></tr>
+      <tr><td><b>SWG-BO</b></td><td class="num">30</td><td>Matches the design</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="s5">
+  <h2><span class="n">05</span>The six gates a result must clear</h2>
+  <p>A number does not change anything until it survives all six. Each one exists because
+  it caught a wrong conclusion of ours at least once.</p>
+  <div class="gates">
+    <div class="gate"><div class="g">1</div><div class="gb">
+      <p class="gt">Plateau</p>
+      <p class="gd">The neighbouring parameter cells must also beat control. A lone winning cell is noise.</p></div></div>
+    <div class="gate"><div class="g">2</div><div class="gb">
+      <p class="gt">Interior</p>
+      <p class="gd">If the best cell sits at the edge of the grid, the grid is mis-specified — the search just ran to the boundary. An edge winner <b>fails</b>.</p></div></div>
+    <div class="gate"><div class="g">3</div><div class="gb">
+      <p class="gt">Out-of-sample retention</p>
+      <p class="gd">OOS must keep <b>≥50%</b> of the in-sample margin. One study retained +0.19pp of a +5.84pp margin — a 97% collapse — and still passed a naive "is it positive" test.</p></div></div>
+    <div class="gate"><div class="g">4</div><div class="gb">
+      <p class="gt">Bootstrap stability</p>
+      <p class="gd">The winner or a neighbour must win in ≥25% of 500 resamples, and the 5th percentile of (best − control) must exceed zero.</p></div></div>
+    <div class="gate"><div class="g">5</div><div class="gb">
+      <p class="gt">Median</p>
+      <p class="gd">Not worse by more than 0.25R. A better mean with a much worse median means you converted quick small losses into slow large ones.</p></div></div>
+    <div class="gate"><div class="g">6</div><div class="gb">
+      <p class="gt">The overfit gate</p>
+      <p class="gd"><span class="chip pass">Pass</span> needs IS alpha &gt; 0, OOS alpha &gt; 0, and OOS Sharpe ≥ <b>60%</b> of IS. <span class="chip stop">Stop</span> means the edge degraded past 40% or flipped negative. <span class="chip none">No-edge</span> means IS alpha was already ≤ 0 — nothing to overfit, so the problem is the signal, not the fit.</p></div></div>
+  </div>
+  <div class="note">
+    <span class="tag">The unit rule</span>
+    <p>Measure stops and sizing in <b>R, never in per-trade %</b>. Position size is
+    <code>risk / (k × ATR)</code>, so a percentage metric structurally rewards a wider stop
+    for exposure it never paid for. Re-running one stop study in R <b>inverted</b> a
+    conclusion that had already been reported.</p>
+  </div>
+</section>
+
+<section id="s6">
+  <h2><span class="n">06</span>Read it per family. Always.</h2>
+  <p>Pooling has produced a false conclusion <b>three separate times</b>:</p>
+  <ul>
+    <li>June 2026: a pooled <span class="chip none">No-edge</span> verdict. Per family,
+    POS-BO was <b>+7.67%</b> with PF 3.14 — 17 positional winners drowned by 115 bleeding
+    swing trades.</li>
+    <li>"The swing book has no OOS edge." Wrong: SWG-PB was <b>+0.42% IS / +0.52% OOS</b>,
+    the most stable catalyst in the book. It had been pooled with SWG-REV, the actual drag.</li>
+    <li>A pooled stop-out rate that hid the fact that SWG-PB stops out <em>more often</em>
+    than SWG-REV and is profitable anyway.</li>
+  </ul>
+  <p>So: <b>split by catalyst family before concluding anything.</b> And when a family has
+  n &lt; 30, say so, and do not act on it.</p>
+  <div class="note warn">
+    <span class="tag">Live warning — the direction split is currently endogenous</span>
+    <p>"UP tape / DOWN tape" is derived from the sign of the benchmark over the matched
+    window — and after the horizon fix that window's <em>length</em> is
+    <code>days_held</code>, which is an <b>outcome</b>. Fast stop-outs self-select into
+    DOWN, long runners into UP. The old "breakouts behave defensively in down tapes" claim
+    was an artifact of this and is <b>retired</b>. Do not replace it with a smaller version
+    of the same claim — fix the label first by deriving direction from an
+    <b>ex-ante</b> window.</p>
+  </div>
+</section>
+
+<section id="s7">
+  <h2><span class="n">07</span>The four mistakes that cost the most</h2>
+  <p>Each of these produced a confident, wrong answer that was acted on before it was caught.</p>
+  <ol>
+    <li><b>Window mismatch.</b> Judging a 180-day accumulation setup on a 30-day forward
+    window. This produced recommendations to <em>delete</em> catalysts that were fine; all
+    were rolled back. Never assess a positional or recovery setup on a short window.</li>
+    <li><b>Full-window benchmark against an early-exiting trade.</b> The stock leg exited
+    at ~30 days while the benchmark leg ran the full 120–180. 92% of trades were affected.
+    Headline alpha fell <b>+2.56% → +0.80%</b> and the median went negative when fixed.
+    If a trade can exit early, <b>the benchmark must exit with it</b>.</li>
+    <li><b>Endogenous labelling.</b> Detecting a "confirmation" inside a window that
+    overlaps the outcome window measures <em>"it rallied, so it both confirmed and
+    returned"</em>. An apparent <b>+6.54pp</b> out-of-sample edge evaporated entirely under
+    a clean disjoint-window harness.</li>
+    <li><b>Pooling</b> — see section 06.</li>
+  </ol>
+</section>
+
+<section id="s8">
+  <h2><span class="n">08</span>What the harness currently says</h2>
+  <p>On the corrected conventions — bull, 24 months, Nifty 500, catalyst-aware:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Measure</th><th class="num">Value</th><th>Read</th></tr></thead>
+    <tbody>
+      <tr><td>Mean matched alpha</td><td class="num">+0.5 to +1.0%</td><td>Per trade</td></tr>
+      <tr><td>Median trade</td><td class="num">negative</td><td><b>The typical trade loses to the index</b></td></tr>
+      <tr><td>Win rate</td><td class="num">~⅓</td><td>Low-hit-rate, big-winner-carried</td></tr>
+      <tr><td>Ever reach 3R</td><td class="num">8.4%</td><td>Targets are near-decorative</td></tr>
+      <tr><td>P(α &gt; 0)</td><td class="num">≈ 50%</td><td>CI straddles zero</td></tr>
+      <tr><td>Die at initial stop</td><td class="num">40% @ ~7d</td><td>5.9% win rate in that bucket</td></tr>
+      <tr><td>Trail owns</td><td class="num">88%</td><td>Of positional exits — the least-tested lever</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">The honest read</span>
+    <p>The correctness fixes made the measurement trustworthy; <b>they did not create an
+    edge</b>. Plan around <b>+1%, not +5%</b>. And note the standing recommendation:
+    30 positional trades logged through guided execution would tell us more than another
+    backtest, because live execution is the one thing this harness structurally cannot
+    measure.</p>
+  </div>
+
+  <h3>Two re-baselines since — and the second one changes how to read the first</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Run</th><th>What changed in the code</th><th>Mean matched α</th><th>P(α&gt;0)</th></tr></thead>
+    <tbody>
+      <tr><td>26 Jul</td><td>The matched-horizon fix</td><td class="num">+0.80%</td><td class="num">81.9%</td></tr>
+      <tr><td>29 Jul</td><td>Strict-trend port corrected (stage gate)</td><td class="num">+0.54%</td><td class="num">40.3%</td></tr>
+      <tr><td>19 Aug</td><td>RRG unified · forming-week dropped</td><td class="num">+0.30%</td><td class="num">46.1%</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">The 29 July result is the one to absorb</span>
+    <p><b>456 of 464 picks were byte-identical</b> before and after the stage fix — 2.4% of the
+    book moved. Yet the headline fell from +0.80% to +0.54% and the cumulative alpha went
+    <b>+15.08% → −3.55%</b>, because <b>one anchor</b> held one trade at <b>+79.35%</b> that the
+    corrected stage gate now blocks. Remove that single trade and the aggregate flips.</p>
+    <p>So do not read it as "the fix broke the edge". Read it as: <b>the edge was never
+    statistically distinguishable from zero, and the point estimate was being held up by one
+    outlier in a five-pick anchor.</b> Both runs' confidence intervals straddle zero — the earlier
+    one did too. <b>Judge the FIX on parity and the STRATEGY on the new number; they are separate
+    questions.</b></p>
+  </div>
+  <div class="note">
+    <span class="tag">26 Aug — the location rule, pre-registered and null</span>
+    <p>Any-zone, rule A2 and pattern-only compared over eighteen anchors on identical candidates:
+    <b>−0.44%</b>, <b>−0.54%</b>, <b>−0.65%</b> mean matched alpha — a spread of <b>0.21
+    percentage points</b> across arms that share most of their trades, which the pre-registration
+    had already defined as a null. Filled trades fell <b>221 → 88 → 51</b>.</p>
+    <p><b>Tightening location buys fewer trades, not better ones.</b> The first run of this test
+    was mis-specified — the S/R and AVWAP fallbacks ran for every arm, so "pattern-only" still
+    admitted names with no zone at all — and it returned the answer the hypothesis wanted. That
+    version was discarded before anything was read from it, which is the only reason the null
+    stands.</p>
+  </div>
+</section>
+
+<section id="s9">
+  <h2><span class="n">09</span>Glossary</h2>
+  <dl class="gloss">
+    <div class="gi"><dt>Alpha (matched)</dt><dd>The trade's return minus the benchmark's return <b>over the same holding period</b>. "Matched" is the load-bearing word — see mistake 2.</dd></div>
+    <div class="gi"><dt>Anchor</dt><dd>A historical date the screener is run as of. Anchors sit roughly a month apart.</dd></div>
+    <div class="gi"><dt>ATR</dt><dd>Average True Range, the volatility unit. Stops and extension are quoted in multiples of it so they mean the same thing across names.</dd></div>
+    <div class="gi"><dt>Bootstrap</dt><dd>Resampling the results thousands of times to see how much the answer moves; produces the CI and P(α&gt;0). <b>Resample by symbol, not by row</b> — with a 20-day window on daily bars, consecutive rows share ~95% of their outcome window, so row-level resampling wildly overstates the sample size.</dd></div>
+    <div class="gi"><dt>Catalyst / family</dt><dd>The setup label a pick fired on (POS-BO, POS-ACCUM, SWG-PB, SWG-BO, SWG-REV, REV-*, WYC-*). "Family" is the prefix: POS, SWG, REV, WYC.</dd></div>
+    <div class="gi"><dt>Chandelier</dt><dd>A trailing stop hung from the highest close over a lookback, minus a multiple of ATR. Catalyst-aware — positional 4.5×, swing 1.5×. Tighten-only.</dd></div>
+    <div class="gi"><dt>Confidence interval</dt><dd>The range the true value plausibly occupies. <b>If it straddles zero you do not have a demonstrated edge</b>, whatever the point estimate says.</dd></div>
+    <div class="gi"><dt>Embargo</dt><dd>A gap inserted between the IS and OOS windows so overlapping trade horizons cannot leak across the split.</dd></div>
+    <div class="gi"><dt>Expectancy</dt><dd>Average outcome per trade. Mean R is the honest version.</dd></div>
+    <div class="gi"><dt>Forward window</dt><dd>How long a pick is tracked. Should equal the setup's <em>design</em> horizon — hence <code>--catalyst_windows</code>.</dd></div>
+    <div class="gi"><dt>IS / OOS</dt><dd>In-sample (the earlier 60%) and out-of-sample (the later 40%). Split by <b>time</b>, never randomly.</dd></div>
+    <div class="gi"><dt>NO-EDGE</dt><dd>The gate's verdict when IS alpha is already ≤ 0. Not an overfit diagnosis — there was nothing to overfit. Fix the signal.</dd></div>
+    <div class="gi"><dt>PASS / STOP</dt><dd>Gate verdicts. PASS needs positive alpha in both windows and OOS Sharpe ≥ 60% of IS. STOP means the edge degraded past 40% or flipped negative.</dd></div>
+    <div class="gi"><dt>PF (profit factor)</dt><dd>Gross wins ÷ gross losses. Above 1 makes money; below 1 does not.</dd></div>
+    <div class="gi"><dt>Point-in-time</dt><dd>The discipline of computing every input using only data that existed at the anchor date. Enforced by pinning in <code>data_provider</code>, with runtime assertions. Violating it is look-ahead bias and invalidates everything downstream.</dd></div>
+    <div class="gi"><dt>R / R-multiple</dt><dd>Profit or loss in units of the risk originally taken — a trade risking ₹1,000 that makes ₹2,000 is +2R. <b>The correct unit for any stop or sizing study</b>, because percentage returns silently reward wide stops.</dd></div>
+    <div class="gi"><dt>Retest entry</dt><dd>Buying the pullback to the trigger bar's close rather than chasing a buy-stop above its high. The measured default.</dd></div>
+    <div class="gi"><dt>Sharpe / Sortino / Calmar</dt><dd>Risk-adjusted return measures. Sortino penalises only downside volatility; Calmar divides return by max drawdown.</dd></div>
+    <div class="gi"><dt>Slippage / cost per leg</dt><dd>0.10% charged on each entry and each exit.</dd></div>
+    <div class="gi"><dt>Stop-out</dt><dd>An exit at the <em>initial</em> stop, distinct from a trail-SL exit. The distinction matters — a trail exit is often a profit-protect, and conflating the two once produced a false panic about the stop being too tight.</dd></div>
+    <div class="gi"><dt>Survivorship bias</dt><dd>The universe holds only names that still exist today, so past failures are invisible and every result is an upper bound.</dd></div>
+    <div class="gi"><dt>Time expiry</dt><dd>The trade ran to the end of its forward window without hitting a stop or target. Historically the most profitable exit bucket — which is a comment on the stops, not a strategy.</dd></div>
+    <div class="gi"><dt>Trail SL</dt><dd>The moving stop. Owns 88% of positional exits and is the least-tested lever in the system.</dd></div>
+    <div class="gi"><dt>Walk-forward</dt><dd>Re-running the screen at successive historical anchors rather than fitting once across the whole period.</dd></div>
+  </dl>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/27 · Backtest Process &amp; Glossary</span>
+  <span>Companions — docs/25 Golden Rules · docs/26 Operating Loop · docs/16 Validation Framework</span>
+</div></footer>
