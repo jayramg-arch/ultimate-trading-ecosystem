@@ -132,7 +132,9 @@ OWES = {
     # scoping error on my part; it owes neither.
     "50a2b6ce": set(),                                        # 04 Inst. Footprint
     "886ba1e4": {"REACTING location"},                       # 18 Trade Funnel
-    "577f5e2e": {"REACTING location"},                       # 24 Pre-Trade Gate
+    # 24 QUOTES the gates verbatim by design and never interprets them, so it owes
+    # the procedural consequence of an expiring gate, not the semantics.
+    "577f5e2e": set(),                                        # 24 Pre-Trade Gate
 }
 
 LOCAL = {
@@ -146,6 +148,8 @@ LOCAL = {
     "0aa8c4bb": "13_unified.html",
     "c97d2473": "08_swing_pro.html",
     "50a2b6ce": "04_footprint.html",
+    "886ba1e4": "18_trade_funnel.html",
+    "577f5e2e": "24_pretrade_gate.html",
 }
 
 
