@@ -957,7 +957,7 @@ gm_rec_list = input.string("", "Auto: GM Recovery list (paste from the Golden Ma
 gm_bff_list = input.string("", "GM: BFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Bull Fundamental Filter score the Golden Matcher computed, carried across as text because Pine cannot compute it: BFF reads screener.in's compounded-growth table, which no Pine surface can reach.\n\nFormat: SYM:n pairs, comma separated - RELIANCE:7, TECHM:5, CIPLA:6. Spaces, newlines, semicolons and NSE: prefixes are all tolerated; matching is case-insensitive.\n\nA symbol NOT in the list renders as an em-dash, not a zero - unscored and scored-badly are different facts. DISPLAY ONLY: BFF never gates anything here, exactly as in the GM.")
 etf_prem_max = input.float(3.0, "ETF: max premium to NAV (%)", group=grpPZ, minval=0.5, maxval=25.0, step=0.5, tooltip="An ETF whose price sits further than this from its NAV is refused, however good the chart looks.\n\nThis is the only ETF-specific VETO on the panel, and it earns that status by not being a prediction. Trend, RRG and liquidity were all measured on 39-45 point-in-time anchors and none separated winners from losers inside the tradeable set, so they grade rather than gate. Premium is arithmetic: at +21% you are paying Rs 121 for Rs 100 of assets and the loss is booked on entry, whatever the index does next. No pattern, zone or trigger can see it -- they all read the PRICE, and the price is the thing that is wrong.\n\n3.0 sits above a normal day (p90 of the universe is 1.34%) and far below the structural cases (~19.5% on the international ETFs, where SEBI's overseas cap suspended unit creation so there is no arbitrage to close the gap). Raise it only for a deliberate allocation at a known premium.")
 gm_rank_list = input.string("", "GM: board rank  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="#10 (25-Aug-2026). The Golden Matcher board's OVERALL score for this symbol - the composite it ranks the watchlist by. S4 grades ONE chart and has no idea where that chart sits among the other forty; this is the only way the panel can tell you that a clean-looking setup is the 38th best name on the list.\n\nFormat: SYM:n pairs - RELIANCE:72, TECHM:64. Parsed by the same reader as the BFF/RFF lists.\n\nDISPLAY ONLY. It never gates and never scores: the board rank already contains most of what this panel measures, so feeding it back into the confluence would be double-counting the same evidence. Absent renders an em-dash - unranked is not the same as ranked low.")
-gm_rff_list = input.string("", "GM: RFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Recovery Fundamental Fitness score (0-10) from recovery_screener. Pine CANNOT compute this - TradingView caps request.financial() at five calls per script and the Capitulation Screener already spends that budget on a two-check RFF Lite. The GM is the authority; this only carries its answer.\n\nFormat: SYM:n pairs - TECHM:6, CIPLA:4.\n\nColoured against the GM's own hard gate (RFF >= 4): below it the name is fundamentally weak and the GM would reject it, which is worth seeing before you plan the trade. Absent renders as an em-dash - the GM has not scored it - never as a failure.")
+gm_pio_list = input.string("", "GM: Piotroski F-Score  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Piotroski F-Score (0-9) the X-Ray computed. Nine pass/fail fundamental tests -- profitability, leverage and operating efficiency, each against the PRIOR year. Pine cannot compute it: that is far more than the five request.financial() calls TradingView allows, and the board has already paid for it.\n\nFormat: SYM:n pairs - RELIANCE:7, TECHM:5.\n\n7-9 is strong, 4-6 middling, 0-3 weak. DISPLAY ONLY: it never gates and never scores. Absent renders an em-dash, because unscored and scored-badly are different facts.")\ngm_rff_list = input.string("", "GM: RFF scores  (SYM:n, paste from the Golden Matcher)", group=grpPA, tooltip="The Recovery Fundamental Fitness score (0-10) from recovery_screener. Pine CANNOT compute this - TradingView caps request.financial() at five calls per script and the Capitulation Screener already spends that budget on a two-check RFF Lite. The GM is the authority; this only carries its answer.\n\nFormat: SYM:n pairs - TECHM:6, CIPLA:4.\n\nColoured against the GM's own hard gate (RFF >= 4): below it the name is fundamentally weak and the GM would reject it, which is worth seeing before you plan the trade. Absent renders as an em-dash - the GM has not scored it - never as a failure.")
 
 // STRIKE RRG (10-Aug-2026) — the manual Strike.Money weekly read, handed over by the
 // GM exactly like the Recovery and Pullback lists above. Four inputs rather than one
@@ -1647,6 +1647,7 @@ string _gmEtfP = core.bundleSection(gm_bundle, "ETFP")
 float _bffV = core.fundScore(_gmBff, syminfo.ticker)
 float _rffV = core.fundScore(_gmRff, syminfo.ticker)
 float _rnkV = core.fundScore(_gmRank, syminfo.ticker)
+float _pioV = core.fundScore(f_gmPick(gm_pio_list, "PIO"), syminfo.ticker)
 float _etfLiq = core.fundScore(_gmEtfL, syminfo.ticker)
 float _etfPrm = core.fundScore(_gmEtfP, syminfo.ticker)
 // A symbol present in EITHER list is an ETF the board has scored. Using both
@@ -3424,19 +3425,19 @@ if en_wcl and en_wcl_vp and not na(vp_poc)
     _poc_dist := (close - vp_poc) / vp_poc * 100.0
     if close > vp_vah
         _vp_score := 3
-        _vp_pos_str := "✓ ABOVE VAH"
+        _vp_pos_str := "🟢 ABOVE VAH"
         _vp_pos_col := C_OK
     else if close > vp_poc
         _vp_score := 1
-        _vp_pos_str := "✓ IN VA (upper)"
+        _vp_pos_str := "🟢 IN VA (upper)"
         _vp_pos_col := color.new(#26a69a, 40)
     else if close > vp_val
         _vp_score := -1
-        _vp_pos_str := "✗ IN VA (lower)"
+        _vp_pos_str := "⚪ IN VA (lower)"
         _vp_pos_col := C_WARN
     else
         _vp_score := -3
-        _vp_pos_str := "✗ BELOW VAL"
+        _vp_pos_str := "🔴 BELOW VAL"
         _vp_pos_col := C_NO
 
 // ── WCL Context Score & Setup Detector (S1-S8) ───────────────────────────
@@ -3459,13 +3460,13 @@ bool _setup_bear = false
 if en_wcl and en_wcl_stp
     _wyk_fresh_15  = not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 15
     if wyk_score_base == 3 and _wyk_fresh_15 and smc_trend_up and _vp_score >= 1 and _total_base >= 4
-        _setup_str := "✓ S2 — Spring/LPS Reversal"
+        _setup_str := "🟢 S2 — Spring/LPS Reversal"
         _setup_pri := 5
     else if _vp_score >= 1 and wyk_bias == "ACCUMULATION" and _total_base >= 2
-        _setup_str := "✓ S1 — OB Retest + VP Support"
+        _setup_str := "🟢 S1 — OB Retest + VP Support"
         _setup_pri := 3
     else if smc_last_was_bull and not smc_last_choch and not na(smc_last_bar) and (bar_index - smc_last_bar) <= 20 and not na(vp_vah) and close > vp_vah and choch_count_20 <= 1
-        _setup_str := "✓ S5 — Stage 2 Continuation > VAH"
+        _setup_str := "🟢 S5 — Stage 2 Continuation > VAH"
         _setup_pri := 2
     else if wyk_score_base <= -3 and _wyk_fresh_15 and not smc_trend_up and _total_base <= -3
         _setup_str := "✗ S7 — Distribution Breakdown"
@@ -4675,7 +4676,7 @@ if show_panel and d_panel and barstate.islast
     // being read as a chart level that isn't there. The horizontal S/R levels live in
     // the "S/R (nearest)" row below — a different, static price-memory engine.
     f_row(22, "AVWAP", _avwTxt, avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
-    string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "GO 10EMA+sqz" : "GO 10EMA") : (ema_reclaim[_so] ? "10EMA ok" : (sqz_on[_so] ? "sqz ON, wait EMA" : "wait")))
+    string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "🟢 GO 10EMA+sqz" : "🟢 GO 10EMA") : (ema_reclaim[_so] ? "⚪ 10EMA ok" : (sqz_on[_so] ? "⚪ sqz ON, wait EMA" : "🔴 wait")))
     // relocated to row 24 (24-Jul) — row 11 now holds the dedicated Location (L) row,
     // keeping the P(10)·L(11)·V(12) trigger-gate block contiguous, per Jay's sequence.
     f_row(21, "Intraday " + timeframe.period, intra_status, intra_ok_v ? C_REC : C_MUTE)
@@ -4800,7 +4801,7 @@ if show_panel and d_panel and barstate.islast
         string _arS = _so_arr_style
         bool   _arF = arr_fav[_so]
         bool   _arA = _so_of_absorb
-        string _arrTxt = (_arS == "—") ? "— (not at a zone)" : (_arS + (na(arr_vel[_so]) ? "" : " " + str.tostring(arr_vel[_so], "0.00") + " ATR/bar") + "  │  " + of_read[_so])
+        string _arrTxt = (_arS == "—") ? "— (not at a zone)" : ((_arS == "FAST" ? "🟢 " : _arS == "GRIND" ? "🔴 " : "⚪ ") + _arS + (na(arr_vel[_so]) ? "" : " " + str.tostring(arr_vel[_so], "0.00") + " ATR/bar") + "  │  " + (str.contains(of_read[_so], "ABSORB") ? "🟢 " : str.contains(of_read[_so], "BLEED") ? "🔴 " : "⚪ ") + of_read[_so])
         color  _arrCol = (_arS == "—") ? color.gray : (_arF and _arA) ? C_GO : _arA ? C_OK : (_arS == "GRIND") ? C_WARN : color.new(#9598a1,0)
         f_row(27, "Arrival · Δ", _arrTxt, _arrCol)
 
@@ -5020,13 +5021,13 @@ if show_panel and d_panel and barstate.islast
         // smallcap and enormous on an index ETF. ext_atr is already computed globally.
         string _ext = nz(ext_atr, 0.0) >= ext_atr_max ? "OvrExt" : nz(ext_atr, 0.0) >= ext_warn_atr ? "Extended" : "Norm"
         if high > _useEma and close < _useEma
-            ema_txt := "RESISTANCE (hit head)"
+            ema_txt := "🔴 RESISTANCE (hit head)"
             ema_col := C_NO
         else if low < _useEma and close > _useEma
-            ema_txt := "SUPPORT (bounced)"
+            ema_txt := "🟢 SUPPORT (bounced)"
             ema_col := C_OK
         else if _absDist < 1.0
-            ema_txt := "NEAR (" + str.tostring(_emaDist, "0.0") + "%)"
+            ema_txt := "⚪ NEAR (" + str.tostring(_emaDist, "0.0") + "%)"
             ema_col := C_INFO
         else if close > _useEma
             ema_txt := "ABOVE +" + str.tostring(_emaDist, "0.0") + "% (" + _ext + ")"
@@ -5060,9 +5061,9 @@ if show_panel and d_panel and barstate.islast
     // already carries the EMA20 distance in both units and a second row would restate
     // it. Reads first because it is the risk headline.
     float _xa = nz(ext_atr, 0.0)
-    string _xBand = na(ext_atr) ? "" : _xa >= ext_atr_max ? "LATE"
-      : _xa >= ext_warn_atr ? "EXTENDED" : _xa >= ext_band_hi ? "CHASING"
-      : _xa >= ext_band_lo ? "SWEET SPOT" : "EARLY"
+    string _xBand = na(ext_atr) ? "" : _xa >= ext_atr_max ? "🔴 LATE"
+      : _xa >= ext_warn_atr ? "🔴 EXTENDED" : _xa >= ext_band_hi ? "⚪ CHASING"
+      : _xa >= ext_band_lo ? "🟢 SWEET SPOT" : "⚪ EARLY"
     color _xCol = _xa >= ext_warn_atr ? C_NO : _xa >= ext_band_hi ? C_WARN
       : _xa >= ext_band_lo ? C_OK : C_WARN
     // Measured character of THIS band, from the run above. Averages, not predictions.
@@ -5135,7 +5136,7 @@ if show_panel and d_panel and barstate.islast
     // --- TRIGGER: the COMBINED gate = Event + Volume + Intraday (highlighted) ---
     color _trigBg = f_softBg(trig_col)
     table.cell(pnl, 0, 31, "TRIGGER", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_right, text_formatting=text.format_bold)
-    table.merge_cells(pnl, 1, 33, PA_LAST_COL, 33)
+    table.merge_cells(pnl, 1, 31, PA_LAST_COL, 31)   // TRIGGER lives on 31
     table.cell(pnl, 1, 31, trig_txt, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_trigBg, text_halign=text.align_left, text_formatting=text.format_bold)
     // Plan prints ONLY when TRIGGER = GO (a trigger fired AND volume is there).
     // Plan SL = STRUCTURAL invalidation, not the far Stage-1 AVWAP (old bug gave a ~24%
@@ -5606,7 +5607,7 @@ if show_panel and d_panel and barstate.islast
     // the slot carries the ETF quality read instead: liquidity and premium, the
     // two facts about the WRAPPER that no price-based row can show.
     string _etfTxt = "  │  ETF " + (na(_etfLiq) ? "—Cr" : "₹" + str.tostring(_etfLiq, "0.0") + "Cr" + (_etfLiq < 1.0 ? " THIN" : "")) + "  │  NAV " + (na(_etfPrm) ? "—" : str.tostring(_etfPrm, "+0.0") + "%" + (_etfPrmBad ? " 🔴" : math.abs(_etfPrm) >= 1.0 ? " ⚪" : " 🟢"))
-    string _fndTxt = _isEtf ? _etfTxt : "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪"))
+    string _fndTxt = _isEtf ? _etfTxt : "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= 4 ? " 🟢" : " 🔴")) + "  │  BFF " + (na(_bffV) ? "—" : str.tostring(_bffV, "0") + (_bffV >= 4 ? " 🟢" : " ⚪")) + "  │  F " + (na(_pioV) ? "—" : str.tostring(_pioV, "0") + "/9" + (_pioV >= 7 ? " 🟢" : _pioV >= 4 ? " ⚪" : " 🔴"))
     string _basis  = "Stage " + str.tostring(stage_n) + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  │  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _fndTxt
     f_row(2, "Structure basis", _basis, is_rec_v ? C_REC : C_OK)
     // ML win probability — bound, never recomputed. Unbound, input.source returns
@@ -5620,12 +5621,12 @@ if show_panel and d_panel and barstate.islast
     // v6.1 verdict rewrite removed (a panel restating itself). ATR appears here as a
     // PERCENT of price, which is the comparable form; the absolute ATR is already in
     // the Plan row where it sizes the stop.
-    string _cprTxt = na(_cprPivot) ? "CPR —" : (close >= _cprPivot ? "above CPR " : "below CPR ") + str.tostring(_cprPivot, format.mintick)
-    string _mvwTxt = na(_mvwap) ? "MVWAP —" : (close >= _mvwap ? "above MVWAP " : "below MVWAP ") + str.tostring(_mvwap, format.mintick)
-    string _momTxt = "ADX " + str.tostring(_adxV, "0.0") + (_diP > _diM ? " +DI" : " -DI") + " (" + str.tostring(_diP, "0") + "/" + str.tostring(_diM, "0") + ")"
-      + "  │  ATR " + (_atrPct > 0 ? str.tostring(_atrPct, "0.0") + "%" : "—")   // reuses the closed-bar _atrPct from the trade-type block; it returns 0.0, never na
+    string _cprTxt = na(_cprPivot) ? "⚪ CPR —" : (close >= _cprPivot ? "🟢 above CPR " : "🔴 below CPR ") + str.tostring(_cprPivot, format.mintick)
+    string _mvwTxt = na(_mvwap) ? "⚪ MVWAP —" : (close >= _mvwap ? "🟢 above MVWAP " : "🔴 below MVWAP ") + str.tostring(_mvwap, format.mintick)
+    string _momTxt = (_adxV >= 25.0 and _diP > _diM ? "🟢 " : _adxV < 20.0 ? "⚪ " : "🔴 ") + "ADX " + str.tostring(_adxV, "0.0") + (_diP > _diM ? " +DI" : " -DI") + " (" + str.tostring(_diP, "0") + "/" + str.tostring(_diM, "0") + ")"
+      + "  │  ⚪ ATR " + (_atrPct > 0 ? str.tostring(_atrPct, "0.0") + "%" : "—")   // reuses the closed-bar _atrPct from the trade-type block; it returns 0.0, never na
       + "  │  " + _cprTxt + "  │  " + _mvwTxt
-      + "  │  VCP " + (kVCP ? "✓" : "·")
+      + "  │  VCP " + (kVCP ? "🟢" : "⚪")
     f_row(16, "Momentum & value", _momTxt, _adxV >= 25.0 and _diP > _diM ? C_OK : _adxV < 20.0 ? C_MUTE : C_WARN)
     // GM rank joins the ML row (Jay, 26-Aug): both are SCORES of the setup rather than
     // facts about its structure, so they read together and Structure basis is left to
@@ -5653,7 +5654,7 @@ if show_panel and d_panel and barstate.islast
     color _status_col = go_v ? C_OK : C_WARN
     color _stBg = f_softBg(_status_col)
     table.cell(pnl, 0, 32, "STATUS", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_right)
-    table.merge_cells(pnl, 1, 34, PA_LAST_COL, 34)
+    table.merge_cells(pnl, 1, 32, PA_LAST_COL, 32)   // STATUS lives on 32
     table.cell(pnl, 1, 32, _status, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_stBg, text_halign=text.align_left)
 
     // SUMMARY — the whole panel read as ONE judgement (19-Aug-2026, Jay: "the current
@@ -5841,7 +5842,7 @@ if show_panel and d_panel and barstate.islast
     if show_analysis
         color _verBg = f_softBg(_anCol)
         table.cell(pnl, 0, 33, "VERDICT", text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_right)
-        table.merge_cells(pnl, 1, 35, PA_LAST_COL, 35)
+        table.merge_cells(pnl, 1, 33, PA_LAST_COL, 33)   // VERDICT lives on 33
         table.cell(pnl, 1, 33, "➤ " + _aVer, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are

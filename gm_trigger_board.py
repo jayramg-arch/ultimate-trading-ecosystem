@@ -2018,7 +2018,7 @@ def s4_fund_lists(tf: str = None) -> dict:
     board has no scores on. Never raises -- a board problem must not take the GM
     page down.
     """
-    out = {"BFF": "", "RFF": "", "RANK": "", "ETFL": "", "ETFP": ""}
+    out = {"BFF": "", "RFF": "", "RANK": "", "PIO": "", "ETFL": "", "ETFP": ""}
     try:
         df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)
     except Exception as e:
@@ -2053,6 +2053,20 @@ def s4_fund_lists(tf: str = None) -> dict:
             if sym and v == v:                       # NaN check without importing math
                 rk.append(f"{sym}:{round(v, 1)}")
         out["RANK"] = ",".join(sorted(set(rk)))
+
+    # PIOTROSKI F-SCORE (27-Aug-2026, Jay). The board already computes it in the X-Ray
+    # and renders it "n/9", so _num lifts the score with no new parsing. Pine cannot
+    # derive it: nine pass/fail tests against the PRIOR year is far past the five
+    # request.financial() calls TradingView allows, and the board has already paid for
+    # it once. Emitted like BFF/RFF -- absent means unscored, not zero.
+    if "Piotroski" in df.columns:
+        pio = []
+        for _, row in df.iterrows():
+            sym = _canon_key(row.get("Symbol"))
+            v = _num(row.get("Piotroski"))
+            if sym and v is not None:
+                pio.append(f"{sym}:{v}")
+        out["PIO"] = ",".join(sorted(set(pio)))
 
     # ETF LIQUIDITY + PREMIUM (25-Aug-2026). Two separate SYM:n tags rather than one
     # packed field, so S4 can read them with the SAME core.fundScore parser the BFF /
@@ -2099,7 +2113,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     forget, each one silent. One field is one chance.
 
     FORMAT  pipe-separated TAG=value, single line:
-        REC=..|PB=..|BFF=..|RFF=..|RANK=..|ETFL=..|ETFP=..
+        REC=..|PB=..|BFF=..|RFF=..|RANK=..|PIO=..|ETFL=..|ETFP=..
 
     EVERY tag is emitted even when its list is empty, and that is the point: an
     empty section CLEARS the corresponding input in S4. Omitting the tag would leave
@@ -2134,6 +2148,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         ("BFF",  fund.get("BFF", "")),
         ("RFF",  fund.get("RFF", "")),
         ("RANK", fund.get("RANK", "")),
+        ("PIO",  fund.get("PIO", "")),
         # ETF liquidity (Rs Cr, 60d) and premium/discount to NAV (%). Only ETFs
         # appear, so a stock chart reads an em-dash on both and nothing changes.
         ("ETFL", fund.get("ETFL", "")),

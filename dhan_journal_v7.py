@@ -209,6 +209,9 @@ def init_db():
             entry_rs REAL,
             entry_conviction REAL,
             snapshot_meta TEXT,
+            manual_sl_override REAL,
+            custom_ce_mult REAL,
+            pyramid_status TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -232,7 +235,10 @@ def load_db():
         'planned_rr': 'PlannedRR', 'ai_analysis': 'AI Analysis',
         'setup': 'Setup', 'entry_stage': 'EntryStage',
         'entry_alpha': 'EntryAlpha', 'entry_rs': 'EntryRS',
-        'entry_conviction': 'EntryConviction', 'snapshot_meta': 'SnapshotMeta'
+        'entry_conviction': 'EntryConviction', 'snapshot_meta': 'SnapshotMeta',
+        'manual_sl_override': 'Manual SL Override',
+        'custom_ce_mult': 'Custom CE Mult',
+        'pyramid_status': 'Pyramid Status'
     }
     return df.rename(columns=rename_map)
 
@@ -250,7 +256,10 @@ def upsert_trade(entry):
         'Quality': 'trade_quality', 'Compromises': 'compromises', 
         'Lessons': 'lessons', 'Screenshot': 'screenshot_path',
         'PlannedRR': 'planned_rr', 'AI Analysis': 'ai_analysis',
-        'AI_Analysis': 'ai_analysis'
+        'AI_Analysis': 'ai_analysis',
+        'Manual SL Override': 'manual_sl_override',
+        'Custom CE Mult': 'custom_ce_mult',
+        'Pyramid Status': 'pyramid_status'
     }
     
     clean_entry = {db_map[k]: v for k, v in entry.items() if k in db_map}
@@ -355,7 +364,9 @@ def migrate_db():
         # Lean entry-signal snapshot columns (see journal_enrichment.py).
         for _col, _type in (('setup','TEXT'), ('entry_stage','INTEGER'),
                             ('entry_alpha','INTEGER'), ('entry_rs','REAL'),
-                            ('entry_conviction','REAL'), ('snapshot_meta','TEXT')):
+                            ('entry_conviction','REAL'), ('snapshot_meta','TEXT'),
+                            ('manual_sl_override','REAL'), ('custom_ce_mult','REAL'),
+                            ('pyramid_status','TEXT')):
             if _col not in cols:
                 c.execute(f"ALTER TABLE journal ADD COLUMN {_col} {_type}")
             
@@ -660,7 +671,21 @@ for sym in active_symbols:
     live_target1 = 0.0
     live_target2 = 0.0
     if lookup_sym in live_orders_data:
-        ref_price = live_buy if live_buy > 0 else live_map[sym]['LTP']
+        # REFERENCE IS THE LTP, NOT THE BUY PRICE (27 Aug 2026).
+        #
+        # This branch infers "is this resting order a target or a stop?" from its price.
+        # Against the BUY price that inference breaks the moment a stop is TRAILED above
+        # entry — which is the normal state of a winning position. The stop's trigger is
+        # then > buy_price, it gets filed as a target, and its LIMIT price (trigger − 1)
+        # is written to target1. That is the `target1 = stoploss − 1` signature found on
+        # seven open rows: SAILIFE, ANANDRATHI, LAURUSLABS, NAM-INDIA, NETWEB, VIJAYA,
+        # GLAXO — and it propagated to the v67 chart through Sync to TV.
+        #
+        # Against the LTP the question is well-posed by construction: on a resting long
+        # OCO the target sits above the market and the stop below it, whatever the entry
+        # did. Falls back to the buy price only when there is no LTP.
+        _ltp = live_map[sym].get('LTP', 0.0) or 0.0
+        ref_price = _ltp if _ltp > 0 else live_buy
         live_targets = set()
         
         for o in live_orders_data[lookup_sym]:
@@ -910,7 +935,7 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
 </style>""", unsafe_allow_html=True)
 
 for opt in nav_options:
-    if st.sidebar.button(opt, key=f"journal_nav_{opt}", use_container_width=True):
+    if st.sidebar.button(opt, key=f"journal_nav_{opt}", width="stretch"):
         st.session_state.journal_page = opt
         st.rerun()
 
@@ -1046,7 +1071,7 @@ if page == "Ledger (Active)":
         st.title("📘 Active Trade Journal")
     with col_t2:
         st.write("") # Spacer
-        if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", use_container_width=True):
+        if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", width="stretch"):
             with st.spinner("Syncing..."):
                 try:
                     import subprocess
@@ -1185,7 +1210,7 @@ if page == "Ledger (Active)":
         
         ai_col1, ai_col2, ai_col3 = st.columns([1.5, 1.5, 3])
         with ai_col1:
-            if st.button("🤖 AI AUTO-ANALYSIS", use_container_width=True, help="Automatically generate latest tactical analysis for all open trades."):
+            if st.button("🤖 AI AUTO-ANALYSIS", width="stretch", help="Automatically generate latest tactical analysis for all open trades."):
                 with st.spinner("AI is crafting tactical reports..."):
                     from ai_journaler_helper import generate_tactical_analysis
                     
@@ -1210,7 +1235,7 @@ if page == "Ledger (Active)":
                                 ltp=ltp_p,
                                 sl=row.get('Stop Loss', 0),
                                 target=row.get('Target 2') if row.get('Target 2', 0) > 0 else row.get('Target 1', 0),
-                                force_refresh=False
+                                force_refresh=True
                             )
                         except Exception as e:
                             new_analysis = f"⚠️ Analysis failed dynamically: {e}"
@@ -1241,7 +1266,7 @@ if page == "Ledger (Active)":
                     st.rerun()
         
         with ai_col2:
-            if st.button("⚓ RECONCILE EXITS", use_container_width=True, help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
+            if st.button("⚓ RECONCILE EXITS", width="stretch", help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
                 with st.spinner("⚓ Reconciling with Dhan Logs..."):
                     from ai_reconcile_engine import reconcile_journal_exit_prices
                     count = reconcile_journal_exit_prices()
@@ -1276,7 +1301,7 @@ if page == "Ledger (Active)":
         edited_df = st.data_editor(
             df_view,
             key="journal_editor",
-            use_container_width=True,
+            width="stretch",
             num_rows="fixed",
             hide_index=True,
             column_config={
@@ -1303,7 +1328,7 @@ if page == "Ledger (Active)":
                 "Lessons": st.column_config.TextColumn("Lessons", width="large"),
                 "Exit Price": st.column_config.NumberColumn("Exit Price", format="₹%.2f", disabled=True),
                 "Exit Date": st.column_config.DateColumn("Exit Date", disabled=True),
-                "Exit Reason": st.column_config.SelectboxColumn("Exit Reason", options=["", "Target Met", "SL Hit", "Trailing SL Hit", "Time Stop", "Fundamental Change", "Cost-to-Cost"]),
+                "Exit Reason": st.column_config.SelectboxColumn("Exit Reason", options=["", "Target Met", "SL Hit", "Trailing SL Hit", "Time Stop", "Fundamental Change", "Cost-to-Cost", "FY Loss Harvesting", "Capital Reallocation", "Earnings/News Risk", "Manual Early Exit", "Partial Profit"]),
                 "Chart": st.column_config.LinkColumn("Chart", display_text="View"),
             }
         )
@@ -1409,7 +1434,7 @@ elif page == "Closed Trades":
         closed_trades['FY'] = closed_trades['ExitDate_DT'].apply(lambda x: get_fy(x) if pd.notnull(x) else "N/A")
         
         fy_list = sorted(closed_trades['FY'].unique().tolist(), reverse=True)
-        sel_fy = st.sidebar.selectbox("📅 Filter by Financial Year", ["All Years"] + fy_list)
+        sel_fy = st.selectbox("📅 Filter by Financial Year", ["All Years"] + fy_list)
         
         if sel_fy != "All Years":
             display_df = closed_trades[closed_trades['FY'] == sel_fy].copy()
@@ -1456,7 +1481,7 @@ elif page == "Closed Trades":
         st.dataframe(
             fy_summary[['FY', 'Total_PnL_Str', 'Win_Rate', 'Trades', 'Wins', 'Losses']],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "FY": st.column_config.TextColumn("Financial Year", width="medium"),
                 "Total_PnL_Str": st.column_config.TextColumn("Net P&L", width="medium"),
@@ -1476,7 +1501,7 @@ elif page == "Closed Trades":
         
         r_col1, r_col2 = st.columns([1, 4])
         with r_col1:
-            if st.button("⚓ RECONCILE EXITS", key="recon_btn_closed", use_container_width=True, help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
+            if st.button("⚓ RECONCILE EXITS", key="recon_btn_closed", width="stretch", help="Sync missing Exit Prices for closed trades from Dhan Trade Logs."):
                 with st.spinner("⚓ Reconciling with Dhan Logs..."):
                     from ai_reconcile_engine import reconcile_journal_exit_prices, discover_missing_trades
                     count = reconcile_journal_exit_prices()
@@ -1496,7 +1521,7 @@ elif page == "Closed Trades":
                 disc_df = pd.DataFrame(st.session_state.discovered_trades)
                 st.dataframe(disc_df[['Symbol', 'Name', 'ExitPrice', 'Pnl']], hide_index=True)
                 
-                if st.button("➕ BACKFILL DISCOVERED TRADES", use_container_width=True):
+                if st.button("➕ BACKFILL DISCOVERED TRADES", width="stretch"):
                     from ai_reconcile_engine import backfill_trades
                     b_count = backfill_trades(st.session_state.discovered_trades)
                     if b_count > 0:
@@ -1522,11 +1547,62 @@ elif page == "Closed Trades":
         
         # Proper Column Mapping for display
         display_df = display_df.rename(columns={
-            'Symbol': 'Ticker', 'ExitDate': 'Exit Date', 'Type': 'Type', 
+            'Symbol': 'Ticker', 'ExitDate': 'Exit Date', 
             'Sector': 'Sector', 'ExitReason': 'Reason'
         })
         
-        st.dataframe(display_df[['Ticker', 'FY', 'Result', 'Realized_PnL_Str', 'Type', 'Sector', 'Reason', 'Exit Date']], width="stretch", hide_index=True)
+        st.data_editor(
+            display_df[['Ticker', 'FY', 'Result', 'Realized_PnL_Str', 'Type', 'Sector', 'Reason', 'Compromises', 'Lessons', 'Exit Date']],
+            width="stretch", 
+            hide_index=True,
+            key="closed_trades_editor",
+            column_config={
+                "Ticker": st.column_config.TextColumn(disabled=True),
+                "FY": st.column_config.TextColumn(disabled=True),
+                "Result": st.column_config.TextColumn(disabled=True),
+                "Realized_PnL_Str": st.column_config.TextColumn("P&L", disabled=True),
+                "Type": st.column_config.SelectboxColumn("Type", options=["Positional", "Swing", "Investment"]),
+                "Sector": st.column_config.TextColumn(disabled=True),
+                "Exit Date": st.column_config.TextColumn(disabled=True),
+                "Reason": st.column_config.SelectboxColumn("Exit Reason", options=["", "Target Met", "SL Hit", "Trailing SL Hit", "Time Stop", "Fundamental Change", "Cost-to-Cost", "FY Loss Harvesting", "Capital Reallocation", "Earnings/News Risk", "Manual Early Exit", "Partial Profit"]),
+                "Compromises": st.column_config.TextColumn("Mistakes Committed"),
+                "Lessons": st.column_config.TextColumn("Lesson Learnt"),
+            }
+        )
+
+        editor_state = st.session_state.get("closed_trades_editor")
+        if editor_state and "edited_rows" in editor_state and editor_state["edited_rows"]:
+            changes_made = False
+            for idx, changes in editor_state["edited_rows"].items():
+                try:
+                    sym = display_df.iloc[idx]['Ticker']
+                    row_id = display_df.iloc[idx]['id']
+                except (IndexError, KeyError):
+                    continue 
+
+                update_dict = {'Symbol': sym, 'id': row_id}
+                col_to_db = {
+                    'Reason': 'ExitReason',
+                    'Compromises': 'Compromises',
+                    'Lessons': 'Lessons',
+                    'Type': 'Type'
+                }
+                for k, v in changes.items():
+                    if k in col_to_db:
+                        update_dict[col_to_db[k]] = v
+                    else:
+                        update_dict[k] = v
+
+                try: 
+                    upsert_trade(update_dict)
+                    changes_made = True
+                except Exception as e:
+                    st.error(f"Error saving {sym}: {e}")
+
+            if changes_made:
+                st.toast("✅ Changes Saved!")
+                time.sleep(0.5)
+                st.rerun()
 
 # - PAGE 3: ANALYTICS (FIXED NULL SECTORS) -
 elif page == "Visual Analytics":
@@ -1573,7 +1649,7 @@ elif page == "Visual Analytics":
         fig_sec = px.pie(active_trades, names='Sector', title='Current Exposure', hole=0.4, 
                          color_discrete_sequence=px.colors.qualitative.Pastel)
         fig_sec.update_layout(showlegend=True, margin=dict(t=50, b=50, l=0, r=0))
-        st.plotly_chart(fig_sec, use_container_width=True)
+        st.plotly_chart(fig_sec, width="stretch")
     else: st.info("No active exposure.")
     
     st.divider()
@@ -1592,7 +1668,7 @@ elif page == "Visual Analytics":
                 fig_eq = px.line(equity_df, x='ExitDate', y='Cumulative_PnL', markers=True, title="Account Growth Curve")
                 fig_eq.update_traces(line_color='#00f260', line_width=3)
                 fig_eq.add_hline(y=0, line_dash="dash", line_color="gray")
-                st.plotly_chart(fig_eq, use_container_width=True)
+                st.plotly_chart(fig_eq, width="stretch")
 
         with c2:
             daily_pnl = equity_df.groupby('ExitDate')['Realized_PnL'].sum().reset_index()
@@ -1600,7 +1676,7 @@ elif page == "Visual Analytics":
                 daily_pnl['Color'] = daily_pnl['Realized_PnL'].apply(lambda x: 'Profit' if x > 0 else 'Loss')
                 fig_cal = px.bar(daily_pnl, x='ExitDate', y='Realized_PnL', color='Color',
                                  color_discrete_map={'Profit': '#00f260', 'Loss': '#ff4b4b'}, title="Daily Net P&L")
-                st.plotly_chart(fig_cal, use_container_width=True)
+                st.plotly_chart(fig_cal, width="stretch")
 
         st.divider()
         
@@ -1615,7 +1691,7 @@ elif page == "Visual Analytics":
                                  hover_name='Symbol', title="P&L vs Holding Period (Ageing)",
                                  labels={'Ageing': 'Holding Period (Days)', 'Realized_PnL': 'Realized P&L (₹)'},
                                  color_discrete_sequence=px.colors.qualitative.Vivid)
-            st.plotly_chart(fig_age, use_container_width=True)
+            st.plotly_chart(fig_age, width="stretch")
             
         with b2:
             # Trade Quality Distribution
@@ -1625,4 +1701,4 @@ elif page == "Visual Analytics":
                 fig_qual = px.bar(quality_stats, x='Quality', y='Total P&L', color='Quality',
                                   text='Number of Trades', title="P&L Distribution by Trade Quality",
                                   category_orders={"Quality": ["5-Star", "4-Star", "3-Star", "2-Star", "1-Star", "Avoid", ""]})
-                st.plotly_chart(fig_qual, use_container_width=True)
+                st.plotly_chart(fig_qual, width="stretch")
