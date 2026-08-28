@@ -684,7 +684,7 @@ def overall_score(alpha=None, minervini=None, conviction=None, bff=None, rff_bas
     if _fnd is not None:
         _fp.append((_clamp(_fnd, 0, 100), 1.0))
     if piotroski is not None:
-        _fp.append((_clamp(piotroski / 9.0 * 100, 0, 100), 1.0))
+        _fp.append((_clamp(piotroski / 7.0 * 100, 0, 100), 1.0))
     fund = _blend(_fp)
 
     # 3. SETUP / TRIGGER — ΣPA + live catalyst + VCP base + WCL Context Score
@@ -740,7 +740,7 @@ def overall_score_legacy(combined=None, conviction=None, alpha=None, bff=None,
     if rs is not None:
         parts.append((_clamp(50 + rs, 0, 100), 0.05))
     if piotroski is not None:
-        parts.append((_clamp(piotroski / 9.0 * 100, 0, 100), 0.10))
+        parts.append((_clamp(piotroski / 7.0 * 100, 0, 100), 0.10))
     if not parts:
         return None
     return round(sum(v * w for v, w in parts) / sum(w for _, w in parts), 1)
@@ -1426,6 +1426,14 @@ def compute_conviction(symbol, tech_score, path):
         return None, None
 
 
+# Component bitstrings for S4's two fundamentals rows, filled by build_row and read
+# by s4_fund_lists in the SAME run. Deliberately NOT board columns: the static
+# data_editor path has no hide-list, so three new columns would appear on screen. A
+# miss renders GREY ("not resolved") on the panel, never a false red.
+#   char: "1" pass · "0" fail · "-" not resolved
+_S4_BITS: dict = {}
+
+
 def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     """Classify ONE symbol using the injected GM engine (zero-drift).
 
@@ -1547,11 +1555,20 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     rff_txt = ""
     if path == "bull":
         bff = data.get("bff") or {}
+        _bc = bff.get("checks") or {}
+        if _bc:
+            _S4_BITS.setdefault(_canon_key(sym), {})["BFFC"] = "".join(
+                ("1" if _bc.get(k) is True else "0" if _bc.get(k) is False else "-")
+                for k in ("profit_growth", "sales_growth", "margin_expansion",
+                          "return_quality", "profitable"))
         if bff.get("source") == "screener.in":
             _sc = bff.get("score"); _q = bff.get("quality", "")
             bff_txt = f"{_q} {_sc}/5" if _sc is not None else str(_q)
     else:
         _rsrc = rec_r if rec_r else rec
+        _rc = g(_rsrc, "RFF_Checks")
+        if _rc:
+            _S4_BITS.setdefault(_canon_key(sym), {})["RFFC"] = str(_rc)
         rff_b = g(_rsrc, "RFF_Base")
         rff_q = g(_rsrc, "RFF_Quality")
         if rff_b is not None:
@@ -1710,6 +1727,11 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     #     Piotroski F-Score (0-9), X-Ray grade, P/E — the unique fields the
     #     X-Ray screener adds beyond BFF/RFF. Guarded + only when toggled on.
     pio = None
+    # Bound HERE, not only inside the X-Ray block below: the X-Ray is OPT-IN, so on
+    # the common path where it is switched off this would be undefined by the time
+    # the row dict reads it -- a NameError per row, not a blank cell. (Applicability
+    # needs no separate flag: a financial returns Piotroski_Score None.)
+    pio_res = None
     xray_grade = ""
     pe_val = None
     _xray_loader = loaders.get("xray")
@@ -1718,6 +1740,19 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             _xr = _xray_loader(sym) or {}
             if not _xr.get("error"):
                 pio = _xr.get("Piotroski_Score")
+                # Report the score over what RESOLVED. A bank returns None here (not 0):
+                # Piotroski excluded financial firms because F2 (OCF>0), F4 (accruals)
+                # and F5 (falling leverage) invert for a lender -- lending IS an
+                # operating outflow and leverage IS the book -- so a healthy NBFC scored
+                # like a distressed manufacturer.
+                pio_res = _xr.get("Piotroski_Resolved")
+                _pd = _xr.get("Piotroski_Details") or {}
+                _S4_BITS.setdefault(_canon_key(sym), {})["PIOC"] = "".join(
+                    ("1" if _pd.get(k) == 1 else "0" if _pd.get(k) == 0 else "-")
+                    for k in ("F1 ROA Positive", "F2 OCF Positive", "F3 ROA Improving",
+                              "F4 Accrual Ratio < 0", "F5 Leverage Decreasing",
+                              "F6 Liquidity Improving", "F7 No Dilution",
+                              "F8 Gross Margin Increasing", "F9 Asset Turnover Increasing"))
                 xray_grade = str(_xr.get("Overall_Grade", "") or "")
                 # Data_Quality was RETURNED by the scorecard but never consumed here, so a
                 # grade computed from 3 resolved criteria looked identical to one computed
@@ -1889,7 +1924,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # stock keeps BFF. DISPLAY ONLY in both cases — neither gates.
         "BFF":        (_etf_badge or bff_txt),
         "RFF":        rff_txt,
-        "Piotroski":  (f"{int(pio)}/9" if pio is not None else ""),
+        "Piotroski":  (f"{int(pio)}/{int(pio_res)}" if (pio is not None and pio_res) else ""),
         "XRay":       xray_grade,
         "Sector":     str(g(fun, "sector", default="") or g(rec, "Sector", default="") or ""),
         "CMP":        _r1(cmp_px),
@@ -2018,7 +2053,8 @@ def s4_fund_lists(tf: str = None) -> dict:
     board has no scores on. Never raises -- a board problem must not take the GM
     page down.
     """
-    out = {"BFF": "", "RFF": "", "RANK": "", "PIO": "", "ETFL": "", "ETFP": ""}
+    out = {"BFF": "", "RFF": "", "RANK": "", "PIO": "", "ETFL": "", "ETFP": "",
+           "BFFC": "", "RFFC": "", "PIOC": ""}
     try:
         df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)
     except Exception as e:
@@ -2068,6 +2104,18 @@ def s4_fund_lists(tf: str = None) -> dict:
                 pio.append(f"{sym}:{v}")
         out["PIO"] = ",".join(sorted(set(pio)))
 
+    # COMPONENT BITSTRINGS (28-Aug-2026, Jay: the panel is "heavy on technicals").
+    # The scores above say how many checks passed; these say WHICH -- so S4 can render
+    # them like the Minervini template row. Same bundle, no extra paste.
+    for _tag in ("BFFC", "RFFC", "PIOC"):
+        _acc = []
+        for _, row in df.iterrows():
+            _k = _canon_key(row.get("Symbol"))
+            _v = (_S4_BITS.get(_k) or {}).get(_tag)
+            if _k and _v:
+                _acc.append(f"{_k}:{_v}")
+        out[_tag] = ",".join(sorted(set(_acc)))
+
     # ETF LIQUIDITY + PREMIUM (25-Aug-2026). Two separate SYM:n tags rather than one
     # packed field, so S4 can read them with the SAME core.fundScore parser the BFF /
     # RFF / RANK lists already use -- no library change, no publish cycle.
@@ -2113,7 +2161,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     forget, each one silent. One field is one chance.
 
     FORMAT  pipe-separated TAG=value, single line:
-        REC=..|PB=..|BFF=..|RFF=..|RANK=..|PIO=..|ETFL=..|ETFP=..
+        REC=..|PB=..|BFF=..|RFF=..|RANK=..|PIO=..|BFFC=..|RFFC=..|PIOC=..|ETFL=..|ETFP=..
 
     EVERY tag is emitted even when its list is empty, and that is the point: an
     empty section CLEARS the corresponding input in S4. Omitting the tag would leave
@@ -2149,6 +2197,11 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         ("RFF",  fund.get("RFF", "")),
         ("RANK", fund.get("RANK", "")),
         ("PIO",  fund.get("PIO", "")),
+        # Component bitstrings behind BFF / RFF / PIO -- which check failed, not just
+        # how many. S4 renders them as its two fundamentals rows.
+        ("BFFC", fund.get("BFFC", "")),
+        ("RFFC", fund.get("RFFC", "")),
+        ("PIOC", fund.get("PIOC", "")),
         # ETF liquidity (Rs Cr, 60d) and premium/discount to NAV (%). Only ETFs
         # appear, so a stock chart reads an em-dash on both and nothing changes.
         ("ETFL", fund.get("ETFL", "")),

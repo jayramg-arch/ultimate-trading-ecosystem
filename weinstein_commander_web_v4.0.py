@@ -3332,7 +3332,9 @@ def section_fundamentals(fun, bff=None) -> str:
     if roce is not None: rows.append(("ROCE %", fnum(roce, 1, "%"), "pass" if roce >= 15 else "watch" if roce >= 10 else "fail"))
     if de is not None: rows.append(("Debt / Equity", fnum(de, 2), "pass" if de < 0.5 else "watch" if de < 1.0 else "fail"))
     if prom is not None: rows.append(("Promoter %", fnum(prom, 1, "%"), "pass" if prom >= 50 else "watch"))
-    if piot is not None: rows.append(("Piotroski", fnum(piot, 0, "/9"), "pass" if piot >= 7 else "watch" if piot >= 5 else "fail"))
+    # /7, not /9: F6 (current ratio) and F8 (gross margin) are not derivable from
+    # screener.in, so they never resolve and counting them was two free failures.
+    if piot is not None: rows.append(("Piotroski", fnum(piot, 0, "/7"), "pass" if piot >= 6 else "watch" if piot >= 4 else "fail"))
     if qpv is not None: rows.append(("Qtr Profit Δ", fnum(qpv, 1, "%"), "pass" if qpv > 0 else "fail"))
     if qsv is not None: rows.append(("Qtr Sales Δ", fnum(qsv, 1, "%"), "pass" if qsv > 0 else "fail"))
     if pe is not None: rows.append(("P/E", fnum(pe, 1), "na"))
@@ -6481,7 +6483,7 @@ elif page == 'HUNTER':
                 with xc1:
                     min_rating = st.number_input("Min Overall Rating", min_value=0, max_value=17, value=0, step=1, key="xray_rating")
                 with xc2:
-                    min_piotroski = st.number_input("Min Piotroski Score", min_value=0, max_value=9, value=0, step=1, key="xray_pio")
+                    min_piotroski = st.number_input("Min Piotroski Score", min_value=0, max_value=7, value=0, step=1, key="xray_pio")
 
                 df_xray_disp = df_xray[
                     (pd.to_numeric(df_xray["Overall_Rating"], errors="coerce").fillna(0) >= min_rating) &

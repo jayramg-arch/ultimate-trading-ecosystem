@@ -1296,6 +1296,49 @@ export fundScore(string listStr, simple string sym) =>
 // Latched higher-timeframe pivot high / low. Called through request.security by
 // the caller, so ta.pivothigh/pivotlow resolve in the requested TF's context.
 // Pure: it takes no S4 state at all, which is why it moved first.
+// ── fundStr ──────────────────────────────────────────────────────────────────
+// fundScore returns a NUMBER; this returns the raw payload, so the same SYM:value
+// list format can carry a component bitstring ("10110") instead of a score.
+export fundStr(string listStr, simple string sym) =>
+    string _l = str.replace_all(str.replace_all(str.replace_all(str.upper(listStr), "NSE:", ""), ";", ","), " ", "")
+    string _out = ""
+    if str.length(_l) > 0
+        string _hay = "," + _l + ","
+        string _key = "," + str.upper(sym) + ":"
+        int _at = str.pos(_hay, _key)
+        if not na(_at)
+            int _from = _at + str.length(_key)
+            int _end  = str.pos(str.substring(_hay, _from), ",")
+            if not na(_end)
+                _out := str.substring(_hay, _from, _from + _end)
+    _out
+
+// ── bitsRow ──────────────────────────────────────────────────────────────────
+// Renders a component bitstring as the Minervini row renders its eight criteria:
+// one dot per check, then the check's name. THREE states, because "not scored" and
+// "scored and failed" are different facts and collapsing them is how a missing
+// fundamental silently reads as a failure:
+//     1 -> pass  (green)   0 -> fail (red)   anything else -> not resolved (grey)
+// Returns the text plus the pass and resolved counts, so the caller can title the
+// row "n/m" over what actually resolved rather than over a nominal maximum.
+export bitsRow(string bits, string labelsCsv) =>
+    array<string> _L = str.split(labelsCsv, ",")
+    string _o  = ""
+    int    _np = 0
+    int    _nr = 0
+    // guarded: Pine picks the loop DIRECTION from the bounds, so "0 to -1" on an empty
+    // label list would run backwards rather than skip.
+    if array.size(_L) > 0
+        for _i = 0 to array.size(_L) - 1
+            string _c = str.length(bits) > _i ? str.substring(bits, _i, _i + 1) : "-"
+            if _c == "1"
+                _np += 1
+                _nr += 1
+            else if _c == "0"
+                _nr += 1
+            _o += (_c == "1" ? "🟢" : _c == "0" ? "🔴" : "⚪") + array.get(_L, _i) + "  "
+    [_o, _np, _nr]
+
 export htfPivots(simple int leftRight) =>
     float ph = ta.pivothigh(high, leftRight, leftRight)
     float pl = ta.pivotlow(low, leftRight, leftRight)
@@ -2237,9 +2280,15 @@ export sectorOf(string sym) =>
         _b += "12,5,6,9,6,5,11,11,5,5,6,8,15,14,14,9,5,2,2,2,14,12,5,0,7,3,0,7,15,3,6,9,17,6,12,10,0,7,14,8,3,9,6,1,6,8,15,0,12,6,5,8,12,0,0,14,2,8,8,13,8,11,10,4,15,7,8,11,12,7,11,8,11,7,1,6,15,7,5,11,8,8,2,11,9,5,0,5,0,0,"
         _b += "12,11,12,6,2,15,11,10,10,6,6,6,6,1,0,0,8,7,15,7,11,15,8,6,11,0,14,15,5,0,14,0,2,9,12,3,3,6,8,11,3,6,12,14,10,2,8,11,12,0,8,15,12,0,9,8,6,11,8,7,9,6,2,5,11,9,4,15,15,9,15,9,0,0,8,2,4,0,12,2,0,10,0,7,2,2,12,5,4,7,"
         _b += "7,0,7,8,2,2,7,1,11,8,1,7,2,3,9,11,6,7,9,11,7,7,11,7,12,11,7,11,4,0,7,0,11,8,7,15,0,9,12,1,10,9,0,2,15,12,7"
+        // ETFs (28-Aug-2026, Jay). Mapped from etf_universe sub_category ->
+        // the same sector NAMES used above, so an ETF titles the RS row exactly
+        // like a stock. Broad-market / factor / commodity / debt / international
+        // have no NSE sector index and get their own labels.
+        _a += ",ALPHAETF,AUTOBEES,AUTOIETF,AXISGOLD,BANKBEES,BANKIETF,BBETF,BFSI,CONSUMBEES,CPSEETF,DEFENCE,DIGINIFTY,EBANK,ENERGYIETF,EVINDIA,FMCGIETF,GILT5YBEES,GOLD1,GOLDBEES,GOLDETF,GOLDIETF,HEALTHIETF,HNGSNGBEES,INFRABEES,ITBEES,ITIETF,JUNIORBEES,LIQUIDBEES,LIQUIDIETF,LOWVOLIETF,MAFANG,MAKEINDIA,MASPTOP50,METAL,MID150BEES,MIDCAPETF,MOM100,MOM30IETF,MON100,MULTICAP,NASDBEES,NEXT50IETF,NIF100IETF,NIFTYBEES,NV20IETF,OILIETF,PHARMABEES,PSUBANK,PSUBNKADD,PSUBNKBEES,PVTBANIETF,QUAL30IETF,REALTY,SILVERBEES,SILVERIETF,SMALLCAP"
+        _b += ",19,2,2,20,1,1,21,6,4,3,16,9,1,5,2,7,21,20,20,20,20,12,22,8,9,9,18,21,21,19,22,3,22,11,18,18,19,19,22,18,22,18,18,18,19,17,12,13,13,13,1,19,14,20,20,18"
         _secSym := str.split(_a, ",")
         _secCod := str.split(_b, ",")
-        _secNam := str.split("Capital Goods & Defense,Bank Nifty,Auto,Nifty Commodities,Nifty India Consumption,Energy,Financial Services,FMCG,Infra,Nifty IT,Media,Metal,Pharma,PSU Bank,Realty,Services,India Defence,Oil & Gas", ",")
+        _secNam := str.split("Capital Goods & Defense,Bank Nifty,Auto,Nifty Commodities,Nifty India Consumption,Energy,Financial Services,FMCG,Infra,Nifty IT,Media,Metal,Pharma,PSU Bank,Realty,Services,India Defence,Oil & Gas,Broad Market,Factor,Commodity,Debt,International", ",")
     string _out = ""
     if not na(sym) and array.size(_secSym) > 0
         int _i = array.indexof(_secSym, str.upper(sym))

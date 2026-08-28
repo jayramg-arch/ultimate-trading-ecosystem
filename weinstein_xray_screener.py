@@ -2,6 +2,7 @@ import time
 import logging
 import pandas as pd
 import yfinance as yf
+import sector_lookup as _sl
 from datetime import datetime, timedelta
 
 # C1 sweep: route OHLCV through data_provider when available. The .info /
@@ -102,6 +103,24 @@ def get_macro_health():
 # X-RAY EVALUATOR
 # =====================================================================
 _XR_SCR_CACHE: dict = {}
+
+
+# Piotroski (1998) EXCLUDED financial firms, and the reason is structural rather
+# than a data problem: for a bank or NBFC a negative operating cash flow is lending
+# (an operating outflow) and rising leverage is the deposit/borrowing book growing.
+# So F2 (OCF>0), F4 (accruals) and F5 (falling leverage) invert -- a healthy, growing
+# lender scores like a distressed manufacturer. Gate on the SECTOR INDEX, not a name
+# list, so a newly-added bank inherits the exclusion automatically.
+PIOTROSKI_EXCLUDED_SECTORS = {"NSE:CNXFINANCE", "NSE:BANKNIFTY", "NSE:CNXPSUBANK"}
+
+
+def piotroski_applicable(symbol: str) -> bool:
+    """False for banks/NBFCs/PSU banks, where the F-Score is not meaningful."""
+    try:
+        idx = _sl.get_sector_index(symbol)
+    except Exception:
+        return True          # unknown sector: score it rather than silently suppress
+    return idx not in PIOTROSKI_EXCLUDED_SECTORS
 
 
 def _screener_xray_metrics(symbol: str, ttl: int = 86400) -> dict:
@@ -230,6 +249,14 @@ def _screener_xray_metrics(symbol: str, ttl: int = 86400) -> dict:
         out["asset_turn"] = sa_l / as_l
     if sa_p is not None and as_p:
         out["at_ly"] = sa_p / as_p
+    # F7 (no dilution). Equity capital = shares x face value, so it moves only when
+    # shares are ISSUED -- screener.in carries it, which is why F7 no longer needs a
+    # second provider. CAVEAT: a bonus issue capitalises reserves and raises equity
+    # capital without economic dilution, so F7 can read 0 on a bonus year.
+    _ec_l, _ec_p = _last(eqc, -1), _last(eqc, -2)
+    if _ec_l is not None and _ec_p is not None:
+        out["eq_cap_fy"] = _ec_l
+        out["eq_cap_ly"] = _ec_p
     if ni_l is not None and ocf_l is not None and as_l:
         out["accrual_ratio"] = (ni_l - ocf_l) / as_l * 100
     if sg is not None:
@@ -255,7 +282,8 @@ def _screener_xray_metrics(symbol: str, ttl: int = 86400) -> dict:
 
 def get_xray_scorecard(symbol: str) -> dict:
     """
-    Computes the Minervini Score (0-8), Piotroski F-Score (0-9), and
+    Computes the Minervini Score (0-8), Piotroski F-Score (0-7 -- F6 and F8 are not
+    derivable from screener.in; not scored at all for financials), and
     Overall Fundamental Rating (0-17) matching Weinstein Fundamental X-Ray v2.2.pine.
 
     Data-provider rule: screener.in is PRIMARY (via _screener_xray_metrics);
@@ -263,26 +291,24 @@ def get_xray_scorecard(symbol: str) -> dict:
     current ratio, FCF, dilution) and whenever the screener parse misses.
     """
     def _fetch():
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        # Financials (Annual)
-        fin_a = ticker.financials
-        bs_a = ticker.balance_sheet
-        cf_a = ticker.cashflow
-        
-        # Quarterly
-        fin_q = ticker.quarterly_financials
-        bs_q = ticker.quarterly_balance_sheet
-        cf_q = ticker.quarterly_cashflow
+        # SCREENER.IN IS THE ONLY SOURCE OF COMPANY FUNDAMENTALS (28-Aug-2026).
+        # This used to call yf.Ticker(symbol) -- with a BARE NSE symbol, which yfinance
+        # cannot resolve (it needs the .NS suffix), so every frame came back (0, 0) and
+        # every get_val() below returned None. The yfinance leg therefore contributed
+        # nothing for any symbol and merely hid three unresolved Piotroski criteria
+        # behind a "/9" denominator. Removing it is behaviour-neutral and removes a
+        # second provider from the fundamentals path.
+        # (yfinance is still used ABOVE for macro series -- ^IN10YR / INR=X / ^NSEI --
+        # which are index and FX prices, not fundamentals, and screener cannot supply.)
+        info: dict = {}
+        fin_a = bs_a = cf_a = None
+        fin_q = bs_q = cf_q = None
 
         # Screener.in is PRIMARY — fetch it first. Only error out if BOTH the
         # screener parse AND the yfinance statements are empty (so the scorecard
         # still works when yfinance is unavailable, per the data-provider rule).
         scr = _screener_xray_metrics(symbol)
-        _yf_empty = (fin_a is None or bs_a is None or cf_a is None
-                     or fin_a.empty or bs_a.empty or cf_a.empty)
-        if _yf_empty and not scr:
+        if not scr:
             return {"error": "Insufficient data"}
 
         def get_val(df, keys, col_idx=0, default=None):
@@ -422,7 +448,13 @@ def get_xray_scorecard(symbol: str) -> dict:
         pf4 = None if accrual_ratio is None else (1 if accrual_ratio < 0 else 0)
         pf5 = None if (de_ratio is None or de_ly is None) else (1 if de_ratio < de_ly else 0)
         pf6 = None if (curr_ratio is None or cr_ly is None) else (1 if curr_ratio > cr_ly else 0)
-        pf7 = None if (shares_fy is None or shares_ly is None) else (1 if shares_fy <= shares_ly else 0)
+        # F7 now reads screener equity capital; shares_fy/shares_ly are legacy and None.
+        _ec_fy = scr.get("eq_cap_fy") if scr else None
+        _ec_ly = scr.get("eq_cap_ly") if scr else None
+        if _ec_fy is not None and _ec_ly is not None:
+            pf7 = 1 if _ec_fy <= _ec_ly else 0
+        else:
+            pf7 = None if (shares_fy is None or shares_ly is None) else (1 if shares_fy <= shares_ly else 0)
         pf8 = None if (gross_margin is None or gm_ly is None) else (1 if gross_margin > (gm_ly * 100) else 0)
         pf9 = None if (asset_turn is None or at_ly is None) else (1 if asset_turn > at_ly else 0)
         
@@ -434,8 +466,25 @@ def get_xray_scorecard(symbol: str) -> dict:
         # callers can blank the grade instead of showing a data-starved F/D. (Same
         # anti-NaN→0 discipline as the recovery RFF gate.)
         _pio_resolved = sum(1 for x in [pf1, pf2, pf3, pf4, pf5, pf6, pf7, pf8, pf9] if x is not None)
-        _xray_quality = ("FULL" if _pio_resolved >= 7 else
-                         "PARTIAL" if _pio_resolved >= 4 else "INSUFFICIENT")
+
+        # F6 (current ratio) and F8 (gross margin) are NOT derivable from screener.in's
+        # page -- it carries no current/non-current split and reports OPM, not gross
+        # margin. They stay unresolved rather than being back-filled from a second
+        # provider, so the honest ceiling is 7, not 9.
+        _pio_max = 7
+        _pio_ok = piotroski_applicable(symbol)
+        if not _pio_ok:
+            # A bank/NBFC score is not weak, it is meaningless -- suppress rather than
+            # publish a number the rest of the stack would treat as comparable.
+            pf1 = pf2 = pf3 = pf4 = pf5 = pf6 = pf7 = pf8 = pf9 = None
+            # None, NOT 0 -- every downstream consumer guards on "is not None", and a
+            # hard zero would score a healthy bank as a total fundamental failure.
+            pio_score = None
+            _pio_resolved = 0
+            _xray_quality = "N/A_FINANCIAL"
+        else:
+            _xray_quality = ("FULL" if _pio_resolved >= 6 else
+                             "PARTIAL" if _pio_resolved >= 4 else "INSUFFICIENT")
 
         # -------------------------------------------------------------
         # OVERALL RATING (0-17)
@@ -507,12 +556,19 @@ def get_xray_scorecard(symbol: str) -> dict:
         _pio_pct = (pio_score / _pio_resolved * 100.0) if _pio_resolved > 0 else 0.0
         # Nothing resolved at all → the fundamental half is unknown, not zero. Fall back
         # to the technical half rather than stamping a confident F on no evidence.
-        if _miner_resolved == 0 and _pio_resolved == 0:
-            ov_total = (0.30 * combined_score) + (0.15 * (conviction * 10.0)) + (0.15 * tech_score)
-            ov_total = ov_total / 0.60
-        else:
-            ov_total = (0.30 * combined_score) + (0.15 * (conviction * 10.0)) + (0.15 * tech_score) + \
-                       (0.20 * _miner_pct) + (0.20 * _pio_pct)
+        # Weight only what actually RESOLVED, then renormalise. A component that could
+        # not be computed -- partial statements, or Piotroski on a bank, where the score
+        # is not applicable at all -- must never contribute a silent ZERO, which reads as
+        # "scored badly" rather than "not scored". Subsumes the both-missing case.
+        _ov_parts = [(combined_score, 0.30),
+                     (conviction * 10.0, 0.15),
+                     (tech_score, 0.15)]
+        if _miner_resolved > 0:
+            _ov_parts.append((_miner_pct, 0.20))
+        if _pio_resolved > 0:
+            _ov_parts.append((_pio_pct, 0.20))
+        _ov_w = sum(w for _, w in _ov_parts)
+        ov_total = (sum(v * w for v, w in _ov_parts) / _ov_w) if _ov_w > 0 else 0.0
         ov_total = round(ov_total, 1)
         
         ov_grade = "A+ EXCEPTIONAL" if ov_total >= 90 else \
@@ -549,14 +605,17 @@ def get_xray_scorecard(symbol: str) -> dict:
             "Overall_Rating": ov_total,
             "Overall_Grade": ov_grade,
             "Data_Quality": _xray_quality,            # FULL / PARTIAL / INSUFFICIENT
-            "Piotroski_Resolved": _pio_resolved,      # 0-9 criteria that had data
+            "Piotroski_Resolved": _pio_resolved,      # criteria that actually had data
+            "Piotroski_Max": (0 if not _pio_ok else _pio_max),
+            "Piotroski_Applicable": _pio_ok,
 
             "Overall_Details": {
                 "Combined Score": f"{combined_score:.1f}/100",
                 "Conviction Score": f"{conviction:.1f}/10",
                 "Technical Score": f"{tech_score:.1f}/100",
                 "Minervini Score": f"{miner_score}/8",
-                "Piotroski Score": f"{pio_score}/9"
+                "Piotroski Score": ("n/a (financials)" if not _pio_ok
+                                    else f"{pio_score}/{_pio_resolved or _pio_max}")
             },
             "Raw_Metrics": {
                 "ROE": f"{roe_ttm:.1f}%" if roe_ttm else "N/A",

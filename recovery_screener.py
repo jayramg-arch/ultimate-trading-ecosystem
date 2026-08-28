@@ -1334,7 +1334,7 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
         Symbol=symbol, Edge_Hint=edge_hint,
         Signal=0, Signal_Label="None", Signal_Date=None,
         Score=0, RFF_Score=0, RFF_Base=0, RFF_Bonus=0, RFF_Total=0,
-        RFF_Quality="INSUFFICIENT", Chartink_Confirmed=chartink_confirmed,
+        RFF_Quality="INSUFFICIENT", RFF_Checks="------", Chartink_Confirmed=chartink_confirmed,
         Weinstein_Stage=0, Mansfield_RS_x100=None, RS_Momentum_4W=None, RRG_Quadrant="n/a", RS_Slope_4W=None, RS_Positive=False,
         Stretch_SMA200_pct=None, Correction_52W_pct=None,
         Rel_Vol=None, RSI14=None, RSI3=None,
@@ -1558,6 +1558,12 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
         RFF_Bonus    = rff_bonus,             # 0-4, recovery-specific top-up
         RFF_Total    = rff_total,             # 0-10, used for ranking
         RFF_Quality  = rff_quality,           # FULL / PARTIAL / INSUFFICIENT
+        # Tier-A components as a bitstring, for the S4 fundamentals row. NOTE the
+        # base checks collapse a MISSING field to False, so a "0" here can mean
+        # "absent" as well as "failed" -- RFF_Quality is what distinguishes them.
+        RFF_Checks   = "".join("1" if rff_checks.get(_k) else "0"
+                               for _k in ("NI>0", "FCF>0", "ICR>3.5",
+                                          "D/E<2", "CR>1", "ROA>5%")),
         Fund_Source  = fund_source,           # Screener.in / yfinance / unavailable (data-integrity visibility)
         Chartink_Confirmed = chartink_confirmed,
         RFF_Detail   = str({k: v for k, v in rff_checks.items()
