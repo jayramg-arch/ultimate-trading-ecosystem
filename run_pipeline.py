@@ -49,6 +49,7 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 import logging
+import threading
 
 def setup_logging():
     logger = logging.getLogger("AutoPilot")
@@ -145,6 +146,9 @@ def _is_process_running(pid: int) -> bool:
 
 LOCK_FILE = os.path.join(_DIR, "auto_pilot.lock")
 
+# Seconds to wait for a clean exit after the run finishes before forcing one.
+SHUTDOWN_GRACE_S = 30
+
 
 def acquire_pipeline_lock(logger) -> bool:
     """Ensure only one Auto-Pilot pipeline runs at a time.
@@ -176,12 +180,20 @@ def acquire_pipeline_lock(logger) -> bool:
 
 
 def release_pipeline_lock():
+    # The remove MUST happen after the file is closed. Windows refuses to delete
+    # an open file (PermissionError, WinError 32), and the old code called
+    # os.remove INSIDE the `with`, so every release raised and was swallowed by
+    # the bare except -- the lock was never deleted on ANY exit path. It only
+    # looked harmless because the next run finds the recorded PID dead and
+    # proceeds; it becomes a hard block the moment that PID is alive (a hung
+    # run, or a PID Windows has recycled).
     try:
-        if os.path.exists(LOCK_FILE):
-            with open(LOCK_FILE, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content == str(os.getpid()):
-                    os.remove(LOCK_FILE)
+        if not os.path.exists(LOCK_FILE):
+            return
+        with open(LOCK_FILE, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        if content == str(os.getpid()):
+            os.remove(LOCK_FILE)
     except Exception:
         pass
 
@@ -867,8 +879,55 @@ def main():
     logger.info(f"[log] Full console log saved -> {log_path}")
 
 
-    if "--batch" not in sys.argv:
-        input("Press Enter to close window...")
+    # ── SHUTDOWN ───────────────────────────────────────────────────────────
+    # The 27-Aug run reached this point at 22:25 and then sat idle for 24 HOURS
+    # holding auto_pilot.lock, which aborted the 28-Aug 16:30 scheduled run and
+    # every manual attempt after it. It was NOT a leaked thread: a scan of the
+    # live path finds no non-daemon threading.Thread and no ThreadPoolExecutor
+    # outside a with-block, and daemon threads never block interpreter exit.
+    # It was this prompt.
+    #
+    # On Windows os.execv does NOT replace the process -- it starts a CHILD and
+    # the parent returns, so the shell takes the console back while the child
+    # runs on. The child then blocks on a keypress nobody can deliver, and since
+    # the prompt has already returned there is nothing on screen suggesting that
+    # anything is still waiting. So prompt only for a genuinely interactive run
+    # that still owns its console, and never hang if the read fails.
+    _prompt = ("--batch" not in sys.argv
+               and not os.environ.get("_PIPELINE_REEXEC")
+               and sys.stdin is not None and sys.stdin.isatty())
+    if _prompt:
+        try:
+            input("Press Enter to close window...")
+        except (EOFError, OSError):
+            pass
+
+    _held = [t for t in threading.enumerate()
+             if t is not threading.current_thread() and t.is_alive() and not t.daemon]
+    if _held:
+        logger.warning("[shutdown] %d non-daemon thread(s) alive - these hold the "
+                       "process open: %s", len(_held),
+                       ", ".join(sorted(t.name for t in _held)))
+
+    def _force_exit():
+        # Last resort. Nothing should hold us now, but a silent hang that blocks
+        # every later run is far worse than a hard exit -- so name whatever is
+        # still alive, then go. os._exit skips atexit, hence the explicit
+        # release: leaving the lock behind is the exact failure being fixed.
+        alive = sorted(t.name for t in threading.enumerate()
+                       if t is not threading.current_thread()
+                       and t.is_alive() and not t.daemon)
+        try:
+            logger.error("[shutdown] still alive %ss after completion (%s) - forcing exit",
+                         SHUTDOWN_GRACE_S, ", ".join(alive) or "no non-daemon threads")
+            logging.shutdown()
+        finally:
+            release_pipeline_lock()
+            os._exit(0)
+
+    _wd = threading.Timer(SHUTDOWN_GRACE_S, _force_exit)
+    _wd.daemon = True
+    _wd.start()
 
 if __name__ == "__main__":
     main()
