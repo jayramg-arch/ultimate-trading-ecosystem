@@ -1543,7 +1543,12 @@ with st.sidebar:
                  use_container_width=True, type="secondary",
                  help="Run Full Auto-Pilot pipeline: Scanners → Conviction Filter → Combined Watchlist → TradingView Sync"):
         try:
-            launch_script("run_pipeline.py")
+            # --batch suppresses run_pipeline's "Press Enter to close window"
+            # prompt. launch_script uses `start cmd /k`, so the window stays open
+            # for the summary either way -- but WITHOUT this the run parks on the
+            # prompt holding auto_pilot.lock, and walking away after clicking would
+            # block every later run exactly as the 27-Aug run did for 24 hours.
+            launch_script("run_pipeline.py", "--batch")
         except Exception as _ape:
             st.error(f"Auto-Pilot launch failed: {_ape}")
         _goto_page("WATCHLIST")
