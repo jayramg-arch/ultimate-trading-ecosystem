@@ -853,14 +853,15 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.1", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v10.0"
+string S4_VER      = "v10.1"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
-string S4_CORE_VER = "23"
-// ⚠ PUBLISH S4Core FIRST, then change /24 below to the new version number.
-//   v10.1 needs core.fundStr() and core.bitsRow(), added to S4Core on 28-Aug-2026.
-import jayramg/S4Core/24 as core
+string S4_CORE_VER = "25"
+// S4Core/25 (28-Aug-2026) adds fundStr() and bitsRow(), which the two FUNDAMENTALS
+// rows need. Keep S4_CORE_VER above in step with this number -- the panel header
+// prints it, and it had already drifted to 23 while the import was on 24.
+import jayramg/S4Core/25 as core
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
