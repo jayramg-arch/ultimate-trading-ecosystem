@@ -2288,11 +2288,32 @@ def s4_bundle_options(symbols=None, tf: str = None) -> str:
         return "OPT="
 
     if symbols is None:
-        try:
-            df, _ = load_board_cache(max_age_hours=24.0, tf=tf)
-            symbols = [] if df is None or getattr(df, "empty", True) else list(df["Symbol"].astype(str))
-        except Exception as e:
-            _log.warning(f"s4_bundle_options: board cache unreadable: {e}")
+        # UNION ACROSS TIMEFRAMES, not one cache. Board caches are per-TF
+        # (gm_board_cache_75m.csv and friends) and load_board_cache(tf=None) resolves to
+        # NOTHING - the button calls this with no arguments, so it was walking an empty
+        # symbol list and returning "OPT=" every time. It looked identical to "NSE
+        # refused", which is why the failure survived a source change underneath it.
+        #
+        # The union is also the right answer regardless: option data is a property of the
+        # NAME, not of the chart, so a name on any board should carry it. Same reasoning
+        # as s4_bundle_union.
+        symbols = []
+        seen = set()
+        for _tf in ([tf] if tf else ["Daily", "125m", "75m"]):
+            try:
+                df, _ = load_board_cache(max_age_hours=24.0, tf=_tf)
+            except Exception as e:
+                _log.warning(f"s4_bundle_options: board cache unreadable for {_tf}: {e}")
+                continue
+            if df is None or getattr(df, "empty", True):
+                continue
+            for x in df["Symbol"].astype(str):
+                if x not in seen:
+                    seen.add(x)
+                    symbols.append(x)
+        if not symbols:
+            _log.warning("s4_bundle_options: no board cache on any timeframe - "
+                         "rebuild a board before building the options bundle")
             return "OPT="
 
     def _num(v, nd=2):
