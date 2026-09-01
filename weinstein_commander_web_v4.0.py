@@ -302,11 +302,23 @@ def get_script_path(f): return os.path.join(_SCRIPT_DIR, f)
 def get_img_as_base64(file):
     with open(file, "rb") as f: return base64.b64encode(f.read()).decode()
 
-# Check for local virtual environment Python first
-_VENV_PY = os.path.join(_SCRIPT_DIR, ".venv", "Scripts", "python.exe")
-if not os.path.exists(_VENV_PY):
-    _VENV_PY = os.path.join(_SCRIPT_DIR, ".venv", "bin", "python")
-_PYTHON_EXE = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
+# THE INTERPRETER THIS APP IS RUNNING UNDER - not one discovered by scanning for a
+# .venv directory. There are two virtualenvs here: an EMPTY project-local
+# GeminiVSCode/.venv, and TradingData/venv which actually holds the dependencies. The
+# old code preferred the project one because the path existed, so every child script
+# was spawned without playwright, bs4 or anything else - and the error surfaced as
+# ModuleNotFoundError, which reads as "not installed" and sends you to pip.
+# sys.executable is the running environment by definition; it needs no discovery and
+# cannot guess wrong. The scan survives only for the case where sys.executable is not a
+# python (a packaged launcher), and even then it checks the candidate actually works.
+_PYTHON_EXE = sys.executable
+if not str(_PYTHON_EXE).lower().endswith(("python.exe", "pythonw.exe", "python", "python3")):
+    for _cand in (os.path.join(_SCRIPT_DIR, ".venv", "Scripts", "python.exe"),
+                  os.path.join(_SCRIPT_DIR, ".venv", "bin", "python")):
+        if os.path.exists(_cand):
+            _PYTHON_EXE = _cand
+            break
+_VENV_PY = _PYTHON_EXE          # back-compat: some call sites still read this name
 
 def launch_script(script_name, args=None, is_streamlit=False):
     try:
@@ -9597,8 +9609,25 @@ elif page == 'OPTIONS':
                 _oc_src  = _oc_data.get("source", "")
                 _oc_ts   = _oc_data.get("timestamp", "")
 
+                # nse_options now returns None (not 0) when the chain did not arrive,
+                # because these figures are drawn as chart levels and a max pain of 0 is
+                # a price line that looks exactly like a real one. Everything below has
+                # to tolerate None rather than format it.
+                def _ocn(v, fmt="{:,.2f}"):
+                    try:
+                        return fmt.format(v) if v is not None else "—"
+                    except (TypeError, ValueError):
+                        return "—"
+
+                if _oc_pcr is None or _oc_mp is None:
+                    st.warning(
+                        "The option chain did not return usable data — PCR, max pain and "
+                        "OI totals are shown as “—”. They are NOT zero; NSE simply did "
+                        "not answer. Click Fetch Chain again to rebuild the session."
+                    )
+
                 st.caption(
-                    f"Expiry: **{_oc_exp}** · Spot: **{_oc_spot:,.2f}** · "
+                    f"Expiry: **{_oc_exp}** · Spot: **{_ocn(_oc_spot)}** · "
                     f"Source: {_oc_src} · As of: {_oc_ts}"
                 )
 
@@ -9606,29 +9635,37 @@ elif page == 'OPTIONS':
                 section("Live Snapshot")
                 _km1, _km2, _km3, _km4, _km5 = st.columns(5)
 
-                # PCR colour
+                # PCR colour — gated on the value EXISTING, not on its size. A missing
+                # PCR falling through to the bottom band would label an absent chain
+                # "Complacency Risk", which is a reading, not an absence.
                 _pcr_col = (
-                    "var(--bull)" if _oc_pcr > 1.3 else
-                    "var(--warn)" if _oc_pcr > 0.7 else
+                    "var(--muted)" if _oc_pcr is None else
+                    "var(--bull)"  if _oc_pcr > 1.3 else
+                    "var(--warn)"  if _oc_pcr > 0.7 else
                     "var(--bear)"
                 )
                 _pcr_label = (
+                    "no data"            if _oc_pcr is None else
                     "Contrarian Bullish" if _oc_pcr > 1.3 else
                     "Mildly Bearish"     if _oc_pcr > 1.0 else
                     "Balanced"           if _oc_pcr > 0.7 else
                     "Complacency Risk"
                 )
-                _km1.metric("Spot", f"{_oc_spot:,.2f}")
+                _km1.metric("Spot", _ocn(_oc_spot))
                 _km2.metric(
-                    "PCR", f"{_oc_pcr:.3f}",
+                    "PCR", _ocn(_oc_pcr, "{:.3f}"),
                     delta=_pcr_label,
-                    delta_color="normal" if _oc_pcr > 0.7 else "inverse"
+                    delta_color="off" if _oc_pcr is None else
+                                ("normal" if _oc_pcr > 0.7 else "inverse")
                 )
-                _km3.metric("Max Pain", f"{_oc_mp:,.0f}",
-                            delta=f"{((_oc_mp - _oc_spot) / max(_oc_spot,1))*100:+.2f}% from spot",
-                            delta_color="normal" if _oc_mp >= _oc_spot else "inverse")
-                _km4.metric("Total CE OI", f"{_oc_data['total_ce_oi']:,}")
-                _km5.metric("Total PE OI", f"{_oc_data['total_pe_oi']:,}")
+                _km3.metric(
+                    "Max Pain", _ocn(_oc_mp, "{:,.0f}"),
+                    delta=(f"{((_oc_mp - _oc_spot) / _oc_spot)*100:+.2f}% from spot"
+                           if (_oc_mp is not None and _oc_spot) else "—"),
+                    delta_color=("off" if (_oc_mp is None or not _oc_spot)
+                                 else ("normal" if _oc_mp >= _oc_spot else "inverse")))
+                _km4.metric("Total CE OI", _ocn(_oc_data["total_ce_oi"], "{:,}"))
+                _km5.metric("Total PE OI", _ocn(_oc_data["total_pe_oi"], "{:,}"))
 
                 # PCR gauge bar
                 st.markdown(
@@ -11651,6 +11688,16 @@ elif page == 'ETF':
     st.markdown('<div class="page-desc">Sector Rotation // Asset-Class Regime // '
                 'RRG Quadrants // Liquidity-Aware Picks — NSE ETFs only</div>',
                 unsafe_allow_html=True)
+    st.caption(
+        "**Structure is read from the INDEX; the ETF is the vehicle you trade.** "
+        "Stage, trend, RS and RRG come from the sector/asset-class index where one "
+        "exists (42 of 51 names) — a clean, stock-like series without the tracking "
+        "error, NAV premium and thin-book wicks that distort an ETF chart. Liquidity, "
+        "turnover, LTP and anything an order touches always come from the ETF. "
+        "**Volume is never borrowed between them**: volume confirmation asserts that "
+        "*this* volume accompanied *this* price move, and ETF volume did not move the "
+        "index — so volume-derived work belongs on the ETF chart, in stage 2. "
+        "Every row records which series produced it.")
 
     if not _ETF_OK:
         st.error("❌ ETF modules (etf_universe / etf_screener / etf_rotation) "
@@ -11759,9 +11806,10 @@ elif page == 'ETF':
                         st.error(f"Run failed: {_e}")
 
         # ── Tabs ────────────────────────────────────────────────────────────
-        _et1, _et2, _et3, _et4 = st.tabs([
+        _et1, _et2, _et3, _et4, _et5 = st.tabs([
             "🎯 Top Picks", "🔄 Sector Rotation",
             "📊 Asset-Class Regime", "💧 Liquidity & Universe",
+            "🧭 Vehicle & Chart",
         ])
 
         # ─── TAB 1 — Top Picks ─────────────────────────────────────────────
@@ -11823,6 +11871,12 @@ elif page == 'ETF':
 
         # ─── TAB 2 — Sector Rotation ────────────────────────────────────────
         with _et2:
+            st.caption(
+                "**Rotation is measured on the INDEX, not the ETF.** Rotation asks which "
+                "SECTOR is leading; the ETF is only the vehicle. Measuring the vehicle adds "
+                "tracking error, NAV premium (ITIETF has run +2.95% — enough to invent or "
+                "erase a signal) and thin-book noise, none of which is about the sector. "
+                "The `Measured_On` column records the series used per row.")
             section("Sector Rotation Table — composite RS (60% 12W + 40% 4W)")
             _sec_path = _os_etf.path.join(
                 _os_etf.path.dirname(_os_etf.path.abspath(__file__)),
@@ -11860,6 +11914,64 @@ elif page == 'ETF':
 
         # ─── TAB 3 — Asset-Class Regime ─────────────────────────────────────
         with _et3:
+            st.caption(
+                "**The tilt % is a RANK template, not a score or a forecast.** A class "
+                "qualifies only if its flagship is ABOVE its 200-DMA *and* has a positive "
+                "12-week excess return; qualifiers then receive 40 / 25 / 20 / 15 % by rank, "
+                "and debt absorbs the remainder. So 'gold 40%' means gold ranked FIRST among "
+                "those that qualified — the count of qualifiers is the real signal. "
+                "The cash park is **LIQUID1**, not LIQUIDBEES: LIQUIDBEES is the dividend "
+                "variant with NAV pinned at ₹1,000, so its price return is +0.00% over a year "
+                "across six distinct closes — it would have scored the debt leg at a permanent "
+                "zero. LIQUID1 is the growth variant (+12.04% over the same year).")
+
+            # WHICH METAL. The regime allocates by asset class - it says "gold 40%" but
+            # not whether that sleeve belongs in gold or silver, and the two diverge
+            # hard: silver leads risk-on metal phases and lags badly in fear phases.
+            # From the file the pipeline wrote - NOT a live call. asset_class_regime()
+            # batch-fetches every flagship, and this tab body re-runs on every
+            # interaction; computing here would make the tab feel broken and look like
+            # a network fault. Live call only as a first-run fallback.
+            _ms = {}
+            try:
+                import json as _json_ui
+                import etf_rotation as _er_ui
+                _mp_ui = _os_etf.path.join(
+                    _os_etf.path.dirname(_os_etf.path.abspath(__file__)),
+                    getattr(_er_ui, "METALS_JSON", "ETF_Metals_Split.json"))
+                if _os_etf.path.exists(_mp_ui):
+                    with open(_mp_ui, encoding="utf-8") as _fh_ui:
+                        _ms = _json_ui.load(_fh_ui) or {}
+                else:
+                    _ms = (_er_ui.asset_class_regime() or {}).get("metals_split") or {}
+            except Exception:
+                _ms = {}
+            if _ms:
+                _lead = _ms.get("lead", "—")
+                _lc = ("var(--acc)" if _lead == "GOLD-LED"
+                       else "var(--bull)" if _lead == "SILVER-LED" else "var(--muted)")
+                _m1, _m2, _m3 = st.columns(3)
+                _m1.markdown(
+                    f'<div class="metric-card" style="padding:10px 14px">'
+                    f'<div class="metric-label">Metals lead</div>'
+                    f'<div style="color:{_lc};font-weight:700">{_lead}</div></div>',
+                    unsafe_allow_html=True)
+                _m2.metric("Gold − Silver · 12w",
+                           "—" if _ms.get("gap_12w_pct") is None else f"{_ms['gap_12w_pct']:+.2f} pp")
+                _m3.metric("Gold − Silver · 4w",
+                           "—" if _ms.get("gap_4w_pct") is None else f"{_ms['gap_4w_pct']:+.2f} pp")
+                _pc = _ms.get("ratio_pctile_1y")
+                st.caption(
+                    "**Which metal, once the regime has said metals.** Figures are the "
+                    "gold-minus-silver return gap in percentage points — scale-free, so "
+                    "they mean the same thing whatever the two ETFs cost per unit. "
+                    + (f"The gold/silver ratio sits at the **{_pc:.0f}th percentile** of its "
+                       "trailing year. " if _pc is not None else
+                       "Percentile needs a full year of both series and is withheld until then. ")
+                    + "**The ratio's LEVEL is deliberately not shown**: the classic ~80 reading "
+                      "is spot-per-ounce, and computed from ETF unit prices the same number is "
+                      "arbitrary — it would look precise and mean nothing. Silver leads in "
+                      "risk-on metal phases; gold leads in fear phases.")
             section("Asset-Class Regime Detector")
             _reg_path = _os_etf.path.join(
                 _os_etf.path.dirname(_os_etf.path.abspath(__file__)),
@@ -11989,8 +12101,12 @@ Gold floor 10% in RISK_OFF. Debt absorbs residual to 100%.
                 st.markdown("---")
 
                 # Best display columns
+                # Structure_Source is FIRST after the identity columns on purpose: it
+                # says whether Stage/RS/RRG on that row describe the index or the ETF,
+                # and every other number is read differently depending on the answer.
                 _show_cols = [c for c in [
                     "Symbol", "Name", "Asset_Class", "Sub_Category",
+                    "Structure_Source",
                     "Total_Score", "Grade", "Stage", "RRG_Quadrant",
                     "Liquidity_Score", "Trend_Score", "RS_Score", "Rotation_Score",
                     "LTP", "Mansfield_RS", "RS_Momentum_4W",
@@ -12005,6 +12121,80 @@ Gold floor 10% in RISK_OFF. Debt absorbs residual to 100%.
                 st.dataframe(_disp[_show_cols].style.format(_fmt),
                               use_container_width=True, hide_index=True,
                               height=560)
+                _n_idx = int(_disp["Structure_Source"].astype(str)
+                             .str.startswith("index").sum()) if "Structure_Source" in _disp.columns else 0
+                st.caption(
+                    f"**Structure_Source** — `index:NAME` means Stage / Trend / RS / RRG "
+                    f"were measured on that INDEX ({_n_idx} of {len(_disp)} rows); `etf` "
+                    "means no NSE index exists for the exposure (gold, silver, Nasdaq, "
+                    "FANG, S&P Top 50, Hang Seng, the cash park), so the ETF is the "
+                    "correct series rather than a fallback. "
+                    "**Turnover_60D_Cr** is the 60-day MEDIAN daily traded value — median, "
+                    "not average, so one block deal cannot lift a thin ETF over the floor; "
+                    "and rupees, not shares, because 20,000 units is ₹2 L on one fund and "
+                    "₹321 L on another. It is the number your position size is judged "
+                    "against, not AUM: Bharat Bond 2032 holds ₹10,408 Cr and trades "
+                    "₹0.36 Cr/day. **ETFs have no BFF / RFF / Piotroski** — an ETF has no "
+                    "P&L or balance sheet, so those are not applicable rather than missing.")
+
+        # ─── TAB 5 — Vehicle & Chart ───────────────────────────────────────
+        # WHY THIS TAB EXISTS: the universe now picks ONE vehicle per exposure, and it
+        # does not always pick the one Jay has traded before - gold moved GOLDBEES ->
+        # GOLDIETF and silver SILVERBEES -> SILVERIETF on expense ratio. A vehicle
+        # change that is only visible as a different ticker in a results file is the
+        # kind of thing you discover mid-trade. This shows the choice AND its reason.
+        with _et5:
+            section("Which vehicle, and which chart")
+            st.caption(
+                "**One tracker per exposure.** Candidates come from your AUM-curated "
+                "workbook (Stage 1, human, occasional). Among those clearing the ₹0.5 Cr/day "
+                "floor, the one with **ample liquidity (≥ ₹5 Cr/day) and the lowest expense "
+                "ratio** wins; AUM breaks ties. Past the point where liquidity is sufficient "
+                "for your size, extra turnover buys nothing while the fee is charged every "
+                "year — GOLDIETF at ₹80 Cr/day and 0.42% beats GOLDBEES at ₹328 Cr/day and "
+                "0.69%, because you cannot use the difference in liquidity but you do pay "
+                "the difference in fee. "
+                "**Chart column**: where to run PHASE-1 analysis. `index` = chart the index "
+                "(clean series); `etf_only` = no NSE index exists, so chart the ETF.")
+            try:
+                import etf_index_map as _eim_ui
+                _map_p = _eim_ui.MAP_CSV
+                if not _os_etf.path.exists(_map_p):
+                    _eim_ui.build()
+                _mp = pd.read_csv(_map_p)
+                try:
+                    _prop = pd.read_csv(_os_etf.path.join(
+                        _os_etf.path.dirname(_os_etf.path.abspath(__file__)),
+                        "ETF_Universe_Proposed.csv"))
+                    _mp = _mp.merge(_prop[[c for c in ("Symbol", "ter_pct", "turnover_cr",
+                                                       "aum_cr", "selected_from", "reason")
+                                           if c in _prop.columns]],
+                                    left_on="trade_symbol", right_on="Symbol", how="left")
+                except Exception:
+                    pass
+                _c1, _c2, _c3 = st.columns(3)
+                _c1.metric("Exposures", len(_mp))
+                _c2.metric("Chart the index", int((_mp["chart_mode"] == "index").sum()))
+                _c3.metric("Chart the ETF", int((_mp["chart_mode"] != "index").sum()))
+                _cols = [c for c in ("exposure", "trade_symbol", "liquidity_tier",
+                                     "turnover_cr", "ter_pct", "aum_cr", "selected_from",
+                                     "chart_mode", "tv_index", "dhan_index",
+                                     "index_status", "reason") if c in _mp.columns]
+                st.dataframe(_mp[_cols].sort_values("exposure"),
+                             use_container_width=True, hide_index=True, height=520)
+                st.caption(
+                    "`tv_index` is the TradingView symbol for PHASE-1 analysis; "
+                    "`dhan_index` is what GM computes structure from. **They differ and "
+                    "neither derives from the other** — Dhan's `NIFTYNXT50` is TradingView's "
+                    "`NIFTYJR`, Dhan's `NIFTYCPSE` is `CPSE` — which is why this is a table "
+                    "read back from both feeds rather than a naming rule. "
+                    "`selected_from` is how many trackers competed for that exposure; "
+                    "`reason` records whether the winner was *cheapest of the amply liquid* "
+                    "or *most liquid (none ample)*. "
+                    "**`index_status = no NSE index`** (gold, silver, Nasdaq, FANG, S&P Top 50, "
+                    "Hang Seng, cash park) is not a gap — there is no Indian index to chart.")
+            except Exception as _e_map:
+                st.warning(f"Index map unavailable: {_e_map}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -13696,6 +13886,80 @@ elif page == 'GOLDEN MATCHER':
                                "CLEARS a stale list in S4 — the individual blocks below are "
                                "still there for overriding one list by hand.")
                     st.code(_s4bundle, language=None)
+
+                # ── ALL-TIMEFRAMES BUNDLE (29-Aug-2026) ─────────────────────────
+                # For a single chart layout, which has ONE S4 bundle field. The
+                # per-TF line above is still correct; this removes the daily "which
+                # board has the most names today?" judgement, which flips with
+                # breadth. Safe to merge because every section is symbol-keyed and
+                # carries a property of the NAME, not the chart -- see
+                # gm_trigger_board.s4_bundle_union for the field-by-field reasoning.
+                try:
+                    _s4union = _gtb.s4_bundle_union()
+                except Exception as e:
+                    _s4union = ""
+                    _gm_logger.warning(f"s4_bundle_union failed: {e}")
+                # Rendered even when it MATCHES the per-TF line: all three boards share
+                # one watchlist union, so on a day every window was rebuilt they are
+                # identical and the union adds nothing. Suppressing it then would hide
+                # the field on exactly the days nothing is wrong, and you would go looking
+                # for it. The caption says which case you are in instead.
+                if _s4union:
+                    st.caption("📋 **ONE-PASTE bundle (all timeframes)** — the Daily / "
+                               "125m / 75m boards merged and deduped by symbol. Use this "
+                               "one if you run a single chart layout: it covers every name "
+                               "on any board, so you never have to pick the widest. "
+                               "⚠️ A timeframe only contributes the BFFC/RFFC/PIOC "
+                               "bitstrings once its board has been REBUILT at least once — "
+                               "rebuild all three windows before copying."
+                               + ("  ✅ Identical to the per-TF line above — all three boards "
+                                  "were rebuilt from the same watchlist, so either works today."
+                                  if _s4union == _s4bundle else
+                                  "  ⚠️ DIFFERS from the per-TF line above — at least one board "
+                                  "is stale or was not rebuilt. Prefer this one."))
+                    st.code(_s4union, language=None)
+
+                # ── SECOND PASTE — options OI (1-Sep-2026) ────────────────────
+                # A SEPARATE S4 input ("GM: bundle 2 — options OI"), because
+                # input.string caps around 4,096 chars and the bundle above is already
+                # ~9,200. Pasting this into the first field would wipe every list in it,
+                # so it gets its own block with the destination named.
+                #
+                # Behind a button: one NSE option-chain call per F&O name, and this
+                # block re-renders on every interaction. Building it inline would fire
+                # dozens of network calls per filter change and look like a hang.
+                if st.button("🧮 Build options bundle (F&O names only)",
+                             key="gm_opt_build",
+                             help="One NSE option-chain call per F&O name on the board. "
+                                  "Cash-only names are skipped entirely. Held in session "
+                                  "state afterwards, so reruns do not re-fetch."):
+                    with st.spinner("Fetching option chains…"):
+                        try:
+                            st.session_state["_gm_opt_bundle"] = _gtb.s4_bundle_options()
+                        except Exception as e:
+                            st.session_state["_gm_opt_bundle"] = ""
+                            _gm_logger.warning(f"s4_bundle_options failed: {e}")
+
+                _s4opt = st.session_state.get("_gm_opt_bundle")
+                if _s4opt is not None:
+                    _optn = len([x for x in _s4opt.split("=", 1)[-1].split(",") if x.strip()])
+                    if _optn:
+                        st.caption(
+                            f"🧮 **Bundle 2 — options OI** · {_optn} F&O names · "
+                            f"{len(_s4opt)} chars. Paste into S4's **“GM: bundle 2 — options "
+                            "OI”** field, NOT the one above. Carries PCR, max pain, total CE/PE "
+                            "OI, the ATM OI shift and the two strikes with the most written "
+                            "OI — max pain and those two strikes are DRAWN on the chart as "
+                            "levels. A field NSE did not return is emitted empty, never zero: "
+                            "a max pain of 0 would render as a price line below every stop.")
+                        st.code(_s4opt, language=None)
+                    else:
+                        # Empty and failed are different facts; only one is worth retrying.
+                        st.caption(
+                            "🧮 **Bundle 2 — options OI** — nothing returned. Either no F&O "
+                            "names on this board, or NSE refused the chain request (its "
+                            "endpoint rejects sessions frequently). Click again to rebuild "
+                            "the session; the levels are simply not drawn until it succeeds.")
 
                 # ── S4 "Auto: GM Recovery list" (2-Aug-2026) — S4 cannot infer the GM's
                 # Bull-vs-Recovery answer (it is inherited from the qualifying screen on

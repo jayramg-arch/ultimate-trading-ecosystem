@@ -778,6 +778,44 @@ def board_cache_paths(tf: str = None):
             os.path.join(_ROOT, f"gm_board_cache_{sfx}.json"))
 
 
+def board_bits_path(tf: str = None) -> str:
+    """Sidecar holding _S4_BITS for a Trigger-TF. Same per-TF split as the board
+    cache, for the same reason: two pop-outs on different TFs must not clobber
+    each other's component bitstrings."""
+    sfx = (str(tf).replace(".", "").replace("/", "")) if tf else "legacy"
+    return os.path.join(_ROOT, f"gm_board_bits_{sfx}.json")
+
+
+def _save_board_bits(tf: str = None) -> None:
+    """Persist the component bitstrings written during this build."""
+    try:
+        if _S4_BITS:
+            atomic_write_text(board_bits_path(tf), json.dumps(_S4_BITS, indent=0))
+    except Exception as e:
+        _log.warning(f"_save_board_bits failed (S4 fundamentals rows won't survive restart): {e}")
+
+
+def _load_board_bits(tf: str = None) -> int:
+    """Refill _S4_BITS from the sidecar after a restart. Returns how many symbols
+    were restored. Merges rather than replaces: a build already in memory is
+    fresher than the file and must win."""
+    try:
+        p = board_bits_path(tf)
+        if not os.path.exists(p):
+            return 0
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+        n = 0
+        for k, v in (d or {}).items():
+            if isinstance(v, dict) and k not in _S4_BITS:
+                _S4_BITS[k] = v
+                n += 1
+        return n
+    except Exception as e:
+        _log.warning(f"_load_board_bits failed: {e}")
+        return 0
+
+
 def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None, tf=None) -> None:
     """Persist the built board to disk so it survives a Web Commander restart /
     browser reload (session_state is in-memory only). CSV (no pyarrow dep).
@@ -790,6 +828,7 @@ def save_board_cache(df, stamp=None, tech_stamp=None, built_tf=None, tf=None) ->
         import datetime
         _csv, _meta = board_cache_paths(tf or built_tf)
         atomic_write_text(_csv, df.to_csv(index=False))
+        _save_board_bits(tf)
         atomic_write_text(_meta, json.dumps(
             {"stamp": stamp, "tech_stamp": tech_stamp, "built_tf": built_tf,
              "saved": datetime.datetime.now().isoformat()}))
@@ -2054,7 +2093,8 @@ def s4_fund_lists(tf: str = None) -> dict:
     page down.
     """
     out = {"BFF": "", "RFF": "", "RANK": "", "PIO": "", "ETFL": "", "ETFP": "",
-           "BFFC": "", "RFFC": "", "PIOC": ""}
+           "BFFC": "", "RFFC": "", "PIOC": "", "PAIR": "",
+           "IDXS": "", "IDXR": ""}
     try:
         df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)
     except Exception as e:
@@ -2070,6 +2110,17 @@ def s4_fund_lists(tf: str = None) -> dict:
         a hard fail on a name nothing was measured for."""
         t = str(v or "").strip()
         if not t or t.lower() == "nan":
+            return None
+        # An ETF's BFF cell is the ETF BADGE, not a score -- build_row sets
+        # "BFF": (_etf_badge or bff_txt), so it reads "ETF  ·  Rs 48.7Cr  ·  NAV +0.1%"
+        # and the first integer in it is the TURNOVER. That shipped BANKBEES:48,
+        # GOLDBEES:267, NIFTYBEES:156 as if they were BFF scores, and once S4's Gate 6
+        # gates on BFF it would BLOCK every ETF under Rs 4Cr turnover as
+        # "fundamentally weak" -- an instrument class with no fundamentals at all.
+        # Return None so the name is UNSCORED: S4 renders an em-dash and the gate
+        # treats it as unlisted, which passes. ETF liquidity and premium already
+        # travel properly in the ETFL / ETFP sections.
+        if t.upper().startswith("ETF"):
             return None
         m = re.search(r"(\d+)", t)
         return int(m.group(1)) if m else None
@@ -2107,6 +2158,13 @@ def s4_fund_lists(tf: str = None) -> dict:
     # COMPONENT BITSTRINGS (28-Aug-2026, Jay: the panel is "heavy on technicals").
     # The scores above say how many checks passed; these say WHICH -- so S4 can render
     # them like the Minervini template row. Same bundle, no extra paste.
+    # A board served from CACHE has an empty in-memory _S4_BITS (it is filled only
+    # inside build_row), which used to emit three empty sections and make every S4
+    # FUNDAMENTALS row read "not scored" after a restart. Refill from the sidecar.
+    if not _S4_BITS:
+        _n = _load_board_bits(tf)
+        if _n:
+            _log.info(f"s4_fund_lists: restored component bitstrings for {_n} symbols from the sidecar")
     for _tag in ("BFFC", "RFFC", "PIOC"):
         _acc = []
         for _, row in df.iterrows():
@@ -2137,6 +2195,60 @@ def s4_fund_lists(tf: str = None) -> dict:
     except Exception as e:
         _log.warning("s4_fund_lists: ETF quality unavailable: %s", e)
 
+    # INDEX <-> ETF PAIRING, both directions, with the COUNTERPART'S ROLE as a one-char
+    # prefix so a symbol can tell which side of the two-stage read it is on:
+    #     I- : my counterpart is an Index -> I am the ETF   (stage 2, trigger + plan)
+    #     E- : my counterpart is an ETF   -> I am the index (stage 1, structure only)
+    # Role must be carried explicitly. Volume cannot stand in for it: sector indices
+    # publish volume on ~42% of bars, so "has volume" would mislabel NIFTY AUTO as a
+    # trigger chart. ":" is the SYM:value separator, so the TV prefix is stripped here
+    # and S4 re-adds it.
+    try:
+        import pandas as pd          # module imports pandas lazily; not a global here
+        import etf_index_map as _eim_p
+        import os as _os_p
+        if not _os_p.path.exists(_eim_p.MAP_CSV):
+            _eim_p.build()
+        _pm = pd.read_csv(_eim_p.MAP_CSV)
+        _pairs = []
+        for _, _r in _pm.iterrows():
+            _etf = str(_r.get("trade_symbol") or "").strip().upper()
+            _tv = str(_r.get("tv_index") or "").strip()
+            if not _etf or not _tv:
+                continue
+            _tvbare = _tv.split(":")[-1]
+            _pairs.append(f"{_etf}:I-{_tvbare}")
+            _pairs.append(f"{_tvbare}:E-{_etf}")
+        out["PAIR"] = ",".join(sorted(set(_pairs)))
+    except Exception as e:
+        _log.warning("s4_fund_lists: PAIR section unavailable: %s", e)
+
+    # SECTOR STRUCTURE IN ETF PRICES. The index's nearest support/resistance, converted
+    # by the live ETF/index ratio, so the ETF chart can answer "is the zone I am about
+    # to lean on the SAME one the sector is leaning on?". Computed by etf_levels (GM has
+    # both series; Pine cannot, because request.security needs a simple string and the
+    # paired symbol arrives as a series one). Read from its CSV rather than recomputed:
+    # it is a batch fetch, and the board must not pay for it per rebuild.
+    try:
+        import pandas as pd
+        import etf_levels as _elv
+        import os as _os_l
+        if _os_l.path.exists(_elv.OUT_CSV):
+            _lv = pd.read_csv(_elv.OUT_CSV)
+            for _key, _col in (("IDXS", "Sup_ETF"), ("IDXR", "Res_ETF")):
+                _acc = []
+                for _, _r in _lv.iterrows():
+                    _sy = str(_r.get("Symbol") or "").strip().upper()
+                    _v = _r.get(_col)
+                    if _sy and _v == _v and _v is not None:
+                        _acc.append(f"{_sy}:{round(float(_v), 2)}")
+                out[_key] = ",".join(sorted(set(_acc)))
+        else:
+            _log.info("s4_fund_lists: %s absent - run etf_levels to enable the "
+                      "translated sector levels", _elv.OUT_CSV)
+    except Exception as e:
+        _log.warning("s4_fund_lists: translated sector levels unavailable: %s", e)
+
     for col in ("BFF", "RFF"):
         if col not in df.columns:
             continue
@@ -2148,6 +2260,173 @@ def s4_fund_lists(tf: str = None) -> dict:
                 pairs.append(f"{sym}:{n}")
         out[col] = ",".join(sorted(set(pairs)))
     return out
+
+
+def s4_bundle_options(symbols=None, tf: str = None) -> str:
+    """The SECOND S4 paste: option-chain data, one packed section.
+
+    FORMAT   OPT=SYM:pcr/maxpain/totCE/totPE/atmShift/peStrike/ceStrike,SYM:...
+
+    Packed rather than split into six sections because S4's input.string caps around
+    4,096 characters and the repeated SYMBOL NAME is the dominant cost - packing is the
+    difference between six fields fitting and not. "/" is the field separator because
+    "|" already separates sections and "," already separates symbols.
+
+    Only F&O names appear. Cash-only names are ABSENT, not present-with-blanks, so S4
+    can say "no options" rather than printing em-dashes that read as a failed fetch.
+
+    A field that could not be read is emitted EMPTY, never 0. Max pain and the two
+    writer strikes are drawn as price levels on the chart, and a zero renders as a line
+    below every stop that is indistinguishable from a real one.
+
+    Never raises: a symbol that fails is dropped, and a total failure returns "OPT=".
+    """
+    try:
+        import nse_options
+    except Exception as e:
+        _log.warning(f"s4_bundle_options: nse_options unavailable: {e}")
+        return "OPT="
+
+    if symbols is None:
+        try:
+            df, _ = load_board_cache(max_age_hours=24.0, tf=tf)
+            symbols = [] if df is None or getattr(df, "empty", True) else list(df["Symbol"].astype(str))
+        except Exception as e:
+            _log.warning(f"s4_bundle_options: board cache unreadable: {e}")
+            return "OPT="
+
+    def _num(v, nd=2):
+        """A real number formatted, or "" - never 0. See the docstring."""
+        try:
+            if v is None:
+                return ""
+            f = float(v)
+            if f != f:                      # NaN
+                return ""
+            t = f"{f:.{nd}f}"
+            # Trim ONLY a fractional tail. A bare rstrip("0") turns 6700 into 67 -
+            # total OI is an integer and every trailing zero in it is significant.
+            return (t.rstrip("0").rstrip(".") if "." in t else t) or "0"
+        except (TypeError, ValueError):
+            return ""
+
+    # Pre-filter to F&O names from the scrip master - no network. Dhan rate-limits the
+    # chain to one call per three seconds, so walking the ~56 cash-only names on an
+    # 86-name board cost ~3 minutes to be told they have no options.
+    try:
+        import dhan_ohlcv
+        _fno = dhan_ohlcv.get_fno_underlyings()
+    except Exception as e:
+        _log.warning(f"s4_bundle_options: F&O list unavailable ({e}); asking every name")
+        _fno = set()
+
+    out = []
+    for sym in dict.fromkeys(_canon_key(x) for x in symbols):
+        if not sym:
+            continue
+        if _fno and sym not in _fno:
+            continue                    # cash-only: absent from OPT, so S4 says "no options"
+        try:
+            d = nse_options.get_option_chain(sym)
+        except Exception as e:
+            _log.warning(f"s4_bundle_options: {sym} chain failed: {e}")
+            continue
+        if not d or d.get("error"):
+            continue                        # not an F&O name, or NSE did not answer
+
+        chain = d.get("chain_df")
+        spot = d.get("spot")
+        atm_shift = pe_k = ce_k = None
+        try:
+            if chain is not None and not chain.empty:
+                # The two levels traders actually read off a chain: the strikes carrying
+                # the most written OI. Put writers defend below, call writers cap above.
+                pe_k = float(chain.loc[chain["PE_OI"].idxmax(), "strike"])
+                ce_k = float(chain.loc[chain["CE_OI"].idxmax(), "strike"])
+                if spot:
+                    # ATM = the strike nearest spot; its net OI change is the day's
+                    # positioning shift, as a % of that strike's standing OI.
+                    i = (chain["strike"] - float(spot)).abs().idxmin()
+                    base = float(chain.at[i, "CE_OI"]) + float(chain.at[i, "PE_OI"])
+                    if base > 0:
+                        chg = float(chain.at[i, "PE_chgOI"]) - float(chain.at[i, "CE_chgOI"])
+                        atm_shift = chg / base * 100.0
+        except Exception as e:
+            _log.warning(f"s4_bundle_options: {sym} strike derivation failed: {e}")
+
+        fields = [_num(d.get("pcr"), 3), _num(d.get("max_pain")),
+                  _num(d.get("total_ce_oi"), 0), _num(d.get("total_pe_oi"), 0),
+                  _num(atm_shift, 1), _num(pe_k), _num(ce_k)]
+        if not any(fields):
+            continue                        # nothing usable - do not emit a row of blanks
+        out.append(f"{sym}:" + "/".join(fields))
+
+    return "OPT=" + ",".join(sorted(out))
+
+
+def s4_bundle_union(tfs=("Daily", "125m", "75m")) -> str:
+    """The per-TF bundles MERGED into one line, deduped by symbol.
+
+    WHY (Jay, 29-Aug-2026, running one chart layout and therefore one S4 bundle
+    field): each Trigger-TF builds its own bundle over its own board, so the sections
+    differ in WHICH NAMES they cover -- 84 rows on 75m against 72 on Daily the day this
+    was written. Choosing "the widest board" is a judgement that has to be re-made every
+    session, because coverage flips with breadth: a quiet day thins the intraday boards
+    below Daily and the habit silently picks the wrong one.
+
+    Merging is safe because every section is a SYMBOL-KEYED lookup of a property of the
+    NAME, not of the chart. S4 looks up its own ticker and ignores the rest, so extra
+    names cost nothing:
+      REC / PB          the GM's path resolution -- its own tooltip says the path is a
+                        property of the NAME, not the chart (identical across all three
+                        TFs when measured).
+      BFF / RFF / PIO   fundamentals, and their BFFC/RFFC/PIOC component bitstrings.
+                        A balance sheet does not change with the chart's timeframe.
+      ETFL / ETFP       ETF turnover and premium. Same.
+      RANK              THE ONE EXCEPTION: the board's Overall composite genuinely
+                        differs per TF. It is DISPLAY ONLY (it never gates and never
+                        scores), and the widest board wins under the ordering below.
+
+    ORDER: boards are merged widest-first (most rows), so the richest board is
+    authoritative on any field where two TFs disagree -- which is the board a human
+    would have picked by hand anyway. First write wins; later TFs only ADD names.
+
+    Empty sections are still emitted, exactly as s4_bundle does, because an empty
+    section is what CLEARS a stale list in S4. Never raises.
+    """
+    order = []
+    for tf in tfs:
+        n = 0
+        try:
+            df, _ = load_board_cache(max_age_hours=24.0, tf=tf)
+            n = 0 if df is None or getattr(df, "empty", True) else len(df)
+        except Exception as e:
+            _log.warning(f"s4_bundle_union: board cache unreadable for {tf}: {e}")
+        order.append((n, tf))
+    order.sort(key=lambda x: -x[0])
+
+    merged: dict = {}
+    tag_order: list = []
+    for _n, tf in order:
+        try:
+            b = s4_bundle(tf=tf) or ""
+        except Exception as e:
+            _log.warning(f"s4_bundle_union: {tf} bundle failed: {e}")
+            continue
+        for part in b.split("|"):
+            if "=" not in part:
+                continue
+            tag, val = part.split("=", 1)
+            if tag not in merged:
+                merged[tag] = {}
+                tag_order.append(tag)
+            for item in val.split(","):
+                item = item.strip()
+                if item:
+                    merged[tag].setdefault(item.split(":", 1)[0], item)
+    if not tag_order:
+        return ""
+    return "|".join(f"{t}=" + ",".join(sorted(merged[t].values())) for t in tag_order)
 
 
 def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
@@ -2193,15 +2472,29 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     parts = [
         ("REC",  _safe(s4_recovery_list, uni)),
         ("PB",   _safe(s4_pullback_list, uni)),
+        # ORDERED BY CRITICALITY (29-Aug-2026), because input.string has a LENGTH CAP
+        # and whatever falls past it is silently lost. Measured on the 5,737-char
+        # bundle that exposed this: BFFC ended at 3,872 and RFFC at 3,954, but PIOC
+        # ran 3,955-5,108 -- so BFF and RFF rendered while the Piotroski row read
+        # "not scored", looking like missing board data rather than a truncated input.
+        # RANK (1,156 chars) was the section that pushed it over, and by its own
+        # tooltip it "never gates and never scores".
+        # Each score now sits NEXT TO its bitstring so the pair can never be split,
+        # and the tail is display-only: if the cap bites again it takes RANK or the
+        # ETF fields, neither of which gates anything or renders on a stock chart.
         ("BFF",  fund.get("BFF", "")),
-        ("RFF",  fund.get("RFF", "")),
-        ("RANK", fund.get("RANK", "")),
-        ("PIO",  fund.get("PIO", "")),
-        # Component bitstrings behind BFF / RFF / PIO -- which check failed, not just
-        # how many. S4 renders them as its two fundamentals rows.
         ("BFFC", fund.get("BFFC", "")),
+        ("RFF",  fund.get("RFF", "")),
         ("RFFC", fund.get("RFFC", "")),
+        ("PIO",  fund.get("PIO", "")),
         ("PIOC", fund.get("PIOC", "")),
+        # With the gating sections, not the display tail: which chart you are on is
+        # upstream of every judgement the panel makes.
+        ("PAIR", fund.get("PAIR", "")),
+        ("IDXS", fund.get("IDXS", "")),
+        ("IDXR", fund.get("IDXR", "")),
+        # --- display only from here down ---
+        ("RANK", fund.get("RANK", "")),
         # ETF liquidity (Rs Cr, 60d) and premium/discount to NAV (%). Only ETFs
         # appear, so a stock chart reads an em-dash on both and nothing changes.
         ("ETFL", fund.get("ETFL", "")),
