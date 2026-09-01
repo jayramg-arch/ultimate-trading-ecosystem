@@ -117,13 +117,41 @@ def generate_tradingview_files(silent=False):
                     print(f"[ERROR] No Symbol column in {csv_file}")
                     continue
 
+                # ETF -> its INDEX, for the PHASE-1 chart. Loaded once per file rather
+                # than per row; an unavailable map degrades to ETF-only, which is the
+                # previous behaviour, never to an empty list.
+                _tv_index = {}
+                try:
+                    import os as _os_w
+                    import etf_index_map as _eim_w
+                    if not _os_w.path.exists(_eim_w.MAP_CSV):
+                        _eim_w.build()
+                    import csv as _csv_w
+                    with open(_eim_w.MAP_CSV, encoding="utf-8") as _fh_w:
+                        for _r_w in _csv_w.DictReader(_fh_w):
+                            _tv_w = (_r_w.get("tv_index") or "").strip()
+                            if _tv_w:
+                                _tv_index[(_r_w.get("trade_symbol") or "").strip().upper()] = _tv_w
+                except Exception as _e_w:
+                    print(f"[WARN] index map unavailable ({_e_w}); watchlists emit ETFs only")
+
                 # Prepare Symbols List
                 symbols_list = []
+                _seen = set()
                 for row in rows:
                     symbol = row.get(symbol_col, "").strip()
                     if symbol:
                         clean_symbol = symbol.replace("NSE:", "").replace("BSE:", "").replace(".NS", "").replace(".BO", "")
-                        symbols_list.append(f"NSE:{clean_symbol}")
+                        # INDEX FIRST: phase 1 is read on the index, and it is the series
+                        # the board's Stage / RS / RRG were actually computed from.
+                        _idx_w = _tv_index.get(clean_symbol.upper())
+                        if _idx_w and _idx_w not in _seen:
+                            symbols_list.append(_idx_w)
+                            _seen.add(_idx_w)
+                        _etf_w = f"NSE:{clean_symbol}"
+                        if _etf_w not in _seen:
+                            symbols_list.append(_etf_w)
+                            _seen.add(_etf_w)
 
                 if not symbols_list:
                     print(f"[WARN] No symbols found for {base_name}. Skipping TXT generation.")

@@ -13,13 +13,44 @@ import time
 # Load environment variables
 load_dotenv()
 
+# Same rule as weinstein_commander_web: a child runs in the SAME environment as its
+# parent. sys.executable IS that environment and needs no discovery. Scanning for a
+# project .venv picked an EMPTY GeminiVSCode/.venv over the TradingData/venv the app
+# actually runs in, so spawned scripts lost every dependency and failed with
+# ModuleNotFoundError - which reads as "not installed" and sends you to pip.
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PYTHON_EXE = sys.executable
+if not str(_PYTHON_EXE).lower().endswith(("python.exe", "pythonw.exe", "python", "python3")):
+    for _cand in (os.path.join(_SCRIPT_DIR, ".venv", "Scripts", "python.exe"),
+                  os.path.join(_SCRIPT_DIR, ".venv", "bin", "python")):
+        if os.path.exists(_cand):
+            _PYTHON_EXE = _cand
+            break
+_VENV_PY = _PYTHON_EXE
+
 def set_chat_id(chat_id):
-    """Saves the User's Chat ID to .env for proactive notifications."""
+    """Saves the User's Chat ID to .env for proactive notifications, protecting channel IDs."""
     env_path = ".env"
+    
+    # Read existing value first
+    existing_chat_id = None
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+             lines = f.readlines()
+        for line in lines:
+            if line.startswith("TELEGRAM_CHAT_ID="):
+                existing_chat_id = line.split("=")[1].strip()
+                break
+                
+    # If existing is a channel/group (starts with '-') and new is a private user chat (positive ID),
+    # do NOT overwrite it.
+    if existing_chat_id and (existing_chat_id.startswith("-") or existing_chat_id.startswith("@")) and not str(chat_id).startswith("-"):
+        print(f"⚠️ Protected existing channel/group chat ID: {existing_chat_id} from being overwritten by private chat ID: {chat_id}")
+        return False
+
     with open(env_path, "r") as f:
          lines = f.readlines()
     
-    # Check if exists
     updated = False
     new_lines = []
     for line in lines:
@@ -37,14 +68,23 @@ def set_chat_id(chat_id):
     
     # Reload environment
     load_dotenv(override=True)
+    return True
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    set_chat_id(chat_id)
+    was_saved = set_chat_id(chat_id)
     
-    await update.message.reply_text(
+    reply = (
         "🤖 *Commander Jay Sentinel Online*\n\n"
         "Your Chat ID has been secured. I can now push alerts to you.\n\n"
+    ) if was_saved else (
+        "🤖 *Commander Jay Sentinel Online*\n\n"
+        "⚠️ *NOTE:* Alerts are currently configured to route to your channel/group. "
+        "The channel ID was protected and NOT overwritten. "
+        "Interact with me here, or update `.env` manually to route alerts here.\n\n"
+    )
+    
+    reply += (
         "*MISSION COMMANDS:*\n"
         "/initiate - 🚀 Full Auto-Pilot Protocol\n"
         "/report - 📝 Generate Strategic Briefing\n"
@@ -55,9 +95,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/sync - Remote Master Sync (TV/Journal)\n"
         "/scan - Trigger Stage 2 Scanner\n"
         "/match - Run Golden Matcher\n"
-        "/ping - Test Connection",
-        parse_mode='Markdown'
+        "/ping - Test Connection"
     )
+    
+    await update.message.reply_text(reply, parse_mode='Markdown')
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Keeping an eye on the markets... Fetching Status...")
@@ -245,7 +286,7 @@ async def sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         # Run master sync in background
-        subprocess.Popen(["python", "master_portfolio_sync.py"], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
+        subprocess.Popen([_PYTHON_EXE, "master_portfolio_sync.py"], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
         await asyncio.sleep(2) # Give it a head start
         await update.message.reply_text("✅ *Master Sync Protocol Started*.\nTradingView script and local Journal are being updated in the background.")
     except Exception as e:
@@ -263,7 +304,7 @@ async def briefing(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📝 *Initiating Strategic Briefing Workflow*...\nLaunching AI Analysis on Command Center.")
     try:
-        subprocess.Popen(["python", "workflow_strategic_briefing.py"], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
+        subprocess.Popen([_PYTHON_EXE, "workflow_strategic_briefing.py"], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
         await update.message.reply_text("✅ *Strategic Briefing Started*.\nGenerating report in a new terminal window.")
     except Exception as e:
         await update.message.reply_text(f"❌ Report Generation Failed: {e}")
@@ -271,7 +312,7 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def initiate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚀 *INITIATING FULL AUTO-PILOT PROTOCOL*...\nExecuting: Scanners -> Fundamentals -> Matching -> Sync")
     try:
-        subprocess.Popen(["python", "run_pipeline.py"], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
+        subprocess.Popen([_PYTHON_EXE, "run_pipeline.py"], creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
         await update.message.reply_text("🔥 *Protocol Engaged*.\nFull pipeline is running in a visual console on your terminal.")
     except Exception as e:
         await update.message.reply_text(f"❌ Protocol Failed: {e}")
@@ -288,7 +329,7 @@ async def send_push_notification(message):
         return
     
     from telegram import Bot
-    bot = Bot(token=token)
+    bot = Bot(token=token, base_url="https://telegram-proxy.jayramg.workers.dev/bot")
     try:
         # Use asyncio to run the bot command
         await bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
@@ -307,7 +348,7 @@ def run_bot():
 
     print(f"🤖 Starting Commander Jay Sentinel...")
     
-    app = ApplicationBuilder().token(token).build()
+    app = ApplicationBuilder().token(token).base_url("https://telegram-proxy.jayramg.workers.dev/bot").build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status))
