@@ -122,6 +122,47 @@ def _load_scrip_master() -> pd.DataFrame:
     return _scrip_df
 
 
+_fno_underlyings = None
+
+
+def get_fno_underlyings() -> set:
+    """The set of NSE symbols that have stock options, from the scrip master.
+
+    No network: the master is already on disk and already loaded. OPTSTK trading symbols
+    look like "BAJAJ-AUTO-Sep2026-12600-CE", so everything before the expiry token is the
+    underlying. The regex is non-greedy up to the MONTH specifically because underlyings
+    contain hyphens - a naive split on "-" turns BAJAJ-AUTO into BAJAJ.
+
+    Why it matters: Dhan rate-limits option-chain calls to one per three seconds, and
+    asking it about a cash-only name costs a full slot to be told "Invalid SecurityId".
+    Pre-filtering an 86-name board to its ~30 F&O members removes about three minutes
+    per build.
+
+    FAILS OPEN - an unreadable master returns an empty set, which callers must treat as
+    "unknown, ask Dhan" rather than "nothing has options". A broken cache file must not
+    silently empty the options book.
+    """
+    global _fno_underlyings
+    if _fno_underlyings is not None:
+        return _fno_underlyings
+    import re
+    out = set()
+    try:
+        df = _load_scrip_master()
+        opt = df[df["SEM_INSTRUMENT_NAME"].astype(str).str.upper() == "OPTSTK"]
+        pat = re.compile(
+            r"^(.+?)-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{4}-", re.I)
+        for t in opt["SEM_TRADING_SYMBOL"].astype(str):
+            m = pat.match(t)
+            if m:
+                out.add(m.group(1).strip().upper())
+    except Exception as e:
+        logger.warning("F&O underlying list unavailable (%s) - falling back to asking Dhan", e)
+        out = set()
+    _fno_underlyings = out
+    return out
+
+
 def _build_symbol_map():
     """Build NSE EQUITY + INDEX symbol --> (security_id, segment, instrument)."""
     global _sym_to_secid
