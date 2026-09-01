@@ -36,6 +36,12 @@
     "v67: Futures OI":                 ["v67", "s4_oi"],
     "v67: Futures OI prior":           ["v67", "s4_oiPrev"],
     "v67: RS-Ratio vs Sector":         ["v67", "s4_rsRatioSec"],
+    // Added 1-Sep-2026 with the stock-vs-SECTOR RRG. The pair was always being
+    // computed inside v67's weekly security call and had simply never been plotted,
+    // so S4 could show the sector RS LEVEL but not its rotation. Without this entry
+    // the sector half of the RRG row reads an em-dash - and it cannot be spotted by
+    // na(), because an unbound input.source returns close, which is a valid number.
+    "v67: RS-Momentum vs Sector":      ["v67", "s4_rsMomSec"],
     "v67: RS val trail (N500)":        ["v67", "s4_rsValTrail500"],
     "v67: RS mom trail (N500)":        ["v67", "s4_rsMomTrail500"],
     "v67: Pyramid rung":               ["v67", "s4_pyrClass"],

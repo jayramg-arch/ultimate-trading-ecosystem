@@ -1785,7 +1785,7 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     bool bigProblem = inSZ or (roomR > 0 and roomR < 1.0) or (not na(rATR) and rATR < 0.5)
     string sDir = not go ? "DIRECTION · Nothing to do yet. The trigger is incomplete, so the work now is to decide IN ADVANCE what would make this actionable and let the alert do the waiting - a name watched tick by tick gets bought early." : not bigProblem and (wUp or dUp) ? "DIRECTION · This is a take-it. Trend, leadership and location agree, the geometry is honest and the trigger is live, so what remains is ordinary trade risk rather than a flaw in the setup. Execute the plan as written and let the stop, not an opinion, decide the outcome." : bigProblem and (wUp or dUp) ? "DIRECTION · The SETUP is sound but the TRADE as planned is not. What is wrong is fixable - the entry, the stop or the target, not the thesis - so either restructure it with a deeper entry, a stop that clears noise, or a target beyond the obstacle, or leave it alone. Do not take the plan as printed merely because the trigger fired." : "DIRECTION · The trigger is live but the context is against it. A long here is counter-trend, which is legitimate only if you size it as one, take the first obstacle as the target and accept a lower hit rate. If you would not defend this entry out loud, that is your answer."
     string sConf = cf >= cfMax / 2 ? "  Confluence is dense - several independent facts point the same way." : "  Confluence is thin: few independent facts agree, so this rests largely on the trigger alone."
-    string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF) and this chart cannot see it, so the Golden Matcher remains the authority on whether the name belongs on the list at all." : ""
+    string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF), and since Gate 6 that score does reach this chart - see the QUALITY line above. What crosses over is the SCORE only, not the six-check verdict, the growth history or the quality rejection behind it, so the Golden Matcher is still the authority on whether the name belongs on the list at all." : ""
     sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + "\n" + sGeo + sRoom + sType + "\n" + sDir + sConf + sPath
 
 
@@ -2297,3 +2297,433 @@ export sectorOf(string sym) =>
             if _c >= 0 and _c < array.size(_secNam)
                 _out := array.get(_secNam, _c)
     _out
+
+
+// ── fundGate ──────────────────────────────────────────────────────────
+// THE FUNDAMENTAL GATE (29-Aug-2026, Jay: "I do not want the trade outcome to be
+// entirely based on technicals").
+//
+// This judges nothing. S4 cannot compute a fundamental score - see fundScore above
+// for why - so all this does is APPLY the Golden Matcher's already-computed verdict
+// to S4's GO gate, making it the first non-technical term in that gate.
+//
+// THREE STATES, and they are three different facts:
+//   no list pasted     -> PASS, chip "?". An unpasted list is a broken channel, not
+//                         a failed company. Fail-OPEN, exactly as the RRG gate fails
+//                         open when v67 is unbound. The paste is manual, so a
+//                         fail-closed reading of "empty" would blank an entire
+//                         chart on the one morning the paste was forgotten - and it
+//                         would look identical to a genuine wall of rejections.
+//   scored             -> the threshold decides. The ONLY branch that may block.
+//   listed, not on it  -> `strict` decides. Here the GM DID score a board and this
+//                         name is absent, so the silence carries information an
+//                         empty list does not. Defaults OFF (pass, but flagged),
+//                         because off-board names are exactly the ones charted by
+//                         hand and blocking them would make S4 useless off-board.
+//
+// Returns the gate answer (which honours `mode`) and the RAW answer separately, so
+// "Warn" can downgrade the verdict without ever touching GO.
+export fundGate(simple string mode, bool isRec, float score, int minScore, string bits, bool haveList, simple bool strict) =>
+    // THE FLOOR SCALES TO THE CHECKS THAT APPLIED - this mirrors
+    // bull_fundamental_filter.bff_passes(), and a flat comparison is a KNOWN BUG.
+    // margin_expansion is deliberately dropped for financials (lenders report no
+    // OPM), so a bank has FOUR applicable checks where everything else has five.
+    // Comparing a bank's score against a flat "4 of 5" demands a PERFECT 4 of 4
+    // from every lender - that is what kept HDFCBANK / ICICIBANK / AXISBANK / SBIN
+    // out of the book until 13-Aug-2026. floor 4 of 5 == 80%, so a 4-check name
+    // needs round(0.8 x 4) = 3. The BFFC bitstring carries this for free: "-" marks
+    // a check that did not apply, so its length minus the dashes IS `applicable`.
+    // RECOVERY is NOT scaled - recovery_screener compares rff_base to a flat
+    // rff_min_score with no re-basing, so scaling it here would invent a rule.
+    int _res = 0
+    int _pas = 0
+    if str.length(bits) > 0
+        for _i = 0 to str.length(bits) - 1
+            string _c = str.substring(bits, _i, _i + 1)
+            if _c != "-"
+                _res += 1
+                if _c == "1"
+                    _pas += 1
+    bool  _scaled = (not isRec) and _res > 0
+    int   _req    = _scaled ? math.max(1, int(math.round(minScore / 5.0 * _res))) : minScore
+    float _sc     = _scaled ? _pas : score
+    bool  _scored = not na(_sc)
+    bool  _ok     = not haveList ? true : _scored ? _sc >= _req : not strict
+    string _chip  = not haveList ? "?" : _scored ? (_ok ? "🟢" : "🔴") : (strict ? "🔴" : "?")
+    string _note  = not haveList ? "no GM list pasted — gate inactive" : _scored ? ((isRec ? "RFF " : "BFF ") + str.tostring(_sc, "0") + "/" + str.tostring(_scaled ? _res : (isRec ? 6 : 5)) + " vs min " + str.tostring(_req)) : "not on the GM's scored list"
+    [mode != "Gate" or _ok, _ok, _chip, _note]
+
+
+// ── volumeProfile ───────────────────────────────────────────────
+// POC / VAH / VAL over a fixed-row histogram (29-Aug-2026). Moved out of Section 4,
+// which sits permanently against the 100,256 compiled-token ceiling: a library body
+// compiles separately, so the arithmetic leaves S4's budget with behaviour identical.
+//
+// WHAT DID *NOT* MOVE, and why it matters: the caller keeps `var float vp_poc/vah/val`
+// and the barstate gate. The gate is the load-bearing part -- this is a
+// rows x lookback nested loop (40 x 100 = 4,000 iterations) and `barstate.isrealtime`
+// is true on EVERY TICK, which is what produced "Calculation timed out" twice in 30
+// minutes once the market opened. Moving code to a library relieves TOKENS ONLY; it
+// does nothing for the 20-second execution limit, so the caller must keep computing
+// this once per CLOSED bar.
+//
+// Series parameters retain their history, so hiS[i] / loS[i] / volS[i] index exactly
+// as high[i] / low[i] / volume[i] did in place.
+// Returns [na, na, na] when the range is degenerate, so the caller can leave the
+// previous profile standing rather than blanking it.
+// `run` IS THE GATE, and it is a parameter rather than a wrapper `if` on purpose.
+// Pine requires a function that indexes its series parameters to be called on EVERY
+// calculation so those history buffers are sized consistently -- calling it inside an
+// `if` raises "should be called on each calculation for consistency" and leaves the
+// allocation to inference. But calling this unconditionally would run a
+// rows x lookback loop every bar AND every tick, which is what produced
+// "Calculation timed out" twice in 30 minutes once the market opened.
+// Passing the gate in satisfies both: the CALL happens every bar, the LOOP does not.
+// Returns [na, na, na] when run is false, so the caller keeps its previous profile.
+export volumeProfile(bool run, float hiS, float loS, float volS, float rngHi, float rngLo,
+     simple int rows, simple int lookback, int barIdx) =>
+    float _poc = na
+    float _vah = na
+    float _val = na
+    float _range = rngHi - rngLo
+    if run and _range > 0 and rows > 0
+        float _row  = _range / rows
+        _varr = array.new_float(rows, 0.0)
+        int _bars = math.min(lookback, barIdx)
+        for i = 0 to _bars - 1
+            float bhi  = hiS[i]
+            float blo  = loS[i]
+            float bvol = volS[i]
+            float brang = bhi - blo
+            if brang > 0
+                for j = 0 to rows - 1
+                    float lvlo = rngLo + j       * _row
+                    float lvhi = rngLo + (j + 1) * _row
+                    float overlap = math.max(0.0, math.min(bhi, lvhi) - math.max(blo, lvlo))
+                    if overlap > 0
+                        array.set(_varr, j, array.get(_varr, j) + bvol * (overlap / brang))
+        float _maxv = array.max(_varr)
+        int _pocidx = array.indexof(_varr, _maxv)
+        _poc := rngLo + (_pocidx + 0.5) * _row
+        float _totv  = array.sum(_varr)
+        float _vatgt = _totv * 0.70
+        float _vavol = _maxv
+        int   _vai   = _pocidx
+        int   _vbi   = _pocidx
+        for _i = 0 to rows - 1
+            if _vavol >= _vatgt
+                break
+            float _nhi = _vai + 1 < rows ? array.get(_varr, _vai + 1) : 0.0
+            float _nlo = _vbi - 1 >= 0   ? array.get(_varr, _vbi - 1) : 0.0
+            if _nhi >= _nlo
+                _vai   := _vai + 1
+                _vavol += _nhi
+            else
+                _vbi   := _vbi - 1
+                _vavol += _nlo
+        _vah := rngLo + (_vai + 1) * _row
+        _val := rngLo +  _vbi      * _row
+    [_poc, _vah, _val]
+
+
+// ---- qualityRead ------------------------------------------------------------
+// The SUMMARY's non-technical section. Added when Gate 6 shipped: the field that reads
+// the whole panel as ONE judgement was, until then, entirely technical - which is the
+// exact thing the fundamental gate exists to stop.
+//
+// Lives here rather than at the call site because it is five ternary branches, and S4's
+// main body is limited by BRANCHES as much as by statements. Inlining it there cost the
+// file a compile (CE10295); one call costs nothing measurable.
+//
+// It prints no number that appears on the FUNDAMENTALS row above it. `raw` is the
+// unconditional verdict and `ok` is the gate-mode-applied one, so the two disagreeing is
+// precisely the Warn state - a name below the floor that is not being blocked, which is
+// the case worth spelling out and the one nothing else on the panel says.
+export qualityRead(bool isEtf, bool have, bool raw, bool ok) =>
+    isEtf ? "QUALITY · There are no company books to judge here. An ETF's quality read is its LIQUIDITY and its PREMIUM TO NAV, both on the rows above - and the premium is the only thing on this panel that can make a technically perfect chart the wrong trade, because that loss is booked on entry whatever the index does next."
+     : not have ? "QUALITY · Nothing has vouched for the books. The Golden Matcher has not scored this name, so the fundamental gate is inert and everything below is a purely technical case. Fine for a chart you are studying; thin ground for a position."
+     : raw ? "QUALITY · The books clear the Golden Matcher's floor, so the technical read below is not carrying this trade on its own. It is a SUBSET of the GM's verdict rather than the whole of it - return on equity, leverage and the size/pledge floor are not carried onto this chart, so the board can still reject a name that passes here."
+     : ok ? "QUALITY · The books are BELOW the floor and the gate is set to Warn, so nothing is being blocked. Everything below is a technical case for a name the Golden Matcher scores as fundamentally weak: take it as a trade if you must, never as a position, and size it as the former."
+     : "QUALITY · Blocked on the books, and that outranks every technical line below. No amount of waiting for volume or a better bar fixes it - the Golden Matcher scores this name under the fundamental floor, and the chart is not the thing that is wrong."
+
+
+// ---- blockRead --------------------------------------------------------------
+// Which gate is red, and what would change it. Returned together because they are ONE
+// decision read twice, and holding them apart is how they drifted: _blk grew the EMA20
+// and rotation branches while _act still answered every case with "wait for a bar that
+// closes strong" - telling you to watch the candle on a name whose candle was fine.
+//
+// The order mirrors the TRIGGER chip left to right (P L V B R F) so the sentence and the
+// chips can never disagree about which gate is red. Covers every term in `go`; the final
+// fallback is the bar, which is the only one left once the others are true.
+export blockRead(bool anyPa, bool supportOk, bool volOk, float rv, float rvFloor,
+       bool emaOk, bool rrgOk, bool fundOk, string fundNote) =>
+    string blk = not anyPa ? "no PA pattern"
+     : not supportOk ? "not at a location"
+     : not volOk ? ("volume below floor (RV " + str.tostring(rv, "0.00") + "/" + str.tostring(rvFloor, "0.00") + ")")
+     : not emaOk ? "price is below the EMA20"
+     : not rrgOk ? "rotation is outside the whitelist"
+     : not fundOk ? ("the fundamental gate blocked it (" + fundNote + ")")
+     : "the trigger bar closed weak"
+    string act = not anyPa ? "Watch for a closed-bar PA trigger here."
+     : not supportOk ? "Needs a pullback into a zone / level."
+     : not volOk ? "Watch for a volume surge."
+     : not emaOk ? "Needs a reclaim of the EMA20 first."
+     : not rrgOk ? "Not a price problem - wait for the rotation to turn, or switch the RRG gate off if you are deliberately trading this against it."
+     : not fundOk ? "Not a technical problem - the GM scores this name below the fundamental floor, and no amount of waiting for a better bar will change that."
+     : "Wait for a bar that closes strong."
+    [blk, act]
+
+
+// ---- packField ---------------------------------------------------------------
+// Pull field `idx` (0-based) out of a "/"-packed value.
+//
+// The options bundle carries six numbers per symbol as SYM:pcr/maxpain/ce/pe/atm/peK/ceK
+// instead of six separate sections. That is not a micro-optimisation: the repeated
+// SYMBOL NAME is the dominant cost in a bundle against a ~4,096-char input.string cap,
+// so packing is the difference between six fields fitting and not.
+//
+// "/" is the separator because "|" already separates bundle SECTIONS and "," already
+// separates SYMBOLS - reusing either would make the bundle unparseable from the first
+// options value onward.
+//
+// An absent or empty field returns na, never 0. These become price levels on the chart.
+export packField(string packed, simple int idx) =>
+    float out = na
+    if str.length(packed) > 0
+        string rest = packed
+        int i = 0
+        bool done = false
+        while not done
+            int at = str.pos(rest, "/")
+            string tok = na(at) ? rest : str.substring(rest, 0, at)
+            if i == idx
+                out := str.length(tok) > 0 ? str.tonumber(tok) : na
+                done := true
+            else if na(at)
+                done := true
+            else
+                rest := str.substring(rest, at + 1)
+                i += 1
+    out
+
+
+// ---- oiBasis2 ----------------------------------------------------------------
+// Futures OI basis, SPLIT by the price direction at each OI event.
+//
+// oiBasis pools every OI increase into one weighted mean, so a name with shorts built at
+// one price and longs at another reports a level between them where neither side is
+// positioned. The two sides defend different prices and that is the whole point:
+//
+//     OI built while price ROSE   -> longs  -> the basis is SUPPORT beneath
+//     OI built while price FELL   -> shorts -> the basis is RESISTANCE above
+//
+// Counts are returned so the caller can decline to draw a level off one or two events.
+// The two can invert (short basis below the long basis) in a genuinely two-sided market;
+// that is a real state meaning "no clean OI level", not an error, and the caller should
+// say so rather than draw an upside-down band.
+export oiBasis2(float oi, float px, bool pxUp, simple int nEvents) =>
+    var array<float> lp = array.new<float>()
+    var array<float> lw = array.new<float>()
+    var array<float> sp = array.new<float>()
+    var array<float> sw = array.new<float>()
+    float prev = nz(oi[1], oi)
+    bool fresh = not na(oi) and not na(oi[1]) and oi != oi[1] and prev > 0
+    if fresh
+        float d = oi - prev
+        if d > 0
+            if pxUp
+                array.push(lp, px)
+                array.push(lw, d)
+                while array.size(lp) > nEvents
+                    array.shift(lp)
+                    array.shift(lw)
+            else
+                array.push(sp, px)
+                array.push(sw, d)
+                while array.size(sp) > nEvents
+                    array.shift(sp)
+                    array.shift(sw)
+    float lNum = 0.0
+    float lDen = 0.0
+    if array.size(lp) > 0
+        for i = 0 to array.size(lp) - 1
+            lNum += array.get(lw, i) * array.get(lp, i)
+            lDen += array.get(lw, i)
+    float sNum = 0.0
+    float sDen = 0.0
+    if array.size(sp) > 0
+        for i = 0 to array.size(sp) - 1
+            sNum += array.get(sw, i) * array.get(sp, i)
+            sDen += array.get(sw, i)
+    [lDen > 0 ? lNum / lDen : na, sDen > 0 ? sNum / sDen : na, array.size(lp), array.size(sp)]
+
+
+// ---- optText -----------------------------------------------------------------
+// The Options OI row.
+//
+// EVERY field renders "-" when absent, never 0. nse_options returns None on a failed
+// fetch for exactly this reason: three of these numbers are drawn as price levels, and a
+// max pain of 0 renders as a line below every stop that is indistinguishable from a real
+// one. "No data" and "zero" are different facts about an option chain.
+//
+// PCR is banded rather than printed raw against a threshold, because the number alone
+// does not say which way to read it: above ~1.3 is put-heavy (contrarian bullish), below
+// ~0.7 is call-heavy complacency, and the middle is noise.
+export optText(float pcr, float maxPain, float totCe, float totPe, float atmShift,
+       float peK, float ceK, float px) =>
+    string sPcr = na(pcr) ? "PCR -"
+     : "PCR " + str.tostring(pcr, "0.00") + (pcr > 1.3 ? " 🟢" : pcr < 0.7 ? " 🔴" : " ⚪")
+    string sMp = na(maxPain) or na(px) or px <= 0 ? "  │  Max pain -"
+     : "  │  Max pain " + str.tostring(maxPain, format.mintick)
+       + " (" + str.tostring((maxPain - px) / px * 100.0, "+0.0") + "%)"
+    string sOi = na(totCe) or na(totPe) ? "  │  OI -"
+     : "  │  OI " + str.tostring(totCe / 100000.0, "0.0") + "L CE / "
+       + str.tostring(totPe / 100000.0, "0.0") + "L PE"
+    string sAtm = na(atmShift) ? "" : "  │  ATM ΔOI " + str.tostring(atmShift, "+0.0") + "%"
+    string sK = na(peK) and na(ceK) ? "" :
+       "  │  writers S " + (na(peK) ? "-" : str.tostring(peK, format.mintick))
+       + " · R " + (na(ceK) ? "-" : str.tostring(ceK, format.mintick))
+    sPcr + sMp + sOi + sAtm + sK
+
+
+// ---- optRead -----------------------------------------------------------------
+// All six packed option fields for `sym`, in one call.
+//
+// Packed as SYM:pcr/maxpain/totCE/totPE/atmShift/peStrike/ceStrike. Six separate
+// packField calls at the S4 site would be six main-body statements against a ~1,000
+// ceiling S4 already sits on; one tuple destructure is one.
+//
+// Every field is na when absent - never 0. Three of these are drawn as price levels.
+export optRead(string section, simple string sym) =>
+    string packed = fundStr(section, sym)
+    [packField(packed, 0), packField(packed, 1), packField(packed, 2),
+     packField(packed, 3), packField(packed, 4), packField(packed, 5), packField(packed, 6)]
+
+
+// ---- oiLevels ----------------------------------------------------------------
+// Draw the OI-derived support/resistance rays. One call, five lines.
+//
+// Rays, not plot(): these are daily values forward-filled onto an intraday chart, so a
+// plot would render a staircase rather than a level - and drawn objects cost none of the
+// 64 plot outputs (S4 uses 22).
+//
+// A `var` inside a Pine function is per CALL SITE, so the five handles below stay
+// independent without S4 declaring a single one of them.
+//
+// Passing na for a level is how the caller declines to draw it, and that is the
+// mechanism that keeps a one-event OI basis or a failed option fetch OFF the chart. A
+// line drawn from one observation looks exactly as authoritative as one drawn from
+// thirty, which is why the count test belongs at the source and na belongs here.
+// Takes the raw levels PLUS their event counts and applies the minimum here, so the
+// caller does not spend two main-body branches deciding what to suppress.
+// MIN_OI_EVENTS is defined here, not passed in, so the rule has ONE home and the two
+// functions that apply it cannot drift. Three prints is the floor for calling
+// something a level: one observation drawn as a ray looks exactly as authoritative
+// as thirty, and the chart must not assert more than the data supports.
+export oiLevels(bool show, float longB, float shortB, int nLong, int nShort,
+       float maxPain, float peK, float ceK,
+       color cLong, color cShort, color cPain, color cPe, color cCe, simple int wid) =>
+    int   minN     = 3
+    float longUse  = nLong  >= minN ? longB  : na
+    float shortUse = nShort >= minN ? shortB : na
+    var line l1 = na
+    var line l2 = na
+    var line l3 = na
+    var line l4 = na
+    var line l5 = na
+    var label b1 = na
+    var label b2 = na
+    var label b3 = na
+    var label b4 = na
+    var label b5 = na
+    if barstate.islast
+        line.delete(l1), line.delete(l2), line.delete(l3), line.delete(l4), line.delete(l5)
+        label.delete(b1), label.delete(b2), label.delete(b3), label.delete(b4), label.delete(b5)
+        if show
+            int x = bar_index - 60
+            if not na(longUse)
+                l1 := line.new(x, longUse, bar_index, longUse, extend=extend.right, color=cLong, width=wid, style=line.style_dashed)
+                b1 := label.new(bar_index, longUse, "FUT long basis", style=label.style_label_left, color=color.new(cLong, 85), textcolor=cLong, size=size.tiny)
+            if not na(shortUse)
+                l2 := line.new(x, shortUse, bar_index, shortUse, extend=extend.right, color=cShort, width=wid, style=line.style_dashed)
+                b2 := label.new(bar_index, shortUse, "FUT short basis", style=label.style_label_left, color=color.new(cShort, 85), textcolor=cShort, size=size.tiny)
+            if not na(maxPain)
+                l3 := line.new(x, maxPain, bar_index, maxPain, extend=extend.right, color=cPain, width=wid, style=line.style_dashed)
+                b3 := label.new(bar_index, maxPain, "max pain", style=label.style_label_left, color=color.new(cPain, 85), textcolor=cPain, size=size.tiny)
+            if not na(peK)
+                l4 := line.new(x, peK, bar_index, peK, extend=extend.right, color=cPe, width=wid, style=line.style_dashed)
+                b4 := label.new(bar_index, peK, "PE writers", style=label.style_label_left, color=color.new(cPe, 85), textcolor=cPe, size=size.tiny)
+            if not na(ceK)
+                l5 := line.new(x, ceK, bar_index, ceK, extend=extend.right, color=cCe, width=wid, style=line.style_dashed)
+                b5 := label.new(bar_index, ceK, "CE writers", style=label.style_label_left, color=color.new(cCe, 85), textcolor=cCe, size=size.tiny)
+    true
+
+
+// ---- oiBasisTxt --------------------------------------------------------------
+// The two futures OI levels, formatted, with the event minimum applied here.
+//
+// A side below `minN` prints an em-dash rather than a price: one OI observation is not a
+// level, and the panel must not state something the data cannot support. Returns an
+// empty string when neither side exists, so the caller appends it unconditionally.
+export oiBasisTxt(float longB, float shortB, int nLong, int nShort) =>
+    int minN = 3          // same floor as oiLevels; see the note there
+    string out = ""
+    if not (na(longB) and na(shortB))
+        out := "   │   basis  L "
+             + (nLong >= minN and not na(longB) ? str.tostring(longB, format.mintick) : "—")
+             + " · S "
+             + (nShort >= minN and not na(shortB) ? str.tostring(shortB, format.mintick) : "—")
+    out
+
+
+// ---- optRow ------------------------------------------------------------------
+// The Options OI row: text AND colour in one call, so the S4 site spends no branches.
+//
+// The cash-only case is handled HERE and reads "no options" rather than a row of
+// em-dashes. Absent and empty are different facts about a symbol - most of the board has
+// no F&O at all, and a line of dashes would read as a failed fetch instead of a name
+// that simply has no option chain to read.
+// SPLIT into text and colour rather than returning a tuple: a tuple forces a
+// destructure at the call site, and that is a main-body statement S4 cannot spare.
+// Two calls inline straight into the f_row arguments and cost nothing.
+export optRowTxt(float pcr, float maxPain, float totCe, float totPe, float atmShift,
+       float peK, float ceK, float px) =>
+    na(pcr) and na(maxPain) and na(totCe)
+      ? "no options — cash-only name, or not in the OPT paste"
+      : optText(pcr, maxPain, totCe, totPe, atmShift, peK, ceK, px)
+
+export optRowCol(float pcr, float maxPain, float totCe,
+       color cMute, color cOk, color cNo, color cInfo) =>
+    na(pcr) and na(maxPain) and na(totCe) ? cMute
+      : (not na(pcr)) and pcr > 1.3 ? cOk
+      : (not na(pcr)) and pcr < 0.7 ? cNo : cInfo
+
+
+// ---- rrgSecTxt ---------------------------------------------------------------
+// The stock-vs-SECTOR RRG, as one string for the RRG row.
+//
+// Formats to "vs Pharma: LEADING ^" or "vs Pharma: -" when the pair is not bound. Lives
+// here so the S4 call site declares nothing: that file compiles on the ~1,000 main-body
+// statement ceiling and this would have cost it two.
+//
+// THE SHAPE TEST IS THE POINT. An unbound input.source silently returns `close` - never
+// na - so a dropped binding cannot be detected with na(). Every input.source in S4 is
+// dropped on every recompile, so "unbound" is the normal state after a compile rather
+// than an edge case, and the guard has to be a RANGE: an RRG coordinate sits near 100,
+// where a share price does not except by coincidence.
+//
+// No trajectory: the trailing pair would cost two more bindings and two more of v67's 64
+// plot outputs, so the current pair is passed as its own trailing value - the same
+// fallback the N500 side already uses. A quadrant, honestly, rather than a made-up
+// direction.
+export rrgSecTxt(float ratio, float mom, string secName) =>
+    bool ok = math.abs(ratio - 100.0) <= 60 and math.abs(mom - 100.0) <= 60
+    string out = "   │   vs " + secName + ": "
+    if ok
+        [arw, trj, cur, sc, tr] = rrgInfo(ratio, mom, ratio, mom)
+        out := out + cur + " " + arw
+    else
+        out := out + "—"
+    out
+

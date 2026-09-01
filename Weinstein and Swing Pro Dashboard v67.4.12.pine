@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.21]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.22]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -741,8 +741,8 @@ p2_tick = input.string("NSE:SAILIFE", title="Slot 2", group=grpP1_5, inline="p2"
 p2_ent  = input.float(1049.15, title="Entry", group=grpP1_5, inline="p2", display=display.data_window)
 p2_sl   = input.float(1272.5, title="SL", group=grpP1_5, inline="p2", display=display.data_window)
 p2_tsl  = input.float(966.2, title="Trail SL", group=grpP1_5, inline="p2", display=display.data_window)
-p2_t1   = input.float(1271.5, title="T1", group=grpP1_5, inline="p2t", display=display.data_window)
-p2_t2   = input.float(1607.5, title="T2", group=grpP1_5, inline="p2t", display=display.data_window)
+p2_t1   = input.float(1607.5, title="T1", group=grpP1_5, inline="p2t", display=display.data_window)
+p2_t2   = input.float(1906.5, title="T2", group=grpP1_5, inline="p2t", display=display.data_window)
 p2_sec  = input.string("NSE:CNXPHARMA", title="Sector", group=grpP1_5, inline="p2s", display=display.data_window)
 p2_date = input.time(timestamp("2026-04-16"), title="Date", group=grpP1_5, inline="p2d", display=display.data_window)
 
@@ -750,7 +750,7 @@ p3_tick = input.string("NSE:ANANDRATHI", title="Slot 3", group=grpP1_5, inline="
 p3_ent  = input.float(1787.7797, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
 p3_sl   = input.float(1989.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
 p3_tsl  = input.float(0.0, title="Trail SL", group=grpP1_5, inline="p3", display=display.data_window)
-p3_t1   = input.float(1988.5, title="T1", group=grpP1_5, inline="p3t", display=display.data_window)
+p3_t1   = input.float(2483.5, title="T1", group=grpP1_5, inline="p3t", display=display.data_window)
 p3_t2   = input.float(2483.5, title="T2", group=grpP1_5, inline="p3t", display=display.data_window)
 p3_sec  = input.string("Financial Services", title="Sector", group=grpP1_5, inline="p3s", display=display.data_window)
 p3_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP1_5, inline="p3d", display=display.data_window)
@@ -768,8 +768,8 @@ p5_tick = input.string("NSE:NAM_INDIA", title="Slot 5", group=grpP1_5, inline="p
 p5_ent  = input.float(1068.1042, title="Entry", group=grpP1_5, inline="p5", display=display.data_window)
 p5_sl   = input.float(1094.5, title="SL", group=grpP1_5, inline="p5", display=display.data_window)
 p5_tsl  = input.float(0.0, title="Trail SL", group=grpP1_5, inline="p5", display=display.data_window)
-p5_t1   = input.float(1093.2, title="T1", group=grpP1_5, inline="p5t", display=display.data_window)
-p5_t2   = input.float(1328.5, title="T2", group=grpP1_5, inline="p5t", display=display.data_window)
+p5_t1   = input.float(1328.5, title="T1", group=grpP1_5, inline="p5t", display=display.data_window)
+p5_t2   = input.float(1589.5, title="T2", group=grpP1_5, inline="p5t", display=display.data_window)
 p5_sec  = input.string("Financial Services", title="Sector", group=grpP1_5, inline="p5s", display=display.data_window)
 p5_date = input.time(timestamp("2026-06-02"), title="Date", group=grpP1_5, inline="p5d", display=display.data_window)
 
@@ -780,7 +780,7 @@ p6_tick = input.string("NSE:NETWEB", title="Slot 6", group=grpP6_10, inline="p6"
 p6_ent  = input.float(4471.6123, title="Entry", group=grpP6_10, inline="p6", display=display.data_window)
 p6_sl   = input.float(4570.5, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
 p6_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p6", display=display.data_window)
-p6_t1   = input.float(4569.5, title="T1", group=grpP6_10, inline="p6t", display=display.data_window)
+p6_t1   = input.float(6200.5, title="T1", group=grpP6_10, inline="p6t", display=display.data_window)
 p6_t2   = input.float(6200.5, title="T2", group=grpP6_10, inline="p6t", display=display.data_window)
 p6_sec  = input.string("Nifty IT", title="Sector", group=grpP6_10, inline="p6s", display=display.data_window)
 p6_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p6d", display=display.data_window)
@@ -798,8 +798,8 @@ p8_tick = input.string("NSE:VIJAYA", title="Slot 8", group=grpP6_10, inline="p8"
 p8_ent  = input.float(1275.1935, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
 p8_sl   = input.float(1275.5, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
 p8_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p8", display=display.data_window)
-p8_t1   = input.float(1274.5, title="T1", group=grpP6_10, inline="p8t", display=display.data_window)
-p8_t2   = input.float(1741.5, title="T2", group=grpP6_10, inline="p8t", display=display.data_window)
+p8_t1   = input.float(1741.5, title="T1", group=grpP6_10, inline="p8t", display=display.data_window)
+p8_t2   = input.float(2208.5, title="T2", group=grpP6_10, inline="p8t", display=display.data_window)
 p8_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p8s", display=display.data_window)
 p8_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP6_10, inline="p8d", display=display.data_window)
 
@@ -843,10 +843,10 @@ p12_sec  = input.string("Capital Goods (BSE)", title="Sector", group=grpP11_15, 
 p12_date = input.time(timestamp("2026-07-29"), title="Date", group=grpP11_15, inline="p12d", display=display.data_window)
 
 p13_tick = input.string("NSE:GLAXO", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
-p13_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
+p13_ent  = input.float(2629.2, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
 p13_sl   = input.float(2678.5, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
 p13_tsl  = input.float(0.0, title="Trail SL", group=grpP11_15, inline="p13", display=display.data_window)
-p13_t1   = input.float(2677.5, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
+p13_t1   = input.float(3471.5, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
 p13_t2   = input.float(3471.5, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
 p13_sec  = input.string("Pharma", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
 p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
@@ -916,6 +916,54 @@ p20_t1   = input.float(0.0, title="T1", group=grpP16_20, inline="p20t", display=
 p20_t2   = input.float(0.0, title="T2", group=grpP16_20, inline="p20t", display=display.data_window)
 p20_sec  = input.string("Capital Goods & Defense", title="Sector", group=grpP16_20, inline="p20s", display=display.data_window)
 p20_date = input.time(0, title="Date", group=grpP16_20, inline="p20d", display=display.data_window)
+// Slots 21-25 (1-Sep-2026). Empty by default: a pre-filled slot you do not hold puts a
+// phantom position on the panel, and f_match skips an empty ticker.
+grpP21_25 = "5. Portfolio Slots 21-25"
+p21_tick = input.string("", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
+p21_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
+p21_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
+p21_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p21", display=display.data_window)
+p21_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p21t", display=display.data_window)
+p21_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p21t", display=display.data_window)
+p21_sec  = input.string("", title="Sector", group=grpP21_25, inline="p21s", display=display.data_window)
+p21_date = input.time(0, title="Date", group=grpP21_25, inline="p21d", display=display.data_window)
+
+p22_tick = input.string("", title="Slot 22", group=grpP21_25, inline="p22", display=display.data_window)
+p22_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p22", display=display.data_window)
+p22_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p22", display=display.data_window)
+p22_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p22", display=display.data_window)
+p22_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p22t", display=display.data_window)
+p22_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p22t", display=display.data_window)
+p22_sec  = input.string("", title="Sector", group=grpP21_25, inline="p22s", display=display.data_window)
+p22_date = input.time(0, title="Date", group=grpP21_25, inline="p22d", display=display.data_window)
+
+p23_tick = input.string("", title="Slot 23", group=grpP21_25, inline="p23", display=display.data_window)
+p23_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p23", display=display.data_window)
+p23_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p23", display=display.data_window)
+p23_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p23", display=display.data_window)
+p23_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p23t", display=display.data_window)
+p23_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p23t", display=display.data_window)
+p23_sec  = input.string("", title="Sector", group=grpP21_25, inline="p23s", display=display.data_window)
+p23_date = input.time(0, title="Date", group=grpP21_25, inline="p23d", display=display.data_window)
+
+p24_tick = input.string("", title="Slot 24", group=grpP21_25, inline="p24", display=display.data_window)
+p24_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p24", display=display.data_window)
+p24_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p24", display=display.data_window)
+p24_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p24", display=display.data_window)
+p24_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p24t", display=display.data_window)
+p24_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p24t", display=display.data_window)
+p24_sec  = input.string("", title="Sector", group=grpP21_25, inline="p24s", display=display.data_window)
+p24_date = input.time(0, title="Date", group=grpP21_25, inline="p24d", display=display.data_window)
+
+p25_tick = input.string("", title="Slot 25", group=grpP21_25, inline="p25", display=display.data_window)
+p25_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p25", display=display.data_window)
+p25_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p25", display=display.data_window)
+p25_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p25", display=display.data_window)
+p25_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p25t", display=display.data_window)
+p25_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p25t", display=display.data_window)
+p25_sec  = input.string("", title="Sector", group=grpP21_25, inline="p25s", display=display.data_window)
+p25_date = input.time(0, title="Date", group=grpP21_25, inline="p25d", display=display.data_window)
+
 // <PORTFOLIO_END>
 
 
@@ -2020,6 +2068,21 @@ f_get_hybrid_sector() =>
         else if f_match(p20_tick)
             t := p20_sec
             n := str.replace_all(p20_sec, "NSE:", "")
+        else if f_match(p21_tick)
+            t := p21_sec
+            n := str.replace_all(p21_sec, "NSE:", "")
+        else if f_match(p22_tick)
+            t := p22_sec
+            n := str.replace_all(p22_sec, "NSE:", "")
+        else if f_match(p23_tick)
+            t := p23_sec
+            n := str.replace_all(p23_sec, "NSE:", "")
+        else if f_match(p24_tick)
+            t := p24_sec
+            n := str.replace_all(p24_sec, "NSE:", "")
+        else if f_match(p25_tick)
+            t := p25_sec
+            n := str.replace_all(p25_sec, "NSE:", "")
 
     // 3. Fall back to Auto-Mapper (keyword-based, for off-list tickers)
     if t == ""
@@ -4105,6 +4168,41 @@ else if f_match(p20_tick)
     finalT1 := p20_t1
     finalT2 := p20_t2
     finalDate := p20_date
+else if f_match(p21_tick)
+    finalEntry := p21_ent
+    finalSL := p21_sl
+    finalTSL := p21_tsl
+    finalT1 := p21_t1
+    finalT2 := p21_t2
+    finalDate := p21_date
+else if f_match(p22_tick)
+    finalEntry := p22_ent
+    finalSL := p22_sl
+    finalTSL := p22_tsl
+    finalT1 := p22_t1
+    finalT2 := p22_t2
+    finalDate := p22_date
+else if f_match(p23_tick)
+    finalEntry := p23_ent
+    finalSL := p23_sl
+    finalTSL := p23_tsl
+    finalT1 := p23_t1
+    finalT2 := p23_t2
+    finalDate := p23_date
+else if f_match(p24_tick)
+    finalEntry := p24_ent
+    finalSL := p24_sl
+    finalTSL := p24_tsl
+    finalT1 := p24_t1
+    finalT2 := p24_t2
+    finalDate := p24_date
+else if f_match(p25_tick)
+    finalEntry := p25_ent
+    finalSL := p25_sl
+    finalTSL := p25_tsl
+    finalT1 := p25_t1
+    finalT2 := p25_t2
+    finalDate := p25_date
 
 // ══════════════════════════════════════════════════════════════════════════
 // NATIVE CHANDELIER EXIT (Canonical Risk Shield Parity)
@@ -5580,6 +5678,11 @@ if show_csv and barstate.islast and time_ok
     csv_out := csv_out + f_row(p18_tick, p18_ent, p18_sl, p18_date, p18_sec)
     csv_out := csv_out + f_row(p19_tick, p19_ent, p19_sl, p19_date, p19_sec)
     csv_out := csv_out + f_row(p20_tick, p20_ent, p20_sl, p20_date, p20_sec)
+    csv_out := csv_out + f_row(p21_tick, p21_ent, p21_sl, p21_date, p21_sec)
+    csv_out := csv_out + f_row(p22_tick, p22_ent, p22_sl, p22_date, p22_sec)
+    csv_out := csv_out + f_row(p23_tick, p23_ent, p23_sl, p23_date, p23_sec)
+    csv_out := csv_out + f_row(p24_tick, p24_ent, p24_sl, p24_date, p24_sec)
+    csv_out := csv_out + f_row(p25_tick, p25_ent, p25_sl, p25_date, p25_sec)
 
     log.info("\n⬇️ COPY PORTFOLIO CSV BELOW ⬇️\n\n" + csv_out + "\n⬆️ COPY PORTFOLIO CSV ABOVE ⬆️")
 
@@ -5667,7 +5770,13 @@ plot(dailyRsi,          title="s4_rsiDaily",     display=display.none)
 plot(val500,            title="s4_rsRatio500",   display=display.none)
 plot(_rsMom500,         title="s4_rsMom500",     display=display.none)
 plot(slope500,          title="s4_rsSlope500",   display=display.none)
+// SECTOR RRG (1-Sep-2026). _rsMomSec falls out of the SAME weekly security call as
+// valSec and had simply never been exported, so S4 could show the sector RS level but
+// not its rotation. Weekly, matching the N500 pair, so the two readings on S4's RRG
+// row share a clock - a daily sector RRG beside a weekly index one would be two
+// different questions printed as one comparison.
 plot(valSec,            title="s4_rsRatioSec",   display=display.none)
+plot(_rsMomSec,         title="s4_rsMomSec",     display=display.none)
 plot(slopeSec,          title="s4_rsSlopeSec",   display=display.none)
 plot(secStageNum,       title="s4_secStage",     display=display.none)
 plot(stageWeeks,        title="s4_stageWeeks",   display=display.none)
