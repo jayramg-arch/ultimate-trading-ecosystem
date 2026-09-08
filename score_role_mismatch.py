@@ -30,6 +30,11 @@ def _load(rid: str):
     return det, meta
 
 
+def _agg(meta: dict) -> dict:
+    a = meta.get("aggregate")
+    return a if isinstance(a, dict) else meta
+
+
 def _blocks(a: pd.DataFrame, b: pd.DataFrame, n_boot: int, seed: int = 11):
     """Symbol-block bootstrap on (mean treat - mean control). Blocks are SYMBOLS, so two
     trades on one name are one piece of evidence, and both arms are drawn from the SAME
@@ -95,9 +100,17 @@ def main() -> int:
 
     # ── INSTRUMENT GATE (PREREG section 5) — checked BEFORE any result is read ──
     print("--- INSTRUMENT CHECK ---")
-    ok_flag = (mc.get("role_mismatch") is False) and (mt.get("role_mismatch") is True)
+    rc, rt = _agg(mc).get("role_mismatch"), _agg(mt).get("role_mismatch")
+    ok_flag = (rc is False) and (rt is True)
     print("  flags: control role_mismatch=%s  treat role_mismatch=%s   %s"
-          % (mc.get("role_mismatch"), mt.get("role_mismatch"), "ok" if ok_flag else "SUSPECT"))
+          % (rc, rt, "ok" if ok_flag else "SUSPECT"))
+    # QUALIFY MODE. Added after it silently invalidated a full A/B pair: --qualify
+    # defaults to "armed", a different population (12x the picks, no catalyst labels,
+    # so forward windows fall through to per-pattern horizons). Both arms must match
+    # each other AND the control this test extends.
+    qc, qt = _agg(mc).get("qualify"), _agg(mt).get("qualify")
+    print("  qualify: control=%s  treat=%s   %s"
+          % (qc, qt, "ok" if qc == qt == "catalyst" else "*** MISMATCH / NOT catalyst — DISCARD"))
     for nm, d in (("control", c), ("treat", t)):
         if "forward_days_used" in d.columns:
             w = d["forward_days_used"].dropna().astype(int).value_counts().to_dict()

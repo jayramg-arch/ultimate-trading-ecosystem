@@ -5,7 +5,10 @@
 set -u
 cd "$(dirname "$0")"
 PY=/c/Users/jayra/TradingData/venv/Scripts/python.exe
-COMMON="--months 36 --universe nifty500 --screener bull --gate s4go --catalyst_windows --bootstrap_n 10000"
+# --qualify catalyst is NOT optional: it defaults to "armed", which is a DIFFERENT
+# population (12x the picks, no catalyst labels, so the forward windows fall through
+# to per-pattern horizons). Omitting it once already cost a full A/B pair.
+COMMON="--months 36 --universe nifty500 --screener bull --gate s4go --qualify catalyst --catalyst_windows --bootstrap_n 10000"
 echo "=== CONTROL  (role_mismatch OFF)  $(date) ==="
 "$PY" -u validation.py $COMMON                    > validation_runs/_rm_control.log 2>&1
 echo "=== TREAT    (role_mismatch ON)   $(date) ==="
