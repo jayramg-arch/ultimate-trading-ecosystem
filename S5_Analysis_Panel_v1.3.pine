@@ -266,8 +266,23 @@ grpGEO = "Geometry — shape classifier"
 show_geom     = input.bool(true,  "Classify the shape (triangle / wedge / channel / range)", group=grpGEO)
 drawGeomLines = input.bool(true,  "Draw the connectors, not just the name", group=grpGEO, tooltip="A named shape with nothing drawn is unfalsifiable - you cannot see whether the classifier used the pivots you would have used. A range draws as a BOX, every other shape as its two connectors.")
 geo_flat      = input.float(0.5,  "Flat tolerance (x ATR)", group=grpGEO, minval=0.05, step=0.05, tooltip="Two pivots within this distance count as a FLAT edge. RAISED from S4's 0.3 for v1: at 0.3 an obvious rectangle was being classified 'Symmetrical triangle' on APOLLOHOSP and GLAXO, because ordinary noise between two highs exceeded the tolerance and read as a downslope. This is the item Jay parked as #11.")
-geo_maxfit    = input.bool(true,  "Fit to the MOST pivots, not just the last two", group=grpGEO, tooltip="ON: f_bestLine threads the line through as many of the 6 pivots as it can, so the edge is a real envelope. OFF: only the last two pivots decide, which is what made the classifier noisy.")
+geo_maxfit    = input.bool(true,  "TradingView-style validated boundary", group=grpGEO, tooltip="ON (default): search pivot PAIRS newest-first and take the first whose segment no intermediate close breaches - this is how TV builds a boundary, and the line that survives is an envelope. OFF: the LAST TWO pivots, unvalidated - the pre-8-Sep behaviour, kept only so the two can be compared on a live chart. Note the old max-threading fit (f_bestLine) is no longer used by the classifier at all: it puts pivots on BOTH sides of the line, so it can never satisfy an interior test.")
 geo_thread    = input.float(0.5,  "Fit tolerance (x ATR)", group=grpGEO, minval=0.1, step=0.05, tooltip="How close a pivot must sit to the fitted line to count as ON it.")
+// --- TradingView-documented criteria (8 Sep 2026) -------------------------
+// From TradingView's own Help Centre pages for the built-in pattern indicators,
+// NOT from its source, which is closed and compiled into the charting engine. The
+// four values below are the ones TV publishes; everything else about their engine
+// is undocumented and is NOT guessed at here.
+geo_piv       = input.int(5,      "Pivot strength (bars each side)", group=grpGEO, minval=1, maxval=20, tooltip="TradingView anchors every pattern line to 5/5 pivots - a high with no higher high five bars either side. S5 previously used the CHART pivot length, which is 2 on intraday, so it was reading swings four times smaller than TV and classifying noise.")
+geo_look      = input.int(600,    "Pattern lookback (bars)", group=grpGEO, minval=50, maxval=1200, tooltip="TradingView scans the last 600 bars for patterns. Kept separate from geo_maxage, which ages out a FORMED shape.")
+geo_dev       = input.float(15.0, "Permissible deviation (% of channel width)", group=grpGEO, minval=0.0, maxval=100.0, step=1.0, tooltip="TV's own term. An intermediate bar may deviate from a boundary line by this much, measured as a percentage of the vertical distance BETWEEN the two lines. Beyond it, the line is not a boundary and the pattern is rejected.")
+geo_strict    = input.bool(false, "Validate on wicks instead of closes", group=grpGEO, tooltip="TV validates on CLOSE. Wicks are stricter and will reject more.")
+flag_pole     = input.float(2.0,  "Flagpole: minimum size (x ATR)", group=grpGEO, minval=0.5, step=0.5, tooltip="The move INTO the pattern. TV calls it the flagpole and describes it as the main trend, the channel being the correction. Without a pole a parallel channel is just a channel.")
+flag_look     = input.int(30,     "Flagpole: bars to measure it over", group=grpGEO, minval=5, maxval=200)
+flag_roll     = input.float(50.0, "Max Rollback (% of flagpole)", group=grpGEO, minval=10.0, maxval=100.0, step=5.0, tooltip="TradingView's own term and definition: the maximum price rollback in the flag channel as a percentage of the height of the flagpole. A correction that retraces most of the pole is not a flag, it is a reversal.")
+geo_ovlp      = input.float(60.0, "Boundaries must share this much of their span (%)", group=grpGEO, minval=0.0, maxval=100.0, step=5.0, tooltip="The upper and lower boundaries are found independently, so nothing forces them to describe the SAME stretch of chart. If they overlap by less than this, they are two unrelated segments rather than one pattern, and every width-based test between them - wedge vs channel above all - is meaningless. TV builds one pattern from points 1-5 over one span.")
+geo_edge      = input.float(20.0, "Flag a call as marginal within (% of the flat threshold)", group=grpGEO, minval=0.0, maxval=50.0, step=5.0, tooltip="A slope sitting just inside geo_flat is classified FLAT with full confidence, and one tick the other way gives a different shape with the opposite reading. ANANDRATHI 75m read a base slope of 0.47x against a 0.50x threshold - flat by six percent - and the panel said Broadening (ascending) as though it were settled. Same idea as S4's knife-edge counter.")
+geo_conv      = input.float(20.0, "Channel Width Ratio Start/End (%)", group=grpGEO, minval=1.0, maxval=90.0, step=1.0, tooltip="TradingView's own name and definition: the minimum required channel height difference between the START and the END of the pattern. It is what separates a WEDGE from a CHANNEL - both lines slope the same way in each, but a wedge CONVERGES. S5 used to lump them into one label while its own READ line told you to go and check which it was. Per TV, a rising wedge is expected to break DOWN through the lower line and a falling wedge UP.")
 
 // ============================================================================
 // TIMEFRAME GUARDRAILS + ATR (verbatim: HTF shows on LTF, never upward)
@@ -1017,6 +1032,104 @@ int   _mA1t = _okM ? srM.a1t : na
 int   _mB1t = _okM ? srM.b1t : na
 
 // ============================================================================
+// GEOMETRY — 5/5 PIVOT POOL  (TradingView-documented)
+// ============================================================================
+// A pool of its OWN, at geo_piv strength, separate from the chart-TF pool the zones
+// and trendlines use. TV pins every pattern anchor to a 5/5 pivot regardless of
+// timeframe; S5's chart pool is piv_intra = 2 on 75m, so the classifier was reading
+// swings a quarter the size and calling the noise between them a slope. That is the
+// most likely cause of open item #11 - an obvious rectangle read as a symmetrical
+// triangle on APOLLOHOSP and GLAXO.
+var array<float> g5hy = array.new<float>()
+var array<int>   g5hx = array.new<int>()
+var array<float> g5ly = array.new<float>()
+var array<int>   g5lx = array.new<int>()
+float _g5h = ta.pivothigh(high, geo_piv, geo_piv)
+float _g5l = ta.pivotlow(low,  geo_piv, geo_piv)
+if not na(_g5h)
+    array.push(g5hy, _g5h)
+    array.push(g5hx, bar_index - geo_piv)
+    if array.size(g5hy) > 8
+        array.shift(g5hy)
+        array.shift(g5hx)
+if not na(_g5l)
+    array.push(g5ly, _g5l)
+    array.push(g5lx, bar_index - geo_piv)
+    if array.size(g5ly) > 8
+        array.shift(g5ly)
+        array.shift(g5lx)
+
+// THE NON-INTERSECTION RULE. A line whose INTERIOR is breached is not a boundary at
+// all: between the two anchors, no intermediate close may cross it.
+//
+// PROVENANCE, because these are not the same standing. The 5/5 pivots, the 600-bar
+// lookback and Permissible Deviation are all stated on TradingView's own Help
+// Centre pages for the built-in pattern indicators. This interior test is NOT -
+// it came from a third-party account of how their engine behaves, and TV's actual
+// wording for Permissible Deviation is the "maximum allowable deviation of a POINT
+// from its corresponding line" (Rectangle page), i.e. how far a pattern VERTEX may
+// sit off its own boundary - not a tolerance on intermediate bars.
+// So geo_dev is being reused here for a related but different job. The % OF CHANNEL
+// WIDTH basis is TV's (Triangle page: "as a percentage of the distance between the
+// lines"); applying it to interior closes is this file's adaptation. Worth knowing
+// if the shapes ever disagree with TV's - this is the first place they would.
+// Returns true when the segment survives.
+f_geoClean(int x1, float y1, int x2, float y2, bool isUpper, float widthPx) =>
+    bool _ok = true
+    int  _dx = x2 - x1
+    if _dx > 1
+        float _m   = (y2 - y1) / _dx
+        float _tol = widthPx * geo_dev / 100.0
+        for _i = 1 to _dx - 1
+            int _off = bar_index - (x1 + _i)
+            if _off >= 0 and _off < 4000
+                float _lvl = y1 + _m * _i
+                float _p   = isUpper ? (geo_strict ? high[_off] : close[_off]) : (geo_strict ? low[_off] : close[_off])
+                if isUpper ? (_p > _lvl + _tol) : (_p < _lvl - _tol)
+                    _ok := false
+                    break
+    _ok
+
+// TV-STYLE BOUNDARY SELECTION (8 Sep 2026).
+// f_bestLine and the non-intersection rule are INCOMPATIBLE objectives, and pairing
+// them was my error: f_bestLine returns the line threading the MOST pivots, which by
+// construction leaves pivots on both sides of it, so an intermediate close breaches it
+// almost every time. On ANANDRATHI 75m the classifier went silent for exactly this
+// reason, with a full 8H/8L pivot pool.
+//
+// TradingView does not fit-then-reject. It anchors a boundary to TWO 5/5 pivots and
+// validates the interior between them, so the line that survives IS an envelope rather
+// than a regression through the middle of the swing. This searches pivot PAIRS, newest
+// first, and returns the first pair whose segment is clean.
+//
+// Newest-first matters: the most recent clean boundary is the live one. An older pair
+// might also be clean but describes a shape price has already left.
+// Returns [x1, y1, x2, y2] early->late, or all na when no pair survives.
+f_geoPair(array<float> py, array<int> px, bool isUpper, float widthPx) =>
+    int   _n  = array.size(py)
+    int   _x1 = na
+    float _y1 = na
+    int   _x2 = na
+    float _y2 = na
+    if _n >= 2
+        bool _done = false
+        for _a = _n - 1 to 1
+            if not _done
+                for _b = _a - 1 to 0
+                    if not _done
+                        int   _cx2 = array.get(px, _a)
+                        float _cy2 = array.get(py, _a)
+                        int   _cx1 = array.get(px, _b)
+                        float _cy1 = array.get(py, _b)
+                        if _cx2 > _cx1 and f_geoClean(_cx1, _cy1, _cx2, _cy2, isUpper, widthPx)
+                            _x1   := _cx1
+                            _y1   := _cy1
+                            _x2   := _cx2
+                            _y2   := _cy2
+                            _done := true
+    [_x1, _y1, _x2, _y2]
+
+// ============================================================================
 // GEOMETRY — SHAPE CLASSIFIER
 // ============================================================================
 // Rebuilt from PIVOT SEQUENCES rather than fitted trendline slopes. It reads the same
@@ -1035,6 +1148,22 @@ string geom = "-"
 // the box is drawn from, so what you see is what the setup measures.
 float geoTop = na
 float geoBot = na
+// Everything the GEOMETRY section prints, lifted to global scope. These were locals
+// inside the classifier, so the panel could only ever show the label and two slopes -
+// which is why ONE row ended up carrying twelve shapes, a pole, a convergence test,
+// two slopes and a marginal flag.
+float geoUpNow  = na   // upper boundary projected to THIS bar
+float geoLoNow  = na   // lower boundary projected to THIS bar
+float geoConvPc = na   // how much the channel narrowed, start -> end, in %
+float geoPoleA  = na   // flagpole size in ATR, signed
+float geoRollPc = na   // rollback as a % of the pole
+float geoHeight = na   // pattern base height - TV projects THIS from the breakout
+int   geoSpanB  = na   // bars the pattern spans
+int   geoUpFr   = na   // upper boundary anchors, early -> late
+int   geoUpTo   = na
+int   geoLoFr   = na   // lower boundary anchors
+int   geoLoTo   = na
+float geoOvlp   = na   // how much the two spans OVERLAP, as a % of their union
 var line _geoHi  = na
 var line _geoLo  = na
 var box  _geoBox = na
@@ -1045,10 +1174,16 @@ _geoHi  := na
 _geoLo  := na
 _geoBox := na
 // FRESHNESS: a shape built from pivots older than geo_maxage is history, not a setup.
-bool _geoFresh = array.size(gpxh) >= 2 and array.size(gpxl) >= 2 and bar_index - math.min(array.get(gpxh, array.size(gpxh) - 2), array.get(gpxl, array.size(gpxl) - 2)) <= geo_maxage
+bool _geoEdge = false
+bool _geoFresh = array.size(g5hx) >= 2 and array.size(g5lx) >= 2 and bar_index - math.min(array.get(g5hx, array.size(g5hx) - 2), array.get(g5lx, array.size(g5lx) - 2)) <= geo_look
 float _gSlopeH = na
 float _gSlopeL = na
-if show_geom and d_geo and _geoFresh and array.size(gphy) >= 2 and array.size(gply) >= 2
+bool _geoClean = true
+// Permissible Deviation is a share of the channel width, but the width is not known
+// until the lines are picked - so the tolerance uses the POOL's price range, which is
+// stable, available up front, and the same order of magnitude.
+float _geoSpan = (array.size(g5hy) > 0 and array.size(g5ly) > 0) ? math.max(array.max(g5hy) - array.min(g5ly), chart_atr) : chart_atr
+if show_geom and d_geo and _geoFresh and array.size(g5hy) >= 2 and array.size(g5ly) >= 2
     // anchors ordered early(_2) -> late(_1)
     float _h1 = na
     float _h2 = na
@@ -1059,8 +1194,10 @@ if show_geom and d_geo and _geoFresh and array.size(gphy) >= 2 and array.size(gp
     int   _xl1 = na
     int   _xl2 = na
     if geo_maxfit
-        [_xhE, _yhE, _xhL, _yhL] = f_bestLine(gphy, gpxh, geo_thread * chart_atr)
-        [_xlE, _ylE, _xlL, _ylL] = f_bestLine(gply, gpxl, geo_thread * chart_atr)
+        // geo_maxfit ON = TV's validated two-pivot boundary (the default). OFF = the old
+        // max-threading fit, kept so the two can be compared on a live chart.
+        [_xhE, _yhE, _xhL, _yhL] = f_geoPair(g5hy, g5hx, true,  _geoSpan)
+        [_xlE, _ylE, _xlL, _ylL] = f_geoPair(g5ly, g5lx, false, _geoSpan)
         _h2  := _yhE
         _h1  := _yhL
         _xh2 := _xhE
@@ -1070,44 +1207,122 @@ if show_geom and d_geo and _geoFresh and array.size(gphy) >= 2 and array.size(gp
         _xl2 := _xlE
         _xl1 := _xlL
     else
-        _h1  := array.get(gphy, array.size(gphy) - 1)
-        _h2  := array.get(gphy, array.size(gphy) - 2)
-        _l1  := array.get(gply, array.size(gply) - 1)
-        _l2  := array.get(gply, array.size(gply) - 2)
-        _xh1 := array.get(gpxh, array.size(gpxh) - 1)
-        _xh2 := array.get(gpxh, array.size(gpxh) - 2)
-        _xl1 := array.get(gpxl, array.size(gpxl) - 1)
-        _xl2 := array.get(gpxl, array.size(gpxl) - 2)
+        _h1  := array.get(g5hy, array.size(g5hy) - 1)
+        _h2  := array.get(g5hy, array.size(g5hy) - 2)
+        _l1  := array.get(g5ly, array.size(g5ly) - 1)
+        _l2  := array.get(g5ly, array.size(g5ly) - 2)
+        _xh1 := array.get(g5hx, array.size(g5hx) - 1)
+        _xh2 := array.get(g5hx, array.size(g5hx) - 2)
+        _xl1 := array.get(g5lx, array.size(g5lx) - 1)
+        _xl2 := array.get(g5lx, array.size(g5lx) - 2)
     if not na(_h1) and not na(_h2) and not na(_l1) and not na(_l2)
+        // WIDTH AT EACH END - the basis for both the deviation tolerance and the
+        // wedge/channel split. TV expresses Permissible Deviation as a share of the
+        // distance BETWEEN the lines, so it has to be measured before validating.
+        // SPAN ALIGNMENT - computed HERE, before the classification ladder, because the
+        // ladder GATES on it. First version sat further down with the panel plumbing, so
+        // geoOvlp was still na when the gate tested it and the gate never fired: AADHARHFC
+        // 75m reported Broadening with the two boundaries sharing 0% of their span.
+        //
+        // f_geoPair is called independently for highs and lows, each taking its own newest
+        // clean pair, and nothing made them cover the same window. When they do not,
+        // 'width at the start vs width at the end' compares two segments that never
+        // coexisted - so a converging structure can measure as WIDENING. TV forms ONE
+        // pattern from points 1-5 over ONE span.
+        int _ovFr = math.max(_xh2, _xl2)
+        int _ovTo = math.min(_xh1, _xl1)
+        int _unFr = math.min(_xh2, _xl2)
+        int _unTo = math.max(_xh1, _xl1)
+        geoOvlp := (_unTo - _unFr) > 0 ? math.max(_ovTo - _ovFr, 0) * 100.0 / (_unTo - _unFr) : na
+        float _wEarly = math.abs(_h2 - _l2)
+        float _wLate  = math.abs(_h1 - _l1)
+        float _wMid   = math.max((_wEarly + _wLate) / 2.0, chart_atr)
+        // Only re-validate on the MAX-FIT path. On the pair path the boundary was already
+        // validated during selection, and re-testing it against a different width basis
+        // (_wMid vs _geoSpan) could reject a line that had just passed.
+        _geoClean := not geo_maxfit ? (f_geoClean(_xh2, _h2, _xh1, _h1, true, _wMid) and f_geoClean(_xl2, _l2, _xl1, _l1, false, _wMid)) : true
+        // THE FLAGPOLE - the move INTO the pattern, measured over flag_look bars ending
+        // at the earliest anchor. This is what separates a FLAG from a plain channel and
+        // a PENNANT from a plain symmetrical triangle: identical geometry, opposite
+        // meaning. A falling parallel channel after a strong up-move is a BULL FLAG, the
+        // most reliable continuation shape there is - and S5 was calling it a "Falling
+        // channel" and telling you it was against a long.
+        int   _pEnd  = math.min(_xh2, _xl2)
+        int   _pOff  = math.max(bar_index - _pEnd, 0)
+        int   _pOff0 = math.min(_pOff + flag_look, 4000)
+        float _pFrom = _pOff0 < 4000 ? close[_pOff0] : na
+        float _pTo   = _pOff  < 4000 ? close[_pOff]  : na
+        float _pole  = (na(_pFrom) or na(_pTo)) ? na : _pTo - _pFrom
+        bool  _poleUp = not na(_pole) and _pole >=  flag_pole * chart_atr
+        bool  _poleDn = not na(_pole) and _pole <= -flag_pole * chart_atr
+        // MAX ROLLBACK - how much of the pole the correction has given back. TV caps this
+        // because a correction that retraces most of the pole is a reversal, not a flag.
+        float _roll   = (na(_pole) or _pole == 0) ? na : math.abs(_h2 - _l1) / math.abs(_pole) * 100.0
+        bool  _rollOk = not na(_roll) and _roll <= flag_roll
+        // CONVERGING = the channel narrows from the early anchors to the late ones.
+        bool _conv = _wEarly > 0 and (_wEarly - _wLate) / _wEarly >= geo_conv / 100.0
         float _ft = geo_flat * chart_atr
         _gSlopeH := _h1 - _h2
         _gSlopeL := _l1 - _l2
         bool _hFlat = math.abs(_gSlopeH) <= _ft
         bool _lFlat = math.abs(_gSlopeL) <= _ft
+        // MARGINAL: either slope sitting within geo_edge% of the flat threshold, on
+        // either side of it. The shape is then one tick from being a different shape,
+        // and the panel should say so rather than assert.
+        float _eLo = _ft * (1.0 - geo_edge / 100.0)
+        float _eHi = _ft * (1.0 + geo_edge / 100.0)
+        _geoEdge := (math.abs(_gSlopeH) >= _eLo and math.abs(_gSlopeH) <= _eHi) or (math.abs(_gSlopeL) >= _eLo and math.abs(_gSlopeL) <= _eHi)
         bool _hDown = not _hFlat and _gSlopeH < 0
         bool _hUp   = not _hFlat and _gSlopeH > 0
         bool _lUp   = not _lFlat and _gSlopeL > 0
         bool _lDown = not _lFlat and _gSlopeL < 0
         // an if/else ladder, not a wrapped ternary: Pine reads a continuation line
         // indented by a multiple of 4 as a new block, which a wrapped ternary trips.
-        if _hFlat and _lFlat
+        if not _geoClean
+            geom := "-"
+        else if not na(geoOvlp) and geoOvlp < geo_ovlp
+            // not one pattern - two unrelated line segments
+            geom := "-"
+        else if _hFlat and _lFlat
             geom := "Range / rectangle"
         else if _hFlat and _lUp
             geom := "Ascending triangle"
         else if _hDown and _lFlat
             geom := "Descending triangle"
         else if _hDown and _lUp
-            geom := "Symmetrical triangle"
+            // TV lists pennants separately from triangles, and the only difference is
+            // the pole: a symmetrical triangle that follows one is a pennant, and it is
+            // a CONTINUATION shape rather than the directionless coin-flip a triangle is.
+            geom := (_poleUp and _rollOk) ? "Bullish pennant" : (_poleDn and _rollOk) ? "Bearish pennant" : "Symmetrical triangle"
         else if _hUp and _lUp
-            geom := "Rising channel / wedge"
+            // a rising parallel channel after a DOWN pole is a bear flag
+            geom := _conv ? "Rising wedge" : (_poleDn and _rollOk) ? "Bearish flag" : "Rising channel"
         else if _hDown and _lDown
-            geom := "Falling channel / wedge"
+            // ...and a falling one after an UP pole is a bull flag
+            geom := _conv ? "Falling wedge" : (_poleUp and _rollOk) ? "Bullish flag" : "Falling channel"
         else if _hUp and _lDown
             geom := "Broadening"
         else if _hFlat and _lDown
             geom := "Broadening (descending)"
         else if _hUp and _lFlat
             geom := "Broadening (ascending)"
+        // Project both boundaries to the CURRENT bar. The anchors are history; what
+        // price trades against is where those lines sit now.
+        int   _dxH = _xh1 - _xh2
+        int   _dxL = _xl1 - _xl2
+        geoUpNow  := _dxH != 0 ? _h1 + (_gSlopeH / _dxH) * (bar_index - _xh1) : _h1
+        geoLoNow  := _dxL != 0 ? _l1 + (_gSlopeL / _dxL) * (bar_index - _xl1) : _l1
+        geoConvPc := _wEarly > 0 ? (_wEarly - _wLate) / _wEarly * 100.0 : na
+        geoPoleA  := na(_pole) ? na : _pole / chart_atr
+        geoRollPc := _roll
+        // TV documents the target for every pattern as the BASE height projected from
+        // the breakout close.
+        geoHeight := _wEarly
+        geoSpanB  := bar_index - math.min(_xh2, _xl2)
+        geoUpFr   := _xh2
+        geoUpTo   := _xh1
+        geoLoFr   := _xl2
+        geoLoTo   := _xl1
         if geom == "Range / rectangle"
             geoTop := (_h1 + _h2) / 2.0
             geoBot := (_l1 + _l2) / 2.0
@@ -1519,7 +1734,7 @@ f_pick(float d, float w, float m, bool above) =>
         _tf := "M"
     [_best, _tf]
 
-var table s5p = table.new(f_s5pos(), 2, 20, border_width=1, frame_width=1, frame_color=C_GRID, border_color=C_GRID)
+var table s5p = table.new(f_s5pos(), 2, 24, border_width=1, frame_width=1, frame_color=C_GRID, border_color=C_GRID)
 
 // S4's panel grammar: a numbered section band that says what the rows under it are
 // FOR, then right-aligned keys against left-aligned values. Same shape so the two
@@ -1559,58 +1774,81 @@ if show_s5p and barstate.islast
     table.cell(s5p, 0, 0, "S5  v1.3", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
     table.cell(s5p, 1, 0, syminfo.ticker + "  ·  " + timeframe.period + "  ·  explain-surface for S4", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
 
-    // 1. GEOMETRY — the shape, and the two slopes that produced it, so a call you
-    //    disagree with can be checked rather than argued with
-    string _gTxt = not d_geo ? "engine off" : geom == "-" ? (array.size(gphy) < 2 or array.size(gply) < 2 ? "not enough pivots yet (" + str.tostring(array.size(gphy)) + " highs / " + str.tostring(array.size(gply)) + " lows, need 2 each)" : "pivots older than " + str.tostring(geo_maxage) + " bars - stale, not a live shape") : geom + (na(_gSlopeH) or na(_gSlopeL) ? "" : "   ·   top " + str.tostring(_gSlopeH / chart_atr, "0.00") + "x   base " + str.tostring(_gSlopeL / chart_atr, "0.00") + "x ATR")
-    f_s5sec(1, "  I · STRUCTURE          —  What shape is this market in, and where are its levels?")
-    f_s5row(2, "Geometry", _gTxt, geom == "-" ? C_MUTE : C_INFO)
+    f_s5sec(1, "  I · GEOMETRY            —  What shape is this, on TradingView criteria?")
+    // ---- I - GEOMETRY -------------------------------------------------------
+    // Four rows, because ONE was carrying twelve shapes, a pole, a convergence test,
+    // two slopes and a marginal flag at once. Every field traces to a TradingView Help
+    // Centre page except the interior-close validation, which is this file own.
+    string _gShape = not d_geo ? "engine off" : geom == "-" ? (array.size(g5hy) < 2 or array.size(g5ly) < 2 ? "not enough " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " pivots yet (" + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L, need 2 each)" : (na(_gSlopeH) and geo_maxfit) ? "no pair of " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " pivots forms a line the price respects" : (not na(geoOvlp) and geoOvlp < geo_ovlp) ? "boundaries describe different periods - they share only " + str.tostring(geoOvlp, "0") + "% of their span (need " + str.tostring(geo_ovlp, "0") + "%), so this is not one pattern" : not _geoClean ? "an intermediate close breaches one of the lines" : "pivots older than " + str.tostring(geo_look) + " bars - stale") : geom + (_geoEdge ? "   ·   ⚖ MARGINAL" : "") + (na(geoSpanB) ? "" : "   ·   spans " + str.tostring(geoSpanB) + " bars")
+    f_s5row(2, "Shape", _gShape, geom == "-" ? C_MUTE : _geoEdge ? C_WARN : C_INFO)
 
-    // 2/3. NEAREST S/R each side, across D/W/M, with the touch grade
+    // The boundaries where they sit NOW - what price is actually trading against.
+    string _gB = (na(geoUpNow) or na(geoLoNow)) ? "-" : "upper " + f_px(geoUpNow) + f_dist(geoUpNow) + "   ·   lower " + f_px(geoLoNow) + f_dist(geoLoNow) + "   ·   width " + str.tostring((geoUpNow - geoLoNow) / chart_atr, "0.0") + "x ATR" + (na(geoOvlp) ? "" : "   ·   spans upper " + str.tostring(bar_index - nz(geoUpFr, bar_index)) + "-" + str.tostring(bar_index - nz(geoUpTo, bar_index)) + "b ago / lower " + str.tostring(bar_index - nz(geoLoFr, bar_index)) + "-" + str.tostring(bar_index - nz(geoLoTo, bar_index)) + "b ago, " + str.tostring(geoOvlp, "0") + "% shared")
+    f_s5row(3, "Boundaries", _gB, C_MUTE)
+
+    // The two tests that DECIDE which shape it is, shown so the call can be audited
+    // rather than trusted: TV Channel Width Ratio, and the flagpole / Max Rollback pair.
+    // A negative narrowing is a WIDENING, and "narrowing -54%" makes the reader do the
+    // double negative. Say which it is.
+    string _gT = na(geoConvPc) ? "-" : (geoConvPc >= 0 ? "narrowing " + str.tostring(geoConvPc, "0") + "%  (wedge past " + str.tostring(geo_conv, "0") + "%)" : "WIDENING " + str.tostring(-geoConvPc, "0") + "%  (so not a wedge - it is broadening)") + (na(geoPoleA) ? "" : "   ·   pole " + str.tostring(geoPoleA, "0.0") + "x ATR" + (math.abs(nz(geoPoleA, 0.0)) >= flag_pole ? "" : " - under the " + str.tostring(flag_pole, "0.0") + "x floor, so no flag")) + (na(geoRollPc) ? "" : "   ·   rollback " + str.tostring(geoRollPc, "0") + "%  (max " + str.tostring(flag_roll, "0") + "%)")
+    f_s5row(4, "Convergence · pole", _gT, C_MUTE)
+
+    // TV state machine, and the target it documents for every pattern. Before a break it
+    // shows BOTH directions, which is what TV plots as two provisional dotted lines.
+    bool   _gUp   = not na(geoUpNow) and close > geoUpNow
+    bool   _gDn   = not na(geoLoNow) and close < geoLoNow
+    string _gStat = geom == "-" ? "-" : _gUp ? "BROKEN UP   ·   target " + f_px(close + nz(geoHeight, 0.0)) + "  (close + base height)" : _gDn ? "BROKEN DOWN   ·   target " + f_px(close - nz(geoHeight, 0.0)) + "  (close - base height)" : "AWAITING - price inside the boundaries" + (na(geoHeight) ? "" : "   ·   base height " + str.tostring(geoHeight / chart_atr, "0.0") + "x ATR, projecting " + f_px(close + geoHeight) + " up / " + f_px(close - geoHeight) + " down")
+    f_s5row(5, "Status · target", _gStat, geom == "-" ? C_MUTE : _gUp ? C_OK : _gDn ? C_NO : C_WARN)
+
+    f_s5sec(6, "  II · LEVELS             —  The horizontal and diagonal levels around price.")
+    // NEAREST S/R each side, across D/W/M, with the touch grade. These four lines were
+    // collateral damage in the 8-Sep panel rebuild: they sat between the old Geometry row
+    // and the Resistance row, so the slice that replaced the former removed them too.
     [_aLvl, _aTf] = f_pick(_dA1, _wA1, _mA1, true)
     [_bLvl, _bTf] = f_pick(_dB1, _wB1, _mB1, false)
     int _aT = _aTf == "D" ? _dA1t : _aTf == "W" ? _wA1t : _aTf == "M" ? _mA1t : na
     int _bT = _bTf == "D" ? _dB1t : _bTf == "W" ? _wB1t : _bTf == "M" ? _mB1t : na
-    f_s5row(3, "Resistance", not d_sr ? "engine off" : na(_aLvl) ? "none within reach" : f_px(_aLvl) + " ·" + _aTf + f_grade(_aT) + f_dist(_aLvl), na(_aLvl) ? C_MUTE : C_NO)
-    f_s5row(4, "Support",    not d_sr ? "engine off" : na(_bLvl) ? "none within reach - the stop has no level under it" : f_px(_bLvl) + " ·" + _bTf + f_grade(_bT) + f_dist(_bLvl), na(_bLvl) ? C_WARN : C_OK)
+    f_s5row(7, "Resistance", not d_sr ? "engine off" : na(_aLvl) ? "none within reach" : f_px(_aLvl) + " ·" + _aTf + f_grade(_aT) + f_dist(_aLvl), na(_aLvl) ? C_MUTE : C_NO)
+    f_s5row(8, "Support",    not d_sr ? "engine off" : na(_bLvl) ? "none within reach - the stop has no level under it" : f_px(_bLvl) + " ·" + _bTf + f_grade(_bT) + f_dist(_bLvl), na(_bLvl) ? C_WARN : C_OK)
 
     // 4. TRENDLINES — the diagonal pair, which the horizontal levels above cannot see
-    f_s5row(5, "Trendlines", not d_tl ? "engine off" : (na(tls_now) and na(tlr_now)) ? "none fitted" : "support " + f_px(tls_now) + f_dist(tls_now) + "   ·   resistance " + f_px(tlr_now) + f_dist(tlr_now), (na(tls_now) and na(tlr_now)) ? C_MUTE : C_INFO)
+    f_s5row(9, "Trendlines", not d_tl ? "engine off" : (na(tls_now) and na(tlr_now)) ? "none fitted" : "support " + f_px(tls_now) + f_dist(tls_now) + "   ·   resistance " + f_px(tlr_now) + f_dist(tlr_now), (na(tls_now) and na(tlr_now)) ? C_MUTE : C_INFO)
 
     // 5. PIVOT FUNNEL — the diagnostic S4 gave up. A missing level is now self-explaining:
     //    no pivots is a different failure from pivots that clustered into nothing.
-    f_s5sec(13, "  IV · DIAGNOSTICS       —  If something above is missing, this says why.")
-    f_s5row(14, "Pivot pools", "200-DMA " + (na(sma200D) ? "na" : str.tostring(sma200D, format.mintick)) + "   ·   chart len " + str.tostring(pv_chart) + "   ·   geometry " + str.tostring(array.size(gphy)) + "H / " + str.tostring(array.size(gply)) + "L   ·   trendline " + str.tostring(array.size(tlhy)) + "H / " + str.tostring(array.size(tlly)) + "L", (array.size(gphy) >= 2 and array.size(gply) >= 2) ? C_MUTE : C_WARN)
+    f_s5sec(17, "  V · DIAGNOSTICS       —  If something above is missing, this says why.")
+    f_s5row(18, "Pivot pools", "200-DMA " + (na(sma200D) ? "na" : str.tostring(sma200D, format.mintick)) + "   ·   chart len " + str.tostring(pv_chart) + "   ·   geometry " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " " + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L   ·   zones " + str.tostring(array.size(gphy)) + "H / " + str.tostring(array.size(gply)) + "L   ·   trendline " + str.tostring(array.size(tlhy)) + "H / " + str.tostring(array.size(tlly)) + "L", (array.size(gphy) >= 2 and array.size(gply) >= 2) ? C_MUTE : C_WARN)
 
     // 6. LEVEL FUNNEL — per timeframe, whether the clusterer produced anything at all
     string _fn = ""
     _fn := _fn + "D " + (not _okD ? "-" : (na(_dA1) ? "0" : "1") + "/" + (na(_dB1) ? "0" : "1"))
     _fn := _fn + "   W " + (not _okW ? "-" : (na(_wA1) ? "0" : "1") + "/" + (na(_wB1) ? "0" : "1"))
     _fn := _fn + "   M " + (not _okM ? "-" : (na(_mA1) ? "0" : "1") + "/" + (na(_mB1) ? "0" : "1"))
-    f_s5row(15, "Level funnel", _fn + "   (above/below per TF)", C_MUTE)
+    f_s5row(19, "Level funnel", _fn + "   (above/below per TF)", C_MUTE)
 
     // 8. FOOTPRINT — the order-flow read S4 has no access to at all
     string _fpTxt = not show_fp ? "engine off" : not fpKnown ? "n/a - the feed has no footprint for this bar (ordinary on older history; NOT a delta of zero)" : (fpDelta >= 0 ? "+" : "") + str.tostring(fpDelta, format.volume) + (fpDelta > 0 ? " buyers" : fpDelta < 0 ? " sellers" : " flat") + "   ·   cum " + str.tostring(fpCumWin) + "b " + (nz(fpCum) >= 0 ? "+" : "") + str.tostring(fpCum, format.volume) + "   ·   " + str.tostring(fpBuy, format.volume) + " vs " + str.tostring(fpSell, format.volume)
-    f_s5sec(6, "  II · PARTICIPATION     —  Who is actually trading it, and are they confirming price?")
-    f_s5row(7, "Order flow", _fpTxt, not fpKnown ? C_MUTE : fpDelta > 0 ? C_OK : fpDelta < 0 ? C_NO : C_MUTE)
+    f_s5sec(10, "  III · PARTICIPATION     —  Who is actually trading it, and are they confirming price?")
+    f_s5row(11, "Order flow", _fpTxt, not fpKnown ? C_MUTE : fpDelta > 0 ? C_OK : fpDelta < 0 ? C_NO : C_MUTE)
 
     // 9. the two things the footprint says that nothing else can
     string _fpDv = not fpKnown ? "-" : fpBearDiv ? "BEARISH - new " + str.tostring(fpDivWin) + "b high on WEAKER flow (absorption into strength)" : fpBullDiv ? "BULLISH - new " + str.tostring(fpDivWin) + "b low on STRONGER flow" : (nz(fpCum, 0.0) > 0 and close > close[fpDivWin]) or (nz(fpCum, 0.0) < 0 and close < close[fpDivWin]) ? "none - price and flow point the same way" : "no divergence AT AN EXTREME - but flow and price are pointing opposite ways; this test only fires on a new " + str.tostring(fpDivWin) + "b high or low"
-    f_s5row(8, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal)) + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
+    f_s5row(12, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal)) + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
 
     // 10. WYCKOFF — named, never gating (see the note on the detection block)
-    f_s5sec(9, "  III · SETUPS           —  Is there a structure here? Named only; nothing here gates.")
-    f_s5row(10, "Wyckoff", not show_wy ? "engine off" : str.length(wyTxt) == 0 ? "no distribution event on this bar" : str.trim(wyTxt) + "   —   named, not gated: tested null as both veto and score", str.length(wyTxt) == 0 ? C_MUTE : C_WARN)
+    f_s5sec(13, "  IV · SETUPS           —  Is there a structure here? Named only; nothing here gates.")
+    f_s5row(14, "Wyckoff", not show_wy ? "engine off" : str.length(wyTxt) == 0 ? "no distribution event on this bar" : str.trim(wyTxt) + "   —   named, not gated: tested null as both veto and score", str.length(wyTxt) == 0 ? C_MUTE : C_WARN)
 
     // 7. READ — one synthesis line. Says what the SHAPE implies for the trade S4 is
     //    judging, and never restates a number printed above it.
-    string _read = geom == "Range / rectangle" ? "A range. Both edges are levels, so the edges are the trade and the middle is noise - S4's room-to-obstacle will be small by construction here." : geom == "Ascending triangle" ? "Higher lows into a flat ceiling. Continuation shape: the base is doing the work, and the break is the event." : geom == "Descending triangle" ? "Lower highs into a flat floor. The mirror, and against a long - the floor is being tested more often than it is being defended." : geom == "Symmetrical triangle" ? "Both edges converging. Genuinely directionless until one breaks; anyone calling it now is guessing." : geom == "Rising channel / wedge" ? "Rising, and both edges rising. A channel trades its edges; a WEDGE - a narrowing one - resolves DOWN more often than the slope suggests. Check whether the edges converge." : geom == "Falling channel / wedge" ? "Falling on both edges. Against a long until the upper edge gives way." : str.startswith(geom, "Broadening") ? "Broadening. Volatility expanding rather than coiling - the opposite of the compression a breakout entry wants, and stops placed inside it get hit." : "No shape yet. Nothing here argues for or against the trade; read the levels instead."
+    string _read = geom == "Range / rectangle" ? "A range. Both edges are levels, so the edges are the trade and the middle is noise - S4's room-to-obstacle will be small by construction here." : geom == "Ascending triangle" ? "Higher lows into a flat ceiling. Continuation shape: the base is doing the work, and the break is the event." : geom == "Descending triangle" ? "Lower highs into a flat floor. The mirror, and against a long - the floor is being tested more often than it is being defended." : geom == "Symmetrical triangle" ? "Both edges converging. Genuinely directionless until one breaks; anyone calling it now is guessing." : geom == "Bullish flag" ? "A bull flag: a strong up-move, then a shallow parallel drift against it. The most reliable continuation shape on the board - the correction is orderly and the pole is what pays. Target is the pole projected from the break of the upper rail." : geom == "Bearish flag" ? "A bear flag - the mirror, and against a long. The drift up is the correction, not the turn." : geom == "Bullish pennant" ? "A bull pennant: the same pole as a flag, but the correction COILS instead of drifting. Tighter, usually shorter, and it resolves in the direction of the pole." : geom == "Bearish pennant" ? "A bear pennant. Coiling after a down pole, and it resolves down more often than the coil suggests." : geom == "Rising wedge" ? "Rising, but NARROWING. A rising wedge resolves DOWN more often than its slope suggests - buyers are paying up for less and less range. The least attractive shape to buy into strength." : geom == "Rising channel" ? "Rising with parallel edges. A channel trades its EDGES: the lower rail is the entry and the upper rail is the exit, and buying the middle is paying for room you do not get." : geom == "Falling wedge" ? "Falling but narrowing - sellers are getting less range for their effort. The one converging shape that resolves UP more often, though it needs the upper edge to break before it means anything." : geom == "Falling channel" ? "Falling on parallel edges. Against a long until the upper rail gives way; the lower rail is where it bounces, not where it turns." : str.startswith(geom, "Broadening") ? "Broadening. Volatility expanding rather than coiling - the opposite of the compression a breakout entry wants, and stops placed inside it get hit." : "No shape yet. Nothing here argues for or against the trade; read the levels instead."
     // 10. SWP-RC — the structure and its arithmetic, never a plan
     string _s3 = not show_s3 ? "engine off" : na(s3_lvl) ? "no daily level below price yet" : not na(s3_since) and s3_since <= s3_reclaim_n ? ("swept " + f_px(s3_lvl) + " to " + f_px(s3_swpLo) + " (" + str.tostring((s3_lvl - s3_swpLo) / chart_atr, "0.0") + "x ATR), " + str.tostring(s3_since) + "b ago" + (s3_recl ? "  ·  RECLAIMED" : "  ·  not reclaimed") + (na(s3_rr) ? "" : "  ·  room " + str.tostring(s3_rr, "0.0") + "R") + (s3_fire ? "  ·  STRUCTURE COMPLETE" : not s3_recl ? "" : not s3_hasTgt ? "  ·  no ceiling found - nothing to target, so no trade thesis (not a near ceiling)" : "  ·  no trade: ceiling too close to pay") + (not s3_recl ? "" : not s3_ctxKnown ? "  ·  200-DMA unresolved, check context on S4" : s3_ctx ? "  ·  above the 200-DMA" : "  ·  NOTE: below the 200-DMA")) : "no sweep in the last " + str.tostring(s3_reclaim_n) + " bars"
-    f_s5row(11, "SWP-RC", _s3, s3_fire ? C_OK : s3_recl ? C_WARN : C_MUTE)
+    f_s5row(15, "SWP-RC", _s3, s3_fire ? C_OK : s3_recl ? C_WARN : C_MUTE)
 
     // 11. RNG-EDGE — location inside the range, and whether the edge pays
     string _s6 = not show_s6 ? "engine off" : geom != "Range / rectangle" ? "not a range - no edge to trade" : na(s6_rng) ? "range edges unresolved" : "range " + f_px(geoBot) + " to " + f_px(geoTop) + " (" + str.tostring(s6_rng / chart_atr, "0.1") + "x ATR)" + (s6_at ? "  ·  AT THE LOWER EDGE" : "  ·  mid-range, no trade here") + (not s6_at ? "" : (s6_rev ? "  ·  reversal bar" : "  ·  no reversal bar yet")) + (na(s6_rr) ? "" : "  ·  " + str.tostring(s6_rr, "0.0") + "R to the ceiling") + (s6_fire ? "  ·  ALL CONDITIONS MET" : (s6_at and s6_rev and nz(s6_rr, 0.0) < s6_min_rr) ? "  ·  blocked: ceiling too close to pay" : "")
-    f_s5row(12, "RNG-EDGE", _s6, s6_fire ? C_OK : s6_at ? C_WARN : C_MUTE)
+    f_s5row(16, "RNG-EDGE", _s6, s6_fire ? C_OK : s6_at ? C_WARN : C_MUTE)
 
-    f_s5sec(16, "  V · READ               —  One line. What the structure implies for the trade S4 is judging.")
-    f_s5row(17, "READ", _read, C_MUTE)
+    f_s5sec(20, "  VI · READ               —  One line. What the structure implies for the trade S4 is judging.")
+    f_s5row(21, "READ", _read, C_MUTE)
