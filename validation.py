@@ -843,6 +843,8 @@ def run_s4go_validation(months_back: int = 24,
                         rv_floor: float = 1.0,
                         qualify: str = "armed",
                         basket: Optional[list[str]] = None,
+                        setup_coherent: bool = False,
+                        role_mismatch: bool = False,
                         bootstrap_n: int = 0,
                         progress_cb=None) -> dict:
     """Walk-forward backtest of the GM+S4 daily-approx GO ENTRY (not the catalyst
@@ -932,6 +934,8 @@ def run_s4go_validation(months_back: int = 24,
         out_csv = os.path.join(RUNS_DIR, f"s4go_{run_id}_{anchor}.csv")
         try:
             res = _replay.run_s4go_replay(anchor, cands, mode=screener,
+                                          setup_coherent=setup_coherent,
+                                          role_mismatch=role_mismatch,
                                           entry_window=entry_window, rv_floor=rv_floor,
                                           out_csv=out_csv)
         except Exception as e:
@@ -974,6 +978,10 @@ def run_s4go_validation(months_back: int = 24,
     aggregate = {
         "n_anchors":       len(summary_rows),
         "mode":            "s4go",
+        # record the ablation cell in the meta, so a result can never be read
+        # without knowing which gate produced it
+        "setup_coherent":  bool(setup_coherent),
+        "role_mismatch":   bool(role_mismatch),
         "screener":        screener,
         "qualify":         ("strict-RFF" if screener == "recovery" else qualify),
         "universe_size":   len(universe),
@@ -1208,6 +1216,20 @@ def main() -> int:
                          "replay.FWD_DAYS_BY_CATALYST (POS/WYC=120-180d, "
                          "REV=90d, SWG=30d). Without this flag, all picks use --forward.")
     # v3.0 (2026-07-22): GM+S4 daily-approx GO entry gate
+    p.add_argument("--role_mismatch", action="store_true",
+                   help="s4go only: ABLATION CELL v2. Block a GO whose trigger is an "
+                        "IGNITION pattern (a breakout's evidence) firing while price sits "
+                        "INSIDE a demand zone - a breakout trigger in a pullback's "
+                        "location. Mirrors S4's roleMismatch tag, which is display-only on "
+                        "the chart. VCP breakouts are exempt, as in Pine. This is the case "
+                        "--setup_coherent cannot express, because PULLBACK accepts all "
+                        "three roles. Default off; every prior run reproduces byte-for-byte.")
+    p.add_argument("--setup_coherent", action="store_true",
+                   help="s4go only: ABLATION CELL. Require the PA pattern that fires to be "
+                        "the RIGHT KIND for the trade's playbook - an ignition for a "
+                        "breakout, a coil or turn for accumulation, a turn for a reversal. "
+                        "Today the gate only asks whether ANY pattern fired. Default off, "
+                        "so an ordinary run reproduces byte-for-byte.")
     p.add_argument("--gate", default="catalyst", choices=["catalyst", "s4go"],
                     help="catalyst = buy the top screener pick AT the anchor (legacy). "
                          "s4go = qualify as-of, then TIME the entry with the daily-approx "
@@ -1254,6 +1276,8 @@ def main() -> int:
                                      entry_window=args.entry_window,
                                      rv_floor=args.rv_floor,
                                      qualify=args.qualify,
+                                     setup_coherent=args.setup_coherent,
+                                     role_mismatch=args.role_mismatch,
                                      basket=basket,
                                      bootstrap_n=args.bootstrap_n,
                                      progress_cb=_cb)

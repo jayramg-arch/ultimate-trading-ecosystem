@@ -818,6 +818,137 @@ _TRIGGER_STATE = {
 }
 
 
+# ── SETUP COHERENCE (8 Sep 2026) ────────────────────────────────────────────
+# The ABLATION CELL for Jay's question of 5-Sep: "with these many catalyst types, is
+# it better to move the gate from PA pattern to setup?"
+#
+# Today the GO gate asks ONLY "did any PA pattern fire". It does not ask whether the
+# pattern that fired is the RIGHT KIND for the trade being taken. S4's panel already
+# computes that answer and displays it (the Setup row: a coil is the right trigger
+# for a pullback and the wrong one for a breakout) but nothing gates on it.
+#
+# This makes it gateable so it can be MEASURED. Default OFF, so every prior s4go run
+# reproduces byte-for-byte.
+#
+# The role map mirrors S4's f_foldSetup triple and setup_pairing.role_of exactly -
+# the same 17 bull patterns split the same three ways. Detector column names here,
+# display names there.
+_ROLE_IGNITION = ("pa_htf", "pa_power_strong", "pa_vcp_bo", "pa_pocket",
+                  "pa_s2_launch", "pa_gap_up_bo", "pa_true_breakout")
+_ROLE_REVERSAL = ("pa_bull_engulf", "pa_liq_sweep", "pa_3bar_rev", "pa_spring",
+                  "pa_50sma_undercut", "pa_hammer_at_50", "pa_hammer_at_200")
+_ROLE_CONTRACTION = ("pa_inside3", "pa_nr7", "pa_ib_nr7")
+
+
+def _roles_at(det: pd.DataFrame, j: int) -> set:
+    """Which ROLES fired on bar j. A bar can carry more than one."""
+    out = set()
+    for role, cols in (("ignition", _ROLE_IGNITION),
+                       ("reversal", _ROLE_REVERSAL),
+                       ("contraction", _ROLE_CONTRACTION)):
+        for c in cols:
+            if c in det.columns:
+                try:
+                    if bool(det[c].iloc[j]):
+                        out.add(role)
+                        break
+                except Exception:
+                    pass
+    return out
+
+
+def _accepted_roles(playbook: str) -> set:
+    """What each playbook accepts as a trigger. Mirrors setup_pairing.PLAYBOOK, which
+    was itself reconciled against S4's f_foldSetup on 5-Sep. ACCUMULATION explicitly
+    REFUSES an ignition: a base that is already breaking is POS-BO, and calling it
+    accumulation holds it to the wrong standard on both volume and bar."""
+    try:
+        import setup_pairing as _sp
+        d = _sp.PLAYBOOK.get(playbook)
+        if d:
+            return set(d.get("roles") or ())
+    except Exception:
+        pass
+    return set()
+
+
+def _playbook_for(meta: dict) -> str:
+    """Resolve the playbook the same way the board does: a LIVE catalyst wins, else the
+    archetype carries it.
+
+    An unresolvable row returns UNKNOWN, whose accepted-role set is EMPTY, and the gate
+    then PASSES it rather than blocking - `if _acc and not (...)`. That is deliberate:
+    inventing a playbook for a row that names none would be judging it by a standard it
+    never claimed. It does mean the cell measures the gate only where a playbook exists.
+
+    Note also that PULLBACK accepts all three roles, so the gate is a no-op there by
+    construction - Pine gates a pullback on roleMismatch, which is a LOCATION test this
+    replay cannot reproduce. In practice this cell tests BREAKOUT (ignition only),
+    ACCUM (no ignition) and REVERSAL (reversal only)."""
+    try:
+        import setup_pairing as _sp
+        cat = str(meta.get("Catalyst") or meta.get("setup") or "")
+        arc = str(meta.get("Archetype") or "")
+        pb, _ = _sp.playbook_of(cat, arc, "")
+        return pb
+    except Exception:
+        return "UNKNOWN"
+
+
+# ── ROLE MISMATCH (v2, 8 Sep 2026) ──────────────────────────────────────────
+# The PULLBACK case the accepted-role set cannot express, and the reason the
+# setup-coherence cell only bit 9% of GOs: PULLBACK accepts all three roles, so
+# `_accepted_roles` is a no-op there by construction.
+#
+# S4 already computes the missing rule and displays it as the ⚠role tag:
+#     roleMismatch = z_inDZ and pa_ign and not (pa_rev or pa_con or kVCP)
+# An IGNITION pattern — a breakout's trigger — firing while price sits INSIDE a
+# demand zone. That is a breakout's evidence in a pullback's location. It is a
+# LOCATION test, which is why the first cell could not reproduce it; `_location_at`
+# was already being called on every GO bar, so it can.
+#
+# kVCP is exempt because a VCP breakout out of a base inside demand is the setup
+# working, not a mismatch. That exemption is Pine's, not an addition here.
+#
+# ⚠ INSTRUMENT CAVEAT, measured BEFORE the run and recorded here rather than
+# discovered after: in this replay the GO gate ALREADY REQUIRES location, so 145 of
+# 152 control GOs carry src zone|pivot. z_inDZ is therefore nearly always true, and
+# the rule degenerates to "an ignition fired with no reversal or contraction
+# alongside it". That is still a real filter and worth measuring — but it is a
+# PATTERN-ROLE filter here, not the role-vs-location filter it is on the chart, and
+# it must not be reported as though S4's tag had been validated.
+def _vcp_at(det: pd.DataFrame, j: int) -> bool:
+    """Is the ignition a VCP breakout? Pine exempts it from the mismatch."""
+    try:
+        return "pa_vcp_bo" in det.columns and bool(det["pa_vcp_bo"].iloc[j])
+    except Exception:
+        return False
+
+
+def _in_demand_at(df: pd.DataFrame, j: int) -> bool:
+    """z_inDZ at bar j: price inside/near/reacting off a FRESH demand zone on the
+    daily TF. Pattern OR pivot shelf, matching Pine (`inDemand or _reactD` covers
+    both kinds) — NOT the S/R and AVWAP fallbacks, which are not zones."""
+    try:
+        sub = df.iloc[:j + 1]
+        return bool(_ze.zone_support(sub, "D", float(df["Close"].iloc[j])).get("at_support"))
+    except Exception:
+        return False
+
+
+def _role_mismatch_at(det: pd.DataFrame, df: pd.DataFrame, j: int,
+                      loc_src: str | None = None) -> bool:
+    """Pine's roleMismatch, point-in-time. `loc_src` short-circuits the zone call
+    when the caller already resolved location on THIS bar (pa_lookback=0, the
+    default, always lands there)."""
+    r = _roles_at(det, j)
+    if "ignition" not in r or ({"reversal", "contraction"} & r) or _vcp_at(det, j):
+        return False
+    if loc_src is not None:
+        return loc_src in ("zone", "pivot")
+    return _in_demand_at(df, j)
+
+
 def _go_pa_series(det: pd.DataFrame, triggers: list[str]) -> pd.Series:
     """OR of the mode's trigger detector columns → per-bar 'a PA trigger fired'."""
     cols = [t for t in triggers if t in det.columns]
@@ -995,6 +1126,8 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
                        sl_floor_by_family: Optional[dict] = None,
                        entry_mode: str = "retest", retest_window: int = 8,
                        pa_lookback: int = 0,
+                       setup_coherent: bool = False,
+                       role_mismatch: bool = False,
                        df_bench: Optional[pd.DataFrame] = None) -> dict:
     """Simulate ONE GM+S4 daily-approx GO entry for `sym`, starting the search at
     `as_of`. Steps: scan forward ≤ entry_window bars for the first bar where a PA
@@ -1055,11 +1188,30 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
     scan_end = min(as_of_pos + 1 + entry_window, len(df))
     for i in range(as_of_pos + 1, scan_end):
         j0 = max(as_of_pos + 1, i - max(0, int(pa_lookback)))
-        if not any(bool(go_pa.iloc[j]) and bool(vol_ok.iloc[j]) and bool(bar_ok.iloc[j])
-                   for j in range(j0, i + 1)):
+        _hit = None
+        for j in range(j0, i + 1):
+            if bool(go_pa.iloc[j]) and bool(vol_ok.iloc[j]) and bool(bar_ok.iloc[j]):
+                _hit = j
+                break
+        if _hit is None:
             continue
+        # SETUP COHERENCE — the pattern must be the right KIND for this playbook.
+        # Tested on the SAME bar j the PA/volume/bar triple fired on, never on i:
+        # the pattern and its bar quality stay welded together, which is the whole
+        # difference from the v5.0 sticky window that had to be reverted.
+        if setup_coherent:
+            _acc = _accepted_roles(_playbook_for(candidate if isinstance(candidate, dict) else {}))
+            if _acc and not (_roles_at(det, _hit) & _acc):
+                continue
         loc = _location_at(df.iloc[:i + 1], float(df["Close"].iloc[i]))
         if loc["ok"]:
+            # ROLE MISMATCH — an ignition-only trigger inside demand. Read on the
+            # PATTERN bar j; when j == i (pa_lookback=0, the default) the location
+            # just resolved is the same bar, so it is passed in rather than
+            # recomputed.
+            if role_mismatch and _role_mismatch_at(
+                    det, df, _hit, loc.get("src") if _hit == i else None):
+                continue
             go_pos, go_loc = i, loc
             break
     if go_pos is None:
@@ -1163,6 +1315,8 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
                     rv_floor: float = 1.0, sl_floor_by_family: Optional[dict] = None,
                     entry_mode: str = "retest", retest_window: int = 8,
                     pa_lookback: int = 0,
+                    setup_coherent: bool = False,
+                    role_mismatch: bool = False,
                     out_csv: Optional[str] = None) -> dict:
     """Run the GM+S4 daily-approx GO gate over a candidate universe as-of `as_of`.
 
@@ -1196,7 +1350,8 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
         row = s4go_forward_trade(sym, as_of, candidate=meta, mode=mode,
                                  entry_window=entry_window, buystop_window=buystop_window,
                                  rv_floor=rv_floor, sl_floor_by_family=sl_floor_by_family,
-                                 entry_mode=entry_mode, pa_lookback=pa_lookback, retest_window=retest_window,
+                                 entry_mode=entry_mode, pa_lookback=pa_lookback, setup_coherent=setup_coherent,
+                                 role_mismatch=role_mismatch, retest_window=retest_window,
                                  df_bench=df_bench)
         rows.append(row)
 
