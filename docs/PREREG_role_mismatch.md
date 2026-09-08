@@ -130,3 +130,98 @@ are 71% of all GO triggers between them; a per-pattern forward-alpha table would
 whether "ignition" is carrying information or is just a label wrapped around two common
 detectors. That is a cheaper test than this one and it is the correct next step, because a
 role filter that works only through one detector is not a role filter.
+
+---
+
+# OUTCOME · recorded 9 Sep 2026
+
+## First A/B pair — DISCARDED before any result was read
+
+`20260908_231202` / `20260908_234147` failed the section-5 instrument gate. The runner
+omitted `--qualify`, which **defaults to `armed`** — the Stage-2+RS set, not the strict
+catalyst set this test extends: ~300 picks per anchor instead of ~26, no catalyst labels,
+so `forward_days_used` fell through to per-pattern horizons (15/20/30/45/90). Same anchor,
+2024-08-15: 314 picks vs 26. The arms were consistent with each other, so the internal
+comparison was not corrupt — it was simply not the registered test. `--qualify catalyst` is
+now pinned in the runner and the scorer fails any pair that disagrees on it.
+
+## Confirmatory pair — `20260909_001033` (control) / `20260909_002932` (treat)
+
+Instrument: qualify `catalyst` both · flags `False` / `True` · forward windows 60/120/180
+(one stray 30-day row out of 331) · gate blocked 222 of 354 GOs.
+
+| | control | treat |
+|---|---:|---:|
+| GOs | 354 | 132 |
+| trades | 331 | 121 (keep 36.6%) |
+| mean matched α | **−0.70%** | **+0.09%** |
+| median | −2.91% | −2.42% |
+| win | 32.6% | 33.9% |
+| deployment (mean × retention) | −0.70% | **+0.03%** |
+
+| criterion | value | |
+|---|---|---|
+| A · bites ≥ 15% | 62.7% | **PASS** |
+| B · edge ≥ +1.0pp | +0.79pp | FAIL |
+| C · CI95 excludes zero | [−0.51, +2.16], P 87.6% | FAIL |
+| D · both halves same sign | +1.33 / −0.36 | FAIL |
+| E' · deployment beats control | +0.03 vs −0.70 | **PASS** |
+| F · holds on fresh anchors | +1.06pp (12 unseen anchors) | **PASS** |
+
+**VERDICT: DO NOT ADOPT** — `role_mismatch` stays off by default. Three of six, and the
+three that failed are the ones the rule exists to protect against.
+
+## This is UNPROVEN, not disproven — and the distinction is load-bearing
+
+Every point estimate is positive except a 42-trade OOS half (−0.36pp) and a 7-trade
+POS-ACCUM cell. The gate flips the book's sign (−0.70% → +0.09%) and passes **E'**, the
+deployment criterion that killed the RV band. It is the first intervention in this thread
+to clear both A and E'. What it does not do is clear the significance bar on 331 trades.
+
+By family (forward window as the family proxy — the details CSV carries no `Catalyst`):
+
+| family | control | treat | keep | edge |
+|---|---:|---:|---:|---:|
+| SWG (60d) | −1.28% / win 27.9% | −0.08% / win 36.8% | 41.2% | **+1.20pp** |
+| POS-BO/WYC (120d) | −0.03% / win 36.2% | +0.79% / win 31.1% | 32.6% | +0.82pp |
+| POS-ACCUM (180d) | −0.68% | −3.08% (n=7) | 25.9% | −2.40pp |
+
+The effect is concentrated in **SWG**, the documented drag family, where it lifts the win
+rate 27.9% → 36.8%. POS-ACCUM's n=7 cannot be read.
+
+## The v2 diagnostic (section 9) — run, and it answers the question
+
+Per-pattern forward alpha on the control arm, and the role ladder the gate keys on:
+
+| cohort | n | mean α | win |
+|---|---:|---:|---:|
+| ignition only | 241 | **−1.17%** | 31.1% |
+| ignition + reversal | 60 | +0.20% | 38.3% |
+| reversal only | 29 | **+1.45%** | 34.5% |
+
+Monotone. **More reversal evidence is better**, and the ordering is not an artifact of one
+detector: every individual ignition detector is negative (POWER_PLAY_STRONG_CLOSE −0.62%
+n=226, POCKET_PIVOT −0.79% n=162, **BREAKOUT_CONFIRMED −6.53% with 0 wins in 14**), while
+the best single detector is THREE_BAR_REV (+0.51%, 44.8% win). So "ignition" is carrying
+information rather than standing in for POWER_PLAY and POCKET_PIVOT — section 9's question
+is answered, and answered in the rule's favour even though the rule did not clear the bar.
+
+**Gap found in passing:** `OUTSIDE_BAR_BULL` belongs to no role group in either Pine or
+`pa_patterns` — consistently, so it is not drift — yet it fires on 41 of 331 GOs at −2.16%
+and 19.5% win, the second-worst detector. It is roleless, so `roleMismatch` can never block
+it. In this sample it fires alone only once, so it is not a live hole; it is a question
+about the role map, not a bug.
+
+## What would settle it
+
+Not another pass on this sample. Three things, in order of value:
+
+1. **More anchors.** The gap is +0.79pp with a CI half-width of ~1.3pp. n=331 control GOs
+   is the binding constraint, not the effect size.
+2. **Test the POSITIVE form.** The rule as written is a veto on ignition-only. The ladder
+   above says the informative variable is *reversal evidence present*, which is the same
+   cut stated the other way round — but as a positive filter it can be graded (how much
+   reversal evidence) rather than binary, and graded filters have more power per trade.
+3. **`BREAKOUT_CONFIRMED` on its own.** 0 wins in 14 GO-timed trades is either a real
+   defect in that detector or a 14-trade coincidence. It is cheap to check and it is a
+   pattern S4 currently treats as an ignition in good standing.
