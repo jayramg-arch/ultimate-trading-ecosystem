@@ -42,6 +42,11 @@
     // the sector half of the RRG row reads an em-dash - and it cannot be spotted by
     // na(), because an unbound input.source returns close, which is a valid number.
     "v67: RS-Momentum vs Sector":      ["v67", "s4_rsMomSec"],
+    // The TRAILING sector pair (2 Sep 2026). Without it the sector RRG passed its own
+    // current value as its trailing value, so dv = dm = 0: the arrow was always ➡️, the
+    // gradient always +2-or-0 and the signal just "is it LEADING". 26 -> 28 bindings.
+    "v67: RS-Ratio trail (sector)":    ["v67", "s4_rsValTrailSec"],
+    "v67: RS-Momentum trail (sector)": ["v67", "s4_rsMomTrailSec"],
     "v67: RS val trail (N500)":        ["v67", "s4_rsValTrail500"],
     "v67: RS mom trail (N500)":        ["v67", "s4_rsMomTrail500"],
     "v67: Pyramid rung":               ["v67", "s4_pyrClass"],
@@ -61,7 +66,14 @@
     // methods. `trendState` is the Zigzag's LIVE chart-TF state (the same value
     // its own TREND row shows); `confirmedTrend` is the pivot-confirmed-only
     // variant, deliberately NOT used here so the two panels agree by construction.
-    "Zigzag: CHART-TF trend state":       ["zz", "trendState"]
+    "Zigzag: CHART-TF trend state":       ["zz", "trendState"],
+    // 5-Sep-2026: this points at the BRIDGE, never at the Unified Ecosystem itself.
+    // Bound to Unified it HANGS S4 - measured both directions on one chart: 0 bound =
+    // ready · Zigzag only = ready · all 32 including Unified = never completes (type 1,
+    // 0 bars, no error, while all twelve other studies finish) · 31 bound with Unified
+    // alone off = ready. Unified is a strategy(); the bridge is the same catalyst code
+    // as an indicator. If this row ever resolves to the strategy again, S4 stops dead.
+    "Unified: catalyst code":             ["uni", "s4_catalystCode"]
   };
   try {
     var chart = (window.TradingViewApi || window.tvWidget).activeChart();
@@ -70,16 +82,26 @@
     var ids = {
       s4:  findBy(function (n) { return n.indexOf("Section 4") === 0; }),
       v67: findBy(function (n) { return n.indexOf("Weinstein & Swing Pro Dashboard") === 0; }),
-      zz:  findBy(function (n) { return n.indexOf("Weinstein Swing Zigzag") === 0; })
+      zz:  findBy(function (n) { return n.indexOf("Weinstein Swing Zigzag") === 0; }),
+      // 4-Sep-2026: the Unified Ecosystem publishes the CATALYST as a numeric code.
+      // S4 used to infer its playbook from structure, which collapsed POS-ACCUM into
+      // BREAKOUT and judged a base-building setup by a breakout's standards.
+      // MUST match the BRIDGE, not the strategy. Anchored with indexOf(...)===0 so
+      // "Weinstein Unified Ecosystem [v3.5]" can never satisfy it.
+      uni: findBy(function (n) { return n.indexOf("Unified Catalyst Bridge") === 0; })
     };
     if (!ids.s4)  return "S4 not on this chart";
     if (!ids.v67) return "v67 Dashboard not on this chart — load it first, the plots are the source";
     if (!ids.zz)  return "Swing Zigzag not on this chart";
+    if (!ids.uni) return "Unified Catalyst Bridge not on this chart - add it; do NOT bind the strategy";
 
     // plot title -> "<studyId>$<plotIndex>"; the index is the plot's position in
     // metaInfo.plots, which is what a source value actually references.
     var plotRef = {};
-    ["v67", "zz"].forEach(function (key) {
+    // A missing study id is skipped rather than throwing - the bind used to die on
+    // getStudyById(null) if any one source script was not on the chart.
+    ["v67", "zz", "uni"].forEach(function (key) {
+      if (!ids[key]) return;
       var meta = chart.getStudyById(ids[key])._study.metaInfo();
       meta.plots.forEach(function (pl, ix) {
         var title = (meta.styles && meta.styles[pl.id] && meta.styles[pl.id].title) || "";

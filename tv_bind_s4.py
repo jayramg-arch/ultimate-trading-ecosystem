@@ -43,7 +43,7 @@ CHECK_JS = r"""
   var bound=[],unbound=[];
   s4.getInputsInfo().forEach(function(inp){
     if(String(inp.type)!=="source")return;
-    if(inp.name.indexOf("v67:")!==0&&inp.name.indexOf("Zigzag:")!==0)return;
+    if(inp.name.indexOf("v67:")!==0&&inp.name.indexOf("Zigzag:")!==0&&inp.name.indexOf("Unified:")!==0)return;
     var v=vals[inp.id];
     (typeof v==="string"&&v.indexOf("$")>-1?bound:unbound).push(inp.name);
   });
