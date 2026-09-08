@@ -2,7 +2,16 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v7  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v48  --  shared engines for the Section 4 / Golden Matcher ecosystem
+//
+// v48 (6-Sep-2026) - setupRead() takes C_NO so the Setup marker and the row colour
+// agree (a red dot sat on an amber row); rrgSecTxt() drops secName from the VALUE
+// (the row title already carries it) and suppresses a bare zero RRG score.
+// v47 (6-Sep-2026) - setupRead() + barRead() added; setupRead drops the dead isEtf
+// argument that had survived unused in S4 since the 3-Sep ETF carve-out removal.
+// v46 (6-Sep-2026) - arrivalStyle() added: the approach-leg velocity read moved out
+// of S4, which was 511 tokens over the ceiling after request.footprint() replaced the
+// old order-flow proxy. Nothing existing was touched, so no prior call site changes.
 //
 // NOTE this line is DOCUMENTATION ONLY. A library's version is assigned by TradingView
 // at publish time and auto-increments; nothing in the source declares it. Keep it in step
@@ -1751,7 +1760,25 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
        float secStg, bool inDZ, bool inSZ, bool nearSR, bool nearAvwap, bool nearEma,
        float extAtr, float off52, float rv, bool arrFast, bool ofBull,
        bool isRec, float roomR, int cf, int cfMax, bool ttSwing, float entry,
-       float sl, float atrD, bool go) =>
+       float sl, float atrD, bool go,
+       // DERIVATIVES POSITIONING (4-Sep-2026), appended LAST so no positional argument
+       // shifts. Deliberately NOT a seventh section: PARTICIPATION already asks who is
+       // behind the move and GEOMETRY already asks whether the reward is real, which is
+       // exactly what open interest and the call wall answer. A separate block would
+       // have restated the two OI rows above it.
+       float oiNow, float oiPrev, float basis, float ceK, float t1,
+       // A3: the CONFIRMED-bar direction, computed by the caller as close[_so] >=
+       // close[_so+1]. Deriving it here as close >= close[1] read the FORMING bar, so
+       // row 9 said "Short covering" while this said "Long unwinding" on the same OI.
+       // A4: whether the LOCATION GATE counts where price is. sLoc described AVWAP and
+       // EMA20 as "resting on a secondary reference" while the gate ignores both, so
+       // the summary claimed a location the panel had already refused.
+       // A5 (4-Sep-2026): the order-flow delta was a close>open PROXY built on
+       // request.security_lower_tf, removed to free compiled tokens pending a real
+       // request.footprint() delta. When it is absent the summary must say NOTHING
+       // about flow - the old text asserted "not confirming the buyers" on every
+       // symbol, which is a claim about a thing no longer measured.
+       bool pxUpConfirmed, bool locGated, bool ofKnown) =>
     bool wUp = zzOkW and trW > 0.5
     bool wDn = zzOkW and trW < -0.5
     bool dUp = zzOkD and trD > 0.5
@@ -1768,25 +1795,46 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     string sLead = rsUp and rsSecUp and rrgTr ? "LEADERSHIP · Outperforming both the index and its own sector with rotation still pointed the right way. This is the profile that keeps working when the tape wobbles - the strongest single argument in favour of the name." : rsUp and rrgTr ? "LEADERSHIP · Beating the index with rotation intact, but not clearly leading its sector - the strength is stock-specific rather than a group move, so there is no peer group to carry it if the tape turns." : rsUp ? "LEADERSHIP · Above the index, but the rotation has rolled over: relative strength is being GIVEN BACK, not built. That is the state where a name looks fine on price and quietly stops leading, so treat the outperformance as history, not forecast." : "LEADERSHIP · Not leading. Buying a laggard asks the setup to do all the work, because relative strength will not help you and this is what gets sold first on any market weakness."
     string sSec = secStg >= 3.5 ? "  Its sector is in Stage 4 decline - long a name inside a group being distributed, which is the most common way a good-looking chart fails." : secStg >= 2.5 ? "  Its sector is Stage 3 and topping, so there is no group tailwind; the name must carry itself." : ""
     // 3. LOCATION
-    string sLoc = inSZ ? "LOCATION · Price is INSIDE supply. You would be buying where sellers are already positioned, which caps the near reward and is why the room reading is poor. A long from inside supply only makes sense if the plan is to be paid for BREAKING it, not for reaching it." : inDZ and extAtr < 1.5 ? "LOCATION · At demand and not extended. The house A+ location: a level beneath the entry that defines wrong, and enough distance from the mean that you are buying value rather than chasing it." : inDZ ? "LOCATION · In a demand zone but stretched from the mean. The zone gives a floor to work with, yet the distance already travelled means the first move against you can be large in ATR terms before anything structural breaks." : extAtr >= 2.5 ? "LOCATION · Extended above the mean with no zone under price. Nothing structural defines risk, so any stop is arbitrary and every dip looks like an entry - the classic way to buy a top." : nearSR or nearAvwap or nearEma ? "LOCATION · Not in a zone, but resting on a secondary reference - a level, an anchored VWAP or the mean. Weaker than a zone: these are lines, not areas, and they give way without the warning a zone gives." : "LOCATION · Nowhere in particular. No zone, no level, no anchor under price - whatever the trigger says, there is nothing here to define where you are wrong."
+    // BOTH can be true - overlapping zones on different timeframes. MOCAPITAL printed
+    // "Price is INSIDE supply" in LOCATION and "at a demand zone is what you WANT" in
+    // PARTICIPATION on the same panel, because each paragraph picked a different one.
+    // Say it, rather than choosing.
+    string sLoc = inDZ and inSZ ? "LOCATION · Demand and supply OVERLAP here on different timeframes. That is a real state, not a contradiction: a lower-timeframe floor sitting inside a higher-timeframe ceiling. Trade it as supply - the ceiling is the bigger structure and it decides the room." : inSZ ? "LOCATION · Price is INSIDE supply. You would be buying where sellers are already positioned, which caps the near reward and is why the room reading is poor. A long from inside supply only makes sense if the plan is to be paid for BREAKING it, not for reaching it." : inDZ and extAtr < 1.5 ? "LOCATION · At demand and not extended. The house A+ location: a level beneath the entry that defines wrong, and enough distance from the mean that you are buying value rather than chasing it." : inDZ ? "LOCATION · In a demand zone but stretched from the mean. The zone gives a floor to work with, yet the distance already travelled means the first move against you can be large in ATR terms before anything structural breaks." : extAtr >= 2.5 ? "LOCATION · Extended above the mean with no zone under price. Nothing structural defines risk, so any stop is arbitrary and every dip looks like an entry - the classic way to buy a top." : locGated and nearSR ? "LOCATION · Not in a zone, but resting on a level the engine counts - weaker than a zone, because these are lines rather than areas and they give way without the warning a zone gives." : nearAvwap or nearEma ? "LOCATION · Near an anchored VWAP or the mean, but NOT at a location the engine counts. Those two are shown for context and deliberately excluded from the gate - near-EMA20 is true most of the time, so gating on it would call almost everything a location." : nearSR ? "LOCATION · Close to a level, though not one the gate accepted."  : "LOCATION · Nowhere in particular. No zone, no level, no anchor under price - whatever the trigger says, there is nothing here to define where you are wrong."
     string sOff = off52 <= -25.0 ? "  It is deeply off its 52-week high, so this is repair work rather than a leadership breakout - expect overhead supply at every prior shelf." : off52 >= -3.0 ? "  It sits within a whisker of its 52-week high, so overhead is thin and a break puts it in clear air." : ""
     // 4. PARTICIPATION
     string sPart = rv >= 1.5 and inSZ ? "PARTICIPATION · Heavy volume arriving INTO resistance. Crowded buying at a ceiling is how upthrusts are built; strong volume here is not confirmation, it is the supply of buyers a seller needs." : rv >= 1.5 ? "PARTICIPATION · Real volume behind the move - the most reliable confirmation this panel offers, and the thing most often missing from failed breakouts." : rv >= 1.0 ? "PARTICIPATION · Volume is adequate but unremarkable; the move is drifting rather than being driven." : inDZ ? "PARTICIPATION · Volume is thin, which at a demand zone is what you WANT - dry-up means sellers are exhausted rather than absent. It stops being a virtue the moment you need follow-through." : "PARTICIPATION · Thin volume with nothing structural behind it. Moves made on no participation are the ones that reverse without warning."
     string sFlow = arrFast and not inDZ ? "  Price arrived fast, which into resistance reads as chase rather than conviction." : arrFast and inDZ ? "  The approach was sharp, which at demand tends to produce an equally sharp rejection - good for the entry, and a reason not to widen the stop into the noise of that reaction." : ""
-    string sOf = ofBull ? "  Order flow is absorbing on the buy side." : "  Order flow is not confirming the buyers."
+    string sOf = not ofKnown ? "" : ofBull ? "  Order flow is absorbing on the buy side." : "  Order flow is not confirming the buyers."
     // 5. GEOMETRY - the lever that has failed most often here: a stop tucked so close
     // that the R-multiple flatters a trade with no room to be wrong.
     float risk = entry - sl
     float rATR = atrD > 0 and risk > 0 ? risk / atrD : na
-    string sGeo = na(rATR) ? "GEOMETRY · No usable stop distance - treat every R figure on this panel as meaningless." : rATR < 0.5 ? "GEOMETRY · THE STOP IS INSIDE THE NOISE. It sits well under one daily ATR from the entry, so ordinary daily movement will take it out before the idea is ever tested - and because R is measured against that distance, every reward multiple above is FLATTERED by it. Re-price the trade against a stop of roughly one ATR before believing any R number here." : rATR < 0.9 ? "GEOMETRY · The stop is tight relative to daily range. Workable, but it will be tested by noise as much as by thesis, so the R shown is optimistic rather than wrong." : rATR > 2.5 ? "GEOMETRY · The stop is very wide in ATR terms. Honest, but position size has to come down hard for risk to stay constant - check the reward still justifies the exposure." : "GEOMETRY · The stop clears daily noise without being extravagant, so the reward multiples above can be taken at face value."
+    // The na branch splits on `go`: before the trigger fires there is no plan to judge,
+    // which is a different statement from "the plan has an unusable stop".
+    string sGeo = na(rATR) ? (not go ? "GEOMETRY · No plan yet. The trigger has not fired, so there is no stop or target to judge - geometry becomes readable the moment it does." : "GEOMETRY · No usable stop distance - treat every R figure on this panel as meaningless.") : rATR < 0.5 ? "GEOMETRY · THE STOP IS INSIDE THE NOISE. It sits well under one daily ATR from the entry, so ordinary daily movement will take it out before the idea is ever tested - and because R is measured against that distance, every reward multiple above is FLATTERED by it. Re-price the trade against a stop of roughly one ATR before believing any R number here." : rATR < 0.9 ? "GEOMETRY · The stop is tight relative to daily range. Workable, but it will be tested by noise as much as by thesis, so the R shown is optimistic rather than wrong." : rATR > 2.5 ? "GEOMETRY · The stop is very wide in ATR terms. Honest, but position size has to come down hard for risk to stay constant - check the reward still justifies the exposure." : "GEOMETRY · The stop clears daily noise without being extravagant, so the reward multiples above can be taken at face value."
     string sRoom = roomR > 0 and roomR < 1.0 ? "  There is under 1R of room to the first obstacle: the trade is being asked to pay before it reaches anything, which it usually cannot." : roomR >= 3.0 ? "  Room to the first obstacle is generous, so the target is not fighting structure." : ""
     string sType = ttSwing ? "  Structure says SWING: book into strength rather than holding for a positional target this does not support." : "  Structure says POSITIONAL, so size and hold for a move measured in months, not days."
+    // Open interest says whether the volume above is NEW commitment or a squeeze
+    // unwinding, which changes how far the move can carry; the basis says which side the
+    // marginal futures long is on. Appended to PARTICIPATION - same question, more evidence.
+    float _oiPct = (na(oiNow) or na(oiPrev) or oiPrev <= 0) ? na : (oiNow - oiPrev) / oiPrev * 100.0
+    string sOi = na(_oiPct) ? "" : (pxUpConfirmed and _oiPct > 0 ? "  Open interest is RISING into it - new money rather than a squeeze, so the move has fuel." : pxUpConfirmed and _oiPct <= 0 ? "  Open interest is FALLING as price rises: short covering, not new demand, and it can stall the moment they are done." : _oiPct > 0 ? "  Open interest is RISING while price falls - sellers are pressing, so treat bounces as suspect." : "  Longs are leaving rather than shorts arriving: exhaustion, not aggression.") + (na(basis) ? "" : close >= basis ? " The futures basis sits below price and supports it while it holds." : " The futures basis sits above price and caps it until reclaimed.")
+
     // 6. DIRECTION - a decision, in words, that names what would change it.
+    // The call wall is the strike option writers are paid to defend, so a target at or
+    // beyond it asks for the stretch of the move with the most resistance behind it. This
+    // belongs in GEOMETRY: it is a statement about whether the REWARD is real.
+    // TRADE-TYPE AWARE, and this is the one genuinely new idea in the OI workflow doc:
+    // the SAME wall means different things on different horizons. Near-month option
+    // positioning expires; a swing trade lives inside that expiry and should not fight
+    // it, while a positional trade outlives it, so the wall is an entry gate rather than
+    // a target cap. Costs nothing - ttSwing was already a parameter.
+    string sWall = (na(ceK) or na(t1)) ? "" : t1 < ceK ? "  The call wall " + str.tostring(ceK, format.mintick) + " sits above T1, so the target is not fighting option positioning." : ttSwing ? "  T1 sits at or beyond the call wall " + str.tostring(ceK, format.mintick) + ", the strike writers are paid to defend. A swing trade lives inside this expiry, so it should not fight that ceiling - book into it rather than through it." : "  T1 sits at or beyond the call wall " + str.tostring(ceK, format.mintick) + ", but a positional trade OUTLIVES this expiry: treat the wall as an entry gate rather than a target cap, trim a slice there and let the rest run to structure."
     bool bigProblem = inSZ or (roomR > 0 and roomR < 1.0) or (not na(rATR) and rATR < 0.5)
     string sDir = not go ? "DIRECTION · Nothing to do yet. The trigger is incomplete, so the work now is to decide IN ADVANCE what would make this actionable and let the alert do the waiting - a name watched tick by tick gets bought early." : not bigProblem and (wUp or dUp) ? "DIRECTION · This is a take-it. Trend, leadership and location agree, the geometry is honest and the trigger is live, so what remains is ordinary trade risk rather than a flaw in the setup. Execute the plan as written and let the stop, not an opinion, decide the outcome." : bigProblem and (wUp or dUp) ? "DIRECTION · The SETUP is sound but the TRADE as planned is not. What is wrong is fixable - the entry, the stop or the target, not the thesis - so either restructure it with a deeper entry, a stop that clears noise, or a target beyond the obstacle, or leave it alone. Do not take the plan as printed merely because the trigger fired." : "DIRECTION · The trigger is live but the context is against it. A long here is counter-trend, which is legitimate only if you size it as one, take the first obstacle as the target and accept a lower hit rate. If you would not defend this entry out loud, that is your answer."
     string sConf = cf >= cfMax / 2 ? "  Confluence is dense - several independent facts point the same way." : "  Confluence is thin: few independent facts agree, so this rests largely on the trigger alone."
     string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF), and since Gate 6 that score does reach this chart - see the QUALITY line above. What crosses over is the SCORE only, not the six-check verdict, the growth history or the quality rejection behind it, so the Golden Matcher is still the authority on whether the name belongs on the list at all." : ""
-    sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + "\n" + sGeo + sRoom + sType + "\n" + sDir + sConf + sPath
+    sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + sOi + "\n" + sGeo + sRoom + sType + sWall + "\n" + sDir + sConf + sPath
 
 
 // ---- wrapText ---------------------------------------------------------------
@@ -1945,14 +1993,10 @@ export invalLevels(float px, float zoneDistal, bool inZone, float swingLo, float
 // particular it is NOT max pain and the "strike" is only the nearest tradeable strike to
 // the futures basis, because Pine cannot read an options chain.
 export oiText(float basis, float builtPct, int nPrints, float px, float strikeStep) =>
+    // NUMBERS ONLY. The support/resistance reading that used to live here now sits
+    // once, in oiNarrative - having it in both printed the same sentence twice.
     float strike = na(basis) ? na : math.round(basis / strikeStep) * strikeStep
-    string out = na(basis) ? "" : "\n" + "OI basis " + str.tostring(basis, format.mintick) +
-         " (~" + str.tostring(strike, format.mintick) + " strike)  ·  " +
-         (px >= basis ? "price ABOVE it - the marginal long is in profit, so it is SUPPORT until lost"
-                      : "price BELOW it - the marginal long is underwater, so it is RESISTANCE until reclaimed") +
-         "  ·  " + str.tostring(math.abs(px / basis - 1.0) * 100.0, "0.0") + "% away  ·  bld " +
-         str.tostring(nz(builtPct, 0.0), "0") + "% of " + str.tostring(nPrints) + " prints" +
-         (nz(builtPct, 100.0) < 40.0 ? "  ⚠ book is unwinding, basis stale" : "")
+    string out = na(basis) ? "" : "\nbasis " + str.tostring(basis, format.mintick) + " (~" + str.tostring(strike, format.mintick) + " strike) · " + str.tostring(math.abs(px / basis - 1.0) * 100.0, "0.0") + "% away · bld " + str.tostring(nz(builtPct, 0.0), "0") + "% of " + str.tostring(nPrints) + " prints"
     out
 
 // --------------------------------------------------------------------------
@@ -1974,7 +2018,11 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
   bool _qSupply, string _roomWord, float _so_high, bool _stage2ok, bool any_pa_v, int cf_strong, 
   int cf_v, bool go_v, bool is_rec_v, bool momentum_clear, float pl_entry, float pl_rr1, float pl_t1, 
   int stage_n, bool stage_skip, bool support_v, int trigAge, float trigHi, bool tt_swing, 
-  bool use_retest) =>
+  // A14: the no-PA branch claimed "clean volume/bar" without consulting either gate.
+  // SONACOMS printed it with RV 0.35 and a grey V; INDIANB printed it with the bar
+  // reading WEAK/VETOED. Opposite halves, same false claim - it told you one thing
+  // was missing when two were.
+  bool use_retest, bool _inRealDZ, bool volOk, bool barOk) =>
     // _anCol was declared ABOVE the lifted range in S4 (v7.2:5311) and every branch
     // below only ASSIGNS it, so the function has to declare it itself. Same default
     // as the original, so an unmatched ladder returns the identical neutral colour.
@@ -2090,7 +2138,10 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
         else if _atValue
             _L1 := ((_posOk or _swingOk) ? "TAKE IT — PULLBACK TO VALUE" : "ARM — PULLBACK TO VALUE, reward still thin") + (cf_v >= cf_strong ? " ★strong" : "")
             _L2 := _rule
-            _L3 := "In a demand zone, Stage-2, not extended, not in supply —\nthe house A+ location. Buy the pullback; this is NOT a breakout entry." + (_qArrBad ? "\nCaveat: GRIND arrival with Δ− — size down or wait for a sharper turn." : "")
+            // _atValue admits a chart-TF demand zone OR a daily/weekly FVG-or-pivot,
+            // so this cannot assert a zone. A level is a line, not an area: it gives
+            // way with less warning, which is the same grading sLoc applies above.
+            _L3 := (_inRealDZ ? "In a demand zone, Stage-2, not extended, not in supply —\nthe house A+ location." : "On a daily/weekly LEVEL (pivot or gap), Stage-2, not extended, not in supply.\nA line, not an area — it gives way with less warning than a zone, so this is\nthe B+ version of the location, not the A+ one.") + " Buy the pullback; this is NOT a breakout entry." + (_qArrBad ? "\nCaveat: GRIND arrival with Δ− — size down or wait for a sharper turn." : "")
             _L5 := _actLine
             _anCol := _qArrBad ? C_WARN : C_OK
         else if _clearToBreak
@@ -2156,7 +2207,7 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
     else
         _L1 := "ARM" + (_qArrGood ? " — quality setup" : "")
         _L2 := "Waiting on: " + _blk
-        _L3 := (not any_pa_v and support_v) ? "At a location with clean volume/bar — only the pattern is missing." : ""
+        _L3 := (not any_pa_v and support_v) ? "At a location" + (volOk and barOk ? " with clean volume/bar — only the pattern is missing." : volOk ? ", volume is there but the BAR is weak — the pattern is not the only thing missing." : barOk ? ", the bar is clean but VOLUME is not there — the pattern is not the only thing missing." : ", but neither volume nor bar is there yet — the pattern is the least of it.") : ""
         _L5 := _act
         _anCol := C_WARN
     // v5.4: the EXTENDED warning rides on the HEADLINE where it cannot be missed — a
@@ -2231,11 +2282,13 @@ export baseCount(simple int wmaLen, simple int slopeLen, simple int minBars) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
+// <SECTOR_MAP_START>  — regenerated by gen_sector_map.py; do not hand-edit.
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTOR MAP — Jay's curated NSE stock→sector database, generated from sectors.db
-// on 26-Aug-2026: 677 symbols, 18 sectors.
+// on 26-Aug-2026: 758 symbols, 44 sectors.
 //
 // WHY IT LIVES HERE: a library compiles separately, so the calling script spends ONE
-// call, not 677 comparisons. And a STRING LITERAL costs ONE compiled token however
+// call, not 758 comparisons. And a STRING LITERAL costs ONE compiled token however
 // long it is — which is why the map is packed into literals rather than a switch or
 // array.from() (array.from would also blow the 254-argument limit at this size).
 //
@@ -2264,31 +2317,27 @@ export sectorOf(string sym) =>
     var array<string> _secCod = na
     var array<string> _secNam = na
     if na(_secSym)
-        string _a = "360ONE,3MINDIA,AADHARHFC,AARTIDRUGS,AARTIIND,AAVAS,ABB,ABBOTINDIA,ABCAPITAL,ABDL,ABFRL,ABLBL,ABREL,ABSLAMC,ACC,ACE,ACKO,ACMESOLAR,ACUTAAS,ADANIENSOL,ADANIENT,ADANIGREEN,ADANIPORTS,ADANIPOWER,ADANITOTAL,ADANIWILL,ADVENZYMES,AEGISCHEM,AEGISLOG,AEGISVOPAK,AEQUS,AETHER,AFCONS,AFFLE,AHLUCONT,AIAENG,AIIL,AJANTPHARM,AKUMS,ALKEM,ALKYLAMINE,ALLCARGO,ALOKINDS,AMARAJABAT,AMBER,AMBUJACEM,ANANDRATHI,ANANTRAJ,ANGELONE,ANTHEM,ANURAS,APARINDS,APLAPOLLO,APOLLO,APOLLOHOSP,APOLLOTYRE,APTUS,ARE&M,ARVIND,ASAHIINDIA,ASHOKLEY,ASIANPAINT,ASKASIAN,ASTERDM,ASTRAL,ASTRAMICRO,ASTRAZEN,ATGL,ATHERENERG,ATUL,AUBANK,AUROPHARMA,AVANTIFEED,AWL,AXISBANK,AXISCADES,BAJAJ-AUTO,BAJAJCON,BAJAJELEC,BAJAJFINSV,BAJAJHFL,BAJAJHLDNG,BAJFINANCE,BALAMINES,BALKRISIND,BALRAMCHIN,BANDHANBNK,BANKBARODA,BANKINDIA,BASF,"
-        _a += "BATAINDIA,BAYERCROP,BBTC,BDL,BEL,BELRISE,BEML,BERGEPAINT,BHARATFORG,BHARATRAS,BHARTIARTL,BHARTIHEXA,BHEL,BIKAJI,BIOCON,BIRLACORPN,BIRLASOFT,BLS,BLUEDART,BLUEJET,BLUESTARCO,BOMDYEING,BOSCHLTD,BPCL,BRIGADE,BRITANNIA,BSE,BSOFT,CAMPUS,CAMS,CANBK,CANFINHOME,CANHLIFE,CAPLIPOINT,CARBORUNIV,CARTRADE,CARYSIL,CASTROLIND,CCL,CDSL,CEATLTD,CEMPRO,CENTRALBK,CENTUM,CENTURYPLY,CENTURYTEX,CERA,CESC,CGCL,CGPOWER,CHALET,CHAMBLFERT,CHENNPETRO,CHOICEIN,CHOLAFIN,CHOLAHLD,CHOLAHLDNG,CIEINDIA,CIPLA,CLEAN,COALINDIA,COCHINSHIP,COFORGE,COHANCE,COLPAL,CONCOR,CONCORDBIO,COROMANDEL,CPPLUS,CRAFTSMAN,CREDITACC,CRISIL,CROMPTON,CUB,CUMMINSIND,CYIENT,CYIENTDLM,DABUR,DALBHARAT,DATAPATTNS,DBCORP,DCMSHRIRAM,DCXIND,DEEPAKFERT,DEEPAKNTR,DELHIVERY,DELTACORP,DEVYANI,DIVISLAB,DIXON,"
-        _a += "DLF,DMART,DOMS,DREAMFOLKS,DRREDDY,DYNAMATECH,EASEMYTRIP,ECLERX,EDELWEISS,EICHERMOT,EIDPARRY,EIHOTEL,ELECON,ELGIEQUIP,EMAMILTD,EMCURE,EMMVEE,ENDURANCE,ENGINERSIN,ENRIN,EPL,EQUITASBNK,ERIS,ESCORTS,ETERNAL,ETHOSLTD,EVEREADY,EXIDEIND,FACT,FALCONTYRE,FDC,FEDERALBNK,FERV,FINCABLES,FINEORG,FINPIPE,FIRSTCRY,FIVESTAR,FLUOROCHEM,FORCEMOT,FORTIS,FSL,GABRIEL,GAIL,GALAXYSURF,GALLANTT,GANESHHOUC,GARDENREACH,GARFIBRES,GATEWAY,GENUSPOWER,GESHIP,GET-D,GICRE,GILLETTE,GLAND,GLAXO,GLENMARK,GMDCLTD,GMMPFAUDLR,GMRAIRPORT,GMRINFRA,GNFC,GOCOLORS,GODFRYPHLP,GODIGIT,GODREJAGRO,GODREJCP,GODREJIND,GODREJPROP,GOKEX,GPIL,GPPL,GRANULES,GRAPHITE,GRASIM,GRAVITA,GREAVESCOT,GRINDWELL,GROWW,GRSE,GSFC,GSPL,GUJGASLTD,GULFOILLUB,GVT&D,HAL,HAPPSTMNDS,HATHWAY,HAVELLS,"
-        _a += "HBLENGINE,HCLTECH,HDBFS,HDFCAMC,HDFCBANK,HDFCLIFE,HEG,HEIDELBERG,HEROMOTOCO,HEXT,HFCL,HIKAL,HINDALCO,HINDCOPPER,HINDPETRO,HINDUNILVR,HINDZINC,HOMEFIRST,HONASA,HONAUT,HSCL,HUDCO,HYUNDAI,ICICIAMC,ICICIBANK,ICICIGI,ICICIPRULI,IDBI,IDEA,IDEAFORGE,IDFC,IDFCFIRSTB,IEX,IFCI,IGIL,IGL,IIFL,IIFLSEC,IKS,IMAGICAA,INDGN,INDHOTEL,INDIACEM,INDIAMART,INDIANB,INDIGO,INDIGOPNTS,INDUSINDBK,INDUSTOWER,INFY,INOXWIND,INTELLECT,IOB,IOC,IPCALAB,IRB,IRCON,IRCTC,IREDA,IRFC,ITC,ITCHOTELS,ITI,J&KBANK,JAINREC,JBCHEPHARM,JBMA,JINDALSAW,JINDALSTEL,JIOFIN,JKCEMENT,JKPAPER,JKTYRE,JMFINANCIL,JPPOWER,JSL,JSWCEMENT,JSWDULUX,JSWENERGY,JSWINFRA,JSWSTEEL,JUBLFOOD,JUBLINGREA,JUBLPHARMA,JUSTDIAL,JWL,JYOTHYLAB,JYOTICNC,JYOTISTRUC,KAJARIACER,"
-        _a += "KALYANKJIL,KANSAINER,KARURVYSYA,KAYNES,KEC,KEI,KFINTECH,KIMS,KIRLOSENG,KNRCON,KOTAKAMC,KOTAKBANK,KPIL,KPITTECH,KPRMILL,KRBL,KSB,KSL,L-TFH,LALPATHLAB,LATENTVIEW,LAURUSLABS,LAXMACH,LEMONTREE,LENSKART,LGEINDIA,LICHSGFIN,LICI,LINDEINDIA,LLOYDSME,LMSYMBOL,LODHA,LT,LTF,LTFOODS,LTIM,LTM,LTTS,LUMAXTECH,LUPIN,LXCHEM,M&M,M&MFIN,MAHABANK,MAHLIFE,MAHLOG,MAHSEAMLES,MANAPPURAM,MANKIND,MAPMYINDIA,MARICO,MARUTI,MASTEK,MAXHEALTH,MAZDOCK,MCX,MEDANTA,MEESHO,METROPOLIS,MFSL,MGL,MHRIL,MIDHANI,MINDACORP,MINDTREE,MIRZAINT,MMTC,MOTHERSON,MOTILALOFS,MPHASIS,MRF,MRPL,MSTCLTD,MSUMI,MTARTECH,MUTHOOTFIN,NAM-INDIA,NATCOPHARM,NATIONALUM,NAUKRI,NAVA,NAVINFLUOR,NAZARA,NBCC,NCC,NESTLEIND,NETWEB,NETWORK18,NEULANDLAB,NEWGEN,"
-        _a += "NH,NHPC,NIACL,NIITLTD,NIVABUPA,NLCINDIA,NMDC,NSLNISP,NTPC,NTPCGREEN,NUVAMA,NUVOCO,NYKAA,OBEROIRLTY,OBERREALTY,OFSS,OIL,OLAEC,OLAELEC,OLECTRA,OMAXE,ONESOURCE,ONGC,ORIENTELEC,PAGEIND,PARADEEP,PARAS,PATANJALI,PAYTM,PCBL,PEL,PERSISTENT,PETRONET,PFC,PFIZER,PFOCUS,PGEL,PGHH,PHOENIXLTD,PIDILITIND,PIIND,PINELABS,PIRAMALFIN,PNB,PNBHOUSING,PNCINFRA,POLICYBZR,POLYCAB,POLYMED,POONAWALLA,POWERGRID,POWERINDIA,PPLPHARMA,PRAJIND,PREMIERENE,PRESTIGE,PRICOL,PRINCEPIPE,PRSMJOHNSN,PSB,PTCIL,PUNJABALK,PVRINOX,PWL,QUESS,RADICO,RAILTEL,RAIN,RAINBOW,RAJESHEXPO,RALLIS,RAMCOCEM,RATNAMANI,RAYMOND,RBLBANK,RECLTD,REDINGTON,RELAXO,RELIANCE,RHIM,RITES,RKFORGE,ROLEXRINGS,ROSSARI,ROUTE,RPOWER,RRKABEL,RTNINDIA,RVNL,SAFEWELL,"
-        _a += "SAGILITY,SAIL,SAILIFE,SAMMAANCAP,SANSERA,SAPPHIRE,SARDAEN,SAREGAMA,SAREHGAMA,SBFC,SBICARD,SBIGLI,SBILIFE,SBIN,SCHAEFFLER,SCHNEIDER,SCI,SDBL,SEAMECLTD,SFL,SHARDACROP,SHOPERSTOP,SHREECEM,SHRIRAMFIN,SHYAMMETL,SIEMENS,SIGNATURE,SIS,SJVN,SKFINDIA,SOBHA,SOLARINDS,SONACOMS,SONATSOFTW,SPARC,SPLPETRO,SRF,STARHEALTH,STLTECH,SUDARSCHEM,SUMICHEM,SUNDARMFIN,SUNPHARMA,SUNTECK,SUNTV,SUPRAJIT,SUPREMEIND,SURYAROSNI,SUVENPHAR,SUZLON,SWANCORP,SWIGGY,SYNGENE,SYRMA,TANLA,TARIL,TATACAP,TATACHEM,TATACOMM,TATACONSUM,TATAELXSI,TATAINVEST,TATAMOTORS,TATAPOWER,TATASTEEL,TATATECH,TBOTEK,TCI,TCIEXP,TCS,TEAMLEASE,TECHM,TECHNOE,TEGA,TEJASNET,TENNIND,THELEELA,THERMAX,THYROCARE,TIINDIA,TIMKEN,TIPSMUSIC,TITAGARH,TITAN,TMCV,TMPV,TORNTPHARM,TORNTPOWER,TRAVELFOOD,TRENT,"
-        _a += "TRIDENT,TRITURBINE,TRIVENI,TTML,TVSMOTOR,TVSSRICHAK,UBL,UCOBANK,UFLEX,ULTRACEMCO,UNIONBANK,UNITDSPR,UNOMINDA,UPL,URBANCO,USHAMART,UTIAMC,VAIBHAVGBL,VAKRANGEE,VALIANTORG,VARDHACRLC,VBL,VEDL,VENKEYS,VIJAYA,VINATIORGA,VIPIND,VISHNU,VMM,VOLTAS,VTL,WAAREEENER,WELCORP,WELENT,WELSPUNLIV,WESTLIFE,WHIRLPOOL,WIPRO,WOCKPHARMA,YESBANK,ZEEL,ZENSARTECH,ZENTEC,ZFCVINDIA,ZOMATO,ZYDUSLIFE,ZYDUSWELL"
-        string _b = "6,15,6,12,3,6,0,12,6,7,7,4,14,6,8,0,6,5,3,8,8,5,8,5,17,7,12,17,5,5,16,11,8,9,8,0,6,12,12,12,11,15,7,2,0,8,6,14,6,12,11,0,11,16,12,2,6,8,7,2,2,8,6,12,8,0,12,5,2,3,1,12,7,7,1,16,2,7,0,6,6,6,6,11,2,7,1,1,1,11,"
-        _b += "7,11,7,0,0,0,0,8,2,11,8,8,0,7,12,8,9,15,8,12,0,7,2,5,14,7,6,9,7,6,1,6,6,12,0,15,0,17,7,6,2,8,1,0,8,7,8,5,6,0,4,3,5,6,6,6,6,2,12,3,5,0,9,12,7,15,12,3,8,2,6,6,0,1,0,9,0,7,8,0,10,11,0,3,3,15,15,15,12,0,"
-        _b += "14,7,7,15,12,16,15,9,6,2,7,4,8,0,7,12,0,2,8,5,11,1,12,2,4,15,0,2,3,2,12,1,0,0,3,8,4,6,3,2,12,9,2,5,3,11,14,0,7,15,0,15,0,6,7,12,12,12,11,0,8,8,11,7,7,6,7,7,7,14,7,11,15,12,11,8,11,0,0,6,0,11,17,17,17,8,0,9,10,0,"
-        _b += "8,9,6,6,1,6,11,8,2,9,8,12,11,11,5,7,11,6,7,0,11,6,2,6,1,6,6,1,8,0,6,1,6,6,11,17,6,6,12,15,12,4,8,9,1,15,8,1,8,9,0,9,1,5,12,8,8,15,6,6,7,4,8,1,11,12,2,11,11,6,8,11,2,6,5,11,8,7,5,8,11,15,11,12,9,8,7,8,0,8,"
-        _b += "7,8,1,0,0,0,6,12,8,8,6,1,0,9,4,7,0,11,6,12,9,12,0,4,4,4,6,6,11,11,9,14,8,6,7,9,9,9,2,12,11,2,6,1,14,15,11,6,12,9,7,2,9,12,0,6,12,4,12,6,17,15,16,2,9,7,8,2,6,9,2,5,15,2,0,6,6,12,11,15,8,3,10,8,8,7,9,10,12,9,"
-        _b += "12,5,6,9,6,5,11,11,5,5,6,8,15,14,14,9,5,2,2,2,14,12,5,0,7,3,0,7,15,3,6,9,17,6,12,10,0,7,14,8,3,9,6,1,6,8,15,0,12,6,5,8,12,0,0,14,2,8,8,13,8,11,10,4,15,7,8,11,12,7,11,8,11,7,1,6,15,7,5,11,8,8,2,11,9,5,0,5,0,0,"
-        _b += "12,11,12,6,2,15,11,10,10,6,6,6,6,1,0,0,8,7,15,7,11,15,8,6,11,0,14,15,5,0,14,0,2,9,12,3,3,6,8,11,3,6,12,14,10,2,8,11,12,0,8,15,12,0,9,8,6,11,8,7,9,6,2,5,11,9,4,15,15,9,15,9,0,0,8,2,4,0,12,2,0,10,0,7,2,2,12,5,4,7,"
-        _b += "7,0,7,8,2,2,7,1,11,8,1,7,2,3,9,11,6,7,9,11,7,7,11,7,12,11,7,11,4,0,7,0,11,8,7,15,0,9,12,1,10,9,0,2,15,12,7"
-        // ETFs (28-Aug-2026, Jay). Mapped from etf_universe sub_category ->
-        // the same sector NAMES used above, so an ETF titles the RS row exactly
-        // like a stock. Broad-market / factor / commodity / debt / international
-        // have no NSE sector index and get their own labels.
-        _a += ",ALPHAETF,AUTOBEES,AUTOIETF,AXISGOLD,BANKBEES,BANKIETF,BBETF,BFSI,CONSUMBEES,CPSEETF,DEFENCE,DIGINIFTY,EBANK,ENERGYIETF,EVINDIA,FMCGIETF,GILT5YBEES,GOLD1,GOLDBEES,GOLDETF,GOLDIETF,HEALTHIETF,HNGSNGBEES,INFRABEES,ITBEES,ITIETF,JUNIORBEES,LIQUIDBEES,LIQUIDIETF,LOWVOLIETF,MAFANG,MAKEINDIA,MASPTOP50,METAL,MID150BEES,MIDCAPETF,MOM100,MOM30IETF,MON100,MULTICAP,NASDBEES,NEXT50IETF,NIF100IETF,NIFTYBEES,NV20IETF,OILIETF,PHARMABEES,PSUBANK,PSUBNKADD,PSUBNKBEES,PVTBANIETF,QUAL30IETF,REALTY,SILVERBEES,SILVERIETF,SMALLCAP"
-        _b += ",19,2,2,20,1,1,21,6,4,3,16,9,1,5,2,7,21,20,20,20,20,12,22,8,9,9,18,21,21,19,22,3,22,11,18,18,19,19,22,18,22,18,18,18,19,17,12,13,13,13,1,19,14,20,20,18"
+        string _a = "360ONE,3MINDIA,AADHARHFC,AARTIDRUGS,AARTIIND,AAVAS,ABB,ABBOTINDIA,ABCAPITAL,ABDL,ABFRL,ABLBL,ABREL,ABSLAMC,ACC,ACE,ACMESOLAR,ACUTAAS,ADANIENSOL,ADANIENT,ADANIGREEN,ADANIPORTS,ADANIPOWER,ADANITOTAL,ADANIWILL,ADVENZYMES,AEGISCHEM,AEGISLOG,AEGISVOPAK,AEQUS,AETHER,AFCONS,AFFLE,AHLUCONT,AIAENG,AIIL,AJANTPHARM,AKUMS,ALKEM,ALKYLAMINE,ALLCARGO,ALOKINDS,ALPHA,ALPHAETF,AMARAJABAT,AMBER,AMBUJACEM,ANANDRATHI,ANANTRAJ,ANGELONE,ANTHEM,ANURAS,APARINDS,APLAPOLLO,APOLLO,APOLLOHOSP,APOLLOTYRE,APTUS,ARE&M,ARE_M,ARVIND,ASAHIINDIA,ASHOKLEY,ASIANPAINT,ASTERDM,ASTRAL,ASTRAMICRO,ASTRAZEN,ATGL,ATHERENERG,ATUL,AUBANK,AUROPHARMA,AUTOBEES,AUTOIETF,AVANTIFEED,AWL,AXISBANK,AXISCADES,AXISTECETF,BAJAJ-AUTO,BAJAJCON,BAJAJELEC,BAJAJFINSV,BAJAJHFL,BAJAJHLDNG,BAJAJ_AUTO,BAJFINANCE,BALAMINES,BALKRISIND,"
+        _a += "BALRAMCHIN,BANDHANBNK,BANKBARODA,BANKBEES,BANKINDIA,BANKNIFTY1,BANKPVT,BASF,BATAINDIA,BAYERCROP,BBTC,BDL,BEL,BELRISE,BEML,BERGEPAINT,BFSI,BHARATFORG,BHARATRAS,BHARTIARTL,BHARTIHEXA,BHEL,BIKAJI,BIOCON,BIRLACORPN,BIRLASOFT,BLS,BLUEDART,BLUEJET,BLUESTARCO,BOMDYEING,BOSCHLTD,BPCL,BRIGADE,BRITANNIA,BSE,BSOFT,CAMPUS,CAMS,CANBK,CANFINHOME,CANHLIFE,CAPLIPOINT,CARBORUNIV,CARTRADE,CARYSIL,CASTROLIND,CCL,CDSL,CEATLTD,CEMPRO,CENTRALBK,CENTUM,CENTURYPLY,CENTURYTEX,CERA,CESC,CGCL,CGPOWER,CHALET,CHAMBLFERT,CHEMICAL,CHENNPETRO,CHOICEIN,CHOLAFIN,CHOLAHLD,CHOLAHLDNG,CIEINDIA,CIPLA,CLEAN,COALINDIA,COCHINSHIP,COFORGE,COHANCE,COLPAL,COMMOIETF,CONCOR,CONCORDBIO,CONSUMBEES,COROMANDEL,CPPLUS,CPSEETF,CRAFTSMAN,CREDITACC,CRISIL,CROMPTON,CUB,CUMMINSIND,CYIENT,CYIENTDLM,"
+        _a += "DABUR,DALBHARAT,DATAPATTNS,DBCORP,DCMSHRIRAM,DCXIND,DCXINDIA,DEEPAKFERT,DEEPAKNTR,DELHIVERY,DELTACORP,DEVYANI,DIVISLAB,DIXON,DLF,DMART,DOMS,DREAMFOLKS,DRREDDY,DYNAMATECH,EASEMYTRIP,ECLERX,EDELWEISS,EICHERMOT,EIDPARRY,EIHOTEL,ELECON,ELGIEQUIP,EMAMILTD,EMCURE,EMMVEE,ENDURANCE,ENERGY,ENERGYIETF,ENGINERSIN,ENRIN,EPL,EQUITASBNK,ERIS,ESCORTS,ETERNAL,ETHOSLTD,EVEREADY,EVINDIA,EXIDEIND,FACT,FDC,FEDERALBNK,FINCABLES,FINEORG,FINIETF,FINNIFTY,FINPIPE,FIRSTCRY,FIVESTAR,FLUOROCHEM,FMCGIETF,FORCEMOT,FORTIS,FSL,GABRIEL,GAIL,GALAXYSURF,GALLANTT,GANESHHOU,GANESHHOUC,GARDENREACH,GARFIBRES,GATEWAY,GENUSPOWER,GESHIP,GET-D,GET_D,GICRE,GILLETTE,GLAND,GLAXO,GLENMARK,GMDCLTD,GMMPFAUDLR,GMRAIRPORT,GMRINFRA,GNFC,GOCOLORS,GODFRYPHLP,GODIGIT,GODREJAGRO,GODREJCP,GODREJIND,GODREJPROP,"
+        _a += "GOKEX,GPIL,GPPL,GRANULES,GRAPHITE,GRASIM,GRAVITA,GREAVESCOT,GRINDWELL,GROWW,GROWWCAPM,GRSE,GSFC,GSPL,GUJENERGY,GUJGASLTD,GULFOILLUB,GVT&D,GVT_D,HAL,HAPPSTMNDS,HATHWAY,HAVELLS,HBLENGINE,HCLTECH,HDBFS,HDFCAMC,HDFCAUTO,HDFCBANK,HDFCFIN,HDFCFMCG,HDFCITETF,HDFCLIFE,HDFCMETAL,HDFCPHARMA,HDFCPSUBK,HDFCREALTY,HDFCSML250,HEALTHIETF,HEALTHY,HEG,HEIDELBERG,HEROMOTOCO,HEXT,HFCL,HIKAL,HINDALCO,HINDCOPPER,HINDPETRO,HINDUNILVR,HINDZINC,HOMEFIRST,HONASA,HONAUT,HSCL,HUDCO,HYUNDAI,ICICIAMC,ICICIAUTO,ICICIBANK,ICICICONSU,ICICIFMCG,ICICIGI,ICICIMETAL,ICICIPHARM,ICICIPRULI,ICICIPSUBK,ICICITECH,IDBI,IDEA,IDEAFORGE,IDFC,IDFCFIRSTB,IEX,IFCI,IGIL,IGL,IIFL,IIFLCAPS,IIFLSEC,IKS,IMAGICAA,INDGN,INDHOTEL,INDIACEM,INDIAMART,INDIANB,INDIGO,INDIGOPNTS,INDUSINDBK,"
+        _a += "INDUSTOWER,INFRABEES,INFRAIETF,INFY,INOXWIND,INTELLECT,IOB,IOC,IPCALAB,IRB,IRCON,IRCTC,IREDA,IRFC,ITBEES,ITC,ITCHOTELS,ITI,J&KBANK,JAINREC,JBCHEPHARM,JBMA,JINDALSAW,JINDALSTEL,JIOFIN,JKCEMENT,JKPAPER,JKTYRE,JMFINANCIL,JPPOWER,JSL,JSWCEMENT,JSWDULUX,JSWENERGY,JSWINFRA,JSWSTEEL,JUBLFOOD,JUBLINGREA,JUBLPHARMA,JUSTDIAL,JWL,JYOTHYLAB,JYOTICNC,JYOTISTRUC,J_KBANK,KAJARIACER,KALYANKJIL,KANSAINER,KARURVYSYA,KAYNES,KEC,KEI,KFINTECH,KIMS,KIRLOSENG,KNRCON,KOTAKBANK,KOTAKBKETF,KOTAKIT,KOTAKPSUBK,KPIL,KPITTECH,KPRMILL,KRBL,KSB,KSL,L-TFH,LALPATHLAB,LATENTVIEW,LAURUSLABS,LAXMACH,LAXMIMACH,LEMONTREE,LENSKART,LGEINDIA,LICHSGFIN,LICI,LINDEINDIA,LLOYDSME,LODHA,LOWVOL1,LT,LTF,LTFOODS,LTIM,LTM,LTTS,LUMAXTECH,LUPIN,LXCHEM,"
+        _a += "L_TFH,M&M,M&MFIN,MAHABANK,MAHLIFE,MAHLOG,MAHSEAMLES,MAKEINDIA,MANAPPURAM,MANKIND,MAPMYINDIA,MARICO,MARUTI,MASTEK,MAXHEALTH,MAZDOCK,MCX,MEDANTA,MEESHO,METALIETF,METROPOLIS,MFSL,MGL,MHRIL,MIDCAP,MIDCAPETF,MIDHANI,MIDSMALL,MINDACORP,MINDTREE,MIRZAINT,MMTC,MOCAPITAL,MODEFENCE,MOM100,MOM30IETF,MOMENTUM50,MONIFTY500,MOREALTY,MOTHERSON,MOTILALOFS,MPHASIS,MRF,MRPL,MSTCLTD,MSUMI,MTARTECH,MUTHOOTFIN,M_M,M_MFIN,NAM-INDIA,NAM_INDIA,NATCOPHARM,NATIONALUM,NAUKRI,NAVA,NAVINFLUOR,NAZARA,NBCC,NCC,NESTLEIND,NETWEB,NETWORK18,NEULANDLAB,NEWGEN,NEXT50IETF,NH,NHPC,NIACL,NIFTYBEES,NIITLTD,NIVABUPA,NLCINDIA,NMDC,NSLNISP,NTPC,NTPCGREEN,NUVAMA,NUVOCO,NV20IETF,NYKAA,OBEROIRLTY,OBERREALTY,OFSS,OIL,OILANDGAS,OILIETF,OLAEC,OLAELEC,OLECTRA,"
+        _a += "OMAXE,ONESOURCE,ONGC,ORIENTELEC,PAGEIND,PARADEEP,PARAS,PATANJALI,PAYTM,PCBL,PEL,PERSISTENT,PETRONET,PFC,PFIZER,PFOCUS,PGEL,PGHH,PHARMABEES,PHOENIXLTD,PIDILITIND,PIIND,PINELABS,PIRAMALFIN,PNB,PNBHOUSING,PNCINFRA,POLICYBZR,POLYCAB,POLYMED,POONAWALLA,POWERGRID,POWERINDIA,PPLPHARMA,PRAJIND,PREMIERENE,PRESTIGE,PRICOL,PRICOLLTD,PRIMO,PRINCEPIPE,PRSMJOHNSN,PSB,PSUBNKBEES,PTCIL,PUNJABALK,PVRINOX,PVTBANIETF,PWL,QUESS,RADICO,RAILTEL,RAIN,RAINBOW,RAJESHEXPO,RALLIS,RAMCOCEM,RATNAMANI,RAYMOND,RBLBANK,REALTY,RECLTD,REDINGTON,RELAXO,RELIANCE,RHIM,RITES,RKFORGE,ROLEXRINGS,ROSSARI,ROUTE,RPOWER,RRKABEL,RTNINDIA,RVNL,SAGILITY,SAIL,SAILIFE,SAMMAANCAP,SANSERA,SAPPHIRE,SARDAEN,SAREGAMA,SAREHGAMA,SBFC,SBICARD,SBILIFE,SBIMIDMOM,SBIN,SCHAEFFLER,"
+        _a += "SCHNEIDER,SCI,SDBL,SEAMECLTD,SETFBANK,SETFIT,SFL,SHARDACROP,SHOPERSTOP,SHREECEM,SHRIRAMFIN,SHYAMMETL,SIEMENS,SIGNATURE,SIS,SJVN,SKFINDIA,SMALLCAP,SML100CASE,SOBHA,SOLARINDS,SONACOMS,SONATSOFTW,SPARC,SPLPETRO,SRF,STARHEALTH,STLTECH,SUDARSCHEM,SUMICHEM,SUNDARMFIN,SUNPHARMA,SUNTECK,SUNTV,SUPRAJIT,SUPREMEIND,SURYAROSNI,SUVENPHAR,SUZLON,SWANCORP,SWIGGY,SYNGENE,SYRMA,TANLA,TARIL,TATACAP,TATACHEM,TATACOMM,TATACONSUM,TATAELXSI,TATAINVEST,TATAMOTORS,TATAPOWER,TATASTEEL,TATATECH,TBOTEK,TCI,TCIEXP,TCS,TEAMLEASE,TECHM,TECHNOE,TEGA,TEJASNET,TENNIND,THELEELA,THERMAX,THYROCARE,TIINDIA,TIMKEN,TIPSMUSIC,TITAGARH,TITAN,TMCV,TMPV,TNIDETF,TOP100CASE,TORNTPHARM,TORNTPOWER,TRAVELFOOD,TRENT,TRIDENT,TRITURBINE,TRIVENI,TTML,TVSMOTOR,TVSSRICHAK,UBL,UCOBANK,UFLEX,"
+        _a += "ULTRACEMCO,UNIONBANK,UNITDSPR,UNOMINDA,UPL,URBANCO,USHAMART,UTIAMC,VAIBHAVGBL,VAKRANGEE,VALIANTORG,VARDHACRLC,VBL,VEDL,VENKEYS,VIJAYA,VINATIORGA,VIPIND,VISHNU,VMM,VOLTAS,VTL,WAAREEENER,WELCORP,WELENT,WELSPUNLIV,WESTLIFE,WHIRLPOOL,WIPRO,WOCKPHARMA,YESBANK,ZEEL,ZENSARTECH,ZENTEC,ZFCVINDIA,ZOMATO,ZYDUSLIFE,ZYDUSWELL"
+        string _b = "8,17,8,14,5,8,0,14,8,9,9,6,16,8,10,0,7,14,10,10,7,10,7,43,9,14,43,7,7,41,13,10,11,10,0,8,14,14,14,13,17,9,27,24,4,6,10,8,16,8,14,13,0,13,41,14,4,8,4,4,9,4,4,6,14,10,0,14,7,4,5,1,14,4,4,9,9,1,41,11,4,9,6,8,8,8,4,8,13,4,"
+        _b += "9,1,1,1,15,1,1,13,6,13,9,0,0,0,0,10,20,4,13,10,10,0,9,14,10,11,17,10,14,6,9,4,7,16,9,8,11,6,8,1,8,8,14,0,17,0,43,9,8,4,10,15,0,10,16,10,7,8,0,6,5,36,7,8,8,8,8,4,14,5,7,0,11,14,9,5,17,14,6,5,10,19,4,8,8,6,1,0,11,0,"
+        _b += "9,10,0,12,13,10,10,5,5,17,17,17,14,6,16,9,9,17,14,41,17,11,8,4,9,6,10,0,9,14,0,4,7,7,10,7,13,1,14,4,6,17,0,37,4,5,14,1,0,5,38,8,10,6,8,5,9,4,14,11,4,7,5,13,16,16,10,9,17,0,17,0,0,8,9,14,14,14,13,0,10,10,13,9,9,8,9,9,9,16,"
+        _b += "9,13,17,14,13,10,13,0,0,8,35,0,13,43,43,43,43,10,10,0,11,12,6,10,11,8,8,4,1,8,9,11,8,13,14,15,16,34,39,14,13,10,4,11,10,14,13,13,7,9,13,8,9,0,13,8,4,8,4,1,6,9,8,13,14,8,15,11,1,10,0,8,1,8,8,13,43,8,8,8,11,17,14,6,10,11,15,17,10,1,"
+        _b += "10,10,10,11,0,11,15,7,14,10,10,17,8,8,11,9,6,10,1,13,14,4,13,13,8,10,13,4,8,7,13,10,6,7,10,13,17,13,14,11,10,9,10,0,1,10,6,10,1,0,0,0,8,14,10,10,1,1,11,15,0,11,6,9,0,13,8,14,11,14,10,10,6,6,6,8,8,13,13,16,22,10,8,9,11,11,11,4,14,13,"
+        _b += "8,4,8,15,16,17,13,40,8,14,11,9,4,11,14,0,8,14,6,13,14,8,43,17,30,30,41,31,4,11,9,10,35,41,30,23,25,3,16,4,8,11,4,7,17,4,0,8,4,8,8,8,14,13,17,10,5,12,10,10,9,11,12,14,11,28,14,7,8,21,11,8,7,13,13,7,7,8,10,26,17,16,16,11,7,43,43,4,4,4,"
+        _b += "16,14,7,0,9,5,0,9,17,5,8,11,43,8,14,12,6,9,14,16,5,5,11,8,1,8,10,17,0,14,8,7,10,14,0,0,16,4,4,13,10,10,15,15,10,13,12,32,6,17,9,10,13,14,9,13,10,13,9,1,16,8,17,6,7,13,10,4,4,13,11,7,0,7,0,11,13,14,8,4,17,13,12,12,8,8,8,29,1,0,"
+        _b += "0,10,9,17,1,11,6,13,17,10,8,13,0,16,17,7,0,33,18,16,0,4,11,14,5,5,8,10,13,5,8,14,16,12,4,10,13,14,0,10,17,14,0,11,10,8,13,10,9,11,8,4,7,13,11,6,17,17,11,17,11,0,0,10,4,6,0,14,4,0,12,0,6,4,4,42,2,14,7,6,6,9,0,9,10,4,4,9,15,13,"
+        _b += "10,1,9,4,5,11,13,8,6,11,13,9,9,13,9,14,13,6,13,6,6,9,0,13,10,9,17,6,11,14,1,12,11,0,4,17,14,9"
         _secSym := str.split(_a, ",")
         _secCod := str.split(_b, ",")
-        _secNam := str.split("Capital Goods & Defense,Bank Nifty,Auto,Nifty Commodities,Nifty India Consumption,Energy,Financial Services,FMCG,Infra,Nifty IT,Media,Metal,Pharma,PSU Bank,Realty,Services,India Defence,Oil & Gas,Broad Market,Factor,Commodity,Debt,International", ",")
+        _secNam := str.split("Capital Goods & Defense,Bank Nifty,Nifty 100,Nifty 500,Auto,Nifty Commodities,Nifty India Consumption,Energy,Financial Services,FMCG,Infra,Nifty IT,Media,Metal,Pharma,PSU Bank,Realty,Services,NIFTY Smallcap 100,Nifty CPSE,Finnifty,Nifty 50,Nifty 100 Low Volatility 30,Nifty 200 Momentum 30,Nifty 200 Alpha 30,Nifty 500 Momentum 50,Nifty50 Value 20 Index,NIFTY ALPHA 50,Nifty Next 50,Nifty Midcap 150 Momentum,Nifty Mid Cap 50,Nifty MidSmallCap 400,Nifty Private Bank,Nifty Smallcap250 Momentum Quality 100,NIFTY Smallcap 250,Nifty Capital Market,Nifty Chemicals,Nifty EV and New Age Auto,Nifty Financial Services Ex Bank,Nifty Healthcare,Nifty India Manufacturing,India Defence,Nifty India Digital,Oil & Gas", ",")
     string _out = ""
     if not na(sym) and array.size(_secSym) > 0
         int _i = array.indexof(_secSym, str.upper(sym))
@@ -2297,32 +2346,7 @@ export sectorOf(string sym) =>
             if _c >= 0 and _c < array.size(_secNam)
                 _out := array.get(_secNam, _c)
     _out
-
-
-// ── fundGate ──────────────────────────────────────────────────────────
-// THE FUNDAMENTAL GATE (29-Aug-2026, Jay: "I do not want the trade outcome to be
-// entirely based on technicals").
-//
-// This judges nothing. S4 cannot compute a fundamental score - see fundScore above
-// for why - so all this does is APPLY the Golden Matcher's already-computed verdict
-// to S4's GO gate, making it the first non-technical term in that gate.
-//
-// THREE STATES, and they are three different facts:
-//   no list pasted     -> PASS, chip "?". An unpasted list is a broken channel, not
-//                         a failed company. Fail-OPEN, exactly as the RRG gate fails
-//                         open when v67 is unbound. The paste is manual, so a
-//                         fail-closed reading of "empty" would blank an entire
-//                         chart on the one morning the paste was forgotten - and it
-//                         would look identical to a genuine wall of rejections.
-//   scored             -> the threshold decides. The ONLY branch that may block.
-//   listed, not on it  -> `strict` decides. Here the GM DID score a board and this
-//                         name is absent, so the silence carries information an
-//                         empty list does not. Defaults OFF (pass, but flagged),
-//                         because off-board names are exactly the ones charted by
-//                         hand and blocking them would make S4 useless off-board.
-//
-// Returns the gate answer (which honours `mode`) and the RAW answer separately, so
-// "Warn" can downgrade the verdict without ever touching GO.
+// <SECTOR_MAP_END>
 export fundGate(simple string mode, bool isRec, float score, int minScore, string bits, bool haveList, simple bool strict) =>
     // THE FLOOR SCALES TO THE CHECKS THAT APPLIED - this mirrors
     // bull_fundamental_filter.bff_passes(), and a flat comparison is a KNOWN BUG.
@@ -2576,11 +2600,16 @@ export optText(float pcr, float maxPain, float totCe, float totPe, float atmShif
      : "PCR " + str.tostring(pcr, "0.00") + (pcr > 1.3 ? " 🟢" : pcr < 0.7 ? " 🔴" : " ⚪")
     string sMp = na(maxPain) or na(px) or px <= 0 ? "  │  Max pain -"
      : "  │  Max pain " + str.tostring(maxPain, format.mintick)
-       + " (" + str.tostring((maxPain - px) / px * 100.0, "+0.0") + "%)"
+       // Sign built by hand: str.tostring(x, "+0.0") emits the format's "+" AND the
+       // value's own "-", so a negative distance printed as "-+0.9%" on the live panel.
+       // Pine's short format strings misbehave in more than one way; do not trust them
+       // to carry a sign.
+       + " (" + ((maxPain - px) >= 0 ? "+" : "")
+       + str.tostring((maxPain - px) / px * 100.0, "0.0") + "%)"
     string sOi = na(totCe) or na(totPe) ? "  │  OI -"
      : "  │  OI " + str.tostring(totCe / 100000.0, "0.0") + "L CE / "
        + str.tostring(totPe / 100000.0, "0.0") + "L PE"
-    string sAtm = na(atmShift) ? "" : "  │  ATM ΔOI " + str.tostring(atmShift, "+0.0") + "%"
+    string sAtm = na(atmShift) ? "" : "  │  ATM ΔOI " + (atmShift >= 0 ? "+" : "") + str.tostring(atmShift, "0.0") + "%"
     string sK = na(peK) and na(ceK) ? "" :
        "  │  writers S " + (na(peK) ? "-" : str.tostring(peK, format.mintick))
        + " · R " + (na(ceK) ? "-" : str.tostring(ceK, format.mintick))
@@ -2700,6 +2729,93 @@ export optRowCol(float pcr, float maxPain, float totCe,
       : (not na(pcr)) and pcr < 0.7 ? cNo : cInfo
 
 
+// ---- wallCheck ---------------------------------------------------------------
+// Re-prices the quoted R:R against OPTION-WRITER positioning, and flags a stop that
+// sits inside the band the put writers are defending. Appended to the Entry/SL/T1/T2
+// row - no new row, the same rule the invalidation text already follows.
+//
+// SEVEN STATEMENTS, DELIBERATELY. A library call INLINES its body into the caller's
+// main body, so every statement here is spent from S4's ~1,000 budget at the single
+// call site. The first draft was ~19 and would not compile. Keep it terse; if this
+// grows, S4 stops compiling and the error names the main body, not this file.
+//
+// WHY THE CALL WALL AND NOT MAX PAIN. Measured across the 23 F&O names on the live
+// 75m board (2 Sep 2026): the call-writer strike sits a median +5.73% from spot,
+// ranging +0.4% to +17.4%, so it DISCRIMINATES - 6 of 23 had clear air to T1 while
+// TECHM had its entire first reward behind a wall 1.5% away. Max pain sits a median
+// 1.33% from spot with 78% inside 2%: it is the ATM strike wearing another name, so
+// truncating a target at it collapses R:R by arithmetic. It is NOT read here.
+//
+// THE PUT-WALL BAND IS REASONED, NOT FITTED - there is no outcome data to fit it on.
+// Below loATR the wall is effectively AT the stop; above hiATR it is a deep-OTM strike
+// where cheap puts pile up rather than a floor anyone defends (SOLARINDS sat 3.58 ATR
+// out, at -9.6% from spot). Raw "SL above the put wall" fired on 13 of 23 - wallpaper.
+//
+// GEOMETRY, NOT AN OUTCOME TEST. No options-OI history exists in any feed wired to
+// this system, so nothing here may gate: it re-prices, and it warns. Near-month, so
+// it speaks to the swing leg and not a positional T2 six months out, and it is silent
+// on any name with no futures contract - about half the book.
+// SECONDARY CHECKS, not overrides (Jay, 4-Sep-2026). basis and maxPain annotate the
+// plan the engine already produced - they never move entry, SL or a target. The
+// point is to catch a good-looking plan sitting in a bad place relative to
+// positioning, which is a hit-rate problem rather than a levels problem.
+export wallCheck(float entry, float sl, float t1, float ceK, float peK, float atr, float loATR, float hiATR, float px, float basis, float maxPain) =>
+    float risk = (na(entry) or na(sl)) ? na : entry - sl
+    bool okR = not na(risk) and risk > 0
+    // PROVISIONAL — no plan yet, but the ceiling is what decides whether arming is
+    // worth it. Priced against a 1xATR reference stop (Golden Rule 3's own unit) and
+    // always TAGGED: an R against an entry you have not taken is the shape of number
+    // that produced CHOLAFIN's 5.6R.
+    bool prov = (not okR) and not na(px) and px > 0 and not na(atr) and atr > 0
+    float e0 = okR ? entry : px
+    float r0 = okR ? risk : atr
+    bool binds = okR and not na(ceK) and not na(t1) and ceK > entry and ceK < t1
+    float pwGap = (not okR or na(peK) or na(atr) or atr <= 0) ? na : (sl - peK) / atr
+    string sCe = binds ? "  │  ⚠ call wall " + str.tostring(ceK, format.mintick) + " (+" + str.tostring((ceK / entry - 1.0) * 100.0, "0.0") + "%) → " + str.tostring((ceK - entry) / risk, "0.0") + "R to the wall" : (okR and not na(ceK) and not na(t1) and ceK >= t1 ? "  │  call wall " + str.tostring(ceK, format.mintick) + " clear of T1 · " + str.tostring((ceK - entry) / risk, "0.0") + "R to the wall" : (prov and not na(ceK) and ceK > px ? "  │  prov · call wall " + str.tostring(ceK, format.mintick) + " (+" + str.tostring((ceK / px - 1.0) * 100.0, "0.0") + "%) ≈ " + str.tostring((ceK - px) / atr, "0.0") + "R at a 1×ATR stop" : ""))
+    string sPe = (not na(pwGap) and pwGap >= loATR and pwGap <= hiATR) ? "  │  ⚠ SL sits " + str.tostring(pwGap, "0.0") + "×ATR above the put wall " + str.tostring(peK, format.mintick) + " (" + str.tostring((peK / entry - 1.0) * 100.0, "0.0") + "%) — it triggers before that floor is tested" : ""
+    // SL vs the FUTURES BASIS - the level where the marginal long is trapped. A stop
+    // parked just above it gets taken out by a routine test of the level before that
+    // test decides anything; a stop below it survives the test. Reported both ways:
+    // one is a warning, the other is a reason to hold through noise.
+    float bGap = (not okR or na(basis) or na(atr) or atr <= 0) ? na : (sl - basis) / atr
+    string sBs = na(bGap) ? "" : (bGap > 0 and bGap <= 0.75) ? "  │  ⚠ SL sits " + str.tostring(bGap, "0.0") + "×ATR above the futures basis " + str.tostring(basis, format.mintick) + " — a routine test of the basis stops you out first" : bGap <= 0 ? "  │  SL is below the futures basis " + str.tostring(basis, format.mintick) + " — it survives a test of the trapped-long level" : ""
+    // MAX PAIN between entry and T1 pulls AGAINST the target into expiry. It is not a
+    // reason to skip - it is a reason not to expect T1 this cycle. Median max pain sits
+    // ~1.3% from spot, so it lands inside a 2R target far more often than it looks.
+    string sMp = (not okR or na(maxPain) or na(t1)) ? "" : (maxPain > entry and maxPain < t1) ? "  │  ⚠ max pain " + str.tostring(maxPain, format.mintick) + " sits between entry and T1 — expiry pinning pulls against the target until it rolls" : ""
+    sCe + sPe + sBs + sMp + (str.length(sCe) + str.length(sPe) + str.length(sBs) + str.length(sMp) > 0 ? "  · near-month" : "")
+
+
+// ---- oiNarrative -------------------------------------------------------------
+// The plain-English reading under rows 9 and 10. Jay is new to F&O and asked for
+// guidance rather than figures - "throwing various numbers will not make much sense
+// to me" - so each row states what the positioning MEANS and what to expect. The
+// numeric strips above them are untouched: scan the figures, then read this.
+//
+// IT LIVES HERE FOR TOKENS. Built inline in S4 it cost ~1,050 compiled tokens and
+// put the script over the 100,256 ceiling; a library body compiles separately. S4
+// calls it from inside a LOCAL function, so the statements this inlines land in
+// that function rather than in the main body.
+//
+// Prose is PRE-BROKEN with newlines, never wrapped at runtime: a string literal is
+// one token however long it is, while core.wrapText() is loops and array work. The
+// break points also cap the panel width, which a runtime wrap could not promise.
+export oiNarrative(float oiPct, bool pxUp, bool oiUp, float basis, float builtPct, float px, float pcr, float maxPain, float totCe, float atmShift, float peK, float ceK) =>
+    // TWO LINES PER ROW. The first draft ran to 8 and 13 lines and pushed the top of
+    // the panel off screen. Say the one thing that changes a decision, then stop.
+        // Returned SEPARATELY and with no shouted prefix, because it is appended to the
+    // row's first line, which already names the state ("OI Short covering -1.1%").
+    // Repeating "SHORT COVERING" there bought a line of height and no information.
+    string fRead = na(oiPct) ? "" : pxUp and oiUp ? "   —   new buyers behind the move, so a breakout has fuel." : pxUp and not oiUp ? "   —   shorts buying back, not new demand; it can stall when they finish." : (not pxUp) and oiUp ? "   —   new sellers pressing; treat bounces as suspect." : "   —   longs leaving rather than shorts arriving: exhaustion, not aggression."
+    string fBasis = na(basis) ? "" : (px >= basis ? "\nBasis is BELOW price → SUPPORT while it holds (the marginal long is in profit)." : "\nBasis is ABOVE price → RESISTANCE until reclaimed (the marginal long is underwater).") + (nz(builtPct, 100.0) < 40.0 ? " Book mostly unwound — stale." : "")
+    bool noOpt = na(pcr) and na(maxPain) and na(totCe)
+    string oBias = na(pcr) ? "" : (pcr > 1.3 ? "\nPUT-HEAVY — writers defending the downside; mildly bullish." : pcr < 0.7 ? "\nCALL-HEAVY — writers selling upside, so rallies get capped." : "\nBALANCED — positioning gives no strong bias.")
+    string oRange = (na(peK) and na(ceK)) ? "" : " Range " + (na(peK) ? "?" : str.tostring(peK, format.mintick)) + " support → " + (na(ceK) ? "?" : str.tostring(ceK, format.mintick)) + " resistance."
+    string oPain = (na(maxPain) or na(px) or px <= 0) ? "" : "\nMax pain " + str.tostring(maxPain, format.mintick) + " pulls " + (maxPain >= px ? "UP" : "DOWN") + " into expiry" + (na(atmShift) ? "." : atmShift > 0 ? "; writers ADDING → slow drift, not a clean breakout." : "; writers PULLING → a sharp move is likelier.")
+    // THREE returns now: the caller puts fRead on line 1 and fBasis on its own line.
+    [fRead, fBasis, noOpt ? "" : oBias + oRange + oPain]
+
+
 // ---- rrgSecTxt ---------------------------------------------------------------
 // The stock-vs-SECTOR RRG, as one string for the RRG row.
 //
@@ -2717,13 +2833,188 @@ export optRowCol(float pcr, float maxPain, float totCe,
 // plot outputs, so the current pair is passed as its own trailing value - the same
 // fallback the N500 side already uses. A quadrant, honestly, rather than a made-up
 // direction.
-export rrgSecTxt(float ratio, float mom, string secName) =>
-    bool ok = math.abs(ratio - 100.0) <= 60 and math.abs(mom - 100.0) <= 60
-    string out = "   │   vs " + secName + ": "
+// TRAILING PAIR BOUND (2 Sep 2026). The note above said a real trajectory "would cost
+// two more bindings and two more of v67's 64 plot outputs" and settled for passing the
+// current pair as its own trailing value. That made the whole right-hand half degenerate,
+// not merely absent: with dv = dm = 0 the arrow is always ➡️, `nxt` always equals `cur`,
+// so the gradient was always +2-or-0 and the signal was just "is it LEADING". Jay read the
+// row against the N500 half and saw the difference.
+// v67 was ALREADY computing both values - _valTrailSec and _momTrailSec fall out of the
+// same weekly request.security call as valSec and _rsMomSec - so the true cost was two
+// plot slots (41 -> 43 of 64) and no new computation anywhere.
+// The trail params are LAST so no existing call-site position shifts, and they carry the
+// same range guard as the pair: an unbound input.source returns `close`, never na, so an
+// unbound trail must fall back to the old self-referential behaviour and SAY SO rather
+// than print a confident zero gradient.
+// secName REMOVED from the signature, not just the body (6 Sep): a library must USE
+// every argument it takes (CE10237), so keeping it "in case a caller needs it" does
+// not compile. The row title already carries the sector name.
+export rrgSecTxt(float ratio, float mom, float ratioTr, float momTr) =>
+    // 0-CENTERED, not 100-based. S4's own _okRat / _okRatSec both test
+    // math.abs(x) <= 60 on these very series, and the panel adds 100 only when it
+    // PRINTS the ratio - which is why the row reads "RS-Ratio 123.8" off a stored 23.8.
+    // Testing abs(x - 100) rejected every valid value and the row read an em-dash on a
+    // correctly bound source. The convention was two lines above where this was written.
+    bool ok = math.abs(ratio) <= 60 and math.abs(mom) <= 60
+    bool okTr = math.abs(ratioTr) <= 60 and math.abs(momTr) <= 60
+    // 6 Sep (Jay): secName DROPPED from the value - the row TITLE already carries it
+    // ("RRG (N500 / Capital Goods & Defense)"), and repeating it widened the panel
+    // for no information. secName stays in the signature so no call site changes.
+    string out = "   │   vs sector: "
     if ok
-        [arw, trj, cur, sc, tr] = rrgInfo(ratio, mom, ratio, mom)
-        out := out + cur + " " + arw
+        [arw, trj, cur, sc, tr] = rrgInfo(ratio, mom, okTr ? ratioTr : ratio, okTr ? momTr : mom)
+        // Same fields, same order, same separators as the N500 half - so the eye reads
+        // one row twice rather than two different rows. Trajectory and signal print only
+        // when the trail is real; without it they would be restating the quadrant.
+        // a bare "0" read as noise; it is the RRG score, and 0 means neutral, so it
+        // now prints only when it says something.
+        out := out + cur + " " + arw + (sc != 0 ? "  " + (sc > 0 ? "+" : "") + str.tostring(sc) : "")
+        out := out + (okTr ? "  │  " + trj + "  │  " + (tr ? "🟢 BUY OK" : "🔴 WAIT") : "")
+        out := out + "  (RS-Ratio " + str.tostring(ratio + 100, "0.0") + ")"
+        out := out + (okTr ? "" : "  │  sector trail unbound")
     else
         out := out + "—"
     out
 
+
+// ARRIVAL VELOCITY (moved out of S4, 6-Sep-2026). How fast price travelled the last leg
+// INTO a zone, in ATR per bar: a sharp approach tends to produce a sharp rejection, a
+// grind tends to bleed through. Pure geometry - no request.*, no drawing - which is why
+// it was the right block to relocate when S4 went 511 tokens over the ceiling restoring
+// request.footprint(). The footprint call itself stays in S4: only ONE is permitted per
+// script and it should be visible where the request budget is counted.
+// high/low resolve to the CALLER's chart, the same way dailyPA() reads them.
+export arrivalStyle(bool inDmd, bool inSup, simple int look, float atr, float fast, float slow) =>
+    float  _hi    = ta.highest(high, look)
+    float  _lo    = ta.lowest(low,  look)
+    int    _hiAgo = math.max(math.abs(ta.highestbars(high, look)), 1)
+    int    _loAgo = math.max(math.abs(ta.lowestbars(low,  look)), 1)
+    int    _bars  = inSup ? _loAgo : _hiAgo
+    float  _dist  = inSup ? (high - _lo) : (_hi - low)
+    float  _vel   = (atr > 0 and _bars > 0 and _dist > 0) ? (_dist / atr) / _bars : na
+    string _sty   = (not (inDmd or inSup)) ? "—" : na(_vel) ? "—" : _vel >= fast ? "FAST" : _vel <= slow ? "GRIND" : "NORMAL"
+    [_vel, _sty]
+
+// SETUP + BAR READS (moved out of S4, 6-Sep-2026). Both are pure: they take numbers
+// and booleans and return prose plus a colour, touching no chart state. They came here
+// because S4 stayed 332 tokens over the ceiling after arrivalStyle() returned only 179 -
+// far less than the line count suggested, because a library saves you the BODY and
+// charges you the CALL. These two have the best body-to-interface ratio left in S4.
+// Colours and latchBars arrive as parameters, the same way verdictRead() takes them.
+// isEtf DROPPED (6-Sep): the ETF carve-out was removed on 3-Sep - ETFs are held to the
+// same setup criteria as every stock, resolved from structure - but the parameter
+// survived in S4 unused and only surfaced here, where a library must use what it takes.
+export setupRead(bool isRec, bool gmPb, bool inDZ, bool anyPa, bool ign, bool rev, bool con,
+     bool roleMis, int catCode, int catAge, simple int latchBars, color C_OK, color C_WARN, color C_MUTE, color C_NO) =>
+    // STRUCTURE decides for everyone, not just ETFs. Reading the GM pullback LIST
+    // alone put APARINDS on a BREAKOUT playbook while the engine's own verdict said
+    // PULLBACK TO VALUE - a name can be in a pullback without being on the list.
+    bool _pbLike = gmPb or inDZ
+    // A CATALYST HAS A SHELF LIFE (6 Sep 2026, Jay). Past half the latch window it is
+    // no longer current evidence, and on LAURUSLABS 125m a BREAKOUT catalyst carried
+    // 15 of 15 bars outranked a live pullback: the location row said REACTING off DZ,
+    // the GM pullback flag was set, and the VERDICT one row below read PULLBACK TO
+    // VALUE - while this row judged an NR7 coil against a breakout and failed it. The
+    // coil was the RIGHT trigger for what the trade actually was.
+    // Only a PULLBACK can supersede, and only when structure asserts one NOW. A stale
+    // catalyst with no live pullback context still rules: absence of evidence is not
+    // evidence, and falling back to structure there would say less, not more.
+    bool _catStale = catAge * 2 > latchBars
+    // catCode > 0 MATTERS: catAge keeps counting after the latch expires, so without
+    // it a name with NO catalyst but sitting in a zone would be forced to PULLBACK
+    // and skip the isRec -> RECOVERY fallback. Only a real catalyst can be overruled.
+    bool _catOut   = _catStale and _pbLike and catCode > 0
+    // THIRTEEN catalysts, FIVE playbooks. The catalyst names the playbook outright
+    // when Unified is bound; structure remains the fallback, unchanged, when it is not.
+    // ACCUMULATION is the one that could never be inferred: it is structurally a
+    // BREAKOUT (not in a zone) but wants a coil and dry-up, which is a breakout's
+    // opposite.
+    //
+    // 5-Sep-2026 (Jay): the seven RECOVERY catalysts used to collapse into one bucket
+    // whose test was "rev or ign" - it accepted either family, so it could only fail on
+    // a pure contraction. The loosest gate in the set was carrying the largest group,
+    // while the Bull side got four graded standards. They are now split by what each
+    // catalyst IS, which is definitional rather than tuned:
+    //   REV-CB (7) climax bounce, REV-RS (8) higher-low, WYC-SPRING (13) shakeout
+    //     -> REVERSAL. Each is a TURN; an ignition firing here is a chase.
+    //   REV-EARLY (9) trendline reclaim, WYC-JAC (11), WYC-SOS (12)
+    //     -> BREAKOUT. A Sign of Strength is by definition a demand-led breakout, and
+    //        jumping the creek is the same event under another name.
+    //   WYC-SPRING+SOS (10) -> RECOVERY, which keeps "rev or ign" because it genuinely
+    //     is both legs. The isRec structural fallback lands here too.
+    string _play = _catOut ? "PULLBACK" : catCode == 2 ? "ACCUMULATION" : (catCode == 5 or catCode == 7 or catCode == 8 or catCode == 13) ? "REVERSAL" : catCode == 3 ? "PULLBACK" : (catCode == 1 or catCode == 4 or catCode == 6 or catCode == 9 or catCode == 11 or catCode == 12) ? "BREAKOUT" : catCode == 10 ? "RECOVERY" : isRec ? "RECOVERY" : _pbLike ? "PULLBACK" : "BREAKOUT"
+    // A pullback accepts ANY of the three: the dip stopping (contraction), the turn
+    // (reversal), or the resumption off the low (ignition - a Pocket Pivot at demand
+    // is a textbook pullback entry). What stays incoherent is a coil on a BREAKOUT
+    // thesis and a coil on a RECOVERY thesis, and those are what this still flags.
+    // ONE RULE (4 Sep 2026). Setup said "PULLBACK ✓ the pattern that fired is this
+    // playbook's trigger" on BAJFINANCE while the TRIGGER row flagged ⚠role on the
+    // same bar - two overlapping checks answering differently. A pullback now fails
+    // exactly when roleMismatch fails it: an IGNITION pattern inside a demand zone,
+    // which is a breakout's trigger in a pullback's location.
+    // Each playbook's own trigger. ACCUMULATION explicitly REFUSES an ignition: a base
+    // that is already breaking is POS-BO, and calling it accumulation would hold it to
+    // the wrong standard in both directions — volume and bar.
+    bool _ok = _play == "ACCUMULATION" ? (con or rev) and not ign : _play == "REVERSAL" ? rev : _play == "RECOVERY" ? (rev or ign) : _play == "PULLBACK" ? (not roleMis) : ign
+    string _want = _play == "ACCUMULATION" ? "a coil and dry-up — an ignition here is a breakout, not accumulation" : _play == "REVERSAL" ? "a turn — spring, engulf, 3-bar, climax, higher-low or a 30-WMA reclaim" : _play == "RECOVERY" ? "a turn, or a Sign of Strength breaking the base" : _play == "PULLBACK" ? "compression or a turn, not an ignition fired inside the zone" : "an ignition — breakout, VCP, pocket pivot or a Sign of Strength"
+    // PROVENANCE. The defect that started this was a row reading "PULLBACK ✓" that had
+    // come from the demand zone, not from the catalyst, with nothing on the panel saying
+    // so. A carried catalyst is weaker evidence than a live one and structure is weaker
+    // than both, so the row now names which it used.
+    string _src = catCode < 0 ? "   │   bridge not bound — playbook from structure" : catCode == 0 ? "   │   no catalyst live or carried — playbook from structure" : _catOut ? "   │   catalyst carried " + str.tostring(catAge) + "b — superseded by live pullback context" : catAge <= 0 ? "   │   catalyst live this bar" : "   │   catalyst carried " + str.tostring(catAge) + "b"
+    // Jay, 5-Sep: a dot, not a tick. Every other row in the panel states pass/fail with
+    // 🟢 / 🔴 / ⚪ and this row was the only one using ✓, so it did not scan with them.
+    // ⚪ (not 🔴) when no pattern has fired: nothing has failed yet, there is simply
+    // nothing to pair - the same distinction the rest of the panel draws.
+    string _out = (not anyPa ? "⚪ —   no pattern yet, so nothing to pair" : _ok ? "🟢 " + _play + "   —   the pattern that fired is this playbook's trigger" : (_catStale ? "🟡 " : "🔴 ") + "MISMATCH · " + _play + " wants " + _want) + _src
+    // 6 Sep: a MISMATCH resting on a catalyst past half its latch window recedes -
+    // marker red -> yellow, row C_WARN (amber) -> C_MUTE (grey). LAURUSLABS 125m read a hard red BREAKOUT mismatch off a catalyst
+    // carried 15 of 15 bars while the location, the GM pullback flag and the VERDICT
+    // directly above all said PULLBACK - under which the row would have been green.
+    // The age was already printed; now the ruling's confidence reflects it.
+    // 6 Sep (Jay): the marker and the row colour disagreed - a RED dot sat on an
+    // AMBER row, because C_WARN is #ff9800. They now move together: a fresh mismatch
+    // is red in both, a stale-catalyst mismatch is amber in both.
+    [_out, not anyPa ? C_MUTE : _ok ? C_OK : _catStale ? C_WARN : C_NO]
+
+export barRead(int so, float soClose, float soHigh, bool barOkV, color C_OK, color C_NO) =>
+    float _bO     = open[so]
+    float _bC     = soClose
+    float _bRng2  = soHigh - low[so]
+    float _bClPos = _bRng2 > 0 ? (_bC - low[so]) / _bRng2 * 100.0 : 50.0
+    bool  _bGreen = _bC >= _bO
+    // The description must explain the VERDICT, not just the colour (18-Aug, Jay
+    // on IPCALAB 125m). Since v9.17 bar_ok needs `close >= open` AND the close in
+    // the upper half of the RANGE, so a green body can be vetoed — but this line
+    // still branched on colour alone and printed "green candle (bullish close)"
+    // next to WEAK/VETOED, i.e. a reason that contradicted the ruling. IPCALAB
+    // was O 1866.2 / H 1898.0 / L 1865.2 / C 1875.2: green body, closed 30% up
+    // its range, sold into the close — vetoed correctly, explained wrongly.
+    // Now the close POSITION is always stated, for both colours.
+    // Name the FAILING test, not just the outcome. B now has three; a description
+    // that only ever mentions close position sends you looking at the wrong thing —
+    // which is exactly what "green candle (bullish close)" did on IPCALAB.
+    // The SAME 20% cap reads the other way for a red bar: a long LOWER wick means
+    // the lows were rejected, so the bar is not bearish either — it is a shakeout.
+    // Calling that "bearish" would be the mirror of the mistake this row already
+    // made in the other direction (Jay, 18-Aug).
+    float _bUpW = soHigh - math.max(_bC, _bO)
+    float _bLoW = math.min(_bC, _bO) - low[so]
+    // _bUwP / _bLwP REMOVED (23-Aug-2026): upper and lower wick percentages,
+    // computed every bar and never read. Bar quality is judged by _bqClpos.
+    // Colour is now CONTEXT, not the verdict — so the reason must lead with close
+    // position and the wick, and call a strong red bar what it is: a shakeout.
+    // Reason matches the 11-Aug gate (green OR upper-half). The close position and
+    // upper wick are still PRINTED — they are what let Jay catch IGIL and IPCALAB
+    // by eye — but they are context now, not the verdict. A bar can read
+    // "OK ... 36% upper wick" and that is honest: B passed it, the shape is poor,
+    // and the chart read decides.
+    // A12: TITAN printed "🟢OK — red candle, closed 40% up its range — red and closed
+    // in the lower half" - the verdict passing while the words described a failure.
+    // The gate is deliberately lenient (a false negative costs the trade, a false
+    // positive costs a glance), so when it passes below the 50% line, say that.
+    string _barWhy = _bGreen ? " — green close" : _bClPos >= 50 ? " — shakeout: red body but closed strong, fine for a long" : barOkV ? " — red body closed under mid-range; the bar gate is deliberately lenient and let it through" : " — red and closed in the lower half"
+    string _barDesc = (_bGreen ? "green" : "red") + " candle, closed " + str.tostring(_bClPos, "0") + "% up its range" + _barWhy
+    string _barTxt  = (barOkV ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
+    color  _barCol  = barOkV ? C_OK : C_NO
+    [_barTxt, _barCol]
