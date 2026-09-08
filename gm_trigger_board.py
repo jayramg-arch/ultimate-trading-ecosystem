@@ -312,6 +312,61 @@ def load_pyramid_adds() -> dict:
     return out
 
 
+_HELD_CACHE: dict = {"mtime": None, "book": {}}
+
+
+def load_held_book() -> dict:
+    """EVERY open position from FINAL_Portfolio_Picks.csv, not just the ADD candidates.
+
+    Separate from load_pyramid_adds() on purpose: that function answers "what should I
+    add to", this one answers "what do I already own", and conflating them is how the
+    ADD filter came to stand in for the book. Cached on the file's mtime so a board
+    rebuild does not re-read it once per symbol.
+
+    Failure is reported the same way the union reports it and returns an EMPTY book -
+    never a partial one, because a half-read book would silently un-mark real holdings.
+    """
+    p = PORTFOLIO_PICKS
+    if not os.path.exists(p):
+        return {}
+    try:
+        mt = os.path.getmtime(p)
+    except OSError:
+        return {}
+    if _HELD_CACHE["mtime"] == mt:
+        return _HELD_CACHE["book"]
+    book = {}
+    try:
+        import pandas as pd          # this module imports pandas lazily, per function
+        df = pd.read_csv(p)
+        for _, r in df.iterrows():
+            s = _canon_key(r.get("Symbol"))
+            if not s or s == "NAN":
+                continue
+            book[s] = {"qty": _to_num(r.get("Qty")), "avg": _to_num(r.get("Avg")),
+                       "cls": str(r.get("Pyr_Class") or "").upper()}
+    except Exception as e:
+        LAST_UNION_ISSUES.append(f"{PORTFOLIO_PICKS}: held book unreadable ({type(e).__name__})")
+        _log.warning(f"held book unreadable: {e}")
+        return {}
+    _HELD_CACHE["mtime"], _HELD_CACHE["book"] = mt, book
+    return book
+
+
+def _held_text(sym: str) -> str:
+    """What is owned in a name whose row did NOT arrive as a Pyramid ADD.
+
+    Carries the pyramid class, so a trigger on a name rated EXIT or TRIM shows the
+    contradiction in the cell rather than reading as an ordinary new entry."""
+    h = load_held_book().get(_canon_key(sym))
+    if not h or not h.get("qty"):
+        return ""
+    avg = f" @ {h['avg']:,.1f}" if h.get("avg") else ""
+    cls = h.get("cls") or ""
+    tag = f"  ·  pyramid says {cls}" if cls and cls not in ("ADD", "HOLD", "") else ""
+    return f"HELD {h['qty']:,.0f}{avg}{tag}"
+
+
 def _armed_text(rec) -> str:
     """Board cell for an armed name: "4d · trg 1284.50". Blank for everything else.
     Guarded — a malformed register record must degrade to blank, never break a row."""
@@ -1164,11 +1219,20 @@ def _rrg_ok(v) -> bool:
 
 
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
-                stage=None, rrg_tradeable=None) -> str:
+                stage=None, rrg_tradeable=None, fund_ok=None) -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
-    Four gates: PA fired · at a location · RV ≥ 1.0 · trigger-bar closed strong (bar_ok).
+    Five gates: PA fired · at a location · RV ≥ 1.0 · trigger-bar closed strong ·
+    fundamentals. The first four are technical and read the trigger bar; the fifth is
+    the SAME floor S4 applies as its Gate-6 chip, reading the same pasted numbers.
+
+    F was counted from 2 Sep 2026. It was always APPLIED — the caller replaces this
+    whole string with "⛔ funda" when the floor rejects a name — but it was not counted,
+    so the board said "4/4" where the chart showed five chips, and an UNSCORED name was
+    indistinguishable from a verified one. fund_ok is tri-state and follows
+    S4Core.fundGate with fund_strict off: True passes, None passes and tags "F?",
+    False fails (defensive — the caller has normally suppressed the row already).
       4/4 GO          — all four align (the precise entry instant; catch via the alert)
       3/4 · no vol    — armed + at location + clean bar, just needs volume  (watch)
       2/4 · no loc    — armed + one more, needs a pullback to a location    (watch)
@@ -1242,7 +1306,11 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # data, but a missing bar read is exactly the ⧖D daily-fallback case, and there it
     # inflated the count on the timeframe that had failed to load.
     g_bar = bool(_bar)
-    n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar)
+    # FUNDAMENTALS — the fifth gate. None is a judgement about our DATA, never about the
+    # company, so it passes and says so; that is the same rule _gm_bff_gate and S4's
+    # fundGate both use, and the opposite would empty the board on a screener.in outage.
+    g_fund = fund_ok is not False
+    n = int(g_pa) + int(g_loc) + int(g_vol) + int(g_bar) + int(g_fund)
     # RECENCY DOES NOT REACH 4/4. The PA gate above accepts a pattern that fired a few
     # bars back (31-Jul); S4 has no such allowance and reads the current bar only. So a
     # recency row differs from the chart by the PA gate BY CONSTRUCTION — and "4/4" is
@@ -1250,7 +1318,7 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # tag: the name still ranks as a watch, it just stops claiming to be a GO. Without
     # this, recency + the free bar pass + the location proxy stacked to a 3-gate gap.
     if _pa_age is not None:
-        n = min(n, 3)
+        n = min(n, 4)
     # KNIFE-EDGE tag. Patterns sitting on their threshold flip on a difference smaller
     # than the routine Dhan-vs-TradingView gap — NAM-INDIA read Σ6 here and Σ2 on the
     # chart for the same bar. Marking them stops that reading as a bug and stops a
@@ -1298,7 +1366,7 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         _mtag += " · RRG·"          # not tradeable — LEADING->LEADING / WEAKENING->LEADING is what to look for
         _age_tag += " · RRG·"
     if not _rrg_ok(rrg_tradeable) and not _stage_blocked:
-        return f"⛔ RRG WAIT · gates {n}/4{_mtag}"
+        return f"⛔ RRG WAIT · gates {n}/5{_mtag}"
     if _stage_blocked:
         # Sorts BELOW every live gate count (the column sorts on the leading number) —
         # a topping structure must not head the GO list however clean its trigger looks.
@@ -1311,19 +1379,20 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         # was blind to every blocked row. The recency/PB tags are deliberately still omitted
         # — they describe a trigger nobody should act on here — but the DATA-QUALITY and
         # context tags must survive, because a blocked row is still a row you diagnose from.
-        return f"⛔ Stage {_stg_n} · gates {n}/4{_mtag}"
-    if n == 4:
+        return f"⛔ Stage {_stg_n} · gates {n}/5{_mtag}"
+    if n == 5:
         # "4/4 GO" stays reserved for all four aligning on the LIVE bar. A recent-PA
         # name scores 4/4 and sorts with them, but says so — the entry then anchors
         # to the bar that fired (S4 latches trigBar/trigHi), not to this one.
         # Tag PULLBACK 4/4s explicitly. This is the setup Jay is hunting and the one the
         # relaxed gate exists to surface, so it must be identifiable at a glance among the
         # breakout GOs — not silently mixed in with them.
-        _pbt = (" · PB" if _pb else "") + _mtag
-        return f"4/4 GO{_pbt}" if not _pa_age else f"4/4 · PA {_pa_age}b{_pbt}"
+        _pbt = (" · PB" if _pb else "") + (" · F?" if fund_ok is None else "") + _mtag
+        return f"5/5 GO{_pbt}" if not _pa_age else f"5/5 · PA {_pa_age}b{_pbt}"
     _miss = ("no PA" if not g_pa else "no loc" if not g_loc
-             else "no vol" if not g_vol else "weak bar")
-    return f"{n}/4 · {_miss}{_age_tag}"
+             else "no vol" if not g_vol else "weak bar" if not g_bar else "no funda")
+    _fq = " · F?" if fund_ok is None else ""
+    return f"{n}/5 · {_miss}{_fq}{_age_tag}"
 
 
 
@@ -1711,6 +1780,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path,
                            archetypes=info.get("archetypes"),
                            stage=g(rec, "Stage", default=""),
+                           fund_ok=(False if (wf or {}).get("fund_block")
+                                    else (wf or {}).get("fund_ok")),
                            rrg_tradeable=(g(rec, "RRG_Tradeable")
                                           if g(rec, "RRG_Tradeable") is not None
                                           else rrg_tradeable_live((data or {}).get("df"))))
@@ -1926,7 +1997,10 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # rather than four: the board already has 43, and Entry/SL/R:R above carry the
         # ADD's own plan for these rows, so the only genuinely new information is what
         # is already owned.
-        "Pos":           _pos_text(info.get("pyr"), cmp_px),
+        # Falls back to the plain holding when the row did not arrive as a Pyramid
+        # ADD: a trigger on a name already owned is an ADD decision, not a new
+        # position, and it was previously indistinguishable from one.
+        "Pos":           _pos_text(info.get("pyr"), cmp_px) or _held_text(sym),
         # ARMED — age + the trigger level AS ARMED. The alert fires days after the
         # board that produced the plan is gone, so this cell is the bridge: it says
         # how long you have been waiting and what level you were waiting FOR. The
@@ -2259,6 +2333,62 @@ def s4_fund_lists(tf: str = None) -> dict:
             if sym and n is not None:
                 pairs.append(f"{sym}:{n}")
         out[col] = ",".join(sorted(set(pairs)))
+
+    # ── HOLDINGS THAT ARE NOT BOARD ROWS (6-Sep-2026) ──────────────────────────
+    # The board is a BUY board, so a position stops being a row the moment pyramid
+    # reclassifies it away from ADD. The BUNDLE inherited that filter, and the effect
+    # was backwards: the panel went blank for exactly the names Jay already owns and
+    # is deciding whether to trim. ANANDRATHI hit its target, moved ADD -> TRIM, and
+    # its BFF row on the S4 chart read "not scored" the same session.
+    #
+    # Informing is not recommending. These names are added to BFF/BFFC ONLY - never
+    # to a board row, never to RANK. RANK is the board's own composite and would be a
+    # fabrication for a name the board never ranked; PIO needs the X-Ray path, which
+    # this does not run. A holding therefore shows its fundamentals and an em-dash on
+    # rank, which is the truth.
+    #
+    # compute_bff carries a 24h TTL cache, so this is ~11 screener reads once a day,
+    # and it goes through the same breaker as every other screener call.
+    try:
+        import csv as _csv, os as _os
+        _pp = "FINAL_Portfolio_Picks.csv"
+        if _os.path.exists(_pp):
+            _have = {p.split(":", 1)[0] for p in (out.get("BFF") or "").split(",") if p}
+            _hold = []
+            with open(_pp, encoding="utf-8") as _fh:   # NOT io.open - this module never imports io
+                for _r in _csv.DictReader(_fh):
+                    _k = _canon_key(_r.get("Symbol"))
+                    if _k and _k not in _have:
+                        _hold.append(_k)
+            if _hold:
+                from bull_fundamental_filter import compute_bff as _cbff
+                _bAcc, _cAcc = [], []
+                for _k in _hold:
+                    try:
+                        _b = _cbff(_k) or {}
+                        if _b.get("source") != "screener.in":
+                            continue
+                        _sc = _b.get("score")
+                        if _sc is not None:
+                            _bAcc.append("%s:%s" % (_k, _sc))
+                        _ck = _b.get("checks") or {}
+                        if _ck:
+                            _cAcc.append("%s:%s" % (_k, "".join(
+                                ("1" if _ck.get(_n) is True else "0" if _ck.get(_n) is False else "-")
+                                for _n in ("profit_growth", "sales_growth", "margin_expansion",
+                                           "return_quality", "profitable"))))
+                    except Exception as _e:
+                        _log.warning("s4_fund_lists: holding %s BFF failed: %s" % (_k, _e))
+                for _tag, _acc in (("BFF", _bAcc), ("BFFC", _cAcc)):
+                    if _acc:
+                        _cur = [p for p in (out.get(_tag) or "").split(",") if p]
+                        out[_tag] = ",".join(sorted(set(_cur + _acc)))
+                if _bAcc:
+                    _log.info("s4_fund_lists: added %d off-board holdings to BFF" % len(_bAcc))
+    except Exception as _e:
+        _log.warning("s4_fund_lists: off-board holdings skipped: %s" % _e)
+
+
     return out
 
 
@@ -2493,6 +2623,11 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     parts = [
         ("REC",  _safe(s4_recovery_list, uni)),
         ("PB",   _safe(s4_pullback_list, uni)),
+        # ACC sits with REC and PB because it is the same axis: which playbook is this.
+        # Small by construction (a handful of accumulating names), so it costs little
+        # against the length cap, and it is placed ABOVE the fundamentals for the same
+        # reason PAIR is — what kind of trade this is precedes every judgement about it.
+        ("ACC",  _safe(s4_accum_list, tf=tf)),
         # ORDERED BY CRITICALITY (29-Aug-2026), because input.string has a LENGTH CAP
         # and whatever falls past it is silently lost. Measured on the 5,737-char
         # bundle that exposed this: BFFC ended at 3,872 and RFFC at 3,954, but PIOC
@@ -2526,6 +2661,47 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     # would corrupt EVERY later section rather than just its own, so it is removed
     # here rather than trusted not to appear.
     return "|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts)
+
+
+def s4_accum_list(tf: str = None) -> str:
+    """The GM's ACCUMULATION names, for S4's setup taxonomy.
+
+    FIFTH handoff on the pattern of s4_recovery_list / s4_pullback_list. S4 has three
+    playbooks — RECOVERY, PULLBACK, BREAKOUT — and infers them from structure, so
+    POS-ACCUM collapses into BREAKOUT and gets judged by a breakout's standards. That
+    is the wrong test: accumulation is a 180-day base-building setup that wants volume
+    DRY-UP and a coil, and a breakout gate demands the opposite of both. It is the one
+    catalyst whose trigger requirements genuinely differ from the playbook it currently
+    lands in, which is why it earns a section and POS-BO vs SWG-BO does not (both want
+    an ignition; they differ only in horizon, which S4 already derives itself).
+
+    BARE SYMBOL LIST, not SYM:n. Membership is the whole message, exactly as for
+    Recovery and Pullback — and the bundle has a LENGTH CAP that has already truncated
+    it once, silently blanking the Piotroski row. A per-symbol catalyst map would have
+    cost ~800 chars on a 5,737-char bundle; this costs ~10 per accumulating name, of
+    which there are usually a handful.
+
+    SOURCE is the BUILT BOARD, like s4_fund_lists, so the chart cannot disagree with
+    the row you clicked through from. Never raises.
+    """
+    try:
+        df, _meta = load_board_cache(max_age_hours=24.0, tf=tf)   # (DataFrame, dict)
+    except Exception as e:
+        _log.warning(f"s4_accum_list: board cache unavailable: {e}")
+        return ""
+    if df is None or getattr(df, "empty", True) or "Catalyst" not in df.columns:
+        return ""
+    out = []
+    for _, r in df.iterrows():
+        # Catalyst is NaN for most rows by design (inherited qualification), so this
+        # is a float far more often than a string — hence the str() rather than a
+        # bare .upper(), which is the crash that skipped 19 of 20 names once before.
+        cat = str(r.get("Catalyst") or "").upper()
+        if "ACCUM" in cat:
+            sym = _canon_key(r.get("Symbol"))
+            if sym and sym != "NAN":
+                out.append(sym)
+    return ",".join(sorted(set(out)))
 
 
 def s4_pullback_list(uni: dict | None = None) -> str:
