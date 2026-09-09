@@ -230,3 +230,64 @@ than near it, so as a filter it is worse than a coin flip.
 Every exemption is a gate in the other direction and needs the same control. Written into
 the design because I proposed all three rescues from the research without testing them, and
 two would have quietly cancelled the feature they were meant to refine.
+
+---
+
+## 7. RETRACTION — the pivot-ceiling figure was my own measurement error (9 Sep 2026)
+
+Section 2 claimed the payload was in the PIVOT ceilings: *"45.2% of binding pivots are >6
+months"*, and *"age out S/R + pivot ceilings .. 14 of 50 names (~28%)"*.
+
+**That is wrong, and the cause was my proxy, not the engine.** `room_source_audit.py`
+approximated the pivot ceiling as *the nearest confirmed pivot high above price across all
+history*. `overhead_room` never does that. Its actual pivot ceilings come from
+`detect_zones`, and **zones already age on a calendar, per timeframe** — `TF_CFG` has
+carried `age_days` since the v3.x zone work:
+
+| TF | age_days | ≈ |
+|---|---:|---|
+| Monthly | 1460 | 4 years |
+| Weekly | 730 | 2 years |
+| **Daily** | **182** | **6 months** |
+| 125m | 28 | ~4 weeks |
+| 75m | 21 | ~3 weeks |
+
+Pivot zones are not exempt: `PvH` and `PvL` are appended to the same `zones` list and the
+lifecycle loop ages every member alike (`if last_ms - z.origin_ms > cap_ms: continue`). And
+the third source, `lastPH`, only scans the last 60 bars, so it cannot be stale either.
+
+**So the daily obstacle set was already on the research's schedule. S/R LEVELS were the one
+class with no clock at all** — which is exactly the gap Jay named.
+
+### The real before/after, measured through `overhead_room` itself
+
+| | n=55 |
+|---|---:|
+| ceiling unchanged | 54 (98%) |
+| ceiling changed | **1 (2%)** |
+
+    HONASA   S/R·D 478.70  ->  SZ band top 491.75   (+2.7% room)
+
+Not 28%. **2%.** The honest scope of this change is: a correctness and display fix that
+today alters one Room verdict in fifty-five.
+
+### Why the display half is still worth shipping
+67.8% of daily levels are last-touched >6 months ago, median 14.9 months, oldest 99.6 — and
+every one of them currently renders identically to a three-week-old level. The chart is
+withholding the single most important thing about a level's authority. That is a real
+information gap whatever the Room arithmetic does.
+
+### And the actual answer to "no room"
+Median room across the board is **0.28 x ATR (+0.7%)**, 90% of names under 1 ATR, median
+**0.11R** at a swing stop. With every stale obstacle removed it barely moves. **The board is
+not wrong — those names genuinely are sitting under live resistance.** "No room" is mostly a
+correct reading of a bad entry location, and the lever is which names get traded, not how
+the ceiling is measured. S4 v4.7's BREAKOUT PIVOT ruling already encodes the right response
+for the Stage-2 case: do not buy inside the band, arm a buy-stop above it.
+
+### Method note
+This is the second time in one session that a proxy I wrote produced a confident wrong
+number (the other: reading `git ls-files` as proof the cache was tracked, when it was
+showing the index I had just staged). Both were caught by going to the real function. The
+rule that applies: measure through the code path that actually runs, not through a
+reimplementation of it.

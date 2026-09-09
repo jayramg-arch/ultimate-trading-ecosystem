@@ -1010,6 +1010,85 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None,
 SR_DEFAULTS = dict(pvL=5, pvR=5, pool=40, tol_atr=0.6, min_space=5,
                    min_touch=2, mttwr_n=6, wick_touch=True, wick_fit=True)
 
+# ── LEVEL AGEING (9 Sep 2026) ────────────────────────────────────────────────
+# A level is PRICE MEMORY: it is never deleted, only demoted. MTTWR already works
+# that way — an over-tested level stays drawn and is dropped from the picker. Ageing
+# is the same mechanism on a different clock, and it is the clock the research calls
+# for: a daily resistance is potent for 1-4 weeks, standard to 3 months, soft to 6,
+# and past 6 months is a psychological speed bump rather than real supply, because
+# the trapped buyers who formed it have capitulated or rotated out.
+#
+# THE CLOCK IS LAST TOUCH, NOT FIRST. A level retested last month is live no matter
+# when it was born. Both engines already track it (`Lb` here, `Lb` in Pine's
+# srLevels) and neither exposed it until now.
+#
+# PER-TF, IN EACH TF'S OWN BARS — never a flat 6 months. Judging a weekly level on a
+# daily clock is the same error that once killed a weekly zone on a daily EMA cross.
+# Ablation switch: False reproduces the pre-ageing ceiling exactly.
+SR_SKIP_STALE_CEILING = True
+SR_AGE_BARS = {"M": 120, "W": 130, "D": 126, "125": 10, "75": 10, "25": 10}
+# Bands as FRACTIONS of that TF's expiry, so one schedule serves every timeframe. On
+# Daily these land exactly on the research's 1 / 3 / 6-month boundaries.
+SR_AGE_BANDS = ((1.0 / 6.0, "FRESH"), (0.5, "SEASONED"), (1.0, "AGED"))
+
+
+def sr_expiry_bars(tf: str = "D") -> int:
+    """Bars after which a level of THIS timeframe stops counting as a ceiling."""
+    return SR_AGE_BARS.get(str(tf).upper(), SR_AGE_BARS["D"])
+
+
+def sr_age_band(age_bars: int, tf: str = "D") -> str:
+    """FRESH / SEASONED / AGED / STALE, from age in the level's own bars."""
+    exp = sr_expiry_bars(tf)
+    if exp <= 0:
+        return "FRESH"
+    f = float(age_bars) / float(exp)
+    for cut, name in SR_AGE_BANDS:
+        if f < cut:
+            return name
+    return "STALE"
+
+
+def sr_is_stale(age_bars: int, tf: str = "D") -> bool:
+    """Past its timeframe's lifespan.
+
+    Excluded from the CEILING only. The level stays on the chart, stays in the counts,
+    and stays usable as SUPPORT and as a stop anchor — age makes a level a weak place
+    to expect rejection, not a bad place to put a stop.
+    """
+    return age_bars >= sr_expiry_bars(tf)
+
+
+def sr_rescued(level_px: float, atr: float, tol_atr: float = 0.6,
+               htf_levels=()) -> str | None:
+    """Is a STALE level reinforced enough to keep counting as a ceiling?
+
+    The research offers three rescues — HTF confluence, an AVWAP magnet, and a major
+    unfilled gap. All three were CONTROLLED on the live board before being written in,
+    by asking whether each fires more often on STALE ceilings than on FRESH ones:
+
+        HTF confluence   14.3% stale vs  0.0% fresh (1.7% random)  DISCRIMINATES
+        AVWAP magnet     38.1%       vs 37.9%       (17.6%)        no information
+        AVWAP + hi-vol   52.4%       vs 55.2%       (61.0%)        no information
+        unfilled gap     19.0%       vs 17.2%       (34.3%)        below random
+
+    Only HTF survived. AVWAP fires identically on fresh ceilings — it detects that
+    AVWAPs and ceilings both sit near price, not that a level resisted decay; adding
+    the research's own "massive volume at that pivot" condition made it WORSE, because
+    once every 3x-volume pivot high is an anchor, everything matches. Gap edges are
+    denser away from price than near it, so that rescue is worse than a coin flip.
+
+    So only HTF confluence is implemented. AVWAP/gap coincidence may still be
+    ANNOTATED for the eye, but must never lift the stale exclusion.
+    """
+    tol = tol_atr * atr if atr and atr > 0 else 0.0
+    if tol <= 0:
+        return None
+    for v in htf_levels:
+        if v is not None and abs(v - level_px) <= tol:
+            return "HTF"
+    return None
+
 
 def detect_sr_levels(df: pd.DataFrame, tf: str = "D", **kw) -> list[dict]:
     """Return graded horizontal S/R levels: {price, touches, from_high, grade, role}.
@@ -1081,8 +1160,62 @@ def detect_sr_levels(df: pd.DataFrame, tf: str = "D", **kw) -> list[dict]:
         if t < min_touch:            # Pine f_srLevels line 1456: `if c >= minTouch` — a single
             continue                 # pivot is a SWING POINT, not a level; emit only proven levels
         grade = "FRESH" if t <= min_touch else ("MTTWR" if t >= mttwr_eff else "TESTED")
+        # AGE — from the LAST touch (Lb), in this timeframe's own bars. `grade` stays
+        # the TOUCH-COUNT read so nothing downstream that reads it changes meaning;
+        # ageing is a second, independent axis.
+        age = int(n - 1 - Lb[i])
         out.append(dict(price=Lp[i], touches=t, from_high=Lh[i], grade=grade,
-                        role=("RESISTANCE" if Lp[i] > px else "SUPPORT")))
+                        role=("RESISTANCE" if Lp[i] > px else "SUPPORT"),
+                        first_bar=int(Lt[i]), last_bar=int(Lb[i]), age_bars=age,
+                        age_band=sr_age_band(age, tf), stale=sr_is_stale(age, tf)))
+    return out
+
+
+def sr_resistance_above(df: pd.DataFrame, tf: str = "D", price: float | None = None,
+                        htf_levels=(), skip_stale: bool = True) -> dict:
+    """The nearest level ABOVE price that still counts as a CEILING.
+
+    This is the Room-side twin of `sr_support`, and the only place the stale exclusion
+    bites. A level is skipped when it is MTTWR (over-tested, primed to break — the
+    existing rule) or STALE (past its timeframe's lifespan — the new one), unless a
+    higher-timeframe level sits within tolerance and rescues it.
+
+    Returns the ceiling plus WHY the ones above it were skipped, so a surprising Room
+    number can be explained instead of guessed at.
+    """
+    out = {"level": None, "grade": None, "age_band": None, "age_bars": None,
+           "rescued": None, "n_skipped_stale": 0, "n_skipped_mttwr": 0}
+    levels = detect_sr_levels(df, tf)
+    if not levels:
+        return out
+    p = {**SR_DEFAULTS}
+    mttwr_eff = max(p["mttwr_n"], p["min_touch"] + 1)
+    px = float(price) if price is not None else float(df["Close"].iloc[-1])
+    try:
+        _, _atr = _wilder_atr(df["High"].to_numpy(float), df["Low"].to_numpy(float),
+                              df["Close"].to_numpy(float), 14)
+        atr = float(_atr[-1])
+    except Exception:
+        atr = 0.0
+    best = None
+    for L in levels:
+        if L["price"] <= px:
+            continue
+        if L["touches"] >= mttwr_eff:
+            out["n_skipped_mttwr"] += 1
+            continue
+        resc = None
+        if skip_stale and L.get("stale"):
+            resc = sr_rescued(L["price"], atr, p["tol_atr"], htf_levels=htf_levels)
+            if not resc:
+                out["n_skipped_stale"] += 1
+                continue
+        if best is None or L["price"] < best["price"]:
+            best = dict(L)
+            best["_rescued"] = resc
+    if best is not None:
+        out.update(level=best["price"], grade=best["grade"], age_band=best["age_band"],
+                   age_bars=best["age_bars"], rescued=best.get("_rescued"))
     return out
 
 
@@ -1277,6 +1410,16 @@ def overhead_room(frames: dict, price: float | None = None,
     px = float(price) if price is not None else float(ref["Close"].iloc[-1])
     atr = _atr_abs(ref)
 
+    # HTF levels for the stale rescue, gathered BEFORE the main loop so a daily level
+    # can be rescued by a weekly/monthly one regardless of dict order.
+    _htf_lv = []
+    for _tf, _df in frames.items():
+        if str(_tf).upper() in ("W", "M"):
+            try:
+                _htf_lv.extend(float(x["price"]) for x in detect_sr_levels(_df, _tf))
+            except Exception:
+                pass
+
     cands = []                      # (level, why)
     for tf, df in frames.items():
         try:
@@ -1305,6 +1448,22 @@ def overhead_room(frames: dict, price: float | None = None,
             for L in detect_sr_levels(df, tf):
                 if L.get("grade") == "MTTWR":
                     continue          # spent as a ceiling — S4 excludes it too
+                # AGE (9-Sep-2026). Leg-base-leg and pivot ZONES already expire on a
+                # calendar, per TF (TF_CFG age_days: D 182 / W 730 / M 1460), which is
+                # the research's own schedule. S/R LEVELS were the one obstacle class
+                # with no clock at all: measured on the live board, 67.8% of daily
+                # levels were last touched >6 months ago, median 14.9 months.
+                #
+                # A stale level is dropped as a CEILING only. It stays in the list, on
+                # the chart, and usable as support and as a stop anchor — age makes a
+                # level a weak place to expect rejection, not a bad place to lean a
+                # stop. Rescued when a higher-timeframe level sits within tolerance;
+                # that is the only one of the research's three rescues that survived
+                # its control (see sr_rescued).
+                if SR_SKIP_STALE_CEILING and L.get("stale"):
+                    if not sr_rescued(float(L["price"]), atr, SR_DEFAULTS["tol_atr"],
+                                      htf_levels=_htf_lv):
+                        continue
                 if float(L["price"]) > px:
                     cands.append((float(L["price"]), f"{'PivR' if L.get('role')=='resistance' else 'S/R'}·{tf}"))
         except Exception:
