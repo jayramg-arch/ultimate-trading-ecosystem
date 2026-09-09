@@ -477,3 +477,78 @@ so rather than to read a small cell.
 
 **Falsifier:** if the edge on the fresh anchors is not positive, the non-ignition signal is
 a property of 2023-2026 and not of the strategy, and the ranking recommendation is withdrawn.
+
+---
+
+# OUTCOME · H7, the 60-month confirmatory — recorded 9 Sep 2026
+
+Run `20260909_190451` (60mo, nifty500, bull, s4go, qualify catalyst, catalyst-aware).
+Instrument: qualify `catalyst`, windows 60/120/180 (2 rows of 1,580 on the 30-day
+default), score columns present. 53 anchors ran, 49 produced trades, **22 fresh** after
+dropping every anchor present in `20260909_055448`. 183 trades scored.
+
+| | all picks | NonIgn ≥ 1 | edge |
+|---|---:|---:|---:|
+| **FRESH 22 anchors** (the test) | **+0.85%** / win 41.0% | +2.06% / win 39.1%, keep 25.1% | **+1.21pp** |
+| reference · 27 examined anchors | −0.63% / win 33.3% | +1.00% / win 39.8%, keep 29.7% | +1.63pp |
+
+| criterion | value | |
+|---|---|---|
+| A · n ≥ 100 kept | 46 | FAIL |
+| B · edge ≥ +1.0pp | +1.21pp | **PASS** |
+| C · CI95 excludes zero | [−1.37, +3.99], P 80.1% | FAIL |
+| D · both halves same sign | +4.63 / **−2.89** | FAIL |
+| E' · deployment beats no-filter | **+0.52 vs +0.85** | FAIL |
+
+**VERDICT: DO NOT ADOPT.** `nonign_min` stays 0 and no ranking change ships.
+
+## E' failed for a reason that explains the whole thread
+
+**On the fresh anchors the unfiltered book is POSITIVE: +0.85%, win 41.0%.** The filter
+lifts the survivors to +2.06% but keeps only a quarter of them, so deployment falls from
++0.85% to +0.52%. That is precisely the trap E' was written to catch — a better mean on a
+smaller book is not a better book.
+
+Now compare the reference row. On the 27 already-examined anchors the base is **−0.63%**,
+so *any* filter with a positive mean improves deployment automatically. **The abandon
+variant's earlier E' pass was an artifact of a negative base rate**, not evidence that the
+filter adds value. Change the period to one where the book makes money and the same filter
+becomes a drag.
+
+That reframes every "deployment PASS" in this thread. Deployment is only informative when
+the unfiltered arm is not already negative, and on the 24-36 month windows this desk has
+been testing on, it usually was.
+
+## D reverses for the third consecutive intervention
+
++4.63pp in the early half, **−2.89pp** in the late half of the fresh anchors. roleMismatch
+failed D, the RV band failed it twice, and the graded positive form fails it now.
+
+§7 of this registration said what to conclude if that happened, and it still holds — with
+one addition. The power problem is real (46 kept trades against a CI half-width of ~2.7pp).
+But E' is not a power failure: it is a **directional** result showing the filter costs more
+deployment than it earns on a positive book. Those are different findings and only the
+first is fixed by more anchors.
+
+## The regime gap, which is the other half of the story
+
+    fresh 22 anchors (2021-08 → 2023-07)   +0.85%  win 41.0%
+    examined 27 anchors (2023-08 → 2026-01) −0.63%  win 33.3%
+
+A 1.5pp swing in the base rate between periods, with the same screener and the same gate.
+This is the regime amplification already on record (POS-BO returns ~2.3x the index in a
+rising tape and roughly matches it otherwise), and it is larger than any filter effect
+measured in this entire thread. **The tape is worth more than any of the eight
+interventions tested.**
+
+## Thread closed
+
+Nine tests: Wyckoff (veto / score / positive filter), RV band (daily / intraday / PA-trigger
+/ regime / confirmatory), setup coherence, roleMismatch, the graded positive form, and this
+confirmatory. **None adopted.** The durable findings are not filters:
+
+* RV is a family label on this book, not a quality signal (medians 0.53 / 1.64 / 0.68);
+* GO-timing costs ~1.2pp through deferred entries, so this evidence belongs in RANKING and
+  not in a scan-forward veto;
+* deployment comparisons are only meaningful against a non-negative base;
+* and the regime term dominates all of it.
