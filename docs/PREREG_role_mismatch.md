@@ -326,3 +326,95 @@ twice. If the ordering above is real rather than a property of these 27 anchors,
 hold. If D fails again on a third consecutive intervention, the honest reading is not "this
 gate is bad" but **"a 331-trade GO-timed book cannot resolve a 1pp effect"** — which is a
 statement about the sample, and the next move would be more anchors, not another gate.
+
+---
+
+# OUTCOME · H6, the graded positive arm — 9 Sep 2026
+
+`20260909_063606` (`--nonign_min 1`) against control `20260909_055448`. Instrument:
+`nonign_min` 0 → 1, qualify `catalyst` both, windows 60/120/180, gate blocked 225 of 354.
+
+| | roleMismatch | **NonIgn ≥ 1** |
+|---|---:|---:|
+| bite | 62.7% | 63.6% |
+| keep | 36.6% | 36.3% |
+| mean α | +0.09% | +0.12% |
+| edge | +0.79pp | +0.82pp |
+| CI95 | [−0.51, +2.16] | [−0.49, +2.20] |
+| D halves | +1.33 / −0.36 | +1.38 / −0.36 |
+| fresh | +1.06pp | +1.12pp |
+
+**Statistically the same result.** Dropping the location condition changed nothing, because
+location is near-universal in this harness (section 3) — the two rules select almost the
+same trades. 3 of 6, same three failing. H6 not adopted.
+
+## But the arm contradicted the ladder, and THAT is the finding
+
+The ladder predicted keep 29.3% at **+0.77%**. The arm delivered keep 36.3% at **+0.12%**.
+A gate cannot *raise* retention, so the two are not the same operation:
+
+| treat trade vs its control counterpart | n | treat α | control α |
+|---|---:|---:|---:|
+| same GO bar | 97 | +0.77% | +0.77% |
+| **LATER GO bar** | 22 | **−2.60%** | −1.36% |
+| no counterpart | 1 | −3.29% | — |
+
+**A blocked bar does not drop the name — the scan continues and takes a later entry.**
+Median defer 8 days, p75 26, max 42, and those 22 trades cost **−1.23pp** versus entering
+at the original bar. They drag the arm from +0.77% to +0.12%.
+
+This is the confirmation-wait tax measured a third time (23-Jul entry A/B, the GO-timing
+result, now here), and isolated cleanly for the first time: **the same signal is worth
++1.47pp as SELECTION and +0.82pp as an in-scan VETO.** Half the value is given back by
+re-entering later.
+
+## The ABANDON variant — 5 of 6, and the first PASS on D in this thread
+
+Blocking the NAME for the anchor instead of deferring is, by construction, post-hoc
+selection on the control arm (each control row has exactly one GO bar, the first
+qualifying one, so dropping rows whose GO bar scored 0 IS abandon-on-block). No extra run
+needed:
+
+| | all 30 anchors | fresh 12 anchors |
+|---|---:|---:|
+| keep | 29.3% (n=97) | 27.4% (n=51) |
+| mean α | **+0.77%** vs −0.70% | **+1.83%** vs −0.46% |
+| edge | **+1.47pp** | **+2.29pp** |
+| CI95 | [−0.12, +3.17] · P 96.5% | [−0.47, +5.41] · P 94.6% |
+| deployment | +0.22% vs −0.70% | +0.50% vs −0.46% |
+
+| criterion | | |
+|---|---|---|
+| A bite 70.7% | PASS |
+| B edge +1.47pp | **PASS** |
+| C CI95 [−0.12, +3.17] | FAIL — by 0.12pp, P 96.5% |
+| D **+2.30 / +0.44, both positive** | **PASS — the first in this thread** |
+| E' +0.22 vs −0.70 | **PASS** |
+| F fresh +2.29pp | **PASS** |
+
+D is the criterion that killed the Wyckoff filter and the RV band (twice) and that both
+veto arms failed. It passes here. C misses by 0.12pp on the sample the threshold was read
+from, which is weak evidence either way.
+
+**Still not an adoption** — C fails and the threshold is post-hoc. But the direction is now
+consistent across every cut, and the design lesson is independent of the statistics.
+
+## What this changes in practice
+
+**Use non-ignition evidence as a SELECTION/RANKING input, never as a scan-forward veto.**
+On the GM board that means a column and a sort key, not a gate: rank the day's qualified
+names by whether the trigger bar carries a turn or a coil, and take from the top. A gate
+that says "not this bar, keep looking" actively harms the book, because the replacement
+entry is 8+ days later and worse.
+
+That is a change to a live surface, so it needs its own registration before shipping. It is
+NOT covered by this document.
+
+## Next, and the honest limit
+
+The binding constraint is the sample: 331 control GOs cannot resolve a ~1.5pp effect with a
+CI half-width of ~1.6pp. Three interventions have now landed in the same place — positive
+point estimate, interval touching zero. The next move is **more anchors** (a 60-month run,
+or nifty500 → a wider universe), not a fourth gate variant. Registering another threshold
+against this sample would be the multiple-testing problem the whole thread is trying to
+avoid.
