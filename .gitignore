@@ -109,3 +109,8 @@ data/snapshots/
 .agents/
 graphify-out/
 scratch/
+
+# Scraped page dumps — debug artifacts that embed live session JWTs.
+# strike_html.txt (490KB) carried two eyJ… bearer tokens in the page source.
+strike_html.txt
+*_html.txt
