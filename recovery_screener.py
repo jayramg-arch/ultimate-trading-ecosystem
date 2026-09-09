@@ -580,7 +580,20 @@ def fetch_yf_fundamentals(yf_sym: str) -> dict:
             de = float(de)
             result["Debt to equity"] = de / 100 if de > 10 else de
 
+        # yfinance 1.1.0 no longer populates currentRatio / interestExpense in
+        # info (None for EVERY symbol, RELIANCE included) while still returning a
+        # full ~160-key payload — so nothing looked broken. The statements DO
+        # still carry both. This is the FALLBACK path only; screener.in is primary.
         cr  = info.get("currentRatio")
+        if cr is None:
+            try:
+                _bs = tk.balance_sheet
+                _ca = float(_bs.loc["Current Assets"].iloc[0])
+                _cl = float(_bs.loc["Current Liabilities"].iloc[0])
+                if _cl:
+                    cr = _ca / _cl
+            except Exception:
+                cr = None
         if cr is not None:
             result["Current ratio"] = float(cr)
 
@@ -591,6 +604,11 @@ def fetch_yf_fundamentals(yf_sym: str) -> dict:
         # ICR: ebitda / |interestExpense|
         ebitda   = info.get("ebitda")
         interest = info.get("interestExpense")
+        if not interest:
+            try:
+                interest = abs(float(tk.financials.loc["Interest Expense"].iloc[0]))
+            except Exception:
+                interest = None
         if ebitda and interest and interest != 0:
             result["Interest Coverage Ratio"] = abs(float(ebitda) / float(interest))
 
@@ -727,8 +745,12 @@ def compute_rff(row: dict) -> tuple:
     de_prev  = _num(row, "DE_Prev", "Debt to equity prev", "D/E Prev")
 
     # ── FCF computation (Pine parity #2) ─────────────────────────────────────
-    fcf = np.nan
-    if not np.isnan(ocf):
+    # screener.in publishes Free Cash Flow DIRECTLY, so prefer it: it needs no
+    # CapEx, and it cannot mix units the way OCF(₹ Cr) - CapEx(absolute ₹) could.
+    fcf = _num(row, "Free Cash Flow", "Free cash flow", "FCF")
+    if not np.isnan(fcf):
+        pass
+    elif not np.isnan(ocf):
         fcf = ocf - (abs(capex) if not np.isnan(capex) else 0.0)
         # If CapEx is unavailable, FCF degrades to OCF. Mark this in checks so
         # the caller knows the FCF check ran in degraded mode.
@@ -1317,6 +1339,59 @@ def detect_wyckoff(df_d: pd.DataFrame):
 # -----------------------------------------------------------------------------
 # SINGLE-SYMBOL SCREENER
 # -----------------------------------------------------------------------------
+def _fundamental_row(sym: str, yf_sym: str):
+    """The fundamental source layering, in ONE place. -> (row_or_None, source_label)
+
+    PRECEDENCE, weakest first: yfinance < screener.in company page < screener.in
+    SCREEN POOL. Jay's standing rule is screener.in PRIMARY and yfinance FALLBACK
+    ONLY, and yfinance is precisely where this broke: on 1.1.0 info['currentRatio']
+    and info['interestExpense'] return None for EVERY symbol, RELIANCE included,
+    while the payload still looks healthy at ~160 keys.
+
+    The POOL (screener_rff_pool) is the top layer because it is the only screener.in
+    surface carrying `Current ratio` -- the company page's balance sheet has no
+    current-vs-non-current split -- and because its six values are screener's own
+    canonical arithmetic. Cross-checked: the pool's ICR for ECLERX reads 21.4 against
+    20.85 derived independently from the company-page P&L.
+
+    The COMPANY PAGE still contributes what the screen does not carry: the Tier-B
+    growth and margin fields, and `Free Cash Flow` as a direct row. Those keys are
+    absent from the pool, so the final update() cannot clobber them.
+    """
+    pool_row = None
+    try:
+        import screener_rff_pool as _srp
+        pool_row = _srp.row_for(sym)
+    except Exception as _pe:
+        logger.debug("rff pool unavailable for %s: %s", sym, _pe)
+
+    scr_live = None
+    try:
+        from fundamental_hub import fetch_screener_rff_row
+        scr_live = fetch_screener_rff_row(sym)
+    except Exception:
+        scr_live = None
+
+    yf_fund = fetch_yf_fundamentals(yf_sym)
+
+    if scr_live or pool_row:
+        merged = dict(yf_fund or {})
+        # UNIT SAFETY: Screener OCF is Rs Cr, yfinance CapEx is absolute Rs - never
+        # mix them in an FCF subtraction. Largely moot now that the company page
+        # supplies Free Cash Flow directly, but the guard costs nothing.
+        if ("Cash from operating activity" in (scr_live or {})
+                or "Cash from operating activity" in (pool_row or {})):
+            merged.pop("CapEx", None)
+        merged.update({k: v for k, v in (scr_live or {}).items() if v is not None})
+        merged.update({k: v for k, v in (pool_row or {}).items() if v is not None})
+        label = ("Screener.in-pool+live" if (pool_row and scr_live)
+                 else "Screener.in-pool" if pool_row else "Screener.in-live")
+        return merged, label + ("+yf" if yf_fund else "")
+    if yf_fund:
+        return yf_fund, "yfinance"
+    return None, "unavailable"
+
+
 def screen_symbol(symbol: str, edge_hint: str, regime: dict,
                   df_cnx500_w: pd.DataFrame, screener_row: dict | None,
                   chartink_confirmed: bool = False,
@@ -1448,28 +1523,9 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
         # fundamental fetch. RFF will read INSUFFICIENT for uncached names.
         fund_source = "cache-only (skipped live)"
     elif screener_row is None:
-        scr_live = None
-        try:
-            from fundamental_hub import fetch_screener_rff_row
-            scr_live = fetch_screener_rff_row(symbol)
-        except Exception:
-            scr_live = None
-        yf_fund = fetch_yf_fundamentals(yf_sym)
-        if scr_live:
-            merged = dict(yf_fund or {})
-            # UNIT SAFETY: Screener OCF is ₹ Cr, yfinance CapEx is absolute ₹ —
-            # never mix them in the FCF calc. When Screener's OCF wins, drop
-            # yfinance's CapEx (FCF degrades to OCF, flagged by compute_rff).
-            if "Cash from operating activity" in scr_live:
-                merged.pop("CapEx", None)
-            merged.update({k: v for k, v in scr_live.items() if v is not None})
-            screener_row = merged
-            fund_source  = "Screener.in-live" + ("+yf" if yf_fund else "")
-        elif yf_fund:
-            screener_row = yf_fund
-            fund_source  = "yfinance"
-        else:
-            fund_source  = "unavailable"
+        _row, fund_source = _fundamental_row(symbol, yf_sym)
+        if _row is not None:
+            screener_row = _row
 
     # v2.0 RFF: returns (base 0-6, bonus 0-4, total 0-10, quality, checks)
     if screener_row:
@@ -1759,24 +1815,8 @@ def get_rff(symbol: str, screener_row: dict | None = None,
         if screener_row is None:
             if not allow_live:
                 return (0, 0, 0, "INSUFFICIENT", "cache-only (skipped live)")
-            scr_live = None
-            try:
-                from fundamental_hub import fetch_screener_rff_row
-                scr_live = fetch_screener_rff_row(sym)
-            except Exception:
-                scr_live = None
-            yf_fund = fetch_yf_fundamentals(to_yf(sym))
-            if scr_live:
-                merged = dict(yf_fund or {})
-                if "Cash from operating activity" in scr_live:
-                    merged.pop("CapEx", None)
-                merged.update({k: v for k, v in scr_live.items() if v is not None})
-                screener_row = merged
-                src = "Screener.in-live" + ("+yf" if yf_fund else "")
-            elif yf_fund:
-                screener_row = yf_fund
-                src = "yfinance"
-            else:
+            screener_row, src = _fundamental_row(sym, to_yf(sym))
+            if screener_row is None:
                 return (0, 0, 0, "INSUFFICIENT", "unavailable")
         base, bonus, total, quality, _checks = compute_rff(screener_row)
         if quality == "INSUFFICIENT":

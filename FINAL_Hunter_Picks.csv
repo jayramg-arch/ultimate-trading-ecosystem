@@ -1,13 +1,2 @@
-Symbol,S.No.,Name,"CMP
-                    Rs.",P/E,"Mar Cap
-                    Rs.Cr.","Div Yld
-                    %","NP Qtr
-                    Rs.Cr.","Qtr Profit Var
-                    %","Sales Qtr
-                    Rs.Cr.","Qtr Sales Var
-                    %","ROCE
-                    %","ROE
-                    %",Price,%Chg,Volume,Conviction,AI_Catalyst
-JBCHEPHARM,5.,J B Chemicals &,2076.80,44.18,33304.01,0.75,197.89,21.79,1064.72,10.51,25.79,,2076.8,-0.17,275291,5.0,JB Chemicals' strong chronic portfolio and increasing India business drive long-term growth despite near-term margin pressures.
-TORNTPHARM,24.,Torrent Pharma.,4256.60,62.48,144060.97,0.75,635.00,27.63,3303.00,17.59,27.05,,4256.6,1.01,288474,5.0,TORNTPHARM's long-term growth is driven by chronic segment focus and operational efficiencies.
-EMCURE,38.,Emcure Pharma,1539.70,32.28,29193.09,0.19,231.37,66.63,2363.48,20.42,20.72,,1539.7,4.63,174313,5.0,Emcure's Q4 FY24 results showcased strong domestic sales growth and improving operational efficiencies.
+Symbol,Name,Combined_Score,Conviction,Tech_Score,Stage,Mansfield_RS,Daily_RSI,Daily_ADX,EMA_Stack,Above_200DMA,Dist_52WH_pct,Vol_RelAvg,ROE %,ROCE %,Debt to equity,Promoter holding %,Div Yld %,Qtr Profit Var %,Qtr Sales Var %,Mar Cap Rs.Cr.,CMP Rs.,P/E,Volume,Hybrid_Catalyst,%Chg,Minervini_Score,Piotroski_Score,Overall_Rating,Overall_Grade,Delivery_Pct,Futures_OI_Chg_Pct
+SYRMA,Syrma SGS Tech.,82.5,8.0,85,2,16.030561715528147,72.3639287751966,20.309558495320935,True,True,0.0,8.57,12.6,15.0,0.14,42.28,0.09,101.19,68.29,31672.49,1642.5,94.2,3296838,NONE,0.27,5.0,3.0,68.7,C FAIR,17.51,

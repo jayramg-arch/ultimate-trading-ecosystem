@@ -29,11 +29,11 @@ try:
              print(f"Error listing models: {e}")
 
     # 3. Test Text Generation
-    print("\nAttempting generation with 'gemini-2.0-flash'...")
+    print("\nAttempting generation with 'gemini-2.5-flash'...")
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content("Hello, can you hear me? Respond with 'CONNECTED' if you receive this.")
-        print(f"\nSUCCESS: Gemini 2.0 replied: {response.text}")
+        print(f"\nSUCCESS: Gemini 2.5 replied: {response.text}")
     except Exception as e:
         print(f"\nCONNECTION FAILED: {e}")
 

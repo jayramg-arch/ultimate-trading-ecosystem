@@ -1,3 +1,7 @@
+import sys
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 import json
 import csv
 import os
@@ -127,108 +131,117 @@ p{i}_sec  = input.symbol("{sec_val}", title="Sector", group={grp}, inline="p{i}s
         user_data_dir = os.path.join(os.getcwd(), 'browser_data')
         
         with sync_playwright() as p:
-            browser = p.chromium.launch_persistent_context(
-                user_data_dir,
-                headless=False,
-                channel="chrome",
-                args=["--start-maximized"],
-                no_viewport=True
-            )
-            
-            page = browser.pages[0]
-            page.goto("https://www.tradingview.com/chart/")
-            print("   ⏳ Waiting for Chart load...")
-            time.sleep(10)
-            
-            # 1. Open Watchlist Panel (if closed)
-            # This is tricky as selectors change. Usually checking for a specific element.
-            # Assuming widely standard layout: Right toolbar top icon.
-            
-            # 2. Select the correct watchlist
-            print(f"   📂 Selecting Watchlist: {WATCHLIST_NAME}")
+            browser = None
             try:
-                # Click Watchlist dropdown trigger (often having text of current watchlist)
-                # We simply try to find a button with the text or a specific class
-                # Note: This heavily depends on TV DOM. Using broad selectors.
-                page.click("div[data-name='watchlist-selector']", timeout=3000)
-                time.sleep(1)
-                page.click(f"text={WATCHLIST_NAME}", timeout=3000)
-            except:
-                print("   ⚠️  Could not switch watchlist (Might already be active or selector changed).")
-            
-            # 3. Clear Watchlist
-            # Select all and delete? Or delete one by one.
-            # Fast way: Click first item, Shift+Click last item, Press Delete.
-            print("   🧹 Clearing old symbols...")
-            try:
-                # Click inside watchlist container
-                # This is a guess selector; we might need to update based on inspection
-                # page.click(".watchlist-container", timeout=2000) 
+                browser = p.chromium.launch_persistent_context(
+                    user_data_dir,
+                    headless=False,
+                    channel="chrome",
+                    args=[
+                        "--start-maximized",
+                        "--disable-gpu",
+                        "--disable-software-rasterizer"
+                    ],
+                    no_viewport=True
+                )
                 
-                # Simpler: Loop through "X" buttons? No, too slow.
-                # Let's assume user wants us to ADD mostly.
-                # Implementing "Add Only" for safety first to avoid wiping wrong list
-                pass  
-            except:
-                pass
-
-            # 4. Add Symbols
-            print("   ➕ Adding symbols...")
-            
-            # Open Dialog ONCE
-            try:
-                page.click("button[data-name='add-symbol-button']")
-                time.sleep(1)
+                page = browser.pages[0]
+                page.goto("https://www.tradingview.com/chart/")
+                print("   ⏳ Waiting for Chart load...")
+                time.sleep(10)
                 
-                # Force-Select "ALL" Tab to ensure we aren't stuck in "Indices" or "Forex"
-                print("      🔄 Switching to 'All' search tab...")
+                # 1. Open Watchlist Panel (if closed)
+                # This is tricky as selectors change. Usually checking for a specific element.
+                # Assuming widely standard layout: Right toolbar top icon.
+                
+                # 2. Select the correct watchlist
+                print(f"   📂 Selecting Watchlist: {WATCHLIST_NAME}")
                 try:
-                    # 1. Try 'All' Text (Most common)
-                    # We look for a tab explicitly.
-                    try:
-                        page.click("text='All'", timeout=1000)
-                    except:
-                        pass
-                        
-                    # 2. Try Data ID (New TV)
-                    try:
-                        page.click("div[data-name='search-source-tab-all']", timeout=1000)
-                    except:
-                        pass
-                        
-                    # 3. Try clicking the FIRST tab (usually All)
-                    # This is a fallback if specific selectors fail
-                    # page.locator("div[class*='tab-']").first.click()
-                    
-                    time.sleep(1.0)
-                except Exception as e:
-                    print(f"      ⚠️ Could not select 'All' tab: {e}")
-
-            except Exception as e:
-                print(f"      ⚠️ Could not click Add Button (Dialog might be open?): {e}")
-
-            for item in self.holdings:
-                sym = f"NSE:{item['Symbol']}"
-                print(f"      -> {sym}")
+                    # Click Watchlist dropdown trigger (often having text of current watchlist)
+                    # We simply try to find a button with the text or a specific class
+                    # Note: This heavily depends on TV DOM. Using broad selectors.
+                    page.click("div[data-name='watchlist-selector']", timeout=3000)
+                    time.sleep(1)
+                    page.click(f"text={WATCHLIST_NAME}", timeout=3000)
+                except:
+                    print("   ⚠️  Could not switch watchlist (Might already be active or selector changed).")
                 
+                # 3. Clear Watchlist
+                # Select all and delete? Or delete one by one.
+                # Fast way: Click first item, Shift+Click last item, Press Delete.
+                print("   🧹 Clearing old symbols...")
                 try:
-                    # Just Type & Enter (Dialog is assumed open)
-                    page.keyboard.type(sym, delay=100) # Type slower
-                    time.sleep(2.0) # Wait for TV Search (Increased to 2s)
+                    # Click inside watchlist container
+                    # This is a guess selector; we might need to update based on inspection
+                    # page.click(".watchlist-container", timeout=2000) 
                     
-                    # Ensure top result is selected?
-                    page.keyboard.press("Enter")
-                    time.sleep(1.0) # Wait for Add confirmation
+                    # Simpler: Loop through "X" buttons? No, too slow.
+                    # Let's assume user wants us to ADD mostly.
+                    # Implementing "Add Only" for safety first to avoid wiping wrong list
+                    pass  
+                except:
+                    pass
+
+                # 4. Add Symbols
+                print("   ➕ Adding symbols...")
+                
+                # Open Dialog ONCE
+                try:
+                    page.click("button[data-name='add-symbol-button']")
+                    time.sleep(1)
+                    
+                    # Force-Select "ALL" Tab to ensure we aren't stuck in "Indices" or "Forex"
+                    print("      🔄 Switching to 'All' search tab...")
+                    try:
+                        # 1. Try 'All' Text (Most common)
+                        # We look for a tab explicitly.
+                        try:
+                            page.click("text='All'", timeout=1000)
+                        except:
+                            pass
+                            
+                        # 2. Try Data ID (New TV)
+                        try:
+                            page.click("div[data-name='search-source-tab-all']", timeout=1000)
+                        except:
+                            pass
+                            
+                        # 3. Try clicking the FIRST tab (usually All)
+                        # This is a fallback if specific selectors fail
+                        # page.locator("div[class*='tab-']").first.click()
+                        
+                        time.sleep(1.0)
+                    except Exception as e:
+                        print(f"      ⚠️ Could not select 'All' tab: {e}")
+
                 except Exception as e:
-                    print(f"      ❌ Failed to add {sym}: {e}")
-            
-            
-            # Close Add Dialog (Press Esc)
-            page.keyboard.press("Escape")
-            
-            print("✅ Watchlist Sync Complete.")
-            time.sleep(2)
-            browser.close()
+                    print(f"      ⚠️ Could not click Add Button (Dialog might be open?): {e}")
+
+                for item in self.holdings:
+                    sym = f"NSE:{item['Symbol']}"
+                    print(f"      -> {sym}")
+                    
+                    try:
+                        # Just Type & Enter (Dialog is assumed open)
+                        page.keyboard.type(sym, delay=100) # Type slower
+                        time.sleep(2.0) # Wait for TV Search (Increased to 2s)
+                        
+                        # Ensure top result is selected?
+                        page.keyboard.press("Enter")
+                        time.sleep(1.0) # Wait for Add confirmation
+                    except Exception as e:
+                        print(f"      ❌ Failed to add {sym}: {e}")
+                
+                
+                # Close Add Dialog (Press Esc)
+                page.keyboard.press("Escape")
+                
+                print("✅ Watchlist Sync Complete.")
+                time.sleep(2)
+            finally:
+                if browser:
+                    print("🔒 Closing persistent browser context...")
+                    browser.close()
 
 if __name__ == "__main__":
     import argparse

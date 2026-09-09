@@ -1,0 +1,63 @@
+S4 Entry Trigger Issues:
+1) When a trigger fires on S4 Entry Trigger, even if I flip the path to Bull or Recovery, the trigger stays. That means, the signal is coming only from the location and not from the PA conditions? The location should prompt me for a proper trade location, but the trade signal should be coming from the PA condition, right? How did you code this indicator?
+2) Follow-through bars requirement
+3) Controlling Zone logic
+4) Color scheme for TF zones
+5) Before the market open, I shortlist some stocks, based on the S4 Entry Trigger signals. However, as soon as the market is open, the triggers drop. I think you should still tie them to the last closed intraday candle, rather than counting on the intraday candle being formed. The same applies during the market hours (the indicator should be based on the last closed candle)
+6) 
+
+1) Nearest Support: 18.9% away? which support level?
+2)
+
+Quality of zones:
+
+1) Strength of departure (strength of the leg-out or leg-out+Follow-through, or leg-out with gap up/ down.
+2) Number of candles in the base (you have already included this)
+3) Alignment with higher timeframe zones
+4) Arrival Style: How price returns matters as much as the zone itself. A fast, high-ATR drop into a demand zone often results in a sharp, immediate rejection. Conversely, a slow, stair-stepping compression into a zone suggests momentum is absorbing the level, increasing the risk of a bleed-through.
+5) Volume & Order Flow Footprints: A pristine zone shows distinct volume expansion on the departure leg. Upon arrival, order flow should reveal delta divergence—for instance, aggressive selling volume drying up or being actively absorbed exactly as it hits the demand base.
+6) Dynamic Support/Resistance Alignment: When a static price zone overlaps with a key dynamic level—such as the $EMA_{20}$ tracking cleanly on the daily timeframe—it creates a high-probability nexus.
+7) Fibonacci Confluence: Zones that align with the 50% to 61.8% retracement levels of the macro leg provide institutional discount (for demand) or premium (for supply) pricing.
+8) Proximity to EMA20: Price should be extended from the zone (for DZ, price is quite above the zone), but not away from the zone (price not below the DZ). Also, if EMA20 is neaby the zone, then the zone is stronger.
+
+1) ⚠️ Live market · snapshot is 111 min old (built 13:02). Intraday PA triggers fire on the FORMING bar and can fade — the live Single Symbol page may legitimately disagree on trigger-edge names. Rebuild (or use Live refresh) before acting on a category.
+
+1) Why this Weekly DZ is not drawn? (CoalIndia Weekly)
+2) Controlling zones criteria: 1. a zone leading to a new ATH (already documented and implemented), 2. a zone reversing the trend of the price, 3. a zone that has violated an opposing controlling zone. Please add all the three criteria.
+3) Have two measuring factors for the zones: 1. Age, 2. Recency - decide on the ageing and recency values. Add zone recency to the zone score.
+4) Is Bull Flag / HTF not part of the PA battery? are Bull Flag and Hight Tight Flag, the same?
+5) S/R Levels-Auto: Levels tracker per timeframe: 4-6 months of daily bars. What about Monthly/ weekly levels?
+6) S/R Levels-Auto: Min touches for a level (pivot touches): when there are multiple pivot touches, the touches need not be at the pivot extreme for all the pivots. The S/R line may pierce through the pivot wicks. The objective is to achieve the maximum pivot touches. At the same time, try to connect as many wicks as possible, but do not count the non-pivot wicks into the test score.
+7) Draw rectangles as well, as patterns.
+8) How do you calculate the ageing for pivot zones and when are they get tested/ violated? Do pivot zones take volume profiles into account?
+9) How do I trade pivot zones?
+10) When the zone width is too narrow, draw the zone from wick to wick.
+11) Sometimes, it is drawing two zones at the same time and the bottom most zone's leg-in looks like base-candle- changing the LEg-in min range to 1.2 removed it. (Acutaas monthly).
+12. The Pivot zones are drawn with dashed lines? What's the criteria for drawing pivot zones? when valid, why only pivot daily zones are drawn? (Acutaas Daily).Looks like only pivot daily zones are drawn. Very few daily D/S zones are drawn. On some stocks, no DDZ/DSZ's at all.
+13. Reduce the background transparency level for the zones, further down
+14. Daily Zone label colors to be updated to Light Blue.
+15. Are pivot zones overriding demand/supply zones?
+16. Why this Monthly zone is not drawn? (Anandrathi Monthly).
+17. show tested zones in grey (check box). This is required to verify all the valid zones are drawn.
+18. Why this Weekly DZ is not drawn? (Caplipoint Weekly).
+19. Wicky candles as follow-through for the leg-out should be fine, as long as the next follow-through candle cancels the selling pressure on the previous candle (for DZs) and vice versa.
+20. 
+21. 
+
+When I load the S4 Entry Trigger indicator, it is forcing me to draw a Trendline first, else it closes!
+Panel Table restructuring:
+1) Club AVWAP Low, BO and Gap in one row separated by dots
+2) Move AVWAP Trigger above Nearest Support
+3) Sequence like this: Nearest Support, then Support Zone, then S/R (nearest), then Price vs EMA20, then Room for Trade
+4) Then Pattern/ Geometry
+5) Intraday Trigger, then RV (rel vol . TF), then Confluence x/15
+6)In Trigger Section, keep Plan on a separate row (as-is), Club Entry (buy-stop), Stop-loss, Targt-1, Target-2 in one row, separated by dots.
+7) Rest of the rows, as-is.
+
+On panel table Nearest Support is shown as 3501.90 (2.8%), whereas it is not marked on the chart (Acutaas 75 Min).
+How is the S/R (Nearest) different from the Nearest Support field? It shows: S 2063.35 .D (-42.7%) | 1.1R
+Pattern is shown as Rising Channel/Wedge, whereas, no such pattern drawn on the chart.
+On Structure basis: 30WMA repaired-is it reclaimed?
+Status: If no PA pattern, show the line in amber.
+Analysis: Repeat of the field outputs above. Repeat of the same text in the field again and again. Not useful at all.
+

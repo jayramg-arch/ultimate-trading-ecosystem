@@ -1,0 +1,56 @@
+if barstate.islast
+    // Cleanup is UNCONDITIONAL and up front. Chart Markup kept every delete inside
+    // its own `if show_*` gate, so toggling a feature off SKIPPED the delete and
+    // froze that drawing on the chart forever — you ended up tuning against ghosts.
+    // Deletes belong here; draw calls stay behind their gates.
+    if array.size(srLines) > 0
+        for i = 0 to array.size(srLines) - 1
+            line.delete(array.get(srLines, i))
+        array.clear(srLines)
+    if array.size(srLbls) > 0
+        for i = 0 to array.size(srLbls) - 1
+            label.delete(array.get(srLbls, i))
+        array.clear(srLbls)
+
+    // MANUAL first — highest TF first so the heavy Monthly line sits under the
+    // lighter Weekly/Daily ones rather than burying them.
+    f_drawLv(f_lvOn(mv1, useLvM) ? mv1 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv2, useLvM) ? mv2 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv3, useLvM) ? mv3 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv4, useLvM) ? mv4 : na, "M", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv1, useLvW) ? wv1 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv2, useLvW) ? wv2 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv3, useLvW) ? wv3 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(wv4, useLvW) ? wv4 : na, "W", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv1, useLvD) ? dv1 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv2, useLvD) ? dv2 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv3, useLvD) ? dv3 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(dv4, useLvD) ? dv4 : na, "D", 0, 0, false, true)
+    // AUTO — only on a TF you have NOT marked yourself.
+    f_drawAutoTf(srM, "M", useLvM, sr_show_M, manM)
+    f_drawAutoTf(srW, "W", useLvW, sr_show_W, manW)
+    f_drawAutoTf(srD, "D", useLvD, sr_show_D, manD)
+
+    // --- MANUAL TRENDLINES. Deletes are unconditional and up front (a delete left
+    // inside its own `if show_*` gate is how Chart Markup froze drawings on the
+    // chart forever). Width by TF, same conviction encoding as the levels.
+    line.delete(lnTlS)
+    line.delete(lnTlR)
+    label.delete(lbTlS)
+    label.delete(lbTlR)
+    if tls_live
+        int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
+        if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
+            lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
+            lbTlS := label.new(bar_index, tls_now, _chartTag + " · TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+        else                            // MANUAL: bar-time anchors from the numeric inputs
+            lnTlS := line.new(tls_t1, tls_p1, time, tls_now, xloc=xloc.bar_time, color=C_OK, width=_wS)   // ends AT the label anchor (collinear by construction) — extend.right ran the ray through the label text
+            lbTlS := label.new(time, tls_now, tls_tfTag + " · TL support  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+    if tlr_live
+        int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
+        if tl_auto and not na(_tlrAX)
+            lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
+            lbTlR := label.new(bar_index, tlr_now, _chartTag + " · TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+        else
+            lnTlR := line.new(tlr_t1, tlr_p1, time, tlr_now, xloc=xloc.bar_time, color=C_NO, width=_wR)
+            lbTlR := label.new(time, tlr_now, tlr_tfTag + " · TL resistance  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_time, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)

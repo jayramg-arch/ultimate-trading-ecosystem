@@ -64,7 +64,7 @@ def generate_tactical_analysis(symbol, sector, stage="Stage 2", rs_status="Leadi
     result = ask_llm(prompt, system_instruction=system_instruction, fallback_text=fallback_text)
     
     # 3. Save to Cache
-    if result and "Error" not in result:
+    if result and "Error" not in result and "[Analyst Proxy]" not in result:
         set_cached_response(cache_key, result)
         
     return result

@@ -1,3 +1,7 @@
+import sys
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 import sqlite3
 import pandas as pd
 import yfinance as yf
@@ -8,7 +12,37 @@ from dhanhq import dhanhq
 from dotenv import load_dotenv
 from ai_grading_engine import get_weinstein_score
 
+# Phase-2A migration: prefer the unified sectors.db over legacy sector_db.json.
+# Falls back to the JSON path if sector_lookup is unavailable.
+try:
+    import sector_lookup as _sl
+    _USE_SECTOR_DB = bool(_sl.stats().get("db_exists", False))
+except Exception:
+    _sl = None
+    _USE_SECTOR_DB = False
+
+# C1: route OHLCV through the unified data_provider when available.
+try:
+    import data_provider as _dp
+    USE_DATA_PROVIDER = True
+except Exception:
+    _dp = None
+    USE_DATA_PROVIDER = False
+
 DB_FILES = ['trade_journal_v7.db', 'trade_journal_v6.db']
+
+def _clean_to_yf(raw: str) -> str:
+    """Strip exchange prefix, Dhan series suffixes (-EQ/-BE/-SM/-ST/-BZ),
+    .NS/.BO duplicates; append .NS for yfinance. Empty if unrecoverable."""
+    s = str(raw or "").strip().upper().replace("NSE:", "").replace("BSE:", "")
+    if s.endswith(".NS") or s.endswith(".BO"):
+        s = s[:-3]
+    for suf in ("-EQ", "-BE", "-SM", "-ST", "-BZ"):
+        if s.endswith(suf):
+            s = s[: -len(suf)]
+            break
+    return f"{s}.NS" if s else ""
+
 
 def get_open_portfolio():
     # 1. Try Live Dhan First
@@ -23,9 +57,9 @@ def get_open_portfolio():
                 symbols = set()
                 for item in resp.get('data', []):
                     if float(item.get('totalQty', 0)) > 0:
-                        sym = str(item.get('tradingSymbol', item.get('securityId', ''))).replace("NSE:", "").strip()
+                        # A7: properly strip Dhan -EQ/-BE etc. before .NS-appending
+                        sym = _clean_to_yf(item.get('tradingSymbol', item.get('securityId', '')))
                         if sym:
-                            if not sym.endswith(".NS"): sym += ".NS"
                             symbols.add(sym)
                 if symbols:
                     print("✅ Successfully fetched LIVE Open Portfolio from Dhan.")
@@ -38,21 +72,29 @@ def get_open_portfolio():
     if not db_file:
         print("❌ Could not find Trade Journal DB.")
         return []
-    
+
     conn = sqlite3.connect(db_file)
     df = pd.read_sql("SELECT symbol, buy_price FROM journal WHERE status = 'OPEN'", conn)
     conn.close()
-    
+
     # Use a set to eliminate duplicate rows if you bought the same stock multiple times
     symbols = set()
     for sym in df['symbol'].tolist():
-        sym = str(sym).replace("NSE:", "").strip()
-        if not sym.endswith(".NS"):
-            sym += ".NS"
-        symbols.add(sym)
+        clean = _clean_to_yf(sym)  # A7: strip -EQ/-BE/-SM/-ST/-BZ before .NS
+        if clean:
+            symbols.add(clean)
     return list(symbols)
 
 def get_sector(ticker):
+    # Phase-2A: unified DB path (curated, 536 symbols).
+    if _USE_SECTOR_DB and _sl is not None:
+        try:
+            rec = _sl.get_sector(ticker)
+            if rec:
+                return rec.get("display_name") or rec.get("sector_name") or "Other"
+        except Exception:
+            pass
+    # Legacy JSON fallback (preserves original behavior if sectors.db missing)
     try:
         t = str(ticker).replace(".NS", "").strip().upper()
         if not t.startswith("NSE:"): t = "NSE:" + t
@@ -60,26 +102,37 @@ def get_sector(ticker):
             with open("sector_db.json", "r") as f:
                 db = json.load(f)
             return db.get(t, "Other").replace("NSE:", "").replace("CNX", "").strip()
-    except: pass
+    except Exception:
+        pass
     return "Other"
 
 def grade_stocks(symbols):
-    """Assigns an Institutional Grade based on pure Minervini Structural Alignment."""
+    """Assigns an Institutional Grade based on pure Minervini Structural Alignment.
+
+    C1: prefer batched data_provider fetches (parquet-cached).
+    """
     if not symbols: return pd.DataFrame()
-    
+
+    data_map = {}
+    import data_provider as dp
     try:
-        data = yf.download(symbols, period="1y", interval="1d", group_by='ticker', progress=False, ignore_tz=True)
+        BATCH = 50
+        for i in range(0, len(symbols), BATCH):
+            chunk = symbols[i:i + BATCH]
+            bd = dp.fetch_batch_ohlcv(chunk, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+            for orig in chunk:
+                clean = dp.clean_symbol(orig)
+                if clean in bd:
+                    data_map[orig] = bd[clean]
     except Exception as e:
-        print(f"Error downloading data: {e}")
-        return pd.DataFrame()
-        
+        print(f"data_provider fetch failed in grade_stocks: {e}")
+
     results = []
-    is_multi = len(symbols) > 1
-    
+
     for symbol in symbols:
         try:
-            df = data[symbol].copy() if is_multi else data.copy()
-            if df.empty: continue
+            df = data_map.get(symbol)
+            if df is None or df.empty: continue
             
             # Ensure enough data points for 200 SMA
             if len(df) < 50:

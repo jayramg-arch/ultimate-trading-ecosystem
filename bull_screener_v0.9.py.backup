@@ -1,0 +1,374 @@
+#!/usr/bin/env python3
+"""
+bull_screener.py : Commander Bull Market Screener
+Implements 6 catalysts from Commander_Screener_Beta_Edition_v2.4.pine
+Input: FINAL_COMBINED_BULL_PICKS.csv
+Output: Bull_Screener_Results.csv
+Benchmark: ^CRSLDX (weekly)
+"""
+
+import os
+import time
+import logging
+import warnings
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+warnings.filterwarnings("ignore")
+
+DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+INPUT_FILE = "FINAL_COMBINED_BULL_PICKS.csv"
+OUTPUT_FILE = "Bull_Screener_Results.csv"
+BENCHMARK_YF = "^CRSLDX"
+
+CONFIG = {
+    "min_turnover_cr": 5.0,
+    "alpha_gate": 60,
+    "data_lookback_days": 400,
+    "download_delay_sec": 0.4
+}
+
+def to_yf(symbol: str) -> str:
+    s = str(symbol).strip().upper()
+    return s if s.startswith("^") else f"{s}.NS"
+
+def _flatten_cols(df: pd.DataFrame) -> pd.DataFrame:
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return df
+
+def compute_indicators(df: pd.DataFrame) -> dict:
+    c, h, l, v, o = df["Close"], df["High"], df["Low"], df["Volume"], df["Open"]
+    
+    sma50 = c.rolling(50).mean()
+    sma150 = c.rolling(150).mean()
+    sma200 = c.rolling(200).mean()
+    ema20 = c.ewm(span=20, adjust=False).mean()
+    vol_ma = v.rolling(50).mean()
+    
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean()
+    
+    def _rsi(series, n):
+        d = series.diff()
+        g = d.clip(lower=0).rolling(n).mean()
+        ls = (-d.clip(upper=0)).rolling(n).mean()
+        return 100 - 100 / (1 + g / ls.replace(0, np.nan))
+        
+    rsi14 = _rsi(c, 14)
+    rsi3 = _rsi(c, 3)
+    
+    # ADX/DI
+    up = h - h.shift(1)
+    dn = l.shift(1) - l
+    pos_dm = np.where((up > dn) & (up > 0), up, 0)
+    neg_dm = np.where((dn > up) & (dn > 0), dn, 0)
+    tr_smooth = tr.rolling(14).sum()
+    plus_di = 100 * pd.Series(pos_dm, index=c.index).rolling(14).sum() / tr_smooth
+    minus_di = 100 * pd.Series(neg_dm, index=c.index).rolling(14).sum() / tr_smooth
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    adx = dx.rolling(14).mean()
+    
+    # OBV
+    obv = np.where(c > c.shift(1), v, np.where(c < c.shift(1), -v, 0))
+    obv = pd.Series(obv, index=c.index).cumsum()
+    obv_ema = obv.ewm(span=20, adjust=False).mean()
+    
+    rel_vol = v / vol_ma.replace(0, np.nan)
+    high52w = h.rolling(250).max()
+    low52w = l.rolling(250).min()
+    
+    return dict(
+        close=c, high=h, low=l, open=o, volume=v,
+        sma50=sma50, sma150=sma150, sma200=sma200, ema20=ema20,
+        vol_ma=vol_ma, atr=atr, rsi14=rsi14, rsi3=rsi3,
+        plus_di=plus_di, minus_di=minus_di, adx=adx,
+        obv=obv, obv_ema=obv_ema,
+        rel_vol=rel_vol, high52w=high52w, low52w=low52w
+    )
+
+def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
+    if len(df) < 35:
+        return {"stage": 0, "mansfield": 0.0, "wrsi": 0.0}
+    c = df["Close"]
+    sma30 = c.rolling(30).mean()
+    slope = sma30 - sma30.shift(4)
+    thresh = sma30 * 0.0005
+    above = c.iloc[-1] > sma30.iloc[-1]
+    sl = slope.iloc[-1]
+    th = thresh.iloc[-1]
+    up = sl > th
+    dn = sl < -th
+    
+    stage = 0
+    if up and above: stage = 2
+    elif dn and not above: stage = 4
+    elif not dn and above: stage = 1
+    else: stage = 3
+    
+    # WRSI
+    def _rsi(series, n):
+        d = series.diff()
+        g = d.clip(lower=0).rolling(n).mean()
+        ls = (-d.clip(upper=0)).rolling(n).mean()
+        return 100 - 100 / (1 + g / ls.replace(0, np.nan))
+    wrsi = float(_rsi(c, 14).iloc[-1])
+    
+    # Mansfield
+    merged = pd.merge(c.rename("s"), df_bench["Close"].rename("m"), left_index=True, right_index=True, how="inner")
+    if len(merged) < 27:
+        mansfield = 0.0
+    else:
+        rs_line = merged["s"] / merged["m"]
+        sma26 = rs_line.rolling(26).mean()
+        mansfield = float(((rs_line / sma26.replace(0, np.nan)) - 1).iloc[-1]) * 100
+        
+    return {"stage": stage, "mansfield": mansfield, "wrsi": wrsi}
+
+def calculate_alpha_score(ind: dict) -> int:
+    score = 0
+    c = float(ind["close"].iloc[-1])
+    ema20 = float(ind["ema20"].iloc[-1])
+    sma50 = float(ind["sma50"].iloc[-1])
+    rsi14 = float(ind["rsi14"].iloc[-1])
+    adx = float(ind["adx"].iloc[-1])
+    pdi = float(ind["plus_di"].iloc[-1])
+    mdi = float(ind["minus_di"].iloc[-1])
+    o = float(ind["open"].iloc[-1])
+    rv = float(ind["rel_vol"].iloc[-1])
+    
+    if c > ema20: score += 15
+    if c > sma50: score += 15
+    
+    if rsi14 > 60: score += 20
+    elif rsi14 > 50: score += 10
+    
+    if adx > 20 and pdi > mdi: score += 10
+    
+    if c > o and rv >= 1.5: score += 20
+    elif c > o and rv >= 1.0: score += 10
+    
+    dist_ema20 = abs(c - ema20) / ema20 * 100
+    if dist_ema20 < 5: score += 20
+    elif dist_ema20 < 10: score += 10
+    
+    return score
+
+def check_conditions(ind: dict, weekly: dict, alpha: int) -> dict:
+    alpha_ok = alpha >= CONFIG["alpha_gate"]
+    
+    c = ind["close"]
+    h = ind["high"]
+    l = ind["low"]
+    o = ind["open"]
+    v = ind["volume"]
+    rv = ind["rel_vol"]
+    rsi14 = ind["rsi14"]
+    rsi3 = ind["rsi3"]
+    ema20 = ind["ema20"]
+    sma50 = ind["sma50"]
+    sma150 = ind["sma150"]
+    sma200 = ind["sma200"]
+    obv = ind["obv"]
+    obv_ema = ind["obv_ema"]
+    h52w = ind["high52w"]
+    l52w = ind["low52w"]
+    
+    c_now = float(c.iloc[-1])
+    o_now = float(o.iloc[-1])
+    h_now = float(h.iloc[-1])
+    l_now = float(l.iloc[-1])
+    rv_now = float(rv.iloc[-1])
+    ema20_now = float(ema20.iloc[-1])
+    rsi14_now = float(rsi14.iloc[-1])
+    rsi3_now = float(rsi3.iloc[-1])
+    
+    # Helpers
+    minervini = (
+        c_now > sma50.iloc[-1] > sma150.iloc[-1] > sma200.iloc[-1] and
+        sma200.iloc[-1] > sma200.iloc[-20] and
+        c_now > h52w.iloc[-1] * 0.75 and
+        c_now > l52w.iloc[-1] * 1.3
+    )
+    
+    trend_template = (
+        c_now > sma50.iloc[-1] and c_now > sma150.iloc[-1] and c_now > sma200.iloc[-1] and
+        sma150.iloc[-1] > sma200.iloc[-1] and
+        c_now > l52w.iloc[-1] * 1.25 and c_now > h52w.iloc[-1] * 0.75
+    )
+    
+    weinstein_setup = weekly["stage"] in (2, 1) and c_now > sma50.iloc[-1]
+    intraday_pos = (c_now - l_now) / (h_now - l_now) if h_now > l_now else 0
+    vol_drying = float(v.iloc[-5:].mean()) < float(ind["vol_ma"].iloc[-1])
+    dist_ema20 = abs(c_now - ema20_now) / ema20_now * 100
+    
+    # VCP tight: recent bars range compression
+    range10 = (h.iloc[-10:] - l.iloc[-10:]).mean()
+    range5 = (h.iloc[-5:] - l.iloc[-5:]).mean()
+    vcp_tight = range5 < range10 * 0.8
+    
+    # Catalysts — evaluated from highest to lowest priority
+    cat_id = 0
+    cat_label = "None"
+
+    # 6: SWG-GAP  (no alpha gate — pure price action)
+    if (o_now - h.iloc[-2]) / h.iloc[-2] > 0.04 and rv_now >= 3.0 and c_now > o_now and intraday_pos > 0.60 and weinstein_setup:
+        cat_id = 6; cat_label = "SWG-GAP"
+    # 5: SWG-REV  (no alpha gate — mean reversion, price lagging)
+    elif rsi3_now < 20 and rv_now > 1.5 and c_now < ema20_now and weekly["stage"] in (1, 2) and weekly["wrsi"] > 40:
+        cat_id = 5; cat_label = "SWG-REV"
+    # 4: SWG-BO  (alpha gate required)
+    elif alpha_ok and minervini and vcp_tight and c_now > float(h.iloc[-16:-1].max()) and rv_now > 1.25 and intraday_pos > 0.60:
+        cat_id = 4; cat_label = "SWG-BO"
+    # 3: SWG-PB  (alpha gate required)
+    elif alpha_ok and minervini and dist_ema20 <= 2.0 and 40 <= rsi14_now <= 60 and weekly["wrsi"] > 60 and vol_drying:
+        cat_id = 3; cat_label = "SWG-PB"
+    # 2: POS-BO  (alpha gate required)
+    elif alpha_ok and c_now > float(h.iloc[-22:-1].max()) and intraday_pos > 0.75 and rv_now > 1.25 and trend_template:
+        cat_id = 2; cat_label = "POS-BO"
+    # 1: POS-ACCUM  (alpha gate required)
+    elif alpha_ok and float(obv.iloc[-1]) > float(obv_ema.iloc[-1]) and weinstein_setup and vcp_tight and c_now > float(h.iloc[-31:-1].max()) * 0.9:
+        cat_id = 1; cat_label = "POS-ACCUM"
+        
+    # Scoring (0-20, matches v2.4 spec)
+    score = 0
+    # Stage
+    if weekly["stage"] == 2:   score += 4
+    elif weekly["stage"] == 1: score += 2
+    # Mansfield RS (tiers are cumulative: >10 gives both +2s)
+    if weekly["mansfield"] > 10:  score += 4   # +2 for >0, +2 more for >10
+    elif weekly["mansfield"] > 0: score += 2
+    # Alpha Score
+    if alpha >= 80:   score += 5
+    elif alpha >= 60: score += 3
+    # Catalyst fired
+    if cat_id >= 2:   score += 4
+    elif cat_id == 1: score += 2
+    # Volume
+    if rv_now >= 2.0:   score += 2
+    elif rv_now >= 1.5: score += 1
+    # Trend quality
+    if minervini:      score += 2
+    if trend_template: score += 1
+    score = min(score, 20)
+    
+    return {"id": cat_id, "label": cat_label, "score": score, "minervini": minervini, "trend_template": trend_template}
+
+def screen_symbol(symbol: str, df_bench: pd.DataFrame) -> dict:
+    yf_sym = to_yf(symbol)
+    try:
+        df_d = _flatten_cols(yf.download(yf_sym, period=f"{CONFIG['data_lookback_days']}d", interval="1d", auto_adjust=True, progress=False))
+        if df_d.empty or len(df_d) < 60: return None
+        df_w = _flatten_cols(yf.download(yf_sym, period="3y", interval="1wk", auto_adjust=True, progress=False))
+    except Exception:
+        return None
+
+    ind = compute_indicators(df_d)
+    
+    turnover_cr = float(ind["close"].iloc[-1] * ind["volume"].iloc[-1]) / 1e7
+    if turnover_cr < CONFIG["min_turnover_cr"]: return None
+    
+    weekly = compute_weekly_indicators(df_w, df_bench)
+    alpha = calculate_alpha_score(ind)
+    cond = check_conditions(ind, weekly, alpha)
+    
+    if cond["id"] == 0: return None
+    
+    c = float(ind["close"].iloc[-1])
+    atr = float(ind["atr"].iloc[-1])
+    sl = c - atr * 1.5
+    risk = c - sl
+    t1 = c + risk * 2.5
+    
+    return {
+        "Symbol": symbol,
+        "Catalyst": cond["label"],
+        "Score": cond["score"],
+        "Alpha": alpha,
+        "Stage": weekly["stage"],
+        "Mansfield": round(weekly["mansfield"], 2),
+        "Rel_Vol": round(float(ind["rel_vol"].iloc[-1]), 2),
+        "RSI": round(float(ind["rsi14"].iloc[-1]), 1),
+        "Entry": round(c, 2),
+        "SL_pct": round((c - sl) / c * 100, 2),
+        "T1_pct": round((t1 - c) / c * 100, 2)
+    }
+
+def run_bull_screener(progress_callback=None, symbols=None,
+                      out_file: str = OUTPUT_FILE) -> pd.DataFrame:
+    """Screen a list of NSE symbols for bull market catalysts.
+
+    Parameters
+    ----------
+    progress_callback : callable(idx, total, sym), optional
+        Called after each symbol is processed.
+    symbols : list[str], optional
+        Pre-loaded symbol list.  When *None* the function reads from
+        ``FINAL_COMBINED_BULL_PICKS.csv`` (default behaviour).
+    out_file : str, optional
+        CSV filename to save results (relative to DATA_DIR).
+    """
+    if symbols is None:
+        in_path = os.path.join(DATA_DIR, INPUT_FILE)
+        if not os.path.exists(in_path):
+            raise FileNotFoundError(f"Missing input {INPUT_FILE}")
+        df_in   = pd.read_csv(in_path)
+        # Accept common column-name variants
+        col = next(
+            (c for c in df_in.columns
+             if c.strip().lower() in ("symbol", "nsecode", "ticker", "scrip")),
+            None,
+        )
+        if col is None:
+            raise ValueError(
+                f"No 'Symbol' column found in {INPUT_FILE}. "
+                f"Columns present: {list(df_in.columns)}"
+            )
+        symbols = df_in[col].dropna().astype(str).str.strip().str.upper().unique().tolist()
+        symbols = [s for s in symbols if s and not s.isdigit()]
+
+    df_bench = _flatten_cols(
+        yf.download(BENCHMARK_YF, period="3y", interval="1wk",
+                    auto_adjust=True, progress=False)
+    )
+
+    results = []
+    total   = len(symbols)
+    for idx, sym in enumerate(symbols, 1):
+        if progress_callback:
+            progress_callback(idx, total, sym)
+        try:
+            res = screen_symbol(sym, df_bench)
+            if res:
+                results.append(res)
+        except Exception:
+            pass
+        time.sleep(CONFIG["download_delay_sec"])
+
+    if results:
+        df_out = pd.DataFrame(results).sort_values("Score", ascending=False)
+        df_out.to_csv(os.path.join(DATA_DIR, out_file), index=False)
+        return df_out
+    return pd.DataFrame()
+
+def main():
+    print("=" * 68)
+    print("  COMMANDER BULL SCREENER v1.0")
+    print("=" * 68)
+    
+    def on_progress(idx, total, sym):
+        print(f"[{idx:3d}/{total}] {sym:<15} ... ", end="", flush=True)
+    
+    try:
+        df = run_bull_screener(on_progress)
+        if not df.empty:
+            print(f"\nSaved {len(df)} results to {OUTPUT_FILE}")
+        else:
+            print("\nNo signals found.")
+    except Exception as e:
+        print(f"ERROR: {e}")
+
+if __name__ == "__main__":
+    main()

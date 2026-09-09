@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "tradingview": {
+      "command": "C:\\Users\\jayra\\.claude\\tv-mcp.bat",
+      "args": []
+    },
+    "filesystem": {
+      "command": "C:\\Program Files\\nodejs\\npx.cmd",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\jayra\\Documents\\GeminiVSCode"
+      ]
+    }
+  }
+}

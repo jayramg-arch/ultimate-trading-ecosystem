@@ -59,6 +59,10 @@ if hasattr(sys.stdout, "encoding") and sys.stdout.encoding and sys.stdout.encodi
 _DIR = os.path.dirname(os.path.abspath(__file__))
 RUNS_DIR = os.path.join(_DIR, "validation_runs")
 GATE_THRESHOLD = 0.60   # OOS sharpe must be >= 60% of in-sample
+# Purge/embargo band at the IS/OOS boundary (calendar days). See evaluate().
+# 45d ~= the observed MEDIAN hold (~30 trading days). 0 = old leaky behaviour,
+# 252 = strict no-overlap against the 180-trading-day design ceiling.
+EMBARGO_DAYS_DEFAULT = 45
 
 
 def _resolve_summary(summary_path=None):
@@ -96,7 +100,24 @@ def _window_metrics(alphas):
     }
 
 
-def evaluate(summary_path=None, is_frac=0.6):
+def evaluate(summary_path=None, is_frac=0.6, embargo_days=EMBARGO_DAYS_DEFAULT):
+    """Chronological IS/OOS split with a PURGE/EMBARGO band at the boundary.
+
+    `embargo_days` (26-Jul-2026, audit P1): anchors are ~30 days apart but forward
+    windows run 30-180 TRADING days, so without an embargo the last in-sample
+    anchors' outcome windows extend well past the boundary and overlap the
+    out-of-sample period — IS and OOS then share market conditions and the split
+    is not clean. Any in-sample anchor whose as_of falls within `embargo_days`
+    CALENDAR days of the first OOS anchor is PURGED (reported, never silently
+    dropped).
+
+    The default (45 days) is calibrated to the observed MEDIAN hold (~30 trading
+    days), not the 180-day design ceiling — a full-ceiling embargo would purge
+    ~8 of 12 usable anchors and leave nothing to test. This is a deliberate
+    trade-off, so run the sensitivity: `--embargo_days 0` reproduces the old
+    (leaky) behaviour, `--embargo_days 252` is the strict no-overlap bound.
+    A verdict that only survives at embargo 0 is not a real verdict.
+    """
     path = _resolve_summary(summary_path)
     if not path or not os.path.exists(path):
         return {"ok": False, "message": "No validation summary found. Run validation.py first."}
@@ -119,6 +140,22 @@ def evaluate(summary_path=None, is_frac=0.6):
     is_df = valid.iloc[:n_is]
     oos_df = valid.iloc[n_is:]
 
+    # ── PURGE / EMBARGO at the boundary ──
+    embargoed = []
+    if embargo_days and embargo_days > 0 and not oos_df.empty:
+        boundary = pd.to_datetime(oos_df["as_of"].iloc[0])
+        cutoff = boundary - pd.Timedelta(days=int(embargo_days))
+        is_dates = pd.to_datetime(is_df["as_of"])
+        keep = is_dates <= cutoff
+        embargoed = is_df.loc[~keep.values, "as_of"].tolist()
+        is_df = is_df.loc[keep.values]
+
+    if len(is_df) < 2:
+        return {"ok": False, "summary_path": path,
+                "message": (f"Embargo of {embargo_days}d purged the in-sample window down to "
+                            f"{len(is_df)} anchor(s) — too few to gate. Lengthen the run "
+                            f"(--months) or lower --embargo_days, and say which you did.")}
+
     m_is = _window_metrics(is_df["alpha_pct"].values)
     m_oos = _window_metrics(oos_df["alpha_pct"].values)
 
@@ -128,6 +165,7 @@ def evaluate(summary_path=None, is_frac=0.6):
     return {
         "ok": True, "summary_path": path,
         "total_anchors": total_anchors, "no_pick_anchors": dropped,
+        "embargo_days": int(embargo_days or 0), "embargoed_anchors": embargoed,
         "is_window": (is_df["as_of"].iloc[0], is_df["as_of"].iloc[-1]),
         "oos_window": (oos_df["as_of"].iloc[0], oos_df["as_of"].iloc[-1]),
         "in_sample": m_is, "out_sample": m_oos,
@@ -185,6 +223,10 @@ def _print(res):
 
     print(f"\n  Source run : {os.path.basename(res['summary_path'])}")
     print(f"  Anchors    : {res['total_anchors']} total · {res['no_pick_anchors']} had no picks (dropped, not zero-filled)")
+    _emb = res.get("embargoed_anchors") or []
+    print(f"  Embargo    : {res.get('embargo_days', 0)}d purge band at the boundary · "
+          f"{len(_emb)} in-sample anchor(s) purged"
+          + (f" ({', '.join(_emb)})" if _emb else ""))
     print(f"  In-sample  : {res['in_sample']['n']} anchors  [{res['is_window'][0]} → {res['is_window'][1]}]")
     print(f"  Out-sample : {res['out_sample']['n']} anchors  [{res['oos_window'][0]} → {res['oos_window'][1]}]")
 
@@ -211,14 +253,21 @@ def main(argv=None):
     ap.add_argument("--summary", default=None, help="validation *_summary.csv (default: LAST_RUN)")
     ap.add_argument("--is-frac", type=float, default=0.6, help="in-sample fraction (default 0.6)")
     ap.add_argument("--save", action="store_true", help="write a gate report CSV to validation_runs/")
+    ap.add_argument("--embargo_days", type=int, default=EMBARGO_DAYS_DEFAULT,
+                    help=(f"purge band at the IS/OOS boundary in calendar days "
+                          f"(default {EMBARGO_DAYS_DEFAULT}). 0 = old leaky behaviour; "
+                          f"252 = strict no-overlap. Run the sensitivity — a verdict that "
+                          f"only survives at 0 is not a real verdict."))
     args = ap.parse_args(argv)
 
-    res = evaluate(args.summary, args.is_frac)
+    res = evaluate(args.summary, args.is_frac, embargo_days=args.embargo_days)
     _print(res)
     if args.save and res.get("ok"):
         out = os.path.join(RUNS_DIR, "walkforward_oos_gate.csv")
         pd.DataFrame([{
             "source": os.path.basename(res["summary_path"]),
+            "embargo_days": res.get("embargo_days", 0),
+            "embargoed_anchors": "|".join(res.get("embargoed_anchors") or []),
             "is_anchors": res["in_sample"]["n"], "oos_anchors": res["out_sample"]["n"],
             "is_mean_alpha": res["in_sample"]["mean_alpha"], "oos_mean_alpha": res["out_sample"]["mean_alpha"],
             "is_sharpe": res["in_sample"]["sharpe"], "oos_sharpe": res["out_sample"]["sharpe"],

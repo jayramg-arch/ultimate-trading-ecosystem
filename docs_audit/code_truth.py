@@ -36,14 +36,14 @@ def v67_file():
 F = {}
 
 # ── versions ──────────────────────────────────────────────────────────────────
-s4 = read("Section4_Entry_Trigger_v7.2.pine")
+s4 = read("Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel).pine")
 core = read("S4Core.pine")
 uni = read("Weinstein_Unified_Ecosystem_v3.4.pine")
 v67n = v67_file()
 v67 = read(v67n)
 
 F["s4_title"] = first(r'indicator\("([^"]+)"', s4)
-F["s4_file"] = "Section4_Entry_Trigger_v7.2.pine"
+F["s4_file"] = "Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel).pine"
 F["s4_core_import"] = first(r"import jayramg/S4Core/(\d+)", s4)
 F["unified_title"] = first(r'strategy\("([^"]+)"', uni)
 F["unified_file"] = "Weinstein_Unified_Ecosystem_v3.4.pine"
@@ -118,6 +118,13 @@ F["s4_plots"] = plots(s4)
 # ── v67 exports (the S4 binding channel) ──────────────────────────────────────
 F["v67_s4_exports"] = re.findall(r'title="(s4_\w+)"', v67)
 F["bind_map_entries"] = re.findall(r'\["v67",\s*"(s4_\w+)"\]', read("tv_bind_s4_sources.js"))
+# The line above is a V67-ONLY view - it exists to diff against v67_s4_exports, so it
+# deliberately ignores the Zigzag sources. The NAME does not say so, and on 2 Sep 2026
+# that cost a wrong number in a handover ("28 fields to bind" when the run binds 31).
+# Both counts are now facts, so neither can be mistaken for the other again.
+_bindsrc = read("tv_bind_s4_sources.js")
+F["bind_map_total"] = len(re.findall(r'^\s*"[^"]+":\s*\[', _bindsrc, re.M))
+F["bind_map_zigzag"] = re.findall(r'\["zz",\s*"(\w+)"\]', _bindsrc)
 
 # ── catalyst families the screener can emit ───────────────────────────────────
 F["catalysts"] = sorted(set(re.findall(r'"(POS-[A-Z]+|SWG-[A-Z]+|REV-[A-Z]+|WYC-[A-Z]+)"', bs)))

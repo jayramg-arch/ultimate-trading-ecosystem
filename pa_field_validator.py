@@ -39,6 +39,13 @@ Simplifications vs Pine (each marked with a ``# TODO:`` in code):
   Affects ``pa_s2_launch`` gate and the ``baseCount`` reset trigger.
 * RSI divergence, EMA20 daily-on-intraday overlay, earnings, and other
   non-PA dashboard rows are out of scope.
+
+Related module
+--------------
+``pa_patterns.py`` (added 9-Jul-2026) holds the canonical LAST-BAR pattern
+batteries used by dashboards (Golden Matcher etc.). This file stays the
+vectorised whole-history implementation for backtesting; keep formulas
+aligned with ``pa_patterns.py`` when either side changes.
 """
 
 from __future__ import annotations

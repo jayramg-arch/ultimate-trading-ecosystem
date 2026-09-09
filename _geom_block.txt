@@ -1,0 +1,86 @@
+string geom = "—"
+// #59: geometry connector lines — cleared each bar, redrawn below only when a fresh
+// shape is classified, so the named shape is drawn (not phantom) and never goes stale.
+// #31: a Range / rectangle is drawn as a BOX instead of two lines.
+var line _geoHi = na
+var line _geoLo = na
+var box  _geoBox = na
+line.delete(_geoHi)
+line.delete(_geoLo)
+box.delete(_geoBox)
+_geoHi := na
+_geoLo := na
+_geoBox := na
+bool _geoFresh = array.size(gpxh) >= 2 and array.size(gpxl) >= 2 and bar_index - math.min(array.get(gpxh, array.size(gpxh) - 2), array.get(gpxl, array.size(gpxl) - 2)) <= geo_maxage
+if show_geom and d_pat and _geoFresh and array.size(gphy) >= 2 and array.size(gply) >= 2
+    // Anchors ordered early(_2) → late(_1). geo_maxfit → the max-threading fit;
+    // else the last two pivots (pre-fix). Times computed here too so the drawing
+    // block reuses them (no re-fetch).
+    float _h1 = na
+    float _h2 = na
+    float _l1 = na
+    float _l2 = na
+    int   _xh1 = na
+    int   _xh2 = na
+    int   _xl1 = na
+    int   _xl2 = na
+    if geo_maxfit
+        [_xhE, _yhE, _xhL, _yhL] = f_bestLine(gphy, gpxh, geo_thread * chart_atr)
+        [_xlE, _ylE, _xlL, _ylL] = f_bestLine(gply, gpxl, geo_thread * chart_atr)
+        _h2 := _yhE
+        _h1 := _yhL
+        _xh2 := _xhE
+        _xh1 := _xhL
+        _l2 := _ylE
+        _l1 := _ylL
+        _xl2 := _xlE
+        _xl1 := _xlL
+    else
+        _h1 := array.get(gphy, array.size(gphy) - 1)
+        _h2 := array.get(gphy, array.size(gphy) - 2)
+        _l1 := array.get(gply, array.size(gply) - 1)
+        _l2 := array.get(gply, array.size(gply) - 2)
+        _xh1 := array.get(gpxh, array.size(gpxh) - 1)
+        _xh2 := array.get(gpxh, array.size(gpxh) - 2)
+        _xl1 := array.get(gpxl, array.size(gpxl) - 1)
+        _xl2 := array.get(gpxl, array.size(gpxl) - 2)
+    float _ft = geo_flat * chart_atr
+    bool _hFlat = math.abs(_h1 - _h2) <= _ft
+    bool _lFlat = math.abs(_l1 - _l2) <= _ft
+    bool _hDown = not _hFlat and _h1 < _h2
+    bool _hUp   = not _hFlat and _h1 > _h2
+    bool _lUp   = not _lFlat and _l1 > _l2
+    bool _lDown = not _lFlat and _l1 < _l2
+    // if/else rather than a wrapped ternary: Pine requires a continuation line to be
+    // indented by a NON-multiple of 4 (4/8/12 read as a new block), which a wrapped
+    // ternary trips over silently. The shape reads better as a ladder anyway.
+    if _hFlat and _lFlat
+        geom := "Range / rectangle"
+    else if _hFlat and _lUp
+        geom := "Ascending triangle"
+    else if _hDown and _lFlat
+        geom := "Descending triangle"
+    else if _hDown and _lUp
+        geom := "Symmetrical triangle"
+    else if _hUp and _lUp
+        geom := "Rising channel / wedge"
+    else if _hDown and _lDown
+        geom := "Falling channel / wedge"
+    else if _hUp and _lDown
+        geom := "Broadening"
+    else if _hFlat and _lDown
+        geom := "Broadening (descending)"
+    else if _hUp and _lFlat
+        geom := "Broadening (ascending)"
+    // #59/#31: draw the classification. A Range / rectangle → a BOX (flat top/bottom at
+    // the mean of the two highs / two lows, spanning from the earliest pivot, extended
+    // right). Every other shape → the two pivot connectors that produced it.
+    if drawGeomLines and geom != "—" and not na(_xh1) and not na(_xh2) and not na(_xl1) and not na(_xl2)
+        if geom == "Range / rectangle"
+            int _bxL = math.min(math.min(_xh1, _xh2), math.min(_xl1, _xl2))
+            float _bxT = (_h1 + _h2) / 2.0
+            float _bxB = (_l1 + _l2) / 2.0
+            _geoBox := box.new(_bxL, _bxT, bar_index, _bxB, xloc=xloc.bar_index, border_color=color.new(#9598a1, 10), border_width=1, border_style=line.style_dashed, bgcolor=color.new(#9598a1, 92), extend=extend.right)
+        else
+            _geoHi := line.new(_xh2, _h2, _xh1, _h1, xloc=xloc.bar_index, color=C_GREY20, width=1, extend=extend.right, style=line.style_dashed)
+            _geoLo := line.new(_xl2, _l2, _xl1, _l1, xloc=xloc.bar_index, color=C_GREY20, width=1, extend=extend.right, style=line.style_dashed)

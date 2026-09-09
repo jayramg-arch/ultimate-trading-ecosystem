@@ -1,0 +1,50 @@
+f_autoTL(array<float> py, array<int> px, bool isSupport, int off, float tolPx, float nudgePx, int maxAge) =>
+    int   _n = array.size(py) - off
+    bool  _live = false
+    int   _ax = na
+    float _ay = na
+    float _now = na
+    if _n >= 2
+        int _bT = -1                       // best touch count · _bA/_bB = anchor pivot indices
+        int _bA = -1
+        int _bB = -1
+        int _bSpan = -1
+        for _a = 0 to _n - 2
+            int   _xa = array.get(px, _a)
+            float _ya = array.get(py, _a)
+            for _b = _a + 1 to _n - 1
+                int _xb = array.get(px, _b)
+                int _dx = _xb - _xa
+                // the line's LATER anchor must be recent, so the line is current
+                if _dx > 0 and bar_index - _xb <= maxAge
+                    float _slope = (array.get(py, _b) - _ya) / float(_dx)
+                    bool  _valid = true
+                    int   _touch = 0
+                    for _j = 0 to _n - 1
+                        float _pred = _ya + _slope * float(array.get(px, _j) - _xa)
+                        float _d = array.get(py, _j) - _pred
+                        if isSupport and _d < -tolPx
+                            _valid := false       // a low BELOW the support line ⇒ not an envelope
+                        if (not isSupport) and _d > tolPx
+                            _valid := false       // a high ABOVE the resistance line ⇒ not an envelope
+                        if math.abs(_d) <= tolPx
+                            _touch += 1
+                    if _valid and _touch >= 2
+                        int _span = _xb - _xa
+                        if _touch > _bT or (_touch == _bT and _span > _bSpan)
+                            _bT := _touch
+                            _bA := _a
+                            _bB := _b
+                            _bSpan := _span
+        if _bA >= 0
+            int   _xa2 = array.get(px, _bA)
+            float _ya2 = array.get(py, _bA)
+            float _slp = (array.get(py, _bB) - _ya2) / float(array.get(px, _bB) - _xa2)
+            float _proj = _ya2 + _slp * float(bar_index - _xa2) + nudgePx
+            bool  _broken = isSupport ? (close < _proj - tolPx) : (close > _proj + tolPx)
+            if not _broken
+                _ax   := _xa2               // draw from the OLD (major-swing) anchor to now
+                _ay   := _ya2 + nudgePx
+                _now  := _proj
+                _live := true
+    [_live, _ax, _ay, _now]

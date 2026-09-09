@@ -1,0 +1,28 @@
+872: st.sidebar.title("📘 Trade Journal")
+879: st.sidebar.subheader("📡 NAVIGATION")
+883: st.sidebar.markdown(f"""<style>
+908:     if st.sidebar.button(opt, key=f"journal_nav_{opt}", use_container_width=True):
+913: st.sidebar.divider()
+916: st.sidebar.subheader("💰 Account")
+917: st.sidebar.metric("Total Account", f"₹{format_inr(account_size)}")
+918: st.sidebar.metric("Capital Deployed", f"₹{format_inr(capital_deployed)}")
+919: st.sidebar.metric("Funds (Free)", f"₹{format_inr(live_funds)}")
+921: st.sidebar.divider()
+924: st.sidebar.subheader("🔥 Active Performance")
+925: st.sidebar.metric("Open P&L", f"₹{format_inr(total_unrealized_pnl)}", delta=f"{total_unrealized_pnl:,.2f}")
+926: c1, c2 = st.sidebar.columns(2)
+930: st.sidebar.divider()
+933: st.sidebar.subheader("📜 Closed Performance")
+934: st.sidebar.caption("History (Fully Exited Only)")
+936: st.sidebar.metric("Realized P&L", f"₹{format_inr(realized_pnl)}", delta=f"{realized_pnl:,.2f}")
+937: c3, c4 = st.sidebar.columns(2)
+940: st.sidebar.divider()
+941: if st.sidebar.button("🔄 Sync Entry Dates (3 Years)"):
+958: if st.sidebar.button("⚓ Sync Trade Exits (Native API)"):
+969: if st.sidebar.button("⚠️ Force Resync SL/Targets"):
+1010: st.sidebar.metric("Win Rate", f"{win_rate:.1f}%")
+1013: st.sidebar.divider()
+1014: st.sidebar.subheader("🦁 AI RISK GUARD")
+1015: with st.sidebar.expander("🛡️ Tactical Alerts", expanded=True):
+1032: st.sidebar.divider()
+1395:         sel_fy = st.sidebar.selectbox("📅 Filter by Financial Year", ["All Years"] + fy_list)

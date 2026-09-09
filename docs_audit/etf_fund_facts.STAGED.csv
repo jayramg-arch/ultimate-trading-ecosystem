@@ -1,0 +1,42 @@
+Symbol,AUM_Cr,TER_Pct,As_Of,Source,Fund
+ALPHAETF,927.7,0.3,2026-08-28,xlsx:issuer+index,Kotak Nifty Alpha 50 ETF
+AUTOBEES,498.7,0.19,2026-08-28,xlsx:ticker,Nippon Auto ETF (AUTOBEES)
+AUTOIETF,225.2,0.2,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty Auto ETF
+AXISGOLD,5771.9,0.58,2026-08-28,xlsx:issuer+index,Axis Gold ETF
+BANKBEES,8381.6,0.16,2026-08-28,xlsx:ticker,Nippon Nifty Bank ETF (BANKBEES)
+BANKIETF,3066.2,0.17,2026-08-28,xlsx:issuer+index,ICICI Prudential Bank ETF
+CONSUMBEES,194.7,0.26,2026-08-28,xlsx:ticker,Nippon Nifty Cons. ETF (CONSUMBEES)
+DEFENCE,1358.5,0.67,2026-08-28,xlsx:manual,Motilal Oswal Nifty India Defence ETF
+EBANK,3066.2,0.17,2026-08-28,xlsx:issuer+index,ICICI Prudential Bank ETF
+EVINDIA,180.4,0.35,2026-08-28,xlsx:manual,Mirae Asset Nifty EV & New Age Auto ETF
+FMCGIETF,730.4,0.2,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty FMCG ETF
+GILT5YBEES,263.2,0.08,2026-08-28,xlsx:ticker,Nippon 5 Year G-Sec ETF (GILT5YBEES)
+GOLD1,23405.5,0.59,2026-08-28,xlsx:issuer+index,HDFC Gold ETF
+GOLDBEES,59341.2,0.69,2026-08-28,xlsx:ticker,Nippon Gold ETF (GOLDBEES)
+GOLDETF,15228.9,0.52,2026-08-28,xlsx:issuer+index,Kotak Gold ETF
+GOLDIETF,28916.1,0.42,2026-08-28,xlsx:issuer+index,ICICI Pru Gold ETF
+HEALTHIETF,232.7,0.15,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty Healthcare ETF
+HNGSNGBEES,1114.5,0.79,2026-08-28,xlsx:ticker,Nippon Hang Seng ETF (HNGSNGBEES)
+INFRABEES,185.6,0.43,2026-08-28,xlsx:ticker,Nippon Nifty Infra ETF (INFRABEES)
+ITBEES,3712.5,0.19,2026-08-28,xlsx:ticker,Nippon Nifty IT ETF (ITBEES)
+ITIETF,550.7,0.28,2026-08-28,xlsx:issuer+index,ICICI Prudential IT ETF
+JUNIORBEES,9001.1,0.15,2026-08-28,xlsx:issuer+index,Nippon Nifty Next 50 Junior Bees - ETF
+MAFANG,5108.1,0.55,2026-08-28,xlsx:issuer+index,Mirae Asset NYSE FANG+ ETF
+MASPTOP50,1348.3,0.54,2026-08-28,xlsx:issuer+index,Mirae Asset S&P 500 Top 50 ETF
+MID150BEES,4037.8,0.18,2026-08-28,xlsx:ticker,Nippon Nifty MC 150 ETF (MID150BEES)
+MOM100,127.6,1.28,2026-08-28,xlsx:issuer+index,Motilal Oswal Nifty 200 Momentum ETF
+MOM30IETF,559.7,0.26,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty 200 Momentum 30 ETF
+MON100,16482.2,0.6,2026-08-28,xlsx:issuer+index,Motilal Oswal Nasdaq 100 ETF
+NEXT50IETF,2726.2,0.09,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty Next 50 ETF
+NIF100IETF,159.7,0.41,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty 100 ETF
+NIFTYBEES,66925.3,0.03,2026-08-28,xlsx:ticker,Nippon Nifty 50 ETF (NIFTYBEES)
+NV20IETF,175.5,0.21,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty 50 Value 20 ETF
+OILIETF,313.4,0.34,2026-08-28,xlsx:manual,ICICI Pru Nifty Oil & Gas ETF
+PHARMABEES,1730.0,0.18,2026-08-28,xlsx:ticker,Nippon Pharma ETF (PHARMABEES)
+PSUBANK,2644.5,0.49,2026-08-28,xlsx:issuer+index,Kotak Nifty PSU Bank ETF
+PSUBNKBEES,4060.6,0.42,2026-08-28,xlsx:ticker,Nippon Nifty PSU Bank ETF (PSUBNKBEES)
+PVTBANIETF,4054.9,0.18,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty Private Bank ETF
+QUAL30IETF,141.1,0.26,2026-08-28,xlsx:issuer+index,ICICI Pru Nifty 200 Quality 30 ETF
+SILVERBEES,32397.2,0.49,2026-08-28,xlsx:ticker,Nippon Silver ETF (SILVERBEES)
+SILVERIETF,15126.5,0.34,2026-08-28,xlsx:issuer+index,ICICI Pru Silver ETF
+SMALLCAP,9.2,0.21,2026-08-28,xlsx:issuer+index,ICICI Prudential Nifty Smallcap 250 ETF

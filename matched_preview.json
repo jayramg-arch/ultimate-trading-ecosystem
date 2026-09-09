@@ -1,0 +1,936 @@
+{
+  "matched": [
+    {
+      "row": 2,
+      "name": "SBI Nifty 50 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 50",
+      "symbol": "SETFNIF50",
+      "full_symbol": "SETFNIF50.NS",
+      "longname": "SBI Nifty 50 ETF"
+    },
+    {
+      "row": 7,
+      "name": "Zerodha Nifty 100 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 100",
+      "symbol": "TOP100CASE",
+      "full_symbol": "TOP100CASE.NS",
+      "longname": "Zerodha Nifty 100 ETF"
+    },
+    {
+      "row": 8,
+      "name": "Motilal Oswal Nifty 500 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 500",
+      "symbol": "MONIFTY500",
+      "full_symbol": "MONIFTY500.NS",
+      "longname": "Motilal Oswal Nifty 500 ETF"
+    },
+    {
+      "row": 10,
+      "name": "Edelweiss Nifty LargeMidcap 250 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Largemid250",
+      "symbol": "ELM250",
+      "full_symbol": "ELM250.NS",
+      "longname": "Edelweiss Nifty LargeMidcap 250 ETF"
+    },
+    {
+      "row": 11,
+      "name": "Kotak Nifty Midcap 50 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Mid Cap 50",
+      "symbol": "MIDCAP",
+      "full_symbol": "MIDCAP.NS",
+      "longname": "Kotak Nifty Midcap 50 ETF"
+    },
+    {
+      "row": 12,
+      "name": "Motilal Oswal Nifty Midcap 100 ETF",
+      "category": "Broad Index",
+      "based_on": "NIFTY Midcap 100",
+      "symbol": "MOM100",
+      "full_symbol": "MOM100.NS",
+      "longname": "Motilal Oswal Nifty Midcap 100 ETF"
+    },
+    {
+      "row": 18,
+      "name": "SBI Nifty Next 50 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Next 50",
+      "symbol": "SETFNN50",
+      "full_symbol": "SETFNN50.NS",
+      "longname": "SBI Nifty Next 50 ETF"
+    },
+    {
+      "row": 20,
+      "name": "Zerodha Nifty Smallcap 100 ETF",
+      "category": "Broad Index",
+      "based_on": "NIFTY Smallcap 100",
+      "symbol": "SML100CASE",
+      "full_symbol": "SML100CASE.NS",
+      "longname": "Zerodha Nifty Smallcap 100 ETF"
+    },
+    {
+      "row": 22,
+      "name": "Motilal Oswal Nifty Smallcap 250 ETF",
+      "category": "Broad Index",
+      "based_on": "NIFTY Smallcap 250",
+      "symbol": "MOSMALL250",
+      "full_symbol": "MOSMALL250.NS",
+      "longname": "Motilal Oswal Nifty Smallcap 250 ETF"
+    },
+    {
+      "row": 23,
+      "name": "Mirae Asset Nifty Smallcap 250 ETF",
+      "category": "Broad Index",
+      "based_on": "NIFTY Smallcap 250",
+      "symbol": "SMALL250",
+      "full_symbol": "SMALL250.BO",
+      "longname": "Mirae Asset Investment Managers (India) Pvt Ltd.- Mirae Asset Nifty Smallcap 250 ETF"
+    },
+    {
+      "row": 24,
+      "name": "Angel One Nifty Total Market ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Total mkt",
+      "symbol": "AONETOTAL",
+      "full_symbol": "AONETOTAL.NS",
+      "longname": "Angel One Nifty Total Market ETF"
+    },
+    {
+      "row": 26,
+      "name": "ICICI Pru Gold ETF",
+      "category": "Commodities Index",
+      "based_on": "Gold",
+      "symbol": "0P0000U3OG",
+      "full_symbol": "0P0000U3OG.BO",
+      "longname": "ICICI Pru Gold ETF FOF Gr"
+    },
+    {
+      "row": 27,
+      "name": "SBI Gold ETF",
+      "category": "Commodities Index",
+      "based_on": "Gold",
+      "symbol": "SETFGOLD",
+      "full_symbol": "SETFGOLD.NS",
+      "longname": "SBI Gold ETF"
+    },
+    {
+      "row": 28,
+      "name": "ICICI Pru Nifty Oil & Gas ETF",
+      "category": "Commodities Index",
+      "based_on": "Nifty Oil and Gas",
+      "symbol": "OILIETF",
+      "full_symbol": "OILIETF.NS",
+      "longname": "ICICI Prudential Nifty Oil & Gas ETF"
+    },
+    {
+      "row": 30,
+      "name": "ICICI Pru Silver ETF",
+      "category": "Commodities Index",
+      "based_on": "Silver",
+      "symbol": "0P0001O9HC",
+      "full_symbol": "0P0001O9HC.BO",
+      "longname": "ICICI Pru Silver ETF FOF Reg IDCW-R"
+    },
+    {
+      "row": 31,
+      "name": "HDFC Silver ETF",
+      "category": "Commodities Index",
+      "based_on": "Silver",
+      "symbol": "0P0001PU07",
+      "full_symbol": "0P0001PU07.BO",
+      "longname": "HDFC Silver ETF Fund of Fund Dir Gr"
+    },
+    {
+      "row": 41,
+      "name": "Motilal Oswal Nasdaq 100 ETF",
+      "category": "Global Index",
+      "based_on": "Nasdaq 100",
+      "symbol": "MON100",
+      "full_symbol": "MON100.NS",
+      "longname": "Motilal Oswal NASDAQ 100 ETF"
+    },
+    {
+      "row": 42,
+      "name": "Mirae Asset NYSE FANG+ ETF",
+      "category": "Global Index",
+      "based_on": "NYSE FANG+",
+      "symbol": "0P0001M31S",
+      "full_symbol": "0P0001M31S.BO",
+      "longname": "Mirae Asset NYSE FANG+ ETF FoF Reg Gr"
+    },
+    {
+      "row": 43,
+      "name": "Mirae Asset S&P 500 Top 50 ETF",
+      "category": "Global Index",
+      "based_on": "S&P 500 Top 50",
+      "symbol": "MASPTOP50",
+      "full_symbol": "MASPTOP50.NS",
+      "longname": "Mirae Asset S&P 500 Top 50 ETF"
+    },
+    {
+      "row": 47,
+      "name": "Mirae Asset Nifty 500 Healthcare ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty 500 Healthcare",
+      "symbol": "HEALTHCARE",
+      "full_symbol": "HEALTHCARE.NS",
+      "longname": "Mirae Asset Nifty 500 Healthcare ETF"
+    },
+    {
+      "row": 49,
+      "name": "ICICI Pru Nifty Auto ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Auto",
+      "symbol": "AUTOIETF",
+      "full_symbol": "AUTOIETF.NS",
+      "longname": "ICICI Prudential Nifty Auto ETF"
+    },
+    {
+      "row": 51,
+      "name": "HDFC Nifty Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Bank",
+      "symbol": "HDFCNIFBAN",
+      "full_symbol": "HDFCNIFBAN.NS",
+      "longname": "HDFC Nifty Bank ETF - Growth"
+    },
+    {
+      "row": 52,
+      "name": "Kotak Nifty Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Bank",
+      "symbol": "BANKNIFTY1",
+      "full_symbol": "BANKNIFTY1.NS",
+      "longname": "Kotak Nifty Bank ETF"
+    },
+    {
+      "row": 53,
+      "name": "Motilal Oswal Nifty Capital Market ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Capital Markets",
+      "symbol": "MOCAPITAL",
+      "full_symbol": "MOCAPITAL.NS",
+      "longname": "Motilal Oswal Nifty Capital Market ETF"
+    },
+    {
+      "row": 54,
+      "name": "Groww Nifty Capital Markets ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Capital Market",
+      "symbol": "GROWWCAPM",
+      "full_symbol": "GROWWCAPM.NS",
+      "longname": "Groww Nifty Capital Markets ETF"
+    },
+    {
+      "row": 55,
+      "name": "Kotak Nifty Chemicals ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Chemicals",
+      "symbol": "CHEMICAL",
+      "full_symbol": "CHEMICAL.NS",
+      "longname": "Kotak Nifty Chemicals ETF"
+    },
+    {
+      "row": 56,
+      "name": "Groww Nifty Chemicals ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Chemicals",
+      "symbol": "GROWWCHEM",
+      "full_symbol": "GROWWCHEM.NS",
+      "longname": "Groww Nifty Chemicals ETF"
+    },
+    {
+      "row": 57,
+      "name": "Motilal Oswal Nifty Energy ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Energy",
+      "symbol": "MOENERGY",
+      "full_symbol": "MOENERGY.NS",
+      "longname": "Motilal Oswal Nifty Energy ETF"
+    },
+    {
+      "row": 58,
+      "name": "Groww Nifty EV & New Age Automotive ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty EV and New Age Auto",
+      "symbol": "GROWWEV",
+      "full_symbol": "GROWWEV.NS",
+      "longname": "Groww Nifty EV & New Age Automotive ETF"
+    },
+    {
+      "row": 65,
+      "name": "Axis Nifty Healthcare ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Healthcare",
+      "symbol": "HEALTHAXIS",
+      "full_symbol": "HEALTHAXIS.NS",
+      "longname": "Axis NIFTY Healthcare ETF"
+    },
+    {
+      "row": 66,
+      "name": "Motilal Oswal Nifty India Defence ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty India Defence",
+      "symbol": "MODEFENCE",
+      "full_symbol": "MODEFENCE.NS",
+      "longname": "Motilal Oswal Nifty India Defence ETF"
+    },
+    {
+      "row": 67,
+      "name": "Groww Nifty India Defence ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty India Defence",
+      "symbol": "GROWWDEFNC",
+      "full_symbol": "GROWWDEFNC.NS",
+      "longname": "Groww Nifty India Defence ETF"
+    },
+    {
+      "row": 68,
+      "name": "Groww Nifty India Railways PSU ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty India Railways PSU",
+      "symbol": "GROWWRAIL",
+      "full_symbol": "GROWWRAIL.NS",
+      "longname": "Groww Nifty India Railways PSU ETF"
+    },
+    {
+      "row": 71,
+      "name": "Kotak Nifty IT ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty IT",
+      "symbol": "IT",
+      "full_symbol": "IT.NS",
+      "longname": "Kotak Nifty IT ETF"
+    },
+    {
+      "row": 72,
+      "name": "ICICI Pru Nifty Metal ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Metal",
+      "symbol": "METALIETF",
+      "full_symbol": "METALIETF.NS",
+      "longname": "ICICI Prudential Nifty Metal ETF"
+    },
+    {
+      "row": 73,
+      "name": "Mirae Asset Nifty Metal ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Metal",
+      "symbol": "METAL",
+      "full_symbol": "METAL.NS",
+      "longname": "Mirae Asset Nifty Metal ETF"
+    },
+    {
+      "row": 74,
+      "name": "HDFC Nifty Metal ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Metal",
+      "symbol": "0P00036CWX",
+      "full_symbol": "0P00036CWX.BO",
+      "longname": "HDFC Nifty Metal ETF FOF Reg Gr"
+    },
+    {
+      "row": 77,
+      "name": "HDFC Nifty Private Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Private Bank",
+      "symbol": "HDFCPVTBAN",
+      "full_symbol": "HDFCPVTBAN.NS",
+      "longname": "HDFC Nifty Private Bank ETF"
+    },
+    {
+      "row": 78,
+      "name": "DSP Nifty Private Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Private Bank",
+      "symbol": "PVTBANKADD",
+      "full_symbol": "PVTBANKADD.BO",
+      "longname": "DSP NIFTY PRIVATE BANK ETF"
+    },
+    {
+      "row": 81,
+      "name": "DSP Nifty PSU Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty PSU Bank",
+      "symbol": "PSUBANKADD",
+      "full_symbol": "PSUBANKADD.BO",
+      "longname": "DSP NIFTY PSU BANK ETF"
+    },
+    {
+      "row": 82,
+      "name": "Motilal Oswal Nifty Realty ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Realty",
+      "symbol": "MOREALTY",
+      "full_symbol": "MOREALTY.NS",
+      "longname": "Motilal Oswal Nifty Realty ETF"
+    },
+    {
+      "row": 83,
+      "name": "Groww Nifty Realty ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Realty",
+      "symbol": "GROWWRLTY",
+      "full_symbol": "GROWWRLTY.NS",
+      "longname": "Groww Nifty Realty ETF"
+    },
+    {
+      "row": 87,
+      "name": "Mirae Asset Nifty 200 Alpha 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Alpha 30",
+      "symbol": "ALPHAETF",
+      "full_symbol": "ALPHAETF.NS",
+      "longname": "Mirae Asset Nifty 200 Alpha 30 ETF"
+    },
+    {
+      "row": 92,
+      "name": "SBI Nifty 200 Quality 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Quality 30",
+      "symbol": "SBIETFQLTY",
+      "full_symbol": "SBIETFQLTY.NS",
+      "longname": "SBI NIFTY 200 Quality 30 ETF"
+    },
+    {
+      "row": 94,
+      "name": "ICICI Pru Nifty 200 Value 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Value 30",
+      "symbol": "VAL30IETF",
+      "full_symbol": "VAL30IETF.BO",
+      "longname": "ICICI Prudential Mutual Fund - ICICI Prudential Nifty 200 Value 30 ETF"
+    },
+    {
+      "row": 95,
+      "name": "DSP Nifty 50 Equal Weight ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 50 Equal Weight",
+      "symbol": "EQUAL50ADD",
+      "full_symbol": "EQUAL50ADD.BO",
+      "longname": "DSP Nifty 50 Equal Weight ETF"
+    },
+    {
+      "row": 96,
+      "name": "Motilal Oswal Nifty 50 Equal Weight ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 50 Equal Weight",
+      "symbol": "MON50EQUAL",
+      "full_symbol": "MON50EQUAL.NS",
+      "longname": "Motilal Oswal Nifty 50 Equal Weight ETF"
+    },
+    {
+      "row": 98,
+      "name": "Motilal Oswal Nifty 500 Momentum 50 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 500 Momentum 50",
+      "symbol": "MOMENTUM50",
+      "full_symbol": "MOMENTUM50.NS",
+      "longname": "Motilal Oswal Nifty 500 Momentum 50 ETF"
+    },
+    {
+      "row": 99,
+      "name": "Groww Nifty 500 Momentum 50 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 500 Momentum 50",
+      "symbol": "GROWWMOM50",
+      "full_symbol": "GROWWMOM50.NS",
+      "longname": "Groww Nifty 500 Momentum 50 ETF"
+    },
+    {
+      "row": 100,
+      "name": "Kotak Nifty Alpha 50 ETF",
+      "category": "Strategy Index",
+      "based_on": "NIFTY ALPHA 50",
+      "symbol": "ALPHA",
+      "full_symbol": "ALPHA.NS",
+      "longname": "Kotak Nifty Alpha 50 ETF"
+    },
+    {
+      "row": 102,
+      "name": "SBI Nifty Midcap 150 Momentum 50 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty Midcap 150 Momentum",
+      "symbol": "SBIMIDMOM",
+      "full_symbol": "SBIMIDMOM.NS",
+      "longname": "SBI Nifty Midcap 150 Momentum 50 ETF"
+    },
+    {
+      "row": 103,
+      "name": "DSP Nifty Midcap 150 Quality 50 ETF",
+      "category": "Strategy Index",
+      "based_on": "NIFTY Midcap150 Quality 50",
+      "symbol": "MIDQ50ADD",
+      "full_symbol": "MIDQ50ADD.NS",
+      "longname": "DSP Nifty Midcap 150 Quality 50 ETF"
+    },
+    {
+      "row": 106,
+      "name": "DSP Nifty Top 10 Equal Weight ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty Top 10 Equal Weight",
+      "symbol": "TOP10ADD",
+      "full_symbol": "TOP10ADD.NS",
+      "longname": "DSP Nifty Top 10 Equal Weight ETF"
+    },
+    {
+      "row": 113,
+      "name": "CPSE ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty CPSE",
+      "symbol": "CPSEETF",
+      "full_symbol": "CPSEETF.BO",
+      "longname": "CPSE ETF"
+    },
+    {
+      "row": 114,
+      "name": "Mirae Asset Nifty Energy ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty Energy",
+      "symbol": "ENERGY",
+      "full_symbol": "ENERGY.NS",
+      "longname": "Mirae Asset Nifty Energy ETF"
+    },
+    {
+      "row": 115,
+      "name": "Tata Nifty India Digital ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty India Digital",
+      "symbol": "TNIDETF",
+      "full_symbol": "TNIDETF.NS",
+      "longname": "Tata Nifty India Digital ETF"
+    },
+    {
+      "row": 116,
+      "name": "Groww Nifty India Internet ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty India Internet",
+      "symbol": "GROWWNET",
+      "full_symbol": "GROWWNET.NS",
+      "longname": "Groww Nifty India Internet ETF"
+    },
+    {
+      "row": 117,
+      "name": "Mirae Asset Nifty India Internet ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty India Internet",
+      "symbol": "INTERNET",
+      "full_symbol": "INTERNET.NS",
+      "longname": "Mirae Asset Nifty India Internet ETF"
+    },
+    {
+      "row": 122,
+      "name": "Kotak Nifty MNC ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty MNC",
+      "symbol": "MNC",
+      "full_symbol": "MNC.NS",
+      "longname": "Kotak Nifty MNC ETF"
+    },
+    {
+      "row": 124,
+      "name": "Groww Nifty PSE ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty PSE",
+      "symbol": "GROWWPSE",
+      "full_symbol": "GROWWPSE.NS",
+      "longname": "Groww Nifty PSE ETF"
+    }
+  ],
+  "unmatched": [
+    {
+      "row": 3,
+      "name": "UTI Nifty 50 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 50"
+    },
+    {
+      "row": 4,
+      "name": "Nippon Nifty 50 ETF (NIFTYBEES)",
+      "category": "Broad Index",
+      "based_on": "Nifty 50"
+    },
+    {
+      "row": 5,
+      "name": "LIC Nifty 100 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 100"
+    },
+    {
+      "row": 6,
+      "name": "Nippon India Nifty 100 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 100"
+    },
+    {
+      "row": 9,
+      "name": "Mirae Asset Nifty 500 Multicap ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty 500 Multicap 50:25:25"
+    },
+    {
+      "row": 13,
+      "name": "LIC Nifty Midcap 100 ETF",
+      "category": "Broad Index",
+      "based_on": "NIFTY Midcap 100"
+    },
+    {
+      "row": 14,
+      "name": "Nippon Nifty MC 150 ETF (MID150BEES)",
+      "category": "Broad Index",
+      "based_on": "Nifty Midcap 150"
+    },
+    {
+      "row": 15,
+      "name": "Mirae Asset Nifty Midcap 150 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Midcap 150"
+    },
+    {
+      "row": 16,
+      "name": "ICICI Pru Nifty Midcap 150 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Midcap 150"
+    },
+    {
+      "row": 17,
+      "name": "Nippon Nifty Next 50 Junior Bees - ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Next 50"
+    },
+    {
+      "row": 19,
+      "name": "ICICI Pru Nifty Next 50 ETF",
+      "category": "Broad Index",
+      "based_on": "Nifty Next 50"
+    },
+    {
+      "row": 21,
+      "name": "HDFC Nifty Small Cap 250 ETF",
+      "category": "Broad Index",
+      "based_on": "NIFTY Smallcap 250"
+    },
+    {
+      "row": 25,
+      "name": "Nippon Gold ETF (GOLDBEES)",
+      "category": "Commodities Index",
+      "based_on": "Gold"
+    },
+    {
+      "row": 29,
+      "name": "Nippon Silver ETF (SILVERBEES)",
+      "category": "Commodities Index",
+      "based_on": "Silver"
+    },
+    {
+      "row": 32,
+      "name": "SBI Nifty 10 Year G-Sec ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty 10 Year G-Sec"
+    },
+    {
+      "row": 33,
+      "name": "LIC Nifty 10 Year G-Sec ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty 10 Year G-Sec"
+    },
+    {
+      "row": 34,
+      "name": "ICICI Pru Nifty 10 Year G-Sec ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty 10 Year G-Sec"
+    },
+    {
+      "row": 35,
+      "name": "Nippon 5 Year G-Sec ETF (GILT5YBEES)",
+      "category": "Debt Index",
+      "based_on": "Nifty 5 Year G-Sec"
+    },
+    {
+      "row": 36,
+      "name": "Motilal Os Nifty 5yr Benchmark GSec ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty 5 Year G-Sec"
+    },
+    {
+      "row": 37,
+      "name": "UTI Nifty 5 Year G-Sec ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty 5 Year G-Sec"
+    },
+    {
+      "row": 38,
+      "name": "Edelweiss Bharat Bond April 2030 ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty BHARAT Bond 2030"
+    },
+    {
+      "row": 39,
+      "name": "Edelweiss Bharat Bond April 2031 ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty BHARAT Bond 2031"
+    },
+    {
+      "row": 40,
+      "name": "Edelweiss Bharat Bond April 2032 ETF",
+      "category": "Debt Index",
+      "based_on": "Nifty BHARAT Bond 2032"
+    },
+    {
+      "row": 44,
+      "name": "Nippon Hang Seng ETF (HNGSNGBEES)",
+      "category": "Global Index",
+      "based_on": "Hang Seng"
+    },
+    {
+      "row": 45,
+      "name": "Motilal Oswal Nasdaq Quality 50 ETF",
+      "category": "Global Index",
+      "based_on": "Nasdaq Quality 50"
+    },
+    {
+      "row": 46,
+      "name": "Mirae Asset Nifty Financial Service ETF",
+      "category": "Sectoral Index",
+      "based_on": "Finnifty"
+    },
+    {
+      "row": 48,
+      "name": "Nippon Auto ETF (AUTOBEES)",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Auto"
+    },
+    {
+      "row": 50,
+      "name": "Nippon Nifty Bank ETF (BANKBEES)",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Bank"
+    },
+    {
+      "row": 59,
+      "name": "Mirae Asset Nifty EV & New Age Auto ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty EV and New Age Auto"
+    },
+    {
+      "row": 60,
+      "name": "ICICI Pru Nifty Fin Svc Ex-Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Financial Services Ex Bank"
+    },
+    {
+      "row": 61,
+      "name": "ICICI Pru Nifty FMCG ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty FMCG"
+    },
+    {
+      "row": 62,
+      "name": "DSP Nifty FMCG ETF",
+      "category": "Sectoral Index",
+      "based_on": "NIFTY FMCG"
+    },
+    {
+      "row": 63,
+      "name": "ICICI Pru Nifty Healthcare ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Healthcare"
+    },
+    {
+      "row": 64,
+      "name": "Aditya Birla Nifty Healthcare ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Healthcare"
+    },
+    {
+      "row": 69,
+      "name": "Nippon Nifty IT ETF (ITBEES)",
+      "category": "Sectoral Index",
+      "based_on": "Nifty IT"
+    },
+    {
+      "row": 70,
+      "name": "ICICI Prudential IT ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty IT"
+    },
+    {
+      "row": 75,
+      "name": "Nippon Pharma ETF (PHARMABEES)",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Pharma"
+    },
+    {
+      "row": 76,
+      "name": "ICICI Pru Nifty Private Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty Private Bank"
+    },
+    {
+      "row": 79,
+      "name": "Nippon Nifty PSU Bank ETF (PSUBNKBEES)",
+      "category": "Sectoral Index",
+      "based_on": "Nifty PSU Bank"
+    },
+    {
+      "row": 80,
+      "name": "Kotak Nifty PSU Bank ETF",
+      "category": "Sectoral Index",
+      "based_on": "Nifty PSU Bank"
+    },
+    {
+      "row": 84,
+      "name": "ICICI Pru Nifty 100 Low Vol 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 100 Low Volatility 30"
+    },
+    {
+      "row": 85,
+      "name": "ICICI Pru Nifty Alpha Low Volatility 30",
+      "category": "Strategy Index",
+      "based_on": "Nifty 100 Low Volatility 30"
+    },
+    {
+      "row": 86,
+      "name": "Kotak Nifty 100 Low Volatility 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 100 Low Volatility 30"
+    },
+    {
+      "row": 88,
+      "name": "ICICI Pru Nifty 200 Momentum 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Momentum 30"
+    },
+    {
+      "row": 89,
+      "name": "HDFC Nifty 200 Momentum 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Momentum 30"
+    },
+    {
+      "row": 90,
+      "name": "Motilal Oswal Nifty 200 Momentum ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Momentum 30"
+    },
+    {
+      "row": 91,
+      "name": "ICICI Pru Nifty 200 Quality 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Quality 30"
+    },
+    {
+      "row": 93,
+      "name": "Aditya Birla Nifty 200 Quality 30 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 200 Quality 30"
+    },
+    {
+      "row": 97,
+      "name": "SBI Nifty 50 Equal Weight ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty 50 Equal Weight"
+    },
+    {
+      "row": 101,
+      "name": "Nippon Nifty 50 DO ETF (DIVOPPBEES)",
+      "category": "Strategy Index",
+      "based_on": "Nifty Dividend Opportunities 50"
+    },
+    {
+      "row": 104,
+      "name": "Mirae Asset Nifty MS400 MQ 100 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty MidSmallCap 400"
+    },
+    {
+      "row": 105,
+      "name": "Mirae Ast Nifty Smallcap 250 MQ 100 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty Smallcap250 Momentum Quality 100"
+    },
+    {
+      "row": 107,
+      "name": "ICICI Pru Nifty 50 Value 20 ETF",
+      "category": "Strategy Index",
+      "based_on": "Nifty50 Value 20 Index"
+    },
+    {
+      "row": 108,
+      "name": "Nippon Nifty 50 Value 20 ETF (NV20BEES)",
+      "category": "Strategy Index",
+      "based_on": "Nifty50 Value 20 Index"
+    },
+    {
+      "row": 109,
+      "name": "ICICI Pru Nifty Commodities ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty Commodities"
+    },
+    {
+      "row": 110,
+      "name": "Nippon Nifty Cons. ETF (CONSUMBEES)",
+      "category": "Thematic Index",
+      "based_on": "Nifty Consumption"
+    },
+    {
+      "row": 111,
+      "name": "Mirae Asset Nifty New Age Cons. ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty Consumption"
+    },
+    {
+      "row": 112,
+      "name": "ICICI Pru Nifty Consumption ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty Consumption"
+    },
+    {
+      "row": 118,
+      "name": "Mirae Asset Nifty India Mfg. ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty India Manufacturing"
+    },
+    {
+      "row": 119,
+      "name": "Nippon Nifty India Manufacturing ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty India Manufacturing"
+    },
+    {
+      "row": 120,
+      "name": "ICICI Pru Nifty Infrastructure ETF",
+      "category": "Thematic Index",
+      "based_on": "NIFTY Infra"
+    },
+    {
+      "row": 121,
+      "name": "Nippon Nifty Infra ETF (INFRABEES)",
+      "category": "Thematic Index",
+      "based_on": "NIFTY Infra"
+    },
+    {
+      "row": 123,
+      "name": "Aditya Birla Nifty PSE ETF",
+      "category": "Thematic Index",
+      "based_on": "Nifty PSE"
+    },
+    {
+      "row": 125,
+      "name": "Mirae Asset Nifty 100 ESG Sector Leader",
+      "category": "Thematic Index",
+      "based_on": "Nifty100 ESG Sector Leaders"
+    },
+    {
+      "row": 126,
+      "name": "Nippon India Nifty 50 Shariah ETF",
+      "category": "Thematic Index",
+      "based_on": "Shariah"
+    }
+  ]
+}

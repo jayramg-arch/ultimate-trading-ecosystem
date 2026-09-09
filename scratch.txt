@@ -1,0 +1,11 @@
+145: # hijacks the Commander's page and opens the Journal instead.
+1092:         st.page_link("pages/3_journal.py", label="📓 Journal", icon=None)
+4179:     _cm1, _cm2, _cm3 = st.tabs(["⚡ Active Ops", "📒 Ledger", "🔔 Price Alerts"])
+4188:             if st.button("🛡️  GTT Auto-Shield\nAuto-protect holdings using Journal levels.\n→  Launch", use_container_width=True, key="cmd_gtt"):
+4289:                 st.info("💡 Update 'Current SL' values in your Journal then re-run GTT Auto-Shield to push updated levels to Dhan.")
+4384:                            "To cancel, use the Dhan app or Journal GTT Shield.")
+4392:         if st.button("📓  Open Full Journal App\nLaunch the complete trade journal interface.\n→  Open", use_container_width=True, key="cmd_journal"):
+4398:             section("Live Trade Ledger")
+4401:             if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", use_container_width=True):
+4775:                     st.info("No closed trades found. Complete trades via the Journal to unlock AI review.")
+5937:                 st.info("No Quality column found. Grade your trades in the Journal to unlock this view.")

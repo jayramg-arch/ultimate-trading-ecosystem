@@ -417,11 +417,23 @@ def main():
                 # (buying a breakout in a confirmed downtrend — marginal/negative
                 # edge per per-family validation), then (2) order the POS family
                 # first (the proven +7.67%/PF-3.14 edge) and by Combined_Score
-                # within each tier. POS-* are kept regardless of stage.
+                # within each tier.
+                #
+                # STAGE 4 IS NOW A HARD EXCLUSION FOR EVERY CATALYST (Jay, 29-Aug-2026:
+                # "a stage 4 stock should never be listed under bull catalysts").
+                # It previously covered only SWG-BO / SWG-GAP, and POS-* were kept
+                # "regardless of stage" -- so any OTHER catalyst in a confirmed
+                # downtrend walked straight through. BANKINDIA reached the 28-Aug list
+                # at Stage 4 on SWG-PB, which is neither of the two named catalysts.
+                # It had passed the fundamental gate legitimately (BFF 4/4 on the
+                # lender scaling), which is exactly why a fundamental filter could
+                # never have caught it: buying a pullback inside a Stage-4 decline is
+                # a STRUCTURE error, and the DNA rule is avoid/exit Stage 3-4.
+                # The board's own break-down guard would INVALIDATE these downstream;
+                # dropping them here means they never occupy a row at all.
                 n_dropped = 0
                 try:
-                    _drop = (df_cat["Catalyst"].isin(["SWG-BO", "SWG-GAP"]) &
-                             (df_cat["Stage"] == 4))
+                    _drop = (df_cat["Stage"] == 4)
                     n_dropped = int(_drop.sum())
                     df_cat = df_cat[~_drop].copy()
                     _tier = {"POS-BO": 0, "POS-ACCUM": 1, "SWG-GAP": 2,
@@ -493,7 +505,11 @@ def main():
                         _n_unread = int((df_cat["BFF_Quality"] == "INSUFFICIENT").sum())
                         df_cat = df_cat[_keep].copy()
                         logger.info(f"   BFF fundamental gate: kept {len(df_cat)}/{_n_before} "
-                                    f"(floor {_floor:.0f}/5; {_n_unread} unreadable — NOT judged weak)")
+                                    f"(floor {_floor:.0f}/5, scaled to the applicable checks — "
+                                    f"a lender has 4, not 5; D/E exempt, ROE bar 12). "
+                                    f"{_n_unread} unreadable and DROPPED as unknown, not as weak "
+                                    f"— bff_passes returns None there and `is True` excludes it, "
+                                    f"matching pullback_finder's bff_block_unknown default.")
 
                         # CORE UNIVERSE — size / pledge / ownership, the floor the
                         # Bull and Recovery books get from their screener.in screens
@@ -518,7 +534,7 @@ def main():
                         logger.warning(f"   Fundamental gate skipped ({_ge}); ungated list kept.")
                 logger.info(f"✅ Catalyst Scan: {len(df_cat)} catalyst signals from "
                             f"{_uni_n} symbols → {CATALYST_WATCHLIST}"
-                            + (f" (dropped {n_dropped} Stage-4 swing BO)" if n_dropped else ""))
+                            + (f" (dropped {n_dropped} Stage-4)" if n_dropped else ""))
                 try:
                     logger.info(f"   Catalysts: {df_cat['Catalyst'].value_counts().to_dict()}")
                 except Exception:
@@ -698,6 +714,44 @@ def main():
                 p.status = "FAIL"
                 p.message = str(e)[:160]
                 logger.warning(f"ETF rotation failed (non-fatal): {e}")
+
+    # ── PHASE 4.9c — index map + translated sector levels ────────────────────
+    # The map answers "which index does this ETF express" (and therefore which chart
+    # stage 1 is read on); the levels convert that index's nearest S/R into ETF prices
+    # so the ETF chart can tell whether the zone under it is the SAME one the sector is
+    # leaning on. Both travel to S4 in the one-paste bundle.
+    logger.info("\n[PHASE 4.9c] ETF INDEX MAP + TRANSLATED SECTOR LEVELS...")
+    with run.phase("Phase 4.9c - ETF index map") as p:
+        try:
+            import etf_index_map as _eim
+            _mp = _eim.build()
+            if _mp is None or len(_mp) == 0:
+                p.status = "SKIP"
+                p.message = "universe unavailable - previous map retained"
+            else:
+                _n_idx = int((_mp["chart_mode"] == "index").sum())
+                p.records = len(_mp)
+                p.message = f"{len(_mp)} exposures, {_n_idx} with an index chart"
+        except Exception as e:
+            p.status = "FAIL"
+            p.message = str(e)[:160]
+            logger.warning(f"ETF index map failed (non-fatal): {e}")
+
+    with run.phase("Phase 4.9c2 - translated sector levels") as p:
+        try:
+            import etf_levels as _elv
+            _lv = _elv.build()
+            if _lv is None or len(_lv) == 0:
+                p.status = "SKIP"
+                p.message = ("nothing computed - S4 simply shows no translated line; "
+                             "the ETF's own S/R is unaffected")
+            else:
+                p.records = len(_lv)
+                p.message = f"{len(_lv)} ETFs -> sector S/R in ETF prices"
+        except Exception as e:
+            p.status = "FAIL"
+            p.message = str(e)[:160]
+            logger.warning(f"ETF translated levels failed (non-fatal): {e}")
 
     logger.info("\n[PHASE 4.8] CONSOLIDATING GOLDEN MATCHER BOARD WATCHLIST...")
     with run.phase("Phase 4.8 — Golden Matcher Board (union)") as p:

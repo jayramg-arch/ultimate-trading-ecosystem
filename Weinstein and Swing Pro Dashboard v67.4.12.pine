@@ -757,7 +757,7 @@ p3_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP1_5, inlin
 
 p4_tick = input.string("NSE:NESTLEIND", title="Slot 4", group=grpP1_5, inline="p4", display=display.data_window)
 p4_ent  = input.float(1438.3652, title="Entry", group=grpP1_5, inline="p4", display=display.data_window)
-p4_sl   = input.float(1392.5, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
+p4_sl   = input.float(1369.5, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
 p4_tsl  = input.float(0.0, title="Trail SL", group=grpP1_5, inline="p4", display=display.data_window)
 p4_t1   = input.float(1529.5, title="T1", group=grpP1_5, inline="p4t", display=display.data_window)
 p4_t2   = input.float(1620.8, title="T2", group=grpP1_5, inline="p4t", display=display.data_window)
@@ -795,7 +795,7 @@ p7_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p7s", d
 p7_date = input.time(timestamp("2026-06-08"), title="Date", group=grpP6_10, inline="p7d", display=display.data_window)
 
 p8_tick = input.string("NSE:VIJAYA", title="Slot 8", group=grpP6_10, inline="p8", display=display.data_window)
-p8_ent  = input.float(1275.1935, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
+p8_ent  = input.float(1484.5, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
 p8_sl   = input.float(1275.5, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
 p8_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p8", display=display.data_window)
 p8_t1   = input.float(1741.5, title="T1", group=grpP6_10, inline="p8t", display=display.data_window)
@@ -804,7 +804,7 @@ p8_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p8s", d
 p8_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP6_10, inline="p8d", display=display.data_window)
 
 p9_tick = input.string("NSE:LAURUSLABS", title="Slot 9", group=grpP6_10, inline="p9", display=display.data_window)
-p9_ent  = input.float(1377.1534, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
+p9_ent  = input.float(1613.2267, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
 p9_sl   = input.float(1669.5, title="SL", group=grpP6_10, inline="p9", display=display.data_window)
 p9_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p9", display=display.data_window)
 p9_t1   = input.float(1668.5, title="T1", group=grpP6_10, inline="p9t", display=display.data_window)
@@ -853,7 +853,7 @@ p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=d
 
 p14_tick = input.string("NSE:EICHERMOT", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
 p14_ent  = input.float(8053.1665, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
-p14_sl   = input.float(7470.5, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sl   = input.float(7361.5, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_tsl  = input.float(0.0, title="Trail SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_t1   = input.float(9029.5, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
 p14_t2   = input.float(10000.5, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
@@ -881,9 +881,9 @@ p16_t2   = input.float(2785.5, title="T2", group=grpP16_20, inline="p16t", displ
 p16_sec  = input.string("Pharma", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
 p16_date = input.time(0, title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
 
-p17_tick = input.string("NSE:M&MFIN", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
+p17_tick = input.string("NSE:M_MFIN", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
 p17_ent  = input.float(387.3617, title="Entry", group=grpP16_20, inline="p17", display=display.data_window)
-p17_sl   = input.float(352.5, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
+p17_sl   = input.float(348.5, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
 p17_tsl  = input.float(0.0, title="Trail SL", group=grpP16_20, inline="p17", display=display.data_window)
 p17_t1   = input.float(493.5, title="T1", group=grpP16_20, inline="p17t", display=display.data_window)
 p17_t2   = input.float(601.5, title="T2", group=grpP16_20, inline="p17t", display=display.data_window)
@@ -892,7 +892,7 @@ p17_date = input.time(timestamp("2026-08-19"), title="Date", group=grpP16_20, in
 
 p18_tick = input.string("NSE:TVSMOTOR", title="Slot 18", group=grpP16_20, inline="p18", display=display.data_window)
 p18_ent  = input.float(4394.5, title="Entry", group=grpP16_20, inline="p18", display=display.data_window)
-p18_sl   = input.float(4078.5, title="SL", group=grpP16_20, inline="p18", display=display.data_window)
+p18_sl   = input.float(3955.5, title="SL", group=grpP16_20, inline="p18", display=display.data_window)
 p18_tsl  = input.float(0.0, title="Trail SL", group=grpP16_20, inline="p18", display=display.data_window)
 p18_t1   = input.float(5041.5, title="T1", group=grpP16_20, inline="p18t", display=display.data_window)
 p18_t2   = input.float(5694.5, title="T2", group=grpP16_20, inline="p18t", display=display.data_window)
@@ -910,32 +910,33 @@ p19_date = input.time(timestamp("2026-08-21"), title="Date", group=grpP16_20, in
 
 p20_tick = input.string("NSE:RRKABEL", title="Slot 20", group=grpP16_20, inline="p20", display=display.data_window)
 p20_ent  = input.float(2806.9429, title="Entry", group=grpP16_20, inline="p20", display=display.data_window)
-p20_sl   = input.float(0.0, title="SL", group=grpP16_20, inline="p20", display=display.data_window)
+p20_sl   = input.float(2394.5, title="SL", group=grpP16_20, inline="p20", display=display.data_window)
 p20_tsl  = input.float(0.0, title="Trail SL", group=grpP16_20, inline="p20", display=display.data_window)
-p20_t1   = input.float(0.0, title="T1", group=grpP16_20, inline="p20t", display=display.data_window)
-p20_t2   = input.float(0.0, title="T2", group=grpP16_20, inline="p20t", display=display.data_window)
+p20_t1   = input.float(3086.5, title="T1", group=grpP16_20, inline="p20t", display=display.data_window)
+p20_t2   = input.float(3366.5, title="T2", group=grpP16_20, inline="p20t", display=display.data_window)
 p20_sec  = input.string("Capital Goods & Defense", title="Sector", group=grpP16_20, inline="p20s", display=display.data_window)
 p20_date = input.time(0, title="Date", group=grpP16_20, inline="p20d", display=display.data_window)
-// Slots 21-25 (1-Sep-2026). Empty by default: a pre-filled slot you do not hold puts a
-// phantom position on the panel, and f_match skips an empty ticker.
-grpP21_25 = "5. Portfolio Slots 21-25"
-p21_tick = input.string("", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
-p21_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
-p21_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
-p21_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p21", display=display.data_window)
-p21_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p21t", display=display.data_window)
-p21_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p21t", display=display.data_window)
-p21_sec  = input.string("", title="Sector", group=grpP21_25, inline="p21s", display=display.data_window)
-p21_date = input.time(0, title="Date", group=grpP21_25, inline="p21d", display=display.data_window)
 
-p22_tick = input.string("", title="Slot 22", group=grpP21_25, inline="p22", display=display.data_window)
-p22_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p22", display=display.data_window)
-p22_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p22", display=display.data_window)
+
+// --- GROUP 5: SLOTS 21-25 ---
+grpP21_25 = "5. Portfolio Slots 21-25"
+p21_tick = input.string("NSE:SYRMA", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
+p21_ent  = input.float(1475.4955, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
+p21_sl   = input.float(1254.5, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
+p21_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p21", display=display.data_window)
+p21_t1   = input.float(1613.5, title="T1", group=grpP21_25, inline="p21t", display=display.data_window)
+p21_t2   = input.float(1751.5, title="T2", group=grpP21_25, inline="p21t", display=display.data_window)
+p21_sec  = input.string("Capital Goods & Defense", title="Sector", group=grpP21_25, inline="p21s", display=display.data_window)
+p21_date = input.time(timestamp("2026-08-31"), title="Date", group=grpP21_25, inline="p21d", display=display.data_window)
+
+p22_tick = input.string("NSE:BAJFINANCE", title="Slot 22", group=grpP21_25, inline="p22", display=display.data_window)
+p22_ent  = input.float(1075.6935, title="Entry", group=grpP21_25, inline="p22", display=display.data_window)
+p22_sl   = input.float(988.5, title="SL", group=grpP21_25, inline="p22", display=display.data_window)
 p22_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p22", display=display.data_window)
-p22_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p22t", display=display.data_window)
-p22_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p22t", display=display.data_window)
-p22_sec  = input.string("", title="Sector", group=grpP21_25, inline="p22s", display=display.data_window)
-p22_date = input.time(0, title="Date", group=grpP21_25, inline="p22d", display=display.data_window)
+p22_t1   = input.float(1129.5, title="T1", group=grpP21_25, inline="p22t", display=display.data_window)
+p22_t2   = input.float(1183.5, title="T2", group=grpP21_25, inline="p22t", display=display.data_window)
+p22_sec  = input.string("Financial Services", title="Sector", group=grpP21_25, inline="p22s", display=display.data_window)
+p22_date = input.time(timestamp("2026-08-31"), title="Date", group=grpP21_25, inline="p22d", display=display.data_window)
 
 p23_tick = input.string("", title="Slot 23", group=grpP21_25, inline="p23", display=display.data_window)
 p23_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p23", display=display.data_window)
@@ -943,7 +944,7 @@ p23_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p23", display=d
 p23_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p23", display=display.data_window)
 p23_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p23t", display=display.data_window)
 p23_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p23t", display=display.data_window)
-p23_sec  = input.string("", title="Sector", group=grpP21_25, inline="p23s", display=display.data_window)
+p23_sec  = input.string("NSE:CNX500", title="Sector", group=grpP21_25, inline="p23s", display=display.data_window)
 p23_date = input.time(0, title="Date", group=grpP21_25, inline="p23d", display=display.data_window)
 
 p24_tick = input.string("", title="Slot 24", group=grpP21_25, inline="p24", display=display.data_window)
@@ -952,7 +953,7 @@ p24_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p24", display=d
 p24_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p24", display=display.data_window)
 p24_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p24t", display=display.data_window)
 p24_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p24t", display=display.data_window)
-p24_sec  = input.string("", title="Sector", group=grpP21_25, inline="p24s", display=display.data_window)
+p24_sec  = input.string("NSE:CNX500", title="Sector", group=grpP21_25, inline="p24s", display=display.data_window)
 p24_date = input.time(0, title="Date", group=grpP21_25, inline="p24d", display=display.data_window)
 
 p25_tick = input.string("", title="Slot 25", group=grpP21_25, inline="p25", display=display.data_window)
@@ -961,9 +962,8 @@ p25_sl   = input.float(0.0, title="SL", group=grpP21_25, inline="p25", display=d
 p25_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p25", display=display.data_window)
 p25_t1   = input.float(0.0, title="T1", group=grpP21_25, inline="p25t", display=display.data_window)
 p25_t2   = input.float(0.0, title="T2", group=grpP21_25, inline="p25t", display=display.data_window)
-p25_sec  = input.string("", title="Sector", group=grpP21_25, inline="p25s", display=display.data_window)
+p25_sec  = input.string("NSE:CNX500", title="Sector", group=grpP21_25, inline="p25s", display=display.data_window)
 p25_date = input.time(0, title="Date", group=grpP21_25, inline="p25d", display=display.data_window)
-
 // <PORTFOLIO_END>
 
 
@@ -1306,7 +1306,7 @@ f_get_sector_ticker() =>
     // Return Tuple
     [t, n]
 
-// // // // // // <DB_LOOKUP_START>
+// // // // // // // // // // <DB_LOOKUP_START>
 // This function is AUTO-GENERATED by sector_manager.py
 f_db_sector_lookup(string t) =>
     string s = ""
@@ -1324,14 +1324,13 @@ f_db_sector_lookup(string t) =>
         "ABCAPITAL" => "NSE:CNXFINANCE"
         "ABDL" => "NSE:CNXFMCG"
         "ABFRL" => "NSE:CNXFMCG"
-        "ABLBL" => "NSE:CNXCONSUM"
+        "ABLBL" => "NSE:CNXCONSUMPTION"
         "ABREL" => "NSE:CNXREALTY"
         "ABSLAMC" => "NSE:CNXFINANCE"
         "ACC" => "NSE:CNXINFRA"
         "ACE" => "BSE:CG"
-        "ACKO" => "NSE:CNXFINANCE"
         "ACMESOLAR" => "NSE:CNXENERGY"
-        "ACUTAAS" => "NSE:CNXCOMMODITIES"
+        "ACUTAAS" => "NSE:CNXPHARMA"
         "ADANIENSOL" => "NSE:CNXINFRA"
         "ADANIENT" => "NSE:CNXINFRA"
         "ADANIGREEN" => "NSE:CNXENERGY"
@@ -1343,6 +1342,7 @@ f_db_sector_lookup(string t) =>
         "AEGISCHEM" => "NSE:NIFTY_OIL_AND_GAS"
         "AEGISLOG" => "NSE:CNXENERGY"
         "AEGISVOPAK" => "NSE:CNXENERGY"
+        "AEQUS" => "NSE:NIFTY_IND_DEFENCE"
         "AETHER" => "NSE:CNXMETAL"
         "AFCONS" => "NSE:CNXINFRA"
         "AFFLE" => "NSE:CNXIT"
@@ -1355,8 +1355,10 @@ f_db_sector_lookup(string t) =>
         "ALKYLAMINE" => "NSE:CNXMETAL"
         "ALLCARGO" => "NSE:CNXSERVICE"
         "ALOKINDS" => "NSE:CNXFMCG"
+        "ALPHA" => "NSE:NIFTYALPHA50"
+        "ALPHAETF" => "NSE:NIFTY200_ALPHA_30"
         "AMARAJABAT" => "NSE:CNXAUTO"
-        "AMBER" => "BSE:CG"
+        "AMBER" => "NSE:CNXCONSUMPTION"
         "AMBUJACEM" => "NSE:CNXINFRA"
         "ANANDRATHI" => "NSE:CNXFINANCE"
         "ANANTRAJ" => "NSE:CNXREALTY"
@@ -1365,16 +1367,15 @@ f_db_sector_lookup(string t) =>
         "ANURAS" => "NSE:CNXMETAL"
         "APARINDS" => "BSE:CG"
         "APLAPOLLO" => "NSE:CNXMETAL"
+        "APOLLO" => "NSE:NIFTY_IND_DEFENCE"
         "APOLLOHOSP" => "NSE:CNXPHARMA"
         "APOLLOTYRE" => "NSE:CNXAUTO"
         "APTUS" => "NSE:CNXFINANCE"
-        "ARE_M" => "NSE:CNXINFRA"
         "ARE_M" => "NSE:CNXAUTO"
         "ARVIND" => "NSE:CNXFMCG"
         "ASAHIINDIA" => "NSE:CNXAUTO"
         "ASHOKLEY" => "NSE:CNXAUTO"
-        "ASIANPAINT" => "NSE:CNXINFRA"
-        "ASKASIAN" => "NSE:CNXFINANCE"
+        "ASIANPAINT" => "NSE:CNXCONSUMPTION"
         "ASTERDM" => "NSE:CNXPHARMA"
         "ASTRAL" => "NSE:CNXINFRA"
         "ASTRAMICRO" => "BSE:CG"
@@ -1384,12 +1385,16 @@ f_db_sector_lookup(string t) =>
         "ATUL" => "NSE:CNXCOMMODITIES"
         "AUBANK" => "NSE:BANKNIFTY"
         "AUROPHARMA" => "NSE:CNXPHARMA"
+        "AUTOBEES" => "NSE:CNXAUTO"
+        "AUTOIETF" => "NSE:CNXAUTO"
         "AVANTIFEED" => "NSE:CNXFMCG"
         "AWL" => "NSE:CNXFMCG"
         "AXISBANK" => "NSE:BANKNIFTY"
+        "AXISCADES" => "NSE:NIFTY_IND_DEFENCE"
+        "AXISTECETF" => "NSE:CNXIT"
         "BAJAJ-AUTO" => "NSE:CNXAUTO"
         "BAJAJCON" => "NSE:CNXFMCG"
-        "BAJAJELEC" => "BSE:CG"
+        "BAJAJELEC" => "NSE:CNXCONSUMPTION"
         "BAJAJFINSV" => "NSE:CNXFINANCE"
         "BAJAJHFL" => "NSE:CNXFINANCE"
         "BAJAJHLDNG" => "NSE:CNXFINANCE"
@@ -1399,9 +1404,12 @@ f_db_sector_lookup(string t) =>
         "BALRAMCHIN" => "NSE:CNXFMCG"
         "BANDHANBNK" => "NSE:BANKNIFTY"
         "BANKBARODA" => "NSE:BANKNIFTY"
-        "BANKINDIA" => "NSE:BANKNIFTY"
+        "BANKBEES" => "NSE:BANKNIFTY"
+        "BANKINDIA" => "NSE:CNXPSUBANK"
+        "BANKNIFTY1" => "NSE:BANKNIFTY"
+        "BANKPVT" => "NSE:BANKNIFTY"
         "BASF" => "NSE:CNXMETAL"
-        "BATAINDIA" => "NSE:CNXFMCG"
+        "BATAINDIA" => "NSE:CNXCONSUMPTION"
         "BAYERCROP" => "NSE:CNXMETAL"
         "BBTC" => "NSE:CNXFMCG"
         "BDL" => "BSE:CG"
@@ -1409,6 +1417,7 @@ f_db_sector_lookup(string t) =>
         "BELRISE" => "BSE:CG"
         "BEML" => "BSE:CG"
         "BERGEPAINT" => "NSE:CNXINFRA"
+        "BFSI" => "NSE:FINNIFTY"
         "BHARATFORG" => "NSE:CNXAUTO"
         "BHARATRAS" => "NSE:CNXMETAL"
         "BHARTIARTL" => "NSE:CNXINFRA"
@@ -1421,7 +1430,7 @@ f_db_sector_lookup(string t) =>
         "BLS" => "NSE:CNXSERVICE"
         "BLUEDART" => "NSE:CNXINFRA"
         "BLUEJET" => "NSE:CNXPHARMA"
-        "BLUESTARCO" => "BSE:CG"
+        "BLUESTARCO" => "NSE:CNXCONSUMPTION"
         "BOMDYEING" => "NSE:CNXFMCG"
         "BOSCHLTD" => "NSE:CNXAUTO"
         "BPCL" => "NSE:CNXENERGY"
@@ -1429,7 +1438,7 @@ f_db_sector_lookup(string t) =>
         "BRITANNIA" => "NSE:CNXFMCG"
         "BSE" => "NSE:CNXFINANCE"
         "BSOFT" => "NSE:CNXIT"
-        "CAMPUS" => "NSE:CNXFMCG"
+        "CAMPUS" => "NSE:CNXCONSUMPTION"
         "CAMS" => "NSE:CNXFINANCE"
         "CANBK" => "NSE:BANKNIFTY"
         "CANFINHOME" => "NSE:CNXFINANCE"
@@ -1443,16 +1452,17 @@ f_db_sector_lookup(string t) =>
         "CDSL" => "NSE:CNXFINANCE"
         "CEATLTD" => "NSE:CNXAUTO"
         "CEMPRO" => "NSE:CNXINFRA"
-        "CENTRALBK" => "NSE:BANKNIFTY"
+        "CENTRALBK" => "NSE:CNXPSUBANK"
         "CENTUM" => "BSE:CG"
         "CENTURYPLY" => "NSE:CNXINFRA"
-        "CENTURYTEX" => "NSE:CNXFMCG"
+        "CENTURYTEX" => "NSE:CNXREALTY"
         "CERA" => "NSE:CNXINFRA"
         "CESC" => "NSE:CNXENERGY"
         "CGCL" => "NSE:CNXFINANCE"
         "CGPOWER" => "BSE:CG"
-        "CHALET" => "NSE:CNXCONSUM"
+        "CHALET" => "NSE:CNXCONSUMPTION"
         "CHAMBLFERT" => "NSE:CNXCOMMODITIES"
+        "CHEMICAL" => "NSE:NIFTY_CHEMICALS"
         "CHENNPETRO" => "NSE:CNXENERGY"
         "CHOICEIN" => "NSE:CNXFINANCE"
         "CHOLAFIN" => "NSE:CNXFINANCE"
@@ -1466,14 +1476,17 @@ f_db_sector_lookup(string t) =>
         "COFORGE" => "NSE:CNXIT"
         "COHANCE" => "NSE:CNXPHARMA"
         "COLPAL" => "NSE:CNXFMCG"
+        "COMMOIETF" => "NSE:CNXCOMMODITIES"
         "CONCOR" => "NSE:CNXSERVICE"
         "CONCORDBIO" => "NSE:CNXPHARMA"
+        "CONSUMBEES" => "NSE:CNXCONSUMPTION"
         "COROMANDEL" => "NSE:CNXCOMMODITIES"
         "CPPLUS" => "NSE:CNXINFRA"
+        "CPSEETF" => "NSE:CPSE"
         "CRAFTSMAN" => "NSE:CNXAUTO"
         "CREDITACC" => "NSE:CNXFINANCE"
         "CRISIL" => "NSE:CNXFINANCE"
-        "CROMPTON" => "BSE:CG"
+        "CROMPTON" => "NSE:CNXCONSUMPTION"
         "CUB" => "NSE:BANKNIFTY"
         "CUMMINSIND" => "BSE:CG"
         "CYIENT" => "NSE:CNXIT"
@@ -1481,53 +1494,60 @@ f_db_sector_lookup(string t) =>
         "DABUR" => "NSE:CNXFMCG"
         "DALBHARAT" => "NSE:CNXINFRA"
         "DATAPATTNS" => "BSE:CG"
+        "DBCORP" => "NSE:CNXMEDIA"
         "DCMSHRIRAM" => "NSE:CNXMETAL"
-        "DCXIND" => "BSE:CG"
+        "DCXIND" => "NSE:CNXINFRA"
+        "DCXINDIA" => "NSE:CNXINFRA"
         "DEEPAKFERT" => "NSE:CNXCOMMODITIES"
         "DEEPAKNTR" => "NSE:CNXCOMMODITIES"
         "DELHIVERY" => "NSE:CNXSERVICE"
         "DELTACORP" => "NSE:CNXSERVICE"
         "DEVYANI" => "NSE:CNXSERVICE"
         "DIVISLAB" => "NSE:CNXPHARMA"
-        "DIXON" => "BSE:CG"
+        "DIXON" => "NSE:CNXCONSUMPTION"
         "DLF" => "NSE:CNXREALTY"
         "DMART" => "NSE:CNXFMCG"
         "DOMS" => "NSE:CNXFMCG"
         "DREAMFOLKS" => "NSE:CNXSERVICE"
         "DRREDDY" => "NSE:CNXPHARMA"
+        "DYNAMATECH" => "NSE:NIFTY_IND_DEFENCE"
         "EASEMYTRIP" => "NSE:CNXSERVICE"
         "ECLERX" => "NSE:CNXIT"
         "EDELWEISS" => "NSE:CNXFINANCE"
         "EICHERMOT" => "NSE:CNXAUTO"
         "EIDPARRY" => "NSE:CNXFMCG"
-        "EIHOTEL" => "NSE:CNXCONSUM"
+        "EIHOTEL" => "NSE:CNXCONSUMPTION"
         "ELECON" => "NSE:CNXINFRA"
         "ELGIEQUIP" => "BSE:CG"
         "EMAMILTD" => "NSE:CNXFMCG"
         "EMCURE" => "NSE:CNXPHARMA"
         "EMMVEE" => "BSE:CG"
         "ENDURANCE" => "NSE:CNXAUTO"
+        "ENERGY" => "NSE:CNXENERGY"
+        "ENERGYIETF" => "NSE:CNXENERGY"
         "ENGINERSIN" => "NSE:CNXINFRA"
         "ENRIN" => "NSE:CNXENERGY"
         "EPL" => "NSE:CNXMETAL"
         "EQUITASBNK" => "NSE:BANKNIFTY"
         "ERIS" => "NSE:CNXPHARMA"
         "ESCORTS" => "NSE:CNXAUTO"
-        "ETERNAL" => "NSE:CNXCONSUM"
+        "ETERNAL" => "NSE:CNXCONSUMPTION"
         "ETHOSLTD" => "NSE:CNXSERVICE"
         "EVEREADY" => "BSE:CG"
+        "EVINDIA" => "NSE:NIFTY_EV"
         "EXIDEIND" => "NSE:CNXAUTO"
         "FACT" => "NSE:CNXCOMMODITIES"
-        "FALCONTYRE" => "NSE:CNXAUTO"
         "FDC" => "NSE:CNXPHARMA"
         "FEDERALBNK" => "NSE:BANKNIFTY"
-        "FERV" => "BSE:CG"
         "FINCABLES" => "BSE:CG"
         "FINEORG" => "NSE:CNXCOMMODITIES"
+        "FINIETF" => "NSE:NIFTY_FINSEREXBNK"
+        "FINNIFTY" => "NSE:CNXFINANCE"
         "FINPIPE" => "NSE:CNXINFRA"
-        "FIRSTCRY" => "NSE:CNXCONSUM"
+        "FIRSTCRY" => "NSE:CNXCONSUMPTION"
         "FIVESTAR" => "NSE:CNXFINANCE"
         "FLUOROCHEM" => "NSE:CNXCOMMODITIES"
+        "FMCGIETF" => "NSE:CNXFMCG"
         "FORCEMOT" => "NSE:CNXAUTO"
         "FORTIS" => "NSE:CNXPHARMA"
         "FSL" => "NSE:CNXIT"
@@ -1535,8 +1555,9 @@ f_db_sector_lookup(string t) =>
         "GAIL" => "NSE:CNXENERGY"
         "GALAXYSURF" => "NSE:CNXCOMMODITIES"
         "GALLANTT" => "NSE:CNXMETAL"
+        "GANESHHOU" => "NSE:CNXREALTY"
         "GANESHHOUC" => "NSE:CNXREALTY"
-        "GARDENREACH" => "BSE:CG"
+        "GARDENREACH" => "NSE:CNXINFRA"
         "GARFIBRES" => "NSE:CNXFMCG"
         "GATEWAY" => "NSE:CNXSERVICE"
         "GENUSPOWER" => "BSE:CG"
@@ -1569,23 +1590,35 @@ f_db_sector_lookup(string t) =>
         "GREAVESCOT" => "BSE:CG"
         "GRINDWELL" => "BSE:CG"
         "GROWW" => "NSE:CNXFINANCE"
+        "GROWWCAPM" => "NSE:NIFTY_CAPITAL_MKT"
         "GRSE" => "BSE:CG"
         "GSFC" => "NSE:CNXMETAL"
         "GSPL" => "NSE:NIFTY_OIL_AND_GAS"
+        "GUJENERGY" => "NSE:NIFTY_OIL_AND_GAS"
         "GUJGASLTD" => "NSE:NIFTY_OIL_AND_GAS"
         "GULFOILLUB" => "NSE:NIFTY_OIL_AND_GAS"
-        "GVT_D" => "NSE:CNXINFRA"
         "GVT_D" => "NSE:CNXINFRA"
         "HAL" => "BSE:CG"
         "HAPPSTMNDS" => "NSE:CNXIT"
         "HATHWAY" => "NSE:CNXMEDIA"
-        "HAVELLS" => "BSE:CG"
+        "HAVELLS" => "NSE:CNXCONSUMPTION"
         "HBLENGINE" => "NSE:CNXINFRA"
         "HCLTECH" => "NSE:CNXIT"
         "HDBFS" => "NSE:CNXFINANCE"
         "HDFCAMC" => "NSE:CNXFINANCE"
+        "HDFCAUTO" => "NSE:CNXAUTO"
         "HDFCBANK" => "NSE:BANKNIFTY"
+        "HDFCFIN" => "NSE:CNXFINANCE"
+        "HDFCFMCG" => "NSE:CNXFMCG"
+        "HDFCITETF" => "NSE:CNXIT"
         "HDFCLIFE" => "NSE:CNXFINANCE"
+        "HDFCMETAL" => "NSE:CNXMETAL"
+        "HDFCPHARMA" => "NSE:CNXPHARMA"
+        "HDFCPSUBK" => "NSE:CNXPSUBANK"
+        "HDFCREALTY" => "NSE:CNXREALTY"
+        "HDFCSML250" => "NSE:NIFTYSMLCAP250"
+        "HEALTHIETF" => "NSE:NIFTY_HEALTHCARE"
+        "HEALTHY" => "NSE:CNXPHARMA"
         "HEG" => "NSE:CNXMETAL"
         "HEIDELBERG" => "NSE:CNXINFRA"
         "HEROMOTOCO" => "NSE:CNXAUTO"
@@ -1604,9 +1637,16 @@ f_db_sector_lookup(string t) =>
         "HUDCO" => "NSE:CNXFINANCE"
         "HYUNDAI" => "NSE:CNXAUTO"
         "ICICIAMC" => "NSE:CNXFINANCE"
+        "ICICIAUTO" => "NSE:CNXAUTO"
         "ICICIBANK" => "NSE:BANKNIFTY"
+        "ICICICONSU" => "NSE:CNXCONSUMPTION"
+        "ICICIFMCG" => "NSE:CNXFMCG"
         "ICICIGI" => "NSE:CNXFINANCE"
+        "ICICIMETAL" => "NSE:CNXMETAL"
+        "ICICIPHARM" => "NSE:CNXPHARMA"
         "ICICIPRULI" => "NSE:CNXFINANCE"
+        "ICICIPSUBK" => "NSE:CNXPSUBANK"
+        "ICICITECH" => "NSE:CNXIT"
         "IDBI" => "NSE:BANKNIFTY"
         "IDEA" => "NSE:CNXINFRA"
         "IDEAFORGE" => "BSE:CG"
@@ -1617,22 +1657,25 @@ f_db_sector_lookup(string t) =>
         "IGIL" => "NSE:CNXMETAL"
         "IGL" => "NSE:NIFTY_OIL_AND_GAS"
         "IIFL" => "NSE:CNXFINANCE"
+        "IIFLCAPS" => "NSE:CNXFINANCE"
         "IIFLSEC" => "NSE:CNXFINANCE"
-        "IKS" => "NSE:CNXPHARMA"
+        "IKS" => "NSE:CNXIT"
         "IMAGICAA" => "NSE:CNXSERVICE"
         "INDGN" => "NSE:CNXPHARMA"
-        "INDHOTEL" => "NSE:CNXCONSUM"
+        "INDHOTEL" => "NSE:CNXCONSUMPTION"
         "INDIACEM" => "NSE:CNXINFRA"
         "INDIAMART" => "NSE:CNXIT"
-        "INDIANB" => "NSE:BANKNIFTY"
+        "INDIANB" => "NSE:CNXPSUBANK"
         "INDIGO" => "NSE:CNXSERVICE"
         "INDIGOPNTS" => "NSE:CNXINFRA"
         "INDUSINDBK" => "NSE:BANKNIFTY"
         "INDUSTOWER" => "NSE:CNXINFRA"
+        "INFRABEES" => "NSE:CNXINFRA"
+        "INFRAIETF" => "NSE:CNXINFRA"
         "INFY" => "NSE:CNXIT"
         "INOXWIND" => "BSE:CG"
         "INTELLECT" => "NSE:CNXIT"
-        "IOB" => "NSE:BANKNIFTY"
+        "IOB" => "NSE:CNXPSUBANK"
         "IOC" => "NSE:CNXENERGY"
         "IPCALAB" => "NSE:CNXPHARMA"
         "IRB" => "NSE:CNXINFRA"
@@ -1640,8 +1683,9 @@ f_db_sector_lookup(string t) =>
         "IRCTC" => "NSE:CNXSERVICE"
         "IREDA" => "NSE:CNXFINANCE"
         "IRFC" => "NSE:CNXFINANCE"
+        "ITBEES" => "NSE:CNXIT"
         "ITC" => "NSE:CNXFMCG"
-        "ITCHOTELS" => "NSE:CNXCONSUM"
+        "ITCHOTELS" => "NSE:CNXCONSUMPTION"
         "ITI" => "NSE:CNXINFRA"
         "J_KBANK" => "NSE:BANKNIFTY"
         "JAINREC" => "NSE:CNXMETAL"
@@ -1657,7 +1701,7 @@ f_db_sector_lookup(string t) =>
         "JPPOWER" => "NSE:CNXENERGY"
         "JSL" => "NSE:CNXMETAL"
         "JSWCEMENT" => "NSE:CNXINFRA"
-        "JSWDULUX" => "NSE:CNXFMCG"
+        "JSWDULUX" => "NSE:CNXCONSUMPTION"
         "JSWENERGY" => "NSE:CNXENERGY"
         "JSWINFRA" => "NSE:CNXINFRA"
         "JSWSTEEL" => "NSE:CNXMETAL"
@@ -1669,9 +1713,8 @@ f_db_sector_lookup(string t) =>
         "JYOTHYLAB" => "NSE:CNXFMCG"
         "JYOTICNC" => "NSE:CNXINFRA"
         "JYOTISTRUC" => "BSE:CG"
-        "J_KBANK" => "NSE:BANKNIFTY"
         "KAJARIACER" => "NSE:CNXINFRA"
-        "KALYANKJIL" => "NSE:CNXFMCG"
+        "KALYANKJIL" => "NSE:CNXCONSUMPTION"
         "KANSAINER" => "NSE:CNXINFRA"
         "KARURVYSYA" => "NSE:BANKNIFTY"
         "KAYNES" => "BSE:CG"
@@ -1681,27 +1724,30 @@ f_db_sector_lookup(string t) =>
         "KIMS" => "NSE:CNXPHARMA"
         "KIRLOSENG" => "NSE:CNXINFRA"
         "KNRCON" => "NSE:CNXINFRA"
-        "KOTAKAMC" => "NSE:CNXFINANCE"
         "KOTAKBANK" => "NSE:BANKNIFTY"
+        "KOTAKBKETF" => "NSE:BANKNIFTY"
+        "KOTAKIT" => "NSE:CNXIT"
+        "KOTAKPSUBK" => "NSE:CNXPSUBANK"
         "KPIL" => "BSE:CG"
         "KPITTECH" => "NSE:CNXIT"
-        "KPRMILL" => "NSE:CNXCONSUM"
+        "KPRMILL" => "NSE:CNXCONSUMPTION"
         "KRBL" => "NSE:CNXFMCG"
         "KSB" => "BSE:CG"
         "KSL" => "NSE:CNXMETAL"
         "LALPATHLAB" => "NSE:CNXPHARMA"
         "LATENTVIEW" => "NSE:CNXIT"
         "LAURUSLABS" => "NSE:CNXPHARMA"
-        "LAXMACH" => "BSE:CG"
-        "LEMONTREE" => "NSE:CNXCONSUM"
-        "LENSKART" => "NSE:CNXCONSUM"
-        "LGEINDIA" => "NSE:CNXCONSUM"
+        "LAXMACH" => "NSE:CNXINFRA"
+        "LAXMIMACH" => "NSE:CNXINFRA"
+        "LEMONTREE" => "NSE:CNXCONSUMPTION"
+        "LENSKART" => "NSE:CNXCONSUMPTION"
+        "LGEINDIA" => "NSE:CNXCONSUMPTION"
         "LICHSGFIN" => "NSE:CNXFINANCE"
         "LICI" => "NSE:CNXFINANCE"
         "LINDEINDIA" => "NSE:CNXMETAL"
         "LLOYDSME" => "NSE:CNXMETAL"
-        "LMSYMBOL" => "NSE:CNXIT"
         "LODHA" => "NSE:CNXREALTY"
+        "LOWVOL1" => "NSE:NIFTY100LOWVOL30"
         "LT" => "NSE:CNXINFRA"
         "LTF" => "NSE:CNXFINANCE"
         "LTFOODS" => "NSE:CNXFMCG"
@@ -1711,14 +1757,14 @@ f_db_sector_lookup(string t) =>
         "LUMAXTECH" => "NSE:CNXAUTO"
         "LUPIN" => "NSE:CNXPHARMA"
         "LXCHEM" => "NSE:CNXMETAL"
-        "L_T" => "BSE:CG"
         "L_TFH" => "NSE:CNXFINANCE"
         "M_M" => "NSE:CNXAUTO"
         "M_MFIN" => "NSE:CNXFINANCE"
-        "MAHABANK" => "NSE:BANKNIFTY"
+        "MAHABANK" => "NSE:CNXPSUBANK"
         "MAHLIFE" => "NSE:CNXREALTY"
         "MAHLOG" => "NSE:CNXSERVICE"
         "MAHSEAMLES" => "NSE:CNXMETAL"
+        "MAKEINDIA" => "NSE:NIFTY_INDIA_MFG"
         "MANAPPURAM" => "NSE:CNXFINANCE"
         "MANKIND" => "NSE:CNXPHARMA"
         "MAPMYINDIA" => "NSE:CNXIT"
@@ -1729,15 +1775,27 @@ f_db_sector_lookup(string t) =>
         "MAZDOCK" => "BSE:CG"
         "MCX" => "NSE:CNXFINANCE"
         "MEDANTA" => "NSE:CNXPHARMA"
-        "MEESHO" => "NSE:CNXCONSUM"
+        "MEESHO" => "NSE:CNXCONSUMPTION"
+        "METALIETF" => "NSE:CNXMETAL"
         "METROPOLIS" => "NSE:CNXPHARMA"
         "MFSL" => "NSE:CNXFINANCE"
         "MGL" => "NSE:NIFTY_OIL_AND_GAS"
         "MHRIL" => "NSE:CNXSERVICE"
+        "MIDCAP" => "NSE:NIFTYMIDCAP150"
+        "MIDCAPETF" => "NSE:NIFTYMIDCAP150"
+        "MIDHANI" => "NSE:NIFTY_IND_DEFENCE"
+        "MIDSMALL" => "NSE:NIFTYMIDSML400"
         "MINDACORP" => "NSE:CNXAUTO"
         "MINDTREE" => "NSE:CNXIT"
         "MIRZAINT" => "NSE:CNXFMCG"
         "MMTC" => "NSE:CNXINFRA"
+        "MOCAPITAL" => "NSE:NIFTY_CAPITAL_MKT"
+        "MODEFENCE" => "NSE:NIFTY_IND_DEFENCE"
+        "MOM100" => "NSE:NIFTYMIDCAP150"
+        "MOM30IETF" => "NSE:NIFTY200MOMENTM30"
+        "MOMENTUM50" => "NSE:NIFTY500MOMENTM50"
+        "MONIFTY500" => "NSE:CNX500"
+        "MOREALTY" => "NSE:CNXREALTY"
         "MOTHERSON" => "NSE:CNXAUTO"
         "MOTILALOFS" => "NSE:CNXFINANCE"
         "MPHASIS" => "NSE:CNXIT"
@@ -1747,10 +1805,7 @@ f_db_sector_lookup(string t) =>
         "MSUMI" => "NSE:CNXAUTO"
         "MTARTECH" => "BSE:CG"
         "MUTHOOTFIN" => "NSE:CNXFINANCE"
-        "M_M" => "NSE:CNXAUTO"
-        "M_MFIN" => "NSE:CNXFINANCE"
         "NAM-INDIA" => "NSE:CNXFINANCE"
-        "NAM_INDIA" => "NSE:CNXFINANCE"
         "NATCOPHARM" => "NSE:CNXPHARMA"
         "NATIONALUM" => "NSE:CNXMETAL"
         "NAUKRI" => "NSE:CNXSERVICE"
@@ -1764,9 +1819,11 @@ f_db_sector_lookup(string t) =>
         "NETWORK18" => "NSE:CNXMEDIA"
         "NEULANDLAB" => "NSE:CNXPHARMA"
         "NEWGEN" => "NSE:CNXIT"
+        "NEXT50IETF" => "NSE:NIFTYJR"
         "NH" => "NSE:CNXPHARMA"
         "NHPC" => "NSE:CNXENERGY"
         "NIACL" => "NSE:CNXFINANCE"
+        "NIFTYBEES" => "NSE:NIFTY"
         "NIITLTD" => "NSE:CNXIT"
         "NIVABUPA" => "NSE:CNXFINANCE"
         "NLCINDIA" => "NSE:CNXENERGY"
@@ -1776,11 +1833,14 @@ f_db_sector_lookup(string t) =>
         "NTPCGREEN" => "NSE:CNXENERGY"
         "NUVAMA" => "NSE:CNXFINANCE"
         "NUVOCO" => "NSE:CNXINFRA"
+        "NV20IETF" => "NSE:NIFTY50_VALUE_20"
         "NYKAA" => "NSE:CNXSERVICE"
         "OBEROIRLTY" => "NSE:CNXREALTY"
         "OBERREALTY" => "NSE:CNXREALTY"
         "OFSS" => "NSE:CNXIT"
         "OIL" => "NSE:CNXENERGY"
+        "OILANDGAS" => "NSE:NIFTY_OIL_AND_GAS"
+        "OILIETF" => "NSE:NIFTY_OIL_AND_GAS"
         "OLAEC" => "NSE:CNXAUTO"
         "OLAELEC" => "NSE:CNXAUTO"
         "OLECTRA" => "NSE:CNXAUTO"
@@ -1799,10 +1859,12 @@ f_db_sector_lookup(string t) =>
         "PETRONET" => "NSE:NIFTY_OIL_AND_GAS"
         "PFC" => "NSE:CNXFINANCE"
         "PFIZER" => "NSE:CNXPHARMA"
-        "PGEL" => "BSE:CG"
+        "PFOCUS" => "NSE:CNXMEDIA"
+        "PGEL" => "NSE:CNXCONSUMPTION"
         "PGHH" => "NSE:CNXFMCG"
+        "PHARMABEES" => "NSE:CNXPHARMA"
         "PHOENIXLTD" => "NSE:CNXREALTY"
-        "PIDILITIND" => "NSE:CNXINFRA"
+        "PIDILITIND" => "NSE:CNXCOMMODITIES"
         "PIIND" => "NSE:CNXCOMMODITIES"
         "PINELABS" => "NSE:CNXIT"
         "PIRAMALFIN" => "NSE:CNXFINANCE"
@@ -1820,12 +1882,17 @@ f_db_sector_lookup(string t) =>
         "PREMIERENE" => "BSE:CG"
         "PRESTIGE" => "NSE:CNXREALTY"
         "PRICOL" => "NSE:CNXAUTO"
+        "PRICOLLTD" => "NSE:CNXAUTO"
+        "PRIMO" => "NSE:CNXMETAL"
         "PRINCEPIPE" => "NSE:CNXINFRA"
         "PRSMJOHNSN" => "NSE:CNXINFRA"
+        "PSB" => "NSE:CNXPSUBANK"
+        "PSUBNKBEES" => "NSE:CNXPSUBANK"
         "PTCIL" => "NSE:CNXINFRA"
         "PUNJABALK" => "NSE:CNXMETAL"
         "PVRINOX" => "NSE:CNXMEDIA"
-        "PWL" => "NSE:CNXCONSUM"
+        "PVTBANIETF" => "NSE:NIFTYPVTBANK"
+        "PWL" => "NSE:CNXCONSUMPTION"
         "QUESS" => "NSE:CNXSERVICE"
         "RADICO" => "NSE:CNXFMCG"
         "RAILTEL" => "NSE:CNXINFRA"
@@ -1837,13 +1904,14 @@ f_db_sector_lookup(string t) =>
         "RATNAMANI" => "NSE:CNXMETAL"
         "RAYMOND" => "NSE:CNXFMCG"
         "RBLBANK" => "NSE:BANKNIFTY"
+        "REALTY" => "NSE:CNXREALTY"
         "RECLTD" => "NSE:CNXFINANCE"
         "REDINGTON" => "NSE:CNXSERVICE"
-        "RELAXO" => "NSE:CNXFMCG"
+        "RELAXO" => "NSE:CNXCONSUMPTION"
         "RELIANCE" => "NSE:CNXENERGY"
         "RHIM" => "NSE:CNXMETAL"
         "RITES" => "NSE:CNXINFRA"
-        "RKFORGE" => "NSE:CNXINFRA"
+        "RKFORGE" => "NSE:CNXAUTO"
         "ROLEXRINGS" => "NSE:CNXAUTO"
         "ROSSARI" => "NSE:CNXMETAL"
         "ROUTE" => "NSE:CNXIT"
@@ -1851,8 +1919,7 @@ f_db_sector_lookup(string t) =>
         "RRKABEL" => "BSE:CG"
         "RTNINDIA" => "NSE:CNXENERGY"
         "RVNL" => "BSE:CG"
-        "SAFEWELL" => "BSE:CG"
-        "SAGILITY" => "NSE:CNXPHARMA"
+        "SAGILITY" => "NSE:CNXIT"
         "SAIL" => "NSE:CNXMETAL"
         "SAILIFE" => "NSE:CNXPHARMA"
         "SAMMAANCAP" => "NSE:CNXFINANCE"
@@ -1863,15 +1930,17 @@ f_db_sector_lookup(string t) =>
         "SAREHGAMA" => "NSE:CNXMEDIA"
         "SBFC" => "NSE:CNXFINANCE"
         "SBICARD" => "NSE:CNXFINANCE"
-        "SBIGLI" => "NSE:CNXFINANCE"
         "SBILIFE" => "NSE:CNXFINANCE"
+        "SBIMIDMOM" => "NSE:NIFTYM150MOMNTM50"
         "SBIN" => "NSE:BANKNIFTY"
         "SCHAEFFLER" => "BSE:CG"
         "SCHNEIDER" => "BSE:CG"
         "SCI" => "NSE:CNXINFRA"
         "SDBL" => "NSE:CNXFMCG"
         "SEAMECLTD" => "NSE:CNXSERVICE"
-        "SFL" => "NSE:CNXFMCG"
+        "SETFBANK" => "NSE:BANKNIFTY"
+        "SETFIT" => "NSE:CNXIT"
+        "SFL" => "NSE:CNXCONSUMPTION"
         "SHARDACROP" => "NSE:CNXMETAL"
         "SHOPERSTOP" => "NSE:CNXSERVICE"
         "SHREECEM" => "NSE:CNXINFRA"
@@ -1882,6 +1951,8 @@ f_db_sector_lookup(string t) =>
         "SIS" => "NSE:CNXSERVICE"
         "SJVN" => "NSE:CNXENERGY"
         "SKFINDIA" => "BSE:CG"
+        "SMALLCAP" => "NSE:NIFTYSML250MQ_100"
+        "SML100CASE" => "NSE:CNXSMALLCAP"
         "SOBHA" => "NSE:CNXREALTY"
         "SOLARINDS" => "BSE:CG"
         "SONACOMS" => "NSE:CNXAUTO"
@@ -1918,7 +1989,7 @@ f_db_sector_lookup(string t) =>
         "TATAPOWER" => "NSE:CNXENERGY"
         "TATASTEEL" => "NSE:CNXMETAL"
         "TATATECH" => "NSE:CNXIT"
-        "TBOTEK" => "NSE:CNXCONSUM"
+        "TBOTEK" => "NSE:CNXCONSUMPTION"
         "TCI" => "NSE:CNXSERVICE"
         "TCIEXP" => "NSE:CNXSERVICE"
         "TCS" => "NSE:CNXIT"
@@ -1928,20 +1999,22 @@ f_db_sector_lookup(string t) =>
         "TEGA" => "BSE:CG"
         "TEJASNET" => "NSE:CNXINFRA"
         "TENNIND" => "NSE:CNXAUTO"
-        "THELEELA" => "NSE:CNXCONSUM"
+        "THELEELA" => "NSE:CNXCONSUMPTION"
         "THERMAX" => "BSE:CG"
         "THYROCARE" => "NSE:CNXPHARMA"
         "TIINDIA" => "NSE:CNXAUTO"
         "TIMKEN" => "BSE:CG"
         "TIPSMUSIC" => "NSE:CNXMEDIA"
         "TITAGARH" => "BSE:CG"
-        "TITAN" => "NSE:CNXFMCG"
+        "TITAN" => "NSE:CNXCONSUMPTION"
         "TMCV" => "NSE:CNXAUTO"
         "TMPV" => "NSE:CNXAUTO"
+        "TNIDETF" => "NSE:NIFTY_IND_DIGITAL"
+        "TOP100CASE" => "NSE:CNX100"
         "TORNTPHARM" => "NSE:CNXPHARMA"
         "TORNTPOWER" => "NSE:CNXENERGY"
-        "TRAVELFOOD" => "NSE:CNXCONSUM"
-        "TRENT" => "NSE:CNXFMCG"
+        "TRAVELFOOD" => "NSE:CNXCONSUMPTION"
+        "TRENT" => "NSE:CNXCONSUMPTION"
         "TRIDENT" => "NSE:CNXFMCG"
         "TRITURBINE" => "BSE:CG"
         "TRIVENI" => "NSE:CNXFMCG"
@@ -1949,7 +2022,7 @@ f_db_sector_lookup(string t) =>
         "TVSMOTOR" => "NSE:CNXAUTO"
         "TVSSRICHAK" => "NSE:CNXAUTO"
         "UBL" => "NSE:CNXFMCG"
-        "UCOBANK" => "NSE:BANKNIFTY"
+        "UCOBANK" => "NSE:CNXPSUBANK"
         "UFLEX" => "NSE:CNXMETAL"
         "ULTRACEMCO" => "NSE:CNXINFRA"
         "UNIONBANK" => "NSE:BANKNIFTY"
@@ -1959,7 +2032,7 @@ f_db_sector_lookup(string t) =>
         "URBANCO" => "NSE:CNXIT"
         "USHAMART" => "NSE:CNXMETAL"
         "UTIAMC" => "NSE:CNXFINANCE"
-        "VAIBHAVGBL" => "NSE:CNXFMCG"
+        "VAIBHAVGBL" => "NSE:CNXCONSUMPTION"
         "VAKRANGEE" => "NSE:CNXIT"
         "VALIANTORG" => "NSE:CNXMETAL"
         "VARDHACRLC" => "NSE:CNXFMCG"
@@ -1968,17 +2041,17 @@ f_db_sector_lookup(string t) =>
         "VENKEYS" => "NSE:CNXFMCG"
         "VIJAYA" => "NSE:CNXPHARMA"
         "VINATIORGA" => "NSE:CNXMETAL"
-        "VIPIND" => "NSE:CNXFMCG"
+        "VIPIND" => "NSE:CNXCONSUMPTION"
         "VISHNU" => "NSE:CNXMETAL"
-        "VMM" => "NSE:CNXCONSUM"
-        "VOLTAS" => "BSE:CG"
+        "VMM" => "NSE:CNXCONSUMPTION"
+        "VOLTAS" => "NSE:CNXCONSUMPTION"
         "VTL" => "NSE:CNXFMCG"
         "WAAREEENER" => "BSE:CG"
         "WELCORP" => "NSE:CNXMETAL"
         "WELENT" => "NSE:CNXINFRA"
         "WELSPUNLIV" => "NSE:CNXFMCG"
         "WESTLIFE" => "NSE:CNXSERVICE"
-        "WHIRLPOOL" => "BSE:CG"
+        "WHIRLPOOL" => "NSE:CNXCONSUMPTION"
         "WIPRO" => "NSE:CNXIT"
         "WOCKPHARMA" => "NSE:CNXPHARMA"
         "YESBANK" => "NSE:BANKNIFTY"
@@ -5777,6 +5850,13 @@ plot(slope500,          title="s4_rsSlope500",   display=display.none)
 // different questions printed as one comparison.
 plot(valSec,            title="s4_rsRatioSec",   display=display.none)
 plot(_rsMomSec,         title="s4_rsMomSec",     display=display.none)
+// The TRAILING sector pair (2 Sep 2026). Both already fall out of the weekly
+// request.security call at the top of this file - exporting them costs two plot
+// slots and no computation. Without them S4's sector RRG has no trajectory, so its
+// gradient and BUY-OK/WAIT signal were degenerate while the N500 half beside it
+// was real. 41 -> 43 of the 64 plot outputs.
+plot(_valTrailSec,      title="s4_rsValTrailSec", display=display.none)
+plot(_momTrailSec,      title="s4_rsMomTrailSec", display=display.none)
 plot(slopeSec,          title="s4_rsSlopeSec",   display=display.none)
 plot(secStageNum,       title="s4_secStage",     display=display.none)
 plot(stageWeeks,        title="s4_stageWeeks",   display=display.none)

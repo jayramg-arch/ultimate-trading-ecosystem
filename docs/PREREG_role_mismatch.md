@@ -225,3 +225,104 @@ Not another pass on this sample. Three things, in order of value:
 3. **`BREAKOUT_CONFIRMED` on its own.** 0 wins in 14 GO-timed trades is either a real
    defect in that detector or a 14-trade coincidence. It is cheap to check and it is a
    pattern S4 currently treats as an ignition in good standing.
+
+---
+
+# ADDENDUM · the GRADED POSITIVE form — ladder read 9 Sep 2026, threshold registered
+
+Control run `20260909_055448` (36mo, nifty500, bull, s4go, qualify catalyst,
+catalyst-aware). 331 trades, 27 anchors, windows 60/120/180 (one stray 30).
+`Rev_N` / `Con_N` / `NonIgn_Score` emitted on every trade; nothing gated.
+
+## The ladder
+
+| NonIgn_Score | n | mean α | median | win |
+|---:|---:|---:|---:|---:|
+| 0 | 234 | −1.31% | −3.04% | 30.3% |
+| 1 | 64 | +0.41% | −2.33% | 34.4% |
+| 2 | 30 | +1.46% | −1.82% | 46.7% |
+| 3 | 3 | +1.42% | −9.54% | (thin) |
+
+Monotone across the three levels with n ≥ 25, and the ordering **survives trimming the
+top two alphas from each level** (−1.55 / −0.71 / −0.22).
+
+## What the ladder is actually made of — read this before the pass
+
+Two things are true at once and only one of them is good news.
+
+**The ordering is real.** It holds after trimming, and the reversal-count axis it replaces
+does not (0/1/2 → −1.18 / +1.33 / **−1.25**, non-monotone, unchanged).
+
+**The absolute positive means are not.** Every trimmed level mean is still NEGATIVE. The
+positive figures are big-winner-carried — the same profile documented across this book.
+
+And the level-2 cell decomposes badly:
+
+| subcell | n | mean α |
+|---|---:|---:|
+| Rev_N=2, Con_N=0 | 25 | **−1.25%** |
+| Rev_N=1, Con_N=1 | 2 | +18.85% |
+| Rev_N=0, Con_N=2 | 3 | +12.40% |
+
+**Five trades averaging +14.98% are what lift level 2 above level 1**, one of them at
++30.5%. Contraction fires on only **3.0%** of trigger bars, so the half that makes this
+score different from the ruled-out reversal count barely exists. Remove every
+contraction-carrying row and the ladder reverts to non-monotone (0/1/≥2 → −1.31 / +0.73 /
+−0.96).
+
+**A criterion of mine failed here and is now fixed.** The resolution rule was "3 levels
+with n ≥ 25, monotone". Level 2 cleared n=30 while its entire ordering rested on 5 rows —
+a cell can pass a count floor and still be one outlier wide. `score_nonign_ladder.py` now
+also reports top-2-trimmed level means and requires the ordering to survive them.
+
+## Conclusion on GRADING, and the threshold that follows
+
+**There is no usable graded structure.** Thresholds on all 331 trades:
+
+| gate | n | keep | mean | edge | deployment |
+|---|---:|---:|---:|---:|---:|
+| ≥1 | 97 | 29.3% | +0.77% | +1.47pp | **+0.22%** |
+| ≥2 | 33 | 10.0% | +1.45% | +2.15pp | +0.14% |
+| ≥3 | 3 | — | degenerate | | |
+| off | 331 | 100% | −0.70% | — | −0.70% |
+
+Above 1 the retention collapses and **deployment falls**, and the level-2 advantage is the
+5 rows above. So the informative cut is **0 vs ≥1** — binary after all, exactly as the
+reversal-count axis was. Grading bought the monotonicity, not a second useful level.
+
+**Registered threshold: `--nonign_min 1`.** Selection freedom is minimal: ≥2 loses on
+deployment and ≥3 is degenerate, so 1 is the only non-degenerate choice. That the threshold
+was read off this control run is stated plainly rather than dressed up.
+
+## Why this is worth an arm when roleMismatch already failed
+
+On the same 331 trades, at the same time, with the same instrument:
+
+| | keep | mean | edge | deployment |
+|---|---:|---:|---:|---:|
+| roleMismatch | 36.6% | +0.09% | +0.79pp | +0.03% |
+| **NonIgn ≥ 1** | 29.3% | **+0.77%** | **+1.47pp** | **+0.22%** |
+
+And on the 12 fresh anchors: keep 27.4%, mean **+1.83%** vs −0.46% unfiltered, edge
++2.29pp, deployment +0.50% vs −0.46%.
+
+The two rules differ in exactly two ways: NonIgn ≥ 1 has **no location condition** and no
+VCP exemption. So the readable hypothesis is that **the location half was diluting it** —
+the informative variable is "is there non-ignition evidence on the trigger bar", not "is
+there an ignition in the wrong place". That is a different claim from the one already
+tested, which is why it earns its own arm.
+
+## H6 and the adoption rule — fixed before the arm runs
+
+**H6** — requiring ≥1 piece of non-ignition evidence on the trigger bar raises mean
+matched-horizon alpha AND deployment on GO-timed entries.
+
+Adopt ONLY if ALL of: **A** bite ≥ 15% · **B** edge ≥ +1.0pp · **C** symbol-block CI95 on
+(treat − control) excludes zero · **D** sign holds in both chronological halves ·
+**E'** deployment beats control · **F** holds on the fresh anchors alone.
+
+**D is the one to watch.** roleMismatch failed it (+1.33 / −0.36) and the RV band failed it
+twice. If the ordering above is real rather than a property of these 27 anchors, D should
+hold. If D fails again on a third consecutive intervention, the honest reading is not "this
+gate is bad" but **"a 331-trade GO-timed book cannot resolve a 1pp effect"** — which is a
+statement about the sample, and the next move would be more anchors, not another gate.

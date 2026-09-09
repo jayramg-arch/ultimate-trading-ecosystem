@@ -161,6 +161,35 @@ def preflight_cleanup(verbose: bool = True) -> dict:
     return res
 
 
+def postflight_backup(verbose: bool = True) -> bool:
+    """Takes a backup of the trade journal database to a dated backup file."""
+    import shutil
+    import datetime
+    db_file = os.path.join(_DIR, "trade_journal_v6.db")
+    if not os.path.exists(db_file):
+        if verbose:
+            print("[backup] database file not found, skipping backup")
+        return False
+        
+    today_str = datetime.date.today().strftime("%Y%m%d")
+    backup_file = os.path.join(_DIR, f"trade_journal_v6.backup_{today_str}.db")
+    
+    # Avoid backing up again if it already exists for today
+    if os.path.exists(backup_file):
+        if verbose:
+            print(f"[backup] backup already exists for today: {os.path.basename(backup_file)}")
+        return True
+        
+    try:
+        shutil.copy2(db_file, backup_file)
+        if verbose:
+            print(f"[backup] database backed up safely to {os.path.basename(backup_file)}")
+        return True
+    except Exception as e:
+        logger.warning("database backup failed: %s", e)
+        return False
+
+
 def main() -> int:
     preflight_cleanup(verbose=True)
     return 0

@@ -1,0 +1,14 @@
+{
+  "final_equity": 1138245.33,
+  "total_return_pct": 13.88,
+  "cagr_pct": 30.37,
+  "vol_ann_pct": 12.02,
+  "sharpe": 2.53,
+  "max_dd_pct": 0.0,
+  "win_months": 5,
+  "loss_months": 0,
+  "win_rate_pct": 100.0,
+  "benchmark_cagr_pct": 24.39,
+  "alpha_pct": 5.99,
+  "years": 0.49
+}

@@ -93,6 +93,11 @@ def main() -> int:
     ap.add_argument("--control", required=True)
     ap.add_argument("--treat", required=True)
     ap.add_argument("-n", type=int, default=10000)
+    # Which ablation flag this pair is testing. The instrument check has to verify the
+    # arms actually differ on the knob under test, not merely that they differ.
+    ap.add_argument("--flag", default="role_mismatch",
+                    help="meta key that must be off in control and on in treat "
+                         "(role_mismatch | nonign_min)")
     a = ap.parse_args()
 
     c, mc = _load(a.control)
@@ -100,10 +105,12 @@ def main() -> int:
 
     # ── INSTRUMENT GATE (PREREG section 5) — checked BEFORE any result is read ──
     print("--- INSTRUMENT CHECK ---")
-    rc, rt = _agg(mc).get("role_mismatch"), _agg(mt).get("role_mismatch")
-    ok_flag = (rc is False) and (rt is True)
-    print("  flags: control role_mismatch=%s  treat role_mismatch=%s   %s"
-          % (rc, rt, "ok" if ok_flag else "SUSPECT"))
+    rc, rt = _agg(mc).get(a.flag), _agg(mt).get(a.flag)
+    _off = (rc in (False, 0, None))
+    _on = (rt is True) or (isinstance(rt, int) and not isinstance(rt, bool) and rt > 0)
+    ok_flag = _off and _on
+    print("  flags: control %s=%s  treat %s=%s   %s"
+          % (a.flag, rc, a.flag, rt, "ok" if ok_flag else "SUSPECT"))
     # QUALIFY MODE. Added after it silently invalidated a full A/B pair: --qualify
     # defaults to "armed", a different population (12x the picks, no catalyst labels,
     # so forward windows fall through to per-pattern horizons). Both arms must match

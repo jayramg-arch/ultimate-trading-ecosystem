@@ -1,0 +1,1127 @@
+[
+  {
+    "row": 2,
+    "category": "Broad Index",
+    "name": "SBI Nifty 50 ETF",
+    "based_on": "Nifty 50",
+    "chosen_sym": "SETFNIF50",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 3,
+    "category": "Broad Index",
+    "name": "UTI Nifty 50 ETF",
+    "based_on": "Nifty 50",
+    "chosen_sym": "0P00005WL6",
+    "source": "yahoo_no_etf",
+    "in_nse_map": false
+  },
+  {
+    "row": 4,
+    "category": "Broad Index",
+    "name": "Nippon Nifty 50 ETF (NIFTYBEES)",
+    "based_on": "Nifty 50",
+    "chosen_sym": "NIFTYBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 5,
+    "category": "Broad Index",
+    "name": "LIC Nifty 100 ETF",
+    "based_on": "Nifty 100",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 6,
+    "category": "Broad Index",
+    "name": "Nippon India Nifty 100 ETF",
+    "based_on": "Nifty 100",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 7,
+    "category": "Broad Index",
+    "name": "Zerodha Nifty 100 ETF",
+    "based_on": "Nifty 100",
+    "chosen_sym": "TOP100CASE",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 8,
+    "category": "Broad Index",
+    "name": "Motilal Oswal Nifty 500 ETF",
+    "based_on": "Nifty 500",
+    "chosen_sym": "MONIFTY500",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 9,
+    "category": "Broad Index",
+    "name": "Mirae Asset Nifty 500 Multicap ETF",
+    "based_on": "Nifty 500 Multicap 50:25:25",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 10,
+    "category": "Broad Index",
+    "name": "Edelweiss Nifty LargeMidcap 250 ETF",
+    "based_on": "Nifty Largemid250",
+    "chosen_sym": "ELM250",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 11,
+    "category": "Broad Index",
+    "name": "Kotak Nifty Midcap 50 ETF",
+    "based_on": "Nifty Mid Cap 50",
+    "chosen_sym": "MIDCAP",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 12,
+    "category": "Broad Index",
+    "name": "Motilal Oswal Nifty Midcap 100 ETF",
+    "based_on": "NIFTY Midcap 100",
+    "chosen_sym": "MOM100",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 13,
+    "category": "Broad Index",
+    "name": "LIC Nifty Midcap 100 ETF",
+    "based_on": "NIFTY Midcap 100",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 14,
+    "category": "Broad Index",
+    "name": "Nippon Nifty MC 150 ETF (MID150BEES)",
+    "based_on": "Nifty Midcap 150",
+    "chosen_sym": "MID150BEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 15,
+    "category": "Broad Index",
+    "name": "Mirae Asset Nifty Midcap 150 ETF",
+    "based_on": "Nifty Midcap 150",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 16,
+    "category": "Broad Index",
+    "name": "ICICI Pru Nifty Midcap 150 ETF",
+    "based_on": "Nifty Midcap 150",
+    "chosen_sym": "0P0001NYM3",
+    "source": "yahoo_no_etf",
+    "in_nse_map": false
+  },
+  {
+    "row": 17,
+    "category": "Broad Index",
+    "name": "Nippon Nifty Next 50 Junior Bees - ETF",
+    "based_on": "Nifty Next 50",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 18,
+    "category": "Broad Index",
+    "name": "SBI Nifty Next 50 ETF",
+    "based_on": "Nifty Next 50",
+    "chosen_sym": "SETFNN50",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 19,
+    "category": "Broad Index",
+    "name": "ICICI Pru Nifty Next 50 ETF",
+    "based_on": "Nifty Next 50",
+    "chosen_sym": "0P0000XUYS",
+    "source": "yahoo_no_etf",
+    "in_nse_map": false
+  },
+  {
+    "row": 20,
+    "category": "Broad Index",
+    "name": "Zerodha Nifty Smallcap 100 ETF",
+    "based_on": "NIFTY Smallcap 100",
+    "chosen_sym": "SML100CASE",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 21,
+    "category": "Broad Index",
+    "name": "HDFC Nifty Small Cap 250 ETF",
+    "based_on": "NIFTY Smallcap 250",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 22,
+    "category": "Broad Index",
+    "name": "Motilal Oswal Nifty Smallcap 250 ETF",
+    "based_on": "NIFTY Smallcap 250",
+    "chosen_sym": "MOSMALL250",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 23,
+    "category": "Broad Index",
+    "name": "Mirae Asset Nifty Smallcap 250 ETF",
+    "based_on": "NIFTY Smallcap 250",
+    "chosen_sym": "SMALL250",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 24,
+    "category": "Broad Index",
+    "name": "Angel One Nifty Total Market ETF",
+    "based_on": "Nifty Total mkt",
+    "chosen_sym": "AONETOTAL",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 25,
+    "category": "Commodities Index",
+    "name": "Nippon Gold ETF (GOLDBEES)",
+    "based_on": "Gold",
+    "chosen_sym": "GOLDBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 26,
+    "category": "Commodities Index",
+    "name": "ICICI Pru Gold ETF",
+    "based_on": "Gold",
+    "chosen_sym": "0P0000U3OG",
+    "source": "yahoo_clean_name",
+    "in_nse_map": false
+  },
+  {
+    "row": 27,
+    "category": "Commodities Index",
+    "name": "SBI Gold ETF",
+    "based_on": "Gold",
+    "chosen_sym": "SETFGOLD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 28,
+    "category": "Commodities Index",
+    "name": "ICICI Pru Nifty Oil & Gas ETF",
+    "based_on": "Nifty Oil and Gas",
+    "chosen_sym": "OILIETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 29,
+    "category": "Commodities Index",
+    "name": "Nippon Silver ETF (SILVERBEES)",
+    "based_on": "Silver",
+    "chosen_sym": "SILVERBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 30,
+    "category": "Commodities Index",
+    "name": "ICICI Pru Silver ETF",
+    "based_on": "Silver",
+    "chosen_sym": "0P0001O9HC",
+    "source": "yahoo_clean_name",
+    "in_nse_map": false
+  },
+  {
+    "row": 31,
+    "category": "Commodities Index",
+    "name": "HDFC Silver ETF",
+    "based_on": "Silver",
+    "chosen_sym": "0P0001PU07",
+    "source": "yahoo_clean_name",
+    "in_nse_map": false
+  },
+  {
+    "row": 32,
+    "category": "Debt Index",
+    "name": "SBI Nifty 10 Year G-Sec ETF",
+    "based_on": "Nifty 10 Year G-Sec",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 33,
+    "category": "Debt Index",
+    "name": "LIC Nifty 10 Year G-Sec ETF",
+    "based_on": "Nifty 10 Year G-Sec",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 34,
+    "category": "Debt Index",
+    "name": "ICICI Pru Nifty 10 Year G-Sec ETF",
+    "based_on": "Nifty 10 Year G-Sec",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 35,
+    "category": "Debt Index",
+    "name": "Nippon 5 Year G-Sec ETF (GILT5YBEES)",
+    "based_on": "Nifty 5 Year G-Sec",
+    "chosen_sym": "GILT5YBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 36,
+    "category": "Debt Index",
+    "name": "Motilal Os Nifty 5yr Benchmark GSec ETF",
+    "based_on": "Nifty 5 Year G-Sec",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 37,
+    "category": "Debt Index",
+    "name": "UTI Nifty 5 Year G-Sec ETF",
+    "based_on": "Nifty 5 Year G-Sec",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 38,
+    "category": "Debt Index",
+    "name": "Edelweiss Bharat Bond April 2030 ETF",
+    "based_on": "Nifty BHARAT Bond 2030",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 39,
+    "category": "Debt Index",
+    "name": "Edelweiss Bharat Bond April 2031 ETF",
+    "based_on": "Nifty BHARAT Bond 2031",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 40,
+    "category": "Debt Index",
+    "name": "Edelweiss Bharat Bond April 2032 ETF",
+    "based_on": "Nifty BHARAT Bond 2032",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 41,
+    "category": "Global Index",
+    "name": "Motilal Oswal Nasdaq 100 ETF",
+    "based_on": "Nasdaq 100",
+    "chosen_sym": "MON100",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 42,
+    "category": "Global Index",
+    "name": "Mirae Asset NYSE FANG+ ETF",
+    "based_on": "NYSE FANG+",
+    "chosen_sym": "0P0001M31S",
+    "source": "yahoo_clean_name",
+    "in_nse_map": false
+  },
+  {
+    "row": 43,
+    "category": "Global Index",
+    "name": "Mirae Asset S&P 500 Top 50 ETF",
+    "based_on": "S&P 500 Top 50",
+    "chosen_sym": "MASPTOP50",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 44,
+    "category": "Global Index",
+    "name": "Nippon Hang Seng ETF (HNGSNGBEES)",
+    "based_on": "Hang Seng",
+    "chosen_sym": "HNGSNGBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 45,
+    "category": "Global Index",
+    "name": "Motilal Oswal Nasdaq Quality 50 ETF",
+    "based_on": "Nasdaq Quality 50",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 46,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty Financial Service ETF",
+    "based_on": "Finnifty",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 47,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty 500 Healthcare ETF",
+    "based_on": "Nifty 500 Healthcare",
+    "chosen_sym": "HEALTHCARE",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 48,
+    "category": "Sectoral Index",
+    "name": "Nippon Auto ETF (AUTOBEES)",
+    "based_on": "Nifty Auto",
+    "chosen_sym": "AUTOBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 49,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Auto ETF",
+    "based_on": "Nifty Auto",
+    "chosen_sym": "AUTOIETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 50,
+    "category": "Sectoral Index",
+    "name": "Nippon Nifty Bank ETF (BANKBEES)",
+    "based_on": "Nifty Bank",
+    "chosen_sym": "BANKBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 51,
+    "category": "Sectoral Index",
+    "name": "HDFC Nifty Bank ETF",
+    "based_on": "Nifty Bank",
+    "chosen_sym": "HDFCNIFBAN",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 52,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty Bank ETF",
+    "based_on": "Nifty Bank",
+    "chosen_sym": "BANKNIFTY1",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 53,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty Capital Market ETF",
+    "based_on": "Nifty Capital Markets",
+    "chosen_sym": "MOCAPITAL",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 54,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty Capital Markets ETF",
+    "based_on": "Nifty Capital Market",
+    "chosen_sym": "GROWWCAPM",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 55,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty Chemicals ETF",
+    "based_on": "Nifty Chemicals",
+    "chosen_sym": "CHEMICAL",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 56,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty Chemicals ETF",
+    "based_on": "Nifty Chemicals",
+    "chosen_sym": "GROWWCHEM",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 57,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty Energy ETF",
+    "based_on": "Nifty Energy",
+    "chosen_sym": "MOENERGY",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 58,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty EV & New Age Automotive ETF",
+    "based_on": "Nifty EV and New Age Auto",
+    "chosen_sym": "GROWWEV",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 59,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty EV & New Age Auto ETF",
+    "based_on": "Nifty EV and New Age Auto",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 60,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Fin Svc Ex-Bank ETF",
+    "based_on": "Nifty Financial Services Ex Bank",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 61,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty FMCG ETF",
+    "based_on": "Nifty FMCG",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 62,
+    "category": "Sectoral Index",
+    "name": "DSP Nifty FMCG ETF",
+    "based_on": "NIFTY FMCG",
+    "chosen_sym": "FMCGADD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 63,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Healthcare ETF",
+    "based_on": "Nifty Healthcare",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 64,
+    "category": "Sectoral Index",
+    "name": "Aditya Birla Nifty Healthcare ETF",
+    "based_on": "Nifty Healthcare",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 65,
+    "category": "Sectoral Index",
+    "name": "Axis Nifty Healthcare ETF",
+    "based_on": "Nifty Healthcare",
+    "chosen_sym": "HEALTHAXIS",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 66,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty India Defence ETF",
+    "based_on": "Nifty India Defence",
+    "chosen_sym": "MODEFENCE",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 67,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty India Defence ETF",
+    "based_on": "Nifty India Defence",
+    "chosen_sym": "GROWWDEFNC",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 68,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty India Railways PSU ETF",
+    "based_on": "Nifty India Railways PSU",
+    "chosen_sym": "GROWWRAIL",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 69,
+    "category": "Sectoral Index",
+    "name": "Nippon Nifty IT ETF (ITBEES)",
+    "based_on": "Nifty IT",
+    "chosen_sym": "ITBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 70,
+    "category": "Sectoral Index",
+    "name": "ICICI Prudential IT ETF",
+    "based_on": "Nifty IT",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 71,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty IT ETF",
+    "based_on": "Nifty IT",
+    "chosen_sym": "IT",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 72,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Metal ETF",
+    "based_on": "Nifty Metal",
+    "chosen_sym": "METALIETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 73,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty Metal ETF",
+    "based_on": "Nifty Metal",
+    "chosen_sym": "METAL",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 74,
+    "category": "Sectoral Index",
+    "name": "HDFC Nifty Metal ETF",
+    "based_on": "Nifty Metal",
+    "chosen_sym": "0P00036CWX",
+    "source": "yahoo_clean_name",
+    "in_nse_map": false
+  },
+  {
+    "row": 75,
+    "category": "Sectoral Index",
+    "name": "Nippon Pharma ETF (PHARMABEES)",
+    "based_on": "Nifty Pharma",
+    "chosen_sym": "PHARMABEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 76,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Private Bank ETF",
+    "based_on": "Nifty Private Bank",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 77,
+    "category": "Sectoral Index",
+    "name": "HDFC Nifty Private Bank ETF",
+    "based_on": "Nifty Private Bank",
+    "chosen_sym": "HDFCPVTBAN",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 78,
+    "category": "Sectoral Index",
+    "name": "DSP Nifty Private Bank ETF",
+    "based_on": "Nifty Private Bank",
+    "chosen_sym": "PVTBANKADD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 79,
+    "category": "Sectoral Index",
+    "name": "Nippon Nifty PSU Bank ETF (PSUBNKBEES)",
+    "based_on": "Nifty PSU Bank",
+    "chosen_sym": "PSUBNKBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 80,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty PSU Bank ETF",
+    "based_on": "Nifty PSU Bank",
+    "chosen_sym": "PSUBANK",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 81,
+    "category": "Sectoral Index",
+    "name": "DSP Nifty PSU Bank ETF",
+    "based_on": "Nifty PSU Bank",
+    "chosen_sym": "PSUBANKADD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 82,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty Realty ETF",
+    "based_on": "Nifty Realty",
+    "chosen_sym": "MOREALTY",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 83,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty Realty ETF",
+    "based_on": "Nifty Realty",
+    "chosen_sym": "GROWWRLTY",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 84,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 100 Low Vol 30 ETF",
+    "based_on": "Nifty 100 Low Volatility 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 85,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty Alpha Low Volatility 30",
+    "based_on": "Nifty 100 Low Volatility 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 86,
+    "category": "Strategy Index",
+    "name": "Kotak Nifty 100 Low Volatility 30 ETF",
+    "based_on": "Nifty 100 Low Volatility 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 87,
+    "category": "Strategy Index",
+    "name": "Mirae Asset Nifty 200 Alpha 30 ETF",
+    "based_on": "Nifty 200 Alpha 30",
+    "chosen_sym": "ALPHAETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 88,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 200 Momentum 30 ETF",
+    "based_on": "Nifty 200 Momentum 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 89,
+    "category": "Strategy Index",
+    "name": "HDFC Nifty 200 Momentum 30 ETF",
+    "based_on": "Nifty 200 Momentum 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 90,
+    "category": "Strategy Index",
+    "name": "Motilal Oswal Nifty 200 Momentum ETF",
+    "based_on": "Nifty 200 Momentum 30",
+    "chosen_sym": "MOMOMENTUM",
+    "source": "yahoo_no_etf",
+    "in_nse_map": true
+  },
+  {
+    "row": 91,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 200 Quality 30 ETF",
+    "based_on": "Nifty 200 Quality 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 92,
+    "category": "Strategy Index",
+    "name": "SBI Nifty 200 Quality 30 ETF",
+    "based_on": "Nifty 200 Quality 30",
+    "chosen_sym": "SBIETFQLTY",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 93,
+    "category": "Strategy Index",
+    "name": "Aditya Birla Nifty 200 Quality 30 ETF",
+    "based_on": "Nifty 200 Quality 30",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 94,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 200 Value 30 ETF",
+    "based_on": "Nifty 200 Value 30",
+    "chosen_sym": "VAL30IETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 95,
+    "category": "Strategy Index",
+    "name": "DSP Nifty 50 Equal Weight ETF",
+    "based_on": "Nifty 50 Equal Weight",
+    "chosen_sym": "EQUAL50ADD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 96,
+    "category": "Strategy Index",
+    "name": "Motilal Oswal Nifty 50 Equal Weight ETF",
+    "based_on": "Nifty 50 Equal Weight",
+    "chosen_sym": "MON50EQUAL",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 97,
+    "category": "Strategy Index",
+    "name": "SBI Nifty 50 Equal Weight ETF",
+    "based_on": "Nifty 50 Equal Weight",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 98,
+    "category": "Strategy Index",
+    "name": "Motilal Oswal Nifty 500 Momentum 50 ETF",
+    "based_on": "Nifty 500 Momentum 50",
+    "chosen_sym": "MOMENTUM50",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 99,
+    "category": "Strategy Index",
+    "name": "Groww Nifty 500 Momentum 50 ETF",
+    "based_on": "Nifty 500 Momentum 50",
+    "chosen_sym": "GROWWMOM50",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 100,
+    "category": "Strategy Index",
+    "name": "Kotak Nifty Alpha 50 ETF",
+    "based_on": "NIFTY ALPHA 50",
+    "chosen_sym": "ALPHA",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 101,
+    "category": "Strategy Index",
+    "name": "Nippon Nifty 50 DO ETF (DIVOPPBEES)",
+    "based_on": "Nifty Dividend Opportunities 50",
+    "chosen_sym": "DIVOPPBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 102,
+    "category": "Strategy Index",
+    "name": "SBI Nifty Midcap 150 Momentum 50 ETF",
+    "based_on": "Nifty Midcap 150 Momentum",
+    "chosen_sym": "SBIMIDMOM",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 103,
+    "category": "Strategy Index",
+    "name": "DSP Nifty Midcap 150 Quality 50 ETF",
+    "based_on": "NIFTY Midcap150 Quality 50",
+    "chosen_sym": "MIDQ50ADD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 104,
+    "category": "Strategy Index",
+    "name": "Mirae Asset Nifty MS400 MQ 100 ETF",
+    "based_on": "Nifty MidSmallCap 400",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 105,
+    "category": "Strategy Index",
+    "name": "Mirae Ast Nifty Smallcap 250 MQ 100 ETF",
+    "based_on": "Nifty Smallcap250 Momentum Quality 100",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 106,
+    "category": "Strategy Index",
+    "name": "DSP Nifty Top 10 Equal Weight ETF",
+    "based_on": "Nifty Top 10 Equal Weight",
+    "chosen_sym": "TOP10ADD",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 107,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 50 Value 20 ETF",
+    "based_on": "Nifty50 Value 20 Index",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 108,
+    "category": "Strategy Index",
+    "name": "Nippon Nifty 50 Value 20 ETF (NV20BEES)",
+    "based_on": "Nifty50 Value 20 Index",
+    "chosen_sym": "NV20BEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 109,
+    "category": "Thematic Index",
+    "name": "ICICI Pru Nifty Commodities ETF",
+    "based_on": "Nifty Commodities",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 110,
+    "category": "Thematic Index",
+    "name": "Nippon Nifty Cons. ETF (CONSUMBEES)",
+    "based_on": "Nifty Consumption",
+    "chosen_sym": "CONSUMBEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 111,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty New Age Cons. ETF",
+    "based_on": "Nifty Consumption",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 112,
+    "category": "Thematic Index",
+    "name": "ICICI Pru Nifty Consumption ETF",
+    "based_on": "Nifty Consumption",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 113,
+    "category": "Thematic Index",
+    "name": "CPSE ETF",
+    "based_on": "Nifty CPSE",
+    "chosen_sym": "CPSEETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 114,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty Energy ETF",
+    "based_on": "Nifty Energy",
+    "chosen_sym": "ENERGY",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 115,
+    "category": "Thematic Index",
+    "name": "Tata Nifty India Digital ETF",
+    "based_on": "Nifty India Digital",
+    "chosen_sym": "TNIDETF",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 116,
+    "category": "Thematic Index",
+    "name": "Groww Nifty India Internet ETF",
+    "based_on": "Nifty India Internet",
+    "chosen_sym": "GROWWNET",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 117,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty India Internet ETF",
+    "based_on": "Nifty India Internet",
+    "chosen_sym": "INTERNET",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 118,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty India Mfg. ETF",
+    "based_on": "Nifty India Manufacturing",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 119,
+    "category": "Thematic Index",
+    "name": "Nippon Nifty India Manufacturing ETF",
+    "based_on": "Nifty India Manufacturing",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 120,
+    "category": "Thematic Index",
+    "name": "ICICI Pru Nifty Infrastructure ETF",
+    "based_on": "NIFTY Infra",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 121,
+    "category": "Thematic Index",
+    "name": "Nippon Nifty Infra ETF (INFRABEES)",
+    "based_on": "NIFTY Infra",
+    "chosen_sym": "INFRABEES",
+    "source": "parenthesis",
+    "in_nse_map": true
+  },
+  {
+    "row": 122,
+    "category": "Thematic Index",
+    "name": "Kotak Nifty MNC ETF",
+    "based_on": "Nifty MNC",
+    "chosen_sym": "MNC",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 123,
+    "category": "Thematic Index",
+    "name": "Aditya Birla Nifty PSE ETF",
+    "based_on": "Nifty PSE",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 124,
+    "category": "Thematic Index",
+    "name": "Groww Nifty PSE ETF",
+    "based_on": "Nifty PSE",
+    "chosen_sym": "GROWWPSE",
+    "source": "yahoo_clean_name",
+    "in_nse_map": true
+  },
+  {
+    "row": 125,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty 100 ESG Sector Leader",
+    "based_on": "Nifty100 ESG Sector Leaders",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  },
+  {
+    "row": 126,
+    "category": "Thematic Index",
+    "name": "Nippon India Nifty 50 Shariah ETF",
+    "based_on": "Shariah",
+    "chosen_sym": null,
+    "source": null,
+    "in_nse_map": false
+  }
+]

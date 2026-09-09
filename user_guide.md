@@ -1,5 +1,16 @@
 # 📘 Weinstein & Minervini Trading Suite: User Guide
 
+> [!WARNING]
+> **LEGACY REFERENCE MANUAL - ARCHIVAL USE ONLY**
+> This user guide (v60.0/v2.0) has been superseded by the **Unified Ecosystem v2.2** documentation framework.
+> For the current canonical source of truth and operational workflow, please refer to:
+> - [13_Unified_Ecosystem_User_Guide.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/13_Unified_Ecosystem_User_Guide.md)
+> - [14_Unified_Ecosystem_Trading_Guide.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/14_Unified_Ecosystem_Trading_Guide.md)
+> - [00_INDEX.md](file:///c:/Users/jayra/Documents/GeminiVSCode/docs/00_INDEX.md)
+
+---
+
+
 Welcome to the comprehensive technical documentation for the **Weinstein & Swing Pro Dashboard [v60.0]** and the **Unified Strategic Engine [v2.0]**. This guide covers every metric, logic gate, and parameter outcome to help you master the suite.
 
 ---

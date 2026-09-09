@@ -221,9 +221,12 @@ def yf_symbol(symbol):
         return s
     return f"{s}.NS"
 
+_ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commander_web_icon.png")
+_PAGE_ICON = _ICON_PATH if os.path.exists(_ICON_PATH) else "🦁"
+
 st.set_page_config(
     page_title="Weinstein Commander Web",
-    page_icon="🦁", layout="wide",
+    page_icon=_PAGE_ICON, layout="wide",
     initial_sidebar_state="expanded"
 )
 
@@ -3887,6 +3890,12 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                 # surface, and advertising it on a name the engine has rejected
                 # invites exactly the trade the gate exists to prevent.
                 fund_block=bool(_bff_gate is False or _core_gate is False),
+                # tri-state for the board's fifth gate. False = a floor rejected it;
+                # None = a floor could not be READ, which is a judgement about our
+                # data and never about the company; True = actually verified.
+                fund_ok=(False if (_bff_gate is False or _core_gate is False)
+                         else None if (_bff_gate is None or _core_gate is None)
+                         else True),
                 current=current, actionable=actionable, loc_note=loc_note,
                 inherited=inherited, still_valid=still_valid, location_ok=bool(g4),
                 # numeric plan levels for the page's position sizer / journal form
@@ -3918,6 +3927,12 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     if rff_q.lower() in ("nan", "none", ""):
         rff_q = "INSUFFICIENT"
     rff_ok = (rff_q != "INSUFFICIENT") and rff_b >= _rff_min
+    # SCORED AND BELOW THE FLOOR - distinct from "not scored". S4's fundGate makes the
+    # same split (an unscored name passes while fund_strict is off; a scored one below
+    # the floor fails), and so does the stage guard further down: an UNKNOWN passes,
+    # only a positively-observed failure rejects. Derived from rff_ok rather than
+    # restating the comparison, so the two can never drift apart.
+    _rff_scored_fail = (rff_q != "INSUFFICIENT") and not rff_ok
     # Batch-CSV rows carry Weinstein_Stage as a float (1.0) — normalize to the
     # bare digit so display reads "Stage 1" and the chip test works.
     stage_num = _stg_digit(_g(rec_r, "Weinstein_Stage", default="")) or "—"
@@ -4053,6 +4068,17 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         # rather than the screener.in screens. Same fix as the bull path: the
         # inherited assignment above would otherwise undo the gate for most names.
         if _rec_core is False:
+            g2 = False
+        # ...and the RFF FLOOR itself (2 Sep 2026). The bull branch re-applies BFF here
+        # because "inheritance was never meant to wave through the BUSINESS"; recovery
+        # re-applied only the size floor, so the ONE path whose doctrine calls
+        # fundamentals a hard gate - quality on sale, not falling knives - was the path
+        # not enforcing them. S4's Gate 6 does gate on RFF, so an inherited row could
+        # preview a clean trigger here and be refused at the chart.
+        # ONLY on a MEASURED failure. P1 set g2 = True because fast/cache mode leaves RFF
+        # INSUFFICIENT and that dead-ended the whole recovery board - that case still
+        # passes, untouched. MEASURED on the three live boards: 0 rows change.
+        if _rff_scored_fail:
             g2 = False
         g3 = True              # SETUP → inherited recovery archetype
 
@@ -4206,7 +4232,14 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
         current = 5
     actionable = verdict.startswith("BUY") or verdict.startswith("ARMED") or verdict.startswith("WAIT")
     return dict(steps=steps, verdict=verdict, color=color, stop_at=stop_at,
-                fund_block=bool(_rec_core is False),   # see the bull path
+                # see the bull path. RFF joins it only when actually scored: an
+                # unreadable RFF is a judgement about our data, never about the company.
+                fund_block=bool(_rec_core is False or _rff_scored_fail),
+                # see the bull path. INSUFFICIENT is the recovery flavour of unreadable:
+                # fast/cache mode leaves RFF unscored, and that must not read as verified.
+                fund_ok=(False if (_rec_core is False or _rff_scored_fail)
+                         else None if (_rec_core is None or rff_q == "INSUFFICIENT")
+                         else True),
                 current=current, actionable=actionable, recovery=True, loc_note=loc_note,
                 inherited=inherited, still_valid=still_valid, location_ok=bool(loc_ok),
                 plan_entry=entry, plan_sl=sl, plan_t1=t1)
@@ -14635,7 +14668,7 @@ elif page == 'GOLDEN MATCHER':
             # as "⛔ Stage 3 · gates 4/4" / "⛔ RRG WAIT · gates 4/4", which CONTAIN "4/4".
             # startswith keeps them out; a plain `contains` would let a Stage-4 name back
             # onto a board that exists to show tradeable names.
-                v = v[v["S4-GO"].astype(str).str.strip().str.startswith("4/4")]
+                v = v[v["S4-GO"].astype(str).str.strip().str.startswith("5/5")]
             if not v.empty:
                 # SORT: Overall descending (Jay's default) - was sort_values("Symbol"),
                 # an alphabetical re-sort that silently discarded the Overall ranking the
@@ -14697,14 +14730,15 @@ elif page == 'GOLDEN MATCHER':
             # board warns with the same number that will later refuse the entry.
             # GO-only switch for the filter above. Shows how many rows it is hiding so
             # an empty-looking board is never mistaken for a failed build.
-            _go_tot = (int(_bdf_hdr["S4-GO"].astype(str).str.strip().str.startswith("4/4").sum())
+            _go_tot = (int(_bdf_hdr["S4-GO"].astype(str).str.strip().str.startswith("5/5").sum())
                        if "S4-GO" in _bdf_hdr.columns else 0)
-            st.checkbox(f"All gates (4/4) only  ·  {_go_tot} of {len(_bdf_hdr)} rows",
+            st.checkbox(f"All gates (5/5) only  ·  {_go_tot} of {len(_bdf_hdr)} rows",
                         value=True, key="gm_bf_go_only",
-                        help="Default ON: only names where all four gates pass - both a live "
-                             "'4/4 GO' and a recent '4/4 · PA 3b'. Sorted by Overall "
-                             "descending. Untick to see the near-misses (3/4, 2/4) and the "
-                             "upstream vetoes (Stage, RRG). Applies to the grid AND the CSV.")
+                        help="Default ON: only names where all five gates pass - both a live "
+                             "'5/5 GO' and a recent '5/5 · PA 3b'. The fifth is fundamentals, "
+                             "the same floor S4 shows as its F chip. Sorted by Overall "
+                             "descending. Untick to see the near-misses (4/5, 3/5) and the "
+                             "upstream vetoes (Stage, RRG, funda). Applies to the grid AND the CSV.")
             try:
                 import sector_lookup as _sl
                 _mix_src = _board_apply_filters(_bdf_hdr)
@@ -14956,7 +14990,7 @@ elif page == 'GOLDEN MATCHER':
                             **({"sort": "desc", "sortIndex": 0} if is_max_board else {}),
                             cellStyle=JsCode(
                             "function(p){var v=String(p.value||'');"
-                            "if(v.indexOf('4/4')>=0)return{'color':'#26a69a','fontWeight':'700'};"
+                            "if(v.indexOf('5/5')>=0)return{'color':'#26a69a','fontWeight':'700'};"
                             "if(v.indexOf('3/4')>=0)return{'color':'var(--warn)','fontWeight':'600'};"
                             "if(v.indexOf('2/4')>=0)return{'color':'#ff9800'};"
                             "return{'color':'#787b86'};}"))
@@ -15340,10 +15374,10 @@ elif page == 'GOLDEN MATCHER':
                                        archetypes=(_ev.get("inherited_bull") or []),
                                        stage=_g(rec, "Stage", default=""),
                                        rrg_tradeable=_g(rec, "RRG_Tradeable"))
-            _s4_col = ("#047857" if _s4go.startswith("4/4") else "#D97706" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#475569")
-            _s4_bg  = ("#D1FAE5" if _s4go.startswith("4/4") else "#FEF3C7" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#F1F5F9")
-            _s4_bdr = ("#6EE7B7" if _s4go.startswith("4/4") else "#FDE68A" if (_s4go.startswith("3/4") or _s4go.startswith("2/4")) else "#CBD5E1")
-            _s4_msg = ("all four gates align — the S4 chart should show GO" if _s4go.startswith("4/4")
+            _s4_col = ("#047857" if _s4go.startswith("5/5") else "#D97706" if (_s4go.startswith("4/5") or _s4go.startswith("2/4")) else "#475569")
+            _s4_bg  = ("#D1FAE5" if _s4go.startswith("5/5") else "#FEF3C7" if (_s4go.startswith("4/5") or _s4go.startswith("2/4")) else "#F1F5F9")
+            _s4_bdr = ("#6EE7B7" if _s4go.startswith("5/5") else "#FDE68A" if (_s4go.startswith("4/5") or _s4go.startswith("2/4")) else "#CBD5E1")
+            _s4_msg = ("all five gates align — the S4 chart should show GO" if _s4go.startswith("5/5")
                        else "no intraday trigger-TF read (can't preview)" if _s4go == "n/a"
                        else f"one/two gates from GO ({_s4go.split('· ')[-1]}) — a watch candidate")
             st.markdown(f"<div style='border-left:6px solid {_s4_col};background:linear-gradient(135deg, {_s4_bg} 0%, var(--surface) 100%);border:1.5px solid {_s4_bdr};"
@@ -16442,7 +16476,7 @@ elif page == 'RISK SHIELD':
                     if _stp and _stp.upper() != "NONE":
                         _sub.append(_stp)
                     st.markdown(
-                        f"<div style='padding-top:6px;'><b style='color:var(--rule);'>{_sym}</b>"
+                        f"<div style='padding-top:6px;'><b style='color:var(--ink);'>{_sym}</b>"
                         f"<span style='color:var(--muted);font-size:0.78rem;'> "
                         f"{' \u00b7 '.join(_sub)}</span></div>", unsafe_allow_html=True)
                 with _c2c:
@@ -16602,11 +16636,20 @@ elif page == 'RISK SHIELD':
                     'border-radius:8px;margin-top:12px;font-size:0.82rem;color:var(--faint);'
                     'line-height:1.45;">🤖 <b>AI:</b> not run yet — press “Run AI Analysis”.</div>')
         _txt = ai_text.replace("[Positional]", "").replace("[Swing]", "").replace("[]", "").strip()
+        # The model emphasises its verdict in markdown ("I fundamentally **DISAGREE**"),
+        # but this string is embedded in a raw HTML div where markdown is never parsed,
+        # so it rendered as literal asterisks around the one word worth seeing first.
+        # Convert rather than forbid: the prompt cannot reliably stop a model reaching
+        # for bold, so the renderer is the durable place to handle it. Non-greedy and
+        # single-line, so an unmatched pair is left alone instead of swallowing the
+        # rest of the paragraph.
+        import re as _re          # `re` is not imported at module scope in this file
+        _txt = _re.sub(r"\*\*([^*\n]+?)\*\*", r"<b>\1</b>", _txt)
         _ts = st.session_state.get("ai_cache_ts")
         _age = f' <span style="color: var(--acc);font-size:0.7rem;">· generated {_ts}</span>' if _ts else ""
         return (f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border-left:4px solid #38BDF8;border:1px solid var(--ink-2);padding:12px 16px;'
-                f'border-radius:8px;margin-top:12px;font-size:0.83rem;color:var(--acc-bg);'
-                f'line-height:1.55;">🤖 <b>AI:</b>{_age}<br><span style="color:var(--acc-bg);">{_txt}</span></div>')
+                f'border-radius:8px;margin-top:12px;font-size:0.83rem;color:var(--ink);'
+                f'line-height:1.55;">🤖 <b>AI:</b>{_age}<br><span style="color:var(--ink);">{_txt}</span></div>')
 
 
     def get_stock_context_and_ai_review(symbol, order_type, **kwargs):
@@ -17033,23 +17076,23 @@ elif page == 'RISK SHIELD':
                     f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid var(--bull);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Capital Protected</div>'
                     f'<div style="color:var(--bull);font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">₹{format_inr_int(total_protected)}</div>'
-                    f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Active Stop Loss value</div></div>'
+                    f'<div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">Active Stop Loss value</div></div>'
                     f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid var(--bear);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Capital at Risk</div>'
                     f'<div style="color:var(--bear);font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">₹{format_inr_int(total_risk)} <span style="font-size:0.95rem; opacity:0.85;">({risk_deployed_pct:.1f}%)</span></div>'
-                    f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Loss to SL</div></div>'
+                    f'<div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">Loss to SL</div></div>'
                     f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid #38BDF8;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Active Exits</div>'
                     f'<div style="color:#38BDF8;font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{active_exits_count} Stocks</div>'
-                    f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
+                    f'<div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">{len(sell_gtts)} OCO · {len(single_sells)} Standalone</div></div>'
                     f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid var(--warn);border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Pullback Entries</div>'
                     f'<div style="color:var(--warn);font-size:1.65rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{pending_entries_count} Orders</div>'
-                    f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Active GTT buy limits</div></div>'
+                    f'<div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">Active GTT buy limits</div></div>'
                     f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid {unprotected_color};border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:left;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Unprotected</div>'
                     f'<div style="color:{unprotected_color};font-size:1.5rem;font-weight:900;margin-top:4px;font-family:JetBrains Mono;">{unprotected_label}</div>'
-                    f'<div style="font-size:0.72rem;color:var(--rule);margin-top:4px;">Holdings with no SL</div></div>'
+                    f'<div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">Holdings with no SL</div></div>'
                     f'</div>'
                 )
                 st.markdown(metrics_html, unsafe_allow_html=True)
@@ -17593,7 +17636,7 @@ elif page == 'RISK SHIELD':
                     <div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);padding:16px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
                         <div style="font-size:0.75rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Est. Portfolio Drawdown</div>
                         <div style="font-size:1.8rem;font-weight:900;color:var(--bear);margin-top:4px;font-family:JetBrains Mono;">-{dd_pct:.2f}%</div>
-                        <div style="font-size:0.85rem;color:var(--rule);margin-top:6px;">Est. Loss: <b style="color:var(--bear-rule);">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:var(--bear-rule);">{hits}</b></div>
+                        <div style="font-size:0.85rem;color:var(--muted);margin-top:6px;">Est. Loss: <b style="color:var(--bear-rule);">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:var(--bear-rule);">{hits}</b></div>
                     </div>
                     ''', unsafe_allow_html=True)
                     
@@ -17857,7 +17900,7 @@ elif page == 'RISK SHIELD':
                                             if buy_price and ltp:
                                                 sl_d_e = (sl - buy_price) / buy_price * 100
                                                 sl_d_l = (sl - ltp) / ltp * 100
-                                                sl_str += f" (<span style='color:var(--rule)'>{sl_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{sl_d_l:+.1f}%</span>)"
+                                                sl_str += f" (<span style='color:var(--muted)'>{sl_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{sl_d_l:+.1f}%</span>)"
                                                 # ATR MULTIPLE of the CURRENT stop (Jay, 11-Aug-2026).
                                                 # Read from hist_data rather than atr_val, which is not
                                                 # computed until ~40 lines below this block.
@@ -17916,7 +17959,7 @@ elif page == 'RISK SHIELD':
                                             if buy_price and ltp:
                                                 tgt_d_e = (tgt - buy_price) / buy_price * 100
                                                 tgt_d_l = (tgt - ltp) / ltp * 100
-                                                tgt_str += f" (<span style='color:var(--rule)'>{tgt_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{tgt_d_l:+.1f}%</span>)"
+                                                tgt_str += f" (<span style='color:var(--muted)'>{tgt_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{tgt_d_l:+.1f}%</span>)"
                                                 if sl is not None and (buy_price - sl) > 0:
                                                     r_val = (tgt - buy_price) / (buy_price - sl)
                                                     tgt_str += f" <span style='color:var(--warn);font-weight:bold;'>[{r_val:.1f}R]</span>"
@@ -18433,7 +18476,7 @@ elif page == 'RISK SHIELD':
                                         # Rec SL is LTP - sl_mult x ATR by construction, so naming the multiple makes
                                         # the basis explicit rather than leaving a bare number to compare
                                         # against the entry-relative hard SL beside it.
-                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:var(--rule);">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span> <span style="color:var(--faint);font-size:0.72rem;">({sl_mult:.1f}×ATR from LTP)</span>{t1_str}{t2_str}</div>'
+                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:var(--ink-2);">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span> <span style="color:var(--faint);font-size:0.72rem;">({sl_mult:.1f}×ATR from LTP)</span>{t1_str}{t2_str}</div>'
                                             
                                     if ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
@@ -18553,7 +18596,7 @@ elif page == 'RISK SHIELD':
                                         f' · Risk: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
                                         f'{progress_bar_html}'
                                         f'{rec_line}'
-                                        f'<div style="font-size:0.82rem;color:var(--rule);margin-top:6px;line-height:1.6;">'
+                                        f'<div style="font-size:0.82rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">'
                                         f'<div>{combined_line}</div></div>'
                                         f'<div style="margin-top:8px;font-size:0.8rem;line-height:1.35;color:{reco_color};font-weight:700;">{reco_str}</div>'
                                         f'{ai_html}</div>'
@@ -18796,7 +18839,7 @@ elif page == 'RISK SHIELD':
                                                 return ''
                                             return f' <span style="color:var(--faint)">({(t - _px) / _rk:.1f}R)</span>'
                                         t1_str = f' | Rec T1: <span style="color:var(--bull);font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        rec_line = f'<div style="font-size:0.78rem;color:var(--rule);margin-top:6px;line-height:1.6;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:var(--bull);font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
+                                        rec_line = f'<div style="font-size:0.78rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:var(--bull);font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
                                     elif bp and ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
@@ -18864,7 +18907,7 @@ elif page == 'RISK SHIELD':
                                         f'<div style="font-size:0.8rem;color:var(--faint);padding-right:20px;">Qty: {qty}</div></div>'
                                         f'{flags_html}'
                                         f'{pb_html}'
-                                        f'<div style="font-size:0.82rem;color:var(--rule);line-height:1.6;">'
+                                        f'<div style="font-size:0.82rem;color:var(--ink-2);line-height:1.6;">'
                                         f'Cost ₹{bp:,.2f} → LTP <b style="color:#38BDF8;">₹{ltp:,.2f}</b> <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
                                         f'</div>'
                                         f'{rec_line}'
@@ -18964,7 +19007,7 @@ elif page == 'RISK SHIELD':
                                         f'<span style="font-size:1.3rem;font-weight:800;color: var(--ink-2);font-family:Rajdhani,sans-serif;letter-spacing:0.5px;">{sym}</span>{trade_style_badge}'
                                         f' <span style="font-size:0.8rem;color:var(--faint);">Qty: {b["qty"]}</span>{kind_html}'
                                         f'{pb_html}'
-                                        f'<div style="font-size:0.82rem;color:var(--rule);margin-top:6px;line-height:1.6;">'
+                                        f'<div style="font-size:0.82rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">'
                                         f'<div>{entry_line}</div><div style="margin-top:3px;">{ltp_line}</div>{setup_warning_html}</div>'
                                         f'{_rs_ai_card(st.session_state.get(ai_key))}</div>'
                                     )
@@ -18992,7 +19035,7 @@ elif page == 'RISK SHIELD':
                         f'<div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);border-top:4px solid {risk_grade_color};border-radius:12px;padding:20px;text-align:center;margin-bottom:18px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">'
                         f'<div style="font-size:0.78rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Total Open Heat & Risk Grade</div>'
                         f'<div style="color:{risk_grade_color};font-size:2.2rem;font-weight:900;margin-top:6px;font-family:JetBrains Mono;">{portfolio_risk_pct:.1f}% ({risk_grade})</div>'
-                        f'<div style="font-size:0.85rem;color:var(--rule);margin-top:8px;line-height:1.5;">'
+                        f'<div style="font-size:0.85rem;color:var(--ink-2);margin-top:8px;line-height:1.5;">'
                         f'Total capital at risk from current LTP to Stop Loss is <b style="color:var(--bear);">₹{format_inr_int(total_risk)}</b> '
                         f'on total portfolio equity of <b style="color:#38BDF8;">₹{format_inr_int(_equity_rp)}</b> '
                         f'(holdings ₹{format_inr_int(total_portfolio_value)} + cash ₹{format_inr_int(balance)}).'

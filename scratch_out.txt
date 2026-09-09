@@ -1,0 +1,16 @@
+22: // sub-headers (ACT NOW / STRUCTURE / CONTEXT / PORTFOLIO and the title) stay
+379: //   📦 PORTFOLIO     — Portfolio Health · My Trade · Position Status  (only when position open)
+698: // <PORTFOLIO_START>
+700: p1_tick = input.string("NSE:RELIANCE", title="Slot 1", group=grpP1_5, inline="p1", display=display.data_window)
+701: p1_ent  = input.float(1358.33, title="Entry", group=grpP1_5, inline="p1", display=display.data_window)
+925: // <PORTFOLIO_END>
+1925: if f_match(p1_tick)
+3849: else if f_match(p1_tick)
+3850: finalEntry := p1_ent
+4696: // 4. TRADE & PORTFOLIO STATUS
+4697: table.cell(panel, 0, rowL, "── TRADE & PORTFOLIO ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+4862: // === 📦 PORTFOLIO ===
+4863: table.cell(panel, 0, row, "── 📦 PORTFOLIO ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+5100: // 11. EXPORT PORTFOLIO TO CSV (User Request)
+5114: csv_out := csv_out + f_row(p1_tick, p1_ent, p1_sl, p1_date, p1_sec)
+5145: log.info("\n⬇️ COPY PORTFOLIO CSV BELOW ⬇️\n\n" + csv_out + "\n⬆️ COPY PORTFOLIO CSV ABOVE ⬆️")

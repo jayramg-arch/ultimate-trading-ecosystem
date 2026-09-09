@@ -1,0 +1,280 @@
+{
+"DIVISLAB": {
+"BFFC": "11111",
+"PIOC": "11001-1-0"
+},
+"SOLARINDS": {
+"BFFC": "11111",
+"PIOC": "11001-1-0"
+},
+"WELSPUNLIV": {
+"BFFC": "00001",
+"PIOC": "11111-1-1"
+},
+"NETWEB": {
+"BFFC": "11011",
+"PIOC": "11010-1-0"
+},
+"BAJAJ-AUTO": {
+"BFFC": "11111",
+"PIOC": "11101-0-0"
+},
+"CPPLUS": {
+"BFFC": "11111",
+"PIOC": "11101-0-1"
+},
+"GLENMARK": {
+"BFFC": "00001",
+"PIOC": "11111-1-0"
+},
+"VIJAYA": {
+"BFFC": "11111",
+"PIOC": "11010-1-0"
+},
+"CRISIL": {
+"BFFC": "01-11",
+"PIOC": "---------"
+},
+"NEULANDLAB": {
+"BFFC": "11111",
+"PIOC": "11100-1-0"
+},
+"DATAPATTNS": {
+"BFFC": "11011",
+"PIOC": "11001-1-0"
+},
+"SYRMA": {
+"BFFC": "11011",
+"PIOC": "11001-0-0"
+},
+"RADICO": {
+"BFFC": "11111",
+"PIOC": "11111-1-0"
+},
+"LAURUSLABS": {
+"BFFC": "11111",
+"PIOC": "11111-1-0"
+},
+"GABRIEL": {
+"BFFC": "11011",
+"PIOC": "11000-1-0"
+},
+"BAJFINANCE": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"TITAN": {
+"BFFC": "11111",
+"PIOC": "11000-1-0"
+},
+"TVSMOTOR": {
+"BFFC": "11011",
+"PIOC": "11010-1-0"
+},
+"AUBANK": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"PIDILITIND": {
+"BFFC": "01111",
+"PIOC": "11011-0-0"
+},
+"IKS": {
+"BFFC": "11011",
+"PIOC": "11001-1-0"
+},
+"NAM-INDIA": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"PNBHOUSING": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"CGPOWER": {
+"BFFC": "11011",
+"PIOC": "11000-0-0"
+},
+"KARURVYSYA": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"OBEROIRLTY": {
+"BFFC": "11111",
+"PIOC": "11001-1-0"
+},
+"KAJARIACER": {
+"BFFC": "10111",
+"PIOC": "11111-1-0"
+},
+"MCX": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"EMCURE": {
+"BFFC": "11111",
+"PIOC": "11000-0-0"
+},
+"MOREALTY": {
+"BFFC": "-----"
+},
+"SMALLCAP": {
+"BFFC": "-----"
+},
+"HDFCSML250": {
+"BFFC": "-----"
+},
+"PHARMABEES": {
+"BFFC": "-----"
+},
+"MODEFENCE": {
+"BFFC": "-----"
+},
+"MOCAPITAL": {
+"BFFC": "-----"
+},
+"AUTOBEES": {
+"BFFC": "-----"
+},
+"METALIETF": {
+"BFFC": "-----"
+},
+"ALPHA": {
+"BFFC": "-----"
+},
+"MIDCAPETF": {
+"BFFC": "-----"
+},
+"MOMENTUM50": {
+"BFFC": "-----"
+},
+"GOLDIETF": {
+"BFFC": "-----"
+},
+"MOM100": {
+"BFFC": "-----"
+},
+"NEXT50IETF": {
+"BFFC": "-----"
+},
+"ITBEES": {
+"BFFC": "-----"
+},
+"PVTBANIETF": {
+"BFFC": "-----"
+},
+"MOM30IETF": {
+"BFFC": "-----"
+},
+"BANKNIFTY1": {
+"BFFC": "-----"
+},
+"CGCL": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"OFSS": {
+"BFFC": "01111",
+"PIOC": "11101-0-1"
+},
+"GVT&D": {
+"BFFC": "11011",
+"PIOC": "11011-1-0"
+},
+"MRPL": {
+"BFFC": "11011",
+"PIOC": "11100-1-0"
+},
+"AADHARHFC": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"KPRMILL": {
+"RFFC": "111111",
+"PIOC": "11010-1-0"
+},
+"LTM": {
+"RFFC": "111111",
+"PIOC": "11001-1-0"
+},
+"JSWDULUX": {
+"RFFC": "111111",
+"PIOC": "11001-1-0"
+},
+"ABSLAMC": {
+"RFFC": "111111",
+"PIOC": "---------"
+},
+"CLEAN": {
+"RFFC": "111111",
+"PIOC": "11011-1-0"
+},
+"SPLPETRO": {
+"RFFC": "111111",
+"PIOC": "11101-1-1"
+},
+"PETRONET": {
+"RFFC": "111111",
+"PIOC": "11111-1-0"
+},
+"CYIENT": {
+"RFFC": "111111",
+"PIOC": "11111-1-1"
+},
+"GLAXO": {
+"BFFC": "00011",
+"PIOC": "11100-1-0"
+},
+"TBOTEK": {
+"BFFC": "00001",
+"PIOC": "10100-1-0"
+},
+"LALPATHLAB": {
+"BFFC": "01011",
+"PIOC": "11010-0-0"
+},
+"HONASA": {
+"BFFC": "11111",
+"PIOC": "11101-1-0"
+},
+"USHAMART": {
+"BFFC": "10111",
+"PIOC": "11011-1-0"
+},
+"SONACOMS": {
+"BFFC": "11011",
+"PIOC": "11100-1-0"
+},
+"CHOLAFIN": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"COFORGE": {
+"BFFC": "11011",
+"PIOC": "11001-1-0"
+},
+"CCL": {
+"BFFC": "11011",
+"PIOC": "11011-1-0"
+},
+"CUB": {
+"BFFC": "11-11",
+"PIOC": "---------"
+},
+"GLAND": {
+"BFFC": "11011",
+"PIOC": "11001-1-0"
+},
+"SAILIFE": {
+"BFFC": "11011",
+"PIOC": "11011-1-0"
+},
+"ASTRAL": {
+"BFFC": "11011",
+"PIOC": "11011-1-0"
+},
+"SUPREMEIND": {
+"RFFC": "111111",
+"PIOC": "11010-1-0"
+}
+}

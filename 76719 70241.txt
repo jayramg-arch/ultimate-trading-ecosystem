@@ -1,0 +1,14 @@
+76719 70241
+
+Issues being faced on S4 with regard to trade picking:
+1. Consistently 'No Room', due to overhead R/Pivot zones/ same TF zones
+2. No location constraints
+3. No PA constraints
+4.  
+
+
+
+radingAgents gives you a complete AI trading firm — 8 specialized LLM agents that mirror a real trading desk. Fundamentals analyst, sentiment analyst, news analyst, technical analyst, bull/bear researchers who debate, a trader that synthesizes everything, and a risk management team that approves the final call. Supports Claude, GPT, Gemini, Grok. 33K stars. arXiv paper. Apache 2.0.
+
+🔗 GitHub: https://github.com/TauricResearch/TradingAgents
+🔗 Paper: https://arxiv.org/abs/2412.20138

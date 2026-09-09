@@ -25,7 +25,7 @@ def generate_rationale(symbol):
         if not api_key:
             return "❌ Error: No API Key provided."
 
-    print(f"   🤖 AI Analysis in progress for {symbol} (Model: gemini-2.0-flash)...")
+    print(f"   🤖 AI Analysis in progress for {symbol} (Model: gemini-3.5-flash-lite)...")
     
     try:
         # 1. Fetch Basic Context (Price/News) to ground the AI
@@ -46,7 +46,7 @@ def generate_rationale(symbol):
 
         context = f"Stock: {symbol}. Recent Trend: {trend}.\nRecent News:\n" + "\n".join(headlines)
 
-        # 2. Call Gemini (Strictly gemini-2.0-flash)
+        # 2. Call Gemini (Strictly gemini-3.5-flash-lite)
         client = genai.Client(api_key=api_key)
         
         prompt = f"""
@@ -59,7 +59,7 @@ def generate_rationale(symbol):
         """
         
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.5-flash-lite',
             contents=prompt
         )
         return response.text.strip().replace("\n", " ")

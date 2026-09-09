@@ -12,7 +12,7 @@ import io
 import sys
 
 BS = chr(92)
-P = sys.argv[1] if len(sys.argv) > 1 else "Section4_Entry_Trigger_v7.2.pine"
+P = sys.argv[1] if len(sys.argv) > 1 else "Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel).pine"
 
 lines = io.open(P, encoding="utf-8").read().split("\n")
 bad_bs, odd_q = [], []

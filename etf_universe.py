@@ -449,3 +449,40 @@ def is_tradeable(symbol: str) -> bool:
 def tradeable_symbols():
     """Every symbol in trading scope."""
     return [s for s in ETF_UNIVERSE if is_tradeable(s)]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SELECTION-SOURCED UNIVERSE (30-Aug-2026)
+#
+# ETF_UNIVERSE above is now the FALLBACK, not the source of truth. The live list is
+# built by etf_candidates.select_universe() from the AUM-curated candidate pool:
+# group by exposure, admit on rupee turnover, then pick the cheapest of the amply
+# liquid. That replaces three things this dict could not do:
+#   * liquidity_tier was hand-assigned and never re-checked, while being the field
+#     that decides POSITION SIZE - a fund whose turnover had halved kept saying
+#     "heavy size OK";
+#   * duplicate trackers of one index were all screened as separate names (five gold
+#     ETFs competing in the same ranking);
+#   * expense ratio was not considered anywhere, though on 6-8 month holds it is the
+#     one cost that is certain.
+#
+# The fallback is deliberate: if the candidate pool is missing or unreadable, the
+# ecosystem keeps running on the previous hand-written list rather than coming up with
+# an empty universe, which every consumer would read as "no ETFs qualify today".
+_LEGACY_ETF_UNIVERSE = dict(ETF_UNIVERSE)
+try:
+    import etf_candidates as _ec           # imports etf_universe only inside main() -> no cycle
+    _sel = _ec.select_universe()
+    if _sel:
+        # Preserve benchmark_yf from the legacy entry where we have one: it is
+        # documentation-only, but losing it makes the two lists harder to diff.
+        for _s, _m in _sel.items():
+            _old = _LEGACY_ETF_UNIVERSE.get(_s)
+            if _old and not _m.get("benchmark_yf"):
+                _m["benchmark_yf"] = _old.get("benchmark_yf", "")
+        ETF_UNIVERSE = _sel
+        SELECTION_SOURCE = "etf_candidates"
+    else:
+        SELECTION_SOURCE = "legacy (candidate pool unavailable)"
+except Exception as _e:      # never let universe construction take the app down
+    SELECTION_SOURCE = f"legacy (selection failed: {_e})"

@@ -52,7 +52,10 @@ WATCHLIST_MAP = {
     # Consolidated Trigger-Board union (run_pipeline Phase 4.8): the deduped set of
     # all 5 board watchlists — synced as ONE list (Strike auto-splits it at 49).
     "FINAL_GOLDEN_MATCHER.csv":     "Golden_Matcher_Board",
-    "Portfolio_Stocks.csv":        "Portfolio_Current",
+    # Portfolio_Stocks.csv is produced by NOTHING - it logged "[SKIP] Not Found"
+    # on every run. FINAL_Portfolio_Picks.csv is the live book (pyramid_logic's
+    # export, written by run_pipeline Phase 5), which is what this list meant.
+    "FINAL_Portfolio_Picks.csv":   "Portfolio_Current",
     "portfolio.csv":               "portfolio"
 }
 
@@ -87,6 +90,21 @@ def generate_tradingview_files(silent=False):
         if not os.path.exists(csv_path):
             print(f"[SKIP] Not Found: {csv_file}")
             continue
+
+        # AGE STAMP (4 Sep 2026). There was no staleness guard at all: a source CSV
+        # from July generated a watchlist with today's date suffix and pushed to
+        # TradingView looking exactly as fresh as the rest. FINAL_XRay_Picks.csv was
+        # 55 days old and would have synced as XRay_Picks-04SEP26. On-demand outputs
+        # are ALLOWED to be old, so this warns and never skips - the decision to sync
+        # a stale list stays yours, it just stops being invisible.
+        try:
+            _age_h = (datetime.datetime.now().timestamp()
+                      - os.path.getmtime(csv_path)) / 3600.0
+            if _age_h > 48:
+                print(f"[STALE] {csv_file} is {_age_h/24:.0f} days old "
+                      f"— syncing it anyway as {base_name}-{date_str}")
+        except OSError:
+            pass
 
         try:
             with open(csv_path, 'r', encoding='utf-8') as infile:

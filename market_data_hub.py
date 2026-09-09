@@ -160,72 +160,22 @@ def fetch_market_data(
     # C1: data_provider is per-symbol cached, so for a fixed-set call like
     # this (10 indices, 5 commodities, 5 currencies) sequential cached fetches
     # beat a fresh batch on every page load. yfinance batch is the fallback.
-    raw = None
-    if USE_DATA_PROVIDER and _dp is not None:
-        raw = {}
-        for t in unique_tickers:
-            try:
-                df_t = _dp.fetch_ohlcv(t, period=period, interval=interval)
-                if not df_t.empty:
-                    raw[t] = df_t
-            except Exception as exc:
-                logger.debug("data_provider miss for %s: %s", t, exc)
+    import data_provider as dp
+    raw = dp.fetch_batch_ohlcv(unique_tickers, period=period, interval=interval, use_cache=True, auto_adjust=True)
     if not raw:
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                raw = yf.download(
-                    unique_tickers, period=period, interval=interval,
-                    group_by="ticker", auto_adjust=True, progress=False, threads=True,
-                )
-        except Exception as exc:
-            logger.error("yf.download failed: %s", exc)
-            for name in tickers_dict:
-                results[name] = _nan_entry()
-            return results
+        for name in tickers_dict:
+            results[name] = _nan_entry()
+        return results
 
     # Also grab 52-week data
-    raw_52w = None
-    if USE_DATA_PROVIDER and _dp is not None:
-        raw_52w = {}
-        for t in unique_tickers:
-            try:
-                df_t = _dp.fetch_ohlcv(t, period="1y", interval="1d")
-                if not df_t.empty:
-                    raw_52w[t] = df_t
-            except Exception:
-                continue
+    raw_52w = dp.fetch_batch_ohlcv(unique_tickers, period="1y", interval="1d", use_cache=True, auto_adjust=True)
     if not raw_52w:
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                raw_52w = yf.download(
-                    unique_tickers, period="52wk", interval="1d",
-                    group_by="ticker", auto_adjust=True, progress=False, threads=True,
-                )
-        except Exception as exc:
-            logger.warning("52-week yf.download failed: %s", exc)
-            raw_52w = pd.DataFrame()
+        raw_52w = {}
 
-    # `raw` and `raw_52w` may be either a yfinance MultiIndex DataFrame or a
-    # dict of {ticker: DataFrame} (data_provider path). The helper unifies access.
     def _slice(container, ticker):
-        if container is None:
+        if not container or not isinstance(container, dict):
             return pd.DataFrame()
-        if isinstance(container, dict):
-            return container.get(ticker, pd.DataFrame()).copy()
-        # DataFrame path
-        if hasattr(container, "empty") and container.empty:
-            return pd.DataFrame()
-        try:
-            if len(unique_tickers) == 1:
-                return container.copy()
-            if hasattr(container.columns, "get_level_values") and \
-                    ticker in container.columns.get_level_values(0):
-                return container[ticker].copy()
-        except Exception:
-            pass
-        return pd.DataFrame()
+        return container.get(ticker, pd.DataFrame()).copy()
 
     for ticker, name in ticker_map.items():
         try:
@@ -287,12 +237,31 @@ def _cached(key: str, ttl_seconds: int, fn):
 
     Returns the cached value if still fresh, otherwise calls fn() and stores result.
     """
+    from net_utils import is_internet_available
     now = time.time()
     if key in _cache and (now - _cache[key]["ts"]) < ttl_seconds:
         return _cache[key]["data"]
-    data = fn()
-    _cache[key] = {"ts": now, "data": data}
-    return data
+
+    if not is_internet_available():
+        if key in _cache:
+            logger.warning("[market_data_hub] Offline: serving EXPIRED cache for %s", key)
+            return _cache[key]["data"]
+        logger.warning("[market_data_hub] Offline and cold cache for %s: serving empty fallback", key)
+        if key in ("fno_ban_list", "economic_calendar"):
+            return []
+        if key == "global_overview":
+            return {}
+        return pd.DataFrame()
+
+    try:
+        data = fn()
+        _cache[key] = {"ts": now, "data": data}
+        return data
+    except Exception as e:
+        logger.warning("Cache fetch failed for %s: %s", key, e)
+        if key in _cache:
+            return _cache[key]["data"]
+        raise
 
 
 def _get_nse_session():
@@ -454,7 +423,7 @@ def fetch_fii_dii_data(ttl: int = 3600) -> pd.DataFrame:
                         "dii_net":  round(_parse_val(dii_row, "netValue"), 2),
                     }
                     logger.info(
-                        "FII/DII today: FII net ₹%.0fCr, DII net ₹%.0fCr",
+                        "FII/DII today: FII net Rs.%.0fCr, DII net Rs.%.0fCr",
                         today_rec["fii_net"], today_rec["dii_net"],
                     )
 
@@ -835,36 +804,20 @@ def fetch_nse_breadth(ttl: int = 1800) -> Dict:
             "total_stocks": 0, "calculated_at": datetime.now().isoformat(),
         }
 
-        # C1: data_provider in 50-symbol batches; falls back to one big yf call.
-        raw = None
-        if USE_DATA_PROVIDER and _dp is not None:
-            raw = {}
-            try:
-                BATCH = 50
-                for i in range(0, len(symbols), BATCH):
-                    chunk = symbols[i:i + BATCH]
-                    bd = _dp.fetch_batch_ohlcv(chunk, period="15mo", interval="1d")
-                    for sym in chunk:
-                        clean = _dp.clean_symbol(sym)
-                        if clean in bd:
-                            raw[sym] = bd[clean]
-            except Exception as exc:
-                logger.warning("data_provider breadth fetch failed: %s — yf fallback", exc)
-                raw = None
-        if not raw:
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    # Use 15 months of DAILY data so rolling(50/150/200) have enough bars.
-                    # 6-month weekly data (~26 bars) made all SMA50+ calculations NaN.
-                    raw = yf.download(
-                        symbols, period="15mo", interval="1d",
-                        group_by="ticker", auto_adjust=True,
-                        progress=False, threads=True,
-                    )
-            except Exception as exc:
-                logger.error("fetch_nse_breadth download failed: %s", exc)
-                return metrics
+        import data_provider as dp
+        raw = {}
+        try:
+            BATCH = 50
+            for i in range(0, len(symbols), BATCH):
+                chunk = symbols[i:i + BATCH]
+                bd = dp.fetch_batch_ohlcv(chunk, period="15mo", interval="1d", use_cache=True, auto_adjust=True)
+                for sym in chunk:
+                    clean = dp.clean_symbol(sym)
+                    if clean in bd:
+                        raw[sym] = bd[clean]
+        except Exception as exc:
+            logger.warning("data_provider breadth fetch failed: %s", exc)
+            return metrics
 
         above_50, above_150, above_200 = 0, 0, 0
         new_high, new_low = 0, 0
@@ -873,11 +826,7 @@ def fetch_nse_breadth(ttl: int = 1800) -> Dict:
 
         for sym in symbols:
             try:
-                # raw can be either a yf MultiIndex DataFrame or a dict
-                if isinstance(raw, dict):
-                    df = raw.get(sym, pd.DataFrame()).copy()
-                else:
-                    df = (raw[sym].copy() if len(symbols) > 1 else raw.copy())
+                df = raw.get(sym, pd.DataFrame()).copy()
                 if df.empty or "Close" not in df.columns:
                     continue
                 df = df[["Close"]].dropna()
@@ -956,39 +905,16 @@ def fetch_sector_performance(ttl: int = 1800) -> List[Dict]:
         names_list   = list(NSE_SECTORS_YF.keys())
         # C1: per-sector parquet cache. 14 sectors × 1 cached read beats one
         # batch yf call when most sectors haven't moved cache buckets.
-        raw = None
-        if USE_DATA_PROVIDER and _dp is not None:
-            raw = {}
-            for t in tickers_list:
-                try:
-                    df_t = _dp.fetch_ohlcv(t, period="5d", interval="1d")
-                    if not df_t.empty:
-                        raw[t] = df_t
-                except Exception:
-                    continue
+        import data_provider as dp
+        raw = dp.fetch_batch_ohlcv(tickers_list, period="5d", interval="1d", use_cache=True, auto_adjust=True)
         if not raw:
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    raw = yf.download(
-                        tickers_list, period="2d", interval="1d",
-                        group_by="ticker", auto_adjust=True,
-                        progress=False, threads=True,
-                    )
-            except Exception as exc:
-                logger.error("fetch_sector_performance download failed: %s", exc)
-                return results
+            return results
 
         for name, ticker in zip(names_list, tickers_list):
             try:
-                if isinstance(raw, dict):
-                    df = raw.get(ticker, pd.DataFrame()).copy()
-                else:
-                    df = (raw[ticker].copy() if len(tickers_list) > 1 else raw.copy())
-                if df.empty:
+                df = raw.get(ticker, pd.DataFrame()).copy()
+                if df.empty or "Close" not in df.columns:
                     continue
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.get_level_values(0)
                 df = df[["Close"]].dropna()
                 if len(df) >= 2:
                     close = round(float(df["Close"].iloc[-1]), 2)
@@ -1678,10 +1604,9 @@ def build_premarket_snapshot() -> Dict:
     try:
         for _name, _ticker in (("Nifty 50", "^NSEI"), ("BankNifty", "^NSEBANK")):
             try:
-                _t = yf.download(_ticker, period="3mo", interval="1d",
-                                  progress=False, auto_adjust=True)
-                if isinstance(_t.columns, pd.MultiIndex):
-                    _t.columns = _t.columns.get_level_values(0)
+                import data_provider as dp
+                _t = dp.fetch_ohlcv(_ticker, period="3mo", interval="1d",
+                                  auto_adjust=True, use_cache=True)
                 if len(_t) >= 2:
                     _c  = float(_t["Close"].iloc[-1])
                     _p  = float(_t["Close"].iloc[-2])
@@ -1756,11 +1681,10 @@ def build_postmarket_snapshot() -> Dict:
     import yfinance as _yf
     for name, ticker in _idx_map.items():
         try:
+            import data_provider as dp
             # Fetch 1 year of daily data to compute 50/200 DMA and 52W high/low
-            _t = _yf.download(ticker, period="1y", interval="1d",
-                               progress=False, auto_adjust=True)
-            if isinstance(_t.columns, pd.MultiIndex):
-                _t.columns = _t.columns.get_level_values(0)
+            _t = dp.fetch_ohlcv(ticker, period="1y", interval="1d",
+                               auto_adjust=True, use_cache=True)
             if len(_t) >= 2:
                 _close  = float(_t["Close"].iloc[-1])
                 _prev   = float(_t["Close"].iloc[-2])
@@ -1900,27 +1824,20 @@ def build_postmarket_snapshot() -> Dict:
             "BRITANNIA.NS","BPCL.NS","HINDALCO.NS","SHREECEM.NS","TATACONSUM.NS",
             "GRASIM.NS","SBILIFE.NS","HDFCLIFE.NS","PIDILITIND.NS","BAJAJ-AUTO.NS",
         ]
-        # Prefer the Dhan-first data_provider; yfinance is a loud fallback.
         _cl = pd.DataFrame()
-        if USE_DATA_PROVIDER and _dp is not None:
-            try:
-                _bd = _dp.fetch_batch_ohlcv(_n50, period="5d", interval="1d")
-                if _bd:
-                    _cols = {}
-                    for _k, _df in _bd.items():
-                        if "Close" in _df.columns:
-                            _key = _k if (_k.endswith(".NS") or _k.startswith("^")) else f"{_k}.NS"
-                            _cols[_key] = _df["Close"]
-                    if _cols:
-                        _cl = pd.DataFrame(_cols)
-            except Exception as _mov_e:
-                logger.warning("Key Movers via data_provider failed: %s", _mov_e)
-        if _cl.empty:
-            logger.info("Key Movers served by yfinance FALLBACK (data_provider empty)")
-            _mov_raw = yf.download(_n50, period="2d", interval="1d",
-                                    progress=False, auto_adjust=True, threads=True)
-            _cl = (_mov_raw["Close"] if isinstance(_mov_raw.columns, pd.MultiIndex)
-                    else _mov_raw[["Close"]])
+        try:
+            import data_provider as dp
+            _bd = dp.fetch_batch_ohlcv(_n50, period="5d", interval="1d", use_cache=True, auto_adjust=True)
+            if _bd:
+                _cols = {}
+                for _k, _df in _bd.items():
+                    if "Close" in _df.columns:
+                        _key = _k if (_k.endswith(".NS") or _k.startswith("^")) else f"{_k}.NS"
+                        _cols[_key] = _df["Close"]
+                if _cols:
+                    _cl = pd.DataFrame(_cols)
+        except Exception as _mov_e:
+            logger.warning("Key Movers via data_provider failed: %s", _mov_e)
         _pairs = []
         for _s in _n50:
             try:

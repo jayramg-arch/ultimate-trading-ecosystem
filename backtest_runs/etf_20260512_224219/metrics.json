@@ -1,0 +1,45 @@
+{
+  "final_equity": 2660084.99,
+  "total_return_pct": 166.03,
+  "cagr_pct": 16.66,
+  "vol_ann_pct": 10.93,
+  "sharpe": 1.52,
+  "max_dd_pct": -6.02,
+  "win_months": 52,
+  "loss_months": 24,
+  "win_rate_pct": 68.42,
+  "benchmark_cagr_pct": 12.54,
+  "alpha_pct": 4.13,
+  "years": 6.35,
+  "walk_forward": {
+    "in_sample": {
+      "final_equity": 1467267.92,
+      "total_return_pct": 46.74,
+      "cagr_pct": 10.64,
+      "vol_ann_pct": 8.33,
+      "sharpe": 1.28,
+      "max_dd_pct": -5.8,
+      "win_months": 26,
+      "loss_months": 19,
+      "win_rate_pct": 57.78,
+      "benchmark_cagr_pct": 14.82,
+      "alpha_pct": -4.18,
+      "years": 3.79
+    },
+    "out_of_sample": {
+      "final_equity": 2660084.99,
+      "total_return_pct": 81.3,
+      "cagr_pct": 26.23,
+      "vol_ann_pct": 13.94,
+      "sharpe": 1.88,
+      "max_dd_pct": -6.02,
+      "win_months": 26,
+      "loss_months": 5,
+      "win_rate_pct": 83.87,
+      "benchmark_cagr_pct": 9.51,
+      "alpha_pct": 16.72,
+      "years": 2.55
+    },
+    "gate": "PASS"
+  }
+}

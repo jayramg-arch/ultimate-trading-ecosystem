@@ -32,13 +32,14 @@ def ask_llm(prompt, system_instruction="You are a professional trading analyst."
     client = _get_gemini_client()
     if client:
         import time
+        import random
         for attempt in range(3):
             try:
                 # Prepend system instruction to prompt for simple SDK usage
                 full_prompt = f"{system_instruction}\n\nPROMPT: {prompt}"
                 
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.5-flash-lite',
                     contents=full_prompt
                 )
                 
@@ -47,8 +48,9 @@ def ask_llm(prompt, system_instruction="You are a professional trading analyst."
                 
             except Exception as e:
                 if attempt < 2:
-                    logging.warning(f"[ask_llm] Gemini call failed (attempt {attempt+1}/3): {e} - Retrying...")
-                    time.sleep(1.5 * (attempt + 1))
+                    _sleep_time = (1.5 * (attempt + 1)) + random.uniform(0.1, 0.5)
+                    logging.warning(f"[ask_llm] Gemini call failed (attempt {attempt+1}/3): {e} - Retrying in {_sleep_time:.2f}s...")
+                    time.sleep(_sleep_time)
                 else:
                     logging.error(f"[ask_llm] Gemini call failed on final attempt (3/3): {e}", exc_info=True)
                     pass
@@ -97,7 +99,7 @@ def ask_llm_fast(prompt, system_instruction="Give direct trading actions. No pre
         try:
             full_prompt = f"{system_instruction}\n\n{prompt}"
             response = client.models.generate_content(
-                model='gemini-2.0-flash-lite',
+                model='gemini-3.5-flash-lite',
                 contents=full_prompt
             )
             if response and hasattr(response, 'text'):

@@ -77,18 +77,62 @@ REGIME_CSV    = "ETF_AssetClass_Regime.csv"
 RRG_CSV       = "ETF_RRG_Coordinates.csv"
 PICKS_CSV     = "ETF_Top_Picks.csv"
 
-# Asset-class flagships — most liquid representative per class
-FLAGSHIPS = {
-    "EQUITY_LARGE":  "NIFTYBEES",
-    "EQUITY_MID":    "JUNIORBEES",
-    "EQUITY_SMALL":  "MID150BEES",
-    "GOLD":          "GOLDBEES",
-    "SILVER":        "SILVERBEES",
-    "INTL_NASDAQ":   "MON100",
-    "INTL_FANG":     "MAFANG",
-    "DEBT_LIQUID":   "LIQUIDBEES",
-    "DEBT_BHARAT":   "BBETF",
+# Asset-class flagships, addressed by EXPOSURE rather than by ticker (30-Aug-2026).
+#
+# Hardcoding tickers made this brittle: the universe now selects the vehicle for each
+# index on live turnover and expense ratio, so five of the nine names below changed the
+# first time it ran (GOLDBEES->GOLDIETF, SILVERBEES->SILVERIETF, JUNIORBEES->NEXT50IETF,
+# MID150BEES->MIDCAPETF, BBETF->EBBETF0430). A regime engine reading dead tickers would
+# have gone quietly stale rather than failing.
+#
+# TWO TIERS WERE ALSO WRONG, and this is the chance to fix them. JUNIORBEES tracks the
+# Nifty NEXT 50 - the large-cap tail, not midcaps - while MID150BEES tracks Nifty
+# Midcap 150, which is mid, not small. So the regime engine was reading the large-cap
+# tail as "mid" and midcaps as "small", with no smallcap input at all. Mapped to the
+# indices they actually mean, with a real smallcap leg now that one is available.
+FLAGSHIP_EXPOSURES = {
+    "EQUITY_LARGE":  "Nifty 50",
+    "EQUITY_MID":    "Nifty Midcap 150",
+    "EQUITY_SMALL":  "NIFTY Smallcap 250",
+    "GOLD":          "Gold",
+    "SILVER":        "Silver",
+    "INTL_NASDAQ":   "Nasdaq 100",
+    "INTL_FANG":     "NYSE FANG+",
+    "DEBT_LIQUID":   "Overnight / Liquid",
+    # DEBT_BHARAT REMOVED (Jay, 30-Aug-2026). The Bharat Bond ETFs were dropped from
+    # the universe as not-traded, so this class had no vehicle and the regime engine
+    # warned on every run. Removed deliberately rather than repointed at a near-miss
+    # debt index: substituting one would silently change what the debt leg MEANS.
+    # DEBT_LIQUID (LIQUID1) still anchors the risk-off side, and it is the leg that
+    # actually receives capital when the regime score is zero.
 }
+
+
+def _resolve_flagships():
+    """exposure -> whichever ticker the universe selected for it.
+
+    A class whose exposure has no vehicle is DROPPED rather than guessed at: the regime
+    engine already handles a missing class, and substituting a near-miss index would
+    silently change what the regime means.
+    """
+    try:
+        from etf_universe import ETF_UNIVERSE as _U
+        by_exp = {str(m.get("underlying", "")).strip(): s for s, m in _U.items()}
+        out = {}
+        for cls, exp in FLAGSHIP_EXPOSURES.items():
+            sym = by_exp.get(exp)
+            if sym:
+                out[cls] = sym
+            else:
+                logger.warning("rotation: no vehicle for flagship exposure %s (%s) - "
+                             "asset class dropped from the regime read", cls, exp)
+        return out
+    except Exception as e:
+        logger.warning("rotation: flagship resolution failed (%s)", e)
+        return {}
+
+
+FLAGSHIPS = _resolve_flagships()
 
 # Composite RS weights (sector rotation): 60% long-term, 40% short-term
 W_LONG  = 0.60   # 12-week return weight
@@ -115,6 +159,49 @@ except Exception:
 # ─────────────────────────────────────────────────────────────────────────────
 # Data fetch (re-uses data_provider parquet cache)
 # ─────────────────────────────────────────────────────────────────────────────
+# ROTATION MEASURES THE SECTOR, NOT THE VEHICLE. See the module docstring.
+USE_INDEX_ROTATION = True
+
+
+def _rot_index_for() -> Dict[str, str]:
+    """{ETF symbol: Dhan index symbol} for exposures that have an index."""
+    if not USE_INDEX_ROTATION:
+        return {}
+    out = {}
+    try:
+        import etf_index_map as _eim
+        import pandas as _pd, os as _os
+        if not _os.path.exists(_eim.MAP_CSV):
+            _eim.build()
+        d = _pd.read_csv(_eim.MAP_CSV)
+        for _, r in d.iterrows():
+            di = str(r.get("dhan_index") or "").strip()
+            if di and str(r.get("chart_mode") or "") == "index":
+                out[str(r["trade_symbol"]).strip().upper()] = di
+    except Exception as e:
+        logger.warning("rotation: index map unavailable (%s) - measuring on the ETFs", e)
+    return out
+
+
+def _rot_col(df, sym: str):
+    """Column for `sym`, allowing for data_provider's canonicalisation.
+
+    fetch keys results through clean_symbol, which rewrites index aliases
+    ("NIFTY" -> "^NSEI") and uppercases the rest. Looking up the raw Dhan name
+    silently missed the biggest indices in etf_screener before this was added there.
+    """
+    if sym in df.columns:
+        return sym
+    try:
+        import data_provider as _dp
+        c = _dp.clean_symbol(sym)
+        if c in df.columns:
+            return c
+    except Exception:
+        pass
+    return {str(c).upper(): c for c in df.columns}.get(str(sym).upper())
+
+
 def _fetch_close(syms: List[str], period: str = "1y") -> pd.DataFrame:
     """Fetch close prices for syms. Returns wide DataFrame indexed by date."""
     out = pd.DataFrame()
@@ -172,7 +259,9 @@ def sector_rotation_table() -> pd.DataFrame:
          NEUTRAL- / UNDERWEIGHT)
     """
     syms = sector_etfs()
-    close_df = _fetch_close(syms + [BENCHMARK_YF], period="1y")
+    _idx = _rot_index_for()
+    _extra = sorted({_idx[s.upper()] for s in syms if s.upper() in _idx})
+    close_df = _fetch_close(syms + _extra + [BENCHMARK_YF], period="1y")
     if BENCHMARK_YF not in close_df.columns:
         logger.error("Benchmark missing — cannot compute excess returns")
         return pd.DataFrame()
@@ -180,9 +269,19 @@ def sector_rotation_table() -> pd.DataFrame:
 
     rows = []
     for sym in syms:
-        if sym not in close_df.columns:
-            continue
-        close = close_df[sym].dropna()
+        # Measure the SECTOR (index) where one exists; the ETF is only the vehicle.
+        _src = "etf"
+        _c = None
+        _i = _idx.get(sym.upper(), "")
+        if _i:
+            _col = _rot_col(close_df, _i)
+            if _col is not None:
+                _s = close_df[_col].dropna()
+                if len(_s) >= 60:
+                    _c, _src = _s, f"index:{_i}"
+        if _c is None and sym not in close_df.columns:
+            continue          # neither series available - genuinely nothing to measure
+        close = _c if _c is not None else close_df[sym].dropna()
         if len(close) < 65:
             continue
         meta = get_meta(sym) or {}
@@ -194,6 +293,7 @@ def sector_rotation_table() -> pd.DataFrame:
             "Symbol":       sym,
             "Sub_Category": meta.get("sub_category", ""),
             "Underlying":   meta.get("underlying", ""),
+            "Measured_On":  _src,
             "LTP":          round(float(close.iloc[-1]), 2),
             "Ret_4W_pct":   round(r4, 2)  if not np.isnan(r4)  else None,
             "Ret_12W_pct":  round(r12, 2) if not np.isnan(r12) else None,
@@ -232,6 +332,100 @@ def sector_rotation_table() -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. ASSET-CLASS REGIME DETECTOR
 # ─────────────────────────────────────────────────────────────────────────────
+METALS_JSON = "ETF_Metals_Split.json"
+
+
+def _write_metals(reg: Dict) -> None:
+    """Persist the metals split so the UI never has to recompute it to render."""
+    try:
+        import json as _json, os as _os
+        ms = (reg or {}).get("metals_split") or {}
+        if not ms:
+            return
+        ms = dict(ms)
+        ms["fetched_at"] = (reg or {}).get("fetched_at", "")
+        _p = _os.path.join(os.path.dirname(os.path.abspath(__file__)), METALS_JSON)
+        from io_utils import atomic_write_text
+        atomic_write_text(_p, _json.dumps(ms, indent=2))
+    except Exception as e:
+        logger.warning("metals split not persisted: %s", e)
+
+
+def _metals_split(close_df, idx_map, col_fn) -> Dict:
+    """Gold vs silver, reported scale-free. {} when either series is unavailable.
+
+    Uses whichever series the flagships resolved to (index where one exists, else the
+    ETF), so it agrees with the regime table above rather than quietly measuring
+    something else.
+    """
+    import numpy as _np
+    out: Dict = {}
+    try:
+        g_sym = FLAGSHIPS.get("GOLD")
+        s_sym = FLAGSHIPS.get("SILVER")
+        if not g_sym or not s_sym:
+            return out
+
+        def _series(sym):
+            i = idx_map.get(str(sym).upper(), "")
+            if i:
+                c = col_fn(close_df, i)
+                if c is not None:
+                    v = close_df[c].dropna()
+                    if len(v) >= 60:
+                        return v
+            return close_df[sym].dropna() if sym in close_df.columns else None
+
+        g, sv = _series(g_sym), _series(s_sym)
+        if g is None or sv is None or len(g) < 65 or len(sv) < 65:
+            return out
+
+        # Align on shared dates: gold and silver can have different histories, and an
+        # unaligned ratio would compare different days.
+        import pandas as _pd
+        j = _pd.concat([g.rename("g"), sv.rename("s")], axis=1).dropna()
+        if len(j) < 65:
+            return out
+        ratio = (j["g"] / j["s"]).dropna()
+
+        def _chg(series, bars):
+            if len(series) <= bars:
+                return None
+            a, b = float(series.iloc[-1 - bars]), float(series.iloc[-1])
+            return round((b / a - 1.0) * 100.0, 2) if a else None
+
+        gap_4w = None if (_chg(j["g"], 20) is None or _chg(j["s"], 20) is None) \
+            else round(_chg(j["g"], 20) - _chg(j["s"], 20), 2)
+        gap_12w = None if (_chg(j["g"], 60) is None or _chg(j["s"], 60) is None) \
+            else round(_chg(j["g"], 60) - _chg(j["s"], 60), 2)
+
+        # Percentile only over a FULL trailing year; otherwise it is a percentile of
+        # whatever history happened to exist, which reads as precision it lacks.
+        pct = None
+        if len(ratio) >= 250:
+            r1y = ratio.tail(250)
+            pct = round(float((r1y < float(ratio.iloc[-1])).mean() * 100.0), 1)
+
+        lead = "BALANCED"
+        if gap_12w is not None:
+            if gap_12w >= 3:
+                lead = "GOLD-LED"
+            elif gap_12w <= -3:
+                lead = "SILVER-LED"
+        out = {
+            "gold": g_sym, "silver": s_sym,
+            "gap_4w_pct": gap_4w, "gap_12w_pct": gap_12w,
+            "ratio_pctile_1y": pct, "lead": lead,
+            # Stated, not implied: the reader cannot see from a number that its level
+            # was withheld on purpose.
+            "note": ("gold minus silver return, in percentage points; the ratio's LEVEL "
+                     "is omitted because ETF unit prices make it arbitrary"),
+        }
+    except Exception as e:
+        logger.warning("metals split unavailable: %s", e)
+    return out
+
+
 def asset_class_regime() -> Dict:
     """Decide capital allocation across asset classes.
 
@@ -263,17 +457,30 @@ def asset_class_regime() -> Dict:
     import datetime as _dt
 
     syms = list(FLAGSHIPS.values())
-    close_df = _fetch_close(syms + [BENCHMARK_YF], period="1y")
+    _idx = _rot_index_for()
+    _extra = sorted({_idx[s.upper()] for s in syms if s.upper() in _idx})
+    close_df = _fetch_close(syms + _extra + [BENCHMARK_YF], period="1y")
     if BENCHMARK_YF not in close_df.columns:
         return {"regime_label": "UNKNOWN", "rows": [],
                 "fetched_at": _dt.datetime.now().isoformat()}
     bench = close_df[BENCHMARK_YF].dropna()
 
     rows = []
+    _regime_src = {}
     for cls, sym in FLAGSHIPS.items():
-        if sym not in close_df.columns:
+        _src = "etf"
+        _c = None
+        _i = _idx.get(sym.upper(), "")
+        if _i:
+            _col = _rot_col(close_df, _i)
+            if _col is not None:
+                _s = close_df[_col].dropna()
+                if len(_s) >= 60:
+                    _c, _src = _s, f"index:{_i}"
+        _regime_src[cls] = _src
+        if _c is None and sym not in close_df.columns:
             continue
-        close = close_df[sym].dropna()
+        close = _c if _c is not None else close_df[sym].dropna()
         if len(close) < 65:
             continue
         r4    = _period_return_pct(close, 20)
@@ -349,6 +556,9 @@ def asset_class_regime() -> Dict:
         label = "RISK_OFF"
 
     return {
+        # WHICH METAL, once the regime has said "metals". Absolute ratio deliberately
+        # omitted - see the note on _metals_split.
+        "metals_split": _metals_split(close_df, _idx, _rot_col),
         "regime_label": label,
         "fetched_at":   _dt.datetime.now().isoformat(timespec="seconds"),
         "rows":         rows,
@@ -656,6 +866,7 @@ def main():
     print()
     print("→ Detecting asset-class regime...")
     regime = asset_class_regime()
+    _write_metals(regime)
     if regime["rows"]:
         df_reg = pd.DataFrame(regime["rows"])
         df_reg["regime_label"] = regime["regime_label"]

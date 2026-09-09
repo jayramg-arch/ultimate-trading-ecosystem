@@ -330,5 +330,69 @@ for sec in sorted_sector_keys:
         
     pdf.ln(5)
 
+# ─── AI Strategic Briefing (Gemini 2.5 Flash) ─────────────────────────────
+# Appended on 19 May 2026 to fold the automated Gemini briefing into the
+# same PDF the user already opens at the end of the workflow. If the AI
+# file is absent (Gemini step failed or skipped) the PDF still ships with
+# the rule-based content untouched.
+import os as _os_pdf
+_AI_PATH = "Strategic_Briefing_AI.md"
+if _os_pdf.path.exists(_AI_PATH):
+    try:
+        with open(_AI_PATH, "r", encoding="utf-8") as _f:
+            _ai_md = _f.read().strip()
+    except Exception as _re:
+        _ai_md = f"[Could not read {_AI_PATH}: {_re}]"
+
+    if _ai_md:
+        pdf.add_page()
+        pdf.set_fill_color(20, 30, 50)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, pdf.safe_text("AI Strategic Briefing — Gemini 3.5 Flash-Lite"), 0, 1, 'L', 1)
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(3)
+        pdf.set_font('Arial', 'I', 8)
+        pdf.cell(0, 4, pdf.safe_text(f"Auto-generated · gemini-3.5-flash-lite · "
+                                          f"{datetime.now().strftime('%d %b %Y %H:%M IST')}"),
+                  0, 1, 'L')
+        pdf.ln(3)
+
+        # Render the markdown as styled paragraphs. FPDF does not parse MD,
+        # so we walk lines: '##' headers → bold, '*' / '-' bullets → indent,
+        # '|' tables → keep monospace, everything else → normal flow.
+        for _raw in _ai_md.splitlines():
+            _line = pdf.safe_text(_raw.rstrip())
+            if not _line:
+                pdf.ln(2); continue
+            _stripped = _line.lstrip()
+            if _stripped.startswith("### "):
+                pdf.set_font('Arial', 'B', 10)
+                pdf.multi_cell(0, 5, pdf.safe_text(_stripped[4:]))
+            elif _stripped.startswith("## "):
+                pdf.ln(2)
+                pdf.set_font('Arial', 'B', 12)
+                pdf.multi_cell(0, 6, pdf.safe_text(_stripped[3:]))
+            elif _stripped.startswith("# "):
+                pdf.ln(2)
+                pdf.set_font('Arial', 'B', 13)
+                pdf.multi_cell(0, 7, pdf.safe_text(_stripped[2:]))
+            elif _stripped.startswith("|"):
+                pdf.set_font('Courier', '', 8)
+                pdf.multi_cell(0, 4, pdf.safe_text(_stripped))
+            elif _stripped.startswith(("* ", "- ", "•")):
+                pdf.set_font('Arial', '', 9)
+                pdf.cell(4)  # indent
+                # ASCII bullet — FPDF's core fonts are latin-1 only, so
+                # the U+2022 char would crash _putpages even after safe_text.
+                _txt = "- " + _stripped.lstrip("*-•").strip()
+                pdf.multi_cell(0, 5, pdf.safe_text(_txt))
+            else:
+                pdf.set_font('Arial', '', 9)
+                # Strip naive markdown bold/italic markers so they don't
+                # print literally in the PDF
+                _clean = _stripped.replace("**", "").replace("__", "")
+                pdf.multi_cell(0, 5, pdf.safe_text(_clean))
+
 pdf.output("Strategic_Briefing_Automated.pdf")
 print("✅ Professional Briefing Generated.")

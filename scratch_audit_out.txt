@@ -1,0 +1,10 @@
+--- PYTHON BULL PATTERNS ---
+['★★ Power Play (HTF)', 'Power Play (Strong Close)', 'VCP Breakout', 'Pocket Pivot', 'Bullish Engulfing (gated)', 'Liq Sweep Reclaim', '3-Bar Bull Reversal', 'Stage-2 Launch', 'Inside-3 (Coil)', 'True NR7', '★ IB-NR7 Coil', 'Wyckoff Spring', 'Gap-Up Breakout', '50SMA Undercut & Reclaim', 'Hammer at 50-SMA', 'Hammer at 200-SMA', 'Breakout Confirmed']
+
+--- PYTHON RECOVERY PATTERNS ---
+['Climax Reversal (SC+AR)', 'Wyckoff Spring', 'Higher-Low / 2B', 'Base Breakout (SOS/JAC)', 'Bullish Engulfing', 'Hammer at support', '3-Bar Bull Reversal', 'Pocket Pivot', 'Volume Dry-Up', '30-WMA Reclaim']
+
+--- PINE SCRIPT OVERVIEW ---
+Total lines: 5564
+
+Found f_detectZone: 1 times

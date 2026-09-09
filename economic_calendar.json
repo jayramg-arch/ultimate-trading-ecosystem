@@ -1,0 +1,107 @@
+{
+  "_doc": [
+    "Auto-refreshed from investing.com/economic-calendar (country=India, timezone=IST). Run market_data_hub.refresh_calendar_from_investing() to repull."
+  ],
+  "last_updated": "2026-09-04",
+  "events": [
+    {
+      "date": "2026-09-04",
+      "event": "Bank Loan Growth",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-04",
+      "event": "Deposit Growth",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-04",
+      "event": "FX Reserves, USD",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-09",
+      "event": "M3 Money Supply",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-10",
+      "event": "Thomson Reuters IPSOS PCSI  (Sep)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-11",
+      "event": "FX Reserves, USD",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "WPI Food (YoY)  (Aug)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "WPI Fuel (YoY)  (Aug)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "WPI Inflation (YoY)  (Aug)",
+      "importance": "MEDIUM",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "WPI Manufacturing Inflation (YoY)  (Aug)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "CPI (YoY)  (Aug)",
+      "importance": "MEDIUM",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    }
+  ]
+}

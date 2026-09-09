@@ -415,76 +415,75 @@ def sync_history_data(days=90, id_map=None):
 # Page config removed (handled by router)
 
 st.markdown("""<style>
-:root { -primary-color:#238636; -background-color:#0b1622; -secondary-background-color:#0d1b2a; -text-color:#c9d1d9; }
+:root { -primary-color:#2563EB; -background-color:#F8FAFC; -secondary-background-color:#F1F5F9; -text-color:#0F172A; }
 
 /* APP SHELL */
-.stApp { background:#0b1622!important; font-family:'Inter',sans-serif!important; color:#c9d1d9!important; }
+.stApp { background:#F8FAFC!important; font-family:'Inter',sans-serif!important; color:#0F172A!important; }
 .block-container { padding:1rem 1.5rem!important; max-width:100%  !important; }
 header, footer { visibility:hidden!important; }
 #MainMenu { visibility:hidden!important; }
-/* [data-testid='collapsedControl'] { display:none!important; } */
-/* [data-testid='stSidebarCollapseButton'] { display:none!important; } */
 
 /* ── SIDEBAR SHELL ── */
-[data-testid='stSidebar'] { background:#0a1320!important; border-right:1px solid #1e3a5f!important; width:220px!important; min-width:220px!important; padding:0!important; }
+[data-testid='stSidebar'] { background:#F1F5F9!important; border-right:1px solid #CBD5E1!important; width:220px!important; min-width:220px!important; padding:0!important; }
 [data-testid='stSidebar'] > div { padding:0!important; }
 [data-testid='stSidebarContent'] { padding:0 0 12px 0!important; overflow-y:auto!important; overflow-x:hidden!important; }
 
 /* ── SIDEBAR HEADINGS ── */
-[data-testid='stSidebar'] h1 { font-size:0.88rem!important; font-weight:600!important; color:#e6edf3!important; padding:10px 14px 6px!important; margin:0!important; border-bottom:1px solid #1e3a5f!important; }
-[data-testid='stSidebar'] h2, [data-testid='stSidebar'] h3 { font-size:0.60rem!important; font-weight:700!important; color:#58a6ff!important; letter-spacing:2px!important; text-transform:uppercase!important; padding:8px 14px 2px!important; margin:0!important; }
+[data-testid='stSidebar'] h1 { font-size:0.88rem!important; font-weight:600!important; color:#0F172A!important; padding:10px 14px 6px!important; margin:0!important; border-bottom:1px solid #CBD5E1!important; }
+[data-testid='stSidebar'] h2, [data-testid='stSidebar'] h3 { font-size:0.60rem!important; font-weight:700!important; color:#1D4ED8!important; letter-spacing:2px!important; text-transform:uppercase!important; padding:8px 14px 2px!important; margin:0!important; }
 
 /* ── SIDEBAR UTILITY BUTTONS (Sync etc) ── */
-[data-testid='stSidebar'] button { background:#0a1e35!important; background-color:#0a1e35!important; border:1px solid #1e4d6b!important; border-radius:4px!important; color:#58a6ff!important; font-size:0.72rem!important; width:100%!important; padding:5px 10px!important; text-align:left!important; }
-[data-testid='stSidebar'] button p { color:#58a6ff!important; font-size:0.72rem!important; }
-[data-testid='stSidebar'] button:hover { background:#102a45!important; background-color:#102a45!important; border-color:#7ec8ff!important; }
+[data-testid='stSidebar'] button { background:#FFFFFF!important; background-color:#FFFFFF!important; border:1px solid #CBD5E1!important; border-radius:4px!important; color:#1D4ED8!important; font-size:0.72rem!important; width:100%!important; padding:5px 10px!important; text-align:left!important; }
+[data-testid='stSidebar'] button p { color:#1D4ED8!important; font-size:0.72rem!important; }
+[data-testid='stSidebar'] button:hover { background:#F8FAFC!important; background-color:#F8FAFC!important; border-color:#2563EB!important; }
 [data-testid='stSidebar'] .stButton { padding:0 8px!important; }
 
 /* ── SIDEBAR METRICS ── */
-[data-testid='stSidebar'] [data-testid='metric-container'] { background:#0d1b2a!important; border:1px solid #1e3a5f!important; border-radius:5px!important; padding:4px 10px 5px!important; margin:3px 8px!important; }
-[data-testid='stSidebar'] [data-testid='metric-container'] label { font-size:0.58rem!important; color:#5a8a9f!important; letter-spacing:0.8px!important; text-transform:uppercase!important; }
-[data-testid='stSidebar'] [data-testid='stMetricValue'] { font-size:0.82rem!important; font-weight:700!important; color:#e3b341!important; line-height:1.3!important; font-family:'JetBrains Mono',monospace!important; }
-[data-testid='stSidebar'] [data-testid='stMetricValue'] * { font-size:0.82rem!important; color:#e3b341!important; }
+[data-testid='stSidebar'] [data-testid='metric-container'] { background:#FFFFFF!important; border:1px solid #CBD5E1!important; border-radius:5px!important; padding:4px 10px 5px!important; margin:3px 8px!important; box-shadow:0 1px 2px rgba(0,0,0,0.05)!important; }
+[data-testid='stSidebar'] [data-testid='metric-container'] label { font-size:0.58rem!important; color:#64748B!important; letter-spacing:0.8px!important; text-transform:uppercase!important; }
+[data-testid='stSidebar'] [data-testid='stMetricValue'] { font-size:0.82rem!important; font-weight:700!important; color:#0F172A!important; line-height:1.3!important; font-family:'JetBrains Mono',monospace!important; }
+[data-testid='stSidebar'] [data-testid='stMetricValue'] * { font-size:0.82rem!important; color:#0F172A!important; }
 [data-testid='stSidebar'] [data-testid='stMetricDelta'] { font-size:0.58rem!important; }
-[data-testid='stSidebar'] hr { border-color:#1e3a5f!important; margin:5px 0!important; }
-[data-testid='stSidebar'] [data-testid='stCaptionContainer'] p { font-size:0.58rem!important; color:#5a8a9f!important; }
-[data-testid='stSidebar'] [data-testid='stExpander'] { background:#0d1b2a!important; border:1px solid #1e3a5f!important; border-radius:4px!important; margin:3px 8px!important; }
-[data-testid='stSidebar'] [data-testid='stExpander'] summary { font-size:0.72rem!important; color:#adbac7!important; padding:5px 10px!important; }
+[data-testid='stSidebar'] hr { border-color:#CBD5E1!important; margin:5px 0!important; }
+[data-testid='stSidebar'] [data-testid='stCaptionContainer'] p { font-size:0.58rem!important; color:#64748B!important; }
+[data-testid='stSidebar'] [data-testid='stExpander'] { background:#FFFFFF!important; border:1px solid #CBD5E1!important; border-radius:4px!important; margin:3px 8px!important; }
+[data-testid='stSidebar'] [data-testid='stExpander'] summary { font-size:0.72rem!important; color:#334155!important; padding:5px 10px!important; }
 
 /* ── MAIN AREA ALL BUTTONS (columns, containers, everywhere) ── */
 section.main button,
 [data-testid='stMainBlockContainer'] button,
 [data-testid='stHorizontalBlock'] button,
 [data-testid='stVerticalBlock'] button:not([data-testid='stSidebar'] button) {
-    background:#0d1b2a!important; background-color:#0d1b2a!important;
-    border:1px solid #2d4060!important; border-radius:5px!important;
-    color:#c9d1d9!important; font-size:0.80rem!important; font-weight:400!important;
+    background:#FFFFFF!important; background-color:#FFFFFF!important;
+    border:1.5px solid #64748B!important; border-radius:5px!important;
+    color:#090D16!important; font-size:0.82rem!important; font-weight:600!important;
 }
 section.main button p,
 [data-testid='stMainBlockContainer'] button p,
 [data-testid='stHorizontalBlock'] button p {
-    color:#c9d1d9!important; font-size:0.80rem!important;
+    color:#090D16!important; font-size:0.82rem!important; font-weight:600!important;
 }
 section.main button *,
 [data-testid='stMainBlockContainer'] button *,
 [data-testid='stHorizontalBlock'] button * {
-    color:#c9d1d9!important;
+    color:#1E293B!important;
 }
 section.main button:hover,
 [data-testid='stMainBlockContainer'] button:hover,
 [data-testid='stHorizontalBlock'] button:hover {
-    background:#12243a!important; background-color:#12243a!important;
-    border-color:#58a6ff!important; color:#e6edf3!important;
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)!important;
+    background-color:#EFF6FF!important;
+    border-color:#3B82F6!important; color:#1D4ED8!important;
 }
 section.main button:hover *,
 [data-testid='stMainBlockContainer'] button:hover *,
 [data-testid='stHorizontalBlock'] button:hover * {
-    color:#e6edf3!important;
+    color:#1D4ED8!important;
  /* Chat input row – dark border */
 [data-testid='stChatInput'] textarea {
-    background:#080f1a !important;
-    border:1px solid #1e3a5f !important;
-    color:#e6edf3 !important;
+    background:#FFFFFF !important;
+    border:1px solid #CBD5E1 !important;
+    color:#090D16 !important;
     font-size:0.80rem !important;
 }
 [data-testid='stChatInput']
@@ -492,39 +491,39 @@ section.main button:hover *,
 }
 
 /* ── MAIN HEADINGS ── */
-.stApp h1 { font-size:1.15rem!important; font-weight:600!important; color:#e6edf3!important; border-left:3px solid #238636!important; padding-left:10px!important; margin:8px 0 4px!important; }
-.stApp h2 { font-size:0.88rem!important; font-weight:600!important; color:#c9d1d9!important; border-bottom:1px solid #1e3a5f!important; padding-bottom:3px!important; margin:12px 0 6px!important; }
-.stApp h3 { font-size:0.80rem!important; font-weight:500!important; color:#8b949e!important; margin:8px 0 4px!important; }
+.stApp h1 { font-size:1.15rem!important; font-weight:600!important; color:#090D16!important; border-left:3px solid #238636!important; padding-left:10px!important; margin:8px 0 4px!important; }
+.stApp h2 { font-size:0.88rem!important; font-weight:600!important; color:#1E293B!important; border-bottom:1px solid #CBD5E1!important; padding-bottom:3px!important; margin:12px 0 6px!important; }
+.stApp h3 { font-size:0.80rem!important; font-weight:500!important; color:#475569!important; margin:8px 0 4px!important; }
 
 /* ── MAIN METRICS ── */
-[data-testid='metric-container'] { background:#0d1b2a!important; border:1px solid #1e3a5f!important; border-radius:6px!important; padding:10px 14px!important; }
-[data-testid='metric-container'] label { font-size:0.60rem!important; color:#5a8a9f!important; letter-spacing:1px!important; text-transform:uppercase!important; font-weight:400!important; }
-[data-testid='stMetricValue'] { font-family:'JetBrains Mono',monospace!important; font-size:1.05rem!important; font-weight:600!important; color:#e3b341!important; }
-[data-testid='stMetricValue'] * { font-size:1.05rem!important; color:#e3b341!important; }
+[data-testid='metric-container'] { background:#FFFFFF!important; border:1.5px solid #CBD5E1!important; border-radius:6px!important; padding:10px 14px!important; box-shadow:0 2px 5px rgba(0,0,0,0.05)!important; }
+[data-testid='metric-container'] label { font-size:0.60rem!important; color:#334155!important; letter-spacing:1px!important; text-transform:uppercase!important; font-weight:700!important; }
+[data-testid='stMetricValue'] { font-family:'JetBrains Mono',monospace!important; font-size:1.05rem!important; font-weight:700!important; color:#090D16!important; }
+[data-testid='stMetricValue'] * { font-size:1.05rem!important; color:#090D16!important; }
 
 /* ── EXPANDERS / CONTAINERS ── */
-.stApp [data-testid='stExpander'] { background:#0d1b2a!important; border:1px solid #1e3a5f!important; border-radius:6px!important; }
-.stApp [data-testid='stExpander'] summary { font-size:0.82rem!important; font-weight:500!important; color:#c9d1d9!important; padding:8px 14px!important; }
-.stApp [data-testid='stVerticalBlockBorderWrapper'] { background:#0d1b2a!important; border:1px solid #1e3a5f!important; border-radius:6px!important; padding:10px 14px!important; }
-[data-testid='stDataFrame'], [data-testid='stDataEditor'] { border:1px solid #1e3a5f!important; border-radius:6px!important; }
+.stApp [data-testid='stExpander'] { background:#FFFFFF!important; border:1.5px solid #CBD5E1!important; border-radius:8px!important; box-shadow:0 1px 4px rgba(0,0,0,0.05)!important; }
+.stApp [data-testid='stExpander'] summary { font-size:0.82rem!important; font-weight:600!important; color:#1E293B!important; padding:8px 14px!important; }
+.stApp [data-testid='stVerticalBlockBorderWrapper'] { background:#FFFFFF!important; border:1px solid #E2E8F0!important; border-radius:6px!important; padding:10px 14px!important; }
+[data-testid='stDataFrame'], [data-testid='stDataEditor'] { border:1px solid #CBD5E1!important; border-radius:6px!important; }
 
 /* ── INPUTS ── */
-[data-testid='stTextInput'] input, [data-testid='stNumberInput'] input { background:#080f1a!important; border:1px solid #1e3a5f!important; color:#e6edf3!important; font-family:'JetBrains Mono',monospace!important; font-size:0.78rem!important; }
-[data-testid='stSelectbox'] > div > div { background:#080f1a!important; border-color:#1e3a5f!important; color:#e6edf3!important; font-size:0.78rem!important; }
-[data-testid='stChatInput'] textarea { background:#080f1a!important; border:1px solid #1e3a5f!important; color:#e6edf3!important; font-size:0.80rem!important; }
-[data-testid='stChatInput'] textarea:focus { border-color:#238636!important; }
+[data-testid='stTextInput'] input, [data-testid='stNumberInput'] input { background:#FFFFFF!important; border:1.5px solid #94A3B8!important; color:#090D16!important; font-family:'JetBrains Mono',monospace!important; font-size:0.78rem!important; }
+[data-testid='stSelectbox'] > div > div { background:#FFFFFF!important; border-color:#94A3B8!important; color:#090D16!important; font-size:0.78rem!important; }
+[data-testid='stChatInput'] textarea { background:#FFFFFF!important; border:1.5px solid #94A3B8!important; color:#090D16!important; font-size:0.80rem!important; }
+[data-testid='stChatInput'] textarea:focus { border-color:#1D4ED8!important; box-shadow:0 0 0 2px rgba(29,78,216,0.2)!important; }
 
 /* ── ALERTS ── */
 [data-testid='stAlert'] { border-radius:5px!important; font-size:0.78rem!important; }
-[data-testid='stInfo']    { background:rgba(88,166,255,0.07)!important; border-left:3px solid #58a6ff!important; }
-[data-testid='stSuccess'] { background:rgba(35,134,54,0.09)!important;  border-left:3px solid #3fb950!important; }
-[data-testid='stWarning'] { background:rgba(227,179,65,0.09)!important;  border-left:3px solid #e3b341!important; }
-[data-testid='stError']   { background:rgba(248,81,73,0.09)!important;   border-left:3px solid #ff4b4b!important; }
+[data-testid='stInfo']    { background:rgba(88,166,255,0.07)!important; border-left:3px solid #1D4ED8!important; }
+[data-testid='stSuccess'] { background:rgba(35,134,54,0.09)!important;  border-left:3px solid #15803D!important; }
+[data-testid='stWarning'] { background:rgba(227,179,65,0.09)!important;  border-left:3px solid #B45309!important; }
+[data-testid='stError']   { background:rgba(248,81,73,0.09)!important;   border-left:3px solid #DC2626!important; }
 
 /* ── MISC ── */
-hr { border-color:#1e3a5f!important; margin:8px 0!important; }
-label { color:#8b949e!important; font-size:0.73rem!important; }
-p { color:#c9d1d9; font-family:'Inter',sans-serif; font-size:0.83rem; }
+hr { border-color:#CBD5E1!important; margin:8px 0!important; }
+label { color:#475569!important; font-size:0.73rem!important; }
+p { color:#1E293B; font-family:'Inter',sans-serif; font-size:0.83rem; }
 div[data-testid='column-header-content'] { font-weight:bold!important; }
 
 </style>
@@ -738,19 +737,19 @@ st.sidebar.markdown(f"""<style>
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type(1) button,
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type(2) button,
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type(3) button {{
-    background:#0d1b2a!important;background-color:#0d1b2a!important;
+    background:#FFFFFF!important;background-color:#F8FAFC!important;
     border:1px solid #2d4060!important;border-radius:5px!important;
-    color:#8b949e!important;font-size:0.78rem!important;font-weight:400!important;
+    color:#475569!important;font-size:0.78rem!important;font-weight:400!important;
     padding:7px 12px!important;width:100%!important;margin:2px 0!important;
 }}
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type(1) button p,
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type(2) button p,
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type(3) button p {{
-    color:#8b949e!important;font-size:0.78rem!important;
+    color:#475569!important;font-size:0.78rem!important;
 }}
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type({active_idx + 1}) button {{
     background:#1a4d2e!important;background-color:#1a4d2e!important;
-    border:1px solid #3fb950!important;color:#ffffff!important;font-weight:700!important;
+    border:1px solid #15803D!important;color:#ffffff!important;font-weight:700!important;
 }}
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type({active_idx + 1}) button p,
 div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid='stVerticalBlock'] > div:nth-of-type({active_idx + 1}) button * {{
@@ -1399,7 +1398,7 @@ elif page == "Visual Analytics":
             if not equity_df.empty:
                 equity_df['Cumulative_PnL'] = equity_df['Realized_PnL'].cumsum()
                 fig_eq = px.line(equity_df, x='ExitDate', y='Cumulative_PnL', markers=True, title="Account Growth Curve")
-                fig_eq.update_traces(line_color='#00f260', line_width=3)
+                fig_eq.update_traces(line_color='#15803D', line_width=3)
                 fig_eq.add_hline(y=0, line_dash="dash", line_color="gray")
                 st.plotly_chart(fig_eq, width="stretch")
 
@@ -1408,7 +1407,7 @@ elif page == "Visual Analytics":
             if not daily_pnl.empty:
                 daily_pnl['Color'] = daily_pnl['Realized_PnL'].apply(lambda x: 'Profit' if x > 0 else 'Loss')
                 fig_cal = px.bar(daily_pnl, x='ExitDate', y='Realized_PnL', color='Color',
-                                 color_discrete_map={'Profit': '#00f260', 'Loss': '#ff4b4b'}, title="Daily Net P&L")
+                                 color_discrete_map={'Profit': '#15803D', 'Loss': '#DC2626'}, title="Daily Net P&L")
                 st.plotly_chart(fig_cal, width="stretch")
 
         st.divider()

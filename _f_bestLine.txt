@@ -1,0 +1,45 @@
+f_bestLine(array<float> py, array<int> px, float tol) =>
+    int _n = array.size(py)
+    int   _xE = na
+    float _yE = na
+    int   _xL = na
+    float _yL = na
+    if _n >= 2
+        int _bestCount = -1
+        int _bestA = 0
+        int _bestB = 1
+        for _a = 0 to _n - 2
+            for _b = _a + 1 to _n - 1
+                int   _xa = array.get(px, _a)
+                float _ya = array.get(py, _a)
+                int   _dx = array.get(px, _b) - _xa
+                if _dx != 0
+                    float _slope = (array.get(py, _b) - _ya) / _dx
+                    int _cnt = 0
+                    for _k = 0 to _n - 1
+                        float _pred = _ya + _slope * (array.get(px, _k) - _xa)
+                        if math.abs(array.get(py, _k) - _pred) <= tol
+                            _cnt += 1
+                    if _cnt > _bestCount
+                        _bestCount := _cnt
+                        _bestA := _a
+                        _bestB := _b
+        int   _xa2 = array.get(px, _bestA)
+        float _ya2 = array.get(py, _bestA)
+        int   _dx2 = array.get(px, _bestB) - array.get(px, _bestA)
+        float _slp = _dx2 != 0 ? (array.get(py, _bestB) - _ya2) / _dx2 : 0.0
+        int   _minx =  2147483647
+        int   _maxx = -2147483647
+        for _k = 0 to _n - 1
+            int   _xk   = array.get(px, _k)
+            float _pred = _ya2 + _slp * (_xk - _xa2)
+            if math.abs(array.get(py, _k) - _pred) <= tol
+                if _xk < _minx
+                    _minx := _xk
+                    _yE   := _pred
+                if _xk > _maxx
+                    _maxx := _xk
+                    _yL   := _pred
+        _xE := _minx
+        _xL := _maxx
+    [_xE, _yE, _xL, _yL]

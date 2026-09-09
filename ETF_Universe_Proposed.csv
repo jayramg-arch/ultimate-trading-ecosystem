@@ -1,0 +1,58 @@
+Symbol,name,asset_class,sub_category,underlying,liquidity_tier,turnover_cr,aum_cr,ter_pct,selected_from,reason
+NIFTYBEES,Nippon Nifty 50 ETF (NIFTYBEES),BROAD_EQUITY,BROAD_EQUITY.NIFTY 50,Nifty 50,A,163.65,66925.3,0.03,3,cheapest of the amply liquid
+HDFCSML250,HDFC Nifty Small Cap 250 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY SMALLCAP 250,NIFTY Smallcap 250,A,27.4,2612.6,0.25,3,cheapest of the amply liquid
+NEXT50IETF,ICICI Pru Nifty Next 50 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY NEXT 50,Nifty Next 50,B,7.99,2726.2,0.09,3,cheapest of the amply liquid
+MIDCAPETF,Mirae Asset Nifty Midcap 150 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY MIDCAP 150,Nifty Midcap 150,B,5.99,1857.5,0.05,3,cheapest of the amply liquid
+MONIFTY500,Motilal Oswal Nifty 500 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY 500,Nifty 500,C,3.46,299.4,0.51,1,most liquid (none ample)
+MOM100,Motilal Oswal Nifty Midcap 100 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY MIDCAP 100,NIFTY Midcap 100,C,2.8,915.6,0.29,1,most liquid (none ample)
+SML100CASE,Zerodha Nifty Smallcap 100 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY SMALLCAP 100,NIFTY Smallcap 100,D,1.75,97.2,0.18,1,most liquid (none ample)
+TOP100CASE,Zerodha Nifty 100 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY 100,Nifty 100,D,0.85,164.5,0.22,2,most liquid (none ample)
+MIDCAP,Kotak Nifty Midcap 50 ETF,BROAD_EQUITY,BROAD_EQUITY.NIFTY MID CAP 50,Nifty Mid Cap 50,D,0.72,211.7,0.25,1,most liquid (none ample)
+SILVERIETF,ICICI Pru Silver ETF,COMMODITY,COMMODITY.SILVER,Silver,A,86.67,15126.5,0.34,3,cheapest of the amply liquid
+GOLDIETF,ICICI Pru Gold ETF,COMMODITY,COMMODITY.GOLD,Gold,A,79.7,28916.1,0.42,3,cheapest of the amply liquid
+OILIETF,ICICI Pru Nifty Oil & Gas ETF,COMMODITY,COMMODITY.NIFTY OIL AND GAS,Nifty Oil and Gas,C,2.31,313.4,0.34,1,most liquid (none ample)
+EBBETF0430,Edelweiss Bharat Bond April 2030 ETF,DEBT,DEBT.NIFTY BHARAT BOND 2030,Nifty BHARAT Bond 2030,C,3.03,24898.1,0.01,1,most liquid (none ample)
+GILT5YBEES,Nippon 5 Year G-Sec ETF (GILT5YBEES),DEBT,DEBT.NIFTY 5 YEAR G-SEC,Nifty 5 Year G-Sec,C,2.21,263.2,0.08,1,most liquid (none ample)
+EBBETF0431,Edelweiss Bharat Bond April 2031 ETF,DEBT,DEBT.NIFTY BHARAT BOND 2031,Nifty BHARAT Bond 2031,D,1.02,13307.5,0.01,1,most liquid (none ample)
+LIQUIDBEES,LIQUIDBEES,DEBT,DEBT.LIQUID,Overnight / Liquid,A,,,,0,STRUCTURAL EXEMPTION - cash park - not a rotation candidate
+MON100,Motilal Oswal Nasdaq 100 ETF,INTERNATIONAL,INTERNATIONAL.NASDAQ 100,Nasdaq 100,A,18.19,16482.2,0.6,1,cheapest of the amply liquid
+HNGSNGBEES,Nippon Hang Seng ETF (HNGSNGBEES),INTERNATIONAL,INTERNATIONAL.HANG SENG,Hang Seng,B,5.87,1114.5,0.79,1,cheapest of the amply liquid
+MAFANG,Mirae Asset NYSE FANG+ ETF,INTERNATIONAL,INTERNATIONAL.NYSE FANG+,NYSE FANG+,B,5.03,5108.1,0.55,1,cheapest of the amply liquid
+MASPTOP50,Mirae Asset S&P 500 Top 50 ETF,INTERNATIONAL,INTERNATIONAL.S&P 500 TOP 50,S&P 500 Top 50,D,1.06,1348.3,0.54,1,most liquid (none ample)
+MONQ50,Motilal Oswal Nasdaq Quality 50 ETF,INTERNATIONAL,INTERNATIONAL.NASDAQ QUALITY 50,Nasdaq Quality 50,D,0.96,215.0,0.6,1,most liquid (none ample)
+ITBEES,Nippon Nifty IT ETF (ITBEES),SECTOR,SECTOR.NIFTY IT,Nifty IT,A,65.6,3712.5,0.19,3,cheapest of the amply liquid
+PSUBNKBEES,Nippon Nifty PSU Bank ETF (PSUBNKBEES),SECTOR,SECTOR.NIFTY PSU BANK,Nifty PSU Bank,A,26.81,4060.6,0.42,3,cheapest of the amply liquid
+PVTBANIETF,ICICI Pru Nifty Private Bank ETF,SECTOR,SECTOR.NIFTY PRIVATE BANK,Nifty Private Bank,A,20.5,4054.9,0.18,3,cheapest of the amply liquid
+MODEFENCE,Motilal Oswal Nifty India Defence ETF,SECTOR,SECTOR.NIFTY INDIA DEFENCE,Nifty India Defence,A,17.52,1358.5,0.67,2,cheapest of the amply liquid
+PHARMABEES,Nippon Pharma ETF (PHARMABEES),SECTOR,SECTOR.NIFTY PHARMA,Nifty Pharma,A,15.4,1730.0,0.18,1,cheapest of the amply liquid
+METALIETF,ICICI Pru Nifty Metal ETF,SECTOR,SECTOR.NIFTY METAL,Nifty Metal,A,12.9,1025.3,0.52,3,cheapest of the amply liquid
+BANKNIFTY1,Kotak Nifty Bank ETF,SECTOR,SECTOR.NIFTY BANK,Nifty Bank,B,8.31,4716.5,0.15,3,cheapest of the amply liquid
+MOREALTY,Motilal Oswal Nifty Realty ETF,SECTOR,SECTOR.NIFTY REALTY,Nifty Realty,B,8.28,270.3,0.81,1,cheapest of the amply liquid
+AUTOBEES,Nippon Auto ETF (AUTOBEES),SECTOR,SECTOR.NIFTY AUTO,Nifty Auto,B,7.94,498.7,0.19,2,cheapest of the amply liquid
+FMCGIETF,ICICI Pru Nifty FMCG ETF,SECTOR,SECTOR.NIFTY FMCG,Nifty FMCG,B,6.7,730.4,0.2,1,cheapest of the amply liquid
+MOCAPITAL,Motilal Oswal Nifty Capital Market ETF,SECTOR,SECTOR.NIFTY CAPITAL MARKETS,Nifty Capital Markets,B,5.61,292.2,1.06,1,cheapest of the amply liquid
+FINIETF,ICICI Pru Nifty Fin Svc Ex-Bank ETF,SECTOR,SECTOR.NIFTY FINANCIAL SERVICES EX BANK,Nifty Financial Services Ex Bank,C,2.9,216.6,0.2,1,most liquid (none ample)
+HEALTHIETF,ICICI Pru Nifty Healthcare ETF,SECTOR,SECTOR.NIFTY HEALTHCARE,Nifty Healthcare,D,1.99,232.7,0.15,2,most liquid (none ample)
+BFSI,Mirae Asset Nifty Financial Service ETF,SECTOR,SECTOR.FINNIFTY,Finnifty,D,1.86,397.1,0.11,1,most liquid (none ample)
+GROWWRAIL,Groww Nifty India Railways PSU ETF,SECTOR,SECTOR.NIFTY INDIA RAILWAYS PSU,Nifty India Railways PSU,D,1.75,165.5,0.53,1,most liquid (none ample)
+CHEMICAL,Kotak Nifty Chemicals ETF,SECTOR,SECTOR.NIFTY CHEMICALS,Nifty Chemicals,D,1.53,115.3,0.25,2,most liquid (none ample)
+EVINDIA,Mirae Asset Nifty EV & New Age Auto ETF,SECTOR,SECTOR.NIFTY EV AND NEW AGE AUTO,Nifty EV and New Age Auto,D,1.03,180.4,0.35,2,most liquid (none ample)
+GROWWCAPM,Groww Nifty Capital Markets ETF,SECTOR,SECTOR.NIFTY CAPITAL MARKET,Nifty Capital Market,D,0.69,47.7,0.47,1,most liquid (none ample)
+SMALLCAP,Mirae Ast Nifty Smallcap 250 MQ 100 ETF,SMART_BETA,SMART_BETA.NIFTY SMALLCAP250 MOMENTUM QUALITY 100,Nifty Smallcap250 Momentum Quality 100,B,9.38,996.8,0.39,1,cheapest of the amply liquid
+ALPHA,Kotak Nifty Alpha 50 ETF,SMART_BETA,SMART_BETA.NIFTY ALPHA 50,NIFTY ALPHA 50,B,6.07,927.7,0.3,1,cheapest of the amply liquid
+MOM30IETF,ICICI Pru Nifty 200 Momentum 30 ETF,SMART_BETA,SMART_BETA.NIFTY 200 MOMENTUM 30,Nifty 200 Momentum 30,C,4.01,559.7,0.26,2,most liquid (none ample)
+MOMENTUM50,Motilal Oswal Nifty 500 Momentum 50 ETF,SMART_BETA,SMART_BETA.NIFTY 500 MOMENTUM 50,Nifty 500 Momentum 50,C,3.49,397.3,1.38,1,most liquid (none ample)
+TOP10ADD,DSP Nifty Top 10 Equal Weight ETF,SMART_BETA,SMART_BETA.NIFTY TOP 10 EQUAL WEIGHT,Nifty Top 10 Equal Weight,C,2.5,696.7,0.24,1,most liquid (none ample)
+MIDSMALL,Mirae Asset Nifty MS400 MQ 100 ETF,SMART_BETA,SMART_BETA.NIFTY MIDSMALLCAP 400,Nifty MidSmallCap 400,D,1.77,491.0,0.37,1,most liquid (none ample)
+LOWVOL1,Kotak Nifty 100 Low Volatility 30 ETF,SMART_BETA,SMART_BETA.NIFTY 100 LOW VOLATILITY 30,Nifty 100 Low Volatility 30,D,1.68,286.3,0.12,3,most liquid (none ample)
+ALPHAETF,Mirae Asset Nifty 200 Alpha 30 ETF,SMART_BETA,SMART_BETA.NIFTY 200 ALPHA 30,Nifty 200 Alpha 30,D,1.24,431.0,0.38,1,most liquid (none ample)
+EQUAL50ADD,DSP Nifty 50 Equal Weight ETF,SMART_BETA,SMART_BETA.NIFTY 50 EQUAL WEIGHT,Nifty 50 Equal Weight,D,1.03,1393.6,0.35,1,most liquid (none ample)
+SBIMIDMOM,SBI Nifty Midcap 150 Momentum 50 ETF,SMART_BETA,SMART_BETA.NIFTY MIDCAP 150 MOMENTUM,Nifty Midcap 150 Momentum,D,0.6,128.8,0.85,1,most liquid (none ample)
+NV20IETF,ICICI Pru Nifty 50 Value 20 ETF,SMART_BETA,SMART_BETA.NIFTY50 VALUE 20 INDEX,Nifty50 Value 20 Index,D,0.6,175.5,0.21,1,most liquid (none ample)
+CPSEETF,CPSE ETF,THEMATIC,THEMATIC.NIFTY CPSE,Nifty CPSE,B,9.98,19014.8,0.06,1,cheapest of the amply liquid
+ENERGY,Mirae Asset Nifty Energy ETF,THEMATIC,THEMATIC.NIFTY ENERGY,Nifty Energy,D,1.73,291.8,0.3,2,most liquid (none ample)
+INFRAIETF,ICICI Pru Nifty Infrastructure ETF,THEMATIC,THEMATIC.NIFTY INFRA,NIFTY Infra,D,1.63,423.2,0.42,2,most liquid (none ample)
+CONSUMBEES,Nippon Nifty Cons. ETF (CONSUMBEES),THEMATIC,THEMATIC.NIFTY CONSUMPTION,Nifty Consumption,D,1.28,194.7,0.26,2,most liquid (none ample)
+TNIDETF,Tata Nifty India Digital ETF,THEMATIC,THEMATIC.NIFTY INDIA DIGITAL,Nifty India Digital,D,0.9,174.3,0.51,1,most liquid (none ample)
+MAKEINDIA,Mirae Asset Nifty India Mfg. ETF,THEMATIC,THEMATIC.NIFTY INDIA MANUFACTURING,Nifty India Manufacturing,D,0.83,269.3,0.36,1,most liquid (none ample)
+COMMOIETF,ICICI Pru Nifty Commodities ETF,THEMATIC,THEMATIC.NIFTY COMMODITIES,Nifty Commodities,D,0.67,127.4,0.26,1,most liquid (none ample)

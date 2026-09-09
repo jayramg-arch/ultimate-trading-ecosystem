@@ -1,0 +1,17 @@
+{
+  "start": "2020-08-26",
+  "end": "2025-12-31",
+  "freq": "monthly",
+  "initial_capital": 1000000,
+  "top_n": 8,
+  "benchmark_sym": "NIFTYBEES",
+  "apply_correlation": true,
+  "correlation_threshold": 0.75,
+  "apply_liquidity_gate": true,
+  "walk_forward": true,
+  "is_oos_split_pct": 0.6,
+  "rebalance_offset_days": 0,
+  "min_history_bars": 220,
+  "min_hold_days": 28,
+  "run_id": "20260825_205445"
+}

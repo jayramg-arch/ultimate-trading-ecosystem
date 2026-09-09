@@ -20,6 +20,7 @@ New symbols after the feed started: the feed thread is restarted with the union
 (avoids guessing 2.0.x's incremental-subscribe signature); the board passes the
 full universe on every call, so in practice this happens at most once.
 """
+import asyncio
 import threading
 import time
 import logging
@@ -52,7 +53,16 @@ def _canon(sym: str) -> str:
 
 def _feed_worker(instruments, cid, tok, generation):
     """Own the DhanFeed for its whole life (asyncio loop is thread-bound)."""
+    # BUGFIX (19-Jul-2026): DhanFeed.__init__ calls asyncio.get_event_loop() (SDK
+    # marketfeed.py:48). Python 3.10+ no longer auto-creates a loop off the MAIN
+    # thread, so in this daemon worker it raised "There is no current event loop in
+    # thread 'dhan-marketfeed-gN'" → the worker crashed at construction and the LTP
+    # overlay stayed dead (recurring in scheduler.log). Give the thread its OWN loop
+    # BEFORE constructing the feed; the SDK's get_event_loop() then finds it.
+    loop = None
     try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         feed = _mf.DhanFeed(cid, tok, instruments, version="v2")
         feed.run_forever()                       # connect + subscribe
         logger.info(f"MarketFeed connected ({len(instruments)} instruments).")
@@ -82,6 +92,12 @@ def _feed_worker(instruments, cid, tok, generation):
         logger.info("MarketFeed worker exited (superseded).")
     except Exception as e:
         logger.error(f"MarketFeed worker crashed: {e}")
+    finally:
+        if loop is not None:
+            try:
+                loop.close()
+            except Exception:
+                pass
 
 
 def subscribe_symbols(symbols: List[str]):

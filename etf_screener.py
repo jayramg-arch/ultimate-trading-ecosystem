@@ -118,6 +118,57 @@ except Exception:
     pass
 
 
+# STRUCTURE SOURCE (30-Aug-2026). ON = read stage/trend/RS from the INDEX where the
+# exposure has one; liquidity and RV always stay on the ETF. OFF restores the previous
+# behaviour (everything on the ETF) for a clean A/B.
+USE_INDEX_STRUCTURE = True
+
+
+def _resolve_col(df, sym: str):
+    """The column holding `sym`, allowing for data_provider's canonicalisation.
+
+    Tries the name as given, then clean_symbol's rewrite, then a case-insensitive
+    match. Returns None when genuinely absent, so the caller can distinguish a missing
+    series from a lookup miss - the distinction this function exists to protect.
+    """
+    if sym in df.columns:
+        return sym
+    try:
+        import data_provider as _dp
+        c = _dp.clean_symbol(sym)
+        if c in df.columns:
+            return c
+    except Exception:
+        pass
+    low = {str(c).upper(): c for c in df.columns}
+    return low.get(str(sym).upper())
+
+
+def _index_for_symbol() -> dict:
+    """{ETF symbol: Dhan index symbol} for exposures that have an index.
+
+    Read from etf_index_map.csv - built once, reviewable, and NOT re-derived here: a
+    fuzzy match made at runtime could resolve differently between runs and silently
+    move a whole sector's structure onto a different index.
+    """
+    out = {}
+    try:
+        import etf_index_map as _eim
+        import pandas as _pd
+        import os as _os
+        if not _os.path.exists(_eim.MAP_CSV):
+            _eim.build()
+        d = _pd.read_csv(_eim.MAP_CSV)
+        for _, r in d.iterrows():
+            di = str(r.get("dhan_index") or "").strip()
+            if di and str(r.get("chart_mode") or "") == "index":
+                out[str(r["trade_symbol"]).strip().upper()] = di
+    except Exception as e:
+        logger.warning("etf_screener: index map unavailable (%s) - structure falls back "
+                       "to the ETF series for every name", e)
+    return out
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Data fetch
 # ─────────────────────────────────────────────────────────────────────────────
@@ -387,8 +438,11 @@ def rank_universe(syms: Optional[List[str]] = None,
 
     yf_syms = [f"{s}.NS" for s in syms]
 
-    logger.info("Fetching history for %d ETFs + benchmark...", len(yf_syms))
-    close_df, vol_df = _fetch_history(yf_syms + [BENCHMARK_YF], period="2y")
+    idx_for = _index_for_symbol() if USE_INDEX_STRUCTURE else {}
+    idx_syms = sorted(set(idx_for.values()))
+    logger.info("Fetching history for %d ETFs + %d indices + benchmark...",
+                len(yf_syms), len(idx_syms))
+    close_df, vol_df = _fetch_history(yf_syms + idx_syms + [BENCHMARK_YF], period="2y")
 
     if BENCHMARK_YF not in close_df.columns:
         logger.error("Benchmark %s not fetched — RS scores will be 0", BENCHMARK_YF)
@@ -416,23 +470,49 @@ def rank_universe(syms: Optional[List[str]] = None,
         if len(close) < 50:
             continue
 
+        # LIQUIDITY IS ALWAYS THE ETF'S - it is a property of the vehicle you trade,
+        # and the index has no tradeable turnover at all.
         liq_score, turnover_cr, vol_lakhs = score_liquidity(close, vol)
+
+        # STRUCTURE SERIES: the index where the exposure has one, else the ETF.
+        # A missing/short index series falls back rather than skipping the name -
+        # losing an ETF from the board because its index did not fetch would be a
+        # data outage rendered as "no signal".
+        struct_close = close
+        struct_src = "etf"
+        _idx_sym = idx_for.get(sym.upper(), "")
+        if _idx_sym:
+            # fetch_batch_ohlcv keys its result by data_provider.clean_symbol, which
+            # rewrites index aliases ("NIFTY" -> "^NSEI", "BANKNIFTY" -> "^NSEBANK")
+            # and uppercases the rest. Looking up the raw Dhan name missed the two
+            # biggest indices in the book and reported it as "index unavailable".
+            _col = _resolve_col(close_df, _idx_sym)
+            _ic = close_df[_col].dropna() if _col else None
+            if _ic is not None and len(_ic) >= 50:
+                struct_close = _ic
+                struct_src = f"index:{_idx_sym}"
+            else:
+                struct_src = f"etf (index {_idx_sym} unavailable)"
+                logger.debug("%s: index %s missing/short - structure from the ETF",
+                             sym, _idx_sym)
         if liq_score < min_liq_score:
             # Still emit the row but flagged — the dashboard can show
             # them in a separate "illiquid" pane.
             pass
 
-        trend_score, stage, ma200, slope_pct, above_30wma, dist_52wh = score_trend(close)
+        trend_score, stage, ma200, slope_pct, above_30wma, dist_52wh = score_trend(struct_close)
 
         # RS benchmark LOCKED to Nifty 500 for all ETFs -- ensures cross-ETF
         # rankings are comparable AND matches Pine dashboard's fixed bench.
         # The per-ETF meta["benchmark_yf"] is kept for documentation only.
-        rs_score, mansfield, momentum_4w, quad = score_rs(close, bench_close)
+        # RS on the index is CLEANER, not merely different: it carries no tracking
+        # error and no premium/discount, both of which the ETF does.
+        rs_score, mansfield, momentum_4w, quad = score_rs(struct_close, bench_close)
         rot_score = score_rotation(quad, mansfield, momentum_4w)
 
         # RRG Rotation Vector (Enhancement #4): direction of travel.
         # Compares current quadrant to 4-week-prior quadrant.
-        rotation_vector = _rotation_vector(close, bench_close)
+        rotation_vector = _rotation_vector(struct_close, bench_close)
 
         # Total uses calibrated weights (here all = 1.0 since each axis is
         # already 0-10; phase 3 will introduce regime-conditional weights)
@@ -467,6 +547,9 @@ def rank_universe(syms: Optional[List[str]] = None,
             "Underlying":      meta.get("underlying", ""),
             "Issuer":          meta.get("issuer", ""),
             "Liquidity_Tier":  meta.get("liquidity_tier", "?"),
+
+            # Never make the reader infer which series produced the structure.
+            "Structure_Source": struct_src,
 
             "Liquidity_Score": liq_score,
             "Trend_Score":     trend_score,

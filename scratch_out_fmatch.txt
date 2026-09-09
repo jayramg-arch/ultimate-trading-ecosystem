@@ -1,0 +1,196 @@
+7: // estimate (setupRRStr) for setups with NO entry profile set (finalEntry == 0),
+1066: var float finalEntry = 0.0
+1067: var float finalSL = 0.0
+1068: var float finalTSL = 0.0
+1178: f_match(string t) =>
+1925:         if f_match(p1_tick)
+1928:         else if f_match(p2_tick)
+1931:         else if f_match(p3_tick)
+1934:         else if f_match(p4_tick)
+1937:         else if f_match(p5_tick)
+1940:         else if f_match(p6_tick)
+1943:         else if f_match(p7_tick)
+1946:         else if f_match(p8_tick)
+1949:         else if f_match(p9_tick)
+1952:         else if f_match(p10_tick)
+1955:         else if f_match(p11_tick)
+1958:         else if f_match(p12_tick)
+1961:         else if f_match(p13_tick)
+1964:         else if f_match(p14_tick)
+1967:         else if f_match(p15_tick)
+1970:         else if f_match(p16_tick)
+1973:         else if f_match(p17_tick)
+1976:         else if f_match(p18_tick)
+1979:         else if f_match(p19_tick)
+1982:         else if f_match(p20_tick)
+1985:         else if f_match(p21_tick)
+1988:         else if f_match(p22_tick)
+1991:         else if f_match(p23_tick)
+1994:         else if f_match(p24_tick)
+1997:         else if f_match(p25_tick)
+2000:         else if f_match(p26_tick)
+2003:         else if f_match(p27_tick)
+2006:         else if f_match(p28_tick)
+2009:         else if f_match(p29_tick)
+2012:         else if f_match(p30_tick)
+3839: finalEntry := 0.0
+3840: finalSL := 0.0
+3841: finalTSL := 0.0
+3846:     finalEntry := quick_ent
+3847:     finalSL    := quick_sl
+3848:     finalTSL   := 0.0
+3849: else if f_match(p1_tick)
+3850:     finalEntry := p1_ent
+3851:     finalSL := p1_sl
+3852:     finalTSL := p1_tsl
+3854: else if f_match(p2_tick)
+3855:     finalEntry := p2_ent
+3856:     finalSL := p2_sl
+3857:     finalTSL := p2_tsl
+3859: else if f_match(p3_tick)
+3860:     finalEntry := p3_ent
+3861:     finalSL := p3_sl
+3862:     finalTSL := p3_tsl
+3864: else if f_match(p4_tick)
+3865:     finalEntry := p4_ent
+3866:     finalSL := p4_sl
+3867:     finalTSL := p4_tsl
+3869: else if f_match(p5_tick)
+3870:     finalEntry := p5_ent
+3871:     finalSL := p5_sl
+3872:     finalTSL := p5_tsl
+3874: else if f_match(p6_tick)
+3875:     finalEntry := p6_ent
+3876:     finalSL := p6_sl
+3877:     finalTSL := p6_tsl
+3879: else if f_match(p7_tick)
+3880:     finalEntry := p7_ent
+3881:     finalSL := p7_sl
+3882:     finalTSL := p7_tsl
+3884: else if f_match(p8_tick)
+3885:     finalEntry := p8_ent
+3886:     finalSL := p8_sl
+3887:     finalTSL := p8_tsl
+3889: else if f_match(p9_tick)
+3890:     finalEntry := p9_ent
+3891:     finalSL := p9_sl
+3892:     finalTSL := p9_tsl
+3894: else if f_match(p10_tick)
+3895:     finalEntry := p10_ent
+3896:     finalSL := p10_sl
+3897:     finalTSL := p10_tsl
+3899: else if f_match(p11_tick)
+3900:     finalEntry := p11_ent
+3901:     finalSL := p11_sl
+3902:     finalTSL := p11_tsl
+3904: else if f_match(p12_tick)
+3905:     finalEntry := p12_ent
+3906:     finalSL := p12_sl
+3907:     finalTSL := p12_tsl
+3909: else if f_match(p13_tick)
+3910:     finalEntry := p13_ent
+3911:     finalSL := p13_sl
+3912:     finalTSL := p13_tsl
+3914: else if f_match(p14_tick)
+3915:     finalEntry := p14_ent
+3916:     finalSL := p14_sl
+3917:     finalTSL := p14_tsl
+3919: else if f_match(p15_tick)
+3920:     finalEntry := p15_ent
+3921:     finalSL := p15_sl
+3922:     finalTSL := p15_tsl
+3924: else if f_match(p16_tick)
+3925:     finalEntry := p16_ent
+3926:     finalSL := p16_sl
+3927:     finalTSL := p16_tsl
+3929: else if f_match(p17_tick)
+3930:     finalEntry := p17_ent
+3931:     finalSL := p17_sl
+3932:     finalTSL := p17_tsl
+3934: else if f_match(p18_tick)
+3935:     finalEntry := p18_ent
+3936:     finalSL := p18_sl
+3937:     finalTSL := p18_tsl
+3939: else if f_match(p19_tick)
+3940:     finalEntry := p19_ent
+3941:     finalSL := p19_sl
+3942:     finalTSL := p19_tsl
+3944: else if f_match(p20_tick)
+3945:     finalEntry := p20_ent
+3946:     finalSL := p20_sl
+3947:     finalTSL := p20_tsl
+3949: else if f_match(p21_tick)
+3950:     finalEntry := p21_ent
+3951:     finalSL := p21_sl
+3952:     finalTSL := p21_tsl
+3954: else if f_match(p22_tick)
+3955:     finalEntry := p22_ent
+3956:     finalSL := p22_sl
+3957:     finalTSL := p22_tsl
+3959: else if f_match(p23_tick)
+3960:     finalEntry := p23_ent
+3961:     finalSL := p23_sl
+3962:     finalTSL := p23_tsl
+3964: else if f_match(p24_tick)
+3965:     finalEntry := p24_ent
+3966:     finalSL := p24_sl
+3967:     finalTSL := p24_tsl
+3969: else if f_match(p25_tick)
+3970:     finalEntry := p25_ent
+3971:     finalSL := p25_sl
+3972:     finalTSL := p25_tsl
+3974: else if f_match(p26_tick)
+3975:     finalEntry := p26_ent
+3976:     finalSL := p26_sl
+3977:     finalTSL := p26_tsl
+3979: else if f_match(p27_tick)
+3980:     finalEntry := p27_ent
+3981:     finalSL := p27_sl
+3982:     finalTSL := p27_tsl
+3984: else if f_match(p28_tick)
+3985:     finalEntry := p28_ent
+3986:     finalSL := p28_sl
+3987:     finalTSL := p28_tsl
+3989: else if f_match(p29_tick)
+3990:     finalEntry := p29_ent
+3991:     finalSL := p29_sl
+3992:     finalTSL := p29_tsl
+3994: else if f_match(p30_tick)
+3995:     finalEntry := p30_ent
+3996:     finalSL := p30_sl
+3997:     finalTSL := p30_tsl
+4000: tradeActive = finalEntry > 0
+4004:     // If the user drags finalSL to 0.0 directly on chart, it might trigger intermediate falses.
+4005:     float safe_hard_sl = na(finalSL) ? 0.0 : finalSL
+4007:     float riskPerShare = finalEntry - finalSL
+4008:     float currentProfitPerShare = close - finalEntry
+4056:     float curPnL = ((close - finalEntry) / finalEntry) * 100
+4083:     if not na(ovhPrice) and finalEntry > 0 and riskPerShare > 0
+4084:         float t1_val_check = finalEntry + (riskPerShare * dyn_T1_R)
+4409:     if finalEntry > 0 and finalSL > 0
+4410:         float computedRisk = math.abs(finalEntry - finalSL)
+4411:         float t1_val_check = finalEntry + (computedRisk * dyn_T1_R)
+4422: // (finalEntry == 0, so the active-trade "Current R:R" row never fires). Estimates
+4428: if finalEntry == 0 and atrVal > 0 and close > 0
+4710:         if finalSL > 0
+4917: visualSL := finalTSL > 0 ? finalTSL : finalSL
+4918: float risk_per_share = math.abs(finalEntry - finalSL)
+4919: float t1_val = finalEntry + (risk_per_share * dyn_T1_R)
+4920: float t2_val = finalEntry + (risk_per_share * dyn_T2_R)
+4921: float t3_val = finalEntry + (risk_per_share * dyn_T3_R)
+4931: plot(showTrade and finalEntry > 0 ? finalEntry : na, "Entry Price", color=entryColor, style=plot.style_linebr, linewidth=1)
+4933: plot(showTrade and tradeActive and finalSL > 0 and visualSL < finalEntry ? t1_val : na, "Target 1 (Dynamic)", color=t1Color, style=plot.style_linebr, linewidth=1)
+4934: plot(showTrade and tradeActive and finalSL > 0 and visualSL < t2_val ? t2_val : na, "Target 2 (Dynamic)", color=t2Color, style=plot.style_linebr, linewidth=1)
+4935: plot(showTrade and tradeActive and finalSL > 0 and visualSL >= finalEntry ? t3_val : na, "Target 3 (Dynamic)", color=t3Color, style=plot.style_linebr, linewidth=1)
+4942:     label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
+4945:     if finalSL > 0
+4946:         if finalTSL > 0
+4948:             string hslDist = showDist ? ", " + f_dist(finalSL) : ""
+4949:             label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small)
+4950:             string tslDist = showDist ? ", " + f_dist(finalTSL) : ""
+4951:             label.new(bar_index + 3, finalTSL, "Trail SL: " + str.tostring(math.round_to_mintick(finalTSL)) + tslDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+4954:             string slDist = showDist ? ", " + f_dist(finalSL) : ""
+4955:             label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
+4957:     if finalSL > 0 and visualSL < finalEntry
+4961:     if finalSL > 0 and visualSL < t2_val
+4964:     if finalSL > 0 and visualSL >= finalEntry

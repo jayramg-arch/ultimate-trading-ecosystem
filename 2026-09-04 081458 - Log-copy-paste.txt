@@ -1,0 +1,1563 @@
+2026-09-04 08:14:58 - INFO - [log] Auto-Pilot console log -> C:\Users\jayra\Documents\GeminiVSCode\auto_pilot_20260904_081458.log
+  [preflight] 18 live-path modules clean
+Finding and killing orphaned automated Chrome processes...
+   No orphaned automated Chrome processes found.
+2026-09-04 08:15:02 - INFO - ============================================================
+2026-09-04 08:15:02 - INFO - 🚀 WEINSTEIN COMMANDER: FULL AUTO-PILOT
+2026-09-04 08:15:02 - INFO - ============================================================
+2026-09-04 08:15:02 - INFO - This will execute the entire workflow:
+2026-09-04 08:15:02 - INFO - 1. Run ALL Technical Scanners (Chartink)
+2026-09-04 08:15:02 - INFO - 2. Fetch Fundamental Data (Screener.in)
+2026-09-04 08:15:02 - INFO - 3. Process Data
+2026-09-04 08:15:02 - INFO - 4. Run Golden Matcher
+2026-09-04 08:15:02 - INFO - 5. Run Recovery Screener
+2026-09-04 08:15:02 - INFO - 6. Run Bull Screener
+2026-09-04 08:15:02 - INFO - 7. Generate Local Watchlists
+2026-09-04 08:15:02 - INFO - 8. Sync to Strike.Money
+2026-09-04 08:15:02 - INFO - ------------------------------------------------------------
+2026-09-04 08:15:02 - INFO -
+[PHASE 0] PRE-FLIGHT CLEANUP...
+[cleanup] stale browsers killed=0 | profile locks=0 | temp files=0 | pick_log dupes=0 | old logs pruned=1
+2026-09-04 08:15:02 - INFO -
+[PHASE 0.5] NUCLEAR WATCHLIST CLEANUP...
+======================================================
+☢️  WEINSTEIN COMMANDER: NUCLEAR WATCHLIST CLEANUP  ☢️
+======================================================
+This script will hunt down and vaporize any auto-generated
+watchlists containing date stamps (e.g. -11JUN26), [Auto],
+or starting with Bull_ / Rec_ / FINAL_.
+------------------------------------------------------
+
+
+========================================
+🚀 NUKING STALE WATCHLISTS ON STRIKE...
+========================================
+🌍 Navigating to Strike Market Overview...
+🎯 Found 0 stale watchlists to terminate.
+========================================
+🚀 NUKING STALE WATCHLISTS ON TRADINGVIEW...
+========================================
+🌍 Navigating to TradingView Chart...
+   ✅ Watchlist Panel is already open.
+🎯 Found 0 stale watchlists. All clean!
+
+✅ NUCLEAR CLEANUP COMPLETE.
+2026-09-04 08:15:30 - INFO -
+[PHASE 1] RUNNING TECHNICAL SCANNERS...
+
+🚀 STARTING: Stage 2 Hunter (Positional)
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Stage2_Hunter.csv (15 stocks)
+
+🚀 STARTING: Stage 2 Pullback (Swing)
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Stage2_Pullback.csv (25 stocks)
+
+🚀 STARTING: Early Birds (Accumulation)
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Early_Birds.csv (1 stocks)
+
+🚀 STARTING: Strong Leaders (Momentum)
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Strong_Leaders.csv (23 stocks)
+
+🚀 STARTING: REV-RS: RS Quality Leader
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Recovery_RS_Survivors.csv (32 stocks)
+
+🚀 STARTING: REV-CB: Quality Correction Bounce
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Recovery_Climax_Bounce.csv (3 stocks)
+
+🚀 STARTING: REV-EARLY: Quality Golden Cross Leader
+⏳ Connecting to Chartink...
+📥 Downloading Data...
+✅ SUCCESS: Saved to Recovery_Early_Birds.csv (43 stocks)
+2026-09-04 08:15:48 - INFO -
+[PHASE 2] FETCHING FUNDAMENTAL DATA...
+============================================================
+📥 SCREENER.IN MULTI-PAGE FETCHER (PRO)
+============================================================
+============================================================
+  SCREENER COOKIE MANAGER  v1.0
+============================================================
+  ✅  Current cookie is valid — no refresh needed
+🧹 Cleaning up old HTML and premium CSV files...
+   Done.
+
+🔍 Fetching Strategy: Stage2_Hunter
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (106 stocks)
+
+🔍 Fetching Strategy: Stage2_Pullback
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (55 stocks)
+
+🔍 Fetching Strategy: Early_Birds
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (20 stocks)
+
+🔍 Fetching Strategy: Strong_Leaders
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (3 stocks)
+
+🔍 Fetching Strategy: Recovery_RS_Survivors
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (80 stocks)
+
+🔍 Fetching Strategy: Recovery_Climax_Bounce
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (45 stocks)
+
+🔍 Fetching Strategy: Recovery_Early_Birds
+   -> Attempting direct CSV export... ✅ Premium CSV Saved (85 stocks)
+
+============================================================
+✨ ALL DATA FETCHED.
+   Run 'Process Screener HTMLs' now.
+   (It will automatically merge all these pages).
+2026-09-04 08:15:55 - INFO -
+[PHASE 3] PROCESSING DATA...
+
+[PHASE 3] PROCESSING DATA...
+
+🚀 Starting Screener Data Processor...
+📂 Found 7 premium CSV files to process.
+   📄 Stage 2 Premium — 20 rows from Early_Birds_premium.csv
+   🔄 Recovery Premium [Recovery_Climax_Bounce] — 45 rows from Recovery_Climax_Bounce_premium.csv
+   🔄 Recovery Premium [Recovery_Early_Birds] — 85 rows from Recovery_Early_Birds_premium.csv
+   🔄 Recovery Premium [Recovery_RS_Survivors] — 80 rows from Recovery_RS_Survivors_premium.csv
+   📄 Stage 2 Premium — 106 rows from Stage2_Hunter_premium.csv
+   📄 Stage 2 Premium — 55 rows from Stage2_Pullback_premium.csv
+   📄 Stage 2 Premium — 3 rows from Strong_Leaders_premium.csv
+
+✅ Stage 2 Master: 156 stocks → MASTER_scan_results.csv
+✅ Recovery [Recovery_RS_Survivors]: 80 stocks → SCREENER_Recovery_RSLeaders.csv
+✅ Recovery [Recovery_Climax_Bounce]: 45 stocks → SCREENER_Recovery_ClimaxBounce.csv
+✅ Recovery [Recovery_Early_Birds]: 85 stocks → SCREENER_Recovery_EarlyBirds.csv
+
+🏁 Processing complete.
+2026-09-04 08:15:55 - INFO -
+[PHASE 4] RUNNING GOLDEN MATCHER...
+
+[PHASE 4] RUNNING GOLDEN MATCHER...
+=================================================================
+✨ GOLDEN MATCHER PRO — STAGE 2 + RECOVERY PHASE
+=================================================================
+   📥 Downloading latest daily NSE Delivery and F&O Open Interest metrics...
+Checking NSE archives for date: 2026-09-04
+Checking NSE archives for date: 2026-09-03
+Successfully loaded NSE data for 2026-09-03
+   ✅ Loaded metrics for 2994 symbols.
+[data_provider] FEED: Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+[data_provider] FEED: Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+  Built symbol-->meta map: 3088 NSE EQUITY + INDEX
+   🔗 Stage 2 Hunter: 15 technical → 2 matched, 13 not in MASTER_scan_results.csv (87% dropped)
+      dropped (never scored): GRASIM CAPLIPOINT WELCORP ATHERENERG SAILIFE FINCABLES ANTHEM BALRAMCHIN …
+   📊 Enriching fundamentals & X-Ray Scores for Stage 2 Hunter...
+Dhan: no security_meta for ^IN10YR — falling back to yfinance (stale scrip master or unlisted symbol?)
+[data_provider] fetch_ohlcv: Using expired cache for ^IN10YR as last resort
+Dhan: no security_meta for INR=X — falling back to yfinance (stale scrip master or unlisted symbol?)
+fetch_ohlcv: INR=X served by yfinance FALLBACK (Dhan had no data)
+Fetching fundamentals for DIVISLAB.NS
+Enriching DIVISLAB.NS with Screener.in data
+Fundamentals OK: DIVISLAB.NS | P/E=82.0 | ROE=16.8% | Market Cap=245558 Cr
+Fetching fundamentals for LAURUSLABS.NS
+Enriching LAURUSLABS.NS with Screener.in data
+Fundamentals OK: LAURUSLABS.NS | P/E=116.0 | ROE=15.2% | Market Cap=100957 Cr
+   ⚙️  Strict Catalyst Analysis for Stage 2 Hunter Top Picks (Pine-Synced)...
+2026-09-04 08:16:07.107 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:16:07.108 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+Dhan: no security_meta for NIFTY_DEFENCE.NS — falling back to yfinance (stale scrip master or unlisted symbol?)
+Starting Date: 2026-03-03 00:00:00
+Ending Date: 2026-09-04 00:00:00
+Total Number of Days: 185
+Total FOR Loops in the program: 4
+Remainder Loop: 25
+Loop = 0
+====
+Starting Date: 03-03-2026
+Ending Date: 12-04-2026
+====
+fetch_ohlcv: NO data for NIFTY_DEFENCE.NS from any provider or cache
+Dhan: no security_meta for ^CNXPSUBANK — falling back to yfinance (stale scrip master or unlisted symbol?)
+fetch_ohlcv: ^CNXPSUBANK served by yfinance FALLBACK (Dhan had no data)
+   🛡️  Weekly Stage Gate [STAGE2] for Stage 2 Hunter...
+   [*] Enriching 2 Stage 2 Hunter symbols with technical metrics (Stage/Mansfield/RSI/ADX/...) -- cached after first run.
+      [  1/2] DIVISLAB
+      [  2/2] LAURUSLABS
+✅ Stage 2 Hunter: Saved → FINAL_Hunter_Picks.csv (ranked by Combined_Score)
+   🔗 Stage 2 Pullback: 25 technical → 8 matched, 17 not in MASTER_scan_results.csv (68% dropped)
+      dropped (never scored): GLAND POLYMED PAYTM NAUKRI UNOMINDA HOMEFIRST ASAHIINDIA SONACOMS …
+   🛡 CORE gate: kept 7/8 (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%)
+   📊 Enriching fundamentals & X-Ray Scores for Stage 2 Pullback...
+Fetching fundamentals for LALPATHLAB.NS
+Enriching LALPATHLAB.NS with Screener.in data
+Fundamentals OK: LALPATHLAB.NS | P/E=57.1 | ROE=22.9% | Market Cap=32314 Cr
+Fetching fundamentals for NYKAA.NS
+Enriching NYKAA.NS with Screener.in data
+Fundamentals OK: NYKAA.NS | P/E=1111.0 | ROE=5.2% | Market Cap=95719 Cr
+Fetching fundamentals for HONASA.NS
+Enriching HONASA.NS with Screener.in data
+Fundamentals OK: HONASA.NS | P/E=65.1 | ROE=15.0% | Market Cap=15553 Cr
+Fetching fundamentals for OFSS.NS
+Enriching OFSS.NS with Screener.in data
+Fundamentals OK: OFSS.NS | P/E=29.8 | ROE=38.1% | Market Cap=105797 Cr
+Fetching fundamentals for TBOTEK.NS
+Enriching TBOTEK.NS with Screener.in data
+Fundamentals OK: TBOTEK.NS | P/E=310.0 | ROE=6.9% | Market Cap=18826 Cr
+Fetching fundamentals for VIJAYA.NS
+Enriching VIJAYA.NS with Screener.in data
+Fundamentals OK: VIJAYA.NS | P/E=80.4 | ROE=19.5% | Market Cap=15506 Cr
+   ⚙️  Strict Catalyst Analysis for Stage 2 Pullback Top Picks (Pine-Synced)...
+   🛡️  Weekly Stage Gate [STAGE2] for Stage 2 Pullback...
+   [*] Enriching 7 Stage 2 Pullback symbols with technical metrics (Stage/Mansfield/RSI/ADX/...) -- cached after first run.
+      [  1/7] OFSS
+      [  5/7] LALPATHLAB
+      [  7/7] VIJAYA
+✅ Stage 2 Pullback: Saved → FINAL_Pullback_Picks.csv (ranked by Combined_Score)
+   🔗 Early Birds: 1 technical → 0 matched, 1 not in MASTER_scan_results.csv (100% dropped)
+      dropped (never scored): JMFINANCIL
+⏭️  Early Birds: 0 matches (Chartink had 1 candidates but none matched the Screener.in fundamental list)
+   → wrote header-only FINAL_EarlyBird_Picks.csv so freshness reflects today
+   🔗 Strong Leaders: 23 technical → 3 matched, 20 not in MASTER_scan_results.csv (87% dropped)
+      dropped (never scored): PTCIL WELCORP APLAPOLLO BEML ECLERX SAILIFE PVRINOX SHYAMMETL …
+   📊 Enriching fundamentals & X-Ray Scores for Strong Leaders...
+Fetching fundamentals for APARINDS.NS
+Enriching APARINDS.NS with Screener.in data
+Fundamentals OK: APARINDS.NS | P/E=62.1 | ROE=21.2% | Market Cap=74131 Cr
+Fetching fundamentals for REDINGTON.NS
+Enriching REDINGTON.NS with Screener.in data
+Fundamentals OK: REDINGTON.NS | P/E=21.3 | ROE=25.0% | Market Cap=29117 Cr
+   ⚙️  Strict Catalyst Analysis for Strong Leaders Top Picks (Pine-Synced)...
+   🛡️  Weekly Stage Gate [STAGE2] for Strong Leaders...
+   [*] Enriching 3 Strong Leaders symbols with technical metrics (Stage/Mansfield/RSI/ADX/...) -- cached after first run.
+      [  1/3] APARINDS
+      [  3/3] REDINGTON
+✅ Strong Leaders: Saved → FINAL_Leader_Picks.csv (ranked by Combined_Score)
+   🔗 RS Survivors: 32 technical → 1 matched, 31 not in SCREENER_Recovery_RSLeaders.csv (97% dropped)
+      dropped (never scored): DIXON PERSISTENT RRKABEL KIRLOSENG HYUNDAI ECLERX WOCKPHARMA NUVAMA …
+   📊 Enriching fundamentals & X-Ray Scores for RS Survivors...
+Fetching fundamentals for KPRMILL.NS
+Enriching KPRMILL.NS with Screener.in data
+Fundamentals OK: KPRMILL.NS | P/E=61.8 | ROE=14.4% | Market Cap=40177 Cr
+
+🔄 [RS Survivors] — RECOVERY conviction scorer (balance sheet + value)
+   ⚙️  Strict Catalyst Analysis for RS Survivors Top Picks (Pine-Synced)...
+   🛡️  Weekly Stage Gate [RECOVERY] for RS Survivors...
+   [*] Enriching 1 RS Survivors symbols with technical metrics (Stage/Mansfield/RSI/ADX/...) -- cached after first run.
+      [  1/1] KPRMILL
+✅ RS Survivors: Saved → FINAL_Recovery_RSLeaders.csv (ranked by Combined_Score)
+   🔗 Climax Bounce: 3 technical → 2 matched, 1 not in SCREENER_Recovery_ClimaxBounce.csv (33% dropped)
+      dropped (never scored): HEXT
+   📊 Enriching fundamentals & X-Ray Scores for Climax Bounce...
+Fetching fundamentals for HCLTECH.NS
+Enriching HCLTECH.NS with Screener.in data
+Fundamentals OK: HCLTECH.NS | P/E=19.7 | ROE=40.6% | Market Cap=357932 Cr
+Fetching fundamentals for LTM.NS
+Enriching LTM.NS with Screener.in data
+Fundamentals OK: LTM.NS | P/E=25.7 | ROE=23.8% | Market Cap=135259 Cr
+
+🔄 [Climax Bounce] — RECOVERY conviction scorer (balance sheet + value)
+   ⚙️  Strict Catalyst Analysis for Climax Bounce Top Picks (Pine-Synced)...
+   🛡️  Weekly Stage Gate [RECOVERY] for Climax Bounce...
+   [*] Enriching 2 Climax Bounce symbols with technical metrics (Stage/Mansfield/RSI/ADX/...) -- cached after first run.
+      [  1/2] HCLTECH
+      [  2/2] LTM
+✅ Climax Bounce: Saved → FINAL_Recovery_ClimaxBounce.csv (ranked by Combined_Score)
+   🔗 Recovery Early Birds: 43 technical → 2 matched, 41 not in SCREENER_Recovery_EarlyBirds.csv (95% dropped)
+      dropped (never scored): DIXON BAJAJHLDNG PERSISTENT RRKABEL MPHASIS BALKRISIND KIRLOSENG HYUNDAI …
+   📊 Enriching fundamentals & X-Ray Scores for Recovery Early Birds...
+Fetching fundamentals for JSWDULUX.NS
+Enriching JSWDULUX.NS with Screener.in data
+Fundamentals OK: JSWDULUX.NS | P/E=37.6 | ROE=19.3% | Market Cap=14425 Cr
+
+🔄 [Recovery Early Birds] — RECOVERY conviction scorer (balance sheet + value)
+   ⚙️  Strict Catalyst Analysis for Recovery Early Birds Top Picks (Pine-Synced)...
+   🛡️  Weekly Stage Gate [RECOVERY] for Recovery Early Birds...
+   [*] Enriching 2 Recovery Early Birds symbols with technical metrics (Stage/Mansfield/RSI/ADX/...) -- cached after first run.
+      [  1/2] JSWDULUX
+      [  2/2] KPRMILL
+✅ Recovery Early Birds: Saved → FINAL_Recovery_EarlyBirds.csv (ranked by Combined_Score)
+
+🌟 Bull Market Combined Picks (Unique: 10) → FINAL_COMBINED_BULL_PICKS.csv
+   📂 Pine Script paste-ready → FINAL_COMBINED_BULL_SYMBOLS.txt
+
+🌟 Recovery Combined Picks (Unique: 4) → FINAL_COMBINED_RECOVERY_PICKS.csv
+   📂 Pine Script paste-ready → FINAL_COMBINED_RECOVERY_SYMBOLS.txt
+
+🌟 ALL Combined Picks (Unique: 14) → FINAL_COMBINED_PICKS.csv
+   Ranked by Combined_Score (Conviction 50% + Tech 50%)
+   📂 Pine Script paste-ready → FINAL_COMBINED_SYMBOLS.txt
+
+🏆 Golden Watchlist (top 14 by Combined_Score) → FINAL_WATCHLIST.csv
+   Per Bible §6E — single best file to load into TradingView for Phase 3 validation
+
+🏁 Matching Complete.
+2026-09-04 08:16:42 - INFO - 🌟 Matching Summary:
+✅ Stage 2 Hunter: 2 matches
+✅ Stage 2 Pullback: 7 matches
+✅ Strong Leaders: 3 matches
+✅ RS Survivors: 1 matches
+✅ Climax Bounce: 2 matches
+✅ Recovery Early Birds: 2 matches
+
+🌟 Matching Summary:
+✅ Stage 2 Hunter: 2 matches
+✅ Stage 2 Pullback: 7 matches
+✅ Strong Leaders: 3 matches
+✅ RS Survivors: 1 matches
+✅ Climax Bounce: 2 matches
+✅ Recovery Early Birds: 2 matches
+
+HTTP Request: POST https://telegram-proxy.jayramg.workers.dev/bot8512834983:AAGuJWlaj4DlgsxBe_lAyD51TgDWfKRi6yw/sendMessage "HTTP/1.1 200 OK"
+2026-09-04 08:16:44 - INFO -
+[PHASE 4.5] RUNNING RECOVERY SCREENER...
+
+[PHASE 4.5] RUNNING RECOVERY SCREENER...
+====================================================================
+  COMMANDER RECOVERY SCREENER :  Python Edition v1.1
+    Friday 04 Sep 2026  08:16
+====================================================================
+
+  Loading candidates...
+    REV-RS: 32 stocks from Recovery_RS_Survivors.csv
+    REV-CB: 3 stocks from Recovery_Climax_Bounce.csv
+    REV-EARLY: 11 stocks from Recovery_Early_Birds.csv
+Wyckoff universe scan: 4 candidates from 500 symbols
+    WYC: 2 stocks from the universe scan
+  Total candidates: 48
+  Screener.in overlap (intersection): 4 of 48 stocks have RFF data
+
+  Loading Screener.in fundamentals...
+    Fundamentals loaded for 130 symbols (RFF will be 0-6)
+
+  Downloading CNX500 market data...
+    CNX500 close : 23254.05
+    SMA50/SMA200 : 23378.38 / 23061.36  (death-cross: False — info only in v1.2)
+    Corrected≥7% : False  (3.7% off 52W high)
+    SMA50 Reclaim: False  (v1.3: CNX500 close > SMA50 AND was below within last 30 bars)
+    Recovery     : False  (v1.3: corrected OR reclaiming)
+
+   Screening 48 symbols  (signal_hold_days=5)...
+
+  [  1/48]  DIXON            (REV-RS    ) ... Signal=0 (None      )  Score=13
+  [  2/48]  PERSISTENT       (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [  3/48]  RRKABEL          (REV-RS    ) ... Signal=0 (None      )  Score=12
+  [  4/48]  KIRLOSENG        (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [  5/48]  HYUNDAI          (REV-RS    ) ... Signal=0 (None      )  Score= 9
+  [  6/48]  ECLERX           (REV-RS    ) ... Signal=0 (None      )  Score=11
+  [  7/48]  WOCKPHARMA       (REV-RS    ) ... Signal=0 (None      )  Score=11
+  [  8/48]  NUVAMA           (REV-RS    ) ... Signal=0 (None      )  Score= 9
+  [  9/48]  ZENTEC           (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [ 10/48]  POLYMED          (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [ 11/48]  TECHM            (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [ 12/48]  CONCORDBIO       (REV-RS    ) ... Signal=0 (None      )  Score=12
+  [ 13/48]  KPRMILL          (REV-RS    ) [SI] ... Signal=3 (REV-RS    )  Score=14  ***
+  [ 14/48]  CYIENT           (REV-RS    ) ... Signal=3 (REV-RS    )  Score=14  ***
+  [ 15/48]  ASAHIINDIA       (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [ 16/48]  CHALET           (REV-RS    ) ... Signal=0 (None      )  Score= 0
+  [ 17/48]  CLEAN            (REV-RS    ) ... Signal=6 (WYC-SOS   )  Score=14  ***
+  [ 18/48]  GRAPHITE         (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [ 19/48]  BRIGADE          (REV-RS    ) ... Signal=0 (None      )  Score= 8
+  [ 20/48]  DLF              (REV-RS    ) ... Signal=0 (None      )  Score=11
+  [ 21/48]  ANANTRAJ         (REV-RS    ) ... Exception found in dhanhq>>find_error_code: Expecting value: line 1 column 1 (char 0)
+
+[!] Dhan API non-success for ANANTRAJ: empty/non-JSON body (likely rate-limit/429) -- retried then fell back to yfinance. If frequent, raise DHAN_MIN_INTERVAL_S (current 0.3s).
+Dhan failure:   (symbol=ANANTRAJ)
+fetch_ohlcv: ANANTRAJ served by yfinance FALLBACK (Dhan had no data)
+Signal=0 (None      )  Score=12
+  [ 22/48]  TEJASNET         (REV-RS    ) ... Exception found in dhanhq>>find_error_code: Expecting value: line 1 column 1 (char 0)
+fetch_ohlcv: TEJASNET served by yfinance FALLBACK (Dhan had no data)
+Signal=0 (None      )  Score= 6
+  [ 23/48]  ETERNAL          (REV-RS    ) ... Signal=0 (None      )  Score=10
+  [ 24/48]  PFOCUS           (REV-RS    ) ... Signal=0 (None      )  Score= 6
+  [ 25/48]  PETRONET         (REV-RS    ) ... Signal=4 (REV-EARLY )  Score=14  ***
+  [ 26/48]  BELRISE          (REV-RS    ) ... Signal=0 (None      )  Score=11
+  [ 27/48]  SAPPHIRE         (REV-RS    ) ... Signal=0 (None      )  Score=11
+  [ 28/48]  HFCL             (REV-RS    ) ... Signal=0 (None      )  Score=11
+  [ 29/48]  NIACL            (REV-RS    ) ... Signal=0 (None      )  Score= 8
+  [ 30/48]  PARADEEP         (REV-RS    ) ... Signal=0 (None      )  Score=14
+  [ 31/48]  DEVYANI          (REV-RS    ) ... Signal=0 (None      )  Score= 9
+  [ 32/48]  PNB              (REV-RS    ) ... Signal=0 (None      )  Score= 7
+  [ 33/48]  LTM              (REV-CB    ) [SI] ... Signal=0 (None      )  Score=10
+  [ 34/48]  HCLTECH          (REV-CB    ) [SI] ... Signal=0 (None      )  Score=10
+  [ 35/48]  HEXT             (REV-CB    ) ... Signal=0 (None      )  Score=12
+  [ 36/48]  BAJAJHLDNG       (REV-EARLY ) ... Signal=0 (None      )  Score=10
+  [ 37/48]  JSWDULUX         (REV-EARLY ) [SI] ... Signal=0 (None      )  Score=10
+  [ 38/48]  MPHASIS          (REV-EARLY ) ... Signal=0 (None      )  Score=10
+  [ 39/48]  BALKRISIND       (REV-EARLY ) ... Signal=0 (None      )  Score= 9
+  [ 40/48]  CDSL             (REV-EARLY ) ... Signal=0 (None      )  Score=10
+  [ 41/48]  HINDZINC         (REV-EARLY ) ... Signal=0 (None      )  Score=10
+  [ 42/48]  CONCOR           (REV-EARLY ) ... Signal=0 (None      )  Score=11
+  [ 43/48]  JUBLFOOD         (REV-EARLY ) ... Signal=0 (None      )  Score= 9
+  [ 44/48]  NUVOCO           (REV-EARLY ) ... Signal=0 (None      )  Score= 7
+  [ 45/48]  SCI              (REV-EARLY ) ... Signal=0 (None      )  Score=11
+  [ 46/48]  JMFINANCIL       (REV-EARLY ) ... Signal=0 (None      )  Score=12
+  [ 47/48]  ICICIPRULI       (WYC-SOS   ) ... Signal=0 (None      )  Score= 8
+  [ 48/48]  SPLPETRO         (WYC-SOS   ) ... Signal=0 (None      )  Score= 0
+Recovery conviction: fetching fundamentals for 42 names not in Stage-2 master (Q1 coverage extension, 6 workers)
+Fetching fundamentals for CLEAN.NS
+Fetching fundamentals for CONCORDBIO.NS
+Fetching fundamentals for CYIENT.NS
+Fetching fundamentals for ANANTRAJ.NS
+Fetching fundamentals for PETRONET.NS
+Fetching fundamentals for HEXT.NS
+Enriching CYIENT.NS with Screener.in data
+Fundamentals OK: CYIENT.NS | P/E=28.1 | ROE=8.0% | Market Cap=12352 Cr
+Fetching fundamentals for JMFINANCIL.NS
+Enriching CONCORDBIO.NS with Screener.in data
+Fundamentals OK: CONCORDBIO.NS | P/E=53.3 | ROE=12.6% | Market Cap=15145 Cr
+Enriching CLEAN.NS with Screener.in data
+Fundamentals OK: CLEAN.NS | P/E=36.6 | ROE=16.2% | Market Cap=9066 Cr
+Fetching fundamentals for ECLERX.NS
+Enriching HEXT.NS with Screener.in data
+Fundamentals OK: HEXT.NS | P/E=39.1 | ROE=26.6% | Market Cap=32329 Cr
+Fetching fundamentals for WOCKPHARMA.NS
+Fetching fundamentals for DLF.NS
+Enriching JMFINANCIL.NS with Screener.in data
+Fundamentals OK: JMFINANCIL.NS | P/E=22.8 | ROE=15.1% | Market Cap=12874 Cr
+Fetching fundamentals for BELRISE.NS
+Enriching ANANTRAJ.NS with Screener.in data
+Fundamentals OK: ANANTRAJ.NS | P/E=73.5 | ROE=6.8% | Market Cap=22611 Cr
+Fetching fundamentals for SAPPHIRE.NS
+Enriching PETRONET.NS with Screener.in data
+Fundamentals OK: PETRONET.NS | P/E=10.5 | ROE=18.7% | Market Cap=43425 Cr
+Fetching fundamentals for HFCL.NS
+Enriching WOCKPHARMA.NS with Screener.in data
+Fundamentals OK: WOCKPHARMA.NS | P/E=95.8 | ROE=10.0% | Market Cap=31696 Cr
+Fetching fundamentals for CONCOR.NS
+Enriching BELRISE.NS with Screener.in data
+Enriching ECLERX.NS with Screener.in data
+Fundamentals OK: BELRISE.NS | P/E=46.6 | ROE=12.6% | Market Cap=23029 Cr
+Fundamentals OK: ECLERX.NS | P/E=37.2 | ROE=34.4% | Market Cap=18544 Cr
+Enriching DLF.NS with Screener.in data
+Fundamentals OK: DLF.NS | P/E=46.9 | ROE=11.5% | Market Cap=168730 Cr
+Fetching fundamentals for PERSISTENT.NS
+Fetching fundamentals for SCI.NS
+Fetching fundamentals for KIRLOSENG.NS
+Enriching SAPPHIRE.NS with Screener.in data
+Fundamentals PARTIAL: SAPPHIRE.NS | P/E=— | ROE=-2.0% | Market Cap=7352 Cr  (missing: pe_ratio)
+Fetching fundamentals for ZENTEC.NS
+Enriching CONCOR.NS with Screener.in data
+Fundamentals OK: CONCOR.NS | P/E=31.2 | ROE=9.7% | Market Cap=38755 Cr
+Fetching fundamentals for POLYMED.NS
+Enriching HFCL.NS with Screener.in data
+Fundamentals OK: HFCL.NS | P/E=71.1 | ROE=5.8% | Market Cap=33738 Cr
+Fetching fundamentals for ASAHIINDIA.NS
+Enriching SCI.NS with Screener.in data
+Fundamentals OK: SCI.NS | P/E=8.3 | ROE=15.8% | Market Cap=13739 Cr
+Fetching fundamentals for GRAPHITE.NS
+Enriching KIRLOSENG.NS with Screener.in data
+Fundamentals OK: KIRLOSENG.NS | P/E=72.1 | ROE=14.9% | Market Cap=32998 Cr
+Fetching fundamentals for ETERNAL.NS
+Enriching ZENTEC.NS with Screener.in data
+Fundamentals OK: ZENTEC.NS | P/E=118.0 | ROE=8.3% | Market Cap=16345 Cr
+Fetching fundamentals for BAJAJHLDNG.NS
+Enriching POLYMED.NS with Screener.in data
+Fundamentals OK: POLYMED.NS | P/E=52.5 | ROE=9.6% | Market Cap=17928 Cr
+Enriching ASAHIINDIA.NS with Screener.in data
+Fundamentals OK: ASAHIINDIA.NS | P/E=56.6 | ROE=9.4% | Market Cap=24530 Cr
+Fetching fundamentals for MPHASIS.NS
+Fetching fundamentals for CDSL.NS
+Enriching PERSISTENT.NS with Screener.in data
+Fundamentals OK: PERSISTENT.NS | P/E=51.5 | ROE=26.8% | Market Cap=89239 Cr
+Enriching GRAPHITE.NS with Screener.in data
+Fundamentals OK: GRAPHITE.NS | P/E=49.3 | ROE=4.9% | Market Cap=14092 Cr
+Fetching fundamentals for HINDZINC.NS
+Fetching fundamentals for HYUNDAI.NS
+Enriching BAJAJHLDNG.NS with Screener.in data
+Fundamentals OK: BAJAJHLDNG.NS | P/E=41.2 | ROE=11.1% | Market Cap=124255 Cr
+Fetching fundamentals for NUVAMA.NS
+Enriching ETERNAL.NS with Screener.in data
+Fundamentals OK: ETERNAL.NS | P/E=119.0 | ROE=7.2% | Market Cap=313443 Cr
+Fetching fundamentals for DEVYANI.NS
+Enriching HINDZINC.NS with Screener.in data
+Fundamentals OK: HINDZINC.NS | P/E=14.7 | ROE=76.4% | Market Cap=248428 Cr
+Fetching fundamentals for BALKRISIND.NS
+Enriching MPHASIS.NS with Screener.in data
+Fundamentals OK: MPHASIS.NS | P/E=29.7 | ROE=22.3% | Market Cap=47166 Cr
+Fetching fundamentals for JUBLFOOD.NS
+Enriching CDSL.NS with Screener.in data
+Fundamentals OK: CDSL.NS | P/E=63.2 | ROE=31.3% | Market Cap=29135 Cr
+Fetching fundamentals for BRIGADE.NS
+Enriching HYUNDAI.NS with Screener.in data
+Fundamentals OK: HYUNDAI.NS | P/E=35.9 | ROE=30.3% | Market Cap=174859 Cr
+Fetching fundamentals for NIACL.NS
+Enriching NUVAMA.NS with Screener.in data
+Fundamentals OK: NUVAMA.NS | P/E=56.4 | ROE=28.2% | Market Cap=33881 Cr
+Fetching fundamentals for ICICIPRULI.NS
+Enriching JUBLFOOD.NS with Screener.in data
+Fundamentals OK: JUBLFOOD.NS | P/E=124.0 | ROE=10.8% | Market Cap=31864 Cr
+Fetching fundamentals for PNB.NS
+Enriching BALKRISIND.NS with Screener.in data
+Fundamentals OK: BALKRISIND.NS | P/E=32.9 | ROE=9.5% | Market Cap=44991 Cr
+Enriching DEVYANI.NS with Screener.in data
+Fundamentals PARTIAL: DEVYANI.NS | P/E=— | ROE=-1.1% | Market Cap=17021 Cr  (missing: pe_ratio)
+Fetching fundamentals for NUVOCO.NS
+Fetching fundamentals for TEJASNET.NS
+Enriching ICICIPRULI.NS with Screener.in data
+Fundamentals OK: ICICIPRULI.NS | P/E=42.6 | ROE=10.0% | Market Cap=71833 Cr
+Fetching fundamentals for PFOCUS.NS
+Enriching BRIGADE.NS with Screener.in data
+Fundamentals OK: BRIGADE.NS | P/E=66.2 | ROE=4.5% | Market Cap=23239 Cr
+Enriching PNB.NS with Screener.in data
+Fundamentals OK: PNB.NS | P/E=6.5 | ROE=12.5% | Market Cap=133686 Cr
+Enriching NIACL.NS with Screener.in data
+Fundamentals OK: NIACL.NS | P/E=43.8 | ROE=5.0% | Market Cap=32190 Cr
+Enriching NUVOCO.NS with Screener.in data
+Fundamentals OK: NUVOCO.NS | P/E=43.4 | ROE=2.9% | Market Cap=12075 Cr
+Fetching fundamentals for CHALET.NS
+Enriching PFOCUS.NS with Screener.in data
+Fundamentals OK: PFOCUS.NS | P/E=208.3 | ROE=-0.1% | Market Cap=22713 Cr
+Enriching TEJASNET.NS with Screener.in data
+Fundamentals PARTIAL: TEJASNET.NS | P/E=— | ROE=-27.0% | Market Cap=10104 Cr  (missing: pe_ratio)
+Fetching fundamentals for SPLPETRO.NS
+Enriching CHALET.NS with Screener.in data
+Fundamentals OK: CHALET.NS | P/E=35.2 | ROE=19.4% | Market Cap=19507 Cr
+Enriching SPLPETRO.NS with Screener.in data
+Fundamentals OK: SPLPETRO.NS | P/E=27.8 | ROE=14.1% | Market Cap=13648 Cr
+Recovery conviction: resolved 42/42 additional names
+
+====================================================================
+  RESULTS SUMMARY
+====================================================================
+  Signal 6  WYC-SOS         1  #
+  Signal 4  REV-EARLY       1  #
+  Signal 3  REV-RS          2  ##
+  Signal 0  None           44  ############################################
+
+  ACTIONABLE SETUPS  (Signal >= 2, top 4)
+  Symbol           Edge         Scr  RFF     RS    SL%    T1%    RR  Signal Date
+  ------------------------------------------------------------------------------
+  CLEAN            WYC-SOS       14    6   7.55    8.6   21.5   2.5  2026-09-03
+  PETRONET         REV-EARLY     14    6   2.96    6.4   12.5   1.9  2026-08-31
+  KPRMILL          REV-RS        14    6  12.91    9.7   13.7   1.4  2026-08-31
+  CYIENT           REV-RS        14    6  22.34   11.8   15.6   1.3  2026-08-31
+
+DONE  Full results  Recovery_Screener_Results.csv
+====================================================================
+2026-09-04 08:21:45 - INFO -
+[PHASE 4.6] RUNNING BULL SCREENER...
+
+[PHASE 4.6] RUNNING BULL SCREENER...
+  Market regime: BULL (CNX500 close>SMA200 AND SMA50>SMA200) · not-bear (SWG-PB gate): True (close>SMA200)
+    Benchmark fetch: 1240 bars, last=2026-09-03
+    CNX500 close = 23254.05
+    CNX500 SMA50 = 23378.38
+    CNX500 SMA200= 23061.36
+    close>SMA200: True
+    SMA50>SMA200: True
+2026-09-04 08:21:45 - INFO -   Bull Screener [1/10]: APARINDS
+  Bull Screener [1/10]: APARINDS
+2026-09-04 08:21:46 - INFO -   Bull Screener [10/10]: VIJAYA
+  Bull Screener [10/10]: VIJAYA
+
+  Market regime computed: BULL
+  ---- CATALYST FUNNEL DIAGNOSTIC (v2.4 sync) ----
+  POS-BO (10 eligible)
+    [+ mkt_bull]                  10 / 10  (100.0%)
+    [+ alpha]                     10 / 10  (100.0%)
+    [+ weinstein]                  3 / 10  ( 30.0%)
+    [+ breakout]                   0 / 10  (  0.0%)
+    [+ vol]                        0 / 10  (  0.0%)
+    [+ wrsi60]                     0 / 10  (  0.0%)
+    [+ adx25]                      0 / 10  (  0.0%)
+  POS-ACCUM (10 eligible)
+    [+ mkt_bull]                  10 / 10  (100.0%)
+    [+ alpha]                     10 / 10  (100.0%)
+    [+ obv]                        0 / 10  (  0.0%)
+    [+ weinstein]                  0 / 10  (  0.0%)
+    [+ vcp]                        0 / 10  (  0.0%)
+    [+ breakout]                   0 / 10  (  0.0%)
+    [+ rsi50]                      0 / 10  (  0.0%)
+  SWG-PB (10 eligible)
+    [+ mkt]                       10 / 10  (100.0%)
+    [+ pullback]                   6 / 10  ( 60.0%)
+    [+ vcp]                        2 / 10  ( 20.0%)
+    [+ mastack]                    2 / 10  ( 20.0%)
+    [+ rsipocket]                  1 / 10  ( 10.0%)
+    [+ voldry]                     0 / 10  (  0.0%)
+  WEINSTEIN_SETUP composition (10 eligible)
+    [+ stage_ok]                  10 / 10  (100.0%)
+    [+ trend_aligned]              8 / 10  ( 80.0%)
+    [+ rs_ok]                     10 / 10  (100.0%)
+    [+ vol_acc_ok]                 4 / 10  ( 40.0%)
+    [+ stage2_fresh]               8 / 10  ( 80.0%)
+    [+ ma_sqz_ok]                  4 / 10  ( 40.0%)
+    [+ bb_sqz_ok]                  0 / 10  (  0.0%)
+    [+ trend_template]            10 / 10  (100.0%)
+    [+ all_no_squeeze]             1 / 10  ( 10.0%)
+    [+ all_pass]                   3 / 10  ( 30.0%)
+
+  Funnel diagnostic written to: C:\Users\jayra\Documents\GeminiVSCode\Bull_Screener_Funnel.log
+
+SENTINEL @2026-09-04 08:21:46 — 438 runs on record, regime BULL
+  POS-BO     0 (fired 80% of trailing 20)
+  POS-ACCUM  0 (fired 50% of trailing 20)
+  SWG-BO     0 (fired 10% of trailing 20)
+  SWG-GAP    0 (fired 0% of trailing 20)
+  SWG-PB     0 (fired 80% of trailing 20)
+  SWG-REV    0 — RETIRED (kill switch off): expected, no alarm
+  ✅ no blackouts
+2026-09-04 08:21:46 - INFO - ℹ️  Bull Screener: no catalyst signals fired.
+ℹ️  Bull Screener: no catalyst signals fired.
+2026-09-04 08:21:46 - INFO -
+[PHASE 4.7] RUNNING BULL CATALYST BROAD SCAN (catalyst-first)...
+
+[PHASE 4.7] RUNNING BULL CATALYST BROAD SCAN (catalyst-first)...
+2026-09-04 08:21:46 - INFO -   Bull universe: 500 symbols from nifty500_symbols.json (catalyst-first broad scan).
+  Bull universe: 500 symbols from nifty500_symbols.json (catalyst-first broad scan).
+  Market regime: BULL (CNX500 close>SMA200 AND SMA50>SMA200) · not-bear (SWG-PB gate): True (close>SMA200)
+    Benchmark fetch: 1240 bars, last=2026-09-03
+    CNX500 close = 23254.05
+    CNX500 SMA50 = 23378.38
+    CNX500 SMA200= 23061.36
+    close>SMA200: True
+    SMA50>SMA200: True
+2026-09-04 08:21:46 - INFO -   Catalyst Scan [1/500]: 360ONE
+  Catalyst Scan [1/500]: 360ONE
+2026-09-04 08:21:52 - INFO -   Catalyst Scan [25/500]: AFCONS
+  Catalyst Scan [25/500]: AFCONS
+2026-09-04 08:21:59 - INFO -   Catalyst Scan [50/500]: ATHERENERG
+  Catalyst Scan [50/500]: ATHERENERG
+2026-09-04 08:22:04 - INFO -   Catalyst Scan [75/500]: BHARTIARTL
+  Catalyst Scan [75/500]: BHARTIARTL
+2026-09-04 08:22:11 - INFO -   Catalyst Scan [100/500]: CEATLTD
+  Catalyst Scan [100/500]: CEATLTD
+2026-09-04 08:22:16 - INFO -   Catalyst Scan [125/500]: CREDITACC
+  Catalyst Scan [125/500]: CREDITACC
+2026-09-04 08:22:21 - INFO -   Catalyst Scan [150/500]: ELGIEQUIP
+  Catalyst Scan [150/500]: ELGIEQUIP
+2026-09-04 08:22:27 - INFO -   Catalyst Scan [175/500]: GILLETTE
+  Catalyst Scan [175/500]: GILLETTE
+2026-09-04 08:22:33 - INFO -   Catalyst Scan [200/500]: HDFCBANK
+  Catalyst Scan [200/500]: HDFCBANK
+2026-09-04 08:22:39 - INFO -   Catalyst Scan [225/500]: IFCI
+  Catalyst Scan [225/500]: IFCI
+2026-09-04 08:22:46 - INFO -   Catalyst Scan [250/500]: ITCHOTELS
+  Catalyst Scan [250/500]: ITCHOTELS
+2026-09-04 08:22:52 - INFO -   Catalyst Scan [275/500]: KARURVYSYA
+  Catalyst Scan [275/500]: KARURVYSYA
+2026-09-04 08:22:58 - INFO -   Catalyst Scan [300/500]: LTM
+  Catalyst Scan [300/500]: LTM
+2026-09-04 08:23:04 - INFO -   Catalyst Scan [325/500]: MSUMI
+  Catalyst Scan [325/500]: MSUMI
+2026-09-04 08:23:09 - INFO -   Catalyst Scan [350/500]: NYKAA
+  Catalyst Scan [350/500]: NYKAA
+2026-09-04 08:23:14 - INFO -   Catalyst Scan [375/500]: PNBHOUSING
+  Catalyst Scan [375/500]: PNBHOUSING
+2026-09-04 08:23:20 - INFO -   Catalyst Scan [400/500]: RRKABEL
+  Catalyst Scan [400/500]: RRKABEL
+2026-09-04 08:23:26 - INFO -   Catalyst Scan [425/500]: SONATSOFTW
+  Catalyst Scan [425/500]: SONATSOFTW
+2026-09-04 08:23:31 - INFO -   Catalyst Scan [450/500]: TCS
+  Catalyst Scan [450/500]: TCS
+2026-09-04 08:23:38 - INFO -   Catalyst Scan [475/500]: UNIONBANK
+  Catalyst Scan [475/500]: UNIONBANK
+2026-09-04 08:23:44 - INFO -   Catalyst Scan [500/500]: ZYDUSWELL
+  Catalyst Scan [500/500]: ZYDUSWELL
+
+  Market regime computed: BULL
+  ---- CATALYST FUNNEL DIAGNOSTIC (v2.4 sync) ----
+  POS-BO (492 eligible)
+    [+ mkt_bull]                 492 / 492  (100.0%)
+    [+ alpha]                    492 / 492  (100.0%)
+    [+ weinstein]                 39 / 492  (  7.9%)
+    [+ breakout]                   6 / 492  (  1.2%)
+    [+ vol]                        5 / 492  (  1.0%)
+    [+ wrsi60]                     5 / 492  (  1.0%)
+    [+ adx25]                      5 / 492  (  1.0%)
+  POS-ACCUM (492 eligible)
+    [+ mkt_bull]                 492 / 492  (100.0%)
+    [+ alpha]                    492 / 492  (100.0%)
+    [+ obv]                       31 / 492  (  6.3%)
+    [+ weinstein]                  8 / 492  (  1.6%)
+    [+ vcp]                        2 / 492  (  0.4%)
+    [+ breakout]                   2 / 492  (  0.4%)
+    [+ rsi50]                      2 / 492  (  0.4%)
+  SWG-PB (492 eligible)
+    [+ mkt]                      492 / 492  (100.0%)
+    [+ pullback]                 281 / 492  ( 57.1%)
+    [+ vcp]                      137 / 492  ( 27.8%)
+    [+ mastack]                   66 / 492  ( 13.4%)
+    [+ rsipocket]                 19 / 492  (  3.9%)
+    [+ voldry]                    14 / 492  (  2.8%)
+  WEINSTEIN_SETUP composition (492 eligible)
+    [+ stage_ok]                 332 / 492  ( 67.5%)
+    [+ trend_aligned]            105 / 492  ( 21.3%)
+    [+ rs_ok]                    250 / 492  ( 50.8%)
+    [+ vol_acc_ok]               115 / 492  ( 23.4%)
+    [+ stage2_fresh]             441 / 492  ( 89.6%)
+    [+ ma_sqz_ok]                190 / 492  ( 38.6%)
+    [+ bb_sqz_ok]                 82 / 492  ( 16.7%)
+    [+ trend_template]           201 / 492  ( 40.9%)
+    [+ all_no_squeeze]            34 / 492  (  6.9%)
+    [+ all_pass]                  39 / 492  (  7.9%)
+
+  Funnel diagnostic written to: C:\Users\jayra\Documents\GeminiVSCode\Bull_Screener_Funnel.log
+
+
+====================================================================
+  BULL CATALYST SUMMARY
+====================================================================
+  POS-BO         5  #####
+  POS-ACCUM      2  ##
+  SWG-PB        14  ##############
+--------------------------------------------------------------------
+  Catalyst fired: 21 / 21
+====================================================================
+
+  ---- DATA FRESHNESS AUDIT ----
+    2026-09-03   490 symbols
+    2026-09-02    10 symbols
+    ✅ universe date-consistent
+SENTINEL @2026-09-04 08:23:44 — 439 runs on record, regime BULL
+  POS-BO     5 (fired 80% of trailing 20)
+  POS-ACCUM  2 (fired 50% of trailing 20)
+  SWG-BO     0 (fired 5% of trailing 20)
+  SWG-GAP    0 (fired 0% of trailing 20)
+  SWG-PB     14 (fired 80% of trailing 20)
+  SWG-REV    0 — RETIRED (kill switch off): expected, no alarm
+  ✅ no blackouts
+2026-09-04 08:23:53 - INFO -    BFF fundamental gate: kept 6/18 (floor 4/5, scaled to the applicable checks — a lender has 4, not 5; D/E exempt, ROE bar 12). 0 unreadable and DROPPED as unknown, not as weak — bff_passes returns None there and `is True` excludes it, matching pullback_finder's bff_block_unknown default.
+   BFF fundamental gate: kept 6/18 (floor 4/5, scaled to the applicable checks — a lender has 4, not 5; D/E exempt, ROE bar 12). 0 unreadable and DROPPED as unknown, not as weak — bff_passes returns None there and `is True` excludes it, matching pullback_finder's bff_block_unknown default.
+2026-09-04 08:23:53 - INFO -    CORE gate (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%): kept 6/6
+   CORE gate (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%): kept 6/6
+2026-09-04 08:23:53 - INFO - ✅ Catalyst Scan: 6 catalyst signals from 500 symbols → FINAL_CATALYST_WATCHLIST.csv (dropped 3 Stage-4)
+✅ Catalyst Scan: 6 catalyst signals from 500 symbols → FINAL_CATALYST_WATCHLIST.csv (dropped 3 Stage-4)
+2026-09-04 08:23:53 - INFO -    Catalysts: {'SWG-PB': 4, 'POS-BO': 2}
+   Catalysts: {'SWG-PB': 4, 'POS-BO': 2}
+2026-09-04 08:23:53 - INFO -
+[PHASE 4.75] BUILDING RECOVERY CATALYST WATCHLIST...
+
+[PHASE 4.75] BUILDING RECOVERY CATALYST WATCHLIST...
+2026-09-04 08:23:53 - INFO -    CORE gate (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%): kept 4/4
+   CORE gate (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%): kept 4/4
+2026-09-04 08:23:53 - INFO -    Recovery catalysts: {'REV-RS': 2, 'WYC-SOS': 1, 'REV-EARLY': 1}
+   Recovery catalysts: {'REV-RS': 2, 'WYC-SOS': 1, 'REV-EARLY': 1}
+2026-09-04 08:23:53 - INFO - ✅ Recovery Catalyst Watchlist: 4 firing → FINAL_RECOVERY_CATALYST_WATCHLIST.csv
+✅ Recovery Catalyst Watchlist: 4 firing → FINAL_RECOVERY_CATALYST_WATCHLIST.csv
+2026-09-04 08:23:53 - INFO - [FEED] Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+[FEED] Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+2026-09-04 08:23:53 - INFO - [FEED] data sources this run: dhan=874 (50%) · cache=857 (49%) · yfinance=4 (0%) · none=1 (0%)
+[FEED] data sources this run: dhan=874 (50%) · cache=857 (49%) · yfinance=4 (0%) · none=1 (0%)
+2026-09-04 08:23:53 - INFO -
+[PHASE 4.75b] RUNNING PULLBACK FINDER (at-value scan)...
+
+[PHASE 4.75b] RUNNING PULLBACK FINDER (at-value scan)...
+==========================================================================
+  PULLBACK FINDER — Stage-2 names AT VALUE
+  Friday 04 Sep 2026  08:23   universe=nifty500 (500)
+  gates: ext <= 1.5 ATR from EMA20 · depth 2.0-18.0% off the 20d high · Stage 2 · RS > 0 · risk <= 8.0% · BFF >= 4
+==========================================================================
+  core universe: 690 eligible · mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%
+  ...50/500  (0 candidates)
+Fetching fundamentals for BOSCHLTD
+Enriching BOSCHLTD with Screener.in data
+Fundamentals OK: BOSCHLTD | P/E=58.8 | ROE=14.6% | Market Cap=138632 Cr
+  ...100/500  (2 candidates)
+Fetching fundamentals for DEEPAKNTR
+Enriching DEEPAKNTR with Screener.in data
+Fundamentals OK: DEEPAKNTR | P/E=102.0 | ROE=6.1% | Market Cap=23532 Cr
+  ...150/500  (4 candidates)
+Fetching fundamentals for ENDURANCE
+Enriching ENDURANCE with Screener.in data
+Fundamentals OK: ENDURANCE | P/E=49.8 | ROE=15.6% | Market Cap=38748 Cr
+Screener HTTP 429 for GLAND
+Fetching fundamentals for GLAND
+Fundamentals PARTIAL: GLAND | P/E=— | ROE=— | Market Cap=—  (missing: pe_ratio, roe, market_cap)
+  ...200/500  (8 candidates)
+Fetching fundamentals for ICICIBANK
+Enriching ICICIBANK with Screener.in data
+Fundamentals OK: ICICIBANK | P/E=19.7 | ROE=15.8% | Market Cap=1026343 Cr
+  ...250/500  (11 candidates)
+Fetching fundamentals for LAURUSLABS
+Enriching LAURUSLABS with Screener.in data
+Fundamentals OK: LAURUSLABS | P/E=116.0 | ROE=15.2% | Market Cap=100957 Cr
+Fetching fundamentals for LTF
+Enriching LTF with Screener.in data
+Fundamentals OK: LTF | P/E=23.9 | ROE=11.8% | Market Cap=79426 Cr
+  ...300/500  (14 candidates)
+Fetching fundamentals for MEDANTA
+Enriching MEDANTA with Screener.in data
+Fundamentals OK: MEDANTA | P/E=76.7 | ROE=13.2% | Market Cap=38107 Cr
+Fetching fundamentals for NAM-INDIA
+Enriching NAM-INDIA with Screener.in data
+Fundamentals OK: NAM-INDIA | P/E=46.6 | ROE=35.5% | Market Cap=74528 Cr
+  ...350/500  (18 candidates)
+Fetching fundamentals for OFSS
+Enriching OFSS with Screener.in data
+Fundamentals OK: OFSS | P/E=29.8 | ROE=38.1% | Market Cap=105797 Cr
+  ...400/500  (23 candidates)
+Fetching fundamentals for SHYAMMETL
+Enriching SHYAMMETL with Screener.in data
+Fundamentals OK: SHYAMMETL | P/E=57.3 | ROE=8.9% | Market Cap=30046 Cr
+  ...450/500  (26 candidates)
+Screener HTTP 429 for UNOMINDA
+Fetching fundamentals for UNOMINDA
+Fundamentals PARTIAL: UNOMINDA | P/E=— | ROE=— | Market Cap=—  (missing: pe_ratio, roe, market_cap)
+  ...500/500  (29 candidates)
+
+  CORE gate: 11 rejected on size/pledge/ownership: AJANTPHARM ASTERDM AUROPHARMA INDUSINDBK KALYANKJIL NUVAMA PPLPHARMA PVRINOX RKFORGE THELEELA WOCKPHARMA
+
+  BFF gate (>= 4): 29 passed · 44 weak · 0 unreadable
+    weak (below the bar): 360ONE(ROE/DE) AARTIIND(ROE/DE) ABB(2) ABCAPITAL(ROE/DE) ACE(2) ACMESOLAR(ROE/DE) ADANIPOWER(2) APOLLOHOSP(3) BELRISE(2) BHEL(ROE/DE) BOSCHLTD(2) CARBORUNIV(2) …
+
+  29 candidates (0 symbols errored)   →  C:\Users\jayra\Documents\GeminiVSCode\Pullback_Candidates.csv
+
+    Symbol  Value_Score      CMP  Ext_ATR  Depth_%   RS       RRG  Vol_vs_50 Tight  Support Sup_Src  Trigger>       SL  Risk_%
+NEULANDLAB         86.9 22900.00     0.46      4.1 21.3   LEADING       0.48   YES 22637.00    DZ·D  23295.00 22283.76    4.34
+DATAPATTNS         83.1  4595.00     0.10      8.1 10.1 WEAKENING       0.50   YES  4500.10    DZ·D   4644.70  4414.20    4.96
+     SYRMA         81.5  1455.20     0.12      5.7 22.1 WEAKENING       0.43     -  1454.45     S/R   1460.00  1424.94    2.40
+    HONASA         73.9   476.85     0.11      6.5 18.4 WEAKENING       0.37     -   461.30    DZ·D    480.25   453.34    5.60
+LAURUSLABS         73.0  1864.00     0.55      4.4 24.2   LEADING       0.76     -  1857.40    DZ·D   1864.40  1814.00    2.70
+   GABRIEL         71.2  1345.80    -0.96     15.1 18.6   LEADING       0.53     -  1335.10    DZ·W   1403.90  1305.20    7.03
+PNBHOUSING         69.0  1147.20    -0.08      5.3  9.4 WEAKENING       0.41     -  1135.50     S/R   1157.90  1121.32    3.16
+  LLOYDSME         68.2  1848.70    -0.36     13.0 11.7 WEAKENING       0.60     -  1846.00     S/R   1859.40  1818.72    2.19
+BAJFINANCE         68.1  1053.00    -0.98      9.2  7.0   LEADING       0.74     -  1050.45     S/R   1059.70  1039.22    1.93
+    RADICO         67.9  4550.00     0.16      4.1 19.4   LEADING       0.53     -  4410.80    DZ·D   4550.00  4361.30    4.15
+     TITAN         65.9  5015.00    -0.28      3.3  6.3   LEADING       0.62     -  5011.00    DZ·D   5072.50  4967.69    2.07
+    EMCURE         65.6  1842.00    -0.77     10.1  6.6 WEAKENING       0.58     -  1830.10    DZ·W   1874.90  1805.90    3.68
+      OFSS         65.6 12113.00     0.69      3.4 19.8 WEAKENING       0.62     - 11872.16   EMA20  12227.00 11697.20    4.33
+    AUBANK         63.5  1069.50    -0.49      6.5  2.6   LEADING       0.26     -  1058.61   SMA50   1083.30  1047.01    3.35
+  TVSMOTOR         61.0  4185.00    -0.92      6.7  6.8   LEADING       0.53     -  4037.06   SMA50   4221.60  3983.57    5.64
+    NETWEB         60.2  5279.00     0.65      9.2 11.8 WEAKENING       1.53   YES  5126.19   EMA20   5375.00  5008.97    6.81
+   RRKABEL         60.1  2639.00    -1.17     11.6 26.8 WEAKENING       1.08     -  2584.55   SMA50   2685.90  2529.67    5.82
+PIDILITIND         59.6  1632.00    -0.56      4.4  5.2   LEADING       0.56     -  1602.00    DZ·D   1638.00  1586.09    3.17
+       MCX         58.4  3170.20     0.37      6.8  1.5 WEAKENING       0.88     -  3131.58   EMA20   3333.00  3079.74    7.60
+    VIJAYA         57.5  1496.00     0.63      4.9 12.8 WEAKENING       0.34     -  1440.00    DZ·D   1513.80  1416.58    6.42
+ NAM-INDIA         55.0  1164.90    -0.77      8.2  8.9 WEAKENING       1.57     -  1155.10    DZ·D   1180.20  1138.11    3.57
+     GLAND         54.1  2915.00     1.12      4.1 19.9   LEADING       0.28     -  2776.10    DZ·D   2948.00  2732.50    7.31
+      IIFL         50.9   640.00     0.17      9.2 13.1   LEADING       2.07     -   617.40    DZ·D    655.95   605.14    7.75
+       KEI         49.1  5332.00    -0.81      9.6  3.5 WEAKENING       1.19     -  5310.18   SMA50   5380.00  5219.24    2.99
+   CGPOWER         48.8   893.85     0.37      2.4  4.3 WEAKENING       0.56     -   865.05    DZ·D    900.65   853.38    5.25
+   IPCALAB         46.4  1956.10     0.99      2.3  8.5   LEADING       0.67     -  1897.40   EMA20   1978.20  1867.77    5.58
+OBEROIRLTY         44.8  1900.00     0.79      3.1  7.2   LEADING       2.02   YES  1830.40    DZ·D   1912.70  1807.90    5.48
+SHRIRAMFIN         43.6  1044.20    -1.51      9.5  3.0   LEADING       1.18     -  1019.50    DZ·D   1068.90  1004.02    6.07
+ FINCABLES         40.2  1270.10     0.82      7.6  8.2 WEAKENING       1.71     -  1225.91   EMA20   1279.80  1199.13    6.30
+
+  Ext_ATR   = (close - EMA20) / ATR14. 0 = ON the EMA20. Lower is better.
+  Depth_%   = how far below the 20-day high price has pulled back.
+  Trigger>  = confirmation level. Wait for a CLOSED bar above it, then
+              buy-STOP above THAT bar. Never rest an order at the level.
+  This is a LOCATION list. Take the name to S4 for the trigger.
+2026-09-04 08:25:21 - INFO - [PHASE 4.9] ETF SCREENER + ROTATION...
+[PHASE 4.9] ETF SCREENER + ROTATION...
+Fetching history for 51 ETFs + 39 indices + benchmark...
+board picks: dropped 1 out-of-scope (debt/liquid) ETFs
+NSE session warmed via curl_cffi (Chrome120 TLS)
+NSE ETF NAV: 347 symbols, navDate 02-Sep-2026
+ETF premium gate blocked 2: MAFANG +19.7%, MON100 +19.7%
+ETF Rotation Engine — Phase 2
+────────────────────────────────────────────────────────────
+→ Computing sector rotation table...
+  ✓ 17 sectors ranked → ETF_Sector_Rotation.csv
+
+  TOP-quartile sectors (OVERWEIGHT):
+    #1 MOREALTY       SECTOR.NIFTY REALTY    4W= +5.31%  12W=+17.87%  score=17.0
+    #2 PHARMABEES     SECTOR.NIFTY PHARMA    4W= +2.36%  12W= +5.75%  score=14.8
+    #3 ITBEES         SECTOR.NIFTY IT        4W= +1.14%  12W= +4.46%  score=13.0
+    #4 MODEFENCE      SECTOR.NIFTY INDIA DEFENCE 4W= +2.05%  12W= +2.98%  score=11.6
+
+→ Detecting asset-class regime...
+  ✓ Regime: **RISK_ON** → ETF_AssetClass_Regime.csv
+
+  Allocation tilts:
+    EQUITY_MID     (MIDCAPETF  ) score= +2.77  tilt= 15%  status=RISK_ON
+    EQUITY_SMALL   (HDFCSML250 ) score= +5.19  tilt= 40%  status=RISK_ON
+    GOLD           (GOLDIETF   ) score= +3.51  tilt= 20%  status=RISK_ON
+    INTL_FANG      (MAFANG     ) score= +3.58  tilt= 25%  status=RISK_ON
+
+→ Generating RRG coordinates (8-week tail)...
+  ✓ 184 coordinates for 23 ETFs → ETF_RRG_Coordinates.csv
+
+  Current quadrant distribution:
+    WEAKENING    8
+    IMPROVING    6
+    LAGGING      5
+    LEADING      4
+
+→ Building regime-aware top picks...
+  ✓ 6 picks → ETF_Top_Picks.csv
+
+  Regime-aware picks:
+    MOREALTY      12%  [Sector    ] Sector rotation #1
+    PHARMABEES    12%  [Sector    ] Sector rotation #2
+    ITBEES        12%  [Sector    ] Sector rotation #3
+    MODEFENCE     12%  [Sector    ] Sector rotation #4
+    JUNIORBEES    15%  [Broad     ] Mid-cap broad equity tilt
+    MAFANG        10%  [Intl      ] International diversifier
+
+Phase 2 complete. Run again any session — outputs are date-stamped.
+2026-09-04 08:25:45 - INFO -
+[PHASE 4.9c] ETF INDEX MAP + TRANSLATED SECTOR LEVELS...
+
+[PHASE 4.9c] ETF INDEX MAP + TRANSLATED SECTOR LEVELS...
+etf_levels: 42 ETFs -> C:\Users\jayra\Documents\GeminiVSCode\ETF_Index_Levels.csv
+2026-09-04 08:25:48 - INFO -
+[PHASE 4.8] CONSOLIDATING GOLDEN MATCHER BOARD WATCHLIST...
+
+[PHASE 4.8] CONSOLIDATING GOLDEN MATCHER BOARD WATCHLIST...
+2026-09-04 08:25:49 - INFO -
+[PHASE 5] GENERATING LOCAL WATCHLISTS (Pass 1)...
+
+[PHASE 5] GENERATING LOCAL WATCHLISTS (Pass 1)...
+============================================================
+[WL] GENERATING WATCHLISTS
+============================================================
+[OK] Generated: Bull_Hunter-04SEP26.txt & LATEST_Bull_Hunter.txt (2 symbols)
+[OK] Generated: Bull_Pullback-04SEP26.txt & LATEST_Bull_Pullback.txt (7 symbols)
+[WARN] No symbols found for Bull_EarlyBird. Skipping TXT generation.
+[OK] Generated: Bull_StrongLeader-04SEP26.txt & LATEST_Bull_StrongLeader.txt (3 symbols)
+[OK] Generated: Bull_Picks_All-04SEP26.txt & LATEST_Bull_Picks_All.txt (10 symbols)
+[OK] Generated: Rec_RS_Survivor-04SEP26.txt & LATEST_Rec_RS_Survivor.txt (1 symbols)
+[OK] Generated: Rec_Climax_Bounce-04SEP26.txt & LATEST_Rec_Climax_Bounce.txt (2 symbols)
+[OK] Generated: Rec_Early_Bird-04SEP26.txt & LATEST_Rec_Early_Bird.txt (2 symbols)
+[OK] Generated: Recovery_Picks_All-04SEP26.txt & LATEST_Recovery_Picks_All.txt (4 symbols)
+[WARN] No symbols found for Bull_Screener. Skipping TXT generation.
+[OK] Generated: Bull_Screener_Custom-04SEP26.txt & LATEST_Bull_Screener_Custom.txt (17 symbols)
+[OK] Generated: Catalyst_Watchlist-04SEP26.txt & LATEST_Catalyst_Watchlist.txt (6 symbols)
+[OK] Generated: Recovery_Catalyst_Watchlist-04SEP26.txt & LATEST_Recovery_Catalyst_Watchlist.txt (4 symbols)
+[OK] Generated: XRay_Picks-04SEP26.txt & LATEST_XRay_Picks.txt (23 symbols)
+[OK] Generated: Golden_Matcher_Picks-04SEP26.txt & LATEST_Golden_Matcher_Picks.txt (14 symbols)
+[OK] Generated: Golden_Matcher_Board-04SEP26.txt & LATEST_Golden_Matcher_Board.txt (81 symbols)
+[SKIP] Not Found: Portfolio_Stocks.csv
+[OK] Generated: portfolio-04SEP26.txt & LATEST_portfolio.txt (3 symbols)
+[OK] Generated: Portfolio-04SEP26.txt & LATEST_Portfolio.txt (22 symbols)
+------------------------------------------------------------
+Successfully generated 16 Watchlist files!
+
+Location:
+C:\Users\jayra\Documents\GeminiVSCode\Generated_Watchlists
+
+To Import in TradingView:
+1. Open Watchlist Panel
+2. Click '...' -> Import List
+3. Select these .txt files.
+2026-09-04 08:25:49.635 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:25:49.636 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:25:49.637 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:25:49.643 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:25:57.336 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:25:57.337 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:25:57.337 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-09-04 08:26:02 - INFO -    ↳ FINAL_Portfolio_Picks.csv (pyramid/ADD source) written
+   ↳ FINAL_Portfolio_Picks.csv (pyramid/ADD source) written
+2026-09-04 08:26:02 - INFO -
+[PHASE 5.7] RUNNING STALE WATCHLISTS CLEANUP...
+
+[PHASE 5.7] RUNNING STALE WATCHLISTS CLEANUP...
+2026-09-04 08:26:02 - INFO -
+[PHASE 6] SYNCING TO STRIKE.MONEY (WATCHLISTS)...
+
+[PHASE 6] SYNCING TO STRIKE.MONEY (WATCHLISTS)...
+============================================================
+🚀 STRIKE.MONEY AUTOMATION COMPANION (Mode: WATCHLIST)
+============================================================
+Finding and killing orphaned automated Chrome processes...
+   No orphaned automated Chrome processes found.
+>> Launching Chrome (User Data: C:\Users\jayra\Documents\GeminiVSCode\strike_user_data)...
+
+>> Navigating to https://web.strike.money/
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+WAITING FOR LOGIN (Auto-Detect)
+Please log in to Strike.money in the browser window if not already logged in.
+Script will proceed automatically once Dashboard is detected...
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+>> Waiting for user to authenticate...
+>> Checking authentication state...
+>> LOGIN SUCCESSFUL! User is authenticated.
+>> Proceeding with Automation...
+
+
+   [upload_watchlists] Starting Watchlist Sync (TXT Source Mode)...
+      [INFO] Reading from: C:\Users\jayra\Documents\GeminiVSCode\Generated_Watchlists
+      [DEBUG] Cleaning up old dated watchlists for Bull_EarlyBird...
+      [DEBUG] No stale dated lists found for Bull_EarlyBird.
+      [!] LATEST_Bull_EarlyBird.txt is STALE (4d old) — today's scan produced no picks. SKIPPING (will not upload prior-run symbols under today's date). The cleanup above already purged the old list.
+      [DEBUG] Cleaning up old dated watchlists for Bull_Hunter...
+      [DEBUG] No stale dated lists found for Bull_Hunter.
+
+   >> Checking file: Bull_Hunter-04SEP26.txt
+
+   >> Processing: Bull_Hunter-04SEP26 (2 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Bull_Hunter-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Bull_Hunter-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Bull_Hunter-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 2 symbols to 'Bull_Hunter-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Bull_Pullback...
+      [DEBUG] No stale dated lists found for Bull_Pullback.
+
+   >> Checking file: Bull_Pullback-04SEP26.txt
+
+   >> Processing: Bull_Pullback-04SEP26 (7 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Bull_Pullback-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Bull_Pullback-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Bull_Pullback-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 7 symbols to 'Bull_Pullback-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Bull_StrongLeader...
+      [DEBUG] No stale dated lists found for Bull_StrongLeader.
+
+   >> Checking file: Bull_StrongLeader-04SEP26.txt
+
+   >> Processing: Bull_StrongLeader-04SEP26 (3 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Bull_StrongLeader-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Bull_StrongLeader-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Bull_StrongLeader-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 3 symbols to 'Bull_StrongLeader-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Bull_Picks_All...
+      [DEBUG] No stale dated lists found for Bull_Picks_All.
+
+   >> Checking file: Bull_Picks_All-04SEP26.txt
+
+   >> Processing: Bull_Picks_All-04SEP26 (10 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Bull_Picks_All-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Bull_Picks_All-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Bull_Picks_All-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 10 symbols to 'Bull_Picks_All-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Rec_Climax_Bounce...
+      [DEBUG] No stale dated lists found for Rec_Climax_Bounce.
+
+   >> Checking file: Rec_Climax_Bounce-04SEP26.txt
+
+   >> Processing: Rec_Climax_Bounce-04SEP26 (2 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Rec_Climax_Bounce-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Rec_Climax_Bounce-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Rec_Climax_Bounce-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 2 symbols to 'Rec_Climax_Bounce-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Rec_Early_Bird...
+      [DEBUG] No stale dated lists found for Rec_Early_Bird.
+
+   >> Checking file: Rec_Early_Bird-04SEP26.txt
+
+   >> Processing: Rec_Early_Bird-04SEP26 (2 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Rec_Early_Bird-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Rec_Early_Bird-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Rec_Early_Bird-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 2 symbols to 'Rec_Early_Bird-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Rec_RS_Survivor...
+      [DEBUG] No stale dated lists found for Rec_RS_Survivor.
+
+   >> Checking file: Rec_RS_Survivor-04SEP26.txt
+
+   >> Processing: Rec_RS_Survivor-04SEP26 (1 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Rec_RS_Survivor-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Rec_RS_Survivor-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Rec_RS_Survivor-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 1 symbols to 'Rec_RS_Survivor-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Recovery_Picks_All...
+      [DEBUG] No stale dated lists found for Recovery_Picks_All.
+
+   >> Checking file: Recovery_Picks_All-04SEP26.txt
+
+   >> Processing: Recovery_Picks_All-04SEP26 (4 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Recovery_Picks_All-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Recovery_Picks_All-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Recovery_Picks_All-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 4 symbols to 'Recovery_Picks_All-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Catalyst_Watchlist...
+      [DEBUG] No stale dated lists found for Catalyst_Watchlist.
+
+   >> Checking file: Catalyst_Watchlist-04SEP26.txt
+
+   >> Processing: Catalyst_Watchlist-04SEP26 (6 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Catalyst_Watchlist-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Catalyst_Watchlist-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Catalyst_Watchlist-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 6 symbols to 'Catalyst_Watchlist-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Recovery_Catalyst_Watchlist...
+      [DEBUG] No stale dated lists found for Recovery_Catalyst_Watchlist.
+
+   >> Checking file: Recovery_Catalyst_Watchlist-04SEP26.txt
+
+   >> Processing: Recovery_Catalyst_Watchlist-04SEP26 (4 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Recovery_Catalyst_Watchlist-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Recovery_Catalyst_Watchlist-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Recovery_Catalyst_Watchlist-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 4 symbols to 'Recovery_Catalyst_Watchlist-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Golden_Matcher_Picks...
+      [DEBUG] No stale dated lists found for Golden_Matcher_Picks.
+
+   >> Checking file: Golden_Matcher_Picks-04SEP26.txt
+
+   >> Processing: Golden_Matcher_Picks-04SEP26 (14 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Golden_Matcher_Picks-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Golden_Matcher_Picks-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Golden_Matcher_Picks-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 14 symbols to 'Golden_Matcher_Picks-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Golden_Matcher_Board...
+      [DEBUG] No stale dated lists found for Golden_Matcher_Board.
+
+   >> Checking file: Golden_Matcher_Board-04SEP26.txt
+
+   >> Processing: Golden_Matcher_Board-04SEP26-1 (49 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Golden_Matcher_Board-04SEP26-1
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Golden_Matcher_Board-04SEP26-1' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Golden_Matcher_Board-04SEP26-1
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 49 symbols to 'Golden_Matcher_Board-04SEP26-1'
+
+   >> Processing: Golden_Matcher_Board-04SEP26-2 (32 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Golden_Matcher_Board-04SEP26-2
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Golden_Matcher_Board-04SEP26-2' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Golden_Matcher_Board-04SEP26-2
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 32 symbols to 'Golden_Matcher_Board-04SEP26-2'
+      [DEBUG] Cleaning up old dated watchlists for XRay_Picks...
+      [DEBUG] No stale dated lists found for XRay_Picks.
+
+   >> Checking file: XRay_Picks-04SEP26.txt
+
+   >> Processing: XRay_Picks-04SEP26 (23 symbols)
+      [DEBUG] Checking for existing watchlist to delete: XRay_Picks-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'XRay_Picks-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: XRay_Picks-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 23 symbols to 'XRay_Picks-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Bull_Screener...
+      [DEBUG] No stale dated lists found for Bull_Screener.
+      [!] LATEST_Bull_Screener.txt is STALE (0d old) — today's scan produced no picks. SKIPPING (will not upload prior-run symbols under today's date). The cleanup above already purged the old list.
+      [DEBUG] Cleaning up old dated watchlists for Bull_Screener_Custom...
+      [DEBUG] No stale dated lists found for Bull_Screener_Custom.
+
+   >> Checking file: Bull_Screener_Custom-04SEP26.txt
+
+   >> Processing: Bull_Screener_Custom-04SEP26 (17 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Bull_Screener_Custom-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Bull_Screener_Custom-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Bull_Screener_Custom-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 17 symbols to 'Bull_Screener_Custom-04SEP26'
+      [DEBUG] Cleaning up old dated watchlists for Portfolio...
+      [DEBUG] No stale dated lists found for Portfolio.
+
+   >> Checking file: Portfolio-04SEP26.txt
+
+   >> Processing: Portfolio-04SEP26 (22 symbols)
+      [DEBUG] Checking for existing watchlist to delete: Portfolio-04SEP26
+      [DEBUG] Opening Watchlist Dropdown...
+      [DEBUG] Watchlist 'Portfolio-04SEP26' not found. Creating new...
+      [DEBUG] Clicking '+Create Watchlist'...
+      [DEBUG] Clicked Create for: Portfolio-04SEP26
+      [DEBUG] Clicking Import using selector: div:has-text('Import')
+      [DEBUG] Modal not detected. Retrying with force=True...
+      [DEBUG] Clicking Import using selector: .marketOverviewContainer_importBtn__tSpvR
+      [DEBUG] Import Modal Opened!
+      [DEBUG] Found 'Upload File' button...
+      [SUCCESS] Uploaded 22 symbols to 'Portfolio-04SEP26'
+
+>> All tasks completed.
+>> Closing browser in 5 seconds...
+2026-09-04 08:31:24 - INFO -
+[PHASE 7] SYNCING TO TRADINGVIEW (WATCHLISTS)...
+
+[PHASE 7] SYNCING TO TRADINGVIEW (WATCHLISTS)...
+🚀 STARTING TRADINGVIEW WATCHLIST SYNC...
+Finding and killing orphaned automated Chrome processes...
+   No orphaned automated Chrome processes found.
+🧹 Starting Nuclear Profile Cleanup...
+   🧼 Deep Clean: Removed 36 stagnant artifact files.
+📂 User Data Dir: C:\Users\jayra\Documents\GeminiVSCode\tv_user_data_v2 (Attempt 1/3)
+✅ Browser session active (Profile: tv_user_data_v2)
+⚠️  PLEASE LOG IN TO TRADINGVIEW NOW IF NOT ALREADY LOGGED IN.
+⚠️  This is a one-time login for the new stable profile (v2).
+🌍 Navigating to TradingView Chart...
+🕵️  Detecting Login Status...
+      [DEBUG] Current URL: https://in.tradingview.com/chart/ldohBiLB/... | Title: SUNPHARMA 1,916.0 ▼ −0.81% Jay
+✅ Login Detected (Workspace/User Menu Visible)! Proceeding automatically...
+      🧹 Closing modal using: button[aria-label='Close']
+✅ Chart Loaded.
+👀 Checking if Watchlist Panel is open...
+   ✅ Watchlist Panel is already open.
+   🧹 Checking for stale 'Bull_EarlyBird' watchlists...
+⚠️ LATEST_Bull_EarlyBird.txt is STALE (4d old) — today's scan produced no picks. Skipping (won't upload prior-run symbols).
+   🧹 Checking for stale 'Bull_Hunter' watchlists...
+📂 Processing: Bull_Hunter-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Bull_Hunter-04SEP26.txt
+   🧹 Checking for stale 'Bull_Pullback' watchlists...
+📂 Processing: Bull_Pullback-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Bull_Pullback-04SEP26.txt
+   🧹 Checking for stale 'Bull_StrongLeader' watchlists...
+📂 Processing: Bull_StrongLeader-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Bull_StrongLeader-04SEP26.txt
+   🧹 Checking for stale 'Bull_Picks_All' watchlists...
+📂 Processing: Bull_Picks_All-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Bull_Picks_All-04SEP26.txt
+   🧹 Checking for stale 'Rec_Climax_Bounce' watchlists...
+📂 Processing: Rec_Climax_Bounce-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Rec_Climax_Bounce-04SEP26.txt
+   🧹 Checking for stale 'Rec_Early_Bird' watchlists...
+📂 Processing: Rec_Early_Bird-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Rec_Early_Bird-04SEP26.txt
+   🧹 Checking for stale 'Rec_RS_Survivor' watchlists...
+📂 Processing: Rec_RS_Survivor-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Rec_RS_Survivor-04SEP26.txt
+   🧹 Checking for stale 'Recovery_Picks_All' watchlists...
+📂 Processing: Recovery_Picks_All-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Recovery_Picks_All-04SEP26.txt
+   🧹 Checking for stale 'Catalyst_Watchlist' watchlists...
+📂 Processing: Catalyst_Watchlist-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Catalyst_Watchlist-04SEP26.txt
+   🧹 Checking for stale 'Recovery_Catalyst_Watchlist' watchlists...
+📂 Processing: Recovery_Catalyst_Watchlist-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Recovery_Catalyst_Watchlist-04SEP26.txt
+   🧹 Checking for stale 'Golden_Matcher_Picks' watchlists...
+📂 Processing: Golden_Matcher_Picks-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Golden_Matcher_Picks-04SEP26.txt
+   🧹 Checking for stale 'Golden_Matcher_Board' watchlists...
+📂 Processing: Golden_Matcher_Board-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Golden_Matcher_Board-04SEP26.txt
+   🧹 Checking for stale 'XRay_Picks' watchlists...
+📂 Processing: XRay_Picks-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded XRay_Picks-04SEP26.txt
+   🧹 Checking for stale 'Bull_Screener' watchlists...
+⚠️ LATEST_Bull_Screener.txt is STALE (0d old) — today's scan produced no picks. Skipping (won't upload prior-run symbols).
+   🧹 Checking for stale 'Bull_Screener_Custom' watchlists...
+📂 Processing: Bull_Screener_Custom-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Bull_Screener_Custom-04SEP26.txt
+   🧹 Checking for stale 'Portfolio' watchlists...
+📂 Processing: Portfolio-04SEP26.txt
+   Clicking Menu Trigger (Watchlist Switcher)...
+      📂 Menu closed. Opening...
+   Selecting 'Upload list...'
+   Waiting for file chooser...
+   ✅ Uploaded Portfolio-04SEP26.txt
+🏁 Sync Complete!
+🤖 Pipeline Mode: Closing in 3 seconds...
+🔒 Closing persistent browser context...
+2026-09-04 08:32:51 - INFO -
+[PHASE 8] POST-FLIGHT CLEANUP & DATABASE BACKUP...
+
+[PHASE 8] POST-FLIGHT CLEANUP & DATABASE BACKUP...
+[backup] database backed up safely to trade_journal_v6.backup_20260904.db
+2026-09-04 08:32:51 - INFO -
+[PHASE 9] RUNNING PORTFOLIO ROTATION GUARD...
+
+[PHASE 9] RUNNING PORTFOLIO ROTATION GUARD...
+
+============================================================
+🛡️  CAPITAL ROTATION & PORTFOLIO GUARD
+============================================================
+✅ Successfully fetched LIVE Open Portfolio from Dhan.
+📡 Evaluating Structural Integrity of 22 Open Portfolio Stocks...
+   ... Fetching AI Weinstein Grade for VIJAYA     [Pharma]
+   ... Fetching AI Weinstein Grade for COALINDIA  [Energy]
+   ... Fetching AI Weinstein Grade for M&MFIN     [Financial Services]
+   ... Fetching AI Weinstein Grade for NESTLEIND  [FMCG]
+   ... Fetching AI Weinstein Grade for RRKABEL    [Capital Goods & Defense]
+   ... Fetching AI Weinstein Grade for LAURUSLABS [Pharma]
+   ... Fetching AI Weinstein Grade for NETWEB     [Nifty IT]
+   ... Fetching AI Weinstein Grade for ANANDRATHI [Financial Services]
+   ... Fetching AI Weinstein Grade for SYRMA      [Capital Goods & Defense]
+   ... Fetching AI Weinstein Grade for SONACOMS   [Auto]
+   ... Fetching AI Weinstein Grade for EICHERMOT  [Auto]
+   ... Fetching AI Weinstein Grade for CAPLIPOINT [Pharma]
+   ... Fetching AI Weinstein Grade for BAJFINANCE [Financial Services]
+   ... Fetching AI Weinstein Grade for TVSMOTOR   [Auto]
+   ... Fetching AI Weinstein Grade for CUMMINSIND [Capital Goods & Defense]
+   ... Fetching AI Weinstein Grade for ASTERDM    [Pharma]
+   ... Fetching AI Weinstein Grade for NAM-INDIA  [Financial Services]
+   ... Fetching AI Weinstein Grade for IKS        [Pharma]
+   ... Fetching AI Weinstein Grade for AUBANK     [Bank Nifty]
+   ... Fetching AI Weinstein Grade for GLAXO      [Pharma]
+   ... Fetching AI Weinstein Grade for APOLLOHOSP [Pharma]
+   ... Fetching AI Weinstein Grade for SAILIFE    [Pharma]
+
+[PORTFOLIO HEALTH CHECK]
+  Grade A: 12 stocks (55%)
+  Grade B: 6 stocks (27%)
+  Grade C: 3 stocks (14%)
+  Grade D: 0 stocks (0%)
+  Grade F: 1 stocks (5%)
+
+🌟 Golden Matcher produced 53 NEW potential targets.
+
+📡 Evaluating Structural & AI Integrity of 53 NEW Golden Targets...
+   ... Fetching AI Weinstein Grade for RAINBOW    [Other]
+   ... Fetching AI Weinstein Grade for MODEFENCE  [Other]
+   ... Fetching AI Weinstein Grade for ACUTAAS    [Other]
+   ... Fetching AI Weinstein Grade for SAREGAMA   [Other]
+   ... Fetching AI Weinstein Grade for HCLTECH    [Nifty IT]
+   ... Fetching AI Weinstein Grade for NYKAA      [Other]
+   ... Fetching AI Weinstein Grade for TBOTEK     [Nifty India Consumption]
+   ... Fetching AI Weinstein Grade for GLENMARK   [Other]
+   ... Fetching AI Weinstein Grade for HAL        [Other]
+   ... Fetching AI Weinstein Grade for HONASA     [FMCG]
+   ... Fetching AI Weinstein Grade for APARINDS   [Capital Goods & Defense]
+   ... Fetching AI Weinstein Grade for BANKNIFTY1 [Other]
+   ... Fetching AI Weinstein Grade for CEATLTD    [Other]
+   ... Fetching AI Weinstein Grade for ITBEES     [Other]
+   ... Fetching AI Weinstein Grade for NESTLEIND  [Other]
+   ... Fetching AI Weinstein Grade for NEXT50IETF [Other]
+   ... Fetching AI Weinstein Grade for NYKAA      [Services]
+   ... Fetching AI Weinstein Grade for DIVISLAB   [Pharma]
+   ... Fetching AI Weinstein Grade for OFSS       [Other]
+   ... Fetching AI Weinstein Grade for MOCAPITAL  [Other]
+   ... Fetching AI Weinstein Grade for UNITDSPR   [Other]
+   ... Fetching AI Weinstein Grade for KPRMILL    [Nifty India Consumption]
+   ... Fetching AI Weinstein Grade for ALPHA      [Other]
+   ... Fetching AI Weinstein Grade for MOM30IETF  [Other]
+   ... Fetching AI Weinstein Grade for EMCURE     [Other]
+   ... Fetching AI Weinstein Grade for LODHA      [Other]
+   ... Fetching AI Weinstein Grade for CIPLA      [Other]
+   ... Fetching AI Weinstein Grade for ENDURANCE  [Other]
+   ... Fetching AI Weinstein Grade for LTM        [Nifty IT]
+   ... Fetching AI Weinstein Grade for VIJAYA     [Other]
+   ... Fetching AI Weinstein Grade for AUTOBEES   [Other]
+   ... Fetching AI Weinstein Grade for RADICO     [Other]
+   ... Fetching AI Weinstein Grade for MOREALTY   [Other]
+   ... Fetching AI Weinstein Grade for MOM100     [Other]
+   ... Fetching AI Weinstein Grade for APOLLOHOSP [Other]
+   ... Fetching AI Weinstein Grade for SMALLCAP   [Other]
+   ... Fetching AI Weinstein Grade for SOLARINDS  [Other]
+   ... Fetching AI Weinstein Grade for MOMENTUM50 [Other]
+   ... Fetching AI Weinstein Grade for IKS        [Other]
+   ... Fetching AI Weinstein Grade for PVTBANIETF [Other]
+   ... Fetching AI Weinstein Grade for ABSLAMC    [Other]
+   ... Fetching AI Weinstein Grade for REDINGTON  [Services]
+   ... Fetching AI Weinstein Grade for HDFCSML250 [Other]
+   ... Fetching AI Weinstein Grade for GOLDIETF   [Other]
+   ... Fetching AI Weinstein Grade for OFSS       [Nifty IT]
+   ... Fetching AI Weinstein Grade for HSCL       [Other]
+   ... Fetching AI Weinstein Grade for PHARMABEES [Other]
+   ... Fetching AI Weinstein Grade for JSWDULUX   [FMCG]
+   ... Fetching AI Weinstein Grade for ACE        [Other]
+   ... Fetching AI Weinstein Grade for LALPATHLAB [Other]
+   ... Fetching AI Weinstein Grade for METALIETF  [Other]
+   ... Fetching AI Weinstein Grade for LALPATHLAB [Pharma]
+   ... Fetching AI Weinstein Grade for MIDCAPETF  [Other]
+
+============================================================
+📋 CAPITAL ROTATION REPORT & AI SWAP ANALYSIS
+============================================================
+🚨 ROTATION ALERT: UPGRADE OPPORTUNITY DETECTED
+Your portfolio holds structurally weak capital while pristine Golden Targets are available.
+
+❌ SELL CANDIDATES (Dead Money / Broken Trends / Poor AI Outlook):
+  - M&MFIN       | Grade: C | AI: 3-Star  | Reason: Messy moving average stack and weak RSI trap price in a non-actionable base.
+  - CUMMINSIND   | Grade: B | AI: 2-Star  | Reason: Stage 3 topping action; price below declining 50-day SMA with drying volume.
+  - BAJFINANCE   | Grade: C | AI: 3-Star  | Reason: Messy moving average stack and weak momentum trap this financial play in neutral.
+  - IKS          | Grade: C | AI: 2-Star  | Reason: Failed Stage 3 distribution; disordered MAs and oversold RSI signal uninvestable breakdown.
+  - COALINDIA    | Grade: F | AI: 3-Star  | Reason: Broken 200 SMA and deep correction negate volume surge; vulnerable to distribution.
+
+✅ BUY REPLACEMENTS (Elite Technical Alignment & Fundamental Catalyst):
+  - GLENMARK     | Sector: Other           | AI: 5-Star  | Reason: Pristine Weinstein Stage 2 breakout setup with stacked moving averages and low-volume consolidation.
+  - OFSS         | Sector: Other           | AI: 5-Star  | Reason: Pristine Stage 2 alignment, optimal volume contraction, and textbook moving average stack.
+  - ⚠️ SKIPPED: DIVISLAB (Portfolio is over-concentrated in Pharma [7])
+  - VIJAYA       | Sector: Other           | AI: 5-Star  | Reason: Flawless Stage 2 alignment, tight compression, and dry volume signal institutional accumulation.
+  - SMALLCAP     | Sector: Other           | AI: 5-Star  | Reason: Perfect trend alignment, optimal momentum, and dry volume pullback confirm accumulation.
+  - OFSS         | Sector: Nifty IT        | AI: 5-Star  | Reason: Pristine Stage 2 alignment, optimal volume contraction, and textbook moving average stack.
+2026-09-04 08:33:57 - INFO -
+[PHASE 10] EXPORTING SCREENER CSVs...
+
+[PHASE 10] EXPORTING SCREENER CSVs...
+2026-09-04 08:33:57 - INFO - ✅ Exported 3 files to C:\Users\jayra\Documents\GeminiVSCode\Screener CSVs
+✅ Exported 3 files to C:\Users\jayra\Documents\GeminiVSCode\Screener CSVs
+2026-09-04 08:33:57 - INFO -
+[PHASE 11] VALIDATING SCORE AUTHENTICITY...
+
+[PHASE 11] VALIDATING SCORE AUTHENTICITY...
+====================================================================
+  SCORE AUTHENTICITY CHECK  04 Sep 2026 08:33
+  (each stored score recomputed from its own visible columns)
+====================================================================
+
+[PASS] FINAL_WATCHLIST.csv  (14 rows)
+  OK Tech_Score == calc_tech_score(columns)  — 14/14 match
+  OK Combined_Score == Conviction*5 + Tech*0.5  — 14/14 match
+  OK Overall_Rating == weighted_sum(components)  — 14/14 match
+  OK Delivery_Pct range check [0, 100]  — 14/14 within range
+      · Futures_OI_Chg_Pct: 43% filled (real data gap)
+
+[PASS] FINAL_COMBINED_PICKS.csv  (14 rows)
+  OK Tech_Score == calc_tech_score(columns)  — 14/14 match
+  OK Combined_Score == Conviction*5 + Tech*0.5  — 14/14 match
+  OK Overall_Rating == weighted_sum(components)  — 14/14 match
+  OK Delivery_Pct range check [0, 100]  — 14/14 within range
+      · Futures_OI_Chg_Pct: 43% filled (real data gap)
+
+[PASS] Bull_Screener_Results.csv  (0 rows)
+      · empty file
+
+[PASS] Recovery_Screener_Results.csv  (48 rows)
+  OK Score == compute_score(columns)  — 48/48 match
+  OK Combined_Score == blend(Conviction, Score/22*100)  — 48/48 match
+      · Mansfield_RS_x100: 96% filled
+      · Correction_52W_pct: 96% filled
+      · Rel_Vol: 96% filled
+
+--------------------------------------------------------------------
+  OVERALL: PASS — all scores reproducible from columns
+====================================================================
+2026-09-04 08:33:57 - INFO -
+============================================================
+
+============================================================
+2026-09-04 08:33:57 - INFO - 🎉 AUTO-PILOT PIPELINE COMPLETED SUCCESSFULLY!
+🎉 AUTO-PILOT PIPELINE COMPLETED SUCCESSFULLY!
+2026-09-04 08:33:57 - INFO - ============================================================
+============================================================
+2026-09-04 08:33:57 - INFO - [log] Full console log saved -> C:\Users\jayra\Documents\GeminiVSCode\auto_pilot_20260904_081458.log
+[log] Full console log saved -> C:\Users\jayra\Documents\GeminiVSCode\auto_pilot_20260904_081458.log
+
+C:\Users\jayra\Documents\GeminiVSCode>

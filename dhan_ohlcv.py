@@ -67,7 +67,14 @@ def _is_transient_failure(resp) -> bool:
         return True
     if not code and not msg:
         return True
-    # DH-901 (auth) and DH-905 (bad input) are NOT transient — don't retry.
+    # DH-905 IS retried (3-Sep-2026). It is nominally "bad input", but the symbol in
+    # the auto-pilot's DH-905 banner (^CNXFIN) answered on the first try from another
+    # process seconds later, at every range from 1y to 10y. Under burst, Dhan returns
+    # DH-905 for the same overload that produces DH-904 and blank bodies above. Bounded
+    # by DHAN_MAX_RETRIES, so a genuinely-bad symbol costs 2 calls and then falls back.
+    if "DH-905" in code:
+        return True
+    # DH-901 (auth) is NOT transient — a bad token fails identically every time.
     return False
 
 
@@ -352,7 +359,12 @@ def _note_dhan_failure(symbol, resp) -> None:
         code = str(remarks.get("error_code") or remarks.get("errorCode") or "")
         msg = str(remarks.get("error_message") or remarks.get("errorMessage") or "")
     is_auth = ("DH-901" in code) or ("auth" in msg.lower()) or ("token" in msg.lower())
-    is_fatal = is_auth or ("DH-905" in code)
+    # DH-905 NO LONGER LATCHES (3-Sep-2026). It is a PER-REQUEST input error and says
+    # nothing about the session, but it was tripping _AUTH_FAILED for the full 300s
+    # cooldown - so one rejected index took ~500 working equities off the paid feed and
+    # onto yfinance without a further attempt. DH-901 keeps the latch: a bad token
+    # really does invalidate every call, and hammering it per-symbol helps no one.
+    is_fatal = is_auth
     if is_fatal and not _AUTH_FAILED:
         _AUTH_FAILED = True
         _AUTH_FAILED_AT = time.time()      # starts the recovery cooldown (_auth_blocked)
@@ -369,10 +381,13 @@ def _note_dhan_failure(symbol, resp) -> None:
         elif "DH-905" in code:
             banner = (
                 "\n" + "=" * 70 +
-                "\n[X] DHAN API BROKEN (DH-905) -- the PAID feed is NOT being used.\n"
-                f"   {code} {msg}\n"
-                "   Dhan's backend is rejecting valid parameters. Fast-failing to yfinance.\n"
-                "   This is a broker-side API issue.\n" + "=" * 70)
+                "\n[!] Dhan DH-905 on this request -- retrying, then falling back for\n"
+                "    THIS SYMBOL ONLY (the rest of the run stays on the paid feed).\n"
+                f"   {code} {msg}  symbol={symbol}\n"
+                "   Usually burst load rather than a broken backend: the same call\n"
+                "   typically succeeds moments later. If EVERY symbol reports this,\n"
+                "   raise DHAN_MIN_INTERVAL_S (currently %s) and re-run.\n" % _DHAN_MIN_INTERVAL_S
+                + "=" * 70)
         else:
             detail = (f"{code} {msg}").strip() or "empty/non-JSON body (likely rate-limit/429)"
             banner = (f"\n[!] Dhan API non-success for {symbol}: {detail} "

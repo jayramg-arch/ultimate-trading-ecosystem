@@ -1,0 +1,52 @@
+exposure,trade_symbol,dhan_index,tv_index,volume_source,asset_class,liquidity_tier,index_status,chart_mode
+NIFTY ALPHA 50,ALPHA,NIFTY ALPHA 50,NSE:NIFTYALPHA50,"ALPHA (stage 2, ETF chart only)",SMART_BETA,B,matched,index
+Nifty 200 Alpha 30,ALPHAETF,NIFTY200 ALPHA 30,NSE:NIFTY200_ALPHA_30,"ALPHAETF (stage 2, ETF chart only)",SMART_BETA,D,matched,index
+Nifty Auto,AUTOBEES,NIFTY AUTO,NSE:CNXAUTO,"AUTOBEES (stage 2, ETF chart only)",SECTOR,B,matched,index
+Nifty Bank,BANKNIFTY1,BANKNIFTY,NSE:BANKNIFTY,"BANKNIFTY1 (stage 2, ETF chart only)",SECTOR,B,matched,index
+Finnifty,BFSI,FINNIFTY,NSE:FINNIFTY,"BFSI (stage 2, ETF chart only)",SECTOR,D,matched,index
+Nifty Chemicals,CHEMICAL,,NSE:NIFTY_CHEMICALS,"CHEMICAL (stage 2, ETF chart only)",SECTOR,D,tv only,etf_only
+Nifty Commodities,COMMOIETF,NIFTY COMMODITIES,NSE:CNXCOMMODITIES,"COMMOIETF (stage 2, ETF chart only)",THEMATIC,D,matched,index
+Nifty Consumption,CONSUMBEES,NIFTY CONSUMPTION,NSE:CNXCONSUMPTION,"CONSUMBEES (stage 2, ETF chart only)",THEMATIC,D,matched,index
+Nifty CPSE,CPSEETF,NIFTYCPSE,NSE:CPSE,"CPSEETF (stage 2, ETF chart only)",THEMATIC,B,matched,index
+Nifty Energy,ENERGY,NIFTY ENERGY,NSE:CNXENERGY,"ENERGY (stage 2, ETF chart only)",THEMATIC,D,matched,index
+Nifty EV and New Age Auto,EVINDIA,NIFTY EV,NSE:NIFTY_EV,"EVINDIA (stage 2, ETF chart only)",SECTOR,D,matched,index
+Nifty Financial Services Ex Bank,FINIETF,NIFTY FINSEREXBNK,NSE:NIFTY_FINSEREXBNK,"FINIETF (stage 2, ETF chart only)",SECTOR,C,matched,index
+Nifty FMCG,FMCGIETF,NIFTY FMCG,NSE:CNXFMCG,"FMCGIETF (stage 2, ETF chart only)",SECTOR,B,matched,index
+Gold,GOLDIETF,,,"GOLDIETF (stage 2, ETF chart only)",COMMODITY,A,no NSE index,etf_only
+Nifty Capital Market,GROWWCAPM,Nifty Capital Mkt,NSE:NIFTY_CAPITAL_MKT,"GROWWCAPM (stage 2, ETF chart only)",SECTOR,D,matched,index
+NIFTY Smallcap 250,HDFCSML250,NIFTY SMALLCAP 250,NSE:NIFTYSMLCAP250,"HDFCSML250 (stage 2, ETF chart only)",BROAD_EQUITY,A,matched,index
+Nifty Healthcare,HEALTHIETF,NIFTY HEALTHCARE,NSE:NIFTY_HEALTHCARE,"HEALTHIETF (stage 2, ETF chart only)",SECTOR,D,matched,index
+Hang Seng,HNGSNGBEES,,,"HNGSNGBEES (stage 2, ETF chart only)",INTERNATIONAL,B,no NSE index,etf_only
+NIFTY Infra,INFRAIETF,NIFTYINFRA,NSE:CNXINFRA,"INFRAIETF (stage 2, ETF chart only)",THEMATIC,D,matched,index
+Nifty IT,ITBEES,NIFTYIT,NSE:CNXIT,"ITBEES (stage 2, ETF chart only)",SECTOR,A,matched,index
+Overnight / Liquid,LIQUID1,,,"LIQUID1 (stage 2, ETF chart only)",DEBT,A,no NSE index,etf_only
+Nifty 100 Low Volatility 30,LOWVOL1,NIFTY100 LOW VOLATILITY 30,NSE:NIFTY100LOWVOL30,"LOWVOL1 (stage 2, ETF chart only)",SMART_BETA,D,matched,index
+NYSE FANG+,MAFANG,,,"MAFANG (stage 2, ETF chart only)",INTERNATIONAL,B,no NSE index,etf_only
+Nifty India Manufacturing,MAKEINDIA,NIFTY INDIA MFG,NSE:NIFTY_INDIA_MFG,"MAKEINDIA (stage 2, ETF chart only)",THEMATIC,D,matched,index
+S&P 500 Top 50,MASPTOP50,,,"MASPTOP50 (stage 2, ETF chart only)",INTERNATIONAL,D,no NSE index,etf_only
+Nifty Metal,METALIETF,NIFTY METAL,NSE:CNXMETAL,"METALIETF (stage 2, ETF chart only)",SECTOR,A,matched,index
+Nifty Mid Cap 50,MIDCAP,NIFTY MIDCAP 150,NSE:NIFTYMIDCAP150,"MIDCAP (stage 2, ETF chart only)",BROAD_EQUITY,D,matched,index
+Nifty Midcap 150,MIDCAPETF,NIFTY MIDCAP 150,NSE:NIFTYMIDCAP150,"MIDCAPETF (stage 2, ETF chart only)",BROAD_EQUITY,B,matched,index
+Nifty MidSmallCap 400,MIDSMALL,NIFTY MIDSMALLCAP 400,NSE:NIFTYMIDSML400,"MIDSMALL (stage 2, ETF chart only)",SMART_BETA,D,matched,index
+Nifty Capital Market,MOCAPITAL,Nifty Capital Mkt,NSE:NIFTY_CAPITAL_MKT,"MOCAPITAL (stage 2, ETF chart only)",SECTOR,B,matched,index
+Nifty India Defence,MODEFENCE,NIFTY IND DEFENCE,NSE:NIFTY_IND_DEFENCE,"MODEFENCE (stage 2, ETF chart only)",SECTOR,A,matched,index
+NIFTY Midcap 100,MOM100,NIFTY MIDCAP 150,NSE:NIFTYMIDCAP150,"MOM100 (stage 2, ETF chart only)",BROAD_EQUITY,C,matched,index
+Nifty 200 Momentum 30,MOM30IETF,NIFTY200MOMENTM30,NSE:NIFTY200MOMENTM30,"MOM30IETF (stage 2, ETF chart only)",SMART_BETA,C,matched,index
+Nifty 500 Momentum 50,MOMENTUM50,NIFTY500MOMENTM50,NSE:NIFTY500MOMENTM50,"MOMENTUM50 (stage 2, ETF chart only)",SMART_BETA,C,matched,index
+Nasdaq 100,MON100,,,"MON100 (stage 2, ETF chart only)",INTERNATIONAL,A,no NSE index,etf_only
+Nifty 500,MONIFTY500,NIFTY 500,NSE:CNX500,"MONIFTY500 (stage 2, ETF chart only)",BROAD_EQUITY,C,matched,index
+Nasdaq Quality 50,MONQ50,,,"MONQ50 (stage 2, ETF chart only)",INTERNATIONAL,D,no NSE index,etf_only
+Nifty Realty,MOREALTY,NIFTY REALTY,NSE:CNXREALTY,"MOREALTY (stage 2, ETF chart only)",SECTOR,B,matched,index
+Nifty Next 50,NEXT50IETF,NIFTYNXT50,NSE:NIFTYJR,"NEXT50IETF (stage 2, ETF chart only)",BROAD_EQUITY,B,matched,index
+Nifty 50,NIFTYBEES,NIFTY,NSE:NIFTY,"NIFTYBEES (stage 2, ETF chart only)",BROAD_EQUITY,A,matched,index
+Nifty50 Value 20 Index,NV20IETF,NIFTY50 VALUE 20,NSE:NIFTY50_VALUE_20,"NV20IETF (stage 2, ETF chart only)",SMART_BETA,D,matched,index
+Nifty Oil and Gas,OILIETF,NIFTY OIL AND GAS,NSE:NIFTY_OIL_AND_GAS,"OILIETF (stage 2, ETF chart only)",COMMODITY,C,matched,index
+Nifty Pharma,PHARMABEES,NIFTY PHARMA,NSE:CNXPHARMA,"PHARMABEES (stage 2, ETF chart only)",SECTOR,A,matched,index
+Nifty PSU Bank,PSUBNKBEES,NIFTY PSU BANK,NSE:CNXPSUBANK,"PSUBNKBEES (stage 2, ETF chart only)",SECTOR,A,matched,index
+Nifty Private Bank,PVTBANIETF,NIFTY PVT BANK,NSE:NIFTYPVTBANK,"PVTBANIETF (stage 2, ETF chart only)",SECTOR,A,matched,index
+Nifty Midcap 150 Momentum,SBIMIDMOM,NIFTYM150MOMNTM50,NSE:NIFTYM150MOMNTM50,"SBIMIDMOM (stage 2, ETF chart only)",SMART_BETA,D,matched,index
+Silver,SILVERIETF,,,"SILVERIETF (stage 2, ETF chart only)",COMMODITY,A,no NSE index,etf_only
+Nifty Smallcap250 Momentum Quality 100,SMALLCAP,NIFTYSML250MQ 100,NSE:NIFTYSML250MQ_100,"SMALLCAP (stage 2, ETF chart only)",SMART_BETA,B,matched,index
+NIFTY Smallcap 100,SML100CASE,NIFTY SMALLCAP 100,NSE:CNXSMALLCAP,"SML100CASE (stage 2, ETF chart only)",BROAD_EQUITY,D,matched,index
+Nifty India Digital,TNIDETF,NIFTY IND DIGITAL,NSE:NIFTY_IND_DIGITAL,"TNIDETF (stage 2, ETF chart only)",THEMATIC,D,matched,index
+Nifty 100,TOP100CASE,NIFTY 100,NSE:CNX100,"TOP100CASE (stage 2, ETF chart only)",BROAD_EQUITY,D,matched,index

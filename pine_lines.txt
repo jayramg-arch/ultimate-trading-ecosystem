@@ -1,0 +1,3950 @@
+1: //@version=6
+2: indicator("Weinstein & Swing Pro Dashboard [v67.0]", overlay=true, max_bars_back=5000, max_lines_count=500)
+3: 
+4: // ==========================================
+5: // CHANGELOG v67.0
+6: // ==========================================
+7: // - CLEANUP: Removed the Recovery Edges detection panel (REV-CB, REV-RS, REV-EARLY)
+8: //   and the RFF Lite fundamental gate. All recovery logic is now fully handled by
+9: //   the Weinstein Unified Ecosystem (Unified Strategy) indicator.
+10: // - REMOVED: 'Recovery Edges' input group (9 inputs).
+11: // - REMOVED: f_getStrictTrendDash(), rolling-extremes block, 3-way regime gate,
+12: //   4-pillar CB detection, REV-RS logic, REV-EARLY logic, and RFF Lite
+13: //   (2 request.financial calls). Pine call budget -2 financial calls.
+14: // - The table placeholder comment at row 3831 now cleanly separates the
+15: //   existing right-column Technical block from the Alpha Screener.
+16: // ==========================================
+17: // CHANGELOG v65.0
+18: // ==========================================
+19: // - REORGANIZATION: Restructured the dashboard table logic to follow a true top-down approach.
+20: // - Left Column flows from Macro & Sector -> Asset Quality -> Action/Setup -> Portfolio Management.
+21: // - Right Column flows from Positional (Weekly) -> Swing (Daily) -> Alpha Screener.
+22: // ==========================================
+23: // CHANGELOG v64.0
+24: // ==========================================
+25: // - NEW: Recovery Edges detection panel — ports REV-CB (4-pillar capitulation
+26: //   bottom), REV-RS (RS survivor breakout, strict-trend gated), and REV-EARLY
+27: //   (NR7/inside-3 + 20-bar reclaim) from Weinstein Recovery Strategy v1.4 /
+28: //   Capitulation Screener v1.3. 5-bar signal hold window (var int last_*_bar).
+29: // - NEW: 3-way recovery regime gate — mkt_idx_corrected (≥7% off CNX500 52W
+30: //   high) OR mkt_reclaim (CNX500 close > SMA50 within 30 bars) OR stock_corrected
+31: //   (≥10% off own 52W high). Reuses the existing bench500 security call —
+32: //   extended to also return CNX500 52W high (no new security call).
+33: // - NEW: RFF Lite fundamental gate — 2 request.financial calls (NET_INCOME TTM,
+34: //   CASH_F_OPERATING_ACTIVITIES TTM). Score 0-2. When require_rff_lite is on
+35: //   and score < 2, BUY/STRONG-BUY recommendations are downgraded to "BUY*"
+36: //   (technical signal fired but fundamentals failed).
+37: // - NEW: f_getStrictTrend helper (port from v1.4 strategy) — pivot-based
+38: //   HH/HL trend detector used by REV-RS gate.
+39: // - NEW: Dashboard panel rows — "RECOVERY" section showing 4-pillar dot grid
+40: //   (●●●● colour-coded), active edge label (REV-CB/REV-RS/REV-EARLY/NONE),
+41: //   regime status (MKT-CORR/RECLAIM/STOCK-CORR/OFF), recovery score, and
+42: //   RFF Lite (2/2 ✓ | 1/2 ⚠ | 0/2 ✗).
+43: // - Inputs: new "Recovery Edges" group (enable, drawdown %, red-bar count,
+44: //   range lookback, min correction %, hold window, require_rff_lite).
+45: // - Pine call budget: +0 request.security, +2 request.financial. Fully reuses
+46: //   existing CNX500 / Mansfield calls.
+47: // ==========================================
+48: // CHANGELOG v63.4
+49: // ==========================================
+50: // - Mansfield RS rescaled to ×100 (RRG-compatible: RS-Ratio ≈ mansfield + 100).
+51: //   Ratio symbol "STOCK / BENCH" remains the input source — `close` inside the
+52: //   security call IS stock_close / bench_close (benchmark-relative by construction).
+53: // - Three weekly RS request.security calls switched from lookahead_on → lookahead_off
+54: //   to remove forward-bar bias.
+55: // - 130-bar warm-up gate on Mansfield to suppress junk RS during early history.
+56: // - True RRG quadrants derived from (mansfield, RS-momentum=ROC(mansfield,4)):
+57: //   LEADING / WEAKENING / LAGGING / IMPROVING. f_rrg_color/icon updated to take
+58: //   the quadrant string instead of slope.
+59: // - SWG-GAP catalyst now requires intra-bar pos >= 0.60 (anti-algo), mirroring
+60: //   v4.52 strategy gate — eliminates gap-and-crap reversals.
+61: // - rsSlopeThresh default rescaled 0.02 → 0.2 (and velocity thresholds ×10) to
+62: //   match new ×100 Mansfield scale.
+63: // ==========================================
+64: 
+65: // ==========================================
+66: // 1. INPUTS
+67: // ==========================================
+68: // <PORTFOLIO_START>
+69: grpP1_5 = "1. Portfolio Slots 1-5"
+70: p1_tick = input.string("NSE:RELIANCE", title="Slot 1", group=grpP1_5, inline="p1", display=display.data_window)
+71: p1_ent  = input.float(1358.33, title="Entry", group=grpP1_5, inline="p1", display=display.data_window)
+72: p1_sl   = input.price(1286.30, title="SL", group=grpP1_5, inline="p1", display=display.data_window)
+73: p1_sec  = input.symbol("NSE:NIFTY_OIL_AND_GAS", title="Sector", group=grpP1_5, inline="p1s", display=display.data_window)
+74: p1_date = input.time(timestamp("2024-10-15"), title="Date", group=grpP1_5, inline="p1d", display=display.data_window)
+75: 
+76: p2_tick = input.string("NSE:DMART", title="Slot 2", group=grpP1_5, inline="p2", display=display.data_window)
+77: p2_ent  = input.float(4426.5, title="Entry", group=grpP1_5, inline="p2", display=display.data_window)
+78: p2_sl   = input.price(4138.50, title="SL", group=grpP1_5, inline="p2", display=display.data_window)
+79: p2_sec  = input.symbol("NSE:CNXFMCG", title="Sector", group=grpP1_5, inline="p2s", display=display.data_window)
+80: p2_date = input.time(timestamp("2026-04-24"), title="Date", group=grpP1_5, inline="p2d", display=display.data_window)
+81: 
+82: p3_tick = input.string("NSE:COALINDIA", title="Slot 3", group=grpP1_5, inline="p3", display=display.data_window)
+83: p3_ent  = input.float(431.5, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
+84: p3_sl   = input.price(402.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
+85: p3_sec  = input.symbol("NSE:CNXENERGY", title="Sector", group=grpP1_5, inline="p3s", display=display.data_window)
+86: p3_date = input.time(timestamp("2026-02-09"), title="Date", group=grpP1_5, inline="p3d", display=display.data_window)
+87: 
+88: p4_tick = input.string("NSE:SAILIFE", title="Slot 4", group=grpP1_5, inline="p4", display=display.data_window)
+89: p4_ent  = input.float(966.2, title="Entry", group=grpP1_5, inline="p4", display=display.data_window)
+90: p4_sl   = input.price(916.50, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
+91: p4_sec  = input.symbol("NSE:CNXPHARMA", title="Sector", group=grpP1_5, inline="p4s", display=display.data_window)
+92: p4_date = input.time(timestamp("2026-04-16"), title="Date", group=grpP1_5, inline="p4d", display=display.data_window)
+93: 
+94: p5_tick = input.string("LAURUSLABS", title="Slot 5", group=grpP1_5, inline="p5", display=display.data_window)
+95: p5_ent  = input.float(1107.85, title="Entry", group=grpP1_5, inline="p5", display=display.data_window)
+96: p5_sl   = input.price(986.90, title="SL", group=grpP1_5, inline="p5", display=display.data_window)
+97: p5_sec  = input.symbol("NSE:CNXPHARMA", title="Sector", group=grpP1_5, inline="p5s", display=display.data_window)
+98: p5_date = input.time(timestamp("2026-04-28"), title="Date", group=grpP1_5, inline="p5d", display=display.data_window)
+99: 
+100: 
+101: // --- GROUP 2: SLOTS 6-10 ---
+102: grpP6_10 = "2. Portfolio Slots 6-10"
+103: p6_tick = input.string("ANANDRATHI", title="Slot 6", group=grpP6_10, inline="p6", display=display.data_window)
+104: p6_ent  = input.float(3579.50, title="Entry", group=grpP6_10, inline="p6", display=display.data_window)
+105: p6_sl   = input.price(3315.20, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
+106: p6_sec  = input.symbol("NSE:CNXFINANCE", title="Sector", group=grpP6_10, inline="p6s", display=display.data_window)
+107: p6_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP6_10, inline="p6d", display=display.data_window)
+108: 
+109: p7_tick = input.string("", title="Slot 7", group=grpP6_10, inline="p7", display=display.data_window)
+110: p7_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p7", display=display.data_window)
+111: p7_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p7", display=display.data_window)
+112: p7_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p7s", display=display.data_window)
+113: p7_date = input.time(0, title="Date", group=grpP6_10, inline="p7d", display=display.data_window)
+114: 
+115: p8_tick = input.string("", title="Slot 8", group=grpP6_10, inline="p8", display=display.data_window)
+116: p8_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p8", display=display.data_window)
+117: p8_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p8", display=display.data_window)
+118: p8_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p8s", display=display.data_window)
+119: p8_date = input.time(0, title="Date", group=grpP6_10, inline="p8d", display=display.data_window)
+120: 
+121: p9_tick = input.string("", title="Slot 9", group=grpP6_10, inline="p9", display=display.data_window)
+122: p9_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p9", display=display.data_window)
+123: p9_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p9", display=display.data_window)
+124: p9_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p9s", display=display.data_window)
+125: p9_date = input.time(0, title="Date", group=grpP6_10, inline="p9d", display=display.data_window)
+126: 
+127: p10_tick = input.string("", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
+128: p10_ent  = input.float(0.0, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
+129: p10_sl   = input.price(0.0, title="SL", group=grpP6_10, inline="p10", display=display.data_window)
+130: p10_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP6_10, inline="p10s", display=display.data_window)
+131: p10_date = input.time(0, title="Date", group=grpP6_10, inline="p10d", display=display.data_window)
+132: 
+133: 
+134: // --- GROUP 3: SLOTS 11-15 ---
+135: grpP11_15 = "3. Portfolio Slots 11-15"
+136: p11_tick = input.string("", title="Slot 11", group=grpP11_15, inline="p11", display=display.data_window)
+137: p11_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p11", display=display.data_window)
+138: p11_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p11", display=display.data_window)
+139: p11_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p11s", display=display.data_window)
+140: p11_date = input.time(0, title="Date", group=grpP11_15, inline="p11d", display=display.data_window)
+141: 
+142: p12_tick = input.string("", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
+143: p12_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
+144: p12_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+145: p12_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p12s", display=display.data_window)
+146: p12_date = input.time(0, title="Date", group=grpP11_15, inline="p12d", display=display.data_window)
+147: 
+148: p13_tick = input.string("", title="Slot 13", group=grpP11_15, inline="p13", display=display.data_window)
+149: p13_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p13", display=display.data_window)
+150: p13_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p13", display=display.data_window)
+151: p13_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
+152: p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
+153: 
+154: p14_tick = input.string("", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
+155: p14_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
+156: p14_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+157: p14_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p14s", display=display.data_window)
+158: p14_date = input.time(0, title="Date", group=grpP11_15, inline="p14d", display=display.data_window)
+159: 
+160: p15_tick = input.string("", title="Slot 15", group=grpP11_15, inline="p15", display=display.data_window)
+161: p15_ent  = input.float(0.0, title="Entry", group=grpP11_15, inline="p15", display=display.data_window)
+162: p15_sl   = input.price(0.0, title="SL", group=grpP11_15, inline="p15", display=display.data_window)
+163: p15_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP11_15, inline="p15s", display=display.data_window)
+164: p15_date = input.time(0, title="Date", group=grpP11_15, inline="p15d", display=display.data_window)
+165: 
+166: 
+167: // --- GROUP 4: SLOTS 16-20 ---
+168: grpP16_20 = "4. Portfolio Slots 16-20"
+169: p16_tick = input.string("", title="Slot 16", group=grpP16_20, inline="p16", display=display.data_window)
+170: p16_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p16", display=display.data_window)
+171: p16_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p16", display=display.data_window)
+172: p16_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
+173: p16_date = input.time(0, title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
+174: 
+175: p17_tick = input.string("", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
+176: p17_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p17", display=display.data_window)
+177: p17_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
+178: p17_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p17s", display=display.data_window)
+179: p17_date = input.time(0, title="Date", group=grpP16_20, inline="p17d", display=display.data_window)
+180: 
+181: p18_tick = input.string("", title="Slot 18", group=grpP16_20, inline="p18", display=display.data_window)
+182: p18_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p18", display=display.data_window)
+183: p18_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p18", display=display.data_window)
+184: p18_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p18s", display=display.data_window)
+185: p18_date = input.time(0, title="Date", group=grpP16_20, inline="p18d", display=display.data_window)
+186: 
+187: p19_tick = input.string("", title="Slot 19", group=grpP16_20, inline="p19", display=display.data_window)
+188: p19_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p19", display=display.data_window)
+189: p19_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p19", display=display.data_window)
+190: p19_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p19s", display=display.data_window)
+191: p19_date = input.time(0, title="Date", group=grpP16_20, inline="p19d", display=display.data_window)
+192: 
+193: p20_tick = input.string("", title="Slot 20", group=grpP16_20, inline="p20", display=display.data_window)
+194: p20_ent  = input.float(0.0, title="Entry", group=grpP16_20, inline="p20", display=display.data_window)
+195: p20_sl   = input.price(0.0, title="SL", group=grpP16_20, inline="p20", display=display.data_window)
+196: p20_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP16_20, inline="p20s", display=display.data_window)
+197: p20_date = input.time(0, title="Date", group=grpP16_20, inline="p20d", display=display.data_window)
+198: 
+199: 
+200: // --- GROUP 5: SLOTS 21-25 ---
+201: grpP21_25 = "5. Portfolio Slots 21-25"
+202: p21_tick = input.string("", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
+203: p21_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
+204: p21_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
+205: p21_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p21s", display=display.data_window)
+206: p21_date = input.time(0, title="Date", group=grpP21_25, inline="p21d", display=display.data_window)
+207: 
+208: p22_tick = input.string("", title="Slot 22", group=grpP21_25, inline="p22", display=display.data_window)
+209: p22_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p22", display=display.data_window)
+210: p22_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p22", display=display.data_window)
+211: p22_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p22s", display=display.data_window)
+212: p22_date = input.time(0, title="Date", group=grpP21_25, inline="p22d", display=display.data_window)
+213: 
+214: p23_tick = input.string("", title="Slot 23", group=grpP21_25, inline="p23", display=display.data_window)
+215: p23_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p23", display=display.data_window)
+216: p23_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p23", display=display.data_window)
+217: p23_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p23s", display=display.data_window)
+218: p23_date = input.time(0, title="Date", group=grpP21_25, inline="p23d", display=display.data_window)
+219: 
+220: p24_tick = input.string("", title="Slot 24", group=grpP21_25, inline="p24", display=display.data_window)
+221: p24_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p24", display=display.data_window)
+222: p24_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p24", display=display.data_window)
+223: p24_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p24s", display=display.data_window)
+224: p24_date = input.time(0, title="Date", group=grpP21_25, inline="p24d", display=display.data_window)
+225: 
+226: p25_tick = input.string("", title="Slot 25", group=grpP21_25, inline="p25", display=display.data_window)
+227: p25_ent  = input.float(0.0, title="Entry", group=grpP21_25, inline="p25", display=display.data_window)
+228: p25_sl   = input.price(0.0, title="SL", group=grpP21_25, inline="p25", display=display.data_window)
+229: p25_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP21_25, inline="p25s", display=display.data_window)
+230: p25_date = input.time(0, title="Date", group=grpP21_25, inline="p25d", display=display.data_window)
+231: 
+232: 
+233: // --- GROUP 6: SLOTS 26-30 ---
+234: grpP26_30 = "6. Portfolio Slots 26-30"
+235: p26_tick = input.string("", title="Slot 26", group=grpP26_30, inline="p26", display=display.data_window)
+236: p26_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p26", display=display.data_window)
+237: p26_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p26", display=display.data_window)
+238: p26_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p26s", display=display.data_window)
+239: p26_date = input.time(0, title="Date", group=grpP26_30, inline="p26d", display=display.data_window)
+240: 
+241: p27_tick = input.string("", title="Slot 27", group=grpP26_30, inline="p27", display=display.data_window)
+242: p27_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p27", display=display.data_window)
+243: p27_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p27", display=display.data_window)
+244: p27_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p27s", display=display.data_window)
+245: p27_date = input.time(0, title="Date", group=grpP26_30, inline="p27d", display=display.data_window)
+246: 
+247: p28_tick = input.string("", title="Slot 28", group=grpP26_30, inline="p28", display=display.data_window)
+248: p28_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p28", display=display.data_window)
+249: p28_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p28", display=display.data_window)
+250: p28_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p28s", display=display.data_window)
+251: p28_date = input.time(0, title="Date", group=grpP26_30, inline="p28d", display=display.data_window)
+252: 
+253: p29_tick = input.string("", title="Slot 29", group=grpP26_30, inline="p29", display=display.data_window)
+254: p29_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p29", display=display.data_window)
+255: p29_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p29", display=display.data_window)
+256: p29_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p29s", display=display.data_window)
+257: p29_date = input.time(0, title="Date", group=grpP26_30, inline="p29d", display=display.data_window)
+258: 
+259: p30_tick = input.string("", title="Slot 30", group=grpP26_30, inline="p30", display=display.data_window)
+260: p30_ent  = input.float(0.0, title="Entry", group=grpP26_30, inline="p30", display=display.data_window)
+261: p30_sl   = input.price(0.0, title="SL", group=grpP26_30, inline="p30", display=display.data_window)
+262: p30_sec  = input.symbol("NSE:CNX500", title="Sector", group=grpP26_30, inline="p30s", display=display.data_window)
+263: p30_date = input.time(0, title="Date", group=grpP26_30, inline="p30d", display=display.data_window)
+264: 
+265: // <PORTFOLIO_END>
+266: 
+267: 
+268: // Quick Check
+269: grpQuick = "Quick Check (Overrides Portfolio)"
+270: quick_ent = input.float(0.0, title="Temporary Entry Price", group=grpQuick)
+271: quick_sl  = input.price(0.0, title="Temporary Hard SL", group=grpQuick)
+272: 
+273: // Trailing Stop inputs removed. Using Chandelier Exit indicator natively.
+274: 
+275: // ==========================================
+276: // 2. STRATEGY INPUTS
+277: // ==========================================
+278: groupStrat  = "Strategy Inputs"
+279: maLengthW   = input.int(30, title="Weinstein SMA Length (Weekly)", group=groupStrat)
+280: wmaSlopeLen = input.int(4, title="30 WMA Slope Lookback (Weeks)", group=groupStrat)
+281: slopeThresh = input.float(0.0005, title="30WMA Slope Threshold (Flat)", group=groupStrat)
+282: 
+283: bench50     = input.symbol("NSE:NIFTY", title="Benchmark 1 (Nifty 50)", group=groupStrat)
+284: bench500    = input.symbol("NSE:CNX500", title="Benchmark 2 (Nifty 500 - Breadth)", group=groupStrat)
+285: benchSector = input.symbol("NSE:CNX500", title="Benchmark 3 (Manual Sector)", group=groupStrat, tooltip="Used ONLY if 'Enable Manual Override' is checked below.")
+286: useManual   = input.bool(false, title="[Enable] Manual Sector Override", group=groupStrat, tooltip="If checked, Benchmark 3 is used. If unchecked, the Dashboard auto-detects the sector based on your portfolio and internal database.")
+287: 
+288: 
+289: pos_time_stop_w = input.int(6,  title="Positional Time Stop (Weeks Stagnant)", group=groupStrat, tooltip="Mirror of Strategy: close positional if open ≥ N weeks with unrealised profit < 0.5R. Default 6W.")
+290: swg_time_stop_d = input.int(10, title="Swing Time Stop (Days Stagnant)",        group=groupStrat, tooltip="Mirror of Strategy: close swing if open ≥ N days with unrealised profit < 0.5R. Default 10D.")
+291: 
+292: rsLength        = input.int(26,   title="RS Slope Length (Weeks)",               group=groupStrat, tooltip="Lookback for the RS slope (↑↓→ arrows). 26W = 6 months of momentum.")
+293: rsSlopeLen      = input.int(8,    title="RS Slope Lookback (Weeks)",               group=groupStrat)
+294: rsSlopeThresh   = input.float(0.2, title="RS Slope Sensitivity (Threshold)",      group=groupStrat, minval=0.05, maxval=1.5, step=0.05, tooltip="How steep the RS momentum (4-bar ROC of Mansfield ×100) must be to register as Rising/Declining. v63.4: rescaled ×10 for new Mansfield ×100 scale.")
+295: rsLevelLen      = input.int(52,   title="RS Level Period (Positive/Negative)",        group=groupStrat, tooltip="Lookback for determining Positive vs Negative RS Level. Default 52W matches standard Mansfield RS indicators. Positive = stock outperforming over this window.")
+296: 
+297: groupMA     = "Daily MA Settings"
+298: dma50_len   = input.int(50, title="50 DMA Length", group=groupMA)
+299: dma150_len  = input.int(150, title="150 DMA Length", group=groupMA)
+300: dma200_len  = input.int(200, title="200 DMA Length", group=groupMA)
+301: dmaSlopeLen = input.int(21, title="50DMA Slope Lookback (Days)", group=groupMA)
+302: flatThresh  = input.float(0.0005, title="Slope Flat Threshold (Daily)", group=groupMA)
+303: 
+304: groupTech   = "Technical Settings"
+305: // === Configurable Fib Lookback ===
+306: fibLookback = input.int(21, title="Est. Pullback Lookback (Days)", group=groupTech)
+307: // User Specific Pivot Settings
+308: pivotLeft   = input.int(2, title="Pivot Lookback Left (Daily)", group=groupTech)
+309: pivotRight  = input.int(2, title="Pivot Lookback Right (Daily)", group=groupTech)
+310: atrLen      = input.int(14, title="ATR Length", group=groupTech)
+311: 
+312: // Volume Profile Settings (Basic POC Logic)
+313: vpLookback  = input.int(100, "VP Lookback Bars", group=groupTech)
+314: 
+315: // --- Mathematical Edges (Backtested) ---
+316: grp_edge = "Mathematical Edges (Backtested)"
+317: use_macro_edge = input.bool(true, title="[ENABLE] Macro Edge: Institutional Vol Bias", group=grp_edge, tooltip="Only fires STRONG BUY if Volume Shelf (VWMA>SMA) AND Volume Accumulation rules are met.")
+318: use_micro_edge = input.bool(true, title="[ENABLE] Micro Edge: Price & Squeeze Validation", group=grp_edge, tooltip="Only fires PULLBACK 🎯 if Price > CPR & Monthly VWAP AND 20/50 Squeeze is active.")
+319: 
+320: // Hidden inputs for calculation thresholds (kept out of UI to avoid clutter, set to mathematically optimal values)
+321: vol_acc_days  = 10
+322: vol_acc_min   = 2
+323: vol_avg_len   = 50
+324: vcp_thresh    = 1.5
+325: vdu_pct       = 0.30
+326: 
+327: groupAlert  = "Alerts & Visuals"
+328: showSignals = input.bool(true, title="Show Buy/Breakout Labels", group=groupAlert)
+329: showTrade   = input.bool(true, title="Show Trade Lines (Entry/Targets)", group=groupAlert)
+330: showDist    = input.bool(true, title="Show % Distance on Trade Lines", group=groupAlert)
+331: markFresh   = input.bool(true, title="Mark Fresh Signals (★)", group=groupAlert)
+332: showAVWAP   = input.bool(true, title="Show Auto-Anchored VWAP (Stage 2 Start)", group=groupAlert)
+333: 
+334: // Styling
+335: groupStyle  = "Dashboard Style"
+336: tablePos    = input.string(position.bottom_right, title="Position", options=[position.top_right, position.bottom_right, position.top_left, position.bottom_left], group=groupStyle)
+337: textSize    = input.string(size.small, title="Data Size", options=[size.tiny, size.small, size.normal], group=groupStyle)
+338: c_bg        = input.color(color.white, title="Background Color", group=groupStyle)
+339: c_text      = input.color(color.new(#000000, 0), title="Label Text Color", group=groupStyle)
+340: c_val_text  = input.color(color.new(#000000, 0), title="Value Text Color", group=groupStyle)
+341: 
+342: // v67.0: Recovery Edges removed — logic fully migrated to Weinstein Unified Ecosystem.
+343: 
+344: // ==========================================
+345: // 3. GLOBAL VARIABLE INITIALIZATION
+346: // ==========================================
+347: // Portfolio Slots
+348: var int s1 = 0
+349: var int s2 = 0
+350: var int s3 = 0
+351: var int s4 = 0
+352: var int s5 = 0
+353: var int s6 = 0
+354: var int s7 = 0
+355: var int s8 = 0
+356: var int s9 = 0
+357: var int s10 = 0
+358: var int s11 = 0
+359: var int s12 = 0
+360: var int s13 = 0
+361: var int s14 = 0
+362: var int s15 = 0
+363: var int s16 = 0
+364: var int s17 = 0
+365: var int s18 = 0
+366: var int s19 = 0
+367: var int s20 = 0
+368: var int s21 = 0
+369: var int s22 = 0
+370: var int s23 = 0
+371: var int s24 = 0
+372: var int s25 = 0
+373: var int s26 = 0
+374: var int s27 = 0
+375: var int s28 = 0
+376: var int s29 = 0
+377: var int s30 = 0
+378: 
+379: // Portfolio Summary
+380: var int pf_total = 0
+381: var int pf_win = 0
+382: var int pf_loss = 0
+383: var int pf_stop = 0
+384: 
+385: // Core States
+386: var string mktState = "N/A"
+387: var color mktColor = color.gray
+388: var string cleanTicker = syminfo.prefix + ":" + syminfo.ticker
+389: var float finalEntry = 0.0
+390: var float finalSL = 0.0
+391: var int finalDate = 0
+392: var string entryDateStr = "N/A"
+393: var int daysHeld = 0
+394: var string pbText = "N/A"
+395: var color pbColor = color.gray
+396: var string recText = "WAIT / NEUTRAL"
+397: var color recColor = color.gray
+398: var float bestLvl = 0.0
+399: var string scoreStr = ""
+400: var color gradeCol = color.gray
+401: var string patStr = "None"
+402: var string keyLvlState = "NO NEAR LEVEL"
+403: var color keyLvlColor = color.gray
+404: var string stageDisplay = ""
+405: var color stageCol = color.orange
+406: var string rs50State = ""
+407: var string rs500State = ""
+408: var string rsSecState = ""
+409: var string d50SlopeState = ""
+410: var string wMASlopeState = ""
+411: var string timeWarnStr = "N/A"
+412: var color timeWarnCol = color.gray
+413: var string secStageStr = "N/A"
+414: var string volState = ""
+415: var color volColor = color.gray
+416: var string emaState = ""
+417: var color emaColor = color.gray
+418: var int score = 0
+419: var string grade = "C"
+420: var string wkHealthStr = "N/A"
+421: var color wkHealthCol = color.gray
+422: var string dayHealthStr = "No Setup"
+423: var color dayHealthCol = color.gray
+424: var string paState = "INSIDE RANGE"
+425: var color paColor = color.gray
+426: var bool isBreakout = false
+427: 
+428: var float effectiveSL = 0.0
+429: var string rrText = "N/A"
+430: var string tradeStatus = "NO POSITION"
+431: var color tradeColor = color.gray
+432: var string displayRec = "WAIT"
+433: var string pfStr = "Calculating..."
+434: var color pfCol = color.gray
+435: var bool newStrongBuy = false
+436: var bool newBuy = false
+437: 
+438: // Dynamic RR Variables
+439: var bool isBullMarket = false
+440: var float dyn_T1_R = 0.0
+441: var float dyn_T2_R = 0.0
+442: var string mktProfile = ""
+443: var float currentR = 0.0
+444: 
+445: // EMA Variables
+446: var float d_ema20 = 0.0
+447: var bool isIntra = false
+448: var float use_ema20 = 0.0
+449: var string ema_lbl = ""
+450: 
+451: // Data Variables (Global)
+452: var float dClose = 0.0
+453: var float dHigh = 0.0
+454: var float dLow = 0.0
+455: var float dMA50 = 0.0
+456: var float dMA200 = 0.0
+457: var int resistCount = 0
+458: var float slope50 = 0.0
+459: var float val50 = 0.0
+460: var float slope500 = 0.0
+461: var float val500 = 0.0
+462: var float slopeSec = 0.0
+463: var float valSec = 0.0
+464: var float currRsi = 0.0
+465: var string currRsiDiv = "None"
+466: var float dev52 = 0.0
+467: var float devATH = 0.0
+468: var float atrVal = 0.0
+469: var float emaDist = 0.0
+470: var float absDist = 0.0
+471: var string earnStr = "N/A"
+472: var color earnColor = color.gray
+473: var float dailyRsi = 0.0
+474: var float d_atr10_val = 0.0
+475: var float d_atr40_val = 0.0
+476: var float d_ema20_val = 0.0
+477: var float d_vol = 0.0
+478: var float d_vol_avg = 0.0
+479: // AUTO SECTOR MAPPER
+480: // ==========================================
+481: // 4. FUNCTIONS
+482: // ==========================================
+483: 
+484: f_calc_slope_val(float src, int len) =>
+485:     ta.change(src, len) / math.max(1, len)
+486: 
+487: // v63.4: True RRG color/icon — dispatch on quadrant token from f_rsStateStr.
+488: f_rrg_color(string s) =>
+489:     // Primary color based on Momentum Slope; Shade based on Level
+490:     if str.contains(s, "Rising")
+491:         str.contains(s, "(Positive)") ? #00e676 : #66bb6a
+492:     else if str.contains(s, "Declining")
+493:         str.contains(s, "(Negative)") ? #ff5252 : #ff8a65
+494:     else
+495:         color.gray
+496: 
+497: f_rrg_icon(string s) =>
+498:     str.contains(s, "Rising") ? "↗️" : (str.contains(s, "Declining") ? "↘️" : "➡️")
+499: 
+500: f_match(string t) =>
+501:     bool m = false
+502:     if t != ""
+503:         // robust matching: remove prefix from input if present
+504:         string cleanInput = str.replace_all(str.upper(str.trim(t)), "NSE:", "")
+505:         cleanInput := str.replace_all(cleanInput, "BSE:", "")
+506:         string curT = str.upper(syminfo.ticker)
+507:         if cleanInput == curT
+508:             m := true
+509:     m
+510: 
+511: f_prepTick(string t) =>
+512:     string r = t
+513:     if t != ""
+514:         if not str.contains(t, ":")
+515:             r := "NSE:" + t
+516:     r
+517: 
+518: // AUTO SECTOR MAPPER
+519: f_get_sector_ticker() =>
+520:     string s = syminfo.sector
+521:     string i = syminfo.industry
+522:     string t = "NSE:CNX500" // Default fallback
+523:     string n = "Nifty 500"
+524: 
+525:     // Prioritize by Industry keywords first (more specific)
+526:     if str.contains(i, "Bank") or str.contains(s, "Finance")
+527:         t := "NSE:BANKNIFTY"
+528:         n := "Bank Nifty"
+529:     else if str.contains(s, "Technology") or str.contains(i, "Software") or str.contains(i, "IT")
+530:         t := "NSE:CNXIT"
+531:         n := "Nifty IT"
+532:     else if str.contains(s, "Health") or str.contains(i, "Pharma")
+533:         t := "NSE:CNXPHARMA"
+534:         n := "Pharma"
+535:     else if str.contains(i, "Auto") or str.contains(s, "Consumer Durables")
+536:         t := "NSE:CNXAUTO"
+537:         n := "Nifty Auto"
+538:     else if str.contains(s, "Consumer Non") or str.contains(i, "Food") or str.contains(i, "Beverage")
+539:         t := "NSE:CNXFMCG"
+540:         n := "FMCG"
+541:     else if str.contains(s, "Minerals") or str.contains(i, "Steel") or str.contains(i, "Metal")
+542:         t := "NSE:CNXMETAL"
+543:         n := "Metal"
+544:     else if str.contains(s, "Energy") or str.contains(i, "Oil") or str.contains(i, "Gas")
+545:         t := "NSE:CNXENERGY"
+546:         n := "Energy"
+547:     else if str.contains(s, "Real Estate") or str.contains(i, "Construction")
+548:         t := "NSE:CNXREALTY"
+549:         n := "Realty"
+550:     else if str.contains(s, "Infrastructure")
+551:         t := "NSE:CNXINFRA"
+552:         n := "Infra"
+553: 
+554:     // Return Tuple
+555:     [t, n]
+556: 
+557: // <DB_LOOKUP_START>
+558: // This function is AUTO-GENERATED by sector_manager.py
+559: f_db_sector_lookup(string t) =>
+560:     string s = ""
+561:     // Ticker format in text is usually just the name (e.g. RELIANCE)
+562:     // We match against the DB keys which are NSE:RELIANCE
+563:     s := switch t
+564:         "3MINDIA" => "NSE:CNXSERVICE"
+565:         "AARTIDRUGS" => "NSE:CNXPHARMA"
+566:         "AAVAS" => "NSE:CNXFINANCE"
+567:         "ABB" => "BSE:CG"
+568:         "ABBOTINDIA" => "NSE:CNXPHARMA"
+569:         "ABDL" => "NSE:CNXFMCG"
+570:         "ABFRL" => "NSE:CNXFMCG"
+571:         "ACC" => "NSE:CNXINFRA"
+572:         "ACE" => "BSE:CG"
+573:         "ACKO" => "NSE:CNXFINANCE"
+574:         "ADANIENT" => "NSE:CNXINFRA"
+575:         "ADANIGREEN" => "NSE:CNXENERGY"
+576:         "ADANIPORTS" => "NSE:CNXINFRA"
+577:         "ADANIPOWER" => "NSE:CNXENERGY"
+578:         "ADANITOTAL" => "NSE:NIFTY_OIL_AND_GAS"
+579:         "ADANIWILL" => "NSE:CNXFMCG"
+580:         "ADVENZYMES" => "NSE:CNXPHARMA"
+581:         "AEGISCHEM" => "NSE:NIFTY_OIL_AND_GAS"
+582:         "AETHER" => "NSE:CNXMETAL"
+583:         "AFFLE" => "NSE:CNXIT"
+584:         "AHLUCONT" => "NSE:CNXINFRA"
+585:         "AIAENG" => "BSE:CG"
+586:         "AJANTPHARM" => "NSE:CNXPHARMA"
+587:         "AKUMS" => "NSE:CNXPHARMA"
+588:         "ALKYLAMINE" => "NSE:CNXMETAL"
+589:         "ALLCARGO" => "NSE:CNXSERVICE"
+590:         "ALOKINDS" => "NSE:CNXFMCG"
+591:         "AMARAJABAT" => "NSE:CNXAUTO"
+592:         "AMBER" => "BSE:CG"
+593:         "AMBUJACEM" => "NSE:CNXINFRA"
+594:         "ANANTRAJ" => "NSE:CNXREALTY"
+595:         "ANGELONE" => "NSE:CNXFINANCE"
+596:         "ANTHEM" => "NSE:CNXPHARMA"
+597:         "ANURAS" => "NSE:CNXMETAL"
+598:         "APARINDS" => "BSE:CG"
+599:         "APLAPOLLO" => "NSE:CNXMETAL"
+600:         "APOLLOHOSP" => "NSE:CNXPHARMA"
+601:         "APOLLOTYRE" => "NSE:CNXAUTO"
+602:         "APTUS" => "NSE:CNXFINANCE"
+603:         "ARE_M" => "NSE:CNXAUTO"
+604:         "ARVIND" => "NSE:CNXFMCG"
+605:         "ASAHIINDIA" => "NSE:CNXAUTO"
+606:         "ASHOKLEY" => "NSE:CNXAUTO"
+607:         "ASIANPAINT" => "NSE:CNXINFRA"
+608:         "ASKASIAN" => "NSE:CNXFINANCE"
+609:         "ASTERDM" => "NSE:CNXPHARMA"
+610:         "ASTRAZEN" => "NSE:CNXPHARMA"
+611:         "ASTRAL" => "NSE:CNXINFRA"
+612:         "ATUL" => "NSE:CNXMETAL"
+613:         "AUBANK" => "NSE:BANKNIFTY"
+614:         "AUROPHARMA" => "NSE:CNXPHARMA"
+615:         "AVANTIFEED" => "NSE:CNXFMCG"
+616:         "AXISBANK" => "NSE:BANKNIFTY"
+617:         "BAJAJ-AUTO" => "NSE:CNXAUTO"
+618:         "BAJAJCON" => "NSE:CNXFMCG"
+619:         "BAJAJELEC" => "BSE:CG"
+620:         "BAJAJFINSV" => "NSE:CNXFINANCE"
+621:         "BAJAJHFL" => "NSE:CNXFINANCE"
+622:         "BAJFINANCE" => "NSE:CNXFINANCE"
+623:         "BALAMINES" => "NSE:CNXMETAL"
+624:         "BALKRISIND" => "NSE:CNXAUTO"
+625:         "BALRAMCHIN" => "NSE:CNXFMCG"
+626:         "BANKBARODA" => "NSE:BANKNIFTY"
+627:         "BANKINDIA" => "NSE:BANKNIFTY"
+628:         "BASF" => "NSE:CNXMETAL"
+629:         "BATAINDIA" => "NSE:CNXFMCG"
+630:         "BAYERCROP" => "NSE:CNXMETAL"
+631:         "BEL" => "BSE:CG"
+632:         "BELRISE" => "BSE:CG"
+633:         "BEML" => "BSE:CG"
+634:         "BERGEPAINT" => "NSE:CNXINFRA"
+635:         "BHARATFORG" => "NSE:CNXAUTO"
+636:         "BHARATRAS" => "NSE:CNXMETAL"
+637:         "BHEL" => "BSE:CG"
+638:         "BHARTIARTL" => "NSE:CNXIT"
+639:         "BIOCON" => "NSE:CNXPHARMA"
+640:         "BIRLACORPN" => "NSE:CNXINFRA"
+641:         "BIRLASOFT" => "NSE:CNXIT"
+642:         "BLS" => "NSE:CNXSERVICE"
+643:         "BLUESTARCO" => "BSE:CG"
+644:         "BOMDYEING" => "NSE:CNXFMCG"
+645:         "BOSCHLTD" => "NSE:CNXAUTO"
+646:         "BPCL" => "NSE:CNXENERGY"
+647:         "BRIGADE" => "NSE:CNXREALTY"
+648:         "BRITANNIA" => "NSE:CNXFMCG"
+649:         "BSE" => "NSE:CNXFINANCE"
+650:         "CAMPUS" => "NSE:CNXFMCG"
+651:         "CANBK" => "NSE:BANKNIFTY"
+652:         "CANFINHOME" => "NSE:CNXFINANCE"
+653:         "CANHLIFE" => "NSE:CNXFINANCE"
+654:         "CAPLIPOINT" => "NSE:CNXPHARMA"
+655:         "CARBORUNIV" => "BSE:CG"
+656:         "CARTRADE" => "NSE:CNXSERVICE"
+657:         "CARYSIL" => "BSE:CG"
+658:         "CASTROLIND" => "NSE:NIFTY_OIL_AND_GAS"
+659:         "CEATLTD" => "NSE:CNXAUTO"
+660:         "CENTRALBK" => "NSE:BANKNIFTY"
+661:         "CDSL" => "NSE:CNXFINANCE"
+662:         "CENTURYPLY" => "NSE:CNXINFRA"
+663:         "CENTURYTEX" => "NSE:CNXFMCG"
+664:         "CERA" => "NSE:CNXINFRA"
+665:         "CESC" => "NSE:CNXENERGY"
+666:         "CGPOWER" => "BSE:CG"
+667:         "CHALET" => "NSE:CNXSERVICE"
+668:         "CHAMBLFERT" => "NSE:CNXMETAL"
+669:         "CHOLAFIN" => "NSE:CNXFINANCE"
+670:         "CHOLAHLD" => "NSE:CNXFINANCE"
+671:         "CIEINDIA" => "NSE:CNXAUTO"
+672:         "CIPLA" => "NSE:CNXPHARMA"
+673:         "CLEAN" => "NSE:CNXMETAL"
+674:         "COALINDIA" => "NSE:CNXENERGY"
+675:         "COCHINSHIP" => "BSE:CG"
+676:         "COFORGE" => "NSE:CNXIT"
+677:         "COLPAL" => "NSE:CNXFMCG"
+678:         "CONCOR" => "NSE:CNXSERVICE"
+679:         "COROMANDEL" => "NSE:CNXMETAL"
+680:         "CRAFTSMAN" => "NSE:CNXAUTO"
+681:         "CREDITACC" => "NSE:CNXFINANCE"
+682:         "CROMPTON" => "NSE:CNXFMCG"
+683:         "CUB" => "NSE:BANKNIFTY"
+684:         "CUMMINSIND" => "BSE:CG"
+685:         "CYIENT" => "NSE:CNXIT"
+686:         "DABUR" => "NSE:CNXFMCG"
+687:         "DALBHARAT" => "NSE:CNXINFRA"
+688:         "DATAPATTNS" => "BSE:CG"
+689:         "DCMSHRIRAM" => "NSE:CNXMETAL"
+690:         "DEEPAKNTR" => "NSE:CNXMETAL"
+691:         "DELHIVERY" => "NSE:CNXSERVICE"
+692:         "DELTACORP" => "NSE:CNXSERVICE"
+693:         "DEVYANI" => "NSE:CNXSERVICE"
+694:         "DIVISLAB" => "NSE:CNXPHARMA"
+695:         "DIXON" => "BSE:CG"
+696:         "DLF" => "NSE:CNXREALTY"
+697:         "DOMS" => "NSE:CNXFMCG"
+698:         "DRREDDY" => "NSE:CNXPHARMA"
+699:         "DREAMFOLKS" => "NSE:CNXSERVICE"
+700:         "EASEMYTRIP" => "NSE:CNXSERVICE"
+701:         "EDELWEISS" => "NSE:CNXFINANCE"
+702:         "EICHERMOT" => "NSE:CNXAUTO"
+703:         "EIDPARRY" => "NSE:CNXFMCG"
+704:         "EIHOTEL" => "NSE:CNXSERVICE"
+705:         "ELGIEQUIP" => "BSE:CG"
+706:         "EMAMILTD" => "NSE:CNXFMCG"
+707:         "EMMVEE" => "BSE:CG"
+708:         "ENDURANCE" => "NSE:CNXAUTO"
+709:         "ENGINERSIN" => "NSE:CNXINFRA"
+710:         "EPL" => "NSE:CNXMETAL"
+711:         "EQUITASBNK" => "NSE:BANKNIFTY"
+712:         "ERIS" => "NSE:CNXPHARMA"
+713:         "ESCORTS" => "NSE:CNXAUTO"
+714:         "ETHOSLTD" => "NSE:CNXSERVICE"
+715:         "EVEREADY" => "BSE:CG"
+716:         "EXIDEIND" => "NSE:CNXAUTO"
+717:         "FALCONTYRE" => "NSE:CNXAUTO"
+718:         "FACT" => "NSE:CNXMETAL"
+719:         "FDC" => "NSE:CNXPHARMA"
+720:         "FEDERALBNK" => "NSE:BANKNIFTY"
+721:         "FERV" => "BSE:CG"
+722:         "FINEORG" => "NSE:CNXMETAL"
+723:         "FINCABLES" => "BSE:CG"
+724:         "FINPIPE" => "NSE:CNXINFRA"
+725:         "FORTIS" => "NSE:CNXPHARMA"
+726:         "FSL" => "NSE:CNXIT"
+727:         "GABRIEL" => "NSE:CNXAUTO"
+728:         "GAIL" => "NSE:CNXENERGY"
+729:         "GALAXYSURF" => "NSE:CNXMETAL"
+730:         "GANESHHOUC" => "NSE:CNXREALTY"
+731:         "GARDENREACH" => "BSE:CG"
+732:         "GARFIBRES" => "NSE:CNXFMCG"
+733:         "GATEWAY" => "NSE:CNXSERVICE"
+734:         "GENUSPOWER" => "BSE:CG"
+735:         "GESHIP" => "NSE:CNXSERVICE"
+736:         "GET_D" => "BSE:CG"
+737:         "GICRE" => "NSE:CNXFINANCE"
+738:         "GILLETTE" => "NSE:CNXFMCG"
+739:         "GLAND" => "NSE:CNXPHARMA"
+740:         "GLAXO" => "NSE:CNXPHARMA"
+741:         "GLENMARK" => "NSE:CNXPHARMA"
+742:         "GMDCLTD" => "NSE:CNXMETAL"
+743:         "GMMPFAUDLR" => "BSE:CG"
+744:         "GMRINFRA" => "NSE:CNXINFRA"
+745:         "GNFC" => "NSE:CNXMETAL"
+746:         "GOCOLORS" => "NSE:CNXFMCG"
+747:         "GODREJAGRO" => "NSE:CNXFMCG"
+748:         "GODREJCP" => "NSE:CNXFMCG"
+749:         "GODREJIND" => "NSE:CNXFMCG"
+750:         "GODREJPROP" => "NSE:CNXREALTY"
+751:         "GOKEX" => "NSE:CNXFMCG"
+752:         "GPIL" => "NSE:CNXMETAL"
+753:         "GPPL" => "NSE:CNXSERVICE"
+754:         "GRANULES" => "NSE:CNXPHARMA"
+755:         "GRAPHITE" => "NSE:CNXMETAL"
+756:         "GRASIM" => "NSE:CNXINFRA"
+757:         "GRAVITA" => "NSE:CNXMETAL"
+758:         "GREAVESCOT" => "BSE:CG"
+759:         "GRINDWELL" => "BSE:CG"
+760:         "GROWW" => "NSE:CNXFINANCE"
+761:         "GRSE" => "BSE:CG"
+762:         "GSFC" => "NSE:CNXMETAL"
+763:         "GSPL" => "NSE:NIFTY_OIL_AND_GAS"
+764:         "GUJGASLTD" => "NSE:NIFTY_OIL_AND_GAS"
+765:         "GULFOILLUB" => "NSE:NIFTY_OIL_AND_GAS"
+766:         "HAL" => "BSE:CG"
+767:         "HAPPSTMNDS" => "NSE:CNXIT"
+768:         "HATHWAY" => "NSE:CNXMEDIA"
+769:         "HAVELLS" => "BSE:CG"
+770:         "HCLTECH" => "NSE:CNXIT"
+771:         "HDBFS" => "NSE:CNXFINANCE"
+772:         "HDFCBANK" => "NSE:BANKNIFTY"
+773:         "HDFCLIFE" => "NSE:CNXFINANCE"
+774:         "HDFCAMC" => "NSE:CNXFINANCE"
+775:         "HEG" => "NSE:CNXMETAL"
+776:         "HEIDELBERG" => "NSE:CNXINFRA"
+777:         "HEROMOTOCO" => "NSE:CNXAUTO"
+778:         "HFCL" => "NSE:CNXIT"
+779:         "HIKAL" => "NSE:CNXPHARMA"
+780:         "HINDALCO" => "NSE:CNXMETAL"
+781:         "HINDCOPPER" => "NSE:CNXMETAL"
+782:         "HINDPETRO" => "NSE:CNXENERGY"
+783:         "HINDUNILVR" => "NSE:CNXFMCG"
+784:         "HINDZINC" => "NSE:CNXMETAL"
+785:         "HOMEFIRST" => "NSE:CNXFINANCE"
+786:         "HONAUT" => "BSE:CG"
+787:         "HSCL" => "NSE:CNXMETAL"
+788:         "HUDCO" => "NSE:CNXFINANCE"
+789:         "ICICIBANK" => "NSE:BANKNIFTY"
+790:         "ICICIGI" => "NSE:CNXFINANCE"
+791:         "ICICIPRULI" => "NSE:CNXFINANCE"
+792:         "ICICIAMC" => "NSE:CNXFINANCE"
+793:         "IDBI" => "NSE:BANKNIFTY"
+794:         "IDFCFIRSTB" => "NSE:BANKNIFTY"
+795:         "IDFC" => "NSE:CNXFINANCE"
+796:         "IEX" => "NSE:CNXFINANCE"
+797:         "IGL" => "NSE:NIFTY_OIL_AND_GAS"
+798:         "IIFL" => "NSE:CNXFINANCE"
+799:         "IIFLSEC" => "NSE:CNXFINANCE"
+800:         "IMAGICAA" => "NSE:CNXSERVICE"
+801:         "INDHOTEL" => "NSE:CNXSERVICE"
+802:         "INDIACEM" => "NSE:CNXINFRA"
+803:         "INDIAMART" => "NSE:CNXIT"
+804:         "INDIANB" => "NSE:BANKNIFTY"
+805:         "INDIGO" => "NSE:CNXSERVICE"
+806:         "INDIGOPNTS" => "NSE:CNXINFRA"
+807:         "INDUSINDBK" => "NSE:BANKNIFTY"
+808:         "INDUSTOWER" => "NSE:CNXIT"
+809:         "INFY" => "NSE:CNXIT"
+810:         "INOXWIND" => "BSE:CG"
+811:         "INTELLECT" => "NSE:CNXIT"
+812:         "IOB" => "NSE:BANKNIFTY"
+813:         "IOC" => "NSE:CNXENERGY"
+814:         "IPCALAB" => "NSE:CNXPHARMA"
+815:         "IRB" => "NSE:CNXINFRA"
+816:         "IRCON" => "NSE:CNXINFRA"
+817:         "IRFC" => "NSE:CNXFINANCE"
+818:         "IRCTC" => "NSE:CNXSERVICE"
+819:         "ITC" => "NSE:CNXFMCG"
+820:         "ITI" => "NSE:CNXIT"
+821:         "JBCHEPHARM" => "NSE:CNXPHARMA"
+822:         "JINDALSAW" => "NSE:CNXMETAL"
+823:         "JINDALSTEL" => "NSE:CNXMETAL"
+824:         "JIOFIN" => "NSE:CNXFINANCE"
+825:         "JKCEMENT" => "NSE:CNXINFRA"
+826:         "JKPAPER" => "NSE:CNXMETAL"
+827:         "JKTYRE" => "NSE:CNXAUTO"
+828:         "JMFINANCIL" => "NSE:CNXFINANCE"
+829:         "JSL" => "NSE:CNXMETAL"
+830:         "JSWENERGY" => "NSE:CNXENERGY"
+831:         "JSWINFRA" => "NSE:CNXINFRA"
+832:         "JSWSTEEL" => "NSE:CNXMETAL"
+833:         "JUBLFOOD" => "NSE:CNXSERVICE"
+834:         "JUBLINGREA" => "NSE:CNXMETAL"
+835:         "JUBLPHARMA" => "NSE:CNXPHARMA"
+836:         "JUSTDIAL" => "NSE:CNXIT"
+837:         "JYOTHYLAB" => "NSE:CNXFMCG"
+838:         "JYOTISTRUC" => "BSE:CG"
+839:         "KAJARIACER" => "NSE:CNXINFRA"
+840:         "KPITTECH" => "NSE:CNXIT"
+841:         "KALYANKJIL" => "NSE:CNXFMCG"
+842:         "KANSAINER" => "NSE:CNXINFRA"
+843:         "KARURVYSYA" => "NSE:BANKNIFTY"
+844:         "KEC" => "BSE:CG"
+845:         "KEI" => "BSE:CG"
+846:         "KIMS" => "NSE:CNXPHARMA"
+847:         "KNRCON" => "NSE:CNXINFRA"
+848:         "KOTAKBANK" => "NSE:BANKNIFTY"
+849:         "KOTAKAMC" => "NSE:CNXFINANCE"
+850:         "KPIL" => "BSE:CG"
+851:         "KRBL" => "NSE:CNXFMCG"
+852:         "KSB" => "BSE:CG"
+853:         "KSL" => "NSE:CNXMETAL"
+854:         "L_TFH" => "NSE:CNXFINANCE"
+855:         "L_T" => "BSE:CG"
+856:         "LALPATHLAB" => "NSE:CNXPHARMA"
+857:         "LAURUSLABS" => "NSE:CNXPHARMA"
+858:         "LAXMACH" => "BSE:CG"
+859:         "LICHSGFIN" => "NSE:CNXFINANCE"
+860:         "LICI" => "NSE:CNXFINANCE"
+861:         "LINDEINDIA" => "NSE:CNXMETAL"
+862:         "LMSYMBOL" => "NSE:CNXIT"
+863:         "LODHA" => "NSE:CNXREALTY"
+864:         "LTIM" => "NSE:CNXIT"
+865:         "LTTS" => "NSE:CNXIT"
+866:         "LUMAXTECH" => "NSE:CNXAUTO"
+867:         "LUPIN" => "NSE:CNXPHARMA"
+868:         "LXCHEM" => "NSE:CNXMETAL"
+869:         "M_MFIN" => "NSE:CNXFINANCE"
+870:         "M_M" => "NSE:CNXAUTO"
+871:         "MAHABANK" => "NSE:BANKNIFTY"
+872:         "MAHLIFE" => "NSE:CNXREALTY"
+873:         "MAHLOG" => "NSE:CNXSERVICE"
+874:         "MAHSEAMLES" => "NSE:CNXMETAL"
+875:         "MANAPPURAM" => "NSE:CNXFINANCE"
+876:         "MANKIND" => "NSE:CNXPHARMA"
+877:         "MAPMYINDIA" => "NSE:CNXIT"
+878:         "MARICO" => "NSE:CNXFMCG"
+879:         "MARUTI" => "NSE:CNXAUTO"
+880:         "MASTEK" => "NSE:CNXIT"
+881:         "MAXHEALTH" => "NSE:CNXPHARMA"
+882:         "MAZDOCK" => "BSE:CG"
+883:         "MCX" => "NSE:CNXFINANCE"
+884:         "MEDANTA" => "NSE:CNXPHARMA"
+885:         "METROPOLIS" => "NSE:CNXPHARMA"
+886:         "MGL" => "NSE:NIFTY_OIL_AND_GAS"
+887:         "MHRIL" => "NSE:CNXSERVICE"
+888:         "MINDACORP" => "NSE:CNXAUTO"
+889:         "MINDTREE" => "NSE:CNXIT"
+890:         "MIRZAINT" => "NSE:CNXFMCG"
+891:         "MOTILALOFS" => "NSE:CNXFINANCE"
+892:         "MOTHERSON" => "NSE:CNXAUTO"
+893:         "MPHASIS" => "NSE:CNXIT"
+894:         "MRF" => "NSE:CNXAUTO"
+895:         "MRPL" => "NSE:CNXENERGY"
+896:         "MSTCLTD" => "NSE:CNXSERVICE"
+897:         "MTARTECH" => "BSE:CG"
+898:         "MUTHOOTFIN" => "NSE:CNXFINANCE"
+899:         "NAM-INDIA" => "NSE:CNXFINANCE"
+900:         "NATCOPHARM" => "NSE:CNXPHARMA"
+901:         "NATIONALUM" => "NSE:CNXMETAL"
+902:         "NAUKRI" => "NSE:CNXSERVICE"
+903:         "NAVINFLUOR" => "NSE:CNXMETAL"
+904:         "NAZARA" => "NSE:CNXMEDIA"
+905:         "NCC" => "NSE:CNXINFRA"
+906:         "NESTLEIND" => "NSE:CNXFMCG"
+907:         "NETWORK18" => "NSE:CNXMEDIA"
+908:         "NEULANDLAB" => "NSE:CNXPHARMA"
+909:         "NEWGEN" => "NSE:CNXIT"
+910:         "NH" => "NSE:CNXPHARMA"
+911:         "NHPC" => "NSE:CNXENERGY"
+912:         "NIITLTD" => "NSE:CNXIT"
+913:         "NLCINDIA" => "NSE:CNXENERGY"
+914:         "NMDC" => "NSE:CNXMETAL"
+915:         "NSLNISP" => "NSE:CNXMETAL"
+916:         "NTPC" => "NSE:CNXENERGY"
+917:         "NUVAMA" => "NSE:CNXFINANCE"
+918:         "NUVOCO" => "NSE:CNXINFRA"
+919:         "NYKAA" => "NSE:CNXSERVICE"
+920:         "OBEROIRLTY" => "NSE:CNXREALTY"
+921:         "OFSS" => "NSE:CNXIT"
+922:         "OIL" => "NSE:CNXENERGY"
+923:         "OLAEC" => "NSE:CNXAUTO"
+924:         "OMAXE" => "NSE:CNXREALTY"
+925:         "ONGC" => "NSE:CNXENERGY"
+926:         "ORIENTELEC" => "BSE:CG"
+927:         "PAGEIND" => "NSE:CNXFMCG"
+928:         "PATANJALI" => "NSE:CNXFMCG"
+929:         "PAYTM" => "NSE:CNXSERVICE"
+930:         "PEL" => "NSE:CNXFINANCE"
+931:         "PERSISTENT" => "NSE:CNXIT"
+932:         "PETRONET" => "NSE:NIFTY_OIL_AND_GAS"
+933:         "PFC" => "NSE:CNXFINANCE"
+934:         "PGHH" => "NSE:CNXFMCG"
+935:         "PHOENIXLTD" => "NSE:CNXREALTY"
+936:         "PIDILITIND" => "NSE:CNXINFRA"
+937:         "PIIND" => "NSE:CNXMETAL"
+938:         "PNB" => "NSE:BANKNIFTY"
+939:         "PNBHOUSING" => "NSE:CNXFINANCE"
+940:         "PNCINFRA" => "NSE:CNXINFRA"
+941:         "POLICYBZR" => "NSE:CNXSERVICE"
+942:         "POLYCAB" => "BSE:CG"
+943:         "POLYMED" => "NSE:CNXPHARMA"
+944:         "POONAWALLA" => "NSE:CNXFINANCE"
+945:         "POWERGRID" => "NSE:CNXENERGY"
+946:         "PRAJIND" => "BSE:CG"
+947:         "PREMIERENE" => "BSE:CG"
+948:         "PRESTIGE" => "NSE:CNXREALTY"
+949:         "PRICOL" => "NSE:CNXAUTO"
+950:         "PRINCEPIPE" => "NSE:CNXINFRA"
+951:         "PRSMJOHNSN" => "NSE:CNXINFRA"
+952:         "PUNJABALK" => "NSE:CNXMETAL"
+953:         "PVRINOX" => "NSE:CNXMEDIA"
+954:         "QUESS" => "NSE:CNXSERVICE"
+955:         "RADICO" => "NSE:CNXFMCG"
+956:         "RAIN" => "NSE:CNXMETAL"
+957:         "RAINBOW" => "NSE:CNXPHARMA"
+958:         "RAJESHEXPO" => "NSE:CNXFMCG"
+959:         "RALLIS" => "NSE:CNXMETAL"
+960:         "RAMCOCEM" => "NSE:CNXINFRA"
+961:         "RATNAMANI" => "NSE:CNXMETAL"
+962:         "RAYMOND" => "NSE:CNXFMCG"
+963:         "RBLBANK" => "NSE:BANKNIFTY"
+964:         "RECLTD" => "NSE:CNXFINANCE"
+965:         "REDINGTON" => "NSE:CNXSERVICE"
+966:         "RELAXO" => "NSE:CNXFMCG"
+967:         "RELIANCE" => "NSE:CNXENERGY"
+968:         "RHIM" => "NSE:CNXMETAL"
+969:         "RITES" => "NSE:CNXINFRA"
+970:         "ROLEXRINGS" => "NSE:CNXAUTO"
+971:         "ROSSARI" => "NSE:CNXMETAL"
+972:         "ROUTE" => "NSE:CNXIT"
+973:         "RTNINDIA" => "NSE:CNXENERGY"
+974:         "RVNL" => "BSE:CG"
+975:         "SAFEWELL" => "BSE:CG"
+976:         "SAIL" => "NSE:CNXMETAL"
+977:         "SANSERA" => "NSE:CNXAUTO"
+978:         "SAPPHIRE" => "NSE:CNXSERVICE"
+979:         "SAREHGAMA" => "NSE:CNXMEDIA"
+980:         "SBICARD" => "NSE:CNXFINANCE"
+981:         "SBIGLI" => "NSE:CNXFINANCE"
+982:         "SBILIFE" => "NSE:CNXFINANCE"
+983:         "SBIN" => "NSE:BANKNIFTY"
+984:         "SCHAEFFLER" => "BSE:CG"
+985:         "SCHNEIDER" => "BSE:CG"
+986:         "SDBL" => "NSE:CNXFMCG"
+987:         "SEAMECLTD" => "NSE:CNXSERVICE"
+988:         "SFL" => "NSE:CNXFMCG"
+989:         "SHARDACROP" => "NSE:CNXMETAL"
+990:         "SHOPERSTOP" => "NSE:CNXSERVICE"
+991:         "SHREECEM" => "NSE:CNXINFRA"
+992:         "SHRIRAMFIN" => "NSE:CNXFINANCE"
+993:         "SHYAMMETL" => "NSE:CNXMETAL"
+994:         "SIEMENS" => "BSE:CG"
+995:         "SIGNATURE" => "NSE:CNXREALTY"
+996:         "SIS" => "NSE:CNXSERVICE"
+997:         "SJVN" => "NSE:CNXENERGY"
+998:         "SKFINDIA" => "BSE:CG"
+999:         "SOBHA" => "NSE:CNXREALTY"
+1000:         "SOLARINDS" => "NSE:CNXMETAL"
+1001:         "SONACOMS" => "NSE:CNXAUTO"
+1002:         "SONATSOFTW" => "NSE:CNXIT"
+1003:         "SPARC" => "NSE:CNXPHARMA"
+1004:         "STARHEALTH" => "NSE:CNXFINANCE"
+1005:         "STLTECH" => "NSE:CNXIT"
+1006:         "SUDARSCHEM" => "NSE:CNXMETAL"
+1007:         "SUMICHEM" => "NSE:CNXMETAL"
+1008:         "SUNPHARMA" => "NSE:CNXPHARMA"
+1009:         "SUNTECK" => "NSE:CNXREALTY"
+1010:         "SUNTV" => "NSE:CNXMEDIA"
+1011:         "SUPRAJIT" => "NSE:CNXAUTO"
+1012:         "SUPREMEIND" => "NSE:CNXINFRA"
+1013:         "SURYAROSNI" => "NSE:CNXMETAL"
+1014:         "SUVENPHAR" => "NSE:CNXPHARMA"
+1015:         "SUZLON" => "BSE:CG"
+1016:         "SWIGGY" => "NSE:CNXSERVICE"
+1017:         "SYNGENE" => "NSE:CNXPHARMA"
+1018:         "TANLA" => "NSE:CNXIT"
+1019:         "TATACHEM" => "NSE:CNXMETAL"
+1020:         "TATACOMM" => "NSE:CNXIT"
+1021:         "TATACONSUM" => "NSE:CNXFMCG"
+1022:         "TATAELXSI" => "NSE:CNXIT"
+1023:         "TATAINVEST" => "NSE:CNXFINANCE"
+1024:         "TATAMOTORS" => "NSE:CNXAUTO"
+1025:         "TATAPOWER" => "NSE:CNXENERGY"
+1026:         "TATASTEEL" => "NSE:CNXMETAL"
+1027:         "TATATECH" => "NSE:CNXIT"
+1028:         "TCI" => "NSE:CNXSERVICE"
+1029:         "TCIEXP" => "NSE:CNXSERVICE"
+1030:         "TCS" => "NSE:CNXIT"
+1031:         "TEAMLEASE" => "NSE:CNXSERVICE"
+1032:         "TECHM" => "NSE:CNXIT"
+1033:         "TECHNOE" => "BSE:CG"
+1034:         "TEGA" => "BSE:CG"
+1035:         "THERMAX" => "BSE:CG"
+1036:         "THYROCARE" => "NSE:CNXPHARMA"
+1037:         "TIMKEN" => "BSE:CG"
+1038:         "TIPSMUSIC" => "NSE:CNXMEDIA"
+1039:         "TITAGARH" => "BSE:CG"
+1040:         "TITAN" => "NSE:CNXFMCG"
+1041:         "TORNTPHARM" => "NSE:CNXPHARMA"
+1042:         "TORNTPOWER" => "NSE:CNXENERGY"
+1043:         "TRENT" => "NSE:CNXFMCG"
+1044:         "TRIDENT" => "NSE:CNXFMCG"
+1045:         "TRITURBINE" => "BSE:CG"
+1046:         "TRIVENI" => "NSE:CNXFMCG"
+1047:         "TTML" => "NSE:CNXIT"
+1048:         "TIINDIA" => "NSE:CNXAUTO"
+1049:         "TVSMOTOR" => "NSE:CNXAUTO"
+1050:         "TVSSRICHAK" => "NSE:CNXAUTO"
+1051:         "UBL" => "NSE:CNXFMCG"
+1052:         "UCOBANK" => "NSE:BANKNIFTY"
+1053:         "UFLEX" => "NSE:CNXMETAL"
+1054:         "ULTRACEMCO" => "NSE:CNXINFRA"
+1055:         "UNIONBANK" => "NSE:BANKNIFTY"
+1056:         "UNITDSPR" => "NSE:CNXFMCG"
+1057:         "UNOMINDA" => "NSE:CNXAUTO"
+1058:         "UPL" => "NSE:CNXMETAL"
+1059:         "UTIAMC" => "NSE:CNXFINANCE"
+1060:         "VAIBHAVGBL" => "NSE:CNXFMCG"
+1061:         "VAKRANGEE" => "NSE:CNXIT"
+1062:         "VALIANTORG" => "NSE:CNXMETAL"
+1063:         "VARDHACRLC" => "NSE:CNXFMCG"
+1064:         "VBL" => "NSE:CNXFMCG"
+1065:         "VEDL" => "NSE:CNXMETAL"
+1066:         "VENKEYS" => "NSE:CNXFMCG"
+1067:         "VIJAYA" => "NSE:CNXPHARMA"
+1068:         "VINATIORGA" => "NSE:CNXMETAL"
+1069:         "VIPIND" => "NSE:CNXFMCG"
+1070:         "VISHNU" => "NSE:CNXMETAL"
+1071:         "VOLTAS" => "BSE:CG"
+1072:         "VTL" => "NSE:CNXFMCG"
+1073:         "WAAREEENER" => "BSE:CG"
+1074:         "WELCORP" => "NSE:CNXMETAL"
+1075:         "WELENT" => "NSE:CNXINFRA"
+1076:         "WELSPUNLIV" => "NSE:CNXFMCG"
+1077:         "WESTLIFE" => "NSE:CNXSERVICE"
+1078:         "WHIRLPOOL" => "BSE:CG"
+1079:         "WIPRO" => "NSE:CNXIT"
+1080:         "YESBANK" => "NSE:BANKNIFTY"
+1081:         "ZEEL" => "NSE:CNXMEDIA"
+1082:         "ZENSARTECH" => "NSE:CNXIT"
+1083:         "ZOMATO" => "NSE:CNXSERVICE"
+1084:         "ZYDUSLIFE" => "NSE:CNXPHARMA"
+1085:         "ZYDUSWELL" => "NSE:CNXFMCG"
+1086: 
+1087: 
+1088:         => ""
+1089:     s
+1090: // <DB_LOOKUP_END>
+1091: 
+1092: // HYBRID SECTOR LOOKUP
+1093: f_get_hybrid_sector() =>
+1094:     string t = ""
+1095:     string n = ""
+1096: 
+1097:     // 1. DB Lookup first (highest accuracy — full Nifty 500 coverage)
+1098:     string __clean_t = str.replace_all(str.upper(str.trim(syminfo.ticker)), "NSE:", "")
+1099:     __clean_t := str.replace_all(__clean_t, "BSE:", "")
+1100:     string dbSec = f_db_sector_lookup(__clean_t)
+1101:     if dbSec != ""
+1102:         t := dbSec
+1103:         n := str.replace_all(dbSec, "NSE:", "")
+1104: 
+1105:     // 2. Fall back to Manual Portfolio Slots (for stocks not in DB)
+1106:     if t == ""
+1107:         if f_match(p1_tick)
+1108:             t := p1_sec
+1109:             n := str.replace_all(p1_sec, "NSE:", "")
+1110:         else if f_match(p2_tick)
+1111:             t := p2_sec
+1112:             n := str.replace_all(p2_sec, "NSE:", "")
+1113:         else if f_match(p3_tick)
+1114:             t := p3_sec
+1115:             n := str.replace_all(p3_sec, "NSE:", "")
+1116:         else if f_match(p4_tick)
+1117:             t := p4_sec
+1118:             n := str.replace_all(p4_sec, "NSE:", "")
+1119:         else if f_match(p5_tick)
+1120:             t := p5_sec
+1121:             n := str.replace_all(p5_sec, "NSE:", "")
+1122:         else if f_match(p6_tick)
+1123:             t := p6_sec
+1124:             n := str.replace_all(p6_sec, "NSE:", "")
+1125:         else if f_match(p7_tick)
+1126:             t := p7_sec
+1127:             n := str.replace_all(p7_sec, "NSE:", "")
+1128:         else if f_match(p8_tick)
+1129:             t := p8_sec
+1130:             n := str.replace_all(p8_sec, "NSE:", "")
+1131:         else if f_match(p9_tick)
+1132:             t := p9_sec
+1133:             n := str.replace_all(p9_sec, "NSE:", "")
+1134:         else if f_match(p10_tick)
+1135:             t := p10_sec
+1136:             n := str.replace_all(p10_sec, "NSE:", "")
+1137:         else if f_match(p11_tick)
+1138:             t := p11_sec
+1139:             n := str.replace_all(p11_sec, "NSE:", "")
+1140:         else if f_match(p12_tick)
+1141:             t := p12_sec
+1142:             n := str.replace_all(p12_sec, "NSE:", "")
+1143:         else if f_match(p13_tick)
+1144:             t := p13_sec
+1145:             n := str.replace_all(p13_sec, "NSE:", "")
+1146:         else if f_match(p14_tick)
+1147:             t := p14_sec
+1148:             n := str.replace_all(p14_sec, "NSE:", "")
+1149:         else if f_match(p15_tick)
+1150:             t := p15_sec
+1151:             n := str.replace_all(p15_sec, "NSE:", "")
+1152:         else if f_match(p16_tick)
+1153:             t := p16_sec
+1154:             n := str.replace_all(p16_sec, "NSE:", "")
+1155:         else if f_match(p17_tick)
+1156:             t := p17_sec
+1157:             n := str.replace_all(p17_sec, "NSE:", "")
+1158:         else if f_match(p18_tick)
+1159:             t := p18_sec
+1160:             n := str.replace_all(p18_sec, "NSE:", "")
+1161:         else if f_match(p19_tick)
+1162:             t := p19_sec
+1163:             n := str.replace_all(p19_sec, "NSE:", "")
+1164:         else if f_match(p20_tick)
+1165:             t := p20_sec
+1166:             n := str.replace_all(p20_sec, "NSE:", "")
+1167:         else if f_match(p21_tick)
+1168:             t := p21_sec
+1169:             n := str.replace_all(p21_sec, "NSE:", "")
+1170:         else if f_match(p22_tick)
+1171:             t := p22_sec
+1172:             n := str.replace_all(p22_sec, "NSE:", "")
+1173:         else if f_match(p23_tick)
+1174:             t := p23_sec
+1175:             n := str.replace_all(p23_sec, "NSE:", "")
+1176:         else if f_match(p24_tick)
+1177:             t := p24_sec
+1178:             n := str.replace_all(p24_sec, "NSE:", "")
+1179:         else if f_match(p25_tick)
+1180:             t := p25_sec
+1181:             n := str.replace_all(p25_sec, "NSE:", "")
+1182:         else if f_match(p26_tick)
+1183:             t := p26_sec
+1184:             n := str.replace_all(p26_sec, "NSE:", "")
+1185:         else if f_match(p27_tick)
+1186:             t := p27_sec
+1187:             n := str.replace_all(p27_sec, "NSE:", "")
+1188:         else if f_match(p28_tick)
+1189:             t := p28_sec
+1190:             n := str.replace_all(p28_sec, "NSE:", "")
+1191:         else if f_match(p29_tick)
+1192:             t := p29_sec
+1193:             n := str.replace_all(p29_sec, "NSE:", "")
+1194:         else if f_match(p30_tick)
+1195:             t := p30_sec
+1196:             n := str.replace_all(p30_sec, "NSE:", "")
+1197: 
+1198:     // 3. Fall back to Auto-Mapper (keyword-based, for off-list tickers)
+1199:     if t == ""
+1200:         [at, an] = f_get_sector_ticker()
+1201:         t := at
+1202:         n := an
+1203: 
+1204:     [t, n]
+1205: // RS State = combines SLOPE direction with LEVEL (Positive/Neutral/Negative)
+1206: // Format: "Rising (Positive)", "Flat (Negative)", etc.
+1207: // v63.4: True RRG quadrant = (mansfield level, RS-momentum 4-bar ROC).
+1208: // Returned string includes the quadrant token AND legacy (Positive)/(Negative)/Rising/Declining
+1209: // markers so existing str.contains consumers keep working.
+1210: f_rsStateStr(float s, float v, float thresh) =>
+1211:     string level = v > 0 ? "(Positive)" : (v < 0 ? "(Negative)" : "(Neutral)")
+1212:     string dir   = s > thresh ? "Rising" : (s < -thresh ? "Declining" : "Flat")
+1213:     dir + " " + level
+1214: 
+1215: f_rsVelocityStr(float currentSlope, float pastSlope) =>
+1216:     float roc = currentSlope - pastSlope
+1217:     string vState = "⚪ Static"
+1218:     color vCol = color.gray
+1219: 
+1220:     // Using 0.0005 as a baseline velocity threshold
+1221:     if currentSlope > 0 and roc > 0.0005
+1222:         vState := "🔥 ACCELERATING LEADER"
+1223:         vCol := color.new(#00e676, 0)
+1224:     else if currentSlope > 0 and roc < -0.0005
+1225:         vState := "⚠️ EXHAUSTED LEADER"
+1226:         vCol := color.orange
+1227:     else if currentSlope < 0 and roc > 0.001
+1228:         vState := "👀 HIDDEN ACCUMULATION"
+1229:         vCol := color.aqua
+1230:     else if currentSlope < 0 and roc <= 0
+1231:         vState := "🩸 DEAD MONEY"
+1232:         vCol := color.red
+1233: 
+1234:     [vState, vCol]
+1235: 
+1236: 
+1237: f_calc_rs_logic(int rsl, int rslLevel, int slopeLen) =>
+1238:     // Benchmark-relative: this function is called via request.security("STOCK / BENCH", ...)
+1239:     // so `close` here IS stock_close / bench_close — the ratio.
+1240:     rp         = close
+1241:     rpSMA      = ta.sma(rp, rsl)       // Short-term SMA — drives slope (↑↓) arrows
+1242:     rpSMALevel = ta.sma(rp, rslLevel)  // Long-term SMA — drives Leading/Lagging label (default 52W)
+1243:     // Mansfield ×100 scale — RRG-compatible: RS-Ratio ≈ mansfield + 100 (Leading > 0, Lagging < 0)
+1244:     mrs        = ((rp / rpSMA) - 1) * 100       // RS for slope calc
+1245:     mrsLevel   = ((rp / rpSMALevel) - 1) * 100  // RS for level classification
+1246: 
+1247:     // Slope: Total change of the short-term RS over the defined lookback
+1248:     slope = (mrs - nz(mrs[slopeLen], mrs))
+1249: 
+1250:     // Velocity check (vs 5 bars ago)
+1251:     float pastSlope = slope[5]
+1252: 
+1253:     // RS momentum (4-bar ROC of Mansfield) — drives true RRG quadrants
+1254:     float rs_mom = ta.roc(mrs, 4)
+1255: 
+1256:     // 130-bar warm-up gate — RS is unreliable until SMA windows are filled
+1257:     bool _warmed = bar_index >= 130 and not na(rp) and rp > 0
+1258:     float mrsLevel_g = _warmed ? mrsLevel : na
+1259:     float slope_g    = _warmed ? slope    : na
+1260:     float rs_mom_g   = _warmed ? rs_mom   : na
+1261: 
+1262:     [slope_g, mrsLevel_g, pastSlope, rs_mom_g]
+1263: 
+1264: f_weeklyHealth(float riseThresh) =>
+1265:     float volAvgW = ta.sma(volume, 50)
+1266:     float atrW = ta.atr(14)
+1267:     int phIndex = -1
+1268:     float highestP = 0.0
+1269:     for i = 1 to 10
+1270:         if high[i] > highestP
+1271:             highestP := high[i]
+1272:             phIndex := i
+1273:     string hStr = "N/A"
+1274:     color hCol = color.gray
+1275:     if phIndex > 0
+1276:         int badBars = 0
+1277:         for j = 0 to phIndex - 1
+1278:             bool isDown = close[j] < open[j]
+1279:             bool highVol = volume[j] > volAvgW[j] * 1.2
+1280:             bool wideRange = (high[j]-low[j]) > (atrW[j] * 1.5)
+1281:             if isDown and (highVol or (wideRange and close[j] < low[j] + (high[j]-low[j])*0.25))
+1282:                 badBars += 1
+1283:         if badBars == 0
+1284:             hStr := "HEALTHY (Low Vol)"
+1285:             hCol := color.green
+1286:         else if badBars <= 1
+1287:             hStr := "NORMAL"
+1288:             hCol := color.blue
+1289:         else
+1290:             hStr := "WEAK (Selling)"
+1291:             hCol := color.orange
+1292:     [hStr, hCol]
+1293: 
+1294: // --- ZIGZAG TREND SYNCHRONIZATION ---
+1295: f_classifyHigh(float newHigh, float prevHigh) =>
+1296:     string result = "HH"
+1297:     if not na(prevHigh) and prevHigh > 0
+1298:         float diff = math.abs(newHigh - prevHigh) / prevHigh
+1299:         if diff < 0.001 // 0.1% identical tolerance
+1300:             result := "EH"
+1301:         else if newHigh < prevHigh
+1302:             result := "LH"
+1303:     result
+1304: 
+1305: f_classifyLow(float newLow, float prevLow) =>
+1306:     string result = "LL"
+1307:     if not na(prevLow) and prevLow > 0
+1308:         float diff = math.abs(newLow - prevLow) / prevLow
+1309:         if diff < 0.001 // 0.1% identical tolerance
+1310:             result := "EL"
+1311:         else if newLow > prevLow
+1312:             result := "HL"
+1313:     result
+1314: 
+1315: f_getStrictTrend(float h, float l, int left, int right) =>
+1316:     var int trendState     = 0
+1317:     var int confirmedTrend = 0
+1318:     var float lockedHigh   = na
+1319:     var float lockedLow    = na
+1320:     var string lastHighClass   = na
+1321:     var string lastLowClass    = na
+1322:     var string activePivotType = na
+1323:     var float activePivotPrice = na
+1324:     var int activePivotIndex   = na
+1325: 
+1326:     ph = ta.pivothigh(h, left, right)
+1327:     pl = ta.pivotlow(l, left, right)
+1328: 
+1329:     // 1. New Pivot High Found
+1330:     if not na(ph)
+1331:         if activePivotType == "H" and ph > activePivotPrice
+1332:             // EXTENDING existing high
+1333:             activePivotPrice := ph
+1334:             activePivotIndex := bar_index[right]
+1335:             string hClass = f_classifyHigh(ph, lockedHigh)
+1336:             lastHighClass := hClass
+1337:         else if activePivotType == "L" or na(activePivotType)
+1338:             // NEW direction change: Low → High
+1339:             if activePivotType == "L"
+1340:                 lockedLow := activePivotPrice
+1341: 
+1342:             string hClass = f_classifyHigh(ph, lockedHigh)
+1343: 
+1344:             int newTrend = 0
+1345:             if hClass == "HH"
+1346:                 if lastLowClass == "HL" or lastLowClass == "EL"
+1347:                     newTrend := 1
+1348:                 else
+1349:                     newTrend := 0
+1350:             else if hClass == "LH"
+1351:                 if lastLowClass == "LL" or lastLowClass == "EL"
+1352:                     newTrend := -1
+1353:                 else
+1354:                     newTrend := 0
+1355:             else
+1356:                 newTrend := 0
+1357: 
+1358:             trendState := newTrend
+1359:             confirmedTrend := newTrend
+1360:             lockedHigh := ph
+1361:             lastHighClass := hClass
+1362:             activePivotPrice := ph
+1363:             activePivotIndex := bar_index[right]
+1364:             activePivotType := "H"
+1365: 
+1366:     // 2. New Pivot Low Found
+1367:     if not na(pl)
+1368:         if activePivotType == "L" and pl < activePivotPrice
+1369:             // EXTENDING existing low
+1370:             activePivotPrice := pl
+1371:             activePivotIndex := bar_index[right]
+1372:             string lClass = f_classifyLow(pl, lockedLow)
+1373:             lastLowClass := lClass
+1374:         else if activePivotType == "H"
+1375:             // NEW direction change: High → Low
+1376:             lockedHigh := activePivotPrice
+1377: 
+1378:             string lClass = f_classifyLow(pl, lockedLow)
+1379: 
+1380:             int newTrend = 0
+1381:             if lClass == "LL"
+1382:                 if lastHighClass == "LH" or lastHighClass == "EH"
+1383:                     newTrend := -1
+1384:                 else
+1385:                     newTrend := 0
+1386:             else if lClass == "HL"
+1387:                 if lastHighClass == "HH" or lastHighClass == "EH"
+1388:                     newTrend := 1
+1389:                 else
+1390:                     newTrend := 0
+1391:             else
+1392:                 newTrend := 0
+1393: 
+1394:             trendState := newTrend
+1395:             confirmedTrend := newTrend
+1396:             lockedLow := pl
+1397:             lastLowClass := lClass
+1398:             activePivotPrice := pl
+1399:             activePivotIndex := bar_index[right]
+1400:             activePivotType := "L"
+1401: 
+1402:     // 3. LIVE TREND SYNC (Projection BoS)
+1403:     int _syncBars = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex)
+1404:     int syncBars  = math.max(1, _syncBars)
+1405:     float projSyncLow  = ta.lowest(l, syncBars)
+1406:     float projSyncHigh = ta.highest(h, syncBars)
+1407: 
+1408:     if not na(lockedHigh) and f_classifyHigh(projSyncHigh, lockedHigh) == "HH"
+1409:         string devLowClass = not na(lockedLow) ? f_classifyLow(projSyncLow, lockedLow) : "HL"
+1410:         if devLowClass == "HL"
+1411:             trendState := 1
+1412:         else
+1413:             trendState := 0
+1414:     else if not na(lockedLow) and f_classifyLow(projSyncLow, lockedLow) == "LL"
+1415:         string devHighClass = not na(lockedHigh) ? f_classifyHigh(projSyncHigh, lockedHigh) : "LH"
+1416:         if devHighClass == "LH"
+1417:             trendState := -1
+1418:         else
+1419:             trendState := 0
+1420: 
+1421:     [trendState, lockedHigh, lockedLow]
+1422: 
+1423: f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
+1424:     float wCl = close
+1425:     float wMA = ta.sma(close, maLen)
+1426:     // Force array allocation with a trailing fallback to prevent nested <na> drops
+1427:     float wMA_old = wMA[slopeLen]
+1428:     float slopeVal = (wMA - nz(wMA_old, wMA)) / math.max(1, slopeLen)
+1429:     float dynThresh = wMA * thresh
+1430: 
+1431:     // Fetch Structural Trend for anchoring
+1432:     [tDir, _, _] = f_getStrictTrend(high, low, 5, 5)
+1433: 
+1434:     // Logic Matrix matching your Document:
+1435:     bool isRising = slopeVal > dynThresh
+1436:     bool isFalling = slopeVal < -dynThresh
+1437:     bool isAbove = wCl > wMA
+1438: 
+1439:     var string s = "STAGE 4 (DOWN)"
+1440: 
+1441:     // STATE MACHINE LOGIC
+1442:     if s == "STAGE 1 (BASE)"
+1443:         if isRising and isAbove
+1444:             s := "STAGE 2 (UP)"
+1445:         else if isFalling and not isAbove and tDir != 1
+1446:             s := "STAGE 4 (DOWN)"
+1447: 
+1448:     else if s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)"
+1449:         if isFalling and not isAbove and tDir != 1
+1450:             s := "STAGE 4 (DOWN)"
+1451:         else if (not isRising and not isAbove) or (tDir == -1 and not isAbove)
+1452:             s := "STAGE 3 (TOP)"
+1453:         else if not isAbove
+1454:             s := "STAGE 2 (PULLBACK)"
+1455:         else
+1456:             s := "STAGE 2 (UP)"
+1457: 
+1458:     else if s == "STAGE 3 (TOP)"
+1459:         if isFalling and not isAbove and tDir != 1
+1460:             s := "STAGE 4 (DOWN)"
+1461:         else if isRising and isAbove
+1462:             s := "STAGE 2 (UP)"
+1463: 
+1464:     else if s == "STAGE 4 (DOWN)"
+1465:         if isRising and isAbove
+1466:             s := "STAGE 2 (UP)"
+1467:         else if not isFalling and isAbove
+1468:             s := "STAGE 1 (BASE)"
+1469: 
+1470:     // Structural Overrides for safety
+1471:     if tDir == 1 and s == "STAGE 4 (DOWN)"
+1472:         s := "STAGE 1 (BASE)"
+1473:     if tDir == -1 and (s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)")
+1474:         s := "STAGE 3 (TOP)"
+1475: 
+1476:     var string lastS = ""
+1477:     var int startTime = 0
+1478:     if bar_index == 0
+1479:         lastS := s
+1480:         startTime := time
+1481:     if s != lastS
+1482:         startTime := time
+1483:         lastS := s
+1484:     [s, startTime, slopeVal, wMA]
+1485: 
+1486: 
+1487: 
+1488: f_trackATH() =>
+1489:     var float h = high
+1490:     h := math.max(h, high)
+1491:     h
+1492: 
+1493: 
+1494: 
+1495: f_trendText(int t) => t == 1 ? "UP" : (t == -1 ? "DOWN" : "SIDEWAYS")
+1496: f_trendColor(int t) => t == 1 ? color.green : (t == -1 ? color.red : color.orange)
+1497: 
+1498: // --- Overhead Resistance (Fixed v63.4) ---
+1499: // Pine Script compliant: ta.pivothigh called ONCE per bar (top of function, not in a loop).
+1500: // Uses var arrays to accumulate confirmed weekly pivot highs bar-by-bar.
+1501: // FIX: Replaced ta.highestbars ATH-epoch gate with a fixed 104-bar (2-year) lookback.
+1502: //   Root cause of 0% bug: ta.highestbars returns 0 for stocks near recent highs,
+1503: //   making athBarIdx = bar_index (future), so no stored pivot could ever qualify.
+1504: //   Also: ATH fewer than 5 bars ago has no confirmed pivots in that window
+1505: //   (ta.pivothigh needs 5 bars right-side confirmation lag).
+1506: // Version: v63.4 — Fixed 2-year window, dedup within 1.5% clusters.
+1507: // Returns [count, closestPrice] as a tuple — used by f_weekly_super_bundle_internal.
+1508: 
+1509: f_getOverheadResist(float currentPrice) =>
+1510:     var float[] pivotVals = array.new_float(0)   // Confirmed weekly pivot high prices
+1511:     var int[]   pivotBars = array.new_int(0)     // bar_index when each pivot was confirmed
+1512: 
+1513:     // Called ONCE per bar at top scope — satisfies Pine Script consistency rule
+1514:     float wPh = ta.pivothigh(high, 5, 5)
+1515: 
+1516:     // Accumulate historical pivots (newest first)
+1517:     if not na(wPh)
+1518:         array.unshift(pivotVals, wPh)
+1519:         array.unshift(pivotBars, bar_index)
+1520:         if array.size(pivotVals) > 800          // Increased cap for longer historical lookback
+1521:             array.pop(pivotVals)
+1522:             array.pop(pivotBars)
+1523: 
+1524:     // Query: count all pivot highs above CMP till ATH.
+1525:     // FIX: Using dynamic ATH lookback (up to 1000 weeks / ~20 years).
+1526:     int   athLookback = bar_index > 0 ? math.min(1000, bar_index) : 1
+1527:     int   athBarIdx   = math.abs(ta.highestbars(high, athLookback))
+1528:     int   epochStart  = bar_index - athBarIdx
+1529: 
+1530:     int   count       = 0
+1531:     float closest     = na
+1532:     float min_dist    = 9999999.0
+1533:     float lastAccepted = na                     // Dedup: last accepted price level
+1534: 
+1535:     int sz = array.size(pivotVals)
+1536:     if sz > 0
+1537:         for i = 0 to sz - 1
+1538:             if array.get(pivotBars, i) >= epochStart
+1539:                 float pVal = array.get(pivotVals, i)
+1540:                 // Use a tiny buffer (0.1%) to avoid status flickering at exact levels
+1541:                 if pVal > (currentPrice * 1.001)
+1542:                     // Deduplication: skip if within 1.5% of last accepted zone
+1543:                     bool isDupe = not na(lastAccepted) and math.abs(pVal - lastAccepted) / lastAccepted < 0.015
+1544:                     if not isDupe
+1545:                         count       += 1
+1546:                         lastAccepted := pVal
+1547:                         float dist   = pVal - currentPrice
+1548:                         if dist < min_dist
+1549:                             min_dist := dist
+1550:                             closest  := pVal
+1551: 
+1552:     // Ensure ATH is ALWAYS counted if price is below it and it hasn't been captured as a pivot zone
+1553:     float athVal = ta.highest(high, athLookback)
+1554:     if not na(athVal) and athVal > (currentPrice * 1.001)
+1555:         bool hasAthZone = false
+1556:         if sz > 0
+1557:             for i = 0 to sz - 1
+1558:                 if array.get(pivotBars, i) >= epochStart
+1559:                     float pVal = array.get(pivotVals, i)
+1560:                     if pVal > (currentPrice * 1.001) and math.abs(athVal - pVal) / pVal < 0.015
+1561:                         hasAthZone := true
+1562:                         break
+1563:         if not hasAthZone
+1564:             count += 1
+1565:             float dist = athVal - currentPrice
+1566:             if dist < min_dist
+1567:                 min_dist := dist
+1568:                 closest  := athVal
+1569: 
+1570:     [count, closest]
+1571: 
+1572: 
+1573: f_calc_adx_bool() =>
+1574:     [dp, dm, adx] = ta.dmi(14, 14)
+1575:     adx > 20 and dp > dm // Synced with Strategy v4.0 (20 instead of 25 for Indian mid-caps)
+1576: 
+1577: f_get_screener_data_internal() =>
+1578:     // Internal Catalyst Logic
+1579:     float _c = close
+1580:     float _o = open
+1581:     float _v = volume
+1582:     float _e20 = ta.ema(_c, 20)
+1583:     float _e20_1 = _e20[1]
+1584:     float _rsi14 = ta.rsi(_c, 14)
+1585:     float _v50 = ta.sma(_v, 50)
+1586:     bool  _adx_ok = f_calc_adx_bool()
+1587: 
+1588:     float _s50 = ta.sma(_c, 50)
+1589:     float _s150 = ta.sma(_c, 150)
+1590:     float _s200 = ta.sma(_c, 200)
+1591:     float _obv = ta.cum(math.sign(ta.change(_c)) * _v)
+1592:     float _obv_h50_1 = ta.highest(_obv, 50)[1]
+1593:     float _p_h50 = ta.highest(high, 50)
+1594:     float _rsi70 = ta.rsi(_c, 70)
+1595:     float _h10_1 = ta.highest(high, 10)[1]
+1596:     float _rsi3 = ta.rsi(_c, 3)
+1597:     float _h1 = high[1]
+1598:     float _h250 = ta.highest(high, 250)
+1599: 
+1600:     float _atr10 = ta.atr(10)
+1601:     float _atr40 = ta.atr(40)
+1602: 
+1603:     int _catId = 0
+1604:     // Catalyst Logic (Stage Detection)
+1605:     // Note: Using 150-SMA as a fast daily proxy for True Weekly Stage 2 logic (Aligned with ULTIMATE Screener)
+1606:     bool is_stage2 = (_c > _s150)
+1607:     bool is_stage1 = not is_stage2 and (_c > _s200)
+1608:     bool vol_dry = _v < _v50
+1609:     bool vcp_tight = _atr10 < (_atr40 * 0.75)
+1610:     bool d_flat = ((_p_h50 - _c) / _c) > 0.08
+1611:     float _obv_roc5  = ta.roc(_obv, 5)
+1612:     float _obv_roc10 = ta.roc(_obv, 10)
+1613:     float _obv_sma20 = ta.sma(_obv, 20)
+1614:     bool  _obv_trending_up = _obv_roc5 > 0 and _obv > _obv_sma20 and _obv_roc5 > _obv_roc10
+1615: 
+1616:     if (is_stage1 or is_stage2) and (_obv > _obv_h50_1) and _obv_trending_up and d_flat and vcp_tight
+1617:         _catId := 1 // POS-ACCUM
+1618:     else if is_stage2 and (_c > _h250 * 0.95) and (_v > _v50 * 1.5)
+1619:         _catId := 2 // POS-BO
+1620:     else if is_stage2 and (_o > _h1 * 1.02) and (_c > _o)
+1621:         _catId := 6 // SWG-GAP
+1622:     else if is_stage2 and vcp_tight and (_c > _h10_1) and (_v > _v50 * 1.2)
+1623:         _catId := 4 // SWG-BO
+1624:     else if is_stage2 and (_c > _e20) and (((_c - _e20) / _e20) < 0.05) and vol_dry and (_rsi14 > 40) and (_rsi70 > 55)
+1625:         _catId := 3 // SWG-PB
+1626:     else if is_stage2 and (_rsi3 < 20) and (((_e20 - _c) / _e20) > 0.05)
+1627:         _catId := 5 // SWG-REV
+1628: 
+1629:     [_c, _o, low, close[1], _e20, _e20_1, _rsi14, _v, _v50, _adx_ok, _catId, _s50, _s200]
+1630: 
+1631: f_get_screener_data(string t) =>
+1632:     string cln = str.trim(t)
+1633:     bool good = str.length(cln) > 1
+1634:     string targetSym = good ? cln : syminfo.tickerid
+1635:     [c_raw, o_raw, l_raw, c1_raw, e_raw, e1_raw, r_raw, v_raw, va_raw, adx_raw, cat_raw, s50_raw, s200_raw] = request.security(targetSym, "D", f_get_screener_data_internal(), ignore_invalid_symbol=true)
+1636: 
+1637:     // Guard: Only return valid data if ticker input was non-empty
+1638:     [c, o, l, c1, e, e1, r, v, va, adx_ok, catId, s50, s200] = if good
+1639:         [c_raw, o_raw, l_raw, c1_raw, e_raw, e1_raw, r_raw, v_raw, va_raw, adx_raw, cat_raw, s50_raw, s200_raw]
+1640:     else
+1641:         [float(na), float(na), float(na), float(na), float(na), float(na), float(na), float(na), float(na), bool(na), int(na), float(na), float(na)]
+1642:     [c, o, l, c1, e, e1, r, v, va, adx_ok, catId, s50, s200]
+1643: 
+1644: 
+1645: f_rsi_div(float src, int len, int left, int right) =>
+1646:     float rsiVal = ta.rsi(src, len)
+1647:     ph = ta.pivothigh(high, left, right)
+1648:     pl = ta.pivotlow(low, left, right)
+1649:     rsiPh = ta.pivothigh(rsiVal, left, right)
+1650:     rsiPl = ta.pivotlow(rsiVal, left, right)
+1651:     string div = "None"
+1652:     var float lastPP_H = na
+1653:     var float lastRP_H = na
+1654:     var float lastPP_L = na
+1655:     var float lastRP_L = na
+1656:     if not na(ph)
+1657:         if not na(lastPP_H) and ph > lastPP_H and not na(rsiPh) and rsiPh < lastRP_H
+1658:             div := "BEARISH DIV"
+1659:         lastPP_H := ph
+1660:         lastRP_H := not na(rsiPh) ? rsiPh : lastRP_H
+1661:     if not na(pl)
+1662:         if not na(lastPP_L) and pl < lastPP_L and not na(rsiPl) and rsiPl > lastRP_L
+1663:             div := "BULLISH DIV"
+1664:         lastPP_L := pl
+1665:         lastRP_L := not na(rsiPl) ? rsiPl : lastRP_L
+1666:     [rsiVal, div]
+1667: 
+1668: // ==========================================
+1669: // 5. MAIN CALCULATIONS (OPTIMIZED)
+1670: // ==========================================
+1671: 
+1672: // Global Indicators
+1673: var float g_atr5 = 0.0
+1674: var float g_atr20 = 0.0
+1675: g_atr5 := ta.atr(5)
+1676: g_atr20 := ta.atr(20)
+1677: 
+1678: // Lightweight sector stage read for Gap 1 — returns readable stage string on weekly timeframe
+1679: f_sec_stage_lite() =>
+1680:     float ma30 = ta.sma(close, 30)
+1681:     float slope = ma30 - ma30[4]
+1682:     close > ma30 and slope > 0 ? "✅ STAGE 2 (Bull)" : close > ma30 and slope <= 0 ? "⚠️ STAGE 3 (Top)" : close < ma30 and slope < 0 ? "🔻 STAGE 4 (Bear)" : "😴 STAGE 1 (Base)"
+1683: 
+1684: // Internal function to return a flat tuple for weekly data (avoids nested tuple error in request.security)
+1685: f_weekly_super_bundle_internal(float dCl, int maLen, int slopeLen, float thresh) =>
+1686:     [sID, sTime, sSlope, sMA] = f_getStageAndTime(maLen, slopeLen, thresh)
+1687:     ma40 = ta.sma(close, 40)
+1688:     cl = close
+1689:     [hStr, hCol] = f_weeklyHealth(0.0)
+1690:     [tDir, tH, tL] = f_getStrictTrend(high, low, 5, 5)
+1691:     [ovh_val, ovh_price] = f_getOverheadResist(dCl)
+1692:     w_rsi = ta.rsi(close, 14)
+1693:     // Pre-Stage 2 early warning: Stage 1 stock with 10W MA turning up, price above 10W MA and 30W MA
+1694:     float wMA10 = ta.sma(close, 10)
+1695:     bool early_stage2 = sID == "STAGE 1 (BASE)" and wMA10 > wMA10[1] and close > wMA10 and close > sMA
+1696:     [sID, sTime, sSlope, sMA, ma40, cl, hStr, hCol, tDir, tH, tL, ovh_val, w_rsi, ovh_price, early_stage2]
+1697: 
+1698: // Consolidated Weekly Security Call (Optimized to stay under 40-call request.security limit)
+1699: [stageID, stageStart, wSlopeVal, wMA30, wMA40, wClose, wHealthStr, wHealthCol, wTrendDir, wLockH, wLockL, ovh, wRsiVal, ovhPrice, wEarlyStage2] = request.security(syminfo.tickerid, "W", f_weekly_super_bundle_internal(close, maLengthW, wmaSlopeLen, slopeThresh), ignore_invalid_symbol=true)
+1700: 
+1701: resistCount := ovh
+1702: 
+1703: bool panicExit = close < wMA40
+1704: 
+1705: // Set Weekly Slope State Text
+1706: wMASlopeState := "FLAT"
+1707: if wSlopeVal > (wMA30 * slopeThresh)
+1708:     wMASlopeState := "RISING"
+1709: else if wSlopeVal < -(wMA30 * slopeThresh)
+1710:     wMASlopeState := "FALLING"
+1711: 
+1712: int msPerWeek = 604800000
+1713: int timeDiff = timenow - stageStart
+1714: if timeDiff < 0
+1715:     timeDiff := 0
+1716: int stageWeeks = math.ceil(timeDiff / msPerWeek)
+1717: if stageWeeks < 1
+1718:     stageWeeks := 1
+1719: 
+1720: f_get_mvwap() =>
+1721:     var float pv_sum = 0.0
+1722:     var float v_sum  = 0.0
+1723:     if timeframe.change("M")
+1724:         pv_sum := 0.0
+1725:         v_sum  := 0.0
+1726:     pv_sum := pv_sum + (close * volume)
+1727:     v_sum  := v_sum + volume
+1728:     pv_sum / v_sum
+1729: 
+1730: // Internal function to return a flat tuple for daily data (avoids nested tuple error in request.security)
+1731: f_daily_super_bundle_internal(int dma50_len, int dma150_len, int dma200_len, int dmaSlopeLen, int fibLookback, int pLeft, int pRight) =>
+1732:     [tDir, tH, tL] = f_getStrictTrend(high, low, pLeft, pRight)
+1733:     [close, high, low, open, volume, ta.sma(volume, 50),
+1734:       ta.sma(close, dma50_len), ta.sma(close, dma150_len), ta.sma(close, dma200_len),
+1735:       f_calc_slope_val(ta.sma(close, dma50_len), dmaSlopeLen),
+1736:       ta.ema(close, 20),
+1737:       ta.atr(14), ta.atr(10), ta.atr(40),
+1738:       ta.highest(high, 20), ta.lowest(low, 20),
+1739:       ta.highest(high, 252), ta.highest(high, 1250),
+1740:       ta.rsi(close, 14),
+1741:       ta.highest(high, fibLookback), ta.lowest(low, fibLookback), f_calc_adx_bool(), close[65], close[130], tDir, tH, tL,
+1742:       (high[1] + low[1] + close[1]) / 3, (high[1] + low[1]) / 2, ((high[1] + low[1] + close[1]) / 3 - (high[1] + low[1]) / 2) + (high[1] + low[1] + close[1]) / 3,
+1743:       f_get_mvwap()]
+1744: 
+1745: // 4. DAILY SUPER BUNDLE
+1746: [d_c, d_h, d_l, d_o, d_v, d_vavg, d_sma50, d_sma150, d_sma200, d_slope50, d_ema20val, d_atr14, d_atr10, d_atr40, d_h20, d_l20, d_h52, d_hATH, d_rsiVal, d_h_fib, d_l_fib, d_adx_ok, c_65_ago, c_130_ago, dTrendDir, dLockH, dLockL, d_pivot, d_bc, d_tc, m_vwap] = request.security(syminfo.tickerid, "D", f_daily_super_bundle_internal(dma50_len, dma150_len, dma200_len, dmaSlopeLen, fibLookback, pivotLeft, pivotRight), ignore_invalid_symbol=true)
+1747: 
+1748: 
+1749: dClose := d_c
+1750: dHigh := d_h
+1751: dLow := d_l
+1752: dMA50 := d_sma50
+1753: dMA200 := d_sma200
+1754: dailyRsi := d_rsiVal
+1755: d_atr10_val := d_atr10
+1756: d_atr40_val := d_atr40
+1757: d_ema20_val := d_ema20val
+1758: d_vol := d_v
+1759: d_vol_avg := d_vavg
+1760: atrVal := d_atr14
+1761: 
+1762: // 5. RS BUNDLES (3 Calls) - CALCULATING RS STATE EARLY FOR USE IN STAGE LOGIC
+1763: // Auto-detect Sector (Overrides manual input if needed, or we can use manual as fallback)
+1764: // We will use the AUTO scanner as primary
+1765: [global_sec_t, global_sec_n] = f_get_hybrid_sector()
+1766: string autoSectorTick = useManual ? benchSector : global_sec_t
+1767: string autoSectorName = useManual ? str.replace_all(benchSector, "NSE:", "") : global_sec_n
+1768: 
+1769: // Fallback to Nifty 500 if no sector found
+1770: if autoSectorTick == ""
+1771:     autoSectorTick := bench500
+1772:     autoSectorName := "Nifty 500 (Default)"
+1773: 
+1774: // Safety Checks for Spreads
+1775: bool valid_b50 = str.length(bench50) > 1
+1776: bool valid_b500 = str.length(bench500) > 1
+1777: bool valid_sec = str.length(autoSectorTick) > 1
+1778: 
+1779: // Gap 1: Sector Stage Gate — lightweight weekly stage read for the auto-detected sector
+1780: string _secStageTick = valid_sec ? autoSectorTick : ""
+1781: secStageStr := request.security(_secStageTick, "W", f_sec_stage_lite(), ignore_invalid_symbol=true)
+1782: 
+1783: // Unconditional Security Calls (Compiler Warning Fix)
+1784: // v63.4: lookahead_off (was lookahead_on) — removes forward-bar bias in weekly RS reads
+1785: string req50 = valid_b50 ? (cleanTicker + " / " + bench50) : ""
+1786: [_slope50, _val50, _pastSlope50, _rsMom50] = request.security(req50, "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+1787: 
+1788: string req500 = valid_b500 ? (cleanTicker + " / " + bench500) : ""
+1789: [_slope500, _val500, _pastSlope500, _rsMom500] = request.security(req500, "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+1790: 
+1791: string reqSec = valid_sec ? (cleanTicker + " / " + autoSectorTick) : ""
+1792: [_slopeSec, _valSec, _pastSlopeSec, _rsMomSec] = request.security(reqSec, "W", f_calc_rs_logic(rsLength, rsLevelLen, rsSlopeLen), barmerge.gaps_off, barmerge.lookahead_off, ignore_invalid_symbol=true)
+1793: 
+1794: 
+1795: slope50 := _slope50
+1796: val50 := _val50
+1797: slope500 := _slope500
+1798: val500 := _val500
+1799: slopeSec := _slopeSec
+1800: valSec := _valSec
+1801: 
+1802: 
+1803: // v63.4: True RRG quadrant from (mansfield level, RS-momentum=ROC(mansfield,4)).
+1804: // Quadrants: LEADING / WEAKENING / LAGGING / IMPROVING.
+1805: rs50State  := f_rsStateStr(slope50,  val50,  rsSlopeThresh)
+1806: rs500State := f_rsStateStr(slope500, val500, rsSlopeThresh)
+1807: rsSecState := f_rsStateStr(slopeSec, valSec, rsSlopeThresh)
+1808: 
+1809: // Sector Velocity States
+1810: string secVelStr = "N/A"
+1811: color secVelCol = color.gray
+1812: if not na(slopeSec) and not na(_pastSlopeSec)
+1813:     [vStr, vCol] = f_rsVelocityStr(slopeSec, _pastSlopeSec)
+1814:     secVelStr := vStr
+1815:     secVelCol := vCol
+1816: 
+1817: // ==========================================
+1818: // 5.5 REFINED MARKET STRUCTURE (ACTIONABLE CONTEXT)
+1819: // ==========================================
+1820: // Focus: Describes the "Character" of the trend, not just the Definition.
+1821: 
+1822: bool d_bullish_200 = dClose > dMA200
+1823: bool rs_is_leading = str.contains(rs50State, "(Positive)")
+1824: 
+1825: // Base Logic from Weekly Stage Calc
+1826: if stageID == "STAGE 2 (UP)"
+1827:     if d_bullish_200
+1828:         if rs_is_leading
+1829:             stageDisplay := "🚀 STAGE 2 (Full Confluence)" // Price, MA, and RS all Green
+1830:             stageCol := color.lime
+1831:         else
+1832:             stageDisplay := "⚠️ STAGE 2 (Weak Leadership)" // Price Up, but RS Negative
+1833:             stageCol := color.orange
+1834:     else
+1835:         stageDisplay := "⚓ STAGE 2 (Value Zone)" // Weekly Up, Daily Cheap (Below 200)
+1836:         stageCol := color.aqua
+1837: else if stageID == "STAGE 2 (PULLBACK)"
+1838:     stageDisplay := "⚓ STAGE 2 (Dip Opportunity)" // Rising MA, price dipped slightly
+1839:     stageCol := color.aqua
+1840: else if stageID == "STAGE 1 (BASE)"
+1841:     if d_bullish_200
+1842:         stageDisplay := "👀 STAGE 1 (Constructive)" // Base is maturing, reclaimed 200SMA
+1843:         stageCol := color.yellow
+1844:     else
+1845:         stageDisplay := "😴 STAGE 1 (Dormant)" // Below 200SMA, snoozing
+1846:         stageCol := color.gray
+1847: else if stageID == "STAGE 3 (TOP)"
+1848:     stageDisplay := "🛑 STAGE 3 (Volatile Churn)" // High Volatility, No Progress
+1849:     stageCol := color.orange
+1850: else if stageID == "STAGE 4 (DOWN)"
+1851:     stageDisplay := "🔻 STAGE 4 (Liquidate)" // Clear Downtrend
+1852:     stageCol := color.red
+1853: else
+1854:     stageDisplay := stageID // Fallback
+1855:     stageCol := color.gray
+1856: 
+1857: stageDisplay := stageDisplay + " (" + str.tostring(stageWeeks) + "w)"
+1858: if wEarlyStage2
+1859:     stageDisplay := stageDisplay + " ↑PRE-S2"
+1860: 
+1861: 
+1862: // Trend variables provided by Daily Super Bundle v60.4
+1863: // CPR/MVWAP provided by Daily Super Bundle v60.4
+1864: 
+1865: // 7. BENCHMARK BUNDLE (1 Call)
+1866: // Fetch Base Index + Historical 65/130d Prices for RS Proxy
+1867: // v64.0: extended tuple to also expose CNX500 SMA50/SMA200/52W high as globals.
+1868: //        Used by the Recovery 3-way regime gate — NO new security call added.
+1869: var float b_c_65_ago = 0.0
+1870: var float b_c_130_ago = 0.0
+1871: var float b_c_val = 0.0
+1872: var float b_sma50_v  = na
+1873: var float b_sma200_v = na
+1874: var float b_h52_v    = na
+1875: 
+1876: if str.length(bench500) > 1
+1877:     [_b_c, _b_50, _b_200, _b_c_65, _b_c_130, _b_h52] = request.security(bench500, "D", [close, ta.sma(close, 50), ta.sma(close, 200), close[65], close[130], ta.highest(high, 250)], ignore_invalid_symbol=true)
+1878: 
+1879:     b_c_65_ago := na(_b_c_65) ? 0.0 : _b_c_65
+1880:     b_c_130_ago := na(_b_c_130) ? 0.0 : _b_c_130
+1881:     b_c_val := na(_b_c) ? 0.0 : _b_c
+1882:     b_sma50_v  := _b_50
+1883:     b_sma200_v := _b_200
+1884:     b_h52_v    := _b_h52
+1885:     bool bench_data_valid = not na(_b_c_65) and _b_c_65 > 0
+1886:     if _b_c > _b_50 and _b_50 > _b_200
+1887:         mktState := "BULLISH (Confirmed)"
+1888:         mktColor := color.lime
+1889:     else if _b_c < _b_50 and _b_50 > _b_200 and _b_c > _b_200
+1890:         mktState := "CORRECTION (In Uptrend)"
+1891:         mktColor := color.yellow
+1892:     else if _b_c > _b_50 and _b_50 < _b_200
+1893:         mktState := "RECOVERY (Weak)"
+1894:         mktColor := color.blue
+1895:     else
+1896:         mktState := "BEARISH"
+1897:         mktColor := color.red
+1898: else
+1899:     mktState := "N/A (No Bench)"
+1900:     mktColor := color.gray
+1901: 
+1902: // v67.0: Recovery Edges and RFF Lite calculation block removed.
+1903: // All recovery detection logic migrated to Weinstein Unified Ecosystem.
+1904: 
+1905: 
+1906: // --- LOCAL LOGIC (ZERO CALLS) ---
+1907: 
+1908: d50SlopeState := "FLAT"
+1909: if d_slope50 > (d_sma50 * flatThresh)
+1910:     d50SlopeState := "RISING"
+1911: else if d_slope50 < -(d_sma50 * flatThresh)
+1912:     d50SlopeState := "FALLING"
+1913: 
+1914: bool dSmaAligned = (d_sma50 > d_sma150) and (d_sma150 > d_sma200)
+1915: 
+1916: cpr_ok = not use_micro_edge or (close > d_tc)
+1917: 
+1918: mvwap_ok = not use_micro_edge or (close > m_vwap)
+1919: 
+1920: // Vol Shelf: VWMA(20) > VWMA(50) with 3-bar confirmation — faster detection of institutional accumulation.
+1921: d_vwma_20 = ta.vwma(volume, 20)
+1922: d_vwma_50 = ta.vwma(volume, 50)
+1923: vol_shelf_ok = not use_macro_edge or (d_vwma_20 > d_vwma_50 and d_vwma_20[1] > d_vwma_50[1] and d_vwma_20[2] > d_vwma_50[2])
+1924: 
+1925: f_get_vol_accum(lookback, min_days, avg_len) =>
+1926:     vol_sma = ta.sma(volume, avg_len)
+1927:     daily_range = high - low
+1928:     closing_range = daily_range == 0 ? 0 : (close - low) / daily_range
+1929:     is_accum = (close > close[1]) and (volume > vol_sma) and (closing_range > 0.6)
+1930:     accum_density = math.sum(is_accum ? 1 : 0, lookback)
+1931:     accum_density >= min_days
+1932: 
+1933: vol_accum_res = f_get_vol_accum(vol_acc_days, vol_acc_min, vol_avg_len)
+1934: vol_acc_ok    = not use_macro_edge or vol_accum_res
+1935: 
+1936: f_is_vcp(mult) =>
+1937:     atr_10 = ta.atr(10)
+1938:     avg_atr_50 = ta.sma(atr_10, 50)
+1939:     is_tight = atr_10 < (avg_atr_50 * mult)
+1940:     is_dry = ta.vwma(volume, 5) < ta.sma(volume, 50)
+1941:     is_tight and is_dry
+1942: 
+1943: vcp_res = f_is_vcp(vcp_thresh)
+1944: vcp_ok  = vcp_res // Always require VCP parameters for ideal setup filtering
+1945: 
+1946: // --- KEY-LEVEL / ZONE PROXIMITY LOGIC ---
+1947: // 1. Demand & Supply Zones (FVG Proxy)
+1948: var float last_dz = na // Bullish FVG (Demand)
+1949: var float last_sz = na // Bearish FVG (Supply)
+1950: 
+1951: // Bullish FVG: Current low > High of 2 bars ago
+1952: if low > high[2] and close[1] > open[1]
+1953:     last_dz := high[2] // The top of the gap acts as Demand
+1954: 
+1955: // Bearish FVG: Current high < Low of 2 bars ago
+1956: if high < low[2] and close[1] < open[1]
+1957:     last_sz := low[2] // The bottom of the gap acts as Supply
+1958: 
+1959: // 2. Trendlines & Multiple Pivots (Strictly Pivot Connections)
+1960: var float pl1 = na, var int pl1_bar = na
+1961: var float pl2 = na, var int pl2_bar = na
+1962: var float[] last_pls = array.new_float(5, na)
+1963: 
+1964: float curr_pl = ta.pivotlow(low, 5, 5)
+1965: if not na(curr_pl)
+1966:     pl2 := pl1, pl2_bar := pl1_bar
+1967:     pl1 := curr_pl, pl1_bar := bar_index - 5
+1968:     array.unshift(last_pls, curr_pl)
+1969:     array.pop(last_pls)
+1970: 
+1971: var float ph1 = na, var int ph1_bar = na
+1972: var float ph2 = na, var int ph2_bar = na
+1973: var float[] last_phs = array.new_float(5, na)
+1974: 
+1975: float curr_ph = ta.pivothigh(high, 5, 5)
+1976: if not na(curr_ph)
+1977:     ph2 := ph1, ph2_bar := ph1_bar
+1978:     ph1 := curr_ph, ph1_bar := bar_index - 5
+1979:     array.unshift(last_phs, curr_ph)
+1980:     array.pop(last_phs)
+1981: 
+1982: float tl_bull = na
+1983: if not na(pl1) and not na(pl2) and pl1_bar != pl2_bar
+1984:     float slope_l = (pl1 - pl2) / (pl1_bar - pl2_bar)
+1985:     tl_bull := pl1 + slope_l * (bar_index - pl1_bar)
+1986: 
+1987: float tl_bear = na
+1988: if not na(ph1) and not na(ph2) and ph1_bar != ph2_bar
+1989:     float slope_h = (ph1 - ph2) / (ph1_bar - ph2_bar)
+1990:     tl_bear := ph1 + slope_h * (bar_index - ph1_bar)
+1991: 
+1992: // 3. Dynamic 20EMA & ATH
+1993: float dyn_sr = d_ema20val
+1994: float cur_ath = f_trackATH()
+1995: 
+1996: // Calculate distances (%)
+1997: f_dist_pct(float val) => val != 0 and not na(val) ? math.abs(close - val) / close * 100 : 999.0
+1998: 
+1999: float dist_dz = f_dist_pct(last_dz)
+2000: float dist_sz = f_dist_pct(last_sz)
+2001: float dist_tl_bull = f_dist_pct(tl_bull)
+2002: float dist_tl_bear = f_dist_pct(tl_bear)
+2003: float dist_dyn_sr = f_dist_pct(dyn_sr)
+2004: float dist_ath = f_dist_pct(cur_ath)
+2005: 
+2006: // Identify close levels (Threshold 2.5%)
+2007: float prox_thresh = 2.5
+2008: string[] active_lbls = array.new_string(0)
+2009: float min_dist = 999.0
+2010: string closest_pos = "near"
+2011: 
+2012: if dist_dz <= prox_thresh
+2013:     array.push(active_lbls, "DZ")
+2014:     if dist_dz < min_dist
+2015:         min_dist := dist_dz
+2016:         closest_pos := close > last_dz ? "above" : "below"
+2017: 
+2018: if dist_sz <= prox_thresh
+2019:     array.push(active_lbls, "SZ")
+2020:     if dist_sz < min_dist
+2021:         min_dist := dist_sz
+2022:         closest_pos := close > last_sz ? "above" : "below"
+2023: 
+2024: if dist_tl_bull <= prox_thresh
+2025:     array.push(active_lbls, "TL (Bullish)")
+2026:     if dist_tl_bull < min_dist
+2027:         min_dist := dist_tl_bull
+2028:         closest_pos := close > tl_bull ? "above" : "below"
+2029: 
+2030: if dist_tl_bear <= prox_thresh
+2031:     array.push(active_lbls, "TL (Bearish)")
+2032:     if dist_tl_bear < min_dist
+2033:         min_dist := dist_tl_bear
+2034:         closest_pos := close > tl_bear ? "above" : "below"
+2035: 
+2036: // Iterate recent 5 pivot highs and lows to find closest S/R
+2037: float min_piv_dist = 999.0
+2038: float best_piv_val = na
+2039: 
+2040: for i = 0 to 4
+2041:     float ph = array.get(last_phs, i)
+2042:     if not na(ph)
+2043:         float d = f_dist_pct(ph)
+2044:         if d < min_piv_dist
+2045:             min_piv_dist := d
+2046:             best_piv_val := ph
+2047: 
+2048:     float pl = array.get(last_pls, i)
+2049:     if not na(pl)
+2050:         float d = f_dist_pct(pl)
+2051:         if d < min_piv_dist
+2052:             min_piv_dist := d
+2053:             best_piv_val := pl
+2054: 
+2055: if min_piv_dist <= prox_thresh
+2056:     string p_lbl = close > best_piv_val ? "S" : "R"
+2057:     if array.indexof(active_lbls, p_lbl) == -1
+2058:         array.push(active_lbls, p_lbl)
+2059:     if min_piv_dist < min_dist
+2060:         min_dist := min_piv_dist
+2061:         closest_pos := close > best_piv_val ? "above" : "below"
+2062: 
+2063: if dist_dyn_sr <= prox_thresh
+2064:     string dyn_qualifier = close > dyn_sr ? "S" : "R"
+2065:     array.push(active_lbls, "Dynamic " + dyn_qualifier)
+2066:     if dist_dyn_sr < min_dist
+2067:         min_dist := dist_dyn_sr
+2068:         closest_pos := close > dyn_sr ? "above" : "below"
+2069: 
+2070: if dist_ath <= prox_thresh
+2071:     array.push(active_lbls, "ATH")
+2072:     if dist_ath < min_dist
+2073:         min_dist := dist_ath
+2074:         closest_pos := close > cur_ath ? "above" : "below"
+2075: 
+2076: if array.size(active_lbls) > 0
+2077:     string joined_lbls = array.join(active_lbls, ", ")
+2078:     keyLvlState := str.tostring(min_dist, "#.1") + "% " + closest_pos + " " + joined_lbls
+2079:     keyLvlColor := color.orange
+2080: else
+2081:     keyLvlState := "MID-RANGE (No Near Level)"
+2082:     keyLvlColor := color.gray
+2083: 
+2084: // Volume calc locally first because Price Action breakout check needs it now (v56.0)
+2085: float curRelVol = d_vavg != 0 ? d_v / d_vavg : 0.0
+2086: 
+2087: // Price Action
+2088: if not na(dLockH)
+2089:     // v56.0 Enhancement: Anti-Algo Breakout Filter
+2090:     bool closeNearHigh = (close - low) > ((high - low) * 0.75) // Closes in top 25% of daily range
+2091:     bool volConfirm = curRelVol > 1.25 // Meaningful volume edge
+2092:     bool isTrueBreakout = close > dLockH and closeNearHigh and volConfirm
+2093: 
+2094:     if isTrueBreakout
+2095:         isBreakout := true
+2096:         paState := "BREAKOUT (Confirmed)"
+2097:         paColor := color.lime
+2098:     else if close > dLockH
+2099:         // Failed the strict test = Warning
+2100:         paState := "BREAKOUT (Unconfirmed)"
+2101:         paColor := color.orange
+2102:     else if close < dLockH and close > (dLockH * 0.95)
+2103:         paState := "CONSOLIDATION (Tight)"
+2104:         paColor := color.blue
+2105:     else if close > open and (close - low) > (high - close) * 3
+2106:         paState := "POWER PLAY (Strong Close)"
+2107:         paColor := color.green
+2108:     else if close < open and (high - close) > (close - low) * 3
+2109:         paState := "SELLING TAIL (Rejection)"
+2110:         paColor := color.orange
+2111:     else if (high - low) < (atrVal * 0.5)
+2112:         paState := "NR7 (Coiling)"
+2113:         paColor := color.yellow
+2114:     else
+2115:         paState := "NORMAL"
+2116:         paColor := color.gray
+2117: 
+2118: // --- POWER PLAY (High Tight Flag) ---
+2119: // Logic: Stock > 100% in 8 weeks, consolidates < 3 weeks, tight price action
+2120: float low8w = ta.lowest(low, 40)
+2121: bool bigMove = (close - low8w) / low8w > 1.0 // 100% move
+2122: bool consolidation = (ta.highest(high, 15) - ta.lowest(low, 15)) / ta.lowest(low, 15) < 0.20 // 20% range
+2123: bool htf = bigMove and consolidation and dClose > dMA50
+2124: if htf
+2125:     paState := "★ POWER PLAY (HTF)"
+2126:     paColor := color.fuchsia
+2127: 
+2128: // Volume state (Uses curRelVol from earlier)
+2129: string curVolStr = str.tostring(curRelVol, "#.1") + "x"
+2130: volState := "NORMAL (" + curVolStr + ")"
+2131: if curRelVol > 1.5
+2132:     if d_c > d_c[1]
+2133:         volState := "ACCUMULATION (" + curVolStr + ")"
+2134:         volColor := color.green
+2135:     else
+2136:         volState := "DISTRIBUTION (" + curVolStr + ")"
+2137:         volColor := color.red
+2138: else if curRelVol < 0.7
+2139:     volState := "DRY UP (" + curVolStr + ")"
+2140:     volColor := color.yellow
+2141: 
+2142: // Volatility (VCP v56.0 Upgrade)
+2143: bool isContraction = d_atr10_val < (d_atr40_val * 0.75)
+2144: bool volumeDryUp = curRelVol < 0.8 // Requires Volume to die down to be a true VCP
+2145: bool isExpansion = d_atr10_val > (d_atr40_val * 1.25)
+2146: 
+2147: patStr := "Normal Volatility"
+2148: if isContraction and volumeDryUp
+2149:     patStr := "VCP (True Dry Up)"
+2150: else if isContraction
+2151:     patStr := "VCP (Actionable)" // Contracting, but lacking that perfect volume signature
+2152: else if isExpansion
+2153:     patStr := "Vol Expansion"
+2154: 
+2155: // Highs
+2156: // Highs (Space to Run)
+2157: float distTo52 = ((close - d_h52) / d_h52) * 100
+2158: float distToATH = ((close - d_hATH) / d_hATH) * 100
+2159: // If below high, show distance TO it (Positive Space). If above, show deviation FROM it.
+2160: dev52 := distTo52 < 0 ? math.abs(distTo52) : distTo52
+2161: devATH := distToATH < 0 ? math.abs(distToATH) : distToATH
+2162: // Format strings for display
+2163: string s_dev52 = (distTo52 < 0 ? "Run: " : "Abv: ") + str.tostring(math.abs(distTo52), "#.1") + "%"
+2164: string s_devATH = (distToATH < 0 ? "Run: " : "Abv: ") + str.tostring(math.abs(distToATH), "#.1") + "%"
+2165: 
+2166: // EMA Logic
+2167: d_ema20 := d_ema20val
+2168: isIntra := timeframe.isintraday
+2169: use_ema20 := isIntra ? d_ema20 : ta.ema(close, 20)
+2170: ema_lbl := isIntra ? "Price vs EMA20 (Daily)" : "Price vs EMA20 (Chart)"
+2171: 
+2172: if not na(use_ema20)
+2173:     emaDist := close != 0 ? (close - use_ema20) / close * 100 : 0.0
+2174:     absDist := math.abs(emaDist)
+2175:     string extState = absDist > 15.0 ? "OverExtended" : "Normal"
+2176:     if high > use_ema20 and close < use_ema20
+2177:         emaState := "RESISTANCE (Hit Head)"
+2178:         emaColor := color.red
+2179:     else if low < use_ema20 and close > use_ema20
+2180:         emaState := "SUPPORT (Bounced)"
+2181:         emaColor := color.green
+2182:     else if absDist < 1.0
+2183:         emaState := "NEAR (" + str.tostring(emaDist, "#.1") + "%)"
+2184:         emaColor := color.blue
+2185:     else if close > use_ema20
+2186:         emaState := "PRICE ABOVE (" + extState + ")"
+2187:         emaColor := color.green
+2188:     else
+2189:         emaState := "PRICE BELOW (" + extState + ")"
+2190:         emaColor := color.red
+2191: 
+2192: // Earnings
+2193: earningsNext = earnings.future_time
+2194: if not na(earningsNext)
+2195:     earnStr := str.format_time(earningsNext, "dd-MMM")
+2196:     float msPerDay = 1000 * 60 * 60 * 24
+2197:     float daysToEarn = (earningsNext - timenow) / msPerDay
+2198:     if daysToEarn > 0 and daysToEarn <= 5
+2199:         earnStr := "⚠️ " + earnStr + " (<5 Days!)"
+2200:         earnColor := color.red
+2201:     else
+2202:         earnColor := color.gray
+2203: 
+2204: [_currRsi, _currRsiDiv] = f_rsi_div(close, 14, 5, 5)
+2205: currRsi := _currRsi
+2206: currRsiDiv := _currRsiDiv
+2207: 
+2208: bool isSqueeze = g_atr5 < (g_atr20 * 0.60)
+2209: if isSqueeze
+2210:     volState := "VOLATILITY SQUEEZE (Ready)"
+2211:     volColor := color.blue
+2212: 
+2213: // Score Base
+2214: score := 0
+2215: if stageID == "STAGE 2 (UP)"
+2216:     score += 25
+2217: else if stageID == "STAGE 1 (BASE)"
+2218:     score += 10
+2219: if str.contains(rs50State, "(Positive)")  // FIX v62.0: using str.contains to match Positive RS level
+2220:     score += 15
+2221: if d50SlopeState == "RISING" and dSmaAligned
+2222:     score += 15
+2223: else if d50SlopeState == "RISING"
+2224:     score += 5
+2225: if str.contains(volState, "ACCUM") or isSqueeze
+2226:     score += 10
+2227: if dailyRsi > 50 and dailyRsi < 70
+2228:     score += 5
+2229: float distToDailyEma = close != 0 ? math.abs((close - d_ema20_val) / close * 100) : 0.0
+2230: if distToDailyEma < 2.0
+2231:     score += 10
+2232: 
+2233: // ==========================================
+2234: // v56.0 IBD RS PERCENTILE PROXY (Performance Score)
+2235: // ==========================================
+2236: float p_q3 = na(c_65_ago) or c_65_ago == 0 ? 0.0 : ((dClose - c_65_ago) / c_65_ago) * 100
+2237: float p_h1 = na(c_130_ago) or c_130_ago == 0 ? 0.0 : ((dClose - c_130_ago) / c_130_ago) * 100
+2238: 
+2239: // Compare against Benchmark (Nifty 500 equivalent raw growth)
+2240: float safe_b_c = na(b_c_val) ? 0.0 : b_c_val
+2241: bool bench_data_valid = not na(safe_b_c) and safe_b_c > 0 and not na(b_c_65_ago) and b_c_65_ago > 0 and not na(b_c_130_ago) and b_c_130_ago > 0
+2242: float b_q3 = not bench_data_valid ? 0.0 : ((safe_b_c - b_c_65_ago) / b_c_65_ago) * 100
+2243: float b_h1 = not bench_data_valid ? 0.0 : ((safe_b_c - b_c_130_ago) / b_c_130_ago) * 100
+2244: 
+2245: // We want stock outperformance
+2246: float alpha_q3 = p_q3 - b_q3
+2247: float alpha_h1 = p_h1 - b_h1
+2248: 
+2249: if alpha_q3 > 20.0 and alpha_h1 > 30.0
+2250:     score += 20 // Huge outperformance
+2251: else if alpha_q3 > 10.0 and alpha_h1 > 15.0
+2252:     score += 10 // Solid outperformance
+2253: else if alpha_q3 < 0.0 or alpha_h1 < 0.0
+2254:     score -= 10 // Underperformer
+2255: 
+2256: // Cap Score
+2257: if score > 100
+2258:     score := 100
+2259: 
+2260: if score >= 80
+2261:     grade := "A+ (Excellent)"
+2262:     gradeCol := color.lime
+2263: else if score >= 60
+2264:     grade := "B (Good)"
+2265:     gradeCol := color.yellow
+2266: else
+2267:     grade := "C (Weak)"
+2268:     gradeCol := color.orange
+2269: scoreStr := str.tostring(score) + "/100 [" + grade + "]"
+2270: 
+2271: // Use New Naming
+2272: string assetQuality = scoreStr
+2273: 
+2274: // RECOMMENDATION
+2275: recText := "WAIT / NEUTRAL"
+2276: recColor := color.gray
+2277: 
+2278: bool isStage2 = (stageID == "STAGE 2 (UP)")
+2279: bool isUptrend = (dTrendDir == 1)
+2280: bool isRsStrong = str.contains(rs50State, "(Positive)") // Only true Positive level states count
+2281: 
+2282: if isStage2 and isUptrend and isRsStrong
+2283:     if str.contains(mktState, "BEARISH")
+2284:         recText := "WAIT (Mkt Bearish)"
+2285:         recColor := color.orange
+2286:     else
+2287:         recText := "STRONG BUY (Momentum)"
+2288:         recColor := color.lime
+2289: else if isStage2 and isUptrend
+2290:     if str.contains(mktState, "BEARISH")
+2291:         recText := "WAIT (Mkt Bearish)"
+2292:         recColor := color.orange
+2293:     else
+2294:         recText := "BUY (Check RS)"
+2295:         recColor := color.green
+2296: else if isStage2 and dTrendDir == 0
+2297:     recText := "HOLD (Consolidation)"
+2298:     recColor := color.blue
+2299: else if stageID == "STAGE 1 (BASE)"
+2300:     recText := "WATCHLIST (Base Building)"
+2301:     recColor := color.yellow
+2302: else if stageID == "STAGE 4 (DOWN)"
+2303:     recText := "AVOID (Stage 4)"
+2304:     recColor := color.red
+2305: else if currRsiDiv == "BEARISH DIV"
+2306:     recText := "CAUTION (Divergence)"
+2307:     recColor := color.orange
+2308: else if dTrendDir == -1
+2309:     recText := "NO TRADE (Downtrend)"
+2310:     recColor := color.red
+2311: 
+2312: 
+2313: // Logic for New Signal Detection
+2314: bool signalStrongBuy = (stageID == "STAGE 2 (UP)" and dTrendDir == 1 and str.contains(rs50State, "(Positive)"))
+2315: bool signalBuy       = (stageID == "STAGE 2 (UP)" and dTrendDir == 1)
+2316: 
+2317: newStrongBuy := signalStrongBuy and not signalStrongBuy[1]
+2318: newBuy       := signalBuy and not signalBuy[1] and not signalStrongBuy // Avoid double labeling
+2319: bool newBreakout  = isBreakout and not isBreakout[1]
+2320: 
+2321: // Pullback Logic (Restored)
+2322: // Extracting highest/lowest to global scope for consistency
+2323: float h20 = ta.highest(high, 20)
+2324: float l20 = ta.lowest(low, 20)
+2325: float hFib = ta.highest(high, fibLookback)
+2326: float lFib = ta.lowest(low, fibLookback)
+2327: 
+2328: // Pullback Logic (Restored via VDU / Momentum below)
+2329: 
+2330: if markFresh and (newStrongBuy or newBuy)
+2331:     displayRec := "★ " + recText
+2332: else
+2333:     displayRec := recText
+2334: 
+2335: // 8. Catalyst Engine (v4.0 Hybrid) - ACTIVE CHART
+2336: string chartCat = "NONE"
+2337: color chartCatCol = color.gray
+2338: 
+2339: float c_obv = ta.cum(math.sign(ta.change(close)) * volume)
+2340: float c_obv_h50_1 = ta.highest(c_obv, 50)[1]
+2341: float c_p_h50 = ta.highest(high, 50)
+2342: float c_rsi70 = ta.rsi(close, 70)
+2343: float c_h10_1 = ta.highest(high, 10)[1]
+2344: float c_rsi3 = ta.rsi(close, 3)
+2345: float c_h250_1 = ta.highest(high, 250)[1]
+2346: 
+2347: bool is_stg2 = stageID == "STAGE 2 (UP)"
+2348: bool is_stg1 = stageID == "STAGE 1 (BASE)"
+2349: bool v_dry = d_v < d_vavg
+2350: // SYNC FIX (final audit): Dashboard had a dual-VCP split — the PANEL used vcp_ok from f_is_vcp(1.5)
+2351: // (canonical: ATR10 < SMA50(ATR10) × 1.5) but the CATALYST ENGINE used vcp_tg (ATR10 < ATR40 × 0.75).
+2352: // This caused contradictions: panel could show "VCP WAIT" while a SWG-BO catalyst was firing, or vice versa.
+2353: // Fixed: catalyst now uses vcp_ok (canonical, already computed above) for internal consistency.
+2354: bool vcp_tg = vcp_ok  // Was: d_atr10_val < (d_atr40_val * 0.75) — now aliases the canonical vcp_ok
+2355: 
+2356: // ENHANCEMENT v63.0: Anti-Algo SWG-BO Filter
+2357: // Screens out breakout signals that are driven by algorithmic price manipulation —
+2358: // typically characterized by a large-range candle that closes BELOW the intraday midpoint
+2359: // (a sign of supply absorption or an algo-pump without follow-through).
+2360: // Criteria:
+2361: //   (1) Close in upper 60% of the daily range  → ensures genuine buying pressure held
+2362: //   (2) Up-close (close > open)                → confirms directional conviction
+2363: // Only applied to SWG-BO to preserve POS-BO signal (which has its own 1.5× volume gate).
+2364: float _intraday_range = d_h - d_l
+2365: float _intraday_pos   = _intraday_range > 0 ? (close - d_l) / _intraday_range : 0.5
+2366: bool  anti_algo_ok    = _intraday_pos >= 0.60 and close > d_o
+2367: 
+2368: bool cf_flat = close != 0 ? ((c_p_h50 - close) / close) > 0.08 : false
+2369: float c_obv_roc5  = ta.roc(c_obv, 5)
+2370: float c_obv_roc10 = ta.roc(c_obv, 10)
+2371: float c_obv_sma20 = ta.sma(c_obv, 20)
+2372: bool  c_obv_trending_up = c_obv_roc5 > 0 and c_obv > c_obv_sma20 and c_obv_roc5 > c_obv_roc10
+2373: if (is_stg1 or is_stg2) and (c_obv > c_obv_h50_1) and c_obv_trending_up and cf_flat and vcp_tg
+2374:     chartCat := "POS-ACCUM"
+2375:     chartCatCol := color.lime
+2376: else if is_stg2 and (close > c_h250_1 * 0.95) and (d_v > d_vavg * 1.5)
+2377:     chartCat := "POS-BO"
+2378:     chartCatCol := color.blue
+2379: else if is_stg2 and (open > high[1] * 1.02) and (close > open) and (_intraday_pos >= 0.60)  // v63.4: anti-algo gate (close in top 40% of bar) — mirrors v4.52 gap-and-crap filter
+2380:     chartCat := "SWG-GAP"
+2381:     chartCatCol := color.aqua
+2382: else if is_stg2 and vcp_tg and (close > c_h10_1) and (d_v > d_vavg * 1.2) and anti_algo_ok  // v63.0: anti-algo filter added
+2383:     chartCat := "SWG-BO"
+2384:     chartCatCol := color.fuchsia
+2385: else if is_stg2 and (close > d_ema20_val) and (((close - d_ema20_val) / d_ema20_val) < 0.05) and v_dry and (dailyRsi > 40) and (c_rsi70 > 55)
+2386:     chartCat := "SWG-PB"
+2387:     chartCatCol := color.orange
+2388: else if is_stg2 and (c_rsi3 < 20) and (((d_ema20_val - close) / d_ema20_val) > 0.05)
+2389:     chartCat := "SWG-REV"
+2390:     chartCatCol := color.red
+2391: 
+2392: // --- PERSISTENT CATALYST: holds the most recent signal for up to 5 bars ---
+2393: // Prevents blank chart when signal fired on previous bar but not exactly today
+2394: var string persistCat    = "NONE"
+2395: var color  persistCatCol = color.gray
+2396: var int    persistAge    = 0  // Bars since last signal fired
+2397: 
+2398: bool _signalFiredThisBar = false
+2399: 
+2400: if chartCat != "NONE"
+2401:     persistCat       := chartCat
+2402:     persistCatCol    := chartCatCol
+2403:     persistAge       := 0
+2404:     _signalFiredThisBar := true
+2405: else if newStrongBuy or newBuy  // Fallback: shape signals can trigger algo mode too
+2406:     persistCat       := "POS-ACCUM"
+2407:     persistCatCol    := color.lime
+2408:     persistAge       := 0
+2409:     _signalFiredThisBar := true
+2410: else
+2411:     persistAge := persistAge + 1
+2412: 
+2413: // Only expire stale signals — do NOT reset on Stage 4, as transitional stocks
+2414: // (e.g. recovering Stage 4→1) can have valid buy signals before stage upgrades.
+2415: // The 5-bar staleness check is sufficient protection against lingering signals.
+2416: if not _signalFiredThisBar and persistAge > 5
+2417:     persistCat    := "NONE"
+2418:     persistCatCol := color.gray
+2419:     persistAge    := 0
+2420: 
+2421: // PLOTTING SIGNALS
+2422: plotshape(showSignals and newStrongBuy, title="Strong Buy Signal", style=shape.labelup, location=location.belowbar, color=color.lime, textcolor=color.black, text="★", size=size.tiny)
+2423: plotshape(showSignals and newBuy,       title="Buy Signal",        style=shape.labelup, location=location.belowbar, color=color.green, textcolor=color.white, text="B", size=size.tiny)
+2424: plotshape(showSignals and newBreakout,  title="Breakout Signal",   style=shape.triangleup, location=location.belowbar, color=color.blue, size=size.tiny)
+2425: // (hitPullback plotted below)
+2426: 
+2427: if panicExit
+2428:     displayRec := "EXIT NOW (40WMA Break)"
+2429:     recColor := color.red
+2430: 
+2431: // ==========================================
+2432: // PULLBACK & VOLATILITY (Strategy Aligned)
+2433: // ==========================================
+2434: // We use the Strategy's superior Pullback Logic: EMA Proximity + Momentum Divorce + VDU
+2435: float pb_dist_ema20 = d_ema20_val != 0 ? ((dClose - d_ema20_val) / d_ema20_val) * 100 : 0.0
+2436: bool is_ema_pb_zone = pb_dist_ema20 <= 5.0 and pb_dist_ema20 >= -5.0 // Hardcoded pb_dist_max = 5.0
+2437: 
+2438: // Momentum Divorce (Price drop, RSI holds)
+2439: bool rsi_divorce = dailyRsi > 40 and wRsiVal > 60 // rsi_d_th = 40, rsi_w_th = 60
+2440: 
+2441: // Institutional Footprint (Volume Drying Up - VDU)
+2442: bool vol_vdu_ok = d_vol < d_vol_avg
+2443: 
+2444: bool hitPullback = is_ema_pb_zone and rsi_divorce and vol_vdu_ok
+2445: if hitPullback
+2446:     dayHealthStr := "Inst. Pullback Zone"
+2447:     dayHealthCol := color.orange
+2448: else
+2449:     dayHealthStr := "No Setup"
+2450:     dayHealthCol := color.gray
+2451: 
+2452: // Plot Pullback Signal
+2453: plotshape(showSignals and hitPullback, title="Pullback Hit", style=shape.circle, location=location.belowbar, color=color.new(color.purple, 20), size=size.tiny)
+2454: 
+2455: // Define highest20 for Trade Manager
+2456: float highest20 = h20
+2457: 
+2458: // --- RESET STATE PER BAR (Fix for Symbol Switching) ---
+2459: finalEntry := 0.0
+2460: finalSL := 0.0
+2461: finalDate := 0
+2462: 
+2463: // Trade Manager
+2464: if quick_ent > 0
+2465:     finalEntry := quick_ent
+2466:     finalSL    := quick_sl
+2467: else if f_match(p1_tick)
+2468:     finalEntry := p1_ent
+2469:     finalSL := p1_sl
+2470:     finalDate := p1_date
+2471: else if f_match(p2_tick)
+2472:     finalEntry := p2_ent
+2473:     finalSL := p2_sl
+2474:     finalDate := p2_date
+2475: else if f_match(p3_tick)
+2476:     finalEntry := p3_ent
+2477:     finalSL := p3_sl
+2478:     finalDate := p3_date
+2479: else if f_match(p4_tick)
+2480:     finalEntry := p4_ent
+2481:     finalSL := p4_sl
+2482:     finalDate := p4_date
+2483: else if f_match(p5_tick)
+2484:     finalEntry := p5_ent
+2485:     finalSL := p5_sl
+2486:     finalDate := p5_date
+2487: else if f_match(p6_tick)
+2488:     finalEntry := p6_ent
+2489:     finalSL := p6_sl
+2490:     finalDate := p6_date
+2491: else if f_match(p7_tick)
+2492:     finalEntry := p7_ent
+2493:     finalSL := p7_sl
+2494:     finalDate := p7_date
+2495: else if f_match(p8_tick)
+2496:     finalEntry := p8_ent
+2497:     finalSL := p8_sl
+2498:     finalDate := p8_date
+2499: else if f_match(p9_tick)
+2500:     finalEntry := p9_ent
+2501:     finalSL := p9_sl
+2502:     finalDate := p9_date
+2503: else if f_match(p10_tick)
+2504:     finalEntry := p10_ent
+2505:     finalSL := p10_sl
+2506:     finalDate := p10_date
+2507: else if f_match(p11_tick)
+2508:     finalEntry := p11_ent
+2509:     finalSL := p11_sl
+2510:     finalDate := p11_date
+2511: else if f_match(p12_tick)
+2512:     finalEntry := p12_ent
+2513:     finalSL := p12_sl
+2514:     finalDate := p12_date
+2515: else if f_match(p13_tick)
+2516:     finalEntry := p13_ent
+2517:     finalSL := p13_sl
+2518:     finalDate := p13_date
+2519: else if f_match(p14_tick)
+2520:     finalEntry := p14_ent
+2521:     finalSL := p14_sl
+2522:     finalDate := p14_date
+2523: else if f_match(p15_tick)
+2524:     finalEntry := p15_ent
+2525:     finalSL := p15_sl
+2526:     finalDate := p15_date
+2527: else if f_match(p16_tick)
+2528:     finalEntry := p16_ent
+2529:     finalSL := p16_sl
+2530:     finalDate := p16_date
+2531: else if f_match(p17_tick)
+2532:     finalEntry := p17_ent
+2533:     finalSL := p17_sl
+2534:     finalDate := p17_date
+2535: else if f_match(p18_tick)
+2536:     finalEntry := p18_ent
+2537:     finalSL := p18_sl
+2538:     finalDate := p18_date
+2539: else if f_match(p19_tick)
+2540:     finalEntry := p19_ent
+2541:     finalSL := p19_sl
+2542:     finalDate := p19_date
+2543: else if f_match(p20_tick)
+2544:     finalEntry := p20_ent
+2545:     finalSL := p20_sl
+2546:     finalDate := p20_date
+2547: else if f_match(p21_tick)
+2548:     finalEntry := p21_ent
+2549:     finalSL := p21_sl
+2550:     finalDate := p21_date
+2551: else if f_match(p22_tick)
+2552:     finalEntry := p22_ent
+2553:     finalSL := p22_sl
+2554:     finalDate := p22_date
+2555: else if f_match(p23_tick)
+2556:     finalEntry := p23_ent
+2557:     finalSL := p23_sl
+2558:     finalDate := p23_date
+2559: else if f_match(p24_tick)
+2560:     finalEntry := p24_ent
+2561:     finalSL := p24_sl
+2562:     finalDate := p24_date
+2563: else if f_match(p25_tick)
+2564:     finalEntry := p25_ent
+2565:     finalSL := p25_sl
+2566:     finalDate := p25_date
+2567: else if f_match(p26_tick)
+2568:     finalEntry := p26_ent
+2569:     finalSL := p26_sl
+2570:     finalDate := p26_date
+2571: else if f_match(p27_tick)
+2572:     finalEntry := p27_ent
+2573:     finalSL := p27_sl
+2574:     finalDate := p27_date
+2575: else if f_match(p28_tick)
+2576:     finalEntry := p28_ent
+2577:     finalSL := p28_sl
+2578:     finalDate := p28_date
+2579: else if f_match(p29_tick)
+2580:     finalEntry := p29_ent
+2581:     finalSL := p29_sl
+2582:     finalDate := p29_date
+2583: else if f_match(p30_tick)
+2584:     finalEntry := p30_ent
+2585:     finalSL := p30_sl
+2586:     finalDate := p30_date
+2587: 
+2588: tradeActive = finalEntry > 0
+2589: 
+2590: if tradeActive
+2591:     // BUG FIX (Dragging Line Override):
+2592:     // If the user drags finalSL to 0.0 directly on chart, it might trigger intermediate falses.
+2593:     float safe_hard_sl = na(finalSL) ? 0.0 : finalSL
+2594:     // --- RR DISPLAY & DYNAMIC TARGETING LOGIC ---
+2595:     float riskPerShare = finalEntry - finalSL
+2596:     float currentProfitPerShare = close - finalEntry
+2597: 
+2598:     // Dynamic Profiles Based on Market Health (N500)
+2599:     isBullMarket := str.contains(mktState, "BULLISH")
+2600:     dyn_T1_R := isBullMarket ? 2.5 : 2.0   // Bull: Let it run / Bear: Take early
+2601:     dyn_T2_R := isBullMarket ? 4.0 : 2.5   // Bull: Hold runner / Bear: Cap at 2.5R
+2602: 
+2603:     mktProfile := isBullMarket ? "🟢 BULL (Aggressive)" : "🔴 BEAR (Hit & Run)"
+2604: 
+2605:     if riskPerShare > 0
+2606:         currentR := currentProfitPerShare / riskPerShare
+2607:         rrText := str.tostring(currentR, "#.1") + "R (Target: " + str.tostring(dyn_T1_R) + "R)"
+2608: 
+2609:     // Effective SL (Hard SL vs Trailing SL)
+2610:     // TSL Logic removed in favor of Chandelier Exit script
+2611:     effectiveSL := safe_hard_sl
+2612:     // ---------------------------
+2613: 
+2614:     // Day calculation Logic
+2615:     entryDateStr := "N/A"
+2616:     daysHeld := 0
+2617:     if finalDate > 0
+2618:         daysHeld := math.floor((time - finalDate) / 86400000)
+2619:         entryDateStr := str.format("{0,date,yyyy-MM-dd}", finalDate)
+2620: 
+2621:     // Gap 5: Time Stop Proximity Warning (mirrors Strategy v4.42 inputs)
+2622:     int pos_stop_thresh = pos_time_stop_w * 5  // weeks → trading days
+2623:     int swg_stop_thresh = swg_time_stop_d
+2624:     int pos_days_left   = pos_stop_thresh - daysHeld
+2625:     int swg_days_left   = swg_stop_thresh - daysHeld
+2626:     if daysHeld > 0
+2627:         if daysHeld >= pos_stop_thresh
+2628:             timeWarnStr := "⏰ POS TIME STOP HIT"
+2629:             timeWarnCol := color.red
+2630:         else if pos_days_left <= 5
+2631:             timeWarnStr := "⚠️ POS: " + str.tostring(pos_days_left) + "d left"
+2632:             timeWarnCol := color.orange
+2633:         else if daysHeld >= swg_stop_thresh
+2634:             timeWarnStr := "⏰ SWG TIME STOP HIT"
+2635:             timeWarnCol := color.red
+2636:         else if swg_days_left <= 3
+2637:             timeWarnStr := "⚠️ SWG: " + str.tostring(swg_days_left) + "d left"
+2638:             timeWarnCol := color.orange
+2639:         else
+2640:             timeWarnStr := "OK (P:" + str.tostring(pos_days_left) + "d | S:" + str.tostring(swg_days_left) + "d)"
+2641:             timeWarnCol := color.gray
+2642: 
+2643:     float curPnL = ((close - finalEntry) / finalEntry) * 100
+2644:     string pnlStr = (curPnL > 0 ? "+" : "") + str.tostring(curPnL, "#.2") + "%"
+2645: 
+2646:     if close < effectiveSL
+2647:         tradeStatus := "⚠️ STOP HIT (" + pnlStr + ")"
+2648:         tradeColor := color.red
+2649:     else if curPnL > 0
+2650:         // SCALE IN / TRIM LOGIC
+2651:         bool cond_add = dTrendDir == 1 and dailyRsi < 70 and close > use_ema20 and not isSqueeze // Don't add inside a squeeze, wait for pop
+2652:         bool cond_trim = dailyRsi > 75 or absDist > 15.0 or (not na(earningsNext) and (earningsNext - timenow) / 86400000 < 3)
+2653: 
+2654:         if cond_trim
+2655:             tradeStatus := "TRIM (" + pnlStr + ")"
+2656:             tradeColor := color.fuchsia
+2657:         else if cond_add
+2658:             tradeStatus := "SCALE IN (" + pnlStr + ")"
+2659:             tradeColor := color.blue
+2660:         else
+2661:             tradeStatus := "HOLD (" + pnlStr + ")"
+2662:             tradeColor := color.green
+2663:     else
+2664:         tradeStatus := "HOLD (" + pnlStr + ")"
+2665:         tradeColor := color.orange
+2666: 
+2667:     // Room for Trade Warning Check
+2668:     if not na(ovhPrice) and finalEntry > 0 and riskPerShare > 0
+2669:         float t1_val_check = finalEntry + (riskPerShare * dyn_T1_R)
+2670:         if t1_val_check > ovhPrice and close < ovhPrice
+2671:             tradeStatus := tradeStatus + " | ⚠️ NO ROOM vs " + str.tostring(math.round_to_mintick(ovhPrice))
+2672:             tradeColor := color.orange
+2673: 
+2674:     // Old line.new logic removed in favor of plot() calls at the end of script for better persistence
+2675: 
+2676: // ==========================================
+2677: // Gemini Prompt Logic moved to end of script
+2678: 
+2679: // ==========================================
+2680: // NEW: PRICE ACTION CONFLUENCE (5-STAR)
+2681: // ==========================================
+2682: // 1. Trend: Above EMA 20
+2683: bool c_trend = close > d_ema20_val
+2684: // 2. Momentum: RSI > 50 (Bullish)
+2685: bool c_mom = dailyRsi > 50
+2686: // 3. Volume Action:
+2687: // Breakout -> Needs Vol Expansion (Vol > Avg)
+2688: // Pullback -> Needs Vol Contraction (Vol < Avg)
+2689: bool c_vol = false
+2690: if close > open
+2691:     c_vol := d_vol > d_vol_avg // Demand coming in
+2692: else
+2693:     c_vol := d_vol < d_vol_avg // Supply drying up
+2694: 
+2695: // 4. ADX Check
+2696: bool c_adx = d_adx_ok
+2697: 
+2698: // 4. Volume Profile (Basic POC Estimate)
+2699: // Using highest volume bar in last 'vpLookback' as a proxy for POC
+2700: int poc_idx = 0
+2701: float max_v = 0.0
+2702: for i = 0 to vpLookback - 1
+2703:     if volume[i] > max_v
+2704:         max_v := volume[i]
+2705:         poc_idx := i
+2706: float poc_level = high[poc_idx] // Approximate Value Area High of that bar
+2707: bool c_vp = close > poc_level
+2708: 
+2709: // 5. Price Action: Bullish Candle
+2710: bool c_pa = close > open
+2711: 
+2712: // ENHANCEMENT v63.0: SMC Liquidity Sweep
+2713: // Pre-compute stateful calls in global scope (must execute every bar per Pine Script rules)
+2714: float c_s50        = ta.sma(close, 50)
+2715: float c_vol_sma50  = ta.sma(volume, 50)
+2716: float c_low5       = ta.lowest(low, 5)
+2717: bool  c_liq_sweep  = c_low5 < c_s50 and close > c_s50 and volume > (c_vol_sma50 * 1.5)
+2718: 
+2719: 
+2720: int conf_score = 0
+2721: if c_trend
+2722:     conf_score += 1
+2723: if c_mom
+2724:     conf_score += 1
+2725: if c_vol
+2726:     conf_score += 1
+2727: if c_vp
+2728:     conf_score += 1
+2729: if c_pa
+2730:     conf_score += 1
+2731: if c_adx
+2732:     conf_score += 1
+2733: if c_liq_sweep
+2734:     conf_score += 1
+2735: 
+2736: // Fixed: Max score is now 7 (Trend, Mom, Vol, VP, PA, ADX, LiqSweep)
+2737: string actionSignal = ""
+2738: if conf_score >= 7
+2739:     actionSignal := "★★★★★★★ (Perfect)"
+2740: else if conf_score >= 6
+2741:     actionSignal := "★★★★★★ (Excellent)"
+2742: else if conf_score >= 5
+2743:     actionSignal := "★★★★★ (Strong)"
+2744: else if conf_score >= 4
+2745:     actionSignal := "★★★★ (Good)"
+2746: else if conf_score >= 3
+2747:     actionSignal := "★★★ (Moderate)"
+2748: else
+2749:     actionSignal := "★ (Weak)"
+2750: 
+2751: 
+2752: color conf_col = conf_score >= 5 ? color.lime : (conf_score >= 3 ? color.yellow : color.gray)
+2753: 
+2754: // ==========================================
+2755: // WATCHLIST SCANNER (Top Picks + Alerts)
+2756: // ==========================================
+2757: string alert_msg = ""
+2758: string top_picks_msg = ""
+2759: 
+2760: // --- POSITION STYLE LOGIC (New v54.0) ---
+2761: // Criteria for Positional (Stage 2 Hunter)
+2762: // Must be in Stage 2 (Above 30WMA + WMA Rising) and Outperforming (RS > 0)
+2763: // Using val50 (RS vs Nifty 50) as proxy for "rsMansfield"
+2764: // --- SMART TRADE STYLE LOGIC (v54.1 Advanced) ---
+2765: 
+2766: // 1. POSITIONAL (The Hunter)
+2767: // Core: Structural Strength & Long-Term Trend
+2768: bool pos_stage_ok = (stageID == "STAGE 2 (UP)") or (stageID == "STAGE 1 (BASE)") // Early entry allowed
+2769: bool pos_trend_ok = close > dMA200 and wMASlopeState != "FALLING" // Must be above 200 SMA & Weekly MA not crashing
+2770: bool pos_rs_ok    = not str.contains(rsSecState, "(Negative)") // Sector shouldn't be dead
+2771: bool is_positional = pos_stage_ok and pos_trend_ok and pos_rs_ok
+2772: 
+2773: // 2. SWING (The Sniper)
+2774: // Core: Momentum, Pattern & Short-Term Thrust
+2775: bool sw_trend_ok  = close > d_ema20_val and d_ema20_val > dMA50 // Quick trend defined
+2776: bool sw_mom_ok    = dailyRsi > 55 or str.contains(volState, "ACCUM") // RSI or Volume support
+2777: bool sw_pat_ok    = str.contains(paState, "VCP") or str.contains(paState, "NR7") or str.contains(paState, "CONSOLIDATION") or str.contains(paState, "BREAKOUT")
+2778: float dist_ema20  = ((close - d_ema20_val) / d_ema20_val) * 100
+2779: bool sw_safe_ok   = dist_ema20 < 15 // Not extended
+2780: bool is_swing     = sw_trend_ok and (sw_mom_ok or sw_pat_ok) and sw_safe_ok
+2781: 
+2782: string style_txt = "WAIT"
+2783: color style_col = color.gray
+2784: 
+2785: if is_positional and is_swing
+2786:     style_txt := "🚀 BOTH"
+2787:     style_col := color.new(#FFD700, 0) // Gold
+2788: else if is_positional
+2789:     style_txt := "🦁 POSITIONAL"
+2790:     style_col := color.new(color.blue, 0)
+2791: else if is_swing
+2792:     style_txt := "⚡ SWING"
+2793:     style_col := color.new(color.fuchsia, 0)
+2794: 
+2795: // --- STOCK PERSONALITY LOGIC (v54.3 Enhanced) ---
+2796: string persona_txt = "⚠️ MIXED"
+2797: color persona_col = color.gray
+2798: 
+2799: // 1. Calculate Conditions
+2800: // Volatility Check (ADR%)
+2801: float adr_pct = (d_atr10_val / close) * 100
+2802: bool is_volatile = adr_pct > 5.0
+2803: 
+2804: // Extension Check
+2805: float dist_ema20_pct = ((close - d_ema20_val) / d_ema20_val) * 100
+2806: bool is_extended = (dist_ema20_pct > 20.0) or (dailyRsi > 75) // Price > 20% above EMA20 OR RSI Overbought
+2807: 
+2808: // Leader Criteria (Prime)
+2809: bool is_leader_cand = str.contains(rs50State, "(Positive)") and close > dMA200 and close > dMA50 and dev52 < 15
+2810: 
+2811: // Momentum Criteria (Swing)
+2812: bool is_momentum_cand = (dailyRsi > 60 or str.contains(rs50State, "(Positive)") or str.contains(rs50State, "Rising")) and close > d_ema20_val
+2813: 
+2814: // Turnaround Criteria (Value)
+2815: bool is_turnaround_cand = (str.contains(rs50State, "Rising") or str.contains(rs50State, "Declining")) and close > dMA50 and close < dMA200
+2816: 
+2817: // Laggard Criteria (Avoid)
+2818: bool is_laggard_cand = str.contains(rs50State, "(Negative)") or (close < dMA200 and not is_turnaround_cand)
+2819: 
+2820: // 2. Logic (Hierarchy: Danger > Quality > Median > Bad)
+2821: if is_volatile
+2822:     persona_txt := " VOLATILE"
+2823:     persona_col := color.new(color.red, 0) // Explicit Red
+2824: else if is_extended
+2825:     persona_txt := "⚠️ EXTENDED"
+2826:     persona_col := color.orange
+2827: else if is_leader_cand
+2828:     persona_txt := " LEADER"
+2829:     persona_col := color.lime
+2830: else if is_momentum_cand
+2831:     persona_txt := "🐂 MOMENTUM"
+2832:     persona_col := color.fuchsia
+2833: else if is_turnaround_cand
+2834:     persona_txt := "⚓ TURNAROUND"
+2835:     persona_col := color.aqua
+2836: else if is_laggard_cand
+2837:     persona_txt := "💤 LAGGARD"
+2838:     persona_col := color.new(color.red, 30) // Darker Red
+2839: 
+2840: 
+2841: 
+2842: // ... (Existing Signal Logic) ...
+2843: 
+2844: // Helper to check Confluence (4 or 5 stars)
+2845: f_check_conf(float c, float o, float ema, float rsi, float v, float va, bool adx_ok) =>
+2846:     int _score = 0
+2847:     if not na(c)
+2848:         if c > ema
+2849:             _score += 1
+2850:         if rsi > 50
+2851:             _score += 1
+2852:         if (c > o and v > va) or (c < o and v < va)
+2853:             _score += 1
+2854:         // Simplified VP check for scanner (Price > EMA is strong proxy for value)
+2855:         if c > ema
+2856:             _score += 1
+2857:         if c > o
+2858:             _score += 1
+2859:         if adx_ok
+2860:             _score += 1
+2861:     _score >= 4 // Returns true if 4+ stars
+2862: 
+2863: // Helper to calc health (1=profit, 2=hold, 3=stop) from raw data
+2864: f_calc_h(float c, float e, float s) =>
+2865:     int r = 0
+2866:     if not na(c) and e > 0 // Only count if Entry Price is set
+2867:         // Fix: Implied 10% Stop if SL is 0.0
+2868:         float effective_stop = s > 0 ? s : (e * 0.90)
+2869: 
+2870:         if c < effective_stop
+2871:             r := 3
+2872:         else if c > e
+2873:             r := 1
+2874:         else
+2875:             r := 2
+2876:     r
+2877: 
+2878: // Helper to check cross from raw data
+2879: f_check_x(float c, float c1, float e, float e1) =>
+2880:     bool x = false
+2881:     if not na(c) and not na(e) and not na(c1) and not na(e1)
+2882:         x := c > e and c1 <= e1
+2883:     x
+2884: 
+2885: // --- ALPHA SCREENER ENGINE (v59.0) ---
+2886: 
+2887: // Alpha Score Calculator (0 to 100)
+2888: // Evaluates: Trend Structure (30), Momentum (30), Volume (20), Safety (20)
+2889: f_calc_alpha_score(float c, float o, float ema20, float sma50, float rsi, float v, float va, bool adx) =>
+2890:     float _score = 0.0
+2891:     if not na(c)
+2892:         // 1. Trend Structure (Max 30)
+2893:         if c > ema20
+2894:             _score += 15
+2895:         if c > sma50
+2896:             _score += 15
+2897: 
+2898:         // 2. Momentum (Max 30)
+2899:         if rsi > 60
+2900:             _score += 20
+2901:         else if rsi > 50
+2902:             _score += 10
+2903:         if adx
+2904:             _score += 10
+2905: 
+2906:         // 3. Volume Thrust (Max 20)
+2907:         if c > o and v > (va * 1.5) // Massive accumulation
+2908:             _score += 20
+2909:         else if c > o and v > va // Standard accumulation
+2910:             _score += 10
+2911: 
+2912:         // 4. Safety / Volatility (Max 20)
+2913:         // We prefer tight consolidations near averages
+2914:         float dist_ema = math.abs((c - ema20) / ema20) * 100
+2915:         if dist_ema < 5.0
+2916:             _score += 20
+2917:         else if dist_ema < 10.0
+2918:             _score += 10
+2919: 
+2920:         // --- 5. MACRO EDGE BACKTEST OVERLAY ---
+2921:         // Based on 5-Year Categorical Backtest: Vol Bias (Shelf + Accumulation) provides highest P-Factor edge
+2922:         if use_macro_edge
+2923:             // Implicit requirement: Vol > SMA50 AND VWMA > SMA (Simulated proxy via V > VA)
+2924:             if v > va
+2925:                 _score += 10 // Boost score if Macro Edge is met
+2926:             else
+2927:                 _score -= 20 // Heavily penalize breakouts lacking institutional volume bias
+2928: 
+2929:     _score
+2930: 
+2931: // Helper to check for Minervini Pullback
+2932: f_check_pullback(float c, float o, float l, float ema20, float v, float va) =>
+2933:     bool is_pb = false
+2934:     if not na(c)
+2935:         // Price near or touching EMA20, volume is below average (VDU)
+2936:         float dist_ema = ((c - ema20) / ema20) * 100
+2937:         bool near_ema = (dist_ema > 0 and dist_ema < 4.0) or (l < ema20 and c > ema20)
+2938:         bool vol_dry = v < (va * (1.0 - vdu_pct))
+2939: 
+2940:         // --- MICRO EDGE BACKTEST OVERLAY ---
+2941:         // Based on 5-Year Backtest: Squeeze (MA/BB) + Price Levels (CPR/VWAP) provide massive edge on Swings
+2942:         bool micro_valid = true
+2943:         if use_micro_edge
+2944:             // Ensure distance between 20EMA and 50SMA is tight (Squeeze proxy)
+2945:             bool ema_tension_tight = ((ema20 - c) / c) * 100 < 6.0
+2946:             // In a real environment we'd check CPR/VWAP natively, but using strict proximity as proxy
+2947:             micro_valid := ema_tension_tight
+2948: 
+2949:         is_pb := near_ema and vol_dry and micro_valid
+2950:     is_pb
+2951: 
+2952: // Master Slot Processor for Alpha Screener
+2953: f_eval_slot(string t, float ent, float sl) =>
+2954:     string a_msg = ""
+2955:     string tp_msg = ""
+2956:     int h_val = 0
+2957:     float t_score = 0.0
+2958:     string t_trigger = "NONE"
+2959:     color t_col = color.gray
+2960: 
+2961:     // Get Data
+2962:     [c, o, l, cp, e, ep, r, v, va, adx_ok, m_catId, s50, s200] = f_get_screener_data(t)
+2963: 
+2964:     if not na(c)
+2965:         // Base Health Calc
+2966:         h_val := f_calc_h(c, ent, sl)
+2967:         t_score := f_calc_alpha_score(c, o, e, s50, r, v, va, adx_ok)
+2968: 
+2969:         // --- TRIGGER IDENTIFICATION (Unified Engine) ---
+2970:         t_trigger := "No Proxy" // Default
+2971:         t_col := color.gray
+2972: 
+2973:         if m_catId == 1
+2974:             t_trigger := "POS-ACCUM"
+2975:             t_col := color.lime
+2976:         else if m_catId == 2
+2977:             t_trigger := "POS-BO"
+2978:             t_col := color.blue
+2979:         else if m_catId == 6
+2980:             t_trigger := "SWG-GAP"
+2981:             t_col := color.aqua
+2982:         else if m_catId == 4
+2983:             t_trigger := "SWG-BO"
+2984:             t_col := color.fuchsia
+2985:         else if m_catId == 3
+2986:             t_trigger := "SWG-PB"
+2987:             t_col := color.orange
+2988:         else if m_catId == 5
+2989:             t_trigger := "SWG-REV"
+2990:             t_col := color.red
+2991:         else if f_check_x(c, cp, e, ep)
+2992:             a_msg := t + ", "
+2993:             t_trigger := "[EMA CROSS]"
+2994:             t_col := color.white
+2995:             t_score += 5
+2996:         else if f_check_pullback(c, o, l, e, v, va)
+2997:             t_trigger := "[PULLBACK]"
+2998:             t_col := color.aqua
+2999:             t_score += 5
+3000: 
+3001:         else if t_score >= 80
+3002:             t_trigger := "[A+ SETUP 🔥]"
+3003:             t_col := color.fuchsia
+3004: 
+3005:     [h_val, a_msg, t_score, t_trigger, t_col]// Fetch and Process Refactored
+3006: // Pine Script v6: `request.security` inside `f_get_screener_data` cannot be called dynamically via arrays in a loop reliably.
+3007: // We must unroll the function calls so the compiler evaluates them statically.
+3008: 
+3009: pf_total := 0
+3010: pf_win := 0
+3011: pf_loss := 0
+3012: pf_stop := 0
+3013: 
+3014: // Create Arrays to hold Alpha Screener Results
+3015: var alpha_tickers = array.new_string(0)
+3016: var alpha_scores = array.new_float(0)
+3017: var alpha_triggers = array.new_string(0)
+3018: var alpha_colors = array.new_color(0)
+3019: 
+3020: // Reset Arrays on new bar
+3021: if barstate.islast
+3022:     array.clear(alpha_tickers)
+3023:     array.clear(alpha_scores)
+3024:     array.clear(alpha_triggers)
+3025:     array.clear(alpha_colors)
+3026: 
+3027: // Helper to push to Alpha Arrays if valid
+3028: f_push_alpha(string t, float score, string trigger, color col) =>
+3029:     if t != "" and score >= 40 // Relaxed Filter for visibility
+3030:         array.push(alpha_tickers, str.replace_all(t, "NSE:", ""))
+3031:         array.push(alpha_scores, score)
+3032:         array.push(alpha_triggers, trigger)
+3033:         array.push(alpha_colors, col)
+3034: 
+3035: 
+3036: // --- BATCH PROCESS ALL 25 SLOTS ---
+3037: [ts1, a1, sc1, tr1, tc1] = f_eval_slot(p1_tick, p1_ent, p1_sl)
+3038: if ts1 > 0
+3039:     pf_total += 1
+3040:     if ts1 == 1
+3041:         pf_win += 1
+3042:     else if ts1 == 2
+3043:         pf_loss += 1
+3044:     else if ts1 == 3
+3045:         pf_stop += 1
+3046: alert_msg += a1
+3047: if barstate.islast
+3048:     f_push_alpha(p1_tick, sc1, tr1, tc1)
+3049: 
+3050: [ts2, a2, sc2, tr2, tc2] = f_eval_slot(p2_tick, p2_ent, p2_sl)
+3051: if ts2 > 0
+3052:     pf_total += 1
+3053:     if ts2 == 1
+3054:         pf_win += 1
+3055:     else if ts2 == 2
+3056:         pf_loss += 1
+3057:     else if ts2 == 3
+3058:         pf_stop += 1
+3059: alert_msg += a2
+3060: if barstate.islast
+3061:     f_push_alpha(p2_tick, sc2, tr2, tc2)
+3062: 
+3063: [ts3, a3, sc3, tr3, tc3] = f_eval_slot(p3_tick, p3_ent, p3_sl)
+3064: if ts3 > 0
+3065:     pf_total += 1
+3066:     if ts3 == 1
+3067:         pf_win += 1
+3068:     else if ts3 == 2
+3069:         pf_loss += 1
+3070:     else if ts3 == 3
+3071:         pf_stop += 1
+3072: alert_msg += a3
+3073: if barstate.islast
+3074:     f_push_alpha(p3_tick, sc3, tr3, tc3)
+3075: 
+3076: [ts4, a4, sc4, tr4, tc4] = f_eval_slot(p4_tick, p4_ent, p4_sl)
+3077: if ts4 > 0
+3078:     pf_total += 1
+3079:     if ts4 == 1
+3080:         pf_win += 1
+3081:     else if ts4 == 2
+3082:         pf_loss += 1
+3083:     else if ts4 == 3
+3084:         pf_stop += 1
+3085: alert_msg += a4
+3086: if barstate.islast
+3087:     f_push_alpha(p4_tick, sc4, tr4, tc4)
+3088: 
+3089: [ts5, a5, sc5, tr5, tc5] = f_eval_slot(p5_tick, p5_ent, p5_sl)
+3090: if ts5 > 0
+3091:     pf_total += 1
+3092:     if ts5 == 1
+3093:         pf_win += 1
+3094:     else if ts5 == 2
+3095:         pf_loss += 1
+3096:     else if ts5 == 3
+3097:         pf_stop += 1
+3098: alert_msg += a5
+3099: if barstate.islast
+3100:     f_push_alpha(p5_tick, sc5, tr5, tc5)
+3101: 
+3102: [ts6, a6, sc6, tr6, tc6] = f_eval_slot(p6_tick, p6_ent, p6_sl)
+3103: if ts6 > 0
+3104:     pf_total += 1
+3105:     if ts6 == 1
+3106:         pf_win += 1
+3107:     else if ts6 == 2
+3108:         pf_loss += 1
+3109:     else if ts6 == 3
+3110:         pf_stop += 1
+3111: alert_msg += a6
+3112: if barstate.islast
+3113:     f_push_alpha(p6_tick, sc6, tr6, tc6)
+3114: 
+3115: [ts7, a7, sc7, tr7, tc7] = f_eval_slot(p7_tick, p7_ent, p7_sl)
+3116: if ts7 > 0
+3117:     pf_total += 1
+3118:     if ts7 == 1
+3119:         pf_win += 1
+3120:     else if ts7 == 2
+3121:         pf_loss += 1
+3122:     else if ts7 == 3
+3123:         pf_stop += 1
+3124: alert_msg += a7
+3125: if barstate.islast
+3126:     f_push_alpha(p7_tick, sc7, tr7, tc7)
+3127: 
+3128: [ts8, a8, sc8, tr8, tc8] = f_eval_slot(p8_tick, p8_ent, p8_sl)
+3129: if ts8 > 0
+3130:     pf_total += 1
+3131:     if ts8 == 1
+3132:         pf_win += 1
+3133:     else if ts8 == 2
+3134:         pf_loss += 1
+3135:     else if ts8 == 3
+3136:         pf_stop += 1
+3137: alert_msg += a8
+3138: if barstate.islast
+3139:     f_push_alpha(p8_tick, sc8, tr8, tc8)
+3140: 
+3141: [ts9, a9, sc9, tr9, tc9] = f_eval_slot(p9_tick, p9_ent, p9_sl)
+3142: if ts9 > 0
+3143:     pf_total += 1
+3144:     if ts9 == 1
+3145:         pf_win += 1
+3146:     else if ts9 == 2
+3147:         pf_loss += 1
+3148:     else if ts9 == 3
+3149:         pf_stop += 1
+3150: alert_msg += a9
+3151: if barstate.islast
+3152:     f_push_alpha(p9_tick, sc9, tr9, tc9)
+3153: 
+3154: [ts10, a10, sc10, tr10, tc10] = f_eval_slot(p10_tick, p10_ent, p10_sl)
+3155: if ts10 > 0
+3156:     pf_total += 1
+3157:     if ts10 == 1
+3158:         pf_win += 1
+3159:     else if ts10 == 2
+3160:         pf_loss += 1
+3161:     else if ts10 == 3
+3162:         pf_stop += 1
+3163: alert_msg += a10
+3164: if barstate.islast
+3165:     f_push_alpha(p10_tick, sc10, tr10, tc10)
+3166: 
+3167: [ts11, a11, sc11, tr11, tc11] = f_eval_slot(p11_tick, p11_ent, p11_sl)
+3168: if ts11 > 0
+3169:     pf_total += 1
+3170:     if ts11 == 1
+3171:         pf_win += 1
+3172:     else if ts11 == 2
+3173:         pf_loss += 1
+3174:     else if ts11 == 3
+3175:         pf_stop += 1
+3176: alert_msg += a11
+3177: if barstate.islast
+3178:     f_push_alpha(p11_tick, sc11, tr11, tc11)
+3179: 
+3180: [ts12, a12, sc12, tr12, tc12] = f_eval_slot(p12_tick, p12_ent, p12_sl)
+3181: if ts12 > 0
+3182:     pf_total += 1
+3183:     if ts12 == 1
+3184:         pf_win += 1
+3185:     else if ts12 == 2
+3186:         pf_loss += 1
+3187:     else if ts12 == 3
+3188:         pf_stop += 1
+3189: alert_msg += a12
+3190: if barstate.islast
+3191:     f_push_alpha(p12_tick, sc12, tr12, tc12)
+3192: 
+3193: [ts13, a13, sc13, tr13, tc13] = f_eval_slot(p13_tick, p13_ent, p13_sl)
+3194: if ts13 > 0
+3195:     pf_total += 1
+3196:     if ts13 == 1
+3197:         pf_win += 1
+3198:     else if ts13 == 2
+3199:         pf_loss += 1
+3200:     else if ts13 == 3
+3201:         pf_stop += 1
+3202: alert_msg += a13
+3203: if barstate.islast
+3204:     f_push_alpha(p13_tick, sc13, tr13, tc13)
+3205: 
+3206: [ts14, a14, sc14, tr14, tc14] = f_eval_slot(p14_tick, p14_ent, p14_sl)
+3207: if ts14 > 0
+3208:     pf_total += 1
+3209:     if ts14 == 1
+3210:         pf_win += 1
+3211:     else if ts14 == 2
+3212:         pf_loss += 1
+3213:     else if ts14 == 3
+3214:         pf_stop += 1
+3215: alert_msg += a14
+3216: if barstate.islast
+3217:     f_push_alpha(p14_tick, sc14, tr14, tc14)
+3218: 
+3219: [ts15, a15, sc15, tr15, tc15] = f_eval_slot(p15_tick, p15_ent, p15_sl)
+3220: if ts15 > 0
+3221:     pf_total += 1
+3222:     if ts15 == 1
+3223:         pf_win += 1
+3224:     else if ts15 == 2
+3225:         pf_loss += 1
+3226:     else if ts15 == 3
+3227:         pf_stop += 1
+3228: alert_msg += a15
+3229: if barstate.islast
+3230:     f_push_alpha(p15_tick, sc15, tr15, tc15)
+3231: 
+3232: [ts16, a16, sc16, tr16, tc16] = f_eval_slot(p16_tick, p16_ent, p16_sl)
+3233: if ts16 > 0
+3234:     pf_total += 1
+3235:     if ts16 == 1
+3236:         pf_win += 1
+3237:     else if ts16 == 2
+3238:         pf_loss += 1
+3239:     else if ts16 == 3
+3240:         pf_stop += 1
+3241: alert_msg += a16
+3242: if barstate.islast
+3243:     f_push_alpha(p16_tick, sc16, tr16, tc16)
+3244: 
+3245: [ts17, a17, sc17, tr17, tc17] = f_eval_slot(p17_tick, p17_ent, p17_sl)
+3246: if ts17 > 0
+3247:     pf_total += 1
+3248:     if ts17 == 1
+3249:         pf_win += 1
+3250:     else if ts17 == 2
+3251:         pf_loss += 1
+3252:     else if ts17 == 3
+3253:         pf_stop += 1
+3254: alert_msg += a17
+3255: if barstate.islast
+3256:     f_push_alpha(p17_tick, sc17, tr17, tc17)
+3257: 
+3258: [ts18, a18, sc18, tr18, tc18] = f_eval_slot(p18_tick, p18_ent, p18_sl)
+3259: if ts18 > 0
+3260:     pf_total += 1
+3261:     if ts18 == 1
+3262:         pf_win += 1
+3263:     else if ts18 == 2
+3264:         pf_loss += 1
+3265:     else if ts18 == 3
+3266:         pf_stop += 1
+3267: alert_msg += a18
+3268: if barstate.islast
+3269:     f_push_alpha(p18_tick, sc18, tr18, tc18)
+3270: 
+3271: [ts19, a19, sc19, tr19, tc19] = f_eval_slot(p19_tick, p19_ent, p19_sl)
+3272: if ts19 > 0
+3273:     pf_total += 1
+3274:     if ts19 == 1
+3275:         pf_win += 1
+3276:     else if ts19 == 2
+3277:         pf_loss += 1
+3278:     else if ts19 == 3
+3279:         pf_stop += 1
+3280: alert_msg += a19
+3281: if barstate.islast
+3282:     f_push_alpha(p19_tick, sc19, tr19, tc19)
+3283: 
+3284: [ts20, a20, sc20, tr20, tc20] = f_eval_slot(p20_tick, p20_ent, p20_sl)
+3285: if ts20 > 0
+3286:     pf_total += 1
+3287:     if ts20 == 1
+3288:         pf_win += 1
+3289:     else if ts20 == 2
+3290:         pf_loss += 1
+3291:     else if ts20 == 3
+3292:         pf_stop += 1
+3293: alert_msg += a20
+3294: if barstate.islast
+3295:     f_push_alpha(p20_tick, sc20, tr20, tc20)
+3296: 
+3297: [ts21, a21, sc21, tr21, tc21] = f_eval_slot(p21_tick, p21_ent, p21_sl)
+3298: if ts21 > 0
+3299:     pf_total += 1
+3300:     if ts21 == 1
+3301:         pf_win += 1
+3302:     else if ts21 == 2
+3303:         pf_loss += 1
+3304:     else if ts21 == 3
+3305:         pf_stop += 1
+3306: alert_msg += a21
+3307: if barstate.islast
+3308:     f_push_alpha(p21_tick, sc21, tr21, tc21)
+3309: 
+3310: [ts22, a22, sc22, tr22, tc22] = f_eval_slot(p22_tick, p22_ent, p22_sl)
+3311: if ts22 > 0
+3312:     pf_total += 1
+3313:     if ts22 == 1
+3314:         pf_win += 1
+3315:     else if ts22 == 2
+3316:         pf_loss += 1
+3317:     else if ts22 == 3
+3318:         pf_stop += 1
+3319: alert_msg += a22
+3320: if barstate.islast
+3321:     f_push_alpha(p22_tick, sc22, tr22, tc22)
+3322: 
+3323: [ts23, a23, sc23, tr23, tc23] = f_eval_slot(p23_tick, p23_ent, p23_sl)
+3324: if ts23 > 0
+3325:     pf_total += 1
+3326:     if ts23 == 1
+3327:         pf_win += 1
+3328:     else if ts23 == 2
+3329:         pf_loss += 1
+3330:     else if ts23 == 3
+3331:         pf_stop += 1
+3332: alert_msg += a23
+3333: if barstate.islast
+3334:     f_push_alpha(p23_tick, sc23, tr23, tc23)
+3335: 
+3336: [ts24, a24, sc24, tr24, tc24] = f_eval_slot(p24_tick, p24_ent, p24_sl)
+3337: if ts24 > 0
+3338:     pf_total += 1
+3339:     if ts24 == 1
+3340:         pf_win += 1
+3341:     else if ts24 == 2
+3342:         pf_loss += 1
+3343:     else if ts24 == 3
+3344:         pf_stop += 1
+3345: alert_msg += a24
+3346: if barstate.islast
+3347:     f_push_alpha(p24_tick, sc24, tr24, tc24)
+3348: 
+3349: [ts25, a25, sc25, tr25, tc25] = f_eval_slot(p25_tick, p25_ent, p25_sl)
+3350: if ts25 > 0
+3351:     pf_total += 1
+3352:     if ts25 == 1
+3353:         pf_win += 1
+3354:     else if ts25 == 2
+3355:         pf_loss += 1
+3356:     else if ts25 == 3
+3357:         pf_stop += 1
+3358: alert_msg += a25
+3359: if barstate.islast
+3360:     f_push_alpha(p25_tick, sc25, tr25, tc25)
+3361: 
+3362: [ts26, a26, sc26, tr26, tc26] = f_eval_slot(p26_tick, p26_ent, p26_sl)
+3363: if ts26 > 0
+3364:     pf_total += 1
+3365:     if ts26 == 1
+3366:         pf_win += 1
+3367:     else if ts26 == 2
+3368:         pf_loss += 1
+3369:     else if ts26 == 3
+3370:         pf_stop += 1
+3371: alert_msg += a26
+3372: if barstate.islast
+3373:     f_push_alpha(p26_tick, sc26, tr26, tc26)
+3374: 
+3375: [ts27, a27, sc27, tr27, tc27] = f_eval_slot(p27_tick, p27_ent, p27_sl)
+3376: if ts27 > 0
+3377:     pf_total += 1
+3378:     if ts27 == 1
+3379:         pf_win += 1
+3380:     else if ts27 == 2
+3381:         pf_loss += 1
+3382:     else if ts27 == 3
+3383:         pf_stop += 1
+3384: alert_msg += a27
+3385: if barstate.islast
+3386:     f_push_alpha(p27_tick, sc27, tr27, tc27)
+3387: 
+3388: [ts28, a28, sc28, tr28, tc28] = f_eval_slot(p28_tick, p28_ent, p28_sl)
+3389: if ts28 > 0
+3390:     pf_total += 1
+3391:     if ts28 == 1
+3392:         pf_win += 1
+3393:     else if ts28 == 2
+3394:         pf_loss += 1
+3395:     else if ts28 == 3
+3396:         pf_stop += 1
+3397: alert_msg += a28
+3398: if barstate.islast
+3399:     f_push_alpha(p28_tick, sc28, tr28, tc28)
+3400: 
+3401: [ts29, a29, sc29, tr29, tc29] = f_eval_slot(p29_tick, p29_ent, p29_sl)
+3402: if ts29 > 0
+3403:     pf_total += 1
+3404:     if ts29 == 1
+3405:         pf_win += 1
+3406:     else if ts29 == 2
+3407:         pf_loss += 1
+3408:     else if ts29 == 3
+3409:         pf_stop += 1
+3410: alert_msg += a29
+3411: if barstate.islast
+3412:     f_push_alpha(p29_tick, sc29, tr29, tc29)
+3413: 
+3414: [ts30, a30, sc30, tr30, tc30] = f_eval_slot(p30_tick, p30_ent, p30_sl)
+3415: if ts30 > 0
+3416:     pf_total += 1
+3417:     if ts30 == 1
+3418:         pf_win += 1
+3419:     else if ts30 == 2
+3420:         pf_loss += 1
+3421:     else if ts30 == 3
+3422:         pf_stop += 1
+3423: alert_msg += a30
+3424: if barstate.islast
+3425:     f_push_alpha(p30_tick, sc30, tr30, tc30)
+3426: 
+3427: // --- SORT ALPHA ARRAYS (Bubble Sort for Top 5) ---
+3428: if barstate.islast and array.size(alpha_scores) > 1
+3429:     int n = array.size(alpha_scores)
+3430:     for i = 0 to n - 2
+3431:         for j = 0 to n - i - 2
+3432:             if array.get(alpha_scores, j) < array.get(alpha_scores, j + 1)
+3433:                 // Swap Scores
+3434:                 float tempScore = array.get(alpha_scores, j)
+3435:                 array.set(alpha_scores, j, array.get(alpha_scores, j + 1))
+3436:                 array.set(alpha_scores, j + 1, tempScore)
+3437:                 // Swap Tickers
+3438:                 string tempTick = array.get(alpha_tickers, j)
+3439:                 array.set(alpha_tickers, j, array.get(alpha_tickers, j + 1))
+3440:                 array.set(alpha_tickers, j + 1, tempTick)
+3441:                 // Swap Triggers
+3442:                 string tempTrig = array.get(alpha_triggers, j)
+3443:                 array.set(alpha_triggers, j, array.get(alpha_triggers, j + 1))
+3444:                 array.set(alpha_triggers, j + 1, tempTrig)
+3445:                 // Swap Colors
+3446:                 color tempCol = array.get(alpha_colors, j)
+3447:                 array.set(alpha_colors, j, array.get(alpha_colors, j + 1))
+3448:                 array.set(alpha_colors, j + 1, tempCol)
+3449: 
+3450: // Trigger the Watchlist Alert
+3451: if alert_msg != ""
+3452:     alert("Weinstein Watchlist Scan: EMA 20 Crossover detected on: " + alert_msg, alert.freq_once_per_bar_close)
+3453: 
+3454: pfStr := str.tostring(pf_total) + " Pos | " + str.tostring(pf_win) + " Green | " + str.tostring(pf_loss) + " Red | " + str.tostring(pf_stop) + " Stop"
+3455: // Dynamic Risk Manager (Portfolio Heat)
+3456: if pf_total > 0
+3457:     if pf_stop >= 3 // Too many stops hit, flashing warning
+3458:         pfCol := color.red
+3459:         pfStr := "🔥 RISK OFF: " + pfStr
+3460:     else if pf_win > (pf_loss + pf_stop)
+3461:         pfCol := color.green
+3462:     else
+3463:         pfCol := color.orange
+3464: 
+3465: // ==========================================
+3466: // ALERT CONDITIONS
+3467: // ==========================================
+3468: alertcondition(newStrongBuy, title="★ Strong Buy Signal", message="Weinstein Pro: STRONG BUY Signal Detected on {{ticker}}!")
+3469: alertcondition(hitPullback, title="📉 PULLBACK ZONE", message="Weinstein Pro: Valid Pullback Zone Detected on {{ticker}}!")
+3470: alertcondition(close > use_ema20 and close[1] < use_ema20, title="EMA 20 Crossover", message="Weinstein Pro: Price Crossed Above EMA 20 on {{ticker}}.")
+3471: alertcondition(mktState == "BEARISH", title="Market Health Alert", message="Weinstein Pro: Nifty 500 has flipped to BEARISH.")
+3472: 
+3473: // ==========================================
+3474: // DRAWING
+3475: // ==========================================
+3476: var table panel = table.new(tablePos, 4, 60, border_width=1, border_color=color.gray)  // v65.0: bumped 50→60 to accommodate recovery panel rows
+3477: 
+3478: 
+3479: drawRowL(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
+3480:     table.cell(tbl, 0, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
+3481:     table.cell(tbl, 1, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_center)
+3482: 
+3483: drawRowR(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
+3484:     table.cell(tbl, 2, r, title, bgcolor=cellBg, text_color=titleColor, text_size=textSize, text_halign=text.align_left)
+3485:     table.cell(tbl, 3, r, valText, bgcolor=valColor, text_color=valTextColor, text_size=textSize, text_halign=text.align_center)
+3486: 
+3487: if barstate.islast
+3488:     int rowL = 0
+3489:     int rowR = 0
+3490: 
+3491:     // Header Left
+3492:     table.cell(panel, 0, rowL, "WEINSTEIN DASHBOARD", bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3493:     table.cell(panel, 1, rowL, syminfo.ticker, bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+3494:     // Header Right
+3495:     table.cell(panel, 2, rowR, "DATE", bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3496:     table.cell(panel, 3, rowR, str.tostring(year(timenow)) + "-" + str.tostring(month(timenow)) + "-" + str.tostring(dayofmonth(timenow)), bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_center)
+3497:     rowL += 1
+3498:     rowR += 1
+3499: 
+3500:     if panicExit
+3501:         drawRowL(panel, rowL, "⚠️ CRITICAL ALERT", "PRICE < 40WMA", color.red, c_bg, c_text, color.white)
+3502:         rowL += 1
+3503: 
+3504:     // --- LEFT COLUMN ---
+3505:     // 1. BREADTH & SECTOR
+3506:     table.cell(panel, 0, rowL, "--- BREADTH & SECTOR ---", bgcolor=color.new(color.gray, 70), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3507:     table.cell(panel, 1, rowL, "", bgcolor=color.new(color.gray, 70))
+3508:     rowL += 1
+3509: 
+3510:     drawRowL(panel, rowL, "Mkt Health (N500)", mktState, mktColor, c_bg, c_text, c_val_text)
+3511:     rowL += 1
+3512:     string secStr = syminfo.sector + " / " + syminfo.industry
+3513:     drawRowL(panel, rowL, "Sector Info", secStr, color.gray, c_bg, c_text, c_val_text)
+3514:     rowL += 1
+3515:     color _secStageDispCol = str.contains(secStageStr, "STAGE 2") ? color.lime : str.contains(secStageStr, "STAGE 1") ? color.yellow : color.red
+3516:     drawRowL(panel, rowL, "Sector Stage (W)", secStageStr, _secStageDispCol, c_bg, c_text, color.black)
+3517:     rowL += 1
+3518:     drawRowL(panel, rowL, "Sector Velocity (ROC)", secVelStr, secVelCol, c_bg, c_text, color.black)
+3519:     rowL += 1
+3520:     drawRowL(panel, rowL, "RS (vs Nifty 50)", f_rrg_icon(rs50State) + " " + rs50State, f_rrg_color(rs50State), c_bg, c_text, color.black)
+3521:     rowL += 1
+3522:     drawRowL(panel, rowL, "RS (vs N500)", f_rrg_icon(rs500State) + " " + rs500State, f_rrg_color(rs500State), c_bg, c_text, color.black)
+3523:     rowL += 1
+3524:     drawRowL(panel, rowL, "RS (" + autoSectorName + ")", f_rrg_icon(rsSecState) + " " + rsSecState, f_rrg_color(rsSecState), c_bg, c_text, color.black)
+3525:     rowL += 1
+3526:     drawRowL(panel, rowL, "Next Earnings", earnStr, earnColor, c_bg, c_text, c_val_text)
+3527:     rowL += 1
+3528: 
+3529:     // 2. ASSET QUALITY & CONFIRMATION
+3530:     table.cell(panel, 0, rowL, "--- ASSET QUALITY & CONFIRM ---", bgcolor=color.new(color.yellow, 70), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3531:     table.cell(panel, 1, rowL, "", bgcolor=color.new(color.yellow, 70))
+3532:     rowL += 1
+3533: 
+3534:     drawRowL(panel, rowL, "ASSET QUALITY", assetQuality, gradeCol, c_bg, c_text, c_val_text)
+3535:     rowL += 1
+3536:     drawRowL(panel, rowL, "Vol Accum (Setup)", vol_acc_ok ? "PASS" : "WAIT", vol_acc_ok ? color.green : color.gray, c_bg, c_text, c_val_text)
+3537:     rowL += 1
+3538:     drawRowL(panel, rowL, "VCP Tightness", vcp_ok ? "PASS" : "WAIT", vcp_ok ? color.green : color.orange, c_bg, c_text, c_val_text)
+3539:     rowL += 1
+3540:     drawRowL(panel, rowL, "Vol Shelf (VWMA)", vol_shelf_ok ? "YES" : "NO", vol_shelf_ok ? color.green : color.red, c_bg, c_text, c_val_text)
+3541:     rowL += 1
+3542:     drawRowL(panel, rowL, "Price > M-VWAP", mvwap_ok ? "YES" : "NO", mvwap_ok ? color.green : color.red, c_bg, c_text, c_val_text)
+3543:     rowL += 1
+3544:     drawRowL(panel, rowL, "Daily Close > CPR", cpr_ok ? "YES" : "NO", cpr_ok ? color.green : color.red, c_bg, c_text, c_val_text)
+3545:     rowL += 1
+3546:     drawRowL(panel, rowL, "Anti-Algo BO Gate", anti_algo_ok ? "PASS" : "FAIL", anti_algo_ok ? color.green : color.red, c_bg, c_text, c_val_text)
+3547:     rowL += 1
+3548: 
+3549:     // 3. THE VERDICT & SETUP
+3550:     table.cell(panel, 0, rowL, "--- THE VERDICT & SETUP ---", bgcolor=color.new(color.teal, 70), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3551:     table.cell(panel, 1, rowL, "", bgcolor=color.new(color.teal, 70))
+3552:     rowL += 1
+3553: 
+3554:     drawRowL(panel, rowL, "RECOMMENDATION", displayRec, recColor, c_bg, c_text, c_val_text)
+3555:     rowL += 1
+3556:     drawRowL(panel, rowL, "CATALYST (Edge)", chartCat, chartCatCol, c_bg, c_text, color.black)
+3557:     rowL += 1
+3558:     drawRowL(panel, rowL, "ACTION SIGNAL", actionSignal, conf_col, c_bg, c_text, color.black)
+3559:     rowL += 1
+3560:     drawRowL(panel, rowL, "TRADE STYLE", style_txt, style_col, c_bg, c_text, color.black)
+3561:     rowL += 1
+3562:     drawRowL(panel, rowL, "PERSONA", persona_txt, persona_col, c_bg, c_text, color.black)
+3563:     rowL += 1
+3564: 
+3565:     // 4. TRADE & PORTFOLIO STATUS
+3566:     table.cell(panel, 0, rowL, "--- TRADE & PORTFOLIO ---", bgcolor=color.new(color.navy, 70), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3567:     table.cell(panel, 1, rowL, "", bgcolor=color.new(color.navy, 70))
+3568:     rowL += 1
+3569: 
+3570:     drawRowL(panel, rowL, "PORTFOLIO HEALTH", pfStr, pfCol, c_bg, c_text, c_val_text)
+3571:     rowL += 1
+3572:     if tradeActive
+3573:         drawRowL(panel, rowL, "MY TRADE", tradeStatus, tradeColor, c_bg, c_text, c_val_text)
+3574:         rowL += 1
+3575:         drawRowL(panel, rowL, "ENTRY DATE", entryDateStr, color.gray, c_bg, c_text, c_val_text)
+3576:         rowL += 1
+3577:         drawRowL(panel, rowL, "DAYS HELD", str.tostring(daysHeld) + " Day(s)", daysHeld > 30 ? color.blue : color.gray, c_bg, c_text, c_val_text)
+3578:         rowL += 1
+3579:         drawRowL(panel, rowL, "Time Stop (P/S)", timeWarnStr, timeWarnCol, c_bg, c_text, c_val_text)
+3580:         rowL += 1
+3581:         if finalSL > 0
+3582:             drawRowL(panel, rowL, "Dynamic Profile", mktProfile, isBullMarket ? color.green : color.red, c_bg, c_text, c_val_text)
+3583:             rowL += 1
+3584:             drawRowL(panel, rowL, "Current R:R", rrText, currentR >= 1.0 ? color.green : color.orange, c_bg, c_text, c_val_text)
+3585:             rowL += 1
+3586: 
+3587:     // --- RIGHT COLUMN ---
+3588:     // 1. POSITIONAL: THE HUNTER
+3589:     table.cell(panel, 2, rowR, "--- 🦁 POSITIONAL: THE HUNTER ---", bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3590:     table.cell(panel, 3, rowR, "(Weinstein/Weekly)", bgcolor=color.new(color.blue, 30), text_color=color.white, text_size=size.small, text_halign=text.align_center)
+3591:     rowR += 1
+3592: 
+3593:     drawRowR(panel, rowR, "Market Structure", stageDisplay, stageCol, c_bg, c_text, c_val_text)
+3594:     rowR += 1
+3595:     drawRowR(panel, rowR, "Master Trend (W)", f_trendText(wTrendDir), f_trendColor(wTrendDir), c_bg, c_text, c_val_text)
+3596:     rowR += 1
+3597:     bool pAbove30 = wClose > wMA30
+3598:     drawRowR(panel, rowR, "Price > 30W MA", pAbove30 ? "YES" : "NO", pAbove30 ? color.green : color.red, c_bg, c_text, c_val_text)
+3599:     rowR += 1
+3600:     drawRowR(panel, rowR, "30-Week MA Slope", wMASlopeState, wMASlopeState == "RISING" ? color.green : (wMASlopeState == "FALLING" ? color.red : color.blue), c_bg, c_text, c_val_text)
+3601:     rowR += 1
+3602:     drawRowR(panel, rowR, "Weekly PB Health", wkHealthStr, wkHealthCol, c_bg, c_text, c_val_text)
+3603:     rowR += 1
+3604:     drawRowR(panel, rowR, "Overhead Resist", str.tostring(resistCount) + " Level(s)", resistCount == 0 ? color.green : color.orange, c_bg, c_text, c_val_text)
+3605:     rowR += 1
+3606: 
+3607:     // --- Room for Trade Metric ---
+3608:     string roomStr = "CLEAR"
+3609:     color roomCol = color.green
+3610:     if resistCount == 0 or na(ovhPrice)
+3611:         roomStr := "BLUE SKY 🚀"
+3612:         roomCol := color.lime
+3613:     else if ovhPrice <= close
+3614:         roomStr := "CLEAR (BO)"
+3615:         roomCol := color.lime
+3616:     else
+3617:         float distToOvh = ((ovhPrice - close) / close) * 100
+3618:         if finalEntry > 0 and finalSL > 0
+3619:             float computedRisk = math.abs(finalEntry - finalSL)
+3620:             float t1_val_check = finalEntry + (computedRisk * dyn_T1_R)
+3621:             if t1_val_check > ovhPrice and close < ovhPrice
+3622:                 roomStr := "⚠️ NO ROOM (vs " + str.tostring(math.round_to_mintick(ovhPrice)) + ")"
+3623:                 roomCol := color.orange
+3624:             else
+3625:                 roomStr := "CLEAR (" + str.tostring(distToOvh, "#.1") + "%)"
+3626:         else
+3627:             roomStr := str.tostring(distToOvh, "#.1") + "% (vs " + str.tostring(math.round_to_mintick(ovhPrice)) + ")"
+3628:             roomCol := distToOvh < 5.0 ? color.orange : color.green
+3629: 
+3630:     drawRowR(panel, rowR, "Room for Trade", roomStr, roomCol, c_bg, c_text, c_val_text)
+3631:     rowR += 1
+3632: 
+3633:     drawRowR(panel, rowR, "52W High Space", s_dev52, dev52 > -15 ? color.green : color.gray, c_bg, c_text, c_val_text)
+3634:     rowR += 1
+3635:     drawRowR(panel, rowR, "ATH Space", s_devATH, (not na(devATH) and devATH > -15) ? color.green : color.gray, c_bg, c_text, c_val_text)
+3636:     rowR += 1
+3637: 
+3638:     // 2. SWING: THE SNIPER
+3639:     table.cell(panel, 2, rowR, "--- 🎯 SWING: THE SNIPER ---", bgcolor=color.new(color.purple, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3640:     table.cell(panel, 3, rowR, "(Minervini/Daily)", bgcolor=color.new(color.purple, 30), text_color=color.white, text_size=size.small, text_halign=text.align_center)
+3641:     rowR += 1
+3642: 
+3643:     drawRowR(panel, rowR, "Daily Trend (D)", f_trendText(dTrendDir), f_trendColor(dTrendDir), c_bg, c_text, c_val_text)
+3644:     rowR += 1
+3645:     drawRowR(panel, rowR, "Trend Template (>200d)", dSmaAligned ? "ALIGNED" : "MISALIGNED", dSmaAligned ? color.green : color.red, c_bg, c_text, c_val_text)
+3646:     rowR += 1
+3647:     bool pAbove50 = dClose > dMA50
+3648:     drawRowR(panel, rowR, "Price > 50 DMA", pAbove50 ? "YES" : "NO", pAbove50 ? color.green : color.red, c_bg, c_text, c_val_text)
+3649:     rowR += 1
+3650:     drawRowR(panel, rowR, "50 DMA Slope", d50SlopeState, d50SlopeState == "RISING" ? color.green : (d50SlopeState == "FALLING" ? color.red : color.gray), c_bg, c_text, c_val_text)
+3651:     rowR += 1
+3652:     drawRowR(panel, rowR, "Price Action Structure", paState, paColor, c_bg, c_text, c_val_text)
+3653:     rowR += 1
+3654:     drawRowR(panel, rowR, "Volume Trend", volState, volColor, c_bg, c_text, c_val_text)
+3655:     rowR += 1
+3656:     drawRowR(panel, rowR, "Volatility State (ADR)", patStr, color.gray, c_bg, c_text, c_val_text)
+3657:     rowR += 1
+3658:     drawRowR(panel, rowR, ema_lbl + " Proximity", emaState, emaColor, c_bg, c_text, c_val_text)
+3659:     rowR += 1
+3660:     drawRowR(panel, rowR, "Key-Level/Zone Proximity", keyLvlState, keyLvlColor, c_bg, c_text, c_val_text)
+3661:     rowR += 1
+3662:     string rsiStr = str.tostring(currRsi, "#.##") + " / " + currRsiDiv
+3663:     drawRowR(panel, rowR, "RSI & Divergence", rsiStr, currRsiDiv == "BULLISH DIV" ? color.green : (currRsiDiv == "BEARISH DIV" ? color.red : color.gray), c_bg, c_text, c_val_text)
+3664:     rowR += 1
+3665:     drawRowR(panel, rowR, "Daily Pullback Health", dayHealthStr, dayHealthCol, c_bg, c_text, c_val_text)
+3666:     rowR += 1
+3667: 
+3668:     // --- 🛟 RECOVERY EDGES MOVED TO UNIFIED ECOSYSTEM ---
+3669: 
+3670:     // --- ⚡ ALPHA SCREENER (v59.0 TOP 5 SETUPS) ---
+3671:     table.cell(panel, 2, rowR, "--- ⚡ ALPHA SCREENER ---", bgcolor=color.new(color.orange, 30), text_color=color.white, text_size=size.normal, text_halign=text.align_left)
+3672:     table.cell(panel, 3, rowR, "(Top Watchlist Setups)", bgcolor=color.new(color.orange, 30), text_color=color.white, text_size=size.small, text_halign=text.align_center)
+3673:     rowR += 1
+3674: 
+3675:     if array.size(alpha_scores) > 0
+3676: 
+3677: 
+3678:         int drawCount = math.min(array.size(alpha_scores), 5) // Max 5 rows
+3679:         for i = 0 to drawCount - 1
+3680:             float s = array.get(alpha_scores, i)
+3681:             string t = array.get(alpha_tickers, i)
+3682:             string tr = array.get(alpha_triggers, i)
+3683:             color col = array.get(alpha_colors, i)
+3684:             string rowTitle = t + " [" + str.tostring(math.round(s)) + "]"
+3685:             drawRowR(panel, rowR, rowTitle, tr, col, c_bg, c_text, color.black)
+3686:             rowR += 1
+3687:     else
+3688:         drawRowR(panel, rowR, "Scanning Portfolio...", "No Quality Setups", color.gray, c_bg, c_text, color.white)
+3689:         rowR += 1
+3690: 
+3691: 
+3692: plot(wMA30, "30W MA", color=wMASlopeState == "RISING" ? color.green : color.red, linewidth=2)
+3693: plot(wMA40, "40W MA", color=color.black, linewidth=1)
+3694: 
+3695: // ==========================================
+3696: // AUTO-ANCHORED VWAP (Stage 2 Focus)
+3697: // ==========================================
+3698: // Use the 'startTime' generated by f_getStageAndTime for Anchoring
+3699: var float cumVol = 0.0
+3700: var float cumVolPrice = 0.0
+3701: var int last_anchor_time = 0
+3702: 
+3703: // Reset AVWAP if Stage changes to "STAGE 2 (UP)"
+3704: // We check if the stageStart_val changed (meaning a new stage began)
+3705: [_s, _st, _sl, _wma] = request.security(syminfo.tickerid, "W", f_getStageAndTime(maLengthW, wmaSlopeLen, slopeThresh), ignore_invalid_symbol=true)
+3706: 
+3707: if _st != last_anchor_time
+3708:     cumVol := 0.0
+3709:     cumVolPrice := 0.0
+3710:     last_anchor_time := _st
+3711: 
+3712: if time >= last_anchor_time
+3713:     cumVol += volume
+3714:     cumVolPrice += (hlc3 * volume)
+3715: 
+3716: float avwap = cumVol > 0 ? cumVolPrice / cumVol : na
+3717: 
+3718: plot(showAVWAP and stageID == "STAGE 2 (UP)" ? avwap : na, title="Auto AVWAP (Stage 2)", color=color.new(color.fuchsia, 0), linewidth=2, style=plot.style_line)
+3719: 
+3720: // ==========================================
+3721: // TRADE LINES & LABELS (v20.0 Logic Ported)
+3722: // ==========================================
+3723: 
+3724: // Helper for Distance %
+3725: f_dist(float lvl) =>
+3726:     float d = ((lvl - close) / close) * 100
+3727:     string s = (d > 0 ? "+" : "") + str.tostring(d, "#.1") + "%"
+3728:     s
+3729: 
+3730: // Target Logic (2R and 3R as per v20.0)
+3731: float risk_per_share = math.abs(finalEntry - finalSL)
+3732: float t1_val = finalEntry + (risk_per_share * dyn_T1_R)
+3733: float t2_val = finalEntry + (risk_per_share * dyn_T2_R)
+3734: 
+3735: // PLOTS (Continuous Lines for History)
+3736: // Fix: Simplified condition to 'tradeActive' to restore draggability (TV requires plot series to be linked to inputs consistently)
+3737: color entryColor = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.blue, 0) : color.new(color.blue, 100)
+3738: color slColor    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.red, 0) : color.new(color.red, 100)
+3739: color t1Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 30) : color.new(color.green, 100)
+3740: color t2Color    = tradeActive and (finalDate == 0 or time >= finalDate) ? color.new(color.green, 50) : color.new(color.green, 100)
+3741: 
+3742: plot(showTrade and finalEntry > 0 ? finalEntry : na, "Entry Price", color=entryColor, style=plot.style_linebr, linewidth=1)
+3743: plot(showTrade and tradeActive ? finalSL : na, "Hard SL", color=slColor, style=plot.style_linebr, linewidth=1)
+3744: plot(showTrade and tradeActive and finalSL > 0 ? t1_val : na, "Target 1 (Dynamic)", color=t1Color, style=plot.style_linebr, linewidth=1)
+3745: plot(showTrade and tradeActive and finalSL > 0 ? t2_val : na, "Target 2 (Dynamic)", color=t2Color, style=plot.style_linebr, linewidth=1)
+3746: 
+3747: // Trailing SL Logic Removed in favor of Native Chandelier Exit
+3748: 
+3749: // LABELS (Last Bar Only - v20.0 Style)
+3750: if barstate.islast and showTrade and tradeActive
+3751:     // Entry Label
+3752:     label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
+3753: 
+3754:     // SL & Targets Labels with Distance
+3755:     if finalSL > 0
+3756:         // FIX for dragging: the line must exist un-bridged
+3757:         // Final fallback block updated below where plots live
+3758:         string slDist = showDist ? ", " + f_dist(finalSL) : ""
+3759:         label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
+3760: 
+3761:         string t1Dist = showDist ? ", " + f_dist(t1_val) : ""
+3762:         label.new(bar_index + 3, t1_val, "Target 1: " + str.tostring(math.round_to_mintick(t1_val)) + t1Dist, color=color.green, style=label.style_none, textcolor=color.green, size=size.small)
+3763: 
+3764:         string t2Dist = showDist ? ", " + f_dist(t2_val) : ""
+3765:         label.new(bar_index + 3, t2_val, "Target 2: " + str.tostring(math.round_to_mintick(t2_val)) + t2Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
+3766: 
+3767: 
+3768: 
+3769: // ==========================================
+3770: // ALGO SIGNAL MODE: Algorithmic SL/T1/T2 on Chart
+3771: // Activates ONLY when the current chart stock has NO portfolio slot matched,
+3772: // but a live Catalyst signal (chartCat) exists. Shows computed levels.
+3773: // ==========================================
+3774: bool algoSignalMode = not tradeActive and persistCat != "NONE" and showTrade
+3775: 
+3776: // --- Algorithmic Level Math ---
+3777: // Uses persistCat (not chartCat) so lines remain visible even when the signal
+3778: // fired on a previous bar and today's bar conditions don't exactly re-trigger.
+3779: bool is_pos_cat   = persistCat == "POS-ACCUM" or persistCat == "POS-BO"
+3780: bool is_swing_cat = persistCat == "SWG-BO" or persistCat == "SWG-PB" or persistCat == "SWG-GAP" or persistCat == "SWG-REV"
+3781: 
+3782: float alg_rec_entry = close
+3783: 
+3784: // SL: Positional = d_l20 - 0.2*ATR10 (structural pivot minus breathing room)
+3785: //     Swing      = d_l20 * 0.998 (tighter, respects the 5-day pivot range)
+3786: float alg_rec_sl = na
+3787: if is_pos_cat
+3788:     float pos_sl_base = d_l20 - (d_atr10 * 0.2)
+3789:     alg_rec_sl := pos_sl_base < close ? pos_sl_base : close - (d_atr10 * 1.5)
+3790: else if is_swing_cat
+3791:     float swg_sl_base = d_l20 * 0.998
+3792:     alg_rec_sl := swg_sl_base < close ? swg_sl_base : close * 0.98
+3793: 
+3794: float alg_risk = alg_rec_sl > 0 ? math.max(0.01, alg_rec_entry - alg_rec_sl) : close * 0.05
+3795: 
+3796: // Targets at 2R and 3R from computed entry
+3797: float alg_t1 = alg_rec_entry + (alg_risk * 2.0) // Minimum 1:2 R:R
+3798: float alg_t2 = alg_rec_entry + (alg_risk * 3.5) // Extended runner target
+3799: 
+3800: // Overhead Resistance Check: Is there a supply zone between entry and T1?
+3801: // Checks 52-week high & 200DMA (whichever is closer overhead)
+3802: float alg_overhead = math.min(d_h52, close < d_sma200 ? d_sma200 : d_h52)
+3803: bool alg_t1_blocked = alg_overhead > alg_rec_entry and alg_t1 > alg_overhead
+3804: 
+3805: // Color coding: Green = clean room to T1 | Orange = T1 hits resistance (warn)
+3806: color alg_sl_col  = color.new(color.red,    0)
+3807: color alg_t1_col  = alg_t1_blocked ? color.new(color.orange, 0) : color.new(color.lime, 0)
+3808: color alg_t2_col  = alg_t1_blocked ? color.new(color.orange, 50) : color.new(color.lime, 30)
+3809: color alg_ent_col = color.new(#00BCD4, 0)  // Cyan/Teal - distinct from manual entry blue
+3810: 
+3811: // --- Lines + Labels (last bar only — NO historical rendering) ---
+3812: if barstate.islast and algoSignalMode
+3813:     float rr_dist = alg_rec_sl > 0 ? ((alg_rec_entry - alg_rec_sl) / alg_rec_entry) * 100 : 0.0
+3814:     string warn_tag = alg_t1_blocked ? " ⚠️ vs " + str.tostring(math.round_to_mintick(alg_overhead)) : ""
+3815: 
+3816:     // Horizontal lines extending right from current bar
+3817:     line.new(bar_index, alg_rec_entry, bar_index + 10, alg_rec_entry, extend=extend.right, color=alg_ent_col, style=line.style_dashed, width=1)
+3818:     line.new(bar_index, alg_rec_sl,    bar_index + 10, alg_rec_sl,    extend=extend.right, color=alg_sl_col,  style=line.style_solid,  width=1)
+3819:     line.new(bar_index, alg_t1,        bar_index + 10, alg_t1,        extend=extend.right, color=alg_t1_col,  style=line.style_solid,  width=1)
+3820:     line.new(bar_index, alg_t2,        bar_index + 10, alg_t2,        extend=extend.right, color=alg_t2_col,  style=line.style_dashed, width=1)
+3821: 
+3822:     // Entry label
+3823:     label.new(bar_index + 3, alg_rec_entry,
+3824:               "📌 Rec Entry: " + str.tostring(math.round_to_mintick(alg_rec_entry)) + " [" + persistCat + "]",
+3825:               color=color.new(#00BCD4, 0), style=label.style_none, textcolor=#00BCD4, size=size.small)
+3826: 
+3827:     // SL label
+3828:     string sl_dist_str = showDist ? " (" + str.tostring(rr_dist, "#.1") + "% risk)" : ""
+3829:     label.new(bar_index + 3, alg_rec_sl,
+3830:               "🛑 Algo SL: " + str.tostring(math.round_to_mintick(alg_rec_sl)) + sl_dist_str,
+3831:               color=color.new(color.red, 0), style=label.style_none, textcolor=color.red, size=size.small)
+3832: 
+3833:     // T1 label (color-coded for resistance)
+3834:     string t1_dist_str = showDist ? " " + f_dist(alg_t1) : ""
+3835:     label.new(bar_index + 3, alg_t1,
+3836:               "🎯 T1 (2R): " + str.tostring(math.round_to_mintick(alg_t1)) + t1_dist_str + warn_tag,
+3837:               color=alg_t1_col, style=label.style_none, textcolor=alg_t1_col, size=size.small)
+3838: 
+3839:     // T2 label
+3840:     string t2_dist_str = showDist ? " " + f_dist(alg_t2) : ""
+3841:     label.new(bar_index + 3, alg_t2,
+3842:               "🚀 T2 (3.5R): " + str.tostring(math.round_to_mintick(alg_t2)) + t2_dist_str,
+3843:               color=alg_t2_col, style=label.style_none, textcolor=alg_t2_col, size=size.small)
+3844: 
+3845: 
+3846: // ==========================================
+3847: // 10. GEMINI PROMPT GENERATION (User Request)
+3848: // ==========================================
+3849: show_prompt = input.bool(false, title="Generate Gemini Context Prompt (Check Logs)", group="AI Analysis Tools", tooltip="Enable this, then check 'Pine Logs' tab to copy the text prompt for Gemini.")
+3850: 
+3851: // Debounce logic to prevent log flooding on live bars
+3852: varip int last_log_time = 0
+3853: int current_time = timenow
+3854: bool time_ok = (current_time - last_log_time) > 5000 // 5 seconds
+3855: 
+3856: if show_prompt and barstate.islast and time_ok
+3857:     last_log_time := current_time
+3858: 
+3859:     // Fix: Unpack Tuple first
+3860:     [secTicker, secName] = f_get_hybrid_sector()
+3861: 
+3862:     // Construct the Prompt String
+3863:     string p_str = "Role: Senior Quantitative Analyst (Weinstein & Minervini Expert).\n" +
+3864:                  "Task: Analyze the following asset based on Stan Weinstein's Stage Analysis and Mark Minervini's VCP/SEPA principles.\n\n" +
+3865:                  "ASSET: " + syminfo.ticker + " (" + secName + ")\n" +
+3866:                  "Current Market Price: " + str.tostring(close) + "\n\n" +
+3867: 
+3868:                  "--- 1. MARKET & SECTOR CONTEXT ---\n" +
+3869:                  "Broad Market Health (Nifty 500): " + mktState + "\n" +
+3870:                  "Sector RS State: " + rsSecState + "\n" +
+3871:                  "Asset RS State (vs Nifty 500): " + rs500State + "\n\n" +
+3872: 
+3873:                  "--- 2. TREND & MOMENTUM ---\n" +
+3874:                  "Stage Structure: " + stageDisplay + "\n" +
+3875:                  "Weekly Trend: " + (wTrendDir == 1 ? "UP" : (wTrendDir == -1 ? "DOWN" : "SIDEWAYS")) + "\n" +
+3876:                  "Daily Trend: " + (dTrendDir == 1 ? "UP" : (dTrendDir == -1 ? "DOWN" : "SIDEWAYS")) + "\n" +
+3877:                  "30-Week SMA: " + str.tostring(wMA30) + " (Slope: " + wMASlopeState + ")\n" +
+3878:                  "Price > 30WMA: " + (close > wMA30 ? "YES" : "NO") + "\n" +
+3879:                  "50-Day SMA Slope: " + d50SlopeState + "\n" +
+3880:                  "Price > 50DMA: " + (close > dMA50 ? "YES" : "NO") + "\n" +
+3881:                  "Trend Template (50>150>200): " + (dSmaAligned ? "ALIGNED (Bullish)" : "MISALIGNED") + "\n\n" +
+3882: 
+3883:                  "--- 3. PRICE ACTION & KEY LEVELS ---\n" +
+3884:                  "Current ATR (10 / 40): " + str.tostring(d_atr10_val) + " / " + str.tostring(d_atr40_val) + "\n" +
+3885:                  "Volume State vs 50SMA: " + volState + "\n" +
+3886:                  "Trigger State: " + chartCat + " (" + rsSecState + ")\n\n" +
+3887: 
+3888:                  "--- INSTRUCTIONS FOR ANALYSIS ---\n" +
+3889:                  "1. First, analyze the Broad Market and Sector context (Is the tide rising?).\n" +
+3890:                  "2. Perform a brief Fundamental Check (Earnings growth, Valuation, etc.) and Sentiment Analysis (Recent News/Hype).\n" +
+3891:                  "3. Evaluate the Asset's Stage (Weinstein) and Volatility Contraction (Minervini).\n" +
+3892:                  "4. Check for specific overhead supply (Resistance) vs immediate support.\n" +
+3893:                  "5. Conclude with a clear Buy/Sell/Hold decision and potential trade setup (Entry/Stop/Target)."
+3894: 
+3895:     log.info("\n⬇️ COPY GEMINI PROMPT BELOW ⬇️\n\n" + p_str + "\n\n⬆️ COPY GEMINI PROMPT ABOVE ⬆️")
+3896:     alert("Gemini Prompt Generated for " + syminfo.ticker + ". Check Pine Logs.", alert.freq_once_per_bar_close)
+3897: 
+3898: // ==========================================
+3899: // 11. EXPORT PORTFOLIO TO CSV (User Request)
+3900: // ==========================================
+3901: show_csv = input.bool(false, title="Export Portfolio to CSV Log", group="Data Tools", tooltip="Enable this, then check 'Pine Logs' tab to copy your portfolio data (Ticker, Entry, SL, Sector) in CSV format.")
+3902: 
+3903: // Helper to format row
+3904: f_row(t, e, s, d, sec) =>
+3905:     if t != ""
+3906:         t + "," + str.tostring(e) + "," + str.tostring(s) + "," + str.format("{0,date,yyyy-MM-dd}", d) + "," + str.tostring(sec) + "\\n"
+3907:     else
+3908:         ""
+3909: 
+3910: if show_csv and barstate.islast and time_ok
+3911:     string csv_out = "Ticker,Entry,SL,Date,Sector\\n"
+3912: 
+3913:     csv_out := csv_out + f_row(p1_tick, p1_ent, p1_sl, p1_date, p1_sec)
+3914:     csv_out := csv_out + f_row(p2_tick, p2_ent, p2_sl, p2_date, p2_sec)
+3915:     csv_out := csv_out + f_row(p3_tick, p3_ent, p3_sl, p3_date, p3_sec)
+3916:     csv_out := csv_out + f_row(p4_tick, p4_ent, p4_sl, p4_date, p4_sec)
+3917:     csv_out := csv_out + f_row(p5_tick, p5_ent, p5_sl, p5_date, p5_sec)
+3918:     csv_out := csv_out + f_row(p6_tick, p6_ent, p6_sl, p6_date, p6_sec)
+3919:     csv_out := csv_out + f_row(p7_tick, p7_ent, p7_sl, p7_date, p7_sec)
+3920:     csv_out := csv_out + f_row(p8_tick, p8_ent, p8_sl, p8_date, p8_sec)
+3921:     csv_out := csv_out + f_row(p9_tick, p9_ent, p9_sl, p9_date, p9_sec)
+3922:     csv_out := csv_out + f_row(p10_tick, p10_ent, p10_sl, p10_date, p10_sec)
+3923:     csv_out := csv_out + f_row(p11_tick, p11_ent, p11_sl, p11_date, p11_sec)
+3924:     csv_out := csv_out + f_row(p12_tick, p12_ent, p12_sl, p12_date, p12_sec)
+3925:     csv_out := csv_out + f_row(p13_tick, p13_ent, p13_sl, p13_date, p13_sec)
+3926:     csv_out := csv_out + f_row(p14_tick, p14_ent, p14_sl, p14_date, p14_sec)
+3927:     csv_out := csv_out + f_row(p15_tick, p15_ent, p15_sl, p15_date, p15_sec)
+3928:     csv_out := csv_out + f_row(p16_tick, p16_ent, p16_sl, p16_date, p16_sec)
+3929:     csv_out := csv_out + f_row(p17_tick, p17_ent, p17_sl, p17_date, p17_sec)
+3930:     csv_out := csv_out + f_row(p18_tick, p18_ent, p18_sl, p18_date, p18_sec)
+3931:     csv_out := csv_out + f_row(p19_tick, p19_ent, p19_sl, p19_date, p19_sec)
+3932:     csv_out := csv_out + f_row(p20_tick, p20_ent, p20_sl, p20_date, p20_sec)
+3933:     csv_out := csv_out + f_row(p21_tick, p21_ent, p21_sl, p21_date, p21_sec)
+3934:     csv_out := csv_out + f_row(p22_tick, p22_ent, p22_sl, p22_date, p22_sec)
+3935:     csv_out := csv_out + f_row(p23_tick, p23_ent, p23_sl, p23_date, p23_sec)
+3936:     csv_out := csv_out + f_row(p24_tick, p24_ent, p24_sl, p24_date, p24_sec)
+3937:     csv_out := csv_out + f_row(p25_tick, p25_ent, p25_sl, p25_date, p25_sec)
+3938:     csv_out := csv_out + f_row(p26_tick, p26_ent, p26_sl, p26_date, p26_sec)
+3939:     csv_out := csv_out + f_row(p27_tick, p27_ent, p27_sl, p27_date, p27_sec)
+3940:     csv_out := csv_out + f_row(p28_tick, p28_ent, p28_sl, p28_date, p28_sec)
+3941:     csv_out := csv_out + f_row(p29_tick, p29_ent, p29_sl, p29_date, p29_sec)
+3942:     csv_out := csv_out + f_row(p30_tick, p30_ent, p30_sl, p30_date, p30_sec)
+3943: 
+3944:     log.info("\n⬇️ COPY PORTFOLIO CSV BELOW ⬇️\n\n" + csv_out + "\n⬆️ COPY PORTFOLIO CSV ABOVE ⬆️")
+3945: 
+3946:     alert("Portfolio CSV Data Generated. Check Pine Logs.", alert.freq_once_per_bar_close)
+3947: 
+3948: 
+3949: 
+3950: 

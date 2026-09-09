@@ -1,0 +1,60 @@
+{
+  "_comment": "Single source of truth for ETF system thresholds. Python reads this directly via etf_screener.py. Pine surfaces (dashboard, strategy) reference these values manually via input defaults -- keep in sync if edited. Last updated: 12 May 2026.",
+
+  "version": "1.1",
+  "updated": "2026-05-12",
+
+  "benchmark_yf": "^CRSLDX",
+  "_benchmark_note": "Nifty 500. Locked universally; previously per-ETF substitution was a bug.",
+
+  "liq_min_cr": 2.0,
+  "_liq_min_cr_note": "ILLIQUID threshold in Rs Cr/day median turnover. Below this, ETF cannot trigger BUY-LEADER and is force-exited if held.",
+
+  "liq_bands": [
+    { "threshold": 10.0, "score": 10 },
+    { "threshold":  5.0, "score":  8 },
+    { "threshold":  2.0, "score":  6 },
+    { "threshold":  1.0, "score":  4 },
+    { "threshold":  0.5, "score":  2 },
+    { "threshold":  0.0, "score":  0 }
+  ],
+
+  "stage2_slope_min_pct": 0.1,
+  "_stage2_slope_note": "200-DMA slope minimum (% over 20 sessions) to qualify for Stage 2.",
+
+  "mansfield_sma_len": 200,
+  "rs_momentum_lookback_bars": 20,
+
+  "buy_leader_min_liq_score": 6,
+  "_buy_leader_note": "Liquidity score threshold for BUY-LEADER signal. Score 6 maps to >= Rs 2 Cr/day.",
+
+  "vol_profiles": {
+    "low_gold_debt":     { "atr_stop_mult": 1.8, "target_atr_pct": 1.0 },
+    "med_broad_equity":  { "atr_stop_mult": 2.5, "target_atr_pct": 1.5 },
+    "high_sector_small": { "atr_stop_mult": 3.0, "target_atr_pct": 2.0 },
+    "intl_nasdaq_fang":  { "atr_stop_mult": 2.5, "target_atr_pct": 1.8 }
+  },
+
+  "correlation_gate": {
+    "enabled":  true,
+    "threshold": 0.75,
+    "lookback":  60,
+    "_note": "60-day daily-return correlation. Drops top-pick candidates that correlate >= 0.75 with an already-accepted pick."
+  },
+
+  "rotation_engine": {
+    "composite_long_weight":  0.60,
+    "composite_short_weight": 0.40,
+    "_note": "Composite RS = 0.6 * 12W excess rank + 0.4 * 4W excess rank."
+  },
+
+  "backtest_defaults": {
+    "freq":             "monthly",
+    "top_n":            8,
+    "min_hold_days":    28,
+    "_note": "Locked from 12 May 2026 sensitivity audit. Monthly + Top-N=8 gave Sharpe 1.52 with max DD -6.02% vs weekly's -11.77% -- same alpha at half the drawdown and 1/4 the trades."
+  },
+
+  "min_hold_days":      28,
+  "_min_hold_note": "Minimum holding period in calendar days. Prevents over-rotation (MAFANG had 245 trades over 6.35y baseline). Stage-4 / liquidity-collapse exits override this gate."
+}

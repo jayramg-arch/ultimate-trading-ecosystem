@@ -1,0 +1,79 @@
+{
+  "\ud83d\udee1\ufe0f Defense & Aerospace": [
+    "DATAPATTNS",
+    "HAL",
+    "BEL",
+    "BDL",
+    "COCHINSHIP",
+    "MAZDOCK",
+    "GRSE",
+    "SOLARINDS",
+    "ZENTEC",
+    "MTARTECH",
+    "BEML",
+    "PARAS",
+    "ASTRAMICRO",
+    "BHARATFORG"
+  ],
+  "\ud83e\uddea Specialty Chemicals": [
+    "DEEPAKNTR",
+    "AARTIIND",
+    "NAVINFLUOR",
+    "ATUL",
+    "SRF",
+    "CLEAN",
+    "FINEORG",
+    "CHAMBLFERT",
+    "COROMANDEL",
+    "UPL",
+    "PIIND",
+    "TATACHEM"
+  ],
+  "\ud83c\udfc6 Nifty 50 Heavyweights": [
+    "RELIANCE",
+    "TCS",
+    "HDFCBANK",
+    "ICICIBANK",
+    "INFY",
+    "BHARTIARTL",
+    "ITC",
+    "SBIN",
+    "LT",
+    "HINDUNILVR",
+    "AXISBANK",
+    "M&M",
+    "TATAMOTORS",
+    "SUNPHARMA",
+    "NTPC"
+  ],
+  "\u26a1 Power & Energy": [
+    "NTPC",
+    "POWERGRID",
+    "TATAPOWER",
+    "ADANIGREEN",
+    "ADANIPOWER",
+    "NHPC",
+    "SJVN",
+    "BHEL",
+    "COALINDIA",
+    "ONGC",
+    "IOC",
+    "BPCL"
+  ],
+  "\ud83c\udfd7\ufe0f Real Estate & Infra": [
+    "DLF",
+    "GODREJPROP",
+    "OBEROIRLTY",
+    "LODHA",
+    "PHOENIXLTD",
+    "BRIGADE",
+    "PRESTIGE",
+    "SOBHA",
+    "NCC",
+    "PNCINFRA",
+    "KNRCON"
+  ],
+  "test": [
+    "HAL"
+  ]
+}

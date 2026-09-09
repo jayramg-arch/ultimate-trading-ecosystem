@@ -1,10 +1,4 @@
-Symbol_x,S.No.,Name,"CMP
-                    Rs.",P/E,"Mar Cap
-                    Rs.Cr.","Div Yld
-                    %","NP Qtr
-                    Rs.Cr.","Qtr Profit Var
-                    %","Sales Qtr
-                    Rs.Cr.","Qtr Sales Var
-                    %","ROCE
-                    %","ROE
-                    %",Symbol_y,Price,%Chg,Volume
+Symbol,Name,Combined_Score,Conviction,Tech_Score,Stage,Mansfield_RS,Daily_RSI,Daily_ADX,EMA_Stack,Above_200DMA,Dist_52WH_pct,Vol_RelAvg,ROE %,ROCE %,Debt to equity,Promoter holding %,Div Yld %,Qtr Profit Var %,Qtr Sales Var %,Mar Cap Rs.Cr.,CMP Rs.,P/E,Volume,Hybrid_Catalyst,%Chg,Minervini_Score,Piotroski_Score,Overall_Rating,Overall_Grade,Delivery_Pct,Futures_OI_Chg_Pct
+NEULANDLAB,Neuland Labs.,92.5,10.0,85,2,11.318149191801696,57.916440053796016,41.23254849280164,True,True,3.34,0.45,21.3,26.5,0.16,32.62,0.15,962.37,119.16,30757.99,23973.7,61.9,92587,NONE,4.92,4.0,4.0,74.4,B GOOD,50.46,
+DIVISLAB,Divi's Lab.,92.5,9.5,90,2,18.65738559911736,69.29834288635837,66.13589456198125,True,True,1.61,1.15,16.8,22.4,0.0,51.88,0.32,65.5,27.8,254068.03,9570.55,84.8,821530,NONE,2.79,4.0,4.0,74.4,B GOOD,63.45,0.42
+SOLARINDS,Solar Industries,87.5,9.5,80,2,16.043038844846635,74.4791013011812,23.96282037762033,True,True,0.0,1.2,33.5,43.6,0.24,73.15,0.05,92.66,70.26,203339.84,22470.95,156.0,213577,POS-BO,2.3,5.0,4.0,73.9,B GOOD,34.87,6.45

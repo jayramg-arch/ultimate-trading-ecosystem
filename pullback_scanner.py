@@ -91,10 +91,9 @@ def get_weekly_rsi(df_daily):
     logic = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'}
     df_weekly = df_daily.resample('W-FRI').apply(logic)
     
-    # Calc RSI
+    # Calc RSI — simple rolling (D4: removed dead Wilder pre-computation that
+    # was immediately overwritten by the rolling-mean line below)
     delta = df_weekly['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean() # Wilder's Smoothing usually preferred for RSI, or simple rolling
-    # Using Simple Rolling for consistency with common libraries
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
@@ -104,22 +103,28 @@ def get_weekly_rsi(df_daily):
 
 def scan_market(tickers):
     print(f"Scanning {len(tickers)} stocks... (This may take a minute)")
-    
-    # Download Data Batch
-    # Period: 2y to ensure enough data for 200 SMA + Weekly RSI
-    data = yf.download(tickers, period="2y", interval="1d", group_by='ticker', progress=True, ignore_tz=True)
-    
+
+    # C1 sweep: data_provider with 50-symbol batches; falls back to one yf call.
+    data_map = {}
+    try:
+        import data_provider as dp
+        BATCH = 50
+        for i in range(0, len(tickers), BATCH):
+            chunk = tickers[i:i + BATCH]
+            bd = dp.fetch_batch_ohlcv(chunk, period="2y", interval="1d", use_cache=True, auto_adjust=True)
+            for t in chunk:
+                clean = dp.clean_symbol(t)
+                if clean in bd:
+                    data_map[t] = bd[clean]
+    except Exception as e:
+        print(f"data_provider fetch failed: {e}")
+
     candidates = []
-    
+
     for ticker in tickers:
         try:
-            # Handle Single Ticker vs Multi Ticker structure
-            if len(tickers) == 1:
-                df = data
-            else:
-                df = data[ticker].copy()
-            
-            if df.empty: continue
+            df = data_map.get(ticker)
+            if df is None or df.empty: continue
             
             # Remove NaN rows
             df.dropna(inplace=True)

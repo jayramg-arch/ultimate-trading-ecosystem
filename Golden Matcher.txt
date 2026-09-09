@@ -1,0 +1,44 @@
+Golden Matcher:
+1) Live technicals refresh every 75m bar-close . next 14:15 . Last 18 Jul 13:58 - why is it refreshing on weekends as well?
+2) I need to run Auto-pilot everyday, in the evening?
+3) What is the difference between Armed and Buy-Watch?
+4) How do I deal with the Pullback entries?
+5) Guide doesn't cover all the parameters on the Bull path, along with their gated values
+6) Bull Path-->Location: Is price extended from EMA20, gated?
+7) Bull path: How many parameters need to pass for each of the 6 headers?
+8) Bull Path-->Location: What is meant by vs EMA20+1.4ATR sup? and what is w:outisde on Support (auto)?
+9) Recovery path: what is RFF gate vs RFF quality?
+10) How the SL points are calculated. Is that level marked by a support line drawn?
+11) 
+
+S4 Entry Trigger:
+1) 
+2) Verdict says Price must clear 1439.95 on CDSL (75), but there is no such level marked on the chart.
+3) What is meant by Nearest AVWAP? 
+4) What is exactly meant by Arrival: GRIND 0.13 ATR/bar . absorbing Delta +?
+5) How will S4 calculate the Qty, if there is no Capital field in the settings?
+6) Currently, the location/ Room for Trade do not seem to consider extended price from EMA20/S/Zone
+7) Leg-in — and the per-TF strictness - Is this implemented?
+8) On settings-->Daily PA Trigger: Why are the triggers daily based? When I select an intraday TF, PA should be intraday, right?
+9) What is Max Base TR (xATR)? Why it is set to 2.5?
+10) Explain the settings: REquire Daily EMA20 alignment, REquire Nifty 500 positive and Required Break of Structure
+11) What is non-base tolerance (candles)?
+12) EMA20 extended from Zone should be added to the zone quality
+13) How will you find out a gap at leg-out, when you are actually using invisible candles?
+14) Zone Violation: Only body close below (DZ)/ above (SZ) the distal line, makes a zone violated. Not the wick close.
+15) I have a suspition that pivot zones are drawn first and pattern zones are deduped. I'm seeing this multiple times. Add a check box for enabling/ disabling the dedupliation of pivot/ pattern zone marking. Hence, draw both the pivot and pattern zones, when dedup is disabled.
+16) Does pivot zone adds confluence to a pattern zone? How a pivot zone is different from a pure pivot level?
+17) I see that an S/R line with 2-3 pivot touches is also shown as Fresh?
+18) Sometimes, a zone is drawn counting say 3 base candles. Another zone is drwan counting 2 candles from the same base. I'm not saying avoid overlapping zones. What I'm saying is that only one of these two zones is correct.
+19) 
+
+
+
+
+
+
+
+
+
+
+

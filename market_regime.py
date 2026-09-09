@@ -52,6 +52,9 @@ import logging
 logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta
 from typing import Optional
+import sqlite3
+
+DB_FILE = "trade_journal_v6.db"
 
 import threading
 import numpy as np
@@ -102,21 +105,61 @@ ZWEIG_WINDOW         = 10      # bars to complete the cross sequence
 
 # ─── State persistence ────────────────────────────────────────────────────────
 def _load_state() -> dict:
-    if not os.path.exists(STATE_PATH):
-        return {}
     try:
-        with open(STATE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        # Load history
+        c.execute("SELECT date, score, verdict FROM MarketRegime ORDER BY date DESC LIMIT 60")
+        history = [dict(row) for row in c.fetchall()]
+        history.reverse()  # oldest first
+        
+        # Load 'last' from the most recent details
+        c.execute("SELECT details FROM MarketRegime ORDER BY updated_at DESC, date DESC LIMIT 1")
+        row = c.fetchone()
+        last_state = {}
+        if row and row["details"]:
+            try:
+                last_state = json.loads(row["details"])
+            except Exception:
+                pass
+        
+        conn.close()
+        return {"last": last_state, "history": history}
+    except Exception as e:
+        logger.error(f"[market_regime] Failed to load state from SQLite: {e}")
+        return {"last": {}, "history": []}
 
 def _save_state(state: dict) -> None:
+    # State has {"last": out, "history": [...] }
+    # We only need to insert/update the 'last' entry into MarketRegime
+    last_state = state.get("last", {})
+    if not last_state:
+        return
+        
+    date_str = datetime.now().date().isoformat()
+    score = last_state.get("score", 0)
+    verdict = last_state.get("verdict", "")
+    details = json.dumps(last_state)
+    
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('''
+            INSERT OR REPLACE INTO MarketRegime (date, score, verdict, details, updated_at) 
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (date_str, score, verdict, details))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"[market_regime] Failed to save state to SQLite: {e}")
+
     try:
         with open(STATE_PATH, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2, default=str)
-    except Exception:
-        pass
+            json.dump(state, f, indent=2)
+    except Exception as e:
+        logger.error(f"[market_regime] Failed to save state to JSON: {e}")
 
 
 # ─── Benchmark fetch ──────────────────────────────────────────────────────────
@@ -125,11 +168,8 @@ def _fetch_benchmark(period: str = "1y") -> pd.DataFrame:
     C1: cached via data_provider so the regime score computation reuses the
     same benchmark slice as bull_screener / recovery_screener / exit_engine.
     """
-    if USE_DATA_PROVIDER and _dp is not None:
-        raw = _dp.fetch_ohlcv(BENCHMARK_YF, period=period, interval="1d")
-    else:
-        raw = yf.download(BENCHMARK_YF, period=period, interval="1d",
-                           auto_adjust=True, progress=False)
+    import data_provider as dp
+    raw = dp.fetch_ohlcv(BENCHMARK_YF, period=period, interval="1d", use_cache=True, auto_adjust=True)
     if isinstance(raw.columns, pd.MultiIndex):
         raw.columns = raw.columns.get_level_values(0)
     return raw.dropna(how="all")
@@ -346,22 +386,25 @@ def compute_regime(breadth_metrics: Optional[dict] = None,
     # Build score
     score = 0
     components = {}
-    components["above_sma200_rising"] = above_s200 and s200_rising
+    components["above_sma200_rising"] = False
+    if breadth_metrics:
+        val200 = breadth_metrics.get("above_sma200_pct", 0)
+        components["above_sma200_rising"] = bool(val200 >= 50)
     if components["above_sma200_rising"]:
         score += 3
 
-    breadth_above_50 = False
+    components["breadth_above_50"] = False
     if breadth_metrics:
-        breadth_above_50 = (breadth_metrics.get("above_sma200_pct", 0) >= 50)
-        if breadth_above_50:
-            score += 2
-    components["breadth_above_50"] = breadth_above_50
+        val50 = breadth_metrics.get("above_sma50_pct", 0)
+        components["breadth_above_50"] = bool(val50 >= 50)
+    if components["breadth_above_50"]:
+        score += 2
 
-    components["dd_low"] = (not dd["stress"]) and dd["count"] <= 3
+    components["dd_low"] = bool((not dd.get("stress", False)) and dd.get("count", 0) <= 3)
     if components["dd_low"]:
         score += 2
 
-    components["no_death_cross"] = not death_cross
+    components["no_death_cross"] = bool(not death_cross)
     if components["no_death_cross"]:
         score += 1
 
@@ -377,21 +420,21 @@ def compute_regime(breadth_metrics: Optional[dict] = None,
     verdict = _verdict(score)
 
     out = {
-        "score":        score,
-        "verdict":       verdict,
+        "score":         int(score),
+        "verdict":       str(verdict),
         "computed_at":   datetime.now().isoformat(timespec="seconds"),
-        "benchmark":     BENCHMARK_YF,
-        "close":         round(last, 2),
-        "sma50":         round(s50_now, 2)  if not np.isnan(s50_now)  else None,
-        "sma200":        round(s200_now, 2) if not np.isnan(s200_now) else None,
-        "above_sma200":  above_s200,
-        "sma200_rising": s200_rising,
-        "death_cross":   death_cross,
+        "benchmark":     str(BENCHMARK_YF),
+        "close":         float(round(last, 2)),
+        "sma50":         float(round(s50_now, 2))  if not np.isnan(s50_now)  else None,
+        "sma200":        float(round(s200_now, 2)) if not np.isnan(s200_now) else None,
+        "above_sma200":  bool(above_s200),
+        "sma200_rising": bool(s200_rising),
+        "death_cross":   bool(death_cross),
         "distribution":  dd,
         "follow_through": ft,
         "breadth_thrust": bt,
-        "breadth_above_sma200_pct": (breadth_metrics or {}).get("above_sma200_pct"),
-        "components":    components,
+        "breadth_above_sma200_pct": float((breadth_metrics or {}).get("above_sma200_pct", 0)),
+        "components":    {k: bool(v) for k, v in components.items()},
     }
     if persist:
         state = _load_state()
@@ -430,7 +473,7 @@ def main() -> int:
               f"(stress={result['distribution']['stress']})")
         print(f"  Follow-Through: {result['follow_through']['details']}")
         print(f"  Breadth Thrust: {result['breadth_thrust']['details']}")
-        print(f"\n  State persisted to {STATE_PATH}")
+        print(f"\n  State persisted to SQLite ({DB_FILE})")
     except Exception as e:
         print(f"  ERROR: {e}")
         return 1

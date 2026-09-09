@@ -1,0 +1,14 @@
+The Section4_Entry_Trigger_v1.0.pine is using OB and FVG login (built-in) for identifying Support and Resistance levels and trade locations. Create a new version and try to leverage the code from Insitutional Zone Engine v4.2.pine, which can identify demand and supply zones along with FVGs for better key levels.
+
+Answers to open questions: 1) Room Threshold: Show both the x% to the next supply zone and risk multiple (e.g., > 2R based on the demand zone width) in the Panel table (in one row). 2) Do not gate the decision, it should be a Warning on the panel table. 3) Zone Display: it should draw the multi timeframe zones. 4) Do not bring the panel table from the Insitutional Zone Engine v4.2.pine. The key values may be added to the Section4_Entry_Trigger_v1.0.pine panel table, but this is only from the context of whether I should take/drop/hold the trade.
+
+the panel table has been truncated. Earlier, the Bull path was showing 18 PA conditions and 10 Recovery conditions. Now it shows only 11 Bull conditions and 6 Recovery conditions.
+
+The indicator markings are completely detached from the candles. When I mode the candles up/down, the indicator markigs do not move.
+
+There is visual indicator/warning on the available room, after we introduced demand and supply zones into the indicator?
+
+If the price is close to ATH, the indicator shows room: None. Also, when there is an overhead supply zone, it should take the room till the proximal line of the supply zone, not till the distal line. Please  relook at the room calculations.
+
+The demand/ supply zones should be marked as tested only when they meet any of the below conditions: 1) If the price has travelled, double the distance of the zone width. 2) If the price has crossed the EMA20, after reacting from the zone. 3) Price has crossed a strong Support/Support key level.
+

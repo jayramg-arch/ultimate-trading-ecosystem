@@ -2,21 +2,32 @@ import json
 import os
 import time
 import hashlib
+import sqlite3
 
-CACHE_FILE = "ai_cache.json"
+DB_FILE = "trade_journal_v6.db"
 
-def _get_cache():
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+def _get_cache_from_db(cache_key):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("SELECT value FROM AICache WHERE key = ?", (cache_key,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return json.loads(row[0])
+    except Exception:
+        pass
+    return None
 
-def _save_cache(cache):
-    with open(CACHE_FILE, "w") as f:
-        json.dump(cache, f, indent=4)
+def _save_cache_to_db(cache_key, entry):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("INSERT OR REPLACE INTO AICache (key, value) VALUES (?, ?)", (cache_key, json.dumps(entry)))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 def get_cached_response(key_data):
     """
@@ -28,10 +39,9 @@ def get_cached_response(key_data):
         key = json.dumps(key_data, sort_keys=True)
     
     cache_key = hashlib.md5(key.encode()).hexdigest()
-    cache = _get_cache()
+    entry = _get_cache_from_db(cache_key)
     
-    if cache_key in cache:
-        entry = cache[cache_key]
+    if entry:
         timestamp = entry.get("timestamp", 0)
         # 24 hour TTL (86400 seconds)
         if time.time() - timestamp < 86400:
@@ -48,12 +58,11 @@ def set_cached_response(key_data, response):
         key = json.dumps(key_data, sort_keys=True)
         
     cache_key = hashlib.md5(key.encode()).hexdigest()
-    cache = _get_cache()
     
-    cache[cache_key] = {
+    entry = {
         "timestamp": time.time(),
         "response": response,
         "original_key": key # For debugging
     }
     
-    _save_cache(cache)
+    _save_cache_to_db(cache_key, entry)

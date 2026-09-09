@@ -1,0 +1,45 @@
+{
+  "watchlist": [
+    "NSE:COALINDIA",
+    "NSE:NATIONALUM",
+    "NSE:METALIETF",
+    "NSE:RELIANCE"
+  ],
+  "default_timeframe": "W",
+  "bias_criteria": {
+    "bullish": [
+      "Stock is in Weinstein Stage 2 — price is above a rising 30-week MA",
+      "Mansfield RS is positive and trending upward vs Nifty 50 and Nifty 500",
+      "Alpha Score is 4-star or 5-star",
+      "VCP or Stage 2 breakout pattern is visible on the daily chart",
+      "Breakout volume is above the 50-SMA of volume (volume confirmation)",
+      "EMA 20 (Daily) is sloping up and acting as support"
+    ],
+    "bearish": [
+      "Stock is in Weinstein Stage 3 or Stage 4 — price is below a declining 30-week MA",
+      "Mansfield RS is negative or rolling over vs Nifty 50 and Nifty 500",
+      "Alpha Score is 1-star or 2-star",
+      "Price is breaking down through key supply/demand zones or the 30-week MA",
+      "Volume is expanding to the downside"
+    ],
+    "neutral": [
+      "Stock is in Weinstein Stage 1 — basing, 30-week MA is flat",
+      "Mansfield RS is hovering near zero — no clear outperformance or underperformance",
+      "Alpha Score is 3-star",
+      "Price is consolidating in a range with no directional conviction — wait for breakout"
+    ]
+  },
+  "risk_rules": [
+    "Risk per trade: 1% of total capital — no exceptions, no discretionary overrides",
+    "Position sizing is volatility-adjusted using 14-day ATR: Position Size = Risk Amount / (ATR × Multiplier)",
+    "Stop-loss: mandatory ATR-based trailing stop set on every position at entry",
+    "Only trade Stage 2 breakouts — never enter a Stage 3 or Stage 4 stock",
+    "Swing trades target 5–8% over 8–12 weeks; exit immediately if the Stage 2 thesis breaks",
+    "Positional trades target 10–30% over 6–8 months; hold as long as Stage 2 is intact and RS is positive",
+    "NSE trading hours only: 9:15 AM – 3:30 PM IST",
+    "Weekend focus: Hunter Picks and EarlyBird Picks — fresh Stage 2 breakouts and setups",
+    "Weekday focus: Pullback Picks — entries on retracements within confirmed Stage 2 trends",
+    "Capital rotation: use the Sell-to-Buy matrix to recycle capital from exits into new setups systematically"
+  ],
+  "notes": "NSE-listed Indian equities only. Default exchange: NSE. Default currency: INR (₹1,23,456 format). Primary framework is Weinstein Stage Analysis anchored to the 30-week MA. All Relative Strength is Mansfield RS benchmarked vs Nifty 50, Nifty 500, and the relevant sector index — 52-week RS is primary, 3-month and 6-month RS are tactical/timing. Alpha Score (5-star composite of Stage + RS + Volatility) drives stock selection priority. Indicators — EMA 20, SMA 50, ATR 14, RSI — are used for confluence only. Pure price action leads all decisions."
+}

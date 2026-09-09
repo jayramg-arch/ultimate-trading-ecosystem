@@ -37,6 +37,14 @@ _last_dial = 0.0
 # The board fetched CONCORDBIO four times in 34s. Cache the ANSWER, including
 # a miss, so a failure is paid once per symbol per TTL instead of once per call.
 MEMO_TTL_S = float(os.getenv("SCREENER_MEMO_TTL_S", "900"))
+# A MISS IS NOT AN ANSWER (4 Sep 2026). Caching a failure for the same 900s as a
+# success meant one throttled fetch marked a company "no fundamentals" for fifteen
+# minutes - GLAND and UNOMINDA logged P/E, ROE and market cap all empty during the
+# 08:15 auto-pilot and returned complete data on a retry minutes later. GLAND was a
+# live alert that morning, so its QUALITY read was made on a cached failure.
+# The memo still protects the host from a burst; it just stops presenting a refused
+# connection as a fact about the company.
+MEMO_FAIL_TTL_S = float(os.getenv("SCREENER_MEMO_FAIL_TTL_S", "60"))
 _memo: dict = {}
 _memo_lock = threading.Lock()
 
@@ -63,10 +71,12 @@ def gate() -> "_Gate":
 
 
 def memo_get(key: str):
+    # Failures expire on the SHORT clock: a throttle clears in seconds, so a miss
+    # should not outlive it. Successes keep the long TTL they were sized for.
     """(hit, value). A cached None is a real answer - do not re-dial."""
     with _memo_lock:
         e = _memo.get(key)
-        if e and time.time() - e[0] < MEMO_TTL_S:
+        if e and time.time() - e[0] < (MEMO_TTL_S if e[1] is not None else MEMO_FAIL_TTL_S):
             return True, e[1]
     return False, None
 

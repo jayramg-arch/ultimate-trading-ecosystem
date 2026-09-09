@@ -3,20 +3,24 @@ import pandas as pd
 import numpy as np
 from ai_provider_manager import ask_llm
 
+# C1 sweep: route OHLCV through data_provider when available.
+try:
+    import data_provider as _dp
+    USE_DATA_PROVIDER = True
+except Exception:
+    _dp = None
+    USE_DATA_PROVIDER = False
+
+
 def _fetch_technicals(symbol):
-    """Fetches 1-year daily data and computes key technicals for grading."""
+    """Fetches 1-year daily data and computes key technicals for grading.
+    C1 sweep: parquet-cached fetch reused across the matcher's catalyst loop.
+    """
     try:
-        ticker_sym = symbol.replace("NSE:", "").replace("BSE:", "").strip()
-        if not ticker_sym.startswith("^"):
-            ticker_sym = f"{ticker_sym}.NS"
-        
-        data = yf.download(ticker_sym, period="1y", interval="1d", progress=False)
-        if data.empty or len(data) < 50:
+        import data_provider as _dp
+        data = _dp.fetch_ohlcv(symbol, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+        if data is None or data.empty or len(data) < 50:
             return None
-        
-        # Handle MultiIndex columns from newer yfinance
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
         
         close = float(data['Close'].iloc[-1])
         sma50 = float(data['Close'].rolling(50).mean().iloc[-1])
@@ -50,19 +54,14 @@ def _fetch_technicals(symbol):
             return 100 - (100 / (1 + rs))
 
         rsi70 = float(calc_rsi(data['Close'], 70).iloc[-1])
-        rsi3 = float(calc_rsi(data['Close'], 3).iloc[-1])
-        
+        rsi3  = float(calc_rsi(data['Close'], 3).iloc[-1])
+        # BUG-L4: use the same calc_rsi() helper — removes the duplicate manual RSI-14 block
+        rsi   = float(calc_rsi(data['Close'], 14).iloc[-1])
+
         o = float(data['Open'].iloc[-1])
         h1 = float(data['High'].iloc[-2]) if len(data) > 1 else o
         v_sma = float(data['Volume'].rolling(50).mean().iloc[-1])
         v = float(data['Volume'].iloc[-1])
-        
-        # RSI 14
-        delta = data['Close'].diff()
-        gain = delta.where(delta > 0, 0).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        rs = gain / loss
-        rsi = float((100 - (100 / (1 + rs))).iloc[-1])
         
         # Volume profile
         vol_avg = v_sma

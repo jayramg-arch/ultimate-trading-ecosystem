@@ -132,11 +132,11 @@ if not df_active_global.empty:
 else:
     noise_count_g, noise_syms_g = 0, []
 
-h_color      = "#00f260" if is_healthy        else "#ff4b4b"
+h_color      = "#15803D" if is_healthy        else "#DC2626"
 h_text       = "HEALTHY" if is_healthy        else "WEAK"
-w_color      = "#ff4b4b" if noise_count_g > 0 else "#00f260"
+w_color      = "#DC2626" if noise_count_g > 0 else "#15803D"
 w_text       = f"⚠ {noise_count_g} AT RISK"  if noise_count_g > 0 else "✔ SECURE"
-s_color      = "#00f260" if sys_status == "SYSTEM ONLINE" else "#ff4b4b"
+s_color      = "#15803D" if sys_status == "SYSTEM ONLINE" else "#DC2626"
 
 # Use live broker data for absolute ground truth
 total_deployed_g = live_dep
@@ -166,9 +166,8 @@ st.markdown(f"""
 *, *::before, *::after {{ box-sizing: border-box; }}
 
 .stApp {{
-    background: linear-gradient(160deg,#050d18 0%,#0a1628 60%,#060e1a 100%){bg_str};
-    background-attachment: fixed; background-size: cover;
-    font-family: 'Inter', sans-serif; color: #c9d1d9;
+    background: #EBF1F6 !important;
+    font-family: 'Inter', sans-serif; color: #090D16;
 }}
 .block-container {{ padding: 0 !important; margin: 0 !important; max-width: 100% !important; }}
 header, footer {{ visibility: hidden !important; }}
@@ -182,11 +181,10 @@ section[data-testid="stSidebar"] > div:first-child > div > button {{ display: no
 
 /* ── SIDEBAR ── */
 [data-testid="stSidebar"] {{
-    background: linear-gradient(180deg,#0d1b2a 0%,#0a1628 100%) !important;
-    border-right: 1px solid #1e3a5f !important;
+    background: #E2E8F0 !important;
+    border-right: 2px solid #94A3B8 !important;
     width: 230px !important; min-width: 230px !important;
     padding: 0 !important;
-    /* Always visible, never collapsible */
     transform: none !important;
     visibility: visible !important;
     display: block !important;
@@ -196,127 +194,127 @@ section[data-testid="stSidebar"] > div:first-child > div > button {{ display: no
     padding: 0 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    /* Scrollbar thin and dark */
     scrollbar-width: thin;
-    scrollbar-color: #1e3a5f #0a1628;
+    scrollbar-color: #94A3B8 #E2E8F0;
 }}
-[data-testid="stSidebarContent"]::-webkit-scrollbar {{ width: 4px; }}
-[data-testid="stSidebarContent"]::-webkit-scrollbar-track {{ background: #0a1628; }}
-[data-testid="stSidebarContent"]::-webkit-scrollbar-thumb {{ background: #1e3a5f; border-radius: 2px; }}
+[data-testid="stSidebarContent"]::-webkit-scrollbar {{ width: 5px; }}
+[data-testid="stSidebarContent"]::-webkit-scrollbar-track {{ background: #E2E8F0; }}
+[data-testid="stSidebarContent"]::-webkit-scrollbar-thumb {{ background: #94A3B8; border-radius: 3px; }}
 
 /* ── TOP STATUS BAR ── */
 .statusbar {{
     display: grid; grid-template-columns: repeat(5, 1fr);
-    gap: 1px; background: #1e3a5f; border-bottom: 2px solid #1e3a5f;
+    gap: 1px; background: #94A3B8; border-bottom: 2px solid #64748B;
 }}
-.sb-cell {{ background: #0a1628; padding: 6px 16px; display: flex; flex-direction: column; justify-content: center; }}
-.sb-label {{ font-family: 'JetBrains Mono',monospace; font-size: 0.58rem; color: #5a8a9f; letter-spacing: 2px; text-transform: uppercase; }}
-.sb-value {{ font-family: 'JetBrains Mono',monospace; font-size: 0.95rem; font-weight: 600; margin-top: 1px; letter-spacing: 0.5px; }}
+.sb-cell {{ background: #FFFFFF; padding: 6px 16px; display: flex; flex-direction: column; justify-content: center; }}
+.sb-label {{ font-family: 'JetBrains Mono',monospace; font-size: 0.60rem; color: #334155; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }}
+.sb-value {{ font-family: 'JetBrains Mono',monospace; font-size: 0.95rem; font-weight: 700; margin-top: 1px; letter-spacing: 0.5px; color: #090D16; }}
 
 /* ── PAGE TITLE ── */
 .page-title {{
-    font-family: 'Rajdhani',sans-serif; font-size: 1.5rem; font-weight: 700;
-    letter-spacing: 3px; text-transform: uppercase; color: #e6edf3;
-    border-left: 3px solid #238636; padding-left: 12px; margin: 14px 0 2px 0;
+    font-family: 'Rajdhani',sans-serif; font-size: 1.6rem; font-weight: 800;
+    letter-spacing: 3px; text-transform: uppercase; color: #090D16;
+    border-left: 4px solid #1D4ED8; padding-left: 12px; margin: 14px 0 4px 0;
 }}
 .page-desc {{
-    font-size: 0.68rem; color: #5a8a9f; letter-spacing: 2px; text-transform: uppercase;
-    margin: 0 0 12px 15px; font-family: 'JetBrains Mono',monospace;
+    font-size: 0.70rem; color: #1E293B; letter-spacing: 2px; text-transform: uppercase;
+    margin: 0 0 12px 15px; font-family: 'JetBrains Mono',monospace; font-weight: 700;
 }}
 
 /* ── SECTION HEADER ── */
 .section-hdr {{
-    font-family: 'JetBrains Mono',monospace; font-size: 0.62rem; color: #5a8a9f;
+    font-family: 'JetBrains Mono',monospace; font-size: 0.65rem; color: #1E3A8A;
     letter-spacing: 3px; text-transform: uppercase; margin: 14px 0 8px 0;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 10px; font-weight: 700;
 }}
-.section-hdr::after {{ content:''; flex:1; height:1px; background:#1e3a5f; }}
+.section-hdr::after {{ content:''; flex:1; height:2px; background:#94A3B8; }}
 
 /* ── SUB SECTION LABEL ── */
 .section-sub-lbl {{
     font-family: 'Rajdhani', sans-serif;
-    font-size: 1.0rem; font-weight: 600;
-    color: #e6edf3; letter-spacing: 1.5px; text-transform: uppercase;
-    padding: 5px 12px;
-    background: rgba(88,166,255,0.08);
-    border-left: 3px solid #58a6ff;
+    font-size: 1.05rem; font-weight: 700;
+    color: #1E3A8A; letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 6px 14px;
+    background: #DBEAFE;
+    border-left: 4px solid #1D4ED8;
     border-radius: 0 4px 4px 0;
     margin-bottom: 8px;
 }}
 
 /* ── ACTION BUTTONS (card-style, tall) ── */
 button[kind="secondary"] {{
-    background: #0d1b2a !important; border: 1px solid #1e3a5f !important;
-    border-radius: 5px !important; color: #c9d1d9 !important;
+    background: #FFFFFF !important; border: 1.5px solid #64748B !important;
+    border-radius: 6px !important; color: #0F172A !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.82rem !important; font-weight: 400 !important;
+    font-size: 0.84rem !important; font-weight: 600 !important;
     letter-spacing: 0.1px !important; text-transform: none !important;
     padding: 12px 16px !important; width: 100% !important;
     text-align: left !important; line-height: 1.6 !important;
     min-height: 76px !important; transition: all .15s ease !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
 }}
 button[kind="secondary"]:hover {{
-    background: #12243a !important; border-color: #238636 !important;
-    color: #e6edf3 !important;
-    box-shadow: inset 3px 0 0 #238636, 0 0 0 1px rgba(35,134,54,.2) !important;
+    background: #F1F5F9 !important; border-color: #1D4ED8 !important;
+    color: #1E3A8A !important;
+    box-shadow: inset 4px 0 0 #1D4ED8, 0 2px 6px rgba(29,78,216,.2) !important;
 }}
 button[kind="secondary"] p {{
     white-space: pre-line !important; text-align: left !important;
-    margin: 0 !important; color: #c9d1d9 !important;
-    font-size: 0.82rem !important; line-height: 1.6 !important;
+    margin: 0 !important; color: #0F172A !important;
+    font-size: 0.84rem !important; font-weight: 600 !important; line-height: 1.6 !important;
 }}
 
 button[kind="primary"] {{
-    background: rgba(35,134,54,0.15) !important; border: 1px solid #238636 !important;
-    border-radius: 5px !important; color: #3fb950 !important;
+    background: #1D4ED8 !important; border: 1.5px solid #1E40AF !important;
+    border-radius: 6px !important; color: #FFFFFF !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.82rem !important; font-weight: 400 !important;
+    font-size: 0.84rem !important; font-weight: 700 !important;
     letter-spacing: 0.1px !important; text-transform: none !important;
     padding: 12px 16px !important; width: 100% !important;
     text-align: left !important; line-height: 1.6 !important;
     min-height: 76px !important;
-    box-shadow: 0 0 0 1px rgba(35,134,54,.15) !important;
+    box-shadow: 0 2px 5px rgba(29,78,216,.3) !important;
     transition: all .15s ease !important;
 }}
 button[kind="primary"]:hover {{
-    background: rgba(35,134,54,0.25) !important;
-    box-shadow: 0 0 16px rgba(35,134,54,.3), inset 3px 0 0 #3fb950 !important;
-    color: #e6edf3 !important;
+    background: #1E40AF !important;
+    box-shadow: 0 3px 10px rgba(29,78,216,.45), inset 4px 0 0 #93C5FD !important;
+    color: #FFFFFF !important;
 }}
 button[kind="primary"] p {{
     white-space: pre-line !important; text-align: left !important;
-    margin: 0 !important; color: inherit !important;
-    font-size: 0.82rem !important; line-height: 1.6 !important;
+    margin: 0 !important; color: #FFFFFF !important;
+    font-size: 0.84rem !important; font-weight: 700 !important; line-height: 1.6 !important;
 }}
 
 /* ── SIDEBAR NAV BUTTONS ── */
 [data-testid="stSidebar"] button {{
     background: transparent !important; border: none !important;
     border-radius: 0 !important; border-left: 3px solid transparent !important;
-    padding: 7px 16px !important;
+    padding: 8px 16px !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.85rem !important; font-weight: 500 !important;
-    color: #8b949e !important; letter-spacing: 0.3px !important;
+    font-size: 0.86rem !important; font-weight: 600 !important;
+    color: #1E293B !important; letter-spacing: 0.3px !important;
     text-transform: none !important; text-align: left !important;
     width: 100% !important; min-height: 0 !important;
     line-height: 1.3 !important; box-shadow: none !important;
     transition: all .12s ease !important;
 }}
 [data-testid="stSidebar"] button:hover {{
-    background: rgba(255,255,255,0.04) !important; color: #e6edf3 !important;
-    border-left-color: #30363d !important; box-shadow: none !important;
+    background: #CBD5E1 !important; color: #000000 !important;
+    border-left-color: #64748B !important; box-shadow: none !important;
 }}
 [data-testid="stSidebar"] button[kind="primary"] {{
-    background: rgba(35,134,54,0.12) !important; color: #3fb950 !important;
-    border-left-color: #238636 !important; font-weight: 600 !important;
+    background: #BFDBFE !important; color: #1E3A8A !important;
+    border-left-color: #1D4ED8 !important; font-weight: 700 !important;
     box-shadow: none !important;
 }}
 [data-testid="stSidebar"] button[kind="primary"]:hover {{
-    background: rgba(35,134,54,0.20) !important; box-shadow: none !important;
+    background: #93C5FD !important; box-shadow: none !important;
 }}
 [data-testid="stSidebar"] button p {{
     white-space: nowrap !important; text-align: left !important;
-    font-size: 0.85rem !important; color: inherit !important;
+    font-size: 0.86rem !important; color: inherit !important; font-weight: inherit !important;
 }}
 
 /* ── SIDEBAR RADIO ── */
@@ -326,66 +324,67 @@ button[kind="primary"] p {{
     border-radius: 0 !important; border-left: 3px solid transparent !important;
     padding: 6px 14px 6px 28px !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.88rem !important; font-weight: 400 !important;
-    color: #adbac7 !important; letter-spacing: 0.2px !important;
+    font-size: 0.88rem !important; font-weight: 600 !important;
+    color: #1E293B !important; letter-spacing: 0.2px !important;
     text-transform: none !important; cursor: pointer !important;
     transition: all .12s !important; margin: 0 !important; display: block !important;
 }}
 [data-testid="stRadio"] label:hover {{
-    background: rgba(255,255,255,0.04) !important; color: #e6edf3 !important;
-    border-left-color: #30363d !important;
+    background: #CBD5E1 !important; color: #000000 !important;
+    border-left-color: #64748B !important;
 }}
 [data-testid="stRadio"] label[data-checked="true"] {{
-    background: rgba(35,134,54,0.10) !important; color: #3fb950 !important;
-    border-left-color: #238636 !important; font-weight: 600 !important;
+    background: #BFDBFE !important; color: #1E3A8A !important;
+    border-left-color: #1D4ED8 !important; font-weight: 700 !important;
 }}
 [role="radiogroup"] input {{ display: none !important; }}
 [role="radiogroup"] [data-testid="stMarkdownContainer"] p {{
-    margin: 0 !important; font-size: 0.88rem !important; color: inherit !important;
+    margin: 0 !important; font-size: 0.88rem !important; color: inherit !important; font-weight: inherit !important;
 }}
 
 /* ── SIDEBAR SECTION LABEL ── */
 .sb-section-lbl {{
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.60rem; color: #3d5a6e; letter-spacing: 3px; text-transform: uppercase;
-    padding: 8px 16px 4px; border-top: 1px solid #1e3a5f; margin-top: 2px;
+    font-size: 0.68rem; color: #334155; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 800;
+    padding: 8px 16px 4px; border-top: 1.5px solid #94A3B8; margin-top: 4px;
 }}
 
-/* ── METRICS ── */
+/* ── METRICS & FORM INPUTS ── */
 [data-testid="metric-container"] {{
-    background: #0d1b2a !important; border: 1px solid #1e3a5f !important;
+    background: #FFFFFF !important; border: 1.5px solid #CBD5E1 !important;
     border-radius: 6px !important; padding: 10px 14px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
 }}
 [data-testid="metric-container"] label {{
-    font-family: 'JetBrains Mono',monospace !important; font-size: 0.60rem !important;
-    color: #5a8a9f !important; letter-spacing: 2px !important; text-transform: uppercase !important;
+    font-family: 'JetBrains Mono',monospace !important; font-size: 0.62rem !important;
+    color: #334155 !important; letter-spacing: 2px !important; text-transform: uppercase !important; font-weight: 700 !important;
 }}
 [data-testid="metric-container"] [data-testid="stMetricValue"] {{
-    font-family: 'JetBrains Mono',monospace !important; font-size: 1.2rem !important;
-    font-weight: 600 !important; color: #e6edf3 !important;
+    font-family: 'JetBrains Mono',monospace !important; font-size: 1.25rem !important;
+    font-weight: 700 !important; color: #090D16 !important;
 }}
 
 /* ── MISC ── */
-[data-testid="stDataFrame"] {{ border: 1px solid #1e3a5f !important; border-radius: 6px !important; }}
+[data-testid="stDataFrame"] {{ border: 1.5px solid #CBD5E1 !important; border-radius: 6px !important; }}
 iframe {{ border-radius: 6px !important; }}
-hr {{ border-color: #1e3a5f !important; margin: 8px 0 !important; }}
+hr {{ border-color: #94A3B8 !important; margin: 10px 0 !important; }}
 [data-testid="stToast"] {{
-    background: #0d1b2a !important; border: 1px solid #238636 !important;
-    border-radius: 6px !important; color: #c9d1d9 !important;
-    font-family: 'Inter', sans-serif !important;
+    background: #FFFFFF !important; border: 2px solid #1D4ED8 !important;
+    border-radius: 6px !important; color: #0F172A !important;
+    font-family: 'Inter', sans-serif !important; font-weight: 600 !important;
 }}
 [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input {{
-    background: #0a1628 !important; border: 1px solid #1e3a5f !important;
-    border-radius: 4px !important; color: #e6edf3 !important;
-    font-family: 'JetBrains Mono',monospace !important; font-size: 0.82rem !important;
+    background: #FFFFFF !important; border: 1.5px solid #64748B !important;
+    border-radius: 4px !important; color: #090D16 !important;
+    font-family: 'JetBrains Mono',monospace !important; font-size: 0.84rem !important; font-weight: 600 !important;
 }}
 [data-testid="stTextInput"] input:focus, [data-testid="stNumberInput"] input:focus {{
-    border-color: #238636 !important; box-shadow: 0 0 0 2px rgba(35,134,54,.2) !important;
+    border-color: #1D4ED8 !important; box-shadow: 0 0 0 2px rgba(29,78,216,.25) !important;
 }}
-label {{ color: #8b949e !important; font-size: 0.75rem !important; }}
+label {{ color: #1E293B !important; font-size: 0.78rem !important; font-weight: 700 !important; }}
 [data-testid="stSelectbox"] > div > div {{
-    background: #0a1628 !important; border-color: #1e3a5f !important;
-    color: #e6edf3 !important; border-radius: 4px !important;
+    background: #FFFFFF !important; border-color: #64748B !important;
+    color: #090D16 !important; border-radius: 4px !important; font-weight: 600 !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -445,9 +444,9 @@ with st.sidebar:
     st.markdown('<div class="sb-section-lbl">System Status</div>', unsafe_allow_html=True)
     st.markdown(f"""
     <div style="padding:8px 16px 14px;font-family:'JetBrains Mono',monospace;">
-      <div style="font-size:0.58rem;color:#3d5a6e;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;">API Health</div>
+      <div style="font-size:0.58rem;color:#1E3A5F;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;">API Health</div>
       <div style="font-size:0.78rem;font-weight:600;color:{s_color};letter-spacing:0.5px;margin-bottom:8px;">{sys_status}</div>
-      <div style="font-size:0.58rem;color:#3d5a6e;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;">Available Capital</div>
+      <div style="font-size:0.58rem;color:#1E3A5F;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;">Available Capital</div>
       <div style="font-size:0.88rem;font-weight:600;color:#e6edf3;">₹{balance:,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -463,9 +462,9 @@ st.markdown(f"""
 <div class="statusbar">
   <div class="sb-cell"><div class="sb-label">Nifty 500</div><div class="sb-value" style="color:{h_color};">{h_text}</div></div>
   <div class="sb-cell"><div class="sb-label">Risk Watchdog</div><div class="sb-value" style="color:{w_color};">{w_text}</div></div>
-  <div class="sb-cell"><div class="sb-label">Deployment</div><div class="sb-value" style="color:#58a6ff;">{deployed_pct}%</div></div>
+  <div class="sb-cell"><div class="sb-label">Deployment</div><div class="sb-value" style="color:#1D4ED8;">{deployed_pct}%</div></div>
   <div class="sb-cell"><div class="sb-label">Open Positions</div><div class="sb-value" style="color:#e6edf3;">{open_pos}</div></div>
-  <div class="sb-cell"><div class="sb-label">Total Deployed</div><div class="sb-value" style="color:#e3b341;">₹{total_deployed_g:,.2f}</div></div>
+  <div class="sb-cell"><div class="sb-label">Total Deployed</div><div class="sb-value" style="color:#B45309;">₹{total_deployed_g:,.2f}</div></div>
 </div>
 """, unsafe_allow_html=True)
 

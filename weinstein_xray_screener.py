@@ -215,6 +215,10 @@ def _screener_xray_metrics(symbol: str, ttl: int = 86400) -> dict:
     eqc = _row("balance-sheet", "equity capital", 2)
     res = _row("balance-sheet", "reserves", 2)
     ocf = _row("cash-flow", "operating activit", 1)
+    # Free Cash Flow is a DIRECT screener.in row, so the FCF check no longer
+    # depends on a yfinance CapEx that is often absent. Used as a SIGN test
+    # only, so the Cr-vs-absolute unit difference is immaterial.
+    fcfr = _row("cash-flow", "free cash flow", 1)
     npq = _row("quarters", "net profit", 3)
     sg = _ranges_ttm("compounded sales growth")
     pg = _ranges_ttm("compounded profit growth")
@@ -265,6 +269,9 @@ def _screener_xray_metrics(symbol: str, ttl: int = 86400) -> dict:
         out["ni_yoy"] = pg
     if ocf_l is not None:
         out["ocf_fy"] = ocf_l
+    _fcf_l = _last(fcfr, -1)
+    if _fcf_l is not None:
+        out["fcf_fy"] = _fcf_l
     if pe is not None:
         out["pe"] = pe
     if price and bv and bv > 0:
@@ -405,6 +412,7 @@ def get_xray_scorecard(symbol: str) -> dict:
         if scr:                                    # fetched above (screener primary)
             if scr.get("ni_ttm") is not None:      ni_ttm = scr["ni_ttm"]
             if scr.get("ocf_fy") is not None:      ocf_fy = scr["ocf_fy"]
+            if scr.get("fcf_fy") is not None:      fcf_fy = scr["fcf_fy"]
             if scr.get("roa_ttm") is not None:     roa_ttm = scr["roa_ttm"]
             if scr.get("roe_ttm") is not None:     roe_ttm = scr["roe_ttm"]
             if scr.get("roa_ly") is not None:      roa_ly = scr["roa_ly"]

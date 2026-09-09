@@ -49,7 +49,8 @@ def calculate_stage_analysis(tickers, benchmark):
     # Download Weekly Data (1 Year)
     # ignore_tz=True prevents cache errors
     all_tickers = tickers + [benchmark]
-    data = yf.download(all_tickers, period="1y", interval="1wk", group_by='ticker', progress=False, ignore_tz=True)
+    import data_provider as dp
+    data = dp.fetch_batch_ohlcv(all_tickers, period="1y", interval="1wk", use_cache=True, auto_adjust=True)
     
     results = []
     

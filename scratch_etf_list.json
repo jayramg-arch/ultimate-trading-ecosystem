@@ -1,0 +1,1002 @@
+[
+  {
+    "row": 2,
+    "category": "Broad Index",
+    "name": "SBI Nifty 50 ETF",
+    "based_on": "Nifty 50",
+    "expense": 0.0004,
+    "aum": 214735.9
+  },
+  {
+    "row": 3,
+    "category": "Broad Index",
+    "name": "UTI Nifty 50 ETF",
+    "based_on": "Nifty 50",
+    "expense": 0.0005,
+    "aum": 73370.6
+  },
+  {
+    "row": 4,
+    "category": "Broad Index",
+    "name": "Nippon Nifty 50 ETF (NIFTYBEES)",
+    "based_on": "Nifty 50",
+    "expense": 0.0003,
+    "aum": 66925.3
+  },
+  {
+    "row": 5,
+    "category": "Broad Index",
+    "name": "LIC Nifty 100 ETF",
+    "based_on": "Nifty 100",
+    "expense": 0.0029,
+    "aum": 746.7
+  },
+  {
+    "row": 6,
+    "category": "Broad Index",
+    "name": "Nippon India Nifty 100 ETF",
+    "based_on": "Nifty 100",
+    "expense": 0.0043,
+    "aum": 351.9
+  },
+  {
+    "row": 7,
+    "category": "Broad Index",
+    "name": "Zerodha Nifty 100 ETF",
+    "based_on": "Nifty 100",
+    "expense": 0.0022,
+    "aum": 164.5
+  },
+  {
+    "row": 8,
+    "category": "Broad Index",
+    "name": "Motilal Oswal Nifty 500 ETF",
+    "based_on": "Nifty 500",
+    "expense": 0.0051,
+    "aum": 299.4
+  },
+  {
+    "row": 9,
+    "category": "Broad Index",
+    "name": "Mirae Asset Nifty 500 Multicap ETF",
+    "based_on": "Nifty 500 Multicap 50:25:25",
+    "expense": 0.0014,
+    "aum": 89.3
+  },
+  {
+    "row": 10,
+    "category": "Broad Index",
+    "name": "Edelweiss Nifty LargeMidcap 250 ETF",
+    "based_on": "Nifty Largemid250",
+    "expense": 0.0119,
+    "aum": 166.3
+  },
+  {
+    "row": 11,
+    "category": "Broad Index",
+    "name": "Kotak Nifty Midcap 50 ETF",
+    "based_on": "Nifty Mid Cap 50",
+    "expense": 0.0025,
+    "aum": 211.7
+  },
+  {
+    "row": 12,
+    "category": "Broad Index",
+    "name": "Motilal Oswal Nifty Midcap 100 ETF",
+    "based_on": "NIFTY Midcap 100",
+    "expense": 0.0029,
+    "aum": 915.6
+  },
+  {
+    "row": 13,
+    "category": "Broad Index",
+    "name": "LIC Nifty Midcap 100 ETF",
+    "based_on": "NIFTY Midcap 100",
+    "expense": 0.0016,
+    "aum": 680.6
+  },
+  {
+    "row": 14,
+    "category": "Broad Index",
+    "name": "Nippon Nifty MC 150 ETF (MID150BEES)",
+    "based_on": "Nifty Midcap 150",
+    "expense": 0.0018,
+    "aum": 4037.8
+  },
+  {
+    "row": 15,
+    "category": "Broad Index",
+    "name": "Mirae Asset Nifty Midcap 150 ETF",
+    "based_on": "Nifty Midcap 150",
+    "expense": 0.0005,
+    "aum": 1857.5
+  },
+  {
+    "row": 16,
+    "category": "Broad Index",
+    "name": "ICICI Pru Nifty Midcap 150 ETF",
+    "based_on": "Nifty Midcap 150",
+    "expense": 0.0013,
+    "aum": 790.4
+  },
+  {
+    "row": 17,
+    "category": "Broad Index",
+    "name": "Nippon Nifty Next 50 Junior Bees - ETF",
+    "based_on": "Nifty Next 50",
+    "expense": 0.0015,
+    "aum": 9001.1
+  },
+  {
+    "row": 18,
+    "category": "Broad Index",
+    "name": "SBI Nifty Next 50 ETF",
+    "based_on": "Nifty Next 50",
+    "expense": 0.0016,
+    "aum": 3071.5
+  },
+  {
+    "row": 19,
+    "category": "Broad Index",
+    "name": "ICICI Pru Nifty Next 50 ETF",
+    "based_on": "Nifty Next 50",
+    "expense": 0.0009,
+    "aum": 2726.2
+  },
+  {
+    "row": 20,
+    "category": "Broad Index",
+    "name": "Zerodha Nifty Smallcap 100 ETF",
+    "based_on": "NIFTY Smallcap 100",
+    "expense": 0.0018,
+    "aum": 97.2
+  },
+  {
+    "row": 21,
+    "category": "Broad Index",
+    "name": "HDFC Nifty Small Cap 250 ETF",
+    "based_on": "NIFTY Smallcap 250",
+    "expense": 0.0025,
+    "aum": 2612.6
+  },
+  {
+    "row": 22,
+    "category": "Broad Index",
+    "name": "Motilal Oswal Nifty Smallcap 250 ETF",
+    "based_on": "NIFTY Smallcap 250",
+    "expense": 0.0053,
+    "aum": 254.4
+  },
+  {
+    "row": 23,
+    "category": "Broad Index",
+    "name": "Mirae Asset Nifty Smallcap 250 ETF",
+    "based_on": "NIFTY Smallcap 250",
+    "expense": 0.0014,
+    "aum": 83
+  },
+  {
+    "row": 24,
+    "category": "Broad Index",
+    "name": "Angel One Nifty Total Market ETF",
+    "based_on": "Nifty Total mkt",
+    "expense": 0.0028,
+    "aum": 43.9
+  },
+  {
+    "row": 25,
+    "category": "Commodities Index",
+    "name": "Nippon Gold ETF (GOLDBEES)",
+    "based_on": "Gold",
+    "expense": 0.0069,
+    "aum": 59341.2
+  },
+  {
+    "row": 26,
+    "category": "Commodities Index",
+    "name": "ICICI Pru Gold ETF",
+    "based_on": "Gold",
+    "expense": 0.0042,
+    "aum": 28916.1
+  },
+  {
+    "row": 27,
+    "category": "Commodities Index",
+    "name": "SBI Gold ETF",
+    "based_on": "Gold",
+    "expense": 0.0065,
+    "aum": 27551.5
+  },
+  {
+    "row": 28,
+    "category": "Commodities Index",
+    "name": "ICICI Pru Nifty Oil & Gas ETF",
+    "based_on": "Nifty Oil and Gas",
+    "expense": 0.0034,
+    "aum": 313.4
+  },
+  {
+    "row": 29,
+    "category": "Commodities Index",
+    "name": "Nippon Silver ETF (SILVERBEES)",
+    "based_on": "Silver",
+    "expense": 0.0049,
+    "aum": 32397.2
+  },
+  {
+    "row": 30,
+    "category": "Commodities Index",
+    "name": "ICICI Pru Silver ETF",
+    "based_on": "Silver",
+    "expense": 0.0034,
+    "aum": 15126.5
+  },
+  {
+    "row": 31,
+    "category": "Commodities Index",
+    "name": "HDFC Silver ETF",
+    "based_on": "Silver",
+    "expense": 0.005,
+    "aum": 7708.1
+  },
+  {
+    "row": 32,
+    "category": "Debt Index",
+    "name": "SBI Nifty 10 Year G-Sec ETF",
+    "based_on": "Nifty 10 Year G-Sec",
+    "expense": 0.0015,
+    "aum": 3303.8
+  },
+  {
+    "row": 33,
+    "category": "Debt Index",
+    "name": "LIC Nifty 10 Year G-Sec ETF",
+    "based_on": "Nifty 10 Year G-Sec",
+    "expense": 0.0017,
+    "aum": 1938.4
+  },
+  {
+    "row": 34,
+    "category": "Debt Index",
+    "name": "ICICI Pru Nifty 10 Year G-Sec ETF",
+    "based_on": "Nifty 10 Year G-Sec",
+    "expense": 0.0012,
+    "aum": 603.5
+  },
+  {
+    "row": 35,
+    "category": "Debt Index",
+    "name": "Nippon 5 Year G-Sec ETF (GILT5YBEES)",
+    "based_on": "Nifty 5 Year G-Sec",
+    "expense": 0.0008,
+    "aum": 263.2
+  },
+  {
+    "row": 36,
+    "category": "Debt Index",
+    "name": "Motilal Os Nifty 5yr Benchmark GSec ETF",
+    "based_on": "Nifty 5 Year G-Sec",
+    "expense": 0.0033,
+    "aum": 164.1
+  },
+  {
+    "row": 37,
+    "category": "Debt Index",
+    "name": "UTI Nifty 5 Year G-Sec ETF",
+    "based_on": "Nifty 5 Year G-Sec",
+    "expense": 0.0023,
+    "aum": 26
+  },
+  {
+    "row": 38,
+    "category": "Debt Index",
+    "name": "Edelweiss Bharat Bond April 2030 ETF",
+    "based_on": "Nifty BHARAT Bond 2030",
+    "expense": 0.0001,
+    "aum": 24898.1
+  },
+  {
+    "row": 39,
+    "category": "Debt Index",
+    "name": "Edelweiss Bharat Bond April 2031 ETF",
+    "based_on": "Nifty BHARAT Bond 2031",
+    "expense": 0.0001,
+    "aum": 13307.5
+  },
+  {
+    "row": 40,
+    "category": "Debt Index",
+    "name": "Edelweiss Bharat Bond April 2032 ETF",
+    "based_on": "Nifty BHARAT Bond 2032",
+    "expense": 0.0001,
+    "aum": 10407.5
+  },
+  {
+    "row": 41,
+    "category": "Global Index",
+    "name": "Motilal Oswal Nasdaq 100 ETF",
+    "based_on": "Nasdaq 100",
+    "expense": 0.006,
+    "aum": 16482.2
+  },
+  {
+    "row": 42,
+    "category": "Global Index",
+    "name": "Mirae Asset NYSE FANG+ ETF",
+    "based_on": "NYSE FANG+",
+    "expense": 0.0055,
+    "aum": 5108.1
+  },
+  {
+    "row": 43,
+    "category": "Global Index",
+    "name": "Mirae Asset S&P 500 Top 50 ETF",
+    "based_on": "S&P 500 Top 50",
+    "expense": 0.0054,
+    "aum": 1348.3
+  },
+  {
+    "row": 44,
+    "category": "Global Index",
+    "name": "Nippon Hang Seng ETF (HNGSNGBEES)",
+    "based_on": "Hang Seng",
+    "expense": 0.0079,
+    "aum": 1114.5
+  },
+  {
+    "row": 45,
+    "category": "Global Index",
+    "name": "Motilal Oswal Nasdaq Quality 50 ETF",
+    "based_on": "Nasdaq Quality 50",
+    "expense": 0.006,
+    "aum": 215
+  },
+  {
+    "row": 46,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty Financial Service ETF",
+    "based_on": "Finnifty",
+    "expense": 0.0011,
+    "aum": 397.1
+  },
+  {
+    "row": 47,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty 500 Healthcare ETF",
+    "based_on": "Nifty 500 Healthcare",
+    "expense": 0.0014,
+    "aum": 14.5
+  },
+  {
+    "row": 48,
+    "category": "Sectoral Index",
+    "name": "Nippon Auto ETF (AUTOBEES)",
+    "based_on": "Nifty Auto",
+    "expense": 0.0019,
+    "aum": 498.7
+  },
+  {
+    "row": 49,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Auto ETF",
+    "based_on": "Nifty Auto",
+    "expense": 0.002,
+    "aum": 225.2
+  },
+  {
+    "row": 50,
+    "category": "Sectoral Index",
+    "name": "Nippon Nifty Bank ETF (BANKBEES)",
+    "based_on": "Nifty Bank",
+    "expense": 0.0016,
+    "aum": 8381.6
+  },
+  {
+    "row": 51,
+    "category": "Sectoral Index",
+    "name": "HDFC Nifty Bank ETF",
+    "based_on": "Nifty Bank",
+    "expense": 0.0017,
+    "aum": 5012.5
+  },
+  {
+    "row": 52,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty Bank ETF",
+    "based_on": "Nifty Bank",
+    "expense": 0.0015,
+    "aum": 4716.5
+  },
+  {
+    "row": 53,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty Capital Market ETF",
+    "based_on": "Nifty Capital Markets",
+    "expense": 0.0106,
+    "aum": 292.2
+  },
+  {
+    "row": 54,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty Capital Markets ETF",
+    "based_on": "Nifty Capital Market",
+    "expense": 0.0047,
+    "aum": 47.7
+  },
+  {
+    "row": 55,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty Chemicals ETF",
+    "based_on": "Nifty Chemicals",
+    "expense": 0.0025,
+    "aum": 115.3
+  },
+  {
+    "row": 56,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty Chemicals ETF",
+    "based_on": "Nifty Chemicals",
+    "expense": 0.0047,
+    "aum": 11.9
+  },
+  {
+    "row": 57,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty Energy ETF",
+    "based_on": "Nifty Energy",
+    "expense": 0.0081,
+    "aum": 61.6
+  },
+  {
+    "row": 58,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty EV & New Age Automotive ETF",
+    "based_on": "Nifty EV and New Age Auto",
+    "expense": 0.0061,
+    "aum": 304.7
+  },
+  {
+    "row": 59,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty EV & New Age Auto ETF",
+    "based_on": "Nifty EV and New Age Auto",
+    "expense": 0.0035,
+    "aum": 180.4
+  },
+  {
+    "row": 60,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Fin Svc Ex-Bank ETF",
+    "based_on": "Nifty Financial Services Ex Bank",
+    "expense": 0.002,
+    "aum": 216.6
+  },
+  {
+    "row": 61,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty FMCG ETF",
+    "based_on": "Nifty FMCG",
+    "expense": 0.002,
+    "aum": 730.4
+  },
+  {
+    "row": 62,
+    "category": "Sectoral Index",
+    "name": "DSP Nifty FMCG ETF",
+    "based_on": "NIFTY FMCG",
+    "expense": 0.0129,
+    "aum": 6.2
+  },
+  {
+    "row": 63,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Healthcare ETF",
+    "based_on": "Nifty Healthcare",
+    "expense": 0.0015,
+    "aum": 232.7
+  },
+  {
+    "row": 64,
+    "category": "Sectoral Index",
+    "name": "Aditya Birla Nifty Healthcare ETF",
+    "based_on": "Nifty Healthcare",
+    "expense": 0.0016,
+    "aum": 81.9
+  },
+  {
+    "row": 65,
+    "category": "Sectoral Index",
+    "name": "Axis Nifty Healthcare ETF",
+    "based_on": "Nifty Healthcare",
+    "expense": 0.0044,
+    "aum": 25.5
+  },
+  {
+    "row": 66,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty India Defence ETF",
+    "based_on": "Nifty India Defence",
+    "expense": 0.0067,
+    "aum": 1358.5
+  },
+  {
+    "row": 67,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty India Defence ETF",
+    "based_on": "Nifty India Defence",
+    "expense": 0.0059,
+    "aum": 369.3
+  },
+  {
+    "row": 68,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty India Railways PSU ETF",
+    "based_on": "Nifty India Railways PSU",
+    "expense": 0.0053,
+    "aum": 165.5
+  },
+  {
+    "row": 69,
+    "category": "Sectoral Index",
+    "name": "Nippon Nifty IT ETF (ITBEES)",
+    "based_on": "Nifty IT",
+    "expense": 0.0019,
+    "aum": 3712.5
+  },
+  {
+    "row": 70,
+    "category": "Sectoral Index",
+    "name": "ICICI Prudential IT ETF",
+    "based_on": "Nifty IT",
+    "expense": 0.0028,
+    "aum": 550.7
+  },
+  {
+    "row": 71,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty IT ETF",
+    "based_on": "Nifty IT",
+    "expense": 0.0009,
+    "aum": 319.8
+  },
+  {
+    "row": 72,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Metal ETF",
+    "based_on": "Nifty Metal",
+    "expense": 0.0052,
+    "aum": 1025.3
+  },
+  {
+    "row": 73,
+    "category": "Sectoral Index",
+    "name": "Mirae Asset Nifty Metal ETF",
+    "based_on": "Nifty Metal",
+    "expense": 0.0031,
+    "aum": 557.3
+  },
+  {
+    "row": 74,
+    "category": "Sectoral Index",
+    "name": "HDFC Nifty Metal ETF",
+    "based_on": "Nifty Metal",
+    "expense": 0.0035,
+    "aum": 128
+  },
+  {
+    "row": 75,
+    "category": "Sectoral Index",
+    "name": "Nippon Pharma ETF (PHARMABEES)",
+    "based_on": "Nifty Pharma",
+    "expense": 0.0018,
+    "aum": 1730
+  },
+  {
+    "row": 76,
+    "category": "Sectoral Index",
+    "name": "ICICI Pru Nifty Private Bank ETF",
+    "based_on": "Nifty Private Bank",
+    "expense": 0.0018,
+    "aum": 4054.9
+  },
+  {
+    "row": 77,
+    "category": "Sectoral Index",
+    "name": "HDFC Nifty Private Bank ETF",
+    "based_on": "Nifty Private Bank",
+    "expense": 0.0015,
+    "aum": 888.2
+  },
+  {
+    "row": 78,
+    "category": "Sectoral Index",
+    "name": "DSP Nifty Private Bank ETF",
+    "based_on": "Nifty Private Bank",
+    "expense": 0.0039,
+    "aum": 777.3
+  },
+  {
+    "row": 79,
+    "category": "Sectoral Index",
+    "name": "Nippon Nifty PSU Bank ETF (PSUBNKBEES)",
+    "based_on": "Nifty PSU Bank",
+    "expense": 0.0042,
+    "aum": 4060.6
+  },
+  {
+    "row": 80,
+    "category": "Sectoral Index",
+    "name": "Kotak Nifty PSU Bank ETF",
+    "based_on": "Nifty PSU Bank",
+    "expense": 0.0049,
+    "aum": 2644.5
+  },
+  {
+    "row": 81,
+    "category": "Sectoral Index",
+    "name": "DSP Nifty PSU Bank ETF",
+    "based_on": "Nifty PSU Bank",
+    "expense": 0.015,
+    "aum": 1290.7
+  },
+  {
+    "row": 82,
+    "category": "Sectoral Index",
+    "name": "Motilal Oswal Nifty Realty ETF",
+    "based_on": "Nifty Realty",
+    "expense": 0.0081,
+    "aum": 270.3
+  },
+  {
+    "row": 83,
+    "category": "Sectoral Index",
+    "name": "Groww Nifty Realty ETF",
+    "based_on": "Nifty Realty",
+    "expense": 0.0047,
+    "aum": 16.3
+  },
+  {
+    "row": 84,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 100 Low Vol 30 ETF",
+    "based_on": "Nifty 100 Low Volatility 30",
+    "expense": 0.0036,
+    "aum": 3419.1
+  },
+  {
+    "row": 85,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty Alpha Low Volatility 30",
+    "based_on": "Nifty 100 Low Volatility 30",
+    "expense": 0.0036,
+    "aum": 1578.4
+  },
+  {
+    "row": 86,
+    "category": "Strategy Index",
+    "name": "Kotak Nifty 100 Low Volatility 30 ETF",
+    "based_on": "Nifty 100 Low Volatility 30",
+    "expense": 0.0012,
+    "aum": 286.3
+  },
+  {
+    "row": 87,
+    "category": "Strategy Index",
+    "name": "Mirae Asset Nifty 200 Alpha 30 ETF",
+    "based_on": "Nifty 200 Alpha 30",
+    "expense": 0.0038,
+    "aum": 431
+  },
+  {
+    "row": 88,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 200 Momentum 30 ETF",
+    "based_on": "Nifty 200 Momentum 30",
+    "expense": 0.0026,
+    "aum": 559.7
+  },
+  {
+    "row": 89,
+    "category": "Strategy Index",
+    "name": "HDFC Nifty 200 Momentum 30 ETF",
+    "based_on": "Nifty 200 Momentum 30",
+    "expense": 0.003,
+    "aum": 130.2
+  },
+  {
+    "row": 90,
+    "category": "Strategy Index",
+    "name": "Motilal Oswal Nifty 200 Momentum ETF",
+    "based_on": "Nifty 200 Momentum 30",
+    "expense": 0.0128,
+    "aum": 127.6
+  },
+  {
+    "row": 91,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 200 Quality 30 ETF",
+    "based_on": "Nifty 200 Quality 30",
+    "expense": 0.0026,
+    "aum": 141.1
+  },
+  {
+    "row": 92,
+    "category": "Strategy Index",
+    "name": "SBI Nifty 200 Quality 30 ETF",
+    "based_on": "Nifty 200 Quality 30",
+    "expense": 0.0037,
+    "aum": 81.5
+  },
+  {
+    "row": 93,
+    "category": "Strategy Index",
+    "name": "Aditya Birla Nifty 200 Quality 30 ETF",
+    "based_on": "Nifty 200 Quality 30",
+    "expense": 0.0025,
+    "aum": 25.2
+  },
+  {
+    "row": 94,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 200 Value 30 ETF",
+    "based_on": "Nifty 200 Value 30",
+    "expense": 0.0026,
+    "aum": 48.3
+  },
+  {
+    "row": 95,
+    "category": "Strategy Index",
+    "name": "DSP Nifty 50 Equal Weight ETF",
+    "based_on": "Nifty 50 Equal Weight",
+    "expense": 0.0035,
+    "aum": 1393.6
+  },
+  {
+    "row": 96,
+    "category": "Strategy Index",
+    "name": "Motilal Oswal Nifty 50 Equal Weight ETF",
+    "based_on": "Nifty 50 Equal Weight",
+    "expense": 0.0017,
+    "aum": 158.2
+  },
+  {
+    "row": 97,
+    "category": "Strategy Index",
+    "name": "SBI Nifty 50 Equal Weight ETF",
+    "based_on": "Nifty 50 Equal Weight",
+    "expense": 0.0034,
+    "aum": 40.4
+  },
+  {
+    "row": 98,
+    "category": "Strategy Index",
+    "name": "Motilal Oswal Nifty 500 Momentum 50 ETF",
+    "based_on": "Nifty 500 Momentum 50",
+    "expense": 0.0138,
+    "aum": 397.3
+  },
+  {
+    "row": 99,
+    "category": "Strategy Index",
+    "name": "Groww Nifty 500 Momentum 50 ETF",
+    "based_on": "Nifty 500 Momentum 50",
+    "expense": 0.0047,
+    "aum": 29.6
+  },
+  {
+    "row": 100,
+    "category": "Strategy Index",
+    "name": "Kotak Nifty Alpha 50 ETF",
+    "based_on": "NIFTY ALPHA 50",
+    "expense": 0.003,
+    "aum": 927.7
+  },
+  {
+    "row": 101,
+    "category": "Strategy Index",
+    "name": "Nippon Nifty 50 DO ETF (DIVOPPBEES)",
+    "based_on": "Nifty Dividend Opportunities 50",
+    "expense": 0.0031,
+    "aum": 71.2
+  },
+  {
+    "row": 102,
+    "category": "Strategy Index",
+    "name": "SBI Nifty Midcap 150 Momentum 50 ETF",
+    "based_on": "Nifty Midcap 150 Momentum",
+    "expense": 0.0085,
+    "aum": 128.8
+  },
+  {
+    "row": 103,
+    "category": "Strategy Index",
+    "name": "DSP Nifty Midcap 150 Quality 50 ETF",
+    "based_on": "NIFTY Midcap150 Quality 50",
+    "expense": 0.0054,
+    "aum": 100.9
+  },
+  {
+    "row": 104,
+    "category": "Strategy Index",
+    "name": "Mirae Asset Nifty MS400 MQ 100 ETF",
+    "based_on": "Nifty MidSmallCap 400",
+    "expense": 0.0037,
+    "aum": 491
+  },
+  {
+    "row": 105,
+    "category": "Strategy Index",
+    "name": "Mirae Ast Nifty Smallcap 250 MQ 100 ETF",
+    "based_on": "Nifty Smallcap250 Momentum Quality 100",
+    "expense": 0.0039,
+    "aum": 996.8
+  },
+  {
+    "row": 106,
+    "category": "Strategy Index",
+    "name": "DSP Nifty Top 10 Equal Weight ETF",
+    "based_on": "Nifty Top 10 Equal Weight",
+    "expense": 0.0024,
+    "aum": 696.7
+  },
+  {
+    "row": 107,
+    "category": "Strategy Index",
+    "name": "ICICI Pru Nifty 50 Value 20 ETF",
+    "based_on": "Nifty50 Value 20 Index",
+    "expense": 0.0021,
+    "aum": 175.5
+  },
+  {
+    "row": 108,
+    "category": "Strategy Index",
+    "name": "Nippon Nifty 50 Value 20 ETF (NV20BEES)",
+    "based_on": "Nifty50 Value 20 Index",
+    "expense": 0.0022,
+    "aum": 143
+  },
+  {
+    "row": 109,
+    "category": "Thematic Index",
+    "name": "ICICI Pru Nifty Commodities ETF",
+    "based_on": "Nifty Commodities",
+    "expense": 0.0026,
+    "aum": 127.4
+  },
+  {
+    "row": 110,
+    "category": "Thematic Index",
+    "name": "Nippon Nifty Cons. ETF (CONSUMBEES)",
+    "based_on": "Nifty Consumption",
+    "expense": 0.0026,
+    "aum": 194.7
+  },
+  {
+    "row": 111,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty New Age Cons. ETF",
+    "based_on": "Nifty Consumption",
+    "expense": 0.0029,
+    "aum": 63.5
+  },
+  {
+    "row": 112,
+    "category": "Thematic Index",
+    "name": "ICICI Pru Nifty Consumption ETF",
+    "based_on": "Nifty Consumption",
+    "expense": 0.0017,
+    "aum": 52.1
+  },
+  {
+    "row": 113,
+    "category": "Thematic Index",
+    "name": "CPSE ETF",
+    "based_on": "Nifty CPSE",
+    "expense": 0.0006,
+    "aum": 19014.8
+  },
+  {
+    "row": 114,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty Energy ETF",
+    "based_on": "Nifty Energy",
+    "expense": 0.003,
+    "aum": 291.8
+  },
+  {
+    "row": 115,
+    "category": "Thematic Index",
+    "name": "Tata Nifty India Digital ETF",
+    "based_on": "Nifty India Digital",
+    "expense": 0.0051,
+    "aum": 174.3
+  },
+  {
+    "row": 116,
+    "category": "Thematic Index",
+    "name": "Groww Nifty India Internet ETF",
+    "based_on": "Nifty India Internet",
+    "expense": 0.0041,
+    "aum": 40.1
+  },
+  {
+    "row": 117,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty India Internet ETF",
+    "based_on": "Nifty India Internet",
+    "expense": 0.0026,
+    "aum": 37.3
+  },
+  {
+    "row": 118,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty India Mfg. ETF",
+    "based_on": "Nifty India Manufacturing",
+    "expense": 0.0036,
+    "aum": 269.3
+  },
+  {
+    "row": 119,
+    "category": "Thematic Index",
+    "name": "Nippon Nifty India Manufacturing ETF",
+    "based_on": "Nifty India Manufacturing",
+    "expense": 0.0021,
+    "aum": 11.7
+  },
+  {
+    "row": 120,
+    "category": "Thematic Index",
+    "name": "ICICI Pru Nifty Infrastructure ETF",
+    "based_on": "NIFTY Infra",
+    "expense": 0.0042,
+    "aum": 423.2
+  },
+  {
+    "row": 121,
+    "category": "Thematic Index",
+    "name": "Nippon Nifty Infra ETF (INFRABEES)",
+    "based_on": "NIFTY Infra",
+    "expense": 0.0043,
+    "aum": 185.6
+  },
+  {
+    "row": 122,
+    "category": "Thematic Index",
+    "name": "Kotak Nifty MNC ETF",
+    "based_on": "Nifty MNC",
+    "expense": 0.003,
+    "aum": 47
+  },
+  {
+    "row": 123,
+    "category": "Thematic Index",
+    "name": "Aditya Birla Nifty PSE ETF",
+    "based_on": "Nifty PSE",
+    "expense": 0.0017,
+    "aum": 21.8
+  },
+  {
+    "row": 124,
+    "category": "Thematic Index",
+    "name": "Groww Nifty PSE ETF",
+    "based_on": "Nifty PSE",
+    "expense": 0.0053,
+    "aum": 17.2
+  },
+  {
+    "row": 125,
+    "category": "Thematic Index",
+    "name": "Mirae Asset Nifty 100 ESG Sector Leader",
+    "based_on": "Nifty100 ESG Sector Leaders",
+    "expense": 0.0035,
+    "aum": 98.2
+  },
+  {
+    "row": 126,
+    "category": "Thematic Index",
+    "name": "Nippon India Nifty 50 Shariah ETF",
+    "based_on": "Shariah",
+    "expense": 0.0082,
+    "aum": 57.8
+  }
+]

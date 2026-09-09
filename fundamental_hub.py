@@ -263,8 +263,19 @@ def fetch_screener_rff_row(symbol: str, ttl: int = 86400) -> Optional[dict]:
         ROCE                            top-ratios card
         Qtr Sales Var % / Qtr Profit Var %   top-ratios growth keys
         OPM_Now / OPM_Prev              P&L OPM %% row, last two columns
-    ICR / Current ratio are NOT on the public page — the caller merges those
-    from yfinance. Values are ₹ Cr (sign-based RFF checks are unit-agnostic;
+    Free Cash Flow                  cash-flow table, "Free Cash Flow" row (DIRECT)
+        Interest Coverage Ratio         DERIVED: Operating Profit / Interest (P&L)
+        Return on assets                DERIVED: Net profit / Total Assets (P&L + BS)
+    Only CURRENT RATIO is genuinely unavailable here — screener.in's balance sheet
+    reports Equity Capital / Reserves / Borrowings / Other Liabilities / Total
+    Liabilities / Fixed Assets / CWIP / Investments / Other Assets / Total Assets
+    with NO current-vs-non-current split, so CA/CL cannot be formed. It comes from
+    the screen EXPORT instead (MASTER_scan_results.csv carries it 159/159), and
+    yfinance is the last resort for it alone.
+    ICR and FCF used to be merged from yfinance too. That was wrong on both counts:
+    they are on this page, and yfinance 1.1.0 returns None for interestExpense and
+    currentRatio on EVERY symbol — so the "fallback" silently supplied nothing and
+    the checks read as failures rather than as missing data. Values are ₹ Cr (sign-based RFF checks are unit-agnostic;
     the caller must NOT mix Screener OCF with yfinance CapEx — drop CapEx when
     Screener OCF wins). Cached 24h. Returns None when the page yields nothing.
     """
@@ -324,6 +335,33 @@ def fetch_screener_rff_row(symbol: str, ttl: int = 86400) -> Optional[dict]:
         ocf, _ = _row_vals("cash-flow", "operating activit")
         if ocf is not None:
             out["Cash from operating activity"] = ocf
+
+        # FREE CASH FLOW — a DIRECT row here, so FCF never needs OCF minus a
+        # yfinance CapEx. That subtraction was also the one place units could be
+        # mixed (screener ₹ Cr against yfinance absolute ₹), which is why the
+        # caller had to drop CapEx and let FCF degrade to OCF.
+        fcf, _ = _row_vals("cash-flow", "free cash flow")
+        if fcf is not None:
+            out["Free Cash Flow"] = fcf
+
+        # ICR — DERIVED from the same P&L table already parsed above.
+        # Interest == 0 means no interest burden, i.e. the STRONGEST possible
+        # coverage; leaving it unset would score a debt-free company as a failure,
+        # which is the missing-data-as-failure mistake this whole pass removes.
+        op_profit, _ = _row_vals("profit-loss", "operating profit")
+        interest, _ = _row_vals("profit-loss", "interest")
+        if op_profit is not None and interest is not None:
+            out["Interest Coverage Ratio"] = (round(op_profit / interest, 2)
+                                              if interest > 0 else 999.0)
+
+        # ROA — DERIVED, and EXACT. compute_rff otherwise falls back to a
+        # roa = roce * 0.6 approximation; both figures here are ₹ Cr from this
+        # one page, so the ratio is source-pure. Net profit is the TTM column
+        # and Total Assets the latest balance-sheet column — the standard TTM
+        # ROA convention.
+        tot_assets, _ = _row_vals("balance-sheet", "total assets")
+        if ni is not None and tot_assets is not None and tot_assets > 0:
+            out["Return on assets"] = round(ni / tot_assets * 100.0, 2)
 
         # Balance sheet -> D/E now + prior year (deleveraging check)
         borr, borr_p = _row_vals("balance-sheet", "borrowing")
@@ -514,10 +552,18 @@ def fetch_stock_fundamentals(symbol: str, ttl: int = 3600) -> dict:
             def _f(v, unit=""):
                 return "—" if v in (None, 0) else f"{v:.1f}{unit}"
 
+            # UNREADABLE vs PARTIAL (4 Sep 2026). "PARTIAL" was printed for two very
+            # different things: a page that loaded and genuinely lacks a field, and a
+            # page that never loaded at all. The second is not a fact about the
+            # company - it is a fact about the fetch - and downstream consumers have
+            # an abstain path (the BFF gate already reports "unreadable and DROPPED
+            # as unknown"); they were simply never told which case this was.
+            _unread = not screener_data and not any(
+                result.get(k) for k in ("pe_ratio", "roe", "market_cap"))
             _missing = [k for k in ("pe_ratio", "roe", "market_cap") if not result.get(k)]
             logger.info(
                 "Fundamentals %s: %s | P/E=%s | ROE=%s | Market Cap=%s%s",
-                "PARTIAL" if _missing else "OK",
+                "UNREADABLE (fetch failed, not scored)" if _unread else "PARTIAL" if _missing else "OK",
                 symbol,
                 _f(result["pe_ratio"]),
                 _f(result["roe"], "%"),

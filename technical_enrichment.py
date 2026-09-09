@@ -235,6 +235,142 @@ def _calc_ema_stack(close: pd.Series) -> bool:
 # Per-symbol enrichment
 # ─────────────────────────────────────────────────────────────────────
 
+def _detect_order_blocks(df: pd.DataFrame) -> list:
+    """
+    Detects unmitigated bullish order blocks.
+    Returns a list of dicts: [{'top': float, 'bottom': float, 'index': int}]
+    """
+    obs = []
+    if df is None or df.empty or len(df) < 60 or not {"Open", "High", "Low", "Close"}.issubset(df.columns):
+        return obs
+    
+    close = df["Close"]
+    open_p = df["Open"]
+    high = df["High"]
+    low = df["Low"]
+    volume = df["Volume"] if "Volume" in df.columns else None
+    
+    vol50 = volume.rolling(50).mean() if volume is not None else pd.Series(1.0, index=df.index)
+    
+    # Step 1: Find potential OBs
+    for i in range(5, len(df) - 5):
+        # Trigger candle: must be red
+        if close.iloc[i] >= open_p.iloc[i]:
+            continue
+        
+        # Check for displacement breakout in next 5 bars
+        is_ob = False
+        breakout_idx = -1
+        prior_max_high = high.iloc[i-5:i].max()
+        
+        for j in range(i + 1, min(i + 6, len(df))):
+            vol_ok = True
+            if volume is not None and not pd.isna(vol50.iloc[j]):
+                # Breakout volume above 50-day average
+                vol_ok = volume.iloc[j] > vol50.iloc[j]
+                
+            if close.iloc[j] > prior_max_high and vol_ok:
+                is_ob = True
+                breakout_idx = j
+                break
+                
+        if is_ob:
+            ob_top = float(high.iloc[i])
+            ob_bottom = float(low.iloc[i])
+            # Step 2: Check if this OB is broken between breakout_idx and current bar
+            broken = False
+            for k in range(breakout_idx, len(df)):
+                # If close goes below bottom, it is broken/invalidated
+                if close.iloc[k] < ob_bottom:
+                    broken = True
+                    break
+                    
+            if not broken:
+                obs.append({
+                    "top": ob_top,
+                    "bottom": ob_bottom,
+                    "index": i,
+                    "date": df.index[i].strftime("%Y-%m-%d") if isinstance(df.index, pd.DatetimeIndex) else str(i)
+                })
+    return obs
+
+
+def _detect_fvgs(df: pd.DataFrame) -> list:
+    """
+    Detects unmitigated bullish Fair Value Gaps.
+    Returns a list of dicts: [{'top': float, 'bottom': float, 'index': int}]
+    """
+    fvgs = []
+    if df is None or df.empty or len(df) < 5 or not {"High", "Low", "Close"}.issubset(df.columns):
+        return fvgs
+        
+    high = df["High"]
+    low = df["Low"]
+    close = df["Close"]
+    
+    for i in range(2, len(df)):
+        # FVG setup: high of 2 bars ago < low of current bar
+        h2 = float(high.iloc[i-2])
+        l0 = float(low.iloc[i])
+        
+        if h2 < l0:
+            fvg_top = l0
+            fvg_bottom = h2
+            
+            # Check if this FVG is broken by subsequent candles (i+1 to end)
+            broken = False
+            for k in range(i + 1, len(df)):
+                if close.iloc[k] < fvg_bottom:
+                    broken = True
+                    break
+            
+            if not broken:
+                fvgs.append({
+                    "top": fvg_top,
+                    "bottom": fvg_bottom,
+                    "index": i-1,
+                    "date": df.index[i-1].strftime("%Y-%m-%d") if isinstance(df.index, pd.DatetimeIndex) else str(i-1)
+                })
+    return fvgs
+
+
+def _detect_pivot_supports(df: pd.DataFrame, left: int = 5, right: int = 5) -> list:
+    """
+    Detects active horizontal pivot support levels.
+    """
+    pivots = []
+    if df is None or df.empty or len(df) < left + right + 5 or not {"High", "Low", "Close"}.issubset(df.columns):
+        return pivots
+        
+    low = df["Low"]
+    close = df["Close"]
+    
+    for i in range(left, len(df) - right):
+        val = float(low.iloc[i])
+        
+        # Check if it is the lowest low in the window [i-left, i+right]
+        is_pivot = True
+        for j in range(i - left, i + right + 1):
+            if float(low.iloc[j]) < val:
+                is_pivot = False
+                break
+                
+        if is_pivot:
+            # Check if this pivot has been broken by any subsequent daily close
+            broken = False
+            for k in range(i + 1, len(df)):
+                if close.iloc[k] < val:
+                    broken = True
+                    break
+            if not broken:
+                pivots.append({
+                    "level": val,
+                    "index": i,
+                    "date": df.index[i].strftime("%Y-%m-%d") if isinstance(df.index, pd.DatetimeIndex) else str(i)
+                })
+    return pivots
+
+
 def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
     """Fetch OHLCV for one symbol + compute the canonical metrics.
 
@@ -244,6 +380,9 @@ def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
         "Stage": None, "Mansfield_RS": None, "Daily_RSI": None,
         "Daily_ADX": None, "Above_200DMA": None, "Dist_52WH_pct": None,
         "Vol_RelAvg": None, "EMA_Stack": None,
+        "OB_Top": None, "OB_Bottom": None,
+        "FVG_Top": None, "FVG_Bottom": None,
+        "Pivot_Support": None, "At_Support": False
     }
     if not _DP_OK or _dp is None:
         return out
@@ -292,6 +431,45 @@ def enrich_symbol(symbol: str, bench_close: Optional[pd.Series] = None) -> Dict:
         # Mansfield RS vs benchmark
         if bench_close is not None:
             out["Mansfield_RS"] = _calc_mansfield_rs(close, bench_close)
+
+        # Compute active support zones
+        obs = _detect_order_blocks(df)
+        fvgs = _detect_fvgs(df)
+        pivots = _detect_pivot_supports(df)
+        
+        # Populate dict with latest active zones
+        close_last = float(close.iloc[-1])
+        
+        if obs:
+            out["OB_Top"] = obs[-1]["top"]
+            out["OB_Bottom"] = obs[-1]["bottom"]
+        if fvgs:
+            out["FVG_Top"] = fvgs[-1]["top"]
+            out["FVG_Bottom"] = fvgs[-1]["bottom"]
+            
+        # Nearest active pivot support (from below current close)
+        below_pivots = [p["level"] for p in pivots if p["level"] <= close_last]
+        if below_pivots:
+            out["Pivot_Support"] = max(below_pivots)
+            
+        # At Support check
+        at_support = False
+        if obs:
+            latest_ob = obs[-1]
+            if (close_last >= latest_ob["bottom"] and close_last <= latest_ob["top"]) or \
+               (close_last > latest_ob["top"] and (close_last - latest_ob["top"]) / latest_ob["top"] <= 0.015):
+                at_support = True
+        if fvgs:
+            latest_fvg = fvgs[-1]
+            if (close_last >= latest_fvg["bottom"] and close_last <= latest_fvg["top"]) or \
+               (close_last > latest_fvg["top"] and (close_last - latest_fvg["top"]) / latest_fvg["top"] <= 0.015):
+                at_support = True
+        if below_pivots:
+            nearest_p = max(below_pivots)
+            if (close_last - nearest_p) / nearest_p <= 0.015:
+                at_support = True
+                
+        out["At_Support"] = at_support
 
         # Memoise only on a successful compute (never cache transient failures).
         _ENRICH_CACHE[_ck] = dict(out)
@@ -370,7 +548,8 @@ def enrich_dataframe(df: pd.DataFrame,
     # Add columns — align to the exact non-null source rows (see C-FIX above)
     enrich_df = pd.DataFrame(enriched_rows, index=_sym_index)
     for col in ["Stage", "Mansfield_RS", "Daily_RSI", "Daily_ADX",
-                "Above_200DMA", "Dist_52WH_pct", "Vol_RelAvg", "EMA_Stack"]:
+                "Above_200DMA", "Dist_52WH_pct", "Vol_RelAvg", "EMA_Stack",
+                "OB_Top", "OB_Bottom", "FVG_Top", "FVG_Bottom", "Pivot_Support", "At_Support"]:
         out[col] = enrich_df[col].reindex(out.index)
 
     # Composite scores

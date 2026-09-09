@@ -1,0 +1,132 @@
+203: //        • baseCount == 3  → tier −1, append " ⚠ Late Stage"
+536: //           Fresh     = leg ≤ stage2_fresh_weeks (default 13w)
+996: stage2_fresh_weeks = input.int(13, title="Stage 2 'Fresh' Threshold (weeks)",group=grpAdv, minval=4,  maxval=52, tooltip="v67.2.2: leg-age cutoff for the 'Fresh' Stage-2 tag in the new 'Stage 2 Age' dashboard row. ≤ this → Fresh; otherwise Maturing (≤ 26w macro) or Extended.")
+1002: pos_accum_rsi_max     = input.int(50, title="POS-ACCUM Daily RSI Max", group=grpBS, minval=30, maxval=70, tooltip="Mirrors Commander Bull Screener v2.9 input of the same name. POS-ACCUM suppressed when dailyRsi > this value (late-stage chase-trap guard).")
+1012: showAVWAP   = input.bool(true, title="Show Auto-Anchored VWAP (Stage 2 Start)", group=groupAlert)
+1017: showStageBg = input.bool(true, title="Show Stage Background Colors", group=groupStyle, tooltip="Fills the chart background with Stage 1/2/3/4 colors.")
+1083: var string stageDisplay = ""
+1084: var color stageCol = color.orange
+1092: var string secStageStr = "N/A"
+2288: f_getStageAndTime(int maLen, int slopeLen, float thresh) =>
+2304: var string s = "STAGE 4 (DOWN)"
+2307: if s == "STAGE 1 (BASE)"
+2309: s := "STAGE 2 (UP)"
+2311: s := "STAGE 4 (DOWN)"
+2313: else if s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)"
+2315: s := "STAGE 4 (DOWN)"
+2317: s := "STAGE 3 (TOP)"
+2319: s := "STAGE 2 (PULLBACK)"
+2321: s := "STAGE 2 (UP)"
+2323: else if s == "STAGE 3 (TOP)"
+2325: s := "STAGE 4 (DOWN)"
+2327: s := "STAGE 2 (UP)"
+2329: else if s == "STAGE 4 (DOWN)"
+2331: s := "STAGE 2 (UP)"
+2333: s := "STAGE 1 (BASE)"
+2336: if tDir == 1 and s == "STAGE 4 (DOWN)"
+2337: s := "STAGE 1 (BASE)"
+2338: if tDir == -1 and (s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)")
+2339: s := "STAGE 3 (TOP)"
+2355: var bool wasInStage2 = false
+2356: bool inStage2_now = s == "STAGE 2 (UP)" or s == "STAGE 2 (PULLBACK)"
+2359: wasInStage2 := inStage2_now
+2361: macroStart := time   // fresh entry into Stage 2 family
+2362: wasInStage2 := inStage2_now
+2486: bool is_stage2 = (_c > _s150)
+2487: bool is_stage1 = not is_stage2 and (_c > _s200)
+2559: f_sec_stage_lite() =>
+2562: close > ma30 and slope > 0 ? "✅ STAGE 2 (Bull)" : close > ma30 and slope <= 0 ? "⚠️ STAGE 3 (Top)" : close < ma30 and slope < 0 ? "🔻 STAGE 4 (Bear)" : "😴 STAGE 1 (Base)"
+2566: [sID, sTime, sMacroTime, sSlope, sMA] = f_getStageAndTime(maLen, slopeLen, thresh)
+2575: bool early_stage2 = sID == "STAGE 1 (BASE)" and wMA10 > wMA10[1] and close > wMA10 and close > sMA
+2580: [stageID, stageStart, stageMacroStart, wSlopeVal, wMA30, wMA40, wClose, wHealthStr, wHealthCol, wTrendDir, wLockH, wLockL, ovh, wRsiVal, ovhPrice, wEarlyStage2] = request.security(syminfo.tickerid, "W", f_weekly_super_bundle_internal(close, maLengthW, wmaSlopeLen, slopeThresh), ignore_invalid_symbol=true)
+2594: int timeDiff = timenow - stageStart
+2597: int stageWeeks = math.ceil(timeDiff / msPerWeek)  // LEG age (resets on UP↔PULLBACK)
+2599: stageWeeks := 1
+2602: int macroDiff = timenow - stageMacroStart
+2605: int macroStageWeeks = math.ceil(macroDiff / msPerWeek)
+2607: macroStageWeeks := 1
+2609: bool isStage2Family = (stageID == "STAGE 2 (UP)") or (stageID == "STAGE 2 (PULLBACK)")
+2610: string stage2FreshTag = "—"
+2611: color  stage2FreshCol = color.gray
+2613: if stageWeeks <= stage2_fresh_weeks
+2614: stage2FreshTag := "Fresh"
+2615: stage2FreshCol := color.new(#26a69a, 0)
+2616: else if macroStageWeeks <= 26
+2617: stage2FreshTag := "Maturing"
+2618: stage2FreshCol := color.new(#ff9800, 0)
+2620: stage2FreshTag := "Extended"
+2621: stage2FreshCol := color.orange
+2623: string stage2AgeStr = isStage2Family ? str.tostring(stageWeeks) + "w leg / " + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "n/a (not in Stage 2)"
+2694: string _secStageTick = valid_sec ? autoSectorTick : ""
+2695: secStageStr := request.security(_secStageTick, "W", f_sec_stage_lite(), ignore_invalid_symbol=true)
+2740: if stageID == "STAGE 2 (UP)"
+2743: stageDisplay := "🚀 STAGE 2 (Full Confluence)" // Price, MA, and RS all Green
+2744: stageCol := color.new(#26a69a, 0)
+2746: stageDisplay := "⚠️ STAGE 2 (Weak Leadership)" // Price Up, but RS Negative
+2747: stageCol := color.orange
+2749: stageDisplay := "⚓ STAGE 2 (Value Zone)" // Weekly Up, Daily Cheap (Below 200)
+2750: stageCol := color.new(#26a69a, 30)
+2751: else if stageID == "STAGE 2 (PULLBACK)"
+2752: stageDisplay := "⚓ STAGE 2 (Dip Opportunity)" // Rising MA, price dipped slightly
+2753: stageCol := color.new(#26a69a, 30)
+2754: else if stageID == "STAGE 1 (BASE)"
+2756: stageDisplay := "👀 STAGE 1 (Constructive)" // Base is maturing, reclaimed 200SMA
+2757: stageCol := color.new(#ff9800, 0)
+2759: stageDisplay := "😴 STAGE 1 (Dormant)" // Below 200SMA, snoozing
+2760: stageCol := color.gray
+2761: else if stageID == "STAGE 3 (TOP)"
+2762: stageDisplay := "🛑 STAGE 3 (Volatile Churn)" // High Volatility, No Progress
+2763: stageCol := color.orange
+2764: else if stageID == "STAGE 4 (DOWN)"
+2765: stageDisplay := "🔻 STAGE 4 (Liquidate)" // Clear Downtrend
+2766: stageCol := color.red
+2768: stageDisplay := stageID // Fallback
+2769: stageCol := color.gray
+2775: stageDisplay := stageDisplay + " ⬆️PRE-S2"
+3107: bool pa_s2_launch = stageID == "STAGE 2 (UP)" and _w_s2_cross and curRelVol > 1.25
+3186: bool _freshStage2 = stageID == "STAGE 2 (UP)" and stageID[1] != "STAGE 2 (UP)"
+3223: paState := "★ STAGE-2 LAUNCH" + _baseTag
+3365: paState := paState + " ⚠ Late Stage"
+3473: if stageID == "STAGE 2 (UP)"
+3475: else if stageID == "STAGE 1 (BASE)"
+3541: bool isStage2 = (stageID == "STAGE 2 (UP)")
+3559: else if isStage2 and dTrendDir == 0
+3562: else if stageID == "STAGE 1 (BASE)"
+3565: else if stageID == "STAGE 4 (DOWN)"
+3566: recText := "AVOID (Stage 4)"
+3577: bool signalStrongBuy = (stageID == "STAGE 2 (UP)" and dTrendDir == 1 and str.contains(rs50State, "(Positive)"))
+3578: bool signalBuy       = (stageID == "STAGE 2 (UP)" and dTrendDir == 1)
+3618: int secStageNum = str.contains(secStageStr, "STAGE 2") ? 2 : str.contains(secStageStr, "STAGE 1") ? 1 : str.contains(secStageStr, "STAGE 3") ? 3 : str.contains(secStageStr, "STAGE 4") ? 4 : 0
+3619: bool sector_stage_ok = (secStageNum == 2 or secStageNum == 1)
+3637: bool g1_stage     = (stageID == "STAGE 2 (UP)") or (stageID == "STAGE 1 (BASE)")                          // G1
+3640: bool g4_secStage  = sector_stage_ok                                                                         // G4
+3648: bool g7_fresh     = nz(macroStageWeeks, 999) <= 26                                                          // G7 (uses macro Stage-2 anchor from v67.2.2)
+3657: bool weinstein_setup = g1_stage and g2_above200 and g3_secRS and g4_secStage and g5_trendTpl and g6_volAcc and g7_fresh and g8_maSqz and g9_bbSqz
+3658: int  bs_gates_passing = (g1_stage ? 1:0) + (g2_above200 ? 1:0) + (g3_secRS ? 1:0) + (g4_secStage ? 1:0) + (g5_trendTpl ? 1:0) + (g6_volAcc ? 1:0) + (g7_fresh ? 1:0) + (g8_maSqz ? 1:0) + (g9_bbSqz ? 1:0)
+3741: bool  bs_stage1_or_2 = (stageID == "STAGE 1 (BASE)") or (stageID == "STAGE 2 (UP)")
+3743: bool  is_mean_rev = _bs_pa_oversold and d_v > d_vavg * 1.5 and d_c < d_ema20_val and bs_stage1_or_2
+3777: var int    persistAge    = 0  // Bars since last signal fired
+3784: persistAge       := 0
+3789: persistAge       := 0
+3792: persistAge := persistAge + 1
+3800: persistAge    := 0
+4187: bool pos_stage_ok = (stageID == "STAGE 2 (UP)") or (stageID == "STAGE 1 (BASE)") // Early entry allowed
+4190: bool is_positional = pos_stage_ok and pos_trend_ok and pos_rs_ok
+4481: string _sec_emoji = secStageNum == 2 ? "S2" : secStageNum == 1 ? "S1" : secStageNum == 3 ? "S3⚠" : secStageNum == 4 ? "S4🔻" : "n/a"
+4519: _failing_gates := (g1_stage    ? "" : " G1") + (g2_above200 ? "" : " G2") + (g3_secRS    ? "" : " G3") + (g4_secStage ? "" : " G4") + (g5_trendTpl ? "" : " G5") + (g6_volAcc   ? "" : " G6") + (g7_fresh    ? "" : " G7") + (g8_maSqz    ? "" : " G8") + (g9_bbSqz    ? "" : " G9")
+4520: string _gates_bracket = (g1_stage ? "1" : "·") + (g2_above200 ? "2" : "·") + (g3_secRS ? "3" : "·") + (g4_secStage ? "4" : "·") + (g5_trendTpl ? "5" : "·") + (g6_volAcc ? "6" : "·") + (g7_fresh ? "7" : "·") + (g8_maSqz ? "8" : "·") + (g9_bbSqz ? "9" : "·")
+4527: string compWeeklyStr = stageDisplay + (isStage2Family ? " · " + str.tostring(stageWeeks) + "w leg/" + str.tostring(macroStageWeeks) + "w macro · " + stage2FreshTag : "") + " · W" + _w_arrow + _pb_suffix
+4528: color  compWeeklyCol = stageCol
+4632: color _secStageDispCol = str.contains(secStageStr, "STAGE 2") ? color.new(#26a69a, 0) : str.contains(secStageStr, "STAGE 1") ? color.new(#ff9800, 0) : color.new(#ef5350, 0)
+4686: string _gates_str = str.tostring(bs_gates_passing) + "/9 [" + (g1_stage ? "1" : "·") + (g2_above200 ? "2" : "·") + (g3_secRS ? "3" : "·") + (g4_secStage ? "4" : "·") + (g5_trendTpl ? "5" : "·") + (g6_volAcc ? "6" : "·") + (g7_fresh ? "7" : "·") + (g8_maSqz ? "8" : "·") + (g9_bbSqz ? "9" : "·") + "]"
+4726: //   leg   = sub-stage age (resets on UP↔PULLBACK) — same anchor the Dashboard always used
+4727: //   macro = full Stage-2 lifespan (matches Commander Bull Screener)
+4728: //   tag   = Fresh / Maturing / Extended — keys off stage2_fresh_weeks input
+4893: if not na(stageStart) and stageStart != last_anchor_time
+4896: last_anchor_time := stageStart
+4905: plot(showAVWAP and stageID == "STAGE 2 (UP)" ? avwap : na, title="Auto AVWAP (Stage 2)", color=color.new(color.fuchsia, 0), linewidth=2, style=plot.style_line)
+5155: if stageID == "STAGE 2 (UP)" or stageID == "STAGE 2 (PULLBACK)"
+5157: else if stageID == "STAGE 4 (DOWN)"
+5159: else if stageID == "STAGE 1 (BASE)"
+5161: else if stageID == "STAGE 3 (TOP)"
+5164: bgcolor(bg_col, title="Stage Background")

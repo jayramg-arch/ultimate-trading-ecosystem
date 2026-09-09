@@ -1,0 +1,40 @@
+Symbol,Description,Alpha Score,Dashboard Quality Score (0-100),Alpha Stars (0-5 ★),Confluence (0-6 Stars),"Stage (1=Base, 2.1=Up, 3=Top, 4=Down)","Persona (5=Lead,4=Mom,3=Turn,2=Vol,1=Ext,0=Lag)","Style (3=Both, 2=Swing, 1=Positional, 0=Wait)","Catalyst (1=PosAcc,2=PosBO,3=PB,4=SwgBO,5=Rev,6=Gap)",Recommended SL Price,Distance to SL (%),Target 1 (2.0R),Target 2 (3.0R),Warn: T1 Hits Resistance (1=Yes),Signal: True Breakout,Signal: Pullback Hit,Minervini Trend Template (1=Active),RS Value (vs Nifty 500),Sector RS Value,"RRG Quad (1=Lead,2=Weak,3=Lag,4=Imp)","Vol Shelf (VWMA50&gt;SMA50, 1=Yes)","Daily Trend (1=Up, -1=Dn)","Weekly Trend (1=Up, -1=Dn)",Current Price,Distance to 20 EMA (%),Relative Volume (x-avg),Anti-Algo SWG-BO Gate (1=Pass),OBV Trend Rising (1=Yes),VCP Tight (1=Yes),Stage Duration (Weeks),Sector Stage Gate (1=Pass)
+APARINDS,APAR Industries Limited,50,75,3,5,2.1,5,3,0,12039.35,5,13940.30,14573.95,0,0,0,1,31.11,31.11,1,0,1,1,12673.00,9.17,0.59,1,0,0,9,0
+NAM_INDIA,Nippon Life India Asset Management Ltd.,50,55,2,5,2.1,5,3,0,992.66,5,1149.39,1201.64,0,0,0,1,14.90,14.90,1,1,1,1,1044.90,6.38,0.66,1,0,0,47,0
+NESTLEIND,Nestle India Ltd.,50,65,3,5,2.1,1,3,0,1401.16,5,1622.39,1696.14,0,0,0,1,15.70,15.70,1,1,1,1,1474.90,8.02,0.75,1,0,0,34,0
+DATAPATTNS,Data Patterns (India) Limited,40,75,3,5,2.1,2,3,0,4025.81,5,4661.47,4873.36,0,0,0,1,38.09,38.09,2,1,1,1,4237.70,12.29,0.87,1,0,0,8,0
+GRSE,Garden Reach Shipbuilders & Engineers Ltd.,70,45,2,4,2.1,2,1,0,2721.28,5,3150.95,3294.17,0,0,0,0,18.72,18.72,1,1,1,1,2864.50,5.36,1.03,1,0,0,0,0
+ABSLAMC,Aditya Birla Sun Life Amc Limited,60,40,2,4,2.1,4,0,0,1009.76,5,1169.19,1222.34,0,0,0,0,19.63,19.63,2,0,1,1,1062.90,4.06,0.97,1,0,1,39,0
+GPIL,Godawari Power & Ispat Ltd.,50,50,2,4,2.1,4,2,0,289.99,5,335.78,351.04,0,0,0,1,14.60,14.60,1,1,1,1,305.25,3.86,0.34,0,1,0,35,0
+POLYCAB,Polycab India Ltd.,50,55,2,4,2.1,5,3,0,7882.15,5,9126.70,9541.55,0,0,0,1,8.63,8.63,1,0,1,1,8297.00,4.39,0.60,0,0,1,2,0
+IKS,Inventurus Knowledge Solutions Limited,40,25,1,4,1,5,1,0,1604.07,5,1857.35,1941.78,0,0,0,0,7.47,7.47,1,1,1,1,1688.50,11.36,0.70,0,0,0,0,0
+VIJAYA,Vijaya Diagnostic Centre Ltd.,40,40,2,4,1,1,1,0,1111.69,5,1287.22,1345.73,0,0,0,0,14.97,14.97,1,1,1,1,1170.20,10.80,0.47,1,0,0,0,0
+DIVISLAB,Divi's Laboratories Limited,50,45,2,3,2.1,5,1,0,6279.97,5,7271.55,7602.08,0,0,0,0,4.61,4.61,1,0,1,1,6610.50,4.26,0.46,0,0,0,0,0
+CEMPRO,Cemindia Projects Ltd,60,30,1,2,4,2,0,0,874.14,5,1012.17,1058.17,0,0,0,0,20.86,20.86,1,1,1,1,920.15,31.27,3.03,0,1,0,14,0
+KAJARIACER,Kajaria Ceramics Limited,5,10,0,1,4,0,0,0,1008.90,5,1168.20,1221.30,0,0,0,0,17.62,17.62,2,1,1,1,1062.00,-6.07,0.87,0,0,0,16,0
+,,,,,,,,,10,,,,,,,,,,20.00,,,,,,,,,,30,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Notes:,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1. Does the dashboard score match with Dashboard v67?,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2. Difference between Alpha score and Alpha Rating?,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3. What exactly is Confluence?,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4. Where is the Recommendation field?,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+5. Sector logic needs to be brought from Dashboard v67,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+6. What exactly menat by Anti-Algo filter for SWG-BO Gate?,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+7. Update the CSV table also ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+8. Agreement of field values across indicators,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+9. Why can't the Filter Recipes be automated?,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

@@ -1,0 +1,5 @@
+Symbol,Description,Good Setup Threshold,Signal (4=EARLY | 3=RS | 2=CB | 1=Watch | 0=None),Recovery Score (0-12),RFF Lite Score (0=None | 1=NI&gt;0 | 2=NI+OCF&gt;0),Market Recovery Regime (1=Yes 0=No),Weinstein Weekly Stage (1-4),Mansfield RS vs CNX500 (+ = Outperform),"Stretch vs SMA200 (%, negative = below)",Correction from 52W High (%),Relative Volume (× 50D avg),RSI(3) — Fear Gauge,RSI(14),CB: Climax Detected (1=Yes),RS: Positive Mansfield (1=Yes),EARLY: Near Golden Cross (1=Yes),Entry Price,Stop Loss Price,T1 Target Price,T2 Target Price,R/R Ratio to T1,T1 Upside (%),Stop Loss Distance (%),Recovery Score — Chart View (0-12)
+BAJAJ_AUTO,Bajaj Auto Limited,6,,,,,,,,,,,,,,,,,,,,,,
+NAM_INDIA,Nippon Life India Asset Management Ltd.,6,,,,,,,,,,,,,,,,,,,,,,
+SCHAEFFLER,Schaeffler India Ltd,6,,,,,,,,,,,,,,,,,,,,,,
+SIEMENS,Siemens Limited,6,,,,,,,,,,,,,,,,,,,,,,

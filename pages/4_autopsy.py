@@ -34,14 +34,14 @@ CSV_PATH = "portfolio.csv"
 # --- 2. GLOBAL STYLING (MATCHING COMMANDER WEB) ---
 st.markdown("""
 <style>
-    /* GLOBAL DARK THEME & FONTS */
+    /* GLOBAL LIGHT THEME & FONTS */
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap');
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
 
     .stApp {
-        background-image: linear-gradient(rgba(5, 10, 20, 0.95), rgba(5, 10, 20, 0.98));
+        background: #F8FAFC !important;
         font-family: 'Inter', sans-serif;
-        color: #e0f2f1;
+        color: #0F172A;
     }
     
     /* HEADERS */
@@ -52,27 +52,24 @@ st.markdown("""
     }
     
     h1 {
-        background: linear-gradient(to right, #00F260, #0575E6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #1D4ED8 !important;
         font-weight: 700;
         margin-bottom: 0px;
     }
 
     /* CARD CONTAINERS */
     div[data-testid="stMetric"], div.stContainer {
-        background: rgba(12, 18, 28, 0.6);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #FFFFFF;
+        border: 1px solid #CBD5E1;
         border-radius: 12px;
         padding: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
     /* METRICS */
     [data-testid="stMetricLabel"] {
         font-size: 0.9rem !important;
-        color: #aaa !important;
+        color: #64748B !important;
         font-family: 'Rajdhani';
         letter-spacing: 1px;
     }
@@ -160,7 +157,7 @@ def normalize_symbol(symbol):
 
 def color_pnl(val):
     """Dynamic coloring for P&L values."""
-    color = '#00F260' if val >= 0 else '#FF5252'
+    color = '#15803D' if val >= 0 else '#FF5252'
     return f'color: {color}; font-weight: bold'
 
 def identify_sector(sym, sector_map):
@@ -790,7 +787,7 @@ def main():
                     color='DisplaySector', 
                     color_discrete_sequence=px.colors.qualitative.Prism 
                 )
-                fig_sec.update_layout(margin=dict(t=0, l=0, r=0, b=0), height=400, paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#eee', family='Rajdhani'))
+                fig_sec.update_layout(margin=dict(t=0, l=0, r=0, b=0), height=400, paper_bgcolor='#FFFFFF', font=dict(color='#eee', family='Rajdhani'))
                 st.plotly_chart(fig_sec, width="stretch", config={'displayModeBar': False})
                 
             with c2:
@@ -805,7 +802,7 @@ def main():
                     color_continuous_midpoint=0,
                     hover_data=['Qty', 'Avg', 'CMP', 'P&L']
                 )
-                fig_tree.update_layout(margin=dict(t=0, l=0, r=0, b=0), height=400, paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#eee', family='Rajdhani'))
+                fig_tree.update_layout(margin=dict(t=0, l=0, r=0, b=0), height=400, paper_bgcolor='#FFFFFF', font=dict(color='#eee', family='Rajdhani'))
                 st.plotly_chart(fig_tree, width="stretch", config={'displayModeBar': False})
     
             # --- DETAILED TABLE ---
@@ -827,7 +824,7 @@ def main():
             view_df['Status'] = status
     
             # Table Header Alignment CSS
-            st.markdown("""<style>[data-testid="stDataFrame"] th > div { font-weight: 800 !important; color: #00F260 !important; font-family: 'Rajdhani'; }</style>""", unsafe_allow_html=True)
+            st.markdown("""<style>[data-testid="stDataFrame"] th > div { font-weight: 800 !important; color: #15803D !important; font-family: 'Rajdhani'; }</style>""", unsafe_allow_html=True)
 
             st.dataframe(
                 view_df.style.map(color_pnl, subset=['P&L', 'P&L%'])
@@ -922,10 +919,10 @@ def main():
                         x='Exit Date', 
                         y='CumulativeP&L',
                         labels={'CumulativeP&L': 'Realized P&L (₹)'},
-                        color_discrete_sequence=['#00F260'] if api_realized >= 0 else ['#FF5252']
+                        color_discrete_sequence=['#15803D'] if api_realized >= 0 else ['#FF5252']
                     )
                     fig_curve.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(255,255,255,0.05)',
+                        paper_bgcolor='#FFFFFF', plot_bgcolor='rgba(255,255,255,0.05)',
                         font=dict(color='#eee', family='Rajdhani'), height=400,
                         margin=dict(t=10, l=10, r=10, b=10)
                     )
@@ -943,9 +940,9 @@ def main():
                         values='Count',
                         hole=0.5,
                         color='Status',
-                        color_discrete_map={'Winners': '#00F260', 'Losers': '#FF5252'}
+                        color_discrete_map={'Winners': '#15803D', 'Losers': '#FF5252'}
                     )
-                    fig_pie.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#eee', family='Rajdhani'), showlegend=False)
+                    fig_pie.update_layout(height=350, paper_bgcolor='#FFFFFF', font=dict(color='#eee', family='Rajdhani'), showlegend=False)
                     st.plotly_chart(fig_pie, width="stretch")
 
                 st.markdown("---")
@@ -957,7 +954,7 @@ def main():
                     st.subheader("🏗️ P&L BY SECTOR")
                     sec_stats = completed_df.groupby('Sector')['Realized P&L'].sum().reset_index().sort_values('Realized P&L')
                     fig_sec_b = px.bar(sec_stats, y='Sector', x='Realized P&L', orientation='h', color='Realized P&L', color_continuous_scale='RdYlGn')
-                    fig_sec_b.update_layout(height=400, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#eee', family='Rajdhani'))
+                    fig_sec_b.update_layout(height=400, paper_bgcolor='#FFFFFF', plot_bgcolor='#F8FAFC', font=dict(color='#eee', family='Rajdhani'))
                     st.plotly_chart(fig_sec_b, width="stretch")
                     
                 with s2:
@@ -975,7 +972,7 @@ def main():
                         color='Realized P&L', 
                         color_continuous_scale='RdYlGn'
                     )
-                    fig_m.update_layout(height=400, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#eee', family='Rajdhani'))
+                    fig_m.update_layout(height=400, paper_bgcolor='#FFFFFF', plot_bgcolor='#F8FAFC', font=dict(color='#eee', family='Rajdhani'))
                     st.plotly_chart(fig_m, width="stretch")
 
     # --- TAB 3: TRADE LOGS ---

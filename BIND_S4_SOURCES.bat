@@ -2,9 +2,9 @@
 REM ===================================================================
 REM  BIND S4 SOURCES  -  pin this to the taskbar.
 REM
-REM  Run it immediately after EVERY S4 compile. TradingView drops all 18
+REM  Run it immediately after EVERY S4 compile. TradingView drops every one of its
 REM  input.source bindings on every recompile (measured: a compile that
-REM  changed no inputs at all left 0 of 18 alive), and an unbound panel
+REM  changed no inputs at all left 0 of them alive), and an unbound panel
 REM  silently reads `close` - the RS/RRG, Signal-Quality-RSI and Sector
 REM  rows go blank or print "not bound" and you lose the Daily trend arrow.
 REM
@@ -43,7 +43,7 @@ set "RC=%ERRORLEVEL%"
 echo.
 
 if "%RC%"=="0" (
-    echo  [OK] All 18 sources bound.
+    echo  [OK] All sources bound.
 ) else if "%RC%"=="2" (
     echo  [X] Could not reach TradingView.
     echo      Start it with LAUNCH_TRADINGVIEW_CDP.bat, open a chart, then re-run.

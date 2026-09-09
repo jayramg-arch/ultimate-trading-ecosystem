@@ -1,0 +1,83 @@
+Remove the Algo Entry, SL, Ta and T2 from Dashboard. Leave only the levels coming from S4 Trigger.
+Can I superimpose RSI on the MRS auto indicator? along with ATR?
+
+I read the coordinates directly, build the decoupled model
+
+Risk Shield: The Recommended SL is quite different from the Chandelier TSL level.
+The Chandelier TSL levels on risk Shield and on Tradingview are quite different
+
+Risk Shield: It is not considering the already sold OCO-1 T1. Recommened.Policy is suggesting a T1, which is less than the LTP. However, the timeline correctly shows only T2 in such case.
+
+REcommended.Policy: OCO-1 qty is 25% for T1 and SL and OCO-2 qty is 25% for T2 and SL. 50% qty is left for trailing SL. what's the point in leaving 50% qty, if the SL is already hit?
+
+A green candle with huge selling pressure is taken as bullish candle for Bar consideration?
+
+Can we decipher the recommended strike price from the future OI for a stock?
+
+Why not all 15 portfolio stocks are not added to GM Board watchlist?
+
+
+Send the calibration set when you can — 15–20 names spread across ~90 to ~165, same timestamp, Weekly / Nifty 500 / 5 Years, both coordinates each. With the ends covered I can either refit the slope honestly or fit a gentle curve if the data actually shows one.
+
+Two things I'd suggest including deliberately: a few below 100 (the whole sample is ≥100.56, so the lagging half of the plane has never been tested at all), and a couple in the 130–165 range like HFCL to pin the top.
+
+Why for some of the stocks, the RS.RRG filed says 'N500-.Sec- RRG-bind v67 RS val/mom trail', while majority of the stocks fetch those values?
+Also, separate RS and RRG into two separate rows
+
+RRG:
+make the tool tip font on the coordinates, darker
+indices have been stripped of their constituents. the numbers have come down significantly.
+Watchlist/Sector shows a higher number and the Constituents show a lower number.
+
+Compare the RRG quadrant and gradient for some of the stocks on S4 with that of Strike (record the coordinates)
+
+GM boards table columns: auto sort descending on Overall column and filter 'GO' on S4-GO columns.
+Parity between GM and S4. Sometimes GM says 4/4, S4 says 1/4. Need plug this huge gap.
+
+S4 Guide:
+
+1) Applies on: the 75/125-min trading chart.Can I trade on Daily timeframe?
+2) the guide only talks about S4Corev5, while we have S4Corev13 currently.
+3) Add latest version number on the Panel header
+4) Explain the Futures OI metric in detail
+5) On Alert screen: Second dropdown: S4 GO (PA + Location + Volume).Is Bar not included here as a gate?
+6) Shall I place the entry+GTT stop together?
+7) How do I cultivate the habit of journal logging/update?
+8) Need more clarity on Inval and SL levels
+9) Check ETF Screeners and bring them upto date. What enhancements can be made here?
+10) Is Exit scan/ journal sync scheduled? Auto-pilot schedule is not working
+11) The whole loop: 09:15  session — do not watch the board - what do you mean by this?
+12) Shall i have to look for W/D/Intraday trend alignment all the time? a down trend on D/Intraday is not fine, as the stock could be pulling back? Is that dip inside a weekly uptrend?
+13) Sector alignment is mandatory? there could be stocks outperforming the sector.
+14) Read results per family × direction. Never pooled: Pooling has produced three false conclusions in this system already. Elaborate more.
+15) what is the best way to log decisions?
+16) How do I close Web Commander: Currently, I close all the 3 Timeframe boards, the ctrl+C on the console, then close the Trigger board screen. then start the launch web commander.bat. Is this the right sequence?
+17) When to Rebuild and when to Fresh+rebuild -more clarity
+18) Overall column is still not auto sorted descending
+19) Strengthen the Sector RRG page-it should give a clear indication of sector rotation.
+20) Don't call it leadership when rotation has rolled over. Strength being given back is not strength.-elaborate more
+21) What is this A/B, you keep talking about? Also, give me a detailed note on the backtests you perform along with its glossary.
+22) How do i place Buy-Stop orders on Dhan?
+23) Prefer the retest to the buy-stop. Your own A/B: buy-stop −0.02% mean matched alpha vs retest +0.38%, better in every family — and the retest filled 320 names vs 268. -Please elaborate.
+24) How do I check the Demand Volume?
+25) Don't read "buy-limit at the trigger close" as a pullback when that close is the current bar — it fills at market, and the panel says so. - Need more clarity.
+26) Don't re-tune the stop or trail on a hunch. Four studies have rejected tightening — the structural-SL variant had the best mean, passed the OOS gate, and was still rejected on median (−0.48R → −1.01R) and stop-outs (11.8% → 52.7%).- elaborate more.
+27) I should only pyramid a positional trade, right?
+28) I got an alert trigger on S4 stock, but the stock is 2/3 on GM. Shall I still take the trade?
+29) Manually marking the Arm checkbox on the GM Trigger Board is only for preserving the stock for future watchlists. It's not actually the arming that GM does, right?
+30) What is exactly meant by 'Invalidated' on the GM board?
+31) Why not all my portfolio stocks added to the GM Board checklist?
+32) Check various symbols that are displayed on GM and S4: Check the guides
+33) Why are the RRG quadrant/gradients calculated last week's closed bar, instead of considering the current/forming bars?
+34) Pay attention to field values that are - on GM/S4.
+35) Don't assume two panels showing the same field agree. When they disagree, find which bar and which producer — that is where the information is. - elaborate more
+36) Raise the confluence score, if the RRG is Leading-->Leading or Weakening-->Leading
+37) Bootstrap by symbol, not by row: Overlapping windows are not independent observations. - what is meant by this?
+38) A gate isn't live until a name that should fail does - Verify with a counter-example, not by reading the code.-elaborate more.
+39) Forward windows: POS-BO 120d · POS-ACCUM 180d REV 90d · SWG 30–60d - these are calendar days or trading days?
+40) Difference between 4/4 and GO on GM board?
+41) If a trade appears in 75/125/Daily, which TF should I prefer, provided everything else is exactly the same?
+42) Can you also push the overall rank from GM to S4 and add it to the confluence?
+43) Let RFF come as a filed into S4 from GM.
+44) REduce the Go Marker size on chart for S4
+45) Bar: Even very narrow range bars are clearing Bar gate. We need to strengthen it, the way we did few days back!

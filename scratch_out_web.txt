@@ -1,0 +1,32 @@
+46:         generate_portfolio_review,   # used by AI Lab → Generative → Portfolio Review
+613: # ── E-01: Portfolio Analytics helpers ────────────────────────────────────────
+1680:         section("Open Portfolio Health Vitals")
+1721:         v3.metric("Portfolio Return",  f"{portfolio_return_pct:.1f}%",          help="Unrealized P&L / Total portfolio capital.")
+1801:         section("Portfolio Analytics — Closed Trade Performance")
+1816:             section("Portfolio Heatmap — Capital Allocation")
+1837:             fig = px.treemap(hmap, path=[px.Constant("Portfolio"), "Sector", "Symbol"],
+1862:                     pc['Portfolio_%'] = (pc['CumulativePnL'] / starting_equity) * 100
+1876:                         fig2 = px.line(merged, x='Date', y=['Portfolio_%', 'Benchmark_%'],
+1934:         section("Portfolio Correlation Risk")
+4179:     _cm1, _cm2, _cm3 = st.tabs(["⚡ Active Ops", "📒 Ledger", "🔔 Price Alerts"])
+4295:         section("Portfolio Rotation Guard")
+4396:         section("Live Trade Ledger")
+4642:         _g1, _g2 = st.tabs(["📈 Stock Analysis", "🔬 Portfolio Review"])
+4754:         # ── Portfolio Review ──────────────────────────────────────────────────
+4756:             section("AI Portfolio Review — Closed Trades")
+4771:                     if st.button("🔬 Generate AI Portfolio Review", key="pr_run", type="primary",
+4786:                             file_name=f"Portfolio_Review_{datetime.now().strftime('%Y%m%d')}.txt",
+6881:                                     _source = "N50 + Portfolio"
+6885:                                     _source = "Portfolio"
+6891:                                     "In Portfolio": "✅" if _in_port else "",
+6902:                         _COLS  = ["Symbol","Close","Chg%","Signal","Source","In Portfolio"]
+8179:     st.markdown('<div class="page-title">🗂️ Portfolio Analytics</div>', unsafe_allow_html=True)
+8231:                         "Portfolio Value Override (₹, 0 = auto)",
+8252:                 section("Portfolio Overview")
+8285:                     _ov_c[1].metric("Portfolio Value", f"₹{_ov.get('total_value',0):,.0f}")
+8415:                         _f1.metric("Portfolio Beta",   f"{_beta:.2f}",      help=">1 = more volatile than Nifty")
+8470:                                 "Portfolio %":    f"{_port_r:+.1f}%",
+8484:                             name="Portfolio", x=_sc_labels, y=_sc_port,
+8590:         # ── Portfolio Export ─────────────────────────────────────────────────
+8606:                 if st.button("🤖 AI Portfolio Analysis Report", use_container_width=True,
+8625:                         file_name=f"Portfolio_AI_{datetime.now().strftime('%Y%m%d')}.txt",

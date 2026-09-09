@@ -401,10 +401,18 @@ def _log_join_drop(name, tech_file, fund_file, df_tech, df_fund, merged):
         pct = (len(dropped) / len(tkeys) * 100.0) if tkeys else 0.0
 
         shown = ' '.join(dropped[:8]) + (' …' if len(dropped) > 8 else '')
+        # WORDING (4 Sep 2026). "never scored" was meant to separate ABSENT from
+        # REJECTED, but it reads as a coverage failure in the system - it sent a
+        # whole investigation down the wrong path, concluding the pipeline was
+        # discarding two thirds of its candidates when the Screener.in lists are
+        # FUNDAMENTAL SCREENS and absence usually means the name failed them.
+        # It cannot mean only that (a screen could also be universe-limited), so
+        # the line now names both possibilities instead of implying either.
         print(f"   🔗 {name}: {len(tkeys)} technical → {kept} matched, "
-              f"{len(dropped)} not in {os.path.basename(fund_file)} ({pct:.0f}% dropped)")
+              f"{len(dropped)} absent from {os.path.basename(fund_file)} ({pct:.0f}% dropped)")
         if dropped:
-            print(f"      dropped (never scored): {shown}")
+            print(f"      absent from the fundamental screen "
+                  f"(screened out, or outside its coverage): {shown}")
 
         os.makedirs(os.path.dirname(JOIN_DROP_LOG), exist_ok=True)
         new = not os.path.exists(JOIN_DROP_LOG)

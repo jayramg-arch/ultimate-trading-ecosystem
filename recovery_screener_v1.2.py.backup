@@ -1,0 +1,1221 @@
+#!/usr/bin/env python3
+"""
+recovery_screener.py :  Commander Recovery Screener (Python Edition) v1.2
+Aligned with: Weinstein Recovery Strategy v1.3 / Chartink Recovery Scanners v2.0
+
+CHANGELOG v1.2 (Apr-2026) — Price-action over lagging indicators
+  The original v1.1 leaned heavily on SMA/RSI/ATR — lagging tools that fire
+  3–6 bars after the real turn. This update replaces the worst offenders with
+  pure price-structure checks. Lagging MAs are still computed for display
+  (score/table) but no longer GATE entries.
+  Six changes, aligned 1:1 with the Pine strategy v1.3:
+    1. REV-CB Pillar 1: stretch vs SMA200  →  drawdown ≥ 15% from 60-bar high.
+       Captures real selloffs without waiting for SMA200 to bend.
+    2. REV-CB Pillar 2: RSI14<30 AND RSI3<15  →  ≥5 of last 7 bars red AND
+       today closes in bottom 25% of 10-day range. Bar-1 reactive, no smoothing.
+    3. REV-CB Pillar 3: range > ATR×1.5  →  range ≥ widest of last 20 ranges.
+       No ATR smoothing. Relative volume kept (vol data is inherently reactive).
+    4. REV-RS: drop "close > SMA50 today" gate  →  higher-low confirmation:
+       lowest low of last 5 bars > lowest low of prior 10 bars. Pure structure.
+       Mansfield RS (26wk SMA of ratio) demoted to display; 4-week RS-line slope
+       gates the signal (same concept, 6× more responsive).
+    5. REV-EARLY: "SMA50 within 5% of SMA200" near-GC  →  trendline reclaim:
+       close > highest high of bars 20-10 ago (break of prior swing-high shelf).
+       ATR-based VCP  →  NR7 (narrowest range in 7) OR ≥3 inside bars in last 10.
+    6. Regime gate: CNX500 SMA50 < SMA200 (death cross)  →  correction depth
+       AND/OR price-structure reclaim (recent 10-bar low > prior 10-bar low).
+       Death cross retained as DISPLAY ONLY in the regime summary.
+
+CHANGELOG v1.1 (Apr-2026)
+  cb_stretch_pct: 15.0 → 8.0  (deprecated in v1.2 — Pillar 1 no longer uses SMA200)
+  cb_vol_mult:     2.5 → 2.0  (retained — still used in Pillar 3 volume check)
+Aligned with: Weinstein Recovery Strategy v1.0
+
+Replaces the Pine Screener for swing/positional traders.  Run daily post-market
+or over the weekend: signals stay visible for signal_hold_days after they fire.
+
+WHAT IT DOES
+  Reads the three Chartink recovery watchlists (already on disk from your
+  "Complete Workflow" run), downloads EOD OHLCV from Yahoo Finance, and applies
+  all three recovery edges with no Pine Screener constraints.
+
+IMPROVEMENTS OVER PINE SCREENER
+   No 5-call limit: full indicator suite + all 6 RFF fundamental checks
+   Signal hold window via date arithmetic (not var-int hacks)
+   Proper Mansfield RS from OHLCV ratio: no fragile ticker strings
+   Regime gate includes CNX500 52W-high correction depth
+   Can be run daily post-market or any time over the weekend
+
+INPUTS  (from DATA_DIR: same folder as chartink_scanner_pro.py)
+  Recovery_RS_Survivors.csv           : Chartink REV-RS candidates
+  Recovery_Climax_Bounce.csv          : Chartink REV-CB candidates
+  Recovery_Early_Birds.csv            : Chartink REV-EARLY candidates
+  SCREENER_Recovery_RSLeaders.csv     : Screener.in fundamentals (optional)
+  SCREENER_Recovery_ClimaxBounce.csv  : Screener.in fundamentals (optional)
+  SCREENER_Recovery_EarlyBirds.csv    : Screener.in fundamentals (optional)
+
+OUTPUT
+  Recovery_Screener_Results.csv : sorted: Signal 40, then Score highlow
+"""
+
+import os
+import time
+import logging
+import warnings
+
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+# Suppress yfinance's own HTTP-error and peewee logging — the screener already
+# handles failed downloads gracefully; the noise just clutters the console.
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+logging.getLogger("peewee").setLevel(logging.CRITICAL)
+
+warnings.filterwarnings("ignore")
+
+# -----------------------------------------------------------------------------
+# CONFIGURATION :  mirror the Pine Screener inputs here
+# -----------------------------------------------------------------------------
+CONFIG = {
+    # -- Timing --------------------------------------------------------------
+    "signal_hold_days"         : 5,     # signal stays active for N trading days after trigger
+    "cb_climax_window"         : 10,    # look back this many days for a valid climax bar
+
+    # -- Liquidity ------------------------------------------------------------
+    "min_daily_turnover_cr"    : 5.0,   # INR Crores (5 Cr = 50M)
+
+    # -- REV-CB (v1.2: pure price action) -------------------------------------
+    "cb_vol_mult"              : 2.0,   # Pillar 3: climax volume >= 2.0× 50D average
+    "cb_lookback_high_days"    : 60,    # Pillar 1: drawdown lookback window (bars)
+    "cb_drawdown_pct"          : 15.0,  # Pillar 1: ≥N% drawdown from 60D high (was SMA200 stretch)
+    "cb_washout_window"        : 7,     # Pillar 2: red-bar count window
+    "cb_washout_red_count"     : 5,     # Pillar 2: ≥N of last 7 bars red (was RSI14<30)
+    "cb_range_lookback"        : 20,    # Pillar 3: "widest range in N bars" (was ATR×1.5)
+    "cb_stretch_pct"           : 8.0,   # DEPRECATED v1.2 — retained only for display in older CSVs
+
+    # -- REV-RS ---------------------------------------------------------------
+    "rs_bo_len"                : 20,    # breakout: close > highest high of last N days
+    "vol_confirm_mult"         : 1.5,   # breakout volume >= 1.5 50D average
+    "rs_hl_recent"             : 5,     # v1.2: higher-low check — recent low window (bars)
+    "rs_hl_prior"              : 10,    # v1.2: higher-low check — prior low window (bars before recent)
+    "rs_slope_weeks"           : 4,     # v1.2: RS-line slope weeks (replaces 26wk Mansfield SMA for gating)
+
+    # -- REV-EARLY (v1.2: trendline reclaim + NR7) ----------------------------
+    "early_pivot_len"          : 15,    # pivot: close > highest high of last N days
+    "early_trendline_recent"   : 10,    # v1.2: skip last N bars when finding prior swing high
+    "early_trendline_window"   : 10,    # v1.2: width of prior swing-high window (bars 20→10 ago)
+    "early_nr7_len"            : 7,     # v1.2: NR7 length for base compression
+    "early_inside_lookback"    : 10,    # v1.2: inside-bar count lookback
+    "early_inside_count_min"   : 3,     # v1.2: ≥N inside bars in last 10 (alternative to NR7)
+    "near_gc_pct"              : 5.0,   # DEPRECATED v1.2 — near-GC check removed from gating
+    "vcp_atr_mult"             : 1.5,   # DEPRECATED v1.2 — ATR-based VCP replaced by NR7/inside
+
+    # -- Regime Gate ----------------------------------------------------------
+    "mkt_correction_pct"       : 7.0,   # CNX500 down >=7% from 52W high  gate opens
+    "mkt_reclaim_lookback"     : 10,    # v1.2: CNX500 higher-low reclaim window (pure price)
+    "min_stock_correction_pct" : 10.0,  # individual stock >=10% off 52W high → regime bypass
+    "max_stock_correction_pct" : 40.0,  # individual stock <=40% off 52W high → quality cap (>40% = distressed, not discounted)
+    "use_regime_gate"          : True,  # MASTER TOGGLE: If true, stock MUST be corrected within 10-40% band
+
+    # -- Fundamentals (RFF) ---------------------------------------------------
+    "rff_min_score"            : 1,     # minimum RFF score to pass (0 = disabled)
+
+    # -- Data -----------------------------------------------------------------
+    "data_lookback_days"       : 400,   # daily history to download (covers 200D SMA warmup)
+    "download_delay_sec"       : 0.4,   # polite pause between yfinance calls
+}
+
+DATA_DIR    = os.path.dirname(os.path.abspath(__file__))   # always same folder as this script
+OUTPUT_FILE = "Recovery_Screener_Results.csv"
+CNX500_YF   = "^CRSLDX"          # Nifty 500 on Yahoo Finance (^CNX500 is not valid)
+
+CHARTINK_FILES = {
+    "REV-RS"   : "Recovery_RS_Survivors.csv",
+    "REV-CB"   : "Recovery_Climax_Bounce.csv",
+    "REV-EARLY": "Recovery_Early_Birds.csv",
+}
+
+SCREENER_FILES = {
+    "REV-RS"   : "SCREENER_Recovery_RSLeaders.csv",
+    "REV-CB"   : "SCREENER_Recovery_ClimaxBounce.csv",
+    "REV-EARLY": "SCREENER_Recovery_EarlyBirds.csv",
+}
+
+SIGNAL_LABELS = {4: "REV-EARLY", 3: "REV-RS", 2: "REV-CB", 1: "CB-Watch", 0: "None"}
+
+
+# -----------------------------------------------------------------------------
+# SYMBOL HELPER
+# -----------------------------------------------------------------------------
+def to_yf(symbol: str) -> str:
+    """Chartink NSE code (BAJAJ-AUTO)  yfinance format (BAJAJ-AUTO.NS)."""
+    s = str(symbol).strip().upper()
+    return s if s.startswith("^") else f"{s}.NS"
+
+
+def _flatten_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Flatten MultiIndex columns produced by yfinance 0.2+."""
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return df
+
+
+# -----------------------------------------------------------------------------
+# INDICATOR ENGINE
+# -----------------------------------------------------------------------------
+def compute_indicators(df: pd.DataFrame) -> dict:
+    """
+    Compute all daily indicators needed for edge detection.
+    Returns a dict of aligned Series (indexed by date).
+    """
+    c, h, l, v, o = df["Close"], df["High"], df["Low"], df["Volume"], df["Open"]
+
+    # Moving averages
+    sma50  = c.rolling(50).mean()
+    sma150 = c.rolling(150).mean()
+    sma200 = c.rolling(200).mean()
+    ema20  = c.ewm(span=20, adjust=False).mean()
+    vol_ma = v.rolling(50).mean()
+
+    # ATR (Wilder)
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    atr14    = tr.ewm(span=14, adjust=False).mean()
+    atr10    = tr.ewm(span=10, adjust=False).mean()
+    atr10_avg = atr10.rolling(50).mean()
+
+    # RSI
+    def _rsi(series, n):
+        d = series.diff()
+        g = d.clip(lower=0).rolling(n).mean()
+        ls = (-d.clip(upper=0)).rolling(n).mean()
+        return 100 - 100 / (1 + g / ls.replace(0, np.nan))
+
+    rsi14 = _rsi(c, 14)
+    rsi3  = _rsi(c, 3)
+
+    # Rolling highs/lows
+    high52w = h.rolling(250).max()
+    rel_vol = v / vol_ma.replace(0, np.nan)
+
+    return dict(
+        close=c, high=h, low=l, open=o, volume=v,
+        sma50=sma50, sma150=sma150, sma200=sma200, ema20=ema20,
+        vol_ma=vol_ma, atr14=atr14, atr10=atr10, atr10_avg=atr10_avg,
+        rsi14=rsi14, rsi3=rsi3, high52w=high52w, rel_vol=rel_vol,
+    )
+
+
+def compute_mansfield_rs(df_stock_w: pd.DataFrame, df_cnx500_w: pd.DataFrame) -> float:
+    """
+    Mansfield RS (weekly) = (RS_Line / SMA26_of_RS_Line - 1)  10
+    RS_Line = stock_close / cnx500_close
+    Positive = outperforming; Negative = lagging.
+    Returns the latest value, or NaN if insufficient data.
+
+    v1.2 note: Retained for display in the Mansfield_RS column and scoring
+    (where relative magnitude matters), but no longer gates entries. The
+    26-week SMA smooths out the recent outperformance that a recovery
+    screener specifically needs to catch early. Gate uses compute_rs_slope_w.
+    """
+    sc = df_stock_w["Close"].rename("s")
+    mc = df_cnx500_w["Close"].rename("m")
+    merged = pd.merge(sc, mc, left_index=True, right_index=True, how="inner")
+    if len(merged) < 27:
+        return np.nan
+    rs_line  = merged["s"] / merged["m"]
+    sma26    = rs_line.rolling(26).mean()
+    mansfield = (rs_line / sma26.replace(0, np.nan) - 1) * 10
+    return float(mansfield.iloc[-1]) if not mansfield.empty else np.nan
+
+
+def compute_rs_slope_w(df_stock_w: pd.DataFrame, df_cnx500_w: pd.DataFrame,
+                       weeks: int = 4) -> float:
+    """
+    v1.2: RS-line slope over N weeks (pure-price relative-strength gate).
+
+    Replaces Mansfield RS for signal gating. Same idea — is the stock beating
+    the benchmark — but without the 26-week SMA that buries recent recoveries.
+    Formula: (RS_line[-1] / RS_line[-weeks-1] - 1) * 100
+    Positive = outperforming over the window; Negative = lagging.
+    """
+    sc = df_stock_w["Close"].rename("s")
+    mc = df_cnx500_w["Close"].rename("m")
+    merged = pd.merge(sc, mc, left_index=True, right_index=True, how="inner")
+    if len(merged) < weeks + 1:
+        return np.nan
+    rs_line = merged["s"] / merged["m"]
+    ref     = rs_line.iloc[-(weeks + 1)]
+    if ref == 0 or np.isnan(ref):
+        return np.nan
+    return float((rs_line.iloc[-1] / ref - 1) * 100)
+
+
+def compute_weinstein_stage(df_w: pd.DataFrame) -> int:
+    """
+    Weinstein stage from the CURRENT week's 30W SMA slope and price position.
+    Avoids state-machine convergence issues by classifying from current indicators.
+    Stage 2 = rising SMA30, price above SMA30.
+    Stage 4 = falling SMA30, price below SMA30.
+    Stage 1 = flattening/rising SMA30, price above SMA30.
+    Stage 3 = flattening/falling SMA30, price above SMA30 (topping).
+    """
+    if len(df_w) < 35:
+        return 0
+    c    = df_w["Close"]
+    sma  = c.rolling(30).mean()
+    slope = sma - sma.shift(4)
+    thresh = sma * 0.0005
+    above = bool(c.iloc[-1] > sma.iloc[-1])
+    sl    = float(slope.iloc[-1])
+    th    = float(thresh.iloc[-1])
+    up = sl > th
+    dn = sl < -th
+    if up and above:       return 2
+    if dn and not above:   return 4
+    if not dn and above:   return 1   # SMA flattening/rising, price above = Stage 1 base
+    return 3                           # SMA weakening, price above = Stage 3 top
+
+
+# -----------------------------------------------------------------------------
+# REGIME GATE
+# -----------------------------------------------------------------------------
+def check_regime(df_cnx500_d: pd.DataFrame) -> dict:
+    """
+    v1.2: price-action regime gate. Three-way (any one passes):
+      A) CNX500 corrected >=7% from 52W high          (pure price: drawdown)
+      B) CNX500 higher-low reclaim                    (pure price: recent
+         10-bar low > prior 10-bar low — index has stopped making lower lows)
+      C) Individual stock corrected >=10%             (computed per-symbol)
+
+    The old "SMA50 < SMA200" death-cross gate was removed from the decision
+    logic. It typically fires 3–6 months after the top and un-fires 3–6
+    months after the bottom — exactly wrong for recovery timing. The cross
+    state is still captured in the return dict for display in the regime
+    summary, but is NOT used to grant regime_ok.
+    """
+    c   = df_cnx500_d["Close"]
+    h   = df_cnx500_d["High"]
+    l   = df_cnx500_d["Low"]
+
+    # Pure-price metrics
+    h52w = h.rolling(250).max().iloc[-1]
+    last = c.iloc[-1]
+    corr_depth    = float((h52w - last) / h52w) if h52w > 0 else 0.0
+    mkt_corrected = corr_depth >= CONFIG["mkt_correction_pct"] / 100
+
+    # Higher-low reclaim: recent window low > prior window low
+    rl = CONFIG["mkt_reclaim_lookback"]
+    if len(l) >= rl * 2:
+        recent_low = float(l.iloc[-rl:].min())
+        prior_low  = float(l.iloc[-2 * rl : -rl].min())
+        mkt_reclaim = recent_low > prior_low
+    else:
+        recent_low = prior_low = float("nan")
+        mkt_reclaim = False
+
+    # Active recovery = corrected OR actively reclaiming (stricter than either alone
+    # for scoring purposes, but either alone is enough to open the gate).
+    mkt_in_recovery = mkt_corrected and mkt_reclaim
+
+    # Display-only: SMA cross state (no longer a gating input)
+    s50  = c.rolling(50).mean().iloc[-1]
+    s200 = c.rolling(200).mean().iloc[-1]
+    death_cross = bool(not np.isnan(s50 + s200) and s50 < s200)
+
+    return {
+        "mkt_in_recovery": mkt_in_recovery,       # corrected AND reclaiming
+        "mkt_corrected"  : mkt_corrected,          # ≥7% off 52W high
+        "mkt_reclaim"    : mkt_reclaim,            # v1.2: higher-low structure
+        "mkt_death_cross": death_cross,            # v1.2: display only, no longer gates
+        "mkt_corr_pct"   : round(corr_depth * 100, 2),
+        "mkt_close"      : round(last, 2),
+        "mkt_sma50"      : round(s50, 2),
+        "mkt_sma200"     : round(s200, 2),
+    }
+
+
+# -----------------------------------------------------------------------------
+# RFF: FULL 6-CHECK RECOVERY FUNDAMENTAL FILTER
+# -----------------------------------------------------------------------------
+def _num(row: dict, *keys) -> float:
+    """Extract first matching key from a Screener.in row dict, as float."""
+    for k in keys:
+        v = row.get(k, None)
+        if v is not None and str(v).strip() not in ("", "-", "NA", "N/A"):
+            try:
+                return float(str(v).replace(",", "").replace("%", "").strip())
+            except ValueError:
+                pass
+    return np.nan
+
+
+def fetch_yf_fundamentals(yf_sym: str) -> dict:
+    """
+    Fetch RFF metrics from yfinance Ticker.info as a fallback when Screener.in
+    has no data for a stock.  Returns a dict with keys that compute_rff() can read.
+    Returns {} on any failure so the caller can detect 'no data'.
+
+    Field notes (yfinance quirks for NSE stocks):
+      debtToEquity  : returned as a percentage (e.g. 45 = 0.45× ratio) → divide by 100
+      returnOnAssets: returned as a decimal  (e.g. 0.08 = 8%)           → multiply by 100
+      interestExpense: often negative in yfinance → use abs()
+    """
+    try:
+        info = yf.Ticker(yf_sym).info
+        if not info or info.get("quoteType") in (None, "NONE", ""):
+            return {}
+
+        result = {}
+
+        ni  = info.get("netIncomeToCommon")
+        if ni  is not None: result["Net profit"]                 = float(ni)
+
+        ocf = info.get("operatingCashflow")
+        if ocf is not None: result["Cash from operating activity"] = float(ocf)
+
+        de  = info.get("debtToEquity")
+        if de  is not None:
+            de = float(de)
+            # yfinance returns D/E as % for most stocks; divide only if clearly > 10
+            result["Debt to equity"] = de / 100 if de > 10 else de
+
+        cr  = info.get("currentRatio")
+        if cr  is not None: result["Current ratio"]              = float(cr)
+
+        roa = info.get("returnOnAssets")
+        if roa is not None: result["Return on assets"]           = float(roa) * 100
+
+        # ICR: yfinance has no direct field — approximate from ebitda / interestExpense
+        ebitda   = info.get("ebitda")
+        interest = info.get("interestExpense")      # often negative
+        if ebitda and interest and interest != 0:
+            result["Interest Coverage Ratio"] = abs(float(ebitda) / float(interest))
+
+        return result
+
+    except Exception:
+        return {}
+
+
+def compute_rff(row: dict) -> tuple:
+    """
+    Full 6-check RFF from a Screener.in row dict.
+    Returns (score 0-6, checks dict).
+    Columns tried in order: handles both standard and custom Screener.in exports.
+    """
+    ni   = _num(row, "Net profit", "Net Profit", "Net profit TTM", "PAT",
+                     "NP 12M Rs.Cr.", "NP 12M",           # Screener.in TTM column
+                     "NP Qtr Rs.Cr.", "NP Qtr")           # Screener.in quarterly fallback
+    ocf  = _num(row, "Cash from operating activity", "Operating cash flow",
+                     "Cash from Operations", "Cash from operations last year", "CFO",
+                     "CF Operations Rs.Cr.", "CF Operations")  # Screener.in CF column
+    icr  = _num(row, "Interest Coverage Ratio", "Interest coverage", "ICR",
+                     "Interest Coverage", "Int. Coverage")     # Screener.in ICR column
+    de   = _num(row, "Debt to equity", "Debt / Equity", "D/E",
+                     "Debt / Equity Ratio", "Debt to Equity",
+                     "Debt / Eq.", "Debt/Eq.")                 # Screener.in D/E column
+    cr   = _num(row, "Current ratio", "Current Ratio")
+    roa  = _num(row, "Return on assets", "ROA", "Return on Assets",
+                     "ROA 12M %", "ROA 12M")                   # Screener.in ROA column
+    roce = _num(row, "ROCE", "Return on capital employed", "Return on capital employed %",
+                     "ROCE %")
+
+    # If ROA unavailable, approximate from ROCE (conservative 60% factor)
+    if np.isnan(roa) and not np.isnan(roce):
+        roa = roce * 0.6
+
+    checks = {
+        "NI>0"   : not np.isnan(ni)  and ni  > 0,
+        "OCF>0"  : not np.isnan(ocf) and ocf > 0,
+        "ICR>2"  : not np.isnan(icr) and icr > 2,
+        "D/E<2"  : not np.isnan(de)  and de  < 2,
+        "CR>1"   : not np.isnan(cr)  and cr  > 1,
+        "ROA>5%" : not np.isnan(roa) and roa > 5,
+    }
+    score = sum(1 for v in checks.values() if v)
+    return score, checks
+
+
+# -----------------------------------------------------------------------------
+# EDGE DETECTION: all three edges, DataFrame-based, signal hold window
+# -----------------------------------------------------------------------------
+def check_rev_cb(ind: dict) -> dict:
+    """
+    REV-CB: Four-Pillar Climax Bottom Bounce (v1.2 — price-action pillars).
+
+    Pillar 1: Drawdown    : close ≥ cb_drawdown_pct below rolling 60-bar high
+                            (was: close ≤ SMA200 × (1 − stretch). SMA200 lags the
+                             actual selloff; a 60-bar drawdown captures the shock
+                             as it happens.)
+    Pillar 2: Washout     : ≥ cb_washout_red_count of last cb_washout_window bars
+                            closed red (c<o) AND today closes in bottom 25% of
+                            10-day range. (was: RSI14<30 AND RSI3<15. RSI is
+                            smoothed; bar-color count and range position fire on
+                            the climax bar itself.)
+    Pillar 3: Climax Vol  : volume ≥ cb_vol_mult × 50D avg AND
+                            (close < open OR range ≥ widest range in cb_range_lookback bars).
+                            (was: range > ATR×1.5. ATR is smoothed; "widest bar
+                             in 20 days" is pure structure.)
+    Pillar 4: Turn        : green bar, closes top 40% of range, breaks prior day
+                            high. Unchanged — already pure price action.
+
+    Signal = 2 (Buy)   if climax detected + turn fired within signal_hold_days
+    Signal = 1 (Watch) if climax detected but no turn yet
+    Signal = 0         if no climax in the window, or both expired
+    """
+    hold  = CONFIG["signal_hold_days"]
+    cwin  = CONFIG["cb_climax_window"]
+    vm    = CONFIG["cb_vol_mult"]
+    dd    = CONFIG["cb_drawdown_pct"] / 100
+    lb_h  = CONFIG["cb_lookback_high_days"]
+    w_win = CONFIG["cb_washout_window"]
+    w_red = CONFIG["cb_washout_red_count"]
+    r_lb  = CONFIG["cb_range_lookback"]
+    n     = cwin + hold + 5          # total detection-window slice
+
+    # Compute pillar flags on the FULL series so rolling windows have enough data,
+    # then slice the last n bars for climax detection.
+    c_full = ind["close"]; h_full = ind["high"]; l_full = ind["low"]
+    o_full = ind["open"];  v_full = ind["volume"]; vm_full = ind["vol_ma"]
+
+    # Pillar 1: drawdown from rolling 60-bar high
+    lookback_high = h_full.rolling(lb_h).max()
+    drawdown      = (lookback_high - c_full) / lookback_high.replace(0, np.nan)
+    p1_full       = drawdown >= dd
+
+    # Pillar 2: red-bar count + range position (pure price)
+    red           = (c_full < o_full).astype(int)
+    red_count     = red.rolling(w_win).sum()
+    range10_h     = h_full.rolling(10).max()
+    range10_l     = l_full.rolling(10).min()
+    range10       = (range10_h - range10_l).replace(0, np.nan)
+    pos_in_range  = (c_full - range10_l) / range10
+    p2_full       = (red_count >= w_red) & (pos_in_range <= 0.25)
+
+    # Pillar 3: relative volume + "widest bar in N" (no ATR smoothing)
+    bar_range     = h_full - l_full
+    range_max_n   = bar_range.rolling(r_lb).max()
+    p3_full       = (v_full >= vm * vm_full) & ((c_full < o_full) | (bar_range >= range_max_n))
+
+    df = pd.DataFrame({
+        "c": c_full, "h": h_full, "l": l_full, "o": o_full,
+        "p1": p1_full, "p2": p2_full, "p3": p3_full,
+    }).iloc[-n:]
+    df["climax"] = df["p1"] & df["p2"] & df["p3"]
+
+    climax_rows = df[df["climax"]]
+    if climax_rows.empty:
+        return {"signal": 0, "signal_date": None, "climax_date": None,
+                "climax_low": np.nan, "details": "No climax bar detected"}
+
+    climax_date = climax_rows.index[-1]    # most recent climax bar
+    loc_climax  = df.index.get_loc(climax_date)
+    bars_since_climax = len(df) - 1 - loc_climax
+
+    if bars_since_climax > cwin:
+        return {"signal": 0, "signal_date": None, "climax_date": climax_date,
+                "climax_low": np.nan,
+                "details": f"Climax expired ({bars_since_climax}d ago > {cwin}d window)"}
+
+    # Climax zone low (for SL anchor)
+    climax_low = df["l"].iloc[max(0, loc_climax - 4): loc_climax + 1].min()
+
+    # Look for turn candle in bars AFTER the climax (up to today)
+    post = df.iloc[loc_climax + 1:].copy()
+    if post.empty:
+        return {"signal": 1, "signal_date": None, "climax_date": climax_date,
+                "climax_low": climax_low,
+                "details": f"Climax active ({bars_since_climax}d ago): waiting for turn"}
+
+    post["prev_h"] = df["h"].shift(1).reindex(post.index)
+    post["range"]  = post["h"] - post["l"]
+    turn_mask = (
+        (post["c"] > post["o"]) &
+        (post["range"] > 0) &
+        ((post["c"] - post["l"]) / post["range"] >= 0.60) &
+        (post["c"] > post["prev_h"])
+    )
+    turn_rows = post[turn_mask]
+
+    if turn_rows.empty:
+        return {"signal": 1, "signal_date": None, "climax_date": climax_date,
+                "climax_low": climax_low,
+                "details": f"Climax active ({bars_since_climax}d ago): no turn yet"}
+
+    turn_date = turn_rows.index[-1]
+    loc_turn  = df.index.get_loc(turn_date)
+    bars_since_turn = len(df) - 1 - loc_turn
+
+    if bars_since_turn > hold:
+        return {"signal": 0, "signal_date": turn_date, "climax_date": climax_date,
+                "climax_low": climax_low,
+                "details": f"Turn expired ({bars_since_turn}d ago > {hold}d hold window)"}
+
+    return {"signal": 2, "signal_date": turn_date, "climax_date": climax_date,
+            "climax_low": climax_low,
+            "details": f"CB buy: climax {bars_since_climax}d ago, turn {bars_since_turn}d ago"}
+
+
+def check_rev_rs(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
+    """
+    REV-RS: RS Survivor Structural Breakout (v1.2 — price-action today-check).
+
+    Conditions (any of the last signal_hold_days bars):
+       close > highest high of prior rs_bo_len days  (20D structural breakout — pure price)
+       volume >= vol_confirm_mult × 50D avg           (relative volume)
+    AND today's higher-low structure is intact:
+       lowest low of last rs_hl_recent bars  >
+       lowest low of bars rs_hl_recent+rs_hl_prior → rs_hl_recent ago
+       (pure price structure — replaces "close > SMA50 today" lagging filter).
+
+    Rationale: SMA50 sits ~25 bars behind price. A stock can be in a valid
+    recovery with higher lows for weeks before closing above SMA50. The
+    higher-low check fires on bar 2 of a recovery; SMA50 fires on bar 25.
+
+    No SMA50<SMA200 gate: RS Survivors screener already selects stocks showing
+    positive relative strength vs CNX500. Requiring death-cross would exclude
+    Stage 2 leaders that recovered early. Gate lives in the Chartink scanner.
+    """
+    if not rs_positive:
+        return {"signal": 0, "signal_date": None, "details": "RS slope negative"}
+    if not regime_ok:
+        return {"signal": 0, "signal_date": None, "details": "Regime gate failed"}
+
+    hold   = CONFIG["signal_hold_days"]
+    bo_len = CONFIG["rs_bo_len"]
+    vm     = CONFIG["vol_confirm_mult"]
+    hl_r   = CONFIG["rs_hl_recent"]
+    hl_p   = CONFIG["rs_hl_prior"]
+
+    c_s    = ind["close"]
+    h_s    = ind["high"]
+    l_s    = ind["low"]
+    vol_s  = ind["volume"]
+    vm_s   = ind["vol_ma"]
+    n      = len(c_s)
+
+    # Higher-low structure today (price-action trend filter)
+    if n < hl_r + hl_p + 1:
+        return {"signal": 0, "signal_date": None, "details": "Insufficient history for HL check"}
+    recent_low = float(l_s.iloc[-hl_r:].min())
+    prior_low  = float(l_s.iloc[-(hl_r + hl_p) : -hl_r].min())
+    if not (recent_low > prior_low):
+        return {"signal": 0, "signal_date": None,
+                "details": f"No higher-low structure (recent {recent_low:.2f} <= prior {prior_low:.2f})"}
+
+    found_date = None
+    days_ago   = None
+    for i in range(hold, 0, -1):         # oldest → newest within hold window
+        pos = n - i                       # absolute 0-indexed position
+        if pos < bo_len + 1:
+            continue
+        c_i   = c_s.iloc[pos]
+        vol_i = vol_s.iloc[pos]
+        vm_i  = vm_s.iloc[pos]
+        if any(pd.isna([c_i, vm_i])) or vm_i == 0:
+            continue
+        bo_high = h_s.iloc[pos - bo_len: pos].max()   # highest high of PRIOR bo_len bars
+        # v1.2: dropped `c_i > s50_i` — replaced by today's higher-low gate above.
+        if c_i > bo_high and (vol_i / vm_i) >= vm:
+            found_date = c_s.index[pos]
+            days_ago   = i - 1                         # 0 = today, 1 = yesterday, ...
+
+    if found_date is None:
+        return {"signal": 0, "signal_date": None,
+                "details": f"No RS breakout in last {hold} trading days"}
+
+    return {"signal": 3, "signal_date": found_date,
+            "details": f"RS breakout {days_ago}d ago, higher-low intact"}
+
+
+def check_rev_early(ind: dict, rs_positive: bool, regime_ok: bool) -> dict:
+    """
+    REV-EARLY: Early Bird Trendline Reclaim + Base Compression (v1.2).
+
+    Conditions (any of the last signal_hold_days bars):
+       close > highest high of prior early_pivot_len days          (15D pivot breakout — pure price)
+       close > highest high of bars [trendline_recent+window, trendline_recent] ago
+                                                                    (trendline reclaim — break of prior swing-high shelf,
+                                                                     replaces "SMA50 within 5% of SMA200" near-GC lagging check)
+       base compression: NR7 (narrowest range in 7 bars)
+                         OR ≥ early_inside_count_min inside bars in last early_inside_lookback
+                                                                    (replaces ATR-based VCP — pure price structure)
+       5D vol avg BEFORE the bar < 50D vol avg                      (VCP dry-up, kept)
+       volume >= vol_confirm_mult × 50D avg                         (breakout volume)
+    AND today's higher-low structure is intact (pure price):
+       lowest low of last rs_hl_recent bars > lowest low of prior rs_hl_prior bars.
+
+    Rationale: near-GC fires WELL after recovery has begun (SMA50/SMA200 are
+    the two most lagging indicators in retail TA). A trendline reclaim fires
+    the bar the stock breaks its multi-week downtrend — which IS early-bird
+    timing. NR7 and inside-bar counts react to the same tightness ATR picks
+    up, but without the 10/50-bar smoothing lag.
+    """
+    if not rs_positive:
+        return {"signal": 0, "signal_date": None, "details": "RS slope negative"}
+    if not regime_ok:
+        return {"signal": 0, "signal_date": None, "details": "Regime gate failed"}
+
+    hold     = CONFIG["signal_hold_days"]
+    piv_len  = CONFIG["early_pivot_len"]
+    vm       = CONFIG["vol_confirm_mult"]
+    tl_rec   = CONFIG["early_trendline_recent"]
+    tl_win   = CONFIG["early_trendline_window"]
+    nr7_len  = CONFIG["early_nr7_len"]
+    in_lb    = CONFIG["early_inside_lookback"]
+    in_min   = CONFIG["early_inside_count_min"]
+    hl_r     = CONFIG["rs_hl_recent"]
+    hl_p     = CONFIG["rs_hl_prior"]
+
+    c_s    = ind["close"]
+    h_s    = ind["high"]
+    l_s    = ind["low"]
+    vol_s  = ind["volume"]
+    vm_s   = ind["vol_ma"]
+    n      = len(c_s)
+
+    # Today's higher-low structure (price-action replacement for near-GC + MA stack)
+    if n < hl_r + hl_p + 1:
+        return {"signal": 0, "signal_date": None, "details": "Insufficient history for HL check"}
+    recent_low = float(l_s.iloc[-hl_r:].min())
+    prior_low  = float(l_s.iloc[-(hl_r + hl_p) : -hl_r].min())
+    if not (recent_low > prior_low):
+        return {"signal": 0, "signal_date": None,
+                "details": f"No higher-low structure (recent {recent_low:.2f} <= prior {prior_low:.2f})"}
+
+    # Pre-compute inside-bar flags (needed per-bar inside the loop)
+    inside_full = (h_s < h_s.shift(1)) & (l_s > l_s.shift(1))
+
+    found_date = None
+    days_ago   = None
+    for i in range(hold, 0, -1):
+        pos = n - i
+        if pos < max(piv_len, tl_rec + tl_win, in_lb, nr7_len) + 6:
+            continue
+
+        c_i   = c_s.iloc[pos]
+        vol_i = vol_s.iloc[pos]
+        vm_i  = vm_s.iloc[pos]
+
+        if any(pd.isna([c_i, vm_i])) or vm_i == 0:
+            continue
+
+        # Trendline reclaim: close > highest high of bars [tl_rec+tl_win, tl_rec] ago.
+        # This is the "prior swing-high shelf" — by breaking it we reclaim the
+        # downtrend line connecting the last cluster of lower highs.
+        tl_slice = h_s.iloc[pos - (tl_rec + tl_win) : pos - tl_rec]
+        if tl_slice.empty:
+            continue
+        tl_high = tl_slice.max()
+        if not (c_i > tl_high):
+            continue
+
+        # Pivot breakout (15-day high)
+        piv_high = h_s.iloc[pos - piv_len: pos].max()
+        if not (c_i > piv_high):
+            continue
+
+        # Base compression: NR7 OR ≥N inside bars in last 10
+        bar_range_i = h_s.iloc[pos] - l_s.iloc[pos]
+        ranges_n    = (h_s.iloc[pos - nr7_len + 1 : pos + 1] -
+                       l_s.iloc[pos - nr7_len + 1 : pos + 1])
+        is_nr7      = bar_range_i <= ranges_n.min()
+        inside_count = int(inside_full.iloc[pos - in_lb : pos].sum())
+        if not (is_nr7 or inside_count >= in_min):
+            continue
+
+        # VCP dry-up: 5D vol average BEFORE this bar (kept — structural & correct)
+        vol5_pre = vol_s.iloc[pos - 5: pos].mean()
+        if not (vol5_pre < vm_i):
+            continue
+
+        # Volume expansion on breakout
+        if not ((vol_i / vm_i) >= vm):
+            continue
+
+        found_date = c_s.index[pos]
+        days_ago   = i - 1
+
+    if found_date is None:
+        return {"signal": 0, "signal_date": None,
+                "details": f"No EARLY breakout in last {hold} trading days"}
+
+    return {"signal": 4, "signal_date": found_date,
+            "details": f"EARLY trendline reclaim {days_ago}d ago, base compressed"}
+
+
+# -----------------------------------------------------------------------------
+# COMPOSITE SCORE  (0-20)
+# -----------------------------------------------------------------------------
+def compute_score(signal: int, rff: int, rs_val: float,
+                  corr_pct: float, mkt_recovery: bool,
+                  mkt_corrected: bool, stage: int, rel_vol: float,
+                  chartink_confirmed: bool = False) -> int:
+    s = 0
+    s += min(rff, 6)                             # fundamentals  0-6
+    if rs_val > 0:    s += 1                     # positive RS   0-1
+    if rs_val >= 1.0: s += 1                     # strong RS     0-1
+    if corr_pct >= 30: s += 3                    # deep discount 0-3
+    elif corr_pct >= 20: s += 2
+    elif corr_pct >= 10: s += 1
+    if mkt_recovery:   s += 2                    # regime        0-2
+    elif mkt_corrected: s += 1
+    if stage in (1, 2): s += 1                   # Weinstein     0-1
+    if signal >= 2:    s += 3                    # edge fired    0-3
+    elif signal == 1:  s += 1
+    if signal >= 2 and rel_vol >= 3.0: s += 2   # vol strength  0-2
+    elif signal >= 2 and rel_vol >= 2.0: s += 1
+    if chartink_confirmed: s += 1               # intersection: in both Chartink + Screener.in  0-1
+    return s
+
+
+# -----------------------------------------------------------------------------
+# EXIT LEVELS
+# -----------------------------------------------------------------------------
+def compute_exit_levels(ind: dict, signal: int, climax_low: float = np.nan) -> dict:
+    """
+    REV-CB  : SL = climax zone low - 0.5ATR  |  T1 = EMA20  |  T2 = SMA200
+    REV-RS/E: SL = 10D low - 0.2ATR          |  T1 = 2.5R   |  T2 = 52W High
+    """
+    c     = ind["close"].iloc[-1]
+    atr   = ind["atr14"].iloc[-1]
+    ema20 = ind["ema20"].iloc[-1]
+    s200  = ind["sma200"].iloc[-1]
+    h52w  = ind["high52w"].iloc[-1]
+    low10 = ind["low"].iloc[-10:].min()
+
+    if signal == 2 and not np.isnan(climax_low):
+        sl = climax_low - atr * 0.5
+    else:
+        sl = low10 - atr * 0.2
+
+    if sl >= c:                             # safety floor: SL must be below close
+        sl = c - atr * 1.5
+
+    risk = max(c - sl, c * 0.005)
+    t1   = ema20 if signal == 2 else c + risk * 2.5
+    t2   = s200  if signal == 2 else h52w
+
+    return {
+        "Entry"  : round(c, 2),
+        "SL"     : round(sl, 2),
+        "T1"     : round(t1, 2),
+        "T2"     : round(t2, 2),
+        "RR_T1"  : round((t1 - c) / risk, 2)   if risk > 0 else None,
+        "T1_pct" : round((t1 - c) / c * 100, 2) if c > 0 else None,
+        "SL_pct" : round((c - sl) / c * 100, 2) if c > 0 else None,
+    }
+
+
+# -----------------------------------------------------------------------------
+# SINGLE-SYMBOL SCREENER
+# -----------------------------------------------------------------------------
+def screen_symbol(symbol: str, edge_hint: str, regime: dict,
+                  df_cnx500_w: pd.DataFrame, screener_row: dict | None,
+                  chartink_confirmed: bool = False) -> dict:
+    """Download OHLCV, compute all indicators, run all 3 edges, score, exit levels."""
+
+    blank = dict(
+        Symbol=symbol, Edge_Hint=edge_hint,
+        Signal=0, Signal_Label="None", Signal_Date=None,
+        Score=0, RFF_Score=0, Chartink_Confirmed=chartink_confirmed,
+        Weinstein_Stage=0, Mansfield_RS=None, RS_Slope_4W=None, RS_Positive=False,
+        Stretch_SMA200_pct=None, Correction_52W_pct=None,
+        Rel_Vol=None, RSI14=None, RSI3=None,
+        Regime_OK=False,
+        Mkt_Recovery=regime["mkt_in_recovery"],
+        Mkt_Corrected=regime["mkt_corrected"],
+        Mkt_Reclaim=regime.get("mkt_reclaim", False),
+        Mkt_Corr_Depth_pct=regime["mkt_corr_pct"],
+        Entry=None, SL=None, T1=None, T2=None,
+        RR_T1=None, T1_pct=None, SL_pct=None,
+        Signal_Date_CB=None, Details="",
+    )
+
+    yf_sym = to_yf(symbol)
+
+    # -- 1. Download daily OHLCV ----------------------------------------------
+    try:
+        df_d = _flatten_cols(
+            yf.download(yf_sym, period=f"{CONFIG['data_lookback_days']}d",
+                        interval="1d", auto_adjust=True, progress=False)
+        )
+        if df_d.empty or len(df_d) < 60:
+            blank["Details"] = "Insufficient daily data"
+            return blank
+    except Exception as e:
+        blank["Details"] = f"Download error: {e}"
+        return blank
+
+    # -- 2. Download weekly OHLCV (covers both Mansfield RS and Weinstein Stage) -
+    try:
+        df_w = _flatten_cols(
+            yf.download(yf_sym, period="3y", interval="1wk",
+                        auto_adjust=True, progress=False)
+        )
+    except Exception:
+        df_w = pd.DataFrame()
+
+    # -- 3. Indicators --------------------------------------------------------
+    ind = compute_indicators(df_d)
+
+    # -- 4. Liquidity gate ----------------------------------------------------
+    turnover_cr = float(ind["close"].iloc[-1] * ind["volume"].iloc[-1]) / 1e7
+    if turnover_cr < CONFIG["min_daily_turnover_cr"]:
+        blank["Details"] = f"Below liquidity gate ({turnover_cr:.1f} Cr today)"
+        return blank
+
+    # -- 5. Current-bar metrics -----------------------------------------------
+    c_now    = float(ind["close"].iloc[-1])
+    s200_now = float(ind["sma200"].iloc[-1])
+    h52w_now = float(ind["high52w"].iloc[-1])
+    r14_now  = float(ind["rsi14"].iloc[-1])
+    r3_now   = float(ind["rsi3"].iloc[-1])
+    rv_now   = float(ind["rel_vol"].iloc[-1]) if not np.isnan(ind["rel_vol"].iloc[-1]) else 0.0
+
+    stretch200  = (c_now - s200_now) / s200_now * 100 if s200_now > 0 else np.nan
+    corr_52w    = (h52w_now - c_now) / h52w_now * 100 if h52w_now > 0 else np.nan
+    stock_corr  = (not np.isnan(corr_52w)) and corr_52w >= CONFIG["min_stock_correction_pct"] and corr_52w <= CONFIG["max_stock_correction_pct"]
+    
+    # ENHANCEMENT (Apr-2026): Strict Recovery Premise.
+    # Stock must be corrected between 10-40% from 52W high.
+    # <10% = not a recovery play (belongs in Stage 2 bull scanners).
+    # >40% = likely distressed (debt/business model issues, not temporary correction).
+    regime_ok   = (not CONFIG.get("use_regime_gate", True)) or stock_corr
+
+    # -- 6. Relative Strength -------------------------------------------------
+    # v1.2: display metric = Mansfield RS (26wk SMA — familiar, keeps CSV columns stable).
+    #       gating metric  = 4-week RS-line slope (no smoothing — recovery-responsive).
+    rs_val   = compute_mansfield_rs(df_w, df_cnx500_w) if not df_w.empty else np.nan
+    rs_slope = compute_rs_slope_w(df_w, df_cnx500_w, CONFIG["rs_slope_weeks"]) if not df_w.empty else np.nan
+    rs_pos   = (not np.isnan(rs_slope)) and rs_slope > 0
+
+    # -- 7. Weinstein Stage (weekly) ------------------------------------------
+    stage = compute_weinstein_stage(df_w) if not df_w.empty else 0
+
+    # -- 8. RFF (full 6-check) ------------------------------------------------
+    fund_source = "Screener.in"
+    if screener_row is None:
+        # Screener.in has no row for this stock — fall back to yfinance .info
+        yf_fund = fetch_yf_fundamentals(yf_sym)
+        if yf_fund:
+            screener_row = yf_fund
+            fund_source  = "yfinance"
+        else:
+            fund_source  = "unavailable"
+
+    rff_score, rff_checks = compute_rff(screener_row) if screener_row else (0, {})
+    rff_ok = CONFIG["rff_min_score"] == 0 or rff_score >= CONFIG["rff_min_score"]
+
+    # -- 9. Edge detection ----------------------------------------------------
+    # Pass regime_ok only: rff_ok is applied below at the priority selection level.
+    # This way the edge functions correctly report "no breakout" vs "regime failed"
+    # even when no Screener.in fundamental data is available.
+    cb_res    = check_rev_cb(ind)
+    rs_res    = check_rev_rs(ind, rs_pos, regime_ok)
+    early_res = check_rev_early(ind, rs_pos, regime_ok)
+
+    # Priority: EARLY 4 > RS 3 > CB-Buy 2 > CB-Watch 1 > None 0
+    sig = 0; sig_date = None; sig_label = "None"; details = ""; climax_low = np.nan
+
+    if early_res["signal"] == 4 and rff_ok:
+        sig, sig_date, sig_label = 4, early_res["signal_date"], "REV-EARLY"
+        details = early_res["details"]
+    elif rs_res["signal"] == 3 and rff_ok:
+        sig, sig_date, sig_label = 3, rs_res["signal_date"], "REV-RS"
+        details = rs_res["details"]
+    elif cb_res["signal"] == 2 and rff_ok:
+        sig, sig_date, sig_label = 2, cb_res["signal_date"], "REV-CB"
+        details   = cb_res["details"]
+        climax_low = cb_res["climax_low"]
+    elif cb_res["signal"] == 1:
+        sig, sig_label = 1, "CB-Watch"
+        details = cb_res["details"]
+    else:
+        parts = [r["details"] for r in [early_res, rs_res, cb_res] if r["details"]]
+        details = " | ".join(parts)
+
+    if sig >= 2 and fund_source == "unavailable":
+        details += " [RFF not verified: no fundamental data from Screener.in or yfinance]"
+    elif sig >= 2 and fund_source == "yfinance":
+        details += f" [RFF via yfinance ({rff_score}/6)]"
+    if chartink_confirmed:
+        details += " [Also in Screener.in screens — intersection]"
+
+    # -- 10. Score ------------------------------------------------------------
+    score = compute_score(
+        sig, rff_score, rs_val if not np.isnan(rs_val) else 0.0,
+        corr_52w if not np.isnan(corr_52w) else 0.0,
+        regime["mkt_in_recovery"], regime["mkt_corrected"],
+        stage, rv_now, chartink_confirmed,
+    )
+
+    # -- 11. Exit levels ------------------------------------------------------
+    exits = compute_exit_levels(ind, sig, climax_low)
+
+    return dict(
+        Symbol       = symbol,
+        Edge_Hint    = edge_hint,
+        Signal       = sig,
+        Signal_Label = sig_label,
+        Signal_Date  = str(sig_date.date()) if sig_date is not None else None,
+        Score        = score,
+        RFF_Score    = rff_score,
+        Chartink_Confirmed = chartink_confirmed,
+        RFF_Detail   = str({k: v for k, v in rff_checks.items() if v}) if rff_checks else "",
+        Weinstein_Stage       = stage,
+        Mansfield_RS          = round(rs_val, 3)   if not np.isnan(rs_val)   else None,
+        RS_Slope_4W           = round(rs_slope, 2) if not np.isnan(rs_slope) else None,
+        RS_Positive           = rs_pos,
+        Stretch_SMA200_pct    = round(stretch200, 2) if not np.isnan(stretch200) else None,
+        Correction_52W_pct    = round(corr_52w, 2)   if not np.isnan(corr_52w)   else None,
+        Rel_Vol               = round(rv_now, 2),
+        RSI14                 = round(r14_now, 1),
+        RSI3                  = round(r3_now, 1),
+        Regime_OK             = regime_ok,
+        Mkt_Recovery          = regime["mkt_in_recovery"],
+        Mkt_Corrected         = regime["mkt_corrected"],
+        Mkt_Reclaim           = regime.get("mkt_reclaim", False),
+        Mkt_Corr_Depth_pct    = regime["mkt_corr_pct"],
+        CB_Climax_Date = str(cb_res["climax_date"].date()) if cb_res.get("climax_date") is not None else None,
+        **exits,
+        Details = details,
+    )
+
+
+# -----------------------------------------------------------------------------
+# INPUT LOADERS
+# -----------------------------------------------------------------------------
+def load_candidates() -> list:
+    """Return (symbol, edge_hint) candidates from Chartink recovery CSVs. De-duplicated.
+
+    Architecture:
+      Chartink scans 5-7 are the TECHNICAL PRE-FILTER — they produce a tight list of
+      NSE stocks that passed real-time technical criteria. The Python screener then
+      applies strict signal-hold-window logic on top.
+
+      Screener.in recovery CSVs (SCREENER_FILES) are used ONLY as a fundamentals
+      lookup table (via load_fundamentals). A Chartink stock that also appears in
+      the Screener.in screen gets a full RFF score; one that doesn't gets RFF=0.
+      The intersection (both sources) = highest conviction → gets a score bonus.
+
+    Run chartink_scanner_pro.py scans 5-7 before this script.
+    Run screener_fetcher + screener_processor to populate the RFF lookup.
+    """
+    candidates, seen = [], set()
+    skipped = []
+
+    def _valid_sym(s: str) -> bool:
+        """Reject non-NSE symbols: numeric BSE codes, ISINs, long garbage strings."""
+        if not s:
+            return False
+        if s.isdigit():                              # unmapped BSE scrip codes (513119…)
+            return False
+        if all(c.isdigit() or c == "-" for c in s): # digit-hyphen BSE patterns
+            return False
+        if s.startswith("INE") and len(s) == 12:    # ISIN codes
+            return False
+        if len(s) > 20:                              # HTML parse artefacts
+            return False
+        return True
+
+    _EDGE_SCAN = {"REV-RS": "5", "REV-CB": "6", "REV-EARLY": "7"}
+    for edge, fname in CHARTINK_FILES.items():
+        fpath = os.path.join(DATA_DIR, fname)
+        if not os.path.exists(fpath):
+            print(f"  WARN  {fname} not found — run chartink_scanner_pro.py scan {_EDGE_SCAN.get(edge, '5-7')}")
+            continue
+        try:
+            df = pd.read_csv(fpath)
+            if "Symbol" not in df.columns:
+                print(f"  WARN  {fname} has no Symbol column: skipping")
+                continue
+            syms = df["Symbol"].dropna().astype(str).str.strip().str.upper().unique()
+            added = 0
+            for s in syms:
+                if not _valid_sym(s):
+                    skipped.append(s)
+                    continue
+                if s not in seen:
+                    candidates.append((s, edge))
+                    seen.add(s)
+                    added += 1
+            print(f"    {edge}: {added} stocks from {fname}")
+        except Exception as e:
+            print(f"  WARN  Error reading {fname}: {e}")
+
+    if skipped:
+        print(f"  Skipped {len(set(skipped))} invalid symbols (numeric/BSE): "
+              f"{', '.join(sorted(set(skipped))[:10])}" + (" ..." if len(set(skipped)) > 10 else ""))
+    if not candidates:
+        print("  WARN  No Screener.in recovery CSVs found — RFF will be 0 for all stocks.")
+    print(f"  Total candidates: {len(candidates)}")
+    return candidates
+
+
+def load_screener_symbols() -> set:
+    """Return set of all symbols present in the Screener.in recovery CSVs.
+    Used by main() to identify Chartink candidates that are ALSO in Screener.in
+    screens — these are the intersection stocks (highest conviction, full RFF)."""
+    si_syms = set()
+    for _, fname in SCREENER_FILES.items():
+        fpath = os.path.join(DATA_DIR, fname)
+        if not os.path.exists(fpath):
+            continue
+        try:
+            df = pd.read_csv(fpath)
+            sym_col = next((c for c in df.columns if c.lower() in ("symbol", "nsecode", "ticker")), None)
+            if sym_col:
+                si_syms.update(df[sym_col].dropna().astype(str).str.strip().str.upper())
+        except Exception:
+            pass
+    return si_syms
+
+
+def load_fundamentals() -> dict:
+    """Load Screener.in fundamental CSVs  {symbol: row_dict}."""
+    fund = {}
+    for edge, fname in SCREENER_FILES.items():
+        fpath = os.path.join(DATA_DIR, fname)
+        if not os.path.exists(fpath):
+            continue
+        try:
+            df = pd.read_csv(fpath)
+            # Screener.in exports column headers with embedded \n + spaces
+            # e.g. "ROCE\n                    %" → normalise to "ROCE %"
+            df.columns = [" ".join(str(c).replace("\n", " ").split()) for c in df.columns]
+            if "Symbol" not in df.columns:
+                continue
+            for _, row in df.iterrows():
+                sym = str(row["Symbol"]).strip().upper()
+                if sym and sym not in fund:
+                    fund[sym] = row.to_dict()
+        except Exception as e:
+            print(f"  WARN  Error reading {fname}: {e}")
+    print(f"    Fundamentals loaded for {len(fund)} symbols "
+          f"({'RFF will be 0-6' if fund else 'no Screener.in CSVs found: RFF skipped'})")
+    return fund
+
+
+# -----------------------------------------------------------------------------
+# MAIN
+# -----------------------------------------------------------------------------
+def main():
+    from datetime import datetime
+    print("=" * 68)
+    print("  COMMANDER RECOVERY SCREENER :  Python Edition v1.1")
+    print(f"    {datetime.now().strftime('%A %d %b %Y  %H:%M')}")
+    print("=" * 68)
+
+    # 1 -- Candidates (Screener.in primary, Chartink secondary)
+    print("\n  Loading candidates...")
+    candidates = load_candidates()
+    if not candidates:
+        print("ERROR  No candidates found.")
+        print("       Run screener_fetcher + screener_processor (for Screener.in pool)")
+        print("       and/or chartink_scanner_pro.py scans 5-7 (for Chartink pool).")
+        return
+
+    # 1b -- Screener.in symbol set: candidates also in Screener.in = intersection
+    screener_syms = load_screener_symbols()
+    overlap = sum(1 for s, _ in candidates if s in screener_syms)
+    print(f"  Screener.in overlap (intersection): {overlap} of {len(candidates)} stocks have RFF data")
+
+    # 2 -- Fundamentals
+    print("\n  Loading Screener.in fundamentals...")
+    fund_map = load_fundamentals()
+
+    # 3 -- CNX500 market data (regime gate + Mansfield RS denominator)
+    print("\n  Downloading CNX500 market data...")
+    try:
+        df_cnx_d = _flatten_cols(
+            yf.download(CNX500_YF, period="2y", interval="1d",
+                        auto_adjust=True, progress=False)
+        )
+        df_cnx_w = _flatten_cols(
+            yf.download(CNX500_YF, period="3y", interval="1wk",
+                        auto_adjust=True, progress=False)
+        )
+        regime = check_regime(df_cnx_d)
+        print(f"    CNX500 close : {regime['mkt_close']}")
+        print(f"    SMA50/SMA200 : {regime['mkt_sma50']} / {regime['mkt_sma200']}  "
+              f"(death-cross: {regime['mkt_death_cross']} — info only in v1.2)")
+        print(f"    Corrected≥7% : {regime['mkt_corrected']}  "
+              f"({regime['mkt_corr_pct']:.1f}% off 52W high)")
+        print(f"    HL Reclaim   : {regime['mkt_reclaim']}  (recent 10-bar low > prior 10-bar low)")
+        print(f"    Recovery     : {regime['mkt_in_recovery']}  (= corrected AND reclaiming)")
+    except Exception as e:
+        print(f"ERROR  CNX500 download failed: {e}")
+        return
+
+    # 4 -- Screen each symbol
+    total   = len(candidates)
+    results = []
+    print(f"\n   Screening {total} symbols  (signal_hold_days={CONFIG['signal_hold_days']})...\n")
+
+    for idx, (symbol, edge_hint) in enumerate(candidates, 1):
+        si_confirmed = symbol in screener_syms   # also in Screener.in = intersection
+        si_tag = " [SI]" if si_confirmed else ""  # SI = Screener.in intersection
+        print(f"  [{idx:3d}/{total}]  {symbol:<16} ({edge_hint:<10}){si_tag} ... ", end="", flush=True)
+        try:
+            r = screen_symbol(symbol, edge_hint, regime, df_cnx_w,
+                              fund_map.get(symbol), chartink_confirmed=si_confirmed)
+            tag = f"Signal={r['Signal']} ({r['Signal_Label']:<10})  Score={r['Score']:2d}"
+            if r["Signal"] >= 3:
+                tag += "  ***"
+            elif r["Signal"] == 2:
+                tag += "  "
+            elif r["Signal"] == 1:
+                tag += "  *"
+            print(tag)
+            results.append(r)
+        except Exception as e:
+            print(f"ERROR: {e}")
+            results.append({"Symbol": symbol, "Edge_Hint": edge_hint,
+                            "Signal": 0, "Score": 0, "Details": str(e)})
+        time.sleep(CONFIG["download_delay_sec"])
+
+    # 5 -- Sort and save
+    df_out = pd.DataFrame(results)
+    if not df_out.empty:
+        df_out.sort_values(["Signal", "Score"], ascending=[False, False], inplace=True)
+        df_out.reset_index(drop=True, inplace=True)
+    out_path = os.path.join(DATA_DIR, OUTPUT_FILE)
+    df_out.to_csv(out_path, index=False)
+
+    # 6 -- Summary
+    print("\n" + "=" * 68)
+    print("  RESULTS SUMMARY")
+    print("=" * 68)
+    counts = df_out["Signal"].value_counts().sort_index(ascending=False)
+    for s, n in counts.items():
+        lbl = SIGNAL_LABELS.get(s, "?")
+        bar = "#" * n
+        print(f"  Signal {s}  {lbl:<12}  {n:3d}  {bar}")
+
+    actionable = df_out[df_out["Signal"] >= 2]
+    if not actionable.empty:
+        print(f"\n  ACTIONABLE SETUPS  (Signal >= 2, top {min(15, len(actionable))})")
+        hdr = f"  {'Symbol':<16} {'Edge':<12} {'Scr':>3} {'RFF':>4} {'RS':>6}  {'SL%':>5}  {'T1%':>5}  {'RR':>4}  Signal Date"
+        print(hdr)
+        print("  " + "-" * (len(hdr) - 2))
+        for _, row in actionable.head(15).iterrows():
+            rs_s  = f"{row.get('Mansfield_RS', ''):.2f}" if row.get("Mansfield_RS") is not None else "  n/a"
+            sl_s  = f"{row.get('SL_pct', ''):.1f}" if row.get("SL_pct") is not None else "  n/a"
+            t1_s  = f"{row.get('T1_pct', ''):.1f}" if row.get("T1_pct") is not None else "  n/a"
+            rr_s  = f"{row.get('RR_T1', ''):.1f}" if row.get("RR_T1") is not None else " n/a"
+            sd    = row.get("Signal_Date") or ""
+            print(f"  {row['Symbol']:<16} {row['Signal_Label']:<12} "
+                  f"{row.get('Score', 0):>3} {row.get('RFF_Score', 0):>4} {rs_s:>6}  "
+                  f"{sl_s:>5}  {t1_s:>5}  {rr_s:>4}  {sd}")
+    else:
+        print("\n  No actionable setups (Signal >= 2) in current watchlists.")
+        print("  Check Signal=1 (CB-Watch) for upcoming CB setups.")
+
+    print(f"\nDONE  Full results  {OUTPUT_FILE}")
+    print("=" * 68)
+
+
+if __name__ == "__main__":
+    main()

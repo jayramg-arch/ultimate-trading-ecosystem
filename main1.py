@@ -130,7 +130,8 @@ def run_analysis():
 
     # Fetch Market Data
     all_tickers = stocks + [BENCHMARK_SYMBOL]
-    data = yf.download(all_tickers, period="1y", interval="1wk", group_by='ticker', progress=False, ignore_tz=True)
+    import data_provider as dp
+    data = dp.fetch_batch_ohlcv(all_tickers, period="1y", interval="1wk", use_cache=True, auto_adjust=True)
     
     results = []
     

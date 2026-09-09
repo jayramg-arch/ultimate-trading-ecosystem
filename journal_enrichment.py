@@ -84,14 +84,8 @@ def _load_benchmark():
     if "w" in _BENCH_CACHE:
         return _BENCH_CACHE["w"]
     import bull_screener as bs
-    try:
-        import data_provider as dp
-        df_bench = bs._flatten_cols(dp.fetch_ohlcv(bs.BENCHMARK_YF, period="3y", interval="1wk"))
-    except Exception:
-        import yfinance as yf
-        df_bench = bs._flatten_cols(
-            yf.download(bs.BENCHMARK_YF, period="3y", interval="1wk",
-                        auto_adjust=True, progress=False))
+    import data_provider as dp
+    df_bench = bs._flatten_cols(dp.fetch_ohlcv(bs.BENCHMARK_YF, period="3y", interval="1wk", use_cache=True, auto_adjust=True))
     _BENCH_CACHE["w"] = df_bench
     return df_bench
 

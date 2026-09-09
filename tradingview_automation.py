@@ -122,10 +122,30 @@ async def run_sync():
                 
                 print("   Waiting for file chooser...")
                 file_chooser = await fc_info.value
-                await file_chooser.set_files(file_path)
                 
-                print(f"   ✅ Uploaded {filename}")
-                await page.wait_for_timeout(2000)
+                # --- TV Compatibility Pre-processing ---
+                import tempfile
+                import shutil
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # TradingView uses underscores instead of hyphens or ampersands (e.g. NAM_INDIA, M_M)
+                tv_content = content.replace('-', '_').replace('&', '_')
+                
+                temp_dir = tempfile.mkdtemp(prefix='tv_wl_dir_')
+                temp_path = os.path.join(temp_dir, filename)
+                with open(temp_path, 'w', encoding='utf-8') as f:
+                    f.write(tv_content)
+                
+                try:
+                    await file_chooser.set_files(temp_path)
+                    print(f"   ✅ Uploaded {filename}")
+                    await page.wait_for_timeout(2000)
+                finally:
+                    try:
+                        shutil.rmtree(temp_dir)
+                    except:
+                        pass
                 
                 # Wait for system to process (it might ask to replace if exists? Usually it creates new or overwrites)
                 await page.wait_for_timeout(2000) 

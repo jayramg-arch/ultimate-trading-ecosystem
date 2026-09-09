@@ -45,7 +45,7 @@ def analyze_chart_screenshot(image_path, symbol):
         )
         
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.5-flash-lite',
             contents=[prompt, image_part]
         )
         

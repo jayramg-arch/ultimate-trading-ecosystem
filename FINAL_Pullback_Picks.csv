@@ -1,11 +1,5 @@
-Symbol,S.No.,Name,"CMP
-                    Rs.",P/E,"Mar Cap
-                    Rs.Cr.","Div Yld
-                    %","NP Qtr
-                    Rs.Cr.","Qtr Profit Var
-                    %","Sales Qtr
-                    Rs.Cr.","Qtr Sales Var
-                    %","ROCE
-                    %","ROE
-                    %",Price,%Chg,Volume,Conviction,AI_Catalyst
-GVT&D,3.,GE Vernova T&D,3770.00,86.22,96351.19,0.13,290.80,138.53,1700.64,58.40,54.74,,3761.8,-1.21,328140,5.0,GVT&D benefits long-term from India's power transmission infrastructure development plans and renewable energy integration.
+Symbol,Name,Combined_Score,Conviction,Tech_Score,Stage,Mansfield_RS,Daily_RSI,Daily_ADX,EMA_Stack,Above_200DMA,Dist_52WH_pct,Vol_RelAvg,ROE %,ROCE %,Debt to equity,Promoter holding %,Div Yld %,Qtr Profit Var %,Qtr Sales Var %,Mar Cap Rs.Cr.,CMP Rs.,P/E,Volume,Hybrid_Catalyst,%Chg,Minervini_Score,Piotroski_Score,Overall_Rating,Overall_Grade,Delivery_Pct,Futures_OI_Chg_Pct
+NAM-INDIA,Nippon Life Ind.,77.5,8.5,70,2,1.8582986125320833,51.85287687152986,15.16705232889133,True,True,4.48,1.26,35.5,45.2,0.02,71.8,1.82,27.16,26.42,76070.0,1189.0,47.6,648048,NONE,-0.51,5.0,,59.0,C FAIR,55.97,7.18
+TBOTEK,TBO Tek,75.0,8.5,65,2,9.1635927664224,55.89576570762765,32.700436347029154,False,True,2.58,0.48,6.86,9.49,0.49,44.4,0.0,47.12,81.07,18442.55,1698.4,303.0,94873,NONE,-0.64,1.0,3.0,54.2,D WEAK,80.8,
+LALPATHLAB,Dr Lal Pathlabs,75.0,7.5,75,2,5.619547417798687,53.10041791806881,27.506246871918655,True,True,3.32,0.46,22.9,28.5,0.08,53.19,0.74,28.02,19.1,32058.29,1909.95,56.7,98124,NONE,0.56,3.0,3.0,59.2,C FAIR,39.53,
+VIJAYA,Vijaya Diagnost.,75.0,7.5,75,2,7.300968186786849,57.76929898495723,32.070293413917,True,True,1.38,0.53,19.5,21.5,0.44,52.51,0.13,37.6,22.83,15472.34,1502.2,80.2,92494,SWG-PB,0.37,5.0,4.0,66.4,C FAIR,33.98,

@@ -3,36 +3,43 @@ import yfinance as yf
 import streamlit as st
 from datetime import datetime, timedelta
 
+# C1: route OHLCV through the unified data_provider when available.
+try:
+    import data_provider as _dp
+    USE_DATA_PROVIDER = True
+except Exception:
+    _dp = None
+    USE_DATA_PROVIDER = False
+
 def clean_symbol(symbol):
-    """Clean Dhan symbols by stripping suffixes like -EQ, -BE etc. and map indices."""
+    """Clean Dhan symbols by stripping prefixes/suffixes and map common indices.
+    Idempotent: passing 'RELIANCE.NS' returns 'RELIANCE' (was 'RELIANCE.NS' →
+    callers double-appended .NS, breaking yfinance lookups)."""
     s = str(symbol).strip().upper().replace("NSE:", "").replace("BSE:", "")
     if s == "NIFTY": return "^NSEI"
     if s == "BANKNIFTY": return "^NSEBANK"
     if s == "FINNIFTY": return "NIFTY_FIN_SERVICE.NS" # Fallback
-    
+
+    # D3: strip .NS / .BO so callers re-appending .NS don't produce '.NS.NS'
+    if s.endswith(".NS") or s.endswith(".BO"):
+        s = s[:-3]
     for suffix in ['-EQ', '-BE', '-SM', '-ST', '-BZ']:
         if s.endswith(suffix):
             s = s[:-len(suffix)]
     return s
 
-@st.cache_data(ttl=3600)
+# E13: Streamlit cache layering note —
+#   Streamlit cache TTL gates how often the dashboard re-runs this function.
+#   data_provider underneath has its own 1h disk cache. With Streamlit at 30min
+#   we get a within-session refresh after ATR data is replenished mid-hour.
+@st.cache_data(ttl=1800)
 def get_atr(symbol, period=14):
-    """Fetches the 14-day ATR for a given symbol using yfinance (Cached)."""
+    """Fetches the 14-day ATR for a given symbol (C1: parquet-cached)."""
     try:
-        ticker = clean_symbol(symbol)
-        if not ticker.startswith("^"): ticker = f"{ticker}.NS"
+        import data_provider as _dp
+        data = _dp.fetch_ohlcv(symbol, period="1mo", interval="1d", use_cache=True, auto_adjust=True)
+        if data is None or data.empty: return 0.0
         
-        data = yf.download(ticker, period="1mo", interval="1d", progress=False)
-        if data.empty: return 0.0
-        
-        # Robust handling for MultiIndex columns in newer yfinance versions
-        if isinstance(data.columns, pd.MultiIndex):
-            # If it's (Attribute, Ticker), we want level 0. If (Ticker, Attribute), we want level 1.
-            if ticker in data.columns.get_level_values(0):
-                data.columns = data.columns.get_level_values(1)
-            else:
-                data.columns = data.columns.get_level_values(0)
-            
         if 'High' not in data.columns or 'Low' not in data.columns or 'Close' not in data.columns:
             return 0.0
 
@@ -51,6 +58,8 @@ def get_atr(symbol, period=14):
         print(f"ATR Error for {symbol}: {e}")
         return 0.0
 
+# E13: market health is a daily-bar check (close vs SMA200 + slope). 1h TTL
+# is fine — Streamlit cache aligned with data_provider's daily TTL.
 @st.cache_data(ttl=3600)
 def get_market_health(benchmark="^NSEI"):
     """
@@ -58,16 +67,24 @@ def get_market_health(benchmark="^NSEI"):
     Returns: (bool, ltp, sma200)
     """
     try:
-        # Try Nifty 50 first
-        ticker_map = {"^CNX500": "^NSEI", "NSE:NIFTY": "^NSEI", "NSE:CNX500": "^NSEI"}
+        # BUG-M3: ^CNX500 was incorrectly mapped to ^NSEI (Nifty 50).
+        # ^CRSLDX is the correct Yahoo Finance ticker for Nifty 500.
+        ticker_map = {
+            "^CNX500":   "^CRSLDX",   # Nifty 500 → correct YF ticker
+            "^CRSLDX":   "^CRSLDX",
+            "NSE:NIFTY": "^NSEI",
+            "NSE:CNX500":"^CRSLDX",
+        }
         yf_sym = ticker_map.get(benchmark, benchmark)
-        
-        data = yf.download(yf_sym, period="1y", interval="1d", progress=False)
-        
-        # Robust Fallback
-        if data.empty and yf_sym != "^NSEI":
-            data = yf.download("^NSEI", period="1y", interval="1d", progress=False)
-            
+
+        # C1: parquet-cached benchmark fetch
+        import data_provider as _dp
+        data = _dp.fetch_ohlcv(yf_sym, period="1y", interval="1d", use_cache=True, auto_adjust=True)
+
+        # Fallback: if Nifty 500 unavailable, fall back to Nifty 50
+        if (data is None or data.empty) and yf_sym != "^NSEI":
+            data = _dp.fetch_ohlcv("^NSEI", period="1y", interval="1d", use_cache=True, auto_adjust=True)
+
         if data.empty: return False, 0.0, 0.0
         
         sma200 = data['Close'].rolling(200).mean().iloc[-1]
@@ -79,22 +96,29 @@ def get_market_health(benchmark="^NSEI"):
 
 @st.cache_data(ttl=3600)
 def get_nifty_correlation(symbol, period="60d"):
-    """Fetches the rolling Pearson correlation between the stock and Nifty50."""
+    """Fetches rolling Pearson correlation between the stock and Nifty 500.
+
+    B10 fix: was correlating against ^NSEI (Nifty 50). Rest of the system
+    uses ^CRSLDX (Nifty 500). For mid/small-cap-heavy portfolios, Nifty 50
+    correlation overstated diversification.
+    """
+    BENCHMARK = "^CRSLDX"
     try:
-        ticker = clean_symbol(symbol)
-        if not ticker.startswith("^"): ticker = f"{ticker}.NS"
-        
-        # Download both symbols
-        data = yf.download([ticker, "^NSEI"], period=period, progress=False)
-        if data.empty or 'Close' not in data.columns: return "N/A"
-        
-        closes = data['Close']
-        if ticker not in closes.columns or "^NSEI" not in closes.columns: return "N/A"
-        
+        clean = clean_symbol(symbol)
+        ticker = clean if clean.startswith("^") else f"{clean}.NS"
+
+        # C1: prefer cached individual fetches (parquet) so two correlation
+        # checks in the same session don't re-download the benchmark twice.
+        import data_provider as _dp
+        stock_df = _dp.fetch_ohlcv(symbol, period=period, interval="1d", use_cache=True, auto_adjust=True)
+        bench_df = _dp.fetch_ohlcv(BENCHMARK, period=period, interval="1d", use_cache=True, auto_adjust=True)
+        if stock_df is None or bench_df is None or stock_df.empty or bench_df.empty: return "N/A"
+        closes = pd.DataFrame({ticker: stock_df["Close"], BENCHMARK: bench_df["Close"]})
+
         returns = closes.pct_change(fill_method=None).dropna()
         if len(returns) < 10: return "N/A"
-        
-        corr = returns[ticker].corr(returns["^NSEI"])
+
+        corr = returns[ticker].corr(returns[BENCHMARK])
         return round(corr, 2)
     except Exception as e:
         print(f"Correlation Error for {symbol}: {e}")
@@ -122,7 +146,8 @@ def get_noise_risk_stats(df):
         if atr <= 0: continue
         
         dist = abs(ltp - sl)
-        if dist < (1.5 * atr):
+        # Aligned with validate_risk_hygiene threshold — both use 2.0×ATR.
+        if dist < (2.0 * atr):
             risk_count += 1
             at_risk_symbols.append(symbol)
             
@@ -148,12 +173,13 @@ def validate_risk_hygiene(df):
         if atr <= 0: continue
         
         dist_to_sl = abs(ltp - sl)
-        # If distance to SL is less than 1.5x ATR, it's considered "Tight/Noise Risk"
-        if dist_to_sl < (1.5 * atr):
+        # If distance to SL is less than 2x ATR, it's considered "Tight/Noise Risk"
+        # (D2: threshold + suggested-buffer aligned. D1: typo "prematurey" fixed.)
+        if dist_to_sl < (2.0 * atr):
             alerts.append({
                 'Symbol': symbol,
                 'Issue': 'Noise Risk',
-                'Detail': f"SL is only {dist_to_sl/atr:.1f}x ATR away. Market noise might trigger it prematurey. 2x ATR suggested."
+                'Detail': f"SL is only {dist_to_sl/atr:.1f}x ATR away. Market noise might trigger it prematurely. 2x ATR suggested."
             })
             
     return alerts
@@ -161,19 +187,37 @@ def validate_risk_hygiene(df):
 def analyze_sector_concentration(df):
     """
     Calculates sector exposure and flags over-concentration (>25%).
+    Phase-2A: enriches a missing/blank Sector column from sectors.db so
+    rotation analysis no longer falls back on "Unassigned" buckets.
     """
     if df.empty: return {}
-    
+
     # Calculate Capital Deployed per trade
     qty_col = 'Quantity' if 'Quantity' in df.columns else 'Qty'
     buy_col = 'BuyPrice' if 'BuyPrice' in df.columns else 'Buy Price'
-    
+
     df['Deployment'] = pd.to_numeric(df[qty_col], errors='coerce').fillna(0) * \
                         pd.to_numeric(df[buy_col], errors='coerce').fillna(0)
-    
+
     total_deployed = df['Deployment'].sum()
     if total_deployed <= 0: return {}
-    
+
+    # Enrich blank/Unassigned Sector cells via the unified sector DB.
+    if 'Sector' not in df.columns:
+        df['Sector'] = ''
+    try:
+        import sector_lookup as _sl
+        def _enrich(row):
+            cur = str(row.get('Sector', '') or '').strip()
+            if cur and cur.lower() not in ('', 'nan', 'unassigned', 'other', 'unknown'):
+                return cur
+            sym = row.get('Symbol', '')
+            rec = _sl.get_sector(sym) if sym else None
+            return (rec.get('display_name') or rec.get('sector_name')) if rec else (cur or 'Unassigned')
+        df['Sector'] = df.apply(_enrich, axis=1)
+    except Exception:
+        df['Sector'] = df['Sector'].fillna('Unassigned').replace('', 'Unassigned')
+
     sector_grouped = df.groupby('Sector')['Deployment'].sum()
     sector_pct = (sector_grouped / total_deployed * 100)
     
@@ -250,16 +294,21 @@ def get_portfolio_correlation_matrix(symbols):
         clean_syms.append(s)
     
     try:
-        data = yf.download(clean_syms, period="6mo", interval="1d", progress=False)
-        if data.empty:
+        # C1: use cached batch fetch when available (each symbol is cached
+        # independently so a portfolio of 20 stocks reuses single-symbol caches
+        # populated elsewhere by ATR / correlation checks).
+        import data_provider as _dp
+        bd = _dp.fetch_batch_ohlcv(clean_syms, period="6mo", interval="1d", use_cache=True, auto_adjust=True)
+        if not bd:
             return pd.DataFrame(), [], 10.0
-        
-        # Extract Close prices
-        if isinstance(data.columns, pd.MultiIndex):
-            closes = data['Close']
-        else:
-            closes = data[['Close']]
-        
+        closes = pd.DataFrame({
+            (k if k.startswith("^") else f"{k}.NS"): df["Close"]
+            for k, df in bd.items() if "Close" in df.columns
+        })
+
+        # BUG-M7: if only 1 ticker succeeded, closes may be a Series (no shape[1])
+        if isinstance(closes, pd.Series):
+            return pd.DataFrame(), [], 10.0
         if closes.shape[1] < 2:
             return pd.DataFrame(), [], 10.0
         
@@ -305,17 +354,12 @@ def get_adaptive_atr_multiplier(symbol):
     Small-caps with high ADR% need wider buffers than large-caps.
     """
     try:
-        ticker = clean_symbol(symbol)
-        if not ticker.startswith("^"):
-            ticker = f"{ticker}.NS"
-        
-        data = yf.download(ticker, period="1mo", interval="1d", progress=False)
-        if data.empty:
+        # C1: parquet-cached fetch
+        import data_provider as _dp
+        data = _dp.fetch_ohlcv(symbol, period="1mo", interval="1d", use_cache=True, auto_adjust=True)
+        if data is None or data.empty:
             return 1.5  # Default fallback
-        
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
-        
+
         # Compute ADR%
         adr_pct = ((data['High'] - data['Low']) / data['Close'] * 100).mean()
         
@@ -394,7 +438,9 @@ def calculate_portfolio_vitals(closed_df, total_capital, open_positions_df=None,
                 sym = row.get('Symbol', '')
                 bp = float(row.get('BuyPrice', 0) or 0)
                 qty = float(row.get('Quantity', 0) or 0)
-                ltp = live_map.get(sym, {}).get('LTP', bp)
+                # BUG-H2: get_batch_ltps() returns {sym: float}, not {sym: {'LTP': float}}
+                ltp_val = live_map.get(sym)
+                ltp = float(ltp_val) if ltp_val is not None else bp
                 unrealized_pnl += (ltp - bp) * qty
         
         # ── STEP 3: Win/Loss Statistics (Closed trades only) ──
@@ -465,9 +511,23 @@ def calculate_portfolio_vitals(closed_df, total_capital, open_positions_df=None,
             if returns_std > 0:
                 sharpe = ((returns_mean - risk_free_per_trade) / returns_std) * (trades_per_year ** 0.5)
         
-        # ── STEP 7: Calmar Ratio ──
-        # = Annualized Total Return / |Max Drawdown|
-        calmar = abs(total_return_pct / max_dd) if max_dd != 0 else 0
+        # ── STEP 7: Calmar Ratio (annualized) ──
+        # = Annualized Total Return / |Max Drawdown|.
+        # Bug fix (A5): previously used cumulative total_return_pct directly,
+        # which inflated Calmar for multi-year histories and deflated for
+        # sub-year. Now annualize via elapsed years from closed-trade dates.
+        years_elapsed = 1.0
+        if closed_df is not None and not closed_df.empty:
+            try:
+                _dates = pd.to_datetime(closed_df[date_col], errors='coerce').dropna()
+                if len(_dates) >= 2:
+                    _days = (_dates.max() - _dates.min()).days
+                    if _days > 0:
+                        years_elapsed = max(_days / 365.25, 1.0/12)  # floor at 1 month
+            except Exception:
+                years_elapsed = 1.0
+        annualized_return_pct = total_return_pct / years_elapsed
+        calmar = abs(annualized_return_pct / max_dd) if max_dd != 0 else 0
         
         result = {
             'sharpe_ratio': round(sharpe, 2),

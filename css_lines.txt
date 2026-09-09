@@ -1,0 +1,139 @@
+794: <style>
+988: """, unsafe_allow_html=True)
+999: """, unsafe_allow_html=True)
+1029: """, unsafe_allow_html=True)
+1105: st.markdown(f'<div class="sb-section-lbl">{group_label}</div>', unsafe_allow_html=True)
+1156: st.markdown('<div class="sb-section-lbl">📱 Mobile / Standalone</div>', unsafe_allow_html=True)
+1318: """, unsafe_allow_html=True)
+1323: st.markdown(f'<div class="section-hdr">{label}</div>', unsafe_allow_html=True)
+1372: unsafe_allow_html=True)
+1380: unsafe_allow_html=True)
+1514: unsafe_allow_html=True
+1552: unsafe_allow_html=True)
+1557: unsafe_allow_html=True)
+1722: </div>""", unsafe_allow_html=True)
+1727: f'white-space:pre-wrap;">{_safe}</div>', unsafe_allow_html=True)
+1730: st.markdown(f'<div class="section-sub-lbl">{label}</div>', unsafe_allow_html=True)
+1736: st.markdown('<div class="page-title">📊 Mission Dashboard</div>', unsafe_allow_html=True)
+1737: st.markdown('<div class="page-desc">Real-Time Market Intelligence // Sector Radar // Risk Audit</div>', unsafe_allow_html=True)
+1773: unsafe_allow_html=True)
+1888: unsafe_allow_html=True,
+1917: unsafe_allow_html=True,
+2103: st.markdown('<div class="page-title">🎯 Hunter</div>', unsafe_allow_html=True)
+2104: st.markdown('<div class="page-desc">Stock Discovery Engine — unified Bull · Recovery · Chartink scanners + Fundamentals enrichment + Matcher selection</div>', unsafe_allow_html=True)
+2558: f'</div>', unsafe_allow_html=True)
+2609: unsafe_allow_html=True
+3109: f'</div>', unsafe_allow_html=True)
+3114: f'</div>', unsafe_allow_html=True)
+3212: st.markdown('<div class="page-title">📋 Watchlist Sync</div>', unsafe_allow_html=True)
+3213: st.markdown('<div class="page-desc">Synchronize your selected setups across all platforms.</div>', unsafe_allow_html=True)
+3441: unsafe_allow_html=True
+3446: unsafe_allow_html=True
+3451: unsafe_allow_html=True
+4305: st.markdown('<div class="page-title">⚡ Command Center</div>', unsafe_allow_html=True)
+4306: st.markdown('<div class="page-desc">Active trade management and execution protocols.</div>', unsafe_allow_html=True)
+4637: unsafe_allow_html=True
+4649: unsafe_allow_html=True
+4659: st.markdown('<hr style="margin:4px 0;border-color:#1e3a5f">', unsafe_allow_html=True)
+4684: st.markdown('<div class="page-title">🧠 AI Laboratory</div>', unsafe_allow_html=True)
+4685: st.markdown('<div class="page-desc">Advanced Generative AI workflows and automation.</div>', unsafe_allow_html=True)
+5231: st.markdown('<div class="page-title">🌐 Macro Radar</div>', unsafe_allow_html=True)
+5232: st.markdown('<div class="page-desc">Global Risk Environment // VIX // Currencies // Commodities</div>', unsafe_allow_html=True)
+5276: </div>""", unsafe_allow_html=True)
+5288: </div>""", unsafe_allow_html=True)
+5299: </div>""", unsafe_allow_html=True)
+5378: st.markdown(f'<div style="max-height: 700px; overflow-y: auto;">{_styled.to_html(escape=False)}</div>', unsafe_allow_html=True)
+5429: st.markdown(f'<div style="max-height: 500px; overflow-y: auto;">{_styled_fii.to_html(escape=False)}</div>', unsafe_allow_html=True)
+5489: st.markdown(f'<div style="max-height: 500px; overflow-y: auto;">{_styled_rrg.to_html(escape=False)}</div>', unsafe_allow_html=True)
+5499: st.markdown('<div class="page-title">📐 Options Desk</div>', unsafe_allow_html=True)
+5500: st.markdown('<div class="page-desc">Live NSE option chain — PCR · Max Pain · OI buildup</div>', unsafe_allow_html=True)
+5625: unsafe_allow_html=True
+5739: unsafe_allow_html=True
+5890: st.markdown('<div class="page-title">🔬 Trade Autopsy</div>', unsafe_allow_html=True)
+5891: st.markdown('<div class="page-desc">Post-Trade Performance Intelligence — Closed Trade Analytics</div>', unsafe_allow_html=True)
+6177: st.markdown('<div class="page-title">📈 Signal Backtest Lab</div>', unsafe_allow_html=True)
+6181: unsafe_allow_html=True,
+6460: st.markdown('<div class="page-title">🌅 Pre-Market Intelligence Hub</div>', unsafe_allow_html=True)
+6461: st.markdown('<div class="page-desc">Global Overnight Pulse // FII/DII // VIX // Calendar // AI Brief — 8:30 AM IST</div>', unsafe_allow_html=True)
+6504: f'</div>', unsafe_allow_html=True
+6526: '</div>', unsafe_allow_html=True
+6588: st.markdown(f'<div class="section-sub-lbl">{_reg_name}</div>', unsafe_allow_html=True)
+6601: </div>""", unsafe_allow_html=True)
+6618: </div>""", unsafe_allow_html=True)
+6633: </div>""", unsafe_allow_html=True)
+6698: _c.markdown(f'<div style="font-family:JetBrains Mono,monospace;font-size:0.58rem;color:#5a8a9f;letter-spacing:2px;text-transform:uppercase;">{_h}</div>', unsafe_allow_html=True)
+6699: st.markdown('<div style="border-bottom:1px solid #1e3a5f;margin:4px 0 8px 0;"></div>', unsafe_allow_html=True)
+6703: _c1.markdown(f'<div style="font-size:0.78rem;color:#8b949e;">{_row["date"].strftime("%d %b")}</div>', unsafe_allow_html=True)
+6704: _c2.markdown(f'<div style="font-size:0.82rem;color:#e6edf3;">{_row.get("event","")}</div>', unsafe_allow_html=True)
+6706: _c3.markdown(f'<div style="font-size:0.78rem;font-weight:600;color:{_imp_color(_imp)};">{_imp}</div>', unsafe_allow_html=True)
+6707: _c4.markdown(f'<div style="font-size:0.78rem;color:#8b949e;">{_row.get("previous","–")}</div>', unsafe_allow_html=True)
+6708: _c5.markdown(f'<div style="font-size:0.78rem;color:#adbac7;">{_row.get("forecast","–")}</div>', unsafe_allow_html=True)
+6711: _c6.markdown(f'<div style="font-size:0.78rem;color:{_act_col};">{_act if _act else "Pending"}</div>', unsafe_allow_html=True)
+6782: f'</div>', unsafe_allow_html=True)
+6816: st.markdown('<div class="page-title">🌙 Post-Market Analysis</div>', unsafe_allow_html=True)
+6817: st.markdown('<div class="page-desc">EOD Market Summary // Breadth Recap // FII/DII Provisional // Top Movers — 4:30 PM IST</div>', unsafe_allow_html=True)
+6859: f'</div>', unsafe_allow_html=True
+6878: '</div>', unsafe_allow_html=True
+7101: st.markdown('<div class="page-title">📈 Market Breadth Engine</div>', unsafe_allow_html=True)
+7102: st.markdown('<div class="page-desc">Nifty 500 Internals // A/D Ratio // McClellan // Stage Distribution // Sector Breadth</div>', unsafe_allow_html=True)
+7155: </div>""", unsafe_allow_html=True)
+7289: </div>""", unsafe_allow_html=True)
+7572: unsafe_allow_html=True)
+7575: unsafe_allow_html=True)
+7633: st.markdown(_strip_html, unsafe_allow_html=True)
+7718: f'</div>', unsafe_allow_html=True
+7810: unsafe_allow_html=True)
+7936: st.markdown('<div class="page-title">📰 Financial News & Sentiment</div>', unsafe_allow_html=True)
+7937: st.markdown('<div class="page-desc">Live RSS feeds from ET, Moneycontrol, Business Standard, LiveMint, NDTV Profit — keyword sentiment scoring</div>', unsafe_allow_html=True)
+7993: f"</div>", unsafe_allow_html=True)
+8065: st.markdown(_news_card_html(_r), unsafe_allow_html=True)
+8069: st.markdown(_news_card_html(row), unsafe_allow_html=True)
+8125: st.markdown('<div class="page-title">📊 Fundamentals Hub</div>', unsafe_allow_html=True)
+8126: st.markdown('<div class="page-desc">Valuation multiples, earnings quality, balance sheet health, screening — powered by yfinance</div>', unsafe_allow_html=True)
+8164: f'</div>', unsafe_allow_html=True
+8244: f'</div>', unsafe_allow_html=True
+8257: f'</div>', unsafe_allow_html=True
+8322: st.markdown('<div class="page-title">🗂️ Portfolio Analytics</div>', unsafe_allow_html=True)
+8323: st.markdown('<div class="page-desc">Factor exposure · VaR/CVaR · Stress testing · Walk-forward backtest</div>', unsafe_allow_html=True)
+8471: f'</div>', unsafe_allow_html=True
+8485: f'</div></div>', unsafe_allow_html=True
+8777: st.markdown('<div class="page-title">🧬 Stock X-Ray</div>', unsafe_allow_html=True)
+8778: st.markdown('<div class="page-desc">Deep-dive fundamental analysis — valuation · financials · quarterly results · sector comparison · multi-stock screen <span style="color:#5a8a9f;font-size:0.7rem;">(absorbed Fundamentals 10 May 2026)</span></div>', unsafe_allow_html=True)
+8818: f'</div>', unsafe_allow_html=True
+8961: f'</div>', unsafe_allow_html=True
+8972: f'</div>', unsafe_allow_html=True
+8975: st.markdown("<br>", unsafe_allow_html=True)
+8982: f'</div>', unsafe_allow_html=True
+8992: f'</div>', unsafe_allow_html=True
+9140: unsafe_allow_html=True,
+9154: unsafe_allow_html=True,
+9191: f'</div>', unsafe_allow_html=True)
+9244: unsafe_allow_html=True
+9267: st.markdown('<div class="page-title">📺 TV Sidecar</div>', unsafe_allow_html=True)
+9268: st.markdown('<div class="page-desc">Quick-look companion for your TradingView chart — real-time quote, technicals, key levels</div>', unsafe_allow_html=True)
+9348: f'</div>', unsafe_allow_html=True
+9360: f'</div>', unsafe_allow_html=True
+9515: st.markdown('<div class="page-title">🛡️ Risk Shield — Risk Management & Entries</div>', unsafe_allow_html=True)
+9516: st.markdown('<div class="page-desc">Live monitoring of OCO exits, pullback entries, and unprotected holdings from Dhan GTT orders.</div>', unsafe_allow_html=True)
+9811: st.markdown(metrics_html, unsafe_allow_html=True)
+9985: st.markdown("<br><hr style='border-color:#30363d; margin: 10px 0;'>", unsafe_allow_html=True)
+10036: st.markdown('<div class="section-sub-lbl" style="color:#ff4b4b;margin-bottom:10px;">🚨 Requires Immediate Action</div>', unsafe_allow_html=True)
+10042: st.markdown(f'<div style="background:{bg};color:{txt_c};padding:8px 12px;border-radius:6px;margin-bottom:10px;font-size:0.85rem;font-weight:bold;">{al["sym"]}: {al["msg"]}</div>', unsafe_allow_html=True)
+10049: st.markdown('<div class="section-sub-lbl">🗺️ Portfolio Heatmap (Size=Position, Color=Risk)</div>', unsafe_allow_html=True)
+10075: st.markdown('<div class="section-sub-lbl">🔮 What-If Scenario Tester</div>', unsafe_allow_html=True)
+10098: ''', unsafe_allow_html=True)
+10101: st.markdown('<div class="section-sub-lbl">📈 Historical Risk (30 Days)</div>', unsafe_allow_html=True)
+10144: st.markdown("<br>", unsafe_allow_html=True)
+10156: st.markdown('<div class="section-sub-lbl">🎯 Paired OCO Exits</div>', unsafe_allow_html=True)
+10446: st.markdown(card_html, unsafe_allow_html=True)
+10452: st.markdown('<div class="section-sub-lbl">🛑 Standalone Exits</div>', unsafe_allow_html=True)
+10520: st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{sym}</span> <span style="font-size:0.8rem;color:#8b949e;">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:#c9d1d9;">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{ai_html}</div>', unsafe_allow_html=True)
+10526: st.markdown('<div class="section-sub-lbl">⚠️ Unprotected Holdings (No Stop Loss)</div>', unsafe_allow_html=True)
+10686: st.markdown(card_html, unsafe_allow_html=True)
+10690: st.markdown('<div class="section-sub-lbl">🛒 Pending Pullback Buy Entries (GTT)</div>', unsafe_allow_html=True)
+10780: st.markdown(card, unsafe_allow_html=True)
+10784: st.markdown(f'<div style="background:#0e2035;border-left:3px solid #e3b341;padding:8px;border-radius:4px;margin-bottom:10px;font-size:0.78rem;color:#e6edf3;">🤖 {st.session_state[ai_key]}</div>', unsafe_allow_html=True)
+10788: st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
+10810: f'</div></div>', unsafe_allow_html=True
+10814: st.markdown('<div class="section-sub-lbl">Per-Stock Risk Breakdown</div>', unsafe_allow_html=True)
+10872: st.markdown('<div class="section-sub-lbl" style="margin-top:20px;">Market Persona (Stage Analysis)</div>', unsafe_allow_html=True)

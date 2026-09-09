@@ -1,0 +1,57 @@
+Symbol,Fund,Issuer,Underlying,AUM_Cr,TER_Pct,Turnover_Cr,Is_Group_Leader,Index_Routable,My_Match,Confidence,Remarks
+ALPHAETF,Kotak Nifty Alpha 50,Kotak,Nifty Alpha 50,927.70,0.3,1.1,YES,,Kotak Nifty Alpha 50 ETF,issuer+index,
+AUTOBEES,Nippon Auto BeES,Nippon,Nifty Auto,498.70,0.19,5.5,YES,,Nippon Auto ETF (AUTOBEES),ticker,
+AUTOIETF,ICICI Nifty Auto ETF,ICICI,Nifty Auto,225.20,0.2,1.8,,,ICICI Pru Nifty Auto ETF,issuer+index,
+AXISGOLD,Axis Gold ETF,Axis,Gold (INR),5771.90,0.58,,,,Axis Gold ETF,issuer+index,
+BANKBEES,Nippon Bank BeES,Nippon,Nifty Bank,8381.60,0.16,48.7,YES,YES,Nippon Nifty Bank ETF (BANKBEES),ticker,
+BANKIETF,ICICI Nifty Bank ETF,ICICI,Nifty Bank,3066.20,0.17,2.3,,YES,ICICI Prudential Bank ETF,issuer+index,
+BBETF,Edelweiss Bharat Bond ETF,Edelweiss,Bharat Bond,10623.00,0.01,0.0003,YES,,,NEEDS YOU,Updated
+BFSI,Nippon Nifty Fin Services,Nippon,Nifty Fin Svcs,,0.21,0.9,YES,,,NEEDS YOU,
+CONSUMBEES,Nippon Consumption BeES,Nippon,Nifty India Consumption,194.70,0.26,1.1,YES,,Nippon Nifty Cons. ETF (CONSUMBEES),ticker,
+CPSEETF,Nippon CPSE ETF,Nippon,Nifty CPSE,19049.67,0.06,9.2,YES,,,NEEDS YOU,
+DEFENCE,Motilal Nifty Defence ETF,MOAMC,Nifty Defence,1358.50,0.67,1.6,YES,,Motilal Oswal Nifty India Defence ETF,manual,
+DIGINIFTY,ICICI Digital ETF,ICICI,Nifty Digital,,,,YES,,,NEEDS YOU,Couldn't find the symbol
+EBANKNIFTY,Edelweiss Nifty Bank ETF,Edelweiss,Nifty Bank,3.00,1.08,131,,YES,ICICI Prudential Bank ETF,issuer+index,Updated
+ENERGYIETF,ICICI Nifty Energy ETF,ICICI,Nifty Energy,,,,YES,,,NEEDS YOU,
+EVINDIA,Mirae EV & New Age Auto,Mirae,Nifty EV & NewAuto,180.40,0.35,0.8,YES,,Mirae Asset Nifty EV & New Age Auto ETF,manual,
+FMCGIETF,ICICI Nifty FMCG ETF,ICICI,Nifty FMCG,730.40,0.2,5.5,YES,,ICICI Pru Nifty FMCG ETF,issuer+index,
+GILT5YBEES,Nippon 5Y G-Sec BeES,Nippon,5Y G-Sec,263.20,0.08,1.4,YES,,Nippon 5 Year G-Sec ETF (GILT5YBEES),ticker,
+GOLD1,HDFC Gold ETF,HDFC,Gold (INR),23405.50,0.59,21.7,,,HDFC Gold ETF,issuer+index,
+GOLDBEES,Nippon Gold BeES,Nippon,Gold (INR),59341.20,0.69,267.2,YES,,Nippon Gold ETF (GOLDBEES),ticker,
+GOLDETF,Mirae Asset  Gold ETF,Mirae Asset ,Gold (INR),15228.90,0.35,0.15,,,Kotak Gold ETF,issuer+index,Updated
+GOLDIETF,ICICI Gold ETF,ICICI,Gold (INR),28916.10,0.42,60,,,ICICI Pru Gold ETF,issuer+index,
+HEALTHIETF,ICICI Nifty Healthcare,ICICI,Nifty Healthcare,232.70,0.15,1.7,YES,,ICICI Pru Nifty Healthcare ETF,issuer+index,
+HNGSNGBEES,Nippon Hang Seng BeES,Nippon,Hang Seng,1114.50,0.79,5.3,YES,,Nippon Hang Seng ETF (HNGSNGBEES),ticker,
+INFRABEES,Nippon Infra BeES,Nippon,Nifty Infrastructure,185.60,0.43,0.7,YES,YES,Nippon Nifty Infra ETF (INFRABEES),ticker,
+ITBEES,Nippon IT BeES,Nippon,Nifty IT,3712.50,0.19,44.9,YES,YES,Nippon Nifty IT ETF (ITBEES),ticker,
+ITIETF,ICICI Nifty IT ETF,ICICI,Nifty IT,550.70,0.28,2.6,,YES,ICICI Prudential IT ETF,issuer+index,
+JUNIORBEES,Nippon Nifty Next 50 BeES,Nippon,Nifty Next 50,9001.10,0.15,25.2,YES,YES,Nippon Nifty Next 50 Junior Bees - ETF,issuer+index,
+LIQUIDBEES,Nippon Liquid BeES,Nippon,Overnight,11136.84,0.59,297.2,YES,,,NEEDS YOU,
+LIQUIDIETF,ICICI Liquid ETF,ICICI,Overnight,1030.00,0.56,42.5,,,,NEEDS YOU,
+LOWVOLIETF,ICICI Nifty 100 Low Vol 30,ICICI,Nifty100 LV30,3409.86,0.52,3,YES,,,NEEDS YOU,
+MAFANG,Mirae NYSE FANG+ ETF,Mirae,NYSE FANG+,5108.10,0.55,2.9,YES,,Mirae Asset NYSE FANG+ ETF,issuer+index,
+MAKEINDIA,Mirae Asset  Nifty India Manufacturing ETF,Mirae Asset ,Nifty Mfg,259.00,0.54,0.6,YES,,,NEEDS YOU,Updated
+MASPTOP50,Mirae S&P 500 Top 50,Mirae,S&P 500 Top 50,1348.30,0.54,0.6,YES,,Mirae Asset S&P 500 Top 50 ETF,issuer+index,
+METAL,Nippon Nifty Metal ETF,Nippon,Nifty Metal,,,3.1,YES,,,NEEDS YOU,
+MID150BEES,Nippon Nifty Midcap 150,Nippon,Nifty Midcap 150,4037.80,0.18,14.6,YES,,Nippon Nifty MC 150 ETF (MID150BEES),ticker,
+MIDCAPETF,Mirae Asset  Nifty Midcap 150,Mirae Asset ,Nifty Midcap 150,791.37,0.17,4.6,,,,NEEDS YOU,Updated
+MOM100,Motilal Nifty 200 Momentum 30,MOAMC,Nifty 200 Mom 30,127.60,1.28,2,,,Motilal Oswal Nifty 200 Momentum ETF,issuer+index,
+MOM30IETF,ICICI Nifty 200 Momentum 30,ICICI,Nifty 200 Mom 30,559.70,0.26,2.1,YES,,ICICI Pru Nifty 200 Momentum 30 ETF,issuer+index,
+MON100,Motilal Nasdaq 100 ETF,MOAMC,Nasdaq 100,16482.20,0.6,12.3,YES,,Motilal Oswal Nasdaq 100 ETF,issuer+index,
+MULTICAP,Mirae Asset  Nifty 500 Multicap,Mirae Asset ,Nifty 500,86.00,0.26,0.3,YES,YES,,NEEDS YOU,Updated
+NASDBEES,Nippon Nasdaq 100 BeES,Nippon,Nasdaq 100,,,,,,,NEEDS YOU,
+NEXT50IETF,ICICI Nifty Next 50 ETF,ICICI,Nifty Next 50,2726.20,0.09,5.5,,YES,ICICI Pru Nifty Next 50 ETF,issuer+index,
+NIF100IETF,ICICI Nifty 100 ETF,ICICI,Nifty 100,159.70,0.41,0.2,YES,YES,ICICI Pru Nifty 100 ETF,issuer+index,
+NIFTYBEES,Nippon Nifty 50 BeES,Nippon,Nifty 50,66925.30,0.03,156.6,YES,YES,Nippon Nifty 50 ETF (NIFTYBEES),ticker,
+NV20IETF,ICICI Nifty 50 Value 20,ICICI,Nifty50 Value 20,175.50,0.21,0.4,YES,,ICICI Pru Nifty 50 Value 20 ETF,issuer+index,
+OILIETF,ICICI Nifty Oil & Gas,ICICI,Nifty Oil & Gas,313.40,0.34,1.7,YES,,ICICI Pru Nifty Oil & Gas ETF,manual,
+PHARMABEES,Nippon Pharma BeES,Nippon,Nifty Pharma,1730.00,0.18,12.7,YES,,Nippon Pharma ETF (PHARMABEES),ticker,
+PSUBANK,Kotak PSU Bank ETF,Kotak,Nifty PSU Bank,2644.50,0.49,1,,YES,Kotak Nifty PSU Bank ETF,issuer+index,Updated
+PSUBNKADD,Aditya BSL PSU Bank,ABSL,Nifty PSU Bank,,,,,YES,,NEEDS YOU,
+PSUBNKBEES,Nippon PSU Bank BeES,Nippon,Nifty PSU Bank,4060.60,0.42,20.9,YES,YES,Nippon Nifty PSU Bank ETF (PSUBNKBEES),ticker,
+PVTBANIETF,ICICI Nifty Pvt Bank,ICICI,Nifty Pvt Bank,4054.90,0.18,9,YES,,ICICI Pru Nifty Private Bank ETF,issuer+index,
+QUAL30IETF,ICICI Nifty 200 Quality 30,ICICI,Nifty 200 Q30,141.10,0.26,0.2,YES,,ICICI Pru Nifty 200 Quality 30 ETF,issuer+index,
+REALTY,Nippon Nifty Realty ETF,Nippon,Nifty Realty,,,,YES,,,NEEDS YOU,
+SILVERBEES,Nippon Silver BeES,Nippon,Silver (INR),32397.20,0.49,508.7,YES,,Nippon Silver ETF (SILVERBEES),ticker,
+SILVERIETF,ICICI Silver ETF,ICICI,Silver (INR),15126.50,0.34,69.5,,,ICICI Pru Silver ETF,issuer+index,
+SMALLCAP,Mirae Asset  Nifty Smallcap 250 Momentum Quality 100 ETF,Mirae Asset ,Nifty Smallcap250,9.20,0.21,7.7,YES,,ICICI Prudential Nifty Smallcap 250 ETF,issuer+index,Updated

@@ -1,0 +1,4 @@
+Symbol,Catalyst,Score,Catalyst_Score,Alpha,Stage,Mansfield_RS_x100,RS_Momentum_4W,RRG_Quadrant,Rel_Vol,RSI,VCP_Valid,VCP_Score,Pivot_Price,Broke_Pivot,Days_Since_Pivot,Entry,SL_pct,T1_pct,Conviction,Combined_Score
+NESTLEIND,SWG-PB,60,60,70,2,13.0,10.04,LEADING,1.73,54.3,False,30,1325.24,True,105,1430.5,2.86,7.14,7.5,67.5
+INDUSTOWER,SWG-BO,55,55,90,2,2.31,4.18,LEADING,1.35,66.2,False,30,440.95,False,37,430.15,4.32,10.81,,55.0
+BHARATFORG,SWG-PB,27,27,60,2,18.6,-1.85,WEAKENING,0.57,51.6,False,60,1992.9,False,8,1913.1,5.08,12.7,,27.0

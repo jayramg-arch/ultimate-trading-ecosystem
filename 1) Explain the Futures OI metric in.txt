@@ -1,0 +1,27 @@
+1) Explain the Futures OI metric in detail
+2) How do I cultivate the habit of journal logging/update?
+3) Check ETF Screeners and bring them up to date. What enhancements can be made here?
+4) Why not all my portfolio stocks added to the GM Board watchlist?
+5) Why are the RRG quadrant/gradients calculated last week's closed bar, instead of considering the current/forming bars?
+6) Raise the confluence score, if the RRG is Leading-->Leading or Weakening-->Leading
+7) Forward windows: POS-BO 120d · POS-ACCUM 180d REV 90d · SWG 30–60d - these are calendar days or trading days?
+8) Difference between 4/4 and GO on GM board?
+9) If a trade appears in 75/125/Daily, which TF should I prefer, provided everything else is exactly the same?
+10) Can you also push the overall rank from GM to S4 and add it to the confluence?
+11) Let RFF come as a filed into S4 from GM.
+12) Reduce the Go Marker size on chart for S4
+13) Bar: Even very narrow range bars are clearing Bar gate. We need to strengthen it, the way we did few days back!
+14) Webhook delivery failed - 
+15) S4 Panel: Display Summary, Trend, Leadership, Location, Participation, Geometry and Direction in Bold and add one blank line between each header and it's output.
+16) Chandelier TSL are quite different in v67 and RS
+17) Rec T1 and T2 on timeframe are not matching with REcommended.policy box 
+18) Mention the price on the TSL curve
+19) create an excel sheet template for recording SL, T1 T2, Qty levels
+20) why the targets are 2r/46 even for positional trades?
+21) Toggle Pivot zones in settings
+22) Price vs EMA20 shows above +12.5% (Norm)? this distance is not measured correctly, often reported low.
+23) Off52 is -10.7%, incorrect, as price is above the 50WHigh
+24) S4 is dead slow
+25) GM shows 4/4, while S4 shows 1/4, which is a serious discrepancy. I'm seeing this very often.
+
+

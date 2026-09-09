@@ -1,0 +1,23 @@
+{
+    "folders": [
+        {
+            "name": "Weinstein Commander (E:)",
+            "path": "e:\\Gemini\\VS Code"
+        },
+        {
+            "name": "Weinstein Commander (C:)",
+            "path": "C:\\Users\\jayra\\Documents\\GeminiVSCode"
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "python",
+        "files.exclude": {
+            "**/__pycache__": true,
+            "**/*.pyc": true,
+            "**/dhan_session": true,
+            "**/tv_user_data*": true
+        },
+        "editor.formatOnSave": true,
+        "git.ignoreLimitWarning": true
+    }
+}

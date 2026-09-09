@@ -12,19 +12,13 @@ except Exception:
 
 def _fetch(symbol_yf, symbol_clean, period):
     """data_provider first (Dhan), yfinance fallback. Returns titlecase OHLCV."""
-    if _USE_DP and _dp is not None:
-        try:
-            df = _dp.fetch_ohlcv(symbol_clean, period=period, interval="1d")
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
-            if df is not None and not df.empty:
-                return df
-        except Exception:
-            pass
-    data = yf.download(symbol_yf, period=period, interval="1d", progress=False)
-    if isinstance(data.columns, pd.MultiIndex):
-        data.columns = data.columns.get_level_values(0)
-    return data
+    import data_provider as _dp
+    df = _dp.fetch_ohlcv(symbol_clean, period=period, interval="1d", use_cache=True, auto_adjust=True)
+    if df is not None and isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    if df is not None and not df.empty:
+        return df
+    return pd.DataFrame()
 
 
 def get_technical_context(symbol):

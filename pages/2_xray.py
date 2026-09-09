@@ -15,8 +15,8 @@ st.markdown("""
 
 html, body, [class*="css"], .stApp {
     font-family: 'Inter', sans-serif;
-    color: #c9d1d9;
-    background-color: #010409 !important;
+    color: #090D16;
+    background-color: #EBF1F6 !important;
 }
 .stAppHeader {
     background-color: transparent !important;
@@ -33,48 +33,48 @@ html, body, [class*="css"], .stApp {
 /* Headers */
 .page-title {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 1.8rem; font-weight: 700; color: #e6edf3;
+    font-size: 1.8rem; font-weight: 800; color: #090D16;
     letter-spacing: 1px; margin-bottom: 0px;
-    border-bottom: 2px solid #1e3a5f; padding-bottom: 5px;
+    border-bottom: 2.5px solid #94A3B8; padding-bottom: 5px;
 }
 .page-desc {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
-    color: #8b949e; margin-bottom: 5px; margin-top: 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 700;
+    color: #1E293B; margin-bottom: 5px; margin-top: 5px;
 }
 .section-hdr {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 0.95rem; font-weight: 600; color: #58a6ff;
+    font-size: 0.95rem; font-weight: 800; color: #1E3A8A;
     letter-spacing: 2px; text-transform: uppercase; margin: 10px 0 5px 0;
-    border-bottom: 1px solid #1e3a5f; padding-bottom: 3px;
+    border-bottom: 2px solid #94A3B8; padding-bottom: 3px;
 }
 
 /* Metric Cards */
 .metric-box {
-    background: #0d1b2a; border: 1px solid #1e3a5f;
+    background: #FFFFFF; border: 1.5px solid #CBD5E1;
     border-radius: 6px; padding: 8px 12px; margin-bottom: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .metric-lbl {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
-    color: #8b949e; text-transform: uppercase; letter-spacing: 1px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 700;
+    color: #334155; text-transform: uppercase; letter-spacing: 1px;
     margin-bottom: 2px;
 }
 .metric-val {
     font-family: 'Inter', sans-serif; font-size: 1.15rem;
-    font-weight: 600; color: #e6edf3; display: flex; align-items: center; gap: 5px;
+    font-weight: 700; color: #090D16; display: flex; align-items: center; gap: 5px;
 }
 
-/* Colors */
-.c-good { color: #3fb950 !important; }
-.c-warn { color: #d29922 !important; }
-.c-bad  { color: #f85149 !important; }
+/* Colors — light mode semantic */
+.c-good { color: #15803D !important; font-weight: 800 !important; }
+.c-warn { color: #B45309 !important; font-weight: 700 !important; }
+.c-bad  { color: #DC2626 !important; font-weight: 800 !important; }
 
 /* Input Styling */
 .stTextInput > div > div > input {
-    background-color: #0a1628 !important;
-    border: 1px solid #1e3a5f !important;
-    color: #e6edf3 !important;
-    caret-color: #e6edf3 !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #94A3B8 !important;
+    color: #090D16 !important;
+    caret-color: #1D4ED8 !important;
     font-family: 'JetBrains Mono', monospace !important;
     font-size: 0.95rem !important;
     font-weight: bold !important;
@@ -161,7 +161,7 @@ def fmt_macro(val, pct=None, prefix="", suffix=""):
     base = f"{prefix}{val:.2f}{suffix}"
     if pct is not None and not pd.isna(pct):
         arrow = "▲" if pct > 0 else "▼"
-        color = "#3fb950" if pct > 0 else "#f85149"
+        color = "#15803D" if pct > 0 else "#DC2626"
         # Standardize strictly: Green if positive, Red if negative
         base += f' <span style="color:{color}; font-size:0.75rem;">{arrow} {abs(pct):.2f}%</span>'
     return base
@@ -170,18 +170,18 @@ hdr_container = st.container()
 
 with hdr_container:
     st.markdown(f"""
-    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #1e3a5f; padding-bottom: 2px;">▶ MACRO-LEVEL (GLOBAL)</div>
-    <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e; margin-bottom: 10px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 6px; flex-wrap: wrap;">
-        <div><span style="color:#58a6ff; font-weight: bold;">BRENT CRUDE:</span> {fmt_macro(macro_data.get('Oil'), macro_data.get('Oil_pct'), prefix="$")}</div>
-        <div><span style="color:#58a6ff; font-weight: bold;">USD/INR:</span> {fmt_macro(macro_data.get('USDINR'), macro_data.get('USDINR_pct'), prefix="₹")}</div>
-        <div><span style="color:#58a6ff; font-weight: bold;">10Y G-SEC (IND):</span> {fmt_macro(macro_data.get('IN10Y'), macro_data.get('IN10Y_pct'), prefix="₹")}</div>
+    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #1D4ED8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #CBD5E1; padding-bottom: 2px;">▶ MACRO-LEVEL (GLOBAL)</div>
+    <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #475569; margin-bottom: 10px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #CBD5E1; border-radius: 6px; flex-wrap: wrap;">
+        <div><span style="color:#1D4ED8; font-weight: bold;">BRENT CRUDE:</span> {fmt_macro(macro_data.get('Oil'), macro_data.get('Oil_pct'), prefix="$")}</div>
+        <div><span style="color:#1D4ED8; font-weight: bold;">USD/INR:</span> {fmt_macro(macro_data.get('USDINR'), macro_data.get('USDINR_pct'), prefix="₹")}</div>
+        <div><span style="color:#1D4ED8; font-weight: bold;">10Y G-SEC (IND):</span> {fmt_macro(macro_data.get('IN10Y'), macro_data.get('IN10Y_pct'), prefix="₹")}</div>
     </div>
     
-    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #1e3a5f; padding-bottom: 2px;">▶ MARKET-LEVEL (DOMESTIC)</div>
-    <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e; margin-bottom: 10px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 6px; flex-wrap: wrap;">
-        <div><span style="color:#58a6ff; font-weight: bold;">NIFTY 50:</span> {fmt_macro(macro_data.get('Nifty'), macro_data.get('Nifty_pct'))}</div>
-        <div><span style="color:#58a6ff; font-weight: bold;">CNX500:</span> {fmt_macro(macro_data.get('CNX_val'), macro_data.get('CNX_pct'))} <span style="margin-left:5px; color:{'#3fb950' if mkt_health == 'BULLISH' else '#f85149'}; border:1px solid currentColor; padding: 1px 4px; border-radius:3px; font-size:0.70rem;">{mkt_health}</span></div>
-        <div><span style="color:#58a6ff; font-weight: bold;">INDIA VIX:</span> {fmt_macro(macro_data.get('Vix'), macro_data.get('Vix_pct'))}</div>
+    <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #1D4ED8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #CBD5E1; padding-bottom: 2px;">▶ MARKET-LEVEL (DOMESTIC)</div>
+    <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #475569; margin-bottom: 10px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #CBD5E1; border-radius: 6px; flex-wrap: wrap;">
+        <div><span style="color:#1D4ED8; font-weight: bold;">NIFTY 50:</span> {fmt_macro(macro_data.get('Nifty'), macro_data.get('Nifty_pct'))}</div>
+        <div><span style="color:#1D4ED8; font-weight: bold;">CNX500:</span> {fmt_macro(macro_data.get('CNX_val'), macro_data.get('CNX_pct'))} <span style="margin-left:5px; color:{'#15803D' if mkt_health == 'BULLISH' else '#DC2626'}; border:1px solid currentColor; padding: 1px 4px; border-radius:3px; font-size:0.70rem;">{mkt_health}</span></div>
+        <div><span style="color:#1D4ED8; font-weight: bold;">INDIA VIX:</span> {fmt_macro(macro_data.get('Vix'), macro_data.get('Vix_pct'))}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -477,7 +477,7 @@ if ticker_input:
     if "error" in data:
         st.error(f"Failed to fetch data for {ticker_input}. Ensure it's a valid NSE listed symbol. Error: {data['error']}")
     elif data.get('IsETF', False):
-        st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #8b949e;'>**{data['Name']}** (Exchange Traded Fund / Index) | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #475569;'>**{data['Name']}** (Exchange Traded Fund / Index) | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
         st.warning("Fundamental scorecards (Revenue, Margins, P/E) are mathematically invalid for Index Funds and ETFs. yFinance currently does not supply accurate Expense Ratios or AUM for NSE ETFs.")
         
         c1, c2, c3 = st.columns(3)
@@ -486,16 +486,16 @@ if ticker_input:
             st.markdown(f'<div class="metric-box"><div class="metric-lbl">Current Price</div><div class="metric-val">₹{fmt_float(data["CurrentPrice"])}</div></div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="section-hdr">▶ AUM / ASSETS</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Total Assets</div><div class="metric-val" style="color:#8b949e; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Total Assets</div><div class="metric-val" style="color:#475569; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
         with c3:
             st.markdown('<div class="section-hdr">▶ METRICS</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Expense Ratio & Yield</div><div class="metric-val" style="color:#8b949e; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-box"><div class="metric-lbl">Expense Ratio & Yield</div><div class="metric-val" style="color:#475569; font-size:0.95rem;">N/A (yFinance)</div></div>', unsafe_allow_html=True)
             
         st.markdown(f"""
-        <div style="background: #0d1b2a; border: 2px solid #1e3a5f; border-radius: 8px; padding: 12px; text-align: center; margin-top: 5px;">
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px;">FUNDAMENTAL X-RAY</div>
+        <div style="background: #FFFFFF; border: 2px solid #CBD5E1; border-radius: 8px; padding: 12px; text-align: center; margin-top: 5px;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #475569; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px;">FUNDAMENTAL X-RAY</div>
             <div class="c-warn" style="font-family: 'Rajdhani', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1;">ETF MODE</div>
-            <div style="font-family: 'Inter', sans-serif; font-size: 0.8rem; color: #8b949e; margin-top: 5px;">Use Technical Analysis via TradingView for momentum scoring.</div>
+            <div style="font-family: 'Inter', sans-serif; font-size: 0.8rem; color: #475569; margin-top: 5px;">Use Technical Analysis via TradingView for momentum scoring.</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -510,7 +510,7 @@ if ticker_input:
                  if price_el: data['CurrentPrice'] = float(price_el.text.replace(',', ''))
             except: pass
             
-        st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #8b949e;'>**{data['Name']}** | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-bottom: 10px; font-size: 0.9rem; color: #475569;'>**{data['Name']}** | **LTP:** ₹{data['CurrentPrice']}</div>", unsafe_allow_html=True)
         
         nifty_1m = get_nifty_1m()
         raw_sym = ticker_input.upper().replace('.NS', '').replace('.BO', '')
@@ -525,41 +525,41 @@ if ticker_input:
         def fmt_perf(pct):
             if pd.isna(pct) or pct is None: return "N/A"
             arrow = "▲" if pct > 0 else "▼"
-            color = "#3fb950" if pct > 0 else "#f85149"
+            color = "#15803D" if pct > 0 else "#DC2626"
             return f'<span style="color:{color};">{arrow} {abs(pct):.2f}%</span>'
 
         def color_pe(val_str):
-            if val_str == 'N/A': return '#c9d1d9'
+            if val_str == 'N/A': return '#1E293B'
             try:
                 v = float(val_str)
-                return "#3fb950" if v < 20 else ("#d29922" if v <= 30 else "#f85149")
-            except: return '#c9d1d9'
+                return "#15803D" if v < 20 else ("#B45309" if v <= 30 else "#DC2626")
+            except: return '#1E293B'
             
         def color_roce(val_str):
-            if val_str == 'N/A': return '#c9d1d9'
+            if val_str == 'N/A': return '#1E293B'
             try:
                 v = float(val_str)
-                return "#3fb950" if v >= 15 else ("#d29922" if v >= 10 else "#f85149")
-            except: return '#c9d1d9'
+                return "#15803D" if v >= 15 else ("#B45309" if v >= 10 else "#DC2626")
+            except: return '#1E293B'
 
         def color_div(val_str):
-            if val_str == 'N/A': return '#c9d1d9'
+            if val_str == 'N/A': return '#1E293B'
             try:
                 v = float(val_str)
-                return "#3fb950" if v >= 2 else ("#d29922" if v > 0 else "#c9d1d9")
-            except: return '#c9d1d9'
+                return "#15803D" if v >= 2 else ("#B45309" if v > 0 else "#1E293B")
+            except: return '#1E293B'
             
         c_pe = color_pe(s_pe)
         c_div = color_div(s_div)
         c_roce = color_roce(s_roce)
 
         st.markdown(f"""
-        <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #58a6ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #1e3a5f; padding-bottom: 2px;">▶ SECTOR-LEVEL (MEDIANS) [{data.get('Sector', 'N/A')} / {data.get('Industry', 'N/A')}]</div>
-        <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b949e; margin-bottom: 15px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #1e3a5f; border-radius: 6px; flex-wrap: wrap;">
-            <div><span style="color:#58a6ff; font-weight: bold;">SECTOR P/E:</span> <span style="color:{c_pe}; font-weight: bold;">{s_pe}</span></div>
-            <div><span style="color:#58a6ff; font-weight: bold;">SECTOR DIV YIELD:</span> <span style="color:{c_div}; font-weight: bold;">{s_div}{'%' if s_div != 'N/A' else ''}</span></div>
-            <div><span style="color:#58a6ff; font-weight: bold;">SECTOR ROCE:</span> <span style="color:{c_roce}; font-weight: bold;">{s_roce}{'%' if s_roce != 'N/A' else ''}</span></div>
-            <div><span style="color:#58a6ff; font-weight: bold;">STOCK 1M RETURN:</span> {fmt_perf(stock_1m)}</div>
+        <div style="font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; color: #1D4ED8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; border-bottom: 1px solid #CBD5E1; padding-bottom: 2px;">▶ SECTOR-LEVEL (MEDIANS) [{data.get('Sector', 'N/A')} / {data.get('Industry', 'N/A')}]</div>
+        <div style="display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #475569; margin-bottom: 15px; padding: 6px 12px; background: rgba(88,166,255,0.05); border: 1px solid #CBD5E1; border-radius: 6px; flex-wrap: wrap;">
+            <div><span style="color:#1D4ED8; font-weight: bold;">SECTOR P/E:</span> <span style="color:{c_pe}; font-weight: bold;">{s_pe}</span></div>
+            <div><span style="color:#1D4ED8; font-weight: bold;">SECTOR DIV YIELD:</span> <span style="color:{c_div}; font-weight: bold;">{s_div}{'%' if s_div != 'N/A' else ''}</span></div>
+            <div><span style="color:#1D4ED8; font-weight: bold;">SECTOR ROCE:</span> <span style="color:{c_roce}; font-weight: bold;">{s_roce}{'%' if s_roce != 'N/A' else ''}</span></div>
+            <div><span style="color:#1D4ED8; font-weight: bold;">STOCK 1M RETURN:</span> {fmt_perf(stock_1m)}</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -603,7 +603,7 @@ if ticker_input:
             if has_eps and has_fwd: max_score += 1
             
             eps_trend = "🟢 Projecting Growth" if has_eps and has_fwd and fwd > eps else ("🔴 Contraction" if has_eps and has_fwd and fwd < eps else "N/A (No Fwd Data)")
-            st.markdown(f'<div class="metric-box"><div class="metric-lbl">EPS Trajectory (TTM → FWD)</div><div class="metric-val {c_eps}">₹{fmt_float(eps)} → ₹{fmt_float(fwd)}<br><span style="margin-top:5px; color:#8b949e;">{eps_trend}</span></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-box"><div class="metric-lbl">EPS Trajectory (TTM → FWD)</div><div class="metric-val {c_eps}">₹{fmt_float(eps)} → ₹{fmt_float(fwd)}<br><span style="margin-top:5px; color:#475569;">{eps_trend}</span></div></div>', unsafe_allow_html=True)
             
         # --- QUADRANT B: PROFITABILITY ---
         with c2:
@@ -614,7 +614,7 @@ if ticker_input:
             is_bank = "Bank" in data['Name'] or "Bank" in data['Sector'] or "Fin" in data['Sector']
             
             if pd.isna(roe) and is_bank:
-                st.markdown(f'<div class="metric-box" title="Standard ROE equations strictly divide Net Income by Shareholder Equity. Banks use massive leverage (deposits) to generate income, skewing standard equity multipliers, so yFinance omits it."><div class="metric-lbl">Return on Equity (ROE)</div><div class="metric-val" style="color:#8b949e;">N/A (Financial Inst.)</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box" title="Standard ROE equations strictly divide Net Income by Shareholder Equity. Banks use massive leverage (deposits) to generate income, skewing standard equity multipliers, so yFinance omits it."><div class="metric-lbl">Return on Equity (ROE)</div><div class="metric-val" style="color:#475569;">N/A (Financial Inst.)</div></div>', unsafe_allow_html=True)
             else:
                 c_roe = "c-good" if roe and roe >= 0.15 else ("c-warn" if roe and roe >= 0.05 else "c-bad")
                 if roe and roe >= 0.15: score += 1
@@ -635,7 +635,7 @@ if ticker_input:
             de_ratio = de / 100 if de is not None and not pd.isna(de) else None
             
             if pd.isna(de_ratio) and is_bank:
-                st.markdown(f'<div class="metric-box" title="Banks inherently have massive Debt/Equity ratios because customer deposits are technically liabilities (debt). Standard D/E is meaningless for banks."><div class="metric-lbl">Debt to Equity</div><div class="metric-val" style="color:#8b949e;">N/A (Financial Inst.)</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box" title="Banks inherently have massive Debt/Equity ratios because customer deposits are technically liabilities (debt). Standard D/E is meaningless for banks."><div class="metric-lbl">Debt to Equity</div><div class="metric-val" style="color:#475569;">N/A (Financial Inst.)</div></div>', unsafe_allow_html=True)
             else:
                 c_de = "c-good" if de_ratio and de_ratio <= 1.0 else ("c-warn" if de_ratio and de_ratio <= 2.0 else "c-bad")
                 if de_ratio and de_ratio <= 1.0: score += 1
@@ -664,7 +664,7 @@ if ticker_input:
             if peg is not None and not pd.isna(peg): max_score += 1
             
             if pd.isna(peg) and is_bank:
-                 st.markdown(f'<div class="metric-box" title="PEG relies on strict EPS growth forecasts which are highly regulated and opaque for Indian banking institutions."><div class="metric-lbl">P/E Ratio (TTM)</div><div class="metric-val {c_pe}">P/E: {pe_str} <span style="color:#8b949e; margin-left:10px;">| PEG: N/A (Bank)</span></div></div>', unsafe_allow_html=True)
+                 st.markdown(f'<div class="metric-box" title="PEG relies on strict EPS growth forecasts which are highly regulated and opaque for Indian banking institutions."><div class="metric-lbl">P/E Ratio (TTM)</div><div class="metric-val {c_pe}">P/E: {pe_str} <span style="color:#475569; margin-left:10px;">| PEG: N/A (Bank)</span></div></div>', unsafe_allow_html=True)
             else:
                  st.markdown(f'<div class="metric-box"><div class="metric-lbl">P/E Ratio (TTM) & PEG</div><div class="metric-val {c_pe}">P/E: {pe_str} <span class="{c_peg}" style="margin-left:10px;">| PEG: {peg_str}</span></div></div>', unsafe_allow_html=True)
             
@@ -681,7 +681,7 @@ if ticker_input:
             if ev is not None and not pd.isna(ev): max_score += 1
             
             if pd.isna(ev) and is_bank:
-                st.markdown(f'<div class="metric-box" title="EV/EBITDA is invalid for banks. Enterprise Value includes Debt. For banks, debt (deposits) is their raw material. EBITDA completely ignores Interest Expense, which is the primary operating cost for a bank."><div class="metric-lbl">P/B Ratio</div><div class="metric-val {c_pb}">P/B: {pb_str} <span style="color:#8b949e; margin-left:10px;">| EV/EBITDA: INVALID</span></div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box" title="EV/EBITDA is invalid for banks. Enterprise Value includes Debt. For banks, debt (deposits) is their raw material. EBITDA completely ignores Interest Expense, which is the primary operating cost for a bank."><div class="metric-lbl">P/B Ratio</div><div class="metric-val {c_pb}">P/B: {pb_str} <span style="color:#475569; margin-left:10px;">| EV/EBITDA: INVALID</span></div></div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div class="metric-box"><div class="metric-lbl">P/B & EV/EBITDA</div><div class="metric-val {c_pb}">P/B: {pb_str} <span class="{c_ev}" style="margin-left:10px;">| EV/EBITDA: {ev_str}</span></div></div>', unsafe_allow_html=True)
             
@@ -705,9 +705,9 @@ if ticker_input:
         c_fin = "c-good" if final >= 7 else ("c-warn" if final >= 4 else "c-bad")
         
         st.markdown(f"""
-        <div style="background: #0d1b2a; border: 2px solid #1e3a5f; border-radius: 8px; padding: 10px; text-align: center; margin-top: 5px;">
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #8b949e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px;">Aggregate Fundamental Score</div>
-            <div class="{c_fin}" style="font-family: 'Rajdhani', sans-serif; font-size: 2.2rem; font-weight: 700; line-height: 1;">{final:.1f} <span style="font-size:1.0rem; color:#8b949e;">/ 10</span></div>
-            <div style="font-family: 'Inter', sans-serif; font-size: 0.75rem; color: #8b949e; margin-top: 2px;">Score derived from {max_score} available Weinstein/Minervini target metrics.</div>
+        <div style="background: #FFFFFF; border: 2px solid #CBD5E1; border-radius: 8px; padding: 10px; text-align: center; margin-top: 5px;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #475569; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px;">Aggregate Fundamental Score</div>
+            <div class="{c_fin}" style="font-family: 'Rajdhani', sans-serif; font-size: 2.2rem; font-weight: 700; line-height: 1;">{final:.1f} <span style="font-size:1.0rem; color:#475569;">/ 10</span></div>
+            <div style="font-family: 'Inter', sans-serif; font-size: 0.75rem; color: #475569; margin-top: 2px;">Score derived from {max_score} available Weinstein/Minervini target metrics.</div>
         </div>
         """, unsafe_allow_html=True)

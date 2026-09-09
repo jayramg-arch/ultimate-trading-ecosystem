@@ -1,0 +1,18 @@
+170: // Two additions targeting the most reliable institutional support behaviors.
+434: //  Mirror version target  : Commander_Bull_Screener_v2.9.pine
+1008: showTrade   = input.bool(true, title="Show Trade Lines (Entry/Targets)", group=groupAlert)
+2513: string targetSym = good ? cln : syminfo.tickerid
+2514: [c_raw, o_raw, l_raw, c1_raw, e_raw, e1_raw, r_raw, v_raw, va_raw, adx_raw, cat_raw, s50_raw, s200_raw] = request.security(targetSym, "D", f_get_screener_data_internal(), ignore_invalid_symbol=true)
+4006: // --- RR DISPLAY & DYNAMIC TARGETING LOGIC ---
+4020: rrText := str.tostring(currentR, "#.1") + "R (Target: " + str.tostring(dyn_T1_R) + "R)"
+4916: // Target Logic (2R and 3R as per v20.0)
+4933: plot(showTrade and tradeActive and finalSL > 0 and visualSL < finalEntry ? t1_val : na, "Target 1 (Dynamic)", color=t1Color, style=plot.style_linebr, linewidth=1)
+4934: plot(showTrade and tradeActive and finalSL > 0 and visualSL < t2_val ? t2_val : na, "Target 2 (Dynamic)", color=t2Color, style=plot.style_linebr, linewidth=1)
+4935: plot(showTrade and tradeActive and finalSL > 0 and visualSL >= finalEntry ? t3_val : na, "Target 3 (Dynamic)", color=t3Color, style=plot.style_linebr, linewidth=1)
+4944: // SL & Targets Labels with Distance
+4959: label.new(bar_index + 3, t1_val, "Target 1: " + str.tostring(math.round_to_mintick(t1_val)) + t1Dist, color=color.green, style=label.style_none, textcolor=color.green, size=size.small)
+4963: label.new(bar_index + 3, t2_val, "Target 2: " + str.tostring(math.round_to_mintick(t2_val)) + t2Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
+4966: label.new(bar_index + 3, t3_val, "Target 3: " + str.tostring(math.round_to_mintick(t3_val)) + t3Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
+4997: // Targets at 2R and 3R from computed entry
+4999: float alg_t2 = alg_rec_entry + (alg_risk * 3.5) // Extended runner target
+5094: "5. Conclude with a clear Buy/Sell/Hold decision and potential trade setup (Entry/Stop/Target)."

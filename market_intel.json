@@ -1,509 +1,403 @@
 {
-    "Timestamp": "2026-03-24 19:31:15",
+    "Timestamp": "2026-07-02 13:06:13",
     "Account": {
-        "AvailableCash": 104417.48
+        "AvailableCash": 1857487.9
     },
     "Macro": {
         "Nifty 50": {
-            "Current": 22912.4,
-            "Change": 1.78,
+            "Current": 24028.0,
+            "Change": 0.68,
             "Trend": "UP"
         },
         "India VIX": {
-            "Current": 24.74,
-            "Change": -7.44,
+            "Current": 12.56,
+            "Change": -5.17,
             "Trend": "DOWN"
         },
         "USD/INR": {
-            "Current": 93.77,
-            "Change": -0.14,
-            "Trend": "DOWN"
+            "Current": 0,
+            "Change": 0,
+            "Trend": "FLAT"
         },
         "Crude Oil": {
-            "Current": 92.45,
-            "Change": 4.9,
-            "Trend": "UP"
+            "Current": 0,
+            "Change": 0,
+            "Trend": "FLAT"
         },
         "Gold": {
-            "Current": 4360.0,
-            "Change": -1.0,
-            "Trend": "DOWN"
+            "Current": 0,
+            "Change": 0,
+            "Trend": "FLAT"
         },
         "US 10Y Bond": {
-            "Current": 4.41,
-            "Change": 1.75,
-            "Trend": "UP"
+            "Current": 4.37,
+            "Change": -0.46,
+            "Trend": "DOWN"
         },
-        "GeoPolitical_Risk": "HIGH",
+        "GeoPolitical_Risk": "LOW",
         "Top_News": [],
         "Analysis": {
-            "Geopolitics": "Current Geopolitical Risk is rated HIGH. This is driven by elevated Crude Oil ($92.45) and Gold ($4360.0), indicating safe-haven demand amidst global tensions.",
-            "Macro": "Neutral Macro Setup: Currency and Yields are range-bound. Domestic triggers (Earnings, Budget) will drive market direction. High Volatility (VIX 24.74) warrants tighter Stop Losses."
+            "Geopolitics": "Current Geopolitical Risk is rated LOW. Key fear gauges (Gold, VIX) are dormant, suggesting a stable geopolitical backdrop for equities.",
+            "Macro": "Liquidity Boost: Cooling US Bond Yields are increasing risk appetite for equities. This environment favors growth stocks and high-beta sectors."
         }
     },
     "Portfolio": [
         {
             "Symbol": "RELIANCE",
-            "CMP": 1411.8,
+            "CMP": 1308.0,
             "Position": {
                 "Qty": 146,
                 "AvgPrice": 1358.325,
-                "CurrentValue": 206122.81
+                "CurrentValue": 190968.0
             },
             "Technical": {
-                "Stage": "STAGE 2 (PULLBACK)",
-                "Support_SMA30": 1452.99,
-                "RS_Rating": 0.85,
-                "Vol_Status": "Distribution",
+                "Stage": "STAGE 4 (DOWN)",
+                "Support_SMA30": 1397.1,
+                "RS_Rating": -0.38,
+                "Vol_Status": "Neutral",
                 "Squeeze": false,
-                "Dist_High": 11.3
+                "Dist_High": 17.9
             },
             "Fundamental": {
                 "Sector": "ENERGY",
                 "Industry": "Oil & Gas Refining & Marketing",
-                "MarketCapCr": 1910514.49,
-                "PE": 22.948635,
-                "PEG": null,
-                "PB": 2.1783004,
-                "ROE": null,
-                "RevGrowth": 0.104,
-                "ProfitGrowth": 0.006,
-                "DebtToEq": 35.651,
-                "Beta": 0.205,
-                "BookValue": 648.12,
-                "OperatingMargins": 0.11852,
-                "FreeCashflow": null
+                "MarketCapCr": 1764499.02,
+                "PE": 21.862844,
+                "PEG": 0.82,
+                "PB": 1.9518147,
+                "ROE": 0.09139,
+                "RevGrowth": 0.125,
+                "ProfitGrowth": -0.126,
+                "DebtToEq": 36.653,
+                "Beta": 0.182,
+                "BookValue": 668.045,
+                "OperatingMargins": 0.099750005,
+                "FreeCashflow": 218291257344
             },
             "Sentiment": {
                 "Mood": "Neutral",
                 "Headlines": [
                     "",
                     "",
+                    ""
+                ],
+                "Rating": "Sell"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.38), indicating potential rotation into other sectors.",
+                "Context": "Valuations appear undervalued relative to growth (P/E: 21.9). CAUTION: High Debt levels (D/E: 36.65) warrants monitoring. ",
+                "Verdict": "SELL / AVOID",
+                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+            }
+        },
+        {
+            "Symbol": "DMART",
+            "CMP": 4328.6,
+            "Position": {
+                "Qty": 11,
+                "AvgPrice": 4426.5,
+                "CurrentValue": 47614.6
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 4046.49,
+                "RS_Rating": 0.13,
+                "Vol_Status": "Neutral",
+                "Squeeze": false,
+                "Dist_High": 10.4
+            },
+            "Fundamental": {
+                "Sector": "FMCG",
+                "Industry": "Discount Stores",
+                "MarketCapCr": 274647.72,
+                "PE": 92.64686,
+                "PEG": null,
+                "PB": 11.200484,
+                "ROE": 0.12944001,
+                "RevGrowth": 0.189,
+                "ProfitGrowth": 0.196,
+                "DebtToEq": 9.913,
+                "Beta": 0.199,
+                "BookValue": 375.948,
+                "OperatingMargins": 0.05242,
+                "FreeCashflow": -14602200064
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [
                     ""
                 ],
                 "Rating": "Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (PULLBACK) structure. Price action confirms a constructive uptrend, supported by accumulation volume. It exhibits positive Relative Strength (RS: 0.85), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 22.9). CAUTION: High Debt levels (D/E: 35.65) warrants monitoring. ",
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. It exhibits positive Relative Strength (RS: 0.13), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 92.6), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. CAUTION: High Debt levels (D/E: 9.91) warrants monitoring. ",
                 "Verdict": "BUY / ACCUMULATE",
-                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1452.99) is a low-risk entry opportunity."
-            }
-        },
-        {
-            "Symbol": "LT",
-            "CMP": 3516.8,
-            "Position": {
-                "Qty": 40,
-                "AvgPrice": 3913.6726,
-                "CurrentValue": 140672.0
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 3900.25,
-                "RS_Rating": -0.27,
-                "Vol_Status": "Neutral",
-                "Squeeze": false,
-                "Dist_High": 20.4
-            },
-            "Fundamental": {
-                "Sector": "INFRA",
-                "Industry": "Engineering & Construction",
-                "MarketCapCr": 483775.06,
-                "PE": 27.472855,
-                "PEG": null,
-                "PB": 4.7718487,
-                "ROE": null,
-                "RevGrowth": 0.111,
-                "ProfitGrowth": -0.043,
-                "DebtToEq": 111.847,
-                "Beta": 0.269,
-                "BookValue": 736.989,
-                "OperatingMargins": 0.10682,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Sell"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.27), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear moderate relative to growth (P/E: 27.5). CAUTION: High Debt levels (D/E: 111.85) warrants monitoring. ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
-            }
-        },
-        {
-            "Symbol": "ICICIBANK",
-            "CMP": 1251.2,
-            "Position": {
-                "Qty": 121,
-                "AvgPrice": 1352.3397,
-                "CurrentValue": 151395.19
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 1365.08,
-                "RS_Rating": 0.03,
-                "Vol_Status": "Distribution",
-                "Squeeze": false,
-                "Dist_High": 15.3
-            },
-            "Fundamental": {
-                "Sector": "BANKNIFTY",
-                "Industry": "Banks - Regional",
-                "MarketCapCr": 895686.91,
-                "PE": 17.08356,
-                "PEG": null,
-                "PB": 2.5658484,
-                "ROE": 0.16798,
-                "RevGrowth": 0.03,
-                "ProfitGrowth": -0.037,
-                "DebtToEq": null,
-                "Beta": 0.177,
-                "BookValue": 487.636,
-                "OperatingMargins": 0.33972,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Sell"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. It exhibits positive Relative Strength (RS: 0.03), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 17.1). Quality compounding machine with High ROE (17%). ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
-            }
-        },
-        {
-            "Symbol": "NATIONALUM",
-            "CMP": 354.65,
-            "Position": {
-                "Qty": 354,
-                "AvgPrice": 352.4963,
-                "CurrentValue": 125546.1
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 290.66,
-                "RS_Rating": 0.54,
-                "Vol_Status": "Accumulation",
-                "Squeeze": false,
-                "Dist_High": 16.3
-            },
-            "Fundamental": {
-                "Sector": "METAL",
-                "Industry": "Aluminum",
-                "MarketCapCr": 65208.68,
-                "PE": 10.605562,
-                "PEG": null,
-                "PB": 3.2818513,
-                "ROE": null,
-                "RevGrowth": 0.015,
-                "ProfitGrowth": 0.019,
-                "DebtToEq": 0.282,
-                "Beta": 0.875,
-                "BookValue": 108.064,
-                "OperatingMargins": 0.42151,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Strong Buy"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 0.54), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 10.6). ",
-                "Verdict": "BUY / ACCUMULATE",
-                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (290.66) is a low-risk entry opportunity."
-            }
-        },
-        {
-            "Symbol": "FEDERALBNK",
-            "CMP": 262.5,
-            "Position": {
-                "Qty": 1160,
-                "AvgPrice": 275.7478,
-                "CurrentValue": 304500.0
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 249.47,
-                "RS_Rating": 0.28,
-                "Vol_Status": "Accumulation",
-                "Squeeze": false,
-                "Dist_High": 12.5
-            },
-            "Fundamental": {
-                "Sector": "BANKNIFTY",
-                "Industry": "Banks - Regional",
-                "MarketCapCr": 64671.42,
-                "PE": 15.899455,
-                "PEG": null,
-                "PB": 1.777191,
-                "ROE": null,
-                "RevGrowth": 0.151,
-                "ProfitGrowth": 0.155,
-                "DebtToEq": null,
-                "Beta": 0.167,
-                "BookValue": 147.705,
-                "OperatingMargins": 0.40438,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Strong Buy"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 0.28), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 15.9). ",
-                "Verdict": "BUY / ACCUMULATE",
-                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (249.47) is a low-risk entry opportunity."
-            }
-        },
-        {
-            "Symbol": "AIAENG",
-            "CMP": 3378.3,
-            "Position": {
-                "Qty": 25,
-                "AvgPrice": 3973.552,
-                "CurrentValue": 84457.5
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (PULLBACK)",
-                "Support_SMA30": 3593.05,
-                "RS_Rating": -0.38,
-                "Vol_Status": "Neutral",
-                "Squeeze": false,
-                "Dist_High": 17.8
-            },
-            "Fundamental": {
-                "Sector": "INFRA",
-                "Industry": "Specialty Industrial Machinery",
-                "MarketCapCr": 31526.42,
-                "PE": 27.167673,
-                "PEG": null,
-                "PB": 4.279428,
-                "ROE": null,
-                "RevGrowth": 0.001,
-                "ProfitGrowth": 0.135,
-                "DebtToEq": 13.852,
-                "Beta": 0.118,
-                "BookValue": 789.428,
-                "OperatingMargins": 0.24579,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    ""
-                ],
-                "Rating": "Hold"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (PULLBACK) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Relative Strength is lagging (-0.38), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear moderate relative to growth (P/E: 27.2). CAUTION: High Debt levels (D/E: 13.85) warrants monitoring. ",
-                "Verdict": "HOLD",
-                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 3593.05. Wait for a renewed breakout to add."
-            }
-        },
-        {
-            "Symbol": "AXISBANK",
-            "CMP": 1192.7,
-            "Position": {
-                "Qty": 143,
-                "AvgPrice": 1308.3293,
-                "CurrentValue": 170556.09
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (PULLBACK)",
-                "Support_SMA30": 1244.4,
-                "RS_Rating": -0.06,
-                "Vol_Status": "Neutral",
-                "Squeeze": false,
-                "Dist_High": 15.0
-            },
-            "Fundamental": {
-                "Sector": "BANKNIFTY",
-                "Industry": "Banks - Regional",
-                "MarketCapCr": 370959.66,
-                "PE": 14.151637,
-                "PEG": null,
-                "PB": 1.7889498,
-                "ROE": 0.13625,
-                "RevGrowth": 0.057,
-                "ProfitGrowth": 0.038,
-                "DebtToEq": null,
-                "Beta": 0.311,
-                "BookValue": 666.704,
-                "OperatingMargins": 0.47458,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Hold"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (PULLBACK) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Relative Strength is lagging (-0.06), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 14.2). ",
-                "Verdict": "HOLD",
-                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 1244.4. Wait for a renewed breakout to add."
-            }
-        },
-        {
-            "Symbol": "BHARTIARTL",
-            "CMP": 1802.1,
-            "Position": {
-                "Qty": 74,
-                "AvgPrice": 2012.0865,
-                "CurrentValue": 133355.4
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 1989.87,
-                "RS_Rating": 0.09,
-                "Vol_Status": "Distribution",
-                "Squeeze": false,
-                "Dist_High": 16.7
-            },
-            "Fundamental": {
-                "Sector": "INFRA",
-                "Industry": "Telecom Services",
-                "MarketCapCr": 1097744.15,
-                "PE": 35.586494,
-                "PEG": null,
-                "PB": 8.794335,
-                "ROE": 0.23125,
-                "RevGrowth": 0.196,
-                "ProfitGrowth": -0.553,
-                "DebtToEq": 117.095,
-                "Beta": -0.061,
-                "BookValue": 204.916,
-                "OperatingMargins": 0.32164,
-                "FreeCashflow": 468255014912
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Sell"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. It exhibits positive Relative Strength (RS: 0.09), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear moderate relative to growth (P/E: 35.6). Quality compounding machine with High ROE (23%). CAUTION: High Debt levels (D/E: 117.09) warrants monitoring. ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
-            }
-        },
-        {
-            "Symbol": "CUB",
-            "CMP": 235.55,
-            "Position": {
-                "Qty": 694,
-                "AvgPrice": 276.8617,
-                "CurrentValue": 163471.7
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (PULLBACK)",
-                "Support_SMA30": 254.36,
-                "RS_Rating": -0.59,
-                "Vol_Status": "Neutral",
-                "Squeeze": false,
-                "Dist_High": 21.9
-            },
-            "Fundamental": {
-                "Sector": "BANKNIFTY",
-                "Industry": "Banks - Regional",
-                "MarketCapCr": 17502.48,
-                "PE": 13.979228,
-                "PEG": null,
-                "PB": 1.7585446,
-                "ROE": null,
-                "RevGrowth": 0.216,
-                "ProfitGrowth": 0.164,
-                "DebtToEq": null,
-                "Beta": 0.285,
-                "BookValue": 133.946,
-                "OperatingMargins": 0.46273,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    "",
-                    "",
-                    ""
-                ],
-                "Rating": "Hold"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (PULLBACK) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Relative Strength is lagging (-0.59), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 14.0). ",
-                "Verdict": "HOLD",
-                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 254.36. Wait for a renewed breakout to add."
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (4046.49) is a low-risk entry opportunity."
             }
         },
         {
             "Symbol": "COALINDIA",
-            "CMP": 442.1,
+            "CMP": 434.75,
             "Position": {
-                "Qty": 156,
-                "AvgPrice": 431.5,
-                "CurrentValue": 68967.6
+                "Qty": 263,
+                "AvgPrice": 444.23422,
+                "CurrentValue": 114339.25
             },
             "Technical": {
-                "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 400.41,
-                "RS_Rating": 1.15,
+                "Stage": "STAGE 1 (BASE)",
+                "Support_SMA30": 439.23,
+                "RS_Rating": -0.53,
                 "Vol_Status": "Accumulation",
                 "Squeeze": false,
-                "Dist_High": 6.0
+                "Dist_High": 9.7
             },
             "Fundamental": {
                 "Sector": "ENERGY",
                 "Industry": "Thermal Coal",
-                "MarketCapCr": 272454.23,
-                "PE": 9.126755,
+                "MarketCapCr": 268140.31,
+                "PE": 8.620963,
+                "PEG": 0.87,
+                "PB": 2.2511382,
+                "ROE": 0.28124002,
+                "RevGrowth": 0.162,
+                "ProfitGrowth": 0.129,
+                "DebtToEq": 11.629,
+                "Beta": -0.044,
+                "BookValue": 193.28,
+                "OperatingMargins": 0.20922,
+                "FreeCashflow": 72375926784
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Hold"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 1 (BASE) structure. Price is consolidating (Stage 1 or 3), building a base for the next potential move. Relative Strength is lagging (-0.53), indicating potential rotation into other sectors.",
+                "Context": "Valuations appear undervalued relative to growth (P/E: 8.6). Quality compounding machine with High ROE (28%). CAUTION: High Debt levels (D/E: 11.63) warrants monitoring. ",
+                "Verdict": "HOLD",
+                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 439.23. Wait for a renewed breakout to add."
+            }
+        },
+        {
+            "Symbol": "SAILIFE",
+            "CMP": 1243.8,
+            "Position": {
+                "Qty": 24,
+                "AvgPrice": 1049.15,
+                "CurrentValue": 29851.2
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1015.84,
+                "RS_Rating": 1.3,
+                "Vol_Status": "Accumulation",
+                "Squeeze": false,
+                "Dist_High": 0.3
+            },
+            "Fundamental": {
+                "Sector": "PHARMA",
+                "Industry": "Diagnostics & Research",
+                "MarketCapCr": 26270.39,
+                "PE": 75.36541,
                 "PEG": null,
-                "PB": 2.5842166,
-                "ROE": null,
-                "RevGrowth": -0.048,
-                "ProfitGrowth": -0.159,
-                "DebtToEq": 12.976,
-                "Beta": -0.024,
-                "BookValue": 171.077,
-                "OperatingMargins": 0.2308,
-                "FreeCashflow": null
+                "PB": 10.534604,
+                "ROE": 0.1513,
+                "RevGrowth": 0.039,
+                "ProfitGrowth": 0.176,
+                "DebtToEq": 11.614,
+                "Beta": null,
+                "BookValue": 117.47,
+                "OperatingMargins": 0.21796,
+                "FreeCashflow": -1301903744
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [
+                    "",
+                    ""
+                ],
+                "Rating": "Strong Buy"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.3), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations appear premium relative to growth (P/E: 75.4). Quality compounding machine with High ROE (15%). CAUTION: High Debt levels (D/E: 11.61) warrants monitoring. ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1015.84) is a low-risk entry opportunity."
+            }
+        },
+        {
+            "Symbol": "ACUTAAS",
+            "CMP": 3567.5,
+            "Position": {
+                "Qty": 13,
+                "AvgPrice": 3062.1,
+                "CurrentValue": 46377.5
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 2391.65,
+                "RS_Rating": 2.83,
+                "Vol_Status": "Accumulation",
+                "Squeeze": false,
+                "Dist_High": 0.0
+            },
+            "Fundamental": {
+                "Sector": "Basic Materials",
+                "Industry": "Specialty Chemicals",
+                "MarketCapCr": 29992.67,
+                "PE": 104.78833,
+                "PEG": null,
+                "PB": 18.14238,
+                "ROE": 0.23516001,
+                "RevGrowth": 0.403,
+                "ProfitGrowth": 1.056,
+                "DebtToEq": 2.081,
+                "Beta": 0.002,
+                "BookValue": 201.925,
+                "OperatingMargins": 0.4018,
+                "FreeCashflow": -1165574912
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [],
+                "Rating": "Strong Buy"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 2.83), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 104.8), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Strong Earnings Momentum (106% Growth) supports the bullish thesis. Quality compounding machine with High ROE (24%). CAUTION: High Debt levels (D/E: 2.08) warrants monitoring. ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (2391.65) is a low-risk entry opportunity."
+            }
+        },
+        {
+            "Symbol": "GESHIP",
+            "CMP": 1421.0,
+            "Position": {
+                "Qty": 62,
+                "AvgPrice": 1596.7227,
+                "CurrentValue": 88102.0
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1351.95,
+                "RS_Rating": -0.46,
+                "Vol_Status": "Accumulation",
+                "Squeeze": false,
+                "Dist_High": 17.4
+            },
+            "Fundamental": {
+                "Sector": "Industrials",
+                "Industry": "Marine Shipping",
+                "MarketCapCr": 20344.32,
+                "PE": 6.9255447,
+                "PEG": null,
+                "PB": 1.1994102,
+                "ROE": 0.18849,
+                "RevGrowth": 0.236,
+                "ProfitGrowth": 1.875,
+                "DebtToEq": 6.409,
+                "Beta": 0.468,
+                "BookValue": 1188.084,
+                "OperatingMargins": 0.37112,
+                "FreeCashflow": -8696349696
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Hold"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). Relative Strength is lagging (-0.46), indicating potential rotation into other sectors.",
+                "Context": "Valuations appear undervalued relative to growth (P/E: 6.9). Strong Earnings Momentum (188% Growth) supports the bullish thesis. Quality compounding machine with High ROE (19%). CAUTION: High Debt levels (D/E: 6.41) warrants monitoring. ",
+                "Verdict": "HOLD",
+                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 1351.95. Wait for a renewed breakout to add."
+            }
+        },
+        {
+            "Symbol": "VIJAYA",
+            "CMP": 1369.9,
+            "Position": {
+                "Qty": 62,
+                "AvgPrice": 1275.1935,
+                "CurrentValue": 84933.8
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1083.75,
+                "RS_Rating": 1.66,
+                "Vol_Status": "Accumulation",
+                "Squeeze": false,
+                "Dist_High": 0.2
+            },
+            "Fundamental": {
+                "Sector": "Healthcare",
+                "Industry": "Diagnostics & Research",
+                "MarketCapCr": 14362.33,
+                "PE": 82.8368,
+                "PEG": null,
+                "PB": 14.998765,
+                "ROE": 0.19698,
+                "RevGrowth": 0.266,
+                "ProfitGrowth": 0.38,
+                "DebtToEq": 44.15,
+                "Beta": 0.341,
+                "BookValue": 93.061,
+                "OperatingMargins": 0.32452,
+                "FreeCashflow": -14455875
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [],
+                "Rating": "Strong Buy"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.66), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 82.8), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Strong Earnings Momentum (38% Growth) supports the bullish thesis. Quality compounding machine with High ROE (20%). CAUTION: High Debt levels (D/E: 44.15) warrants monitoring. ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1083.75) is a low-risk entry opportunity."
+            }
+        },
+        {
+            "Symbol": "NETWEB",
+            "CMP": 4507.9,
+            "Position": {
+                "Qty": 24,
+                "AvgPrice": 4471.6123,
+                "CurrentValue": 108189.6
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 3659.72,
+                "RS_Rating": 1.04,
+                "Vol_Status": "Accumulation",
+                "Squeeze": false,
+                "Dist_High": 11.8
+            },
+            "Fundamental": {
+                "Sector": "Technology",
+                "Industry": "Computer Hardware",
+                "MarketCapCr": 25184.87,
+                "PE": 122.65668,
+                "PEG": null,
+                "PB": 34.728874,
+                "ROE": 0.32834998,
+                "RevGrowth": 0.866,
+                "ProfitGrowth": 0.643,
+                "DebtToEq": 39.019,
+                "Beta": 1.722,
+                "BookValue": 127.358,
+                "OperatingMargins": 0.11987001,
+                "FreeCashflow": 1122087552
             },
             "Sentiment": {
                 "Mood": "Neutral",
@@ -515,89 +409,43 @@
                 "Rating": "Strong Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.15), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 9.1). CAUTION: High Debt levels (D/E: 12.98) warrants monitoring. ",
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.04), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 122.7), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Strong Earnings Momentum (64% Growth) supports the bullish thesis. Quality compounding machine with High ROE (33%). CAUTION: High Debt levels (D/E: 39.02) warrants monitoring. ",
                 "Verdict": "BUY / ACCUMULATE",
-                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (400.41) is a low-risk entry opportunity."
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (3659.72) is a low-risk entry opportunity."
             }
         },
         {
-            "Symbol": "HINDCOPPER",
-            "CMP": 463.55,
+            "Symbol": "TRITURBINE",
+            "CMP": 677.35,
             "Position": {
-                "Qty": 372,
-                "AvgPrice": 564.5712,
-                "CurrentValue": 172440.6
+                "Qty": 120,
+                "AvgPrice": 661.935,
+                "CurrentValue": 81282.0
             },
             "Technical": {
                 "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 429.91,
-                "RS_Rating": -0.95,
+                "Support_SMA30": 550.49,
+                "RS_Rating": 1.4,
                 "Vol_Status": "Accumulation",
                 "Squeeze": false,
-                "Dist_High": 38.9
+                "Dist_High": 8.7
             },
             "Fundamental": {
-                "Sector": "METAL",
-                "Industry": "Copper",
-                "MarketCapCr": 44843.7,
-                "PE": 67.86969,
+                "Sector": "Industrials",
+                "Industry": "Specialty Industrial Machinery",
+                "MarketCapCr": 21179.75,
+                "PE": 60.733818,
                 "PEG": null,
-                "PB": 15.117075,
-                "ROE": null,
-                "RevGrowth": 1.097,
-                "ProfitGrowth": 1.492,
-                "DebtToEq": 4.776,
-                "Beta": 1.588,
-                "BookValue": 30.664,
-                "OperatingMargins": 0.286,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [
-                    ""
-                ],
-                "Rating": "Hold"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). Relative Strength is lagging (-0.95), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear premium relative to growth (P/E: 67.9). Strong Earnings Momentum (149% Growth) supports the bullish thesis. CAUTION: High Debt levels (D/E: 4.78) warrants monitoring. ",
-                "Verdict": "HOLD",
-                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 429.91. Wait for a renewed breakout to add."
-            }
-        },
-        {
-            "Symbol": "HCLTECH",
-            "CMP": 1373.3,
-            "Position": {
-                "Qty": 76,
-                "AvgPrice": 1632.6,
-                "CurrentValue": 104370.8
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 1519.13,
-                "RS_Rating": -0.07,
-                "Vol_Status": "Neutral",
-                "Squeeze": false,
-                "Dist_High": 20.6
-            },
-            "Fundamental": {
-                "Sector": "IT",
-                "Industry": "Information Technology Services",
-                "MarketCapCr": 371567.26,
-                "PE": 22.613207,
-                "PEG": null,
-                "PB": 4.888545,
-                "ROE": 0.23188,
-                "RevGrowth": 0.074,
-                "ProfitGrowth": -0.159,
-                "DebtToEq": 9.747,
-                "Beta": 0.155,
-                "BookValue": 280.92203,
-                "OperatingMargins": 0.18561001,
-                "FreeCashflow": 1870375040
+                "PB": 14.626463,
+                "ROE": 0.26217,
+                "RevGrowth": 0.263,
+                "ProfitGrowth": 0.074,
+                "DebtToEq": 2.476,
+                "Beta": 0.494,
+                "BookValue": 45.551,
+                "OperatingMargins": 0.1751,
+                "FreeCashflow": -2584989952
             },
             "Sentiment": {
                 "Mood": "Neutral",
@@ -606,409 +454,253 @@
                     "",
                     ""
                 ],
-                "Rating": "Sell"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.07), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 22.6). Quality compounding machine with High ROE (23%). CAUTION: High Debt levels (D/E: 9.75) warrants monitoring. ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
-            }
-        },
-        {
-            "Symbol": "METALIETF",
-            "CMP": 11.09,
-            "Position": {
-                "Qty": 8600,
-                "AvgPrice": 8.72,
-                "CurrentValue": 95374.0
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 10.91,
-                "RS_Rating": 0.24,
-                "Vol_Status": "Accumulation",
-                "Squeeze": false,
-                "Dist_High": 11.7
-            },
-            "Fundamental": {
-                "Sector": "METAL",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": 1.414027,
-                "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [],
                 "Rating": "Strong Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 0.24), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 1.4). ",
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.4), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations appear premium relative to growth (P/E: 60.7). Quality compounding machine with High ROE (26%). CAUTION: High Debt levels (D/E: 2.48) warrants monitoring. ",
                 "Verdict": "BUY / ACCUMULATE",
-                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (10.91) is a low-risk entry opportunity."
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (550.49) is a low-risk entry opportunity."
             }
         },
         {
-            "Symbol": "GOLDIETF",
-            "CMP": 119.57,
+            "Symbol": "GVT&D",
+            "CMP": 4895.7,
             "Position": {
-                "Qty": 1760,
-                "AvgPrice": 142.65227,
-                "CurrentValue": 210443.2
+                "Qty": 19,
+                "AvgPrice": 5208.8945,
+                "CurrentValue": 93018.3
             },
             "Technical": {
                 "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 115.06,
-                "RS_Rating": -0.06,
+                "Support_SMA30": 3908.49,
+                "RS_Rating": 0.8,
                 "Vol_Status": "Accumulation",
-                "Squeeze": false,
-                "Dist_High": 22.0
-            },
-            "Fundamental": {
-                "Sector": "500",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": null,
-                "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Hold"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). Relative Strength is lagging (-0.06), indicating potential rotation into other sectors.",
-                "Context": "",
-                "Verdict": "HOLD",
-                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 115.06. Wait for a renewed breakout to add."
-            }
-        },
-        {
-            "Symbol": "SILVERIETF",
-            "CMP": 221.01,
-            "Position": {
-                "Qty": 737,
-                "AvgPrice": 340.1469,
-                "CurrentValue": 162884.37
-            },
-            "Technical": {
-                "Stage": "STAGE 2 (UP)",
-                "Support_SMA30": 200.43,
-                "RS_Rating": -0.82,
-                "Vol_Status": "Accumulation",
-                "Squeeze": false,
-                "Dist_High": 39.8
-            },
-            "Fundamental": {
-                "Sector": "500",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": null,
-                "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Hold"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). Relative Strength is lagging (-0.82), indicating potential rotation into other sectors.",
-                "Context": "",
-                "Verdict": "HOLD",
-                "Verdict_Desc": "Consolidation Phase. Maintain exposure but keep stops loose below 200.43. Wait for a renewed breakout to add."
-            }
-        },
-        {
-            "Symbol": "HDFCNIFTY",
-            "CMP": 257.32,
-            "Position": {
-                "Qty": 1102,
-                "AvgPrice": 272.64377,
-                "CurrentValue": 283566.65
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 283.08,
-                "RS_Rating": 0.02,
-                "Vol_Status": "Distribution",
-                "Squeeze": false,
-                "Dist_High": 12.5
-            },
-            "Fundamental": {
-                "Sector": "NIFTY",
-                "Industry": "",
-                "MarketCapCr": 0,
-                "PE": null,
-                "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": 0.0,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Sell"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. It exhibits positive Relative Strength (RS: 0.02), outperforming the Nifty 50 benchmark.",
-                "Context": "",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
-            }
-        },
-        {
-            "Symbol": "HDFCSML250",
-            "CMP": 146.97,
-            "Position": {
-                "Qty": 2060,
-                "AvgPrice": 161.49272,
-                "CurrentValue": 302758.2
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 164.85,
-                "RS_Rating": 0.14,
-                "Vol_Status": "Distribution",
-                "Squeeze": false,
-                "Dist_High": 19.0
-            },
-            "Fundamental": {
-                "Sector": "SMALLCAP",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": 20.68323,
-                "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
-            },
-            "Sentiment": {
-                "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Sell"
-            },
-            "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. It exhibits positive Relative Strength (RS: 0.14), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 20.7). ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
-            }
-        },
-        {
-            "Symbol": "HDFCMID150",
-            "CMP": 20.17,
-            "Position": {
-                "Qty": 24182,
-                "AvgPrice": 20.81743,
-                "CurrentValue": 487750.94
-            },
-            "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 21.91,
-                "RS_Rating": 0.14,
-                "Vol_Status": "Distribution",
                 "Squeeze": false,
                 "Dist_High": 11.5
             },
             "Fundamental": {
-                "Sector": "MIDCAP",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": 25.338686,
+                "Sector": "Industrials",
+                "Industry": "Specialty Industrial Machinery",
+                "MarketCapCr": 123132.77,
+                "PE": 100.271065,
                 "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
+                "PB": 45.76426,
+                "ROE": 0.55261004,
+                "RevGrowth": 0.42,
+                "ProfitGrowth": 0.887,
+                "DebtToEq": 0.892,
+                "Beta": 0.574,
+                "BookValue": 105.082,
+                "OperatingMargins": 0.26439,
+                "FreeCashflow": 11809712128
             },
             "Sentiment": {
                 "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Sell"
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Strong Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. It exhibits positive Relative Strength (RS: 0.14), outperforming the Nifty 50 benchmark.",
-                "Context": "Valuations appear moderate relative to growth (P/E: 25.3). ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 0.8), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 100.3), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Strong Earnings Momentum (89% Growth) supports the bullish thesis. Quality compounding machine with High ROE (55%). ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (3908.49) is a low-risk entry opportunity."
             }
         },
         {
-            "Symbol": "BANKBEES",
-            "CMP": 543.04,
+            "Symbol": "NESTLEIND",
+            "CMP": 1453.8,
             "Position": {
-                "Qty": 575,
-                "AvgPrice": 607.5324,
-                "CurrentValue": 312247.99
+                "Qty": 69,
+                "AvgPrice": 1438.3652,
+                "CurrentValue": 100312.2
             },
             "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 596.57,
-                "RS_Rating": -0.22,
-                "Vol_Status": "Neutral",
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1321.16,
+                "RS_Rating": 0.56,
+                "Vol_Status": "Accumulation",
                 "Squeeze": false,
-                "Dist_High": 14.6
+                "Dist_High": 2.2
             },
             "Fundamental": {
-                "Sector": "BANKNIFTY",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": 13.560271,
+                "Sector": "Consumer Defensive",
+                "Industry": "Packaged Foods",
+                "MarketCapCr": 279046.36,
+                "PE": 79.642265,
                 "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
+                "PB": 54.111355,
+                "ROE": 0.76338995,
+                "RevGrowth": 0.23,
+                "ProfitGrowth": 0.274,
+                "DebtToEq": 8.621,
+                "Beta": 0.441,
+                "BookValue": 26.743,
+                "OperatingMargins": 0.2296,
+                "FreeCashflow": 38810951680
             },
             "Sentiment": {
                 "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Sell"
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Strong Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.22), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 13.6). ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 0.56), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations appear premium relative to growth (P/E: 79.6). Strong Earnings Momentum (27% Growth) supports the bullish thesis. Quality compounding machine with High ROE (76%). CAUTION: High Debt levels (D/E: 8.62) warrants monitoring. ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1321.16) is a low-risk entry opportunity."
             }
         },
         {
-            "Symbol": "ITBEES",
-            "CMP": 32.76,
+            "Symbol": "ANANDRATHI",
+            "CMP": 1964.9,
             "Position": {
-                "Qty": 4176,
-                "AvgPrice": 41.92,
-                "CurrentValue": 136805.75
+                "Qty": 54,
+                "AvgPrice": 1787.7797,
+                "CurrentValue": 106104.6
             },
             "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 38.73,
-                "RS_Rating": -0.4,
-                "Vol_Status": "Distribution",
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1656.63,
+                "RS_Rating": 1.12,
+                "Vol_Status": "Accumulation",
                 "Squeeze": false,
-                "Dist_High": 24.3
+                "Dist_High": 1.2
             },
             "Fundamental": {
-                "Sector": "IT",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": 20.947163,
+                "Sector": "Financial Services",
+                "Industry": "Asset Management",
+                "MarketCapCr": 32886.13,
+                "PE": 83.99491,
                 "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
+                "PB": 32.94685,
+                "ROE": 0.46738997,
+                "RevGrowth": 0.476,
+                "ProfitGrowth": 0.384,
+                "DebtToEq": 8.25,
+                "Beta": 0.355,
+                "BookValue": 60.115,
+                "OperatingMargins": 0.40331,
+                "FreeCashflow": 3900961280
             },
             "Sentiment": {
                 "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Sell"
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Strong Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.4), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear undervalued relative to growth (P/E: 20.9). ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.12), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 84.0), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Strong Earnings Momentum (38% Growth) supports the bullish thesis. Quality compounding machine with High ROE (47%). CAUTION: High Debt levels (D/E: 8.25) warrants monitoring. ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1656.63) is a low-risk entry opportunity."
             }
         },
         {
-            "Symbol": "AUTOBEES",
-            "CMP": 252.19,
+            "Symbol": "CAPLIPOINT",
+            "CMP": 2564.0,
             "Position": {
-                "Qty": 972,
-                "AvgPrice": 256.33694,
-                "CurrentValue": 245128.68
+                "Qty": 27,
+                "AvgPrice": 2103.3167,
+                "CurrentValue": 69228.0
             },
             "Technical": {
-                "Stage": "STAGE 4 (DOWN)",
-                "Support_SMA30": 278.22,
-                "RS_Rating": -0.1,
-                "Vol_Status": "Distribution",
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1886.48,
+                "RS_Rating": 2.99,
+                "Vol_Status": "Accumulation",
                 "Squeeze": false,
-                "Dist_High": 15.1
+                "Dist_High": 2.4
             },
             "Fundamental": {
-                "Sector": "AUTO",
-                "Industry": "Exchange Traded Fund",
-                "MarketCapCr": 0,
-                "PE": 28.277845,
+                "Sector": "Healthcare",
+                "Industry": "Drug Manufacturers - Specialty & Generic",
+                "MarketCapCr": 19243.88,
+                "PE": 30.103449,
                 "PEG": null,
-                "PB": null,
-                "ROE": null,
-                "RevGrowth": null,
-                "ProfitGrowth": null,
-                "DebtToEq": null,
-                "Beta": null,
-                "BookValue": null,
-                "OperatingMargins": null,
-                "FreeCashflow": null
+                "PB": 5.4795856,
+                "ROE": 0.19939,
+                "RevGrowth": 0.19,
+                "ProfitGrowth": 0.194,
+                "DebtToEq": 0.127,
+                "Beta": 0.224,
+                "BookValue": 462.024,
+                "OperatingMargins": 0.30898002,
+                "FreeCashflow": 21262500
             },
             "Sentiment": {
                 "Mood": "Neutral",
-                "Headlines": [],
-                "Rating": "Sell"
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Strong Buy"
             },
             "Analysis": {
-                "Thesis": "The asset is currently in a STAGE 4 (DOWN) structure. Technical structure is weak, characterized by lower highs and distribution. Relative Strength is lagging (-0.1), indicating potential rotation into other sectors.",
-                "Context": "Valuations appear moderate relative to growth (P/E: 28.3). ",
-                "Verdict": "SELL / AVOID",
-                "Verdict_Desc": "Downtrend dominant. Capital preservation is priority; avoid catching a falling knife until a Stage 1 base forms."
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 2.99), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations appear moderate relative to growth (P/E: 30.1). Quality compounding machine with High ROE (20%). ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1886.48) is a low-risk entry opportunity."
+            }
+        },
+        {
+            "Symbol": "LAURUSLABS",
+            "CMP": 1493.3,
+            "Position": {
+                "Qty": 116,
+                "AvgPrice": 1377.1534,
+                "CurrentValue": 173222.8
+            },
+            "Technical": {
+                "Stage": "STAGE 2 (UP)",
+                "Support_SMA30": 1149.11,
+                "RS_Rating": 1.95,
+                "Vol_Status": "Accumulation",
+                "Squeeze": false,
+                "Dist_High": 1.6
+            },
+            "Fundamental": {
+                "Sector": "Healthcare",
+                "Industry": "Drug Manufacturers - Specialty & Generic",
+                "MarketCapCr": 82009.89,
+                "PE": 92.39197,
+                "PEG": null,
+                "PB": 15.464075,
+                "ROE": 0.17743,
+                "RevGrowth": 0.053,
+                "ProfitGrowth": 0.194,
+                "DebtToEq": 46.369,
+                "Beta": 0.431,
+                "BookValue": 98.163,
+                "OperatingMargins": 0.21624,
+                "FreeCashflow": -388837504
+            },
+            "Sentiment": {
+                "Mood": "Neutral",
+                "Headlines": [
+                    "",
+                    "",
+                    ""
+                ],
+                "Rating": "Strong Buy"
+            },
+            "Analysis": {
+                "Thesis": "The asset is currently in a STAGE 2 (UP) structure. Price action confirms a constructive uptrend, supported by accumulation volume. Institutional footprints are visible (Buying on Dips). It exhibits positive Relative Strength (RS: 1.95), outperforming the Nifty 50 benchmark.",
+                "Context": "Valuations are stretched (P/E: 92.4), pricing in high growth expectations. Risk of mean reversion exists if earnings miss. Quality compounding machine with High ROE (18%). CAUTION: High Debt levels (D/E: 46.37) warrants monitoring. ",
+                "Verdict": "BUY / ACCUMULATE",
+                "Verdict_Desc": "Strong Uptrend + Relative Strength. Any pullback to the 30-week SMA (1149.11) is a low-risk entry opportunity."
             }
         }
     ]

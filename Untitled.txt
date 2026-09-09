@@ -1,0 +1,6 @@
+
+## What to set for what (this is the fix)
+- **To be pinged when a tracked name ARMS** (≈ GM "TRIGGER LIVE") → use the **"S4 ANY daily PA pattern"** alert, or add **"Any alert() function call"** (gives the named PA message). *Caveat:* it's edge-based (fires on the transition), so arm it **before** the pattern fires — a name that's already live won't re-ping.
+- **To be pinged at the EXECUTION instant** → **"S4 GO"** (stricter; what you had).
+- Recreate **both**, on **v2.8**, "Once Per Bar Close", on 75m and 125m.
+

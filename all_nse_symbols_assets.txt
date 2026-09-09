@@ -1,0 +1,349 @@
+SILVERBEES           | LTP: 230.26   | Assets: Domestic price of Silver- based on LBMA Silver daily spot fixing price
+LIQUIDBEES           | LTP: 1000.01  | Assets: Government Securities
+GOLDBEES             | LTP: 130.96   | Assets: Gold
+LIQUID1              | LTP: 1120.46  | Assets: Kotak Nifty 1D Rate Liquid ETF
+LIQUIDCASE           | LTP: 115.71   | Assets: Zerodha Nifty 1D Rate Liquid ETF
+TATSILV              | LTP: 23.36    | Assets: Tata Silver Exchange Traded Fund
+NIFTYBEES            | LTP: 275.9    | Assets: Nifty 50
+SILVERIETF           | LTP: 240.66   | Assets: Domestic Price of Silver
+GOLDIETF             | LTP: 135.69   | Assets: Gold
+HDFCSILVER           | LTP: 230.44   | Assets: HDFC Silver ETF
+ITBEES               | LTP: 34.7     | Assets: Nifty IT TRI
+TATAGOLD             | LTP: 15.38    | Assets: Tata Gold Exchange Traded Fund
+SETFGOLD             | LTP: 135.14   | Assets: Gold
+LIQUIDADD            | LTP: 1142.57  | Assets: DSP S&P BSE Liquid Rate ETF
+LIQUIDIETF           | LTP: 1000     | Assets: S&P BSE Liquid Rate Index
+HDFCGOLD             | LTP: 135.3    | Assets: Gold
+SBISILVER            | LTP: 236      | Assets: SBI SILVER ETF
+GOLDAXIS             | LTP: 131.92   | Assets: Gold
+SILVERCASE           | LTP: 24.46    | Assets: Commodity-Silver
+BANKBEES             | LTP: 596.25   | Assets: Nifty Bank
+GOLDCASE             | LTP: 24.93    | Assets: Zerodha Gold ETF
+SETFNIF50            | LTP: 260.46   | Assets: Nifty 50
+NIFTYIETF            | LTP: 274.35   | Assets: Nifty 50
+LIQUID               | LTP: 1000     | Assets: Mirae Asset Nifty 1D Rate Liquid ETF
+SBILIQETF            | LTP: 1053.92  | Assets: Nifty 1D Rate Index
+SILVER               | LTP: 240.33   | Assets: Physical price of Silver
+SILVER1              | LTP: 23.45    | Assets: Kotak Silver ETF
+GOLD1                | LTP: 132.2    | Assets: Gold
+LIQUIDPLUS           | LTP: 1101.11  | Assets: Nifty 1D Rate Index
+GOLDETF              | LTP: 154      | Assets: Mirae Asset Gold ETF
+HDFCSML250           | LTP: 186.55   | Assets: HDFC NIFTY Smallcap 250 ETF
+LIQUIDBETF           | LTP: 1096.76  | Assets: Bajaj Finserv Nifty 1D Rate Liquid ETF
+INFRAIETF            | LTP: 95.3     | Assets: ICICI Prudential Nifty Infrastructure ETF
+JUNIORBEES           | LTP: 803      | Assets: Nippon India ETF Nifty Next 50 Junior BeES
+LIQUIDETF            | LTP: 1000     | Assets: Nifty1D rate index
+MID150BEES           | LTP: 243.99   | Assets: Nifty Midcap 150 TRI
+PHARMABEES           | LTP: 27.79    | Assets: Nifty Pharma TRI
+CASHIETF             | LTP: 1077.46  | Assets: BSE Liquid Rate Index
+MON100               | LTP: 327.1    | Assets: Nasdaq100
+SILVERAG             | LTP: 235      | Assets: Mirae Asset Silver ETF
+SILVERBETA           | LTP: 232.72   | Assets: UTI Silver Exchange Traded Fund (UTI Silver ETF)
+MOCAPITAL            | LTP: 55.57    | Assets: Nifty Capital Market Total Return Index
+CPSEETF              | LTP: 92.84    | Assets: CPSE ETF
+SMALLCAP             | LTP: 49.16    | Assets: Mirae Asset Nifty Smallcap 250 Momentum Quality 100 ETF
+FMCGIETF             | LTP: 50.48    | Assets: Nifty FMCG Index
+MODEFENCE            | LTP: 106.9    | Assets: Nifty India Defence Total Return Index
+GOLDBETA             | LTP: 134      | Assets: Gold
+PSUBNKBEES           | LTP: 96.15    | Assets: Nifty PSU Bank
+SBIBPB               | LTP: 49.7     | Assets: BSE PSU Bank Index TRI
+LTGILTBEES           | LTP: 29.96    | Assets: NIFTY 8-13 yr G-Sec Index
+BANKBETA             | LTP: 59.43    | Assets: Nifty Bank
+BANKNIFTY1           | LTP: 60.04    | Assets: Nifty Bank
+SILVERAXIS           | LTP: 238.47   | Assets: Axis Silver ETF
+GROWWLIQID           | LTP: 110.56   | Assets: Nifty 1D Rate Index
+METALIETF            | LTP: 13.6     | Assets: Nifty Metal Index
+INSUREIETF           | LTP: 15.28    | Assets: BSE Insurance Index
+BANKIETF             | LTP: 59.19    | Assets: Nifty Bank
+AUTOBEES             | LTP: 298.99   | Assets: Nifty Auto TRI
+EBBETF0430           | LTP: 1604.5   | Assets: Nifty BHARAT Bond
+SILVERADD            | LTP: 23.33    | Assets: DSP Silver ETF
+ESILVER              | LTP: 240.1    | Assets: Edelweiss Silver ETF
+ALPHA                | LTP: 55.5     | Assets: NIFTY Alpha 50 Index
+NIFTYETF             | LTP: 263.2    | Assets: Nifty 50
+GROWWHOSPI           | LTP: 52.52    | Assets: BSE Hospitals Index
+SETFNN50             | LTP: 797.75   | Assets: Nifty Next 50
+MIDCAPETF            | LTP: 24.07    | Assets: Mirae Asset Mutual Fund - Mirae Asset Nifty Midcap 150 ETF
+HDFCLIQUID           | LTP: 1075.87  | Assets: HDFC Nifty 1D Rate Liquid ETF
+SETFNIFBK            | LTP: 594      | Assets: Nifty Bank
+GOLDADD              | LTP: 15.4     | Assets: DSP Gold ETF
+GROWWSLVR            | LTP: 23.6     | Assets: Commodity-Silver
+ITIETF               | LTP: 34.61    | Assets: Nifty IT Index
+HNGSNGBEES           | LTP: 473.99   | Assets: Hang Seng Index
+BSLGOLDETF           | LTP: 139.58   | Assets: Gold
+MOREALTY             | LTP: 90.86    | Assets: Motilal Oswal Nifty Realty ETF
+PVTBANIETF           | LTP: 28.01    | Assets: Nifty Private Bank Index
+GROWWGOLD            | LTP: 15.48    | Assets: Commodity
+LIQGRWBEES           | LTP: 1053.66  | Assets: Liquid
+GROWWPOWER           | LTP: 11.36    | Assets: BSE Power Index - TRI
+NEXT50IETF           | LTP: 78.5     | Assets: Nifty Next 50
+DEFENCE              | LTP: 82.49    | Assets: BSE India Defence
+HDFCNIFTY            | LTP: 273      | Assets: Nifty 50
+ICICIB22             | LTP: 114.5    | Assets: S&P BSE BHARAT 22 index
+BSLNIFTY             | LTP: 28.43    | Assets: Nifty 50
+MOMMIDCAP            | LTP: 13.28    | Assets: BSE Midcap 150 Momentum 30 TRI
+LIQUIDSHRI           | LTP: 1119.42  | Assets: SHRIRAM NIFTY 1D RATE LIQUID ETF
+MOMENTUM50           | LTP: 55.5     | Assets: Nifty 500 Momentum 50 Total Return Index
+LOWVOLIETF           | LTP: 22.21    | Assets: Nifty 100 Low Volatility 30 Index
+METAL                | LTP: 13.65    | Assets: Nifty Metal Total Return Index
+MIDSMALL             | LTP: 52.77    | Assets: Mirae Asset Nifty MidSmallcap400 Momentum Quality 100 ETF
+QGOLDHALF            | LTP: 131.35   | Assets: Gold
+MOM100               | LTP: 69       | Assets: Nifty Midcap 100
+IT                   | LTP: 34.7     | Assets: NIFTY IT Index
+HEALTHIETF           | LTP: 171.78   | Assets: Nifty Healthcare Index
+GROWWDEFNC           | LTP: 97.69    | Assets: Nifty India Defence Index- Total Return Index
+NEXT50               | LTP: 767.57   | Assets: Nifty Next 50
+MID150CASE           | LTP: 11.84    | Assets: Zerodha Nifty Midcap 150 ETF
+GILT5YBEES           | LTP: 66.23    | Assets: Nifty 5 yr Benchmark G-Sec Index
+ITETF                | LTP: 33.17    | Assets: Mirae Asset Nifty IT ETF
+MOSMALL250           | LTP: 18.57    | Assets: Motilal Oswal Nifty Smallcap 250 ETF
+BANKBETF             | LTP: 58.43    | Assets: Bajaj Finserv Nifty Bank ETF
+INFRABEES            | LTP: 959.5    | Assets: Nifty Infra
+MIDCAPIETF           | LTP: 24.33    | Assets: Nifty Midcap 150
+HDFCBSE500           | LTP: 37.99    | Assets: HDFC S&P BSE 500 ETF
+AUTOIETF             | LTP: 29.97    | Assets: Nifty Auto Index
+MOM30IETF            | LTP: 32       | Assets: ICICI Prudential Nifty 200 Momentum 30 ETF
+GROWWRAIL            | LTP: 28.56    | Assets: Nifty India Railways PSU Index
+NIFTYBETA            | LTP: 268.25   | Assets: Nifty 50
+CONSUMBEES           | LTP: 132.1    | Assets: Nifty India Consumption TRI
+EBBETF0431           | LTP: 1432.02  | Assets: Nifty BHARAT Bond
+MOVALUE              | LTP: 112.98   | Assets: Motilal Oswal S&P BSE Enhanced Value ETF
+MAFANG               | LTP: 207.13   | Assets: NYSE FANG+ Total Return Index
+SML100CASE           | LTP: 11.43    | Assets: Nifty Smallcap 100 Index
+LICMFGOLD            | LTP: 142.1    | Assets: Gold
+MAKEINDIA            | LTP: 168.55   | Assets: Nifty India Manufacturing Total Return Index
+OILIETF              | LTP: 11.24    | Assets: Nifty Oil & Gas Index
+AONELIQUID           | LTP: 1074.75  | Assets: Nifty 1D Rate Index
+INTERNET             | LTP: 14.65    | Assets: Equity Index
+TOP100CASE           | LTP: 10.68    | Assets: Zerodha Nifty 100 ETF
+ALPL30IETF           | LTP: 27.94    | Assets: Nifty Alpha Low-Volatility 30 Index
+HDFCNIFIT            | LTP: 33.26    | Assets: HDFC NIFTY IT ETF
+PSUBANK              | LTP: 86.37    | Assets: Nifty PSU Bank
+ENERGY               | LTP: 38.26    | Assets: Nifty Energy
+EVINDIA              | LTP: 33.56    | Assets: Nifty EV and New Age Automotive Total Return Index
+HEALTHY              | LTP: 17.31    | Assets: Nifty Healthcare TRI
+NIFTYCASE            | LTP: 9.69     | Assets: Nifty Index 50 Index
+NEXT50BETA           | LTP: 80.39    | Assets: Nifty Next 50
+HDFCMID150           | LTP: 23.89    | Assets: HDFC NIFTY Midcap 150 ETF
+BANKETF              | LTP: 585.87   | Assets: Mirae Asset Nifty Bank ETF
+NIFTY1               | LTP: 268.05   | Assets: Nifty 50
+EGOLD                | LTP: 158      | Assets: Edelweiss Gold ETF
+GROWWEV              | LTP: 33.11    | Assets: Nifty EV and New Age Automotive Index
+ALPHAETF             | LTP: 27.35    | Assets: Mirae Asset Nifty 200 Alpha 30 ETF
+MOSILVER             | LTP: 237.65   | Assets: Domestic Price of Physical Silver
+MONIFTY500           | LTP: 24.1     | Assets: Motilal Oswal Nifty 500 ETF
+GROWWNIFTY           | LTP: 9.81     | Assets: Nifty 50 Index - TRI
+MAHKTECH             | LTP: 22.75    | Assets: Hang Seng TECH Total Return Index
+SMALL250             | LTP: 18.56    | Assets: Nifty Smallcap 250
+PSUBNKIETF           | LTP: 86.71    | Assets: ICICI Prudential Nifty PSU Bank ETF
+SHARIABEES           | LTP: 459.2    | Assets: Shariah
+MOENERGY             | LTP: 38.19    | Assets: Nifty Energy Index
+TNIDETF              | LTP: 91.86    | Assets: Nifty India Digital Index
+GROWWMETAL           | LTP: 12.83    | Assets: Nifty Metal Index
+FINIETF              | LTP: 33.39    | Assets: ICICI Prudential Nifty Financial Services Ex-Bank ETF
+GROWWNET             | LTP: 10.91    | Assets: Index
+SBIETFIT             | LTP: 346      | Assets: Nifty IT Index
+GROWWMOM50           | LTP: 11.23    | Assets: Nifty 500 Momentum 50 Index- Total Return Index
+CHEMICAL             | LTP: 30.47    | Assets: Nifty Chemicals Index (TRI)
+NIF100BEES           | LTP: 267.5    | Assets: Nifty 100 TRI
+SENSEXIETF           | LTP: 886.15   | Assets: SENSEX
+SBIMIDMOM            | LTP: 64.98    | Assets: Nifty Midcap 150 Momentum 50 Index
+EVIETF               | LTP: 33.69    | Assets: Nifty EV & New Age Automotive ETF
+HDFCNEXT50           | LTP: 75.97    | Assets: HDFC NIFTY NEXT 50 ETF
+AONEGOLD             | LTP: 14.79    | Assets: Domestic price of Gold
+HDFCMOMENT           | LTP: 31.75    | Assets: HDFC NIFTY200 Momentum 30 ETF
+COMMOIETF            | LTP: 99.67    | Assets: ICICI Prudential Nifty Commodities ETF
+SENSEXETF            | LTP: 79.84    | Assets: Mirae Asset S&P BSE Sensex ETF
+GROWWCAPM            | LTP: 11.63    | Assets: Nifty Capital Markets Index
+HDFCPVTBAN           | LTP: 28.38    | Assets: HDFC NIFTY Private Bank ETF
+NV20IETF             | LTP: 13.64    | Assets: Nifty50 Value 20
+MIDCAP               | LTP: 18.84    | Assets: Nifty Midcap 50 Index
+ITAXIS               | LTP: 345.34   | Assets: NIFTY IT Index
+MOMOMENTUM           | LTP: 63.42    | Assets: Nifty 200 Momentum 30 Total Return Index
+BBETF0432            | LTP: 1342.01  | Assets: Nifty BHARAT Bond Index - April 2032
+DIVOPPBEES           | LTP: 77.32    | Assets: Nifty Dividend Opportunities 50 TRI
+MONQ50               | LTP: 146.37   | Assets: Nasdaq Q-50 Total Return Index
+HDFCNIMEG            | LTP: 134.24   | Assets: Nifty Metal Index TRI
+HDFCNIF100           | LTP: 26.33    | Assets: HDFC NIFTY 100 ETF
+IVZINGOLD            | LTP: 138      | Assets: Gold
+TECH                 | LTP: 34       | Assets: Nifty IT TRI Index
+QUAL30IETF           | LTP: 21.27    | Assets: ICICI Prudential Nifty 200 Quality 30 ETF
+AONESILVER           | LTP: 9.2      | Assets: Domestic price of Silver
+SELECTIPO            | LTP: 49.01    | Assets: BSE Select IPO Index
+SILVER360            | LTP: 236.05   | Assets: Commodity-Silver
+TOP15IETF            | LTP: 9.95     | Assets: Nifty Top 15 Equal Weight Index
+ABSLPSE              | LTP: 10.19    | Assets: Aditya Birla Sun Life Nifty PSE ETF
+ELIQUID              | LTP: 1045.75  | Assets: Nifty 1D Rate Index (Debt Index)
+TOP10ADD             | LTP: 87.91    | Assets: Nifty Top 10 Equal Weight Index
+MOM50                | LTP: 252.5    | Assets: Nifty 50
+MOHEALTH             | LTP: 52.5     | Assets: Motilal Oswal S&P BSE Healthcare ETF
+GOLD360              | LTP: 154.4    | Assets: Commodity-Gold
+HDFCPSUBK            | LTP: 86.5     | Assets: HDFC NIFTY PSU BANK ETF
+HDFCQUAL             | LTP: 59.6     | Assets: HDFC NIFTY100 Quality 30 ETF
+GROWWRLTY            | LTP: 10.11    | Assets: Index
+AONETOTAL            | LTP: 11.98    | Assets: Nifty Total Market Index
+ITADD                | LTP: 33.01    | Assets: DSP Nifty IT ETF
+MIDSELIETF           | LTP: 20.21    | Assets: S&P BSE Midcap Select Index
+MOMIDMTM             | LTP: 65.7     | Assets: Nifty Midcap 150 Momentum 50 Total Return Index
+MOGOLD               | LTP: 157      | Assets: Domestic Price of Physical Gold
+BFSI                 | LTP: 27.37    | Assets: Nifty Financial Services Index
+BSE500IETF           | LTP: 39.89    | Assets: S&P BSE 500 index
+BNKETFAXIS           | LTP: 594.57   | Assets: Nifty Bank
+NIFTYJBLK            | LTP: 12.45    | Assets: INDEX
+LTGILTCASE           | LTP: 30.58    | Assets: Nifty 8-13 Yr G-Sec Index
+EQUAL50ADD           | LTP: 347.12   | Assets: NIFTY 50 Equal Weight Index
+MOTOUR               | LTP: 78.85    | Assets: Nifty India Tourism Total Return Index
+MOLOWVOL             | LTP: 36.63    | Assets: Nifty Midcap 100 TRI
+AONENIFTY            | LTP: 9.96     | Assets: Nifty 50 Index
+LIQUIDSBI            | LTP: 1000.01  | Assets: SBI NIFTY 1D Rate ETF
+FMCGADD              | LTP: 47.16    | Assets: Nifty FMCG Index (TRI)
+GROWWSC250           | LTP: 10.68    | Assets: Nifty Smallcap 250 Index - TRI
+HDFCGROWTH           | LTP: 121.81   | Assets: HDFC NIFTY Growth Sectors 15 ETF
+EQUAL50              | LTP: 334.29   | Assets: Nifty50 Equal Weight
+NIFTYADD             | LTP: 255.2    | Assets: Nifty 50 Index
+ELM250               | LTP: 16.76    | Assets: Nifty LargeMidcap 250 TRI
+SILVERBND            | LTP: 241.26   | Assets: Commodity - Silver
+VAL30IETF            | LTP: 15.19    | Assets: Nifty200 Value 30 Index
+HSBCGOLD             | LTP: 138      | Assets: Commodity
+SMALLGROWW           | LTP: 49.45    | Assets: Nifty Smallcap 250 Momentum Quality 100 Index TRI
+MOQUALITY            | LTP: 201.56   | Assets: Motilal Oswal S&P BSE Quality ETF
+SMALLIETF            | LTP: 18.62    | Assets: Nifty Smallcap 250 Index
+CONSUMER             | LTP: 12.25    | Assets: Nifty India New AgeConsumption
+EBBETF0433           | LTP: 1311.6   | Assets: BHARAT Bond ETF-April 2033
+NIF100IETF           | LTP: 28.2     | Assets: Nifty 100
+HEALTHAXIS           | LTP: 170.69   | Assets: Nifty Healthcare Index
+MASPTOP50            | LTP: 79.78    | Assets: S&P 500 Top 50 Total Return Index
+HDFCNIFBAN           | LTP: 59.37    | Assets: Nifty Bank
+AONETMMQ50           | LTP: 10.42    | Assets: Nifty Total Market Momentum Quality 50 TRI
+ABSLLIQUID           | LTP: 1000     | Assets: Aditya Birla Sun Life CRISIL Overnight Fund AI ETF
+GROWWNXT50           | LTP: 74.7     | Assets: Index
+MULTICAP             | LTP: 16.93    | Assets: Nifty500 Multicap 50:25:25 Index
+ABSLBANETF           | LTP: 59.08    | Assets: Nifty Bank
+ITBETA               | LTP: 328      | Assets: UTI Nifty IT ETF
+VALUEAXIS            | LTP: 32.8     | Assets: Nifty500 Value 50 TRI
+DIVIDEND             | LTP: 35.83    | Assets: BSE 500 Dividend Leaders
+PVTBANKADD           | LTP: 28.06    | Assets: DSP Nifty Private Bank ETF
+HDFCSENSEX           | LTP: 87.4     | Assets: SENSEX
+MOALPHA50            | LTP: 57.05    | Assets: Nifty Alpha 50 Total Return Index
+PSUBANKADD           | LTP: 86.5     | Assets: DSP Nifty PSU Bank ETF
+NIFTYQLITY           | LTP: 21.68    | Assets: Aditya Birla Sun Life Nifty 200 Quality 30 ETF
+GROWWCHEM            | LTP: 30.42    | Assets: Nifty Chemicals Index - TRI
+EMULTIMQ             | LTP: 42.58    | Assets: Nifty500 Multicap Momentum Quality 50 Total Return Index
+MNC                  | LTP: 34       | Assets: Kotak Nifty MNC ETF
+TWCGOLDETF           | LTP: 157.17   | Assets: Commodity
+NV20BEES             | LTP: 139.6    | Assets: Nifty50 Value20 TRI
+LICNMID100           | LTP: 64.21    | Assets: LIC MF Nifty Midcap 100 ETF
+ABSL10BANK           | LTP: 168.75   | Assets: BSE Top 10 Banks Index
+UNIONGOLD            | LTP: 155.4    | Assets: Commodity Gold
+FLEXIADD             | LTP: 10.25    | Assets: Nifty500 Flexicap Quality 30 TRI
+NV20                 | LTP: 13.92    | Assets: Nifty50 Value 20
+CEMNTGROWW           | LTP: 14.88    | Assets: Nifty Cements Index TRI
+BANKPSU              | LTP: 86.74    | Assets: Nifty PSU Bank Total Return Index
+IVZSENSEX            | LTP: 79.2     | Assets: BSE Sensex TRI
+CHOICEGOLD           | LTP: 156.63   | Assets: Gold
+CONSUMIETF           | LTP: 123      | Assets: Nifty India Consumption Index
+ABSLNN50ET           | LTP: 78.4     | Assets: Nifty Next 50
+ECAPINSURE           | LTP: 24.31    | Assets: BSE Capital Markets & Insurance Total Return Index
+SBINEQWETF           | LTP: 33.63    | Assets: Nifty50 Equal Weight
+NIFTYAXIS            | LTP: 267.23   | Assets: Nifty 50
+NEXT50ETF            | LTP: 75       | Assets: Nifty Next 50 Index
+HEALTHCARE           | LTP: 21.91    | Assets: Nifty 500 Healthcare Index
+HDFCVALUE            | LTP: 125.5    | Assets: HDFC NIFTY50 Value 20 ETF
+HEALTHADD            | LTP: 16.9     | Assets: DSP Nifty Healthcare ETF
+NIFTY100EW           | LTP: 35.6     | Assets: Nifty 100 Equal Weight Index
+GOLDBND              | LTP: 157.51   | Assets: Commodity - Gold
+SETF10GILT           | LTP: 264.28   | Assets: Nifty 10 yr Benchmark G-Sec Index
+SILVER001            | LTP: 24.4     | Assets: Commodity - Silver
+MANUFGBEES           | LTP: 167.1    | Assets: Nifty India Manufacturing TRI
+MID150               | LTP: 24       | Assets: Nifty Midcap 150 Index
+PVTBKGROWW           | LTP: 27.68    | Assets: Nifty Private Bank Index - TRI
+PVTBANK              | LTP: 27.96    | Assets: Index
+SBINMID150           | LTP: 23.69    | Assets: Nifty Midcap 150 Index
+NETF                 | LTP: 261.04   | Assets: Tata Nifty 50 Exchange Traded Fund
+MONEXT50             | LTP: 74.3     | Assets: Nifty Next 50 Total Return Index
+SENSEXBETA           | LTP: 865      | Assets: SENSEX
+BANK10ADD            | LTP: 17       | Assets: BSE Top 10 Banks Index (TRI)
+TOP20                | LTP: 9        | Assets: Nifty Top 20 Equal Weight
+GROWWN200            | LTP: 11.39    | Assets: Nifty 200 Index- Total Return Index
+SBISMLETF            | LTP: 18.5     | Assets: Nifty Smallcap 250 Index
+MOINFRA              | LTP: 58.99    | Assets: BSE India Infrastructure Total Return Index
+MIDQ50ADD            | LTP: 25.62    | Assets: Nifty Midcap 150 Quality 50 Index
+MOMENTUM             | LTP: 31.72    | Assets: Aditya Birla Sun Life Nifty 200 Momentum 30 ETF
+GROWWPSE             | LTP: 97.8     | Assets: Nifty PSE Index - TRI
+BBNPPGOLD            | LTP: 153.85   | Assets: Baroda BNP Paribas Gold ETF
+LOWVOL1              | LTP: 21.17    | Assets: Kotak Nifty 100 Low Vol 30 ETF
+BANKADD              | LTP: 58.91    | Assets: DSP Nifty Bank ETF
+MSCI360              | LTP: 10.22    | Assets: MSCI India Index
+ESG                  | LTP: 41.5     | Assets: NIFTY100 ESG SECTOR LEADERS
+NEXT50ADD            | LTP: 74.79    | Assets: Nifty Next 50 TRI
+INFRA                | LTP: 12.14    | Assets: Nifty India Infrastructure & Logistics
+CONS                 | LTP: 12.32    | Assets: Kotak Nifty India Consumption ETF
+QNIFTY               | LTP: 266.2    | Assets: Nifty 50
+NEXT30ADD            | LTP: 43.39    | Assets: BSE SENSEX Next 30 Index
+CONSUMAXIS           | LTP: 122.7    | Assets: NIFTY India Consumption Index
+MOMENTUM30           | LTP: 31.51    | Assets: Nifty 200 Momentum 30 Index
+SBIETFCON            | LTP: 123.54   | Assets: Nifty India Consumption Index
+MSCIINDIA            | LTP: 30.17    | Assets: MSCI India Index
+LICNETFGSC           | LTP: 29.59    | Assets: GSEC10 NSE Index
+EQUAL200             | LTP: 14.01    | Assets: BSE 200 Equal Weight
+EMETAL               | LTP: 13.54    | Assets: Nifty Metal Total Return Index
+LICNFNHGP            | LTP: 278.46   | Assets: Nifty 100
+IDFNIFTYET           | LTP: 265      | Assets: Nifty 50
+HDFCLOWVOL           | LTP: 20.74    | Assets: HDFC NIFTY100 Low Volatility 30 ETF
+SBIETFQLTY           | LTP: 224.13   | Assets: Nifty 200 Quality 30 Index
+HYBRIDETF            | LTP: 10.19    | Assets: Nifty200 Momentum 30 Plus 8-13 yr G-Sec 50:50 Total Return Index
+MOMETAL              | LTP: 13.57    | Assets: Nifty Metal Index
+MIDBANKADD           | LTP: 17.29    | Assets: BSE MidSmall Private Banks Index
+EBANKNIFTY           | LTP: 58.14    | Assets: Edelweiss Nifty Bank ETF
+GROWWPSUBK           | LTP: 86       | Assets: Nifty PSU Bank Index - TRI
+GROWWMC150           | LTP: 236.98   | Assets: Nifty Midcap 150 Index - TRI
+SMALLADD             | LTP: 18.63    | Assets: Nifty Smallcap 250 Index
+MOIPO                | LTP: 49.37    | Assets: BSE Select IPO Total Return Index
+SBIETFPB             | LTP: 283.64   | Assets: Nifty Private Bank Index
+SNXT30BEES           | LTP: 43.34    | Assets: BSE Sensex Next 30 Index
+MONIFTY100           | LTP: 25.5     | Assets: Nifty 100 Total Return Index
+VALUE                | LTP: 16.17    | Assets: Nifty 500 Value 50
+QUALITY30            | LTP: 20.85    | Assets: Nifty200 Quality 30 Index
+LARGEMID50           | LTP: 36.87    | Assets: BSE LargeMid (60:40) Stable Dividend 50 TRI (Total Return Index)
+NIFTYBETF            | LTP: 248.31   | Assets: Bajaj Finserv Nifty 50 ETF
+LOWVOL               | LTP: 208.13   | Assets: Mirae Asset Nifty 100 Low Volatility 30 ETF
+MOPSE                | LTP: 98.5     | Assets: Nifty PSE Total Return Index
+MOGSEC               | LTP: 65.09    | Assets: Nifty 5 yr Benchmark G-Sec Index
+MIDCAPBETA           | LTP: 238.13   | Assets: UTI Nifty Midcap 150 Exchange Traded Fund (ETF)
+GROWWLOVOL           | LTP: 10.48    | Assets: Nifty 500 Low Volatility 50 Index   TRI
+BSLSENETFG           | LTP: 78.33    | Assets: BSE SENSEX Index
+SNXT50BETA           | LTP: 96.24    | Assets: BSE Sensex Next 50
+ENEXT50              | LTP: 74       | Assets: Nifty Next 50 Total Return Index
+GSEC5IETF            | LTP: 66.15    | Assets: Nifty 5 yr Benchmark G-Sec Index
+NIF500BETA           | LTP: 37.85    | Assets: Index
+LICNETFN50           | LTP: 271.55   | Assets: Nifty 50
+MOBANK10             | LTP: 16.93    | Assets: BSE Top 10 Banks Total Return Index
+MON50EQUAL           | LTP: 33.7     | Assets: Nifty 50 Equal Weight Total Return Index
+NPBET                | LTP: 287.9    | Assets: Nifty Private Bank Index
+IVZINNIFTY           | LTP: 276.53   | Assets: Nifty 50
+SENSEXADD            | LTP: 79.84    | Assets: DSP S&P BSE Sensex ETF
+MSCIADD              | LTP: 29.8     | Assets: MSCI India Index
+SENSEXAXIS           | LTP: 79.8     | Assets: AXIS S&P BSE SENSEX ETF
+IVZBANKNF            | LTP: 57.35    | Assets: Nifty Bank TRI
+MOOILGAS             | LTP: 11.12    | Assets: Nifty Oil & Gas ETF Total Return Index
+ABSLMSCIN            | LTP: 29.75    | Assets: MSCI India Index
+GILT10BETA           | LTP: 26.87    | Assets: UTI Nifty 10 yr Benchmark G-Sec ETF
+BANK10BETF           | LTP: 20.77    | Assets: Index
+MIDCAPADD            | LTP: 23.6     | Assets: Nifty Midcap 150 Index
+SBIVALETF            | LTP: 14.8     | Assets: Nifty200 Value 30 Index
+MOSERVICE            | LTP: 31.23    | Assets: Nifty Services Sector Total Return Index
+ENIFTY               | LTP: 24.36    | Assets: Nifty 50 TRI
+GILT5BETA            | LTP: 66.5     | Assets: UTI Nifty 5 yr Benchmark G-Sec ETF
+ELMDIV               | LTP: 36.65    | Assets: Index (BSE LargeMid (60:40) Stable Dividend 50)
+GSEC10YEAR           | LTP: 30.64    | Assets: Mirae Asset Nifty 8-13 yr G-Sec ETF
+MOMNC                | LTP: 33.05    | Assets: Nifty MNC ETF Total Return Index
+MOMGF                | LTP: 165.12   | Assets: Nifty India Manufacturing Total Return Index
+ESENSEX              | LTP: 77.96    | Assets: BSE Sensex TRI
+LICNETFSEN           | LTP: 873.4    | Assets: SENSEX
+BBNPNBETF            | LTP: 57.97    | Assets: Baroda BNP Paribas NIFTY Bank ETF
+GSEC10ABSL           | LTP: 112.05   | Assets: CRISIL 10 Year Gilt ETF
+EBANK10              | LTP: 16.98    | Assets: Index (BSE Top 10 Bank)
+ABGSEC               | LTP: 115.28   | Assets: Aditya Birla Sun Life CRISIL Broad Based Gilt ETF
+GSEC10ADD            | LTP: 26.89    | Assets: Nifty 10 yr Benchmark G-Sec
+LIQUIDBETA           | LTP: 1005.78  | Assets: Nifty 1D Rate Index
+GSEC10IETF           | LTP: 263.52   | Assets: ICICI Prudential Nifty 10 yr Benchmark G-Sec ETF
