@@ -124,3 +124,83 @@ adopted. If it fails, the correct read is not "try an eleventh" — it is that e
 tuning have both been searched fairly hard on a sample that cannot resolve ~1pp effects, and
 the regime term (+0.85% vs −0.63% between periods, same screener) remains larger than
 anything found.
+
+---
+
+# OUTCOME · H9 — recorded 9 Sep 2026
+
+Control `20260909_055448` vs treat `20260909_231635` (`--entry_staging pilot`).
+**The first treat arm (`20260909_225012`) was discarded** — my partial-quantity bug closed
+half-filled positions with full-sized targets, so nothing rode the trail. See §8.
+
+| criterion | value | |
+|---|---|---|
+| A · add fires on ≥40% | **67.6%**, mean fill 83.8% | **PASS** |
+| F · winner capture ≥60% | **71 of 72 = 100%** | **PASS** |
+| B · per-family ≥ +0.15R | POS-BO **+0.188R** · SWG +0.005R · POS-ACCUM −0.004R | pass POS-BO only |
+| C · CI95 excludes zero | POS-BO [−0.187, +0.843] P 63.4% · SWG [−0.080, +0.086] | **FAIL** |
+| D · sign holds both halves | POS-BO +0.295 / **−0.050** · SWG −0.010 / +0.021 | **FAIL** |
+| E' · deployment | +0.033 vs −0.047 | **PASS** |
+
+**VERDICT: DO NOT ADOPT.** `ENTRY_STAGING` stays `"full"`.
+
+## My §4 prediction was wrong, and so was the source document's mechanism
+
+I predicted F would fail — that winners go straight up, so staging would be half-size on
+the trades that carry the book. **F passed at 100%: 71 of the 72 control trades reaching
+3R+ had the add fire.** Winners do pull back or make new highs. That fear was unfounded and
+is now closed.
+
+But the reason staging shows any gain at all is not the doc's either. Per-cohort change:
+
+| cohort | n | Δ vs control |
+|---|---:|---:|
+| added, then stopped out | 86 | **−0.135R** |
+| added, not stopped | 133 | **−0.111R** |
+| **never added** | **105** | **+0.494R** |
+
+**Every rupee of the effect comes from the trades the add NEVER fires on.** Adding is
+mildly NEGATIVE in both cohorts — the second tranche buys higher against the same stop, so
+it dilutes the winners and deepens the losers. What pays is being half-size in the trades
+that fell immediately and never recovered above the GO close.
+
+So staging is not "surviving the shakeout", which is what the document argued. It is
+**withholding half the position from trades that fail at once** — and the add trigger earns
+its keep by omission, not by what it buys. That is the same shape as the abandon-variant
+result: the value is in the trades NOT taken.
+
+None of it survives C or D, so nothing ships.
+
+## D fails for the fourth consecutive intervention
+
+roleMismatch, the RV band (twice), the graded positive form, and now staging. On POS-BO the
+split is +0.295R in-sample and −0.050R out. Four independent interventions, all with
+plausible mechanisms, all reversing across a chronological split on this sample.
+
+At some point that stops being a fact about each idea and starts being a fact about the
+sample: **331 GO-timed trades cannot resolve effects of this size.** The regime term
+(+0.85% vs −0.63% between periods, same screener, same gate) remains larger than every
+effect measured across eleven pre-registered tests.
+
+## 8. The discarded arm, and why it is written down
+
+`20260909_225012` reported POS-BO −0.569R and pooled −0.201R — a clean-looking "staging
+destroys the positional book", with a mechanism story ready to hand.
+
+It was my bug. `t1_qty_pct`/`t2_qty_pct` are percentages of the FULL intended position, so
+a half-filled trade had T1 take 33 of the 50 held and T1+T2 (66) exceed the position: the
+targets closed it and nothing rode the trail. The treat arm was testing an exit policy my
+own change had silently rewritten.
+
+**What caught it was an arithmetic impossibility, not a hunch.** Trades where the add never
+fired sat at half size, so they had to lose roughly HALF as much — and they came back
+WORSE than control (−0.500R → −0.663R). Half size cannot lose more. After the fix the same
+cohort reads **+0.494R**.
+
+⚠️ **And the check I reached for first was itself wrong.** I compared the half-filled exit
+mix (105 SL / 1 trail) against the control's (196 / 135) and called it "STILL BROKEN" after
+the fix. That comparison is invalid: never-added is a SELECTED cohort — the add fires on a
+new high or a dip-and-reclaim, so a trade that never triggers is one that fell and never
+came back, and 105 SL / 1 trail is exactly what it should look like. The valid instrument
+was the SIGN of the never-added delta. Recorded because an instrument that reads "broken"
+on healthy code is as expensive as one that reads "fine" on broken code.
