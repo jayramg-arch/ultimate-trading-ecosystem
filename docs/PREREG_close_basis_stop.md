@@ -114,3 +114,60 @@ been tested. Against: the POS forensics say stopped-out positional trades rarely
 (1.9% reach T1), so for the family the doc is aimed at, close-basis may buy a worse fill on
 the same loss. My expectation is that this passes for SWG and fails for POS — the opposite
 of the document's framing — and I have written that down before running it.
+
+---
+
+# OUTCOME · H8 — recorded 9 Sep 2026
+
+Control `20260909_055448` (intraday) vs treat `20260909_195727` (`--sl_basis close`).
+Instrument: qualify `catalyst` both, windows 60/120/180. The control's meta has no
+`sl_basis` key because it predates the field; its code path is the shipped intraday one
+and is asserted unchanged by `tests/test_sl_basis.py`.
+
+| family | control | treat | edge |
+|---|---:|---:|---:|
+| SWG (60d) | −1.28% / win 27.9% | −0.98% / win **33.1%** | +0.30pp |
+| POS-BO/WYC (120d) | −0.03% / win 36.2% | +0.03% / win **41.6%** | +0.06pp |
+| POS-ACCUM (180d) | −0.68% / win 40.7% | −0.27% / win **46.4%** | +0.40pp |
+
+| criterion | value | |
+|---|---|---|
+| A · ≥15% of stop-outs change | **13%** | FAIL |
+| B · per-family edge ≥ +1.0pp | +0.06 to +0.40pp | FAIL, every family |
+| F · loss on trades that still stop out | −4.62% → **−5.71%** | FAIL |
+
+**VERDICT: DO NOT ADOPT.** `SL_BASIS` stays `"intraday"`.
+
+## The mechanism worked exactly as described and still did not pay
+
+This is not a null where nothing happened. Every prediction in §1-3 came true:
+
+* the wick rescue is real — initial-SL exits fall 196 → 170;
+* **win rate rises in ALL THREE families, +5.2 / +5.4 / +5.7pp.** A consistent
+  same-signed move across three independent families is a signature, not noise;
+* and the fills on the trades that still stop out are **1.09pp worse**, exactly the cost
+  §3 said close-basis pays by construction.
+
+The two cancel. Saving 26 trades at ~+4% each is worth about what the extra ~1.1pp costs
+on the 170 that still fail.
+
+## Two things the 52% wick figure did not mean
+
+**52% of stop-outs were wicks, but only 13% of stop-outs changed outcome.** The gap is the
+rest of the scheme doing its job: some wick bars breach the 1.5x DISASTER floor and exit
+intraday anyway, and many that survive the day simply close below on a later one. Surviving
+a wick postpones the exit far more often than it prevents it — which is what the POS
+forensics predicted (stopped-out POS trades reach T1 later only 1.9% of the time).
+
+**My pre-registered prior was directionally right and badly wrong on magnitude.** I wrote
+"passes for SWG, fails for POS". SWG's edge (+0.30pp) is indeed the largest of the three and
+POS-BO's (+0.06pp) the smallest — but nothing passes, because I anticipated a size the
+mechanism could never deliver once the fill cost is charged honestly.
+
+## What this closes
+
+The trigger BASIS now joins stop DISTANCE as a tested-and-rejected axis. **Five stop studies,
+five rejections.** The consistent win-rate lift is the one residue worth remembering: if a
+future change makes the fill cost smaller — an intraday limit rather than a market exit at
+the close — the rescue half is real and already measured. That is a different order type,
+not a different stop, and it would need its own registration.
