@@ -418,3 +418,62 @@ point estimate, interval touching zero. The next move is **more anchors** (a 60-
 or nifty500 → a wider universe), not a fourth gate variant. Registering another threshold
 against this sample would be the multiple-testing problem the whole thread is trying to
 avoid.
+
+---
+
+# PREREG · the 60-month confirmatory — written 9 Sep 2026, BEFORE the run
+
+## What is under test, and why it needs no treat arm
+
+The **ABANDON variant**: block the NAME for that anchor when its first qualifying GO bar
+carries no non-ignition evidence, rather than deferring to a later bar. Each control row
+holds exactly one GO bar — the first qualifying one — so dropping rows whose GO bar scored
+0 **is** abandon-on-block, exactly. One instrumented control run therefore scores it; a
+second arm would only re-measure the DEFER behaviour already shown to give back half the
+value.
+
+    python validation.py --months 60 --universe nifty500 --screener bull \
+                         --gate s4go --qualify catalyst --catalyst_windows \
+                         --bootstrap_n 10000
+
+## Everything is fixed before the data exists
+
+- **Threshold: `NonIgn_Score >= 1`.** Carried over unchanged from the 36-month ladder. Not
+  re-read, not re-optimised, and no other threshold will be scored.
+- **The confirmatory set is the anchors ABSENT from `20260909_055448`** (the 30 anchors of
+  the 36-month run, roughly 2023-08 onward). Those are already spent — they discovered the
+  ladder, chose the threshold, and produced the +1.47pp. Anything from 2021-08 to 2023-07
+  is new. The exclusion is mechanical.
+- **Rule A-F as already written**, unchanged, including C at 95%.
+- Instrument first: anchor count, picks per anchor, `forward_days_used` ∈ {60,120,180}, and
+  `NonIgn_Score` present on every row. A run failing any of these is discarded, as the
+  first roleMismatch pair was.
+
+## Hypothesis
+
+**H7** — on anchors never examined, requiring ≥1 piece of non-ignition evidence on the
+trigger bar (abandoning the name otherwise) beats the unfiltered book on mean
+matched-horizon alpha AND on deployment.
+
+## Why this run and not another variant
+
+Three interventions have now produced the same shape: positive point estimate, interval
+touching zero, on 331 control GOs against a CI half-width of ~1.6pp. That is a POWER
+problem, not a specification problem, and the only honest response is more anchors. Testing
+a fourth threshold against the same 331 trades would be exactly the uncorrected
+multiple-testing this desk already carries as its largest statistical liability.
+
+## Honest prior
+
+For: the direction has held on every cut so far, the abandon variant passed D (+2.30 /
++0.44) where two veto arms failed it, and the threshold is genuinely frozen.
+
+Against: 2021-2023 is a different regime, and this book's alpha has already been shown to
+be regime-amplified (POS-BO returns ~2.3x the index in a rising tape and roughly matches it
+otherwise). A period effect could move the result in either direction for reasons that have
+nothing to do with the filter. And the deeper history may simply be thinner — if the early
+anchors produce few picks, the power problem is not solved and the correct answer is to say
+so rather than to read a small cell.
+
+**Falsifier:** if the edge on the fresh anchors is not positive, the non-ignition signal is
+a property of 2023-2026 and not of the strategy, and the ranking recommendation is withdrawn.
