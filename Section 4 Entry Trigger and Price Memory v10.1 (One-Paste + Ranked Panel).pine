@@ -866,7 +866,7 @@ string S4_VER      = "v11.2"
 // row. Wrapped here it becomes two or three short lines and the table falls back to
 // the width of Confluence/RRG, which is what Jay asked for.
 int PANEL_ROW_WRAP = 96
-string S4_CORE_VER = "49"
+string S4_CORE_VER = "50"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
 // extracted from the scope; so the call sits in global scope and the loop stays behind
@@ -876,7 +876,7 @@ string S4_CORE_VER = "49"
 // fundStr() and bitsRow(), which the two FUNDAMENTALS rows need. Keep S4_CORE_VER above
 // in step with this number -- the panel header prints it, and it had already drifted to
 // 23 while the import was on 24.
-import jayramg/S4Core/49 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
+import jayramg/S4Core/50 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -2395,24 +2395,6 @@ var box   bxFlag = na
 var label lbFlag = na
 var label lbMan  = na
 
-// Age tag for an S/R level. Bands are fractions of the timeframe's OWN lifespan, so one
-// schedule serves every TF; on Daily they land on the research's 1 / 3 / 6-month marks.
-// ageBars < 0 means "no touch history" (a manual level or a trendline) and prints nothing
-// rather than inventing an age.
-f_srLife(string tfTag) =>
-    tfTag == "M" ? sr_age_m : tfTag == "W" ? sr_age_w : sr_age_d
-
-f_srAge(int ageBars, string tfTag) =>
-    string out = ""
-    int life = f_srLife(tfTag)
-    if sr_age_on and ageBars >= 0 and life > 0
-        float f  = ageBars / life
-        float mo = tfTag == "M" ? ageBars : tfTag == "W" ? ageBars / 4.33 : ageBars / 21.0
-        string unit = tfTag == "M" ? "mo" : "mo"
-        out := "  │  " + (mo < 10.0 ? str.tostring(mo, "0.0") : str.tostring(mo, "0")) + unit
-        out := out + (f < 0.5 ? "" : f < 1.0 ? " aged" : " stale ⌛")
-    out
-
 f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool isManual, int ageBars) =>
     if not na(px) and px > 0
         bool isSup = px <= close
@@ -2449,7 +2431,7 @@ f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool is
         // the same reason — it was the thing crossing the label.
         int _t0 = firstT > 0 ? firstT : time[math.min(300, bar_index)]
         array.push(srLines, line.new(_t0, px, time, px, xloc=xloc.bar_time, color=color.new(lc, dash ? 35 : 0), width=w, style=dash ? line.style_dashed : line.style_solid))
-        array.push(srLbls,  label.new(time, px, tfTag + "  │  " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + "  │  " + g + f_srAge(ageBars, tfTag), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
+        array.push(srLbls,  label.new(time, px, tfTag + "  │  " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + "  │  " + g + core.srAgeLabel(ageBars, tfTag, sr_age_d, sr_age_w, sr_age_m, sr_age_on), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
 
 // Draw the auto pair for one TF, unless you have marked that TF yourself.
 f_drawAutoTf(core.SRSig s, string tfTag, bool tfOk, bool tfShow, bool hasManual) =>
