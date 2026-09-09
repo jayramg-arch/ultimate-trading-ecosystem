@@ -2395,7 +2395,25 @@ var box   bxFlag = na
 var label lbFlag = na
 var label lbMan  = na
 
-f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool isManual) =>
+// Age tag for an S/R level. Bands are fractions of the timeframe's OWN lifespan, so one
+// schedule serves every TF; on Daily they land on the research's 1 / 3 / 6-month marks.
+// ageBars < 0 means "no touch history" (a manual level or a trendline) and prints nothing
+// rather than inventing an age.
+f_srLife(string tfTag) =>
+    tfTag == "M" ? sr_age_m : tfTag == "W" ? sr_age_w : sr_age_d
+
+f_srAge(int ageBars, string tfTag) =>
+    string out = ""
+    int life = f_srLife(tfTag)
+    if sr_age_on and ageBars >= 0 and life > 0
+        float f  = ageBars / life
+        float mo = tfTag == "M" ? ageBars : tfTag == "W" ? ageBars / 4.33 : ageBars / 21.0
+        string unit = tfTag == "M" ? "mo" : "mo"
+        out := "  │  " + (mo < 10.0 ? str.tostring(mo, "0.0") : str.tostring(mo, "0")) + unit
+        out := out + (f < 0.5 ? "" : f < 1.0 ? " aged" : " stale ⌛")
+    out
+
+f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool isManual, int ageBars) =>
     if not na(px) and px > 0
         bool isSup = px <= close
         // COLOUR BY ROLE, not by timeframe: GREEN = support, RED = resistance. Role is
@@ -2431,15 +2449,15 @@ f_drawLv(float px, string tfTag, int tests, int firstT, bool originHigh, bool is
         // the same reason — it was the thing crossing the label.
         int _t0 = firstT > 0 ? firstT : time[math.min(300, bar_index)]
         array.push(srLines, line.new(_t0, px, time, px, xloc=xloc.bar_time, color=color.new(lc, dash ? 35 : 0), width=w, style=dash ? line.style_dashed : line.style_solid))
-        array.push(srLbls,  label.new(time, px, tfTag + "  │  " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + "  │  " + g, xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
+        array.push(srLbls,  label.new(time, px, tfTag + "  │  " + f_lvRole(px) + "  " + str.tostring(px, format.mintick) + ftag + "  │  " + g + f_srAge(ageBars, tfTag), xloc=xloc.bar_time, style=label.style_label_left, color=color.new(lc, 82), textcolor=lc, size=size.small))
 
 // Draw the auto pair for one TF, unless you have marked that TF yourself.
 f_drawAutoTf(core.SRSig s, string tfTag, bool tfOk, bool tfShow, bool hasManual) =>
     if show_sr_lv and d_sr and tfOk and tfShow and not hasManual and not na(s)
-        f_drawLv(s.a1, tfTag, s.a1t, s.a1x, s.a1h, false)
-        f_drawLv(s.a2, tfTag, s.a2t, s.a2x, s.a2h, false)
-        f_drawLv(s.b1, tfTag, s.b1t, s.b1x, s.b1h, false)
-        f_drawLv(s.b2, tfTag, s.b2t, s.b2x, s.b2h, false)
+        f_drawLv(s.a1, tfTag, s.a1t, s.a1x, s.a1h, false, s.a1b)
+        f_drawLv(s.a2, tfTag, s.a2t, s.a2x, s.a2h, false, s.a2b)
+        f_drawLv(s.b1, tfTag, s.b1t, s.b1x, s.b1h, false, s.b1b)
+        f_drawLv(s.b2, tfTag, s.b2t, s.b2x, s.b2h, false, s.b2b)
 
 // Calendar age cap (days) for a zone, by its own timeframe. Native "C" zones use
 // the CHART timeframe. Monthly 4y / Weekly 2y / Daily 6mo / 125m 4w / 75m 3w.
@@ -4594,18 +4612,18 @@ if barstate.islast
 
     // MANUAL first — highest TF first so the heavy Monthly line sits under the
     // lighter Weekly/Daily ones rather than burying them.
-    f_drawLv(f_lvOn(mv1, useLvM) ? mv1 : na, "M", 0, 0, false, true)
-    f_drawLv(f_lvOn(mv2, useLvM) ? mv2 : na, "M", 0, 0, false, true)
-    f_drawLv(f_lvOn(mv3, useLvM) ? mv3 : na, "M", 0, 0, false, true)
-    f_drawLv(f_lvOn(mv4, useLvM) ? mv4 : na, "M", 0, 0, false, true)
-    f_drawLv(f_lvOn(wv1, useLvW) ? wv1 : na, "W", 0, 0, false, true)
-    f_drawLv(f_lvOn(wv2, useLvW) ? wv2 : na, "W", 0, 0, false, true)
-    f_drawLv(f_lvOn(wv3, useLvW) ? wv3 : na, "W", 0, 0, false, true)
-    f_drawLv(f_lvOn(wv4, useLvW) ? wv4 : na, "W", 0, 0, false, true)
-    f_drawLv(f_lvOn(dv1, useLvD) ? dv1 : na, "D", 0, 0, false, true)
-    f_drawLv(f_lvOn(dv2, useLvD) ? dv2 : na, "D", 0, 0, false, true)
-    f_drawLv(f_lvOn(dv3, useLvD) ? dv3 : na, "D", 0, 0, false, true)
-    f_drawLv(f_lvOn(dv4, useLvD) ? dv4 : na, "D", 0, 0, false, true)
+    f_drawLv(f_lvOn(mv1, useLvM) ? mv1 : na, "M", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(mv2, useLvM) ? mv2 : na, "M", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(mv3, useLvM) ? mv3 : na, "M", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(mv4, useLvM) ? mv4 : na, "M", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(wv1, useLvW) ? wv1 : na, "W", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(wv2, useLvW) ? wv2 : na, "W", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(wv3, useLvW) ? wv3 : na, "W", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(wv4, useLvW) ? wv4 : na, "W", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(dv1, useLvD) ? dv1 : na, "D", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(dv2, useLvD) ? dv2 : na, "D", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(dv3, useLvD) ? dv3 : na, "D", 0, 0, false, true, -1)
+    f_drawLv(f_lvOn(dv4, useLvD) ? dv4 : na, "D", 0, 0, false, true, -1)
     // AUTO — only on a TF you have NOT marked yourself.
     f_drawAutoTf(srM, "M", useLvM, sr_show_M, manM)
     f_drawAutoTf(srW, "W", useLvW, sr_show_W, manW)
