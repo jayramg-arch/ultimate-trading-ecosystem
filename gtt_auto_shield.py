@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+# CONSOLE ENCODING GUARD (9-Sep-2026)
+# This script prints emoji. Under Task Scheduler / a .bat the console is cp1252 and
+# the FIRST banner print raised UnicodeEncodeError before any work happened, so the
+# trail pass died at line 1 and logs/gtt_shield.log simply stopped (last entry
+# 17-Aug, and those were dry runs). The job looked scheduled-but-quiet rather than
+# crashed -- the same shape as the six-week outage in July. An exit tool that stops
+# running does not announce itself, so the guard goes ABOVE every other import.
+import sys as _sys
+for _s in (_sys.stdout, _sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import os
 import sqlite3
 import argparse
