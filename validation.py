@@ -89,6 +89,17 @@ _WATCHLIST_FILE_MAP = {
 FAMILY_FILTER: tuple = ()   # e.g. ("POS",) — set by --families; () = all
 
 
+def _entry_staging_now() -> str:
+    """Live entry-staging mode for the run meta. Read from the module, never from the
+    parsed args -- the meta is built inside a function that has no `args` in scope, and
+    reading it there would have recorded "full" on every run including the treat arm."""
+    try:
+        import replay as _rp
+        return str(getattr(_rp, "ENTRY_STAGING", "full"))
+    except Exception:
+        return "full"
+
+
 def _sl_basis_now() -> str:
     """Read the LIVE stop-trigger basis for the run meta. replay is imported
     inside functions here, so this cannot close over a module-level alias."""
@@ -996,6 +1007,7 @@ def run_s4go_validation(months_back: int = 24,
         "role_mismatch":   bool(role_mismatch),
         "nonign_min":      int(nonign_min),
         "sl_basis":        _sl_basis_now(),
+        "entry_staging":   _entry_staging_now(),
         "screener":        screener,
         "qualify":         ("strict-RFF" if screener == "recovery" else qualify),
         "universe_size":   len(universe),
@@ -1230,6 +1242,14 @@ def main() -> int:
                          "replay.FWD_DAYS_BY_CATALYST (POS/WYC=120-180d, "
                          "REV=90d, SWG=30d). Without this flag, all picks use --forward.")
     # v3.0 (2026-07-22): GM+S4 daily-approx GO entry gate
+    p.add_argument("--entry_staging", default="full", choices=["full", "pilot"],
+                   help="ABLATION CELL. 'full' (default, shipped) fills the whole position "
+                        "at the GO entry. 'pilot' fills 50%% there and the rest on a "
+                        "mechanical confirmation within 20 bars (retest-and-turn, or a close "
+                        "above the GO bar's high). Same structural stop for both tranches; R "
+                        "stays anchored to the initial risk unit. See "
+                        "docs/PREREG_staged_pilot_entry.md -- criterion F (winner capture) is "
+                        "the one that decides it.")
     p.add_argument("--sl_basis", default="intraday", choices=["intraday", "close"],
                    help="ABLATION CELL. Trigger basis for the INITIAL structural stop. "
                         "'intraday' (default, shipped) fires on the bar LOW, which is how "
@@ -1275,6 +1295,11 @@ def main() -> int:
                          "catalyst-firing set (comparable to the legacy baseline). "
                          "Recovery always uses its strict RFF gate.")
     args = p.parse_args()
+    if getattr(args, "entry_staging", "full") != "full":
+        import replay as _rp2
+        _rp2.ENTRY_STAGING = args.entry_staging
+        print(f"  ENTRY STAGING: {args.entry_staging} ({_rp2.STAGE_PCT:.0f}% pilot, "
+              f"add window {_rp2.STAGE_WINDOW} bars)")
     if getattr(args, "sl_basis", "intraday") != "intraday":
         import replay as _rp
         _rp.SL_BASIS = args.sl_basis

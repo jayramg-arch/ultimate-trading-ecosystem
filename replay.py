@@ -179,6 +179,16 @@ COST_PER_LEG_DEFAULT = 0.10   # 0.10% per leg (STT + brokerage + slippage on liq
 # is how a broker stop on LTP behaves. "close" fires it on the bar CLOSE instead,
 # with a wider intraday DISASTER floor still resting underneath. Default keeps every
 # prior run byte-identical.
+# ── ENTRY STAGING (PREREG_staged_pilot_entry.md, 9-Sep-2026) ────────────────
+# "full" = the shipped behaviour, the whole position fills at the GO entry.
+# "pilot" = STAGE_PCT now, the rest on a mechanical confirmation within
+# STAGE_WINDOW bars. The stop is the SAME structural stop for both tranches --
+# staging changes SIZE, not invalidation -- and R stays anchored to the initial
+# risk unit, so a half-size trade cannot score a full R for half the move.
+ENTRY_STAGING = "full"       # "full" | "pilot"
+STAGE_PCT = 50.0             # % filled at the GO entry when staging
+STAGE_WINDOW = 20            # bars the add may fire within
+
 SL_BASIS = "intraday"        # "intraday" | "close"
 SL_DISASTER_MULT = 1.5       # disaster stop = 1.5x the structural stop DISTANCE
 
@@ -281,11 +291,38 @@ NO_TIME_STOP = True
 MAX_HOLD_BARS = 400      # ceiling, not a target — a Chandelier retires most trades sooner
 
 
+def _realize(tranches: list, exit_at: float, exit_qty: float) -> float:
+    """Realise `exit_qty` (in % units of the FULL intended position) against the open
+    tranches, FIFO, and return the P&L as a % of full intended capital.
+
+    Exists because a staged entry has TWO cost bases. The single-entry formula
+    (exit - entry)/entry * qty silently prices the second tranche at the first
+    tranche's entry, which would credit the add with gains it never bought -- the
+    exact way a staging study flatters itself.
+    """
+    pnl = 0.0
+    need = float(exit_qty)
+    while need > 1e-9 and tranches:
+        q, px = tranches[0]
+        take = min(q, need)
+        if px > 0:
+            pnl += (exit_at - px) / px * 100.0 * (take / 100.0)
+        if take >= q - 1e-9:
+            tranches.pop(0)
+        else:
+            tranches[0] = (q - take, px)
+        need -= take
+    return pnl
+
+
 def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: float,
                          sl_price: float, t1_price: Optional[float], t2_price: Optional[float],
                          t1_qty_pct: int, t2_qty_pct: int,
                          max_bars: int, trail_atr_mult: float = 4.5,
-                         atr_len: int = 14, cost_pct: float = COST_PER_LEG_DEFAULT) -> dict:
+                         atr_len: int = 14, cost_pct: float = COST_PER_LEG_DEFAULT,
+                         stage_pct: float = 100.0, stage_ref_close: Optional[float] = None,
+                         stage_ref_high: Optional[float] = None,
+                         stage_window: int = 20) -> dict:
     """Simulate one trade bar-by-bar. Returns {realized_pct, exit_reason, days_held,
     hit_sl, hit_t1, hit_t2, max_dd_pct, max_runup_pct}."""
     if df_d is None or df_d.empty or entry_idx_pos < 0 or entry_idx_pos >= len(df_d):
@@ -306,7 +343,16 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
                  "max_dd_pct": 0.0, "max_runup_pct": 0.0}
 
     # Open position tracking — qty in % units (start 100%)
-    qty_open = 100.0
+    # STAGED ENTRY. `tranches` is [(qty_pct, entry_px)] in % units of the FULL intended
+    # position, so a half-filled trade contributes half the exposure and R stays anchored
+    # to the initial risk unit rather than being re-based when the add lands.
+    _staging = (stage_pct < 100.0 and stage_ref_close is not None and stage_ref_high is not None)
+    _fill0 = float(stage_pct) if _staging else 100.0
+    tranches = [(_fill0, float(entry_price))]
+    pending_add = (100.0 - _fill0) if _staging else 0.0
+    add_filled = False
+    add_bar = None
+    qty_open = _fill0
     realized_pnl_pct = 0.0   # cumulative realized P&L as % of entry capital
     hit_sl = hit_t1 = hit_t2 = False
     hit_initial_sl = hit_trail_sl = False   # v2.9: distinguish initial SL (loss) from trail SL (often profit-protect)
@@ -377,8 +423,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
             _fill = trail_sl
         if _trig and qty_open > 0:
             exit_at = _fill
-            pnl_pct_this = (exit_at - entry_price) / entry_price * 100 * (qty_open / 100.0)
-            realized_pnl_pct += pnl_pct_this
+            realized_pnl_pct += _realize(tranches, exit_at, qty_open)
             qty_open = 0
             hit_sl = True
             # v2.9: split — initial-SL is a true loss; trail-SL can be a profit exit
@@ -395,8 +440,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         if t1_price is not None and bar_high >= t1_price and not hit_t1 and qty_open > 0:
             exit_at = t1_price
             exit_qty = min(qty_open, float(t1_qty_pct))
-            pnl_pct_this = (exit_at - entry_price) / entry_price * 100 * (exit_qty / 100.0)
-            realized_pnl_pct += pnl_pct_this
+            realized_pnl_pct += _realize(tranches, exit_at, exit_qty)
             qty_open -= exit_qty
             hit_t1 = True
             # After T1, move trail to breakeven
@@ -406,8 +450,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         if t2_price is not None and bar_high >= t2_price and not hit_t2 and qty_open > 0:
             exit_at = t2_price
             exit_qty = min(qty_open, float(t2_qty_pct))
-            pnl_pct_this = (exit_at - entry_price) / entry_price * 100 * (exit_qty / 100.0)
-            realized_pnl_pct += pnl_pct_this
+            realized_pnl_pct += _realize(tranches, exit_at, exit_qty)
             qty_open -= exit_qty
             hit_t2 = True
 
@@ -416,13 +459,26 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         if days_to_1r is None and _risk_pu > 0 and bar_close >= entry_price + _risk_pu:
             days_to_1r = days_held
 
+        # STAGED ENTRY — the add. Evaluated at the END of the bar, AFTER the SL/T1/T2
+        # checks, so a bar that stops the trade out cannot also add to it. Both triggers
+        # are CLOSE-based on purpose: an intrabar trigger would need an assumed ordering
+        # against the stop, which is exactly the bias that inflated an earlier study here.
+        if pending_add > 0 and not add_filled and qty_open > 0 and days_held <= stage_window:
+            _retest_turn = (bar_low <= stage_ref_close) and (bar_close > stage_ref_close)
+            _new_high = bar_close > stage_ref_high
+            if _retest_turn or _new_high:
+                tranches.append((pending_add, float(bar_close)))   # filled at the close
+                qty_open += pending_add
+                pending_add = 0.0
+                add_filled = True
+                add_bar = days_held
+
         highest_close = max(highest_close, bar_close)
 
     # If still open at end of window, mark-to-market at final close
     if qty_open > 0:
         final_close = float(window["Close"].iloc[-1])
-        pnl_pct_this = (final_close - entry_price) / entry_price * 100 * (qty_open / 100.0)
-        realized_pnl_pct += pnl_pct_this
+        realized_pnl_pct += _realize(tranches, final_close, qty_open)
         if not exit_reason:
             exit_reason = "Still open" if NO_TIME_STOP else "Time expiry"
         final_exit_price = final_close
@@ -442,6 +498,12 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         "days_held":     days_held,
         "hit_sl":        hit_sl,           # v2.9: kept for back-compat (true for ANY stop hit)
         "hit_initial_sl": hit_initial_sl,  # v2.9: true loss — stopped at entry SL
+        # Staging diagnostics. `filled_pct` is what actually got deployed, which is what
+        # criterion E' (deployment) has to be weighted by — a book that is systematically
+        # half-invested must earn its way past that.
+        "add_filled": bool(add_filled),
+        "add_bar": add_bar,
+        "filled_pct": float(_fill0 + (0.0 if pending_add > 0 else (100.0 - _fill0))) if _staging else 100.0,
         "hit_trail_sl":  hit_trail_sl,     # v2.9: trail caught — often profit-protect
         "hit_t1":        hit_t1,
         "hit_t2":        hit_t2,
@@ -1340,9 +1402,18 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
     t1_price = entry_price + 2.0 * r
     t2_price = entry_price + 3.0 * r
 
+    # STAGED ENTRY (PREREG_staged_pilot_entry.md). The confirmation references are the
+    # GO BAR's close and high — the bar the signal actually fired on, not the fill bar,
+    # so a retest is measured against the trigger and not against wherever the entry
+    # happened to land. Off by default; `stage_pct=100` reproduces byte-for-byte.
+    _stage_on = (ENTRY_STAGING == "pilot")
     res = _simulate_one_trade(df, entry_pos, entry_price, sl_price,
                               t1_price, t2_price, t1_qty_pct=33, t2_qty_pct=33,
-                              max_bars=fwd, trail_atr_mult=trail_atr_mult, cost_pct=cost_pct)
+                              max_bars=fwd, trail_atr_mult=trail_atr_mult, cost_pct=cost_pct,
+                              stage_pct=(STAGE_PCT if _stage_on else 100.0),
+                              stage_ref_close=(float(df["Close"].iloc[go_pos]) if _stage_on else None),
+                              stage_ref_high=(float(df["High"].iloc[go_pos]) if _stage_on else None),
+                              stage_window=STAGE_WINDOW)
 
     # ── matched-horizon benchmark, anchored at the ENTRY date (not the anchor) ──
     entry_iso = df.index[entry_pos].strftime("%Y-%m-%d")
@@ -1391,6 +1462,9 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
         "Days_To_Profit":       res.get("days_to_profit"),
         "Days_To_1R":           res.get("days_to_1r"),
         "Hit_Initial_SL":       res.get("hit_initial_sl", False),
+        "Add_Filled":           res.get("add_filled", False),
+        "Add_Bar":              res.get("add_bar"),
+        "Filled_Pct":           res.get("filled_pct", 100.0),
         "Hit_Trail_SL":         res.get("hit_trail_sl", False),
         "Hit_T1":               res["hit_t1"],
         "Hit_T2":               res["hit_t2"],
