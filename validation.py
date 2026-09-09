@@ -845,6 +845,7 @@ def run_s4go_validation(months_back: int = 24,
                         basket: Optional[list[str]] = None,
                         setup_coherent: bool = False,
                         role_mismatch: bool = False,
+                        nonign_min: int = 0,
                         bootstrap_n: int = 0,
                         progress_cb=None) -> dict:
     """Walk-forward backtest of the GM+S4 daily-approx GO ENTRY (not the catalyst
@@ -936,6 +937,7 @@ def run_s4go_validation(months_back: int = 24,
             res = _replay.run_s4go_replay(anchor, cands, mode=screener,
                                           setup_coherent=setup_coherent,
                                           role_mismatch=role_mismatch,
+                                          nonign_min=nonign_min,
                                           entry_window=entry_window, rv_floor=rv_floor,
                                           out_csv=out_csv)
         except Exception as e:
@@ -982,6 +984,7 @@ def run_s4go_validation(months_back: int = 24,
         # without knowing which gate produced it
         "setup_coherent":  bool(setup_coherent),
         "role_mismatch":   bool(role_mismatch),
+        "nonign_min":      int(nonign_min),
         "screener":        screener,
         "qualify":         ("strict-RFF" if screener == "recovery" else qualify),
         "universe_size":   len(universe),
@@ -1216,6 +1219,15 @@ def main() -> int:
                          "replay.FWD_DAYS_BY_CATALYST (POS/WYC=120-180d, "
                          "REV=90d, SWG=30d). Without this flag, all picks use --forward.")
     # v3.0 (2026-07-22): GM+S4 daily-approx GO entry gate
+    p.add_argument("--nonign_min", type=int, default=0, metavar="N",
+                   help="s4go only: ABLATION CELL, the GRADED POSITIVE form of "
+                        "--role_mismatch. Require at least N pieces of NON-IGNITION "
+                        "evidence (reversal or contraction detectors) on the trigger bar. "
+                        "0 = off. Note the reversal-count axis alone was already measured "
+                        "as non-monotone (0/1/2/3 -> -1.18/+1.33/-1.25/+1.42), so the "
+                        "contraction half is what makes this a different score. Rev_N, "
+                        "Con_N and NonIgn_Score are emitted on every trade regardless, so "
+                        "a control run shows the ladder before any threshold is chosen.")
     p.add_argument("--role_mismatch", action="store_true",
                    help="s4go only: ABLATION CELL v2. Block a GO whose trigger is an "
                         "IGNITION pattern (a breakout's evidence) firing while price sits "
@@ -1278,6 +1290,7 @@ def main() -> int:
                                      qualify=args.qualify,
                                      setup_coherent=args.setup_coherent,
                                      role_mismatch=args.role_mismatch,
+                                     nonign_min=args.nonign_min,
                                      basket=basket,
                                      bootstrap_n=args.bootstrap_n,
                                      progress_cb=_cb)

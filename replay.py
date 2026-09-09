@@ -936,6 +936,44 @@ def _in_demand_at(df: pd.DataFrame, j: int) -> bool:
         return False
 
 
+# ── GRADED POSITIVE FORM (9 Sep 2026) ──────────────────────────────────────
+# roleMismatch is a VETO on ignition-only triggers. The role ladder it exposed says
+# the informative variable is the same cut stated positively — is there NON-IGNITION
+# evidence on the trigger bar — and a positive filter can be graded rather than
+# binary, which buys statistical power per trade.
+#
+# ONE AXIS WAS ALREADY RULED OUT BY MEASUREMENT, before this was written: the count
+# of REVERSAL patterns is NOT monotone on the control arm (0 -> -1.18%, 1 -> +1.33%,
+# 2 -> -1.25%, 3 -> +1.42% on n=3). The whole jump is 0->1; two turns is as bad as
+# none. So grading on reversal count collapses to the binary rule already tested,
+# and every threshold above 1 is worse. That axis is dead.
+#
+# What is NOT measured is CONTRACTION. Pine's rule treats a coil as exculpatory
+# exactly like a turn (`not (pa_rev or pa_con or kVCP)`), and contraction patterns are
+# not triggers, so they never appear in GO_Triggers and no CSV in this repo can see
+# them. Reversal + contraction is therefore a genuinely different score with more
+# levels, and it is the only remaining graded form that is not weight-fitting on the
+# test sample.
+#
+# INSTRUMENTED, NOT ASSUMED: the score is emitted on EVERY trade (Rev_N / Con_N /
+# NonIgn_Score) whether or not the gate is armed, so one control run shows the whole
+# ladder and its resolution. A threshold arm is only worth running if the ladder has
+# more than two usable levels — which is exactly what reversal count failed.
+def _role_counts_at(det: pd.DataFrame, j: int) -> tuple[int, int, int]:
+    """(n_ignition, n_reversal, n_contraction) distinct detectors firing on bar j."""
+    out = []
+    for cols in (_ROLE_IGNITION, _ROLE_REVERSAL, _ROLE_CONTRACTION):
+        n = 0
+        for c in cols:
+            if c in det.columns:
+                try:
+                    n += 1 if bool(det[c].iloc[j]) else 0
+                except Exception:
+                    pass
+        out.append(n)
+    return tuple(out)                                    # type: ignore[return-value]
+
+
 def _role_mismatch_at(det: pd.DataFrame, df: pd.DataFrame, j: int,
                       loc_src: str | None = None) -> bool:
     """Pine's roleMismatch, point-in-time. `loc_src` short-circuits the zone call
@@ -1128,6 +1166,7 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
                        pa_lookback: int = 0,
                        setup_coherent: bool = False,
                        role_mismatch: bool = False,
+                       nonign_min: int = 0,
                        df_bench: Optional[pd.DataFrame] = None) -> dict:
     """Simulate ONE GM+S4 daily-approx GO entry for `sym`, starting the search at
     `as_of`. Steps: scan forward ≤ entry_window bars for the first bar where a PA
@@ -1184,7 +1223,7 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
     # Here the allowance is only that the qualifying bar j may sit up to N bars BEHIND
     # the bar whose LOCATION we test. Location is a "where is price now" question, so it
     # is always read at i; the pattern and its bar quality stay welded together at j.
-    go_pos = None; go_loc = None
+    go_pos = None; go_loc = None; go_hit = None
     scan_end = min(as_of_pos + 1 + entry_window, len(df))
     for i in range(as_of_pos + 1, scan_end):
         j0 = max(as_of_pos + 1, i - max(0, int(pa_lookback)))
@@ -1212,7 +1251,13 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
             if role_mismatch and _role_mismatch_at(
                     det, df, _hit, loc.get("src") if _hit == i else None):
                 continue
-            go_pos, go_loc = i, loc
+            # GRADED POSITIVE FORM — require N pieces of non-ignition evidence
+            # (reversal OR contraction) on the same trigger bar. 0 = off.
+            if nonign_min > 0:
+                _ni, _nr, _nc = _role_counts_at(det, _hit)
+                if (_nr + _nc) < nonign_min:
+                    continue
+            go_pos, go_hit, go_loc = i, _hit, loc
             break
     if go_pos is None:
         base["Status"] = "no GO in window"
@@ -1278,6 +1323,9 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
 
     fired = [_TRIGGER_STATE[cc] for cc in _TRIGGER_STATE
              if cc in det.columns and bool(det[cc].iloc[go_pos])]
+    # Role counts on the PATTERN bar (go_hit), not the fill bar — the same welding
+    # rule the coherence and mismatch checks use.
+    _rc = _role_counts_at(det, go_hit if go_hit is not None else go_pos)
     return {
         "Symbol":               sym,
         "Mode":                 mode,
@@ -1286,6 +1334,11 @@ def s4go_forward_trade(sym: str, as_of: str, candidate=None, mode: str = "bull",
         "Days_To_GO":           int(go_pos - as_of_pos),
         "GO_Triggers":          "+".join(fired) if fired else "",
         "Location_Src":         go_loc.get("src"),
+        # Emitted ALWAYS, gated optionally: one control run then shows the whole
+        # graded ladder and whether it has any resolution at all.
+        "Rev_N":                _rc[1],
+        "Con_N":                _rc[2],
+        "NonIgn_Score":         _rc[1] + _rc[2],
         "forward_days_used":    fwd,
         "Entry_Price":          round(entry_price, 2),
         "SL_price":             round(sl_price, 2),
@@ -1317,6 +1370,7 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
                     pa_lookback: int = 0,
                     setup_coherent: bool = False,
                     role_mismatch: bool = False,
+                    nonign_min: int = 0,
                     out_csv: Optional[str] = None) -> dict:
     """Run the GM+S4 daily-approx GO gate over a candidate universe as-of `as_of`.
 
@@ -1351,7 +1405,8 @@ def run_s4go_replay(as_of: str, candidates, mode: str = "bull",
                                  entry_window=entry_window, buystop_window=buystop_window,
                                  rv_floor=rv_floor, sl_floor_by_family=sl_floor_by_family,
                                  entry_mode=entry_mode, pa_lookback=pa_lookback, setup_coherent=setup_coherent,
-                                 role_mismatch=role_mismatch, retest_window=retest_window,
+                                 role_mismatch=role_mismatch, nonign_min=nonign_min,
+                                 retest_window=retest_window,
                                  df_bench=df_bench)
         rows.append(row)
 
