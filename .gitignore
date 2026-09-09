@@ -74,3 +74,21 @@ logs/
 # a missing file is handled (_gm_settings() returns {} and the defaults apply).
 gm_settings.json
 
+
+# ── Auth material missed by the rules above (found 9 Sep 2026 during a full commit) ──
+# Same class as data/paid_news_profile/ and dhan_session/, which ARE already ignored —
+# these two were simply never added, and a blanket "commit everything" would have put
+# live session cookies into git history where they cannot be removed.
+#   paid_news_cookies/  = ET Prime + Moneycontrol Pro cookie JSON (et.json, mc.json)
+#   screener_session/   = a full Chromium profile for screener.in (SQLite cookie DBs)
+data/paid_news_cookies/
+screener_session/
+
+# ── Large REGENERABLE artifacts (~180MB). Kept out of history on purpose. ──
+# The scrip masters are one API call; the PA field dumps and ML feature tables are
+# rebuilt by their own scripts. Git history cannot be slimmed after the fact.
+dhan_scrip_master.csv
+data/dhan_scrip_master.csv
+PA_FIELD_VALIDATION*.csv
+gm_s4_multitf_trades*.csv
+trades_ml_features.csv
