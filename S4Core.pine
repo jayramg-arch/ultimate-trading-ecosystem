@@ -1590,10 +1590,10 @@ srAbovePick(float acc, float px) =>
 // random price); AVWAP does not (38.1% vs 37.9%) and gets WORSE with the research's own
 // hi-volume condition; the gap rescue fires BELOW its own random rate. So only HTF is
 // implemented, and it is applied by the CALLER, which is the level that can see W/M.
-srStale(SRCtx c, int ageBars, simple int lifeBars) =>
+srStale(SRCtx c, int ageBars, int lifeBars) =>
     c.srAgeOn and lifeBars > 0 and ageBars >= lifeBars
 
-srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, simple int lifeBars) =>
+srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
     float r = acc
     if c.dSr and tfOk and tfShow and not hasMan and not na(s)
         r := s.b1t < c.mttwr ? srBelowPick(r, s.b1) : r
@@ -1602,7 +1602,7 @@ srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, si
         r := s.a2t < c.mttwr ? srBelowPick(r, s.a2) : r
     r
 
-srAutoAbove(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, simple int lifeBars) =>
+srAutoAbove(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, int lifeBars) =>
     float r = acc
     if c.dSr and tfOk and tfShow and not hasMan and not na(s)
         // CEILING side: an over-tested level was already skipped; v49 also skips a
@@ -1613,18 +1613,6 @@ srAutoAbove(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, si
         r := (s.b1t < c.mttwr and not srStale(c, s.b1b, lifeBars)) ? srAbovePick(r, s.b1) : r
         r := (s.b2t < c.mttwr and not srStale(c, s.b2b, lifeBars)) ? srAbovePick(r, s.b2) : r
     r
-
-// v49 — the display half of ageing, and the half Jay actually asked for: the line never
-// goes away, it just says how old it is. Bands are fractions of the timeframe's own
-// lifespan, so one schedule serves every TF; on Daily they land on the research's 1 / 3 /
-// 6-month boundaries. Returns the tag and a dimming flag for the caller to paint with.
-export srAgeRead(SRCtx c, int ageBars, simple int lifeBars) =>
-    int   age = ageBars
-    float f   = lifeBars > 0 ? age / lifeBars : 0.0
-    string band = f < 0.1667 ? "FRESH" : f < 0.5 ? "SEASONED" : f < 1.0 ? "AGED" : "STALE"
-    float mo  = age / 21.0
-    string tag = mo < 10.0 ? str.tostring(mo, "0.0") + "mo" : str.tostring(mo, "0") + "mo"
-    [band, tag, band == "STALE"]
 
 // Nearest usable level below price. na when nothing qualifies - never 0, which
 // would read as a level at zero and size a position against it.
@@ -1646,11 +1634,12 @@ export srBelow(SRCtx c) =>
     r := srBelowPick(r, c.tlrNow)
     r := srBelowPick(r, c.ext1)
     r := srBelowPick(r, c.ext2)
-    // lifeBars 0 = never stale. Support is deliberately NOT aged: an old level is a
-    // weak place to expect REJECTION, not a bad place to lean a stop.
-    r := srAutoBelow(c, r, c.srM, c.useM, c.showM, c.manM, 0)
-    r := srAutoBelow(c, r, c.srW, c.useW, c.showW, c.manW, 0)
-    r := srAutoBelow(c, r, c.srD, c.useD, c.showD, c.manD, 0)
+    // NOT aged, on purpose, and srAutoBelow takes no lifespan at all so it cannot be
+    // wired up by accident: an old level is a weak place to expect REJECTION, not a bad
+    // place to lean a stop.
+    r := srAutoBelow(c, r, c.srM, c.useM, c.showM, c.manM)
+    r := srAutoBelow(c, r, c.srW, c.useW, c.showW, c.manW)
+    r := srAutoBelow(c, r, c.srD, c.useD, c.showD, c.manD)
     r
 
 export srAbove(SRCtx c) =>
@@ -1715,7 +1704,7 @@ export srTxt(SRCtx c, float lvl) =>
 // Matching is by price because that is all the caller has: srAbove/srBelow return a
 // float, not the SRSig slot it came from. Exact float equality is safe here — the value
 // was copied from the very field being compared, not recomputed.
-srAgeOf(SRCtx c, SRSig s, float lvl) =>
+srAgeOf(SRSig s, float lvl) =>
     int r = -1
     if not na(s) and not na(lvl)
         r := lvl == s.a1 ? s.a1b : lvl == s.a2 ? s.a2b : lvl == s.b1 ? s.b1b : lvl == s.b2 ? s.b2b : -1
@@ -1724,9 +1713,9 @@ srAgeOf(SRCtx c, SRSig s, float lvl) =>
 export srAgeTxt(SRCtx c, float lvl) =>
     string out = ""
     if c.srAgeOn and not na(lvl)
-        int  aM = srAgeOf(c, c.srM, lvl)
-        int  aW = srAgeOf(c, c.srW, lvl)
-        int  aD = srAgeOf(c, c.srD, lvl)
+        int  aM = srAgeOf(c.srM, lvl)
+        int  aW = srAgeOf(c.srW, lvl)
+        int  aD = srAgeOf(c.srD, lvl)
         int  age  = aD >= 0 ? aD : aW >= 0 ? aW : aM >= 0 ? aM : -1
         int  life = aD >= 0 ? c.srAgeD : aW >= 0 ? c.srAgeW : aM >= 0 ? c.srAgeM : 0
         if age >= 0 and life > 0
