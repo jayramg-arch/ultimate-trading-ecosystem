@@ -17707,22 +17707,26 @@ elif page == 'RISK SHIELD':
                         _ltp = ltps.get(sym) or 0
                         _c5 = _tech.get("close_5d_ago")
                         
-                        cond_trim = False
-                        cond_add = False
-                        if _c5 and _c5 > 0 and _ltp:
-                            _dist200 = _tech.get("dist_from_200", 0)
-                            _days_er = _tech.get("days_to_earnings")
-                            _sma200slp = _tech.get("sma200_slope", 0)
-                            _above200 = _tech.get("above200", False)
-                            _ema20 = _tech.get("ema20")
-                            _is_breakout = _tech.get("vol_breakout", False)
-                            
-                            if (_days_er is not None and _days_er <= 3):
-                                cond_trim = True
-                            elif not _is_breakout and (_ltp > _c5 * 1.15 or _dist200 > 40.0):
-                                cond_trim = True
-                            if _above200 and _sma200slp > 0 and _ltp <= _c5 * 1.10 and _ema20 and _ltp > _ema20:
-                                cond_add = True
+                        # SIZE ACTIONS COME FROM THE LADDER, NOT FROM TWO INDEPENDENT
+                        # CONDITIONS (9-Sep-2026). This block used to compute cond_trim and
+                        # cond_add separately, so both could be true at once and a symbol
+                        # emitted a Trim row AND a Pyramid row in the same table — SAILIFE
+                        # and LAURUSLABS did exactly that. Contradictory advice on one
+                        # position is worse than no advice, because whichever the eye lands
+                        # on first wins.
+                        #
+                        # pyramid_logic.classify() already resolves this, and has since
+                        # July: EXIT > TRIM > REDUCE > ADD > HOLD, best-of-each, one verdict
+                        # per position. The Pyramid page and Risk Shield read it; the
+                        # Morning Gate was the surface that did not. Reading it here also
+                        # means the gate can no longer disagree with the page it sits next
+                        # to — the same one-brain-many-surfaces rule the trail rows now follow.
+                        _pcls = (pyramid_class_dict.get(sym) or {})
+                        _verdict = str(_pcls.get("classification") or "").upper()
+                        _vreason = str(_pcls.get("trigger") or "").strip()
+                        _ema20 = _tech.get("ema20")
+                        cond_trim = (_verdict == "TRIM")
+                        cond_add = (_verdict == "ADD")
 
                         tsl_target = _tech.get("chandelier_exit")
                         
@@ -17738,17 +17742,19 @@ elif page == 'RISK SHIELD':
                         # gtt_auto_shield.build_trail_proposals(), one row PER ORDER - the
                         # same engine the 15:45 scheduled job runs. See below.
 
-                        # 2. Earnings/Extension Trim
+                        # 2. TRIM — harvest / de-risk, winners only
                         if cond_trim:
                             proposed_actions.append({
                                 "Symbol": sym,
                                 "Action": "Trim Position",
                                 "Trigger Price": round(_ltp, 2),
                                 "Qty %": 20,
-                                "Reason": "Earnings Risk" if (_days_er is not None and _days_er <= 3) else "Over-extension"
+                                "Reason": _vreason or "Ladder: TRIM"
                             })
-                            
-                        # 3. Pyramiding (Risk-Free)
+
+                        # 3. PYRAMID — leader AND good location. Reached only when the
+                        # ladder did not already call EXIT, TRIM or REDUCE, so an add can
+                        # no longer appear beside a trim on the same position.
                         pyramid_state = journal_overrides.get(sym, {}).get("pyramid_status", "")
                         if cond_add and pyramid_state != "Maxed":
                             proposed_actions.append({
@@ -17756,7 +17762,20 @@ elif page == 'RISK SHIELD':
                                 "Action": "Pyramid (Add)",
                                 "Trigger Price": round(_ema20, 2) if _ema20 else round(_ltp, 2),
                                 "Qty %": 50,
-                                "Reason": "Pullback & Trend OK"
+                                "Reason": _vreason or "Ladder: ADD"
+                            })
+
+                        # 4. EXIT / REDUCE — the two rungs this page used to drop on the
+                        # floor. They outrank both rows above, so hiding them meant the
+                        # gate could show a position as merely "over-extended" while the
+                        # ladder was calling it broken. Propose-only, like Trim and Pyramid.
+                        if _verdict in ("EXIT", "REDUCE"):
+                            proposed_actions.append({
+                                "Symbol": sym,
+                                "Action": ("Exit (full)" if _verdict == "EXIT" else "Reduce"),
+                                "Trigger Price": round(_ltp, 2),
+                                "Qty %": (100 if _verdict == "EXIT" else 33),
+                                "Reason": _vreason or f"Ladder: {_verdict}"
                             })
                             
                     # --- TRAIL ROWS FROM THE SHARED ENGINE -----------------------
