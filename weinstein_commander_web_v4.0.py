@@ -17803,7 +17803,19 @@ elif page == 'RISK SHIELD':
                                 df_props[_c] = None
                         df_props = df_props[["Symbol", "Action", "Order ID", "Qty",
                                              "Current SL", "Trigger Price", "Qty %", "Reason"]]
-                        df_props.insert(0, "Approve", True)
+                        # Order ID / Qty / Current SL are TRAIL-ONLY: only a Tighten SL row
+                        # modifies an existing GTT, so Trim and Pyramid have no order behind
+                        # them. Rendering that as the literal string "None" read like missing
+                        # data; blank says "not applicable", which is what it is.
+                        _is_trail = df_props["Action"].eq("Tighten SL")
+                        df_props["Order ID"] = df_props["Order ID"].where(_is_trail, "—")
+                        for _c in ("Qty", "Current SL"):
+                            df_props[_c] = pd.to_numeric(df_props[_c], errors="coerce").where(_is_trail)
+                        # APPROVE DEFAULTS TO FALSE ON ROWS THAT CANNOT EXECUTE. The button only
+                        # ever pushes Tighten SL rows (position-size changes have a much bigger
+                        # blast radius and stay propose-only), so pre-ticking Trim and Pyramid
+                        # invited the reading that they had been sent when they had not.
+                        df_props.insert(0, "Approve", _is_trail.values)
                         edited_df = st.data_editor(
                             df_props,
                             column_config={
@@ -17826,6 +17838,10 @@ elif page == 'RISK SHIELD':
                         # Now executes TIGHTEN-SL rows for real via dhan.modify_forever, gated
                         # by an explicit arm switch. Trim/Pyramid stay propose-only this pass
                         # (position-size changes have a bigger blast radius).
+                        st.caption("Only **Tighten SL** rows are pushed by the button below — they "
+                                   "modify the GTT named in Order ID. **Trim** and **Pyramid** rows are "
+                                   "propose-only: size changes are placed by hand, so their Order ID / "
+                                   "Qty / Current SL are blank because there is no resting order to move.")
                         _rs_arm = st.checkbox("⚠️ I confirm LIVE modification of GTT stop orders on Dhan",
                                               key="rs_arm_execute")
                         if st.button("🚀 Execute Approved SL Updates on Dhan", type="primary",
