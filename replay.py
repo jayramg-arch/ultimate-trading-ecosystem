@@ -352,6 +352,14 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
     pending_add = (100.0 - _fill0) if _staging else 0.0
     add_filled = False
     add_bar = None
+    # PARTIALS SCALE WITH WHAT IS ACTUALLY FILLED. t1/t2_qty_pct are percentages of the
+    # FULL intended position, so on a half-filled trade T1 would take 33 of the 50 held
+    # and T1+T2 (66) would exceed the position outright -- the targets would close it and
+    # nothing would ride the trail. Measured on the first attempt: half-filled trades came
+    # back 105 SL / 1 trail against the control's 196 / 135, so the treat arm was not
+    # testing staging at all, it was testing an exit policy that had been silently
+    # rewritten. At a full fill _fill_frac is 1.0 and behaviour is byte-identical.
+    filled_total = _fill0
     qty_open = _fill0
     realized_pnl_pct = 0.0   # cumulative realized P&L as % of entry capital
     hit_sl = hit_t1 = hit_t2 = False
@@ -439,7 +447,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         # If bar's high touched T1: partial exit
         if t1_price is not None and bar_high >= t1_price and not hit_t1 and qty_open > 0:
             exit_at = t1_price
-            exit_qty = min(qty_open, float(t1_qty_pct))
+            exit_qty = min(qty_open, float(t1_qty_pct) * (filled_total / 100.0))
             realized_pnl_pct += _realize(tranches, exit_at, exit_qty)
             qty_open -= exit_qty
             hit_t1 = True
@@ -449,7 +457,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         # If bar's high touched T2: partial exit
         if t2_price is not None and bar_high >= t2_price and not hit_t2 and qty_open > 0:
             exit_at = t2_price
-            exit_qty = min(qty_open, float(t2_qty_pct))
+            exit_qty = min(qty_open, float(t2_qty_pct) * (filled_total / 100.0))
             realized_pnl_pct += _realize(tranches, exit_at, exit_qty)
             qty_open -= exit_qty
             hit_t2 = True
@@ -470,6 +478,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
                 tranches.append((pending_add, float(bar_close)))   # filled at the close
                 qty_open += pending_add
                 pending_add = 0.0
+                filled_total = 100.0
                 add_filled = True
                 add_bar = days_held
 
@@ -503,7 +512,7 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         # half-invested must earn its way past that.
         "add_filled": bool(add_filled),
         "add_bar": add_bar,
-        "filled_pct": float(_fill0 + (0.0 if pending_add > 0 else (100.0 - _fill0))) if _staging else 100.0,
+        "filled_pct": float(filled_total),
         "hit_trail_sl":  hit_trail_sl,     # v2.9: trail caught — often profit-protect
         "hit_t1":        hit_t1,
         "hit_t2":        hit_t2,
