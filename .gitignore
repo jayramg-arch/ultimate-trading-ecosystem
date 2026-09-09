@@ -92,3 +92,20 @@ data/dhan_scrip_master.csv
 PA_FIELD_VALIDATION*.csv
 gm_s4_multitf_trades*.csv
 trades_ml_features.csv
+
+# ── Machine-local caches and agent internals (9 Sep 2026) ──────────────────
+# HEAD tracks 988 files, 2 of them under data/. A literal `git add -A` would have
+# added 19,756 more — a 20x repo expansion of derived data that is rewritten on
+# every run and is worthless to anyone else's checkout. Curated data/ files
+# (core_universe.txt, screener_rff_pool.json, the nav/OI snapshots) stay tracked.
+data/market_cache/
+data/fundamentals_cache/
+data/_quarantine/
+data/cache/
+data/snapshots/
+
+# Claude / agent working state (.agent/ was already ignored; these were missed)
+.claude_memory/
+.agents/
+graphify-out/
+scratch/
