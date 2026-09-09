@@ -88,6 +88,16 @@ _WATCHLIST_FILE_MAP = {
 
 FAMILY_FILTER: tuple = ()   # e.g. ("POS",) — set by --families; () = all
 
+
+def _sl_basis_now() -> str:
+    """Read the LIVE stop-trigger basis for the run meta. replay is imported
+    inside functions here, so this cannot close over a module-level alias."""
+    try:
+        import replay as _rp
+        return str(getattr(_rp, "SL_BASIS", "intraday"))
+    except Exception:
+        return "intraday"
+
 def _load_watchlist(name: str) -> list[str]:
     """Read a curated watchlist CSV, return its symbol list (canonicalized).
 
@@ -985,6 +995,7 @@ def run_s4go_validation(months_back: int = 24,
         "setup_coherent":  bool(setup_coherent),
         "role_mismatch":   bool(role_mismatch),
         "nonign_min":      int(nonign_min),
+        "sl_basis":        _sl_basis_now(),
         "screener":        screener,
         "qualify":         ("strict-RFF" if screener == "recovery" else qualify),
         "universe_size":   len(universe),
@@ -1219,6 +1230,14 @@ def main() -> int:
                          "replay.FWD_DAYS_BY_CATALYST (POS/WYC=120-180d, "
                          "REV=90d, SWG=30d). Without this flag, all picks use --forward.")
     # v3.0 (2026-07-22): GM+S4 daily-approx GO entry gate
+    p.add_argument("--sl_basis", default="intraday", choices=["intraday", "close"],
+                   help="ABLATION CELL. Trigger basis for the INITIAL structural stop. "
+                        "'intraday' (default, shipped) fires on the bar LOW, which is how "
+                        "a broker stop on LTP behaves. 'close' fires on the bar CLOSE and "
+                        "fills there, with a wider intraday disaster floor still resting "
+                        "underneath. Four stop studies have tested stop DISTANCE; none "
+                        "tested the basis, and 52%% of measured stop-outs were bars that "
+                        "closed back ABOVE the stop. See docs/PREREG_close_basis_stop.md.")
     p.add_argument("--nonign_min", type=int, default=0, metavar="N",
                    help="s4go only: ABLATION CELL, the GRADED POSITIVE form of "
                         "--role_mismatch. Require at least N pieces of NON-IGNITION "
@@ -1256,6 +1275,10 @@ def main() -> int:
                          "catalyst-firing set (comparable to the legacy baseline). "
                          "Recovery always uses its strict RFF gate.")
     args = p.parse_args()
+    if getattr(args, "sl_basis", "intraday") != "intraday":
+        import replay as _rp
+        _rp.SL_BASIS = args.sl_basis
+        print(f"  SL TRIGGER BASIS: {args.sl_basis} (disaster floor {_rp.SL_DISASTER_MULT}x)")
     if args.families:
         FAMILY_FILTER = tuple(x.strip().upper() for x in args.families.split(",") if x.strip())
         print(f"  FAMILY FILTER: keeping {FAMILY_FILTER} only")

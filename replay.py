@@ -174,6 +174,14 @@ COST_PER_LEG_DEFAULT = 0.10   # 0.10% per leg (STT + brokerage + slippage on liq
 # meaningless SL-hit rates. Per CLAUDE.md: Swing = 8-12 weeks, Positional =
 # 6-8 months. The numbers below are mid-points of those design horizons.
 # This dict is the canonical mapping; validation.py reads it via _replay.FWD_DAYS_BY_CATALYST.
+# ── STOP TRIGGER BASIS (PREREG_close_basis_stop.md, 9-Sep-2026) ─────────────
+# "intraday" = the shipped behaviour: the INITIAL stop fires on the bar LOW, which
+# is how a broker stop on LTP behaves. "close" fires it on the bar CLOSE instead,
+# with a wider intraday DISASTER floor still resting underneath. Default keeps every
+# prior run byte-identical.
+SL_BASIS = "intraday"        # "intraday" | "close"
+SL_DISASTER_MULT = 1.5       # disaster stop = 1.5x the structural stop DISTANCE
+
 FWD_DAYS_BY_CATALYST: dict[str, int] = {
     # Positional (Stage 1->2 accumulation + breakouts) — 4-6 month evaluation
     "POS-BO":         120,
@@ -337,8 +345,38 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
 
         # Order priority on a single bar: SL → T1 → T2 (conservative — assume worst case if bar spans both)
         # If bar's low touched SL: full exit
-        if bar_low <= trail_sl and qty_open > 0:
-            exit_at = trail_sl
+        #
+        # TRIGGER BASIS (9-Sep-2026, PREREG_close_basis_stop.md). Four stop studies have
+        # tested stop DISTANCE and all four were rejected; none touched the BASIS. A stop
+        # resting at the broker on LTP behaves like `bar_low <=`, and measured on run
+        # 20260909_055448, 102 of 196 stop-outs (52.0%) were bars that closed back ABOVE
+        # the stop — an intraday wick sold to the institutions who then took it up.
+        #
+        # "close" applies ONLY while the stop is still the INITIAL structural stop. Once
+        # the Chandelier has ratcheted above it, that leg IS a resting broker order in
+        # live use, so it keeps triggering intraday.
+        #
+        # The DISASTER FLOOR is part of the tested arm, not an optional extra: without it
+        # "close basis" means "no stop until 15:30", which is a different and far more
+        # dangerous thing than the scheme under test.
+        #
+        # Fill honesty: intraday fills AT the stop; close-basis fills at the CLOSE, which
+        # on a genuine breakdown is BELOW the stop. The control's fill is left flattering
+        # (it fills at trail_sl even on a gap-down open, a long-standing optimism) because
+        # byte-identical reproduction of prior runs is a standing requirement — so this
+        # comparison is biased AGAINST the treatment, which is the safe direction.
+        _is_initial = (trail_sl == sl_price)
+        _use_close = (SL_BASIS == "close") and _is_initial
+        _disaster = (sl_price - (SL_DISASTER_MULT - 1.0) * max(entry_price - sl_price, 0.0)
+                     if _use_close else None)
+        if _use_close:
+            _trig = (bar_close <= trail_sl) or (_disaster is not None and bar_low <= _disaster)
+            _fill = _disaster if (_disaster is not None and bar_low <= _disaster) else bar_close
+        else:
+            _trig = bar_low <= trail_sl
+            _fill = trail_sl
+        if _trig and qty_open > 0:
+            exit_at = _fill
             pnl_pct_this = (exit_at - entry_price) / entry_price * 100 * (qty_open / 100.0)
             realized_pnl_pct += pnl_pct_this
             qty_open = 0

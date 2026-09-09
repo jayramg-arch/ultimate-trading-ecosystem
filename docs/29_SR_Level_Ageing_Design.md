@@ -48,6 +48,12 @@ computable from parts this repo has):
 
 ## 2. MEASURED FIRST — and the payload is not where it looks
 
+> ⚠ **THE PIVOT NUMBERS IN THIS SECTION ARE WRONG — SEE SECTION 7.** The pivot-ceiling
+> figures (45.2% stale, ~28% of names) came from a proxy that scanned all history for
+> pivot highs; `overhead_room` never does that, and its pivot ceilings already age on a
+> per-TF calendar. Measured through the real function the change moves **2%**, not 28%.
+> The S/R findings in this section stand; the pivot ones do not.
+
 Read-only audits on the live 55-name board (`sr_age_audit.py`, `room_source_audit.py`).
 
 **The level pool is genuinely ancient.** 1,458 daily levels: **67.8% are >6 months old**,
