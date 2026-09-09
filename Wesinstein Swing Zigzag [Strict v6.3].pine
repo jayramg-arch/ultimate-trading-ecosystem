@@ -1,6 +1,16 @@
 //@version=6
 indicator("Weinstein Swing Zigzag [Strict v6.4]", overlay=true, max_lines_count=500, max_labels_count=500)
 
+// RE10143 GUARD (9-Sep-2026). ta.lowest/ta.highest are called with a SERIES length
+// (bars since the active pivot), which grows without bound as a leg extends. Pine sizes
+// the history buffer from what it observes on early bars, so a leg longer than that
+// inferred size throws at runtime — on a chart with 8,500 bars it surfaced as
+// "requested offset (57) beyond limit (56)". Pinning the two series the lookbacks read
+// is the targeted fix; raising max_bars_back on the indicator would apply to EVERY
+// series and cost memory on a chart that is already carrying several heavy scripts.
+max_bars_back(low,  2000)
+max_bars_back(high, 2000)
+
 // ==========================================
 // CHANGELOG v6.3 — audit fixes + enhancements (2026-06-14)
 // ==========================================
@@ -536,7 +546,7 @@ if not na(pl)
 // ============================================================
 // syncBars includes the pivot bar itself (+1) so projSync extremes capture the pivot.
 int _syncBars = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex + 1)
-int syncBars  = math.max(1, _syncBars)
+int syncBars  = math.min(math.max(1, _syncBars), 1999)   // <= the pinned buffer
 float projSyncLow  = ta.lowest(low,  syncBars)
 float projSyncHigh = ta.highest(high, syncBars)
 
@@ -641,10 +651,11 @@ int    mtfTrendState2 = mtfTF2 == "" ? mtfTrendState : request.security(syminfo.
 // --- 4. PROJECTION LINE ---
 // ============================================================
 if show_proj
-    int _barsSince = na(activePivotIndex) ? 1 : (bar_index - activePivotIndex + 1)
-    int globalBarsSince = math.max(1, _barsSince)
-    float globalLowest  = ta.lowest(low,  globalBarsSince)
-    float globalHighest = ta.highest(high, globalBarsSince)
+    // Reuses the section-3 extremes: same window, same bars, already computed in global
+    // scope. Recomputing them here duplicated the buffer demand and put a stateful ta.*
+    // call inside a conditional.
+    float globalLowest  = projSyncLow
+    float globalHighest = projSyncHigh
 
     if not na(activePivotPrice)
         line.delete(projLine)
