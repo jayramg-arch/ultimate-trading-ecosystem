@@ -17730,17 +17730,14 @@ elif page == 'RISK SHIELD':
                         sl_vals = [o["sl_trigger"] for o in orders if o["sl_trigger"] is not None]
                         curr_sl = max(sl_vals) if sl_vals else None
                         
-                        # 1. Update SL Action
-                        has_manual_sl = (sym in journal_overrides and journal_overrides[sym].get("manual_sl_override"))
-                        if tsl_target and curr_sl and tsl_target > curr_sl and not has_manual_sl:
-                            proposed_actions.append({
-                                "Symbol": sym,
-                                "Action": "Tighten SL",
-                                "Trigger Price": round(tsl_target, 2),
-                                "Qty %": 100,
-                                "Reason": "TSL Trailing"
-                            })
-                            
+                        # 1. Tighten SL - NOT built here any more. This block computed its
+                        # own target from hist_data[sym]["chandelier_exit"] and collapsed a
+                        # symbol's OCO legs into ONE row via max(sl_trigger), then executed
+                        # against _ocos[0]. On the 11 of 15 positions carrying two OCOs, half
+                        # of every stop never moved. Trail rows now come from
+                        # gtt_auto_shield.build_trail_proposals(), one row PER ORDER - the
+                        # same engine the 15:45 scheduled job runs. See below.
+
                         # 2. Earnings/Extension Trim
                         if cond_trim:
                             proposed_actions.append({
@@ -17762,14 +17759,60 @@ elif page == 'RISK SHIELD':
                                 "Reason": "Pullback & Trend OK"
                             })
                             
+                    # --- TRAIL ROWS FROM THE SHARED ENGINE -----------------------
+                    # One row per ORDER. A symbol can hold two OCOs at the SAME stop level,
+                    # so two identical-looking rows are two REAL orders, not a duplicate -
+                    # the Order ID column is what tells them apart.
+                    if st.button("Load / refresh trail proposals", key="rs_load_trail"):
+                        st.session_state.pop("rs_trail_cache", None)
+                    if "rs_trail_cache" not in st.session_state:
+                        try:
+                            import gtt_auto_shield as _gas
+                            _pr, _br, _er = _gas.build_trail_proposals()
+                            st.session_state["rs_trail_cache"] = {
+                                "rows": [{"Symbol": _sy, "Action": "Tighten SL",
+                                          "Order ID": str(_lg.get("order_id")),
+                                          "Qty": int(_lg.get("sl_qty") or _lg.get("qty") or 0),
+                                          "Current SL": round(float(_old), 2),
+                                          "Trigger Price": round(float(_new), 2),
+                                          "Qty %": 100, "Reason": str(_note)}
+                                         for _sy, _lg, _old, _new, _m, _src, _note in _pr],
+                                "breached": list(_br), "err": _er,
+                                "at": datetime.datetime.now().strftime("%H:%M:%S")}
+                        except Exception as _te:
+                            st.session_state["rs_trail_cache"] = {"rows": [], "breached": [],
+                                                                  "err": str(_te), "at": "-"}
+                    _tc = st.session_state.get("rs_trail_cache") or {}
+                    if _tc.get("err"):
+                        st.warning(f"Trail engine: {_tc['err']}")
+                    else:
+                        st.caption(f"Trail proposals from gtt_auto_shield - {len(_tc.get('rows', []))} "
+                                   f"leg(s), read {_tc.get('at', '-')}. Same engine the 15:45 job runs.")
+                    # BREACHED never becomes an approvable row: the Chandelier already sits
+                    # at/above the LTP, so a SELL trigger there fires instantly. That is an
+                    # exit review, and this page does not auto-sell.
+                    for _bs, _bo, _bc, _bl in _tc.get("breached", []):
+                        st.error(f"{_bs}: Chandelier {_bc} >= LTP {_bl} - EXIT REVIEW, not trailed "
+                                 f"(stop stays {_bo})")
+                    proposed_actions = list(_tc.get("rows", [])) + proposed_actions
+
                     if proposed_actions:
                         df_props = pd.DataFrame(proposed_actions)
+                        for _c in ("Order ID", "Qty", "Current SL"):
+                            if _c not in df_props.columns:
+                                df_props[_c] = None
+                        df_props = df_props[["Symbol", "Action", "Order ID", "Qty",
+                                             "Current SL", "Trigger Price", "Qty %", "Reason"]]
                         df_props.insert(0, "Approve", True)
                         edited_df = st.data_editor(
                             df_props,
                             column_config={
                                 "Approve": st.column_config.CheckboxColumn("Approve", default=True),
                                 "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
+                                "Order ID": st.column_config.TextColumn("Order ID", disabled=True,
+                                    help="The GTT this row modifies. Two rows on one symbol are two REAL orders."),
+                                "Qty": st.column_config.NumberColumn("Qty", disabled=True),
+                                "Current SL": st.column_config.NumberColumn("Current SL", format="%.2f", disabled=True),
                                 "Action": st.column_config.TextColumn("Action", disabled=True),
                                 "Reason": st.column_config.TextColumn("Reason", disabled=True),
                                 "Trigger Price": st.column_config.NumberColumn("Trigger Price (₹)", format="%.2f", step=0.05),
@@ -17793,16 +17836,34 @@ elif page == 'RISK SHIELD':
                                     continue
                                 _psym = str(_pr["Symbol"]); _new_sl = float(_pr["Trigger Price"])
                                 try:
-                                    _ocos = [o for o in sell_gtts_by_symbol.get(_psym, [])
-                                             if o.get("sl_trigger") is not None]
-                                    if not _ocos:
-                                        _exec_results.append((_psym, False, "no OCO with SL leg found"))
+                                    # ONE ROW = ONE ORDER. This used to resolve the symbol to
+                                    # its OCO list and always take _ocos[0], so on a symbol
+                                    # holding two OCOs the second leg was never modified and
+                                    # half the position kept its old stop. The row now carries
+                                    # the order id it was built from, so the leg it displays is
+                                    # the leg it moves.
+                                    _oid = str(_pr.get("Order ID") or "").strip()
+                                    if not _oid or _oid.lower() in ("none", "nan"):
+                                        _exec_results.append((_psym, False,
+                                            "row has no Order ID - reload the trail proposals"))
                                         continue
-                                    _oco0 = _ocos[0]
+                                    _oco0 = next((o for o in sell_gtts_by_symbol.get(_psym, [])
+                                                  if str(o.get("order_id")) == _oid), None)
+                                    if _oco0 is None:
+                                        _exec_results.append((_psym, False,
+                                            f"order {_oid} no longer live - reload the proposals"))
+                                        continue
                                     _old_sl = _oco0["sl_trigger"]
-                                    _q = int(_oco0.get("sl_qty") or _oco0.get("qty") or 0)
+                                    # TIGHTEN-ONLY, enforced at the point of execution and not
+                                    # only at proposal time: the price cell is editable, so a
+                                    # typo could otherwise LOOSEN a live stop.
+                                    if _old_sl is not None and _new_sl <= float(_old_sl):
+                                        _exec_results.append((_psym, False,
+                                            f"refused: {_new_sl} would not tighten {_old_sl}"))
+                                        continue
+                                    _q = int(_pr.get("Qty") or _oco0.get("sl_qty") or _oco0.get("qty") or 0)
                                     _resp = dhan.modify_forever(
-                                        order_id=str(_oco0["order_id"]),
+                                        order_id=_oid,
                                         order_flag="OCO",
                                         order_type=dhan.LIMIT,
                                         leg_name="STOP_LOSS_LEG",

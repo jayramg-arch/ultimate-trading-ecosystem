@@ -497,39 +497,41 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
     print(f"\n{ok}/{len(plan)} placed. Re-run --trail to bring them onto the trail schedule.")
 
 
-def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
-    """Tighten-only Chandelier trail of live GTT SL legs. Never loosens; never
-    modifies when the Chandelier sits at/above the last close (that's an EXIT
-    signal, not a trail — modifying would fire the order instantly)."""
-    print("=" * 60)
-    print("🛡️ GTT AUTO-SHIELD — TRAIL PASS (tighten-only)")
-    print("=" * 60)
-    log.info("trail pass start")
+def build_trail_proposals(dhan=None):
+    """THE trail engine. Returns (proposals, breached, err).
 
-    dhan = connect_dhan()
+    Extracted 9-Sep-2026 so the Risk Shield's Morning Approval Dashboard and this CLI
+    read the SAME proposals. They did not: the page built its own list from
+    hist_data[sym]["chandelier_exit"], collapsed a symbol's legs into ONE row via
+    max(sl_trigger), and then executed against _ocos[0] -- so on the 11 of 15 positions
+    that carry two OCOs, half of every stop stayed put. That is the same one-leg bug
+    already fixed in this file; the page still had it.
+
+    A proposal is per ORDER, never per symbol, and carries its order_id.
+
+    `err` is a string when the pass cannot run at all (no token, no legs); the caller
+    decides whether that is a print or a st.error.
+    """
+    if dhan is None:
+        dhan = connect_dhan()
     if not dhan:
-        return
-    # Token sanity: one cheap authed call before doing anything
+        return [], [], "Dhan connection failed"
     try:
         _fl = dhan.get_fund_limits()
         if not (isinstance(_fl, dict) and _fl.get("status") == "success"):
-            print(f"❌ Token/API check failed — aborting: {_fl}")
             log.error(f"trail: token check failed: {_fl}")
-            return
+            return [], [], f"Token/API check failed: {_fl}"
     except Exception as e:
-        print(f"❌ Token/API check exception — aborting: {e}")
         log.error(f"trail: token check exception: {e}")
-        return
+        return [], [], f"Token/API check exception: {e}"
 
     journal = load_journal_data()
     legs = _live_oco_sl_legs(dhan)
     if legs is None:
-        return
+        return [], [], "Could not read live GTT orders"
     if not legs:
-        print("ℹ️ No live OCO SL legs found — nothing to trail. (Run the shield "
-              "pass first to place OCOs.)")
         log.info("trail: no live SL legs")
-        return
+        return [], [], "No live OCO SL legs found - run the shield pass first to place OCOs."
 
     # Bear regime — same source as Risk Shield/Pyramid (market_regime score ≤ 5).
     bear = False
@@ -576,6 +578,26 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
         except Exception as e:
             print(f"⚠️ {sym}: trail computation failed: {e}")
             log.error(f"trail: {sym}: computation failed: {e}")
+
+    return proposals, breached, None
+
+
+def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
+    """CLI wrapper around build_trail_proposals(). Never loosens; never modifies when
+    the Chandelier sits at/above the last close (that's an EXIT signal, not a trail --
+    modifying would fire the order instantly)."""
+    print("=" * 60)
+    print("🛡️ GTT AUTO-SHIELD - TRAIL PASS (tighten-only)")
+    print("=" * 60)
+    log.info("trail pass start")
+
+    dhan = connect_dhan()
+    if not dhan:
+        return
+    proposals, breached, err = build_trail_proposals(dhan)
+    if err:
+        print("[X] " + str(err))
+        return
 
     # ORDER ID on every row: a symbol can hold TWO OCOs at the SAME stop level
     # (Jay places both from the Risk Shield page off the Recommended SL), so two
