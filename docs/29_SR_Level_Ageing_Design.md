@@ -144,6 +144,11 @@ counts, and stays available as a *support* reference and a stop anchor — being
 make it a bad place to put a stop, it makes it a weak place to expect rejection.
 
 ### 3e. The three rescues
+> ⚠ **SUPERSEDED BY SECTION 6.** These three were proposed from the research and then
+> controlled. Only **HTF confluence** discriminates; the AVWAP and gap rescues fire at the
+> same rate on FRESH ceilings and are pass-throughs. Ship HTF only. Kept here as written so
+> the correction is visible rather than edited away.
+
 A stale daily level is NOT excluded when any of:
 1. a W or M level sits within `sr_tol x ATR` of it (HTF confluence);
 2. one of the three AVWAP anchors sits within tolerance (the AVWAP magnet);
