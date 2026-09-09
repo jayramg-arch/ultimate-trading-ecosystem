@@ -182,3 +182,46 @@ Room/target computation, scored on fresh anchors under a pre-registered rule —
 harness the roleMismatch thread used. Room-source removal has been measured once before
 (the pivot-ceiling ablation) and did not pay, which is a reason to keep the display change
 and the Room change separable.
+
+---
+
+## 6. The rescues were controlled, and two of three FAILED (9 Sep 2026)
+
+Section 3e proposed all three of the research's rescue conditions. Before writing them
+into the engines they were controlled the same way a gate is: **a rescue is only real if it
+fires more often on STALE ceilings than on FRESH ones.** Equal rates mean it carries no
+information about age — it is a pass-through that would silently undo the exclusion.
+
+Measured on the live 55-name board, with a random-price base rate as a third arm:
+
+| rescue | STALE | FRESH | RANDOM | verdict |
+|---|---:|---:|---:|---|
+| **HTF confluence** | **14.3%** (3/21) | **0.0%** (0/29) | 1.7% | **DISCRIMINATES** |
+| AVWAP magnet | 38.1% (8/21) | 37.9% (11/29) | 17.6% | no information |
+| AVWAP + hi-volume anchor | 52.4% (11/21) | 55.2% (16/29) | 61.0% | no information |
+| unfilled gap | 19.0% (4/21) | 17.2% (5/29) | 34.3% | no information |
+
+**Only HTF confluence survives.** It is close to a clean instrument: it never fires on a
+fresh ceiling and almost never on a random price.
+
+**AVWAP is a pass-through.** It fires at the same rate on fresh ceilings, so it is not
+detecting a level that resisted decay — it is detecting that AVWAPs and ceilings both sit
+near price. Adding the research's own "massive volume at that pivot" condition made it
+*worse*, not better (52.4% vs a 61.0% random rate): once every 3x-volume pivot high in 500
+bars is an anchor, there are so many that everything matches.
+
+**The gap rescue fires BELOW its own random rate.** Gap edges are denser away from price
+than near it, so as a filter it is worse than a coin flip.
+
+### Consequence for the patch
+* **Implement the HTF-confluence rescue only.**
+* AVWAP and gap coincidence may still be *annotated* on the level for the eye — they are
+  useful context — but they must never lift the stale exclusion.
+* This is also what makes the change worth applying: the two vacuous rescues were eating
+  most of it. With HTF only, **13 of 50 names (26%)** lose a ghost ceiling, against 5 of 50
+  (10%) if all three had shipped.
+
+### The general lesson
+Every exemption is a gate in the other direction and needs the same control. Written into
+the design because I proposed all three rescues from the research without testing them, and
+two would have quietly cancelled the feature they were meant to refine.
