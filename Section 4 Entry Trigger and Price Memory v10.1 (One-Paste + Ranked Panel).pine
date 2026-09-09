@@ -1305,6 +1305,16 @@ of_ltf       = input.timeframe("15", "Order-flow intrabar TF", group=grpAF, tool
 of_win       = input.int(5, "Delta window (bars in the arrival)", group=grpAF, minval=2, maxval=20, tooltip="How many recent bars the arrival delta is summed over, and the lookback for the delta-divergence check.")
 
 show_sr_lv   = input.bool(true, "Draw auto S/R levels", group=grpSR)
+sr_age_on    = input.bool(true, "Age S/R levels out of the CEILING", group=grpSR, tooltip="The line NEVER leaves the chart and never stops being usable as support or as a stop anchor. This only withdraws a level's right to CAP YOUR ROOM once it is past its timeframe's lifespan.
+
+Why: resistance is trapped buyers waiting for breakeven. On a daily pivot that overhang is a small slice of float, and within 3-6 months most of those holders have capitulated or rotated out; institutional order flow clears on 90-day cycles. Past six months a daily level is a psychological speed bump, not supply.
+
+Measured on the live 55-name board: 67.8% of daily levels were last touched more than 6 months ago, median 14.9 months, oldest 99.6 - and every one of them was drawn exactly like a 3-week-old level. Zones already expired on a per-TF calendar; LEVELS had no clock at all.
+
+Scope, honestly: on that same board this changed the Room ceiling for 1 name in 55. It is a correctness and display fix, not a cure for tight room.")
+sr_age_d     = input.int(126, "  Daily level lifespan (bars)", group=grpSR, minval=0, maxval=2000, tooltip="126 daily bars is about 6 months, the point past which the research treats a daily level as a speed bump rather than supply. 0 disables ageing for this timeframe.")
+sr_age_w     = input.int(130, "  Weekly level lifespan (bars)", group=grpSR, minval=0, maxval=2000, tooltip="130 WEEKLY bars is about 2.5 years. Measured in the level's OWN bars on purpose: a flat 6-month rule would kill a weekly level at 26 weekly bars, which is the same timeframe-mismatch that once killed a weekly zone on a daily EMA cross.")
+sr_age_m     = input.int(120, "  Monthly level lifespan (bars)", group=grpSR, minval=0, maxval=2000, tooltip="120 MONTHLY bars is about 10 years. Monthly structure is set by macro cycles and secular turns and decays on that scale, not on a swing trader's.")
 sr_pool      = input.int(40, "Levels tracked per timeframe", group=grpSR, minval=8, maxval=120, tooltip="How many recent pivots each timeframe keeps for clustering. Chart Markup capped this at 16 — about 4-6 months of daily bars — so a level from 8 months back was UNREACHABLE at any setting. That was the single biggest reason its S/R felt immature. 40 per timeframe, and each TF clusters its own pivots at its own scale.")
 sr_tol       = input.float(0.6, "Cluster tolerance (× ATR14)", group=grpSR, minval=0.1, step=0.1, tooltip="How close two pivots must be to count as the same level. Measured in that TIMEFRAME's own ATR.")
 sr_wick_fit  = input.bool(true, "Place the line to thread maximum wicks", group=grpSR, tooltip="#8 (19-Jul): the level line is placed at the midpoint of the INTERSECTION of its member pivots' wick bands (body-top..high for highs, low..body-bottom for lows) — the one price that threads EVERY member wick, truly representing the reaction level. When a new touch's band does not intersect, the line stays put and the touch still counts. OFF = touch-mean placement (pre-#8).")
@@ -3666,7 +3676,7 @@ for _fi = 0 to _fibLoAgo
 // RESTORE: uncomment the three [TL-EXT] inputs and revert these two lines plus near_tl.
 float tl_ext1 = na
 float tl_ext2 = na
-core.SRCtx _srCtx = core.SRCtx.new(mv1, mv2, mv3, mv4, wv1, wv2, wv3, wv4, dv1, dv2, dv3, dv4, useLvM, useLvW, useLvD, srM, srW, srD, sr_show_M, sr_show_W, sr_show_D, manM, manW, manD, sr_on, d_sr, mttwrEff, tls_now, tlr_now, tls_live, tlr_live, tls_tfTag, tlr_tfTag, tl_ext1, tl_ext2)
+core.SRCtx _srCtx = core.SRCtx.new(mv1, mv2, mv3, mv4, wv1, wv2, wv3, wv4, dv1, dv2, dv3, dv4, useLvM, useLvW, useLvD, srM, srW, srD, sr_show_M, sr_show_W, sr_show_D, manM, manW, manD, sr_on, d_sr, mttwrEff, tls_now, tlr_now, tls_live, tlr_live, tls_tfTag, tlr_tfTag, tl_ext1, tl_ext2, sr_age_d, sr_age_w, sr_age_m, sr_age_on)
 float sr_below = core.srBelow(_srCtx)
 float sr_above = core.srAbove(_srCtx)
 
@@ -5076,7 +5086,9 @@ if show_panel and d_panel and barstate.islast
     // measured from 1585.9 (0.58% and 1.15%) and the row from 1608. Nothing was wrong
     // except the reference price, and that is unreadable from the panel.
     float _srBd = (not na(sr_below) and close[_so] > 0) ? (close[_so] - sr_below) / close[_so] * 100.0 : na
-    string sr_txt = "S " + core.srTxt(_srCtx, sr_below) + (na(sr_below) ? "" : "  (−" + str.tostring(_srBd, "0.0") + "%)") + "   |   R " + core.srTxt(_srCtx, sr_above) + (na(sr_above) ? "" : "  (+" + str.tostring((sr_above - close) / close * 100.0, "0.0") + "%)")
+    // v49: each side carries its own AGE. The line never leaves the chart — it just says
+    // how old it is, and only a STALE one stops counting as a ceiling.
+    string sr_txt = "S " + core.srTxt(_srCtx, sr_below) + core.srAgeTxt(_srCtx, sr_below) + (na(sr_below) ? "" : "  (−" + str.tostring(_srBd, "0.0") + "%)") + "   |   R " + core.srTxt(_srCtx, sr_above) + core.srAgeTxt(_srCtx, sr_above) + (na(sr_above) ? "" : "  (+" + str.tostring((sr_above - close) / close * 100.0, "0.0") + "%)")
     color sr_col = near_sr ? C_OK : (not na(_srBd) and _srBd > 8.0) ? color.gray : C_INFO
     // #coil: the over-tested level price is stalling on — the one the picker above
     // deliberately discarded. Named with its direction so it reads as a WATCH, not as a

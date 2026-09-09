@@ -2,7 +2,18 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v48  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v49  --  shared engines for the Section 4 / Golden Matcher ecosystem
+//
+// v49 (9-Sep-2026) - S/R LEVEL AGEING. SRSig gains a1b/a2b/b1b/b2b, the LAST-touch
+//   AGE of each level in its OWN bars (Lb was tracked, never exported; a1x is the FIRST
+//   touch and stays the ray anchor). SRCtx gains srAgeD/W/M + srAgeOn, and srStale()
+//   applies them. srAutoAbove/srAutoBelow now skip a STALE level as a CEILING.
+//   Fields are APPENDED, never inserted, so every positional argument holds.
+//   Research: a daily resistance is potent 1-4 weeks, standard to 3 months, soft to
+//   6, and past 6 months is a speed bump - the trapped buyers who formed it have
+//   capitulated. Zones already aged on a per-TF calendar; LEVELS had no clock.
+//   The level is NEVER removed from the chart - only its ceiling role is withdrawn,
+//   exactly as MTTWR already works.
 //
 // v48 (6-Sep-2026) - setupRead() takes C_NO so the Setup marker and the row colour
 // agree (a red dot sat on an amber row); rrgSecTxt() drops secName from the VALUE
@@ -491,6 +502,20 @@ export type SRSig
     int   b2t
     int   b2x
     bool  b2h
+    // v49 APPENDED: AGE since the last touch, in THIS LEVEL'S OWN bars.
+    //
+    // Deliberately an AGE and not a bar index. srLevels runs inside request.security for
+    // D/W/M, so its bar_index counts that timeframe's bars, while the consumer runs on
+    // the CHART. Exporting the raw index and subtracting the chart's bar_index would be
+    // meaningless on any intraday chart - the same TF-mismatch class that once killed a
+    // weekly zone on a daily EMA cross. Subtract where the clock is right.
+    //
+    // a1x/a2x/b1x/b2x remain the FIRST touch and remain the ray anchor; ageing decays
+    // from the last TEST, so a level retested last month is live however old it is.
+    int   a1b = 0
+    int   a2b = 0
+    int   b1b = 0
+    int   b2b = 0
 
 // ---- srLevels ------------------------------------------------------------
 export srLevels(simple int pvL, simple int pvR, simple int poolN, simple float tolAtr, simple int minSpace, simple int minTouch, simple bool wickTouch, simple bool wickFit) =>
@@ -639,6 +664,10 @@ export srLevels(simple int pvL, simple int pvR, simple int poolN, simple float t
     bool  a2h = false
     bool  b1h = false
     bool  b2h = false
+    int   a1b = 0
+    int   a2b = 0
+    int   b1b = 0
+    int   b2b = 0
     if array.size(Lp) > 0
         for i2 = 0 to array.size(Lp) - 1
             float lvl = array.get(Lp, i2)
@@ -650,31 +679,37 @@ export srLevels(simple int pvL, simple int pvR, simple int poolN, simple float t
                         a2t := a1t
                         a2x := a1x
                         a2h := a1h
+                        a2b := a1b
                         a1 := lvl
                         a1t := c
                         a1x := array.get(Lt, i2)
                         a1h := array.get(Lh, i2)
+                        a1b := bar_index - array.get(Lb, i2)
                     else if na(a2) or lvl < a2
                         a2 := lvl
                         a2t := c
                         a2x := array.get(Lt, i2)
                         a2h := array.get(Lh, i2)
+                        a2b := bar_index - array.get(Lb, i2)
                 else if lvl < close
                     if na(b1) or lvl > b1
                         b2 := b1
                         b2t := b1t
                         b2x := b1x
                         b2h := b1h
+                        b2b := b1b
                         b1 := lvl
                         b1t := c
                         b1x := array.get(Lt, i2)
                         b1h := array.get(Lh, i2)
+                        b1b := bar_index - array.get(Lb, i2)
                     else if na(b2) or lvl > b2
                         b2 := lvl
                         b2t := c
                         b2x := array.get(Lt, i2)
                         b2h := array.get(Lh, i2)
-    SRSig.new(a1, a1t, a1x, a1h, a2, a2t, a2x, a2h, b1, b1t, b1x, b1h, b2, b2t, b2x, b2h)
+                        b2b := bar_index - array.get(Lb, i2)
+    SRSig.new(a1, a1t, a1x, a1h, a2, a2t, a2x, a2h, b1, b1t, b1x, b1h, b2, b2t, b2x, b2h, a1b, a2b, b1b, b2b)
 
 // ---- structZone ----------------------------------------------------------
 // v4 — `rejectOnly` APPENDED (never inserted): every existing positional argument keeps
@@ -1517,6 +1552,15 @@ export type SRCtx
     string tlrTf
     float ext1
     float ext2
+    // v49 APPENDED: ageing. THREE lifespans, because the three timeframes do not decay
+    // alike and one number cannot serve them - D 126 bars ~ 6 months, W 130 ~ 2.5 years,
+    // M 120 ~ 10 years. Each is measured in ITS OWN bars. A flat 6-month rule would kill
+    // a weekly level at 26 weekly bars, which is the same TF-mismatch error that once
+    // killed a weekly zone on a daily EMA cross.
+    int   srAgeD  = 0
+    int   srAgeW  = 0
+    int   srAgeM  = 0
+    bool  srAgeOn = false
 
 // A manual level counts only when manual levels are on, the S/R layer is on, that
 // timeframe is visible on this chart, and the price is actually set.
@@ -1535,7 +1579,21 @@ srAbovePick(float acc, float px) =>
 // Auto levels for one timeframe. Skipped entirely when you have marked that
 // timeframe by hand: your levels ARE the location layer, auto is the fallback for
 // a side you have not marked yet.
-srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
+// v49 — is this level past its timeframe's lifespan? Measured from the LAST touch, in
+// this timeframe's OWN bars. A stale level is dropped as a CEILING only: it stays drawn,
+// stays counted, and stays usable as support and as a stop anchor. Age makes a level a
+// weak place to expect REJECTION, not a bad place to lean a stop.
+//
+// One rescue only. The research offers three (HTF confluence / an AVWAP magnet / a major
+// unfilled gap) and all three were controlled on live data by asking whether each fires
+// more on STALE ceilings than on FRESH ones. HTF discriminates (14.3% vs 0.0%, 1.7% on a
+// random price); AVWAP does not (38.1% vs 37.9%) and gets WORSE with the research's own
+// hi-volume condition; the gap rescue fires BELOW its own random rate. So only HTF is
+// implemented, and it is applied by the CALLER, which is the level that can see W/M.
+srStale(SRCtx c, int ageBars, simple int lifeBars) =>
+    c.srAgeOn and lifeBars > 0 and ageBars >= lifeBars
+
+srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, simple int lifeBars) =>
     float r = acc
     if c.dSr and tfOk and tfShow and not hasMan and not na(s)
         r := s.b1t < c.mttwr ? srBelowPick(r, s.b1) : r
@@ -1544,14 +1602,29 @@ srAutoBelow(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
         r := s.a2t < c.mttwr ? srBelowPick(r, s.a2) : r
     r
 
-srAutoAbove(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan) =>
+srAutoAbove(SRCtx c, float acc, SRSig s, bool tfOk, bool tfShow, bool hasMan, simple int lifeBars) =>
     float r = acc
     if c.dSr and tfOk and tfShow and not hasMan and not na(s)
-        r := s.a1t < c.mttwr ? srAbovePick(r, s.a1) : r
-        r := s.a2t < c.mttwr ? srAbovePick(r, s.a2) : r
-        r := s.b1t < c.mttwr ? srAbovePick(r, s.b1) : r
-        r := s.b2t < c.mttwr ? srAbovePick(r, s.b2) : r
+        // CEILING side: an over-tested level was already skipped; v49 also skips a
+        // STALE one. The BELOW picker is deliberately NOT gated — a stale level is
+        // still a fine place to lean a stop.
+        r := (s.a1t < c.mttwr and not srStale(c, s.a1b, lifeBars)) ? srAbovePick(r, s.a1) : r
+        r := (s.a2t < c.mttwr and not srStale(c, s.a2b, lifeBars)) ? srAbovePick(r, s.a2) : r
+        r := (s.b1t < c.mttwr and not srStale(c, s.b1b, lifeBars)) ? srAbovePick(r, s.b1) : r
+        r := (s.b2t < c.mttwr and not srStale(c, s.b2b, lifeBars)) ? srAbovePick(r, s.b2) : r
     r
+
+// v49 — the display half of ageing, and the half Jay actually asked for: the line never
+// goes away, it just says how old it is. Bands are fractions of the timeframe's own
+// lifespan, so one schedule serves every TF; on Daily they land on the research's 1 / 3 /
+// 6-month boundaries. Returns the tag and a dimming flag for the caller to paint with.
+export srAgeRead(SRCtx c, int ageBars, simple int lifeBars) =>
+    int   age = ageBars
+    float f   = lifeBars > 0 ? age / lifeBars : 0.0
+    string band = f < 0.1667 ? "FRESH" : f < 0.5 ? "SEASONED" : f < 1.0 ? "AGED" : "STALE"
+    float mo  = age / 21.0
+    string tag = mo < 10.0 ? str.tostring(mo, "0.0") + "mo" : str.tostring(mo, "0") + "mo"
+    [band, tag, band == "STALE"]
 
 // Nearest usable level below price. na when nothing qualifies - never 0, which
 // would read as a level at zero and size a position against it.
@@ -1573,9 +1646,11 @@ export srBelow(SRCtx c) =>
     r := srBelowPick(r, c.tlrNow)
     r := srBelowPick(r, c.ext1)
     r := srBelowPick(r, c.ext2)
-    r := srAutoBelow(c, r, c.srM, c.useM, c.showM, c.manM)
-    r := srAutoBelow(c, r, c.srW, c.useW, c.showW, c.manW)
-    r := srAutoBelow(c, r, c.srD, c.useD, c.showD, c.manD)
+    // lifeBars 0 = never stale. Support is deliberately NOT aged: an old level is a
+    // weak place to expect REJECTION, not a bad place to lean a stop.
+    r := srAutoBelow(c, r, c.srM, c.useM, c.showM, c.manM, 0)
+    r := srAutoBelow(c, r, c.srW, c.useW, c.showW, c.manW, 0)
+    r := srAutoBelow(c, r, c.srD, c.useD, c.showD, c.manD, 0)
     r
 
 export srAbove(SRCtx c) =>
@@ -1596,9 +1671,9 @@ export srAbove(SRCtx c) =>
     r := srAbovePick(r, c.tlrNow)
     r := srAbovePick(r, c.ext1)
     r := srAbovePick(r, c.ext2)
-    r := srAutoAbove(c, r, c.srM, c.useM, c.showM, c.manM)
-    r := srAutoAbove(c, r, c.srW, c.useW, c.showW, c.manW)
-    r := srAutoAbove(c, r, c.srD, c.useD, c.showD, c.manD)
+    r := srAutoAbove(c, r, c.srM, c.useM, c.showM, c.manM, c.srAgeM)
+    r := srAutoAbove(c, r, c.srW, c.useW, c.showW, c.manW, c.srAgeW)
+    r := srAutoAbove(c, r, c.srD, c.useD, c.showD, c.manD, c.srAgeD)
     r
 
 srChkM(SRCtx c, float lvl) => c.useM and (lvl == c.mv1 or lvl == c.mv2 or lvl == c.mv3 or lvl == c.mv4)
@@ -1631,6 +1706,38 @@ export srIsTl(SRCtx c, float lvl) =>
 
 export srTxt(SRCtx c, float lvl) =>
     na(lvl) ? "—" : str.tostring(lvl, format.mintick) + " ·" + srTfTag(c, lvl) + (srIsTl(c, lvl) ? "·TL" : srIsMan(c, lvl) ? "·man" : "")
+
+// v49 — the AGE of a level, matched back to whichever auto level it is, for display.
+// Jay's instruction was that the line stays and simply SAYS how old it is, so this is
+// the display half and it never gates anything. Manual and trendline levels have no
+// touch history and return "" rather than a fabricated age.
+//
+// Matching is by price because that is all the caller has: srAbove/srBelow return a
+// float, not the SRSig slot it came from. Exact float equality is safe here — the value
+// was copied from the very field being compared, not recomputed.
+srAgeOf(SRCtx c, SRSig s, float lvl) =>
+    int r = -1
+    if not na(s) and not na(lvl)
+        r := lvl == s.a1 ? s.a1b : lvl == s.a2 ? s.a2b : lvl == s.b1 ? s.b1b : lvl == s.b2 ? s.b2b : -1
+    r
+
+export srAgeTxt(SRCtx c, float lvl) =>
+    string out = ""
+    if c.srAgeOn and not na(lvl)
+        int  aM = srAgeOf(c, c.srM, lvl)
+        int  aW = srAgeOf(c, c.srW, lvl)
+        int  aD = srAgeOf(c, c.srD, lvl)
+        int  age  = aD >= 0 ? aD : aW >= 0 ? aW : aM >= 0 ? aM : -1
+        int  life = aD >= 0 ? c.srAgeD : aW >= 0 ? c.srAgeW : aM >= 0 ? c.srAgeM : 0
+        if age >= 0 and life > 0
+            float f = age / life
+            // On D these land on the research's 1 / 3 / 6-month boundaries; expressing
+            // them as FRACTIONS of the timeframe's own lifespan makes one schedule serve
+            // every TF instead of three hand-kept sets of numbers.
+            string band = f < 0.1667 ? "" : f < 0.5 ? "" : f < 1.0 ? "·aged" : "·stale ⌛"
+            float  mo   = aD >= 0 ? age / 21.0 : aW >= 0 ? age / 4.33 : age
+            out := " ·" + (mo < 10.0 ? str.tostring(mo, "0.0") : str.tostring(mo, "0")) + "mo" + band
+    out
 
 // THE COIL SCAN picks up exactly what the pickers throw away. A level graded MTTWR
 // is excluded from support/resistance because it is spent - but "spent as a floor"
