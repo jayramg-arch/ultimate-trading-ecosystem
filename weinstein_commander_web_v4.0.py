@@ -14594,7 +14594,7 @@ elif page == 'GOLDEN MATCHER':
                 with _a3r:
                     st_components.html(
                         """<button id="all3" style="width:100%;padding:6px 12px;
-                            border:1.5px solid var(--acc-rule);background:var(--surface-2);color:#6D28D9;
+                            border:1.5px solid var(--acc-rule);background:var(--surface-2);color:var(--acc);
                             border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace;
                             font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(109,40,217,0.15);">
                             &#8599;&#65039; ALL 3 BOARDS</button>
@@ -18205,17 +18205,17 @@ elif page == 'RISK SHIELD':
                                         elif _class == "REDUCE":
                                             _flags.append("<span style='background: var(--surface-3);color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
                                         elif _class == "ADD":
-                                            _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
+                                            _flags.append("<span style='background:var(--bull-bg);color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
                                         else:  # HOLD
-                                            _flags.append("<span style='background: var(--surface-2);color:var(--faint);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
+                                            _flags.append("<span style='background: var(--surface-2);color:var(--muted);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
-                                            _flags.append(f"<span style='background:var(--bear);color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>⏰ TIME STOP HIT</span>")
+                                            _flags.append(f"<span style='background:var(--bear);color:var(--ground);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>⏰ TIME STOP HIT</span>")
 
                                         if _tech.get("vol_breakout"):
-                                            _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
+                                            _flags.append("<span style='background:var(--bull-bg);color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
                                         elif _tech.get("vol_climax"):
-                                            _flags.append("<span style='background:var(--bear);color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
+                                            _flags.append("<span style='background:var(--bear);color:var(--ground);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5:
                                             _flags.append(f"<span style='background:#78350F;color:var(--warn);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"):
@@ -18268,12 +18268,15 @@ elif page == 'RISK SHIELD':
                                                  else "<span style='color:var(--bear)'>no target leg</span>")
                                         _mstxt = (f"SL ₹{_ms:,.2f}" if _ms is not None
                                                   else "<span style='color:var(--bear)'>no SL leg</span>")
-                                        _mcol = "var(--bull-rule)" if _oi == 0 else "var(--bull-rule)"
+                                        # --bull, not --bull-rule: a RULE token is a border and
+                                        # renders 1.63:1 on this card's ground. The ternary was also
+                                        # dead -- both branches were identical.
+                                        _mcol = "var(--bull)"
                                         _mwt = 700 if _oi == 0 else 600
                                         _msingle = str(_o.get("order_type") or "").upper() == "SINGLE"
                                         if _msingle:
                                             _mname = "SINGLE SL"
-                                            _mcol = "var(--acc-rule)"
+                                            _mcol = "var(--acc)"
                                         else:
                                             _mname = f"OCO-{_oco_n + 1}"
                                             _oco_n += 1
@@ -18309,7 +18312,7 @@ elif page == 'RISK SHIELD':
                                             f"over-covered by {-_naked}</div>")
                                     else:
                                         _cover_html = (
-                                            f"<div style='color:#6B9080;font-size:0.72rem;margin-top:4px;'>"
+                                            f"<div style='color:var(--ink-2);font-size:0.72rem;margin-top:4px;'>"
                                             f"{len(orders)} order(s) resting · {total_qty} sh covered"
                                             + (" — fully protected" if _held_qty else "")
                                             + "</div>")
@@ -18785,10 +18788,10 @@ elif page == 'RISK SHIELD':
                                             _flags.append("<span style='background:var(--surface-2);color:var(--ink-2);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;border:1px solid #555;'>━ HOLD</span>")
                                         
                                         if time_stop_hit:
-                                            _flags.append(f"<span style='background:var(--bear);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
+                                            _flags.append(f"<span style='background:var(--bear);color:var(--ground);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⏰ TIME STOP HIT</span>")
 
                                         if _tech_flag.get("vol_breakout"): _flags.append("<span style='background:var(--bull);color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;font-weight:bold;'>🚀 Breakout Vol</span>")
-                                        elif _tech_flag.get("vol_climax"): _flags.append("<span style='background:var(--bear);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
+                                        elif _tech_flag.get("vol_climax"): _flags.append("<span style='background:var(--bear);color:var(--ground);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>🚨 Vol Climax</span>")
                                         if _tech_flag.get("days_to_earnings") is not None and _tech_flag.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>⚠️ ER in {_tech_flag.get('days_to_earnings')}d</span>")
                                         if _tech_flag.get("chandelier_exit"): _flags.append(f"<span style='background:var(--surface-2);color:var(--ink-2);border:1.5px solid var(--faint);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:6px;'>TSL(22D): ₹{_tech_flag.get('chandelier_exit'):.0f}</span>")
                                         if _flags: flags_html = f"<div style='margin-bottom:6px;'>{''.join(_flags)}</div>"
@@ -18982,13 +18985,13 @@ elif page == 'RISK SHIELD':
                                     elif _class == "REDUCE":
                                         _flags.append("<span style='background: var(--surface-3);color:#38BDF8;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid #0284C7;'>◐ REDUCE</span>")
                                     elif _class == "ADD":
-                                        _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
+                                        _flags.append("<span style='background:var(--bull-bg);color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--bull);'>▲ ADD</span>")
                                     else:  # HOLD
-                                        _flags.append("<span style='background: var(--surface-2);color:var(--faint);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
+                                        _flags.append("<span style='background: var(--surface-2);color:var(--muted);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:bold;border:1px solid var(--muted);'>━ HOLD</span>")
                                     
                                     if _tech:
-                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:#064E3B;color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
-                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:var(--bear);color:#fff;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
+                                        if _tech.get("vol_breakout"): _flags.append("<span style='background:var(--bull-bg);color:var(--bull);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;border:1px solid var(--bull);'>🚀 Breakout Vol</span>")
+                                        elif _tech.get("vol_climax"): _flags.append("<span style='background:var(--bear);color:var(--ground);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:800;'>🚨 Vol Climax</span>")
                                         if _tech.get("days_to_earnings") is not None and _tech.get("days_to_earnings") <= 5: _flags.append(f"<span style='background:#78350F;color:var(--warn);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠️ ER in {_tech.get('days_to_earnings')}d</span>")
                                         if _tech.get("chandelier_exit"): _flags.append(f"<span style='background: var(--surface-2);color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL(22D): ₹{_tech.get('chandelier_exit'):.0f}</span>")
                                     if _flags: flags_html = f"<div style='margin-bottom:8px;'>{''.join(_flags)}</div>"
