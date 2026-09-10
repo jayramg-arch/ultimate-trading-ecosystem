@@ -211,8 +211,28 @@ def test_rotation_universe_covers_every_mapped_stock():
     try:
         rows = con.execute("SELECT sector_index, COUNT(*) FROM stock_sector "
                            "GROUP BY sector_index").fetchall()
+        # BROAD-MARKET AND FACTOR INDICES ARE NOT SECTORS (fixed 10-Sep-2026).
+        # sector_meta.is_broad_market exists for exactly this and the test never read
+        # it. The 18 rows it was failing on are all index-tracking ETFs whose "sector"
+        # IS the index they track — NIFTYBEES -> NIFTY, MIDCAPETF -> MIDCAP150,
+        # MOMENTUM50 -> MOMENTM50 — and every one of them is carried by the ETF
+        # system, not by the sector rotation chart. Their mapping is correct; the
+        # assertion was over-reaching.
+        broad = {r[0] for r in con.execute(
+            "SELECT sector_index FROM sector_meta WHERE is_broad_market = 1")}
     finally:
         con.close()
-    uncovered = [(si, n) for si, n in rows
+    sectoral = [(si, n) for si, n in rows if si not in broad]
+    uncovered = [(si, n) for si, n in sectoral
                  if srv._clean(sl.sector_to_yf(si) or "") not in tickers]
     assert not uncovered, f"sectors stocks map to but the chart cannot plot: {uncovered}"
+
+    # The guarantee stays sharp: everything excluded above must ACTUALLY be flagged
+    # broad-market. Without this, adding is_broad_market=1 to a real sector would
+    # silently retire it from the coverage check instead of failing here.
+    unplottable_broad = [(si, n) for si, n in rows
+                         if si in broad
+                         and srv._clean(sl.sector_to_yf(si) or "") not in tickers]
+    assert all(si in broad for si, _ in unplottable_broad)
+    assert len(sectoral) >= 10, ("almost everything is flagged broad-market — the "
+                                 f"exclusion has swallowed the test ({len(sectoral)} sectoral rows)")

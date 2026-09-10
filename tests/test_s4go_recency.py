@@ -10,7 +10,7 @@ ACROSS bars (a Sigma describing no real bar) and printing GO while its own gate
 chips read fail. So:
   - recency may satisfy the PA gate ALONE (a pattern is a structural event)
   - volume / location / bar-strength stay strictly on the LIVE bar
-  - the age is ALWAYS printed; "4/4 GO" stays reserved for a live-bar alignment
+  - the age is ALWAYS printed; "5/5 GO" stays reserved for a live-bar alignment
 
 Runs under pytest OR as a plain script (pytest is not in the TradingData venv):
     python tests/test_s4go_recency.py
@@ -19,7 +19,25 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from gm_trigger_board import s4go_status  # noqa: E402
+from gm_trigger_board import s4go_status as _gtb_s4go_status  # noqa: E402
+
+# ---- GATE COUNT (updated 10-Sep-2026) ---------------------------------------
+# s4go_status counted FOUR gates when these tests were written. A FIFTH -
+# fundamentals - was added on 2-Sep-2026 (gm_trigger_board:1226). It had always
+# been APPLIED; it simply was not COUNTED, so the board read "four of four" where
+# the chart showed five chips and an UNSCORED name looked identical to a verified
+# one. The code is right; these expectations were stale.
+#
+# These tests are about PA recency / the RRG tag / the playbook split, so the
+# fundamental gate is held PASSING and kept out of the way. Without that, every
+# assertion here would also carry an unrelated " . F?" tag (fund_ok=None passes
+# but annotates), which is noise in tests that are not about fundamentals.
+def _status(*a, **kw):
+    """s4go_status with fundamentals pinned PASS, so these tests isolate the
+    technical gates. Pass fund_ok explicitly to override."""
+    kw.setdefault("fund_ok", True)
+    return _gtb_s4go_status(*a, **kw)
+
 
 LIVE = {"support": {"at_support": True}, "relvol": 1.4, "bar_ok": True}
 
@@ -32,7 +50,7 @@ def ctx(**kw):
 
 # ── the behaviour that was missing ───────────────────────────────────────────
 def test_live_pa_is_unannotated_go():
-    assert s4go_status(5, ctx(), True) == "4/4 GO"
+    assert _status(5, ctx(), True) == "5/5 GO"
 
 
 def test_recent_pa_is_findable_but_capped_below_four_of_four():
@@ -41,61 +59,61 @@ def test_recent_pa_is_findable_but_capped_below_four_of_four():
     24-Aug-2026, Jay: "a discrepancy of 1 or 2 gates is ok, but not 3 out of 4
     failing." S4 has no recency allowance at all; it reads the current bar only.
     So a recency row differs from the chart by the PA gate BY CONSTRUCTION, and
-    "4/4" is the one label that promises the chart will agree. Cap it.
+    "5/5" is the one label that promises the chart will agree. Cap it.
 
     The name still ranks above a genuine 3/4 in practice because the age tag is
     printed and the watch value is intact — what is gone is the false promise."""
-    out = s4go_status(0, ctx(pa_recent={"age": 2, "sigma": 5}), True)
-    assert out.startswith("3/4"), out
+    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}), True)
+    assert out.startswith("4/5"), out
     assert "PA 2b" in out, out
-    assert not out.startswith("4/4"), "a 2-bar-old trigger must never read as a GO"
+    assert not out.startswith("5/5"), "a 2-bar-old trigger must never read as a GO"
 
 
 def test_only_a_live_pa_can_reach_four_of_four():
     """The complement, so the cap cannot be quietly widened to everything."""
-    assert s4go_status(5, ctx(), True) == "4/4 GO"
+    assert _status(5, ctx(), True) == "5/5 GO"
 
 
 def test_without_recency_the_same_name_is_lost():
     """Regression guard — this is the pre-fix behaviour."""
-    assert s4go_status(0, ctx(), True) == "3/4 · no PA"  # loc+vol+bar pass; PA is the only miss
+    assert _status(0, ctx(), True) == "4/5 · no PA"  # loc+vol+bar pass; PA is the only miss
 
 
 def test_age_shown_on_partial_scores_too():
-    out = s4go_status(0, ctx(pa_recent={"age": 1, "sigma": 3}, relvol=0.4), True)
-    assert out.startswith("3/4") and "PA 1b" in out, out
+    out = _status(0, ctx(pa_recent={"age": 1, "sigma": 3}, relvol=0.4), True)
+    assert out.startswith("4/5") and "PA 1b" in out, out
 
 
 # ── the v5.2 failure modes that must NOT come back ───────────────────────────
 def test_recency_does_not_rescue_volume():
     """Only the PA gate may be satisfied by history. Volume is a bar property."""
-    out = s4go_status(0, ctx(pa_recent={"age": 2, "sigma": 5}, relvol=0.3), True)
-    assert out.startswith("3/4") and "no vol" in out, out
+    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}, relvol=0.3), True)
+    assert out.startswith("4/5") and "no vol" in out, out
 
 
 def test_recency_does_not_rescue_location():
-    out = s4go_status(0, ctx(pa_recent={"age": 2, "sigma": 5},
+    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5},
                              support={"at_support": False}), True)
-    assert out.startswith("3/4") and "no loc" in out, out
+    assert out.startswith("4/5") and "no loc" in out, out
 
 
 def test_recency_does_not_rescue_a_weak_bar():
-    out = s4go_status(0, ctx(pa_recent={"age": 2, "sigma": 5}, bar_ok=False), True)
-    assert out.startswith("3/4") and "weak bar" in out, out
+    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}, bar_ok=False), True)
+    assert out.startswith("4/5") and "weak bar" in out, out
 
 
 def test_live_pa_never_borrows_an_age():
     """A live battery must describe the live bar — recency is not consulted."""
-    assert s4go_status(5, ctx(pa_recent={"age": 2, "sigma": 9}), True) == "4/4 GO"
+    assert _status(5, ctx(pa_recent={"age": 2, "sigma": 9}), True) == "5/5 GO"
 
 
 def test_zero_sigma_recency_is_not_a_fire():
-    assert s4go_status(0, ctx(pa_recent={"age": 2, "sigma": 0}), True) == "3/4 · no PA"
+    assert _status(0, ctx(pa_recent={"age": 2, "sigma": 0}), True) == "4/5 · no PA"
 
 
 def test_malformed_recency_is_ignored_not_crashed():
     for bad in (None, {}, "recent", [], {"age": 2}):
-        assert s4go_status(0, ctx(pa_recent=bad), True) == "3/4 · no PA", bad
+        assert _status(0, ctx(pa_recent=bad), True) == "4/5 · no PA", bad
 
 
 # ── path separation: the two batteries must not cross-feed ───────────────────
@@ -107,25 +125,25 @@ def test_malformed_recency_is_ignored_not_crashed():
 # was untouched. Gate semantics stay pinned; cosmetics do not.
 def test_recovery_path_reads_the_recovery_recency():
     c = ctx(recovery_pa_recent={"age": 1, "sigma": 4})
-    assert "PA 1b" in s4go_status(0, c, True, path="recovery")
-    _bull = s4go_status(0, c, True, path="bull")
-    assert _bull.startswith("3/4 · no PA") and "PA 1b" not in _bull
+    assert "PA 1b" in _status(0, c, True, path="recovery")
+    _bull = _status(0, c, True, path="bull")
+    assert _bull.startswith("4/5 · no PA") and "PA 1b" not in _bull
 
 
 def test_bull_path_reads_the_bull_recency():
     c = ctx(pa_recent={"age": 1, "sigma": 4})
-    assert "PA 1b" in s4go_status(0, c, True, path="bull")
-    _rec = s4go_status(0, c, True, path="recovery")
-    assert _rec.startswith("3/4 · no PA") and "PA 1b" not in _rec
+    assert "PA 1b" in _status(0, c, True, path="bull")
+    _rec = _status(0, c, True, path="recovery")
+    assert _rec.startswith("4/5 · no PA") and "PA 1b" not in _rec
 
 
 def test_default_path_is_bull():
-    assert "PA 1b" in s4go_status(0, ctx(pa_recent={"age": 1, "sigma": 4}), True)
+    assert "PA 1b" in _status(0, ctx(pa_recent={"age": 1, "sigma": 4}), True)
 
 
 # ── unchanged contracts ──────────────────────────────────────────────────────
 def test_no_read_still_reports_na():
-    assert s4go_status(0, {"support": {"at_support": True}}, False) == "n/a"
+    assert _status(0, {"support": {"at_support": True}}, False) == "n/a"
 
 
 if __name__ == "__main__":
