@@ -13,12 +13,20 @@ DEFAULT_SECTOR = "NSE:CNX500"
 
 def normalize_ticker(t):
     if not t: return ""
-    # TradingView substitutes "_" for BOTH "-" and "&" in NSE symbols. Only "-" was
-    # handled, so NAM-INDIA mapped correctly to NAM_INDIA while M&MFIN stayed
-    # "M&MFIN" and could never match syminfo.tickerid ("NSE:M_MFIN") - that slot
-    # sat on the chart matching nothing, with no error to show for it.
+    # TradingView substitutes "_" for "-" ONLY. It KEEPS the ampersand.
+    #
+    # Corrected 10-Sep-2026 against the live chart: tv_health_check reports
+    # chart_symbol "NSE:M&MFIN", not "NSE:M_MFIN". The previous rule mapped "&" to
+    # "_" as well -- added specifically to fix M&MFIN -- and did the opposite: the
+    # slot was written as NSE:M_MFIN, f_match compared "M_MFIN" against
+    # syminfo.ticker "M&MFIN", never matched, and the levels silently failed to plot
+    # for that one holding while every other symbol was fine.
+    #
+    # Both rules are now backed by evidence rather than by symmetry:
+    #   "-"  ->  "_"   NAM-INDIA plots from slot NSE:NAM_INDIA (confirmed on chart)
+    #   "&"  kept      NSE:M&MFIN is the live chart symbol (tv_health_check)
     return (str(t).strip().upper().replace("NSE:", "").replace("BSE:", "")
-            .replace("-", "_").replace("&", "_"))
+            .replace("-", "_"))
 
 def main():
     print("\n" + "="*60)
