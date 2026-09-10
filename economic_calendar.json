@@ -2,35 +2,8 @@
   "_doc": [
     "Auto-refreshed from investing.com/economic-calendar (country=India, timezone=IST). Run market_data_hub.refresh_calendar_from_investing() to repull."
   ],
-  "last_updated": "2026-09-04",
+  "last_updated": "2026-09-09",
   "events": [
-    {
-      "date": "2026-09-04",
-      "event": "Bank Loan Growth",
-      "importance": "LOW",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-04",
-      "event": "Deposit Growth",
-      "importance": "LOW",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-04",
-      "event": "FX Reserves, USD",
-      "importance": "LOW",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
     {
       "date": "2026-09-09",
       "event": "M3 Money Supply",
@@ -98,6 +71,69 @@
       "date": "2026-09-14",
       "event": "CPI (YoY)  (Aug)",
       "importance": "MEDIUM",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-15",
+      "event": "Exports (USD)  (Aug)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-15",
+      "event": "Imports (USD)  (Aug)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-15",
+      "event": "Trade Balance  (Aug)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-16",
+      "event": "M3 Money Supply",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-23",
+      "event": "HSBC India Manufacturing PMI  (Sep)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-23",
+      "event": "HSBC India Services PMI  (Sep)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-09-23",
+      "event": "HSBC Manufacturing & Services PMI  (Sep)",
+      "importance": "LOW",
       "previous": "",
       "forecast": "",
       "actual": "",

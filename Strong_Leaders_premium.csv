@@ -1,11 +1,10 @@
 Name,BSE Code,NSE Code,ISIN Code,Industry Group,Industry,Current Price,Net profit,Cash from operations last year,Interest Coverage Ratio,Debt to equity,Current ratio,Return on assets,Market Capitalization,YOY Quarterly sales growth,YOY Quarterly profit growth
-Avalon Tech,543896,AVALON,INE0LCL01028,Electrical Equipment,Other Electrical Equipment,2294.25,133.60,57.19,13.45,0.30,2.05,9.81,15328.30,49.83,145.39
-Fineotex Chem,533333,FCL,INE045J01034,Chemicals & Petrochemicals,Specialty Chemicals,58.35,148.21,-23.81,144.28,0.01,2.67,12.67,6794.88,174.77,54.78
-KEI Industries,517569,KEI,INE878B01027,Industrial Products,Cables - Electricals,4704.80,996.82,839.95,20.89,0.04,2.96,11.35,44978.25,22.97,40.05
-MSTC,542597,MSTCLTD,INE255X01014,Commercial Services & Supplies,Trading & Distributors,770.90,234.31,-27.79,,0.16,1.49,10.58,5427.12,21.71,37.51
-P N Gadgil Jewe.,544256,PNGJL,INE953R01016,Consumer Durables,"Gems, Jewellery And Watches",626.55,445.82,-716.90,6.66,0.89,1.53,10.17,9222.92,40.73,51.92
-R R Kabel,543981,RRKABEL,INE777K01022,Industrial Products,Cables - Electricals,2448.25,607.61,295.29,10.49,0.13,1.62,12.39,27691.10,53.90,117.32
-Raghav Product.,539837,RPEL,INE912T01018,Industrial Products,Electrodes & Refractories,1691.50,62.69,37.00,118.00,0.02,4.28,20.64,7767.71,48.72,67.55
-Supreme Petroch.,500405,SPLPETRO,INE663A01033,Chemicals & Petrochemicals,Petrochemicals,827.80,482.72,246.33,46.66,0.05,1.71,9.39,15566.03,22.08,192.05
-Syrma SGS Tech.,543573,SYRMA,INE0DYJ01015,Industrial Manufacturing,Industrial Products,1642.50,401.58,289.57,12.22,0.14,1.49,7.03,31672.49,68.29,101.19
-V2 Retail,532867,V2RETAIL,INE945H01021,Retailing,Speciality Retail,221.00,177.49,-96.24,3.14,1.10,1.44,7.38,8058.53,58.36,50.99
+Aditya Vision,540205,AVL,INE679V01027,Retailing,Speciality Retail,623.10,138.98,74.95,5.53,0.83,1.90,8.83,8046.59,26.85,39.99
+C P C L,500110,CHENNPETRO,INE178A01016,Petroleum Products,Refineries & Marketing,1604.40,4173.98,2944.96,42.47,0.18,1.42,16.54,23901.18,84.77,2671.95
+Fineotex Chem,533333,FCL,INE045J01034,Chemicals & Petrochemicals,Specialty Chemicals,58.43,148.21,-23.81,144.28,0.01,2.67,12.67,6814.67,174.77,54.78
+Indiabulls,533520,IBULLSLTD,INE126M01010,Commercial Services & Supplies,Diversified Commercial Services,25.05,488.96,193.74,9.98,0.15,6.36,19.49,5833.18,292.33,35647.50
+Krishana Phosch.,,KRISHANA,INE506W01020,Fertilizers & Agrochemicals,Fertilizers,181.93,196.66,-191.41,6.00,1.31,1.36,13.46,5624.14,34.58,53.99
+M R P L,500109,MRPL,INE103A01014,Petroleum Products,Refineries & Marketing,184.46,3140.92,2531.20,6.80,1.08,1.14,4.99,32311.63,120.41,317.07
+Navin Fluo.Intl.,532504,NAVINFLUOR,INE048G01026,Chemicals & Petrochemicals,Specialty Chemicals,8775.50,789.70,893.57,9.72,0.32,1.46,11.56,45041.97,44.07,107.67
+Va Tech Wabag,533269,WABAG,INE956G01038,Other Utilities,Water Supply & Management,2130.90,394.20,206.70,8.36,0.09,1.71,6.56,13308.71,20.82,36.93
+Vijaya Diagnost.,543350,VIJAYA,INE043W01024,Healthcare Services,Healthcare Service Provider,1498.90,187.49,270.59,7.84,0.44,0.76,11.58,15434.74,22.83,37.60

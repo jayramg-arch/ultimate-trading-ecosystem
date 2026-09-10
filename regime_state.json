@@ -2,11 +2,11 @@
   "last": {
     "score": 4,
     "verdict": "Neutral / Choppy",
-    "computed_at": "2026-09-08T10:14:12",
+    "computed_at": "2026-09-09T21:05:47",
     "benchmark": "^CRSLDX",
-    "close": 23156.2,
-    "sma50": 23384.31,
-    "sma200": 23054.46,
+    "close": 23106.1,
+    "sma50": 23386.52,
+    "sma200": 23050.87,
     "above_sma200": true,
     "sma200_rising": false,
     "death_cross": false,
@@ -35,7 +35,7 @@
       "transition_bars": null,
       "details": "No fresh thrust (current EMA10=0.352)"
     },
-    "breadth_above_sma200_pct": 53.8,
+    "breadth_above_sma200_pct": 53.2,
     "components": {
       "above_sma200_rising": true,
       "breadth_above_50": false,
@@ -46,11 +46,6 @@
     }
   },
   "history": [
-    {
-      "date": "2026-07-08",
-      "score": 2,
-      "verdict": "Defensive"
-    },
     {
       "date": "2026-07-09",
       "score": 0,
@@ -343,6 +338,11 @@
     },
     {
       "date": "2026-09-08",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-09",
       "score": 4,
       "verdict": "Neutral / Choppy"
     }

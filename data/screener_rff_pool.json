@@ -71,6 +71,14 @@
 "Net profit": 12.78,
 "Return on assets": 12.29
 },
+"504240": {
+"Cash from operating activity": -5.68,
+"Current ratio": 1.13,
+"Debt to equity": 0.54,
+"Interest Coverage Ratio": 1.58,
+"Net profit": 19.23,
+"Return on assets": 2.24
+},
 "504346": {
 "Cash from operating activity": 4.94,
 "Current ratio": 12.13,
@@ -128,11 +136,11 @@
 },
 "506854": {
 "Cash from operating activity": 43.4,
-"Current ratio": 1.77,
+"Current ratio": 1.66,
 "Debt to equity": 0.25,
 "Interest Coverage Ratio": 24.64,
 "Net profit": 67.64,
-"Return on assets": 14.7
+"Return on assets": 14.6
 },
 "507155": {
 "Cash from operating activity": 0.0,
@@ -400,11 +408,18 @@
 },
 "531214": {
 "Cash from operating activity": 25.84,
-"Current ratio": 2.19,
-"Debt to equity": 0.15,
+"Current ratio": 2.83,
+"Debt to equity": 0.1,
 "Interest Coverage Ratio": 14.44,
 "Net profit": 129.73,
-"Return on assets": 30.03
+"Return on assets": 24.84
+},
+"531647": {
+"Cash from operating activity": -1.82,
+"Current ratio": 0.02,
+"Interest Coverage Ratio": -1.08,
+"Net profit": -0.81,
+"Return on assets": -23.31
 },
 "531910": {
 "Cash from operating activity": 11.36,
@@ -677,7 +692,7 @@
 "Cash from operating activity": 3.61,
 "Current ratio": 5.58,
 "Debt to equity": 0.0,
-"Interest Coverage Ratio": 116.54,
+"Interest Coverage Ratio": 108.77,
 "Net profit": 24.05,
 "Return on assets": 11.77
 },
@@ -704,6 +719,14 @@
 "Interest Coverage Ratio": 38.45,
 "Net profit": 39.2,
 "Return on assets": 15.19
+},
+"543925": {
+"Cash from operating activity": 850.57,
+"Current ratio": 1.42,
+"Debt to equity": 1.64,
+"Interest Coverage Ratio": 0.82,
+"Net profit": -157.42,
+"Return on assets": -1.02
 },
 "543926": {
 "Cash from operating activity": -40.0,
@@ -1054,6 +1077,14 @@
 "Interest Coverage Ratio": 15.79,
 "Net profit": 37.06,
 "Return on assets": 31.16
+},
+"544832": {
+"Cash from operating activity": -6.86,
+"Current ratio": 2.27,
+"Debt to equity": 0.29,
+"Interest Coverage Ratio": 10.93,
+"Net profit": 17.37,
+"Return on assets": 15.23
 },
 "544844": {
 "Cash from operating activity": 23.8,
@@ -1465,11 +1496,11 @@
 },
 "AGI": {
 "Cash from operating activity": 572.03,
-"Current ratio": 1.51,
+"Current ratio": 1.39,
 "Debt to equity": 0.1,
 "Interest Coverage Ratio": 12.85,
 "Net profit": 362.94,
-"Return on assets": 10.1
+"Return on assets": 10.07
 },
 "AGIIL": {
 "Cash from operating activity": -32.38,
@@ -1789,14 +1820,6 @@
 "Net profit": 1032.03,
 "Return on assets": 4.49
 },
-"ANLON": {
-"Cash from operating activity": 8.32,
-"Current ratio": 2.23,
-"Debt to equity": 0.16,
-"Interest Coverage Ratio": 11.13,
-"Net profit": 13.88,
-"Return on assets": 14.62
-},
 "ANONDITA": {
 "Cash from operating activity": 10.64,
 "Current ratio": 3.57,
@@ -1925,21 +1948,13 @@
 "Net profit": 1708.41,
 "Return on assets": 7.32
 },
-"APS": {
-"Cash from operating activity": -3.94,
-"Current ratio": 1.73,
-"Debt to equity": 0.27,
-"Interest Coverage Ratio": 17.31,
-"Net profit": 56.52,
-"Return on assets": 19.04
-},
 "APSISAERO": {
 "Cash from operating activity": 7.04,
-"Current ratio": 3.94,
+"Current ratio": 5.1,
 "Debt to equity": 0.09,
 "Interest Coverage Ratio": 39.15,
 "Net profit": 7.51,
-"Return on assets": 18.37
+"Return on assets": 18.64
 },
 "APTECHT": {
 "Cash from operating activity": 23.63,
@@ -2223,10 +2238,10 @@
 "ASTERDM": {
 "Cash from operating activity": 655.92,
 "Current ratio": 1.99,
-"Debt to equity": 0.49,
+"Debt to equity": 0.62,
 "Interest Coverage Ratio": 6.3,
 "Net profit": 362.82,
-"Return on assets": 6.11
+"Return on assets": 6.14
 },
 "ASTRAL": {
 "Cash from operating activity": 1117.0,
@@ -2282,7 +2297,7 @@
 "Debt to equity": 0.05,
 "Interest Coverage Ratio": 6.4,
 "Net profit": 217.47,
-"Return on assets": 17.07
+"Return on assets": 17.08
 },
 "ATUL": {
 "Cash from operating activity": 1022.77,
@@ -2565,7 +2580,7 @@
 },
 "BAJAJST": {
 "Cash from operating activity": 78.21,
-"Current ratio": 1.69,
+"Current ratio": 1.64,
 "Debt to equity": 0.15,
 "Interest Coverage Ratio": 8.76,
 "Net profit": 29.24,
@@ -3127,14 +3142,6 @@
 "Interest Coverage Ratio": 1.25,
 "Net profit": 53.89,
 "Return on assets": 0.31
-},
-"BLUEWATER": {
-"Cash from operating activity": -53.43,
-"Current ratio": 1.52,
-"Debt to equity": 1.33,
-"Interest Coverage Ratio": 8.01,
-"Net profit": 35.65,
-"Return on assets": 16.17
 },
 "BLUSPRING": {
 "Cash from operating activity": 51.6,
@@ -3792,11 +3799,11 @@
 },
 "COCHINSHIP": {
 "Cash from operating activity": -1252.84,
-"Current ratio": 1.34,
+"Current ratio": 1.33,
 "Debt to equity": 0.27,
 "Interest Coverage Ratio": 9.49,
 "Net profit": 590.98,
-"Return on assets": 4.74
+"Return on assets": 4.75
 },
 "COFFEEDAY": {
 "Cash from operating activity": 171.75,
@@ -3830,6 +3837,14 @@
 "Net profit": 1347.77,
 "Return on assets": 41.82
 },
+"COMMITTED": {
+"Cash from operating activity": -13.84,
+"Current ratio": 3.99,
+"Debt to equity": 0.23,
+"Interest Coverage Ratio": 14.13,
+"Net profit": 10.28,
+"Return on assets": 9.38
+},
 "COMSYN": {
 "Cash from operating activity": 32.49,
 "Current ratio": 1.31,
@@ -3861,6 +3876,14 @@
 "Interest Coverage Ratio": 3.16,
 "Net profit": 138.63,
 "Return on assets": 3.65
+},
+"CONNPLEX": {
+"Cash from operating activity": -66.6,
+"Current ratio": 2.96,
+"Debt to equity": 0.01,
+"Interest Coverage Ratio": 85.66,
+"Net profit": 26.08,
+"Return on assets": 22.02
 },
 "CONSOFINVT": {
 "Cash from operating activity": -1.45,
@@ -4354,7 +4377,7 @@
 "Debt to equity": 0.06,
 "Interest Coverage Ratio": 4.6,
 "Net profit": 11.5,
-"Return on assets": 1.14
+"Return on assets": 1.19
 },
 "DICIND": {
 "Cash from operating activity": 42.78,
@@ -5188,7 +5211,7 @@
 },
 "FINCABLES": {
 "Cash from operating activity": 49.08,
-"Current ratio": 8.42,
+"Current ratio": 3.95,
 "Debt to equity": 0.0,
 "Interest Coverage Ratio": 585.51,
 "Net profit": 800.14,
@@ -5717,7 +5740,7 @@
 "Debt to equity": 0.04,
 "Interest Coverage Ratio": 57.53,
 "Net profit": 956.33,
-"Return on assets": 6.72
+"Return on assets": 3.41
 },
 "GMMPFAUDLR": {
 "Cash from operating activity": 388.8,
@@ -6058,7 +6081,7 @@
 "Debt to equity": 0.01,
 "Interest Coverage Ratio": 78.56,
 "Net profit": 800.6,
-"Return on assets": 7.12
+"Return on assets": 7.08
 },
 "GRWRHITECH": {
 "Cash from operating activity": 275.33,
@@ -6090,7 +6113,7 @@
 "Debt to equity": 0.44,
 "Interest Coverage Ratio": 1.23,
 "Net profit": 6.4,
-"Return on assets": 0.39
+"Return on assets": 0.41
 },
 "GUFICBIO": {
 "Cash from operating activity": 44.19,
@@ -6453,11 +6476,11 @@
 },
 "HINDCOMPOS": {
 "Cash from operating activity": 21.13,
-"Current ratio": 2.24,
+"Current ratio": 1.69,
 "Debt to equity": 0.0,
 "Interest Coverage Ratio": 160.5,
 "Net profit": 32.33,
-"Return on assets": 0.38
+"Return on assets": 2.69
 },
 "HINDCOPPER": {
 "Cash from operating activity": 1473.57,
@@ -6473,7 +6496,7 @@
 "Debt to equity": 0.04,
 "Interest Coverage Ratio": 2.66,
 "Net profit": 25.12,
-"Return on assets": 1.53
+"Return on assets": 1.4
 },
 "HINDPETRO": {
 "Cash from operating activity": 36110.68,
@@ -7049,11 +7072,11 @@
 },
 "INDOKEM": {
 "Cash from operating activity": -4.18,
-"Current ratio": 1.78,
+"Current ratio": 1.76,
 "Debt to equity": 0.42,
 "Interest Coverage Ratio": 1.67,
 "Net profit": 2.22,
-"Return on assets": 1.29
+"Return on assets": 0.73
 },
 "INDOMIM": {
 "Cash from operating activity": 1077.24,
@@ -7246,14 +7269,6 @@
 "Net profit": 134.39,
 "Return on assets": 11.33
 },
-"INTLCONV": {
-"Cash from operating activity": 34.51,
-"Current ratio": 4.92,
-"Debt to equity": 0.17,
-"Interest Coverage Ratio": 21.38,
-"Net profit": 136.13,
-"Return on assets": 12.7
-},
 "INVPRECQ": {
 "Cash from operating activity": 25.78,
 "Current ratio": 1.2,
@@ -7336,11 +7351,11 @@
 },
 "IRCTC": {
 "Cash from operating activity": 1273.72,
-"Current ratio": 2.15,
+"Current ratio": 2.16,
 "Debt to equity": 0.02,
 "Interest Coverage Ratio": 103.64,
 "Net profit": 1392.78,
-"Return on assets": 19.21
+"Return on assets": 19.09
 },
 "IREDA": {
 "Cash from operating activity": -14482.46,
@@ -7974,11 +7989,11 @@
 },
 "KAMDHENU": {
 "Cash from operating activity": 65.97,
-"Current ratio": 9.97,
+"Current ratio": 3.22,
 "Debt to equity": 0.02,
 "Interest Coverage Ratio": 119.07,
 "Net profit": 85.62,
-"Return on assets": 19.16
+"Return on assets": 19.24
 },
 "KANORICHEM": {
 "Cash from operating activity": 66.26,
@@ -8073,7 +8088,7 @@
 "Debt to equity": 0.04,
 "Interest Coverage Ratio": 20.89,
 "Net profit": 996.82,
-"Return on assets": 11.35
+"Return on assets": 11.33
 },
 "KELLTONTEC": {
 "Cash from operating activity": -10.5,
@@ -8265,14 +8280,6 @@
 "Interest Coverage Ratio": 8.64,
 "Net profit": 89.42,
 "Return on assets": 20.14
-},
-"KNAGRI": {
-"Cash from operating activity": 14.36,
-"Current ratio": 7.57,
-"Debt to equity": 0.09,
-"Interest Coverage Ratio": 5.47,
-"Net profit": 35.66,
-"Return on assets": 7.24
 },
 "KNRCON": {
 "Cash from operating activity": -149.05,
@@ -8700,6 +8707,8 @@
 },
 "LICI": {
 "Cash from operating activity": -26211.48,
+"Current ratio": 5.95,
+"Debt to equity": 0.0,
 "Net profit": 60055.25,
 "Return on assets": 0.99
 },
@@ -9756,11 +9765,11 @@
 },
 "MVGJL": {
 "Cash from operating activity": 26.26,
-"Current ratio": 1.79,
+"Current ratio": 3.32,
 "Debt to equity": 0.59,
 "Interest Coverage Ratio": 5.31,
 "Net profit": 121.96,
-"Return on assets": 6.9
+"Return on assets": 6.95
 },
 "MVKAGRO": {
 "Cash from operating activity": -20.32,
@@ -10075,6 +10084,8 @@
 },
 "NIACL": {
 "Cash from operating activity": -4532.06,
+"Current ratio": 0.43,
+"Debt to equity": 0.0,
 "Net profit": 775.99,
 "Return on assets": 1.29
 },
@@ -10101,14 +10112,6 @@
 "Interest Coverage Ratio": 12.88,
 "Net profit": 255.82,
 "Return on assets": 8.14
-},
-"NILASPACES": {
-"Cash from operating activity": -28.95,
-"Current ratio": 2.69,
-"Debt to equity": 0.46,
-"Interest Coverage Ratio": 2.53,
-"Net profit": 31.52,
-"Return on assets": 8.51
 },
 "NILKAMAL": {
 "Cash from operating activity": 305.56,
@@ -10160,6 +10163,8 @@
 },
 "NIVABUPA": {
 "Cash from operating activity": 904.86,
+"Current ratio": 0.19,
+"Debt to equity": 0.07,
 "Net profit": 174.25,
 "Return on assets": 1.24
 },
@@ -10602,7 +10607,7 @@
 "Return on assets": 23.45
 },
 "PACEDIGITK": {
-"Cash from operating activity": -916.92,
+"Cash from operating activity": -842.07,
 "Current ratio": 1.69,
 "Debt to equity": 0.44,
 "Interest Coverage Ratio": 6.57,
@@ -10664,14 +10669,6 @@
 "Interest Coverage Ratio": 3.37,
 "Net profit": 19.19,
 "Return on assets": 1.45
-},
-"PANSARI": {
-"Cash from operating activity": -8.9,
-"Current ratio": 1.15,
-"Debt to equity": 0.65,
-"Interest Coverage Ratio": 7.21,
-"Net profit": 19.73,
-"Return on assets": 4.45
 },
 "PARACABLES": {
 "Cash from operating activity": -38.02,
@@ -10914,12 +10911,12 @@
 "Return on assets": 6.04
 },
 "PGEL": {
-"Cash from operating activity": 66.22,
+"Cash from operating activity": 69.87,
 "Current ratio": 1.46,
 "Debt to equity": 0.2,
 "Interest Coverage Ratio": 3.54,
 "Net profit": 205.8,
-"Return on assets": 3.55
+"Return on assets": 3.56
 },
 "PGHH": {
 "Cash from operating activity": 924.08,
@@ -11266,12 +11263,12 @@
 "Return on assets": 17.07
 },
 "PREMIERPOL": {
-"Cash from operating activity": 26.69,
-"Current ratio": 2.63,
+"Cash from operating activity": 26.7,
+"Current ratio": 2.39,
 "Debt to equity": 0.0,
 "Interest Coverage Ratio": 61.65,
 "Net profit": 34.95,
-"Return on assets": 17.47
+"Return on assets": 17.49
 },
 "PRESTIGE": {
 "Cash from operating activity": 3223.2,
@@ -11322,12 +11319,12 @@
 "Return on assets": 10.62
 },
 "PRIZOR": {
-"Cash from operating activity": 0.29,
+"Cash from operating activity": 0.45,
 "Current ratio": 1.63,
 "Debt to equity": 0.56,
-"Interest Coverage Ratio": 9.28,
-"Net profit": 20.76,
-"Return on assets": 21.02
+"Interest Coverage Ratio": 8.03,
+"Net profit": 20.94,
+"Return on assets": 21.19
 },
 "PROSTARM": {
 "Cash from operating activity": -48.85,
@@ -11347,11 +11344,11 @@
 },
 "PROV": {
 "Cash from operating activity": 9.06,
-"Current ratio": 3.74,
+"Current ratio": 3.3,
 "Debt to equity": 0.19,
-"Interest Coverage Ratio": 25.14,
+"Interest Coverage Ratio": 18.13,
 "Net profit": 14.26,
-"Return on assets": 7.77
+"Return on assets": 7.62
 },
 "PROZONER": {
 "Cash from operating activity": 0.0,
@@ -11882,11 +11879,11 @@
 },
 "RHIM": {
 "Cash from operating activity": 409.1,
-"Current ratio": 2.75,
+"Current ratio": 2.51,
 "Debt to equity": 0.13,
 "Interest Coverage Ratio": 8.16,
 "Net profit": -353.59,
-"Return on assets": 2.2
+"Return on assets": 2.14
 },
 "RICOAUTO": {
 "Cash from operating activity": 325.65,
@@ -13391,11 +13388,11 @@
 },
 "SREEL": {
 "Cash from operating activity": 30.98,
-"Current ratio": 1.12,
+"Current ratio": 1.14,
 "Debt to equity": 0.0,
 "Interest Coverage Ratio": 125.4,
 "Net profit": 32.8,
-"Return on assets": 5.67
+"Return on assets": 4.45
 },
 "SRF": {
 "Cash from operating activity": 2553.56,
@@ -13467,10 +13464,12 @@
 "Debt to equity": 0.19,
 "Interest Coverage Ratio": 11.15,
 "Net profit": 366.2,
-"Return on assets": 9.11
+"Return on assets": 9.09
 },
 "STARHEALTH": {
 "Cash from operating activity": 1873.46,
+"Current ratio": 0.22,
+"Debt to equity": 0.06,
 "Net profit": 844.19,
 "Return on assets": 2.48
 },
@@ -13761,12 +13760,12 @@
 "Return on assets": 10.18
 },
 "SUPRIYA": {
-"Cash from operating activity": 164.68,
+"Cash from operating activity": 185.77,
 "Current ratio": 4.4,
 "Debt to equity": 0.0,
 "Interest Coverage Ratio": 154.5,
 "Net profit": 198.38,
-"Return on assets": 16.97
+"Return on assets": 16.9
 },
 "SURAJEST": {
 "Cash from operating activity": -53.55,
@@ -14390,7 +14389,7 @@
 "Debt to equity": 0.18,
 "Interest Coverage Ratio": 9.91,
 "Net profit": 497.92,
-"Return on assets": 9.5
+"Return on assets": 9.29
 },
 "TIMEX": {
 "Cash from operating activity": 90.99,
@@ -14486,7 +14485,7 @@
 "Debt to equity": 0.46,
 "Interest Coverage Ratio": 8.92,
 "Net profit": 142.32,
-"Return on assets": 6.03
+"Return on assets": 5.81
 },
 "TNPL": {
 "Cash from operating activity": 595.51,
@@ -14546,11 +14545,11 @@
 },
 "TREL": {
 "Cash from operating activity": 43.26,
-"Current ratio": 4.61,
+"Current ratio": 0.33,
 "Debt to equity": 0.0,
 "Interest Coverage Ratio": 28.69,
 "Net profit": 41.0,
-"Return on assets": 2.75
+"Return on assets": 1.46
 },
 "TRENT": {
 "Cash from operating activity": 2667.62,
@@ -14641,7 +14640,7 @@
 },
 "TUTIALKA": {
 "Cash from operating activity": 124.27,
-"Current ratio": 0.45,
+"Current ratio": 0.42,
 "Debt to equity": 0.66,
 "Interest Coverage Ratio": 5.55,
 "Net profit": 33.46,
@@ -15071,7 +15070,7 @@
 },
 "VENKEYS": {
 "Cash from operating activity": 191.32,
-"Current ratio": 2.22,
+"Current ratio": 2.49,
 "Debt to equity": 0.1,
 "Interest Coverage Ratio": 14.96,
 "Net profit": 173.41,
@@ -15151,7 +15150,7 @@
 },
 "VIDHIING": {
 "Cash from operating activity": 42.4,
-"Current ratio": 3.31,
+"Current ratio": 10.99,
 "Debt to equity": 0.18,
 "Interest Coverage Ratio": 17.75,
 "Net profit": 53.56,

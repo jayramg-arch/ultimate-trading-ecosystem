@@ -1,0 +1,105 @@
+2026-09-09 21:18:35 - INFO - [log] Auto-Pilot console log -> C:\Users\jayra\Documents\GeminiVSCode\auto_pilot_20260909_211835.log
+2026-09-09 21:18:39 - INFO - ============================================================
+2026-09-09 21:18:39 - INFO - 🚀 WEINSTEIN COMMANDER: FULL AUTO-PILOT
+2026-09-09 21:18:39 - INFO - ============================================================
+2026-09-09 21:18:39 - INFO - This will execute the entire workflow:
+2026-09-09 21:18:39 - INFO - 1. Run ALL Technical Scanners (Chartink)
+2026-09-09 21:18:39 - INFO - 2. Fetch Fundamental Data (Screener.in)
+2026-09-09 21:18:39 - INFO - 3. Process Data
+2026-09-09 21:18:39 - INFO - 4. Run Golden Matcher
+2026-09-09 21:18:39 - INFO - 5. Run Recovery Screener
+2026-09-09 21:18:39 - INFO - 6. Run Bull Screener
+2026-09-09 21:18:39 - INFO - 7. Generate Local Watchlists
+2026-09-09 21:18:39 - INFO - 8. Sync to Strike.Money
+2026-09-09 21:18:39 - INFO - ------------------------------------------------------------
+2026-09-09 21:18:39 - INFO - 
+[PHASE 0] PRE-FLIGHT CLEANUP...
+2026-09-09 21:18:39 - INFO - 
+[PHASE 0.5] NUCLEAR WATCHLIST CLEANUP...
+2026-09-09 21:22:17 - INFO - 
+[PHASE 1] RUNNING TECHNICAL SCANNERS...
+2026-09-09 21:22:36 - INFO - 
+[PHASE 2] FETCHING FUNDAMENTAL DATA...
+2026-09-09 21:22:42 - INFO - 
+[PHASE 3] PROCESSING DATA...
+2026-09-09 21:22:42 - INFO - 
+[PHASE 4] RUNNING GOLDEN MATCHER...
+2026-09-09 21:23:53 - INFO - 🌟 Matching Summary:
+✅ Stage 2 Hunter: 1 matches
+✅ Stage 2 Pullback: 5 matches
+✅ Strong Leaders: 2 matches
+✅ RS Survivors: 3 matches
+✅ Recovery Early Birds: 8 matches
+
+2026-09-09 21:23:59 - INFO - 
+[PHASE 4.5] RUNNING RECOVERY SCREENER...
+2026-09-09 21:27:41 - INFO - 
+[PHASE 4.6] RUNNING BULL SCREENER...
+2026-09-09 21:27:41 - INFO -   Bull Screener [1/7]: CHENNPETRO
+2026-09-09 21:27:41 - INFO -   Bull Screener [7/7]: KPRMILL
+2026-09-09 21:27:42 - INFO - ✅ Bull Screener: 1 catalyst signals found.
+2026-09-09 21:27:42 - INFO - 
+[PHASE 4.7] RUNNING BULL CATALYST BROAD SCAN (catalyst-first)...
+2026-09-09 21:27:42 - INFO -   Bull universe: 500 symbols from nifty500_symbols.json (catalyst-first broad scan).
+2026-09-09 21:27:42 - INFO -   Catalyst Scan [1/500]: 360ONE
+2026-09-09 21:27:43 - INFO -   Catalyst Scan [25/500]: AFCONS
+2026-09-09 21:27:44 - INFO -   Catalyst Scan [50/500]: ATHERENERG
+2026-09-09 21:27:45 - INFO -   Catalyst Scan [75/500]: BHARTIARTL
+2026-09-09 21:27:47 - INFO -   Catalyst Scan [100/500]: CEATLTD
+2026-09-09 21:27:48 - INFO -   Catalyst Scan [125/500]: CREDITACC
+2026-09-09 21:27:49 - INFO -   Catalyst Scan [150/500]: ELGIEQUIP
+2026-09-09 21:27:50 - INFO -   Catalyst Scan [175/500]: GILLETTE
+2026-09-09 21:27:52 - INFO -   Catalyst Scan [200/500]: HDFCBANK
+2026-09-09 21:27:53 - INFO -   Catalyst Scan [225/500]: IFCI
+2026-09-09 21:27:55 - INFO -   Catalyst Scan [250/500]: ITCHOTELS
+2026-09-09 21:27:56 - INFO -   Catalyst Scan [275/500]: KARURVYSYA
+2026-09-09 21:27:57 - INFO -   Catalyst Scan [300/500]: LTM
+2026-09-09 21:27:59 - INFO -   Catalyst Scan [325/500]: MSUMI
+2026-09-09 21:28:00 - INFO -   Catalyst Scan [350/500]: NYKAA
+2026-09-09 21:28:01 - INFO -   Catalyst Scan [375/500]: PNBHOUSING
+2026-09-09 21:28:03 - INFO -   Catalyst Scan [400/500]: RRKABEL
+2026-09-09 21:28:04 - INFO -   Catalyst Scan [425/500]: SONATSOFTW
+2026-09-09 21:28:05 - INFO -   Catalyst Scan [450/500]: TCS
+2026-09-09 21:28:06 - INFO -   Catalyst Scan [475/500]: UNIONBANK
+2026-09-09 21:28:08 - INFO -   Catalyst Scan [500/500]: ZYDUSWELL
+2026-09-09 21:28:26 - INFO -    BFF fundamental gate: kept 11/30 (floor 4/5, scaled to the applicable checks — a lender has 4, not 5; D/E exempt, ROE bar 12). 0 unreadable and DROPPED as unknown, not as weak — bff_passes returns None there and `is True` excludes it, matching pullback_finder's bff_block_unknown default.
+2026-09-09 21:28:26 - INFO -    CORE gate (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%): kept 8/11
+2026-09-09 21:28:26 - INFO - ✅ Catalyst Scan: 8 catalyst signals from 500 symbols → FINAL_CATALYST_WATCHLIST.csv (dropped 3 Stage-4)
+2026-09-09 21:28:26 - INFO -    Catalysts: {'SWG-PB': 4, 'POS-BO': 3, 'SWG-GAP': 1}
+2026-09-09 21:28:26 - INFO - 
+[PHASE 4.75] BUILDING RECOVERY CATALYST WATCHLIST...
+2026-09-09 21:28:26 - INFO -    CORE gate (mcap > Rs 5,000 Cr · price > Rs 100 · pledge < 5% · promoter > 40% or FII > 15% or DII > 15%): kept 5/5
+2026-09-09 21:28:26 - INFO -    Recovery catalysts: {'WYC-SOS': 2, 'REV-RS': 2, 'REV-CB': 1}
+2026-09-09 21:28:26 - INFO - ✅ Recovery Catalyst Watchlist: 5 firing → FINAL_RECOVERY_CATALYST_WATCHLIST.csv
+2026-09-09 21:28:26 - INFO - [FEED] Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+2026-09-09 21:28:26 - INFO - [FEED] data sources this run: cache=1780 (100%) · none=2 (0%) · dhan=2 (0%) · yfinance=1 (0%)
+2026-09-09 21:28:26 - INFO - 
+[PHASE 4.75b] RUNNING PULLBACK FINDER (at-value scan)...
+2026-09-09 21:29:46 - INFO - [PHASE 4.9] ETF SCREENER + ROTATION...
+2026-09-09 21:30:19 - INFO - 
+[PHASE 4.9c] ETF INDEX MAP + TRANSLATED SECTOR LEVELS...
+2026-09-09 21:30:22 - INFO - 
+[PHASE 4.8] CONSOLIDATING GOLDEN MATCHER BOARD WATCHLIST...
+2026-09-09 21:30:25 - INFO - 
+[PHASE 5] GENERATING LOCAL WATCHLISTS (Pass 1)...
+2026-09-09 21:30:44 - INFO -    ↳ FINAL_Portfolio_Picks.csv (pyramid/ADD source) written
+2026-09-09 21:30:44 - INFO - 
+[PHASE 5.7] RUNNING STALE WATCHLISTS CLEANUP...
+2026-09-09 21:30:44 - INFO - 
+[PHASE 6] SYNCING TO STRIKE.MONEY (WATCHLISTS)...
+2026-09-09 21:36:05 - INFO - 
+[PHASE 7] SYNCING TO TRADINGVIEW (WATCHLISTS)...
+2026-09-09 21:37:34 - INFO - 
+[PHASE 8] POST-FLIGHT CLEANUP & DATABASE BACKUP...
+2026-09-09 21:37:34 - INFO - 
+[PHASE 9] RUNNING PORTFOLIO ROTATION GUARD...
+2026-09-09 21:39:05 - INFO - 
+[PHASE 10] EXPORTING SCREENER CSVs...
+2026-09-09 21:39:05 - INFO - ✅ Exported 3 files to C:\Users\jayra\Documents\GeminiVSCode\Screener CSVs
+2026-09-09 21:39:05 - INFO - 
+[PHASE 11] VALIDATING SCORE AUTHENTICITY...
+2026-09-09 21:39:05 - INFO - 
+============================================================
+2026-09-09 21:39:05 - INFO - 🎉 AUTO-PILOT PIPELINE COMPLETED SUCCESSFULLY!
+2026-09-09 21:39:05 - INFO - ============================================================
+2026-09-09 21:39:05 - INFO - [log] Full console log saved -> C:\Users\jayra\Documents\GeminiVSCode\auto_pilot_20260909_211835.log

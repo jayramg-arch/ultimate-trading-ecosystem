@@ -1,50 +1,50 @@
 {
   "label": "Auto-Pilot Pipeline",
-  "started_at": "2026-09-08T16:30:04",
-  "ended_at": "2026-09-08T16:59:15",
+  "started_at": "2026-09-09T21:18:39",
+  "ended_at": "2026-09-09T21:39:05",
   "current": null,
   "phases": [
     {
       "name": "Phase 0 \u2014 Pre-flight Cleanup",
       "status": "OK",
-      "started_at": "2026-09-08T16:30:04",
-      "ended_at": "2026-09-08T16:30:05",
-      "duration_s": 0.49,
+      "started_at": "2026-09-09T21:18:39",
+      "ended_at": "2026-09-09T21:18:39",
+      "duration_s": 0.42,
       "records": null,
       "message": "browsers=0 locks=0 temp=0 pick_log_dupes=0"
     },
     {
       "name": "Phase 0.5 \u2014 Nuclear Cleanup",
       "status": "OK",
-      "started_at": "2026-09-08T16:30:05",
-      "ended_at": "2026-09-08T16:32:51",
-      "duration_s": 166.32,
+      "started_at": "2026-09-09T21:18:39",
+      "ended_at": "2026-09-09T21:22:17",
+      "duration_s": 217.69,
       "records": null,
       "message": "nuclear cleanup complete"
     },
     {
       "name": "Phase 1 \u2014 Chartink Scanners",
       "status": "OK",
-      "started_at": "2026-09-08T16:32:51",
-      "ended_at": "2026-09-08T16:33:06",
-      "duration_s": 14.78,
+      "started_at": "2026-09-09T21:22:17",
+      "ended_at": "2026-09-09T21:22:36",
+      "duration_s": 19.01,
       "records": 7,
       "message": "7/7 scans completed"
     },
     {
       "name": "Phase 2 \u2014 Screener.in Fundamentals",
       "status": "OK",
-      "started_at": "2026-09-08T16:33:06",
-      "ended_at": "2026-09-08T16:33:12",
-      "duration_s": 6.42,
+      "started_at": "2026-09-09T21:22:36",
+      "ended_at": "2026-09-09T21:22:42",
+      "duration_s": 6.27,
       "records": null,
       "message": "fetch complete"
     },
     {
       "name": "Phase 3 \u2014 Process HTML",
       "status": "OK",
-      "started_at": "2026-09-08T16:33:12",
-      "ended_at": "2026-09-08T16:33:12",
+      "started_at": "2026-09-09T21:22:42",
+      "ended_at": "2026-09-09T21:22:42",
       "duration_s": 0.05,
       "records": null,
       "message": "HTML processed"
@@ -52,116 +52,116 @@
     {
       "name": "Phase 4 \u2014 Golden Matcher",
       "status": "OK",
-      "started_at": "2026-09-08T16:33:12",
-      "ended_at": "2026-09-08T16:34:44",
-      "duration_s": 91.3,
-      "records": 12,
-      "message": "\u2705 Stage 2 Hunter: 1 matches | \u2705 Stage 2 Pullback: 4 matches | \u2705 Strong Leaders: 3 matches | \u2705 RS Survivors: 1 matches | \u2705 Recovery Early Birds: 3 matches"
+      "started_at": "2026-09-09T21:22:42",
+      "ended_at": "2026-09-09T21:23:59",
+      "duration_s": 77.4,
+      "records": 19,
+      "message": "\u2705 Stage 2 Hunter: 1 matches | \u2705 Stage 2 Pullback: 5 matches | \u2705 Strong Leaders: 2 matches | \u2705 RS Survivors: 3 matches | \u2705 Recovery Early Birds: 8 matches"
     },
     {
       "name": "Phase 4.5 \u2014 Recovery Screener",
       "status": "OK",
-      "started_at": "2026-09-08T16:34:44",
-      "ended_at": "2026-09-08T16:44:02",
-      "duration_s": 558.13,
+      "started_at": "2026-09-09T21:23:59",
+      "ended_at": "2026-09-09T21:27:41",
+      "duration_s": 221.72,
       "records": null,
       "message": "recovery scan complete"
     },
     {
       "name": "Phase 4.6 \u2014 Bull Screener",
       "status": "OK",
-      "started_at": "2026-09-08T16:44:02",
-      "ended_at": "2026-09-08T16:44:02",
-      "duration_s": 0.34,
-      "records": 2,
-      "message": "2 catalyst signals"
+      "started_at": "2026-09-09T21:27:41",
+      "ended_at": "2026-09-09T21:27:42",
+      "duration_s": 0.46,
+      "records": 1,
+      "message": "1 catalyst signals"
     },
     {
       "name": "Phase 4.7 \u2014 Bull Catalyst Broad Scan",
       "status": "OK",
-      "started_at": "2026-09-08T16:44:02",
-      "ended_at": "2026-09-08T16:48:27",
-      "duration_s": 265.31,
-      "records": 9,
-      "message": "9 catalysts / 500 scanned \u2192 FINAL_CATALYST_WATCHLIST.csv"
+      "started_at": "2026-09-09T21:27:42",
+      "ended_at": "2026-09-09T21:28:26",
+      "duration_s": 44.33,
+      "records": 8,
+      "message": "8 catalysts / 500 scanned \u2192 FINAL_CATALYST_WATCHLIST.csv"
     },
     {
       "name": "Phase 4.75 \u2014 Recovery Catalyst Watchlist",
       "status": "OK",
-      "started_at": "2026-09-08T16:48:27",
-      "ended_at": "2026-09-08T16:48:28",
+      "started_at": "2026-09-09T21:28:26",
+      "ended_at": "2026-09-09T21:28:26",
       "duration_s": 0.01,
-      "records": 3,
-      "message": "3 recovery catalysts \u2192 FINAL_RECOVERY_CATALYST_WATCHLIST.csv"
+      "records": 5,
+      "message": "5 recovery catalysts \u2192 FINAL_RECOVERY_CATALYST_WATCHLIST.csv"
     },
     {
       "name": "Phase 4.75b - Pullback Finder",
       "status": "OK",
-      "started_at": "2026-09-08T16:48:28",
-      "ended_at": "2026-09-08T16:49:58",
-      "duration_s": 90.59,
+      "started_at": "2026-09-09T21:28:26",
+      "ended_at": "2026-09-09T21:29:46",
+      "duration_s": 80.32,
       "records": null,
-      "message": "30 at-value candidates -> Pullback_Candidates.csv"
+      "message": "22 at-value candidates -> Pullback_Candidates.csv"
     },
     {
       "name": "Phase 4.9 - ETF Screener",
       "status": "OK",
-      "started_at": "2026-09-08T16:49:58",
-      "ended_at": "2026-09-08T16:50:45",
-      "duration_s": 46.54,
+      "started_at": "2026-09-09T21:29:46",
+      "ended_at": "2026-09-09T21:30:16",
+      "duration_s": 30.16,
       "records": null,
       "message": "51 ETFs ranked -> ETF_Screener_Results.csv; 18 to the board"
     },
     {
       "name": "Phase 4.9b - ETF Rotation",
       "status": "OK",
-      "started_at": "2026-09-08T16:50:45",
-      "ended_at": "2026-09-08T16:50:47",
-      "duration_s": 2.46,
+      "started_at": "2026-09-09T21:30:16",
+      "ended_at": "2026-09-09T21:30:19",
+      "duration_s": 2.72,
       "records": null,
       "message": "sector rotation + regime + RRG + top picks written"
     },
     {
       "name": "Phase 4.9c - ETF index map",
       "status": "OK",
-      "started_at": "2026-09-08T16:50:47",
-      "ended_at": "2026-09-08T16:50:49",
-      "duration_s": 2.15,
+      "started_at": "2026-09-09T21:30:19",
+      "ended_at": "2026-09-09T21:30:21",
+      "duration_s": 2.04,
       "records": 51,
       "message": "51 exposures, 42 with an index chart"
     },
     {
       "name": "Phase 4.9c2 - translated sector levels",
       "status": "OK",
-      "started_at": "2026-09-08T16:50:49",
-      "ended_at": "2026-09-08T16:50:50",
-      "duration_s": 0.85,
+      "started_at": "2026-09-09T21:30:21",
+      "ended_at": "2026-09-09T21:30:22",
+      "duration_s": 1.24,
       "records": 42,
       "message": "42 ETFs -> sector S/R in ETF prices"
     },
     {
       "name": "Phase 4.8 \u2014 Golden Matcher Board (union)",
       "status": "OK",
-      "started_at": "2026-09-08T16:50:50",
-      "ended_at": "2026-09-08T16:50:52",
-      "duration_s": 1.77,
+      "started_at": "2026-09-09T21:30:22",
+      "ended_at": "2026-09-09T21:30:25",
+      "duration_s": 2.14,
       "records": null,
       "message": "64 names \u2192 FINAL_GOLDEN_MATCHER.csv"
     },
     {
       "name": "Phase 5 \u2014 Watchlists (Pass 1)",
       "status": "OK",
-      "started_at": "2026-09-08T16:50:52",
-      "ended_at": "2026-09-08T16:51:11",
-      "duration_s": 19.32,
+      "started_at": "2026-09-09T21:30:25",
+      "ended_at": "2026-09-09T21:30:44",
+      "duration_s": 19.23,
       "records": null,
       "message": "watchlists generated"
     },
     {
       "name": "Phase 5.7 \u2014 Stale Watchlists Cleanup",
       "status": "OK",
-      "started_at": "2026-09-08T16:51:11",
-      "ended_at": "2026-09-08T16:51:11",
+      "started_at": "2026-09-09T21:30:44",
+      "ended_at": "2026-09-09T21:30:44",
       "duration_s": 0.0,
       "records": null,
       "message": "Cleanup complete"
@@ -169,26 +169,26 @@
     {
       "name": "Phase 6 \u2014 Strike.Money Sync",
       "status": "OK",
-      "started_at": "2026-09-08T16:51:11",
-      "ended_at": "2026-09-08T16:56:33",
-      "duration_s": 321.49,
+      "started_at": "2026-09-09T21:30:44",
+      "ended_at": "2026-09-09T21:36:05",
+      "duration_s": 321.56,
       "records": null,
       "message": "Strike sync OK"
     },
     {
       "name": "Phase 7 \u2014 TradingView Sync",
       "status": "OK",
-      "started_at": "2026-09-08T16:56:33",
-      "ended_at": "2026-09-08T16:57:59",
-      "duration_s": 86.13,
+      "started_at": "2026-09-09T21:36:05",
+      "ended_at": "2026-09-09T21:37:34",
+      "duration_s": 88.36,
       "records": null,
       "message": "TV sync OK"
     },
     {
       "name": "Phase 8 \u2014 Backup",
       "status": "OK",
-      "started_at": "2026-09-08T16:57:59",
-      "ended_at": "2026-09-08T16:57:59",
+      "started_at": "2026-09-09T21:37:34",
+      "ended_at": "2026-09-09T21:37:34",
       "duration_s": 0.0,
       "records": null,
       "message": "DB backed up safely"
@@ -196,27 +196,27 @@
     {
       "name": "Phase 9 \u2014 Portfolio Rotation Guard",
       "status": "OK",
-      "started_at": "2026-09-08T16:57:59",
-      "ended_at": "2026-09-08T16:59:15",
-      "duration_s": 76.17,
+      "started_at": "2026-09-09T21:37:34",
+      "ended_at": "2026-09-09T21:39:05",
+      "duration_s": 91.21,
       "records": null,
       "message": "rotation report generated"
     },
     {
       "name": "Phase 10 \u2014 Export CSVs",
       "status": "OK",
-      "started_at": "2026-09-08T16:59:15",
-      "ended_at": "2026-09-08T16:59:15",
-      "duration_s": 0.0,
+      "started_at": "2026-09-09T21:39:05",
+      "ended_at": "2026-09-09T21:39:05",
+      "duration_s": 0.01,
       "records": null,
       "message": "Exported 3 CSV files"
     },
     {
       "name": "Phase 11 \u2014 Score Authenticity",
       "status": "OK",
-      "started_at": "2026-09-08T16:59:15",
-      "ended_at": "2026-09-08T16:59:15",
-      "duration_s": 0.03,
+      "started_at": "2026-09-09T21:39:05",
+      "ended_at": "2026-09-09T21:39:05",
+      "duration_s": 0.07,
       "records": null,
       "message": "all scores reproducible from columns"
     }
