@@ -2281,7 +2281,7 @@ try:
           <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;
                       color:var(--bear);letter-spacing:1px;">
             🚨 DHAN TOKEN INVALID — AUTO-REFRESH FAILED</div>
-          <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--bear-rule);
+          <div style="font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--bear);
                       line-height:1.6;margin-top:6px;">
             Live broker data is DOWN (prices may silently fall back to delayed yfinance).<br>
             <b>Reason:</b> {str(_auth_reason).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}<br>
@@ -16411,7 +16411,7 @@ elif page == 'RISK SHIELD':
         if not _todo:
             st.markdown(
                 f"<div style='background:#052E20;border:1px solid var(--bull);border-left:4px solid var(--bull);"
-                f"border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:0.85rem;color:var(--bull-rule);'>"
+                f"border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:0.85rem;color:var(--bull);'>"
                 f"\u2713 <b>All {_done} open positions have a declared timeframe.</b> "
                 f"The trade-type ladder is reading rung 1 on every one of them \u2014 nothing is guessing."
                 f"</div>", unsafe_allow_html=True)
@@ -16419,9 +16419,9 @@ elif page == 'RISK SHIELD':
 
         st.markdown(
             f"<div style='background:#2A1F05;border:1px solid var(--warn);border-left:4px solid var(--warn);"
-            f"border-radius:8px;padding:10px 16px;margin-bottom:6px;font-size:0.9rem;color:var(--warn-rule);'>"
+            f"border-radius:8px;padding:10px 16px;margin-bottom:6px;font-size:0.9rem;color:var(--warn);'>"
             f"<b>\u270d\ufe0f Declare \u2014 {len(_todo)} of {len(_open)} positions have no timeframe.</b>"
-            f"<div style='font-size:0.78rem;color:var(--warn-rule);margin-top:3px;'>"
+            f"<div style='font-size:0.78rem;color:var(--warn);margin-top:3px;'>"
             f"This is the ONE field Dhan cannot tell us, and it is rung 1 of the trade-type ladder. "
             f"Until it is set, the type is inferred from today\u2019s chart (the <code>?</code> on the "
             f"tiles) and the trail multiplier is a heuristic. One click each.</div></div>",
@@ -16628,7 +16628,7 @@ elif page == 'RISK SHIELD':
             return ""
         if ai_text.startswith("⚠ AI UNAVAILABLE") or ai_text == "AI review unavailable.":
             return ('<div style="background:linear-gradient(145deg, #451A1A 0%, #2D1517 100%);border-left:4px solid var(--bear);border:1px solid #7F1D1D;padding:12px 14px;'
-                    'border-radius:8px;margin-top:12px;font-size:0.82rem;color:var(--bear-rule);'
+                    'border-radius:8px;margin-top:12px;font-size:0.82rem;color:var(--bear);'
                     'line-height:1.45;font-weight:600;">⚠ <b>No AI analysis</b> — the LLM call failed this run. '
                     'The numbers above are unaffected.</div>')
         if ai_text.startswith("AI analysis pending"):
@@ -17636,7 +17636,7 @@ elif page == 'RISK SHIELD':
                     <div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);padding:16px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
                         <div style="font-size:0.75rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Est. Portfolio Drawdown</div>
                         <div style="font-size:1.8rem;font-weight:900;color:var(--bear);margin-top:4px;font-family:JetBrains Mono;">-{dd_pct:.2f}%</div>
-                        <div style="font-size:0.85rem;color:var(--muted);margin-top:6px;">Est. Loss: <b style="color:var(--bear-rule);">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:var(--bear-rule);">{hits}</b></div>
+                        <div style="font-size:0.85rem;color:var(--muted);margin-top:6px;">Est. Loss: <b style="color:var(--bear);">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:var(--bear);">{hits}</b></div>
                     </div>
                     ''', unsafe_allow_html=True)
                     
