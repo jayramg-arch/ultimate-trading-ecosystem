@@ -18265,9 +18265,9 @@ elif page == 'RISK SHIELD':
                                         _mt = _o.get("target_trigger")
                                         _ms = _o.get("sl_trigger")
                                         _mtxt = (f"T{_oi+1} ₹{_mt:,.2f}" if _mt is not None
-                                                 else "<span style='color:var(--bear-rule)'>no target leg</span>")
+                                                 else "<span style='color:var(--bear)'>no target leg</span>")
                                         _mstxt = (f"SL ₹{_ms:,.2f}" if _ms is not None
-                                                  else "<span style='color:var(--bear-rule)'>no SL leg</span>")
+                                                  else "<span style='color:var(--bear)'>no SL leg</span>")
                                         _mcol = "var(--bull-rule)" if _oi == 0 else "var(--bull-rule)"
                                         _mwt = 700 if _oi == 0 else 600
                                         _msingle = str(_o.get("order_type") or "").upper() == "SINGLE"
@@ -18282,7 +18282,7 @@ elif page == 'RISK SHIELD':
                                             f"• <b>{_mname} ({_mq} sh):</b> {_mtxt} | {_mstxt}</div>")
                                     if not _mirror_rows:
                                         _mirror_rows.append(
-                                            "<div style='color:var(--bear-rule);font-weight:600;'>"
+                                            "<div style='color:var(--bear);font-weight:600;'>"
                                             "nothing resting at Dhan for this symbol</div>")
                                     _mirror_html = "".join(_mirror_rows)
                                     # COVERAGE (22-Aug-2026, Jay). The card only ever described what
@@ -18299,12 +18299,12 @@ elif page == 'RISK SHIELD':
                                     _naked = (_held_qty - total_qty) if _held_qty else 0
                                     if _held_qty and _naked > 0:
                                         _cover_html = (
-                                            f"<div style='color:var(--bear-rule);font-size:0.72rem;margin-top:4px;font-weight:700;'>"
+                                            f"<div style='color:var(--bear);font-size:0.72rem;margin-top:4px;font-weight:700;'>"
                                             f"⚠ {_held_qty} sh held · {total_qty} covered · "
                                             f"<b>{_naked} UNPROTECTED</b></div>")
                                     elif _held_qty and _naked < 0:
                                         _cover_html = (
-                                            f"<div style='color:var(--warn-rule);font-size:0.72rem;margin-top:4px;font-weight:700;'>"
+                                            f"<div style='color:var(--warn);font-size:0.72rem;margin-top:4px;font-weight:700;'>"
                                             f"⚠ {_held_qty} sh held but {total_qty} sh in exit orders — "
                                             f"over-covered by {-_naked}</div>")
                                     else:
@@ -18436,12 +18436,12 @@ elif page == 'RISK SHIELD':
                                     # says plainly that taking the partial is the precondition.
                                     _qty_basis = ""
                                     _row_t1 = (
-                                        f"<div style='color:var(--warn-rule);font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
-                                        f"T1 {_fr(_r_t1)} <span style='color:var(--faint)'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)} "
-                                        f"<span style='color:var(--bear-rule)'>— LTP is already above this target</span></div>"
+                                        f"<div style='color:var(--warn);font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
+                                        f"T1 {_fr(_r_t1)} <span style='color:var(--muted)'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)} "
+                                        f"<span style='color:var(--bear)'>— LTP is already above this target</span></div>"
                                     ) if _t1_banked else (
-                                        f"<div style='color:var(--warn-rule);font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
-                                        f"T1 {_fr(_r_t1)} <span style='color:var(--faint)'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
+                                        f"<div style='color:var(--warn);font-weight:700;'>• <b>OCO-1 ({_rq1} sh):</b> "
+                                        f"T1 {_fr(_r_t1)} <span style='color:var(--muted)'>({_t1r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
                                     )
                                     # NO RE-BASE LINE (22-Aug-2026, Jay: "for ANANDRATHI OCO-1 was
                                     # executed, but subsequently there was a pyramid"). That is the
@@ -18452,7 +18452,7 @@ elif page == 'RISK SHIELD':
                                     # and it always wants the full three orders. All the card owes
                                     # you is the fact that the policy T1 currently sits below price.
                                     _rebase_html = (
-                                        f"<div style='color:var(--warn-rule);font-size:0.72rem;margin-top:4px;"
+                                        f"<div style='color:var(--warn);font-size:0.72rem;margin-top:4px;"
                                         f"border-top:1px dashed var(--warn);padding-top:4px;'>"
                                         f"Note: LTP is above the policy T1, so that leg would fill on "
                                         f"placement. Quantities below are thirds of what you hold "
@@ -18460,22 +18460,22 @@ elif page == 'RISK SHIELD':
                                         f"</div>") if _t1_banked else ""
                                     _rec_rows = ((
                                         f"{_row_t1}"
-                                        f"<div style='color:var(--warn-rule);font-weight:600;'>• <b>OCO-2 ({_rq2} sh):</b> "
-                                        f"T2 {_fr(_r_t2)} <span style='color:var(--faint)'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
-                                        f"<div style='color:var(--faint);font-size:0.72rem;margin-top:4px;'>"
+                                        f"<div style='color:var(--warn);font-weight:600;'>• <b>OCO-2 ({_rq2} sh):</b> "
+                                        f"T2 {_fr(_r_t2)} <span style='color:var(--muted)'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
+                                        f"<div style='color:var(--muted);font-size:0.72rem;margin-top:4px;'>"
                                         f"{_rq_rest} sh on a SINGLE SL (the uncapped tail) · SL = {_slsrc} · R from {_r_note}{_base_note}</div>"
                                         f"{_rebase_html}"
                                     ) if (_r_t1 or _r_sl) else
-                                        "<div style='color:var(--faint);'>no entry price or stop on record — cannot size R</div>")
+                                        "<div style='color:var(--muted);'>no entry price or stop on record — cannot size R</div>")
 
                                     dhan_oco_card_html = f"""<div style='display:flex;gap:10px;margin-top:10px;font-size:0.8rem;'>
                                       <div style='flex:1;background:linear-gradient(145deg, #022C22 0%, #064E3B 100%);border:1.5px solid var(--bull);border-radius:8px;padding:10px 14px;'>
-                                        <div style='color:var(--bull-rule);font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 AT DHAN NOW · what is resting ({_oco_family})</div>
+                                        <div style='color:var(--bull);font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>📌 AT DHAN NOW · what is resting ({_oco_family})</div>
                                         {_mirror_html}
                                         {_cover_html}
                                       </div>
                                       <div style='flex:1;background:linear-gradient(145deg, #2A1F05 0%, #4A3410 100%);border:1.5px solid var(--warn);border-radius:8px;padding:10px 14px;'>
-                                        <div style='color:var(--warn-rule);font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p2}/{_p_tail} ({_oco_family}) · on {_rec_base} sh</div>
+                                        <div style='color:var(--warn);font-weight:800;margin-bottom:4px;letter-spacing:0.5px;'>🎯 RECOMMENDED · policy {_p1}/{_p2}/{_p_tail} ({_oco_family}) · on {_rec_base} sh</div>
                                         {_rec_rows}
                                       </div>
                                     </div>"""
