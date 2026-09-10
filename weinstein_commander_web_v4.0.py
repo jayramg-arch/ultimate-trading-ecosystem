@@ -185,6 +185,33 @@ _sched = _get_scheduler()
 # triggers st.set_page_config() and other top-level Streamlit calls, which
 # hijacks the Commander's page and opens the Journal instead.
 # get_sector is therefore imported LAZILY inside the Pre-Flight block only.
+def journal_db_path():
+    """The journal DB path WITHOUT importing dhan_journal_v7.
+
+    That module is a full Streamlit app: importing it runs st.set_page_config() and its
+    top-level st.* calls, which paints the whole Journal UI into whatever page triggered
+    the import. The note above says so, and three call sites imported it anyway -- all
+    three only wanted this one constant. On RISK SHIELD it was the first import of the
+    run, so pressing Risk Shield rendered the page header and then the entire Active
+    Trade Journal underneath it (Golden Matcher was unaffected only because it imports
+    the module earlier, so the second import is a cached no-op).
+
+    Read by AST so a rename in the module is still picked up, with no execution.
+    """
+    import ast as _ast
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dhan_journal_v7.py")
+    try:
+        for _n in _ast.parse(open(_p, encoding="utf-8").read()).body:
+            if isinstance(_n, _ast.Assign) and any(
+                    getattr(t, "id", "") == "DB_FILE" for t in _n.targets):
+                for _s in _ast.walk(_n.value):
+                    if isinstance(_s, _ast.Constant) and isinstance(_s.value, str)                             and _s.value.endswith(".db"):
+                        return os.path.join(os.path.dirname(_p), _s.value)
+    except Exception:
+        pass
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_journal_v6.db")
+
+
 def get_sector(symbol):
     """Fallback sector lookup that avoids importing the UI-heavy dhan_journal_v7."""
     try:
@@ -16381,8 +16408,7 @@ elif page == 'RISK SHIELD':
     def _rs_declare_strip():
         import sqlite3 as _sq_d
         try:
-            import dhan_journal_v7 as _dj_d
-            _dbf = _dj_d.DB_FILE
+            _dbf = journal_db_path()
         except Exception as _e:
             return
         try:
@@ -17913,8 +17939,7 @@ elif page == 'RISK SHIELD':
                                         # persist to journal + audit trail
                                         try:
                                             import sqlite3 as _sq4
-                                            import dhan_journal_v7 as _djm4
-                                            _cn4 = _sq4.connect(_djm4.DB_FILE)
+                                            _cn4 = _sq4.connect(journal_db_path())
                                             _cn4.execute("UPDATE journal SET manual_sl_override=? "
                                                          "WHERE symbol=? AND status='OPEN'", (_new_sl, _psym))
                                             _cn4.commit(); _cn4.close()
@@ -19293,8 +19318,7 @@ elif page == 'RISK SHIELD':
                             if st.button("💾 Save Overrides to Database", type="primary"):
                                 try:
                                     import sqlite3 as _sq3
-                                    import dhan_journal_v7 as _djm
-                                    _conn_ov = _sq3.connect(_djm.DB_FILE)
+                                    _conn_ov = _sq3.connect(journal_db_path())
                                     _cur_ov = _conn_ov.cursor()
                                     _nsaved = 0
                                     for _, _orow in edited_overrides.iterrows():
