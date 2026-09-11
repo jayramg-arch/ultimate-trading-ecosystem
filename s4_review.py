@@ -33,7 +33,7 @@ USAGE
     python s4_review.py                       # whatever the chart shows now
     python s4_review.py TITAN --tf 75         # switch symbol/TF first, wait for recalc
     python s4_review.py --symbols A,B,C --tf 125
-    python s4_review.py --board 75m           # every 4/4 row of gm_board_cache_75m.csv
+    python s4_review.py --board 75m           # every N/N GO row of gm_board_cache_75m.csv
     python s4_review.py --dump                # print the raw panel read, no model call
     python s4_review.py TITAN --telegram      # also post the review to Telegram
 
@@ -177,19 +177,29 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
     stable. Returns the READY_JS state."""
     sym_js = 'chart.setSymbol(%s);' % json.dumps(_nse(symbol)) if symbol else ""
     res_js = 'chart.setResolution(%s);' % json.dumps(_res(tf)) if tf else ""
+    want_sym = _nse(symbol) if symbol else None
+    want_res = _res(tf) if tf else None
+    n_tabs = len(_chart_targets())
     if sym_js or res_js:
         for r in _tv_all(SWITCH_JS % {"sym": sym_js, "res": res_js}):
             if str(r).startswith("ERR"):
                 raise TVError(r)
         time.sleep(2.0)
-    want_sym = _nse(symbol) if symbol else None
-    want_res = _res(tf) if tf else None
     last_cells, stable, t0, sts = None, 0, time.time(), []
     while time.time() - t0 < timeout_s:
-        sts = [json.loads(x) for x in _tv_all(READY_JS)]
-        for st in sts:
+        tgts = _chart_targets()
+        if len(tgts) < n_tabs:          # a tab drops off /json while it navigates
+            time.sleep(1.5); continue
+        sts = []
+        for tgt in tgts:
+            st = json.loads(_tv(READY_JS, tgt))
             if st.get("error"):
                 raise TVError(st["error"])
+            # a tab that did not take the switch (11-Sep: HONASA, one tab stayed on
+            # CGPOWER) gets it re-asserted rather than waited on
+            if (want_sym and st["symbol"] != want_sym) or (want_res and st["res"] != want_res):
+                _tv(SWITCH_JS % {"sym": sym_js, "res": res_js}, tgt)
+            sts.append(st)
         # a tab with no tables (a bare chart) must not hold the wait hostage; the tabs
         # that carry panels must all agree on symbol/TF and be done recalculating
         ok = all((want_sym is None or st["symbol"] == want_sym)
@@ -572,7 +582,12 @@ def board_symbols(tf: str) -> list[str]:
     if not os.path.exists(p):
         raise SystemExit("no %s" % p)
     df = pd.read_csv(p)
-    m = df["S4-GO"].astype(str).str.startswith("4/4")
+    # "5/5 GO ·…" today (Gate 5 added 18-Aug); "4/4 GO" on older caches. Match "N/N GO".
+    m = df["S4-GO"].astype(str).str.match(r"^[0-9]/[0-9] GO")
+    import datetime as _dt
+    age_h = (time.time() - os.path.getmtime(p)) / 3600
+    print("board %s built %s (%.1fh ago)%s" % (tf, _dt.datetime.fromtimestamp(os.path.getmtime(p)).strftime("%d-%b %H:%M"),
+          age_h, "  ⚠ STALE — rebuild it" if age_h > 6 else ""))
     return df.loc[m, "Symbol"].astype(str).tolist()
 
 
@@ -581,7 +596,7 @@ def main() -> int:
     ap.add_argument("symbol", nargs="?", help="NSE symbol; omit to read the chart as-is")
     ap.add_argument("--tf", help="75 · 125 · D (omit = keep the chart's TF)")
     ap.add_argument("--symbols", help="comma list, reviewed in sequence")
-    ap.add_argument("--board", choices=["75m", "125m", "daily"], help="all 4/4 rows of that board")
+    ap.add_argument("--board", choices=["75m", "125m", "daily"], help="every N/N GO row of that board")
     ap.add_argument("--provider", choices=["auto", "claude", "gemini"], default="auto")
     ap.add_argument("--bars", type=int, default=BARS_N)
     ap.add_argument("--dump", action="store_true", help="print the raw panel read, no model")
@@ -592,7 +607,7 @@ def main() -> int:
     if args.board:
         syms = board_symbols(args.board)
         args.tf = args.tf or {"75m": "75", "125m": "125", "daily": "D"}[args.board]
-        print("board %s: %d names at 4/4" % (args.board, len(syms)))
+        print("board %s: %d names at GO: %s" % (args.board, len(syms), ", ".join(syms)))
     elif args.symbols:
         syms = [s for s in args.symbols.split(",") if s.strip()]
     else:
