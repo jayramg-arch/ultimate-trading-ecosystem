@@ -66,7 +66,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # cp1252 under Task
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from tv_bind_s4 import _chart_target, _evaluate            # noqa: E402  (same CDP channel)
+from tv_bind_s4 import _evaluate, CDP as _CDP              # noqa: E402  (same CDP channel)
 
 try:
     from dotenv import load_dotenv
@@ -144,14 +144,30 @@ class TVError(RuntimeError):
     pass
 
 
-def _tv(expr: str):
-    tgt = _chart_target()
-    if not tgt:
-        raise TVError("TradingView not reachable on :9222 — LAUNCH_TRADINGVIEW_CDP.bat")
+def _chart_targets() -> list[dict]:
+    """EVERY open chart tab. Jay keeps two: one with S5, one with v67/Unified/Zigzag/S4.
+    Reading only the first (as tv_bind_s4 does) would see one panel and miss the other."""
+    try:
+        targets = requests.get(_CDP + "/json", timeout=5).json()
+    except Exception as e:
+        raise TVError("TradingView not reachable on :9222 (%s) — LAUNCH_TRADINGVIEW_CDP.bat" % e)
+    pages = [t for t in targets if t.get("type") == "page" and "/chart/" in str(t.get("url", ""))]
+    if not pages:
+        raise TVError("TradingView is running but no chart tab is open.")
+    return pages
+
+
+def _tv(expr: str, tgt: dict | None = None):
+    if tgt is None:
+        tgt = _chart_targets()[0]
     out = _evaluate(tgt["webSocketDebuggerUrl"], expr)
     if "error" in out:
         raise TVError(str(out["error"]))
     return out["value"]
+
+
+def _tv_all(expr: str) -> list:
+    return [_tv(expr, t) for t in _chart_targets()]
 
 
 def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dict:
@@ -160,26 +176,30 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
     sym_js = 'chart.setSymbol(%s);' % json.dumps(_nse(symbol)) if symbol else ""
     res_js = 'chart.setResolution(%s);' % json.dumps(_res(tf)) if tf else ""
     if sym_js or res_js:
-        r = _tv(SWITCH_JS % {"sym": sym_js, "res": res_js})
-        if str(r).startswith("ERR"):
-            raise TVError(r)
+        for r in _tv_all(SWITCH_JS % {"sym": sym_js, "res": res_js}):
+            if str(r).startswith("ERR"):
+                raise TVError(r)
         time.sleep(2.0)
     want_sym = _nse(symbol) if symbol else None
     want_res = _res(tf) if tf else None
-    last_cells, stable, t0 = -1, 0, time.time()
+    last_cells, stable, t0, sts = None, 0, time.time(), []
     while time.time() - t0 < timeout_s:
-        st = json.loads(_tv(READY_JS))
-        if st.get("error"):
-            raise TVError(st["error"])
-        ok = ((want_sym is None or st["symbol"] == want_sym)
-              and (want_res is None or st["res"] == want_res)
-              and not st["loading"] and st["cells"] > 0)
-        stable = stable + 1 if (ok and st["cells"] == last_cells) else 0
-        last_cells = st["cells"]
+        sts = [json.loads(x) for x in _tv_all(READY_JS)]
+        for st in sts:
+            if st.get("error"):
+                raise TVError(st["error"])
+        # a tab with no tables (a bare chart) must not hold the wait hostage; the tabs
+        # that carry panels must all agree on symbol/TF and be done recalculating
+        ok = all((want_sym is None or st["symbol"] == want_sym)
+                 and (want_res is None or st["res"] == want_res)
+                 and not st["loading"] for st in sts) and any(st["cells"] > 0 for st in sts)
+        cells = [st["cells"] for st in sts]
+        stable = stable + 1 if (ok and cells == last_cells) else 0
+        last_cells = cells
         if stable >= 2:
-            return st
+            return sts[0]
         time.sleep(1.5)
-    raise TVError("chart did not settle within %ds (last state %s)" % (timeout_s, st))
+    raise TVError("charts did not settle within %ds (last state %s)" % (timeout_s, sts))
 
 
 def _nse(sym: str) -> str:
@@ -193,10 +213,25 @@ def _res(tf: str) -> str:
 
 
 def read_panels(bars_n: int = BARS_N) -> dict:
-    raw = _tv(READ_JS % {"n": bars_n})
-    d = json.loads(raw)
-    if d.get("error"):
-        raise TVError(d["error"])
+    """Merge every chart tab: S5 lives on one, S4 on the other. Symbol/TF must agree
+    across tabs or the read is refused — two different names in one prompt is worse
+    than no read."""
+    reads = []
+    for raw in _tv_all(READ_JS % {"n": bars_n}):
+        r = json.loads(raw)
+        if r.get("error"):
+            raise TVError(r["error"])
+        reads.append(r)
+    d = reads[0]
+    for r in reads[1:]:
+        if (r["symbol"], r["res"]) != (d["symbol"], d["res"]):
+            raise TVError("chart tabs disagree: %s·%s vs %s·%s — pass a symbol and --tf so "
+                          "both are switched together" % (d["symbol"], d["res"], r["symbol"], r["res"]))
+        seen = {s["name"] for s in d["studies"]}
+        d["studies"] += [s for s in r["studies"] if s["name"] not in seen]
+        if not d.get("bars") and r.get("bars"):
+            d["bars"] = r["bars"]
+        d["errors"] += r.get("errors", [])
     if not d.get("studies"):
         raise TVError("panel path not found — no study exposed table cells. Either S4/S5 "
                       "are not on this chart, or TradingView renamed its internals.")
@@ -226,6 +261,32 @@ def _table_rows(cells: list[dict]) -> list[str]:
     return out
 
 
+# S5 sections withheld from the model until Jay has fine-tuned them (11-Sep-2026: the
+# geometry classifier printed "Descending triangle · upper 4928 · lower 4968 · width -1.0x
+# ATR" on TITAN — upper below lower). Rows from a header in this set up to the next section
+# header are dropped, and S5's drawn labels/lines (the same levels) go with them.
+S5_SKIP_SECTIONS = ("I · GEOMETRY", "II · LEVELS", "VI · READ")   # READ is the geometry in prose
+
+
+def _is_s5(name: str) -> bool:
+    return name.startswith("S5")
+
+
+def _filter_s5_rows(rows: list[str]) -> list[str]:
+    out, skipping = [], False
+    for r in rows:
+        head = r.strip()
+        is_hdr = len(head) > 3 and head[:6].strip()[:1] in "IVX" and " · " in head[:12]
+        if is_hdr:
+            skipping = any(head.startswith(k) for k in S5_SKIP_SECTIONS)
+            if skipping:
+                out.append(head.split("—")[0].strip() + " — [withheld: not yet fine-tuned]")
+                continue
+        if not skipping:
+            out.append(r)
+    return out
+
+
 def _is_s4(name: str) -> bool:
     return name.startswith("Section 4") or name.startswith("S4 ")
 
@@ -235,7 +296,11 @@ def render_read(d: dict) -> str:
     for s in sorted(d["studies"], key=lambda s: 0 if _is_s4(s["name"]) else 1):
         L.append("")
         L.append("=" * 8 + " %s " % s["name"] + "=" * 8)
-        L.extend(_table_rows(s["cells"]))
+        rows = _table_rows(s["cells"])
+        if _is_s5(s["name"]):
+            L.extend(_filter_s5_rows(rows))
+            continue                      # its labels/lines ARE the withheld levels
+        L.extend(rows)
         if s["labels"]:
             L.append("-- drawn labels (price · text)")
             for lb in sorted(s["labels"], key=lambda x: -(x["y"] or 0))[:40]:
@@ -334,8 +399,34 @@ HOW TO WEIGH (this desk's doctrine, measured on its own trades):
 - Trade type decides the reward bar: swing 2R/4R, positional 3R/5R. Nothing under 2R.
 - A Stage 3/4 name is NO TRADE regardless of the trigger. Blue-sky Stage-2 leaders inside a
   supply band near ATH are continuation pivots (buy the break above, not here), not SKIPs.
-- S5's geometry, order flow and READ are explanatory: use them to resolve S4's ambiguities
-  (e.g. is the low RV a pullback or a fade? does order-flow divergence support the level?).
+PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, not decoration:
+- Futures OI (S4 OI row, "positioning basis"): price↑ OI↑ = LONG BUILD-UP, the strongest
+  confirmation of a trigger. price↓ OI↑ = SHORT BUILD-UP: sellers pressing — a pullback buy
+  needs a stronger location, but if a trigger then fires ON VOLUME those shorts are the fuel.
+  price↑ OI↓ = SHORT COVERING: weaker than a long build, expect it to fade without follow-
+  through. price↓ OI↓ = LONG UNWINDING: exhaustion, often the last leg of a pullback.
+  Options where shown: a call wall / max-pain above is a ROOM obstacle like a supply zone;
+  a put wall below is support; PCR extremes are contrarian.
+- AVWAP (Low / BO / Gap anchors): price above a RISING AVWAP = buyers since that anchor are in
+  profit and defending; a reclaim of AVWAP-BO on volume is a legitimate trigger; a rejection
+  from below it is a fail. AVWAP is LOCATION only in confluence with a zone/level, never
+  alone — alone it is a momentum chase.
+- Volume Profile (POC/VAH/VAL): inside the value area = rotation, POC is the magnet, VAL is
+  the buy location, VAH the first obstacle. Close ABOVE VAH on volume = acceptance/imbalance,
+  a breakout that can travel; a poke above VAH that closes back inside = rejection. HVN =
+  support/resistance, LVN = fast travel (little room-cost, little support).
+- Footprint / order-flow delta: positive delta on a DOWN bar at a level = ABSORPTION (buyers
+  taking what sellers offer — location confirmed); negative delta on an UP bar at a high =
+  BLEEDING/distribution (the breakout is being sold into). Cumulative 20-bar delta is the
+  trend of participation; a delta divergence at a new low/high is a reversal tell. Use delta
+  to BREAK TIES the price gates leave open (RV borderline, tested vs fresh zone) — it is a
+  bar-level proxy, so it grades, it does not veto on its own.
+- Read participation as ONE story: e.g. short build-up + absorption at VAL + AVWAP-Low
+  holding = trapped shorts on a defended floor (strong long); long build-up + bleeding
+  delta above VAH = late longs being distributed to (fade the GO).
+- S5's remaining sections are explanatory: use them to resolve S4's ambiguities (is the
+  low RV a pullback or a fade? does the delta support the level?). Sections marked
+  [withheld] are not available — do not guess them.
 
 TONE RULES — these are not optional:
 1. Case FOR first, honestly weighted. Then case AGAINST, each risk marked FATAL or TOLERABLE.
@@ -351,6 +442,7 @@ TONE RULES — these are not optional:
    "n/a" is unknown, not neutral and not a fail.
 
 OUTPUT — exactly these headings, terse, numbers quoted from the panel:
+PARTICIPATION READ   (OI · AVWAP · VP · delta as ONE story, 2-3 lines; say which confirm and which contradict the price gates)
 CASE FOR
 CASE AGAINST   (each line ends with [FATAL] or [TOLERABLE])
 WHERE S4 IS TOO BLUNT
