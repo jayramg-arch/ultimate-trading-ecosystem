@@ -588,7 +588,10 @@ def deliberate(prompt: str, provider: str) -> tuple[str, str]:
 # "T1 13.28 (1.5R)" on entry 13.07 / stop 12.60, which is 0.45R). Recompute from the PLAN
 # it printed and append the truth; never edit the model's text.
 # ---------------------------------------------------------------------------------------
-_NUM = r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d%])"
+_NUM = r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d%]|\s*[Rx])"
+# text between a tag and its price may hold an R-multiple "(2R)" or "2.0R" - skip those,
+# they are not prices
+_SKIP = r"(?:[^0-9]|\d+(?:\.\d+)?\s*[Rx])*?"
 
 
 def _first_num(txt: str):
@@ -615,7 +618,7 @@ def r_check(review: str, min_r: float = 2.0) -> str:
             stop = _first_num(re.sub(r"(?i)^.*?stop[^0-9]*", "", body))
         # "T1/T2: 34.10 (2R) / 36.14 (4R)" — the pair form; a per-tag scan trips on the
         # digit in "T2" and misses T1 entirely
-        pair = re.search(r"T1\s*/\s*T2[^0-9]*" + _NUM + r"(?:[^/\n]*\(\s*([\d.]+)\s*R\))?\s*/\s*" + _NUM
+        pair = re.search(r"T1\s*/\s*T2" + _SKIP + _NUM + r"(?:[^/\n]*\(\s*([\d.]+)\s*R\))?\s*/\s*" + _NUM
                          + r"(?:[^\n(]*\(\s*([\d.]+)\s*R\))?", body)
         if pair and t1 is None and t2 is None:
             t1 = float(pair.group(1).replace(",", "")); t2 = float(pair.group(3).replace(",", ""))
@@ -623,7 +626,7 @@ def r_check(review: str, min_r: float = 2.0) -> str:
             if pair.group(4): said["T2"] = float(pair.group(4))
             continue
         for tag in ("T1", "T2"):
-            mm = re.search(tag + r"(?![/\d])[^0-9]*" + _NUM + r"(?:[^\n(]*\(\s*([\d.]+)\s*R\))?", body)
+            mm = re.search(tag + r"(?![/\d])" + _SKIP + _NUM + r"(?:[^\n(T]*\(\s*([\d.]+)\s*R\))?", body)
             if mm and (tag == "T1" and t1 is None or tag == "T2" and t2 is None):
                 v = float(mm.group(1).replace(",", ""))
                 if tag == "T1": t1 = v
@@ -640,7 +643,7 @@ def r_check(review: str, min_r: float = 2.0) -> str:
     out = ["R-CHECK (recomputed): entry %.2f · stop %.2f · risk %.2f (%.1f%%)" % (entry, stop, risk, risk / entry * 100),
            "  canon %s: T1 %.2f (%.0fR) · T2 %.2f (%.0fR)  ← use these; the model's arithmetic is not reliable"
            % ("positional 3R/5R" if pos else "swing 2R/4R", entry + c1 * risk, c1, entry + c2 * risk, c2)]
-    flags = []
+    flags, floor_miss = [], False
     for tag, tv in (("T1", t1), ("T2", t2)):
         if tv is None:
             continue
@@ -650,12 +653,13 @@ def r_check(review: str, min_r: float = 2.0) -> str:
             line += " (model said %.1fR)" % said[tag]
             if abs(said[tag] - r) > 0.2:
                 flags.append("%s R mis-stated" % tag)
-        if tag == "T1" and r < min_r - 0.05:
-            flags.append("T1 %.2fR is under the %.0fR floor" % (r, min_r))
+        if tag == "T1" and r < c1 - 0.05:
+            flags.append("T1 %.2fR is under the %.0fR %s floor" % (r, c1, "positional" if pos else "swing"))
+            floor_miss = True
         out.append(line)
     ruling = _ruling_line(review).upper()
-    if flags and ruling.startswith("RULING: TAKE"):
-        flags.append("ruling is TAKE — the reward bar is NOT met on these numbers")
+    if floor_miss and ruling.startswith("RULING: TAKE"):
+        flags.append("ruling is TAKE — the reward bar is NOT met on these numbers; use the canon T1")
     if flags:
         out.append("  ⚠ " + " · ".join(flags))
     return "\n".join(out)
