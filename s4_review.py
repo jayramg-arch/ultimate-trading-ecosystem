@@ -156,7 +156,13 @@ def _chart_targets() -> list[dict]:
     pages = [t for t in targets if t.get("type") == "page" and "/chart/" in str(t.get("url", ""))]
     if not pages:
         raise TVError("TradingView is running but no chart tab is open.")
-    return pages
+    # /json reorders between calls and can list one page twice — a settle loop that
+    # compares per-tab cell counts positionally never stabilises. Fixed order, one per URL.
+    seen, out = set(), []
+    for t in sorted(pages, key=lambda t: t.get("id", "")):
+        if t["url"] not in seen:
+            seen.add(t["url"]); out.append(t)
+    return out
 
 
 def _tv(expr: str, tgt: dict | None = None):
