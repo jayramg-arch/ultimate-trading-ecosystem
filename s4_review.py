@@ -25,9 +25,9 @@ TradingView MCP's data_get_pine_tables on CGPOWER/125)
 REQUIRES
     TradingView Desktop launched with --remote-debugging-port=9222
     (LAUNCH_TRADINGVIEW_CDP.bat), the chart open with S4 (and ideally S5) VISIBLE.
-    S4_REVIEW_ANTHROPIC_KEY (or ANTHROPIC_API_KEY) in .env — primary, claude-opus-5;
-    GEMINI_API_KEY as fallback (gemini-3.1-pro-preview). Override with S4_REVIEW_MODEL /
-    S4_REVIEW_GEMINI_MODEL / S4_REVIEW_BASE_URL. Never reads ANTHROPIC_MODEL/BASE_URL.
+    GEMINI_API_KEY in .env — default model gemini-3.1-flash-lite (Jay's pick, 11-Sep; the tier the rest of the
+    app uses). --provider claude is opt-in only (S4_REVIEW_ANTHROPIC_KEY, claude-opus-5).
+    Override with S4_REVIEW_GEMINI_MODEL / S4_REVIEW_MODEL. Never reads ANTHROPIC_MODEL/BASE_URL.
 
 USAGE
     python s4_review.py                       # whatever the chart shows now
@@ -82,7 +82,9 @@ BARS_N = 60
 # script has its own knobs so an unattended run never inherits a session's plumbing.
 DEFAULT_MODEL = os.getenv("S4_REVIEW_MODEL", "claude-opus-5")
 CLAUDE_BASE = (os.getenv("S4_REVIEW_BASE_URL") or "https://api.anthropic.com").rstrip("/")
-GEMINI_MODEL = os.getenv("S4_REVIEW_GEMINI_MODEL", "gemini-3.1-pro-preview")
+# Same tier ai_provider_manager.ask_llm already pays for. Jay's call (11-Sep): cost first;
+# Claude stays opt-in via --provider claude and is never in the auto path.
+GEMINI_MODEL = os.getenv("S4_REVIEW_GEMINI_MODEL", "gemini-3.1-flash-lite")
 
 
 # ---------------------------------------------------------------------------------------
@@ -487,7 +489,7 @@ def ask_gemini(prompt: str, model: str = GEMINI_MODEL) -> str:
 
 
 def deliberate(prompt: str, provider: str) -> tuple[str, str]:
-    order = {"auto": ["claude", "gemini"], "claude": ["claude"], "gemini": ["gemini"]}[provider]
+    order = {"auto": ["gemini"], "claude": ["claude"], "gemini": ["gemini"]}[provider]
     errs = []
     for p in order:
         try:
@@ -504,8 +506,9 @@ def deliberate(prompt: str, provider: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------------------
 def _ruling_line(review: str) -> str:
     for ln in review.splitlines():
-        if ln.strip().upper().startswith("RULING"):
-            return ln.strip()[:160]
+        t = ln.strip().lstrip("#*• ").strip()          # flash-lite prefixes headings with ###
+        if t.upper().startswith("RULING"):
+            return t.rstrip("*").strip()[:160]
     return ""
 
 
@@ -513,7 +516,7 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
     os.makedirs(LOG_DIR, exist_ok=True)
     ts = datetime.now()
     sym = symbol.split(":")[-1]
-    path = os.path.join(LOG_DIR, "%s_%s_%s.md" % (ts.strftime("%Y%m%d_%H%M"), sym, tf))
+    path = os.path.join(LOG_DIR, "%s_%s_%s.md" % (ts.strftime("%Y%m%d_%H%M%S"), sym, tf))
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("# %s · %s · %s\n\n%s\n\n---\n\n## PANEL READ\n\n```\n%s\n```\n"
                  % (sym, tf, ts.strftime("%Y-%m-%d %H:%M IST"), review, read_txt))
