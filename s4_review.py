@@ -434,8 +434,11 @@ HOW TO WEIGH (this desk's doctrine, measured on its own trades):
   did NOT do worse (mean +0.21R vs -0.17R for the rest; hit-T1 identical). The first
   obstacle — whatever its class: Daily S/R, pivot, supply band, weekly level — was punched
   through 63-77% of the time. Blue sky (no obstacle) was the WORST bucket.
-  So: name the first obstacle and its distance, use it to anchor T1 / a partial, note that
-  T1/T2 may sit beyond it, and grade it TOLERABLE. A near obstacle plus OTHER evidence of
+  So: name the first obstacle and its distance and grade it TOLERABLE. It is the FIRST TEST
+  of the trade, not its target. T1/T2 follow the R-canon (swing 2R/4R · positional 3R/5R)
+  — when the panel's plan prints a T1 sitting ON the obstacle below 2R (tagged ·lvl), say
+  so, REPLACE it with the canon T1 in your PLAN, and treat the obstacle as where you watch
+  for a reaction or take a small partial at most. Never carry a sub-2R T1 into a TAKE. A near obstacle plus OTHER evidence of
   supply (bleeding delta into it, a rejection wick at it, a call wall with heavy OI, Stage 3
   context) can add up to FATAL — the obstacle alone never does. Do not write "no room" as
   a deciding factor.
@@ -528,7 +531,8 @@ WHERE S4 IS TOO BLUNT   (what its mechanical ruling gets wrong or misses, and wh
 RECOMMENDATION
 RULING: TAKE | TAKE · reduced size | WAIT for <specific bar/level/event> | PASS | NO TRADE (stage)
 DECIDING FACTOR   (one sentence)
-PLAN   (entry method · stop · T1/T2 with R · trade type — take from the panel, correct it only if you say why)
+PLAN   (entry method · stop · T1/T2 with R · trade type — take from the panel, correct it
+   only if you say why; a T1 under 2R is always corrected to the canon)
 FLIPS IF   (one sentence)
 """
 
@@ -601,14 +605,25 @@ def r_check(review: str, min_r: float = 2.0) -> str:
     entry = stop = t1 = t2 = None
     said = {}
     for ln in plan.splitlines():
+        # "125-min close above…" is a TIMEFRAME, not a price — strip TF tokens first
+        ln = re.sub(r"(?i)(?<![\d.])\d{1,3}\s*-?\s*(?:mins?|minutes?|m|d|day|w|wk)(?![A-Za-z])", "", ln)
         low = ln.lower()
         body = re.sub(r"^[\s*\-•]+", "", ln)
         if entry is None and re.search(r"entry|buy-?limit|buy-?stop|limit order", low) and "stop:" not in low:
             entry = _first_num(re.sub(r"(?i)^.*?(entry|limit|buy-?stop)[^0-9]*", "", body))
         if stop is None and re.search(r"(?<![a-z-])stop", low) and "buy-stop" not in low:
             stop = _first_num(re.sub(r"(?i)^.*?stop[^0-9]*", "", body))
+        # "T1/T2: 34.10 (2R) / 36.14 (4R)" — the pair form; a per-tag scan trips on the
+        # digit in "T2" and misses T1 entirely
+        pair = re.search(r"T1\s*/\s*T2[^0-9]*" + _NUM + r"(?:[^/\n]*\(\s*([\d.]+)\s*R\))?\s*/\s*" + _NUM
+                         + r"(?:[^\n(]*\(\s*([\d.]+)\s*R\))?", body)
+        if pair and t1 is None and t2 is None:
+            t1 = float(pair.group(1).replace(",", "")); t2 = float(pair.group(3).replace(",", ""))
+            if pair.group(2): said["T1"] = float(pair.group(2))
+            if pair.group(4): said["T2"] = float(pair.group(4))
+            continue
         for tag in ("T1", "T2"):
-            mm = re.search(tag + r"[^0-9]*" + _NUM + r"(?:[^\n(]*\(\s*([\d.]+)\s*R)?", body)
+            mm = re.search(tag + r"(?![/\d])[^0-9]*" + _NUM + r"(?:[^\n(]*\(\s*([\d.]+)\s*R\))?", body)
             if mm and (tag == "T1" and t1 is None or tag == "T2" and t2 is None):
                 v = float(mm.group(1).replace(",", ""))
                 if tag == "T1": t1 = v
@@ -620,7 +635,11 @@ def r_check(review: str, min_r: float = 2.0) -> str:
             return ""                                   # no plan expected on a pass
         return "R-CHECK: could not parse entry/stop from PLAN — verify the numbers by hand."
     risk = entry - stop
-    out = ["R-CHECK (recomputed): entry %.2f · stop %.2f · risk %.2f (%.1f%%)" % (entry, stop, risk, risk / entry * 100)]
+    pos = bool(re.search(r"(?i)positional", plan)) and not re.search(r"(?i)swing(?!\s*low)", plan.split("Type")[-1] if "Type" in plan else plan)
+    c1, c2 = (3.0, 5.0) if pos else (2.0, 4.0)
+    out = ["R-CHECK (recomputed): entry %.2f · stop %.2f · risk %.2f (%.1f%%)" % (entry, stop, risk, risk / entry * 100),
+           "  canon %s: T1 %.2f (%.0fR) · T2 %.2f (%.0fR)  ← use these; the model's arithmetic is not reliable"
+           % ("positional 3R/5R" if pos else "swing 2R/4R", entry + c1 * risk, c1, entry + c2 * risk, c2)]
     flags = []
     for tag, tv in (("T1", t1), ("T2", t2)):
         if tv is None:
@@ -631,7 +650,7 @@ def r_check(review: str, min_r: float = 2.0) -> str:
             line += " (model said %.1fR)" % said[tag]
             if abs(said[tag] - r) > 0.2:
                 flags.append("%s R mis-stated" % tag)
-        if tag == "T1" and r < min_r:
+        if tag == "T1" and r < min_r - 0.05:
             flags.append("T1 %.2fR is under the %.0fR floor" % (r, min_r))
         out.append(line)
     ruling = _ruling_line(review).upper()
