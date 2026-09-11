@@ -237,10 +237,12 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
 
 
 def _nse(sym: str) -> str:
-    """TradingView spells NSE tickers with '_' where the exchange uses '-' or '&'
-    (BAJAJ-AUTO -> NSE:BAJAJ_AUTO, M&M -> NSE:M_M). Any other spelling resolves to
-    nothing and every study on the chart reports a runtime 'resolve error'."""
-    s = sym.strip().upper().replace("-", "_").replace("&", "_")
+    """TradingView spells NSE tickers with '_' where the exchange uses '-'
+    (BAJAJ-AUTO -> NSE:BAJAJ_AUTO) but KEEPS the ampersand (NSE:M&MFIN is the live
+    chart symbol — tv_health_check, 10-Sep-2026; the tv-sync had the same wrong
+    assumption and one holding silently never plotted). Any other spelling resolves
+    to nothing and every study reports a runtime 'resolve error'."""
+    s = sym.strip().upper().replace("-", "_")
     return s if ":" in s else "NSE:" + s
 
 
