@@ -518,6 +518,69 @@ def deliberate(prompt: str, provider: str) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------------------
+# R-check — the model's judgement is worth having, its arithmetic is not (flash-lite wrote
+# "T1 13.28 (1.5R)" on entry 13.07 / stop 12.60, which is 0.45R). Recompute from the PLAN
+# it printed and append the truth; never edit the model's text.
+# ---------------------------------------------------------------------------------------
+_NUM = r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d%])"
+
+
+def _first_num(txt: str):
+    m = __import__("re").search(_NUM, txt)
+    return float(m.group(1).replace(",", "")) if m else None
+
+
+def r_check(review: str, min_r: float = 2.0) -> str:
+    import re
+    m = re.search(r"(?ims)^\W*PLAN\W*$(.*?)(?=^\W*FLIPS IF|\Z)", review)
+    if not m:
+        return ""
+    plan = m.group(1)
+    entry = stop = t1 = t2 = None
+    said = {}
+    for ln in plan.splitlines():
+        low = ln.lower()
+        body = re.sub(r"^[\s*\-•]+", "", ln)
+        if entry is None and re.search(r"entry|buy-?limit|buy-?stop|limit order", low) and "stop:" not in low:
+            entry = _first_num(re.sub(r"(?i)^.*?(entry|limit|buy-?stop)[^0-9]*", "", body))
+        if stop is None and re.search(r"(?<![a-z-])stop", low) and "buy-stop" not in low:
+            stop = _first_num(re.sub(r"(?i)^.*?stop[^0-9]*", "", body))
+        for tag in ("T1", "T2"):
+            mm = re.search(tag + r"[^0-9]*" + _NUM + r"(?:[^\n(]*\(\s*([\d.]+)\s*R)?", body)
+            if mm and (tag == "T1" and t1 is None or tag == "T2" and t2 is None):
+                v = float(mm.group(1).replace(",", ""))
+                if tag == "T1": t1 = v
+                else: t2 = v
+                if mm.group(2): said[tag] = float(mm.group(2))
+    if entry is None or stop is None or entry <= stop:
+        ru = _ruling_line(review).upper()
+        if ru.startswith("RULING: PASS") or ru.startswith("RULING: NO TRADE"):
+            return ""                                   # no plan expected on a pass
+        return "R-CHECK: could not parse entry/stop from PLAN — verify the numbers by hand."
+    risk = entry - stop
+    out = ["R-CHECK (recomputed): entry %.2f · stop %.2f · risk %.2f (%.1f%%)" % (entry, stop, risk, risk / entry * 100)]
+    flags = []
+    for tag, tv in (("T1", t1), ("T2", t2)):
+        if tv is None:
+            continue
+        r = (tv - entry) / risk
+        line = "  %s %.2f → %.2fR" % (tag, tv, r)
+        if tag in said:
+            line += " (model said %.1fR)" % said[tag]
+            if abs(said[tag] - r) > 0.2:
+                flags.append("%s R mis-stated" % tag)
+        if tag == "T1" and r < min_r:
+            flags.append("T1 %.2fR is under the %.0fR floor" % (r, min_r))
+        out.append(line)
+    ruling = _ruling_line(review).upper()
+    if flags and ruling.startswith("RULING: TAKE"):
+        flags.append("ruling is TAKE — the reward bar is NOT met on these numbers")
+    if flags:
+        out.append("  ⚠ " + " · ".join(flags))
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------------------
 # Logging / notify
 # ---------------------------------------------------------------------------------------
 def _ruling_line(review: str) -> str:
@@ -573,6 +636,9 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         return 1
     pos_txt = position_context(d["symbol"])
     review, prov = deliberate(build_prompt(read_txt, pos_txt), args.provider)
+    rc_txt = r_check(review)
+    if rc_txt:
+        review = review.rstrip() + "\n\n" + rc_txt
     tf_lbl = d["res"]
     path = save_review(d["symbol"], tf_lbl, read_txt, review, prov, s4_verdict_line(d))
     head = "%s · %s · %s" % (d["symbol"], tf_lbl, prov)
