@@ -205,7 +205,6 @@ footer a{color:var(--acc)}
     <li><a href="#day">The daily loop</a></li>
     <li><a href="#catalog">The setup catalog</a></li>
     <li><a href="#inputs">Inputs reference</a></li>
-    <li><a href="#mas">The weekly MA plots</a></li>
     <li><a href="#mistakes">Common mistakes</a></li>
   </ol>
 </nav>
@@ -322,7 +321,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">30-Week Slope</td><td><b>Defines whether Stage 2 is structurally valid at all</b></td></tr>
       <tr><td class="k">Weekly Pullback Health</td><td>The quality of the most recent weekly pullback</td></tr>
       <tr><td class="k">Overhead Resistance</td><td>Count of confirmed weekly levels above price</td></tr>
-      <tr><td class="k">Room for Trade</td><td>Blue sky, clear, or <b>no room</b> — does the target collide with supply</td></tr>
+      <tr><td class="k">Room for Trade</td><td>Blue sky, clear, or <b>no room</b> — does the target collide with supply. <b>Read it as information since 11 September:</b> measured on 331 GO-timed entries, the trades with under 1R to the first obstacle did not do worse, and the obstacle was broken 63–77% of the time. On a pullback the first thing overhead is the swing high the pullback came from</td></tr>
       <tr><td class="k">52W and ATH space</td><td>How far below each high, or above if printing new ones</td></tr>
     </tbody>
   </table></div>
@@ -420,6 +419,39 @@ footer a{color:var(--acc)}
     <p>The platform's own sector field is unreliable for this market. A generated database of
     several hundred tickers takes precedence, which is what gives <b>100% offline parity with the
     Python side</b> — and removes an entire class of string-matching bug.</p>
+  </div>
+  <h3>It is also the binding channel — and that is a kind of ownership</h3>
+  <p>Section Four does not re-derive the fields above; it <b>reads them off this file</b> through
+  twenty-six hidden numeric plots. That makes the dashboard the single source for stage, relative
+  strength, rotation, sector and the pyramid rung across two surfaces — a field that is imported
+  cannot drift from the one it was imported from.</p>
+  <div class="note warn">
+    <span class="lbl">The failure mode this creates, and how it presents</span>
+    <p><b>Bindings are matched by POSITION and are dropped on every recompile</b> — of either
+    script. Nothing errors: an unbound source silently reads the price series, so the far side
+    shows a plausible-looking number rather than a blank. That is why re-binding is a step in the
+    compile ritual and not a debugging response.</p>
+    <p>Two structural limits worth knowing before designing anything around it. <b>Only floats
+    cross</b> — a string cannot, which is why the sector NAME reaches Section Four through a packed
+    map compiled into the shared library rather than over this channel. And <b>plot slots are
+    finite</b>: this file uses <b>41</b> of its 64, and the exports account for <b>26</b> of them &mdash; the twenty-sixth was added on 1 September so Section Four could show the stock-versus-<em>sector</em> rotation as well as the index one.</p>
+  </div>
+
+  <h3>The ML win probability — computed here, read elsewhere</h3>
+  <p>A logistic scorer over six inputs — daily RSI, ATR as a percent of price, Bollinger width,
+  relative strength against the index, the asset-quality score and the drawdown from the 52-week
+  high. It is <b>computed on this surface and bound across</b> to Section Four's panel.</p>
+  <p>It was moved here on 26 August rather than kept in the strategy indicator, because
+  <b>this file already owned five of the six inputs and was already the channel</b> — the
+  alternative meant a second binding channel to a second script, re-bound after every compile of
+  either. One trap was avoided in the port: the two files scale relative strength differently, one
+  centred on zero and one on a hundred, and feeding the raw value across would have shifted every
+  score by a quarter of a point without any visible symptom.</p>
+  <div class="note stop">
+    <span class="lbl">Read it as a ranking, not a probability</span>
+    <p><b>The six coefficients have never been validated out-of-sample in this system.</b> A
+    reading of 38% does not mean thirty-eight trades in a hundred worked — it means this name
+    ranks below one reading 60%. Use it to order a shortlist; do not use it to size anything.</p>
   </div>
 </section>
 
@@ -527,6 +559,11 @@ footer a{color:var(--acc)}
   <details class="ref"><summary>Portfolio slots — and the one rule about them</summary><div class="rb">
   <div class="note stop">
     <span class="tag">Slots are for OPEN positions only</span>
+    <p><b>There are twenty-five</b> since 1 September, up from twenty. They cost no data request
+    &mdash; a slot is matched by comparing its ticker to the chart symbol &mdash; so the only price
+    of more of them is main-body statements, which this file has room for and Section Four does
+    not. New slots ship <b>empty</b>: a pre-filled slot for a stock you do not hold would put a
+    phantom position on the panel, and an empty ticker is skipped.</p>
     <p>They are reserved for stocks you <b>currently hold</b>, never for watchlist tracking. Every
     slot metric — P&amp;L, R-multiple, days held, time-stop warnings, trailed-stop tracking — only
     makes sense once a position is live with a real entry, stop and date. <b>Put a watchlist ticker
@@ -535,7 +572,7 @@ footer a{color:var(--acc)}
   </div>
   <div class="tw"><table>
     <thead><tr><th>Field</th><th>What it does</th></tr></thead><tbody>
-      <tr><td class="k">Ticker</td><td>Matched against the chart symbol to make this the active position</td></tr>
+      <tr><td class="k">Ticker</td><td>Matched against the chart symbol to make this the active position. <b>Spelling is TradingView's, not the exchange's:</b> a hyphen becomes an underscore (<code>NSE:NAM_INDIA</code>) but <b>an ampersand is kept</b> (<code>NSE:M&amp;MFIN</code>). The sync had mapped both to underscores on the assumption they were alike; one holding silently never plotted, with every field structurally identical to a working one. Fixed 10 Sep, both rules now backed by a live chart read</td></tr>
       <tr><td class="k">Entry</td><td>Your average entry — drives unrealised P&amp;L and the R-multiple</td></tr>
       <tr><td class="k">Stop</td><td>The active stop — drives distance-to-stop and its warnings</td></tr>
       <tr><td class="k">Sector</td><td>The sector index for relative-strength comparison. <b>Let the automation fill this</b> — a wrong sector makes the RS-vs-sector row meaningless</td></tr>
@@ -593,32 +630,6 @@ footer a{color:var(--acc)}
   </tbody></table></div></div></details>
 </section>
 
-<section id="mas">
-  <h2><span class="n">—</span>The weekly MA plots — visible, and settable (25 Aug 2026)</h2>
-  <p>Two separate causes, reported as one problem: <em>&ldquo;the 30WMA and 40WMA are not visible.
-  Also, on the settings&rarr;Style tab, why am I not able to set the colors?&rdquo;</em></p>
-  <div class="note no">
-    <span class="tag">1 · Invisible</span>
-    <p>The 40-week MA was hardcoded <code>color.black</code> — a black line on a near-black chart.
-    Drawn correctly every bar and impossible to see. Now a light grey that reads on either theme.</p>
-  </div>
-  <div class="note no">
-    <span class="tag">2 · The Style tab did nothing</span>
-    <p>A colour passed as a <code>color=</code> <b>argument</b> is re-applied by the script on every
-    bar, so whatever you pick in Style is overwritten before you see it. The swatch is there; it
-    just never wins.</p>
-  </div>
-  <p>Both MAs now source <code>input.color</code>, so the Style tab <em>is</em> the script's input and
-  your choice survives. New group <b>Weekly MA colours</b>: separate colours for the 30W rising and
-  falling states (the slope conditional is preserved — both branches are yours), one for the 40W,
-  and show/hide toggles.</p>
-  <div class="note">
-    <span class="tag">The general rule</span>
-    <p>A plot whose colour is <b>computed</b> is not user-settable — and a <b>conditional</b> colour
-    is computed by definition. If you want a plot's colour adjustable, it has to come from an input.</p>
-  </div>
-</section>
-
 <section id="mistakes">
   <h2><span class="n">12</span>Common mistakes</h2>
   <ol class="mistakes">
@@ -628,7 +639,7 @@ footer a{color:var(--acc)}
     <li><span><b>Ignoring the trend-engine sync warning.</b> It means this cell and your pivot tool now disagree about structure.</span></li>
     <li><span><b>Reading Stage-2 age as one number.</b> The leg resets on every pullback; the macro clock does not. Base four is not base one.</span></li>
     <li><span><b>Treating the portfolio rows as live.</b> They are a synced snapshot.</span></li>
-    <li><span><b>Chasing a name with no room.</b> The room row exists because a clean setup into overhead supply is still a bad trade.</span></li>
+    <li><span><b>Reading "no room" as a veto.</b> The room row names the first obstacle, and on a pullback that is the swing high you are buying the retest of — measured 11 Sep, trades under 1R of room did not underperform. Use it to place T1 and a partial; decide on stage, RS and location.</span></li>
     <li><span><b>Expecting a fundamental gate here.</b> It moved to the strategy indicator; this cell is technical state only.</span></li>
   </ol>
 </section>
@@ -638,6 +649,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/08 · Weinstein &amp; Swing Pro Dashboard</span>
+  <span>docs/08 · Weinstein &amp; Swing Pro Dashboard · v67.4.22 · checked 11 Sep 2026</span>
   <span>Companions — <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a></span>
 </div></footer>

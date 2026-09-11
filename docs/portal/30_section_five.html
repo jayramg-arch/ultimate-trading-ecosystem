@@ -1,0 +1,517 @@
+<title>Section Five</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Oswald:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+
+<style>
+/* Section Four's typographic family, deliberately — the two panels are built to read as one
+   instrument. The accent is a deep teal so nothing here can be mistaken for S4's crimson
+   rulings: this page describes, it never decides. */
+:root{
+  --ground:#F1F3F3; --surface:#FFFFFF; --surface-2:#F7F9F9; --surface-3:#E9EDED;
+  --ink:#141818; --ink-2:#3B4444; --muted:#68726F; --faint:#97A09D;
+  --rule:#D6DCDB; --rule-soft:#E5EAE9;
+  --acc:#1F6F78; --acc-bg:#E2F0F2; --acc-rule:#A9CDD2;
+  --go:#0F7A52; --go-bg:#E2F1EA; --go-rule:#9AC9B4;
+  --wait:#9A5B00; --wait-bg:#FBF0DE; --wait-rule:#DFBB80;
+  --no:#9E2F16; --no-bg:#FAEAE5; --no-rule:#DFB2A2;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Oswald','Helvetica Neue',Arial,sans-serif;
+  --body:'Public Sans','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101414; --surface:#161B1B; --surface-2:#1C2222; --surface-3:#242B2B;
+    --ink:#EAEFEE; --ink-2:#C1C9C7; --muted:#8D9795; --faint:#66706E;
+    --rule:#2A3232; --rule-soft:#222929;
+    --acc:#5FB8C4; --acc-bg:#0E2A2E; --acc-rule:#245A62;
+    --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+    --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+    --no:#EE7A5C; --no-bg:#331B14; --no-rule:#6A3527;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101414; --surface:#161B1B; --surface-2:#1C2222; --surface-3:#242B2B;
+  --ink:#EAEFEE; --ink-2:#C1C9C7; --muted:#8D9795; --faint:#66706E;
+  --rule:#2A3232; --rule-soft:#222929;
+  --acc:#5FB8C4; --acc-bg:#0E2A2E; --acc-rule:#245A62;
+  --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+  --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+  --no:#EE7A5C; --no-bg:#331B14; --no-rule:#6A3527;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 34px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin:0 0 14px;font-weight:500}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(40px,6.6vw,68px);line-height:1;letter-spacing:.005em;margin:0;text-transform:uppercase}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.gatebox{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;padding:17px 20px;min-width:250px}
+.gatebox .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin:0 0 11px;font-weight:500}
+.gatebox .eq{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.04em;line-height:1.8}
+.gatebox .sm{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:9px;padding-top:9px;border-top:1px dashed var(--acc-rule)}
+.cols{display:grid;grid-template-columns:206px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;font-weight:500}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,3.3vw,36px);line-height:1.1;letter-spacing:.01em;margin:0 0 16px;text-transform:uppercase}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--acc);letter-spacing:.16em;display:block;margin-bottom:7px;text-transform:none}
+h3{font-family:var(--disp);font-weight:600;font-size:20px;letter-spacing:.01em;margin:30px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:24px 0 9px;font-weight:500}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;background:var(--surface-3);border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+p.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);background:var(--surface-3);border:1px solid var(--rule);border-radius:2px;padding:9px 12px;overflow-x:auto;white-space:nowrap;max-width:none}
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.no{border-left-color:var(--no);background:var(--no-bg);border-color:var(--no-rule)}
+.note.go{border-left-color:var(--go);background:var(--go-bg);border-color:var(--go-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px;font-weight:500}
+.note.no .tag{color:var(--no)} .note.go .tag{color:var(--go)}
+.note p:last-child{margin-bottom:0}
+.panel{display:grid;gap:0;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;background:var(--surface)}
+.pband{display:grid;grid-template-columns:40px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
+.pband:last-child{border-bottom:none}
+.pband .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc);background:var(--acc-bg);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--rule-soft)}
+.pband .bd{padding:14px 17px}
+.pband .h{font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:.02em;margin:0 0 4px;text-transform:uppercase}
+.pband p{font-size:14.5px;margin:0;color:var(--ink-2);max-width:70ch}
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink);font-weight:500;background:var(--surface-2);border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+footer{border-top:1px solid var(--rule);background:var(--surface);font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
+footer a{color:var(--acc)}
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 30 · The live system</p>
+      <h1>Section Five</h1>
+      <p class="dek"><b>S4 decides. S5 explains.</b> Everything Section Four cut to stay under
+      its token ceiling — the shape of the base, the levels with their touch grades, the real
+      order-flow delta, the Wyckoff ladder, the two named setups — on a second, symbol-synced
+      chart. Nothing here gates anything, and nothing can bind to it.</p>
+    </div>
+    <div class="gatebox">
+      <p class="lbl">Where it runs</p>
+      <div class="eq">S4 → chart 1<br>S5 → chart 2</div>
+      <div class="sm">Symbol-synced. <b>Never on the same chart</b> — Pine meters memory per chart and S5 kills S4's panel there. Measured, not caution.</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>Before the panel</p>
+  <ol>
+    <li><a href="#why">Why it exists</a></li>
+    <li><a href="#chart">The second chart</a></li>
+  </ol>
+  <p>Reading it</p>
+  <ol>
+    <li><a href="#panel">The six sections</a></li>
+    <li><a href="#geometry">I · Geometry</a></li>
+    <li><a href="#levels">II · Levels</a></li>
+    <li><a href="#flow">III · Participation</a></li>
+    <li><a href="#setups">IV · Setups</a></li>
+    <li><a href="#diag">V · Diagnostics · VI · Read</a></li>
+  </ol>
+  <p>Operating it</p>
+  <ol>
+    <li><a href="#reviewer">The reviewer reads it</a></li>
+    <li><a href="#inputs">Inputs reference</a></li>
+    <li><a href="#state">Known state</a></li>
+    <li><a href="#traps">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="why">
+  <h2><span class="n">01</span>Why it exists</h2>
+  <p>Section Four sits permanently against the 100,256 compiled-token ceiling, so every
+  diagnostic it ever carried was eventually cut to buy a decision field: the geometry classifier
+  went for the pullback-aware gate, the Wyckoff tiers collapsed to one <code>DIST</code> tag, the
+  setups S3 and S6 went whole. <b>Those cuts are the contents of this file.</b></p>
+  <p>It was built from the S/R + Trendline Lab rather than from scratch — that file already
+  carried the canonical pivots, the S/R clustering engine, the trendline fitters and the drawing
+  block, all tested against hand-drawn lines. S5 is that lab plus the three things it lacked: a
+  geometry read rebuilt on TradingView's own published criteria, a real footprint, and a panel
+  in S4's grammar so the two read as one instrument.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>Section Four</th><th>Section Five</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Job</td><td>Rules — gates, plan, verdict</td><td>Explains — what the structure is and who is trading it</td></tr>
+      <tr><td class="k">Gates</td><td>P · L · V · B · F</td><td><b>None.</b> Every row is display</td></tr>
+      <tr><td class="k">Plots</td><td>Hidden numeric plots the board reads</td><td><b>None</b> — nothing can bind to S5, so it cannot drift from S4</td></tr>
+      <tr><td class="k">Delta</td><td>An intrabar proxy (grades only)</td><td>The real <code>request.footprint()</code> read</td></tr>
+      <tr><td class="k">Shape</td><td>An em-dash since v7.3</td><td>Twelve shapes on TradingView's criteria, status and target</td></tr>
+      <tr><td class="k">Chart</td><td>Primary</td><td>A second one, symbol-synced</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">What it does not duplicate</span>
+    <p>The CONTEXT row — stage, RS, RRG, sector — stays on S4. Four of its six fields were
+    already there, and repeating them would recreate the restatement problem the v6.1 verdict
+    rewrite removed. If you want the regime, look left.</p>
+  </div>
+</section>
+
+<section id="chart">
+  <h2><span class="n">02</span>The second chart — not negotiable</h2>
+  <div class="note no">
+    <span class="tag">Measured 6–8 September</span>
+    <p>A 55-line footprint feeder ran clean on its own chart while S4, holding two floats from
+    it, threw <b>“Memory limits exceeded”</b> on the same chart — and removing the feeder cleared
+    it with no recompile. <code>request.footprint()</code> retains per-bar volume-row objects, and
+    Pine meters runtime memory <b>per chart</b>, so the two cannot share one. <b>Loading S5 beside
+    S4 kills S4's panel.</b></p>
+  </div>
+  <p>So the layout is two charts, symbol-synced: S4 with the dashboard, Unified, the Zigzag and
+  the catalyst bridge on one; S5 alone on the other. The reviewer script reads both and merges
+  them, refusing if the two tabs disagree on symbol or timeframe.</p>
+  <p><code>calc_bars_count</code> is pinned at <b>1500</b> because bar count is the one lever that
+  actually bounds what the footprint hoards — ticks per row was tried at 20 and 200 and changed
+  nothing, since the cost is retention, not row size. If the memory error ever returns on S5's
+  own chart: drop that first (800, then 400), and turn the footprint off second.</p>
+  <p>Two optional <code>input.source</code> inputs survive from the Lab — the S4 Trendline Tool
+  bridge — and they are off unless you point them at that companion. Like every source, they
+  unbind on recompile; a quiet Trendlines row after a compile is that, not a fault.</p>
+</section>
+
+<section id="panel">
+  <h2><span class="n">03</span>Reading the panel</h2>
+  <p>Six sections, twenty-two rows, each band stating the question it answers. Row 0 is the
+  header — <code>S5  v1.3 │ CGPOWER · 125 · explain-surface for S4</code>.</p>
+  <div class="panel">
+    <div class="pband"><div class="num">I</div><div class="bd">
+      <p class="h">Geometry</p>
+      <p>What shape is this, on TradingView's criteria? Four rows — the shape, its two boundaries,
+      the convergence and pole tests that decided it, and its status with a projected target.</p></div></div>
+    <div class="pband"><div class="num">II</div><div class="bd">
+      <p class="h">Levels</p>
+      <p>The horizontal and diagonal levels around price — nearest resistance and support with
+      touch grade and distance in ATR, and the trendline pair.</p></div></div>
+    <div class="pband"><div class="num">III</div><div class="bd">
+      <p class="h">Participation</p>
+      <p>Who is actually trading it, and are they confirming price? The footprint delta on the
+      bar and cumulative, buyers versus sellers, the divergence test, and the value area with
+      row imbalances.</p></div></div>
+    <div class="pband"><div class="num">IV</div><div class="bd">
+      <p class="h">Setups</p>
+      <p>Is there a structure here? Named only. The Wyckoff distribution ladder, the sweep-reclaim,
+      the range edge — each prints its arithmetic and gates nothing.</p></div></div>
+    <div class="pband"><div class="num">V</div><div class="bd">
+      <p class="h">Diagnostics</p>
+      <p>If something above is missing, this says why: every pivot pool's size, and the level
+      funnel per timeframe.</p></div></div>
+    <div class="pband"><div class="num">VI</div><div class="bd">
+      <p class="h">Read</p>
+      <p>One line: what the structure implies for the trade S4 is judging.</p></div></div>
+  </div>
+  <div class="note go">
+    <span class="tag">The one thing to carry away</span>
+    <p><b>Every row on this panel describes.</b> The word GO does not appear on it. When S5 and
+    S4 seem to disagree, S4 is the ruling and S5 is the reason you might override it — written
+    down, so the override can be counted.</p>
+  </div>
+</section>
+
+<section id="geometry">
+  <h2><span class="n">04</span>I · Geometry — on TradingView's own criteria</h2>
+  <p class="m">Shape │ Ascending triangle   ·   ⚖ MARGINAL   ·   spans 33 bars</p>
+  <p class="m">Boundaries │ upper 916.35 (1.0x ATR) · lower 908.50 (0.3x ATR) · width 0.7x ATR · spans upper 33-24b ago / lower 21-9b ago, 0% shared</p>
+  <p class="m">Convergence · pole │ narrowing 60% (wedge past 20%) · pole 0.4x ATR - under the 2.0x floor, so no flag · rollback 148% (max 50%)</p>
+  <p class="m">Status · target │ BROKEN DOWN · target 876.25 (close - base height)</p>
+  <p>The classifier that lived in S4 until v7.3 was a two-pivot fit that called obvious
+  rectangles “symmetrical triangles”. This one was <b>rebuilt on 8 September from TradingView's
+  Help Centre pages for its built-in pattern indicators</b> — the criteria, not the source, which
+  is closed. Every threshold below is quoted from those pages:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Criterion</th><th>Value</th><th>Where TradingView states it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Pivot strength</td><td class="m">5 / 5</td><td>Triangle, Rectangle pages. <b>Its own pool</b>, separate from the one zones and trendlines use — the chart pivot length is 2 on intraday, so S5 had been reading swings a quarter the size TV does and classifying the noise between them as slope</td></tr>
+      <tr><td class="k">Lookback</td><td class="m">600 bars</td><td>Was 120</td></tr>
+      <tr><td class="k">Permissible deviation</td><td class="m">15% of channel width</td><td>Triangle page — the deviation of a <em>point</em> from its line</td></tr>
+      <tr><td class="k">Channel width ratio start/end</td><td class="m">20%</td><td>Rising Wedge page — “the minimum required channel height difference at the beginning and end”. <b>This is what separates a wedge from a channel</b>; the old read lumped them and then told you to go and check which</td></tr>
+      <tr><td class="k">Flagpole</td><td class="m">≥ 2.0 × ATR over 30 bars</td><td>Bullish Flag page. Identical geometry, opposite meaning: a falling channel on its own leans bearish; after a pole it is a <b>bull flag</b></td></tr>
+      <tr><td class="k">Max rollback</td><td class="m">50% of the pole</td><td>Bullish Flag page</td></tr>
+      <tr><td class="k">Span overlap</td><td class="m">60%</td><td>This file's rule, not TV's — see below</td></tr>
+    </tbody>
+  </table></div>
+  <h4>The twelve shapes</h4>
+  <p>Ascending · Descending · Symmetrical triangle · Rising · Falling wedge · Rising · Falling
+  channel · Bullish · Bearish flag · Bullish · Bearish pennant · Range / rectangle. Eight of
+  TradingView's sixteen. <b>The pole is what was missing</b> — without it every falling channel
+  after a two-ATR up-move read as bearish, and every pennant as directionless.</p>
+  <h4>Status and target</h4>
+  <p><code>AWAITING — price inside the boundaries</code> → <code>BROKEN UP · target close + base
+  height</code> or <code>BROKEN DOWN · target close − base height</code>. That is TradingView's own
+  state machine and its height projection, printed so the number can be checked rather than
+  believed.</p>
+  <div class="note no">
+    <span class="tag">Two design errors, both caught because the panel named its own failure</span>
+    <p><b>Fit-then-reject does not work.</b> The Lab's best-line fitter returns the line threading
+    the <em>most</em> pivots, which leaves pivots on both sides of it, so an interior close breaches
+    it almost always — bolting TV's validation onto that silenced the classifier on a full pool.
+    TV anchors to <b>two pivots</b> and validates the interior. The pair search now runs
+    newest-first and takes the first that survives.</p>
+    <p><b>The two boundaries must cover the same window.</b> Found independently, an upper
+    anchored 25–12 bars ago and a lower 39–33 bars ago share nothing, and “width at the start
+    versus width at the end” between segments that never coexisted is arithmetic on unrelated
+    things — which is how a wedge measured as broadening 55%. Overlap is now gated and the
+    Boundaries row prints it.</p>
+  </div>
+  <div class="note">
+    <span class="tag">⚖ MARGINAL, and the one adaptation that is not TradingView's</span>
+    <p>A knife-edge marker fires when a slope sits within 20% of the flat threshold — one name
+    read a base slope of 0.47× against a 0.50× threshold and asserted the result with full
+    confidence. And the interior-close test came from a third-party account, not TV's pages; it
+    is labelled as this file's adaptation in the source and is the first place S5 would diverge.</p>
+  </div>
+</section>
+
+<section id="levels">
+  <h2><span class="n">05</span>II · Levels — the Lab's engines, unchanged</h2>
+  <p class="m">Resistance │ 968.90 ·W  1t  (5.5x ATR)      Support │ 826.00 ·W  1t  (6.8x ATR)</p>
+  <p class="m">Trendlines │ support 886.10 (1.6x ATR)   ·   resistance 932.50 (2.4x ATR)</p>
+  <p>Character-identical to the engine in S4 — the levels are drawn by the rules learnt from
+  hand-drawn lines and measured against them: placed at the <b>wick extreme</b>, not a midpoint;
+  pivots create a level and any nearby wick refines it, but <b>only pivots count as tests</b>;
+  validity is closes beyond <em>since formation</em>; the live bar may never graze; and the span
+  is capped so a chain of pivots cannot average into a fictional price.</p>
+  <p><b>Tests weaken a level.</b> The touch count grades it and past six it is MTTWR — primed to
+  break — which is the opposite of the usual convention and is deliberate. The row prints the
+  timeframe tag, the touch count and the distance in ATR; a level far away is honest, not a bug.</p>
+  <p>Trendlines are the manual numeric anchors by default; the envelope auto-fit is off, kept
+  for work in the Lab. The hand-drawn bridge senses the S4 Trendline Tool when bound.</p>
+  <p class="refnote">The S/R ageing that reached S4 on 9 September (levels past their lifespan
+  leave the <em>ceiling</em>) is not yet in S5's copy of the engine — a settled setting travels
+  back as an input default, never as re-implemented logic.</p>
+</section>
+
+<section id="flow">
+  <h2><span class="n">06</span>III · Participation — the real delta</h2>
+  <p class="m">Order flow │ +56.773K buyers   ·   cum 20b +1.455M   ·   383.212K vs 326.439K</p>
+  <p class="m">Divergence · VA │ BULLISH - new 10b low on STRONGER flow   ·   POC 895.00  VAH 900.00  VAL 890.00   ·   imb 1B/0S</p>
+  <p>This is what S4's Arrival · Δ row approximates and this file measures. <code>request.footprint()</code>
+  gives the per-row buy and sell volume of each bar, so the delta here is aggressor volume, not
+  an intrabar close-position proxy. Verified on two symbols and two timeframes before it shipped.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Read it as</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Bar delta</td><td>Buyers minus sellers on this bar. Positive on a <em>down</em> bar at a level is <b>absorption</b> — buyers taking what sellers offer, the location confirmed. Negative on an <em>up</em> bar at a high is <b>bleeding</b> — the breakout is being sold into</td></tr>
+      <tr><td class="k">cum 20b</td><td>Cumulative delta over the window. The <em>trend</em> of participation; a price grinding lower on a rising cumulative delta is being accumulated</td></tr>
+      <tr><td class="k">buy vs sell</td><td>The raw split behind the delta, so a small delta on huge two-way volume reads differently from the same delta on nothing</td></tr>
+      <tr><td class="k">Divergence</td><td>Fires only at an <b>extreme</b> — a new 10-bar high or low — and asks whether flow agreed. A new low on <em>stronger</em> flow is bullish; a new high on weaker flow is the distribution tell. Otherwise it says so, and says flow and price are pointing opposite ways when they are</td></tr>
+      <tr><td class="k">POC · VAH · VAL</td><td>The bar's own auction levels from the footprint rows — the fairest price and the 70% value area. Inside it is rotation; a close above VAH on volume is acceptance</td></tr>
+      <tr><td class="k">imb nB/nS</td><td>Rows where one side out-traded the other by the imbalance multiple (300%). Stacked buy imbalances at a low are a floor being defended</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">How the reviewer uses it</span>
+    <p>Delta <b>breaks ties the price gates leave open</b> — a borderline RV, a tested zone —
+    and is read as one story with futures OI, the AVWAPs and the value area: short build-up plus
+    absorption at VAL plus the low-anchor holding is trapped shorts on a defended floor. It grades.
+    It does not veto on its own.</p>
+  </div>
+</section>
+
+<section id="setups">
+  <h2><span class="n">07</span>IV · Setups — named, never gated</h2>
+  <p class="m">Wyckoff │ no distribution event on this bar</p>
+  <p class="m">SWP-RC │ swept 1821.10 to 1795.10 (0.6x ATR), 2b ago  ·  RECLAIMED  ·  room 0.8R</p>
+  <p class="m">RNG-EDGE │ range 183.27 to 189.67 (2.1x ATR)  ·  AT THE LOWER EDGE  ·  no reversal bar</p>
+  <h4>Wyckoff distribution</h4>
+  <p>The full ladder S4 collapsed to one tag: <b>PSY · BC · AR · ST · UT · UTAD · LPSY</b>,
+  rebuilt from the canonical definitions because nothing survived on disk. Climax volume 2×
+  the 20-bar average, preliminary supply 1.5×, a climax range 1.5× ATR, a 30-bar structure
+  lookback. <b>Named only.</b> Wyckoff was tested twice as a trading input on this desk — as a
+  veto it was backwards (the vetoed cohort did better), as a score it was null — because these
+  events fire at high-volume pivot highs, which is structurally what a breakout looks like.</p>
+  <h4>SWP-RC and RNG-EDGE — the setups the notes called S3 and S6</h4>
+  <p>Detectors only: they name the structure, print the arithmetic, and gate nothing. <b>They
+  are new setups wearing old names.</b> Nothing of the originals was recovered — not in current
+  S4, not in either archived S4, not in the two restore points, and there is no git history
+  because S4 was staged but never committed. The entire surviving record of S3 is that it read
+  the liquidity-sweep block; of S6, that it existed. The specification says so before it says
+  anything else.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>SWP-RC · sweep and reclaim</th><th>RNG-EDGE · the range edge</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Mechanic</td><td>An obvious swing low is where stops sit. Price takes them, fails to follow through, reclaims. You buy the <em>failure of the break</em></td><td>Both edges of a rectangle are levels, so the edges are the trade and the middle is noise</td></tr>
+      <tr><td class="k">Needs</td><td>A pivot low with ≥2 touches · sweep depth ≤ 1.0× ATR · reclaim within 3 bars · reclaim bar closes upper-half on RV ≥ 1.0</td><td>The geometry read says Range / rectangle · price in the lower third · a reversal bar · ≥ 2R to the ceiling</td></tr>
+      <tr><td class="k">Where it dies</td><td>Below the sweep low — the sweep low <em>is</em> the thesis</td><td>Below the range bottom</td></tr>
+      <tr><td class="k">Target</td><td>The swing high that defined the range. <b>Fixed</b>, not trailed — mean reversion inside structure</td><td>The range top</td></tr>
+      <tr><td class="k">Status</td><td colspan="2">Display-only until measured as their own catalyst families, in R-multiples. Full specification in <code>docs/28_S3_S6_Setup_Specs.md</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="diag">
+  <h2><span class="n">08</span>V · Diagnostics, and VI · the Read</h2>
+  <p class="m">Pivot pools │ 200-DMA 779.15 · chart len 2 · geometry 5/5 8H / 8L · zones 6H / 6L · trendline 16H / 16L</p>
+  <p class="m">Level funnel │ D 0/1   W 1/1   M 0/0   (above/below per TF)</p>
+  <p>If a shape does not print, the pool tells you whether it had the pivots to work with;
+  if a level is missing, the funnel says whether the timeframe produced one above or below.
+  Three separate pools on purpose — the geometry read, the zones and the trendlines want
+  different pivot strengths and had been sharing one.</p>
+  <p class="m">READ │ Higher lows into a flat ceiling. Continuation shape: the base is doing the work, and the break is the event.</p>
+  <p>One line per shape, saying what the structure implies for the trade S4 is judging. For a
+  range it says the useful thing plainly: <em>S4's room-to-obstacle will be small by construction
+  here.</em> It is the geometry in prose — so it inherits the geometry's state, which matters for
+  the next section.</p>
+</section>
+
+<section id="reviewer">
+  <h2><span class="n">09</span>The reviewer reads it — with two sections withheld</h2>
+  <p>Since 11 September the AI review (<code>s4_review.py</code>) reads this panel off the second
+  chart, cell by cell, and merges it with S4, the dashboard, Unified and the Zigzag from the
+  first. Participation and the Setups band go into the deliberation in full — the delta is what
+  lets it break a tie the price gates cannot.</p>
+  <div class="note no">
+    <span class="tag">Withheld until fine-tuned — Jay, 11 September</span>
+    <p><b>Geometry, Levels and the Read are replaced with “[withheld: not yet fine-tuned]”</b>
+    before the model sees them, and S5's drawn lines and labels go with them because they are the
+    same data. The reason is on the record: on one 125-minute chart the shape row printed a
+    descending triangle with the <em>upper</em> boundary at 4928 and the <em>lower</em> at 4968 —
+    a width of −1.0 × ATR. The classifier is a day old and the two-pivot anchoring, the overlap
+    gate and the pole are all unverified in the field. Flip <code>S5_SKIP_SECTIONS</code> in the
+    script when they have earned it.</p>
+  </div>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">10</span>Inputs — field by field</h2>
+  <p class="refnote">Folded. The three engine switches at the top let you turn any band off
+  independently — the panel names the engine as <code>off</code> rather than going blank.</p>
+
+  <details class="ref"><summary>Geometry</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Classify the shape</td><td class="m">on</td><td>Master toggle for band I</td></tr>
+      <tr><td class="k">Draw the connectors</td><td class="m">on</td><td>Draw the two boundaries, not just print the name — so a call can be seen, not trusted</td></tr>
+      <tr><td class="k">Flat tolerance</td><td class="m">0.5 × ATR</td><td>A boundary flatter than this is horizontal. Raised from 0.3 against open item #11 — at 0.3 the noise between two equal highs read as a downslope</td></tr>
+      <tr><td class="k">TradingView-style validated boundary</td><td class="m">on</td><td>Anchor to two pivots and validate the interior, rather than fit the most pivots and reject</td></tr>
+      <tr><td class="k">Pivot strength · lookback</td><td class="m">5 · 600</td><td>TradingView's own. Separate pool from zones and trendlines</td></tr>
+      <tr><td class="k">Permissible deviation</td><td class="m">15%</td><td>Of the channel width</td></tr>
+      <tr><td class="k">Validate on wicks instead of closes</td><td class="m">off</td><td>The interior test uses closes; this switches it to wicks</td></tr>
+      <tr><td class="k">Flagpole minimum · bars</td><td class="m">2.0 × ATR · 30</td><td>What makes a channel a flag</td></tr>
+      <tr><td class="k">Max rollback</td><td class="m">50%</td><td>Of the flagpole</td></tr>
+      <tr><td class="k">Boundaries must share</td><td class="m">60%</td><td>Of their span — the overlap gate</td></tr>
+      <tr><td class="k">Marginal within</td><td class="m">20%</td><td>Of the flat threshold — the ⚖ marker</td></tr>
+      <tr><td class="k">Channel width ratio start/end</td><td class="m">20%</td><td>The wedge-versus-channel line</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>S/R levels</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Pivot length M / W / D / intraday</td><td class="m">1 / 5 / 2 / 2</td><td>Canonical, shared with the Zigzag. Do not raise the daily to reduce noise — that breaks alignment</td></tr>
+      <tr><td class="k">Max pivot age</td><td class="m">120 bars</td><td>How far back a pivot can reach</td></tr>
+      <tr><td class="k">Levels tracked per timeframe</td><td class="m">40</td><td>The pool</td></tr>
+      <tr><td class="k">Cluster tolerance · cap</td><td class="m">0.6 × ATR14 · 1.5%</td><td><b>The #1 dial.</b> How close two pivots must sit to become one level; the cap keeps it sane on cheap names</td></tr>
+      <tr><td class="k">Thread maximum wicks · wick-pierce touches</td><td class="m">on · on</td><td>Placement threads the most wicks; a pierce counts as a touch but does not drag the line</td></tr>
+      <tr><td class="k">Min touches for a level</td><td class="m">2</td><td>Pivot touches — what earns the name “level” at all</td></tr>
+      <tr><td class="k">Draw at the wick extreme</td><td class="m">on</td><td>Support at the highest member low, resistance at the lowest member high — never a midpoint</td></tr>
+      <tr><td class="k">Level span cap</td><td class="m">1.0 × tolerance</td><td>Stops merge-on-arrival chaining eight pivots across 3,340 points into one fictional price</td></tr>
+      <tr><td class="k">Max closes beyond the line</td><td class="m">1</td><td>Validity since formation: one polarity change and it flips</td></tr>
+      <tr><td class="k">Distinct-test spacing</td><td class="m">5 bars</td><td>Two touches five bars apart are two tests; two adjacent bars are one</td></tr>
+      <tr><td class="k">MTTWR</td><td class="m">6</td><td>Tests before a level is primed to break. Was 4, which graded 40–45% of all levels spent</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Trendlines</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Manual trendlines</td><td class="m">on</td><td>Numeric anchors — the live path</td></tr>
+      <tr><td class="k">Auto-detect (envelope fit)</td><td class="m">off</td><td>The Lab's fitter; on to work it</td></tr>
+      <tr><td class="k">Touch/pierce tolerance · pool</td><td class="m">0.5 × ATR · 16</td><td>For the auto fit</td></tr>
+      <tr><td class="k">Re-anchor · nudge</td><td class="m">0 · 0.0</td><td>Skip N recent pivots, or shift a line without changing its slope</td></tr>
+      <tr><td class="k">Sense hand-drawn trendlines</td><td class="m">off</td><td>The two source inputs bridged from the S4 Trendline Tool. Unbind on every recompile</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Footprint, Wyckoff, and the two setups</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Read the footprint</td><td class="m">on</td><td>The memory-bearing call. Turn off second if the chart complains; drop <code>calc_bars_count</code> first</td></tr>
+      <tr><td class="k">Ticks per volume row</td><td class="m">200</td><td>Row size. Tried at 20 and 200 against memory — no difference</td></tr>
+      <tr><td class="k">Value-area % · Imbalance %</td><td class="m">70 · 300</td><td>The auction levels and what counts as an imbalanced row</td></tr>
+      <tr><td class="k">Cumulative window · divergence lookback</td><td class="m">20 · 10 bars</td><td>The cum-delta window; divergence tests only at a 10-bar extreme</td></tr>
+      <tr><td class="k">Detect distribution events</td><td class="m">on</td><td>Structure lookback 30 · climax volume 2.0× · preliminary supply 1.5× · climax range 1.5× ATR</td></tr>
+      <tr><td class="k">Detect sweep / reclaim</td><td class="m">on</td><td>Max sweep depth 1.0 × ATR · reclaim within 3 bars · RV floor 1.0 · min room 2R</td></tr>
+      <tr><td class="k">Detect range-edge entries</td><td class="m">on</td><td>Lower third of the range counts as the edge · min room 2R</td></tr>
+  </tbody></table></div></div></details>
+</section>
+
+<section id="state">
+  <h2><span class="n">11</span>Known state — v1.3, 11 September</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Component</th><th>State</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Footprint · participation</td><td><b>Verified</b> on two symbols and two timeframes; in the reviewer's input</td></tr>
+      <tr><td class="k">S/R levels · trendlines</td><td>Lab-tested against hand-drawn lines; not yet carrying S4's 9-Sep ageing; <b>withheld from the reviewer</b></td></tr>
+      <tr><td class="k">Geometry</td><td>Rebuilt 8 Sep on TV criteria; <b>unverified in the field</b>; one inverted boundary observed 11 Sep; <b>withheld from the reviewer</b></td></tr>
+      <tr><td class="k">Wyckoff ladder</td><td>Named only, by design — twice rejected as an input</td></tr>
+      <tr><td class="k">SWP-RC · RNG-EDGE</td><td>Display-only until measured as catalyst families in R</td></tr>
+      <tr><td class="k">Open item #11</td><td>Rectangles read as triangles. Two defaults changed and the classifier rebuilt; <b>not yet confirmed closed</b></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="traps">
+  <h2><span class="n">12</span>Troubleshooting</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td class="k">S4's panel vanished after adding S5</td><td>Same chart. Pine meters memory per chart and the footprint cannot share one with S4. <b>Move S5 to a second, symbol-synced chart</b>; S4 recovers without a recompile</td></tr>
+      <tr><td class="k">“Memory limits exceeded” on S5's own chart</td><td>Drop <code>calc_bars_count</code> (1500 → 800 → 400) first; turn the footprint off second. Ticks per row does nothing here</td></tr>
+      <tr><td class="k">Shape prints with upper below lower</td><td>The classifier is unverified. It is withheld from the reviewer for this reason; note the name and timeframe for the tuning pass</td></tr>
+      <tr><td class="k">Shape reads “—” on a chart with an obvious base</td><td>Check the Pivot pools row — <code>geometry 5/5 nH / nL</code>. Fewer than two each side and there is nothing to anchor to; a 5/5 pivot on a 75-minute chart needs the swing to be real</td></tr>
+      <tr><td class="k">Trendlines row quiet after a compile</td><td>The two external sources unbound. Re-point them at the S4 Trendline Tool, or leave the bridge off — the manual anchors do not need it</td></tr>
+      <tr><td class="k">Divergence says “only fires on a new 10b high or low”</td><td>Working as designed. It tests flow <em>at an extreme</em>; between extremes it reports whether flow and price point the same way, which is a weaker read</td></tr>
+      <tr><td class="k">The reviewer's read shows “[withheld]” rows</td><td>Deliberate — Geometry, Levels and Read are held back until fine-tuned. <code>S5_SKIP_SECTIONS</code> in <code>s4_review.py</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.3 · written against the code 11 Sep 2026</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
+</div></footer>

@@ -199,7 +199,7 @@ footer a{color:var(--acc)}
 <nav class="toc">
   <p>Read first</p>
   <ol>
-    <li><a href="#corrections">Three corrections</a></li>
+    <li><a href="#corrections">Four corrections</a></li>
     <li><a href="#pa">The PA conversion</a></li>
   </ol>
   <p>The engine</p>
@@ -230,9 +230,9 @@ footer a{color:var(--acc)}
 <main>
 
 <section id="corrections">
-  <h2><span class="n">01</span>Three corrections, verified against the code</h2>
-  <p>This guide predates several changes to the engine it documents. All three were checked at
-  source while this page was written.</p>
+  <h2><span class="n">01</span>Four corrections, verified against the code</h2>
+  <p>This guide predates several changes to the engine it documents. All four were checked at
+  source; the fourth landed on 1 September and was re-checked on 11 September.</p>
 
   <div class="note stop">
     <span class="tag">1 · The base test is SIX gates, not nine</span>
@@ -261,6 +261,17 @@ footer a{color:var(--acc)}
     Correcting it <b>cut headline alpha by roughly two thirds</b>. Treat the per-catalyst ordering
     as indicative and the magnitudes as too high; the current honest position is at the bottom of
     this page.</p>
+  </div>
+
+  <div class="note stop">
+    <span class="tag">4 · VCP_Valid was dead, arithmetically — fixed 1 September</span>
+    <p>The flag demanded <b>monotonically decreasing depth across every contraction</b> the
+    detector found — and it found four to sixteen of them in a 325-day window, so the condition
+    was never true. <b>0 of 71 board names read valid.</b> The base is now the <b>last three
+    contractions</b>, which is what a VCP is (Minervini's two to four). Measured after the fix:
+    <b>21%</b> of names valid, median base length 305 days → 100 days. The flag feeds the board's
+    VCP column and Section Four's <code>VCP-BO</code> event; the swing-breakout catalyst's own
+    compression test was never the dead one.</p>
   </div>
 </section>
 
@@ -447,7 +458,7 @@ AND the alpha gate passes</pre>
   <pre>trend template active — the full moving-average stack
 AND price close to the short average
 AND retrace 38-62% of the 20-bar range   <b>(was an RSI pocket)</b>
-AND volume dry-up
+AND volume dry-up — <b>anywhere in the last 3 bars</b>, not only today
 AND <b>close above the prior day's high — entry confirmation</b>
 AND the micro edge is active
 AND the alpha gate passes</pre>
@@ -459,6 +470,15 @@ AND the alpha gate passes</pre>
   </div>
   <p><b>Regime-sensitive.</b> This is a momentum-continuation setup and it underperforms in
   corrective tapes — it is the right tool only in a confirmed uptrend.</p>
+  <div class="note">
+    <span class="tag">The 3-bar dry-up window — 3 August</span>
+    <p>The dry-up test had been a single-bar test that also required <em>today</em> to close below
+    the close two days earlier — so the stock had to still be falling on the entry bar, and the
+    catalyst could flag a pullback in progress but never the turn. Windowing it to three bars took
+    SWG-PB from <b>2 to 14</b> names on the same day, with POS-BO unchanged. <b>The extra names
+    inherit no validation</b>: the SWG-PB backtest that shows ~124% out-of-sample retention was run
+    on the single-bar population. <code>vdu_window=1</code> reproduces it for an A/B.</p>
+  </div>
   </div></details>
 
   <details class="ref"><summary>SWG-BO · the contraction breakout</summary><div class="rb">
@@ -515,6 +535,29 @@ AND the alpha gate passes</pre>
     swing-sized stop gets knocked out by routine pullbacks inside the first fortnight</b> — the
     signal was fine and the exit threw the edge away.</p>
   </div>
+  <h3>The other half — catalyst-aware targets</h3>
+  <p>The same file sets the <b>targets</b> by the same logic, and for the same reason: a horizon
+  that justifies a wider stop also justifies a longer objective. Read the two tables together —
+  a stop multiple without its target is half a policy.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th>T1 / T2</th><th>Partials</th><th>What happens to the rest</th></tr></thead>
+    <tbody>
+      <tr><td class="k">POS-* · WYC-* · REV-*</td><td class="m">3R / 5R</td><td class="m">25 / 25</td><td><b>Half the position keeps running</b> on the trail, uncapped</td></tr>
+      <tr><td class="k">SWG-BO · SWG-PB</td><td class="m">2R / 4R</td><td class="m">33 / 33</td><td>A third rides on; a 1–4 week move has less left to give</td></tr>
+      <tr><td class="k">SWG-REV · SWG-GAP</td><td class="m">2R / 4R</td><td class="m">50 / 50</td><td><b>Nothing rides.</b> A reversal or a gap-fill has no trend to ride</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">The R-canon, and why this table is worth pinning</span>
+    <p><b>Nothing under 2R; swing 2R/4R; positional 3R/5R.</b> That is the rule the whole system
+    shares — the screener, the allocator and the S4 plan row all read it from here.</p>
+    <p>It is documented on this page because <b>the code's own docstring disagreed with the code</b>
+    until 26 August, in three of its four rows: it claimed SWG-REV took 2R/2R and SWG-BO/PB took
+    3R/5R, while the function returned 2R/4R for both. The constants were right the whole time and
+    the prose beside them had simply never been updated. <b>A value that drifts inside its own
+    source file is exactly the one a guide has to state independently.</b></p>
+  </div>
+
   <div class="note">
     <span class="tag">Verify the stop before you order</span>
     <p>The ATR rule is a <b>fallback</b> for when no structural anchor exists. In practice the
@@ -792,14 +835,37 @@ AND Volume shelf = 1 AND Persona in (top three) AND RS >= 0</pre>
       <tr><td class="k">SWG-PB</td><td class="num">—</td><td class="num">regime</td><td>Momentum continuation — <b>underperforms in corrective tapes</b></td></tr>
     </tbody>
   </table></div>
+  <h3>Per family, after the correction — the numbers to plan on</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Catalyst</th><th class="r">In-sample</th><th class="r">Out-of-sample</th><th>Read</th></tr></thead>
+    <tbody>
+      <tr><td class="k">SWG-PB</td><td class="num">+0.42% <span style="color:var(--muted)">(n 171)</span></td><td class="p">+0.52% <span style="color:var(--muted)">(n 141)</span></td><td><b>The most stable catalyst in the book</b> — the only one that retained its edge across the split</td></tr>
+      <tr><td class="k">POS-ACCUM</td><td class="num">+5.23%</td><td class="p">+2.09%</td><td>Keep</td></tr>
+      <tr><td class="k">POS-BO</td><td class="num">+5.61%</td><td class="p">+1.01%</td><td>Keep. The in-sample figure is one bull stretch (May 2023 – Jan 2024); the "decay" is regime amplification, not the signal weakening — beta explained only 15% of it</td></tr>
+      <tr><td class="k">SWG-REV</td><td class="num">+0.54% <span style="color:var(--muted)">(n 43)</span></td><td class="num" style="color:var(--fail)">−0.44% <span style="color:var(--muted)">(n 74)</span></td><td>The drag. Payoff ratio 1.62 against SWG-PB's 3.14 — a reversal bounce is structurally a smaller move. No stop setting fixes it; retire rather than tune</td></tr>
+    </tbody>
+  </table></div>
   <div class="note stop">
     <span class="tag">The honest current position</span>
     <p>After the horizon correction, the system-wide figure is roughly <b>+0.5% to +1.0% matched
     alpha per trade</b>, with the probability of positive true alpha near <b>50%</b> and a
     confidence interval that straddles zero. <b>The median trade loses to the index</b> — this is a
-    low-hit-rate, big-winner profile.</p>
+    low-hit-rate, big-winner profile. The selection edge survives beta adjustment (median ex-ante
+    beta 1.11), so it is real; it is also small.</p>
     <p>Older reports quoting much larger cumulative figures, or a badly negative Sharpe, were both
-    <b>measurement artifacts and should be disregarded.</b> Plan around the smaller number.</p>
+    <b>measurement artifacts and should be disregarded.</b> Plan around the smaller number. And
+    read every result <b>per family</b> — pooling SWG-PB with SWG-REV produced the false "swing has
+    no edge" conclusion, the third time pooling lied on this desk.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Eleven pre-registered tests since, none adopted — and what that means</span>
+    <p>Through August and September the GO-timed book (331 trades) was used to test the RV band,
+    role mismatch, the graded non-ignition ladder, the close-basis stop, a staged pilot entry and
+    the room-to-obstacle gate. Every one failed its chronological split or its bootstrap. <b>That is
+    now a fact about the sample, not about the ideas</b>: 331 trades cannot resolve effects of ±1pp,
+    and the regime term (+0.85% vs −0.63% between periods, same screener) is larger than anything
+    measured. The screener's job is selection; further tuning of entry and exit on this sample is
+    not where the next edge is.</p>
   </div>
 </section>
 
@@ -808,6 +874,6 @@ AND Volume shelf = 1 AND Persona in (top three) AND RS >= 0</pre>
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/11 · Bull Screener — the catalyst engine</span>
+  <span>docs/11 · Bull Screener — the catalyst engine · checked 11 Sep 2026</span>
   <span>Companions — <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 Trade Funnel</a> · <a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">27 Backtest Court</a></span>
 </div></footer>

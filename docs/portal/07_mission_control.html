@@ -192,6 +192,7 @@ footer a{color:var(--acc)}
     <li><a href="#catalyst">Catalyst → style</a></li>
     <li><a href="#dash">The Dashboard</a></li>
     <li><a href="#command">The Command Center</a></li>
+    <li><a href="#shield">Risk Shield</a></li>
     <li><a href="#flows">Workflows</a></li>
     <li><a href="#pages">Every page in detail</a></li>
     <li><a href="#ops">Operating notes</a></li>
@@ -236,6 +237,15 @@ footer a{color:var(--acc)}
   <p>The grouping is not alphabetical or by module — it follows the clock.</p>
   <div class="groups">
 
+    <div class="grp"><div class="hd"><p class="t">🎛️ Control Centre</p><p class="w">What you own, right now</p></div>
+      <div class="pgs">
+        <div class="pg"><span class="n">DASHBOARD</span><span class="j">Your open book — health vitals, live P&amp;L, exit scan, correlation risk</span></div>
+        <div class="pg"><span class="n">PORTFOLIO</span><span class="j">Factor exposure, value-at-risk, stress tests</span></div>
+        <div class="pg"><span class="n">COMMAND</span><span class="j">Trade management — exit and trail engines, GTT book, alerts, agents</span></div>
+        <div class="pg"><span class="n">RISK SHIELD</span><span class="j">Three tabs — the Morning Approval Dashboard, Active Exits (OCO), and the pyramid / trim ladder</span></div>
+        <div class="pg"><span class="n">ACTION CENTER</span><span class="j">Everything pending that wants a decision, in one list</span></div>
+      </div></div>
+
     <div class="grp"><div class="hd"><p class="t">🩺 State of Market</p><p class="w">First, always</p></div>
       <div class="pgs">
         <div class="pg"><span class="n">MACRO</span><span class="j">Global risk, VIX, currencies, commodities, sector rotation</span></div>
@@ -243,10 +253,9 @@ footer a{color:var(--acc)}
         <div class="pg"><span class="n">NEWS</span><span class="j">Live feeds plus paid analyst recommendations, filterable per stock</span></div>
       </div></div>
 
-    <div class="grp"><div class="hd"><p class="t">📅 Daily Intel</p><p class="w">08:30 · midday · 16:30</p></div>
+    <div class="grp"><div class="hd"><p class="t">📅 Daily Intel</p><p class="w">Before the open · after the close</p></div>
       <div class="pgs">
         <div class="pg"><span class="n">PRE-MARKET</span><span class="j">Overnight pulse, calendar, options positioning, the AI brief</span></div>
-        <div class="pg"><span class="n">DASHBOARD</span><span class="j">Your open book — health vitals, live P&amp;L, exit scan, correlation risk</span></div>
         <div class="pg"><span class="n">POST-MARKET</span><span class="j">EOD summary, provisional flows, top movers</span></div>
       </div></div>
 
@@ -256,12 +265,11 @@ footer a{color:var(--acc)}
         <div class="pg"><span class="n">WATCHLIST</span><span class="j">Generate and sync lists, smart rank, sector database, track record</span></div>
         <div class="pg"><span class="n">X-RAY</span><span class="j">Single-stock fundamental deep dive with scorecards</span></div>
         <div class="pg"><span class="n">ETF</span><span class="j">Rotation, asset-class regime, liquidity scoring</span></div>
-        <div class="pg"><span class="n">PORTFOLIO</span><span class="j">Factor exposure, value-at-risk, stress tests</span></div>
       </div></div>
 
     <div class="grp"><div class="hd"><p class="t">⚡ Execution</p><p class="w">Live, during the session</p></div>
       <div class="pgs">
-        <div class="pg"><span class="n">COMMAND</span><span class="j">Trade management — exit and trail engines, GTT book, alerts, agents</span></div>
+        <div class="pg"><span class="n">GOLDEN MATCHER</span><span class="j">The trigger board and the single-symbol decision path — where the day's shortlist is armed, and where the two chart bundles are copied from</span></div>
         <div class="pg"><span class="n">OPTIONS</span><span class="j">Live chain — put-call ratio, max pain, open interest, volatility skew</span></div>
         <div class="pg"><span class="n">TV SIDECAR</span><span class="j">Quick quote, key levels and a small chart beside your real chart</span></div>
       </div></div>
@@ -279,6 +287,27 @@ footer a{color:var(--acc)}
       </div></div>
 
   </div>
+  <div class="note">
+    <span class="tag">Two pages that are not where you would look for them</span>
+    <p><b>There is no PYRAMID page.</b> The add / trim / reduce ladder is computed inside
+    <b>RISK SHIELD</b>, which is the right place for it — an add is a decision about a position
+    you already hold, and it has to be read next to that position's stop, not on a screen of its
+    own.</p>
+    <p><b>GOLDEN MATCHER sits under Execution, not Discovery</b>, and the distinction is the
+    whole architecture: <em>the watchlists qualify, the board times</em>. By the time a name
+    reaches the board it has already been chosen. What is left is when.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">Two buttons on the Golden Matcher that produce text, not orders</span>
+    <p>The board builds a <b>one-paste bundle</b> — everything the chart cannot compute for itself:
+    what qualified each name, its fundamental verdicts, its board rank. A second button builds an
+    <b>options bundle</b> — put-call ratio, max pain and the writer strikes, for the F&amp;O names
+    only. Both are pasted into the chart indicator, into <b>two separate fields</b>; putting one in
+    the other's field wipes it. The options bundle is a button rather than part of the rebuild
+    because it costs one broker call per name at one call every three seconds.</p>
+  </div>
+
   <div class="note">
     <span class="tag">The sidebar's one-click button</span>
     <p><b>Run Auto-Pilot</b> fires the whole daily pipeline — scanners, fundamentals, matcher,
@@ -395,8 +424,42 @@ footer a{color:var(--acc)}
     <span class="tag">A launcher that spawns a dead script tells you nothing</span>
     <p>These buttons fire scripts in separate consoles. If one has crashed at launch — a missing
     dependency, an expired token — <b>the page still shows a successful click</b>. When an agent
-    seems to have stopped working, check its log rather than the button. One of these ran dead for
-    weeks before anyone noticed.</p>
+    seems to have stopped working, check its log rather than the button. The trail ran dead for
+    six weeks this way, twice: once on a missing dependency, once because the daemon it was
+    scheduled inside restarts with the app and had fired exactly once. <b>Since 9 September the
+    trail is a Windows Task Scheduler job</b> (<code>GTT_Trail_Daily</code>, 15:45), outside the
+    app entirely, with a pre-flight lint that Telegrams a code fault instead of leaving a job that
+    looks like it ran.</p>
+  </div>
+</section>
+
+<section id="shield">
+  <h2><span class="n">08b</span>Risk Shield — the three tabs</h2>
+  <p>One page, three jobs, in the order you use them across a day. All three read the same
+  brain: <code>risk_common</code> for the Chandelier and trade type, <code>pyramid_logic</code> for
+  the ladder, and the live broker book for what is actually resting.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Tab</th><th>What it is for</th></tr></thead>
+    <tbody>
+      <tr><td class="k">✅ Morning Approval Dashboard</td><td><b>Added 9 September.</b> The trail engine's proposals — one row per resting order ID, not per symbol, because eleven of fifteen names carry two OCOs and both stop legs need moving. Each row shows the current stop, the proposed Chandelier, the tighten in %, the trade type and the size action from the ladder. You can edit a proposed stop, tick the rows you approve, and press <em>Execute Approved SL Updates on Dhan</em>. The button enforces tighten-only; a row whose Chandelier sits above the LTP is shown as <b>BREACHED</b> and never pushed; trail-only cells stay blank on rows that have nothing to trail. The same engine runs unattended at 15:45 — this tab is for the days you want eyes on the batch first</td></tr>
+      <tr><td class="k">🎯 Active Exits (OCO)</td><td>One tile per position: what is <b>at Dhan now</b> on the left, the <b>recommended</b> levels on the right (policy R off the entry-fixed risk unit, tighten-only stop), the SL's ATR multiple from entry, the Chandelier gap from the LTP, and a timeline with the trail marker. Legs off the R-canon are flagged <code>⚠ vs 2.0R</code>. The AI review on each tile is prompted with the ladder's verdict, so it reconciles with the Pyramid tab instead of contradicting it</td></tr>
+      <tr><td class="k">⚖️ Pyramid / Trim</td><td>The five-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD, priority order, best-of-each across the three engines. An ADD row carries the raised stop it implies (<em>RAISE stop → ₹X</em>) and never a lower one. The trade type is the ladder: journal Timeframe → setup prefix → stop distance in ATR → chart, first rung that can answer wins, and the badge prints which rung did</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Two things fixed on 10 September, both worth knowing the shape of</span>
+    <p><b>Pressing RISK SHIELD opened the Journal underneath it.</b> One line imported the
+    journal module for a filename, and that module is a whole Streamlit app that paints on
+    import. Golden Matcher had been importing it earlier by accident, which is why only Risk
+    Shield wore it. Fixed by reading the constant without executing the module, and guarded by a
+    test that flags any page-level import of a module that paints — a comment had already warned
+    about this once and three call sites imported it anyway.</p>
+    <p><b>Tile text was unreadable.</b> Border tokens (<code>--bull-rule</code>) had been used as
+    text colour across the app — 3.5:1 on the green tiles, worse elsewhere — and one case hid
+    behind a variable so a literal search missed it. A contrast sweep now resolves every text
+    colour against the background declared in the same string literal; grounds are
+    <code>surface*</code>, text is <code>ink*/muted</code>, and <code>-rule</code> is only ever a
+    border.</p>
   </div>
 </section>
 
@@ -479,7 +542,8 @@ footer a{color:var(--acc)}
     <li><b>Calendar</b> — economic and corporate events.</li>
     <li><b>Options</b> — the pre-market snapshot: put-call ratios by open interest and volume, max
     pain, at-the-money volatility, and the <b>call and put walls</b> — the strongest open-interest
-    strikes, which act as magnet and support.</li>
+    strikes, which act as magnet and support. Same broker-sourced chain as the Options Desk, so it
+    reads before the open rather than only during the session.</li>
     <li><b>Paid feed</b> — filtered to overnight and morning-brief headlines.</li>
   </ul>
   <h4>Dashboard — the open book</h4>
@@ -550,6 +614,16 @@ footer a{color:var(--acc)}
   <p>The live chain with a spot, put-call ratio and max-pain snapshot, a strike-range slider
   driving open interest, change in open interest, volatility skew, and a near-the-money table.
   Plus external links and a concepts reference.</p>
+  <p><b>The chain comes from the broker, not the exchange.</b> The exchange serves a chain only
+  around market hours and its index endpoint returns a hard 404 — index chains had been failing
+  <em>permanently</em> rather than intermittently. The broker answers after hours and is
+  authenticated rather than cookie-scraped; the exchange stays as a fallback. The cost is a rate
+  limit of <b>one request every three seconds</b>, which is why a multi-symbol build is slow by
+  design and not stuck.</p>
+  <p><b>A field that could not be read now renders as a dash, never a zero.</b> That distinction
+  matters off this page more than on it: three of these numbers travel to the chart as drawn price
+  levels, and a max pain of zero draws a confident line below every stop that looks exactly like a
+  real one.</p>
   <h4>TV Sidecar</h4>
   <p>A quote strip, <b>key technical levels</b> — price against each major average with distance,
   the ten-day range, and ATR — and a multi-panel chart. A fast read-out to glance at while your
@@ -589,7 +663,8 @@ footer a{color:var(--acc)}
   <b>the journal you open is already reconciled</b> rather than something you have to reconcile
   first.</p>
   <p class="refnote">A legacy fundamentals page still exists in the code but was absorbed into
-  X-Ray and is no longer in the sidebar.</p>
+  X-Ray and is no longer in the sidebar. A second copy of the journal also lives in
+  <code>pages/3_journal.py</code>; it duplicates the standalone and is due for removal.</p>
   </div></details>
 
   <details class="ref"><summary>The modules underneath — and how to use this list</summary><div class="rb">
@@ -616,6 +691,9 @@ footer a{color:var(--acc)}
       <tr><td class="k">A launcher seemed to do nothing</td><td>It runs in a separate console. Watch that console, then come back and refresh</td></tr>
       <tr><td class="k">A page shows stale numbers</td><td>Most pages cache. Use the page's own refresh rather than reloading the browser</td></tr>
       <tr><td class="k">A screener returns almost nothing</td><td>Often the fundamental join, not the signal — some lists lose most of their names to it. Check the count before concluding the market is empty</td></tr>
+      <tr><td class="k">A page paints a whole other app under its header</td><td>Something on that page imported a module that is itself a Streamlit app. Fixed for Risk Shield on 10 Sep and guarded by a test; if it recurs on another page, look for a page-level <code>import</code> of the journal module and read the value without executing it</td></tr>
+      <tr><td class="k">Text in a tile is faint or invisible</td><td>A border token used as a text colour. Grounds are <code>surface*</code>, text is <code>ink*</code> / <code>muted</code>, <code>-rule</code> is only ever a border. <code>docs_audit/ui_contrast_sweep.py</code> lists every pairing below 4.5:1</td></tr>
+      <tr><td class="k">Morning Approval Dashboard has blank cells</td><td>Trail-only columns are blank on rows that have nothing to trail, and a row is never pre-ticked when it cannot execute. A BREACHED row is shown, not pushed</td></tr>
     </tbody>
   </table></div>
   <div class="note">
@@ -632,6 +710,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/07 · Weinstein Commander Web</span>
+  <span>docs/07 · Weinstein Commander Web · checked 11 Sep 2026</span>
   <span>Companions — <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">The Commander Bible</a></span>
 </div></footer>

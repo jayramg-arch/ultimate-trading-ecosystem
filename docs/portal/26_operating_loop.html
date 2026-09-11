@@ -126,8 +126,9 @@ footer em{color:var(--ink-2)}
     <p class="eyebrow">Process · GM + S4 ecosystem</p>
     <h1>The Operating Loop</h1>
     <p class="dek">The machine qualifies overnight, <b>you arm in the evening</b>, the alerts
-      watch the session, and you only open a chart when one fires. Everything on this page is
-      either automatic or one of two moments that need judgement.</p>
+      watch the session, and you only open a chart when one fires. Everything here is either
+      automatic or one of two moments that need judgement &mdash; and the second of those is
+      <b>reading the S4 panel</b>, which now has its own section.</p>
   </div>
 </header>
 
@@ -143,7 +144,7 @@ footer em{color:var(--ink-2)}
     <tbody>
       <tr><td class="n">QUALIFY</td><td>Chartink · Screener.in · Pullback Finder · Recovery RFF</td><td>Does this name belong on the list at all?</td><td class="n warn">timing</td></tr>
       <tr><td class="n">TIME</td><td>GM Trigger Board</td><td>Which qualified names deserve attention right now?</td><td class="n warn">the plan</td></tr>
-      <tr><td class="n">EXECUTE</td><td>S4 on TradingView</td><td>Entry, stop, target — and is it worth taking?</td><td class="n warn">qualification</td></tr>
+      <tr><td class="n">EXECUTE</td><td>S4 on TradingView</td><td>Entry, stop, target &mdash; and is it worth taking? <b>Five gates</b>, one of them non-technical.</td><td class="n warn">qualification</td></tr>
       <tr><td class="n">MANAGE</td><td>Risk Shield · Pyramid · GTT</td><td>What do I do now that I own it?</td><td class="n warn">entries</td></tr>
     </tbody>
   </table></div>
@@ -175,8 +176,15 @@ footer em{color:var(--ink-2)}
         <p class="t">GTT Trail<span class="who">automatic</span></p>
         <p class="d">Tighten-only Chandelier on the live OCO stop legs, catalyst-aware
           (POS 4.5× / SWG 1.5× ATR). Telegrams a summary. Never loosens a stop, never sells.</p>
-        <p class="d"><b>Currently disarmed</b> (<span class="m">GTT_TRAIL_ENABLED=0</span>) while you
-          set stops by hand. Re-arm with a <span class="m">--dry-run</span> first.</p>
+        <p class="d"><b>Live again since 9 September</b> as a Windows Task Scheduler job
+          (<span class="m">GTT_Trail_Daily</span>, 15:45 Mon–Fri, <span class="m">run_gtt_trail.bat</span>)
+          rather than a job inside the app's scheduler, which had fired exactly once on 24 July
+          and never again while three stops sat 7–17% under their Chandelier. Pre-flight lints
+          the code first and Telegrams any fault, so a broken job shows up as a message instead of
+          silence. Every run logs to <span class="m">logs/gtt_shield.log</span>.</p>
+        <p class="d">Two OCOs per name is the normal case (11 of 15 holdings), and both stop legs are
+          trailed; a stop that has already run past its Chandelier is reported <b>BREACHED</b>
+          and never sold by the machine.</p>
       </div>
     </div>
 
@@ -212,8 +220,20 @@ footer em{color:var(--ink-2)}
           <li><b>Restart clean.</b> <span class="m">STOP_COMMANDER.bat</span> → relaunch. A browser reload does not reload code.</li>
           <li><b>Rebuild the board</b> — <em>Fetch fresh data + rebuild</em> (it rebuilds itself; don't also press Rebuild).</li>
           <li><b>Read the header before the rows.</b> Failure counts, source-issue strip, provenance, AGE. An empty source list means part of the shortlist is silently missing.</li>
-          <li><b>Work top-down.</b> The board opens filtered to all-gates (4/4), sorted by Overall. Open Single Symbol on anything worth attention.</li>
+          <li><b>Work top-down.</b> The board opens filtered to all-gates, sorted by Overall.
+            Open Single Symbol on anything worth attention. Its S4-GO column counts the same
+            <b>five gates</b> S4 chips; a row tagged <span class="m">F?</span> passed the fifth
+            by default because the books were never scored. The board predicts; S4 decides.</li>
           <li><b>ARM what you intend to stalk.</b> The highest-value action of the evening — an armed name is injected into every later board union with the archetypes it had when armed, so it survives after it stops qualifying.</li>
+          <li><b>Copy both pastes into S4.</b> The one-paste bundle, and &mdash; for F&amp;O
+            names &mdash; <em>Build options bundle</em> into the <b>second</b> field. Two fields
+            because <span class="m">input.string</span> caps near 4,096 characters and the first
+            is already ~9,200; pasting bundle&nbsp;2 into field&nbsp;1 wipes every list in it.</li>
+          <li><b>Run the reviewer over the GO rows</b> &mdash; <span class="m">python s4_review.py --board 75m</span>
+            (and 125m). About a minute a name; it switches both charts, reads S4 and Section Five off
+            the canvas, and writes a case-for / case-against and a ruling per name into
+            <span class="m">logs/ai_reviews/</span>. Read it for the reasoning; take the R numbers
+            from the canon line it prints, not from the prose.</li>
           <li><b>Create tomorrow's alert</b> on the new dated watchlist.</li>
           <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
         </ol>
@@ -226,6 +246,12 @@ footer em{color:var(--ink-2)}
         <p class="t">Dhan token check · pre-market brief<span class="who">automatic</span></p>
         <p class="d">The token job matters more than it looks: without it the feed silently
           falls back to yfinance.</p>
+        <p class="d"><b>Morning Approval Dashboard</b> (Risk Shield) &mdash; the same trail engine's
+          proposals, one row per resting order, editable, with a single <em>Execute Approved SL
+          Updates</em> button. Tighten-only is enforced at the button; BREACHED names are shown
+          and never pushed; the size action per name comes from the pyramid ladder, so it cannot
+          contradict the Pyramid page. Use it when you want eyes on the batch before the broker
+          sees it; the 15:45 job runs regardless.</p>
       </div>
     </div>
 
@@ -261,7 +287,12 @@ footer em{color:var(--ink-2)}
   <ol class="mini">
     <li><b>Check the source-issue strip first.</b> On a thin auto-pilot day you would otherwise arm a near-empty watchlist and lose a day of coverage silently.</li>
     <li><b>Delete yesterday's alert.</b> Left running it fires on names that already dropped out, and eats the alert quota.</li>
-    <li><b>Create today's</b> — condition <span class="m">S4 GO (PA + Location + Volume + Bar)</span>, trigger <b>Once Per Bar Close</b>, app push on, named to match the watchlist: <span class="m">S4 GO · GM-20AUG · 75m</span>.</li>
+    <li><b>Create today's</b> &mdash; condition <span class="m">S4 GO (PA + Location + Volume + Bar)</span>,
+      trigger <b>Once Per Bar Close</b>, app push on, named to match the watchlist:
+      <span class="m">S4 GO · GM-20AUG · 75m</span>. <em>That condition NAME is stale &mdash; it
+      lists four gates and the alert now fires on five, fundamentals included. It is cosmetic,
+      it needs a compile to fix, and a compile deletes every alert &mdash; so it is left until
+      the next one.</em></li>
     <li><b>Repeat on a 125m chart.</b> An alert inherits the chart's resolution, so each timeframe needs its own.</li>
   </ol>
   <div class="tw"><table>
@@ -292,13 +323,16 @@ footer em{color:var(--ink-2)}
   <p class="pt">On the ping</p>
   <h2>The execution path</h2>
 <pre><b>ping</b>  →  open S4 on the alert's timeframe
+      →  <b>s4_review.py SYMBOL --tf 75</b>   (optional, ~1 min: the deliberated second read)
       →  read the <b>SUMMARY</b> (bottom-right column) first
       →  run the <b>12-step checklist</b>, stop at the first NO
       →  size at 1% risk on the <b>honest stop</b> (≥ 1×ATR)
       →  place entry + GTT stop
       →  <b>log the decision</b>, including a pass</pre>
-  <p><b>Read the SUMMARY before the rows.</b> It is the only field that weighs one section
-    against another, and its last line tells you which case you are in:</p>
+  <p><b>Read the SUMMARY before the rows.</b> It is the only field on the panel that weighs
+    one section against another, and its last line tells you which case you are in. It is also
+    a fixed template &mdash; it can restate rows, it cannot argue &mdash; which is what the reviewer
+    is for when the ruling and your read disagree:</p>
   <div class="tw"><table>
     <thead><tr><th>The SUMMARY says</th><th>Meaning</th></tr></thead>
     <tbody>
@@ -314,6 +348,118 @@ footer em{color:var(--ink-2)}
 </section>
 
 <section>
+  <p class="pt">At the chart</p>
+  <h2>Reading the S4 panel</h2>
+  <p class="lede">Forty-odd rows in six sections. They are not equal, and they are not read
+    top to bottom &mdash; the panel reasons in an order, and following it is what stops you
+    arguing yourself into a trade one row at a time. <b>Section Five sits on the second
+    chart</b>: the real footprint delta, the Wyckoff ladder and the geometry read live there,
+    because they cannot share a chart with S4 without killing its panel.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>Read</th><th>Section</th><th>The question</th><th>If it fails</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1st</td><td>SUMMARY <em>(right column)</em></td><td>What does the whole panel mean together?</td><td class="n">start here always</td></tr>
+      <tr><td class="n">2nd</td><td>I · Macro &amp; context</td><td>Does this name belong on a chart at all?</td><td class="n warn">close the chart</td></tr>
+      <tr><td class="n">3rd</td><td>II · Location, value &amp; room</td><td>Is <em>this price</em> the place? (Room is information here &mdash; measured 11 Sep, it does not predict outcome.)</td><td class="n warn">wait for a pullback</td></tr>
+      <tr><td class="n">4th</td><td>III · Execution &amp; timing</td><td>Is it firing right now?</td><td class="n warn">let the alert wait</td></tr>
+      <tr><td class="n">5th</td><td>IV · Decision synthesis</td><td>The ruling, and the one blocking gate</td><td class="n">&mdash;</td></tr>
+      <tr><td class="n">6th</td><td>V · Plan &amp; risk</td><td>What do I type into the broker?</td><td class="n">&mdash;</td></tr>
+    </tbody>
+  </table></div>
+
+  <p><b>The order matters more than any single row.</b> Section II can be perfect on a name
+    Section I has already disqualified &mdash; and a good location is exactly what makes a bad
+    name tempting. Reading downward means the disqualifier arrives before the temptation.</p>
+
+  <h3>The five gates, and the two that do not fire</h3>
+  <p>The TRIGGER row shows six chips. <b>Five of them can stop a trade:</b></p>
+  <div class="tw"><table>
+    <thead><tr><th>Chip</th><th>Gate</th><th>Blank means</th></tr></thead>
+    <tbody>
+      <tr><td class="n">P</td><td>A pattern fired on the last closed bar</td><td>nothing has triggered &mdash; the alert has not gone off yet</td></tr>
+      <tr><td class="n">L</td><td>Price is at a location the engine can name</td><td>no zone, level, AVWAP or S/R under price &mdash; nothing defines <em>wrong</em></td></tr>
+      <tr><td class="n">V</td><td>Relative volume clears the floor</td><td>the move has no participation behind it</td></tr>
+      <tr><td class="n">B</td><td>The trigger bar closed strong</td><td>a red or weak-closing bar &mdash; the pattern fired into selling</td></tr>
+      <tr><td class="n">F</td><td><b>The Golden Matcher's fundamental verdict</b></td><td>books under the floor, or the name was never scored</td></tr>
+      <tr><td class="n">R</td><td>RRG rotation &mdash; <b>chipped but off by default</b></td><td>it never vetoes; it is there to be seen, not obeyed</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><span class="lbl">Why F exists at all</span>
+    <p>It is the first non-technical term in the gate, and it is there because <em>"I do not
+      want the trade outcome to be entirely based on technicals."</em> S4 cannot compute it &mdash;
+      TradingView caps financial calls, and BFF needs a growth table no Pine surface can reach
+      &mdash; so it does not judge, it <b>applies</b> the score the board already computed and you
+      pasted in. A blank F on a name you know is sound usually means <b>you have not pasted the
+      bundle</b>, not that the company is weak.</p>
+  </div>
+
+  <h3>The rows that were added on 1 September</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>What to do with it</th></tr></thead>
+    <tbody>
+      <tr><td class="n">Futures OI<br><em>+ basis L / S</em></td>
+          <td>The four-state read is the most actionable line on the panel. <b>Short covering</b>
+          &mdash; price up, OI down &mdash; means the rally is shorts exiting, not new buying.
+          Do not chase it. The two basis prices are where longs and shorts were built: above the
+          long basis they are in profit and defend a pullback; below it, that basis is
+          <b>resistance until reclaimed</b>.</td></tr>
+      <tr><td class="n">Options OI</td>
+          <td>PCR, max pain, total OI, the ATM shift, and the two <b>writer strikes</b>. Only the
+          strikes and max pain are prices. Reads <em>no options</em> on the two names in three
+          that have no F&amp;O series &mdash; that is a fact about the name, not a failure.</td></tr>
+      <tr><td class="n">RRG<br><em>(N500 / sector)</em></td>
+          <td>Now carries the stock against <b>its own sector</b> as well as the index. Leading
+          the index while lagging the sector means the group is carrying it.</td></tr>
+      <tr><td class="n">Momentum<br><em>ADX(D) · VCP-BO</em></td>
+          <td>ADX is on the <b>daily</b> clock now, so it no longer disagrees with the daily ATR
+          beside it. <b>VCP-BO</b> is an <em>event</em> &mdash; a breakout fired on this bar. Blank
+          is normal: it fires on ~1.5% of bars.</td></tr>
+      <tr><td class="n">S/R<br><em>&hellip; TL&#10003;</em></td>
+          <td>The trendline token. <span class="m">TL&#10007;</span> is an alarm, not a state:
+          the toggle is on and nothing is sensed, which means the binding was left on
+          <span class="m">close</span>.</td></tr>
+      <tr><td class="n">Structure basis</td>
+          <td>On an index/ETF pair this now reads <b>PHASE 1</b> or <b>PHASE 2</b>, not Stage
+          &mdash; because Stage means Weinstein everywhere else, and the two were colliding on
+          one screen.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>The five drawn levels</h3>
+  <p>One toggle puts up to five dashed rays on the chart: the futures <b>long</b> and
+    <b>short</b> basis, option <b>max pain</b>, and the strikes with the most written
+    <b>PE</b> and <b>CE</b> open interest. Dashed and labelled so they never read as your own
+    zones. Fewer than five is normal &mdash; a futures side needs three OI prints before it
+    draws at all.</p>
+
+  <div class="note"><span class="lbl">These grade. They never gate.</span>
+    <p><b>None of this is validated.</b> Round numbers were measured and did not replicate;
+      Wyckoff was rejected twice, as a veto and as a score. Options positioning is a
+      <em>monthly-expiry</em> structure and your book runs 8&ndash;12 weeks to 6&ndash;8 months,
+      so it informs the next few weeks &mdash; entry and first target &mdash; and says nothing
+      about the thesis. Treat it exactly like arrival and delta: it can talk you <b>out</b> of a
+      trade, never into one.</p>
+  </div>
+
+  <div class="tw"><table>
+    <thead><tr><th>The read</th><th>Use it for</th></tr></thead>
+    <tbody>
+      <tr><td class="n">Short covering</td><td><b>Do not chase.</b> The strongest of these, and the only one with an action already attached.</td></tr>
+      <tr><td class="n">CE-writer strike</td><td>A ceiling the zone engine cannot see. If T1 sits above it, the reward is fighting option positioning.</td></tr>
+      <tr><td class="n">PE-writer strike</td><td>A floor from an independent observer. Coinciding with a demand zone is genuine confluence.</td></tr>
+      <tr><td class="n">Long basis</td><td>Stop-crowding check. A stop just below it sits where every marginal long's pain is &mdash; a natural sweep target.</td></tr>
+      <tr><td class="n">PCR</td><td>Shade size on an extended entry. Never direction, never on one stock alone.</td></tr>
+      <tr><td class="n">Max pain</td><td>A magnet in expiry week. <b>Never a target.</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>The honest next step is not to trust any of this &mdash; it is to <b>log it</b>. The review
+    log now carries the CE-writer strike and the OI state on every row. After ~20 F&amp;O rows,
+    entered-below-the-writers versus entered-above can be compared against realised R, and this
+    becomes evidence or it goes in the bin with round numbers.</p>
+</section>
+
+<section>
   <p class="pt">After the entry</p>
   <h2>Management</h2>
   <div class="tw"><table>
@@ -321,17 +467,20 @@ footer em{color:var(--ink-2)}
     <tbody>
       <tr><td class="n">Risk Shield → Active Exits</td><td>Live stop/target picture per position, with the Chandelier and the policy-R check.</td></tr>
       <tr><td class="n">Pyramid / Trim</td><td>The five-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD.</td></tr>
-      <tr><td class="n">gtt_auto_shield --trail</td><td>Tighten-only trail at the broker, when re-armed.</td></tr>
+      <tr><td class="n">gtt_auto_shield --trail</td><td>Tighten-only trail at the broker &mdash; scheduled 15:45 daily, and on demand from the Morning Approval Dashboard.</td></tr>
       <tr><td class="n">journal_sync</td><td>Keeps the journal equal to the live Dhan book, daily.</td></tr>
     </tbody>
   </table></div>
   <p><b>88% of positional exits come from the trail</b>, and only 8.4% ever reach 3R. Targets
-    are upside; the trail is the mechanism. Do not tighten it — four studies have rejected that.</p>
+    are upside; the trail is the mechanism. Do not tighten it &mdash; five stop studies have
+    rejected changing it, the fifth (9 Sep) on the trigger basis rather than the distance:
+    exiting on the daily close instead of the intraday low rescued the wicks and paid for it
+    exactly in worse fills.</p>
 </section>
 
 <section>
   <p class="pt">Hygiene</p>
-  <h2>The eight things that fail silently</h2>
+  <h2>The nine things that fail silently</h2>
   <p class="lede">Each of these has already cost a day or more. None of them announces itself.</p>
   <div class="tw"><table>
     <thead><tr><th>Check</th><th>Symptom when it fails</th></tr></thead>
@@ -344,6 +493,11 @@ footer em{color:var(--ink-2)}
       <tr><td>Dhan token</td><td>feed quietly falls back to yfinance</td></tr>
       <tr><td>GTT trail actually running</td><td>stops never ratchet</td></tr>
       <tr><td>Every position has a resting stop</td><td>naked exposure</td></tr>
+      <tr><td>Both bundles pasted into S4</td><td>F reads blank and the Options OI row says "no options" on names that have them &mdash; looks like weak fundamentals, is a missing paste</td></tr>
+      <tr><td>A 5/5 tagged <span class="m">F?</span></td><td>the books were never scored &mdash; the fifth gate passed by default, and the chart will show a blank F for the same reason</td></tr>
+      <tr><td>Section Five on its own chart</td><td>S4's panel vanishes with "Memory limits exceeded" &mdash; Pine meters memory per chart, and the footprint cannot share one with S4</td></tr>
+      <tr><td>The board is fresh before the reviewer runs</td><td>the reviewer warns past six hours; ignored, you are reading last session's GO rows against today's chart</td></tr>
+      <tr><td class="n">Guides still match the code</td><td>you act on a number the code stopped producing weeks ago — the page reads fine, because nothing on it is marked wrong</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -359,6 +513,7 @@ footer em{color:var(--ink-2)}
       <tr><td class="n">Weekly</td><td>ETF screener + rotation</td><td>A separate alpha source — rotation-driven, not stock-picking</td></tr>
       <tr><td class="n">Monthly</td><td>Attribution (AUTOPSY → 📐)</td><td>P&amp;L by setup / stage / RS / conviction — meaningful only for system-tagged trades</td></tr>
       <tr><td class="n">On code change</td><td>Re-baseline validation</td><td>Any signal change invalidates prior walk-forward and Strategy Tester numbers</td></tr>
+      <tr><td class="n">Daily, post-close</td><td>Docs truth check (<span class="m">DOCS_TRUTH_CHECK</span>)</td><td>Reports which code facts MOVED and which guide pages cite each one. Reports only — a moved fact can mean the doc is stale <em>or</em> that the code change was the mistake, and both have happened</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -366,10 +521,10 @@ footer em{color:var(--ink-2)}
 <section>
   <p class="pt">Compressed</p>
   <h2>The whole loop</h2>
-<pre>15:45  trail tightens              (auto)
-16:00  exit scan                   (auto)
+<pre>16:00  exit scan                   (auto)
 16:30  auto-pilot + journal sync   (auto)
-─────  <b>EVENING: restart · rebuild · read · ARM · tomorrow's alert</b>   ← you
+15:45  <b>GTT trail</b> (Task Scheduler, tighten-only)   (auto)
+─────  <b>EVENING: restart · rebuild · read · review · ARM · tomorrow's alert</b>   ← you
 09:15  session — do not watch the board
  ping  <b>S4 → SUMMARY → checklist → size → order → log</b>                ← you
 15:30  close</pre>

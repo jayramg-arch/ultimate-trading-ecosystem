@@ -215,6 +215,7 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#cols">The columns</a></li>
     <li><a href="#s4go">S4-GO grammar</a></li>
+    <li><a href="#handoff">The two pastes</a></li>
     <li><a href="#cadence">Refresh cadence</a></li>
     <li><a href="#armed">The Armed Register</a></li>
     <li><a href="#pullback">The Pullback Finder</a></li>
@@ -224,7 +225,6 @@ footer a{color:var(--acc)}
     <li><a href="#path">The six-step path</a></li>
     <li><a href="#gates">Gates &amp; thresholds</a></li>
     <li><a href="#exec">The guided execution</a></li>
-    <li><a href="#bundle">The one-paste bundle</a></li>
   </ol>
   <p>Using it</p>
   <ol>
@@ -252,6 +252,14 @@ footer a{color:var(--acc)}
     engines drifting — it was a symbol-normalisation slip, a different timeframe, or one view
     holding fresher data than the other. All three are now closed, and both views share a single
     Refresh.</p>
+  </div>
+  <div class="note">
+    <span class="tag">ETFs and indices — PHASE, not Stage</span>
+    <p>An ETF row carries its <b>index</b> for structure and the <b>ETF</b> for the trigger. Those
+    two steps were called Stage 1 and Stage 2 until 1 September, which collided with the Weinstein
+    stage printed three rows away on the same screen. They are now <b>PHASE 1</b> and
+    <b>PHASE 2</b>; the watchlist emits each index adjacent to its ETF so the pair stays together
+    however you sort.</p>
   </div>
   <p><b>Put the board on the second monitor and keep TradingView on the primary.</b> The board
   narrows; the chart decides. After any code change, restart the app — a browser reload does not
@@ -290,19 +298,30 @@ footer a{color:var(--acc)}
   <div class="tw"><table>
     <thead><tr><th>Column</th><th>Read it as</th></tr></thead>
     <tbody>
-      <tr><td class="k">Category</td><td>Stage-1 <b>arm</b> state — <code>Buy Trigger Live</code> · <code>Armed Wait</code> · <code>Wait for Pullback</code> · <code>Invalidated</code> · <code>Watchlist</code>. Pure timing, no quality</td></tr>
-      <tr><td class="k">S4-GO</td><td>Stage-2 preview — how many of Section 4's four gates pass now. <b>Sort by this</b></td></tr>
+      <tr><td class="k">Category</td><td>Stage-1 <b>arm</b> state — <code>Buy Trigger Live</code> · <code>Armed Wait</code> · <code>Wait for Pullback</code> · <code>ADD ready</code> (a holding the pyramid ladder rates ADD) · <code>Invalidated</code> · <code>Watchlist</code>. Pure timing, no quality</td></tr>
+      <tr><td class="k">S4-GO</td><td>Stage-2 preview — how many of Section 4's gates pass now. <b>Sort by this.</b> It counts <b>five</b> since 2 September — pattern, location, volume, bar, <b>fundamentals</b> — the same five the chart chips. A name the floor rejects still shows <code>⛔ funda</code> instead of a count; an <em>unscored</em> name passes and is tagged <code>F?</code> — see section 04</td></tr>
       <tr><td class="k">Archetype</td><td>The inherited thesis. Multi-archetype names show all of them</td></tr>
       <tr><td class="k">Overall</td><td>0–100 opportunity score, independent of category and path</td></tr>
-      <tr><td class="k">Room</td><td>Distance to the <b>first obstacle overhead</b>, in R. <b>Blank means unknown, never clear</b></td></tr>
+      <tr><td class="k">Room</td><td>Distance to the <b>first obstacle overhead</b>, in R. <b>Blank means unknown, never clear.</b> Since 9 September a Daily/Weekly/Monthly S/R level past its lifespan is dropped from the ceiling (the same clock S4 uses), and since 11 September the number is <b>information, not a gate</b>: measured on 331 GO-timed trades, 77% had under 1R and did not do worse, and the obstacle was broken 63–77% of the time. Use it to place T1 and a partial</td></tr>
       <tr><td class="k">Armed</td><td>The bell checkbox, plus how long it has been armed and at what trigger</td></tr>
       <tr><td class="k">Pos</td><td>On pyramid rows: what you already hold, and the add's plan</td></tr>
+      <tr><td class="k">Loc</td><td>Not a tick — <b>it names the state and the kind of evidence</b>.
+      <code>AT pattern D</code> · <code>REACTING off pattern D</code> · <code>AT pivot+conf</code> ·
+      <code>pivot only ✗</code> · <code>APPROACHING pattern D −0.5%</code> · <code>−2.3% → pattern D</code>.
+      Three different trades used to read identically as "AT"; they no longer do</td></tr>
+      <tr><td class="k">→Zone</td><td>Distance to the nearest <b>fresh pattern zone below price</b>,
+      or 0 when price is already at one. <b>Pivots are deliberately excluded</b> — a queue built from
+      pivot shelves would recreate the problem one step earlier. This turns a strict gate from an
+      apparent signal shortage into a watch list: measured across 76 names, <b>82.9% HAVE a fresh
+      pattern zone but only 3.9% have price inside one</b>. The zones are not scarce; price is
+      rarely at them</td></tr>
       <tr><td class="k">Entry · SL · T1 · R:R</td><td>The live plan, recomputed this rebuild</td></tr>
     </tbody>
   </table></div>
   <div class="note">
     <span class="tag">Defaults the board opens with</span>
-    <p>Sorted <b>Overall descending</b> and filtered to <b>all-gates 4/4</b>. Both live in one
+    <p>Sorted <b>Overall descending</b> and filtered to <b>all-gates 5/5</b> — the same five the
+    chart chips. Both live in one
     shared filter definition, so the streaming grid, the static table and the CSV download cannot
     disagree about what you are looking at — and the header states how many rows are hidden, so an
     empty-looking board is never mistaken for a failed build.</p>
@@ -318,18 +337,38 @@ footer a{color:var(--acc)}
   <div class="tw"><table>
     <thead><tr><th>Stem</th><th>Meaning</th></tr></thead>
     <tbody>
-      <tr><td class="m">4/4 GO</td><td>All four gates align <b>on the live bar</b></td></tr>
-      <tr><td class="m">4/4 · PA Nb</td><td>The other three are true now; the pattern fired <b>N bars ago</b> (≤3). Still actionable — but the entry anchors to the <b>bar that fired</b>, which is exactly what Section 4's latch does</td></tr>
-      <tr><td class="m">3/4 · no vol</td><td>Armed, at a location, clean bar — waiting on volume</td></tr>
-      <tr><td class="m">3/4 · no PA</td><td>Location, volume and bar are fine; no pattern</td></tr>
-      <tr><td class="m">2/4 · no loc</td><td>Needs a pullback to a location</td></tr>
+      <tr><td class="m">5/5 GO</td><td>All five gates align <b>on the live bar</b></td></tr>
+      <tr><td class="m">5/5 · PA Nb</td><td>The other four are true now; the pattern fired <b>N bars ago</b> (≤3). Still actionable — but the entry anchors to the <b>bar that fired</b>, which is exactly what Section 4's latch does</td></tr>
+      <tr><td class="m">4/5 · no vol</td><td>Armed, at a location, clean bar, books fine — waiting on volume</td></tr>
+      <tr><td class="m">4/5 · weak bar</td><td>Everything but the bar — it closed red in its lower half</td></tr>
+      <tr><td class="m">4/5 · no funda</td><td>Four technical gates pass and the books sit under the floor. Rare on the board, because a rejected name is normally suppressed to <code>⛔ funda</code> before it reaches here</td></tr>
+      <tr><td class="m">3/5 · no PA</td><td>Location, volume and bar are fine; no pattern</td></tr>
+      <tr><td class="m">2/5 · no loc</td><td>Needs a pullback to a location</td></tr>
       <tr><td class="m">⛔ Stage N</td><td><b>Stage 3 or 4.</b> Sorts below every live count. The gates may well all be true — a topping chart can fire a pattern at a location on volume — but <b>the stage is upstream of all four</b></td></tr>
       <tr><td class="m">n/a</td><td>No usable read. “No data”, not “not attempted”</td></tr>
     </tbody>
   </table></div>
-  <p>The four gates are: a pattern fired · price is at a location · relative volume clears the
-  floor · the bar itself is clean. An <b>unknown</b> bar reading counts as a pass — the board never
-  penalises a missing value.</p>
+  <p>The five gates are: a pattern fired · price is at a location · relative volume clears the
+  floor · the bar itself is clean · the books clear the floor. An <b>unknown</b> bar reading counts
+  as a pass — the board never penalises a missing value.</p>
+  <div class="note">
+    <span class="tag">Fundamentals are counted AND applied — and the two do different jobs</span>
+    <p>Since 2 September the fifth gate is in the count, so the board says <code>5/5</code> where
+    the chart shows five chips. <b>It was always applied</b>: when the floor <em>rejects</em> a name
+    the whole cell still becomes <code>⛔ funda</code> and no count is shown, because <code>5/5</code>
+    is the most eye-catching thing on a glance surface and advertising it on a rejected name invites
+    exactly the trade the floor exists to prevent. What counting added is the third state — a name
+    that was <b>never scored</b> passes the gate and carries <code>F?</code>, so it is no longer
+    indistinguishable from a verified one.</p>
+    <p><b>So a 5/5 without <code>F?</code> has cleared fundamentals on a real score.</b> Read it as
+    <em>worth opening</em> rather than <em>will fire</em> for the ordinary reasons — a location that
+    decays, a different feed, the board leading by design — not because a hidden gate is waiting.</p>
+    <p>The verdict the chart applies is the <b>board's own</b>, pasted across in the bundle. A blank
+    <code>F</code> on the chart therefore means the paste is missing or stale, <b>not</b> that the
+    two disagree about the company. Since 8 September a holding that is <em>not</em> on the board
+    still carries its fundamentals into the bundle, so the chart can score a name you own even when
+    no watchlist qualified it today.</p>
+  </div>
 
   <h4>The suffixes — every one is display-only and never changes the count</h4>
   <div class="glyphs">
@@ -338,7 +377,13 @@ footer a{color:var(--acc)}
       <p>The <b>relaxed</b> gate applied — the volume floor dropped and the bar test became
       <em>held the zone</em> rather than <em>closed strong</em>. Fires only when a contraction
       pattern fired with no expansion pattern <em>and</em> price sits inside a demand zone.
-      <b>This is the setup you are hunting</b>; PB 4/4s sort above breakout 4/4s.</p></div></div>
+      <b>This is the setup you are hunting</b>; PB 5/5s sort above breakout 5/5s.</p></div></div>
+
+    <div class="gly neu"><div class="sym">· F?</div><div class="bd">
+      <p class="nm">Unscored books</p>
+      <p>The fundamental gate <b>passed by default</b> because no score exists for the name — the
+      board never fetched one, or the source returned nothing. Not a fail and not a pass on
+      evidence. The chart will show a blank <code>F</code> for the same reason.</p></div></div>
 
     <div class="gly pos"><div class="sym">· ↑D</div><div class="bd">
       <p class="nm">HTF nesting — up arrow · POSITIVE</p>
@@ -386,6 +431,54 @@ footer a{color:var(--acc)}
     S4 on the chart uses its own engine and <b>is the plan of record</b>. Expect the occasional
     disagreement; <b>when it happens, the chart wins.</b></p>
   </div>
+  <div class="note good">
+    <span class="tag">Since 11 September — the board feeds the reviewer</span>
+    <p><code>python s4_review.py --board 75m</code> takes every <code>N/N GO</code> row of that
+    tab's cache, switches both TradingView charts to the name, reads S4 and Section Five off the
+    canvas, and writes a deliberated TAKE / WAIT / PASS per name with the R-arithmetic recomputed.
+    It warns when the cache is more than six hours old — <b>rebuild before you run it</b>, or you are
+    reviewing yesterday's board against today's chart. Full reviews land in
+    <code>logs/ai_reviews/</code>; the log row has a column for your own call.</p>
+  </div>
+</section>
+
+<section id="handoff">
+  <h2><span class="n">04b</span>The handoff — two pastes, two fields</h2>
+  <p>Section Four cannot see what qualified a name, cannot reach a fundamentals provider, and
+  cannot read an option chain. <b>So the board hands all three across as text</b>, and since
+  1 September that is <b>two</b> pasted fields rather than one.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Carries</th><th>Refresh</th></tr></thead>
+    <tbody>
+      <tr><td class="k">ONE-PASTE bundle</td><td>Path resolution, pullback context, BFF / RFF /
+      Piotroski and their component bitstrings, ETF liquidity and premium, board rank</td>
+      <td>Every watchlist rebuild</td></tr>
+      <tr><td class="k">Bundle 2 — options OI</td><td>PCR, max pain, total CE/PE OI, the ATM shift
+      and the two <b>writer strikes</b>, packed six-per-symbol for F&amp;O names only</td>
+      <td>On demand, via its button</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">They are not interchangeable</span>
+    <p><b>Pasting bundle 2 into the first field wipes every list in it.</b> Two fields exist because
+    TradingView caps a text input near 4,096 characters and the first bundle is already about
+    9,200 — the split is a constraint, not a preference.</p>
+  </div>
+  <p>The options bundle sits behind a button rather than building with the board, because it costs
+  <b>one broker call per F&amp;O name at one call every three seconds</b>. Cash-only names are
+  filtered out first from the scrip master with <b>no network at all</b> — on a 75-name board that
+  is 52 names skipped and roughly three minutes saved. Expect around <b>two and a half minutes</b>
+  and a bundle near 1,100 characters for ~23 F&amp;O names.</p>
+  <div class="note">
+    <span class="tag">Why the chain comes from the broker now</span>
+    <p>The exchange serves an option chain only around market hours and its index endpoint returns
+    a hard 404 — so index chains had been failing <em>permanently</em>, not intermittently. The
+    broker answers after hours, is authenticated rather than cookie-scraped, and is already the
+    primary market-data source. The exchange remains as a fallback.</p>
+    <p><b>A field that could not be read is emitted blank, never zero.</b> Three of these become
+    drawn price levels on the chart, and a max pain of zero renders as a confident line below every
+    stop that looks exactly like a real one.</p>
+  </div>
 </section>
 
 <section id="cadence">
@@ -407,37 +500,6 @@ footer a{color:var(--acc)}
     <p>Background tabs go stale: the refresh runs on a browser timer that the browser throttles
     when the tab is hidden. They catch up a few seconds after you focus them.</p>
   </div>
-</section>
-
-<section id="bundle">
-  <h2><span class="n">04e</span>The one-paste bundle</h2>
-  <pre>REC=TECHM,CIPLA|PB=RELIANCE,TCS|BFF=MCX:5,CGCL:5|RFF=LTM:6|RANK=MCX:71.0</pre>
-  <p>One line under the Trigger Board, into S4's <b>GM: ONE-PASTE bundle</b> input, after every
-  rebuild.</p>
-  <div class="note no">
-    <span class="tag">This replaced a correctness problem, not a chore</span>
-    <p>The page had grown five things to copy. A missed paste does not blank the field in S4 —
-    it leaves the <em>previous</em> list applying, silently, to a board that has moved on.</p>
-  </div>
-  <p><b>Every tag is emitted even when empty</b>, because an empty section is what clears a stale
-  input in S4. The individual blocks below the bundle are kept for overriding one list by hand.</p>
-  <h3>The three score lists</h3>
-  <p><code>BFF</code>, <code>RFF</code> and <code>RANK</code> carry <b>SYM:n pairs</b> — here
-  the number is the message, not membership. They are read <b>from the built board</b>, never
-  re-fetched: it is what the board actually decided, so the chart cannot disagree with the row you
-  clicked through from, and it costs no screener.in calls. A name the board has not scored is
-  <b>absent</b>, which S4 renders as an em-dash.</p>
-  <div class="note">
-    <span class="tag">Cadence differs from Recovery / Pullback</span>
-    <p>Those are a property of the NAME. The scores come from the BOARD — they move every time
-    you rebuild it, so re-paste after each rebuild.</p>
-  </div>
-  <h3>Strike RRG is retired — the calibration, not the tokens</h3>
-  <p>v67.4.21 computes its RRG with <b>STRIKE_CAL</b> (decoupled 25/10/7 lengths plus the
-  origin-preserving affine, <code>ratio_a 0.796</code> / <code>mom_a 3.498</code>, fitted n=17 on
-  weekly Nifty 500) and exports it as the pair S4 binds. The computed quadrant therefore
-  <b>reproduces</b> the Strike.Money read rather than approximating it — so a hand-typed Strike
-  list became a slower copy of the same number. The paste blocks are hidden; the code stays.</p>
 </section>
 
 <section id="armed">
@@ -554,6 +616,24 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="exec">
+  <div class="note">
+    <span class="lbl">What LOCATION actually accepts — three states and two kinds of evidence</span>
+    <p><b>Price does not have to be inside a zone.</b> <code>IN</code> and <code>REACTING</code>
+    (tested once, turning up off it, and not yet two ATR away) both satisfy the gate;
+    <code>APPROACHING</code> is named on the board and deliberately does <b>not</b> — nothing has
+    reacted yet, so honouring it would be buying the touch.</p>
+    <p><b>Rule A2 governs the kind.</b> A pattern zone stands alone; a pivot shelf must be
+    confirmed by an S/R level or an anchored VWAP. Pivot <em>levels</em> — a pivot line, or a
+    "Pivot S→R" once price has reclaimed it — count as pivot evidence and inherit the same
+    requirement. Turning pivots off in settings removes them from zones, location, the drawn lines
+    <b>and</b> the overhead used by Room; that last part <b>flatters R:R</b>, so it is a deliberate
+    trade rather than a free tightening.</p>
+    <p><b>Measured, and it did not settle the question:</b> a pre-registered A/B over
+    eighteen anchors put any-zone, A2 and pattern-only within <b>0.21 percentage points</b> of each
+    other on matched alpha — a null — while the trade count fell <b>221 → 88 → 51</b>. Pattern-only
+    is rarer, not better. A2 ships because the evidence cannot separate them.</p>
+  </div>
+
   <h2><span class="n">10</span>The guided execution</h2>
   <p>At Step 5 the page produces a position size from your capital and risk percentage, halves it
   automatically on counter-trend names, and — when an order block, gap or pivot support sits under
@@ -601,21 +681,21 @@ footer a{color:var(--acc)}
   <p>Folded. The behaviour you rely on daily is above; this is what you open when something on
   screen is unfamiliar or a number moved.</p>
 
-  <details class="ref"><summary>Board defaults — and why the filter matches 4/4, not GO</summary><div class="rb">
+  <details class="ref"><summary>Board defaults — and why the filter matches 5/5, not GO</summary><div class="rb">
   <div class="tw"><table>
     <thead><tr><th>Default</th><th>Behaviour</th><th>Turn it off</th></tr></thead><tbody>
       <tr><td class="k">Sort: Overall descending</td><td>It used to re-sort alphabetically, <b>silently discarding the ranking the board had already applied upstream</b> — which is why the grid always opened in name order. Symbol now breaks ties, so the order is stable between rebuilds</td><td>Click any other header</td></tr>
-      <tr><td class="k">Filter: all gates only</td><td>Keeps rows whose gate cell <b>starts with</b> 4/4. The header states how many rows it is hiding, so <b>an empty-looking board is never mistaken for a failed build</b></td><td>Untick the filter</td></tr>
+      <tr><td class="k">Filter: all gates only</td><td>Keeps rows whose gate cell <b>starts with</b> 5/5. The header states how many rows it is hiding, so <b>an empty-looking board is never mistaken for a failed build</b></td><td>Untick the filter</td></tr>
     </tbody></table></div>
   <div class="note good">
-    <span class="tag">Why the match is 4/4 and not GO — measured</span>
-    <p>The cell reads <code>4/4 GO</code> only when the pattern fired on the <b>live</b> bar; a few
-    bars old it reads <code>4/4 · PA 3b</code>, with no “GO” in the string. Matching on GO therefore
-    <b>hid names where all four gates pass but the pattern is not fresh</b> — one such name was worth
-    a full review. On the live cache, matching GO kept <b>4 of 49</b> rows; matching 4/4 keeps
-    <b>10</b>.</p>
+    <span class="tag">Why the match is 5/5 and not GO — measured</span>
+    <p>The cell reads <code>5/5 GO</code> only when the pattern fired on the <b>live</b> bar; a few
+    bars old it reads <code>5/5 · PA 3b</code>, with no “GO” in the string. Matching on GO therefore
+    <b>hid names where all gates pass but the pattern is not fresh</b> — one such name was worth
+    a full review. When this was measured under the four-gate count, matching GO kept <b>4 of 49</b>
+    rows; matching the count kept <b>10</b>.</p>
     <p>The match is anchored to the <em>start</em> of the string on purpose: the upstream vetoes
-    render as <code>⛔ Stage 3 · gates 4/4</code>, which <em>contain</em> 4/4 — anchoring keeps them
+    render as <code>⛔ Stage 3 · gates 5/5</code>, which <em>contain</em> 5/5 — anchoring keeps them
     out.</p>
   </div>
   </div></details>
@@ -730,6 +810,19 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="trouble">
+  <div class="note warn">
+    <span class="lbl">26 Aug — why the Daily tab used to disagree with 75m and 125m</span>
+    <p>The whole strict-location block — rule A2, the strict flag, and every <code>loc_*</code>
+    field — sat inside a branch that only ran for <b>75m and 125m</b>. So the Daily tab silently
+    kept the <em>old saturated gate</em>: 19 "Buy Trigger Live" against 13 on 75m, names scoring
+    4/4 while sitting 11% below their nearest zone, and a blank Loc column because the keys it
+    reads were never set.</p>
+    <p><b>It presented as a data problem and was a scoping one.</b> The fix was to extract the rule
+    into one function called on both paths rather than copy it — a second copy is how the two
+    drifted in the first place. Daily now passes location on <b>47%</b> of names with a 9-pattern /
+    9-pivot split, the same shape as the intraday tabs.</p>
+  </div>
+
   <h2><span class="n">13</span>Troubleshooting</h2>
   <div class="tw"><table>
     <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
@@ -739,6 +832,11 @@ footer a{color:var(--acc)}
       <tr><td class="k">Board looks empty</td><td>The 4/4 filter is on. The header states how many rows it is hiding</td></tr>
       <tr><td class="k">Nothing refreshed for a while</td><td>Background tabs are throttled by the browser; focus the tab. If the stream is down, no tab auto-refreshes</td></tr>
       <tr><td class="k">A code change had no effect</td><td>A browser reload does not reload Python. <b>Stop the server and relaunch</b></td></tr>
+      <tr><td class="k">Board says 5/5, the chart refuses it</td><td>Not fundamentals — a 5/5 without <code>F?</code> has already cleared that floor. Look at <b>location</b> first (it decays intraday), then the feed and the bar the two are reading</td></tr>
+      <tr><td class="k">Every row reads “no room” under 1R</td><td><b>Expected on pullbacks and measured not to matter</b> — the first obstacle is the swing high the pullback came from, and on 331 GO-timed trades that cohort did not underperform. Read Room for T1 and a partial, not as a veto</td></tr>
+      <tr><td class="k">The reviewer says the board is STALE</td><td>The tab's cache is over six hours old. Rebuild the board, then run <code>s4_review.py --board</code> again</td></tr>
+      <tr><td class="k">Chart shows <code>F —</code> or "no options"</td><td>A paste is missing. Two fields, two bundles — the second one needs its button pressed and lands in its own field</td></tr>
+      <tr><td class="k">Options bundle returns nothing</td><td>If the board was never rebuilt this session there is no symbol list to walk. Rebuild, then build the bundle</td></tr>
       <tr><td class="k">Alert fired on a name with no row</td><td>That is what the Armed Register prevents. Arm at the same moment you create the alert</td></tr>
     </tbody>
   </table></div>
@@ -749,6 +847,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/23 · Golden Matcher — the GM + S4 system</span>
-  <span>Companions — <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 Trade Funnel</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
+  <span>docs/23 · Golden Matcher — the GM + S4 system · revised against the code 11 Sep 2026</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">30 Section Five</a> · <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 Trade Funnel</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
 </div></footer>

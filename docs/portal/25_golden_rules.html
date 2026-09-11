@@ -175,7 +175,7 @@ footer em{color:var(--ink-2)}
         the evidence changes, and never broken silently.</p>
     </div>
     <div class="stamp">
-      <b>Updated</b> 24 Aug 2026<br>
+      <b>Updated</b> 11 Sep 2026<br>
       <b>Scope</b> entry decisions<br>
       <b>Read</b> Part 1 before the session<br>
       <b>Use</b> Part 8 at the trade
@@ -216,7 +216,7 @@ footer em{color:var(--ink-2)}
     <li><b>A stop closer than 1×ATR(D) is not a stop.</b><span>Any R-multiple measured against it is fiction. Re-price before you believe it.</span></li>
     <li><b>Invalidation is not the stop.</b><span>Know both prices before you enter, and know which one you will act on.</span></li>
     <li><b>A GO is not a trade.</b><span>The setup can be sound while the plan is wrong. Fix the entry, the stop or the target — or pass.</span></li>
-    <li><b>Room decides tradeability.</b><span>If T1 <em>is</em> the resistance you distrust, you don't have a trade — you have a breakout candidate.</span></li>
+    <li><b>Room anchors T1. It does not decide the trade.</b><span>Measured 11 Sep on 331 GO-timed entries: 77% had under 1R to the first obstacle and did <em>not</em> do worse, and the obstacle was broken 63–77% of the time. On a pullback the "wall" is the swing high you are buying the retest of. Put a partial there; decide on context, location and participation.</span></li>
     <li><b>Sector and weekly trend are gates, not footnotes.</b><span>A Stage 3/4 sector or a weekly downtrend changes what the same chart is worth.</span></li>
     <li><b>Read results per family × direction. Never pooled.</b><span>Pooling has produced three false conclusions in this system already.</span></li>
     <li><b>Log the decision — especially the passes.</b><span>A log that records only entries cannot tell you whether your instinct beats the system.</span></li>
@@ -235,6 +235,7 @@ footer em{color:var(--ink-2)}
         <li><b>Check the data is today's.</b> The board prints <span class="m">As_Of</span> and a provenance strip. A stale cache once froze 15 names on 9-day-old bars.</li>
         <li><b>Rebuild after any Trigger-TF or X-Ray change.</b> Cached rows predate it.</li>
         <li><b>Confirm the source lists aren't empty.</b> The header names header-only CSVs — that is how Hunter names silently vanished.</li>
+        <li><b>Rebuild before you run the reviewer.</b> <span class="m">s4_review.py --board 75m</span> reads the tab's cache and warns past six hours; a stale board reviewed against a live chart is two different bars pretending to be one.</li>
       </ul>
     </div>
     <div class="blk dont">
@@ -265,8 +266,9 @@ footer em{color:var(--ink-2)}
       <h4>Do</h4>
       <ul>
         <li><b>Inherit qualification.</b> A name off the Hunter / EarlyBird / Pullback / Leader list was already qualified. Re-qualifying dead-ended the rigorous lists for weeks.</li>
-        <li><b>Use the board default</b> — all-gates (4/4), sorted by Overall. Untick to see near-misses; the header says how many it hides.</li>
-        <li><b>Treat <span class="m">4/4 · PA 3b</span> as real.</b> All four gates pass, the pattern fired a few bars ago. CHOLAFIN was exactly that.</li>
+        <li><b>Use the board default</b> — all-gates (5/5), sorted by Overall. Untick to see near-misses; the header says how many it hides.</li>
+        <li><b>Treat <span class="m">5/5 · PA 3b</span> as real.</b> All five gates pass, the pattern fired a few bars ago. CHOLAFIN was exactly that.</li>
+        <li><b>Read 5/5 as <em>worth opening</em>, not <em>will fire</em></b> — and read the fifth gate carefully. Fundamentals are <em>counted</em> since 2 Sep, and a rejected name still collapses to <span class="m">⛔ funda</span> with no count; the third state is <span class="m">F?</span>, an <em>unscored</em> name passing by default. A 5/5 without <span class="m">F?</span> cleared the books on a real score. What can still turn it away at the chart is location decaying intraday, a feed difference, or the board leading by design.</li>
         <li><b>Read S4 on the same timeframe</b> as the board tab the name came from.</li>
       </ul>
     </div>
@@ -275,7 +277,8 @@ footer em{color:var(--ink-2)}
       <ul>
         <li>Don't chase catalyst-scan names with no live catalyst — the board marks them <span class="m">catalyst expired</span>.</li>
         <li>Don't expect the board and S4 to agree perfectly. Different feeds, a location proxy, and the board leads by design. Identical output would be suspicious.</li>
-        <li>Don't trade a <b>Recovery</b> name off S4 alone. Recovery qualification is RFF <em>fundamentals</em>; the chart cannot see them.</li>
+        <li>Don't trade a <b>Recovery</b> name off S4 alone <em>without the paste</em>. Recovery qualification is RFF <b>fundamentals</b>, and the chart has no fundamentals provider — it reads the <b>board's</b> verdict out of the pasted bundle. So a blank <span class="m">F</span> means the paste is missing or stale, <b>not</b> that the company failed. Repaste before you read anything into it.</li>
+        <li>Don't assume the two surfaces score the books differently. Both use the same floors — <b>BFF 4 of 5, scaled to the checks that applied; RFF 5 of 6, flat</b> — and both let an <em>unscored</em> name through, because an unreadable provider is a judgement about the data, not the company.</li>
       </ul>
     </div>
   </div>
@@ -321,6 +324,20 @@ footer em{color:var(--ink-2)}
         <li><b>Buy at a level, not a price.</b> A zone gives an area and a distal that defines wrong. A line gives way without warning.</li>
         <li><b>Know which kind.</b> A pattern zone marks an imbalance — breaking it means the demand that caused the advance is gone. A pivot zone is a shelf — breaking it means a lower low. The pivot is weaker and scores nothing in confluence.</li>
         <li><b>Tests WEAKEN a level.</b> 1 = fresh · 2–5 = tested · <b>6+ = spent, and a breakout candidate</b>.</li>
+        <li><b>Price does not have to be INSIDE the zone.</b> Three states, and only two of
+        them are location: <b>IN</b> (price is in it), <b>REACTING</b> (tested once, turning
+        up off it, and not yet far away) and <b>APPROACHING</b> (descending toward an untested
+        one). The first two arm a trade. <b>The third never does</b> — nothing has reacted yet,
+        so taking it is buying the touch.</li>
+        <li><b>"Not too far away" is not a judgement call.</b> A reaction stays open only until
+        price travels two ATR from the proximal, or crosses the reference average — the same
+        rule that retires the zone. The gate reads that rule back rather than inventing a
+        second one, which is why the two can never disagree.</li>
+        <li><b>A pivot shelf must be confirmed; a pattern zone stands alone.</b> Rule A2. A
+        pivot line and a reclaimed "Pivot S→R" count as pivot evidence too, so the same
+        requirement applies to them. If you want none of it, the pivot switch turns off zones,
+        location, the lines <em>and</em> the overhead — but note that last part <b>flatters
+        R:R</b>, because a hidden ceiling is not a cleared one.</li>
       </ul>
     </div>
     <div class="blk dont">
@@ -344,7 +361,7 @@ footer em{color:var(--ink-2)}
         <li><b>Measure every stop in ATR before believing any R.</b> Under 0.5× the panel says so outright; under 1× treat the R as optimistic.</li>
         <li><b>Set the stop from volatility, then let the reward fall where it falls.</b> A 2R trade priced honestly beats a 5R trade on a stop that cannot survive a Tuesday.</li>
         <li><b>Keep invalidation separate.</b> Hard stop for the wick, closing-basis exit at the structural level for the thesis. The panel prints both.</li>
-        <li><b>Check room first.</b> <span class="m">IN SUPPLY</span> or under 1R to the first obstacle means the trade must pay before it reaches anything.</li>
+        <li><b>Read room as the first test, not the verdict.</b> Under 1R to the first obstacle is the normal state of a GO-timed entry (77% of them) and it did not predict a worse outcome. Name the obstacle, put a partial there, and let T1 follow the canon — swing 2R, positional 3R. <span class="m">IN SUPPLY</span> was the one cell modestly below book (hit 28.6%, −0.09R) and still broke through 74% of the time: a size note.</li>
       </ul>
     </div>
     <div class="blk dont">
@@ -405,7 +422,8 @@ footer em{color:var(--ink-2)}
     <div class="blk dont">
       <h4>Don't</h4>
       <ul>
-        <li>Don't re-tune the stop or trail on a hunch. Four studies have rejected tightening — the structural-SL variant had the best mean, passed the OOS gate, and was still rejected on median (−0.48R → −1.01R) and stop-outs (11.8% → 52.7%).</li>
+        <li>Don't re-tune the stop or trail on a hunch. <b>Five stop studies, five rejections</b> — four on distance (the structural-SL variant had the best mean, passed the OOS gate, and was still rejected on median −0.48R → −1.01R and stop-outs 11.8% → 52.7%) and one on the trigger basis: exiting on the daily <em>close</em> rather than the intraday low rescued 26 wicked-out trades and raised win rate +5pp in every family, and the worse fills on the rest cancelled it exactly.</li>
+        <li>Don't stage the entry. Half now, half on confirmation was tested (H9): the add fired on 68% and caught 71 of 72 winners — and every rupee of its gain came from the trades the add <em>never</em> fired on. Adding was mildly negative in both cohorts. It failed the chronological split, like the four interventions before it.</li>
         <li>Don't hold a positional target on a swing-shaped trade. If structure says swing, book into strength.</li>
         <li>Don't leave a position without a resting stop. 445 shares once sat uncovered.</li>
       </ul>
@@ -446,8 +464,11 @@ footer em{color:var(--ink-2)}
   <div class="note"><span class="lbl">The real cost</span>
     <p>Not the missing arm — the missing homework. An un-armed name is usually one you have
        not studied: its archetype, which scan qualified it, Bull or Recovery, and if Recovery
-       whether the RFF fundamentals hold — which <b>S4 cannot see</b>. You would be doing that
-       research at the trigger, under time pressure, which is where your worst entries came from.</p>
+       whether the RFF fundamentals hold. The chart now carries that verdict — but only for names
+       that were <b>on the board when you built the bundle</b>. An un-armed name is precisely the
+       one missing from the paste, so <span class="m">F</span> reads blank exactly when you most
+       need it. You would be doing that research at the trigger, under time pressure, which is
+       where your worst entries came from.</p>
     <p><b>The rule:</b> take it if the checklist passes <em>and</em> you can answer "why is this
        name on the list at all" without guessing. If you cannot, the pass reason writes itself.</p>
   </div>
@@ -456,20 +477,23 @@ footer em{color:var(--ink-2)}
      — it should not be making the introduction.</p>
 
   <h3>8c · The alert marks a <em>bar</em>, not a state — and the first bar of the day lies</h3>
-  <p>Three of the four gates are fixed at the trigger bar. <b>Location is not.</b></p>
+  <p>Four of the five gates are fixed at the trigger bar. <b>Location is not.</b></p>
   <div class="tw"><table>
     <thead><tr><th>Gate</th><th>Nature</th><th>True an hour later?</th></tr></thead>
     <tbody>
       <tr><td class="n">P · pattern</td><td>structural — a pattern <em>formed</em></td><td class="n">yes</td></tr>
       <tr><td class="n">V · volume</td><td>a property of that bar</td><td class="n">yes</td></tr>
       <tr><td class="n">B · bar</td><td>a property of that bar</td><td class="n">yes</td></tr>
+      <tr><td class="n">F · fundamentals</td><td>the board's own verdict, pasted — it moves on a rebuild, never intraday</td><td class="n">yes</td></tr>
       <tr><td class="n">L · location</td><td><em>price is at a level right now</em></td><td class="n" style="color:var(--no)"><b>no</b></td></tr>
     </tbody>
   </table></div>
   <p>An alert can fire correctly at 10:30 and the panel read <span class="m">L·</span> when you
-     open it at 11:45. Neither is wrong. There is a second route too: a <b>tested zone is
-     deleted</b> by the lifecycle, so the touch that fired the alert can consume the zone that
-     justified it.</p>
+     open it at 11:45. Neither is wrong. There is a second route too, though it is gentler
+     than it used to be: a demand zone that spends its touch budget is <b>kept and greyed</b>
+     rather than deleted — visible, but no longer arming a trade. A normal zone gets one test;
+     a controlling or high-scoring one earns two. So the touch that fired the alert can still
+     retire the zone that justified it, it just leaves the evidence on the chart.</p>
   <div class="note"><span class="lbl">20 Aug — nine alerts on the 10:30 bar</span>
     <p>By the time the panels were read, SONACOMS and COFORGE showed <em>no location</em>.
        SONACOMS still read <span class="m">P✓ L· V✓ B✓</span> with the AVWAP-BO at 840.90 pressed
@@ -555,7 +579,12 @@ footer em{color:var(--ink-2)}
       <ul>
         <li><b>Trust your chart read over the mechanical verdict.</b> The engine is a measuring instrument; your eyes have a veto. It can talk you <em>out</em> of a trade — never <em>into</em> one.</li>
         <li><b>Treat an unknown as unknown.</b> <span class="m">?</span>, <span class="m">n/a</span>, <span class="m">—</span> mean data is absent, not that the answer is no. Every gate fails OPEN on missing data by design.</li>
-        <li><b>Believe the tags.</b> <span class="m">⚠role</span>, <span class="m">⧖D</span>, <span class="m">⚠unval</span>, <span class="m">· RRG·</span>, <span class="m">⚖</span> all say the row is softer than it looks.</li>
+        <li><b>Read the option strikes as levels, not forecasts.</b> Max pain and the two writer
+        strikes are where <em>other people</em> have money at risk, so they behave like magnets and
+        walls into expiry. Use them to sanity-check a target that sits just beyond a call wall - and
+        never to override structure. They are also monthly: they do not move intraday.</li>
+        <li><b>Believe the tags.</b> <span class="m">⚠role</span>, <span class="m">⧖D</span>, <span class="m">⚠unval</span>, <span class="m">· RRG·</span>, <span class="m">⚖</span>, <span class="m">F?</span> all say the row is softer than it looks.</li>
+        <li><b>Use the reviewer as a second pair of eyes, not a third engine.</b> <span class="m">s4_review.py</span> reads every cell of S4 and S5 off the two charts and rules TAKE / WAIT / PASS with the case for and against, S4's own verdict weighed last. Trust its <em>reasoning</em>; do not trust its arithmetic — the script recomputes R and prints the canon T1/T2 under every review because the model's numbers were wrong on the first day. It can talk you out of a trade; it never talks you into one that is not armed. Log your call beside its ruling.</li>
       </ul>
     </div>
     <div class="blk dont">
@@ -657,6 +686,28 @@ footer em{color:var(--ink-2)}
     <li><b>SWG-REV's problem is payoff geometry, not stop-outs.</b> SWG-PB stops out 78% and is profitable. Payoff ratio 1.62 vs 3.14 — a reversal bounce is structurally a smaller move than a trend continuation. No stop setting fixes "the move isn't big enough."</li>
   </ul>
 
+  <h3>Room does not predict outcome <span class="muted">— 331 GO-timed trades, 11 Sep</span></h3>
+  <div class="tw"><table>
+    <thead><tr><th>Room to first obstacle</th><th>n</th><th>Hit T1</th><th>mean R</th><th>obstacle broken</th></tr></thead>
+    <tbody>
+      <tr><td>&lt; 1R, any class</td><td><b>255 (77%)</b></td><td>32.9%</td><td><b>+0.21</b></td><td>63–77% by source</td></tr>
+      <tr><td>≥ 1R or blue sky</td><td>76</td><td>34.2%</td><td><b>−0.17</b></td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>The board's own Room, rebuilt at each entry with data pinned. Symbol-block CI on the difference [−0.09, +0.91]. <b>The "no room" cohort is not worse.</b></li>
+    <li>Class does not separate outcomes (daily S/R −0.27 · in-supply −0.09 · pivot +1.20 · supply zone +0.57), and neither does S/R age. <b>Blue sky was the worst bucket.</b></li>
+    <li>What it means: on a pullback the first obstacle is the swing high the pullback came from — the level the thesis says gets broken. Room anchors T1 and a partial. It was being read as a veto in three places and on this book 77% of entries fail it by construction.</li>
+  </ul>
+
+  <h3>The September tests — eleven pre-registered, none adopted</h3>
+  <ul>
+    <li><b>Role mismatch as a gate (H6/H7)</b> — an ignition pattern inside a demand zone. Not adopted; the positive graded form was the same test in different clothes.</li>
+    <li><b>Close-basis stop (H8)</b> — 52% of stop-outs were intraday wicks that closed back above. Exiting on the close saved 26 of 196 and lifted win rate +5pp in all three families; the 1.09pp worse fills on the other 170 cancelled it. Five stop studies, five rejections.</li>
+    <li><b>Staged pilot entry (H9)</b> — half at the GO, half on confirmation. Fired on 68%, caught 100% of 3R+ winners, and all its gain came from trades the add never touched. Failed C and D.</li>
+    <li><b>D — the chronological split — failed for the fourth consecutive intervention.</b> That is now a fact about the sample, not about each idea: 331 GO-timed trades cannot resolve effects of this size. The regime term (+0.85% vs −0.63% between periods, same screener) remains larger than anything found.</li>
+  </ul>
+
   <h3>Gate behaviour worth knowing</h3>
   <ul>
     <li><b>The bar gate's errors are asymmetric, so it stays loose.</b> It fires the alert: a false positive costs one glance, a false negative costs the trade because the name never surfaces. Tightening cut fills 314 → 241 <b>and the removed trades were net winners.</b> Proposed, measured and rejected three times.</li>
@@ -673,6 +724,17 @@ footer em{color:var(--ink-2)}
 
 <section id="p11">
   <p class="pt">Part 11</p>
+  <div class="note"><span class="lbl">26 Aug — the location rule was measured, and it was a null</span>
+    <p>A pre-registered A/B across eighteen anchors compared <b>any-zone</b>, <b>A2</b> and
+    <b>pattern-only</b> on matched alpha. All three landed within <b>0.21 percentage points</b>
+    of each other — a null. What tightening reliably changed was the number of trades:
+    <b>221 → 88 → 51</b>. Pattern-only is not better per trade; it is rarer.</p>
+    <p><b>So the choice of location rule is a doctrine call, not an evidence call.</b> A2 ships
+    because the measurement cannot separate the three, which leaves the decision resting on
+    which evidence you trust — and a leg-base-leg zone marks an imbalance while a pivot marks
+    one turn. That is the honest reason, and it is worth more than a number that does not exist.</p>
+  </div>
+
   <h2>The behavioural rules</h2>
   <p class="lede">The hardest ones — and the reason the rest exist.</p>
   <div class="pair">
@@ -708,6 +770,8 @@ footer em{color:var(--ink-2)}
       <tr><td>Stop sanity floor</td><td class="n">1×ATR(D)</td><td>below this, R is fiction</td></tr>
       <tr><td>RV floor</td><td class="n">1.0 breakout · 0.5 pullback</td><td>measured</td></tr>
       <tr><td>MTTWR</td><td class="n">6 touches = spent</td><td>house rule</td></tr>
+      <tr><td>S/R lifespan</td><td class="n">D 126 · W 130 · M 120 bars, own TF</td><td>past it, out of the ceiling only — never off the chart</td></tr>
+      <tr><td>Room</td><td class="n">information, not a gate</td><td>measured 11 Sep — 77% fail it, no worse outcome</td></tr>
       <tr><td>Stage</td><td class="n">above: rising 2 / falling 3 / flat (RS↑ 1 : 3)<br>below: (falling &amp; RS↓) 4 : 1</td><td>all four surfaces</td></tr>
       <tr><td>Forward windows</td><td class="n">POS-BO 120d · POS-ACCUM 180d<br>REV 90d · SWG 30–60d</td><td>never test outside these</td></tr>
     </tbody>
@@ -729,8 +793,9 @@ const STEPS=[
  ["What is the trend stack — weekly / daily / entry-TF?","S4 SUMMARY, line 1"],
  ["Is the sector Stage 1/2, or am I fighting the group?","S4 Sector row"],
  ["Am I at a level, or nowhere in particular?","S4 Location (L)"],
- ["Inside supply? Is there ≥1R of room to the first obstacle?","S4 Room"],
+ ["Where is the first obstacle, what is it, and is a partial there worth taking? (Room informs — it does not veto.)","S4 Room"],
  ["Has a trigger fired on a CLOSED bar, with volume?","S4 TRIGGER chip"],
+ ["Do the books clear the floor - or is F blank because the paste is missing?","S4 F chip / BFF-RFF row"],
  ["What is the stop in ATR? Under 1× → re-price or pass.","S4 Entry · SL · T1 · T2"],
  ["Where is invalidation — and is it a different price from the stop?","S4 INVAL"],
  ["What is the R after fixing the stop? Under 2R → pass.","your arithmetic"],

@@ -133,7 +133,7 @@ td.t{font-family:var(--mono);font-weight:700;text-align:center;white-space:nowra
 .rung .d{padding:13px 16px;font-size:14.5px;color:var(--ink-2)}
 .rung .d b{color:var(--ink)}
 
-/* the five panel sections */
+/* the six panel sections */
 .panel{display:grid;gap:0;border:1px solid var(--rule);border-radius:3px;overflow:hidden;
   margin:0 0 18px;background:var(--surface)}
 .pband{display:grid;grid-template-columns:40px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
@@ -205,12 +205,14 @@ footer a{color:var(--acc)}
       <h1>Section Four</h1>
       <p class="dek">The execution layer, and the last authority. It answers one question: <em>a
       leader is at its zone — is price actually in a demand zone, has a real trigger printed, and
-      where exactly do I buy and stop?</em></p>
+      where exactly do I buy and stop?</em> Since 29 August it also asks a non-technical one:
+      <em>do the books clear the board&rsquo;s floor?</em> Since 8 September it has a companion,
+      <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78"><b>Section Five</b></a>, that explains what S4 decides — on a second chart, by necessity.</p>
     </div>
     <div class="gatebox">
       <p class="lbl">The gate</p>
-      <div class="eq">GO = P · L · V · B</div>
-      <div class="sm">Pattern · Location<br>Volume · Bar</div>
+      <div class="eq">GO = P·L·V·B·F</div>
+      <div class="sm">Pattern · Location · Volume<br>Bar · <b>Fundamentals</b></div>
     </div>
   </div>
 </header>
@@ -223,18 +225,28 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#doctrine">The two-stage doctrine</a></li>
     <li><a href="#stage">Stage parity</a></li>
+    <li><a href="#since">Since 1 September</a></li>
   </ol>
   <p>Reading it</p>
   <ol>
-    <li><a href="#panel">The five sections</a></li>
-    <li><a href="#gates">The four gates</a></li>
-    <li><a href="#vocab">How the panel says things</a></li>
-    <li><a href="#handoff">The GM handoff</a></li>
+    <li><a href="#panel">The six sections</a></li>
+    <li><a href="#gates">The five gates</a></li>
     <li><a href="#patterns">The 17 patterns</a></li>
     <li><a href="#location">Location</a></li>
     <li><a href="#verdict">The verdict ladder</a></li>
     <li><a href="#plan">The plan</a></li>
     <li><a href="#inputs">Inputs reference</a></li>
+  </ol>
+  <p>The field reference</p>
+  <ol>
+    <li><a href="#lang">The four languages</a></li>
+    <li><a href="#rowsI">Band I — every row</a></li>
+    <li><a href="#rowsII">Band II — every row</a></li>
+    <li><a href="#rowsIII">Band III — every row</a></li>
+    <li><a href="#rowsIV">Bands IV–VI — every row</a></li>
+    <li><a href="#levels">The five drawn levels</a></li>
+    <li><a href="#states">Panels you will see</a></li>
+    <li><a href="#misread">Misreadings</a></li>
   </ol>
   <p>Operating it</p>
   <ol>
@@ -301,9 +313,58 @@ footer a{color:var(--acc)}
   </div>
 </section>
 
+<section id="since">
+  <h2><span class="n">02b</span>What changed since 1 September</h2>
+  <p>The panel is <b>S4 v11.2 on S4Core v50</b>. Five things moved, and one measurement
+  changed how a row should be read.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
+    <tbody>
+      <tr><td class="m">8 Sep</td><td><b>The Setup row.</b> Names the playbook in force — PULLBACK ·
+      BREAKOUT · ACCUMULATION · REVERSAL · RECOVERY — and whether the pattern that fired is
+      <em>that playbook's</em> trigger. A catalyst carried from the board now has a <b>shelf
+      life</b>: past half the latch window a live pullback context overrules it and the row says
+      so. The six recovery-only patterns had sat in no role bucket, so every recovery playbook
+      read MISMATCH; fixed and proven over all 16.7M pattern states</td><td>Row 26</td></tr>
+      <tr><td class="m">8 Sep</td><td><b>Fundamentals got their own rows.</b> BFF (or RFF Tier-A on a
+      recovery name) prints each check ticked or dotted with an honest denominator — <code>4/5</code>
+      means four of five <em>applicable</em> checks, and the ETF and lender cases say why a
+      check is missing. <b>Piotroski n/9</b> sits under it. Neither gates on its own; F does</td><td>Rows 4–5</td></tr>
+      <tr><td class="m">8 Sep</td><td><b>Section Five.</b> The footprint delta (a real
+      <code>request.footprint()</code> read, not the intrabar proxy), the Wyckoff distribution
+      ladder S4 collapsed to one DIST tag, geometry, S/R with touch grades and the trendline
+      engine — everything S4 cut for tokens — on <b>a second, symbol-synced chart</b>. Pine meters
+      memory per chart and S5 beside S4 kills S4's panel; that is measured, not caution</td><td>companion</td></tr>
+      <tr><td class="m">9 Sep</td><td><b>S/R levels age out of the ceiling.</b> A level past its
+      timeframe's lifespan — 126 daily bars, 130 weekly, 120 monthly, each in its own bars — no
+      longer counts as an obstacle in Room, unless a weekly or monthly level within tolerance
+      rescues it. <b>The line never leaves the chart</b> and still serves as support and as a stop
+      anchor; the label and the S/R row print its age (<code>2.4mo</code> · <code>4.9mo aged</code>
+      · <code>11mo stale ⌛</code>)</td><td>Row 16 · the level labels · Room</td></tr>
+      <tr><td class="m">11 Sep</td><td><b>Room was measured and does not predict outcome.</b> On 331
+      GO-timed trades, 77% had under 1R to the first obstacle and they did not do worse
+      (+0.21R vs −0.17R for the rest); the obstacle was punched through 63–77% of the time
+      whatever it was. <b>Read Room as information — where T1 anchors and a partial makes sense —
+      not as a veto.</b> The row's wording has not changed; how you read it should</td><td>Row 21 · the verdict</td></tr>
+      <tr><td class="m">11 Sep</td><td><b>An AI deliberation layer</b> (<code>s4_review.py</code>) reads
+      every cell of this panel and S5's straight off the chart, walks the eight sections, and
+      rules TAKE / WAIT / PASS with a case for and against — S4's own verdict weighed last, and the
+      R-arithmetic recomputed by the script because the model's is not reliable. It is advice
+      that gets logged and scored; the chart-read still has veto</td><td>outside the panel</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note no">
+    <span class="tag">The one that changes a habit</span>
+    <p><b>"⚠ NO ROOM" on a pullback is the swing high the pullback came from.</b> That level is
+    the one the thesis says gets broken; it anchors T1, it does not deny the trade. The reviewer,
+    the panel wording and the trader's eye were all treating it as a veto — and on this book 77%
+    of entries fail it by construction. Blue sky, incidentally, was the <em>worst</em> bucket.</p>
+  </div>
+</section>
+
 <section id="panel">
   <h2><span class="n">03</span>Reading the panel</h2>
-  <p>The panel is <b>sectioned into five bands</b>, each stating the question its block answers.
+  <p>The panel is <b>sectioned into six bands</b>, each stating the question its block answers.
   They are not interchangeable: a name can be perfect on regime and worthless on location.
   <b>Read them in order and stop at the first one that fails.</b></p>
   <div class="panel">
@@ -323,12 +384,23 @@ footer a{color:var(--acc)}
       <b>V</b> gates.</p></div></div>
     <div class="pband"><div class="num">IV</div><div class="bd">
       <p class="h">Decision synthesis</p>
-      <p>What is the ruling? Room for trade, confluence score, the four gate chips, and the
-      <b>VERDICT</b>.</p></div></div>
+      <p>What is the ruling? The gate chips, the STATUS line and the
+      <b>VERDICT</b>. Room and confluence used to live here and were moved
+      <em>earlier</em> — see the note below.</p></div></div>
     <div class="pband"><div class="num">V</div><div class="bd">
       <p class="h">Plan &amp; risk</p>
       <p>How do we execute? Entry, stop, targets and quantity — <b>printed only on GO</b>.</p></div></div>
+    <div class="pband"><div class="num">VI</div><div class="bd">
+      <p class="h">Portfolio</p>
+      <p>What do I already own here, and what does the ladder say? The v67 slot and the
+      position state — <b>only meaningful on a name you hold</b>.</p></div></div>
   </div>
+  <p class="refnote"><b>Two rows moved earlier on 26 Aug, and the reason is the same for both.</b>
+  Room for Trade sat in band IV, <em>after</em> the whole pattern battery — but it is a hard
+  structural filter the verdict already treats as NOT TRADEABLE, so discovering an overhead wall
+  after parsing seventeen tokens was wasted work. It now ends band II. Confluence moved the other
+  way, into band III: it <em>scores the evidence you just read</em>, so sitting in the decision
+  band separated it from what it summarises.</p>
   <h3>Every row, band by band</h3>
   <p class="refnote">Folded per band. This is the lookup for “what is this row telling me”.</p>
 
@@ -337,23 +409,35 @@ footer a{color:var(--acc)}
     <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
       <tr><td class="k">Structure basis</td><td>A position and direction <b>ladder</b> — stage, the leg and macro age, price against the 30-week, 50-day and 200-day, then the trend state on the chart timeframe and the two above it. <b>Two arrow families that mean different things:</b> diagonals are a moving-average <em>slope</em>, verticals are a <em>trend state</em>. A field printing a dash means the source is <b>unbound</b>, not flat</td></tr>
       <tr><td class="k">WCL Context</td><td>A Wyckoff and market-structure composite. <b>Grading only</b> — it was measured and rejected as both a veto and a score input</td></tr>
-      <tr><td class="k">Structure Health</td><td>A change-of-character count. <b>Reading “clean” on roughly nine names in ten is expected</b>, not a bug</td></tr>
-      <tr><td class="k">RS · RRG</td><td>Relative strength against the index and the sector, plus the rotation quadrant. <b>Wording is identical to the dashboard by design</b>, and the quadrant is derived from the same pair the dashboard classifies with — so it <em>is</em> the dashboard's quadrant, not a second opinion</td></tr>
-      <tr><td class="k">Sector · Futures OI</td><td>Sector stage plus the open-interest state, <b>which is only meaningful against price direction</b> — so it is derived from both. Long build-up is fresh money; <b>short covering means the rally is shorts exiting, fades are common, do not chase</b>; short build-up is supply into strength; long unwinding is weak but not a short signal</td></tr>
-      <tr><td class="k">Signal · Quality · RSI</td><td>The dashboard's action signal, asset quality and daily momentum. <code>not bound</code> means <b>the bindings are missing, not that the data is absent</b></td></tr>
+      <tr><td class="k">…and Structure Health</td><td>Part of the same row, not a separate one: a change-of-character count. <b>Reading “clean” on roughly nine names in ten is expected</b>, not a bug</td></tr>
+      <tr><td class="k">Minervini template</td><td>The eight-point SEPA trend template, scored as a count so a name missing one leg is distinguishable from one missing five. <b>It grades — it never touches the GO decision.</b> Criterion 8 is the one approximation: Minervini ranks relative strength across the whole market and Pine cannot compute a cross-sectional rank, so the local proxy is the RS-Ratio against the Nifty 500. When the dashboard is <b>not bound</b> that criterion is dropped from the denominator and the row reads <b>/7~</b> rather than scoring a silent miss</td></tr>
+      <tr><td class="k">BFF / RFF Tier-A</td><td>The fundamental checks, <b>one dot each</b>, with the count over the checks that <em>applied</em>: bull names read Profit growth · Sales growth · Margin expansion · Return quality · Profitable; recovery names read NI · FCF · ICR · D/E · CR · ROA. A lender has no operating margin, so it is scored out of four, not failed on the fifth. <b>This is what the F gate reads.</b> An ETF reads <code>n/a</code> with the reason; a dash means the bundle was never pasted</td></tr>
+      <tr><td class="k">Piotroski</td><td>The nine-point F-score, ticked per test. Green at 6, amber at 4. <b>Grades only.</b> Banks and NBFCs are excluded because three of the nine invert for a lender, and the row says so rather than printing a misleading number</td></tr>
+      <tr><td class="k">RS (vs N500 / <em>sector</em>)</td><td>Relative strength against the index and against the sector. <b>The sector NAME titles the row</b> — read from the curated mapping, so you can see <em>which</em> sector the "Sec:" half is measured against. Note this row answers <b>direction</b> (is RS rising), which is not the same question as Minervini's criterion 8, which answers <b>level</b> (is RS above the index). A name recovering from underperformance reads <em>rising</em> here and still fails there — that is the IMPROVING quadrant, not a contradiction</td></tr>
+      <tr><td class="k">RRG (N500 / <em>sector</em>)</td><td>The rotation quadrant and its trajectory, plus a green or red dot for tradeable. <b>Kept as its own row deliberately</b> — RS ranks a name, the quadrant times it, and they fail independently. The quadrant is derived from the same pair the dashboard classifies with, so it <em>is</em> the dashboard's quadrant, not a second opinion</td></tr>
+      <tr><td class="k">Futures OI</td><td>The open-interest state, <b>which is only meaningful against price direction</b> — so it is derived from both. Long build-up is fresh money; <b>short covering means the rally is shorts exiting, fades are common, do not chase</b>; short build-up is supply into strength; long unwinding is weak but not a short signal. <b>Sector stage moved to the RS row</b> — it belongs with the group's strength, and the space bought the Options row below. The <b>basis L / S</b> pair is where longs and shorts were built: a pooled average sat between them, where nobody is positioned</td></tr>
+      <tr><td class="k">Options OI</td><td><b>New, 1 September.</b> PCR, max pain, total CE/PE open interest, the ATM shift and the two <b>writer strikes</b>. Only the strikes and max pain are prices, and they are the two an option chain gives you that the zone engine cannot see. Reads <em>no options</em> on the roughly two names in three with no F&amp;O series — <b>a fact about the name, not a failure</b>. Grades; never gates</td></tr>
+      <tr><td class="k">Signal · Quality · RSI</td><td>The dashboard's action signal, asset quality and daily momentum. <code>not bound</code> means <b>the bindings are missing, not that the data is absent</b>. <b>This row is the binding canary</b> — it is the one that tells you a recompile dropped the sources</td></tr>
+      <tr><td class="k">ML win probability</td><td>A logistic scorer of six inputs, computed in the dashboard and bound across — plus the <b>GM rank</b>, which moved here because both are <em>scores of the setup</em> rather than facts about its structure. <b>Read it as a ranking, not a probability:</b> the six coefficients have never been validated out-of-sample in this system, so 38% does not mean thirty-eight trades in a hundred worked. Reads <b>— unbound</b> rather than a plausible number when the source is missing, because an unbound input returns the price, which is never null</td></tr>
   </tbody></table></div></div></details>
 
-  <details class="ref"><summary>II · Location &amp; quality — where are we right now</summary><div class="rb">
+  <details class="ref"><summary>II · Location, value &amp; room — are we at value, and is there room</summary><div class="rb">
   <div class="tw"><table>
     <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
       <tr><td class="k">Zones (MTF)</td><td>The live zone inventory across chart, daily, weekly and monthly — how many demand and supply zones are alive, and whether price is inside one</td></tr>
       <tr><td class="k">Support Zone</td><td>The leg-base-leg zone under price, per timeframe, with its grade</td></tr>
-      <tr><td class="k">S/R (nearest)</td><td>The nearest horizontal level each side with its source timeframe. <b>Heavily-tested levels are deliberately excluded from this picker</b> — tests weaken a level, so one tested that often is a breakout candidate rather than a ceiling. <b>Nothing above is what produces BLUE SKY</b></td></tr>
-      <tr><td class="k">Trendlines</td><td>The auto or manual line, when enabled</td></tr>
+      <tr><td class="k">S/R (nearest)</td><td>The nearest horizontal level each side with its source timeframe, and the <b>TL token</b> — the trendline row was folded in here on 1 September. <code>TL&#10007;</code> is an <em>alarm</em>: the toggle is on and nothing is sensed, which means the binding is still reading price. <b>Heavily-tested levels are deliberately excluded from this picker</b> — tests weaken a level, so one tested that often is a breakout candidate rather than a ceiling. <b>Since 9 September each level carries its age</b> in its own bars — <code>2.4mo</code> · <code>4.9mo aged</code> · <code>11mo stale ⌛</code> — and a stale level is dropped from the <em>ceiling</em> only: it stays on the chart, still counts as support and is still a place to lean a stop. <b>Nothing above is what produces BLUE SKY</b></td></tr>
       <tr><td class="k">Volume Profile</td><td>Value-area and point-of-control position. <b>The one composite component that earned its place</b> — it contributes on roughly a fifth of names</td></tr>
+      <tr><td class="k">Momentum &amp; value</td><td><b>ADX on the daily clock</b> with the directional pair — it was on the chart timeframe until 1 September, so a 75-minute chart reported a 75-minute ADX beside a daily ATR, ATR as a percent of price, price against the <b>daily CPR pivot</b> and the <b>monthly VWAP</b>, and the VCP flag. Both those references are also drawn on the chart. The CPR is built from the <em>previous completed session</em>, so it cannot repaint intraday. It sits in this band rather than with the intraday rows because CPR and monthly VWAP are <b>value</b> references — they set up the extension question the next two rows answer</td></tr>
       <tr><td class="k">Price vs EMA20</td><td>The extension read, in percent and in ATR, plus distance off the 52-week high <em>and</em> off the all-time high. <b>Both together separate a name printing fresh highs from one that reclaimed its 52-week high but sits far under its all-time high</b></td></tr>
       <tr><td class="k">Location (L)</td><td><b>The L gate itself</b>, with each source ticked or dotted — zone, level, anchor, average. This is the gate the board mirrors</td></tr>
   </tbody></table></div></div></details>
+
+  <details class="ref" open><summary>II · continued — the filter that ends the band</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Room for Trade</td><td>Distance to the first real obstacle overhead, in percent and in R, or <b>BLUE SKY</b> when there is nothing above. Measured to the <em>first</em> obstacle from six sources, not to a convenient one — a pivot ceiling is labelled as such and ranked last, because a swing high is weaker evidence than a supply zone. It ends the band so you see the wall before parsing seventeen pattern tokens. <b>But measured on 11 September it is information, not a filter:</b> 331 GO-timed trades, 77% under 1R to the first obstacle, no worse outcomes, and the obstacle broken 63–77% of the time. Use the number to place T1 and a partial; let the verdict's other evidence decide the trade</td></tr>
+    </tbody></table></div></div></details>
 
   <details class="ref"><summary>III · Execution &amp; timing — are the triggers firing</summary><div class="rb">
   <div class="tw"><table>
@@ -363,20 +447,24 @@ footer a{color:var(--acc)}
       <tr><td class="k">AVWAP L · BO · Gap</td><td>The three anchors: the 52-week low, the last breakout, the last gap</td></tr>
       <tr><td class="k">Pinch</td><td>The anchors converged — a high-conviction zone. <b>Lower percentage is tighter</b></td></tr>
       <tr><td class="k">AVWAP trigger</td><td>A bounce or a reclaim. <b>An optional timing leg</b>, shown with a clock marker on the trigger row</td></tr>
-      <tr><td class="k">Pattern | Shape</td><td>The flag and geometry classifier. <b>Known defect: the two-pivot classifier calls rectangles symmetrical triangles.</b> Cosmetic — it does not touch the gate</td></tr>
+      <tr><td class="k">Pattern | Shape | Combo</td><td>The pattern flag, and <b>the combo, folded in on 1 September</b> to buy the row the Options read needed. <b>The Shape half now always prints an em-dash:</b> the geometry classifier was removed from S4 to fund the pullback-aware gate and lives in the S/R + Trendline Lab, where the tuning is actually happening. Its old defect — calling rectangles symmetrical triangles — can no longer occur here. <b>The shape now lives in Section Five</b>, rebuilt on TradingView's own pattern criteria</td></tr>
+      <tr><td class="k">Setup</td><td><b>Which playbook is in force, and does the fired pattern belong to it.</b> Resolved from the board's catalyst bridge when bound, else from structure: a pullback context wants compression or a turn (an ignition fired <em>inside</em> the zone is the role mismatch); a breakout wants an ignition; accumulation wants a coil and dry-up, and an ignition there is a breakout, not accumulation. The trailing text says where the playbook came from — <code>catalyst live this bar</code>, <code>carried 9b</code>, <code>superseded by live pullback context</code>, <code>bridge not bound</code></td></tr>
       <tr><td class="k">PA grid</td><td>Every condition of the active battery, fired or quiet — <b>nothing aggregated away</b>, so you can see <em>which</em> fired rather than only a total</td></tr>
-      <tr><td class="k">PA Combo</td><td>The <em>sequence</em> that a sum cannot express. <b>Narrative only</b> — both testable combinations underperformed a matched control across 464 picks</td></tr>
       <tr><td class="k">Bar (B)</td><td><b>The B gate.</b> In a pullback context it becomes <em>held the zone</em> instead of <em>closed strong</em></td></tr>
       <tr><td class="k">Arrival · Δ</td><td>Approach velocity, and an intrabar order-flow <b>proxy</b> — not true aggressor delta, because no charting plan exposes that. <b>Grades, never gates</b></td></tr>
       <tr><td class="k">RV</td><td><b>The V gate</b>, against the floor — which drops in a pullback context</td></tr>
   </tbody></table></div></div></details>
 
+  <details class="ref"><summary>III · continued — the evidence score</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
+      <tr><td class="k">Confluence</td><td>A ranked breakdown of every factor that contributed, out of the maximum available. It <b>grades, it never gates</b>. It moved into this band from the decision band because it scores the evidence you have just finished reading — sitting after the verdict separated it from its own inputs</td></tr>
+    </tbody></table></div></div></details>
+
   <details class="ref"><summary>IV · Decision synthesis — the ruling</summary><div class="rb">
   <div class="tw"><table>
     <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
-      <tr><td class="k">Room for Trade</td><td>Distance to the <b>first obstacle overhead</b> across six sources, with pivot ceilings named and ranked last. <b>Room is what decides whether a setup is tradeable at all</b> — which is why it sits in decision rather than location</td></tr>
-      <tr><td class="k">Confluence</td><td>Grades the setup; marked strong at the threshold</td></tr>
-      <tr><td class="k">TRIGGER</td><td>The four gates as chips, plus optional timing, the path tag, a pullback marker, and any warning suffix</td></tr>
+      <tr><td class="k">TRIGGER</td><td>The five gates as chips — six chips, since R shows without gating — plus optional timing, the path tag, a pullback marker, and any warning suffix</td></tr>
       <tr><td class="k">STATUS</td><td>The same gates in words, with the confluence score, the volume against its floor, and the pattern sum</td></tr>
       <tr><td class="k">VERDICT</td><td><b>Exactly four lines</b> — the ruling, why, the one caveat, and the action. The full ladder is in section 07</td></tr>
       <tr><td class="k">SUMMARY column</td><td>The only field allowed to <b>weigh one section against another</b>, and it <b>never repeats a value printed above it</b>. It sits in its own right-hand column rather than as a row, because a table cell does not wrap — as a full-width row it stretched the panel across the screen</td></tr>
@@ -413,15 +501,33 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="gates">
-  <h2><span class="n">04</span>The four gates</h2>
-  <pre><b>GO  =  P  │  L  │  V  │  B</b>
+  <h2><span class="n">04</span>The five gates</h2>
+  <pre><b>GO  =  P  ·  L  ·  V  ·  B  ·  F</b>
 
 P   PATTERN    a pattern from the active battery fired on this bar
-L   LOCATION   price is somewhere worth buying — zone, S/R, AVWAP, value area
+L   LOCATION   price is AT value — inside a zone, near one, or reacting off one
 V   VOLUME     relative volume clears the floor
-B   BAR        the bar itself is not a distribution candle</pre>
-  <p>They print as chips on the TRIGGER row, plus an optional timing marker, the path tag, and any
-  warning suffix. <b>Timing is optional — it times, it does not qualify.</b></p>
+B   BAR        the bar itself is not a distribution candle
+F   FUNDAMENTALS  the board's BFF/RFF verdict clears the floor
+
+<b>and two that exist but do NOT fire</b>
+R   RRG        chipped, measured, and deliberately off
+—   EMA20      an opt-in hard veto, off by default</pre>
+  <p><b>Six chips, five gates.</b> They print on the TRIGGER row with an optional timing marker,
+  the path tag and any warning suffix. <b>Timing is optional — it times, it does not qualify.</b></p>
+  <div class="note">
+    <span class="tag">Why F is here at all, and what it is not</span>
+    <p>It is the first <b>non-technical</b> term in the gate, and it exists because the trade
+    outcome should not rest entirely on price. S4 <em>cannot compute it</em> — TradingView caps
+    financial calls at five and the bull filter needs a growth table no Pine surface can reach —
+    so the gate does not judge, it <b>applies</b> the score the Golden Matcher already computed
+    and you pasted in.</p>
+    <p><b>It is a SUBSET of the board's verdict, never a superset.</b> Return on equity, leverage
+    and the size/pledge floor are not carried across, so a name can pass here and still be
+    rejected on the board. And a blank <code>F</code> on a name you know is sound almost always
+    means <b>the bundle was not pasted</b> — not that the company is weak. Unscored and
+    scored-badly are different facts and the chip keeps them apart.</p>
+  </div>
   <div class="note">
     <span class="tag">The pullback relaxation</span>
     <p>When a <b>contraction</b> pattern fires with no expansion pattern <em>and</em> price sits
@@ -437,97 +543,6 @@ B   BAR        the bar itself is not a distribution candle</pre>
     discarding a mildly positive population, <b>not because dry volume is better</b>. Do not
     reason from it in the other direction.</p>
   </div>
-</section>
-
-<section id="vocab">
-  <h2><span class="n">04b</span>How the panel says things</h2>
-  <p>The panel had grown three ways of saying one thing, and the same fact printed in two
-  places. This is the convention it now uses everywhere — worth two minutes, because most
-  of the panel is unreadable at speed without it.</p>
-
-  <h3>Two kinds of &ldquo;not there&rdquo;</h3>
-  <table>
-    <thead><tr><th>Mark</th><th>Means</th><th>Attached to</th></tr></thead>
-    <tbody>
-      <tr><td class="t">🟢</td><td>measured, and it held</td><td>a named condition</td></tr>
-      <tr><td class="t">⚪</td><td>measured, and it did not</td><td>a named condition</td></tr>
-      <tr><td class="t">▫</td><td>the module is off — nothing measured it</td><td>a condition behind a toggle</td></tr>
-      <tr><td class="t">&mdash;</td><td>the value does not exist</td><td>a price, a score, an unbound source</td></tr>
-    </tbody>
-  </table>
-  <p>The separation is the point. A grey dot in front of a price would claim the price is
-  switched off, which is not a thing. An em-dash beside a pattern name would hide that the
-  battery <em>ran</em> and that pattern simply did not fire.</p>
-
-  <div class="note no">
-    <span class="tag">The em-dash rule is load-bearing</span>
-    <p>For <b>RFF</b>, <b>BFF</b> and <b>GM rank</b>, a symbol missing from the pasted list means
-    <em>the GM has not scored it</em> — a different fact from <em>scored it and it failed</em>.
-    Rendering them the same would turn every unlisted name into a fundamental rejection on sight.</p>
-  </div>
-
-  <h3>Where the dot sits</h3>
-  <pre><b>before a NAME</b>   did this named thing happen     🟢VCP3   ⚪NR7   🟢P 🟢L ⚪V 🟢B
-<b>after a VALUE</b>   is this number any good          RFF 5 🟢   GM rank 71.0 🟢</pre>
-  <p>Both appear, and each means something different. Leading = <em>this fired</em>; trailing =
-  <em>this number passes</em>.</p>
-
-  <h3><code>│</code> separates fields, <code>·</code> joins values</h3>
-  <p>A middle dot was doing both jobs — separating fields <em>and</em> sitting inside values
-  (<code>L·BO·Gap</code>, three anchor prices in a row). A rule separates, a dot joins, so
-  the eye finds the boundary without reading the words.</p>
-
-  <h3>The PA and Confluence rows are ranked</h3>
-  <pre>key = fired ? 1000 + weight : weight</pre>
-  <p>An unfired 2-pointer contributes <b>zero</b> right now, so it must not outrank a fired
-  1-pointer — but among the unfired the heavier ones still read first, because those are the
-  ones worth waiting for. Each row reads left to right as <b>what I have, best first — then
-  what I am missing, most valuable first.</b> Weights print after the name where they exceed 1;
-  without that a descending sort looks like a shuffle.</p>
-  <div class="note">
-    <span class="tag">Why it sorts at runtime</span>
-    <p>Every confluence weight is a user input (<code>cf_w_*</code>). A static order would be
-    correct at the defaults and silently wrong the moment you changed one.</p>
-  </div>
-</section>
-
-<section id="handoff">
-  <h2><span class="n">04c</span>The GM handoff — one paste</h2>
-  <pre>REC=TECHM,CIPLA|PB=RELIANCE,TCS|BFF=MCX:5,CGCL:5|RFF=LTM:6|RANK=MCX:71.0</pre>
-  <p>The GM prints that one line under the Trigger Board. It goes into the single input
-  <b>GM: ONE-PASTE bundle</b>, after every board rebuild. That is the whole handoff.</p>
-
-  <div class="note no">
-    <span class="tag">Why one field, not five</span>
-    <p>A missed paste <b>does not blank the field</b> — it leaves the <em>previous</em> list in
-    place, so the chart goes on applying last week's answer to this week's board and nothing
-    announces it. Five separate pastes was five chances to make that mistake silently.</p>
-  </div>
-
-  <div class="note">
-    <span class="tag">An empty section is meaningful</span>
-    <p>Every tag is emitted even when its list is empty, because that is what <b>clears</b> a
-    stale input. If the GM omitted the tag instead, whatever was there before would survive.</p>
-  </div>
-
-  <p>The five individual inputs are still there and a <b>hand-typed value wins</b> over the
-  bundle for its own field — the escape hatch for overriding one list without rebuilding
-  the line.</p>
-
-  <h3>Why these three cannot be computed here</h3>
-  <table>
-    <thead><tr><th>Field</th><th>Why Pine cannot produce it</th></tr></thead>
-    <tbody>
-      <tr><td class="k">RFF</td><td>Six fundamental fields plus Tier-B growth history, against a
-        <code>request.financial()</code> ceiling of five calls per script that the Capitulation
-        Screener already spends on a two-check &ldquo;RFF Lite&rdquo;.</td></tr>
-      <tr><td class="k">BFF</td><td>Reads screener.in's compounded-growth table. No Pine surface
-        can reach it.</td></tr>
-      <tr><td class="k">GM rank</td><td>A <b>cross-sectional</b> position. S4 grades one chart and
-        cannot know where it sits among the other forty — so a clean-looking setup that is
-        38th on the list was unreadable here until now.</td></tr>
-    </tbody>
-  </table>
 </section>
 
 <section id="patterns">
@@ -570,11 +585,11 @@ B   BAR        the bar itself is not a distribution candle</pre>
 
 <section id="location">
   <h2><span class="n">06</span>Location — the part that took longest</h2>
-  <p>Five sources feed the L gate, in descending authority:</p>
+  <p>The sources feed the L gate in descending authority — and <b>which KIND of zone</b> matters as much as which source, which is what rule A2 below is about:</p>
   <div class="tw"><table>
     <thead><tr><th>Source</th><th>What it is</th></tr></thead>
     <tbody>
-      <tr><td class="k">Demand zones</td><td>Leg-base-leg zones on chart, daily, weekly and monthly, ageing per timeframe and moving <b>fresh → tested → violated</b>. The primary source</td></tr>
+      <tr><td class="k">Demand zones</td><td>Leg-base-leg zones on chart, daily, weekly and monthly, ageing per timeframe. <b>Demand and supply retire differently:</b> a spent demand zone is kept and greyed — visible, no longer arming a trade — while supply is removed. And a zone does not have to be untouched to count: price <em>reacting off</em> one it has already tested is the tradeable state. The primary source</td></tr>
       <tr><td class="k">S/R levels</td><td>Horizontal shelves, placed at the wick extreme rather than a midpoint, and <b>weakening as they are tested</b></td></tr>
       <tr><td class="k">Anchored VWAPs</td><td>Three price memories: the 52-week low, the last breakout day, the last high-volume gap</td></tr>
       <tr><td class="k">Volume profile</td><td>Value-area low and point of control — the one composite component that earned its place</td></tr>
@@ -582,6 +597,48 @@ B   BAR        the bar itself is not a distribution candle</pre>
     </tbody>
   </table></div>
   <div class="note no">
+    <span class="tag">Three states, not one — and only two of them are location</span>
+    <p><b>Price does not have to be inside a zone.</b> That was the gate's definition until
+    26 August and it was the wrong question: the tradeable moment is the <em>reaction</em> —
+    price retraces into the zone, tests it once, and turns back out. The engine had been
+    computing that state all along and the gate was not reading it.</p>
+    <div class="tw"><table>
+      <thead><tr><th>State</th><th>What it means</th><th>Satisfies L?</th></tr></thead><tbody>
+        <tr><td class="k">IN</td><td>Price is inside the zone right now</td><td><b>Yes</b></td></tr>
+        <tr><td class="k">REACTING</td><td>Tested once and turning up off it, and <em>not yet far away</em></td><td><b>Yes</b></td></tr>
+        <tr><td class="k">APPROACHING</td><td>Descending toward an untested zone, within one ATR of it</td><td><b>No</b></td></tr>
+      </tbody></table></div>
+    <p><b>"Not too far away" is not a new threshold.</b> A reaction stays open only until price
+    travels two ATR from the proximal, or crosses the reference EMA20 — the same rule that
+    retires the zone. So the gate reads that rule back rather than restating it, which is why
+    the two can never disagree.</p>
+    <p><b>APPROACHING is shown and deliberately not honoured.</b> Nothing has reacted yet, so
+    passing it would be buying the touch — the one habit the whole two-stage design exists to
+    prevent. It earns a name on the panel so you can watch it; it does not arm anything.</p>
+
+    <span class="tag">Rule A2 — a pivot shelf is not a leg-base-leg zone</span>
+    <p>Two things get drawn as "zones" and they are not equal evidence. A <b>pattern</b> zone
+    (RBR / DBR / RBD / DBD) marks where an imbalance actually happened and has a distal edge
+    that defines where you are wrong. A <b>pivot</b> shelf marks where price merely turned once.
+    The gate treated them identically for months while this file's own header called the pivot
+    "a weaker secondary shelf — location/stop confluence, not standalone".</p>
+    <p>Under rule A2 a pattern zone <b>stands alone</b>; a pivot shelf must be confirmed by an
+    S/R level or an anchored VWAP. <b>Pivot levels feed the gate too</b> — a pivot line, and a
+    "Pivot S→R" once price has <em>reclaimed</em> it — and they enter as pivot evidence, so A2
+    still applies to them.</p>
+    <p><b>The master switch.</b> Turning pivot zones off removes them everywhere: no pivot zone
+    is drawn, no pivot satisfies location, the pivot support lines are hidden, and pivots stop
+    counting as overhead in Room, T1 and T2. That last part is a deliberate choice of Jay's over
+    a documented objection — <b>a hidden ceiling is not a cleared one</b>, so R:R will read
+    better with pivots off than the chart justifies. Measured on the live board, switching them
+    off takes location from roughly 44% of names to 24%.</p>
+    <p class="refnote"><b>Measured, so it is not a preference dressed as a finding:</b> a
+    pre-registered A/B across eighteen anchors compared any-zone, A2 and pattern-only. All three
+    landed within 0.21 percentage points of each other on matched alpha — a null. What the
+    tightening reliably changed was the number of trades: 221, then 88, then 51. Pattern-only is
+    not better per trade; it is rarer. A2 is shipped because the evidence cannot separate them,
+    so the choice falls back on which evidence you trust.</p>
+
     <span class="tag">Why a GO can still be a chase</span>
     <p>A GO resting <b>only</b> on an anchored VWAP or the EMA20 — no zone, no shelf — is
     downgraded to <b>CAUTION — momentum/chase</b>. That is a momentum entry, not a pullback to
@@ -613,7 +670,7 @@ B   BAR        the bar itself is not a distribution candle</pre>
     <div class="rung arm"><div class="i"></div><div class="r">Clear to break</div>
       <div class="d">A level overhead that is there to be <em>broken</em>, not targeted. Can only ever reframe a would-be skip.</div></div>
     <div class="rung stop"><div class="i"></div><div class="r">Skip — no room</div>
-      <div class="d">In supply, or under 1R of room. <b>Buying into overhead supply is not a trade.</b></div></div>
+      <div class="d">In supply, or under 1R of room. <b>Buying into overhead supply is not a trade.</b> Since 23 July a Stage-2 leader with a live GO is reframed to CLEAR TO BREAK instead, so this rung mostly catches price <em>inside</em> a supply band. <b>Measured 11 Sep:</b> in-supply was the one cell modestly below book (hit 28.6%, −0.09R) and still broke through 74% of the time — a size note, not a wall.</div></div>
     <div class="rung take"><div class="i"></div><div class="r">Take it / caution</div>
       <div class="d">A reward gate clears. Caution when location is weak or price is extended.</div></div>
     <div class="rung stop"><div class="i"></div><div class="r">Skip — payoff thin</div>
@@ -650,7 +707,7 @@ B   BAR        the bar itself is not a distribution candle</pre>
     <tbody>
       <tr><td class="k">Entry</td><td>Follows your entry method — default <b>retest</b>, a limit at the trigger bar's close</td></tr>
       <tr><td class="k">Stop</td><td><b>Structural</b>: zone distal → recent swing low → an ATR fallback, capped by trade type</td></tr>
-      <tr><td class="k">T1 · T2</td><td>R-multiples set by trade type</td></tr>
+      <tr><td class="k">T1 · T2</td><td>R-multiples set by trade type — <b>except when a structural overhead sits inside them</b>, in which case the panel prints the level as T1 tagged <code>·lvl</code>. Since the 11 September measurement that tag deserves suspicion: the level it names is broken about seven times in ten, so a <code>·lvl</code> T1 under 2R is a place to take a partial, not the target. The canon stands: swing 2R/4R, positional 3R/5R</td></tr>
       <tr><td class="k">Quantity</td><td>Dynamic risk, ported from the allocator</td></tr>
     </tbody>
   </table></div>
@@ -693,7 +750,7 @@ B   BAR        the bar itself is not a distribution candle</pre>
   <details class="ref"><summary>The PA battery — mode, timeframe and the volume floor</summary><div class="rb">
   <div class="tw"><table>
     <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
-      <tr><td class="k">Mode</td><td class="m">Auto</td><td><b>Auto mirrors the board's structural split</b> — Recovery only when sufficiently off the 52-week high <em>and</em> the 30-week average is unrepaired <em>and</em> price is below the 200-day. That last leg keeps a shallow bull pullback resolving Bull. The header shows what it resolved to; the other two force it</td></tr>
+      <tr><td class="k">Mode</td><td class="m">Auto</td><td><b>Auto resolves the path from the STAGE, not from a drawdown alone.</b> Recovery when the board's recovery list names it, <em>or</em> the 60-bar drawdown sits inside the recovery band, <em>or</em> the name is Stage 1 and below its 200-day. Everything else resolves Bull. <b>There is a third state and it outranks both:</b> Stage 3 or 4 is NO TRADE, and that applies under manual mode too — the stage is a fact, not a preference. Before that existed, a Stage-3 name was forced into one of two tradeable paths and the verdict then reasoned faithfully inside a frame it should never have entered</td></tr>
       <tr><td class="k">Detect PA patterns</td><td class="m">on</td><td>Master toggle for the battery, its panel rows and its alert. Off gives a pure price-memory view</td></tr>
       <tr><td class="k">Confirmed daily only</td><td class="m">on</td><td>Reads the <b>last closed daily bar</b>, so patterns do not flicker on the forming one. Off reads the developing bar and <b>repaints intraday</b></td></tr>
       <tr><td class="k">Volume floor for a valid trigger</td><td class="m">1.0</td><td><b>The knob that decides how gettable a GO is.</b> 1.0 is an average day; a real breakout usually runs above 1.25. Lower it if you find it too strict</td></tr>
@@ -706,7 +763,7 @@ B   BAR        the bar itself is not a distribution candle</pre>
     <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
       <tr><td class="k">Pinch tolerance</td><td class="m">2.5%</td><td>The anchors are pinched when their spread is within this much of price. Tighter is stricter</td></tr>
       <tr><td class="k">Support-touch tolerance</td><td class="m">1.0%</td><td>How close the bar's low must come to an anchor to count as a touch — also the buffer for placing the stop below support</td></tr>
-      <tr><td class="k">Require price in a support zone</td><td class="m">on</td><td><b>This is the location gate.</b> GO only fires if the close is inside or near an active zone, pivot support or anchor. Off lets a trigger fire on volume alone, regardless of where price is</td></tr>
+      <tr><td class="k">Require price in a support zone</td><td class="m">on</td><td><b>This is the location gate.</b> GO fires only if price is <em>at</em> location — inside a zone, near one, or <b>reacting off one it has already tested</b>. Off lets a trigger fire on volume alone, regardless of where price is</td></tr>
       <tr><td class="k">Draw the zones</td><td class="m">on</td><td>Chart drawings only — turning it off keeps the gate and the panel row live</td></tr>
   </tbody></table></div></div></details>
 
@@ -745,7 +802,22 @@ B   BAR        the bar itself is not a distribution candle</pre>
       <tr><td class="k">Pivot shelf as rejection region</td><td class="m">on</td><td>Supply is body-top to high, demand is low to body-bottom. Off restores the whole-body span</td></tr>
       <tr><td class="k">Pad bars and body tolerance</td><td class="m">per TF</td><td>How far a shelf reaches into its neighbours. The tolerance scales with ATR, <b>which is why one global value could not serve all four timeframes</b></td></tr>
       <tr><td class="k">Draw at most N zones a side</td><td class="m">3</td><td><b>Display only.</b> Never changes the gate, the counts, or a verdict</td></tr>
+      <tr><td class="k">Use Pivot (Structural) zones + levels</td><td class="m">on</td><td><b>The master switch for every pivot-as-support use</b>, and it is not display-only. Off: no pivot zone is created, no pivot satisfies location, the pivot support lines are hidden, <em>and</em> pivots stop counting as overhead in Room, T1 and T2. That last part loosens R:R — <b>a hidden ceiling is not a cleared one</b> — and is a deliberate choice over a recorded objection. It mirrors the board setting of the same name</td></tr>
+      <tr><td class="k">Tested: travel measured in</td><td class="m">ATR</td><td>How far price must travel from the proximal, after a reaction, before the zone counts as spent. <b>Zone-width is legacy and inverted</b> — it made the move needed proportional to the zone's own size, so the narrowest and most precise zones died fastest</td></tr>
+      <tr><td class="k">Tested rules 2 &amp; 3: Daily zones only</td><td class="m">off</td><td>Off (the default) means the EMA20-cross and pivot-break rules apply on <b>every</b> timeframe, each zone judged against its own reference: a weekly or monthly zone against the chart EMA20, a daily or intraday zone against the <b>daily</b> EMA20. On restores the older Daily-only restriction</td></tr>
   </tbody></table></div></div></details>
+
+  <details class="ref"><summary>S/R level ageing — the ceiling clock</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Age S/R levels out of the CEILING</td><td class="m">on</td><td>Past its lifespan a level stops counting as an obstacle in Room. <b>The line never leaves the chart</b> and is never aged as support or as a stop anchor. A weekly or monthly level within tolerance rescues a stale daily one</td></tr>
+      <tr><td class="k">Daily level lifespan</td><td class="m">126 bars</td><td>About six months — the point past which the research treats a daily level as price memory rather than a live ceiling</td></tr>
+      <tr><td class="k">Weekly level lifespan</td><td class="m">130 bars</td><td>About 2.5 years, <b>in weekly bars</b> — measured in the level's own bars on purpose, because a flat number of chart bars would age a weekly level at daily speed on a daily chart</td></tr>
+      <tr><td class="k">Monthly level lifespan</td><td class="m">120 bars</td><td>About ten years. Monthly structure is set by macro cycles and outlives everything below it</td></tr>
+  </tbody></table></div>
+  <p class="refnote">The board's <code>zone_engine</code> carries the same three lifespans and the same
+  rescue, so chart and board agree on which level is the ceiling.</p>
+  </div></details>
 
   <details class="ref"><summary>Imported from the dashboard — and why the rows go blank</summary><div class="rb">
   <p>These bind to hidden numeric plots on the dashboard and the pivot tool. They carry
@@ -753,10 +825,13 @@ B   BAR        the bar itself is not a distribution candle</pre>
   cannot drift.</p>
   <div class="note no">
     <span class="tag">Two constraints worth knowing before you debug</span>
-    <p>A source input carries <b>one float series</b>, so strings — sector name, macro label —
-    cannot cross and stay on the dashboard. And inputs are matched <b>by position</b>, so
-    inserting a new input mid-list <b>drops every existing binding</b>. If the rows go blank
-    after an upgrade, <b>re-bind rather than debug</b>.</p>
+    <p>A source input carries <b>one float series</b>, so strings cannot cross a binding.
+    <b>The sector name is the exception that proves the rule:</b> it does not travel over the
+    binding channel at all — the curated mapping is compiled into the shared library as a packed
+    string, so S4 spends one call rather than several hundred comparisons, and a string literal
+    costs one token however long it is. And inputs are matched <b>by position</b>, so inserting a
+    new input mid-list <b>drops every existing binding</b>. If the rows go blank after an upgrade,
+    <b>re-bind rather than debug</b>.</p>
   </div>
   <p>Unbound is safe: an unwired source defaults to a price series, every row range-checks it,
   and the panel prints <code>not bound</code> rather than silently showing dashes.</p>
@@ -777,7 +852,7 @@ B   BAR        the bar itself is not a distribution candle</pre>
   <div class="tw"><table>
     <thead><tr><th>Condition</th><th>What it means</th><th>Use</th></tr></thead>
     <tbody>
-      <tr><td class="k">S4 GO</td><td>All four gates aligned on a closed bar</td><td><b>This is the one</b></td></tr>
+      <tr><td class="k">S4 GO</td><td>All five gates aligned on a closed bar. <b>Its condition NAME still reads "PA + Location + Volume + Bar"</b> — stale, cosmetic, and it needs a compile to fix, which would delete every alert</td><td><b>This is the one</b></td></tr>
       <tr><td class="k">AVWAP trigger</td><td>A bounce or reclaim — timing only, no location or volume gate</td><td>A name you are stalking</td></tr>
       <tr><td class="k">Intraday trigger</td><td>Rising-EMA reclaim plus a squeeze release</td><td>Noisier; optional</td></tr>
       <tr><td class="k">AVWAP pinch</td><td>The three anchors converging</td><td>Rare, high-conviction</td></tr>
@@ -896,20 +971,23 @@ B   BAR        the bar itself is not a distribution candle</pre>
 
 <section id="expires">
   <h2><span class="n">11</span>The one gate that expires</h2>
-  <p>Three of the four gates are fixed at the trigger bar. <b>Location is not.</b></p>
+  <p>Four of the five gates are fixed at the trigger bar. <b>Location is not.</b></p>
   <div class="tw"><table>
     <thead><tr><th>Gate</th><th>Nature</th><th>Still true an hour later?</th></tr></thead>
     <tbody>
       <tr><td class="k">P · pattern</td><td>Structural — a pattern <em>formed</em></td><td><b>Yes</b></td></tr>
       <tr><td class="k">V · volume</td><td>A property of that bar</td><td><b>Yes</b></td></tr>
       <tr><td class="k">B · bar</td><td>A property of that bar</td><td><b>Yes</b></td></tr>
+      <tr><td class="k">F · fundamentals</td><td>A property of the <em>name</em>, pasted in</td><td><b>Yes</b> — until you rebuild the board</td></tr>
       <tr><td class="k">L · location</td><td><em>Price is at a level right now</em></td><td><b>No — price moves off it</b></td></tr>
     </tbody>
   </table></div>
   <p>So an alert can fire correctly at 10:30 and the panel can read <em>no location</em> when you
   open it at 11:45. <b>Neither is wrong</b> — you are reading a snapshot after the event. There is
-  a second mechanism too: <b>a tested zone is deleted by the lifecycle</b>, so the very touch that
-  triggered the alert can consume the zone that justified it.</p>
+  a second mechanism too, though it is gentler than it used to be: a demand zone that spends its
+  touch budget is now <b>kept and greyed rather than deleted</b>, so you can still see where price
+  reacted — it simply stops arming a trade. A normal zone gets one test; a controlling or
+  high-scoring one earns two.</p>
   <div class="note">
     <span class="tag">Observed, not theorised</span>
     <p>On one session nine alerts fired on the first bar. By the time the panels were read, two
@@ -939,7 +1017,7 @@ B   BAR        the bar itself is not a distribution candle</pre>
     <div class="grade a"><div class="g">A</div><div class="d"><b>Take it</b> with zone or shelf location, both reward gates comfortable, clean bar.</div></div>
     <div class="grade a"><div class="g">A−</div><div class="d"><b>Breakout pivot</b> on a Stage-2 leader at its high — but you buy <em>above the band</em>, never inside it.</div></div>
     <div class="grade b"><div class="g">B</div><div class="d"><b>Clear to break.</b> Clean trigger, nearby overhead, Stage 2. The real target is the R-objective, not the level.</div></div>
-    <div class="grade b"><div class="g">B−</div><div class="d">GO but location is <b>AVWAP or EMA only</b> → the panel says caution, momentum/chase. Size down, or wait for a zone.</div></div>
+    <div class="grade b"><div class="g">B−</div><div class="d">GO but location is <b>AVWAP or EMA only</b> → the panel says caution, momentum/chase. Size down, or wait for a zone. <b>A pivot shelf alone does not even get here</b> — under rule A2 it fails the gate outright unless a second source agrees.</div></div>
     <div class="grade b"><div class="g">Wait</div><div class="d"><code>ARM</code> or 3/4 — one gate short. <b>Coils are compression, not a trigger.</b></div></div>
     <div class="grade x"><div class="g">Skip</div><div class="d"><b>No room</b> · <b>payoff too thin</b> · <b>low quality</b> (grinding arrival with negative delta).</div></div>
     <div class="grade x"><div class="g">Never</div><div class="d"><b>No trade — Stage 3/4</b>, and <b>not tradeable</b> — the second means clearing the blocking gate alone still would not make it a trade.</div></div>
@@ -956,18 +1034,24 @@ B   BAR        the bar itself is not a distribution candle</pre>
       <tr><td class="k">A GO alert never fired, though the panel showed GO</td><td>The alert was <b>destroyed by a recompile</b> — they bind to the script id. Delete and re-create every alert after every compile</td></tr>
       <tr><td class="k">GO never appears on strong triggers</td><td><b>Location</b> — price is not at a zone or level. Check the Support Zone row. If intraday zones are missing entirely, the per-timeframe <b>width band</b> is the first knob</td></tr>
       <tr><td class="k">Intraday zones vanish, or too few daily ones</td><td>Per-timeframe <b>leg-in strictness</b>. A single global value starves one end — that is why there are separate intraday and higher-timeframe settings</td></tr>
-      <tr><td class="k">A weekly zone disappeared for no reason</td><td>Old behaviour: the tested check used the <b>daily</b> average for every timeframe, so a weekly zone died on a daily cross. <b>Judge a zone on its own timeframe</b></td></tr>
+      <tr><td class="k">A weekly zone disappeared for no reason</td><td>The old fix was to restrict the EMA and pivot rules to daily zones. <b>That was the wrong lever:</b> the defect was the wrong <em>series</em> — the daily average adjudicating a weekly base, at daily granularity. Both rules now run on every timeframe, each zone against its own reference. Measured across thirty names, weekly survival changed by 2.3% and monthly not at all</td></tr>
       <tr><td class="k">A heavily-tested level is not offered as support</td><td><b>Working as designed.</b> Tests <em>weaken</em> a level; one tested that often is a breakout candidate, not a ceiling</td></tr>
       <tr><td class="k">Verdict says NO TRADE but the chart looks fine</td><td>Stage 3 or 4. The stage check <b>outranks everything and applies under manual mode too</b>. Trust it, or accept it is a counter-trend trade at half size</td></tr>
       <tr><td class="k">Recovery mode says TAKE IT on what looks like a bull pullback</td><td>A repaired Stage-2 name now falls through to the bull rulings and the panel says the mode is contradicted. On an older build, set Mode manually</td></tr>
       <tr><td class="k">The panel gives two different entry prices</td><td>Fixed. <b>Only recovery and blue-sky override your entry method</b>, and both say so explicitly on the panel</td></tr>
       <tr><td class="k">“Retest” filled at market</td><td><b>Correct, and now stated.</b> On the trigger bar itself the limit <em>is</em> that bar's close. The panel distinguishes a true retest from a market fill and names where a real pullback sits</td></tr>
       <tr><td class="k">Board says 4/4 but S4 shows nothing</td><td>Check three things in order: <b>mode and path</b> match; <b>pattern age</b> — a recency tag means it fired bars ago, so the live bar is legitimately quiet; and board <b>snapshot staleness</b></td></tr>
+      <tr><td class="k">GO blocked with every technical chip green</td><td>The <b>F</b> gate. Either the books sit under the floor, or — far more often — <b>the bundle was not pasted</b>. Check the FUNDAMENTALS row: a number means it was scored and judged; a dash means it was never scored</td></tr>
+      <tr><td class="k">The Options OI row says "no options" on an F&amp;O name</td><td>The <b>second</b> bundle was not pasted, or the board has not been rebuilt since the option chains were fetched. The two pastes go into two different fields</td></tr>
       <tr><td class="k">Fields read <code>not bound</code></td><td>The bindings dropped on the last recompile. They bind <b>by position</b>, and an unbound source silently reads price rather than erroring. <b>Re-bind rather than debug</b></td></tr>
       <tr><td class="k">Pattern rows all dashes on a fresh add</td><td>Give the higher-timeframe requests a moment, and confirm the master detect toggle is on</td></tr>
       <tr><td class="k">The panel stops after a row</td><td>A stale persisted table from an older build. Reload the current file into a <b>fresh</b> chart</td></tr>
       <tr><td class="k">A number prints as 1.2 when the true value is 0.94</td><td>Pine's short format strings are <b>broken</b> — they round to an integer and print a literal decimal. Use the explicit two-place form</td></tr>
-      <tr><td class="k">A rectangle called a triangle</td><td>Known and unfixed: the two-pivot geometry classifier mislabels rectangles. Cosmetic — it does not touch the gate</td></tr>
+      <tr><td class="k">“Memory limits exceeded”, S4 panel gone</td><td>Section Five is on the same chart. Pine meters runtime memory <b>per chart</b>, and the footprint read S5 carries cannot coexist with S4 — measured, not theorised. <b>S5 goes on a second, symbol-synced chart</b>; remove it from this one and S4 recovers without a recompile</td></tr>
+      <tr><td class="k">A resistance you can see is not in Room</td><td>Look at its label: <code>·stale ⌛</code> means it is past its timeframe's lifespan and no higher-timeframe level rescued it. It is still drawn and still usable as support. Turn <b>Age S/R levels out of the CEILING</b> off to restore the old behaviour</td></tr>
+      <tr><td class="k">Every pullback reads “NO ROOM”</td><td><b>Expected, and measured not to matter.</b> On a pullback the first obstacle is the swing high the pullback came from. 77% of GO-timed entries fail this test and they do not do worse. Read the number for T1 and a partial; decide on the rest of the panel</td></tr>
+      <tr><td class="k">The Setup row reads MISMATCH on a recovery name that looks right</td><td>Fixed 8 Sep — the six recovery-only patterns had no role. If it persists, the row says which playbook it wants and what it got; a coil under a BREAKOUT catalyst is a genuine mismatch until the catalyst ages out</td></tr>
+      <tr><td class="k">The Shape half always reads an em-dash</td><td><b>Working as designed since v7.3.</b> The geometry classifier was removed to fund the pullback-aware gate; it lives in the S/R + Trendline Lab. Its old rectangle-as-triangle defect can no longer occur here</td></tr>
     </tbody>
   </table></div>
   <div class="note go">
@@ -978,11 +1062,794 @@ B   BAR        the bar itself is not a distribution candle</pre>
   </div>
 </section>
 
+<section id="lang">
+  <h2><span class="n">14</span>The four languages</h2>
+  <p>The panel says everything four ways at once. Learn these and most rows explain
+  themselves. <b>This block and the four that follow are a reference</b> — the sections above
+  are the argument, this is the lookup.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>Glyph</th><th>Means</th><th>Never means</th></tr></thead>
+    <tbody>
+      <tr><td class="k">🟢</td><td>This leg <b>passed</b></td><td>“good trade”</td></tr>
+      <tr><td class="k">⚪</td><td>This leg <b>did not pass</b>, and that is normal</td><td>broken, or an error</td></tr>
+      <tr><td class="k">🔴</td><td>Passed a threshold <em>in the wrong direction</em> — an active warning</td><td>mere absence</td></tr>
+      <tr><td class="k">⛔</td><td>A <b>hard block</b>. Price is somewhere you should not buy</td><td>“weak”</td></tr>
+      <tr><td class="k">⚠️</td><td>A <b>caveat</b>: tradeable, but something is against you</td><td>a block</td></tr>
+      <tr><td class="k">★</td><td><b>Controlling</b> — the strongest instance of its kind</td><td>a favourite</td></tr>
+      <tr><td class="k">⚡</td><td><b>FVG-backed</b> — a fair-value gap supports this zone</td><td>“fast”</td></tr>
+      <tr><td class="k">⏱</td><td>Optional <b>timing</b> confirmation fired</td><td>a required gate</td></tr>
+      <tr><td class="k">—</td><td><b>Not measured.</b> No data, or not applicable</td><td>zero, or failed</td></tr>
+      <tr><td class="k">~</td><td><b>Inferred</b>, not drawn — a shape read off pivots</td><td>a chart object you can see</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note no">
+    <span class="tag">The distinction that costs the most money</span>
+    <p><b>An em-dash is not a white dot.</b> <code>⚪</code> means the engine looked and the
+    answer was no. <code>—</code> means the engine <em>could not look</em>. A beginner reads
+    both as “bad”, throws away good setups on missing data — or worse, treats an unmeasured
+    leg as a passed one.</p>
+  </div>
+
+  <div class="tw"><table>
+    <thead><tr><th>Colour</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Green</td><td>Good, and acted on</td></tr>
+      <tr><td class="k">Teal</td><td>Present but partial</td></tr>
+      <tr><td class="k">Amber</td><td><b>Waiting</b> or <b>caution</b> — armed, not wrong</td></tr>
+      <tr><td class="k">Red</td><td>Actively against the trade</td></tr>
+      <tr><td class="k">Grey</td><td>Off, unbound, or not applicable</td></tr>
+    </tbody>
+  </table></div>
+  <p>Colour grades the <em>level</em>; the dot carries pass/fail. <b>Amber is the colour you
+  will see most and it is not a failure state</b> — a panel that is amber everywhere is a panel
+  doing its job, watching something that has not triggered.</p>
+
+  <p><b>Separators.</b> A pipe <code>│</code> divides <em>fields</em> — different facts. A
+  middle dot <code>·</code> divides <em>values inside one field</em>. When you are scanning
+  fast, pipes are where you are allowed to stop reading.</p>
+
+  <div class="note">
+    <span class="tag">Which bar you are looking at</span>
+    <p>With <b>closed-candle on (the default)</b> every row reads the <b>last CLOSED bar</b>. A
+    pattern that appears mid-bar will not show until it survives the close, and the distances in
+    the S/R and AVWAP rows are measured from that <em>closed</em> bar — so a row can read
+    <code>−2.0%</code> while live price is 3% away. That is correct: the gate was evaluated at
+    the closed bar and the row must agree with the gate it reports.</p>
+    <p><b>The panel is a photograph of the last completed bar, and every number on it is
+    internally consistent with that moment.</b></p>
+  </div>
+</section>
+
+<section id="rowsI">
+  <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
+  <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
+  because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
+  Row 0 is the header — <code>S4 v11.2 │ core/50</code>. Check it after every recompile; a
+  mismatch means the library did not publish.</p>
+
+  <h3>Row 2 · Structure basis</h3>
+  <p class="m">Stage 2 (14w leg/38w macro) │ &gt;30WMA ↑ &gt;50 ↑ &gt;200 uptrend │ RFF 5 🟢 │ BFF 4 🟢</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Values</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Stage N</td><td class="m">1 · 2 · 3 · 4</td><td>The Weinstein stage</td></tr>
+      <tr><td class="k">(Xw / Yw)</td><td class="m">integers</td><td>Weeks the current leg has run, and the macro trend age</td></tr>
+      <tr><td class="k">30WMA / 50 / 200</td><td class="m">&gt; or &lt; plus ↑ ↓ →</td><td>Price above/below each average, and that average’s slope</td></tr>
+      <tr><td class="k">trend word</td><td class="m">uptrend · downtrend · sideways</td><td>The composite read of the three</td></tr>
+      <tr><td class="k">RFF n</td><td class="m">0–6 or —</td><td>Recovery fundamentals. 🟢 at <b>≥5</b> — the badge read 4 for a while after the live gate was raised, so a name the board rejects showed a green tick here. Both now read the same input. <b>6 is unreachable</b>: the sixth check needs a current/non-current split the public page does not publish</td></tr>
+      <tr><td class="k">BFF n</td><td class="m">0–5 or —</td><td>Bull fundamentals. <b>No longer display-only — this is the F gate</b> (29 Aug). Floor 4, and it is <b>scaled to the checks that applied</b>: lenders report no operating margin, so a bank has four applicable checks where everything else has five, and a flat comparison demanded a perfect score from every lender. That is what kept the large banks off the book until it was found</td></tr>
+      <tr><td class="k">ETF variant</td><td class="m">ETF ₹12.4Cr │ NAV +0.3% 🟢</td><td>On an ETF, liquidity and premium replace RFF/BFF</td></tr>
+      <tr><td class="k">PHASE 1 / 2</td><td class="m">index · trigger chart</td><td>On an index/ETF pair only. <b>Renamed from STAGE on 1 September</b> — those words already mean Weinstein everywhere else in the system, so one screen was using them for two things. PHASE 1 is the index you read structure on; PHASE 2 is the ETF you actually trade</td></tr>
+    </tbody>
+  </table></div>
+
+  <p><b>The four stages.</b> Derived from exactly two facts: where price sits against its
+  <b>30-week average</b>, and whether that average is rising or falling. Nothing else.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>30WMA rising</th><th>30WMA falling</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Price above</td><td><b>Stage 2</b> — advancing. <em>The only stage you buy</em></td><td><b>Stage 3</b> — topping</td></tr>
+      <tr><td class="k">Price below</td><td><b>Stage 1</b> — basing</td><td><b>Stage 4</b> — declining</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Stage 3 is the dangerous one</b>: price is still above the average, and the average has
+  already rolled over. The chart still <em>looks</em> strong while the structure has broken
+  underneath — which is where most late entries happen. Thirty weeks is roughly seven months of
+  business, long enough that noise cannot flip it; the <em>slope</em> is the part beginners drop,
+  and dropping it is exactly what turns a Stage 3 into a Stage 1 in your head.</p>
+  <p><b>Stage 3 or 4 and the engine refuses outright</b> — the verdict reads <code>NO TRADE —
+  Stage 3</code> however perfect everything below looks. That is not conservatism: a plan
+  reasoned inside the wrong frame is worse than no plan, because it is a plan.</p>
+
+  <h3>Row 3 · Minervini template N/8</h3>
+  <p>Every leg prints its own dot, passes and failures both — a list of only the failures answers
+  “which of the eight does this have?” by subtraction, which is not a checklist you can read.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Leg</th><th>Passes when</th><th>Why it is in the list</th></tr></thead>
+    <tbody>
+      <tr><td class="k">&gt;150/200</td><td>Above both the 150- and 200-day</td><td>The basic definition of “in an uptrend”</td></tr>
+      <tr><td class="k">150&gt;200</td><td>The 150 sits above the 200</td><td>The uptrend is <em>ordered</em>, not a spike</td></tr>
+      <tr><td class="k">200 rising</td><td>The 200-day has been rising</td><td>A flat 200 is a range, not a trend</td></tr>
+      <tr><td class="k">50-stack</td><td>The 50 above both 150 and 200</td><td>Short-term strength leads; the stack is intact</td></tr>
+      <tr><td class="k">&gt;50</td><td>Price above the 50-day</td><td>Price is leading its own averages</td></tr>
+      <tr><td class="k">+30% off low</td><td>≥30% above the 52-week low</td><td>The base is behind it, not ahead</td></tr>
+      <tr><td class="k">within 25% of high</td><td>Within 25% of the 52-week high</td><td>Leaders trade near highs; laggards do not</td></tr>
+      <tr><td class="k">RS &gt; index</td><td>Relative strength beats the benchmark</td><td>Outperformance, not just participation</td></tr>
+    </tbody>
+  </table></div>
+  <p>A <code>~</code> after the count means the RS leg is unbound and the score is out of 7.
+  <b>6/8 or 7/8 is normal and often better for entries</b> — the leg that most often fails is
+  <em>within 25% of high</em>, and a name 30% off its high passing everything else is a base,
+  not a broken stock. Below 6/8, ask <em>which</em>: <code>200 rising</code> failing is
+  structurally serious; <code>+30% off low</code> failing on a Stage-1 recovery is expected.</p>
+
+  <h3>Rows 4 &amp; 5 · BFF / RFF Tier-A, and Piotroski</h3>
+  <p class="m">BFF  4/5 │ 🟢Profit gr 🟢Sales gr ⚪Margin exp 🟢Return qual 🟢Profitable</p>
+  <p>Added 8 September, and kept beside the Minervini template on purpose: the template and
+  these two rows answer the same question — <em>is the business behind this chart any good</em>
+  — and reading them together is the point. The denominator is the number of checks that
+  <b>applied</b>: a bank reports no operating margin, so it is scored out of four rather than
+  failed on the fifth, which is what had kept every large lender off the book. <b>Row 4 is what
+  the F gate reads</b>; Row 5 (Piotroski, nine tests, green at 6) only grades, and prints
+  <code>not scored</code> for a lender because three of its tests invert for one.</p>
+
+  <h3>Row 6 · WCL context · structure</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Half</th><th>Values</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Context</td><td class="m">BULLISH · NEUTRAL · BEARISH (+n)</td><td>Composite Wyckoff/structure score; 🟢 at ≥4</td></tr>
+      <tr><td class="k">Setup</td><td class="m">S1–S8 plus a name</td><td>Which context setup is active</td></tr>
+      <tr><td class="k">Structure Health</td><td class="m">CLEAN · CHOPPY · BROKEN (n)</td><td>Character changes in the last 20 bars</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note no">
+    <span class="tag">Structure Health is effectively two-valued</span>
+    <p>Banded 0–1 CLEAN, 2–3 CHOPPY, 4+ BROKEN — but <b>measured across the board universe the
+    count has never reached three</b>. So CHOPPY means <em>exactly two</em> and BROKEN cannot
+    occur. Read <b>CLEAN as the ordinary state</b>, not a clean bill of health, and treat CHOPPY
+    as the real warning — it is the top of the scale, not the middle.</p>
+    <p>Wyckoff was tested twice as a trading input here — as a veto and as a score — and
+    <b>rejected both times</b>. Roughly half of qualified breakout candidates read DISTRIBUTION
+    at signal time, because Wyckoff events fire at high-volume pivot highs, which is structurally
+    what a breakout looks like. This row <em>describes</em>; it does not decide.</p>
+  </div>
+
+  <h3>Row 7 · RS (vs N500 / <em>Sector</em>) · Sector Stage</h3>
+  <p>The row title names the sector the second half is measured against.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Level</th><th>Direction</th><th>Colour</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Positive</td><td>Rising</td><td>Green</td><td>Outperforming <b>and pulling away</b> — the best state</td></tr>
+      <tr><td class="k">Positive</td><td>Declining</td><td>Amber</td><td>Still ahead but <b>giving it back</b> — leadership fading</td></tr>
+      <tr><td class="k">Negative</td><td>Rising</td><td>Teal</td><td>Behind but <b>closing</b> — the improving case</td></tr>
+      <tr><td class="k">Negative</td><td>Declining</td><td>Red</td><td>Behind and losing more</td></tr>
+    </tbody>
+  </table></div>
+  <p>Absolute price says what a stock did; relative strength says whether it did better than the
+  alternatives. In a falling market a stock that drops less is a leader, and only RS sees that.
+  Benchmarked against the Nifty 500 <em>and</em> the sector, because a name can lead the market
+  while lagging its own group — which usually means the <em>group</em> is carrying it.</p>
+
+  <h3>Row 8 · RRG (N500 / sector)</h3>
+  <p class="m">LEADING ↗ +12 │ strengthening │ 🟢 BUY OK (RS-Ratio 104.2)</p>
+  <p>Plot relative strength against relative momentum and you get four quadrants, cycling
+  clockwise: <b>IMPROVING → LEADING → WEAKENING → LAGGING</b>. LEADING is strong and still
+  gaining; WEAKENING is strong but losing momentum, often the top of a move; IMPROVING is the
+  recovery quadrant. RS-Ratio of 100 means matching the index.</p>
+  <div class="note no">
+    <span class="tag">Why BUY OK never vetoes</span>
+    <p>Measured on 473 symbols across 93,745 weekly observations. Only <code>LEADING→LEADING</code>
+    and <code>WEAKENING→LEADING</code> survived; the intuitive <code>IMPROVING→LEADING</code>
+    transition is <b>reliably negative</b> and cancels what the others earn. Net value:
+    <b>+0.12pp at four weeks, +0.00pp at twelve.</b> The flag shows on the chip and grades — it
+    is not a gate. Do not decline a trade on it alone.</p>
+  </div>
+  <p><b>Row 5 and Row 6 are deliberately separate.</b> RS is the <em>level</em>, RRG is the
+  <em>direction of rotation</em>; they fail independently and are acted on differently —
+  <b>RS ranks a name, the quadrant times it.</b></p>
+
+  <h3>Rows 9 &amp; 10 · Futures OI · Options OI</h3>
+  <p>Open interest is the number of contracts outstanding. It only means anything read
+  <em>against price direction</em>:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Price</th><th>OI</th><th>State</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Up</td><td>Up</td><td><b>Long build-up</b></td><td>New money buying. A breakout here has fuel</td></tr>
+      <tr><td class="k">Up</td><td>Down</td><td><b>Short covering</b></td><td>The rally is shorts <em>exiting</em>, not new buying. <b>Fades are common — do not chase</b></td></tr>
+      <tr><td class="k">Down</td><td>Up</td><td><b>Short build-up</b></td><td>Fresh shorts pressing. Expect supply into strength</td></tr>
+      <tr><td class="k">Down</td><td>Down</td><td><b>Long unwinding</b></td><td>Holders leaving without new sellers. Weak, not a short signal</td></tr>
+      <tr><td class="k">—</td><td>—</td><td class="m">no F&amp;O</td><td>Cash-only stock. No positioning read</td></tr>
+    </tbody>
+  </table></div>
+  <p>Price alone cannot separate new conviction from position-closing: two identical green
+  candles mean opposite things depending on whether positions opened or closed to produce them.
+  <b>Short covering is the trap this row exists to catch</b> — it looks exactly like a breakout
+  and has no one left to buy. <em>Sector Stage</em> moved to Row 7 on 1 September, where it sits
+  beside the sector's relative strength; a Stage-2 stock in a Stage-4 sector is still swimming
+  against its own group.</p>
+  <p><b>The basis pair, added 1 September.</b> <code>basis L</code> and <code>basis S</code> are
+  the volume-weighted prices at which long and short positions were actually built. The old
+  single figure pooled both, and so reported a level <em>between</em> the two camps where nobody
+  is positioned. Above the long basis those buyers are in profit and tend to defend a pullback;
+  below it, that basis is <b>resistance until reclaimed</b>. Each side needs three OI prints
+  before it is drawn — one observation is not a level.</p>
+
+  <h4>Row 10 · Options OI</h4>
+  <p class="m">PCR 0.85 ⚪ │ Max pain 9000 (+1.2%) │ OI 15.1L CE / 12.8L PE │ ATM ΔOI −15.1% │ writers S 8500 · R 9000</p>
+  <p>Six figures per F&amp;O name, handed over in a <b>second paste</b> — the first bundle is
+  already near TradingView's ~4,096-character input cap. Only three of them are prices, and
+  those three are drawn on the chart.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>What it is for</th></tr></thead>
+    <tbody>
+      <tr><td class="k">writers R</td><td>The strike with the most written <b>call</b> OI — a ceiling the zone engine cannot see. <b>If T1 sits above it, the reward is fighting option positioning</b></td></tr>
+      <tr><td class="k">writers S</td><td>The strike with the most written <b>put</b> OI — a floor from an independent observer. Coinciding with a demand zone is real confluence</td></tr>
+      <tr><td class="k">Max pain</td><td>A <b>magnet</b> in expiry week, and never a target</td></tr>
+      <tr><td class="k">PCR</td><td>Above ~1.3 put-heavy, below ~0.7 call-heavy complacency, the middle noise. Shade <em>size</em> with it, never direction, and never on one stock alone</td></tr>
+      <tr><td class="k">ATM ΔOI</td><td>Today's positioning shift at the strike nearest spot, as a percentage of that strike's standing OI</td></tr>
+      <tr><td class="k m">no options</td><td>The name has no F&amp;O series — roughly two in three on the board. <b>Absent, not failed</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note no">
+    <span class="tag">None of this is validated — it grades, it never gates</span>
+    <p>Round numbers were measured here and <b>did not replicate</b>; Wyckoff was rejected twice.
+    Options positioning is a <em>monthly-expiry</em> structure while this book runs eight weeks to
+    eight months, so it informs the next few weeks — entry and first target — and says nothing
+    about the thesis. Treat it exactly like arrival and delta: <b>it can talk you out of a trade,
+    never into one.</b></p>
+    <p><b>A missing figure is blank, never zero.</b> Three of these are drawn as price levels, and
+    a max pain of 0 renders as a confident line below every stop that looks exactly like a real
+    one. The chain now comes from Dhan rather than NSE, because NSE serves it only around market
+    hours and its index endpoint has been retired.</p>
+  </div>
+
+  <h3>Rows 11 &amp; 12 · Signal · Quality · RSI, and ML win probability</h3>
+  <p>Row 8 carries three values bound from the v67 dashboard: its action signal, its asset-quality
+  read, and daily RSI(14). <b>RSI in one line:</b> it compares average gains to average losses
+  over 14 days and returns 0–100 — but <b>in a Stage-2 trend RSI stays high for months</b>, and
+  selling at 70 is how you exit every winner early. Its useful reading is <em>divergence</em>:
+  price making a new high while RSI does not.</p>
+  <p>Row 9 prints the model’s win probability and the board rank —
+  <span class="m">41.3% │ GM rank 72.4 🟢</span>.</p>
+  <div class="note">
+    <span class="tag">Why 40% is a good number</span>
+    <p>This is a trend-following system: it wins less than half the time and makes money on the
+    size of the winners. Measured, about <b>88% of positional exits come via the trail</b>, and
+    the median trade <em>loses</em> to the index. A 40% win probability attached to a 3:1 payoff
+    is a good trade. Green starts at 40%, amber at 35% — <b>do not read it like a school
+    mark</b>. GM rank is never red: a low rank is a ranking, not a fault.</p>
+    <p><code>— unbound</code> is the most common panel fault. <code>input.source</code> binds by
+    <em>position</em> and <b>TradingView drops every binding on every recompile</b>. Re-run the
+    bind script. Nothing is broken.</p>
+  </div>
+</section>
+
+<section id="rowsII">
+  <h2><span class="n">16</span>Band II — Location, value &amp; room, every row</h2>
+  <div class="note go">
+    <span class="tag">The idea the whole band rests on</span>
+    <p>A <b>zone</b> is a price area where a large order once left unfilled demand behind. Price
+    leaving it violently is the evidence; price <em>returning</em> is the opportunity. The trade
+    is not “price is in a zone” — it is <b>price returned, tested the zone, and turned</b>. That
+    turn is the setup.</p>
+  </div>
+
+  <h3>Row 14 · Zones (MTF)</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k m">IN DEMAND</td><td>Price is inside a demand zone right now</td></tr>
+      <tr><td class="k m">REACTING off DZ</td><td>Tested a demand zone and turned up off it — <b>the tradeable state</b></td></tr>
+      <tr><td class="k m">IN SUPPLY</td><td>Inside a supply zone. Overhead sellers</td></tr>
+      <tr><td class="k m">between zones</td><td>Open space. Neither support nor resistance nearby</td></tr>
+      <tr><td class="k m">★ctrl · ⚡ · ×2TF</td><td>Controlling zone · FVG-backed · nested across 2 timeframes</td></tr>
+      <tr><td class="k m">n DZ / n SZ live</td><td>Live demand and supply counts on the chart</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>The lifecycle</b> — <code>fresh → reacted → spent</code>, with <code>violated</code> as a
+  separate ending.</p>
+  <div class="tw"><table>
+    <thead><tr><th>State</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Fresh</td><td>Never tested. It has proven nothing yet</td></tr>
+      <tr><td class="k">Reacted</td><td>Price came back, tested it, turned. <b>This is the trade</b></td></tr>
+      <tr><td class="k">Spent</td><td>Retired — but only after a <b>confirmation</b>: travel of twice the zone’s own-TF ATR, <em>or</em> an EMA20 cross, <em>or</em> a break of the HTF pivot that framed it. Until one happens it is still live and still tradeable</td></tr>
+      <tr><td class="k">Violated</td><td>Price <em>closed</em> beyond the far edge. Deleted, not spent</td></tr>
+    </tbody>
+  </table></div>
+  <p>Two asymmetries are deliberate: <b>demand outlives supply</b> — spent demand stays greyed,
+  and a controlling or high-scoring zone earns a <em>second</em> test — and the EMA20 that judges
+  a zone is the one that frames it: <b>weekly and monthly zones answer to the chart’s EMA20;
+  daily and intraday zones answer to the daily EMA20.</b></p>
+
+  <h3>Row 15 · Support Zone</h3>
+  <p class="m">DZ ⚡ │ D:FVG W:Piv AVWAP EMA20 VAL ~Fib0.618</p>
+  <div class="tw"><table>
+    <thead><tr><th>Type</th><th>In plain terms</th></tr></thead>
+    <tbody>
+      <tr><td class="k">FVG</td><td>A three-bar gap price moved through so fast nobody traded inside it. Those tend to get revisited</td></tr>
+      <tr><td class="k">Piv</td><td>A swing low price has previously turned at. Price memory</td></tr>
+      <tr><td class="k">AVWAP</td><td>An anchored volume-weighted average price (Row 22)</td></tr>
+      <tr><td class="k">EMA20</td><td>The 20-period exponential average — dynamic support in a trend</td></tr>
+      <tr><td class="k">VAL / POC</td><td>Value-area low and point of control from the volume profile</td></tr>
+      <tr><td class="k">~Fib</td><td>A Fibonacci retracement. The <code>~</code> means inferred, not drawn</td></tr>
+    </tbody>
+  </table></div>
+  <p>One support is a level. <b>Three or more stacked in a tight band is confluence</b>, and
+  confluence is what makes a stop meaningful — you are not betting on one line holding, you are
+  betting on several failing at once.</p>
+
+  <h3>Row 16 · S/R (nearest) · TL token</h3>
+  <p class="m">S 1718.00 (−2.1%) | R 1802.50 (+2.7%) │ COILING under 1802.50 → breakout watch</p>
+  <p><b>The timeframe tag is not decoration.</b> A stop resting on a <b>weekly</b> level is a
+  deeper distal — a wider stop — which means <b>size down</b>. The same number off a
+  <b>daily</b> shelf is a tighter stop and a bigger position. Reading <code>1718.00 −2.1%</code>
+  without knowing which is how a position gets mis-sized. <code>man</code> = your own drawn
+  level, which outranks the automatic pair.</p>
+  <p>A far distance is honest, not a bug: on a strong trender there may be no qualified two-touch
+  level nearby. The row <b>greys past 8%</b> — real, but not a stop you would use.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>A level</th><th>A demand zone</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Models</td><td>Price <b>memory</b></td><td>Unfilled <b>orders</b></td></tr>
+      <tr><td class="k">A touch</td><td><b>Weakens</b> it — heavily tested means primed to break</td><td><b>Spends</b> it — the fuel is consumed</td></tr>
+      <tr><td class="k">A close beyond</td><td><b>Flips</b> it. Broken support becomes resistance and stays</td><td><b>Deletes</b> it</td></tr>
+    </tbody>
+  </table></div>
+  <p>This is why a level tested four times and a zone tested once say opposite things about their
+  own reliability — and why the picker deliberately <b>discards</b> the most over-tested levels
+  and reports them separately as <code>COILING</code>. A level price keeps grinding on is a
+  breakout candidate, not a floor.</p>
+  <h4>Age — since 9 September</h4>
+  <p class="m">S 1718.00 ·2.4mo (−2.1%) │ R 1802.50 ·11mo ·stale ⌛ (+2.7%)</p>
+  <p>Every level now carries how long since it was last touched, <b>in its own timeframe's
+  bars</b>, and the label on the line says the same. Lifespans: daily 126 bars (about six
+  months), weekly 130, monthly 120 — three numbers because three timeframes do not decay
+  alike. Past its lifespan a level is <b>dropped from the ceiling only</b>, unless a weekly or
+  monthly level within tolerance rescues it. It is never removed, and it is deliberately
+  <b>not</b> aged as support: an old level is a weak place to expect rejection, not a bad place
+  to lean a stop.</p>
+  <div class="note no">
+    <span class="tag">Why ageing did not free the room you expected</span>
+    <p>Measured before it shipped: 67.8% of the daily level pool is over six months old — but
+    the level that actually binds Room is fresh or seasoned <b>84%</b> of the time. Ageing
+    cleaned the chart and freed room on one name in fifty-five. The binding ceiling on a
+    pullback is the recent swing high, and that is fresh by construction. The answer to
+    "no room everywhere" turned out to be the 11 September measurement, not this.</p>
+  </div>
+
+  <h3>Rows 17 &amp; 18 · Volume Profile, Momentum &amp; value</h3>
+  <p><b>Row 14</b> reads <code>off</code>, the sensed prices, or <code>not sensed</code> — the
+  last meaning the toggle is on but the source is unwired. Wiring a trendline is three manual
+  steps with no other feedback, which is the entire reason the row exists.</p>
+  <p><b>Row 15</b> answers “where did the money actually change hands?”. The <b>POC</b> is the
+  fairest price in the window; the <b>value area</b> holds ~70% of volume.
+  <code>✓ ABOVE VAH</code> (strongest) → <code>✓ IN VA (upper)</code> →
+  <code>✗ IN VA (lower)</code> → <code>✗ BELOW VAL</code>. This is the one component of the
+  Wyckoff/SMC block that earned its place, firing on roughly 18% of names.</p>
+  <p><b>Row 16</b> — <span class="m">ADX 27.4 +DI (31/18) │ ATR 2.4% │ above CPR │ above MVWAP │ VCP ✓</span></p>
+  <div class="tw"><table>
+    <thead><tr><th>Reading</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">ADX &lt; 20</td><td>No trend. Price is ranging</td></tr>
+      <tr><td class="k">ADX 20–25</td><td>A trend forming</td></tr>
+      <tr><td class="k">ADX &gt; 25</td><td>A real trend — the row goes green here, <em>and</em> only when +DI leads</td></tr>
+      <tr><td class="k">ADX &gt; 40</td><td>Strong, possibly extended</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>ADX says nothing about direction</b> — that is +DI versus −DI. <code>ADX 30 −DI</code> is
+  a strong <em>downtrend</em>. <b>ATR as a percent</b> makes volatility comparable across stocks
+  and drives everything downstream: the stop is a multiple of ATR, and position size is risk
+  divided by that stop, so a 6% ATR name gets a much smaller position than a 1.5% one for the
+  same rupee risk. <b>VCP</b> is successive pullbacks getting shallower on falling volume —
+  sellers exhausting.</p>
+
+  <h3>Row 19 · Extension vs EMA20</h3>
+  <p class="m">EXTENDED 2.8×ATR above ⚡para late-stage 50D +3.1× base 5 ⚠ │ above EMA20 by 4.2%</p>
+  <p>Bands run <code>AT VALUE</code> → <code>NORMAL</code> → <code>EXTENDED</code> →
+  <code>FAR</code>. Tags: <code>⚡para</code> parabolic arrival · <code>climax-vol</code> extended
+  <em>and</em> volume ≥3× · <code>late-stage</code> the leg has run ≥40 weeks ·
+  <code>base n ⚠</code> how many consolidations this advance has already built.</p>
+  <p><b>Why extension matters more than almost anything here.</b> Your stop is placed by
+  structure, so the further price sits from that structure the wider the stop and the worse the
+  reward-to-risk — before considering that extended price mean-reverts. Bases one and two are the
+  highest-quality buy points; by base four or five the move is widely recognised and failure
+  rates climb.</p>
+  <div class="note no">
+    <span class="tag">Warns at 2.5×ATR, over-extended at 4.0 — and neither is a gate</span>
+    <p>Extension <b>never blocks a GO</b>, deliberately, under the anti-Holy-Grail rule: pile
+    every quality test into the trigger and you get a signal that never fires. It feeds the
+    <b>verdict</b>, where a GO while extended is downgraded to <code>CAUTION —
+    momentum/chase</code>. <b>So you will sometimes see a green TRIGGER row above an amber
+    verdict — and the verdict is the one judging the trade.</b></p>
+  </div>
+
+  <h3>Row 20 · Location (L) — a required gate</h3>
+  <p class="m">REACTING off pattern — 🟢Zone ⚪D/W-lvl 🟢AVWAP ⚪EMA20 🟢S/R</p>
+  <div class="tw"><table>
+    <thead><tr><th>Headline</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k m">NOT AT LOCATION</td><td>Nothing supports price here. <b>The L gate fails</b></td></tr>
+      <tr><td class="k m">AT pattern zone</td><td>Inside a leg-base-leg pattern zone</td></tr>
+      <tr><td class="k m">AT pivot zone</td><td>Inside a pivot shelf — weaker evidence</td></tr>
+      <tr><td class="k m">REACTING off pattern</td><td>Tested a pattern zone and turned. <b>The strongest read</b></td></tr>
+      <tr><td class="k m">REACTING off pivot</td><td>Tested a pivot shelf and turned</td></tr>
+      <tr><td class="k m">AT LOCATION</td><td>Supported, but by one of the other sources</td></tr>
+    </tbody>
+  </table></div>
+  <p>The five dots name <em>which</em> sources support price. Any one satisfies the gate.
+  “AT LOCATION” alone was not enough because it read identically for a zone price sits inside, a
+  zone price is reacting off, and a bare pivot shelf — <b>three different trades</b>. Pattern
+  outranks pivot when both fire.</p>
+  <p><b>Weak location:</b> if the only support is AVWAP or EMA20 — no zone, no S/R — the verdict
+  downgrades to <code>CAUTION — momentum/chase</code>. Those two are dynamic curves that follow
+  price, so they are nearly always “nearby” and cannot on their own mean you are at value.</p>
+
+  <h3>Row 21 · Room for Trade</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k m">CLEAR n%</td><td>Clear space to the first obstacle. Green if R:R ≥ 2</td></tr>
+      <tr><td class="k m">⚠️ NO ROOM n%</td><td>The first obstacle sits <b>below your T1</b></td></tr>
+      <tr><td class="k m">⛔ IN SUPPLY</td><td>Price is inside a supply zone. <b>Hard block</b></td></tr>
+      <tr><td class="k m">spent SZ &lt;price&gt;</td><td>A <b>retired</b> supply zone sits nearer than the live obstacle</td></tr>
+    </tbody>
+  </table></div>
+  <p>Reward is not “wherever T1 lands” — it is the distance to the first thing that will stop
+  you, measured across six sources. Pivot ceilings are labelled <code>Pv·</code> and ranked last,
+  a pivot shelf being weaker than a supply zone. The <code>spent SZ</code> caveat is
+  <b>deliberately never folded into the number</b>: house doctrine says a tested zone is
+  consumed, so it must not silently shrink your R.</p>
+  <div class="note no">
+    <span class="tag">Measured 11 September — read this row as information</span>
+    <p>331 GO-timed trades, the board's own Room rebuilt at each entry. <b>77% had under 1R to
+    the first obstacle, and those trades did not do worse</b>: mean +0.21R against −0.17R for the
+    rest, T1 hit rates identical, symbol-block CI on the difference [−0.09, +0.91]. The obstacle
+    was punched through <b>63–77% of the time whatever it was</b> — daily S/R 69%, last pivot high
+    77%, an in-supply band 74% — and neither obstacle class nor level age separated outcomes.
+    Blue sky was the worst bucket.</p>
+    <p>So: the number tells you where the first test is and where a partial makes sense. It does
+    not, on its own, tell you not to trade. A near obstacle <em>plus</em> bleeding delta into it,
+    or a rejection wick at it, or a call wall with heavy OI, is a different matter — that is the
+    verdict's job, and the reviewer's.</p>
+  </div>
+</section>
+
+<section id="rowsIII">
+  <h2><span class="n">17</span>Band III — Execution &amp; timing, every row</h2>
+  <p>Band II said <em>where</em>. This band says <em>now</em>.</p>
+
+  <h3>Row 23 · Intraday</h3>
+  <p><code>off</code> → <code>wait</code> → <code>sqz ON, wait EMA</code> →
+  <code>10EMA ok</code> → <code>GO 10EMA</code> / <code>GO 10EMA+sqz</code>. A <b>squeeze</b> is
+  a volatility contraction — Bollinger Bands inside Keltner Channels — meaning the market has
+  coiled; coils resolve with expansion and the direction of the reclaim is the tell. This is
+  <b>optional timing</b> (<code>⏱</code>), never a required gate.</p>
+
+  <h3>Row 24 · AVWAP</h3>
+  <p class="m">🟢TRIGGER R2G&gt;BO │ nearest 1724.50 (−1.2%) │ L·BO·Gap … │ 🟢pinch 0.8%</p>
+  <p>A normal VWAP resets daily. An <b>anchored</b> one starts at a chosen event and runs
+  forward, giving the true average price paid by everyone who bought since. Above it, those
+  buyers are collectively in profit — and they tend to defend it.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Anchor</th><th>Why this one</th></tr></thead>
+    <tbody>
+      <tr><td class="k">52-week Low</td><td>Where the last cycle of sellers gave up</td></tr>
+      <tr><td class="k">Breakout day</td><td>Where the current advance began — the average price of the buyers who started the trend</td></tr>
+      <tr><td class="k">Gap-up day</td><td>Where a repricing happened</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>R2G</b> (“reclaim to green”) means price fell below the breakout AVWAP and reclaimed it —
+  the failed-breakdown reversal, and the stronger of the two triggers. A <b>pinch</b> — all three
+  anchors converging — is high conviction: three separate cohorts share one average price, so a
+  break flushes all three at once. Note this is a <em>dynamic curve</em>, not a drawn line; the
+  static horizontals are Row 13, a different engine.</p>
+
+  <h3>Rows 25–27 · Pattern | Shape | Combo, Setup, and the battery</h3>
+  <p>Row 25 carries the pattern flag and the combo. Its Shape half prints an em-dash: the
+  geometry classifier left S4 for tokens and was rebuilt in Section Five on TradingView's own
+  criteria, where the tuning is happening.</p>
+  <p><b>Row 26 is the Setup row</b> (8 Sep): the playbook in force and whether the pattern that
+  fired is that playbook's trigger. <code>🟢 PULLBACK — the pattern that fired is this playbook's
+  trigger</code> is the read you want; <code>🔴 … wants compression or a turn, not an ignition
+  fired inside the zone</code> is the role mismatch — the thing the <code>⚠role</code> tag used to
+  whisper. A carried catalyst past half its latch window yields to a live pullback context and
+  the row says <code>superseded</code>, because on one name a fifteen-bar-old BREAKOUT catalyst
+  was judging a coil that the location row, the pullback flag and the verdict all read as a
+  pullback — under which the coil is exactly right.</p>
+  <p>Row 27 is the <b>P gate</b>: every pattern in the active battery, ranked by contribution.
+  The bull battery carries 17 (HTF weight 4; VCP, LAU, GAP, SPR at 3; SC, BC, PP, U50, LIQ, ENG,
+  3BR, H50, H200, IN3, IBN at 2; NR7 at 1) and the recovery battery 10 (CLIMAX, SPR, 2B, SOS,
+  30WMA at 3; ENG, HSUP, 3BR, PP at 2; VDU at 1). <b>Which battery runs is decided by the stage
+  2×2</b> — Stage 2 resolves Bull, Stage 1 Recovery, Stage 3/4 no trade at all.</p>
+  <div class="note">
+    <span class="tag">Σ grades; it does not gate</span>
+    <p>A single weight-4 pattern is not the same as four weight-1 patterns, so Σ is a
+    <b>quality</b> measure rather than a count. <b>The gate is simply: did at least one pattern
+    fire?</b> Beside Σ the header prints a <b>knife-edge count</b> — how many of the fired
+    patterns cleared their threshold by a hair. Σ+6 with two marginal is Σ+2 you can lean on.</p>
+  </div>
+  <p>The combo half of Row 25 names multi-pattern <b>stories</b> with the age of the context leg — the part Σ
+  cannot show, and the part that says whether the story is still fresh:
+  <code>COILED SPRING</code> · <code>INSTITUTIONAL IGNITION</code> · <code>BEAR TRAP</code> ·
+  <code>CAPITULATION FLOOR</code> · <code>STRUCTURE SHIFT</code>. A combo is the strongest single
+  line on the panel when it fires, because it is a <em>sequence</em> rather than a
+  coincidence.</p>
+
+  <h3>Row 28 · Bar (B) — a required gate</h3>
+  <p>Passes when the bar closed <b>green</b> OR closed in the <b>upper half of its range</b>.
+  Both the colour and the close position are always stated.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Reason</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k m">— green close</td><td>Closed above its open</td></tr>
+      <tr><td class="k m">— shakeout: red body but closed strong</td><td>Red bar, upper-half close. The lows were rejected — fine for a long</td></tr>
+      <tr><td class="k m">— red and closed in the lower half</td><td>Sold into the close. <b>Vetoed</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>A pattern can fire on a bar that made a new high then collapsed into the close — that is
+  distribution wearing a breakout’s clothes. <b>Where a bar closes within its range is who won
+  the day.</b> The asymmetry is deliberate: a red bar with a long <em>lower</em> wick is a
+  shakeout, and calling it bearish would be the mirror of the mistake this row already avoids in
+  the other direction.</p>
+
+  <h3>Rows 29–31 · Arrival · Δ, Volume, Confluence</h3>
+  <p><b>Row 29.</b> <code>FAST</code> price arriving into demand tends to produce a sharp
+  rejection — sellers overshot. <code>GRIND</code> is absorbing the zone and tends to bleed
+  through. <b>Same level, opposite outcomes</b>, and only the approach tells you which. The delta
+  is a <em>proxy</em> — no TradingView plan exposes real aggressor data to Pine — so it grades
+  and never gates. The real footprint delta exists now, but it lives in <b>Section Five</b>:
+  <code>request.footprint()</code> retains per-bar volume rows and Pine meters memory per chart, so
+  it cannot share a chart with S4. Read the true delta there; read the proxy here.</p>
+  <p><b>Row 30 is the V gate.</b> RV is this bar’s volume over a baseline: ≥1.25 <code>strong</code>,
+  ≥1.00 <code>ok</code>, below <code>thin</code>. A breakout on thin volume means nobody showed
+  up, and those fail back into the range at a high rate.</p>
+  <div class="note no">
+    <span class="tag">Two measured facts about RV</span>
+    <p><b>It is time-of-day biased.</b> Across 14,466 bar-observations the V gate passes
+    <b>48% at 10:30 and about 18% midday</b> — a 2.8× swing from the clock alone, because the
+    baseline mixes every bar of the day. A midday RV of 0.9 is not the same evidence as a 10:30
+    RV of 0.9.</p>
+    <p><b>Pullback entries legitimately have lower volume.</b> At-value bars print a median RV of
+    <b>0.63</b> against <b>1.35</b> on breakout bars, and a 1.0 floor rejects 78% of them. That is
+    why the pullback branch exists: a contraction pattern inside a demand zone with no expansion
+    pattern drops the floor to 0.5 and changes the bar test to “held the zone”. Those rows are
+    tagged <code>·PB</code>.</p>
+  </div>
+  <p><b>Row 31</b> ranks nineteen supporting factors — AVWAP, Intra, ⚡FVG, Ctrl, S/R, TL, Flag,
+  EMA20, @AVWAP, Fib, Pinch, RV+, Rnd, D-PA, Arrival, Δ+, WCL, RRG, MTF. <b>Confluence grades; it
+  does not gate.</b> Its practical use is <em>ranking</em> — when four names ping in a session,
+  it is how you choose which to work first. <code>★strong</code> appears at <b>6</b>, and that too
+  is a read-out. One caveat: the round-number term is retained at weight 1, but the effect was
+  tested and <b>did not replicate</b> — it flipped sign on an independent sample.</p>
+</section>
+
+<section id="rowsIV">
+  <h2><span class="n">18</span>Bands IV–VI — decision, plan, portfolio</h2>
+
+  <h3>Row 33 · TRIGGER</h3>
+  <p class="m">GO 🟢P 🟢L 🟢V 🟢B ⚪R 🟢F ⏱ ·PB Bull ★strong</p>
+  <p>The headline names the <em>first failing gate</em>: <code>GO</code> · <code>no PA</code> ·
+  <code>no location</code> · <code>no volume</code> · <code>below EMA20</code> ·
+  <code>RRG</code> · <code>fundamentals</code> · <code>weak/red bar</code>.</p>
+  <div class="gatebox">
+    <p><b>GO = P AND L AND V AND B AND F.</b> <code>R</code> is shown and <b>never counted</b> —
+    a <code>?</code> means the trail source is unbound, and even a dark R cannot block. The EMA20
+    veto is a sixth term, off by default and not chipped at all.</p>
+  </div>
+  <p>Trailing tags: <code>⏱</code> optional timing fired · <code>·PB</code> the pullback branch is
+  active · <code>Bull</code>/<code>Rec</code> which path · <code>★strong</code> high confluence ·
+  a role tag when a pattern’s kind mismatches its location.</p>
+
+  <h3>Row 34 · STATUS</h3>
+  <p>One sentence: the ruling plus what to do. The distinction that earns the row its place is
+  <code>GO — arm buy-limit @ trigger close on the pullback</code> versus <code>GO — buy-limit @
+  this bar’s close (fills at MARKET)</code>. “Buy the retest” sounds disciplined; <b>on the
+  trigger bar itself there is no retest to wait for</b>, and saying otherwise is false
+  comfort.</p>
+
+  <h3>Row 35 · VERDICT</h3>
+  <p>Four lines — <b>ruling · why · the one caveat · the action</b> — weighing the entire panel,
+  not just the gates.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Ruling</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k m">NO TRADE — Stage 3/4</td><td><b>Outranks everything.</b> Wrong structural frame</td></tr>
+      <tr><td class="k m">NOT TRADEABLE</td><td>Blocked <em>and</em> in supply — clearing one gate will not make this a trade</td></tr>
+      <tr><td class="k m">NOT TRADEABLE - ETF at +21% to NAV</td><td>You would book the loss on entry</td></tr>
+      <tr><td class="k m">TAKE IT</td><td>Clean. Gates and the reward test both pass</td></tr>
+      <tr><td class="k m">TAKE IT — PULLBACK TO VALUE</td><td>The best case: at value, triggered, with room</td></tr>
+      <tr><td class="k m">ARM — PULLBACK TO VALUE</td><td>Right location, reward does not yet clear the bar</td></tr>
+      <tr><td class="k m">BREAKOUT PIVOT</td><td>Do <b>not</b> buy in the band. Arm a buy-stop above it; blue sky beyond</td></tr>
+      <tr><td class="k m">CLEAR TO BREAK</td><td>The overhead is a level to break <em>toward</em> the target, not a rejection</td></tr>
+      <tr><td class="k m">CAUTION — momentum/chase</td><td>Triggered on weak location, or while extended</td></tr>
+      <tr><td class="k m">SKIP — clean trigger, no room</td><td>Everything fired; there is nowhere to go</td></tr>
+      <tr><td class="k m">SKIP — payoff too thin</td><td>Reward does not clear the applicable gate</td></tr>
+      <tr><td class="k m">LOW QUALITY</td><td>Grinding arrival with bleeding delta — wait for a better tap</td></tr>
+      <tr><td class="k m">ARM</td><td>Not triggered. Names the one missing gate</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note no">
+    <span class="tag">The reward gate depends on the trade type — and they are not peers</span>
+    <p>A <b>swing</b> trade must clear <b>R:R ≥ 2.0</b>; a <b>positional</b> trade must clear
+    <b>ROI to T1 ≥ 20%</b>. The definitions differ — swing targets 5–8% over 8–12 weeks,
+    positional 10–30% over 6–8 months — so applying both would be incoherent.</p>
+    <p><b>A known tension, stated rather than hidden:</b> a positional T1 sits at 5R, so ROI to T1
+    is 5 × risk%. With a 2.3% stop that is 11.5%, and <b>the 20% positional rule is unreachable
+    whenever risk% is below 4%</b>. The two positional rules contradict by construction.</p>
+  </div>
+
+  <h3>Rows 37–39 · The plan</h3>
+  <p><b>These print only on a GO</b> — before that they read <code>wait for GO</code>,
+  deliberately. A plan on an untriggered setup is fiction, and reading one is how a watch
+  candidate becomes a position.</p>
+  <p><b>The trigger-bar latch.</b> The plan anchors to the bar the trigger <em>fired</em> on and
+  does not move while the signal stays true. Without it a “retest limit” ratchets upward with
+  price — <b>a limit that follows price is a market order wearing a limit’s clothes</b>, which is
+  exactly what confirmation was meant to prevent. <code>trig 3b ago</code> tells you how far
+  behind price the anchor sits; past a set age it re-latches, because a limit far behind an
+  advancing market never fills.</p>
+  <div class="note">
+    <span class="tag">R-multiples, the one number that matters</span>
+    <p>1R is your risk — entry to stop. A 2R target makes twice what you risked. It is the only
+    comparable unit across stocks: a 3% move on a quiet name and a 9% move on a volatile one can
+    both be exactly 2R.</p>
+    <p><b>The canon in force:</b> positional (POS/WYC/REV) <b>3R and 5R</b> taking 25% at each;
+    swing breakouts <b>2R and 4R</b> at 33%; swing reversals and gaps <b>2R/4R</b> at 50%.
+    Positional therefore keeps <b>half the position</b> running past T2 on an uncapped trail —
+    that is where a trend trade earns its keep.</p>
+    <p><b>Stop ≠ invalidation.</b> The stop is where you get out; the invalidation is where the
+    <em>reason you bought</em> stops being true. Usually different prices, and the invalidation is
+    ranked by severity: zone distal, then swing low, then S/R, then EMA20.</p>
+  </div>
+  <p><b>Sizing.</b> <code>Shares = (Capital × Risk%) ÷ (Entry − Stop)</code>. Risk a fixed
+  fraction per trade and let the stop distance decide the count, so a wide stop automatically
+  produces a small position. <b>This is the mechanism that makes a losing streak
+  survivable.</b></p>
+
+  <h3>Rows 41–42 · Portfolio</h3>
+  <p>Present only when the v67 slot is bound. These are a <b>bound snapshot, not a live
+  recomputation</b> — v67 owns the slots, the levels and the ladder, so they cannot drift from
+  its panel or from Risk Shield. <b>If the chart disagrees with the Pyramid page, the page is
+  live and the chart is a photograph.</b></p>
+
+  <h3>The SUMMARY column</h3>
+  <p>The right-hand column reads the entire panel as <b>one judgement</b> — trend stack,
+  leadership, location, participation, geometry, direction — and says what the combination
+  <em>means</em>. It deliberately prints no value that appears above it. VERDICT is the short
+  ruling; SUMMARY is the long-form read. It is a column rather than a row because a Pine table
+  cell does not auto-wrap: full-width, it stretched the panel across the monitor.</p>
+</section>
+
+<section id="levels">
+  <h2><span class="n">18b</span>The five drawn levels</h2>
+  <p>One toggle puts up to five dashed rays on the chart. They are <b>reference levels, not order
+  prices</b> — dashed and labelled precisely so they never read as your own hand-drawn zones.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Ray</th><th>Source</th><th>Read it as</th></tr></thead>
+    <tbody>
+      <tr><td class="k">FUT long basis</td><td>Futures OI built on up-closes</td><td>Support beneath — longs in profit defend it</td></tr>
+      <tr><td class="k">FUT short basis</td><td>Futures OI built on down-closes</td><td>Resistance above — shorts defend it</td></tr>
+      <tr><td class="k">max pain</td><td>Option chain</td><td>A magnet in expiry week. Never a target</td></tr>
+      <tr><td class="k">PE writers</td><td>Strike with most written put OI</td><td>Floor</td></tr>
+      <tr><td class="k">CE writers</td><td>Strike with most written call OI</td><td>Ceiling</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Fewer than five is the normal case.</b> A futures side needs three OI prints before it is
+  drawn at all, and two names in three have no option chain. <b>Nothing draws from a failed
+  fetch</b> — a missing value stays missing rather than becoming a zero, because a zero here would
+  render as a confident line below every stop.</p>
+  <div class="note no">
+    <span class="tag">The one that has already bitten</span>
+    <p>An <b>unbound</b> OI source returns <code>close</code> — never null — and the basis
+    accumulator samples on <em>change</em>, so for a while it was quietly building a "basis" out of
+    the price series and printing it beside <code>OI no F&amp;O</code>. Bindings drop on <b>every
+    recompile</b>, so that is the file's normal state after a compile, not an edge case. Fixed by
+    feeding null when the source reads price.</p>
+  </div>
+</section>
+
+<section id="states">
+  <h2><span class="n">19</span>Panels you will actually see</h2>
+  <p>Individual rows are easy. The skill is the combination.</p>
+
+  <div class="note go">
+    <span class="tag">The A+ pullback — the one to wait for</span>
+    <p class="m">Stage 2 · 7/8 · RS Positive Rising · RRG LEADING<br>
+    AT VALUE 0.8×ATR · REACTING off pattern · CLEAR 8.2%<br>
+    Σ+3 VCP · RV 0.7 thin ·PB · Bar OK · TRIGGER GO 🟢P🟢L🟢V🟢B<br>
+    VERDICT: TAKE IT — PULLBACK TO VALUE ★strong</p>
+    <p>Everything aligns <em>and price is at value</em>. Note RV is 0.7 — thin — and that is
+    correct: this is the pullback branch, where dry volume is the feature. Size normally.</p>
+  </div>
+
+  <div class="note no">
+    <span class="tag">The chase — the one that feels best and pays worst</span>
+    <p class="m">Stage 2 · 8/8 · RS Positive Rising<br>
+    EXTENDED 3.1×ATR ⚡para · AT LOCATION (⚪Zone ⚪S/R 🟢EMA20)<br>
+    RV 2.1 strong · Bar OK · Σ+3 · TRIGGER GO 🟢P🟢L🟢V🟢B<br>
+    VERDICT: CAUTION — momentum/chase</p>
+    <p>Every gate passed and the context is perfect. <b>It is still a bad entry</b>: 3.1×ATR
+    extended, and the only thing holding it up is the EMA20 — a curve that follows price. The stop
+    must sit at real structure far below, so R:R is poor before the trade starts.
+    <b>This panel is why the verdict weighs more than the gates.</b></p>
+  </div>
+
+  <div class="note no">
+    <span class="tag">The trap — a breakout with nobody behind it</span>
+    <p class="m">Stage 2 · OI Short covering +2.1% · RV 1.9 strong · Bar OK · GAP fired</p>
+    <p>Volume looks excellent. It is shorts closing, not new buyers arriving — and when they
+    finish, the bid disappears. <b>Row 7 is the only row that can see this.</b></p>
+  </div>
+
+  <div class="note no">
+    <span class="tag">The false comfort — right structure, wrong stage</span>
+    <p class="m">Stage 3 · 8/8 Minervini · RS Positive · Σ+6 · RV 1.6<br>
+    VERDICT: NO TRADE — Stage 3</p>
+    <p>Every quality metric is excellent and the 30-week average has rolled over. <b>This is the
+    most dangerous panel on the list</b>, because everything you would normally check says buy.
+    The stage veto exists precisely for it.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">The armed watch — the normal state</span>
+    <p class="m">Stage 2 · REACTING off pivot · CLEAR 6.1%<br>
+    TRIGGER no volume 🟢P🟢L⚪V🟢B 🟢F (RV 0.82/1.00) · VERDICT: ARM</p>
+    <p>Nothing is wrong. Four of five gates hold and one is missing. <b>This is what most panels
+    look like most of the time.</b> Set the alert and go do something else.</p>
+  </div>
+
+  <div class="note go">
+    <span class="tag">The ninety-second read, in order</span>
+    <p><b>Stage</b> → not 2 or 1, stop · <b>template, RS, RRG</b> → is this a leader ·
+    <b>OI</b> → short covering? · <b>extension</b> → past 2.5×ATR you are late ·
+    <b>location</b> → NOT AT LOCATION means no trade · <b>room</b> → in supply, nothing to win ·
+    <b>the gates</b> → which chip is dark · <b>the verdict</b> → it already weighed all of it ·
+    <b>the plan</b> → only if it says take it.</p>
+    <p><b>Steps one to six decide the trade; seven to nine decide the timing.</b> Beginners invert
+    this and read the verdict first.</p>
+  </div>
+</section>
+
+<section id="misread">
+  <h2><span class="n">20</span>Misreadings that cost money</h2>
+  <div class="tw"><table>
+    <thead><tr><th>The mistake</th><th>What is actually true</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Reading <code>—</code> as a failure</td><td>It means <b>not measured</b>. Missing data is not evidence</td></tr>
+      <tr><td class="k">Treating Σ as the gate</td><td>Σ grades. The gate is “did one pattern fire”</td></tr>
+      <tr><td class="k">Buying because TRIGGER says GO</td><td>GO is five mechanical gates. The <b>verdict</b> weighs quality, location and room</td></tr>
+      <tr><td class="k">Selling because RSI &gt; 70</td><td>In a Stage-2 trend RSI stays high for months. This is how you exit every winner early</td></tr>
+      <tr><td class="k">Trusting Structure Health CLEAN</td><td>CLEAN is the ordinary state; the count has never reached 3</td></tr>
+      <tr><td class="k">Reading a plan on a non-GO panel</td><td>It says <code>wait for GO</code> for a reason</td></tr>
+      <tr><td class="k">Taking IMPROVING → LEADING as a buy</td><td>Measured <b>negative</b>. Only LEADING→LEADING and WEAKENING→LEADING survived</td></tr>
+      <tr><td class="k">Assuming the panel shows live price</td><td>With closed-candle on it is the last <b>closed</b> bar, and every number agrees with that moment</td></tr>
+      <tr><td class="k">Panicking at <code>— unbound</code></td><td>You recompiled. Re-run the bind script</td></tr>
+      <tr><td class="k">Buying the touch of a zone</td><td>The <b>reaction</b> is the trade. <code>IN DEMAND</code> is not <code>REACTING off DZ</code></td></tr>
+      <tr><td class="k">Reading a stop as an invalidation</td><td>The stop is where you exit; invalidation is where the thesis dies</td></tr>
+      <tr><td class="k">Comparing RV across the session</td><td>RV is time-of-day biased: ~48% pass at 10:30, ~18% midday</td></tr>
+      <tr><td class="k">Reading a blank <code>F</code> as weak books</td><td>Almost always <b>the bundle was not pasted</b>. Unscored and scored-badly are different facts</td></tr>
+      <tr><td class="k">Trading an option level like a zone</td><td>Max pain is a <b>magnet</b>, not a target; the writer strikes grade the trade and never gate it. None of it is validated</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note go">
+    <span class="tag">The three worth memorising</span>
+    <p><b>1 · Stage decides everything.</b> Price against the 30-week average, and that average’s
+    slope. Stage 3 and 4 are refused outright.</p>
+    <p><b>2 · The reaction is the trade, not the arrival.</b> A fresh zone has proven nothing.
+    Price returning, testing and turning is the setup.</p>
+    <p><b>3 · GO is timing, not permission.</b> Five gates say something is firing now. Whether it
+    is worth firing on is Band II’s answer, and the verdict’s.</p>
+  </div>
+</section>
+
 </main>
 </div>
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory</span>
-  <span>Companions — <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.2 / S4Core v50 · revised against the code 11 Sep 2026</span>
+  <span>Companions — <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">30 Section Five</a> · <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
 </div></footer>
