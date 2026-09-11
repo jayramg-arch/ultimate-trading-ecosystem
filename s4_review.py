@@ -56,6 +56,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -455,8 +456,20 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   needs a stronger location, but if a trigger then fires ON VOLUME those shorts are the fuel.
   price↑ OI↓ = SHORT COVERING: weaker than a long build, expect it to fade without follow-
   through. price↓ OI↓ = LONG UNWINDING: exhaustion, often the last leg of a pullback.
-  Options where shown: a call wall / max-pain above is a ROOM obstacle like a supply zone;
-  a put wall below is support; PCR extremes are contrarian.
+  Options (S4 "Options OI" row) are NOT optional when the row carries numbers - name every
+  field: PCR (below ~0.6 = call-heavy, bearish positioning; above ~1.2 = put-heavy; extremes
+  are contrarian), max pain vs price and which way it PULLS into expiry, ATM dOI (writers
+  PULLING = a sharp move is likelier; writers ADDING = pinned), and the writer strikes
+  "S x / R y". The call-writer strike and max pain ABOVE price are ROOM obstacles exactly
+  like a supply zone - they belong in section 3 and in the T1 discussion; the put-writer
+  strike BELOW is a support shelf that belongs in the stop discussion. A plan that puts T1
+  under the call wall without saying so is incomplete.
+  Two OI-state readings reach you: S4's "Futures OI" row and v67's "FUTURES OI STATE".
+  They can disagree - S4 pairs the DAILY OI change with the last CHART-TF bar's direction,
+  v67 pairs it with the daily futures close - so on a 75m/125m chart they read different
+  windows. When they differ, say so in section 8 and take v67's state for the day's
+  positioning (OI is a daily series; the daily price leg is the coherent pair); keep S4's
+  basis level and prose. Never report a build-up state without checking both rows.
 - AVWAP (Low / BO / Gap anchors): price above a RISING AVWAP = buyers since that anchor are in
   profit and defending; a reclaim of AVWAP-BO on volume is a legitimate trigger; a rejection
   from below it is a fail. AVWAP is LOCATION only in confluence with a zone/level, never
@@ -507,15 +520,20 @@ ANALYSIS
    above/below them, Volume-Profile VAL/POC/VAH, daily EMA20 distance. Is this a place
    where buyers have shown up before, or dead air?
 3. ROOM & OBSTACLES — first obstacle above, what it is, distance in % and R, the next one
-   beyond it, and whether T1/T2 sit beyond them. Where a partial makes sense. (Room is
-   information here — it is not a gate; see the doctrine.)
+   beyond it, and whether T1/T2 sit beyond them. Include the derivatives ceilings where
+   present: the call-writer strike, max pain if above, the futures basis if above price.
+   Where a partial makes sense. (Room is information here — it is not a gate; see the
+   doctrine.)
 4. TRIGGER & GATES — each chip P·L·V·B·Q·F with its number (RV x/floor, bar close-%,
    which PA patterns fired and their Σ, confluence n/23, arrival style), whether this is
    a breakout-type or pullback-type trigger and therefore which volume standard applies,
    extension vs the daily EMA20, bar-ok.
 5. PARTICIPATION — futures OI change and basis (long/short build-up, covering,
-   unwinding), options (PCR, max pain, call/put walls) where shown, footprint delta on
-   the bar and 20-bar cumulative, absorption vs bleeding, delta divergence. One story.
+   unwinding; S4 row AND v67 row, flag if they differ), then options BY FIELD when the
+   row has numbers: PCR and its read, max pain vs price and its pull, ATM dOI (writers
+   pulling/adding), writer strikes S/R and where they sit vs the stop and T1. Then
+   footprint delta on the bar and 20-bar cumulative, absorption vs bleeding, delta
+   divergence. One story - and if the name is cash-only, one line saying so.
 6. STRUCTURE (S5) — whatever S5 sections are present: Wyckoff / sweep / range-edge, and
    anything not marked withheld.
 7. THE PANEL'S OWN PLAN — entry method as printed (and whether it is a real retest or a
@@ -533,14 +551,57 @@ WHERE S4 IS TOO BLUNT   (what its mechanical ruling gets wrong or misses, and wh
 RECOMMENDATION
 RULING: TAKE | TAKE · reduced size | WAIT for <specific bar/level/event> | PASS | NO TRADE (stage)
 DECIDING FACTOR   (one sentence)
-PLAN   (entry method · stop · T1/T2 with R · trade type — take from the panel, correct it
-   only if you say why; a T1 under 2R is always corrected to the canon)
+PLAN   (state the TRADE TYPE first, then entry method · stop · T1/T2 with R — the R
+   canon follows the trade type: positional 3R/5R, swing 2R/4R; never write a 2R T1 on a
+   positional plan. Take levels from the panel, correct them only if you say why. Do not
+   label an R you have not computed from entry and stop.)
 FLIPS IF   (one sentence)
 """
 
 
+_OI_STATES = ("long build-up", "short build-up", "short covering", "long unwinding")
+
+
+def oi_digest(read_txt: str) -> tuple[str, str]:
+    """Deterministic derivatives pre-read, in the spirit of r_check: the model is not
+    trusted to notice that S4's "Futures OI" row and v67's "FUTURES OI STATE" name
+    different states (flash-lite wrote "v67 confirms this" against a row that said the
+    opposite), nor to carry every options field into its section 5. Returns
+    (note_for_prompt, line_for_output); both empty for a cash-only name."""
+    low = read_txt.lower()
+    s4 = v67 = ""
+    m = re.search(r"^futures oi \|\s*oi\s+([a-z\- ]+?)\s+[+\-]?\d", low, re.M)
+    if m:
+        s4 = m.group(1).strip()
+    m = re.search(r"^futures oi state \|\s*([a-z\- ]+?)\s*\(", low, re.M)
+    if m:
+        v67 = m.group(1).strip()
+    if s4 not in _OI_STATES and v67 not in _OI_STATES:
+        return "", ""
+    parts, out = [], []
+    if s4 and v67 and s4 != v67:
+        parts.append("OI STATE CONFLICT: S4's Futures OI row says %s; v67's FUTURES OI STATE says %s. "
+                     "They pair the same daily OI change with different price legs (S4: last chart-TF "
+                     "bar; v67: daily futures close). Report BOTH in section 8, take v67's %s as the "
+                     "day's positioning, and do not write that they agree."
+                     % (s4.upper(), v67.upper(), v67.upper()))
+        out.append("OI-CHECK: S4 %s vs v67 %s \u2014 CONFLICT (v67's daily read governs)" % (s4, v67))
+    elif s4 and v67:
+        out.append("OI-CHECK: S4 and v67 agree \u2014 %s" % s4)
+    m = re.search(r"^options oi \|(.*)$", read_txt, re.M | re.I)
+    if m and "no options" not in m.group(1).lower():
+        fields = [f.strip() for f in re.split(r"\s*\u2502\s*", m.group(1)) if f.strip()]
+        parts.append("OPTIONS FIELDS PRESENT \u2014 each must be named and read in section 5, and the "
+                     "call-writer strike / max pain above price must appear in section 3 as obstacles: "
+                     + " \u00b7 ".join(fields))
+        out.append("OPTIONS: " + " \u00b7 ".join(fields))
+    return ("\n".join(parts), "\n".join(out))
+
+
 def build_prompt(read_txt: str, pos_txt: str) -> str:
-    return ("POSITION CONTEXT\n%s\n\n%s\n\nDeliberate now. S4's VERDICT and SUMMARY rows above are "
+    note, _ = oi_digest(read_txt)
+    pre = ("DERIVATIVES PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
+    return (pre + "POSITION CONTEXT\n%s\n\n%s\n\nDeliberate now. S4's VERDICT and SUMMARY rows above are "
             "one mechanical opinion; weigh them last." % (pos_txt, read_txt))
 
 
@@ -724,8 +785,10 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     pos_txt = position_context(d["symbol"])
     review, prov = deliberate(build_prompt(read_txt, pos_txt), args.provider)
     rc_txt = r_check(review)
-    if rc_txt:
-        review = review.rstrip() + "\n\n" + rc_txt
+    _, oi_txt = oi_digest(read_txt)
+    for extra in (rc_txt, oi_txt):
+        if extra:
+            review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
     path = save_review(d["symbol"], tf_lbl, read_txt, review, prov, s4_verdict_line(d))
     head = "%s · %s · %s" % (d["symbol"], tf_lbl, prov)
