@@ -185,7 +185,17 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
     res_js = 'chart.setResolution(%s);' % json.dumps(_res(tf)) if tf else ""
     want_sym = _nse(symbol) if symbol else None
     want_res = _res(tf) if tf else None
-    n_tabs = len(_chart_targets())
+    tabs0 = _chart_targets()
+    n_tabs = len(tabs0)
+    # A tab that carried a panel BEFORE the switch must carry one after. Mid-recalc the S4
+    # tab reports 0 cells with isLoading false (11-Sep: NEULANDLAB read "S4 not on chart",
+    # BAJAJ-AUTO never settled) — an empty panel is "not ready", never "no panel".
+    had_cells = {}
+    for t in tabs0:
+        try:
+            had_cells[t["url"]] = json.loads(_tv(READY_JS, t)).get("cells", 0) > 0
+        except Exception:
+            had_cells[t["url"]] = False
     if sym_js or res_js:
         for r in _tv_all(SWITCH_JS % {"sym": sym_js, "res": res_js}):
             if str(r).startswith("ERR"):
@@ -205,6 +215,8 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
             # CGPOWER) gets it re-asserted rather than waited on
             if (want_sym and st["symbol"] != want_sym) or (want_res and st["res"] != want_res):
                 _tv(SWITCH_JS % {"sym": sym_js, "res": res_js}, tgt)
+            if had_cells.get(tgt["url"]) and st["cells"] == 0:
+                st["loading"] = True          # empty where a panel used to be = still busy
             sts.append(st)
         # a tab with no tables (a bare chart) must not hold the wait hostage; the tabs
         # that carry panels must all agree on symbol/TF and be done recalculating
@@ -459,11 +471,45 @@ TONE RULES — these are not optional:
    WHERE S4 IS TOO BLUNT and never infer what it would have said. A field showing "-" or
    "n/a" is unknown, not neutral and not a fail.
 
-OUTPUT — exactly these headings, terse, numbers quoted from the panel:
-PARTICIPATION READ   (OI · AVWAP · VP · delta as ONE story, 2-3 lines; say which confirm and which contradict the price gates)
-CASE FOR
-CASE AGAINST   (each line ends with [FATAL] or [TOLERABLE])
-WHERE S4 IS TOO BLUNT
+OUTPUT — three parts, these exact headings. Part 1 is a full ANALYSIS of the panels, written
+as a trader walking a colleague through the chart: every section gets a short paragraph
+(3-6 sentences) that quotes the panel's numbers and says what they MEAN, not just what
+they are. Part 2 deliberates. Part 3 recommends. Do not skip a section — if the panel has
+nothing for it, say so in one line.
+
+ANALYSIS
+1. CONTEXT & TREND STACK — stage (weekly 2×2), 30-WMA/50-DMA/200-DMA position and slope,
+   weekly/daily/chart-TF trend agreement or conflict, RS vs N500 and sector, RRG quadrant
+   and direction, sector stage, catalyst/setup type. What kind of trade is this allowed
+   to be?
+2. LOCATION — every zone containing or near price by TF (fresh/tested/controlling,
+   score, distal), S/R levels with tests and age, AVWAP anchors and whether price is
+   above/below them, Volume-Profile VAL/POC/VAH, daily EMA20 distance. Is this a place
+   where buyers have shown up before, or dead air?
+3. ROOM & OBSTACLES — first obstacle above and what it is (supply zone / fresh
+   resistance / pivot shelf / VAH / call wall), distance in % and R, what lies beyond it.
+4. TRIGGER & GATES — each chip P·L·V·B·Q·F with its number (RV x/floor, bar close-%,
+   which PA patterns fired and their Σ, confluence n/23, arrival style), whether this is
+   a breakout-type or pullback-type trigger and therefore which volume standard applies,
+   extension vs the daily EMA20, bar-ok.
+5. PARTICIPATION — futures OI change and basis (long/short build-up, covering,
+   unwinding), options (PCR, max pain, call/put walls) where shown, footprint delta on
+   the bar and 20-bar cumulative, absorption vs bleeding, delta divergence. One story.
+6. STRUCTURE (S5) — whatever S5 sections are present: Wyckoff / sweep / range-edge, and
+   anything not marked withheld.
+7. THE PANEL'S OWN PLAN — entry method as printed (and whether it is a real retest or a
+   market fill), stop and its basis, T1/T2 with R, trade type, house gates (2R / 20%).
+   Is the plan coherent with the analysis above?
+8. CONTRADICTIONS — anywhere the panel disagrees with itself (S4 vs v67 vs S5, or two S4
+   rows), and which side you believe.
+
+DELIBERATION
+CASE FOR   (weighted, best points first)
+CASE AGAINST   (each line ends with [FATAL] or [TOLERABLE]; FATAL means it alone blocks the trade)
+WHERE S4 IS TOO BLUNT   (what its mechanical ruling gets wrong or misses, and what a GOOD
+   version of this setup would look like vs how close this one is)
+
+RECOMMENDATION
 RULING: TAKE | TAKE · reduced size | WAIT for <specific bar/level/event> | PASS | NO TRADE (stage)
 DECIDING FACTOR   (one sentence)
 PLAN   (entry method · stop · T1/T2 with R · trade type — take from the panel, correct it only if you say why)
@@ -685,14 +731,18 @@ def main() -> int:
     else:
         syms = [args.symbol]
 
-    rc = 0
+    rc, failed = 0, []
     for s in syms:
         try:
             rc |= review_one(s, args.tf, args)
         except TVError as e:
-            print("TV: %s" % e, file=sys.stderr); return 2
+            if "not reachable" in str(e) or "no chart tab" in str(e):
+                print("TV: %s" % e, file=sys.stderr); return 2
+            print("TV: %s — %s" % (s, e), file=sys.stderr); failed.append(s); rc |= 1
         except Exception as e:
-            print("%s: %s" % (s, e), file=sys.stderr); rc |= 1
+            print("%s: %s" % (s, e), file=sys.stderr); failed.append(s); rc |= 1
+    if failed:
+        print("\nnot reviewed: %s  (re-run with --symbols %s)" % (", ".join(failed), ",".join(failed)))
     return rc
 
 
