@@ -132,12 +132,13 @@ SWITCH_JS = r"""
 READY_JS = r"""
 (function(){try{
   var chart=(window.TradingViewApi||window.tvWidget).activeChart();
-  var n=0, loading=false;
+  var n=0, loading=false, resolveErr=false;
   chart.getAllStudies().forEach(function(s){var a=chart.getStudyById(s.id);
     if(a&&a.isLoading&&a.isLoading())loading=true;
+    try{var e=a.status&&a.status(); if(e&&e.errorDescription&&/resolve/i.test(e.errorDescription.error||""))resolveErr=true;}catch(x){}
     var st=a&&a._study; if(st&&st.graphics){var g=st.graphics(); if(g.dwgtablecells){g.dwgtablecells().forEach(function(c){
       if(c._primitivesDataById)n+=c._primitivesDataById.size; else if(c.forEach)c.forEach(function(cc){if(cc._primitivesDataById)n+=cc._primitivesDataById.size;});});}}});
-  return JSON.stringify({symbol:chart.symbol(),res:chart.resolution(),loading:loading,cells:n});
+  return JSON.stringify({symbol:chart.symbol(),res:chart.resolution(),loading:loading,cells:n,resolveErr:resolveErr});
 }catch(e){return JSON.stringify({error:String(e&&e.message||e)});}})();
 """
 
@@ -211,6 +212,9 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
             st = json.loads(_tv(READY_JS, tgt))
             if st.get("error"):
                 raise TVError(st["error"])
+            if st.get("resolveErr"):
+                raise TVError("%s does not resolve on TradingView (studies report 'resolve error') "
+                              "— check the ticker spelling" % st["symbol"])
             # a tab that did not take the switch (11-Sep: HONASA, one tab stayed on
             # CGPOWER) gets it re-asserted rather than waited on
             if (want_sym and st["symbol"] != want_sym) or (want_res and st["res"] != want_res):
@@ -233,7 +237,10 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
 
 
 def _nse(sym: str) -> str:
-    s = sym.strip().upper()
+    """TradingView spells NSE tickers with '_' where the exchange uses '-' or '&'
+    (BAJAJ-AUTO -> NSE:BAJAJ_AUTO, M&M -> NSE:M_M). Any other spelling resolves to
+    nothing and every study on the chart reports a runtime 'resolve error'."""
+    s = sym.strip().upper().replace("-", "_").replace("&", "_")
     return s if ":" in s else "NSE:" + s
 
 
