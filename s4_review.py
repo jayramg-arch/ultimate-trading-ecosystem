@@ -429,19 +429,16 @@ HOW TO WEIGH (this desk's doctrine, measured on its own trades):
 - Volume is CONTEXT-DEPENDENT: a breakout needs RV ≥ 1.0 and a pullback into a zone does NOT
   (median RV on at-value bars is 0.63, and low RV there is not predictive of failure). Do not
   fail a pullback for breakout volume. Do fail a breakout for RV < 1.
-- Room — GRADE THE OBSTACLE, do not just measure to it. S4's Room row stops at the FIRST
-  thing overhead of any class, which on a pullback is by construction the swing high the
-  pullback came from. That level is not the ceiling of a pullback trade; it is the level
-  the thesis says gets broken and is where T1 anchors. So:
-    HARD obstacles (FATAL under ~1R for a new entry): a fresh SUPPLY ZONE, a CONTROLLING
-      zone, a Weekly/Monthly resistance, a heavily-tested level price has failed at
-      repeatedly, an options call wall / max-pain sitting on the path.
-    SOFT obstacles (TOLERABLE — note them, size T1 off them, never veto on them alone): a
-      single-touch Daily S/R level formed in the last few weeks (= the recent swing high),
-      a pivot shelf (Pv·), the VAH of the current rotation, an MTTWR level (tests WEAKEN a
-      level; a much-tested one is a breakout candidate, not a lid).
-  Say which class the first obstacle is and whether the trade's T1/T2 lie beyond the first
-  HARD one. "NO ROOM" to a soft level on a pullback is not a reason to pass.
+- Room — INFORMATION, NEVER A VETO ON ITS OWN. Measured 11-Sep-2026 on 331 GO-timed trades
+  (docs/PREREG_room_obstacle_class.md): 77% had < 1R to the first obstacle, and those trades
+  did NOT do worse (mean +0.21R vs -0.17R for the rest; hit-T1 identical). The first
+  obstacle — whatever its class: Daily S/R, pivot, supply band, weekly level — was punched
+  through 63-77% of the time. Blue sky (no obstacle) was the WORST bucket.
+  So: name the first obstacle and its distance, use it to anchor T1 / a partial, note that
+  T1/T2 may sit beyond it, and grade it TOLERABLE. A near obstacle plus OTHER evidence of
+  supply (bleeding delta into it, a rejection wick at it, a call wall with heavy OI, Stage 3
+  context) can add up to FATAL — the obstacle alone never does. Do not write "no room" as
+  a deciding factor.
 - Extension: > 2.5 ATR above the daily EMA20 is a warning, > 4 is a veto for a fresh entry;
   wait for the pullback the panel names.
 - Trade type decides the reward bar: swing 2R/4R, positional 3R/5R. Nothing under 2R.
@@ -504,9 +501,9 @@ ANALYSIS
    score, distal), S/R levels with tests and age, AVWAP anchors and whether price is
    above/below them, Volume-Profile VAL/POC/VAH, daily EMA20 distance. Is this a place
    where buyers have shown up before, or dead air?
-3. ROOM & OBSTACLES — first obstacle above and its CLASS (HARD: supply zone / controlling
-   / W-M resistance / call wall · SOFT: recent-swing-high Daily S/R / pivot shelf / VAH /
-   MTTWR), distance in % and R, then the first HARD obstacle and whether T1/T2 sit below it.
+3. ROOM & OBSTACLES — first obstacle above, what it is, distance in % and R, the next one
+   beyond it, and whether T1/T2 sit beyond them. Where a partial makes sense. (Room is
+   information here — it is not a gate; see the doctrine.)
 4. TRIGGER & GATES — each chip P·L·V·B·Q·F with its number (RV x/floor, bar close-%,
    which PA patterns fired and their Σ, confluence n/23, arrival style), whether this is
    a breakout-type or pullback-type trigger and therefore which volume standard applies,
