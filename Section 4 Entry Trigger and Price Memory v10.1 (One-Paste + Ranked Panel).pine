@@ -853,7 +853,7 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.1", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.2 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.2", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
 string S4_VER      = "v11.2"
@@ -1640,7 +1640,7 @@ f_daily_ema(int len) =>
 // cheaper than a second stream, and this bundle already carries the 50-SMA and its
 // slope - sma150, sma200, the 200's one-month slope and the 52-week low complete the
 // eight-point checklist without a new call.
-[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50, d_ath, d_sl50n, daily_sma150, daily_sma200, d_s200sl, d_low52] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5], ta.sma(close, 150), ta.sma(close, 200), ta.sma(close, 200) - ta.sma(close, 200)[21], ta.lowest(low, 252)], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
+[atrD_tf, dailyEMA20, daily_ema10, daily_ema20, dd60, daily_sma50, d_ath, d_sl50n, daily_sma150, daily_sma200, d_s200sl, d_low52, d_pxChg] = request.security(syminfo.tickerid, "D", [ta.atr(14), ta.ema(close, 20), f_daily_ema(10), f_daily_ema(20), (ta.highest(high, 60) - close) / ta.highest(high, 60) * 100.0, ta.sma(close, 50), ta.max(high), ta.sma(close, 50) - ta.sma(close, 50)[5], ta.sma(close, 150), ta.sma(close, 200), ta.sma(close, 200) - ta.sma(close, 200)[21], ta.lowest(low, 252), close - close[1]], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
 // ── MINERVINI TREND TEMPLATE (25-Aug-2026, Jay: "Add Minervini trend Template") ──
 // The eight-point SEPA stage-2 checklist, scored as a count so a name that misses one
 // leg is distinguishable from one that misses five. It GRADES - it is not a gate and it
@@ -4942,7 +4942,14 @@ f_foldOI(bool okOi, int so) =>
     // Bar 0, matching oi_basis. A daily OI series has one value per DAY, so the
     // chart-TF [so] shift only risks reading an na and reporting "no F&O".
     float _oiPct = (okOi and dashOiPrev > 0 and dashOi > 0) ? (dashOi - dashOiPrev) / dashOiPrev * 100.0 : na
-    bool _pxUp = close[so] >= close[so + 1]
+    // v10.2 (11-Sep): the price leg is the DAILY change (d_pxChg, same "D" bundle as
+    // the EMAs), not the last chart-TF bar. The OI change is day-over-day, so pairing
+    // it with one 75m bar named the opposite state to v67's FUTURES OI STATE whenever
+    // that bar's colour disagreed with the day (BAJFINANCE long vs short build-up,
+    // PNBHOUSING long unwinding vs short covering, same session). v67 pairs it with
+    // the daily futures close; this is the cash close - same sign except on a
+    // basis-shift day.
+    bool _pxUp = na(d_pxChg) ? close[so] >= close[so + 1] : d_pxChg >= 0
     bool _oiUp = not na(_oiPct) and _oiPct > 0
     string _oiState = na(_oiPct) ? "no F&O" : _pxUp and _oiUp ? "Long build-up" : _pxUp and not _oiUp ? "Short covering" : (not _pxUp) and _oiUp ? "Short build-up" : "Long unwinding"
     [_fHead, _fBasis, _oProse] = core.oiNarrative(_oiPct, _pxUp, _oiUp, oi_basis, oi_built_pct, close[so], opt_pcr, opt_mp, opt_ce, opt_atm, opt_peK, opt_ceK)
@@ -5288,11 +5295,12 @@ if show_panel and d_panel and barstate.islast
             room_txt := "⛔ IN SUPPLY  │  first " + str.tostring(_ovh, format.mintick) + " (+" + str.tostring(_distOvh, "0.0") + "%)" + _rtag + "  │  band to " + str.tostring(_band_r, format.mintick)
             room_col := C_NO
         else if _rf_t1 > _ovh
-            // Same caveat as the CLEAR branch: 0.2% against a 2.4% ATR is the CHOLAFIN
-            // shape - a large multiple off a small denominator - and it reads as a
-            // measurement unless the panel says otherwise.
-            room_txt := "⚠️ NO ROOM " + str.tostring(_distOvh, "0.0") + "%" + _rtag + ((not na(_atr_r) and _atr_r > 0 and (_ovh - _cl_r) < _atr_r) ? "   —   obstacle inside 1×ATR; the R rests on a tiny zone" : "")
-            room_col := C_WARN
+            // v10.2 / H10 (11-Sep): was "⚠️ NO ROOM" in amber. Measured on 331 GO-timed
+            // trades, under-1R room did NOT underperform (+0.21R vs -0.17R) and the
+            // obstacle was broken 63-77% of the time - so this is the FIRST TEST the
+            // trade meets, stated as information, not a warning about the trade.
+            room_txt := "FIRST TEST +" + str.tostring(_distOvh, "0.0") + "%  │  " + str.tostring(_ovh, format.mintick) + _rtag + ((not na(_atr_r) and _atr_r > 0 and (_ovh - _cl_r) < _atr_r) ? "   —   inside 1×ATR; the ×zone rests on a tiny zone" : "")
+            room_col := C_MUTE
         else
             // "CLEAR" means T1 does not exceed the obstacle - it does NOT mean the
             // obstacle is far. LAURUSLABS read "CLEAR 0.2%" beside 4.1xzone, because
@@ -5560,15 +5568,22 @@ if show_panel and d_panel and barstate.islast
         pl_cap := not na(_atr) and (_cl - pl_sl) > _slMult * _atr
         if pl_cap
             pl_sl := _cl - _slMult * _atr
-        // Targets = the real obstacle Room found (structural); when none exists, the
-        // TRADE-TYPE R-multiple canon (Risk Allocator: swing 3R/5R · positional 5R/10R;
-        // Recovery T2 = the 52W high when nearer). R is against the ACTUAL trade.
+        // Targets = the TRADE-TYPE R-canon (swing 2R/4R · positional 3R/5R; Recovery
+        // T2 = the 52W high when nearer). R is against the ACTUAL trade.
+        // v10.2 / H10 (11-Sep): the nearest obstacle is NO LONGER the target. On 331
+        // GO-timed trades the room to the first obstacle did not predict outcome
+        // (77% had <1R and did not do worse; the obstacle was broken 63-77% of the
+        // time whatever its class). Anchoring T1 to it printed sub-1R targets that
+        // the verdict then vetoed, and paid the trade out at the very level it was
+        // most likely to clear. pl_t1_str/pl_t2_str now mean "an obstacle sits
+        // BEFORE this target" - the first test, printed beside the R, never in
+        // place of it. Room stays on its own row as information.
         float _rsk = pl_entry - pl_sl
         float _h52v = (_off52v > 0 and _off52v < 100) ? _so_close / (1.0 - _off52v / 100.0) : na
-        pl_t1_str := not na(_ovh) and _ovh > pl_entry
-        pl_t1 := pl_t1_str ? _ovh : (_rsk > 0 ? pl_entry + _t1R * _rsk : na)
-        pl_t2_str := not na(_ovh2) and _ovh2 > pl_entry
-        pl_t2 := pl_t2_str ? _ovh2 : (is_rec_v and not na(_h52v) and _h52v > pl_entry ? _h52v : (_rsk > 0 ? pl_entry + _t2R * _rsk : na))
+        pl_t1 := _rsk > 0 ? pl_entry + _t1R * _rsk : na
+        pl_t1_str := not na(_ovh) and not na(pl_t1) and _ovh > pl_entry and _ovh < pl_t1
+        pl_t2 := is_rec_v and not na(_h52v) and _h52v > pl_entry ? _h52v : (_rsk > 0 ? pl_entry + _t2R * _rsk : na)
+        pl_t2_str := not na(_ovh2) and not na(pl_t2) and _ovh2 > pl_entry and _ovh2 < pl_t2
         pl_rr1 := (_rsk > 0 and not na(pl_t1)) ? (pl_t1 - pl_entry) / _rsk : na
         pl_rr2 := (_rsk > 0 and not na(pl_t2)) ? (pl_t2 - pl_entry) / _rsk : na
         // The PLAN row is the METHOD — no prices (they are in the four rows below).
@@ -5590,7 +5605,7 @@ if show_panel and d_panel and barstate.islast
         // #width (30-Jul): Plan was one unbroken line — entry-method plus SL/T1/T2 all on
         // one row, easily the widest content in the panel. Split at the natural boundary
         // (method above, numbers below), same convention as the Verdict clause breaks.
-        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + "  │  " : "") + _entryMethodTxt + _ageTag + "\n· SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + "  │  T1 " + (pl_t1_str ? "overhead" : str.tostring(_t1R, "0.0") + "R") + "  │  T2 " + (pl_t2_str ? "overhead" : (not pl_t2_str and is_rec_v and not na(_h52v)) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
+        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + "  │  " : "") + _entryMethodTxt + _ageTag + "\n· SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + "  │  T1 " + str.tostring(_t1R, "0.0") + "R" + (pl_t1_str ? " (test " + str.tostring(_ovh, format.mintick) + " first)" : "") + "  │  T2 " + ((is_rec_v and not na(_h52v) and _h52v > pl_entry) ? "52WH" : str.tostring(_t2R, "0.0") + "R")
     f_row(37, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? C_MUTE : C_OK)
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
@@ -5603,12 +5618,12 @@ if show_panel and d_panel and barstate.islast
 
     string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
     string _lS  = na(pl_entry) ? "" : "  │  SL " + str.tostring(pl_sl, format.mintick) + (pl_cap ? "⚠" : "") + " (−" + str.tostring((pl_entry - pl_sl) / pl_entry * 100.0, "0.0") + "%)"
-    // v5.2 (#2): a STRUCTURAL target (pl_t1_str/pl_t2_str = the nearest overhead level)
-    // is tagged "·lvl". It is a level to CLEAR, not a projected objective — the
-    // CLEAR-TO-BREAK verdict says exactly that in prose, while this row was quietly
-    // presenting the same number as the target. An R-multiple target has no tag.
-    string _lT1 = na(pl_t1) ? "  │  T1 —" : "  │  T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·lvl" : "") + ")"
-    string _lT2 = na(pl_t2) ? (na(pl_t1) ? "  │  T2 —" : "  │  T2 open") : "  │  T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·lvl" : "") + ")"
+    // v10.2 (H10): T1/T2 are always the R-canon. When an obstacle sits BEFORE a target
+    // (pl_t1_str/pl_t2_str) it is named as the FIRST TEST on the way - "·test 444.80" -
+    // so the level is read as something to clear, not as where the trade pays out.
+    // (v5.2 had anchored T1 to that level and tagged it "·lvl"; retired.)
+    string _lT1 = na(pl_t1) ? "  │  T1 —" : "  │  T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·test " + str.tostring(_ovh, format.mintick) : "") + ")"
+    string _lT2 = na(pl_t2) ? (na(pl_t1) ? "  │  T2 —" : "  │  T2 open") : "  │  T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·test " + str.tostring(_ovh2, format.mintick) : "") + ")"
     // INVALIDATION — appended to the SAME row, no new row (Jay). NOT the stop: the stop
     // is where you get out, invalidation is where the reason you bought stops being true.
     // Ranked by SEVERITY (zone distal > swing > S/R > EMA20) with the nearest shown as
@@ -6132,7 +6147,7 @@ if show_panel and d_panel and barstate.islast
              // values do not escape. S4Core derives the state with the same rule
              // oiNarrative uses, so the summary and the OI rows cannot disagree.
              dashOi, dashOiPrev, oi_basis, opt_ceK, pl_t1,
-             close[_so] >= close[_so + 1], support_v, of_known)
+             na(d_pxChg) ? close[_so] >= close[_so + 1] : d_pxChg >= 0, support_v, of_known)
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.
@@ -6178,7 +6193,11 @@ if show_panel and d_panel and barstate.islast
     // those levels ARE the target ladder (T1/T2/T3), not disqualifiers. The room / in-supply
     // veto is a BULL concept (a Stage-2 leader breaking into clear air). Applying it to a
     // recovery denies the recovery thesis itself. So room only gates the Bull path.
-    bool _qRoomBad = (not is_rec_v) and (_qSupply or _qThinR)
+    // v10.2 / H10 (11-Sep): thin room is no longer a disqualifier - only price INSIDE
+    // supply is (that is a LOCATION fact, and it is the one bucket that did read badly).
+    // _qThinR stays computed for the Room prose; it cannot fire now that T1 is the
+    // R-canon rather than the obstacle, and it never gates.
+    bool _qRoomBad = (not is_rec_v) and _qSupply
     // Both needed the delta to mean anything: "GRIND and not absorbing" collapses to
     // "any GRIND", which is a harsher test than the one that was measured.
     bool _qArrBad  = false
@@ -6340,7 +6359,7 @@ if show_panel and d_panel and barstate.islast
 // an alertcondition message - those strings are static apart from {{...}} placeholders,
 // so a Pine variable cannot be interpolated. Costs 1 of the 64 plot outputs (16 in use).
 plot(locSrc, "S4 loc src", display=display.none)
-alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar)", message="{{ticker}} S4 GO {{interval}} - bar {{time}} - close {{close}} - loc-src {{plot(\"S4 loc src\")}} (1=zone 2=lvl 4=AVWAP 8=EMA20 16=S/R 32=VP; sums, and 4/8 MOVE every bar). All four gates were true on that bar - an alert cannot fire otherwise - so if the panel now reads L· the location has EXPIRED, not misfired. A loc-src of 4, 8 or 12 is the fragile case: nothing static was under price. Open S4 and re-check the current bar before acting.")
+alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar + Funda)", message="{{ticker}} S4 GO {{interval}} - bar {{time}} - close {{close}} - loc-src {{plot(\"S4 loc src\")}} (1=zone 2=lvl 4=AVWAP 8=EMA20 16=S/R 32=VP; sums, and 4/8 MOVE every bar). All five gates were true on that bar - an alert cannot fire otherwise - so if the panel now reads L· the location has EXPIRED, not misfired. A loc-src of 4, 8 or 12 is the fragile case: nothing static was under price. Open S4 and re-check the current bar before acting.")
 alertcondition(avwap_trig,    title="S4 AVWAP trigger",       message="{{ticker}} S4 AVWAP trigger - bounce / R2G>BO")
 alertcondition(intraday_trig, title="S4 Intraday trigger",    message="{{ticker}} S4 INTRADAY trigger - reclaimed rising 10-EMA + TTM squeeze fired up")
 alertcondition(pinched,       title="S4 AVWAP pinch",         message="{{ticker}} S4 AVWAPs pinched - high-conviction entry zone")
