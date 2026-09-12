@@ -2,7 +2,15 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v50  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v51  --  shared engines for the Section 4 / Golden Matcher ecosystem
+//
+// v51 (12-Sep-2026) - ROOM IS INFORMATION (H10, docs/PREREG_room_obstacle_class.md).
+//   On 331 GO-timed trades the room to the first obstacle did not predict outcome:
+//   77% had under 1R and did not do worse (+0.21R vs -0.17R), the obstacle was broken
+//   63-77% of the time whatever its class, blue sky was the WORST bucket. summaryRead
+//   no longer calls thin room a problem (sRoom names the first test; bigProblem drops
+//   the roomR<1 term); verdictRead's _qRoomBad branches are now IN-SUPPLY branches,
+//   which is the only thing S4 v10.2 still passes in that flag.
 //
 // v50 (9-Sep-2026) - srAgeLabel() added: the age-tag formatter moved out of S4,
 //   which compiled at 100,393 against a 100,256 ceiling. srAgeTxt now calls it, so
@@ -1926,7 +1934,8 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     // The na branch splits on `go`: before the trigger fires there is no plan to judge,
     // which is a different statement from "the plan has an unusable stop".
     string sGeo = na(rATR) ? (not go ? "GEOMETRY · No plan yet. The trigger has not fired, so there is no stop or target to judge - geometry becomes readable the moment it does." : "GEOMETRY · No usable stop distance - treat every R figure on this panel as meaningless.") : rATR < 0.5 ? "GEOMETRY · THE STOP IS INSIDE THE NOISE. It sits well under one daily ATR from the entry, so ordinary daily movement will take it out before the idea is ever tested - and because R is measured against that distance, every reward multiple above is FLATTERED by it. Re-price the trade against a stop of roughly one ATR before believing any R number here." : rATR < 0.9 ? "GEOMETRY · The stop is tight relative to daily range. Workable, but it will be tested by noise as much as by thesis, so the R shown is optimistic rather than wrong." : rATR > 2.5 ? "GEOMETRY · The stop is very wide in ATR terms. Honest, but position size has to come down hard for risk to stay constant - check the reward still justifies the exposure." : "GEOMETRY · The stop clears daily noise without being extravagant, so the reward multiples above can be taken at face value."
-    string sRoom = roomR > 0 and roomR < 1.0 ? "  There is under 1R of room to the first obstacle: the trade is being asked to pay before it reaches anything, which it usually cannot." : roomR >= 3.0 ? "  Room to the first obstacle is generous, so the target is not fighting structure." : ""
+    // v51 / H10: thin room is the FIRST TEST, not a verdict. Measured: it did not hurt.
+    string sRoom = roomR > 0 and roomR < 1.0 ? "  The first obstacle sits under 1R away - that is the first test on the way to the R-target, and such levels were broken about two times in three; the target is not this level." : roomR >= 3.0 ? "  Room to the first obstacle is generous, so the target is not fighting structure." : ""
     string sType = ttSwing ? "  Structure says SWING: book into strength rather than holding for a positional target this does not support." : "  Structure says POSITIONAL, so size and hold for a move measured in months, not days."
     // Open interest says whether the volume above is NEW commitment or a squeeze
     // unwinding, which changes how far the move can carry; the basis says which side the
@@ -1944,7 +1953,8 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     // it, while a positional trade outlives it, so the wall is an entry gate rather than
     // a target cap. Costs nothing - ttSwing was already a parameter.
     string sWall = (na(ceK) or na(t1)) ? "" : t1 < ceK ? "  The call wall " + str.tostring(ceK, format.mintick) + " sits above T1, so the target is not fighting option positioning." : ttSwing ? "  T1 sits at or beyond the call wall " + str.tostring(ceK, format.mintick) + ", the strike writers are paid to defend. A swing trade lives inside this expiry, so it should not fight that ceiling - book into it rather than through it." : "  T1 sits at or beyond the call wall " + str.tostring(ceK, format.mintick) + ", but a positional trade OUTLIVES this expiry: treat the wall as an entry gate rather than a target cap, trim a slice there and let the rest run to structure."
-    bool bigProblem = inSZ or (roomR > 0 and roomR < 1.0) or (not na(rATR) and rATR < 0.5)
+    // v51 / H10: thin room removed from the problem set - only IN SUPPLY and a hairline stop remain.
+    bool bigProblem = inSZ or (not na(rATR) and rATR < 0.5)
     string sDir = not go ? "DIRECTION · Nothing to do yet. The trigger is incomplete, so the work now is to decide IN ADVANCE what would make this actionable and let the alert do the waiting - a name watched tick by tick gets bought early." : not bigProblem and (wUp or dUp) ? "DIRECTION · This is a take-it. Trend, leadership and location agree, the geometry is honest and the trigger is live, so what remains is ordinary trade risk rather than a flaw in the setup. Execute the plan as written and let the stop, not an opinion, decide the outcome." : bigProblem and (wUp or dUp) ? "DIRECTION · The SETUP is sound but the TRADE as planned is not. What is wrong is fixable - the entry, the stop or the target, not the thesis - so either restructure it with a deeper entry, a stop that clears noise, or a target beyond the obstacle, or leave it alone. Do not take the plan as printed merely because the trigger fired." : "DIRECTION · The trigger is live but the context is against it. A long here is counter-trend, which is legitimate only if you size it as one, take the first obstacle as the target and accept a lower hit rate. If you would not defend this entry out loud, that is your answer."
     string sConf = cf >= cfMax / 2 ? "  Confluence is dense - several independent facts point the same way." : "  Confluence is thin: few independent facts agree, so this rests largely on the trigger alone."
     string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF), and since Gate 6 that score does reach this chart - see the QUALITY line above. What crosses over is the SCORE only, not the six-check verdict, the growth history or the quality rejection behind it, so the Golden Matcher is still the authority on whether the name belongs on the list at all." : ""
@@ -2271,9 +2281,10 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
             _L5 := "Valid only in a Stage-2 uptrend (above 30WMA+200DMA).\nStage 3/4 into overhead, or price INSIDE a supply band, stays a SKIP."
             _anCol := C_OK
         else if _qRoomBad
-            _L1 := "SKIP — clean trigger, no room"
+            // v51: this flag now means IN SUPPLY only (S4 v10.2 dropped thin room from it).
+            _L1 := "SKIP — clean trigger, inside supply"
             _L2 := _roomWord
-            _L3 := "Buying into overhead supply is not a trade."
+            _L3 := "Buying from inside a supply band is not a trade - be paid for BREAKING it, or wait above it."
             _anCol := C_NO
         else if _posOk or _swingOk
             _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (cf_v >= cf_strong ? " ★strong" : "") + (_qArrGood ? " · quality arrival" : ""))
@@ -2308,7 +2319,7 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
         _L3 := "Not a 'no room' reject — the band ceiling IS the breakout level.\nArm a buy-STOP above " + (na(_band_r) ? "the band ceiling" : str.tostring(_band_r, format.mintick)) + "; above it is blue sky."
         _anCol := C_WARN
     else if _qRoomBad
-        _L1 := "NOT TRADEABLE"
+        _L1 := "NOT TRADEABLE — inside supply"
         _L2 := "Blocked: " + _blk
         _L3 := "Disqualifier: " + _roomWord + "\n— clearing that gate alone will NOT make this a trade."
         _anCol := C_NO
