@@ -96,7 +96,7 @@
 // while capping what footprint can hoard. IF THE CHART EVER REPORTS "Memory limits
 // exceeded": drop this first (800, then 400), and turn show_fp off second.
 // The D/W/M security calls have their own contexts and are unaffected by it.
-indicator("S5 Analysis Panel v1.3", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
+indicator("S5 Analysis Panel v1.4", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
 
 grpLab = "LAB -- which engine to test"
 d_sr = input.bool(true, "S/R levels engine", group=grpLab, tooltip="Master switch for the horizontal-level engine (auto clustering + your manual levels). Turn OFF to study trendlines alone on a clean chart.")
@@ -1164,6 +1164,9 @@ int   geoUpTo   = na
 int   geoLoFr   = na   // lower boundary anchors
 int   geoLoTo   = na
 float geoOvlp   = na   // how much the two spans OVERLAP, as a % of their union
+int   geoApexX  = na   // v1.4: bar where converging boundaries meet (na when parallel/widening)
+float geoApexPc = na   // v1.4: how far through the pattern price is, start -> apex, in %
+string geoNote  = ""   // v1.4: why a shape was withdrawn (printed on the Shape row)
 var line _geoHi  = na
 var line _geoLo  = na
 var box  _geoBox = na
@@ -1310,8 +1313,31 @@ if show_geom and d_geo and _geoFresh and array.size(g5hy) >= 2 and array.size(g5
         // price trades against is where those lines sit now.
         int   _dxH = _xh1 - _xh2
         int   _dxL = _xl1 - _xl2
-        geoUpNow  := _dxH != 0 ? _h1 + (_gSlopeH / _dxH) * (bar_index - _xh1) : _h1
-        geoLoNow  := _dxL != 0 ? _l1 + (_gSlopeL / _dxL) * (bar_index - _xl1) : _l1
+        float _mH  = _dxH != 0 ? _gSlopeH / _dxH : 0.0
+        float _mL  = _dxL != 0 ? _gSlopeL / _dxL : 0.0
+        geoUpNow  := _h1 + _mH * (bar_index - _xh1)
+        geoLoNow  := _l1 + _mL * (bar_index - _xl1)
+        // v1.4 - THE APEX (TITAN, 11-Sep-2026: "upper 4928 < lower 4968"). Two converging
+        // lines cross at the apex; projected past it they swap sides, and the panel was
+        // printing that inverted pair as live boundaries. TradingView's pattern pages end
+        // a triangle / wedge / pennant AT the apex - a shape whose lines have met has
+        // resolved, one way or the other, whether or not a breakout was seen. So: find
+        // the crossing bar, and past it (or with the boundaries inverted for any other
+        // reason) withdraw the shape and say why. Also report how far through the pattern
+        // price is - TV's own guidance is that a valid breakout comes before ~75% of the
+        // way to the apex; later than that the coil has lost its energy.
+        if _mH != _mL
+            float _xA = (_l1 - _mL * _xl1 - (_h1 - _mH * _xh1)) / (_mH - _mL)
+            int   _x0 = math.min(_xh2, _xl2)
+            if _xA > _x0
+                geoApexX  := math.round(_xA)
+                geoApexPc := (bar_index - _x0) * 100.0 / (_xA - _x0)
+        bool _pastApex = not na(geoApexX) and bar_index >= geoApexX
+        if geom != "-" and (_pastApex or geoUpNow <= geoLoNow)
+            geoNote := _pastApex ? "apex passed " + str.tostring(bar_index - geoApexX) + "b ago - the coil has resolved, no live boundaries" : "boundaries inverted - not a live shape"
+            geom     := "-"
+            geoUpNow := na
+            geoLoNow := na
         geoConvPc := _wEarly > 0 ? (_wEarly - _wLate) / _wEarly * 100.0 : na
         geoPoleA  := na(_pole) ? na : _pole / chart_atr
         geoRollPc := _roll
@@ -1780,10 +1806,13 @@ if show_s5p and barstate.islast
     // two slopes and a marginal flag at once. Every field traces to a TradingView Help
     // Centre page except the interior-close validation, which is this file own.
     string _gShape = not d_geo ? "engine off" : geom == "-" ? (array.size(g5hy) < 2 or array.size(g5ly) < 2 ? "not enough " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " pivots yet (" + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L, need 2 each)" : (na(_gSlopeH) and geo_maxfit) ? "no pair of " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " pivots forms a line the price respects" : (not na(geoOvlp) and geoOvlp < geo_ovlp) ? "boundaries describe different periods - they share only " + str.tostring(geoOvlp, "0") + "% of their span (need " + str.tostring(geo_ovlp, "0") + "%), so this is not one pattern" : not _geoClean ? "an intermediate close breaches one of the lines" : "pivots older than " + str.tostring(geo_look) + " bars - stale") : geom + (_geoEdge ? "   ·   ⚖ MARGINAL" : "") + (na(geoSpanB) ? "" : "   ·   spans " + str.tostring(geoSpanB) + " bars")
-    f_s5row(2, "Shape", _gShape, geom == "-" ? C_MUTE : _geoEdge ? C_WARN : C_INFO)
+    // v1.4: a withdrawn shape says WHY (apex passed / inverted) instead of falling back
+    // to "not enough pivots", which was wrong - the pivots were there.
+    string _gShape2 = (geom == "-" and str.length(geoNote) > 0) ? "withdrawn - " + geoNote : _gShape
+    f_s5row(2, "Shape", _gShape2, geom == "-" ? C_MUTE : _geoEdge ? C_WARN : C_INFO)
 
     // The boundaries where they sit NOW - what price is actually trading against.
-    string _gB = (na(geoUpNow) or na(geoLoNow)) ? "-" : "upper " + f_px(geoUpNow) + f_dist(geoUpNow) + "   ·   lower " + f_px(geoLoNow) + f_dist(geoLoNow) + "   ·   width " + str.tostring((geoUpNow - geoLoNow) / chart_atr, "0.0") + "x ATR" + (na(geoOvlp) ? "" : "   ·   spans upper " + str.tostring(bar_index - nz(geoUpFr, bar_index)) + "-" + str.tostring(bar_index - nz(geoUpTo, bar_index)) + "b ago / lower " + str.tostring(bar_index - nz(geoLoFr, bar_index)) + "-" + str.tostring(bar_index - nz(geoLoTo, bar_index)) + "b ago, " + str.tostring(geoOvlp, "0") + "% shared")
+    string _gB = (na(geoUpNow) or na(geoLoNow)) ? "-" : "upper " + f_px(geoUpNow) + f_dist(geoUpNow) + "   ·   lower " + f_px(geoLoNow) + f_dist(geoLoNow) + "   ·   width " + str.tostring((geoUpNow - geoLoNow) / chart_atr, "0.0") + "x ATR" + (na(geoApexPc) ? "" : "   ·   " + str.tostring(geoApexPc, "0") + "% to apex" + (geoApexPc > 75.0 ? " (late - TV wants the break before ~75%)" : "")) + (na(geoOvlp) ? "" : "   ·   spans upper " + str.tostring(bar_index - nz(geoUpFr, bar_index)) + "-" + str.tostring(bar_index - nz(geoUpTo, bar_index)) + "b ago / lower " + str.tostring(bar_index - nz(geoLoFr, bar_index)) + "-" + str.tostring(bar_index - nz(geoLoTo, bar_index)) + "b ago, " + str.tostring(geoOvlp, "0") + "% shared")
     f_s5row(3, "Boundaries", _gB, C_MUTE)
 
     // The two tests that DECIDE which shape it is, shown so the call can be audited
