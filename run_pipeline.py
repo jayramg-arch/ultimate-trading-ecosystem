@@ -925,6 +925,38 @@ def main():
             p.status = "SKIP"
             p.message = f"skipped: {e}"
 
+    # 12. GOLDEN MATCHER EVENING RUN (13-Sep-2026) — the boards and the two S4 paste
+    # strings, headless. Runs LAST because every watchlist it consumes is written by
+    # the phases above. A SUBPROCESS, not an import: the Web Commander script starts
+    # worker threads at import and would otherwise keep this process alive after the
+    # run. Non-fatal — a failed evening run leaves the previous bundles on disk and
+    # the in-window "Evening run" button is the manual retry. GM_EVENING_RUN=0 skips.
+    logger.info("\n[PHASE 12] GOLDEN MATCHER EVENING RUN (boards + S4 bundles, headless)...")
+    with run.phase("Phase 12 — GM Evening Run") as p:
+        if os.getenv("GM_EVENING_RUN", "1") == "0":
+            p.status = "SKIP"; p.message = "GM_EVENING_RUN=0"
+        else:
+            try:
+                import subprocess as _sp
+                _t0 = time.time()
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "gm_evening_headless.py")],
+                             capture_output=True, text=True, timeout=45 * 60)
+                _tail = (_r.stdout.strip().splitlines() or [""])[-1]
+                _err = (_r.stderr.strip().splitlines() or [""])[-1]
+                for _ln in _r.stdout.strip().splitlines()[-3:]:
+                    logger.info(f"   ↳ {_ln}")
+                if _r.returncode == 0:
+                    p.message = f"{_tail} ({int(time.time() - _t0)}s)"
+                else:
+                    p.status = "WARN"
+                    p.message = f"rc {_r.returncode}: {_err or _tail}"[:160]
+                    logger.warning(f"⚠️  GM evening run rc {_r.returncode}: {_err}")
+            except Exception as e:
+                logger.warning(f"⚠️  GM evening run skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     run.finalize()
 
     logger.info("\n" + "="*60)

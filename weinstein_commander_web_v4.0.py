@@ -13971,6 +13971,31 @@ elif page == 'GOLDEN MATCHER':
                             + (f" · TF **{_btf}**" if _btf else "") + _srcmix
                             + " · RRG persists") if _stamp
                            else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
+                # ── LAST HEADLESS RUN (13-Sep-2026) ─────────────────────────────
+                # Phase 12 of the auto-pilot (gm_evening_headless.py) writes both
+                # S4 paste strings to gm_bundles/latest.txt. Shown here from the FILE
+                # with its own timestamp, so the 16:30 result is readable without
+                # pressing anything; the blocks below still compute live from the
+                # caches and are what a manual Evening run refreshes.
+                try:
+                    _gbf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_bundles", "latest.txt")
+                    if os.path.exists(_gbf):
+                        with open(_gbf, encoding="utf-8") as _fh:
+                            _gbl = _fh.read().splitlines()
+                        _gb_hdr = _gbl[0].lstrip("# ").strip() if _gbl else ""
+                        _gb_body = [ln for ln in _gbl if ln.strip() and not ln.startswith("#")]
+                        _gb_age_h = (_gtb_time.time() - os.path.getmtime(_gbf)) / 3600.0
+                        with st.expander(f"🗂️ Bundles from the last headless run — {_gb_hdr}"
+                                         + (f"  ·  ⚠️ {_gb_age_h / 24:.0f} days old" if _gb_age_h > 30 else ""),
+                                         expanded=False):
+                            st.caption("Written by auto-pilot Phase 12 (or `python gm_evening_headless.py`). "
+                                       "Line 1 → S4 *GM: ONE-PASTE bundle*; line 2 → *GM: bundle 2 — options OI*. "
+                                       "If the live blocks below carry a newer stamp, prefer those.")
+                            for _gbx in _gb_body[:2]:
+                                st.code(_gbx, language=None)
+                except Exception as e:
+                    _gm_logger.warning(f"gm_bundles/latest.txt render failed: {e}")
+
                 # ── THE ONE-PASTE BUNDLE (25-Aug-2026) ──────────────────────────
                 # Five separate pastes was a CORRECTNESS problem, not a convenience
                 # one: a missed paste does not blank the field in S4, it leaves the
