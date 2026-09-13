@@ -2,7 +2,18 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v51  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v52  --  shared engines for the Section 4 / Golden Matcher ecosystem
+//
+// v52 (13-Sep-2026) - DERIVATIVES IN THE LADDERS (Jay: "I need Futures Basis, Futures
+//   OI quadrant, Options OI, PCR, Max Pain, Call and Put Writers ... for the room, SL,
+//   T1 and T2 calculations"). Until now these were WARNINGS appended to the levels row
+//   (wallCheck) while Room/T1/T2/SL were computed from zones, S/R and pivots alone.
+//   derivCeiling() folds the call-writer strike, max pain and the futures basis (each
+//   only when ABOVE price) into the overhead ladder, so they become the first test /
+//   T2 obstacle like any supply zone; S4's SL ladder gains the put-writer strike and
+//   the futures basis (when BELOW entry) as support rungs; oiQuad()/oiPlanHint() give
+//   the Plan row the OI quadrant and what it means for T1. wallCheck stays: it says
+//   what the ladders decided.
 //
 // v51 (12-Sep-2026) - ROOM IS INFORMATION (H10, docs/PREREG_room_obstacle_class.md).
 //   On 331 GO-timed trades the room to the first obstacle did not predict outcome:
@@ -2910,6 +2921,45 @@ export wallCheck(float entry, float sl, float t1, float ceK, float peK, float at
     string sMp = (not okR or na(maxPain) or na(t1)) ? "" : (maxPain > entry and maxPain < t1) ? "  │  ⚠ max pain " + str.tostring(maxPain, format.mintick) + " sits between entry and T1 — expiry pinning pulls against the target until it rolls" : ""
     sCe + sPe + sBs + sMp + (str.length(sCe) + str.length(sPe) + str.length(sBs) + str.length(sMp) > 0 ? "  · near-month" : "")
 
+
+// ---- derivCeiling / oiQuad / oiPlanHint (v52) ---------------------------------
+// The derivatives levels as LADDER CANDIDATES. Called twice by S4: once for the first
+// obstacle (floor = price) and once for T2 (floor = T1 + gap). Returns the lowest
+// candidate that beats the current ovh, and names it; a structural source that is
+// still lower keeps ovh unchanged and src empty.
+export derivCeiling(float ovh, float floor, float ceK, float maxPain, float basis) =>
+    float o = ovh
+    string src = ""
+    if not na(ceK) and ceK > floor and (na(o) or ceK < o)
+        o := ceK
+        src := "call wall"
+    if not na(maxPain) and maxPain > floor and (na(o) or maxPain < o)
+        o := maxPain
+        src := "max pain"
+    if not na(basis) and basis > floor and (na(o) or basis < o)
+        o := basis
+        src := "fut basis"
+    [o, src]
+
+// The four-state OI read as a global (S4's f_foldOI keeps its own copy local).
+export oiQuad(float oi, float oiPrev, bool pxUp) =>
+    float pct = (na(oi) or na(oiPrev) or oiPrev <= 0) ? na : (oi - oiPrev) / oiPrev * 100.0
+    string q = na(pct) ? "" : pxUp and pct > 0 ? "long build-up" : pxUp ? "short covering" : pct > 0 ? "short build-up" : "long unwinding"
+    q
+
+// What the quadrant means for the TARGETS - one clause on the Plan row.
+export oiPlanHint(string q) =>
+    // an if/else ladder, not a wrapped ternary (CE10156 - see pine_line_continuation_indent)
+    string h = ""
+    if q == "long build-up"
+        h := "  │  OI long build-up → hold for the canon targets"
+    else if q == "short build-up"
+        h := "  │  OI short build-up → partial at the first test, the rest rides"
+    else if q == "short covering"
+        h := "  │  OI short covering → expect a stall; T1 is the trade"
+    else if q == "long unwinding"
+        h := "  │  OI long unwinding → exhaustion leg; wait for the turn to confirm"
+    h
 
 // ---- oiNarrative -------------------------------------------------------------
 // The plain-English reading under rows 9 and 10. Jay is new to F&O and asked for
