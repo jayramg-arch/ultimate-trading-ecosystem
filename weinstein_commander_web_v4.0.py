@@ -13780,18 +13780,28 @@ elif page == 'GOLDEN MATCHER':
         # Instant-on: if this browser session has no board yet, load the last
         # persisted build from disk (survives Web Commander restarts / reloads) so
         # it doesn't force a full rebuild every time.
-        if st.session_state.get("gm_board_df") is None:
-            _cdf, _cmeta = _gtb.load_board_cache(tf=st.session_state.get('gm_trig_tf'))
-            if _cdf is not None:
+        # 13-Sep-2026: ALSO on a Trigger-TF switch. The session held only the last
+        # TF built, so changing the selector after an Evening run (which writes all
+        # three per-TF caches) showed the same rows plus the "stale snapshot" warning.
+        # If a cache exists for the newly selected TF, swap to it; the warning below
+        # now fires only when there is nothing on disk for that TF.
+        _want_tf = TF_LOCK or st.session_state.get("gm_trig_tf")
+        _have_tf = st.session_state.get("gm_board_built_tf")
+        if st.session_state.get("gm_board_df") is None or (_want_tf and _have_tf and _have_tf != _want_tf):
+            _cdf, _cmeta = _gtb.load_board_cache(tf=_want_tf)
+            if _cdf is not None and (_cmeta or {}).get("built_tf", _want_tf) == _want_tf:
                 st.session_state["gm_board_df"] = _cdf
                 st.session_state["gm_board_stamp"] = (_cmeta or {}).get("stamp") or "from cache"
                 st.session_state["gm_board_tech_stamp"] = (_cmeta or {}).get("tech_stamp")
                 # P0 fix: restore the snapshot's TF so the staleness guard survives
                 # a restart (a 75m snapshot shown against a Daily selector must warn).
-                if (_cmeta or {}).get("built_tf"):
-                    st.session_state["gm_board_built_tf"] = _cmeta["built_tf"]
+                st.session_state["gm_board_built_tf"] = (_cmeta or {}).get("built_tf") or _want_tf
                 if (_cmeta or {}).get("saved"):
                     st.session_state["gm_board_saved_iso"] = _cmeta["saved"]
+                # the failure list / issue strip belong to the build that produced the
+                # frame in memory, not to this cached one
+                st.session_state["gm_board_failed"] = []
+                st.session_state["gm_board_intra_issues"] = []
 
         # ── AGE staleness guard (14-Jul-2026) — the recurring "board says BUY,
         # single says WATCHLIST" class: a MID-SESSION snapshot holds PA fired on a
