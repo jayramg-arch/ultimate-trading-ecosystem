@@ -1656,9 +1656,32 @@ with st.sidebar:
         ]),
     ]
 
+    st.markdown("""<style>
+    /* mirrors [data-testid="stSidebar"] button above, so the link reads as one more nav button */
+    a.sb-navlink{display:block;box-sizing:border-box;width:calc(100% - 12px);margin:2px 6px;padding:7px 12px;
+      background:var(--surface);border:1.5px solid var(--rule);border-radius:8px;
+      font-family:var(--body);font-size:0.82rem;font-weight:700;line-height:1.3;color:var(--acc);
+      text-align:left;text-decoration:none;box-shadow:0 1px 3px rgba(14,165,233,0.10);transition:all .15s ease-in-out}
+    a.sb-navlink:hover{background:var(--surface-2);color:var(--acc);border-color:var(--acc);
+      box-shadow:0 0 12px rgba(59,130,246,0.45),0 2px 4px rgba(0,0,0,0.06);transform:translateX(2px)}
+    a.sb-navlink .sb-navlink-ext{opacity:.6;font-size:.8em;margin-left:.25rem}
+    </style>""", unsafe_allow_html=True)
     for group_label, group_pages in NAV_GROUPS:
         st.markdown(f'<div class="sb-section-lbl">{group_label}</div>', unsafe_allow_html=True)
         for display_name, page_key in group_pages:
+            if page_key == "GOLDEN MATCHER":
+                # 13-Sep-2026 (Jay): the Golden Matcher opens in ITS OWN WINDOW, like a
+                # second screen, so the main window stays free for Risk Shield etc.
+                # st.button cannot open a tab, so this entry is an anchor styled as one;
+                # ?view=gm_window is the existing pop-out route (sidebar hidden, view
+                # switch intact, bar-close refresh runs there). The in-window page is
+                # still reachable at /?p=GOLDEN+MATCHER for anything that links to it.
+                st.markdown(
+                    '<a class="sb-navlink" href="/?view=gm_window" target="_blank" '
+                    'title="Opens the Golden Matcher in a new window (Single Symbol / Trigger Board / Evening run)">'
+                    f'{display_name} <span class="sb-navlink-ext">↗</span></a>',
+                    unsafe_allow_html=True)
+                continue
             btn_type = "primary" if st.session_state.page == page_key else "secondary"
             if st.button(display_name, key=f"nav_{page_key}",
                          use_container_width=True, type=btn_type):
@@ -13825,6 +13848,29 @@ elif page == 'GOLDEN MATCHER':
                                               "of the day, after the close, or when the freshness banner warns. The "
                                               "same button is on the Single Symbol page so both surfaces read "
                                               "identical data (this is what fixed board-vs-single drift).")
+                # ── EVENING RUN (13-Sep-2026, Jay) ─────────────────────────────────
+                # The post-auto-pilot ritual was: Fetch fresh here, open three more
+                # windows (75m / 125m / Daily), Fetch fresh in each, then Build options
+                # bundle, then copy two strings. Four windows, four full re-downloads of
+                # the same universe, six clicks. This is ONE click in ONE window: the
+                # universe is invalidated ONCE, the three boards are built in sequence
+                # in this process (each writes its own per-TF cache, which is all the
+                # union bundle and the options bundle read), the options chains are
+                # pulled, and the two bundles render below. This window's own TF is
+                # built LAST so the table on screen matches the TF selector.
+                # It is the manual form of what Phase 6 of run_pipeline will do headless
+                # once the decision core is importable without Streamlit.
+                _evening = st.button("🌙 Evening run  ·  fetch once → Daily · 125m · 75m boards → options bundle",
+                                     use_container_width=True, key="gm_evening_run",
+                                     help="One click for the whole post-close routine. Invalidates the universe "
+                                          "cache once, rebuilds all three boards in this window (writing the three "
+                                          "per-TF caches the bundles read), builds the options bundle, and shows the "
+                                          "ONE-PASTE bundle (all timeframes) and Bundle 2 below. Copy those two into "
+                                          "S4. Takes as long as one Fetch fresh plus two cached rebuilds. Also the "
+                                          "manual re-run after a recompile or a failed auto-pilot.")
+                _ev_stamp = st.session_state.get("gm_evening_stamp")
+                if _ev_stamp:
+                    st.caption(f"🌙 last evening run: {_ev_stamp}")
             with _bc2:
                 # Trigger TF — UNIFIED with the Single Symbol page. Both widgets use the
                 # session key "gm_trig_tf" (the two views never render in the same run —
@@ -14216,7 +14262,7 @@ elif page == 'GOLDEN MATCHER':
 
         # --- build (full = fundamentals+technical; force_technical = technical/PA only;
         #     quiet = no progress bar, used on live ticks so the layout never jumps) ---
-        def _board_build(force_technical=False, quiet=False):
+        def _board_build(force_technical=False, quiet=False, tf_override=None):
             # READ THE TF AT CALL TIME, NOT FROM THE CLOSURE (5-Aug-2026, Jay: "I set the
             # TF to Daily and ran the rebuild, it still showed 75m; rebuilt again and it
             # was Daily"). This function is also called from the live-refresh FRAGMENT
@@ -14227,7 +14273,9 @@ elif page == 'GOLDEN MATCHER':
             # silenced the stale-snapshot warning that exists to catch exactly this.
             # session_state is the single live value (the selectbox writes it directly),
             # with TF_LOCK still winning for the ?tf= pop-out windows.
-            _tf_now = TF_LOCK or st.session_state.get("gm_trig_tf") or _trig_tf
+            # tf_override: the Evening run builds all three TFs from ONE window, so it
+            # names the TF per call instead of reading the window's own setting.
+            _tf_now = tf_override or TF_LOCK or st.session_state.get("gm_trig_tf") or _trig_tf
             if force_technical:
                 # Live refresh: recompute ONLY technicals + PA. Clear the technical
                 # caches; the fundamental caches (BFF/RFF/X-Ray, 24h TTL) stay warm,
@@ -14554,6 +14602,49 @@ elif page == 'GOLDEN MATCHER':
 
         if _refresh_all:
             _gm_reload_market_data()                      # bust disk cache + clear loaders (sets the flag)
+        if _evening:
+            # Sequence, not a loop of buttons: fetch once, then every TF, this window's
+            # own TF last so the on-screen table is the one the selector names.
+            _ev_t0 = _gtb_time.time()
+            _gm_reload_market_data()
+            st.session_state.pop("gm_force_rebuild", None)       # consumed here, not by the block below
+            _ev_own = TF_LOCK or st.session_state.get("gm_trig_tf") or _trig_tf
+            _ev_order = [t for t in ("Daily", "125m", "75m") if t != _ev_own] + [_ev_own]
+            _ev_done, _ev_fail = [], []
+            _ev_box = st.status("🌙 Evening run…", expanded=True)
+            for _ev_tf in _ev_order:
+                try:
+                    _ev_box.write(f"building **{_ev_tf}** board…")
+                    _board_build(force_technical=False, quiet=True, tf_override=_ev_tf)
+                    _bdf_ev = st.session_state.get("gm_board_df")
+                    _bn = 0 if _bdf_ev is None else len(_bdf_ev)
+                    _bf = len(st.session_state.get("gm_board_failed") or [])
+                    _ev_done.append(_ev_tf)
+                    _ev_box.write(f"✅ {_ev_tf}: {_bn} rows" + (f" · {_bf} failed" if _bf else ""))
+                except Exception as _eve:
+                    _ev_fail.append(_ev_tf)
+                    _gm_logger.warning(f"evening run: {_ev_tf} board failed: {_eve}")
+                    _ev_box.write(f"❌ {_ev_tf}: {type(_eve).__name__}: {_eve}")
+            try:
+                _ev_box.write("pulling option chains (F&O names)…")
+                st.session_state["_gm_opt_bundle"] = _gtb.s4_bundle_options()
+                _ev_optn = len([x for x in st.session_state["_gm_opt_bundle"].split("=", 1)[-1].split(",") if x.strip()])
+                _ev_box.write(f"✅ options bundle: {_ev_optn} F&O names")
+            except Exception as _eve:
+                st.session_state["_gm_opt_bundle"] = ""
+                _ev_optn = 0
+                _gm_logger.warning(f"evening run: s4_bundle_options failed: {_eve}")
+                _ev_box.write(f"❌ options bundle: {_eve}")
+            _ev_secs = int(_gtb_time.time() - _ev_t0)
+            st.session_state["gm_evening_stamp"] = (
+                f"{_gtb_dt.datetime.now().strftime('%d %b %H:%M')} · boards {len(_ev_done)}/3"
+                + (f" (failed: {', '.join(_ev_fail)})" if _ev_fail else "")
+                + f" · options {_ev_optn} names · {_ev_secs // 60}m{_ev_secs % 60:02d}s")
+            _ev_box.update(label=f"🌙 Evening run done — {st.session_state['gm_evening_stamp']}",
+                           state="error" if _ev_fail else "complete", expanded=False)
+            # The bundle blocks render ABOVE this point in the script, from the caches
+            # just written: rerun so they show this run's output, not last night's.
+            st.rerun()
         # Build on: the Build button, the shared Refresh, OR a refresh flagged from the
         # Single Symbol view (so both surfaces re-sync to the same fresh data).
         if _build or st.session_state.pop("gm_force_rebuild", False):
