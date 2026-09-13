@@ -52,6 +52,26 @@ CHECK_JS = r"""
 """
 
 
+def _chart_targets_all():
+    """EVERY TradingView chart page (13-Sep-2026): with a third S4 tab (Phase-1, the
+    index chart) the old first-page pick bound whichever tab /json listed first -
+    often the S5 tab, where there is no S4 to bind - and the new tab was never touched.
+    Dedup by layout id: a duplicated tab of one layout is the same chart twice."""
+    try:
+        targets = requests.get(f"{CDP}/json", timeout=5).json()
+    except Exception as e:
+        print(f"Cannot reach TradingView's debug port at {CDP} ({e}).\n"
+              f"Start it with LAUNCH_TRADINGVIEW_CDP.bat "
+              f"(--remote-debugging-port=9222).", file=sys.stderr)
+        return []
+    pages, seen = [], set()
+    for t in targets:
+        u = str(t.get("url", ""))
+        if t.get("type") == "page" and "/chart/" in u and u not in seen:
+            seen.add(u); pages.append(t)
+    return sorted(pages, key=lambda t: t["url"])
+
+
 def _chart_target():
     """The TradingView chart page among the CDP targets."""
     try:
@@ -107,37 +127,46 @@ def main() -> int:
                     help="report the current binding state and change nothing")
     args = ap.parse_args()
 
-    tgt = _chart_target()
-    if not tgt:
+    tgts = _chart_targets_all()
+    if not tgts:
+        print("TradingView is running but no chart page was found. Open a chart first.",
+              file=sys.stderr)
         return 2
-    print(f"chart: {tgt.get('url')}")
-
-    if args.check:
-        out = _evaluate(tgt["webSocketDebuggerUrl"], CHECK_JS)
-        if "error" in out:
-            print(f"ERROR {out['error']}", file=sys.stderr); return 2
-        try:
-            d = json.loads(out["value"])
-        except Exception:
-            print(out["value"]); return 0
-        if d.get("error"):
-            print(f"ERROR {d['error']}", file=sys.stderr); return 2
-        print(f"{d['study']}\n  bound {d['bound']} · unbound {d['unbound']}")
-        for n in d.get("unboundList", []):
-            print(f"    UNBOUND  {n}")
-        return 0 if d["unbound"] == 0 else 1
-
-    if not os.path.exists(JS_FILE):
+    if not args.check and not os.path.exists(JS_FILE):
         print(f"missing {JS_FILE}", file=sys.stderr); return 2
-    js = open(JS_FILE, encoding="utf-8").read()
-    out = _evaluate(tgt["webSocketDebuggerUrl"], js)
-    if "error" in out:
-        print(f"ERROR {out['error']}", file=sys.stderr); return 2
-    print(out["value"])
-    txt = str(out["value"] or "")
-    # "bound 18/18 | mismatches: none" is the success shape; anything else is a problem
-    # worth a non-zero exit so this can sit in a .bat chain after a compile.
-    return 0 if ("mismatches: none" in txt and "MISSING PLOT" not in txt) else 1
+    js = open(JS_FILE, encoding="utf-8").read() if not args.check else ""
+
+    rc, n_s4 = 0, 0
+    for tgt in tgts:
+        cid = tgt["url"].split("/chart/")[1].strip("/")
+        # is S4 on this tab at all? (the S5 tab is a legitimate no)
+        probe = _evaluate(tgt["webSocketDebuggerUrl"], CHECK_JS)
+        try:
+            d = json.loads(probe.get("value") or "{}")
+        except Exception:
+            d = {}
+        if "error" in probe or d.get("error"):
+            print(f"chart {cid}: no S4 here ({(d.get('error') or probe.get('error') or '')!s:.60}) - skipped")
+            continue
+        n_s4 += 1
+        if args.check:
+            print(f"chart {cid}: {d['study']}\n  bound {d['bound']} · unbound {d['unbound']}")
+            for nm in d.get("unboundList", []):
+                print(f"    UNBOUND  {nm}")
+            rc |= 0 if d["unbound"] == 0 else 1
+            continue
+        out = _evaluate(tgt["webSocketDebuggerUrl"], js)
+        if "error" in out:
+            print(f"chart {cid}: ERROR {out['error']}", file=sys.stderr); rc |= 2; continue
+        txt = str(out["value"] or "")
+        print(f"chart {cid}: {txt}")
+        # "bound 18/18 | mismatches: none" is the success shape; anything else is a problem
+        # worth a non-zero exit so this can sit in a .bat chain after a compile.
+        rc |= 0 if ("mismatches: none" in txt and "MISSING PLOT" not in txt) else 1
+    if n_s4 == 0:
+        print("no chart tab carries S4 - nothing bound", file=sys.stderr); return 2
+    print(f"{n_s4} S4 tab(s) {'checked' if args.check else 'bound'}")
+    return rc
 
 
 if __name__ == "__main__":
