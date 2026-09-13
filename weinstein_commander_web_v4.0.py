@@ -14043,7 +14043,7 @@ elif page == 'GOLDEN MATCHER':
                                + ("  ✅ Identical to the per-TF line above — all three boards "
                                   "were rebuilt from the same watchlist, so either works today."
                                   if _s4union == _s4bundle else
-                                  "  ⚠️ DIFFERS from the per-TF line above — at least one board "
+                                  "  ⚠️ DIFFERS from the per-TF line (folded below) — at least one board "
                                   "is stale or was not rebuilt. Prefer this one."))
                     st.code(_s4union, language=None)
 
