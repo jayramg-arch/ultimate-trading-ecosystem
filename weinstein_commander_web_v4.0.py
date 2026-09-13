@@ -14000,31 +14000,6 @@ elif page == 'GOLDEN MATCHER':
                             + (f" · TF **{_btf}**" if _btf else "") + _srcmix
                             + " · RRG persists") if _stamp
                            else "Not built yet — click **Build / Refresh** (full run ~2–5 min).")
-                # ── LAST HEADLESS RUN (13-Sep-2026) ─────────────────────────────
-                # Phase 12 of the auto-pilot (gm_evening_headless.py) writes both
-                # S4 paste strings to gm_bundles/latest.txt. Shown here from the FILE
-                # with its own timestamp, so the 16:30 result is readable without
-                # pressing anything; the blocks below still compute live from the
-                # caches and are what a manual Evening run refreshes.
-                try:
-                    _gbf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_bundles", "latest.txt")
-                    if os.path.exists(_gbf):
-                        with open(_gbf, encoding="utf-8") as _fh:
-                            _gbl = _fh.read().splitlines()
-                        _gb_hdr = _gbl[0].lstrip("# ").strip() if _gbl else ""
-                        _gb_body = [ln for ln in _gbl if ln.strip() and not ln.startswith("#")]
-                        _gb_age_h = (_gtb_time.time() - os.path.getmtime(_gbf)) / 3600.0
-                        with st.expander(f"🗂️ Bundles from the last headless run — {_gb_hdr}"
-                                         + (f"  ·  ⚠️ {_gb_age_h / 24:.0f} days old" if _gb_age_h > 30 else ""),
-                                         expanded=False):
-                            st.caption("Written by auto-pilot Phase 12 (or `python gm_evening_headless.py`). "
-                                       "Line 1 → S4 *GM: ONE-PASTE bundle*; line 2 → *GM: bundle 2 — options OI*. "
-                                       "If the live blocks below carry a newer stamp, prefer those.")
-                            for _gbx in _gb_body[:2]:
-                                st.code(_gbx, language=None)
-                except Exception as e:
-                    _gm_logger.warning(f"gm_bundles/latest.txt render failed: {e}")
-
                 # ── THE ONE-PASTE BUNDLE (25-Aug-2026) ──────────────────────────
                 # Five separate pastes was a CORRECTNESS problem, not a convenience
                 # one: a missed paste does not blank the field in S4, it leaves the
@@ -14039,13 +14014,6 @@ elif page == 'GOLDEN MATCHER':
                 except Exception as e:
                     _s4bundle = ""
                     _gm_logger.warning(f"s4_bundle failed: {e}")
-                if _s4bundle:
-                    st.caption("📋 **ONE-PASTE bundle** — paste this single line into S4's "
-                               "*GM: ONE-PASTE bundle* input and every list below is fed from "
-                               "it. Every section is emitted even when empty, which is what "
-                               "CLEARS a stale list in S4 — the individual blocks below are "
-                               "still there for overriding one list by hand.")
-                    st.code(_s4bundle, language=None)
 
                 # ── ALL-TIMEFRAMES BUNDLE (29-Aug-2026) ─────────────────────────
                 # For a single chart layout, which has ONE S4 bundle field. The
@@ -14096,16 +14064,39 @@ elif page == 'GOLDEN MATCHER':
                     with st.spinner("Fetching option chains…"):
                         try:
                             st.session_state["_gm_opt_bundle"] = _gtb.s4_bundle_options()
+                            try:
+                                import gm_evening_headless as _geh
+                                _geh.write_bundles(st.session_state["_gm_opt_bundle"],
+                                                   "options rebuilt · " + _gtb_dt.datetime.now().strftime("%d %b %H:%M"))
+                            except Exception as e:
+                                _gm_logger.warning(f"bundle file write failed: {e}")
                         except Exception as e:
                             st.session_state["_gm_opt_bundle"] = ""
                             _gm_logger.warning(f"s4_bundle_options failed: {e}")
 
                 _s4opt = st.session_state.get("_gm_opt_bundle")
+                _s4opt_src = ""
+                if not _s4opt:
+                    # 13-Sep-2026: session memory dies with a restart and Bundle 2 vanished
+                    # after one. gm_bundles/latest.txt is written by the Evening run (both
+                    # forms) and by the button above; read it back with its stamp.
+                    try:
+                        _gbf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_bundles", "latest.txt")
+                        if os.path.exists(_gbf):
+                            with open(_gbf, encoding="utf-8") as _fh:
+                                _gbl = _fh.read().splitlines()
+                            _gb_opt = [ln for ln in _gbl if ln.startswith("OPT=")]
+                            if _gb_opt:
+                                _s4opt = _gb_opt[0]
+                                _s4opt_src = (_gbl[0].split("—", 1)[-1].strip() if _gbl and _gbl[0].startswith("#") else "file")
+                    except Exception as e:
+                        _gm_logger.warning(f"gm_bundles/latest.txt read failed: {e}")
                 if _s4opt is not None:
                     _optn = len([x for x in _s4opt.split("=", 1)[-1].split(",") if x.strip()])
                     if _optn:
                         st.caption(
                             f"🧮 **Bundle 2 — options OI** · {_optn} F&O names · "
+                            + (f"from the last run ({_s4opt_src}) · " if _s4opt_src else "") +
                             f"{len(_s4opt)} chars. Paste into S4's **“GM: bundle 2 — options "
                             "OI”** field, NOT the one above. Carries PCR, max pain, total CE/PE "
                             "OI, the ATM OI shift and the two strikes with the most written "
@@ -14121,149 +14112,162 @@ elif page == 'GOLDEN MATCHER':
                             "endpoint rejects sessions frequently). Click again to rebuild "
                             "the session; the levels are simply not drawn until it succeeds.")
 
-                # ── S4 "Auto: GM Recovery list" (2-Aug-2026) — S4 cannot infer the GM's
-                # Bull-vs-Recovery answer (it is inherited from the qualifying screen on
-                # RFF fundamentals, which price structure does not contain), so the GM
-                # hands it over. Paste ONCE per watchlist refresh: the path is a property
-                # of the NAME, so the same string is correct on every timeframe.
-                try:
-                    _s4rec = _gtb.s4_recovery_list(_uni)
-                except Exception as e:
-                    _s4rec = ""
-                    _gm_logger.warning(f"s4_recovery_list failed: {e}")
-                _s4n = len([s for s in _s4rec.split(",") if s.strip()]) if _s4rec else 0
-                # Shown OPEN, not behind an expander (Jay, 4-Aug): the paste is a
-                # once-per-watchlist-refresh action, so anything that needs a click to
-                # reveal is an action that gets forgotten — which leaves S4 on a stale
-                # list, silently forcing the wrong path on names that have since requalified.
-                if _s4rec:
-                    st.caption(f"🩺 **S4 Recovery list · {_s4n} names** — paste into S4's "
-                               f"*Auto: GM Recovery list* (Mode stays **Auto**). Recovery "
-                               f"archetype and NO bull archetype; names in both are left to "
-                               f"S4's stage+drawdown tie-break. Re-paste after a refresh.")
-                    st.code(_s4rec, language=None)
-                else:
-                    st.caption("🩺 **S4 Recovery list · 0 names** — no Recovery-only names in "
-                               "the current union. Clear S4's list input so nothing stale "
-                               "forces a Recovery path.")
-                # ── S4 "Auto: GM Pullback list" (5-Aug-2026) — the PLAYBOOK SPLIT.
-                # A breakout must expand on heavy volume and close strong; a pullback
-                # enters on volume DRY-UP with a bar that only holds the zone. One gate
-                # cannot be neutral between them, and S4 has no archetype to tell them
-                # apart — so it inferred the setup from patterns and the two surfaces
-                # graded the same candle against different standards. The GM knows which
-                # screen qualified the name; it hands the answer over.
-                try:
-                    _s4pb = _gtb.s4_pullback_list(_uni)
-                except Exception as e:
-                    _s4pb = ""
-                    _gm_logger.warning(f"s4_pullback_list failed: {e}")
-                _pbn = len([s for s in _s4pb.split(",") if s.strip()]) if _s4pb else 0
-                if _s4pb:
-                    st.caption(f"↩️ **S4 Pullback list · {_pbn} names** — paste into S4's "
-                               f"*Auto: GM Pullback list*. These get the PULLBACK playbook "
-                               f"(volume dry-up OK, bar only has to hold the zone); everything "
-                               f"else keeps the breakout gates. Still must be AT a demand zone.")
-                    st.code(_s4pb, language=None)
-                else:
-                    st.caption("↩️ **S4 Pullback list · 0 names** — no pullback-only names in "
-                               "the current union. Clear S4's input; S4 falls back to inferring "
-                               "the setup from the pattern mix.")
-                # RRG paste blocks hidden 25-Aug-2026 -- see SHOW_RRG_PASTE_BLOCKS. The lists
-                # still reach S4 through the one-paste bundle above; only the UI is gone.
-                if SHOW_RRG_PASTE_BLOCKS:
-                    # ── S4 "GM RRG" lists (10-Aug-2026) — the MANUAL Strike.Money read.
-                    # Third handoff on the same pattern. S4 computes its own quadrant from
-                    # v67's RS-Ratio/RS-Momentum; Jay reads his off Strike.Money on the WEEKLY
-                    # chart and types it into the board, and that is the one he trades. When
-                    # they disagree the manual read wins, so it has to reach the chart.
-                    # WEEKLY cadence — unlike the two lists above, this does NOT need
-                    # re-pasting after every auto-pilot run, only after a weekend RRG update.
+                # ── EVERYTHING ELSE, FOLDED (13-Sep-2026, Jay: 'remove the extra lists to
+                # reduce the clutter'). The all-TF bundle + Bundle 2 above are the two
+                # pastes that matter; these are per-TF / per-list overrides and read-only
+                # views, kept for the day one list needs forcing by hand.
+                with st.expander("🧰 Individual lists — hand overrides (per-TF bundle · Recovery · Pullback · BFF/RFF/rank)", expanded=False):
+                    if _s4bundle:
+                        st.caption("📋 **ONE-PASTE bundle** — paste this single line into S4's "
+                                   "*GM: ONE-PASTE bundle* input and every list below is fed from "
+                                   "it. Every section is emitted even when empty, which is what "
+                                   "CLEARS a stale list in S4 — the individual blocks below are "
+                                   "still there for overriding one list by hand.")
+                        st.code(_s4bundle, language=None)
+                    # ── S4 "Auto: GM Recovery list" (2-Aug-2026) — S4 cannot infer the GM's
+                    # Bull-vs-Recovery answer (it is inherited from the qualifying screen on
+                    # RFF fundamentals, which price structure does not contain), so the GM
+                    # hands it over. Paste ONCE per watchlist refresh: the path is a property
+                    # of the NAME, so the same string is correct on every timeframe.
                     try:
-                        _s4rrg = _gtb.s4_rrg_lists(_uni) or {}
+                        _s4rec = _gtb.s4_recovery_list(_uni)
                     except Exception as e:
-                        _s4rrg = {}
-                        _gm_logger.warning(f"s4_rrg_lists failed: {e}")
-                    _rrg_n = sum(len([x for x in v.split(",") if x]) for v in _s4rrg.values())
-                    if _rrg_n:
-                        _age_txt = ""
-                        try:
-                            _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                               "gm_rrg_flags.json")
-                            import time as _time_mod
-                            _ad = (_time_mod.time() - os.path.getmtime(_rp)) / 86400.0
-                            # An RRG read is a WEEKLY act, so >10 days is a real staleness
-                            # signal, not pedantry — a month-old quadrant is a different market.
-                            _age_txt = (f" · flags **{_ad:.0f}d old**"
-                                        + (" ⚠ update over the weekend" if _ad > 10 else ""))
-                        except Exception:
-                            pass
-                        _lagn = len([x for x in (_s4rrg.get("Lagging") or "").split(",") if x])
-                        st.caption(f"🧭 **Strike RRG · {_rrg_n} names**{_age_txt} — paste each into "
-                                   f"S4's matching *Strike RRG* input. **Lagging is not pasted**: an "
-                                   f"RRG has four quadrants, so S4 infers it by elimination from the "
-                                   f"three below"
-                                   + (f" ({_lagn} name{'s' if _lagn != 1 else ''} you flagged Lagging "
-                                      f"will resolve that way automatically)" if _lagn else "")
-                                   + ". This is **additive** — S4's own computed quadrant keeps its "
-                                     "own row directly above.")
-                        for _q in ("Leading", "Improving", "Weakening"):
-                            _v = _s4rrg.get(_q, "")
-                            if _v:
-                                st.caption(f"*Strike RRG: {_q}* · {len([x for x in _v.split(',') if x])}")
-                                st.code(_v, language=None)
-                            else:
-                                # An EMPTY list still has to be cleared in S4, or last week's
-                                # names keep resolving. Say so rather than rendering nothing.
-                                st.caption(f"*Strike RRG: {_q}* · 0 — clear this input in S4.")
+                        _s4rec = ""
+                        _gm_logger.warning(f"s4_recovery_list failed: {e}")
+                    _s4n = len([s for s in _s4rec.split(",") if s.strip()]) if _s4rec else 0
+                    # Shown OPEN, not behind an expander (Jay, 4-Aug): the paste is a
+                    # once-per-watchlist-refresh action, so anything that needs a click to
+                    # reveal is an action that gets forgotten — which leaves S4 on a stale
+                    # list, silently forcing the wrong path on names that have since requalified.
+                    if _s4rec:
+                        st.caption(f"🩺 **S4 Recovery list · {_s4n} names** — paste into S4's "
+                                   f"*Auto: GM Recovery list* (Mode stays **Auto**). Recovery "
+                                   f"archetype and NO bull archetype; names in both are left to "
+                                   f"S4's stage+drawdown tie-break. Re-paste after a refresh.")
+                        st.code(_s4rec, language=None)
                     else:
-                        st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
-                                   "current union. Set them on the board's RRG column first.")
+                        st.caption("🩺 **S4 Recovery list · 0 names** — no Recovery-only names in "
+                                   "the current union. Clear S4's list input so nothing stale "
+                                   "forces a Recovery path.")
+                    # ── S4 "Auto: GM Pullback list" (5-Aug-2026) — the PLAYBOOK SPLIT.
+                    # A breakout must expand on heavy volume and close strong; a pullback
+                    # enters on volume DRY-UP with a bar that only holds the zone. One gate
+                    # cannot be neutral between them, and S4 has no archetype to tell them
+                    # apart — so it inferred the setup from patterns and the two surfaces
+                    # graded the same candle against different standards. The GM knows which
+                    # screen qualified the name; it hands the answer over.
+                    try:
+                        _s4pb = _gtb.s4_pullback_list(_uni)
+                    except Exception as e:
+                        _s4pb = ""
+                        _gm_logger.warning(f"s4_pullback_list failed: {e}")
+                    _pbn = len([s for s in _s4pb.split(",") if s.strip()]) if _s4pb else 0
+                    if _s4pb:
+                        st.caption(f"↩️ **S4 Pullback list · {_pbn} names** — paste into S4's "
+                                   f"*Auto: GM Pullback list*. These get the PULLBACK playbook "
+                                   f"(volume dry-up OK, bar only has to hold the zone); everything "
+                                   f"else keeps the breakout gates. Still must be AT a demand zone.")
+                        st.code(_s4pb, language=None)
+                    else:
+                        st.caption("↩️ **S4 Pullback list · 0 names** — no pullback-only names in "
+                                   "the current union. Clear S4's input; S4 falls back to inferring "
+                                   "the setup from the pattern mix.")
+                    # RRG paste blocks hidden 25-Aug-2026 -- see SHOW_RRG_PASTE_BLOCKS. The lists
+                    # still reach S4 through the one-paste bundle above; only the UI is gone.
+                    if SHOW_RRG_PASTE_BLOCKS:
+                        # ── S4 "GM RRG" lists (10-Aug-2026) — the MANUAL Strike.Money read.
+                        # Third handoff on the same pattern. S4 computes its own quadrant from
+                        # v67's RS-Ratio/RS-Momentum; Jay reads his off Strike.Money on the WEEKLY
+                        # chart and types it into the board, and that is the one he trades. When
+                        # they disagree the manual read wins, so it has to reach the chart.
+                        # WEEKLY cadence — unlike the two lists above, this does NOT need
+                        # re-pasting after every auto-pilot run, only after a weekend RRG update.
+                        try:
+                            _s4rrg = _gtb.s4_rrg_lists(_uni) or {}
+                        except Exception as e:
+                            _s4rrg = {}
+                            _gm_logger.warning(f"s4_rrg_lists failed: {e}")
+                        _rrg_n = sum(len([x for x in v.split(",") if x]) for v in _s4rrg.values())
+                        if _rrg_n:
+                            _age_txt = ""
+                            try:
+                                _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                   "gm_rrg_flags.json")
+                                import time as _time_mod
+                                _ad = (_time_mod.time() - os.path.getmtime(_rp)) / 86400.0
+                                # An RRG read is a WEEKLY act, so >10 days is a real staleness
+                                # signal, not pedantry — a month-old quadrant is a different market.
+                                _age_txt = (f" · flags **{_ad:.0f}d old**"
+                                            + (" ⚠ update over the weekend" if _ad > 10 else ""))
+                            except Exception:
+                                pass
+                            _lagn = len([x for x in (_s4rrg.get("Lagging") or "").split(",") if x])
+                            st.caption(f"🧭 **Strike RRG · {_rrg_n} names**{_age_txt} — paste each into "
+                                       f"S4's matching *Strike RRG* input. **Lagging is not pasted**: an "
+                                       f"RRG has four quadrants, so S4 infers it by elimination from the "
+                                       f"three below"
+                                       + (f" ({_lagn} name{'s' if _lagn != 1 else ''} you flagged Lagging "
+                                          f"will resolve that way automatically)" if _lagn else "")
+                                       + ". This is **additive** — S4's own computed quadrant keeps its "
+                                         "own row directly above.")
+                            for _q in ("Leading", "Improving", "Weakening"):
+                                _v = _s4rrg.get(_q, "")
+                                if _v:
+                                    st.caption(f"*Strike RRG: {_q}* · {len([x for x in _v.split(',') if x])}")
+                                    st.code(_v, language=None)
+                                else:
+                                    # An EMPTY list still has to be cleared in S4, or last week's
+                                    # names keep resolving. Say so rather than rendering nothing.
+                                    st.caption(f"*Strike RRG: {_q}* · 0 — clear this input in S4.")
+                        else:
+                            st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
+                                       "current union. Set them on the board's RRG column first.")
 
-                # ── S4 BFF / RFF SCORE lists (25-Aug-2026) — the FOURTH handoff, and the
-                # one S4 cannot approximate at all. RFF needs six fundamental fields plus
-                # Tier-B growth against a five-call request.financial ceiling the
-                # Capitulation Screener already spends; BFF reads screener.in's growth
-                # table, which no Pine surface can reach. Unlike the path and the setup,
-                # there is no price-based fallback — without this the S4 fields stay blank.
-                # SYM:n pairs, not bare symbols: here the NUMBER is the message.
-                # Sourced from the BUILT BOARD so the chart cannot disagree with the row
-                # you clicked through from, and so this costs no screener.in fetches.
-                try:
-                    _s4fund = _gtb.s4_fund_lists(tf=_trig_tf) or {}
-                except Exception as e:
-                    _s4fund = {}
-                    _gm_logger.warning(f"s4_fund_lists failed: {e}")
-                _bffs = _s4fund.get("BFF", "")
-                _rffs = _s4fund.get("RFF", "")
-                _rnks = _s4fund.get("RANK", "")
-                _bn = len([x for x in _bffs.split(",") if x])
-                _rn = len([x for x in _rffs.split(",") if x])
-                _kn = len([x for x in _rnks.split(",") if x])
-                if _bn or _rn or _kn:
-                    st.caption(f"🧪 **S4 scores · BFF {_bn} · RFF {_rn} · rank {_kn}** — paste "
-                               f"into S4's *GM: BFF scores* and *GM: RFF scores*. A name ABSENT "
-                               f"from a list renders as an em-dash on the panel, not a zero: "
-                               f"unscored and scored-badly are different facts. Re-paste after a "
-                               f"board rebuild.")
-                    if _bffs:
-                        st.caption(f"*GM: BFF scores* · {_bn}")
-                        st.code(_bffs, language=None)
-                    if _rffs:
-                        st.caption(f"*GM: RFF scores* · {_rn} — RFF only exists for names a "
-                                   f"recovery screen has scored, so a bull-heavy board shows few.")
-                        st.code(_rffs, language=None)
-                    if _rnks:
-                        # #10 - the board's Overall. S4 grades ONE chart and cannot know
-                        # where that chart sits among the other forty; this is the only
-                        # way the panel can say "clean setup, 38th best name on the list".
-                        st.caption(f"*GM: board rank* · {_kn} — the board's Overall composite. "
-                                   f"Display-only on S4: it never gates and never scores, because "
-                                   f"the rank already contains most of what that panel measures.")
-                        st.code(_rnks, language=None)
-                else:
-                    st.caption("🧪 **S4 fundamental scores · 0** — build the board first; "
-                               "these are read from the built board, not recomputed.")
+                    # ── S4 BFF / RFF SCORE lists (25-Aug-2026) — the FOURTH handoff, and the
+                    # one S4 cannot approximate at all. RFF needs six fundamental fields plus
+                    # Tier-B growth against a five-call request.financial ceiling the
+                    # Capitulation Screener already spends; BFF reads screener.in's growth
+                    # table, which no Pine surface can reach. Unlike the path and the setup,
+                    # there is no price-based fallback — without this the S4 fields stay blank.
+                    # SYM:n pairs, not bare symbols: here the NUMBER is the message.
+                    # Sourced from the BUILT BOARD so the chart cannot disagree with the row
+                    # you clicked through from, and so this costs no screener.in fetches.
+                    try:
+                        _s4fund = _gtb.s4_fund_lists(tf=_trig_tf) or {}
+                    except Exception as e:
+                        _s4fund = {}
+                        _gm_logger.warning(f"s4_fund_lists failed: {e}")
+                    _bffs = _s4fund.get("BFF", "")
+                    _rffs = _s4fund.get("RFF", "")
+                    _rnks = _s4fund.get("RANK", "")
+                    _bn = len([x for x in _bffs.split(",") if x])
+                    _rn = len([x for x in _rffs.split(",") if x])
+                    _kn = len([x for x in _rnks.split(",") if x])
+                    if _bn or _rn or _kn:
+                        st.caption(f"🧪 **S4 scores · BFF {_bn} · RFF {_rn} · rank {_kn}** — paste "
+                                   f"into S4's *GM: BFF scores* and *GM: RFF scores*. A name ABSENT "
+                                   f"from a list renders as an em-dash on the panel, not a zero: "
+                                   f"unscored and scored-badly are different facts. Re-paste after a "
+                                   f"board rebuild.")
+                        if _bffs:
+                            st.caption(f"*GM: BFF scores* · {_bn}")
+                            st.code(_bffs, language=None)
+                        if _rffs:
+                            st.caption(f"*GM: RFF scores* · {_rn} — RFF only exists for names a "
+                                       f"recovery screen has scored, so a bull-heavy board shows few.")
+                            st.code(_rffs, language=None)
+                        if _rnks:
+                            # #10 - the board's Overall. S4 grades ONE chart and cannot know
+                            # where that chart sits among the other forty; this is the only
+                            # way the panel can say "clean setup, 38th best name on the list".
+                            st.caption(f"*GM: board rank* · {_kn} — the board's Overall composite. "
+                                       f"Display-only on S4: it never gates and never scores, because "
+                                       f"the rank already contains most of what that panel measures.")
+                            st.code(_rnks, language=None)
+                    else:
+                        st.caption("🧪 **S4 fundamental scores · 0** — build the board first; "
+                                   "these are read from the built board, not recomputed.")
+
         else:
             # MAXIMIZED table-only pop-out (Jay): no heavy controls — a slim Rebuild
             # button + auto-refresh only. TF / Live / Score / X-Ray come from the
@@ -14694,6 +14698,11 @@ elif page == 'GOLDEN MATCHER':
                 f"{_gtb_dt.datetime.now().strftime('%d %b %H:%M')} · boards {len(_ev_done)}/3"
                 + (f" (failed: {', '.join(_ev_fail)})" if _ev_fail else "")
                 + f" · options {_ev_optn} names · {_ev_secs // 60}m{_ev_secs % 60:02d}s")
+            try:
+                import gm_evening_headless as _geh
+                _geh.write_bundles(st.session_state.get("_gm_opt_bundle") or None, st.session_state["gm_evening_stamp"])
+            except Exception as _eve:
+                _gm_logger.warning(f"evening run: bundle file write failed: {_eve}")
             _ev_box.update(label=f"🌙 Evening run done — {st.session_state['gm_evening_stamp']}",
                            state="error" if _ev_fail else "complete", expanded=False)
             # The bundle blocks render ABOVE this point in the script, from the caches
