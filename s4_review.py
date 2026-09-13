@@ -536,6 +536,11 @@ ETFs — TWO PHASES when a PHASE-1 block is present:
   can be filled. AVWAP/VP on the ETF are execution levels; the ETF's zones are the
   index's zones scaled, so prefer the index's when they disagree. Tracking error and
   NAV premium are not on the panels — say so rather than invent them.
+- HOUSE RULE (Jay, 13-Sep-2026): INDEX ARM = ETF WAIT. If the index's own S4 TRIGGER row
+  is not GO — ARM, WAIT, no PA, no volume, no location, anything but GO — the ETF cannot be
+  TAKE, whatever the ETF chart prints. Rule WAIT and name the index gate that is missing;
+  the ETF's own trigger firing first is the normal order of events and is not a reason
+  to front-run the index. An index in Stage 3/4 is NO TRADE.
 - Deliberate the two as one story (index thesis → ETF entry). Where only the ETF was
   read, say the index was not read and do not infer it.
 - S5's remaining sections are explanatory: use them to resolve S4's ambiguities (is the
@@ -649,9 +654,40 @@ def oi_digest(read_txt: str) -> tuple[str, str]:
     return ("\n".join(parts), "\n".join(out))
 
 
+def index_gate(read_txt: str) -> tuple[str, str, bool]:
+    """INDEX ARM = ETF WAIT, computed by the script. Reads the PHASE-1 block's S4
+    TRIGGER row. Returns (note_for_prompt, line_for_output, blocked)."""
+    m = re.search(r"^PHASE-1 · UNDERLYING INDEX of (\S+) — (\S+).*?\n(.*?)^PHASE-2 ·", read_txt, re.S | re.M)
+    if not m:
+        return "", "", False
+    etf, idx, block = m.group(1), m.group(2), m.group(3)
+    t = re.search(r"^TRIGGER \| (.*)$", block, re.M)
+    if not t:
+        return "", "INDEX-CHECK: %s panel had no TRIGGER row — gate not applied" % idx, False
+    state = re.sub(r"\s{2,}.*", "", t.group(1)).strip()      # "GO", "no PA", "no volume" ...
+    st3 = re.search(r"^VERDICT \| (.*)$", block, re.M)
+    stage_no = bool(st3 and re.search(r"NO TRADE|Stage [34]", st3.group(1)))
+    if stage_no:
+        note = ("INDEX GATE: the underlying index %s is NO TRADE by stage on its own S4 panel. "
+                "House rule: the ETF %s is NO TRADE. Do not rule TAKE or WAIT." % (idx, etf))
+        return note, "INDEX-CHECK: %s is NO TRADE by stage → %s NO TRADE" % (idx, etf), True
+    if state.upper().startswith("GO"):
+        return ("INDEX GATE: the underlying index %s reads GO on its own S4 panel — the index "
+                "thesis is live; judge the ETF on its own tradability." % idx,
+                "INDEX-CHECK: %s trigger GO — ETF may be TAKE" % idx, False)
+    note = ("INDEX GATE (house rule, not negotiable): the underlying index %s reads \"%s\" on its "
+            "own S4 TRIGGER row, not GO. INDEX ARM = ETF WAIT: the ruling for %s cannot be TAKE "
+            "or TAKE · reduced. Rule WAIT for the index trigger (%s), name what the index is "
+            "missing, and keep the ETF plan as the plan-in-waiting." % (idx, state, etf, state))
+    return note, "INDEX-CHECK: %s trigger \"%s\" (not GO) → %s WAIT by house rule" % (idx, state, etf), True
+
+
 def build_prompt(read_txt: str, pos_txt: str) -> str:
     note, _ = oi_digest(read_txt)
-    pre = ("DERIVATIVES PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
+    ig, _, _ = index_gate(read_txt)
+    if ig:
+        note = (ig + "\n" + note) if note else ig
+    pre = ("PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
     return (pre + "POSITION CONTEXT\n%s\n\n%s\n\nDeliberate now. S4's VERDICT and SUMMARY rows above are "
             "one mechanical opinion; weigh them last." % (pos_txt, read_txt))
 
@@ -864,7 +900,12 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     review, prov = deliberate(build_prompt(read_txt, pos_txt), args.provider)
     rc_txt = r_check(review)
     _, oi_txt = oi_digest(read_txt)
-    for extra in (rc_txt, oi_txt):
+    _, ig_txt, ig_block = index_gate(read_txt)
+    if ig_block and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
+        # the model ruled TAKE against the house rule: overrule it in print, loudly
+        ig_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (index trigger not GO)"
+        review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*", r"\1WAIT — index trigger not GO (house rule; model had ruled TAKE)", review, count=1)
+    for extra in (rc_txt, oi_txt, ig_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
