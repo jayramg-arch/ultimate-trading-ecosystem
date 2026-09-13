@@ -7367,8 +7367,17 @@ elif page == 'WATCHLIST':
         section("2. External Cloud Sync")
         c1, c2, c3 = st.columns(3, gap="small")
         with c1:
-            if st.button("💸  Sync to Strike.Money\nPush watchlist to Strike.Money platform.\n→  Sync Now", use_container_width=True, key="wl_strike"):
-                launch_script("strike_automation.py", "--mode watchlist")
+            # 13-Sep-2026: Strike.Money lapsed; RRG Studio (local) lists the same TXTs.
+            if st.button("📈  Sync to RRG Studio\nRefresh the Commander lists in RRG Studio.\n→  Sync Now", use_container_width=True, key="wl_rrg_studio"):
+                try:
+                    import commander_watchlists as _cwl
+                    _cws = _cwl.sync(verbose=False)
+                    _msg = f"RRG Studio: {_cws['populated']}/{_cws['total']} lists written"
+                    if _cws["stale"]:
+                        _msg += f" · stale: {', '.join(_cws['stale'])}"
+                    (st.warning if (_cws["empty"] or _cws["missing"]) else st.success)(_msg)
+                except Exception as _e:
+                    st.error(f"RRG Studio sync failed: {_e}")
         with c2:
             if st.button("📊  Sync to TradingView\nSync curated lists to TradingView.\n→  Sync Now", use_container_width=True, key="wl_tv"):
                 launch_script("tradingview_automation_v2.py")
@@ -8871,7 +8880,7 @@ elif page == 'AI LAB':
                 ("Phase 4/8: Golden Matcher",                  "brute_force_match_pro","perform_match"),
                 ("Phase 5/8: Recovery Screener (Python)",      "recovery_screener",    "main"),
                 ("Phase 6/8: Generating Watchlists",           "watchlist_manager",    "generate_tradingview_files"),
-                ("Phase 7/8: Syncing to Strike.Money",         "_subprocess",          "strike_automation.py --mode=watchlist"),
+                ("Phase 7/8: Syncing to RRG Studio",           "commander_watchlists", "sync"),
                 ("Phase 8/8: Syncing to TradingView",          "_subprocess",          "tradingview_automation_v2.py --pipeline"),
             ]
             progress_bar = st.progress(0, text="Initializing Auto-Pilot...")

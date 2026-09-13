@@ -1,5 +1,5 @@
 @echo off
-title RRG Studio — Strike.Money Cockpit
+title RRG Studio — Commander RRG Cockpit
 cd /d "%~dp0"
 
 echo =======================================================

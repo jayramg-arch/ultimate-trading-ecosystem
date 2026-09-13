@@ -827,16 +827,25 @@ def main():
             logger.error(f"❌ Error in Nuclear Cleanup: {e}")
             raise
 
-    # 6. STRIKE.MONEY SYNC
-    logger.info("\n[PHASE 6] SYNCING TO STRIKE.MONEY (WATCHLISTS)...")
-    with run.phase("Phase 6 — Strike.Money Sync") as p:
+    # 6. RRG STUDIO SYNC (13-Sep-2026: replaces the Strike.Money upload — the
+    # subscription lapsed; strike_automation.py is in _archive/strike_money/).
+    # RRG Studio is local and reads the same Generated_Watchlists TXTs TradingView
+    # gets, so this phase writes the manifest it lists them from and WARNS on
+    # empty / stale lists, which is what the Strike phase used to surface.
+    logger.info("\n[PHASE 6] SYNCING TO RRG STUDIO (WATCHLISTS)...")
+    with run.phase("Phase 6 — RRG Studio Sync") as p:
         try:
-            import strike_automation
-            import asyncio
-            asyncio.run(strike_automation.run_pipeline(mode_param="watchlist"))
-            p.message = "Strike sync OK"
+            import commander_watchlists
+            _cw = commander_watchlists.sync(verbose=True)
+            _bad = _cw["empty"] + _cw["missing"]
+            p.message = f"{_cw['populated']}/{_cw['total']} lists"
+            if _cw["stale"]:
+                p.message += f" · stale: {', '.join(_cw['stale'])}"
+            if _bad:
+                p.status = "WARN"
+                p.message += f" · empty/missing: {', '.join(_bad)}"
         except Exception as e:
-            logger.error(f"❌ Error in Strike Sync: {e}")
+            logger.error(f"❌ Error in RRG Studio sync: {e}")
             p.status = "WARN"
             p.message = f"sync error: {e}"
 

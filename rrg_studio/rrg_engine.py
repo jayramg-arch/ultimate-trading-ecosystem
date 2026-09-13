@@ -443,9 +443,37 @@ def save_custom_watchlists(watchlists: Dict[str, List[str]]) -> bool:
         return False
 
 
+COMMANDER_MANIFEST = os.path.join(STUDIO_DIR, "commander_screeners.json")
+
+
 def get_latest_generated_watchlists() -> Dict[str, List[str]]:
-    """Scans Generated_Watchlists directory for latest screeners."""
-    screener_map = {}
+    """The Commander screener watchlists — every list the pipeline produces.
+
+    13-Sep-2026: Strike.Money lapsed and RRG Studio is where these lists live now.
+    The pipeline's Phase 6 (commander_watchlists.sync) writes commander_screeners.json
+    with ALL 17 lists (this function used to hard-code a 9-entry subset, so eight of
+    the lists Strike received never reached the Studio). Read the manifest first;
+    if it is absent, fall back to scanning Generated_Watchlists directly so the
+    Studio still works before the first sync has run. A stale or empty list is
+    kept (with a marker in its title) rather than dropped - an empty dropdown entry
+    that says why beats a silently missing one."""
+    screener_map: Dict[str, List[str]] = {}
+    try:
+        if os.path.exists(COMMANDER_MANIFEST):
+            with open(COMMANDER_MANIFEST, "r", encoding="utf-8") as f:
+                m = json.load(f)
+            for base, v in (m.get("lists") or {}).items():
+                syms = [s for s in (v.get("symbols") or []) if s]
+                if not syms:
+                    continue
+                title = v.get("title") or base
+                if not v.get("fresh", True) and v.get("as_of"):
+                    title = f"{title} (as of {v['as_of'][:10]})"
+                screener_map[title] = syms
+            if screener_map:
+                return screener_map
+    except Exception as e:
+        logger.warning("commander_screeners.json unreadable, scanning TXTs: %s", e)
     if not os.path.exists(WATCHLIST_DIR):
         return screener_map
 

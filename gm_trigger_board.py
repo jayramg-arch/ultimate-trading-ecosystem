@@ -42,7 +42,7 @@ _RRG_PATH = os.path.join(_ROOT, "gm_rrg_flags.json")
 _BOARD_CACHE = os.path.join(_ROOT, "gm_board_cache.csv")     # persisted board (survives restarts)
 _BOARD_META = os.path.join(_ROOT, "gm_board_cache.json")     # stamps sidecar
 
-# RRG quadrants — the dropdown options (manually set from Strike.Money). "—" = unset.
+# RRG quadrants — the dropdown options (manually set from RRG Studio; was Strike.Money until 13-Sep-2026). "—" = unset.
 RRG_QUADRANTS = ["—", "Leading", "Improving", "Weakening", "Lagging"]
 
 # P1 (12 Jul 2026) — PER-STRATEGY sources so every name inherits its SETUP ARCHETYPE
@@ -2095,7 +2095,7 @@ def s4_recovery_list(uni: dict | None = None) -> str:
 
 
 def s4_rrg_lists(uni: dict | None = None) -> dict:
-    """Your MANUAL Strike.Money RRG reads, for S4's "GM RRG" inputs. (10-Aug-2026)
+    """Your MANUAL RRG reads (RRG Studio; Strike.Money until 13-Sep-2026), for S4's "GM RRG" inputs. (10-Aug-2026)
 
     Same handoff shape as s4_recovery_list / s4_pullback_list, third axis. The reason it
     is needed is the same reason those two exist: S4 cannot ask the GM anything, and it
