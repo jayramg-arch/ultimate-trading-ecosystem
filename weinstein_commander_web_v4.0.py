@@ -13771,7 +13771,17 @@ elif page == 'GOLDEN MATCHER':
         import gm_trigger_board as _gtb
         import datetime as _gtb_dt, time as _gtb_time
         if not is_max_board:
-            st.markdown("#### 📋 Trigger Board — watchlists × the Golden Matcher engine")
+            # 13-Sep-2026 (Jay): the TF in the title, as a colour chip - the selector sits
+            # below the fold and three windows on three TFs were indistinguishable at a
+            # glance. Colours match the 75m green / 125m amber window buttons.
+            _hdr_tf = TF_LOCK or st.session_state.get("gm_trig_tf") or str(_gm_settings().get("trigger_tf", "75m"))
+            _hdr_col = {"75m": "#22C55E", "125m": "#F59E0B", "Daily": "#60A5FA"}.get(_hdr_tf, "#94A3B8")
+            st.markdown(
+                "#### 📋 Trigger Board — watchlists × the Golden Matcher engine &nbsp;"
+                f"<span style='display:inline-block;padding:2px 12px;border-radius:999px;"
+                f"background:{_hdr_col};color:#0B1220;font-size:0.72em;font-weight:800;"
+                f"letter-spacing:.06em;vertical-align:middle'>⏱ {_hdr_tf}</span>",
+                unsafe_allow_html=True)
         _uni = _gtb.load_watchlist_union()
         # P1: an unreadable/empty source CSV silently shrank the universe — say so.
         _uissues = list(getattr(_gtb, "LAST_UNION_ISSUES", []) or [])
