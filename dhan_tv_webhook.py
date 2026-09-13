@@ -100,6 +100,36 @@ def send_webhook_email_notification(status: str, ticker: str, qty: int, entry: f
     """
     send_email(subject=subject, body_text=f"GTT Order {status.upper()} for {ticker}. Details: {details}", html_content=html_content)
 
+@app.post("/s4-review")
+async def handle_s4_review(request: Request):
+    """13-Sep-2026: alert-triggered AI review. Point the S4 GO alert's webhook at
+    https://<tunnel>/s4-review?key=<S4_REVIEW_KEY or WEBHOOK_SECRET>. The body is the
+    alert's own message ("{{ticker}} S4 GO {{interval}} - ..."); nothing here touches
+    orders. FAIL-CLOSED like /tv-webhook: no key configured = refuse everything."""
+    _expected = os.getenv("S4_REVIEW_KEY", "") or os.getenv("WEBHOOK_SECRET", "")
+    _provided = str(request.query_params.get("key", "") or request.headers.get("X-Webhook-Secret", ""))
+    if not _expected:
+        print("REJECTED /s4-review: neither S4_REVIEW_KEY nor WEBHOOK_SECRET configured.")
+        return {"status": "rejected", "message": "Server not configured: set S4_REVIEW_KEY"}
+    if not (_provided and hmac.compare_digest(_provided, _expected)):
+        print("REJECTED /s4-review: invalid or missing key.")
+        return {"status": "rejected", "message": "Invalid or missing key"}
+    body = await request.body()
+    try:
+        import s4_alert_review
+        parsed = s4_alert_review.parse(body)
+        if not parsed:
+            print(f"/s4-review: unparseable body: {body[:120]!r}")
+            return {"status": "ignored", "message": "not an S4 GO alert"}
+        sym, tf = parsed
+        res = s4_alert_review.enqueue(sym, tf, source="tv-webhook")
+        print(f"/s4-review: {sym} {tf} -> {res}")
+        return {"status": "queued" if res["queued"] else "skipped", **res, "symbol": sym, "tf": tf}
+    except Exception as e:
+        print(f"/s4-review ERROR: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.post("/tv-webhook")
 async def handle_tv_webhook(request: Request):
     ticker = "UNKNOWN"

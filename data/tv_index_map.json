@@ -1,0 +1,499 @@
+{
+ "BFSI": {
+  "underlying": "Finnifty",
+  "tv": "NSE:CNXFINANCE",
+  "candidates": [],
+  "hand": true
+ },
+ "GOLDIETF": {
+  "underlying": "Gold",
+  "tv": "TVC:GOLD",
+  "candidates": [],
+  "hand": true
+ },
+ "HNGSNGBEES": {
+  "underlying": "Hang Seng",
+  "tv": "HSI:HSI",
+  "candidates": [],
+  "hand": true
+ },
+ "ALPHA": {
+  "underlying": "NIFTY ALPHA 50",
+  "tv": "NSE:NIFTYALPHA50",
+  "candidates": [
+   "NSE:NIFTYALPHA50 · Nifty Alpha 50 Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:NIFTY200_ALPHA_30 · Nifty 200 Alpha 30 Index",
+   "NSE:NIFTY100_ALPHA_30 · Nifty 100 Alpha 30 Index"
+  ]
+ },
+ "INFRAIETF": {
+  "underlying": "NIFTY Infra",
+  "tv": "NSE:CNXINFRA",
+  "candidates": [
+   "NSE:CNXINFRA · Nifty Infrastructure Index",
+   "NSE:NIFTY_INFRALOG · Nifty India Infrastructure & Logistics Index",
+   "NSE:NIFTY_MULTI_INFRA · Nifty 500 Multicap Infrastructure 50:30:20 Index",
+   "NSE:NIFTY · Nifty 50 Index"
+  ]
+ },
+ "MOM100": {
+  "underlying": "NIFTY Midcap 100",
+  "tv": "NSE:CNXMIDCAP",
+  "candidates": [
+   "NSE:CNXMIDCAP · Nifty MidCap 100 Index",
+   "NSE:NIFTY_MID_SELECT · Nifty MidCap Select Index",
+   "NSE:NIFTYMIDCAP150 · Nifty MidCap 150 Index",
+   "NSE:NIFTYMIDCAP50 · Nifty MidCap 50 Index"
+  ]
+ },
+ "SML100CASE": {
+  "underlying": "NIFTY Smallcap 100",
+  "tv": "NSE:CNXSMALLCAP",
+  "candidates": [
+   "NSE:CNXSMALLCAP · Nifty SmallCap 100 Index",
+   "NSE:NIFTYSML250MQ_100 · Nifty Smallcap 250 Momentum Quality 100 Index",
+   "NSE:NIFTYSMLCAP250 · Nifty SmallCap 250 Index",
+   "NSE:NIFTYSMLCAP50 · Nifty SmallCap 50 Index"
+  ]
+ },
+ "HDFCSML250": {
+  "underlying": "NIFTY Smallcap 250",
+  "tv": "NSE:NIFTYSMLCAP250",
+  "candidates": [
+   "NSE:NIFTYSMLCAP250 · Nifty SmallCap 250 Index",
+   "NSE:NIFTY_SML250_Q50 · Nifty Smallcap 250 Quality 50 Index",
+   "NSE:NIFTYSML250MQ_100 · Nifty Smallcap 250 Momentum Quality 100 Index",
+   "NSE:CNXSMALLCAP · Nifty SmallCap 100 Index"
+  ]
+ },
+ "MAFANG": {
+  "underlying": "NYSE FANG+",
+  "tv": "NYSE:NYFANG",
+  "candidates": [],
+  "hand": true
+ },
+ "MON100": {
+  "underlying": "Nasdaq 100",
+  "tv": "NASDAQ:NDX",
+  "candidates": [
+   "NSE:CNXSMALLCAP · Nifty SmallCap 100 Index",
+   "NSE:CNXMIDCAP · Nifty MidCap 100 Index",
+   "NSE:CNX100 · Nifty 100 Index",
+   "NSE:NIFTY100_ESG · Nifty 100 ESG Index"
+  ],
+  "hand": true
+ },
+ "MONQ50": {
+  "underlying": "Nasdaq Quality 50",
+  "tv": null,
+  "candidates": [
+   "NSE:NIFTY500_QLTY50 · Nifty 500 Quality 50 Index",
+   "NSE:NIFTY_MULTI_MQ_50 · Nifty 500 Multicap Momentum Quality 50 Index",
+   "NSE:NIFTY_SML250_Q50 · Nifty Smallcap 250 Quality 50 Index",
+   "NSE:NIFTY_M150_QLTY50 · Nifty MidCap 150 Quality 50 Index"
+  ],
+  "hand": true,
+  "note": "no TV index found"
+ },
+ "TOP100CASE": {
+  "underlying": "Nifty 100",
+  "tv": "NSE:CNX100",
+  "candidates": [
+   "NSE:CNXSMALLCAP · Nifty SmallCap 100 Index",
+   "NSE:CNXMIDCAP · Nifty MidCap 100 Index",
+   "NSE:CNX100 · Nifty 100 Index",
+   "NSE:NIFTY100_ESG · Nifty 100 ESG Index"
+  ]
+ },
+ "LOWVOL1": {
+  "underlying": "Nifty 100 Low Volatility 30",
+  "tv": "NSE:NIFTY100LOWVOL30",
+  "candidates": [
+   "NSE:NIFTY100LOWVOL30 · Nifty 100 Low Volatility 30 Index",
+   "NSE:NIFTYALPHALOWVOL · Nifty Alpha Low Volatility 30 Index",
+   "NSE:NIFTY_LOW_VOL_50 · Nifty Low Volatility 50 Index",
+   "NSE:NIFTY500_LOWVOL50 · Nifty 500 Low Volatility 50 Index"
+  ]
+ },
+ "ALPHAETF": {
+  "underlying": "Nifty 200 Alpha 30",
+  "tv": "NSE:NIFTY200_ALPHA_30",
+  "candidates": [
+   "NSE:NIFTY200_ALPHA_30 · Nifty 200 Alpha 30 Index",
+   "NSE:NIFTY100_ALPHA_30 · Nifty 100 Alpha 30 Index",
+   "NSE:NIFTYALPHALOWVOL · Nifty Alpha Low Volatility 30 Index",
+   "NSE:NIFTY_AQL_30 · Nifty Alpha Quality Low-Volatility 30 Index"
+  ]
+ },
+ "MOM30IETF": {
+  "underlying": "Nifty 200 Momentum 30",
+  "tv": "NSE:NIFTY200MOMENTM30",
+  "candidates": [
+   "NSE:NIFTY200MOMENTM30 · Nifty 200 Momentum 30 Index",
+   "NSE:NIFTY200_ALPHA_30 · Nifty 200 Alpha 30 Index",
+   "NSE:NIFTY200_VALUE_30 · Nifty 200 Value 30 Index",
+   "NSE:NIFTY200QUALTY30 · Nifty 200 Quality 30 Index"
+  ]
+ },
+ "NIFTYBEES": {
+  "underlying": "Nifty 50",
+  "tv": "NSE:NIFTY",
+  "candidates": [
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:CNX500 · Nifty 500 Index",
+   "NSE:NIFTYJR · Nifty Next 50 Index",
+   "NSE:NIFTYMIDCAP50 · Nifty MidCap 50 Index"
+  ]
+ },
+ "MONIFTY500": {
+  "underlying": "Nifty 500",
+  "tv": "NSE:CNX500",
+  "candidates": [
+   "NSE:CNX500 · Nifty 500 Index",
+   "NSE:NIFTY500_VALUE_50 · Nifty 500 Value 50 Index",
+   "NSE:NIFTY500_SHARIAH · Nifty 500 Shariah Index",
+   "NSE:NIFTY500_EW · Nifty 500 Equal Weight Index"
+  ]
+ },
+ "MOMENTUM50": {
+  "underlying": "Nifty 500 Momentum 50",
+  "tv": "NSE:NIFTY500MOMENTM50",
+  "candidates": [
+   "NSE:NIFTY500MOMENTM50 · Nifty 500 Momentum 50 Index",
+   "NSE:NIFTY_MULTI_MQ_50 · Nifty 500 Multicap Momentum Quality 50 Index",
+   "NSE:CNX500 · Nifty 500 Index",
+   "NSE:NIFTYM150MOMNTM50 · Nifty MidCap 150 Momentum 50 Index"
+  ]
+ },
+ "AUTOBEES": {
+  "underlying": "Nifty Auto",
+  "tv": "NSE:CNXAUTO",
+  "candidates": [
+   "NSE:CNXAUTO · Nifty Auto Index",
+   "NSE:NIFTY_EV · Nifty EV & New Age Automotive Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index"
+  ]
+ },
+ "BANKNIFTY1": {
+  "underlying": "Nifty Bank",
+  "tv": "NSE:BANKNIFTY",
+  "candidates": [
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNXPSUBANK · Nifty PSU Bank Index",
+   "NSE:NIFTYPVTBANK · Nifty Private Bank Index",
+   "NSE:NIFTY · Nifty 50 Index"
+  ]
+ },
+ "CPSEETF": {
+  "underlying": "Nifty CPSE",
+  "tv": "NSE:CPSE",
+  "candidates": [
+   "NSE:CPSE · Nifty CPSE Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "GROWWCAPM": {
+  "underlying": "Nifty Capital Market",
+  "tv": "NSE:NIFTY_CAPITAL_MKT",
+  "candidates": [
+   "NSE:NIFTY_CAPITAL_MKT · Nifty Capital Markets Index",
+   "NSE:NIFTY_TOTAL_MKT · Nifty Total Market Index",
+   "NSE:NIFTY_TMMQ_50 · Nifty Total Market Momentum Quality 50 Index",
+   "NSE:NIFTY · Nifty 50 Index"
+  ]
+ },
+ "MOCAPITAL": {
+  "underlying": "Nifty Capital Markets",
+  "tv": "NSE:NIFTY_CAPITAL_MKT",
+  "candidates": [
+   "NSE:NIFTY_CAPITAL_MKT · Nifty Capital Markets Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "CHEMICAL": {
+  "underlying": "Nifty Chemicals",
+  "tv": "NSE:NIFTY_CHEMICALS",
+  "candidates": [
+   "NSE:NIFTY_CHEMICALS · Nifty Chemicals Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "COMMOIETF": {
+  "underlying": "Nifty Commodities",
+  "tv": "NSE:CNXCOMMODITIES",
+  "candidates": [
+   "NSE:CNXCOMMODITIES · Nifty Commodities Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "CONSUMBEES": {
+  "underlying": "Nifty Consumption",
+  "tv": "NSE:CNXCONSUMPTION",
+  "candidates": [
+   "NSE:CNXCONSUMPTION · Nifty India Consumption Index",
+   "NSE:NIFTY_NEW_CONSUMP · Nifty India New Age Consumption Index",
+   "NSE:NIFTY_MS_IND_CONS · Nifty MidSmall India Consumption Index",
+   "NSE:NIFTY · Nifty 50 Index"
+  ]
+ },
+ "EVINDIA": {
+  "underlying": "Nifty EV and New Age Auto",
+  "tv": "NSE:NIFTY_EV",
+  "candidates": [
+   "NSE:NIFTY_EV · Nifty EV & New Age Automotive Index",
+   "NSE:NIFTY_NEW_CONSUMP · Nifty India New Age Consumption Index",
+   "NSE:CNXAUTO · Nifty Auto Index",
+   "NSE:NIFTYGS15YRPLUS · Nifty 15 years and above G-Sec Index"
+  ],
+  "hand": true
+ },
+ "ENERGY": {
+  "underlying": "Nifty Energy",
+  "tv": "NSE:CNXENERGY",
+  "candidates": [
+   "NSE:CNXENERGY · Nifty Energy Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "FMCGIETF": {
+  "underlying": "Nifty FMCG",
+  "tv": "NSE:CNXFMCG",
+  "candidates": [
+   "NSE:CNXFMCG · Nifty FMCG Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "FINIETF": {
+  "underlying": "Nifty Financial Services Ex Bank",
+  "tv": "NSE:NIFTY_FINSEREXBNK",
+  "candidates": [
+   "NSE:NIFTY_FINSEREXBNK · Nifty Financial Services Ex-Bank Index",
+   "NSE:CNXFINANCE · Nifty Financial Services Index",
+   "NSE:NIFTYFINSRV25_50 · Nifty Financial Services 25/50 Index",
+   "NSE:NIFTY_MS_FIN_SERV · Nifty MidSmall Financial Services Index"
+  ]
+ },
+ "HEALTHIETF": {
+  "underlying": "Nifty Healthcare",
+  "tv": "NSE:NIFTY_HEALTHCARE",
+  "candidates": [
+   "NSE:NIFTY_HEALTHCARE · Nifty Healthcare Index",
+   "NSE:NIFTY500_HEALTH · Nifty 500 Healthcare Index",
+   "NSE:NIFTY_MIDSML_HLTH · Nifty MidSmall Healthcare Index",
+   "NSE:NIFTY · Nifty 50 Index"
+  ]
+ },
+ "ITBEES": {
+  "underlying": "Nifty IT",
+  "tv": "NSE:CNXIT",
+  "candidates": [
+   "NSE:CNXIT · Nifty IT Index",
+   "NSE:NIFTY_MS_IT_TELCM · Nifty MidSmall IT & Telecom Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index"
+  ]
+ },
+ "MODEFENCE": {
+  "underlying": "Nifty India Defence",
+  "tv": "NSE:NIFTY_IND_DEFENCE",
+  "candidates": [
+   "NSE:NIFTY_IND_DEFENCE · Nifty India Defence Index",
+   "NSE:CNXCONSUMPTION · Nifty India Consumption Index",
+   "NSE:NIFTY_INTERNET · Nifty India Internet Index",
+   "NSE:NIFTY_INDIA_MFG · Nifty India Manufacturing Index"
+  ]
+ },
+ "TNIDETF": {
+  "underlying": "Nifty India Digital",
+  "tv": "NSE:NIFTY_IND_DIGITAL",
+  "candidates": [
+   "NSE:NIFTY_IND_DIGITAL · Nifty India Digital Index",
+   "NSE:NIFTY_IND_DEFENCE · Nifty India Defence Index",
+   "NSE:CNXCONSUMPTION · Nifty India Consumption Index",
+   "NSE:NIFTY_INTERNET · Nifty India Internet Index"
+  ]
+ },
+ "MAKEINDIA": {
+  "underlying": "Nifty India Manufacturing",
+  "tv": "NSE:NIFTY_INDIA_MFG",
+  "candidates": [
+   "NSE:NIFTY_INDIA_MFG · Nifty India Manufacturing Index",
+   "NSE:NIFTY_MULTI_MFG · Nifty 500 Multicap India Manufacturing 50:30:20 Index",
+   "NSE:NIFTY_IND_DEFENCE · Nifty India Defence Index",
+   "NSE:CNXCONSUMPTION · Nifty India Consumption Index"
+  ]
+ },
+ "METALIETF": {
+  "underlying": "Nifty Metal",
+  "tv": "NSE:CNXMETAL",
+  "candidates": [
+   "NSE:CNXMETAL · Nifty Metal Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "MIDCAP": {
+  "underlying": "Nifty Mid Cap 50",
+  "tv": "NSE:NIFTYMIDCAP50",
+  "candidates": [
+   "NSE:NIFTYMIDCAP50 · Nifty MidCap 50 Index",
+   "NSE:NIFTY_MIDSMALL_50_50 · NIFTY MIDSMALL 50 50",
+   "NSE:NIFTY_M150_QLTY50 · Nifty MidCap 150 Quality 50 Index",
+   "NSE:NIFTYM150MOMNTM50 · Nifty MidCap 150 Momentum 50 Index"
+  ]
+ },
+ "MIDSMALL": {
+  "underlying": "Nifty MidSmallCap 400",
+  "tv": "NSE:NIFTYMIDSML400",
+  "candidates": [
+   "NSE:NIFTYMIDSML400 · Nifty MidSmallCap 400 Index",
+   "NSE:NIFTYMS400_MQ_100 · Nifty MidSmallcap 400 Momentum Quality 100 Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index"
+  ]
+ },
+ "MIDCAPETF": {
+  "underlying": "Nifty Midcap 150",
+  "tv": "NSE:NIFTYMIDCAP150",
+  "candidates": [
+   "NSE:NIFTYMIDCAP150 · Nifty MidCap 150 Index",
+   "NSE:NIFTY_M150_QLTY50 · Nifty MidCap 150 Quality 50 Index",
+   "NSE:NIFTYM150MOMNTM50 · Nifty MidCap 150 Momentum 50 Index",
+   "NSE:NIFTY_MID_SELECT · Nifty MidCap Select Index"
+  ]
+ },
+ "SBIMIDMOM": {
+  "underlying": "Nifty Midcap 150 Momentum",
+  "tv": "NSE:NIFTYM150MOMNTM50",
+  "candidates": [
+   "NSE:NIFTYM150MOMNTM50 · Nifty MidCap 150 Momentum 50 Index",
+   "NSE:NIFTYMIDCAP150 · Nifty MidCap 150 Index",
+   "NSE:NIFTY_M150_QLTY50 · Nifty MidCap 150 Quality 50 Index",
+   "NSE:NIFTY_MID_SELECT · Nifty MidCap Select Index"
+  ]
+ },
+ "NEXT50IETF": {
+  "underlying": "Nifty Next 50",
+  "tv": "NSE:NIFTYJR",
+  "candidates": [
+   "NSE:NIFTYJR · Nifty Next 50 Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:CNX500 · Nifty 500 Index",
+   "NSE:NIFTYMIDCAP50 · Nifty MidCap 50 Index"
+  ]
+ },
+ "OILIETF": {
+  "underlying": "Nifty Oil and Gas",
+  "tv": "NSE:NIFTY_OIL_AND_GAS",
+  "candidates": [
+   "NSE:NIFTY_OIL_AND_GAS · Nifty Oil & Gas Index",
+   "NSE:NIFTYGS15YRPLUS · Nifty 15 years and above G-Sec Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index"
+  ],
+  "hand": true
+ },
+ "PSUBNKBEES": {
+  "underlying": "Nifty PSU Bank",
+  "tv": "NSE:CNXPSUBANK",
+  "candidates": [
+   "NSE:CNXPSUBANK · Nifty PSU Bank Index",
+   "NSE:NIFTY_RAILWAYSPSU · Nifty India Railways PSU Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:NIFTYPVTBANK · Nifty Private Bank Index"
+  ]
+ },
+ "PHARMABEES": {
+  "underlying": "Nifty Pharma",
+  "tv": "NSE:CNXPHARMA",
+  "candidates": [
+   "NSE:CNXPHARMA · Nifty Pharma Index",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNX500 · Nifty 500 Index"
+  ]
+ },
+ "PVTBANIETF": {
+  "underlying": "Nifty Private Bank",
+  "tv": "NSE:NIFTYPVTBANK",
+  "candidates": [
+   "NSE:NIFTYPVTBANK · Nifty Private Bank Index",
+   "NSE:BANKNIFTY · Nifty Bank Index",
+   "NSE:CNXPSUBANK · Nifty PSU Bank Index",
+   "NSE:NIFTY · Nifty 50 Index"
+  ]
+ },
+ "MOREALTY": {
+  "underlying": "Nifty Realty",
+  "tv": "NSE:CNXREALTY",
+  "candidates": [
+   "NSE:CNXREALTY · Nifty Realty Index",
+   "NSE:NIFTY_REITS_REALTY · NIFTY REITS REALTY",
+   "NSE:NIFTY · Nifty 50 Index",
+   "NSE:BANKNIFTY · Nifty Bank Index"
+  ]
+ },
+ "SMALLCAP": {
+  "underlying": "Nifty Smallcap250 Momentum Quality 100",
+  "tv": "NSE:NIFTYSML250MQ_100",
+  "candidates": [
+   "NSE:NIFTYSML250MQ_100 · Nifty Smallcap 250 Momentum Quality 100 Index",
+   "NSE:NIFTYMS400_MQ_100 · Nifty MidSmallcap 400 Momentum Quality 100 Index",
+   "NSE:NIFTY_MULTI_MQ_50 · Nifty 500 Multicap Momentum Quality 50 Index",
+   "NSE:NIFTY_TMMQ_50 · Nifty Total Market Momentum Quality 50 Index"
+  ]
+ },
+ "NV20IETF": {
+  "underlying": "Nifty50 Value 20 Index",
+  "tv": "NSE:NIFTY50_VALUE_20",
+  "candidates": [
+   "NSE:NIFTY50_VALUE_20 · Nifty 50 Value 20 Index",
+   "NSE:NIFTY200_VALUE_30 · Nifty 200 Value 30 Index",
+   "NSE:NIFTY500_VALUE_50 · Nifty 500 Value 50 Index",
+   "NSE:NIFTY_AQLV_30 · Nifty Alpha Quality Value Low-Volatility 30 Index"
+  ]
+ },
+ "MASPTOP50": {
+  "underlying": "S&P 500 Top 50",
+  "tv": "SP:SPX",
+  "candidates": [
+   "NSE:CNX500 · Nifty 500 Index",
+   "NSE:NIFTY500MOMENTM50 · Nifty 500 Momentum 50 Index",
+   "NSE:NIFTY500_VALUE_50 · Nifty 500 Value 50 Index",
+   "NSE:NIFTY500_QLTY50 · Nifty 500 Quality 50 Index"
+  ],
+  "hand": true,
+  "note": "proxy: S&P 500 (Top 50 has no TV index)"
+ },
+ "SILVERIETF": {
+  "underlying": "Silver",
+  "tv": "TVC:SILVER",
+  "candidates": [],
+  "hand": true
+ },
+ "LIQUID1": {
+  "underlying": "Overnight / Liquid",
+  "tv": null,
+  "candidates": [
+   "NSE:LIX15 · Nifty 100 Liquid 15 Index",
+   "NSE:NIFTYMIDLIQ15 · Nifty MidCap Liquid 15 Index"
+  ],
+  "hand": true,
+  "note": "cash park - no index"
+ }
+}

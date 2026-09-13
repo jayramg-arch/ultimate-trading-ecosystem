@@ -176,18 +176,54 @@ def _tv(expr: str, tgt: dict | None = None):
     return out["value"]
 
 
-def _tv_all(expr: str) -> list:
-    return [_tv(expr, t) for t in _chart_targets()]
+def _tv_all(expr: str, targets: list | None = None) -> list:
+    return [_tv(expr, t) for t in (targets if targets is not None else _main_targets())]
 
 
-def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dict:
+# ── PHASE-1 TAB (13-Sep-2026) ───────────────────────────────────────────────────
+# For an ETF the S4 panel on its UNDERLYING INDEX is the thesis (Phase-1); the ETF's own
+# chart is the tradability (Phase-2). A THIRD chart tab, carrying the S4 stack, is
+# designated by S4_PHASE1_CHART=<chart id, e.g. AbCdEfGh> in .env; the reviewer switches
+# only that tab to the index and reads it separately. Without the setting nothing
+# changes: every tab is a main tab, as before.
+PHASE1_CHART = os.getenv("S4_PHASE1_CHART", "").strip()
+_INDEX_MAP_PATH = os.path.join(HERE, "data", "tv_index_map.json")
+
+
+def _is_phase1(t: dict) -> bool:
+    return bool(PHASE1_CHART) and PHASE1_CHART in t.get("url", "")
+
+
+def _main_targets() -> list[dict]:
+    return [t for t in _chart_targets() if not _is_phase1(t)]
+
+
+def _phase1_target() -> dict | None:
+    return next((t for t in _chart_targets() if _is_phase1(t)), None)
+
+
+def index_for(symbol: str) -> dict | None:
+    """{"tv": "NSE:CNXPHARMA", "underlying": "Nifty Pharma", ...} for an ETF, else None."""
+    try:
+        with open(_INDEX_MAP_PATH, encoding="utf-8") as fh:
+            m = json.load(fh)
+    except Exception:
+        return None
+    e = m.get(symbol.strip().upper().replace("NSE:", ""))
+    return e if e and e.get("tv") else None
+
+
+def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45,
+                 targets: list | None = None) -> dict:
     """Set symbol/TF, then wait until every study has recalculated and the cell count is
-    stable. Returns the READY_JS state."""
+    stable. Returns the READY_JS state. `targets` limits the switch to those tabs
+    (default: the main tabs, i.e. everything but the Phase-1 tab)."""
     sym_js = 'chart.setSymbol(%s);' % json.dumps(_nse(symbol)) if symbol else ""
     res_js = 'chart.setResolution(%s);' % json.dumps(_res(tf)) if tf else ""
     want_sym = _nse(symbol) if symbol else None
     want_res = _res(tf) if tf else None
-    tabs0 = _chart_targets()
+    tabs0 = targets if targets is not None else _main_targets()
+    _urls = {t["url"] for t in tabs0}
     n_tabs = len(tabs0)
     # A tab that carried a panel BEFORE the switch must carry one after. Mid-recalc the S4
     # tab reports 0 cells with isLoading false (11-Sep: NEULANDLAB read "S4 not on chart",
@@ -199,13 +235,13 @@ def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45) -> dic
         except Exception:
             had_cells[t["url"]] = False
     if sym_js or res_js:
-        for r in _tv_all(SWITCH_JS % {"sym": sym_js, "res": res_js}):
+        for r in _tv_all(SWITCH_JS % {"sym": sym_js, "res": res_js}, tabs0):
             if str(r).startswith("ERR"):
                 raise TVError(r)
         time.sleep(2.0)
     last_cells, stable, t0, sts = None, 0, time.time(), []
     while time.time() - t0 < timeout_s:
-        tgts = _chart_targets()
+        tgts = [t for t in _chart_targets() if t["url"] in _urls]
         if len(tgts) < n_tabs:          # a tab drops off /json while it navigates
             time.sleep(1.5); continue
         sts = []
@@ -243,8 +279,10 @@ def _nse(sym: str) -> str:
     chart symbol — tv_health_check, 10-Sep-2026; the tv-sync had the same wrong
     assumption and one holding silently never plotted). Any other spelling resolves
     to nothing and every study reports a runtime 'resolve error'."""
-    s = sym.strip().upper().replace("-", "_")
-    return s if ":" in s else "NSE:" + s
+    s = sym.strip().upper()
+    if ":" in s:
+        return s                       # an exchange-qualified ticker (index map) is final
+    return "NSE:" + s.replace("-", "_")
 
 
 def _res(tf: str) -> str:
@@ -252,12 +290,12 @@ def _res(tf: str) -> str:
     return {"d": "1D", "1d": "1D", "daily": "1D", "w": "1W", "1w": "1W"}.get(t, t)
 
 
-def read_panels(bars_n: int = BARS_N) -> dict:
+def read_panels(bars_n: int = BARS_N, targets: list | None = None) -> dict:
     """Merge every chart tab: S5 lives on one, S4 on the other. Symbol/TF must agree
     across tabs or the read is refused — two different names in one prompt is worse
-    than no read."""
+    than no read. `targets` limits the read (default: the main tabs)."""
     reads = []
-    for raw in _tv_all(READ_JS % {"n": bars_n}):
+    for raw in _tv_all(READ_JS % {"n": bars_n}, targets):
         r = json.loads(raw)
         if r.get("error"):
             raise TVError(r["error"])
@@ -487,6 +525,19 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
 - Read participation as ONE story: e.g. short build-up + absorption at VAL + AVWAP-Low
   holding = trapped shorts on a defended floor (strong long); long build-up + bleeding
   delta above VAH = late longs being distributed to (fade the GO).
+ETFs — TWO PHASES when a PHASE-1 block is present:
+- Phase-1 is the S4 stack on the ETF's UNDERLYING INDEX. An ETF is a bet on that index,
+  so the index decides the thesis: its stage and trend stack, its location, whether ITS
+  trigger fired and on what volume, its room. An index in Stage 3/4, or blocked at
+  location, is NO TRADE for the ETF whatever the ETF's own chart prints. Index breadth,
+  sector RRG and the index's own OI (NIFTY/BANKNIFTY/FINNIFTY have futures) live here.
+- Phase-2 is the ETF's own chart: tradability. ETF volume is thin and RV runs low by
+  construction; weigh the INDEX's volume for the trigger and the ETF's for whether it
+  can be filled. AVWAP/VP on the ETF are execution levels; the ETF's zones are the
+  index's zones scaled, so prefer the index's when they disagree. Tracking error and
+  NAV premium are not on the panels — say so rather than invent them.
+- Deliberate the two as one story (index thesis → ETF entry). Where only the ETF was
+  read, say the index was not read and do not infer it.
 - S5's remaining sections are explanatory: use them to resolve S4's ambiguities (is the
   low RV a pullback or a fade? does the delta support the level?). Sections marked
   [withheld] are not available — do not guess them.
@@ -771,10 +822,37 @@ def telegram(text: str) -> bool:
 
 
 # ---------------------------------------------------------------------------------------
+def phase1_read(symbol: str | None, tf: str | None, bars_n: int) -> str:
+    """The index-chart block for an ETF: switch the Phase-1 tab to the underlying index
+    at the same TF, read its panels, render them under their own header. Empty string
+    when the name is not an ETF, has no mapped index, or no Phase-1 tab is designated —
+    and says which, so the prompt never has to guess."""
+    if not symbol:
+        return ""
+    idx = index_for(symbol)
+    if not idx:
+        return ""
+    p1 = _phase1_target()
+    if p1 is None:
+        return ("PHASE-1 · UNDERLYING INDEX %s (%s): no Phase-1 chart tab is designated "
+                "(S4_PHASE1_CHART unset) — index panels NOT read.\n" % (idx["tv"], idx.get("underlying", "")))
+    try:
+        switch_chart(idx["tv"], tf, targets=[p1])
+        d1 = read_panels(bars_n, targets=[p1])
+    except TVError as e:
+        return "PHASE-1 · UNDERLYING INDEX %s: read failed — %s\n" % (idx["tv"], e)
+    body = render_read(d1)
+    return ("=" * 78 + "\nPHASE-1 · UNDERLYING INDEX of %s — %s (%s)%s\n"
+            "The index chart carries the same S4 stack. Read it as the THESIS; the ETF panels "
+            "below are the TRADABILITY.\n" % (symbol.upper(), idx["tv"], idx.get("underlying", ""),
+                                            ("  [%s]" % idx["note"]) if idx.get("note") else "")
+            + body + "\n" + "=" * 78 + "\nPHASE-2 · THE ETF ITSELF\n")
+
+
 def review_one(symbol: str | None, tf: str | None, args) -> int:
     st = switch_chart(symbol, tf)
     d = read_panels(args.bars)
-    read_txt = render_read(d)
+    read_txt = phase1_read(symbol, tf, args.bars) + render_read(d)
     if args.dump:
         print(read_txt)
         return 0
@@ -795,10 +873,29 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     print("\n" + head + "\n" + "-" * len(head) + "\n" + review + "\n\nsaved " + os.path.relpath(path, HERE))
     if args.telegram:
         telegram(head + "\n\n" + review)
+    global LAST_RESULT
+    LAST_RESULT = {"rc": 0, "review": review, "path": path, "head": head, "symbol": d["symbol"], "tf": tf_lbl}
     return 0
 
 
-def board_symbols(tf: str) -> list[str]:
+LAST_RESULT: dict = {}
+
+
+def review_symbol(symbol: str, tf: str | None = None, provider: str = "auto",
+                  bars: int = BARS_N, send_telegram: bool = False) -> dict:
+    """Programmatic entry (13-Sep-2026, for s4_alert_review): review ONE name and return
+    {"rc", "review", "path", "head"}. Same code path as the CLI."""
+    import types
+    global LAST_RESULT
+    LAST_RESULT = {}
+    args = types.SimpleNamespace(bars=bars, dump=False, provider=provider, telegram=send_telegram)
+    rc = review_one(symbol, tf, args)
+    out = dict(LAST_RESULT) if LAST_RESULT else {}
+    out.setdefault("rc", rc); out.setdefault("review", ""); out.setdefault("path", ""); out.setdefault("head", "")
+    return out
+
+
+def board_symbols(tf: str, live: bool = False) -> list[str]:
     import pandas as pd
     p = os.path.join(HERE, "gm_board_cache_%s.csv" % tf)
     if not os.path.exists(p):
@@ -806,6 +903,12 @@ def board_symbols(tf: str) -> list[str]:
     df = pd.read_csv(p)
     # "5/5 GO ·…" today (Gate 5 added 18-Aug); "4/4 GO" on older caches. Match "N/N GO".
     m = df["S4-GO"].astype(str).str.match(r"^[0-9]/[0-9] GO")
+    if live and "Category" in df.columns:
+        # --live: every Buy Trigger Live row (bull AND recovery), not only 5/5. A recovery
+        # turn usually reads 3/5 · no vol - dry volume IS the recovery shape - so the 5/5
+        # filter alone reviewed the two recovery names that happened to clear volume and
+        # skipped the rest (Jay, 13-Sep).
+        m = m | df["Category"].astype(str).str.startswith("Buy Trigger Live")
     import datetime as _dt
     age_h = (time.time() - os.path.getmtime(p)) / 3600
     print("board %s built %s (%.1fh ago)%s" % (tf, _dt.datetime.fromtimestamp(os.path.getmtime(p)).strftime("%d-%b %H:%M"),
@@ -819,6 +922,7 @@ def main() -> int:
     ap.add_argument("--tf", help="75 · 125 · D (omit = keep the chart's TF)")
     ap.add_argument("--symbols", help="comma list, reviewed in sequence")
     ap.add_argument("--board", choices=["75m", "125m", "daily"], help="every N/N GO row of that board")
+    ap.add_argument("--live", action="store_true", help="with --board: also every 'Buy Trigger Live' row (bull + recovery), not only 5/5")
     ap.add_argument("--provider", choices=["auto", "claude", "gemini"], default="auto")
     ap.add_argument("--bars", type=int, default=BARS_N)
     ap.add_argument("--dump", action="store_true", help="print the raw panel read, no model")
@@ -827,9 +931,9 @@ def main() -> int:
 
     syms: list[str | None]
     if args.board:
-        syms = board_symbols(args.board)
+        syms = board_symbols(args.board, live=args.live)
         args.tf = args.tf or {"75m": "75", "125m": "125", "daily": "D"}[args.board]
-        print("board %s: %d names at GO: %s" % (args.board, len(syms), ", ".join(syms)))
+        print("board %s: %d names at %s: %s" % (args.board, len(syms), "GO or Buy Trigger Live" if args.live else "GO", ", ".join(syms)))
     elif args.symbols:
         syms = [s for s in args.symbols.split(",") if s.strip()]
     else:
