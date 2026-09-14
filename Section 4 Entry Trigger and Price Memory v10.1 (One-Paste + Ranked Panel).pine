@@ -866,7 +866,7 @@ string S4_VER      = "v11.2"
 // row. Wrapped here it becomes two or three short lines and the table falls back to
 // the width of Confluence/RRG, which is what Jay asked for.
 int PANEL_ROW_WRAP = 96
-string S4_CORE_VER = "52"
+string S4_CORE_VER = "53"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
 // extracted from the scope; so the call sits in global scope and the loop stays behind
@@ -876,7 +876,7 @@ string S4_CORE_VER = "52"
 // fundStr() and bitsRow(), which the two FUNDAMENTALS rows need. Keep S4_CORE_VER above
 // in step with this number -- the panel header prints it, and it had already drifted to
 // 23 while the import was on 24.
-import jayramg/S4Core/52 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
+import jayramg/S4Core/53 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -5626,7 +5626,7 @@ if show_panel and d_panel and barstate.islast
         // #width (30-Jul): Plan was one unbroken line — entry-method plus SL/T1/T2 all on
         // one row, easily the widest content in the panel. Split at the natural boundary
         // (method above, numbers below), same convention as the Verdict clause breaks.
-        _plan := (str.length(tt_lbl) > 0 ? tt_lbl + "  │  " : "") + _entryMethodTxt + _ageTag + "\n· SL under the " + pl_slsrc + (pl_cap ? " ⚠cap " + str.tostring(_slMult, "0.0") + "×ATR" : "") + "  │  T1 " + str.tostring(_t1R, "0.0") + "R" + (pl_t1_str ? " (test " + str.tostring(_ovh, format.mintick) + (_ovhSrc == "" ? "" : " " + _ovhSrc) + " first)" : "") + "  │  T2 " + ((is_rec_v and not na(_h52v) and _h52v > pl_entry) ? "52WH" : str.tostring(_t2R, "0.0") + "R") + core.oiPlanHint(oi_quad)
+        _plan := core.planRow(tt_lbl, _entryMethodTxt, _ageTag, pl_slsrc, pl_cap, _slMult, _t1R, pl_t1_str, _ovh, _ovhSrc, is_rec_v and not na(_h52v) and _h52v > pl_entry, _t2R, core.oiPlanHint(oi_quad))
     f_row(37, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? C_MUTE : C_OK)
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
@@ -5637,20 +5637,15 @@ if show_panel and d_panel and barstate.islast
     f_planLine(show_plan_levels, pl_t1,    "T1", #42A5F5, line.style_dotted)
     f_planLine(show_plan_levels, pl_t2,    "T2", #7E57C2, line.style_dotted)
 
-    string _lE  = na(pl_entry) ? "" : "E " + str.tostring(pl_entry, format.mintick)
-    string _lS  = na(pl_entry) ? "" : "  │  SL " + str.tostring(pl_sl, format.mintick) + (pl_cap ? "⚠" : "") + " (−" + str.tostring((pl_entry - pl_sl) / pl_entry * 100.0, "0.0") + "%)"
-    // v10.2 (H10): T1/T2 are always the R-canon. When an obstacle sits BEFORE a target
-    // (pl_t1_str/pl_t2_str) it is named as the FIRST TEST on the way - "·test 444.80" -
-    // so the level is read as something to clear, not as where the trade pays out.
-    // (v5.2 had anchored T1 to that level and tagged it "·lvl"; retired.)
-    string _lT1 = na(pl_t1) ? "  │  T1 —" : "  │  T1 " + str.tostring(pl_t1, format.mintick) + " (" + str.tostring(pl_rr1, "0.0") + "R" + (pl_t1_str ? " ·test " + str.tostring(_ovh, format.mintick) + (_ovhSrc == "" ? "" : " " + _ovhSrc) : "") + ")"
-    string _lT2 = na(pl_t2) ? (na(pl_t1) ? "  │  T2 —" : "  │  T2 open") : "  │  T2 " + str.tostring(pl_t2, format.mintick) + " (" + str.tostring(pl_rr2, "0.0") + "R" + (pl_t2_str ? " ·test " + str.tostring(_ovh2, format.mintick) + (_ovh2Src == "" ? "" : " " + _ovh2Src) : "") + ")"
+    // v10.2 (H10): T1/T2 are always the R-canon; an obstacle BEFORE a target is named as
+    // the FIRST TEST ("·test 444.80 call wall"). v10.3: text built in S4Core.levelsRow
+    // (token relief - S4 compiled at 100,731 with it inline).
     // INVALIDATION — appended to the SAME row, no new row (Jay). NOT the stop: the stop
     // is where you get out, invalidation is where the reason you bought stops being true.
     // Ranked by SEVERITY (zone distal > swing > S/R > EMA20) with the nearest shown as
     // "first test". Body in S4Core.invalLevels — it was 40 statements of picker sitting in
     // the main body, which is what tripped Pine's ~1000-statement ceiling.
-    string _lvlTxt = (na(pl_entry) ? "wait for GO" : (_lE + _lS + _lT1 + _lT2)) + core.invalLevels(close[_so], z_inDZdist, z_inDZ[_so], swingLo10[_so], sr_below, daily_ema20, nz(atrD_tf, chart_atr))
+    string _lvlTxt = core.levelsRow(pl_entry, pl_sl, pl_cap, pl_t1, pl_t2, pl_rr1, pl_rr2, pl_t1_str, pl_t2_str, _ovh, _ovh2, _ovhSrc, _ovh2Src) + core.invalLevels(close[_so], z_inDZdist, z_inDZ[_so], swingLo10[_so], sr_below, daily_ema20, nz(atrD_tf, chart_atr))
     f_row(38, "Entry · SL · T1 · T2", core.wrapText(_lvlTxt + core.wallCheck(pl_entry, pl_sl, pl_t1, opt_ceK, opt_peK, nz(atrD_tf, chart_atr), 1.0, 3.0, close[_so], oi_basis, opt_mp), PANEL_ROW_WRAP), na(pl_entry) ? color.gray : C_OK)
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.

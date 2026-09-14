@@ -2,7 +2,13 @@
 // (c) Jayram G
 //
 // ============================================================================
-// S4Core  v52  --  shared engines for the Section 4 / Golden Matcher ecosystem
+// S4Core  v53  --  shared engines for the Section 4 / Golden Matcher ecosystem
+//
+// v53 (14-Sep-2026) - TOKEN RELIEF. S4 v10.3 compiled at 100,731 against the 100,256
+//   ceiling after the derivatives ladders. levelsRow() and planRow() take the two
+//   longest string builds off S4's main body (the Entry·SL·T1·T2 row and the Plan
+//   row - ~55 concat operations between them); S4 now passes the numbers and prints
+//   what comes back. Text unchanged.
 //
 // v52 (13-Sep-2026) - DERIVATIVES IN THE LADDERS (Jay: "I need Futures Basis, Futures
 //   OI quadrant, Options OI, PCR, Max Pain, Call and Put Writers ... for the room, SL,
@@ -2921,6 +2927,26 @@ export wallCheck(float entry, float sl, float t1, float ceK, float peK, float at
     string sMp = (not okR or na(maxPain) or na(t1)) ? "" : (maxPain > entry and maxPain < t1) ? "  │  ⚠ max pain " + str.tostring(maxPain, format.mintick) + " sits between entry and T1 — expiry pinning pulls against the target until it rolls" : ""
     sCe + sPe + sBs + sMp + (str.length(sCe) + str.length(sPe) + str.length(sBs) + str.length(sMp) > 0 ? "  · near-month" : "")
 
+
+// ---- levelsRow / planRow (v53) --------------------------------------------------
+// The Entry · SL · T1 · T2 row: E / SL(−%) / T1 (R ·test lvl src) / T2 (R ·test lvl src).
+export levelsRow(float entry, float sl, bool capped, float t1, float t2, float rr1, float rr2,
+                 bool t1str, bool t2str, float ovh, float ovh2, string src, string src2) =>
+    string lE = na(entry) ? "" : "E " + str.tostring(entry, format.mintick)
+    string lS = na(entry) ? "" : "  │  SL " + str.tostring(sl, format.mintick) + (capped ? "⚠" : "") + " (−" + str.tostring((entry - sl) / entry * 100.0, "0.0") + "%)"
+    string lT1 = na(t1) ? "  │  T1 —" : "  │  T1 " + str.tostring(t1, format.mintick) + " (" + str.tostring(rr1, "0.0") + "R" + (t1str ? " ·test " + str.tostring(ovh, format.mintick) + (src == "" ? "" : " " + src) : "") + ")"
+    string lT2 = na(t2) ? (na(t1) ? "  │  T2 —" : "  │  T2 open") : "  │  T2 " + str.tostring(t2, format.mintick) + " (" + str.tostring(rr2, "0.0") + "R" + (t2str ? " ·test " + str.tostring(ovh2, format.mintick) + (src2 == "" ? "" : " " + src2) : "") + ")"
+    na(entry) ? "wait for GO" : lE + lS + lT1 + lT2
+
+// The Plan row: method line, then "SL under the <src> [cap] | T1 nR [(test lvl src first)] | T2 nR|52WH" + OI clause.
+export planRow(string ttLbl, string methodTxt, string ageTag, string slSrc, bool capped, float slMult,
+               float t1R, bool t1str, float ovh, string src, bool t2is52, float t2R, string oiHint) =>
+    // successive assignments, not a wrapped expression (the continuation-indent trap)
+    string r = (str.length(ttLbl) > 0 ? ttLbl + "  │  " : "") + methodTxt + ageTag
+    r := r + "\n· SL under the " + slSrc + (capped ? " ⚠cap " + str.tostring(slMult, "0.0") + "×ATR" : "")
+    r := r + "  │  T1 " + str.tostring(t1R, "0.0") + "R" + (t1str ? " (test " + str.tostring(ovh, format.mintick) + (src == "" ? "" : " " + src) + " first)" : "")
+    r := r + "  │  T2 " + (t2is52 ? "52WH" : str.tostring(t2R, "0.0") + "R") + oiHint
+    r
 
 // ---- derivCeiling / oiQuad / oiPlanHint (v52) ---------------------------------
 // The derivatives levels as LADDER CANDIDATES. Called twice by S4: once for the first
