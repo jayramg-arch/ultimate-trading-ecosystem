@@ -529,6 +529,13 @@ def main():
                             logger.warning(f"   CORE gate skipped ({_ce2})")
 
                         df_cat = df_cat.drop(columns=["_bff_raw"], errors="ignore")
+                        # 16-Sep-2026: a fully gated-out frame had NO columns and wrote a
+                        # 2-byte file, which watchlist_manager reported as "No Symbol
+                        # column" (an ERROR line for what is really "0 picks today").
+                        # Header-only with the Symbol column keeps the freshness stamp
+                        # honest and reads as empty downstream.
+                        if "Symbol" not in df_cat.columns:
+                            df_cat = pd.DataFrame(columns=["Symbol", "Catalyst"])
                         df_cat.to_csv(os.path.join(_DIR, CATALYST_WATCHLIST), index=False)
                     except Exception as _ge:
                         logger.warning(f"   Fundamental gate skipped ({_ge}); ungated list kept.")

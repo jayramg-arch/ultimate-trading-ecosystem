@@ -387,10 +387,18 @@ async def process_sync(context, pipeline_mode=False):
                 if box and box['width'] > 10:
                     is_open = True
             
-            if not is_open:
-                print("   👉 Panel seems closed. Opening Watchlist Panel...")
-                # Click the toggle button in the toolbar
-                # Found via debug snippet: data-name="base"
+            # 16-Sep-2026: "open" is not enough - the right panel can be open on ALERTS
+            # (or Details/News), in which case button[data-name='watchlists-button']
+            # does not exist and every import times out at 30 s (six lists lost in the
+            # 16-Sep run; it recovered only because a later delete attempt happened to
+            # open the watchlist menu). The test is now: is the WATCHLIST tab showing?
+            wl_btn = page.locator("button[data-name='watchlists-button']").first
+            wl_tab_showing = is_open and await wl_btn.count() > 0 and await wl_btn.is_visible()
+            if not wl_tab_showing:
+                print("   👉 Panel closed or on another tab. Selecting the Watchlist tab..."
+                      if is_open else "   👉 Panel seems closed. Opening Watchlist Panel...")
+                # The right-rail toggle: data-name="base" (found via debug snippet); when
+                # the panel is open on another tab the same button switches to Watchlist.
                 toggle_btn = page.locator("button[data-name='base']").first
                 if await toggle_btn.count() > 0:
                      await toggle_btn.click()
@@ -399,8 +407,17 @@ async def process_sync(context, pipeline_mode=False):
                      print("   ⚠️ specific 'base' toggle button not found, scanning toolbar...")
                      await page.locator("button[data-tooltip='Watchlist, details and news']").click()
                      await page.wait_for_timeout(1500)
+                # a second click if the first merely opened a closed rail on the wrong tab
+                if not (await wl_btn.count() > 0 and await wl_btn.is_visible()):
+                    if await toggle_btn.count() > 0:
+                        await toggle_btn.click()
+                        await page.wait_for_timeout(1500)
+                if await wl_btn.count() > 0 and await wl_btn.is_visible():
+                    print("   ✅ Watchlist tab is showing.")
+                else:
+                    print("   ⚠️ Watchlist tab still not showing - imports may time out.")
             else:
-                print("   ✅ Watchlist Panel is already open.")
+                print("   ✅ Watchlist Panel is already open on the Watchlist tab.")
                 
         except Exception as e:
             print(f"   ⚠️ Error checking watchlist panel: {e}")

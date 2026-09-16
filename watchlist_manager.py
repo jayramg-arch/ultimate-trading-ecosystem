@@ -132,7 +132,10 @@ def generate_tradingview_files(silent=False):
 
                 
                 if not symbol_col:
-                    print(f"[ERROR] No Symbol column in {csv_file}")
+                    if not reader.fieldnames or not rows:
+                        print(f"[WARN] {csv_file} is empty (0 picks today). Skipping TXT generation.")
+                    else:
+                        print(f"[ERROR] No Symbol column in {csv_file}")
                     continue
 
                 # ETF -> its INDEX, for the PHASE-1 chart. Loaded once per file rather

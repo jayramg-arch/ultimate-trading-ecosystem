@@ -411,7 +411,8 @@ async def main():
     print("or starting with Bull_ / Rec_ / FINAL_.")
     print("------------------------------------------------------\n")
     
-    await cleanup_strike()
+    # 16-Sep-2026: Strike.Money lapsed (strike_automation archived); its profile is
+    # gone and the step only printed "Strike profile not found" every run.
     await cleanup_tradingview()
     print("\n✅ NUCLEAR CLEANUP COMPLETE.")
 
