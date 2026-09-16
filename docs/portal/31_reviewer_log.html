@@ -42,7 +42,7 @@ details.day>summary .tally{margin-left:auto;display:flex;gap:6px}
 .pill.notrade{color:var(--notrade);background:var(--notrade-bg);border-color:var(--notrade)}.pill.other{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 .pill.mine{color:var(--acc);background:var(--acc-bg);border-color:var(--acc)}
 .s4{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:6px 0 0 64px}.s4 b{color:var(--ink-2);font-weight:500}
-.body{margin:10px 0 0 64px;max-width:78ch;font-size:15px;color:var(--ink-2)}.body h4{font-family:var(--disp);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);margin:16px 0 6px}
+.body{margin:10px 0 0 64px;max-width:78ch;font-size:15px;color:var(--ink-2)}.body h4{font-family:var(--disp);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);margin:16px 0 6px}.body h4.taken{color:var(--take)}.body h4.skipped{color:var(--pass)}
 .body p{margin:0 0 8px}.body ul{margin:0 0 8px 18px;padding:0}.body li{margin:0 0 3px}.body b{color:var(--ink)}.body hr{border:0;border-top:1px solid var(--rule-soft);margin:12px 0}
 .body code{font-family:var(--mono);font-size:.9em;background:var(--surface-3);padding:0 4px;border-radius:2px}
 .chk{font-family:var(--mono);font-size:12px;color:var(--ink-2);background:var(--surface-2);border-left:3px solid var(--acc);padding:4px 10px;margin:4px 0;white-space:pre-wrap}
@@ -58,12 +58,12 @@ footer{border-top:1px solid var(--rule);background:var(--surface);font-family:va
 <header class="mast"><div class="mast-in"><p class="eyebrow">Weinstein Commander · GM + S4 · AI reviewer</p>
 <h1>The Reviewer Log</h1>
 <p class="dek">Every deliberation the reviewer has written off the S4 / S5 panels — ruling, case for and against, plan, and the script's own R / OI / index checks — newest day first. The panel read each one was made from is folded under it.</p>
-<div class="counts"><div class="count"><b>93</b><span>Reviews</span></div><div class="count"><b>3</b><span>Days</span></div><div class="count"><b>18</b><span>Take</span></div><div class="count"><b>15</b><span>Take · reduced</span></div><div class="count"><b>38</b><span>Wait</span></div><div class="count"><b>22</b><span>Pass / No trade</span></div><div class="count"><b>0</b><span>Scored by Jay</span></div></div></div></header>
+<div class="counts"><div class="count"><b>93</b><span>Reviews</span></div><div class="count"><b>3</b><span>Days</span></div><div class="count"><b>18</b><span>Take</span></div><div class="count"><b>15</b><span>Take · reduced</span></div><div class="count"><b>38</b><span>Wait</span></div><div class="count"><b>22</b><span>Pass / No trade</span></div><div class="count"><b>1</b><span>Scored by Jay</span></div><div class="count"><b>0</b><span>Agreed</span></div></div></div></header>
 <div class="wrap"><div class="tools"><input id="q" type="search" placeholder="filter · symbol, ruling, TF, date…">
 <span class="chip" data-rc="take">Take</span><span class="chip" data-rc="reduced">Reduced</span><span class="chip" data-rc="wait">Wait</span><span class="chip" data-rc="pass">Pass</span><span class="chip" data-rc="notrade">No trade</span>
 </div>
 <details class="day" open><summary><span>Wednesday, 16 September 2026</span><span class="n"><span class="vis">8</span> reviews</span><span class="tally"><span class="pill take">1</span><span class="pill reduced">2</span><span class="pill wait">3</span><span class="pill pass">1</span><span class="pill notrade">1</span></span></summary>
-<details class="rev" data-rc="take" data-hay="cholafin 125 take 2026-09-16 go   🟢p 🟢l 🟢v 🟢b ⚪q 🟢f  ⚪⏱  ·pb(gm)  bull-only  4/23 "><summary><span class="t">17:31</span><span class="sym">CHOLAFIN</span><span class="tf">125m</span><span class="rul">TAKE</span><span style="display:flex;gap:6px;align-items:center"><span class="pill take">take</span></span></summary>
+<details class="rev" data-rc="take" data-hay="cholafin 125 take 2026-09-16 go   🟢p 🟢l 🟢v 🟢b ⚪q 🟢f  ⚪⏱  ·pb(gm)  bull-only  4/23 skipped: synthetic webhook test, not a real alert"><summary><span class="t">17:31</span><span class="sym">CHOLAFIN</span><span class="tf">125m</span><span class="rul">TAKE</span><span style="display:flex;gap:6px;align-items:center"><span class="pill take">take</span><span class="pill mine">SKIPPED: synthetic webhook test, not a real alert · disagreed</span></span></summary>
 <div class="s4">S4 at read: <b>GO   🟢P 🟢L 🟢V 🟢B ⚪Q 🟢F  ⚪⏱  ·PB(GM)  Bull-only  4/23</b> · gemini-3.1-flash-lite</div>
 <div class="body"><h4>ANALYSIS</h4>
 <p><b>1. CONTEXT &amp; TREND STACK</b><br>CHOLAFIN sits in a Stage 2 weekly uptrend (11-week leg) with the 30-WMA and 50-DMA sloping up. However, the 125-min chart is in a structural downtrend (LH/LL). RS vs N500 and the Financial Services sector is positive, but the sector itself is in a Stage 4 decline—this is a significant structural headwind. RRG is currently LEADING → WEAKENING, signaling that the leadership phase is exhausting. This is a pullback trade against a weekly uptrend, requiring precise entry at support.</p>
@@ -469,7 +469,13 @@ ATR % | 2.7% (47.3)
   15-Sep 13:25  1802.10 1805.60 1785.00 1798.90  592933
   16-Sep 09:15  1769.60 1798.00 1756.30 1771.80  563845
   16-Sep 11:20  1771.80 1774.80 1764.80 1766.90  267160
-  16-Sep 13:25  1766.90 1770.50 1762.90 1765.40  419239</pre></details>
+  16-Sep 13:25  1766.90 1770.50 1762.90 1765.40  419239
+```
+
+
+## SKIPPED · 2026-09-16 21:37
+- reason: synthetic webhook test, not a real alert
+- ruling was: TAKE</pre></details>
 </details>
 <details class="rev" data-rc="wait" data-hay="ltfoods 75 wait for a base. 2026-09-16 no pa   ⚪p ⚪l ⚪v ⚪b 🟢q 🟢f  ⚪⏱  1/23 "><summary><span class="t">13:54</span><span class="sym">LTFOODS</span><span class="tf">75m</span><span class="rul">WAIT for a base.</span><span style="display:flex;gap:6px;align-items:center"><span class="pill wait">wait</span></span></summary>
 <div class="s4">S4 at read: <b>no PA   ⚪P ⚪L ⚪V ⚪B 🟢Q 🟢F  ⚪⏱  1/23</b> · gemini-3.1-flash-lite</div>
@@ -36931,7 +36937,7 @@ VI · READ — [withheld: not yet fine-tuned]
 </details>
 </details>
 <div class="note"><b>Nothing here is ever deleted.</b> Each review is the ruling as written before the outcome was known; the <code>my_call</code> / <code>agreed</code> columns in <code>logs/ai_review_log.csv</code> are how the log will one day say whether the model earned its place. This page is regenerated after every review and every evening run (<code>build_review_portal.py</code>); the published copy is a snapshot.</div></div>
-<footer><div class="foot-in"><span>The Reviewer Log · logs/ai_reviews · built 16 Sep 2026 17:40 IST</span><span>93 reviews · flash-lite unless noted</span></div></footer>
+<footer><div class="foot-in"><span>The Reviewer Log · logs/ai_reviews · built 16 Sep 2026 21:37 IST</span><span>93 reviews · flash-lite unless noted</span></div></footer>
 <script>
 const q=document.getElementById('q');const chips=[...document.querySelectorAll('.chip')];let flt='';
 function apply(){const s=q.value.trim().toLowerCase();document.querySelectorAll('details.rev').forEach(r=>{

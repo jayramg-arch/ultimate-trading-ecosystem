@@ -67,11 +67,13 @@ def md_to_html(md: str) -> str:
             if in_list:
                 out.append("</ul>"); in_list = False
             continue
-        if line.startswith("### "):
+        if line.startswith("### ") or line.startswith("## "):
             flush()
             if in_list:
                 out.append("</ul>"); in_list = False
-            out.append("<h4>%s</h4>" % _md_inline(line[4:]))
+            hd = line.split(" ", 1)[1]
+            cls = ' class="taken"' if hd.startswith("TAKEN") else (' class="skipped"' if hd.startswith("SKIPPED") else "")
+            out.append("<h4%s>%s</h4>" % (cls, _md_inline(hd)))
         elif line.strip() == "---":
             flush()
             if in_list:
@@ -188,7 +190,7 @@ details.day>summary .tally{margin-left:auto;display:flex;gap:6px}
 .pill.notrade{color:var(--notrade);background:var(--notrade-bg);border-color:var(--notrade)}.pill.other{color:var(--muted);background:var(--surface-3);border-color:var(--rule)}
 .pill.mine{color:var(--acc);background:var(--acc-bg);border-color:var(--acc)}
 .s4{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:6px 0 0 64px}.s4 b{color:var(--ink-2);font-weight:500}
-.body{margin:10px 0 0 64px;max-width:78ch;font-size:15px;color:var(--ink-2)}.body h4{font-family:var(--disp);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);margin:16px 0 6px}
+.body{margin:10px 0 0 64px;max-width:78ch;font-size:15px;color:var(--ink-2)}.body h4{font-family:var(--disp);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc);margin:16px 0 6px}.body h4.taken{color:var(--take)}.body h4.skipped{color:var(--pass)}
 .body p{margin:0 0 8px}.body ul{margin:0 0 8px 18px;padding:0}.body li{margin:0 0 3px}.body b{color:var(--ink)}.body hr{border:0;border-top:1px solid var(--rule-soft);margin:12px 0}
 .body code{font-family:var(--mono);font-size:.9em;background:var(--surface-3);padding:0 4px;border-radius:2px}
 .chk{font-family:var(--mono);font-size:12px;color:var(--ink-2);background:var(--surface-2);border-left:3px solid var(--acc);padding:4px 10px;margin:4px 0;white-space:pre-wrap}
