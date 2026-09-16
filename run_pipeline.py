@@ -972,6 +972,11 @@ def main():
                 logger.warning(f"⚠️  GM evening run skipped: {e}")
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
+            try:
+                import build_review_portal
+                build_review_portal.build()      # the Reviewer Log page (docs/portal/31)
+            except Exception as e:
+                logger.warning(f"   reviewer log page not rebuilt: {e}")
 
     run.finalize()
 

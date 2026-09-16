@@ -992,6 +992,12 @@ def main() -> int:
             print("%s: %s" % (s, e), file=sys.stderr); failed.append(s); rc |= 1
     if failed:
         print("\nnot reviewed: %s  (re-run with --symbols %s)" % (", ".join(failed), ",".join(failed)))
+    if not args.dump:
+        try:
+            import build_review_portal
+            build_review_portal.build()          # the Reviewer Log page, always current
+        except Exception as e:
+            print("portal rebuild failed: %s" % e, file=sys.stderr)
     return rc
 
 

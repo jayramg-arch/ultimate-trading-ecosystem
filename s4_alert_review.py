@@ -147,6 +147,11 @@ def _run(symbol: str, tf: str, source: str) -> None:
         except Exception:
             pass
     finally:
+        try:
+            import build_review_portal
+            build_review_portal.build()          # the Reviewer Log page, always current
+        except Exception as e:
+            _log("portal rebuild failed: %s" % e)
         if RESTORE and prev_sym and prev_sym.upper() != ("NSE:" + symbol).upper():
             try:
                 sr.switch_chart(prev_sym.replace("NSE:", ""), prev_res)
