@@ -184,8 +184,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>25</b><span>Published pages</span></div>
-      <div class="count"><b>25</b><span>Guides in the library</span></div>
+      <div class="count"><b>26</b><span>Published pages</span></div>
+      <div class="count"><b>26</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
   </div>
@@ -213,7 +213,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </a>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 11 Sep · 10 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 16 Sep · 13 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -231,6 +231,35 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         information — where T1 anchors — never a veto. Golden Rule 6 rewritten; the reviewer
         prompt and every Room row now say so.</td>
         <td class="af">25 · 22 · 23 · 08</td>
+      </tr>
+      <tr>
+        <td class="dt">16 Sep<br>reviewer</td>
+        <td><b>The reviewer runs itself, and keeps a log.</b> An S4 GO alert now posts to a
+        webhook (<code>/s4-review</code>, one ngrok static domain) and the name is reviewed
+        within ~90 s, ruling on Telegram, chart switched back. ETFs read their index first
+        (a third chart tab; INDEX ARM = ETF WAIT is a rule the script enforces). Every review
+        is a page — <b>Doc 31, The Reviewer Log</b> — and <code>s4_take.py</code> marks a
+        review TAKEN or SKIPPED, scores it, and writes the journal row with the plan.</td>
+        <td class="af">31 · 26 · 24</td>
+      </tr>
+      <tr>
+        <td class="dt">13–15 Sep<br>S4 v10.3 · S5 v1.4</td>
+        <td><b>Derivatives join the ladders; S5 shapes expire at the apex.</b> The call-writer
+        strike, max pain and the futures basis are Room candidates (named as the first test);
+        the put wall and basis are stop rungs; the OI quadrant tells the Plan row what it
+        means for T1. S4's OI row now pairs the daily OI change with the daily price change,
+        so it agrees with v67. A converging S5 shape is withdrawn once price passes its apex —
+        TITAN had printed inverted boundaries. S4Core v53 carries the string work.</td>
+        <td class="af">22 · 30</td>
+      </tr>
+      <tr>
+        <td class="dt">13 Sep<br>ops</td>
+        <td><b>Strike.Money retired; the evening ritual is one click, then none.</b> RRG Studio
+        lists all 17 Commander watchlists from a manifest the pipeline writes. The Golden
+        Matcher opens in its own window; <b>Evening run</b> fetches once and builds all three
+        boards plus the options bundle; auto-pilot Phase 12 does the same headless at 16:30 and
+        leaves both S4 paste strings in <code>gm_bundles/latest.txt</code>.</td>
+        <td class="af">26 · 23 · 07</td>
       </tr>
       <tr>
         <td class="dt">11 Sep<br>reviewer</td>
@@ -311,7 +340,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </table></div>
 
   <div class="sec-head">
-    <h2>Published pages</h2><div class="rule"></div><span class="ct">25 of 25</span>
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">26 of 26</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -446,6 +475,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         match wins — and, since September, aged S/R levels, the Setup row, and a Room row that is
         information rather than a veto. S4 v11.2 on S4Core v50.</p>
         <div class="card-m"><span>Read at the chart</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--evidence)" href="https://claude.ai/artifact/RTBsNdqUbdC1x7erUetuJp">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 31 &middot; Evidence</p>
+        <p class="card-t">The Reviewer Log</p>
+        <p class="card-d">Every deliberation the AI reviewer has written off the S4 / S5 panels
+        &mdash; ruling, case for and against, plan, the script's own R / OI / index checks
+        &mdash; newest day first, the panel read folded under each. Nothing is deleted; your
+        TAKEN / SKIPPED marks are the scoring.</p>
+        <div class="card-m"><span>Regenerated after every review</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
 
@@ -639,7 +681,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>The full library</h2><div class="rule"></div><span class="ct">25 guides</span>
+    <h2>The full library</h2><div class="rule"></div><span class="ct">26 guides</span>
   </div>
   <p class="sec-note">Everything in <code>docs/</code>. <b>Page</b> means it is published here
   and reads like the three above; <b>Markdown</b> means it still lives only in the repo and is
@@ -678,6 +720,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <tbody>
         <tr><td class="id">23</td><td class="nm"><a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">22</td><td class="nm"><a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">31</td><td class="nm"><a href="https://claude.ai/artifact/RTBsNdqUbdC1x7erUetuJp">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">30</td><td class="nm"><a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">Section Five</a></td><td>The explain-surface beside S4: footprint, Wyckoff, geometry, the named setups</td><td class="st"><span class="pill page s5">Page</span></td></tr>
         <tr><td class="id">07</td><td class="nm"><a href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>
         <tr><td class="id">08</td><td class="nm"><a href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">Swing Pro Dashboard</a></td><td>The primary trade chart and its validated alphas</td><td class="st"><span class="pill page db">Page</span></td></tr>
@@ -741,6 +784,6 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 </div>
 
 <footer><div class="foot-in">
-  <span>The Commander Library · docs/portal · revised 11 Sep 2026</span>
+  <span>The Commander Library · docs/portal · revised 16 Sep 2026</span>
   <span>Sources kept in the repo at docs/portal/*.html</span>
 </div></footer>
