@@ -55,13 +55,20 @@ if "%NGROK_DOMAIN%"=="" (
 )
 echo.
 
-start "S4 webhook receiver :8000" cmd /k ""%PY%" dhan_tv_webhook.py"
+REM  16-Sep-2026: the receiver had died silently by 17:00 while the tunnel stayed up,
+REM  so TradingView got 502s and alerts were lost. The receiver window now RESTARTS
+REM  it if it ever exits (10 s pause), and ngrok is only started when its local API
+REM  (:4040) is not already answering - the free plan allows one agent session.
+start "S4 webhook receiver :8000" cmd /k "for /l %%i in () do ("%PY%" dhan_tv_webhook.py & echo. & echo [receiver exited - restarting in 10 s; close this window to stop] & timeout /t 10 /nobreak >nul)"
 timeout /t 4 /nobreak >nul
-if "%NGROK_DOMAIN%"=="" (
+curl -s -m 3 http://127.0.0.1:4040/api/tunnels >nul 2>&1
+if %errorlevel%==0 (
+    echo   ngrok is already running - not starting a second agent.
+) else if "%NGROK_DOMAIN%"=="" (
     start "ngrok tunnel" cmd /k ""%NGROK%" http 8000"
 ) else (
     start "ngrok tunnel" cmd /k ""%NGROK%" http --url=%NGROK_DOMAIN% 8000"
 )
-echo   Both windows started. Keep them open. Log: logs\s4_alert_review.log
+echo   Windows started. Keep them open. Log: logs\s4_alert_review.log
 timeout /t 5 >nul
 endlocal
