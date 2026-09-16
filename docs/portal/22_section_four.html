@@ -315,11 +315,27 @@ footer a{color:var(--acc)}
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.2 on S4Core v50</b>. Five things moved, and one measurement
-  changed how a row should be read.</p>
+  <p>The panel is <b>S4 v11.2 on S4Core v53</b> (file title v10.3). Five things moved on 8–9 September, one
+  measurement changed how a row should be read, and the 12–15 September batch below put the
+  derivatives into the ladders.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">13 Sep</td><td><b>Derivatives joined the ladders.</b> The call-writer strike, max pain
+      and the futures basis (each only when above price) are Room candidates like any supply zone; the
+      lowest wins and is <em>named</em> — <code>FIRST TEST +0.4% │ 1039.3 │ call wall</code>. The put-writer
+      strike and the basis (below entry) are stop rungs after the zone distals, before the bare swing
+      low. The OI quadrant closes the Plan row with what it means for T1. <code>wallCheck</code>'s warnings
+      stay; they now say what the ladders decided</td><td>Rows 21 · 37 · 38</td></tr>
+      <tr><td class="m">12 Sep</td><td><b>Room is information — in the code, not only the doctrine.</b>
+      T1/T2 are always the R-canon; an obstacle before a target is tagged <code>·test 444.80 call wall</code>
+      on the way. <code>⚠ NO ROOM</code> became <code>FIRST TEST</code> in muted grey, and thin room can no longer
+      reach the SKIP / NOT TRADEABLE rulings — only price <em>inside</em> supply can. S4Core v51 says the same
+      in the SUMMARY column</td><td>Rows 21 · 37 · 38 · 42</td></tr>
+      <tr><td class="m">12 Sep</td><td><b>The OI row reads the day, not the bar.</b> It paired the day-over-day
+      OI change with the last 75m bar's direction and named the opposite state to v67 on a third of names;
+      now the daily price change, so the two agree by construction. The alert is titled for five gates</td>
+      <td>Row 9 · alert</td></tr>
       <tr><td class="m">8 Sep</td><td><b>The Setup row.</b> Names the playbook in force — PULLBACK ·
       BREAKOUT · ACCUMULATION · REVERSAL · RECOVERY — and whether the pattern that fired is
       <em>that playbook's</em> trigger. A catalyst carried from the board now has a <b>shelf
@@ -359,6 +375,8 @@ footer a{color:var(--acc)}
     the one the thesis says gets broken; it anchors T1, it does not deny the trade. The reviewer,
     the panel wording and the trader's eye were all treating it as a veto — and on this book 77%
     of entries fail it by construction. Blue sky, incidentally, was the <em>worst</em> bucket.</p>
+    <p>Since 12 September the panel says so itself: the row reads <b>FIRST TEST</b>, the level is
+    tagged on T1 as the test on the way, and the stop can rest under the put wall.</p>
   </div>
 </section>
 
@@ -474,7 +492,7 @@ footer a{color:var(--acc)}
   <div class="tw"><table>
     <thead><tr><th>Row</th><th>How to use it</th></tr></thead><tbody>
       <tr><td class="k">Plan</td><td><b>Prints only on GO.</b> Follows your entry method, tagged with how many bars ago the trigger fired — and <b>a stale anchor re-latches rather than quoting fiction</b></td></tr>
-      <tr><td class="k">Entry · SL · T1 · T2</td><td>The stop is <b>structural</b> — zone distal, then recent swing low, then an ATR fallback, capped by trade type. Targets are R-multiples set by that same trade type</td></tr>
+      <tr><td class="k">Entry · SL · T1 · T2</td><td>The stop is <b>structural</b> — zone distal, then the put-writer strike or futures basis when below entry, then recent swing low, then an ATR fallback, capped by trade type. Targets are the R-canon for that trade type; an obstacle before a target is tagged <code>·test</code> on it</td></tr>
       <tr><td class="k">Qty at risk %</td><td>Dynamic risk — a Kelly, volatility and regime blend ported from the allocator</td></tr>
   </tbody></table></div></div></details>
 
@@ -669,8 +687,8 @@ R   RRG        chipped, measured, and deliberately off
       <div class="d"><b>The house A+ location.</b> Stage 2, in a demand zone, not extended, not in supply. Keeps your retest default — which is the entire point of it.</div></div>
     <div class="rung arm"><div class="i"></div><div class="r">Clear to break</div>
       <div class="d">A level overhead that is there to be <em>broken</em>, not targeted. Can only ever reframe a would-be skip.</div></div>
-    <div class="rung stop"><div class="i"></div><div class="r">Skip — no room</div>
-      <div class="d">In supply, or under 1R of room. <b>Buying into overhead supply is not a trade.</b> Since 23 July a Stage-2 leader with a live GO is reframed to CLEAR TO BREAK instead, so this rung mostly catches price <em>inside</em> a supply band. <b>Measured 11 Sep:</b> in-supply was the one cell modestly below book (hit 28.6%, −0.09R) and still broke through 74% of the time — a size note, not a wall.</div></div>
+    <div class="rung stop"><div class="i"></div><div class="r">Skip — inside supply</div>
+      <div class="d">Price inside a supply band (thin room alone no longer reaches this rung, since 12 Sep). <b>Buying into overhead supply is not a trade.</b> Since 23 July a Stage-2 leader with a live GO is reframed to CLEAR TO BREAK instead, so this rung mostly catches price <em>inside</em> a supply band. <b>Measured 11 Sep:</b> in-supply was the one cell modestly below book (hit 28.6%, −0.09R) and still broke through 74% of the time — a size note, not a wall.</div></div>
     <div class="rung take"><div class="i"></div><div class="r">Take it / caution</div>
       <div class="d">A reward gate clears. Caution when location is weak or price is extended.</div></div>
     <div class="rung stop"><div class="i"></div><div class="r">Skip — payoff thin</div>
@@ -706,8 +724,8 @@ R   RRG        chipped, measured, and deliberately off
     <thead><tr><th>Field</th><th>How it is derived</th></tr></thead>
     <tbody>
       <tr><td class="k">Entry</td><td>Follows your entry method — default <b>retest</b>, a limit at the trigger bar's close</td></tr>
-      <tr><td class="k">Stop</td><td><b>Structural</b>: zone distal → recent swing low → an ATR fallback, capped by trade type</td></tr>
-      <tr><td class="k">T1 · T2</td><td>R-multiples set by trade type — <b>except when a structural overhead sits inside them</b>, in which case the panel prints the level as T1 tagged <code>·lvl</code>. Since the 11 September measurement that tag deserves suspicion: the level it names is broken about seven times in ten, so a <code>·lvl</code> T1 under 2R is a place to take a partial, not the target. The canon stands: swing 2R/4R, positional 3R/5R</td></tr>
+      <tr><td class="k">Stop</td><td><b>Structural</b>: zone distal → nearest zone distal → <b>put-writer strike</b> → <b>futures basis</b> → 10-bar swing low → an ATR fallback, capped by trade type. The row names the rung: <code>SL under the put wall 1020.0</code></td></tr>
+      <tr><td class="k">T1 · T2</td><td><b>Always the R-canon</b> — swing 2R/4R, positional 3R/5R, recovery T2 the 52-week high when nearer. When an obstacle sits <em>before</em> a target it is named as the first test, not made the target: <code>T1 1129.0 (3.0R ·test 1039.3 call wall)</code>. The derivatives ceilings count as obstacles. (Until 12 Sep the level itself became T1, tagged <code>·lvl</code> — retired; measured broken seven times in ten.)</td></tr>
       <tr><td class="k">Quantity</td><td>Dynamic risk, ported from the allocator</td></tr>
     </tbody>
   </table></div>
@@ -852,7 +870,7 @@ R   RRG        chipped, measured, and deliberately off
   <div class="tw"><table>
     <thead><tr><th>Condition</th><th>What it means</th><th>Use</th></tr></thead>
     <tbody>
-      <tr><td class="k">S4 GO</td><td>All five gates aligned on a closed bar. <b>Its condition NAME still reads "PA + Location + Volume + Bar"</b> — stale, cosmetic, and it needs a compile to fix, which would delete every alert</td><td><b>This is the one</b></td></tr>
+      <tr><td class="k">S4 GO</td><td>All five gates aligned on a closed bar. Condition name <b>"S4 GO (PA + Location + Volume + Bar + Funda)"</b> since v10.2. With a webhook URL on the alert the name is reviewed on the spot — see Doc 32</td><td><b>This is the one</b></td></tr>
       <tr><td class="k">AVWAP trigger</td><td>A bounce or reclaim — timing only, no location or volume gate</td><td>A name you are stalking</td></tr>
       <tr><td class="k">Intraday trigger</td><td>Rising-EMA reclaim plus a squeeze release</td><td>Noisier; optional</td></tr>
       <tr><td class="k">AVWAP pinch</td><td>The three anchors converging</td><td>Rare, high-conviction</td></tr>
@@ -869,7 +887,9 @@ R   RRG        chipped, measured, and deliberately off
     <li><span>Second dropdown → <b>S4 GO</b>.</span></li>
     <li><span><b>Trigger → once per bar close.</b></span></li>
     <li><span>Expiration as far out as the plan allows, or open-ended.</span></li>
-    <li><span>Notifications → app push, so it reaches your phone.</span></li>
+    <li><span>Notifications → app push, so it reaches your phone — <b>and the Webhook URL</b>
+    (<code>https://&lt;your ngrok domain&gt;/s4-review?key=…</code>, from <code>.env</code>) so the
+    reviewer reads the name the moment it fires and posts its ruling to Telegram. See Doc 32.</span></li>
     <li><span><b>Name it <code>S4 GO · SYMBOL · 75m</code></b> — symbol and timeframe in the name, so the notification tells you what to open without guessing.</span></li>
     <li><span>Create.</span></li>
   </ol>
@@ -887,7 +907,9 @@ R   RRG        chipped, measured, and deliberately off
     evaluates.</p>
   </div>
   <p>Set it up exactly as above, choosing the <b>watchlist</b> instead of a symbol at step 1. The
-  ticker is already in the message, so the notification names which symbol fired.</p>
+  ticker is already in the message, so the notification names which symbol fired — and the
+  webhook receiver parses the same message, so one URL serves the whole list. <b>Clone</b> in the
+  alert list keeps the URL when you recreate the pair each evening.</p>
 
   <h4>Three caveats, all real</h4>
   <ol class="steps">
@@ -912,7 +934,9 @@ R   RRG        chipped, measured, and deliberately off
     already dropped out — the exact noise the shortlist exists to remove — and it eats your alert
     quota.</span></li>
     <li><span><b>Create today's on the new watchlist, named to match it</b> — so a stale one is
-    obvious at a glance in the alerts panel.</span></li>
+    obvious at a glance in the alerts panel. Editing yesterday's instead fails with <em>Alert
+    saving failed</em>: it points at a list that no longer exists and at a script id that a compile
+    may have replaced.</span></li>
     <li><span><b>Repeat on the second timeframe.</b> An alert inherits the chart's resolution, so
     this is a separate alert created from a 125-minute chart.</span></li>
   </ol>
@@ -964,9 +988,10 @@ R   RRG        chipped, measured, and deliberately off
   <h3>D · What to do when one fires</h3>
   <p><b>Act on the ping, never on the touch.</b> The alert exists so you do not have to watch the
   name tick by tick — and watching is exactly how the confirmation rule gets broken. When it
-  fires: open S4 on that timeframe and run the pre-trade review. And remember what the alert
-  actually asserts — <b>a trigger fired, not that the trade is sound.</b> The setup can be clean
-  while the plan is not.</p>
+  fires: open S4 on that timeframe and run the pre-trade review — or, with the webhook set, read
+  the reviewer's ruling that lands on Telegram about ninety seconds later and open the chart only
+  if it says TAKE or names a level to wait for. And remember what the alert actually asserts —
+  <b>a trigger fired, not that the trade is sound.</b> The setup can be clean while the plan is not.</p>
 </section>
 
 <section id="expires">
@@ -1019,7 +1044,7 @@ R   RRG        chipped, measured, and deliberately off
     <div class="grade b"><div class="g">B</div><div class="d"><b>Clear to break.</b> Clean trigger, nearby overhead, Stage 2. The real target is the R-objective, not the level.</div></div>
     <div class="grade b"><div class="g">B−</div><div class="d">GO but location is <b>AVWAP or EMA only</b> → the panel says caution, momentum/chase. Size down, or wait for a zone. <b>A pivot shelf alone does not even get here</b> — under rule A2 it fails the gate outright unless a second source agrees.</div></div>
     <div class="grade b"><div class="g">Wait</div><div class="d"><code>ARM</code> or 3/4 — one gate short. <b>Coils are compression, not a trigger.</b></div></div>
-    <div class="grade x"><div class="g">Skip</div><div class="d"><b>No room</b> · <b>payoff too thin</b> · <b>low quality</b> (grinding arrival with negative delta).</div></div>
+    <div class="grade x"><div class="g">Skip</div><div class="d"><b>Inside supply</b> · <b>payoff too thin</b> · <b>low quality</b> (grinding arrival with negative delta). Thin room by itself is no longer a skip.</div></div>
     <div class="grade x"><div class="g">Never</div><div class="d"><b>No trade — Stage 3/4</b>, and <b>not tradeable</b> — the second means clearing the blocking gate alone still would not make it a trade.</div></div>
   </div>
 </section>
@@ -1049,7 +1074,10 @@ R   RRG        chipped, measured, and deliberately off
       <tr><td class="k">A number prints as 1.2 when the true value is 0.94</td><td>Pine's short format strings are <b>broken</b> — they round to an integer and print a literal decimal. Use the explicit two-place form</td></tr>
       <tr><td class="k">“Memory limits exceeded”, S4 panel gone</td><td>Section Five is on the same chart. Pine meters runtime memory <b>per chart</b>, and the footprint read S5 carries cannot coexist with S4 — measured, not theorised. <b>S5 goes on a second, symbol-synced chart</b>; remove it from this one and S4 recovers without a recompile</td></tr>
       <tr><td class="k">A resistance you can see is not in Room</td><td>Look at its label: <code>·stale ⌛</code> means it is past its timeframe's lifespan and no higher-timeframe level rescued it. It is still drawn and still usable as support. Turn <b>Age S/R levels out of the CEILING</b> off to restore the old behaviour</td></tr>
-      <tr><td class="k">Every pullback reads “NO ROOM”</td><td><b>Expected, and measured not to matter.</b> On a pullback the first obstacle is the swing high the pullback came from. 77% of GO-timed entries fail this test and they do not do worse. Read the number for T1 and a partial; decide on the rest of the panel</td></tr>
+      <tr><td class="k">Every pullback reads “FIRST TEST”</td><td><b>Expected, and measured not to matter.</b> On a pullback the first obstacle is the swing high the pullback came from. 77% of GO-timed entries fail this test and they do not do worse. Since 12 Sep the row is grey information, the level rides on T1 as <code>·test</code>, and it can never veto. (Older panels printed <code>⚠ NO ROOM</code> in amber.)</td></tr>
+      <tr><td class="k">The Room row names “call wall” / “max pain” / “fut basis”</td><td>The first obstacle is a derivatives level, not a zone — the call-writer strike, max pain, or the futures basis sitting above price. Read it as the first test like any other; cash-only names never print these</td></tr>
+      <tr><td class="k">S4's OI row and v67's OI STATE disagree</td><td>They should not since v10.2 (both on the daily price change). If they still do, the day was flat — cash and futures closed on opposite sides of zero by a tick; the OI change is the information, the label is a coin flip</td></tr>
+      <tr><td class="k">Two S4 tabs; only one binds</td><td>Fixed 13 Sep — <code>BIND_S4_SOURCES.bat</code> binds every chart tab that carries S4 and skips the S5 tab, reporting per tab. A tab that is a <em>duplicate</em> of another layout shares its id and cannot be told apart: make it its own layout (Make a copy) first</td></tr>
       <tr><td class="k">The Setup row reads MISMATCH on a recovery name that looks right</td><td>Fixed 8 Sep — the six recovery-only patterns had no role. If it persists, the row says which playbook it wants and what it got; a coil under a BREAKOUT catalyst is a genuine mismatch until the catalyst ages out</td></tr>
       <tr><td class="k">The Shape half always reads an em-dash</td><td><b>Working as designed since v7.3.</b> The geometry classifier was removed to fund the pullback-aware gate; it lives in the S/R + Trendline Lab. Its old rectangle-as-triangle defect can no longer occur here</td></tr>
     </tbody>
@@ -1126,7 +1154,7 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.2 │ core/50</code>. Check it after every recompile; a
+  Row 0 is the header — <code>S4 v11.2 │ core/53</code>. Check it after every recompile; a
   mismatch means the library did not publish.</p>
 
   <h3>Row 2 · Structure basis</h3>
@@ -1252,7 +1280,9 @@ R   RRG        chipped, measured, and deliberately off
 
   <h3>Rows 9 &amp; 10 · Futures OI · Options OI</h3>
   <p>Open interest is the number of contracts outstanding. It only means anything read
-  <em>against price direction</em>:</p>
+  <em>against price direction</em> — and since 12 Sep that direction is the <b>daily</b> close
+  against the prior daily close, the same leg v67 uses, because the OI change is a daily number.
+  (Pairing it with the last 75m bar, as before, named the opposite state on a third of names.)</p>
   <div class="tw"><table>
     <thead><tr><th>Price</th><th>OI</th><th>State</th><th>What it means</th></tr></thead>
     <tbody>
@@ -1492,7 +1522,7 @@ R   RRG        chipped, measured, and deliberately off
     <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr><td class="k m">CLEAR n%</td><td>Clear space to the first obstacle. Green if R:R ≥ 2</td></tr>
-      <tr><td class="k m">⚠️ NO ROOM n%</td><td>The first obstacle sits <b>below your T1</b></td></tr>
+      <tr><td class="k m">FIRST TEST +n% │ level</td><td>The first obstacle sits <b>below your T1</b> — information, not a warning (was <code>⚠ NO ROOM</code> until 12 Sep). A trailing <code>│ call wall</code> / <code>max pain</code> / <code>fut basis</code> names a derivatives ceiling as the obstacle</td></tr>
       <tr><td class="k m">⛔ IN SUPPLY</td><td>Price is inside a supply zone. <b>Hard block</b></td></tr>
       <tr><td class="k m">spent SZ &lt;price&gt;</td><td>A <b>retired</b> supply zone sits nearer than the live obstacle</td></tr>
     </tbody>
@@ -1665,7 +1695,7 @@ R   RRG        chipped, measured, and deliberately off
       <tr><td class="k m">BREAKOUT PIVOT</td><td>Do <b>not</b> buy in the band. Arm a buy-stop above it; blue sky beyond</td></tr>
       <tr><td class="k m">CLEAR TO BREAK</td><td>The overhead is a level to break <em>toward</em> the target, not a rejection</td></tr>
       <tr><td class="k m">CAUTION — momentum/chase</td><td>Triggered on weak location, or while extended</td></tr>
-      <tr><td class="k m">SKIP — clean trigger, no room</td><td>Everything fired; there is nowhere to go</td></tr>
+      <tr><td class="k m">SKIP — clean trigger, inside supply</td><td>Everything fired but price sits inside a supply band (thin room alone no longer produces this)</td></tr>
       <tr><td class="k m">SKIP — payoff too thin</td><td>Reward does not clear the applicable gate</td></tr>
       <tr><td class="k m">LOW QUALITY</td><td>Grinding arrival with bleeding delta — wait for a better tap</td></tr>
       <tr><td class="k m">ARM</td><td>Not triggered. Names the one missing gate</td></tr>
@@ -1704,6 +1734,16 @@ R   RRG        chipped, measured, and deliberately off
     <em>reason you bought</em> stops being true. Usually different prices, and the invalidation is
     ranked by severity: zone distal, then swing low, then S/R, then EMA20.</p>
   </div>
+  <div class="note">
+    <span class="tag">What the Plan row prints since 13 Sep</span>
+    <p><code>POSITIONAL │ Buy-LIMIT 1035.0 = trigger close — fills as MARKET │ trig 2b ago</code><br>
+    <code>· SL under the put wall 1020.0 │ T1 3.0R (test 1039.3 call wall first) │ T2 5.0R │ OI short build-up → partial at the first test, the rest rides</code></p>
+    <p>Read it in order: the fill method and its age; the rung the stop rests on; the R-canon
+    targets with the first test named where one sits before a target; and the OI quadrant's
+    instruction for T1 — <em>long build-up</em> hold for the canon, <em>short build-up</em> partial at
+    the first test, <em>short covering</em> expect a stall, <em>long unwinding</em> wait for the turn.
+    The levels row beneath carries the same tags on the prices.</p>
+  </div>
   <p><b>Sizing.</b> <code>Shares = (Capital × Risk%) ÷ (Entry − Stop)</code>. Risk a fixed
   fraction per trade and let the stop distance decide the count, so a wide stop automatically
   produces a small position. <b>This is the mechanism that makes a losing streak
@@ -1733,8 +1773,8 @@ R   RRG        chipped, measured, and deliberately off
       <tr><td class="k">FUT long basis</td><td>Futures OI built on up-closes</td><td>Support beneath — longs in profit defend it</td></tr>
       <tr><td class="k">FUT short basis</td><td>Futures OI built on down-closes</td><td>Resistance above — shorts defend it</td></tr>
       <tr><td class="k">max pain</td><td>Option chain</td><td>A magnet in expiry week. Never a target</td></tr>
-      <tr><td class="k">PE writers</td><td>Strike with most written put OI</td><td>Floor</td></tr>
-      <tr><td class="k">CE writers</td><td>Strike with most written call OI</td><td>Ceiling</td></tr>
+      <tr><td class="k">PE writers</td><td>Strike with most written put OI</td><td>Floor — and since 13 Sep a <b>stop rung</b>: the Plan rests the SL under it when no zone distal is nearer</td></tr>
+      <tr><td class="k">CE writers</td><td>Strike with most written call OI</td><td>Ceiling — and since 13 Sep a <b>Room candidate</b>: when it is the first thing above price the Room row names it <code>call wall</code> and T1 carries it as the first test</td></tr>
     </tbody>
   </table></div>
   <p><b>Fewer than five is the normal case.</b> A futures side needs three OI prints before it is
@@ -1805,7 +1845,7 @@ R   RRG        chipped, measured, and deliberately off
     <span class="tag">The ninety-second read, in order</span>
     <p><b>Stage</b> → not 2 or 1, stop · <b>template, RS, RRG</b> → is this a leader ·
     <b>OI</b> → short covering? · <b>extension</b> → past 2.5×ATR you are late ·
-    <b>location</b> → NOT AT LOCATION means no trade · <b>room</b> → in supply, nothing to win ·
+    <b>location</b> → NOT AT LOCATION means no trade · <b>room</b> → in supply, nothing to win; a thin first test is information ·
     <b>the gates</b> → which chip is dark · <b>the verdict</b> → it already weighed all of it ·
     <b>the plan</b> → only if it says take it.</p>
     <p><b>Steps one to six decide the trade; seven to nine decide the timing.</b> Beginners invert
@@ -1831,7 +1871,7 @@ R   RRG        chipped, measured, and deliberately off
       <tr><td class="k">Reading a stop as an invalidation</td><td>The stop is where you exit; invalidation is where the thesis dies</td></tr>
       <tr><td class="k">Comparing RV across the session</td><td>RV is time-of-day biased: ~48% pass at 10:30, ~18% midday</td></tr>
       <tr><td class="k">Reading a blank <code>F</code> as weak books</td><td>Almost always <b>the bundle was not pasted</b>. Unscored and scored-badly are different facts</td></tr>
-      <tr><td class="k">Trading an option level like a zone</td><td>Max pain is a <b>magnet</b>, not a target; the writer strikes grade the trade and never gate it. None of it is validated</td></tr>
+      <tr><td class="k">Trading an option level like a zone</td><td>Max pain is a <b>magnet</b>, not a target. Since 13 Sep the writer strikes and the basis <em>place</em> things — the first test on T1, a rung under the stop — but they still never gate, and none of it is validated as edge</td></tr>
     </tbody>
   </table></div>
   <div class="note go">
@@ -1850,6 +1890,6 @@ R   RRG        chipped, measured, and deliberately off
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.2 / S4Core v50 · revised against the code 11 Sep 2026</span>
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.2 / S4Core v53 · revised against the code 16 Sep 2026</span>
   <span>Companions — <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">30 Section Five</a> · <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
 </div></footer>

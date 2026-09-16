@@ -1,0 +1,509 @@
+<title>The Reviewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+
+<style>
+/* The Reviewer Log's family (Doc 31), so the manual and the record read as one thing.
+   Same teal accent; rulings carry the Log's pill colours so a word on this page looks
+   like the same word on that one. */
+:root{
+  --ground:#F2F4F6; --surface:#FFFFFF; --surface-2:#F7F9FA; --surface-3:#EAEEF1;
+  --ink:#151A1F; --ink-2:#3C4650; --muted:#6B7480; --faint:#98A1AC;
+  --rule:#D9DEE4; --rule-soft:#E8ECF0;
+  --acc:#0F6E86; --acc-bg:#E2F0F4; --acc-rule:#A7CFDA;
+  --take:#0F7A52; --take-bg:#E2F1EA; --reduced:#3C7A3A; --reduced-bg:#E8F1E3;
+  --wait:#9A5B00; --wait-bg:#FBF0DE; --wait-rule:#DFBB80;
+  --pass:#6B7480; --pass-bg:#EDF0F3;
+  --notrade:#9E2F16; --notrade-bg:#FAEAE5; --no-rule:#DFB2A2;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --body:'Newsreader',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1215; --surface:#161A1E; --surface-2:#1B2025; --surface-3:#22282E;
+    --ink:#E8ECF1; --ink-2:#BFC7D1; --muted:#8792A0; --faint:#69737F;
+    --rule:#272E37; --rule-soft:#20262E;
+    --acc:#3FA3BD; --acc-bg:#12303A; --acc-rule:#245A68;
+    --take:#2BB39A; --take-bg:#12302A; --reduced:#7FBF6E; --reduced-bg:#1C2E1A;
+    --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+    --pass:#98A1AC; --pass-bg:#22282E;
+    --notrade:#EE7A5C; --notrade-bg:#331B14; --no-rule:#6A3527;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1215; --surface:#161A1E; --surface-2:#1B2025; --surface-3:#22282E;
+  --ink:#E8ECF1; --ink-2:#BFC7D1; --muted:#8792A0; --faint:#69737F;
+  --rule:#272E37; --rule-soft:#20262E;
+  --acc:#3FA3BD; --acc-bg:#12303A; --acc-rule:#245A68;
+  --take:#2BB39A; --take-bg:#12302A; --reduced:#7FBF6E; --reduced-bg:#1C2E1A;
+  --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+  --pass:#98A1AC; --pass-bg:#22282E;
+  --notrade:#EE7A5C; --notrade-bg:#331B14; --no-rule:#6A3527;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:17.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 34px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin:0 0 14px;font-weight:500}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(38px,6vw,64px);line-height:1;letter-spacing:-.02em;margin:0}
+.dek{font-size:18px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.flowbox{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;padding:17px 20px;min-width:270px}
+.flowbox .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin:0 0 11px;font-weight:500}
+.flowbox .eq{font-family:var(--mono);font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.9}
+.flowbox .sm{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:9px;padding-top:9px;border-top:1px dashed var(--acc-rule)}
+.cols{display:grid;grid-template-columns:206px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;font-weight:500}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+h2{font-family:var(--disp);font-weight:700;font-size:clamp(24px,3vw,32px);line-height:1.12;letter-spacing:-.015em;margin:0 0 16px}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--acc);letter-spacing:.16em;display:block;margin-bottom:7px}
+h3{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:-.005em;margin:30px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:24px 0 9px;font-weight:500}
+p{margin:0 0 14px;max-width:72ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:72ch}
+li{margin:0 0 7px}
+b,strong{font-weight:600;color:var(--ink)}
+code{font-family:var(--mono);font-size:.82em;background:var(--surface-3);padding:1.5px 5px;border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;background:var(--surface-3);border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-family:var(--body)}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:600;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:16px}
+.note.no{border-left-color:var(--notrade);background:var(--notrade-bg);border-color:var(--no-rule)}
+.note.go{border-left-color:var(--take);background:var(--take-bg)}
+.note.wait{border-left-color:var(--wait);background:var(--wait-bg);border-color:var(--wait-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px;font-weight:500}
+.note.no .tag{color:var(--notrade)} .note.go .tag{color:var(--take)} .note.wait .tag{color:var(--wait)}
+.note p:last-child{margin-bottom:0}
+.pill{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2.5px 8px;border-radius:2px;border:1px solid;white-space:nowrap;vertical-align:1px}
+.pill.take{color:var(--take);background:var(--take-bg);border-color:var(--take)}
+.pill.reduced{color:var(--reduced);background:var(--reduced-bg);border-color:var(--reduced)}
+.pill.wait{color:var(--wait);background:var(--wait-bg);border-color:var(--wait)}
+.pill.pass{color:var(--pass);background:var(--pass-bg);border-color:var(--pass)}
+.pill.notrade{color:var(--notrade);background:var(--notrade-bg);border-color:var(--notrade)}
+.pill.mine{color:var(--acc);background:var(--acc-bg);border-color:var(--acc)}
+.steps{display:grid;gap:0;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;background:var(--surface)}
+.step{display:grid;grid-template-columns:44px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
+.step:last-child{border-bottom:none}
+.step .num{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--acc);background:var(--acc-bg);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--rule-soft)}
+.step .bd{padding:13px 17px}
+.step .h{font-family:var(--disp);font-weight:600;font-size:15.5px;margin:0 0 4px}
+.step p{font-size:15px;margin:0;color:var(--ink-2);max-width:70ch}
+.refnote{font-size:14.5px;color:var(--muted);margin:-6px 0 14px}
+footer{border-top:1px solid var(--rule);background:var(--surface);font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
+footer a{color:var(--acc)}
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 32 · The live system</p>
+      <h1>The Reviewer</h1>
+      <p class="dek"><b>A second pair of eyes on the panel, not a second panel.</b> S4 rules by
+      template; the reviewer reads every cell of S4, S5 and the index chart, weighs them against
+      the desk's own doctrine, and writes a case for, a case against, a ruling and a plan —
+      then the script checks the arithmetic it is not trusted with. It runs in the evening over
+      the board, on demand for one name, and by itself the moment an S4 GO alert fires.</p>
+    </div>
+    <div class="flowbox">
+      <p class="lbl">The three ways in</p>
+      <div class="eq">evening &nbsp;→ <b>--board 75m --live</b><br>one name → <b>SYMBOL --tf 75</b><br>alert &nbsp;&nbsp;&nbsp;→ <b>webhook → Telegram</b></div>
+      <div class="sm">All three write the same file, the same log row, and the same page — <b>The Reviewer Log</b>, Doc 31.</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>What it is</p>
+  <ol>
+    <li><a href="#job">The job</a></li>
+    <li><a href="#reads">What it reads</a></li>
+    <li><a href="#doctrine">The doctrine it applies</a></li>
+  </ol>
+  <p>Running it</p>
+  <ol>
+    <li><a href="#evening">The evening pass</a></li>
+    <li><a href="#alerts">Alert-triggered</a></li>
+    <li><a href="#one">One name</a></li>
+  </ol>
+  <p>Reading it</p>
+  <ol>
+    <li><a href="#output">The review</a></li>
+    <li><a href="#checks">The script's checks</a></li>
+    <li><a href="#log">The Reviewer Log</a></li>
+    <li><a href="#take">Marking a trade</a></li>
+  </ol>
+  <p>Operating it</p>
+  <ol>
+    <li><a href="#files">Files and keys</a></li>
+    <li><a href="#traps">Troubleshooting</a></li>
+    <li><a href="#limits">What it is not</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="job">
+  <h2><span class="n">01</span>The job</h2>
+  <p>S4's VERDICT and SUMMARY are a fixed template. They restate rows; they cannot weigh one
+  against another — RV 0.72 on a pullback into a monthly zone is not the failure that RV 0.72
+  on a breakout is, and the template cannot say so. The reviewer (<code>s4_review.py</code>,
+  11 September) is the deliberation layer the panel does not have. It receives the
+  <b>complete</b> contents of every panel on the chart, the drawn levels, the last sixty bars
+  and whether the name is already held, and is told to read every field itself and to treat
+  S4's ruling as one opinion among the inputs, considered last.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>S4's verdict</th><th>The reviewer</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Nature</td><td>Template — the first matching rule wins</td><td>Deliberation — case for, case against, a named deciding factor</td></tr>
+      <tr><td class="k">Sees</td><td>Its own rows</td><td>S4, S5, the v67 dashboard, Unified, the Zigzag, the drawn levels, the bars, the journal, and for an ETF the index chart</td></tr>
+      <tr><td class="k">Weighs</td><td>Cannot</td><td>Context over trigger; location as the gate that expires; volume by setup type; room as information; participation as one story</td></tr>
+      <tr><td class="k">Arithmetic</td><td>Exact</td><td><b>Not trusted</b> — the script recomputes R from the plan and appends the canon</td></tr>
+      <tr><td class="k">Authority</td><td>The plan of record</td><td>Advice, logged for scoring. Your chart-read has veto</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note go">
+    <span class="tag">The rule that makes it safe to use</span>
+    <p><b>It may talk you out of a trade the panel armed. It never talks you into one the panel
+    did not.</b> A name reaches the reviewer only as a GO row, a Buy Trigger Live row, an alert,
+    or your explicit command — it does not go looking. And every PASS must name the one change
+    that would make it a TAKE, or it is a WAIT.</p>
+  </div>
+</section>
+
+<section id="reads">
+  <h2><span class="n">02</span>What it reads — every open chart tab</h2>
+  <p>The read is over the Chrome DevTools Protocol against TradingView Desktop (launched with
+  <code>--remote-debugging-port=9222</code>, i.e. <code>LAUNCH_TRADINGVIEW_CDP.bat</code>). It
+  walks <b>every</b> open chart tab, pulls each study's table cells, labels, lines and boxes
+  through TradingView's own drawing collections, and merges them. Cells arrive unordered and
+  are re-sorted by row; the accessors fail loudly (“panel path not found”) rather than
+  returning an empty panel, because a desktop update can rename the internals.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Tab</th><th>Carries</th><th>What the reviewer takes from it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">S4 stack</td><td>S4 · Swing Pro v67 · Unified · Zigzag</td><td>The five-gate TRIGGER row, location, room, OI and options rows, the plan, the verdict and SUMMARY; v67's FUTURES OI STATE and context; the Zigzag's structure</td></tr>
+      <tr><td class="k">S5</td><td>Section Five alone</td><td>Participation (footprint delta, divergence, value area) and the Setups band in full. <b>Geometry, Levels and the Read are withheld</b> — replaced by “[withheld: not yet fine-tuned]” before the model sees them (<code>S5_SKIP_SECTIONS</code>)</td></tr>
+      <tr><td class="k">Phase-1</td><td>The S4 stack again, for the <b>underlying index</b></td><td>Only for an ETF. Designated by <code>S4_PHASE1_CHART</code> in <code>.env</code>; the ETF → index map is <code>data/tv_index_map.json</code>. Read first, labelled PHASE-1, and the ETF's own chart becomes PHASE-2</td></tr>
+    </tbody>
+  </table></div>
+  <p>On top of the panels: the last <b>60 bars</b> of the chart TF (<code>--bars</code>), and a
+  <b>position context</b> line — HELD qty / price / stop / target / timeframe / setup / days
+  from the journal, and the PYRAMID class, R and add-stop from <code>FINAL_Portfolio_Picks.csv</code>
+  — so an add on a held name is judged as an add.</p>
+  <div class="note wait">
+    <span class="tag">The two tabs must agree</span>
+    <p>The merge refuses if the S4 and S5 tabs disagree on symbol or timeframe. Switching is
+    done for you — the script sets the symbol and TF on every tab and waits for the studies to
+    finish loading before it reads — but a tab that is a <em>duplicate</em> of the same layout
+    shares its id with the original and cannot be driven separately. The Phase-1 tab must be a
+    <b>copy</b> of the layout (“Make a copy”), not a second view of it.</p>
+  </div>
+</section>
+
+<section id="doctrine">
+  <h2><span class="n">03</span>The doctrine it applies</h2>
+  <p>The system prompt is the desk's rulebook, measured on its own trades, and it is the only
+  thing that makes this more than a language model reading a table. The parts that decide
+  rulings:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Rule</th><th>What it says</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Context outranks trigger</td><td>Stage 2 with a rising 30-WMA, RS leadership, RRG LEADING / IMPROVING, sector not Stage 4 — these decide whether a trigger is worth taking at all. <b>A Stage 3/4 name is NO TRADE regardless of the trigger.</b></td></tr>
+      <tr><td class="k">Location is the gate that expires</td><td>Fresh, controlling, Monthly / Weekly zones containing price, S/R with few tests — strong. Tested zones, MTTWR levels, AVWAP / EMA-only location — weak. A “weak location” GO is a momentum chase</td></tr>
+      <tr><td class="k">Volume by setup type</td><td>A breakout needs RV ≥ 1.0; a pullback into a zone does <em>not</em> — median RV on at-value bars is 0.63 and low RV there is not predictive of failure. It must not fail a pullback for breakout volume</td></tr>
+      <tr><td class="k">Room is information</td><td>Measured 11 Sep on 331 GO-timed trades: 77% had under 1R to the first obstacle and did <em>not</em> do worse; blue sky was the worst bucket. The first obstacle is the trade's <b>first test</b>, graded TOLERABLE on its own. It becomes FATAL only with other evidence of supply — bleeding delta, a rejection wick, a heavy call wall, Stage 3 context. “No room” may never be the deciding factor</td></tr>
+      <tr><td class="k">T1 follows the canon</td><td>Swing 2R / 4R, positional 3R / 5R, nothing under 2R. When S4's plan prints a T1 sitting on the obstacle below 2R (tagged <code>·lvl</code>), the reviewer must say so and replace it with the canon T1 in its plan</td></tr>
+      <tr><td class="k">Extension</td><td>&gt; 2.5 ATR above the daily EMA20 is a warning; &gt; 4 is a veto for a fresh entry — wait for the pullback the panel names</td></tr>
+      <tr><td class="k">Participation, actively</td><td>Futures OI four states (long build-up strongest; short covering fades; short build-up is fuel if a trigger fires on volume); options <b>by field</b> when the row has numbers — PCR, max pain and its pull, ATM ΔOI, the writer strikes as obstacles above and shelf below; AVWAP as location only in confluence; VP value area; footprint delta to break ties. Read as one story</td></tr>
+      <tr><td class="k">Two OI rows</td><td>S4 pairs the daily OI change with the last chart-TF bar; v67 pairs it with the daily futures close. When they differ it must say so and take v67's state for the day's positioning</td></tr>
+      <tr><td class="k">ETFs — two phases</td><td>Phase-1 is the index: its stage, location, trigger and room are the thesis. Phase-2 is the ETF: tradability, fills, thin volume. <b>INDEX ARM = ETF WAIT</b> (house rule, 13 Sep): if the index's own TRIGGER row is not GO, the ETF cannot be TAKE. Index in Stage 3/4 = NO TRADE</td></tr>
+    </tbody>
+  </table></div>
+  <h4>Tone rules</h4>
+  <p>Case FOR first, honestly weighted, then case AGAINST with each risk marked FATAL or
+  TOLERABLE. A GO with clean context and location is a TAKE — “risks remain” is never a reason
+  to pass. Say what a good version of this setup looks like and how close this one is. Where
+  S4's own rows contradict each other, say which it believes and why. Only reason from what is
+  in the read: “S4 not on chart” is a legitimate answer, and a field showing “-” is unknown,
+  not neutral and not a fail.</p>
+  <div class="note">
+    <span class="tag">The model</span>
+    <p>Default <code>gemini-3.1-flash-lite</code> — the tier the rest of the app uses.
+    <code>--provider claude</code> is opt-in (<code>S4_REVIEW_ANTHROPIC_KEY</code>, <code>claude-opus-5</code>).
+    Flash-lite is fast and cheap and its <em>judgement</em> has been worth having; its
+    <em>arithmetic</em> and its habit of writing “v67 confirms this” against a row that said the
+    opposite are exactly why section 08 exists.</p>
+  </div>
+</section>
+
+<section id="evening">
+  <h2><span class="n">04</span>The evening pass — over the board</h2>
+  <pre>python s4_review.py --board 75m --live
+python s4_review.py --board 125m --live</pre>
+  <p>Reads <code>gm_board_cache_75m.csv</code> (or 125m, daily), selects every row whose S4-GO
+  column matches <code>N/N GO</code> — <code>5/5 GO</code> today, <code>4/4 GO</code> on older
+  caches — and with <code>--live</code> adds every row whose Category starts
+  <b>Buy Trigger Live</b>, bull <em>and</em> recovery. That second set is how the recovery names
+  get read: a recovery trigger is typically <code>3/5 · no vol</code>, the normal shape for that
+  path, and would never appear on a GO-only pass.</p>
+  <p>It prints the list and the cache's age, and warns <b>⚠ STALE — rebuild it</b> past six
+  hours. Take the warning: past it you are reading last session's rows against today's chart.
+  Since 16 September the auto-pilot's Phase 12 rebuilds all three boards at 16:30, so the
+  cache is fresh by the time you sit down.</p>
+  <p>Each name takes about a minute; an ETF about ninety seconds, because the index is read
+  first. The names run in sequence — the charts are switched, read, and the review written
+  before the next one starts — so a twelve-row board is a quarter of an hour. Start it, do
+  something else, come back to the Log.</p>
+</section>
+
+<section id="alerts">
+  <h2><span class="n">05</span>Alert-triggered — the reviewer runs itself</h2>
+  <p>Since 16 September an S4 GO alert reviews its own name. The chain, and the one thing you
+  do each morning to keep it alive:</p>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div class="bd">
+      <p class="h">Before the open — one click</p>
+      <p><b>S4 Alert Reviewer</b> on the taskbar (<code>START_ALERT_REVIEWER.bat</code>). It starts
+      the webhook receiver on <code>:8000</code> and the ngrok tunnel on your static domain
+      (<code>NGROK_DOMAIN</code> in <code>.env</code>). Two console windows stay open; closing them
+      stops it. The receiver restarts itself if it ever exits; ngrok is not started twice.</p></div></div>
+    <div class="step"><div class="num">2</div><div class="bd">
+      <p class="h">The alert fires on TradingView's servers</p>
+      <p>The S4 GO alert's Notifications tab carries the Webhook URL —
+      <code>https://&lt;NGROK_DOMAIN&gt;/s4-review?key=&lt;S4_REVIEW_KEY&gt;</code> — and S4's
+      default message, which begins <code>{{ticker}} S4 GO {{interval}} - …</code>. That prefix
+      is all the receiver needs; a JSON body <code>{"ticker", "interval"}</code> is accepted too.</p></div></div>
+    <div class="step"><div class="num">3</div><div class="bd">
+      <p class="h">The receiver checks the key and queues the name</p>
+      <p><code>/s4-review</code> in <code>dhan_tv_webhook.py</code>. Fail-closed: no key configured,
+      or a key that does not match, is rejected. The same symbol + TF inside <b>30 minutes</b>
+      is a duplicate and skipped (<code>S4_ALERT_DEDUP_MIN</code>); a 75m and a 125m alert on one
+      name are two reviews, by design — different bars.</p></div></div>
+    <div class="step"><div class="num">4</div><div class="bd">
+      <p class="h">One worker, in order</p>
+      <p>A review takes both chart tabs over for 60–90 seconds. Five alerts at a 75m close
+      would fight for the charts; queued behind a single worker they arrive over ~5 minutes,
+      which is fine — <b>the alert marks a bar, and the bar does not change</b>. The chart is
+      switched back to whatever it showed before (<code>S4_ALERT_RESTORE_CHART=0</code> to leave it).</p></div></div>
+    <div class="step"><div class="num">5</div><div class="bd">
+      <p class="h">Telegram, ~90 s after the ping</p>
+      <p>The Telegram-sized cut: <b>RULING · WHY · PLAN · FLIPS IF · R-CHECK · OI-CHECK</b>, and the
+      path to the full file. The review is saved and logged exactly as an evening one, and the
+      Reviewer Log page is rebuilt.</p></div></div>
+  </div>
+  <div class="note no">
+    <span class="tag">If the reviewer is down, the alert is lost — not retried</span>
+    <p>TradingView posts once. With the receiver down it gets a 502 and moves on; the phone
+    push still arrives, only the review is lost. That is why the launcher restarts the receiver
+    and why <em>“the alert reviewer is up before the open”</em> is on Doc 26's list of things
+    that fail silently. Check <code>logs/s4_alert_review.log</code> for
+    <code>queued … reviewed in Ns (telegram sent)</code>.</p>
+  </div>
+  <h4>Test it without an alert</h4>
+  <pre>curl -X POST "https://&lt;NGROK_DOMAIN&gt;/s4-review?key=&lt;KEY&gt;" --data "RELIANCE S4 GO 75 - test"</pre>
+  <p>A <code>queued</code> reply, a review on Telegram ninety seconds later, and the chart back
+  where it was. A <code>rejected</code> reply is the key; a hang or a 502 is the receiver.</p>
+  <h4>The alerts themselves</h4>
+  <p>Two per evening on the new dated watchlist — 75m and 125m — each with the webhook URL in
+  Notifications. <b>Clone keeps the URL.</b> Recreate rather than edit: yesterday's alert points
+  at a watchlist that no longer exists and fails to save, and every S4 recompile deletes all
+  alerts regardless. The full ritual is in Doc 26.</p>
+</section>
+
+<section id="one">
+  <h2><span class="n">06</span>One name, on demand</h2>
+  <pre>python s4_review.py                          # whatever the charts show now
+python s4_review.py TITAN --tf 75            # switch symbol / TF first, wait, read
+python s4_review.py --symbols A,B,C --tf 125
+python s4_review.py TITAN --telegram         # also post it
+python s4_review.py TITAN --dump             # the raw panel read, no model call</pre>
+  <p><code>--dump</code> is the diagnostic: it prints exactly what the model would have been
+  given. When a ruling looks wrong, read the dump before blaming the model — most bad rulings
+  are a row that read blank because a bundle was not pasted, a source unbound after a compile,
+  or S5 on the wrong tab.</p>
+</section>
+
+<section id="output">
+  <h2><span class="n">07</span>The review — three parts, fixed headings</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Part</th><th>Sections</th><th>Read it for</th></tr></thead>
+    <tbody>
+      <tr><td class="k">ANALYSIS</td><td>1 Context &amp; trend stack · 2 Location · 3 Room &amp; obstacles · 4 Trigger &amp; gates · 5 Participation · 6 Structure (S5) · 7 The panel's own plan · 8 Contradictions</td><td>A trader walking a colleague through the chart — each section quotes the panel's numbers and says what they <em>mean</em>. Section 8 is where S4-vs-v67-vs-S5 disagreements are named and settled</td></tr>
+      <tr><td class="k">DELIBERATION</td><td>Case FOR · Case AGAINST (each line FATAL or TOLERABLE) · Where S4 is too blunt</td><td>The weighing. “Where S4 is too blunt” is the part the template cannot write: what a good version of this setup looks like and how close this one is</td></tr>
+      <tr><td class="k">RECOMMENDATION</td><td>RULING · DECIDING FACTOR · PLAN · FLIPS IF</td><td>The plan states the trade type first, then entry method, stop, T1/T2 with R — on the canon for that type. FLIPS IF is what would change its mind</td></tr>
+    </tbody>
+  </table></div>
+  <h4>The rulings</h4>
+  <p>
+    <span class="pill take">TAKE</span> &nbsp;
+    <span class="pill reduced">TAKE · reduced size</span> &nbsp;
+    <span class="pill wait">WAIT for &lt;bar / level / event&gt;</span> &nbsp;
+    <span class="pill pass">PASS</span> &nbsp;
+    <span class="pill notrade">NO TRADE (stage)</span>
+  </p>
+  <p>A WAIT names the specific thing it is waiting for. A PASS names the one change that would
+  make it a TAKE — if it cannot, the rule says it is a WAIT. NO TRADE is stage, and only stage.
+  These are the same five pills on the Reviewer Log, so a day's tally reads at a glance.</p>
+</section>
+
+<section id="checks">
+  <h2><span class="n">08</span>The script's checks — appended, never edited in</h2>
+  <p>Three deterministic pre- and post-reads run around the model. They are computed by the
+  script, not the model, and the model's text is never edited — the check is appended below it,
+  so the Log shows both what it said and what the arithmetic says.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Check</th><th>What it does</th><th>Why it exists</th></tr></thead>
+    <tbody>
+      <tr><td class="k">R-CHECK</td><td>Re-parses the PLAN's entry and stop, recomputes every R the model labelled, and prints the <b>canon</b> line — <code>canon positional 3R/5R: T1 … · T2 …</code> — flagging a T1 under the floor and a TAKE whose reward bar is not met on its own numbers</td><td>Flash-lite wrote “T1 13.28 (1.5R)” on entry 13.07 / stop 12.60 — 0.45R. <b>Take the R numbers from the canon line, never from the prose.</b> <code>s4_take.py</code> reads the same line</td></tr>
+      <tr><td class="k">OI-CHECK · OPTIONS</td><td>Reads S4's Futures OI row and v67's FUTURES OI STATE before the model sees them; on a conflict, injects a non-negotiable pre-read (report both, take v67's) and prints <code>OI-CHECK: … CONFLICT</code>. Lists every options field present and requires each to be named in section 5 and the call wall / max pain above price in section 3</td><td>The model wrote “v67 confirms this” against a row that said the opposite, and skipped options fields it found inconvenient. A flat day still produces a conflict (cash −0.1% vs futures up) — that is the two windows, not a bug</td></tr>
+      <tr><td class="k">INDEX-CHECK</td><td>For an ETF, reads the PHASE-1 block's TRIGGER row. Index NO TRADE by stage → ETF NO TRADE. Index not GO → the ruling cannot be TAKE; <b>if the model ruled TAKE anyway, the script overrules it to WAIT</b> and says so on the ruling line</td><td>INDEX ARM = ETF WAIT is a house rule (13 Sep). A rule the model is asked to follow is a suggestion; a rule the script enforces is a rule</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="log">
+  <h2><span class="n">09</span>The Reviewer Log — Doc 31</h2>
+  <p>Every review is a file, <code>logs/ai_reviews/&lt;ts&gt;_&lt;SYMBOL&gt;_&lt;tf&gt;.md</code> — the
+  review, then the complete panel read under it — and one row in
+  <code>logs/ai_review_log.csv</code>: timestamp, symbol, TF, S4's verdict, the ruling line,
+  the provider, the file, and two empty columns, <b>my_call</b> and <b>agreed</b>, that are yours.
+  <code>build_review_portal.py</code> renders all of it to one page, rebuilt after every alert
+  review, at the end of Phase 12, after <code>s4_take</code>, and by hand any time.</p>
+  <div class="tw"><table>
+    <thead><tr><th>On the page</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Days, newest first</td><td>Today open, older days collapsed. Each day's header carries a tally of its rulings as pills</td></tr>
+      <tr><td class="k">One row per review</td><td>Time · symbol · TF · the ruling pill · S4's own verdict beside it, so template and deliberation can be compared at a glance</td></tr>
+      <tr><td class="k">Folded body</td><td>The full review; the panel read folded again beneath it — there for the “why did it say that” moment, never in the way</td></tr>
+      <tr><td class="k">TAKEN / SKIPPED</td><td>The block <code>s4_take.py</code> appends, rendered as its own band with your call. This is the scoring</td></tr>
+      <tr><td class="k">Filter</td><td>One box: symbol, ruling, TF, date. Days with nothing matching hide</td></tr>
+      <tr><td class="k">Header counts</td><td>Reviews · scored · agreed. The last two are empty until you mark trades — and they are the only way the Log can ever say whether the model deserves the trust</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Retention — nothing is deleted</span>
+    <p>These are the forward record: the ruling before the outcome was known. Age is handled by
+    presentation (collapsed days, the filter), not by pruning. A review you disagreed with is
+    worth more to the score than one you agreed with.</p>
+  </div>
+</section>
+
+<section id="take">
+  <h2><span class="n">10</span>Marking a trade — <code>s4_take.py</code></h2>
+  <pre>python s4_take.py CHOLAFIN                                   # latest review; plan entry, panel qty
+python s4_take.py CHOLAFIN --tf 125 --price 1768.5 --qty 20   # the actual fill
+python s4_take.py CHOLAFIN --skip "sector Stage 4"            # passed on it — say why</pre>
+  <p>This is the step that turns the Log from a diary into a score, and it is the step that
+  gives the journal a real entry instead of a backfilled one. It:</p>
+  <ol>
+    <li>finds the latest review of the name (and TF, if given);</li>
+    <li>reads the plan the reviewer settled on — R-CHECK's entry and stop and the <b>canon</b> T1/T2, never the model's own targets — plus the trade type and the ruling;</li>
+    <li>appends a <b>## TAKEN</b> (or <b>## SKIPPED</b>) block to the review file — the file is the record;</li>
+    <li>fills <code>my_call</code> and <code>agreed</code> on that row of the CSV (agreed = did your call match the ruling);</li>
+    <li>TAKEN: writes the journal OPEN row through <code>dhan_journal_v7.upsert_trade</code> with the stop, both targets, <b>Timeframe</b> (Positional / Swing — rung 1 of the trade-type ladder), setup, planned R:R, and the review as the rationale. The upsert hook captures the true entry snapshot, so the 16:30 journal sync tomorrow only has to <em>confirm</em> qty and average from Dhan;</li>
+    <li>rebuilds the Reviewer Log so the row shows your call.</li>
+  </ol>
+  <p><code>--sl</code> overrides the stop, <code>--note</code> adds free text to the block and the
+  rationale, <code>--no-journal</code> marks the review only. A SKIPPED with a reason is not a
+  lesser entry — it is the control group.</p>
+</section>
+
+<section id="files">
+  <h2><span class="n">11</span>Files and keys</h2>
+  <div class="tw"><table>
+    <thead><tr><th>File</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td class="m">s4_review.py</td><td>The reviewer: read, prompt, model, checks, save. <code>review_symbol()</code> is the importable entry the alert path uses</td></tr>
+      <tr><td class="m">s4_alert_review.py</td><td>Parse the alert body, dedup, the single-worker queue, chart restore, the Telegram cut</td></tr>
+      <tr><td class="m">dhan_tv_webhook.py</td><td>The receiver. <code>/s4-review</code> queues a review; <code>/tv-webhook</code> (orders) is untouched and stays DRY_RUN</td></tr>
+      <tr><td class="m">START_ALERT_REVIEWER.bat</td><td>Receiver + tunnel, with the restart loop. The taskbar shortcut points here</td></tr>
+      <tr><td class="m">build_review_portal.py</td><td>Renders Doc 31 from the files and the CSV</td></tr>
+      <tr><td class="m">s4_take.py</td><td>TAKEN / SKIPPED, scoring, the journal row</td></tr>
+      <tr><td class="m">build_tv_index_map.py → data/tv_index_map.json</td><td>ETF → underlying index, for the Phase-1 read</td></tr>
+      <tr><td class="m">logs/ai_reviews/ · logs/ai_review_log.csv</td><td>The record and the score</td></tr>
+      <tr><td class="m">logs/s4_alert_review.log</td><td>The alert path's own log — queued, reviewed in Ns, telegram sent / failed</td></tr>
+      <tr><td class="m">docs/portal/31_reviewer_log.html</td><td>The generated page</td></tr>
+    </tbody>
+  </table></div>
+  <h4>.env</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Key</th><th>Default</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="m">GEMINI_API_KEY</td><td class="m">—</td><td>Required for the default provider</td></tr>
+      <tr><td class="m">S4_REVIEW_GEMINI_MODEL</td><td class="m">gemini-3.1-flash-lite</td><td>The model behind <code>--provider auto</code></td></tr>
+      <tr><td class="m">S4_REVIEW_ANTHROPIC_KEY · S4_REVIEW_MODEL</td><td class="m">— · claude-opus-5</td><td>Opt-in Claude path (<code>--provider claude</code>). Never reads <code>ANTHROPIC_MODEL</code> / <code>BASE_URL</code></td></tr>
+      <tr><td class="m">S4_REVIEW_KEY</td><td class="m">(falls back to WEBHOOK_SECRET)</td><td>The key in the alert URL. Private to the tunnel; never commit it</td></tr>
+      <tr><td class="m">NGROK_DOMAIN</td><td class="m">—</td><td>The static ngrok domain, so the alert URL never changes across restarts</td></tr>
+      <tr><td class="m">S4_PHASE1_CHART</td><td class="m">—</td><td>Chart id of the tab designated for the index read</td></tr>
+      <tr><td class="m">S4_ALERT_DEDUP_MIN</td><td class="m">30</td><td>Duplicate window for the same symbol + TF</td></tr>
+      <tr><td class="m">S4_ALERT_RESTORE_CHART</td><td class="m">1</td><td>Switch the charts back after an alert review</td></tr>
+      <tr><td class="m">TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID</td><td class="m">—</td><td>Where the rulings land</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="traps">
+  <h2><span class="n">12</span>Troubleshooting</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td class="k">“panel path not found”</td><td>TradingView not launched with the CDP port, or no study on any tab exposes table cells. Relaunch via <code>LAUNCH_TRADINGVIEW_CDP.bat</code>; make sure S4 is visible</td></tr>
+      <tr><td class="k">“S4 not on chart” in the review</td><td>Working as designed — it will not infer what S4 would have said. Put S4 on the tab and rerun</td></tr>
+      <tr><td class="k">An alert fired, nothing on Telegram</td><td>The receiver was down (TradingView got a 502 and does not retry) or the key in the alert URL is wrong. <code>logs/s4_alert_review.log</code> shows a queued line if it arrived at all; a missing line means it never did</td></tr>
+      <tr><td class="k">“duplicate within 30 min” in the log</td><td>Same symbol + TF twice inside the window — the 15:30 close fires 75m and 125m together and a name can ping twice on one TF. One review is right</td></tr>
+      <tr><td class="k">The ruling says TAKE, the Log shows WAIT</td><td>INDEX-CHECK overruled it: the underlying index's trigger was not GO. The ruling line says so. Not a disagreement to resolve — the house rule</td></tr>
+      <tr><td class="k">R in the prose disagrees with R-CHECK</td><td>Always. Use the canon line; that is what it is for</td></tr>
+      <tr><td class="k">OI-CHECK says CONFLICT on a quiet day</td><td>S4 reads the last chart-TF bar's direction, v67 reads the daily futures close; on a flat day they can point opposite ways on a −0.1% move. Real, not a bug; v67 governs</td></tr>
+      <tr><td class="k">Recovery names never reviewed on <code>--board</code></td><td>They are Buy Trigger Live rows at <code>3/5 · no vol</code>, not GO rows. Add <code>--live</code></td></tr>
+      <tr><td class="k">“⚠ STALE — rebuild it”</td><td>The board cache is over six hours old. Run the Evening run (or check Phase 12 ran) before reviewing</td></tr>
+      <tr><td class="k">Phase-1 block missing on an ETF</td><td>The name is not in <code>tv_index_map.json</code>, or <code>S4_PHASE1_CHART</code> is unset or names a tab that is a duplicate view rather than a copy. The review runs on the ETF alone and says the index was not read</td></tr>
+      <tr><td class="k">Charts left on the last reviewed name</td><td>Restore failed (the pre-review state could not be read) or <code>S4_ALERT_RESTORE_CHART=0</code>. Cosmetic</td></tr>
+      <tr><td class="k">Alert “saving failed” in TradingView</td><td>You edited yesterday's alert; it points at a watchlist that no longer exists, and after a recompile at a script id that no longer exists. Delete and create fresh, or Clone</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="limits">
+  <h2><span class="n">13</span>What it is not</h2>
+  <ul>
+    <li><b>Not a signal.</b> It never surfaces a name. GO rows, Buy Trigger Live rows, alerts, your command — nothing else reaches it.</li>
+    <li><b>Not the plan of record.</b> S4 is. The reviewer's plan is what it would change and why; the R-CHECK canon is the arithmetic.</li>
+    <li><b>Not validated.</b> No review has an outcome attached yet. The my_call / agreed columns and the TAKEN blocks are how it earns or loses trust — after twenty-odd scored rows the Log can say whether its rulings beat the template, and whether your overrides beat its rulings. Until then it is a well-read colleague, not an authority.</li>
+    <li><b>Not reading Geometry, Levels or the Read on S5</b> — withheld until the classifier is field-verified (Doc 30).</li>
+    <li><b>Not intraday-fast.</b> Ninety seconds after a bar close is the design; the alert marks a bar and the bar does not change. Do not size the queue for speed.</li>
+  </ul>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/32 · The Reviewer · s4_review.py · s4_alert_review.py · s4_take.py · written against the code 16 Sep 2026</span>
+  <span>Companions — <a href="https://claude.ai/artifact/RTBsNdqUbdC1x7erUetuJp">31 The Reviewer Log</a> · <a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">26 The Operating Loop</a> · <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">30 Section Five</a></span>
+</div></footer>

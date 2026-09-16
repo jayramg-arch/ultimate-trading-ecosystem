@@ -203,8 +203,10 @@ footer em{color:var(--ink-2)}
         <p class="t">Auto-Pilot full run<span class="who">automatic</span></p>
         <p class="d">Chartink scans → Screener.in fundamentals → Golden Matcher → Recovery
           (RFF ≥ 4) → Bull screener → broad catalyst scan → Pullback Finder → <b>board union</b>
-          → watchlists → X-Ray → Strike &amp; TradingView sync (the dated watchlist) → backup,
-          rotation guard, exports.</p>
+          → watchlists → X-Ray → <b>RRG Studio</b> sync (the 17 lists, since Strike.Money lapsed on
+          13 Sep) → TradingView sync (the dated watchlist) → backup, rotation guard, exports →
+          <b>Phase 12: the Evening run, headless</b> — all three boards rebuilt, option chains
+          pulled, both S4 paste strings written to <span class="m">gm_bundles/latest.txt</span>.</p>
         <p class="d">Alongside it: Post-Market Summary, and the journal ↔ Dhan sync — which
           aborts rather than guess if the holdings fetch fails or comes back empty.</p>
       </div>
@@ -218,23 +220,30 @@ footer em{color:var(--ink-2)}
           a reaction to one.</p>
         <ol class="mini">
           <li><b>Restart clean.</b> <span class="m">STOP_COMMANDER.bat</span> → relaunch. A browser reload does not reload code.</li>
-          <li><b>Rebuild the board</b> — <em>Fetch fresh data + rebuild</em> (it rebuilds itself; don't also press Rebuild).</li>
+          <li><b>Open the Golden Matcher window</b> (the sidebar entry opens it in its own window
+            since 13 Sep). Phase 12 has already built all three boards and the bundles; the build
+            stamp says when. Press <em>🌙 Evening run</em> only if the stamp is old, the auto-pilot
+            failed, or you recompiled — one click does the fetch, the three boards and the option
+            chains.</li>
           <li><b>Read the header before the rows.</b> Failure counts, source-issue strip, provenance, AGE. An empty source list means part of the shortlist is silently missing.</li>
           <li><b>Work top-down.</b> The board opens filtered to all-gates, sorted by Overall.
             Open Single Symbol on anything worth attention. Its S4-GO column counts the same
             <b>five gates</b> S4 chips; a row tagged <span class="m">F?</span> passed the fifth
             by default because the books were never scored. The board predicts; S4 decides.</li>
           <li><b>ARM what you intend to stalk.</b> The highest-value action of the evening — an armed name is injected into every later board union with the archetypes it had when armed, so it survives after it stops qualifying.</li>
-          <li><b>Copy both pastes into S4.</b> The one-paste bundle, and &mdash; for F&amp;O
-            names &mdash; <em>Build options bundle</em> into the <b>second</b> field. Two fields
-            because <span class="m">input.string</span> caps near 4,096 characters and the first
-            is already ~9,200; pasting bundle&nbsp;2 into field&nbsp;1 wipes every list in it.</li>
-          <li><b>Run the reviewer over the GO rows</b> &mdash; <span class="m">python s4_review.py --board 75m</span>
-            (and 125m). About a minute a name; it switches both charts, reads S4 and Section Five off
-            the canvas, and writes a case-for / case-against and a ruling per name into
-            <span class="m">logs/ai_reviews/</span>. Read it for the reasoning; take the R numbers
-            from the canon line it prints, not from the prose.</li>
-          <li><b>Create tomorrow's alert</b> on the new dated watchlist.</li>
+          <li><b>Copy both pastes into S4.</b> Under the build stamp: <em>ONE-PASTE bundle (all
+            timeframes)</em> into the first field, <em>Bundle 2 — options OI</em> into the
+            <b>second</b>. Two fields because <span class="m">input.string</span> caps near 4,096
+            characters and the first is already ~9,200; pasting bundle&nbsp;2 into field&nbsp;1 wipes
+            every list in it. Everything else is folded away in a hand-overrides expander.</li>
+          <li><b>Run the reviewer over the board</b> &mdash; <span class="m">python s4_review.py --board 75m --live</span>
+            (and 125m): every 5/5 GO row plus every <em>Buy Trigger Live</em> row, recovery included.
+            About a minute a name, ninety seconds for an ETF (its index is read first). Rulings land
+            in <span class="m">logs/ai_reviews/</span> and on the <b>Reviewer Log</b> page (Doc 31).
+            Take the R numbers from the canon line it prints, not from the prose. Doc 32 is the manual.</li>
+          <li><b>Create tomorrow's two alerts</b> on the new dated watchlist — <b>with the webhook
+            URL</b> in Notifications, so every GO tomorrow reviews itself and lands on Telegram.
+            Clone keeps the URL.</li>
           <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
         </ol>
       </div>
@@ -252,6 +261,19 @@ footer em{color:var(--ink-2)}
           and never pushed; the size action per name comes from the pyramid ladder, so it cannot
           contradict the Pyramid page. Use it when you want eyes on the batch before the broker
           sees it; the 15:45 job runs regardless.</p>
+      </div>
+    </div>
+
+    <div class="ev you">
+      <div class="clk">09:00</div>
+      <div class="bd">
+        <p class="t">Alert reviewer up<span class="who">← you · one click</span></p>
+        <p class="d"><span class="m">S4 Alert Reviewer</span> on the taskbar starts the webhook
+          receiver and the ngrok tunnel (added 16 Sep). Every S4 GO alert then reviews itself:
+          TradingView posts to <span class="m">/s4-review</span>, the receiver switches the
+          charts, reads the panels, rules, and Telegrams the ruling about ninety seconds after
+          the ping. If this window is not up, the alert still reaches your phone &mdash; only the
+          review is lost.</p>
       </div>
     </div>
 
@@ -287,12 +309,11 @@ footer em{color:var(--ink-2)}
   <ol class="mini">
     <li><b>Check the source-issue strip first.</b> On a thin auto-pilot day you would otherwise arm a near-empty watchlist and lose a day of coverage silently.</li>
     <li><b>Delete yesterday's alert.</b> Left running it fires on names that already dropped out, and eats the alert quota.</li>
-    <li><b>Create today's</b> &mdash; condition <span class="m">S4 GO (PA + Location + Volume + Bar)</span>,
-      trigger <b>Once Per Bar Close</b>, app push on, named to match the watchlist:
-      <span class="m">S4 GO · GM-20AUG · 75m</span>. <em>That condition NAME is stale &mdash; it
-      lists four gates and the alert now fires on five, fundamentals included. It is cosmetic,
-      it needs a compile to fix, and a compile deletes every alert &mdash; so it is left until
-      the next one.</em></li>
+    <li><b>Create today's</b> &mdash; condition <span class="m">S4 GO (PA + Location + Volume + Bar + Funda)</span>,
+      trigger <b>Once Per Bar Close</b>, app push on, <b>Webhook URL</b>
+      <span class="m">https://&lt;your ngrok domain&gt;/s4-review?key=…</span> (from
+      <span class="m">.env</span>), named to match the watchlist: <span class="m">S4 GO · GM-16SEP · 75m</span>.
+      Do not edit yesterday's instead — it points at a list that no longer exists and fails to save.</li>
     <li><b>Repeat on a 125m chart.</b> An alert inherits the chart's resolution, so each timeframe needs its own.</li>
   </ol>
   <div class="tw"><table>
@@ -322,13 +343,14 @@ footer em{color:var(--ink-2)}
 <section>
   <p class="pt">On the ping</p>
   <h2>The execution path</h2>
-<pre><b>ping</b>  →  open S4 on the alert's timeframe
-      →  <b>s4_review.py SYMBOL --tf 75</b>   (optional, ~1 min: the deliberated second read)
+<pre><b>ping</b>  →  ~90 s later the <b>reviewer's ruling lands on Telegram</b> (the webhook did the read)
+      →  open S4 on the alert's timeframe only if it says TAKE, or names a level to wait for
       →  read the <b>SUMMARY</b> (bottom-right column) first
       →  run the <b>12-step checklist</b>, stop at the first NO
       →  size at 1% risk on the <b>honest stop</b> (≥ 1×ATR)
       →  place entry + GTT stop
-      →  <b>log the decision</b>, including a pass</pre>
+      →  <b>python s4_take.py SYMBOL --price … --qty …</b>  — marks the review TAKEN, scores it,
+         writes the journal row with the plan (or <b>--skip "why"</b> when you pass)</pre>
   <p><b>Read the SUMMARY before the rows.</b> It is the only field on the panel that weighs
     one section against another, and its last line tells you which case you are in. It is also
     a fixed template &mdash; it can restate rows, it cannot argue &mdash; which is what the reviewer
@@ -480,7 +502,7 @@ footer em{color:var(--ink-2)}
 
 <section>
   <p class="pt">Hygiene</p>
-  <h2>The nine things that fail silently</h2>
+  <h2>The things that fail silently</h2>
   <p class="lede">Each of these has already cost a day or more. None of them announces itself.</p>
   <div class="tw"><table>
     <thead><tr><th>Check</th><th>Symptom when it fails</th></tr></thead>
@@ -497,6 +519,8 @@ footer em{color:var(--ink-2)}
       <tr><td>A 5/5 tagged <span class="m">F?</span></td><td>the books were never scored &mdash; the fifth gate passed by default, and the chart will show a blank F for the same reason</td></tr>
       <tr><td>Section Five on its own chart</td><td>S4's panel vanishes with "Memory limits exceeded" &mdash; Pine meters memory per chart, and the footprint cannot share one with S4</td></tr>
       <tr><td>The board is fresh before the reviewer runs</td><td>the reviewer warns past six hours; ignored, you are reading last session's GO rows against today's chart</td></tr>
+      <tr><td>The alert reviewer is up before the open</td><td><span class="m">S4 Alert Reviewer</span> on the taskbar — receiver + tunnel. Down, TradingView gets a 502 and the alert is simply lost; it does not retry. The launcher restarts the receiver if it exits</td></tr>
+      <tr><td>Phase 12 ran</td><td>the build stamp on the board is yesterday's; <span class="m">gm_bundles/latest.txt</span> is old. Press Evening run</td></tr>
       <tr><td class="n">Guides still match the code</td><td>you act on a number the code stopped producing weeks ago — the page reads fine, because nothing on it is marked wrong</td></tr>
     </tbody>
   </table></div>
@@ -521,12 +545,13 @@ footer em{color:var(--ink-2)}
 <section>
   <p class="pt">Compressed</p>
   <h2>The whole loop</h2>
-<pre>16:00  exit scan                   (auto)
-16:30  auto-pilot + journal sync   (auto)
-15:45  <b>GTT trail</b> (Task Scheduler, tighten-only)   (auto)
-─────  <b>EVENING: restart · rebuild · read · review · ARM · tomorrow's alert</b>   ← you
+<pre>15:45  <b>GTT trail</b> (Task Scheduler, tighten-only)   (auto)
+16:00  exit scan                   (auto)
+16:30  auto-pilot + journal sync + <b>Phase 12 evening run</b>   (auto)
+─────  <b>EVENING: open GM window · copy 2 pastes · review --live · ARM · 2 alerts w/ webhook</b>   ← you
+09:00  <b>S4 Alert Reviewer</b> up (taskbar)                           ← you
 09:15  session — do not watch the board
- ping  <b>S4 → SUMMARY → checklist → size → order → log</b>                ← you
+ ping  <b>Telegram ruling → S4 → checklist → size → order → s4_take</b>   ← you
 15:30  close</pre>
   <p>Everything above the line is machinery. The two moments that need judgement are
     <b>arming in the evening</b> and <b>the checklist at the trigger</b> — and the second is

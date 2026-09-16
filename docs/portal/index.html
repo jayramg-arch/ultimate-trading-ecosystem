@@ -184,8 +184,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>26</b><span>Published pages</span></div>
-      <div class="count"><b>26</b><span>Guides in the library</span></div>
+      <div class="count"><b>27</b><span>Published pages</span></div>
+      <div class="count"><b>27</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
   </div>
@@ -195,7 +195,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Provenance</h2><div class="rule"></div><span class="ct">audited 27 Aug · pages revised 11 Sep</span>
+    <h2>Provenance</h2><div class="rule"></div><span class="ct">audited 27 Aug · pages revised 16 Sep</span>
   </div>
 
   <a class="card" style="--spine:var(--evidence)"
@@ -213,7 +213,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </a>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 16 Sep · 13 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 16 Sep · 14 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -231,6 +231,15 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         information — where T1 anchors — never a veto. Golden Rule 6 rewritten; the reviewer
         prompt and every Room row now say so.</td>
         <td class="af">25 · 22 · 23 · 08</td>
+      </tr>
+      <tr>
+        <td class="dt">16 Sep<br>docs</td>
+        <td><b>The guides caught up with the week.</b> Docs 22, 23, 26 and 30 revised against the
+        code (Evening run and Phase 12, RRG Studio in place of Strike.Money, the webhook in the
+        alert ritual, <code>s4_take</code> on the execution path, S5 v1.4's apex rule), and a new
+        manual for the reviewer — <b>Doc 32, The Reviewer</b> — covering the three ways to run it,
+        the doctrine it applies, the script's R / OI / index checks, the Log, and marking a trade.</td>
+        <td class="af">32 · 22 · 23 · 26 · 30</td>
       </tr>
       <tr>
         <td class="dt">16 Sep<br>reviewer</td>
@@ -340,7 +349,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </table></div>
 
   <div class="sec-head">
-    <h2>Published pages</h2><div class="rule"></div><span class="ct">26 of 26</span>
+    <h2>Published pages</h2><div class="rule"></div><span class="ct">27 of 27</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -370,7 +379,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-t">GM + S4 Operating Loop</p>
         <p class="card-d">The daily workflow end to end — the four stages and what never to
         ask of each, the real job times, the evening arm-and-alert ritual, what to do when
-        an alert fires, post-entry management, and the eight checks that fail silently.</p>
+        an alert fires, post-entry management, and the checks that fail silently. Since 16 Sep:
+        Phase 12 builds the boards, the alerts review themselves, <code>s4_take</code> logs the trade.</p>
         <div class="card-m"><span>The day, in order</span><span class="go">Open →</span></div>
       </div>
     </a>
@@ -473,8 +483,21 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-d">The execution layer and the last authority. The five-gate GO, the
         seventeen-pattern battery, the five location sources, the verdict ladder where the first
         match wins — and, since September, aged S/R levels, the Setup row, and a Room row that is
-        information rather than a veto. S4 v11.2 on S4Core v50.</p>
+        information rather than a veto. S4 v11.2 on S4Core v53.</p>
         <div class="card-m"><span>Read at the chart</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/artifact/6bDijUn3wEZhxNa6FyhRxb">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 32 &middot; Live system</p>
+        <p class="card-t">The Reviewer</p>
+        <p class="card-d">The manual for the second pair of eyes. What it reads off every chart
+        tab, the doctrine baked into the prompt, the evening pass over the board, the alert-triggered
+        path through the webhook, the script's own R / OI / index checks, and how a review becomes
+        a scored trade with <code>s4_take</code>.</p>
+        <div class="card-m"><span>Read before trusting a ruling</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
 
@@ -681,7 +704,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>The full library</h2><div class="rule"></div><span class="ct">26 guides</span>
+    <h2>The full library</h2><div class="rule"></div><span class="ct">27 guides</span>
   </div>
   <p class="sec-note">Everything in <code>docs/</code>. <b>Page</b> means it is published here
   and reads like the three above; <b>Markdown</b> means it still lives only in the repo and is
@@ -720,6 +743,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <tbody>
         <tr><td class="id">23</td><td class="nm"><a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">22</td><td class="nm"><a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">32</td><td class="nm"><a href="https://claude.ai/artifact/6bDijUn3wEZhxNa6FyhRxb">The Reviewer</a></td><td>How the AI review works, runs, checks itself, and is scored</td><td class="st"><span class="pill page s4">Page</span></td></tr>
         <tr><td class="id">31</td><td class="nm"><a href="https://claude.ai/artifact/RTBsNdqUbdC1x7erUetuJp">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">30</td><td class="nm"><a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">Section Five</a></td><td>The explain-surface beside S4: footprint, Wyckoff, geometry, the named setups</td><td class="st"><span class="pill page s5">Page</span></td></tr>
         <tr><td class="id">07</td><td class="nm"><a href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>

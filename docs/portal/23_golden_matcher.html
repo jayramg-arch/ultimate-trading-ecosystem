@@ -216,6 +216,7 @@ footer a{color:var(--acc)}
     <li><a href="#cols">The columns</a></li>
     <li><a href="#s4go">S4-GO grammar</a></li>
     <li><a href="#handoff">The two pastes</a></li>
+    <li><a href="#evening">The Evening run</a></li>
     <li><a href="#cadence">Refresh cadence</a></li>
     <li><a href="#armed">The Armed Register</a></li>
     <li><a href="#pullback">The Pullback Finder</a></li>
@@ -434,11 +435,13 @@ footer a{color:var(--acc)}
   <div class="note good">
     <span class="tag">Since 11 September — the board feeds the reviewer</span>
     <p><code>python s4_review.py --board 75m</code> takes every <code>N/N GO</code> row of that
-    tab's cache, switches both TradingView charts to the name, reads S4 and Section Five off the
-    canvas, and writes a deliberated TAKE / WAIT / PASS per name with the R-arithmetic recomputed.
-    It warns when the cache is more than six hours old — <b>rebuild before you run it</b>, or you are
-    reviewing yesterday's board against today's chart. Full reviews land in
-    <code>logs/ai_reviews/</code>; the log row has a column for your own call.</p>
+    tab's cache — add <code>--live</code> for every <em>Buy Trigger Live</em> row too, which is how the
+    recovery names (typically <code>3/5 · no vol</code>, the normal recovery shape) get read — switches
+    the TradingView charts to the name, reads S4 and Section Five off the canvas, and writes a
+    deliberated TAKE / WAIT / PASS per name with the R-arithmetic, the OI state and (for ETFs) the
+    index gate checked by the script. It warns when the cache is more than six hours old —
+    <b>rebuild before you run it</b>. Since 16 September the S4 GO alerts do this on their own through
+    a webhook, and every review is a page: <b>Doc 31, The Reviewer Log</b>; the manual is Doc 32.</p>
   </div>
 </section>
 
@@ -455,7 +458,7 @@ footer a{color:var(--acc)}
       <td>Every watchlist rebuild</td></tr>
       <tr><td class="k">Bundle 2 — options OI</td><td>PCR, max pain, total CE/PE OI, the ATM shift
       and the two <b>writer strikes</b>, packed six-per-symbol for F&amp;O names only</td>
-      <td>On demand, via its button</td></tr>
+      <td>Every Evening run (window or Phase 12); its button remains for a rebuild</td></tr>
     </tbody>
   </table></div>
   <div class="note warn">
@@ -464,7 +467,7 @@ footer a{color:var(--acc)}
     TradingView caps a text input near 4,096 characters and the first bundle is already about
     9,200 — the split is a constraint, not a preference.</p>
   </div>
-  <p>The options bundle sits behind a button rather than building with the board, because it costs
+  <p>The options bundle is built by the Evening run, and otherwise sits behind a button rather than building with the board, because it costs
   <b>one broker call per F&amp;O name at one call every three seconds</b>. Cash-only names are
   filtered out first from the scrip master with <b>no network at all</b> — on a 75-name board that
   is 52 names skipped and roughly three minutes saved. Expect around <b>two and a half minutes</b>
@@ -481,6 +484,48 @@ footer a{color:var(--acc)}
   </div>
 </section>
 
+<section id="evening">
+  <h2><span class="n">04c</span>The Evening run — one click, then none</h2>
+  <p>Until 13 September the post-close ritual was four windows: Fetch fresh here, open the 75m,
+  125m and Daily boards, Fetch fresh in each, press <b>Build options bundle</b>, copy two strings.
+  Four full downloads of the same universe and six clicks for one outcome. It is now one button —
+  and from the next evening, none.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Form</th><th>What happens</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td class="k">🌙 Evening run</td><td>Invalidates the universe cache <em>once</em>, builds the
+      Daily, 125m and 75m boards in sequence inside this window (this window's own timeframe last,
+      so the table on screen matches the selector), pulls the option chains, writes both paste strings
+      to <code>gm_bundles/latest.txt</code>, and shows them below. Measured: ~7 minutes, six of them the
+      single fresh fetch</td><td>Manual — after a recompile, after a failed auto-pilot, or any time you
+      want the boards now</td></tr>
+      <tr><td class="k">Auto-pilot Phase 12</td><td>The same run, headless, at the end of the 16:30
+      pipeline: <code>gm_evening_headless.py</code> drives the app through Streamlit's test harness and
+      presses the same button, so the headless boards and the window's boards are one code path.
+      Result lands in <code>gm_bundles/latest.txt</code> and in the pipeline log</td><td>Every weekday
+      after the close, unattended</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note good">
+    <span class="tag">What you do in the evening now</span>
+    <p>Open the Golden Matcher window — the sidebar entry opens it in <b>its own window</b> since
+    13 September, so the main window stays on Risk Shield — and copy the two blocks under the build
+    stamp: <b>ONE-PASTE bundle (all timeframes)</b> and <b>Bundle 2 — options OI</b>. Paste them into
+    S4. That is the whole ritual. The per-timeframe bundle and the individual lists are folded into a
+    collapsed <em>hand overrides</em> expander; you will not need them.</p>
+    <p>Bundle 2 survives a restart now — it used to live only in session memory and vanish; it is
+    read back from the file with the run's stamp.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Three tabs, three lists</span>
+    <p>The Trigger-TF selector <b>loads that timeframe's cache</b> on a switch (since 13 Sep — it used
+    to show the last-built frame with a stale-snapshot warning). The row set is the same universe on
+    all three; what differs is Category, S4-GO, PA and the plan. The title carries a colour chip —
+    <b>75m green · 125m amber · Daily blue</b> — so three windows are tellable apart. The warning now
+    appears only when no cache exists for that timeframe, e.g. Monday morning against Friday's.</p>
+  </div>
+</section>
+
 <section id="cadence">
   <h2><span class="n">05</span>Refresh cadence</h2>
   <p>Run the board on <b>75m + 125m bar-close</b>. It then rebuilds once per session bar —
@@ -493,10 +538,12 @@ footer a{color:var(--acc)}
     reading different bars.</b></p>
   </div>
   <div class="note">
-    <span class="tag">Two buttons — press one</span>
+    <span class="tag">Three buttons — press one</span>
     <p><b>Rebuild board</b> reuses cached data and is fast; it is the right button after changing
-    the trigger timeframe. <b>Fetch fresh data + rebuild</b> invalidates the universe <em>and
-    rebuilds itself</em> — pressing both just rebuilds twice on identical data.</p>
+    the X-Ray toggle. <b>Fetch fresh data + rebuild</b> invalidates the universe <em>and
+    rebuilds itself</em> for this timeframe — pressing both just rebuilds twice on identical data.
+    <b>Evening run</b> does the fetch once and all three timeframes plus the options bundle; after
+    the close it is the only one you need.</p>
     <p>Background tabs go stale: the refresh runs on a browser timer that the browser throttles
     when the tab is hidden. They catch up a few seconds after you focus them.</p>
   </div>
@@ -835,6 +882,9 @@ footer a{color:var(--acc)}
       <tr><td class="k">Board says 5/5, the chart refuses it</td><td>Not fundamentals — a 5/5 without <code>F?</code> has already cleared that floor. Look at <b>location</b> first (it decays intraday), then the feed and the bar the two are reading</td></tr>
       <tr><td class="k">Every row reads “no room” under 1R</td><td><b>Expected on pullbacks and measured not to matter</b> — the first obstacle is the swing high the pullback came from, and on 331 GO-timed trades that cohort did not underperform. Read Room for T1 and a partial, not as a veto</td></tr>
       <tr><td class="k">The reviewer says the board is STALE</td><td>The tab's cache is over six hours old. Rebuild the board, then run <code>s4_review.py --board</code> again</td></tr>
+      <tr><td class="k">Switching Trigger-TF shows the same rows and a stale-snapshot warning</td><td>Fixed 13 Sep — a switch loads that timeframe's cache. If the warning still shows, no cache under 24 h exists for that timeframe: run the Evening run or Fetch fresh</td></tr>
+      <tr><td class="k">Bundle 2 disappeared after a restart</td><td>Fixed 13 Sep — it is read back from <code>gm_bundles/latest.txt</code> with the run's stamp. If the stamp is old, press Build options bundle or run the Evening run</td></tr>
+      <tr><td class="k">The Golden Matcher is not in the sidebar as a page</td><td>It is — the entry opens it in its own window (<code>?view=gm_window</code>). The in-window page still exists at <code>/?p=GOLDEN+MATCHER</code> for anything that links to it</td></tr>
       <tr><td class="k">Chart shows <code>F —</code> or "no options"</td><td>A paste is missing. Two fields, two bundles — the second one needs its button pressed and lands in its own field</td></tr>
       <tr><td class="k">Options bundle returns nothing</td><td>If the board was never rebuilt this session there is no symbol list to walk. Rebuild, then build the bundle</td></tr>
       <tr><td class="k">Alert fired on a name with no row</td><td>That is what the Armed Register prevents. Arm at the same moment you create the alert</td></tr>
@@ -847,6 +897,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/23 · Golden Matcher — the GM + S4 system · revised against the code 11 Sep 2026</span>
+  <span>docs/23 · Golden Matcher — the GM + S4 system · revised against the code 16 Sep 2026</span>
   <span>Companions — <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">30 Section Five</a> · <a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">18 Trade Funnel</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
 </div></footer>

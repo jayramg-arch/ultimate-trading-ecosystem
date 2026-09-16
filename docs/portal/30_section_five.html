@@ -216,7 +216,7 @@ footer a{color:var(--acc)}
 <section id="panel">
   <h2><span class="n">03</span>Reading the panel</h2>
   <p>Six sections, twenty-two rows, each band stating the question it answers. Row 0 is the
-  header — <code>S5  v1.3 │ CGPOWER · 125 · explain-surface for S4</code>.</p>
+  header — <code>S5  v1.4 │ CGPOWER · 125 · explain-surface for S4</code>.</p>
   <div class="panel">
     <div class="pband"><div class="num">I</div><div class="bd">
       <p class="h">Geometry</p>
@@ -283,6 +283,23 @@ footer a{color:var(--acc)}
   height</code> or <code>BROKEN DOWN · target close − base height</code>. That is TradingView's own
   state machine and its height projection, printed so the number can be checked rather than
   believed.</p>
+  <h4>The apex — v1.4, 16 September</h4>
+  <p class="m">Shape │ withdrawn - apex passed 7b ago - the coil has resolved, no live boundaries</p>
+  <p class="m">Boundaries │ upper 4,961.20 (0.4x ATR) · lower 4,930.05 (0.2x ATR) · width 0.4x ATR · 82% to apex (late - TV wants the break before ~75%) · spans …</p>
+  <p>The inverted pair that got Geometry withheld on 11 September — TITAN, 125-minute, <em>upper
+  4928 below lower 4968</em> — was not a fitting error. Two converging lines cross at the apex,
+  and projected past it they swap sides; the panel was printing that crossed pair as live
+  boundaries. v1.4 <b>solves the apex bar from the two line equations</b> and treats it the way
+  TradingView's pattern pages do: a triangle, wedge or pennant ends <em>at</em> its apex, so a shape
+  whose lines have met has resolved one way or the other whether or not a break was seen.
+  Past the apex — or with the boundaries inverted for any other reason — the shape is
+  <b>withdrawn</b> and the Shape row says why, instead of falling back to a bare “—”.</p>
+  <p>While the shape is live the Boundaries row now carries <b>% to apex</b> — how far through
+  the pattern price is, from the earliest anchor to the crossing. Past 75% it is tagged
+  <em>late</em>: TradingView's own guidance is that a valid breakout comes before roughly three
+  quarters of the way to the apex; later than that the coil has lost its energy and a break is
+  more often a drift out than a move. Parallel channels and rectangles have no apex and print
+  nothing here.</p>
   <div class="note no">
     <span class="tag">Two design errors, both caught because the panel named its own failure</span>
     <p><b>Fit-then-reject does not work.</b> The Lab's best-line fitter returns the line threading
@@ -412,6 +429,19 @@ footer a{color:var(--acc)}
     a width of −1.0 × ATR. The classifier is a day old and the two-pivot anchoring, the overlap
     gate and the pole are all unverified in the field. Flip <code>S5_SKIP_SECTIONS</code> in the
     script when they have earned it.</p>
+    <p><b>Still withheld after v1.4.</b> The TITAN inversion is explained and fixed — it was the
+    apex, not the fit — but one corrected failure is not field verification. The reviewer keeps
+    reading Participation and Setups in full; Geometry, Levels and the Read stay behind
+    <code>S5_SKIP_SECTIONS</code> until a tuning pass has compared the shape row against hand-read
+    charts on a dozen names.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Where the reviewer runs from now</span>
+    <p>Since 16 September the same read happens without you: an S4 GO alert posts to the
+    webhook receiver, <code>s4_alert_review.py</code> switches the S4 stack and the S5 chart to the
+    name, reads both, and Telegrams the ruling. The evening pass is
+    <code>s4_review.py --board 75m --live</code>. Both write to <b>The Reviewer Log</b> (Doc 31);
+    the manual is Doc 32. S5 must be on its own chart tab in the same layout for either to find it.</p>
   </div>
 </section>
 
@@ -477,13 +507,13 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="state">
-  <h2><span class="n">11</span>Known state — v1.3, 11 September</h2>
+  <h2><span class="n">11</span>Known state — v1.4, 16 September</h2>
   <div class="tw"><table>
     <thead><tr><th>Component</th><th>State</th></tr></thead>
     <tbody>
       <tr><td class="k">Footprint · participation</td><td><b>Verified</b> on two symbols and two timeframes; in the reviewer's input</td></tr>
       <tr><td class="k">S/R levels · trendlines</td><td>Lab-tested against hand-drawn lines; not yet carrying S4's 9-Sep ageing; <b>withheld from the reviewer</b></td></tr>
-      <tr><td class="k">Geometry</td><td>Rebuilt 8 Sep on TV criteria; <b>unverified in the field</b>; one inverted boundary observed 11 Sep; <b>withheld from the reviewer</b></td></tr>
+      <tr><td class="k">Geometry</td><td>Rebuilt 8 Sep on TV criteria; the 11-Sep inverted boundary was the apex, fixed in v1.4 (apex solved, shape withdrawn past it, % to apex printed); otherwise <b>unverified in the field</b>; <b>withheld from the reviewer</b></td></tr>
       <tr><td class="k">Wyckoff ladder</td><td>Named only, by design — twice rejected as an input</td></tr>
       <tr><td class="k">SWP-RC · RNG-EDGE</td><td>Display-only until measured as catalyst families in R</td></tr>
       <tr><td class="k">Open item #11</td><td>Rectangles read as triangles. Two defaults changed and the classifier rebuilt; <b>not yet confirmed closed</b></td></tr>
@@ -498,7 +528,9 @@ footer a{color:var(--acc)}
     <tbody>
       <tr><td class="k">S4's panel vanished after adding S5</td><td>Same chart. Pine meters memory per chart and the footprint cannot share one with S4. <b>Move S5 to a second, symbol-synced chart</b>; S4 recovers without a recompile</td></tr>
       <tr><td class="k">“Memory limits exceeded” on S5's own chart</td><td>Drop <code>calc_bars_count</code> (1500 → 800 → 400) first; turn the footprint off second. Ticks per row does nothing here</td></tr>
-      <tr><td class="k">Shape prints with upper below lower</td><td>The classifier is unverified. It is withheld from the reviewer for this reason; note the name and timeframe for the tuning pass</td></tr>
+      <tr><td class="k">Shape prints with upper below lower</td><td>Should not happen since v1.4 — an inverted pair withdraws the shape and the row says <em>boundaries inverted</em>. If it still prints inverted, the file on the chart is v1.3; recompile</td></tr>
+      <tr><td class="k">Shape reads “withdrawn - apex passed Nb ago”</td><td>Working as designed. The converging lines met N bars back; the pattern resolved there, with or without a visible break. Look at what price did at the apex, not at the lines</td></tr>
+      <tr><td class="k">Boundaries row says “late”</td><td>Price is past 75% of the way to the apex. A break from here carries less than the same break earlier in the coil; weigh it, do not gate on it</td></tr>
       <tr><td class="k">Shape reads “—” on a chart with an obvious base</td><td>Check the Pivot pools row — <code>geometry 5/5 nH / nL</code>. Fewer than two each side and there is nothing to anchor to; a 5/5 pivot on a 75-minute chart needs the swing to be real</td></tr>
       <tr><td class="k">Trendlines row quiet after a compile</td><td>The two external sources unbound. Re-point them at the S4 Trendline Tool, or leave the bridge off — the manual anchors do not need it</td></tr>
       <tr><td class="k">Divergence says “only fires on a new 10b high or low”</td><td>Working as designed. It tests flow <em>at an extreme</em>; between extremes it reports whether flow and price point the same way, which is a weaker read</td></tr>
@@ -512,6 +544,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.3 · written against the code 11 Sep 2026</span>
+  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.4 · written against the code 11 Sep 2026, revised 16 Sep 2026</span>
   <span>Companions — <a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">22 Section Four</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
 </div></footer>
