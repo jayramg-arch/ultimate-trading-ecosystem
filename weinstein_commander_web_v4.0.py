@@ -880,12 +880,14 @@ deployed_pct = round((total_deployed_g / total_cap) * 100, 1) if total_cap > 0 e
 # Check query parameters for pop-out views (open in a new browser window/tab):
 #   ?view=gm_board_maximized → GM Trigger Board only (view locked)
 #   ?view=gm_window          → full Golden Matcher (Single Symbol ↔ Board switch)
-# Both hide the sidebar so the pop-out is a clean dedicated window while the main
+#   ?view=risk_window        → Risk Shield (18-Sep, for the phone: no sidebar overlay)
+# All hide the sidebar so the pop-out is a clean dedicated window while the main
 # Web Commander window is used for other pages. Auto-refresh works in the pop-out
 # because it's a fresh session (Live-refresh seeds to the 75m bar-close default).
 _qview = st.query_params.get("view")
 is_maximized_board = (_qview == "gm_board_maximized")
 is_gm_window = (_qview == "gm_window")
+is_risk_window = (_qview == "risk_window")
 if "page" not in st.session_state and _qview is None:
     # PAGE PERSISTENCE (30-Jul, Jay: "sometimes it goes back to its default page").
     # The nav page lived ONLY in st.session_state, which dies with the websocket session
@@ -915,8 +917,8 @@ if _qview is not None:
         TF_LOCK = _qtf
         st.session_state["gm_trig_tf"] = _qtf
 
-if is_maximized_board or is_gm_window:
-    st.session_state["page"] = "GOLDEN MATCHER"
+if is_maximized_board or is_gm_window or is_risk_window:
+    st.session_state["page"] = "RISK SHIELD" if is_risk_window else "GOLDEN MATCHER"
     if is_maximized_board:
         st.session_state["gm_view"] = "📋 Trigger Board"   # board only; view locked
     # (gm_window leaves gm_view free so the Single Symbol ↔ Board switch works.)
