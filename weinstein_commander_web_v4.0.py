@@ -905,6 +905,10 @@ if "page" not in st.session_state and _qview is None:
 # setting — and a locked window NEVER writes trigger_tf back to gm_settings, or the
 # pop-out would hijack the TF everywhere (that unification was deliberate, 13-Jul).
 TF_LOCK = None
+# 18-Sep: ?mobile=1 — on a phone the ten pinned decision columns (~1,650 px) cover the
+# whole viewport and the grid cannot scroll sideways at all. Mobile view leaves them
+# unpinned so the grid swipes as one sheet. Desktop behaviour is unchanged.
+MOBILE_VIEW = str(st.query_params.get("mobile") or "").strip() in ("1", "true", "yes")
 if _qview is not None:
     _qtf = str(st.query_params.get("tf") or "").strip()
     if _qtf in ("75m", "125m", "Daily"):
@@ -15157,8 +15161,8 @@ elif page == 'GOLDEN MATCHER':
                             # minWidth == width: AG-Grid may re-flow on re-render, but it
                             # cannot go below minWidth, so the decision columns keep their
                             # size through a rebuild without any manual re-widening.
-                            _gb.configure_column(_pc, pinned="left", width=_pw,
-                                                 minWidth=_pw, suppressSizeToFit=True)
+                            _gb.configure_column(_pc, pinned=(None if MOBILE_VIEW else "left"),
+                                                 width=_pw, minWidth=_pw, suppressSizeToFit=True)
                     # Grid-level sort indicator, matching the dataframe order applied in
                     # _board_apply_filters, so the header arrow agrees with what is on
                     # screen. The maximized board keeps S4-GO primary (it is a GO monitor);
