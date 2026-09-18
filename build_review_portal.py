@@ -4,7 +4,7 @@ build_review_portal.py — The Reviewer Log: every AI review, one page, newest d
 
 Reads logs/ai_reviews/*.md (written by s4_review.py) plus logs/ai_review_log.csv (the
 S4 verdict, the ruling line, and Jay's my_call / agreed scoring) and renders
-docs/portal/31_reviewer_log.html. Regenerated automatically after every review
+docs/portal/31_reviewer_log_v2.html. Regenerated automatically after every review
 (s4_alert_review) and at the end of auto-pilot Phase 12; run by hand any time:
 
     python build_review_portal.py
@@ -27,7 +27,7 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(HERE, "logs", "ai_reviews")
 CSV_PATH = os.path.join(HERE, "logs", "ai_review_log.csv")
-OUT = os.path.join(HERE, "docs", "portal", "31_reviewer_log.html")
+OUT = os.path.join(HERE, "docs", "portal", "31_reviewer_log_v2.html")   # 18-Sep: new file = new artifact URL (the 2 MB v1 was too costly to republish)
 
 _FN = re.compile(r"^(\d{8})_(\d{4})(\d{2})?_([A-Z0-9&_\-]+)_([A-Za-z0-9]+)\.md$")
 
