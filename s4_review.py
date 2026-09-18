@@ -396,7 +396,10 @@ def render_read(d: dict) -> str:
         L.append("-- last %d bars (%s)  time · O H L C V" % (len(bars), d["res"]))
         for b in bars:
             ts = datetime.fromtimestamp(b[0]).strftime("%d-%b %H:%M")
-            L.append("  %s  %.2f %.2f %.2f %.2f  %d" % (ts, b[1], b[2], b[3], b[4], b[5] or 0))
+            # 18-Sep: an index with no volume series (NIFTY_CAPITAL_MKT, NIFTY_IND_DEFENCE,
+            # NIFTY200MOMENTM30) delivers 5-element bars — the Phase-1 read died on b[5].
+            vol = b[5] if len(b) > 5 else 0
+            L.append("  %s  %.2f %.2f %.2f %.2f  %d" % (ts, b[1], b[2], b[3], b[4], vol or 0))
     if d.get("errors"):
         L.append("-- read errors: " + "; ".join(d["errors"]))
     return "\n".join(L)
