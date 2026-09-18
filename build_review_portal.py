@@ -197,11 +197,13 @@ details.day>summary .tally{margin-left:auto;display:flex;gap:6px}
 .chk.w{border-left-color:var(--warn)}
 details.panel{margin:12px 0 0 64px}details.panel summary{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);cursor:pointer}
 details.panel pre{font-family:var(--mono);font-size:11px;line-height:1.45;background:var(--surface-2);border:1px solid var(--rule);padding:12px;overflow-x:auto;max-height:520px;color:var(--ink-2)}
+.older{font-family:var(--mono);font-size:11px;color:var(--faint);margin:6px 0 0}
+.src{margin:10px 0 0 64px;font-family:var(--mono);font-size:11px;color:var(--muted)}.src a{color:var(--acc);text-decoration:none;border-bottom:1px solid var(--rule)}
 .hid{display:none}
 .note{border:1px solid var(--rule);border-left:3px solid var(--muted);background:var(--surface);padding:14px 18px;border-radius:3px;margin:24px 0 0;font-size:15px;color:var(--ink-2)}
 .note b{color:var(--ink)}
 footer{border-top:1px solid var(--rule);background:var(--surface);font-family:var(--mono);font-size:11px;color:var(--muted)}.foot-in{max-width:1120px;margin:0 auto;padding:22px 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
-@media (max-width:720px){.rev summary{grid-template-columns:48px 1fr auto;}.rev summary .tf,.rev summary .rul{display:none}.s4,.body,details.panel{margin-left:0}}
+@media (max-width:720px){.rev summary{grid-template-columns:48px 1fr auto;}.rev summary .tf,.rev summary .rul{display:none}.s4,.body,.src,details.panel{margin-left:0}}
 """
 
 JS = """
@@ -213,6 +215,9 @@ function apply(){const s=q.value.trim().toLowerCase();document.querySelectorAll(
 q.addEventListener('input',apply);chips.forEach(c=>c.addEventListener('click',()=>{const on=c.classList.contains('on');chips.forEach(x=>x.classList.remove('on'));
  flt=on?'':c.dataset.rc;if(!on)c.classList.add('on');apply();}));
 """
+
+
+FULL_DAYS = 7   # days that carry the full deliberation on the page; older rows are compact
 
 
 def render(items: list[dict]) -> str:
@@ -229,7 +234,7 @@ def render(items: list[dict]) -> str:
            "<style>%s</style>" % CSS,
            '<header class="mast"><div class="mast-in"><p class="eyebrow">Weinstein Commander · GM + S4 · AI reviewer</p>',
            "<h1>The Reviewer Log</h1>",
-           '<p class="dek">Every deliberation the reviewer has written off the S4 / S5 panels — ruling, case for and against, plan, and the script\'s own R / OI / index checks — newest day first. The panel read each one was made from is folded under it.</p>',
+           '<p class="dek">Every deliberation the reviewer has written off the S4 / S5 panels — ruling, case for and against, plan, and the script\'s own R / OI / index checks — newest day first. The panel read each one was made from is in its <code>.md</code> under <code>logs/ai_reviews/</code>, linked on the row.</p>',
            '<div class="counts"><div class="count"><b>%d</b><span>Reviews</span></div><div class="count"><b>%d</b><span>Days</span></div>'
            '<div class="count"><b>%d</b><span>Take</span></div><div class="count"><b>%d</b><span>Take · reduced</span></div>'
            '<div class="count"><b>%d</b><span>Wait</span></div><div class="count"><b>%d</b><span>Pass / No trade</span></div>'
@@ -257,10 +262,19 @@ def render(items: list[dict]) -> str:
                           {"take": "take", "reduced": "reduced", "wait": "wait", "pass": "pass", "notrade": "no trade", "other": "—"}[it["rclass"]], p1, mine))
             if it["s4"]:
                 out.append('<div class="s4">S4 at read: <b>%s</b>%s</div>' % (html.escape(it["s4"]), (" · " + html.escape(it["provider"])) if it["provider"] else ""))
-            body = it["body_html"].replace('<div class="chk">', '<div class="chk w">') if it["warn"] else it["body_html"]
+            # 18-Sep: only the last FULL_DAYS days carry the full deliberation; older rows keep
+            # the ruling, the script's checks and the .md link, so the page stays a few hundred
+            # KB however long the log runs (it had reached 2 MB in a week).
+            if di < FULL_DAYS:
+                body = it["body_html"].replace('<div class="chk">', '<div class="chk w">') if it["warn"] else it["body_html"]
+            else:
+                body = "".join('<div class="chk%s">%s</div>' % (" w" if "⚠" in c else "", html.escape(c)) for c in it["checks"]) or '<p class="older">older review — full text in the .md</p>'
             out.append('<div class="body">%s</div>' % body)
-            if it["panel"]:
-                out.append('<details class="panel"><summary>panel read · %s</summary><pre>%s</pre></details>' % (html.escape(it["file"]), html.escape(it["panel"])))
+            # 18-Sep: the panel read is NOT embedded any more. With it the page ran to 2 MB and
+            # grew ~20 KB per review, which made every republish of the artifact prohibitively
+            # expensive; the read lives in the .md and is one click away on disk.
+            out.append('<div class="src">panel read · <a href="file:///%s">%s</a></div>'
+                       % (html.escape(os.path.join(LOG_DIR, it["file"]).replace("\\", "/")), html.escape(it["file"])))
             out.append("</details>")
         out.append("</details>")
     out.append('<div class="note"><b>Nothing here is ever deleted.</b> Each review is the ruling as written before the outcome was known; the '
