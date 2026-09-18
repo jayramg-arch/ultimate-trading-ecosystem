@@ -2773,3 +2773,93 @@ control-group row in `logs/trade_reviews.csv`.
 - Unchanged: 15 stop tightens + register `GTT_Trail_Daily` · recovery re-baseline
   unread · ~85 uncommitted tracked files incl. real edits to
   `Section4_Entry_Trigger_v3.0.pine` (+568) · Gemini's RRG page review.
+
+---
+
+## 16–18 Sep 2026 — The Reviewer goes live: webhook alerts, docs pass, recovery re-baseline read
+
+All on `main` (head `ff7995fd`). Branch `phase0-1-attribution-journal-snapshot` = main.
+S4 is **v10.3 (title) / v11.2 (panel) on S4Core v53**; S5 **v1.4**; both compiled by Jay.
+
+### A. The AI reviewer is now a pipeline, not a command (memory: [[fix-now-dont-postpone-pine]])
+- **Alert-triggered reviews (16 Sep):** S4 GO alert → webhook `POST /s4-review?key=…`
+  (`dhan_tv_webhook.py`, fail-closed on `S4_REVIEW_KEY`/`WEBHOOK_SECRET`, `hmac.compare_digest`)
+  → `s4_alert_review.py` (parse `{{ticker}} S4 GO {{interval}}`, dedup 30 min per symbol+TF,
+  ONE worker thread, chart restored afterwards) → `s4_review.review_symbol()` → Telegram cut
+  (RULING · WHY · PLAN · FLIPS IF · R/OI-CHECK). ~90–100 s per name.
+  **`START_ALERT_REVIEWER.bat`** (taskbar shortcut, not committed) = receiver on :8000 with an
+  auto-restart loop + ngrok on the static domain `NGROK_DOMAIN` (skipped if :4040 answers).
+  Test without an alert: `curl -X POST "https://<domain>/s4-review?key=<KEY>" --data "X S4 GO 75 - test"`.
+- **ETFs read their index first**: a THIRD chart tab (`S4_PHASE1_CHART` in .env; must be a
+  *copy* of the layout, not a duplicate view — duplicates share the chart id and cannot be
+  driven separately) is switched to the underlying index from `data/tv_index_map.json`
+  (`build_tv_index_map.py`). `index_gate()` enforces **INDEX ARM = ETF WAIT** (house rule,
+  13 Sep) and overrules a model TAKE to WAIT. `oi_digest()` pre-reads S4's Futures-OI row vs
+  v67's FUTURES OI STATE (they pair the daily OI change with different price legs; v67 governs)
+  and lists every options field the model must name.
+- **`--board 75m --live`**: every `N/N GO` row PLUS every *Buy Trigger Live* row (bull and
+  recovery — recovery triggers are typically `3/5 · no vol` and never appear on a GO-only pass).
+- **The Reviewer Log (Doc 31)** — `build_review_portal.py` renders every review to
+  `docs/portal/31_reviewer_log_v2.html`, rebuilt after each alert review, after Phase 12 and
+  after `s4_take`. **18 Sep:** the page had reached 2 MB in a week (panel reads embedded) and
+  the artifact could not be republished without re-reading it in full (~1.3M tokens); the panel
+  read is now a link to the `.md`, full bodies only for the last `FULL_DAYS = 7`, the page is
+  ~0.5 MB and got a NEW artifact URL (old one deleted). Nothing on disk is ever deleted.
+- **`s4_take.py SYMBOL [--tf] [--price --qty] | --skip "why"`** — appends `## TAKEN`/`## SKIPPED`
+  to the review, fills `my_call`/`agreed` in `logs/ai_review_log.csv` (THE scoring), and writes
+  the journal OPEN row with stop, canon T1/T2, `Timeframe`, setup and the review as rationale,
+  so `journal_sync` confirms instead of backfilling. **Scored rows still = 0 (Jay's side).**
+- Doctrine baked into the prompt (Doc 32): context outranks trigger; location is the gate that
+  expires; volume by setup type (pullback ≠ breakout); Room is information, never a veto; T1
+  follows the canon (swing 2R/4R · positional 3R/5R), never a sub-2R `·lvl` T1; every PASS names
+  the one change that makes it a TAKE; it may talk Jay OUT, never INTO.
+
+### B. Evening ritual — one click, then none (13 Sep, documented 16 Sep)
+GM opens in its own window (`?view=gm_window`); **🌙 Evening run** = fetch once → Daily/125m/75m
+boards → options bundle → `gm_bundles/latest.txt`; auto-pilot **Phase 12** does it headless
+(`gm_evening_headless.py`, Streamlit AppTest; `GM_EVENING_RUN=0` skips). Strike.Money retired
+(lapsed 13 Sep; scripts in `_archive/strike_money/`); **Phase 6 syncs 17 lists to RRG Studio**
+(`commander_watchlists.py` → `rrg_studio/commander_screeners.json`). TF-switch loads that TF's
+cache + colour chip; Bundle 2 read back from file; 5/5 filter default.
+
+### C. Docs pass (16 Sep) — all published
+22 Section Four (v10) · 23 Golden Matcher (v7) · 26 Operating Loop (v6) · 30 Section Five (v2,
+S5 v1.4 apex rule: apex solved from the line equations, shape withdrawn past it, "% to apex",
+late >75%; Geometry/Levels/Read STILL withheld from the reviewer) · **NEW Doc 32 The Reviewer**
+(the manual) · index → 27 pages. Rule reaffirmed: a republish needs the live artifact Read in
+full first — keep generated pages small.
+
+### D. Recovery re-baseline — READ (run `20260810_153105`, 24mo nifty500, windows 90/120 ✓)
+**No edge, and the CI excludes zero on the wrong side:** 400 trades, mean matched α **−0.88%**,
+median −2.38%, win 33.8%, anchor-bootstrap CI95 **[−1.51, −0.24]**, P(α>0) 0.4%; OOS gate
+⚪ NO-EDGE (IS −1.18 / OOS −0.94). Per family nothing survives both windows (REV-EARLY −0.60,
+CB-Watch −0.72, WYC-SOS −2.06, REV-RS −1.65, REV-CB +0.58 but inverts OOS). Stop-outs 147 at
+−5.64% / 2.7% win vs trail 252 at +1.82% / 52% — same shape as every book. RFF ≥ 5–6 is the
+only near-breakeven bucket (+0.27%); ≤ 5 bleeds −2.6 to −4.9% → keep `rff_min_score = 5`.
+Caveats: (1) predates the 18–19 Aug RRG/forming-week fixes (REV-RS most exposed); (2)
+**`CB-Watch` (Signal=1, a pre-signal) is 30% of the trade set — a harness scope error, drop it
+from the replay before the next run**; (3) the 19-Aug "neither" row (400 / −0.88 / −2.38 / 33.8)
+IS this run, mislabelled as bull. Conclusion: recovery stays as *qualification for the
+reviewer*, not a sized book. No code changed.
+
+### E. 18 Sep — two faults in the alert path
+- **Gemini 403 `PERMISSION_DENIED — project denied access`** from 17 Sep 14:18: Google-side
+  project suspension, not code; there was no fallback because only `GEMINI_API_KEY` is set
+  (`--provider auto` = Gemini only). Jay swapped the key from another project → live again.
+  A receiver "restart" that leaves the old process on :8000 changes nothing — check
+  `Get-NetTCPConnection -LocalPort 8000` for the pid/start time.
+- **`IndexError` on MOCAPITAL / MODEFENCE / MOM30IETF**: their indices (NIFTY_CAPITAL_MKT,
+  NIFTY_IND_DEFENCE, NIFTY200MOMENTM30) have **no volume series** → 5-element bars → `b[5]` in
+  `render_read`. Fixed (`acd7ac65`), verified live on MOCAPITAL: index tab switched, read,
+  ruled WAIT by the index gate in 99 s. Seen once: a 45 s settle timeout (KARURVYSYA) from
+  cell-count jitter on live ticks — not repeated; widen the settle test only if it recurs.
+- On ETFs flash-lite puts the stop at the DZ edge (MOCAPITAL: risk 0.06 = 0.1%) and the canon
+  line faithfully prints T1/T2 on that — read the risk % on the R-CHECK line before the targets.
+
+### Open
+Jay: score reviews with `s4_take` (0 scored) · restart TV/receiver only via the window ·
+recreate both alerts nightly with the webhook URL. Code: drop `CB-Watch` from the recovery
+replay set, then re-run; S5 geometry tuning pass before `S5_SKIP_SECTIONS` opens; SWG-REV
+retire-or-leave decision; MEMORY.md over its size limit (trim index lines); pytest into the
+venv. Unchanged: v67 flat-cell parity, Risk Allocator v2.2 `"SWG"` fallback, VIJAYA 2nd OCO
+qty, GESHIP `buy_price = 0.0`, pivot-zone ablation, per-slot RV baseline (unbuilt).
