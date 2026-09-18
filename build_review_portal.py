@@ -273,8 +273,9 @@ def render(items: list[dict]) -> str:
             # 18-Sep: the panel read is NOT embedded any more. With it the page ran to 2 MB and
             # grew ~20 KB per review, which made every republish of the artifact prohibitively
             # expensive; the read lives in the .md and is one click away on disk.
-            out.append('<div class="src">panel read · <a href="file:///%s">%s</a></div>'
-                       % (html.escape(os.path.join(LOG_DIR, it["file"]).replace("\\", "/")), html.escape(it["file"])))
+            # relative, so the link resolves from file:// on disk AND over SERVE_PORTAL.bat (:8502)
+            out.append('<div class="src">panel read · <a href="../../logs/ai_reviews/%s">%s</a></div>'
+                       % (html.escape(it["file"]), html.escape(it["file"])))
             out.append("</details>")
         out.append("</details>")
     out.append('<div class="note"><b>Nothing here is ever deleted.</b> Each review is the ruling as written before the outcome was known; the '

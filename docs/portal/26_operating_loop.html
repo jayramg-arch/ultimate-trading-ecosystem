@@ -527,6 +527,25 @@ footer em{color:var(--ink-2)}
 </section>
 
 <section>
+  <p class="pt">Away from the desk</p>
+  <h2>From a phone or tablet</h2>
+  <p>Everything runs on the PC, so the PC stays on and the phone reaches it over
+    <b>Tailscale</b> — a private network between your own devices, nothing exposed to the
+    internet. Sign in on both; then these three addresses work from anywhere:</p>
+  <div class="tw"><table>
+    <thead><tr><th>What</th><th>Address</th><th>Needs</th></tr></thead>
+    <tbody>
+      <tr><td>Web Commander</td><td class="n">http://jaynuc:8501</td><td>Commander running. Phone: use <span class="m">?view=gm_board_maximized&amp;tf=75m</span> or <span class="m">?view=gm_window</span></td></tr>
+      <tr><td>The Reviewer Log (live)</td><td class="n">http://jaynuc:8502/docs/portal/31_reviewer_log_v2.html</td><td><span class="m">Commander Portal</span> shortcut (serves the repo read-only on :8502)</td></tr>
+      <tr><td>The Library</td><td class="n">http://jaynuc:8502/docs/portal/index.html</td><td>same</td></tr>
+    </tbody>
+  </table></div>
+  <p>The rulings themselves still arrive on Telegram; the Log is where you read the full
+    case. The claude.ai copy of the Log is a snapshot — the :8502 address is the live one.
+    Keep ngrok for the webhook only; never put :8501 on a public tunnel.</p>
+</section>
+
+<section>
   <p class="pt">Beyond the day</p>
   <h2>Weekly and monthly</h2>
   <div class="tw"><table>
