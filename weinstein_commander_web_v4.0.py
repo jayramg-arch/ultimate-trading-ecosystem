@@ -962,6 +962,15 @@ def _goto_page(key: str):
     except Exception:
         pass                       # older Streamlit / read-only params — nav still works
 
+# 18-Sep: the pop-out views (?view=gm_window / gm_board_maximized / risk_window) hide the
+# sidebar, but the SIDEBAR block below forces `display: block !important` and, being
+# injected LATER with equal specificity, silently won — the pop-outs had been showing the
+# sidebar all along (visible on a phone, where it overlays half the page). The hide now
+# lands at the END of this sheet so it is the last word.
+_POPOUT_SIDEBAR_HIDE = ("""
+[data-testid="stSidebar"] { display: none !important; width: 0 !important; min-width: 0 !important; }
+[data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] { display: none !important; }
+""" if _qview in ("gm_window", "gm_board_maximized", "risk_window") else "")
 st.markdown("<style>" + _theme.tokens_css() + f"""
 *, *::before, *::after {{ box-sizing: border-box; }}
 .stApp {{
@@ -1523,6 +1532,7 @@ div[data-testid="stButton"] > button:focus-visible {{
 .sb-cell.is-warn {{ background: var(--warn-bg) !important;
     border-left: 3px solid var(--warn) !important; }}
 .sb-cell.is-neut {{ border-left: 3px solid var(--rule) !important; }}
+{_POPOUT_SIDEBAR_HIDE}
 </style>
 """, unsafe_allow_html=True)
 
