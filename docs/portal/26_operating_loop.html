@@ -558,7 +558,11 @@ footer em{color:var(--ink-2)}
     case. Since 20 Sep the Log and the Library are <b>local files only</b> — nothing is published
     to claude.ai any more (every republish cost a full re-read of the page), so the :8502 address is
     the only address.
-    Keep ngrok for the webhook only; never put :8501 on a public tunnel.</p>
+    Keep ngrok for the webhook only; never put :8501 on a public tunnel.
+    <b>If <code>jaynuc</code> stops resolving</b>, the PC has re-keyed (20 Sep: the daemon wedged in
+    <code>NoState</code>; resetting <code>server-state.conf</code> made it a new node). Check
+    <code>tailscale status</code>: delete the offline old entry in the admin console and rename the
+    <code>-1</code> node back — or use the IP it prints (currently 100.107.62.98).</p>
 </section>
 
 <section>

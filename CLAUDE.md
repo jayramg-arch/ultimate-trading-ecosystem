@@ -2942,8 +2942,11 @@ and committing IS the release. Commit `5aad9980`: all 130 `claude.ai` artifact h
 portal pages + `docs/00_INDEX.md` rewritten to relative filenames (the 27-Aug audit page, which
 had no local copy, points at `AUDIT_LEDGER.md`); index/Doc 26 prose reworded local-only. The old
 artifact URLs quoted in earlier sections of this file are dead pointers — do not restore them.
-URLs (LAN/Tailscale, `SERVE_PORTAL.bat` running): Library
-`http://100.91.124.18:8502/docs/portal/index.html` · Log `…/31_reviewer_log_v2.html`.
+URLs (LAN/Tailscale, `SERVE_PORTAL.bat` running; **Tailscale re-keyed 20 Sep** after the daemon
+wedged in `NoState` — a repair install did not clear it, resetting `server-state.conf` did; the PC is
+now node `jaynuc-1` = 100.107.62.98, old `jaynuc`/100.91.124.18 is dead — prefer the MagicDNS
+hostname once the stale entry is deleted and `jaynuc-1` renamed): Library
+`http://100.107.62.98:8502/docs/portal/index.html` · Log `…/31_reviewer_log_v2.html`.
 
 ### Monday first checks
 `logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
