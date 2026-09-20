@@ -217,7 +217,9 @@ q.addEventListener('input',apply);chips.forEach(c=>c.addEventListener('click',()
 """
 
 
-FULL_DAYS = 7   # days that carry the full deliberation on the page; older rows are compact
+FULL_DAYS = None   # 20-Sep: the page is a LOCAL file (no artifact republish), so every row carries
+                   # the full deliberation and the panel read. Set an int to compact rows older
+                   # than N days again (the 18-Sep behaviour, used while the page was published).
 
 
 def render(items: list[dict]) -> str:
@@ -265,23 +267,26 @@ def render(items: list[dict]) -> str:
             # 18-Sep: only the last FULL_DAYS days carry the full deliberation; older rows keep
             # the ruling, the script's checks and the .md link, so the page stays a few hundred
             # KB however long the log runs (it had reached 2 MB in a week).
-            if di < FULL_DAYS:
+            if FULL_DAYS is None or di < FULL_DAYS:
                 body = it["body_html"].replace('<div class="chk">', '<div class="chk w">') if it["warn"] else it["body_html"]
             else:
                 body = "".join('<div class="chk%s">%s</div>' % (" w" if "⚠" in c else "", html.escape(c)) for c in it["checks"]) or '<p class="older">older review — full text in the .md</p>'
             out.append('<div class="body">%s</div>' % body)
-            # 18-Sep: the panel read is NOT embedded any more. With it the page ran to 2 MB and
-            # grew ~20 KB per review, which made every republish of the artifact prohibitively
-            # expensive; the read lives in the .md and is one click away on disk.
-            # relative, so the link resolves from file:// on disk AND over SERVE_PORTAL.bat (:8502)
-            out.append('<div class="src">panel read · <a href="../../logs/ai_reviews/%s">%s</a></div>'
+            # 20-Sep: panel read embedded again (collapsed) — the page is local-only now, so its
+            # size no longer costs anything. The .md link stays; relative, so it resolves from
+            # file:// on disk AND over SERVE_PORTAL.bat (:8502).
+            if FULL_DAYS is None or di < FULL_DAYS:
+                if it["panel"]:
+                    out.append('<details class="panel"><summary>panel read · %s</summary><pre>%s</pre></details>'
+                               % (html.escape(it["file"]), html.escape(it["panel"])))
+            out.append('<div class="src">source · <a href="../../logs/ai_reviews/%s">%s</a></div>'
                        % (html.escape(it["file"]), html.escape(it["file"])))
             out.append("</details>")
         out.append("</details>")
     out.append('<div class="note"><b>Nothing here is ever deleted.</b> Each review is the ruling as written before the outcome was known; the '
                '<code>my_call</code> / <code>agreed</code> columns in <code>logs/ai_review_log.csv</code> are how the log will one day say whether '
                'the model earned its place. This page is regenerated after every review and every evening run '
-               '(<code>build_review_portal.py</code>); the published copy is a snapshot.</div></div>')
+               '(<code>build_review_portal.py</code>); it is a local file, served on :8502 — there is no published copy.</div></div>')
     out.append('<footer><div class="foot-in"><span>The Reviewer Log · logs/ai_reviews · built %s IST</span><span>%d reviews · flash-lite unless noted</span></div></footer>'
                % (datetime.now().strftime("%d %b %Y %H:%M"), n))
     out.append("<script>%s</script>" % JS)
