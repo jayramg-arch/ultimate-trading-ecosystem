@@ -257,6 +257,8 @@ def _confirmed_weekly_close(c: pd.Series) -> pd.Series:
 #     Bullish Engulfing     0 firings  — 415 raw engulfings in the same bars
 # Neither was a rare pattern. Both were mis-specified, in different ways.
 # Flag kept so the before/after is one run apart rather than a memory of what changed.
+# 20-Sep-2026: the Engulf half was REVERTED to B6 (see AUD-PAR-01 at the pattern) — it
+# had drifted from S4Core/v67. PA_FIXES now governs Stage-2 Launch only.
 PA_FIXES = True
 
 
@@ -341,25 +343,19 @@ def detect_bull_patterns(df: pd.DataFrame, stage: str = "", intraday: bool = Fal
         rsi = 100 - 100 / (1 + up / dn.replace(0, np.nan))
         c1, o1 = float(c.iloc[-2]), float(o.iloc[-2])
         raw_eng = c1 < o1 and cN > oN and oN <= c1 and cN >= o1
-        if PA_FIXES:
-            # BUG 2 — `cN < _e10 < _e20` is a DOWNTREND requirement, sitting in the BULL
-            # battery. Together with rsi<40 and rv>2.0 it described a capitulating stock,
-            # which is the RECOVERY battery's job (and its CLIMAX pattern already covers
-            # it). Result: 2 firings in 11,552 bars against 415 raw engulfings — the
-            # pattern was ~200x rarer than the thing it claims to detect, and it took
-            # `Bear Trap` down with it (that combo needs this as its trigger).
-            # The bull-side meaning of an engulf is a PULLBACK RECLAIM: price working
-            # back up through the short EMA in an intact uptrend, on real volume.
-            # No RSI gate — "oversold" is not part of a continuation setup.
-            # ema20 here is a SCALAR (last value), so the rising test needs its own
-            # series — computed locally rather than assuming one is in scope.
-            _e20s = c.ewm(span=20, adjust=False).mean()
-            _rising20 = len(_e20s) >= 6 and float(_e20s.iloc[-1]) > float(_e20s.iloc[-6])
-            engulf = raw_eng and cN > _e20 and _rising20 and rv > 1.25
-        else:
-            engulf = (raw_eng and cN < _e10 < _e20 and rv > 2.0 and
-                      not math.isnan(float(rsi.iloc[-2])) and float(rsi.iloc[-2]) < 40)
-        pats.append(("Bullish Engulfing (gated)", engulf, 2, "engulf reclaim in uptrend on vol"))
+        # AUD-PAR-01 (20-Sep-2026, Jay: "keep B6 on both sides"). The 10-Aug PA_FIXES
+        # branch redefined this as an uptrend PULLBACK RECLAIM (close > rising EMA20, RV
+        # > 1.25) on the argument that the oversold form never fires in a bull battery.
+        # It landed on the Python side only: S4Core.dailyPA p_eng and v67:3287 kept the
+        # VALIDATED B6 form (v67.4.11 changelog: +1.35% / +6.92% by regime, P(alpha>0)
+        # 91/100%), so for six weeks the board's "Bullish Engulfing" was a pattern the
+        # chart never showed. B6 is the measured one; it stays on both sides. If the
+        # pullback-reclaim engulf earns a slot it enters as a DISTINCT pattern after
+        # pa_field_validator measures it - never by renaming this one. PA_FIXES still
+        # governs Stage-2 Launch below; it no longer touches this pattern.
+        engulf = (raw_eng and cN < _e10 < _e20 and rv > 2.0 and
+                  not math.isnan(float(rsi.iloc[-2])) and float(rsi.iloc[-2]) < 40)
+        pats.append(("Bullish Engulfing (gated)", engulf, 2, "engulf at oversold on 2x vol (B6)"))
 
         # Liquidity Sweep Reclaim — swept below 50-SMA in last 5 bars, reclaimed on 1.5× vol
         liq = (float(l.iloc[-5:].min()) < sma50 and cN > sma50 and

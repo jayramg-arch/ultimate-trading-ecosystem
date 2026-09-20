@@ -78,11 +78,15 @@ def dhan_place_order(
     product_type: str, 
     price: float = 0.0,
     trigger_price: float = 0.0,
-    is_amo: bool = False
+    is_amo: bool = False,
+    stop_loss: float = 0.0
 ) -> str:
     """
     Place an order on Dhan.
     Args:
+        stop_loss: REQUIRED for a BUY (20-Sep-2026) — the planned stop, below entry.
+                   The pre-trade gate blocks a BUY without one. Not sent to Dhan by
+                   this call (place the GTT separately); it sizes the 1%-risk check.
         symbol: e.g. 'TCS', 'RELIANCE'
         transaction_type: 'BUY' or 'SELL'
         quantity: integer quantity
@@ -101,8 +105,8 @@ def dhan_place_order(
         # with no portfolio checks whatsoever. BUY orders now clear the shared
         # fail-closed gate (max open positions / sector cap / per-trade risk-%).
         # SELL/exit orders are deliberately NOT gated — never block an exit.
-        # Note: this tool has no stop-loss parameter, so the per-trade risk-% cap
-        # cannot be evaluated here; the position-count and sector caps still apply.
+        # 20-Sep-2026 (AUD-PY-02): `stop_loss` added — the gate now REFUSES a BUY
+        # without a stop below entry, so the per-trade risk-% cap is always evaluated.
         from pre_trade_gate import gate_order
         _entry_px = float(price or 0.0) or float(trigger_price or 0.0)
         if transaction_type.upper() == "BUY" and _entry_px <= 0:
@@ -118,7 +122,8 @@ def dhan_place_order(
                         "price, so the sector-exposure check cannot be evaluated. "
                         "Order not placed.")
         _ok, _reason = gate_order(dhan, symbol.upper(), transaction_type,
-                                  int(quantity), entry_price=_entry_px, sl_price=0.0)
+                                  int(quantity), entry_price=_entry_px,
+                                  sl_price=float(stop_loss or 0.0))
         if not _ok:
             return f"BLOCKED by pre-trade risk gate: {_reason}. No order was placed."
 

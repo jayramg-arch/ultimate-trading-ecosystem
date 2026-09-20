@@ -268,6 +268,17 @@ def load_universe_data(symbols: tuple, period: str = "1y", interval: str = "1wk"
         success = False
 
         def _store(_df, _src):
+            # AUD-PY-01 (20-Sep-2026): drop the still-forming week. Every other RRG
+            # surface (bull_screener, root rrg_engine, v67, S4 via v67) reads CONFIRMED
+            # weeks since 18-Aug; the Studio was the one left computing on a partial
+            # bar, so mid-week its quadrant could disagree with the board and the
+            # chart on the same name (the SYRMA case). Same helper, imported, not copied.
+            if interval == "1wk":
+                try:
+                    from bull_screener import _drop_forming_week
+                    _df = _drop_forming_week(_df)
+                except Exception as _fw:
+                    logger.warning("forming-week drop failed for %s: %s", sym, _fw)
             data_map[sym] = _df
             data_map[ticker] = _df
             data_map[sym.replace('.NS', '').replace('^', '')] = _df
@@ -687,17 +698,18 @@ def get_all_universe_options() -> Dict[str, Dict[str, Any]]:
 # neighbours (24,10,7) (26,10,7) (25,10,6) all sit at 0.47-0.54 — a plateau.
 # The first grid capped smoothing at 8 and so never saw 10, which is where the
 # ratio axis actually wants to be.
-STRIKE_CAL = {
-    "ratio_length": 25,     # SMA of the RS line
-    "ratio_smooth": 10,     # SMA of the percent-deviation series
-    "mom_length":   7,      # SMA of the ratio's bar-over-bar ROC
-    # SLOPES ONLY. The intercept is DERIVED as 100*(1-a) so the map always passes
-    # through (100,100) — do not add a "ratio_b"/"mom_b" key here, that is exactly
-    # the free-fit form that displaced the origin (see above).
-    "ratio_a": 0.796,
-    "mom_a":   3.498,
-    "fitted_on": "2026-05-19, n=17, Nifty 500 weekly",
-}
+# AUD-PY-10 (20-Sep-2026): ONE copy of the calibration. This dict used to be
+# duplicated here byte-for-byte; the next recalibration would have drifted them.
+# Loaded by PATH: this module is itself named rrg_engine, so `from rrg_engine import`
+# would resolve to this file.
+def _root_strike_cal() -> dict:
+    import importlib.util
+    _path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rrg_engine.py")
+    _spec = importlib.util.spec_from_file_location("_root_rrg_engine", os.path.abspath(_path))
+    _mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    return dict(_mod.STRIKE_CAL)
+STRIKE_CAL = _root_strike_cal()
 
 
 def _cal_map(x, a):

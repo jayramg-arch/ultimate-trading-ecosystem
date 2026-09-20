@@ -91,9 +91,24 @@ def pre_trade_risk_check(dhan, ticker: str, qty: int, entry_price: float, sl_pri
     except Exception as e:
         return False, f"sector-cap check failed ({e}) — order BLOCKED (fail-closed)"
 
-    # 3) Per-trade risk as % of equity (needs a valid SL below entry).
+    # 3) Per-trade risk as % of equity.
+    # AUD-PY-02 (20-Sep-2026): this block used to be SKIPPED when the stop was missing,
+    # zero, or at/above entry - which meant a BUY with no stop passed the gate on the
+    # two caps that do not need one. In a module whose doctrine is fail-closed that was
+    # the one fail-open path, and it sat on the check that enforces the 1%-risk rule.
+    # A NEW entry without a stop below entry is now BLOCKED. Locked-profit stops on an
+    # EXISTING position (stop > entry after a trail) are a modify_forever path in
+    # gtt_auto_shield, never this gate, so nothing legitimate is caught here.
     try:
-        if sl_price and float(sl_price) > 0 and float(entry_price) > float(sl_price):
+        _sl = float(sl_price or 0.0)
+        _ep = float(entry_price or 0.0)
+        if _sl <= 0:
+            return False, "BUY without a stop — blocked (pass sl_price; the 1%-risk cap cannot be evaluated without it)"
+        if _ep <= 0:
+            return False, "BUY without an entry price — blocked (the stop distance cannot be evaluated)"
+        if _sl >= _ep:
+            return False, f"stop {_sl:.2f} is at/above entry {_ep:.2f} — blocked (a new entry needs its stop below it)"
+        if True:
             risk_amt = float(qty) * (float(entry_price) - float(sl_price))
             funds = dhan.get_fund_limits()
             avail = float((funds.get('data') or {}).get('availabelBalance', 0)) if isinstance(funds, dict) else 0.0
@@ -115,10 +130,10 @@ def gate_order(dhan, ticker: str, side: str, qty: int,
     SELL/exit orders pass through untouched — see rule 1 in the module docstring.
     BUY orders go through the full fail-closed `pre_trade_risk_check`.
 
-    `sl_price` is optional: without a valid stop below entry the per-trade risk-%
-    cap cannot be evaluated and is skipped, but the position-count and sector caps
-    still apply. Pass a stop whenever you have one — it is the cap that most
-    directly enforces the 1%-risk DNA rule.
+    `sl_price` is REQUIRED for a BUY (20-Sep-2026, AUD-PY-02): a new entry with no
+    stop, a zero stop, or a stop at/above entry is blocked outright — the per-trade
+    risk-% cap is the one that enforces the 1%-risk DNA rule and it cannot be
+    evaluated without a stop. SELL/exit orders are never gated.
     """
     if str(side).upper() not in ("BUY", "B"):
         return True, "SELL/exit — not gated (exits are never blocked)"
