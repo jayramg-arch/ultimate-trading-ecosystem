@@ -2956,6 +2956,9 @@ panel read folded beneath it (`<details class="panel">`), plus the `.md` source 
 for 124 reviews — irrelevant for a file on :8502. Set `FULL_DAYS` to an int to compact rows older than
 N days again. Doc 32 already described the folded read (written pre-slim), so it needed no change;
 index gained a change row (18 changes).
+**Badge rename (`44dac82f`):** the Log's `index read` pill was misread as the slim marker — it is the
+ETF Phase-1 flag (underlying index read first, INDEX ARM = ETF WAIT) and only ever appears on ETF rows.
+Now reads **`ETF · index first`** with a tooltip; the dek says rows open to the full text.
 
 ### Monday first checks
 `logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
