@@ -1,3 +1,0 @@
-2026-08-28 21:35:56 - INFO - [log] Auto-Pilot console log -> C:\Users\jayra\Documents\GeminiVSCode\auto_pilot_20260828_213556.log
-2026-08-28 21:36:00 - ERROR - ⛔ AUTO-PILOT IS ALREADY RUNNING (PID 34316)!
-2026-08-28 21:36:00 - ERROR -    Aborting duplicate run to prevent process and data collisions.

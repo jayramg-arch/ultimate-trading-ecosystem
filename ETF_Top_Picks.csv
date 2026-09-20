@@ -1,6 +1,5 @@
 Symbol,Reason,Suggested_Weight_pct,Source,Regime,Liquidity_Status
-MODEFENCE,Sector rotation #1,12,Sector,RISK_ON,OK
-PHARMABEES,Sector rotation #2,12,Sector,RISK_ON,OK
-MOREALTY,Sector rotation #3,12,Sector,RISK_ON,OK
-JUNIORBEES,Mid-cap broad equity tilt,15,Broad,RISK_ON,OK
-MAFANG,International diversifier,10,Intl,RISK_ON,OK
+PHARMABEES,Defensive sector #1,10,Sector,GOLD_LED,OK
+GOLDBEES,Gold leadership regime,30,Commodity,GOLD_LED,OK
+MAFANG,Intl hedge,10,Intl,GOLD_LED,OK
+SWEEP-IN FD,"Cash sleeve — sweep-in FD, outside this system",30,Cash,GOLD_LED,?

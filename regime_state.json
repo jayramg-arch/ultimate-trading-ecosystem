@@ -2,40 +2,42 @@
   "last": {
     "score": 4,
     "verdict": "Neutral / Choppy",
-    "computed_at": "2026-09-09T21:05:47",
+    "computed_at": "2026-09-20T07:35:06",
     "benchmark": "^CRSLDX",
-    "close": 23106.1,
-    "sma50": 23386.52,
-    "sma200": 23050.87,
-    "above_sma200": true,
+    "close": 22840.55,
+    "sma50": 23322.77,
+    "sma200": 23019.67,
+    "above_sma200": false,
     "sma200_rising": false,
     "death_cross": false,
     "distribution": {
-      "count": 5,
+      "count": 6,
       "dates": [
-        "2026-08-11",
         "2026-08-14",
         "2026-08-18",
         "2026-08-31",
-        "2026-09-02"
+        "2026-09-02",
+        "2026-09-09",
+        "2026-09-11"
       ],
       "window": 25,
       "stress": true,
-      "details": "5 distribution day(s) in last 25 sessions"
+      "details": "6 distribution day(s) in last 25 sessions"
     },
     "follow_through": {
       "active": false,
-      "details": "no correction in last 60 sessions"
+      "details": "only 3d since low (need \u22654)",
+      "low_date": "2026-09-15"
     },
     "breadth_thrust": {
       "active": false,
-      "current_ema10": 0.3515,
+      "current_ema10": 0.4886,
       "lower": 0.4,
       "upper": 0.615,
       "transition_bars": null,
-      "details": "No fresh thrust (current EMA10=0.352)"
+      "details": "No fresh thrust (current EMA10=0.489)"
     },
-    "breadth_above_sma200_pct": 53.2,
+    "breadth_above_sma200_pct": 51.6,
     "components": {
       "above_sma200_rising": true,
       "breadth_above_50": false,
@@ -46,56 +48,6 @@
     }
   },
   "history": [
-    {
-      "date": "2026-07-09",
-      "score": 0,
-      "verdict": "Bear / Cash"
-    },
-    {
-      "date": "2026-07-10",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-11",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-12",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-13",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-14",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-15",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-16",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-17",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
-    {
-      "date": "2026-07-18",
-      "score": 5,
-      "verdict": "Neutral / Choppy"
-    },
     {
       "date": "2026-07-19",
       "score": 5,
@@ -343,6 +295,56 @@
     },
     {
       "date": "2026-09-09",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-10",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-11",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-12",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-13",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-14",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-15",
+      "score": 4,
+      "verdict": "Neutral / Choppy"
+    },
+    {
+      "date": "2026-09-16",
+      "score": 1,
+      "verdict": "Bear / Cash"
+    },
+    {
+      "date": "2026-09-17",
+      "score": 1,
+      "verdict": "Bear / Cash"
+    },
+    {
+      "date": "2026-09-18",
+      "score": 1,
+      "verdict": "Bear / Cash"
+    },
+    {
+      "date": "2026-09-20",
       "score": 4,
       "verdict": "Neutral / Choppy"
     }

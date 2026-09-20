@@ -1,10 +1,10 @@
 {
   "gold": "GOLDIETF",
   "silver": "SILVERIETF",
-  "gap_4w_pct": 0.71,
-  "gap_12w_pct": 8.56,
-  "ratio_pctile_1y": 64.8,
-  "lead": "GOLD-LED",
+  "gap_4w_pct": -1.38,
+  "gap_12w_pct": 2.73,
+  "ratio_pctile_1y": 59.2,
+  "lead": "BALANCED",
   "note": "gold minus silver return, in percentage points; the ratio's LEVEL is omitted because ETF unit prices make it arbitrary",
-  "fetched_at": "2026-09-09T21:30:18"
+  "fetched_at": "2026-09-20T08:00:50"
 }

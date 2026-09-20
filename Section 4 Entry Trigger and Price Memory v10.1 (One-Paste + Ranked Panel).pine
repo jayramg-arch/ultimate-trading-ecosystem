@@ -5034,10 +5034,9 @@ if show_panel and d_panel and barstate.islast
     // - the ranking and the ETF index-gate lists. A section count below the expected 14
     // (or a bundle-2 with no OPT) now shows in the header instead of failing silently
     // as "not an ETF" / "no options". str.length is what settles the ~4,096-char question.
-    int _bTags  = 0
-    for _bt in array.from("REC", "PB", "BFF", "BFFC", "RFF", "RFFC", "PIO", "PIOC", "PAIR", "IDXS", "IDXR", "RANK", "ETFL", "ETFP")
-        if str.length(core.bundleSection(gm_bundle, _bt)) > 0 or str.pos(gm_bundle, "|" + _bt + "=") >= 0 or str.startswith(gm_bundle, _bt + "=")
-            _bTags += 1
+    // Sections are "|"-separated and values never contain "|", so the section count is
+    // the split size (core.bundleSection needs a simple-string tag, so no loop over tags).
+    int _bTags  = str.length(gm_bundle) == 0 ? 0 : array.size(str.split(gm_bundle, "|"))
     bool   _b2ok   = str.length(gm_bundle2) == 0 or str.pos(gm_bundle2, "OPT=") >= 0
     string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/14" + (_bTags < 14 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
     table.cell(pnl, 0, 0, "S4 " + S4_VER + "  │  core/" + S4_CORE_VER + "  │  " + _bNote, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
