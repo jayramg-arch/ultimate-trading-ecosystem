@@ -2634,7 +2634,8 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         # Small by construction (a handful of accumulating names), so it costs little
         # against the length cap, and it is placed ABOVE the fundamentals for the same
         # reason PAIR is — what kind of trade this is precedes every judgement about it.
-        ("ACC",  _safe(s4_accum_list, tf=tf)),
+        # ("ACC", ...) removed 20-Sep-2026 (AUD-PAR-05): S4 never read it — dead characters
+        # in a field that may be capped. s4_accum_list itself stays for the hand-override block.
         # ORDERED BY CRITICALITY (29-Aug-2026), because input.string has a LENGTH CAP
         # and whatever falls past it is silently lost. Measured on the 5,737-char
         # bundle that exposed this: BFFC ended at 3,872 and RFFC at 3,954, but PIOC

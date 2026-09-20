@@ -552,7 +552,14 @@ def compute_weekly_stage_and_wks(df_w: pd.DataFrame, left: int = 5, right: int =
             # A flat 30-WMA is not an advance however strong RS is; it is a base.
             current_stage_htf = 2 if is_ma_uptrend else (3 if is_ma_downtrend else (1 if rs_up else 3))
         else:
-            current_stage_htf = (4 if (is_ma_downtrend and not rs_up) else 1)
+            # AUD-PAR-03 (20-Sep-2026): the PULLBACK cell. Price BELOW a RISING 30-WMA
+            # is "STAGE 2 (PULLBACK)" on v67 and Stage 2 on S4 — a dip inside an
+            # advance, the very shape the pullback book buys — but read 1 here, so
+            # the board printed Stage 1 on names both charts called 2. stage_ok
+            # admits 1 and 2 alike, so admission never moved; every `== 2` term and
+            # the reviewer's stage read did. Same ladder as S4:
+            #   stage_n := (_wdn and not _rsUp) ? 4 : (_wup ? 2 : 1)
+            current_stage_htf = 4 if (is_ma_downtrend and not rs_up) else (2 if is_ma_uptrend else 1)
         # Weeks-in-stage counter
         if current_stage_htf != prev_stage_htf:
             wks = 0.0

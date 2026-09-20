@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.3 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.3", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.4 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.4", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.2"
+string S4_VER      = "v11.3"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -2831,8 +2831,14 @@ f_weekly() =>
     // baseCount rides this bundle rather than opening a second weekly call. Same
     // [_ow] confirm offset as w_cross, so both read the last CLOSED week.
     [_bc, _bIn, _bFlat] = core.baseCount(30, 4, base_min_wks)
-    [(wcross ? 1.0 : 0.0)[_ow], _bc[_ow], _bIn[_ow], _bFlat[_ow]]
-[w_cross, wk_baseN, wk_inBase, wk_baseWks] = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
+    // AUD-PAR-02 (20-Sep-2026): the launch WEEK's volume against its own 30-week
+    // average. Stage-2 Launch is a weekly structural event; gating it on the DAILY
+    // relative volume of whichever bar you read asked the wrong clock and removed
+    // ~95% of survivors (pa_patterns.py:383). Python moved to this on 10-Aug; S4 had not.
+    float _wv30 = ta.sma(volume, 30)
+    bool  _wvol = _wv30 > 0 and volume > _wv30 * 1.1
+    [(wcross ? 1.0 : 0.0)[_ow], _bc[_ow], _bIn[_ow], _bFlat[_ow], (_wvol ? 1.0 : 0.0)[_ow]]
+[w_cross, wk_baseN, wk_inBase, wk_baseWks, w_volok] = request.security(syminfo.tickerid, "W", f_weekly(), barmerge.gaps_off, barmerge.lookahead_off)
 
 // ==========================================
 // A2b. SUPPORT ZONES (OB / FVG / pivot-low) — requested on BOTH "D" and "W"
@@ -3025,7 +3031,7 @@ bool k3B    = show_pa and active_3b > 0.5
 // BE Stage 2 ("2" in stage); the Pine proxy is close above a RISING 30-WMA proxy
 // (not d_bel30, not d_s150dn). Without it LAU fired on Stage-4 dead-cat bounces.
 bool s2_proxy = nz(d_bel30, 1.0) < 0.5 and nz(d_s150dn, 1.0) < 0.5
-bool kLAU   = show_pa and nz(w_cross, 0.0) > 0.5 and nz(d_rv, 0.0) > 1.25 and s2_proxy and not _paIntraday
+bool kLAU   = show_pa and nz(w_cross, 0.0) > 0.5 and nz(w_volok, 0.0) > 0.5 and s2_proxy and not _paIntraday   // AUD-PAR-02: weekly volume, not daily RV
 bool kIN3   = show_pa and active_in3 > 0.5
 bool kNR7   = show_pa and active_nr7 > 0.5
 bool kIBNR7 = show_pa and active_ibnr7 > 0.5
@@ -3162,7 +3168,17 @@ bool _b30  = _b30f > 0.5                    // na fails to the BEARISH side (v5.
 float _wst = nz(w_slp3, 1.0)                // 0 rising / 0.5 flat / 1 falling
 bool _wdn  = _wst >= 0.75
 bool _wup  = _wst <= 0.25
-bool _rsUp = rsSlope > 0
+// AUD-PAR-03 (20-Sep-2026): ONE tie-break for the stage 2x2's two flat cells. S4 used
+// the RS-line slope (rsSlope > 0) here while v67 (rsUpProxy = tDir == 1) and the board
+// (bull_screener: strict trend == 1) use the WEEKLY Zigzag strict trend - so on the same
+// bar S4 could print Stage 1 where the chart beside it printed 3. The weekly Zigzag
+// state is already bound into this script (zzTrendW on intraday, zzTrendD on a daily
+// chart, zzTrendC on weekly), so the tie-break now reads that - zero-drift with v67 by
+// construction. The RS slope stays as the fallback ONLY when the binding is cold
+// (an unbound source reads `close`, which fails the -1..1 shape test).
+float _zzWsel = timeframe.isintraday ? zzTrendW : timeframe.isdaily ? zzTrendD : timeframe.isweekly ? zzTrendC : na
+bool  _zzWok  = not na(_zzWsel) and _zzWsel >= -1.0 and _zzWsel <= 1.0
+bool  _rsUp   = _zzWok ? _zzWsel > 0.5 : rsSlope > 0
 // Written as an if/else ladder, NOT a wrapped ternary: a continuation line indented by a
 // MULTIPLE OF 4 parses as a new block ("end of line without line continuation"), and
 // re-indenting to 13 spaces only hides it until someone re-aligns the file.
@@ -5013,7 +5029,18 @@ if show_panel and d_panel and barstate.islast
     // builds and there was no way to tell them apart from the chart - the title bar is
     // truncated and the Settings dialog does not show it. Now the panel states the build
     // AND the library it was compiled against, so a stale compile is visible at a glance.
-    table.cell(pnl, 0, 0, "S4 " + S4_VER + "  │  core/" + S4_CORE_VER, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
+    // AUD-PAR-04 (20-Sep-2026): the bundle's own receipt. Nothing here could tell a
+    // truncated paste from a complete one, and the TAIL of the bundle is RANK|ETFL|ETFP
+    // - the ranking and the ETF index-gate lists. A section count below the expected 14
+    // (or a bundle-2 with no OPT) now shows in the header instead of failing silently
+    // as "not an ETF" / "no options". str.length is what settles the ~4,096-char question.
+    int _bTags  = 0
+    for _bt in array.from("REC", "PB", "BFF", "BFFC", "RFF", "RFFC", "PIO", "PIOC", "PAIR", "IDXS", "IDXR", "RANK", "ETFL", "ETFP")
+        if str.length(core.bundleSection(gm_bundle, _bt)) > 0 or str.pos(gm_bundle, "|" + _bt + "=") >= 0 or str.startswith(gm_bundle, _bt + "=")
+            _bTags += 1
+    bool   _b2ok   = str.length(gm_bundle2) == 0 or str.pos(gm_bundle2, "OPT=") >= 0
+    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/14" + (_bTags < 14 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
+    table.cell(pnl, 0, 0, "S4 " + S4_VER + "  │  core/" + S4_CORE_VER + "  │  " + _bNote, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
     // Each banner states the QUESTION its block answers. The panel is read under time
     // pressure and the sections are not interchangeable — a name can be perfect on
@@ -5545,7 +5572,17 @@ if show_panel and d_panel and barstate.islast
     string pl_slsrc = ""
     string _plan   = na
     if go_v
-        float _atr = _so_chart_atr
+        // AUD-PINE-01 (20-Sep-2026): the STOP is read off the TRIGGER bar too. The v6.0
+        // latch fixed the entry to trigBar but the stop chain below kept reading the
+        // zone distal / swing low / ATR on the DISPLAYED bar - so a zone tested three
+        // bars after the trigger moved the stop, and with it R, T1 and T2, while the
+        // Plan row still said "trig 3b ago". The reviewer, s4_take and the journal each
+        // took whatever the panel showed at that moment. _k is the offset back to the
+        // latched bar (0 on the trigger bar itself; bounded by the 12-bar re-latch), and
+        // every structural read below uses it. The put wall and the futures basis are
+        // pasted constants, so they are the same on every bar by construction.
+        int   _k   = na(trigBar) ? _so : math.max(_so, bar_index - trigBar)
+        float _atr = nz(chart_atr[_k], _so_chart_atr)
         // Entry method (#retest A/B): buy-STOP above the trigger HIGH (confirmation,
         // default doctrine) OR buy-LIMIT at the trigger CLOSE (retest the pullback to value).
         // #trigbar: both come from the LATCHED trigger bar, not from whatever bar GO is
@@ -5558,11 +5595,11 @@ if show_panel and d_panel and barstate.islast
         float _cl  = pl_entry
         // SL source, in priority order — and NAMED, so the row says what it rests on.
         float _lvl = na
-        if not na(z_inDZdist[_so])
-            _lvl := z_inDZdist[_so]
+        if not na(z_inDZdist[_k])
+            _lvl := z_inDZdist[_k]
             pl_slsrc := "zone distal (in-zone)"
-        else if not na(z_nearDZdist[_so])
-            _lvl := z_nearDZdist[_so]
+        else if not na(z_nearDZdist[_k])
+            _lvl := z_nearDZdist[_k]
             pl_slsrc := "nearest zone distal"
         // v10.3: the put-writer strike and the futures basis are SUPPORT when below the
         // entry - writers defend the strike, the marginal long defends the basis - so
@@ -5573,8 +5610,8 @@ if show_panel and d_panel and barstate.islast
         else if not na(oi_basis) and oi_basis < _cl
             _lvl := oi_basis
             pl_slsrc := "futures basis " + str.tostring(oi_basis, format.mintick)
-        else if not na(swingLo10[_so])
-            _lvl := swingLo10[_so]
+        else if not na(swingLo10[_k])
+            _lvl := swingLo10[_k]
             pl_slsrc := "10-bar swing low"
         // Dedicated SL buffer. The old code borrowed `_tol` — the AVWAP TOUCH tolerance
         // (1.0%) — so widening the AVWAP band silently doubled every stop's distance.
