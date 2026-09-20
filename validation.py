@@ -923,6 +923,16 @@ def run_s4go_validation(months_back: int = 24,
             if screener == "recovery":
                 import recovery_screener as _sc
                 picks = _sc.run_recovery_screener(symbols=universe, strict=True)
+                # AUD-PY-08 (20-Sep-2026): Signal=1 is "CB-Watch" — the WATCH state
+                # ahead of REV-CB (recovery_screener priority ladder, 1 = watch, 2+ =
+                # buy). The replay filled every labelled row, so 119 of the 400 trades
+                # in run 20260810_153105 (30%) were pre-signals. Buy states only.
+                if picks is not None and not picks.empty and "Signal" in picks.columns:
+                    _sig = pd.to_numeric(picks["Signal"], errors="coerce").fillna(0)
+                    _n0 = len(picks)
+                    picks = picks[_sig >= 2].copy()
+                    if _n0 != len(picks):
+                        print(f"   recovery: dropped {_n0 - len(picks)} CB-Watch (Signal=1) rows — watch states are not trades", flush=True)
             elif qualify == "catalyst":
                 import bull_screener as _sc
                 picks = _sc.run_bull_screener(symbols=universe, strict=True)

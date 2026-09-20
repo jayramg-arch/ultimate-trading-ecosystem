@@ -279,9 +279,12 @@ footer a{color:var(--acc)}
     anchors”. In fact a full re-baseline <b>completed</b>: 400 trades across 19 anchors, with the
     forward windows verified at 90 and 120 days, so it clears the window rule that invalidated
     every earlier attempt.</p>
-    <p><b>But the Trigger Board still tags every recovery row as unvalidated.</b> That flag is now
-    stale — the run exists, it is correctly windowed, and it is what drove the gate change. Worth
-    clearing, though that is a behaviour change and your call.</p>
+    <p><b>The Trigger Board tags every recovery row <span class="m">⚠noedge</span></b> (was
+    <span class="m">⚠unval</span> until 20 Sep). The run is read: 400 trades, mean matched alpha
+    −0.88%, CI95 [−1.51, −0.24], OOS no-edge — see the Golden Matcher page. The tag stays; the
+    rows stay tradeable on your own read. One caveat on the run itself: 30% of its trades were
+    <span class="m">CB-Watch</span> pre-signals, filtered from the replay on 20 Sep; re-run before
+    quoting the number again.</p>
   </div>
 </section>
 

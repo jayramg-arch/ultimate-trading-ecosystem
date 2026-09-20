@@ -68,7 +68,7 @@ LOOKBACK_DAYS  = 400   # daily history for stage/RS calculation
 #   ────────────────────     ────────────────────────────────────────────
 #   ≥ 1.0R, < 2.0R           Move SL → breakeven (lock zero loss)
 #   ≥ 2.0R, < 3.0R           Trim 33% + move SL → entry + 0.5R
-#   ≥ 3.0R                   Trim 50% + Chandelier trail (22-bar high − 3×ATR)
+#   ≥ 3.0R                   Trim 50% + Chandelier trail (risk_common — shared with Risk Shield / GTT trail)
 #   Stage-3 topping flag     Trim 25% defensively + move SL → entry
 #   Stage-4 breakdown flag   Full exit (qty 100%, no trail)
 #   SL breached              Full exit
@@ -79,7 +79,8 @@ def recommend_actions(buy_price: float, stop_loss: float, ltp: float,
                        atr: float, stage: int | None,
                        mansfield_rs: float | None,
                        df_d: pd.DataFrame | None = None,
-                       sl_breached: bool = False) -> list[dict]:
+                       sl_breached: bool = False,
+                       setup: str = "", timeframe: str = "") -> list[dict]:
     """Build a list of suggested actions from the position's current state.
 
     v2.3 E-2: When the market regime is bearish (via v2_fixes), R-multiple
@@ -148,19 +149,35 @@ def recommend_actions(buy_price: float, stop_loss: float, ltp: float,
     r_threshold_1 = 1.0 - r_shift
 
     if r_mult >= r_threshold_3:
-        # Chandelier trail: highest high of last 22 bars - 3xATR
+        # AUD-PY-03 (20-Sep-2026): the ONE Chandelier. This engine used to compute
+        # its own trail (22-bar HIGH - 3.0xATR14) while Risk Shield, Pyramid and the
+        # GTT trail share risk_common.chandelier_exit (highest CLOSE over a trade-type
+        # window, catalyst-aware multiplier) - so the 16:00 Telegram could name a stop
+        # no other surface agreed with. Same engine, same clock, same multiplier now;
+        # the 0.5R floor is kept (it is this engine's own rule, not a trail term).
         chandelier = None
-        if df_d is not None and not df_d.empty and "High" in df_d.columns and atr > 0:
+        _trail_label = "Chandelier"
+        if df_d is not None and not df_d.empty and {"High", "Low", "Close"} <= set(df_d.columns):
             try:
-                chandelier = float(df_d["High"].rolling(22).max().iloc[-1] - 3.0 * atr)
-                chandelier = max(chandelier, buy_price + 0.5 * risk_per_share)
+                import risk_common as _rc
+                _is_swing, _tt, _ = _rc.resolve_trade_type(timeframe=timeframe or None,
+                                                          setup=setup or None,
+                                                          entry=buy_price, stop=stop_loss,
+                                                          atr_pct=(atr / ltp * 100.0) if (atr and ltp) else None)
+                _bear = bool(_regime.get("active")) and (_regime.get("regime_score") or 10) <= 5
+                _lvl, _mult, _src = _rc.chandelier_exit(df_d["High"], df_d["Low"], df_d["Close"],
+                                                        setup=setup or "", bear=_bear, swing=_is_swing)
+                if _lvl is not None:
+                    chandelier = max(float(_lvl), buy_price + 0.5 * risk_per_share)
+                    _trail_label = (f"Chandelier ({_rc.trail_window_for(setup or '', _is_swing)}-bar close "
+                                    f"- {float(_mult):.1f}xATR, {_src})")
             except Exception:
                 chandelier = None
         out.append({
             "action":       "TRIM_AND_TRAIL",
             "qty_pct":      50,
             "new_sl":       round(chandelier, 2) if chandelier else None,
-            "trail_method": "Chandelier (22-bar high - 3xATR)",
+            "trail_method": _trail_label,
             "reason":       f"At {r_mult:.1f}R (threshold {r_threshold_3:.1f}R) "
                             f"-- book half, trail the rest with Chandelier.{_regime_tag}",
         })
@@ -383,6 +400,7 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
                 buy_price=bp, stop_loss=sl, ltp=ltp, atr=atr,
                 stage=stage, mansfield_rs=result["Mansfield_RS"],
                 df_d=df_d, sl_breached=sl_breached,
+                setup=str(row.get("setup") or ""), timeframe=str(row.get("Timeframe") or row.get("timeframe") or ""),
             )
             result["Recommendations"] = recs
             if recs and result["Exit_Flag"] != "ACTION":

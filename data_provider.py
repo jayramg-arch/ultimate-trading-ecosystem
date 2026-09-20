@@ -307,9 +307,18 @@ def _cache_key(symbol: str, period: str, interval: str, auto_adjust: bool) -> st
 
 
 def _ttl_for(period: str, interval: str) -> int:
+    """TTL keyed on the INTERVAL, not the period (AUD-PY-04, 20-Sep-2026).
+
+    A DAILY frame requested with a deep period (2y/3y/5y/10y/max — which is most of
+    them, since stage needs 30 weeks) used to inherit the 24 h WEEKLY TTL, so after the
+    15:30 close the just-finished session stayed out of cache until the next day unless
+    something called invalidate_symbol. Daily bars change once a day; 15 min is the
+    right staleness for them whatever the period. Weekly stays at 24 h. The pinned /
+    replay path never reaches here (deep frames are validated by content, not TTL).
+    """
     if interval in ("1m", "5m", "15m", "30m", "60m", "1h"):
         return CACHE_TTL_INTRADAY
-    if interval == "1wk" or period in ("2y", "5y", "10y", "max", "3y"):
+    if interval == "1wk":
         return CACHE_TTL_WEEKLY
     return CACHE_TTL_DAILY
 
@@ -797,7 +806,9 @@ def _fetch_ohlcv_impl(symbol: str,
         expired_cached = _read_cache(key, ignore_ttl=True)
         if expired_cached is not None and not expired_cached.empty:
             logger.warning("[data_provider] fetch_ohlcv: Using expired cache for %s as last resort", symbol)
-            _record_source(symbol, "cache")
+            # AUD-PY-05: a rescued EXPIRED frame is not a cache hit — label it so the
+            # provenance strips (board, Studio, feed banner) can tell the two apart.
+            _record_source(symbol, "cache-expired")
             return _apply_pin(expired_cached, pinned_date)
     except Exception as _re:
         logger.debug("Last-resort cache read failed: %s", _re)

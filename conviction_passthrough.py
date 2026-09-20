@@ -43,6 +43,27 @@ MASTER_FILE = os.path.join(_HERE, "MASTER_scan_results.csv")
 _master_cache: Optional[pd.DataFrame] = None
 
 
+def _key(s) -> str:
+    """ONE symbol key for both sides of the conviction map (AUD-PY-11, 20-Sep-2026).
+    Scrip-master canonical form (separator-insensitive: BAJAJ_AUTO / BAJAJ-AUTO / M_M /
+    M&M all resolve to the listed spelling) with the cheap strip as the offline fallback
+    - the arrangement gm_trigger_board._canon_key uses. The old strip-only key here was
+    the class of bug that broke inheritance on 13-Jul."""
+    raw = str(s or "").strip().upper()
+    for pfx in ("NSE:", "BSE:"):
+        if raw.startswith(pfx):
+            raw = raw[len(pfx):]
+    for suf in (".NS", ".BO"):
+        if raw.endswith(suf):
+            raw = raw[:-len(suf)]
+    try:
+        from dhan_ohlcv import canonical_nse_symbol
+        c = canonical_nse_symbol(raw)
+        return str(c).strip().upper() if c else raw
+    except Exception:
+        return raw
+
+
 def _load_master() -> Optional[pd.DataFrame]:
     """Read MASTER_scan_results.csv as dtype=str. Cached. Returns None on failure."""
     global _master_cache
@@ -81,7 +102,7 @@ def _load_master() -> Optional[pd.DataFrame]:
             _actual = next((c for c in df.columns if c.strip().lower() == _raw.lower()), None)
             if _actual and _gold not in df.columns:
                 df.rename(columns={_actual: _gold}, inplace=True)
-        df["MATCH_KEY"] = df["Symbol"].astype(str).str.upper().str.strip()
+        df["MATCH_KEY"] = df["Symbol"].map(_key)
         _master_cache = df
         return df
     except Exception as e:
@@ -145,7 +166,7 @@ def _extend_recovery_conviction(df, symbol_col, sym_to_conv, conv_fn) -> int:
 
     missing, seen = [], set()
     for raw in df[symbol_col].dropna().astype(str):
-        key = raw.upper().strip().replace("NSE:", "").replace("BSE:", "").replace(".NS", "")
+        key = _key(raw)
         if key and key not in sym_to_conv and key not in seen:
             seen.add(key); missing.append(key)
     if not missing:
@@ -245,8 +266,7 @@ def add_conviction_and_combined_score(
     score_norm_factor = 100.0 / 22.0 if mode == "recovery" else 1.0
 
     def _row_eval(row):
-        sym_key = str(row.get(symbol_col, "")).upper().strip() \
-                    .replace("NSE:", "").replace("BSE:", "").replace(".NS", "")
+        sym_key = _key(row.get(symbol_col, ""))
         conv = sym_to_conv.get(sym_key)
         try:
             tech_raw = float(row.get(score_col, 0) or 0)

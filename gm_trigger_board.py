@@ -984,10 +984,17 @@ PB_EXPANSION = {
 PB_RV_FLOOR = 0.5      # S4 pb_rv_floor
 RV_FLOOR    = 1.0      # S4 rv_floor
 
-# One switch for the recovery-book warning, so turning it off after the re-baseline is a
-# one-line change in a findable place rather than a hunt through the tag chain. See the
-# comment at the tag site for the evidence.
-RECOVERY_UNVALIDATED = True
+# One switch for the recovery-book warning. AUD-PY-07 (20-Sep-2026): the re-baseline
+# REPORTED (run 20260810_153105, 24mo nifty500, windows 90/120): 400 trades, mean matched
+# alpha -0.88%, anchor-bootstrap CI95 [-1.51, -0.24], P(alpha>0) 0.4%, OOS NO-EDGE; no
+# family positive in both windows. So the honest tag is no longer "unmeasured" but
+# "measured: no edge". Jay's call stands — TAG, don't suppress; the rows stay tradeable
+# on his own read through the reviewer. Caveats on the run: it predates the 18-Aug RRG /
+# forming-week fixes, and 30% of its trades were CB-Watch pre-signals (filtered from the
+# replay on 20-Sep). Re-run before quoting a number; flip this to False only if a re-run
+# shows an edge.
+RECOVERY_NO_EDGE = True
+RECOVERY_UNVALIDATED = RECOVERY_NO_EDGE      # old name kept for any external reader
 
 
 def _pullback_ctx(ctx: dict, path: str, archetypes=None) -> bool:
@@ -1354,8 +1361,8 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # the rows stay tradeable on his own read, they just stop looking measured. Display
     # only, like ⧖D and ⚠role — it never touches the gate count.
     # REMOVE THIS the moment the re-baseline reports; a permanent warning becomes wallpaper.
-    if path == "recovery" and RECOVERY_UNVALIDATED:
-        _mtag += " · ⚠unval"
+    if path == "recovery" and RECOVERY_NO_EDGE:
+        _mtag += " · ⚠noedge"     # measured 10-Aug-2026 run: -0.88% mean, CI excludes zero
     _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
     # GATE 5 (R). DISPLAY and VETO are deliberately separate: with the veto off the tag
     # must still print, or a disabled gate silently removes the very information Jay is
