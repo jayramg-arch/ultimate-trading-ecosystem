@@ -2944,8 +2944,10 @@ had no local copy, points at `AUDIT_LEDGER.md`); index/Doc 26 prose reworded loc
 artifact URLs quoted in earlier sections of this file are dead pointers — do not restore them.
 URLs (LAN/Tailscale, `SERVE_PORTAL.bat` running; **Tailscale re-keyed 20 Sep** after the daemon
 wedged in `NoState` — a repair install did not clear it, resetting `server-state.conf` did; the PC is
-now node `jaynuc-1` = 100.107.62.98, old `jaynuc`/100.91.124.18 is dead — prefer the MagicDNS
-hostname once the stale entry is deleted and `jaynuc-1` renamed): Library
+now 100.107.62.98; old 100.91.124.18 is dead. Jay deleted the stale node and renamed `jaynuc-1` →
+**`jaynuc`** the same evening, so the MagicDNS form is live and re-key-proof — all three verified 200:
+`http://jaynuc:8502/docs/portal/index.html` · `…/31_reviewer_log_v2.html` ·
+`http://jaynuc:8501/?view=gm_window&mobile=1`. Prefer the hostname; the IP form is a fallback): Library
 `http://100.107.62.98:8502/docs/portal/index.html` · Log `…/31_reviewer_log_v2.html`.
 
 ### Reviewer Log restored to FULL (20 Sep evening, commit `f9b61d02`)
