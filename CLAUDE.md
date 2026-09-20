@@ -2863,3 +2863,78 @@ replay set, then re-run; S5 geometry tuning pass before `S5_SKIP_SECTIONS` opens
 retire-or-leave decision; MEMORY.md over its size limit (trim index lines); pytest into the
 venv. Unchanged: v67 flat-cell parity, Risk Allocator v2.2 `"SWG"` fallback, VIJAYA 2nd OCO
 qty, GESHIP `buy_price = 0.0`, pivot-zone ablation, per-slot RV baseline (unbuilt).
+
+---
+
+## 20 Sep 2026 (Sun) — End-to-end audit (5 phases) → 23 findings → 13 shipped the same day
+
+All on `main` (head `07992e3e`). Ledger: `AUDIT_LEDGER.md` §"20 September 2026". S4 is
+**v10.4 (title) / v11.3 (panel) on S4Core/53**, S5 **v1.5** — both compiled by Jay, sources
+rebound, both alerts recreated. Superseded Pine copies archived to `_archive/pine_superseded/`.
+
+### The audit, in one line each
+- **Health 71/100, 0 P0, 7 P1.** The estate's one systemic weakness: *nothing mechanical keeps
+  the surfaces equal* — the 10-Aug Python commit (`3ae3d72b`) changed Bull Engulf and Stage-2
+  Launch and never reached S4Core/v67; the stage tie-break had been three-way since July.
+- Jay's brief was written from a stale snapshot (10 version anchors wrong, Strike/Bible paths
+  moved, "RFF ≥ 4" now 5, Pine "v5"). Phase 1 corrected the frame first ([[external_audit_stale_input]]).
+
+### Shipped (all evidenced at file:line in the ledger)
+- **B6 on both sides** (PAR-01, Jay's call): `pa_patterns` bull Engulf back to the validated
+  oversold form (close < EMA10 < EMA20, RV > 2, RSI[1] < 40) = S4Core/v67. `PA_FIXES` now
+  governs Launch only. The uptrend-reclaim engulf is GONE, not renamed; it may return only as a
+  distinct, validated pattern.
+- **Order gate fail-closed** (PY-02): `pre_trade_gate` blocks a BUY with no stop / zero stop /
+  stop ≥ entry. `dhan_mcp_server.dhan_place_order` gained `stop_loss`. Locked-profit stops on
+  EXISTING positions are a `modify_forever` path and never touch the gate — Jay asked, answered.
+- **S4 stop latched to the trigger bar** (PINE-01): stop chain reads `[_k = bar_index − trigBar]`
+  for zone distal / swing low / ATR, so SL, R, T1, T2 stop drifting after the trigger.
+- **Stage tie-break unified** (PAR-03): S4's `_rsUp` reads the BOUND weekly Zigzag strict trend
+  (zzTrendW/D/C by chart TF; RS slope only when unbound) — the signal v67 and the board already
+  use, with no v67 compile. Python `bull_screener` stage ladder gained the PULLBACK cell
+  (below a RISING 30-WMA → 2). 19 strict-trend tests pass.
+- **Stage-2 Launch on the weekly clock** (PAR-02): `f_weekly` returns `w_volok` (launch week
+  volume > 1.1× its 30-week SMA); `kLAU` uses it instead of daily RV.
+- **RRG Studio drops the forming week** (PY-01) via the imported `bull_screener._drop_forming_week`
+  at its one store point; `STRIKE_CAL` loaded from the root module BY PATH (the Studio's own
+  module is also named `rrg_engine`, so a plain import resolved to itself).
+- **Third stop engine converged** (PY-03): `exit_signal_engine` trail = `risk_common.chandelier_exit`
+  (POS 22-bar/4.5×, SWG 14-bar/1.5×, +0.5 bear), `setup`/`Timeframe` from the journal row.
+- **Task Scheduler owns the daily jobs** (PY-06 + the 17–18 Sep skip): `WeinsteinAutoPilot`
+  re-enabled (16:30, StartWhenAvailable) and the in-app `auto_pilot` job REMOVED; NEW
+  `Dhan_Token_Check` (08:00, `dhan_token_check.py` REFRESHES via TOTP, not just reports) and
+  `Exit_Scan_Daily` (16:00). In-app copies of the latter two stay as idempotent duplicates.
+- `data_provider` TTL keyed on interval (PY-04); expired last-resort cache labelled
+  `cache-expired` (PY-05); recovery replay drops `Signal=1` CB-Watch rows (PY-08); board tag
+  `⚠unval` → `⚠noedge` citing run 20260810_153105 (PY-07, Docs 09/23/25); `conviction_passthrough`
+  uses one canonical symbol key (PY-11); `ACC` bundle section no longer emitted (PAR-05).
+- **Bundle receipt on the S4 header** (PAR-04): `S4 v11.3 │ core/53 │ 6943ch·15/14` — and that
+  number proved the **"4,096-char input.string cap" was a MYTH**. The two-field paste rested
+  on a false premise since 25-Aug (harmless; the ETF gate always had its lists). Docs 22/23/26
+  corrected; S4's tooltip at ~:973 still repeats it (text only — next real compile).
+- S5 `f_geoClean` clamps its interior scan to the 300-bar buffer (PINE-02) — would have raised
+  on a Daily chart.
+
+### Deferred, deliberately
+Footprint `input.source` ×2 kept (restore path for an unbuilt `S4_Footprint_Bridge`);
+`activeZones` hard cap and Context-Layers S8/BROKEN threshold (reachable but ~never: 3
+alternating CHoCH in 20 bars) — Jay's call; the 333-blanket-except sweep in the web app
+(ongoing); Strike re-enable checklist (only if the subscription returns — Jay may get it free).
+
+### In flight
+**Recovery re-baseline** started 21:23 IST, detached: `validation.py --months 24 --universe
+nifty500 --screener recovery --catalyst_windows --bootstrap_n 10000` → log
+`validation_runs/_recovery_rerun_20260920.log` (pid 21352). Same parameters as 10-Aug but with
+CB-Watch filtered and the RRG/forming-week fixes in. ~12 h. Gate on `forward_days_used` = 90/120
+before quoting; then update the `⚠noedge` comment with the new run id.
+
+### Guard proposed, NOT yet built (Phase 5)
+`tests/test_pine_parity.py` (CDP-captured S4 hidden-plot fixture vs `pa_patterns` on the same
+bars) and a commit hook: a diff touching `pa_patterns.py` / `strict_trend.py` /
+`compute_weekly_stage_and_wks` / `STRIKE_CAL` must also touch `S4Core.pine`/v67 or carry
+`PARITY-WAIVER:`. Would have caught `3ae3d72b`.
+
+### Monday first checks
+`logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
+header on the first S4 read · `auto_pilot_20260921_1630xx.log` from Task Scheduler at 16:30 ·
+BAJFINANCE / CAPLIPOINT / EICHERMOT printed EXIT SIGNAL on Friday's trail (Chandelier ≥ LTP).
