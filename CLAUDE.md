@@ -2934,6 +2934,17 @@ bars) and a commit hook: a diff touching `pa_patterns.py` / `strict_trend.py` /
 `compute_weekly_stage_and_wks` / `STRIKE_CAL` must also touch `S4Core.pine`/v67 or carry
 `PARITY-WAIVER:`. Would have caught `3ae3d72b`.
 
+### Library + Reviewer Log are LOCAL FILES ONLY (Jay, 20 Sep evening) — memory [[library-local-only-no-artifacts]]
+Jay: the Library and the Log "should be local html files rather than published copies on claude
+site, which would save lots of tokens." Every republish cost a full re-read of the live page (the
+Log alone was 2 MB). So: **no more Artifact publishes for `docs/portal/*.html`** — editing the file
+and committing IS the release. Commit `5aad9980`: all 130 `claude.ai` artifact hrefs across the 28
+portal pages + `docs/00_INDEX.md` rewritten to relative filenames (the 27-Aug audit page, which
+had no local copy, points at `AUDIT_LEDGER.md`); index/Doc 26 prose reworded local-only. The old
+artifact URLs quoted in earlier sections of this file are dead pointers — do not restore them.
+URLs (LAN/Tailscale, `SERVE_PORTAL.bat` running): Library
+`http://100.91.124.18:8502/docs/portal/index.html` · Log `…/31_reviewer_log_v2.html`.
+
 ### Monday first checks
 `logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
 header on the first S4 read · `auto_pilot_20260921_1630xx.log` from Task Scheduler at 16:30 ·
