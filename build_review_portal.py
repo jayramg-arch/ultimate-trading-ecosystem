@@ -236,7 +236,7 @@ def render(items: list[dict]) -> str:
            "<style>%s</style>" % CSS,
            '<header class="mast"><div class="mast-in"><p class="eyebrow">Weinstein Commander · GM + S4 · AI reviewer</p>',
            "<h1>The Reviewer Log</h1>",
-           '<p class="dek">Every deliberation the reviewer has written off the S4 / S5 panels — ruling, case for and against, plan, and the script\'s own R / OI / index checks — newest day first. The panel read each one was made from is in its <code>.md</code> under <code>logs/ai_reviews/</code>, linked on the row.</p>',
+           '<p class="dek">Every deliberation the reviewer has written off the S4 / S5 panels — ruling, case for and against, plan, and the script\'s own R / OI / index checks — newest day first. Open a row for the full deliberation and, folded beneath it, the panel read it was made from; the source <code>.md</code> under <code>logs/ai_reviews/</code> is linked on every row. <b>ETF · index first</b> marks an ETF whose underlying index was read before the ruling (INDEX ARM = ETF WAIT).</p>',
            '<div class="counts"><div class="count"><b>%d</b><span>Reviews</span></div><div class="count"><b>%d</b><span>Days</span></div>'
            '<div class="count"><b>%d</b><span>Take</span></div><div class="count"><b>%d</b><span>Take · reduced</span></div>'
            '<div class="count"><b>%d</b><span>Wait</span></div><div class="count"><b>%d</b><span>Pass / No trade</span></div>'
@@ -256,7 +256,7 @@ def render(items: list[dict]) -> str:
         for it in revs:
             hay = html.escape(" ".join([it["symbol"], it["tf"], it["ruling"], it["date"], it["s4"], it["my_call"]]).lower(), quote=True)
             mine = ('<span class="pill mine">%s%s</span>' % (html.escape(it["my_call"]), (" · " + ("agreed" if it["agreed"].lower() in ("y", "yes", "1", "true") else "disagreed")) if it["agreed"] else "")) if (it["my_call"] or it["agreed"]) else ""
-            p1 = '<span class="pill other">index read</span>' if it["phase1"] else ""
+            p1 = '<span class="pill other" title="ETF: the underlying index was read first (INDEX ARM = ETF WAIT)">ETF · index first</span>' if it["phase1"] else ""
             out.append('<details class="rev" data-rc="%s" data-hay="%s"><summary><span class="t">%s</span><span class="sym">%s</span><span class="tf">%s</span>'
                        '<span class="rul">%s</span><span style="display:flex;gap:6px;align-items:center"><span class="pill %s">%s</span>%s%s</span></summary>'
                        % (it["rclass"], hay, it["time"], html.escape(it["symbol"]), html.escape(it["tf"] + ("m" if it["tf"].isdigit() else "")),
