@@ -146,3 +146,51 @@ Read-only validator (~2s; wired as auto-pilot Phase 11, non-fatal). For each out
 - **E. Structural indicator correctness** — Stage/30WMA, Mansfield, EMA/SMA, ATR, 52WH math vs documented specs (RRG read-only per do-not-touch rule).
 
 **Status:** A and B (watchlist freshness + ranking formulae — the core of "wrong lists from wrong calculations") are complete: 4 ranking-affecting bugs found and fixed. C/D/E pending.
+
+---
+
+# 20 September 2026 — End-to-end system, logic and parity audit (Phases 1–5)
+
+Scope: Web Commander + engines + pipelines + honesty layer (Python), the 9 live Pine files,
+Python↔Pine parity, RRG Studio, Strike sync (dormant, kept). Against `main` @ `e643d97f`.
+Every finding carries a file:line read on the day. Severity: P0 blocker · P1 logic/parity
+drift · P2 latent defect · P3 debt/doc lag. Phase-2/3/4 reports live in the session
+transcript of 20 Sep; this is the ledger.
+
+## Health: 71 / 100 — stable, tradeable tomorrow, drifting at the seams
+
+| Finding | Sev | Location | One line |
+|---|---|---|---|
+| AUD-PAR-01 | P1 | pa_patterns.py:344 vs S4Core.dailyPA p_eng / v67:3287 | Bull Engulf is two different patterns since 10 Aug (uptrend-reclaim vs validated B6 oversold form) |
+| AUD-PAR-02 | P1 | pa_patterns.py:383 vs S4:3028 | Stage-2 Launch: weekly-volume gate (Py) vs daily RV (S4) |
+| AUD-PAR-03 | P1 | S4:3165 · v67:2500 · bull_screener.py:530 | Stage 2×2 tie-break: RS slope (S4) vs strict trend (v67, Py); Python lacks the below-rising → 2 PULLBACK branch |
+| AUD-PY-01 | P1 | rrg_studio/rrg_engine.py:245–330 | RRG Studio computes on the forming week (every other surface drops it) |
+| AUD-PY-02 | P1 | pre_trade_gate.py:96 | Risk-% check is skipped when SL is missing / zero / ≥ entry → BUY passes |
+| AUD-PY-03 | P1 | exit_signal_engine.py:151–156 | Third stop engine (22-high − 3×ATR) still live; Telegrams 16:00 ACTIONs from a formula no other surface uses |
+| AUD-PINE-01 | P1 | S4:4293–4308 + 5553–5586 | Trigger latch fixes the ENTRY only; SL (and so T1/T2) recompute from current-bar structure |
+| AUD-PY-04 | P2 | data_provider.py:309 | Daily frames with 2y+ period get the 24 h weekly TTL |
+| AUD-PY-05 | P2 | data_provider.py:796 | Expired last-resort cache recorded as "cache" |
+| AUD-PY-06 | P2 | scheduler_daemon.py:559–692 | token_check / exit_scan are in-app only, no catch-up (auto_pilot moved to Task Scheduler 20 Sep) |
+| AUD-PY-07 | P2 | gm_trigger_board.py:1344 | ⚠unval tag now false — recovery IS measured (no edge) |
+| AUD-PY-08 | P2 | recovery_screener.py:1575 + replay | CB-Watch (Signal=1, a pre-signal) is 30% of the recovery replay set |
+| AUD-PY-09 | P2 | _archive/strike_money/strike_automation.py | Dormant; mtime-only freshness, DOM-selector fragility, Phase 6b/nuclear hooks removed — re-enable needs three edits |
+| AUD-PINE-02 | P2 | S5:99 vs f_geoClean:1083 | close[_off] up to 3,999 under max_bars_back=300 — will error on Daily |
+| AUD-PINE-03 | P2 | S4 input.source ×2 | Footprint sources can never bind (S5 lives on another chart) |
+| AUD-PINE-04 | P2 | Context Layers:414–420, 1055 | S8 / BROKEN need 3 alternating CHoCH in 20 bars — reachable but effectively never |
+| AUD-PAR-04 | P2 | S4:973 / :5016 | No bundle-length / tag-count check; tooltip's "4,096 cap" unverified against a 7,555-char paste |
+| AUD-PY-10 | P3 | rrg_studio/rrg_engine.py:690 | Second copy of STRIKE_CAL |
+| AUD-PY-11 | P3 | conviction_passthrough.py:148, 249 | Strip-only symbol key (the _canon_key class) |
+| AUD-PY-12 | P3 | weinstein_commander_web_v4.0.py | 333 blanket excepts, 51 `pass` |
+| AUD-PINE-05 | P3 | S4:6378 | Alerts survive only by the nightly ritual (constraint, not defect) |
+| AUD-PINE-06 | P3 | S4:1924–2046 | activeZones has no hard cap (20 s-limit exposure) |
+| AUD-PAR-05 | P3 | gm_trigger_board.py:2630 | ACC bundle section written, never read |
+
+Fixed during the audit: in-app auto-pilot had no catch-up → Task Scheduler (bfc4f83d);
+pop-out views were not hiding the sidebar (e9cb855c); Phase-1 read died on volume-less
+index bars (acd7ac65); superseded Pine copies archived (e643d97f).
+
+## Verified clean (do not re-audit): lock lifecycle · dhan_auth refresh/rate-limit ·
+scheduler singleton · cache no-retimestamp · pop-out TF isolation · R-canon on 5 surfaces ·
+RRG calibration on 6 · 15/17 bull + 10/10 recovery formulas · weekly evaluated-bar ·
+S4-GO gate mirror · bundle tags · v67 plot budget 38/64 · Zigzag bootstrap · latch edge in
+global scope · Risk Allocator v2.2 targets/partials.
