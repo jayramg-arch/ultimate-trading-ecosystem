@@ -2948,6 +2948,15 @@ now node `jaynuc-1` = 100.107.62.98, old `jaynuc`/100.91.124.18 is dead — pref
 hostname once the stale entry is deleted and `jaynuc-1` renamed): Library
 `http://100.107.62.98:8502/docs/portal/index.html` · Log `…/31_reviewer_log_v2.html`.
 
+### Reviewer Log restored to FULL (20 Sep evening, commit `f9b61d02`)
+The 18-Sep slimming (panel reads linked not embedded; full bodies only for `FULL_DAYS = 7`) existed
+solely to keep the claude.ai artifact republishable. With the page local-only that cost is gone, so
+`build_review_portal.py` now has **`FULL_DAYS = None`**: every row carries the full deliberation AND the
+panel read folded beneath it (`<details class="panel">`), plus the `.md` source link. Page is ~3.1 MB
+for 124 reviews — irrelevant for a file on :8502. Set `FULL_DAYS` to an int to compact rows older than
+N days again. Doc 32 already described the folded read (written pre-slim), so it needed no change;
+index gained a change row (18 changes).
+
 ### Monday first checks
 `logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
 header on the first S4 read · `auto_pilot_20260921_1630xx.log` from Task Scheduler at 16:30 ·
