@@ -464,9 +464,12 @@ footer a{color:var(--acc)}
   </table></div>
   <div class="note warn">
     <span class="tag">They are not interchangeable</span>
-    <p><b>Pasting bundle 2 into the first field wipes every list in it.</b> Two fields exist because
-    TradingView caps a text input near 4,096 characters and the first bundle is already about
-    9,200 — the split is a constraint, not a preference.</p>
+    <p><b>Pasting bundle 2 into the first field wipes every list in it.</b> Two fields exist
+    because the options data was added after the first bundle had settled, and keeping it
+    separate means a missed second paste cannot blank the first. <b>The "4,096-character cap"
+    that used to be given as the reason is false</b> — measured 20 Sep: S4's header receipt read
+    <span class="m">6943ch·15/14</span>, every section received. The split stays as a
+    convenience, not a constraint.</p>
   </div>
   <p>The options bundle is built by the Evening run, and otherwise sits behind a button rather than building with the board, because it costs
   <b>one broker call per F&amp;O name at one call every three seconds</b>. Cash-only names are
