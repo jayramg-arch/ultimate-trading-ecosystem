@@ -610,14 +610,14 @@ def start_scheduler() -> BackgroundScheduler:
         replace_existing=True,
     )
 
-    # Auto-Pilot Full Run: 4:30 PM IST, Mon–Fri
-    scheduler.add_job(
-        job_auto_pilot,
-        CronTrigger(hour=16, minute=30, day_of_week="mon-fri", timezone=IST),
-        id="auto_pilot",
-        name="Auto-Pilot Full Run",
-        replace_existing=True,
-    )
+    # Auto-Pilot Full Run — NOT scheduled here any more (20-Sep-2026). This job only
+    # fired when Web Commander was up AND the PC was awake at 16:30, and had no catch-up:
+    # 17 and 18 Sep were silently skipped (the PC was asleep at 16:30 on the 18th; the
+    # Task Scheduler jobs caught up at 21:24, this one never did). The Windows task
+    # `WeinsteinAutoPilot` (same command, StartWhenAvailable, 3 h limit) is the ONE
+    # trigger now — same pattern as TradingJournal_DhanSync and GTT_Trail_Daily.
+    # job_auto_pilot() stays for the Run Auto-Pilot button; two 16:30 runs at once
+    # would fight over the Chartink/TradingView browser sessions.
 
     # GTT Trail (tighten-only Chandelier): 3:45 PM IST, Mon–Fri (post-close,
     # before the 16:30 auto-pilot so the trail reads today's completed bar).

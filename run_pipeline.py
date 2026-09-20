@@ -240,7 +240,7 @@ def main():
     logger.info("5. Run Recovery Screener")
     logger.info("6. Run Bull Screener")
     logger.info("7. Generate Local Watchlists")
-    logger.info("8. Sync to Strike.Money")
+    logger.info("8. Sync to RRG Studio + TradingView, backup, exports, Evening run")
     logger.info("-" * 60)
 
     # E9: pipeline status tracker — writes pipeline_status.json after every phase

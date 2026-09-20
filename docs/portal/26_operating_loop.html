@@ -209,6 +209,10 @@ footer em{color:var(--ink-2)}
           pulled, both S4 paste strings written to <span class="m">gm_bundles/latest.txt</span>.</p>
         <p class="d">Alongside it: Post-Market Summary, and the journal ↔ Dhan sync — which
           aborts rather than guess if the holdings fetch fails or comes back empty.</p>
+        <p class="d"><b>Since 20 Sep it runs from Windows Task Scheduler</b>
+          (<span class="m">WeinsteinAutoPilot</span>, 16:30 Mon–Fri, catch-up if the start was
+          missed) — not from inside the app. The in-app job needed Web Commander open and the
+          PC awake at 16:30 and had no catch-up; 17 and 18 Sep were skipped that way.</p>
       </div>
     </div>
 
@@ -520,6 +524,7 @@ footer em{color:var(--ink-2)}
       <tr><td>Section Five on its own chart</td><td>S4's panel vanishes with "Memory limits exceeded" &mdash; Pine meters memory per chart, and the footprint cannot share one with S4</td></tr>
       <tr><td>The board is fresh before the reviewer runs</td><td>the reviewer warns past six hours; ignored, you are reading last session's GO rows against today's chart</td></tr>
       <tr><td>The alert reviewer is up before the open</td><td><span class="m">S4 Alert Reviewer</span> on the taskbar — receiver + tunnel. Down, TradingView gets a 502 and the alert is simply lost; it does not retry. The launcher restarts the receiver if it exits</td></tr>
+      <tr><td>The 16:30 auto-pilot ran</td><td>no <span class="m">auto_pilot_&lt;today&gt;_1630xx.log</span> in the repo root — the Task Scheduler task is disabled or the PC slept through it and the catch-up has not fired yet</td></tr>
       <tr><td>Phase 12 ran</td><td>the build stamp on the board is yesterday's; <span class="m">gm_bundles/latest.txt</span> is old. Press Evening run</td></tr>
       <tr><td class="n">Guides still match the code</td><td>you act on a number the code stopped producing weeks ago — the page reads fine, because nothing on it is marked wrong</td></tr>
     </tbody>
