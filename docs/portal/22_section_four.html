@@ -207,7 +207,7 @@ footer a{color:var(--acc)}
       leader is at its zone — is price actually in a demand zone, has a real trigger printed, and
       where exactly do I buy and stop?</em> Since 29 August it also asks a non-technical one:
       <em>do the books clear the board&rsquo;s floor?</em> Since 8 September it has a companion,
-      <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78"><b>Section Five</b></a>, that explains what S4 decides — on a second chart, by necessity.</p>
+      <a href="30_section_five.html"><b>Section Five</b></a>, that explains what S4 decides — on a second chart, by necessity.</p>
     </div>
     <div class="gatebox">
       <p class="lbl">The gate</p>
@@ -315,12 +315,28 @@ footer a{color:var(--acc)}
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.2 on S4Core v53</b> (file title v10.3). Five things moved on 8–9 September, one
-  measurement changed how a row should be read, and the 12–15 September batch below put the
-  derivatives into the ladders.</p>
+  <p>The panel is <b>S4 v11.3 on S4Core v53</b> (file title v10.4). Five things moved on 8–9 September, one
+  measurement changed how a row should be read, the 12–15 September batch put the derivatives into
+  the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">20 Sep</td><td><b>The stop is latched to the trigger bar.</b> Since v6.0 the entry
+      was read off the bar the GO fired on, but the stop chain kept reading the zone distal, swing low
+      and ATR on the <em>displayed</em> bar — a zone tested three bars later moved SL, and with it R,
+      T1 and T2, while the row still said <code>trig 3b ago</code>. Every structural read in the stop
+      chain now uses the latched bar's offset. The reviewer, <code>s4_take</code> and the journal now see
+      one plan per trigger</td><td>Rows 37 · 38</td></tr>
+      <tr><td class="m">20 Sep</td><td><b>Three parity drifts closed.</b> Stage-2 Launch gates on the launch
+      <em>week's</em> volume (&gt; 1.1× its 30-week average) instead of the daily RV of whichever bar
+      you read; the stage 2×2 tie-break reads the bound weekly Zigzag trend — the signal v67 and the
+      board use — with the RS slope only when the binding is cold; Bull Engulf stays the validated B6
+      form here and Python was brought back to it (it had drifted to an uptrend-reclaim engulf on
+      10 Aug)</td><td>Row 2 · PA grid</td></tr>
+      <tr><td class="m">20 Sep</td><td><b>The bundle receipt.</b> The header prints <code>6943ch·14/14</code>
+      — characters received and sections found; <code>⚠tail?</code> means fewer than 14 sections
+      (a short paste), <code>⚠b2</code> a second field without <code>OPT</code>. The first reading
+      also retired the "4,096-character cap" story: the whole bundle arrives</td><td>Row 0</td></tr>
       <tr><td class="m">13 Sep</td><td><b>Derivatives joined the ladders.</b> The call-writer strike, max pain
       and the futures basis (each only when above price) are Room candidates like any supply zone; the
       lowest wins and is <em>named</em> — <code>FIRST TEST +0.4% │ 1039.3 │ call wall</code>. The put-writer
@@ -1154,8 +1170,9 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.2 │ core/53</code>. Check it after every recompile; a
-  mismatch means the library did not publish.</p>
+  Row 0 is the header — <code>S4 v11.3 │ core/53 │ 6943ch·14/14</code>. Check it after every
+  recompile: a version mismatch means the library did not publish; a section count under 14 means
+  the paste was short.</p>
 
   <h3>Row 2 · Structure basis</h3>
   <p class="m">Stage 2 (14w leg/38w macro) │ &gt;30WMA ↑ &gt;50 ↑ &gt;200 uptrend │ RFF 5 🟢 │ BFF 4 🟢</p>
@@ -1892,6 +1909,6 @@ R   RRG        chipped, measured, and deliberately off
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.2 / S4Core v53 · revised against the code 16 Sep 2026</span>
-  <span>Companions — <a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">30 Section Five</a> · <a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">23 Golden Matcher</a> · <a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">24 Pre-Trade Gate</a></span>
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.3 / S4Core v53 · revised against the code 20 Sep 2026</span>
+  <span>Companions — <a href="30_section_five.html">30 Section Five</a> · <a href="23_golden_matcher.html">23 Golden Matcher</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>

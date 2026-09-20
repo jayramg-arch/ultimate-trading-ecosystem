@@ -194,6 +194,10 @@ footer em{color:var(--ink-2)}
         <p class="t">Exit Signal Scan<span class="who">automatic</span></p>
         <p class="d">Checks the open book for stop hits, stage decay and time stops, and
           Telegrams the ACTION rows.</p>
+        <p class="d"><b>Since 20 Sep</b> a Task Scheduler job (<span class="m">Exit_Scan_Daily</span>,
+          catch-up on) as well as the in-app one — and its trail level is the same Chandelier
+          Risk Shield and the GTT trail use (trade-type window, catalyst multiplier), not the
+          22-high − 3×ATR it used to compute on its own.</p>
       </div>
     </div>
 
@@ -260,7 +264,9 @@ footer em{color:var(--ink-2)}
       <div class="bd">
         <p class="t">Dhan token check · pre-market brief<span class="who">automatic</span></p>
         <p class="d">The token job matters more than it looks: without it the feed silently
-          falls back to yfinance.</p>
+          falls back to yfinance. <b>Since 20 Sep</b> it is a Task Scheduler job
+          (<span class="m">Dhan_Token_Check</span>) that <em>refreshes</em> the token via TOTP
+          and Telegrams the result — the in-app one only reported.</p>
         <p class="d"><b>Morning Approval Dashboard</b> (Risk Shield) &mdash; the same trail engine's
           proposals, one row per resting order, editable, with a single <em>Execute Approved SL
           Updates</em> button. Tighten-only is enforced at the button; BREACHED names are shown
@@ -549,7 +555,9 @@ footer em{color:var(--ink-2)}
     </tbody>
   </table></div>
   <p>The rulings themselves still arrive on Telegram; the Log is where you read the full
-    case. The claude.ai copy of the Log is a snapshot — the :8502 address is the live one.
+    case. Since 20 Sep the Log and the Library are <b>local files only</b> — nothing is published
+    to claude.ai any more (every republish cost a full re-read of the page), so the :8502 address is
+    the only address.
     Keep ngrok for the webhook only; never put :8501 on a public tunnel.</p>
 </section>
 
@@ -572,9 +580,10 @@ footer em{color:var(--ink-2)}
 <section>
   <p class="pt">Compressed</p>
   <h2>The whole loop</h2>
-<pre>15:45  <b>GTT trail</b> (Task Scheduler, tighten-only)   (auto)
-16:00  exit scan                   (auto)
-16:30  auto-pilot + journal sync + <b>Phase 12 evening run</b>   (auto)
+<pre>08:00  Dhan token refresh (Task Scheduler)   (auto)
+15:45  <b>GTT trail</b> (Task Scheduler, tighten-only)   (auto)
+16:00  exit scan (Task Scheduler)   (auto)
+16:30  auto-pilot + journal sync + <b>Phase 12 evening run</b> (Task Scheduler)   (auto)
 ─────  <b>EVENING: open GM window · copy 2 pastes · review --live · ARM · 2 alerts w/ webhook</b>   ← you
 09:00  <b>S4 Alert Reviewer</b> up (taskbar)                           ← you
 09:15  session — do not watch the board

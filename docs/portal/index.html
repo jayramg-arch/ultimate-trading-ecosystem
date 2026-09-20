@@ -184,7 +184,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     the rules for choosing a trade, the loop that runs the day, the engines underneath,
     and the evidence they all rest on.</p>
     <div class="counts">
-      <div class="count"><b>27</b><span>Published pages</span></div>
+      <div class="count"><b>27</b><span>Pages</span></div>
       <div class="count"><b>27</b><span>Guides in the library</span></div>
       <div class="count"><b>6</b><span>Categories</span></div>
     </div>
@@ -195,11 +195,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Provenance</h2><div class="rule"></div><span class="ct">audited 27 Aug · pages revised 16 Sep</span>
+    <h2>Provenance</h2><div class="rule"></div><span class="ct">audited 27 Aug, re-audited 20 Sep · pages revised 20 Sep</span>
   </div>
 
   <a class="card" style="--spine:var(--evidence)"
-     href="https://claude.ai/code/artifact/a436bfba-a6dd-401d-ae19-41d4b94fac6e">
+     href="../../AUDIT_LEDGER.md">
     <div class="spine"></div>
     <div class="card-b">
       <p class="card-n">Audit · 27 August 2026</p>
@@ -212,8 +212,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </div>
   </a>
 
+  <div class="note" style="margin:0 0 34px">
+    <span class="tag">Second audit · 20 September 2026</span>
+    <p><b>End-to-end, five phases, 23 findings, 0 blockers, 7 logic/parity drifts — 13 fixed the
+    same day.</b> Health 71/100. The one systemic weakness: nothing mechanical keeps Python and
+    Pine equal — a 10-Aug Python commit changed two patterns and never reached S4Core or v67, and
+    the stage tie-break had been three different signals since July. Ledger with file:line
+    evidence in <code>AUDIT_LEDGER.md</code>; the pages below were corrected where the audit
+    found them behind. Also found: the "4,096-character paste cap" that justified the two-field
+    bundle never existed (<code>6943ch·15/14</code> received whole).</p>
+  </div>
+
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 16 Sep · 14 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 20 Sep · 17 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -223,6 +234,39 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">20 Sep<br>audit fixes</td>
+        <td><b>Parity closed, gate closed, stop latched.</b> Bull Engulf is B6 on both sides again
+        (the validated oversold form); Stage-2 Launch gates on the launch <em>week's</em> volume;
+        the stage 2×2 tie-break reads the bound weekly Zigzag trend on S4 (the signal v67 and the
+        board use) and the board gained the PULLBACK cell; the S4 Plan's stop now reads the
+        <em>trigger</em> bar, so SL/R/T1/T2 no longer drift after the trigger; the order gate
+        blocks a BUY with no stop or a stop above entry; the exit engine's trail is the shared
+        Chandelier; RRG Studio drops the forming week. S4 v10.4 / v11.3, S5 v1.5 — and the S4
+        header now prints a bundle receipt.</td>
+        <td class="af">22 · 23 · 26 · 30 · 32</td>
+      </tr>
+      <tr>
+        <td class="dt">20 Sep<br>ops</td>
+        <td><b>Task Scheduler owns the day.</b> The 16:30 auto-pilot had silently skipped 17 and
+        18 Sep (the in-app job needed Web Commander up and the PC awake, with no catch-up);
+        <code>WeinsteinAutoPilot</code> is re-enabled and the in-app job removed, and
+        <code>Dhan_Token_Check</code> (08:00, refreshes via TOTP) and <code>Exit_Scan_Daily</code>
+        (16:00) join <code>GTT_Trail_Daily</code> and the journal sync. Superseded Pine copies
+        archived so no stale S4 or Risk Allocator can reach a chart.</td>
+        <td class="af">26</td>
+      </tr>
+      <tr>
+        <td class="dt">18–19 Sep<br>away</td>
+        <td><b>Reachable from a phone.</b> Tailscale on the PC and the phone; <code>Commander
+        Portal</code> serves the repo read-only on :8502 so the live Reviewer Log and this library
+        open from anywhere; <code>?view=risk_window</code> and <code>&amp;mobile=1</code> pop-outs;
+        the pop-out views now really hide the sidebar. The Reviewer Log page slimmed to ~0.5 MB
+        (panel reads linked, not embedded) and moved to a new address. The recovery re-baseline
+        was read: <b>no edge</b> (−0.88%, CI excludes zero) — board tag is now
+        <code>⚠noedge</code>; a re-run with the pre-signal rows filtered is in flight.</td>
+        <td class="af">31 · 32 · 26 · 09 · 23</td>
+      </tr>
       <tr>
         <td class="dt">11 Sep<br>audit H10</td>
         <td><b>Room to the first obstacle does not predict outcome.</b> On 331 GO-timed trades,
@@ -349,7 +393,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </table></div>
 
   <div class="sec-head">
-    <h2>Published pages</h2><div class="rule"></div><span class="ct">27 of 27</span>
+    <h2>Pages</h2><div class="rule"></div><span class="ct">27 of 27</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -358,7 +402,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="cards">
 
     <a class="card" style="--spine:var(--doctrine)"
-       href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">
+       href="25_golden_rules.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 25 · Doctrine</p>
@@ -372,7 +416,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
     <a class="card" style="--spine:var(--doctrine)"
-       href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">
+       href="26_operating_loop.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 26 · Process</p>
@@ -386,7 +430,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
     <a class="card" style="--spine:var(--evidence)"
-       href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">
+       href="27_backtest_court.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 27 · Evidence</p>
@@ -400,7 +444,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
 
-    <a class="card" style="--spine:var(--gate)" href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">
+    <a class="card" style="--spine:var(--gate)" href="24_pre_trade_gate.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 24 &middot; Process</p>
@@ -412,7 +456,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--funnel)" href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">
+    <a class="card" style="--spine:var(--funnel)" href="18_trade_funnel.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 18 &middot; Doctrine</p>
@@ -425,7 +469,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
 
-    <a class="card" style="--spine:var(--bible)" href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">
+    <a class="card" style="--spine:var(--bible)" href="00_commander_bible.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">The Bible &middot; Foundation</p>
@@ -437,7 +481,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/code/artifact/53aee9e9-be8c-4084-afc2-a86ae598bad5">
+    <a class="card" style="--spine:var(--honest)" href="16_honesty_layer.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 16 &middot; Evidence</p>
@@ -449,7 +493,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--ledger)" href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">
+    <a class="card" style="--spine:var(--ledger)" href="19_performance_ledger.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 19 &middot; Evidence</p>
@@ -462,7 +506,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
 
-    <a class="card" style="--spine:var(--gm)" href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">
+    <a class="card" style="--spine:var(--gm)" href="23_golden_matcher.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 23 &middot; Live system</p>
@@ -475,7 +519,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
 
-    <a class="card" style="--spine:var(--s4)" href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">
+    <a class="card" style="--spine:var(--s4)" href="22_section_four.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 22 &middot; Live system</p>
@@ -483,12 +527,13 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-d">The execution layer and the last authority. The five-gate GO, the
         seventeen-pattern battery, the five location sources, the verdict ladder where the first
         match wins — and, since September, aged S/R levels, the Setup row, and a Room row that is
-        information rather than a veto. S4 v11.2 on S4Core v53.</p>
+        information rather than a veto. S4 v10.4 / panel v11.3 on S4Core v53 — stop latched to the
+        trigger bar, bundle receipt on the header.</p>
         <div class="card-m"><span>Read at the chart</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/artifact/6bDijUn3wEZhxNa6FyhRxb">
+    <a class="card" style="--spine:var(--honest)" href="32_the_reviewer.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 32 &middot; Live system</p>
@@ -501,7 +546,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--evidence)" href="https://claude.ai/artifact/N1wDUpbGjdrnQpJz99ham6">
+    <a class="card" style="--spine:var(--evidence)" href="31_reviewer_log_v2.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 31 &middot; Evidence</p>
@@ -510,11 +555,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         &mdash; ruling, case for and against, plan, the script's own R / OI / index checks
         &mdash; newest day first, the panel read folded under each. Nothing is deleted; your
         TAKEN / SKIPPED marks are the scoring.</p>
-        <div class="card-m"><span>Regenerated after every review · republished as a snapshot</span><span class="go">Open &rarr;</span></div>
+        <div class="card-m"><span>Regenerated after every review · local file, always live</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">
+    <a class="card" style="--spine:var(--honest)" href="30_section_five.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 30 &middot; Live system</p>
@@ -522,13 +567,14 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-d">S4 decides, S5 explains. The real footprint delta, the Wyckoff ladder,
         geometry on TradingView's own criteria, the two named setups &mdash; on a second chart,
         because it cannot share one with S4. Nothing here gates; two sections stay withheld from
-        the reviewer until tuned.</p>
+        the reviewer until tuned. v1.5: shapes withdraw at the apex; the pattern scan stays inside
+        the bar buffer.</p>
         <div class="card-m"><span>Beside the chart, never on it</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
 
 
-    <a class="card" style="--spine:var(--cw)" href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">
+    <a class="card" style="--spine:var(--cw)" href="07_mission_control.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 07 &middot; Live system</p>
@@ -540,7 +586,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--db)" href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">
+    <a class="card" style="--spine:var(--db)" href="08_swing_pro_dashboard.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 08 &middot; Live system</p>
@@ -553,7 +599,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
 
-    <a class="card" style="--spine:var(--bull)" href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">
+    <a class="card" style="--spine:var(--bull)" href="11_catalyst_engine.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 11 &middot; Screeners</p>
@@ -566,7 +612,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
 
-    <a class="card" style="--spine:var(--rec)" href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">
+    <a class="card" style="--spine:var(--rec)" href="09_quality_on_sale.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 09 &middot; Screeners</p>
@@ -578,7 +624,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--bull)" href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">
+    <a class="card" style="--spine:var(--bull)" href="13_unified_ecosystem.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 13 &middot; Screeners</p>
@@ -590,7 +636,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--honest)" href="https://claude.ai/code/artifact/5144c644-9f1d-43e4-bfd9-258c6806eb91">
+    <a class="card" style="--spine:var(--honest)" href="21_relative_strength.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 21 &middot; Chart engines</p>
@@ -602,7 +648,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--bible)" href="https://claude.ai/code/artifact/48fa58a2-88be-40cc-858e-ab8fff5089d8">
+    <a class="card" style="--spine:var(--bible)" href="25_scanner_filter_map.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 25* &middot; Reference</p>
@@ -614,7 +660,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--db)" href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">
+    <a class="card" style="--spine:var(--db)" href="01_structure_engine.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 01 &middot; Chart engines</p>
@@ -625,7 +671,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--rec)" href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">
+    <a class="card" style="--spine:var(--rec)" href="02_wyckoff.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 02 &middot; Chart engines</p>
@@ -636,7 +682,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--doctrine)" href="https://claude.ai/code/artifact/5613c1cc-e562-45a4-bff1-cf2cad21dee1">
+    <a class="card" style="--spine:var(--doctrine)" href="03_volume_profile.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 03 &middot; Chart engines</p>
@@ -647,7 +693,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--funnel)" href="https://claude.ai/code/artifact/50a2b6ce-b153-46c3-b194-2fd608139217">
+    <a class="card" style="--spine:var(--funnel)" href="04_smc_zones.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 04 &middot; Chart engines</p>
@@ -658,7 +704,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--cw)" href="https://claude.ai/code/artifact/79c4e8aa-b2ba-4690-8f2f-8c57164cd76b">
+    <a class="card" style="--spine:var(--cw)" href="20_chart_markup.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 20 &middot; Chart engines</p>
@@ -669,7 +715,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--doctrine)" href="https://claude.ai/code/artifact/d52f6dcd-7af4-404f-b7fe-396d406c5d00">
+    <a class="card" style="--spine:var(--doctrine)" href="15_context_layers.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 15 &middot; Chart engines</p>
@@ -680,7 +726,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
-    <a class="card" style="--spine:var(--s4)" href="https://claude.ai/code/artifact/6682471c-4356-40ea-a767-c4c919077b37">
+    <a class="card" style="--spine:var(--s4)" href="10_position_sizer.html">
       <div class="spine"></div>
       <div class="card-b">
         <p class="card-n">Doc 10 &middot; Execution</p>
@@ -706,8 +752,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="sec-head">
     <h2>The full library</h2><div class="rule"></div><span class="ct">27 guides</span>
   </div>
-  <p class="sec-note">Everything in <code>docs/</code>. <b>Page</b> means it is published here
-  and reads like the three above; <b>Markdown</b> means it still lives only in the repo and is
+  <p class="sec-note">Everything in <code>docs/</code>. <b>Page</b> means it is an HTML page in
+  <code>docs/portal/</code> and reads like the three above; <b>Markdown</b> means it still lives only in the repo and is
   waiting to be brought across.</p>
 
   <div class="grp">
@@ -715,11 +761,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <div class="tw"><table>
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td class="id">25</td><td class="nm"><a href="https://claude.ai/code/artifact/bfa433a3-52fc-4621-bc6b-8752106fa54b">Golden Rules</a></td><td>Choosing and shortlisting a trade</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">26</td><td class="nm"><a href="https://claude.ai/code/artifact/22d57e0f-6734-406b-87d5-24a7129916d2">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">24</td><td class="nm"><a href="https://claude.ai/code/artifact/577f5e2e-12f0-4e17-b04d-79c5993b3235">The Pre-Trade Gate</a></td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill page gt">Page</span></td></tr>
-        <tr><td class="id">18</td><td class="nm"><a href="https://claude.ai/code/artifact/886ba1e4-6335-410a-b6ec-5ab4fca765c9">The Trade Funnel</a></td><td>The nine gated steps, floors and exits</td><td class="st"><span class="pill page fn">Page</span></td></tr>
-        <tr><td class="id">—</td><td class="nm"><a href="https://claude.ai/code/artifact/33787741-478f-4fe2-a4a4-4232d1b56638">The Commander Bible</a></td><td>The original end-to-end guide, with stale claims flagged</td><td class="st"><span class="pill page bi">Page</span></td></tr>
+        <tr><td class="id">25</td><td class="nm"><a href="25_golden_rules.html">Golden Rules</a></td><td>Choosing and shortlisting a trade</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">26</td><td class="nm"><a href="26_operating_loop.html">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">24</td><td class="nm"><a href="24_pre_trade_gate.html">The Pre-Trade Gate</a></td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill page gt">Page</span></td></tr>
+        <tr><td class="id">18</td><td class="nm"><a href="18_trade_funnel.html">The Trade Funnel</a></td><td>The nine gated steps, floors and exits</td><td class="st"><span class="pill page fn">Page</span></td></tr>
+        <tr><td class="id">—</td><td class="nm"><a href="00_commander_bible.html">The Commander Bible</a></td><td>The original end-to-end guide, with stale claims flagged</td><td class="st"><span class="pill page bi">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -729,9 +775,9 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <div class="tw"><table>
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td class="id">27</td><td class="nm"><a href="https://claude.ai/code/artifact/30193746-9b11-43d9-ae44-1084da363f7b">Backtest Process &amp; Glossary</a></td><td>How a verdict is reached, and its vocabulary</td><td class="st"><span class="pill page ev">Page</span></td></tr>
-        <tr><td class="id">16</td><td class="nm"><a href="https://claude.ai/code/artifact/53aee9e9-be8c-4084-afc2-a86ae598bad5">The Honesty Layer</a></td><td>The harness modules in technical detail</td><td class="st"><span class="pill page hn">Page</span></td></tr>
-        <tr><td class="id">19</td><td class="nm"><a href="https://claude.ai/code/artifact/b733f279-67e0-4ec0-ac09-c4117e8963d6">The Performance Ledger</a></td><td>Where realised P&amp;L actually came from</td><td class="st"><span class="pill page lg">Page</span></td></tr>
+        <tr><td class="id">27</td><td class="nm"><a href="27_backtest_court.html">Backtest Process &amp; Glossary</a></td><td>How a verdict is reached, and its vocabulary</td><td class="st"><span class="pill page ev">Page</span></td></tr>
+        <tr><td class="id">16</td><td class="nm"><a href="16_honesty_layer.html">The Honesty Layer</a></td><td>The harness modules in technical detail</td><td class="st"><span class="pill page hn">Page</span></td></tr>
+        <tr><td class="id">19</td><td class="nm"><a href="19_performance_ledger.html">The Performance Ledger</a></td><td>Where realised P&amp;L actually came from</td><td class="st"><span class="pill page lg">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -741,13 +787,13 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <div class="tw"><table>
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td class="id">23</td><td class="nm"><a href="https://claude.ai/code/artifact/bb8770c5-28a3-4b65-b265-58e12c36a69f">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
-        <tr><td class="id">22</td><td class="nm"><a href="https://claude.ai/code/artifact/6b9eef4f-a00b-449e-8df7-b4880ad8715d">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
-        <tr><td class="id">32</td><td class="nm"><a href="https://claude.ai/artifact/6bDijUn3wEZhxNa6FyhRxb">The Reviewer</a></td><td>How the AI review works, runs, checks itself, and is scored</td><td class="st"><span class="pill page s4">Page</span></td></tr>
-        <tr><td class="id">31</td><td class="nm"><a href="https://claude.ai/artifact/N1wDUpbGjdrnQpJz99ham6">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>
-        <tr><td class="id">30</td><td class="nm"><a href="https://claude.ai/code/artifact/ab046be7-6b8a-4592-910e-3c0c9dbe5a78">Section Five</a></td><td>The explain-surface beside S4: footprint, Wyckoff, geometry, the named setups</td><td class="st"><span class="pill page s5">Page</span></td></tr>
-        <tr><td class="id">07</td><td class="nm"><a href="https://claude.ai/code/artifact/b6b75a40-10e0-4c03-ada7-37ce99864d86">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>
-        <tr><td class="id">08</td><td class="nm"><a href="https://claude.ai/code/artifact/c97d2473-3362-453e-af94-b8b2d38b29ac">Swing Pro Dashboard</a></td><td>The primary trade chart and its validated alphas</td><td class="st"><span class="pill page db">Page</span></td></tr>
+        <tr><td class="id">23</td><td class="nm"><a href="23_golden_matcher.html">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
+        <tr><td class="id">22</td><td class="nm"><a href="22_section_four.html">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">32</td><td class="nm"><a href="32_the_reviewer.html">The Reviewer</a></td><td>How the AI review works, runs, checks itself, and is scored</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">31</td><td class="nm"><a href="31_reviewer_log_v2.html">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>
+        <tr><td class="id">30</td><td class="nm"><a href="30_section_five.html">Section Five</a></td><td>The explain-surface beside S4: footprint, Wyckoff, geometry, the named setups</td><td class="st"><span class="pill page s5">Page</span></td></tr>
+        <tr><td class="id">07</td><td class="nm"><a href="07_mission_control.html">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>
+        <tr><td class="id">08</td><td class="nm"><a href="08_swing_pro_dashboard.html">Swing Pro Dashboard</a></td><td>The primary trade chart and its validated alphas</td><td class="st"><span class="pill page db">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -757,11 +803,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <div class="tw"><table>
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td class="id">11</td><td class="nm"><a href="https://claude.ai/code/artifact/863499fe-9dbe-4084-889b-a2bb4553aab4">The Catalyst Engine</a></td><td>Six catalysts, two scores, the base test — and four corrections, verified</td><td class="st"><span class="pill page bs">Page</span></td></tr>
-        <tr><td class="id">09</td><td class="nm"><a href="https://claude.ai/code/artifact/ae4e28ea-0424-4805-ac5a-1dfadd880785">Quality on Sale</a></td><td>The band, nine signals, and the fundamental gate</td><td class="st"><span class="pill page rc">Page</span></td></tr>
-        <tr><td class="id">13</td><td class="nm"><a href="https://claude.ai/code/artifact/0aa8c4bb-5547-482c-ba99-a33204586fca">The Unified Ecosystem</a></td><td>Ten edges, the diagnostic panel, the exit engine</td><td class="st"><span class="pill page bs">Page</span></td></tr>
-        <tr><td class="id">21</td><td class="nm"><a href="https://claude.ai/code/artifact/5144c644-9f1d-43e4-bfd9-258c6806eb91">Relative Strength, Auto-Sector</a></td><td>Two leadership curves, and the stage read that was deleted</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">25*</td><td class="nm"><a href="https://claude.ai/code/artifact/48fa58a2-88be-40cc-858e-ab8fff5089d8">The Scanner Filter Map</a></td><td>Four sources, four fundamental standards, side by side</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">11</td><td class="nm"><a href="11_catalyst_engine.html">The Catalyst Engine</a></td><td>Six catalysts, two scores, the base test — and four corrections, verified</td><td class="st"><span class="pill page bs">Page</span></td></tr>
+        <tr><td class="id">09</td><td class="nm"><a href="09_quality_on_sale.html">Quality on Sale</a></td><td>The band, nine signals, and the fundamental gate</td><td class="st"><span class="pill page rc">Page</span></td></tr>
+        <tr><td class="id">13</td><td class="nm"><a href="13_unified_ecosystem.html">The Unified Ecosystem</a></td><td>Ten edges, the diagnostic panel, the exit engine</td><td class="st"><span class="pill page bs">Page</span></td></tr>
+        <tr><td class="id">21</td><td class="nm"><a href="21_relative_strength.html">Relative Strength, Auto-Sector</a></td><td>Two leadership curves, and the stage read that was deleted</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">25*</td><td class="nm"><a href="25_scanner_filter_map.html">The Scanner Filter Map</a></td><td>Four sources, four fundamental standards, side by side</td><td class="st"><span class="pill page">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -771,12 +817,12 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <div class="tw"><table>
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td class="id">01</td><td class="nm"><a href="https://claude.ai/code/artifact/259f16cd-fe42-4ed6-a44c-99da9c534289">The Structure Engine</a></td><td>Pivot classes, the state machine, the developing pivot</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">02</td><td class="nm"><a href="https://claude.ai/code/artifact/d6b98046-29a5-4a16-b01d-ba62cb1ef79a">Wyckoff, As This System Reads It</a></td><td>Event conditions, the bearish tie-break, and why it was rejected</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">03</td><td class="nm"><a href="https://claude.ai/code/artifact/5613c1cc-e562-45a4-bff1-cf2cad21dee1">Where The Money Actually Traded</a></td><td>Value area, control point, air pockets</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">04</td><td class="nm"><a href="https://claude.ai/code/artifact/50a2b6ce-b153-46c3-b194-2fd608139217">The Institutional Footprint</a></td><td>Blocks, gaps, sweeps, and break vs change of character</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">20</td><td class="nm"><a href="https://claude.ai/code/artifact/79c4e8aa-b2ba-4690-8f2f-8c57164cd76b">The Markup Engine</a></td><td>Touch rule, TF-scoped levels, the drag-handle pivot</td><td class="st"><span class="pill page">Page</span></td></tr>
-        <tr><td class="id">15</td><td class="nm"><a href="https://claude.ai/code/artifact/d52f6dcd-7af4-404f-b7fe-396d406c5d00">The Context Layers</a></td><td>Eight setups, the bonus loop, and the dead rung</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">01</td><td class="nm"><a href="01_structure_engine.html">The Structure Engine</a></td><td>Pivot classes, the state machine, the developing pivot</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">02</td><td class="nm"><a href="02_wyckoff.html">Wyckoff, As This System Reads It</a></td><td>Event conditions, the bearish tie-break, and why it was rejected</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">03</td><td class="nm"><a href="03_volume_profile.html">Where The Money Actually Traded</a></td><td>Value area, control point, air pockets</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">04</td><td class="nm"><a href="04_smc_zones.html">The Institutional Footprint</a></td><td>Blocks, gaps, sweeps, and break vs change of character</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">20</td><td class="nm"><a href="20_chart_markup.html">The Markup Engine</a></td><td>Touch rule, TF-scoped levels, the drag-handle pivot</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">15</td><td class="nm"><a href="15_context_layers.html">The Context Layers</a></td><td>Eight setups, the bonus loop, and the dead rung</td><td class="st"><span class="pill page">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -786,7 +832,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <div class="tw"><table>
       <thead><tr><th>#</th><th>Guide</th><th>What it settles</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td class="id">10</td><td class="nm"><a href="https://claude.ai/code/artifact/6682471c-4356-40ea-a767-c4c919077b37">The Position Sizer</a></td><td>Risk-first sizing, the catalyst matrix, the stale targets</td><td class="st"><span class="pill page">Page</span></td></tr>
+        <tr><td class="id">10</td><td class="nm"><a href="10_position_sizer.html">The Position Sizer</a></td><td>Risk-first sizing, the catalyst matrix, the stale targets</td><td class="st"><span class="pill page">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>
@@ -796,18 +842,21 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <p><b>The numbering has one collision.</b> Both the Golden Rules and the Scanner Filter
     Map are filed as 25 in <code>docs/</code>; the Scanner Filter Map is marked <code>25*</code>
     here. Renumbering would break the filename links, so it is flagged rather than fixed.</p>
-    <p><b>Each page keeps its own address.</b> Every published document is a separate page
-    with its own URL, so any link you have already shared or bookmarked still works — this
-    library indexes them, it does not replace them.</p>
-    <p><b>Seven pages were revised on 11 September</b> — 22, 23, 25, 26, 07, 08 and 11 — each
-    against the code as it stands, not against the notes. The table at the top says what moved.
-    If a page and the chart still disagree, the chart is right and the page is due.</p>
+    <p><b>Local files only, since 20 Sep.</b> Every page is an HTML file in
+    <code>docs/portal/</code>, linked here by filename, so the whole library opens from disk or
+    over Tailscale (<code>http://100.91.124.18:8502/docs/portal/index.html</code>). The claude.ai
+    copies are retired — a republish cost a full re-read of the page, and the local file is
+    always the current one.</p>
+    <p><b>Pages are revised against the code, never against the notes</b> — seven on 11
+    September, five more on 16 September, and 09/22/23/25/26 again on 20 September after the
+    second audit. The table at the top says what moved. If a page and the chart still disagree,
+    the chart is right and the page is due.</p>
   </div>
 
 </main>
 </div>
 
 <footer><div class="foot-in">
-  <span>The Commander Library · docs/portal · revised 16 Sep 2026</span>
+  <span>The Commander Library · docs/portal · revised 20 Sep 2026</span>
   <span>Sources kept in the repo at docs/portal/*.html</span>
 </div></footer>
