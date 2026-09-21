@@ -117,6 +117,16 @@ def main() -> int:
         print(f"bundle write failed: {e}", file=sys.stderr)
         return 4
     print(f"bundles -> {os.path.relpath(p, HERE)}")
+    # 21-Sep-2026: push both bundles into every open S4 tab over CDP. Best-effort - if
+    # TradingView is not up (or not on :9222) the bundles are still on disk for
+    # PUSH_BUNDLES.bat, and the evening run must not fail because of it.
+    if os.getenv("GM_PUSH_BUNDLES", "1") != "0":
+        try:
+            import tv_push_bundles
+            rc = tv_push_bundles.main_push(p)
+            print("bundle push -> " + ("ok" if rc == 0 else f"rc {rc} (TradingView down or a tab differs - run PUSH_BUNDLES.bat)"))
+        except Exception as e:
+            print(f"bundle push skipped: {e}")
     return 0
 
 
