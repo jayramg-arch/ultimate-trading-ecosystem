@@ -57,6 +57,9 @@
     "v67: Chandelier stop":            ["v67", "s4_pyrChand"],
     "v67: Pyramid reason":             ["v67", "s4_pyrReason"],
     "v67: Entry date (epoch)":         ["v67", "s4_pyrEntryTime"],
+    // 21-Sep-2026: S4 Footprint Bridge (optional - skipped when the study is absent)
+    "Footprint: bar delta":              ["fp", "s4_fpDelta"],
+    "Footprint: delta available (0/1)":  ["fp", "s4_fpKnown"],
     "Zigzag: MTF-1 trend state (Daily)":  ["zz", "mtfTrendState"],
     "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"],
     // 23-Aug-2026: the CHART-TF trend. S4's Structure-basis row used to read an
@@ -87,7 +90,8 @@
       // BREAKOUT and judged a base-building setup by a breakout's standards.
       // MUST match the BRIDGE, not the strategy. Anchored with indexOf(...)===0 so
       // "Weinstein Unified Ecosystem [v3.5]" can never satisfy it.
-      uni: findBy(function (n) { return n.indexOf("Unified Catalyst Bridge") === 0; })
+      uni: findBy(function (n) { return n.indexOf("Unified Catalyst Bridge") === 0; }),
+      fp:  findBy(function (n) { return n.indexOf("S4 Footprint Bridge") === 0; })
     };
     if (!ids.s4)  return "S4 not on this chart";
     if (!ids.v67) return "v67 Dashboard not on this chart — load it first, the plots are the source";
@@ -99,7 +103,7 @@
     var plotRef = {};
     // A missing study id is skipped rather than throwing - the bind used to die on
     // getStudyById(null) if any one source script was not on the chart.
-    ["v67", "zz", "uni"].forEach(function (key) {
+    ["v67", "zz", "uni", "fp"].forEach(function (key) {
       if (!ids[key]) return;
       var meta = chart.getStudyById(ids[key])._study.metaInfo();
       meta.plots.forEach(function (pl, ix) {
@@ -115,6 +119,7 @@
       var want = MAP[inp.name];
       if (!want) return;                                   // not one of ours
       var ref = plotRef[want[0] + "|" + want[1]];
+      if (!ref && want[0] === "fp") { report.push("skip " + inp.name + " (no Footprint Bridge on this chart)"); return; }
       if (!ref) { report.push("MISSING PLOT " + want[1] + " <- " + inp.name); return; }
       pending.push({ id: inp.id, value: ref });
       report.push("ok " + inp.name + " -> " + want[1]);
@@ -125,7 +130,8 @@
     var got = {};
     s4.getInputValues().forEach(function (v) { got[v.id] = v.value; });
     var bad = pending.filter(function (p) { return got[p.id] !== p.value; });
-    return "bound " + pending.length + "/" + Object.keys(MAP).length +
+    var expect = Object.keys(MAP).filter(function (k) { return MAP[k][0] !== "fp" || ids.fp; }).length;
+    return "bound " + pending.length + "/" + expect +
            " | mismatches: " + (bad.length ? JSON.stringify(bad) : "none") +
            (report.filter(function (r) { return r.indexOf("ok ") !== 0; }).length
               ? "\n" + report.filter(function (r) { return r.indexOf("ok ") !== 0; }).join("\n") : "");

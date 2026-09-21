@@ -1,0 +1,39 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════════════════
+//  S4 FOOTPRINT BRIDGE v1.0  (21-Sep-2026)
+//
+//  The smallest possible indicator: request.footprint() → two hidden plots that
+//  Section 4 binds via input.source (its "Footprint: bar delta" and "Footprint:
+//  delta available (0/1)" inputs, group "Arrival · Δ"). Nothing is drawn.
+//
+//  WHY A SEPARATE SCRIPT. request.footprint() retains per-bar volume-row objects
+//  across history. Inside S4 that tipped the BOUND panel over the runtime-memory
+//  limit (6-Sep-2026, reverted the same day). S5 carries it and cannot share a
+//  chart with S4 for the same reason. Here the retention belongs to this script,
+//  which does nothing else, and S4 receives one float per bar. Whether bound S4 +
+//  this bridge fit one chart is a test, not a certainty — remove the study if the
+//  chart reports "Memory limits exceeded"; S4's row simply returns to "n/a".
+//
+//  calc_bars_count caps the history the footprint is requested for. The Arrival
+//  row only needs the last few bars; 400 is ~4 months on 75m and keeps the
+//  retained rows small. Raise it only if S4's cumulative window needs more.
+//
+//  TWO plots, not one: an unbound input.source in S4 reads `close`, never na, so
+//  the KNOWN flag (0/1) is how S4 tells "no footprint for this bar" from "nobody
+//  bound this". Unmeasured must never render as a delta of zero.
+//
+//  SETUP: add to the S4 chart (Phase-2 and Reviewer) → run BIND_S4_SOURCES.bat
+//  (it binds these two the same pass) → S4's "Arrival · Δ" row reads the delta.
+// ═══════════════════════════════════════════════════════════════════════════
+indicator("S4 Footprint Bridge v1.0", shorttitle="S4 FP", overlay=true, calc_bars_count=400)
+
+fpTicks = input.int(200, "Ticks per volume row", minval=1, maxval=5000, tooltip="Row height in ticks (NSE mintick 0.05 → 200 = ₹10). Same default as S5. Coarser rows = fewer objects = less memory; the delta itself does not depend on row height.")
+
+// One unique request.footprint() per script. na wherever the feed has no rows
+// (ordinary on older history) — that is the KNOWN=0 case, not a zero delta.
+_fp = request.footprint(fpTicks, 70, 300)
+bool  fpKnown = not na(_fp)
+float fpDelta = fpKnown ? _fp.delta() : na
+
+plot(fpKnown ? 1.0 : 0.0,      title="s4_fpKnown", display=display.none)
+plot(fpKnown ? fpDelta : 0.0,  title="s4_fpDelta", display=display.none)
