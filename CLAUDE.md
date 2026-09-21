@@ -2962,6 +2962,55 @@ index gained a change row (18 changes).
 ETF Phase-1 flag (underlying index read first, INDEX ARM = ETF WAIT) and only ever appears on ETF rows.
 Now reads **`ETF · index first`** with a tooltip; the dek says rows open to the full text.
 
+### 21 Sep (Mon, in-session — diagnosis only, fixes held to after close)
+- **Library mojibake FIXED (`3da1c4cc`)** — `Â·` / `â€”` all over the pages on :8502. Files were clean
+  UTF-8; claude.ai had sent the charset in the HTTP header, `python -m http.server` does not, and the
+  artifact pages carry no `<head>` at all (they start at `<title>`), so browsers fell back to cp1252.
+  `<meta charset="utf-8">` is now the FIRST line of all 27 pages (the Log builder already did this).
+  Trap: a `<head[^>]*>` regex matches `<header>` — the first pass landed inside `<body>`; reverted and
+  prepended instead. Docs are not trading code, so this shipped in-session. Hard-reload to see it.
+- **NEW `reviewer_banner.py` + `REVIEWER_BANNER.bat` (`642739b6`)** — always-on-top strip: red
+  "REVIEWER HAS THE CHARTS · SYM TF · Ns · +N queued" / amber restoring / green idle + last. STANDALONE and
+  READ-ONLY: tails `logs/s4_alert_review.log` (queued / reviewed in / FAILED / review rc / chart restored),
+  imports nothing from the receiver, writes only `logs/reviewer_banner_pos.json`. Parser verified against
+  the day's real lines. Stopgap — after close `_run()` drives the state directly.
+- **Why Jay's chart gets hijacked:** `s4_review._main_targets()` drives EVERY chart tab except the
+  Phase-1 one, by design (S4 on one tab, S5 on the other). 31 reviews on 18 Sep ≈ 49 min of his chart
+  being driven. Fix agreed: `S4_REVIEW_CHARTS=<id>,<id>` in .env → dedicated review tabs (Make a copy,
+  NOT Duplicate — same trap as `S4_PHASE1_CHART`), re-run `BIND_S4_SOURCES.bat`. Nothing calls
+  `tab_switch`, so isolated tabs never front themselves.
+- **8 alerts, 5 Log rows** = 3 FAILED (no .md → no row; Telegram got a FAILED each). CGPOWER 75 /
+  GOLDIETF 75 "charts did not settle within 45s", CGPOWER 125 rc 1 — **all three were the FIRST item of
+  a batch, and every batch starts at a bar close** (10:30 · 11:20 · 11:45) when TV recalculates both
+  tabs. 3/3 batch-firsts failed, 5/5 later items passed. The KARURVYSYA timeout has recurred — widen
+  `switch_chart(timeout_s=45)` (s4_review:216; call sites :879 :892 + s4_alert_review:157 restore,
+  which also failed at 11:47 and left his chart parked) + retry once on TVError.
+- **TV watchlist cleanup never deletes** (Jay: old lists accumulating). Two faults: Phase 5.7
+  (`run_pipeline.py:831`) calls `nuclear_cleanup.main()` WITHOUT `asyncio.run()` — `main` is async, so
+  the coroutine is never awaited: **0.0 s, reports "Cleanup complete", has never worked**. Phase 0.5
+  does await it but runs 19.55 s = launch + goto + 8 s wait, i.e. it exits at the first locator
+  (`button[data-name='watchlists-button']`) without ever opening the dialog — stale TV selectors, not
+  auth (Phase 7 pushes lists fine on the same profile). Invisible because the module only `print()`s
+  and the pipeline log captures logger records only. `STALE_PATTERN` also matches TODAY's stamp —
+  safe only by phase order; running it mid-session would delete the list the live S4 GO alerts bind to.
+- **Recovery re-run `20260920_212328` READ** — see the block below the 20 Sep audit section.
+
+**TONIGHT (after 15:30), in order:** (1) settle timeout 45→~90 s + one retry, restore path included;
+(2) `S4_REVIEW_CHARTS` isolation; (3) banner state from `_run()`; (4) cleanup: `asyncio.run()` on 5.7,
+return (seen, deleted) → `p.records`/WARN on zero seen, refresh dialog selectors via
+`tv_dropdown_dumper2.py`, today's-stamp guard; (5) `Signal >= 2` filter into `run_validation` +
+`⚠noedge` comment/run id.
+
+### Recovery re-run `20260920_212328` — read 21 Sep (windows 90/120 ✓, 13.7 h, 20 anchors)
+**PY-08 did NOT apply**: the `Signal>=2` filter sits in `run_s4go_validation`; this run used
+`run_validation` (log says "validating @", not "S4-GO validating @"). CB-Watch still 139/427. Post-hoc
+removal is equivalent (no `--top_n`; replay fills rows independently). Numbers, ex CB-Watch: **n=267,
+mean +0.15%, median −1.99%, win 38.2%, anchor CI95 [−1.95, +0.86], P(α>0) 25%** (prior 10-Aug run:
+−0.88%, CI [−1.51, −0.24]). Per family: REV-CB +0.85 (39) · REV-EARLY +0.32 (116) · REV-RS −0.13 (57) ·
+WYC-SOS −0.40 (55). **Read: the RRG/forming-week fixes + dropping pre-signals move recovery from
+measurably negative to indistinguishable from zero — retire the "CI excludes zero" claim, but still no
+edge, every family's median negative. `⚠noedge` stands; recovery = qualification for the reviewer.**
+
 ### Monday first checks
 `logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
 header on the first S4 read · `auto_pilot_20260921_1630xx.log` from Task Scheduler at 16:30 ·
