@@ -3037,7 +3037,9 @@ return (seen, deleted) → `p.records`/WARN on zero seen, refresh dialog selecto
 - **NEW `MORNING.bat`** — one click, idempotent (port-probes 9222/8501/8000/8502 + a
   `reviewer_banner.py` process check): TV-with-CDP → Web Commander → alert reviewer (+ngrok) →
   banner → portal. BIND_S4_SOURCES is deliberately NOT in it (post-compile only; bindings persist
-  in the layout). Receiver-window rule: the launcher opens a SEPARATE "S4 webhook receiver :8000"
+  in the layout). Desktop shortcuts (OneDrive Desktop, `.lnk` never committed): **Morning.lnk**
+  (`morning.ico`, sunrise) and **Reviewer Banner.lnk** (`reviewer_banner.ico`) — both `cmd /c`
+  wrappers because Windows will not pin a .bat. Icons drawn with PIL, sizes 16–256, committed. Receiver-window rule: the launcher opens a SEPARATE "S4 webhook receiver :8000"
   window with a restart loop; closing THAT window is the only way it dies — it was down at 18:5x
   today for exactly that reason (ngrok kept answering 502).
 
