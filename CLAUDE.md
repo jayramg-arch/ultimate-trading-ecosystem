@@ -3001,6 +3001,46 @@ return (seen, deleted) → `p.records`/WARN on zero seen, refresh dialog selecto
 `tv_dropdown_dumper2.py`, today's-stamp guard; (5) `Signal >= 2` filter into `run_validation` +
 `⚠noedge` comment/run id.
 
+### 21 Sep evening — all five fixes SHIPPED (`077298d5` · `ebd57881` + MORNING.bat)
+- **Reviewer isolation LIVE.** `S4_REVIEW_CHARTS=5G9rwG8B,XtkcOehr` in .env = the two layouts Jay
+  made (**S4 Reviewer** / **S5 Reviewer**, Make-a-copy). `s4_review._main_targets()` drives only
+  those when set; his **S4 Phase-2** (`ldohBiLB`) and **S5 Layout** (`YrXZkuKM`) are never touched;
+  Phase-1 `x7xQoXWx` unchanged. Five tabs must be OPEN — if the review tabs are missing the review
+  FAILS loudly ("no open chart tab matches"), it never borrows his tabs. **Layout ids are stable**
+  across close/reopen (they are the saved layout's id, not the tab's — Phase-1's has survived since
+  13 Sep); only a new layout / copy gets a new id. Layout name per tab is readable over CDP via
+  `TradingViewApi.layoutName()`. Verified live on a TITAN test: mid-review only the two Reviewer
+  tabs were on TITAN 75; 71 s; restore now puts the REVIEWER's tabs back.
+- **Settle 45 → 90 s** (`s4_review.SETTLE_S`, env `S4_SETTLE_S`) + **one retry after 20 s** on a
+  settle timeout (`s4_alert_review._review_with_retry`, env `S4_ALERT_RETRY=0` to disable).
+  Untested by the TITAN run (no timeout occurred) — tomorrow's 10:30 batch is the real test.
+- **Banner is exact now:** `_run()` writes `logs/reviewer_status.json` at busy → restoring → idle
+  (with `last`); `reviewer_banner.py` reads it first (≤6 h old), log-tail only as fallback.
+  `reviewer_banner.ico` + Desktop shortcut **Reviewer Banner.lnk** (cmd /c, minimized) for the taskbar.
+- **TV watchlist cleanup REWRITTEN** (`nuclear_cleanup.cleanup_tradingview`, selectors read off the
+  live DOM over CDP, one delete exercised end to end): open-check = the WATCHLIST WIDGET's width
+  (`div[class*='widgetbar-widget-watchlist']`), not the bar's — the bar was "open" on the Alerts
+  Log (the 16:30 debug screenshot proved it); `button[data-name='base']` TOGGLES the bar; dialog =
+  **Shift+W** (menu fallback uses `div[role='menuitem']` — it is `role`, not `data-role`, the 2nd
+  dead selector); dialog `div[data-name='watchlists-dialog']`, rows `div[class*='container-']`,
+  NAME = `div[class*='title-']` (row textContent has the symbol count glued on:
+  `Bull_Hunter-18SEP261`); `[data-name='remove-button']` on hover → `div[data-name='confirm-dialog']`
+  → plain "Delete" button; dialog stays open between deletes. **Today's stamp is never deleted**
+  (was safe only by phase order). `--dry-run` / `NUCLEAR_DRY_RUN=1`. Returns
+  `{seen, stale, deleted, failed, skipped_today}`. **Dry run on the live account: 58 seen · 24
+  stale · 9 today's kept · 0 failed.** `run_pipeline`: Phase 5.7 now `asyncio.run()`s it (it had
+  NEVER run — un-awaited coroutine, 0.0 s); `_record_cleanup()` puts real counts on both phases and
+  **seen == 0 → WARN** (never "all clean"). Tomorrow's 16:30 Phase 0.5 makes the 24 deletes.
+- **CB-Watch filter moved to the choke point** `replay.run_recovery_replay` (`Signal >= 2`) — both
+  validators route recovery through it; the 20-Sep copy sat only on the s4go path. `⚠noedge` comment
+  in `gm_trigger_board` cites run 20260920_212328.
+- **NEW `MORNING.bat`** — one click, idempotent (port-probes 9222/8501/8000/8502 + a
+  `reviewer_banner.py` process check): TV-with-CDP → Web Commander → alert reviewer (+ngrok) →
+  banner → portal. BIND_S4_SOURCES is deliberately NOT in it (post-compile only; bindings persist
+  in the layout). Receiver-window rule: the launcher opens a SEPARATE "S4 webhook receiver :8000"
+  window with a restart loop; closing THAT window is the only way it dies — it was down at 18:5x
+  today for exactly that reason (ngrok kept answering 502).
+
 ### Recovery re-run `20260920_212328` — read 21 Sep (windows 90/120 ✓, 13.7 h, 20 anchors)
 **PY-08 did NOT apply**: the `Signal>=2` filter sits in `run_s4go_validation`; this run used
 `run_validation` (log says "validating @", not "S4-GO validating @"). CB-Watch still 139/427. Post-hoc
