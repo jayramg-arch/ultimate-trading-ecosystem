@@ -280,13 +280,23 @@ footer em{color:var(--ink-2)}
     <div class="ev you">
       <div class="clk">09:00</div>
       <div class="bd">
-        <p class="t">Alert reviewer up<span class="who">← you · one click</span></p>
-        <p class="d"><span class="m">S4 Alert Reviewer</span> on the taskbar starts the webhook
-          receiver and the ngrok tunnel (added 16 Sep). Every S4 GO alert then reviews itself:
-          TradingView posts to <span class="m">/s4-review</span>, the receiver switches the
-          charts, reads the panels, rules, and Telegrams the ruling about ninety seconds after
-          the ping. If this window is not up, the alert still reaches your phone &mdash; only the
-          review is lost.</p>
+        <p class="t">Morning<span class="who">← you · one click</span></p>
+        <p class="d"><b>Since 21 Sep, one shortcut: <span class="m">Morning</span></b>
+          (<span class="m">MORNING.bat</span>). It brings up, in order and only what is not
+          already running: TradingView with the debug port, Web Commander, the alert reviewer
+          with its tunnel, the reviewer banner, and the portal for your phone. Re-running it is
+          harmless &mdash; it probes each port first.</p>
+        <p class="d">Then, in TradingView, <b>open the five chart tabs</b>: your <em>S4
+          Phase-2</em> and <em>S5 Layout</em>, the reviewer's <em>S4 Reviewer</em> and
+          <em>S5 Reviewer</em>, and <em>S4 Phase-1</em> for ETF index reads. Every S4 GO alert
+          then reviews itself on the <b>reviewer's own two tabs</b> &mdash; your chart is never
+          touched &mdash; and Telegrams the ruling about ninety seconds after the ping. The
+          <b>banner</b> (an always-on-top strip) turns red while a review is running, amber
+          while the reviewer's tabs are restored, green when idle with the last name and its
+          time. If the reviewer window is not up, the alert still reaches your phone &mdash; only
+          the review is lost. <span class="m">BIND_S4_SOURCES</span> is <em>not</em> part of the
+          morning: bindings live in the layout and survive restarts; run it only after an S4
+          compile.</p>
       </div>
     </div>
 
@@ -532,6 +542,9 @@ footer em{color:var(--ink-2)}
       <tr><td>A 5/5 tagged <span class="m">F?</span></td><td>the books were never scored &mdash; the fifth gate passed by default, and the chart will show a blank F for the same reason</td></tr>
       <tr><td>Section Five on its own chart</td><td>S4's panel vanishes with "Memory limits exceeded" &mdash; Pine meters memory per chart, and the footprint cannot share one with S4</td></tr>
       <tr><td>The board is fresh before the reviewer runs</td><td>the reviewer warns past six hours; ignored, you are reading last session's GO rows against today's chart</td></tr>
+      <tr><td>The five chart tabs are open</td><td>with <span class="m">S4_REVIEW_CHARTS</span> set the reviewer drives only its own two tabs; if they are not open it fails the review loudly ("no open chart tab matches") rather than borrowing yours &mdash; Telegram says so, the banner goes idle with <em>failed</em></td></tr>
+      <tr><td>The receiver <em>window</em> stays open</td><td>the launcher opens a separate "S4 webhook receiver :8000" window with a restart loop; closing that window is the one way it dies. ngrok keeps answering 502 so nothing looks wrong from outside</td></tr>
+      <tr><td>The watchlist cleanup actually deleted</td><td><span class="m">pipeline_status.json</span> Phase 0.5 should read <em>N/N stale lists deleted of M seen</em>; a WARN means the dialog was not read. Until 21 Sep it reported OK for months while deleting nothing (and Phase 5.7 had never run at all)</td></tr>
       <tr><td>The alert reviewer is up before the open</td><td><span class="m">S4 Alert Reviewer</span> on the taskbar — receiver + tunnel. Down, TradingView gets a 502 and the alert is simply lost; it does not retry. The launcher restarts the receiver if it exits</td></tr>
       <tr><td>The 16:30 auto-pilot ran</td><td>no <span class="m">auto_pilot_&lt;today&gt;_1630xx.log</span> in the repo root — the Task Scheduler task is disabled or the PC slept through it and the catch-up has not fired yet</td></tr>
       <tr><td>Phase 12 ran</td><td>the build stamp on the board is yesterday's; <span class="m">gm_bundles/latest.txt</span> is old. Press Evening run</td></tr>
@@ -590,7 +603,8 @@ footer em{color:var(--ink-2)}
 16:00  exit scan (Task Scheduler)   (auto)
 16:30  auto-pilot + journal sync + <b>Phase 12 evening run</b> (Task Scheduler)   (auto)
 ─────  <b>EVENING: open GM window · copy 2 pastes · review --live · ARM · 2 alerts w/ webhook</b>   ← you
-09:00  <b>S4 Alert Reviewer</b> up (taskbar)                           ← you
+09:00  <b>Morning</b> (taskbar): TV · Commander · reviewer · banner · portal   ← you
+       open the 5 chart tabs                                         ← you
 09:15  session — do not watch the board
  ping  <b>Telegram ruling → S4 → checklist → size → order → s4_take</b>   ← you
 15:30  close</pre>

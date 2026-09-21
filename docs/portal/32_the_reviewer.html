@@ -197,7 +197,7 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="reads">
-  <h2><span class="n">02</span>What it reads — every open chart tab</h2>
+  <h2><span class="n">02</span>What it reads — its own chart tabs</h2>
   <p>The read is over the Chrome DevTools Protocol against TradingView Desktop (launched with
   <code>--remote-debugging-port=9222</code>, i.e. <code>LAUNCH_TRADINGVIEW_CDP.bat</code>). It
   walks <b>every</b> open chart tab, pulls each study's table cells, labels, lines and boxes
@@ -209,6 +209,7 @@ footer a{color:var(--acc)}
     <tbody>
       <tr><td class="k">S4 stack</td><td>S4 · Swing Pro v67 · Unified · Zigzag</td><td>The five-gate TRIGGER row, location, room, OI and options rows, the plan, the verdict and SUMMARY; v67's FUTURES OI STATE and context; the Zigzag's structure</td></tr>
       <tr><td class="k">S5</td><td>Section Five alone</td><td>Participation (footprint delta, divergence, value area) and the Setups band in full. <b>Geometry, Levels and the Read are withheld</b> — replaced by “[withheld: not yet fine-tuned]” before the model sees them (<code>S5_SKIP_SECTIONS</code>)</td></tr>
+      <tr><td class="k">S4 Reviewer · S5 Reviewer</td><td>Copies of the two stacks above, <b>for the reviewer's exclusive use</b></td><td><b>Since 21 Sep.</b> Named in <code>S4_REVIEW_CHARTS</code> (two chart ids); when set, these are the only tabs the reviewer switches and reads, so your own S4 and S5 tabs never move. Before this, every review took your chart for ~90 s &mdash; 31 reviews on 18 Sep was 49 minutes. If the two tabs are not open the review fails loudly rather than falling back to yours</td></tr>
       <tr><td class="k">Phase-1</td><td>The S4 stack again, for the <b>underlying index</b></td><td>Only for an ETF. Designated by <code>S4_PHASE1_CHART</code> in <code>.env</code>; the ETF → index map is <code>data/tv_index_map.json</code>. Read first, labelled PHASE-1, and the ETF's own chart becomes PHASE-2</td></tr>
     </tbody>
   </table></div>
@@ -221,8 +222,29 @@ footer a{color:var(--acc)}
     <p>The merge refuses if the S4 and S5 tabs disagree on symbol or timeframe. Switching is
     done for you — the script sets the symbol and TF on every tab and waits for the studies to
     finish loading before it reads — but a tab that is a <em>duplicate</em> of the same layout
-    shares its id with the original and cannot be driven separately. The Phase-1 tab must be a
-    <b>copy</b> of the layout (“Make a copy”), not a second view of it.</p>
+    shares its id with the original and cannot be driven separately. The Phase-1 and Reviewer
+    tabs must each be a <b>copy</b> of the layout (“Make a copy”), not a second view of it.
+    A layout's id is stable &mdash; it is the saved layout's, not the tab's &mdash; so closing and
+    reopening the same named layout keeps the ids in <code>.env</code> valid.</p>
+  </div>
+  <div class="note">
+    <span class="tag">Settling, and the retry</span>
+    <p>After a switch the reviewer waits for every study on both tabs to finish recalculating
+    before it reads. That window was 45 s; on 21 Sep three of three reviews that arrived
+    <em>first</em> in a batch &mdash; and every batch starts at a bar close, when TradingView is
+    recalculating everything &mdash; timed out, while the five that ran a minute later all passed.
+    It is now <b>90 s</b> (<code>S4_SETTLE_S</code>), with <b>one retry after 20 s</b> on a settle
+    timeout. A review that still fails writes no <code>.md</code>, so it has no row in the Log
+    &mdash; only the Telegram FAILED message.</p>
+  </div>
+  <div class="note go">
+    <span class="tag">The banner</span>
+    <p><span class="m">Reviewer Banner</span> on the taskbar is a small always-on-top strip fed by
+    <code>logs/reviewer_status.json</code>, which the receiver writes at each transition:
+    <b>red</b> while a review runs (name, TF, seconds, how many are queued), <b>amber</b> while
+    the reviewer's tabs are put back, <b>green</b> idle with the last name and its time. Drag it
+    anywhere; right-click closes it. It reads nothing else and can be started or stopped at
+    any time.</p>
   </div>
 </section>
 
