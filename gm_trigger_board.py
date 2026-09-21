@@ -2660,6 +2660,10 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         ("IDXS", fund.get("IDXS", "")),
         ("IDXR", fund.get("IDXR", "")),
         # --- display only from here down ---
+        # BR (21-Sep-2026): measured base rates per setup family for the S4 'Base rate'
+        # row that replaced the May-vintage ML win probability. SYM:FAM_ER_P2R_PSTOP_n from
+        # base_rates.py, off the latest matched-horizon validation runs. Display only.
+        ("BR",   _safe(s4_base_rates, tf=tf)),
         ("RANK", fund.get("RANK", "")),
         # ETF liquidity (Rs Cr, 60d) and premium/discount to NAV (%). Only ETFs
         # appear, so a stock chart reads an em-dash on both and nothing changes.
@@ -2671,6 +2675,22 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     # would corrupt EVERY later section rather than just its own, so it is removed
     # here rather than trusted not to appear.
     return "|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts)
+
+
+def s4_base_rates(tf: str = None) -> str:
+    """BR= section: each board name's setup-family base rates (see base_rates.py).
+    Returns '' on any failure — the section is display-only and must never break the
+    bundle. A missing/empty BR simply leaves the S4 row reading '— no base rate'."""
+    try:
+        import base_rates
+        df, _ = load_board_cache(max_age_hours=24.0, tf=tf)
+        if df is None or getattr(df, "empty", True):
+            return ""
+        sec = base_rates.br_section(df)
+        return sec[3:] if sec.startswith("BR=") else sec
+    except Exception as e:
+        _log.warning(f"s4_base_rates: {e}")
+        return ""
 
 
 def s4_accum_list(tf: str = None) -> str:
