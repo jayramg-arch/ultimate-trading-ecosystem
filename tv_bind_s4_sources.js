@@ -57,7 +57,6 @@
     "v67: Chandelier stop":            ["v67", "s4_pyrChand"],
     "v67: Pyramid reason":             ["v67", "s4_pyrReason"],
     "v67: Entry date (epoch)":         ["v67", "s4_pyrEntryTime"],
-    "v67: ML win probability":         ["v67", "s4_mlWinProb"],
     "Zigzag: MTF-1 trend state (Daily)":  ["zz", "mtfTrendState"],
     "Zigzag: MTF-2 trend state (Weekly)": ["zz", "mtfTrendState2"],
     // 23-Aug-2026: the CHART-TF trend. S4's Structure-basis row used to read an
