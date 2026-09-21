@@ -460,7 +460,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Futures OI</td><td>The open-interest state, <b>which is only meaningful against price direction</b> — so it is derived from both. Long build-up is fresh money; <b>short covering means the rally is shorts exiting, fades are common, do not chase</b>; short build-up is supply into strength; long unwinding is weak but not a short signal. <b>Sector stage moved to the RS row</b> — it belongs with the group's strength, and the space bought the Options row below. The <b>basis L / S</b> pair is where longs and shorts were built: a pooled average sat between them, where nobody is positioned</td></tr>
       <tr><td class="k">Options OI</td><td><b>New, 1 September.</b> PCR, max pain, total CE/PE open interest, the ATM shift and the two <b>writer strikes</b>. Only the strikes and max pain are prices, and they are the two an option chain gives you that the zone engine cannot see. Reads <em>no options</em> on the roughly two names in three with no F&amp;O series — <b>a fact about the name, not a failure</b>. Grades; never gates</td></tr>
       <tr><td class="k">Signal · Quality · RSI</td><td>The dashboard's action signal, asset quality and daily momentum. <code>not bound</code> means <b>the bindings are missing, not that the data is absent</b>. <b>This row is the binding canary</b> — it is the one that tells you a recompile dropped the sources</td></tr>
-      <tr><td class="k">ML win probability</td><td>A logistic scorer of six inputs, computed in the dashboard and bound across — plus the <b>GM rank</b>, which moved here because both are <em>scores of the setup</em> rather than facts about its structure. <b>Read it as a ranking, not a probability:</b> the six coefficients have never been validated out-of-sample in this system, so 38% does not mean thirty-eight trades in a hundred worked. Reads <b>— unbound</b> rather than a plausible number when the source is missing, because an unbound input returns the price, which is never null</td></tr>
+      <tr><td class="k">Base rate · GM rank</td><td><b>Since 21 Sep, replacing “ML win probability”.</b> The measured outcome distribution of this name’s <em>setup family</em> in the latest matched-horizon validation — <span class="m">🔴 POSBO E[R] -0.17 · ≥2R 5% · STOP 10% · N=147</span>: mean R-multiple, the share of trades that reached 2R, the share stopped at the initial stop, and the sample. The glyph carries the colour (green ≥ +0.2R, amber ≥ 0, red below); <span class="m">⚠THIN</span> under n = 30. It is a <b>base rate with its sample size, not a probability for this trade</b> — the honest ceiling at ~500 trades. The old number was a six-input logistic fitted on simulated trades before the price-action conversion, never validated out-of-sample, and it printed ~50% for every name. Arrives in the bundle’s <span class="m">BR</span> section, pre-formatted by <span class="m">base_rates.py</span>; the <b>GM rank</b> still rides alongside</td></tr>
   </tbody></table></div></div></details>
 
   <details class="ref"><summary>II · Location, value &amp; room — are we at value, and is there room</summary><div class="rb">
@@ -1178,7 +1178,7 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.3 │ core/53 │ 6943ch·14/14</code>. Check it after every
+  Row 0 is the header — <code>S4 v11.3 │ core/53 │ 10511ch·15/15</code>. Check it after every
   recompile: a version mismatch means the library did not publish; a section count under 14 means
   the paste was short.</p>
 
@@ -1362,21 +1362,24 @@ R   RRG        chipped, measured, and deliberately off
     hours and its index endpoint has been retired.</p>
   </div>
 
-  <h3>Rows 11 &amp; 12 · Signal · Quality · RSI, and ML win probability</h3>
+  <h3>Rows 11 &amp; 12 · Signal · Quality · RSI, and the base rate</h3>
   <p>Row 8 carries three values bound from the v67 dashboard: its action signal, its asset-quality
   read, and daily RSI(14). <b>RSI in one line:</b> it compares average gains to average losses
   over 14 days and returns 0–100 — but <b>in a Stage-2 trend RSI stays high for months</b>, and
   selling at 70 is how you exit every winner early. Its useful reading is <em>divergence</em>:
   price making a new high while RSI does not.</p>
-  <p>Row 9 prints the model’s win probability and the board rank —
-  <span class="m">41.3% │ GM rank 72.4 🟢</span>.</p>
-  <div class="note">
-    <span class="tag">Why 40% is a good number</span>
-    <p>This is a trend-following system: it wins less than half the time and makes money on the
-    size of the winners. Measured, about <b>88% of positional exits come via the trail</b>, and
-    the median trade <em>loses</em> to the index. A 40% win probability attached to a 3:1 payoff
-    is a good trade. Green starts at 40%, amber at 35% — <b>do not read it like a school
-    mark</b>. GM rank is never red: a low rank is a ranking, not a fault.</p>
+  <p>Row 12 prints the setup family’s <b>base rate</b> and the board rank —
+  <span class="m">🔴 SWGPB E[R] -0.36 · ≥2R 9% · STOP 75% · N=321 │ GM rank 46.7 ⚪</span>.</p>
+  <div class="note no">
+    <span class="tag">Most names read red, and that is the point</span>
+    <p>These are the measured outcomes of the trades this system produced in the latest
+    validation, per family: mean R-multiple, how often 2R was reached, how often the initial
+    stop was hit, and n. On the September runs every family but REV-CB has a <em>negative</em>
+    mean R and every family’s median is negative — the same fact each stop study found. The
+    number this row used to show, ~50% for everything, was hiding exactly that. A red base rate
+    does not veto a trade; it tells you what the family has paid on average, so you size it and
+    expect it honestly. The regime cell (<span class="m">@B</span>) is used when it has 30 trades.
+    GM rank is never red: a low rank is a ranking, not a fault.</p>
     <p><code>— unbound</code> is the most common panel fault. <code>input.source</code> binds by
     <em>position</em> and <b>TradingView drops every binding on every recompile</b>. Re-run the
     bind script. Nothing is broken.</p>

@@ -347,6 +347,13 @@ python s4_review.py --board 125m --live</pre>
     that fail silently. Check <code>logs/s4_alert_review.log</code> for
     <code>queued … reviewed in Ns (telegram sent)</code>.</p>
   </div>
+  <h4>Read a name on demand — <span class="m">REVIEW.bat</span></h4>
+  <p><b>Since 21 Sep.</b> <span class="m">REVIEW TITAN 75</span> (or run it and answer the two
+  prompts) posts to the <em>local</em> receiver, so a manual read takes exactly the alert’s path:
+  the queue, the 30-minute dedup, the reviewer’s own tabs — never yours — the banner, Telegram
+  and a row in the Log. Use it when the board or your own S4 read wants the full case on a name
+  that has not pinged, or to re-read one after the bar. “duplicate within 30 min” means it was
+  read recently.</p>
   <h4>Test it without an alert</h4>
   <pre>curl -X POST "https://&lt;NGROK_DOMAIN&gt;/s4-review?key=&lt;KEY&gt;" --data "RELIANCE S4 GO 75 - test"</pre>
   <p>A <code>queued</code> reply, a review on Telegram ninety seconds later, and the chart back
