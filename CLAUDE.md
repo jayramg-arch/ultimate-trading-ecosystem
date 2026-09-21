@@ -3043,6 +3043,43 @@ return (seen, deleted) → `p.records`/WARN on zero seen, refresh dialog selecto
   window with a restart loop; closing THAT window is the only way it dies — it was down at 18:5x
   today for exactly that reason (ngrok kept answering 502).
 
+### 21 Sep late — S4 v10.5 / panel v11.4: base-rate row + PUSH_BUNDLES (compiled clean, bound, pushed)
+- **"ML win probability" RETIRED → "Base rate · GM rank" (row 12).** The old number was a
+  six-feature logistic (RSI/ATR%/BBW/RS/alpha/pullback-depth) fitted in May on 45,671 SIMULATED
+  Unified trades, pre PA-conversion, never validated OOS, printing ~50% for every name. Jay asked for
+  "a better ML win probability or some other suitable metric"; the honest answer at ~500 trades is
+  **measured base rates per setup family**, and P(win) is the wrong quantity for a low-hit-rate /
+  big-winner book — E[R] and its shape decide size. NEW **`base_rates.py`** → `data/base_rates.json`:
+  per family (+ family×regime when n≥30) from the latest validation details: E[R] (Return/SL_pct),
+  median R, P(≥2R), P(≥3R), P(initial stop) + median days to it, win%, matched-α mean/median, n.
+  Sources: bull `LAST_RUN_BULL.txt` (fallback 20260819_112959) + recovery `LAST_RUN.txt` ex CB-Watch.
+  **The table (bull n=515 / rec n=288): POSAC −0.06R (n44) · POSBO −0.17R (147) · SWGPB −0.36R,
+  75% stop-hit, median −1.06R (321) · REVCB +0.12R (40) · REVE −0.12R (122) · REVRS −0.04R (58) ·
+  WYC −0.13R (56). Most names read RED — that is the measured truth, not the row being harsh.**
+- **Plumbing:** `gm_trigger_board.s4_bundle` emits a display-only **`BR=SYM:text`** section (before
+  RANK; receipt now expects **/15**). Symbol→family: board `Catalyst` first, else Archetype
+  (Pullback→SWGPB, Breakout/Leader/Catalyst-Scan→POSBO, Recovery-Early/Rec-Catalyst-Scan→REVE,
+  Recovery-Climax→REVCB). Regime cell chosen by the live rule (close>SMA200 & SMA50>SMA200 on
+  `regime_state.json`). **Text is PRE-FORMATTED in Python** with `_` for spaces and a leading
+  🟢/🟡/🔴 glyph (≥+0.2R / ≥0 / below) — the first Pine version parsed `FAM_ER_P2R_PSTOP_n` and
+  compiled at **100,765 (510 over)**; now one `str.replace_all`. `fundStr` UPPERCASES and strips
+  spaces, so the layout is caps-safe. Rebuilt by `python base_rates.py` after any re-baseline.
+  `dashMlProb` input deleted (bind map entry dropped → 31/31).
+- **NEW `tv_push_bundles.py` + `PUSH_BUNDLES.bat` + Desktop `Push Bundles.lnk` (`push_bundles.ico`).**
+  Both bundles are `input.string`s per S4 instance → three tabs × two pastes a day, and a missed paste
+  silently keeps last session's list. The pusher finds S4 on every chart tab over CDP, `setInputValues`
+  on the two inputs BY TITLE (`GM: ONE-PASTE bundle (all lists)` / `GM: bundle 2 — options OI`), reads
+  back and reports per tab; `--check` inspects; refuses an empty bundle 1. **Evening run pushes
+  automatically** after `write_bundles` (`GM_PUSH_BUNDLES=0` to skip; best-effort, never fails the
+  run). Verified 3 tabs / 10,511 + 1,005 chars / exit 0. Daily S4 manual steps are now ONLY:
+  bind-after-compile + the two alerts.
+- **Traps hit:** (1) JS `name in [array]` tests indices, not membership — the first `--check` read
+  0 chars on every tab while the header showed 8123; use `indexOf`. (2) TV's compile "adds to chart"
+  on the ACTIVE tab — it put S4 on the **S5 Reviewer** tab (memory-limit trap; Jay removed it).
+  (3) While a compile is failed the study exposes NO inputs → push reads "input not found".
+- **Which tabs Jay works on: S4 Phase-2 (`ldohBiLB`) + S5 Layout (`YrXZkuKM`) only.** The two
+  Reviewer tabs and Phase-1 are driven and get overwritten within ~90 s of an alert.
+
 ### Recovery re-run `20260920_212328` — read 21 Sep (windows 90/120 ✓, 13.7 h, 20 anchors)
 **PY-08 did NOT apply**: the `Signal>=2` filter sits in `run_s4go_validation`; this run used
 `run_validation` (log says "validating @", not "S4-GO validating @"). CB-Watch still 139/427. Post-hoc
