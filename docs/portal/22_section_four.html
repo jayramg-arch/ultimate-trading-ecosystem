@@ -291,10 +291,17 @@ footer a{color:var(--acc)}
       <tr><td class="k">Above</td><td>Falling</td><td class="k">3</td></tr>
       <tr><td class="k">Above</td><td>Flat</td><td>RS up → 1, else 3</td></tr>
       <tr><td class="k">Below</td><td>Rising</td><td class="k">2 — pullback</td></tr>
-      <tr><td class="k">Below</td><td>Falling</td><td class="k">4</td></tr>
+      <tr><td class="k">Below</td><td>Falling</td><td><b>4</b> — unless RS is rising, then 1</td></tr>
       <tr><td class="k">Below</td><td>Flat</td><td class="k">1</td></tr>
     </tbody>
   </table></div>
+  <p class="refnote"><b>Two cells use relative strength as the tie-break, not one.</b> Above a flat
+  average RS decides base (1) against top (3); and <em>below a falling</em> average RS decides
+  decline (4) against base (1) — a name still leading the index while it sits under a falling
+  30-WMA reads Stage 1, not 4. The two 30-WMA cells that matter for a trade (rising → 2, whether
+  price is above or below it) never consult RS. Same rule on all three surfaces
+  (<code>stage_n</code> in S4, <code>bull_screener.py</code>, v67). Corrected 21 Sep — the table had
+  flattened the falling cell to a plain 4.</p>
   <div class="note no">
     <span class="tag">What was wrong, and why it hid so long</span>
     <p>The other two surfaces ran a <b>hysteresis state machine</b> that evolved the stage from its
