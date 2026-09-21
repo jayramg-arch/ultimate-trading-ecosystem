@@ -3079,6 +3079,16 @@ return (seen, deleted) → `p.records`/WARN on zero seen, refresh dialog selecto
   (3) While a compile is failed the study exposes NO inputs → push reads "input not found".
 - **Which tabs Jay works on: S4 Phase-2 (`ldohBiLB`) + S5 Layout (`YrXZkuKM`) only.** The two
   Reviewer tabs and Phase-1 are driven and get overwritten within ~90 s of an alert.
+- **NEW `REVIEW.bat`** (`4dc6bc19`) — manual review of any name: `REVIEW TITAN 75` or two prompts.
+  Posts to the LOCAL receiver (`http://127.0.0.1:8000/s4-review?key=…`, body `SYM S4 GO TF - manual`)
+  so it takes the alert's exact path — queue, 30-min dedup, reviewer tabs (never Jay's), banner,
+  Telegram, Log row. Needs the receiver window up. Tested (TITAN queued + reviewed).
+- **Library updated (same commit):** Doc 22 field entry + rows-11/12 section → base-rate row (note
+  "Most names read red, and that is the point" replaces "Why 40% is a good number"; receipt example
+  15/15); Doc 26 evening checklist "Copy both pastes" → "The bundles reach S4 by themselves"
+  (PUSH_BUNDLES/--check), loop shows `(bundles push themselves)` + a `REVIEW SYMBOL TF` line; Doc 32
+  §05 "Read a name on demand — REVIEW.bat"; index row "21 Sep · late", 20 changes, S4 v10.5/v11.4.
+  Alerts recreated by Jay after the compile.
 
 ### Recovery re-run `20260920_212328` — read 21 Sep (windows 90/120 ✓, 13.7 h, 20 anchors)
 **PY-08 did NOT apply**: the `Signal>=2` filter sits in `run_s4go_validation`; this run used
