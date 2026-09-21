@@ -6108,17 +6108,12 @@ if show_panel and d_panel and barstate.islast
     // regime's cell when it is thick enough. Not a probability for this trade: a base rate
     // with its sample size, which is the honest ceiling at ~500 trades. Negative E[R] is
     // the measured truth of the book (every stop study agreed) - read it, do not tune it away.
+    // The text arrives PRE-FORMATTED from base_rates.py (fundStr strips spaces, so "_"
+    // stands in for them) with a leading colour glyph - parsing it here cost 510 tokens
+    // over the ceiling on the first compile of v10.5.
     string _brRaw = core.fundStr(core.bundleSection(gm_bundle, "BR"), syminfo.ticker)
-    array<string> _brP = str.split(_brRaw, "_")
-    bool _brOk = array.size(_brP) == 5
-    string _brFam = _brOk ? array.get(_brP, 0) : ""
-    float  _brER  = _brOk ? str.tonumber(array.get(_brP, 1)) : na
-    float  _brP2  = _brOk ? str.tonumber(array.get(_brP, 2)) : na
-    float  _brPS  = _brOk ? str.tonumber(array.get(_brP, 3)) : na
-    float  _brN   = _brOk ? str.tonumber(array.get(_brP, 4)) : na
-    _brOk := _brOk and not na(_brER) and not na(_brN)
-    string _brTxt = not _brOk ? "— no base rate for this name" :
-         _brFam + "  E[R] " + str.tostring(_brER, "+0.00") + "  │  ≥2R " + str.tostring(_brP2, "0") + "%  │  stop " + str.tostring(_brPS, "0") + "%  │  n=" + str.tostring(_brN, "0") + (_brN < 30 ? " ⚠thin" : "")
+    bool _brOk = str.length(_brRaw) > 0
+    string _brTxt = _brOk ? str.replace_all(_brRaw, "_", " ") : "— no base rate for this name"
     // Row 21, not 4: rows 1/10/18/30/36/40 are SECTION BANDS and 4 is the WCL row.
     // 21-23 are the only genuinely free ids (see the row audit in the header).
     // MOMENTUM & VALUE (row 22). RSI stays on row 9 as part of the v67 signal triplet
@@ -6136,8 +6131,7 @@ if show_panel and d_panel and barstate.islast
     // GM rank joins the ML row (Jay, 26-Aug): both are SCORES of the setup rather than
     // facts about its structure, so they read together and Structure basis is left to
     // describe structure alone.
-    f_row(12, "Base rate · GM rank", _brTxt + _rnkTxt,
-      not _brOk ? C_MUTE : _brER >= 0.2 ? C_GO : _brER >= 0.0 ? C_OK : C_WARN)
+    f_row(12, "Base rate · GM rank", _brTxt + _rnkTxt, _brOk ? C_OK : C_MUTE)
     [_fpTxt, _fpP, _fpR] = core.bitsRow(_pioBits, "ROA+,OCF+,ROA up,Accruals,Leverage dn,Liquidity up,No dilution,GM up,Asset turn up")
     // FUNDAMENTALS, kept with Minervini rather than in a section of their own: the
     // trend template and these two answer the same question (is the business behind

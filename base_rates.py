@@ -26,9 +26,9 @@ removed. Recovery cells are family-only (no regime split) — n is too thin.
 
 Outputs
     data/base_rates.json                     every cell, for the board and the docs
-    br_section(board_df) -> "BR=SYM:code,…"  one bundle section; code =
-        FAM_ER_P2R_PSTOP_n  e.g.  POSBO_+0.21_14_12_147   (no , : | ; — the bundle
-        grammar's separators; S4Core.fundStr returns the code, S4 splits on "_")
+    br_section(board_df) -> "BR=SYM:text,…"  one bundle section; text is the panel
+        string with "_" for spaces, e.g. 🔴_POSBO_E[R]_-0.17_·_≥2R_5%_·_STOP_10%_·_N=147
+        (no , : | ; — the bundle separators; S4 does str.replace_all("_"," ") and prints)
 
 CLI:  python base_rates.py            build + print the table
       python base_rates.py --json     print the JSON
@@ -184,7 +184,14 @@ def code_for(fam: str, br: dict, regime: str = "") -> str:
     c = c or cells.get(fam)
     if not c or not c.get("n"):
         return ""
-    return "%s_%+.2f_%.0f_%.0f_%d" % (tag, c["ER"], c["P2R"], c["PSTOP"] or 0, c["n"])
+    # The panel text itself, pre-formatted (21-Sep evening): S4 sat 510 tokens over the
+    # ceiling parsing FAM_ER_P2R_PSTOP_n, so Pine now just swaps "_" for " ". fundStr
+    # upper-cases and strips spaces, hence underscores and an all-caps-safe layout. The
+    # leading glyph carries the colour (green >= +0.2R, amber >= 0, red below).
+    glyph = "🟢" if c["ER"] >= 0.2 else ("🟡" if c["ER"] >= 0 else "🔴")
+    thin = "_⚠thin" if c["n"] < MIN_N_CELL else ""
+    return "%s_%s_E[R]_%+.2f_·_≥2R_%.0f%%_·_STOP_%.0f%%_·_N=%d%s" % (
+        glyph, tag, c["ER"], c["P2R"], c["PSTOP"] or 0, c["n"], thin)
 
 
 def br_section(board_df: pd.DataFrame) -> str:
