@@ -847,9 +847,19 @@ def run_recovery_replay(as_of: str, forward_days: int = 30,
     _dp.set_pinned_date(as_of)
     try:
         import recovery_screener as _rs
-        # strict=True: backtest replay needs only signal-firing rows (Signal>=1)
-        # for forward-return analysis.
+        # strict=True: backtest replay needs only signal-firing rows.
         picks = _rs.run_recovery_screener(symbols=symbols, out_file=out_path, strict=True)
+        # AUD-PY-08 (20-Sep-2026), moved HERE 21-Sep: Signal=1 is "CB-Watch" — the WATCH state
+        # ahead of REV-CB (priority ladder: 1 = watch, 2+ = buy). strict=True kept it, so 30%
+        # of the 10-Aug run and 33% of the 20-Sep run were pre-signals that never fire a
+        # trade. The 20-Sep fix sat only in run_s4go_validation; run_validation (the CLI
+        # path) comes through this function, so the filter lives at the one choke point.
+        if picks is not None and not picks.empty and "Signal" in picks.columns:
+            _sig = pd.to_numeric(picks["Signal"], errors="coerce").fillna(0)
+            _n0 = len(picks)
+            picks = picks[_sig >= 2].copy()
+            if _n0 != len(picks):
+                print(f"   recovery: dropped {_n0 - len(picks)} CB-Watch (Signal=1) rows — watch states are not trades", flush=True)
     finally:
         _dp.set_pinned_date(None)
 

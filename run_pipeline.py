@@ -51,6 +51,23 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 import logging
 import threading
 
+
+def _record_cleanup(p, res) -> None:
+    """Put the cleanup's real numbers on the phase. seen == 0 is a FAILURE to read the
+    dialog, never 'all clean' — that ambiguity is how Phase 0.5 hid for months."""
+    res = res or {}
+    seen, stale, deleted = res.get("seen", 0), res.get("stale", 0), res.get("deleted", 0)
+    failed = res.get("failed", [])
+    p.records = deleted
+    p.message = f"{deleted}/{stale} stale lists deleted of {seen} seen (today's kept: {res.get('skipped_today', 0)})"
+    if seen == 0:
+        p.status = "WARN"
+        p.message = "cleanup saw 0 watchlists — dialog not read: " + ("; ".join(map(str, failed)) or "no detail")
+    elif failed:
+        p.status = "WARN"
+        p.message += " · failed: " + ", ".join(map(str, failed))[:200]
+    logger.info("   ↳ watchlist cleanup: " + p.message)
+
 def setup_logging():
     logger = logging.getLogger("AutoPilot")
     logger.setLevel(logging.INFO)
@@ -268,8 +285,8 @@ def main():
         try:
             import nuclear_cleanup
             import asyncio
-            asyncio.run(nuclear_cleanup.main())
-            p.message = "nuclear cleanup complete"
+            _nc = asyncio.run(nuclear_cleanup.main())
+            _record_cleanup(p, _nc)
         except Exception as e:
             logger.error(f"❌ Error during Nuclear Cleanup: {e}")
             p.status = "WARN"
@@ -825,14 +842,19 @@ def main():
 
     # 5.7. STALE WATCHLISTS CLEANUP (NUCLEAR CLEANUP)
     logger.info("\n[PHASE 5.7] RUNNING STALE WATCHLISTS CLEANUP...")
+    # 21-Sep-2026: this phase had NEVER run. `nuclear_cleanup.main()` is async and was
+    # called without asyncio.run(), so it returned an un-awaited coroutine in 0.0 s and
+    # the phase reported "Cleanup complete" every day. Now awaited and counted.
     with run.phase("Phase 5.7 — Stale Watchlists Cleanup") as p:
         try:
             import nuclear_cleanup
-            nuclear_cleanup.main()
-            p.message = "Cleanup complete"
+            import asyncio
+            _nc = asyncio.run(nuclear_cleanup.main())
+            _record_cleanup(p, _nc)
         except Exception as e:
             logger.error(f"❌ Error in Nuclear Cleanup: {e}")
-            raise
+            p.status = "WARN"
+            p.message = f"cleanup error: {e}"
 
     # 6. RRG STUDIO SYNC (13-Sep-2026: replaces the Strike.Money upload — the
     # subscription lapsed; strike_automation.py is in _archive/strike_money/).

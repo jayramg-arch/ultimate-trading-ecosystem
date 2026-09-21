@@ -248,14 +248,48 @@ async def cleanup_strike():
                 await context.close()
 
 
-async def cleanup_tradingview():
+async def cleanup_tradingview() -> dict:
+    """Delete the script-generated (date-stamped / [Auto] / Bull_ Rec_ FINAL_) watchlists on
+    TradingView. Returns {"seen": n, "stale": n, "deleted": n, "failed": [...], "skipped_today": n}
+    so the pipeline phase can record real numbers - a cleanup that cannot report is a cleanup
+    nobody can trust (Phase 0.5 ran for months reporting OK while deleting nothing).
+
+    21-Sep-2026 REWRITE against the live TV DOM (read over CDP, every selector verified,
+    one deletion exercised end to end):
+      - open-check = the WATCHLIST widget's own width, not the widget-bar's. The bar is
+        open whenever ANY tab (Alerts, Object tree...) shows, so the old test never clicked
+        the toggle and `watchlists-button` was absent -> exit at the first locator (the
+        debug screenshot at 16:30 showed the Alerts Log). `button[data-name='base']`
+        TOGGLES the bar - click, re-check, click again if it collapsed.
+      - the lists dialog opens on Shift+W (the shortcut TV prints on the "Open list..."
+        item) - no menu walking. Fallback: watchlists-button -> div[role='menuitem']
+        (it is `role`, not `data-role`, which is the second selector that had died).
+      - dialog `div[data-name='watchlists-dialog']`; rows `div[class*='container-']`;
+        the NAME is `div[class*='title-']` - the row's textContent has the symbol
+        count appended ("Bull_Hunter-18SEP261"), so matching on it mis-names lists.
+      - remove = `[data-name='remove-button']` (hover first) -> `div[data-name=
+        'confirm-dialog']` -> its plain "Delete" button (no data-name). The dialog stays
+        open after a delete, so the loop never reopens it.
+      - TODAY'S stamp is never deleted. STALE_PATTERN matches every stamp including
+        today's; Phase 0.5 was only safe because it runs before Phase 7 recreates the
+        lists. The auto-pilot's 16:30 lists - the ones the live S4 GO alerts bind to -
+        now survive a cleanup run at any time of day.
+    """
+    out = {"seen": 0, "stale": 0, "deleted": 0, "failed": [], "skipped_today": 0}
     print("========================================")
-    print("🚀 NUKING STALE WATCHLISTS ON TRADINGVIEW...")
+    print("NUKING STALE WATCHLISTS ON TRADINGVIEW...")
     print("========================================")
-    
+
     if not os.path.exists(TV_USER_DATA):
-        print("❌ TradingView profile not found.")
-        return
+        print("TradingView profile not found.")
+        out["failed"].append("profile missing")
+        return out
+
+    today_stamp = "-" + datetime.now().strftime("%d%b%y").upper()
+    dry = os.getenv("NUCLEAR_DRY_RUN", "0") == "1" or "--dry-run" in sys.argv
+    if dry:
+        print("   DRY RUN - nothing will be deleted")
+    name_rx = lambda n: re.compile(r"^\s*" + re.escape(n) + r"\s*$")
 
     async with async_playwright() as p:
         context = None
@@ -264,157 +298,148 @@ async def cleanup_tradingview():
                 user_data_dir=os.path.normpath(os.path.abspath(TV_USER_DATA)),
                 headless=False,
                 channel="chrome",
-                args=[
-                    "--start-maximized",
-                    "--disable-gpu",
-                    "--disable-software-rasterizer"
-                ]
+                args=["--start-maximized", "--disable-gpu", "--disable-software-rasterizer"],
             )
             page = context.pages[0] if context.pages else await context.new_page()
-            
-            print("🌍 Navigating to TradingView Chart...")
+
+            print("Navigating to TradingView Chart...")
             await page.goto("https://in.tradingview.com/chart/")
             await page.wait_for_timeout(8000)
 
-            # Ensure Watchlist panel is open
-            try:
-                pages_wrap = page.locator("div[data-name='widgetbar-pages-with-tabs']")
-                is_open = False
-                if await pages_wrap.count() > 0:
-                    box = await pages_wrap.bounding_box()
-                    if box and box['width'] > 10:
-                        is_open = True
-                
-                if not is_open:
-                    print("   👉 Watchlist panel seems closed. Opening Watchlist Panel...")
-                    # Click the toggle button in the toolbar (data-name="base")
-                    toggle_btn = page.locator("button[data-name='base']").first
-                    if await toggle_btn.count() > 0:
-                        await toggle_btn.click()
-                        await page.wait_for_timeout(2000)
+            # -- 1. the WATCHLIST widget must be showing (not merely the widget bar) --
+            async def _wl_width() -> float:
+                try:
+                    return await page.evaluate(
+                        "(() => { const e = document.querySelector(\"div[class*='widgetbar-widget-watchlist']\");"
+                        " return e ? e.getBoundingClientRect().width : 0; })()")
+                except Exception:
+                    return 0.0
+
+            for attempt in range(3):
+                if await _wl_width() > 10:
+                    break
+                print("   Watchlist widget not showing - clicking the rail toggle (%d)..." % (attempt + 1))
+                toggle = page.locator("button[data-name='base']").first
+                if await toggle.count() == 0:
+                    break
+                await toggle.click()
+                await page.wait_for_timeout(1500)
+            if await _wl_width() <= 10:
+                print("Could not bring the Watchlist widget up.")
+                try:
+                    await page.screenshot(path=os.path.join(SCRIPT_DIR, "debug_tv_menu_missing.png"))
+                except Exception:
+                    pass
+                out["failed"].append("watchlist widget not showing")
+                return out
+            print("   Watchlist widget is showing.")
+
+            # -- 2. open the lists dialog (Shift+W; menu as fallback) --
+            dialog = page.locator("div[data-name='watchlists-dialog']").first
+            await page.keyboard.press("Shift+W")
+            await page.wait_for_timeout(1500)
+            if await dialog.count() == 0:
+                menu_btn = page.locator("button[data-name='watchlists-button']").first
+                if await menu_btn.count() > 0:
+                    await menu_btn.click(force=True)
+                    await page.wait_for_timeout(1200)
+                    item = page.locator("div[role='menuitem']").filter(has_text="Open list").first
+                    if await item.count() > 0:
+                        await item.click(force=True)
+                        await page.wait_for_timeout(1500)
+            if await dialog.count() == 0:
+                print("   'Open list' dialog did not open.")
+                out["failed"].append("dialog did not open")
+                return out
+
+            # -- 3. read the names --
+            titles = dialog.locator("div[class*='container-'] div[class*='title-']")
+            names = [t.strip() for t in await titles.all_inner_texts()]
+            names = [n for n in names if n]
+            out["seen"] = len(names)
+            stale = get_stale_watchlists(names)
+            keep_today = [n for n in stale if today_stamp in n.upper()]
+            stale = [n for n in stale if today_stamp not in n.upper()]
+            out["skipped_today"] = len(keep_today)
+            out["stale"] = len(stale)
+            print("%d lists on the account - %d stale - %d carry today's stamp (kept)"
+                  % (len(names), len(stale), len(keep_today)))
+            if not names:
+                out["failed"].append("dialog opened but listed 0 rows")
+
+            # -- 4. delete, one at a time, confirming each --
+            for wl_name in stale:
+                if dry:
+                    print(f"   would delete: {wl_name}")
+                    continue
+                print(f"   deleting: {wl_name}")
+                try:
+                    row = dialog.locator("div[class*='container-']").filter(
+                        has=page.locator("div[class*='title-']", has_text=name_rx(wl_name))).first
+                    if await row.count() == 0:
+                        print(f"      row not found for {wl_name}")
+                        out["failed"].append(wl_name)
+                        continue
+                    await row.scroll_into_view_if_needed()
+                    await row.hover()
+                    await page.wait_for_timeout(300)
+                    rm = row.locator("[data-name='remove-button']").first
+                    if await rm.count() == 0:
+                        print(f"      no Remove control on {wl_name}")
+                        out["failed"].append(wl_name)
+                        continue
+                    await rm.click(force=True)
+                    await page.wait_for_timeout(700)
+                    confirm = page.locator("div[data-name='confirm-dialog'] button",
+                                           has_text=re.compile(r"^\s*Delete\s*$")).first
+                    if await confirm.count() > 0:
+                        await confirm.click(force=True)
+                    left = 1
+                    for _ in range(10):
+                        await page.wait_for_timeout(400)
+                        left = await dialog.locator("div[class*='title-']", has_text=name_rx(wl_name)).count()
+                        if left == 0:
+                            break
+                    if left == 0:
+                        out["deleted"] += 1
+                        print(f"      deleted {wl_name}")
                     else:
-                        # Fallback using tooltip/label
-                        fallback_btn = page.locator("button[data-tooltip*='Watchlist' i], button[aria-label*='Watchlist' i]").first
-                        if await fallback_btn.count() > 0:
-                            await fallback_btn.click()
-                            await page.wait_for_timeout(2000)
-                else:
-                    print("   ✅ Watchlist Panel is already open.")
-            except Exception as e:
-                print(f"   ⚠️ Error checking watchlist panel: {e}")
+                        out["failed"].append(wl_name)
+                        print(f"      {wl_name} still listed after Delete")
+                    if await dialog.count() == 0:          # TV closed it - reopen and continue
+                        await page.keyboard.press("Shift+W")
+                        await page.wait_for_timeout(1500)
+                except Exception as e:
+                    out["failed"].append(wl_name)
+                    print(f"      failed on {wl_name}: {e}")
 
-            for iteration in range(3):
-                # Open Dropdown
-                menu_trigger = page.locator("button[data-name='watchlists-button'], div[class*='widgetbar-widget-watchlist'] .title-button").first
-                if await menu_trigger.count() > 0:
-                    await menu_trigger.click(force=True)
-                    await page.wait_for_timeout(2000)
-
-                    # Click 'Open list' to see ALL watchlists
-                    open_list_opt = page.locator("div[data-role='menuitem'], div[role='option'], .item-text").filter(has_text="Open list").first
-                    if await open_list_opt.count() > 0:
-                        await open_list_opt.click(force=True)
-                        await page.wait_for_timeout(2000)
-
-                        dialog = page.locator("div[data-name='watchlists-dialog'], div[data-dialog-name='manage-watchlists']").first
-                        if await dialog.count() == 0:
-                            dialog = page.locator("div[role='dialog']").first
-
-                        if await dialog.count() > 0:
-                            rows = dialog.locator("div[role='row'], div[data-role='list-item']")
-                            if await rows.count() == 0:
-                                rows = dialog.locator("div[class*='item-']")
-
-                            count = await rows.count()
-                            all_rows = []
-
-                            for i in range(count):
-                                row = rows.nth(i)
-                                text = await row.inner_text()
-                                all_rows.append(text.split('\n')[0].strip())
-
-                            stale_rows = get_stale_watchlists(all_rows)
-
-                            if not stale_rows:
-                                print("🎯 Found 0 stale watchlists. All clean!")
-                                break # Exit the retry loop
-                            else:
-                                print(f"🎯 Iteration {iteration+1}: Found {len(stale_rows)} stale watchlists to terminate.")
-                                for wl_name in stale_rows:
-                                    row_locator = "div[role='row'], div[data-role='list-item'], div[class*='item-']"
-                                    row = dialog.locator(row_locator).filter(has_text=re.compile(rf"^\s*{re.escape(wl_name)}\s*$")).first
-                                    if await row.count() == 0:
-                                        row = dialog.locator(row_locator).filter(has_text=wl_name).first
-                                    if await row.count() > 0:
-                                        try:
-                                            await row.scroll_into_view_if_needed()
-                                            await page.wait_for_timeout(500)
-                                        except:
-                                            pass
-                                        box = await row.bounding_box()
-                                        if box:
-                                            await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-                                            await page.wait_for_timeout(500)
-
-                                            # After hovering, the delete button (an 'X' or trash icon) should appear
-                                            delete_btn = row.locator("[data-name='remove-button'], [aria-label*='elete' i], [title*='elete' i], [aria-label*='emove' i]").last
-                                            if await delete_btn.count() == 0:
-                                                # Fallback to the last element that looks like an action icon
-                                                delete_btn = row.locator("[data-role='list-item-action']").last
-
-                                            if await delete_btn.count() > 0:
-                                                await delete_btn.click(force=True)
-                                                await page.wait_for_timeout(1000)
-
-                                                confirm_btn = page.locator("button[data-name='submit-button'], button:has-text('Yes'), button:has-text('Delete')").first
-                                                if await confirm_btn.count() > 0 and await confirm_btn.is_visible():
-                                                    await confirm_btn.click(force=True)
-                                                    print(f"      ✅ Vaporized {wl_name} (with confirmation)")
-                                                    await page.wait_for_timeout(1500)
-                                                else:
-                                                    print(f"      ✅ Vaporized {wl_name}")
-                                                    await page.wait_for_timeout(1000)
-                                            else:
-                                                print(f"      ⚠️ Could not find the Delete icon on hover for {wl_name}")
-                                        else:
-                                            print(f"      ⚠️ Row for {wl_name} has no bounding box (possibly virtualized out of view).")
-                                    else:
-                                        print(f"      ⚠️ Could not find row for {wl_name} in the dialog. It might be scrolled out of view.")
-                        else:
-                            print("      ⚠️ 'Open list' dialog not found.")
-                    else:
-                        print("      ⚠️ 'Open list' option not found in advanced menu.")
-                else:
-                    print("⚠️ TradingView advanced menu button not found!")
-                    try:
-                        await page.screenshot(path=os.path.join(SCRIPT_DIR, "debug_tv_menu_missing.png"))
-                        print("📸 Saved debug screenshot to debug_tv_menu_missing.png")
-                    except Exception as se:
-                        print(f"Failed to capture screenshot: {se}")
-
-                # Close dialog if still open before next iteration
-                await page.keyboard.press("Escape")
-                await page.wait_for_timeout(1000)
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(500)
         except Exception as e:
-            print(f"❌ Error during TradingView cleanup: {e}")
+            print(f"Error during TradingView cleanup: {e}")
+            out["failed"].append(str(e))
         finally:
             if context:
                 await context.close()
+    print("   summary: seen %d - stale %d - deleted %d - failed %d - kept today %d"
+          % (out["seen"], out["stale"], out["deleted"], len(out["failed"]), out["skipped_today"]))
+    return out
 
 
-async def main():
+async def main() -> dict:
     print("======================================================")
-    print("☢️  WEINSTEIN COMMANDER: NUCLEAR WATCHLIST CLEANUP  ☢️")
+    print("  WEINSTEIN COMMANDER: NUCLEAR WATCHLIST CLEANUP")
     print("======================================================")
-    print("This script will hunt down and vaporize any auto-generated")
-    print("watchlists containing date stamps (e.g. -11JUN26), [Auto],")
-    print("or starting with Bull_ / Rec_ / FINAL_.")
+    print("Deletes auto-generated watchlists carrying a date stamp (e.g. -11JUN26),")
+    print("[Auto], or a Bull_ / Rec_ / FINAL_ prefix - except today's stamp.")
     print("------------------------------------------------------\n")
-    
+
     # 16-Sep-2026: Strike.Money lapsed (strike_automation archived); its profile is
     # gone and the step only printed "Strike profile not found" every run.
-    await cleanup_tradingview()
-    print("\n✅ NUCLEAR CLEANUP COMPLETE.")
+    out = await cleanup_tradingview()
+    print("\nNUCLEAR CLEANUP COMPLETE.")
+    return out
+
 
 if __name__ == "__main__":
     asyncio.run(main())

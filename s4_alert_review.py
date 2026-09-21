@@ -33,6 +33,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(HERE, "logs", "s4_alert_review.log")
 DEDUP_MIN = int(os.getenv("S4_ALERT_DEDUP_MIN", "30"))
 RESTORE = os.getenv("S4_ALERT_RESTORE_CHART", "1") != "0"
+# 21-Sep-2026: one retry on a settle timeout. The three failures on 21 Sep were all the
+# first review after a bar close, when TV is still recalculating; a second attempt a
+# minute later is what the queue's later items effectively got, and they all passed.
+RETRY_ON_TVERROR = os.getenv("S4_ALERT_RETRY", "1") != "0"
+STATUS = os.path.join(HERE, "logs", "reviewer_status.json")   # read by reviewer_banner.py
 
 _q: "queue.Queue[tuple[str, str, str]]" = queue.Queue()
 _seen: dict[tuple[str, str], float] = {}
@@ -125,18 +130,47 @@ def _chart_state():
     return None, None
 
 
+def _status(state: str, symbol: str = "", tf: str = "", started: float | None = None,
+            last: str = "") -> None:
+    """The banner's source of truth: busy / restoring / idle, written at each transition.
+    Best-effort — the review never fails because the banner could not be told."""
+    try:
+        d = {"state": state, "symbol": symbol, "tf": tf, "started": started,
+             "pending": _q.qsize(), "last": last, "ts": time.time()}
+        tmp = STATUS + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        os.replace(tmp, STATUS)
+    except Exception:
+        pass
+
+
+def _review_with_retry(sr, symbol: str, tf: str) -> dict:
+    try:
+        return sr.review_symbol(symbol, tf)
+    except sr.TVError as e:
+        if not RETRY_ON_TVERROR or "settle" not in str(e):
+            raise
+        _log("%s %s settle timeout — retrying once in 20s" % (symbol, tf))
+        time.sleep(20)
+        return sr.review_symbol(symbol, tf)
+
+
 def _run(symbol: str, tf: str, source: str) -> None:
     import s4_review as sr
     t0 = time.time()
+    _status("busy", symbol, tf, t0)
+    last = "%s %sm · failed" % (symbol, tf)
     prev_sym, prev_res = _chart_state() if RESTORE else (None, None)
     try:
-        res = sr.review_symbol(symbol, tf)
+        res = _review_with_retry(sr, symbol, tf)
         rc, review, path = res["rc"], res["review"], res["path"]
         if rc == 0 and review:
             msg = summary(review, symbol, tf)
             sent = sr.telegram(msg + "\n\nfull: %s" % os.path.relpath(path, HERE).replace("\\", "/"))
             _log("%s %s reviewed in %ds → %s (telegram %s)" % (symbol, tf, time.time() - t0,
                  os.path.basename(path), "sent" if sent else "not configured"))
+            last = "%s %sm · %ds" % (symbol, tf, time.time() - t0)
         else:
             sr.telegram("🔔 S4 GO · %s · %s — review FAILED (rc %s); see logs/s4_alert_review.log" % (symbol, tf, rc))
             _log("%s %s review rc %s" % (symbol, tf, rc))
@@ -153,11 +187,13 @@ def _run(symbol: str, tf: str, source: str) -> None:
         except Exception as e:
             _log("portal rebuild failed: %s" % e)
         if RESTORE and prev_sym and prev_sym.upper() != ("NSE:" + symbol).upper():
+            _status("restoring", symbol, tf, t0, last)
             try:
                 sr.switch_chart(prev_sym.replace("NSE:", ""), prev_res)
                 _log("chart restored to %s %s" % (prev_sym, prev_res))
             except Exception as e:
                 _log("chart restore failed: %s" % e)
+        _status("idle", last=last)
 
 
 def _loop() -> None:

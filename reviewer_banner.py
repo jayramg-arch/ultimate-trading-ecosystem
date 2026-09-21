@@ -24,12 +24,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import tkinter as tk
 from datetime import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(HERE, "logs", "s4_alert_review.log")
 POS = os.path.join(HERE, "logs", "reviewer_banner_pos.json")
+STATUS = os.path.join(HERE, "logs", "reviewer_status.json")   # written by s4_alert_review._run
+STATUS_MAX_AGE_S = 6 * 3600   # older than this = a stale file from a receiver that has since died
 
 POLL_MS = 1000
 TS = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
@@ -170,7 +173,37 @@ class Banner:
             self.current = (sym, tf, when)
 
     # ── paint ─────────────────────────────────────────────────────────────
+    def _from_status(self):
+        """(text, bg) from the receiver's own status file, or None to fall back to the log.
+        21-Sep evening: _run() writes busy / restoring / idle at each transition, so this
+        is exact; the log tail below is only for a receiver that predates it."""
+        try:
+            if time.time() - os.path.getmtime(STATUS) > STATUS_MAX_AGE_S:
+                return None
+            with open(STATUS, encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            return None
+        st, sym, tf = d.get("state"), d.get("symbol", ""), d.get("tf", "")
+        pend = int(d.get("pending") or 0)
+        if st == "busy":
+            el = max(0, int(time.time() - float(d.get("started") or time.time())))
+            return ("● REVIEWER HAS THE CHARTS · %s %sm · %ds%s" % (
+                sym, tf, el, ("  +%d queued" % pend) if pend else ""), C_BUSY)
+        if st == "restoring":
+            return ("◐ %s done · restoring your chart…" % sym, C_WAIT)
+        if st == "idle":
+            last = d.get("last") or ""
+            return ("○ reviewer idle" + ("   last: " + last if last else ""), C_IDLE)
+        return None
+
     def _tick(self) -> None:
+        got = self._from_status()
+        if got:
+            text, bg = got
+            self.label.configure(text=text, bg=bg); self.root.configure(bg=bg)
+            self.root.after(POLL_MS, self._tick)
+            return
         self._read_new()
         if self._size < 0:
             text, bg = "reviewer · log not found", C_DEAD

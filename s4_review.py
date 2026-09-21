@@ -187,6 +187,15 @@ def _tv_all(expr: str, targets: list | None = None) -> list:
 # only that tab to the index and reads it separately. Without the setting nothing
 # changes: every tab is a main tab, as before.
 PHASE1_CHART = os.getenv("S4_PHASE1_CHART", "").strip()
+# ── DEDICATED REVIEW TABS (21-Sep-2026) ─────────────────────────────────────────
+# By default the reviewer drives EVERY chart tab except the Phase-1 one — which are
+# Jay's working tabs, so a review hijacks his chart for ~90 s (31 reviews on 18 Sep ≈
+# 49 min). S4_REVIEW_CHARTS=<chart id>,<chart id> names tabs that carry the S4 and S5
+# stacks for the reviewer's exclusive use; when set, ONLY those are main targets and
+# his tabs are never touched. The ids are the /chart/<id>/ segment of each tab's URL;
+# each must be its own layout (Make a copy — a Duplicate shares the id). Nothing here
+# calls tab_switch, so a background tab is driven without ever coming to the front.
+REVIEW_CHARTS = [c.strip() for c in os.getenv("S4_REVIEW_CHARTS", "").split(",") if c.strip()]
 _INDEX_MAP_PATH = os.path.join(HERE, "data", "tv_index_map.json")
 
 
@@ -194,8 +203,19 @@ def _is_phase1(t: dict) -> bool:
     return bool(PHASE1_CHART) and PHASE1_CHART in t.get("url", "")
 
 
+def _is_review(t: dict) -> bool:
+    return any(c in t.get("url", "") for c in REVIEW_CHARTS)
+
+
 def _main_targets() -> list[dict]:
-    return [t for t in _chart_targets() if not _is_phase1(t)]
+    tabs = _chart_targets()
+    if REVIEW_CHARTS:
+        mine = [t for t in tabs if _is_review(t) and not _is_phase1(t)]
+        if mine:
+            return mine
+        raise TVError("S4_REVIEW_CHARTS is set (%s) but no open chart tab matches — open the "
+                      "review layouts, or unset it to drive every tab" % ",".join(REVIEW_CHARTS))
+    return [t for t in tabs if not _is_phase1(t)]
 
 
 def _phase1_target() -> dict | None:
@@ -213,11 +233,19 @@ def index_for(symbol: str) -> dict | None:
     return e if e and e.get("tv") else None
 
 
-def switch_chart(symbol: str | None, tf: str | None, timeout_s: int = 45,
+# 21-Sep-2026: 45 s expired on 3 of 3 batch-first reviews (CGPOWER 75/125, GOLDIETF 75) —
+# every batch starts at a bar close, when TV is recalculating every study on every tab,
+# and the 5 reviews that ran a minute or two later all settled. Default 90 s; env override.
+SETTLE_S = int(os.getenv("S4_SETTLE_S", "90") or 90)
+
+
+def switch_chart(symbol: str | None, tf: str | None, timeout_s: int | None = None,
                  targets: list | None = None) -> dict:
     """Set symbol/TF, then wait until every study has recalculated and the cell count is
     stable. Returns the READY_JS state. `targets` limits the switch to those tabs
     (default: the main tabs, i.e. everything but the Phase-1 tab)."""
+    if timeout_s is None:
+        timeout_s = SETTLE_S
     sym_js = 'chart.setSymbol(%s);' % json.dumps(_nse(symbol)) if symbol else ""
     res_js = 'chart.setResolution(%s);' % json.dumps(_res(tf)) if tf else ""
     want_sym = _nse(symbol) if symbol else None

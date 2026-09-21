@@ -991,8 +991,10 @@ RV_FLOOR    = 1.0      # S4 rv_floor
 # "measured: no edge". Jay's call stands — TAG, don't suppress; the rows stay tradeable
 # on his own read through the reviewer. Caveats on the run: it predates the 18-Aug RRG /
 # forming-week fixes, and 30% of its trades were CB-Watch pre-signals (filtered from the
-# replay on 20-Sep). Re-run before quoting a number; flip this to False only if a re-run
-# shows an edge.
+# replay on 20-Sep). RE-RUN 20260920_212328 (21-Sep read, RRG/forming-week fixes in,
+# CB-Watch removed post-hoc): n=267, mean +0.15%, median -1.99%, win 38.2%, anchor CI95
+# [-1.95, +0.86], P(alpha>0) 25% - no longer measurably negative, still no edge; every
+# family's median negative. Flip this to False only if a run shows an edge.
 RECOVERY_NO_EDGE = True
 RECOVERY_UNVALIDATED = RECOVERY_NO_EDGE      # old name kept for any external reader
 
