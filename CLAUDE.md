@@ -3145,6 +3145,35 @@ levels under a plan the model had already moved — it now prefers the model's a
 is reading; and a greedy `[\d.]+` swallowed the sentence's full stop (`float("3363.4.")`
 raises), so STOP silently never parsed and the whole block fell back to the panel.
 
+**P2 (`a0b1bf1d`) — a REQUIRED per-level verdict, audited.**
+- The prompt now demands **LEVEL VALIDATION** immediately before the PLAN: four lines, one
+  per level (ENTRY · STOP · T1 · T2), each naming what supports it WITH a number, what is
+  against it WITH a number, and the one observation that flips it. Where P1's pre-read named
+  a cap, the level written MUST be the capped one; a cash-only name writes "no derivatives"
+  rather than inventing them.
+- **`lv_audit()`** verifies the SHAPE of that answer the way `r_check` verifies an R — a
+  missing line, or a line with no number, prints as `LV-AUDIT`. It never judges the
+  reasoning, only that each level was actually ruled on. Unit-tested on complete / partial /
+  missing blocks.
+- **Reviewer Log** renders `LEVEL CHECK` and `LV-AUDIT` as checks, including on compact rows.
+
+**⚠ THE OVER-CORRECTION P2 CAUGHT — "a ceiling is not a target".** On the first live run with
+the derivative facts in the prompt (SUPREMEIND 125m), the model parked **T1 ON max pain
+(0.35R)** and **T2 ON the call wall (1.12R)** and mis-stated both as 1.1R/1.9R. It had absorbed
+*"there is a ceiling"* and lost *"so this is not a trade here"*. Max pain is an expiry magnet and
+a wall is where writers defend: you **scale before** them, never target them — and if that is
+all the room there is, **the trade is not available at that entry** (WAIT for a lower one, or
+PASS). A 0.4R plan is a losing trade written down politely. Now in the prompt AND enforced
+deterministically in `level_check` (within 0.2% of a ceiling → flag with its R), so it does not
+depend on the model remembering. **The three checks working together on that one read:** R-CHECK
+caught the mis-stated R, LEVEL CHECK caught the ceilings-as-targets, LV-AUDIT confirmed the four
+levels were ruled on — and the plan was a 0.35R trade wearing a "1.1R" label. That is exactly
+the failure mode Jay opened the thread with.
+
+**STANDING: restart the receiver after any `s4_review` change** — alert-driven reviews run the
+module loaded at receiver start; `REVIEW.bat` and the CLI pick changes up immediately. Jay
+restarted after P1 and again after P2.
+
 **P3 is now weeks away, not months** — with six months of history and these logged fields, "did
 price respect the call wall between entry and T1?" is answerable over 219 names as soon as
 there are enough live rows to score. Pre-register it; a rule that fails comes out.
