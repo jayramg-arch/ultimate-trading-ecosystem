@@ -92,7 +92,65 @@ of this amendment.
 
 ---
 
-## Results
+## Results — the single run, 22 September 2026
 
-*(filled in by the single run, 22 September 2026 — see `derivatives_p3.py` and the section
-appended below)*
+`python derivatives_p3.py` · full output in `logs/p3_run_20260922.txt` · history
+1 Jul 2024 → 22 Sep 2026 (114,439 rows, 276 symbols) · **195 of the 515 trades joined**
+(F&O underlyings only) across 127 symbols and the full anchor range 2024-07-15 → 2026-02-16 ·
+families SWG-PB 109 · POS-BO 64 · POS-ACCUM 22.
+
+### Verdict: **all four fail. H1 fails BACKWARDS.**
+
+| | Predicted | Measured | Verdict |
+|---|---|---|---|
+| **H1** | T1 beyond the call wall reached **≥10 pp less** often | **+3.1 pp MORE** often pooled (CI95 −4.8 to +10.9). **SWG-PB +13.3 pp more, CI95 [+2.3, +24.1] — excludes zero in the WRONG direction** | **FAIL — inverted** |
+| **H2** | wall-capped T1 ≥ **+0.15R** mean, median not worse, IS *and* OOS | IS **+0.150R**, **OOS −0.160R** | **FAIL — OOS** |
+| **H3** | stop above the put wall stops out **≥8 pp more** | pooled +22.6 pp (CI95 [+10.5, +34.3]) but **every family ≤ 0**: SWG-PB −5.5, POS-BO −1.9, POS-ACCUM thin | **FAIL — pooled effect is composition** |
+| **H4** | max pain in the path drags T1 **≥8 pp**, inside 10 days only | **+9.4 pp HIGHER** inside 10 days; −5.0 pp further out; both cells thin | **FAIL — inverted** |
+
+### What the failures mean
+
+**H1 is the significant one, and it points the other way.** SWG-PB trades whose T1 sat beyond
+the call wall reached T1 *more* often, and that cell's CI excludes zero. One run cannot say why
+— a wall between entry and a 2R target may simply mark a name whose strikes are clustered close
+to price, which is not the same population as one with distant strikes. **Recorded as a finding
+to pre-register, not a result to act on.**
+
+**H3 is a textbook composition artifact** and the reason measurement rule 2 exists. Pooled, a
+stop above the put wall looks decisively worse (+22.6 pp, CI excluding zero). Split by family,
+**no family shows it** — SWG-PB, the only non-thin cell, runs the other way. SWG-PB both stops
+out far more often (77–83%) and places more stops above walls, so the pooled number is reading
+the family mix, not the wall. Pooling has now produced a false conclusion in this estate four
+times.
+
+**H2's median improved in every window** (+0.88R pooled) while its mean failed OOS — capping
+turns a few big winners into moderate ones, which lifts the middle and costs the tail. The bar
+was written as mean *and* median for exactly this reason. **Caveat on construction:** the capped
+replay is a proxy — a trade is treated as having filled the cap when its maximum run-up reached
+the wall, without bar-by-bar sequencing. A real replay could move these numbers; it cannot rescue
+an OOS mean that is negative.
+
+**Sample honesty:** only 195 of 515 trades have F&O, so most per-family × window cells are
+**thin** (n < 40) and are reported as such. Nothing thin is treated as evidence either way.
+
+### Actions taken
+
+Per the stopping rule, no bar was relaxed and nothing was re-sliced.
+
+- **No rule is promoted.** The wall cap does **not** become the default T1; the put-wall line
+  does **not** become a sizing input; the max-pain drag stays a note. All of `level_check()`
+  stays exactly what it already was: **display, never a gate**.
+- **The LEVEL CHECK header now says so**, so a reader cannot mistake a printed fact for a
+  validated edge: the walls are reported because a trader should see them, not because the
+  backtest showed they predict.
+- **"A ceiling is not a target" stays** — it is a canon-floor rule (nothing under 2R), not a
+  derivatives claim, and this test says nothing about it.
+- **H1's inversion is pre-registered for a future test**, with its own hypothesis and cells,
+  rather than being reported now as though it had been predicted.
+
+### What this test could not answer
+
+Footprint (excluded by construction — TradingView-only, per-bar, unbackfillable), the *live*
+question of whether seeing these facts improves Jay's own decisions (that needs scored reviews
+in `logs/ai_review_log.csv`, not history), and any effect on trades taken at prices other than
+the validation's entries.

@@ -885,7 +885,13 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
                              "is not available at this entry" % (tag, nm, cl, r))
     if not lines:
         return "", ""
-    head = ("LEVEL CHECK (derivatives + flow vs %s — they GRADE, never GATE)" % src)
+    # 22-Sep: P3 measured these rules on 195 F&O trades (2024-07 -> 2026-02) and ALL FOUR
+    # hypotheses failed their pre-registered bars - H1 (T1 beyond the call wall) failed
+    # BACKWARDS on the only cell whose CI excluded zero. The facts are still printed,
+    # because a trader should see the wall in front of the target; the header says what
+    # the evidence does and does not support so a printed fact is not read as an edge.
+    head = ("LEVEL CHECK (derivatives + flow vs %s — they GRADE, never GATE; "
+            "the wall/pin rules are UNVALIDATED: P3 22-Sep failed all four)" % src)
     block = "\n".join([head] + lines + (["  ⚠ " + f for f in flags] if flags else []))
     note = (block + "\n\nUse these numbers in section 5. If a cap is named above, the plan's T1 is the "
             "CAPPED level and its R is the capped R — say so explicitly, and if that R is under the "

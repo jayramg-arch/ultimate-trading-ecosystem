@@ -1,0 +1,43 @@
+joined trades: 195 · symbols 127 · anchors 2024-07-15 → 2026-02-16
+families: {'SWG-PB': 109, 'POS-BO': 64, 'POS-ACCUM': 22} 
+
+H1  T1 beyond the call wall → Hit_T1 rate
+  pass bar: beyond-wall rate at least 10pp LOWER, n>=40 per cell
+  ALL · ALL                                         14.7% vs    11.5%   diff   +3.1%  (n 143/52)  CI95 [-4.8, +10.9]
+  ALL · IS                                          11.0% vs     9.4%   diff   +1.6%  (n 82/32)   THIN
+  ALL · OOS                                         19.7% vs    15.0%   diff   +4.7%  (n 61/20)   THIN
+  POS-ACCUM · ALL                                    9.5% vs     0.0%   diff   +9.5%  (n 21/1)   THIN
+  POS-ACCUM · IS                                     7.7% vs     0.0%   diff   +7.7%  (n 13/1)   THIN
+  POS-BO · ALL                                       5.3% vs    14.3%   diff   -9.0%  (n 57/7)   THIN
+  POS-BO · IS                                        0.0% vs     0.0%   diff   +0.0%  (n 30/6)   THIN
+  POS-BO · OOS                                      11.1% vs   100.0%   diff  -88.9%  (n 27/1)   THIN
+  SWG-PB · ALL                                      24.6% vs    11.4%   diff  +13.3%  (n 65/44)  CI95 [+2.3, +24.1]
+  SWG-PB · IS                                       20.5% vs    12.0%   diff   +8.5%  (n 39/25)   THIN
+  SWG-PB · OOS                                      30.8% vs    10.5%   diff  +20.2%  (n 26/19)   THIN
+
+H3  stop ABOVE the put wall → initial-stop rate
+  pass bar: above-wall rate at least 8pp HIGHER, n>=40 per cell
+  ALL · ALL                                         62.1% vs    39.5%   diff  +22.6%  (n 66/129)  CI95 [+10.5, +34.3]
+  ALL · IS                                          65.8% vs    39.5%   diff  +26.3%  (n 38/76)   THIN
+  ALL · OOS                                         57.1% vs    39.6%   diff  +17.5%  (n 28/53)   THIN
+  POS-ACCUM · ALL                                   33.3% vs    15.8%   diff  +17.5%  (n 3/19)   THIN
+  POS-ACCUM · IS                                    50.0% vs    16.7%   diff  +33.3%  (n 2/12)   THIN
+  POS-BO · ALL                                       0.0% vs     1.9%   diff   -1.9%  (n 11/53)   THIN
+  POS-BO · IS                                        0.0% vs     0.0%   diff   +0.0%  (n 6/30)   THIN
+  POS-BO · OOS                                       0.0% vs     4.3%   diff   -4.3%  (n 5/23)   THIN
+  SWG-PB · ALL                                      76.9% vs    82.5%   diff   -5.5%  (n 52/57)  CI95 [-17.3, +6.9]
+  SWG-PB · IS                                       80.0% vs    82.4%   diff   -2.4%  (n 30/34)   THIN
+  SWG-PB · OOS                                      72.7% vs    82.6%   diff   -9.9%  (n 22/23)   THIN
+
+H4  max pain between entry and T1 → Hit_T1 rate
+  pass bar: at least 8pp LOWER inside 10 days to expiry AND weaker further out
+  <=10d to expiry                                   18.8% vs     9.3%   diff   +9.4%  (n 32/86)   THIN
+  11-31d to expiry                                  13.8% vs    18.8%   diff   -5.0%  (n 29/48)   THIN
+
+H2  cap T1 at the wall → realised R
+  pass bar: at least +0.15R mean AND median not worse, IS and OOS
+  NOTE: a capped T1 can only change trades that HIT the cap and would not have hit T1.
+  ALL        shipped -0.181R → capped -0.163R   Δmean +0.018R · Δmedian +0.884R  (n 143)
+  IS         shipped -0.360R → capped -0.210R   Δmean +0.150R · Δmedian +0.966R  (n 82)
+  OOS        shipped +0.061R → capped -0.099R   Δmean -0.160R · Δmedian +0.694R  (n 61)
+
