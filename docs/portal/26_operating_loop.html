@@ -212,6 +212,11 @@ footer em{color:var(--ink-2)}
           13 Sep) → TradingView sync (the dated watchlist) → backup, rotation guard, exports →
           <b>Phase 12: the Evening run, headless</b> — all three boards rebuilt, option chains
           pulled, both S4 paste strings written to <span class="m">gm_bundles/latest.txt</span>.</p>
+        <p class="d"><b>Phase 8a: earnings dates</b> — the next results date for every open
+          position, cached to <span class="m">data/earnings_dates.json</span>. It feeds the
+          pyramid ladder's <em>earnings within 3 days → TRIM</em> rung and the line the reviewer
+          prints on a held name. About half the book has no date on the feed; those stay
+          explicitly unknown rather than being treated as clear.</p>
         <p class="d">Alongside it: Post-Market Summary, and the journal ↔ Dhan sync — which
           aborts rather than guess if the holdings fetch fails or comes back empty.</p>
         <p class="d"><b>Since 20 Sep it runs from Windows Task Scheduler</b>
