@@ -638,6 +638,20 @@ WHERE S4 IS TOO BLUNT   (what its mechanical ruling gets wrong or misses, and wh
 RECOMMENDATION
 RULING: TAKE | TAKE · reduced size | WAIT for <specific bar/level/event> | PASS | NO TRADE (stage)
 DECIDING FACTOR   (one sentence)
+LEVEL VALIDATION   (EXACTLY four lines, one per level, in this order — ENTRY, STOP, T1, T2.
+   Each line: the level you are proposing, then "supported by" a named fact with its NUMBER,
+   then "against" a named fact with its NUMBER, then "flips if" the one observation that
+   would move that level. Use the derivatives and the flow here — walls, max pain, futures
+   basis, OI state, footprint delta — that is what this section is for; structure alone is
+   not an answer for a level that has a wall in front of it. Where the LEVEL CHECK pre-read
+   named a cap, the level you write MUST be the capped one. Where a field is absent (a
+   cash-only name), write "no derivatives" rather than inventing one. One line each, no
+   prose paragraphs.
+   A CEILING IS NOT A TARGET. Max pain is an expiry magnet and a wall is where writers
+   defend - never set T1 or T2 AT one. Scale BEFORE it. And if the reachable R to the
+   nearest ceiling is under the canon floor for the trade type, the honest answer is that
+   the trade is not available AT THIS ENTRY - rule WAIT for a lower entry, or PASS - not a
+   sub-canon T1. A 0.4R plan is a losing trade written down politely.)
 PLAN   (state the TRADE TYPE first, then entry method · stop · T1/T2 with R — the R
    canon follows the trade type: positional 3R/5R, swing 2R/4R; never write a 2R T1 on a
    positional plan. Take levels from the panel, correct them only if you say why. Do not
@@ -856,6 +870,19 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
     if fp_div and "bearish" in fp_div.lower():
         flags.append("bearish delta divergence: price made the high, flow did not")
 
+    # A CEILING IS NOT A TARGET (22-Sep-2026). On the first live run with the pre-read in
+    # front of it the model parked T1 ON max pain (0.35R) and T2 ON the call wall (1.12R) -
+    # it had absorbed "there is a ceiling" and lost "so this is not a trade here". The
+    # ceilings cap what is REACHABLE; they do not become the plan.
+    for tag, lv in (("T1", t1), ("T2", t2)):
+        if not (entry and lv and risk):
+            continue
+        for nm, cl in (("max pain", mp), ("the call wall", cw)):
+            if cl and abs(lv - cl) < 0.002 * cl:
+                r = (lv - entry) / risk
+                flags.append("%s is parked ON %s %.2f (%.2fR) - a ceiling is not a target; "
+                             "scale before it, and if that is all the room there is, the trade "
+                             "is not available at this entry" % (tag, nm, cl, r))
     if not lines:
         return "", ""
     head = ("LEVEL CHECK (derivatives + flow vs %s — they GRADE, never GATE)" % src)
@@ -1006,6 +1033,30 @@ def r_check(review: str, min_r: float = 2.0) -> str:
 # ---------------------------------------------------------------------------------------
 # Logging / notify
 # ---------------------------------------------------------------------------------------
+def lv_audit(review: str) -> str:
+    """Did the model actually RULE on the four levels? (22-Sep-2026, P2.)
+
+    P1 put the derivative facts in front of the model; a required section is only worth
+    anything if its absence is noticed. This is the same idea as r_check flagging a
+    mis-stated R: the script verifies the SHAPE of the answer, never its content. It
+    cannot check whether the reasoning is good - only that each of the four levels was
+    addressed with a number rather than skipped or hand-waved."""
+    m = re.search(r"(?ims)^\W*LEVEL VALIDATION[^\n]*(.*?)(?=^\W*PLAN\W*$|\Z)", review or "")
+    if not m:
+        return "LV-AUDIT: the LEVEL VALIDATION block is MISSING — the four levels were not ruled on."
+    body = m.group(1)
+    missing = [tag for tag in ("ENTRY", "STOP", "T1", "T2")
+               if not re.search(r"(?im)^\s*[-*•]?\s*\**\s*" + tag + r"\b", body)]
+    nonum = [tag for tag in ("ENTRY", "STOP", "T1", "T2") if tag not in missing
+             and not re.search(r"(?im)^\s*[-*•]?\s*\**\s*" + tag + r"\b[^\n]*\d", body)]
+    out = []
+    if missing:
+        out.append("no line for " + ", ".join(missing))
+    if nonum:
+        out.append("no number on " + ", ".join(nonum))
+    return ("LV-AUDIT: " + " · ".join(out)) if out else ""
+
+
 def _ruling_line(review: str) -> str:
     for ln in review.splitlines():
         t = ln.strip().lstrip("#*• ").strip()          # flash-lite prefixes headings with ###
@@ -1151,7 +1202,8 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         # the model ruled TAKE against the house rule: overrule it in print, loudly
         ig_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (index trigger not GO)"
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*", r"\1WAIT — index trigger not GO (house rule; model had ruled TAKE)", review, count=1)
-    for extra in (rc_txt, lv_txt, oi_txt, ig_txt):
+    lva_txt = lv_audit(review)
+    for extra in (rc_txt, lv_txt, lva_txt, oi_txt, ig_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
