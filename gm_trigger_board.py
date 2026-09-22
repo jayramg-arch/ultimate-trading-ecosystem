@@ -2521,7 +2521,9 @@ def s4_bundle_options(symbols=None, tf: str = None) -> str:
             continue                        # nothing usable - do not emit a row of blanks
         out.append(f"{sym}:" + "/".join(fields))
 
-    return "OPT=" + ",".join(sorted(out))
+    # 22-Sep: bundle 2 needs the same TradingView spellings as bundle 1 (NAM-INDIA is an
+    # F&O name whose chart is NSE:NAM_INDIA, so its Options OI row read "cash-only").
+    return _alias_separators("OPT=" + ",".join(sorted(out)))
 
 
 def s4_bundle_union(tfs=("Daily", "125m", "75m")) -> str:
@@ -2586,7 +2588,42 @@ def s4_bundle_union(tfs=("Daily", "125m", "75m")) -> str:
                     merged[tag].setdefault(item.split(":", 1)[0], item)
     if not tag_order:
         return ""
-    return "|".join(f"{t}=" + ",".join(sorted(merged[t].values())) for t in tag_order)
+    return _alias_separators("|".join(f"{t}=" + ",".join(sorted(merged[t].values())) for t in tag_order))
+
+
+def _alias_separators(bundle: str) -> str:
+    """Emit every SYM that carries a - or & under TradingView's spelling as well.
+
+    22-Sep-2026. NAM-INDIA sat on the board with a full row and its S4 panel read
+    "RFF - BFF - F -", no base rate, no options: TradingView spells the stock
+    NSE:NAM_INDIA and S4Core.fundStr matches the ticker EXACTLY, so every bundle
+    section missed. The same applies to M&M / M_M and BAJAJ-AUTO / BAJAJ_AUTO - the
+    separator-insensitivity that dhan_ohlcv.canonical_nse_symbol already gives the
+    Python side had no equivalent on the chart.
+
+    Done here, at the one choke point, rather than in Pine: fundStr would need a
+    compile, a library publish and a re-bind of every chart, and S4 is against its
+    token ceiling. Costs a few characters per affected name and nothing otherwise.
+    An alias is ADDED, never substituted, so a board that ever emits the underscore
+    form itself still matches.
+    """
+    out = []
+    for part in bundle.split("|"):
+        if "=" not in part:
+            out.append(part)
+            continue
+        tag, val = part.split("=", 1)
+        items = [x for x in val.split(",") if x.strip()]
+        seen = {i.split(":", 1)[0] for i in items}
+        extra = []
+        for it in items:
+            sym = it.split(":", 1)[0]
+            alias = sym.replace("-", "_").replace("&", "_")
+            if alias != sym and alias not in seen:
+                extra.append(alias + it[len(sym):])
+                seen.add(alias)
+        out.append(tag + "=" + ",".join(items + extra))
+    return "|".join(out)
 
 
 def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
@@ -2674,7 +2711,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     # upstream can produce one today (symbols and SYM:n pairs), but a stray pipe
     # would corrupt EVERY later section rather than just its own, so it is removed
     # here rather than trusted not to appear.
-    return "|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts)
+    return _alias_separators("|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts))
 
 
 def s4_base_rates(tf: str = None) -> str:
