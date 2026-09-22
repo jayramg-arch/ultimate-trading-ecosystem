@@ -713,11 +713,168 @@ def index_gate(read_txt: str) -> tuple[str, str, bool]:
     return note, "INDEX-CHECK: %s trigger \"%s\" (not GO) → %s WAIT by house rule" % (idx, state, etf), True
 
 
+# ---------------------------------------------------------------------------------------
+# LEVEL CHECK — do the derivatives and the flow agree with the plan's four levels?
+# ---------------------------------------------------------------------------------------
+# 21-Sep-2026 (P1 of the derivatives plan). The panel PRINTS the walls, the basis and the
+# delta, and S4 even names them as obstacles ("T1 3640.9 (3.0R ·test 3600.0 call wall)") —
+# but nothing ever CAPPED a target or resized a trade because of them, so the plan could
+# promise 3.0R through a level option writers are defending. That is the gap Jay named:
+# "we have not been leveraging the Futures OI, Options OI and Footprint data to validate
+# the Entry, SL, T1 and T2 levels ... this is one of the major reasons I'm losing trades."
+#
+# DOCTRINE, unchanged: derivatives GRADE, they never GATE. Nothing here changes direction
+# or vetoes a setup. It caps a target, flags a stop, and tells you the reachable R — the
+# trade stays yours. The canon still applies to what remains: nothing under 2R.
+#
+# SCOPE: options positioning describes the NEAR-MONTH window, entry to T1. Past ~30 days
+# to expiry the walls will have rolled, so T2 on a positional trade is left to structure
+# and the wall check on it is reported as context, never as a cap.
+#
+# Reads only what the panels already carry (deriv_fields), so it is free and cannot drift
+# from what Jay sees on the chart.
+def _model_levels(review: str) -> dict:
+    """entry/stop/t1/t2 as the MODEL wrote them in its PLAN, or {} if absent.
+
+    The printed LEVEL CHECK must validate the plan the reader is looking at. Before the
+    deliberation it can only read the PANEL's levels (that is what goes into the prompt);
+    afterwards the model may have moved them — on the first live run it capped T1 at the
+    call wall, exactly as instructed — and a block still quoting the panel's T1 reads as
+    a contradiction of the plan printed two lines above it."""
+    m = re.search(r"(?ims)^\W*PLAN\W*$(.*?)(?=^\W*FLIPS IF|\Z)", review or "")
+    if not m:
+        return {}
+    plan, out = m.group(1), {}
+    # (\d[\d,]*(?:\.\d+)?) and NOT [\d.]+ - the greedy form swallows the sentence's
+    # full stop ("STOP: 3363.4." -> float("3363.4.") raises) and the level silently
+    # vanishes, which is how the block ended up quoting the panel's T1 under a plan
+    # that had already capped it.
+    _N = r"(\d[\d,]*(?:\.\d+)?)"
+    for key, pat in (("entry", r"ENTRY[^0-9\n]*" + _N),
+                     ("stop",  r"STOP[^0-9\n]*" + _N),
+                     ("t1",    r"\bT1\b[^0-9\n]*" + _N),
+                     ("t2",    r"\bT2\b[^0-9\n]*" + _N)):
+        mm = re.search(pat, plan, re.I)
+        if mm:
+            try:
+                out[key] = float(mm.group(1).replace(",", ""))
+            except Exception:
+                pass
+    return out
+
+
+def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
+    """(note for the prompt, block for the printed review). Empty for a cash-only name
+    with no footprint — there is nothing to validate against."""
+    d = deriv_fields(read_txt)
+
+    def f(k):
+        v = str(d.get(k, "")).replace(",", "").rstrip("%")
+        try:
+            return float(v)
+        except Exception:
+            return None
+
+    entry, stop, t1, t2 = f("entry"), f("stop"), f("t1"), f("t2")
+    src = "panel"
+    ml = _model_levels(review)
+    if ml.get("entry") and ml.get("stop"):
+        entry, stop = ml["entry"], ml["stop"]
+        t1, t2 = ml.get("t1", t1), ml.get("t2", t2)
+        src = "the plan above"
+    cw, pw, mp = f("call_wall"), f("put_wall"), f("max_pain")
+    basis_l, pcr = f("fut_basis_l"), f("pcr")
+    oi_state = str(d.get("oi_state", "")).strip()
+    fp_delta = str(d.get("fp_delta", "")).strip()
+    fp_div = str(d.get("fp_div", "")).strip()
+    dte = None
+    m = re.search(r"near[- ]month|far[- ]month", read_txt, re.I)
+
+    risk = (entry - stop) if (entry and stop and entry > stop) else None
+    lines, flags, caps = [], [], []
+
+    # ── T1 vs the call wall ───────────────────────────────────────────────────────────
+    # The fattest call strike at/above spot is where writers are short gamma and defend.
+    # A target BEYOND it is a target through someone else's collateral.
+    if entry and t1 and cw and risk:
+        if entry < cw < t1:
+            r_wall = (cw - entry) / risk
+            caps.append(("T1", cw, r_wall))
+            lines.append("  T1 %.2f is BEYOND the call wall %.2f — reachable R to the wall is %.2fR"
+                         % (t1, cw, r_wall))
+            if r_wall < 2.0:
+                flags.append("the reachable target (%.2fR to the wall) is under the 2R canon floor — "
+                             "this is a half-size trade or a skip, not a %.1fR trade" % (r_wall, (t1 - entry) / risk))
+            else:
+                flags.append("scale at the wall %.2f (%.2fR), do not plan on slicing through it" % (cw, r_wall))
+        elif cw and t1 and cw >= t1:
+            lines.append("  T1 %.2f sits UNDER the call wall %.2f — the target is inside defended ground ✓"
+                         % (t1, cw))
+    # ── T2: context only, the walls will have rolled ──────────────────────────────────
+    if entry and t2 and cw and t2 > cw:
+        lines.append("  T2 %.2f is above the wall too — near-month positioning says nothing that far out; "
+                     "T2 rests on structure" % t2)
+
+    # ── the stop vs the put wall ──────────────────────────────────────────────────────
+    # The defended floor. A stop ABOVE it is inside the zone a wash-and-hold would tag:
+    # price dips to the level writers defend, recovers, and the stop is already gone.
+    if entry and stop and pw:
+        if stop > pw and pw > (stop - (risk or 0) * 1.5):
+            lines.append("  stop %.2f sits ABOVE the put wall %.2f — a wash into the defended floor "
+                         "takes you out before the level that is actually held" % (stop, pw))
+            flags.append("consider the stop just BELOW the put wall %.2f if structure allows "
+                         "(it widens risk — resize, do not just move it)" % pw)
+        elif stop <= pw:
+            lines.append("  stop %.2f is below the put wall %.2f — the defended floor is inside the trade ✓"
+                         % (stop, pw))
+
+    # ── max pain between entry and T1 ─────────────────────────────────────────────────
+    if entry and t1 and mp and entry < mp < t1:
+        lines.append("  max pain %.2f sits between entry and T1 — expiry pinning pulls against the "
+                     "target until the series rolls" % mp)
+    elif entry and mp and mp < entry:
+        lines.append("  max pain %.2f is BELOW entry — the pin pulls down into expiry" % mp)
+
+    # ── the futures long basis: trapped longs are supply on the way up ────────────────
+    if entry and basis_l and t1 and entry < basis_l < t1:
+        lines.append("  futures long basis %.2f lies between entry and T1 — trapped longs sell into "
+                     "that level to get out flat, so expect supply there" % basis_l)
+    if oi_state:
+        lines.append("  futures OI: %s" % oi_state)
+    if pcr is not None:
+        lines.append("  PCR %.2f — %s" % (pcr, "call-heavy, rallies get capped" if pcr < 0.7
+                                          else "put-heavy, writers defending the downside" if pcr > 1.3
+                                          else "balanced"))
+
+    # ── flow at the trigger ───────────────────────────────────────────────────────────
+    if fp_delta:
+        neg = fp_delta.startswith("-")
+        lines.append("  footprint delta %s on the read bar%s" % (fp_delta, " — sellers into a long" if neg else ""))
+        if neg:
+            flags.append("flow does not confirm the entry (delta %s) — size down or wait for a bar "
+                         "where it does" % fp_delta)
+    if fp_div and "bearish" in fp_div.lower():
+        flags.append("bearish delta divergence: price made the high, flow did not")
+
+    if not lines:
+        return "", ""
+    head = ("LEVEL CHECK (derivatives + flow vs %s — they GRADE, never GATE)" % src)
+    block = "\n".join([head] + lines + (["  ⚠ " + f for f in flags] if flags else []))
+    note = (block + "\n\nUse these numbers in section 5. If a cap is named above, the plan's T1 is the "
+            "CAPPED level and its R is the capped R — say so explicitly, and if that R is under the "
+            "2R canon floor the ruling cannot be a full-size TAKE. Do not restate the whole block; "
+            "rule on it.")
+    return note, block
+
+
 def build_prompt(read_txt: str, pos_txt: str) -> str:
     note, _ = oi_digest(read_txt)
     ig, _, _ = index_gate(read_txt)
     if ig:
         note = (ig + "\n" + note) if note else ig
+    lv, _ = level_check(read_txt)
+    if lv:
+        note = (note + "\n\n" + lv) if note else lv
     pre = ("PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
     return (pre + "POSITION CONTEXT\n%s\n\n%s\n\nDeliberate now. S4's VERDICT and SUMMARY rows above are "
             "one mechanical opinion; weigh them last." % (pos_txt, read_txt))
@@ -988,12 +1145,13 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     review, prov = deliberate(build_prompt(read_txt, pos_txt), args.provider)
     rc_txt = r_check(review)
     _, oi_txt = oi_digest(read_txt)
+    _, lv_txt = level_check(read_txt, review)
     _, ig_txt, ig_block = index_gate(read_txt)
     if ig_block and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
         # the model ruled TAKE against the house rule: overrule it in print, loudly
         ig_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (index trigger not GO)"
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*", r"\1WAIT — index trigger not GO (house rule; model had ruled TAKE)", review, count=1)
-    for extra in (rc_txt, oi_txt, ig_txt):
+    for extra in (rc_txt, lv_txt, oi_txt, ig_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
