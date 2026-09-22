@@ -411,7 +411,7 @@ BAR       the bar itself is not a distribution candle</pre>
     <thead><tr><th>Rung</th><th>Fires when</th></tr></thead>
     <tbody>
       <tr><td class="k">EXIT</td><td>At the stop, deeply underwater, Stage 4, price structure broken, trail stopped out, or the time stop expired</td></tr>
-      <tr><td class="k">TRIM</td><td>Winners only — a target hit, over-extension, or earnings within days</td></tr>
+      <tr><td class="k">TRIM</td><td>Winners only — a target hit, over-extension, or earnings within days. <b>The earnings trigger only became live on 22 September:</b> written in July but fed by a live per-symbol lookup inside the row loop that was too slow to answer, so it had never once fired. It now reads a nightly cache</td></tr>
       <tr><td class="k">REDUCE</td><td>Soft deterioration — lagging rotation, below the 50-day, weak score</td></tr>
       <tr><td class="k">ADD</td><td>Leader <b>and</b> at location — both required, and capped on extension so it cannot chase</td></tr>
       <tr><td class="k">HOLD</td><td>Everything else</td></tr>
