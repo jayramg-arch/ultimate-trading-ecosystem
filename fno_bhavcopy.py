@@ -178,13 +178,22 @@ def store(new: pd.DataFrame) -> int:
     return len(both) - len(old)
 
 
-def run_day(day: dt.date, sess=None, have: set | None = None) -> int:
+def run_day(day: dt.date, sess=None, have: set | None = None, prune: bool = False) -> int:
+    """prune=True deletes the raw zip once the day's rows are stored. A 20-month backfill
+    is ~1.1 MB x 440 days of zips for data that has already been reduced to 19 columns;
+    the derived history is what anything downstream reads."""
     if have is not None and day.strftime("%Y-%m-%d") in have:
         return -1                                   # already stored
     df = raw(day, sess)
     if df is None:
         return 0
-    return store(derive(df, day))
+    n = store(derive(df, day))
+    if prune and n:
+        try:
+            os.remove(os.path.join(CACHE, day.strftime("%Y%m%d") + ".zip"))
+        except OSError:
+            pass
+    return n
 
 
 def report(sym: str, n: int = 20) -> str:
@@ -200,8 +209,11 @@ def report(sym: str, n: int = 20) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--backfill", type=int, default=0, help="calendar days back to fetch")
+    ap.add_argument("--from", dest="frm", help="backfill FROM this date forward, YYYY-MM-DD")
     ap.add_argument("--date", help="one day, YYYY-MM-DD")
     ap.add_argument("--report", help="print the last rows for a symbol")
+    ap.add_argument("--prune", action="store_true",
+                    help="delete each raw zip after its rows are stored (long backfills)")
     a = ap.parse_args()
     os.chdir(HERE)
 
@@ -212,6 +224,10 @@ def main() -> int:
     sess = _session()
     if a.date:
         days = [dt.date.fromisoformat(a.date)]
+    elif a.frm:
+        d0, d1 = dt.date.fromisoformat(a.frm), dt.date.today()
+        days = [d0 + dt.timedelta(days=i) for i in range((d1 - d0).days + 1)]
+        days = [d for d in days if d.weekday() < 5]
     elif a.backfill:
         today = dt.date.today()
         days = [today - dt.timedelta(days=i) for i in range(a.backfill + 1)]
@@ -224,7 +240,7 @@ def main() -> int:
 
     added = skipped = nofile = 0
     for d in days:
-        n = run_day(d, sess, have)
+        n = run_day(d, sess, have, a.prune)
         if n < 0:
             skipped += 1
         elif n == 0:
