@@ -3174,6 +3174,35 @@ the failure mode Jay opened the thread with.
 module loaded at receiver start; `REVIEW.bat` and the CLI pick changes up immediately. Jay
 restarted after P1 and again after P2.
 
+**P3 — PRE-REGISTERED, NOT YET RUN (22 Sep).** `docs/PREREG_derivatives_P3.md` +
+`derivatives_p3.py`, both committed BEFORE any analysis (`e3e991c6`, `3b8a4d8a`).
+- **H1** T1 beyond the call wall is reached less often (≥10pp, n≥40) · **H2** capping T1 at
+  the wall improves realised R (≥+0.15R mean AND median not worse, IS *and* OOS) · **H3** a
+  stop above the put wall stops out more (≥8pp) · **H4** max pain inside the entry→T1 path
+  drags the target (≥8pp inside 10 days to expiry, weaker further out).
+- Rules fixed in the file: **R never %** · per family, never pooled · IS/OOS · **bootstrap by
+  SYMBOL** (consecutive trades on one name share an outcome window) · n≥40 or the cell is
+  THIN and cannot pass · missing excluded, never zero · **the analysis runs ONCE**, and a
+  failed hypothesis is recorded as failed rather than re-sliced. **Footprint is excluded by
+  design** — TradingView-only and per-bar, so it can never be backtested; it stays a live
+  confirmation and must never be claimed as "validated".
+- **BLOCKER found immediately:** the trade set ends **2026-02-16**, the derivatives history
+  began **2026-03-27** — **zero overlap**, so H1–H4 could not be run at all. The bhavcopy
+  archive does reach back (verified 2024-07-15 and 2025-01-15 both parse; 2026-01-15 is a
+  market holiday, not a gap), so `fno_bhavcopy.py` gained `--from` and `--prune` and a
+  **20-month backfill to 2024-07-01 is in flight** (~440 trading days, pruning each zip after
+  deriving). At the time of writing it had walked to **2025-02-04**.
+- **Amendment 1 (`6147d339`), made before the run:** H4's original ≤30 vs >30 days-to-expiry
+  split had an **empty control group by construction** — the near-month contract is never more
+  than ~31 days out. Split is now **≤10 vs 11–31 days**. Found by a **placebo pass** (derivative
+  columns shuffled, every number noise by construction) added precisely so the code could be
+  debugged without spending the single real run.
+- **Expect H2 to come back THIN.** It can only move trades that reached the wall but not T1;
+  after the wall/F&O/family splits some cells will fall under n=40. They will be reported as
+  thin and unable to pass — not rescued by relaxing the bar.
+- **DO NOT report P3 results until `derivatives_p3.py` has actually been run on the completed
+  backfill.** Nothing has been measured yet.
+
 **P3 is now weeks away, not months** — with six months of history and these logged fields, "did
 price respect the call wall between entry and T1?" is answerable over 219 names as soon as
 there are enough live rows to score. Pre-register it; a rule that fails comes out.
