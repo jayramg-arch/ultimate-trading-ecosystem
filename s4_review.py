@@ -614,7 +614,12 @@ ANALYSIS
    weekly/daily/chart-TF trend agreement or conflict, RS vs N500 and sector, RRG quadrant
    and direction, sector stage, catalyst/setup type. What kind of trade is this allowed
    to be?
-2. LOCATION — every zone containing or near price by TF (fresh/tested/controlling,
+2. LOCATION — QUOTE THE PANEL'S OWN TAG for any zone you name: the box list prints
+   "spent" or "(tested)" on a zone whose budget is gone, and "Pivot"/"PvL"/"PvH" on a
+   shelf rather than a pattern zone. NEVER call a zone fresh or untested unless its line
+   carries no such tag — a spent zone is where buyers ALREADY spent their bid, and a pivot
+   shelf does not stand alone as location under rule A2. Then: every zone containing or
+   near price by TF (fresh/tested/controlling,
    score, distal), S/R levels with tests and age, AVWAP anchors and whether price is
    above/below them, Volume-Profile VAL/POC/VAH, daily EMA20 distance. Is this a place
    where buyers have shown up before, or dead air?
@@ -1075,6 +1080,76 @@ def lv_audit(review: str) -> str:
     return ("LV-AUDIT: " + " · ".join(out)) if out else ""
 
 
+def zone_audit(read_txt: str, review: str) -> str:
+    """Did the model call a zone FRESH that the panel marks spent — or call a pivot shelf
+    a structure? (22-Sep-2026.)
+
+    Found on NAM-INDIA 75m: the review read "price is reacting to a fresh Daily DZ (approx.
+    1141-1158) ... a solid, non-tested structure", while the panel's own box list said
+    `1168.10-1141.10  Daily DZ / PvL  58pts  Pivot ★10 │ spent`. Two errors in one
+    sentence - the band is SPENT, and it is a PIVOT shelf, which under rule A2 does not
+    stand alone as location. The strong zones were 30-60 points lower.
+
+    Freshness is the single most load-bearing word in a location claim: a spent zone is
+    where buyers ALREADY spent their bid. The panel always prints the tag, so this never
+    needs the model's cooperation - it reads the boxes and compares.
+
+    Shape-only, like r_check and lv_audit: it checks a claim against a tag, never whether
+    the trade is good. Silent when the review makes no freshness claim, or when no box
+    covers the price it quoted (it will not guess which zone was meant)."""
+    if not review:
+        return ""
+    # the panel's box list: "  1168.10-1141.10   Daily DZ / PvL  58pts  Pivot ★10 │ spent"
+    boxes = []
+    for m in re.finditer(r"^\s+([\d,]+\.?\d*)[-\u2013]([\d,]+\.?\d*)\s{2,}(.+)$", read_txt, re.M):
+        try:
+            hi, lo = float(m.group(1).replace(",", "")), float(m.group(2).replace(",", ""))
+        except ValueError:
+            continue
+        lbl = re.sub(r"\s{2,}", " ", m.group(3)).strip()
+        if not lbl or ("DZ" not in lbl and "SZ" not in lbl and "FVG" not in lbl):
+            continue
+        # a label that starts with another price pair is a second box printed on the same
+        # line; its text belongs to that box, not this one, and it must not be offered as
+        # the "nearest un-spent" alternative.
+        if re.match(r"^[\d,]+\.?\d*[-\u2013]", lbl):
+            continue
+        boxes.append({"hi": max(hi, lo), "lo": min(hi, lo), "lbl": lbl,
+                      "spent": ("spent" in lbl.lower() or "tested" in lbl.lower()),
+                      "pivot": ("pivot" in lbl.lower() or "pvl" in lbl.lower() or "pvh" in lbl.lower())})
+    if not boxes:
+        return ""
+
+    flags = []
+    # A WINDOW around each claim, not a sentence: splitting on [.!?] cuts at "approx." and
+    # "(approx. 1141-1158)" then lands in the next fragment, which is how the first version
+    # of this check passed the very review that prompted it.
+    for m in re.finditer(r"\b(fresh|untested|non-?tested|not been tested|virgin)\b", review, re.I):
+        sent = review[max(0, m.start() - 160): m.end() + 160]
+        if not re.search(r"\b(zone|DZ|demand)\b", sent, re.I):
+            continue
+        nums = [float(x.replace(",", "")) for x in re.findall(r"\b\d{2,6}(?:\.\d+)?\b", sent)]
+        hits = [b for b in boxes if any(b["lo"] - 0.5 <= n <= b["hi"] + 0.5 for n in nums)]
+        for b in hits:
+            if b["spent"]:
+                flags.append("the review calls %.2f-%.2f FRESH; the panel lists it as \"%s\""
+                             % (b["lo"], b["hi"], b["lbl"][:70]))
+            if b["pivot"]:
+                flags.append("%.2f-%.2f is a PIVOT shelf, not a pattern zone - under rule A2 it "
+                             "does not stand alone as location" % (b["lo"], b["hi"]))
+    if not flags:
+        return ""
+    # what the strong zones actually were, so the correction is useful rather than a scold
+    strong = sorted([b for b in boxes if not b["spent"] and not b["pivot"] and "DZ" in b["lbl"]],
+                    key=lambda b: -b["hi"])[:3]
+    flags = list(dict.fromkeys(flags))          # the same claim can match twice in one review
+    out = ["ZONE-AUDIT: " + flags[0]] + ["  " + f for f in flags[1:]]
+    if strong:
+        out.append("  nearest un-spent pattern DZ: "
+                   + " · ".join("%.2f-%.2f %s" % (b["lo"], b["hi"], b["lbl"][:34]) for b in strong))
+    return "\n".join(out)
+
+
 def _ruling_line(review: str) -> str:
     for ln in review.splitlines():
         t = ln.strip().lstrip("#*• ").strip()          # flash-lite prefixes headings with ###
@@ -1221,7 +1296,8 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         ig_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (index trigger not GO)"
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*", r"\1WAIT — index trigger not GO (house rule; model had ruled TAKE)", review, count=1)
     lva_txt = lv_audit(review)
-    for extra in (rc_txt, lv_txt, lva_txt, oi_txt, ig_txt):
+    za_txt = zone_audit(read_txt, review)
+    for extra in (rc_txt, lv_txt, lva_txt, za_txt, oi_txt, ig_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
