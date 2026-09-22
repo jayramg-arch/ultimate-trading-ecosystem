@@ -43,7 +43,7 @@ Each is directional, stated as the derivatives doctrine would predict.
 | **H1** | A T1 beyond the call wall is reached **less often** than one that sits below it | `Hit_T1` rate, split by whether the wall lies between entry and T1 | **≥ 10 pp** lower, n ≥ 40 per cell |
 | **H2** | Capping T1 at the wall **improves realised R** | replay each trade with `T1 = min(T1, wall − 0.25×ATR)`; compare mean and median R against the shipped plan | **≥ +0.15R mean AND median not worse**, in-sample *and* out-of-sample |
 | **H3** | A stop **above** the put wall stops out more often | `Hit_Initial_SL` rate, split by stop vs wall | **≥ 8 pp** higher, n ≥ 40 per cell |
-| **H4** | Max pain inside the entry→T1 path **drags** the target | `Hit_T1` rate with/without, split by ≤ 30 vs > 30 days to expiry | **≥ 8 pp**, and **only** inside 30 days — an effect that persists past expiry falsifies the mechanism |
+| **H4** | Max pain inside the entry→T1 path **drags** the target | `Hit_T1` rate with/without, split by **≤ 10 vs 11–31** days to expiry | **≥ 8 pp** inside 10 days, and **weaker** further out — an effect that is flat across the expiry clock falsifies the mechanism |
 
 **Footprint is deliberately excluded.** `request.footprint()` is TradingView-only and
 per-bar; it cannot be reconstructed for a past date by any feed wired here, so it can never
@@ -79,6 +79,16 @@ confirmation from the review log.
 | H3 passes | the stop-vs-put-wall line is promoted from a note to a **sizing input** |
 | H4 passes | the max-pain drag applies **only** inside 30 days to expiry, and says so |
 | Any fails | the line stays informational; it is still printed, because a trader reading the book is not the same as a rule trading it |
+
+### Amendment 1 — 22 Sep, before the run, after a placebo pass only
+
+H4's original split (≤ 30 vs > 30 days to expiry) has an **empty control group by
+construction**: the near-month contract is never more than ~31 days out, so "> 30 days"
+matches nothing. Found by running the analysis in **placebo mode** (derivative columns
+shuffled, every number noise) to exercise the code without spending the single real run.
+The split becomes **≤ 10 vs 11–31 days**, which tests the same mechanism — pinning should
+strengthen into expiry — with two populated cells. No real result has been seen at the time
+of this amendment.
 
 ---
 

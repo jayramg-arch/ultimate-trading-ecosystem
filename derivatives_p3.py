@@ -30,7 +30,13 @@ BOOT = 2000
 RNG = np.random.default_rng(20260922)
 
 
-def load() -> pd.DataFrame:
+def load(placebo: bool = False) -> pd.DataFrame:
+    """placebo=True shuffles the derivative columns across rows before the split.
+
+    The pre-registration says the analysis runs ONCE, so the code cannot be debugged on
+    the real join without burning the run. Placebo mode exercises every path - join,
+    masks, bootstrap, formatting - on numbers that are noise by construction, so nothing
+    it prints is a result and nothing is learned about the hypotheses."""
     d = pd.read_csv(TRADES)
     h = pd.read_csv(HIST)
     d["date"] = pd.to_datetime(d["as_of"]).dt.strftime("%Y-%m-%d")
@@ -52,6 +58,10 @@ def load() -> pd.DataFrame:
     anchors = sorted(m["date"].unique())
     cut = anchors[int(len(anchors) * 0.6)] if len(anchors) > 2 else anchors[-1]
     m["win"] = np.where(m["date"] < cut, "IS", "OOS")
+    if placebo:
+        for c in ("call_wall", "put_wall", "max_pain", "pcr", "days_to_expiry"):
+            m[c] = RNG.permutation(m[c].values)
+        print("*** PLACEBO — derivative columns shuffled; every number below is noise ***\n")
     return m
 
 
@@ -95,8 +105,8 @@ def fmt(r: dict, unit: str) -> str:
                r["n_a"], r["n_b"], ci, "   THIN" if r["thin"] else ""))
 
 
-def run() -> list:
-    m = load()
+def run(placebo: bool = False) -> list:
+    m = load(placebo)
     out = []
     print("joined trades: %d · symbols %d · anchors %s → %s"
           % (len(m), m["sym"].nunique(), m["date"].min(), m["date"].max()))
@@ -135,11 +145,13 @@ def run() -> list:
             "Hit_Initial_SL", np.mean, "%", "above-wall rate at least 8pp HIGHER, n>=40 per cell")
 
     # H4 — max pain inside the entry→T1 path drags the target (near expiry only)
-    near = m[pd.to_numeric(m["days_to_expiry"], errors="coerce") <= 30]
-    far = m[pd.to_numeric(m["days_to_expiry"], errors="coerce") > 30]
+    # Amendment 1: the near-month contract is never >31 days out, so the original
+    # "> 30 days" control was empty by construction (found in placebo mode).
+    dte = pd.to_numeric(m["days_to_expiry"], errors="coerce")
+    near, far = m[dte <= 10], m[(dte > 10) & (dte <= 31)]
     print("H4  max pain between entry and T1 → Hit_T1 rate")
-    print("  pass bar: at least 8pp LOWER inside 30 days to expiry AND NOT past it")
-    for nm, s in (("<=30d to expiry", near), (">30d to expiry", far)):
+    print("  pass bar: at least 8pp LOWER inside 10 days to expiry AND weaker further out")
+    for nm, s in (("<=10d to expiry", near), ("11-31d to expiry", far)):
         if len(s) < 20:
             print("  %-46s n=%d (too few)" % (nm, len(s)))
             continue
@@ -182,5 +194,7 @@ def run() -> list:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--md", action="store_true")
+    ap.add_argument("--placebo", action="store_true",
+                    help="shuffle the derivative columns: exercises the code without spending the one real run")
     a = ap.parse_args()
-    run()
+    run(a.placebo)
