@@ -3174,6 +3174,23 @@ the failure mode Jay opened the thread with.
 module loaded at receiver start; `REVIEW.bat` and the CLI pick changes up immediately. Jay
 restarted after P1 and again after P2.
 
+**Separator aliases (`615783fd`) — memory [[tv-symbol-separator-aliases]].** NAM-INDIA sat on
+the board with a full row while its S4 panel read `RFF — BFF — F —`, no base rate, and
+"no options — cash-only name". Bindings were fine (Minervini computed natively); every
+**bundle-fed** row was blank. **TradingView spells it `NSE:NAM_INDIA`** and `S4Core.fundStr`
+matches `syminfo.ticker` EXACTLY — it strips `NSE:` and spaces, not separators. Same class for
+`M&M`/`M_M` and `BAJAJ-AUTO`/`BAJAJ_AUTO`. Fix: `gm_trigger_board._alias_separators()` emits
+every `-`/`&` symbol under the underscore spelling too, at all three choke points (`s4_bundle`,
+`s4_bundle_union`, **`s4_bundle_options`** — bundle 2 was missed on the first pass and kept the
+Options row empty). **Python-side on purpose:** a Pine fix needs a compile + library publish +
+a re-bind of every chart, and S4 is at its token ceiling. Aliases are ADDED, never substituted.
+Verified live on Jay's chart. **`F —` in Structure basis is NOT a bug** — that F is the
+**Piotroski F-Score**, correctly n/a for an AMC (three of nine tests invert for financials);
+the `🟢F` chip in TRIGGER is the **fundamentals gate**. Same letter, two different things.
+**How to spot this class:** a name is on the board but its panel's bundle rows are all dashes
+while natively-computed rows work — check `syminfo.ticker` against the board's spelling before
+suspecting the bindings.
+
 **P3 — PRE-REGISTERED, NOT YET RUN (22 Sep).** `docs/PREREG_derivatives_P3.md` +
 `derivatives_p3.py`, both committed BEFORE any analysis (`e3e991c6`, `3b8a4d8a`).
 - **H1** T1 beyond the call wall is reached less often (≥10pp, n≥40) · **H2** capping T1 at
