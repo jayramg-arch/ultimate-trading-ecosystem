@@ -155,6 +155,7 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#output">The review</a></li>
     <li><a href="#checks">The script's checks</a></li>
+    <li><a href="#deriv">The derivatives layer</a></li>
     <li><a href="#log">The Reviewer Log</a></li>
     <li><a href="#take">Marking a trade</a></li>
   </ol>
@@ -385,7 +386,7 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
     <tbody>
       <tr><td class="k">ANALYSIS</td><td>1 Context &amp; trend stack · 2 Location · 3 Room &amp; obstacles · 4 Trigger &amp; gates · 5 Participation · 6 Structure (S5) · 7 The panel's own plan · 8 Contradictions</td><td>A trader walking a colleague through the chart — each section quotes the panel's numbers and says what they <em>mean</em>. Section 8 is where S4-vs-v67-vs-S5 disagreements are named and settled</td></tr>
       <tr><td class="k">DELIBERATION</td><td>Case FOR · Case AGAINST (each line FATAL or TOLERABLE) · Where S4 is too blunt</td><td>The weighing. “Where S4 is too blunt” is the part the template cannot write: what a good version of this setup looks like and how close this one is</td></tr>
-      <tr><td class="k">RECOMMENDATION</td><td>RULING · DECIDING FACTOR · PLAN · FLIPS IF</td><td>The plan states the trade type first, then entry method, stop, T1/T2 with R — on the canon for that type. FLIPS IF is what would change its mind</td></tr>
+      <tr><td class="k">RECOMMENDATION</td><td>RULING · DECIDING FACTOR · <b>LEVEL VALIDATION</b> · PLAN · FLIPS IF</td><td>The plan states the trade type first, then entry method, stop, T1/T2 with R — on the canon for that type. FLIPS IF is what would change its mind</td></tr>
     </tbody>
   </table></div>
   <h4>The rulings</h4>
@@ -403,7 +404,7 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
 
 <section id="checks">
   <h2><span class="n">08</span>The script's checks — appended, never edited in</h2>
-  <p>Three deterministic pre- and post-reads run around the model. They are computed by the
+  <p>Five deterministic pre- and post-reads run around the model. They are computed by the
   script, not the model, and the model's text is never edited — the check is appended below it,
   so the Log shows both what it said and what the arithmetic says.</p>
   <div class="tw"><table>
@@ -411,9 +412,57 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
     <tbody>
       <tr><td class="k">R-CHECK</td><td>Re-parses the PLAN's entry and stop, recomputes every R the model labelled, and prints the <b>canon</b> line — <code>canon positional 3R/5R: T1 … · T2 …</code> — flagging a T1 under the floor and a TAKE whose reward bar is not met on its own numbers</td><td>Flash-lite wrote “T1 13.28 (1.5R)” on entry 13.07 / stop 12.60 — 0.45R. <b>Take the R numbers from the canon line, never from the prose.</b> <code>s4_take.py</code> reads the same line</td></tr>
       <tr><td class="k">OI-CHECK · OPTIONS</td><td>Reads S4's Futures OI row and v67's FUTURES OI STATE before the model sees them; on a conflict, injects a non-negotiable pre-read (report both, take v67's) and prints <code>OI-CHECK: … CONFLICT</code>. Lists every options field present and requires each to be named in section 5 and the call wall / max pain above price in section 3</td><td>The model wrote “v67 confirms this” against a row that said the opposite, and skipped options fields it found inconvenient. A flat day still produces a conflict (cash −0.1% vs futures up) — that is the two windows, not a bug</td></tr>
+      <tr><td class="k">LEVEL CHECK</td><td><b>Since 21 Sep.</b> Answers the plan's four levels against the derivatives and the flow: T1 beyond the <b>call wall</b> (and the R actually reachable to it), the stop above the <b>put wall</b>, <b>max pain</b> or the <b>futures long basis</b> sitting inside the entry→T1 path, PCR, OI state, and the <b>footprint delta</b> on the read bar. Goes into the prompt <em>before</em> the deliberation using the panel's levels, and is printed after it against the levels the model actually wrote</td><td>The panel printed the walls for months and nothing ever capped a target because of them — a plan could promise 3.0R straight through a strike option writers defend. <b>They grade; they never gate</b></td></tr>
+      <tr><td class="k">LV-AUDIT</td><td>Verifies that the model's <b>LEVEL VALIDATION</b> block exists and that each of the four levels carries a number. Shape only — it cannot judge the reasoning</td><td>A required section is worth nothing if its absence goes unnoticed. Same idea as R-CHECK catching a mis-stated R</td></tr>
       <tr><td class="k">INDEX-CHECK</td><td>For an ETF, reads the PHASE-1 block's TRIGGER row. Index NO TRADE by stage → ETF NO TRADE. Index not GO → the ruling cannot be TAKE; <b>if the model ruled TAKE anyway, the script overrules it to WAIT</b> and says so on the ruling line</td><td>INDEX ARM = ETF WAIT is a house rule (13 Sep). A rule the model is asked to follow is a suggestion; a rule the script enforces is a rule</td></tr>
     </tbody>
   </table></div>
+</section>
+
+<section id="deriv">
+  <h2><span class="n">08b</span>The derivatives layer — what it is for</h2>
+  <p class="lede">Jay, 21 September: <em>"we have not been leveraging the Futures OI, Options OI
+  and Footprint data to effectively validate the Entry, SL, T1 and T2 levels. This is one of the
+  major reasons why I'm losing trades."</em> The data was already on the panel. What was missing
+  was a history to validate it against, and any rule that let it touch a level.</p>
+
+  <h4>The four levels, each answered</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Level</th><th>What the derivatives say about it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">T1</td><td>Beyond the <b>call wall</b>? Then the reachable R is the R <em>to the wall</em>, not to the target — and under the 2R canon floor that is a half-size or a skip, not the R the plan claims</td></tr>
+      <tr><td class="k">STOP</td><td>Above the <b>put wall</b>? A wash into the floor writers defend takes you out before the level that is actually held. Widening it means <b>resizing</b>, not just moving it</td></tr>
+      <tr><td class="k">The path</td><td><b>Max pain</b> between entry and T1 pins against the target; the <b>futures long basis</b> inside the path is trapped longs who sell there to get out flat; <b>PCR under 0.7</b> is a call-heavy book that caps rallies</td></tr>
+      <tr><td class="k">ENTRY</td><td><b>Footprint delta</b> against the trade, or a bearish delta divergence, means flow does not confirm — size down, or wait for a bar where it does</td></tr>
+      <tr><td class="k">T2</td><td><b>Context only.</b> Near-month positioning says nothing about a level the walls will have rolled past. T2 rests on structure</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note no">
+    <span class="tag">A ceiling is not a target</span>
+    <p>The correction the first live run forced. Given the facts, the model parked <b>T1 on max
+    pain (0.35R)</b> and <b>T2 on the call wall (1.12R)</b> — it had absorbed <em>"there is a
+    ceiling"</em> and lost <em>"so this is not a trade here"</em>. Max pain is an expiry magnet
+    and a wall is where writers defend: you <b>scale before</b> them, never target them. If that
+    is all the room there is, <b>the trade is not available at that entry</b> — wait for a lower
+    one, or pass. <b>A 0.4R plan is a losing trade written down politely.</b> The rule is in the
+    prompt and enforced in the check, so it does not depend on the model remembering.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">Six months of history, so this can be measured rather than believed</span>
+    <p>NSE publishes a daily F&amp;O bhavcopy carrying every contract — 629 stock futures and
+    29,824 stock options on a single day — and the archive goes back years. <span class="m">fno_bhavcopy.py</span>
+    reconstructs from it exactly what the panel prints: near-month futures OI and change, PCR,
+    max pain, both walls, ATM ΔOI. Checked against the live chain on the same day, the
+    reconstruction is identical. <b>Backfilled 27 March → 21 September: 25,210 rows, 219
+    names</b>, and a Task Scheduler job appends each evening at 18:45. Every review also records
+    its own derivative and flow fields as columns.</p>
+    <p><b>Why that matters more than the rules themselves:</b> six additions to this system have
+    been tested and rejected, one of them backwards. These grade and inform; none of them gates.
+    Whether a wall-capped T1 actually pays better than the canon T1 is a question for the
+    measurement, and the history to answer it now exists.</p>
+  </div>
 </section>
 
 <section id="log">
