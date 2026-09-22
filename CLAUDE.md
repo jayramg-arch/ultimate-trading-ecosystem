@@ -3174,6 +3174,39 @@ the failure mode Jay opened the thread with.
 module loaded at receiver start; `REVIEW.bat` and the CLI pick changes up immediately. Jay
 restarted after P1 and again after P2.
 
+**TradingView's official MCP connector (22 Sep) — a verification tool, not a data source.**
+Jay connected `https://mcp.tradingview.com/mcp`. What it gives that CDP cannot: `list-alerts`
+returns both GO alerts by API (`alert_cond`, res 75/125, `WATCHLIST:347848489`, with
+`last_fire_time`). What it CANNOT do: **touch S4 at all** — no Pine access, so it can neither
+read a study's output nor write a study's inputs; the panel is fed by chart symbol/TF, the v67
+`input.source` bindings, the two bundle `input.string`s and S4's own computation, and writing an
+input is a `setInputValues` over CDP (`PUSH_BUNDLES`). **`get-alerts-log` returned 0 events over
+7 days despite 8 fires that day** — the likely reading is that the log hangs off the alert record
+and the nightly delete-and-recreate destroys it, which would make webhook reconciliation an
+INTRADAY-only tool. **Rate-limited hard**: 429 after a handful of calls, and the earnings endpoint
+routed NSE symbols at `/america/scan` (the symbol endpoint correctly used `/india/scan`). A
+one-shot session cron is set for **23 Sep 11:37 IST** to settle the log question mid-session.
+
+**Earnings dates wired (`032f71e8`) — and the rung that had never fired.**
+- NEW **`earnings_calendar.py`** → `data/earnings_dates.json`, refreshed nightly by the new
+  auto-pilot **Phase 8a** over the open book. Today: **11 of 22 holdings have a date, 11 unknown**
+  (yfinance carries none for ANANDRATHI, SAILIFE, SYRMA, NETWEB, CAPLIPOINT, GLAXO, IKS, ASTERDM,
+  VIJAYA, NAM-INDIA; PHARMABEES is an ETF, correctly none).
+- **WHY yfinance AND NOT THE CONNECTOR:** `pyramid_logic` runs **headless** (16:30 pipeline, Risk
+  Shield) and **a headless job cannot call an MCP server** — MCP tools exist only inside a Claude
+  session. Plus the beta's 429s and the `/america/scan` routing. The connector stays a cross-check
+  for the 11 unknowns, once an evening at most.
+- **WHY THE TRIM RUNG WAS SILENT SINCE 7-JUL:** it *did* have a source — a **live yfinance call per
+  symbol inside the per-row loop**, slow, throttled and silent on failure, so "earnings within 3
+  days → TRIM" had **never once fired**. It now reads the cache (no network in the loop) with the
+  live call kept only for a cold cache.
+- **Every review's POSITION CONTEXT** now ends with `earnings in Nd (date)` for a held name — a
+  binary event inside the hold is the one thing a price panel cannot see, and it changes **size,
+  not direction**. Unknown returns `""`, never "no earnings", which would read as safe.
+- Verified: COALINDIA `earnings in 37d (2026-10-29)`; NAM-INDIA empty; ladder reads 22 rows with no
+  network. **Nothing inside the 3-day window until mid-October** (NESTLEIND 15th, AUBANK 17th,
+  TVSMOTOR 21st, LAURUSLABS + SONACOMS 22nd) — the rung is armed but will not fire before then.
+
 **Separator aliases (`615783fd`) — memory [[tv-symbol-separator-aliases]].** NAM-INDIA sat on
 the board with a full row while its S4 panel read `RFF — BFF — F —`, no base rate, and
 "no options — cash-only name". Bindings were fine (Minervini computed natively); every
