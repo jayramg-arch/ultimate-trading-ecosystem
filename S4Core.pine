@@ -2794,7 +2794,15 @@ export optRead(string section, simple string sym) =>
 // as thirty, and the chart must not assert more than the data supports.
 export oiLevels(bool show, float longB, float shortB, int nLong, int nShort,
        float maxPain, float peK, float ceK,
-       color cLong, color cShort, color cPain, color cPe, color cCe, simple int wid) =>
+       color cLong, color cShort, color cPain, color cPe, color cCe, simple int wid,
+       simple string lblSize = size.tiny, simple int xOff = 0) =>
+    // 22-Sep-2026: the five OI labels were size.tiny and anchored at bar_index — the same
+    // x as the S/R labels, so on a name whose wall sits near a shelf the two printed on
+    // top of each other and neither could be read. lblSize and xOff are APPENDED, so no
+    // existing positional argument moves; a caller that passes neither behaves as before.
+    // xOff shifts the labels RIGHT of the last bar, into the empty margin the rays extend
+    // through, which is what actually separates them from the S/R set rather than making
+    // two overlapping labels bigger.
     int   minN     = 3
     float longUse  = nLong  >= minN ? longB  : na
     float shortUse = nShort >= minN ? shortB : na
@@ -2815,19 +2823,19 @@ export oiLevels(bool show, float longB, float shortB, int nLong, int nShort,
             int x = bar_index - 60
             if not na(longUse)
                 l1 := line.new(x, longUse, bar_index, longUse, extend=extend.right, color=cLong, width=wid, style=line.style_dashed)
-                b1 := label.new(bar_index, longUse, "FUT long basis", style=label.style_label_left, color=color.new(cLong, 85), textcolor=cLong, size=size.tiny)
+                b1 := label.new(bar_index + xOff, longUse, "FUT long basis", style=label.style_label_left, color=color.new(cLong, 85), textcolor=cLong, size=lblSize)
             if not na(shortUse)
                 l2 := line.new(x, shortUse, bar_index, shortUse, extend=extend.right, color=cShort, width=wid, style=line.style_dashed)
-                b2 := label.new(bar_index, shortUse, "FUT short basis", style=label.style_label_left, color=color.new(cShort, 85), textcolor=cShort, size=size.tiny)
+                b2 := label.new(bar_index + xOff, shortUse, "FUT short basis", style=label.style_label_left, color=color.new(cShort, 85), textcolor=cShort, size=lblSize)
             if not na(maxPain)
                 l3 := line.new(x, maxPain, bar_index, maxPain, extend=extend.right, color=cPain, width=wid, style=line.style_dashed)
-                b3 := label.new(bar_index, maxPain, "max pain", style=label.style_label_left, color=color.new(cPain, 85), textcolor=cPain, size=size.tiny)
+                b3 := label.new(bar_index + xOff, maxPain, "max pain", style=label.style_label_left, color=color.new(cPain, 85), textcolor=cPain, size=lblSize)
             if not na(peK)
                 l4 := line.new(x, peK, bar_index, peK, extend=extend.right, color=cPe, width=wid, style=line.style_dashed)
-                b4 := label.new(bar_index, peK, "PE writers", style=label.style_label_left, color=color.new(cPe, 85), textcolor=cPe, size=size.tiny)
+                b4 := label.new(bar_index + xOff, peK, "PE writers", style=label.style_label_left, color=color.new(cPe, 85), textcolor=cPe, size=lblSize)
             if not na(ceK)
                 l5 := line.new(x, ceK, bar_index, ceK, extend=extend.right, color=cCe, width=wid, style=line.style_dashed)
-                b5 := label.new(bar_index, ceK, "CE writers", style=label.style_label_left, color=color.new(cCe, 85), textcolor=cCe, size=size.tiny)
+                b5 := label.new(bar_index + xOff, ceK, "CE writers", style=label.style_label_left, color=color.new(cCe, 85), textcolor=cCe, size=lblSize)
     true
 
 

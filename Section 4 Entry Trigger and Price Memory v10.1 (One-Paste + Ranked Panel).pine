@@ -1234,6 +1234,8 @@ age_75_days      = input.int(21,   "75-min zone max age (days)",  group=grpZAge,
 // ==========================================================================
 show_cf     = input.bool(true, "Show confluence score", group=grpCF)
 show_oi_lines = input.bool(true, "Draw OI-derived levels (futures + options)", group=grpCF, tooltip="Five dashed rays: the futures long and short OI basis, option max pain, and the strikes carrying the most PE and CE open interest.\n\nDrawn as rays rather than plots because these are DAILY values forward-filled onto an intraday chart - a plot would render a staircase instead of a level - and because drawn objects cost none of the 64 plot outputs.\n\nDashed and labelled so they never read as your own hand-drawn zones. They are reference levels, not order prices: nothing here is a stop.")
+oi_lbl_size = input.string("normal", "OI levels: label size", options=["tiny", "small", "normal", "large"], group=grpCF, tooltip="The five OI labels were tiny and sat at the same x as the S/R labels, so a wall near a shelf printed one on top of the other. Bigger text plus the offset below separates them.")
+oi_lbl_off  = input.int(14, "OI levels: label offset (bars right)", group=grpCF, minval=0, maxval=60, tooltip="Shifts the OI labels right of the last bar, into the margin the dashed rays extend through - that is what actually stops them colliding with the S/R labels, which stay at the last bar. 0 restores the old position.")
 oi_events = input.int(20, "OI basis: last N OI prints", group=grpCF, minval=5, maxval=120, tooltip="Futures OI is published ONCE PER DAY, so this window counts OI PRINTS, not bars - 20 means the last 20 daily prints on a Daily chart AND on a 75m chart, instead of silently meaning four hours on one and a month on the other. It sets how far back positions are still considered part of the current book.")
 show_summary = input.bool(true, "Show SUMMARY row (whole-panel synthesis)", group=grpCF, tooltip="One row that reads the ENTIRE panel as a single judgement - trend stack, leadership, location, participation, geometry, direction - and says what the combination MEANS rather than repeating the numbers above it. The VERDICT row stays the short ruling; this is the long-form read. Off if you only want the gates and the plan.")
 verdict_wrap = input.int(140, "  · VERDICT wrap width (chars)", group=grpCF, minval=40, maxval=400, tooltip="The VERDICT row is merged across the whole panel, but its line breaks were written at SEMANTIC boundaries - headline, reason, caveat, action - with no knowledge of the width, so the ruling ran four or five lines with most of the row blank beside it.\n\nThose breaks are now separators and the text is re-wrapped to this width, which packs it and usually saves one to three lines. A Pine cell never wraps by itself, so this has to be a character count rather than a pixel width; the right value depends on your font size and monitor. Raise it until the row stops wrapping early, lower it if the panel gets wider than your chart.")
@@ -4142,7 +4144,9 @@ f_oiOpt() =>
     [p, mp, ce, pe, atm, pk, ck] = core.optRead(core.bundleSection(gm_bundle2, "OPT"), syminfo.ticker)
     core.oiLevels(show_oi_lines, lB, sB, nL, nS, mp, pk, ck,
          color.new(#26A69A, 0), color.new(#EF5350, 0), color.new(#FFD54F, 0),
-         color.new(#66BB6A, 0), color.new(#EC407A, 0), 2)
+         color.new(#66BB6A, 0), color.new(#EC407A, 0), 2,
+         oi_lbl_size == "tiny" ? size.tiny : oi_lbl_size == "small" ? size.small : oi_lbl_size == "large" ? size.large : size.normal,
+         oi_lbl_off)
     [lB, sB, nL, nS, p, mp, ce, pe, atm, pk, ck]
 [oi_longB, oi_shortB, oi_nLong, oi_nShort, opt_pcr, opt_mp, opt_ce, opt_pe, opt_atm, opt_peK, opt_ceK] = f_oiOpt()
 // v10.3: the OI quadrant as a global, on the same DAILY price leg the OI row uses.
