@@ -3090,6 +3090,65 @@ return (seen, deleted) → `p.records`/WARN on zero seen, refresh dialog selecto
   §05 "Read a name on demand — REVIEW.bat"; index row "21 Sep · late", 20 changes, S4 v10.5/v11.4.
   Alerts recreated by Jay after the compile.
 
+### 21–22 Sep — DERIVATIVES: P0 (history) + P1 (level check) SHIPPED
+
+Jay: *"we have not been leveraging the Futures OI, Options OI and Footprint data to
+effectively validate the Entry, SL, T1 and T2 levels. This is one of the major reasons
+why I'm losing trades."* He attached a Gemini read of the UNOMINDA panel (`OI analysis.docx`).
+**Diagnosis: the data was already on the panel — what was missing was history to validate it
+with, and any rule that let it touch a level.** Gemini added discipline, not data.
+
+**P0 (`e230e43c`) — six months of derivatives history, in one evening.**
+- `oi_snapshot.py` (built for exactly this, its docstring calls itself "the only route to
+  ever validating an options-OI rule") held **one day, 31 names, options only**, and was not
+  scheduled. The live chain cannot be read for a past date — so that path meant waiting months.
+- **NEW `fno_bhavcopy.py`** — NSE's daily F&O bhavcopy carries EVERY contract (18-Sep: 629
+  stock futures + 29,824 stock options) and **the archive goes back years**, so the whole
+  derivatives panel is reconstructible AND backfillable: near-month futures OI / ΔOI / settle
+  / close / next-month OI, plus PCR, max pain, call & put wall, CE/PE OI, ATM ΔOI,
+  days-to-expiry. **Verified against the live chain** — UNOMINDA 18-Sep reconstructs max pain
+  1240.0, walls 1300/1200, PCR 0.73, identical to what the panel showed.
+  **Backfilled 27-Mar → 21-Sep: 25,210 rows, 219 symbols** (`data/fno_history.csv`, 3.9 MB;
+  raw zips cached in `data/fno_bhav/`, gitignored). Futures BASIS is deliberately NOT stored —
+  it is an event-weighted mean over N daily prints, so it is derived downstream at read time.
+- **Task Scheduler `Fno_Bhavcopy_Daily` 18:45** (`run_fno_bhavcopy.bat`, `--backfill 5` to
+  catch a slept-through day; NSE publishes after ~18:00, so the 16:30 pilot is too early).
+  Verified LastTaskResult 0.
+- **`s4_review.deriv_fields()`** records 16 new columns on every review row: entry/stop/T1/T2,
+  OI state, futures basis L/S, PCR, max pain, both walls, ATM ΔOI, and the S5 footprint
+  delta / cum / divergence. Parsed **per ROW**, never panel-wide — a global search returned
+  T1's R-multiple as its price. Cash-only names correctly yield levels + flow only.
+
+**P1 (`1ad1f013`) — `level_check()`, the plan's four levels answered.**
+Runs exactly like `r_check`: deterministic, into the PROMPT before the deliberation (panel
+levels) and PRINTED after it (the model's own levels, via `_model_levels`). Doctrine
+unchanged — **derivatives GRADE, they never GATE**; nothing changes direction or vetoes.
+- T1 beyond the **call wall** → reachable R *to the wall*; under the 2R canon floor it is a
+  half-size or a skip, not the R the plan claims.
+- Stop above the **put wall** → a wash into the defended floor takes you out before the level
+  that is actually held (widening the stop means resizing, not just moving it).
+- **Max pain** between entry and T1 → expiry pinning pulls against the target; **futures long
+  basis** inside the path → trapped longs sell into it; PCR < 0.7 → rallies get capped.
+- **Footprint delta** against the trade, or bearish divergence → size down or wait for a bar
+  where flow confirms.
+- **T2 is context only** — near-month positioning says nothing about a level the walls will
+  have rolled past. Options describe the entry→T1 window; T2 rests on structure.
+
+**It changed an outcome on the first live run.** SUPREMEIND 75m: the panel planned
+`T1 3640.9 (2.0R)` straight through a **3600 call wall** — 1.56R actually reachable, with max
+pain 3500 and the trapped-long basis 3579 both inside the path, PCR 0.56 and −4.013K delta on
+the read bar. With the check in the prompt the model capped **T1 at 3590, "just below the call
+wall"**. That is the failure mode Jay described, caught before the order.
+
+**Two bugs found while testing** (both mine, both fixed): the printed block quoted the PANEL's
+levels under a plan the model had already moved — it now prefers the model's and says which it
+is reading; and a greedy `[\d.]+` swallowed the sentence's full stop (`float("3363.4.")`
+raises), so STOP silently never parsed and the whole block fell back to the panel.
+
+**P3 is now weeks away, not months** — with six months of history and these logged fields, "did
+price respect the call wall between entry and T1?" is answerable over 219 names as soon as
+there are enough live rows to score. Pre-register it; a rule that fails comes out.
+
 ### Recovery re-run `20260920_212328` — read 21 Sep (windows 90/120 ✓, 13.7 h, 20 anchors)
 **PY-08 did NOT apply**: the `Signal>=2` filter sits in `run_s4go_validation`; this run used
 `run_validation` (log says "validating @", not "S4-GO validating @"). CB-Watch still 139/427. Post-hoc
