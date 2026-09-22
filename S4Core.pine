@@ -2795,11 +2795,15 @@ export optRead(string section, simple string sym) =>
 export oiLevels(bool show, float longB, float shortB, int nLong, int nShort,
        float maxPain, float peK, float ceK,
        color cLong, color cShort, color cPain, color cPe, color cCe, simple int wid,
-       simple string lblSize = size.tiny, simple int xOff = 0) =>
+       simple string lblSize = size.normal, simple int xOff = 14) =>
     // 22-Sep-2026: the five OI labels were size.tiny and anchored at bar_index — the same
     // x as the S/R labels, so on a name whose wall sits near a shelf the two printed on
     // top of each other and neither could be read. lblSize and xOff are APPENDED, so no
-    // existing positional argument moves; a caller that passes neither behaves as before.
+    // existing positional argument moves.
+    // THE DEFAULTS CARRY THE FIX (size.normal, 14 bars right): S4 came in 14 tokens over
+    // the 100,256 ceiling once it had an input and two extra arguments for this, so the
+    // caller passes nothing and pays nothing. Changing the look now means publishing this
+    // library, not editing S4 — the right trade when S4 has no headroom and this does.
     // xOff shifts the labels RIGHT of the last bar, into the empty margin the rays extend
     // through, which is what actually separates them from the S/R set rather than making
     // two overlapping labels bigger.
