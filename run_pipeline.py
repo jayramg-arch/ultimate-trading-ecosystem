@@ -892,6 +892,25 @@ def main():
             p.message = f"sync error: {e}"
 
     # 8. POST-FLIGHT CLEANUP & BACKUP
+    # 8a. EARNINGS DATES (22-Sep-2026) - the feed the pyramid TRIM rung and the
+    # reviewer read. Cached to disk; a name whose date is unknown stays unknown.
+    logger.info("\n[PHASE 8a] REFRESHING EARNINGS DATES...")
+    with run.phase("Phase 8a - Earnings Dates") as p:
+        try:
+            import earnings_calendar as _ec
+            _syms = _ec.open_positions()
+            _c = _ec.refresh(_syms)
+            _known = [s for s in _syms if (_c.get(_ec._canon(s)) or {}).get("date")]
+            p.records = len(_known)
+            p.message = f"{len(_known)}/{len(_syms)} holdings have a date"
+            _soon = [s for s in _syms if (_ec.days_to_earnings(s) or 99) <= 7]
+            if _soon:
+                p.message += " · within 7d: " + ", ".join(sorted(_soon))
+        except Exception as e:
+            logger.error(f"earnings refresh failed: {e}")
+            p.status = "WARN"
+            p.message = f"failed: {e}"
+
     logger.info("\n[PHASE 8] POST-FLIGHT CLEANUP & DATABASE BACKUP...")
     with run.phase("Phase 8 — Backup") as p:
         try:

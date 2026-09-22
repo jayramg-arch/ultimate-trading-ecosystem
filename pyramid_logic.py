@@ -165,24 +165,35 @@ def fetch_symbol_full(symbol: str, df_bench_w: pd.DataFrame,
     except Exception:
         pass
 
-    # days_to_earnings — best-effort (guarded; None if no source). Feeds the
-    # TRIM "de-risk into a binary event" trigger, matching Risk Shield.
+    # days_to_earnings — the TRIM "de-risk into a binary event" trigger, matching Risk
+    # Shield. 22-Sep-2026: reads the CACHE first. This used to make a live yfinance call
+    # per symbol inside the per-row loop — slow, throttled, silent on failure — which is
+    # why the rung had never once fired since it was written on 7-Jul. earnings_calendar
+    # refreshes nightly (auto-pilot Phase 8a) and reads from disk, so a 20-row book costs
+    # nothing. The live call stays as the cold-cache fallback. None means UNKNOWN and must
+    # never be read as "no earnings soon".
     days_to_earnings = None
     try:
-        import yfinance as _yf
-        _cal = _yf.Ticker(yf_sym).calendar
-        _edate = None
-        if isinstance(_cal, dict):
-            _ev = _cal.get("Earnings Date")
-            _edate = (_ev[0] if isinstance(_ev, (list, tuple)) and _ev else _ev)
-        elif _cal is not None and hasattr(_cal, "loc") and "Earnings Date" in getattr(_cal, "index", []):
-            _edate = _cal.loc["Earnings Date"].iloc[0]
-        if _edate is not None:
-            _d = (pd.Timestamp(_edate).normalize() - pd.Timestamp.now().normalize()).days
-            if _d >= 0:
-                days_to_earnings = int(_d)
+        import earnings_calendar as _ec
+        days_to_earnings = _ec.days_to_earnings(symbol)
     except Exception:
         days_to_earnings = None
+    if days_to_earnings is None:
+        try:
+            import yfinance as _yf
+            _cal = _yf.Ticker(yf_sym).calendar
+            _edate = None
+            if isinstance(_cal, dict):
+                _ev = _cal.get("Earnings Date")
+                _edate = (_ev[0] if isinstance(_ev, (list, tuple)) and _ev else _ev)
+            elif _cal is not None and hasattr(_cal, "loc") and "Earnings Date" in getattr(_cal, "index", []):
+                _edate = _cal.loc["Earnings Date"].iloc[0]
+            if _edate is not None:
+                _d = (pd.Timestamp(_edate).normalize() - pd.Timestamp.now().normalize()).days
+                if _d >= 0:
+                    days_to_earnings = int(_d)
+        except Exception:
+            days_to_earnings = None
 
     return {
         "ltp": ltp, "atr14": atr14, "dma50": dma50, "wma30": wma30, "swing_low": swing_low,

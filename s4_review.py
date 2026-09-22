@@ -448,6 +448,15 @@ def s4_verdict_line(d: dict) -> str:
 # Position context (held? pyramid class?) — cheap file reads, never blocking
 # ---------------------------------------------------------------------------------------
 def position_context(symbol: str) -> str:
+    # 22-Sep-2026: earnings distance on every review. A binary event inside the hold
+    # is the one thing a price panel cannot see, and it changes size, not direction.
+    # Cached (earnings_calendar), so this costs no network inside a review.
+    _ern = ""
+    try:
+        import earnings_calendar as _ec
+        _ern = _ec.note(symbol)
+    except Exception:
+        _ern = ""
     sym = symbol.split(":")[-1].upper()
     lines = []
     try:
@@ -474,7 +483,10 @@ def position_context(symbol: str) -> str:
                              % (r.get("Pyr_Class"), r.get("R_Mult"), r.get("Add_SL"), r.get("Pyr_Trigger")))
     except Exception as e:
         lines.append("portfolio picks read failed: %s" % e)
-    return "\n".join(lines) if lines else "NOT HELD — this would be a new entry."
+    _out = "\n".join(lines) if lines else "NOT HELD — this would be a new entry."
+    if _ern:
+        _out = (_out.rstrip() + "\n" + _ern) if _out else _ern
+    return _out
 
 
 # ---------------------------------------------------------------------------------------
