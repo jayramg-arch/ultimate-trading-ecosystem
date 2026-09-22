@@ -857,6 +857,62 @@ def _ruling_line(review: str) -> str:
     return ""
 
 
+DERIV_FIELDS = ["entry", "stop", "t1", "t2", "oi_state", "fut_basis", "fut_basis_l",
+                "fut_basis_s", "pcr", "max_pain", "call_wall", "put_wall", "atm_doi",
+                "fp_delta", "fp_cum", "fp_div"]
+
+
+def deriv_fields(read_txt: str) -> dict:
+    """The derivative and order-flow numbers the panels already print, pulled out as
+    columns so a review can be SCORED on them later (21-Sep-2026, P0 of the derivatives
+    plan). Nothing here judges; it records. Every field is "" when absent — a missing
+    wall must never read as a wall at zero, and a cash-only name legitimately has none.
+
+    These are the inputs to the level-validation rules (P1): did price respect the call
+    wall on the way to T1, was the stop under the put wall, did flow confirm at entry.
+    Without them in the log there is no way to answer that in three months.
+
+    Parsed from the ROW each field belongs to, never from the whole panel: "T1 367.25
+    (3.0R ...)" and the SUMMARY's prose both contain "T1", and a panel-wide search
+    returned the R-multiple as the price."""
+    d = {k: "" for k in DERIV_FIELDS}
+
+    def row(name: str) -> str:
+        m = re.search(r"^" + name + r"[^|]*\|(.*?)(?=\n[A-Z0-9 ]{2,40}\s*\||\Z)",
+                      read_txt, re.M | re.I | re.S)
+        return m.group(1) if m else ""
+
+    def take(src: str, pat: str, key: str, grp: int = 1):
+        m = re.search(pat, src, re.I)
+        if m:
+            d[key] = m.group(grp).strip()
+
+    plan = row("Entry . SL . T1 . T2")
+    take(plan, r"\bE\s+([\d.]+)", "entry")
+    take(plan, r"\bSL\s+([\d.]+)", "stop")
+    take(plan, r"\bT1\s+([\d.]+)", "t1")
+    take(plan, r"\bT2\s+([\d.]+)", "t2")
+
+    fut = row("Futures OI")
+    take(fut, r"OI\s+([A-Za-z]+[ A-Za-z\-]*?)\s+[+\-]?[\d.]+%", "oi_state")
+    take(fut, r"basis\s+is\s+(ABOVE|BELOW)\s+price", "fut_basis")
+    take(fut, r"basis\s+L\s+([\d.]+)", "fut_basis_l")
+    take(fut, r"\u00b7\s*S\s+([\d.]+)", "fut_basis_s")
+
+    opt = row("Options OI")
+    take(opt, r"PCR\s+([\d.]+)", "pcr")
+    take(opt, r"Max pain\s+([\d.]+)", "max_pain")
+    take(opt, r"writers\s+S\s+([\d.]+)", "put_wall")
+    take(opt, r"writers\s+S\s+[\d.]+\s*\u00b7\s*R\s+([\d.]+)", "call_wall")
+    take(opt, r"ATM\s*\u0394OI\s*([+\-]?[\d.]+%)", "atm_doi")
+
+    # S5 PARTICIPATION — the reviewer merges the S5 tab, so the footprint lands here too
+    take(read_txt, r"([+\-][\d.]+K?)\s+(?:buyers|sellers)", "fp_delta")
+    take(read_txt, r"cum\s+\d+b\s+([+\-][\d.]+K?)", "fp_cum")
+    take(read_txt, r"(bearish divergence|bullish divergence|none - price and flow point the same way)", "fp_div")
+    return d
+
+
 def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str, s4v: str) -> str:
     os.makedirs(LOG_DIR, exist_ok=True)
     ts = datetime.now()
@@ -870,9 +926,10 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
         w = csv.writer(fh)
         if new:
             w.writerow(["ts", "symbol", "tf", "s4_verdict", "ai_ruling", "provider", "file",
-                        "my_call", "agreed"])
+                        "my_call", "agreed"] + DERIV_FIELDS)
+        dv = deriv_fields(read_txt)
         w.writerow([ts.strftime("%Y-%m-%d %H:%M"), sym, tf, s4v, _ruling_line(review), provider,
-                    os.path.relpath(path, HERE), "", ""])
+                    os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS])
     return path
 
 
