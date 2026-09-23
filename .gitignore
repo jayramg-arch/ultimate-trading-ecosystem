@@ -188,3 +188,10 @@ docs/portal/31_reviewer_log_v2.html
 # (72 of them, daily since 2 Jun) plus the 16:30 journal_sync against Dhan, which
 # is authoritative anyway. Positions and P&L do not belong in a pushed repo.
 trade_journal_v6.db
+
+# Delivery history (23-Sep-2026) — cash_bhavcopy.py. Same standing as fno_history:
+# reconstructible from NSE's archive by re-running the backfill, ~900k rows, and it
+# grows every trading day. data/cash_bhav/ holds the raw daily CSVs and is pruned
+# during a backfill anyway.
+data/delivery_history.parquet
+data/cash_bhav/

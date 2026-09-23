@@ -865,6 +865,8 @@ def _cash_level_lines(read_txt, entry, stop, t1, t2, risk):
             c = {}
     if not c:
         c = _cash_levels(read_txt)
+    if c and m_sym:
+        c["_sym"] = m_sym.group(1)
     lines, flags, ceilings = [], [], []
     poc, vah, val = c.get("poc"), c.get("vah"), c.get("val")
     sr_above, bo = c.get("sr_above"), c.get("avwap_bo")
@@ -919,6 +921,25 @@ def _cash_level_lines(read_txt, entry, stop, t1, t2, risk):
     elif entry and poc and poc < entry:
         lines.append("  POC %.2f is BELOW entry — value is behind you; the pull is down" % poc)
         ceilings.append(("POC", poc))
+
+    # ── delivery % as commitment (the ATM-ΔOI question) ───────────────────────────────
+    # The only cash field that says volume was TAKEN rather than churned. Printed as a
+    # fact, never as a flag: H5 is pre-registered and UNRUN, so it has no business
+    # changing a ruling yet. Absent history prints nothing rather than a reassuring zero.
+    if c.get("_sym"):
+        try:
+            import cash_bhavcopy as _cb
+            dsig = _cb.delivery_signal(c["_sym"])
+        except Exception:
+            dsig = {}
+        if dsig:
+            r = dsig["ratio"]
+            read = ("well above" if r >= 1.25 else "above" if r >= 1.05 else
+                    "below" if r >= 0.8 else "well below")
+            lines.append("  delivery %.1f%% vs its 20d mean %.1f%% (%.2fx — %s): %s"
+                         % (dsig["deliv_pct"], dsig["mean20"], r, read,
+                            "buyers are taking stock, not churning it" if r >= 1.05
+                            else "the move is being churned, not accumulated"))
 
     # ── AVWAP-BO as the trapped cohort (the futures-basis question) ───────────────────
     if entry and bo:

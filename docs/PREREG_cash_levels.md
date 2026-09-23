@@ -48,7 +48,7 @@ all before anything is built on the assumption.
 | Primary population | **cash-only** names — the complement of P3's F&O set (measured overlap there: 156 of 307 symbols had F&O). These are the names the rule would actually serve. |
 | Secondary population | F&O names, for **H0 only** — the only place both columns exist, so the only place the substitution can be checked against ground truth. |
 | Price / volume | daily OHLCV from `data_provider`, pinned to the trade's `as_of`. No forward information: every profile is built from bars **strictly before** the entry bar. |
-| Delivery | NSE `sec_bhavdata_full` daily bhavcopy (`DELIV_PER`), backfilled the same way `fno_bhavcopy.py` did the F&O book. **This file does not exist yet — building it is a prerequisite, not part of the test.** If the backfill cannot reach the trade window, H5 is reported as NOT RUN rather than run on a short sample. |
+| Delivery | NSE `sec_bhavdata_full` daily bhavcopy (`DELIV_PER`) via `cash_bhavcopy.py` -> `data/delivery_history.parquet`. **BUILT 23-Sep, after this was written and before anything was measured: 1,381,433 rows · 3,191 symbols · 2024-07-01 -> 2026-09-23 (567 trading days, 12 holidays skipped). Coverage of the trade set: 307 of 307 symbols, none missing.** H5 can therefore run. `delivery_signal(symbol, as_of)` is the single accessor, shared with the live check, and it REFUSES a baseline whose 21 sessions are not contiguous — mid-backfill that silently produced a mean spanning Aug-2025 to Sep-2026. |
 
 ## Parameters — fixed here so they cannot be tuned later
 
