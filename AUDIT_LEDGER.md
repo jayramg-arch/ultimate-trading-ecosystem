@@ -194,3 +194,192 @@ scheduler singleton · cache no-retimestamp · pop-out TF isolation · R-canon o
 RRG calibration on 6 · 15/17 bull + 10/10 recovery formulas · weekly evaluated-bar ·
 S4-GO gate mirror · bundle tags · v67 plot budget 38/64 · Zigzag bootstrap · latch edge in
 global scope · Risk Allocator v2.2 targets/partials.
+
+---
+
+# 23 September 2026 — RRG trajectory: counter-clockwise call inside the dead band
+
+Found by Jay reading a live ANANDRATHI 75m S4 panel (v10.6 / panel v11.5 / core 55):
+the sector half of the RRG row printed `LEADING → IMPROVING`, which he flagged as an
+impossible rotation. Verified against the live panel over CDP and against the compiled
+source (repo copy is byte-clean vs the chart build).
+
+The row as it read:
+
+```
+RRG (N500 / Financial Services) | LEADING ↙️  +2  │  LEADING → WEAKENING  │  🔴 WAIT  (RS-Ratio 111.4)
+                                 │   vs sector: LEADING ↙️  +2  │  LEADING → IMPROVING  │  🟢 BUY OK  (RS-Ratio 113.1)
+```
+
+| Finding | Sev | Location | One line |
+|---|---|---|---|
+| AUD-PINE-07 | P2 | S4Core.pine:1060 (`rrgInfo`, LEADING branch) | A quadrant CHANGE is called off a momentum delta inside the ±0.3 dead band, so the arrow and the trajectory contradict each other on the same line |
+| AUD-PAR-06 | P1 | S4:1279 tooltip vs S4:4164 + S4Core.pine:1071 (`tr`) | `cf_w_rrg` documents the 2-cell measured whitelist; the code awards on the OLD 5-cell `_rrgTr`, including a cell the 18-Aug study measured reliably negative |
+
+**AUD-PINE-07 — not "impossible", but not earned either.** Every quadrant in `rrgInfo`
+has a clockwise primary and a counter-clockwise secondary (LEADING→IMPROVING,
+WEAKENING→LEADING, LAGGING→WEAKENING, IMPROVING→LAGGING). That is deliberate: the
+function answers "which quadrant is this point drifting into", and a point in the
+top-right CAN move left into the top-left. Counter-clockwise rotation is a known RRG
+caveat rather than an impossibility, and the strike calibration's decoupled windows
+(25/10/7) leave the two axes only loosely coupled, so it is more reachable here than on
+a textbook JdK RRG.
+
+The defect is the THRESHOLD, not the branch. Back out the numbers from the arrow:
+`↙️` requires `dv < -0.3` with `dm` not rising, and reaching the IMPROVING clause at all
+requires `dm >= -0.3`. So on that bar the sector momentum delta sat **between −0.3 and
++0.3 — flat, below the very threshold the function uses elsewhere to call a direction** —
+and a real leftward x-move plus nothing on y was resolved into a confident "→ IMPROVING".
+Hence the contradiction Jay spotted: `↙️` is down-and-left, `IMPROVING` is up-and-left,
+printed on one line. Honest output is `LEADING (drifting ↙)` — stable with a qualifier.
+
+Aggravating context on that same panel: the SUMMARY block read "the rotation has rolled
+over: relative strength is being GIVEN BACK, not built", directly beside a `🟢 BUY OK`.
+
+**Blast radius today: display only.** The sector half's `tr` is computed inside
+`rrgSecTxt` and only printed. Only the N500 pair drives the `Q` chip and the confluence
+point (S4:1519, S4:4164), and that half read `LEADING → WEAKENING → 🔴 WAIT` — `⚪Q` in
+TRIGGER, `⚪RRG` in Confluence 3/23. Nothing scored off it.
+
+**AUD-PAR-06 is the consequential one.** `tr` = L→L, **L→I**, **I→L**, **Lag→I**, W→L
+(5 cells). The `cf_w_rrg` tooltip says the point is awarded "when the RRG TRAJECTORY is
+on the measured whitelist - LEADING->LEADING or WEAKENING->LEADING". The 18-Aug
+re-measurement (473 symbols / 93,745 weekly observations, IS/OOS, bootstrapped by
+symbol) found only those two positive at both horizons in both windows, and found
+`IMPROVING→LEADING` reliably NEGATIVE (−0.33 / −0.87, CI excludes 0). The code still
+awards the confluence point on all five, and `en_rrg_gate` would enforce all five if
+ever switched on. Doc and code disagree; the doc matches the measurement.
+
+**Proposed fix (HELD — clubbed with the next Pine batch, Jay's call).**
+1. `rrgInfo`: require the counter-clockwise secondary to carry a real y-component
+   instead of firing on a flat `dm`, so a left-drift out of LEADING prints as
+   `LEADING (drifting ↙)`. Fixes the arrow/label contradiction at source, both halves.
+2. Narrow `tr` to the two measured cells so `BUY OK`, `Q` and `cf_w_rrg` agree with the
+   tooltip and the study.
+
+(2) is a SIGNAL change — it flips `Q` on some names and shifts Confluence totals, so it
+needs a board rebuild and a look before it is trusted. Both need a library republish, an
+S4 recompile, `BIND_S4_SOURCES.bat`, and the two GO alerts recreated.
+
+---
+
+# 23 September 2026 — Reviewer audit: today's 35 alerts vs their panels and Log rows
+
+Every claim below is checked against the **PANEL READ embedded in the same `.md`**, never a
+live re-read — the panel moves on, so a live diff measures the clock, not the reviewer.
+
+| Finding | Sev | Location | One line |
+|---|---|---|---|
+| AUD-REV-01 | **P1** | s4_review.py:1005 (`r_check`, entry branch) | The entry branch is skipped whenever the PLAN line also contains "stop:", so a ONE-LINE plan never parses — R-CHECK silently did not run on **16 of 34** reviews today |
+| AUD-REV-02 | P1 | (consequence of REV-01) | 3 of those 16 unchecked plans carry real R mis-statements, one of them 2× |
+| AUD-REV-03 | P2 | s4_alert_review.py:176 | A failed review logs `review rc 1` and nothing else — no stderr, no `.md`, no Log row |
+| AUD-REV-04 | P2 | s4_review prompt · §6 "STRUCTURE (S5)" | The prompt asks for an S5 structure read while S5 §I GEOMETRY / §II LEVELS / §VI READ are withheld; one review filled the gap by asserting "the geometry is clean" |
+| AUD-REV-05 | P2 | 15:30 batch | Cross-sectional inputs (RS / RRG) were still settling at read time; ANANDRATHI crossed a quadrant boundary between 15:31 and 15:50 with its own price fields unchanged |
+
+## Coverage
+35 queued · 34 reviewed · **1 failed**: `BAJAJ_AUTO 125`, queued 13:25:11, `review rc 1` at
+13:31:42 after ~55 s. No `.md`, so no Reviewer Log row, and no captured stderr — the failure
+is undiagnosable after the fact (AUD-REV-03).
+
+## AUD-REV-01 — reproduced against the real function, not inferred
+`r_check` iterates the PLAN line by line and guards the entry branch with
+`re.search(r"entry|buy-?limit|buy-?stop|limit order", low) and "stop:" not in low`. The guard
+exists so the stop line is not read as the entry; it also means **any plan that puts entry and
+stop on one line yields `entry = None`** → "could not parse". Secondary: plain `Buy 2190.0` is
+not in the entry vocabulary.
+
+Five fixtures run through the imported `r_check`:
+
+| plan form | result |
+|---|---|
+| `Entry: Limit order at 52.45 · Stop: 51.59 · T1 …` (MOCAPITAL) | could not parse |
+| `Entry: Market Fill (27.69). Stop: 27.02 …` (PVTBANIETF) | could not parse |
+| `Buy 2190.0 (Stop 2103.4) · T1 …` (ANANDRATHI) | could not parse |
+| one line, stop written first | could not parse |
+| entry/stop on SEPARATE lines (GLAND form) | **runs correctly** |
+
+Where it ran, it worked: it caught CPPLUS 75 `T2 4685.40 → 11.74R (model said 3.5R)`,
+TVSMOTOR 75 `T2 → 3.33R (model said 5.0R)`, and PIDILITIND's mis-stated pair. The tool is
+sound; its input parser is not.
+
+## AUD-REV-02 — what went out unchecked
+| review | claimed | actual | entry / stop |
+|---|---|---|---|
+| MOCAPITAL 75 | T1 3R · T2 5R | **7.37R · 11.56R** | 52.45 / 51.59 (risk 0.86; true 3R = 55.03) |
+| PVTBANIETF 125 | T1 0.7R · T2 4R | **0.30R · 2.01R** | 27.69 / 27.02 |
+| ANANDRATHI 75 | T1 2R | **1.00R** | 2190.0 / 2103.4 |
+
+MOCAPITAL reads as targets written backwards from "positional canon is 3R/5R" rather than
+computed from the risk — the exact failure R-CHECK was built for.
+
+## Behaviour, not a bug: T1 under the canon floor
+R-CHECK's `⚠ T1 … under the …R floor` fired on **11 of the 18** plans it could check. The
+reviewer keeps writing sub-canon T1s; the check is catching them. No code change proposed.
+
+## Faithfulness spot-check — clean
+ANANDRATHI 75 read line by line against its embedded panel: "RRG Weakening → Lagging", "RS vs
+N500 flat", "not leading" — all three exactly match the panel it was handed
+(`WEAKENING ↙️ 0 │ WEAKENING → LAGGING`, `N500: Flat (Positive) ➡️`, `LEADERSHIP: Not leading.`).
+An earlier suspicion that the reviewer had misread the RRG was **wrong** and is retracted here.
+
+## AUD-REV-05 — the 15:30 batch reads settling cross-sectional inputs
+Between the 15:31 read and a 15:50 live read of the same last-closed bar, ANANDRATHI's own
+price fields were IDENTICAL (E 2173.0, TRIGGER GO, Confluence 3/23, RSI 47.1) while the
+RRG/RS block moved: `WEAKENING ↙️ 0 · WEAKENING → LAGGING · RS-Ratio 110.9` →
+`LEADING ↙️ +2 · LEADING → WEAKENING · RS-Ratio 111.4`, and RS vs N500 `Flat` → `Rising`.
+Price fixed + ratio moving points at the **benchmark leg settling after the close**, not a bar
+shift. Mechanism NOT proven. It matters because the move crossed the LEADING/WEAKENING
+boundary — the difference between `Q` passing and failing. Affected today: ANANDRATHI ×2,
+HONASA ×2, CRISIL. To settle it: re-read one 15:30-batch name at 15:31 and again at 15:50 on
+a day when v67's weekly bindings can be sampled directly.
+
+## Proposed fixes (HELD)
+1. **REV-01** — parse entry and stop independently of line layout: drop the `"stop:" not in low`
+   guard in favour of taking the number that follows the *entry* token on that line, and add
+   bare `buy` to the entry vocabulary. Python only: no compile, no re-bind, no alert recreation.
+   Add the five fixtures above as a regression test.
+2. **REV-03** — capture the child's stderr tail into `s4_alert_review.log` on a non-zero rc.
+3. **REV-04** — have the prompt name which S5 sections are withheld, so §6 reports "withheld"
+   instead of inventing a geometry read.
+
+### AUD-REV-01 — FIXED (23 Sep, same session)
+
+`s4_review.py`, three hunks, Python only — no compile, no re-bind, no alert recreation.
+
+1. **Entry/stop by TOKEN POSITION, not line position.** New `_TOK` scanner: each token owns
+   the text from itself to the next token, so layout and order stop mattering. `buy-stop` is
+   consumed as an entry token and can never also register as a stop, which is what the old
+   `"buy-stop" not in low` string test was for. A second entry token is tried when the first
+   owns no number (`Entry:` followed by `Limit order at 52.45`).
+2. **`market fill / market order / market entry` added to the entry vocabulary.** Bare
+   `market` deliberately is NOT a token — it appears in prose, where it would own the wrong
+   number.
+3. **`_ruling_line` strips asterisks THROUGHOUT.** It was returning `RULING:** TAKE` for the
+   `**RULING:**` form the model actually writes.
+
+**Isolated against the committed baseline over all 222 recorded reviews** (both versions run
+on the same inputs, so intervening fixes cannot be mistaken for this one):
+
+| | |
+|---|---:|
+| identical | 174 |
+| now parses (was the bug) | 19 |
+| now correctly silent on a PASS / NO TRADE | 4 |
+| **lost parsing** | **0** |
+| **entry/stop changed on an already-parsing plan** | **0** |
+
+Today's coverage: **33 of 34**, up from 18. The one that still declines is a `WAIT` whose
+plan is prose with no entry/stop pair — declining loudly is the required behaviour there.
+
+**A third dormant check came back with it.** `r_check:1078` escalates a sub-canon T1 when the
+ruling is a TAKE — `"ruling is TAKE — the reward bar is NOT met on these numbers; use the
+canon T1"`. It tests `ruling.startswith("RULING: TAKE")`, so against `RULING:** TAKE` it had
+**never once fired**. It now appears on 25 historical reviews, including today's TVSMOTOR 75
+(T1 1.29R under the 2R swing floor, ruled TAKE) and SAILIFE 125.
+
+Regression test: `tests/test_r_check_plan_forms.py` — 7 real plan layouts taken verbatim from
+the failing reviews, plus the recompute assertion, the loud-decline case and the PASS case.
+10 pass; full suite 199 pass.
+
+**STANDING: the receiver must be restarted** — alert-driven reviews run the `s4_review` module
+loaded when the receiver started. `REVIEW.bat` and the CLI pick it up immediately.
