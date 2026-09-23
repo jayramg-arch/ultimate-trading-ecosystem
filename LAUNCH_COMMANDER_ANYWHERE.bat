@@ -67,6 +67,20 @@ IF ERRORLEVEL 1 (
 
 echo   Launching Mission Control...
 
+:: ---- second tab: the Golden Matcher, on the Trigger Board -----------------
+:: Spawned NOW, before Streamlit takes the console for good; it polls the port
+:: and opens once the server answers. If :8501 is ALREADY listening then something
+:: else owns it (usually an orphaned server - see STOP_COMMANDER.bat), Streamlit
+:: will fall back to another port, and auto-opening 8501 would put the stale page
+:: in front of you. Say so instead of guessing.
+netstat -ano | findstr /r /c:":8501 .*LISTENING" >nul 2>&1
+IF ERRORLEVEL 1 (
+    start "GM tab" /MIN cmd /c ""%PROJECT_DIR%\_OPEN_GM_WINDOW.bat" 8501"
+) ELSE (
+    echo   [note] :8501 is already in use - skipping the Golden Matcher tab.
+    echo          Run STOP_COMMANDER.bat first if that is an old server.
+)
+
 :: NOTE: python -m streamlit, never streamlit.exe. The .exe is a launcher stub with
 :: the interpreter path baked in at venv-creation time - this venv was built under
 :: "E:\Gemini\VS Code\.venv", which no longer exists, so the shim dies with

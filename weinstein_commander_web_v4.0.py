@@ -921,7 +921,12 @@ if is_maximized_board or is_gm_window or is_risk_window:
     st.session_state["page"] = "RISK SHIELD" if is_risk_window else "GOLDEN MATCHER"
     if is_maximized_board:
         st.session_state["gm_view"] = "📋 Trigger Board"   # board only; view locked
-    # (gm_window leaves gm_view free so the Single Symbol ↔ Board switch works.)
+    elif is_gm_window and "gm_view" not in st.session_state:
+        # 22-Sep (Jay): the GM pop-out opens on the BOARD. Seeded only on a FRESH
+        # session ("not in session_state"), never on every run — the radio at :13781
+        # owns this same key, so writing it unconditionally would snap the window
+        # back to the board the instant he switched to Single Symbol.
+        st.session_state["gm_view"] = "📋 Trigger Board"
     st.markdown("""
     <style>
     [data-testid="stSidebar"] {

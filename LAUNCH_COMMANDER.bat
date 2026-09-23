@@ -61,6 +61,18 @@ IF ERRORLEVEL 1 (
 :: Start Streamlit in the background
 :: We remove the hardcoded port 8501 to allow auto-fallback if another instance is running
 echo 🚀 Launching Mission Control...
+
+:: ---- second tab: the Golden Matcher, on the Trigger Board -----------------
+:: See _OPEN_GM_WINDOW.bat. Spawned before Streamlit takes the console; it polls
+:: the port and opens when the server answers. Skipped if :8501 is already held
+:: (Streamlit would fall back to another port, so 8501 would be someone else's
+:: page - usually an orphaned server; STOP_COMMANDER.bat clears it).
+netstat -ano | findstr /r /c:":8501 .*LISTENING" >nul 2>&1
+IF ERRORLEVEL 1 (
+    start "GM tab" /MIN cmd /c ""%ROOT_DIR%_OPEN_GM_WINDOW.bat" 8501"
+) ELSE (
+    echo   [note] :8501 is already in use - skipping the Golden Matcher tab.
+)
 :: RUN IN THE FOREGROUND. This was:
 ::     start "Commander Server" /B "%PYTHON_EXE%" -m streamlit run ...
 ::     pause
